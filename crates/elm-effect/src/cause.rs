@@ -81,6 +81,19 @@ impl<E> Cause<E> {
         }
     }
 
+    /// Build a failure cause purely from finalizer/recorded defects (L6:
+    /// a failed release on a successful body is still a failure).
+    pub fn from_defects(defects: Vec<Defect>) -> Self {
+        Self {
+            reasons: defects.into_iter().map(Reason::Die).collect(),
+        }
+    }
+
+    /// Append finalizer failures without erasing the original reasons (L6).
+    pub fn append_defects(&mut self, defects: Vec<Defect>) {
+        self.reasons.extend(defects.into_iter().map(Reason::Die));
+    }
+
     /// The first typed error, if any reason is a `Fail`.
     pub fn failure(&self) -> Option<&E> {
         self.reasons.iter().find_map(|r| match r {

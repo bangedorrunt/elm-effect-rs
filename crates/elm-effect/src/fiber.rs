@@ -146,6 +146,16 @@ impl FiberControl {
         self.depth.load(Ordering::SeqCst) > 0
     }
 
+    /// Raise the interruptibility depth (L7: releases run masked).
+    pub(crate) fn mask(&self) {
+        self.depth.fetch_add(1, Ordering::SeqCst);
+    }
+
+    /// Lower it again.
+    pub(crate) fn unmask(&self) {
+        self.depth.fetch_sub(1, Ordering::SeqCst);
+    }
+
     fn is_done(&self) -> bool {
         *self.done.0.lock().unwrap()
     }
@@ -210,6 +220,22 @@ impl Ctx {
     /// `fork_scoped`). The binding keeps each scope alive while the fiber runs.
     pub fn bound_scopes(&self) -> Vec<u64> {
         self.control.bound.iter().map(|s| s.id()).collect()
+    }
+
+    /// Bracket acquisition to this fiber's own scope: success, typed
+    /// failure, and interruption all release (L6). See [`Scope`].
+    pub fn acquire_release<A, E, FRel, ERel>(
+        &self,
+        acquire: Effect<A, E>,
+        release: FRel,
+    ) -> Result<A, Cause<E>>
+    where
+        A: Send + 'static + Clone,
+        E: Send + 'static,
+        FRel: FnOnce(A) -> Effect<(), ERel> + Send + 'static,
+        ERel: Send + 'static + std::fmt::Debug,
+    {
+        self.control.scope.acquire_release(acquire, release)
     }
 
     /// Spawn a child bound to this fiber: it dies with the parent, and the

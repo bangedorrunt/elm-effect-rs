@@ -18,7 +18,7 @@ use crate::fiber::{
 };
 use crate::scope::Scope;
 use crate::supervisor;
-use crate::{Effect, Exit, FiberId};
+use crate::{Cause, Effect, Exit, FiberId};
 
 /// Cloneable spawn entry: what [`Ctx`] needs to fork without owning the runtime.
 pub(crate) type Driver = Arc<Shared>;
@@ -109,11 +109,12 @@ impl Shared {
         self.tokio.spawn_blocking(move || {
             task_latch.wait();
             let ctx = Ctx::new(Arc::clone(&task_control), Arc::clone(&this));
-            let exit: Exit<A, E> = if task_control.is_interrupted() && !task_control.masked_now() {
-                preempted()
-            } else {
-                supervisor::run(&ctx, body)
-            };
+            let mut exit: Exit<A, E> =
+                if task_control.is_interrupted() && !task_control.masked_now() {
+                    preempted()
+                } else {
+                    supervisor::run(&ctx, body)
+                };
             // Children die with the parent: fire deferred starts so they can
             // observe the interrupt, then wait for their finalizers (child
             // completion runs them before marking done).
@@ -124,7 +125,23 @@ impl Shared {
             for child in children_of(&this.children, task_control.id) {
                 child.wait_done();
             }
-            task_control.scope.close();
+            // L7: releases run masked to completion, then cancellation
+            // takes effect. Spills append as Die without erasing (L6).
+            task_control.mask();
+            let spills = task_control.scope.close();
+            task_control.unmask();
+            match &mut exit {
+                Exit::Success(_) if !spills.is_empty() => {
+                    exit = Exit::Failure(Cause::from_defects(spills));
+                }
+                Exit::Failure(cause) => {
+                    cause.append_defects(spills);
+                }
+                _ => {}
+            }
+            if matches!(exit, Exit::Success(_)) && task_control.is_interrupted() {
+                exit = preempted();
+            }
             task_control.mark_done(Box::new(exit));
             this.finish(&task_control);
         });
