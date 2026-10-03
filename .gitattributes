@@ -1,0 +1,4 @@
+# Generated prose: agent-written learnings are projected documents. The
+# exemption covers the guard's bead-hunk rule only; paths here still need
+# their own reservations before commit.
+docs/learnings/** linguist-generated=true
