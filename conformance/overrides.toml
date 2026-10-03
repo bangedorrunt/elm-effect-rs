@@ -1,0 +1,2 @@
+# Applied only when the file's own header has no @stability tag.
+# Arbitrary.ts is tagged in the header, so it needs no row.
