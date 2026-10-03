@@ -20,16 +20,12 @@ mod sealed {
 pub trait Requirement: sealed::Sealed + Send + 'static {}
 impl Requirement for () {}
 
-/// Runs one erased step to completion. Object-safe so `FlatMap`/`FoldE` can
-/// hide their input type; implemented only inside this module.
-// wave-1: driven by the runtime bead (.6); dead until its executor lands.
-#[allow(dead_code)]
+/// Runs one erased step to completion. Object-safe so `FlatMap`/`FoldE`
+/// can hide their input type; implemented only inside this module.
 trait ErasedStep<A, E, R>: Send {
     fn run_erased(self: Box<Self>) -> Result<A, Cause<E>>;
 }
 
-// wave-1: driven by the runtime bead (.6); dead until its executor lands.
-#[allow(dead_code)]
 struct FlatMap<D: Send + 'static, A, E: Send + 'static, R: Requirement, F> {
     first: Effect<D, E, R>,
     cont: F,
@@ -53,8 +49,6 @@ where
     }
 }
 
-// wave-1: driven by the runtime bead (.6); dead until its executor lands.
-#[allow(dead_code)]
 struct FoldE<A: Send + 'static, E: Send + 'static, B, E2, R: Requirement, FS, FF> {
     first: Effect<A, E, R>,
     on_success: FS,
@@ -87,8 +81,6 @@ where
 }
 
 /// The private description language. Users never name this type.
-// wave-1: read by `run_sync`, driven by the runtime bead (.6).
-#[allow(dead_code)]
 enum Step<A, E, R> {
     Succeed(A),
     Fail(Cause<E>),
@@ -255,11 +247,9 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
         }
     }
 
-    /// Interpret a description with no async operations to completion. The one
-    /// place interpretation happens; `pub(crate)` so only this crate's
+    /// Interpret a description with no async operations to completion. The
+    /// one place interpretation happens; `pub(crate)` so only this crate's
     /// executor (and its unit tests) can run descriptions.
-    // wave-1: driven by the runtime bead (.6); unit tests pin it meanwhile.
-    #[allow(dead_code)]
     pub(crate) fn run_sync(self) -> Result<A, Cause<E>> {
         match self.step {
             Step::Succeed(a) => Ok(a),

@@ -13,4 +13,4 @@ stm = []
 
 [dependencies]
 thiserror = "1"
-tokio = { version = "1", optional = true, features = ["rt", "sync", "time"] }
+tokio = { version = "1", optional = true, features = ["rt", "rt-multi-thread", "sync", "time"] }

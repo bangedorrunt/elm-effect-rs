@@ -14,7 +14,21 @@
 mod cause;
 mod effect;
 mod exit;
+#[cfg(feature = "tokio")]
+mod fiber;
+#[cfg(feature = "tokio")]
+mod runtime;
+#[cfg(feature = "tokio")]
+mod scope;
+#[cfg(feature = "tokio")]
+mod supervisor;
 
 pub use cause::{Cause, Defect, FiberId, Reason};
 pub use effect::{Effect, Requirement};
 pub use exit::Exit;
+#[cfg(feature = "tokio")]
+pub use fiber::{Ctx, FiberHandle, ForkOpts, Mask, StartMode};
+#[cfg(feature = "tokio")]
+pub use runtime::Runtime;
+#[cfg(feature = "tokio")]
+pub use scope::Scope;
