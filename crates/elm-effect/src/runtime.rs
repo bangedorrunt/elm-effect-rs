@@ -381,3 +381,67 @@ impl Drop for Runtime {
         self.shared.shutdown();
     }
 }
+
+/// Race `body` against a [`Clock`](crate::Clock) sleep: whichever completes
+/// first wins. The loser is interrupted and RELEASED (finalizers run) before
+/// the winner's value is returned. A timed-out body yields `Success(None)`;
+/// a finished body yields its outcome with `Some` on success.
+///
+/// Blocking: with a virtual clock, drive time from another thread (fork the
+/// racers, wait for them to park, then `adjust`).
+pub fn timeout<A, E>(
+    rt: &Runtime,
+    clock: std::sync::Arc<dyn crate::ClockImpl>,
+    duration: crate::Duration,
+    body: impl FnOnce(&crate::Ctx) -> Exit<A, E> + Send + 'static,
+) -> Exit<Option<A>, E>
+where
+    A: Send + 'static,
+    E: Send + 'static,
+{
+    enum Race<A, E> {
+        Body(Exit<A, E>),
+        Tick,
+    }
+    let (tx, rx) = std::sync::mpsc::channel::<Race<A, E>>();
+    let tx_body = tx.clone();
+    // Immediate start: timeout() blocks on the outcome, so deferred latches
+    // would never fire (nobody yields). Racers begin at once.
+    let immediate = crate::ForkOpts::immediate();
+    let body_h = rt.fork_detach_with(
+        move |ctx| {
+            let exit = body(ctx);
+            let _ = tx_body.send(Race::Body(exit));
+            Exit::<(), std::convert::Infallible>::succeed(())
+        },
+        immediate,
+    );
+    let tx_tick = tx;
+    let sleep_h = rt.fork_detach_with(
+        move |ctx| {
+            clock.sleep(duration, &|| ctx.is_interrupted());
+            let _ = tx_tick.send(Race::Tick);
+            Exit::<(), std::convert::Infallible>::succeed(())
+        },
+        immediate,
+    );
+    match rx.recv().expect("a racer always answers") {
+        Race::Body(exit) => {
+            // Body won: stop the sleeper (released) before returning.
+            sleep_h.interrupt();
+            sleep_h.join();
+            body_h.join();
+            match exit {
+                Exit::Success(a) => Exit::Success(Some(a)),
+                Exit::Failure(cause) => Exit::Failure(cause),
+            }
+        }
+        Race::Tick => {
+            // Timeout won: stop the body (interrupted AND released) first.
+            body_h.interrupt();
+            body_h.join();
+            sleep_h.join();
+            Exit::Success(None)
+        }
+    }
+}

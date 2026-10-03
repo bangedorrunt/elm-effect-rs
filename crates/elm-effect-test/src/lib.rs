@@ -96,3 +96,51 @@ fn noop_waker() -> Waker {
     // SAFETY: the waker never dereferences its null data pointer.
     unsafe { Waker::from_raw(RawWaker::new(std::ptr::null(), &VTABLE)) }
 }
+
+/// A ready-made world for clock tests: a fiber [`Runtime`](elm_effect::Runtime)
+/// plus a [`TestClock`](elm_effect::TestClock) that only `adjust` advances.
+/// The `@effect/vitest` substitute: real threads, virtual time.
+pub struct Fixture {
+    pub rt: elm_effect::Runtime,
+    pub clock: std::sync::Arc<elm_effect::TestClock>,
+}
+
+impl Fixture {
+    pub fn new() -> Self {
+        Self {
+            rt: elm_effect::Runtime::new(),
+            clock: std::sync::Arc::new(elm_effect::TestClock::new()),
+        }
+    }
+}
+
+impl Default for Fixture {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// A closed [`Layer`](elm_effect::Layer) serving this fixture's clock as the
+/// [`Clock`](elm_effect::Clock) service.
+pub fn clock_layer(
+    clock: &std::sync::Arc<elm_effect::TestClock>,
+) -> elm_effect::Layer<elm_effect::Clock, std::convert::Infallible, ()> {
+    let shared: std::sync::Arc<dyn elm_effect::ClockImpl> = clock.clone();
+    elm_effect::Layer::from_value(shared)
+}
+
+/// Declare a clock test with a runtime (`$rt`) and a virtual clock
+/// (`$clock`) in scope. The legal sequence stays visible: fork sleepers,
+/// `adjust` the clock, join the fibers.
+#[macro_export]
+macro_rules! effect_test {
+    (fn $name:ident ($rt:ident, $clock:ident) $body:block) => {
+        #[test]
+        fn $name() {
+            let __fixture = $crate::Fixture::new();
+            let $rt = __fixture.rt;
+            let $clock = __fixture.clock;
+            $body
+        }
+    };
+}

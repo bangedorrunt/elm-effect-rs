@@ -1,5 +1,6 @@
 //! Law L9: the shared-state ladder. Immutable first; pure updates may retry
 //! but never perform I/O; one value per fact; bounded queues between tasks.
+#![cfg(feature = "tokio")]
 
 use std::sync::{
     Arc,

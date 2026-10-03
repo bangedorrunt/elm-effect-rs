@@ -28,6 +28,7 @@ mod service;
 #[cfg(feature = "tokio")]
 mod supervisor;
 mod sync;
+mod time;
 
 pub use cause::{Cause, Defect, FiberId, Reason};
 pub use effect::{Effect, Requirement};
@@ -39,8 +40,9 @@ pub use fiber::{Ctx, FiberHandle, ForkOpts, Mask, StartMode};
 #[cfg(feature = "tokio")]
 pub use layer::{BuiltServices, Cycle, Layer, RequirementIds};
 #[cfg(feature = "tokio")]
-pub use runtime::{ManagedRuntime, Runtime};
+pub use runtime::{ManagedRuntime, Runtime, timeout};
 #[cfg(feature = "tokio")]
 pub use scope::Scope;
 pub use service::{Cons, MemoMap, Provide, Reference, ServiceTag, read_reference, use_service};
 pub use sync::{Deferred, MutableRef, Queue, Ref, Semaphore, SynchronizedRef};
+pub use time::{Clock, ClockImpl, Duration, SleepOutcome, SystemClock, TestClock};
