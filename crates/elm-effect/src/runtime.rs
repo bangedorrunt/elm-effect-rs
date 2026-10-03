@@ -12,19 +12,20 @@ use std::sync::{
     atomic::{AtomicBool, Ordering},
 };
 
+use crate::executor::{Executor, TokioExecutor};
 use crate::fiber::{
     Body, Ctx, FiberControl, FiberHandle, ForkOpts, Registry, StartLatch, StartMode, children_of,
     next_id, preempted,
 };
 use crate::scope::Scope;
 use crate::supervisor;
-use crate::{Cause, Effect, Exit, FiberId};
+use crate::{Cause, Defect, Effect, Exit, FiberId};
 
 /// Cloneable spawn entry: what [`Ctx`] needs to fork without owning the runtime.
 pub(crate) type Driver = Arc<Shared>;
 
 pub(crate) struct Shared {
-    tokio: tokio::runtime::Runtime,
+    exec: TokioExecutor,
     /// Live fibers by id, for interrupt broadcast.
     live: Mutex<HashMap<u64, Arc<FiberControl>>>,
     children: Registry,
@@ -106,7 +107,7 @@ impl Shared {
         let task_control = Arc::clone(&control);
         let task_latch = Arc::clone(&latch);
         let body: Body<A, E> = Box::new(body);
-        self.tokio.spawn_blocking(move || {
+        self.exec.spawn_blocking(Box::new(move || {
             task_latch.wait();
             let ctx = Ctx::new(Arc::clone(&task_control), Arc::clone(&this));
             let mut exit: Exit<A, E> =
@@ -144,7 +145,7 @@ impl Shared {
             }
             task_control.mark_done(Box::new(exit));
             this.finish(&task_control);
-        });
+        }));
 
         FiberHandle::new(control, latch, Arc::clone(self))
     }
@@ -178,23 +179,18 @@ impl Shared {
     }
 }
 
-/// The fiber runtime. Owns 4 worker threads; `shutdown` (or `drop`)
-/// interrupts every live fiber and waits for finalizers.
+/// The fiber runtime. Owns its executor (default 4 worker threads);
+/// `shutdown` (or `drop`) interrupts every live fiber and waits for finalizers.
 pub struct Runtime {
     shared: Arc<Shared>,
 }
 
 impl Runtime {
     pub fn new() -> Self {
-        let tokio = tokio::runtime::Builder::new_multi_thread()
-            .worker_threads(4)
-            .thread_name("elm-effect-fiber")
-            .enable_all()
-            .build()
-            .expect("fiber runtime builds");
+        let exec = TokioExecutor::new();
         Self {
             shared: Arc::new(Shared {
-                tokio,
+                exec,
                 live: Mutex::new(HashMap::new()),
                 children: Mutex::new(HashMap::new()),
                 root: Arc::new(Scope::new(0)),
@@ -283,6 +279,94 @@ impl Runtime {
     /// Idempotent; also runs on `drop`.
     pub fn shutdown(&self) {
         self.shared.shutdown();
+    }
+
+    /// The edge: run `effect` to an [`Exit`]. The only place outside tests
+    /// that interprets a description; library code never calls this.
+    pub fn run<A, E>(effect: Effect<A, E>) -> Exit<A, E>
+    where
+        A: Send + 'static,
+        E: Send + 'static,
+    {
+        match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| effect.run_sync())) {
+            Ok(Ok(a)) => Exit::Success(a),
+            Ok(Err(cause)) => Exit::Failure(cause),
+            Err(payload) => Exit::Failure(Cause::die(edge_defect(payload))),
+        }
+    }
+
+    /// Turn an outcome into a process exit code: success 0, typed failure 1,
+    /// defect 2, interrupt 130. `run_main` exits with this; tests pin it here.
+    pub fn exit_code<A, E>(exit: &Exit<A, E>) -> i32 {
+        match exit {
+            Exit::Success(_) => 0,
+            Exit::Failure(cause) if cause.is_interrupted() => 130,
+            Exit::Failure(cause) if !cause.defects().is_empty() => 2,
+            Exit::Failure(_) => 1,
+        }
+    }
+
+    /// Own a whole process invocation: run to an [`Exit`], then exit with the
+    /// outcome code: success 0, typed failure 1, defect 2, interrupt 130.
+    /// Async signal delivery rides on the executor; this is the single place
+    /// that turns an outcome into a process exit.
+    pub fn run_main<A, E>(effect: Effect<A, E>) -> !
+    where
+        A: Send + 'static,
+        E: Send + 'static + std::fmt::Debug,
+    {
+        let exit = Self::run(effect);
+        if let Exit::Failure(cause) = &exit {
+            if !cause.defects().is_empty() {
+                eprintln!("defect: {:?}", cause.defects());
+            } else if !cause.is_interrupted() {
+                eprintln!("failure: {:?}", cause.failure());
+            }
+        }
+        std::process::exit(Self::exit_code(&exit));
+    }
+}
+
+/// Render an edge panic as a defect. Same shape as the supervisor's
+/// payload rendering; kept local so the edge owns its boundary.
+// ponytail: mirrors supervisor::defect_from_payload; unify if a third renderer appears.
+fn edge_defect(payload: Box<dyn std::any::Any + Send>) -> Defect {
+    let message = payload
+        .downcast_ref::<&str>()
+        .map(|s| s.to_string())
+        .or_else(|| payload.downcast_ref::<String>().cloned())
+        .unwrap_or_else(|| "edge panicked with a non-string payload".to_string());
+    Defect::new(message)
+}
+
+/// An owned runtime for non-effect (imperative shell) callers: holds the
+/// executor alive and shuts it down on drop.
+pub struct ManagedRuntime {
+    runtime: Runtime,
+}
+
+impl ManagedRuntime {
+    /// Build with default pool knobs.
+    pub fn new() -> Self {
+        Self {
+            runtime: Runtime::new(),
+        }
+    }
+
+    /// Borrow the managed runtime.
+    pub fn runtime(&self) -> &Runtime {
+        &self.runtime
+    }
+
+    /// Interrupt live fibers and wait for finalizers. Idempotent.
+    pub fn shutdown(&self) {
+        self.runtime.shutdown();
+    }
+}
+
+impl Default for ManagedRuntime {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

@@ -121,6 +121,74 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
         }
     }
 
+    /// An effect interrupted before doing anything. Never success, never a
+    /// typed error: interruption is not failure.
+    pub fn interrupt() -> Self {
+        Self {
+            step: Step::Fail(Cause::interrupt(None)),
+            marker: PhantomData,
+        }
+    }
+
+    /// Rebuild from a cause without interpreting it. Private: only the
+    /// `catch` family passes causes through.
+    fn fail_with(cause: Cause<E>) -> Self {
+        Self {
+            step: Step::Fail(cause),
+            marker: PhantomData,
+        }
+    }
+
+    /// Handle the typed error channel. Fires only on a clean single `Fail`;
+    /// `Die`, `Interrupt`, and mixed causes pass through untouched.
+    pub fn catch<F>(self, on_fail: F) -> Self
+    where
+        F: FnOnce(E) -> Self + Send + 'static,
+    {
+        self.fold_e(Effect::succeed, move |cause| {
+            match cause.reasons.as_slice() {
+                [Reason::Fail(_)] => {
+                    let mut reasons = cause.reasons;
+                    let e = match reasons.pop() {
+                        Some(Reason::Fail(e)) => e,
+                        _ => unreachable!(),
+                    };
+                    on_fail(e)
+                }
+                _ => Effect::fail_with(cause),
+            }
+        })
+    }
+
+    /// Handle defects. Fires only when the cause carries defects and no
+    /// typed failure or interruption; those pass through untouched.
+    pub fn catch_defect<F>(self, on_defects: F) -> Self
+    where
+        F: FnOnce(Vec<Defect>) -> Self + Send + 'static,
+    {
+        self.fold_e(Effect::succeed, move |cause| {
+            let has_fail = cause.failure().is_some();
+            if !has_fail && !cause.is_interrupted() && !cause.defects().is_empty() {
+                let defects = cause.reasons.into_iter().filter_map(|r| match r {
+                    Reason::Die(d) => Some(d),
+                    _ => None,
+                });
+                on_defects(defects.collect())
+            } else {
+                Effect::fail_with(cause)
+            }
+        })
+    }
+
+    /// Handle the whole cause: the only combinator that sees `Fail`, `Die`,
+    /// and `Interrupt` together. Library code does not call this.
+    pub fn catch_cause<F>(self, on_cause: F) -> Self
+    where
+        F: FnOnce(Cause<E>) -> Self + Send + 'static,
+    {
+        self.fold_e(Effect::succeed, on_cause)
+    }
+
     /// An effect that runs `thunk` when interpreted, not when built. The thunk
     /// must be pure work: panics escape to the fiber supervisor, which turns
     /// them into [`Reason::Die`] at the boundary.

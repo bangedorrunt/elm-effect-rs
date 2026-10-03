@@ -112,6 +112,13 @@ impl<E> Cause<E> {
             })
             .collect()
     }
+
+    /// True if any reason is an interruption (not a failure).
+    pub fn is_interrupted(&self) -> bool {
+        self.reasons
+            .iter()
+            .any(|r| matches!(r, Reason::Interrupt { .. }))
+    }
 }
 
 impl<E> Default for Cause<E> {

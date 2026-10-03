@@ -13,6 +13,8 @@
 
 mod cause;
 mod effect;
+#[cfg(feature = "tokio")]
+mod executor;
 mod exit;
 #[cfg(feature = "tokio")]
 mod fiber;
@@ -25,10 +27,12 @@ mod supervisor;
 
 pub use cause::{Cause, Defect, FiberId, Reason};
 pub use effect::{Effect, Requirement};
+#[cfg(feature = "tokio")]
+pub use executor::{BoxFuture, Executor, TokioExecutor};
 pub use exit::Exit;
 #[cfg(feature = "tokio")]
 pub use fiber::{Ctx, FiberHandle, ForkOpts, Mask, StartMode};
 #[cfg(feature = "tokio")]
-pub use runtime::Runtime;
+pub use runtime::{ManagedRuntime, Runtime};
 #[cfg(feature = "tokio")]
 pub use scope::Scope;
