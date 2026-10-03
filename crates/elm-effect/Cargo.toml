@@ -1,0 +1,16 @@
+[package]
+name = "elm-effect"
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+publish = false
+
+[features]
+default = ["tokio", "schema", "stm"]
+tokio = ["dep:tokio"]
+schema = []
+stm = []
+
+[dependencies]
+thiserror = "1"
+tokio = { version = "1", optional = true, features = ["rt", "sync", "time"] }
