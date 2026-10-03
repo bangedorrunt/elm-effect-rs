@@ -27,6 +27,7 @@ mod scope;
 mod service;
 #[cfg(feature = "tokio")]
 mod supervisor;
+mod sync;
 
 pub use cause::{Cause, Defect, FiberId, Reason};
 pub use effect::{Effect, Requirement};
@@ -42,3 +43,4 @@ pub use runtime::{ManagedRuntime, Runtime};
 #[cfg(feature = "tokio")]
 pub use scope::Scope;
 pub use service::{Cons, MemoMap, Provide, Reference, ServiceTag, read_reference, use_service};
+pub use sync::{Deferred, MutableRef, Queue, Ref, Semaphore, SynchronizedRef};
