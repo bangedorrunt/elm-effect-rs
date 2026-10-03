@@ -19,6 +19,8 @@ mod exit;
 #[cfg(feature = "tokio")]
 mod fiber;
 #[cfg(feature = "tokio")]
+mod layer;
+#[cfg(feature = "tokio")]
 mod runtime;
 #[cfg(feature = "tokio")]
 mod scope;
@@ -33,6 +35,8 @@ pub use executor::{BoxFuture, Executor, TokioExecutor};
 pub use exit::Exit;
 #[cfg(feature = "tokio")]
 pub use fiber::{Ctx, FiberHandle, ForkOpts, Mask, StartMode};
+#[cfg(feature = "tokio")]
+pub use layer::{BuiltServices, Cycle, Layer, RequirementIds};
 #[cfg(feature = "tokio")]
 pub use runtime::{ManagedRuntime, Runtime};
 #[cfg(feature = "tokio")]
