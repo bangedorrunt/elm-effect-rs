@@ -128,6 +128,7 @@ impl Scope {
         FRel: FnOnce(A) -> Effect<(), ERel> + Send + 'static,
         ERel: Send + 'static + std::fmt::Debug,
     {
+        // residual-790: `?` form, not match — clippy::collapsible_match clean.
         let resource = acquire.run_sync()?;
         // Closed before or during acquisition: release inline now and report
         // interruption instead of a silent success (nothing may leak into a
