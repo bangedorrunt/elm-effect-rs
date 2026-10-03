@@ -203,7 +203,7 @@ impl BuiltServices {
     /// The built value behind tag `T`, if this build provided it.
     pub fn get<T: ServiceTag>(&self) -> Option<T::Service> {
         self.values
-            .get(T::ID)?
+            .get_tag(T::ID)?
             .downcast_ref::<T::Service>()
             .cloned()
     }
@@ -286,13 +286,13 @@ impl<T: ServiceTag, E: Send + 'static> Layer<T, E, ()> {
         Rest: Requirement,
     {
         let built = self.build(scope)?;
-        let mut map = (*effect.services).clone();
-        for (id, value) in built.values.iter() {
-            map.insert(*id, Arc::clone(value));
+        let mut maps = (*effect.services).clone();
+        for (id, value) in built.values.tag_list() {
+            maps.insert_tag(id, value);
         }
         Ok(Effect {
             step: effect.step,
-            services: Arc::new(map),
+            services: Arc::new(maps),
             marker: PhantomData,
         })
     }
@@ -311,9 +311,9 @@ impl<O: RequirementIds, E: Send + 'static> Layer<O, E, ()> {
             let runner = (stage.make)();
             match runner.run_with(&acc) {
                 Ok(value) => {
-                    let mut map = (*acc).clone();
-                    map.insert(stage.out_id, value);
-                    acc = Arc::new(map);
+                    let mut maps = (*acc).clone();
+                    maps.insert_tag(stage.out_id, value);
+                    acc = Arc::new(maps);
                 }
                 Err(cause) => {
                     scope.close();

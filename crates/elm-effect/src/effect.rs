@@ -88,6 +88,11 @@ where
     }
 }
 
+/// Ambient-value reader: innermost override (if any) to a value. Total by
+/// construction: the default fills a missing entry.
+pub(crate) type RefFn<A> =
+    Box<dyn Fn(Option<std::sync::Arc<dyn Any + Send + Sync>>) -> A + Send + Sync>;
+
 /// The private description language. Users never name this type.
 pub(crate) enum Step<A, E> {
     Succeed(A),
@@ -103,6 +108,13 @@ pub(crate) enum Step<A, E> {
     Use {
         id: &'static str,
         read: fn(std::sync::Arc<dyn Any + Send + Sync>) -> Option<A>,
+    },
+    /// Resolve an ambient [`Reference`](crate::Reference): the innermost
+    /// override, else the default. Total: a missing entry is the default,
+    /// never a failure.
+    ReadRef {
+        id: &'static str,
+        apply: RefFn<A>,
     },
 }
 
@@ -361,12 +373,19 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
 
     pub(crate) fn run_sync_with(self, outer: &crate::service::Services) -> Result<A, Cause<E>> {
         let scope = crate::service::merged_services(outer, &self.services);
+        // A tag provided twice with distinct values poisons the whole build:
+        // any run Dies, even with no `Use` node left to observe it.
+        if let Some(id) = scope.conflict() {
+            return Err(Cause::die(Defect::new(format!(
+                "ambiguous tag: {id} (provided twice with distinct values)"
+            ))));
+        }
         match self.step {
             Step::Succeed(a) => Ok(a),
             Step::Fail(cause) => Err(cause),
             Step::Sync(thunk) => Ok(thunk()),
             Step::Suspend(op) => op.run_erased(&scope),
-            Step::Use { id, read } => match scope.get(id).cloned() {
+            Step::Use { id, read } => match scope.get_tag(id) {
                 Some(any) => match read(any) {
                     Some(a) => Ok(a),
                     None => Err(Cause::die(Defect::new(format!(
@@ -375,6 +394,7 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
                 },
                 None => Err(Cause::die(Defect::new(format!("missing service: {id}")))),
             },
+            Step::ReadRef { id, apply } => Ok(apply(scope.get_ref(id))),
         }
     }
 }

@@ -14,7 +14,7 @@
 use std::any::Any;
 use std::collections::HashMap;
 use std::marker::PhantomData;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use crate::effect::sealed;
 use crate::{Effect, Requirement};
@@ -73,25 +73,107 @@ requirement_tuples! {
     (T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15), T0, (T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15)
 }
 
-/// Provided services, threaded through interpretation. Maps tag id to an
-/// erased service value; inner provisions shadow outer ones.
-pub(crate) type Services = Arc<HashMap<&'static str, Arc<dyn Any + Send + Sync>>>;
-
-pub(crate) fn empty_services() -> Services {
-    Arc::new(HashMap::new())
+/// Provided services, threaded through interpretation.
+///
+/// Tags accumulate with conflict detection: provisioning the same tag twice
+/// with distinct values poisons it, and any run of the poisoned build Dies
+/// (never last-writer-wins). Re-providing the SAME shared value (a layer's
+/// memo) is fine, told apart by pointer equality.
+/// References override by replacement instead: innermost wins, `R` unchanged.
+#[derive(Clone, Default)]
+pub(crate) struct ServiceMaps {
+    tags: HashMap<&'static str, TagEntry>,
+    refs: HashMap<&'static str, Arc<dyn Any + Send + Sync>>,
 }
 
-/// Read an effect's services merged over its parent scope: inner wins.
-pub(crate) fn merged_services(outer: &Services, own: &Services) -> Services {
-    if own.is_empty() {
-        Arc::clone(outer)
-    } else if outer.is_empty() {
-        Arc::clone(own)
-    } else {
-        let mut map = (**outer).clone();
-        map.extend(own.iter().map(|(k, v)| (*k, Arc::clone(v))));
-        Arc::new(map)
+#[derive(Clone)]
+struct TagEntry {
+    value: Arc<dyn Any + Send + Sync>,
+    conflict: bool,
+}
+
+pub(crate) type Services = Arc<ServiceMaps>;
+
+pub(crate) fn empty_services() -> Services {
+    Arc::new(ServiceMaps::default())
+}
+
+impl ServiceMaps {
+    /// Insert one tag provision. Same shared value re-provided: no-op.
+    /// Distinct value over an existing one: poison (ambiguous).
+    pub(crate) fn insert_tag(&mut self, id: &'static str, value: Arc<dyn Any + Send + Sync>) {
+        match self.tags.get(&id) {
+            None => {
+                self.tags.insert(
+                    id,
+                    TagEntry {
+                        value,
+                        conflict: false,
+                    },
+                );
+            }
+            Some(existing) if Arc::ptr_eq(&existing.value, &value) => {}
+            Some(_) => {
+                if let Some(entry) = self.tags.get_mut(&id) {
+                    entry.conflict = true;
+                }
+            }
+        }
     }
+
+    /// Insert one reference override. Replaces: innermost wins.
+    pub(crate) fn insert_ref(&mut self, id: &'static str, value: Arc<dyn Any + Send + Sync>) {
+        self.refs.insert(id, value);
+    }
+
+    /// First conflicted tag id, if any.
+    pub(crate) fn conflict(&self) -> Option<&'static str> {
+        self.tags
+            .iter()
+            .find_map(|(id, entry)| entry.conflict.then_some(*id))
+    }
+
+    /// Cloned tag value, if present (conflicts observed separately).
+    pub(crate) fn get_tag(&self, id: &'static str) -> Option<Arc<dyn Any + Send + Sync>> {
+        self.tags.get(id).map(|entry| Arc::clone(&entry.value))
+    }
+
+    /// Every tag provision, for layer merges.
+    pub(crate) fn tag_list(&self) -> Vec<(&'static str, Arc<dyn Any + Send + Sync>)> {
+        self.tags
+            .iter()
+            .map(|(id, entry)| (*id, Arc::clone(&entry.value)))
+            .collect()
+    }
+
+    /// Cloned reference override, innermost wins after merging.
+    pub(crate) fn get_ref(&self, id: &'static str) -> Option<Arc<dyn Any + Send + Sync>> {
+        self.refs.get(id).map(Arc::clone)
+    }
+
+    /// Total provisioned entries, for debug summaries.
+    pub(crate) fn len(&self) -> usize {
+        self.tags.len() + self.refs.len()
+    }
+}
+
+/// Read an effect's services merged over its parent scope: provisions
+/// accumulate (conflicts accounted), references shadow outward-in.
+pub(crate) fn merged_services(outer: &Services, own: &Services) -> Services {
+    if outer.tags.is_empty() && outer.refs.is_empty() {
+        return Arc::clone(own);
+    }
+    if own.tags.is_empty() && own.refs.is_empty() {
+        return Arc::clone(outer);
+    }
+    let mut merged = (**outer).clone();
+    for (id, value) in own.tag_list() {
+        merged.insert_tag(id, value);
+    }
+    for (id, value) in own.refs.iter().map(|(k, v)| (*k, Arc::clone(v))) {
+        merged.insert_ref(id, value);
+    }
+    Arc::new(merged)
 }
 
 /// Use the service behind tag `T`: the returned description requires `T`
@@ -122,17 +204,17 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
         R: Provide<T, Rest>,
         Rest: Requirement,
     {
-        let mut map = (*self.services).clone();
-        map.insert(T::ID, Arc::new(service));
+        let mut maps = (*self.services).clone();
+        maps.insert_tag(T::ID, Arc::new(service));
         Effect {
             step: self.step,
-            services: Arc::new(map),
+            services: Arc::new(maps),
             marker: PhantomData,
         }
     }
 
-    /// Provide two head tags at once (type-level only here; `Layer` wiring
-    /// composes N-wise in the layer bead).
+    /// Provide two head tags at once (type-level only here; `Layer` recipes
+    /// compose N-wise).
     pub fn provide_merge<T0, T1, Mid, Rest>(
         self,
         s0: T0::Service,
@@ -146,6 +228,21 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
         Rest: Requirement,
     {
         self.provide::<T0, Mid>(s0).provide::<T1, Rest>(s1)
+    }
+
+    /// Override an ambient [`Reference`] for this effect and its children:
+    /// innermost wins, `R` unchanged. Replaces any outer override.
+    pub fn provide_reference<T>(self, reference: &'static Reference<T>, value: T) -> Self
+    where
+        T: Clone + Send + Sync + 'static,
+    {
+        let mut maps = (*self.services).clone();
+        maps.insert_ref(reference.id, Arc::new(value));
+        Effect {
+            step: self.step,
+            services: Arc::new(maps),
+            marker: self.marker,
+        }
     }
 }
 
@@ -165,4 +262,83 @@ macro_rules! effect {
     ($e:expr; $($rest:tt)*) => {
         ($e).flat_map(move |_| $crate::effect! { $($rest)* })
     };
+}
+
+/// Memoized constructors by tag id: the first build wins per instance, and
+/// every later request shares the same value (pointer-equal). Separate
+/// instances memoize separately: sharing starts once the constructor is
+/// wrapped, not at the bare factory function.
+pub struct MemoMap {
+    built: Mutex<HashMap<&'static str, Arc<dyn Any + Send + Sync>>>,
+}
+
+/// Erase a shared value for the memo map.
+/// (Function boundary: the coercion site `Arc::clone` expressions cannot use.)
+fn erase_arc<T: Send + Sync + 'static>(arc: Arc<T>) -> Arc<dyn Any + Send + Sync> {
+    arc
+}
+
+impl MemoMap {
+    pub fn new() -> Self {
+        Self {
+            built: Mutex::new(HashMap::new()),
+        }
+    }
+
+    /// Build once per id; later calls with the same id share the first value
+    /// without re-running `build`.
+    pub fn get_or_build<T>(&self, id: &'static str, build: impl FnOnce() -> T) -> Arc<T>
+    where
+        T: Send + Sync + 'static,
+    {
+        if let Some(shared) = self.built.lock().unwrap().get(id) {
+            return Arc::downcast::<T>(Arc::clone(shared))
+                .expect("memo type mismatch: id reused for another type");
+        }
+        let value: Arc<T> = Arc::new(build());
+        self.built
+            .lock()
+            .unwrap()
+            .insert(id, erase_arc(Arc::clone(&value)));
+        value
+    }
+}
+
+impl Default for MemoMap {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// An ambient value with a default (log level, locale): read anywhere with
+/// no requirement, overridden for a sub-effect with
+/// [`Effect::provide_reference`]. Overrides replace: innermost wins.
+/// Domain code never reads environment variables here; configuration is
+/// parsed at startup into a value the layer closes over.
+pub struct Reference<T: Clone + Send + Sync + 'static> {
+    pub id: &'static str,
+    pub default: T,
+}
+
+/// Read an ambient reference: the innermost override, else the default.
+/// Requires nothing (`R` stays as it is).
+pub fn read_reference<T>(
+    reference: &'static Reference<T>,
+) -> Effect<T, std::convert::Infallible, ()>
+where
+    T: Clone + Send + Sync + 'static,
+{
+    Effect {
+        step: crate::effect::Step::ReadRef {
+            id: reference.id,
+            apply: Box::new(move |found| {
+                found
+                    .and_then(|any| Arc::downcast::<T>(any).ok())
+                    .map(|arc| (*arc).clone())
+                    .unwrap_or_else(|| reference.default.clone())
+            }),
+        },
+        services: empty_services(),
+        marker: PhantomData,
+    }
 }

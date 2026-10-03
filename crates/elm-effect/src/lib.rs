@@ -41,4 +41,4 @@ pub use layer::{BuiltServices, Cycle, Layer, RequirementIds};
 pub use runtime::{ManagedRuntime, Runtime};
 #[cfg(feature = "tokio")]
 pub use scope::Scope;
-pub use service::{Cons, Provide, ServiceTag, use_service};
+pub use service::{Cons, MemoMap, Provide, Reference, ServiceTag, read_reference, use_service};
