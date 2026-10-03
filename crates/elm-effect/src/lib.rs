@@ -12,7 +12,9 @@
 //! - Phase 1 has zero `unsafe`.
 
 mod cause;
+mod effect;
 mod exit;
 
 pub use cause::{Cause, Defect, FiberId, Reason};
+pub use effect::{Effect, Requirement};
 pub use exit::Exit;
