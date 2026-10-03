@@ -7,9 +7,10 @@
 //! same machine.
 
 use crate::{Cause, Defect, Exit, Reason};
+use std::any::Any;
 use std::marker::PhantomData;
 
-mod sealed {
+pub(crate) mod sealed {
     pub trait Sealed {}
     impl Sealed for () {}
 }
@@ -22,17 +23,18 @@ impl Requirement for () {}
 
 /// Runs one erased step to completion. Object-safe so `FlatMap`/`FoldE`
 /// can hide their input type; implemented only inside this module.
-trait ErasedStep<A, E, R>: Send {
-    fn run_erased(self: Box<Self>) -> Result<A, Cause<E>>;
+pub(crate) trait ErasedStep<A, E>: Send {
+    fn run_erased(self: Box<Self>, scope: &crate::service::Services) -> Result<A, Cause<E>>;
 }
 
 struct FlatMap<D: Send + 'static, A, E: Send + 'static, R: Requirement, F> {
     first: Effect<D, E, R>,
     cont: F,
+    env: crate::service::Services,
     marker: PhantomData<fn() -> A>,
 }
 
-impl<D, A, E, R, F> ErasedStep<A, E, R> for FlatMap<D, A, E, R, F>
+impl<D, A, E, R, F> ErasedStep<A, E> for FlatMap<D, A, E, R, F>
 where
     D: Send + 'static,
     A: Send + 'static,
@@ -40,10 +42,13 @@ where
     R: Requirement,
     F: FnOnce(D) -> Effect<A, E, R> + Send + 'static,
 {
-    fn run_erased(self: Box<Self>) -> Result<A, Cause<E>> {
-        let Self { first, cont, .. } = *self;
-        match first.run_sync() {
-            Ok(d) => cont(d).run_sync(),
+    fn run_erased(self: Box<Self>, scope: &crate::service::Services) -> Result<A, Cause<E>> {
+        let Self {
+            first, cont, env, ..
+        } = *self;
+        let inner = crate::service::merged_services(scope, &env);
+        match first.run_sync_with(&inner) {
+            Ok(d) => cont(d).run_sync_with(&inner),
             Err(cause) => Err(cause),
         }
     }
@@ -53,10 +58,11 @@ struct FoldE<A: Send + 'static, E: Send + 'static, B, E2, R: Requirement, FS, FF
     first: Effect<A, E, R>,
     on_success: FS,
     on_failure: FF,
+    env: crate::service::Services,
     marker: PhantomData<fn() -> (B, E2)>,
 }
 
-impl<A, E, B, E2, R, FS, FF> ErasedStep<B, E2, R> for FoldE<A, E, B, E2, R, FS, FF>
+impl<A, E, B, E2, R, FS, FF> ErasedStep<B, E2> for FoldE<A, E, B, E2, R, FS, FF>
 where
     A: Send + 'static,
     E: Send + 'static,
@@ -66,33 +72,46 @@ where
     FS: FnOnce(A) -> Effect<B, E2, R> + Send + 'static,
     FF: FnOnce(Cause<E>) -> Effect<B, E2, R> + Send + 'static,
 {
-    fn run_erased(self: Box<Self>) -> Result<B, Cause<E2>> {
+    fn run_erased(self: Box<Self>, scope: &crate::service::Services) -> Result<B, Cause<E2>> {
         let Self {
             first,
             on_success,
             on_failure,
+            env,
             ..
         } = *self;
-        match first.run_sync() {
-            Ok(a) => on_success(a).run_sync(),
-            Err(cause) => on_failure(cause).run_sync(),
+        let inner = crate::service::merged_services(scope, &env);
+        match first.run_sync_with(&inner) {
+            Ok(a) => on_success(a).run_sync_with(&inner),
+            Err(cause) => on_failure(cause).run_sync_with(&inner),
         }
     }
 }
 
 /// The private description language. Users never name this type.
-enum Step<A, E, R> {
+pub(crate) enum Step<A, E> {
     Succeed(A),
     Fail(Cause<E>),
     Sync(Box<dyn FnOnce() -> A + Send>),
-    Suspend(Box<dyn ErasedStep<A, E, R> + Send>),
+    Suspend(Box<dyn ErasedStep<A, E> + Send>),
+    /// Resolve a service tag from the provisioned environment at
+    /// interpretation. Unreachable when types check: `provide` is the only
+    /// way to satisfy the `R` channel, so a missing entry becomes `Die`.
+    /// `read` is monomorphized at `use_service`: downcast the shared value
+    /// plus clone. It takes the `Arc` by value so no reference coercion
+    /// stands between the map and the downcast.
+    Use {
+        id: &'static str,
+        read: fn(std::sync::Arc<dyn Any + Send + Sync>) -> Option<A>,
+    },
 }
 
 /// An effect: a lazy description of work producing `A`, failing with typed
 /// `E`, needing environment `R`. Building or dropping one runs nothing.
 pub struct Effect<A: Send + 'static, E: Send + 'static, R: Requirement = ()> {
-    step: Step<A, E, R>,
-    marker: PhantomData<R>,
+    pub(crate) step: Step<A, E>,
+    pub(crate) services: crate::service::Services,
+    pub(crate) marker: PhantomData<R>,
 }
 
 impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
@@ -101,6 +120,7 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
     pub fn succeed(value: A) -> Self {
         Self {
             step: Step::Succeed(value),
+            services: crate::service::empty_services(),
             marker: PhantomData,
         }
     }
@@ -109,6 +129,7 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
     pub fn fail(error: E) -> Self {
         Self {
             step: Step::Fail(Cause::fail(error)),
+            services: crate::service::empty_services(),
             marker: PhantomData,
         }
     }
@@ -117,6 +138,7 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
     pub fn die(defect: Defect) -> Self {
         Self {
             step: Step::Fail(Cause::die(defect)),
+            services: crate::service::empty_services(),
             marker: PhantomData,
         }
     }
@@ -126,6 +148,7 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
     pub fn interrupt() -> Self {
         Self {
             step: Step::Fail(Cause::interrupt(None)),
+            services: crate::service::empty_services(),
             marker: PhantomData,
         }
     }
@@ -135,6 +158,7 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
     fn fail_with(cause: Cause<E>) -> Self {
         Self {
             step: Step::Fail(cause),
+            services: crate::service::empty_services(),
             marker: PhantomData,
         }
     }
@@ -198,13 +222,15 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
     {
         Self {
             step: Step::Sync(Box::new(thunk)),
+            services: crate::service::empty_services(),
             marker: PhantomData,
         }
     }
 
-    fn suspend(op: impl ErasedStep<A, E, R> + 'static) -> Self {
+    fn suspend(op: impl ErasedStep<A, E> + 'static, env: crate::service::Services) -> Self {
         Self {
             step: Step::Suspend(Box::new(op)),
+            services: env,
             marker: PhantomData,
         }
     }
@@ -215,11 +241,16 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
         B: Send + 'static,
         F: FnOnce(A) -> Effect<B, E, R> + Send + 'static,
     {
-        Effect::suspend(FlatMap {
-            first: self,
-            cont,
-            marker: PhantomData,
-        })
+        let env = std::sync::Arc::clone(&self.services);
+        Effect::suspend(
+            FlatMap {
+                first: self,
+                cont,
+                env: std::sync::Arc::clone(&env),
+                marker: PhantomData,
+            },
+            env,
+        )
     }
 
     /// Lazily apply `f` to the success value.
@@ -240,12 +271,17 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
         FS: FnOnce(A) -> Effect<B, E2, R> + Send + 'static,
         FF: FnOnce(Cause<E>) -> Effect<B, E2, R> + Send + 'static,
     {
-        Effect::suspend(FoldE {
-            first: self,
-            on_success,
-            on_failure,
-            marker: PhantomData,
-        })
+        let env = std::sync::Arc::clone(&self.services);
+        Effect::suspend(
+            FoldE {
+                first: self,
+                on_success,
+                on_failure,
+                env: std::sync::Arc::clone(&env),
+                marker: PhantomData,
+            },
+            env,
+        )
     }
 
     /// Fold the typed failure into the success channel as [`Err`]. Only a
@@ -311,6 +347,7 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
         }
         Effect {
             step: Step::Fail(out),
+            services: crate::service::empty_services(),
             marker: PhantomData,
         }
     }
@@ -319,11 +356,25 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
     /// one place interpretation happens; `pub(crate)` so only this crate's
     /// executor (and its unit tests) can run descriptions.
     pub(crate) fn run_sync(self) -> Result<A, Cause<E>> {
+        self.run_sync_with(&crate::service::empty_services())
+    }
+
+    pub(crate) fn run_sync_with(self, outer: &crate::service::Services) -> Result<A, Cause<E>> {
+        let scope = crate::service::merged_services(outer, &self.services);
         match self.step {
             Step::Succeed(a) => Ok(a),
             Step::Fail(cause) => Err(cause),
             Step::Sync(thunk) => Ok(thunk()),
-            Step::Suspend(op) => op.run_erased(),
+            Step::Suspend(op) => op.run_erased(&scope),
+            Step::Use { id, read } => match scope.get(id).cloned() {
+                Some(any) => match read(any) {
+                    Some(a) => Ok(a),
+                    None => Err(Cause::die(Defect::new(format!(
+                        "service type mismatch for tag: {id}"
+                    )))),
+                },
+                None => Err(Cause::die(Defect::new(format!("missing service: {id}")))),
+            },
         }
     }
 }
@@ -416,6 +467,7 @@ mod tests {
         // Interrupts stay interrupts.
         let intr: Effect<i32, String> = Effect {
             step: Step::Fail(Cause::interrupt(None)),
+            services: crate::service::empty_services(),
             marker: PhantomData,
         };
         let r = intr
@@ -450,6 +502,7 @@ mod tests {
 
         let i: Effect<i32, String> = Effect {
             step: Step::Fail(Cause::interrupt(None)),
+            services: crate::service::empty_services(),
             marker: PhantomData,
         };
         let r = i

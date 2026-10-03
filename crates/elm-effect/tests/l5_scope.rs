@@ -1,5 +1,6 @@
 //! Laws L6/L7: every exit releases, reverse order, exactly once; releases run
 //! to completion even under cancellation.
+#![cfg(feature = "tokio")]
 //!
 //! `acquire_release` runs its acquire eagerly: the caller is already inside
 //! the runtime (a fiber body or a test driving one), i.e. the imperative

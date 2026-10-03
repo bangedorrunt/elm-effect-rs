@@ -101,6 +101,7 @@ fn exit_is_data_not_effect() {
 }
 
 #[test]
+#[cfg(feature = "tokio")]
 fn five_outcomes_do_not_collapse() {
     use elm_effect::{Effect, Runtime};
 

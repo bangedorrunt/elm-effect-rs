@@ -22,6 +22,7 @@ mod fiber;
 mod runtime;
 #[cfg(feature = "tokio")]
 mod scope;
+mod service;
 #[cfg(feature = "tokio")]
 mod supervisor;
 
@@ -36,3 +37,4 @@ pub use fiber::{Ctx, FiberHandle, ForkOpts, Mask, StartMode};
 pub use runtime::{ManagedRuntime, Runtime};
 #[cfg(feature = "tokio")]
 pub use scope::Scope;
+pub use service::{Cons, Provide, ServiceTag, use_service};
