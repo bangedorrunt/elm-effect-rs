@@ -1,3 +1,5 @@
 /target
 **/*.rs.bk
 .flywheel/
+__pycache__/
+*.pyc
