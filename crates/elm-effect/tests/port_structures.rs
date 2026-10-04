@@ -1,0 +1,396 @@
+//! Wave-5 structures: Array, Chunk, Iterable, NonEmptyIterable, MutableList,
+//! Record, Struct, Tuple behavior ported from the tag's suites. Modules load
+//! via `#[path]` includes (the .15 precedent): no facade touch.
+//!
+//! Each test pins a behavior GROUP; the ledger maps covered rows to tests.
+//! Residuals (do-notation, .17-owned Equal/Order/Hash rows, union resolvers,
+//! deep paths, variadic shapes, unsafe accessors) stay `unported`.
+
+#[path = "../src/data/array.rs"]
+mod array;
+#[path = "../src/data/chunk.rs"]
+mod chunk;
+#[path = "../src/data/iterable.rs"]
+mod iterable;
+#[path = "../src/data/mutable_list.rs"]
+mod mutable_list;
+#[path = "../src/data/nonempty.rs"]
+mod nonempty;
+#[path = "../src/data/record.rs"]
+mod record;
+#[path = "../src/data/struct_.rs"]
+mod struct_;
+#[path = "../src/data/tuple.rs"]
+mod tuple;
+
+// ---------- Array ----------
+
+#[test]
+fn array_ends() {
+    assert_eq!(array::head(&[1, 2, 3]), Some(1));
+    assert_eq!(array::head(&Vec::<i32>::new()), None);
+    assert_eq!(array::last(&[1, 2, 3]), Some(3));
+    assert_eq!(array::last(&Vec::<i32>::new()), None);
+    assert_eq!(array::tail(&[1, 2, 3]), vec![2, 3]);
+    assert_eq!(array::tail(&Vec::<i32>::new()), Vec::<i32>::new());
+    assert_eq!(array::init(&[1, 2, 3]), vec![1, 2]);
+    assert_eq!(array::init(&Vec::<i32>::new()), Vec::<i32>::new());
+    assert_eq!(array::get(&[1, 2], 1), Some(2));
+    assert_eq!(array::get(&[1, 2], 5), None);
+}
+
+#[test]
+fn array_take_drop() {
+    let v = vec![1, 2, 3, 4];
+    assert_eq!(array::take(&v, 2), vec![1, 2]);
+    assert_eq!(array::take(&v, 9), vec![1, 2, 3, 4]);
+    assert_eq!(array::take(&v, 0), Vec::<i32>::new());
+    assert_eq!(array::drop_(&v, 2), vec![3, 4]);
+    assert_eq!(array::drop_(&v, 9), Vec::<i32>::new());
+    assert_eq!(array::take_while(&v, |a| *a < 3), vec![1, 2]);
+    assert_eq!(array::drop_while(&v, |a| *a < 3), vec![3, 4]);
+}
+
+#[test]
+fn array_build_combine() {
+    assert_eq!(array::make_by(3, |i| i * 2), vec![0, 2, 4]);
+    assert_eq!(array::make_by(0, |i| i as i32), Vec::<i32>::new());
+    assert_eq!(array::range(1, 4), vec![1, 2, 3]);
+    assert_eq!(array::range(3, 3), Vec::<i32>::new());
+    assert_eq!(array::replicate(3, "x"), vec!["x", "x", "x"]);
+    assert_eq!(
+        array::zip_with(&[1, 2], &[10, 20, 30], |a, b| a + b),
+        vec![11, 22]
+    );
+    assert_eq!(
+        array::chunks_of(&[1, 2, 3, 4, 5], 2),
+        vec![vec![1, 2], vec![3, 4], vec![5]]
+    );
+    assert_eq!(array::find_index(&[1, 2, 3], |a| *a == 2), Some(1));
+    assert_eq!(array::find_index(&[1, 2, 3], |a| *a == 9), None);
+}
+
+#[test]
+fn array_update() {
+    assert_eq!(array::set(&[1, 2], 0, 9), vec![9, 2]);
+    assert_eq!(array::set(&[1, 2], 7, 9), vec![1, 2]);
+    assert_eq!(array::remove(&[1, 2, 3], 1), vec![1, 3]);
+    assert_eq!(array::remove(&[1, 2], 5), vec![1, 2]);
+    assert_eq!(array::sum(&[1, 2, 3]), 6);
+    assert_eq!(array::sum(&Vec::<i32>::new()), 0);
+    assert_eq!(array::join(&["a", "b"], "-"), "a-b");
+}
+
+// ---------- Chunk ----------
+
+#[test]
+fn chunk_ends() {
+    let c = chunk::Chunk::from_iter(vec![1, 2, 3]);
+    assert_eq!(c.head(), Some(&1));
+    assert_eq!(c.last(), Some(&3));
+    assert_eq!(c.len(), 3);
+    assert!(!c.is_empty());
+    assert!(chunk::Chunk::<i32>::empty().is_empty());
+    assert_eq!(chunk::Chunk::of(1).head(), Some(&1));
+    assert_eq!(c.get(1), Some(&2));
+    assert_eq!(c.get(9), None);
+    assert_eq!(c.tail().into_vec(), vec![2, 3]);
+    assert_eq!(c.init().into_vec(), vec![1, 2]);
+}
+
+#[test]
+fn chunk_build() {
+    let c = chunk::Chunk::empty().append(1).append(2);
+    assert_eq!(c.into_vec(), vec![1, 2]);
+    let c = chunk::Chunk::of(1).append_all(vec![2, 3]);
+    assert_eq!(c.into_vec(), vec![1, 2, 3]);
+    let c = chunk::Chunk::from_iter(vec![2]).prepend(1);
+    assert_eq!(c.into_vec(), vec![1, 2]);
+    let c = chunk::Chunk::from_iter(vec![1]).concat(chunk::Chunk::from_iter(vec![2]));
+    assert_eq!(c.into_vec(), vec![1, 2]);
+    assert_eq!(
+        chunk::Chunk::from_iter(vec![1, 2, 3]).take(2).into_vec(),
+        vec![1, 2]
+    );
+    assert_eq!(
+        chunk::Chunk::from_iter(vec![1, 2, 3]).drop(2).into_vec(),
+        vec![3]
+    );
+}
+
+#[test]
+fn chunk_ops() {
+    assert_eq!(
+        chunk::Chunk::from_iter(vec![1, 2])
+            .map(|a| a * 2)
+            .into_vec(),
+        vec![2, 4]
+    );
+    assert_eq!(
+        chunk::Chunk::from_iter(vec![1, 2, 3])
+            .filter(|a| *a % 2 == 1)
+            .into_vec(),
+        vec![1, 3]
+    );
+    assert_eq!(
+        chunk::Chunk::from_iter(vec![1, 2])
+            .flat_map(|a| chunk::Chunk::from_iter(vec![a, -a]))
+            .into_vec(),
+        vec![1, -1, 2, -2]
+    );
+    assert_eq!(
+        chunk::Chunk::from_iter(vec![vec![1], vec![2]])
+            .flatten()
+            .into_vec(),
+        vec![1, 2]
+    );
+    assert_eq!(
+        chunk::Chunk::from_iter(vec![1, 2]).reverse().into_vec(),
+        vec![2, 1]
+    );
+    let (a, b) = chunk::Chunk::from_iter(vec![1, 2, 3]).split_at(2);
+    assert_eq!((a.into_vec(), b.into_vec()), (vec![1, 2], vec![3]));
+    assert_eq!(
+        chunk::Chunk::from_iter(vec![1, 2])
+            .zip(chunk::Chunk::from_iter(vec![3, 4]))
+            .into_vec(),
+        vec![(1, 3), (2, 4)]
+    );
+    assert_eq!(
+        chunk::Chunk::<i32>::collect_results::<&str>(vec![Ok(1), Ok(2)]),
+        Ok(chunk::Chunk::from_iter(vec![1, 2]))
+    );
+    assert_eq!(
+        chunk::Chunk::<i32>::collect_results(vec![Ok(1), Err("e")]),
+        Err("e")
+    );
+}
+
+// ---------- Iterable ----------
+
+#[test]
+fn iterable_ends() {
+    assert_eq!(iterable::first(vec![1, 2]), Some(1));
+    assert_eq!(iterable::first(Vec::<i32>::new()), None);
+    assert_eq!(iterable::last(vec![1, 2]), Some(2));
+    assert_eq!(iterable::last(Vec::<i32>::new()), None);
+    assert_eq!(iterable::count(vec![1, 2, 3]), 3);
+    assert!(iterable::is_empty(Vec::<i32>::new()));
+    assert!(!iterable::is_empty(vec![1]));
+    assert_eq!(iterable::find_first(vec![1, 2, 3], |a| *a > 1), Some(2));
+    assert_eq!(iterable::find_last(vec![1, 2, 3], |a| *a > 1), Some(3));
+    assert!(iterable::contains(vec![1, 2], &2));
+    assert!(!iterable::contains(vec![1, 2], &9));
+}
+
+#[test]
+fn iterable_combine() {
+    assert_eq!(iterable::reduce(vec![1, 2, 3], 0, |acc, a| acc + a), 6);
+    assert_eq!(iterable::cycle_n(vec![1, 2], 2), vec![1, 2, 1, 2]);
+    assert_eq!(iterable::cycle_n(Vec::<i32>::new(), 3), Vec::<i32>::new());
+    assert_eq!(iterable::cycle_n(vec![1], 0), Vec::<i32>::new());
+    assert_eq!(
+        iterable::concat_all(vec![vec![1], vec![2, 3]]),
+        vec![1, 2, 3]
+    );
+    assert_eq!(iterable::to_vec([1, 2].into_iter()), vec![1, 2]);
+    assert_eq!(iterable::join(["a", "b"], ","), "a,b");
+    assert_eq!(iterable::min(vec![3, 1, 2]), Some(1));
+    assert_eq!(iterable::max(vec![3, 1, 2]), Some(3));
+    assert_eq!(iterable::min(Vec::<i32>::new()), None);
+}
+
+// ---------- NonEmpty ----------
+
+#[test]
+fn nonempty_core() {
+    let ne = nonempty::NonEmpty::make(1, vec![2, 3]);
+    assert_eq!(ne.head(), &1);
+    assert_eq!(ne.tail(), &[2, 3]);
+    assert_eq!(ne.last(), &3);
+    assert_eq!(ne.len(), 3usize);
+    assert!(!ne.is_empty());
+    assert_eq!(nonempty::NonEmpty::of(1).last(), &1);
+    assert_eq!(
+        nonempty::NonEmpty::from_vec(vec![1, 2]),
+        Some(nonempty::NonEmpty::make(1, vec![2]))
+    );
+    assert_eq!(nonempty::NonEmpty::from_vec(Vec::<i32>::new()), None);
+    assert_eq!(ne.clone().map(|a| a * 2).to_vec(), vec![2, 4, 6]);
+    assert_eq!(
+        ne.clone().flat_map(|a| vec![a, -a]),
+        vec![1, -1, 2, -2, 3, -3]
+    );
+    assert_eq!(ne.clone().to_vec(), vec![1, 2, 3]);
+    assert_eq!(ne.reverse().to_vec(), vec![3, 2, 1]);
+    assert_eq!(
+        nonempty::NonEmpty::of(1).into_iter().collect::<Vec<_>>(),
+        vec![1]
+    );
+}
+
+// ---------- MutableList ----------
+
+#[test]
+fn mutable_list_core() {
+    let list = mutable_list::MutableList::new();
+    assert!(list.is_empty());
+    assert_eq!(list.len(), 0);
+    list.push(1);
+    list.push(2);
+    assert_eq!(list.len(), 2);
+    assert_eq!(list.get(0), Some(1));
+    assert_eq!(list.get(9), None);
+    assert!(list.set(0, 10));
+    assert!(!list.set(9, 10));
+    assert_eq!(list.to_vec(), vec![10, 2]);
+    assert_eq!(list.remove(0), Some(10));
+    assert_eq!(list.remove(9), None);
+    assert_eq!(list.pop(), Some(2));
+    assert_eq!(list.pop(), None);
+    list.push(1);
+    list.clear();
+    assert!(list.is_empty());
+    assert_eq!(
+        mutable_list::MutableList::from_vec(vec![1]).to_vec(),
+        vec![1]
+    );
+}
+
+// ---------- Record ----------
+
+#[test]
+fn record_core() {
+    let mut r = record::empty();
+    assert_eq!(record::size(&r), 0);
+    record::set(&mut r, "b".to_string(), 2);
+    record::set(&mut r, "a".to_string(), 1);
+    assert_eq!(record::get(&r, "a"), Some(1));
+    assert_eq!(record::get(&r, "z"), None);
+    assert!(record::has(&r, "a"));
+    assert!(!record::has(&r, "z"));
+    assert_eq!(record::keys(&r), vec!["a".to_string(), "b".to_string()]);
+    assert_eq!(record::values(&r), vec![1, 2]);
+    assert_eq!(
+        record::map_values(&r, |v| v * 10),
+        record::from_entries(vec![("a".to_string(), 10), ("b".to_string(), 20)])
+    );
+    assert_eq!(
+        record::filter(&r, |v| *v > 1),
+        record::from_entries(vec![("b".to_string(), 2)])
+    );
+    let other = record::from_entries(vec![("b".to_string(), 99), ("c".to_string(), 3)]);
+    assert_eq!(
+        record::union(&r, &other),
+        record::from_entries(vec![
+            ("a".to_string(), 1),
+            ("b".to_string(), 2),
+            ("c".to_string(), 3)
+        ])
+    );
+    assert_eq!(record::remove(&mut r, "a"), Some(1));
+    assert_eq!(record::remove(&mut r, "a"), None);
+    record::set(&mut r, "b".to_string(), 99);
+    assert_eq!(record::get(&r, "b"), Some(99));
+    record::set(&mut r, "b".to_string(), 2);
+    assert!(record::is_empty(&record::empty::<i32>()));
+    assert!(!record::is_empty(&r));
+    assert!(record::is_subrecord(
+        &record::from_entries(vec![("b".to_string(), 2)]),
+        &r
+    ));
+    assert_eq!(record::entries(&r), vec![("b".to_string(), 2)]);
+    assert_eq!(
+        record::map_keys(&r, |k| k.to_uppercase()),
+        record::from_entries(vec![("B".to_string(), 2)])
+    );
+    assert_eq!(
+        record::modify(&r, "b", |v| v * 10),
+        record::from_entries(vec![("b".to_string(), 20)])
+    );
+    assert!(record::some(&r, |v| *v == 2));
+    assert!(record::every(&r, |v| *v > 0));
+    let (yes, no) = record::partition(&r, |v| *v > 1);
+    assert_eq!(record::size(&yes), 1);
+    assert_eq!(record::size(&no), 0);
+    assert_eq!(record::reduce(&r, 0, |acc, v| acc + v), 2);
+    assert_eq!(
+        record::intersection(&r, &record::from_entries(vec![("b".to_string(), 9)])),
+        r.clone()
+    );
+    assert_eq!(
+        record::difference(&r, &record::from_entries(vec![("b".to_string(), 9)])),
+        record::empty()
+    );
+    assert_eq!(
+        record::from_iterable_with(vec![1, 2], |a| format!("k{a}"), |a| a * 2),
+        record::from_entries(vec![("k1".to_string(), 2), ("k2".to_string(), 4)])
+    );
+    assert_eq!(
+        record::get_somes(&record::from_entries(vec![
+            ("a".to_string(), Some(1)),
+            ("b".to_string(), None)
+        ])),
+        record::from_entries(vec![("a".to_string(), 1)])
+    );
+    assert_eq!(
+        record::map_entries(&r, |k, v| (format!("{k}!"), v + 1)),
+        record::from_entries(vec![("b!".to_string(), 3)])
+    );
+}
+
+// ---------- Struct ----------
+
+#[test]
+fn struct_shapes() {
+    use std::collections::BTreeMap;
+    let r: BTreeMap<String, i32> = [
+        ("a".to_string(), 1),
+        ("b".to_string(), 2),
+        ("c".to_string(), 3),
+    ]
+    .into_iter()
+    .collect();
+    assert_eq!(
+        struct_::pick(&r, &["a", "c"]),
+        [("a".to_string(), 1), ("c".to_string(), 3)]
+            .into_iter()
+            .collect()
+    );
+    assert_eq!(
+        struct_::omit(&r, &["b"]),
+        [("a".to_string(), 1), ("c".to_string(), 3)]
+            .into_iter()
+            .collect()
+    );
+    let evolved = struct_::evolve(
+        &r,
+        &[("a", Box::new(|v| v + 10) as Box<dyn Fn(i32) -> i32>)],
+    );
+    assert_eq!(evolved.get("a"), Some(&11));
+    assert_eq!(evolved.get("b"), Some(&2));
+    // Missing keys pass through untouched (no insertion).
+    let evolved = struct_::evolve(&r, &[("z", Box::new(|v| v) as Box<dyn Fn(i32) -> i32>)]);
+    assert_eq!(evolved.len(), 3);
+    assert_eq!(struct_::get(&r, "b"), Some(2));
+    let mut owned = r.clone();
+    struct_::set(&mut owned, "d".to_string(), 4);
+    assert_eq!(struct_::get(&owned, "d"), Some(4));
+}
+
+// ---------- Tuple ----------
+
+#[test]
+fn tuple_shapes() {
+    assert_eq!(tuple::get_first(&(1, "a")), 1);
+    assert_eq!(tuple::get_second(&(1, "a")), "a");
+    assert_eq!(tuple::swap((1, "a")), ("a", 1));
+    assert_eq!(tuple::append_element((1, 2), 3), (1, 2, 3));
+    assert_eq!(tuple::prepend_element(0, (1, 2)), (0, 1, 2));
+    assert_eq!(tuple::map_first((1, "a"), |a| a + 1), (2, "a"));
+    assert_eq!(
+        tuple::map_second((1, "a"), |b| format!("{b}!")),
+        (1, "a!".to_string())
+    );
+    assert_eq!(tuple::triple_first(&(1, 2, 3)), 1);
+}

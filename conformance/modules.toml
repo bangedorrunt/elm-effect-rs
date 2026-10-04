@@ -524,7 +524,7 @@ tests = ["packages/effect/test/Newtype.test.ts"]
 [[module]]
 path = "packages/effect/src/NonEmptyIterable.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
 reason = ""
 tests = []

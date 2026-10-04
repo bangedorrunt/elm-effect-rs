@@ -3125,45 +3125,45 @@ unported	packages/effect/test/RcRef.test.ts	366	it.effect	closing the ref while 
 unported	packages/effect/test/Record.test.ts	7	it	singleton	
 unported	packages/effect/test/Record.test.ts	12	it	makeReducerUnion	
 unported	packages/effect/test/Record.test.ts	18	it	makeReducerIntersection	
-unported	packages/effect/test/Record.test.ts	34	it	empty	
-unported	packages/effect/test/Record.test.ts	38	it	fromIterableWith	
+ported	packages/effect/test/Record.test.ts	34	it	empty	record_core
+ported	packages/effect/test/Record.test.ts	38	it	fromIterableWith	record_core
 unported	packages/effect/test/Record.test.ts	53	it	fromIterableBy	
-unported	packages/effect/test/Record.test.ts	71	it	fromEntries	
-unported	packages/effect/test/Record.test.ts	88	it	has	
-unported	packages/effect/test/Record.test.ts	96	it	get	
-unported	packages/effect/test/Record.test.ts	104	it	modify	
-unported	packages/effect/test/Record.test.ts	117	it	replace	
-unported	packages/effect/test/Record.test.ts	127	it	remove	
-unported	packages/effect/test/Record.test.ts	136	it	should return the value associated with the given key, if the key is present in the record	
-unported	packages/effect/test/Record.test.ts	144	it	should return none if the key is not present in the record	
-unported	packages/effect/test/Record.test.ts	154	it	should replace an existing value	
-unported	packages/effect/test/Record.test.ts	160	it	should add the key / value pair	
+ported	packages/effect/test/Record.test.ts	71	it	fromEntries	record_core
+ported	packages/effect/test/Record.test.ts	88	it	has	record_core
+ported	packages/effect/test/Record.test.ts	96	it	get	record_core
+ported	packages/effect/test/Record.test.ts	104	it	modify	record_core
+ported	packages/effect/test/Record.test.ts	117	it	replace	record_core
+ported	packages/effect/test/Record.test.ts	127	it	remove	record_core
+ported	packages/effect/test/Record.test.ts	136	it	should return the value associated with the given key, if the key is present in the record	record_core
+ported	packages/effect/test/Record.test.ts	144	it	should return none if the key is not present in the record	record_core
+ported	packages/effect/test/Record.test.ts	154	it	should replace an existing value	record_core
+ported	packages/effect/test/Record.test.ts	160	it	should add the key / value pair	record_core
 unported	packages/effect/test/Record.test.ts	168	it	preserves __proto__ as an own property	
 unported	packages/effect/test/Record.test.ts	181	it	singleton	
-unported	packages/effect/test/Record.test.ts	189	it	map	
+ported	packages/effect/test/Record.test.ts	189	it	map	record_core
 unported	packages/effect/test/Record.test.ts	194	it	collect	
-unported	packages/effect/test/Record.test.ts	199	it	toEntries	
+ported	packages/effect/test/Record.test.ts	199	it	toEntries	record_core
 unported	packages/effect/test/Record.test.ts	204	it	filterMap	
-unported	packages/effect/test/Record.test.ts	210	it	getSomes	
-unported	packages/effect/test/Record.test.ts	215	it	filter	
-unported	packages/effect/test/Record.test.ts	220	it	partition	
+ported	packages/effect/test/Record.test.ts	210	it	getSomes	record_core
+ported	packages/effect/test/Record.test.ts	215	it	filter	record_core
+ported	packages/effect/test/Record.test.ts	220	it	partition	record_core
 unported	packages/effect/test/Record.test.ts	226	it	separate	
-unported	packages/effect/test/Record.test.ts	236	it	isEmptyRecord	
-unported	packages/effect/test/Record.test.ts	242	it	isEmptyReadonlyRecord	
-unported	packages/effect/test/Record.test.ts	248	it	size	
-unported	packages/effect/test/Record.test.ts	252	it	keys	
-unported	packages/effect/test/Record.test.ts	256	it	values	
-unported	packages/effect/test/Record.test.ts	260	it	isSubrecord	
-unported	packages/effect/test/Record.test.ts	272	it	reduce	
-unported	packages/effect/test/Record.test.ts	288	it	every	
-unported	packages/effect/test/Record.test.ts	293	it	some	
-unported	packages/effect/test/Record.test.ts	298	it	union	
-unported	packages/effect/test/Record.test.ts	324	it	intersection	
-unported	packages/effect/test/Record.test.ts	346	it	difference	
+ported	packages/effect/test/Record.test.ts	236	it	isEmptyRecord	record_core
+ported	packages/effect/test/Record.test.ts	242	it	isEmptyReadonlyRecord	record_core
+ported	packages/effect/test/Record.test.ts	248	it	size	record_core
+ported	packages/effect/test/Record.test.ts	252	it	keys	record_core
+ported	packages/effect/test/Record.test.ts	256	it	values	record_core
+ported	packages/effect/test/Record.test.ts	260	it	isSubrecord	record_core
+ported	packages/effect/test/Record.test.ts	272	it	reduce	record_core
+ported	packages/effect/test/Record.test.ts	288	it	every	record_core
+ported	packages/effect/test/Record.test.ts	293	it	some	record_core
+ported	packages/effect/test/Record.test.ts	298	it	union	record_core
+ported	packages/effect/test/Record.test.ts	324	it	intersection	record_core
+ported	packages/effect/test/Record.test.ts	346	it	difference	record_core
 unported	packages/effect/test/Record.test.ts	369	it	makeEquivalence	
-unported	packages/effect/test/Record.test.ts	378	it	mapKeys	
-unported	packages/effect/test/Record.test.ts	385	it	mapEntries	
-unported	packages/effect/test/Record.test.ts	390	it	refinement/predicate	
+ported	packages/effect/test/Record.test.ts	378	it	mapKeys	record_core
+ported	packages/effect/test/Record.test.ts	385	it	mapEntries	record_core
+ported	packages/effect/test/Record.test.ts	390	it	refinement/predicate	record_core
 unported	packages/effect/test/Redacted.test.ts	6	it	chunk constructor	
 unported	packages/effect/test/Redacted.test.ts	11	it	value	
 unported	packages/effect/test/Redacted.test.ts	17	it	pipe supports extracting the protected value	
