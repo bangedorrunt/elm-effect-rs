@@ -156,88 +156,88 @@ unported	packages/effect/test/ArrayNaNIndex.test.ts	27	it	treats removing NaN as
 unported	packages/effect/test/ArrayNaNIndex.test.ts	33	it	floors the index in replace	
 unported	packages/effect/test/ArrayNaNIndex.test.ts	37	it	floors the index in modify	
 unported	packages/effect/test/AtomRef.test.ts	5	it	notifies each subscribed listener once when a listener resubscribes itself	
-unported	packages/effect/test/BigDecimal.test.ts	29	it	make	
-unported	packages/effect/test/BigDecimal.test.ts	37	it	makeNormalizedUnsafe validates the value and scale	
-unported	packages/effect/test/BigDecimal.test.ts	43	it	isBigDecimal	
-unported	packages/effect/test/BigDecimal.test.ts	53	it	sign	
-unported	packages/effect/test/BigDecimal.test.ts	61	it	equals	
-unported	packages/effect/test/BigDecimal.test.ts	71	it	sum	
-unported	packages/effect/test/BigDecimal.test.ts	81	it	sumAll	
-unported	packages/effect/test/BigDecimal.test.ts	87	it	multiply	
-unported	packages/effect/test/BigDecimal.test.ts	95	it	multiplyAll	
-unported	packages/effect/test/BigDecimal.test.ts	101	it	subtract	
-unported	packages/effect/test/BigDecimal.test.ts	111	it	roundTerminal	
-unported	packages/effect/test/BigDecimal.test.ts	127	it	divide	
-unported	packages/effect/test/BigDecimal.test.ts	174	it	Equivalence	
-unported	packages/effect/test/BigDecimal.test.ts	182	it	Order	
-unported	packages/effect/test/BigDecimal.test.ts	194	it	Order and Equivalence support extreme scale differences	
-unported	packages/effect/test/BigDecimal.test.ts	230	it	Order and Equivalence agree with exact bounded scale alignment	
-unported	packages/effect/test/BigDecimal.test.ts	247	it	isLessThan	
-unported	packages/effect/test/BigDecimal.test.ts	253	it	isLessThanOrEqualTo	
-unported	packages/effect/test/BigDecimal.test.ts	259	it	isGreaterThan	
-unported	packages/effect/test/BigDecimal.test.ts	265	it	isGreaterThanOrEqualTo	
-unported	packages/effect/test/BigDecimal.test.ts	271	it	between	
-unported	packages/effect/test/BigDecimal.test.ts	281	it	clamp	
-unported	packages/effect/test/BigDecimal.test.ts	290	it	min	
-unported	packages/effect/test/BigDecimal.test.ts	297	it	max	
-unported	packages/effect/test/BigDecimal.test.ts	304	it	abs	
-unported	packages/effect/test/BigDecimal.test.ts	311	it	negate	
-unported	packages/effect/test/BigDecimal.test.ts	318	it	remainder	
-unported	packages/effect/test/BigDecimal.test.ts	325	it	unsafeRemainder	
-unported	packages/effect/test/BigDecimal.test.ts	332	it	normalize	
-unported	packages/effect/test/BigDecimal.test.ts	341	it	normalize caches results without changing the original value or scale	
-unported	packages/effect/test/BigDecimal.test.ts	363	it	normalize rejects an unsafe resulting scale	
-unported	packages/effect/test/BigDecimal.test.ts	370	it	fromString	
-unported	packages/effect/test/BigDecimal.test.ts	396	it	format	
-unported	packages/effect/test/BigDecimal.test.ts	415	it	format preserves the boundary between plain and scientific notation	
-unported	packages/effect/test/BigDecimal.test.ts	422	it	toExponential	
-unported	packages/effect/test/BigDecimal.test.ts	429	it	toJSON()	
-unported	packages/effect/test/BigDecimal.test.ts	433	it	inspect	
-unported	packages/effect/test/BigDecimal.test.ts	441	it	toString()	
-unported	packages/effect/test/BigDecimal.test.ts	445	it	Equal.symbol	
-unported	packages/effect/test/BigDecimal.test.ts	452	it	Hash.symbol preserves hashes across equivalent representations	
-unported	packages/effect/test/BigDecimal.test.ts	468	it	pipe()	
-unported	packages/effect/test/BigDecimal.test.ts	472	it	scale	
-unported	packages/effect/test/BigDecimal.test.ts	476	it	fromBigInt	
-unported	packages/effect/test/BigDecimal.test.ts	480	it	fromNumber	
-unported	packages/effect/test/BigDecimal.test.ts	486	it	toNumberUnsafe	
-unported	packages/effect/test/BigDecimal.test.ts	490	it	isInteger	
-unported	packages/effect/test/BigDecimal.test.ts	496	it	isZero	
-unported	packages/effect/test/BigDecimal.test.ts	501	it	isNegative	
-unported	packages/effect/test/BigDecimal.test.ts	507	it	isPositive	
-unported	packages/effect/test/BigDecimal.test.ts	513	it	digitAt	
-unported	packages/effect/test/BigDecimal.test.ts	522	it	round: ceil	
-unported	packages/effect/test/BigDecimal.test.ts	535	it	round: floor	
-unported	packages/effect/test/BigDecimal.test.ts	548	it	round: to-zero (truncate)	
-unported	packages/effect/test/BigDecimal.test.ts	561	it	round: from-zero	
-unported	packages/effect/test/BigDecimal.test.ts	570	it	round: half-ceil	
-unported	packages/effect/test/BigDecimal.test.ts	580	it	round: half-floor	
-unported	packages/effect/test/BigDecimal.test.ts	591	it	round: half-to-zero	
-unported	packages/effect/test/BigDecimal.test.ts	602	it	round: half-from-zero	
-unported	packages/effect/test/BigDecimal.test.ts	613	it	round: half-even	
-unported	packages/effect/test/BigDecimal.test.ts	624	it	round: half-odd	
-unported	packages/effect/test/BigDecimal.test.ts	643	it	unsafeFromString and format should be inverses	
-unported	packages/effect/test/BigDecimal.test.ts	649	it	toExponential should harmonize with Number.prototype.toExponential	
-unported	packages/effect/test/BigInt.test.ts	6	it	re-exports the global BigInt constructor	
-unported	packages/effect/test/BigInt.test.ts	11	it	divide returns some for non-zero divisors in data-first and data-last forms	
-unported	packages/effect/test/BigInt.test.ts	17	it	sqrt returns integer square roots	
-unported	packages/effect/test/BigInt.test.ts	22	it	toNumber converts bigints in the safe integer range	
-unported	packages/effect/test/BigInt.test.ts	27	it	toNumber returns none outside the safe integer range	
-unported	packages/effect/test/BigInt.test.ts	33	it	fromNumber converts safe integers to bigint	
-unported	packages/effect/test/BigInt.test.ts	38	it	fromNumber returns none for unsafe or non-integral numbers	
-unported	packages/effect/test/BigInt.test.ts	44	it	ReducerMultiply combines values with one as the identity	
-unported	packages/effect/test/BigInt.test.ts	50	it	CombinerMax returns the larger bigint	
-unported	packages/effect/test/BigInt.test.ts	54	it	CombinerMin returns the smaller bigint	
-unported	packages/effect/test/BigInt.test.ts	58	it	returns a non-negative greatest common divisor	
-unported	packages/effect/test/BigInt.test.ts	62	it	returns a non-negative least common multiple	
-unported	packages/effect/test/BigInt.test.ts	66	it	returns zero for two zero operands	
-unported	packages/effect/test/BigInt.test.ts	70	it	Order compares bigints	
-unported	packages/effect/test/BigInt.test.ts	76	it	isLessThan and isLessThanOrEqualTo compare against an upper bound	
-unported	packages/effect/test/BigInt.test.ts	83	it	isGreaterThan and isGreaterThanOrEqualTo compare against a lower bound	
-unported	packages/effect/test/BigInt.test.ts	90	it	between checks inclusive range membership	
-unported	packages/effect/test/BigInt.test.ts	96	it	clamp restricts a bigint to an inclusive range	
-unported	packages/effect/test/BigInt.test.ts	102	it	min and max select the smaller and larger bigint	
-unported	packages/effect/test/BigInt.test.ts	107	it	sign returns the ordering of a bigint against zero	
+ported	packages/effect/test/BigDecimal.test.ts	29	it	make	decimal_make_and_normalize
+ported	packages/effect/test/BigDecimal.test.ts	37	it	makeNormalizedUnsafe validates the value and scale	decimal_make_validates_scale
+ported	packages/effect/test/BigDecimal.test.ts	43	it	isBigDecimal	decimal_is_bigdecimal_brand
+ported	packages/effect/test/BigDecimal.test.ts	53	it	sign	decimal_sign_and_equals
+ported	packages/effect/test/BigDecimal.test.ts	61	it	equals	decimal_sign_and_equals
+ported	packages/effect/test/BigDecimal.test.ts	71	it	sum	decimal_sum
+ported	packages/effect/test/BigDecimal.test.ts	81	it	sumAll	decimal_sum_all
+ported	packages/effect/test/BigDecimal.test.ts	87	it	multiply	decimal_multiply
+ported	packages/effect/test/BigDecimal.test.ts	95	it	multiplyAll	decimal_multiply_all
+ported	packages/effect/test/BigDecimal.test.ts	101	it	subtract	decimal_subtract
+ported	packages/effect/test/BigDecimal.test.ts	111	it	roundTerminal	decimal_round_terminal_digit
+ported	packages/effect/test/BigDecimal.test.ts	127	it	divide	decimal_divide_table
+ported	packages/effect/test/BigDecimal.test.ts	174	it	Equivalence	decimal_order_extreme_scales
+ported	packages/effect/test/BigDecimal.test.ts	182	it	Order	decimal_comparisons
+ported	packages/effect/test/BigDecimal.test.ts	194	it	Order and Equivalence support extreme scale differences	decimal_order_extreme_scales
+ported	packages/effect/test/BigDecimal.test.ts	230	it	Order and Equivalence agree with exact bounded scale alignment	decimal_order_extreme_scales
+ported	packages/effect/test/BigDecimal.test.ts	247	it	isLessThan	decimal_comparisons
+ported	packages/effect/test/BigDecimal.test.ts	253	it	isLessThanOrEqualTo	decimal_comparisons
+ported	packages/effect/test/BigDecimal.test.ts	259	it	isGreaterThan	decimal_comparisons
+ported	packages/effect/test/BigDecimal.test.ts	265	it	isGreaterThanOrEqualTo	decimal_comparisons
+ported	packages/effect/test/BigDecimal.test.ts	271	it	between	decimal_comparisons
+ported	packages/effect/test/BigDecimal.test.ts	281	it	clamp	decimal_comparisons
+ported	packages/effect/test/BigDecimal.test.ts	290	it	min	decimal_comparisons
+ported	packages/effect/test/BigDecimal.test.ts	297	it	max	decimal_comparisons
+ported	packages/effect/test/BigDecimal.test.ts	304	it	abs	decimal_comparisons
+ported	packages/effect/test/BigDecimal.test.ts	311	it	negate	decimal_comparisons
+ported	packages/effect/test/BigDecimal.test.ts	318	it	remainder	decimal_remainder
+ported	packages/effect/test/BigDecimal.test.ts	325	it	unsafeRemainder	decimal_remainder
+ported	packages/effect/test/BigDecimal.test.ts	332	it	normalize	decimal_normalize_cache_shape
+ported	packages/effect/test/BigDecimal.test.ts	341	it	normalize caches results without changing the original value or scale	decimal_normalize_cache_shape
+ported	packages/effect/test/BigDecimal.test.ts	363	it	normalize rejects an unsafe resulting scale	decimal_normalize_cache_shape
+ported	packages/effect/test/BigDecimal.test.ts	370	it	fromString	decimal_from_string_shapes
+ported	packages/effect/test/BigDecimal.test.ts	396	it	format	decimal_format_plain
+ported	packages/effect/test/BigDecimal.test.ts	415	it	format preserves the boundary between plain and scientific notation	decimal_format_plain_scientific_boundary
+ported	packages/effect/test/BigDecimal.test.ts	422	it	toExponential	decimal_exponential
+ported	packages/effect/test/BigDecimal.test.ts	429	it	toJSON()	decimal_display_debug_json_shapes
+ported	packages/effect/test/BigDecimal.test.ts	433	it	inspect	decimal_display_debug_json_shapes
+ported	packages/effect/test/BigDecimal.test.ts	441	it	toString()	decimal_display_debug_json_shapes
+ported	packages/effect/test/BigDecimal.test.ts	445	it	Equal.symbol	decimal_equal_hash_by_value
+ported	packages/effect/test/BigDecimal.test.ts	452	it	Hash.symbol preserves hashes across equivalent representations	decimal_equal_hash_by_value
+ported	packages/effect/test/BigDecimal.test.ts	468	it	pipe()	decimal_pipe_scale_from
+ported	packages/effect/test/BigDecimal.test.ts	472	it	scale	decimal_pipe_scale_from
+ported	packages/effect/test/BigDecimal.test.ts	476	it	fromBigInt	decimal_pipe_scale_from
+ported	packages/effect/test/BigDecimal.test.ts	480	it	fromNumber	decimal_pipe_scale_from
+ported	packages/effect/test/BigDecimal.test.ts	486	it	toNumberUnsafe	decimal_pipe_scale_from
+ported	packages/effect/test/BigDecimal.test.ts	490	it	isInteger	decimal_pipe_scale_from
+ported	packages/effect/test/BigDecimal.test.ts	496	it	isZero	decimal_sign_predicates
+ported	packages/effect/test/BigDecimal.test.ts	501	it	isNegative	decimal_sign_predicates
+ported	packages/effect/test/BigDecimal.test.ts	507	it	isPositive	decimal_sign_predicates
+ported	packages/effect/test/BigDecimal.test.ts	513	it	digitAt	decimal_digit_at
+ported	packages/effect/test/BigDecimal.test.ts	522	it	round: ceil	decimal_round_directed
+ported	packages/effect/test/BigDecimal.test.ts	535	it	round: floor	decimal_round_directed
+ported	packages/effect/test/BigDecimal.test.ts	548	it	round: to-zero (truncate)	decimal_round_directed
+ported	packages/effect/test/BigDecimal.test.ts	561	it	round: from-zero	decimal_round_directed
+ported	packages/effect/test/BigDecimal.test.ts	570	it	round: half-ceil	decimal_round_halves
+ported	packages/effect/test/BigDecimal.test.ts	580	it	round: half-floor	decimal_round_halves
+ported	packages/effect/test/BigDecimal.test.ts	591	it	round: half-to-zero	decimal_round_halves
+ported	packages/effect/test/BigDecimal.test.ts	602	it	round: half-from-zero	decimal_round_halves
+ported	packages/effect/test/BigDecimal.test.ts	613	it	round: half-even	decimal_round_halves
+ported	packages/effect/test/BigDecimal.test.ts	624	it	round: half-odd	decimal_round_halves
+ported	packages/effect/test/BigDecimal.test.ts	643	it	unsafeFromString and format should be inverses	decimal_string_inverse_and_exponential
+ported	packages/effect/test/BigDecimal.test.ts	649	it	toExponential should harmonize with Number.prototype.toExponential	decimal_string_inverse_and_exponential
+ported	packages/effect/test/BigInt.test.ts	6	it	re-exports the global BigInt constructor	bigint_constructor
+ported	packages/effect/test/BigInt.test.ts	11	it	divide returns some for non-zero divisors in data-first and data-last forms	bigint_divide_safe
+ported	packages/effect/test/BigInt.test.ts	17	it	sqrt returns integer square roots	bigint_sqrt_floor
+ported	packages/effect/test/BigInt.test.ts	22	it	toNumber converts bigints in the safe integer range	bigint_to_number_safe_range
+ported	packages/effect/test/BigInt.test.ts	27	it	toNumber returns none outside the safe integer range	bigint_to_number_safe_range
+ported	packages/effect/test/BigInt.test.ts	33	it	fromNumber converts safe integers to bigint	bigint_from_number_safe_only
+ported	packages/effect/test/BigInt.test.ts	38	it	fromNumber returns none for unsafe or non-integral numbers	bigint_from_number_safe_only
+ported	packages/effect/test/BigInt.test.ts	44	it	ReducerMultiply combines values with one as the identity	bigint_reducer_multiply
+ported	packages/effect/test/BigInt.test.ts	50	it	CombinerMax returns the larger bigint	bigint_combiner_extremes
+ported	packages/effect/test/BigInt.test.ts	54	it	CombinerMin returns the smaller bigint	bigint_combiner_extremes
+ported	packages/effect/test/BigInt.test.ts	58	it	returns a non-negative greatest common divisor	bigint_gcd_lcm
+ported	packages/effect/test/BigInt.test.ts	62	it	returns a non-negative least common multiple	bigint_gcd_lcm
+ported	packages/effect/test/BigInt.test.ts	66	it	returns zero for two zero operands	bigint_gcd_lcm
+ported	packages/effect/test/BigInt.test.ts	70	it	Order compares bigints	bigint_order_comparisons
+ported	packages/effect/test/BigInt.test.ts	76	it	isLessThan and isLessThanOrEqualTo compare against an upper bound	bigint_order_comparisons
+ported	packages/effect/test/BigInt.test.ts	83	it	isGreaterThan and isGreaterThanOrEqualTo compare against a lower bound	bigint_order_comparisons
+ported	packages/effect/test/BigInt.test.ts	90	it	between checks inclusive range membership	bigint_order_comparisons
+ported	packages/effect/test/BigInt.test.ts	96	it	clamp restricts a bigint to an inclusive range	bigint_order_comparisons
+ported	packages/effect/test/BigInt.test.ts	102	it	min and max select the smaller and larger bigint	bigint_combiner_extremes
+ported	packages/effect/test/BigInt.test.ts	107	it	sign returns the ordering of a bigint against zero	bigint_order_comparisons
 ported	packages/effect/test/Boolean.test.ts	7	it	re-exports the global Boolean constructor	boolean_coerce
 ported	packages/effect/test/Boolean.test.ts	11	it	coerces values with Boolean semantics	boolean_coerce
 ported	packages/effect/test/Boolean.test.ts	22	it	returns true for boolean values	boolean_coerce
@@ -288,18 +288,18 @@ ported	packages/effect/test/Brand.test.ts	80	it	validates a single schema check	
 ported	packages/effect/test/Brand.test.ts	101	it	accumulates failures from multiple schema checks	brand_validate_accumulates_and_aborts
 ported	packages/effect/test/Brand.test.ts	116	it	stops after an aborted failed schema check	brand_validate_accumulates_and_aborts
 ported	packages/effect/test/Brand.test.ts	130	it	combines existing brand constructors with all	brand_validate_accumulates_and_aborts
-unported	packages/effect/test/ByteSize.test.ts	17	it	decodes strict inputs and validates numeric values at runtime	
-unported	packages/effect/test/ByteSize.test.ts	28	it	constructs exact decimal and binary units	
-unported	packages/effect/test/ByteSize.test.ts	59	it	validates primitive and unit constructor inputs	
-unported	packages/effect/test/ByteSize.test.ts	71	it	parses strict SI and IEC strings exactly	
-unported	packages/effect/test/ByteSize.test.ts	89	it	rejects ambiguous, negative, and fractional-byte strings	
-unported	packages/effect/test/ByteSize.test.ts	112	it	uses a branded bigint representation	
-unported	packages/effect/test/ByteSize.test.ts	123	it	converts to numbers only within the safe-integer range	
-unported	packages/effect/test/ByteSize.test.ts	130	it	supports ordering and checked arithmetic	
-unported	packages/effect/test/ByteSize.test.ts	153	it	formats without losing the represented value	
-unported	packages/effect/test/ByteSize.test.ts	164	it	roundtrips canonical strings	
-unported	packages/effect/test/ByteSize.test.ts	170	it	preserves arithmetic invariants	
-unported	packages/effect/test/ByteSize.test.ts	186	it	is total for arbitrary strings	
+ported	packages/effect/test/ByteSize.test.ts	17	it	decodes strict inputs and validates numeric values at runtime	bytesize_strict_strings
+ported	packages/effect/test/ByteSize.test.ts	28	it	constructs exact decimal and binary units	bytesize_units_exact
+ported	packages/effect/test/ByteSize.test.ts	59	it	validates primitive and unit constructor inputs	bytesize_constructor_validation
+ported	packages/effect/test/ByteSize.test.ts	71	it	parses strict SI and IEC strings exactly	bytesize_strict_strings
+ported	packages/effect/test/ByteSize.test.ts	89	it	rejects ambiguous, negative, and fractional-byte strings	bytesize_rejects_bad_inputs
+ported	packages/effect/test/ByteSize.test.ts	112	it	uses a branded bigint representation	bytesize_branded_bigint_and_range
+ported	packages/effect/test/ByteSize.test.ts	123	it	converts to numbers only within the safe-integer range	bytesize_branded_bigint_and_range
+ported	packages/effect/test/ByteSize.test.ts	130	it	supports ordering and checked arithmetic	bytesize_ordering_and_checked_arith
+ported	packages/effect/test/ByteSize.test.ts	153	it	formats without losing the represented value	bytesize_format_roundtrip
+ported	packages/effect/test/ByteSize.test.ts	164	it	roundtrips canonical strings	bytesize_format_roundtrip
+ported	packages/effect/test/ByteSize.test.ts	170	it	preserves arithmetic invariants	bytesize_arith_invariants
+ported	packages/effect/test/ByteSize.test.ts	186	it	is total for arbitrary strings	bytesize_total_on_strings
 unported	packages/effect/test/Cache.test.ts	36	it.effect	make - creates cache with fixed capacity	
 unported	packages/effect/test/Cache.test.ts	46	it.effect	make - creates cache with default infinite TTL	
 unported	packages/effect/test/Cache.test.ts	59	it.effect	make - creates cache with custom TTL	

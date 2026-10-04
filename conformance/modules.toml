@@ -20,7 +20,7 @@ tests = ["packages/effect/test/Array.test.ts"]
 [[module]]
 path = "packages/effect/src/BigDecimal.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/BigDecimal.test.ts"]
@@ -28,7 +28,7 @@ tests = ["packages/effect/test/BigDecimal.test.ts"]
 [[module]]
 path = "packages/effect/src/BigInt.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/BigInt.test.ts"]
@@ -52,7 +52,7 @@ tests = ["packages/effect/test/Brand.test.ts"]
 [[module]]
 path = "packages/effect/src/ByteSize.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/ByteSize.test.ts"]
@@ -724,7 +724,7 @@ tests = []
 [[module]]
 path = "packages/effect/src/RegExp.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
 reason = ""
 tests = []
