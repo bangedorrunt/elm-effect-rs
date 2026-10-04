@@ -177,6 +177,75 @@ fn refine_is_multiple_of() {
 }
 
 #[test]
+fn annotated_schemas_emit_descriptions() {
+    let schema = Schema::annotated(Schema::string(), Some("Name"), Some("The name field"));
+    let doc = schema.json_schema();
+    assert_eq!(doc["type"], serde_json::json!("string"));
+    assert_eq!(doc["title"], serde_json::json!("Name"));
+    assert_eq!(doc["description"], serde_json::json!("The name field"));
+    // The wire shape is unchanged.
+    assert!(schema.decode(Unknown::Text("x".to_string())).is_ok());
+}
+
+#[test]
+fn json_schema_unconstrained_imports_as_any() {
+    let schema = Schema::<Unknown>::from_json_schema(&serde_json::json!({})).unwrap();
+    assert_eq!(
+        schema.decode(Unknown::Number(1.0)).unwrap(),
+        Unknown::Number(1.0)
+    );
+}
+
+#[test]
+fn json_schema_const_and_enum_import_as_literals() {
+    let schema = Schema::<Unknown>::from_json_schema(&serde_json::json!({"const": "red"})).unwrap();
+    assert_eq!(
+        schema.decode(Unknown::Text("red".to_string())).unwrap(),
+        Unknown::Text("red".to_string())
+    );
+    assert!(schema.decode(Unknown::Text("blue".to_string())).is_err());
+    let schema =
+        Schema::<Unknown>::from_json_schema(&serde_json::json!({"enum": ["red", "blue"]})).unwrap();
+    assert!(schema.decode(Unknown::Text("blue".to_string())).is_ok());
+    assert!(schema.decode(Unknown::Text("green".to_string())).is_err());
+}
+
+#[test]
+fn json_schema_null_and_typed_imports() {
+    let schema = Schema::<Unknown>::from_json_schema(&serde_json::json!({"type": "null"})).unwrap();
+    assert!(schema.decode(Unknown::Null).is_ok());
+    assert!(schema.decode(Unknown::Number(0.0)).is_err());
+    let schema =
+        Schema::<Unknown>::from_json_schema(&serde_json::json!({"type": "string"})).unwrap();
+    assert!(schema.decode(Unknown::Text("x".to_string())).is_ok());
+    assert!(schema.decode(Unknown::Number(1.0)).is_err());
+}
+
+#[test]
+fn json_schema_object_imports_required_and_optional() {
+    let schema = Schema::<Unknown>::from_json_schema(&serde_json::json!({
+        "type": "object",
+        "properties": {"name": {"type": "string"}, "age": {"type": "number"}},
+        "required": ["name"],
+    }))
+    .unwrap();
+    let mut input = std::collections::BTreeMap::new();
+    input.insert("name".to_string(), Unknown::Text("Al".to_string()));
+    assert!(schema.decode(Unknown::Object(input)).is_ok());
+    assert!(
+        schema
+            .decode(Unknown::Object(std::collections::BTreeMap::new()))
+            .is_err()
+    );
+}
+
+#[test]
+fn json_schema_ref_is_an_honest_error() {
+    let result = Schema::<Unknown>::from_json_schema(&serde_json::json!({"$ref": "#/$defs/X"}));
+    assert!(result.is_err());
+}
+
+#[test]
 fn json_decodes_each_wire_type() {
     assert_eq!(Schema::null().decode_json("null").unwrap(), ());
     assert_eq!(
@@ -524,7 +593,6 @@ fn optional_field_missing_is_none() {
 // Corpus A batch: records, unions, defaults, refinements, suspend
 // ---------------------------------------------------------------------------
 
-
 fn obj(pairs: &[(&str, Unknown)]) -> Unknown {
     Unknown::Object(
         pairs
@@ -543,7 +611,10 @@ fn record_decodes_values_by_key() {
     expected.insert("b".to_string(), Unknown::Number(2.0));
     assert_eq!(schema.decode(input.clone()).unwrap(), expected);
     assert!(schema.decode(Unknown::Number(1.0)).is_err());
-    assert_eq!(schema.decode(obj(&[])).unwrap(), std::collections::BTreeMap::new());
+    assert_eq!(
+        schema.decode(obj(&[])).unwrap(),
+        std::collections::BTreeMap::new()
+    );
 }
 
 #[test]
@@ -557,7 +628,10 @@ fn record_reports_keyed_paths() {
 
 #[test]
 fn union_ordering_prefers_first() {
-    let schema = Schema::union(Schema::as_unknown(Schema::number()), Schema::as_unknown(Schema::string()));
+    let schema = Schema::union(
+        Schema::as_unknown(Schema::number()),
+        Schema::as_unknown(Schema::string()),
+    );
     assert_eq!(
         schema.decode(Unknown::Number(1.0)).unwrap(),
         Unknown::Number(1.0)
@@ -592,11 +666,17 @@ fn decoding_default_fills_null() {
 
 #[test]
 fn nested_decoding_defaults() {
-    let inner = Schema::as_unknown(Schema::<f64>::with_decoding_default(Schema::number(), || 7.0));
+    let inner = Schema::as_unknown(Schema::<f64>::with_decoding_default(
+        Schema::number(),
+        || 7.0,
+    ));
     let schema = Schema::struct_shape(vec![Field::required("n", inner)]);
     let mut expected = std::collections::BTreeMap::new();
     expected.insert("n".to_string(), Unknown::Number(7.0));
-    assert_eq!(schema.decode(obj(&[("n", Unknown::Null)])).unwrap(), expected);
+    assert_eq!(
+        schema.decode(obj(&[("n", Unknown::Null)])).unwrap(),
+        expected
+    );
 }
 
 #[test]
@@ -639,9 +719,14 @@ fn suspend_builds_recursive_shapes() {
 
 #[test]
 fn struct_excess_fields_pass_through() {
-    let schema =
-        Schema::struct_shape(vec![Field::required("a", Schema::as_unknown(Schema::string()))]);
-    let input = obj(&[("a", Unknown::Text("x".into())), ("extra", Unknown::Number(1.0))]);
+    let schema = Schema::struct_shape(vec![Field::required(
+        "a",
+        Schema::as_unknown(Schema::string()),
+    )]);
+    let input = obj(&[
+        ("a", Unknown::Text("x".into())),
+        ("extra", Unknown::Number(1.0)),
+    ]);
     let decoded = schema.decode(input).unwrap();
     let mut expected = std::collections::BTreeMap::new();
     expected.insert("a".to_string(), Unknown::Text("x".into()));
@@ -651,8 +736,10 @@ fn struct_excess_fields_pass_through() {
 
 #[test]
 fn struct_missing_required_errors() {
-    let schema =
-        Schema::struct_shape(vec![Field::required("a", Schema::as_unknown(Schema::string()))]);
+    let schema = Schema::struct_shape(vec![Field::required(
+        "a",
+        Schema::as_unknown(Schema::string()),
+    )]);
     assert!(schema.decode(obj(&[])).is_err());
 }
 

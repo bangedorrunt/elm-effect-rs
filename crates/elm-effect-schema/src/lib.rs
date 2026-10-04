@@ -72,6 +72,12 @@ pub enum SchemaKind {
     Optional(Box<SchemaKind>),
     /// A combinator whose wire shape is not introspectable.
     Opaque(&'static str),
+    /// Title/description wrapped around another shape.
+    Annotated {
+        title: Option<String>,
+        description: Option<String>,
+        inner: Box<SchemaKind>,
+    },
 }
 
 impl SchemaKind {
@@ -88,6 +94,28 @@ impl SchemaKind {
                 serde_json::json!({"anyOf": [inner.to_json_schema(), {"type": "null"}]})
             }
             SchemaKind::Opaque(name) => serde_json::json!({"$comment": name}),
+            SchemaKind::Annotated {
+                title,
+                description,
+                inner,
+            } => {
+                let mut doc = inner.to_json_schema();
+                if let serde_json::Value::Object(ref mut map) = doc {
+                    if let Some(title) = title {
+                        map.insert(
+                            "title".to_string(),
+                            serde_json::Value::String(title.clone()),
+                        );
+                    }
+                    if let Some(description) = description {
+                        map.insert(
+                            "description".to_string(),
+                            serde_json::Value::String(description.clone()),
+                        );
+                    }
+                }
+                doc
+            }
         }
     }
 }
@@ -138,6 +166,25 @@ impl<T> Schema<T> {
                 message: error.to_string(),
             }
         })
+    }
+
+    /// Wrap a schema with a title and/or description (`annotation`
+    /// shapes): the wire shape is unchanged; the JSON Schema document
+    /// carries the metadata.
+    pub fn annotated(schema: Schema<T>, title: Option<&str>, description: Option<&str>) -> Schema<T>
+    where
+        T: Send + Sync + 'static,
+    {
+        let kind = SchemaKind::Annotated {
+            title: title.map(str::to_string),
+            description: description.map(str::to_string),
+            inner: Box::new(schema.kind),
+        };
+        Schema {
+            decode: schema.decode,
+            encode: schema.encode,
+            kind,
+        }
     }
 
     /// Re-type a schema to `Unknown` through itself: decode validates
@@ -650,6 +697,124 @@ impl<T: Send + Sync + 'static> Schema<Option<T>> {
             },
             kind,
         )
+    }
+}
+
+impl Schema<Unknown> {
+    /// Import a JSON Schema document (`fromJsonSchemaDocument` shapes):
+    /// objects with `type`, `properties`/`required`, `items`, `enum`,
+    /// `const` and `anyOf` import; `$ref` and anything else is a typed
+    /// error naming the gap.
+    pub fn from_json_schema(doc: &serde_json::Value) -> Result<Self, SchemaError> {
+        Self::import(doc)
+    }
+
+    fn import(doc: &serde_json::Value) -> Result<Self, SchemaError> {
+        let get = |key: &str| doc.get(key);
+        if let Some(r#ref) = get("$ref") {
+            let _ = r#ref;
+            return Err(SchemaError::TypeMismatch {
+                path: "$.$ref".to_string(),
+                expected: "an inlinable schema",
+                got: "a reference",
+            });
+        }
+        if let Some(constants) = get("const") {
+            return Ok(Schema::literal(Unknown::from_json(constants.clone())));
+        }
+        if let Some(options) = get("enum") {
+            let serde_json::Value::Array(members) = options else {
+                return Err(SchemaError::TypeMismatch {
+                    path: "$.enum".to_string(),
+                    expected: "an array",
+                    got: "a non-array",
+                });
+            };
+            let mut union: Option<Schema<Unknown>> = None;
+            for member in members {
+                let literal = Schema::literal(Unknown::from_json(member.clone()));
+                union = Some(match union {
+                    None => literal,
+                    Some(accumulated) => Schema::union(accumulated, literal),
+                });
+            }
+            return union.ok_or_else(|| SchemaError::TypeMismatch {
+                path: "$.enum".to_string(),
+                expected: "a non-empty array",
+                got: "an empty array",
+            });
+        }
+        if let Some(any_of) = get("anyOf") {
+            let serde_json::Value::Array(options) = any_of else {
+                return Err(SchemaError::TypeMismatch {
+                    path: "$.anyOf".to_string(),
+                    expected: "an array",
+                    got: "a non-array",
+                });
+            };
+            let mut union: Option<Schema<Unknown>> = None;
+            for option in options {
+                let schema = Self::import(option)?;
+                union = Some(match union {
+                    None => schema,
+                    Some(accumulated) => Schema::union(accumulated, schema),
+                });
+            }
+            return union.ok_or_else(|| SchemaError::TypeMismatch {
+                path: "$.anyOf".to_string(),
+                expected: "a non-empty array",
+                got: "an empty array",
+            });
+        }
+        match get("type") {
+            None => Ok(Schema::any()),
+            Some(serde_json::Value::String(type_name)) => match type_name.as_str() {
+                "string" => Ok(Schema::as_unknown(Schema::string())),
+                "number" | "integer" => Ok(Schema::as_unknown(Schema::number())),
+                "boolean" => Ok(Schema::as_unknown(Schema::boolean())),
+                "null" => Ok(Schema::as_unknown(Schema::null())),
+                "array" => {
+                    let items = match get("items") {
+                        Some(items) => Self::import(items)?,
+                        None => Schema::any(),
+                    };
+                    Ok(Schema::as_unknown(Schema::array(items)))
+                }
+                "object" => {
+                    let empty = serde_json::Map::new();
+                    let properties = match get("properties") {
+                        Some(serde_json::Value::Object(properties)) => properties,
+                        _ => &empty,
+                    };
+                    let required: Vec<&str> = match get("required") {
+                        Some(serde_json::Value::Array(names)) => {
+                            names.iter().filter_map(|name| name.as_str()).collect()
+                        }
+                        _ => Vec::new(),
+                    };
+                    let mut fields = Vec::new();
+                    for (name, property) in properties {
+                        let schema = Self::import(property)?;
+                        if required.iter().any(|wanted| wanted == name) {
+                            fields.push(Field::required(name, schema));
+                        } else {
+                            fields.push(Field::optional(name, schema));
+                        }
+                    }
+                    Ok(Schema::as_unknown(Schema::struct_shape(fields)))
+                }
+                _ => Err(SchemaError::TypeMismatch {
+                    path: "$.type".to_string(),
+                    expected: "a known type name",
+                    got: "an unknown type name",
+                }),
+            },
+            _ => Err(SchemaError::TypeMismatch {
+                path: "$.type".to_string(),
+                expected: "a type name",
+                got: "a non-string",
+            }),
+        }
     }
 }
 
