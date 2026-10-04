@@ -179,3 +179,121 @@ where
         }
     })
 }
+
+/// Take while a fallible predicate holds. `Err` stops with that failure.
+pub fn take_while_effect<A, E>(
+    mut pred: impl FnMut(&A) -> Result<bool, E> + Send + 'static,
+) -> Sink<A, E, (Vec<A>, Vec<A>)>
+where
+    A: Send + 'static,
+    E: Send + 'static,
+{
+    Sink::from_fn(move |mut source| {
+        use elm_effect::Exit;
+        let mut taken = Vec::new();
+        loop {
+            match source.pull() {
+                Take::Items(items) => {
+                    let mut stopped = false;
+                    for item in items {
+                        match pred(&item) {
+                            Ok(true) => taken.push(item),
+                            Ok(false) => {
+                                stopped = true;
+                                break;
+                            }
+                            Err(e) => return Exit::Failure(elm_effect::Cause::fail(e)),
+                        }
+                    }
+                    if stopped {
+                        break;
+                    }
+                }
+                Take::End => break,
+                Take::Fail(e) => return Exit::Failure(elm_effect::Cause::fail(e)),
+            }
+        }
+        let mut leftover = Vec::new();
+        loop {
+            match source.pull() {
+                Take::Items(items) => leftover.extend(items),
+                Take::End => break,
+                Take::Fail(e) => return Exit::Failure(elm_effect::Cause::fail(e)),
+            }
+        }
+        Exit::Success((taken, leftover))
+    })
+}
+
+/// Take while the projection yields `Some`; `None` stops and is consumed.
+pub fn take_while_filter<A, B, E>(
+    mut pred: impl FnMut(&A) -> Option<B> + Send + 'static,
+) -> Sink<A, E, (Vec<B>, Vec<A>)>
+where
+    A: Send + 'static,
+    B: Send + 'static,
+    E: Send + 'static,
+{
+    Sink::from_fn(move |mut source| {
+        use elm_effect::Exit;
+        let mut taken = Vec::new();
+        loop {
+            match source.pull() {
+                Take::Items(items) => {
+                    let mut stopped = false;
+                    for item in items {
+                        match pred(&item) {
+                            Some(mapped) => taken.push(mapped),
+                            None => {
+                                stopped = true;
+                                break;
+                            }
+                        }
+                    }
+                    if stopped {
+                        break;
+                    }
+                }
+                Take::End => break,
+                Take::Fail(e) => return Exit::Failure(elm_effect::Cause::fail(e)),
+            }
+        }
+        let mut leftover = Vec::new();
+        loop {
+            match source.pull() {
+                Take::Items(items) => leftover.extend(items),
+                Take::End => break,
+                Take::Fail(e) => return Exit::Failure(elm_effect::Cause::fail(e)),
+            }
+        }
+        Exit::Success((taken, leftover))
+    })
+}
+
+/// A platform sink: write byte chunks to any [`Write`]r. `End` flushes;
+/// `Fail` aborts without flushing and propagates the failure.
+pub fn from_write<W, E>(mut writer: W) -> Sink<u8, E, ()>
+where
+    W: std::io::Write + Send + 'static,
+    E: Send + 'static,
+{
+    Sink::from_fn(move |mut source| {
+        use elm_effect::Exit;
+        loop {
+            match source.pull() {
+                Take::Items(items) => {
+                    if writer.write_all(&items).is_err() {
+                        return Exit::Failure(elm_effect::Cause::die(elm_effect::Defect::new(
+                            "sink writer failed",
+                        )));
+                    }
+                }
+                Take::End => {
+                    let _ = writer.flush();
+                    return Exit::Success(());
+                }
+                Take::Fail(e) => return Exit::Failure(elm_effect::Cause::fail(e)),
+            }
+        }
+    })
+}

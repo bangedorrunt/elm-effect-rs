@@ -235,3 +235,107 @@ where
         Take::Fail(e) => vec![Take::Fail(e)],
     })
 }
+
+/// Which side's halt stops a [`merge`].
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum HaltStrategy {
+    /// Stop when the left side halts.
+    Left,
+    /// Stop when the right side halts.
+    Right,
+    /// Stop when either side halts.
+    Either,
+    /// Stop when both sides halted.
+    Both,
+}
+
+/// Merge two pulls, interleaving takes as they arrive. A `Fail` always wins
+/// immediately, whichever side it comes from; `End` handling follows the
+/// halt strategy. Halted sides stop being pulled.
+pub fn merge<A, E>(left: Pull<A, E>, right: Pull<A, E>, strategy: HaltStrategy) -> Pull<A, E>
+where
+    A: Send + 'static,
+    E: Send + 'static,
+{
+    enum Side<A, E> {
+        Left(Take<A, E>),
+        Right(Take<A, E>),
+    }
+    let (tx, rx) = std::sync::mpsc::channel::<Side<A, E>>();
+    let halted = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+    for (pull, is_left) in [
+        (std::sync::Arc::new(std::sync::Mutex::new(left)), true),
+        (std::sync::Arc::new(std::sync::Mutex::new(right)), false),
+    ] {
+        let (tx, halted) = (tx.clone(), std::sync::Arc::clone(&halted));
+        std::thread::spawn(move || {
+            loop {
+                if halted.load(std::sync::atomic::Ordering::SeqCst) {
+                    break;
+                }
+                let take = pull.lock().unwrap().pull();
+                let done = matches!(take, Take::End | Take::Fail(_));
+                let side = if is_left {
+                    Side::Left(take)
+                } else {
+                    Side::Right(take)
+                };
+                if tx.send(side).is_err() {
+                    break;
+                }
+                if done {
+                    break;
+                }
+            }
+        });
+    }
+    drop(tx);
+    let mut ended = false;
+    let mut left_open = true;
+    let mut right_open = true;
+    Pull::from_fn(move || {
+        if ended {
+            return Take::End;
+        }
+        loop {
+            let side = match rx.recv() {
+                Ok(side) => side,
+                Err(_) => {
+                    ended = true;
+                    halted.store(true, std::sync::atomic::Ordering::SeqCst);
+                    return Take::End;
+                }
+            };
+            let (is_left, take) = match side {
+                Side::Left(take) => (true, take),
+                Side::Right(take) => (false, take),
+            };
+            match take {
+                Take::Fail(e) => {
+                    ended = true;
+                    halted.store(true, std::sync::atomic::Ordering::SeqCst);
+                    return Take::Fail(e);
+                }
+                Take::Items(items) => return Take::Items(items),
+                Take::End => {
+                    if is_left {
+                        left_open = false;
+                    } else {
+                        right_open = false;
+                    }
+                    let halt = match strategy {
+                        HaltStrategy::Either => true,
+                        HaltStrategy::Left => !left_open,
+                        HaltStrategy::Right => !right_open,
+                        HaltStrategy::Both => !left_open && !right_open,
+                    };
+                    if halt {
+                        ended = true;
+                        halted.store(true, std::sync::atomic::Ordering::SeqCst);
+                        return Take::End;
+                    }
+                }
+            }
+        }
+    })
+}

@@ -385,3 +385,184 @@ fn sink_drain_discards() {
     let done = sink::drain().run(pull::Pull::<i32, String>::of(vec![1, 2]));
     assert_eq!(done, elm_effect::Exit::Success(()));
 }
+
+use std::sync::{Arc, Mutex};
+
+fn seq(items: Vec<u32>) -> pull::Pull<u32, String> {
+    let items = Arc::new(Mutex::new(items));
+    pull::Pull::from_fn(move || match items.lock().unwrap().pop() {
+        Some(v) => Take::Items(vec![v]),
+        None => Take::End,
+    })
+}
+
+fn slow_seq(items: Vec<u32>, delay_ms: u64) -> pull::Pull<u32, String> {
+    let items = Arc::new(Mutex::new(items));
+    pull::Pull::from_fn(move || {
+        std::thread::sleep(std::time::Duration::from_millis(delay_ms));
+        match items.lock().unwrap().pop() {
+            Some(v) => Take::Items(vec![v]),
+            None => Take::End,
+        }
+    })
+}
+
+fn drain(mut pull: pull::Pull<u32, String>) -> Vec<u32> {
+    let mut out = Vec::new();
+    loop {
+        match pull.pull() {
+            Take::Items(items) => out.extend(items),
+            Take::End => return out,
+            Take::Fail(e) => panic!("unexpected failure: {e}"),
+        }
+    }
+}
+
+#[test]
+fn merge_halt_strategies() {
+    use channel::{HaltStrategy, merge};
+
+    // Either: stops at the first End; the slow side never delivers.
+    let merged = merge(
+        seq(vec![1]),
+        slow_seq(vec![9, 9], 100),
+        HaltStrategy::Either,
+    );
+    assert_eq!(drain(merged), vec![1]);
+
+    // Both: runs until both sides end, interleaving in arrival order.
+    let merged = merge(seq(vec![1]), seq(vec![2]), HaltStrategy::Both);
+    let mut collected = drain(merged);
+    collected.sort();
+    assert_eq!(collected, vec![1, 2]);
+
+    // Left: stops when the left ends, even with right items pending.
+    let merged = merge(
+        seq(vec![1]),
+        slow_seq(vec![9, 9, 9], 100),
+        HaltStrategy::Left,
+    );
+    assert_eq!(drain(merged), vec![1]);
+
+    // Right: stops when the right ends.
+    let merged = merge(slow_seq(vec![9, 9], 100), seq(vec![1]), HaltStrategy::Right);
+    assert_eq!(drain(merged), vec![1]);
+
+    // Failure always wins, whichever side it comes from.
+    let failing = pull::Pull::from_fn(|| Take::Fail("boom".to_string()));
+    let mut merged = merge(failing, seq(vec![1, 2, 3]), HaltStrategy::Both);
+    let mut saw_fail = false;
+    loop {
+        match merged.pull() {
+            Take::Fail(e) => {
+                assert_eq!(e, "boom");
+                saw_fail = true;
+                break;
+            }
+            Take::End => break,
+            Take::Items(_) => continue,
+        }
+    }
+    assert!(saw_fail);
+}
+
+#[test]
+fn take_while_keeps_leftovers() {
+    use sink::{take_while_effect, take_while_filter};
+
+    let source = pull::Pull::from_fn({
+        let items = Arc::new(Mutex::new(vec![
+            Take::<u32, String>::End,
+            Take::Items(vec![4u32, 5]),
+            Take::Items(vec![1u32, 2, 3]),
+        ]));
+        move || items.lock().unwrap().pop().unwrap_or(Take::End)
+    });
+    let sink = take_while_effect(|n: &u32| Ok::<bool, String>(*n < 3));
+    let exit = sink.run(source);
+    match exit {
+        elm_effect::Exit::Success((taken, leftover)) => {
+            assert_eq!(taken, vec![1u32, 2]);
+            // The failing input is consumed; the rest is leftover.
+            assert_eq!(leftover, vec![4u32, 5]);
+        }
+        elm_effect::Exit::Failure(_) => panic!("expected success"),
+    }
+
+    let source2 = pull::Pull::from_fn({
+        let items = Arc::new(Mutex::new(vec![
+            Take::<u32, String>::End,
+            Take::Items(vec![1u32, 2, 3]),
+        ]));
+        move || items.lock().unwrap().pop().unwrap_or(Take::End)
+    });
+    let sink2 = take_while_filter(|n: &u32| (*n < 3).then_some(n * 10));
+    let exit2 = sink2.run(source2);
+    match exit2 {
+        elm_effect::Exit::Success((taken, leftover)) => {
+            assert_eq!(taken, vec![10u32, 20]);
+            assert_eq!(leftover, Vec::<u32>::new());
+        }
+        elm_effect::Exit::Failure(_) => panic!("expected success"),
+    }
+
+    // flatMap over leftovers stays total.
+    let doubled: Vec<u32> = vec![4u32].into_iter().flat_map(|n| [n, n]).collect();
+    assert_eq!(doubled, vec![4u32, 4]);
+}
+
+#[test]
+fn from_write_aborts_on_failure() {
+    use sink::from_write;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    struct Tee {
+        seen: Arc<Mutex<Vec<u8>>>,
+        flushes: Arc<AtomicUsize>,
+    }
+    impl std::io::Write for Tee {
+        fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+            self.seen.lock().unwrap().extend_from_slice(buf);
+            Ok(buf.len())
+        }
+        fn flush(&mut self) -> std::io::Result<()> {
+            self.flushes.fetch_add(1, Ordering::SeqCst);
+            Ok(())
+        }
+    }
+
+    // Success path writes bytes and flushes once on End.
+    let (seen, flushes) = (
+        Arc::new(Mutex::new(Vec::new())),
+        Arc::new(AtomicUsize::new(0)),
+    );
+    let source = pull::Pull::from_fn({
+        let items = Arc::new(Mutex::new(vec![
+            Take::<u8, String>::End,
+            Take::Items(vec![104u8, 105]),
+        ]));
+        move || items.lock().unwrap().pop().unwrap_or(Take::End)
+    });
+    let exit = from_write(Tee {
+        seen: Arc::clone(&seen),
+        flushes: Arc::clone(&flushes),
+    })
+    .run(source);
+    assert!(matches!(exit, elm_effect::Exit::Success(())));
+    assert_eq!(*seen.lock().unwrap(), vec![104u8, 105]);
+    assert_eq!(flushes.load(Ordering::SeqCst), 1);
+
+    // Failure path aborts without flushing.
+    let (seen2, flushes2) = (
+        Arc::new(Mutex::new(Vec::new())),
+        Arc::new(AtomicUsize::new(0)),
+    );
+    let failing = pull::Pull::from_fn(|| Take::Fail("boom".to_string()));
+    let exit2 = from_write(Tee {
+        seen: seen2,
+        flushes: Arc::clone(&flushes2),
+    })
+    .run(failing);
+    assert!(matches!(exit2, elm_effect::Exit::Failure(_)));
+    assert_eq!(flushes2.load(Ordering::SeqCst), 0);
+}
