@@ -1,0 +1,165 @@
+//! Foundation behavior at the `effect@4.0.0` pin.
+
+use std::cmp::Ordering;
+use std::ops::Not;
+
+use elm_effect::{
+    Equal, Equivalence, Hash, Order, Predicate, array_equivalence, boolean_equivalence,
+    boolean_order, combine_hash, combine_ordering, compose, const_false, const_true, constant,
+    flip, hash_f64, hash_str, identity, match_ordering, number_equivalence, number_order,
+    ord_order, reverse_ordering, string_equivalence, string_order, tuple_equivalence,
+};
+
+#[test]
+#[allow(invalid_nan_comparisons, clippy::assertions_on_constants)]
+fn equal_nan_is_nan() {
+    // The deliberate divergence: Equal treats NaN as equal; f64's == stays IEEE.
+    assert!(f64::NAN.equal(&f64::NAN));
+    assert!(f32::NAN.equal(&f32::NAN));
+    assert!(f64::NAN != f64::NAN);
+    assert!(!1.0f64.equal(&f64::NAN));
+    assert!(!f64::NAN.equal(&f64::INFINITY));
+    assert!(1.0f64.equal(&1.0));
+    assert!(vec![f64::NAN].equal(&vec![f64::NAN]));
+    assert!(Some(f64::NAN).equal(&Some(f64::NAN)));
+    assert!(!None::<f64>.equal(&Some(1.0)));
+}
+
+#[test]
+fn equal_primitives_are_structural() {
+    assert!("a".to_string().equal(&"a".to_string()));
+    assert!(!"a".to_string().equal(&"b".to_string()));
+    assert!(true.equal(&true));
+    assert!(!true.equal(&false));
+    assert!(Some(1u32).equal(&Some(1u32)));
+    assert!((1u32, "x".to_string()).equal(&(1u32, "x".to_string())));
+    assert!(!(1u32, "x".to_string()).equal(&(1u32, "y".to_string())));
+}
+
+#[test]
+fn hash_nan_matches_and_combines() {
+    assert_eq!(f64::NAN.hash_value(), f64::NAN.hash_value());
+    assert_eq!(hash_f64(f64::NAN), hash_f64(f64::NAN));
+    assert_eq!(1u32.hash_value(), 1u32.hash_value());
+    assert_eq!(hash_str("abc"), hash_str("abc"));
+    assert_ne!(hash_str("abc"), hash_str("abd"));
+    assert_eq!(true.hash_value(), true.hash_value());
+    assert_ne!(true.hash_value(), false.hash_value());
+    let pair = (1u32, "x".to_string());
+    assert_eq!(
+        pair.hash_value(),
+        combine_hash(1u32.hash_value(), "x".to_string().hash_value())
+    );
+    assert_eq!(hash_f64(0.0), hash_f64(-0.0));
+    assert_eq!(vec![1u32, 2].hash_value(), vec![1u32, 2].hash_value());
+    assert_ne!(vec![1u32, 2].hash_value(), vec![2u32, 1].hash_value());
+    assert_ne!(vec![1u32].hash_value(), vec![1u32, 2].hash_value());
+    assert_ne!(true.hash_value(), hash_str("true"));
+    assert_ne!(None::<u32>.hash_value(), hash_str("None"));
+}
+
+#[test]
+fn order_number_nan_rules() {
+    let order: Order<f64> = number_order();
+    assert_eq!(order.compare(&f64::NAN, &f64::NAN), Ordering::Equal);
+    assert_eq!(order.compare(&f64::NAN, &1.0), Ordering::Less);
+    assert_eq!(order.compare(&1.0, &f64::NAN), Ordering::Greater);
+    assert_eq!(order.compare(&1.0, &2.0), Ordering::Less);
+    assert_eq!(order.compare(&2.0, &1.0), Ordering::Greater);
+    // Pin behavior: ties report Greater.
+    assert_eq!(order.compare(&1.0, &1.0), Ordering::Greater);
+    assert_eq!(order.min(1.0, 1.0), 1.0);
+    assert_eq!(order.clamp(5.0, 1.0, 3.0), 3.0);
+    assert!(order.is_less_than(&1.0, &2.0));
+    assert!(order.is_greater_than(&2.0, &1.0));
+    assert!(order.is_less_than_or_equal(&1.0, &2.0));
+    assert!(!order.is_less_than_or_equal(&2.0, &1.0));
+    assert!(order.is_greater_than_or_equal(&2.0, &1.0));
+    assert!(!order.is_greater_than_or_equal(&1.0, &2.0));
+    assert!(order.is_between(&2.0, &1.0, &3.0));
+    assert!(!order.is_between(&4.0, &1.0, &3.0));
+    assert_eq!(order.max(1.0, 2.0), 2.0);
+    let both = Order::combine_all(vec![number_order(), number_order()]);
+    assert_eq!(both.compare(&1.0, &2.0), Ordering::Less);
+}
+
+#[test]
+fn order_composes_lexicographically() {
+    let by_first = string_order().map_input(|pair: &(String, u32)| pair.0.clone());
+    let by_second = ord_order::<u32>().map_input(|pair: &(String, u32)| pair.1);
+    let both = by_first.combine(by_second);
+    // Distinct first members decide on the first order alone.
+    assert_eq!(
+        both.compare(&("a".to_string(), 9u32), &("b".to_string(), 1u32)),
+        Ordering::Less
+    );
+    // Tied first members report Greater per the pin, which decides.
+    assert_eq!(
+        both.compare(&("x".to_string(), 1u32), &("x".to_string(), 2u32)),
+        Ordering::Greater
+    );
+}
+
+#[test]
+fn equivalence_and_predicate_basics() {
+    let eq: Equivalence<f64> = number_equivalence();
+    assert!(eq.is_equivalent(&f64::NAN, &f64::NAN));
+    assert!(!eq.is_equivalent(&1.0, &2.0));
+    assert!(string_equivalence().is_equivalent(&"a".to_string(), &"a".to_string()));
+    assert!(boolean_equivalence().is_equivalent(&true, &true));
+    let both = number_equivalence().combine(number_equivalence());
+    assert!(both.is_equivalent(&1.0, &1.0));
+    let all = Equivalence::combine_all(vec![number_equivalence(), number_equivalence()]);
+    assert!(all.is_equivalent(&1.0, &1.0));
+    assert!(!all.is_equivalent(&1.0, &2.0));
+    let by_len = string_equivalence().map_input(|v: &Vec<u32>| v.len().to_string());
+    assert!(by_len.is_equivalent(&vec![1u32], &vec![2u32]));
+    assert!(
+        tuple_equivalence::<u32, String>()
+            .is_equivalent(&(1u32, "a".to_string()), &(1u32, "a".to_string()))
+    );
+    assert!(array_equivalence::<u32>().is_equivalent(&vec![1u32], &vec![1u32]));
+    assert!(!array_equivalence::<u32>().is_equivalent(&vec![1u32], &vec![1u32, 2u32]));
+
+    let positive = Predicate::make(|n: &i32| *n > 0);
+    let even = Predicate::make(|n: &i32| n % 2 == 0);
+    assert!(positive.clone().and(even.clone()).test(&4));
+    assert!(!positive.clone().and(even.clone()).test(&3));
+    assert!(positive.clone().or(even.clone()).test(&3));
+    assert!(positive.not().test(&-1));
+    assert!(Predicate::<i32>::always().test(&0));
+    assert!(!Predicate::<i32>::never().test(&0));
+    assert!(Predicate::is_some().test(&Some(1)));
+    assert!(Predicate::<Option<i32>>::is_none().test(&None));
+    let projected = even.clone().map_input(|pair: &(i32, i32)| pair.0);
+    assert!(projected.test(&(4, 1)));
+}
+
+#[test]
+fn function_and_ordering_basics() {
+    assert_eq!(identity(3), 3);
+    assert_eq!(constant(7)(), 7);
+    assert!(const_true()());
+    assert!(!const_false()());
+    assert_eq!(flip(|a: u32, b: u32| a - b)(1, 3), 2);
+    assert_eq!(compose(|a: u32| a + 1, |b: u32| b * 2)(3), 8);
+
+    assert_eq!(reverse_ordering(Ordering::Less), Ordering::Greater);
+    assert_eq!(
+        combine_ordering(Ordering::Equal, Ordering::Less),
+        Ordering::Less
+    );
+    assert_eq!(
+        match_ordering(Ordering::Greater, || "lt", || "eq", || "gt"),
+        "gt"
+    );
+    assert_eq!(
+        string_order().compare(&"a".to_string(), &"b".to_string()),
+        Ordering::Less
+    );
+    assert_eq!(boolean_order().compare(&false, &true), Ordering::Less);
+    assert_eq!(
+        boolean_order().reverse().compare(&false, &true),
+        Ordering::Greater
+    );
+}

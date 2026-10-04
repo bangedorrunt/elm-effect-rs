@@ -18,6 +18,7 @@ mod executor;
 mod exit;
 #[cfg(feature = "tokio")]
 mod fiber;
+mod foundation;
 #[cfg(feature = "tokio")]
 mod layer;
 #[cfg(feature = "tokio")]
@@ -40,6 +41,12 @@ pub use executor::{BoxFuture, Executor, TokioExecutor};
 pub use exit::Exit;
 #[cfg(feature = "tokio")]
 pub use fiber::{Ctx, FiberHandle, ForkOpts, Mask, StartMode};
+pub use foundation::{
+    Equal, Equivalence, Hash, Order, Predicate, array_equivalence, boolean_equivalence,
+    boolean_order, combine_hash, combine_ordering, compose, const_false, const_true, constant,
+    flip, hash_f64, hash_str, identity, match_ordering, number_equivalence, number_order,
+    ord_order, reverse_ordering, string_equivalence, string_order, tuple_equivalence,
+};
 #[cfg(feature = "tokio")]
 pub use layer::{BuiltServices, Cycle, Layer, RequirementIds};
 #[cfg(feature = "tokio")]
