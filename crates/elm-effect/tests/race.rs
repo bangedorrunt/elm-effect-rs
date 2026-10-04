@@ -31,7 +31,7 @@ fn race_all_fail_concatenates_causes() {
     );
     match exit {
         Exit::Failure(cause) => {
-            let failures: Vec<&String> = cause
+            let mut failures: Vec<&String> = cause
                 .reasons
                 .iter()
                 .filter_map(|r| match r {
@@ -39,6 +39,8 @@ fn race_all_fail_concatenates_causes() {
                     _ => None,
                 })
                 .collect();
+            // Simultaneous failures arrive in either order; both are kept.
+            failures.sort();
             assert_eq!(failures, vec!["left", "right"]);
         }
         Exit::Success(_) => panic!("expected failure"),
