@@ -678,13 +678,13 @@ unported	packages/effect/test/Chunk.test.ts	945	it	makeEquivalence is symmetric 
 unported	packages/effect/test/Chunk.test.ts	956	it	differenceWith	
 unported	packages/effect/test/Chunk.test.ts	968	it	difference	
 unported	packages/effect/test/Clock.test.ts	5	it.live	keeps wall time aligned while exposing the monotonic source	
-unported	packages/effect/test/Combiner.test.ts	6	it	flip	
-unported	packages/effect/test/Combiner.test.ts	11	it	min	
-unported	packages/effect/test/Combiner.test.ts	17	it	max	
-unported	packages/effect/test/Combiner.test.ts	23	it	first	
-unported	packages/effect/test/Combiner.test.ts	28	it	last	
-unported	packages/effect/test/Combiner.test.ts	33	it	constant	
-unported	packages/effect/test/Combiner.test.ts	38	it	intercalate	
+ported	packages/effect/test/Combiner.test.ts	6	it	flip	combiners_fold
+ported	packages/effect/test/Combiner.test.ts	11	it	min	combiners_fold
+ported	packages/effect/test/Combiner.test.ts	17	it	max	combiners_fold
+ported	packages/effect/test/Combiner.test.ts	23	it	first	combiners_fold
+ported	packages/effect/test/Combiner.test.ts	28	it	last	combiners_fold
+ported	packages/effect/test/Combiner.test.ts	33	it	constant	combiners_fold
+ported	packages/effect/test/Combiner.test.ts	38	it	intercalate	combiners_fold
 unported	packages/effect/test/Config.test.ts	37	it	recognizes SourceError defects from a reloaded module copy	
 unported	packages/effect/test/Config.test.ts	54	it.effect	uses the current ConfigProvider when yielded as an Effect	
 unported	packages/effect/test/Config.test.ts	65	it.effect	preserves provider defects at the root and in nested fields	
@@ -1026,36 +1026,36 @@ unported	packages/effect/test/Crypto.test.ts	111	it.effect	randomULID encodes th
 unported	packages/effect/test/Crypto.test.ts	120	it.effect	randomULID clamps an overflowing Clock timestamp	
 unported	packages/effect/test/Crypto.test.ts	129	it.effect	digest delegates to the service	
 unported	packages/effect/test/Crypto.test.ts	136	it.effect	can access a provided custom Crypto service	
-unported	packages/effect/test/Data.test.ts	11	it	assigns fields from constructor args	
-unported	packages/effect/test/Data.test.ts	17	it	structural equality via Equal.equals	
-unported	packages/effect/test/Data.test.ts	23	it	not equal when fields differ	
+ported	packages/effect/test/Data.test.ts	11	it	assigns fields from constructor args	tagged_structs_match_by_tag
+ported	packages/effect/test/Data.test.ts	17	it	structural equality via Equal.equals	tagged_structs_match_by_tag
+ported	packages/effect/test/Data.test.ts	23	it	not equal when fields differ	tagged_structs_match_by_tag
 unported	packages/effect/test/Data.test.ts	29	it	supports .pipe()	
 unported	packages/effect/test/Data.test.ts	35	it	allows classes without fields to be constructed without args	
 unported	packages/effect/test/Data.test.ts	41	it	fields are enumerable	
-unported	packages/effect/test/Data.test.ts	50	it	sets _tag to the provided tag	
-unported	packages/effect/test/Data.test.ts	55	it	assigns fields	
-unported	packages/effect/test/Data.test.ts	60	it	structural equality includes _tag	
-unported	packages/effect/test/Data.test.ts	66	it	different tags are not equal	
+ported	packages/effect/test/Data.test.ts	50	it	sets _tag to the provided tag	tagged_structs_match_by_tag
+ported	packages/effect/test/Data.test.ts	55	it	assigns fields	tagged_structs_match_by_tag
+ported	packages/effect/test/Data.test.ts	60	it	structural equality includes _tag	tagged_structs_match_by_tag
+ported	packages/effect/test/Data.test.ts	66	it	different tags are not equal	tagged_structs_match_by_tag
 unported	packages/effect/test/Data.test.ts	73	it	allows tagged classes without fields to be constructed without args	
 unported	packages/effect/test/Data.test.ts	79	it	supports .pipe()	
-unported	packages/effect/test/Data.test.ts	94	it	creates a variant with _tag	
-unported	packages/effect/test/Data.test.ts	100	it	creates different variants	
-unported	packages/effect/test/Data.test.ts	109	it	returns true for matching variant	
-unported	packages/effect/test/Data.test.ts	114	it	returns false for non-matching variant	
-unported	packages/effect/test/Data.test.ts	119	it	returns false for non-tagged values	
+ported	packages/effect/test/Data.test.ts	94	it	creates a variant with _tag	tagged_structs_match_by_tag
+ported	packages/effect/test/Data.test.ts	100	it	creates different variants	tagged_structs_match_by_tag
+ported	packages/effect/test/Data.test.ts	109	it	returns true for matching variant	tagged_structs_match_by_tag
+ported	packages/effect/test/Data.test.ts	114	it	returns false for non-matching variant	tagged_structs_match_by_tag
+ported	packages/effect/test/Data.test.ts	119	it	returns false for non-tagged values	tagged_structs_match_by_tag
 unported	packages/effect/test/Data.test.ts	133	it	data-last: matches Circle	
 unported	packages/effect/test/Data.test.ts	138	it	data-last: matches Rect	
 unported	packages/effect/test/Data.test.ts	143	it	data-first: matches directly	
 unported	packages/effect/test/Data.test.ts	160	it	accepts void for empty variants	
 unported	packages/effect/test/Data.test.ts	165	it	works with $match for empty variants	
 unported	packages/effect/test/Data.test.ts	179	it	is an instance of globalThis.Error	
-unported	packages/effect/test/Data.test.ts	184	it	assigns fields	
+ported	packages/effect/test/Data.test.ts	184	it	assigns fields	tagged_structs_match_by_tag
 unported	packages/effect/test/Data.test.ts	190	it	has a stack trace	
 unported	packages/effect/test/Data.test.ts	196	it	allows errors without fields to be constructed without args	
 unported	packages/effect/test/Data.test.ts	202	it	can be yielded in Effect.gen to fail	
 unported	packages/effect/test/Data.test.ts	212	it	toJSON includes fields	
 unported	packages/effect/test/Data.test.ts	225	it	sets _tag	
-unported	packages/effect/test/Data.test.ts	230	it	assigns fields	
+ported	packages/effect/test/Data.test.ts	230	it	assigns fields	tagged_structs_match_by_tag
 unported	packages/effect/test/Data.test.ts	235	it	is an instance of globalThis.Error	
 unported	packages/effect/test/Data.test.ts	240	it	can be caught with Effect.catchTag	
 unported	packages/effect/test/Data.test.ts	250	it	allows tagged errors without fields to be constructed without args	
@@ -2522,9 +2522,9 @@ unported	packages/effect/test/ManagedRuntime.test.ts	65	it	fibers are interrupte
 unported	packages/effect/test/ManagedRuntime.test.ts	75	it	finishes request cleanup before releasing layer resources with ${method}	
 unported	packages/effect/test/ManagedRuntime.test.ts	127	it	completes sequential layer finalizers when disposeEffect is interrupted	
 unported	packages/effect/test/Match.test.ts	6	it	fn keeps the selector arguments	
-unported	packages/effect/test/Match.test.ts	27	it	fn can match a projected value	
-unported	packages/effect/test/Match.test.ts	38	it	tag matches an exact _tag and falls through for null	
-unported	packages/effect/test/Match.test.ts	49	it	tagStartsWith matches a _tag prefix and falls through otherwise	
+ported	packages/effect/test/Match.test.ts	27	it	fn can match a projected value	tagged_structs_match_by_tag
+ported	packages/effect/test/Match.test.ts	38	it	tag matches an exact _tag and falls through for null	tagged_structs_match_by_tag
+ported	packages/effect/test/Match.test.ts	49	it	tagStartsWith matches a _tag prefix and falls through otherwise	tagged_structs_match_by_tag
 unported	packages/effect/test/Match.test.ts	60	it	checks symbol-keyed object pattern properties	
 unported	packages/effect/test/Metric.test.ts	21	it.effect	keeps shared metrics scoped to the active registry	
 unported	packages/effect/test/Metric.test.ts	37	it.effect	keeps attributed metrics scoped to the active registry	
@@ -3173,7 +3173,7 @@ unported	packages/effect/test/Redacted.test.ts	34	it	label appears in redacted o
 unported	packages/effect/test/Redacted.test.ts	44	it	wipeUnsafe removes access to the protected value	
 unported	packages/effect/test/Redacted.test.ts	50	it	Equal compares the protected values of two Redacted values	
 unported	packages/effect/test/Redacted.test.ts	55	it	Hash is derived from the protected value	
-unported	packages/effect/test/Reducer.test.ts	6	it	flip	
+ported	packages/effect/test/Reducer.test.ts	6	it	flip	combiners_fold
 unported	packages/effect/test/Ref.test.ts	30	it.effect	get returns the current value	
 unported	packages/effect/test/Ref.test.ts	36	it.effect	getAndSet returns the previous value and stores the replacement	
 unported	packages/effect/test/Ref.test.ts	43	it.effect	getAndUpdate returns the previous value and stores the computed value	

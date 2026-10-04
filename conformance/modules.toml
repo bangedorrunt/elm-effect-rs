@@ -108,7 +108,7 @@ tests = ["packages/effect/test/Clock.test.ts"]
 [[module]]
 path = "packages/effect/src/Combiner.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/Combiner.test.ts"]
@@ -164,7 +164,7 @@ tests = ["packages/effect/test/Crypto.test.ts"]
 [[module]]
 path = "packages/effect/src/Data.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/Data.test.ts"]
@@ -188,7 +188,7 @@ tests = ["packages/effect/test/Deferred.test.ts"]
 [[module]]
 path = "packages/effect/src/Differ.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
 reason = ""
 tests = []
@@ -300,7 +300,7 @@ tests = []
 [[module]]
 path = "packages/effect/src/Filter.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
 reason = ""
 tests = []
@@ -468,7 +468,7 @@ tests = ["packages/effect/test/ManagedRuntime.test.ts"]
 [[module]]
 path = "packages/effect/src/Match.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/Match.test.ts"]
@@ -700,7 +700,7 @@ tests = ["packages/effect/test/Redacted.test.ts"]
 [[module]]
 path = "packages/effect/src/Reducer.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/Reducer.test.ts"]
