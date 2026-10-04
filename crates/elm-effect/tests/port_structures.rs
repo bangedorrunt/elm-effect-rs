@@ -209,6 +209,11 @@ fn array_std_substrate() {
     assert_eq!(array::take_right(&[1, 2, 3], 2), vec![2, 3]);
     assert_eq!(array::drop_right(&[1, 2, 3], 2), vec![1]);
     assert_eq!(array::split_at(&[1, 2, 3], 1), (vec![1], vec![2, 3]));
+    assert_eq!(
+        array::split_at_nonempty(&[1, 2, 3], 2).map(|(h, t)| (h.to_vec(), t)),
+        Some((vec![1, 2], vec![3]))
+    );
+    assert_eq!(array::split_at_nonempty(&Vec::<i32>::new(), 1), None);
     assert_eq!(array::split(&[1, 0, 2], &0), vec![vec![1], vec![2]]);
     assert_eq!([1, 2, 3].iter().rposition(|a| *a == 3), Some(2));
     assert_eq!(array::find_last_index(&[1, 2, 3], |a| *a < 3), Some(1));
@@ -539,6 +544,28 @@ fn chunk_extra() {
     );
     assert_eq!(Chunk::from_iter(vec![1]).get_or_throw(0), &1);
     assert_eq!(
+        Chunk::from_iter(vec![1, 2])
+            .take_nonempty(5)
+            .map(|c| c.to_vec()),
+        Some(vec![1, 2])
+    );
+    assert_eq!(
+        Chunk::from_iter(vec![1, 2])
+            .take_nonempty(0)
+            .map(|c| c.to_vec()),
+        None
+    );
+    assert_eq!(
+        Chunk::from_iter(vec![1, 2]).drop_nonempty(1).into_vec(),
+        vec![2]
+    );
+    assert_eq!(
+        Chunk::from_iter(vec![1, 2])
+            .split_nonempty_at(1)
+            .map(|(h, t)| (h.to_vec(), t.into_vec())),
+        Some((vec![1], vec![2]))
+    );
+    assert_eq!(
         format!("{:?}", Chunk::from_iter(vec![1, 2])),
         "Chunk([1, 2])"
     );
@@ -627,6 +654,19 @@ fn iterable_combine() {
     assert_eq!(
         iterable::get_somes(vec![Some(1), None, Some(2)]),
         vec![1, 2]
+    );
+    assert_eq!(
+        iterable::cartesian(vec![1], vec![2, 3]),
+        vec![(1, 2), (1, 3)]
+    );
+    assert_eq!(iterable::group_by(vec![1, 1, 2]), vec![vec![1, 1], vec![2]]);
+    assert_eq!(
+        iterable::filter_map_while(vec![1, 2, 3], |a| *a < 3, |a| (a % 2 == 1).then_some(a)),
+        vec![1]
+    );
+    assert_eq!(
+        iterable::flat_map_nullish_or(vec![1, 2], |a| (a > 1).then_some(Some(a))),
+        vec![2]
     );
     assert_eq!(
         vec![1, 2, 3]
@@ -848,6 +888,8 @@ fn record_core() {
         record::map_entries(&r, |k, v| (format!("{k}!"), v + 1)),
         record::from_entries(vec![("b!".to_string(), 3)])
     );
+    assert!(record::record_equal(&r, &r.clone()));
+    assert!(!record::record_equal(&r, &record::empty()));
     assert_eq!(
         record::map_values(&record::filter(&r, |v| *v > 1), |v| v * 10),
         record::from_entries(vec![("b".to_string(), 20)])
@@ -897,6 +939,40 @@ fn struct_shapes() {
     let evolved = struct_::evolve(&r, &[("z", Box::new(|v| v) as Box<dyn Fn(i32) -> i32>)]);
     assert_eq!(evolved.len(), 3);
     assert_eq!(struct_::get(&r, "b"), Some(2));
+    assert_eq!(struct_::map_values(&r, |v| v * 2).get("a"), Some(&2));
+    assert_eq!(
+        struct_::evolve_entry(&r, "a", |v| v + 10).get("a"),
+        Some(&11)
+    );
+    assert_eq!(struct_::rename_keys(&r, &[("a", "z")]).get("z"), Some(&1));
+    assert_eq!(
+        struct_::omit_when(&r, |k, _| k == "b"),
+        struct_::pick(&r, &["a", "c"])
+    );
+    assert_eq!(struct_::omit_when(&r, |_, _| false).len(), 3);
+    assert!(struct_::equiv(&r, &r.clone()));
+    assert!(!struct_::equiv(&r, &struct_::omit(&r, &["a"])));
+    assert_eq!(struct_::keys(&r).len(), 3);
+    assert_eq!(
+        struct_::evolve_entries(&r, "a", |k, v| (format!("{k}!"), v + 1)).get("a!"),
+        Some(&2)
+    );
+    let numkey: std::collections::BTreeMap<String, i32> =
+        [("0".to_string(), 1), ("1".to_string(), 2)]
+            .into_iter()
+            .collect();
+    assert_eq!(
+        struct_::keys(&numkey),
+        vec!["0".to_string(), "1".to_string()]
+    );
+    assert_eq!(
+        struct_::map_values(&struct_::pick(&r, &["a"]), |v| v + 1).get("a"),
+        Some(&2)
+    );
+    assert_eq!(
+        struct_::map_values(&struct_::omit(&r, &["a"]), |v| v + 1).len(),
+        2
+    );
     assert_eq!(
         struct_::keys(&r),
         vec!["a".to_string(), "b".to_string(), "c".to_string()]

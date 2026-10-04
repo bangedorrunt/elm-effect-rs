@@ -181,6 +181,11 @@ pub fn get_somes<V: Clone>(record: &Record<Option<V>>) -> Record<V> {
         .filter_map(|(k, v)| v.clone().map(|v| (k.clone(), v)))
         .collect()
 }
+/// Structural equality over `PartialEq` values (`makeEquivalence` shape).
+pub fn record_equal<V: PartialEq>(a: &Record<V>, b: &Record<V>) -> bool {
+    a == b
+}
+
 /// Map values, keeping keys (`map`).
 pub fn map_values<V, U>(record: &Record<V>, mut f: impl FnMut(&V) -> U) -> Record<U> {
     record.iter().map(|(k, v)| (k.clone(), f(v))).collect()

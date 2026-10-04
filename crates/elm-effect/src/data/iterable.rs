@@ -175,6 +175,57 @@ pub fn get_somes<T: Clone>(iterable: impl IntoIterator<Item = Option<T>>) -> Vec
     iterable.into_iter().flatten().collect()
 }
 
+/// Cartesian product (`cartesian`, `cartesianWith` with pair shape).
+pub fn cartesian<T: Clone, U: Clone>(
+    a: impl IntoIterator<Item = T>,
+    b: impl IntoIterator<Item = U>,
+) -> Vec<(T, U)> {
+    let b: Vec<U> = b.into_iter().collect();
+    a.into_iter()
+        .flat_map(|x| b.iter().map(move |y| (x.clone(), y.clone())))
+        .collect()
+}
+
+/// Group consecutive equals (`groupWith`, `groupBy`, `group`).
+pub fn group_by<T: Clone + PartialEq>(iterable: impl IntoIterator<Item = T>) -> Vec<Vec<T>> {
+    let mut out: Vec<Vec<T>> = Vec::new();
+    for v in iterable {
+        match out.last_mut() {
+            Some(last) if last.first() == Some(&v) => last.push(v),
+            _ => out.push(vec![v]),
+        }
+    }
+    out
+}
+
+/// Take-while plus map-filter in one pass (`filterMapWhile`).
+pub fn filter_map_while<T, U>(
+    iterable: impl IntoIterator<Item = T>,
+    mut take: impl FnMut(&T) -> bool,
+    mut f: impl FnMut(T) -> Option<U>,
+) -> Vec<U> {
+    let mut taking = true;
+    iterable
+        .into_iter()
+        .take_while(|a| {
+            taking = taking && take(a);
+            taking
+        })
+        .filter_map(|a| f(a))
+        .collect()
+}
+
+/// Map then collapse one nullish layer (`flatMapNullishOr`).
+pub fn flat_map_nullish_or<T, U>(
+    iterable: impl IntoIterator<Item = T>,
+    mut f: impl FnMut(T) -> Option<Option<U>>,
+) -> Vec<U> {
+    iterable
+        .into_iter()
+        .filter_map(|a| f(a).flatten())
+        .collect()
+}
+
 /// Chunks of `n` (`chunksOf`).
 pub fn chunks_of<T: Clone>(iterable: impl IntoIterator<Item = T>, n: usize) -> Vec<Vec<T>> {
     assert!(n > 0, "chunksOf requires n > 0");

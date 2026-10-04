@@ -426,4 +426,29 @@ impl<T> Chunk<T> {
                 .collect(),
         )
     }
+
+    /// Take up to `n`, guaranteed non-empty when the chunk is (`takeNonEmpty`).
+    pub fn take_nonempty(&self, n: usize) -> Option<super::nonempty::NonEmpty<T>>
+    where
+        T: Clone,
+    {
+        super::nonempty::NonEmpty::from_vec(self.take(n).into_vec())
+    }
+
+    /// Drop up to `n` (`dropNonEmpty` shape; empty allowed).
+    pub fn drop_nonempty(&self, n: usize) -> Self
+    where
+        T: Clone,
+    {
+        self.drop(n)
+    }
+
+    /// Split at `n` with a non-empty head (`splitNonEmptyAt`).
+    pub fn split_nonempty_at(&self, n: usize) -> Option<(super::nonempty::NonEmpty<T>, Self)>
+    where
+        T: Clone,
+    {
+        let (head, tail) = (self.take(n), self.drop(n));
+        super::nonempty::NonEmpty::from_vec(head.into_vec()).map(|ne| (ne, tail))
+    }
 }
