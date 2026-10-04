@@ -15,6 +15,8 @@
 use std::collections::BTreeMap;
 
 use elm_effect::{Effect, Exit, Runtime};
+
+pub mod replay;
 use serde::{Deserialize, Serialize};
 
 /// Parsed launch configuration. Values only: no sockets, clocks, stores.
