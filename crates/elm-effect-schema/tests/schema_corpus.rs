@@ -197,6 +197,17 @@ fn json_schema_unconstrained_imports_as_any() {
 }
 
 #[test]
+fn json_schema_single_member_enum() {
+    let schema =
+        Schema::<Unknown>::from_json_schema(&serde_json::json!({"enum": ["only"]})).unwrap();
+    assert_eq!(
+        schema.decode(Unknown::Text("only".to_string())).unwrap(),
+        Unknown::Text("only".to_string())
+    );
+    assert!(schema.decode(Unknown::Text("other".to_string())).is_err());
+}
+
+#[test]
 fn json_schema_const_numbers_and_booleans() {
     let schema = Schema::<Unknown>::from_json_schema(&serde_json::json!({"const": 1})).unwrap();
     assert_eq!(
