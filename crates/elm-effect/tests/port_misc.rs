@@ -1810,3 +1810,59 @@ fn option_payloads_structural() {
     let h = directed(&["A", "B"], &[(0, 1, 1)]);
     assert_eq!(g, h);
 }
+#[test]
+fn graph_rejects_exhausted_node_indexes() {
+    use graph::{IndexedNode, Snapshot};
+    let max = graph::MAX_SAFE_INDEX;
+    let g = graph::Graph::from_snapshot(Snapshot::<String, i32> {
+        kind: graph::Kind::Directed,
+        nodes: vec![IndexedNode { index: max, data: "A".to_string() }],
+        edges: vec![],
+    })
+    .unwrap();
+    let m = graph::begin_mutation(&g);
+    let err = m.add_node("B".to_string()).unwrap_err();
+    assert_eq!(err.to_string(), "Graph has exhausted safe node indexes");
+}
+
+#[test]
+fn graph_rejects_exhausted_edge_indexes() {
+    use graph::{IndexedEdge, IndexedNode, Snapshot};
+    let max = graph::MAX_SAFE_INDEX;
+    let g = graph::Graph::from_snapshot(Snapshot::<String, i32> {
+        kind: graph::Kind::Directed,
+        nodes: vec![IndexedNode { index: 0, data: "A".to_string() }],
+        edges: vec![IndexedEdge { index: max, source: 0, target: 0, data: 1 }],
+    })
+    .unwrap();
+    let m = graph::begin_mutation(&g);
+    let err = m.add_edge(0, 0, 2).unwrap_err();
+    assert_eq!(err.to_string(), "Graph has exhausted safe edge indexes");
+}
+
+#[test]
+fn graph_kind_is_directed() {
+    assert!(graph::Kind::Directed.is_directed());
+    assert!(!graph::Kind::Undirected.is_directed());
+    assert!(graph::Kind::Undirected.is_undirected());
+    assert_eq!(directed(&["A"], &[]).kind(), graph::Kind::Directed);
+}
+
+#[test]
+fn graph_node_list_index_order() {
+    let g = directed(&["A", "B"], &[(0, 1, 1)]);
+    let names: Vec<String> = graph::node_list(&g).into_iter().map(|(_, n)| n).collect();
+    assert_eq!(names, vec!["A".to_string(), "B".to_string()]);
+}
+
+#[test]
+fn json_tag_and_is_null() {
+    assert!(Json::Null.is_null());
+    assert!(!Json::Bool(true).is_null());
+    assert_eq!(Json::Null.tag(), "null");
+    assert_eq!(Json::Bool(false).tag(), "boolean");
+    assert_eq!(Json::Num(1.0).tag(), "number");
+    assert_eq!(Json::Str("x".to_string()).tag(), "string");
+    assert_eq!(Json::Arr(vec![]).tag(), "array");
+    assert_eq!(Json::Obj(BTreeMap::new()).tag(), "object");
+}

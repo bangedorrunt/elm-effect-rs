@@ -1887,7 +1887,7 @@ ported	packages/effect/test/Graph.test.ts	99	it	round-trips sparse indexes, para
 ported	packages/effect/test/Graph.test.ts	117	it	snapshots mutable state without exposing stored records	snapshot_clones_never_alias_stored_records
 ported	packages/effect/test/Graph.test.ts	134	it	continues allocation after the highest active snapshot indexes	snapshot_roundtrips_sparse_parallel_loops
 ported	packages/effect/test/Graph.test.ts	145	it	rejects malformed snapshot records and indexes	snapshot_validation_errors
-unported	packages/effect/test/Graph.test.ts	250	it	rejects allocation after safe indexes are exhausted	
+ported	packages/effect/test/Graph.test.ts	250	it	rejects allocation after safe indexes are exhausted	graph_rejects_exhausted_node_indexes
 ported	packages/effect/test/Graph.test.ts	268	it	gives equal immutable graphs equal hashes	equality_and_hash_are_structural
 ported	packages/effect/test/Graph.test.ts	276	it	distinguishes undirected self-loops on different nodes	undirected_parallel_cycle_witness
 ported	packages/effect/test/Graph.test.ts	284	it	distinguishes node payload, edge payload, missing edge, kind, and sparse indexes	snapshot_clones_never_alias_stored_records

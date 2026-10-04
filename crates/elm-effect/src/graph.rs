@@ -17,6 +17,9 @@ pub type NodeIndex = usize;
 /// An edge identifier. Stable across removals.
 pub type EdgeIndex = usize;
 
+/// Largest allocatable index (`Number.MAX_SAFE_INTEGER` upstream).
+pub const MAX_SAFE_INDEX: usize = 9_007_199_254_740_991;
+
 /// Directed or undirected.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Kind {
@@ -34,6 +37,16 @@ impl Kind {
             "undirected" => Ok(Self::Undirected),
             _ => Err(GraphError("Graph type must be directed or undirected".into())),
         }
+    }
+
+    /// True for directed graphs.
+    pub fn is_directed(&self) -> bool {
+        matches!(self, Self::Directed)
+    }
+
+    /// True for undirected graphs.
+    pub fn is_undirected(&self) -> bool {
+        matches!(self, Self::Undirected)
     }
 
     /// The spec kind string.
@@ -308,6 +321,9 @@ impl<N, E> MutableGraph<N, E> {
     pub fn add_node(&self, data: N) -> Result<NodeIndex, GraphError> {
         let mut borrow = self.check()?;
         let index = borrow.graph.next_node;
+        if index > MAX_SAFE_INDEX {
+            return Err(GraphError("Graph has exhausted safe node indexes".into()));
+        }
         borrow.graph.next_node += 1;
         borrow.graph.nodes.insert(index, data);
         Ok(index)
@@ -323,6 +339,9 @@ impl<N, E> MutableGraph<N, E> {
             }
         }
         let index = borrow.graph.next_edge;
+        if index > MAX_SAFE_INDEX {
+            return Err(GraphError("Graph has exhausted safe edge indexes".into()));
+        }
         borrow.graph.next_edge += 1;
         borrow.graph.edges.insert(index, StoredEdge { source, target, data });
         Ok(index)
@@ -1001,7 +1020,8 @@ where
     edge_list(graph).into_iter().find(|(_, e)| pred(&e.data, e.source, e.target)).map(|(i, _)| i)
 }
 
-fn node_list<N, E, V>(graph: &V) -> Vec<(NodeIndex, N)>
+/// All live nodes in index order (residual API of the .21 port).
+pub fn node_list<N, E, V>(graph: &V) -> Vec<(NodeIndex, N)>
 where
     V: View<N, E>,
     N: Clone,
