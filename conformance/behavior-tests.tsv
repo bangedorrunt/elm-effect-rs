@@ -7566,8 +7566,8 @@ unported	packages/effect/test/schema/Schema.test.ts	1427	it	isPattern
 unported	packages/effect/test/schema/Schema.test.ts	1446	it	isPattern with stateful RegExp flags	
 unported	packages/effect/test/schema/Schema.test.ts	1457	it	isStartingWith	
 unported	packages/effect/test/schema/Schema.test.ts	1476	it	isEndingWith	
-unported	packages/effect/test/schema/Schema.test.ts	1495	it	isLowercased	
-unported	packages/effect/test/schema/Schema.test.ts	1514	it	isUppercased	
+ported	packages/effect/test/schema/Schema.test.ts	1495	it	isLowercased	refine_is_lowercased
+ported	packages/effect/test/schema/Schema.test.ts	1514	it	isUppercased	refine_is_uppercased
 unported	packages/effect/test/schema/Schema.test.ts	1533	it	isCapitalized	
 unported	packages/effect/test/schema/Schema.test.ts	1552	it	isUncapitalized	
 ported	packages/effect/test/schema/Schema.test.ts	1571	it	isMinLength	refine_is_min_length
@@ -7584,7 +7584,7 @@ unported	packages/effect/test/schema/Schema.test.ts	1712	it	included & excluded
 unported	packages/effect/test/schema/Schema.test.ts	1737	it	excluded & included	
 unported	packages/effect/test/schema/Schema.test.ts	1762	it	excluded & excluded	
 ported	packages/effect/test/schema/Schema.test.ts	1792	it	isInt	refine_is_int
-unported	packages/effect/test/schema/Schema.test.ts	1823	it	isInt32	
+ported	packages/effect/test/schema/Schema.test.ts	1823	it	isInt32	refine_is_int32
 ported	packages/effect/test/schema/Schema.test.ts	1874	it	isBetween	refine_is_between
 unported	packages/effect/test/schema/Schema.test.ts	1888	it	isGreaterThan	
 unported	packages/effect/test/schema/Schema.test.ts	1900	it	isGreaterThanOrEqualTo	

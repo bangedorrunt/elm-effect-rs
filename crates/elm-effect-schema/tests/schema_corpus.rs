@@ -107,6 +107,34 @@ fn refine_is_between() {
 }
 
 #[test]
+fn refine_is_lowercased() {
+    let schema = Schema::string().refine("lowercased", |s: &String| {
+        !s.chars().any(|c| c.is_uppercase())
+    });
+    assert!(schema.decode(Unknown::Text("abc".to_string())).is_ok());
+    assert!(schema.decode(Unknown::Text("aBc".to_string())).is_err());
+}
+
+#[test]
+fn refine_is_uppercased() {
+    let schema = Schema::string().refine("uppercased", |s: &String| {
+        !s.chars().any(|c| c.is_lowercase())
+    });
+    assert!(schema.decode(Unknown::Text("ABC".to_string())).is_ok());
+    assert!(schema.decode(Unknown::Text("aBC".to_string())).is_err());
+}
+
+#[test]
+fn refine_is_int32() {
+    let schema = Schema::number().refine("an int32", |n: &f64| {
+        n.fract() == 0.0 && (-2_147_483_648.0..=2_147_483_647.0).contains(n)
+    });
+    assert_eq!(schema.decode(Unknown::Number(5.0)).unwrap(), 5.0);
+    assert!(schema.decode(Unknown::Number(5_000_000_000.0)).is_err());
+    assert!(schema.decode(Unknown::Number(5.5)).is_err());
+}
+
+#[test]
 fn refine_is_min_length() {
     let schema = Schema::string().refine("min length 2", |s: &String| s.len() >= 2);
     assert!(schema.decode(Unknown::Text("ab".to_string())).is_ok());
