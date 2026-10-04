@@ -296,7 +296,7 @@ fn json_decodes_each_wire_type() {
         Unknown::Number(42.0)
     );
     assert_eq!(Schema::number().decode_json("2.5").unwrap(), 2.5);
-    assert_eq!(Schema::boolean().decode_json("true").unwrap(), true);
+    assert!(Schema::boolean().decode_json("true").unwrap());
     assert_eq!(
         Schema::array(Schema::string())
             .decode_json(r#"["a"]"#)
@@ -331,7 +331,7 @@ fn refine_non_empty_string() {
 fn revives_predicate_strings() {
     let base64 = Schema::string().refine("base64", |x: &String| {
         !x.is_empty()
-            && x.len() % 4 == 0
+            && x.len().is_multiple_of(4)
             && x.chars()
                 .all(|c| c.is_ascii_alphanumeric() || c == '+' || c == '/' || c == '=')
     });
@@ -485,7 +485,7 @@ fn revives_checked_strings() {
 fn refine_is_base64() {
     let schema = Schema::string().refine("base64", |s: &String| {
         !s.is_empty()
-            && s.len() % 4 == 0
+            && s.len().is_multiple_of(4)
             && s.chars()
                 .all(|c| c.is_ascii_alphanumeric() || c == '+' || c == '/' || c == '=')
     });
@@ -797,4 +797,189 @@ fn optional_field_absent_is_none() {
             .unwrap(),
         Some("x".to_string())
     );
+}
+
+// ---------------------------------------------------------------------------
+// Corpus A batch 2: comparison / size / property / unique revivers
+// ---------------------------------------------------------------------------
+
+#[test]
+fn revives_is_greater_than() {
+    let schema = Schema::number().refine("greater than 0", |n: &f64| *n > 0.0);
+    assert_eq!(schema.decode(Unknown::Number(1.0)).unwrap(), 1.0);
+    assert!(schema.decode(Unknown::Number(0.0)).is_err());
+    assert!(schema.decode(Unknown::Number(-1.0)).is_err());
+}
+
+#[test]
+fn revives_is_greater_than_or_equal() {
+    let schema = Schema::number().refine("greater than or equal to 0", |n: &f64| *n >= 0.0);
+    assert_eq!(schema.decode(Unknown::Number(0.0)).unwrap(), 0.0);
+    assert!(schema.decode(Unknown::Number(-0.5)).is_err());
+}
+
+#[test]
+fn revives_is_less_than() {
+    let schema = Schema::number().refine("less than 10", |n: &f64| *n < 10.0);
+    assert_eq!(schema.decode(Unknown::Number(9.0)).unwrap(), 9.0);
+    assert!(schema.decode(Unknown::Number(10.0)).is_err());
+}
+
+#[test]
+fn revives_is_less_than_or_equal() {
+    let schema = Schema::number().refine("less than or equal to 10", |n: &f64| *n <= 10.0);
+    assert_eq!(schema.decode(Unknown::Number(10.0)).unwrap(), 10.0);
+    assert!(schema.decode(Unknown::Number(11.0)).is_err());
+}
+
+#[test]
+fn revives_is_between_numbers() {
+    let schema = Schema::number().refine("between 1 and 5 inclusive", |n: &f64| {
+        (1.0..=5.0).contains(n)
+    });
+    assert_eq!(schema.decode(Unknown::Number(1.0)).unwrap(), 1.0);
+    assert_eq!(schema.decode(Unknown::Number(5.0)).unwrap(), 5.0);
+    assert!(schema.decode(Unknown::Number(0.0)).is_err());
+    assert!(schema.decode(Unknown::Number(6.0)).is_err());
+}
+
+#[test]
+fn revives_is_min_size() {
+    let schema = Schema::array(Schema::as_unknown(Schema::number()))
+        .refine("min size 2", |v: &Vec<Unknown>| v.len() >= 2);
+    assert!(
+        schema
+            .decode(Unknown::Array(vec![
+                Unknown::Number(1.0),
+                Unknown::Number(2.0)
+            ]))
+            .is_ok()
+    );
+    assert!(
+        schema
+            .decode(Unknown::Array(vec![Unknown::Number(1.0)]))
+            .is_err()
+    );
+}
+
+#[test]
+fn revives_is_max_size() {
+    let schema = Schema::array(Schema::as_unknown(Schema::number()))
+        .refine("max size 2", |v: &Vec<Unknown>| v.len() <= 2);
+    assert!(
+        schema
+            .decode(Unknown::Array(vec![Unknown::Number(1.0)]))
+            .is_ok()
+    );
+    assert!(
+        schema
+            .decode(Unknown::Array(vec![
+                Unknown::Number(1.0),
+                Unknown::Number(2.0),
+                Unknown::Number(3.0)
+            ]))
+            .is_err()
+    );
+}
+
+#[test]
+fn revives_is_between_size() {
+    let schema = Schema::array(Schema::as_unknown(Schema::number()))
+        .refine("size 1 to 2", |v: &Vec<Unknown>| (1..=2).contains(&v.len()));
+    assert!(schema.decode(Unknown::Array(vec![])).is_err());
+    assert!(
+        schema
+            .decode(Unknown::Array(vec![
+                Unknown::Number(1.0),
+                Unknown::Number(2.0),
+                Unknown::Number(3.0)
+            ]))
+            .is_err()
+    );
+    assert!(
+        schema
+            .decode(Unknown::Array(vec![Unknown::Number(1.0)]))
+            .is_ok()
+    );
+}
+
+#[test]
+fn revives_is_unique() {
+    let schema =
+        Schema::array(Schema::as_unknown(Schema::number())).refine("unique", |v: &Vec<Unknown>| {
+            let mut seen = std::collections::HashSet::new();
+            v.iter().map(|x| format!("{x:?}")).all(|k| seen.insert(k))
+        });
+    assert!(
+        schema
+            .decode(Unknown::Array(vec![
+                Unknown::Number(1.0),
+                Unknown::Number(2.0)
+            ]))
+            .is_ok()
+    );
+    assert!(
+        schema
+            .decode(Unknown::Array(vec![
+                Unknown::Number(1.0),
+                Unknown::Number(1.0)
+            ]))
+            .is_err()
+    );
+}
+
+#[test]
+fn revives_is_min_properties() {
+    let schema = Schema::record(Schema::as_unknown(Schema::number())).refine(
+        "min 1 property",
+        |m: &std::collections::BTreeMap<String, Unknown>| !m.is_empty(),
+    );
+    assert!(
+        schema
+            .decode(Unknown::Object(
+                [("a".to_string(), Unknown::Number(1.0))].into()
+            ))
+            .is_ok()
+    );
+    assert!(schema.decode(Unknown::Object(Default::default())).is_err());
+}
+
+#[test]
+fn revives_is_max_properties() {
+    let schema = Schema::record(Schema::as_unknown(Schema::number())).refine(
+        "max 1 property",
+        |m: &std::collections::BTreeMap<String, Unknown>| m.len() <= 1,
+    );
+    assert!(schema.decode(Unknown::Object(Default::default())).is_ok());
+    assert!(
+        schema
+            .decode(Unknown::Object(
+                [
+                    ("a".to_string(), Unknown::Number(1.0)),
+                    ("b".to_string(), Unknown::Number(2.0))
+                ]
+                .into()
+            ))
+            .is_err()
+    );
+}
+
+#[test]
+fn revives_is_including() {
+    let schema = Schema::string().refine("including b", |s: &String| s.contains('b'));
+    assert!(schema.decode(Unknown::Text("abc".into())).is_ok());
+    assert!(schema.decode(Unknown::Text("adc".into())).is_err());
+}
+
+#[test]
+fn revives_is_string_bigint() {
+    fn is_bigint(s: &str) -> bool {
+        let t = s.strip_prefix(['-', '+']).unwrap_or(s);
+        !t.is_empty() && t.bytes().all(|b| b.is_ascii_digit())
+    }
+    let schema = Schema::string().refine("a bigint", |s: &String| is_bigint(s));
+    assert!(schema.decode(Unknown::Text("123".into())).is_ok());
+    assert!(schema.decode(Unknown::Text("-456".into())).is_ok());
+    assert!(schema.decode(Unknown::Text("12.5".into())).is_err());
+    assert!(schema.decode(Unknown::Text("abc".into())).is_err());
 }
