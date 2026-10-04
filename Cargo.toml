@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/elm-effect-conformance", "crates/elm-effect", "crates/elm-effect-schema", "crates/elm-effect-test"]
+members = ["crates/elm-effect-conformance", "crates/elm-effect", "crates/elm-effect-schema", "crates/elm-effect-test", "crates/elm-effect-elm"]
 resolver = "3"
 
 [workspace.package]
