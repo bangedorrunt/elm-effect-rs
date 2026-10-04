@@ -616,3 +616,448 @@ pub fn boolean_order() -> Order<bool> {
 pub fn ord_order<T: Ord>() -> Order<T> {
     Order::make(|a: &T, b: &T| a.cmp(b))
 }
+
+// Data
+
+/// A tagged struct: a `_tag` discriminator plus a value. The `TaggedClass`
+/// side of the pin; tagged unions (`taggedEnum`) are plain Rust enums
+/// matched with [`Matcher`] or `match`.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Tagged<A> {
+    /// The discriminator.
+    pub tag: &'static str,
+    /// The payload.
+    pub value: A,
+}
+
+/// Build a tagged struct.
+pub fn tagged<A>(tag: &'static str, value: A) -> Tagged<A> {
+    Tagged { tag, value }
+}
+
+impl<A: Equal> Equal for Tagged<A> {
+    fn equal(&self, other: &Self) -> bool {
+        self.tag == other.tag && self.value.equal(&other.value)
+    }
+}
+
+impl<A: Hash> Hash for Tagged<A> {
+    fn hash_value(&self) -> u32 {
+        combine_hash(hash_str(self.tag), self.value.hash_value())
+    }
+}
+
+// Match
+
+/// A value matcher: ordered cases plus a fallback. `when`-style guards come
+/// from [`Predicate`]; field matching from [`Matcher::discriminator`].
+/// One matcher case: a guard plus its output function.
+type MatchCase<I, O> = (Predicate<I>, Box<dyn Fn(&I) -> O + Send + Sync>);
+
+pub struct Matcher<I, O> {
+    input: I,
+    cases: Vec<MatchCase<I, O>>,
+}
+
+impl<I, O> Matcher<I, O> {
+    /// Match this input value.
+    pub fn value(input: I) -> Self {
+        Self {
+            input,
+            cases: Vec::new(),
+        }
+    }
+
+    /// Add a case: when `predicate` holds, `then` decides the output.
+    pub fn when(
+        mut self,
+        predicate: Predicate<I>,
+        then: impl Fn(&I) -> O + Send + Sync + 'static,
+    ) -> Self
+    where
+        I: 'static,
+    {
+        self.cases.push((predicate, Box::new(then)));
+        self
+    }
+
+    /// Add a case when either predicate holds.
+    pub fn when_or(
+        self,
+        first: Predicate<I>,
+        second: Predicate<I>,
+        then: impl Fn(&I) -> O + Send + Sync + 'static,
+    ) -> Self
+    where
+        I: 'static,
+    {
+        self.when(first.or(second), then)
+    }
+
+    /// Add a case when both predicates hold.
+    pub fn when_and(
+        self,
+        first: Predicate<I>,
+        second: Predicate<I>,
+        then: impl Fn(&I) -> O + Send + Sync + 'static,
+    ) -> Self
+    where
+        I: 'static,
+    {
+        self.when(first.and(second), then)
+    }
+
+    /// Add a case on a projected value (e.g. a `_tag` field).
+    pub fn discriminator<V>(
+        self,
+        get: impl Fn(&I) -> V + Send + Sync + 'static,
+        value: V,
+        then: impl Fn(&I) -> O + Send + Sync + 'static,
+    ) -> Self
+    where
+        I: 'static,
+        V: PartialEq + Send + Sync + 'static,
+    {
+        self.when(Predicate::make(move |input| get(input) == value), then)
+    }
+
+    /// Add a case when the projected string starts with `prefix`.
+    pub fn discriminator_starts_with(
+        self,
+        get: impl Fn(&I) -> String + Send + Sync + 'static,
+        prefix: &str,
+        then: impl Fn(&I) -> O + Send + Sync + 'static,
+    ) -> Self
+    where
+        I: 'static,
+    {
+        let prefix = prefix.to_string();
+        self.when(
+            Predicate::make(move |input| get(input).starts_with(&prefix)),
+            then,
+        )
+    }
+
+    /// The first matching case, if any.
+    pub fn option(self) -> Option<O> {
+        for (predicate, then) in &self.cases {
+            if predicate.test(&self.input) {
+                return Some(then(&self.input));
+            }
+        }
+        None
+    }
+
+    /// The first matching case, or the default.
+    pub fn or_else(self, default: O) -> O {
+        self.option().unwrap_or(default)
+    }
+
+    /// The first matching case. Panics when nothing matches, like the pin's
+    /// `exhaustive` throwing on a non-exhaustive match.
+    pub fn exhaustive(self) -> O {
+        self.option().expect("non-exhaustive match")
+    }
+}
+
+// Filter
+
+/// A narrowing check: `I` in, `P` or `F` out. Composes with [`and`](Filter::and)
+/// / [`or`](Filter::or); unknown-narrowing (`string`, `number`) is `match`
+/// territory in Rust and intentionally absent here.
+/// A narrowing check function.
+type FilterFn<I, P, F> = Arc<dyn Fn(&I) -> Result<P, F> + Send + Sync>;
+
+#[derive(Clone)]
+pub struct Filter<I, P, F> {
+    run: FilterFn<I, P, F>,
+}
+
+impl<I, P, F> Filter<I, P, F> {
+    /// Build from a function.
+    pub fn make(run: impl Fn(&I) -> Result<P, F> + Send + Sync + 'static) -> Self {
+        Self { run: Arc::new(run) }
+    }
+
+    /// Run the check.
+    pub fn check(&self, input: &I) -> Result<P, F> {
+        (self.run)(input)
+    }
+
+    /// Pass inputs satisfying the predicate, fail the rest with the input.
+    pub fn from_predicate(predicate: Predicate<I>) -> Filter<I, I, I>
+    where
+        I: Clone + 'static,
+    {
+        Filter::make(move |input| {
+            if predicate.test(input) {
+                Ok(input.clone())
+            } else {
+                Err(input.clone())
+            }
+        })
+    }
+
+    /// Read the pass channel as a predicate (fails map to false).
+    pub fn to_predicate(self) -> Predicate<I>
+    where
+        I: Send + Sync + 'static,
+        P: Send + Sync + 'static,
+        F: Send + Sync + 'static,
+    {
+        Predicate::make(move |input| self.check(input).is_ok())
+    }
+
+    /// Map the fail channel.
+    pub fn map_fail<G>(self, f: impl Fn(F) -> G + Send + Sync + 'static) -> Filter<I, P, G>
+    where
+        I: 'static,
+        P: 'static,
+        F: 'static,
+    {
+        Filter::make(move |input| self.check(input).map_err(&f))
+    }
+
+    /// Both must pass.
+    pub fn and(self, other: Self) -> Self
+    where
+        I: Clone + 'static,
+        P: 'static,
+        F: 'static,
+    {
+        Filter::make(move |input| {
+            self.check(input)?;
+            other.check(input)
+        })
+    }
+
+    /// Either may pass; both failures return the second one.
+    pub fn or(self, other: Self) -> Self
+    where
+        I: 'static,
+        P: 'static,
+        F: 'static,
+    {
+        Filter::make(move |input| match self.check(input) {
+            Ok(pass) => Ok(pass),
+            Err(_) => other.check(input),
+        })
+    }
+
+    /// Pass only values equal to `value`.
+    pub fn equals(value: P) -> Filter<P, P, P>
+    where
+        P: PartialEq + Clone + Send + Sync + 'static,
+    {
+        Filter::make(move |input: &P| {
+            if input == &value {
+                Ok(input.clone())
+            } else {
+                Err(input.clone())
+            }
+        })
+    }
+}
+
+// Combiner
+
+/// An associative combination. Laws live with the caller: combine twice in
+/// either grouping and get the same result.
+/// An associative combination function.
+type CombineFn<A> = Arc<dyn Fn(&A, &A) -> A + Send + Sync>;
+
+#[derive(Clone)]
+pub struct Combiner<A> {
+    combine: CombineFn<A>,
+}
+
+impl<A> Combiner<A> {
+    /// Build from a function.
+    pub fn make(combine: impl Fn(&A, &A) -> A + Send + Sync + 'static) -> Self {
+        Self {
+            combine: Arc::new(combine),
+        }
+    }
+
+    /// Combine two values.
+    pub fn combine(&self, first: &A, second: &A) -> A {
+        (self.combine)(first, second)
+    }
+
+    /// Combine with swapped arguments.
+    pub fn flip(self) -> Self
+    where
+        A: 'static,
+    {
+        Self::make(move |a, b| self.combine(b, a))
+    }
+
+    /// Combine under an order: the smaller value wins.
+    pub fn min(order: Order<A>) -> Self
+    where
+        A: Clone + Send + Sync + 'static,
+    {
+        Self::make(move |a, b| order.min(a.clone(), b.clone()))
+    }
+
+    /// Combine under an order: the larger value wins.
+    pub fn max(order: Order<A>) -> Self
+    where
+        A: Clone + Send + Sync + 'static,
+    {
+        Self::make(move |a, b| order.max(a.clone(), b.clone()))
+    }
+
+    /// Always the first value.
+    pub fn first() -> Self
+    where
+        A: Clone + Send + Sync + 'static,
+    {
+        Self::make(|a, _| a.clone())
+    }
+
+    /// Always the last value.
+    pub fn last() -> Self
+    where
+        A: Clone + Send + Sync + 'static,
+    {
+        Self::make(|_, b| b.clone())
+    }
+
+    /// Always this value.
+    pub fn constant(value: A) -> Self
+    where
+        A: Clone + Send + Sync + 'static,
+    {
+        Self::make(move |_: &A, _: &A| value.clone())
+    }
+
+    /// Join strings with a middle separator.
+    pub fn intercalate(middle: &str) -> Combiner<String> {
+        let middle = middle.to_string();
+        Combiner::make(move |a, b| format!("{a}{middle}{b}"))
+    }
+}
+
+// Reducer
+
+/// A combiner with an empty element: folding starts somewhere neutral.
+#[derive(Clone)]
+pub struct Reducer<A> {
+    empty: A,
+    combiner: Combiner<A>,
+}
+
+impl<A: Clone + 'static> Reducer<A> {
+    /// Build from an empty value and a combination.
+    pub fn make(empty: A, combine: impl Fn(&A, &A) -> A + Send + Sync + 'static) -> Self {
+        Self {
+            empty,
+            combiner: Combiner::make(combine),
+        }
+    }
+
+    /// The neutral element.
+    pub fn empty(&self) -> A {
+        self.empty.clone()
+    }
+
+    /// Combine two values.
+    pub fn combine(&self, first: &A, second: &A) -> A {
+        self.combiner.combine(first, second)
+    }
+
+    /// Fold a slice left to right, starting from empty.
+    pub fn fold(&self, values: &[A]) -> A {
+        let mut out = self.empty();
+        for value in values {
+            out = self.combine(&out, value);
+        }
+        out
+    }
+
+    /// Combine with swapped arguments.
+    pub fn flip(self) -> Self {
+        Self {
+            empty: self.empty,
+            combiner: self.combiner.flip(),
+        }
+    }
+}
+
+// Differ
+
+/// Patch-based updates: compute a patch between two values, combine patches
+/// in order, and apply a patch later.
+/// Patch functions for a differ.
+type DiffFn<T, Patch> = Arc<dyn Fn(&T, &T) -> Patch + Send + Sync>;
+type CombinePatchFn<Patch> = Arc<dyn Fn(&Patch, &Patch) -> Patch + Send + Sync>;
+type PatchFn<T, Patch> = Arc<dyn Fn(&T, &Patch) -> T + Send + Sync>;
+
+#[derive(Clone)]
+pub struct Differ<T, Patch> {
+    empty: Patch,
+    diff: DiffFn<T, Patch>,
+    combine: CombinePatchFn<Patch>,
+    patch: PatchFn<T, Patch>,
+}
+
+impl<T, Patch> Differ<T, Patch> {
+    /// Build from parts.
+    pub fn make(
+        empty: Patch,
+        diff: impl Fn(&T, &T) -> Patch + Send + Sync + 'static,
+        combine: impl Fn(&Patch, &Patch) -> Patch + Send + Sync + 'static,
+        patch: impl Fn(&T, &Patch) -> T + Send + Sync + 'static,
+    ) -> Self
+    where
+        T: 'static,
+        Patch: Clone + 'static,
+    {
+        Self {
+            empty,
+            diff: Arc::new(diff),
+            combine: Arc::new(combine),
+            patch: Arc::new(patch),
+        }
+    }
+
+    /// The empty patch.
+    pub fn empty(&self) -> Patch
+    where
+        Patch: Clone,
+    {
+        self.empty.clone()
+    }
+
+    /// The patch from `old` to `new`.
+    pub fn diff(&self, old: &T, new: &T) -> Patch {
+        (self.diff)(old, new)
+    }
+
+    /// Combine two patches in order.
+    pub fn combine(&self, first: &Patch, second: &Patch) -> Patch {
+        (self.combine)(first, second)
+    }
+
+    /// Apply a patch.
+    pub fn patch(&self, old: &T, patch: &Patch) -> T {
+        (self.patch)(old, patch)
+    }
+}
+
+impl<T> Differ<T, Option<T>>
+where
+    T: Equal + Clone + 'static,
+{
+    /// A differ that always replaces: the patch is the new value when
+    /// unequal, empty otherwise.
+    pub fn replace() -> Self {
+        Differ::make(
+            None,
+            |old, new: &T| (!old.equal(new)).then(|| new.clone()),
+            |_, second: &Option<T>| second.clone(),
+            |old, patch: &Option<T>| patch.clone().unwrap_or_else(|| old.clone()),
+        )
+    }
+}
