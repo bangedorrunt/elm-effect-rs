@@ -3483,8 +3483,8 @@ ported	packages/effect/test/Sink.test.ts	172	it.effect	normalizes the maximum el
 ported	packages/effect/test/Sink.test.ts	181	it.effect	zero normalized counts do not evaluate the upstream	sink_take_limits
 ported	packages/effect/test/Sink.test.ts	201	it.effect	normalizes the element count	sink_take_limits
 ported	packages/effect/test/Sink.test.ts	211	it.effect	respects the given limit	sink_take_limits
-unported	packages/effect/test/Sink.test.ts	223	it.effect	produces empty trailing chunks	
-unported	packages/effect/test/Sink.test.ts	235	it.effect	produces an empty chunk for empty input	
+ported	packages/effect/test/Sink.test.ts	223	it.effect	produces empty trailing chunks	sink_take_limits
+ported	packages/effect/test/Sink.test.ts	235	it.effect	produces an empty chunk for empty input	sink_take_limits
 ported	packages/effect/test/Sink.test.ts	246	it.effect	takeWhile	sink_take_while_stops
 ported	packages/effect/test/Sink.test.ts	254	it.effect	takeWhileFilter	sink_take_while_stops
 ported	packages/effect/test/Sink.test.ts	262	it.effect	takeWhileFilter consumes the first failing input	sink_take_while_stops

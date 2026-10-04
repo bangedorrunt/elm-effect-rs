@@ -217,6 +217,9 @@ fn sink_take_limits() {
     // Zero count never pulls: empty result over any input.
     let got = sink::take::<i32, String>(0).run(pull::Pull::of(vec![1]));
     assert_eq!(got, elm_effect::Exit::Success(Vec::<i32>::new()));
+    // Empty input: empty chunk, not a failure.
+    let got = sink::take::<i32, String>(3).run(pull::Pull::<i32, String>::empty());
+    assert_eq!(got, elm_effect::Exit::Success(Vec::<i32>::new()));
 }
 
 #[test]
