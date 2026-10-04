@@ -249,6 +249,26 @@ fn pull_bracket_releases_once() {
 }
 
 #[test]
+fn pull_bracket_release_failure_surfaces() {
+    let mut p = pull::Pull::using_try(
+        vec![1],
+        |rest: &mut Vec<i32>| {
+            if rest.is_empty() {
+                take::Take::<i32, String>::End
+            } else {
+                take::Take::<i32, String>::Items(vec![rest.remove(0)])
+            }
+        },
+        |_| Err::<(), String>("release blew up".to_string()),
+    );
+    // The stream's own ending is delivered first...
+    assert_eq!(p.pull(), take::Take::Items(vec![1]));
+    assert_eq!(p.pull(), take::Take::End);
+    // ...then the release failure surfaces.
+    assert_eq!(p.pull(), take::Take::Fail("release blew up".to_string()));
+}
+
+#[test]
 fn sink_drain_discards() {
     let done = sink::drain().run(pull::Pull::<i32, String>::of(vec![1, 2]));
     assert_eq!(done, elm_effect::Exit::Success(()));

@@ -543,7 +543,7 @@ unported	packages/effect/test/Channel.test.ts	168	it.effect	fromReadableStream
 unported	packages/effect/test/Channel.test.ts	185	it.effect	fromTransformStream - surfaces write-side errors through the read side	
 ported	packages/effect/test/Channel.test.ts	206	it.effect	acquireRelease	pull_bracket_releases_once
 ported	packages/effect/test/Channel.test.ts	218	it.effect	acquireUseRelease combines usage and release failures	pull_bracket_releases_once
-unported	packages/effect/test/Channel.test.ts	231	it.effect	acquireUseRelease surfaces release failure after successful usage	
+ported	packages/effect/test/Channel.test.ts	231	it.effect	acquireUseRelease surfaces release failure after successful usage	pull_bracket_release_failure_surfaces
 ported	packages/effect/test/Channel.test.ts	243	it.effect	runDrain returns the done value after emitted elements	sink_drain_discards
 unported	packages/effect/test/Channel.test.ts	253	it.effect	mkUint8Array	
 ported	packages/effect/test/Channel.test.ts	267	it.effect	map	channel_map_transforms

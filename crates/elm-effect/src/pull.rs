@@ -105,8 +105,46 @@ where
         Self::from_fn(move || Take::Fail(error.clone()))
     }
 
-    /// Bracket a resource around pulls (`acquireRelease`, `acquireUseRelease`
-    /// shapes): `release` runs exactly once, on the first terminal take
+    /// Bracket with a fallible release (`acquireUseRelease` failure shapes):
+    /// `release` runs exactly once, on the first terminal take. A release
+    /// failure surfaces as `Fail` on the pull AFTER the terminal take: the
+    /// stream's own ending is delivered first, then the release error.
+    pub fn using_try<R>(
+        resource: R,
+        mut pull: impl FnMut(&mut R) -> Take<A, E> + Send + 'static,
+        release: impl FnOnce(R) -> Result<(), E> + Send + 'static,
+    ) -> Self
+    where
+        R: Send + 'static,
+        E: Send + 'static,
+    {
+        let mut state = Some((resource, Some(release)));
+        let mut release_error: Option<E> = None;
+        Self::from_fn(move || {
+            if let Some(error) = release_error.take() {
+                return Take::Fail(error);
+            }
+            let Some((mut resource, release)) = state.take() else {
+                return Take::End;
+            };
+            match pull(&mut resource) {
+                terminal @ (Take::End | Take::Fail(_)) => {
+                    if let Some(release) = release
+                        && let Err(error) = release(resource)
+                    {
+                        release_error = Some(error);
+                    }
+                    terminal
+                }
+                take => {
+                    state = Some((resource, release));
+                    take
+                }
+            }
+        })
+    }
+    /// Bracket a resource around pulls (`acquireRelease` shapes):
+    /// `release` runs exactly once, on the first terminal take
     /// (`End` or `Fail`), before that take is delivered. Later pulls yield
     /// `End`.
     pub fn using<R>(
