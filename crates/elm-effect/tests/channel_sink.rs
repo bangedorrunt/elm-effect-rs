@@ -320,6 +320,42 @@ fn channel_catch_if_recovers_matching() {
 }
 
 #[test]
+fn channel_catch_if_refines() {
+    #[derive(Debug, Clone, PartialEq)]
+    enum Problem {
+        Retryable,
+        Fatal,
+    }
+    // Refinement catches only the Retryable subset.
+    let mut first = true;
+    let source = pull::Pull::<i32, Problem>::from_fn(move || {
+        if first {
+            first = false;
+            take::Take::Fail(Problem::Retryable)
+        } else {
+            take::Take::End
+        }
+    });
+    let piped = channel::catch_if(
+        |e: &Problem| matches!(e, Problem::Retryable),
+        |_: Problem| pull::Pull::of(vec![7]),
+    )
+    .run(source);
+    let mut piped = piped;
+    assert_eq!(piped.pull(), take::Take::Items(vec![7]));
+    assert_eq!(piped.pull(), take::Take::End);
+    // The Fatal subset passes through untouched.
+    let source = pull::Pull::<i32, Problem>::fail(Problem::Fatal);
+    let piped = channel::catch_if(
+        |e: &Problem| matches!(e, Problem::Retryable),
+        |_: Problem| pull::Pull::of(vec![7]),
+    )
+    .run(source);
+    let mut piped = piped;
+    assert_eq!(piped.pull(), take::Take::Fail(Problem::Fatal));
+}
+
+#[test]
 fn sink_drain_discards() {
     let done = sink::drain().run(pull::Pull::<i32, String>::of(vec![1, 2]));
     assert_eq!(done, elm_effect::Exit::Success(()));
