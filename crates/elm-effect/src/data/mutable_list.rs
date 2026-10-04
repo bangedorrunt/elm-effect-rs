@@ -32,6 +32,31 @@ impl<T> MutableList<T> {
         self.inner.borrow_mut().push(value);
     }
 
+    /// Push many (`appendAll`).
+    pub fn append_all(&self, values: impl IntoIterator<Item = T>) {
+        self.inner.borrow_mut().extend(values);
+    }
+
+    /// Prepend many, preserving order (`prependAll`).
+    pub fn prepend_all(&self, values: impl IntoIterator<Item = T>) {
+        let mut guard = self.inner.borrow_mut();
+        let mut front: Vec<T> = values.into_iter().collect();
+        front.append(&mut guard);
+        *guard = front;
+    }
+
+    /// Take up to `n` from the front, advancing past them (`takeN`).
+    pub fn take_n(&self, n: usize) -> Vec<T> {
+        let mut guard = self.inner.borrow_mut();
+        let at = n.min(guard.len());
+        guard.drain(..at).collect()
+    }
+
+    /// Keep matching values in place (`filter`).
+    pub fn filter(&self, mut predicate: impl FnMut(&T) -> bool) {
+        self.inner.borrow_mut().retain(|v| predicate(v));
+    }
+
     /// Pop from the back (`pop`).
     pub fn pop(&self) -> Option<T> {
         self.inner.borrow_mut().pop()

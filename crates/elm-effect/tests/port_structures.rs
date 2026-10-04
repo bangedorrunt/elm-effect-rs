@@ -286,6 +286,25 @@ fn chunk_build() {
         chunk::Chunk::from_iter(vec![1, 2, 3]).drop(2).into_vec(),
         vec![3]
     );
+    assert_eq!(chunk::Chunk::from_iter(vec![1]).take(9).into_vec(), vec![1]);
+    assert_eq!(
+        chunk::Chunk::from_iter(vec![1, 2]).drop(0).into_vec(),
+        vec![1, 2]
+    );
+    assert_eq!(
+        chunk::Chunk::from_iter(vec![1]).drop(9).into_vec(),
+        Vec::<i32>::new()
+    );
+    assert_eq!(
+        chunk::Chunk::from_iter(vec![1, 2, 3])
+            .drop(1)
+            .drop(1)
+            .into_vec(),
+        vec![3]
+    );
+    let mut seen = 0;
+    chunk::Chunk::from_iter(vec![1, 2]).for_each(|a| seen += a);
+    assert_eq!(seen, 3);
 }
 
 #[test]
@@ -327,6 +346,12 @@ fn chunk_ops() {
         vec![(1, 3), (2, 4)]
     );
     assert_eq!(
+        chunk::Chunk::from_iter(vec![1, 2, 3])
+            .zip(chunk::Chunk::from_iter(vec![4]))
+            .into_vec(),
+        vec![(1, 4)]
+    );
+    assert_eq!(
         chunk::Chunk::<i32>::collect_results::<&str>(vec![Ok(1), Ok(2)]),
         Ok(chunk::Chunk::from_iter(vec![1, 2]))
     );
@@ -334,6 +359,114 @@ fn chunk_ops() {
         chunk::Chunk::<i32>::collect_results(vec![Ok(1), Err("e")]),
         Err("e")
     );
+}
+
+#[test]
+fn chunk_extra() {
+    use chunk::Chunk;
+    assert_eq!(Chunk::from_iter(vec![1, 2]).size(), 2);
+    assert_eq!(format!("{:?}", Chunk::from_iter(vec![1])), "Chunk([1])");
+    assert_eq!(
+        Chunk::from_iter(vec![1, 2]).modify(0, |a| a + 9).into_vec(),
+        vec![10, 2]
+    );
+    assert_eq!(
+        Chunk::from_iter(vec![1]).modify(5, |a| a).into_vec(),
+        vec![1]
+    );
+    assert_eq!(
+        Chunk::from_iter(vec![1, 2]).replace(0, 9).into_vec(),
+        vec![9, 2]
+    );
+    assert_eq!(Chunk::from_iter(vec![1, 2]).remove(0).into_vec(), vec![2]);
+    assert_eq!(
+        Chunk::from_iter(vec![1, 2]).remove(9).into_vec(),
+        vec![1, 2]
+    );
+    assert_eq!(
+        Chunk::from_iter(vec![1, 2, 3])
+            .take_while(|a| *a < 3)
+            .into_vec(),
+        vec![1, 2]
+    );
+    assert_eq!(
+        Chunk::from_iter(vec![1, 2, 3])
+            .drop_while(|a| *a < 3)
+            .into_vec(),
+        vec![3]
+    );
+    assert_eq!(
+        Chunk::from_iter(vec![1, 2, 3]).split_where(|a| *a == 2),
+        (Chunk::from_iter(vec![1]), Chunk::from_iter(vec![2, 3]))
+    );
+    assert_eq!(
+        Chunk::from_iter(vec![1, 2]).map_accum(0, |s, a| (s + a, s + a)),
+        (3, Chunk::from_iter(vec![1, 3]))
+    );
+    assert_eq!(
+        Chunk::from_iter(vec![1, 2, 3]).partition(|a| *a % 2 == 1),
+        (Chunk::from_iter(vec![1, 3]), Chunk::from_iter(vec![2]))
+    );
+    assert_eq!(
+        Chunk::<Result<i32, &str>>::separate(Chunk::from_iter(vec![Ok(1), Err("e")])),
+        (Chunk::from_iter(vec![1]), Chunk::from_iter(vec!["e"]))
+    );
+    assert_eq!(Chunk::from_iter(vec![1, 2]).find_last(|a| *a < 2), Some(&1));
+    assert_eq!(
+        Chunk::from_iter(vec![1, 2])
+            .filter_map(|a| (*a > 1).then_some(a * 10))
+            .into_vec(),
+        vec![20]
+    );
+    assert_eq!(
+        Chunk::<Option<i32>>::compact(&Chunk::from_iter(vec![Some(1), None])),
+        Chunk::from_iter(vec![1])
+    );
+    assert_eq!(
+        Chunk::from_iter(vec![1, 1, 2]).dedupe().into_vec(),
+        vec![1, 2]
+    );
+    assert_eq!(
+        Chunk::<(i32, i32)>::unzip(Chunk::from_iter(vec![(1, 2)])),
+        (Chunk::from_iter(vec![1]), Chunk::from_iter(vec![2]))
+    );
+    assert_eq!(Chunk::make_by(3, |i| i * 2).into_vec(), vec![0, 2, 4]);
+    assert_eq!(Chunk::<i32>::range(1, 3).into_vec(), vec![1, 2]);
+    assert!(Chunk::from_iter(vec![1]).some(|a| *a == 1));
+    assert_eq!(
+        Chunk::from_iter(vec![3, 1])
+            .sort_by(|a, b| a.cmp(b))
+            .into_vec(),
+        vec![1, 3]
+    );
+    assert_eq!(
+        Chunk::from_iter(vec![1, 2, 3]).chunks_of(2).into_vec(),
+        vec![Chunk::from_iter(vec![1, 2]), Chunk::from_iter(vec![3])]
+    );
+    assert_eq!(Chunk::from_iter(vec![1]).get_or_throw(0), &1);
+    assert_eq!(
+        format!("{:?}", Chunk::from_iter(vec![1, 2])),
+        "Chunk([1, 2])"
+    );
+    assert_eq!(
+        Chunk::from_iter(vec![1, 2])
+            .union(&Chunk::from_iter(vec![2, 3]))
+            .into_vec(),
+        vec![1, 2, 3]
+    );
+    assert_eq!(
+        Chunk::from_iter(vec![1, 2])
+            .intersection(&Chunk::from_iter(vec![2, 3]))
+            .into_vec(),
+        vec![2]
+    );
+    assert_eq!(
+        Chunk::from_iter(vec![1, 2])
+            .difference(&Chunk::from_iter(vec![2, 3]))
+            .into_vec(),
+        vec![1]
+    );
+    assert_eq!(Chunk::from_iter(vec![1, 2]), Chunk::from_iter(vec![1, 2]));
 }
 
 // ---------- Iterable ----------
@@ -425,6 +558,19 @@ fn mutable_list_core() {
         mutable_list::MutableList::from_vec(vec![1]).to_vec(),
         vec![1]
     );
+    let batched = mutable_list::MutableList::new();
+    batched.append_all(vec![1, 2, 3]);
+    assert_eq!(batched.take_n(2), vec![1, 2]);
+    assert_eq!(batched.take_n(9), vec![3]);
+    assert_eq!(batched.take_n(1), Vec::<i32>::new());
+    let filtered = mutable_list::MutableList::from_vec(vec![1, 2, 3]);
+    filtered.filter(|v| *v % 2 == 1);
+    assert_eq!(filtered.to_vec(), vec![1, 3]);
+    filtered.filter(|_| false);
+    assert!(filtered.is_empty());
+    let pre = mutable_list::MutableList::from_vec(vec![3]);
+    pre.prepend_all(vec![1, 2]);
+    assert_eq!(pre.to_vec(), vec![1, 2, 3]);
 }
 
 // ---------- Record ----------
@@ -563,4 +709,10 @@ fn tuple_shapes() {
         (1, "a!".to_string())
     );
     assert_eq!(tuple::triple_first(&(1, 2, 3)), 1);
+}
+
+#[test]
+#[should_panic(expected = "getOrThrow called out of bounds")]
+fn chunk_get_or_throw_panics_out_of_bounds() {
+    let _ = chunk::Chunk::from_iter(vec![1]).get_or_throw(9);
 }

@@ -572,20 +572,20 @@ unported	packages/effect/test/Channel.test.ts	635	it.effect	catchReasons orElse
 unported	packages/effect/test/Channel.test.ts	670	it.effect	extracts reason into error channel	
 unported	packages/effect/test/Channel.test.ts	681	it.effect	extracts second reason type	
 unported	packages/effect/test/Channel.test.ts	692	it.effect	preserves other errors	
-unported	packages/effect/test/Chunk.test.ts	27	it	Equal.equals	
-unported	packages/effect/test/Chunk.test.ts	36	it	toString	
+ported	packages/effect/test/Chunk.test.ts	27	it	Equal.equals	chunk_extra
+ported	packages/effect/test/Chunk.test.ts	36	it	toString	chunk_extra
 unported	packages/effect/test/Chunk.test.ts	47	it	toJSON	
 unported	packages/effect/test/Chunk.test.ts	55	it	inspect	
-unported	packages/effect/test/Chunk.test.ts	63	it	modify	
-unported	packages/effect/test/Chunk.test.ts	71	it	replace	
-unported	packages/effect/test/Chunk.test.ts	76	it	remove	
-unported	packages/effect/test/Chunk.test.ts	81	it	chunksOf	
+ported	packages/effect/test/Chunk.test.ts	63	it	modify	chunk_extra
+ported	packages/effect/test/Chunk.test.ts	71	it	replace	chunk_extra
+ported	packages/effect/test/Chunk.test.ts	76	it	remove	chunk_extra
+ported	packages/effect/test/Chunk.test.ts	81	it	chunksOf	chunk_extra
 unported	packages/effect/test/Chunk.test.ts	116	it	.pipe() method	
-unported	packages/effect/test/Chunk.test.ts	121	it	should return an empty array for an empty chunk	
-unported	packages/effect/test/Chunk.test.ts	125	it	should return an array with the elements of the chunk	
-unported	packages/effect/test/Chunk.test.ts	129	it	should not affect the original chunk when the array is mutated	
-unported	packages/effect/test/Chunk.test.ts	142	it	should give back an empty readonly array	
-unported	packages/effect/test/Chunk.test.ts	152	it	gives back a readonly array	
+ported	packages/effect/test/Chunk.test.ts	121	it	should return an empty array for an empty chunk	chunk_build
+ported	packages/effect/test/Chunk.test.ts	125	it	should return an array with the elements of the chunk	chunk_build
+ported	packages/effect/test/Chunk.test.ts	129	it	should not affect the original chunk when the array is mutated	chunk_build
+ported	packages/effect/test/Chunk.test.ts	142	it	should give back an empty readonly array	chunk_build
+ported	packages/effect/test/Chunk.test.ts	152	it	gives back a readonly array	chunk_build
 unported	packages/effect/test/Chunk.test.ts	166	it	should have depth of +/- 3	
 unported	packages/effect/test/Chunk.test.ts	176	it	should be true	
 unported	packages/effect/test/Chunk.test.ts	182	it	should be false	
@@ -593,90 +593,90 @@ unported	packages/effect/test/Chunk.test.ts	203	it	should process it
 unported	packages/effect/test/Chunk.test.ts	208	it	should return the same reference if the input is a Chunk	
 unported	packages/effect/test/Chunk.test.ts	220	it	should a Some with the value	
 unported	packages/effect/test/Chunk.test.ts	228	it	should return a None	
-unported	packages/effect/test/Chunk.test.ts	239	it	should throw	
-unported	packages/effect/test/Chunk.test.ts	248	it	should throw	
-unported	packages/effect/test/Chunk.test.ts	254	it	should return the value	
-unported	packages/effect/test/Chunk.test.ts	261	it	should throw	
-unported	packages/effect/test/Chunk.test.ts	273	it	should return the value	
-unported	packages/effect/test/Chunk.test.ts	283	it	should throw	
-unported	packages/effect/test/Chunk.test.ts	292	it	should throw	
-unported	packages/effect/test/Chunk.test.ts	298	it	should throw	
-unported	packages/effect/test/Chunk.test.ts	310	it	should return the value	
-unported	packages/effect/test/Chunk.test.ts	319	it	should return the value	
-unported	packages/effect/test/Chunk.test.ts	328	it	should return the value	
-unported	packages/effect/test/Chunk.test.ts	337	it	should return the value	
-unported	packages/effect/test/Chunk.test.ts	343	it	should return the value	
-unported	packages/effect/test/Chunk.test.ts	355	it	append	
-unported	packages/effect/test/Chunk.test.ts	371	it	prependAll	
-unported	packages/effect/test/Chunk.test.ts	382	it	prepend	
+ported	packages/effect/test/Chunk.test.ts	239	it	should throw	chunk_get_or_throw_panics_out_of_bounds
+ported	packages/effect/test/Chunk.test.ts	248	it	should throw	chunk_get_or_throw_panics_out_of_bounds
+ported	packages/effect/test/Chunk.test.ts	254	it	should return the value	chunk_extra
+ported	packages/effect/test/Chunk.test.ts	261	it	should throw	chunk_get_or_throw_panics_out_of_bounds
+ported	packages/effect/test/Chunk.test.ts	273	it	should return the value	chunk_extra
+ported	packages/effect/test/Chunk.test.ts	283	it	should throw	chunk_get_or_throw_panics_out_of_bounds
+ported	packages/effect/test/Chunk.test.ts	292	it	should throw	chunk_get_or_throw_panics_out_of_bounds
+ported	packages/effect/test/Chunk.test.ts	298	it	should throw	chunk_get_or_throw_panics_out_of_bounds
+ported	packages/effect/test/Chunk.test.ts	310	it	should return the value	chunk_extra
+ported	packages/effect/test/Chunk.test.ts	319	it	should return the value	chunk_extra
+ported	packages/effect/test/Chunk.test.ts	328	it	should return the value	chunk_extra
+ported	packages/effect/test/Chunk.test.ts	337	it	should return the value	chunk_extra
+ported	packages/effect/test/Chunk.test.ts	343	it	should return the value	chunk_extra
+ported	packages/effect/test/Chunk.test.ts	355	it	append	chunk_build
+ported	packages/effect/test/Chunk.test.ts	371	it	prependAll	chunk_build
+ported	packages/effect/test/Chunk.test.ts	382	it	prepend	chunk_build
 unported	packages/effect/test/Chunk.test.ts	399	it	normalizes NaN to a zero count	
 unported	packages/effect/test/Chunk.test.ts	408	it	produces valid chunks for fractional counts	
-unported	packages/effect/test/Chunk.test.ts	419	it	should return the subset	
-unported	packages/effect/test/Chunk.test.ts	428	it	should return the available subset	
-unported	packages/effect/test/Chunk.test.ts	437	it	should return the available subset	
-unported	packages/effect/test/Chunk.test.ts	446	it	should return the available subset	
-unported	packages/effect/test/Chunk.test.ts	455	it	should return the available subset	
-unported	packages/effect/test/Chunk.test.ts	461	it	should return the available subset	
+ported	packages/effect/test/Chunk.test.ts	419	it	should return the subset	chunk_build
+ported	packages/effect/test/Chunk.test.ts	428	it	should return the available subset	chunk_build
+ported	packages/effect/test/Chunk.test.ts	437	it	should return the available subset	chunk_build
+ported	packages/effect/test/Chunk.test.ts	446	it	should return the available subset	chunk_build
+ported	packages/effect/test/Chunk.test.ts	455	it	should return the available subset	chunk_build
+ported	packages/effect/test/Chunk.test.ts	461	it	should return the available subset	chunk_build
 unported	packages/effect/test/Chunk.test.ts	470	it	should return a NonEmptyChunk	
 unported	packages/effect/test/Chunk.test.ts	476	it	should return a NonEmptyChunk	
 unported	packages/effect/test/Chunk.test.ts	479	it	should return a ISingleton	
-unported	packages/effect/test/Chunk.test.ts	485	it	should return self on 0	
-unported	packages/effect/test/Chunk.test.ts	489	it	should drop twice	
-unported	packages/effect/test/Chunk.test.ts	493	it	should handle concatenated chunks	
-unported	packages/effect/test/Chunk.test.ts	504	it	should remove the given amount of items	
-unported	packages/effect/test/Chunk.test.ts	513	it	should return an empty chunk	
+ported	packages/effect/test/Chunk.test.ts	485	it	should return self on 0	chunk_build
+ported	packages/effect/test/Chunk.test.ts	489	it	should drop twice	chunk_build
+ported	packages/effect/test/Chunk.test.ts	493	it	should handle concatenated chunks	chunk_build
+ported	packages/effect/test/Chunk.test.ts	504	it	should remove the given amount of items	chunk_build
+ported	packages/effect/test/Chunk.test.ts	513	it	should return an empty chunk	chunk_build
 unported	packages/effect/test/Chunk.test.ts	524	it	should return the subset that doesn't pass the criteria	
-unported	packages/effect/test/Chunk.test.ts	533	it	should return an empty chunk	
+ported	packages/effect/test/Chunk.test.ts	533	it	should return an empty chunk	chunk_build
 unported	packages/effect/test/Chunk.test.ts	540	it	preserves a sliced chunk when appending after a prefix	
-unported	packages/effect/test/Chunk.test.ts	554	it	should concatenate them following order	
-unported	packages/effect/test/Chunk.test.ts	563	it	should concatenate them following order	
-unported	packages/effect/test/Chunk.test.ts	572	it	should concatenate them following order	
-unported	packages/effect/test/Chunk.test.ts	584	it	should concatenate them following order	
-unported	packages/effect/test/Chunk.test.ts	596	it	should concatenate them following order	
-unported	packages/effect/test/Chunk.test.ts	605	it	should concatenate them following order	
-unported	packages/effect/test/Chunk.test.ts	614	it	should concatenate them following order	
-unported	packages/effect/test/Chunk.test.ts	626	it	should concatenate them following order	
-unported	packages/effect/test/Chunk.test.ts	641	it	zip	
-unported	packages/effect/test/Chunk.test.ts	649	it	should zip the chunks together and drop the leftover	
-unported	packages/effect/test/Chunk.test.ts	658	it	last	
-unported	packages/effect/test/Chunk.test.ts	663	it	map	
-unported	packages/effect/test/Chunk.test.ts	670	it	mapAccum	
-unported	packages/effect/test/Chunk.test.ts	674	it	partition	
-unported	packages/effect/test/Chunk.test.ts	697	it	partition (identity)	
-unported	packages/effect/test/Chunk.test.ts	705	it	separate	
-unported	packages/effect/test/Chunk.test.ts	713	it	size	
+ported	packages/effect/test/Chunk.test.ts	554	it	should concatenate them following order	chunk_build
+ported	packages/effect/test/Chunk.test.ts	563	it	should concatenate them following order	chunk_build
+ported	packages/effect/test/Chunk.test.ts	572	it	should concatenate them following order	chunk_build
+ported	packages/effect/test/Chunk.test.ts	584	it	should concatenate them following order	chunk_build
+ported	packages/effect/test/Chunk.test.ts	596	it	should concatenate them following order	chunk_build
+ported	packages/effect/test/Chunk.test.ts	605	it	should concatenate them following order	chunk_build
+ported	packages/effect/test/Chunk.test.ts	614	it	should concatenate them following order	chunk_build
+ported	packages/effect/test/Chunk.test.ts	626	it	should concatenate them following order	chunk_build
+ported	packages/effect/test/Chunk.test.ts	641	it	zip	chunk_ops
+ported	packages/effect/test/Chunk.test.ts	649	it	should zip the chunks together and drop the leftover	chunk_ops
+ported	packages/effect/test/Chunk.test.ts	658	it	last	chunk_ends
+ported	packages/effect/test/Chunk.test.ts	663	it	map	chunk_ops
+ported	packages/effect/test/Chunk.test.ts	670	it	mapAccum	chunk_extra
+ported	packages/effect/test/Chunk.test.ts	674	it	partition	chunk_extra
+ported	packages/effect/test/Chunk.test.ts	697	it	partition (identity)	chunk_extra
+ported	packages/effect/test/Chunk.test.ts	705	it	separate	chunk_extra
+ported	packages/effect/test/Chunk.test.ts	713	it	size	chunk_extra
 unported	packages/effect/test/Chunk.test.ts	718	it	split	
-unported	packages/effect/test/Chunk.test.ts	730	it	tail	
+ported	packages/effect/test/Chunk.test.ts	730	it	tail	chunk_ends
 unported	packages/effect/test/Chunk.test.ts	737	it	filter	
 unported	packages/effect/test/Chunk.test.ts	749	it	combinators read sparse backing holes as undefined	
-unported	packages/effect/test/Chunk.test.ts	773	it	findLast	
-unported	packages/effect/test/Chunk.test.ts	779	it	filterMap	
+ported	packages/effect/test/Chunk.test.ts	773	it	findLast	chunk_extra
+ported	packages/effect/test/Chunk.test.ts	779	it	filterMap	chunk_extra
 unported	packages/effect/test/Chunk.test.ts	790	it	filterMapWhile	
-unported	packages/effect/test/Chunk.test.ts	797	it	compact	
-unported	packages/effect/test/Chunk.test.ts	803	it	dedupeAdjacent	
-unported	packages/effect/test/Chunk.test.ts	809	it	flatMap	
+ported	packages/effect/test/Chunk.test.ts	797	it	compact	chunk_extra
+ported	packages/effect/test/Chunk.test.ts	803	it	dedupeAdjacent	chunk_extra
+ported	packages/effect/test/Chunk.test.ts	809	it	flatMap	chunk_ops
 unported	packages/effect/test/Chunk.test.ts	814	it	flatMap preserves order and callback indices across chunk backings	
 unported	packages/effect/test/Chunk.test.ts	825	it	flatMap and join read the holes of a sparse backing array as undefined	
-unported	packages/effect/test/Chunk.test.ts	835	it	union	
-unported	packages/effect/test/Chunk.test.ts	841	it	intersection	
-unported	packages/effect/test/Chunk.test.ts	847	it	isEmpty	
+ported	packages/effect/test/Chunk.test.ts	835	it	union	chunk_extra
+ported	packages/effect/test/Chunk.test.ts	841	it	intersection	chunk_extra
+ported	packages/effect/test/Chunk.test.ts	847	it	isEmpty	chunk_ends
 unported	packages/effect/test/Chunk.test.ts	852	it	lastUnsafe	
 unported	packages/effect/test/Chunk.test.ts	858	it	splitNonEmptyAt	
-unported	packages/effect/test/Chunk.test.ts	864	it	splitWhere	
-unported	packages/effect/test/Chunk.test.ts	869	it	takeWhile	
-unported	packages/effect/test/Chunk.test.ts	874	it	dedupe	
-unported	packages/effect/test/Chunk.test.ts	880	it	unzip	
-unported	packages/effect/test/Chunk.test.ts	888	it	reverse	
-unported	packages/effect/test/Chunk.test.ts	894	it	flatten	
-unported	packages/effect/test/Chunk.test.ts	898	it	makeBy	
-unported	packages/effect/test/Chunk.test.ts	904	it	range	
-unported	packages/effect/test/Chunk.test.ts	916	it	some	
-unported	packages/effect/test/Chunk.test.ts	922	it	forEach	
-unported	packages/effect/test/Chunk.test.ts	928	it	sortWith	
+ported	packages/effect/test/Chunk.test.ts	864	it	splitWhere	chunk_extra
+ported	packages/effect/test/Chunk.test.ts	869	it	takeWhile	chunk_extra
+ported	packages/effect/test/Chunk.test.ts	874	it	dedupe	chunk_extra
+ported	packages/effect/test/Chunk.test.ts	880	it	unzip	chunk_extra
+ported	packages/effect/test/Chunk.test.ts	888	it	reverse	chunk_ops
+ported	packages/effect/test/Chunk.test.ts	894	it	flatten	chunk_ops
+ported	packages/effect/test/Chunk.test.ts	898	it	makeBy	chunk_extra
+ported	packages/effect/test/Chunk.test.ts	904	it	range	chunk_extra
+ported	packages/effect/test/Chunk.test.ts	916	it	some	chunk_extra
+ported	packages/effect/test/Chunk.test.ts	922	it	forEach	chunk_build
+ported	packages/effect/test/Chunk.test.ts	928	it	sortWith	chunk_extra
 unported	packages/effect/test/Chunk.test.ts	937	it	makeEquivalence	
 unported	packages/effect/test/Chunk.test.ts	945	it	makeEquivalence is symmetric on a sparse backing array, whose holes read as undefined	
 unported	packages/effect/test/Chunk.test.ts	956	it	differenceWith	
-unported	packages/effect/test/Chunk.test.ts	968	it	difference	
+ported	packages/effect/test/Chunk.test.ts	968	it	difference	chunk_extra
 unported	packages/effect/test/Clock.test.ts	5	it.live	keeps wall time aligned while exposing the monotonic source	
 ported	packages/effect/test/Combiner.test.ts	6	it	flip	combiners_fold
 ported	packages/effect/test/Combiner.test.ts	11	it	min	combiners_fold
@@ -2615,23 +2615,23 @@ unported	packages/effect/test/MutableHashMap.test.ts	301	it	size
 unported	packages/effect/test/MutableHashMap.test.ts	314	it	modify updates existing keys and ignores missing keys	
 unported	packages/effect/test/MutableHashMap.test.ts	340	it	pipe()	
 unported	packages/effect/test/MutableHashSet.test.ts	6	it	isMutableHashSet distinguishes Effect mutable hash sets from native sets	
-unported	packages/effect/test/MutableList.test.ts	6	it	prependAll with no values preserves existing elements	
-unported	packages/effect/test/MutableList.test.ts	16	it	prependAll with no values keeps an empty list appendable	
+ported	packages/effect/test/MutableList.test.ts	6	it	prependAll with no values preserves existing elements	mutable_list_core
+ported	packages/effect/test/MutableList.test.ts	16	it	prependAll with no values keeps an empty list appendable	mutable_list_core
 unported	packages/effect/test/MutableList.test.ts	26	it	bounds the retained slots of a list that never fully drains	
 unported	packages/effect/test/MutableList.test.ts	45	it	keeps later buckets intact when consuming a large prefix	
-unported	packages/effect/test/MutableList.test.ts	53	it	takeN advances past a drained appendAll bucket	
-unported	packages/effect/test/MutableList.test.ts	68	it	takeN advances past a drained append bucket but not a partially drained bucket	
-unported	packages/effect/test/MutableList.test.ts	80	it	preserves a prepended element when appending to the list	
-unported	packages/effect/test/MutableList.test.ts	89	it	preserves bulk-prepended values when appending to the list	
-unported	packages/effect/test/MutableList.test.ts	97	it	returns an empty snapshot for a negative bound	
+ported	packages/effect/test/MutableList.test.ts	53	it	takeN advances past a drained appendAll bucket	mutable_list_core
+ported	packages/effect/test/MutableList.test.ts	68	it	takeN advances past a drained append bucket but not a partially drained bucket	mutable_list_core
+ported	packages/effect/test/MutableList.test.ts	80	it	preserves a prepended element when appending to the list	mutable_list_core
+ported	packages/effect/test/MutableList.test.ts	89	it	preserves bulk-prepended values when appending to the list	mutable_list_core
+ported	packages/effect/test/MutableList.test.ts	97	it	returns an empty snapshot for a negative bound	mutable_list_core
 unported	packages/effect/test/MutableList.test.ts	104	it	normalizes bounded operation counts	
 unported	packages/effect/test/MutableList.test.ts	131	it	appendAll returns 0 and leaves an empty list empty	
-unported	packages/effect/test/MutableList.test.ts	141	it	appendAll with empty iterables preserves later append order	
+ported	packages/effect/test/MutableList.test.ts	141	it	appendAll with empty iterables preserves later append order	mutable_list_core
 unported	packages/effect/test/MutableList.test.ts	153	it	appendAllUnsafe with an empty array is a no-op	
-unported	packages/effect/test/MutableList.test.ts	164	it	filter keeps matching values in place and updates length	
+ported	packages/effect/test/MutableList.test.ts	164	it	filter keeps matching values in place and updates length	mutable_list_core
 unported	packages/effect/test/MutableList.test.ts	174	it	filter passes list indices to the predicate across offsets and buckets	
-unported	packages/effect/test/MutableList.test.ts	188	it	filter restores the empty list state when no values match	
-unported	packages/effect/test/MutableList.test.ts	200	it	remove deletes all strictly equal values and updates length	
+ported	packages/effect/test/MutableList.test.ts	188	it	filter restores the empty list state when no values match	mutable_list_core
+ported	packages/effect/test/MutableList.test.ts	200	it	remove deletes all strictly equal values and updates length	mutable_list_core
 unported	packages/effect/test/Newtype.test.ts	12	it	returns the underlying carrier value	
 unported	packages/effect/test/Newtype.test.ts	17	it	is an identity function at runtime	
 unported	packages/effect/test/Newtype.test.ts	25	it	set wraps and get unwraps roundtrip	
