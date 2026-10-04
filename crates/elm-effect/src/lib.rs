@@ -58,7 +58,7 @@ pub use optic::{
 #[cfg(feature = "tokio")]
 pub use policy::{BreakerConfig, Bulkhead, RateLimiter, Remote, RemoteError, RemotePolicy, hedge};
 #[cfg(feature = "tokio")]
-pub use runtime::{ManagedRuntime, Runtime, timeout};
+pub use runtime::{ManagedRuntime, Runtime, race, race_first, timeout};
 pub use schedule::{Random, RandomTag, Schedule, repeat, retry};
 #[cfg(feature = "tokio")]
 pub use scope::Scope;

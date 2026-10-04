@@ -445,3 +445,158 @@ where
         }
     }
 }
+
+/// Race two bodies: the first SUCCESS wins. A failure does not beat a later
+/// success; if every side fails, the causes are concatenated. The loser is
+/// interrupted and released (finalizers run) before the winner's value is
+/// returned.
+pub fn race<A, E>(
+    rt: &Runtime,
+    left: impl FnOnce(&crate::Ctx) -> Exit<A, E> + Send + 'static,
+    right: impl FnOnce(&crate::Ctx) -> Exit<A, E> + Send + 'static,
+) -> Exit<A, E>
+where
+    A: Send + 'static,
+    E: Send + 'static,
+{
+    enum Leg<A, E> {
+        Left(Exit<A, E>),
+        Right(Exit<A, E>),
+    }
+    let (tx, rx) = std::sync::mpsc::channel::<Leg<A, E>>();
+    // Immediate start: race() blocks on the outcome, so deferred latches
+    // would never fire (nobody yields). Racers begin at once.
+    let immediate = crate::ForkOpts::immediate();
+    let tx_left = tx.clone();
+    let left_h = rt.fork_detach_with(
+        move |ctx| {
+            let exit = left(ctx);
+            let _ = tx_left.send(Leg::Left(exit));
+            Exit::<(), std::convert::Infallible>::succeed(())
+        },
+        immediate,
+    );
+    let right_h = rt.fork_detach_with(
+        move |ctx| {
+            let exit = right(ctx);
+            let _ = tx.send(Leg::Right(exit));
+            Exit::<(), std::convert::Infallible>::succeed(())
+        },
+        immediate,
+    );
+    // Finish a leg: interrupt the loser and join both before returning, so
+    // releases complete before the winner's value is returned.
+    macro_rules! finish {
+        ($winner:expr, $loser:expr) => {{
+            $loser.interrupt();
+            $loser.join();
+            $winner.join();
+        }};
+    }
+    match rx.recv().expect("a racer always answers") {
+        Leg::Left(Exit::Success(a)) => {
+            finish!(left_h, right_h);
+            Exit::Success(a)
+        }
+        Leg::Right(Exit::Success(a)) => {
+            finish!(right_h, left_h);
+            Exit::Success(a)
+        }
+        Leg::Left(Exit::Failure(first)) => match rx.recv().expect("both racers answer") {
+            Leg::Left(Exit::Failure(second)) => {
+                right_h.interrupt();
+                right_h.join();
+                left_h.join();
+                Exit::Failure(concat_causes(first, second))
+            }
+            Leg::Right(Exit::Success(a)) => {
+                finish!(left_h, right_h);
+                Exit::Success(a)
+            }
+            Leg::Right(Exit::Failure(second)) => {
+                right_h.join();
+                left_h.join();
+                Exit::Failure(concat_causes(first, second))
+            }
+            Leg::Left(Exit::Success(a)) => {
+                finish!(left_h, right_h);
+                Exit::Success(a)
+            }
+        },
+        Leg::Right(Exit::Failure(first)) => match rx.recv().expect("both racers answer") {
+            Leg::Right(Exit::Failure(second)) => {
+                left_h.interrupt();
+                left_h.join();
+                right_h.join();
+                Exit::Failure(concat_causes(first, second))
+            }
+            Leg::Left(Exit::Success(a)) => {
+                finish!(right_h, left_h);
+                Exit::Success(a)
+            }
+            Leg::Left(Exit::Failure(second)) => {
+                left_h.join();
+                right_h.join();
+                Exit::Failure(concat_causes(first, second))
+            }
+            Leg::Right(Exit::Success(a)) => {
+                finish!(right_h, left_h);
+                Exit::Success(a)
+            }
+        },
+    }
+}
+
+/// Race two bodies: any completion (success or failure) decides. The loser
+/// is interrupted and released before the winner is returned.
+pub fn race_first<A, E>(
+    rt: &Runtime,
+    left: impl FnOnce(&crate::Ctx) -> Exit<A, E> + Send + 'static,
+    right: impl FnOnce(&crate::Ctx) -> Exit<A, E> + Send + 'static,
+) -> Exit<A, E>
+where
+    A: Send + 'static,
+    E: Send + 'static,
+{
+    enum Leg<A, E> {
+        Left(Exit<A, E>),
+        Right(Exit<A, E>),
+    }
+    let (tx, rx) = std::sync::mpsc::channel::<Leg<A, E>>();
+    let immediate = crate::ForkOpts::immediate();
+    let tx_left = tx.clone();
+    let left_h = rt.fork_detach_with(
+        move |ctx| {
+            let exit = left(ctx);
+            let _ = tx_left.send(Leg::Left(exit));
+            Exit::<(), std::convert::Infallible>::succeed(())
+        },
+        immediate,
+    );
+    let right_h = rt.fork_detach_with(
+        move |ctx| {
+            let exit = right(ctx);
+            let _ = tx.send(Leg::Right(exit));
+            Exit::<(), std::convert::Infallible>::succeed(())
+        },
+        immediate,
+    );
+    let outcome = rx.recv().expect("a racer always answers");
+    // Whoever finished first decides; stop and reap the other first.
+    let (winner, loser) = match &outcome {
+        Leg::Left(_) => (left_h, right_h),
+        Leg::Right(_) => (right_h, left_h),
+    };
+    loser.interrupt();
+    loser.join();
+    winner.join();
+    match outcome {
+        Leg::Left(exit) | Leg::Right(exit) => exit,
+    }
+}
+
+/// Concatenate two failure causes, preserving order.
+fn concat_causes<E>(mut first: crate::Cause<E>, second: crate::Cause<E>) -> crate::Cause<E> {
+    first.reasons.extend(second.reasons);
+    first
+}
