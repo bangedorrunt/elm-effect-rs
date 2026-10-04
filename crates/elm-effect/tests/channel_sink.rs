@@ -289,6 +289,37 @@ fn channel_flat_map_concatenates() {
 }
 
 #[test]
+fn channel_catch_if_recovers_matching() {
+    // Matching failure: replaced by the handler pull.
+    let mut first = true;
+    let source = pull::Pull::<i32, String>::from_fn(move || {
+        if first {
+            first = false;
+            take::Take::Fail("retry".to_string())
+        } else {
+            take::Take::End
+        }
+    });
+    let piped = channel::catch_if(
+        |e: &String| e == "retry",
+        |_: String| pull::Pull::of(vec![99]),
+    )
+    .run(source);
+    let mut piped = piped;
+    assert_eq!(piped.pull(), take::Take::Items(vec![99]));
+    assert_eq!(piped.pull(), take::Take::End);
+    // Non-matching failure: passes through.
+    let source = pull::Pull::<i32, String>::fail("fatal".to_string());
+    let piped = channel::catch_if(
+        |e: &String| e == "retry",
+        |_: String| pull::Pull::of(vec![99]),
+    )
+    .run(source);
+    let mut piped = piped;
+    assert_eq!(piped.pull(), take::Take::Fail("fatal".to_string()));
+}
+
+#[test]
 fn sink_drain_discards() {
     let done = sink::drain().run(pull::Pull::<i32, String>::of(vec![1, 2]));
     assert_eq!(done, elm_effect::Exit::Success(()));

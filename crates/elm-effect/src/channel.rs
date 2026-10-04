@@ -155,6 +155,35 @@ where
     })
 }
 
+/// Catch matching failures with a handler pull (`catchIf` with predicate
+/// shape): a `Fail` satisfying `predicate` is replaced by driving
+/// `handler(error)` to completion; non-matching failures pass through.
+pub fn catch_if<A, E, P, F>(mut predicate: P, mut handler: F) -> Channel<A, E, A>
+where
+    A: Send + 'static,
+    E: Send + 'static,
+    P: FnMut(&E) -> bool + Send + 'static,
+    F: FnMut(E) -> Pull<A, E> + Send + 'static,
+{
+    Channel::from_fn(move |take| match take {
+        Take::Items(items) => vec![Take::Items(items)],
+        Take::End => vec![Take::End],
+        Take::Fail(e) if predicate(&e) => {
+            let mut inner = handler(e);
+            let mut out = Vec::new();
+            loop {
+                match inner.pull() {
+                    Take::Items(mut chunk) => out.append(&mut chunk),
+                    Take::End => break,
+                    Take::Fail(e) => return vec![Take::Fail(e)],
+                }
+            }
+            vec![Take::Items(out)]
+        }
+        Take::Fail(e) => vec![Take::Fail(e)],
+    })
+}
+
 /// Keep matching items per pull.
 pub fn filter<A, E, F>(mut f: F) -> Channel<A, E, A>
 where
