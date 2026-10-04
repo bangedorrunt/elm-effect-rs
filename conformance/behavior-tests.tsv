@@ -44,12 +44,12 @@ ported	packages/effect/test/Array.test.ts	556	it	zipWith	array_build_combine
 ported	packages/effect/test/Array.test.ts	575	it	unzip	array_std_substrate
 ported	packages/effect/test/Array.test.ts	594	it	intersperse	array_std_substrate
 ported	packages/effect/test/Array.test.ts	608	it	rotate	array_std_substrate
-unported	packages/effect/test/Array.test.ts	636	it	containsWith	
+ported	packages/effect/test/Array.test.ts	636	it	containsWith	array_std_substrate
 ported	packages/effect/test/Array.test.ts	645	it	contains	array_std_substrate
-unported	packages/effect/test/Array.test.ts	654	it	dedupeWith	
-unported	packages/effect/test/Array.test.ts	667	it	dedupeAdjacentWith	
+ported	packages/effect/test/Array.test.ts	654	it	dedupeWith	array_std_substrate
+ported	packages/effect/test/Array.test.ts	667	it	dedupeAdjacentWith	array_std_substrate
 ported	packages/effect/test/Array.test.ts	674	it	splitAt	array_std_substrate
-unported	packages/effect/test/Array.test.ts	707	it	splitAtNonEmpty	
+ported	packages/effect/test/Array.test.ts	707	it	splitAtNonEmpty	array_std_substrate
 unported	packages/effect/test/Array.test.ts	714	it	should throw on index out of bound	
 ported	packages/effect/test/Array.test.ts	719	it	fromNullishOr	array_std_substrate
 ported	packages/effect/test/Array.test.ts	725	it	liftNullishOr	array_std_substrate
@@ -58,10 +58,10 @@ ported	packages/effect/test/Array.test.ts	740	it	liftPredicate	array_std_substra
 ported	packages/effect/test/Array.test.ts	747	it	liftOption	array_std_substrate
 ported	packages/effect/test/Array.test.ts	753	it	unprepend	array_std_substrate
 ported	packages/effect/test/Array.test.ts	758	it	unappend	array_std_substrate
-unported	packages/effect/test/Array.test.ts	771	it	modifyHeadNonEmpty	
-unported	packages/effect/test/Array.test.ts	778	it	modifyLastNonEmpty	
-unported	packages/effect/test/Array.test.ts	785	it	setHeadNonEmpty	
-unported	packages/effect/test/Array.test.ts	791	it	setLastNonEmpty	
+ported	packages/effect/test/Array.test.ts	771	it	modifyHeadNonEmpty	array_std_substrate
+ported	packages/effect/test/Array.test.ts	778	it	modifyLastNonEmpty	array_std_substrate
+ported	packages/effect/test/Array.test.ts	785	it	setHeadNonEmpty	array_std_substrate
+ported	packages/effect/test/Array.test.ts	791	it	setLastNonEmpty	array_std_substrate
 ported	packages/effect/test/Array.test.ts	797	it	liftResult	array_std_substrate
 ported	packages/effect/test/Array.test.ts	803	it	headNonEmpty	array_std_substrate
 ported	packages/effect/test/Array.test.ts	807	it	tailNonEmpty	array_std_substrate
@@ -80,7 +80,7 @@ ported	packages/effect/test/Array.test.ts	911	it	partition (identity)	array_std_
 ported	packages/effect/test/Array.test.ts	916	it	partition - transformed outputs	array_std_substrate
 ported	packages/effect/test/Array.test.ts	924	it	reduce	array_std_substrate
 ported	packages/effect/test/Array.test.ts	935	it	reduceRight	array_std_substrate
-unported	packages/effect/test/Array.test.ts	948	it	makeOrder	
+ported	packages/effect/test/Array.test.ts	948	it	makeOrder	array_std_substrate
 ported	packages/effect/test/Array.test.ts	974	it	isReadonlyArrayEmpty	array_std_substrate
 ported	packages/effect/test/Array.test.ts	979	it	isArrayEmpty	array_std_substrate
 ported	packages/effect/test/Array.test.ts	984	it	isReadonlyArrayNonEmpty	array_std_substrate
@@ -92,7 +92,7 @@ ported	packages/effect/test/Array.test.ts	1038	it	window	array_std_substrate
 ported	packages/effect/test/Array.test.ts	1052	it	min	array_std_substrate
 ported	packages/effect/test/Array.test.ts	1057	it	max	array_std_substrate
 ported	packages/effect/test/Array.test.ts	1065	it	flatten	array_std_substrate
-unported	packages/effect/test/Array.test.ts	1069	it	groupWith	
+ported	packages/effect/test/Array.test.ts	1069	it	groupWith	array_std_substrate
 ported	packages/effect/test/Array.test.ts	1075	it	groupBy	array_std_substrate
 ported	packages/effect/test/Array.test.ts	1096	it	match	array_std_substrate
 ported	packages/effect/test/Array.test.ts	1104	it	matchLeft	array_std_substrate
@@ -107,9 +107,9 @@ ported	packages/effect/test/Array.test.ts	1228	it	should respect the law: chunks
 ported	packages/effect/test/Array.test.ts	1250	it	makeBy	array_build_combine
 ported	packages/effect/test/Array.test.ts	1258	it	replicate	array_build_combine
 ported	packages/effect/test/Array.test.ts	1266	it	range	array_build_combine
-unported	packages/effect/test/Array.test.ts	1278	it	unionWith	
-unported	packages/effect/test/Array.test.ts	1291	it	intersectionWith	
-unported	packages/effect/test/Array.test.ts	1302	it	differenceWith	
+ported	packages/effect/test/Array.test.ts	1278	it	unionWith	array_std_substrate
+ported	packages/effect/test/Array.test.ts	1291	it	intersectionWith	array_std_substrate
+ported	packages/effect/test/Array.test.ts	1302	it	differenceWith	array_std_substrate
 ported	packages/effect/test/Array.test.ts	1313	it	empty	array_std_substrate
 ported	packages/effect/test/Array.test.ts	1317	it	every	array_std_substrate
 ported	packages/effect/test/Array.test.ts	1323	it	some	array_std_substrate
@@ -135,14 +135,14 @@ ported	packages/effect/test/Array.test.ts	1511	it	intersection	array_std_substra
 ported	packages/effect/test/Array.test.ts	1528	it	difference	array_std_substrate
 ported	packages/effect/test/Array.test.ts	1546	it	cartesianWith	array_std_substrate
 ported	packages/effect/test/Array.test.ts	1559	it	cartesian	array_std_substrate
-unported	packages/effect/test/Array.test.ts	1572	it	makeEquivalence	
+ported	packages/effect/test/Array.test.ts	1572	it	makeEquivalence	array_std_substrate
 unported	packages/effect/test/Array.test.ts	1582	it	getReadonlyReducerConcat	
 unported	packages/effect/test/Array.test.ts	1590	it	makeReducerConcat	
 ported	packages/effect/test/Array.test.ts	1596	it	allocate	array_std_substrate
 ported	packages/effect/test/Array.test.ts	1605	it	returns true for empty array	array_std_substrate
-unported	packages/effect/test/Array.test.ts	1608	it	with index	
+ported	packages/effect/test/Array.test.ts	1608	it	with index	array_std_substrate
 ported	packages/effect/test/Array.test.ts	1615	it	returns false for empty array	array_std_substrate
-unported	packages/effect/test/Array.test.ts	1618	it	with index	
+ported	packages/effect/test/Array.test.ts	1618	it	with index	array_std_substrate
 ported	packages/effect/test/Array.test.ts	1625	it	returns a new reference	array_std_substrate
 ported	packages/effect/test/Array.test.ts	1634	it	returns empty when seed produces Option.none	array_std_substrate
 unported	packages/effect/test/Array.test.ts	1639	it	bindTo	
