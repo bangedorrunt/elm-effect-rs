@@ -76,5 +76,5 @@ pub use stm::{
     TxRef, TxSemaphore, TxSubscriptionRef, atomically,
 };
 pub use stream::{Stream, from_iter};
-pub use sync::{Deferred, MutableRef, Queue, Ref, Semaphore, SynchronizedRef};
+pub use sync::{Deferred, MutableRef, PartitionedSemaphore, Queue, Ref, Semaphore, SubscriptionRef, SynchronizedRef};
 pub use time::{Clock, ClockImpl, Duration, SleepOutcome, SystemClock, TestClock};

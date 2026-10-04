@@ -311,3 +311,124 @@ impl Semaphore {
         *self.inner.lock().unwrap()
     }
 }
+
+/// A snapshot cell broadcasting every assignment to its subscribers
+/// (`SubscriptionRef` shape): `set` updates the current value and pushes
+/// a copy to every subscriber buffer; subscribers poll their own queue.
+///
+/// ```
+/// use elm_effect::SubscriptionRef;
+/// let watched = SubscriptionRef::new(0);
+/// let sub = watched.subscribe();
+/// watched.set(5);
+/// assert_eq!(watched.get(), 5);
+/// assert_eq!(watched.poll(sub), Some(0));
+/// assert_eq!(watched.poll(sub), Some(5));
+/// ```
+pub struct SubscriptionRef<A> {
+    current: Mutex<A>,
+    sinks: Mutex<Vec<std::collections::VecDeque<A>>>,
+}
+
+impl<A: Clone + Send> SubscriptionRef<A> {
+    /// A cell holding `initial` with no subscribers.
+    pub fn new(initial: A) -> Self {
+        Self {
+            current: Mutex::new(initial),
+            sinks: Mutex::new(Vec::new()),
+        }
+    }
+
+    /// The current value.
+    pub fn get(&self) -> A {
+        self.current.lock().unwrap().clone()
+    }
+
+    /// Assign and broadcast to every subscriber buffer.
+    pub fn set(&self, value: A) {
+        *self.current.lock().unwrap() = value.clone();
+        for sink in self.sinks.lock().unwrap().iter_mut() {
+            sink.push_back(value.clone());
+        }
+    }
+
+    /// Subscribe: returns an index seeded with the current value.
+    pub fn subscribe(&self) -> usize {
+        let mut sinks = self.sinks.lock().unwrap();
+        let mut queue = std::collections::VecDeque::new();
+        queue.push_back(self.current.lock().unwrap().clone());
+        sinks.push(queue);
+        sinks.len() - 1
+    }
+
+    /// Pop the subscriber's next value, if any.
+    pub fn poll(&self, subscriber: usize) -> Option<A> {
+        self.sinks.lock().unwrap().get_mut(subscriber)?.pop_front()
+    }
+}
+
+/// Independent permit pools behind one handle (`PartitionedSemaphore`
+/// shape): each partition counts down separately; `acquire` blocks on
+/// its partition's condvar while `try_acquire` never does.
+///
+/// ```
+/// use elm_effect::PartitionedSemaphore;
+/// let sem = PartitionedSemaphore::new(2, 1);
+/// assert!(sem.try_acquire(0));
+/// assert!(!sem.try_acquire(0));
+/// assert!(sem.try_acquire(1));
+/// sem.release(0);
+/// assert_eq!(sem.available(0), 1);
+/// ```
+pub struct PartitionedSemaphore {
+    partitions: Mutex<Vec<usize>>,
+    changed: Condvar,
+}
+
+impl PartitionedSemaphore {
+    /// `partitions` pools with `permits_each` permits apiece.
+    pub fn new(partitions: usize, permits_each: usize) -> Self {
+        Self {
+            partitions: Mutex::new(vec![permits_each; partitions]),
+            changed: Condvar::new(),
+        }
+    }
+
+    /// Take one permit from `partition`, blocking until free.
+    pub fn acquire(&self, partition: usize) {
+        let mut pools = self.partitions.lock().unwrap();
+        while pools[partition] == 0 {
+            pools = self.changed.wait(pools).unwrap();
+        }
+        pools[partition] -= 1;
+    }
+
+    /// Take one permit without blocking (`false` when empty or missing).
+    pub fn try_acquire(&self, partition: usize) -> bool {
+        match self.partitions.lock().unwrap().get_mut(partition) {
+            Some(permits) if *permits > 0 => {
+                *permits -= 1;
+                true
+            }
+            _ => false,
+        }
+    }
+
+    /// Return one permit to `partition`.
+    pub fn release(&self, partition: usize) {
+        if let Some(permits) = self.partitions.lock().unwrap().get_mut(partition) {
+            *permits += 1;
+        }
+        self.changed.notify_all();
+    }
+
+    /// Permits currently free in `partition` (0 when missing).
+    pub fn available(&self, partition: usize) -> usize {
+        self.partitions
+            .lock()
+            .unwrap()
+            .get(partition)
+            .copied()
+            .unwrap_or(0)
+    }
+}
