@@ -1773,3 +1773,40 @@ fn formatter_tab_indent() {
     assert_eq!(formatter::format(&doc, 1), "{\n \"a\": [\n  1\n ]\n}".replace("\n", "
 "));
 }
+
+#[test]
+fn filter_edges_keep_nodes() {
+    let m = begin_mutation(&directed(&["A", "B", "C"], &[(0, 1, 1), (1, 2, 2), (2, 0, 3)]));
+    m.filter_map_edges(|e| if *e % 2 == 0 { None } else { Some(e * 10) }).unwrap();
+    let snap = m.to_snapshot();
+    assert_eq!(snap.nodes.len(), 3);
+    assert_eq!(snap.edges.iter().map(|e| e.data).collect::<Vec<_>>(), vec![10, 30]);
+    m.filter_edges(|e| *e > 15).unwrap();
+    assert_eq!(m.edge_count(), 1);
+}
+
+#[test]
+fn unescape_token_value_change() {
+    assert_ne!(json_pointer::unescape_token("a~1b"), "a~1b");
+    assert_eq!(json_pointer::unescape_token("plain"), "plain");
+}
+
+#[test]
+fn mutable_handles_share_identity() {
+    let m = begin_mutation(&directed(&["A"], &[]));
+    let n = m.clone();
+    m.add_node("B".to_string()).unwrap();
+    assert_eq!(n.node_count(), 2);
+    let g = m.end_mutation().unwrap();
+    assert!(m.add_node("C".to_string()).is_err());
+    assert_eq!(g.node_count(), 2);
+}
+
+#[test]
+fn option_payloads_structural() {
+    let m = begin_mutation(&directed(&["A", "B"], &[(0, 1, 1)]));
+    let g = m.end_mutation().unwrap();
+    assert_eq!(graph::get_node(&g, 0), Some("A".to_string()));
+    let h = directed(&["A", "B"], &[(0, 1, 1)]);
+    assert_eq!(g, h);
+}
