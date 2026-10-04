@@ -139,14 +139,39 @@ pub fn difference<V: Clone>(left: &Record<V>, right: &Record<V>) -> Record<V> {
         .collect()
 }
 
-/// Build from an iterable with key/value projections (`fromIterableWith`,
-/// `fromIterableBy`).
+/// Build from an iterable with key/value projections (`fromIterableWith`).
 pub fn from_iterable_with<T, V>(
     iterable: impl IntoIterator<Item = T>,
     key: impl Fn(&T) -> String,
     value: impl Fn(&T) -> V,
 ) -> Record<V> {
     iterable.into_iter().map(|a| (key(&a), value(&a))).collect()
+}
+
+/// Build from an iterable keyed by projection, keeping elements
+/// (`fromIterableBy`).
+pub fn from_iterable_by<T: Clone>(
+    iterable: impl IntoIterator<Item = T>,
+    key: impl Fn(&T) -> String,
+) -> Record<T> {
+    from_iterable_with(iterable, key, |a| a.clone())
+}
+
+/// Split `Ok`/`Err` values (`separate`).
+pub fn separate<T: Clone, E: Clone>(record: &Record<Result<T, E>>) -> (Record<T>, Record<E>) {
+    let mut oks = BTreeMap::new();
+    let mut errs = BTreeMap::new();
+    for (k, v) in record {
+        match v {
+            Ok(v) => {
+                oks.insert(k.clone(), v.clone());
+            }
+            Err(e) => {
+                errs.insert(k.clone(), e.clone());
+            }
+        }
+    }
+    (oks, errs)
 }
 
 /// Keep defined values, unwrapping (`getSomes`).

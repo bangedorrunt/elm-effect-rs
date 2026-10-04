@@ -251,6 +251,33 @@ fn array_std_substrate() {
         (3, vec![1, 3])
     );
     assert_eq!(array::count_by(&[1, 2, 3], |a| *a % 2 == 1), 2);
+    assert_eq!(
+        array::take_while_filter(&[1, 2, 3, 4], |a| *a < 4, |a| *a % 2 == 1),
+        vec![1, 3]
+    );
+    assert_eq!(
+        array::drop_while_filter(&[1, 2, 3, 4], |a| *a < 3, |a| *a % 2 == 1),
+        vec![3]
+    );
+    assert_eq!(array::from_nullish_or(Some(1)), vec![1]);
+    assert_eq!(array::from_nullish_or(None::<i32>), Vec::<i32>::new());
+    let lifted = array::lift_nullish_or(|a: i32| if a > 0 { Some(a) } else { None });
+    assert_eq!(lifted(1), Some(1));
+    assert_eq!(
+        array::flat_map_nullish_or(&[1, 2], |a| (*a > 1).then_some(a * 10)),
+        vec![20]
+    );
+    let over2 = array::lift_predicate(|a: &i32| *a > 2);
+    assert_eq!(over2(vec![1, 2, 3]), vec![3]);
+    assert_eq!(array::unprepend(&[1, 2]), Some((1, vec![2])));
+    assert_eq!(array::unprepend(&Vec::<i32>::new()), None);
+    assert_eq!(array::unappend(&[1, 2]), Some((vec![1], 2)));
+    assert_eq!(array::head_nonempty(&[1]), Some(1));
+    assert_eq!(array::tail_nonempty(&[1, 2]), vec![2]);
+    assert_eq!(array::last_nonempty(&[1]), Some(1));
+    assert_eq!(array::init_nonempty(&[1, 2]), vec![1]);
+    assert_eq!(array::group_by(&[1, 1, 2]), vec![vec![1, 1], vec![2]]);
+    assert_eq!(array::cartesian(&[1, 2], &[3]), vec![(1, 3), (2, 3)]);
 }
 
 // ---------- Chunk ----------
@@ -732,6 +759,20 @@ fn record_core() {
         record::from_entries(vec![("k1".to_string(), 2), ("k2".to_string(), 4)])
     );
     assert_eq!(
+        record::from_iterable_by(vec![1, 2], |a| format!("k{a}")),
+        record::from_entries(vec![("k1".to_string(), 1), ("k2".to_string(), 2)])
+    );
+    assert_eq!(
+        record::separate(&record::from_entries(vec![
+            ("a".to_string(), Ok(1)),
+            ("b".to_string(), Err("e"))
+        ])),
+        (
+            record::from_entries(vec![("a".to_string(), 1)]),
+            record::from_entries(vec![("b".to_string(), "e")])
+        )
+    );
+    assert_eq!(
         record::get_somes(&record::from_entries(vec![
             ("a".to_string(), Some(1)),
             ("b".to_string(), None)
@@ -746,6 +787,7 @@ fn record_core() {
         record::map_values(&record::filter(&r, |v| *v > 1), |v| v * 10),
         record::from_entries(vec![("b".to_string(), 20)])
     );
+    assert_eq!(record::from_entries(vec![("only".to_string(), 1)]).len(), 1);
     assert_eq!(record::from_entries(vec![("only".to_string(), 1)]).len(), 1);
     assert_eq!(
         record::filter(

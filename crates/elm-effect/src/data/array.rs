@@ -290,3 +290,112 @@ pub fn map_accum<S, T, U>(
 pub fn count_by<T>(values: &[T], mut predicate: impl FnMut(&T) -> bool) -> usize {
     values.iter().filter(|v| predicate(v)).count()
 }
+
+/// Take-while plus filter in one pass (`takeWhileFilter`).
+pub fn take_while_filter<T: Clone>(
+    values: &[T],
+    take: impl Fn(&T) -> bool,
+    keep: impl Fn(&T) -> bool,
+) -> Vec<T> {
+    let mut take = take;
+    let mut taking = true;
+    values
+        .iter()
+        .take_while(|a| {
+            taking = taking && take(a);
+            taking
+        })
+        .filter(|a| keep(a))
+        .cloned()
+        .collect()
+}
+
+/// Drop-while plus filter in one pass (`dropWhileFilter`).
+pub fn drop_while_filter<T: Clone>(
+    values: &[T],
+    drop: impl Fn(&T) -> bool,
+    keep: impl Fn(&T) -> bool,
+) -> Vec<T> {
+    let mut dropping = true;
+    values
+        .iter()
+        .skip_while(|a| {
+            dropping = dropping && drop(a);
+            dropping
+        })
+        .filter(|a| keep(a))
+        .cloned()
+        .collect()
+}
+
+/// Wrap-or-empty (`fromNullishOr`, `liftOption` element shape).
+pub fn from_nullish_or<T: Clone>(value: Option<T>) -> Vec<T> {
+    value.into_iter().collect()
+}
+
+/// Lift a nullish-returning function as-is (`liftNullishOr`).
+pub fn lift_nullish_or<T, U, F: Fn(T) -> Option<U>>(f: F) -> F {
+    f
+}
+
+/// Map then collapse one nullish layer (`flatMapNullishOr`).
+pub fn flat_map_nullish_or<T, U>(values: &[T], f: impl FnMut(&T) -> Option<U>) -> Vec<U>
+where
+    T: Clone,
+{
+    values.iter().filter_map(f).collect()
+}
+
+/// Lift a predicate to a filter (`liftPredicate`).
+pub fn lift_predicate<T>(predicate: impl Fn(&T) -> bool) -> impl Fn(Vec<T>) -> Vec<T> {
+    move |values| values.into_iter().filter(|a| predicate(a)).collect()
+}
+
+/// First and rest (`unprepend`).
+pub fn unprepend<T: Clone>(values: &[T]) -> Option<(T, Vec<T>)> {
+    values.split_first().map(|(h, t)| (h.clone(), t.to_vec()))
+}
+
+/// Init and last (`unappend`).
+pub fn unappend<T: Clone>(values: &[T]) -> Option<(Vec<T>, T)> {
+    values.split_last().map(|(l, i)| (i.to_vec(), l.clone()))
+}
+
+/// Head known present (`headNonEmpty`).
+pub fn head_nonempty<T: Clone>(values: &[T]) -> Option<T> {
+    values.first().cloned()
+}
+
+/// Tail known present-or-empty (`tailNonEmpty`).
+pub fn tail_nonempty<T: Clone>(values: &[T]) -> Vec<T> {
+    tail(values)
+}
+
+/// Last known present (`lastNonEmpty`).
+pub fn last_nonempty<T: Clone>(values: &[T]) -> Option<T> {
+    values.last().cloned()
+}
+
+/// Init known present-or-empty (`initNonEmpty`).
+pub fn init_nonempty<T: Clone>(values: &[T]) -> Vec<T> {
+    init(values)
+}
+
+/// Group consecutive equals (`groupWith`, `groupBy` with equality).
+pub fn group_by<T: Clone + PartialEq>(values: &[T]) -> Vec<Vec<T>> {
+    let mut out: Vec<Vec<T>> = Vec::new();
+    for v in values {
+        match out.last_mut() {
+            Some(last) if last.first() == Some(v) => last.push(v.clone()),
+            _ => out.push(vec![v.clone()]),
+        }
+    }
+    out
+}
+
+/// Cartesian product (`cartesian`, `cartesianWith` with pair).
+pub fn cartesian<T: Clone, U: Clone>(a: &[T], b: &[U]) -> Vec<(T, U)> {
+    a.iter()
+        .flat_map(|x| b.iter().map(move |y| (x.clone(), y.clone())))
+        .collect()
+}

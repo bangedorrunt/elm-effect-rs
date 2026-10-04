@@ -17,16 +17,16 @@ ported	packages/effect/test/Array.test.ts	124	it	init	array_ends
 ported	packages/effect/test/Array.test.ts	132	it	take	array_take_drop
 ported	packages/effect/test/Array.test.ts	147	it	takeRight	array_std_substrate
 ported	packages/effect/test/Array.test.ts	170	it	takeWhile	array_take_drop
-unported	packages/effect/test/Array.test.ts	183	it	takeWhileFilter	
+ported	packages/effect/test/Array.test.ts	183	it	takeWhileFilter	array_std_substrate
 ported	packages/effect/test/Array.test.ts	195	it	span	array_take_drop
 ported	packages/effect/test/Array.test.ts	221	it	splitWhere	array_take_drop
-unported	packages/effect/test/Array.test.ts	243	it	split	
+ported	packages/effect/test/Array.test.ts	243	it	split	array_std_substrate
 ported	packages/effect/test/Array.test.ts	255	it	drop	array_take_drop
 ported	packages/effect/test/Array.test.ts	278	it	dropRight	array_std_substrate
 ported	packages/effect/test/Array.test.ts	301	it	dropWhile	array_take_drop
-unported	packages/effect/test/Array.test.ts	321	it	dropWhileFilter	
+ported	packages/effect/test/Array.test.ts	321	it	dropWhileFilter	array_std_substrate
 ported	packages/effect/test/Array.test.ts	333	it	findFirstIndex	array_build_combine
-unported	packages/effect/test/Array.test.ts	343	it	findLastIndex	
+ported	packages/effect/test/Array.test.ts	343	it	findLastIndex	array_std_substrate
 ported	packages/effect/test/Array.test.ts	354	it	boolean-returning overloads	array_build_combine
 ported	packages/effect/test/Array.test.ts	364	it	Option-returning overloads	array_build_combine
 ported	packages/effect/test/Array.test.ts	392	it	boolean-returning overloads	array_build_combine
@@ -39,7 +39,7 @@ ported	packages/effect/test/Array.test.ts	497	it	modify	array_std_substrate
 ported	packages/effect/test/Array.test.ts	509	it	remove	array_update
 ported	packages/effect/test/Array.test.ts	523	it	reverse	array_std_substrate
 ported	packages/effect/test/Array.test.ts	533	it	sort	array_std_substrate
-unported	packages/effect/test/Array.test.ts	541	it	zip	
+ported	packages/effect/test/Array.test.ts	541	it	zip	array_std_substrate
 ported	packages/effect/test/Array.test.ts	556	it	zipWith	array_build_combine
 ported	packages/effect/test/Array.test.ts	575	it	unzip	array_std_substrate
 ported	packages/effect/test/Array.test.ts	594	it	intersperse	array_std_substrate
@@ -51,24 +51,24 @@ unported	packages/effect/test/Array.test.ts	667	it	dedupeAdjacentWith
 ported	packages/effect/test/Array.test.ts	674	it	splitAt	array_std_substrate
 unported	packages/effect/test/Array.test.ts	707	it	splitAtNonEmpty	
 unported	packages/effect/test/Array.test.ts	714	it	should throw on index out of bound	
-unported	packages/effect/test/Array.test.ts	719	it	fromNullishOr	
-unported	packages/effect/test/Array.test.ts	725	it	liftNullishOr	
-unported	packages/effect/test/Array.test.ts	731	it	flatMapNullishOr	
-unported	packages/effect/test/Array.test.ts	740	it	liftPredicate	
-unported	packages/effect/test/Array.test.ts	747	it	liftOption	
-unported	packages/effect/test/Array.test.ts	753	it	unprepend	
-unported	packages/effect/test/Array.test.ts	758	it	unappend	
+ported	packages/effect/test/Array.test.ts	719	it	fromNullishOr	array_std_substrate
+ported	packages/effect/test/Array.test.ts	725	it	liftNullishOr	array_std_substrate
+ported	packages/effect/test/Array.test.ts	731	it	flatMapNullishOr	array_std_substrate
+ported	packages/effect/test/Array.test.ts	740	it	liftPredicate	array_std_substrate
+ported	packages/effect/test/Array.test.ts	747	it	liftOption	array_std_substrate
+ported	packages/effect/test/Array.test.ts	753	it	unprepend	array_std_substrate
+ported	packages/effect/test/Array.test.ts	758	it	unappend	array_std_substrate
 unported	packages/effect/test/Array.test.ts	771	it	modifyHeadNonEmpty	
 unported	packages/effect/test/Array.test.ts	778	it	modifyLastNonEmpty	
 unported	packages/effect/test/Array.test.ts	785	it	setHeadNonEmpty	
 unported	packages/effect/test/Array.test.ts	791	it	setLastNonEmpty	
 unported	packages/effect/test/Array.test.ts	797	it	liftResult	
-unported	packages/effect/test/Array.test.ts	803	it	headNonEmpty	
-unported	packages/effect/test/Array.test.ts	807	it	tailNonEmpty	
-unported	packages/effect/test/Array.test.ts	811	it	lastNonEmpty	
-unported	packages/effect/test/Array.test.ts	816	it	initNonEmpty	
+ported	packages/effect/test/Array.test.ts	803	it	headNonEmpty	array_std_substrate
+ported	packages/effect/test/Array.test.ts	807	it	tailNonEmpty	array_std_substrate
+ported	packages/effect/test/Array.test.ts	811	it	lastNonEmpty	array_std_substrate
+ported	packages/effect/test/Array.test.ts	816	it	initNonEmpty	array_std_substrate
 ported	packages/effect/test/Array.test.ts	824	it	get	array_ends
-unported	packages/effect/test/Array.test.ts	829	it	unfold	
+ported	packages/effect/test/Array.test.ts	829	it	unfold	array_std_substrate
 ported	packages/effect/test/Array.test.ts	834	it	map	array_std_substrate
 ported	packages/effect/test/Array.test.ts	845	it	flatMap	array_std_substrate
 ported	packages/effect/test/Array.test.ts	855	it	extend	array_std_substrate
@@ -88,7 +88,7 @@ ported	packages/effect/test/Array.test.ts	989	it	isArrayNonEmpty	array_std_subst
 ported	packages/effect/test/Array.test.ts	994	it	head	array_ends
 ported	packages/effect/test/Array.test.ts	1000	it	last	array_ends
 ported	packages/effect/test/Array.test.ts	1006	it	chunksOf	array_build_combine
-unported	packages/effect/test/Array.test.ts	1038	it	window	
+ported	packages/effect/test/Array.test.ts	1038	it	window	array_std_substrate
 ported	packages/effect/test/Array.test.ts	1052	it	min	array_std_substrate
 ported	packages/effect/test/Array.test.ts	1057	it	max	array_std_substrate
 ported	packages/effect/test/Array.test.ts	1065	it	flatten	array_std_substrate
@@ -3122,12 +3122,12 @@ unported	packages/effect/test/RcRef.test.ts	318	it.effect	an interrupted first g
 unported	packages/effect/test/RcRef.test.ts	334	it.effect	an interrupted get of an acquired resource does not pin it	
 unported	packages/effect/test/RcRef.test.ts	352	it.effect	invalidating a resource while a get revives it releases the resource	
 unported	packages/effect/test/RcRef.test.ts	366	it.effect	closing the ref while an idle resource is being released runs every finalizer	
-unported	packages/effect/test/Record.test.ts	7	it	singleton	
+ported	packages/effect/test/Record.test.ts	7	it	singleton	record_core
 unported	packages/effect/test/Record.test.ts	12	it	makeReducerUnion	
 unported	packages/effect/test/Record.test.ts	18	it	makeReducerIntersection	
 ported	packages/effect/test/Record.test.ts	34	it	empty	record_core
 ported	packages/effect/test/Record.test.ts	38	it	fromIterableWith	record_core
-unported	packages/effect/test/Record.test.ts	53	it	fromIterableBy	
+ported	packages/effect/test/Record.test.ts	53	it	fromIterableBy	record_core
 ported	packages/effect/test/Record.test.ts	71	it	fromEntries	record_core
 ported	packages/effect/test/Record.test.ts	88	it	has	record_core
 ported	packages/effect/test/Record.test.ts	96	it	get	record_core
@@ -3139,15 +3139,15 @@ ported	packages/effect/test/Record.test.ts	144	it	should return none if the key 
 ported	packages/effect/test/Record.test.ts	154	it	should replace an existing value	record_core
 ported	packages/effect/test/Record.test.ts	160	it	should add the key / value pair	record_core
 unported	packages/effect/test/Record.test.ts	168	it	preserves __proto__ as an own property	
-unported	packages/effect/test/Record.test.ts	181	it	singleton	
+ported	packages/effect/test/Record.test.ts	181	it	singleton	record_core
 ported	packages/effect/test/Record.test.ts	189	it	map	record_core
 unported	packages/effect/test/Record.test.ts	194	it	collect	
 ported	packages/effect/test/Record.test.ts	199	it	toEntries	record_core
-unported	packages/effect/test/Record.test.ts	204	it	filterMap	
+ported	packages/effect/test/Record.test.ts	204	it	filterMap	record_core
 ported	packages/effect/test/Record.test.ts	210	it	getSomes	record_core
 ported	packages/effect/test/Record.test.ts	215	it	filter	record_core
 ported	packages/effect/test/Record.test.ts	220	it	partition	record_core
-unported	packages/effect/test/Record.test.ts	226	it	separate	
+ported	packages/effect/test/Record.test.ts	226	it	separate	record_core
 ported	packages/effect/test/Record.test.ts	236	it	isEmptyRecord	record_core
 ported	packages/effect/test/Record.test.ts	242	it	isEmptyReadonlyRecord	record_core
 ported	packages/effect/test/Record.test.ts	248	it	size	record_core
@@ -4143,8 +4143,8 @@ ported	packages/effect/test/Tuple.test.ts	110	it	makeCombiner combines tuple pos
 unported	packages/effect/test/Tuple.test.ts	119	it	makeReducer derives a tuple-shaped initial value and combines position-wise	
 ported	packages/effect/test/Tuple.test.ts	128	it	appendElement appends a single element in both data-first and data-last forms	tuple_shapes
 unported	packages/effect/test/Tuple.test.ts	133	it	appendElements concatenates a tuple in both data-first and data-last forms	
-unported	packages/effect/test/Tuple.test.ts	138	it	makeEquivalence compares tuple positions independently	
-unported	packages/effect/test/Tuple.test.ts	149	it	makeOrder orders tuple positions lexicographically	
+ported	packages/effect/test/Tuple.test.ts	138	it	makeEquivalence compares tuple positions independently	tuple_shapes
+ported	packages/effect/test/Tuple.test.ts	149	it	makeOrder orders tuple positions lexicographically	tuple_shapes
 unported	packages/effect/test/TxChunk.test.ts	6	it	make should create a TxChunk with initial chunk	
 unported	packages/effect/test/TxChunk.test.ts	18	it	empty should create an empty TxChunk	
 unported	packages/effect/test/TxChunk.test.ts	29	it	fromIterable should create a TxChunk from an iterable	
