@@ -13,6 +13,8 @@
 
 use serde::{Deserialize, Serialize};
 
+pub mod store;
+
 /// Lifecycle state of one effect row. No `Absent`: absence is no row.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum EffectState {
