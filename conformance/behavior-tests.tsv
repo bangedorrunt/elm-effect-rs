@@ -970,49 +970,49 @@ unported	packages/effect/test/Context.test.ts	207	it	merges with right bias and 
 unported	packages/effect/test/Context.test.ts	217	it	pick and omit retain source ordering	
 unported	packages/effect/test/Context.test.ts	224	it	resolves reference defaults lazily and caches them	
 unported	packages/effect/test/Context.test.ts	241	it	retains the makeUnsafe input map	
-unported	packages/effect/test/Cron.test.ts	18	it	isCronParseError	
-unported	packages/effect/test/Cron.test.ts	26	it	CronParseError constructor	
-unported	packages/effect/test/Cron.test.ts	35	it	parse	
-unported	packages/effect/test/Cron.test.ts	198	it	parseUnsafe	
-unported	packages/effect/test/Cron.test.ts	221	it	format preserves compact cron syntax	
-unported	packages/effect/test/Cron.test.ts	228	it	format can include the default seconds field	
-unported	packages/effect/test/Cron.test.ts	235	it	format compacts multiple runs within a field	
-unported	packages/effect/test/Cron.test.ts	248	it	format preserves non-uniform values	
-unported	packages/effect/test/Cron.test.ts	261	it	format handles default, non-default, and unrestricted seconds	
-unported	packages/effect/test/Cron.test.ts	277	it	make supports requiring both days and weekdays	
-unported	packages/effect/test/Cron.test.ts	298	it	make validates field values and normalizes weekday 7	
-unported	packages/effect/test/Cron.test.ts	338	it	make treats weekday 7 as Sunday when matching	
-unported	packages/effect/test/Cron.test.ts	352	it	make treats weekday 7 as Sunday when stepping	
-unported	packages/effect/test/Cron.test.ts	366	it	match	
-unported	packages/effect/test/Cron.test.ts	421	it	next	
-unported	packages/effect/test/Cron.test.ts	446	it	next adheres to day-of-month and weekday semantics	
-unported	packages/effect/test/Cron.test.ts	456	it	next does not skip earlier days when the upcoming day is missing from the month	
-unported	packages/effect/test/Cron.test.ts	471	it	next respects day-of-month or weekday constraints when entering a restricted month	
-unported	packages/effect/test/Cron.test.ts	480	it	prev	
-unported	packages/effect/test/Cron.test.ts	497	it	returns the latest second when rolling back a minute	
-unported	packages/effect/test/Cron.test.ts	504	it	forward and reverse sequences stay aligned	
-unported	packages/effect/test/Cron.test.ts	544	it	prev prefers the latest matching day within the previous month	
-unported	packages/effect/test/Cron.test.ts	550	it	prev wraps weekday using the last allowed value	
-unported	packages/effect/test/Cron.test.ts	556	it	prev wraps a later weekday into the previous week	
-unported	packages/effect/test/Cron.test.ts	562	it	prev weekday wrapping returns matching instants strictly before the input	
-unported	packages/effect/test/Cron.test.ts	580	it	prev chooses the preferred occurrence in DST fall-back	
-unported	packages/effect/test/Cron.test.ts	588	it	prev respects combined day-of-month and weekday constraints	
-unported	packages/effect/test/Cron.test.ts	595	it	prev handles step expressions across day boundary	
-unported	packages/effect/test/Cron.test.ts	602	it	prev works with fixed offset time zones	
-unported	packages/effect/test/Cron.test.ts	609	it	prev wraps across year boundary	
-unported	packages/effect/test/Cron.test.ts	616	it	prev handles day 31 skipping months without it	
-unported	packages/effect/test/Cron.test.ts	623	it	prev skips an invalid day in the immediately preceding month	
-unported	packages/effect/test/Cron.test.ts	630	it	prev finds the previous leap day	
-unported	packages/effect/test/Cron.test.ts	637	it	prev day-of-month rollovers preserve match and ordering invariants	
-unported	packages/effect/test/Cron.test.ts	651	it	prev terminates for an impossible day and month combination	
-unported	packages/effect/test/Cron.test.ts	657	it	prev clamps to the last valid day when rolling back a month with only month constraints	
-unported	packages/effect/test/Cron.test.ts	664	it	prev with multiple months specified	
-unported	packages/effect/test/Cron.test.ts	671	it	sequence	
-unported	packages/effect/test/Cron.test.ts	681	it	equal	
-unported	packages/effect/test/Cron.test.ts	702	it	handles leap years	
-unported	packages/effect/test/Cron.test.ts	713	it	handles transition into daylight savings time	
-unported	packages/effect/test/Cron.test.ts	732	it	handles transition out of daylight savings time	
-unported	packages/effect/test/Cron.test.ts	763	it	handles utc timezone	
+ported	packages/effect/test/Cron.test.ts	18	it	isCronParseError	cron_parse_error_predicate
+ported	packages/effect/test/Cron.test.ts	26	it	CronParseError constructor	cron_parse_error_constructor_fields
+ported	packages/effect/test/Cron.test.ts	35	it	parse	cron_parse_structural_ranges
+ported	packages/effect/test/Cron.test.ts	198	it	parseUnsafe	cron_parse_unsafe_ok
+ported	packages/effect/test/Cron.test.ts	221	it	format preserves compact cron syntax	cron_format_compact
+ported	packages/effect/test/Cron.test.ts	228	it	format can include the default seconds field	cron_format_with_seconds
+ported	packages/effect/test/Cron.test.ts	235	it	format compacts multiple runs within a field	cron_format_make_compacts_runs
+ported	packages/effect/test/Cron.test.ts	248	it	format preserves non-uniform values	cron_format_lists
+ported	packages/effect/test/Cron.test.ts	261	it	format handles default, non-default, and unrestricted seconds	cron_format_seconds_variants
+ported	packages/effect/test/Cron.test.ts	277	it	make supports requiring both days and weekdays	cron_make_and_flag
+ported	packages/effect/test/Cron.test.ts	298	it	make validates field values and normalizes weekday 7	cron_make_validates_and_normalizes_weekday_7
+ported	packages/effect/test/Cron.test.ts	338	it	make treats weekday 7 as Sunday when matching	cron_make_weekday_7_matches
+ported	packages/effect/test/Cron.test.ts	352	it	make treats weekday 7 as Sunday when stepping	cron_make_weekday_7_steps
+ported	packages/effect/test/Cron.test.ts	366	it	match	cron_match_cases
+ported	packages/effect/test/Cron.test.ts	421	it	next	cron_next_cases
+ported	packages/effect/test/Cron.test.ts	446	it	next adheres to day-of-month and weekday semantics	cron_next_day_weekday_or
+ported	packages/effect/test/Cron.test.ts	456	it	next does not skip earlier days when the upcoming day is missing from the month	cron_next_no_skip_when_day_missing
+ported	packages/effect/test/Cron.test.ts	471	it	next respects day-of-month or weekday constraints when entering a restricted month	cron_next_month_crossing_or
+ported	packages/effect/test/Cron.test.ts	480	it	prev	cron_prev_year_wrap_back
+ported	packages/effect/test/Cron.test.ts	497	it	returns the latest second when rolling back a minute	cron_prev_latest_second_rolling_back
+ported	packages/effect/test/Cron.test.ts	504	it	forward and reverse sequences stay aligned	cron_sequence_seconds_aligned
+ported	packages/effect/test/Cron.test.ts	544	it	prev prefers the latest matching day within the previous month	cron_prev_latest_matching_day
+ported	packages/effect/test/Cron.test.ts	550	it	prev wraps weekday using the last allowed value	cron_prev_weekday_wraps
+ported	packages/effect/test/Cron.test.ts	556	it	prev wraps a later weekday into the previous week	cron_prev_weekday_wraps
+ported	packages/effect/test/Cron.test.ts	562	it	prev weekday wrapping returns matching instants strictly before the input	cron_prev_weekday_wrap_strict
+ported	packages/effect/test/Cron.test.ts	580	it	prev chooses the preferred occurrence in DST fall-back	cron_berlin_fall_first_occurrence
+ported	packages/effect/test/Cron.test.ts	588	it	prev respects combined day-of-month and weekday constraints	cron_prev_combined_dom_weekday
+ported	packages/effect/test/Cron.test.ts	595	it	prev handles step expressions across day boundary	cron_prev_step_across_day_boundary
+ported	packages/effect/test/Cron.test.ts	602	it	prev works with fixed offset time zones	cron_prev_fixed_offset_zone
+ported	packages/effect/test/Cron.test.ts	609	it	prev wraps across year boundary	cron_prev_new_year_strict
+ported	packages/effect/test/Cron.test.ts	616	it	prev handles day 31 skipping months without it	cron_prev_day_31_from_march
+ported	packages/effect/test/Cron.test.ts	623	it	prev skips an invalid day in the immediately preceding month	cron_prev_day_31_variants
+ported	packages/effect/test/Cron.test.ts	630	it	prev finds the previous leap day	cron_prev_day_31_variants
+ported	packages/effect/test/Cron.test.ts	637	it	prev day-of-month rollovers preserve match and ordering invariants	cron_prev_rollovers_stay_matched_and_ordered
+ported	packages/effect/test/Cron.test.ts	651	it	prev terminates for an impossible day and month combination	cron_prev_impossible_throws
+ported	packages/effect/test/Cron.test.ts	657	it	prev clamps to the last valid day when rolling back a month with only month constraints	cron_prev_clamps_month_end
+ported	packages/effect/test/Cron.test.ts	664	it	prev with multiple months specified	cron_prev_multiple_months
+ported	packages/effect/test/Cron.test.ts	671	it	sequence	cron_sequence_exact_triple
+ported	packages/effect/test/Cron.test.ts	681	it	equal	cron_equal_schedules
+ported	packages/effect/test/Cron.test.ts	702	it	handles leap years	cron_leap_years
+ported	packages/effect/test/Cron.test.ts	713	it	handles transition into daylight savings time	cron_berlin_spring_sequence
+ported	packages/effect/test/Cron.test.ts	732	it	handles transition out of daylight savings time	cron_berlin_fall_once_mode
+ported	packages/effect/test/Cron.test.ts	763	it	handles utc timezone	cron_utc_sequence_over_fallback_date
 unported	packages/effect/test/Crypto.test.ts	28	it	uses the module path for its type ID	
 unported	packages/effect/test/Crypto.test.ts	35	it	supports string literal digest algorithms	
 unported	packages/effect/test/Crypto.test.ts	40	it.effect	randomBytes delegates to the service	
@@ -1061,61 +1061,61 @@ unported	packages/effect/test/Data.test.ts	240	it	can be caught with Effect.catc
 unported	packages/effect/test/Data.test.ts	250	it	allows tagged errors without fields to be constructed without args	
 unported	packages/effect/test/Data.test.ts	257	it	sets .name to the tag	
 unported	packages/effect/test/Data.test.ts	262	it	different tags produce non-equal errors	
-unported	packages/effect/test/DateTime.test.ts	15	it.effect	should mutate the date	
-unported	packages/effect/test/DateTime.test.ts	25	it.effect	preserves the named zone when mutating across DST	
-unported	packages/effect/test/DateTime.test.ts	45	it.effect	adds calendar days to a UTC DateTime	
-unported	packages/effect/test/DateTime.test.ts	53	it	clamps to the last valid day when changing months	
-unported	packages/effect/test/DateTime.test.ts	63	it.effect	preserves the named zone when adding calendar units across DST	
-unported	packages/effect/test/DateTime.test.ts	80	it.effect	leap years	
-unported	packages/effect/test/DateTime.test.ts	91	it	month	
-unported	packages/effect/test/DateTime.test.ts	97	it	feb leap year	
-unported	packages/effect/test/DateTime.test.ts	103	it	week	
-unported	packages/effect/test/DateTime.test.ts	110	it	week last day	
-unported	packages/effect/test/DateTime.test.ts	116	it	week with options	
-unported	packages/effect/test/DateTime.test.ts	124	it.effect	returns the zoned end of the month	
-unported	packages/effect/test/DateTime.test.ts	137	it	month	
-unported	packages/effect/test/DateTime.test.ts	143	it	month duplicated	
-unported	packages/effect/test/DateTime.test.ts	151	it	feb leap year	
-unported	packages/effect/test/DateTime.test.ts	157	it	week	
-unported	packages/effect/test/DateTime.test.ts	164	it	week first day	
-unported	packages/effect/test/DateTime.test.ts	170	it	week with options	
-unported	packages/effect/test/DateTime.test.ts	180	it	month up	
-unported	packages/effect/test/DateTime.test.ts	186	it	month down	
-unported	packages/effect/test/DateTime.test.ts	192	it	second up	
-unported	packages/effect/test/DateTime.test.ts	198	it	second down	
-unported	packages/effect/test/DateTime.test.ts	206	it.effect	full	
-unported	packages/effect/test/DateTime.test.ts	221	it.effect	full	
-unported	packages/effect/test/DateTime.test.ts	236	it.effect	full	
-unported	packages/effect/test/DateTime.test.ts	267	it	partial	
-unported	packages/effect/test/DateTime.test.ts	276	it	month is set correctly	
-unported	packages/effect/test/DateTime.test.ts	283	it	applies calendar parts without intermediate overflow	
-unported	packages/effect/test/DateTime.test.ts	289	it	partial	
-unported	packages/effect/test/DateTime.test.ts	304	it	ignores time zones	
-unported	packages/effect/test/DateTime.test.ts	321	it	partial	
-unported	packages/effect/test/DateTime.test.ts	336	it	accounts for time zone	
-unported	packages/effect/test/DateTime.test.ts	354	it	full	
-unported	packages/effect/test/DateTime.test.ts	361	it.effect	correctly adds offset	
+ported	packages/effect/test/DateTime.test.ts	15	it.effect	should mutate the date	mutate_adds_a_day
+ported	packages/effect/test/DateTime.test.ts	25	it.effect	preserves the named zone when mutating across DST	mutate_preserves_zone_across_dst
+ported	packages/effect/test/DateTime.test.ts	45	it.effect	adds calendar days to a UTC DateTime	add_calendar_days_utc
+ported	packages/effect/test/DateTime.test.ts	53	it	clamps to the last valid day when changing months	add_clamps_to_month_end
+ported	packages/effect/test/DateTime.test.ts	63	it.effect	preserves the named zone when adding calendar units across DST	add_preserves_wall_across_dst_fall_back
+ported	packages/effect/test/DateTime.test.ts	80	it.effect	leap years	add_year_clamps_leap_day
+ported	packages/effect/test/DateTime.test.ts	91	it	month	end_of_month_utc
+ported	packages/effect/test/DateTime.test.ts	97	it	feb leap year	end_of_february_leap_year
+ported	packages/effect/test/DateTime.test.ts	103	it	week	end_of_week_defaults_sunday
+ported	packages/effect/test/DateTime.test.ts	110	it	week last day	end_of_week_last_day
+ported	packages/effect/test/DateTime.test.ts	116	it	week with options	end_of_week_with_monday_start
+ported	packages/effect/test/DateTime.test.ts	124	it.effect	returns the zoned end of the month	zoned_end_of_month
+ported	packages/effect/test/DateTime.test.ts	137	it	month	start_of_month
+ported	packages/effect/test/DateTime.test.ts	143	it	month duplicated	start_of_month_idempotent
+ported	packages/effect/test/DateTime.test.ts	151	it	feb leap year	start_of_february_leap_year
+ported	packages/effect/test/DateTime.test.ts	157	it	week	start_of_week_variants
+ported	packages/effect/test/DateTime.test.ts	164	it	week first day	start_of_week_first_day
+ported	packages/effect/test/DateTime.test.ts	170	it	week with options	start_of_week_variants
+ported	packages/effect/test/DateTime.test.ts	180	it	month up	nearest_month_up
+ported	packages/effect/test/DateTime.test.ts	186	it	month down	nearest_month_down
+ported	packages/effect/test/DateTime.test.ts	192	it	second up	nearest_second_up
+ported	packages/effect/test/DateTime.test.ts	198	it	second down	nearest_second_down
+ported	packages/effect/test/DateTime.test.ts	206	it.effect	full	format_full_utc
+ported	packages/effect/test/DateTime.test.ts	221	it.effect	full	format_full_utc_of_zoned
+ported	packages/effect/test/DateTime.test.ts	236	it.effect	full	format_full_zoned
+ported	packages/effect/test/DateTime.test.ts	267	it	partial	from_parts_partial_defaults
+ported	packages/effect/test/DateTime.test.ts	276	it	month is set correctly	from_parts_month_defaults_to_january
+ported	packages/effect/test/DateTime.test.ts	283	it	applies calendar parts without intermediate overflow	set_parts_utc_simultaneous_no_overflow
+ported	packages/effect/test/DateTime.test.ts	289	it	partial	set_parts_partial
+ported	packages/effect/test/DateTime.test.ts	304	it	ignores time zones	set_parts_utc_ignores_zone
+ported	packages/effect/test/DateTime.test.ts	321	it	partial	set_parts_partial
+ported	packages/effect/test/DateTime.test.ts	336	it	accounts for time zone	set_parts_accounts_for_zone
+ported	packages/effect/test/DateTime.test.ts	354	it	full	format_iso_full
+ported	packages/effect/test/DateTime.test.ts	361	it.effect	correctly adds offset	format_iso_offset_adds_offset
 unported	packages/effect/test/DateTime.test.ts	371	it.effect	correctly adds offset	
-unported	packages/effect/test/DateTime.test.ts	381	it	removes time	
-unported	packages/effect/test/DateTime.test.ts	391	it	returns epoch seconds	
-unported	packages/effect/test/DateTime.test.ts	396	it	floors to nearest second	
-unported	packages/effect/test/DateTime.test.ts	403	it	creates DateTime from epoch seconds	
-unported	packages/effect/test/DateTime.test.ts	408	it	roundtrips with toEpochSeconds	
-unported	packages/effect/test/DateTime.test.ts	417	it.effect	parses an instant with an offset and IANA zone	
-unported	packages/effect/test/DateTime.test.ts	423	it.effect	parses an offset-only string as an Offset zone	
-unported	packages/effect/test/DateTime.test.ts	430	it.effect	parses a UTC offset-only string as an Offset zone	
-unported	packages/effect/test/DateTime.test.ts	437	it.effect	roundtrips a bracketed IANA zone string	
-unported	packages/effect/test/DateTime.test.ts	448	it	parts equality	
+ported	packages/effect/test/DateTime.test.ts	381	it	removes time	remove_time_midnights
+ported	packages/effect/test/DateTime.test.ts	391	it	returns epoch seconds	to_epoch_seconds_returns_seconds
+ported	packages/effect/test/DateTime.test.ts	396	it	floors to nearest second	to_epoch_seconds_floors
+ported	packages/effect/test/DateTime.test.ts	403	it	creates DateTime from epoch seconds	from_epoch_seconds_exact
+ported	packages/effect/test/DateTime.test.ts	408	it	roundtrips with toEpochSeconds	epoch_millis_roundtrips
+ported	packages/effect/test/DateTime.test.ts	417	it.effect	parses an instant with an offset and IANA zone	nanos_truncate_to_millis
+ported	packages/effect/test/DateTime.test.ts	423	it.effect	parses an offset-only string as an Offset zone	parses_offset_only_as_offset_zone
+ported	packages/effect/test/DateTime.test.ts	430	it.effect	parses a UTC offset-only string as an Offset zone	parses_utc_offset_only_as_utc
+ported	packages/effect/test/DateTime.test.ts	437	it.effect	roundtrips a bracketed IANA zone string	bracketed_iana_roundtrips
+ported	packages/effect/test/DateTime.test.ts	448	it	parts equality	parts_equality
 skipped-upstream	packages/effect/test/DateTime.test.ts	457	it.skip	makeZonedUnsafe no options	
-unported	packages/effect/test/DateTime.test.ts	465	it.effect	with a Utc	
-unported	packages/effect/test/DateTime.test.ts	471	it.effect	with a Zoned	
-unported	packages/effect/test/DateTime.test.ts	482	it.effect	should return the current Date	
-unported	packages/effect/test/DateTime.test.ts	491	it	rejects invalid object instants	
-unported	packages/effect/test/DateTime.test.ts	498	it	throws for invalid object instants	
-unported	packages/effect/test/DateTime.test.ts	503	it	treats strings without zone info as UTC	
-unported	packages/effect/test/DateTime.test.ts	508	it	does not append Z to strings ending with Z	
-unported	packages/effect/test/DateTime.test.ts	513	it	does not append Z to strings with explicit offset	
-unported	packages/effect/test/DateTime.test.ts	518	it	does not append Z to strings containing GMT	
+ported	packages/effect/test/DateTime.test.ts	465	it.effect	with a Utc	to_utc_keeps_instant
+ported	packages/effect/test/DateTime.test.ts	471	it.effect	with a Zoned	zoned_to_utc_adjusts_wall
+ported	packages/effect/test/DateTime.test.ts	482	it.effect	should return the current Date	now_matches_test_clock_override
+ported	packages/effect/test/DateTime.test.ts	491	it	rejects invalid object instants	from_partial_rejects_bad_month
+ported	packages/effect/test/DateTime.test.ts	498	it	throws for invalid object instants	make_unsafe_panics_on_garbage
+ported	packages/effect/test/DateTime.test.ts	503	it	treats strings without zone info as UTC	bare_strings_parse_as_utc
+ported	packages/effect/test/DateTime.test.ts	508	it	does not append Z to strings ending with Z	z_strings_keep_instant
+ported	packages/effect/test/DateTime.test.ts	513	it	does not append Z to strings with explicit offset	explicit_offset_converts_to_utc_json
+ported	packages/effect/test/DateTime.test.ts	518	it	does not append Z to strings containing GMT	gmt_strings_parse
 unported	packages/effect/test/Deferred.test.ts	10	it.effect	succeed - should propagate the value	
 unported	packages/effect/test/Deferred.test.ts	18	it.effect	complete - should memoize the result of the provided effect	
 unported	packages/effect/test/Deferred.test.ts	34	it.effect	completeWith - should not memoize the provided effect	

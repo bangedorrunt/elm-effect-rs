@@ -148,7 +148,7 @@ tests = ["packages/effect/test/Context.test.ts"]
 [[module]]
 path = "packages/effect/src/Cron.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/Cron.test.ts"]
@@ -172,7 +172,7 @@ tests = ["packages/effect/test/Data.test.ts"]
 [[module]]
 path = "packages/effect/src/DateTime.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/DateTime.test.ts"]
