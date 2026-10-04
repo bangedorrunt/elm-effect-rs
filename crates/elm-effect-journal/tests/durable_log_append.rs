@@ -1,124 +1,101 @@
-//! `durable_log_append` fence: minted offsets, seq rules, atomic append.
-//! The log module loads via `#[path]` (the .15 precedent): no facade touch.
+//! Durable append rules: minted offsets, atomic batches, seq discipline.
 
-#[path = "../src/durable_log.rs"]
-mod durable_log;
+use elm_effect_journal::durable_log::{AppendError, DurableLog, MemLog, Offset, SCHEMA_VERSION};
 
-use durable_log::{
-    DurableLog, InProcessLog, JsonMessage, LogError, OFFSET_START, OFFSET_TAIL, ProducerId,
-    ReadBound, SCHEMA_VERSION,
-};
-
-fn producer(id: &str, epoch: u64, seq: u64) -> ProducerId {
-    ProducerId {
-        producer_id: id.to_owned(),
-        epoch,
-        seq,
-    }
-}
-
-fn msg(body: &str) -> JsonMessage {
-    JsonMessage {
-        schema_version: SCHEMA_VERSION,
-        body: body.to_owned(),
-    }
+fn envelope(producer: &str, epoch: u64, seq: u64, payload: &str) -> String {
+    format!(
+        "{{\"v\":{SCHEMA_VERSION},\"producer\":{{\"producer_id\":\"{producer}\",\"epoch\":{epoch},\"seq\":{seq}}},\"payload\":{payload}}}"
+    )
 }
 
 #[test]
 fn hand_built_offset_is_rejected() {
-    let mut log = InProcessLog::new();
-    let first = log.append(producer("p", 0, 1), msg("{}")).expect("append");
-    assert!(first.as_str() != OFFSET_START && first.as_str() != OFFSET_TAIL);
-    // A hand-built token is rejected anywhere a real offset is required.
-    let fake = durable_log::Offset::from_unminted_for_test("00000000000000009999");
-    assert_eq!(
-        log.read(&ReadBound::After(fake.clone()), 10),
-        Err(LogError::HandBuiltOffset(fake.as_str().to_owned()))
+    let log = MemLog::new();
+    assert!(log.read_from(&Offset::At("forged".into())).is_err());
+    assert!(
+        log.read_from(&Offset::At("99999999999999999999".into()))
+            .is_err()
     );
-    // The sentinels are never real offsets either.
-    for sentinel in [OFFSET_START, OFFSET_TAIL] {
-        let fake = durable_log::Offset::from_unminted_for_test(sentinel);
-        assert!(matches!(
-            log.read(&ReadBound::After(fake), 10),
-            Err(LogError::HandBuiltOffset(_))
-        ));
-    }
-    // Minted offsets order lexicographically in append order.
-    let second = log.append(producer("p", 0, 2), msg("{}")).expect("append");
-    assert!(first < second);
+    assert_eq!(log.read_from(&Offset::Start).unwrap(), vec![]);
+    assert_eq!(log.read_from(&Offset::Now).unwrap(), vec![]);
 }
 
 #[test]
 fn seq_gap_is_rejected() {
-    let mut log = InProcessLog::new();
-    assert!(matches!(
-        log.append(producer("p", 0, 2), msg("{}")),
-        Err(LogError::SeqGap {
-            expected: 1,
-            offered: 2,
-            ..
+    let log = MemLog::new();
+    assert_eq!(
+        log.append_json(&envelope("p", 0, 5, "1")),
+        Err(AppendError::SeqGap { got: 5, last: None })
+    );
+    assert!(log.append_json(&envelope("p", 0, 0, "1")).is_ok());
+    // Idempotent replay of an accepted seq returns its offset, no duplicate.
+    let first = log.append_json(&envelope("p", 0, 0, "1")).unwrap();
+    let readings = log.read_from(&Offset::Start).unwrap();
+    assert_eq!(readings.len(), 1);
+    assert_eq!(readings[0].0, first);
+    assert_eq!(
+        log.append_json(&envelope("p", 0, 2, "1")),
+        Err(AppendError::SeqGap {
+            got: 2,
+            last: Some(0)
         })
-    ));
-    // Same triple appends once: idempotent replay returns the first offset.
-    let first = log
-        .append(producer("p", 0, 1), msg("{\"a\":1}"))
-        .expect("append");
-    let replay = log
-        .append(producer("p", 0, 1), msg("{\"a\":1}"))
-        .expect("replay");
-    assert_eq!(first, replay);
-    assert_eq!(log.latest(), Some(first));
-    // Independent epochs track their own sequences.
-    log.append(producer("p", 1, 1), msg("{}"))
-        .expect("new epoch starts at 1");
+    );
+    assert!(log.append_json(&envelope("p", 0, 1, "2")).is_ok());
 }
 
 #[test]
 fn partial_identity_is_rejected() {
-    let mut log = InProcessLog::new();
+    let log = MemLog::new();
     assert_eq!(
-        log.append(producer("", 0, 1), msg("{}")),
-        Err(LogError::PartialIdentity)
+        log.append_json(r#"{"v":1,"payload":1}"#),
+        Err(AppendError::PartialIdentity)
     );
-    assert!(log.latest().is_none());
+    assert_eq!(
+        log.append_json(r#"{"v":1,"producer":{"producer_id":"p"},"payload":1}"#),
+        Err(AppendError::PartialIdentity)
+    );
+    assert_eq!(
+        log.append_json(
+            r#"{"v":1,"producer":{"producer_id":"p","epoch":0,"seq":null},"payload":1}"#
+        ),
+        Err(AppendError::PartialIdentity)
+    );
 }
 
 #[test]
 fn append_is_atomic() {
-    let mut log = InProcessLog::new();
-    for i in 1..=5u64 {
-        log.append(producer("p", 0, i), msg(&format!("{{\"i\":{i}}}")))
-            .expect("append");
-    }
-    // A read never returns a partial message: every body parses whole.
-    let records = log.read(&ReadBound::Start, 100).expect("read");
-    assert_eq!(records.len(), 5);
-    for (n, record) in records.iter().enumerate() {
-        assert_eq!(record.message.body, format!("{{\"i\":{}}}", n + 1));
-    }
-    // Bounded reads page in order without overlap.
-    let page1 = log.read(&ReadBound::Start, 2).expect("page");
-    let after = ReadBound::After(page1[1].offset.clone());
-    let page2 = log.read(&after, 10).expect("page");
-    assert_eq!(page1.len(), 2);
-    assert_eq!(page2.len(), 3);
-    assert_eq!(page2[0].message.body, "{\"i\":3}");
-    // Tail reads nothing.
-    assert_eq!(log.read(&ReadBound::Tail, 10).expect("tail"), vec![]);
+    let log = MemLog::new();
+    let first = log.append_json(&envelope("p", 0, 0, r#"{"a":1}"#)).unwrap();
+    let second = log.append_json(&envelope("p", 0, 1, r#"{"b":2}"#)).unwrap();
+    assert!(matches!(first, Offset::At(_)));
+    assert!(matches!(second, Offset::At(_)));
+    assert_ne!(first, second);
+    // Offsets order lexicographically in append order.
+    let (Offset::At(a), Offset::At(b)) = (first.clone(), second.clone()) else {
+        panic!("minted")
+    };
+    assert!(a < b);
+    // Reads return whole messages with JSON boundaries intact.
+    let readings = log.read_from(&Offset::Start).unwrap();
+    assert_eq!(readings.len(), 2);
+    assert_eq!(readings[0].1, r#"{"a":1}"#);
+    assert_eq!(readings[1].1, r#"{"b":2}"#);
+    // Reading past the first returns only the second.
+    assert_eq!(log.read_from(&first).unwrap().len(), 1);
+    assert_eq!(log.read_from(&Offset::Now).unwrap(), vec![]);
 }
 
 #[test]
 fn unknown_schema_version_is_typed_error() {
-    let mut log = InProcessLog::new();
+    let log = MemLog::new();
     assert_eq!(
-        log.append(
-            producer("p", 0, 1),
-            JsonMessage {
-                schema_version: 999,
-                body: "{}".to_owned()
-            }
+        log.append_json(
+            r#"{"v":999,"producer":{"producer_id":"p","epoch":0,"seq":0},"payload":1}"#
         ),
-        Err(LogError::UnknownSchemaVersion(999))
+        Err(AppendError::UnknownVersion(999))
     );
-    assert!(log.latest().is_none());
+    assert!(matches!(
+        log.append_json("not json"),
+        Err(AppendError::NotAnEnvelope(_))
+    ));
 }

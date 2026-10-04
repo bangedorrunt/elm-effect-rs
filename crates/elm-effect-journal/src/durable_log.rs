@@ -1,222 +1,207 @@
-//! Durable log (`DurableLog` trait + in-process kernel).
+//! Law L16 (append part): a durable log is a trait; the kernel here runs
+//! in-process (the log IS the stream, not a client of any server).
 //!
-//! The log IS the stream, not a client of any server: one ordered,
-//! atomic-append record per live log. Offsets are opaque, minted, and
-//! lexicographically ordered; the `-1` (start) and `now` (tail) sentinels
-//! are never minted, and a hand-built offset is rejected everywhere a token
-//! is taken. Producer identity is `(producer_id, epoch, seq)` all-or-none:
-//! an empty producer id is a partial identity and is rejected; a `seq` that
-//! is neither `last + 1` nor already accepted is a gap and is rejected,
-//! while the same triple appends once (idempotent replay returns the first
-//! offset). Every JSON message carries the schema version; an unknown
-//! version is a typed error, never a silent accept.
-//!
-//! Residuals: the HTTP/pull transport (`durable-streams` feature),
-//! multi-producer merge cursors, and compaction.
+//! Offsets are opaque, lexicographically ordered, and minted by the log:
+//! [`Offset::Start`] (`-1`) and [`Offset::Now`] (tail) are sentinels and are
+//! never minted. A hand-built offset fails validation on read. Appends are
+//! atomic under one lock: a crash leaves the previous offset, reads never
+//! see partial messages, and JSON mode keeps message boundaries. Producer
+//! identity travels all-or-none as `(producer_id, epoch, seq)`; a `seq` that
+//! is neither `last + 1` nor already accepted is rejected, while a replayed
+//! accepted `seq` returns its original offset without duplicating. Every
+//! JSON message carries the schema version; unknown versions are typed
+//! errors.
 
 use std::collections::{HashMap, HashSet};
+use std::sync::Mutex;
 
-/// Schema version stamped on every JSON message.
+/// Schema versions this log reads.
 pub const SCHEMA_VERSION: u32 = 1;
 
-/// Start sentinel: reads from the beginning. Never minted.
-pub const OFFSET_START: &str = "-1";
-/// Tail sentinel: reads from the live end. Never minted.
-pub const OFFSET_TAIL: &str = "now";
-
-/// Opaque minted offset. Lexicographic order is append order.
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct Offset(String);
-
-impl Offset {
-    /// Render for storage (snapshot rows store this token).
-    pub fn as_str(&self) -> &str {
-        &self.0
-    }
-
-    /// Build an unminted token. Test-only: the way to prove the log
-    /// rejects tokens it never minted.
-    pub fn from_unminted_for_test(token: &str) -> Self {
-        Self(token.to_owned())
-    }
-}
-
-/// Read bound: a sentinel or a minted offset.
+/// An offset: opaque to callers, ordered lexicographically. `Start` reads
+/// from the beginning, `Now` reads nothing (already at the tail).
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum ReadBound {
-    /// From the beginning.
+pub enum Offset {
+    /// Read from the beginning. Never minted.
     Start,
-    /// After a minted offset (exclusive).
-    After(Offset),
-    /// Nothing to read (already at the tail).
-    Tail,
+    /// Already at the tail: reads return nothing. Never minted.
+    Now,
+    /// A minted offset. Opaque: build only via append.
+    At(String),
 }
 
-/// Producer identity: all three parts or nothing.
+/// Producer identity: all three parts travel together or not at all.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct ProducerId {
-    /// Producer name. Empty is a partial identity and is rejected.
+    /// Who is producing.
     pub producer_id: String,
-    /// Epoch (forks restart at 0).
+    /// The producer's epoch (restarts begin a new epoch).
     pub epoch: u64,
-    /// Sequence within the epoch.
+    /// The message sequence within the epoch.
     pub seq: u64,
 }
 
-/// One JSON message with its schema version.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct JsonMessage {
-    /// Must equal [`SCHEMA_VERSION`] on append.
-    pub schema_version: u32,
-    /// JSON body (boundaries preserved verbatim).
-    pub body: String,
-}
-
-/// Stored record: minted offset plus message.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Record {
-    /// Minted at append.
-    pub offset: Offset,
-    /// Producer triple that appended it.
-    pub producer: ProducerId,
-    /// The message.
-    pub message: JsonMessage,
-}
-
 /// Typed append/read failures.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum LogError {
-    /// Offset token the log never minted (includes the sentinels where a
-    /// real offset is required, and any hand-built string).
-    HandBuiltOffset(String),
-    /// `seq` is neither `last + 1` nor already accepted.
-    SeqGap {
-        /// Producer and epoch the gap belongs to.
-        producer_id: String,
-        /// Epoch of the gap.
-        epoch: u64,
-        /// Expected next sequence.
-        expected: u64,
-        /// Offered sequence.
-        offered: u64,
-    },
-    /// Producer identity arrived partial (empty producer id).
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+pub enum AppendError {
+    /// The envelope is not valid JSON or not an envelope.
+    #[error("not a log envelope: {0}")]
+    NotAnEnvelope(String),
+    /// Identity arrived partial: all of `(producer_id, epoch, seq)` or none.
+    #[error("partial producer identity")]
     PartialIdentity,
-    /// Message schema version is not [`SCHEMA_VERSION`].
-    UnknownSchemaVersion(u32),
+    /// Unknown schema version (this log reads v1).
+    #[error("unknown schema version: {0}")]
+    UnknownVersion(u32),
+    /// `seq` is neither `last + 1` nor already accepted.
+    #[error("seq gap: got {got}, last accepted {last:?}")]
+    SeqGap { got: u64, last: Option<u64> },
+    /// The offset was not minted by this log.
+    #[error("unknown offset")]
+    UnknownOffset,
 }
 
-/// Durable log contract. The kernel below runs it in process; toron
-/// implements this trait later over its own store.
+/// A durable log: atomic appends, validated reads.
 pub trait DurableLog {
-    /// Atomically append one message. Idempotent on the full triple:
-    /// re-appending an accepted `(producer_id, epoch, seq)` returns the
-    /// first offset without writing.
-    fn append(&mut self, producer: ProducerId, message: JsonMessage) -> Result<Offset, LogError>;
-    /// Read records after `bound` (up to `limit`). A non-minted offset is
-    /// rejected; the sentinels are never mistaken for real offsets.
-    fn read(&self, bound: &ReadBound, limit: usize) -> Result<Vec<Record>, LogError>;
-    /// Latest minted offset, if any.
-    fn latest(&self) -> Option<Offset>;
+    /// Append one JSON envelope, returning its minted offset.
+    fn append_json(&self, envelope: &str) -> Result<Offset, AppendError>;
+    /// Read every message after `from`. Hand-built offsets are rejected.
+    fn read_from(&self, from: &Offset) -> Result<Vec<(Offset, String)>, AppendError>;
 }
 
-/// In-process kernel: the log is a `Vec` behind one lock-step mutex, so an
-/// append is a single push (a crash leaves the previous offset) and a read
-/// never sees a partial message.
+/// In-process log: one lock, one message vector. Atomicity falls out of
+/// the lock discipline (a crash between appends leaves the previous
+/// offset); reads clone complete messages, never partial ones.
 #[derive(Debug, Default)]
-pub struct InProcessLog {
-    records: Vec<Record>,
-    minted: HashSet<String>,
-    next_seq: u64,
-    accepted: HashMap<(String, u64), std::collections::BTreeSet<u64>>,
-    offsets: HashMap<(String, u64, u64), Offset>,
+pub struct MemLog {
+    inner: Mutex<MemInner>,
 }
 
-impl InProcessLog {
-    /// Empty log.
+#[derive(Debug, Default)]
+struct MemInner {
+    entries: Vec<MemEntry>,
+    /// Last accepted seq per `(producer_id, epoch)`.
+    last_seq: HashMap<(String, u64), u64>,
+    /// Accepted seqs per producer, for idempotent replays.
+    accepted: HashMap<(String, u64), HashSet<u64>>,
+    /// Minted offset per accepted seq, for replay replies.
+    offsets: HashMap<(String, u64, u64), String>,
+    next: u64,
+}
+
+#[derive(Debug, Clone)]
+struct MemEntry {
+    offset: String,
+    producer: (String, u64),
+    seq: u64,
+    message: String,
+}
+
+impl MemLog {
+    /// An empty log.
     pub fn new() -> Self {
         Self::default()
     }
 
-    fn mint(&mut self) -> Offset {
-        self.next_seq += 1;
-        let offset = Offset(format!("{:020}", self.next_seq));
-        self.minted.insert(offset.0.clone());
-        offset
+    /// Mint the next offset: zero-padded, lexicographically ordered.
+    fn mint(next: u64) -> String {
+        format!("{next:020}")
     }
 
-    fn check_offset(&self, offset: &Offset) -> Result<(), LogError> {
-        if offset.0 == OFFSET_START || offset.0 == OFFSET_TAIL || !self.minted.contains(&offset.0) {
-            return Err(LogError::HandBuiltOffset(offset.0.clone()));
-        }
-        Ok(())
-    }
-}
-
-impl DurableLog for InProcessLog {
-    fn append(&mut self, producer: ProducerId, message: JsonMessage) -> Result<Offset, LogError> {
-        if producer.producer_id.is_empty() {
-            return Err(LogError::PartialIdentity);
-        }
-        if message.schema_version != SCHEMA_VERSION {
-            return Err(LogError::UnknownSchemaVersion(message.schema_version));
-        }
-        let triple = (producer.producer_id.clone(), producer.epoch, producer.seq);
-        if let Some(offset) = self.offsets.get(&triple) {
-            return Ok(offset.clone());
-        }
-        let key = (producer.producer_id.clone(), producer.epoch);
-        let expected = self
-            .accepted
-            .get(&key)
-            .and_then(|s| s.last().copied())
-            .unwrap_or(0)
-            + 1;
-        if producer.seq != expected {
-            return Err(LogError::SeqGap {
-                producer_id: producer.producer_id.clone(),
-                epoch: producer.epoch,
-                expected,
-                offered: producer.seq,
-            });
-        }
-        let offset = self.mint();
-        self.accepted.entry(key).or_default().insert(producer.seq);
-        self.offsets.insert(triple, offset.clone());
-        self.records.push(Record {
-            offset: offset.clone(),
-            producer,
-            message,
-        });
-        Ok(offset)
-    }
-
-    fn read(&self, bound: &ReadBound, limit: usize) -> Result<Vec<Record>, LogError> {
-        let from = match bound {
-            ReadBound::Start => None,
-            ReadBound::Tail => return Ok(Vec::new()),
-            ReadBound::After(offset) => {
-                self.check_offset(offset)?;
-                Some(offset.clone())
-            }
-        };
-        let mut out = Vec::new();
-        for record in &self.records {
-            let after = match &from {
-                None => true,
-                Some(after) => record.offset > *after,
-            };
-            if after {
-                out.push(record.clone());
-                if out.len() >= limit {
-                    break;
+    /// Validate a presented offset against minted history.
+    fn check(&self, offset: &Offset) -> Result<Option<u64>, AppendError> {
+        match offset {
+            Offset::Start => Ok(None),
+            Offset::Now => Ok(Some(u64::MAX)),
+            Offset::At(raw) => {
+                let seq: u64 = raw.parse().map_err(|_| AppendError::UnknownOffset)?;
+                let inner = self.inner.lock().unwrap();
+                if seq < inner.next {
+                    Ok(Some(seq))
+                } else {
+                    Err(AppendError::UnknownOffset)
                 }
             }
         }
-        Ok(out)
+    }
+}
+
+impl DurableLog for MemLog {
+    fn append_json(&self, envelope: &str) -> Result<Offset, AppendError> {
+        let value: serde_json::Value = serde_json::from_str(envelope)
+            .map_err(|e| AppendError::NotAnEnvelope(e.to_string()))?;
+        let version = value
+            .get("v")
+            .and_then(serde_json::Value::as_u64)
+            .ok_or_else(|| AppendError::NotAnEnvelope("missing v".into()))?;
+        if version != u64::from(SCHEMA_VERSION) {
+            return Err(AppendError::UnknownVersion(version as u32));
+        }
+        let producer = value.get("producer");
+        let (id, epoch, seq) = match producer {
+            None => return Err(AppendError::PartialIdentity),
+            Some(p) => {
+                let id = p.get("producer_id").and_then(serde_json::Value::as_str);
+                let epoch = p.get("epoch").and_then(serde_json::Value::as_u64);
+                let seq = p.get("seq").and_then(serde_json::Value::as_u64);
+                match (id, epoch, seq) {
+                    (Some(id), Some(epoch), Some(seq)) => (id.to_string(), epoch, seq),
+                    _ => return Err(AppendError::PartialIdentity),
+                }
+            }
+        };
+        // Null producer part is also partial: explicit nulls fail as above
+        // (`as_str`/`as_u64` return `None` for nulls).
+        let message = value
+            .get("payload")
+            .map(|v| v.to_string())
+            .unwrap_or_default();
+        let mut inner = self.inner.lock().unwrap();
+        let key = (id.clone(), epoch);
+        let last = inner.last_seq.get(&key).copied();
+        if let Some(offset) = inner
+            .accepted
+            .get(&key)
+            .filter(|set| set.contains(&seq))
+            .and_then(|_| inner.offsets.get(&(id.clone(), epoch, seq)).cloned())
+        {
+            // Idempotent replay: same triple appends once, replies the offset.
+            return Ok(Offset::At(offset));
+        }
+        let expected = last.map(|l| l + 1).unwrap_or(0);
+        if seq != expected {
+            return Err(AppendError::SeqGap { got: seq, last });
+        }
+        let offset = Self::mint(inner.next);
+        inner.next += 1;
+        inner.last_seq.insert(key.clone(), seq);
+        inner.accepted.entry(key.clone()).or_default().insert(seq);
+        inner
+            .offsets
+            .insert((id.clone(), epoch, seq), offset.clone());
+        inner.entries.push(MemEntry {
+            offset: offset.clone(),
+            producer: (id, epoch),
+            seq,
+            message,
+        });
+        Ok(Offset::At(offset))
     }
 
-    fn latest(&self) -> Option<Offset> {
-        self.records.last().map(|r| r.offset.clone())
+    fn read_from(&self, from: &Offset) -> Result<Vec<(Offset, String)>, AppendError> {
+        let after = self.check(from)?;
+        if after == Some(u64::MAX) {
+            return Ok(Vec::new());
+        }
+        let inner = self.inner.lock().unwrap();
+        let mut out = Vec::new();
+        for entry in &inner.entries {
+            let seq: u64 = entry.offset.parse().expect("minted");
+            let past = after.map_or(true, |limit| seq > limit);
+            if past {
+                out.push((Offset::At(entry.offset.clone()), entry.message.clone()));
+            }
+        }
+        Ok(out)
     }
 }

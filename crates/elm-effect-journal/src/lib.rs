@@ -13,6 +13,7 @@
 
 use serde::{Deserialize, Serialize};
 
+pub mod durable_log;
 pub mod store;
 
 /// Lifecycle state of one effect row. No `Absent`: absence is no row.
@@ -132,7 +133,10 @@ pub fn settle_from_exit<A, E>(exit: &elm_effect::Exit<A, E>) -> EffectState {
 }
 
 /// Checked step: the target state on a legal edge, else rejection.
-pub const fn transition(from: EffectState, to: EffectState) -> Result<EffectState, TransitionError> {
+pub const fn transition(
+    from: EffectState,
+    to: EffectState,
+) -> Result<EffectState, TransitionError> {
     if can_transition(from, to) {
         Ok(to)
     } else {

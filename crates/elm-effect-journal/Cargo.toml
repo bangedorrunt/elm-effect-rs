@@ -9,3 +9,4 @@ publish = false
 elm-effect = { path = "../elm-effect" }
 serde = { version = "1", features = ["derive"] }
 thiserror = "1"
+serde_json = "1"
