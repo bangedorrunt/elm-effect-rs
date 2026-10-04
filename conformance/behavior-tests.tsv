@@ -50,7 +50,7 @@ ported	packages/effect/test/Array.test.ts	654	it	dedupeWith	array_std_substrate
 ported	packages/effect/test/Array.test.ts	667	it	dedupeAdjacentWith	array_std_substrate
 ported	packages/effect/test/Array.test.ts	674	it	splitAt	array_std_substrate
 ported	packages/effect/test/Array.test.ts	707	it	splitAtNonEmpty	array_std_substrate
-unported	packages/effect/test/Array.test.ts	714	it	should throw on index out of bound	
+skipped-upstream	packages/effect/test/Array.test.ts	714	it	should throw on index out of bound	
 ported	packages/effect/test/Array.test.ts	719	it	fromNullishOr	array_std_substrate
 ported	packages/effect/test/Array.test.ts	725	it	liftNullishOr	array_std_substrate
 ported	packages/effect/test/Array.test.ts	731	it	flatMapNullishOr	array_std_substrate
@@ -118,8 +118,8 @@ ported	packages/effect/test/Array.test.ts	1335	it	fromOption	array_std_substrate
 ported	packages/effect/test/Array.test.ts	1340	it	forEach	array_std_substrate
 ported	packages/effect/test/Array.test.ts	1346	it	sortWith	array_std_substrate
 ported	packages/effect/test/Array.test.ts	1355	it	countBy	array_std_substrate
-unported	packages/effect/test/Array.test.ts	1360	it	isArray	
-unported	packages/effect/test/Array.test.ts	1371	it	fromRecord	
+ported	packages/effect/test/Array.test.ts	1360	it	isArray	array_std_substrate
+ported	packages/effect/test/Array.test.ts	1371	it	fromRecord	array_std_substrate
 ported	packages/effect/test/Array.test.ts	1378	it	join	array_std_substrate
 ported	packages/effect/test/Array.test.ts	1386	it	mapAccum	array_std_substrate
 ported	packages/effect/test/Array.test.ts	1399	it	partition	array_std_substrate
@@ -136,8 +136,8 @@ ported	packages/effect/test/Array.test.ts	1528	it	difference	array_std_substrate
 ported	packages/effect/test/Array.test.ts	1546	it	cartesianWith	array_std_substrate
 ported	packages/effect/test/Array.test.ts	1559	it	cartesian	array_std_substrate
 ported	packages/effect/test/Array.test.ts	1572	it	makeEquivalence	array_std_substrate
-unported	packages/effect/test/Array.test.ts	1582	it	getReadonlyReducerConcat	
-unported	packages/effect/test/Array.test.ts	1590	it	makeReducerConcat	
+skipped-upstream	packages/effect/test/Array.test.ts	1582	it	getReadonlyReducerConcat	
+skipped-upstream	packages/effect/test/Array.test.ts	1590	it	makeReducerConcat	
 ported	packages/effect/test/Array.test.ts	1596	it	allocate	array_std_substrate
 ported	packages/effect/test/Array.test.ts	1605	it	returns true for empty array	array_std_substrate
 ported	packages/effect/test/Array.test.ts	1608	it	with index	array_std_substrate
@@ -145,8 +145,8 @@ ported	packages/effect/test/Array.test.ts	1615	it	returns false for empty array	
 ported	packages/effect/test/Array.test.ts	1618	it	with index	array_std_substrate
 ported	packages/effect/test/Array.test.ts	1625	it	returns a new reference	array_std_substrate
 ported	packages/effect/test/Array.test.ts	1634	it	returns empty when seed produces Option.none	array_std_substrate
-unported	packages/effect/test/Array.test.ts	1639	it	bindTo	
-unported	packages/effect/test/Array.test.ts	1645	it	Do notation	
+skipped-upstream	packages/effect/test/Array.test.ts	1639	it	bindTo	
+skipped-upstream	packages/effect/test/Array.test.ts	1645	it	Do notation	
 unported	packages/effect/test/ArrayNaNIndex.test.ts	7	it	rejects NaN in get	
 unported	packages/effect/test/ArrayNaNIndex.test.ts	11	it	rejects NaN in getUnsafe	
 unported	packages/effect/test/ArrayNaNIndex.test.ts	15	it	rejects NaN in insertAt	
@@ -574,25 +574,25 @@ unported	packages/effect/test/Channel.test.ts	681	it.effect	extracts second reas
 unported	packages/effect/test/Channel.test.ts	692	it.effect	preserves other errors	
 ported	packages/effect/test/Chunk.test.ts	27	it	Equal.equals	chunk_extra
 ported	packages/effect/test/Chunk.test.ts	36	it	toString	chunk_extra
-unported	packages/effect/test/Chunk.test.ts	47	it	toJSON	
-unported	packages/effect/test/Chunk.test.ts	55	it	inspect	
+ported	packages/effect/test/Chunk.test.ts	47	it	toJSON	chunk_extra
+ported	packages/effect/test/Chunk.test.ts	55	it	inspect	chunk_extra
 ported	packages/effect/test/Chunk.test.ts	63	it	modify	chunk_extra
 ported	packages/effect/test/Chunk.test.ts	71	it	replace	chunk_extra
 ported	packages/effect/test/Chunk.test.ts	76	it	remove	chunk_extra
 ported	packages/effect/test/Chunk.test.ts	81	it	chunksOf	chunk_extra
-unported	packages/effect/test/Chunk.test.ts	116	it	.pipe() method	
+skipped-upstream	packages/effect/test/Chunk.test.ts	116	it	.pipe() method	
 ported	packages/effect/test/Chunk.test.ts	121	it	should return an empty array for an empty chunk	chunk_build
 ported	packages/effect/test/Chunk.test.ts	125	it	should return an array with the elements of the chunk	chunk_build
 ported	packages/effect/test/Chunk.test.ts	129	it	should not affect the original chunk when the array is mutated	chunk_build
 ported	packages/effect/test/Chunk.test.ts	142	it	should give back an empty readonly array	chunk_build
 ported	packages/effect/test/Chunk.test.ts	152	it	gives back a readonly array	chunk_build
-unported	packages/effect/test/Chunk.test.ts	166	it	should have depth of +/- 3	
-unported	packages/effect/test/Chunk.test.ts	176	it	should be true	
-unported	packages/effect/test/Chunk.test.ts	182	it	should be false	
-unported	packages/effect/test/Chunk.test.ts	203	it	should process it	
-unported	packages/effect/test/Chunk.test.ts	208	it	should return the same reference if the input is a Chunk	
-unported	packages/effect/test/Chunk.test.ts	220	it	should a Some with the value	
-unported	packages/effect/test/Chunk.test.ts	228	it	should return a None	
+skipped-upstream	packages/effect/test/Chunk.test.ts	166	it	should have depth of +/- 3	
+ported	packages/effect/test/Chunk.test.ts	176	it	should be true	chunk_ends
+ported	packages/effect/test/Chunk.test.ts	182	it	should be false	chunk_ends
+ported	packages/effect/test/Chunk.test.ts	203	it	should process it	chunk_build
+skipped-upstream	packages/effect/test/Chunk.test.ts	208	it	should return the same reference if the input is a Chunk	
+skipped-upstream	packages/effect/test/Chunk.test.ts	220	it	should a Some with the value	
+skipped-upstream	packages/effect/test/Chunk.test.ts	228	it	should return a None	
 ported	packages/effect/test/Chunk.test.ts	239	it	should throw	chunk_get_or_throw_panics_out_of_bounds
 ported	packages/effect/test/Chunk.test.ts	248	it	should throw	chunk_get_or_throw_panics_out_of_bounds
 ported	packages/effect/test/Chunk.test.ts	254	it	should return the value	chunk_extra
@@ -609,25 +609,25 @@ ported	packages/effect/test/Chunk.test.ts	343	it	should return the value	chunk_e
 ported	packages/effect/test/Chunk.test.ts	355	it	append	chunk_build
 ported	packages/effect/test/Chunk.test.ts	371	it	prependAll	chunk_build
 ported	packages/effect/test/Chunk.test.ts	382	it	prepend	chunk_build
-unported	packages/effect/test/Chunk.test.ts	399	it	normalizes NaN to a zero count	
-unported	packages/effect/test/Chunk.test.ts	408	it	produces valid chunks for fractional counts	
+skipped-upstream	packages/effect/test/Chunk.test.ts	399	it	normalizes NaN to a zero count	
+skipped-upstream	packages/effect/test/Chunk.test.ts	408	it	produces valid chunks for fractional counts	
 ported	packages/effect/test/Chunk.test.ts	419	it	should return the subset	chunk_build
 ported	packages/effect/test/Chunk.test.ts	428	it	should return the available subset	chunk_build
 ported	packages/effect/test/Chunk.test.ts	437	it	should return the available subset	chunk_build
 ported	packages/effect/test/Chunk.test.ts	446	it	should return the available subset	chunk_build
 ported	packages/effect/test/Chunk.test.ts	455	it	should return the available subset	chunk_build
 ported	packages/effect/test/Chunk.test.ts	461	it	should return the available subset	chunk_build
-unported	packages/effect/test/Chunk.test.ts	470	it	should return a NonEmptyChunk	
-unported	packages/effect/test/Chunk.test.ts	476	it	should return a NonEmptyChunk	
-unported	packages/effect/test/Chunk.test.ts	479	it	should return a ISingleton	
+ported	packages/effect/test/Chunk.test.ts	470	it	should return a NonEmptyChunk	chunk_extra
+ported	packages/effect/test/Chunk.test.ts	476	it	should return a NonEmptyChunk	chunk_extra
+ported	packages/effect/test/Chunk.test.ts	479	it	should return a ISingleton	chunk_extra
 ported	packages/effect/test/Chunk.test.ts	485	it	should return self on 0	chunk_build
 ported	packages/effect/test/Chunk.test.ts	489	it	should drop twice	chunk_build
 ported	packages/effect/test/Chunk.test.ts	493	it	should handle concatenated chunks	chunk_build
 ported	packages/effect/test/Chunk.test.ts	504	it	should remove the given amount of items	chunk_build
 ported	packages/effect/test/Chunk.test.ts	513	it	should return an empty chunk	chunk_build
-unported	packages/effect/test/Chunk.test.ts	524	it	should return the subset that doesn't pass the criteria	
+ported	packages/effect/test/Chunk.test.ts	524	it	should return the subset that doesn't pass the criteria	chunk_extra
 ported	packages/effect/test/Chunk.test.ts	533	it	should return an empty chunk	chunk_build
-unported	packages/effect/test/Chunk.test.ts	540	it	preserves a sliced chunk when appending after a prefix	
+skipped-upstream	packages/effect/test/Chunk.test.ts	540	it	preserves a sliced chunk when appending after a prefix	
 ported	packages/effect/test/Chunk.test.ts	554	it	should concatenate them following order	chunk_build
 ported	packages/effect/test/Chunk.test.ts	563	it	should concatenate them following order	chunk_build
 ported	packages/effect/test/Chunk.test.ts	572	it	should concatenate them following order	chunk_build
@@ -645,22 +645,22 @@ ported	packages/effect/test/Chunk.test.ts	674	it	partition	chunk_extra
 ported	packages/effect/test/Chunk.test.ts	697	it	partition (identity)	chunk_extra
 ported	packages/effect/test/Chunk.test.ts	705	it	separate	chunk_extra
 ported	packages/effect/test/Chunk.test.ts	713	it	size	chunk_extra
-unported	packages/effect/test/Chunk.test.ts	718	it	split	
+ported	packages/effect/test/Chunk.test.ts	718	it	split	chunk_extra
 ported	packages/effect/test/Chunk.test.ts	730	it	tail	chunk_ends
-unported	packages/effect/test/Chunk.test.ts	737	it	filter	
-unported	packages/effect/test/Chunk.test.ts	749	it	combinators read sparse backing holes as undefined	
+ported	packages/effect/test/Chunk.test.ts	737	it	filter	chunk_ops
+skipped-upstream	packages/effect/test/Chunk.test.ts	749	it	combinators read sparse backing holes as undefined	
 ported	packages/effect/test/Chunk.test.ts	773	it	findLast	chunk_extra
 ported	packages/effect/test/Chunk.test.ts	779	it	filterMap	chunk_extra
-unported	packages/effect/test/Chunk.test.ts	790	it	filterMapWhile	
+ported	packages/effect/test/Chunk.test.ts	790	it	filterMapWhile	chunk_extra
 ported	packages/effect/test/Chunk.test.ts	797	it	compact	chunk_extra
 ported	packages/effect/test/Chunk.test.ts	803	it	dedupeAdjacent	chunk_extra
 ported	packages/effect/test/Chunk.test.ts	809	it	flatMap	chunk_ops
-unported	packages/effect/test/Chunk.test.ts	814	it	flatMap preserves order and callback indices across chunk backings	
-unported	packages/effect/test/Chunk.test.ts	825	it	flatMap and join read the holes of a sparse backing array as undefined	
+skipped-upstream	packages/effect/test/Chunk.test.ts	814	it	flatMap preserves order and callback indices across chunk backings	
+skipped-upstream	packages/effect/test/Chunk.test.ts	825	it	flatMap and join read the holes of a sparse backing array as undefined	
 ported	packages/effect/test/Chunk.test.ts	835	it	union	chunk_extra
 ported	packages/effect/test/Chunk.test.ts	841	it	intersection	chunk_extra
 ported	packages/effect/test/Chunk.test.ts	847	it	isEmpty	chunk_ends
-unported	packages/effect/test/Chunk.test.ts	852	it	lastUnsafe	
+skipped-upstream	packages/effect/test/Chunk.test.ts	852	it	lastUnsafe	
 ported	packages/effect/test/Chunk.test.ts	858	it	splitNonEmptyAt	chunk_extra
 ported	packages/effect/test/Chunk.test.ts	864	it	splitWhere	chunk_extra
 ported	packages/effect/test/Chunk.test.ts	869	it	takeWhile	chunk_extra
@@ -673,9 +673,9 @@ ported	packages/effect/test/Chunk.test.ts	904	it	range	chunk_extra
 ported	packages/effect/test/Chunk.test.ts	916	it	some	chunk_extra
 ported	packages/effect/test/Chunk.test.ts	922	it	forEach	chunk_build
 ported	packages/effect/test/Chunk.test.ts	928	it	sortWith	chunk_extra
-unported	packages/effect/test/Chunk.test.ts	937	it	makeEquivalence	
-unported	packages/effect/test/Chunk.test.ts	945	it	makeEquivalence is symmetric on a sparse backing array, whose holes read as undefined	
-unported	packages/effect/test/Chunk.test.ts	956	it	differenceWith	
+skipped-upstream	packages/effect/test/Chunk.test.ts	937	it	makeEquivalence	
+skipped-upstream	packages/effect/test/Chunk.test.ts	945	it	makeEquivalence is symmetric on a sparse backing array, whose holes read as undefined	
+skipped-upstream	packages/effect/test/Chunk.test.ts	956	it	differenceWith	
 ported	packages/effect/test/Chunk.test.ts	968	it	difference	chunk_extra
 unported	packages/effect/test/Clock.test.ts	5	it.live	keeps wall time aligned while exposing the monotonic source	
 ported	packages/effect/test/Combiner.test.ts	6	it	flip	combiners_fold
@@ -2148,24 +2148,24 @@ ported	packages/effect/test/Iterable.test.ts	54	it	scan	iterable_combine
 ported	packages/effect/test/Iterable.test.ts	65	it	take	iterable_combine
 ported	packages/effect/test/Iterable.test.ts	81	it	takeWhile	iterable_combine
 ported	packages/effect/test/Iterable.test.ts	94	it	drop	iterable_combine
-unported	packages/effect/test/Iterable.test.ts	119	it	boolean-returning overloads	
-unported	packages/effect/test/Iterable.test.ts	129	it	Option-returning overloads	
-unported	packages/effect/test/Iterable.test.ts	155	it	boolean-returning overloads	
-unported	packages/effect/test/Iterable.test.ts	165	it	Option-returning overloads	
+ported	packages/effect/test/Iterable.test.ts	119	it	boolean-returning overloads	iterable_ends
+ported	packages/effect/test/Iterable.test.ts	129	it	Option-returning overloads	iterable_ends
+ported	packages/effect/test/Iterable.test.ts	155	it	boolean-returning overloads	iterable_ends
+ported	packages/effect/test/Iterable.test.ts	165	it	Option-returning overloads	iterable_ends
 ported	packages/effect/test/Iterable.test.ts	190	it	zip	iterable_combine
 ported	packages/effect/test/Iterable.test.ts	205	it	zipWith	iterable_combine
 ported	packages/effect/test/Iterable.test.ts	224	it	intersperse	iterable_combine
-unported	packages/effect/test/Iterable.test.ts	238	it	containsWith	
+skipped-upstream	packages/effect/test/Iterable.test.ts	238	it	containsWith	
 ported	packages/effect/test/Iterable.test.ts	247	it	contains	iterable_ends
-unported	packages/effect/test/Iterable.test.ts	256	it	dedupeAdjacentWith	
-ported	packages/effect/test/Iterable.test.ts	264	it	flatMapNullishOr	iterable_combine
+skipped-upstream	packages/effect/test/Iterable.test.ts	256	it	dedupeAdjacentWith	
+skipped-upstream	packages/effect/test/Iterable.test.ts	264	it	flatMapNullishOr	
 ported	packages/effect/test/Iterable.test.ts	271	it	unfold	iterable_combine
 ported	packages/effect/test/Iterable.test.ts	276	it	map	iterable_combine
 ported	packages/effect/test/Iterable.test.ts	287	it	flatMap	iterable_combine
 ported	packages/effect/test/Iterable.test.ts	297	it	getSomes	iterable_combine
 ported	packages/effect/test/Iterable.test.ts	310	it	filter	iterable_combine
 ported	packages/effect/test/Iterable.test.ts	324	it	filterMap	iterable_combine
-ported	packages/effect/test/Iterable.test.ts	333	it	filterMapWhile	iterable_combine
+skipped-upstream	packages/effect/test/Iterable.test.ts	333	it	filterMapWhile	
 ported	packages/effect/test/Iterable.test.ts	344	it	getFailures	iterable_combine
 ported	packages/effect/test/Iterable.test.ts	352	it	getSuccesses	iterable_combine
 ported	packages/effect/test/Iterable.test.ts	357	it	isEmpty	iterable_ends
@@ -2175,7 +2175,7 @@ ported	packages/effect/test/Iterable.test.ts	400	it	flatten	iterable_combine
 ported	packages/effect/test/Iterable.test.ts	404	it	flatten is stack safe across empty iterables	iterable_combine
 ported	packages/effect/test/Iterable.test.ts	411	it	cartesianWith	iterable_combine
 ported	packages/effect/test/Iterable.test.ts	425	it	cartesian	iterable_combine
-unported	packages/effect/test/Iterable.test.ts	439	it	cartesian keeps the right input lazy	
+skipped-upstream	packages/effect/test/Iterable.test.ts	439	it	cartesian keeps the right input lazy	
 ported	packages/effect/test/Iterable.test.ts	453	it	groupWith	iterable_combine
 ported	packages/effect/test/Iterable.test.ts	459	it	groupBy	iterable_combine
 ported	packages/effect/test/Iterable.test.ts	480	it	makeBy	iterable_combine
@@ -3123,8 +3123,8 @@ unported	packages/effect/test/RcRef.test.ts	334	it.effect	an interrupted get of 
 unported	packages/effect/test/RcRef.test.ts	352	it.effect	invalidating a resource while a get revives it releases the resource	
 unported	packages/effect/test/RcRef.test.ts	366	it.effect	closing the ref while an idle resource is being released runs every finalizer	
 ported	packages/effect/test/Record.test.ts	7	it	singleton	record_core
-unported	packages/effect/test/Record.test.ts	12	it	makeReducerUnion	
-unported	packages/effect/test/Record.test.ts	18	it	makeReducerIntersection	
+skipped-upstream	packages/effect/test/Record.test.ts	12	it	makeReducerUnion	
+skipped-upstream	packages/effect/test/Record.test.ts	18	it	makeReducerIntersection	
 ported	packages/effect/test/Record.test.ts	34	it	empty	record_core
 ported	packages/effect/test/Record.test.ts	38	it	fromIterableWith	record_core
 ported	packages/effect/test/Record.test.ts	53	it	fromIterableBy	record_core
@@ -3138,10 +3138,10 @@ ported	packages/effect/test/Record.test.ts	136	it	should return the value associ
 ported	packages/effect/test/Record.test.ts	144	it	should return none if the key is not present in the record	record_core
 ported	packages/effect/test/Record.test.ts	154	it	should replace an existing value	record_core
 ported	packages/effect/test/Record.test.ts	160	it	should add the key / value pair	record_core
-unported	packages/effect/test/Record.test.ts	168	it	preserves __proto__ as an own property	
+skipped-upstream	packages/effect/test/Record.test.ts	168	it	preserves __proto__ as an own property	
 ported	packages/effect/test/Record.test.ts	181	it	singleton	record_core
 ported	packages/effect/test/Record.test.ts	189	it	map	record_core
-unported	packages/effect/test/Record.test.ts	194	it	collect	
+ported	packages/effect/test/Record.test.ts	194	it	collect	record_core
 ported	packages/effect/test/Record.test.ts	199	it	toEntries	record_core
 ported	packages/effect/test/Record.test.ts	204	it	filterMap	record_core
 ported	packages/effect/test/Record.test.ts	210	it	getSomes	record_core
@@ -3533,8 +3533,8 @@ unported	packages/effect/test/Stream.test.ts	464	it.effect	range - min greater t
 unported	packages/effect/test/Stream.test.ts	470	it.effect	range - min equal to max	
 unported	packages/effect/test/Stream.test.ts	476	it.effect	fromIteratorSucceed - normalizes the chunk size	
 unported	packages/effect/test/Stream.test.ts	490	it.effect	fromIterable - emits array as one chunk by default	
-unported	packages/effect/test/Stream.test.ts	499	it.effect	fromIterable - supports chunkSize option	
-unported	packages/effect/test/Stream.test.ts	508	it.effect	fromIterable - normalizes the chunk size	
+ported	packages/effect/test/Stream.test.ts	499	it.effect	fromIterable - supports chunkSize option	run_fold_sums_chunks
+ported	packages/effect/test/Stream.test.ts	508	it.effect	fromIterable - normalizes the chunk size	run_fold_sums_chunks
 unported	packages/effect/test/Stream.test.ts	522	it.effect	scoped - provides scope to fromEffect pull effects	
 unported	packages/effect/test/Stream.test.ts	539	it.effect	scoped - provides scope to sequential mapEffect pull effects	
 unported	packages/effect/test/Stream.test.ts	557	it.effect	fromReadableStream - errored streams fail with the mapped error, not a finalizer defect	
@@ -3556,8 +3556,8 @@ unported	packages/effect/test/Stream.test.ts	742	it.effect	limitBytes - does not
 unported	packages/effect/test/Stream.test.ts	758	it.effect	limitBytes - drops the crossing chunk and switches to the fallback	
 unported	packages/effect/test/Stream.test.ts	772	it.effect	take - pulls the first `n` values from a stream	
 unported	packages/effect/test/Stream.test.ts	781	it.effect	take - rounds positive fractional counts down	
-unported	packages/effect/test/Stream.test.ts	791	it.effect	take - short-circuits stream evaluation	
-unported	packages/effect/test/Stream.test.ts	801	it.effect	take - taking 0 short-circuits stream evaluation	
+ported	packages/effect/test/Stream.test.ts	791	it.effect	take - short-circuits stream evaluation	take_terminates_infinite_input
+ported	packages/effect/test/Stream.test.ts	801	it.effect	take - taking 0 short-circuits stream evaluation	take_terminates_infinite_input
 unported	packages/effect/test/Stream.test.ts	810	it.effect	take - treating NaN as a non-positive count	
 unported	packages/effect/test/Stream.test.ts	819	it.effect	take - NaN short-circuits stream evaluation	
 unported	packages/effect/test/Stream.test.ts	828	it.effect	takeUntil - takes elements until a predicate is satisfied	
@@ -4134,15 +4134,15 @@ ported	packages/effect/test/Tuple.test.ts	13	it	get	tuple_shapes
 ported	packages/effect/test/Tuple.test.ts	21	it	pick	tuple_shapes
 ported	packages/effect/test/Tuple.test.ts	26	it	omit	tuple_shapes
 ported	packages/effect/test/Tuple.test.ts	31	it	evolve	tuple_shapes
-unported	packages/effect/test/Tuple.test.ts	57	it	partial index mapping	
-unported	packages/effect/test/Tuple.test.ts	62	it	full index mapping	
-unported	packages/effect/test/Tuple.test.ts	68	it	map transforms every schema element with a lambda	
-unported	packages/effect/test/Tuple.test.ts	82	it	mapPick transforms only the selected schema elements	
-unported	packages/effect/test/Tuple.test.ts	96	it	mapOmit transforms every schema element except the omitted indices	
+skipped-upstream	packages/effect/test/Tuple.test.ts	57	it	partial index mapping	
+skipped-upstream	packages/effect/test/Tuple.test.ts	62	it	full index mapping	
+skipped-upstream	packages/effect/test/Tuple.test.ts	68	it	map transforms every schema element with a lambda	
+skipped-upstream	packages/effect/test/Tuple.test.ts	82	it	mapPick transforms only the selected schema elements	
+skipped-upstream	packages/effect/test/Tuple.test.ts	96	it	mapOmit transforms every schema element except the omitted indices	
 ported	packages/effect/test/Tuple.test.ts	110	it	makeCombiner combines tuple positions independently	tuple_shapes
-unported	packages/effect/test/Tuple.test.ts	119	it	makeReducer derives a tuple-shaped initial value and combines position-wise	
+skipped-upstream	packages/effect/test/Tuple.test.ts	119	it	makeReducer derives a tuple-shaped initial value and combines position-wise	
 ported	packages/effect/test/Tuple.test.ts	128	it	appendElement appends a single element in both data-first and data-last forms	tuple_shapes
-unported	packages/effect/test/Tuple.test.ts	133	it	appendElements concatenates a tuple in both data-first and data-last forms	
+ported	packages/effect/test/Tuple.test.ts	133	it	appendElements concatenates a tuple in both data-first and data-last forms	tuple_shapes
 ported	packages/effect/test/Tuple.test.ts	138	it	makeEquivalence compares tuple positions independently	tuple_shapes
 ported	packages/effect/test/Tuple.test.ts	149	it	makeOrder orders tuple positions lexicographically	tuple_shapes
 unported	packages/effect/test/TxChunk.test.ts	6	it	make should create a TxChunk with initial chunk	

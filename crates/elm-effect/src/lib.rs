@@ -31,6 +31,7 @@ mod schedule;
 #[cfg(feature = "tokio")]
 mod scope;
 mod service;
+mod stream;
 #[cfg(feature = "tokio")]
 mod supervisor;
 mod sync;
@@ -65,5 +66,6 @@ pub use schedule::{Random, RandomTag, Schedule, repeat, retry};
 #[cfg(feature = "tokio")]
 pub use scope::Scope;
 pub use service::{Cons, MemoMap, Provide, Reference, ServiceTag, read_reference, use_service};
+pub use stream::{Stream, from_iter};
 pub use sync::{Deferred, MutableRef, Queue, Ref, Semaphore, SynchronizedRef};
 pub use time::{Clock, ClockImpl, Duration, SleepOutcome, SystemClock, TestClock};
