@@ -788,7 +788,7 @@ tests = ["packages/effect/test/Scheduler.test.ts"]
 [[module]]
 path = "packages/effect/src/Schema.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
 reason = ""
 tests = []
@@ -796,7 +796,7 @@ tests = []
 [[module]]
 path = "packages/effect/src/SchemaAST.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
 reason = ""
 tests = []
@@ -812,7 +812,7 @@ tests = []
 [[module]]
 path = "packages/effect/src/SchemaIssue.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
 reason = ""
 tests = []
@@ -828,7 +828,7 @@ tests = []
 [[module]]
 path = "packages/effect/src/SchemaRepresentation.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
 reason = ""
 tests = []

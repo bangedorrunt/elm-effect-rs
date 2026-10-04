@@ -1,0 +1,11 @@
+[package]
+name = "elm-effect-schema"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+serde_json = "1"
+thiserror = "1"
+
+[dev-dependencies]
+elm-effect = { path = "../elm-effect" }

@@ -65,6 +65,8 @@ pub use runtime::{ManagedRuntime, Runtime, race, race_first, timeout};
 pub use schedule::{Random, RandomTag, Schedule, repeat, retry};
 #[cfg(feature = "tokio")]
 pub use scope::Scope;
+#[cfg(feature = "schema")]
+pub use elm_effect_schema::{Schema, SchemaError, Unknown};
 pub use service::{Cons, MemoMap, Provide, Reference, ServiceTag, read_reference, use_service};
 pub use stream::{Stream, from_iter};
 pub use sync::{Deferred, MutableRef, Queue, Ref, Semaphore, SynchronizedRef};

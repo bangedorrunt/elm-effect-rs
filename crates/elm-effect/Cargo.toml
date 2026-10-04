@@ -8,10 +8,11 @@ publish = false
 [features]
 default = ["tokio", "schema", "stm"]
 tokio = ["dep:tokio"]
-schema = []
+schema = ["dep:elm-effect-schema"]
 stm = []
 
 [dependencies]
+elm-effect-schema = { path = "../elm-effect-schema", optional = true }
 jiff = "0.2"
 num-bigint = "0.4"
 num-integer = "0.1"
