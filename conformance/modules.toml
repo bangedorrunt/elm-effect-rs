@@ -292,7 +292,7 @@ tests = ["packages/effect/test/FiberSet.test.ts"]
 [[module]]
 path = "packages/effect/src/FileSystem.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
 reason = ""
 tests = []
@@ -580,7 +580,7 @@ tests = ["packages/effect/test/PartitionedSemaphore.test.ts"]
 [[module]]
 path = "packages/effect/src/Path.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
 reason = ""
 tests = []
@@ -596,7 +596,7 @@ tests = []
 [[module]]
 path = "packages/effect/src/PlatformError.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
 reason = ""
 tests = []
