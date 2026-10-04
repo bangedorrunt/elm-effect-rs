@@ -420,9 +420,97 @@ pub fn zip<T: Clone, U: Clone>(a: &[T], b: &[U]) -> Vec<(T, U)> {
 pub fn lift_result<T, E>(value: Result<T, E>) -> Vec<T> {
     value.into_iter().collect()
 }
+use super::foundation::{Equivalence, Order};
+use super::nonempty::NonEmpty;
+
 /// Cartesian product (`cartesian`, `cartesianWith` with pair shape).
 pub fn cartesian<T: Clone, U: Clone>(a: &[T], b: &[U]) -> Vec<(T, U)> {
     a.iter()
         .flat_map(|x| b.iter().map(move |y| (x.clone(), y.clone())))
         .collect()
+}
+
+/// Contains by equivalence (`containsWith`).
+pub fn contains_with<T>(values: &[T], value: &T, equiv: &Equivalence<T>) -> bool {
+    values.iter().any(|a| equiv.is_equivalent(a, value))
+}
+
+/// Deduplicate by equivalence (`dedupeWith`, adjacent `dedupeAdjacentWith`).
+pub fn dedupe_with<T: Clone>(values: &[T], equiv: &Equivalence<T>) -> Vec<T> {
+    let mut out = Vec::new();
+    for v in values {
+        if !out.iter().any(|o| equiv.is_equivalent(o, v)) {
+            out.push(v.clone());
+        }
+    }
+    out
+}
+
+/// Union by equivalence (`unionWith`).
+pub fn union_with<T: Clone>(a: &[T], b: &[T], equiv: &Equivalence<T>) -> Vec<T> {
+    let mut out = a.to_vec();
+    for v in b {
+        if !out.iter().any(|o| equiv.is_equivalent(o, v)) {
+            out.push(v.clone());
+        }
+    }
+    out
+}
+
+/// Intersection by equivalence (`intersectionWith`).
+pub fn intersection_with<T: Clone>(a: &[T], b: &[T], equiv: &Equivalence<T>) -> Vec<T> {
+    a.iter()
+        .filter(|v| b.iter().any(|o| equiv.is_equivalent(v, o)))
+        .cloned()
+        .collect()
+}
+
+/// Difference by equivalence (`differenceWith`).
+pub fn difference_with<T: Clone>(a: &[T], b: &[T], equiv: &Equivalence<T>) -> Vec<T> {
+    a.iter()
+        .filter(|v| !b.iter().any(|o| equiv.is_equivalent(v, o)))
+        .cloned()
+        .collect()
+}
+
+/// Split at index, head guaranteed non-empty (`splitAtNonEmpty`).
+pub fn split_at_nonempty<T: Clone>(values: &[T], n: usize) -> Option<(NonEmpty<T>, Vec<T>)> {
+    if values.is_empty() || n == 0 {
+        return None;
+    }
+    let (head, tail) = split_at(values, n);
+    NonEmpty::from_vec(head).map(|ne| (ne, tail))
+}
+
+/// Update the head (`modifyHeadNonEmpty`).
+pub fn modify_head_nonempty<T: Clone>(values: &NonEmpty<T>, f: impl FnOnce(T) -> T) -> NonEmpty<T> {
+    let mut all = values.clone().to_vec();
+    if let Some(head) = all.get_mut(0) {
+        let next = f(head.clone());
+        *head = next;
+    }
+    NonEmpty::from_vec(all).expect("non-empty stays non-empty")
+}
+
+/// Update the last (`modifyLastNonEmpty`).
+pub fn modify_last_nonempty<T: Clone>(values: &NonEmpty<T>, f: impl FnOnce(T) -> T) -> NonEmpty<T> {
+    let mut all = values.clone().to_vec();
+    if let Some(last) = all.last_mut() {
+        let next = f(last.clone());
+        *last = next;
+    }
+    NonEmpty::from_vec(all).expect("non-empty stays non-empty")
+}
+
+/// Replace the head (`setHeadNonEmpty`).
+pub fn set_head_nonempty<T: Clone>(values: &NonEmpty<T>, value: T) -> NonEmpty<T> {
+    modify_head_nonempty(values, |_| value)
+}
+
+/// Replace the last (`setLastNonEmpty`).
+pub fn set_last_nonempty<T: Clone>(values: &NonEmpty<T>, value: T) -> NonEmpty<T> {
+    modify_last_nonempty(values, |_| value)
+}
+pub fn make_order<T: Ord>() -> Order<Vec<T>> {
+    Order::make(|a: &Vec<T>, b: &Vec<T>| a.cmp(b))
 }

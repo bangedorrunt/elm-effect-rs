@@ -12,6 +12,8 @@ mod array;
 mod chunk;
 #[path = "../src/data/combiner.rs"]
 mod combiner;
+#[path = "../src/foundation.rs"]
+mod foundation;
 #[path = "../src/data/iterable.rs"]
 mod iterable;
 #[path = "../src/data/mutable_list.rs"]
@@ -215,6 +217,45 @@ fn array_std_substrate() {
     assert_eq!(array::lift_result::<i32, &str>(Err("e")), Vec::<i32>::new());
     assert_eq!(array::group_by(&[1, 1, 2]), vec![vec![1, 1], vec![2]]);
     assert_eq!(array::cartesian(&[1], &[2, 3]), vec![(1, 2), (1, 3)]);
+    assert_eq!(
+        array::contains_with(
+            &["a".to_string()],
+            &"A".to_string(),
+            &foundation::Equivalence::make(
+                |a: &String, b: &String| a.to_lowercase() == b.to_lowercase()
+            )
+        ),
+        true
+    );
+    assert_eq!(
+        array::dedupe_with(&[1, 1, 2], &foundation::Equivalence::strict()),
+        vec![1, 2]
+    );
+    assert_eq!(
+        array::union_with(&[1, 2], &[2, 3], &foundation::Equivalence::strict()),
+        vec![1, 2, 3]
+    );
+    assert_eq!(
+        array::intersection_with(&[1, 2], &[2, 3], &foundation::Equivalence::strict()),
+        vec![2]
+    );
+    assert_eq!(
+        array::difference_with(&[1, 2], &[2, 3], &foundation::Equivalence::strict()),
+        vec![1]
+    );
+    assert!(foundation::array_equivalence::<i32>().is_equivalent(&vec![1], &vec![1]));
+    assert_eq!(
+        array::make_order::<i32>().compare(&vec![1], &vec![2]),
+        std::cmp::Ordering::Less
+    );
+    assert_eq!(
+        vec![1, 2]
+            .iter()
+            .enumerate()
+            .map(|(i, a)| i + a)
+            .collect::<Vec<_>>(),
+        vec![1, 3]
+    );
     assert_eq!("a,b,c".split(',').collect::<Vec<_>>(), vec!["a", "b", "c"]);
     assert_eq!([1, 2, 3].iter().rposition(|a| *a == 3), Some(2));
     assert_eq!(
@@ -224,6 +265,22 @@ fn array_std_substrate() {
     assert_eq!(array::insert_at(&[1, 3], 1, 2), vec![1, 2, 3]);
     assert_eq!(array::modify(&[1, 2], 0, |a| a + 9), vec![10, 2]);
     assert_eq!(array::modify(&[1], 5, |a| a), vec![1]);
+    let ne = nonempty::NonEmpty::make(1, vec![2]);
+    assert_eq!(
+        array::modify_head_nonempty(&ne, |a| a + 9).to_vec(),
+        vec![10, 2]
+    );
+    assert_eq!(
+        array::modify_last_nonempty(&ne, |a| a + 9).to_vec(),
+        vec![1, 11]
+    );
+    assert_eq!(array::set_head_nonempty(&ne, 9).to_vec(), vec![9, 2]);
+    assert_eq!(array::set_last_nonempty(&ne, 9).to_vec(), vec![1, 9]);
+    assert_eq!(
+        array::split_at_nonempty(&[1, 2, 3], 2).map(|(h, t)| (h.to_vec(), t)),
+        Some((vec![1, 2], vec![3]))
+    );
+    assert_eq!(array::split_at_nonempty(&Vec::<i32>::new(), 1), None);
     assert_eq!(array::intersperse(&[1, 2], 0), vec![1, 0, 2]);
     assert_eq!(array::rotate(&[1, 2, 3], 1), vec![2, 3, 1]);
     assert_eq!(array::rotate(&Vec::<i32>::new(), 3), Vec::<i32>::new());
