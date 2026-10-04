@@ -125,6 +125,48 @@ fn refine_is_uppercased() {
 }
 
 #[test]
+fn refine_is_ending_with() {
+    let schema = Schema::string().refine("ending with .ts", |s: &String| s.ends_with(".ts"));
+    assert!(schema.decode(Unknown::Text("a.ts".to_string())).is_ok());
+    assert!(schema.decode(Unknown::Text("a.rs".to_string())).is_err());
+}
+
+#[test]
+fn refine_is_capitalized() {
+    let schema = Schema::string().refine("capitalized", |s: &String| {
+        s.chars().next().is_some_and(|c| c.is_uppercase())
+    });
+    assert!(schema.decode(Unknown::Text("Hello".to_string())).is_ok());
+    assert!(schema.decode(Unknown::Text("hello".to_string())).is_err());
+}
+
+#[test]
+fn refine_is_guid() {
+    let schema = Schema::string().refine("a GUID", |s: &String| {
+        let parts: Vec<&str> = s.split('-').collect();
+        parts.len() == 5
+            && [8, 4, 4, 4, 12]
+                .iter()
+                .zip(parts.iter())
+                .all(|(len, part)| {
+                    part.len() == *len && part.chars().all(|c| c.is_ascii_hexdigit())
+                })
+    });
+    assert!(
+        schema
+            .decode(Unknown::Text(
+                "123e4567-e89b-12d3-a456-426614174000".to_string()
+            ))
+            .is_ok()
+    );
+    assert!(
+        schema
+            .decode(Unknown::Text("not-a-guid".to_string()))
+            .is_err()
+    );
+}
+
+#[test]
 fn refine_is_int32() {
     let schema = Schema::number().refine("an int32", |n: &f64| {
         n.fract() == 0.0 && (-2_147_483_648.0..=2_147_483_647.0).contains(n)

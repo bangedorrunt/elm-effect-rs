@@ -7565,10 +7565,10 @@ ported	packages/effect/test/schema/Schema.test.ts	1405	it	refine	refine_rejects_
 unported	packages/effect/test/schema/Schema.test.ts	1427	it	isPattern	
 unported	packages/effect/test/schema/Schema.test.ts	1446	it	isPattern with stateful RegExp flags	
 unported	packages/effect/test/schema/Schema.test.ts	1457	it	isStartingWith	
-unported	packages/effect/test/schema/Schema.test.ts	1476	it	isEndingWith	
+ported	packages/effect/test/schema/Schema.test.ts	1476	it	isEndingWith	refine_is_ending_with
 ported	packages/effect/test/schema/Schema.test.ts	1495	it	isLowercased	refine_is_lowercased
 ported	packages/effect/test/schema/Schema.test.ts	1514	it	isUppercased	refine_is_uppercased
-unported	packages/effect/test/schema/Schema.test.ts	1533	it	isCapitalized	
+ported	packages/effect/test/schema/Schema.test.ts	1533	it	isCapitalized	refine_is_capitalized
 unported	packages/effect/test/schema/Schema.test.ts	1552	it	isUncapitalized	
 ported	packages/effect/test/schema/Schema.test.ts	1571	it	isMinLength	refine_is_min_length
 unported	packages/effect/test/schema/Schema.test.ts	1592	it	isGreaterThan	
@@ -8057,7 +8057,7 @@ unported	packages/effect/test/schema/Schema.test.ts	10319	it	isStringBigInt
 unported	packages/effect/test/schema/Schema.test.ts	10328	it	isStringSymbol	
 unported	packages/effect/test/schema/Schema.test.ts	10337	it	isUUID	
 unported	packages/effect/test/schema/Schema.test.ts	10361	it	isUUID version-specific checks reject nil and max UUIDs	
-unported	packages/effect/test/schema/Schema.test.ts	10377	it	isGUID	
+ported	packages/effect/test/schema/Schema.test.ts	10377	it	isGUID	refine_is_guid
 unported	packages/effect/test/schema/Schema.test.ts	10399	it	isULID	
 unported	packages/effect/test/schema/Schema.test.ts	10420	it	isBase64	
 unported	packages/effect/test/schema/Schema.test.ts	10429	it	isBase64Url	
