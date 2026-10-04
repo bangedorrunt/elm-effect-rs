@@ -22,6 +22,7 @@ mod fiber;
 mod layer;
 #[cfg(feature = "tokio")]
 mod runtime;
+mod schedule;
 #[cfg(feature = "tokio")]
 mod scope;
 mod service;
@@ -41,6 +42,7 @@ pub use fiber::{Ctx, FiberHandle, ForkOpts, Mask, StartMode};
 pub use layer::{BuiltServices, Cycle, Layer, RequirementIds};
 #[cfg(feature = "tokio")]
 pub use runtime::{ManagedRuntime, Runtime, timeout};
+pub use schedule::{Random, RandomTag, Schedule, repeat, retry};
 #[cfg(feature = "tokio")]
 pub use scope::Scope;
 pub use service::{Cons, MemoMap, Provide, Reference, ServiceTag, read_reference, use_service};
