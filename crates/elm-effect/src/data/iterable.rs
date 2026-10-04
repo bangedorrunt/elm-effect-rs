@@ -174,3 +174,20 @@ pub fn unfold<S, T>(mut seed: S, mut f: impl FnMut(&mut S) -> Option<T>) -> Vec<
 pub fn get_somes<T: Clone>(iterable: impl IntoIterator<Item = Option<T>>) -> Vec<T> {
     iterable.into_iter().flatten().collect()
 }
+
+/// Chunks of `n` (`chunksOf`).
+pub fn chunks_of<T: Clone>(iterable: impl IntoIterator<Item = T>, n: usize) -> Vec<Vec<T>> {
+    assert!(n > 0, "chunksOf requires n > 0");
+    let mut out = Vec::new();
+    let mut cur = Vec::new();
+    for v in iterable {
+        cur.push(v);
+        if cur.len() == n {
+            out.push(std::mem::take(&mut cur));
+        }
+    }
+    if !cur.is_empty() {
+        out.push(cur);
+    }
+    out
+}

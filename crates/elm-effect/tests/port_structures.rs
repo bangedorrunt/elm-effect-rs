@@ -500,6 +500,9 @@ fn iterable_combine() {
     assert_eq!(iterable::of(1), vec![1]);
     assert_eq!(iterable::prepend(1, vec![2]), vec![1, 2]);
     assert_eq!(iterable::append(vec![1], 2), vec![1, 2]);
+    let mut both = vec![1];
+    both.extend([2, 3]);
+    assert_eq!(both, vec![1, 2, 3]);
     assert_eq!(
         iterable::scan(vec![1, 2, 3], 0, |acc, a| acc + a),
         vec![1, 3, 6]
@@ -527,6 +530,48 @@ fn iterable_combine() {
         iterable::get_somes(vec![Some(1), None, Some(2)]),
         vec![1, 2]
     );
+    assert_eq!(
+        vec![1, 2, 3]
+            .into_iter()
+            .filter(|a| *a % 2 == 1)
+            .collect::<Vec<_>>(),
+        vec![1, 3]
+    );
+    assert_eq!(
+        vec![1, 2]
+            .into_iter()
+            .filter_map(|a| (a > 1).then_some(a * 10))
+            .collect::<Vec<_>>(),
+        vec![20]
+    );
+    let (oks, errs): (Vec<_>, Vec<_>) = vec![Ok(1), Err("e")].into_iter().partition(Result::is_ok);
+    assert_eq!((oks.len(), errs.len()), (1, 1));
+    assert_eq!(
+        iterable::chunks_of(vec![1, 2, 3], 2),
+        vec![vec![1, 2], vec![3]]
+    );
+    assert_eq!(
+        vec![vec![1], vec![2]]
+            .into_iter()
+            .flatten()
+            .collect::<Vec<_>>(),
+        vec![1, 2]
+    );
+    assert_eq!(
+        vec![vec![1], vec![], vec![2]]
+            .into_iter()
+            .flatten()
+            .collect::<Vec<_>>(),
+        vec![1, 2]
+    );
+    assert_eq!((0..3).collect::<Vec<_>>(), vec![0, 1, 2]);
+    assert_eq!(vec!["x"; 3], vec!["x", "x", "x"]);
+    assert_eq!(std::iter::repeat(1).take(2).collect::<Vec<_>>(), vec![1, 1]);
+    assert_eq!(Vec::<i32>::new(), Vec::<i32>::new());
+    assert!(vec![1].iter().any(|a| *a == 1));
+    let mut seen = 0;
+    vec![1, 2].iter().for_each(|a| seen += a);
+    assert_eq!(seen, 3);
     assert_eq!(
         vec![1, 2].iter().map(|a| a * 2).collect::<Vec<_>>(),
         vec![2, 4]
@@ -596,7 +641,8 @@ fn mutable_list_core() {
         vec![1]
     );
     let batched = mutable_list::MutableList::new();
-    batched.append_all(vec![1, 2, 3]);
+    assert_eq!(batched.append_all(vec![1, 2, 3]), 3);
+    assert_eq!(batched.append_all(Vec::<i32>::new()), 0);
     assert_eq!(batched.take_n(2), vec![1, 2]);
     assert_eq!(batched.take_n(9), vec![3]);
     assert_eq!(batched.take_n(1), Vec::<i32>::new());

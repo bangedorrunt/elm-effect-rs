@@ -32,9 +32,12 @@ impl<T> MutableList<T> {
         self.inner.borrow_mut().push(value);
     }
 
-    /// Push many (`appendAll`).
-    pub fn append_all(&self, values: impl IntoIterator<Item = T>) {
-        self.inner.borrow_mut().extend(values);
+    /// Push many, returning how many were added (`appendAll`).
+    pub fn append_all(&self, values: impl IntoIterator<Item = T>) -> usize {
+        let mut guard = self.inner.borrow_mut();
+        let before = guard.len();
+        guard.extend(values);
+        guard.len() - before
     }
 
     /// Prepend many, preserving order (`prependAll`).
