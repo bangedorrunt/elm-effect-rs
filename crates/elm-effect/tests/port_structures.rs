@@ -45,8 +45,10 @@ fn array_take_drop() {
     assert_eq!(array::take(&v, 2), vec![1, 2]);
     assert_eq!(array::take(&v, 9), vec![1, 2, 3, 4]);
     assert_eq!(array::take(&v, 0), Vec::<i32>::new());
+    assert_eq!(array::take_right(&v, 2), vec![3, 4]);
     assert_eq!(array::drop_(&v, 2), vec![3, 4]);
     assert_eq!(array::drop_(&v, 9), Vec::<i32>::new());
+    assert_eq!(array::drop_right(&v, 2), vec![1, 2]);
     assert_eq!(array::take_while(&v, |a| *a < 3), vec![1, 2]);
     assert_eq!(array::drop_while(&v, |a| *a < 3), vec![3, 4]);
 }
@@ -68,6 +70,14 @@ fn array_build_combine() {
     );
     assert_eq!(array::find_index(&[1, 2, 3], |a| *a == 2), Some(1));
     assert_eq!(array::find_index(&[1, 2, 3], |a| *a == 9), None);
+    assert_eq!([1, 2, 3].iter().rposition(|a| *a == 2), Some(1));
+    assert_eq!(array::split_at(&[1, 2, 3], 2), (vec![1, 2], vec![3]));
+    assert_eq!(array::insert_at(&[1, 3], 1, 2), vec![1, 2, 3]);
+    assert_eq!(array::modify(&[1, 2], 0, |a| a + 9), vec![10, 2]);
+    assert_eq!(
+        [1, 2].into_iter().zip([3, 4]).collect::<Vec<_>>(),
+        vec![(1, 3), (2, 4)]
+    );
 }
 
 #[test]
@@ -79,6 +89,166 @@ fn array_update() {
     assert_eq!(array::sum(&[1, 2, 3]), 6);
     assert_eq!(array::sum(&Vec::<i32>::new()), 0);
     assert_eq!(array::join(&["a", "b"], "-"), "a-b");
+}
+
+#[test]
+fn array_std_substrate() {
+    // Construction shapes: of / fromIterable / ensure / empty / copy.
+    assert_eq!(vec![1, 2], vec![1, 2]);
+    assert_eq!(Vec::<i32>::from([1]), vec![1]);
+    assert!(Vec::<i32>::new().is_empty());
+    assert!(!vec![1].is_empty());
+    let v = vec![1, 2];
+    assert_eq!(v.clone(), vec![1, 2]);
+    // Grow both ends: prepend / prependAll / append / appendAll.
+    let mut v = vec![2];
+    v.insert(0, 1);
+    assert_eq!(v, vec![1, 2]);
+    let mut v = vec![1];
+    v.extend([2, 3]);
+    assert_eq!(v, vec![1, 2, 3]);
+    // map / flatMap / extend / compact / separate shapes.
+    assert_eq!(
+        vec![1, 2].iter().map(|a| a * 2).collect::<Vec<_>>(),
+        vec![2, 4]
+    );
+    assert_eq!(
+        vec![1, 2]
+            .iter()
+            .flat_map(|a| [*a, -*a])
+            .collect::<Vec<_>>(),
+        vec![1, -1, 2, -2]
+    );
+    assert_eq!(
+        vec![1, 2]
+            .iter()
+            .filter_map(|a| (*a > 1).then_some(a * 10))
+            .collect::<Vec<_>>(),
+        vec![20]
+    );
+    assert_eq!(vec![1, 2, 3].iter().fold(0, |acc, a| acc + a), 6);
+    assert_eq!(vec![1, 2, 3].iter().rfold(0, |acc, a| acc + a), 6);
+    assert_eq!(
+        vec![Some(1), None]
+            .into_iter()
+            .flatten()
+            .collect::<Vec<_>>(),
+        vec![1]
+    );
+    let (oks, errs): (Vec<_>, Vec<_>) = vec![Ok(1), Err("e"), Ok(2)]
+        .into_iter()
+        .partition(Result::is_ok);
+    assert_eq!(oks.len(), 2);
+    assert_eq!(errs.len(), 1);
+    // filter / filterMap / partition (+ typed + identity shapes).
+    assert_eq!(
+        vec![1, 2, 3]
+            .into_iter()
+            .filter(|a| *a % 2 == 1)
+            .collect::<Vec<_>>(),
+        vec![1, 3]
+    );
+    let (yes, no): (Vec<_>, Vec<_>) = vec![1, 2, 3].into_iter().partition(|a| *a % 2 == 1);
+    assert_eq!((yes, no), (vec![1, 3], vec![2]));
+    // every / some / length / emptiness (+ empty-array shapes).
+    assert!(vec![2, 4].iter().all(|a| *a % 2 == 0));
+    assert!(vec![1, 2].iter().any(|a| *a == 2));
+    assert_eq!(vec![1, 2].len(), 2);
+    assert!(Vec::<i32>::new().is_empty());
+    assert!(!vec![1].is_empty());
+    // match / matchLeft / matchRight on empty vs non-empty.
+    assert_eq!(
+        match Vec::<i32>::new().as_slice() {
+            [] => 0,
+            _ => 1,
+        },
+        0
+    );
+    assert_eq!(
+        match [1].as_slice() {
+            [] => 0,
+            _ => 1,
+        },
+        1
+    );
+    // reverse / sort / sortBy / min / max / flatten / unzip / contains / dedupe.
+    let mut v = vec![3, 1, 2];
+    v.reverse();
+    assert_eq!(v, vec![2, 1, 3]);
+    let mut v = vec![3, 1, 2];
+    v.sort();
+    assert_eq!(v, vec![1, 2, 3]);
+    let mut v = vec![3, 1, 2];
+    v.sort_by(|a, b| a.cmp(b));
+    assert_eq!(v, vec![1, 2, 3]);
+    assert_eq!(vec![3, 1, 2].into_iter().min(), Some(1));
+    assert_eq!(vec![3, 1, 2].into_iter().max(), Some(3));
+    assert_eq!(
+        vec![vec![1], vec![2]]
+            .into_iter()
+            .flatten()
+            .collect::<Vec<_>>(),
+        vec![1, 2]
+    );
+    let (a, b): (Vec<_>, Vec<_>) = vec![(1, 2), (3, 4)].into_iter().unzip();
+    assert_eq!((a, b), (vec![1, 3], vec![2, 4]));
+    assert!(vec![1, 2].contains(&2));
+    let mut v = vec![1, 1, 2, 2, 3];
+    v.dedup();
+    assert_eq!(v, vec![1, 2, 3]);
+    // split / forEach / fromOption / isArray / getFailures+getSuccesses.
+    assert_eq!("a,b".split(',').collect::<Vec<_>>(), vec!["a", "b"]);
+    let mut seen = 0;
+    vec![1, 2].iter().for_each(|a| seen += a);
+    assert_eq!(seen, 3);
+    assert_eq!(
+        None::<i32>.map(|v| vec![v]).unwrap_or_default(),
+        Vec::<i32>::new()
+    );
+    let v: Vec<i32> = vec![];
+    assert!(v.is_empty());
+    // takeRight / dropRight / splitAt / insertAt / modify / intersperse / rotate.
+    assert_eq!(array::take_right(&[1, 2, 3], 2), vec![2, 3]);
+    assert_eq!(array::drop_right(&[1, 2, 3], 2), vec![1]);
+    assert_eq!(array::split_at(&[1, 2, 3], 1), (vec![1], vec![2, 3]));
+    assert_eq!(array::insert_at(&[1, 3], 1, 2), vec![1, 2, 3]);
+    assert_eq!(array::modify(&[1, 2], 0, |a| a + 9), vec![10, 2]);
+    assert_eq!(array::modify(&[1], 5, |a| a), vec![1]);
+    assert_eq!(array::intersperse(&[1, 2], 0), vec![1, 0, 2]);
+    assert_eq!(array::rotate(&[1, 2, 3], 1), vec![2, 3, 1]);
+    assert_eq!(array::rotate(&Vec::<i32>::new(), 3), Vec::<i32>::new());
+    // scan / scanRight / chop / pad / allocate / unfold.
+    assert_eq!(array::scan(&[1, 2, 3], 0, |acc, a| acc + a), vec![1, 3, 6]);
+    assert_eq!(
+        array::scan_right(&[1, 2, 3], 0, |acc, a| acc + a),
+        vec![6, 5, 3]
+    );
+    assert_eq!(
+        array::chop(&[1, 2, 3], |s| (s[0], s[1..].to_vec())),
+        vec![1, 2, 3]
+    );
+    assert_eq!(array::pad(&[1], 3, 0), vec![1, 0, 0]);
+    assert_eq!(array::pad(&[1, 2], 1, 0), vec![1, 2]);
+    assert_eq!(array::allocate::<i32>(3), vec![0, 0, 0]);
+    assert_eq!(
+        array::unfold(0, |s| (*s < 3).then(|| {
+            *s += 1;
+            *s
+        })),
+        vec![1, 2, 3]
+    );
+    assert_eq!(array::unfold(0, |_| None::<i32>), Vec::<i32>::new());
+    // union / intersection / difference / window / mapAccum / countBy.
+    assert_eq!(array::union(&[1, 2], &[2, 3]), vec![1, 2, 3]);
+    assert_eq!(array::intersection(&[1, 2], &[2, 3]), vec![2]);
+    assert_eq!(array::difference(&[1, 2], &[2, 3]), vec![1]);
+    assert_eq!(array::window(&[1, 2, 3], 2), vec![vec![1, 2], vec![2, 3]]);
+    assert_eq!(array::window(&[1], 2), Vec::<Vec<i32>>::new());
+    assert_eq!(
+        array::map_accum(&[1, 2], 0, |s, a| (s + a, s + a)),
+        (3, vec![1, 3])
+    );
+    assert_eq!(array::count_by(&[1, 2, 3], |a| *a % 2 == 1), 2);
 }
 
 // ---------- Chunk ----------

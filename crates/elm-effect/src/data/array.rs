@@ -118,3 +118,175 @@ pub fn sum<T: Add<Output = T> + Default + Copy>(values: &[T]) -> T {
 pub fn join(values: &[&str], separator: &str) -> String {
     values.join(separator)
 }
+
+/// Take the last `n` (`takeRight`).
+pub fn take_right<T: Clone>(values: &[T], n: usize) -> Vec<T> {
+    let start = values.len().saturating_sub(n);
+    values.get(start..).unwrap_or(&[]).to_vec()
+}
+
+/// Drop the last `n` (`dropRight`).
+pub fn drop_right<T: Clone>(values: &[T], n: usize) -> Vec<T> {
+    let end = values.len().saturating_sub(n);
+    values.get(..end).unwrap_or(&[]).to_vec()
+}
+
+/// Split at index (`splitAt`).
+pub fn split_at<T: Clone>(values: &[T], n: usize) -> (Vec<T>, Vec<T>) {
+    let at = n.min(values.len());
+    (values[..at].to_vec(), values[at..].to_vec())
+}
+
+/// Insert at index, clamping to the end (`insertAt`).
+pub fn insert_at<T: Clone>(values: &[T], index: usize, value: T) -> Vec<T> {
+    let mut out = values.to_vec();
+    out.insert(index.min(out.len()), value);
+    out
+}
+
+/// Update by index through a function (`modify`).
+pub fn modify<T: Clone>(values: &[T], index: usize, f: impl FnOnce(T) -> T) -> Vec<T> {
+    let mut out = values.to_vec();
+    if index < out.len() {
+        let next = f(out[index].clone());
+        out[index] = next;
+    }
+    out
+}
+
+/// Interleave a separator (`intersperse`).
+pub fn intersperse<T: Clone>(values: &[T], separator: T) -> Vec<T> {
+    let mut out = Vec::with_capacity(values.len() * 2);
+    for (i, v) in values.iter().enumerate() {
+        if i > 0 {
+            out.push(separator.clone());
+        }
+        out.push(v.clone());
+    }
+    out
+}
+
+/// Rotate left by `n` (`rotate`).
+pub fn rotate<T: Clone>(values: &[T], n: usize) -> Vec<T> {
+    if values.is_empty() {
+        return Vec::new();
+    }
+    let at = n % values.len();
+    let mut out = values[at..].to_vec();
+    out.extend_from_slice(&values[..at]);
+    out
+}
+
+/// Prefix accumulations (`scan`).
+pub fn scan<T: Clone, U: Clone>(values: &[T], init: U, mut f: impl FnMut(U, &T) -> U) -> Vec<U> {
+    let mut acc = init;
+    let mut out = Vec::with_capacity(values.len());
+    for v in values {
+        acc = f(acc, v);
+        out.push(acc.clone());
+    }
+    out
+}
+
+/// Suffix accumulations (`scanRight`).
+pub fn scan_right<T: Clone, U: Clone>(
+    values: &[T],
+    init: U,
+    mut f: impl FnMut(U, &T) -> U,
+) -> Vec<U> {
+    let mut acc = init;
+    let mut out = Vec::with_capacity(values.len());
+    for v in values.iter().rev() {
+        acc = f(acc, v);
+        out.push(acc.clone());
+    }
+    out.reverse();
+    out
+}
+
+/// Chop into pieces via a splitter (`chop`).
+pub fn chop<T: Clone, U>(values: &[T], mut f: impl FnMut(&[T]) -> (U, Vec<T>)) -> Vec<U> {
+    let mut rest = values.to_vec();
+    let mut out = Vec::new();
+    while !rest.is_empty() {
+        let (piece, next) = f(&rest);
+        out.push(piece);
+        rest = next;
+    }
+    out
+}
+
+/// Pad to length (`pad`).
+pub fn pad<T: Clone>(values: &[T], len: usize, pad: T) -> Vec<T> {
+    let mut out = values.to_vec();
+    while out.len() < len {
+        out.push(pad.clone());
+    }
+    out
+}
+
+/// Allocate defaults (`allocate`).
+pub fn allocate<T: Default + Clone>(n: usize) -> Vec<T> {
+    vec![T::default(); n]
+}
+
+/// Unfold from a seed (`unfold`); `None` ends the stream.
+pub fn unfold<S, T>(mut seed: S, mut f: impl FnMut(&mut S) -> Option<T>) -> Vec<T> {
+    let mut out = Vec::new();
+    while let Some(v) = f(&mut seed) {
+        out.push(v);
+    }
+    out
+}
+
+/// Set union preserving first-seen order (`union`).
+pub fn union<T: Clone + PartialEq>(a: &[T], b: &[T]) -> Vec<T> {
+    let mut out = a.to_vec();
+    for v in b {
+        if !out.contains(v) {
+            out.push(v.clone());
+        }
+    }
+    out
+}
+
+/// Set intersection preserving left order (`intersection`).
+pub fn intersection<T: Clone + PartialEq>(a: &[T], b: &[T]) -> Vec<T> {
+    a.iter().filter(|v| b.contains(v)).cloned().collect()
+}
+
+/// Set difference preserving left order (`difference`).
+pub fn difference<T: Clone + PartialEq>(a: &[T], b: &[T]) -> Vec<T> {
+    a.iter().filter(|v| !b.contains(v)).cloned().collect()
+}
+
+/// Sliding windows of `n` (`window`).
+pub fn window<T: Clone>(values: &[T], n: usize) -> Vec<Vec<T>> {
+    if n == 0 || values.len() < n {
+        return Vec::new();
+    }
+    (0..=values.len() - n)
+        .map(|i| values[i..i + n].to_vec())
+        .collect()
+}
+
+/// Stateful map (`mapAccum`).
+pub fn map_accum<S, T, U>(
+    values: &[T],
+    init: S,
+    mut f: impl FnMut(S, &T) -> (S, U),
+) -> (S, Vec<U>) {
+    let mut state = init;
+    let mut out = Vec::with_capacity(values.len());
+    for v in values {
+        let (next, u) = f(state, v);
+        state = next;
+        out.push(u);
+    }
+    (state, out)
+}
+
+/// Count matches (`countBy`).
+pub fn count_by<T>(values: &[T], mut predicate: impl FnMut(&T) -> bool) -> usize {
+    values.iter().filter(|v| predicate(v)).count()
+}

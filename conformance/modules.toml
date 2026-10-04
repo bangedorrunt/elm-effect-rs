@@ -324,7 +324,7 @@ tests = ["packages/effect/test/Function.test.ts"]
 [[module]]
 path = "packages/effect/src/Graph.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/Graph.test.ts"]
@@ -388,7 +388,7 @@ tests = ["packages/effect/test/Iterable.test.ts"]
 [[module]]
 path = "packages/effect/src/JsonPatch.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/JsonPatch.test.ts"]
@@ -396,7 +396,7 @@ tests = ["packages/effect/test/JsonPatch.test.ts"]
 [[module]]
 path = "packages/effect/src/JsonPointer.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/JsonPointer.test.ts"]
@@ -1100,7 +1100,7 @@ tests = []
 [[module]]
 path = "packages/effect/src/Utils.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
 reason = ""
 tests = []
