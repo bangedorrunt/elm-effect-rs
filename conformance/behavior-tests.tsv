@@ -527,16 +527,16 @@ unported	packages/effect/test/Cause.test.ts	922	it	is a string constant
 unported	packages/effect/test/CauseMapAnnotations.test.ts	5	it	preserves annotations on mapped failures	
 unported	packages/effect/test/Channel.test.ts	24	it.effect	 work per repetition does not grow	
 unported	packages/effect/test/Channel.test.ts	36	it.effect	empty	
-unported	packages/effect/test/Channel.test.ts	44	it.effect	succeed	
-unported	packages/effect/test/Channel.test.ts	52	it.effect	sync	
+ported	packages/effect/test/Channel.test.ts	44	it.effect	succeed	pull_constructors
+ported	packages/effect/test/Channel.test.ts	52	it.effect	sync	pull_constructors
 unported	packages/effect/test/Channel.test.ts	60	it.effect	end	
 unported	packages/effect/test/Channel.test.ts	72	it.effect	endSync	
-unported	packages/effect/test/Channel.test.ts	84	it.effect	fromArray	
-unported	packages/effect/test/Channel.test.ts	91	it.effect	fromChunk	
-unported	packages/effect/test/Channel.test.ts	98	it.effect	fromIterator	
+ported	packages/effect/test/Channel.test.ts	84	it.effect	fromArray	pull_constructors
+ported	packages/effect/test/Channel.test.ts	91	it.effect	fromChunk	pull_constructors
+ported	packages/effect/test/Channel.test.ts	98	it.effect	fromIterator	pull_constructors
 unported	packages/effect/test/Channel.test.ts	111	it.effect	fromIteratorArray	
 unported	packages/effect/test/Channel.test.ts	126	it.effect	fromIteratorArray - normalizes the chunk size	
-unported	packages/effect/test/Channel.test.ts	141	it.effect	fromIterable	
+ported	packages/effect/test/Channel.test.ts	141	it.effect	fromIterable	pull_constructors
 unported	packages/effect/test/Channel.test.ts	148	it.effect	fromIterableArray	
 unported	packages/effect/test/Channel.test.ts	157	it.effect	fromIterableArray - normalizes the chunk size	
 unported	packages/effect/test/Channel.test.ts	168	it.effect	fromReadableStream	

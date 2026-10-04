@@ -89,6 +89,28 @@ where
     })
 }
 
+/// Take the first `n` items, then end (`take` shapes).
+pub fn take<A, E>(n: usize) -> Sink<A, E, Vec<A>>
+where
+    A: Send + Clone + 'static,
+    E: Send + 'static,
+{
+    Sink::from_fn(move |mut source| {
+        let mut out = Vec::new();
+        while out.len() < n {
+            match source.pull() {
+                Take::Items(items) => {
+                    let room = n - out.len();
+                    out.extend(items.into_iter().take(room));
+                }
+                Take::End => break,
+                Take::Fail(e) => return elm_effect::Exit::Failure(elm_effect::Cause::fail(e)),
+            }
+        }
+        elm_effect::Exit::Success(out)
+    })
+}
+
 /// First item, if any.
 pub fn head<A, E>() -> Sink<A, E, Option<A>>
 where

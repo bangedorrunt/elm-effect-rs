@@ -141,3 +141,49 @@ fn sink_take_while_stops() {
     let got = sink::take_while(|a: &i32| *a < 3).run(pull::Pull::<i32, String>::of(vec![1, 2, 3]));
     assert_eq!(got, elm_effect::Exit::Success(vec![1, 2]));
 }
+
+#[test]
+fn pull_constructors() {
+    let mut p = pull::Pull::<i32, String>::single(7);
+    assert_eq!(p.pull(), take::Take::Items(vec![7]));
+    assert_eq!(p.pull(), take::Take::End);
+    let mut p = pull::Pull::<i32, String>::from_slice(&[1, 2]);
+    assert_eq!(p.pull(), take::Take::Items(vec![1, 2]));
+    assert_eq!(p.pull(), take::Take::End);
+    let mut p = pull::Pull::<i32, String>::from_iter(0..5, 2);
+    assert_eq!(p.pull(), take::Take::Items(vec![0, 1]));
+    assert_eq!(p.pull(), take::Take::Items(vec![2, 3]));
+    assert_eq!(p.pull(), take::Take::Items(vec![4]));
+    assert_eq!(p.pull(), take::Take::End);
+    // Unbounded input stays chunked.
+    let mut p = pull::Pull::<i32, String>::from_iter(0.., 3);
+    assert_eq!(p.pull(), take::Take::Items(vec![0, 1, 2]));
+}
+
+#[test]
+fn channel_map_effect_short_circuits() {
+    let source = pull::Pull::<i32, String>::of(vec![1, 2]);
+    let piped = channel::map_effect(|a: i32| {
+        if a > 1 {
+            Err("big".to_string())
+        } else {
+            Ok(a * 10)
+        }
+    })
+    .run(source);
+    let mut piped = piped;
+    assert_eq!(piped.pull(), take::Take::Fail("big".to_string()));
+    let source = pull::Pull::<i32, String>::of(vec![1]);
+    let piped = channel::map_effect(|a: i32| Ok::<i32, String>(a + 1)).run(source);
+    let mut piped = piped;
+    assert_eq!(piped.pull(), take::Take::Items(vec![2]));
+    assert_eq!(piped.pull(), take::Take::End);
+}
+
+#[test]
+fn sink_take_limits() {
+    let got = sink::take::<i32, String>(2).run(pull::Pull::of(vec![1, 2, 3]));
+    assert_eq!(got, elm_effect::Exit::Success(vec![1, 2]));
+    let got = sink::take::<i32, String>(9).run(pull::Pull::of(vec![1]));
+    assert_eq!(got, elm_effect::Exit::Success(vec![1]));
+}

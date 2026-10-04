@@ -54,6 +54,49 @@ where
         Self::from_fn(|| Take::End)
     }
 
+    /// One value, then end (`succeed`, `of` single).
+    pub fn single(value: A) -> Self
+    where
+        A: Clone,
+    {
+        Self::of(vec![value])
+    }
+
+    /// From a slice, cloned (`fromArray` shape).
+    pub fn from_slice(values: &[A]) -> Self
+    where
+        A: Clone,
+    {
+        Self::of(values.to_vec())
+    }
+
+    /// From an iterator in bounded chunks (`fromIterator`, `fromIterable`
+    /// shapes): pulls `chunk_size` items at a time, never materializing
+    /// the rest — unbounded inputs stay streams.
+    pub fn from_iter<I>(iter: I, chunk_size: usize) -> Self
+    where
+        I: Iterator<Item = A> + Send + 'static,
+    {
+        use std::sync::{Arc, Mutex};
+        let iter = Arc::new(Mutex::new(iter));
+        let chunk = chunk_size.max(1);
+        Self::from_fn(move || {
+            let mut guard = iter.lock().unwrap();
+            let mut out = Vec::with_capacity(chunk);
+            for _ in 0..chunk {
+                match guard.next() {
+                    Some(item) => out.push(item),
+                    None => break,
+                }
+            }
+            if out.is_empty() {
+                Take::End
+            } else {
+                Take::Items(out)
+            }
+        })
+    }
+
     /// Fails immediately, on every pull.
     pub fn fail(error: E) -> Self
     where

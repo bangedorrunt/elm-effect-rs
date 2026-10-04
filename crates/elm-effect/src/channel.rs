@@ -99,6 +99,31 @@ where
         other => vec![other],
     })
 }
+/// Map with fallible per-item functions (`mapEffect` shapes): an `Err`
+/// item ends its pull with that failure.
+pub fn map_effect<A, E, B, F>(mut f: F) -> Channel<A, E, B>
+where
+    A: Send + 'static,
+    E: Send + 'static,
+    B: Send + 'static,
+    F: FnMut(A) -> Result<B, E> + Send + 'static,
+{
+    Channel::from_fn(move |take| match take {
+        Take::Items(items) => {
+            let mut out = Vec::with_capacity(items.len());
+            for a in items {
+                match f(a) {
+                    Ok(b) => out.push(b),
+                    Err(e) => return vec![Take::Fail(e)],
+                }
+            }
+            vec![Take::Items(out)]
+        }
+        Take::End => vec![Take::End],
+        Take::Fail(e) => vec![Take::Fail(e)],
+    })
+}
+
 /// Keep matching items per pull.
 pub fn filter<A, E, F>(mut f: F) -> Channel<A, E, A>
 where
