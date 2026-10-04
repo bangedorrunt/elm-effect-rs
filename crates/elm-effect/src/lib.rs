@@ -31,6 +31,8 @@ mod schedule;
 #[cfg(feature = "tokio")]
 mod scope;
 mod service;
+#[cfg(feature = "stm")]
+mod stm;
 mod stream;
 #[cfg(feature = "tokio")]
 mod supervisor;
@@ -40,6 +42,8 @@ mod time;
 pub use cause::{Cause, Defect, FiberId, Reason};
 pub use concurrency::{Body, Concurrency, all, for_each, partition, validate, validate_discard};
 pub use effect::{Effect, Requirement};
+#[cfg(feature = "schema")]
+pub use elm_effect_schema::{Schema, SchemaError, Unknown};
 #[cfg(feature = "tokio")]
 pub use executor::{BoxFuture, Executor, TokioExecutor};
 pub use exit::Exit;
@@ -65,9 +69,12 @@ pub use runtime::{ManagedRuntime, Runtime, race, race_first, timeout};
 pub use schedule::{Random, RandomTag, Schedule, repeat, retry};
 #[cfg(feature = "tokio")]
 pub use scope::Scope;
-#[cfg(feature = "schema")]
-pub use elm_effect_schema::{Schema, SchemaError, Unknown};
 pub use service::{Cons, MemoMap, Provide, Reference, ServiceTag, read_reference, use_service};
+#[cfg(feature = "stm")]
+pub use stm::{
+    TxChunk, TxDeferred, TxHashMap, TxHashSet, TxPriorityQueue, TxPubSub, TxQueue, TxReentrantLock,
+    TxRef, TxSemaphore, TxSubscriptionRef, atomically,
+};
 pub use stream::{Stream, from_iter};
 pub use sync::{Deferred, MutableRef, Queue, Ref, Semaphore, SynchronizedRef};
 pub use time::{Clock, ClockImpl, Duration, SleepOutcome, SystemClock, TestClock};
