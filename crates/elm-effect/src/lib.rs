@@ -43,7 +43,7 @@ pub use fiber::{Ctx, FiberHandle, ForkOpts, Mask, StartMode};
 #[cfg(feature = "tokio")]
 pub use layer::{BuiltServices, Cycle, Layer, RequirementIds};
 #[cfg(feature = "tokio")]
-pub use policy::hedge;
+pub use policy::{BreakerConfig, Bulkhead, RateLimiter, Remote, RemoteError, RemotePolicy, hedge};
 #[cfg(feature = "tokio")]
 pub use runtime::{ManagedRuntime, Runtime, timeout};
 pub use schedule::{Random, RandomTag, Schedule, repeat, retry};
