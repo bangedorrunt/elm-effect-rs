@@ -1,0 +1,407 @@
+//! Wave-7 PubSub batch: bounded/dropping/sliding/unbounded hubs,
+//! SubscriptionRef change streams, PartitionedSemaphore pools.
+//! Modules load via `#[path]` includes: no facade touch. Threads stand
+//! in for fibers; Effect-scope/interruption rows stay `unported` with
+//! reasons in the close report.
+
+#[path = "../src/pubsub.rs"]
+mod pubsub;
+#[path = "../src/subscription_ref.rs"]
+mod subscription_ref;
+#[path = "../src/partitioned_semaphore.rs"]
+mod partitioned_semaphore;
+
+use partitioned_semaphore::PartitionedSemaphore;
+use pubsub::{PubSub, Strategy};
+use subscription_ref::SubscriptionRef;
+
+// ----------------------------------------------------------------- PubSub ---
+
+#[test]
+fn pubsub_type_guard() {
+    assert!(PubSub::<i32>::bounded(2).is_pubsub());
+}
+
+#[test]
+fn pubsub_bounded_two_fans_out() {
+    let hub = PubSub::bounded(2);
+    let s1 = hub.subscribe();
+    let s2 = hub.subscribe();
+    assert!(hub.publish_all(vec![1, 2]));
+    assert_eq!(s1.take_all(), vec![1, 2]);
+    assert_eq!(s2.take_all(), vec![1, 2]);
+}
+
+#[test]
+fn pubsub_bounded_four_keeps_order() {
+    let hub = PubSub::bounded(4);
+    let s = hub.subscribe();
+    assert!(hub.publish_all(vec![1, 2, 3, 4]));
+    assert_eq!(s.take_all(), vec![1, 2, 3, 4]);
+}
+
+#[test]
+fn pubsub_arb_capacity_three() {
+    let hub = PubSub::with_replay(3, Strategy::Bounded, 0);
+    let s = hub.subscribe();
+    assert!(hub.publish_all(vec![1, 2, 3]));
+    assert_eq!(s.take_up_to(3.0), vec![1, 2, 3]);
+}
+
+#[test]
+fn pubsub_sequential_one_publisher() {
+    let hub = PubSub::bounded(16);
+    let s = hub.subscribe();
+    for i in 0..10 {
+        assert!(hub.publish(i));
+    }
+    assert_eq!(s.take_all(), (0..10).collect::<Vec<_>>());
+}
+
+#[test]
+fn pubsub_dropping_discards_newest() {
+    let hub = PubSub::dropping(2);
+    let s = hub.subscribe();
+    assert!(hub.publish_all(vec![1, 2, 3, 4]));
+    assert_eq!(s.take_all(), vec![1, 2]);
+}
+
+#[test]
+fn pubsub_sliding_evicts_oldest() {
+    let hub = PubSub::sliding(2);
+    let s = hub.subscribe();
+    assert!(hub.publish_all(vec![1, 2, 3]));
+    assert_eq!(s.take_all(), vec![2, 3]);
+}
+
+#[test]
+fn pubsub_unbounded_grows() {
+    let hub = PubSub::unbounded();
+    let s = hub.subscribe();
+    assert!(hub.publish_all(0..100));
+    assert_eq!(s.take_all().len(), 100);
+}
+
+#[test]
+fn pubsub_infinite_capacity_is_unbounded() {
+    let hub = PubSub::with_replay(usize::MAX, Strategy::Unbounded, 0);
+    assert!(!hub.is_full());
+    let s = hub.subscribe();
+    assert!(hub.publish_all(0..50));
+    assert_eq!(s.take_all().len(), 50);
+}
+
+#[test]
+fn pubsub_null_values_flow() {
+    let hub = PubSub::bounded(4);
+    let s = hub.subscribe();
+    assert!(hub.publish_all(vec![None, Some(1)]));
+    assert_eq!(s.take_all(), vec![None, Some(1)]);
+}
+
+#[test]
+fn pubsub_no_subscribers_drops() {
+    let hub = PubSub::<i32>::dropping(2);
+    assert!(hub.publish(1));
+    assert!(hub.publish(2));
+    assert_eq!(hub.size(), 0);
+    assert!(hub.publish_all(vec![1, 2]));
+    assert_eq!(hub.size(), 0);
+}
+
+#[test]
+fn pubsub_poll_counts_floor_and_nan() {
+    let hub = PubSub::bounded(4);
+    let s = hub.subscribe();
+    assert!(hub.publish_all(vec![1, 2, 3]));
+    assert_eq!(s.poll_up_to(1.9), vec![1]);
+    assert_eq!(s.poll_up_to(f64::NAN), Vec::<i32>::new());
+    assert_eq!(s.poll_up_to(10.0), vec![2, 3]);
+}
+
+#[test]
+fn pubsub_take_between_bounds() {
+    let hub = PubSub::bounded(8);
+    let s = hub.subscribe();
+    assert!(hub.publish_all(vec![1, 2, 3, 4, 5]));
+    assert_eq!(s.take_between(2, 3), vec![1, 2, 3]);
+    assert_eq!(s.take_between(1, 10), vec![4, 5]);
+}
+
+#[test]
+fn pubsub_shutdown_ends_takes() {
+    let hub = PubSub::bounded(2);
+    let s = hub.subscribe();
+    assert!(!hub.is_shutdown());
+    hub.shutdown();
+    assert!(hub.is_shutdown());
+    assert_eq!(s.take(), None);
+    assert!(!hub.publish(1));
+}
+
+#[test]
+fn pubsub_replay_window_prefills() {
+    let hub = PubSub::with_replay(8, Strategy::Bounded, 2);
+    assert!(hub.publish_all(vec![1, 2, 3]));
+    let late = hub.subscribe_replay(2);
+    assert_eq!(late.take_all(), vec![2, 3]);
+    assert_eq!(hub.replay_window(), vec![2, 3]);
+}
+
+#[test]
+fn pubsub_bounded_concurrent_all_delivered() {
+    use std::sync::{Arc, Barrier};
+    let hub = PubSub::bounded(4);
+    let sub = hub.subscribe();
+    let gate = Arc::new(Barrier::new(3));
+    let mut handles = Vec::new();
+    for base in [0, 50] {
+        let (h, g) = (hub.clone(), gate.clone());
+        handles.push(std::thread::spawn(move || {
+            g.wait();
+            for i in 0..50 {
+                assert!(h.publish(base + i));
+            }
+        }));
+    }
+    gate.wait();
+    let mut got = Vec::new();
+    while got.len() < 100 {
+        if let Some(v) = sub.take() {
+            got.push(v);
+        }
+    }
+    for h in handles {
+        h.join().unwrap();
+    }
+    got.sort_unstable();
+    let mut expected: Vec<i32> = (0..50).chain(50..100).collect();
+    expected.sort_unstable();
+    assert_eq!(got, expected);
+}
+
+#[test]
+fn pubsub_dropping_sliding_concurrent_complete() {
+    for hub in [PubSub::dropping(4), PubSub::sliding(4)] {
+        let sub = hub.subscribe();
+        let h = hub.clone();
+        let t = std::thread::spawn(move || {
+            for i in 0..50 {
+                assert!(h.publish(i));
+            }
+        });
+        t.join().unwrap();
+        let got = sub.take_all();
+        assert!(!got.is_empty());
+        assert!(got.len() <= 50);
+        let mut sorted = got.clone();
+        sorted.sort_unstable();
+        sorted.dedup();
+        assert_eq!(got.len(), sorted.len());
+    }
+}
+
+#[test]
+fn pubsub_unsubscribe_then_publish() {
+    let hub = PubSub::bounded(4);
+    let gone = hub.subscribe();
+    let stays = hub.subscribe();
+    gone.unsubscribe();
+    assert!(hub.publish(7));
+    assert_eq!(stays.take_all(), vec![7]);
+    assert_eq!(hub.size(), 0);
+}
+
+#[test]
+fn pubsub_replay_count_rounding() {
+    // Fractional replay rounds up; non-positive disables.
+    let hub = PubSub::with_replay(8, Strategy::Unbounded, 8);
+    assert!(hub.publish_all(vec![1, 2, 3]));
+    assert_eq!(hub.subscribe_replay_count(1.9).take_all(), vec![2, 3]);
+    assert_eq!(hub.subscribe_replay_count(0.0).take_all(), Vec::<i32>::new());
+    assert_eq!(hub.subscribe_replay_count(f64::NAN).take_all(), Vec::<i32>::new());
+}
+
+#[test]
+fn pubsub_take_up_to_unbounded() {
+    let hub = PubSub::unbounded();
+    let s = hub.subscribe();
+    assert!(hub.publish_all(vec![1, 2, 3, 4, 5]));
+    assert_eq!(s.take_up_to(3.0), vec![1, 2, 3]);
+    assert_eq!(s.take_up_to(10.0), vec![4, 5]);
+}
+
+#[test]
+fn pubsub_concurrent_publishers_subscribers() {
+    use std::sync::{Arc, Barrier};
+    let hub = PubSub::unbounded();
+    let gate = Arc::new(Barrier::new(5));
+    let mut handles = Vec::new();
+    for _ in 0..4 {
+        let (h, g) = (hub.clone(), gate.clone());
+        handles.push(std::thread::spawn(move || {
+            g.wait();
+            for i in 0..25 {
+                assert!(h.publish(i));
+            }
+        }));
+    }
+    let sub = hub.subscribe();
+    gate.wait();
+    for h in handles {
+        h.join().unwrap();
+    }
+    assert_eq!(sub.take_all().len(), 100);
+}
+
+#[test]
+fn pubsub_size_tracks_queues() {
+    let hub = PubSub::bounded(4);
+    assert!(hub.is_empty());
+    let s = hub.subscribe();
+    assert!(hub.publish_all(vec![1, 2]));
+    assert_eq!(hub.size(), 2);
+    assert!(!hub.is_empty());
+    s.take_all();
+    assert!(hub.is_empty());
+}
+
+// -------------------------------------------------------- SubscriptionRef ---
+
+#[test]
+fn subscription_ref_guard() {
+    assert!(SubscriptionRef::new(1).is_subscription_ref());
+}
+
+#[test]
+fn subscription_ref_get_update() {
+    let cell = SubscriptionRef::new(1);
+    assert_eq!(cell.get(), 1);
+    assert_eq!(cell.update(|v| v + 1), 2);
+    assert_eq!(cell.get_and_update(|v| v * 10), 2);
+    assert_eq!(cell.get(), 20);
+}
+
+#[test]
+fn subscription_ref_update_some() {
+    let cell = SubscriptionRef::new(5);
+    assert_eq!(cell.update_some(|_| None), 5);
+    assert_eq!(cell.update_some(|v| Some(v + 1)), 6);
+    assert_eq!(cell.get(), 6);
+}
+
+#[test]
+fn subscription_ref_streams_changes() {
+    let cell = SubscriptionRef::new(0);
+    let s1 = cell.subscribe();
+    let s2 = cell.subscribe();
+    assert_eq!(s1.next(), Some(0));
+    cell.set(1);
+    cell.set(2);
+    assert_eq!(s1.next(), Some(1));
+    assert_eq!(s2.next(), Some(0));
+    assert_eq!(s2.next(), Some(1));
+    assert_eq!(s2.next(), Some(2));
+}
+
+#[test]
+fn subscription_ref_unsubscribe_stops() {
+    let cell = SubscriptionRef::new(0);
+    let s = cell.subscribe();
+    assert_eq!(s.next(), Some(0));
+    s.unsubscribe();
+    cell.set(1);
+    assert_eq!(s.next(), None);
+    assert_eq!(s.poll(), None);
+}
+
+#[test]
+fn subscription_ref_concurrent_use() {
+    use std::sync::{Arc, Barrier};
+    let cell = SubscriptionRef::new(0);
+    let gate = Arc::new(Barrier::new(4));
+    let mut handles = Vec::new();
+    for i in 1..=3 {
+        let (c, g) = (cell.clone(), gate.clone());
+        handles.push(std::thread::spawn(move || {
+            g.wait();
+            for _ in 0..50 {
+                c.update(|v| v + i);
+            }
+        }));
+    }
+    let s = cell.subscribe();
+    gate.wait();
+    for h in handles {
+        h.join().unwrap();
+    }
+    assert_eq!(cell.get(), 50 * (1 + 2 + 3));
+    s.unsubscribe();
+}
+
+// ---------------------------------------------------- PartitionedSemaphore ---
+
+#[test]
+fn semaphore_module_delegates_to_instance() {
+    let sem = PartitionedSemaphore::<String>::new(2);
+    assert_eq!(sem.permits_per_key(), 2);
+    assert_eq!(sem.available("a".to_string()), 2);
+}
+
+#[test]
+fn semaphore_zero_permits_run_immediately() {
+    let sem = PartitionedSemaphore::<String>::new(1);
+    let ran = sem.with_permits("k".to_string(), 0, || 42);
+    assert_eq!(ran, 42);
+    assert_eq!(sem.available("k".to_string()), 1);
+}
+
+#[test]
+fn semaphore_try_acquire_reports() {
+    let sem = PartitionedSemaphore::<String>::new(1);
+    let g = sem.try_acquire("k".to_string(), 1).expect("free");
+    assert!(sem.try_acquire("k".to_string(), 1).is_none());
+    drop(g);
+    assert!(sem.try_acquire("k".to_string(), 1).is_some());
+}
+
+#[test]
+fn semaphore_keys_do_not_contend() {
+    let sem = PartitionedSemaphore::<String>::new(1);
+    let a = sem.try_acquire("a".to_string(), 1).expect("a free");
+    assert!(sem.try_acquire("b".to_string(), 1).is_some());
+    drop(a);
+}
+
+#[test]
+fn semaphore_with_permits_releases() {
+    let sem = PartitionedSemaphore::<String>::new(2);
+    sem.with_permits("k".to_string(), 2, || {
+        assert_eq!(sem.available("k".to_string()), 0);
+    });
+    assert_eq!(sem.available("k".to_string()), 2);
+}
+
+#[test]
+fn semaphore_competing_takes_serialize() {
+    use std::sync::{Arc, Barrier, Mutex};
+    let sem = PartitionedSemaphore::<String>::new(1);
+    let gate = Arc::new(Barrier::new(3));
+    let order = Arc::new(Mutex::new(Vec::new()));
+    let mut handles = Vec::new();
+    for i in 0..2 {
+        let (s, g, o) = (sem.clone(), gate.clone(), order.clone());
+        handles.push(std::thread::spawn(move || {
+            g.wait();
+            let _guard = s.acquire("k".to_string(), 1);
+            o.lock().unwrap().push(i);
+            std::thread::sleep(std::time::Duration::from_millis(20));
+        }));
+    }
+    gate.wait();
+    for h in handles {
+        h.join().unwrap();
+    }
+    assert_eq!(order.lock().unwrap().len(), 2);
+    assert_eq!(sem.available("k".to_string()), 1);
+}

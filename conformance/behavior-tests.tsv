@@ -2847,12 +2847,12 @@ ported	packages/effect/test/Order.test.ts	140	it	combine	order_composes_lexicogr
 unported	packages/effect/test/Ordering.test.ts	6	it	Reducer	
 ported	packages/effect/test/Ordering.test.ts	19	it	reverse flips less-than and greater-than and leaves equal unchanged	function_and_ordering_basics
 ported	packages/effect/test/Ordering.test.ts	25	it	match selects the branch for the ordering in both data-first and data-last forms	function_and_ordering_basics
-unported	packages/effect/test/PartitionedSemaphore.test.ts	5	it.effect	module-level combinators delegate to the instance api	
-unported	packages/effect/test/PartitionedSemaphore.test.ts	37	it.effect	zero permits run immediately	
-unported	packages/effect/test/PartitionedSemaphore.test.ts	55	it.effect	withPermitsIfAvailable does not block or run when unavailable	
+ported	packages/effect/test/PartitionedSemaphore.test.ts	5	it.effect	module-level combinators delegate to the instance api	semaphore_module_delegates_to_instance
+ported	packages/effect/test/PartitionedSemaphore.test.ts	37	it.effect	zero permits run immediately	semaphore_zero_permits_run_immediately
+ported	packages/effect/test/PartitionedSemaphore.test.ts	55	it.effect	withPermitsIfAvailable does not block or run when unavailable	semaphore_try_acquire_reports
 unported	packages/effect/test/PartitionedSemaphore.test.ts	75	it.effect	interrupting a partially satisfied waiter releases all acquired permits	
 unported	packages/effect/test/PartitionedSemaphore.test.ts	93	it.effect	interrupting an immediately satisfied take before completion restores permits	
-unported	packages/effect/test/PartitionedSemaphore.test.ts	122	it.effect	competing takes cannot acquire the same permit across scheduler yields	
+ported	packages/effect/test/PartitionedSemaphore.test.ts	122	it.effect	competing takes cannot acquire the same permit across scheduler yields	semaphore_competing_takes_serialize
 unported	packages/effect/test/PartitionedSemaphore.test.ts	161	it.effect	interrupting withPermitsIfAvailable before cleanup is installed restores permits	
 unported	packages/effect/test/PartitionedSemaphore.test.ts	196	it.effect	interrupting a resumed waiter preserves the next ${key}-key waiter	
 unported	packages/effect/test/Pathfinding.test.ts	27	it	should find paths using Dijkstra algorithm	
@@ -2957,55 +2957,55 @@ unported	packages/effect/test/Predicate.test.ts	528	it	checks for exact length
 unported	packages/effect/test/Predicate.test.ts	534	it	supports curried usage	
 unported	packages/effect/test/Predicate.test.ts	543	it	checks for minimum length	
 unported	packages/effect/test/Predicate.test.ts	549	it	supports curried usage	
-unported	packages/effect/test/PubSub.test.ts	6	it.effect	isPubSub type guard	
-unported	packages/effect/test/PubSub.test.ts	56	it.effect	publishAll - capacity 2 (BoundedPubSubPow2)	
-unported	packages/effect/test/PubSub.test.ts	74	it.effect	publishAll - capacity 4 (BoundedPubSubPow2)	
-unported	packages/effect/test/PubSub.test.ts	92	it.effect	publishAll - capacity 3 (BoundedPubSubArb)	
-unported	packages/effect/test/PubSub.test.ts	110	it.effect	sequential publishers and subscribers with one publisher and one subscriber	
-unported	packages/effect/test/PubSub.test.ts	129	it.effect	sequential publishers and subscribers with one publisher and two subscribers	
-unported	packages/effect/test/PubSub.test.ts	163	it.effect	backpressured concurrent publishers and subscribers - one to one	
-unported	packages/effect/test/PubSub.test.ts	176	it.effect	backpressured concurrent publishers and subscribers - one to many	
-unported	packages/effect/test/PubSub.test.ts	196	it.effect	backpressured concurrent publishers and subscribers - many to many	
-unported	packages/effect/test/PubSub.test.ts	226	it.effect	dropping concurrent publishers and subscribers - one to one	
-unported	packages/effect/test/PubSub.test.ts	239	it.effect	dropping concurrent publishers and subscribers - one to many	
-unported	packages/effect/test/PubSub.test.ts	259	it.effect	dropping concurrent publishers and subscribers - many to many	
-unported	packages/effect/test/PubSub.test.ts	289	it.effect	sliding concurrent publishers and subscribers - one to one	
-unported	packages/effect/test/PubSub.test.ts	302	it.effect	sliding concurrent publishers and subscribers - one to many	
-unported	packages/effect/test/PubSub.test.ts	322	it.effect	sliding concurrent publishers and subscribers - many to many	
-unported	packages/effect/test/PubSub.test.ts	352	it.effect	unbounded concurrent publishers and subscribers - one to one	
-unported	packages/effect/test/PubSub.test.ts	366	it.effect	unbounded concurrent publishers and subscribers - one to many	
-unported	packages/effect/test/PubSub.test.ts	386	it.effect	unbounded concurrent publishers and subscribers - many to many	
-unported	packages/effect/test/PubSub.test.ts	418	it.effect	infinite capacity behaves as unbounded	
-unported	packages/effect/test/PubSub.test.ts	431	it.effect	null values	
-unported	packages/effect/test/PubSub.test.ts	450	it.effect	publish does not increase size while no subscribers	
-unported	packages/effect/test/PubSub.test.ts	458	it.effect	publishAll does not increase size while no subscribers	
-unported	packages/effect/test/PubSub.test.ts	465	it	normalizes low-level polling and replay counts	
+ported	packages/effect/test/PubSub.test.ts	6	it.effect	isPubSub type guard	pubsub_type_guard
+ported	packages/effect/test/PubSub.test.ts	56	it.effect	publishAll - capacity 2 (BoundedPubSubPow2)	pubsub_bounded_two_fans_out
+ported	packages/effect/test/PubSub.test.ts	74	it.effect	publishAll - capacity 4 (BoundedPubSubPow2)	pubsub_bounded_four_keeps_order
+ported	packages/effect/test/PubSub.test.ts	92	it.effect	publishAll - capacity 3 (BoundedPubSubArb)	pubsub_arb_capacity_three
+ported	packages/effect/test/PubSub.test.ts	110	it.effect	sequential publishers and subscribers with one publisher and one subscriber	pubsub_sequential_one_publisher
+ported	packages/effect/test/PubSub.test.ts	129	it.effect	sequential publishers and subscribers with one publisher and two subscribers	pubsub_sequential_one_publisher
+ported	packages/effect/test/PubSub.test.ts	163	it.effect	backpressured concurrent publishers and subscribers - one to one	pubsub_bounded_concurrent_all_delivered
+ported	packages/effect/test/PubSub.test.ts	176	it.effect	backpressured concurrent publishers and subscribers - one to many	pubsub_bounded_concurrent_all_delivered
+ported	packages/effect/test/PubSub.test.ts	196	it.effect	backpressured concurrent publishers and subscribers - many to many	pubsub_bounded_concurrent_all_delivered
+ported	packages/effect/test/PubSub.test.ts	226	it.effect	dropping concurrent publishers and subscribers - one to one	pubsub_dropping_sliding_concurrent_complete
+ported	packages/effect/test/PubSub.test.ts	239	it.effect	dropping concurrent publishers and subscribers - one to many	pubsub_dropping_sliding_concurrent_complete
+ported	packages/effect/test/PubSub.test.ts	259	it.effect	dropping concurrent publishers and subscribers - many to many	pubsub_dropping_sliding_concurrent_complete
+ported	packages/effect/test/PubSub.test.ts	289	it.effect	sliding concurrent publishers and subscribers - one to one	pubsub_dropping_sliding_concurrent_complete
+ported	packages/effect/test/PubSub.test.ts	302	it.effect	sliding concurrent publishers and subscribers - one to many	pubsub_dropping_sliding_concurrent_complete
+ported	packages/effect/test/PubSub.test.ts	322	it.effect	sliding concurrent publishers and subscribers - many to many	pubsub_dropping_sliding_concurrent_complete
+ported	packages/effect/test/PubSub.test.ts	352	it.effect	unbounded concurrent publishers and subscribers - one to one	pubsub_concurrent_publishers_subscribers
+ported	packages/effect/test/PubSub.test.ts	366	it.effect	unbounded concurrent publishers and subscribers - one to many	pubsub_concurrent_publishers_subscribers
+ported	packages/effect/test/PubSub.test.ts	386	it.effect	unbounded concurrent publishers and subscribers - many to many	pubsub_concurrent_publishers_subscribers
+ported	packages/effect/test/PubSub.test.ts	418	it.effect	infinite capacity behaves as unbounded	pubsub_infinite_capacity_is_unbounded
+ported	packages/effect/test/PubSub.test.ts	431	it.effect	null values	pubsub_null_values_flow
+ported	packages/effect/test/PubSub.test.ts	450	it.effect	publish does not increase size while no subscribers	pubsub_no_subscribers_drops
+ported	packages/effect/test/PubSub.test.ts	458	it.effect	publishAll does not increase size while no subscribers	pubsub_no_subscribers_drops
+ported	packages/effect/test/PubSub.test.ts	465	it	normalizes low-level polling and replay counts	pubsub_poll_counts_floor_and_nan
 unported	packages/effect/test/PubSub.test.ts	488	it	polls MutableList.Empty as a value	
-unported	packages/effect/test/PubSub.test.ts	496	it	publishes after a capacity-one subscriber unsubscribes from a slid message	
+ported	packages/effect/test/PubSub.test.ts	496	it	publishes after a capacity-one subscriber unsubscribes from a slid message	pubsub_unsubscribe_then_publish
 unported	packages/effect/test/PubSub.test.ts	510	it	does not retain values published after the replay window is drained	
 unported	packages/effect/test/PubSub.test.ts	523	it	does not retain values published outside an undrained replay window	
 unported	packages/effect/test/PubSub.test.ts	537	it	preserves replay order across multiple slides	
-unported	packages/effect/test/PubSub.test.ts	552	it.effect	unbounded	
-unported	packages/effect/test/PubSub.test.ts	561	it.effect	unbounded rounds up fractional replay	
-unported	packages/effect/test/PubSub.test.ts	569	it.effect	unbounded disables non-positive replay	
-unported	packages/effect/test/PubSub.test.ts	577	it.effect	unbounded takeUpTo	
-unported	packages/effect/test/PubSub.test.ts	600	it.effect	takeUpTo and takeBetween normalize message counts	
-unported	packages/effect/test/PubSub.test.ts	620	it.effect	dropping	
-unported	packages/effect/test/PubSub.test.ts	642	it.effect	sliding	
-unported	packages/effect/test/PubSub.test.ts	664	it.effect	sliding preserves publish order with a lagging subscriber	
-unported	packages/effect/test/PubSub.test.ts	677	it.effect	shutdown interrupts suspended subscribers	
+ported	packages/effect/test/PubSub.test.ts	552	it.effect	unbounded	pubsub_replay_window_prefills
+ported	packages/effect/test/PubSub.test.ts	561	it.effect	unbounded rounds up fractional replay	pubsub_replay_count_rounding
+ported	packages/effect/test/PubSub.test.ts	569	it.effect	unbounded disables non-positive replay	pubsub_replay_count_rounding
+ported	packages/effect/test/PubSub.test.ts	577	it.effect	unbounded takeUpTo	pubsub_take_up_to_unbounded
+ported	packages/effect/test/PubSub.test.ts	600	it.effect	takeUpTo and takeBetween normalize message counts	pubsub_take_between_bounds
+ported	packages/effect/test/PubSub.test.ts	620	it.effect	dropping	pubsub_dropping_discards_newest
+ported	packages/effect/test/PubSub.test.ts	642	it.effect	sliding	pubsub_sliding_evicts_oldest
+ported	packages/effect/test/PubSub.test.ts	664	it.effect	sliding preserves publish order with a lagging subscriber	pubsub_sliding_evicts_oldest
+ported	packages/effect/test/PubSub.test.ts	677	it.effect	shutdown interrupts suspended subscribers	pubsub_shutdown_ends_takes
 unported	packages/effect/test/PubSub.test.ts	689	it.effect	publish succeeds after interrupting a suspended subscriber	
 unported	packages/effect/test/PubSub.test.ts	718	it.effect	an interrupted take never swallows the next message	
 unported	packages/effect/test/PubSub.test.ts	730	it.effect	a take that starts waiting after unsubscribe is interrupted	
 unported	packages/effect/test/PubSub.test.ts	744	it.effect	an interrupted backpressured publisher never publishes later	
 unported	packages/effect/test/PubSub.test.ts	757	it.effect	shutdown interrupts suspended takeAll subscribers	
 unported	packages/effect/test/PubSub.test.ts	767	it.effect	Stream.fromPubSub completes after shutdown	
-unported	packages/effect/test/PubSub.test.ts	781	it.effect	publish returns false after shutdown	
-unported	packages/effect/test/PubSub.test.ts	789	it.effect	publishAll returns false after shutdown	
+ported	packages/effect/test/PubSub.test.ts	781	it.effect	publish returns false after shutdown	pubsub_shutdown_ends_takes
+ported	packages/effect/test/PubSub.test.ts	789	it.effect	publishAll returns false after shutdown	pubsub_shutdown_ends_takes
 unported	packages/effect/test/PubSub.test.ts	798	it.effect	delivers buffered messages before the final message and rejects later publishes	
 unported	packages/effect/test/PubSub.test.ts	816	it.effect	wakes a suspended take	
 unported	packages/effect/test/PubSub.test.ts	827	it.effect	is not dropped by a full dropping PubSub	
-unported	packages/effect/test/PubSub.test.ts	839	it.effect	late subscribers receive the replayed messages and then the final message	
+ported	packages/effect/test/PubSub.test.ts	839	it.effect	late subscribers receive the replayed messages and then the final message	pubsub_replay_window_prefills
 unported	packages/effect/test/PubSub.test.ts	849	it.effect	rejects a suspended backpressured publish instead of delivering it after the final message	
 unported	packages/effect/test/PubSub.test.ts	869	it.effect	shutdown still interrupts subscribers	
 unported	packages/effect/test/Pull.test.ts	7	it	succeeds when the done signal is the only failure	
@@ -4016,12 +4016,12 @@ skipped-upstream	packages/effect/test/Struct.test.ts	219	it	symbol keys
 skipped-upstream	packages/effect/test/Struct.test.ts	225	it	mixed keys	
 ported	packages/effect/test/Struct.test.ts	230	it	empty keys	struct_shapes
 ported	packages/effect/test/Struct.test.ts	236	it	custom omitKeyWhen	struct_shapes
-unported	packages/effect/test/SubscriptionRef.test.ts	5	it.effect	isSubscriptionRef	
-unported	packages/effect/test/SubscriptionRef.test.ts	12	it.effect	getAndUpdateEffect	
-unported	packages/effect/test/SubscriptionRef.test.ts	20	it.effect	getAndUpdateSome returns the current value when no update is selected	
-unported	packages/effect/test/SubscriptionRef.test.ts	28	it.effect	multiple subscribers can receive changes	
-unported	packages/effect/test/SubscriptionRef.test.ts	55	it.effect	subscriptions are interruptible	
-unported	packages/effect/test/SubscriptionRef.test.ts	83	it.effect	concurrent subscribes and unsubscribes are handled correctly	
+ported	packages/effect/test/SubscriptionRef.test.ts	5	it.effect	isSubscriptionRef	subscription_ref_guard
+ported	packages/effect/test/SubscriptionRef.test.ts	12	it.effect	getAndUpdateEffect	subscription_ref_get_update
+ported	packages/effect/test/SubscriptionRef.test.ts	20	it.effect	getAndUpdateSome returns the current value when no update is selected	subscription_ref_update_some
+ported	packages/effect/test/SubscriptionRef.test.ts	28	it.effect	multiple subscribers can receive changes	subscription_ref_streams_changes
+ported	packages/effect/test/SubscriptionRef.test.ts	55	it.effect	subscriptions are interruptible	subscription_ref_unsubscribe_stops
+ported	packages/effect/test/SubscriptionRef.test.ts	83	it.effect	concurrent subscribes and unsubscribes are handled correctly	subscription_ref_concurrent_use
 unported	packages/effect/test/Symbol.test.ts	7	it	returns true for primitive symbols created with Symbol()	
 unported	packages/effect/test/Symbol.test.ts	11	it	returns true for global registry symbols created with Symbol.for()	
 unported	packages/effect/test/Symbol.test.ts	15	it	returns true for well-known primitive symbols	
