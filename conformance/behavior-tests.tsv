@@ -9211,7 +9211,7 @@ unported	packages/effect/test/schema/representation/toRepresentations.test.ts	38
 unported	packages/effect/test/schema/representation/toRepresentations.test.ts	416	it	suffixes fallback and explicit identifier collisions in encounter order	
 unported	packages/effect/test/schema/toCodec.test.ts	40	it	${name} preserves union order when branded members share an AST	
 unported	packages/effect/test/schema/toCodec.test.ts	57	it	exposes the source schema	
-unported	packages/effect/test/schema/toCodec.test.ts	63	it	treats Json as canonical	
+ported	packages/effect/test/schema/toCodec.test.ts	63	it	treats Json as canonical	json_bytes_decode_and_encode
 unported	packages/effect/test/schema/toCodec.test.ts	68	it	is idempotent	
 unported	packages/effect/test/schema/toCodec.test.ts	73	it	should reorder the types in the Union based on the encoded side	
 unported	packages/effect/test/schema/toCodec.test.ts	90	it	Struct with Symbol property name	
