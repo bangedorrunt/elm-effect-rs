@@ -1,8 +1,9 @@
 //! `Tuple.ts` port: fixed small arities are native Rust tuples.
-//!
 //! Pairs and triples need no wrapper: `(A, B)` is the shape. What's here:
 //! the tag's named projections and extensions. Residuals: variadic appends
 //! beyond triples (nest instead).
+
+use super::combiner::Combiner;
 
 /// First of a pair (`getFirst`).
 pub fn get_first<A: Clone, B>(pair: &(A, B)) -> A {
@@ -43,4 +44,57 @@ pub fn map_second<A, B, C>(pair: (A, B), f: impl FnOnce(B) -> C) -> (A, C) {
 /// for the row).
 pub fn triple_first<A: Clone, B, C>(triple: &(A, B, C)) -> A {
     triple.0.clone()
+}
+
+/// Construct a pair (`make` shape for pairs).
+pub fn make_pair<A, B>(first: A, second: B) -> (A, B) {
+    (first, second)
+}
+
+/// Construct a triple (`make` shape for triples).
+pub fn make_triple<A, B, C>(first: A, second: B, third: C) -> (A, B, C) {
+    (first, second, third)
+}
+
+/// Get by runtime index on a homogeneous slice (`get` index shape).
+pub fn get_at<T: Clone>(values: &[T], index: usize) -> Option<T> {
+    values.get(index).cloned()
+}
+
+/// Keep only the listed positions (`pick` index shape).
+pub fn pick_indices<T: Clone>(values: &[T], indices: &[usize]) -> Vec<T> {
+    indices
+        .iter()
+        .filter_map(|i| values.get(*i).cloned())
+        .collect()
+}
+
+/// Drop the listed positions (`omit` index shape).
+pub fn omit_indices<T: Clone>(values: &[T], indices: &[usize]) -> Vec<T> {
+    values
+        .iter()
+        .enumerate()
+        .filter(|(i, _)| !indices.contains(i))
+        .map(|(_, v)| v.clone())
+        .collect()
+}
+
+/// Update one position (`evolve` index shape); out-of-bounds is a no-op.
+pub fn evolve_at<T: Clone>(values: &[T], index: usize, f: impl FnOnce(T) -> T) -> Vec<T> {
+    let mut out = values.to_vec();
+    if let Some(slot) = out.get_mut(index) {
+        let next = f(slot.clone());
+        *slot = next;
+    }
+    out
+}
+
+/// Combine position-wise (`makeCombiner`).
+pub fn make_combiner<A: 'static, B: 'static>(
+    first: Combiner<A>,
+    second: Combiner<B>,
+) -> Combiner<(A, B)> {
+    Combiner::make(move |(a1, b1): &(A, B), (a2, b2): &(A, B)| {
+        (first.combine(a1, a2), second.combine(b1, b2))
+    })
 }

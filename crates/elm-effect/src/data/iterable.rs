@@ -83,3 +83,94 @@ pub fn min<T: Ord>(iterable: impl IntoIterator<Item = T>) -> Option<T> {
 pub fn max<T: Ord>(iterable: impl IntoIterator<Item = T>) -> Option<T> {
     iterable.into_iter().max()
 }
+
+/// One element (`of`).
+pub fn of<T>(value: T) -> Vec<T> {
+    vec![value]
+}
+
+/// Prepend one (`prepend`).
+pub fn prepend<T>(value: T, iterable: impl IntoIterator<Item = T>) -> Vec<T> {
+    let mut out = vec![value];
+    out.extend(iterable);
+    out
+}
+
+/// Append one (`append`).
+pub fn append<T>(iterable: impl IntoIterator<Item = T>, value: T) -> Vec<T> {
+    let mut out: Vec<T> = iterable.into_iter().collect();
+    out.push(value);
+    out
+}
+
+/// Prefix accumulations (`scan`).
+pub fn scan<T, U: Clone>(
+    iterable: impl IntoIterator<Item = T>,
+    init: U,
+    mut f: impl FnMut(U, T) -> U,
+) -> Vec<U> {
+    let mut acc = init;
+    let mut out = Vec::new();
+    for v in iterable {
+        acc = f(acc, v);
+        out.push(acc.clone());
+    }
+    out
+}
+
+/// First `n` (`take`).
+pub fn take<T>(iterable: impl IntoIterator<Item = T>, n: usize) -> Vec<T> {
+    iterable.into_iter().take(n).collect()
+}
+
+/// Drop the first `n` (`drop`).
+pub fn drop_<T>(iterable: impl IntoIterator<Item = T>, n: usize) -> Vec<T> {
+    iterable.into_iter().skip(n).collect()
+}
+
+/// Take while the predicate holds (`takeWhile`).
+pub fn take_while<T>(
+    iterable: impl IntoIterator<Item = T>,
+    mut predicate: impl FnMut(&T) -> bool,
+) -> Vec<T> {
+    iterable.into_iter().take_while(|a| predicate(a)).collect()
+}
+
+/// Pairwise combine (`zip`, `zipWith`).
+pub fn zip_with<T, U, V>(
+    a: impl IntoIterator<Item = T>,
+    b: impl IntoIterator<Item = U>,
+    mut f: impl FnMut(T, U) -> V,
+) -> Vec<V> {
+    a.into_iter()
+        .zip(b.into_iter())
+        .map(|(x, y)| f(x, y))
+        .collect()
+}
+
+/// Interleave a separator (`intersperse`).
+pub fn intersperse<T: Clone>(iterable: impl IntoIterator<Item = T>, separator: T) -> Vec<T> {
+    let base: Vec<T> = iterable.into_iter().collect();
+    let mut out = Vec::with_capacity(base.len() * 2);
+    for (i, v) in base.into_iter().enumerate() {
+        if i > 0 {
+            out.push(separator.clone());
+        }
+        out.push(v);
+    }
+    out
+}
+
+/// Unfold from a seed (`unfold`).
+pub fn unfold<S, T>(mut seed: S, mut f: impl FnMut(&mut S) -> Option<T>) -> Vec<T> {
+    let mut out = Vec::new();
+    while let Some(v) = f(&mut seed) {
+        out.push(v);
+    }
+    out
+}
+
+/// Keep defined values (`getSomes`).
+pub fn get_somes<T: Clone>(iterable: impl IntoIterator<Item = Option<T>>) -> Vec<T> {
+    iterable.into_iter().flatten().collect()
+}

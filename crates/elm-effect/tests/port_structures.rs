@@ -10,6 +10,8 @@
 mod array;
 #[path = "../src/data/chunk.rs"]
 mod chunk;
+#[path = "../src/data/combiner.rs"]
+mod combiner;
 #[path = "../src/data/iterable.rs"]
 mod iterable;
 #[path = "../src/data/mutable_list.rs"]
@@ -495,6 +497,47 @@ fn iterable_combine() {
     assert_eq!(iterable::min(vec![3, 1, 2]), Some(1));
     assert_eq!(iterable::max(vec![3, 1, 2]), Some(3));
     assert_eq!(iterable::min(Vec::<i32>::new()), None);
+    assert_eq!(iterable::of(1), vec![1]);
+    assert_eq!(iterable::prepend(1, vec![2]), vec![1, 2]);
+    assert_eq!(iterable::append(vec![1], 2), vec![1, 2]);
+    assert_eq!(
+        iterable::scan(vec![1, 2, 3], 0, |acc, a| acc + a),
+        vec![1, 3, 6]
+    );
+    assert_eq!(iterable::take(vec![1, 2, 3], 2), vec![1, 2]);
+    assert_eq!(iterable::drop_(vec![1, 2, 3], 2), vec![3]);
+    assert_eq!(iterable::take_while(vec![1, 2, 3], |a| *a < 3), vec![1, 2]);
+    assert_eq!(
+        iterable::zip_with(vec![1, 2], vec![3, 4], |a, b| a + b),
+        vec![4, 6]
+    );
+    assert_eq!(
+        iterable::zip_with(vec![1], vec![2, 3], |a, b| (a, b)),
+        vec![(1, 2)]
+    );
+    assert_eq!(iterable::intersperse(vec![1, 2], 0), vec![1, 0, 2]);
+    assert_eq!(
+        iterable::unfold(0, |s| (*s < 2).then(|| {
+            *s += 1;
+            *s
+        })),
+        vec![1, 2]
+    );
+    assert_eq!(
+        iterable::get_somes(vec![Some(1), None, Some(2)]),
+        vec![1, 2]
+    );
+    assert_eq!(
+        vec![1, 2].iter().map(|a| a * 2).collect::<Vec<_>>(),
+        vec![2, 4]
+    );
+    assert_eq!(
+        vec![1, 2]
+            .iter()
+            .flat_map(|a| vec![*a, -*a])
+            .collect::<Vec<_>>(),
+        vec![1, -1, 2, -2]
+    );
 }
 
 // ---------- NonEmpty ----------
@@ -683,6 +726,11 @@ fn struct_shapes() {
     let evolved = struct_::evolve(&r, &[("z", Box::new(|v| v) as Box<dyn Fn(i32) -> i32>)]);
     assert_eq!(evolved.len(), 3);
     assert_eq!(struct_::get(&r, "b"), Some(2));
+    assert_eq!(
+        struct_::keys(&r),
+        vec!["a".to_string(), "b".to_string(), "c".to_string()]
+    );
+    assert_eq!(struct_::pick(&r, &[]), std::collections::BTreeMap::new());
     let mut owned = r.clone();
     struct_::set(&mut owned, "d".to_string(), 4);
     assert_eq!(struct_::get(&owned, "d"), Some(4));
@@ -703,6 +751,16 @@ fn tuple_shapes() {
         (1, "a!".to_string())
     );
     assert_eq!(tuple::triple_first(&(1, 2, 3)), 1);
+    assert_eq!(tuple::make_pair(1, "a"), (1, "a"));
+    assert_eq!(tuple::make_triple(1, 2, 3), (1, 2, 3));
+    assert_eq!(tuple::get_at(&[10, 20], 1), Some(20));
+    assert_eq!(tuple::get_at(&[10], 5), None);
+    assert_eq!(tuple::pick_indices(&[1, 2, 3, 4], &[0, 2]), vec![1, 3]);
+    assert_eq!(tuple::omit_indices(&[1, 2, 3, 4], &[1]), vec![1, 3, 4]);
+    assert_eq!(tuple::evolve_at(&[1, 2], 0, |a| a + 9), vec![10, 2]);
+    assert_eq!(tuple::evolve_at(&[1], 5, |a| a), vec![1]);
+    let both = tuple::make_combiner(combiner::min(), combiner::max());
+    assert_eq!(both.combine(&(1, 10), &(0, 20)), (0, 20));
 }
 
 #[test]
