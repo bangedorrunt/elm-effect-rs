@@ -4146,11 +4146,11 @@ ported	packages/effect/test/Tuple.test.ts	133	it	appendElements concatenates a t
 ported	packages/effect/test/Tuple.test.ts	138	it	makeEquivalence compares tuple positions independently	tuple_shapes
 ported	packages/effect/test/Tuple.test.ts	149	it	makeOrder orders tuple positions lexicographically	tuple_shapes
 unported	packages/effect/test/TxChunk.test.ts	6	it	make should create a TxChunk with initial chunk	
-unported	packages/effect/test/TxChunk.test.ts	18	it	empty should create an empty TxChunk	
+ported	packages/effect/test/TxChunk.test.ts	18	it	empty should create an empty TxChunk	tx_chunk_push_get_extend
 unported	packages/effect/test/TxChunk.test.ts	29	it	fromIterable should create a TxChunk from an iterable	
-unported	packages/effect/test/TxChunk.test.ts	42	it	get should read the current chunk	
+ported	packages/effect/test/TxChunk.test.ts	42	it	get should read the current chunk	tx_chunk_push_get_extend
 unported	packages/effect/test/TxChunk.test.ts	53	it	set should replace the entire chunk	
-unported	packages/effect/test/TxChunk.test.ts	68	it	append should add element to the end	
+ported	packages/effect/test/TxChunk.test.ts	68	it	append should add element to the end	tx_chunk_push_get_extend
 unported	packages/effect/test/TxChunk.test.ts	82	it	prepend should add element to the beginning	
 unported	packages/effect/test/TxChunk.test.ts	96	it	size should return the chunk size	
 unported	packages/effect/test/TxChunk.test.ts	107	it	isEmpty should return true for empty chunk	
@@ -4170,9 +4170,9 @@ unported	packages/effect/test/TxChunk.test.ts	293	it	prependAll should concatena
 unported	packages/effect/test/TxChunk.test.ts	308	it	concat should concatenate another TxChunk to the end	
 unported	packages/effect/test/TxChunk.test.ts	323	it	concat should work atomically within transactions	
 unported	packages/effect/test/TxChunk.test.ts	344	it	isTxChunk should identify TxChunk instances	
-unported	packages/effect/test/TxDeferred.test.ts	6	it.effect	make creates a deferred that polls as None	
-unported	packages/effect/test/TxDeferred.test.ts	15	it.effect	poll returns None on fresh deferred	
-unported	packages/effect/test/TxDeferred.test.ts	22	it.effect	poll returns Some(Success(value)) after succeed	
+ported	packages/effect/test/TxDeferred.test.ts	6	it.effect	make creates a deferred that polls as None	tx_deferred_complete_and_poll
+ported	packages/effect/test/TxDeferred.test.ts	15	it.effect	poll returns None on fresh deferred	tx_deferred_complete_and_poll
+ported	packages/effect/test/TxDeferred.test.ts	22	it.effect	poll returns Some(Success(value)) after succeed	tx_deferred_complete_and_poll
 unported	packages/effect/test/TxDeferred.test.ts	36	it.effect	poll returns Some(Failure(error)) after fail	
 unported	packages/effect/test/TxDeferred.test.ts	50	it.effect	await returns value after succeed	
 unported	packages/effect/test/TxDeferred.test.ts	58	it.effect	await fails with error after fail	
@@ -4188,11 +4188,11 @@ unported	packages/effect/test/TxDeferred.test.ts	139	it.effect	await observes co
 unported	packages/effect/test/TxDeferred.test.ts	151	it.effect	two deferreds modified atomically	
 unported	packages/effect/test/TxDeferred.test.ts	169	it.effect	multiple fibers awaiting same deferred all unblock	
 unported	packages/effect/test/TxDeferred.test.ts	186	it.effect	race between succeed and fail: only first wins	
-unported	packages/effect/test/TxHashMap.test.ts	6	it.effect	empty	
-unported	packages/effect/test/TxHashMap.test.ts	16	it.effect	make	
+ported	packages/effect/test/TxHashMap.test.ts	6	it.effect	empty	tx_hash_map_crud
+ported	packages/effect/test/TxHashMap.test.ts	16	it.effect	make	tx_hash_map_crud
 unported	packages/effect/test/TxHashMap.test.ts	30	it.effect	fromIterable	
-unported	packages/effect/test/TxHashMap.test.ts	47	it.effect	get - existing key	
-unported	packages/effect/test/TxHashMap.test.ts	57	it.effect	get - non-existing key	
+ported	packages/effect/test/TxHashMap.test.ts	47	it.effect	get - existing key	tx_hash_map_crud
+ported	packages/effect/test/TxHashMap.test.ts	57	it.effect	get - non-existing key	tx_hash_map_crud
 unported	packages/effect/test/TxHashMap.test.ts	65	it.effect	has - existing key	
 unported	packages/effect/test/TxHashMap.test.ts	75	it.effect	has - non-existing key	
 unported	packages/effect/test/TxHashMap.test.ts	83	it.effect	set - new key	
@@ -4237,7 +4237,7 @@ unported	packages/effect/test/TxHashMap.test.ts	856	it.effect	compact should rem
 unported	packages/effect/test/TxHashMap.test.ts	888	it.effect	toEntries should return all entries as array	
 unported	packages/effect/test/TxHashMap.test.ts	909	it.effect	toValues should return all values as array	
 unported	packages/effect/test/TxHashMap.test.ts	930	it.effect	specialized operations should work correctly	
-unported	packages/effect/test/TxHashSet.test.ts	22	it.effect	empty creates an empty TxHashSet	
+ported	packages/effect/test/TxHashSet.test.ts	22	it.effect	empty creates an empty TxHashSet	tx_hash_set_add_contains
 unported	packages/effect/test/TxHashSet.test.ts	32	it.effect	make creates TxHashSet from values	
 unported	packages/effect/test/TxHashSet.test.ts	44	it.effect	make removes duplicates	
 unported	packages/effect/test/TxHashSet.test.ts	52	it.effect	fromIterable creates TxHashSet from iterable	
@@ -4267,11 +4267,11 @@ unported	packages/effect/test/TxHashSet.test.ts	370	it.effect	handles large numb
 unported	packages/effect/test/TxHashSet.test.ts	396	it.effect	functional operations work with large sets	
 unported	packages/effect/test/TxHashSet.test.ts	412	it.effect	handles empty set operations correctly	
 unported	packages/effect/test/TxHashSet.test.ts	431	it.effect	handles single element sets	
-unported	packages/effect/test/TxPriorityQueue.test.ts	6	it.effect	empty creates an empty queue	
+ported	packages/effect/test/TxPriorityQueue.test.ts	6	it.effect	empty creates an empty queue	tx_priority_queue_orders
 unported	packages/effect/test/TxPriorityQueue.test.ts	14	it.effect	fromIterable creates a sorted queue	
 unported	packages/effect/test/TxPriorityQueue.test.ts	21	it.effect	fromIterable supports the curried call	
 unported	packages/effect/test/TxPriorityQueue.test.ts	28	it.effect	make creates from variadic args	
-unported	packages/effect/test/TxPriorityQueue.test.ts	37	it.effect	size returns number of elements	
+ported	packages/effect/test/TxPriorityQueue.test.ts	37	it.effect	size returns number of elements	tx_priority_queue_orders
 unported	packages/effect/test/TxPriorityQueue.test.ts	43	it.effect	isEmpty/isNonEmpty	
 unported	packages/effect/test/TxPriorityQueue.test.ts	53	it.effect	peek returns smallest without removing	
 unported	packages/effect/test/TxPriorityQueue.test.ts	61	it.effect	peekOption returns None when empty	
@@ -4290,7 +4290,7 @@ unported	packages/effect/test/TxPriorityQueue.test.ts	182	it.effect	retainIf kee
 unported	packages/effect/test/TxPriorityQueue.test.ts	192	it.effect	isTxPriorityQueue	
 unported	packages/effect/test/TxPriorityQueue.test.ts	203	it.effect	concurrent offer and take	
 unported	packages/effect/test/TxPriorityQueue.test.ts	220	it.effect	reverse order (max-first)	
-unported	packages/effect/test/TxPubSub.test.ts	6	it.effect	bounded creates pubsub with specified capacity	
+ported	packages/effect/test/TxPubSub.test.ts	6	it.effect	bounded creates pubsub with specified capacity	tx_pubsub_broadcasts
 unported	packages/effect/test/TxPubSub.test.ts	13	it.effect	unbounded creates pubsub with unlimited capacity	
 unported	packages/effect/test/TxPubSub.test.ts	19	it.effect	dropping creates pubsub with dropping strategy	
 unported	packages/effect/test/TxPubSub.test.ts	25	it.effect	sliding creates pubsub with sliding strategy	
@@ -4323,11 +4323,11 @@ unported	packages/effect/test/TxQueue.test.ts	60	it.effect	TxEnqueue interface e
 unported	packages/effect/test/TxQueue.test.ts	80	it.effect	TxDequeue interface enforces read-only operations	
 unported	packages/effect/test/TxQueue.test.ts	107	it.effect	Interface assignments maintain type safety	
 unported	packages/effect/test/TxQueue.test.ts	132	it.effect	Interface type guards work correctly	
-unported	packages/effect/test/TxQueue.test.ts	152	it.effect	bounded creates queue with specified capacity	
-unported	packages/effect/test/TxQueue.test.ts	162	it.effect	unbounded creates queue with unlimited capacity	
+ported	packages/effect/test/TxQueue.test.ts	152	it.effect	bounded creates queue with specified capacity	tx_queue_bounded_offer_take
+ported	packages/effect/test/TxQueue.test.ts	162	it.effect	unbounded creates queue with unlimited capacity	tx_queue_unbounded_never_full
 unported	packages/effect/test/TxQueue.test.ts	172	it.effect	dropping creates queue with dropping strategy	
 unported	packages/effect/test/TxQueue.test.ts	182	it.effect	sliding creates queue with sliding strategy	
-unported	packages/effect/test/TxQueue.test.ts	194	it.effect	offer and take work correctly	
+ported	packages/effect/test/TxQueue.test.ts	194	it.effect	offer and take work correctly	tx_queue_bounded_offer_take
 unported	packages/effect/test/TxQueue.test.ts	205	it.effect	poll returns Option.none for empty queue	
 unported	packages/effect/test/TxQueue.test.ts	213	it.effect	poll returns Option.some for non-empty queue	
 unported	packages/effect/test/TxQueue.test.ts	222	it.effect	poll completes a closing queue after removing the last item	
@@ -4407,7 +4407,7 @@ unported	packages/effect/test/TxQueue.test.ts	1244	it.effect	end() signals compl
 unported	packages/effect/test/TxQueue.test.ts	1266	it.effect	take() on ended queue fails with Done	
 unported	packages/effect/test/TxQueue.test.ts	1282	it.effect	end() works with TxEnqueue interface	
 unported	packages/effect/test/TxQueue.test.ts	1302	it.effect	end() returns false if queue is already done	
-unported	packages/effect/test/TxReentrantLock.test.ts	6	it.effect	make creates an unlocked lock	
+ported	packages/effect/test/TxReentrantLock.test.ts	6	it.effect	make creates an unlocked lock	tx_lock_is_reentrant
 unported	packages/effect/test/TxReentrantLock.test.ts	18	it.effect	acquireRead and releaseRead work correctly	
 unported	packages/effect/test/TxReentrantLock.test.ts	31	it.effect	multiple read acquires from same fiber are reentrant	
 unported	packages/effect/test/TxReentrantLock.test.ts	48	it.effect	acquireWrite and releaseWrite work correctly	
@@ -4435,13 +4435,13 @@ unported	packages/effect/test/TxReentrantLock.test.ts	399	it.effect	releaseRead 
 unported	packages/effect/test/TxReentrantLock.test.ts	406	it.effect	releaseWrite without acquire returns 0	
 unported	packages/effect/test/TxReentrantLock.test.ts	414	it.effect	releases a scoped read lock when another fiber closes the scope	
 unported	packages/effect/test/TxReentrantLock.test.ts	427	it.effect	releases a scoped write lock when another fiber closes the scope	
-unported	packages/effect/test/TxSemaphore.test.ts	6	it.effect	make creates semaphore with specified permits	
+ported	packages/effect/test/TxSemaphore.test.ts	6	it.effect	make creates semaphore with specified permits	tx_semaphore_permits
 unported	packages/effect/test/TxSemaphore.test.ts	16	it.effect	make with zero permits creates empty semaphore	
 unported	packages/effect/test/TxSemaphore.test.ts	26	it.effect	make with negative permits causes defect	
-unported	packages/effect/test/TxSemaphore.test.ts	34	it.effect	acquire and release work correctly	
+ported	packages/effect/test/TxSemaphore.test.ts	34	it.effect	acquire and release work correctly	tx_semaphore_permits
 unported	packages/effect/test/TxSemaphore.test.ts	47	it.effect	acquireN and releaseN work correctly	
-unported	packages/effect/test/TxSemaphore.test.ts	60	it.effect	tryAcquire succeeds when permits available	
-unported	packages/effect/test/TxSemaphore.test.ts	71	it.effect	tryAcquire fails when no permits available	
+ported	packages/effect/test/TxSemaphore.test.ts	60	it.effect	tryAcquire succeeds when permits available	tx_semaphore_permits
+ported	packages/effect/test/TxSemaphore.test.ts	71	it.effect	tryAcquire fails when no permits available	tx_semaphore_permits
 unported	packages/effect/test/TxSemaphore.test.ts	86	it.effect	tryAcquireN succeeds when enough permits available	
 unported	packages/effect/test/TxSemaphore.test.ts	97	it.effect	tryAcquireN fails when not enough permits available	
 unported	packages/effect/test/TxSemaphore.test.ts	110	it.effect	withPermit automatically manages permit lifecycle	
@@ -4456,8 +4456,8 @@ unported	packages/effect/test/TxSemaphore.test.ts	211	it.effect	releaseN does no
 unported	packages/effect/test/TxSemaphore.test.ts	224	it.effect	isTxSemaphore correctly identifies TxSemaphore instances	
 unported	packages/effect/test/TxSemaphore.test.ts	238	it.effect	withPermit bounds concurrent work and releases for the next waiter	
 unported	packages/effect/test/TxSemaphore.test.ts	271	it.effect	operations are atomic within transactions	
-unported	packages/effect/test/TxSubscriptionRef.test.ts	6	it.effect	make creates ref with initial value	
-unported	packages/effect/test/TxSubscriptionRef.test.ts	15	it.effect	set updates the value	
+ported	packages/effect/test/TxSubscriptionRef.test.ts	6	it.effect	make creates ref with initial value	tx_subscription_ref_notifies
+ported	packages/effect/test/TxSubscriptionRef.test.ts	15	it.effect	set updates the value	tx_subscription_ref_notifies
 unported	packages/effect/test/TxSubscriptionRef.test.ts	22	it.effect	update applies a function	
 unported	packages/effect/test/TxSubscriptionRef.test.ts	29	it.effect	modify returns a value and updates	
 unported	packages/effect/test/TxSubscriptionRef.test.ts	37	it.effect	getAndSet returns old value and sets new	

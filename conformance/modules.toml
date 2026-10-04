@@ -988,7 +988,7 @@ tests = ["packages/effect/test/Tuple.test.ts"]
 [[module]]
 path = "packages/effect/src/TxChunk.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/TxChunk.test.ts"]
@@ -996,7 +996,7 @@ tests = ["packages/effect/test/TxChunk.test.ts"]
 [[module]]
 path = "packages/effect/src/TxDeferred.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/TxDeferred.test.ts"]
@@ -1004,7 +1004,7 @@ tests = ["packages/effect/test/TxDeferred.test.ts"]
 [[module]]
 path = "packages/effect/src/TxHashMap.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/TxHashMap.test.ts"]
@@ -1012,7 +1012,7 @@ tests = ["packages/effect/test/TxHashMap.test.ts"]
 [[module]]
 path = "packages/effect/src/TxHashSet.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/TxHashSet.test.ts"]
@@ -1020,7 +1020,7 @@ tests = ["packages/effect/test/TxHashSet.test.ts"]
 [[module]]
 path = "packages/effect/src/TxPriorityQueue.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/TxPriorityQueue.test.ts"]
@@ -1028,7 +1028,7 @@ tests = ["packages/effect/test/TxPriorityQueue.test.ts"]
 [[module]]
 path = "packages/effect/src/TxPubSub.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/TxPubSub.test.ts"]
@@ -1036,7 +1036,7 @@ tests = ["packages/effect/test/TxPubSub.test.ts"]
 [[module]]
 path = "packages/effect/src/TxQueue.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/TxQueue.test.ts"]
@@ -1044,7 +1044,7 @@ tests = ["packages/effect/test/TxQueue.test.ts"]
 [[module]]
 path = "packages/effect/src/TxReentrantLock.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/TxReentrantLock.test.ts"]
@@ -1052,7 +1052,7 @@ tests = ["packages/effect/test/TxReentrantLock.test.ts"]
 [[module]]
 path = "packages/effect/src/TxRef.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
 reason = ""
 tests = []
@@ -1060,7 +1060,7 @@ tests = []
 [[module]]
 path = "packages/effect/src/TxSemaphore.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/TxSemaphore.test.ts"]
@@ -1068,7 +1068,7 @@ tests = ["packages/effect/test/TxSemaphore.test.ts"]
 [[module]]
 path = "packages/effect/src/TxSubscriptionRef.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/TxSubscriptionRef.test.ts"]
