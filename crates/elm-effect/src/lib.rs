@@ -12,6 +12,7 @@
 //! - Phase 1 has zero `unsafe`.
 
 mod cause;
+mod concurrency;
 mod effect;
 #[cfg(feature = "tokio")]
 mod executor;
@@ -36,6 +37,7 @@ mod sync;
 mod time;
 
 pub use cause::{Cause, Defect, FiberId, Reason};
+pub use concurrency::{Body, Concurrency, all, for_each, partition, validate, validate_discard};
 pub use effect::{Effect, Requirement};
 #[cfg(feature = "tokio")]
 pub use executor::{BoxFuture, Executor, TokioExecutor};
