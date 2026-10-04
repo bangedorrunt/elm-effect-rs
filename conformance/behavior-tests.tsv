@@ -62,7 +62,7 @@ unported	packages/effect/test/Array.test.ts	771	it	modifyHeadNonEmpty
 unported	packages/effect/test/Array.test.ts	778	it	modifyLastNonEmpty	
 unported	packages/effect/test/Array.test.ts	785	it	setHeadNonEmpty	
 unported	packages/effect/test/Array.test.ts	791	it	setLastNonEmpty	
-unported	packages/effect/test/Array.test.ts	797	it	liftResult	
+ported	packages/effect/test/Array.test.ts	797	it	liftResult	array_std_substrate
 ported	packages/effect/test/Array.test.ts	803	it	headNonEmpty	array_std_substrate
 ported	packages/effect/test/Array.test.ts	807	it	tailNonEmpty	array_std_substrate
 ported	packages/effect/test/Array.test.ts	811	it	lastNonEmpty	array_std_substrate
@@ -93,7 +93,7 @@ ported	packages/effect/test/Array.test.ts	1052	it	min	array_std_substrate
 ported	packages/effect/test/Array.test.ts	1057	it	max	array_std_substrate
 ported	packages/effect/test/Array.test.ts	1065	it	flatten	array_std_substrate
 unported	packages/effect/test/Array.test.ts	1069	it	groupWith	
-unported	packages/effect/test/Array.test.ts	1075	it	groupBy	
+ported	packages/effect/test/Array.test.ts	1075	it	groupBy	array_std_substrate
 ported	packages/effect/test/Array.test.ts	1096	it	match	array_std_substrate
 ported	packages/effect/test/Array.test.ts	1104	it	matchLeft	array_std_substrate
 ported	packages/effect/test/Array.test.ts	1112	it	matchRight	array_std_substrate
@@ -129,12 +129,12 @@ ported	packages/effect/test/Array.test.ts	1437	it	getSuccesses	array_std_substra
 ported	packages/effect/test/Array.test.ts	1453	it	dedupe	array_std_substrate
 ported	packages/effect/test/Array.test.ts	1471	it	dedupe does not hash a single value	array_std_substrate
 ported	packages/effect/test/Array.test.ts	1481	it	dedupeAdjacent	array_std_substrate
-unported	packages/effect/test/Array.test.ts	1489	it	group	
+ported	packages/effect/test/Array.test.ts	1489	it	group	array_std_substrate
 ported	packages/effect/test/Array.test.ts	1495	it	union	array_std_substrate
 ported	packages/effect/test/Array.test.ts	1511	it	intersection	array_std_substrate
 ported	packages/effect/test/Array.test.ts	1528	it	difference	array_std_substrate
-unported	packages/effect/test/Array.test.ts	1546	it	cartesianWith	
-unported	packages/effect/test/Array.test.ts	1559	it	cartesian	
+ported	packages/effect/test/Array.test.ts	1546	it	cartesianWith	array_std_substrate
+ported	packages/effect/test/Array.test.ts	1559	it	cartesian	array_std_substrate
 unported	packages/effect/test/Array.test.ts	1572	it	makeEquivalence	
 unported	packages/effect/test/Array.test.ts	1582	it	getReadonlyReducerConcat	
 unported	packages/effect/test/Array.test.ts	1590	it	makeReducerConcat	
