@@ -6,6 +6,9 @@
 
 use std::collections::BTreeMap;
 
+/// One key-directed update: the key plus its value function.
+pub type Update<'a, V> = (&'a str, Box<dyn Fn(V) -> V>);
+
 /// Keep only the listed keys (`pick`).
 pub fn pick<V: Clone>(record: &BTreeMap<String, V>, keys: &[&str]) -> BTreeMap<String, V> {
     keys.iter()
@@ -26,7 +29,7 @@ pub fn omit<V: Clone>(record: &BTreeMap<String, V>, keys: &[&str]) -> BTreeMap<S
 /// maps through its function; unlisted keys pass through unchanged.
 pub fn evolve<V: Clone>(
     record: &BTreeMap<String, V>,
-    updates: &[(&str, Box<dyn Fn(V) -> V>)],
+    updates: &[Update<'_, V>],
 ) -> BTreeMap<String, V> {
     let mut out = record.clone();
     for (key, f) in updates {

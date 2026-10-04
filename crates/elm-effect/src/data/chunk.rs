@@ -116,8 +116,8 @@ impl<T> Chunk<T> {
     }
 
     /// Map (`map`).
-    pub fn map<U>(self, mut f: impl FnMut(T) -> U) -> Chunk<U> {
-        Chunk(self.0.into_iter().map(|a| f(a)).collect())
+    pub fn map<U>(self, f: impl FnMut(T) -> U) -> Chunk<U> {
+        Chunk(self.0.into_iter().map(f).collect())
     }
 
     /// Filter (`filter`).
@@ -166,7 +166,8 @@ impl<T> Chunk<T> {
         values.into_iter().collect::<Result<Vec<_>, _>>().map(Self)
     }
 
-    /// As a slice for interop.
+    /// As a slice for interop (kept for upcoming beads).
+    #[allow(dead_code)]
     pub fn as_slice(&self) -> &[T] {
         &self.0
     }
@@ -247,11 +248,11 @@ impl<T> Chunk<T> {
     }
 
     /// Split on the first predicate match (`splitWhere`).
-    pub fn split_where(&self, mut predicate: impl FnMut(&T) -> bool) -> (Self, Self)
+    pub fn split_where(&self, predicate: impl FnMut(&T) -> bool) -> (Self, Self)
     where
         T: Clone,
     {
-        match self.0.iter().position(|a| predicate(a)) {
+        match self.0.iter().position(predicate) {
             Some(at) => (Self(self.0[..at].to_vec()), Self(self.0[at..].to_vec())),
             None => (self.clone(), Self::empty()),
         }
@@ -308,11 +309,11 @@ impl<T> Chunk<T> {
     }
 
     /// Map-then-collect, dropping `None`s (`filterMap`).
-    pub fn filter_map<U>(&self, mut f: impl FnMut(&T) -> Option<U>) -> Chunk<U>
+    pub fn filter_map<U>(&self, f: impl FnMut(&T) -> Option<U>) -> Chunk<U>
     where
         T: Clone,
     {
-        Chunk(self.0.iter().filter_map(|a| f(a)).collect())
+        Chunk(self.0.iter().filter_map(f).collect())
     }
 
     /// Drop `None`s, unwrapping (`compact`).
@@ -340,8 +341,8 @@ impl<T> Chunk<T> {
     }
 
     /// Build from a generator (`makeBy`).
-    pub fn make_by(n: usize, mut f: impl FnMut(usize) -> T) -> Self {
-        Self((0..n).map(|i| f(i)).collect())
+    pub fn make_by(n: usize, f: impl FnMut(usize) -> T) -> Self {
+        Self((0..n).map(f).collect())
     }
 
     /// Integer range (`range`).
@@ -350,13 +351,13 @@ impl<T> Chunk<T> {
     }
 
     /// True when any element passes (`some`).
-    pub fn some(&self, mut predicate: impl FnMut(&T) -> bool) -> bool {
-        self.0.iter().any(|a| predicate(a))
+    pub fn some(&self, predicate: impl FnMut(&T) -> bool) -> bool {
+        self.0.iter().any(predicate)
     }
 
     /// Run a side effect per element (`forEach`).
-    pub fn for_each(&self, mut f: impl FnMut(&T)) {
-        self.0.iter().for_each(|a| f(a));
+    pub fn for_each(&self, f: impl FnMut(&T)) {
+        self.0.iter().for_each(f);
     }
 
     /// Sort by comparator (`sortWith`).

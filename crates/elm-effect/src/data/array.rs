@@ -56,8 +56,8 @@ pub fn drop_while<T: Clone>(values: &[T], mut predicate: impl FnMut(&T) -> bool)
 }
 
 /// Build from a generator (`makeBy`).
-pub fn make_by<T>(n: usize, mut f: impl FnMut(usize) -> T) -> Vec<T> {
-    (0..n).map(|i| f(i)).collect()
+pub fn make_by<T>(n: usize, f: impl FnMut(usize) -> T) -> Vec<T> {
+    (0..n).map(f).collect()
 }
 
 /// Integer range `[start, end)` (`range`).
@@ -67,7 +67,7 @@ pub fn range(start: i32, end: i32) -> Vec<i32> {
 
 /// Repeat a value (`replicate`).
 pub fn replicate<T: Clone>(n: usize, value: T) -> Vec<T> {
-    std::iter::repeat(value).take(n).collect()
+    std::iter::repeat_n(value, n).collect()
 }
 
 /// Pairwise combine, stopping at the shorter (`zipWith`, `zip`).
@@ -82,8 +82,8 @@ pub fn chunks_of<T: Clone>(values: &[T], n: usize) -> Vec<Vec<T>> {
 }
 
 /// First index passing the predicate (`findFirstIndex` shape).
-pub fn find_index<T>(values: &[T], mut predicate: impl FnMut(&T) -> bool) -> Option<usize> {
-    values.iter().position(|a| predicate(a))
+pub fn find_index<T>(values: &[T], predicate: impl FnMut(&T) -> bool) -> Option<usize> {
+    values.iter().position(predicate)
 }
 
 /// Get by index (`get`).

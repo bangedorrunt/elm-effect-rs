@@ -92,13 +92,13 @@ pub fn modify<V: Clone>(record: &Record<V>, key: &str, f: impl FnOnce(V) -> V) -
 }
 
 /// True when any value passes (`some`).
-pub fn some<V>(record: &Record<V>, mut predicate: impl FnMut(&V) -> bool) -> bool {
-    record.values().any(|v| predicate(v))
+pub fn some<V>(record: &Record<V>, predicate: impl FnMut(&V) -> bool) -> bool {
+    record.values().any(predicate)
 }
 
 /// True when every value passes (`every`).
-pub fn every<V>(record: &Record<V>, mut predicate: impl FnMut(&V) -> bool) -> bool {
-    record.values().all(|v| predicate(v))
+pub fn every<V>(record: &Record<V>, predicate: impl FnMut(&V) -> bool) -> bool {
+    record.values().all(predicate)
 }
 
 /// Split by predicate (`partition`, `separate` shape).
@@ -119,8 +119,8 @@ pub fn partition<V: Clone>(
 }
 
 /// Fold values (`reduce`, `collect` shape).
-pub fn reduce<V, U>(record: &Record<V>, init: U, mut f: impl FnMut(U, &V) -> U) -> U {
-    record.values().fold(init, |acc, v| f(acc, v))
+pub fn reduce<V, U>(record: &Record<V>, init: U, f: impl FnMut(U, &V) -> U) -> U {
+    record.values().fold(init, f)
 }
 
 /// Keys present in both (`intersection`).

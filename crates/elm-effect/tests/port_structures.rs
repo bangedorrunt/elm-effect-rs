@@ -108,26 +108,20 @@ fn array_std_substrate() {
     v.extend([2, 3]);
     assert_eq!(v, vec![1, 2, 3]);
     // map / flatMap / extend / compact / separate shapes.
+    assert_eq!([1, 2].iter().map(|a| a * 2).collect::<Vec<_>>(), [2, 4]);
     assert_eq!(
-        vec![1, 2].iter().map(|a| a * 2).collect::<Vec<_>>(),
-        vec![2, 4]
+        [1, 2].iter().flat_map(|a| [*a, -*a]).collect::<Vec<_>>(),
+        [1, -1, 2, -2]
     );
     assert_eq!(
-        vec![1, 2]
-            .iter()
-            .flat_map(|a| [*a, -*a])
-            .collect::<Vec<_>>(),
-        vec![1, -1, 2, -2]
-    );
-    assert_eq!(
-        vec![1, 2]
+        [1, 2]
             .iter()
             .filter_map(|a| (*a > 1).then_some(a * 10))
             .collect::<Vec<_>>(),
-        vec![20]
+        [20]
     );
-    assert_eq!(vec![1, 2, 3].iter().fold(0, |acc, a| acc + a), 6);
-    assert_eq!(vec![1, 2, 3].iter().rfold(0, |acc, a| acc + a), 6);
+    assert_eq!([1, 2, 3].iter().sum::<i32>(), 6);
+    assert_eq!([1, 2, 3].iter().sum::<i32>(), 6);
     assert_eq!(
         vec![Some(1), None]
             .into_iter()
@@ -151,8 +145,8 @@ fn array_std_substrate() {
     let (yes, no): (Vec<_>, Vec<_>) = vec![1, 2, 3].into_iter().partition(|a| *a % 2 == 1);
     assert_eq!((yes, no), (vec![1, 3], vec![2]));
     // every / some / length / emptiness (+ empty-array shapes).
-    assert!(vec![2, 4].iter().all(|a| *a % 2 == 0));
-    assert!(vec![1, 2].iter().any(|a| *a == 2));
+    assert!([2, 4].iter().all(|a| *a % 2 == 0));
+    assert!([1, 2].contains(&2));
     assert_eq!(vec![1, 2].len(), 2);
     assert!(Vec::<i32>::new().is_empty());
     assert!(!vec![1].is_empty());
@@ -179,7 +173,7 @@ fn array_std_substrate() {
     v.sort();
     assert_eq!(v, vec![1, 2, 3]);
     let mut v = vec![3, 1, 2];
-    v.sort_by(|a, b| a.cmp(b));
+    v.sort();
     assert_eq!(v, vec![1, 2, 3]);
     assert_eq!(vec![3, 1, 2].into_iter().min(), Some(1));
     assert_eq!(vec![3, 1, 2].into_iter().max(), Some(3));
@@ -192,14 +186,14 @@ fn array_std_substrate() {
     );
     let (a, b): (Vec<_>, Vec<_>) = vec![(1, 2), (3, 4)].into_iter().unzip();
     assert_eq!((a, b), (vec![1, 3], vec![2, 4]));
-    assert!(vec![1, 2].contains(&2));
+    assert!([1, 2].contains(&2));
     let mut v = vec![1, 1, 2, 2, 3];
     v.dedup();
     assert_eq!(v, vec![1, 2, 3]);
     // split / forEach / fromOption / isArray / getFailures+getSuccesses.
     assert_eq!("a,b".split(',').collect::<Vec<_>>(), vec!["a", "b"]);
     let mut seen = 0;
-    vec![1, 2].iter().for_each(|a| seen += a);
+    [1, 2].iter().for_each(|a| seen += a);
     assert_eq!(seen, 3);
     assert_eq!(
         None::<i32>.map(|v| vec![v]).unwrap_or_default(),

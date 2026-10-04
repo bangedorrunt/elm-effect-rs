@@ -46,12 +46,8 @@ pub fn contains<T: PartialEq>(iterable: impl IntoIterator<Item = T>, value: &T) 
 }
 
 /// Fold left (`reduce`).
-pub fn reduce<T, U>(
-    iterable: impl IntoIterator<Item = T>,
-    init: U,
-    mut f: impl FnMut(U, T) -> U,
-) -> U {
-    iterable.into_iter().fold(init, |acc, a| f(acc, a))
+pub fn reduce<T, U>(iterable: impl IntoIterator<Item = T>, init: U, f: impl FnMut(U, T) -> U) -> U {
+    iterable.into_iter().fold(init, f)
 }
 
 /// Repeat `n` times, bounded (`cycle` made finite).
