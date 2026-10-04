@@ -105,6 +105,38 @@ where
         Self::from_fn(move || Take::Fail(error.clone()))
     }
 
+    /// Bracket a resource around pulls (`acquireRelease`, `acquireUseRelease`
+    /// shapes): `release` runs exactly once, on the first terminal take
+    /// (`End` or `Fail`), before that take is delivered. Later pulls yield
+    /// `End`.
+    pub fn using<R>(
+        resource: R,
+        mut pull: impl FnMut(&mut R) -> Take<A, E> + Send + 'static,
+        release: impl FnOnce(R) + Send + 'static,
+    ) -> Self
+    where
+        R: Send + 'static,
+    {
+        let mut state = Some((resource, Some(release)));
+        Self::from_fn(move || {
+            let Some((mut resource, release)) = state.take() else {
+                return Take::End;
+            };
+            match pull(&mut resource) {
+                terminal @ (Take::End | Take::Fail(_)) => {
+                    if let Some(release) = release {
+                        release(resource);
+                    }
+                    terminal
+                }
+                take => {
+                    state = Some((resource, release));
+                    take
+                }
+            }
+        })
+    }
+
     /// Pull once.
     pub fn pull(&mut self) -> Take<A, E> {
         (self.next)()

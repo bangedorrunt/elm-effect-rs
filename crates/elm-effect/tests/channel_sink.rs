@@ -100,6 +100,19 @@ fn sink_counts_and_folds() {
     })
     .run(pull::Pull::of(vec![1, 2]));
     assert_eq!(summed, elm_effect::Exit::Success(3));
+    // Reducer runs once per non-empty chunk and matches Array.reduce.
+    let calls = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
+    let probe = calls.clone();
+    let folded = sink::fold::<i32, String, i32>(0, move |acc: i32, chunk: Vec<i32>| {
+        probe.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        acc + chunk.iter().sum::<i32>()
+    })
+    .run(pull::Pull::of(vec![1, 2, 3]));
+    assert_eq!(folded, elm_effect::Exit::Success(6));
+    // of() delivers one chunk: the reducer ran exactly once for it.
+    assert_eq!(calls.load(std::sync::atomic::Ordering::SeqCst), 1);
+    let empty_count = sink::count::<i32, String>().run(pull::Pull::empty());
+    assert_eq!(empty_count, elm_effect::Exit::Success(0usize));
 }
 
 #[test]
@@ -140,6 +153,15 @@ fn channel_filter_map_recovers() {
 fn sink_take_while_stops() {
     let got = sink::take_while(|a: &i32| *a < 3).run(pull::Pull::<i32, String>::of(vec![1, 2, 3]));
     assert_eq!(got, elm_effect::Exit::Success(vec![1, 2]));
+    // No termination: everything passes.
+    let got = sink::take_while(|_: &i32| true).run(pull::Pull::<i32, String>::of(vec![1]));
+    assert_eq!(got, elm_effect::Exit::Success(vec![1]));
+    // Immediate termination: empty result.
+    let got = sink::take_while(|_: &i32| false).run(pull::Pull::<i32, String>::of(vec![1]));
+    assert_eq!(got, elm_effect::Exit::Success(Vec::<i32>::new()));
+    // Empty input: empty result.
+    let got = sink::take_while(|_: &i32| true).run(pull::Pull::<i32, String>::empty());
+    assert_eq!(got, elm_effect::Exit::Success(Vec::<i32>::new()));
 }
 
 #[test]
@@ -158,6 +180,12 @@ fn pull_constructors() {
     // Unbounded input stays chunked.
     let mut p = pull::Pull::<i32, String>::from_iter(0.., 3);
     assert_eq!(p.pull(), take::Take::Items(vec![0, 1, 2]));
+    // Zero chunk size normalizes to one.
+    let mut p = pull::Pull::<i32, String>::from_iter(0..3, 0);
+    assert_eq!(p.pull(), take::Take::Items(vec![0]));
+    assert_eq!(p.pull(), take::Take::Items(vec![1]));
+    assert_eq!(p.pull(), take::Take::Items(vec![2]));
+    assert_eq!(p.pull(), take::Take::End);
 }
 
 #[test]
@@ -186,4 +214,39 @@ fn sink_take_limits() {
     assert_eq!(got, elm_effect::Exit::Success(vec![1, 2]));
     let got = sink::take::<i32, String>(9).run(pull::Pull::of(vec![1]));
     assert_eq!(got, elm_effect::Exit::Success(vec![1]));
+    // Zero count never pulls: empty result over any input.
+    let got = sink::take::<i32, String>(0).run(pull::Pull::of(vec![1]));
+    assert_eq!(got, elm_effect::Exit::Success(Vec::<i32>::new()));
+}
+
+#[test]
+fn pull_bracket_releases_once() {
+    use std::sync::Arc;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    let released = Arc::new(AtomicUsize::new(0));
+    let probe = released.clone();
+    let mut p = pull::Pull::using(
+        vec![1, 2],
+        |rest: &mut Vec<i32>| {
+            if rest.is_empty() {
+                take::Take::<i32, String>::End
+            } else {
+                take::Take::<i32, String>::Items(vec![rest.remove(0)])
+            }
+        },
+        move |_| {
+            probe.fetch_add(1, Ordering::SeqCst);
+        },
+    );
+    assert_eq!(p.pull(), take::Take::Items(vec![1]));
+    assert_eq!(p.pull(), take::Take::Items(vec![2]));
+    assert_eq!(p.pull(), take::Take::End);
+    assert_eq!(p.pull(), take::Take::End);
+    assert_eq!(released.load(Ordering::SeqCst), 1);
+}
+
+#[test]
+fn sink_drain_discards() {
+    let done = sink::drain().run(pull::Pull::<i32, String>::of(vec![1, 2]));
+    assert_eq!(done, elm_effect::Exit::Success(()));
 }

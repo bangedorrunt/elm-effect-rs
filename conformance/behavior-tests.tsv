@@ -526,25 +526,25 @@ unported	packages/effect/test/Cause.test.ts	915	it	returns false for other value
 unported	packages/effect/test/Cause.test.ts	922	it	is a string constant	
 unported	packages/effect/test/CauseMapAnnotations.test.ts	5	it	preserves annotations on mapped failures	
 unported	packages/effect/test/Channel.test.ts	24	it.effect	 work per repetition does not grow	
-unported	packages/effect/test/Channel.test.ts	36	it.effect	empty	
+ported	packages/effect/test/Channel.test.ts	36	it.effect	empty	pull_empty_ends_immediately
 ported	packages/effect/test/Channel.test.ts	44	it.effect	succeed	pull_constructors
 ported	packages/effect/test/Channel.test.ts	52	it.effect	sync	pull_constructors
-unported	packages/effect/test/Channel.test.ts	60	it.effect	end	
-unported	packages/effect/test/Channel.test.ts	72	it.effect	endSync	
+ported	packages/effect/test/Channel.test.ts	60	it.effect	end	pull_empty_ends_immediately
+ported	packages/effect/test/Channel.test.ts	72	it.effect	endSync	pull_empty_ends_immediately
 ported	packages/effect/test/Channel.test.ts	84	it.effect	fromArray	pull_constructors
 ported	packages/effect/test/Channel.test.ts	91	it.effect	fromChunk	pull_constructors
 ported	packages/effect/test/Channel.test.ts	98	it.effect	fromIterator	pull_constructors
-unported	packages/effect/test/Channel.test.ts	111	it.effect	fromIteratorArray	
-unported	packages/effect/test/Channel.test.ts	126	it.effect	fromIteratorArray - normalizes the chunk size	
+ported	packages/effect/test/Channel.test.ts	111	it.effect	fromIteratorArray	pull_constructors
+ported	packages/effect/test/Channel.test.ts	126	it.effect	fromIteratorArray - normalizes the chunk size	pull_constructors
 ported	packages/effect/test/Channel.test.ts	141	it.effect	fromIterable	pull_constructors
-unported	packages/effect/test/Channel.test.ts	148	it.effect	fromIterableArray	
-unported	packages/effect/test/Channel.test.ts	157	it.effect	fromIterableArray - normalizes the chunk size	
+ported	packages/effect/test/Channel.test.ts	148	it.effect	fromIterableArray	pull_constructors
+ported	packages/effect/test/Channel.test.ts	157	it.effect	fromIterableArray - normalizes the chunk size	pull_constructors
 unported	packages/effect/test/Channel.test.ts	168	it.effect	fromReadableStream	
 unported	packages/effect/test/Channel.test.ts	185	it.effect	fromTransformStream - surfaces write-side errors through the read side	
-unported	packages/effect/test/Channel.test.ts	206	it.effect	acquireRelease	
-unported	packages/effect/test/Channel.test.ts	218	it.effect	acquireUseRelease combines usage and release failures	
+ported	packages/effect/test/Channel.test.ts	206	it.effect	acquireRelease	pull_bracket_releases_once
+ported	packages/effect/test/Channel.test.ts	218	it.effect	acquireUseRelease combines usage and release failures	pull_bracket_releases_once
 unported	packages/effect/test/Channel.test.ts	231	it.effect	acquireUseRelease surfaces release failure after successful usage	
-unported	packages/effect/test/Channel.test.ts	243	it.effect	runDrain returns the done value after emitted elements	
+ported	packages/effect/test/Channel.test.ts	243	it.effect	runDrain returns the done value after emitted elements	sink_drain_discards
 unported	packages/effect/test/Channel.test.ts	253	it.effect	mkUint8Array	
 ported	packages/effect/test/Channel.test.ts	267	it.effect	map	channel_map_transforms
 unported	packages/effect/test/Channel.test.ts	276	it.effect	mapEffect interrupts the running effect when the channel is interrupted	
@@ -3472,17 +3472,17 @@ unported	packages/effect/test/Semaphore.test.ts	613	it.effect	zero permits reque
 unported	packages/effect/test/Semaphore.test.ts	627	it.effect	sequential tasks in same partition	
 unported	packages/effect/test/Sink.test.ts	16	it.effect	fromWritableStream - aborts instead of closing on upstream failure	
 unported	packages/effect/test/Sink.test.ts	43	it.effect	fromWritableStream - aborts instead of closing on interruption	
-unported	packages/effect/test/Sink.test.ts	76	it.effect	empty	
-unported	packages/effect/test/Sink.test.ts	85	it.effect	termination in the middle	
-unported	packages/effect/test/Sink.test.ts	93	it.effect	immediate termination	
-unported	packages/effect/test/Sink.test.ts	101	it.effect	no termination	
-unported	packages/effect/test/Sink.test.ts	111	it.effect	applies the reducer once per non-empty input array	
-unported	packages/effect/test/Sink.test.ts	122	it.effect	short circuits	
-unported	packages/effect/test/Sink.test.ts	159	it.effect	equivalence with Array.reduce	
-unported	packages/effect/test/Sink.test.ts	172	it.effect	normalizes the maximum element count	
-unported	packages/effect/test/Sink.test.ts	181	it.effect	zero normalized counts do not evaluate the upstream	
-unported	packages/effect/test/Sink.test.ts	201	it.effect	normalizes the element count	
-unported	packages/effect/test/Sink.test.ts	211	it.effect	respects the given limit	
+ported	packages/effect/test/Sink.test.ts	76	it.effect	empty	sink_take_while_stops
+ported	packages/effect/test/Sink.test.ts	85	it.effect	termination in the middle	sink_take_while_stops
+ported	packages/effect/test/Sink.test.ts	93	it.effect	immediate termination	sink_take_while_stops
+ported	packages/effect/test/Sink.test.ts	101	it.effect	no termination	sink_take_while_stops
+ported	packages/effect/test/Sink.test.ts	111	it.effect	applies the reducer once per non-empty input array	sink_counts_and_folds
+ported	packages/effect/test/Sink.test.ts	122	it.effect	short circuits	sink_take_while_stops
+ported	packages/effect/test/Sink.test.ts	159	it.effect	equivalence with Array.reduce	sink_counts_and_folds
+ported	packages/effect/test/Sink.test.ts	172	it.effect	normalizes the maximum element count	sink_take_limits
+ported	packages/effect/test/Sink.test.ts	181	it.effect	zero normalized counts do not evaluate the upstream	sink_take_limits
+ported	packages/effect/test/Sink.test.ts	201	it.effect	normalizes the element count	sink_take_limits
+ported	packages/effect/test/Sink.test.ts	211	it.effect	respects the given limit	sink_take_limits
 unported	packages/effect/test/Sink.test.ts	223	it.effect	produces empty trailing chunks	
 unported	packages/effect/test/Sink.test.ts	235	it.effect	produces an empty chunk for empty input	
 ported	packages/effect/test/Sink.test.ts	246	it.effect	takeWhile	sink_take_while_stops

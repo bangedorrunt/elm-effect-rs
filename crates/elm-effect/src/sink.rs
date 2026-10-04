@@ -111,6 +111,23 @@ where
     })
 }
 
+/// Discard every item, succeeding with `()` (`drain`, `runDrain` shape).
+pub fn drain<A, E>() -> Sink<A, E, ()>
+where
+    A: Send + 'static,
+    E: Send + 'static,
+{
+    Sink::from_fn(move |mut source| {
+        loop {
+            match source.pull() {
+                Take::Items(_) => continue,
+                Take::End => return elm_effect::Exit::Success(()),
+                Take::Fail(e) => return elm_effect::Exit::Failure(elm_effect::Cause::fail(e)),
+            }
+        }
+    })
+}
+
 /// First item, if any.
 pub fn head<A, E>() -> Sink<A, E, Option<A>>
 where
