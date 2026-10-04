@@ -146,3 +146,133 @@ impl PendingStore {
         self.rows.is_empty()
     }
 }
+
+// Dispatch planning (0c6.43): pure port of the toron reconcile table
+// (`toron/crates/toron-workflow/src/engine/reconcile.rs::plan_attempt`).
+// A park is interruption, never a terminal return or a blind retry: it
+// resumes with the SAME re-drive key (`ResumeParked`), never `DispatchNew`.
+
+use elm_effect_journal::EffectState;
+
+/// The journaled facts one dispatch decision needs (no I/O to build).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct EffectView {
+    /// The row's current state.
+    pub state: EffectState,
+    /// The next attempt number.
+    pub attempt: i64,
+    /// True when another owner may still hold the dispatch lease.
+    pub lease_live: bool,
+}
+
+/// What the provider offers: an idempotency key, a reconcile query, both,
+/// or neither. A query beats a key: never dispatch blind when asked first.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ProviderCapability {
+    /// Redispatching the same key is safe.
+    pub supports_idempotency_key: bool,
+    /// The provider can be asked what happened first.
+    pub supports_reconcile_query: bool,
+}
+
+/// What the dispatcher may do next.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum DispatchPlan {
+    /// No intent or a fresh intent: commit intent, then dispatch attempt one.
+    DispatchNew,
+    /// Uncertainty with an idempotent provider: re-dispatch the SAME
+    /// logical key as this next attempt number.
+    RetrySameKey { attempt: i64 },
+    /// Uncertainty with a queryable provider: ask what happened before
+    /// dispatch. Never a second dispatch first.
+    ReconcileFirst { reason: String },
+    /// No safe move exists (live owner elsewhere, reconciler owns the row,
+    /// or no provider contract): do not dispatch, say why.
+    RefuseBlindRetry { reason: String },
+    /// The row is terminal: return the stored outcome, dispatch nothing.
+    DuplicateTerminal,
+    /// A park is interruption: resume at its wake time with the same key,
+    /// attempt at least one.
+    ResumeParked { attempt: i64 },
+}
+
+/// Pure dispatch planning: exactly the toron reconcile table.
+pub fn plan_attempt(current: Option<&EffectView>, cap: &ProviderCapability) -> DispatchPlan {
+    let Some(view) = current else {
+        return DispatchPlan::DispatchNew;
+    };
+    use elm_effect_journal::EffectState as S;
+    match view.state {
+        S::Parked => DispatchPlan::ResumeParked {
+            attempt: view.attempt.max(1),
+        },
+        S::Prepared => DispatchPlan::DispatchNew,
+        S::ReconcilePending => DispatchPlan::RefuseBlindRetry {
+            reason: "reconciliation owns this effect; the dispatcher waits".into(),
+        },
+        S::InFlight | S::Accepted | S::Unknown => {
+            if view.lease_live {
+                DispatchPlan::RefuseBlindRetry {
+                    reason: "dispatch lease is live under another owner".into(),
+                }
+            } else if cap.supports_reconcile_query {
+                DispatchPlan::ReconcileFirst {
+                    reason: "outcome uncertain after an expired lease; the provider is asked first"
+                        .into(),
+                }
+            } else if cap.supports_idempotency_key {
+                DispatchPlan::RetrySameKey {
+                    attempt: view.attempt + 1,
+                }
+            } else {
+                DispatchPlan::RefuseBlindRetry {
+                    reason: "outcome uncertain and the provider offers no contract".into(),
+                }
+            }
+        }
+        S::Settled | S::Failed | S::Cancelled => DispatchPlan::DuplicateTerminal,
+    }
+}
+
+/// Whether `presented` settles the row holding `current_token`: true only
+/// when both are non-empty and equal. An empty presented token settles
+/// nothing; an unclaimed row (`None`) settles for nobody.
+pub fn may_settle(current_token: Option<&str>, presented: &str) -> bool {
+    match current_token {
+        Some(current) if !current.is_empty() && !presented.is_empty() => current == presented,
+        _ => false,
+    }
+}
+
+/// Replay guard: a digest mismatch is a typed error and mints no second
+/// effect key (the caller simply does not proceed).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ReplayMismatch {
+    /// The digest recorded at prepare time.
+    pub prepared: String,
+    /// The digest recomputed now.
+    pub redigest: String,
+}
+
+/// Check a replay digest: `Ok(())` continues with the existing key.
+pub fn check_replay(prepared_digest: &str, redigest: &str) -> Result<(), ReplayMismatch> {
+    if prepared_digest == redigest {
+        Ok(())
+    } else {
+        Err(ReplayMismatch {
+            prepared: prepared_digest.to_string(),
+            redigest: redigest.to_string(),
+        })
+    }
+}
+
+/// Terminal success, if the state has a default exit at all. `Unknown` (and
+/// every non-terminal state) has none: uncertainty is not an outcome.
+pub fn terminal_success(state: elm_effect_journal::EffectState) -> Option<bool> {
+    use elm_effect_journal::EffectState as S;
+    match state {
+        S::Settled => Some(true),
+        S::Failed => Some(false),
+        _ => None,
+    }
+}
