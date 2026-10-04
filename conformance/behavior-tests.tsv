@@ -300,7 +300,7 @@ ported	packages/effect/test/ByteSize.test.ts	153	it	formats without losing the r
 ported	packages/effect/test/ByteSize.test.ts	164	it	roundtrips canonical strings	bytesize_format_roundtrip
 ported	packages/effect/test/ByteSize.test.ts	170	it	preserves arithmetic invariants	bytesize_arith_invariants
 ported	packages/effect/test/ByteSize.test.ts	186	it	is total for arbitrary strings	bytesize_total_on_strings
-unported	packages/effect/test/Cache.test.ts	36	it.effect	make - creates cache with fixed capacity	
+ported	packages/effect/test/Cache.test.ts	36	it.effect	make - creates cache with fixed capacity	failures_are_not_cached_by_default
 unported	packages/effect/test/Cache.test.ts	46	it.effect	make - creates cache with default infinite TTL	
 unported	packages/effect/test/Cache.test.ts	59	it.effect	make - creates cache with custom TTL	
 unported	packages/effect/test/Cache.test.ts	75	it.effect	make - uses a numeric zero TTL	
@@ -319,8 +319,8 @@ unported	packages/effect/test/Cache.test.ts	316	it.effect	cache hit - multiple d
 unported	packages/effect/test/Cache.test.ts	332	it.effect	cache hit - same key multiple times doesn't invoke lookup again	
 unported	packages/effect/test/Cache.test.ts	347	it.effect	cache miss - invokes lookup for non-existent key	
 unported	packages/effect/test/Cache.test.ts	358	it.effect	cache miss - invokes lookup again after TTL expiration	
-unported	packages/effect/test/Cache.test.ts	379	it.effect	error handling - lookup function fails	
-unported	packages/effect/test/Cache.test.ts	391	it.effect	concurrent access - multiple fibers getting same key only invoke lookup once	
+ported	packages/effect/test/Cache.test.ts	379	it.effect	error handling - lookup function fails	failures_are_not_cached_by_default
+ported	packages/effect/test/Cache.test.ts	391	it.effect	concurrent access - multiple fibers getting same key only invoke lookup once	single_flight_runs_lookup_once
 unported	packages/effect/test/Cache.test.ts	409	it.effect	concurrent access - race between get and invalidate	
 unported	packages/effect/test/Cache.test.ts	436	it.effect	concurrent access - interrupting the first consumer does not interrupt the second	
 unported	packages/effect/test/Cache.test.ts	463	it.effect	interrupting a getOption waiter keeps the shared lookup available	
@@ -2861,10 +2861,10 @@ unported	packages/effect/test/Pathfinding.test.ts	53	it	should find paths using 
 unported	packages/effect/test/Pool.test.ts	11	it.effect	preallocates pool items	
 unported	packages/effect/test/Pool.test.ts	35	it.effect	cleans up items when shut down	
 unported	packages/effect/test/Pool.test.ts	50	it.effect	defects don't prevent cleanup	
-unported	packages/effect/test/Pool.test.ts	65	it.effect	acquire one item	
+ported	packages/effect/test/Pool.test.ts	65	it.effect	acquire one item	pool_releases_idle_extras
 unported	packages/effect/test/Pool.test.ts	78	it.effect	keeps failed background capacity until a borrower reaches it	
-unported	packages/effect/test/Pool.test.ts	116	it.live	blocks when item not available	
-unported	packages/effect/test/Pool.test.ts	133	it.effect	reuse released items	
+ported	packages/effect/test/Pool.test.ts	116	it.live	blocks when item not available	pool_blocks_while_exhausted
+ported	packages/effect/test/Pool.test.ts	133	it.effect	reuse released items	pool_releases_idle_extras
 unported	packages/effect/test/Pool.test.ts	146	it.effect	invalidate item	
 unported	packages/effect/test/Pool.test.ts	163	it.effect	invalidate all items in pool and check that pool.get doesn't hang forever	
 unported	packages/effect/test/Pool.test.ts	183	it.live	retry on failed acquire should not exhaust pool	
@@ -3192,7 +3192,7 @@ unported	packages/effect/test/Ref.test.ts	170	it.effect	modifySome returns a res
 unported	packages/effect/test/Request.test.ts	137	it	preserves __proto__ as an own constructor property	
 unported	packages/effect/test/Request.test.ts	150	it	copies enumerable symbol properties in Class	
 unported	packages/effect/test/Request.test.ts	157	it	compares StructuralProto values when hashes collide	
-unported	packages/effect/test/Request.test.ts	167	it.effect	requests are executed correctly	
+ported	packages/effect/test/Request.test.ts	167	it.effect	requests are executed correctly	batching_makes_one_downstream_call
 unported	packages/effect/test/Request.test.ts	180	it.effect	requests with dual syntax are executed correctly	
 unported	packages/effect/test/Request.test.ts	192	it.effect	requests are executed correctly with fromEffectTagged	
 unported	packages/effect/test/Request.test.ts	204	it.effect	fromEffectTagged preserves typed errors	

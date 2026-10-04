@@ -1,0 +1,357 @@
+//! Cache single-flight, request batching, pools, and scoped caches.
+//!
+//! One [`Cache`] lookup runs once no matter how many threads miss together:
+//! lookups serialize on the map lock (throughput ceiling, documented below),
+//! so the second waiter finds the first waiter's value. Failures are not
+//! cached unless [`Cache::cache_errors`] opts in. A [`RequestResolver`]
+//! turns many distinct keys into one downstream call. [`Pool`] reuses values
+//! and drops idle extras per its [`IdlePolicy`]. [`ScopedCache`] ties a
+//! cache's lifetime to a scope.
+
+use std::collections::{HashMap, VecDeque};
+use std::hash::Hash as StdHash;
+use std::sync::{Arc, Condvar, Mutex};
+
+// Cache
+
+/// A shared lookup function.
+type LookupFn<K, V, E> = Arc<dyn Fn(&K) -> Result<V, E> + Send + Sync>;
+
+/// A bounded memo table with single-flight lookups.
+pub struct Cache<K, V, E> {
+    map: Mutex<HashMap<K, Result<V, E>>>,
+    order: Mutex<VecDeque<K>>,
+    capacity: usize,
+    lookup: LookupFn<K, V, E>,
+    cache_errors: bool,
+}
+
+impl<K, V, E> Cache<K, V, E>
+where
+    K: Clone + Eq + StdHash + Send + 'static,
+    V: Clone + Send + 'static,
+    E: Clone + Send + 'static,
+{
+    /// A cache with `capacity` entries sharing one lookup. Lookups serialize
+    /// on the map lock: N identical concurrent misses run the lookup once
+    /// (a waiting thread finds the stored value), at the cost of lookup
+    /// parallelism. Use [`RequestResolver`] when distinct keys must batch.
+    pub fn new(
+        capacity: usize,
+        lookup: impl Fn(&K) -> Result<V, E> + Send + Sync + 'static,
+    ) -> Self {
+        Self {
+            map: Mutex::new(HashMap::new()),
+            order: Mutex::new(VecDeque::new()),
+            capacity: capacity.max(1),
+            lookup: Arc::new(lookup),
+            cache_errors: false,
+        }
+    }
+
+    /// Also cache failures, returning them again instead of re-running.
+    pub fn cache_errors(mut self, cache: bool) -> Self {
+        self.cache_errors = cache;
+        self
+    }
+
+    /// The value for `key`, running the lookup at most once per miss.
+    pub fn get(&self, key: &K) -> Result<V, E> {
+        let mut map = self.map.lock().unwrap();
+        if let Some(hit) = map.get(key) {
+            return hit.clone();
+        }
+        let outcome = (self.lookup)(key);
+        let store = match &outcome {
+            Ok(_) => true,
+            Err(_) => self.cache_errors,
+        };
+        if store {
+            if map.len() >= self.capacity {
+                let mut order = self.order.lock().unwrap();
+                if let Some(oldest) = order.pop_front() {
+                    map.remove(&oldest);
+                }
+            }
+            map.insert(key.clone(), outcome.clone());
+            self.order.lock().unwrap().push_back(key.clone());
+        }
+        outcome
+    }
+
+    /// Entries currently held.
+    pub fn len(&self) -> usize {
+        self.map.lock().unwrap().len()
+    }
+
+    /// Drop every entry.
+    pub fn clear(&self) {
+        self.map.lock().unwrap().clear();
+        self.order.lock().unwrap().clear();
+    }
+}
+
+// Request
+
+/// One data request: completed exactly once, waited on by anyone.
+pub struct Request<A, E> {
+    cell: Mutex<Option<Result<A, E>>>,
+    ready: Condvar,
+}
+
+impl<A: Clone + Send + 'static, E: Clone + Send + 'static> Request<A, E> {
+    /// An uncompleted request.
+    pub fn new() -> Self {
+        Self {
+            cell: Mutex::new(None),
+            ready: Condvar::new(),
+        }
+    }
+
+    /// Complete with `outcome`. Returns false if already completed; the
+    /// first outcome wins.
+    pub fn complete(&self, outcome: Result<A, E>) -> bool {
+        let mut guard = self.cell.lock().unwrap();
+        if guard.is_some() {
+            return false;
+        }
+        *guard = Some(outcome);
+        self.ready.notify_all();
+        true
+    }
+
+    /// Block until completed, then return the outcome.
+    pub fn wait(&self) -> Result<A, E> {
+        let mut guard = self.cell.lock().unwrap();
+        while guard.is_none() {
+            guard = self.ready.wait(guard).unwrap();
+        }
+        guard.clone().expect("checked")
+    }
+}
+
+impl<A: Clone + Send + 'static, E: Clone + Send + 'static> Default for Request<A, E> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+// RequestResolver
+
+/// A shared batch function.
+type BatchFn<K, V, E> = Arc<dyn Fn(Vec<K>) -> Vec<Result<V, E>> + Send + Sync>;
+
+/// Turns many distinct keys into one downstream call.
+pub struct RequestResolver<K, V, E> {
+    run_batch: BatchFn<K, V, E>,
+}
+
+impl<K, V, E> RequestResolver<K, V, E>
+where
+    K: Send + 'static,
+    V: Send + 'static,
+    E: Send + 'static,
+{
+    /// Build from a batch function: one call handles every key.
+    pub fn new(run_batch: impl Fn(Vec<K>) -> Vec<Result<V, E>> + Send + Sync + 'static) -> Self {
+        Self {
+            run_batch: Arc::new(run_batch),
+        }
+    }
+
+    /// Run one downstream call for every key, in order.
+    pub fn resolve_all(&self, keys: Vec<K>) -> Vec<Result<V, E>> {
+        (self.run_batch)(keys)
+    }
+
+    /// Complete each request from a single downstream call over its keys,
+    /// in order. Short outcomes leave the tail requests pending (never
+    /// complete!); callers must return one outcome per key.
+    pub fn resolve_requests(&self, requests: Vec<(K, Request<V, E>)>) -> usize
+    where
+        V: Clone,
+        E: Clone,
+    {
+        let mut keys = Vec::with_capacity(requests.len());
+        let mut handles = Vec::with_capacity(requests.len());
+        for (key, request) in requests {
+            keys.push(key);
+            handles.push(request);
+        }
+        let outcomes = (self.run_batch)(keys);
+        let mut completed = 0;
+        for (request, outcome) in handles.iter().zip(outcomes) {
+            if request.complete(outcome) {
+                completed += 1;
+            }
+        }
+        completed
+    }
+}
+
+// Pool
+
+/// What happens to values beyond the idle bound when released.
+#[derive(Clone, Debug)]
+pub struct IdlePolicy {
+    /// Idle values kept at most.
+    pub max_idle: usize,
+    /// Idle values older than this are dropped on acquire.
+    pub max_idle_time: Option<std::time::Duration>,
+}
+
+impl Default for IdlePolicy {
+    fn default() -> Self {
+        Self {
+            max_idle: 8,
+            max_idle_time: None,
+        }
+    }
+}
+
+/// A bounded pool of reusable values. `acquire` blocks while exhausted;
+/// dropping the guard returns the value, or releases it when idle bounds
+/// say so.
+pub struct Pool<T> {
+    inner: Mutex<PoolInner<T>>,
+    available: Condvar,
+    make: Arc<dyn Fn() -> T + Send + Sync>,
+    max: usize,
+    idle: IdlePolicy,
+}
+
+struct PoolInner<T> {
+    idle: Vec<(T, std::time::Instant)>,
+    total: usize,
+}
+
+impl<T> Pool<T>
+where
+    T: Send + 'static,
+{
+    /// A pool making values with `make`, holding at most `max` total.
+    pub fn new(max: usize, idle: IdlePolicy, make: impl Fn() -> T + Send + Sync + 'static) -> Self {
+        Self {
+            inner: Mutex::new(PoolInner {
+                idle: Vec::new(),
+                total: 0,
+            }),
+            available: Condvar::new(),
+            make: Arc::new(make),
+            max: max.max(1),
+            idle,
+        }
+    }
+
+    /// Take a value, blocking while exhausted. Idle values older than the
+    /// idle timeout are released instead of reused.
+    pub fn acquire(&self) -> Pooled<'_, T> {
+        let mut guard = self.inner.lock().unwrap();
+        loop {
+            while let Some((value, at)) = guard.idle.pop() {
+                if let Some(timeout) = self.idle.max_idle_time
+                    && at.elapsed() >= timeout
+                {
+                    guard.total -= 1;
+                    continue;
+                }
+                return Pooled {
+                    value: Some(value),
+                    pool: self,
+                };
+            }
+            if guard.total < self.max {
+                guard.total += 1;
+                drop(guard);
+                let value = (self.make)();
+                return Pooled {
+                    value: Some(value),
+                    pool: self,
+                };
+            }
+            guard = self.available.wait(guard).unwrap();
+        }
+    }
+
+    /// Values currently checked out.
+    pub fn in_use(&self) -> usize {
+        let guard = self.inner.lock().unwrap();
+        guard.total - guard.idle.len()
+    }
+
+    /// Values currently idle.
+    pub fn idle_count(&self) -> usize {
+        self.inner.lock().unwrap().idle.len()
+    }
+
+    fn release(&self, value: T) {
+        let mut guard = self.inner.lock().unwrap();
+        if guard.idle.len() < self.idle.max_idle {
+            guard.idle.push((value, std::time::Instant::now()));
+        } else {
+            guard.total -= 1;
+        }
+        self.available.notify_one();
+    }
+}
+
+/// A checked-out pool value. Dropping returns it (or releases it when the
+/// idle bound says so).
+pub struct Pooled<'a, T: Send + 'static> {
+    value: Option<T>,
+    pool: &'a Pool<T>,
+}
+
+impl<T: Send + 'static> std::ops::Deref for Pooled<'_, T> {
+    type Target = T;
+
+    fn deref(&self) -> &T {
+        self.value.as_ref().expect("held")
+    }
+}
+
+impl<T: Send + 'static> std::ops::DerefMut for Pooled<'_, T> {
+    fn deref_mut(&mut self) -> &mut T {
+        self.value.as_mut().expect("held")
+    }
+}
+
+impl<T: Send + 'static> Drop for Pooled<'_, T> {
+    fn drop(&mut self) {
+        if let Some(value) = self.value.take() {
+            self.pool.release(value);
+        }
+    }
+}
+
+// ScopedCache
+
+/// A cache tied to a scope: [`close`](ScopedCache::close) drops every entry
+/// and closes the scope, releasing anything the lookups acquired there.
+pub struct ScopedCache<K, V, E> {
+    cache: Cache<K, V, E>,
+    scope: std::sync::Arc<elm_effect::Scope>,
+}
+
+impl<K, V, E> ScopedCache<K, V, E>
+where
+    K: Clone + Eq + StdHash + Send + 'static,
+    V: Clone + Send + 'static,
+    E: Clone + Send + 'static,
+{
+    /// Wrap a cache with its construction scope.
+    pub fn new(cache: Cache<K, V, E>, scope: std::sync::Arc<elm_effect::Scope>) -> Self {
+        Self { cache, scope }
+    }
+
+    /// The value for `key`, running the lookup at most once per miss.
+    pub fn get(&self, key: &K) -> Result<V, E> {
+        self.cache.get(key)
+    }
+
+    /// Drop every entry and close the scope.
+    pub fn close(&self) {
+        self.cache.clear();
+        self.scope.close();
+    }
+}

@@ -60,7 +60,7 @@ tests = ["packages/effect/test/ByteSize.test.ts"]
 [[module]]
 path = "packages/effect/src/Cache.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/Cache.test.ts"]
@@ -604,7 +604,7 @@ tests = []
 [[module]]
 path = "packages/effect/src/Pool.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/Pool.test.ts"]
@@ -732,7 +732,7 @@ tests = []
 [[module]]
 path = "packages/effect/src/Request.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/Request.test.ts"]
@@ -740,7 +740,7 @@ tests = ["packages/effect/test/Request.test.ts"]
 [[module]]
 path = "packages/effect/src/RequestResolver.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
 reason = ""
 tests = []
@@ -852,7 +852,7 @@ tests = ["packages/effect/test/Scope.test.ts"]
 [[module]]
 path = "packages/effect/src/ScopedCache.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/ScopedCache.test.ts"]
