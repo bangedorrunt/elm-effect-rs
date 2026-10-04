@@ -207,6 +207,12 @@ fn array_std_substrate() {
     assert_eq!(array::take_right(&[1, 2, 3], 2), vec![2, 3]);
     assert_eq!(array::drop_right(&[1, 2, 3], 2), vec![1]);
     assert_eq!(array::split_at(&[1, 2, 3], 1), (vec![1], vec![2, 3]));
+    assert_eq!("a,b,c".split(',').collect::<Vec<_>>(), vec!["a", "b", "c"]);
+    assert_eq!([1, 2, 3].iter().rposition(|a| *a == 3), Some(2));
+    assert_eq!(
+        [1, 2].into_iter().zip([3]).collect::<Vec<_>>(),
+        vec![(1, 3)]
+    );
     assert_eq!(array::insert_at(&[1, 3], 1, 2), vec![1, 2, 3]);
     assert_eq!(array::modify(&[1, 2], 0, |a| a + 9), vec![10, 2]);
     assert_eq!(array::modify(&[1], 5, |a| a), vec![1]);
@@ -736,6 +742,18 @@ fn record_core() {
         record::map_entries(&r, |k, v| (format!("{k}!"), v + 1)),
         record::from_entries(vec![("b!".to_string(), 3)])
     );
+    assert_eq!(
+        record::map_values(&record::filter(&r, |v| *v > 1), |v| v * 10),
+        record::from_entries(vec![("b".to_string(), 20)])
+    );
+    assert_eq!(record::from_entries(vec![("only".to_string(), 1)]).len(), 1);
+    assert_eq!(
+        record::filter(
+            &record::from_entries(vec![("a".to_string(), 1), ("b".to_string(), 2)]),
+            |v| *v > 1
+        ),
+        record::from_entries(vec![("b".to_string(), 2)])
+    );
 }
 
 // ---------- Struct ----------
@@ -807,6 +825,16 @@ fn tuple_shapes() {
     assert_eq!(tuple::evolve_at(&[1], 5, |a| a), vec![1]);
     let both = tuple::make_combiner(combiner::min(), combiner::max());
     assert_eq!(both.combine(&(1, 10), &(0, 20)), (0, 20));
+    assert!(tuple::pairs_equal(&(1, "a"), &(1, "a")));
+    assert!(!tuple::pairs_equal(&(1, "a"), &(2, "a")));
+    assert_eq!(
+        tuple::cmp_pairs(&(1, "a"), &(1, "b")),
+        std::cmp::Ordering::Less
+    );
+    assert_eq!(
+        tuple::cmp_pairs(&(1, "a"), &(1, "a")),
+        std::cmp::Ordering::Equal
+    );
 }
 
 #[test]

@@ -89,7 +89,15 @@ pub fn evolve_at<T: Clone>(values: &[T], index: usize, f: impl FnOnce(T) -> T) -
     out
 }
 
-/// Combine position-wise (`makeCombiner`).
+/// Pairwise equality, positions independently (`makeEquivalence` shape).
+pub fn pairs_equal<A: PartialEq, B: PartialEq>(a: &(A, B), b: &(A, B)) -> bool {
+    a.0 == b.0 && a.1 == b.1
+}
+
+/// Lexicographic order (`makeOrder` shape).
+pub fn cmp_pairs<A: Ord, B: Ord>(a: &(A, B), b: &(A, B)) -> std::cmp::Ordering {
+    a.0.cmp(&b.0).then_with(|| a.1.cmp(&b.1))
+}
 pub fn make_combiner<A: 'static, B: 'static>(
     first: Combiner<A>,
     second: Combiner<B>,
