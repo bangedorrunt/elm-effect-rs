@@ -546,10 +546,10 @@ unported	packages/effect/test/Channel.test.ts	218	it.effect	acquireUseRelease co
 unported	packages/effect/test/Channel.test.ts	231	it.effect	acquireUseRelease surfaces release failure after successful usage	
 unported	packages/effect/test/Channel.test.ts	243	it.effect	runDrain returns the done value after emitted elements	
 unported	packages/effect/test/Channel.test.ts	253	it.effect	mkUint8Array	
-unported	packages/effect/test/Channel.test.ts	267	it.effect	map	
+ported	packages/effect/test/Channel.test.ts	267	it.effect	map	channel_map_transforms
 unported	packages/effect/test/Channel.test.ts	276	it.effect	mapEffect interrupts the running effect when the channel is interrupted	
 unported	packages/effect/test/Channel.test.ts	297	it.effect	mapEffect - interrupts pending tasks on failure	
-unported	packages/effect/test/Channel.test.ts	338	it.effect	filterMap with Filter	
+ported	packages/effect/test/Channel.test.ts	338	it.effect	filterMap with Filter	channel_filter_map_recovers
 unported	packages/effect/test/Channel.test.ts	348	it.effect	filterMapEffect with FilterEffect	
 unported	packages/effect/test/Channel.test.ts	360	it.effect	decodeText handles multi-byte characters split across Uint8Array boundaries	
 unported	packages/effect/test/Channel.test.ts	376	it.effect	merge - interrupts left side if halt strategy is set to 'right'	
@@ -563,7 +563,7 @@ unported	packages/effect/test/Channel.test.ts	482	it.effect	interruptWhen - prop
 unported	packages/effect/test/Channel.test.ts	519	it.effect	catchDefect	
 unported	packages/effect/test/Channel.test.ts	535	it.effect	catchIf with refinement	
 unported	packages/effect/test/Channel.test.ts	552	it.effect	catchIf with predicate	
-unported	packages/effect/test/Channel.test.ts	561	it.effect	catchFilter with Filter	
+ported	packages/effect/test/Channel.test.ts	561	it.effect	catchFilter with Filter	channel_filter_map_recovers
 unported	packages/effect/test/Channel.test.ts	575	it.effect	catchCauseFilter with Filter	
 unported	packages/effect/test/Channel.test.ts	587	it.effect	catchTag orElse	
 unported	packages/effect/test/Channel.test.ts	603	it.effect	catchReason orElse	
@@ -3485,9 +3485,9 @@ unported	packages/effect/test/Sink.test.ts	201	it.effect	normalizes the element 
 unported	packages/effect/test/Sink.test.ts	211	it.effect	respects the given limit	
 unported	packages/effect/test/Sink.test.ts	223	it.effect	produces empty trailing chunks	
 unported	packages/effect/test/Sink.test.ts	235	it.effect	produces an empty chunk for empty input	
-unported	packages/effect/test/Sink.test.ts	246	it.effect	takeWhile	
-unported	packages/effect/test/Sink.test.ts	254	it.effect	takeWhileFilter	
-unported	packages/effect/test/Sink.test.ts	262	it.effect	takeWhileFilter consumes the first failing input	
+ported	packages/effect/test/Sink.test.ts	246	it.effect	takeWhile	sink_take_while_stops
+ported	packages/effect/test/Sink.test.ts	254	it.effect	takeWhileFilter	sink_take_while_stops
+ported	packages/effect/test/Sink.test.ts	262	it.effect	takeWhileFilter consumes the first failing input	sink_take_while_stops
 unported	packages/effect/test/Sink.test.ts	271	it.effect	takeWhileEffect	
 unported	packages/effect/test/Sink.test.ts	279	it.effect	takeWhileFilterEffect	
 unported	packages/effect/test/Sink.test.ts	287	it.effect	takeWhileFilterEffect consumes the first failing input	

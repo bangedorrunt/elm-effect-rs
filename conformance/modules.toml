@@ -12,7 +12,7 @@ tests = []
 [[module]]
 path = "packages/effect/src/Array.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/Array.test.ts"]
@@ -92,7 +92,7 @@ tests = []
 [[module]]
 path = "packages/effect/src/Chunk.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/Chunk.test.ts"]
@@ -380,7 +380,7 @@ tests = []
 [[module]]
 path = "packages/effect/src/Iterable.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/Iterable.test.ts"]
@@ -676,7 +676,7 @@ tests = ["packages/effect/test/RcRef.test.ts"]
 [[module]]
 path = "packages/effect/src/Record.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/Record.test.ts"]
@@ -948,7 +948,7 @@ tests = ["packages/effect/test/SynchronizedRef.test.ts"]
 [[module]]
 path = "packages/effect/src/Take.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
 reason = ""
 tests = []
@@ -980,7 +980,7 @@ tests = ["packages/effect/test/Trie.test.ts"]
 [[module]]
 path = "packages/effect/src/Tuple.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/Tuple.test.ts"]
