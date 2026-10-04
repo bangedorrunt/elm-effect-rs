@@ -125,6 +125,58 @@ fn refine_is_uppercased() {
 }
 
 #[test]
+fn refine_is_string_finite() {
+    let schema = Schema::string().refine("a finite number", |s: &String| {
+        s.parse::<f64>().is_ok_and(|n| n.is_finite())
+    });
+    assert!(schema.decode(Unknown::Text("3.5".to_string())).is_ok());
+    assert!(schema.decode(Unknown::Text("abc".to_string())).is_err());
+    assert!(schema.decode(Unknown::Text("inf".to_string())).is_err());
+}
+
+#[test]
+fn refine_is_uncapitalized() {
+    let schema = Schema::string().refine("uncapitalized", |s: &String| {
+        s.chars().next().is_none_or(|c| !c.is_uppercase())
+    });
+    assert!(schema.decode(Unknown::Text("hello".to_string())).is_ok());
+    assert!(schema.decode(Unknown::Text("Hello".to_string())).is_err());
+}
+
+#[test]
+fn refine_is_starting_with() {
+    let schema = Schema::string().refine("starting with pre", |s: &String| s.starts_with("pre"));
+    assert!(schema.decode(Unknown::Text("prefix".to_string())).is_ok());
+    assert!(schema.decode(Unknown::Text("suffix".to_string())).is_err());
+}
+
+#[test]
+fn refine_is_ulid() {
+    let schema = Schema::string().refine("a ULID", |s: &String| {
+        s.len() == 26
+            && s.chars().all(|c| matches!(c, '0'..='9' | 'A'..='H' | 'J'..='K' | 'M'..='N' | 'P'..='T' | 'V'..='Z'))
+    });
+    assert!(
+        schema
+            .decode(Unknown::Text("01ARZ3NDEKTSV4RRFFQ69G5FAV".to_string()))
+            .is_ok()
+    );
+    assert!(
+        schema
+            .decode(Unknown::Text("not-a-ulid".to_string()))
+            .is_err()
+    );
+}
+
+#[test]
+fn refine_is_multiple_of() {
+    let divisor = -3.0f64.abs();
+    let schema = Schema::number().refine("a multiple of 3", move |n: &f64| n % divisor == 0.0);
+    assert_eq!(schema.decode(Unknown::Number(9.0)).unwrap(), 9.0);
+    assert!(schema.decode(Unknown::Number(10.0)).is_err());
+}
+
+#[test]
 fn refine_non_empty_string() {
     let schema = Schema::string().refine("non-empty", |s: &String| !s.is_empty());
     assert!(schema.decode(Unknown::Text("x".to_string())).is_ok());
