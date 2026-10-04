@@ -216,6 +216,72 @@ fn refine_non_empty_string() {
 }
 
 #[test]
+fn revives_bounded_lengths() {
+    let maxed = Schema::string().refine("max length 3", |s: &String| s.len() <= 3);
+    assert!(maxed.decode_json(r#""ab""#).is_ok());
+    assert!(maxed.decode_json(r#""abcd""#).is_err());
+    let ranged = Schema::string().refine("length 2 to 3", |s: &String| (2..=3).contains(&s.len()));
+    assert!(ranged.decode_json(r#""ab""#).is_ok());
+    assert!(ranged.decode_json(r#""a""#).is_err());
+    assert!(ranged.decode_json(r#""abcd""#).is_err());
+}
+
+#[test]
+fn revives_code_point_bounds() {
+    let min = Schema::string().refine("min 2 code points", |s: &String| s.chars().count() >= 2);
+    assert!(min.decode_json(r#""ab""#).is_ok());
+    assert!(min.decode_json(r#""a""#).is_err());
+    let max = Schema::string().refine("max 2 code points", |s: &String| s.chars().count() <= 2);
+    assert!(max.decode_json(r#""ab""#).is_ok());
+    assert!(max.decode_json(r#""abc""#).is_err());
+    let between = Schema::string().refine("2 to 3 code points", |s: &String| {
+        (2..=3).contains(&s.chars().count())
+    });
+    assert!(between.decode_json(r#""ab""#).is_ok());
+    assert!(between.decode_json(r#""a""#).is_err());
+}
+
+#[test]
+fn revives_trimmed() {
+    let schema = Schema::string().refine("trimmed", |s: &String| s.trim() == s.as_str());
+    assert!(schema.decode_json(r#""ab""#).is_ok());
+    assert!(schema.decode_json(r#"" ab""#).is_err());
+}
+
+#[test]
+fn revives_checked_strings() {
+    let finite = Schema::string().refine("a finite number", |s: &String| {
+        s.parse::<f64>().is_ok_and(|n| n.is_finite())
+    });
+    assert!(finite.decode_json(r#""3.5""#).is_ok());
+    assert!(finite.decode_json(r#""abc""#).is_err());
+    let min = Schema::string().refine("min length 2", |s: &String| s.len() >= 2);
+    assert!(min.decode_json(r#""ab""#).is_ok());
+    assert!(min.decode_json(r#""a""#).is_err());
+    let uuid = Schema::string().refine("a UUID", |s: &String| {
+        let parts: Vec<&str> = s.split('-').collect();
+        parts.len() == 5
+    });
+    assert!(
+        uuid.decode_json(r#""f47ac10b-58cc-4372-a567-0e02b2c3d479""#)
+            .is_ok()
+    );
+    assert!(uuid.decode_json(r#""xyz""#).is_err());
+    let guid = Schema::string().refine("a GUID", |s: &String| {
+        let parts: Vec<&str> = s.split('-').collect();
+        parts.len() == 5
+    });
+    assert!(
+        guid.decode_json(r#""123e4567-e89b-12d3-a456-426614174000""#)
+            .is_ok()
+    );
+    assert!(guid.decode_json(r#""xyz""#).is_err());
+    let ulid = Schema::string().refine("a ULID", |s: &String| s.len() == 26);
+    assert!(ulid.decode_json(r#""01ARZ3NDEKTSV4RRFFQ69G5FAV""#).is_ok());
+    assert!(ulid.decode_json(r#""xyz""#).is_err());
+}
+
+#[test]
 fn refine_is_base64() {
     let schema = Schema::string().refine("base64", |s: &String| {
         !s.is_empty()
