@@ -93,6 +93,27 @@ fn refine_rejects_failing_values() {
 }
 
 #[test]
+fn refine_is_int() {
+    let schema = Schema::number().refine("an integer", |n: &f64| n.fract() == 0.0);
+    assert_eq!(schema.decode(Unknown::Number(3.0)).unwrap(), 3.0);
+    assert!(schema.decode(Unknown::Number(3.5)).is_err());
+}
+
+#[test]
+fn refine_is_between() {
+    let schema = Schema::number().refine("between 1 and 5", |n: &f64| (1.0..=5.0).contains(n));
+    assert_eq!(schema.decode(Unknown::Number(4.0)).unwrap(), 4.0);
+    assert!(schema.decode(Unknown::Number(6.0)).is_err());
+}
+
+#[test]
+fn refine_is_min_length() {
+    let schema = Schema::string().refine("min length 2", |s: &String| s.len() >= 2);
+    assert!(schema.decode(Unknown::Text("ab".to_string())).is_ok());
+    assert!(schema.decode(Unknown::Text("a".to_string())).is_err());
+}
+
+#[test]
 fn null_accepts_only_null() {
     assert_eq!(Schema::null().decode(Unknown::Null).unwrap(), ());
     assert!(Schema::null().decode(Unknown::Number(0.0)).is_err());
