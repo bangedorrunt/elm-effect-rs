@@ -140,6 +140,37 @@ impl<T> Schema<T> {
         })
     }
 
+    /// Check a decoded value with a predicate (`refinement` shape): a
+    /// failing predicate is a typed mismatch naming the check.
+    pub fn refine(
+        self,
+        check: &'static str,
+        predicate: impl Fn(&T) -> bool + Send + Sync + 'static,
+    ) -> Self
+    where
+        T: Send + Sync + 'static,
+    {
+        let inner = Arc::new(self);
+        let decode_inner = inner.clone();
+        let encode_inner = inner.clone();
+        Schema::new(
+            move |unknown| {
+                let value = decode_inner.decode(unknown)?;
+                if predicate(&value) {
+                    Ok(value)
+                } else {
+                    Err(SchemaError::TypeMismatch {
+                        path: "$".to_string(),
+                        expected: check,
+                        got: "a value failing the check",
+                    })
+                }
+            },
+            move |value| encode_inner.encode(value),
+            SchemaKind::Opaque("refinement"),
+        )
+    }
+
     /// Adapt a schema to a new type through a total isomorphism pair.
     pub fn convert<A, D, E>(schema: Schema<A>, decode: D, encode: E) -> Schema<T>
     where
@@ -157,6 +188,30 @@ impl<T> Schema<T> {
             move |value| encode_schema.encode(&encode(value)),
             kind,
         )
+    }
+}
+
+impl SchemaError {
+    /// Re-root an error path under a prefix (`$[0]` + `[1]` = `$[0][1]`).
+    fn at(self, prefix: &str) -> Self {
+        match self {
+            SchemaError::TypeMismatch {
+                path,
+                expected,
+                got,
+            } => {
+                let path = match path.strip_prefix('$') {
+                    Some(rest) => format!("{prefix}{rest}"),
+                    None => format!("{prefix}{path}"),
+                };
+                SchemaError::TypeMismatch {
+                    path,
+                    expected,
+                    got,
+                }
+            }
+            other => other,
+        }
     }
 }
 
@@ -389,6 +444,36 @@ impl<T: Send + Sync + 'static> Schema<Vec<T>> {
                 )
             },
             kind,
+        )
+    }
+}
+
+impl<A: Send + Sync + 'static, B: Send + Sync + 'static> Schema<(A, B)> {
+    /// Fixed-length two-element arrays (`Tuple` shape): length and order
+    /// are both checked; element failures name `[0]` / `[1]`.
+    pub fn tuple2(first: Schema<A>, second: Schema<B>) -> Schema<(A, B)> {
+        let first = Arc::new(first);
+        let second = Arc::new(second);
+        let decode_first = first.clone();
+        let decode_second = second.clone();
+        let encode_first = first.clone();
+        let encode_second = second.clone();
+        Schema::new(
+            move |unknown| match unknown {
+                Unknown::Array(items) => {
+                    let mut items = items.into_iter();
+                    let a = decode_first
+                        .decode(items.next().unwrap_or(Unknown::Null))
+                        .map_err(|error| error.at("$[0]"))?;
+                    let b = decode_second
+                        .decode(items.next().unwrap_or(Unknown::Null))
+                        .map_err(|error| error.at("$[1]"))?;
+                    Ok((a, b))
+                }
+                other => mismatch("$", "tuple", &other),
+            },
+            move |(a, b)| Unknown::Array(vec![encode_first.encode(a), encode_second.encode(b)]),
+            SchemaKind::Opaque("tuple"),
         )
     }
 }

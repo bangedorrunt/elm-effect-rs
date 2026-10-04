@@ -33,6 +33,32 @@ fn union_tries_first_then_second() {
 }
 
 #[test]
+fn tuple_checks_length_and_order() {
+    let schema = Schema::tuple2(Schema::string(), Schema::number());
+    assert_eq!(
+        schema
+            .decode(Unknown::Array(vec![
+                Unknown::Text("a".to_string()),
+                Unknown::Number(1.0)
+            ]))
+            .unwrap(),
+        ("a".to_string(), 1.0)
+    );
+    let error = schema
+        .decode(Unknown::Array(vec![Unknown::Number(1.0)]))
+        .unwrap_err();
+    assert!(error.to_string().contains("$[0]"));
+}
+
+#[test]
+fn refine_rejects_failing_values() {
+    let schema = Schema::number().refine("positive", |n: &f64| *n > 0.0);
+    assert_eq!(schema.decode(Unknown::Number(1.0)).unwrap(), 1.0);
+    let error = schema.decode(Unknown::Number(-1.0)).unwrap_err();
+    assert!(error.to_string().contains("positive"));
+}
+
+#[test]
 fn null_accepts_only_null() {
     assert_eq!(Schema::null().decode(Unknown::Null).unwrap(), ());
     assert!(Schema::null().decode(Unknown::Number(0.0)).is_err());

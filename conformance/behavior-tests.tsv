@@ -7561,7 +7561,7 @@ unported	packages/effect/test/schema/Schema.test.ts	1339	it	aborting checks
 unported	packages/effect/test/schema/Schema.test.ts	1353	it	makeFilterGroup	
 unported	packages/effect/test/schema/Schema.test.ts	1380	it	object-level checks are validated against the decoded value when encoding	
 unported	packages/effect/test/schema/Schema.test.ts	1393	it	suspended checks are not supported	
-unported	packages/effect/test/schema/Schema.test.ts	1405	it	refine	
+ported	packages/effect/test/schema/Schema.test.ts	1405	it	refine	refine_rejects_failing_values
 unported	packages/effect/test/schema/Schema.test.ts	1427	it	isPattern	
 unported	packages/effect/test/schema/Schema.test.ts	1446	it	isPattern with stateful RegExp flags	
 unported	packages/effect/test/schema/Schema.test.ts	1457	it	isStartingWith	
@@ -7955,7 +7955,7 @@ unported	packages/effect/test/schema/Schema.test.ts	8680	it	should die on async 
 unported	packages/effect/test/schema/Schema.test.ts	8696	it	should die on missing dependency	
 unported	packages/effect/test/schema/Schema.test.ts	8714	it	should preserve mixed schema issue and defect causes	
 unported	packages/effect/test/schema/Schema.test.ts	8746	it	Struct	
-unported	packages/effect/test/schema/Schema.test.ts	8760	it	Tuple	
+ported	packages/effect/test/schema/Schema.test.ts	8760	it	Tuple	tuple_checks_length_and_order
 unported	packages/effect/test/schema/Schema.test.ts	8777	it	non-transforming schema	
 unported	packages/effect/test/schema/Schema.test.ts	8784	it	transforming schema	
 unported	packages/effect/test/schema/Schema.test.ts	8793	it	evolve	
