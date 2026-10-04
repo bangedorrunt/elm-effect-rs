@@ -356,6 +356,31 @@ fn channel_catch_if_refines() {
 }
 
 #[test]
+fn channel_decode_text_reassembles_split_characters() {
+    // "é" is [0xC3, 0xA9]: split across two pulls.
+    let source = pull::Pull::<u8, std::string::FromUtf8Error>::from_fn({
+        let mut step = 0;
+        move || {
+            step += 1;
+            match step {
+                1 => take::Take::Items(vec![0xC3]),
+                2 => take::Take::Items(vec![0xA9]),
+                _ => take::Take::End,
+            }
+        }
+    });
+    let piped = channel::decode_text().run(source);
+    let mut piped = piped;
+    assert_eq!(piped.pull(), take::Take::Items(vec!["é".to_string()]));
+    assert_eq!(piped.pull(), take::Take::End);
+    // Invalid bytes fail (the driver skips the empty prefix internally).
+    let source = pull::Pull::<u8, std::string::FromUtf8Error>::of(vec![0xFF]);
+    let piped = channel::decode_text().run(source);
+    let mut piped = piped;
+    assert!(matches!(piped.pull(), take::Take::Fail(_)));
+}
+
+#[test]
 fn sink_drain_discards() {
     let done = sink::drain().run(pull::Pull::<i32, String>::of(vec![1, 2]));
     assert_eq!(done, elm_effect::Exit::Success(()));

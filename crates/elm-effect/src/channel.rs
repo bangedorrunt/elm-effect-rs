@@ -184,6 +184,44 @@ where
     })
 }
 
+/// Decode UTF-8 bytes split across pulls (`decodeText` shapes): incomplete
+/// trailing sequences buffer until complete; a stream ending mid-character
+/// or with invalid bytes fails. Empty prefixes emit nothing (the driver
+/// keeps pulling). Strict, never lossy.
+pub fn decode_text<E>() -> Channel<u8, E, String>
+where
+    E: From<std::string::FromUtf8Error> + Send + 'static,
+{
+    let mut buffer: Vec<u8> = Vec::new();
+    Channel::from_fn(move |take| match take {
+        Take::Items(mut bytes) => {
+            buffer.append(&mut bytes);
+            let valid_up_to = match std::str::from_utf8(&buffer) {
+                Ok(_) => buffer.len(),
+                Err(error) => error.valid_up_to(),
+            };
+            let text =
+                String::from_utf8(buffer.drain(..valid_up_to).collect()).expect("valid prefix");
+            if text.is_empty() {
+                Vec::new()
+            } else {
+                vec![Take::Items(vec![text])]
+            }
+        }
+        Take::End => {
+            if buffer.is_empty() {
+                vec![Take::End]
+            } else {
+                match String::from_utf8(std::mem::take(&mut buffer)) {
+                    Ok(text) => vec![Take::Items(vec![text]), Take::End],
+                    Err(error) => vec![Take::Fail(error.into())],
+                }
+            }
+        }
+        Take::Fail(e) => vec![Take::Fail(e)],
+    })
+}
+
 /// Keep matching items per pull.
 pub fn filter<A, E, F>(mut f: F) -> Channel<A, E, A>
 where
