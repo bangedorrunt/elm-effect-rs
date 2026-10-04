@@ -21,6 +21,8 @@ mod fiber;
 #[cfg(feature = "tokio")]
 mod layer;
 #[cfg(feature = "tokio")]
+mod policy;
+#[cfg(feature = "tokio")]
 mod runtime;
 mod schedule;
 #[cfg(feature = "tokio")]
@@ -40,6 +42,8 @@ pub use exit::Exit;
 pub use fiber::{Ctx, FiberHandle, ForkOpts, Mask, StartMode};
 #[cfg(feature = "tokio")]
 pub use layer::{BuiltServices, Cycle, Layer, RequirementIds};
+#[cfg(feature = "tokio")]
+pub use policy::hedge;
 #[cfg(feature = "tokio")]
 pub use runtime::{ManagedRuntime, Runtime, timeout};
 pub use schedule::{Random, RandomTag, Schedule, repeat, retry};
