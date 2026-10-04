@@ -8055,12 +8055,12 @@ unported	packages/effect/test/schema/Schema.test.ts	10292	it	succeed
 unported	packages/effect/test/schema/Schema.test.ts	10310	it	isStringFinite	
 unported	packages/effect/test/schema/Schema.test.ts	10319	it	isStringBigInt	
 unported	packages/effect/test/schema/Schema.test.ts	10328	it	isStringSymbol	
-unported	packages/effect/test/schema/Schema.test.ts	10337	it	isUUID	
+ported	packages/effect/test/schema/Schema.test.ts	10337	it	isUUID	refine_is_uuid
 unported	packages/effect/test/schema/Schema.test.ts	10361	it	isUUID version-specific checks reject nil and max UUIDs	
 ported	packages/effect/test/schema/Schema.test.ts	10377	it	isGUID	refine_is_guid
 unported	packages/effect/test/schema/Schema.test.ts	10399	it	isULID	
-unported	packages/effect/test/schema/Schema.test.ts	10420	it	isBase64	
-unported	packages/effect/test/schema/Schema.test.ts	10429	it	isBase64Url	
+ported	packages/effect/test/schema/Schema.test.ts	10420	it	isBase64	refine_is_base64
+ported	packages/effect/test/schema/Schema.test.ts	10429	it	isBase64Url	refine_is_base64url
 unported	packages/effect/test/schema/Schema.test.ts	10439	it	single brand	
 unported	packages/effect/test/schema/Schema.test.ts	10446	it	double brand	
 unported	packages/effect/test/schema/Schema.test.ts	10453	it	override the default identifier	

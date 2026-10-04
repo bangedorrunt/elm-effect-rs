@@ -125,6 +125,51 @@ fn refine_is_uppercased() {
 }
 
 #[test]
+fn refine_is_base64() {
+    let schema = Schema::string().refine("base64", |s: &String| {
+        !s.is_empty()
+            && s.len() % 4 == 0
+            && s.chars()
+                .all(|c| c.is_ascii_alphanumeric() || c == '+' || c == '/' || c == '=')
+    });
+    assert!(schema.decode(Unknown::Text("aGk=".to_string())).is_ok());
+    assert!(schema.decode(Unknown::Text("nope!".to_string())).is_err());
+}
+
+#[test]
+fn refine_is_base64url() {
+    let schema = Schema::string().refine("base64url", |s: &String| {
+        !s.is_empty()
+            && s.chars()
+                .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
+    });
+    assert!(schema.decode(Unknown::Text("aGk".to_string())).is_ok());
+    assert!(schema.decode(Unknown::Text("a b".to_string())).is_err());
+}
+
+#[test]
+fn refine_is_uuid() {
+    let schema = Schema::string().refine("a UUID", |s: &String| {
+        let parts: Vec<&str> = s.split('-').collect();
+        parts.len() == 5
+            && [8, 4, 4, 4, 12]
+                .iter()
+                .zip(parts.iter())
+                .all(|(len, part)| {
+                    part.len() == *len && part.chars().all(|c| c.is_ascii_hexdigit())
+                })
+    });
+    assert!(
+        schema
+            .decode(Unknown::Text(
+                "f47ac10b-58cc-4372-a567-0e02b2c3d479".to_string()
+            ))
+            .is_ok()
+    );
+    assert!(schema.decode(Unknown::Text("xyz".to_string())).is_err());
+}
+
+#[test]
 fn refine_is_ending_with() {
     let schema = Schema::string().refine("ending with .ts", |s: &String| s.ends_with(".ts"));
     assert!(schema.decode(Unknown::Text("a.ts".to_string())).is_ok());
