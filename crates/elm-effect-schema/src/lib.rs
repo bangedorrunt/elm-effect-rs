@@ -9,6 +9,8 @@ use std::sync::Arc;
 
 use thiserror::Error;
 
+pub mod transform;
+
 /// An untyped value: the decode source and encode target.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Unknown {
@@ -21,7 +23,7 @@ pub enum Unknown {
 }
 
 impl Unknown {
-    fn kind(&self) -> &'static str {
+    pub fn kind(&self) -> &'static str {
         match self {
             Unknown::Null => "null",
             Unknown::Bool(_) => "boolean",

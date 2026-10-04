@@ -84,7 +84,7 @@ tests = ["packages/effect/test/Channel.test.ts"]
 [[module]]
 path = "packages/effect/src/ChannelSchema.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
 reason = ""
 tests = []
@@ -836,7 +836,7 @@ tests = []
 [[module]]
 path = "packages/effect/src/SchemaTransformation.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
 reason = ""
 tests = []
@@ -884,7 +884,7 @@ tests = ["packages/effect/test/Sink.test.ts"]
 [[module]]
 path = "packages/effect/src/StandardSchema.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
 reason = ""
 tests = []

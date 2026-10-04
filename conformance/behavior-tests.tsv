@@ -8250,45 +8250,45 @@ unported	packages/effect/test/schema/SchemaCompilerRegression.test.ts	508	it	use
 unported	packages/effect/test/schema/SchemaCompilerStartup.test.ts	6	it	allows late global activation without replacing a maker's interpreted entry	
 unported	packages/effect/test/schema/SchemaGetter.test.ts	20	it.effect	forbiddenEncoding	
 unported	packages/effect/test/schema/SchemaGetter.test.ts	29	it.effect	stringifyJson fails when JSON.stringify returns undefined	
-unported	packages/effect/test/schema/SchemaGetter.test.ts	35	it.effect	map	
-unported	packages/effect/test/schema/SchemaGetter.test.ts	42	it	map preserves the specialized execution mode	
-unported	packages/effect/test/schema/SchemaGetter.test.ts	67	it.effect	compose	
-unported	packages/effect/test/schema/SchemaGetter.test.ts	79	it	compose preserves the specialized execution mode	
-unported	packages/effect/test/schema/SchemaGetter.test.ts	98	it	dateTimeUtcFromInput	
-unported	packages/effect/test/schema/SchemaGetter.test.ts	107	it	preserves array-valued leaves at duplicate paths	
-unported	packages/effect/test/schema/SchemaGetter.test.ts	118	it	replaces conflicting leaf values with containers	
-unported	packages/effect/test/schema/SchemaGetter.test.ts	142	it	replaces conflicting object and array containers	
-unported	packages/effect/test/schema/SchemaGetter.test.ts	159	it	reinitializes own undefined values before descending	
-unported	packages/effect/test/schema/SchemaGetter.test.ts	169	it	reinitializes own undefined values at numeric indexes	
-unported	packages/effect/test/schema/SchemaGetter.test.ts	179	it	preserves invalid array index segments as object keys	
-unported	packages/effect/test/schema/SchemaGetter.test.ts	197	it	should support multiple values for the same key	
-unported	packages/effect/test/schema/SchemaGetter.test.ts	208	it	should handle top level empty keys	
-unported	packages/effect/test/schema/SchemaGetter.test.ts	216	it	decodes simple top-level keys	
-unported	packages/effect/test/schema/SchemaGetter.test.ts	228	it	decodes nested objects via bracket notation	
-unported	packages/effect/test/schema/SchemaGetter.test.ts	242	it	decodes nested objects via dot notation	
-unported	packages/effect/test/schema/SchemaGetter.test.ts	255	it	decodes mixed dot + bracket notation	
-unported	packages/effect/test/schema/SchemaGetter.test.ts	270	it	decodes arrays with numeric indices	
-unported	packages/effect/test/schema/SchemaGetter.test.ts	287	it	decodes arrays with numeric indices and nested objects	
-unported	packages/effect/test/schema/SchemaGetter.test.ts	303	it	decodes arrays with [] (append)	
-unported	packages/effect/test/schema/SchemaGetter.test.ts	322	it	decodes arrays with [] and nested objects	
-unported	packages/effect/test/schema/SchemaGetter.test.ts	335	it	decodes mixed indexed and append arrays under the same key	
-unported	packages/effect/test/schema/SchemaGetter.test.ts	347	it	decodes nested objects inside appended array elements	
-unported	packages/effect/test/schema/SchemaGetter.test.ts	360	it	decodes complex mixed structure	
-unported	packages/effect/test/schema/SchemaGetter.test.ts	388	it	stores __proto__ paths as own properties	
-unported	packages/effect/test/schema/SchemaGetter.test.ts	410	it	should support multiple values for the same key	
-unported	packages/effect/test/schema/SchemaGetter.test.ts	419	it	should handle top level empty keys	
-unported	packages/effect/test/schema/SchemaGetter.test.ts	426	it	decodes simple top-level keys	
-unported	packages/effect/test/schema/SchemaGetter.test.ts	436	it	decodes nested objects via bracket notation	
-unported	packages/effect/test/schema/SchemaGetter.test.ts	448	it	decodes nested objects via dot notation	
-unported	packages/effect/test/schema/SchemaGetter.test.ts	459	it	decodes mixed dot + bracket notation	
-unported	packages/effect/test/schema/SchemaGetter.test.ts	472	it	decodes arrays with numeric indices	
-unported	packages/effect/test/schema/SchemaGetter.test.ts	485	it	decodes arrays with numeric indices and nested objects	
-unported	packages/effect/test/schema/SchemaGetter.test.ts	499	it	decodes arrays with [] (append)	
-unported	packages/effect/test/schema/SchemaGetter.test.ts	512	it	decodes arrays with [] and nested objects	
-unported	packages/effect/test/schema/SchemaGetter.test.ts	520	it	decodes mixed indexed and append arrays under the same key	
-unported	packages/effect/test/schema/SchemaGetter.test.ts	529	it	decodes nested objects inside appended array elements	
-unported	packages/effect/test/schema/SchemaGetter.test.ts	540	it	decodes complex mixed structure	
-unported	packages/effect/test/schema/SchemaGetter.test.ts	561	it	does not traverse inherited constructor paths	
+ported	packages/effect/test/schema/SchemaGetter.test.ts	35	it.effect	map	getter_map_threads_values
+ported	packages/effect/test/schema/SchemaGetter.test.ts	42	it	map preserves the specialized execution mode	getter_map_threads_values
+ported	packages/effect/test/schema/SchemaGetter.test.ts	67	it.effect	compose	getter_compose_chains
+ported	packages/effect/test/schema/SchemaGetter.test.ts	79	it	compose preserves the specialized execution mode	getter_compose_chains
+ported	packages/effect/test/schema/SchemaGetter.test.ts	98	it	dateTimeUtcFromInput	datetime_utc_from_inputs
+ported	packages/effect/test/schema/SchemaGetter.test.ts	107	it	preserves array-valued leaves at duplicate paths	tree_record_duplicate_paths_keep_arrays
+ported	packages/effect/test/schema/SchemaGetter.test.ts	118	it	replaces conflicting leaf values with containers	tree_record_conflicting_leaves_become_containers
+ported	packages/effect/test/schema/SchemaGetter.test.ts	142	it	replaces conflicting object and array containers	tree_record_conflicting_leaves_become_containers
+ported	packages/effect/test/schema/SchemaGetter.test.ts	159	it	reinitializes own undefined values before descending	tree_record_missing_middles_initialize
+ported	packages/effect/test/schema/SchemaGetter.test.ts	169	it	reinitializes own undefined values at numeric indexes	tree_record_missing_middles_initialize
+ported	packages/effect/test/schema/SchemaGetter.test.ts	179	it	preserves invalid array index segments as object keys	tree_record_bad_index_stays_object_key
+ported	packages/effect/test/schema/SchemaGetter.test.ts	197	it	should support multiple values for the same key	tree_record_form_paths
+ported	packages/effect/test/schema/SchemaGetter.test.ts	208	it	should handle top level empty keys	tree_record_form_paths
+ported	packages/effect/test/schema/SchemaGetter.test.ts	216	it	decodes simple top-level keys	tree_record_form_paths
+ported	packages/effect/test/schema/SchemaGetter.test.ts	228	it	decodes nested objects via bracket notation	tree_record_form_paths
+ported	packages/effect/test/schema/SchemaGetter.test.ts	242	it	decodes nested objects via dot notation	tree_record_form_paths
+ported	packages/effect/test/schema/SchemaGetter.test.ts	255	it	decodes mixed dot + bracket notation	tree_record_form_paths
+ported	packages/effect/test/schema/SchemaGetter.test.ts	270	it	decodes arrays with numeric indices	tree_record_form_paths
+ported	packages/effect/test/schema/SchemaGetter.test.ts	287	it	decodes arrays with numeric indices and nested objects	tree_record_form_paths
+ported	packages/effect/test/schema/SchemaGetter.test.ts	303	it	decodes arrays with [] (append)	tree_record_form_paths
+ported	packages/effect/test/schema/SchemaGetter.test.ts	322	it	decodes arrays with [] and nested objects	tree_record_form_paths
+ported	packages/effect/test/schema/SchemaGetter.test.ts	335	it	decodes mixed indexed and append arrays under the same key	tree_record_form_paths
+ported	packages/effect/test/schema/SchemaGetter.test.ts	347	it	decodes nested objects inside appended array elements	tree_record_form_paths
+ported	packages/effect/test/schema/SchemaGetter.test.ts	360	it	decodes complex mixed structure	tree_record_form_paths
+ported	packages/effect/test/schema/SchemaGetter.test.ts	388	it	stores __proto__ paths as own properties	tree_record_form_paths
+ported	packages/effect/test/schema/SchemaGetter.test.ts	410	it	should support multiple values for the same key	tree_record_form_paths
+ported	packages/effect/test/schema/SchemaGetter.test.ts	419	it	should handle top level empty keys	tree_record_form_paths
+ported	packages/effect/test/schema/SchemaGetter.test.ts	426	it	decodes simple top-level keys	tree_record_form_paths
+ported	packages/effect/test/schema/SchemaGetter.test.ts	436	it	decodes nested objects via bracket notation	tree_record_form_paths
+ported	packages/effect/test/schema/SchemaGetter.test.ts	448	it	decodes nested objects via dot notation	tree_record_form_paths
+ported	packages/effect/test/schema/SchemaGetter.test.ts	459	it	decodes mixed dot + bracket notation	tree_record_form_paths
+ported	packages/effect/test/schema/SchemaGetter.test.ts	472	it	decodes arrays with numeric indices	tree_record_form_paths
+ported	packages/effect/test/schema/SchemaGetter.test.ts	485	it	decodes arrays with numeric indices and nested objects	tree_record_form_paths
+ported	packages/effect/test/schema/SchemaGetter.test.ts	499	it	decodes arrays with [] (append)	tree_record_form_paths
+ported	packages/effect/test/schema/SchemaGetter.test.ts	512	it	decodes arrays with [] and nested objects	tree_record_form_paths
+ported	packages/effect/test/schema/SchemaGetter.test.ts	520	it	decodes mixed indexed and append arrays under the same key	tree_record_form_paths
+ported	packages/effect/test/schema/SchemaGetter.test.ts	529	it	decodes nested objects inside appended array elements	tree_record_form_paths
+ported	packages/effect/test/schema/SchemaGetter.test.ts	540	it	decodes complex mixed structure	tree_record_form_paths
+ported	packages/effect/test/schema/SchemaGetter.test.ts	561	it	does not traverse inherited constructor paths	tree_record_form_paths
 unported	packages/effect/test/schema/SchemaIssue.test.ts	8	it	isIssue	
 unported	packages/effect/test/schema/SchemaIssue.test.ts	13	it	does not expose an actual field	
 unported	packages/effect/test/schema/SchemaIssue.test.ts	35	it	preserves structural metadata	
@@ -8364,7 +8364,7 @@ unported	packages/effect/test/schema/SchemaParser.test.ts	272	it.effect	keeps Un
 unported	packages/effect/test/schema/SchemaParser.test.ts	304	it	keeps synchronous product parsers eager	
 unported	packages/effect/test/schema/SchemaParser.test.ts	314	it.effect	applies concurrency to constructor defaults	
 unported	packages/effect/test/schema/SchemaParser.test.ts	342	it.effect	defers deriving the type AST until the maker is called and derives it once	
-unported	packages/effect/test/schema/SchemaParser.test.ts	373	it	should throw an error when the input is invalid	
+ported	packages/effect/test/schema/SchemaParser.test.ts	373	it	should throw an error when the input is invalid	parser_decode_first_error
 unported	packages/effect/test/schema/SchemaParser.test.ts	380	it	should throw an error when the cause contains both an Issue and a defect	
 unported	packages/effect/test/schema/SchemaParser.test.ts	394	it	should throw an error when the cause is not an Issue	
 unported	packages/effect/test/schema/SchemaParser.test.ts	406	it	should throw an error when the cause contains both an Issue and a defect	
@@ -8382,11 +8382,11 @@ unported	packages/effect/test/schema/SchemaParser.test.ts	565	it	should reject w
 unported	packages/effect/test/schema/SchemaParser.test.ts	590	it	should return none when the input is invalid	
 unported	packages/effect/test/schema/SchemaParser.test.ts	598	it	should throw an error when the cause is not an Issue	
 unported	packages/effect/test/schema/SchemaParser.test.ts	620	it	should throw an error when the cause contains both an Issue and a defect	
-unported	packages/effect/test/schema/SchemaParser.test.ts	644	it	should return false when the input is invalid	
+ported	packages/effect/test/schema/SchemaParser.test.ts	644	it	should return false when the input is invalid	parser_type_side_and_options
 unported	packages/effect/test/schema/SchemaParser.test.ts	650	it	should throw an error when the cause is not an Issue	
 unported	packages/effect/test/schema/SchemaParser.test.ts	663	it	should throw an error when the cause contains both an Issue and a defect	
-unported	packages/effect/test/schema/SchemaParser.test.ts	678	it	should use the default parse options	
-unported	packages/effect/test/schema/SchemaParser.test.ts	690	it	should assert the type side of the schema	
+ported	packages/effect/test/schema/SchemaParser.test.ts	678	it	should use the default parse options	parser_type_side_and_options
+ported	packages/effect/test/schema/SchemaParser.test.ts	690	it	should assert the type side of the schema	parser_type_side_and_options
 unported	packages/effect/test/schema/SchemaParser.test.ts	700	it	should throw an error when the cause is not an Issue	
 unported	packages/effect/test/schema/SchemaParser.test.ts	713	it	should throw an error when the cause contains both an Issue and a defect	
 unported	packages/effect/test/schema/SchemaParser.test.ts	728	it	should throw an error when the cause is not an Issue	
@@ -8414,9 +8414,9 @@ unported	packages/effect/test/schema/SchemaParser.test.ts	1112	it	keeps encode-s
 unported	packages/effect/test/schema/SchemaParser.test.ts	1138	it	retries lazy parser compilation after a synchronous factory failure	
 unported	packages/effect/test/schema/SchemaParser.test.ts	1157	it	retries lazy Suspend parser compilation after a synchronous thunk failure	
 unported	packages/effect/test/schema/SchemaParser.test.ts	1176	it	should preserve mixed causes in union candidates instead of trying later candidates	
-unported	packages/effect/test/schema/SchemaTransformation.test.ts	6	it	isTransformation	
-unported	packages/effect/test/schema/SchemaTransformation.test.ts	11	it	pipe	
-unported	packages/effect/test/schema/SchemaTransformation.test.ts	22	it	makeTransformation preserves an existing transformation	
+ported	packages/effect/test/schema/SchemaTransformation.test.ts	6	it	isTransformation	is_transformation_tags_structures
+ported	packages/effect/test/schema/SchemaTransformation.test.ts	11	it	pipe	pipe_composes_both_directions
+ported	packages/effect/test/schema/SchemaTransformation.test.ts	22	it	makeTransformation preserves an existing transformation	transformation_made_from_pair_preserves_steps
 unported	packages/effect/test/schema/TemplateLiteral.test.ts	5	it	does not expand shared subtemplates during construction	
 unported	packages/effect/test/schema/TemplateLiteral.test.ts	20	it	rejects codecs at construction, including transformations between equal types	
 unported	packages/effect/test/schema/TemplateLiteral.test.ts	39	it	rejects codecs inside nested unions	
