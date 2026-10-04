@@ -21,6 +21,7 @@ mod fiber;
 mod foundation;
 #[cfg(feature = "tokio")]
 mod layer;
+mod optic;
 #[cfg(feature = "tokio")]
 mod policy;
 #[cfg(feature = "tokio")]
@@ -42,13 +43,18 @@ pub use exit::Exit;
 #[cfg(feature = "tokio")]
 pub use fiber::{Ctx, FiberHandle, ForkOpts, Mask, StartMode};
 pub use foundation::{
-    Equal, Equivalence, Hash, Order, Predicate, array_equivalence, boolean_equivalence,
-    boolean_order, combine_hash, combine_ordering, compose, const_false, const_true, constant,
-    flip, hash_f64, hash_str, identity, match_ordering, number_equivalence, number_order,
-    ord_order, reverse_ordering, string_equivalence, string_order, tuple_equivalence,
+    Combiner, Differ, Equal, Equivalence, Filter, Hash, Matcher, Order, Predicate, Reducer, Tagged,
+    array_equivalence, boolean_equivalence, boolean_order, combine_hash, combine_ordering, compose,
+    const_false, const_true, constant, flip, hash_f64, hash_str, identity, match_ordering,
+    number_equivalence, number_order, ord_order, reverse_ordering, string_equivalence,
+    string_order, tagged, tuple_equivalence,
 };
 #[cfg(feature = "tokio")]
 pub use layer::{BuiltServices, Cycle, Layer, RequirementIds};
+pub use optic::{
+    Iso, Lens, OpticError, Optional, Prism, Traversal, at_map, at_vec, at_vec_exact, failure, none,
+    some, success,
+};
 #[cfg(feature = "tokio")]
 pub use policy::{BreakerConfig, Bulkhead, RateLimiter, Remote, RemoteError, RemotePolicy, hedge};
 #[cfg(feature = "tokio")]

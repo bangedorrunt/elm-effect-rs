@@ -2719,57 +2719,57 @@ unported	packages/effect/test/Number.test.ts	495	it	combines values and uses neg
 unported	packages/effect/test/Number.test.ts	501	it	reduces iterables with combineAll	
 unported	packages/effect/test/Number.test.ts	508	it	combines values and uses infinity as the identity	
 unported	packages/effect/test/Number.test.ts	514	it	reduces iterables with combineAll	
-unported	packages/effect/test/Optic.test.ts	35	it	replace should throw an error if the object has a non-Object constructor or null prototype	
-unported	packages/effect/test/Optic.test.ts	57	it	preserves __proto__ as an own property	
-unported	packages/effect/test/Optic.test.ts	73	it	id	
-unported	packages/effect/test/Optic.test.ts	87	it	supports data-first usage	
-unported	packages/effect/test/Optic.test.ts	98	it	supports data-last usage	
-unported	packages/effect/test/Optic.test.ts	111	it	sets through composed isos without reading a source	
-unported	packages/effect/test/Optic.test.ts	126	it	sets through composed prisms without reading a source	
-unported	packages/effect/test/Optic.test.ts	140	it	preserves capabilities and behavior across every optic kind	
-unported	packages/effect/test/Optic.test.ts	167	it	preserves optional setter failures	
-unported	packages/effect/test/Optic.test.ts	179	it	composes identity in both directions	
-unported	packages/effect/test/Optic.test.ts	193	it	is independent of composition grouping	
-unported	packages/effect/test/Optic.test.ts	215	it	required key	
-unported	packages/effect/test/Optic.test.ts	224	it	nested required keys	
-unported	packages/effect/test/Optic.test.ts	237	it	optional key (with undefined)	
-unported	packages/effect/test/Optic.test.ts	257	it	required element	
-unported	packages/effect/test/Optic.test.ts	266	it	nested required element	
-unported	packages/effect/test/Optic.test.ts	275	it	optional element (with undefined)	
-unported	packages/effect/test/Optic.test.ts	294	it	Mixed structs and tuples	
-unported	packages/effect/test/Optic.test.ts	308	it	exact optional key (without undefined)	
-unported	packages/effect/test/Optic.test.ts	324	it	Record	
-unported	packages/effect/test/Optic.test.ts	340	it	exact optional element (without undefined)	
-unported	packages/effect/test/Optic.test.ts	355	it	string index	
-unported	packages/effect/test/Optic.test.ts	363	it	Array	
-unported	packages/effect/test/Optic.test.ts	382	it	single check	
-unported	packages/effect/test/Optic.test.ts	393	it	multiple checks	
-unported	packages/effect/test/Optic.test.ts	410	it	combines checks across successive calls	
-unported	packages/effect/test/Optic.test.ts	423	it	refine	
-unported	packages/effect/test/Optic.test.ts	437	it	tag	
-unported	packages/effect/test/Optic.test.ts	448	it	Record	
-unported	packages/effect/test/Optic.test.ts	460	it	Array	
-unported	packages/effect/test/Optic.test.ts	473	it	key & check	
-unported	packages/effect/test/Optic.test.ts	485	it	Struct	
-unported	packages/effect/test/Optic.test.ts	492	it	deletes optional fields omitted from the replacement	
-unported	packages/effect/test/Optic.test.ts	501	it	Struct	
-unported	packages/effect/test/Optic.test.ts	508	it	deletes optional fields omitted from the replacement	
-unported	packages/effect/test/Optic.test.ts	517	it	Array	
-unported	packages/effect/test/Optic.test.ts	535	it	Record	
-unported	packages/effect/test/Optic.test.ts	544	it	fails when the replacement count does not match	
-unported	packages/effect/test/Optic.test.ts	553	it	fails when an inner setter fails	
-unported	packages/effect/test/Optic.test.ts	567	it	Array	
-unported	packages/effect/test/Optic.test.ts	585	it	Record	
-unported	packages/effect/test/Optic.test.ts	594	it	returns the original source when the traversal fails	
-unported	packages/effect/test/Optic.test.ts	607	it	notUndefined	
-unported	packages/effect/test/Optic.test.ts	616	it	getAll	
-unported	packages/effect/test/Optic.test.ts	626	it	getAll returns an empty array when the traversal fails	
-unported	packages/effect/test/Optic.test.ts	637	it	replace copies only objects and arrays along the focused path	
-unported	packages/effect/test/Optic.test.ts	670	it	fromChecks	
-unported	packages/effect/test/Optic.test.ts	678	it	some	
-unported	packages/effect/test/Optic.test.ts	685	it	none	
-unported	packages/effect/test/Optic.test.ts	694	it	success	
-unported	packages/effect/test/Optic.test.ts	701	it	failure	
+skipped-upstream	packages/effect/test/Optic.test.ts	35	it	replace should throw an error if the object has a non-Object constructor or null prototype	
+skipped-upstream	packages/effect/test/Optic.test.ts	57	it	preserves __proto__ as an own property	
+ported	packages/effect/test/Optic.test.ts	73	it	id	id_iso_roundtrip
+ported	packages/effect/test/Optic.test.ts	87	it	supports data-first usage	data_first_and_data_last_share_behavior
+ported	packages/effect/test/Optic.test.ts	98	it	supports data-last usage	data_first_and_data_last_share_behavior
+ported	packages/effect/test/Optic.test.ts	111	it	sets through composed isos without reading a source	set_through_composed_isos_without_reading_source
+ported	packages/effect/test/Optic.test.ts	126	it	sets through composed prisms without reading a source	set_through_composed_prisms_without_reading_source
+ported	packages/effect/test/Optic.test.ts	140	it	preserves capabilities and behavior across every optic kind	capabilities_hold_across_every_optic_kind
+ported	packages/effect/test/Optic.test.ts	167	it	preserves optional setter failures	optional_setter_failures_propagate
+ported	packages/effect/test/Optic.test.ts	179	it	composes identity in both directions	identity_composes_in_both_directions
+ported	packages/effect/test/Optic.test.ts	193	it	is independent of composition grouping	composition_grouping_is_independent
+ported	packages/effect/test/Optic.test.ts	215	it	required key	required_key_reads_and_writes
+ported	packages/effect/test/Optic.test.ts	224	it	nested required keys	nested_required_keys
+skipped-upstream	packages/effect/test/Optic.test.ts	237	it	optional key (with undefined)	
+ported	packages/effect/test/Optic.test.ts	257	it	required element	required_tuple_element
+ported	packages/effect/test/Optic.test.ts	266	it	nested required element	nested_required_tuple_element
+skipped-upstream	packages/effect/test/Optic.test.ts	275	it	optional element (with undefined)	
+ported	packages/effect/test/Optic.test.ts	294	it	Mixed structs and tuples	mixed_structs_and_tuples
+ported	packages/effect/test/Optic.test.ts	308	it	exact optional key (without undefined)	exact_optional_key_without_undefined
+ported	packages/effect/test/Optic.test.ts	324	it	Record	record_at_key
+ported	packages/effect/test/Optic.test.ts	340	it	exact optional element (without undefined)	exact_optional_tuple_element
+skipped-upstream	packages/effect/test/Optic.test.ts	355	it	string index	
+ported	packages/effect/test/Optic.test.ts	363	it	Array	array_optional_index_extends_and_truncates
+ported	packages/effect/test/Optic.test.ts	382	it	single check	single_check_filters_focus
+ported	packages/effect/test/Optic.test.ts	393	it	multiple checks	multiple_checks_narrow_together
+ported	packages/effect/test/Optic.test.ts	410	it	combines checks across successive calls	checks_combine_across_successive_narrows
+ported	packages/effect/test/Optic.test.ts	423	it	refine	refine_predicate_prism
+ported	packages/effect/test/Optic.test.ts	437	it	tag	tag_variant_prism_with_field
+ported	packages/effect/test/Optic.test.ts	448	it	Record	at_record_reports_missing_key
+ported	packages/effect/test/Optic.test.ts	460	it	Array	at_array_reports_missing_index
+ported	packages/effect/test/Optic.test.ts	473	it	key & check	key_with_check
+ported	packages/effect/test/Optic.test.ts	485	it	Struct	pick_struct_subset
+skipped-upstream	packages/effect/test/Optic.test.ts	492	it	deletes optional fields omitted from the replacement	
+ported	packages/effect/test/Optic.test.ts	501	it	Struct	omit_struct_subset
+skipped-upstream	packages/effect/test/Optic.test.ts	508	it	deletes optional fields omitted from the replacement	
+ported	packages/effect/test/Optic.test.ts	517	it	Array	foreach_array_collects_and_maps
+ported	packages/effect/test/Optic.test.ts	535	it	Record	foreach_record_entries
+ported	packages/effect/test/Optic.test.ts	544	it	fails when the replacement count does not match	traversal_replacement_count_must_match
+ported	packages/effect/test/Optic.test.ts	553	it	fails when an inner setter fails	traversal_inner_setter_failure_errors
+ported	packages/effect/test/Optic.test.ts	567	it	Array	nested_traversal_composes
+ported	packages/effect/test/Optic.test.ts	585	it	Record	foreach_record_entries
+ported	packages/effect/test/Optic.test.ts	594	it	returns the original source when the traversal fails	traversal_over_optional_keeps_source_on_miss
+ported	packages/effect/test/Optic.test.ts	607	it	notUndefined	not_undefined_is_option_prism
+ported	packages/effect/test/Optic.test.ts	616	it	getAll	get_all_collects_present_foci
+ported	packages/effect/test/Optic.test.ts	626	it	getAll returns an empty array when the traversal fails	get_all_empty_when_traversal_fails
+skipped-upstream	packages/effect/test/Optic.test.ts	637	it	replace copies only objects and arrays along the focused path	
+ported	packages/effect/test/Optic.test.ts	670	it	fromChecks	from_checks_compose
+ported	packages/effect/test/Optic.test.ts	678	it	some	option_some_prism
+ported	packages/effect/test/Optic.test.ts	685	it	none	option_none_prism
+ported	packages/effect/test/Optic.test.ts	694	it	success	result_success_prism
+ported	packages/effect/test/Optic.test.ts	701	it	failure	result_failure_prism
 unported	packages/effect/test/Option.test.ts	16	it	makeReducer	
 unported	packages/effect/test/Option.test.ts	25	it	makeReducerFailFast	
 unported	packages/effect/test/Option.test.ts	39	it	gen	
