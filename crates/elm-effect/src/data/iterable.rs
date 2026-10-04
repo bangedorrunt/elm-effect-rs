@@ -143,7 +143,7 @@ pub fn zip_with<T, U, V>(
     mut f: impl FnMut(T, U) -> V,
 ) -> Vec<V> {
     a.into_iter()
-        .zip(b.into_iter())
+        .zip(b)
         .map(|(x, y)| f(x, y))
         .collect()
 }
@@ -202,7 +202,7 @@ pub fn group_by<T: Clone + PartialEq>(iterable: impl IntoIterator<Item = T>) -> 
 pub fn filter_map_while<T, U>(
     iterable: impl IntoIterator<Item = T>,
     mut take: impl FnMut(&T) -> bool,
-    mut f: impl FnMut(T) -> Option<U>,
+    f: impl FnMut(T) -> Option<U>,
 ) -> Vec<U> {
     let mut taking = true;
     iterable
@@ -211,7 +211,7 @@ pub fn filter_map_while<T, U>(
             taking = taking && take(a);
             taking
         })
-        .filter_map(|a| f(a))
+        .filter_map(f)
         .collect()
 }
 

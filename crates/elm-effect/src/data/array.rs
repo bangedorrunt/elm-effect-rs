@@ -286,6 +286,17 @@ pub fn map_accum<S, T, U>(
     (state, out)
 }
 
+/// Always true for slices (mirrors `isArray` narrowing; the type already
+/// guarantees it).
+pub fn is_array<T>(_: &[T]) -> bool {
+    true
+}
+
+/// Values from a record (`fromRecord`).
+pub fn from_record<V: Clone>(record: &std::collections::BTreeMap<String, V>) -> Vec<V> {
+    record.values().cloned().collect()
+}
+
 /// Count matches (`countBy`).
 pub fn count_by<T>(values: &[T], mut predicate: impl FnMut(&T) -> bool) -> usize {
     values.iter().filter(|v| predicate(v)).count()
@@ -297,7 +308,6 @@ pub fn take_while_filter<T: Clone>(
     take: impl Fn(&T) -> bool,
     keep: impl Fn(&T) -> bool,
 ) -> Vec<T> {
-    let mut take = take;
     let mut taking = true;
     values
         .iter()
@@ -407,8 +417,8 @@ pub fn split<T: Clone + PartialEq>(values: &[T], separator: &T) -> Vec<Vec<T>> {
 }
 
 /// Last index passing the predicate (`findLastIndex`).
-pub fn find_last_index<T>(values: &[T], mut predicate: impl FnMut(&T) -> bool) -> Option<usize> {
-    values.iter().rposition(|a| predicate(a))
+pub fn find_last_index<T>(values: &[T], predicate: impl FnMut(&T) -> bool) -> Option<usize> {
+    values.iter().rposition(predicate)
 }
 
 /// Pair up, stopping at the shorter (`zip`).

@@ -222,16 +222,11 @@ fn array_std_substrate() {
     assert_eq!(array::lift_result::<i32, &str>(Err("e")), Vec::<i32>::new());
     assert_eq!(array::group_by(&[1, 1, 2]), vec![vec![1, 1], vec![2]]);
     assert_eq!(array::cartesian(&[1], &[2, 3]), vec![(1, 2), (1, 3)]);
-    assert_eq!(
-        array::contains_with(
-            &["a".to_string()],
-            &"A".to_string(),
-            &foundation::Equivalence::make(
-                |a: &String, b: &String| a.to_lowercase() == b.to_lowercase()
-            )
-        ),
-        true
-    );
+    assert!(array::contains_with(
+        &["a".to_string()],
+        &"A".to_string(),
+        &foundation::Equivalence::make(|a: &String, b: &String| a.to_lowercase() == b.to_lowercase())
+    ));
     assert_eq!(
         array::dedupe_with(&[1, 1, 2], &foundation::Equivalence::strict()),
         vec![1, 2]
@@ -254,7 +249,7 @@ fn array_std_substrate() {
         std::cmp::Ordering::Less
     );
     assert_eq!(
-        vec![1, 2]
+        [1, 2]
             .iter()
             .enumerate()
             .map(|(i, a)| i + a)
@@ -321,6 +316,11 @@ fn array_std_substrate() {
         (3, vec![1, 3])
     );
     assert_eq!(array::count_by(&[1, 2, 3], |a| *a % 2 == 1), 2);
+    assert!(array::is_array(&[1]));
+    assert_eq!(
+        array::from_record(&[("a".to_string(), 1)].into_iter().collect()),
+        vec![1]
+    );
     assert_eq!(
         array::take_while_filter(&[1, 2, 3, 4], |a| *a < 4, |a| *a % 2 == 1),
         vec![1, 3]
@@ -588,6 +588,23 @@ fn chunk_extra() {
         vec![1]
     );
     assert_eq!(Chunk::from_iter(vec![1, 2]), Chunk::from_iter(vec![1, 2]));
+    assert_eq!(Chunk::from_iter(vec![1, 2]).to_json(), "[1,2]");
+    let mut seen = 0;
+    assert_eq!(
+        Chunk::from_iter(vec![1, 2])
+            .inspect(|a| seen += a)
+            .into_vec(),
+        vec![1, 2]
+    );
+    assert_eq!(seen, 3);
+    assert_eq!(
+        Chunk::from_iter(vec![1, 2, 3]).split(1),
+        (Chunk::from_iter(vec![1]), Chunk::from_iter(vec![2, 3]))
+    );
+    assert_eq!(
+        Chunk::from_iter(vec![1, 2, 3]).filter_map_while(|a| *a < 3, |a| (a % 2 == 1).then_some(a)),
+        Chunk::from_iter(vec![1])
+    );
 }
 
 // ---------- Iterable ----------
@@ -603,7 +620,7 @@ fn iterable_ends() {
     assert!(!iterable::is_empty(vec![1]));
     assert_eq!(iterable::find_first(vec![1, 2, 3], |a| *a > 1), Some(2));
     assert_eq!(iterable::find_last(vec![1, 2, 3], |a| *a > 1), Some(3));
-    assert!(iterable::contains(vec![1, 2], &2));
+    assert!(iterable::contains([1, 2], &2));
     assert!(!iterable::contains(vec![1, 2], &9));
 }
 
@@ -704,18 +721,18 @@ fn iterable_combine() {
     );
     assert_eq!((0..3).collect::<Vec<_>>(), vec![0, 1, 2]);
     assert_eq!(vec!["x"; 3], vec!["x", "x", "x"]);
-    assert_eq!(std::iter::repeat(1).take(2).collect::<Vec<_>>(), vec![1, 1]);
-    assert_eq!(Vec::<i32>::new(), Vec::<i32>::new());
-    assert!(vec![1].iter().any(|a| *a == 1));
+    assert_eq!(std::iter::repeat_n(1, 2).collect::<Vec<_>>(), vec![1, 1]);
+    assert!(Vec::<i32>::new().is_empty());
+    assert!([1].contains(&1));
     let mut seen = 0;
-    vec![1, 2].iter().for_each(|a| seen += a);
+    [1, 2].iter().for_each(|a| seen += a);
     assert_eq!(seen, 3);
     assert_eq!(
-        vec![1, 2].iter().map(|a| a * 2).collect::<Vec<_>>(),
+        [1, 2].iter().map(|a| a * 2).collect::<Vec<_>>(),
         vec![2, 4]
     );
     assert_eq!(
-        vec![1, 2]
+        [1, 2]
             .iter()
             .flat_map(|a| vec![*a, -*a])
             .collect::<Vec<_>>(),
@@ -992,6 +1009,7 @@ fn tuple_shapes() {
     assert_eq!(tuple::swap((1, "a")), ("a", 1));
     assert_eq!(tuple::append_element((1, 2), 3), (1, 2, 3));
     assert_eq!(tuple::prepend_element(0, (1, 2)), (0, 1, 2));
+    assert_eq!(tuple::append_pair((1, 2), (3, 4)), (1, 2, 3, 4));
     assert_eq!(tuple::map_first((1, "a"), |a| a + 1), (2, "a"));
     assert_eq!(
         tuple::map_second((1, "a"), |b| format!("{b}!")),

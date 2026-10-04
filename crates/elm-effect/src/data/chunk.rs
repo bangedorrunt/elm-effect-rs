@@ -427,6 +427,57 @@ impl<T> Chunk<T> {
         )
     }
 
+    /// Render as JSON array (`toJSON`; `Display` elements).
+    pub fn to_json(&self) -> String
+    where
+        T: std::fmt::Display,
+    {
+        let parts: Vec<String> = self.0.iter().map(|v| v.to_string()).collect();
+        format!("[{}]", parts.join(","))
+    }
+
+    /// Observe without consuming (`inspect`, alias of `tap`).
+    pub fn inspect(&self, mut f: impl FnMut(&T)) -> Self
+    where
+        T: Clone,
+    {
+        for v in &self.0 {
+            f(v);
+        }
+        self.clone()
+    }
+
+    /// Split at index (`split`).
+    pub fn split(&self, n: usize) -> (Self, Self)
+    where
+        T: Clone,
+    {
+        let at = n.min(self.0.len());
+        (Self(self.0[..at].to_vec()), Self(self.0[at..].to_vec()))
+    }
+
+    /// Take-while plus map-filter (`filterMapWhile`).
+    pub fn filter_map_while<U>(
+        &self,
+        mut take: impl FnMut(&T) -> bool,
+        mut f: impl FnMut(T) -> Option<U>,
+    ) -> Chunk<U>
+    where
+        T: Clone,
+    {
+        let mut taking = true;
+        Chunk(
+            self.0
+                .iter()
+                .take_while(|a| {
+                    taking = taking && take(a);
+                    taking
+                })
+                .filter_map(|a| f(a.clone()))
+                .collect(),
+        )
+    }
+
     /// Take up to `n`, guaranteed non-empty when the chunk is (`takeNonEmpty`).
     pub fn take_nonempty(&self, n: usize) -> Option<super::nonempty::NonEmpty<T>>
     where

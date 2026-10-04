@@ -59,7 +59,7 @@ impl<T> NonEmpty<T> {
     /// Map preserving non-emptiness (`map`).
     pub fn map<U>(self, mut f: impl FnMut(T) -> U) -> NonEmpty<U> {
         let head = f(self.head);
-        let tail = self.tail.into_iter().map(|a| f(a)).collect();
+        let tail = self.tail.into_iter().map(f).collect();
         NonEmpty::make(head, tail)
     }
 
@@ -67,11 +67,13 @@ impl<T> NonEmpty<T> {
     /// only if the head maps non-empty; general shape returns `Vec`).
     pub fn flat_map<U>(self, mut f: impl FnMut(T) -> Vec<U>) -> Vec<U> {
         let mut out = f(self.head);
-        out.extend(self.tail.into_iter().flat_map(|a| f(a)));
+        out.extend(self.tail.into_iter().flat_map(f));
         out
     }
 
-    /// All elements head-first (`toArray`, iteration order).
+    /// All elements head-first (`toArray`, iteration order). Consuming:
+    /// the value moves out without cloning (see `wrong_self_convention`).
+    #[allow(clippy::wrong_self_convention)]
     pub fn to_vec(self) -> Vec<T> {
         let mut out = Vec::with_capacity(1 + self.tail.len());
         out.push(self.head);

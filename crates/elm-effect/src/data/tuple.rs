@@ -30,6 +30,11 @@ pub fn prepend_element<A, B, C>(first: C, pair: (A, B)) -> (C, A, B) {
     (first, pair.0, pair.1)
 }
 
+/// Concatenate two pairs (`appendElements` fixed-arity shape).
+pub fn append_pair<A, B, C, D>(left: (A, B), right: (C, D)) -> (A, B, C, D) {
+    (left.0, left.1, right.0, right.1)
+}
+
 /// Map the first (`mapFirst`).
 pub fn map_first<A, B, C>(pair: (A, B), f: impl FnOnce(A) -> C) -> (C, B) {
     (f(pair.0), pair.1)
