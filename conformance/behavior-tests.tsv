@@ -8462,37 +8462,37 @@ unported	packages/effect/test/schema/jsonSchemaRoundTrip.test.ts	317	it	uses per
 unported	packages/effect/test/schema/jsonSchemaRoundTrip.test.ts	371	it	imports the loose export of approximate pattern and string indexes	
 unported	packages/effect/test/schema/jsonSchemaRoundTrip.test.ts	382	it	preserves multiple string indexes	
 unported	packages/effect/test/schema/jsonSchemaRoundTrip.test.ts	392	it	applies string indexes to explicit properties	
-unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	81	it	revives isStringFinite	
-unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	92	it	revives isStringBigInt	
-unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	103	it	revives isStringSymbol	
-unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	114	it	revives isMinLength	
-unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	125	it	revives isMaxLength	
-unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	136	it	revives isBetweenLength	
-unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	147	it	revives isPattern	
-unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	158	it	revives isMinCodePoints	
-unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	169	it	revives isMaxCodePoints	
-unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	180	it	revives isBetweenCodePoints	
-unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	191	it	revives isTrimmed	
-unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	202	it	revives isUUID	
+ported	packages/effect/test/schema/representation/builtInRevivers.test.ts	81	it	revives isStringFinite	revives_predicate_numbers
+ported	packages/effect/test/schema/representation/builtInRevivers.test.ts	92	it	revives isStringBigInt	revives_string_bigint
+ported	packages/effect/test/schema/representation/builtInRevivers.test.ts	103	it	revives isStringSymbol	revives_predicate_strings
+ported	packages/effect/test/schema/representation/builtInRevivers.test.ts	114	it	revives isMinLength	revives_bounded_lengths
+ported	packages/effect/test/schema/representation/builtInRevivers.test.ts	125	it	revives isMaxLength	revives_bounded_lengths
+ported	packages/effect/test/schema/representation/builtInRevivers.test.ts	136	it	revives isBetweenLength	revives_bounded_lengths
+ported	packages/effect/test/schema/representation/builtInRevivers.test.ts	147	it	revives isPattern	revives_predicate_strings
+ported	packages/effect/test/schema/representation/builtInRevivers.test.ts	158	it	revives isMinCodePoints	revives_code_point_bounds
+ported	packages/effect/test/schema/representation/builtInRevivers.test.ts	169	it	revives isMaxCodePoints	revives_code_point_bounds
+ported	packages/effect/test/schema/representation/builtInRevivers.test.ts	180	it	revives isBetweenCodePoints	revives_code_point_bounds
+ported	packages/effect/test/schema/representation/builtInRevivers.test.ts	191	it	revives isTrimmed	revives_trimmed
+ported	packages/effect/test/schema/representation/builtInRevivers.test.ts	202	it	revives isUUID	revives_checked_strings
 unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	213	it	revives isGUID	
-unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	224	it	revives isULID	
-unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	235	it	revives isBase64	
-unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	246	it	revives isBase64Url	
-unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	257	it	revives isStartingWith	
-unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	268	it	revives isEndingWith	
-unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	279	it	revives isIncluding	
-unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	290	it	revives isUppercased	
-unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	301	it	revives isLowercased	
-unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	312	it	revives isCapitalized	
-unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	323	it	revives isUncapitalized	
+ported	packages/effect/test/schema/representation/builtInRevivers.test.ts	224	it	revives isULID	revives_checked_strings
+ported	packages/effect/test/schema/representation/builtInRevivers.test.ts	235	it	revives isBase64	revives_predicate_strings
+ported	packages/effect/test/schema/representation/builtInRevivers.test.ts	246	it	revives isBase64Url	revives_predicate_strings
+ported	packages/effect/test/schema/representation/builtInRevivers.test.ts	257	it	revives isStartingWith	revives_checked_strings
+ported	packages/effect/test/schema/representation/builtInRevivers.test.ts	268	it	revives isEndingWith	revives_checked_strings
+ported	packages/effect/test/schema/representation/builtInRevivers.test.ts	279	it	revives isIncluding	revives_is_including
+ported	packages/effect/test/schema/representation/builtInRevivers.test.ts	290	it	revives isUppercased	revives_checked_strings
+ported	packages/effect/test/schema/representation/builtInRevivers.test.ts	301	it	revives isLowercased	revives_checked_strings
+ported	packages/effect/test/schema/representation/builtInRevivers.test.ts	312	it	revives isCapitalized	revives_checked_strings
+ported	packages/effect/test/schema/representation/builtInRevivers.test.ts	323	it	revives isUncapitalized	revives_checked_strings
 unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	350	it	revives isFinite	
 unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	361	it	revives isInt	
 unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	372	it	revives isMultipleOf	
-unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	383	it	revives isGreaterThan	
-unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	394	it	revives isGreaterThanOrEqualTo	
-unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	405	it	revives isLessThan	
-unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	416	it	revives isLessThanOrEqualTo	
-unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	427	it	revives isBetween	
+ported	packages/effect/test/schema/representation/builtInRevivers.test.ts	383	it	revives isGreaterThan	revives_is_greater_than
+ported	packages/effect/test/schema/representation/builtInRevivers.test.ts	394	it	revives isGreaterThanOrEqualTo	revives_is_greater_than_or_equal
+ported	packages/effect/test/schema/representation/builtInRevivers.test.ts	405	it	revives isLessThan	revives_is_less_than
+ported	packages/effect/test/schema/representation/builtInRevivers.test.ts	416	it	revives isLessThanOrEqualTo	revives_is_less_than_or_equal
+ported	packages/effect/test/schema/representation/builtInRevivers.test.ts	427	it	revives isBetween	revives_is_between_numbers
 unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	440	it	normalizes isBetween flags	
 unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	454	it	rejects a non-numeric isMultipleOf payload	
 unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	463	it	rejects a non-canonical isBetween payload	
@@ -8510,16 +8510,16 @@ unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	597	
 unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	608	it	revives isBetweenDate	
 unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	625	it	persists millisecond precision	
 unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	632	it	normalizes isBetweenDate flags	
-unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	653	it	revives isMinSize	
-unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	664	it	revives isMaxSize	
-unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	675	it	revives isBetweenSize	
-unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	686	it	revives isUnique	
+ported	packages/effect/test/schema/representation/builtInRevivers.test.ts	653	it	revives isMinSize	revives_is_min_size
+ported	packages/effect/test/schema/representation/builtInRevivers.test.ts	664	it	revives isMaxSize	revives_is_max_size
+ported	packages/effect/test/schema/representation/builtInRevivers.test.ts	675	it	revives isBetweenSize	revives_is_between_size
+ported	packages/effect/test/schema/representation/builtInRevivers.test.ts	686	it	revives isUnique	revives_is_unique
 unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	697	it	revives isUniqueKey	
 unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	709	it	normalizes isMinSize	
 unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	716	it	normalizes isMaxSize	
 unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	723	it	normalizes isBetweenSize	
-unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	732	it	revives isMinProperties	
-unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	743	it	revives isMaxProperties	
+ported	packages/effect/test/schema/representation/builtInRevivers.test.ts	732	it	revives isMinProperties	revives_is_min_properties
+ported	packages/effect/test/schema/representation/builtInRevivers.test.ts	743	it	revives isMaxProperties	revives_is_max_properties
 unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	754	it	revives isBetweenProperties	
 unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	765	it	revives isPropertyNames	
 unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	779	it	persists the encoded key schema for isPropertyNames	
