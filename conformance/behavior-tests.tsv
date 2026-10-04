@@ -2777,7 +2777,7 @@ ported	packages/effect/test/Option.test.ts	77	it	toString	option_unwrap
 ported	packages/effect/test/Option.test.ts	92	it	toJSON	option_unwrap
 ported	packages/effect/test/Option.test.ts	97	it	inspect	option_match_tap
 ported	packages/effect/test/Option.test.ts	107	it	verify structural equality	option_equal_order_reducer
-unported	packages/effect/test/Option.test.ts	113	it	verify hash equality	
+ported	packages/effect/test/Option.test.ts	113	it	verify hash equality	option_equal_order_reducer
 ported	packages/effect/test/Option.test.ts	119	it	getSuccess	option_match_tap
 ported	packages/effect/test/Option.test.ts	124	it	getFailure	option_match_tap
 ported	packages/effect/test/Option.test.ts	129	it	toRefinement	option_filter_family
@@ -2813,19 +2813,19 @@ ported	packages/effect/test/Option.test.ts	390	it	exists	option_filter_family
 ported	packages/effect/test/Option.test.ts	397	it	liftNullishOr	option_match_tap
 ported	packages/effect/test/Option.test.ts	403	it	liftThrowable	option_match_tap
 ported	packages/effect/test/Option.test.ts	409	it	tap	option_match_tap
-unported	packages/effect/test/Option.test.ts	416	it	filter keeps Do notation records only when the predicate passes	
+ported	packages/effect/test/Option.test.ts	416	it	filter keeps Do notation records only when the predicate passes	option_lift_partition_product
 ported	packages/effect/test/Option.test.ts	436	it	zipWith	option_zip_product_all
-unported	packages/effect/test/Option.test.ts	442	it	reduceCompact	
-unported	packages/effect/test/Option.test.ts	449	it	makeEquivalence	
+ported	packages/effect/test/Option.test.ts	442	it	reduceCompact	option_lift_partition_product
+ported	packages/effect/test/Option.test.ts	449	it	makeEquivalence	option_equal_order_reducer
 ported	packages/effect/test/Option.test.ts	460	it	tuple	option_zip_product_all
 ported	packages/effect/test/Option.test.ts	466	it	iterable	option_match_tap
-unported	packages/effect/test/Option.test.ts	474	it	struct	
+ported	packages/effect/test/Option.test.ts	474	it	struct	option_lift_partition_product
 unported	packages/effect/test/Option.test.ts	483	it	.pipe()	
-unported	packages/effect/test/Option.test.ts	487	it	lift2	
-unported	packages/effect/test/Option.test.ts	496	it	Do	
-unported	packages/effect/test/Option.test.ts	500	it	bindTo	
-unported	packages/effect/test/Option.test.ts	513	it	bind	
-unported	packages/effect/test/Option.test.ts	535	it	let	
+ported	packages/effect/test/Option.test.ts	487	it	lift2	option_lift_partition_product
+ported	packages/effect/test/Option.test.ts	496	it	Do	option_do_gen_bind_shapes
+ported	packages/effect/test/Option.test.ts	500	it	bindTo	option_do_gen_bind_shapes
+ported	packages/effect/test/Option.test.ts	513	it	bind	option_do_gen_bind_shapes
+ported	packages/effect/test/Option.test.ts	535	it	let	option_do_gen_bind_shapes
 ported	packages/effect/test/Option.test.ts	552	it	as	option_map_flatmap_flatten
 ported	packages/effect/test/Option.test.ts	560	it	asVoid	option_map_flatmap_flatten
 unported	packages/effect/test/Order.test.ts	6	it	Struct	
@@ -3233,7 +3233,7 @@ ported	packages/effect/test/Result.test.ts	81	it	toString	result_do_bind_transpo
 ported	packages/effect/test/Result.test.ts	108	it	toJSON	result_unwrap
 ported	packages/effect/test/Result.test.ts	113	it	inspect	result_unwrap
 ported	packages/effect/test/Result.test.ts	118	it	Equal trait compares matching tags and values	scalars_residuals
-unported	packages/effect/test/Result.test.ts	125	it	pipe composes Result operations	
+ported	packages/effect/test/Result.test.ts	125	it	pipe composes Result operations	result_map_family
 ported	packages/effect/test/Result.test.ts	131	it	isResult	result_constructors
 ported	packages/effect/test/Result.test.ts	137	it	isFailure	result_constructors
 ported	packages/effect/test/Result.test.ts	142	it	isSuccess	result_constructors
@@ -3253,7 +3253,7 @@ ported	packages/effect/test/Result.test.ts	274	it	match handles failure and succ
 ported	packages/effect/test/Result.test.ts	287	it	flip	result_map_family
 ported	packages/effect/test/Result.test.ts	292	it	liftPredicate	result_chain
 ported	packages/effect/test/Result.test.ts	335	it	filterOrFail	result_chain
-unported	packages/effect/test/Result.test.ts	347	it	makeEquivalence compares successes and failures by channel	
+ported	packages/effect/test/Result.test.ts	347	it	makeEquivalence compares successes and failures by channel	result_do_bind_transpose
 ported	packages/effect/test/Result.test.ts	362	it	flatMap	result_chain
 ported	packages/effect/test/Result.test.ts	371	it	andThen replaces successes with Result or plain values	result_chain
 ported	packages/effect/test/Result.test.ts	384	it	all	result_do_bind_transpose
@@ -3261,10 +3261,10 @@ ported	packages/effect/test/Result.test.ts	413	it	orElse recovers failures and p
 ported	packages/effect/test/Result.test.ts	426	it	Do	result_do_bind_transpose
 ported	packages/effect/test/Result.test.ts	430	it	bindTo	result_do_bind_transpose
 ported	packages/effect/test/Result.test.ts	437	it	bind	result_do_bind_transpose
-unported	packages/effect/test/Result.test.ts	453	it	let	
-unported	packages/effect/test/Result.test.ts	464	it	gen	
+ported	packages/effect/test/Result.test.ts	453	it	let	result_do_bind_transpose
+ported	packages/effect/test/Result.test.ts	464	it	gen	result_do_bind_transpose
 ported	packages/effect/test/Result.test.ts	504	it	transposeOption	result_chain
-unported	packages/effect/test/Result.test.ts	510	it	transposeMapOption	
+ported	packages/effect/test/Result.test.ts	510	it	transposeMapOption	result_do_bind_transpose
 unported	packages/effect/test/Schedule.test.ts	8	it.effect	during recurs while the duration has not elapsed	
 unported	packages/effect/test/Schedule.test.ts	21	it.effect	max - outputs the slowest schedule duration	
 unported	packages/effect/test/Schedule.test.ts	37	it.effect	max - stops when any schedule completes	
@@ -3933,9 +3933,9 @@ unported	packages/effect/test/String.test.ts	422	it	does not truncate if already
 unported	packages/effect/test/String.test.ts	428	it	pads from start with spaces	
 unported	packages/effect/test/String.test.ts	432	it	pads from start with fill string	
 unported	packages/effect/test/String.test.ts	436	it	does not truncate if already longer	
-unported	packages/effect/test/String.test.ts	442	it	repeats the string	
+ported	packages/effect/test/String.test.ts	442	it	repeats the string	string_portable_remainder
 unported	packages/effect/test/String.test.ts	447	it	returns an empty string for non-positive or NaN counts	
-unported	packages/effect/test/String.test.ts	455	it	replaces all occurrences with string	
+ported	packages/effect/test/String.test.ts	455	it	replaces all occurrences with string	string_portable_remainder
 unported	packages/effect/test/String.test.ts	459	it	replaces all occurrences with regex	
 unported	packages/effect/test/String.test.ts	465	it	returns index on match (data-first)	
 unported	packages/effect/test/String.test.ts	469	it	returns index on match (data-last)	
