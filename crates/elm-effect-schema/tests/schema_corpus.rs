@@ -177,6 +177,38 @@ fn refine_is_multiple_of() {
 }
 
 #[test]
+fn json_decodes_each_wire_type() {
+    assert_eq!(Schema::null().decode_json("null").unwrap(), ());
+    assert_eq!(
+        Schema::any().decode_json("42").unwrap(),
+        Unknown::Number(42.0)
+    );
+    assert_eq!(Schema::number().decode_json("2.5").unwrap(), 2.5);
+    assert_eq!(Schema::boolean().decode_json("true").unwrap(), true);
+    assert_eq!(
+        Schema::array(Schema::string())
+            .decode_json(r#"["a"]"#)
+            .unwrap(),
+        vec!["a".to_string()]
+    );
+    assert!(Schema::object().decode_json(r#"{"k": 1}"#).is_ok());
+    assert!(Schema::string().decode_json(r#""s""#).is_ok());
+    let document = Schema::any().decode_json(r#"{"a": [1, true]}"#).unwrap();
+    assert!(matches!(document, Unknown::Object(_)));
+}
+
+#[test]
+fn json_decodes_string_enums() {
+    let schema = Schema::union(
+        Schema::literal(Unknown::Text("red".to_string())),
+        Schema::literal(Unknown::Text("blue".to_string())),
+    );
+    let value = schema.decode_json(r#""blue""#).unwrap();
+    assert_eq!(value, Unknown::Text("blue".to_string()));
+    assert!(schema.decode_json(r#""green""#).is_err());
+}
+
+#[test]
 fn refine_non_empty_string() {
     let schema = Schema::string().refine("non-empty", |s: &String| !s.is_empty());
     assert!(schema.decode(Unknown::Text("x".to_string())).is_ok());

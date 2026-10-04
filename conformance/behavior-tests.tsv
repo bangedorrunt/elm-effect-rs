@@ -8562,31 +8562,31 @@ unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	1097
 unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	1104	it	persists a Redacted label	
 unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	1111	it	persists Redacted disallowJsonEncode	
 unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	1118	it	omits disabled Redacted options	
-unported	packages/effect/test/schema/representation/fromJson.test.ts	6	it	decodes a document	
-unported	packages/effect/test/schema/representation/fromJson.test.ts	19	it	decodes Null	
+ported	packages/effect/test/schema/representation/fromJson.test.ts	6	it	decodes a document	json_decodes_each_wire_type
+ported	packages/effect/test/schema/representation/fromJson.test.ts	19	it	decodes Null	json_decodes_each_wire_type
 unported	packages/effect/test/schema/representation/fromJson.test.ts	24	it	decodes Undefined	
 unported	packages/effect/test/schema/representation/fromJson.test.ts	29	it	decodes Void	
 unported	packages/effect/test/schema/representation/fromJson.test.ts	34	it	decodes Never	
-unported	packages/effect/test/schema/representation/fromJson.test.ts	39	it	decodes Unknown	
-unported	packages/effect/test/schema/representation/fromJson.test.ts	44	it	decodes Any	
-unported	packages/effect/test/schema/representation/fromJson.test.ts	49	it	decodes Number	
-unported	packages/effect/test/schema/representation/fromJson.test.ts	54	it	decodes Boolean	
+ported	packages/effect/test/schema/representation/fromJson.test.ts	39	it	decodes Unknown	json_decodes_each_wire_type
+ported	packages/effect/test/schema/representation/fromJson.test.ts	44	it	decodes Any	json_decodes_each_wire_type
+ported	packages/effect/test/schema/representation/fromJson.test.ts	49	it	decodes Number	json_decodes_each_wire_type
+ported	packages/effect/test/schema/representation/fromJson.test.ts	54	it	decodes Boolean	json_decodes_each_wire_type
 unported	packages/effect/test/schema/representation/fromJson.test.ts	59	it	decodes BigInt	
 unported	packages/effect/test/schema/representation/fromJson.test.ts	64	it	decodes Symbol	
 unported	packages/effect/test/schema/representation/fromJson.test.ts	69	it	decodes ObjectKeyword	
-unported	packages/effect/test/schema/representation/fromJson.test.ts	74	it	decodes Enum	
+ported	packages/effect/test/schema/representation/fromJson.test.ts	74	it	decodes Enum	json_decodes_string_enums
 unported	packages/effect/test/schema/representation/fromJson.test.ts	96	it	decodes TemplateLiteral	
-unported	packages/effect/test/schema/representation/fromJson.test.ts	121	it	decodes Arrays	
-unported	packages/effect/test/schema/representation/fromJson.test.ts	134	it	decodes Objects	
-unported	packages/effect/test/schema/representation/fromJson.test.ts	171	it	decodes Union	
+ported	packages/effect/test/schema/representation/fromJson.test.ts	121	it	decodes Arrays	json_decodes_each_wire_type
+ported	packages/effect/test/schema/representation/fromJson.test.ts	134	it	decodes Objects	json_decodes_each_wire_type
+ported	packages/effect/test/schema/representation/fromJson.test.ts	171	it	decodes Union	json_decodes_string_enums
 unported	packages/effect/test/schema/representation/fromJson.test.ts	184	it	decodes Reference	
 unported	packages/effect/test/schema/representation/fromJson.test.ts	192	it	decodes Suspend	
 unported	packages/effect/test/schema/representation/fromJson.test.ts	204	it	decodes Declaration	
 unported	packages/effect/test/schema/representation/fromJson.test.ts	218	it	decodes Filter	
 unported	packages/effect/test/schema/representation/fromJson.test.ts	234	it	decodes FilterGroup	
 unported	packages/effect/test/schema/representation/fromJson.test.ts	253	it	decodes bigint structural values	
-unported	packages/effect/test/schema/representation/fromJson.test.ts	270	it	rejects mismatched literal types	
-unported	packages/effect/test/schema/representation/fromJson.test.ts	282	it	rejects mismatched Enum value types	
+ported	packages/effect/test/schema/representation/fromJson.test.ts	270	it	rejects mismatched literal types	literal_rejects_other_values
+ported	packages/effect/test/schema/representation/fromJson.test.ts	282	it	rejects mismatched Enum value types	json_decodes_string_enums
 unported	packages/effect/test/schema/representation/fromJson.test.ts	295	it	rejects mismatched property name types	
 unported	packages/effect/test/schema/representation/fromJson.test.ts	314	it	preserves string literals resembling non-finite numbers	
 unported	packages/effect/test/schema/representation/fromJson.test.ts	327	it	decodes global symbols	
