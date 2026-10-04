@@ -161,6 +161,40 @@ impl<T> Schema<T> {
         )
     }
 
+    /// Fill a missing input with a default before decoding
+    /// (`withDecodingDefault` shape): `None` input decodes the default
+    /// through the schema; encoding passes values through unchanged.
+    pub fn with_decoding_default<U: Clone + Send + Sync + 'static>(
+        schema: Schema<U>,
+        default: impl Fn() -> U + Send + Sync + 'static,
+    ) -> Schema<U> {
+        let schema = Arc::new(schema);
+        let decode_schema = schema.clone();
+        Schema::new(
+            move |unknown| match unknown {
+                Unknown::Null => Ok(default()),
+                value => decode_schema.decode(value),
+            },
+            move |value| schema.encode(value),
+            SchemaKind::Opaque("withDecodingDefault"),
+        )
+    }
+
+    /// A lazily-built schema for recursive shapes (`suspend` shape): the
+    /// factory runs once per decode/encode call.
+    pub fn suspend<U: Clone + Send + Sync + 'static>(
+        factory: impl Fn() -> Schema<U> + Send + Sync + 'static,
+    ) -> Schema<U> {
+        let factory = Arc::new(factory);
+        let decode_factory = factory.clone();
+        let encode_factory = factory.clone();
+        Schema::new(
+            move |unknown| decode_factory().decode(unknown),
+            move |value| encode_factory().encode(value),
+            SchemaKind::Opaque("suspend"),
+        )
+    }
+
     /// Check a decoded value with a predicate (`refinement` shape): a
     /// failing predicate is a typed mismatch naming the check.
     pub fn refine(
@@ -559,6 +593,28 @@ impl Schema<BTreeMap<String, Unknown>> {
                     }
                     Ok(out)
                 }
+                other => mismatch("$", "object", &other),
+            },
+            |fields| Unknown::Object(fields.clone()),
+            SchemaKind::Object,
+        )
+    }
+
+    /// A record shape (`Record` shape): every value decodes with the
+    /// value schema; keys pass through. Empty objects decode fine.
+    pub fn record(value: Schema<Unknown>) -> Self {
+        let value = Arc::new(value);
+        Self::new(
+            move |unknown| match unknown {
+                Unknown::Object(fields) => fields
+                    .into_iter()
+                    .map(|(key, item)| {
+                        value
+                            .decode(item)
+                            .map(|decoded| (key.clone(), decoded))
+                            .map_err(|error| error.at(&format!("$.{key}")))
+                    })
+                    .collect::<Result<BTreeMap<_, _>, _>>(),
                 other => mismatch("$", "object", &other),
             },
             |fields| Unknown::Object(fields.clone()),

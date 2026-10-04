@@ -1,7 +1,7 @@
 //! Wave corpus: literal / union / boundary / optional-field shapes.
 //! Ports packages/effect/test/schema/Schema.test.ts rows by exact behavior.
 
-use elm_effect_schema::{Schema, Unknown};
+use elm_effect_schema::{Field, Schema, Unknown};
 
 #[test]
 fn literal_exposes_its_value() {
@@ -20,7 +20,7 @@ fn literal_rejects_other_values() {
 }
 
 #[test]
-fn union_tries_first_then_second() {
+fn union_second_member_decodes() {
     let schema = Schema::union(
         Schema::literal(Unknown::Text("a".to_string())),
         Schema::literal(Unknown::Text("b".to_string())),
@@ -524,7 +524,6 @@ fn optional_field_missing_is_none() {
 // Corpus A batch: records, unions, defaults, refinements, suspend
 // ---------------------------------------------------------------------------
 
-use elm_effect_schema::{Field, Schema, SchemaError, Unknown};
 
 fn obj(pairs: &[(&str, Unknown)]) -> Unknown {
     Unknown::Object(
@@ -537,16 +536,19 @@ fn obj(pairs: &[(&str, Unknown)]) -> Unknown {
 
 #[test]
 fn record_decodes_values_by_key() {
-    let schema = Schema::record(Schema::number());
+    let schema = Schema::record(Schema::as_unknown(Schema::number()));
     let input = obj(&[("a", Unknown::Number(1.0)), ("b", Unknown::Number(2.0))]);
-    assert_eq!(schema.decode(input.clone()).unwrap(), input);
+    let mut expected = std::collections::BTreeMap::new();
+    expected.insert("a".to_string(), Unknown::Number(1.0));
+    expected.insert("b".to_string(), Unknown::Number(2.0));
+    assert_eq!(schema.decode(input.clone()).unwrap(), expected);
     assert!(schema.decode(Unknown::Number(1.0)).is_err());
-    assert_eq!(schema.decode(obj(&[])).unwrap(), obj(&[]));
+    assert_eq!(schema.decode(obj(&[])).unwrap(), std::collections::BTreeMap::new());
 }
 
 #[test]
 fn record_reports_keyed_paths() {
-    let schema = Schema::record(Schema::number());
+    let schema = Schema::record(Schema::as_unknown(Schema::number()));
     let err = schema
         .decode(obj(&[("a", Unknown::Text("x".into()))]))
         .unwrap_err();
@@ -554,8 +556,8 @@ fn record_reports_keyed_paths() {
 }
 
 #[test]
-fn union_tries_first_then_second() {
-    let schema = Schema::union(Schema::number(), Schema::string());
+fn union_ordering_prefers_first() {
+    let schema = Schema::union(Schema::as_unknown(Schema::number()), Schema::as_unknown(Schema::string()));
     assert_eq!(
         schema.decode(Unknown::Number(1.0)).unwrap(),
         Unknown::Number(1.0)
@@ -582,7 +584,7 @@ fn one_of_string_members() {
 
 #[test]
 fn decoding_default_fills_null() {
-    let schema = Schema::number().with_decoding_default(|| 42.0);
+    let schema = Schema::<f64>::with_decoding_default(Schema::number(), || 42.0);
     assert_eq!(schema.decode(Unknown::Null).unwrap(), 42.0);
     assert_eq!(schema.decode(Unknown::Number(1.0)).unwrap(), 1.0);
     assert!(schema.decode(Unknown::Text("x".into())).is_err());
@@ -590,11 +592,11 @@ fn decoding_default_fills_null() {
 
 #[test]
 fn nested_decoding_defaults() {
-    let inner = Schema::number().with_decoding_default(|| 7.0);
-    let outer = Schema::optional_field("n", Schema::number());
-    let _ = (inner, outer);
-    let schema = Schema::struct_shape(vec![Field::optional("n", Schema::number())]);
-    assert_eq!(schema.decode(obj(&[])).unwrap(), obj(&[]));
+    let inner = Schema::as_unknown(Schema::<f64>::with_decoding_default(Schema::number(), || 7.0));
+    let schema = Schema::struct_shape(vec![Field::required("n", inner)]);
+    let mut expected = std::collections::BTreeMap::new();
+    expected.insert("n".to_string(), Unknown::Number(7.0));
+    assert_eq!(schema.decode(obj(&[("n", Unknown::Null)])).unwrap(), expected);
 }
 
 #[test]
@@ -611,7 +613,8 @@ fn finite_from_string_refinement() {
 
 #[test]
 fn double_transformation_roundtrip() {
-    let doubled = Schema::convert(Schema::number(), |n: f64| Ok(n * 2.0), |n: f64| Ok(n / 2.0));
+    let doubled: Schema<f64> =
+        Schema::convert(Schema::number(), |n: f64| Ok(n * 2.0), |n: &f64| n / 2.0);
     assert_eq!(doubled.decode(Unknown::Number(2.0)).unwrap(), 4.0);
     assert_eq!(doubled.encode(&4.0), Unknown::Number(2.0));
 }
@@ -619,10 +622,11 @@ fn double_transformation_roundtrip() {
 #[test]
 fn suspend_builds_recursive_shapes() {
     fn list() -> Schema<Vec<i32>> {
-        Schema::suspend(|| {
-            Schema::array(Schema::number()).convert(
+        Schema::<Vec<i32>>::suspend(|| {
+            Schema::convert(
+                Schema::array(Schema::number()),
                 |v: Vec<f64>| Ok(v.into_iter().map(|n| n as i32).collect()),
-                |v: Vec<i32>| Ok(v.into_iter().map(|n| n as f64).collect()),
+                |v: &Vec<i32>| v.iter().map(|n| *n as f64).collect(),
             )
         })
     }
@@ -635,24 +639,20 @@ fn suspend_builds_recursive_shapes() {
 
 #[test]
 fn struct_excess_fields_pass_through() {
-    let schema = Schema::struct_shape(vec![Field::required("a", Schema::string())]);
-    let input = obj(&[
-        ("a", Unknown::Text("x".into())),
-        ("extra", Unknown::Number(1.0)),
-    ]);
+    let schema =
+        Schema::struct_shape(vec![Field::required("a", Schema::as_unknown(Schema::string()))]);
+    let input = obj(&[("a", Unknown::Text("x".into())), ("extra", Unknown::Number(1.0))]);
     let decoded = schema.decode(input).unwrap();
-    assert_eq!(
-        decoded,
-        obj(&[
-            ("a", Unknown::Text("x".into())),
-            ("extra", Unknown::Number(1.0))
-        ])
-    );
+    let mut expected = std::collections::BTreeMap::new();
+    expected.insert("a".to_string(), Unknown::Text("x".into()));
+    expected.insert("extra".to_string(), Unknown::Number(1.0));
+    assert_eq!(decoded, expected);
 }
 
 #[test]
 fn struct_missing_required_errors() {
-    let schema = Schema::struct_shape(vec![Field::required("a", Schema::string())]);
+    let schema =
+        Schema::struct_shape(vec![Field::required("a", Schema::as_unknown(Schema::string()))]);
     assert!(schema.decode(obj(&[])).is_err());
 }
 
