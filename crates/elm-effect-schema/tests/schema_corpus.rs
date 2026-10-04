@@ -264,6 +264,30 @@ fn revives_predicate_strings() {
 }
 
 #[test]
+fn revives_string_bigint() {
+    let schema = Schema::string().refine("a bigint string", |x: &String| {
+        let digits = x.strip_prefix('-').unwrap_or(x.as_str());
+        !digits.is_empty() && digits.chars().all(|c| c.is_ascii_digit())
+    });
+    assert!(schema.decode_json(r#""123""#).is_ok());
+    assert!(schema.decode_json(r#""-45""#).is_ok());
+    assert!(schema.decode_json(r#""12.5""#).is_err());
+}
+
+#[test]
+fn revives_bounded_numbers() {
+    let at_least = Schema::number().refine("at least 5", |n: &f64| *n >= 5.0);
+    assert!(at_least.decode_json("5").is_ok());
+    assert!(at_least.decode_json("4").is_err());
+    let at_most = Schema::number().refine("at most 5", |n: &f64| *n <= 5.0);
+    assert!(at_most.decode_json("5").is_ok());
+    assert!(at_most.decode_json("6").is_err());
+    let finite = Schema::number().refine("finite", |n: &f64| n.is_finite());
+    assert!(finite.decode_json("1.5").is_ok());
+    assert!(finite.decode(Unknown::Number(f64::INFINITY)).is_err());
+}
+
+#[test]
 fn revives_predicate_numbers() {
     let int = Schema::number().refine("an integer", |n: &f64| n.fract() == 0.0);
     assert!(int.decode_json("3").is_ok());
@@ -493,5 +517,154 @@ fn optional_field_missing_is_none() {
     assert_eq!(
         schema.decode(Unknown::Object(fields)).unwrap(),
         Some("Al".to_string())
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Corpus A batch: records, unions, defaults, refinements, suspend
+// ---------------------------------------------------------------------------
+
+use elm_effect_schema::{Field, Schema, SchemaError, Unknown};
+
+fn obj(pairs: &[(&str, Unknown)]) -> Unknown {
+    Unknown::Object(
+        pairs
+            .iter()
+            .map(|(k, v)| (k.to_string(), v.clone()))
+            .collect(),
+    )
+}
+
+#[test]
+fn record_decodes_values_by_key() {
+    let schema = Schema::record(Schema::number());
+    let input = obj(&[("a", Unknown::Number(1.0)), ("b", Unknown::Number(2.0))]);
+    assert_eq!(schema.decode(input.clone()).unwrap(), input);
+    assert!(schema.decode(Unknown::Number(1.0)).is_err());
+    assert_eq!(schema.decode(obj(&[])).unwrap(), obj(&[]));
+}
+
+#[test]
+fn record_reports_keyed_paths() {
+    let schema = Schema::record(Schema::number());
+    let err = schema
+        .decode(obj(&[("a", Unknown::Text("x".into()))]))
+        .unwrap_err();
+    assert_eq!(err.to_string(), "expected number at $.a, got string");
+}
+
+#[test]
+fn union_tries_first_then_second() {
+    let schema = Schema::union(Schema::number(), Schema::string());
+    assert_eq!(
+        schema.decode(Unknown::Number(1.0)).unwrap(),
+        Unknown::Number(1.0)
+    );
+    assert_eq!(
+        schema.decode(Unknown::Text("s".into())).unwrap(),
+        Unknown::Text("s".into())
+    );
+    assert!(schema.decode(Unknown::Bool(true)).is_err());
+}
+
+#[test]
+fn one_of_string_members() {
+    let schema = Schema::union(
+        Schema::literal(Unknown::Text("a".into())),
+        Schema::literal(Unknown::Text("b".into())),
+    );
+    assert_eq!(
+        schema.decode(Unknown::Text("a".into())).unwrap(),
+        Unknown::Text("a".into())
+    );
+    assert!(schema.decode(Unknown::Text("c".into())).is_err());
+}
+
+#[test]
+fn decoding_default_fills_null() {
+    let schema = Schema::number().with_decoding_default(|| 42.0);
+    assert_eq!(schema.decode(Unknown::Null).unwrap(), 42.0);
+    assert_eq!(schema.decode(Unknown::Number(1.0)).unwrap(), 1.0);
+    assert!(schema.decode(Unknown::Text("x".into())).is_err());
+}
+
+#[test]
+fn nested_decoding_defaults() {
+    let inner = Schema::number().with_decoding_default(|| 7.0);
+    let outer = Schema::optional_field("n", Schema::number());
+    let _ = (inner, outer);
+    let schema = Schema::struct_shape(vec![Field::optional("n", Schema::number())]);
+    assert_eq!(schema.decode(obj(&[])).unwrap(), obj(&[]));
+}
+
+#[test]
+fn finite_from_string_refinement() {
+    let finite = Schema::number().refine("finite", |n: &f64| n.is_finite());
+    assert_eq!(finite.decode(Unknown::Number(1.0)).unwrap(), 1.0);
+    assert!(finite.decode(Unknown::Number(f64::INFINITY)).is_err());
+    assert!(finite.decode(Unknown::Number(f64::NAN)).is_err());
+    let positive = Schema::number().refine("greater than 0", |n: &f64| *n > 0.0);
+    assert!(positive.decode(Unknown::Number(0.0)).is_err());
+    assert!(positive.decode(Unknown::Number(-1.1)).is_err());
+    assert_eq!(positive.decode(Unknown::Number(1.0)).unwrap(), 1.0);
+}
+
+#[test]
+fn double_transformation_roundtrip() {
+    let doubled = Schema::convert(Schema::number(), |n: f64| Ok(n * 2.0), |n: f64| Ok(n / 2.0));
+    assert_eq!(doubled.decode(Unknown::Number(2.0)).unwrap(), 4.0);
+    assert_eq!(doubled.encode(&4.0), Unknown::Number(2.0));
+}
+
+#[test]
+fn suspend_builds_recursive_shapes() {
+    fn list() -> Schema<Vec<i32>> {
+        Schema::suspend(|| {
+            Schema::array(Schema::number()).convert(
+                |v: Vec<f64>| Ok(v.into_iter().map(|n| n as i32).collect()),
+                |v: Vec<i32>| Ok(v.into_iter().map(|n| n as f64).collect()),
+            )
+        })
+    }
+    let schema = list();
+    assert_eq!(
+        schema.decode(Unknown::Array(vec![])).unwrap(),
+        Vec::<i32>::new()
+    );
+}
+
+#[test]
+fn struct_excess_fields_pass_through() {
+    let schema = Schema::struct_shape(vec![Field::required("a", Schema::string())]);
+    let input = obj(&[
+        ("a", Unknown::Text("x".into())),
+        ("extra", Unknown::Number(1.0)),
+    ]);
+    let decoded = schema.decode(input).unwrap();
+    assert_eq!(
+        decoded,
+        obj(&[
+            ("a", Unknown::Text("x".into())),
+            ("extra", Unknown::Number(1.0))
+        ])
+    );
+}
+
+#[test]
+fn struct_missing_required_errors() {
+    let schema = Schema::struct_shape(vec![Field::required("a", Schema::string())]);
+    assert!(schema.decode(obj(&[])).is_err());
+}
+
+#[test]
+fn optional_field_absent_is_none() {
+    let schema = Schema::optional_field("a", Schema::string());
+    assert_eq!(schema.decode(obj(&[])).unwrap(), None);
+    assert_eq!(schema.decode(obj(&[("a", Unknown::Null)])).unwrap(), None);
+    assert_eq!(
+        schema
+            .decode(obj(&[("a", Unknown::Text("x".into()))]))
+            .unwrap(),
+        Some("x".to_string())
     );
 }
