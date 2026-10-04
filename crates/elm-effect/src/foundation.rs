@@ -1061,3 +1061,24 @@ where
         )
     }
 }
+
+impl<T: Equal, E: Equal> Equal for Result<T, E> {
+    /// `Ok` compares values, `Err` compares errors; mixed sides differ.
+    /// Cross-bead residual: lets `Result` participate in structural equality.
+    fn equal(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Ok(a), Ok(b)) => a.equal(b),
+            (Err(a), Err(b)) => a.equal(b),
+            _ => false,
+        }
+    }
+}
+
+impl<T: Hash, E: Hash> Hash for Result<T, E> {
+    fn hash_value(&self) -> u32 {
+        match self {
+            Ok(value) => combine_hash(hash_str("Ok"), value.hash_value()),
+            Err(error) => combine_hash(hash_str("Err"), error.hash_value()),
+        }
+    }
+}

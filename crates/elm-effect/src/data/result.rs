@@ -182,3 +182,14 @@ pub fn equal_with<T: Equal, E: Equal>(a: &Result<T, E>, b: &Result<T, E>) -> boo
         _ => false,
     }
 }
+
+/// The success value, if any (`getOrNull`/`getOrUndefined`: Rust models
+/// both as `Option`, there is no null/undefined split).
+pub fn get_or_null<T, E>(value: Result<T, E>) -> Option<T> {
+    value.ok()
+}
+
+/// Alias of [`get_or_null`]: null and undefined collapse in Rust.
+pub fn get_or_undefined<T, E>(value: Result<T, E>) -> Option<T> {
+    value.ok()
+}

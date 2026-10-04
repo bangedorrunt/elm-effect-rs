@@ -532,7 +532,7 @@ tests = []
 [[module]]
 path = "packages/effect/src/Number.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/Number.test.ts"]
@@ -548,7 +548,7 @@ tests = ["packages/effect/test/Optic.test.ts"]
 [[module]]
 path = "packages/effect/src/Option.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/Option.test.ts"]
@@ -756,7 +756,7 @@ tests = ["packages/effect/test/Resource.test.ts"]
 [[module]]
 path = "packages/effect/src/Result.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/Result.test.ts"]
@@ -908,7 +908,7 @@ tests = ["packages/effect/test/Stream.test.ts"]
 [[module]]
 path = "packages/effect/src/String.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/String.test.ts"]
@@ -1084,7 +1084,7 @@ tests = []
 [[module]]
 path = "packages/effect/src/UndefinedOr.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/UndefinedOr.test.ts"]

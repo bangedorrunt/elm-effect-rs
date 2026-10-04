@@ -2647,23 +2647,23 @@ unported	packages/effect/test/Newtype.test.ts	81	it	uses the lifted initial valu
 unported	packages/effect/test/Newtype.test.ts	86	it	combines two newtype values using the carrier reducer	
 unported	packages/effect/test/Number.test.ts	24	it	re-exports the global Number constructor	
 unported	packages/effect/test/Number.test.ts	28	it	coerces values with Number semantics	
-unported	packages/effect/test/Number.test.ts	37	it	returns true for numbers, including NaN and infinities	
+ported	packages/effect/test/Number.test.ts	37	it	returns true for numbers, including NaN and infinities	number_parse
 unported	packages/effect/test/Number.test.ts	44	it	returns false for non-number values	
 unported	packages/effect/test/Number.test.ts	53	it	adds numbers in data-first and data-last forms	
-unported	packages/effect/test/Number.test.ts	58	it	preserves zero and supports negative operands	
+ported	packages/effect/test/Number.test.ts	58	it	preserves zero and supports negative operands	number_arithmetic
 unported	packages/effect/test/Number.test.ts	65	it	multiplies numbers in data-first and data-last forms	
-unported	packages/effect/test/Number.test.ts	70	it	handles zero and negative operands	
+ported	packages/effect/test/Number.test.ts	70	it	handles zero and negative operands	number_arithmetic
 unported	packages/effect/test/Number.test.ts	77	it	subtracts numbers in data-first and data-last forms	
 unported	packages/effect/test/Number.test.ts	82	it	supports negative results	
 unported	packages/effect/test/Number.test.ts	89	it	divides numbers in data-first and data-last forms	
 unported	packages/effect/test/Number.test.ts	95	it	returns none for zero and negative-zero divisors	
-unported	packages/effect/test/Number.test.ts	102	it	adds one to the input	
-unported	packages/effect/test/Number.test.ts	109	it	subtracts one from the input	
-unported	packages/effect/test/Number.test.ts	116	it	compares less than, equal, and greater than values	
-unported	packages/effect/test/Number.test.ts	122	it	treats NaN as less than any non-NaN and equal to NaN	
-unported	packages/effect/test/Number.test.ts	128	it	treats 0 and -0 as equal	
+ported	packages/effect/test/Number.test.ts	102	it	adds one to the input	number_arithmetic
+ported	packages/effect/test/Number.test.ts	109	it	subtracts one from the input	number_arithmetic
+ported	packages/effect/test/Number.test.ts	116	it	compares less than, equal, and greater than values	number_order_nan_rows
+ported	packages/effect/test/Number.test.ts	122	it	treats NaN as less than any non-NaN and equal to NaN	number_order_nan_rows
+ported	packages/effect/test/Number.test.ts	128	it	treats 0 and -0 as equal	number_order_nan_rows
 unported	packages/effect/test/Number.test.ts	135	it	returns true for equal numbers and false for different numbers	
-unported	packages/effect/test/Number.test.ts	140	it	treats NaN as equivalent to NaN and 0 as equivalent to -0	
+ported	packages/effect/test/Number.test.ts	140	it	treats NaN as equivalent to NaN and 0 as equivalent to -0	number_order_nan_rows
 unported	packages/effect/test/Number.test.ts	147	it	returns true only when the first operand is strictly smaller	
 unported	packages/effect/test/Number.test.ts	153	it	supports the data-last form	
 unported	packages/effect/test/Number.test.ts	159	it	returns true for smaller or equal values	
@@ -2672,25 +2672,25 @@ unported	packages/effect/test/Number.test.ts	171	it	returns true only when the f
 unported	packages/effect/test/Number.test.ts	177	it	supports the data-last form	
 unported	packages/effect/test/Number.test.ts	183	it	returns true for greater or equal values	
 unported	packages/effect/test/Number.test.ts	189	it	supports the data-last form	
-unported	packages/effect/test/Number.test.ts	195	it	includes both bounds and excludes values outside the range	
+ported	packages/effect/test/Number.test.ts	195	it	includes both bounds and excludes values outside the range	number_range
 unported	packages/effect/test/Number.test.ts	205	it	supports the data-last form	
-unported	packages/effect/test/Number.test.ts	211	it	returns the input when it is within bounds and clamps out-of-range values	
+ported	packages/effect/test/Number.test.ts	211	it	returns the input when it is within bounds and clamps out-of-range values	number_range
 unported	packages/effect/test/Number.test.ts	219	it	supports the data-last form	
-unported	packages/effect/test/Number.test.ts	223	it	clamps NaN to the minimum according to Number.Order	
+ported	packages/effect/test/Number.test.ts	223	it	clamps NaN to the minimum according to Number.Order	number_order_nan_rows
 unported	packages/effect/test/Number.test.ts	229	it	returns the smaller value in data-first and data-last forms	
 unported	packages/effect/test/Number.test.ts	235	it	returns the first argument when both values compare as equal	
 unported	packages/effect/test/Number.test.ts	242	it	returns the larger value in data-first and data-last forms	
 unported	packages/effect/test/Number.test.ts	248	it	returns the first argument when both values compare as equal	
-unported	packages/effect/test/Number.test.ts	255	it	returns -1, 0, or 1 for negative, zero, and positive numbers	
-unported	packages/effect/test/Number.test.ts	262	it	treats NaN as less than zero because it delegates to Number.Order	
-unported	packages/effect/test/Number.test.ts	268	it	sums arrays and arbitrary iterables	
-unported	packages/effect/test/Number.test.ts	273	it	returns zero for an empty iterable	
+ported	packages/effect/test/Number.test.ts	255	it	returns -1, 0, or 1 for negative, zero, and positive numbers	number_range
+ported	packages/effect/test/Number.test.ts	262	it	treats NaN as less than zero because it delegates to Number.Order	number_order_nan_rows
+ported	packages/effect/test/Number.test.ts	268	it	sums arrays and arbitrary iterables	number_aggregate
+ported	packages/effect/test/Number.test.ts	273	it	returns zero for an empty iterable	number_aggregate
 unported	packages/effect/test/Number.test.ts	279	it	multiplies arrays and returns one for an empty iterable	
 unported	packages/effect/test/Number.test.ts	284	it	stops iterating once it encounters zero	
 unported	packages/effect/test/Number.test.ts	290	it	computes integer and decimal remainders in data-first and data-last forms	
 unported	packages/effect/test/Number.test.ts	296	it	preserves the dividend sign, including negative zero	
 unported	packages/effect/test/Number.test.ts	302	it	preserves the dividend sign with negative divisors	
-unported	packages/effect/test/Number.test.ts	308	it	returns NaN when the divisor is zero	
+ported	packages/effect/test/Number.test.ts	308	it	returns NaN when the divisor is zero	scalars_residuals
 unported	packages/effect/test/Number.test.ts	313	it	returns NaN for non-finite operands	
 unported	packages/effect/test/Number.test.ts	321	it	handles small floats / scientific notation	
 unported	packages/effect/test/Number.test.ts	335	it	preserves signs in scientific notation	
@@ -2704,10 +2704,10 @@ unported	packages/effect/test/Number.test.ts	393	it	preserves exact integer divi
 unported	packages/effect/test/Number.test.ts	404	it	preserves exact integers formatted in scientific notation	
 unported	packages/effect/test/Number.test.ts	413	it	rounds non-powers of two up to the next power of two	
 unported	packages/effect/test/Number.test.ts	418	it	returns the same value for powers of two and a minimum of two otherwise	
-unported	packages/effect/test/Number.test.ts	425	it	returns NaN for negative inputs	
-unported	packages/effect/test/Number.test.ts	431	it	parses valid numeric strings using Number semantics	
-unported	packages/effect/test/Number.test.ts	437	it	supports NaN and infinities as explicit string literals	
-unported	packages/effect/test/Number.test.ts	443	it	returns none for empty or invalid strings	
+ported	packages/effect/test/Number.test.ts	425	it	returns NaN for negative inputs	scalars_residuals
+ported	packages/effect/test/Number.test.ts	431	it	parses valid numeric strings using Number semantics	number_parse
+ported	packages/effect/test/Number.test.ts	437	it	supports NaN and infinities as explicit string literals	number_parse
+ported	packages/effect/test/Number.test.ts	443	it	returns none for empty or invalid strings	number_parse
 unported	packages/effect/test/Number.test.ts	451	it	rounds with positive precision in data-first and data-last forms	
 unported	packages/effect/test/Number.test.ts	457	it	supports zero and negative precision	
 unported	packages/effect/test/Number.test.ts	462	it	follows Math.round semantics for negative halves	
@@ -2770,42 +2770,42 @@ ported	packages/effect/test/Optic.test.ts	678	it	some	option_some_prism
 ported	packages/effect/test/Optic.test.ts	685	it	none	option_none_prism
 ported	packages/effect/test/Optic.test.ts	694	it	success	result_success_prism
 ported	packages/effect/test/Optic.test.ts	701	it	failure	result_failure_prism
-unported	packages/effect/test/Option.test.ts	16	it	makeReducer	
-unported	packages/effect/test/Option.test.ts	25	it	makeReducerFailFast	
-unported	packages/effect/test/Option.test.ts	39	it	gen	
+ported	packages/effect/test/Option.test.ts	16	it	makeReducer	option_equal_order_reducer
+ported	packages/effect/test/Option.test.ts	25	it	makeReducerFailFast	option_equal_order_reducer
+ported	packages/effect/test/Option.test.ts	39	it	gen	option_do_gen_bind_shapes
 ported	packages/effect/test/Option.test.ts	77	it	toString	option_unwrap
 ported	packages/effect/test/Option.test.ts	92	it	toJSON	option_unwrap
 ported	packages/effect/test/Option.test.ts	97	it	inspect	option_match_tap
-unported	packages/effect/test/Option.test.ts	107	it	verify structural equality	
+ported	packages/effect/test/Option.test.ts	107	it	verify structural equality	option_equal_order_reducer
 unported	packages/effect/test/Option.test.ts	113	it	verify hash equality	
 ported	packages/effect/test/Option.test.ts	119	it	getSuccess	option_match_tap
 ported	packages/effect/test/Option.test.ts	124	it	getFailure	option_match_tap
 ported	packages/effect/test/Option.test.ts	129	it	toRefinement	option_filter_family
 ported	packages/effect/test/Option.test.ts	147	it	isOption	option_constructors
 ported	packages/effect/test/Option.test.ts	153	it	firstSomeOf	option_zip_product_all
-unported	packages/effect/test/Option.test.ts	166	it	orElseResult	
+ported	packages/effect/test/Option.test.ts	166	it	orElseResult	option_or_else_family
 ported	packages/effect/test/Option.test.ts	173	it	orElseSome	option_or_else_family
 ported	packages/effect/test/Option.test.ts	178	it	getOrThrow	option_unwrap
 ported	packages/effect/test/Option.test.ts	183	it	getOrThrowWith	option_unwrap
 ported	packages/effect/test/Option.test.ts	191	it	unit	option_constructors
 ported	packages/effect/test/Option.test.ts	195	it	product	option_zip_product_all
-unported	packages/effect/test/Option.test.ts	203	it	productMany	
+ported	packages/effect/test/Option.test.ts	203	it	productMany	option_lift_partition_product
 ported	packages/effect/test/Option.test.ts	211	it	fromIterable	option_zip_product_all
 ported	packages/effect/test/Option.test.ts	216	it	map	option_map_flatmap_flatten
 ported	packages/effect/test/Option.test.ts	221	it	flatMap	option_map_flatmap_flatten
 ported	packages/effect/test/Option.test.ts	230	it	andThen	option_map_flatmap_flatten
 ported	packages/effect/test/Option.test.ts	243	it	orElse	option_or_else_family
-unported	packages/effect/test/Option.test.ts	257	it	partitionMap	
+ported	packages/effect/test/Option.test.ts	257	it	partitionMap	option_lift_partition_product
 ported	packages/effect/test/Option.test.ts	264	it	filterMap	option_filter_family
 ported	packages/effect/test/Option.test.ts	271	it	match	option_match_tap
 ported	packages/effect/test/Option.test.ts	279	it	getOrElse	option_unwrap
-unported	packages/effect/test/Option.test.ts	284	it	getOrNull	
-unported	packages/effect/test/Option.test.ts	289	it	getOrUndefined	
-unported	packages/effect/test/Option.test.ts	294	it	makeOrder	
+ported	packages/effect/test/Option.test.ts	284	it	getOrNull	scalars_residuals
+ported	packages/effect/test/Option.test.ts	289	it	getOrUndefined	scalars_residuals
+ported	packages/effect/test/Option.test.ts	294	it	makeOrder	option_equal_order_reducer
 ported	packages/effect/test/Option.test.ts	304	it	flatMapNullishOr	option_match_tap
 ported	packages/effect/test/Option.test.ts	344	it	fromNullishOr	option_match_tap
 ported	packages/effect/test/Option.test.ts	350	it	liftPredicate	option_filter_family
-unported	packages/effect/test/Option.test.ts	364	it	containsWith	
+ported	packages/effect/test/Option.test.ts	364	it	containsWith	option_equal_order_reducer
 ported	packages/effect/test/Option.test.ts	374	it	contains	option_filter_family
 ported	packages/effect/test/Option.test.ts	380	it	isNone	option_constructors
 ported	packages/effect/test/Option.test.ts	385	it	isSome	option_constructors
@@ -3229,10 +3229,10 @@ ported	packages/effect/test/Result.test.ts	54	it	fromNullishOr	result_chain
 ported	packages/effect/test/Result.test.ts	63	it	fromOption	result_chain
 ported	packages/effect/test/Result.test.ts	71	it	succeedNone	result_constructors
 ported	packages/effect/test/Result.test.ts	75	it	succeedSome	result_constructors
-unported	packages/effect/test/Result.test.ts	81	it	toString	
+ported	packages/effect/test/Result.test.ts	81	it	toString	result_do_bind_transpose
 ported	packages/effect/test/Result.test.ts	108	it	toJSON	result_unwrap
 ported	packages/effect/test/Result.test.ts	113	it	inspect	result_unwrap
-unported	packages/effect/test/Result.test.ts	118	it	Equal trait compares matching tags and values	
+ported	packages/effect/test/Result.test.ts	118	it	Equal trait compares matching tags and values	scalars_residuals
 unported	packages/effect/test/Result.test.ts	125	it	pipe composes Result operations	
 ported	packages/effect/test/Result.test.ts	131	it	isResult	result_constructors
 ported	packages/effect/test/Result.test.ts	137	it	isFailure	result_constructors
@@ -3240,8 +3240,8 @@ ported	packages/effect/test/Result.test.ts	142	it	isSuccess	result_constructors
 ported	packages/effect/test/Result.test.ts	149	it	getSuccess	option_match_tap
 ported	packages/effect/test/Result.test.ts	154	it	getFailure	option_match_tap
 ported	packages/effect/test/Result.test.ts	159	it	getOrElse	result_unwrap
-unported	packages/effect/test/Result.test.ts	167	it	getOrNull	
-unported	packages/effect/test/Result.test.ts	172	it	getOrUndefined	
+ported	packages/effect/test/Result.test.ts	167	it	getOrNull	scalars_residuals
+ported	packages/effect/test/Result.test.ts	172	it	getOrUndefined	scalars_residuals
 ported	packages/effect/test/Result.test.ts	177	it	getOrThrowWith	result_unwrap
 ported	packages/effect/test/Result.test.ts	185	it	getOrThrow	result_unwrap
 ported	packages/effect/test/Result.test.ts	190	it	merge	result_map_family
@@ -3256,11 +3256,11 @@ ported	packages/effect/test/Result.test.ts	335	it	filterOrFail	result_chain
 unported	packages/effect/test/Result.test.ts	347	it	makeEquivalence compares successes and failures by channel	
 ported	packages/effect/test/Result.test.ts	362	it	flatMap	result_chain
 ported	packages/effect/test/Result.test.ts	371	it	andThen replaces successes with Result or plain values	result_chain
-unported	packages/effect/test/Result.test.ts	384	it	all	
+ported	packages/effect/test/Result.test.ts	384	it	all	result_do_bind_transpose
 ported	packages/effect/test/Result.test.ts	413	it	orElse recovers failures and preserves successes	result_chain
-unported	packages/effect/test/Result.test.ts	426	it	Do	
-unported	packages/effect/test/Result.test.ts	430	it	bindTo	
-unported	packages/effect/test/Result.test.ts	437	it	bind	
+ported	packages/effect/test/Result.test.ts	426	it	Do	result_do_bind_transpose
+ported	packages/effect/test/Result.test.ts	430	it	bindTo	result_do_bind_transpose
+ported	packages/effect/test/Result.test.ts	437	it	bind	result_do_bind_transpose
 unported	packages/effect/test/Result.test.ts	453	it	let	
 unported	packages/effect/test/Result.test.ts	464	it	gen	
 ported	packages/effect/test/Result.test.ts	504	it	transposeOption	result_chain
@@ -3849,22 +3849,22 @@ unported	packages/effect/test/Stream.test.ts	5624	it.effect	propagates failures 
 unported	packages/effect/test/Stream.test.ts	5640	it.effect	subscribes and emits events	
 unported	packages/effect/test/Stream.test.ts	5667	it.effect	ends after the first event with once: true	
 unported	packages/effect/test/String.test.ts	9	it	converts values to strings	
-unported	packages/effect/test/String.test.ts	17	it	returns true for strings	
+ported	packages/effect/test/String.test.ts	17	it	returns true for strings	string_basics
 unported	packages/effect/test/String.test.ts	22	it	returns false for non-strings	
-unported	packages/effect/test/String.test.ts	32	it	compares strings lexicographically	
+ported	packages/effect/test/String.test.ts	32	it	compares strings lexicographically	function_and_ordering_basics
 unported	packages/effect/test/String.test.ts	38	it	compares empty strings	
-unported	packages/effect/test/String.test.ts	46	it	returns true for equal strings	
-unported	packages/effect/test/String.test.ts	50	it	returns false for different strings	
-unported	packages/effect/test/String.test.ts	56	it	is the empty string	
+ported	packages/effect/test/String.test.ts	46	it	returns true for equal strings	equal_primitives_are_structural
+ported	packages/effect/test/String.test.ts	50	it	returns false for different strings	equal_primitives_are_structural
+ported	packages/effect/test/String.test.ts	56	it	is the empty string	string_basics
 unported	packages/effect/test/String.test.ts	62	it	data-first	
 unported	packages/effect/test/String.test.ts	66	it	data-last (pipeable)	
-unported	packages/effect/test/String.test.ts	70	it	concatenates empty strings	
-unported	packages/effect/test/String.test.ts	78	it	converts to uppercase	
+ported	packages/effect/test/String.test.ts	70	it	concatenates empty strings	string_basics
+ported	packages/effect/test/String.test.ts	78	it	converts to uppercase	string_basics
 unported	packages/effect/test/String.test.ts	82	it	handles empty string	
 unported	packages/effect/test/String.test.ts	86	it	pipeable	
-unported	packages/effect/test/String.test.ts	92	it	converts to lowercase	
+ported	packages/effect/test/String.test.ts	92	it	converts to lowercase	string_basics
 unported	packages/effect/test/String.test.ts	96	it	handles empty string	
-unported	packages/effect/test/String.test.ts	102	it	capitalizes first character	
+ported	packages/effect/test/String.test.ts	102	it	capitalizes first character	string_shapes
 unported	packages/effect/test/String.test.ts	106	it	handles single character	
 unported	packages/effect/test/String.test.ts	110	it	handles empty string	
 unported	packages/effect/test/String.test.ts	114	it	does not change already capitalized	
@@ -3875,7 +3875,7 @@ unported	packages/effect/test/String.test.ts	132	it	preserves rest of string
 unported	packages/effect/test/String.test.ts	138	it	replaces first occurrence	
 unported	packages/effect/test/String.test.ts	142	it	replaces with regex	
 unported	packages/effect/test/String.test.ts	146	it	returns unchanged if no match	
-unported	packages/effect/test/String.test.ts	152	it	trims whitespace from both ends	
+ported	packages/effect/test/String.test.ts	152	it	trims whitespace from both ends	string_basics
 unported	packages/effect/test/String.test.ts	156	it	trims tabs and newlines	
 unported	packages/effect/test/String.test.ts	160	it	handles empty string	
 unported	packages/effect/test/String.test.ts	166	it	trims leading whitespace	
@@ -4474,12 +4474,12 @@ unported	packages/effect/test/TxSubscriptionRef.test.ts	169	it.effect	update dat
 unported	packages/effect/test/TxSubscriptionRef.test.ts	176	it.effect	modify data-last style	
 unported	packages/effect/test/TxSubscriptionRef.test.ts	188	it.effect	isTxSubscriptionRef identifies instances	
 ported	packages/effect/test/UndefinedOr.test.ts	6	it	map	undefined_or_behaves_as_option
-unported	packages/effect/test/UndefinedOr.test.ts	14	it	match	
+ported	packages/effect/test/UndefinedOr.test.ts	14	it	match	undefined_or_match_reducer
 ported	packages/effect/test/UndefinedOr.test.ts	19	it	getOrThrowWith	undefined_or_behaves_as_option
 ported	packages/effect/test/UndefinedOr.test.ts	24	it	getOrThrow returns defined values and throws the default missing error	undefined_or_behaves_as_option
 ported	packages/effect/test/UndefinedOr.test.ts	29	it	liftThrowable	undefined_or_behaves_as_option
-unported	packages/effect/test/UndefinedOr.test.ts	40	it	makeReducer	
-unported	packages/effect/test/UndefinedOr.test.ts	49	it	makeReducerFailFast	
+ported	packages/effect/test/UndefinedOr.test.ts	40	it	makeReducer	undefined_or_match_reducer
+ported	packages/effect/test/UndefinedOr.test.ts	49	it	makeReducerFailFast	undefined_or_match_reducer
 unported	packages/effect/test/ai/AiError.test.ts	8	it	should be retryable	
 unported	packages/effect/test/ai/AiError.test.ts	13	it	should format message with retryAfter	
 unported	packages/effect/test/ai/AiError.test.ts	20	it	should have _tag set correctly	

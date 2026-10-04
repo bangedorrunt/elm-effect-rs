@@ -289,3 +289,14 @@ pub fn make_reducer_fail_fast<A: Clone + 'static>(reducer: Reducer<A>) -> Reduce
         }),
     }
 }
+
+/// The value itself (`getOrNull`/`getOrUndefined` collapse: Rust has no
+/// null/undefined split, so both directions are the identity).
+pub fn get_or_null<T>(value: Option<T>) -> Option<T> {
+    value
+}
+
+/// Alias of [`get_or_null`]: null and undefined collapse in Rust.
+pub fn get_or_undefined<T>(value: Option<T>) -> Option<T> {
+    value
+}

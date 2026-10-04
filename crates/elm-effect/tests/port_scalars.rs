@@ -54,10 +54,14 @@ fn option_map_flatmap_flatten() {
 
 #[test]
 fn option_unwrap() {
-    let one = Some(1);
-    let none: Option<i32> = None;
-    assert_eq!(one.unwrap_or(2), 1);
-    assert_eq!(none.unwrap_or(2), 2);
+    fn one() -> Option<i32> {
+        Some(1)
+    }
+    fn none() -> Option<i32> {
+        None
+    }
+    assert_eq!(one().unwrap_or(2), 1);
+    assert_eq!(none().unwrap_or(2), 2);
     assert_eq!(option::get_or_throw(Some(7)), 7);
     assert_eq!(option::get_or_throw_with(None::<i32>, || "e"), Err("e"));
     assert_eq!(option::to_json(&Some(1)), "1");
@@ -209,10 +213,14 @@ fn result_chain() {
 
 #[test]
 fn result_unwrap() {
-    let ok: Result<i32, &str> = Ok(1);
-    let err: Result<i32, &str> = Err("e");
-    assert_eq!(ok.unwrap_or(0), 1);
-    assert_eq!(err.unwrap_or(0), 0);
+    fn ok() -> Result<i32, &'static str> {
+        Ok(1)
+    }
+    fn err() -> Result<i32, &'static str> {
+        Err("e")
+    }
+    assert_eq!(ok().unwrap_or(0), 1);
+    assert_eq!(err().unwrap_or(0), 0);
     assert_eq!(result::get_or_throw(Ok::<i32, String>(5)), 5);
     assert_eq!(
         result::get_or_throw_with(Err::<(), &str>("e"), |e| e.len()),
@@ -326,6 +334,8 @@ fn number_parse() {
     assert_eq!(number::parse("junk"), None);
     assert_eq!(number::parse(""), None);
     assert!(number::parse("NaN").unwrap().is_nan());
+    assert_eq!(number::parse_strict("  3.5  "), Ok(3.5));
+    assert!(number::parse_strict("junk").is_err());
     assert!(number::is_number(1.0));
     assert!(number::is_number(f64::NAN));
 }
@@ -333,6 +343,8 @@ fn number_parse() {
 #[test]
 fn number_arithmetic() {
     assert_eq!(number::add(2.0, 3.0), 5.0);
+    assert_eq!(number::add(0.0, 0.0), 0.0);
+    assert_eq!(number::sub(0.0, 5.0), -5.0);
     assert_eq!(number::sub(5.0, 3.0), 2.0);
     assert_eq!(number::mul(2.0, 3.0), 6.0);
     assert_eq!(number::div(7.0, 2.0), 3.5);
@@ -387,17 +399,16 @@ fn string_basics() {
     // Astral chars count once (documented UTF-16 divergence).
     assert_eq!(string::length("a💯b"), 3);
     assert_eq!(string::lines("a\nb\nc"), vec!["a", "b", "c"]);
-    assert_eq!("  x  ".trim(), "x");
-    assert_eq!("  x  ".trim_start(), "x  ");
-    assert_eq!("  x  ".trim_end(), "  x");
-    assert!("hello".starts_with("he"));
-    assert!("hello".ends_with("lo"));
-    assert!("hello".contains("ll"));
-    assert_eq!("a,b".split(',').collect::<Vec<_>>(), vec!["a", "b"]);
-    assert_eq!("aaa".replace("a", "b"), "bbb");
-    assert_eq!("hello".to_uppercase(), "HELLO");
-    assert_eq!("HELLO".to_lowercase(), "hello");
-    assert_eq!(["a", "b"].concat(), "ab");
+    assert_eq!(string::trim("  x  "), "x");
+    assert!(string::starts_with("hello", "he"));
+    assert!(string::ends_with("hello", "lo"));
+    assert!(string::contains("hello", "ll"));
+    assert_eq!(string::split("a,b", ","), vec!["a", "b"]);
+    assert_eq!(string::replace_all("aaa", "a", "b"), "bbb");
+    assert_eq!(string::to_uppercase("hello"), "HELLO");
+    assert_eq!(string::to_lowercase("HELLO"), "hello");
+    assert_eq!(string::concat("a", "b"), "ab");
+    assert_eq!(string::concat("", ""), "");
 }
 
 #[test]
@@ -611,6 +622,7 @@ fn undefined_or_match_reducer() {
 fn number_order_nan_rows() {
     use std::cmp::Ordering::*;
     assert_eq!(number::compare(f64::NAN, 1.0), Less);
+    assert_eq!(number::compare(f64::NAN, 0.0), Less);
     assert_eq!(number::compare(1.0, f64::NAN), Greater);
     assert_eq!(number::compare(f64::NAN, f64::NAN), Equal);
     assert_eq!(number::compare(1.0, 2.0), Less);
@@ -642,4 +654,25 @@ fn string_portable_remainder() {
     assert_eq!(string::trim("  a  "), "a");
     assert_eq!(string::head("ab"), Some('a'));
     assert_eq!(string::last("ab"), Some('b'));
+}
+
+#[test]
+fn scalars_residuals() {
+    use elm_effect::Equal as _;
+    // Result structural equality (cross-bead residual).
+    assert!(Ok::<u32, String>(1).equal(&Ok(1)));
+    assert!(!Ok::<u32, String>(1).equal(&Err("x".to_string())));
+    assert!(Err::<u32, String>("x".to_string()).equal(&Err("x".to_string())));
+    // Null collapses to Option on both sides.
+    assert_eq!(option::get_or_null(Some(1)), Some(1));
+    assert_eq!(option::get_or_null(None::<i32>), None);
+    assert_eq!(option::get_or_undefined(Some(1)), Some(1));
+    assert_eq!(result::get_or_null(Ok::<i32, &str>(1)), Some(1));
+    assert_eq!(result::get_or_null(Err::<i32, &str>("e")), None);
+    assert_eq!(result::get_or_undefined(Ok::<i32, &str>(1)), Some(1));
+    // Min/max ties and NaN-producing ops.
+    assert_eq!(number::min(2.0, 2.0), 2.0);
+    assert_eq!(number::max(2.0, 2.0), 2.0);
+    assert!(number::sqrt(-1.0).is_nan());
+    assert!(number::div(0.0, 0.0).is_nan());
 }
