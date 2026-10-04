@@ -8043,7 +8043,7 @@ unported	packages/effect/test/schema/Schema.test.ts	10022	it	should omit the val
 unported	packages/effect/test/schema/Schema.test.ts	10034	it	nested default values	
 unported	packages/effect/test/schema/Schema.test.ts	10050	it	Effect failing with SchemaError propagates as decode failure	
 unported	packages/effect/test/schema/Schema.test.ts	10069	it	default Effect can require a service	
-unported	packages/effect/test/schema/Schema.test.ts	10089	it	NonEmptyString	
+ported	packages/effect/test/schema/Schema.test.ts	10089	it	NonEmptyString	refine_non_empty_string
 unported	packages/effect/test/schema/Schema.test.ts	10108	it	Char	
 unported	packages/effect/test/schema/Schema.test.ts	10131	it	Int	
 unported	packages/effect/test/schema/Schema.test.ts	10166	it	Natural	

@@ -125,6 +125,13 @@ fn refine_is_uppercased() {
 }
 
 #[test]
+fn refine_non_empty_string() {
+    let schema = Schema::string().refine("non-empty", |s: &String| !s.is_empty());
+    assert!(schema.decode(Unknown::Text("x".to_string())).is_ok());
+    assert!(schema.decode(Unknown::Text(String::new())).is_err());
+}
+
+#[test]
 fn refine_is_base64() {
     let schema = Schema::string().refine("base64", |s: &String| {
         !s.is_empty()
