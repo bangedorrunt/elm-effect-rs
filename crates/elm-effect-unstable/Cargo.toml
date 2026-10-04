@@ -1,0 +1,14 @@
+[package]
+name = "elm-effect-unstable"
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+publish = false
+
+[features]
+otel = ["dep:opentelemetry", "dep:opentelemetry_sdk"]
+
+[dependencies]
+elm-effect = { path = "../elm-effect" }
+opentelemetry = { version = "0.28", optional = true }
+opentelemetry_sdk = { version = "0.28", optional = true, features = ["testing"] }
