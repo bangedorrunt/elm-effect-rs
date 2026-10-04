@@ -661,7 +661,7 @@ ported	packages/effect/test/Chunk.test.ts	835	it	union	chunk_extra
 ported	packages/effect/test/Chunk.test.ts	841	it	intersection	chunk_extra
 ported	packages/effect/test/Chunk.test.ts	847	it	isEmpty	chunk_ends
 unported	packages/effect/test/Chunk.test.ts	852	it	lastUnsafe	
-unported	packages/effect/test/Chunk.test.ts	858	it	splitNonEmptyAt	
+ported	packages/effect/test/Chunk.test.ts	858	it	splitNonEmptyAt	chunk_extra
 ported	packages/effect/test/Chunk.test.ts	864	it	splitWhere	chunk_extra
 ported	packages/effect/test/Chunk.test.ts	869	it	takeWhile	chunk_extra
 ported	packages/effect/test/Chunk.test.ts	874	it	dedupe	chunk_extra
@@ -2158,14 +2158,14 @@ ported	packages/effect/test/Iterable.test.ts	224	it	intersperse	iterable_combine
 unported	packages/effect/test/Iterable.test.ts	238	it	containsWith	
 ported	packages/effect/test/Iterable.test.ts	247	it	contains	iterable_ends
 unported	packages/effect/test/Iterable.test.ts	256	it	dedupeAdjacentWith	
-unported	packages/effect/test/Iterable.test.ts	264	it	flatMapNullishOr	
+ported	packages/effect/test/Iterable.test.ts	264	it	flatMapNullishOr	iterable_combine
 ported	packages/effect/test/Iterable.test.ts	271	it	unfold	iterable_combine
 ported	packages/effect/test/Iterable.test.ts	276	it	map	iterable_combine
 ported	packages/effect/test/Iterable.test.ts	287	it	flatMap	iterable_combine
 ported	packages/effect/test/Iterable.test.ts	297	it	getSomes	iterable_combine
 ported	packages/effect/test/Iterable.test.ts	310	it	filter	iterable_combine
 ported	packages/effect/test/Iterable.test.ts	324	it	filterMap	iterable_combine
-unported	packages/effect/test/Iterable.test.ts	333	it	filterMapWhile	
+ported	packages/effect/test/Iterable.test.ts	333	it	filterMapWhile	iterable_combine
 ported	packages/effect/test/Iterable.test.ts	344	it	getFailures	iterable_combine
 ported	packages/effect/test/Iterable.test.ts	352	it	getSuccesses	iterable_combine
 ported	packages/effect/test/Iterable.test.ts	357	it	isEmpty	iterable_ends
@@ -2173,11 +2173,11 @@ ported	packages/effect/test/Iterable.test.ts	362	it	head	iterable_ends
 ported	packages/effect/test/Iterable.test.ts	368	it	chunksOf	iterable_combine
 ported	packages/effect/test/Iterable.test.ts	400	it	flatten	iterable_combine
 ported	packages/effect/test/Iterable.test.ts	404	it	flatten is stack safe across empty iterables	iterable_combine
-unported	packages/effect/test/Iterable.test.ts	411	it	cartesianWith	
-unported	packages/effect/test/Iterable.test.ts	425	it	cartesian	
+ported	packages/effect/test/Iterable.test.ts	411	it	cartesianWith	iterable_combine
+ported	packages/effect/test/Iterable.test.ts	425	it	cartesian	iterable_combine
 unported	packages/effect/test/Iterable.test.ts	439	it	cartesian keeps the right input lazy	
-unported	packages/effect/test/Iterable.test.ts	453	it	groupWith	
-unported	packages/effect/test/Iterable.test.ts	459	it	groupBy	
+ported	packages/effect/test/Iterable.test.ts	453	it	groupWith	iterable_combine
+ported	packages/effect/test/Iterable.test.ts	459	it	groupBy	iterable_combine
 ported	packages/effect/test/Iterable.test.ts	480	it	makeBy	iterable_combine
 ported	packages/effect/test/Iterable.test.ts	494	it	replicate	iterable_combine
 ported	packages/effect/test/Iterable.test.ts	502	it	repeat	iterable_combine
@@ -3160,7 +3160,7 @@ ported	packages/effect/test/Record.test.ts	293	it	some	record_core
 ported	packages/effect/test/Record.test.ts	298	it	union	record_core
 ported	packages/effect/test/Record.test.ts	324	it	intersection	record_core
 ported	packages/effect/test/Record.test.ts	346	it	difference	record_core
-unported	packages/effect/test/Record.test.ts	369	it	makeEquivalence	
+ported	packages/effect/test/Record.test.ts	369	it	makeEquivalence	record_core
 ported	packages/effect/test/Record.test.ts	378	it	mapKeys	record_core
 ported	packages/effect/test/Record.test.ts	385	it	mapEntries	record_core
 ported	packages/effect/test/Record.test.ts	390	it	refinement/predicate	record_core
@@ -3993,29 +3993,29 @@ ported	packages/effect/test/Struct.test.ts	9	it	get	struct_shapes
 ported	packages/effect/test/Struct.test.ts	17	it	keys	struct_shapes
 ported	packages/effect/test/Struct.test.ts	24	it	defined properties	struct_shapes
 ported	packages/effect/test/Struct.test.ts	30	it	omitted properties	struct_shapes
-unported	packages/effect/test/Struct.test.ts	36	it	numeric properties	
+ported	packages/effect/test/Struct.test.ts	36	it	numeric properties	struct_shapes
 ported	packages/effect/test/Struct.test.ts	44	it	defined properties	struct_shapes
 ported	packages/effect/test/Struct.test.ts	50	it	omitted properties	struct_shapes
-unported	packages/effect/test/Struct.test.ts	56	it	numeric properties	
-unported	packages/effect/test/Struct.test.ts	62	it	ignores non-enumerable properties	
-unported	packages/effect/test/Struct.test.ts	73	it	partial required fields	
-unported	packages/effect/test/Struct.test.ts	79	it	all required fields	
+ported	packages/effect/test/Struct.test.ts	56	it	numeric properties	struct_shapes
+skipped-upstream	packages/effect/test/Struct.test.ts	62	it	ignores non-enumerable properties	
+skipped-upstream	packages/effect/test/Struct.test.ts	73	it	partial required fields	
+skipped-upstream	packages/effect/test/Struct.test.ts	79	it	all required fields	
 ported	packages/effect/test/Struct.test.ts	86	it	evolveKeys	struct_shapes
-unported	packages/effect/test/Struct.test.ts	91	it	renameKeys	
-unported	packages/effect/test/Struct.test.ts	101	it	evolveEntries transforms a selected key and value together	
-unported	packages/effect/test/Struct.test.ts	112	it	map	
-unported	packages/effect/test/Struct.test.ts	123	it	mapPick	
-unported	packages/effect/test/Struct.test.ts	140	it	mapPick numeric properties	
-unported	packages/effect/test/Struct.test.ts	150	it	mapOmit	
-unported	packages/effect/test/Struct.test.ts	167	it	mapOmit numeric properties	
-unported	packages/effect/test/Struct.test.ts	177	it	makeEquivalence compares structs by configured fields	
-unported	packages/effect/test/Struct.test.ts	188	it	default omitKeyWhen (never omit)	
-unported	packages/effect/test/Struct.test.ts	197	it	custom omitKeyWhen	
+ported	packages/effect/test/Struct.test.ts	91	it	renameKeys	struct_shapes
+ported	packages/effect/test/Struct.test.ts	101	it	evolveEntries transforms a selected key and value together	struct_shapes
+ported	packages/effect/test/Struct.test.ts	112	it	map	struct_shapes
+ported	packages/effect/test/Struct.test.ts	123	it	mapPick	struct_shapes
+ported	packages/effect/test/Struct.test.ts	140	it	mapPick numeric properties	struct_shapes
+ported	packages/effect/test/Struct.test.ts	150	it	mapOmit	struct_shapes
+ported	packages/effect/test/Struct.test.ts	167	it	mapOmit numeric properties	struct_shapes
+ported	packages/effect/test/Struct.test.ts	177	it	makeEquivalence compares structs by configured fields	struct_shapes
+ported	packages/effect/test/Struct.test.ts	188	it	default omitKeyWhen (never omit)	struct_shapes
+ported	packages/effect/test/Struct.test.ts	197	it	custom omitKeyWhen	struct_shapes
 ported	packages/effect/test/Struct.test.ts	215	it	string keys	struct_shapes
-unported	packages/effect/test/Struct.test.ts	219	it	symbol keys	
-unported	packages/effect/test/Struct.test.ts	225	it	mixed keys	
+skipped-upstream	packages/effect/test/Struct.test.ts	219	it	symbol keys	
+skipped-upstream	packages/effect/test/Struct.test.ts	225	it	mixed keys	
 ported	packages/effect/test/Struct.test.ts	230	it	empty keys	struct_shapes
-unported	packages/effect/test/Struct.test.ts	236	it	custom omitKeyWhen	
+ported	packages/effect/test/Struct.test.ts	236	it	custom omitKeyWhen	struct_shapes
 unported	packages/effect/test/SubscriptionRef.test.ts	5	it.effect	isSubscriptionRef	
 unported	packages/effect/test/SubscriptionRef.test.ts	12	it.effect	getAndUpdateEffect	
 unported	packages/effect/test/SubscriptionRef.test.ts	20	it.effect	getAndUpdateSome returns the current value when no update is selected	
