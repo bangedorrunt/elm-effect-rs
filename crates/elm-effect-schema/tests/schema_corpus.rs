@@ -216,6 +216,70 @@ fn refine_non_empty_string() {
 }
 
 #[test]
+fn revives_predicate_strings() {
+    let base64 = Schema::string().refine("base64", |x: &String| {
+        !x.is_empty()
+            && x.len() % 4 == 0
+            && x.chars()
+                .all(|c| c.is_ascii_alphanumeric() || c == '+' || c == '/' || c == '=')
+    });
+    assert!(base64.decode_json(r#""aGk=""#).is_ok());
+    assert!(base64.decode_json(r#""!!""#).is_err());
+    let base64url = Schema::string().refine("base64url", |x: &String| {
+        !x.is_empty()
+            && x.chars()
+                .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
+    });
+    assert!(base64url.decode_json(r#""aGk""#).is_ok());
+    assert!(base64url.decode_json(r#""a b""#).is_err());
+    let starting = Schema::string().refine("starting with pre", |x: &String| x.starts_with("pre"));
+    assert!(starting.decode_json(r#""prefix""#).is_ok());
+    assert!(starting.decode_json(r#""suffix""#).is_err());
+    let ending = Schema::string().refine("ending with .ts", |x: &String| x.ends_with(".ts"));
+    assert!(ending.decode_json(r#""a.ts""#).is_ok());
+    assert!(ending.decode_json(r#""a.rs""#).is_err());
+    let including = Schema::string().refine("including mid", |x: &String| x.contains("mid"));
+    assert!(including.decode_json(r#""amidb""#).is_ok());
+    assert!(including.decode_json(r#""ab""#).is_err());
+    let upper = Schema::string().refine("uppercased", |x: &String| {
+        !x.chars().any(|c| c.is_lowercase())
+    });
+    assert!(upper.decode_json(r#""ABC""#).is_ok());
+    assert!(upper.decode_json(r#""aBC""#).is_err());
+    let lower = Schema::string().refine("lowercased", |x: &String| {
+        !x.chars().any(|c| c.is_uppercase())
+    });
+    assert!(lower.decode_json(r#""abc""#).is_ok());
+    assert!(lower.decode_json(r#""aBc""#).is_err());
+    let capped = Schema::string().refine("capitalized", |x: &String| {
+        x.chars().next().is_some_and(|c| c.is_uppercase())
+    });
+    assert!(capped.decode_json(r#""Hello""#).is_ok());
+    assert!(capped.decode_json(r#""hello""#).is_err());
+    let uncapped = Schema::string().refine("uncapitalized", |x: &String| {
+        x.chars().next().is_none_or(|c| !c.is_uppercase())
+    });
+    assert!(uncapped.decode_json(r#""hello""#).is_ok());
+    assert!(uncapped.decode_json(r#""Hello""#).is_err());
+}
+
+#[test]
+fn revives_predicate_numbers() {
+    let int = Schema::number().refine("an integer", |n: &f64| n.fract() == 0.0);
+    assert!(int.decode_json("3").is_ok());
+    assert!(int.decode_json("3.5").is_err());
+    let multiple = Schema::number().refine("a multiple of 3", |n: &f64| n % 3.0 == 0.0);
+    assert!(multiple.decode_json("9").is_ok());
+    assert!(multiple.decode_json("10").is_err());
+    let greater = Schema::number().refine("greater than 5", |n: &f64| *n > 5.0);
+    assert!(greater.decode_json("6").is_ok());
+    assert!(greater.decode_json("5").is_err());
+    let less = Schema::number().refine("less than 5", |n: &f64| *n < 5.0);
+    assert!(less.decode_json("4").is_ok());
+    assert!(less.decode_json("5").is_err());
+}
+
+#[test]
 fn revives_bounded_lengths() {
     let maxed = Schema::string().refine("max length 3", |s: &String| s.len() <= 3);
     assert!(maxed.decode_json(r#""ab""#).is_ok());
