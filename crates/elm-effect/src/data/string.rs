@@ -85,7 +85,7 @@ pub fn pad_start(s: &str, width: usize, pad: char) -> String {
     if len >= width {
         s.to_string()
     } else {
-        std::iter::repeat(pad).take(width - len).collect::<String>() + s
+        std::iter::repeat_n(pad, width - len).collect::<String>() + s
     }
 }
 
@@ -95,7 +95,7 @@ pub fn pad_end(s: &str, width: usize, pad: char) -> String {
     if len >= width {
         s.to_string()
     } else {
-        s.to_string() + &std::iter::repeat(pad).take(width - len).collect::<String>()
+        s.to_string() + &std::iter::repeat_n(pad, width - len).collect::<String>()
     }
 }
 
@@ -108,4 +108,90 @@ pub fn ellipsis(s: &str, max: usize) -> String {
     } else {
         take_left(s, max - 1) + "…"
     }
+}
+
+// --- Wave-6 portable remainder (regex shapes stay residual: no engine) ---
+
+/// Split on a separator (`split`, data shapes).
+pub fn split<'a>(s: &'a str, separator: &str) -> Vec<&'a str> {
+    s.split(separator).collect()
+}
+
+/// Replace all occurrences (`replaceAll`).
+pub fn replace_all(s: &str, from: &str, to: &str) -> String {
+    s.replace(from, to)
+}
+
+/// Replace the first occurrence (`replace`).
+pub fn replace_first(s: &str, from: &str, to: &str) -> String {
+    match s.find(from) {
+        None => s.to_string(),
+        Some(i) => {
+            let mut out = String::with_capacity(s.len());
+            out.push_str(&s[..i]);
+            out.push_str(to);
+            out.push_str(&s[i + from.len()..]);
+            out
+        }
+    }
+}
+
+/// Uppercase (`toUpperCase`, char-wise).
+pub fn to_uppercase(s: &str) -> String {
+    s.to_uppercase()
+}
+
+/// Lowercase (`toLowerCase`, char-wise).
+pub fn to_lowercase(s: &str) -> String {
+    s.to_lowercase()
+}
+
+/// Repeat `n` times (`repeat`).
+pub fn repeat(s: &str, n: usize) -> String {
+    s.repeat(n)
+}
+
+/// Concatenate (`concat`).
+pub fn concat(first: &str, second: &str) -> String {
+    first.to_owned() + second
+}
+
+/// Contains (`includes`).
+pub fn contains(s: &str, needle: &str) -> bool {
+    s.contains(needle)
+}
+
+/// Prefix test (`startsWith`).
+pub fn starts_with(s: &str, prefix: &str) -> bool {
+    s.starts_with(prefix)
+}
+
+/// Suffix test (`endsWith`).
+pub fn ends_with(s: &str, suffix: &str) -> bool {
+    s.ends_with(suffix)
+}
+
+/// Strip prefix, if present (`stripPrefix` shape).
+pub fn strip_prefix<'a>(s: &'a str, prefix: &str) -> Option<&'a str> {
+    s.strip_prefix(prefix)
+}
+
+/// Strip suffix, if present (`stripSuffix` shape).
+pub fn strip_suffix<'a>(s: &'a str, suffix: &str) -> Option<&'a str> {
+    s.strip_suffix(suffix)
+}
+
+/// Trim both ends (`trim`).
+pub fn trim(s: &str) -> &str {
+    s.trim()
+}
+
+/// First character, if any (`charAt(0)` shape).
+pub fn head(s: &str) -> Option<char> {
+    s.chars().next()
+}
+
+/// Last character, if any.
+pub fn last(s: &str) -> Option<char> {
+    s.chars().last()
 }

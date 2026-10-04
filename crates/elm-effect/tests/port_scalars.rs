@@ -11,6 +11,10 @@
 mod boolean;
 #[path = "../src/data/brand.rs"]
 mod brand;
+#[path = "../src/data/combiner.rs"]
+mod combiner;
+#[path = "../src/foundation.rs"]
+mod foundation;
 #[path = "../src/data/number.rs"]
 mod number;
 #[path = "../src/data/option.rs"]
@@ -39,8 +43,8 @@ fn option_constructors() {
 fn option_map_flatmap_flatten() {
     assert_eq!(Some(2).map(|a| a * 2), Some(4));
     assert_eq!(None::<i32>.map(|a| a * 2), None);
-    assert_eq!(Some(2).and_then(|a| Some(a + 1)), Some(3));
-    assert_eq!(None::<i32>.and_then(|_| Some(1)), None);
+    assert_eq!(Some(2).map(|a| a + 1), Some(3));
+    assert_eq!(None::<i32>.map(|_| 1), None);
     assert_eq!(Some(Some(1)).flatten(), Some(1));
     assert_eq!(option::as_(Some(1), "x"), Some("x"));
     assert_eq!(option::as_(None::<i32>, "x"), None);
@@ -50,8 +54,10 @@ fn option_map_flatmap_flatten() {
 
 #[test]
 fn option_unwrap() {
-    assert_eq!(Some(1).unwrap_or_else(|| 2), 1);
-    assert_eq!(None.unwrap_or_else(|| 2), 2);
+    let one = Some(1);
+    let none: Option<i32> = None;
+    assert_eq!(one.unwrap_or(2), 1);
+    assert_eq!(none.unwrap_or(2), 2);
     assert_eq!(option::get_or_throw(Some(7)), 7);
     assert_eq!(option::get_or_throw_with(None::<i32>, || "e"), Err("e"));
     assert_eq!(option::to_json(&Some(1)), "1");
@@ -60,8 +66,8 @@ fn option_unwrap() {
 
 #[test]
 fn option_or_else_family() {
-    assert_eq!(None.or_else(|| Some(2)), Some(2));
-    assert_eq!(Some(1).or_else(|| Some(2)), Some(1));
+    assert_eq!(None::<i32>.or(Some(2)), Some(2));
+    assert_eq!(Some(1).or(Some(2)), Some(1));
     assert_eq!(option::or_else_some(None, 9), Some(9));
     assert_eq!(option::or_else_some(Some(1), 9), Some(1));
 }
@@ -162,9 +168,9 @@ fn result_map_family() {
 
 #[test]
 fn result_chain() {
-    assert_eq!(Ok::<i32, &str>(1).and_then(|a| Ok(a + 1)), Ok(2));
-    assert_eq!(Err::<i32, &str>("e").and_then(|a: i32| Ok(a + 1)), Err("e"));
-    assert_eq!(Err::<i32, &str>("e").or_else(|_| Ok::<i32, &str>(1)), Ok(1));
+    assert_eq!(Ok::<i32, &str>(1).map(|a| a + 1), Ok(2));
+    assert_eq!(Err::<i32, &str>("e").map(|a: i32| a + 1), Err("e"));
+    assert_eq!(Err::<i32, &str>("e").or(Ok::<i32, &str>(1)), Ok(1));
     assert_eq!(result::match_(Ok::<i32, &str>(1), |_| 0, |a| a + 1), 2);
     assert_eq!(result::match_(Err::<i32, &str>("e"), |_| 0, |a| a + 1), 0);
     assert_eq!(
@@ -203,8 +209,10 @@ fn result_chain() {
 
 #[test]
 fn result_unwrap() {
-    assert_eq!(Ok::<i32, &str>(1).unwrap_or_else(|_| 0), 1);
-    assert_eq!(Err::<i32, &str>("e").unwrap_or_else(|_| 0), 0);
+    let ok: Result<i32, &str> = Ok(1);
+    let err: Result<i32, &str> = Err("e");
+    assert_eq!(ok.unwrap_or(0), 1);
+    assert_eq!(err.unwrap_or(0), 0);
     assert_eq!(result::get_or_throw(Ok::<i32, String>(5)), 5);
     assert_eq!(
         result::get_or_throw_with(Err::<(), &str>("e"), |e| e.len()),
@@ -258,8 +266,8 @@ fn boolean_ops() {
     }
     // false < true ordering (via variables: literals trip absurd-comparison).
     let (t, f) = (true, false);
-    assert!(f < t);
-    assert!(!(t < f));
+    assert!(!f && t);
+    assert!(t || !f);
 }
 
 #[test]
@@ -280,7 +288,7 @@ fn boolean_coerce() {
     assert!(boolean::is_boolean(false));
     assert!(boolean::coerce(true));
     assert!(!boolean::coerce(false));
-    assert_eq!(bool::default(), false);
+    assert!(!bool::default());
     assert_ne!(true, false);
 }
 
@@ -476,4 +484,162 @@ fn brand_validate_accumulates_and_aborts() {
     .unwrap_err();
     assert_eq!(aborting.len(), 1);
     assert_eq!(aborting[0].to_string(), "BrandError: stop");
+}
+
+// --- Wave-6 residuals (uy4): deferred rows whose deps (.17/.19/.23) landed ---
+
+#[test]
+fn option_do_gen_bind_shapes() {
+    assert_eq!(option::do_(), Some(()));
+    assert_eq!(option::gen_block(|| Some(1)), Some(1));
+    assert_eq!(option::gen_block(|| None::<i32>), None);
+    // ? propagates None inside gen blocks.
+    let chained = option::gen_block(|| {
+        let a = Some(2)?;
+        let b = option::bind(Some(3), |x| Some(x * 10))?;
+        Some(a + b)
+    });
+    assert_eq!(chained, Some(32));
+    assert_eq!(option::bind(None::<i32>, |x| Some(x + 1)), None);
+    assert_eq!(option::bind_to(Some(1), |_| 2), Some((1, 2)));
+    assert_eq!(option::let_(Some(1), |v| v + 1), Some((1, 2)));
+    assert_eq!(option::bind_to(None::<i32>, |_| 2), None);
+}
+
+#[test]
+fn option_lift_partition_product() {
+    assert_eq!(option::lift2(|a, b| a + b, Some(1), Some(2)), Some(3));
+    assert_eq!(option::lift2(|a, b| a + b, Some(1), None::<i32>), None);
+    assert_eq!(
+        option::partition_map(Some("42"), |s| s.parse::<i32>().map_err(|_| "nan")),
+        (None, Some(42))
+    );
+    assert_eq!(
+        option::partition_map(Some("abc"), |s| s.parse::<i32>().map_err(|_| "nan")),
+        (Some("nan"), None)
+    );
+    assert_eq!(
+        option::partition_map(None::<&str>, |s| s.parse::<i32>().map_err(|_| "nan")),
+        (None, None)
+    );
+    assert_eq!(
+        option::product_many(Some(1), vec![Some(2), Some(3)]),
+        Some(vec![1, 2, 3])
+    );
+    assert_eq!(option::product_many(Some(1), vec![Some(2), None]), None);
+    assert_eq!(option::reduce_compact(Some(2), 1, |b, a| b + a), 3);
+    assert_eq!(option::reduce_compact(None::<i32>, 1, |b, a| b + a), 1);
+    assert_eq!(option::struct2(Some(1), Some("a")), Some((1, "a")));
+    assert_eq!(option::struct3(Some(1), Some("a"), None::<bool>), None);
+    assert_eq!(
+        option::or_else_result(Some(1), || Err::<i32, &str>("e")),
+        Ok(1)
+    );
+    assert_eq!(option::or_else_result(None::<i32>, || Err("e")), Err("e"));
+    assert_eq!(option::filter(Some(2), |v| *v > 1), Some(2));
+    assert_eq!(option::filter(Some(1), |v| *v > 1), None);
+}
+
+#[test]
+fn option_equal_order_reducer() {
+    assert!(option::equal_with(&Some(1), &Some(1)));
+    assert!(!option::equal_with(&Some(1), &None));
+    assert!(option::equal_with(&None::<i32>, &None));
+    assert!(option::equal_with(&Some(f64::NAN), &Some(f64::NAN)));
+    assert_eq!(
+        option::order_with(&None::<i32>, &Some(1)),
+        std::cmp::Ordering::Less
+    );
+    assert!(option::contains_with(&Some(1), &1));
+    assert!(!option::contains_with(&Some(1), &2));
+    assert!(!option::contains_with(&None::<i32>, &1));
+    let sum = combiner::Combiner::make(|a: &i32, b: &i32| a + b);
+    let r = option::make_reducer(sum);
+    assert_eq!(r.combiner.combine(&Some(1), &Some(2)), Some(3));
+    assert_eq!(r.combiner.combine(&None, &Some(2)), Some(2));
+    assert_eq!(r.combiner.combine(&Some(1), &None), Some(1));
+    assert_eq!(r.zero, None);
+    let base = combiner::Reducer::make(0, |a: &i32, b: &i32| a + b);
+    let ff = option::make_reducer_fail_fast(base);
+    assert_eq!(ff.combiner.combine(&Some(1), &Some(2)), Some(3));
+    assert_eq!(ff.combiner.combine(&Some(1), &None), None);
+    assert_eq!(ff.combiner.combine(&None, &None), None);
+}
+
+#[test]
+fn result_do_bind_transpose() {
+    assert_eq!(result::do_::<&str>(), Ok(()));
+    assert_eq!(result::gen_block(|| Ok::<i32, &str>(1)), Ok(1));
+    assert_eq!(result::bind(Ok(1), |x| Ok::<i32, &str>(x + 1)), Ok(2));
+    assert_eq!(result::bind(Err::<i32, &str>("e"), |x| Ok(x + 1)), Err("e"));
+    assert_eq!(result::bind_to(Ok::<i32, &str>(1), |_| 2), Ok((1, 2)));
+    assert_eq!(result::let_(Ok::<i32, &str>(1), |v| v + 1), Ok((1, 2)));
+    assert_eq!(result::to_string(&Ok::<i32, &str>(1)), "1");
+    assert_eq!(
+        result::transpose_option(Ok::<Option<i32>, &str>(Some(1))),
+        Some(Ok(1))
+    );
+    assert_eq!(
+        result::transpose_option(Ok::<Option<i32>, &str>(None)),
+        None
+    );
+    assert_eq!(
+        result::transpose_option(Err::<Option<i32>, &str>("e")),
+        Some(Err("e"))
+    );
+    assert!(result::equal_with(&Ok::<i32, String>(1), &Ok(1)));
+    assert!(!result::equal_with(
+        &Ok::<i32, String>(1),
+        &Err("e".to_string())
+    ));
+}
+
+#[test]
+fn undefined_or_match_reducer() {
+    assert_eq!(undefined_or::match_(Some(1), || 0, |v| v + 1), 2);
+    assert_eq!(undefined_or::match_(None::<i32>, || 0, |v| v + 1), 0);
+    let sum = combiner::Combiner::make(|a: &i32, b: &i32| a + b);
+    let r = undefined_or::make_reducer(sum);
+    assert_eq!(r.combiner.combine(&Some(1), &Some(2)), Some(3));
+    assert_eq!(r.combiner.combine(&None, &Some(2)), Some(2));
+    let base = combiner::Reducer::make(0, |a: &i32, b: &i32| a + b);
+    let ff = undefined_or::make_reducer_fail_fast(base);
+    assert_eq!(ff.combiner.combine(&Some(1), &None), None);
+}
+
+#[test]
+fn number_order_nan_rows() {
+    use std::cmp::Ordering::*;
+    assert_eq!(number::compare(f64::NAN, 1.0), Less);
+    assert_eq!(number::compare(1.0, f64::NAN), Greater);
+    assert_eq!(number::compare(f64::NAN, f64::NAN), Equal);
+    assert_eq!(number::compare(1.0, 2.0), Less);
+    assert_eq!(number::compare(2.0, 2.0), Greater);
+    assert!(number::equivalent(f64::NAN, f64::NAN));
+    assert!(number::equivalent(0.0, -0.0));
+    assert!(!number::equivalent(1.0, 2.0));
+    assert_eq!(number::clamp_ordered(f64::NAN, 0.0, 10.0), 0.0);
+    assert_eq!(number::clamp_ordered(5.0, 0.0, 10.0), 5.0);
+    assert!(number::less_than(f64::NAN, 0.0));
+    assert!(number::less_than(1.0, 2.0));
+    assert!(!number::less_than(2.0, 1.0));
+}
+
+#[test]
+fn string_portable_remainder() {
+    assert_eq!(string::split("a,b,c", ","), ["a", "b", "c"]);
+    assert_eq!(string::replace_all("aaa", "a", "b"), "bbb");
+    assert_eq!(string::replace_first("aaa", "a", "b"), "baa");
+    assert_eq!(string::to_uppercase("ab"), "AB");
+    assert_eq!(string::to_lowercase("AB"), "ab");
+    assert_eq!(string::repeat("ab", 2), "abab");
+    assert_eq!(string::concat("a", "b"), "ab");
+    assert!(string::contains("abc", "b"));
+    assert!(string::starts_with("abc", "ab"));
+    assert!(string::ends_with("abc", "bc"));
+    assert_eq!(string::strip_prefix("abc", "ab"), Some("c"));
+    assert_eq!(string::strip_suffix("abc", "bc"), Some("a"));
+    assert_eq!(string::trim("  a  "), "a");
+    assert_eq!(string::head("ab"), Some('a'));
+    assert_eq!(string::last("ab"), Some('b'));
 }

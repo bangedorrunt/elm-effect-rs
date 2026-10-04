@@ -111,3 +111,28 @@ pub fn abs(x: f64) -> f64 {
 pub fn sqrt(x: f64) -> f64 {
     x.sqrt()
 }
+
+// --- Wave-6 residuals (Order-dependent NaN rows; .17 owns `Order`) ---
+
+use super::foundation::number_order;
+
+/// Tag-order comparison: `NaN` equals `NaN`, `NaN` sorts below everything,
+/// ties report `Greater` (`Number.Order`).
+pub fn compare(a: f64, b: f64) -> std::cmp::Ordering {
+    number_order().compare(&a, &b)
+}
+
+/// Tag equivalence: `NaN` equals `NaN`, `+0` equals `-0`.
+pub fn equivalent(a: f64, b: f64) -> bool {
+    super::foundation::number_equivalence().is_equivalent(&a, &b)
+}
+
+/// Order-aware clamp: `NaN` sorts below everything, so it clamps to `min`.
+pub fn clamp_ordered(x: f64, min: f64, max: f64) -> f64 {
+    if x.is_nan() { min } else { x.clamp(min, max) }
+}
+
+/// Order-based less-than (delegates to `Number.Order`, so `NaN < x`).
+pub fn less_than(a: f64, b: f64) -> bool {
+    compare(a, b) == std::cmp::Ordering::Less
+}

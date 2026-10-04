@@ -110,10 +110,7 @@ pub fn lift_predicate<T>(predicate: impl Fn(&T) -> bool) -> impl Fn(T) -> Option
 
 /// Lift a throwing closure: panics become `None` (`liftThrowable`).
 pub fn lift_throwable<T>(f: impl FnOnce() -> T) -> Option<T> {
-    match std::panic::catch_unwind(std::panic::AssertUnwindSafe(f)) {
-        Ok(v) => Some(v),
-        Err(_) => None,
-    }
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(f)).ok()
 }
 
 /// Build a refinement from an option-returning function (`toRefinement`).
@@ -136,5 +133,159 @@ pub fn to_json<T: std::fmt::Display>(value: &Option<T>) -> String {
     match value {
         None => "null".to_string(),
         Some(v) => v.to_string(),
+    }
+}
+
+// --- Wave-6 residuals (deferred from .16; Equal/Reducer deps landed) ---
+
+use super::combiner::{Combiner, Reducer};
+use super::foundation::Equal;
+
+/// Chain, short-circuiting on `None` (`bind`, `flatMap` shape).
+pub fn bind<T, U>(value: Option<T>, f: impl FnOnce(T) -> Option<U>) -> Option<U> {
+    value.and_then(f)
+}
+
+/// Empty do-block (`Do`): the `Some` unit workshops below build on.
+pub fn do_() -> Option<()> {
+    Some(())
+}
+
+/// Run a do-block: `?` propagates `None` (`gen` shape; closures are the
+/// notation, the operator is the short-circuit).
+pub fn gen_block<T>(block: impl FnOnce() -> Option<T>) -> Option<T> {
+    block()
+}
+
+/// Attach a bound value (`bindTo` tuple shape).
+pub fn bind_to<T, U>(value: Option<T>, f: impl FnOnce(&T) -> U) -> Option<(T, U)> {
+    match value {
+        None => None,
+        Some(v) => {
+            let u = f(&v);
+            Some((v, u))
+        }
+    }
+}
+
+/// Attach a computed value (`let` tuple shape).
+pub fn let_<T, U>(value: Option<T>, f: impl FnOnce(&T) -> U) -> Option<(T, U)> {
+    bind_to(value, f)
+}
+
+/// Keep `Some` only when `f` holds (`filter`; keeps do-records whose guard
+/// passes).
+pub fn filter<T>(value: Option<T>, f: impl FnOnce(&T) -> bool) -> Option<T> {
+    match value {
+        Some(v) if f(&v) => Some(v),
+        _ => None,
+    }
+}
+
+/// `true` when present and structurally equal (`containsWith`).
+pub fn contains_with<T: Equal>(value: &Option<T>, item: &T) -> bool {
+    match value {
+        Some(v) => v.equal(item),
+        None => false,
+    }
+}
+
+/// Lift a two-argument function (`lift2`).
+pub fn lift2<T, U, V>(f: impl FnOnce(T, U) -> V, a: Option<T>, b: Option<U>) -> Option<V> {
+    match (a, b) {
+        (Some(a), Some(b)) => Some(f(a, b)),
+        _ => None,
+    }
+}
+
+/// Fall back to a `Result` (`orElseEither` shape: `None` runs `that`).
+pub fn or_else_result<T, E>(value: Option<T>, that: impl FnOnce() -> Result<T, E>) -> Result<T, E> {
+    match value {
+        Some(v) => Ok(v),
+        None => that(),
+    }
+}
+
+/// Split one option into left/right channels (`partitionMap` over `Result`:
+/// `Ok` goes right, `Err` goes left, `None` goes nowhere).
+pub fn partition_map<T, B, C>(
+    value: Option<T>,
+    f: impl FnOnce(T) -> Result<B, C>,
+) -> (Option<C>, Option<B>) {
+    match value {
+        None => (None, None),
+        Some(v) => match f(v) {
+            Ok(b) => (None, Some(b)),
+            Err(c) => (Some(c), None),
+        },
+    }
+}
+
+/// Collect many, short-circuiting on the first `None` (`productMany`).
+pub fn product_many<T>(first: Option<T>, rest: Vec<Option<T>>) -> Option<Vec<T>> {
+    let mut out = Vec::with_capacity(rest.len() + 1);
+    out.push(first?);
+    for item in rest {
+        out.push(item?);
+    }
+    Some(out)
+}
+
+/// Fold present values, skipping `None` (`reduceCompact`).
+pub fn reduce_compact<T, B>(value: Option<T>, zero: B, f: impl FnOnce(B, T) -> B) -> B {
+    match value {
+        Some(v) => f(zero, v),
+        None => zero,
+    }
+}
+
+/// Pair two present values as a record tuple (`struct` 2-shape).
+pub fn struct2<T, U>(a: Option<T>, b: Option<U>) -> Option<(T, U)> {
+    product(a, b)
+}
+
+/// Triple record tuple (`struct` 3-shape).
+pub fn struct3<T, U, V>(a: Option<T>, b: Option<U>, c: Option<V>) -> Option<(T, U, V)> {
+    match (a, b, c) {
+        (Some(a), Some(b), Some(c)) => Some((a, b, c)),
+        _ => None,
+    }
+}
+
+/// Structural equality, `NaN`-aware via [`Equal`] (`getEquivalence` shape).
+pub fn equal_with<T: Equal>(a: &Option<T>, b: &Option<T>) -> bool {
+    match (a, b) {
+        (None, None) => true,
+        (Some(x), Some(y)) => x.equal(y),
+        _ => false,
+    }
+}
+
+/// `None`-below-`Some` ordering (`getOrder` shape; `None` sorts least).
+pub fn order_with<T: Ord>(a: &Option<T>, b: &Option<T>) -> std::cmp::Ordering {
+    a.cmp(b)
+}
+
+/// Reducer that keeps the first `Some` (`makeReducer`): `None` is the
+/// identity absorbed on either side; two `Some`s combine inside.
+pub fn make_reducer<A: Clone + 'static>(combiner: Combiner<A>) -> Reducer<Option<A>> {
+    Reducer {
+        zero: None,
+        combiner: Combiner::make(move |l: &Option<A>, r: &Option<A>| match (l, r) {
+            (None, _) => r.clone(),
+            (_, None) => l.clone(),
+            (Some(a), Some(b)) => Some(combiner.combine(a, b)),
+        }),
+    }
+}
+
+/// Fail-fast reducer (`makeReducerFailFast`): any `None` annihilates.
+pub fn make_reducer_fail_fast<A: Clone + 'static>(reducer: Reducer<A>) -> Reducer<Option<A>> {
+    Reducer {
+        zero: None,
+        combiner: Combiner::make(move |l: &Option<A>, r: &Option<A>| match (l, r) {
+            (Some(a), Some(b)) => Some(reducer.combiner.combine(a, b)),
+            _ => None,
+        }),
     }
 }

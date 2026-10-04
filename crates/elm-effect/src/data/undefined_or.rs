@@ -24,8 +24,29 @@ pub fn get_or_throw_with<T, E>(value: UndefinedOr<T>, missing: impl FnOnce() -> 
 
 /// Lift a throwing closure into `UndefinedOr`: panics become `None`.
 pub fn lift_throwable<T>(f: impl FnOnce() -> T) -> UndefinedOr<T> {
-    match std::panic::catch_unwind(std::panic::AssertUnwindSafe(f)) {
-        Ok(v) => Some(v),
-        Err(_) => None,
-    }
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(f)).ok()
+}
+
+// --- Wave-6 residuals (deferred from .16; Reducer dep landed) ---
+
+use super::combiner::{Combiner, Reducer};
+use super::option;
+
+/// Fold both cases (`match`).
+pub fn match_<T, U>(
+    value: UndefinedOr<T>,
+    on_undefined: impl FnOnce() -> U,
+    on_defined: impl FnOnce(T) -> U,
+) -> U {
+    option::match_(value, on_undefined, on_defined)
+}
+
+/// Reducer that keeps the first defined value (`makeReducer`).
+pub fn make_reducer<A: Clone + 'static>(combiner: Combiner<A>) -> Reducer<UndefinedOr<A>> {
+    option::make_reducer(combiner)
+}
+
+/// Fail-fast reducer (`makeReducerFailFast`).
+pub fn make_reducer_fail_fast<A: Clone + 'static>(reducer: Reducer<A>) -> Reducer<UndefinedOr<A>> {
+    option::make_reducer_fail_fast(reducer)
 }

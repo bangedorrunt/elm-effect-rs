@@ -133,3 +133,52 @@ pub fn to_json<T: std::fmt::Display, E: std::fmt::Display>(value: &Result<T, E>)
         Err(e) => format!("Failure({e})"),
     }
 }
+
+// --- Wave-6 residuals (deferred from .16) ---
+
+use super::foundation::Equal;
+
+/// Chain Ok values (`bind`, `flatMap` shape).
+pub fn bind<T, E, U>(value: Result<T, E>, f: impl FnOnce(T) -> Result<U, E>) -> Result<U, E> {
+    value.and_then(f)
+}
+
+/// Empty do-block (`Do`).
+pub fn do_<E>() -> Result<(), E> {
+    Ok(())
+}
+
+/// Run a do-block: `?` propagates `Err` (`gen` shape).
+pub fn gen_block<T, E>(block: impl FnOnce() -> Result<T, E>) -> Result<T, E> {
+    block()
+}
+
+/// Attach a bound value (`bindTo` tuple shape).
+pub fn bind_to<T, E, U>(value: Result<T, E>, f: impl FnOnce(&T) -> U) -> Result<(T, U), E> {
+    match value {
+        Err(e) => Err(e),
+        Ok(v) => {
+            let u = f(&v);
+            Ok((v, u))
+        }
+    }
+}
+
+/// Attach a computed value (`let` tuple shape).
+pub fn let_<T, E, U>(value: Result<T, E>, f: impl FnOnce(&T) -> U) -> Result<(T, U), E> {
+    bind_to(value, f)
+}
+
+/// Display both channels (`toString` shape: `Ok` unwraps, `Err` names).
+pub fn to_string<T: std::fmt::Display, E: std::fmt::Display>(value: &Result<T, E>) -> String {
+    to_json(value)
+}
+
+/// Structural equality on both channels (`getEquivalence` shape).
+pub fn equal_with<T: Equal, E: Equal>(a: &Result<T, E>, b: &Result<T, E>) -> bool {
+    match (a, b) {
+        (Ok(x), Ok(y)) => x.equal(y),
+        (Err(x), Err(y)) => x.equal(y),
+        _ => false,
+    }
+}
