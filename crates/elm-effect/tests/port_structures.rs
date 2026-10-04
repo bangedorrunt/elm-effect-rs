@@ -207,6 +207,14 @@ fn array_std_substrate() {
     assert_eq!(array::take_right(&[1, 2, 3], 2), vec![2, 3]);
     assert_eq!(array::drop_right(&[1, 2, 3], 2), vec![1]);
     assert_eq!(array::split_at(&[1, 2, 3], 1), (vec![1], vec![2, 3]));
+    assert_eq!(array::split(&[1, 0, 2], &0), vec![vec![1], vec![2]]);
+    assert_eq!([1, 2, 3].iter().rposition(|a| *a == 3), Some(2));
+    assert_eq!(array::find_last_index(&[1, 2, 3], |a| *a < 3), Some(1));
+    assert_eq!(array::zip(&[1, 2], &[3]), vec![(1, 3)]);
+    assert_eq!(array::lift_result::<i32, &str>(Ok(1)), vec![1]);
+    assert_eq!(array::lift_result::<i32, &str>(Err("e")), Vec::<i32>::new());
+    assert_eq!(array::group_by(&[1, 1, 2]), vec![vec![1, 1], vec![2]]);
+    assert_eq!(array::cartesian(&[1], &[2, 3]), vec![(1, 2), (1, 3)]);
     assert_eq!("a,b,c".split(',').collect::<Vec<_>>(), vec!["a", "b", "c"]);
     assert_eq!([1, 2, 3].iter().rposition(|a| *a == 3), Some(2));
     assert_eq!(

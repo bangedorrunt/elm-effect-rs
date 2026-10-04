@@ -393,7 +393,34 @@ pub fn group_by<T: Clone + PartialEq>(values: &[T]) -> Vec<Vec<T>> {
     out
 }
 
-/// Cartesian product (`cartesian`, `cartesianWith` with pair).
+/// Split on a separator value (`split`).
+pub fn split<T: Clone + PartialEq>(values: &[T], separator: &T) -> Vec<Vec<T>> {
+    let mut out = vec![Vec::new()];
+    for v in values {
+        if v == separator {
+            out.push(Vec::new());
+        } else if let Some(last) = out.last_mut() {
+            last.push(v.clone());
+        }
+    }
+    out
+}
+
+/// Last index passing the predicate (`findLastIndex`).
+pub fn find_last_index<T>(values: &[T], mut predicate: impl FnMut(&T) -> bool) -> Option<usize> {
+    values.iter().rposition(|a| predicate(a))
+}
+
+/// Pair up, stopping at the shorter (`zip`).
+pub fn zip<T: Clone, U: Clone>(a: &[T], b: &[U]) -> Vec<(T, U)> {
+    zip_with(a, b, |x, y| (x.clone(), y.clone()))
+}
+
+/// Lift a `Result` into an array (`liftResult`): `Ok` wraps, `Err` empties.
+pub fn lift_result<T, E>(value: Result<T, E>) -> Vec<T> {
+    value.into_iter().collect()
+}
+/// Cartesian product (`cartesian`, `cartesianWith` with pair shape).
 pub fn cartesian<T: Clone, U: Clone>(a: &[T], b: &[U]) -> Vec<(T, U)> {
     a.iter()
         .flat_map(|x| b.iter().map(move |y| (x.clone(), y.clone())))
