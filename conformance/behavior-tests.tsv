@@ -552,11 +552,11 @@ unported	packages/effect/test/Channel.test.ts	297	it.effect	mapEffect - interrup
 ported	packages/effect/test/Channel.test.ts	338	it.effect	filterMap with Filter	channel_filter_map_recovers
 unported	packages/effect/test/Channel.test.ts	348	it.effect	filterMapEffect with FilterEffect	
 ported	packages/effect/test/Channel.test.ts	360	it.effect	decodeText handles multi-byte characters split across Uint8Array boundaries	channel_decode_text_reassembles_split_characters
-unported	packages/effect/test/Channel.test.ts	376	it.effect	merge - interrupts left side if halt strategy is set to 'right'	
-unported	packages/effect/test/Channel.test.ts	396	it.effect	merge - interrupts right side if halt strategy is set to 'left'	
-unported	packages/effect/test/Channel.test.ts	416	it.effect	merge - interrupts losing side if halt strategy is set to 'either'	
-unported	packages/effect/test/Channel.test.ts	426	it.effect	merge - waits for both sides if halt strategy is set to 'both'	
-unported	packages/effect/test/Channel.test.ts	436	it.effect	merge - prioritizes failure	
+ported	packages/effect/test/Channel.test.ts	376	it.effect	merge - interrupts left side if halt strategy is set to 'right'	merge_halt_strategies
+ported	packages/effect/test/Channel.test.ts	396	it.effect	merge - interrupts right side if halt strategy is set to 'left'	merge_halt_strategies
+ported	packages/effect/test/Channel.test.ts	416	it.effect	merge - interrupts losing side if halt strategy is set to 'either'	merge_halt_strategies
+ported	packages/effect/test/Channel.test.ts	426	it.effect	merge - waits for both sides if halt strategy is set to 'both'	merge_halt_strategies
+ported	packages/effect/test/Channel.test.ts	436	it.effect	merge - prioritizes failure	merge_halt_strategies
 unported	packages/effect/test/Channel.test.ts	449	it.effect	interrupts previous channels and runs their finalizers	
 unported	packages/effect/test/Channel.test.ts	460	it.effect	interrupts the current element	
 unported	packages/effect/test/Channel.test.ts	482	it.effect	interruptWhen - propagates errors	
@@ -3470,7 +3470,7 @@ unported	packages/effect/test/Semaphore.test.ts	549	it.effect	many partitions
 unported	packages/effect/test/Semaphore.test.ts	580	it.effect	partial permit allocation	
 unported	packages/effect/test/Semaphore.test.ts	613	it.effect	zero permits requested	
 unported	packages/effect/test/Semaphore.test.ts	627	it.effect	sequential tasks in same partition	
-unported	packages/effect/test/Sink.test.ts	16	it.effect	fromWritableStream - aborts instead of closing on upstream failure	
+ported	packages/effect/test/Sink.test.ts	16	it.effect	fromWritableStream - aborts instead of closing on upstream failure	from_write_aborts_on_failure
 unported	packages/effect/test/Sink.test.ts	43	it.effect	fromWritableStream - aborts instead of closing on interruption	
 ported	packages/effect/test/Sink.test.ts	76	it.effect	empty	sink_take_while_stops
 ported	packages/effect/test/Sink.test.ts	85	it.effect	termination in the middle	sink_take_while_stops
@@ -3488,11 +3488,11 @@ ported	packages/effect/test/Sink.test.ts	235	it.effect	produces an empty chunk f
 ported	packages/effect/test/Sink.test.ts	246	it.effect	takeWhile	sink_take_while_stops
 ported	packages/effect/test/Sink.test.ts	254	it.effect	takeWhileFilter	sink_take_while_stops
 ported	packages/effect/test/Sink.test.ts	262	it.effect	takeWhileFilter consumes the first failing input	sink_take_while_stops
-unported	packages/effect/test/Sink.test.ts	271	it.effect	takeWhileEffect	
-unported	packages/effect/test/Sink.test.ts	279	it.effect	takeWhileFilterEffect	
-unported	packages/effect/test/Sink.test.ts	287	it.effect	takeWhileFilterEffect consumes the first failing input	
+ported	packages/effect/test/Sink.test.ts	271	it.effect	takeWhileEffect	take_while_keeps_leftovers
+ported	packages/effect/test/Sink.test.ts	279	it.effect	takeWhileFilterEffect	take_while_keeps_leftovers
+ported	packages/effect/test/Sink.test.ts	287	it.effect	takeWhileFilterEffect consumes the first failing input	take_while_keeps_leftovers
 unported	packages/effect/test/Sink.test.ts	300	it.effect	uses monotonic time when wall time moves backward	
-unported	packages/effect/test/Sink.test.ts	317	it.effect	preserves leftovers when the next sink consumes no input	
+ported	packages/effect/test/Sink.test.ts	317	it.effect	preserves leftovers when the next sink consumes no input	take_while_keeps_leftovers
 ported	packages/effect/test/Sink.test.ts	327	it.effect	flatMap - empty input	channel_flat_map_concatenates
 ported	packages/effect/test/Sink.test.ts	334	it.effect	flatMap - non-empty input	channel_flat_map_concatenates
 unported	packages/effect/test/Sink.test.ts	341	it.effect	flatMap - with leftovers	
@@ -7490,7 +7490,7 @@ unported	packages/effect/test/schema/Schema.test.ts	164	it	applies errors with e
 unported	packages/effect/test/schema/Schema.test.ts	187	it	decoders can receive options when they are created	
 unported	packages/effect/test/schema/Schema.test.ts	202	it	encoders can receive options when they are created	
 unported	packages/effect/test/schema/Schema.test.ts	219	it	should throw an error if the literal is not a finite number	
-unported	packages/effect/test/schema/Schema.test.ts	237	it	should expose the literal	
+ported	packages/effect/test/schema/Schema.test.ts	237	it	should expose the literal	literal_exposes_its_value
 unported	packages/effect/test/schema/Schema.test.ts	243	it	a	
 unported	packages/effect/test/schema/Schema.test.ts	260	it	1	
 unported	packages/effect/test/schema/Schema.test.ts	277	it	accepts either signed zero and preserves the input sign	
@@ -7498,10 +7498,10 @@ unported	packages/effect/test/schema/Schema.test.ts	287	it	transform
 unported	packages/effect/test/schema/Schema.test.ts	302	it	red, green, blue	
 unported	packages/effect/test/schema/Schema.test.ts	315	it	transform	
 unported	packages/effect/test/schema/Schema.test.ts	330	it	pick	
-unported	packages/effect/test/schema/Schema.test.ts	337	it	Never	
-unported	packages/effect/test/schema/Schema.test.ts	351	it	Any	
+ported	packages/effect/test/schema/Schema.test.ts	337	it	Never	never_rejects_everything
+ported	packages/effect/test/schema/Schema.test.ts	351	it	Any	any_accepts_everything
 unported	packages/effect/test/schema/Schema.test.ts	362	it	Unknown	
-unported	packages/effect/test/schema/Schema.test.ts	373	it	Null	
+ported	packages/effect/test/schema/Schema.test.ts	373	it	Null	null_accepts_only_null
 unported	packages/effect/test/schema/Schema.test.ts	382	it	Undefined	
 unported	packages/effect/test/schema/Schema.test.ts	391	it	String	
 unported	packages/effect/test/schema/Schema.test.ts	408	it	StringForLiteralAutocomplete	
@@ -7515,7 +7515,7 @@ unported	packages/effect/test/schema/Schema.test.ts	537	it	Void
 unported	packages/effect/test/schema/Schema.test.ts	565	it	ObjectKeyword	
 unported	packages/effect/test/schema/Schema.test.ts	585	it	optionalKey	
 unported	packages/effect/test/schema/Schema.test.ts	592	it	optionalKey & mutableKey	
-unported	packages/effect/test/schema/Schema.test.ts	598	it	optional	
+ported	packages/effect/test/schema/Schema.test.ts	598	it	optional	option_from_null_or_value
 unported	packages/effect/test/schema/Schema.test.ts	606	it	mutableKey	
 unported	packages/effect/test/schema/Schema.test.ts	613	it	mutableKey & optionalKey	
 unported	packages/effect/test/schema/Schema.test.ts	619	it	readonlyKey	
@@ -7965,7 +7965,7 @@ unported	packages/effect/test/schema/Schema.test.ts	8831	it	evolveEntries
 unported	packages/effect/test/schema/Schema.test.ts	8843	it	optionalKey	
 unported	packages/effect/test/schema/Schema.test.ts	8855	it	mapPick	
 unported	packages/effect/test/schema/Schema.test.ts	8867	it	mapOmit	
-unported	packages/effect/test/schema/Schema.test.ts	8879	it	optional	
+ported	packages/effect/test/schema/Schema.test.ts	8879	it	optional	option_from_null_or_value
 unported	packages/effect/test/schema/Schema.test.ts	8891	it	mutableKey	
 unported	packages/effect/test/schema/Schema.test.ts	8903	it	readonlyKey	
 unported	packages/effect/test/schema/Schema.test.ts	8915	it	mutable	
@@ -8008,7 +8008,7 @@ unported	packages/effect/test/schema/Schema.test.ts	9330	it	single-element array
 unported	packages/effect/test/schema/Schema.test.ts	9343	it	multi-element array groups into a Composite	
 unported	packages/effect/test/schema/Schema.test.ts	9361	it	array mixing string, Issue, and { path, issue }	
 unported	packages/effect/test/schema/Schema.test.ts	9383	it	Struct	
-unported	packages/effect/test/schema/Schema.test.ts	9401	it	Union	
+ported	packages/effect/test/schema/Schema.test.ts	9401	it	Union	union_tries_first_then_second
 unported	packages/effect/test/schema/Schema.test.ts	9433	it	should augment a union of structs	
 unported	packages/effect/test/schema/Schema.test.ts	9530	it	should support multiple tags	
 unported	packages/effect/test/schema/Schema.test.ts	9541	it	should throw on duplicate discriminants	

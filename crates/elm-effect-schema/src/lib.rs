@@ -168,6 +168,70 @@ fn mismatch<T>(path: &str, expected: &'static str, got: &Unknown) -> Result<T, S
     })
 }
 
+impl Schema<Unknown> {
+    /// Any value at all (`Any` / `Unknown` shapes): decode always succeeds.
+    pub fn any() -> Self {
+        Self::new(Ok, |value| value.clone(), SchemaKind::Opaque("any"))
+    }
+
+    /// No value decodes (`Never` shape): decode always fails.
+    pub fn never() -> Self {
+        Self::new(
+            |unknown| mismatch("$", "never", &unknown),
+            |value| value.clone(),
+            SchemaKind::Opaque("never"),
+        )
+    }
+
+    /// One exact value (`Literal` shape): equality decides.
+    pub fn literal(expected: Unknown) -> Self {
+        Self::new(
+            move |unknown| {
+                if unknown == expected {
+                    Ok(unknown)
+                } else {
+                    mismatch("$", "that literal", &unknown)
+                }
+            },
+            |value| value.clone(),
+            SchemaKind::Opaque("literal"),
+        )
+    }
+
+    /// Try the first schema, fall back to the second (`Union` shape).
+    /// Encode always uses the first schema.
+    pub fn union(first: Schema<Unknown>, second: Schema<Unknown>) -> Self {
+        let kind = SchemaKind::Opaque("union");
+        let first = Arc::new(first);
+        let second = Arc::new(second);
+        let decode_first = first.clone();
+        let decode_second = second.clone();
+        let encode_first = first.clone();
+        Schema::new(
+            move |unknown| match decode_first.decode(unknown.clone()) {
+                ok @ Ok(_) => ok,
+                Err(_) => decode_second.decode(unknown),
+            },
+            move |value| encode_first.encode(value),
+            kind,
+        )
+    }
+}
+
+impl Schema<()> {
+    /// Only null (`Null` shape).
+    pub fn null() -> Self {
+        Self::new(
+            |unknown| match unknown {
+                Unknown::Null => Ok(()),
+                other => mismatch("$", "null", &other),
+            },
+            |_| Unknown::Null,
+            SchemaKind::Opaque("null"),
+        )
+    }
+}
+
 impl Schema<String> {
     /// Any text.
     pub fn string() -> Self {
@@ -257,6 +321,34 @@ impl Schema<BTreeMap<String, Unknown>> {
                 Unknown::Object(fields)
             },
             SchemaKind::Opaque("field"),
+        )
+    }
+
+    /// An optional text field (`optionalKey` shape): missing or null
+    /// decodes to `None`; encoding `None` omits the field.
+    pub fn optional_field(name: &str, inner: Schema<String>) -> Schema<Option<String>> {
+        let decode_name = name.to_string();
+        let encode_name = name.to_string();
+        let inner = Arc::new(inner);
+        let decode_inner = inner.clone();
+        let encode_inner = inner.clone();
+        Schema::new(
+            move |unknown| match unknown {
+                Unknown::Object(fields) => match fields.get(&decode_name) {
+                    None | Some(Unknown::Null) => Ok(None),
+                    Some(value) => decode_inner.decode(value.clone()).map(Some),
+                },
+                other => mismatch("$", "object", &other),
+            },
+            move |value| match value {
+                None => Unknown::Object(BTreeMap::new()),
+                Some(value) => {
+                    let mut fields = BTreeMap::new();
+                    fields.insert(encode_name.clone(), encode_inner.encode(value));
+                    Unknown::Object(fields)
+                }
+            },
+            SchemaKind::Opaque("optional field"),
         )
     }
 }
