@@ -33,6 +33,40 @@ fn union_tries_first_then_second() {
 }
 
 #[test]
+fn struct_shape_validates_fields() {
+    use elm_effect_schema::Field;
+    let schema = Schema::struct_shape(vec![
+        Field::required("name", Schema::as_unknown(Schema::string())),
+        Field::optional("nickname", Schema::as_unknown(Schema::string())),
+    ]);
+    let mut input = std::collections::BTreeMap::new();
+    input.insert("name".to_string(), Unknown::Text("Al".to_string()));
+    let out = schema.decode(Unknown::Object(input)).unwrap();
+    assert_eq!(out["name"], Unknown::Text("Al".to_string()));
+    assert!(!out.contains_key("nickname"));
+    let error = schema
+        .decode(Unknown::Object(std::collections::BTreeMap::new()))
+        .unwrap_err();
+    assert!(error.to_string().contains("$.name"));
+}
+
+#[test]
+fn pick_decodes_a_subset() {
+    use elm_effect_schema::Field;
+    let fields = vec![
+        Field::required("a", Schema::as_unknown(Schema::string())),
+        Field::required("b", Schema::as_unknown(Schema::number())),
+    ];
+    let schema = Schema::pick(fields, &["b"]);
+    let mut input = std::collections::BTreeMap::new();
+    input.insert("b".to_string(), Unknown::Number(1.0));
+    let out = schema.decode(Unknown::Object(input)).unwrap();
+    assert_eq!(out["b"], Unknown::Number(1.0));
+    // The picked-away field is not required anymore.
+    assert!(!out.contains_key("a"));
+}
+
+#[test]
 fn tuple_checks_length_and_order() {
     let schema = Schema::tuple2(Schema::string(), Schema::number());
     assert_eq!(

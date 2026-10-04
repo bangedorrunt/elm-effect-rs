@@ -140,6 +140,27 @@ impl<T> Schema<T> {
         })
     }
 
+    /// Re-type a schema to `Unknown` through itself: decode validates
+    /// and normalizes, then the value returns to unknown form. This is
+    /// how heterogeneous struct fields share one `Field` type.
+    pub fn as_unknown(schema: Schema<T>) -> Schema<Unknown>
+    where
+        T: Send + Sync + 'static,
+    {
+        let schema = Arc::new(schema);
+        let decode_schema = schema.clone();
+        let encode_schema = schema.clone();
+        Schema::new(
+            move |unknown| {
+                decode_schema
+                    .decode(unknown)
+                    .map(|value| encode_schema.encode(&value))
+            },
+            |value| value.clone(),
+            SchemaKind::Opaque("unknown"),
+        )
+    }
+
     /// Check a decoded value with a predicate (`refinement` shape): a
     /// failing predicate is a typed mismatch naming the check.
     pub fn refine(
@@ -475,6 +496,83 @@ impl<A: Send + Sync + 'static, B: Send + Sync + 'static> Schema<(A, B)> {
             move |(a, b)| Unknown::Array(vec![encode_first.encode(a), encode_second.encode(b)]),
             SchemaKind::Opaque("tuple"),
         )
+    }
+}
+
+/// One field of a struct shape: required or optional with a decoder.
+pub struct Field {
+    name: String,
+    schema: Arc<Schema<Unknown>>,
+    optional: bool,
+}
+
+impl Field {
+    /// A required field decoded with `schema`.
+    pub fn required(name: &str, schema: Schema<Unknown>) -> Self {
+        Self {
+            name: name.to_string(),
+            schema: Arc::new(schema),
+            optional: false,
+        }
+    }
+
+    /// An optional field: missing or null decodes without error.
+    pub fn optional(name: &str, schema: Schema<Unknown>) -> Self {
+        Self {
+            name: name.to_string(),
+            schema: Arc::new(schema),
+            optional: true,
+        }
+    }
+}
+
+impl Schema<BTreeMap<String, Unknown>> {
+    /// A struct shape (`Struct`/`pick`/`Partial` shapes): every required
+    /// field must decode; optional fields may be missing or null. Extra
+    /// input fields pass through untouched.
+    pub fn struct_shape(fields: Vec<Field>) -> Self {
+        Self::new(
+            move |unknown| match unknown {
+                Unknown::Object(mut input) => {
+                    let mut out = BTreeMap::new();
+                    for field in &fields {
+                        match input.remove(&field.name) {
+                            None | Some(Unknown::Null) if field.optional => {}
+                            None => {
+                                return Err(SchemaError::TypeMismatch {
+                                    path: format!("$.{}", field.name),
+                                    expected: "required field",
+                                    got: "missing",
+                                });
+                            }
+                            Some(value) => {
+                                let decoded = field
+                                    .schema
+                                    .decode(value)
+                                    .map_err(|error| error.at(&format!("$.{}", field.name)))?;
+                                out.insert(field.name.clone(), decoded);
+                            }
+                        }
+                    }
+                    for (key, value) in input {
+                        out.insert(key, value);
+                    }
+                    Ok(out)
+                }
+                other => mismatch("$", "object", &other),
+            },
+            |fields| Unknown::Object(fields.clone()),
+            SchemaKind::Object,
+        )
+    }
+
+    /// A subset of fields (`pick` shape): only the named fields decode.
+    pub fn pick(fields: Vec<Field>, names: &[&str]) -> Self {
+        let wanted: Vec<Field> = fields
+            .into_iter()
+            .filter(|field| names.contains(&field.name.as_str()))
+            .collect();
+        Self::struct_shape(wanted)
     }
 }
 

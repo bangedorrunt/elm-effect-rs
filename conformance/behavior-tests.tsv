@@ -7497,7 +7497,7 @@ unported	packages/effect/test/schema/Schema.test.ts	277	it	accepts either signed
 unported	packages/effect/test/schema/Schema.test.ts	287	it	transform	
 unported	packages/effect/test/schema/Schema.test.ts	302	it	red, green, blue	
 unported	packages/effect/test/schema/Schema.test.ts	315	it	transform	
-unported	packages/effect/test/schema/Schema.test.ts	330	it	pick	
+ported	packages/effect/test/schema/Schema.test.ts	330	it	pick	pick_decodes_a_subset
 ported	packages/effect/test/schema/Schema.test.ts	337	it	Never	never_rejects_everything
 ported	packages/effect/test/schema/Schema.test.ts	351	it	Any	any_accepts_everything
 unported	packages/effect/test/schema/Schema.test.ts	362	it	Unknown	
@@ -7515,7 +7515,7 @@ unported	packages/effect/test/schema/Schema.test.ts	537	it	Void
 unported	packages/effect/test/schema/Schema.test.ts	565	it	ObjectKeyword	
 unported	packages/effect/test/schema/Schema.test.ts	585	it	optionalKey	
 unported	packages/effect/test/schema/Schema.test.ts	592	it	optionalKey & mutableKey	
-ported	packages/effect/test/schema/Schema.test.ts	598	it	optional	option_from_null_or_value
+unported	packages/effect/test/schema/Schema.test.ts	598	it	optional	
 unported	packages/effect/test/schema/Schema.test.ts	606	it	mutableKey	
 unported	packages/effect/test/schema/Schema.test.ts	613	it	mutableKey & optionalKey	
 unported	packages/effect/test/schema/Schema.test.ts	619	it	readonlyKey	
@@ -7965,7 +7965,7 @@ unported	packages/effect/test/schema/Schema.test.ts	8831	it	evolveEntries
 unported	packages/effect/test/schema/Schema.test.ts	8843	it	optionalKey	
 unported	packages/effect/test/schema/Schema.test.ts	8855	it	mapPick	
 unported	packages/effect/test/schema/Schema.test.ts	8867	it	mapOmit	
-ported	packages/effect/test/schema/Schema.test.ts	8879	it	optional	option_from_null_or_value
+unported	packages/effect/test/schema/Schema.test.ts	8879	it	optional	
 unported	packages/effect/test/schema/Schema.test.ts	8891	it	mutableKey	
 unported	packages/effect/test/schema/Schema.test.ts	8903	it	readonlyKey	
 unported	packages/effect/test/schema/Schema.test.ts	8915	it	mutable	
@@ -7975,7 +7975,7 @@ unported	packages/effect/test/schema/Schema.test.ts	8951	it	NullishOr
 unported	packages/effect/test/schema/Schema.test.ts	8963	it	should work with flow	
 unported	packages/effect/test/schema/Schema.test.ts	8982	it	appendElement	
 unported	packages/effect/test/schema/Schema.test.ts	8988	it	appendElements	
-unported	packages/effect/test/schema/Schema.test.ts	8994	it	pick	
+ported	packages/effect/test/schema/Schema.test.ts	8994	it	pick	pick_decodes_a_subset
 unported	packages/effect/test/schema/Schema.test.ts	9000	it	omit	
 unported	packages/effect/test/schema/Schema.test.ts	9007	it	readonly [string] -> readonly [string?]	
 unported	packages/effect/test/schema/Schema.test.ts	9013	it	readonly [string, number] -> readonly [string, number?]	
