@@ -197,6 +197,22 @@ fn json_schema_unconstrained_imports_as_any() {
 }
 
 #[test]
+fn json_schema_single_member_enums() {
+    let schema = Schema::<Unknown>::from_json_schema(&serde_json::json!({"enum": [1]})).unwrap();
+    assert_eq!(
+        schema.decode(Unknown::Number(1.0)).unwrap(),
+        Unknown::Number(1.0)
+    );
+    assert!(schema.decode(Unknown::Number(2.0)).is_err());
+    let schema = Schema::<Unknown>::from_json_schema(&serde_json::json!({"enum": [true]})).unwrap();
+    assert_eq!(
+        schema.decode(Unknown::Bool(true)).unwrap(),
+        Unknown::Bool(true)
+    );
+    assert!(schema.decode(Unknown::Bool(false)).is_err());
+}
+
+#[test]
 fn json_schema_single_member_enum() {
     let schema =
         Schema::<Unknown>::from_json_schema(&serde_json::json!({"enum": ["only"]})).unwrap();
