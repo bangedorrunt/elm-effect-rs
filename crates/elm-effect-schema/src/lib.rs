@@ -11,6 +11,10 @@ use thiserror::Error;
 
 pub mod transform;
 
+pub mod tagged;
+
+pub use tagged::{Tagged, TaggedError, catch_tag};
+
 /// An untyped value: the decode source and encode target.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Unknown {
@@ -54,17 +58,56 @@ pub enum SchemaError {
 pub struct Schema<T> {
     decode: Box<dyn Fn(Unknown) -> Result<T, SchemaError> + Send + Sync>,
     encode: Box<dyn Fn(&T) -> Unknown + Send + Sync>,
+    kind: SchemaKind,
+}
+
+/// The wire shape of a schema: drives JSON Schema documents.
+#[derive(Debug, Clone, PartialEq)]
+pub enum SchemaKind {
+    String,
+    Number,
+    Boolean,
+    Object,
+    Array(Box<SchemaKind>),
+    Optional(Box<SchemaKind>),
+    /// A combinator whose wire shape is not introspectable.
+    Opaque(&'static str),
+}
+
+impl SchemaKind {
+    fn to_json_schema(&self) -> serde_json::Value {
+        match self {
+            SchemaKind::String => serde_json::json!({"type": "string"}),
+            SchemaKind::Number => serde_json::json!({"type": "number"}),
+            SchemaKind::Boolean => serde_json::json!({"type": "boolean"}),
+            SchemaKind::Object => serde_json::json!({"type": "object"}),
+            SchemaKind::Array(items) => {
+                serde_json::json!({"type": "array", "items": items.to_json_schema()})
+            }
+            SchemaKind::Optional(inner) => {
+                serde_json::json!({"anyOf": [inner.to_json_schema(), {"type": "null"}]})
+            }
+            SchemaKind::Opaque(name) => serde_json::json!({"$comment": name}),
+        }
+    }
 }
 
 impl<T> Schema<T> {
-    fn new(
+    pub(crate) fn new(
         decode: impl Fn(Unknown) -> Result<T, SchemaError> + Send + Sync + 'static,
         encode: impl Fn(&T) -> Unknown + Send + Sync + 'static,
+        kind: SchemaKind,
     ) -> Self {
         Self {
             decode: Box::new(decode),
             encode: Box::new(encode),
+            kind,
         }
+    }
+
+    /// The JSON Schema document describing this schema's wire shape.
+    pub fn json_schema(&self) -> serde_json::Value {
+        self.kind.to_json_schema()
     }
 
     /// Decode an unknown value, or a typed error naming the path.
@@ -105,12 +148,14 @@ impl<T> Schema<T> {
         D: Fn(A) -> Result<T, SchemaError> + Send + Sync + 'static,
         E: Fn(&T) -> A + Send + Sync + 'static,
     {
+        let kind = schema.kind.clone();
         let schema = Arc::new(schema);
         let decode_schema = schema.clone();
         let encode_schema = schema.clone();
         Schema::new(
             move |unknown| decode_schema.decode(unknown).and_then(&decode),
             move |value| encode_schema.encode(&encode(value)),
+            kind,
         )
     }
 }
@@ -132,6 +177,7 @@ impl Schema<String> {
                 other => mismatch("$", "string", &other),
             },
             |value| Unknown::Text(value.clone()),
+            SchemaKind::String,
         )
     }
 }
@@ -145,6 +191,7 @@ impl Schema<f64> {
                 other => mismatch("$", "number", &other),
             },
             |value| Unknown::Number(*value),
+            SchemaKind::Number,
         )
     }
 }
@@ -158,6 +205,7 @@ impl Schema<bool> {
                 other => mismatch("$", "boolean", &other),
             },
             |value| Unknown::Bool(*value),
+            SchemaKind::Boolean,
         )
     }
 }
@@ -171,6 +219,7 @@ impl Schema<BTreeMap<String, Unknown>> {
                 other => mismatch("$", "object", &other),
             },
             |fields| Unknown::Object(fields.clone()),
+            SchemaKind::Object,
         )
     }
 
@@ -207,6 +256,7 @@ impl Schema<BTreeMap<String, Unknown>> {
                 fields.insert(encode_name.clone(), encode_inner.encode(value));
                 Unknown::Object(fields)
             },
+            SchemaKind::Opaque("field"),
         )
     }
 }
@@ -214,6 +264,7 @@ impl Schema<BTreeMap<String, Unknown>> {
 impl<T: Send + Sync + 'static> Schema<Vec<T>> {
     /// Homogeneous arrays: every element decoded, failures name `[i]`.
     pub fn array(inner: Schema<T>) -> Schema<Vec<T>> {
+        let kind = SchemaKind::Array(Box::new(inner.kind.clone()));
         let inner = Arc::new(inner);
         let decode_inner = inner.clone();
         let encode_inner = inner.clone();
@@ -245,6 +296,7 @@ impl<T: Send + Sync + 'static> Schema<Vec<T>> {
                         .collect(),
                 )
             },
+            kind,
         )
     }
 }
@@ -252,6 +304,7 @@ impl<T: Send + Sync + 'static> Schema<Vec<T>> {
 impl<T: Send + Sync + 'static> Schema<Option<T>> {
     /// `null` (or missing, by the caller's hand) decodes to `None`.
     pub fn optional(inner: Schema<T>) -> Schema<Option<T>> {
+        let kind = SchemaKind::Optional(Box::new(inner.kind.clone()));
         let inner = Arc::new(inner);
         let decode_inner = inner.clone();
         let encode_inner = inner.clone();
@@ -264,6 +317,7 @@ impl<T: Send + Sync + 'static> Schema<Option<T>> {
                 None => Unknown::Null,
                 Some(value) => encode_inner.encode(value),
             },
+            kind,
         )
     }
 }

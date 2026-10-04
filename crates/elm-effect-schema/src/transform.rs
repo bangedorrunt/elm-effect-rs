@@ -33,7 +33,10 @@ impl<A, B> Transformation<A, B> {
         forward: impl Fn(A) -> Result<B, SchemaError> + Send + Sync + 'static,
         backward: impl Fn(B) -> Result<A, SchemaError> + Send + Sync + 'static,
     ) -> Self {
-        Self { forward: Box::new(forward), backward: Box::new(backward) }
+        Self {
+            forward: Box::new(forward),
+            backward: Box::new(backward),
+        }
     }
 
     /// Identity in both directions (`passthrough`).
@@ -55,10 +58,7 @@ impl<A, B> Transformation<A, B> {
     }
 
     /// Compose with a following step (`pipe`).
-    pub fn pipe<C>(
-        self,
-        next: Transformation<B, C>,
-    ) -> Transformation<A, C>
+    pub fn pipe<C>(self, next: Transformation<B, C>) -> Transformation<A, C>
     where
         A: 'static,
         B: 'static,
@@ -89,8 +89,12 @@ pub struct Getter {
 
 impl Getter {
     /// Build from a read function.
-    pub fn new(read: impl Fn(&Unknown) -> Result<Unknown, SchemaError> + Send + Sync + 'static) -> Self {
-        Self { read: Box::new(read) }
+    pub fn new(
+        read: impl Fn(&Unknown) -> Result<Unknown, SchemaError> + Send + Sync + 'static,
+    ) -> Self {
+        Self {
+            read: Box::new(read),
+        }
     }
 
     /// Read from unknown input.
@@ -100,7 +104,10 @@ impl Getter {
 
     /// Map the read value (`map`, execution mode preserved trivially:
     /// reads are synchronous here).
-    pub fn map(self, f: impl Fn(Unknown) -> Result<Unknown, SchemaError> + Send + Sync + 'static) -> Self {
+    pub fn map(
+        self,
+        f: impl Fn(Unknown) -> Result<Unknown, SchemaError> + Send + Sync + 'static,
+    ) -> Self {
         Self::new(move |u| self.read(u).and_then(&f))
     }
 
@@ -117,13 +124,15 @@ impl Getter {
                 expected: "present property",
                 got: "missing",
             }),
-            Unknown::Array(items) => segment.parse::<usize>().ok().and_then(|i| items.get(i).cloned()).ok_or(
-                SchemaError::TypeMismatch {
+            Unknown::Array(items) => segment
+                .parse::<usize>()
+                .ok()
+                .and_then(|i| items.get(i).cloned())
+                .ok_or(SchemaError::TypeMismatch {
                     path: segment.clone(),
                     expected: "valid array index",
                     got: "missing",
-                },
-            ),
+                }),
             other => Err(SchemaError::TypeMismatch {
                 path: segment.clone(),
                 expected: "object or array",
@@ -253,7 +262,11 @@ pub fn parse_path(s: &str) -> Vec<Segment> {
                     Err(_) => out.push(Segment::Key(inner.to_string())),
                 }
             }
-            rest = if end < rest.len() { &rest[end + 1..] } else { "" };
+            rest = if end < rest.len() {
+                &rest[end + 1..]
+            } else {
+                ""
+            };
             if rest.is_empty() {
                 break;
             }
@@ -321,7 +334,11 @@ fn parse_instant_millis(s: &str) -> Option<i64> {
     // Split trailing zone: `Z`, `+hh:mm`, or `[IANA]` (IANA reads as its
     // offset at that instant is unavailable here, so bracketed inputs
     // resolve the offset part and drop the name).
-    let t = t.strip_suffix('Z').or_else(|| t.strip_suffix('z')).unwrap_or(&t).to_string();
+    let t = t
+        .strip_suffix('Z')
+        .or_else(|| t.strip_suffix('z'))
+        .unwrap_or(&t)
+        .to_string();
     let t = match t.rfind('[') {
         Some(br) => t[..br].to_string(),
         None => t,
@@ -335,7 +352,10 @@ fn parse_instant_millis(s: &str) -> Option<i64> {
     };
     let (y, mo, d, h, mi, sec, ms) = parse_civil(&wall)?;
     let days = days_from_civil(y, mo, d);
-    Some(days * 86_400_000 + h * 3_600_000 + mi * 60_000 + sec * 1_000 + ms - off_mins as i64 * 60_000)
+    Some(
+        days * 86_400_000 + h * 3_600_000 + mi * 60_000 + sec * 1_000 + ms
+            - off_mins as i64 * 60_000,
+    )
 }
 
 fn parse_offset(s: &str) -> Option<i32> {
@@ -357,14 +377,20 @@ fn parse_offset(s: &str) -> Option<i32> {
 fn parse_civil(s: &str) -> Option<(i64, i64, i64, i64, i64, i64, i64)> {
     let (date, time) = s.split_once('T')?;
     let mut di = date.split('-');
-    let (y, mo, d): (i64, i64, i64) =
-        (di.next()?.parse().ok()?, di.next()?.parse().ok()?, di.next()?.parse().ok()?);
+    let (y, mo, d): (i64, i64, i64) = (
+        di.next()?.parse().ok()?,
+        di.next()?.parse().ok()?,
+        di.next()?.parse().ok()?,
+    );
     if di.next().is_some() || !(1..=12).contains(&mo) || !(1..=31).contains(&d) {
         return None;
     }
     let mut ti = time.split([':', '.']);
-    let (h, mi, sec): (i64, i64, i64) =
-        (ti.next()?.parse().ok()?, ti.next()?.parse().ok()?, ti.next()?.parse().ok()?);
+    let (h, mi, sec): (i64, i64, i64) = (
+        ti.next()?.parse().ok()?,
+        ti.next()?.parse().ok()?,
+        ti.next()?.parse().ok()?,
+    );
     // Optional `.sss` fraction, millis precision.
     let ms = match ti.next() {
         Some(frac) => {
@@ -427,8 +453,11 @@ fn parse_rfc2822(s: &str) -> Option<i64> {
     };
     let year: i64 = it.next()?.parse().ok()?;
     let mut ti = it.next()?.split(':');
-    let (h, mi, sec): (i64, i64, i64) =
-        (ti.next()?.parse().ok()?, ti.next()?.parse().ok()?, ti.next()?.parse().ok()?);
+    let (h, mi, sec): (i64, i64, i64) = (
+        ti.next()?.parse().ok()?,
+        ti.next()?.parse().ok()?,
+        ti.next()?.parse().ok()?,
+    );
     Some(days_from_civil(year, month, day) * 86_400_000 + h * 3_600_000 + mi * 60_000 + sec * 1_000)
 }
 
@@ -442,7 +471,9 @@ pub struct ParseOptions {
 
 impl Default for ParseOptions {
     fn default() -> Self {
-        Self { preserve_excess: false }
+        Self {
+            preserve_excess: false,
+        }
     }
 }
 
@@ -574,7 +605,11 @@ impl<T> Branded<T> {
         schema: Schema<T>,
         check: impl Fn(&T) -> bool + Send + Sync + 'static,
     ) -> Self {
-        Self { brand, schema, check: Box::new(check) }
+        Self {
+            brand,
+            schema,
+            check: Box::new(check),
+        }
     }
 
     /// Brand name.
