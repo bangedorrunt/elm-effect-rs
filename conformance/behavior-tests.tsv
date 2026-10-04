@@ -238,56 +238,56 @@ unported	packages/effect/test/BigInt.test.ts	90	it	between checks inclusive rang
 unported	packages/effect/test/BigInt.test.ts	96	it	clamp restricts a bigint to an inclusive range	
 unported	packages/effect/test/BigInt.test.ts	102	it	min and max select the smaller and larger bigint	
 unported	packages/effect/test/BigInt.test.ts	107	it	sign returns the ordering of a bigint against zero	
-unported	packages/effect/test/Boolean.test.ts	7	it	re-exports the global Boolean constructor	
-unported	packages/effect/test/Boolean.test.ts	11	it	coerces values with Boolean semantics	
-unported	packages/effect/test/Boolean.test.ts	22	it	returns true for boolean values	
-unported	packages/effect/test/Boolean.test.ts	27	it	returns false for non-boolean values	
-unported	packages/effect/test/Boolean.test.ts	42	it	calls onTrue when value is true (data-first)	
-unported	packages/effect/test/Boolean.test.ts	46	it	calls onFalse when value is false (data-first)	
-unported	packages/effect/test/Boolean.test.ts	50	it	works in data-last (pipeable) form	
-unported	packages/effect/test/Boolean.test.ts	57	it	false < true	
-unported	packages/effect/test/Boolean.test.ts	61	it	true > false	
-unported	packages/effect/test/Boolean.test.ts	65	it	equal values return 0	
-unported	packages/effect/test/Boolean.test.ts	72	it	returns true for equal booleans	
-unported	packages/effect/test/Boolean.test.ts	77	it	returns false for different booleans	
-unported	packages/effect/test/Boolean.test.ts	84	it	negates the value	
-unported	packages/effect/test/Boolean.test.ts	89	it	is self-inverse	
-unported	packages/effect/test/Boolean.test.ts	96	it	truth table (data-first)	
-unported	packages/effect/test/Boolean.test.ts	103	it	supports data-last form with the pipe value as the left operand	
-unported	packages/effect/test/Boolean.test.ts	110	it	truth table (data-first)	
-unported	packages/effect/test/Boolean.test.ts	117	it	supports data-last form with the pipe value as the left operand	
-unported	packages/effect/test/Boolean.test.ts	124	it	truth table (data-first)	
-unported	packages/effect/test/Boolean.test.ts	131	it	supports data-last form with the pipe value as the left operand	
-unported	packages/effect/test/Boolean.test.ts	138	it	truth table (data-first)	
-unported	packages/effect/test/Boolean.test.ts	145	it	supports data-last form with the pipe value as the left operand	
-unported	packages/effect/test/Boolean.test.ts	152	it	truth table (data-first)	
-unported	packages/effect/test/Boolean.test.ts	159	it	supports data-last form with the pipe value as the left operand	
-unported	packages/effect/test/Boolean.test.ts	166	it	truth table (data-first)	
-unported	packages/effect/test/Boolean.test.ts	173	it	supports data-last form with the pipe value as the left operand	
-unported	packages/effect/test/Boolean.test.ts	178	it	is the negation of xor	
-unported	packages/effect/test/Boolean.test.ts	188	it	truth table (data-first)	
-unported	packages/effect/test/Boolean.test.ts	195	it	supports data-last form with the pipe value as the left operand	
-unported	packages/effect/test/Boolean.test.ts	202	it	returns true when all elements are true	
-unported	packages/effect/test/Boolean.test.ts	206	it	returns false when any element is false	
-unported	packages/effect/test/Boolean.test.ts	210	it	returns true for empty collection	
-unported	packages/effect/test/Boolean.test.ts	214	it	short-circuits on first false	
-unported	packages/effect/test/Boolean.test.ts	227	it	returns true when any element is true	
-unported	packages/effect/test/Boolean.test.ts	231	it	returns false when all elements are false	
-unported	packages/effect/test/Boolean.test.ts	235	it	returns false for empty collection	
-unported	packages/effect/test/Boolean.test.ts	239	it	short-circuits on first true	
-unported	packages/effect/test/Boolean.test.ts	252	it	initialValue is true (identity for AND)	
-unported	packages/effect/test/Boolean.test.ts	256	it	truth table	
-unported	packages/effect/test/Boolean.test.ts	263	it	initialValue acts as identity element	
-unported	packages/effect/test/Boolean.test.ts	272	it	initialValue is false (identity for OR)	
-unported	packages/effect/test/Boolean.test.ts	276	it	truth table	
-unported	packages/effect/test/Boolean.test.ts	283	it	initialValue acts as identity element	
-unported	packages/effect/test/Brand.test.ts	27	it	formats validation failures as BrandError	
-unported	packages/effect/test/Brand.test.ts	35	it	creates nominal brands without runtime validation	
-unported	packages/effect/test/Brand.test.ts	56	it	validates custom predicates created with make	
-unported	packages/effect/test/Brand.test.ts	80	it	validates a single schema check	
-unported	packages/effect/test/Brand.test.ts	101	it	accumulates failures from multiple schema checks	
-unported	packages/effect/test/Brand.test.ts	116	it	stops after an aborted failed schema check	
-unported	packages/effect/test/Brand.test.ts	130	it	combines existing brand constructors with all	
+ported	packages/effect/test/Boolean.test.ts	7	it	re-exports the global Boolean constructor	boolean_coerce
+ported	packages/effect/test/Boolean.test.ts	11	it	coerces values with Boolean semantics	boolean_coerce
+ported	packages/effect/test/Boolean.test.ts	22	it	returns true for boolean values	boolean_coerce
+ported	packages/effect/test/Boolean.test.ts	27	it	returns false for non-boolean values	boolean_coerce
+ported	packages/effect/test/Boolean.test.ts	42	it	calls onTrue when value is true (data-first)	boolean_match
+ported	packages/effect/test/Boolean.test.ts	46	it	calls onFalse when value is false (data-first)	boolean_match
+ported	packages/effect/test/Boolean.test.ts	50	it	works in data-last (pipeable) form	boolean_match
+ported	packages/effect/test/Boolean.test.ts	57	it	false < true	boolean_all_any
+ported	packages/effect/test/Boolean.test.ts	61	it	true > false	boolean_all_any
+ported	packages/effect/test/Boolean.test.ts	65	it	equal values return 0	boolean_all_any
+ported	packages/effect/test/Boolean.test.ts	72	it	returns true for equal booleans	boolean_coerce
+ported	packages/effect/test/Boolean.test.ts	77	it	returns false for different booleans	boolean_coerce
+ported	packages/effect/test/Boolean.test.ts	84	it	negates the value	boolean_ops
+ported	packages/effect/test/Boolean.test.ts	89	it	is self-inverse	boolean_ops
+ported	packages/effect/test/Boolean.test.ts	96	it	truth table (data-first)	boolean_ops
+ported	packages/effect/test/Boolean.test.ts	103	it	supports data-last form with the pipe value as the left operand	boolean_ops
+ported	packages/effect/test/Boolean.test.ts	110	it	truth table (data-first)	boolean_ops
+ported	packages/effect/test/Boolean.test.ts	117	it	supports data-last form with the pipe value as the left operand	boolean_ops
+ported	packages/effect/test/Boolean.test.ts	124	it	truth table (data-first)	boolean_ops
+ported	packages/effect/test/Boolean.test.ts	131	it	supports data-last form with the pipe value as the left operand	boolean_ops
+ported	packages/effect/test/Boolean.test.ts	138	it	truth table (data-first)	boolean_ops
+ported	packages/effect/test/Boolean.test.ts	145	it	supports data-last form with the pipe value as the left operand	boolean_ops
+ported	packages/effect/test/Boolean.test.ts	152	it	truth table (data-first)	boolean_ops
+ported	packages/effect/test/Boolean.test.ts	159	it	supports data-last form with the pipe value as the left operand	boolean_ops
+ported	packages/effect/test/Boolean.test.ts	166	it	truth table (data-first)	boolean_ops
+ported	packages/effect/test/Boolean.test.ts	173	it	supports data-last form with the pipe value as the left operand	boolean_ops
+ported	packages/effect/test/Boolean.test.ts	178	it	is the negation of xor	boolean_ops
+ported	packages/effect/test/Boolean.test.ts	188	it	truth table (data-first)	boolean_ops
+ported	packages/effect/test/Boolean.test.ts	195	it	supports data-last form with the pipe value as the left operand	boolean_ops
+ported	packages/effect/test/Boolean.test.ts	202	it	returns true when all elements are true	boolean_all_any
+ported	packages/effect/test/Boolean.test.ts	206	it	returns false when any element is false	boolean_all_any
+ported	packages/effect/test/Boolean.test.ts	210	it	returns true for empty collection	boolean_all_any
+ported	packages/effect/test/Boolean.test.ts	214	it	short-circuits on first false	boolean_all_any
+ported	packages/effect/test/Boolean.test.ts	227	it	returns true when any element is true	boolean_all_any
+ported	packages/effect/test/Boolean.test.ts	231	it	returns false when all elements are false	boolean_all_any
+ported	packages/effect/test/Boolean.test.ts	235	it	returns false for empty collection	boolean_all_any
+ported	packages/effect/test/Boolean.test.ts	239	it	short-circuits on first true	boolean_all_any
+ported	packages/effect/test/Boolean.test.ts	252	it	initialValue is true (identity for AND)	boolean_all_any
+ported	packages/effect/test/Boolean.test.ts	256	it	truth table	boolean_ops
+ported	packages/effect/test/Boolean.test.ts	263	it	initialValue acts as identity element	boolean_all_any
+ported	packages/effect/test/Boolean.test.ts	272	it	initialValue is false (identity for OR)	boolean_all_any
+ported	packages/effect/test/Boolean.test.ts	276	it	truth table	boolean_ops
+ported	packages/effect/test/Boolean.test.ts	283	it	initialValue acts as identity element	boolean_all_any
+ported	packages/effect/test/Brand.test.ts	27	it	formats validation failures as BrandError	brand_nominal_and_make
+ported	packages/effect/test/Brand.test.ts	35	it	creates nominal brands without runtime validation	brand_nominal_and_make
+ported	packages/effect/test/Brand.test.ts	56	it	validates custom predicates created with make	brand_nominal_and_make
+ported	packages/effect/test/Brand.test.ts	80	it	validates a single schema check	brand_validate_accumulates_and_aborts
+ported	packages/effect/test/Brand.test.ts	101	it	accumulates failures from multiple schema checks	brand_validate_accumulates_and_aborts
+ported	packages/effect/test/Brand.test.ts	116	it	stops after an aborted failed schema check	brand_validate_accumulates_and_aborts
+ported	packages/effect/test/Brand.test.ts	130	it	combines existing brand constructors with all	brand_validate_accumulates_and_aborts
 unported	packages/effect/test/ByteSize.test.ts	17	it	decodes strict inputs and validates numeric values at runtime	
 unported	packages/effect/test/ByteSize.test.ts	28	it	constructs exact decimal and binary units	
 unported	packages/effect/test/ByteSize.test.ts	59	it	validates primitive and unit constructor inputs	
@@ -2773,52 +2773,52 @@ unported	packages/effect/test/Optic.test.ts	701	it	failure
 unported	packages/effect/test/Option.test.ts	16	it	makeReducer	
 unported	packages/effect/test/Option.test.ts	25	it	makeReducerFailFast	
 unported	packages/effect/test/Option.test.ts	39	it	gen	
-unported	packages/effect/test/Option.test.ts	77	it	toString	
-unported	packages/effect/test/Option.test.ts	92	it	toJSON	
-unported	packages/effect/test/Option.test.ts	97	it	inspect	
+ported	packages/effect/test/Option.test.ts	77	it	toString	option_unwrap
+ported	packages/effect/test/Option.test.ts	92	it	toJSON	option_unwrap
+ported	packages/effect/test/Option.test.ts	97	it	inspect	option_match_tap
 unported	packages/effect/test/Option.test.ts	107	it	verify structural equality	
 unported	packages/effect/test/Option.test.ts	113	it	verify hash equality	
-unported	packages/effect/test/Option.test.ts	119	it	getSuccess	
-unported	packages/effect/test/Option.test.ts	124	it	getFailure	
-unported	packages/effect/test/Option.test.ts	129	it	toRefinement	
-unported	packages/effect/test/Option.test.ts	147	it	isOption	
-unported	packages/effect/test/Option.test.ts	153	it	firstSomeOf	
+ported	packages/effect/test/Option.test.ts	119	it	getSuccess	option_match_tap
+ported	packages/effect/test/Option.test.ts	124	it	getFailure	option_match_tap
+ported	packages/effect/test/Option.test.ts	129	it	toRefinement	option_filter_family
+ported	packages/effect/test/Option.test.ts	147	it	isOption	option_constructors
+ported	packages/effect/test/Option.test.ts	153	it	firstSomeOf	option_zip_product_all
 unported	packages/effect/test/Option.test.ts	166	it	orElseResult	
-unported	packages/effect/test/Option.test.ts	173	it	orElseSome	
-unported	packages/effect/test/Option.test.ts	178	it	getOrThrow	
-unported	packages/effect/test/Option.test.ts	183	it	getOrThrowWith	
-unported	packages/effect/test/Option.test.ts	191	it	unit	
-unported	packages/effect/test/Option.test.ts	195	it	product	
+ported	packages/effect/test/Option.test.ts	173	it	orElseSome	option_or_else_family
+ported	packages/effect/test/Option.test.ts	178	it	getOrThrow	option_unwrap
+ported	packages/effect/test/Option.test.ts	183	it	getOrThrowWith	option_unwrap
+ported	packages/effect/test/Option.test.ts	191	it	unit	option_constructors
+ported	packages/effect/test/Option.test.ts	195	it	product	option_zip_product_all
 unported	packages/effect/test/Option.test.ts	203	it	productMany	
-unported	packages/effect/test/Option.test.ts	211	it	fromIterable	
-unported	packages/effect/test/Option.test.ts	216	it	map	
-unported	packages/effect/test/Option.test.ts	221	it	flatMap	
-unported	packages/effect/test/Option.test.ts	230	it	andThen	
-unported	packages/effect/test/Option.test.ts	243	it	orElse	
+ported	packages/effect/test/Option.test.ts	211	it	fromIterable	option_zip_product_all
+ported	packages/effect/test/Option.test.ts	216	it	map	option_map_flatmap_flatten
+ported	packages/effect/test/Option.test.ts	221	it	flatMap	option_map_flatmap_flatten
+ported	packages/effect/test/Option.test.ts	230	it	andThen	option_map_flatmap_flatten
+ported	packages/effect/test/Option.test.ts	243	it	orElse	option_or_else_family
 unported	packages/effect/test/Option.test.ts	257	it	partitionMap	
-unported	packages/effect/test/Option.test.ts	264	it	filterMap	
-unported	packages/effect/test/Option.test.ts	271	it	match	
-unported	packages/effect/test/Option.test.ts	279	it	getOrElse	
+ported	packages/effect/test/Option.test.ts	264	it	filterMap	option_filter_family
+ported	packages/effect/test/Option.test.ts	271	it	match	option_match_tap
+ported	packages/effect/test/Option.test.ts	279	it	getOrElse	option_unwrap
 unported	packages/effect/test/Option.test.ts	284	it	getOrNull	
 unported	packages/effect/test/Option.test.ts	289	it	getOrUndefined	
 unported	packages/effect/test/Option.test.ts	294	it	makeOrder	
-unported	packages/effect/test/Option.test.ts	304	it	flatMapNullishOr	
-unported	packages/effect/test/Option.test.ts	344	it	fromNullishOr	
-unported	packages/effect/test/Option.test.ts	350	it	liftPredicate	
+ported	packages/effect/test/Option.test.ts	304	it	flatMapNullishOr	option_match_tap
+ported	packages/effect/test/Option.test.ts	344	it	fromNullishOr	option_match_tap
+ported	packages/effect/test/Option.test.ts	350	it	liftPredicate	option_filter_family
 unported	packages/effect/test/Option.test.ts	364	it	containsWith	
-unported	packages/effect/test/Option.test.ts	374	it	contains	
-unported	packages/effect/test/Option.test.ts	380	it	isNone	
-unported	packages/effect/test/Option.test.ts	385	it	isSome	
-unported	packages/effect/test/Option.test.ts	390	it	exists	
-unported	packages/effect/test/Option.test.ts	397	it	liftNullishOr	
-unported	packages/effect/test/Option.test.ts	403	it	liftThrowable	
-unported	packages/effect/test/Option.test.ts	409	it	tap	
+ported	packages/effect/test/Option.test.ts	374	it	contains	option_filter_family
+ported	packages/effect/test/Option.test.ts	380	it	isNone	option_constructors
+ported	packages/effect/test/Option.test.ts	385	it	isSome	option_constructors
+ported	packages/effect/test/Option.test.ts	390	it	exists	option_filter_family
+ported	packages/effect/test/Option.test.ts	397	it	liftNullishOr	option_match_tap
+ported	packages/effect/test/Option.test.ts	403	it	liftThrowable	option_match_tap
+ported	packages/effect/test/Option.test.ts	409	it	tap	option_match_tap
 unported	packages/effect/test/Option.test.ts	416	it	filter keeps Do notation records only when the predicate passes	
-unported	packages/effect/test/Option.test.ts	436	it	zipWith	
+ported	packages/effect/test/Option.test.ts	436	it	zipWith	option_zip_product_all
 unported	packages/effect/test/Option.test.ts	442	it	reduceCompact	
 unported	packages/effect/test/Option.test.ts	449	it	makeEquivalence	
-unported	packages/effect/test/Option.test.ts	460	it	tuple	
-unported	packages/effect/test/Option.test.ts	466	it	iterable	
+ported	packages/effect/test/Option.test.ts	460	it	tuple	option_zip_product_all
+ported	packages/effect/test/Option.test.ts	466	it	iterable	option_match_tap
 unported	packages/effect/test/Option.test.ts	474	it	struct	
 unported	packages/effect/test/Option.test.ts	483	it	.pipe()	
 unported	packages/effect/test/Option.test.ts	487	it	lift2	
@@ -2826,8 +2826,8 @@ unported	packages/effect/test/Option.test.ts	496	it	Do
 unported	packages/effect/test/Option.test.ts	500	it	bindTo	
 unported	packages/effect/test/Option.test.ts	513	it	bind	
 unported	packages/effect/test/Option.test.ts	535	it	let	
-unported	packages/effect/test/Option.test.ts	552	it	as	
-unported	packages/effect/test/Option.test.ts	560	it	asVoid	
+ported	packages/effect/test/Option.test.ts	552	it	as	option_map_flatmap_flatten
+ported	packages/effect/test/Option.test.ts	560	it	asVoid	option_map_flatmap_flatten
 unported	packages/effect/test/Order.test.ts	6	it	Struct	
 unported	packages/effect/test/Order.test.ts	13	it	Tuple	
 ported	packages/effect/test/Order.test.ts	21	it	mapInput	order_composes_lexicographically
@@ -3221,49 +3221,49 @@ unported	packages/effect/test/Resource.test.ts	11	it.effect	isResource
 unported	packages/effect/test/Resource.test.ts	18	it.effect	manual refresh updates the cached value	
 unported	packages/effect/test/Resource.test.ts	32	it.effect	manual refresh releases the previous scoped acquisition	
 unported	packages/effect/test/Resource.test.ts	46	it.effect	failed refresh doesn't affect cached value	
-unported	packages/effect/test/Result.test.ts	18	it	succeed creates a Success value	
-unported	packages/effect/test/Result.test.ts	24	it	fail creates a Failure value	
-unported	packages/effect/test/Result.test.ts	30	it	void	
-unported	packages/effect/test/Result.test.ts	34	it	try	
-unported	packages/effect/test/Result.test.ts	54	it	fromNullishOr	
-unported	packages/effect/test/Result.test.ts	63	it	fromOption	
-unported	packages/effect/test/Result.test.ts	71	it	succeedNone	
-unported	packages/effect/test/Result.test.ts	75	it	succeedSome	
+ported	packages/effect/test/Result.test.ts	18	it	succeed creates a Success value	result_constructors
+ported	packages/effect/test/Result.test.ts	24	it	fail creates a Failure value	result_constructors
+ported	packages/effect/test/Result.test.ts	30	it	void	result_unwrap
+ported	packages/effect/test/Result.test.ts	34	it	try	result_unwrap
+ported	packages/effect/test/Result.test.ts	54	it	fromNullishOr	result_chain
+ported	packages/effect/test/Result.test.ts	63	it	fromOption	result_chain
+ported	packages/effect/test/Result.test.ts	71	it	succeedNone	result_constructors
+ported	packages/effect/test/Result.test.ts	75	it	succeedSome	result_constructors
 unported	packages/effect/test/Result.test.ts	81	it	toString	
-unported	packages/effect/test/Result.test.ts	108	it	toJSON	
-unported	packages/effect/test/Result.test.ts	113	it	inspect	
+ported	packages/effect/test/Result.test.ts	108	it	toJSON	result_unwrap
+ported	packages/effect/test/Result.test.ts	113	it	inspect	result_unwrap
 unported	packages/effect/test/Result.test.ts	118	it	Equal trait compares matching tags and values	
 unported	packages/effect/test/Result.test.ts	125	it	pipe composes Result operations	
-unported	packages/effect/test/Result.test.ts	131	it	isResult	
-unported	packages/effect/test/Result.test.ts	137	it	isFailure	
-unported	packages/effect/test/Result.test.ts	142	it	isSuccess	
-unported	packages/effect/test/Result.test.ts	149	it	getSuccess	
-unported	packages/effect/test/Result.test.ts	154	it	getFailure	
-unported	packages/effect/test/Result.test.ts	159	it	getOrElse	
+ported	packages/effect/test/Result.test.ts	131	it	isResult	result_constructors
+ported	packages/effect/test/Result.test.ts	137	it	isFailure	result_constructors
+ported	packages/effect/test/Result.test.ts	142	it	isSuccess	result_constructors
+ported	packages/effect/test/Result.test.ts	149	it	getSuccess	option_match_tap
+ported	packages/effect/test/Result.test.ts	154	it	getFailure	option_match_tap
+ported	packages/effect/test/Result.test.ts	159	it	getOrElse	result_unwrap
 unported	packages/effect/test/Result.test.ts	167	it	getOrNull	
 unported	packages/effect/test/Result.test.ts	172	it	getOrUndefined	
-unported	packages/effect/test/Result.test.ts	177	it	getOrThrowWith	
-unported	packages/effect/test/Result.test.ts	185	it	getOrThrow	
-unported	packages/effect/test/Result.test.ts	190	it	merge	
-unported	packages/effect/test/Result.test.ts	197	it	map	
-unported	packages/effect/test/Result.test.ts	207	it	mapBoth	
-unported	packages/effect/test/Result.test.ts	231	it	mapError	
-unported	packages/effect/test/Result.test.ts	241	it	tap	
-unported	packages/effect/test/Result.test.ts	274	it	match handles failure and success cases	
-unported	packages/effect/test/Result.test.ts	287	it	flip	
-unported	packages/effect/test/Result.test.ts	292	it	liftPredicate	
-unported	packages/effect/test/Result.test.ts	335	it	filterOrFail	
+ported	packages/effect/test/Result.test.ts	177	it	getOrThrowWith	result_unwrap
+ported	packages/effect/test/Result.test.ts	185	it	getOrThrow	result_unwrap
+ported	packages/effect/test/Result.test.ts	190	it	merge	result_map_family
+ported	packages/effect/test/Result.test.ts	197	it	map	result_map_family
+ported	packages/effect/test/Result.test.ts	207	it	mapBoth	result_map_family
+ported	packages/effect/test/Result.test.ts	231	it	mapError	result_map_family
+ported	packages/effect/test/Result.test.ts	241	it	tap	result_unwrap
+ported	packages/effect/test/Result.test.ts	274	it	match handles failure and success cases	result_chain
+ported	packages/effect/test/Result.test.ts	287	it	flip	result_map_family
+ported	packages/effect/test/Result.test.ts	292	it	liftPredicate	result_chain
+ported	packages/effect/test/Result.test.ts	335	it	filterOrFail	result_chain
 unported	packages/effect/test/Result.test.ts	347	it	makeEquivalence compares successes and failures by channel	
-unported	packages/effect/test/Result.test.ts	362	it	flatMap	
-unported	packages/effect/test/Result.test.ts	371	it	andThen replaces successes with Result or plain values	
+ported	packages/effect/test/Result.test.ts	362	it	flatMap	result_chain
+ported	packages/effect/test/Result.test.ts	371	it	andThen replaces successes with Result or plain values	result_chain
 unported	packages/effect/test/Result.test.ts	384	it	all	
-unported	packages/effect/test/Result.test.ts	413	it	orElse recovers failures and preserves successes	
+ported	packages/effect/test/Result.test.ts	413	it	orElse recovers failures and preserves successes	result_chain
 unported	packages/effect/test/Result.test.ts	426	it	Do	
 unported	packages/effect/test/Result.test.ts	430	it	bindTo	
 unported	packages/effect/test/Result.test.ts	437	it	bind	
 unported	packages/effect/test/Result.test.ts	453	it	let	
 unported	packages/effect/test/Result.test.ts	464	it	gen	
-unported	packages/effect/test/Result.test.ts	504	it	transposeOption	
+ported	packages/effect/test/Result.test.ts	504	it	transposeOption	result_chain
 unported	packages/effect/test/Result.test.ts	510	it	transposeMapOption	
 unported	packages/effect/test/Schedule.test.ts	8	it.effect	during recurs while the duration has not elapsed	
 unported	packages/effect/test/Schedule.test.ts	21	it.effect	max - outputs the slowest schedule duration	
@@ -4473,11 +4473,11 @@ unported	packages/effect/test/TxSubscriptionRef.test.ts	162	it.effect	set data-l
 unported	packages/effect/test/TxSubscriptionRef.test.ts	169	it.effect	update data-last style	
 unported	packages/effect/test/TxSubscriptionRef.test.ts	176	it.effect	modify data-last style	
 unported	packages/effect/test/TxSubscriptionRef.test.ts	188	it.effect	isTxSubscriptionRef identifies instances	
-unported	packages/effect/test/UndefinedOr.test.ts	6	it	map	
+ported	packages/effect/test/UndefinedOr.test.ts	6	it	map	undefined_or_behaves_as_option
 unported	packages/effect/test/UndefinedOr.test.ts	14	it	match	
-unported	packages/effect/test/UndefinedOr.test.ts	19	it	getOrThrowWith	
-unported	packages/effect/test/UndefinedOr.test.ts	24	it	getOrThrow returns defined values and throws the default missing error	
-unported	packages/effect/test/UndefinedOr.test.ts	29	it	liftThrowable	
+ported	packages/effect/test/UndefinedOr.test.ts	19	it	getOrThrowWith	undefined_or_behaves_as_option
+ported	packages/effect/test/UndefinedOr.test.ts	24	it	getOrThrow returns defined values and throws the default missing error	undefined_or_behaves_as_option
+ported	packages/effect/test/UndefinedOr.test.ts	29	it	liftThrowable	undefined_or_behaves_as_option
 unported	packages/effect/test/UndefinedOr.test.ts	40	it	makeReducer	
 unported	packages/effect/test/UndefinedOr.test.ts	49	it	makeReducerFailFast	
 unported	packages/effect/test/ai/AiError.test.ts	8	it	should be retryable	

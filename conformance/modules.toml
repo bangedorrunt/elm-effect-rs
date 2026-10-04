@@ -36,7 +36,7 @@ tests = ["packages/effect/test/BigInt.test.ts"]
 [[module]]
 path = "packages/effect/src/Boolean.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/Boolean.test.ts"]
@@ -44,7 +44,7 @@ tests = ["packages/effect/test/Boolean.test.ts"]
 [[module]]
 path = "packages/effect/src/Brand.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/Brand.test.ts"]
