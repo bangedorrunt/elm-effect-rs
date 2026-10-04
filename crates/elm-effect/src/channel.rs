@@ -124,6 +124,37 @@ where
     })
 }
 
+/// Concatenate per-item sub-pulls (`flatMap` shapes): each item maps to a
+/// `Pull` that is driven to completion, takes concatenated in order. An
+/// inner `Fail` fails the whole output; inner leftovers cannot occur
+/// (inner pulls always run to `End`).
+pub fn flat_map<A, E, B, F>(mut f: F) -> Channel<A, E, B>
+where
+    A: Send + 'static,
+    E: Send + 'static,
+    B: Send + 'static,
+    F: FnMut(A) -> Pull<B, E> + Send + 'static,
+{
+    Channel::from_fn(move |take| match take {
+        Take::Items(items) => {
+            let mut out = Vec::new();
+            for a in items {
+                let mut inner = f(a);
+                loop {
+                    match inner.pull() {
+                        Take::Items(mut chunk) => out.append(&mut chunk),
+                        Take::End => break,
+                        Take::Fail(e) => return vec![Take::Fail(e)],
+                    }
+                }
+            }
+            vec![Take::Items(out)]
+        }
+        Take::End => vec![Take::End],
+        Take::Fail(e) => vec![Take::Fail(e)],
+    })
+}
+
 /// Keep matching items per pull.
 pub fn filter<A, E, F>(mut f: F) -> Channel<A, E, A>
 where

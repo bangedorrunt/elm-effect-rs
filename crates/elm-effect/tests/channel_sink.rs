@@ -269,6 +269,26 @@ fn pull_bracket_release_failure_surfaces() {
 }
 
 #[test]
+fn channel_flat_map_concatenates() {
+    let source = pull::Pull::<i32, String>::of(vec![1, 2]);
+    let piped = channel::flat_map(|a: i32| pull::Pull::of(vec![a, a * 10])).run(source);
+    let mut piped = piped;
+    assert_eq!(piped.pull(), take::Take::Items(vec![1, 10, 2, 20]));
+    assert_eq!(piped.pull(), take::Take::End);
+    // Empty input: empty output.
+    let source = pull::Pull::<i32, String>::empty();
+    let piped = channel::flat_map(|a: i32| pull::Pull::of(vec![a])).run(source);
+    let mut piped = piped;
+    assert_eq!(piped.pull(), take::Take::End);
+    // Inner failure fails the output.
+    let source = pull::Pull::<i32, String>::of(vec![1]);
+    let piped = channel::flat_map(|_: i32| pull::Pull::<i32, String>::fail("inner".to_string()))
+        .run(source);
+    let mut piped = piped;
+    assert_eq!(piped.pull(), take::Take::Fail("inner".to_string()));
+}
+
+#[test]
 fn sink_drain_discards() {
     let done = sink::drain().run(pull::Pull::<i32, String>::of(vec![1, 2]));
     assert_eq!(done, elm_effect::Exit::Success(()));
