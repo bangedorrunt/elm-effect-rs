@@ -2139,54 +2139,54 @@ unported	packages/effect/test/HttpClient.test.ts	151	it.effect	jsonplaceholder s
 unported	packages/effect/test/HttpClient.test.ts	162	it.effect	head request with schemaJson	
 unported	packages/effect/test/HttpClient.test.ts	173	it.effect	interrupt	
 unported	packages/effect/test/HttpClient.test.ts	186	it.effect	close early	
-unported	packages/effect/test/Iterable.test.ts	19	it	of	
-unported	packages/effect/test/Iterable.test.ts	24	it	prepend	
-unported	packages/effect/test/Iterable.test.ts	32	it	prependAll	
-unported	packages/effect/test/Iterable.test.ts	39	it	append	
-unported	packages/effect/test/Iterable.test.ts	47	it	appendAll	
-unported	packages/effect/test/Iterable.test.ts	54	it	scan	
-unported	packages/effect/test/Iterable.test.ts	65	it	take	
-unported	packages/effect/test/Iterable.test.ts	81	it	takeWhile	
-unported	packages/effect/test/Iterable.test.ts	94	it	drop	
+ported	packages/effect/test/Iterable.test.ts	19	it	of	iterable_combine
+ported	packages/effect/test/Iterable.test.ts	24	it	prepend	iterable_combine
+ported	packages/effect/test/Iterable.test.ts	32	it	prependAll	iterable_combine
+ported	packages/effect/test/Iterable.test.ts	39	it	append	iterable_combine
+ported	packages/effect/test/Iterable.test.ts	47	it	appendAll	iterable_combine
+ported	packages/effect/test/Iterable.test.ts	54	it	scan	iterable_combine
+ported	packages/effect/test/Iterable.test.ts	65	it	take	iterable_combine
+ported	packages/effect/test/Iterable.test.ts	81	it	takeWhile	iterable_combine
+ported	packages/effect/test/Iterable.test.ts	94	it	drop	iterable_combine
 unported	packages/effect/test/Iterable.test.ts	119	it	boolean-returning overloads	
 unported	packages/effect/test/Iterable.test.ts	129	it	Option-returning overloads	
 unported	packages/effect/test/Iterable.test.ts	155	it	boolean-returning overloads	
 unported	packages/effect/test/Iterable.test.ts	165	it	Option-returning overloads	
-unported	packages/effect/test/Iterable.test.ts	190	it	zip	
-unported	packages/effect/test/Iterable.test.ts	205	it	zipWith	
-unported	packages/effect/test/Iterable.test.ts	224	it	intersperse	
+ported	packages/effect/test/Iterable.test.ts	190	it	zip	iterable_combine
+ported	packages/effect/test/Iterable.test.ts	205	it	zipWith	iterable_combine
+ported	packages/effect/test/Iterable.test.ts	224	it	intersperse	iterable_combine
 unported	packages/effect/test/Iterable.test.ts	238	it	containsWith	
-unported	packages/effect/test/Iterable.test.ts	247	it	contains	
+ported	packages/effect/test/Iterable.test.ts	247	it	contains	iterable_ends
 unported	packages/effect/test/Iterable.test.ts	256	it	dedupeAdjacentWith	
 unported	packages/effect/test/Iterable.test.ts	264	it	flatMapNullishOr	
-unported	packages/effect/test/Iterable.test.ts	271	it	unfold	
-unported	packages/effect/test/Iterable.test.ts	276	it	map	
-unported	packages/effect/test/Iterable.test.ts	287	it	flatMap	
-unported	packages/effect/test/Iterable.test.ts	297	it	getSomes	
-unported	packages/effect/test/Iterable.test.ts	310	it	filter	
-unported	packages/effect/test/Iterable.test.ts	324	it	filterMap	
+ported	packages/effect/test/Iterable.test.ts	271	it	unfold	iterable_combine
+ported	packages/effect/test/Iterable.test.ts	276	it	map	iterable_combine
+ported	packages/effect/test/Iterable.test.ts	287	it	flatMap	iterable_combine
+ported	packages/effect/test/Iterable.test.ts	297	it	getSomes	iterable_combine
+ported	packages/effect/test/Iterable.test.ts	310	it	filter	iterable_combine
+ported	packages/effect/test/Iterable.test.ts	324	it	filterMap	iterable_combine
 unported	packages/effect/test/Iterable.test.ts	333	it	filterMapWhile	
-unported	packages/effect/test/Iterable.test.ts	344	it	getFailures	
-unported	packages/effect/test/Iterable.test.ts	352	it	getSuccesses	
-unported	packages/effect/test/Iterable.test.ts	357	it	isEmpty	
-unported	packages/effect/test/Iterable.test.ts	362	it	head	
-unported	packages/effect/test/Iterable.test.ts	368	it	chunksOf	
-unported	packages/effect/test/Iterable.test.ts	400	it	flatten	
-unported	packages/effect/test/Iterable.test.ts	404	it	flatten is stack safe across empty iterables	
+ported	packages/effect/test/Iterable.test.ts	344	it	getFailures	iterable_combine
+ported	packages/effect/test/Iterable.test.ts	352	it	getSuccesses	iterable_combine
+ported	packages/effect/test/Iterable.test.ts	357	it	isEmpty	iterable_ends
+ported	packages/effect/test/Iterable.test.ts	362	it	head	iterable_ends
+ported	packages/effect/test/Iterable.test.ts	368	it	chunksOf	iterable_combine
+ported	packages/effect/test/Iterable.test.ts	400	it	flatten	iterable_combine
+ported	packages/effect/test/Iterable.test.ts	404	it	flatten is stack safe across empty iterables	iterable_combine
 unported	packages/effect/test/Iterable.test.ts	411	it	cartesianWith	
 unported	packages/effect/test/Iterable.test.ts	425	it	cartesian	
 unported	packages/effect/test/Iterable.test.ts	439	it	cartesian keeps the right input lazy	
 unported	packages/effect/test/Iterable.test.ts	453	it	groupWith	
 unported	packages/effect/test/Iterable.test.ts	459	it	groupBy	
-unported	packages/effect/test/Iterable.test.ts	480	it	makeBy	
-unported	packages/effect/test/Iterable.test.ts	494	it	replicate	
-unported	packages/effect/test/Iterable.test.ts	502	it	repeat	
-unported	packages/effect/test/Iterable.test.ts	506	it	range	
-unported	packages/effect/test/Iterable.test.ts	518	it	empty	
-unported	packages/effect/test/Iterable.test.ts	522	it	some	
-unported	packages/effect/test/Iterable.test.ts	528	it	size	
-unported	packages/effect/test/Iterable.test.ts	534	it	forEach	
-unported	packages/effect/test/Iterable.test.ts	540	it	countBy	
+ported	packages/effect/test/Iterable.test.ts	480	it	makeBy	iterable_combine
+ported	packages/effect/test/Iterable.test.ts	494	it	replicate	iterable_combine
+ported	packages/effect/test/Iterable.test.ts	502	it	repeat	iterable_combine
+ported	packages/effect/test/Iterable.test.ts	506	it	range	iterable_combine
+ported	packages/effect/test/Iterable.test.ts	518	it	empty	iterable_combine
+ported	packages/effect/test/Iterable.test.ts	522	it	some	iterable_combine
+ported	packages/effect/test/Iterable.test.ts	528	it	size	iterable_ends
+ported	packages/effect/test/Iterable.test.ts	534	it	forEach	iterable_combine
+ported	packages/effect/test/Iterable.test.ts	540	it	countBy	iterable_combine
 ported	packages/effect/test/JsonPatch.test.ts	20	it	returns [] for identical values	diff_empty_for_identical_values
 ported	packages/effect/test/JsonPatch.test.ts	34	it	emits a root replace for primitive changes	diff_root_replace_for_primitive_and_type_changes
 ported	packages/effect/test/JsonPatch.test.ts	46	it	emits a root replace for type changes	diff_root_replace_for_primitive_and_type_changes
@@ -2617,19 +2617,19 @@ unported	packages/effect/test/MutableHashMap.test.ts	340	it	pipe()
 unported	packages/effect/test/MutableHashSet.test.ts	6	it	isMutableHashSet distinguishes Effect mutable hash sets from native sets	
 ported	packages/effect/test/MutableList.test.ts	6	it	prependAll with no values preserves existing elements	mutable_list_core
 ported	packages/effect/test/MutableList.test.ts	16	it	prependAll with no values keeps an empty list appendable	mutable_list_core
-unported	packages/effect/test/MutableList.test.ts	26	it	bounds the retained slots of a list that never fully drains	
-unported	packages/effect/test/MutableList.test.ts	45	it	keeps later buckets intact when consuming a large prefix	
+skipped-upstream	packages/effect/test/MutableList.test.ts	26	it	bounds the retained slots of a list that never fully drains	
+skipped-upstream	packages/effect/test/MutableList.test.ts	45	it	keeps later buckets intact when consuming a large prefix	
 ported	packages/effect/test/MutableList.test.ts	53	it	takeN advances past a drained appendAll bucket	mutable_list_core
 ported	packages/effect/test/MutableList.test.ts	68	it	takeN advances past a drained append bucket but not a partially drained bucket	mutable_list_core
 ported	packages/effect/test/MutableList.test.ts	80	it	preserves a prepended element when appending to the list	mutable_list_core
 ported	packages/effect/test/MutableList.test.ts	89	it	preserves bulk-prepended values when appending to the list	mutable_list_core
 ported	packages/effect/test/MutableList.test.ts	97	it	returns an empty snapshot for a negative bound	mutable_list_core
-unported	packages/effect/test/MutableList.test.ts	104	it	normalizes bounded operation counts	
-unported	packages/effect/test/MutableList.test.ts	131	it	appendAll returns 0 and leaves an empty list empty	
+skipped-upstream	packages/effect/test/MutableList.test.ts	104	it	normalizes bounded operation counts	
+ported	packages/effect/test/MutableList.test.ts	131	it	appendAll returns 0 and leaves an empty list empty	mutable_list_core
 ported	packages/effect/test/MutableList.test.ts	141	it	appendAll with empty iterables preserves later append order	mutable_list_core
-unported	packages/effect/test/MutableList.test.ts	153	it	appendAllUnsafe with an empty array is a no-op	
+skipped-upstream	packages/effect/test/MutableList.test.ts	153	it	appendAllUnsafe with an empty array is a no-op	
 ported	packages/effect/test/MutableList.test.ts	164	it	filter keeps matching values in place and updates length	mutable_list_core
-unported	packages/effect/test/MutableList.test.ts	174	it	filter passes list indices to the predicate across offsets and buckets	
+skipped-upstream	packages/effect/test/MutableList.test.ts	174	it	filter passes list indices to the predicate across offsets and buckets	
 ported	packages/effect/test/MutableList.test.ts	188	it	filter restores the empty list state when no values match	mutable_list_core
 ported	packages/effect/test/MutableList.test.ts	200	it	remove deletes all strictly equal values and updates length	mutable_list_core
 unported	packages/effect/test/Newtype.test.ts	12	it	returns the underlying carrier value	
@@ -3989,18 +3989,18 @@ unported	packages/effect/test/String.test.ts	723	it	converts to kebab-case
 unported	packages/effect/test/String.test.ts	730	it	converts to snake_case	
 unported	packages/effect/test/String.test.ts	737	it	combines strings	
 unported	packages/effect/test/String.test.ts	741	it	identity with initialValue	
-unported	packages/effect/test/Struct.test.ts	9	it	get	
-unported	packages/effect/test/Struct.test.ts	17	it	keys	
-unported	packages/effect/test/Struct.test.ts	24	it	defined properties	
-unported	packages/effect/test/Struct.test.ts	30	it	omitted properties	
+ported	packages/effect/test/Struct.test.ts	9	it	get	struct_shapes
+ported	packages/effect/test/Struct.test.ts	17	it	keys	struct_shapes
+ported	packages/effect/test/Struct.test.ts	24	it	defined properties	struct_shapes
+ported	packages/effect/test/Struct.test.ts	30	it	omitted properties	struct_shapes
 unported	packages/effect/test/Struct.test.ts	36	it	numeric properties	
-unported	packages/effect/test/Struct.test.ts	44	it	defined properties	
-unported	packages/effect/test/Struct.test.ts	50	it	omitted properties	
+ported	packages/effect/test/Struct.test.ts	44	it	defined properties	struct_shapes
+ported	packages/effect/test/Struct.test.ts	50	it	omitted properties	struct_shapes
 unported	packages/effect/test/Struct.test.ts	56	it	numeric properties	
 unported	packages/effect/test/Struct.test.ts	62	it	ignores non-enumerable properties	
 unported	packages/effect/test/Struct.test.ts	73	it	partial required fields	
 unported	packages/effect/test/Struct.test.ts	79	it	all required fields	
-unported	packages/effect/test/Struct.test.ts	86	it	evolveKeys	
+ported	packages/effect/test/Struct.test.ts	86	it	evolveKeys	struct_shapes
 unported	packages/effect/test/Struct.test.ts	91	it	renameKeys	
 unported	packages/effect/test/Struct.test.ts	101	it	evolveEntries transforms a selected key and value together	
 unported	packages/effect/test/Struct.test.ts	112	it	map	
@@ -4011,10 +4011,10 @@ unported	packages/effect/test/Struct.test.ts	167	it	mapOmit numeric properties
 unported	packages/effect/test/Struct.test.ts	177	it	makeEquivalence compares structs by configured fields	
 unported	packages/effect/test/Struct.test.ts	188	it	default omitKeyWhen (never omit)	
 unported	packages/effect/test/Struct.test.ts	197	it	custom omitKeyWhen	
-unported	packages/effect/test/Struct.test.ts	215	it	string keys	
+ported	packages/effect/test/Struct.test.ts	215	it	string keys	struct_shapes
 unported	packages/effect/test/Struct.test.ts	219	it	symbol keys	
 unported	packages/effect/test/Struct.test.ts	225	it	mixed keys	
-unported	packages/effect/test/Struct.test.ts	230	it	empty keys	
+ported	packages/effect/test/Struct.test.ts	230	it	empty keys	struct_shapes
 unported	packages/effect/test/Struct.test.ts	236	it	custom omitKeyWhen	
 unported	packages/effect/test/SubscriptionRef.test.ts	5	it.effect	isSubscriptionRef	
 unported	packages/effect/test/SubscriptionRef.test.ts	12	it.effect	getAndUpdateEffect	
@@ -4129,19 +4129,19 @@ unported	packages/effect/test/Trie.test.ts	504	it	insertMany inserts all entries
 unported	packages/effect/test/Trie.test.ts	524	it	reduce visits entries in key order	
 unported	packages/effect/test/Trie.test.ts	551	it	forEach	
 unported	packages/effect/test/Trie.test.ts	566	it	Equal compares tries by entries	
-unported	packages/effect/test/Tuple.test.ts	9	it	make creates a tuple from ordered values	
-unported	packages/effect/test/Tuple.test.ts	13	it	get	
-unported	packages/effect/test/Tuple.test.ts	21	it	pick	
-unported	packages/effect/test/Tuple.test.ts	26	it	omit	
-unported	packages/effect/test/Tuple.test.ts	31	it	evolve	
+ported	packages/effect/test/Tuple.test.ts	9	it	make creates a tuple from ordered values	tuple_shapes
+ported	packages/effect/test/Tuple.test.ts	13	it	get	tuple_shapes
+ported	packages/effect/test/Tuple.test.ts	21	it	pick	tuple_shapes
+ported	packages/effect/test/Tuple.test.ts	26	it	omit	tuple_shapes
+ported	packages/effect/test/Tuple.test.ts	31	it	evolve	tuple_shapes
 unported	packages/effect/test/Tuple.test.ts	57	it	partial index mapping	
 unported	packages/effect/test/Tuple.test.ts	62	it	full index mapping	
 unported	packages/effect/test/Tuple.test.ts	68	it	map transforms every schema element with a lambda	
 unported	packages/effect/test/Tuple.test.ts	82	it	mapPick transforms only the selected schema elements	
 unported	packages/effect/test/Tuple.test.ts	96	it	mapOmit transforms every schema element except the omitted indices	
-unported	packages/effect/test/Tuple.test.ts	110	it	makeCombiner combines tuple positions independently	
+ported	packages/effect/test/Tuple.test.ts	110	it	makeCombiner combines tuple positions independently	tuple_shapes
 unported	packages/effect/test/Tuple.test.ts	119	it	makeReducer derives a tuple-shaped initial value and combines position-wise	
-unported	packages/effect/test/Tuple.test.ts	128	it	appendElement appends a single element in both data-first and data-last forms	
+ported	packages/effect/test/Tuple.test.ts	128	it	appendElement appends a single element in both data-first and data-last forms	tuple_shapes
 unported	packages/effect/test/Tuple.test.ts	133	it	appendElements concatenates a tuple in both data-first and data-last forms	
 unported	packages/effect/test/Tuple.test.ts	138	it	makeEquivalence compares tuple positions independently	
 unported	packages/effect/test/Tuple.test.ts	149	it	makeOrder orders tuple positions lexicographically	
