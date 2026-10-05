@@ -7179,9 +7179,9 @@ unported	packages/effect/test/process/ChildProcess.test.ts	161	it	should set cwd
 unported	packages/effect/test/process/ChildProcess.test.ts	169	it	should set cwd on all commands in a pipeline	
 unported	packages/effect/test/process/ChildProcess.test.ts	187	it	should prefix a standard command and preserve options	
 unported	packages/effect/test/process/ChildProcess.test.ts	197	it	should prefix the leftmost command in a pipeline	
-unported	packages/effect/test/process/ChildProcess.test.ts	228	it	isCommand should detect commands	
-unported	packages/effect/test/process/ChildProcess.test.ts	235	it	isStandardCommand should detect standard commands	
-unported	packages/effect/test/process/ChildProcess.test.ts	246	it	isPipedCommand should detect piped commands	
+ported	packages/effect/test/process/ChildProcess.test.ts	228	it	isCommand should detect commands	is_command_detects_both_forms
+ported	packages/effect/test/process/ChildProcess.test.ts	235	it	isStandardCommand should detect standard commands	is_standard_command_rejects_piped
+ported	packages/effect/test/process/ChildProcess.test.ts	246	it	isPipedCommand should detect piped commands	is_piped_command_rejects_single
 unported	packages/effect/test/process/ChildProcess.test.ts	258	it	should parse valid fd names	
 unported	packages/effect/test/process/ChildProcess.test.ts	265	it	should reject invalid fd names	
 unported	packages/effect/test/process/ChildProcess.test.ts	279	it	should create fd names from numbers	
