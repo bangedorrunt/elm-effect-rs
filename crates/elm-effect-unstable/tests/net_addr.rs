@@ -157,6 +157,23 @@ fn interfaces_share_one_tagged_representation() {
     assert!(v6.is_interface());
 }
 
+#[test]
+fn networks_share_one_tagged_family_identity() {
+    use net::IpNetwork;
+    let v4 = IpNetwork::make_unsafe("0.0.0.0".parse().unwrap(), 0.0);
+    let v6 = IpNetwork::make_unsafe("::".parse().unwrap(), 0.0);
+    assert_eq!(IpNetwork::TAG, "IpNetwork");
+    assert!(v4.is_ipv4());
+    assert!(v6.is_ipv6());
+    assert!(!v4.is_ipv6());
+    assert!(!v6.is_ipv4());
+    assert!(v4.is_network());
+    assert!(v6.is_network());
+    assert_ne!(v4, v6);
+    assert_eq!(v4.render(), "0.0.0.0/0");
+    assert_eq!(v6.render(), "::/0");
+}
+
 fn net_hash(address: &net::NetAddress) -> u64 {
     use std::collections::hash_map::DefaultHasher;
     use std::hash::{Hash, Hasher};

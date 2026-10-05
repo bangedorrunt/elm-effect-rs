@@ -68,6 +68,25 @@ impl IpNetwork {
         Self::make(addr, prefix).expect("invalid network")
     }
 
+    /// The runtime type tag (TS `_tag: "IpNetwork"`).
+    pub const TAG: &'static str = "IpNetwork";
+
+    /// Any network counts (TS `isIpNetwork`; the negative halves are
+    /// unrepresentable here, and freezing is structural).
+    pub fn is_network(&self) -> bool {
+        true
+    }
+
+    /// True for IPv4 networks (TS `isIpv4Network`).
+    pub fn is_ipv4(&self) -> bool {
+        matches!(self.network, IpAddr::V4(_))
+    }
+
+    /// True for IPv6 networks (TS `isIpv6Network`).
+    pub fn is_ipv6(&self) -> bool {
+        matches!(self.network, IpAddr::V6(_))
+    }
+
     /// Lenient checked constructor: masks host bits instead of rejecting
     /// them, still failing on out-of-range prefixes (TS `fromAddress`).
     pub fn from_address(addr: IpAddr, prefix: f64) -> Result<Self, NetworkError> {
