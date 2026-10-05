@@ -698,7 +698,7 @@ ported	packages/effect/test/Config.test.ts	158	it	int rejects non-integer number
 ported	packages/effect/test/Config.test.ts	169	it	literal accepts only the configured value	config_literals
 ported	packages/effect/test/Config.test.ts	180	it	literals accepts configured string alternatives	config_literals
 unported	packages/effect/test/Config.test.ts	191	it	literals accepts configured number alternatives	
-unported	packages/effect/test/Config.test.ts	202	it	date rejects invalid dates	
+ported	packages/effect/test/Config.test.ts	202	it	date rejects invalid dates	config_date_validates_real_calendars
 ported	packages/effect/test/Config.test.ts	213	it	redacted creates redacted values and reports missing input	config_secret_redacted_masked
 ported	packages/effect/test/Config.test.ts	227	it	url decodes valid URLs and reports absence	config_duration_date_bytes_url_port_level
 ported	packages/effect/test/Config.test.ts	243	it	map transforms successful values in data-first and data-last form	config_arrays_and_combinators
