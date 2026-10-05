@@ -10,7 +10,7 @@
 
 use std::sync::{Arc, Mutex};
 
-use elm_effect::{Effect, Requirement, ServiceTag};
+use elm_effect::{Cause, Effect, Exit, Requirement, ServiceTag};
 
 // LogLevel
 
@@ -369,4 +369,91 @@ where
         f(&a);
         a
     })
+}
+
+// Ignore logging
+
+/// How a swallowed cause is logged by [`ignore`] and [`ignore_cause`].
+/// Mirrors the `log` option of TS `Effect.ignore` / `Effect.ignoreCause`.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum IgnoreLog {
+    /// Never log (`log: false` / omitted).
+    #[default]
+    No,
+    /// Log at the ambient current level (`log: true`).
+    Current,
+    /// Log at the provided level, overriding current (`log: "Error"`).
+    Level(LogLevel),
+}
+
+/// Log options for [`ignore`] / [`ignore_cause`]: level selection plus an
+/// optional prepend message (`message` replaces the rendered cause).
+#[derive(Clone, Debug, Default)]
+pub struct IgnoreOptions {
+    pub log: IgnoreLog,
+    pub message: Option<String>,
+}
+
+fn log_ignored<E: std::fmt::Debug>(
+    cause: &Cause<E>,
+    options: &IgnoreOptions,
+    current: LogLevel,
+    minimum: LogLevel,
+    logger: &Logger,
+) {
+    let level = match options.log {
+        IgnoreLog::No => return,
+        IgnoreLog::Current => current,
+        IgnoreLog::Level(level) => level,
+    };
+    if !is_enabled(level, minimum) {
+        return;
+    }
+    let body = match &options.message {
+        Some(message) => message.clone(),
+        None => format!("{cause:?}"),
+    };
+    logger.log(level, &body, &[]);
+}
+
+/// Swallow every cause of `effect`, succeeding with `()`: typed failures,
+/// defects, and interrupts all become success. When `options.log` selects a
+/// level, the swallowed cause is logged (gated by `minimum`); an explicit
+/// `message` replaces the rendered cause. Levels are explicit config values
+/// here, not ambient context.
+pub fn ignore<A, E, R>(
+    effect: Effect<A, E, R>,
+    options: IgnoreOptions,
+    current: LogLevel,
+    minimum: LogLevel,
+    logger: &Logger,
+) -> Effect<(), std::convert::Infallible, R>
+where
+    A: Send + 'static,
+    E: std::fmt::Debug + Send + 'static,
+    R: Requirement,
+{
+    let logger = logger.clone();
+    effect.exit().map(move |exit| {
+        if let Exit::Failure(cause) = exit {
+            log_ignored(&cause, &options, current, minimum, &logger);
+        }
+    })
+}
+
+/// Cause-level twin of [`ignore`]: same swallow-everything plus log
+/// semantics, for pipelines that already think in causes.
+pub fn ignore_cause<A, E, R>(
+    effect: Effect<A, E, R>,
+    options: IgnoreOptions,
+    current: LogLevel,
+    minimum: LogLevel,
+    logger: &Logger,
+) -> Effect<(), std::convert::Infallible, R>
+where
+    A: Send + 'static,
+    E: std::fmt::Debug + Send + 'static,
+    R: Requirement,
+{
+    ignore(effect, options, current, minimum, logger)
 }

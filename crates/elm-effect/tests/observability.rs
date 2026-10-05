@@ -179,3 +179,233 @@ fn log_level_gates_and_info_effect() {
         elm_effect::Exit::Success(0)
     ));
 }
+
+fn run_ignore(
+    options: observability::IgnoreOptions,
+    current: observability::LogLevel,
+) -> Vec<(observability::LogLevel, String)> {
+    use observability::LogLevel;
+    let seen = Arc::new(Mutex::new(Vec::new()));
+    let logger = observability::Logger::new({
+        let seen = Arc::clone(&seen);
+        move |level: LogLevel, message: &str, _: &[(String, String)]| {
+            seen.lock().unwrap().push((level, message.to_string()));
+        }
+    });
+    let effect = observability::ignore(
+        elm_effect::Effect::<(), String>::fail("boom".to_string()),
+        options,
+        current,
+        LogLevel::Trace,
+        &logger,
+    );
+    let exit = elm_effect::Runtime::run(effect);
+    assert!(
+        matches!(exit, elm_effect::Exit::Success(())),
+        "ignore must swallow the failure"
+    );
+    seen.lock().unwrap().clone()
+}
+
+fn run_ignore_cause(
+    options: observability::IgnoreOptions,
+    current: observability::LogLevel,
+) -> Vec<(observability::LogLevel, String)> {
+    use observability::LogLevel;
+    let seen = Arc::new(Mutex::new(Vec::new()));
+    let logger = observability::Logger::new({
+        let seen = Arc::clone(&seen);
+        move |level: LogLevel, message: &str, _: &[(String, String)]| {
+            seen.lock().unwrap().push((level, message.to_string()));
+        }
+    });
+    let effect = observability::ignore_cause(
+        elm_effect::Effect::<(), String>::fail("boom".to_string()),
+        options,
+        current,
+        LogLevel::Trace,
+        &logger,
+    );
+    let exit = elm_effect::Runtime::run(effect);
+    assert!(
+        matches!(exit, elm_effect::Exit::Success(())),
+        "ignore_cause must swallow the failure"
+    );
+    seen.lock().unwrap().clone()
+}
+
+#[test]
+fn ignore_omitted_logs_nothing() {
+    let logs = run_ignore(
+        observability::IgnoreOptions::default(),
+        observability::LogLevel::Info,
+    );
+    assert!(logs.is_empty(), "omitted log option must stay silent");
+}
+
+#[test]
+fn ignore_false_logs_nothing() {
+    let logs = run_ignore(
+        observability::IgnoreOptions {
+            log: observability::IgnoreLog::No,
+            message: None,
+        },
+        observability::LogLevel::Info,
+    );
+    assert!(logs.is_empty(), "log: false must stay silent");
+}
+
+#[test]
+fn ignore_true_logs_at_current_level() {
+    use observability::LogLevel;
+    let logs = run_ignore(
+        observability::IgnoreOptions {
+            log: observability::IgnoreLog::Current,
+            message: None,
+        },
+        LogLevel::Warn,
+    );
+    assert_eq!(logs.len(), 1);
+    assert_eq!(logs[0].0, LogLevel::Warn);
+    assert!(logs[0].1.contains("boom"), "log carries the cause");
+}
+
+#[test]
+fn ignore_level_overrides_current() {
+    use observability::LogLevel;
+    let logs = run_ignore(
+        observability::IgnoreOptions {
+            log: observability::IgnoreLog::Level(LogLevel::Error),
+            message: None,
+        },
+        LogLevel::Warn,
+    );
+    assert_eq!(logs.len(), 1);
+    assert_eq!(logs[0].0, LogLevel::Error);
+    assert!(logs[0].1.contains("boom"), "log carries the cause");
+}
+
+#[test]
+fn ignore_message_replaces_cause() {
+    use observability::LogLevel;
+    let logs = run_ignore(
+        observability::IgnoreOptions {
+            log: observability::IgnoreLog::Current,
+            message: Some("Ignoring failure".to_string()),
+        },
+        LogLevel::Info,
+    );
+    assert_eq!(logs.len(), 1);
+    assert_eq!(logs[0].1, "Ignoring failure");
+}
+
+#[test]
+fn ignore_cause_omitted_logs_nothing() {
+    let logs = run_ignore_cause(
+        observability::IgnoreOptions::default(),
+        observability::LogLevel::Info,
+    );
+    assert!(logs.is_empty(), "omitted log option must stay silent");
+}
+
+#[test]
+fn ignore_cause_false_logs_nothing() {
+    let logs = run_ignore_cause(
+        observability::IgnoreOptions {
+            log: observability::IgnoreLog::No,
+            message: None,
+        },
+        observability::LogLevel::Info,
+    );
+    assert!(logs.is_empty(), "log: false must stay silent");
+}
+
+#[test]
+fn ignore_cause_true_logs_at_current_level() {
+    use observability::LogLevel;
+    let logs = run_ignore_cause(
+        observability::IgnoreOptions {
+            log: observability::IgnoreLog::Current,
+            message: None,
+        },
+        LogLevel::Warn,
+    );
+    assert_eq!(logs.len(), 1);
+    assert_eq!(logs[0].0, LogLevel::Warn);
+    assert!(logs[0].1.contains("boom"), "log carries the cause");
+}
+
+#[test]
+fn ignore_cause_level_overrides_current() {
+    use observability::LogLevel;
+    let logs = run_ignore_cause(
+        observability::IgnoreOptions {
+            log: observability::IgnoreLog::Level(LogLevel::Error),
+            message: None,
+        },
+        LogLevel::Warn,
+    );
+    assert_eq!(logs.len(), 1);
+    assert_eq!(logs[0].0, LogLevel::Error);
+    assert!(logs[0].1.contains("boom"), "log carries the cause");
+}
+
+#[test]
+fn ignore_cause_message_replaces_cause() {
+    use observability::LogLevel;
+    let logs = run_ignore_cause(
+        observability::IgnoreOptions {
+            log: observability::IgnoreLog::Current,
+            message: Some("Ignoring cause".to_string()),
+        },
+        LogLevel::Info,
+    );
+    assert_eq!(logs.len(), 1);
+    assert_eq!(logs[0].1, "Ignoring cause");
+}
+
+#[test]
+fn ignore_cause_swallows_defects() {
+    let seen = Arc::new(Mutex::new(Vec::new()));
+    let logger = observability::Logger::new({
+        let seen = Arc::clone(&seen);
+        move |level: observability::LogLevel, message: &str, _: &[(String, String)]| {
+            seen.lock().unwrap().push((level, message.to_string()));
+        }
+    });
+    let effect = observability::ignore_cause(
+        elm_effect::Effect::<(), String>::die(elm_effect::Defect::new("boom".to_string())),
+        observability::IgnoreOptions::default(),
+        observability::LogLevel::Info,
+        observability::LogLevel::Trace,
+        &logger,
+    );
+    let exit = elm_effect::Runtime::run(effect);
+    assert!(
+        matches!(exit, elm_effect::Exit::Success(())),
+        "ignore_cause must swallow defects"
+    );
+}
+
+#[test]
+fn ignore_cause_swallows_interrupts() {
+    let seen = Arc::new(Mutex::new(Vec::new()));
+    let logger = observability::Logger::new({
+        let seen = Arc::clone(&seen);
+        move |level: observability::LogLevel, message: &str, _: &[(String, String)]| {
+            seen.lock().unwrap().push((level, message.to_string()));
+        }
+    });
+    let effect = observability::ignore_cause(
+        elm_effect::Effect::<(), String>::interrupt(),
+        observability::IgnoreOptions::default(),
+        observability::LogLevel::Info,
+        observability::LogLevel::Trace,
+        &logger,
+    );
+    let exit = elm_effect::Runtime::run(effect);
+    assert!(
+        matches!(exit, elm_effect::Exit::Success(())),
+        "ignore_cause must swallow interrupts"
+    );
+}
