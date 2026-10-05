@@ -564,14 +564,14 @@ unported	packages/effect/test/Channel.test.ts	519	it.effect	catchDefect
 ported	packages/effect/test/Channel.test.ts	535	it.effect	catchIf with refinement	channel_catch_if_refines
 ported	packages/effect/test/Channel.test.ts	552	it.effect	catchIf with predicate	channel_catch_if_recovers_matching
 ported	packages/effect/test/Channel.test.ts	561	it.effect	catchFilter with Filter	channel_filter_map_recovers
-unported	packages/effect/test/Channel.test.ts	575	it.effect	catchCauseFilter with Filter	
-unported	packages/effect/test/Channel.test.ts	587	it.effect	catchTag orElse	
-unported	packages/effect/test/Channel.test.ts	603	it.effect	catchReason orElse	
-unported	packages/effect/test/Channel.test.ts	619	it.effect	catchReason ignores non-matching parent tag	
-unported	packages/effect/test/Channel.test.ts	635	it.effect	catchReasons orElse	
-unported	packages/effect/test/Channel.test.ts	670	it.effect	extracts reason into error channel	
-unported	packages/effect/test/Channel.test.ts	681	it.effect	extracts second reason type	
-unported	packages/effect/test/Channel.test.ts	692	it.effect	preserves other errors	
+ported	packages/effect/test/Channel.test.ts	575	it.effect	catchCauseFilter with Filter	channel_catch_all
+ported	packages/effect/test/Channel.test.ts	587	it.effect	catchTag orElse	channel_catch_or_else
+ported	packages/effect/test/Channel.test.ts	603	it.effect	catchReason orElse	channel_catch_or_else
+ported	packages/effect/test/Channel.test.ts	619	it.effect	catchReason ignores non-matching parent tag	channel_catch_or_else
+ported	packages/effect/test/Channel.test.ts	635	it.effect	catchReasons orElse	channel_catch_or_else
+ported	packages/effect/test/Channel.test.ts	670	it.effect	extracts reason into error channel	channel_unwrap_reason
+ported	packages/effect/test/Channel.test.ts	681	it.effect	extracts second reason type	channel_unwrap_reason
+ported	packages/effect/test/Channel.test.ts	692	it.effect	preserves other errors	channel_unwrap_reason
 ported	packages/effect/test/Chunk.test.ts	27	it	Equal.equals	chunk_extra
 ported	packages/effect/test/Chunk.test.ts	36	it	toString	chunk_extra
 ported	packages/effect/test/Chunk.test.ts	47	it	toJSON	chunk_extra
@@ -6402,9 +6402,9 @@ unported	packages/effect/test/http/FindMyWay/case-insensitive.test.ts	79	it	case
 unported	packages/effect/test/http/FindMyWay/case-insensitive.test.ts	90	it	case insensitive with multiple mixed-case params	
 unported	packages/effect/test/http/FindMyWay/case-insensitive.test.ts	101	it	case insensitive with wildcard	
 ported	packages/effect/test/http/FindMyWay/case-insensitive.test.ts	111	it	parametric case insensitive with multiple routes	match_path_ci_multiple_routes_first_pattern_wins
-unported	packages/effect/test/http/FindMyWay/matching-order.test.ts	4	it	Matching order	
-unported	packages/effect/test/http/FindMyWay/methods.test.ts	4	it	returns undefined for method names inherited from Object.prototype	
-unported	packages/effect/test/http/FindMyWay/methods.test.ts	11	it	registers QUERY with all	
+ported	packages/effect/test/http/FindMyWay/matching-order.test.ts	4	it	Matching order	exact_route_beats_pattern_in_dispatch
+ported	packages/effect/test/http/FindMyWay/methods.test.ts	4	it	returns undefined for method names inherited from Object.prototype	inherited_method_names_match_nothing
+ported	packages/effect/test/http/FindMyWay/methods.test.ts	11	it	registers QUERY with all	custom_query_method_dispatches
 unported	packages/effect/test/http/FindMyWay/optional-params.test.ts	4	it	Test route with optional parameter	
 unported	packages/effect/test/http/FindMyWay/optional-params.test.ts	18	it	Test for duplicate route with optional param	
 unported	packages/effect/test/http/FindMyWay/optional-params.test.ts	24	it	Test for param with ? not at the end	
@@ -6424,11 +6424,11 @@ unported	packages/effect/test/http/FindMyWay/params-collisions.test.ts	56	it	nod
 unported	packages/effect/test/http/FindMyWay/params-collisions.test.ts	66	it	node with longer static suffix should have higher priority	
 unported	packages/effect/test/http/FindMyWay/params-collisions.test.ts	76	it	should set up regexp node and node with static ending	
 unported	packages/effect/test/http/FindMyWay/params-collisions.test.ts	86	it	distinguishes routes with different static parts between parameters	
-unported	packages/effect/test/http/FindMyWay/params-collisions.test.ts	96	it	preserves prototype-sensitive parameter names as own properties	
+ported	packages/effect/test/http/FindMyWay/params-collisions.test.ts	96	it	preserves prototype-sensitive parameter names as own properties	param_maps_are_own_property_maps
 ported	packages/effect/test/http/FindMyWay/path-params-match.test.ts	4	it	path params match	api_path_params_extract
-unported	packages/effect/test/http/FindMyWay/path-params-match.test.ts	45	it	builds null-prototype params for static and parameterized routes	
-unported	packages/effect/test/http/FindMyWay/path-params-match.test.ts	64	it	does not compile parameter names with Function	
-unported	packages/effect/test/http/FindMyWay/path-params-match.test.ts	88	it	does not read inherited static child entries	
+ported	packages/effect/test/http/FindMyWay/path-params-match.test.ts	45	it	builds null-prototype params for static and parameterized routes	param_maps_are_own_property_maps
+ported	packages/effect/test/http/FindMyWay/path-params-match.test.ts	64	it	does not compile parameter names with Function	param_maps_are_own_property_maps
+ported	packages/effect/test/http/FindMyWay/path-params-match.test.ts	88	it	does not read inherited static child entries	param_maps_are_own_property_maps
 ported	packages/effect/test/http/FindMyWay/querystring.test.ts	4	it	should sanitize the url - query	match_path_extracts_params
 ported	packages/effect/test/http/FindMyWay/querystring.test.ts	13	it	should sanitize the url - hash	match_path_extracts_params
 unported	packages/effect/test/http/FindMyWay/querystring.test.ts	23	it	handles path and query separated by ;	

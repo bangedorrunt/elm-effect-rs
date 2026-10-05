@@ -237,3 +237,98 @@ fn match_path_ci_strips_query_and_fragment() {
         Some(vec![("q".to_string(), "Rust".to_string())])
     );
 }
+
+fn raw(addr: &std::net::SocketAddr, method: &str, path: &str) -> (u16, Vec<(String, String)>, Vec<u8>) {
+    let mut stream = TcpStream::connect(addr).expect("connect");
+    write!(
+        stream,
+        "{method} {path} HTTP/1.1\r\nHost: x\r\nConnection: close\r\n\r\n"
+    )
+    .expect("write");
+    let mut reader = BufReader::new(stream);
+    let mut status = String::new();
+    reader.read_line(&mut status).expect("status");
+    let code: u16 = status
+        .split_whitespace()
+        .nth(1)
+        .expect("code")
+        .parse()
+        .expect("code");
+    let mut headers = Vec::new();
+    loop {
+        let mut line = String::new();
+        reader.read_line(&mut line).expect("header");
+        let line = line.trim_end().to_owned();
+        if line.is_empty() {
+            break;
+        }
+        if let Some((name, value)) = line.split_once(':') {
+            headers.push((name.trim().to_owned(), value.trim().to_owned()));
+        }
+    }
+    let mut body = Vec::new();
+    use std::io::Read as _;
+    reader.read_to_end(&mut body).expect("body");
+    (code, headers, body)
+}
+
+#[test]
+fn inherited_method_names_match_nothing() {
+    use elm_effect_unstable::http_server::match_path;
+    let server = HttpServer::bind("127.0.0.1:0").expect("bind");
+    let addr = server.local_addr().expect("addr");
+    server.route("GET", "/items", Response::ok("items"));
+    let handle = std::thread::spawn(move || server.serve_n(3).expect("serve"));
+    // Prototype-inherited names are ordinary unknown methods here: no match.
+    for method in ["toString", "constructor", "__proto__"] {
+        let (code, _, _) = raw(&addr, method, "/items");
+        assert_eq!(code, 404, "{method} must not resolve to a route");
+    }
+    assert!(match_path("/items", "/items").is_some());
+    let _ = handle.join().expect("join");
+}
+
+#[test]
+fn custom_query_method_dispatches() {
+    let server = HttpServer::bind("127.0.0.1:0").expect("bind");
+    let addr = server.local_addr().expect("addr");
+    server.route("QUERY", "/search", Response::ok("found"));
+    let handle = std::thread::spawn(move || server.serve_n(2).expect("serve"));
+    let (code, _, body) = raw(&addr, "QUERY", "/search");
+    assert_eq!(code, 200);
+    assert_eq!(body, b"found");
+    let (code, _, _) = raw(&addr, "GET", "/search");
+    assert_eq!(code, 404, "other methods do not borrow the QUERY route");
+    let _ = handle.join().expect("join");
+}
+
+#[test]
+fn param_maps_are_own_property_maps() {
+    use elm_effect_unstable::http_server::match_path;
+    use std::collections::BTreeMap;
+    // A parameter literally named like an inherited property stays an own key.
+    let captures = match_path("/:toString", "/x").expect("param named toString");
+    assert_eq!(captures, vec![("toString".to_string(), "x".to_string())]);
+    let map: BTreeMap<_, _> = captures.into_iter().collect();
+    assert_eq!(map.get("toString").map(String::as_str), Some("x"));
+    assert_eq!(map.get("constructor"), None);
+    // Static segments with the same spelling still match exactly.
+    assert_eq!(match_path("/toString", "/toString"), Some(vec![]));
+    assert_eq!(map.get("hasOwnProperty"), None);
+}
+
+#[test]
+fn exact_route_beats_pattern_in_dispatch() {
+    let server = HttpServer::bind("127.0.0.1:0").expect("bind");
+    let addr = server.local_addr().expect("addr");
+    server.route("GET", "/users/:id", Response::ok("pattern"));
+    server.route("GET", "/users/new", Response::ok("exact"));
+    let handle = std::thread::spawn(move || server.serve_n(2).expect("serve"));
+    let (code, _, body) = get(&addr, "/users/new");
+    assert_eq!(code, 200);
+    assert_eq!(body, b"exact", "exact table entry wins over the pattern");
+    let (code, _, body) = get(&addr, "/users/7");
+    assert_eq!(code, 200);
+    assert_eq!(body, b"pattern");
+    let _ = handle.join().expect("join");
+}
