@@ -7416,21 +7416,21 @@ ported	packages/effect/test/rpc/RpcSerialization.test.ts	244	it	ignores an inher
 ported	packages/effect/test/rpc/RpcSerialization.test.ts	249	it	ignores an inherited exit error	decode_ignores_unknown_fields
 ported	packages/effect/test/rpc/RpcSerialization.test.ts	255	it	json decode keeps array payloads flat	json_decode_array_rules
 ported	packages/effect/test/rpc/RpcSerialization.test.ts	262	it	json decode wraps non-array payloads	json_decode_array_rules
-unported	packages/effect/test/rpc/RpcSerialization.test.ts	269	it	ndjson fails when an unterminated frame exceeds maxBufferSize	
-unported	packages/effect/test/rpc/RpcSerialization.test.ts	277	it	ndjson allows an unbounded incomplete frame	
-unported	packages/effect/test/rpc/RpcSerialization.test.ts	283	it	ndjson decodes a multibyte character split across byte chunks	
-unported	packages/effect/test/rpc/RpcSerialization.test.ts	295	it	ndjson skips lines that are not JSON and keeps decoding	
+ported	packages/effect/test/rpc/RpcSerialization.test.ts	269	it	ndjson fails when an unterminated frame exceeds maxBufferSize	ndjson_fails_past_max_buffer_without_newline
+ported	packages/effect/test/rpc/RpcSerialization.test.ts	277	it	ndjson allows an unbounded incomplete frame	ndjson_allows_unbounded_incomplete_frames
+ported	packages/effect/test/rpc/RpcSerialization.test.ts	283	it	ndjson decodes a multibyte character split across byte chunks	ndjson_reassembles_multibyte_splits
+ported	packages/effect/test/rpc/RpcSerialization.test.ts	295	it	ndjson skips lines that are not JSON and keeps decoding	ndjson_skips_non_json_lines
 unported	packages/effect/test/rpc/RpcSerialization.test.ts	302	it.effect	layerNdjsonWith forwards maxBufferSize to its decoder	
 unported	packages/effect/test/rpc/RpcSerialization.test.ts	314	it	ndJsonRpc forwards maxBufferSize to its ndjson framing parser	
-unported	packages/effect/test/rpc/RpcSerialization.test.ts	322	it	jsonRpc encodes a non-batched single response array as an object	
-unported	packages/effect/test/rpc/RpcSerialization.test.ts	341	it	jsonRpc encodes batched responses as an array	
+ported	packages/effect/test/rpc/RpcSerialization.test.ts	322	it	jsonRpc encodes a non-batched single response array as an object	batches_skip_non_objects_and_encode_singly
+ported	packages/effect/test/rpc/RpcSerialization.test.ts	341	it	jsonRpc encodes batched responses as an array	batches_skip_non_objects_and_encode_singly
 ported	packages/effect/test/rpc/RpcSerialization.test.ts	371	it	jsonRpc preserves id 0 across decode and encode	envelope_preserves_request_id
 ported	packages/effect/test/rpc/RpcSerialization.test.ts	395	it	jsonRpc maps null id to internal notification sentinel	envelope_preserves_request_id
-unported	packages/effect/test/rpc/RpcSerialization.test.ts	407	it	jsonRpc skips non-objects in a batch without losing requests	
+ported	packages/effect/test/rpc/RpcSerialization.test.ts	407	it	jsonRpc skips non-objects in a batch without losing requests	batches_skip_non_objects_and_encode_singly
 unported	packages/effect/test/rpc/RpcSerialization.test.ts	433	it	ndJsonRpc keeps requests that share a chunk with a value that is not a message	
-unported	packages/effect/test/rpc/RpcSerialization.test.ts	445	it	jsonRpc preserves empty string id across decode and encode	
-unported	packages/effect/test/rpc/RpcSerialization.test.ts	469	it	jsonRpc decodes standard error objects as typed failures	
-unported	packages/effect/test/rpc/RpcSerialization.test.ts	490	it	jsonRpc encodes a notification without an id	
+ported	packages/effect/test/rpc/RpcSerialization.test.ts	445	it	jsonRpc preserves empty string id across decode and encode	messages_roundtrip_ids_and_shapes
+ported	packages/effect/test/rpc/RpcSerialization.test.ts	469	it	jsonRpc decodes standard error objects as typed failures	failures_decode_missing_id_as_null
+ported	packages/effect/test/rpc/RpcSerialization.test.ts	490	it	jsonRpc encodes a notification without an id	messages_roundtrip_ids_and_shapes
 unported	packages/effect/test/rpc/RpcSerialization.test.ts	520	it.effect	roundtrips requests and streamed responses over HTTP	
 unported	packages/effect/test/rpc/RpcSerialization.test.ts	536	it.effect	fingerprints envelopes	
 unported	packages/effect/test/rpc/RpcSerialization.test.ts	559	it.effect	does not fingerprint payloads by default	
