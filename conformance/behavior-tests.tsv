@@ -4480,67 +4480,67 @@ ported	packages/effect/test/UndefinedOr.test.ts	24	it	getOrThrow returns defined
 ported	packages/effect/test/UndefinedOr.test.ts	29	it	liftThrowable	undefined_or_behaves_as_option
 ported	packages/effect/test/UndefinedOr.test.ts	40	it	makeReducer	undefined_or_match_reducer
 ported	packages/effect/test/UndefinedOr.test.ts	49	it	makeReducerFailFast	undefined_or_match_reducer
-unported	packages/effect/test/ai/AiError.test.ts	8	it	should be retryable	
-unported	packages/effect/test/ai/AiError.test.ts	13	it	should format message with retryAfter	
-unported	packages/effect/test/ai/AiError.test.ts	20	it	should have _tag set correctly	
-unported	packages/effect/test/ai/AiError.test.ts	27	it	should not be retryable	
-unported	packages/effect/test/ai/AiError.test.ts	32	it	should format message correctly	
-unported	packages/effect/test/ai/AiError.test.ts	37	it	should have _tag set correctly	
-unported	packages/effect/test/ai/AiError.test.ts	44	it	should not be retryable	
-unported	packages/effect/test/ai/AiError.test.ts	49	it	should format message based on kind	
-unported	packages/effect/test/ai/AiError.test.ts	63	it	should have _tag set correctly	
+ported	packages/effect/test/ai/AiError.test.ts	8	it	should be retryable	ai_error_tags_and_retryability
+ported	packages/effect/test/ai/AiError.test.ts	13	it	should format message with retryAfter	ai_error_message_shapes
+ported	packages/effect/test/ai/AiError.test.ts	20	it	should have _tag set correctly	ai_error_tags_and_retryability
+ported	packages/effect/test/ai/AiError.test.ts	27	it	should not be retryable	ai_error_tags_and_retryability
+ported	packages/effect/test/ai/AiError.test.ts	32	it	should format message correctly	ai_error_message_shapes
+ported	packages/effect/test/ai/AiError.test.ts	37	it	should have _tag set correctly	ai_error_tags_and_retryability
+ported	packages/effect/test/ai/AiError.test.ts	44	it	should not be retryable	ai_error_tags_and_retryability
+ported	packages/effect/test/ai/AiError.test.ts	49	it	should format message based on kind	ai_error_message_shapes
+ported	packages/effect/test/ai/AiError.test.ts	63	it	should have _tag set correctly	ai_error_tags_and_retryability
 unported	packages/effect/test/ai/AiError.test.ts	68	it	should render the description after the kind suggestion when present	
 unported	packages/effect/test/ai/AiError.test.ts	79	it	should render the message unchanged when description is absent	
 unported	packages/effect/test/ai/AiError.test.ts	88	it	should round-trip the description through the schema	
-unported	packages/effect/test/ai/AiError.test.ts	100	it	should not be retryable	
-unported	packages/effect/test/ai/AiError.test.ts	105	it	should format message with description	
-unported	packages/effect/test/ai/AiError.test.ts	113	it	should have _tag set correctly	
-unported	packages/effect/test/ai/AiError.test.ts	120	it	should not be retryable	
-unported	packages/effect/test/ai/AiError.test.ts	128	it	should format message with parameter details	
-unported	packages/effect/test/ai/AiError.test.ts	139	it	should have _tag set correctly	
-unported	packages/effect/test/ai/AiError.test.ts	146	it	should be retryable	
-unported	packages/effect/test/ai/AiError.test.ts	153	it	should format message with description	
-unported	packages/effect/test/ai/AiError.test.ts	161	it	should have _tag set correctly	
-unported	packages/effect/test/ai/AiError.test.ts	170	it	should be retryable	
-unported	packages/effect/test/ai/AiError.test.ts	177	it	should format message with description	
+ported	packages/effect/test/ai/AiError.test.ts	100	it	should not be retryable	ai_error_tags_and_retryability
+ported	packages/effect/test/ai/AiError.test.ts	105	it	should format message with description	ai_error_message_shapes
+ported	packages/effect/test/ai/AiError.test.ts	113	it	should have _tag set correctly	ai_error_tags_and_retryability
+ported	packages/effect/test/ai/AiError.test.ts	120	it	should not be retryable	ai_error_tags_and_retryability
+ported	packages/effect/test/ai/AiError.test.ts	128	it	should format message with parameter details	ai_error_message_shapes
+ported	packages/effect/test/ai/AiError.test.ts	139	it	should have _tag set correctly	ai_error_tags_and_retryability
+ported	packages/effect/test/ai/AiError.test.ts	146	it	should be retryable	ai_error_tags_and_retryability
+ported	packages/effect/test/ai/AiError.test.ts	153	it	should format message with description	ai_error_message_shapes
+ported	packages/effect/test/ai/AiError.test.ts	161	it	should have _tag set correctly	ai_error_tags_and_retryability
+ported	packages/effect/test/ai/AiError.test.ts	170	it	should be retryable	ai_error_tags_and_retryability
+ported	packages/effect/test/ai/AiError.test.ts	177	it	should format message with description	ai_error_message_shapes
 unported	packages/effect/test/ai/AiError.test.ts	185	it.effect	should create from SchemaError	
-unported	packages/effect/test/ai/AiError.test.ts	202	it	should have _tag set correctly	
-unported	packages/effect/test/ai/AiError.test.ts	211	it	should not be retryable	
-unported	packages/effect/test/ai/AiError.test.ts	216	it	should format message with description	
+ported	packages/effect/test/ai/AiError.test.ts	202	it	should have _tag set correctly	ai_error_tags_and_retryability
+ported	packages/effect/test/ai/AiError.test.ts	211	it	should not be retryable	ai_error_tags_and_retryability
+ported	packages/effect/test/ai/AiError.test.ts	216	it	should format message with description	ai_error_message_shapes
 unported	packages/effect/test/ai/AiError.test.ts	223	it	should use default message without description	
-unported	packages/effect/test/ai/AiError.test.ts	228	it	should have _tag set correctly	
-unported	packages/effect/test/ai/AiError.test.ts	235	it	should be retryable	
-unported	packages/effect/test/ai/AiError.test.ts	243	it	should format message with available tools	
-unported	packages/effect/test/ai/AiError.test.ts	252	it	should format message with no available tools	
-unported	packages/effect/test/ai/AiError.test.ts	260	it	should have _tag set correctly	
-unported	packages/effect/test/ai/AiError.test.ts	270	it	should be retryable	
+ported	packages/effect/test/ai/AiError.test.ts	228	it	should have _tag set correctly	ai_error_tags_and_retryability
+ported	packages/effect/test/ai/AiError.test.ts	235	it	should be retryable	ai_error_tags_and_retryability
+ported	packages/effect/test/ai/AiError.test.ts	243	it	should format message with available tools	ai_error_message_shapes
+ported	packages/effect/test/ai/AiError.test.ts	252	it	should format message with no available tools	ai_error_message_shapes
+ported	packages/effect/test/ai/AiError.test.ts	260	it	should have _tag set correctly	ai_error_tags_and_retryability
+ported	packages/effect/test/ai/AiError.test.ts	270	it	should be retryable	ai_error_tags_and_retryability
 unported	packages/effect/test/ai/AiError.test.ts	278	it	should format message with tool name	
 unported	packages/effect/test/ai/AiError.test.ts	286	it	should format message with validation message	
 unported	packages/effect/test/ai/AiError.test.ts	294	it	should construct when validated params contain non-JSON values	
-unported	packages/effect/test/ai/AiError.test.ts	303	it	should have _tag set correctly	
-unported	packages/effect/test/ai/AiError.test.ts	313	it	should not be retryable	
+ported	packages/effect/test/ai/AiError.test.ts	303	it	should have _tag set correctly	ai_error_tags_and_retryability
+ported	packages/effect/test/ai/AiError.test.ts	313	it	should not be retryable	ai_error_tags_and_retryability
 unported	packages/effect/test/ai/AiError.test.ts	321	it	should format message with tool name	
-unported	packages/effect/test/ai/AiError.test.ts	329	it	should format message with description	
-unported	packages/effect/test/ai/AiError.test.ts	337	it	should have _tag set correctly	
-unported	packages/effect/test/ai/AiError.test.ts	347	it	should not be retryable	
+ported	packages/effect/test/ai/AiError.test.ts	329	it	should format message with description	ai_error_message_shapes
+ported	packages/effect/test/ai/AiError.test.ts	337	it	should have _tag set correctly	ai_error_tags_and_retryability
+ported	packages/effect/test/ai/AiError.test.ts	347	it	should not be retryable	ai_error_tags_and_retryability
 unported	packages/effect/test/ai/AiError.test.ts	356	it	should format message with tool name	
 unported	packages/effect/test/ai/AiError.test.ts	365	it	should format message with validation message	
-unported	packages/effect/test/ai/AiError.test.ts	374	it	should have _tag set correctly	
-unported	packages/effect/test/ai/AiError.test.ts	385	it	should not be retryable	
+ported	packages/effect/test/ai/AiError.test.ts	374	it	should have _tag set correctly	ai_error_tags_and_retryability
+ported	packages/effect/test/ai/AiError.test.ts	385	it	should not be retryable	ai_error_tags_and_retryability
 unported	packages/effect/test/ai/AiError.test.ts	393	it	should format message with tool name	
-unported	packages/effect/test/ai/AiError.test.ts	401	it	should format message with description	
-unported	packages/effect/test/ai/AiError.test.ts	409	it	should have _tag set correctly	
-unported	packages/effect/test/ai/AiError.test.ts	419	it	should be retryable	
-unported	packages/effect/test/ai/AiError.test.ts	427	it	should format message with description	
-unported	packages/effect/test/ai/AiError.test.ts	436	it	should have _tag set correctly	
+ported	packages/effect/test/ai/AiError.test.ts	401	it	should format message with description	ai_error_message_shapes
+ported	packages/effect/test/ai/AiError.test.ts	409	it	should have _tag set correctly	ai_error_tags_and_retryability
+ported	packages/effect/test/ai/AiError.test.ts	419	it	should be retryable	ai_error_tags_and_retryability
+ported	packages/effect/test/ai/AiError.test.ts	427	it	should format message with description	ai_error_message_shapes
+ported	packages/effect/test/ai/AiError.test.ts	436	it	should have _tag set correctly	ai_error_tags_and_retryability
 unported	packages/effect/test/ai/AiError.test.ts	444	it.effect	should create from SchemaError	
-unported	packages/effect/test/ai/AiError.test.ts	464	it	should not be retryable	
-unported	packages/effect/test/ai/AiError.test.ts	471	it	should format message with description	
-unported	packages/effect/test/ai/AiError.test.ts	479	it	should have _tag set correctly	
+ported	packages/effect/test/ai/AiError.test.ts	464	it	should not be retryable	ai_error_tags_and_retryability
+ported	packages/effect/test/ai/AiError.test.ts	471	it	should format message with description	ai_error_message_shapes
+ported	packages/effect/test/ai/AiError.test.ts	479	it	should have _tag set correctly	ai_error_tags_and_retryability
 unported	packages/effect/test/ai/AiError.test.ts	489	it	should delegate isRetryable to reason	
 unported	packages/effect/test/ai/AiError.test.ts	505	it	should delegate retryAfter to reason	
 unported	packages/effect/test/ai/AiError.test.ts	523	it	should format message with module, method, and reason	
-unported	packages/effect/test/ai/AiError.test.ts	533	it	should have _tag set correctly	
+ported	packages/effect/test/ai/AiError.test.ts	533	it	should have _tag set correctly	ai_error_tags_and_retryability
 unported	packages/effect/test/ai/AiError.test.ts	545	it	should create AiError	
 unported	packages/effect/test/ai/AiError.test.ts	559	it	should map 400 to InvalidRequestError	
 unported	packages/effect/test/ai/AiError.test.ts	564	it	should map 401 to AuthenticationError with InvalidKey	
@@ -7513,7 +7513,7 @@ unported	packages/effect/test/schema/Schema.test.ts	506	it	UniqueSymbol
 unported	packages/effect/test/schema/Schema.test.ts	520	it	BigInt	
 unported	packages/effect/test/schema/Schema.test.ts	537	it	Void	
 unported	packages/effect/test/schema/Schema.test.ts	565	it	ObjectKeyword	
-unported	packages/effect/test/schema/Schema.test.ts	585	it	optionalKey	
+ported	packages/effect/test/schema/Schema.test.ts	585	it	optionalKey	optional_key_absent_is_exact
 unported	packages/effect/test/schema/Schema.test.ts	592	it	optionalKey & mutableKey	
 unported	packages/effect/test/schema/Schema.test.ts	598	it	optional	
 unported	packages/effect/test/schema/Schema.test.ts	606	it	mutableKey	
@@ -7611,16 +7611,16 @@ unported	packages/effect/test/schema/Schema.test.ts	2256	it	TimeZoneFromString
 unported	packages/effect/test/schema/Schema.test.ts	2277	it	DateTimeZonedFromString	
 unported	packages/effect/test/schema/Schema.test.ts	2298	it	FiniteFromString & isGreaterThan	
 unported	packages/effect/test/schema/Schema.test.ts	2319	it	should expose the source and the target schemas	
-unported	packages/effect/test/schema/Schema.test.ts	2326	it	required to required	
-unported	packages/effect/test/schema/Schema.test.ts	2354	it	required to optional	
-unported	packages/effect/test/schema/Schema.test.ts	2381	it	optionalKey to required	
+ported	packages/effect/test/schema/Schema.test.ts	2326	it	required to required	require_reverses_optional_wrapping
+ported	packages/effect/test/schema/Schema.test.ts	2354	it	required to optional	require_reverses_optional_wrapping
+ported	packages/effect/test/schema/Schema.test.ts	2381	it	optionalKey to required	require_reverses_optional_wrapping
 unported	packages/effect/test/schema/Schema.test.ts	2403	it	double transformation	
 unported	packages/effect/test/schema/Schema.test.ts	2421	it	double transformation with checks	
 unported	packages/effect/test/schema/Schema.test.ts	2453	it	nested defaults	
 unported	packages/effect/test/schema/Schema.test.ts	2485	it	double transformation	
-unported	packages/effect/test/schema/Schema.test.ts	2505	it	required to required	
+ported	packages/effect/test/schema/Schema.test.ts	2505	it	required to required	require_all_makes_optional_keys_required
 unported	packages/effect/test/schema/Schema.test.ts	2533	it	required to optionalKey	
-unported	packages/effect/test/schema/Schema.test.ts	2555	it	optionalKey to required	
+ported	packages/effect/test/schema/Schema.test.ts	2555	it	optionalKey to required	require_all_makes_optional_keys_required
 unported	packages/effect/test/schema/Schema.test.ts	2582	it	double transformation	
 unported	packages/effect/test/schema/Schema.test.ts	2600	it	double transformation with checks	
 unported	packages/effect/test/schema/Schema.test.ts	2634	it	double transformation	
@@ -7962,7 +7962,7 @@ unported	packages/effect/test/schema/Schema.test.ts	8793	it	evolve
 unported	packages/effect/test/schema/Schema.test.ts	8805	it	evolveKeys	
 unported	packages/effect/test/schema/Schema.test.ts	8817	it	renameKeys	
 unported	packages/effect/test/schema/Schema.test.ts	8831	it	evolveEntries	
-unported	packages/effect/test/schema/Schema.test.ts	8843	it	optionalKey	
+ported	packages/effect/test/schema/Schema.test.ts	8843	it	optionalKey	optional_key_explicit_null_decodes_inner
 unported	packages/effect/test/schema/Schema.test.ts	8855	it	mapPick	
 unported	packages/effect/test/schema/Schema.test.ts	8867	it	mapOmit	
 unported	packages/effect/test/schema/Schema.test.ts	8879	it	optional	
@@ -8067,9 +8067,9 @@ unported	packages/effect/test/schema/Schema.test.ts	10453	it	override the defaul
 unported	packages/effect/test/schema/Schema.test.ts	10460	it	nominal	
 unported	packages/effect/test/schema/Schema.test.ts	10471	it	single brand	
 unported	packages/effect/test/schema/Schema.test.ts	10484	it	multiple brands	
-unported	packages/effect/test/schema/Schema.test.ts	10507	it	should make all optionalKey keys required	
-unported	packages/effect/test/schema/Schema.test.ts	10533	it	should make all optional keys required	
-unported	packages/effect/test/schema/Schema.test.ts	10559	it	should make all optional keys required	
+ported	packages/effect/test/schema/Schema.test.ts	10507	it	should make all optionalKey keys required	require_all_makes_optional_keys_required
+ported	packages/effect/test/schema/Schema.test.ts	10533	it	should make all optional keys required	require_all_makes_optional_keys_required
+ported	packages/effect/test/schema/Schema.test.ts	10559	it	should make all optional keys required	require_reverses_optional_wrapping
 unported	packages/effect/test/schema/Schema.test.ts	10591	it	fieldsAssign	
 unported	packages/effect/test/schema/Schema.test.ts	10622	it	wrapping a primitive schema	
 unported	packages/effect/test/schema/Schema.test.ts	10628	it	inherits the schema protocol	
