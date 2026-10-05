@@ -227,3 +227,138 @@ impl MessageStorage {
         self.by_address.get(address).cloned()
     }
 }
+
+// Sharding config
+
+/// How long runners and storage reads linger, and where to listen.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ShardingConfig {
+    /// Runner residency, in seconds.
+    pub runner_residency_secs: u64,
+    /// Storage read batch cap.
+    pub storage_batch: usize,
+    /// Optional listen host: absent means no listen address.
+    pub listen_host: Option<String>,
+    /// Optional listen port.
+    pub listen_port: Option<u16>,
+}
+
+/// Config validation failures.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct BadConfig(pub String);
+
+impl ShardingConfig {
+    /// Defaults: 300s residency, batches of 100.
+    pub fn defaults() -> Self {
+        Self {
+            runner_residency_secs: 300,
+            storage_batch: 100,
+            listen_host: None,
+            listen_port: None,
+        }
+    }
+
+    /// Validate: residency and batch limits must be positive.
+    pub fn validated(self) -> Result<Self, BadConfig> {
+        if self.runner_residency_secs == 0 {
+            return Err(BadConfig("runner residency must be positive".to_string()));
+        }
+        if self.storage_batch == 0 {
+            return Err(BadConfig("storage batch limit must be positive".to_string()));
+        }
+        Ok(self)
+    }
+
+    /// The listen address, if a host is configured.
+    pub fn listen_address(&self) -> Option<String> {
+        let host = self.listen_host.as_ref()?;
+        Some(match self.listen_port {
+            Some(port) => format!("{host}:{port}"),
+            None => host.clone(),
+        })
+    }
+}
+
+// Runner storage
+
+/// Health of one runner.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum RunnerHealth {
+    /// Serving.
+    Healthy,
+    /// Draining.
+    Draining,
+}
+
+/// In-memory runner registry: health plus one-shot acquisition.
+#[derive(Debug, Default)]
+pub struct MemoryRunnerStorage {
+    health: HashMap<String, RunnerHealth>,
+}
+
+impl MemoryRunnerStorage {
+    /// Empty registry.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Register a runner as healthy.
+    pub fn register(&mut self, runner: impl Into<String>) {
+        self.health.insert(runner.into(), RunnerHealth::Healthy);
+    }
+
+    /// Current health, if known.
+    pub fn health(&self, runner: &str) -> Option<RunnerHealth> {
+        self.health.get(runner).cloned()
+    }
+
+    /// Acquire every runner from a one-shot iterable.
+    pub fn acquire_all(&mut self, runners: impl IntoIterator<Item = String>) {
+        for runner in runners {
+            self.register(runner);
+        }
+    }
+}
+
+// Resource map
+
+/// A lookup cache that closes the scope when a lookup fails: failures never
+/// leave half-built entries behind.
+#[derive(Debug, Default)]
+pub struct ResourceMap<T> {
+    entries: HashMap<String, T>,
+    /// Scopes closed after failed lookups (test seam).
+    pub closed_scopes: Vec<String>,
+}
+
+impl<T> ResourceMap<T> {
+    /// Empty map.
+    pub fn new() -> Self {
+        Self {
+            entries: HashMap::new(),
+            closed_scopes: Vec::new(),
+        }
+    }
+
+    /// Get the cached value, or load it. A failed load closes the lookup
+    /// scope and stores nothing.
+    pub fn get_or_load<E>(
+        &mut self,
+        key: &str,
+        scope: impl Into<String>,
+        load: impl FnOnce() -> Result<T, E>,
+    ) -> Result<&T, E> {
+        if !self.entries.contains_key(key) {
+            match load() {
+                Ok(value) => {
+                    self.entries.insert(key.to_string(), value);
+                }
+                Err(e) => {
+                    self.closed_scopes.push(scope.into());
+                    return Err(e);
+                }
+            }
+        }
+        Ok(&self.entries[key])
+    }
+}
