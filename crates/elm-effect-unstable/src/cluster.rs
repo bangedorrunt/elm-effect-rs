@@ -532,6 +532,27 @@ impl RunnerAddress {
     pub fn render(&self) -> String {
         format!("{}:{}", self.host, self.port)
     }
+
+    /// Client endpoint for a runner protocol: `scheme://host:port` plus
+    /// the layer path, adding a missing leading slash.
+    ///
+    /// Ports the `HttpRunner`/`SocketRunner` client layers in
+    /// `packages/effect/src/cluster/HttpRunner.ts`: the path is appended
+    /// verbatim once slash-led (`/runner` stays `/runner`). The HTTP RPC
+    /// protocol adds its own trailing call slash after this.
+    pub fn endpoint(&self, scheme: &str, path: &str) -> String {
+        let host = if self.host.contains(':') && !self.host.starts_with('[') {
+            format!("[{}]", self.host)
+        } else {
+            self.host.clone()
+        };
+        let path = if path.starts_with('/') {
+            path.to_string()
+        } else {
+            format!("/{path}")
+        };
+        format!("{scheme}://{host}:{}{path}", self.port)
+    }
 }
 
 /// Cluster failure modes.

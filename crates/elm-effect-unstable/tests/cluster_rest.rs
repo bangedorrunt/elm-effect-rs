@@ -163,3 +163,35 @@ fn reset_requests_preserves_replies_and_completion() {
     assert_eq!(reg.replies_for("done").len(), 1);
     assert!(storage.unprocessed_messages(&[addr], None).is_ok());
 }
+
+#[test]
+fn runner_endpoint_preserves_leading_slash() {
+    use cluster::RunnerAddress;
+    let addr = RunnerAddress::make("localhost", 8080);
+    assert_eq!(
+        addr.endpoint("http", "/runner"),
+        "http://localhost:8080/runner"
+    );
+    assert_eq!(addr.endpoint("ws", "/runner"), "ws://localhost:8080/runner");
+}
+
+#[test]
+fn runner_endpoint_adds_missing_leading_slash() {
+    use cluster::RunnerAddress;
+    let addr = RunnerAddress::make("localhost", 8080);
+    assert_eq!(
+        addr.endpoint("http", "runner"),
+        "http://localhost:8080/runner"
+    );
+    assert_eq!(
+        addr.endpoint("https", "runner"),
+        "https://localhost:8080/runner"
+    );
+}
+
+#[test]
+fn runner_endpoint_brackets_bare_ipv6() {
+    use cluster::RunnerAddress;
+    let addr = RunnerAddress::make("::1", 8080);
+    assert_eq!(addr.endpoint("http", "/runner"), "http://[::1]:8080/runner");
+}
