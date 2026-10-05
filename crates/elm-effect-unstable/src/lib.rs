@@ -20,6 +20,7 @@ pub mod ai;
 pub mod schema_obs;
 
 pub mod http;
+pub mod net;
 
 pub mod http_server;
 

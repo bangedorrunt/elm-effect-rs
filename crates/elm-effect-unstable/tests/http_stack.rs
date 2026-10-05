@@ -143,3 +143,39 @@ fn url_params_first_last_and_set_replace() {
     assert!(params.remove("b"));
     assert!(!params.remove("b"));
 }
+
+#[test]
+fn ipnetwork_parses_strict_cidr() {
+    use elm_effect_unstable::net::IpNetwork;
+    let net = IpNetwork::parse("192.168.0.0/24").unwrap();
+    assert_eq!(net.render(), "192.168.0.0/24");
+    assert_eq!(net.prefix(), 24);
+    assert!(IpNetwork::parse("192.168.0.1/24").is_none());
+    assert!(IpNetwork::parse("192.168.0.0/33").is_none());
+    assert!(IpNetwork::parse("nope").is_none());
+}
+
+#[test]
+fn ipnetwork_first_last_count() {
+    use elm_effect_unstable::net::IpNetwork;
+    let net = IpNetwork::parse("10.0.0.0/24").unwrap();
+    assert_eq!(net.first().to_string(), "10.0.0.0");
+    assert_eq!(net.last().to_string(), "10.0.0.255");
+    assert_eq!(net.address_count(), 256);
+}
+
+#[test]
+fn ipnetwork_contains_addr_and_network() {
+    use elm_effect_unstable::net::IpNetwork;
+    use std::net::IpAddr;
+    let outer = IpNetwork::parse("10.0.0.0/8").unwrap();
+    let inner = IpNetwork::parse("10.1.0.0/16").unwrap();
+    let addr: IpAddr = "10.1.2.3".parse().unwrap();
+    let outside: IpAddr = "11.0.0.1".parse().unwrap();
+    let v6: IpAddr = "::1".parse().unwrap();
+    assert!(outer.contains_addr(addr));
+    assert!(!outer.contains_addr(outside));
+    assert!(!outer.contains_addr(v6));
+    assert!(outer.contains_network(&inner));
+    assert!(!inner.contains_network(&outer));
+}
