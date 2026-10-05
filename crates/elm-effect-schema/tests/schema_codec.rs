@@ -117,3 +117,61 @@ fn doc_union_marks_itself_opaque() {
     );
     assert_eq!(schema.json_schema()["$comment"], "union");
 }
+
+#[test]
+fn codec_scalars_round_trip() {
+    let text = Schema::string()
+        .decode(Unknown::Text("s".to_string()))
+        .unwrap();
+    assert_eq!(
+        Schema::string().encode(&text),
+        Unknown::Text("s".to_string())
+    );
+    let number = Schema::number().decode(Unknown::Number(1.5)).unwrap();
+    assert_eq!(Schema::number().encode(&number), Unknown::Number(1.5));
+    let flag = Schema::boolean().decode(Unknown::Bool(true)).unwrap();
+    assert_eq!(Schema::boolean().encode(&flag), Unknown::Bool(true));
+}
+
+#[test]
+fn codec_null_round_trips_and_never_rejects() {
+    Schema::null().decode(Unknown::Null).unwrap();
+    assert_eq!(Schema::null().encode(&()), Unknown::Null);
+    assert!(Schema::never().decode(Unknown::Null).is_err());
+    assert!(
+        Schema::never()
+            .decode(Unknown::Text("x".to_string()))
+            .is_err()
+    );
+}
+
+#[test]
+fn codec_any_accepts_everything() {
+    for wire in [
+        Unknown::Null,
+        Unknown::Bool(false),
+        Unknown::Number(0.0),
+        Unknown::Text("u".to_string()),
+    ] {
+        let decoded = Schema::any().decode(wire.clone()).unwrap();
+        assert_eq!(Schema::any().encode(&decoded), wire);
+    }
+}
+
+#[test]
+fn codec_literal_accepts_only_its_value() {
+    let schema = Schema::literal(Unknown::Text("a".to_string()));
+    let decoded = schema.decode(Unknown::Text("a".to_string())).unwrap();
+    assert_eq!(schema.encode(&decoded), Unknown::Text("a".to_string()));
+    assert!(schema.decode(Unknown::Text("b".to_string())).is_err());
+}
+
+#[test]
+fn codec_array_of_literals_covers_enum() {
+    let schema = Schema::array(Schema::literal(Unknown::Text("a".to_string())));
+    let wire = Unknown::Array(vec![Unknown::Text("a".to_string())]);
+    let decoded = schema.decode(wire.clone()).unwrap();
+    assert_eq!(schema.encode(&decoded), wire);
+    let bad = Unknown::Array(vec![Unknown::Text("z".to_string())]);
+    assert!(schema.decode(bad).is_err());
+}
