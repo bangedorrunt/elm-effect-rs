@@ -590,6 +590,8 @@ pub struct Field {
     name: String,
     schema: Arc<Schema<Unknown>>,
     optionality: Optionality,
+    default: Option<Unknown>,
+    omit_on_encode: bool,
 }
 
 /// How optional a struct field is on the decoding axis.
@@ -611,6 +613,8 @@ impl Field {
             name: name.to_string(),
             schema: Arc::new(schema),
             optionality: Optionality::Required,
+            default: None,
+            omit_on_encode: false,
         }
     }
 
@@ -620,6 +624,8 @@ impl Field {
             name: name.to_string(),
             schema: Arc::new(schema),
             optionality: Optionality::Optional,
+            default: None,
+            omit_on_encode: false,
         }
     }
 
@@ -630,6 +636,8 @@ impl Field {
             name: name.to_string(),
             schema: Arc::new(schema),
             optionality: Optionality::OptionalKey,
+            default: None,
+            omit_on_encode: false,
         }
     }
 
@@ -643,6 +651,18 @@ impl Field {
     pub fn require_all(fields: Vec<Field>) -> Vec<Field> {
         fields.into_iter().map(Field::require).collect()
     }
+
+    /// A tag field (`tag`/`tagDefaultOmit`): absent keys fill the default
+    /// on decode (and construction), and the key is omitted on encode.
+    pub fn tag(name: &str, value: Unknown) -> Self {
+        Self {
+            name: name.to_string(),
+            schema: Arc::new(Schema::literal(value.clone())),
+            optionality: Optionality::Required,
+            default: Some(value),
+            omit_on_encode: true,
+        }
+    }
 }
 
 impl Schema<BTreeMap<String, Unknown>> {
@@ -650,12 +670,23 @@ impl Schema<BTreeMap<String, Unknown>> {
     /// field must decode; optional fields may be missing or null. Extra
     /// input fields pass through untouched.
     pub fn struct_shape(fields: Vec<Field>) -> Self {
+        let omitted: Vec<String> = fields
+            .iter()
+            .filter(|field| field.omit_on_encode)
+            .map(|field| field.name.clone())
+            .collect();
         Self::new(
             move |unknown| match unknown {
                 Unknown::Object(mut input) => {
                     let mut out = BTreeMap::new();
                     for field in &fields {
                         match input.remove(&field.name) {
+                            None if field.default.is_some() => {
+                                out.insert(
+                                    field.name.clone(),
+                                    field.default.clone().unwrap_or(Unknown::Null),
+                                );
+                            }
                             None if field.optionality != Optionality::Required => {}
                             Some(Unknown::Null) if field.optionality == Optionality::Optional => {}
                             None => {
@@ -681,7 +712,13 @@ impl Schema<BTreeMap<String, Unknown>> {
                 }
                 other => mismatch("$", "object", &other),
             },
-            |fields| Unknown::Object(fields.clone()),
+            move |output| {
+                let mut filtered = output.clone();
+                for name in &omitted {
+                    filtered.remove(name);
+                }
+                Unknown::Object(filtered)
+            },
             SchemaKind::Object,
         )
     }
@@ -1050,5 +1087,18 @@ impl Schema<Vec<Unknown>> {
             },
             SchemaKind::Opaque("template"),
         )
+    }
+}
+
+// Construction
+
+impl Schema<std::collections::BTreeMap<String, Unknown>> {
+    /// Build a value (`make`): absent fields with defaults fill in. For
+    /// non-transformed shapes this is decode over an object input.
+    pub fn make(
+        &self,
+        input: std::collections::BTreeMap<String, Unknown>,
+    ) -> Result<std::collections::BTreeMap<String, Unknown>, SchemaError> {
+        self.decode(Unknown::Object(input))
     }
 }

@@ -61,3 +61,29 @@ fn proto_key_is_ordinary_data() {
         Some(&Unknown::Text("polluted".to_string()))
     );
 }
+
+#[test]
+fn tag_fills_default_and_omits_on_encode() {
+    let schema = Schema::struct_shape(vec![
+        Field::tag("_tag", Unknown::Text("a".to_string())),
+        Field::required("a", Schema::as_unknown(Schema::string())),
+    ]);
+    // make fills the missing tag.
+    let made = schema
+        .make(
+            [("a".to_string(), Unknown::Text("1".to_string()))]
+                .into_iter()
+                .collect(),
+        )
+        .unwrap();
+    assert_eq!(made.get("_tag"), Some(&Unknown::Text("a".to_string())));
+    // decoding fills it too.
+    let decoded = schema
+        .decode(obj(vec![("a", Unknown::Text("1".to_string()))]))
+        .unwrap();
+    assert_eq!(decoded.get("_tag"), Some(&Unknown::Text("a".to_string())));
+    // encoding omits it.
+    let encoded = schema.encode(&decoded);
+    assert!(matches!(encoded, Unknown::Object(ref m) if !m.contains_key("_tag")));
+    assert!(matches!(encoded, Unknown::Object(ref m) if m.contains_key("a")));
+}
