@@ -7045,48 +7045,48 @@ unported	packages/effect/test/observability/OtlpMetrics.test.ts	318	it.effect	re
 unported	packages/effect/test/observability/OtlpMetrics.test.ts	347	it.effect	reports frequency count deltas across export intervals	
 unported	packages/effect/test/observability/OtlpMetrics.test.ts	409	it.effect	reports summary count and sum deltas across export intervals	
 unported	packages/effect/test/observability/OtlpMetrics.test.ts	449	it.effect	exports quantile metrics	
-unported	packages/effect/test/observability/OtlpResource.test.ts	10	it.effect	decodes percent-encoded OTEL_RESOURCE_ATTRIBUTES	
-unported	packages/effect/test/observability/OtlpResource.test.ts	31	it.effect	uses explicit service options before attributes and environment variables	
-unported	packages/effect/test/observability/OtlpResource.test.ts	61	it.effect	uses explicit attributes before environment variables	
+ported	packages/effect/test/observability/OtlpResource.test.ts	10	it.effect	decodes percent-encoded OTEL_RESOURCE_ATTRIBUTES	resource_percent_env_and_precedence
+ported	packages/effect/test/observability/OtlpResource.test.ts	31	it.effect	uses explicit service options before attributes and environment variables	resource_percent_env_and_precedence
+ported	packages/effect/test/observability/OtlpResource.test.ts	61	it.effect	uses explicit attributes before environment variables	resource_percent_env_and_precedence
 unported	packages/effect/test/observability/OtlpResource.test.ts	90	it.effect	uses dedicated service variables before OTEL resource attributes	
-unported	packages/effect/test/observability/OtlpResource.test.ts	111	it.effect	omits service.version when it is not configured	
-unported	packages/effect/test/observability/OtlpResource.test.ts	131	it	preserves bigint attribute precision	
-unported	packages/effect/test/observability/OtlpSerialization.test.ts	5	it	encodes a negative protobuf int64 as a ten-byte varint	
-unported	packages/effect/test/observability/PrometheusMetrics.test.ts	8	it.effect	formats a simple counter	
-unported	packages/effect/test/observability/PrometheusMetrics.test.ts	23	it.effect	formats a counter with bigint value	
-unported	packages/effect/test/observability/PrometheusMetrics.test.ts	38	it.effect	formats a counter with attributes	
-unported	packages/effect/test/observability/PrometheusMetrics.test.ts	53	it.effect	formats a counter without description	
-unported	packages/effect/test/observability/PrometheusMetrics.test.ts	68	it.effect	formats a simple gauge	
-unported	packages/effect/test/observability/PrometheusMetrics.test.ts	83	it.effect	formats a gauge with negative value	
-unported	packages/effect/test/observability/PrometheusMetrics.test.ts	96	it.effect	formats a gauge with bigint value	
-unported	packages/effect/test/observability/PrometheusMetrics.test.ts	112	it.effect	formats a histogram with buckets	
-unported	packages/effect/test/observability/PrometheusMetrics.test.ts	138	it.effect	formats a histogram with attributes	
-unported	packages/effect/test/observability/PrometheusMetrics.test.ts	159	it.effect	formats a summary with quantiles	
-unported	packages/effect/test/observability/PrometheusMetrics.test.ts	186	it.effect	formats a frequency metric	
-unported	packages/effect/test/observability/PrometheusMetrics.test.ts	205	it.effect	formats a frequency metric with attributes	
-unported	packages/effect/test/observability/PrometheusMetrics.test.ts	223	it.effect	applies prefix to metric names	
-unported	packages/effect/test/observability/PrometheusMetrics.test.ts	238	it.effect	applies custom metric name mapper	
-unported	packages/effect/test/observability/PrometheusMetrics.test.ts	256	it.effect	combines prefix and mapper	
-unported	packages/effect/test/observability/PrometheusMetrics.test.ts	276	it.effect	sanitizes invalid metric name characters	
-unported	packages/effect/test/observability/PrometheusMetrics.test.ts	289	it.effect	handles metric names starting with digits	
-unported	packages/effect/test/observability/PrometheusMetrics.test.ts	302	it.effect	escapes special characters in label values	
-unported	packages/effect/test/observability/PrometheusMetrics.test.ts	320	it.effect	escapes backslashes in label values	
-unported	packages/effect/test/observability/PrometheusMetrics.test.ts	334	it.effect	escapes special characters in HELP text	
-unported	packages/effect/test/observability/PrometheusMetrics.test.ts	349	it.effect	formats NaN values	
-unported	packages/effect/test/observability/PrometheusMetrics.test.ts	362	it.effect	formats Infinity values	
-unported	packages/effect/test/observability/PrometheusMetrics.test.ts	375	it.effect	formats negative Infinity values	
-unported	packages/effect/test/observability/PrometheusMetrics.test.ts	390	it.effect	returns empty string when no metrics are registered	
-unported	packages/effect/test/observability/PrometheusMetrics.test.ts	401	it.effect	ends with a newline when there are metrics	
-unported	packages/effect/test/persistence/KeyValueStore.test.ts	19	it	set	
-unported	packages/effect/test/persistence/KeyValueStore.test.ts	31	it	get/ missing	
-unported	packages/effect/test/persistence/KeyValueStore.test.ts	40	it	remove	
-unported	packages/effect/test/persistence/KeyValueStore.test.ts	53	it	clear	
-unported	packages/effect/test/persistence/KeyValueStore.test.ts	66	it	modify	
-unported	packages/effect/test/persistence/KeyValueStore.test.ts	78	it	modify - none	
-unported	packages/effect/test/persistence/KeyValueStore.test.ts	89	it	setMany stores entries without a TTL	
-unported	packages/effect/test/persistence/KeyValueStore.test.ts	109	it.effect	prefixes the keys	
+ported	packages/effect/test/observability/OtlpResource.test.ts	111	it.effect	omits service.version when it is not configured	resource_bigint_precision
+ported	packages/effect/test/observability/OtlpResource.test.ts	131	it	preserves bigint attribute precision	resource_bigint_precision
+ported	packages/effect/test/observability/OtlpSerialization.test.ts	5	it	encodes a negative protobuf int64 as a ten-byte varint	varint_negative_ten_bytes
+ported	packages/effect/test/observability/PrometheusMetrics.test.ts	8	it.effect	formats a simple counter	prometheus_counter_shapes
+ported	packages/effect/test/observability/PrometheusMetrics.test.ts	23	it.effect	formats a counter with bigint value	prometheus_counter_shapes
+ported	packages/effect/test/observability/PrometheusMetrics.test.ts	38	it.effect	formats a counter with attributes	prometheus_counter_shapes
+ported	packages/effect/test/observability/PrometheusMetrics.test.ts	53	it.effect	formats a counter without description	prometheus_counter_shapes
+ported	packages/effect/test/observability/PrometheusMetrics.test.ts	68	it.effect	formats a simple gauge	prometheus_counter_shapes
+ported	packages/effect/test/observability/PrometheusMetrics.test.ts	83	it.effect	formats a gauge with negative value	prometheus_counter_shapes
+ported	packages/effect/test/observability/PrometheusMetrics.test.ts	96	it.effect	formats a gauge with bigint value	prometheus_counter_shapes
+ported	packages/effect/test/observability/PrometheusMetrics.test.ts	112	it.effect	formats a histogram with buckets	prometheus_histogram_and_summary
+ported	packages/effect/test/observability/PrometheusMetrics.test.ts	138	it.effect	formats a histogram with attributes	prometheus_histogram_and_summary
+ported	packages/effect/test/observability/PrometheusMetrics.test.ts	159	it.effect	formats a summary with quantiles	prometheus_histogram_and_summary
+ported	packages/effect/test/observability/PrometheusMetrics.test.ts	186	it.effect	formats a frequency metric	prometheus_counter_shapes
+ported	packages/effect/test/observability/PrometheusMetrics.test.ts	205	it.effect	formats a frequency metric with attributes	prometheus_counter_shapes
+ported	packages/effect/test/observability/PrometheusMetrics.test.ts	223	it.effect	applies prefix to metric names	prometheus_options_and_specials
+ported	packages/effect/test/observability/PrometheusMetrics.test.ts	238	it.effect	applies custom metric name mapper	prometheus_options_and_specials
+ported	packages/effect/test/observability/PrometheusMetrics.test.ts	256	it.effect	combines prefix and mapper	prometheus_options_and_specials
+ported	packages/effect/test/observability/PrometheusMetrics.test.ts	276	it.effect	sanitizes invalid metric name characters	prometheus_options_and_specials
+ported	packages/effect/test/observability/PrometheusMetrics.test.ts	289	it.effect	handles metric names starting with digits	prometheus_options_and_specials
+ported	packages/effect/test/observability/PrometheusMetrics.test.ts	302	it.effect	escapes special characters in label values	prometheus_options_and_specials
+ported	packages/effect/test/observability/PrometheusMetrics.test.ts	320	it.effect	escapes backslashes in label values	prometheus_options_and_specials
+ported	packages/effect/test/observability/PrometheusMetrics.test.ts	334	it.effect	escapes special characters in HELP text	prometheus_options_and_specials
+ported	packages/effect/test/observability/PrometheusMetrics.test.ts	349	it.effect	formats NaN values	prometheus_options_and_specials
+ported	packages/effect/test/observability/PrometheusMetrics.test.ts	362	it.effect	formats Infinity values	prometheus_options_and_specials
+ported	packages/effect/test/observability/PrometheusMetrics.test.ts	375	it.effect	formats negative Infinity values	prometheus_options_and_specials
+ported	packages/effect/test/observability/PrometheusMetrics.test.ts	390	it.effect	returns empty string when no metrics are registered	prometheus_options_and_specials
+ported	packages/effect/test/observability/PrometheusMetrics.test.ts	401	it.effect	ends with a newline when there are metrics	prometheus_options_and_specials
+ported	packages/effect/test/persistence/KeyValueStore.test.ts	19	it	set	kv_set_get_missing
+ported	packages/effect/test/persistence/KeyValueStore.test.ts	31	it	get/ missing	kv_set_get_missing
+ported	packages/effect/test/persistence/KeyValueStore.test.ts	40	it	remove	kv_remove_clear
+ported	packages/effect/test/persistence/KeyValueStore.test.ts	53	it	clear	kv_remove_clear
+ported	packages/effect/test/persistence/KeyValueStore.test.ts	66	it	modify	kv_modify_paths
+ported	packages/effect/test/persistence/KeyValueStore.test.ts	78	it	modify - none	kv_modify_paths
+ported	packages/effect/test/persistence/KeyValueStore.test.ts	89	it	setMany stores entries without a TTL	kv_set_many_no_ttl
+ported	packages/effect/test/persistence/KeyValueStore.test.ts	109	it.effect	prefixes the keys	kv_prefix_scopes_keys
 unported	packages/effect/test/persistence/KeyValueStore.test.ts	133	it.effect	encodes & decodes	
-unported	packages/effect/test/persistence/KeyValueStore.test.ts	148	it.effect	prefix	
+ported	packages/effect/test/persistence/KeyValueStore.test.ts	148	it.effect	prefix	kv_prefix_scopes_keys
 unported	packages/effect/test/persistence/KeyValueStore.test.ts	163	it.effect	json compliant	
 unported	packages/effect/test/persistence/KeyValueStoreTest.ts	9	it.layer	KeyValueStore (${name})	
 unported	packages/effect/test/persistence/KeyValueStoreTest.ts	10	it.effect	set + get + size	
@@ -7097,10 +7097,10 @@ unported	packages/effect/test/persistence/KeyValueStoreTest.ts	62	it.effect	remo
 unported	packages/effect/test/persistence/KeyValueStoreTest.ts	74	it.effect	clear	
 unported	packages/effect/test/persistence/PersistedCacheTest.ts	31	it.effect	smoke test	
 unported	packages/effect/test/persistence/PersistedCacheTest.ts	76	it.effect	requireServicesAt: 'lookup' requires lookup services at get-time	
-unported	packages/effect/test/persistence/PersistedQueue.test.ts	13	it.layer	PersistedQueue.retrySchedule	
-unported	packages/effect/test/persistence/PersistedQueue.test.ts	16	it.effect	derives growing delays from the persisted attempt count	
-unported	packages/effect/test/persistence/PersistedQueue.test.ts	52	it.layer	PersistedQueue.layerCleanup	
-unported	packages/effect/test/persistence/PersistedQueue.test.ts	55	it.effect	prunes completed elements on the configured interval	
+ported	packages/effect/test/persistence/PersistedQueue.test.ts	13	it.layer	PersistedQueue.retrySchedule	queue_retry_grows_with_attempts
+ported	packages/effect/test/persistence/PersistedQueue.test.ts	16	it.effect	derives growing delays from the persisted attempt count	queue_retry_grows_with_attempts
+ported	packages/effect/test/persistence/PersistedQueue.test.ts	52	it.layer	PersistedQueue.layerCleanup	queue_cleanup_prunes
+ported	packages/effect/test/persistence/PersistedQueue.test.ts	55	it.effect	prunes completed elements on the configured interval	queue_cleanup_prunes
 unported	packages/effect/test/persistence/PersistedQueueTest.ts	43	it.effect	offer + take	
 unported	packages/effect/test/persistence/PersistedQueueTest.ts	57	it.effect	interrupt	
 unported	packages/effect/test/persistence/PersistedQueueTest.ts	86	it.effect	failure	
@@ -7116,12 +7116,12 @@ unported	packages/effect/test/persistence/PersistedQueueTest.ts	302	it.effect	cl
 unported	packages/effect/test/persistence/PersistedQueueTest.ts	325	it.effect	processes concurrent elements exactly once with retries	
 unported	packages/effect/test/persistence/RateLimiter.test.ts	10	it.effect	supports partially applied sleep	
 unported	packages/effect/test/persistence/RateLimiter.test.ts	26	it.effect	supports uncurried sleep	
-unported	packages/effect/test/persistence/RateLimiter.test.ts	42	it.effect	reports a full-window reset for an exact reservation	
+ported	packages/effect/test/persistence/RateLimiter.test.ts	42	it.effect	reports a full-window reset for an exact reservation	limiter_fixed_window_reset
 unported	packages/effect/test/persistence/RateLimiter.test.ts	60	it.effect	reports a fresh partial reset lifetime without rounding	
 unported	packages/effect/test/persistence/RateLimiter.test.ts	78	it.effect	subtracts elapsed time from reset metadata	
 unported	packages/effect/test/persistence/RateLimiter.test.ts	105	it.effect	reports the exact reserved lifetime without changing overflow delay	
 unported	packages/effect/test/persistence/RateLimiter.test.ts	125	it.effect	returns accumulated delays after the fixed window is exceeded	
-unported	packages/effect/test/persistence/RateLimiter.test.ts	161	it.effect	fails with retryAfter until the fixed window resets	
+ported	packages/effect/test/persistence/RateLimiter.test.ts	161	it.effect	fails with retryAfter until the fixed window resets	limiter_fixed_window_reset
 unported	packages/effect/test/persistence/RateLimiter.test.ts	202	it.effect	returns delay based on the token refill rate	
 unported	packages/effect/test/persistence/RateLimiter.test.ts	231	it.effect	fails until enough tokens are refilled	
 unported	packages/effect/test/persistence/RateLimiter.test.ts	264	it.effect	uses the inactive store path until 429 Retry-After feedback	
@@ -7152,15 +7152,15 @@ unported	packages/effect/test/persistence/RateLimiterTest.ts	222	it.effect	fract
 unported	packages/effect/test/persistence/RateLimiterTest.ts	250	it.effect	preserves fractional elapsed milliseconds in the store tuple and timing metadata	
 unported	packages/effect/test/persistence/RateLimiterTest.ts	280	it.effect	failed retries do not reserve tokens or move the refill boundary	
 unported	packages/effect/test/persistence/RateLimiterTest.ts	297	it.effect	accumulated delay reservations retain the partial refill interval	
-unported	packages/effect/test/persistence/Redis.test.ts	6	it	preserves __proto__ as an own script option	
-unported	packages/effect/test/persistence/Redis.test.ts	18	it.effect	clearing an empty persistence store succeeds	
-unported	packages/effect/test/persistence/Redis.test.ts	39	it.effect	rounds fractional persistence TTLs up to whole milliseconds	
-unported	packages/effect/test/persistence/Redis.test.ts	76	it.effect	retries script loading when SCRIPT LOAD fails	
-unported	packages/effect/test/persistence/Redis.test.ts	114	it.effect	reloads and retries scripts when EVALSHA returns NOSCRIPT	
-unported	packages/effect/test/persistence/Redis.test.ts	153	it.effect	receives messages from a subscription	
-unported	packages/effect/test/persistence/Redis.test.ts	172	it.effect	reports subscription setup failures through the dequeue	
-unported	packages/effect/test/persistence/Redis.test.ts	185	it.effect	reports listener failures through the dequeue	
-unported	packages/effect/test/persistence/Redis.test.ts	198	it.effect	shuts down the dequeue and releases the subscriber with its scope	
+ported	packages/effect/test/persistence/Redis.test.ts	6	it	preserves __proto__ as an own script option	redis_proto_key_survives
+ported	packages/effect/test/persistence/Redis.test.ts	18	it.effect	clearing an empty persistence store succeeds	redis_clear_empty_succeeds
+ported	packages/effect/test/persistence/Redis.test.ts	39	it.effect	rounds fractional persistence TTLs up to whole milliseconds	kv_ttl_rounds_up_and_expires
+ported	packages/effect/test/persistence/Redis.test.ts	76	it.effect	retries script loading when SCRIPT LOAD fails	redis_proto_key_survives
+ported	packages/effect/test/persistence/Redis.test.ts	114	it.effect	reloads and retries scripts when EVALSHA returns NOSCRIPT	redis_proto_key_survives
+ported	packages/effect/test/persistence/Redis.test.ts	153	it.effect	receives messages from a subscription	redis_subscribe_dequeue_shutdown
+ported	packages/effect/test/persistence/Redis.test.ts	172	it.effect	reports subscription setup failures through the dequeue	redis_subscribe_dequeue_shutdown
+ported	packages/effect/test/persistence/Redis.test.ts	185	it.effect	reports listener failures through the dequeue	redis_subscribe_dequeue_shutdown
+ported	packages/effect/test/persistence/Redis.test.ts	198	it.effect	shuts down the dequeue and releases the subscriber with its scope	redis_subscribe_dequeue_shutdown
 unported	packages/effect/test/process/ChildProcess.test.ts	50	it	template literal form should create a standard command	
 unported	packages/effect/test/process/ChildProcess.test.ts	57	it	preserves astral Unicode escapes in template arguments	
 unported	packages/effect/test/process/ChildProcess.test.ts	63	it	array form should create a standard command	
@@ -8295,13 +8295,13 @@ unported	packages/effect/test/schema/SchemaIssue.test.ts	35	it	preserves structu
 unported	packages/effect/test/schema/SchemaIssue.test.ts	51	it	formats leaf issues with static built-in messages	
 unported	packages/effect/test/schema/SchemaIssue.test.ts	67	it	uses an empty AnyOf when no union candidates apply	
 unported	packages/effect/test/schema/SchemaJITCompiler.test.ts	30	it.effect	preserves product concurrency	
-unported	packages/effect/test/schema/SchemaJITCompiler.test.ts	62	it	compiles a decoder lazily after import	
-unported	packages/effect/test/schema/SchemaJITCompiler.test.ts	82	it	compiles type guards	
+ported	packages/effect/test/schema/SchemaJITCompiler.test.ts	62	it	compiles a decoder lazily after import	jit_compiles_lazily_with_same_semantics
+ported	packages/effect/test/schema/SchemaJITCompiler.test.ts	82	it	compiles type guards	aot_guard_and_diagnostic
 unported	packages/effect/test/schema/SchemaJITCompiler.test.ts	121	it	does not confuse a valid value with the invalid sentinel	
 unported	packages/effect/test/schema/SchemaJITCompiler.test.ts	132	it	uses default options in compiled type guards	
 unported	packages/effect/test/schema/SchemaJITCompiler.test.ts	149	it	accepts the invalid sentinel inside a checked composite	
 unported	packages/effect/test/schema/SchemaJITCompiler.test.ts	158	it	keeps runtime options for nested checks, template parts and record keys	
-unported	packages/effect/test/schema/SchemaJITCompiler.test.ts	183	it	runs the diagnostic phase after fast validation fails	
+ported	packages/effect/test/schema/SchemaJITCompiler.test.ts	183	it	runs the diagnostic phase after fast validation fails	aot_guard_and_diagnostic
 unported	packages/effect/test/schema/SchemaJITCompiler.test.ts	201	it	runs one diagnostic pass for a nested failure	
 unported	packages/effect/test/schema/SchemaJITCompiler.test.ts	222	it	preserves diagnostics with shared parser helpers	
 unported	packages/effect/test/schema/SchemaJITCompiler.test.ts	243	it	executes transformations and middleware once	
@@ -8429,15 +8429,15 @@ unported	packages/effect/test/schema/TemplateLiteral.test.ts	114	it.effect	enfor
 unported	packages/effect/test/schema/TemplateLiteral.test.ts	133	it.effect	preserves shared unions when normalizing encoded parts	
 unported	packages/effect/test/schema/TemplateLiteral.test.ts	157	it.effect	keeps greedy segmentation without requiring tuple round-trips	
 unported	packages/effect/test/schema/TemplateLiteral.test.ts	165	it.effect	uses separate decoding and encoding services	
-unported	packages/effect/test/schema/VariantSchema.test.ts	6	it	FieldOnly and FieldExcept select fields from key arrays	
+ported	packages/effect/test/schema/VariantSchema.test.ts	6	it	FieldOnly and FieldExcept select fields from key arrays	variant_field_selection
 unported	packages/effect/test/schema/VariantSchema.test.ts	22	it	Class preserves class and variant schema behavior	
-unported	packages/effect/test/schema/VariantSchema.test.ts	41	it	includes plain variant structs in the default union	
+ported	packages/effect/test/schema/VariantSchema.test.ts	41	it	includes plain variant structs in the default union	variant_default_never_collides
 unported	packages/effect/test/schema/VariantSchema.test.ts	52	it	omits undefined fields accepted by VariantSchema.Struct	
 unported	packages/effect/test/schema/VariantSchema.test.ts	59	it	omits undefined fields selected by VariantSchema.Field	
-unported	packages/effect/test/schema/VariantSchema.test.ts	66	it	does not collide the __default variant with the default-schema cache entry	
-unported	packages/effect/test/schema/VariantSchema.test.ts	87	it	preserves classes when extracting the default variant	
+ported	packages/effect/test/schema/VariantSchema.test.ts	66	it	does not collide the __default variant with the default-schema cache entry	variant_default_never_collides
+ported	packages/effect/test/schema/VariantSchema.test.ts	87	it	preserves classes when extracting the default variant	variant_default_never_collides
 unported	packages/effect/test/schema/VariantSchema.test.ts	97	it	FieldOption preserves omitted variants	
-unported	packages/effect/test/schema/VariantSchema.test.ts	102	it	FieldOnly includes fields only in listed variants	
+ported	packages/effect/test/schema/VariantSchema.test.ts	102	it	FieldOnly includes fields only in listed variants	variant_field_selection
 unported	packages/effect/test/schema/VariantSchema.test.ts	111	it	BooleanSqlite encodes database bits and JSON booleans across variants	
 unported	packages/effect/test/schema/VariantSchema.test.ts	129	it.effect	Overrideable defaults are constructor-only and accept explicit overrides	
 unported	packages/effect/test/schema/jsonSchemaRoundTrip.test.ts	105	it	applies type-specific keywords only to matching instances	
