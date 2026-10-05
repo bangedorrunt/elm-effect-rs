@@ -1,6 +1,7 @@
 //! Process spawning: command forms, handles, exit codes, stdio.
 
 #[path = "../src/process.rs"]
+#[allow(dead_code)]
 mod process;
 
 use process::{command_array, command_template, split_template};
