@@ -115,6 +115,31 @@ impl<A: Clone + Send + 'static> SynchronizedRef<A> {
         self.inner.lock().unwrap().clone()
     }
 
+    /// Conditionally update with a fallback (`modifySomeEffect`): `f`
+    /// returns the new value plus a result, or `None` to keep the current
+    /// value and yield `fallback`. The decision runs once under the
+    /// permit; curried closures work because the callback is the only
+    /// configuration besides the fallback.
+    pub fn modify_some_effect<B, E, R, F>(&self, fallback: B, f: F) -> Effect<B, E, R>
+    where
+        B: Send + 'static,
+        E: Send + 'static,
+        R: crate::effect::Requirement,
+        F: FnOnce(&A) -> Option<(A, B)> + Send + 'static,
+    {
+        let inner = std::sync::Arc::clone(&self.inner);
+        Effect::<B, E, R>::sync(move || {
+            let mut guard = inner.lock().unwrap();
+            match f(&*guard) {
+                Some((next, out)) => {
+                    *guard = next;
+                    out
+                }
+                None => fallback,
+            }
+        })
+    }
+
     /// Compute `(new_value, effect)` under the permit, store the value, then
     /// run the effect once. The permit serializes the computation, not the
     /// effect's execution.

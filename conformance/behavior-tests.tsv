@@ -4031,8 +4031,8 @@ unported	packages/effect/test/Symbol.test.ts	31	it	returns false for booleans
 unported	packages/effect/test/Symbol.test.ts	36	it	returns false for null and undefined	
 unported	packages/effect/test/Symbol.test.ts	41	it	returns false for objects and arrays	
 unported	packages/effect/test/Symbol.test.ts	46	it	returns false for functions	
-unported	packages/effect/test/SynchronizedRef.modifySomeEffect.test.ts	5	it.effect	supports callback-only currying	
-unported	packages/effect/test/SynchronizedRef.modifySomeEffect.test.ts	16	it.effect	preserves the value for Option.none	
+ported	packages/effect/test/SynchronizedRef.modifySomeEffect.test.ts	5	it.effect	supports callback-only currying	modify_some_effect_applies_update_and_yields_result
+ported	packages/effect/test/SynchronizedRef.modifySomeEffect.test.ts	16	it.effect	preserves the value for Option.none	modify_some_effect_none_preserves_value_with_fallback
 unported	packages/effect/test/SynchronizedRef.test.ts	32	it.effect	get	
 unported	packages/effect/test/SynchronizedRef.test.ts	37	it.effect	getAndUpdateEffect - happy path	
 unported	packages/effect/test/SynchronizedRef.test.ts	45	it.effect	getAndUpdateEffect - with failure	
@@ -9255,17 +9255,17 @@ unported	packages/effect/test/schema/toCodec.test.ts	642	it	1n + string
 unported	packages/effect/test/schema/toCodec.test.ts	653	it	a	
 unported	packages/effect/test/schema/toCodec.test.ts	665	it	Enum	
 ported	packages/effect/test/schema/toCodec.test.ts	683	it	Date	codec_date_bare_struct_tuple_json
-unported	packages/effect/test/schema/toCodec.test.ts	696	it	UndefinedOr(Date)	
-unported	packages/effect/test/schema/toCodec.test.ts	715	it	NullOr(Date)	
-unported	packages/effect/test/schema/toCodec.test.ts	734	it	optionalKey(Date)	
-unported	packages/effect/test/schema/toCodec.test.ts	753	it	optional(Date)	
+ported	packages/effect/test/schema/toCodec.test.ts	696	it	UndefinedOr(Date)	codec_optional_date_json_shapes
+ported	packages/effect/test/schema/toCodec.test.ts	715	it	NullOr(Date)	codec_optional_date_json_shapes
+ported	packages/effect/test/schema/toCodec.test.ts	734	it	optionalKey(Date)	codec_optional_date_json_shapes
+ported	packages/effect/test/schema/toCodec.test.ts	753	it	optional(Date)	codec_optional_date_json_shapes
 unported	packages/effect/test/schema/toCodec.test.ts	775	it	Record(Symbol, Date)	
 unported	packages/effect/test/schema/toCodec.test.ts	792	it	Struct with an explicitly encoded Symbol property name	
 ported	packages/effect/test/schema/toCodec.test.ts	804	it	Date	codec_date_bare_struct_tuple_json
-unported	packages/effect/test/schema/toCodec.test.ts	821	it	UndefinedOr(Date)	
-unported	packages/effect/test/schema/toCodec.test.ts	839	it	NullOr(Date)	
-unported	packages/effect/test/schema/toCodec.test.ts	856	it	optionalKey(Date)	
-unported	packages/effect/test/schema/toCodec.test.ts	873	it	optional(Date)	
+ported	packages/effect/test/schema/toCodec.test.ts	821	it	UndefinedOr(Date)	codec_optional_date_json_shapes
+ported	packages/effect/test/schema/toCodec.test.ts	839	it	NullOr(Date)	codec_optional_date_json_shapes
+ported	packages/effect/test/schema/toCodec.test.ts	856	it	optionalKey(Date)	codec_optional_date_json_shapes
+ported	packages/effect/test/schema/toCodec.test.ts	873	it	optional(Date)	codec_optional_date_json_shapes
 unported	packages/effect/test/schema/toCodec.test.ts	893	it	Array(Date)	
 unported	packages/effect/test/schema/toCodec.test.ts	905	it	NullOr(String)	
 unported	packages/effect/test/schema/toCodec.test.ts	918	it	NullOr(Number)	
