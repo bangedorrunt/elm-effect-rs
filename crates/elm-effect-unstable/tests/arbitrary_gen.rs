@@ -77,3 +77,21 @@ fn arrays_honor_length_bounds() {
     }
     assert_eq!(array(integer(0, 9), 3, 3).sample(&mut Rng::new(9)).len(), 3);
 }
+
+#[test]
+fn array_rejects_invalid_bounds_immediately() {
+    let result = std::panic::catch_unwind(|| array(integer(0, 9), 5, 2));
+    assert!(result.is_err());
+}
+
+#[test]
+fn array_honors_minima_maxima_and_exact_lengths() {
+    assert_eq!(
+        array(integer(0, 9), 0, 0).sample(&mut Rng::new(21)).len(),
+        0
+    );
+    assert_eq!(
+        array(integer(0, 9), 4, 4).sample(&mut Rng::new(22)).len(),
+        4
+    );
+}
