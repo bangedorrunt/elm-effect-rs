@@ -6946,9 +6946,9 @@ unported	packages/effect/test/net/IpInterface.test.ts	48	it	constructs one gener
 ported	packages/effect/test/net/IpInterface.test.ts	60	it	defaults bare addresses to full-width prefixes	ipinterface_bare_defaults_full_width
 ported	packages/effect/test/net/IpInterface.test.ts	65	it	parses prefixes and preserves host bits	ipinterface_keeps_host_bits
 ported	packages/effect/test/net/IpInterface.test.ts	73	it	rejects invalid prefixes and malformed input	ipinterface_keeps_host_bits
-unported	packages/effect/test/net/IpInterface.test.ts	88	it	uses address and prefix equality with matching hashes	
+ported	packages/effect/test/net/IpInterface.test.ts	88	it	uses address and prefix equality with matching hashes	ipinterface_equality_and_throwing_parse
 ported	packages/effect/test/net/IpInterface.test.ts	96	it	converts to the canonical containing network	ipinterface_bare_defaults_full_width
-unported	packages/effect/test/net/IpInterface.test.ts	100	it	provides throwing counterparts	
+ported	packages/effect/test/net/IpInterface.test.ts	100	it	provides throwing counterparts	ipinterface_equality_and_throwing_parse
 unported	packages/effect/test/net/IpInterface.test.ts	105	it	decodes and canonically encodes schemas	
 unported	packages/effect/test/net/IpNetwork.test.ts	24	it	serializes and inspects canonical strings	
 unported	packages/effect/test/net/IpNetwork.test.ts	33	it	retains the address supplied to checked constructors	

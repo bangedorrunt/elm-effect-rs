@@ -388,3 +388,17 @@ fn cookies_from_pairs_rejects_invalid_names() {
     assert!(!jar.is_empty());
     assert!(Cookies::new().is_empty());
 }
+
+#[test]
+fn ipinterface_equality_and_throwing_parse() {
+    use elm_effect_unstable::net::IpInterface;
+    assert_eq!(
+        IpInterface::parse("10.0.0.1/8").unwrap(),
+        IpInterface::parse("10.0.0.1/8").unwrap()
+    );
+    assert_ne!(
+        IpInterface::parse("10.0.0.1/8").unwrap(),
+        IpInterface::parse("10.0.0.1/16").unwrap()
+    );
+    assert_eq!(IpInterface::must_parse("10.0.0.1/8").render(), "10.0.0.1/8");
+}

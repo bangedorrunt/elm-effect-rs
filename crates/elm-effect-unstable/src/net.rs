@@ -323,3 +323,11 @@ impl StrictIp {
         }
     }
 }
+
+impl IpInterface {
+    /// Parse, panicking on invalid input. The throwing counterpart of
+    /// [`Self::parse`] for trusted literals.
+    pub fn must_parse(text: &str) -> Self {
+        Self::parse(text).expect("valid interface")
+    }
+}
