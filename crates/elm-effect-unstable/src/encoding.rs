@@ -226,9 +226,11 @@ pub fn hex_decode_string(input: &str) -> Result<String, EncodingError> {
     String::from_utf8(bytes).map_err(|_| EncodingError::decode("Hex", input, "invalid UTF-8"))
 }
 
-/// `length` random bytes as lowercase hex (deterministic xorshift seeded
+/// `length` random hex chars, lowercase (deterministic xorshift seeded
 /// from wall time and process id: uniqueness varies, shape never does).
-pub fn hex_random(length: usize) -> String {
+/// Length follows ECMA ToUint32 coercion (NaN/Infinity/2^32 wrap to 0),
+/// rounded down to a multiple of 8 chars.
+pub fn hex_random(length: f64) -> String {
     use std::time::{SystemTime, UNIX_EPOCH};
     let nanos = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -238,7 +240,8 @@ pub fn hex_random(length: usize) -> String {
         .wrapping_mul(0x9E3779B97F4A7C15)
         .wrapping_add(std::process::id() as u64)
         | 1;
-    let mut bytes = vec![0u8; length];
+    let chars = ((length.rem_euclid(4_294_967_296.0) as u64 as u32) & !7) as usize;
+    let mut bytes = vec![0u8; chars / 2];
     for slot in bytes.iter_mut() {
         state ^= state << 13;
         state ^= state >> 7;

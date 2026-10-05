@@ -132,14 +132,37 @@ fn hex_rejects_odd_and_nonhex() {
 }
 
 #[test]
-fn hex_random_shape() {
-    let value = encoding::hex_random(8);
-    assert_eq!(value.len(), 16);
-    assert!(
-        value
-            .bytes()
-            .all(|b| b.is_ascii_hexdigit() && !(b as char).is_ascii_uppercase())
-    );
+fn hex_random_words_are_lowercase_of_exact_length() {
+    for (length, expected) in [(0.0, 0), (8.0, 8), (16.0, 16), (32.0, 32)] {
+        let value = encoding::hex_random(length);
+        assert_eq!(value.len(), expected, "length {length}");
+        assert!(
+            value
+                .bytes()
+                .all(|b| b.is_ascii_hexdigit() && !(b as char).is_ascii_uppercase()),
+            "{value}"
+        );
+    }
+}
+
+#[test]
+fn hex_random_rounds_down_to_multiples_of_8() {
+    for (length, expected) in [(7.0, 0), (15.9, 8), (23.0, 16)] {
+        assert_eq!(encoding::hex_random(length).len(), expected, "length {length}");
+    }
+}
+
+#[test]
+fn hex_random_coerces_u32_without_validation() {
+    use std::f64::{INFINITY, NAN};
+    for (length, expected) in [
+        (NAN, 0),
+        (INFINITY, 0),
+        (4_294_967_296.0, 0),
+        (4_294_967_304.0, 8),
+    ] {
+        assert_eq!(encoding::hex_random(length).len(), expected, "length {length}");
+    }
 }
 
 #[test]
