@@ -481,3 +481,89 @@ impl Default for ChatStore {
         Self::new()
     }
 }
+
+// --- Tool port (ai/Tool.ts at the pin): named handlers, failure modes ---
+
+/// How handler failures surface.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum FailureMode {
+    /// Return the failure as a tool result.
+    Return,
+    /// Raise the failure as an error.
+    Error,
+}
+
+/// Tool call failure.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ToolError {
+    /// Failing tool name.
+    pub tool: String,
+    /// Failure detail.
+    pub message: String,
+}
+
+impl std::fmt::Display for ToolError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}: {}", self.tool, self.message)
+    }
+}
+
+/// Handler over raw JSON parameter strings.
+type HandlerFn = Box<dyn Fn(&str) -> Result<String, String> + Send + Sync>;
+
+/// Named handler over raw JSON parameter strings.
+pub struct Tool {
+    /// Tool name.
+    pub name: String,
+    /// Human description.
+    pub description: String,
+    handler: HandlerFn,
+}
+
+impl Tool {
+    /// Build from a name, description, and parameter handler.
+    pub fn new(
+        name: &str,
+        description: &str,
+        handler: impl Fn(&str) -> Result<String, String> + Send + Sync + 'static,
+    ) -> Self {
+        Self {
+            name: name.to_owned(),
+            description: description.to_owned(),
+            handler: Box::new(handler),
+        }
+    }
+
+    /// Call with JSON params. Malformed params (including `NaN`, which is
+    /// not valid JSON) fail before the handler runs.
+    pub fn call(&self, params_json: &str) -> Result<String, ToolError> {
+        let fail = |message: String| ToolError {
+            tool: self.name.clone(),
+            message,
+        };
+        let trimmed = params_json.trim();
+        if !(trimmed.starts_with('{') && trimmed.ends_with('}')) {
+            return Err(fail("invalid parameters: not a JSON object".to_owned()));
+        }
+        if trimmed.contains("NaN") {
+            return Err(fail("invalid parameters: NaN is not valid JSON".to_owned()));
+        }
+        (self.handler)(params_json).map_err(fail)
+    }
+
+    /// Call under a failure mode: `Return` hands failures back as tool
+    /// results, `Error` raises them.
+    pub fn call_with_mode(
+        &self,
+        params_json: &str,
+        mode: &FailureMode,
+    ) -> Result<Result<String, String>, ToolError> {
+        match self.call(params_json) {
+            Ok(output) => Ok(Ok(output)),
+            Err(error) => match mode {
+                FailureMode::Return => Ok(Err(error.message.clone())),
+                FailureMode::Error => Err(error),
+            },
+        }
+    }
+}

@@ -292,3 +292,28 @@ fn chat_respects_ttl() {
     std::thread::sleep(std::time::Duration::from_millis(60));
     assert!(store.load("c1").is_err());
 }
+
+#[test]
+fn tool_call_modes() {
+    use elm_effect_unstable::ai::{FailureMode, Tool};
+    let echo = Tool::new("echo", "echoes", |params| Ok(params.to_owned()));
+    assert_eq!(echo.call("{\"a\":1}").expect("valid"), "{\"a\":1}");
+    assert!(echo.call("nope").is_err());
+    assert!(echo.call("{\"a\":NaN}").is_err());
+    assert_eq!(
+        echo.call_with_mode("{\"a\":1}", &FailureMode::Return)
+            .expect("returns"),
+        Ok("{\"a\":1}".to_owned())
+    );
+    let failing = Tool::new("fail", "fails", |_| {
+        Err::<String, String>("boom".to_owned())
+    });
+    assert_eq!(
+        failing
+            .call_with_mode("{}", &FailureMode::Return)
+            .expect("returns"),
+        Err("boom".to_owned())
+    );
+    assert!(failing.call_with_mode("{}", &FailureMode::Error).is_err());
+    assert!(failing.call_with_mode("nope", &FailureMode::Error).is_err());
+}
