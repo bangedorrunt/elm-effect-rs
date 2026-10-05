@@ -171,3 +171,80 @@ fn redis_subscribe_dequeue_shutdown() {
     assert_eq!(r.dequeue("news", false).unwrap(), None);
     assert!(r.subscribe("news").is_err());
 }
+
+// ------------------------------------------------- persistable + cache
+
+#[derive(Debug, PartialEq)]
+struct Counter(u64);
+
+impl persistence::Persistable for Counter {
+    fn persist_key(&self) -> String {
+        "counter".to_string()
+    }
+
+    fn encode_value(&self) -> Vec<u8> {
+        self.0.to_le_bytes().to_vec()
+    }
+
+    fn decode_value(bytes: &[u8]) -> Option<Self> {
+        bytes.try_into().ok().map(|b| Self(u64::from_le_bytes(b)))
+    }
+
+    fn ttl_millis(&self) -> Option<u64> {
+        Some(1_000)
+    }
+}
+
+#[test]
+fn persistable_save_load_roundtrip_with_ttl() {
+    use persistence::Persistable as _;
+    let mut store = KeyValueStore::new();
+    Counter(7).save(&mut store);
+    assert_eq!(Counter::load(&store, "counter"), Some(Counter(7)));
+    store.advance(1_001);
+    assert_eq!(Counter::load(&store, "counter"), None);
+}
+
+#[test]
+fn persistable_missing_key_is_none() {
+    use persistence::Persistable as _;
+    let store = KeyValueStore::new();
+    assert_eq!(Counter::load(&store, "counter"), None);
+}
+
+#[test]
+fn cache_computes_once_then_serves_hits() {
+    use persistence::{Persistable as _, PersistedCache};
+    let mut store = KeyValueStore::new();
+    let cache = PersistedCache::new("ns");
+    let mut calls = 0;
+    let first = cache.get_or_compute(&mut store, "k", None, || {
+        calls += 1;
+        Counter(calls)
+    });
+    let second = cache.get_or_compute(&mut store, "k", None, || {
+        calls += 1;
+        Counter(calls)
+    });
+    assert_eq!((first, second, calls), (Counter(1), Counter(1), 1));
+}
+
+#[test]
+fn cache_expiry_recomputes_and_invalidate_drops() {
+    use persistence::{Persistable as _, PersistedCache};
+    let mut store = KeyValueStore::new();
+    let cache = PersistedCache::new("ns");
+    let mut calls = 0u64;
+    cache.get_or_compute(&mut store, "k", Some(100), || {
+        calls += 1;
+        Counter(calls)
+    });
+    store.advance(101);
+    cache.get_or_compute(&mut store, "k", Some(100), || {
+        calls += 1;
+        Counter(calls)
+    });
+    assert_eq!(calls, 2);
+    assert!(cache.invalidate(&mut store, "k"));
+    assert!(!cache.invalidate(&mut store, "k"));
+}

@@ -49,7 +49,13 @@ impl KeyValueStore {
 
     /// Insert without TTL.
     pub fn set(&mut self, key: &str, value: &str) {
-        self.map.insert(key.to_string(), Entry { value: value.as_bytes().to_vec(), expires_at: None });
+        self.map.insert(
+            key.to_string(),
+            Entry {
+                value: value.as_bytes().to_vec(),
+                expires_at: None,
+            },
+        );
     }
 
     /// Insert many without TTL.
@@ -64,13 +70,17 @@ impl KeyValueStore {
         let ttl = ttl_millis.ceil().max(0.0) as u64;
         self.map.insert(
             key.to_string(),
-            Entry { value: value.as_bytes().to_vec(), expires_at: Some(self.now_ms + ttl) },
+            Entry {
+                value: value.as_bytes().to_vec(),
+                expires_at: Some(self.now_ms + ttl),
+            },
         );
     }
 
     /// Read as UTF-8 text; missing, expired, or non-UTF-8 is [`None`].
     pub fn get(&self, key: &str) -> Option<String> {
-        self.live(key).and_then(|e| String::from_utf8(e.value.clone()).ok())
+        self.live(key)
+            .and_then(|e| String::from_utf8(e.value.clone()).ok())
     }
 
     /// Live entry count.
@@ -91,8 +101,24 @@ impl KeyValueStore {
     }
 
     /// Store raw bytes.
+    pub fn set_bytes_ttl(&mut self, key: &str, bytes: &[u8], ttl_millis: u64) {
+        self.map.insert(
+            key.to_string(),
+            Entry {
+                value: bytes.to_vec(),
+                expires_at: Some(self.now_ms + ttl_millis),
+            },
+        );
+    }
+
     pub fn set_bytes(&mut self, key: &str, bytes: &[u8]) {
-        self.map.insert(key.to_string(), Entry { value: bytes.to_vec(), expires_at: None });
+        self.map.insert(
+            key.to_string(),
+            Entry {
+                value: bytes.to_vec(),
+                expires_at: None,
+            },
+        );
     }
 
     /// Presence (live entries only).
@@ -111,7 +137,11 @@ impl KeyValueStore {
     }
 
     /// Update in place; [`None`] input deletes nothing and yields [`None`].
-    pub fn modify(&mut self, key: &str, f: impl FnOnce(Option<String>) -> Option<String>) -> Option<String> {
+    pub fn modify(
+        &mut self,
+        key: &str,
+        f: impl FnOnce(Option<String>) -> Option<String>,
+    ) -> Option<String> {
         let next = f(self.get(key));
         match next {
             Some(v) => {
@@ -140,7 +170,10 @@ impl KeyValueStore {
 
     /// Prefixed view: every key reads/writes under `prefix/`.
     pub fn prefixed(&mut self, prefix: &str) -> Prefixed<'_> {
-        Prefixed { inner: self, prefix: prefix.to_string() }
+        Prefixed {
+            inner: self,
+            prefix: prefix.to_string(),
+        }
     }
 }
 
@@ -172,7 +205,11 @@ impl Prefixed<'_> {
     }
 
     /// Update under the prefix.
-    pub fn modify(&mut self, key: &str, f: impl FnOnce(Option<String>) -> Option<String>) -> Option<String> {
+    pub fn modify(
+        &mut self,
+        key: &str,
+        f: impl FnOnce(Option<String>) -> Option<String>,
+    ) -> Option<String> {
         let full = self.full(key);
         self.inner.modify(&full, f)
     }
@@ -280,16 +317,23 @@ impl RateLimiter {
     pub fn consume(&self, key: &str) -> Verdict {
         let now = self.now();
         let mut windows = self.windows.lock().unwrap();
-        let window = windows.entry(key.to_string()).or_insert(Window { start_ms: now, count: 0 });
+        let window = windows.entry(key.to_string()).or_insert(Window {
+            start_ms: now,
+            count: 0,
+        });
         if now - window.start_ms >= self.window_ms {
             window.start_ms = now;
             window.count = 0;
         }
         if window.count < self.limit {
             window.count += 1;
-            Verdict::Admit { reset_in_ms: self.window_ms - (now - window.start_ms) }
+            Verdict::Admit {
+                reset_in_ms: self.window_ms - (now - window.start_ms),
+            }
         } else {
-            Verdict::Reject { retry_after_ms: self.window_ms - (now - window.start_ms) }
+            Verdict::Reject {
+                retry_after_ms: self.window_ms - (now - window.start_ms),
+            }
         }
     }
 
@@ -297,9 +341,10 @@ impl RateLimiter {
     pub fn consume_tokens(&self, key: &str, cost: f64) -> Verdict {
         let now = self.now();
         let mut buckets = self.buckets.lock().unwrap();
-        let bucket = buckets
-            .entry(key.to_string())
-            .or_insert(Bucket { tokens: self.capacity, updated_ms: now });
+        let bucket = buckets.entry(key.to_string()).or_insert(Bucket {
+            tokens: self.capacity,
+            updated_ms: now,
+        });
         bucket.tokens = (bucket.tokens + (now - bucket.updated_ms) as f64 * self.refill_per_ms)
             .min(self.capacity);
         bucket.updated_ms = now;
@@ -308,7 +353,9 @@ impl RateLimiter {
             Verdict::Admit { reset_in_ms: 0 }
         } else {
             let deficit = cost - bucket.tokens;
-            Verdict::Reject { retry_after_ms: (deficit / self.refill_per_ms).ceil() as u64 }
+            Verdict::Reject {
+                retry_after_ms: (deficit / self.refill_per_ms).ceil() as u64,
+            }
         }
     }
 
@@ -342,7 +389,9 @@ impl RateLimiter {
         let mut adaptive = self.adaptive.lock().unwrap();
         let state = adaptive.entry(key.to_string()).or_default();
         if now < state.cooldown_until_ms {
-            return Verdict::Reject { retry_after_ms: state.cooldown_until_ms - now };
+            return Verdict::Reject {
+                retry_after_ms: state.cooldown_until_ms - now,
+            };
         }
         if state.epoch == 0 || now >= state.cooldown_until_ms {
             state.learning = true;
@@ -414,7 +463,8 @@ impl PersistedQueue {
     /// Prune completions older than `older_than_ms`.
     pub fn prune(&mut self, older_than_ms: u64, now_ms: u64) -> usize {
         let before = self.completed.len();
-        self.completed.retain(|(_, at)| now_ms.saturating_sub(*at) < older_than_ms);
+        self.completed
+            .retain(|(_, at)| now_ms.saturating_sub(*at) < older_than_ms);
         before - self.completed.len()
     }
 
@@ -429,7 +479,11 @@ impl PersistedQueue {
             return false;
         }
         self.dedupe.insert(id.to_string(), id.to_string());
-        self.pending.push_back(QueuedItem { id: id.to_string(), payload, attempts: 0 });
+        self.pending.push_back(QueuedItem {
+            id: id.to_string(),
+            payload,
+            attempts: 0,
+        });
         true
     }
 
@@ -514,7 +568,10 @@ impl FakeRedis {
 
     /// Publish; returns listener count.
     pub fn publish(&mut self, channel: &str, message: &str) -> usize {
-        self.channels.entry(channel.to_string()).or_default().push(message.to_string());
+        self.channels
+            .entry(channel.to_string())
+            .or_default()
+            .push(message.to_string());
         self.listeners.get(channel).copied().unwrap_or(0)
     }
 
@@ -528,7 +585,11 @@ impl FakeRedis {
     }
 
     /// Next message for a listener; listener errors surface as [`Err`].
-    pub fn dequeue(&mut self, channel: &str, fail_listener: bool) -> Result<Option<String>, String> {
+    pub fn dequeue(
+        &mut self,
+        channel: &str,
+        fail_listener: bool,
+    ) -> Result<Option<String>, String> {
         if fail_listener {
             return Err("listener failed".to_string());
         }
@@ -552,5 +613,97 @@ impl FakeRedis {
     pub fn shutdown(&mut self) {
         self.down = true;
         self.channels.clear();
+    }
+}
+
+/// A value that persists itself under a stable key with an optional TTL.
+///
+/// Ports the portable core of `Persistable.ts` (schema encode/decode
+/// collapses to a byte round trip; `TimeToLiveFn` collapses to a fixed
+/// millisecond TTL): the implementor names its key, its bytes, and how
+/// long the entry lives.
+pub trait Persistable: Sized {
+    /// Stable storage key for this value.
+    fn persist_key(&self) -> String;
+
+    /// Encode to bytes.
+    fn encode_value(&self) -> Vec<u8>;
+
+    /// Decode from bytes; `None` means the stored bytes are corrupt.
+    fn decode_value(bytes: &[u8]) -> Option<Self>;
+
+    /// Entry TTL in millis; `None` (default) never expires.
+    fn ttl_millis(&self) -> Option<u64> {
+        None
+    }
+
+    /// Write this value into `store`, honoring [`Self::ttl_millis`].
+    fn save(&self, store: &mut KeyValueStore) {
+        let key = self.persist_key();
+        let bytes = self.encode_value();
+        match self.ttl_millis() {
+            Some(ttl) => store.set_bytes_ttl(&key, &bytes, ttl),
+            None => store.set_bytes(&key, &bytes),
+        }
+    }
+
+    /// Read back a value previously written with [`Self::save`].
+    /// `None` means absent or corrupt.
+    fn load(store: &KeyValueStore, key: &str) -> Option<Self> {
+        store
+            .get_bytes(key)
+            .and_then(|bytes| Self::decode_value(&bytes))
+    }
+}
+
+/// A get-or-compute cache over a [`KeyValueStore`] with per-key TTL.
+///
+/// Ports `PersistedCache.ts` (`make`): `get_or_compute` returns the stored
+/// value on a hit and computes, stores, and returns it on a miss.
+#[derive(Debug, Default)]
+pub struct PersistedCache {
+    namespace: String,
+}
+
+impl PersistedCache {
+    /// Cache sharing one key namespace.
+    pub fn new(namespace: impl Into<String>) -> Self {
+        Self {
+            namespace: namespace.into(),
+        }
+    }
+
+    fn namespaced(&self, key: &str) -> String {
+        format!("{}:{key}", self.namespace)
+    }
+
+    /// Hit: decode the stored bytes. Miss: run `compute`, store the bytes
+    /// with `ttl_millis`, return the fresh value. Corrupt entries count as
+    /// misses and are overwritten.
+    pub fn get_or_compute<T: Persistable>(
+        &self,
+        store: &mut KeyValueStore,
+        key: &str,
+        ttl_millis: Option<u64>,
+        compute: impl FnOnce() -> T,
+    ) -> T {
+        let namespaced = self.namespaced(key);
+        if let Some(bytes) = store.get_bytes(&namespaced) {
+            if let Some(value) = T::decode_value(&bytes) {
+                return value;
+            }
+        }
+        let value = compute();
+        let bytes = value.encode_value();
+        match ttl_millis {
+            Some(ttl) => store.set_bytes_ttl(&namespaced, &bytes, ttl),
+            None => store.set_bytes(&namespaced, &bytes),
+        }
+        value
+    }
+
+    /// Drop one cached entry; true when something was stored.
+    pub fn invalidate(&self, store: &mut KeyValueStore, key: &str) -> bool {
+        store.remove(&self.namespaced(key))
     }
 }
