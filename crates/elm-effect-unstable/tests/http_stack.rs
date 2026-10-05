@@ -417,3 +417,16 @@ fn headers_remove_many_drops_each_case_insensitively() {
         &[("X-C".to_string(), "3".to_string())]
     );
 }
+
+#[test]
+fn headers_redact_matching_names_case_insensitively() {
+    use elm_effect_unstable::http::Headers;
+    let headers = Headers::from_pairs(vec![
+        ("Authorization".to_string(), "secret".to_string()),
+        ("X-A".to_string(), "1".to_string()),
+    ]);
+    let redacted = headers.redacted(&["authorization"], "***");
+    assert_eq!(redacted.get("Authorization"), Some("***"));
+    assert_eq!(redacted.get("X-A"), Some("1"));
+    assert_eq!(headers.get("Authorization"), Some("secret"));
+}

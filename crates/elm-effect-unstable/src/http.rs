@@ -331,6 +331,24 @@ impl Headers {
         names.iter().filter(|name| self.remove(name)).count()
     }
 
+    /// A copy with every matching name's value replaced (case-insensitive
+    /// name match). Non-matching entries pass through untouched.
+    pub fn redacted(&self, names: &[&str], replacement: &str) -> Self {
+        Self {
+            entries: self
+                .entries
+                .iter()
+                .map(|(name, value)| {
+                    if names.iter().any(|n| n.eq_ignore_ascii_case(name)) {
+                        (name.clone(), replacement.to_string())
+                    } else {
+                        (name.clone(), value.clone())
+                    }
+                })
+                .collect(),
+        }
+    }
+
     /// Merge another map in (set semantics per name).
     pub fn merge(&mut self, other: &Headers) {
         for (name, value) in &other.entries {
