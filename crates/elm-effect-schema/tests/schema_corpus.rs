@@ -1095,3 +1095,50 @@ fn parser_decode_option_struct_fields() {
     bad.insert("n".to_string(), Unknown::Text("x".to_string()));
     assert_eq!(schema.decode(Unknown::Object(bad)).ok(), None);
 }
+
+#[test]
+fn codec_date_bare_struct_tuple_json() {
+    use elm_effect_schema::transform::date_schema;
+    const ISO: &str = "2021-01-01T00:00:00.000Z";
+    const MILLIS: i64 = 1_609_459_200_000;
+    let bare = date_schema();
+    assert_eq!(
+        bare.decode(Unknown::Text(ISO.to_string())).unwrap(),
+        MILLIS
+    );
+    assert_eq!(
+        bare.encode(&MILLIS),
+        Unknown::Text(ISO.to_string())
+    );
+    assert!(bare.decode(Unknown::Text("not-a-date".to_string())).is_err());
+    assert!(bare.decode(Unknown::Number(1.0)).is_err());
+
+    use elm_effect_schema::Field;
+    let strukt = Schema::struct_shape(vec![Field::required("a", Schema::as_unknown(date_schema()))]);
+    let mut wire = std::collections::BTreeMap::new();
+    wire.insert("a".to_string(), Unknown::Text(ISO.to_string()));
+    assert_eq!(
+        strukt.decode(Unknown::Object(wire.clone())).unwrap()["a"],
+        Unknown::Text(ISO.to_string())
+    );
+    assert_eq!(strukt.encode(&wire), Unknown::Object(wire));
+
+    // Single-element tuples have no Rust constructor (tuple2 is the
+    // smallest); two dates still prove the element codec threads tuples.
+    let pair = Schema::tuple2(date_schema(), Schema::string());
+    assert_eq!(
+        pair.encode(&(MILLIS, "x".to_string())),
+        Unknown::Array(vec![
+            Unknown::Text(ISO.to_string()),
+            Unknown::Text("x".to_string())
+        ])
+    );
+    assert_eq!(
+        pair.decode(Unknown::Array(vec![
+            Unknown::Text(ISO.to_string()),
+            Unknown::Text("x".to_string())
+        ]))
+        .unwrap(),
+        (MILLIS, "x".to_string())
+    );
+}
