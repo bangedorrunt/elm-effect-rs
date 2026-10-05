@@ -688,8 +688,8 @@ ported	packages/effect/test/Combiner.test.ts	38	it	intercalate	combiners_fold
 unported	packages/effect/test/Config.test.ts	37	it	recognizes SourceError defects from a reloaded module copy	
 unported	packages/effect/test/Config.test.ts	54	it.effect	uses the current ConfigProvider when yielded as an Effect	
 unported	packages/effect/test/Config.test.ts	65	it.effect	preserves provider defects at the root and in nested fields	
-unported	packages/effect/test/Config.test.ts	92	it	fail creates an always-failing config	
-unported	packages/effect/test/Config.test.ts	102	it	succeed creates a provider-independent value	
+ported	packages/effect/test/Config.test.ts	92	it	fail creates an always-failing config	config_fail_always_fails
+ported	packages/effect/test/Config.test.ts	102	it	succeed creates a provider-independent value	config_succeed_ignores_provider
 ported	packages/effect/test/Config.test.ts	107	it	string decodes present input and reports absence	config_string_decodes_and_reports_absence
 ported	packages/effect/test/Config.test.ts	118	it	nonEmptyString rejects preserved empty input	config_non_empty_rejects_empties
 ported	packages/effect/test/Config.test.ts	129	it	number accepts finite and non-finite numbers	config_primitives
@@ -715,7 +715,7 @@ unported	packages/effect/test/Config.test.ts	356	it	lets recover after the base 
 unported	packages/effect/test/Config.test.ts	363	it	lets recover after the base config propagated key absence	
 ported	packages/effect/test/Config.test.ts	370	it	handles chains of multiple flatMaps and withDefaults	config_flat_map_chains
 unported	packages/effect/test/Config.test.ts	408	it	lifts absence in nested composition	
-unported	packages/effect/test/Config.test.ts	423	it.effect	matches map when chained with succeed, including grouped defaults and options	
+ported	packages/effect/test/Config.test.ts	423	it.effect	matches map when chained with succeed, including grouped defaults and options	config_map_chained_with_succeed
 unported	packages/effect/test/Config.test.ts	457	it.effect	preserves the outer prefix and composes prefixes in the selected config	
 unported	packages/effect/test/Config.test.ts	484	it.effect	defers user callbacks until the Config Effect is executed	
 unported	packages/effect/test/Config.test.ts	525	it.effect	resolves empty groups without using a default	

@@ -342,3 +342,25 @@ fn crypto_system_randomness() {
     let bytes = SystemCrypto.random_bytes(16).unwrap();
     assert_eq!(bytes.len(), 16);
 }
+
+#[test]
+fn config_fail_always_fails() {
+    let p = provider(&[("other", "1")]);
+    assert!(Config::fail("boom").load(&p).is_err());
+}
+
+#[test]
+fn config_succeed_ignores_provider() {
+    let p = provider(&[]);
+    assert_eq!(Config::succeed(Value::Int(7)).load(&p), Ok(Value::Int(7)));
+}
+
+#[test]
+fn config_map_chained_with_succeed() {
+    let p = provider(&[]);
+    let doubled = Config::succeed(Value::Int(2)).map(|v| match v {
+        Value::Int(n) => Value::Int(n * 2),
+        other => other,
+    });
+    assert_eq!(doubled.load(&p), Ok(Value::Int(4)));
+}
