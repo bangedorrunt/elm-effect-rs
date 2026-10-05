@@ -21,6 +21,7 @@ pub mod schema_obs;
 
 pub mod http;
 pub mod net;
+pub mod mime;
 
 pub mod http_server;
 
