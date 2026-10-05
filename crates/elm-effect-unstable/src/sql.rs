@@ -164,24 +164,51 @@ impl SqlClient {
     }
 
     /// Run inside a savepoint. Success releases (count drops to zero in
-    /// strict mode); otherwise the hold stays visible.
+    /// strict mode); otherwise the hold stays visible. A failing `faults`
+    /// release errors out (the outer transaction then rolls back); a failing
+    /// rollback skips the release and reports the rollback error.
     pub fn savepoint<R>(
         &self,
         _name: &str,
         begin: Result<(), SqlError>,
+        faults: &Faults,
         body: impl FnOnce() -> Result<R, SqlError>,
     ) -> Result<R, SqlError> {
         begin?;
         *self.savepoints_held.borrow_mut() += 1;
         let snapshot = self.tables.borrow().clone();
-        let out = body();
-        if out.is_ok() && self.strict_savepoints {
-            *self.savepoints_held.borrow_mut() = 0;
-        } else if out.is_err() {
-            *self.tables.borrow_mut() = snapshot;
+        match body() {
+            Ok(value) => {
+                if faults.fail_release {
+                    return Err(SqlError::new(
+                        SqlReason::Unknown,
+                        false,
+                        "savepoint release failed",
+                    ));
+                }
+                if self.strict_savepoints {
+                    *self.savepoints_held.borrow_mut() = 0;
+                }
+                Ok(value)
+            }
+            Err(error) => {
+                if faults.fail_rollback {
+                    return Err(SqlError::new(SqlReason::Unknown, false, "rollback failed"));
+                }
+                *self.tables.borrow_mut() = snapshot;
+                Err(error)
+            }
         }
-        out
     }
+}
+
+/// Fault injection for transaction machinery (tests pin driver failures).
+#[derive(Default)]
+pub struct Faults {
+    /// Fail the savepoint release.
+    pub fail_release: bool,
+    /// Fail the rollback itself (release is then skipped).
+    pub fail_rollback: bool,
 }
 
 // Result-set decoders

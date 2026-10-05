@@ -6,7 +6,7 @@ mod sql;
 mod socket;
 
 use socket::socket_pair;
-use sql::{SqlClient, SqlError, SqlReason, classify_sqlite_error};
+use sql::{Faults, SqlClient, SqlError, SqlReason, classify_sqlite_error};
 
 #[test]
 fn sql_error_reasons_classify() {
@@ -70,7 +70,7 @@ fn rollback_restores_on_effect_failure() {
 #[test]
 fn savepoints_release_or_hold() {
     let db = SqlClient::fake();
-    db.savepoint("sp1", Ok(()), || {
+    db.savepoint("sp1", Ok(()), &Faults::default(), || {
         db.insert("t", vec!["a".to_string()]);
         Ok::<(), SqlError>(())
     })
@@ -79,7 +79,7 @@ fn savepoints_release_or_hold() {
 
     let strict = SqlClient::fake().with_savepoints(false);
     strict
-        .savepoint("sp1", Ok(()), || Ok::<(), SqlError>(()))
+        .savepoint("sp1", Ok(()), &Faults::default(), || Ok::<(), SqlError>(()))
         .unwrap();
     assert_eq!(strict.savepoint_count(), 1);
 }
@@ -272,4 +272,53 @@ fn error_schema_roundtrip_preserves_wrapper() {
     let back = SqlError::from_json(&err.to_json()).unwrap();
     assert_eq!(back, err);
     assert!(SqlError::from_json(&serde_json::json!({"tag": "Nope"})).is_none());
+}
+
+#[test]
+fn failed_savepoint_never_rolls_back() {
+    let db = SqlClient::fake();
+    db.insert("t", vec!["seed".to_string()]);
+    let err = SqlError::new(SqlReason::Unknown, false, "savepoint refused");
+    let out = db.savepoint(
+        "sp1",
+        Err(err.clone()),
+        &Faults::default(),
+        || Ok::<u32, SqlError>(1),
+    );
+    assert_eq!(out, Err(err));
+    assert_eq!(db.scan("t"), vec![vec!["seed".to_string()]]);
+}
+
+#[test]
+fn commit_returns_value_on_success() {
+    let db = SqlClient::fake();
+    let out = db.transaction(Ok(()), || {
+        db.insert("t", vec!["x".to_string()]);
+        Ok::<u32, SqlError>(7)
+    });
+    assert_eq!(out, Ok(7));
+    assert_eq!(db.scan("t"), vec![vec!["x".to_string()]]);
+}
+
+#[test]
+fn skipped_release_when_rollback_fails() {
+    let db = SqlClient::fake().with_savepoints(false);
+    let faults = Faults { fail_release: false, fail_rollback: true };
+    let out = db.savepoint("sp1", Ok(()), &faults, || {
+        db.insert("t", vec!["x".to_string()]);
+        Err::<u32, SqlError>(SqlError::new(SqlReason::Unknown, true, "boom"))
+    });
+    assert_eq!(out.map_err(|e| e.message), Err("rollback failed".to_string()));
+    assert_eq!(db.savepoint_count(), 1);
+}
+
+#[test]
+fn outer_rolls_back_when_release_fails() {
+    let db = SqlClient::fake();
+    let faults = Faults { fail_release: true, fail_rollback: false };
+    let out = db.transaction(Ok(()), || {
+        db.savepoint("sp1", Ok(()), &faults, || Ok::<(), SqlError>(())).map(|_| 0u32)
+    });
+    assert!(out.is_err());
+    assert!(db.scan("t").is_empty());
 }
