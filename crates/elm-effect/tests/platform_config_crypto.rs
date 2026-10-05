@@ -382,3 +382,140 @@ fn loglevel_all_and_none_are_sentinels() {
     assert!(config::LogLevel::All < config::LogLevel::Trace);
     assert!(config::LogLevel::Fatal < config::LogLevel::None);
 }
+
+fn host_config() -> Config {
+    Config::integer(named("port")).flat_map(|port| {
+        let name = if port == Value::Int(80) {
+            "prodHost"
+        } else {
+            "devHost"
+        };
+        Config::string(named(name)).validate(|value| match value {
+            Value::Str(s) if s.ends_with("effect.website") => Ok(()),
+            _ => Err("Must end with \"effect.website\"".to_string()),
+        })
+    })
+}
+
+#[test]
+fn config_inner_propagates_parsing_failure() {
+    let p = provider(&[("port", "80"), ("prodHost", "example.com")]);
+    let err = host_config().load(&p).expect_err("inner host must fail");
+    assert_eq!(err.len(), 1);
+    match &err[0] {
+        config::ConfigError::Invalid { path, reason, .. } => {
+            assert_eq!(path, &vec!["prodHost".to_string()]);
+            assert!(reason.contains("effect.website"));
+        }
+        other => panic!("expected Invalid, got {other:?}"),
+    }
+}
+
+#[test]
+fn config_inner_propagates_key_absence() {
+    let p = provider(&[("port", "80")]);
+    let err = host_config()
+        .load(&p)
+        .expect_err("inner host must be absent");
+    assert!(matches!(
+        err.as_slice(),
+        [config::ConfigError::Missing { .. }]
+    ));
+}
+
+#[test]
+fn config_recovers_after_inner_parsing_failure() {
+    let p = provider(&[("port", "80"), ("prodHost", "example.com")]);
+    let recovered = host_config()
+        .or_else_with(|errors| {
+            let message = errors
+                .iter()
+                .map(|e| e.to_string())
+                .collect::<Vec<_>>()
+                .join("; ");
+            Config::succeed(Value::Str(message))
+        })
+        .load(&p)
+        .expect("recovery must succeed");
+    match recovered {
+        Value::Str(message) => assert!(message.contains("effect.website")),
+        other => panic!("expected Str, got {other:?}"),
+    }
+}
+
+#[test]
+fn config_recovers_after_inner_key_absence() {
+    let p = provider(&[("port", "80")]);
+    assert_eq!(
+        host_config()
+            .with_default(Value::Str("localhost".to_string()))
+            .load(&p),
+        Ok(Value::Str("localhost".to_string()))
+    );
+}
+
+#[test]
+fn config_propagates_inner_success() {
+    let p = provider(&[("port", "3000"), ("devHost", "stage.effect.website")]);
+    assert_eq!(
+        host_config().load(&p),
+        Ok(Value::Str("stage.effect.website".to_string()))
+    );
+}
+
+#[test]
+fn config_base_propagates_parsing_failure() {
+    let p = provider(&[("port", "zzz"), ("prodHost", "effect.website")]);
+    let err = host_config().load(&p).expect_err("base port must fail");
+    assert!(matches!(
+        err.as_slice(),
+        [config::ConfigError::Invalid { .. }]
+    ));
+}
+
+#[test]
+fn config_base_propagates_key_absence() {
+    let p = provider(&[("port", "80")]);
+    let host_only = Config::string(named("prodHost"));
+    let p2 = provider(&[("prodHost", "effect.website")]);
+    let err = Config::integer(named("port"))
+        .flat_map(move |_| host_only.clone())
+        .load(&p2)
+        .expect_err("base port must be absent");
+    assert!(matches!(
+        err.as_slice(),
+        [config::ConfigError::Missing { .. }]
+    ));
+    let _ = p;
+}
+
+#[test]
+fn config_recovers_after_base_parsing_failure() {
+    let p = provider(&[("port", "zzz"), ("prodHost", "effect.website")]);
+    let recovered = host_config()
+        .or_else_with(|errors| {
+            let message = errors
+                .iter()
+                .map(|e| e.to_string())
+                .collect::<Vec<_>>()
+                .join("; ");
+            Config::succeed(Value::Str(message))
+        })
+        .load(&p)
+        .expect("recovery must succeed");
+    match recovered {
+        Value::Str(message) => assert!(message.contains("port")),
+        other => panic!("expected Str, got {other:?}"),
+    }
+}
+
+#[test]
+fn config_recovers_after_base_key_absence() {
+    let p = provider(&[("prodHost", "effect.website")]);
+    assert_eq!(
+        host_config()
+            .with_default(Value::Str("localhost".to_string()))
+            .load(&p),
+        Ok(Value::Str("localhost".to_string()))
+    );
+}

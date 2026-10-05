@@ -379,6 +379,34 @@ impl Config {
         }
     }
 
+    /// Check the decoded value; failures carry the leaf path (the
+    /// wrapped descriptor's name appended to the active prefix).
+    pub fn validate(self, f: impl Fn(&Value) -> Result<(), String> + 'static) -> Self {
+        let name = self.name.clone();
+        let leaf = name.clone();
+        let run = self.run.clone();
+        Self {
+            name,
+            run: std::rc::Rc::new(move |provider, prefix| match (*run)(provider, prefix) {
+                Ok(value) => match f(&value) {
+                    Ok(()) => Ok(value),
+                    Err(reason) => {
+                        let mut path = prefix.to_vec();
+                        if let Some(n) = &leaf {
+                            path.push(n.clone());
+                        }
+                        Err(vec![ConfigError::Invalid {
+                            path,
+                            got: format!("{value:?}"),
+                            reason,
+                        }])
+                    }
+                },
+                err => err,
+            }),
+        }
+    }
+
     /// Chain on the decoded value.
     pub fn flat_map(self, f: impl Fn(Value) -> Config + 'static) -> Self {
         let run = self.run.clone();
@@ -404,6 +432,22 @@ impl Config {
             run: std::rc::Rc::new(move |provider, prefix| match (*run)(provider, prefix) {
                 ok @ Ok(_) => ok,
                 Err(_) => (*run_other)(provider, prefix),
+            }),
+        }
+    }
+
+    /// Fall back with the failure in hand (`orElse` with a recovery
+    /// function): the fallback sees every [`ConfigError`].
+    pub fn or_else_with(self, f: impl Fn(Vec<ConfigError>) -> Config + 'static) -> Self {
+        let run = self.run.clone();
+        Self {
+            name: None,
+            run: std::rc::Rc::new(move |provider, prefix| match (*run)(provider, prefix) {
+                ok @ Ok(_) => ok,
+                Err(errors) => {
+                    let fallback = f(errors);
+                    (fallback.run)(provider, prefix)
+                }
             }),
         }
     }
