@@ -4489,8 +4489,8 @@ ported	packages/effect/test/ai/AiError.test.ts	37	it	should have _tag set correc
 ported	packages/effect/test/ai/AiError.test.ts	44	it	should not be retryable	ai_error_tags_and_retryability
 ported	packages/effect/test/ai/AiError.test.ts	49	it	should format message based on kind	ai_error_message_shapes
 ported	packages/effect/test/ai/AiError.test.ts	63	it	should have _tag set correctly	ai_error_tags_and_retryability
-unported	packages/effect/test/ai/AiError.test.ts	68	it	should render the description after the kind suggestion when present	
-unported	packages/effect/test/ai/AiError.test.ts	79	it	should render the message unchanged when description is absent	
+ported	packages/effect/test/ai/AiError.test.ts	68	it	should render the description after the kind suggestion when present	ai_error_auth_description
+ported	packages/effect/test/ai/AiError.test.ts	79	it	should render the message unchanged when description is absent	ai_error_auth_description
 unported	packages/effect/test/ai/AiError.test.ts	88	it	should round-trip the description through the schema	
 ported	packages/effect/test/ai/AiError.test.ts	100	it	should not be retryable	ai_error_tags_and_retryability
 ported	packages/effect/test/ai/AiError.test.ts	105	it	should format message with description	ai_error_message_shapes
@@ -4507,27 +4507,27 @@ unported	packages/effect/test/ai/AiError.test.ts	185	it.effect	should create fro
 ported	packages/effect/test/ai/AiError.test.ts	202	it	should have _tag set correctly	ai_error_tags_and_retryability
 ported	packages/effect/test/ai/AiError.test.ts	211	it	should not be retryable	ai_error_tags_and_retryability
 ported	packages/effect/test/ai/AiError.test.ts	216	it	should format message with description	ai_error_message_shapes
-unported	packages/effect/test/ai/AiError.test.ts	223	it	should use default message without description	
+ported	packages/effect/test/ai/AiError.test.ts	223	it	should use default message without description	ai_error_auth_description
 ported	packages/effect/test/ai/AiError.test.ts	228	it	should have _tag set correctly	ai_error_tags_and_retryability
 ported	packages/effect/test/ai/AiError.test.ts	235	it	should be retryable	ai_error_tags_and_retryability
 ported	packages/effect/test/ai/AiError.test.ts	243	it	should format message with available tools	ai_error_message_shapes
 ported	packages/effect/test/ai/AiError.test.ts	252	it	should format message with no available tools	ai_error_message_shapes
 ported	packages/effect/test/ai/AiError.test.ts	260	it	should have _tag set correctly	ai_error_tags_and_retryability
 ported	packages/effect/test/ai/AiError.test.ts	270	it	should be retryable	ai_error_tags_and_retryability
-unported	packages/effect/test/ai/AiError.test.ts	278	it	should format message with tool name	
-unported	packages/effect/test/ai/AiError.test.ts	286	it	should format message with validation message	
-unported	packages/effect/test/ai/AiError.test.ts	294	it	should construct when validated params contain non-JSON values	
+ported	packages/effect/test/ai/AiError.test.ts	278	it	should format message with tool name	ai_error_tool_messages
+ported	packages/effect/test/ai/AiError.test.ts	286	it	should format message with validation message	ai_error_tool_messages
+ported	packages/effect/test/ai/AiError.test.ts	294	it	should construct when validated params contain non-JSON values	ai_error_tool_messages
 ported	packages/effect/test/ai/AiError.test.ts	303	it	should have _tag set correctly	ai_error_tags_and_retryability
 ported	packages/effect/test/ai/AiError.test.ts	313	it	should not be retryable	ai_error_tags_and_retryability
-unported	packages/effect/test/ai/AiError.test.ts	321	it	should format message with tool name	
+ported	packages/effect/test/ai/AiError.test.ts	321	it	should format message with tool name	ai_error_tool_messages
 ported	packages/effect/test/ai/AiError.test.ts	329	it	should format message with description	ai_error_message_shapes
 ported	packages/effect/test/ai/AiError.test.ts	337	it	should have _tag set correctly	ai_error_tags_and_retryability
 ported	packages/effect/test/ai/AiError.test.ts	347	it	should not be retryable	ai_error_tags_and_retryability
-unported	packages/effect/test/ai/AiError.test.ts	356	it	should format message with tool name	
-unported	packages/effect/test/ai/AiError.test.ts	365	it	should format message with validation message	
+ported	packages/effect/test/ai/AiError.test.ts	356	it	should format message with tool name	ai_error_tool_messages
+ported	packages/effect/test/ai/AiError.test.ts	365	it	should format message with validation message	ai_error_tool_messages
 ported	packages/effect/test/ai/AiError.test.ts	374	it	should have _tag set correctly	ai_error_tags_and_retryability
 ported	packages/effect/test/ai/AiError.test.ts	385	it	should not be retryable	ai_error_tags_and_retryability
-unported	packages/effect/test/ai/AiError.test.ts	393	it	should format message with tool name	
+ported	packages/effect/test/ai/AiError.test.ts	393	it	should format message with tool name	ai_error_tool_messages
 ported	packages/effect/test/ai/AiError.test.ts	401	it	should format message with description	ai_error_message_shapes
 ported	packages/effect/test/ai/AiError.test.ts	409	it	should have _tag set correctly	ai_error_tags_and_retryability
 ported	packages/effect/test/ai/AiError.test.ts	419	it	should be retryable	ai_error_tags_and_retryability

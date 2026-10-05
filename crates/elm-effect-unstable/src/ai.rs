@@ -180,23 +180,33 @@ pub enum AiReason {
     },
     /// Tool parameter failed validation.
     ToolParameterValidation {
-        /// Detail text.
-        details: String,
+        /// Invoked tool name.
+        tool_name: String,
+        /// Validation detail.
+        description: String,
     },
     /// Tool returned an unusable result.
     InvalidToolResult {
-        /// Detail text.
-        details: String,
+        /// Invoked tool name.
+        tool_name: String,
+        /// Result detail.
+        description: String,
     },
     /// Tool result could not be encoded.
     ToolResultEncoding {
-        /// Detail text.
-        details: String,
+        /// Invoked tool name.
+        tool_name: String,
+        /// Unencodable result text.
+        tool_result: String,
+        /// Encoding detail.
+        description: String,
     },
     /// Tool misconfigured.
     ToolConfiguration {
-        /// Detail text.
-        details: String,
+        /// Invoked tool name.
+        tool_name: String,
+        /// Configuration detail.
+        description: String,
     },
     /// Structured output did not satisfy the schema.
     StructuredOutput {
@@ -268,7 +278,16 @@ impl AiReason {
                 None => "Rate limit exceeded".to_owned(),
             },
             Self::QuotaExhausted => "Quota exhausted".to_owned(),
-            Self::Authentication { kind } => format!("Authentication failed: {kind}"),
+            Self::Authentication { kind } => {
+                let suggestion = match kind.as_str() {
+                    "InvalidKey" => "Verify your API key is correct",
+                    "ExpiredKey" => "Your API key has expired. Generate a new one",
+                    "MissingKey" => "No API key provided. Set the appropriate environment variable",
+                    "InsufficientPermissions" => "Your API key lacks required permissions",
+                    _ => "Authentication failed. Check your credentials",
+                };
+                format!("{kind}: {suggestion}")
+            }
             Self::ContentPolicy { description } => match description {
                 Some(d) => format!("Content policy violation: {d}"),
                 None => "Content policy violation".to_owned(),
@@ -290,19 +309,33 @@ impl AiReason {
                 };
                 format!("Tool '{tool}' not found. Available tools: {list}")
             }
-            Self::ToolParameterValidation { details } => {
-                format!("Tool parameter validation failed: {details}")
+            Self::ToolParameterValidation { tool_name, description } => {
+                format!("Invalid parameters for tool '{tool_name}': {description}")
             }
-            Self::InvalidToolResult { details } => format!("Invalid tool result: {details}"),
-            Self::ToolResultEncoding { details } => {
-                format!("Tool result encoding failed: {details}")
+            Self::InvalidToolResult { tool_name, description } => {
+                format!("Tool '{tool_name}' returned invalid result: {description}")
             }
-            Self::ToolConfiguration { details } => format!("Tool misconfigured: {details}"),
+            Self::ToolResultEncoding { tool_name, description, .. } => {
+                format!("Failed to encode result for tool '{tool_name}': {description}")
+            }
+            Self::ToolConfiguration { tool_name, description } => {
+                format!("Invalid configuration for tool '{tool_name}': {description}")
+            },
             Self::StructuredOutput { details } => format!("Structured output error: {details}"),
             Self::UnsupportedSchema { details } => format!("Unsupported schema: {details}"),
             Self::InvalidUserInput { details } => format!("Invalid user input: {details}"),
             Self::ToolkitRequired => "Toolkit required".to_owned(),
             Self::NetworkError { details } => format!("Network error: {details}"),
+        }
+    }
+
+    /// Compose an attached description the way the tag's `message` getter
+    /// does: appended after the kind suggestion for authentication errors,
+    /// replacing the default everywhere else.
+    pub fn message_with_description(&self, description: &str) -> String {
+        match self {
+            Self::Authentication { .. } => format!("{}. {description}", self.message()),
+            _ => description.to_owned(),
         }
     }
 }
@@ -337,10 +370,11 @@ impl AiError {
         self
     }
 
-    /// Rendered message: the description when present, else the default.
+    /// Rendered message: the description composed per reason when present,
+    /// else the default.
     pub fn message(&self) -> String {
         match &self.description {
-            Some(d) => d.clone(),
+            Some(d) => self.reason.message_with_description(d),
             None => self.reason.message(),
         }
     }

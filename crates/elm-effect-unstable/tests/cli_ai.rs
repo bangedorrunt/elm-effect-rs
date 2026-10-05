@@ -130,28 +130,33 @@ fn ai_error_tags_and_retryability() {
         ),
         (
             AiReason::ToolParameterValidation {
-                details: "x".to_owned(),
+                tool_name: "T".to_owned(),
+                description: "x".to_owned(),
             },
             "ToolParameterValidationError",
             true,
         ),
         (
             AiReason::InvalidToolResult {
-                details: "x".to_owned(),
+                tool_name: "T".to_owned(),
+                description: "x".to_owned(),
             },
             "InvalidToolResultError",
             false,
         ),
         (
             AiReason::ToolResultEncoding {
-                details: "x".to_owned(),
+                tool_name: "T".to_owned(),
+                tool_result: "{}".to_owned(),
+                description: "x".to_owned(),
             },
             "ToolResultEncodingError",
             false,
         ),
         (
             AiReason::ToolConfiguration {
-                details: "x".to_owned(),
+                tool_name: "T".to_owned(),
+                description: "x".to_owned(),
             },
             "ToolConfigurationError",
             false,
@@ -316,4 +321,84 @@ fn tool_call_modes() {
     );
     assert!(failing.call_with_mode("{}", &FailureMode::Error).is_err());
     assert!(failing.call_with_mode("nope", &FailureMode::Error).is_err());
+}
+
+#[test]
+fn ai_error_auth_description() {
+    use elm_effect_unstable::ai::{AiError, AiReason};
+    // AiError.test.ts:68 — description renders after the kind suggestion.
+    let described = AiError::new(AiReason::Authentication {
+        kind: "InsufficientPermissions".to_owned(),
+    })
+    .with_description("model unavailable for this account");
+    assert_eq!(
+        described.message(),
+        "InsufficientPermissions: Your API key lacks required permissions. model unavailable for this account"
+    );
+    // AiError.test.ts:79 — absent description leaves the default untouched.
+    let bare = AiError::new(AiReason::Authentication {
+        kind: "InsufficientPermissions".to_owned(),
+    });
+    assert_eq!(
+        bare.message(),
+        "InsufficientPermissions: Your API key lacks required permissions"
+    );
+    assert!(bare.description.is_none());
+    // AiError.test.ts:223 — UnknownError default without description.
+    assert_eq!(AiError::new(AiReason::Unknown).message(), "Unknown error");
+}
+
+#[test]
+fn ai_error_tool_messages() {
+    use elm_effect_unstable::ai::{AiError, AiReason};
+    // AiError.test.ts:278 — tool name plus validation message.
+    let params = AiError::new(AiReason::ToolParameterValidation {
+        tool_name: "GetWeather".to_owned(),
+        description: "Expected string".to_owned(),
+    });
+    assert!(
+        params.message().contains("Invalid parameters for tool 'GetWeather'")
+    );
+    // AiError.test.ts:286 — validation message renders.
+    let validation = AiError::new(AiReason::ToolParameterValidation {
+        tool_name: "GetWeather".to_owned(),
+        description: "Expected string, got number".to_owned(),
+    });
+    assert!(validation.message().contains("Expected string, got number"));
+    // AiError.test.ts:294 — non-JSON params still construct with tag and message.
+    let nan = AiError::new(AiReason::ToolParameterValidation {
+        tool_name: "GetWeather".to_owned(),
+        description: "Expected finite number, got NaN".to_owned(),
+    });
+    assert_eq!(nan.tag, "ToolParameterValidationError");
+    assert!(nan.message().contains("NaN"));
+    // AiError.test.ts:321.
+    let result = AiError::new(AiReason::InvalidToolResult {
+        tool_name: "GetWeather".to_owned(),
+        description: "missing required field".to_owned(),
+    });
+    assert!(result.message().contains("Tool 'GetWeather' returned invalid result"));
+    // AiError.test.ts:356 + 365.
+    let encoding = AiError::new(AiReason::ToolResultEncoding {
+        tool_name: "GetWeather".to_owned(),
+        tool_result: "{}".to_owned(),
+        description: "Cannot encode".to_owned(),
+    });
+    assert!(
+        encoding.message().contains("Failed to encode result for tool 'GetWeather'")
+    );
+    let circular = AiError::new(AiReason::ToolResultEncoding {
+        tool_name: "GetWeather".to_owned(),
+        tool_result: "{}".to_owned(),
+        description: "Cannot encode circular reference".to_owned(),
+    });
+    assert!(circular.message().contains("Cannot encode circular reference"));
+    // AiError.test.ts:393.
+    let config = AiError::new(AiReason::ToolConfiguration {
+        tool_name: "OpenAiCodeInterpreter".to_owned(),
+        description: "Invalid container ID format".to_owned(),
+    });
+    assert!(
+        config.message().contains("Invalid configuration for tool 'OpenAiCodeInterpreter'")
+    );
 }
