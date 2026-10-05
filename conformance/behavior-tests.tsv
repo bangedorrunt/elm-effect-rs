@@ -9813,31 +9813,31 @@ unported	packages/effect/test/schema/v3-v4.test.ts	126	it	nullable & exact
 unported	packages/effect/test/schema/v3-v4.test.ts	166	it	nullable & default	
 unported	packages/effect/test/schema/v3-v4.test.ts	204	it	nullable & default & exact	
 unported	packages/effect/test/socket/Socket.test.ts	86	it.effect	exposes TLS upgrade on the acquired reader	
-unported	packages/effect/test/socket/Socket.test.ts	96	it.effect	readerBytes maps pulls to bytes	
-unported	packages/effect/test/socket/Socket.test.ts	106	it.effect	readerString maps pulls to strings	
+ported	packages/effect/test/socket/Socket.test.ts	96	it.effect	readerBytes maps pulls to bytes	socket_readers_map_pulls
+ported	packages/effect/test/socket/Socket.test.ts	106	it.effect	readerString maps pulls to strings	socket_readers_map_pulls
 unported	packages/effect/test/socket/Socket.test.ts	118	it.effect	removes the open listener when the socket closes while connecting	
-unported	packages/effect/test/socket/Socket.test.ts	135	it.effect	pauses at the highWaterMark and resumes after draining	
+ported	packages/effect/test/socket/Socket.test.ts	135	it.effect	pauses at the highWaterMark and resumes after draining	socket_pauses_at_high_water_mark
 unported	packages/effect/test/socket/Socket.test.ts	155	it.effect	counts text frames toward the highWaterMark by UTF-8 byte length	
 unported	packages/effect/test/socket/Socket.test.ts	168	it.effect	uses the default highWaterMark for pausable sockets	
 unported	packages/effect/test/socket/Socket.test.ts	184	it.effect	reports a write failure while a pull is suspended	
-unported	packages/effect/test/sql/SqlClient.test.ts	123	it.effect	propagates a failed begin as a typed error without rolling back	
-unported	packages/effect/test/sql/SqlClient.test.ts	138	it.effect	rolls back when the wrapped effect fails after a successful begin	
+ported	packages/effect/test/sql/SqlClient.test.ts	123	it.effect	propagates a failed begin as a typed error without rolling back	failed_begin_never_rolls_back
+ported	packages/effect/test/sql/SqlClient.test.ts	138	it.effect	rolls back when the wrapped effect fails after a successful begin	rollback_restores_on_effect_failure
 unported	packages/effect/test/sql/SqlClient.test.ts	148	it.effect	propagates a failed savepoint as a typed error without rolling back	
-unported	packages/effect/test/sql/SqlClient.test.ts	171	it.effect	releases savepoints after nested transactions succeed or roll back	
-unported	packages/effect/test/sql/SqlClient.test.ts	194	it.effect	does not release savepoints when the driver does not opt in	
+ported	packages/effect/test/sql/SqlClient.test.ts	171	it.effect	releases savepoints after nested transactions succeed or roll back	savepoints_release_or_hold
+ported	packages/effect/test/sql/SqlClient.test.ts	194	it.effect	does not release savepoints when the driver does not opt in	savepoints_release_or_hold
 unported	packages/effect/test/sql/SqlClient.test.ts	210	it.effect	skips savepoint release when rollback fails	
 unported	packages/effect/test/sql/SqlClient.test.ts	228	it.effect	rolls back the outer transaction when a savepoint release fails	
 unported	packages/effect/test/sql/SqlClient.test.ts	246	it.effect	commits and returns the value when the wrapped effect succeeds	
-unported	packages/effect/test/sql/SqlError.test.ts	43	it	reason classes expose expected tags and retryability	
+ported	packages/effect/test/sql/SqlError.test.ts	43	it	reason classes expose expected tags and retryability	sql_error_reasons_classify
 unported	packages/effect/test/sql/SqlError.test.ts	59	it	delegates message, cause and retryability for every reason type	
 unported	packages/effect/test/sql/SqlError.test.ts	91	it	isSqlError only matches the SqlError wrapper	
 unported	packages/effect/test/sql/SqlError.test.ts	103	it	isSqlErrorReason only matches reason values	
-unported	packages/effect/test/sql/SqlError.test.ts	113	it	constructs and recognizes UniqueViolation reasons	
-unported	packages/effect/test/sql/SqlError.test.ts	127	it	classifySqliteError maps sqlite unique constraint codes to UniqueViolation	
-unported	packages/effect/test/sql/SqlError.test.ts	148	it	classifySqliteError extracts sqlite unique descriptors from messages	
+ported	packages/effect/test/sql/SqlError.test.ts	113	it	constructs and recognizes UniqueViolation reasons	sql_error_reasons_classify
+ported	packages/effect/test/sql/SqlError.test.ts	127	it	classifySqliteError maps sqlite unique constraint codes to UniqueViolation	sql_error_reasons_classify
+ported	packages/effect/test/sql/SqlError.test.ts	148	it	classifySqliteError extracts sqlite unique descriptors from messages	sql_error_reasons_classify
 unported	packages/effect/test/sql/SqlError.test.ts	157	it	classifySqliteError prefers explicit sqlite unique constraint identifiers	
-unported	packages/effect/test/sql/SqlError.test.ts	167	it	classifySqliteError falls back to unknown for blank or missing sqlite unique identifiers	
-unported	packages/effect/test/sql/SqlError.test.ts	186	it	classifySqliteError keeps generic sqlite constraints as ConstraintError	
+ported	packages/effect/test/sql/SqlError.test.ts	167	it	classifySqliteError falls back to unknown for blank or missing sqlite unique identifiers	sql_error_reasons_classify
+ported	packages/effect/test/sql/SqlError.test.ts	186	it	classifySqliteError keeps generic sqlite constraints as ConstraintError	sql_error_reasons_classify
 unported	packages/effect/test/sql/SqlError.test.ts	201	it.effect	schema roundtrip for SqlError wrapping ${reasonCase.tag}	
 unported	packages/effect/test/sql/SqlResolver.test.ts	8	it.effect	does not execute a batch when every request fails encoding	
 unported	packages/effect/test/sql/SqlResolver.test.ts	30	it.effect	does not execute a batch when every request fails encoding	
