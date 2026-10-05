@@ -677,7 +677,7 @@ skipped-upstream	packages/effect/test/Chunk.test.ts	937	it	makeEquivalence
 skipped-upstream	packages/effect/test/Chunk.test.ts	945	it	makeEquivalence is symmetric on a sparse backing array, whose holes read as undefined	
 skipped-upstream	packages/effect/test/Chunk.test.ts	956	it	differenceWith	
 ported	packages/effect/test/Chunk.test.ts	968	it	difference	chunk_extra
-unported	packages/effect/test/Clock.test.ts	5	it.live	keeps wall time aligned while exposing the monotonic source	
+ported	packages/effect/test/Clock.test.ts	5	it.live	keeps wall time aligned while exposing the monotonic source	test_clock_starts_aligned_and_advances_monotonically
 ported	packages/effect/test/Combiner.test.ts	6	it	flip	combiners_fold
 ported	packages/effect/test/Combiner.test.ts	11	it	min	combiners_fold
 ported	packages/effect/test/Combiner.test.ts	17	it	max	combiners_fold
