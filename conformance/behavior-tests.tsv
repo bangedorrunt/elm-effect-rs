@@ -6347,19 +6347,19 @@ unported	packages/effect/test/encoding/Yaml.test.ts	345	it.each	resolves anchore
 unported	packages/effect/test/encoding/Yaml.test.ts	361	it	resolves anchored nested indentless sequences	
 unported	packages/effect/test/encoding/Yaml.test.ts	368	it	preserves hashes in JSON-style flow strings without colon spacing	
 unported	packages/effect/test/encoding/Yaml.test.ts	372	it	preserves hashes in single- and double-quoted flow sequence items	
-unported	packages/effect/test/eventlog/EventJournal.test.ts	14	it.effect	relays an imported entry to another remote	
-unported	packages/effect/test/eventlog/EventJournal.test.ts	51	it.effect	returns the next unused remote sequence	
-unported	packages/effect/test/eventlog/EventJournal.test.ts	77	it.effect	reports the first newer conflicting entry	
-unported	packages/effect/test/eventlog/EventJournal.test.ts	95	it.effect	records entries in memory and publishes local changes	
-unported	packages/effect/test/eventlog/EventLog.test.ts	45	it.effect	writes a typed event, commits the entry, and runs its handler	
-unported	packages/effect/test/eventlog/EventLog.test.ts	63	it.effect	retries a failed remote write and flushes changes made during the retry	
+ported	packages/effect/test/eventlog/EventJournal.test.ts	14	it.effect	relays an imported entry to another remote	remote_seq_conflict_and_relay
+ported	packages/effect/test/eventlog/EventJournal.test.ts	51	it.effect	returns the next unused remote sequence	remote_seq_conflict_and_relay
+ported	packages/effect/test/eventlog/EventJournal.test.ts	77	it.effect	reports the first newer conflicting entry	remote_seq_conflict_and_relay
+ported	packages/effect/test/eventlog/EventJournal.test.ts	95	it.effect	records entries in memory and publishes local changes	journal_records_and_publishes
+ported	packages/effect/test/eventlog/EventLog.test.ts	45	it.effect	writes a typed event, commits the entry, and runs its handler	log_writes_typed_events_and_runs_handlers
+ported	packages/effect/test/eventlog/EventLog.test.ts	63	it.effect	retries a failed remote write and flushes changes made during the retry	retry_flushes_changes_made_during_retry
 unported	packages/effect/test/eventlog/EventLog.test.ts	135	it.effect	encrypts and decrypts entries with a distinct IV per entry	
 unported	packages/effect/test/eventlog/EventLog.test.ts	159	it.effect	publishes local journal changes through a scoped subscription	
 unported	packages/effect/test/eventlog/EventLogIdentityDerivation.test.ts	36	it.effect	derives the same material for identities with the same root secret	
 unported	packages/effect/test/eventlog/EventLogIdentityDerivation.test.ts	57	it.effect	uses versioned, domain-separated labels for encryption and signing	
 unported	packages/effect/test/eventlog/EventLogIdentityDerivation.test.ts	71	it.effect	memoizes derived material for the same identity instance	
-unported	packages/effect/test/eventlog/EventLogMessage.test.ts	5	it	splits empty data into one chunk	
-unported	packages/effect/test/eventlog/EventLogMessage.test.ts	12	it	ignores duplicate chunks when joining	
+ported	packages/effect/test/eventlog/EventLogMessage.test.ts	5	it	splits empty data into one chunk	chunks_split_and_join
+ported	packages/effect/test/eventlog/EventLogMessage.test.ts	12	it	ignores duplicate chunks when joining	chunks_split_and_join
 unported	packages/effect/test/eventlog/EventLogRemote.test.ts	15	it.effect	retries wrapped Forbidden authentication errors	
 unported	packages/effect/test/eventlog/EventLogRemote.test.ts	53	it.effect	makeUnencrypted authenticates before writing plaintext entries	
 unported	packages/effect/test/eventlog/EventLogRemote.test.ts	80	it.effect	makeEncrypted authenticates before writing encrypted entries	
