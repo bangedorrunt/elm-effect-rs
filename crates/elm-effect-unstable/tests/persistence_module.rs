@@ -34,7 +34,10 @@ fn kv_remove_clear() {
 fn kv_modify_paths() {
     let mut db = KeyValueStore::new();
     db.set("a", "1");
-    assert_eq!(db.modify("a", |v| Some(v.unwrap() + "2")), Some("12".to_string()));
+    assert_eq!(
+        db.modify("a", |v| Some(v.unwrap() + "2")),
+        Some("12".to_string())
+    );
     assert_eq!(db.modify("missing", |_| None), None);
     assert!(!db.has("missing"));
 }
@@ -89,7 +92,10 @@ fn limiter_fixed_window_reset() {
 fn limiter_token_refill() {
     let rl = RateLimiter::token_bucket(2.0, 1.0);
     assert!(matches!(rl.consume_tokens("k", 2.0), Verdict::Admit { .. }));
-    assert!(matches!(rl.consume_tokens("k", 1.0), Verdict::Reject { .. }));
+    assert!(matches!(
+        rl.consume_tokens("k", 1.0),
+        Verdict::Reject { .. }
+    ));
     rl.advance(1);
     assert!(matches!(rl.consume_tokens("k", 1.0), Verdict::Admit { .. }));
 }
@@ -247,4 +253,59 @@ fn cache_expiry_recomputes_and_invalidate_drops() {
     assert_eq!(calls, 2);
     assert!(cache.invalidate(&mut store, "k"));
     assert!(!cache.invalidate(&mut store, "k"));
+}
+
+// ------------------------------------------------------------------ values --
+
+#[test]
+fn kv_set_get_size_counts_live_entries() {
+    let mut db = KeyValueStore::new();
+    assert_eq!(db.size(), 0);
+    db.set("a", "1");
+    db.set("b", "2");
+    assert_eq!(db.size(), 2);
+    db.set("a", "3");
+    assert_eq!(db.size(), 2, "overwrite keeps one entry");
+    assert_eq!(db.get("a"), Some("3".to_string()));
+    assert!(db.remove("a"));
+    assert_eq!(db.size(), 1);
+}
+
+#[test]
+fn kv_binary_values_roundtrip_raw() {
+    let mut db = KeyValueStore::new();
+    let raw = vec![0x00, 0xff, 0x89, 0x50, 0x4e, 0x47];
+    db.set_bytes("blob", &raw);
+    assert_eq!(db.get_bytes("blob"), Some(raw));
+    assert_eq!(
+        db.get("blob"), None,
+        "non-utf8 bytes have no string decoding"
+    );
+    db.set_bytes("blob", b"plain");
+    assert_eq!(db.get("blob"), Some("plain".to_string()));
+}
+
+#[test]
+fn kv_utf8_string_values_roundtrip() {
+    let mut db = KeyValueStore::new();
+    db.set("uni", "h\u{e9}llo \u{4e16}\u{754c} \u{1f980}");
+    assert_eq!(db.get("uni"), Some("h\u{e9}llo \u{4e16}\u{754c} \u{1f980}".to_string()));
+    db.set("empty", "");
+    assert_eq!(db.get("empty"), Some(String::new()));
+    assert!(db.has("empty"), "empty string is a present value");
+    db.set("b64shaped", "aGVsbG8=");
+    assert_eq!(
+        db.get("b64shaped"),
+        Some("aGVsbG8=".to_string()),
+        "base64-shaped strings stay literal, never decoded"
+    );
+}
+
+#[test]
+fn kv_json_shaped_strings_survive_byte_exact() {
+    let mut db = KeyValueStore::new();
+    let doc = r#"{"a":[1,true,null],"b":{"c":"x"}}"#;
+    db.set("doc", doc);
+    assert_eq!(db.get("doc").as_deref(), Some(doc));
+    assert_eq!(db.get_bytes("doc"), Some(doc.as_bytes().to_vec()));
 }

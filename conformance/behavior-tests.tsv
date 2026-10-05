@@ -7085,16 +7085,16 @@ ported	packages/effect/test/persistence/KeyValueStore.test.ts	66	it	modify	kv_mo
 ported	packages/effect/test/persistence/KeyValueStore.test.ts	78	it	modify - none	kv_modify_paths
 ported	packages/effect/test/persistence/KeyValueStore.test.ts	89	it	setMany stores entries without a TTL	kv_set_many_no_ttl
 ported	packages/effect/test/persistence/KeyValueStore.test.ts	109	it.effect	prefixes the keys	kv_prefix_scopes_keys
-unported	packages/effect/test/persistence/KeyValueStore.test.ts	133	it.effect	encodes & decodes	
+ported	packages/effect/test/persistence/KeyValueStore.test.ts	133	it.effect	encodes & decodes	kv_json_shaped_strings_survive_byte_exact
 ported	packages/effect/test/persistence/KeyValueStore.test.ts	148	it.effect	prefix	kv_prefix_scopes_keys
-unported	packages/effect/test/persistence/KeyValueStore.test.ts	163	it.effect	json compliant	
-unported	packages/effect/test/persistence/KeyValueStoreTest.ts	9	it.layer	KeyValueStore (${name})	
-unported	packages/effect/test/persistence/KeyValueStoreTest.ts	10	it.effect	set + get + size	
-unported	packages/effect/test/persistence/KeyValueStoreTest.ts	26	it.effect	binary values	
-unported	packages/effect/test/persistence/KeyValueStoreTest.ts	38	it.effect	string values are not decoded as base64	
-unported	packages/effect/test/persistence/KeyValueStoreTest.ts	50	it.effect	utf8 string values	
-unported	packages/effect/test/persistence/KeyValueStoreTest.ts	62	it.effect	remove	
-unported	packages/effect/test/persistence/KeyValueStoreTest.ts	74	it.effect	clear	
+ported	packages/effect/test/persistence/KeyValueStore.test.ts	163	it.effect	json compliant	kv_json_shaped_strings_survive_byte_exact
+ported	packages/effect/test/persistence/KeyValueStoreTest.ts	9	it.layer	KeyValueStore (${name})	kv_set_get_size_counts_live_entries
+ported	packages/effect/test/persistence/KeyValueStoreTest.ts	10	it.effect	set + get + size	kv_set_get_size_counts_live_entries
+ported	packages/effect/test/persistence/KeyValueStoreTest.ts	26	it.effect	binary values	kv_binary_values_roundtrip_raw
+ported	packages/effect/test/persistence/KeyValueStoreTest.ts	38	it.effect	string values are not decoded as base64	kv_utf8_string_values_roundtrip
+ported	packages/effect/test/persistence/KeyValueStoreTest.ts	50	it.effect	utf8 string values	kv_utf8_string_values_roundtrip
+ported	packages/effect/test/persistence/KeyValueStoreTest.ts	62	it.effect	remove	kv_remove_clear
+ported	packages/effect/test/persistence/KeyValueStoreTest.ts	74	it.effect	clear	kv_remove_clear
 unported	packages/effect/test/persistence/PersistedCacheTest.ts	31	it.effect	smoke test	
 unported	packages/effect/test/persistence/PersistedCacheTest.ts	76	it.effect	requireServicesAt: 'lookup' requires lookup services at get-time	
 ported	packages/effect/test/persistence/PersistedQueue.test.ts	13	it.layer	PersistedQueue.retrySchedule	queue_retry_grows_with_attempts
