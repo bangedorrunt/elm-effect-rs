@@ -99,6 +99,17 @@ where
         self.join()
     }
 
+    /// Interrupt every member without draining: a later [`join`](FiberSet::join)
+    /// records the interruption as the set's failure (external interruption
+    /// is observed, not swallowed). `clear` drains; this keeps the exits.
+    pub fn interrupt_all(&self) {
+        for shared in &self.members {
+            if let Some(handle) = shared.lock().expect("set lock").as_ref() {
+                handle.interrupt();
+            }
+        }
+    }
+
     /// Interrupt every member and drain the set.
     pub fn clear(&mut self) {
         for shared in &self.members {
