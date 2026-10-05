@@ -7491,11 +7491,11 @@ unported	packages/effect/test/schema/Schema.test.ts	187	it	decoders can receive 
 unported	packages/effect/test/schema/Schema.test.ts	202	it	encoders can receive options when they are created	
 unported	packages/effect/test/schema/Schema.test.ts	219	it	should throw an error if the literal is not a finite number	
 ported	packages/effect/test/schema/Schema.test.ts	237	it	should expose the literal	literal_exposes_its_value
-unported	packages/effect/test/schema/Schema.test.ts	243	it	a	
-unported	packages/effect/test/schema/Schema.test.ts	260	it	1	
+ported	packages/effect/test/schema/Schema.test.ts	243	it	a	cell_literal_a
+ported	packages/effect/test/schema/Schema.test.ts	260	it	1	cell_literal_1
 unported	packages/effect/test/schema/Schema.test.ts	277	it	accepts either signed zero and preserves the input sign	
 unported	packages/effect/test/schema/Schema.test.ts	287	it	transform	
-unported	packages/effect/test/schema/Schema.test.ts	302	it	red, green, blue	
+ported	packages/effect/test/schema/Schema.test.ts	302	it	red, green, blue	cell_literal_union_red_green_blue
 unported	packages/effect/test/schema/Schema.test.ts	315	it	transform	
 ported	packages/effect/test/schema/Schema.test.ts	330	it	pick	pick_decodes_a_subset
 ported	packages/effect/test/schema/Schema.test.ts	337	it	Never	never_rejects_everything
@@ -7503,11 +7503,11 @@ ported	packages/effect/test/schema/Schema.test.ts	351	it	Any	any_accepts_everyth
 unported	packages/effect/test/schema/Schema.test.ts	362	it	Unknown	
 ported	packages/effect/test/schema/Schema.test.ts	373	it	Null	null_accepts_only_null
 unported	packages/effect/test/schema/Schema.test.ts	382	it	Undefined	
-unported	packages/effect/test/schema/Schema.test.ts	391	it	String	
+ported	packages/effect/test/schema/Schema.test.ts	391	it	String	cell_string
 unported	packages/effect/test/schema/Schema.test.ts	408	it	StringForLiteralAutocomplete	
 unported	packages/effect/test/schema/Schema.test.ts	427	it	StringForLiteralAutocomplete | Literals	
-unported	packages/effect/test/schema/Schema.test.ts	452	it	Number	
-unported	packages/effect/test/schema/Schema.test.ts	469	it	Boolean	
+ported	packages/effect/test/schema/Schema.test.ts	452	it	Number	cell_number
+ported	packages/effect/test/schema/Schema.test.ts	469	it	Boolean	cell_boolean
 unported	packages/effect/test/schema/Schema.test.ts	489	it	Symbol	
 unported	packages/effect/test/schema/Schema.test.ts	506	it	UniqueSymbol	
 unported	packages/effect/test/schema/Schema.test.ts	520	it	BigInt	
