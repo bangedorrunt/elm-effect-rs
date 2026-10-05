@@ -5991,17 +5991,17 @@ ported	packages/effect/test/cluster/MessageStorage.test.ts	72	it.effect	encoded 
 ported	packages/effect/test/cluster/MessageStorage.test.ts	88	it.effect	encoded resetAddresses fails closed for an empty address list	reset_addresses_makes_claimed_eligible
 ported	packages/effect/test/cluster/MessageStorage.test.ts	107	it.effect	resetRequests with no IDs leaves existing claims untouched	reset_requests_releases_only_selected
 ported	packages/effect/test/cluster/MessageStorage.test.ts	119	it.effect	resetRequests releases only the selected request at a shared address	reset_requests_releases_only_selected
-unported	packages/effect/test/cluster/MessageStorage.test.ts	134	it.effect	resetRequests preserves chunk replies, exit replies, and completed state	
+ported	packages/effect/test/cluster/MessageStorage.test.ts	134	it.effect	resetRequests preserves chunk replies, exit replies, and completed state	reset_requests_preserves_replies_and_completion
 ported	packages/effect/test/cluster/MessageStorage.test.ts	153	it.effect	saves a request	save_detects_duplicates
 ported	packages/effect/test/cluster/MessageStorage.test.ts	163	it.effect	detects duplicates	save_detects_duplicates
 ported	packages/effect/test/cluster/MessageStorage.test.ts	181	it.effect	unprocessedMessages excludes complete requests	unprocessed_filters_complete_claimed_and_capped
 ported	packages/effect/test/cluster/MessageStorage.test.ts	190	it.effect	unprocessedMessages honors the limit option	unprocessed_filters_complete_claimed_and_capped
 ported	packages/effect/test/cluster/MessageStorage.test.ts	204	it.effect	unprocessedMessages filters by address	unprocessed_filters_complete_claimed_and_capped
 ported	packages/effect/test/cluster/MessageStorage.test.ts	226	it.effect	resetAddresses makes claimed messages eligible again	reset_addresses_makes_claimed_eligible
-unported	packages/effect/test/cluster/MessageStorage.test.ts	246	it.effect	repliesFor	
-unported	packages/effect/test/cluster/MessageStorage.test.ts	259	it.effect	registerReplyHandler	
-unported	packages/effect/test/cluster/MessageStorage.test.ts	277	it.effect	unregisterShardReplyHandlers fails parked waiters during rebalance	
-unported	packages/effect/test/cluster/MessageStorage.test.ts	298	it.effect	unregisterShardReplyHandlers annotates parked waiters during shutdown	
+ported	packages/effect/test/cluster/MessageStorage.test.ts	246	it.effect	repliesFor	replies_for_returns_unacked_chunks_and_exits
+ported	packages/effect/test/cluster/MessageStorage.test.ts	259	it.effect	registerReplyHandler	parked_waiter_releases_when_reply_arrives
+ported	packages/effect/test/cluster/MessageStorage.test.ts	277	it.effect	unregisterShardReplyHandlers fails parked waiters during rebalance	unregister_shard_fails_parked_waiters_on_rebalance
+ported	packages/effect/test/cluster/MessageStorage.test.ts	298	it.effect	unregisterShardReplyHandlers annotates parked waiters during shutdown	unregister_shard_abandons_parked_waiters_on_shutdown
 unported	packages/effect/test/cluster/MessageStorage.test.ts	320	it.effect	reply handlers receive the persisted defect fallback for unencodable replies	
 ported	packages/effect/test/cluster/ResourceMap.test.ts	6	it.effect	closes a failed lookup scope	resource_map_closes_failed_lookup_scopes
 unported	packages/effect/test/cluster/ResourceRef.test.ts	7	it.live	does not wedge await after a failed rebuild	
@@ -6474,11 +6474,11 @@ unported	packages/effect/test/http/HttpClient.test.ts	144	it.effect	includes req
 unported	packages/effect/test/http/HttpClient.test.ts	173	it.effect	filters request and response header span attributes	
 unported	packages/effect/test/http/HttpClient.test.ts	213	it.effect	filters the same header name independently by phase	
 unported	packages/effect/test/http/HttpClient.test.ts	247	it.effect	preserves preprocessing error recovery	
-unported	packages/effect/test/http/HttpClient.test.ts	264	it.effect	preserves credential headers on same-origin redirects	
-unported	packages/effect/test/http/HttpClient.test.ts	279	it.effect	strips credential headers on cross-origin redirects	
-unported	packages/effect/test/http/HttpClient.test.ts	298	it.effect	strips credential headers on scheme downgrade redirects	
-unported	packages/effect/test/http/HttpClient.test.ts	315	it.effect	resolves relative locations against the current hop	
-unported	packages/effect/test/http/HttpClient.test.ts	327	it.effect	switches 303 requests to GET and drops the body	
+ported	packages/effect/test/http/HttpClient.test.ts	264	it.effect	preserves credential headers on same-origin redirects	redirect_preserves_credentials_on_same_origin
+ported	packages/effect/test/http/HttpClient.test.ts	279	it.effect	strips credential headers on cross-origin redirects	redirect_strips_credentials_cross_origin
+ported	packages/effect/test/http/HttpClient.test.ts	298	it.effect	strips credential headers on scheme downgrade redirects	redirect_strips_credentials_on_scheme_downgrade
+ported	packages/effect/test/http/HttpClient.test.ts	315	it.effect	resolves relative locations against the current hop	redirect_resolves_relative_locations_against_current_hop
+ported	packages/effect/test/http/HttpClient.test.ts	327	it.effect	switches 303 requests to GET and drops the body	redirect_303_post_becomes_get_without_body
 unported	packages/effect/test/http/HttpClient.test.ts	370	it.effect	retries transient responses with retryOn errors-and-responses	
 unported	packages/effect/test/http/HttpClient.test.ts	378	it.effect	does not retry transient responses with retryOn errors-only	
 unported	packages/effect/test/http/HttpClient.test.ts	388	it.effect	aborts the request when the response stream ends early	
