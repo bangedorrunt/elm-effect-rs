@@ -2300,7 +2300,7 @@ tests = ["packages/effect/test/http/Template.test.ts"]
 [[module]]
 path = "packages/effect/src/http/Url.ts"
 class = "unstable-port"
-status = "unmatched"
+status = "matched"
 tag = "unstable"
 reason = ""
 tests = ["packages/effect/test/http/Url.test.ts"]
