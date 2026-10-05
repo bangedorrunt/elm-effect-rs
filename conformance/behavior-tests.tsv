@@ -6576,10 +6576,10 @@ unported	packages/effect/test/http/HttpEffect.test.ts	255	test	pre-response hand
 unported	packages/effect/test/http/HttpEffect.test.ts	269	test	custom context	
 unported	packages/effect/test/http/HttpEffect.test.ts	284	test	builds the layer when the handler is created	
 unported	packages/effect/test/http/HttpEffect.test.ts	303	test	a failing layer rejects every request without an unhandled rejection	
-unported	packages/effect/test/http/HttpEffect.test.ts	332	test	basic GET request	
-unported	packages/effect/test/http/HttpEffect.test.ts	346	test	POST with JSON body	
+ported	packages/effect/test/http/HttpEffect.test.ts	332	test	basic GET request	binds_loopback_and_serves_one_route
+ported	packages/effect/test/http/HttpEffect.test.ts	346	test	POST with JSON body	post_routes_by_method_not_path_only
 unported	packages/effect/test/http/HttpEffect.test.ts	365	test	preserves request headers	
-unported	packages/effect/test/http/HttpEffect.test.ts	388	test	preserves response status and headers	
+ported	packages/effect/test/http/HttpEffect.test.ts	388	test	preserves response status and headers	response_status_and_headers_preserved
 unported	packages/effect/test/http/HttpEffect.test.ts	407	test	round-trip with toWebHandler	
 unported	packages/effect/test/http/HttpEffect.test.ts	418	test	json preserves content-type	
 unported	packages/effect/test/http/HttpEffect.test.ts	424	test	preserves response content-type header	

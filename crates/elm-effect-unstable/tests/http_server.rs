@@ -97,3 +97,73 @@ fn patterned_route_serves_with_query_stripped() {
     assert_eq!(code, 200);
     let _ = handle.join().expect("join");
 }
+
+#[test]
+fn post_routes_by_method_not_path_only() {
+    use elm_effect_unstable::http_server::{HttpServer, Response};
+    let server = HttpServer::bind("127.0.0.1:0").expect("bind");
+    let addr = server.local_addr().expect("addr");
+    server.route("POST", "/items", Response::ok("created"));
+    let handle = std::thread::spawn(move || server.serve_n(2).expect("serve"));
+    let (get_code, _, _) = get(&addr, "/items");
+    assert_eq!(get_code, 404);
+    let (post_code, _, body) = post(&addr, "/items", "application/json", b"{\"a\":1}");
+    assert_eq!(post_code, 200);
+    assert_eq!(body, b"created");
+    let _ = handle.join().expect("join");
+}
+
+#[test]
+fn response_status_and_headers_preserved() {
+    use elm_effect_unstable::http_server::{HttpServer, Response};
+    let server = HttpServer::bind("127.0.0.1:0").expect("bind");
+    let addr = server.local_addr().expect("addr");
+    server.route(
+        "GET",
+        "/created",
+        Response {
+            status: 201,
+            reason: "Created".to_string(),
+            headers: vec![("Content-Type".to_string(), "application/json".to_string())],
+            body: b"{}".to_vec(),
+        },
+    );
+    let handle = std::thread::spawn(move || server.serve_once().expect("serve"));
+    let (code, headers, _) = get(&addr, "/created");
+    assert_eq!(code, 201);
+    assert!(headers.iter().any(|(n, v)| n == "Content-Type" && v == "application/json"));
+    let _ = handle.join().expect("join");
+}
+
+fn post(addr: &std::net::SocketAddr, path: &str, content_type: &str, body: &[u8]) -> (u16, Vec<(String, String)>, Vec<u8>) {
+    use std::io::{BufRead, BufReader, Write};
+    use std::net::TcpStream;
+    let mut stream = TcpStream::connect(addr).expect("connect");
+    write!(
+        stream,
+        "POST {path} HTTP/1.1\r\nHost: x\r\nContent-Type: {content_type}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+        body.len()
+    )
+    .expect("write");
+    stream.write_all(body).expect("body");
+    let mut reader = BufReader::new(stream);
+    let mut status = String::new();
+    reader.read_line(&mut status).expect("status");
+    let code: u16 = status.split_whitespace().nth(1).expect("code").parse().expect("code");
+    let mut headers = Vec::new();
+    loop {
+        let mut line = String::new();
+        reader.read_line(&mut line).expect("header");
+        let line = line.trim_end().to_string();
+        if line.is_empty() {
+            break;
+        }
+        if let Some((name, value)) = line.split_once(':') {
+            headers.push((name.trim().to_string(), value.trim().to_string()));
+        }
+    }
+    let mut response_body = Vec::new();
+    use std::io::Read;
+    reader.read_to_end(&mut response_body).expect("body");
+    (code, headers, response_body)
+}
