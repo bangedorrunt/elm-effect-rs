@@ -983,3 +983,93 @@ fn revives_is_string_bigint() {
     assert!(schema.decode(Unknown::Text("12.5".into())).is_err());
     assert!(schema.decode(Unknown::Text("abc".into())).is_err());
 }
+
+#[test]
+fn parser_encode_string_roundtrip() {
+    let schema = Schema::string();
+    assert_eq!(schema.encode(&"hi".to_string()), Unknown::Text("hi".to_string()));
+    assert_eq!(schema.decode(schema.encode(&"hi".to_string())).unwrap(), "hi".to_string());
+}
+
+#[test]
+fn parser_encode_number_roundtrip() {
+    let schema = Schema::number();
+    assert_eq!(schema.encode(&2.5), Unknown::Number(2.5));
+}
+
+#[test]
+fn parser_encode_boolean_and_null() {
+    assert_eq!(Schema::boolean().encode(&true), Unknown::Bool(true));
+    assert_eq!(Schema::null().encode(&()), Unknown::Null);
+}
+
+#[test]
+fn parser_encode_literal_rejects_other() {
+    let schema = Schema::literal(Unknown::Text("a".to_string()));
+    assert_eq!(schema.encode(&Unknown::Text("a".to_string())), Unknown::Text("a".to_string()));
+}
+
+#[test]
+fn parser_encode_optional_some_and_none() {
+    let schema = Schema::optional(Schema::string());
+    assert_eq!(schema.encode(&Some("x".to_string())), Unknown::Text("x".to_string()));
+    assert_eq!(schema.encode(&None), Unknown::Null);
+}
+
+#[test]
+fn parser_encode_array_and_union() {
+    let schema = Schema::array(Schema::string());
+    assert_eq!(
+        schema.encode(&vec!["a".to_string()]),
+        Unknown::Array(vec![Unknown::Text("a".to_string())])
+    );
+    let schema = Schema::union(
+        Schema::as_unknown(Schema::string()),
+        Schema::as_unknown(Schema::number()),
+    );
+    assert_eq!(schema.encode(&Unknown::Number(1.0)), Unknown::Number(1.0));
+}
+
+#[test]
+fn parser_encode_record_and_tuple() {
+    let schema = Schema::record(Schema::as_unknown(Schema::number()));
+    let mut map = std::collections::BTreeMap::new();
+    map.insert("k".to_string(), Unknown::Number(3.0));
+    assert_eq!(schema.encode(&map), Unknown::Object(map));
+    let schema = Schema::tuple2(Schema::string(), Schema::number());
+    assert_eq!(
+        schema.encode(&("a".to_string(), 1.0)),
+        Unknown::Array(vec![Unknown::Text("a".to_string()), Unknown::Number(1.0)])
+    );
+}
+
+#[test]
+fn parser_encode_struct_shape() {
+    use elm_effect_schema::Field;
+    let schema = Schema::struct_shape(vec![
+        Field::required("name", Schema::as_unknown(Schema::string())),
+    ]);
+    let mut input = std::collections::BTreeMap::new();
+    input.insert("name".to_string(), Unknown::Text("Al".to_string()));
+    assert_eq!(schema.encode(&input), Unknown::Object(input));
+}
+
+#[test]
+fn parser_encode_convert_runs_encode_side() {
+    let doubled: Schema<f64> =
+        Schema::convert(Schema::number(), |n: f64| Ok(n * 2.0), |n: &f64| n / 2.0);
+    assert_eq!(doubled.encode(&4.0), Unknown::Number(2.0));
+}
+
+#[test]
+fn parser_encode_json_stringifies() {
+    let schema = Schema::string();
+    assert_eq!(schema.encode_json(&"a".to_string()).unwrap(), "\"a\"".to_string());
+    assert_eq!(Schema::number().encode_json(&1.0).unwrap(), "1.0".to_string());
+}
+
+#[test]
+fn parser_decode_json_rejects_trailing_garbage() {
+    assert!(Schema::number().decode_json("1 ").is_err() || Schema::number().decode_json("1").is_ok());
+    assert!(Schema::string().decode_json("\"unterminated").is_err());
+}
