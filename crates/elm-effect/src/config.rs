@@ -337,11 +337,11 @@ impl Config {
         })
     }
 
-    /// TCP port 0-65535.
+    /// TCP port 1-65535, decoded as a number.
     pub fn port(name: Option<String>) -> Self {
         Self::leaf(name, |text, path| match text {
             Some(t) => match t.parse::<u16>() {
-                Ok(_) => Ok(Value::Str(t)),
+                Ok(n) if n >= 1 => Ok(Value::Int(n as i64)),
                 _ => Err(vec![ConfigError::Invalid {
                     path,
                     got: t,

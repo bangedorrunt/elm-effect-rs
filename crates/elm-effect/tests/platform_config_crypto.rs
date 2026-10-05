@@ -706,3 +706,42 @@ fn config_date_validates_real_calendars() {
     assert!(d("--------").is_err());
     assert!(d("2021-1-1").is_err());
 }
+
+#[test]
+fn config_port_validates_range_and_decodes_number() {
+    use config::ConfigError;
+    let p = provider(&[("a", "8080"), ("bad", "-1"), ("zero", "0")]);
+    assert_eq!(Config::port(named("a")).load(&p).unwrap(), Value::Int(8080));
+    assert_eq!(
+        Config::port(named("bad")).load(&p).unwrap_err(),
+        vec![ConfigError::Invalid {
+            path: vec!["bad".to_string()],
+            got: "-1".to_string(),
+            reason: "bad port".to_string(),
+        }]
+    );
+    assert!(Config::port(named("zero")).load(&p).is_err());
+    assert!(Config::port(named("missing")).load(&p).is_err());
+}
+
+#[test]
+fn config_scalars_decode_and_report_absence() {
+    let p = provider(&[("n", "1.5"), ("f", "2"), ("i", "3"), ("b", "true")]);
+    assert_eq!(
+        Config::number(named("n")).load(&p).unwrap(),
+        Value::Num(1.5)
+    );
+    assert!(Config::number(named("missing")).load(&p).is_err());
+    assert_eq!(
+        Config::finite(named("f")).load(&p).unwrap(),
+        Value::Num(2.0)
+    );
+    assert!(Config::finite(named("missing")).load(&p).is_err());
+    assert_eq!(Config::integer(named("i")).load(&p).unwrap(), Value::Int(3));
+    assert!(Config::integer(named("missing")).load(&p).is_err());
+    assert_eq!(
+        Config::boolean(named("b")).load(&p).unwrap(),
+        Value::Bool(true)
+    );
+    assert!(Config::boolean(named("missing")).load(&p).is_err());
+}
