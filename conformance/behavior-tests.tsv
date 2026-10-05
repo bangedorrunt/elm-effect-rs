@@ -9822,12 +9822,12 @@ unported	packages/effect/test/socket/Socket.test.ts	168	it.effect	uses the defau
 unported	packages/effect/test/socket/Socket.test.ts	184	it.effect	reports a write failure while a pull is suspended	
 ported	packages/effect/test/sql/SqlClient.test.ts	123	it.effect	propagates a failed begin as a typed error without rolling back	failed_begin_never_rolls_back
 ported	packages/effect/test/sql/SqlClient.test.ts	138	it.effect	rolls back when the wrapped effect fails after a successful begin	rollback_restores_on_effect_failure
-unported	packages/effect/test/sql/SqlClient.test.ts	148	it.effect	propagates a failed savepoint as a typed error without rolling back	
+ported	packages/effect/test/sql/SqlClient.test.ts	148	it.effect	propagates a failed savepoint as a typed error without rolling back	failed_savepoint_never_rolls_back
 ported	packages/effect/test/sql/SqlClient.test.ts	171	it.effect	releases savepoints after nested transactions succeed or roll back	savepoints_release_or_hold
 ported	packages/effect/test/sql/SqlClient.test.ts	194	it.effect	does not release savepoints when the driver does not opt in	savepoints_release_or_hold
-unported	packages/effect/test/sql/SqlClient.test.ts	210	it.effect	skips savepoint release when rollback fails	
-unported	packages/effect/test/sql/SqlClient.test.ts	228	it.effect	rolls back the outer transaction when a savepoint release fails	
-unported	packages/effect/test/sql/SqlClient.test.ts	246	it.effect	commits and returns the value when the wrapped effect succeeds	
+ported	packages/effect/test/sql/SqlClient.test.ts	210	it.effect	skips savepoint release when rollback fails	skipped_release_when_rollback_fails
+ported	packages/effect/test/sql/SqlClient.test.ts	228	it.effect	rolls back the outer transaction when a savepoint release fails	outer_rolls_back_when_release_fails
+ported	packages/effect/test/sql/SqlClient.test.ts	246	it.effect	commits and returns the value when the wrapped effect succeeds	commit_returns_value_on_success
 ported	packages/effect/test/sql/SqlError.test.ts	43	it	reason classes expose expected tags and retryability	sql_error_reasons_classify
 unported	packages/effect/test/sql/SqlError.test.ts	59	it	delegates message, cause and retryability for every reason type	
 unported	packages/effect/test/sql/SqlError.test.ts	91	it	isSqlError only matches the SqlError wrapper	
