@@ -129,3 +129,220 @@ impl LanguageModel for Arc<FakeModel> {
             .unwrap_or_default()
     }
 }
+
+// --- AiError port (AiError.ts at the pin): tagged reasons, messages, retryability ---
+
+/// AI failure reason tag. Mirrors the tag's `Schema.tag` names.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum AiReason {
+    /// Rate limited; optional retry-after in seconds.
+    RateLimit {
+        /// Retry delay, if the provider gave one.
+        retry_after_secs: Option<u64>,
+    },
+    /// Quota exhausted; never retryable without user action.
+    QuotaExhausted,
+    /// Bad credentials or key shape.
+    Authentication {
+        /// Machine-readable kind (`"InvalidKey"`, ...).
+        kind: String,
+    },
+    /// Content refused by policy, with an optional description.
+    ContentPolicy {
+        /// Human detail, if any.
+        description: Option<String>,
+    },
+    /// Bad request parameter with its constraint.
+    InvalidRequest {
+        /// Parameter name.
+        parameter: String,
+        /// Constraint text.
+        constraint: String,
+    },
+    /// Bad model output with details.
+    InvalidOutput {
+        /// What was wrong.
+        details: String,
+    },
+    /// Provider-side failure with details.
+    InternalProvider {
+        /// Provider detail.
+        details: String,
+    },
+    /// Unclassified failure.
+    Unknown,
+    /// Unknown tool name plus the available tool list.
+    ToolNotFound {
+        /// Requested tool.
+        tool: String,
+        /// Available tool names.
+        available: Vec<String>,
+    },
+    /// Tool parameter failed validation.
+    ToolParameterValidation {
+        /// Detail text.
+        details: String,
+    },
+    /// Tool returned an unusable result.
+    InvalidToolResult {
+        /// Detail text.
+        details: String,
+    },
+    /// Tool result could not be encoded.
+    ToolResultEncoding {
+        /// Detail text.
+        details: String,
+    },
+    /// Tool misconfigured.
+    ToolConfiguration {
+        /// Detail text.
+        details: String,
+    },
+    /// Structured output did not satisfy the schema.
+    StructuredOutput {
+        /// Detail text.
+        details: String,
+    },
+    /// Schema shape unsupported by the provider.
+    UnsupportedSchema {
+        /// Detail text.
+        details: String,
+    },
+    /// Bad user input.
+    InvalidUserInput {
+        /// Detail text.
+        details: String,
+    },
+    /// Toolkit required but missing.
+    ToolkitRequired,
+    /// Network failure.
+    NetworkError {
+        /// Detail text.
+        details: String,
+    },
+}
+
+impl AiReason {
+    /// Tag name, mirroring `Schema.tag`.
+    pub fn tag(&self) -> &'static str {
+        match self {
+            Self::RateLimit { .. } => "RateLimitError",
+            Self::QuotaExhausted => "QuotaExhaustedError",
+            Self::Authentication { .. } => "AuthenticationError",
+            Self::ContentPolicy { .. } => "ContentPolicyError",
+            Self::InvalidRequest { .. } => "InvalidRequestError",
+            Self::InvalidOutput { .. } => "InvalidOutputError",
+            Self::InternalProvider { .. } => "InternalProviderError",
+            Self::Unknown => "UnknownError",
+            Self::ToolNotFound { .. } => "ToolNotFoundError",
+            Self::ToolParameterValidation { .. } => "ToolParameterValidationError",
+            Self::InvalidToolResult { .. } => "InvalidToolResultError",
+            Self::ToolResultEncoding { .. } => "ToolResultEncodingError",
+            Self::ToolConfiguration { .. } => "ToolConfigurationError",
+            Self::StructuredOutput { .. } => "StructuredOutputError",
+            Self::UnsupportedSchema { .. } => "UnsupportedSchemaError",
+            Self::InvalidUserInput { .. } => "InvalidUserInputError",
+            Self::ToolkitRequired => "ToolkitRequiredError",
+            Self::NetworkError { .. } => "NetworkError",
+        }
+    }
+
+    /// Whether retrying may succeed.
+    pub fn is_retryable(&self) -> bool {
+        match self {
+            Self::RateLimit { .. }
+            | Self::InternalProvider { .. }
+            | Self::InvalidOutput { .. }
+            | Self::StructuredOutput { .. }
+            | Self::ToolNotFound { .. }
+            | Self::ToolParameterValidation { .. } => true,
+            _ => false,
+        }
+    }
+
+    /// Human message, mirroring the tag's `message` getters.
+    pub fn message(&self) -> String {
+        match self {
+            Self::RateLimit { retry_after_secs } => match retry_after_secs {
+                Some(secs) => format!("Rate limit exceeded. Retry after {secs}s"),
+                None => "Rate limit exceeded".to_owned(),
+            },
+            Self::QuotaExhausted => "Quota exhausted".to_owned(),
+            Self::Authentication { kind } => format!("Authentication failed: {kind}"),
+            Self::ContentPolicy { description } => match description {
+                Some(d) => format!("Content policy violation: {d}"),
+                None => "Content policy violation".to_owned(),
+            },
+            Self::InvalidRequest { parameter, constraint } => {
+                format!("Invalid request: parameter '{parameter}' {constraint}")
+            }
+            Self::InvalidOutput { details } => format!("Invalid output: {details}"),
+            Self::InternalProvider { details } => format!("Internal provider error: {details}"),
+            Self::Unknown => "Unknown error".to_owned(),
+            Self::ToolNotFound { tool, available } => {
+                let list = if available.is_empty() {
+                    "none".to_owned()
+                } else {
+                    available.join(", ")
+                };
+                format!("Tool '{tool}' not found. Available tools: {list}")
+            }
+            Self::ToolParameterValidation { details } => {
+                format!("Tool parameter validation failed: {details}")
+            }
+            Self::InvalidToolResult { details } => format!("Invalid tool result: {details}"),
+            Self::ToolResultEncoding { details } => format!("Tool result encoding failed: {details}"),
+            Self::ToolConfiguration { details } => format!("Tool misconfigured: {details}"),
+            Self::StructuredOutput { details } => format!("Structured output error: {details}"),
+            Self::UnsupportedSchema { details } => format!("Unsupported schema: {details}"),
+            Self::InvalidUserInput { details } => format!("Invalid user input: {details}"),
+            Self::ToolkitRequired => "Toolkit required".to_owned(),
+            Self::NetworkError { details } => format!("Network error: {details}"),
+        }
+    }
+}
+
+/// Tagged AI failure: a reason with its message.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct AiError {
+    /// Machine tag (mirrors `_tag`).
+    pub tag: String,
+    /// Structured reason.
+    pub reason: AiReason,
+    /// Caller description, overriding the default message when present.
+    pub description: Option<String>,
+    /// Whether retrying may succeed.
+    pub is_retryable: bool,
+}
+
+impl AiError {
+    /// Build from a reason, rendering tag/retryability from it.
+    pub fn new(reason: AiReason) -> Self {
+        Self {
+            tag: reason.tag().to_owned(),
+            description: None,
+            is_retryable: reason.is_retryable(),
+            reason,
+        }
+    }
+
+    /// Attach a description: the message renders it unchanged.
+    pub fn with_description(mut self, description: &str) -> Self {
+        self.description = Some(description.to_owned());
+        self
+    }
+
+    /// Rendered message: the description when present, else the default.
+    pub fn message(&self) -> String {
+        match &self.description {
+            Some(d) => d.clone(),
+            None => self.reason.message(),
+        }
+    }
+}
+
+impl std::fmt::Display for AiError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.message())
+    }
+}

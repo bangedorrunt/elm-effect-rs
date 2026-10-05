@@ -72,3 +72,103 @@ fn ai_fake_contract() {
         Err(ModelError::Provider(_))
     ));
 }
+
+#[test]
+fn ai_error_tags_and_retryability() {
+    use elm_effect_unstable::ai::{AiError, AiReason};
+    let cases: Vec<(AiReason, &str, bool)> = vec![
+        (AiReason::RateLimit { retry_after_secs: None }, "RateLimitError", true),
+        (AiReason::QuotaExhausted, "QuotaExhaustedError", false),
+        (
+            AiReason::Authentication { kind: "InvalidKey".to_owned() },
+            "AuthenticationError",
+            false,
+        ),
+        (AiReason::ContentPolicy { description: None }, "ContentPolicyError", false),
+        (
+            AiReason::InvalidRequest {
+                parameter: "temperature".to_owned(),
+                constraint: "must be between 0 and 2".to_owned(),
+            },
+            "InvalidRequestError",
+            false,
+        ),
+        (AiReason::InvalidOutput { details: "x".to_owned() }, "InvalidOutputError", true),
+        (AiReason::InternalProvider { details: "x".to_owned() }, "InternalProviderError", true),
+        (AiReason::Unknown, "UnknownError", false),
+        (
+            AiReason::ToolNotFound { tool: "t".to_owned(), available: vec![] },
+            "ToolNotFoundError",
+            true,
+        ),
+        (
+            AiReason::ToolParameterValidation { details: "x".to_owned() },
+            "ToolParameterValidationError",
+            true,
+        ),
+        (
+            AiReason::InvalidToolResult { details: "x".to_owned() },
+            "InvalidToolResultError",
+            false,
+        ),
+        (
+            AiReason::ToolResultEncoding { details: "x".to_owned() },
+            "ToolResultEncodingError",
+            false,
+        ),
+        (
+            AiReason::ToolConfiguration { details: "x".to_owned() },
+            "ToolConfigurationError",
+            false,
+        ),
+        (AiReason::StructuredOutput { details: "x".to_owned() }, "StructuredOutputError", true),
+        (AiReason::UnsupportedSchema { details: "x".to_owned() }, "UnsupportedSchemaError", false),
+        (AiReason::InvalidUserInput { details: "x".to_owned() }, "InvalidUserInputError", false),
+        (AiReason::ToolkitRequired, "ToolkitRequiredError", false),
+        (AiReason::NetworkError { details: "x".to_owned() }, "NetworkError", false),
+    ];
+    for (reason, tag, retryable) in cases {
+        let error = AiError::new(reason);
+        assert_eq!(error.tag, tag);
+        assert_eq!(error.is_retryable, retryable, "retryability of {tag}");
+    }
+}
+
+#[test]
+fn ai_error_message_shapes() {
+    use elm_effect_unstable::ai::{AiError, AiReason};
+    let limited = AiError::new(AiReason::RateLimit { retry_after_secs: Some(60) });
+    assert!(limited.message().contains("Rate limit exceeded"));
+    assert!(limited.message().contains("Retry after"));
+    assert_eq!(AiError::new(AiReason::QuotaExhausted).message(), "Quota exhausted");
+    let keyed =
+        AiError::new(AiReason::Authentication { kind: "InvalidKey".to_owned() });
+    assert!(keyed.message().contains("InvalidKey"));
+    let policy = AiError::new(AiReason::ContentPolicy {
+        description: Some("Input contains prohibited content".to_owned()),
+    });
+    assert!(policy.message().contains("Input contains prohibited content"));
+    let req = AiError::new(AiReason::InvalidRequest {
+        parameter: "temperature".to_owned(),
+        constraint: "must be between 0 and 2".to_owned(),
+    });
+    assert!(req.message().contains("parameter 'temperature'"));
+    assert!(req.message().contains("must be between 0 and 2"));
+    let out = AiError::new(AiReason::InvalidOutput { details: "Value 5 is invalid".to_owned() });
+    assert!(out.message().contains("Value 5 is invalid"));
+    let tool = AiError::new(AiReason::ToolNotFound {
+        tool: "UnknownTool".to_owned(),
+        available: vec!["GetWeather".to_owned(), "GetTime".to_owned()],
+    });
+    assert!(tool.message().contains("Tool 'UnknownTool' not found"));
+    assert!(tool.message().contains("Available tools: GetWeather, GetTime"));
+    let lonely = AiError::new(AiReason::ToolNotFound {
+        tool: "UnknownTool".to_owned(),
+        available: vec![],
+    });
+    assert!(lonely.message().contains("Available tools: none"));
+    let custom =
+        AiError::new(AiReason::Unknown).with_description("Something unexpected happened");
+    assert_eq!(custom.message(), "Something unexpected happened");
+    assert_eq!(AiError::new(AiReason::Unknown).message(), "Unknown error");
+}
