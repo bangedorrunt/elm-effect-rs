@@ -228,6 +228,138 @@ impl MessageStorage {
     }
 }
 
+/// A stored reply: an acknowledgeable chunk or a terminal exit.
+///
+/// Ports the reply half of `MessageStorage` in
+/// `packages/effect/src/cluster/MessageStorage.ts`: `repliesFor` returns
+/// un-acknowledged chunks plus exits.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum StoredReply {
+    Chunk { payload: Vec<u8>, acked: bool },
+    Exit { payload: Vec<u8> },
+}
+
+/// Why a parked reply waiter was released without its reply.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum WaiterFault {
+    /// Shard moved: the waiter can re-route the wait elsewhere
+    /// (`EntityNotAssignedToRunner`).
+    NotAssigned,
+    /// Runner shutting down: the reply will never arrive here
+    /// (cluster-abandon annotation).
+    Abandoned,
+}
+
+/// Sync port of the `MessageStorage` reply-handler surface: stored
+/// replies per request plus parked waiters per shard. Fibers become
+/// explicit poll/unregister calls; the fault semantics match
+/// `unregisterShardReplyHandlers` (rebalance fails waiters, shutdown
+/// with `interrupt` abandons them).
+#[derive(Debug, Default)]
+pub struct ReplyRegistry {
+    replies: HashMap<String, Vec<StoredReply>>,
+    parked: HashMap<String, String>,
+}
+
+impl ReplyRegistry {
+    /// Empty registry.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Store a reply for a request.
+    pub fn store(&mut self, request_id: impl Into<String>, reply: StoredReply) {
+        self.replies
+            .entry(request_id.into())
+            .or_default()
+            .push(reply);
+    }
+
+    /// Un-acknowledged chunks plus exits for a request, in store order.
+    pub fn replies_for(&self, request_id: &str) -> Vec<StoredReply> {
+        self.replies
+            .get(request_id)
+            .map(|replies| {
+                replies
+                    .iter()
+                    .filter(|reply| match reply {
+                        StoredReply::Chunk { acked, .. } => !acked,
+                        StoredReply::Exit { .. } => true,
+                    })
+                    .cloned()
+                    .collect()
+            })
+            .unwrap_or_default()
+    }
+
+    /// Mark every chunk for a request acknowledged; true when any was.
+    pub fn acknowledge(&mut self, request_id: &str) -> bool {
+        let mut acked = false;
+        if let Some(replies) = self.replies.get_mut(request_id) {
+            for reply in replies {
+                if let StoredReply::Chunk { acked: flag, .. } = reply
+                    && !*flag
+                {
+                    *flag = true;
+                    acked = true;
+                }
+            }
+        }
+        acked
+    }
+
+    /// Park a waiter for a request on a shard (locally sent message).
+    pub fn register_waiter(&mut self, request_id: impl Into<String>, shard: impl Into<String>) {
+        self.parked.insert(request_id.into(), shard.into());
+    }
+
+    /// True while the waiter is still parked.
+    pub fn is_parked(&self, request_id: &str) -> bool {
+        self.parked.contains_key(request_id)
+    }
+
+    /// Release a parked waiter whose reply arrived; the request id when
+    /// a reply is stored for it, `None` while still waiting.
+    pub fn poll_waiter(&mut self, request_id: &str) -> Option<String> {
+        if !self.parked.contains_key(request_id) {
+            return None;
+        }
+        if self.replies_for(request_id).is_empty() {
+            return None;
+        }
+        self.parked.remove(request_id);
+        Some(request_id.to_string())
+    }
+
+    /// Drop a single waiter; true when one was parked.
+    pub fn unregister_waiter(&mut self, request_id: &str) -> bool {
+        self.parked.remove(request_id).is_some()
+    }
+
+    /// Release every waiter parked on a shard. Rebalance fails them with
+    /// `NotAssigned`; shutdown (`interrupt`) abandons them instead.
+    /// Returns the released request ids with their faults.
+    pub fn unregister_shard(&mut self, shard: &str, interrupt: bool) -> Vec<(String, WaiterFault)> {
+        let fault = if interrupt {
+            WaiterFault::Abandoned
+        } else {
+            WaiterFault::NotAssigned
+        };
+        let ids: Vec<String> = self
+            .parked
+            .iter()
+            .filter(|(_, s)| s.as_str() == shard)
+            .map(|(id, _)| id.clone())
+            .collect();
+        ids.into_iter()
+            .map(|id| {
+                self.parked.remove(&id);
+                (id, fault.clone())
+            })
+            .collect()
+    }
+}
+
 // Sharding config
 
 /// How long runners and storage reads linger, and where to listen.

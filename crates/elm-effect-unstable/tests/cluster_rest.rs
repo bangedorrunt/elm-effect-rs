@@ -4,7 +4,10 @@
 #[allow(dead_code)]
 mod cluster;
 
-use cluster::{MemoryRunnerStorage, ResourceMap, RunnerHealth, ShardingConfig};
+use cluster::{
+    MemoryRunnerStorage, ReplyRegistry, ResourceMap, RunnerHealth, ShardingConfig, StoredReply,
+    WaiterFault,
+};
 
 #[test]
 fn sharding_config_defaults_and_validation() {
@@ -69,4 +72,94 @@ fn resource_map_closes_failed_lookup_scopes() {
     let ok: Result<&String, &str> = m.get_or_load("k", "scope-2", || Ok("v".to_string()));
     assert_eq!(ok.unwrap(), "v");
     assert_eq!(m.closed_scopes.len(), 1);
+}
+
+#[test]
+fn replies_for_returns_unacked_chunks_and_exits() {
+    let mut reg = ReplyRegistry::new();
+    assert!(reg.replies_for("r1").is_empty());
+    reg.store(
+        "r1",
+        StoredReply::Chunk {
+            payload: vec![1],
+            acked: false,
+        },
+    );
+    reg.store("r1", StoredReply::Exit { payload: vec![2] });
+    assert_eq!(reg.replies_for("r1").len(), 2);
+    assert!(reg.acknowledge("r1"));
+    assert_eq!(
+        reg.replies_for("r1"),
+        vec![StoredReply::Exit { payload: vec![2] }]
+    );
+    assert!(!reg.acknowledge("r1"));
+}
+
+#[test]
+fn parked_waiter_releases_when_reply_arrives() {
+    let mut reg = ReplyRegistry::new();
+    reg.register_waiter("r1", "shard-a");
+    assert!(reg.is_parked("r1"));
+    assert_eq!(reg.poll_waiter("r1"), None);
+    reg.store("r1", StoredReply::Exit { payload: vec![9] });
+    assert_eq!(reg.poll_waiter("r1"), Some("r1".to_string()));
+    assert!(!reg.is_parked("r1"));
+}
+
+#[test]
+fn unregister_shard_fails_parked_waiters_on_rebalance() {
+    let mut reg = ReplyRegistry::new();
+    reg.register_waiter("r1", "shard-a");
+    reg.register_waiter("r2", "shard-b");
+    let released = reg.unregister_shard("shard-a", false);
+    assert_eq!(released, vec![("r1".to_string(), WaiterFault::NotAssigned)]);
+    assert!(reg.is_parked("r2"));
+}
+
+#[test]
+fn unregister_shard_abandons_parked_waiters_on_shutdown() {
+    let mut reg = ReplyRegistry::new();
+    reg.register_waiter("r1", "shard-a");
+    let released = reg.unregister_shard("shard-a", true);
+    assert_eq!(released, vec![("r1".to_string(), WaiterFault::Abandoned)]);
+    assert!(reg.unregister_shard("shard-a", true).is_empty());
+}
+
+#[test]
+fn reset_requests_preserves_replies_and_completion() {
+    use cluster::MessageStorage;
+    use cluster::{EntityAddress, StoredRequest};
+    let mut storage = MessageStorage::new();
+    let mut reg = ReplyRegistry::new();
+    let addr = EntityAddress::new("T", "1");
+    storage
+        .save(StoredRequest {
+            id: "stream".to_string(),
+            address: addr.clone(),
+            claimed_by: None,
+            complete: false,
+        })
+        .unwrap();
+    storage
+        .save(StoredRequest {
+            id: "done".to_string(),
+            address: addr.clone(),
+            claimed_by: None,
+            complete: false,
+        })
+        .unwrap();
+    reg.store(
+        "stream",
+        StoredReply::Chunk {
+            payload: vec![1, 2, 3],
+            acked: false,
+        },
+    );
+    reg.store("done", StoredReply::Exit { payload: vec![4] });
+    storage.complete("done");
+    assert_eq!(reg.replies_for("stream").len(), 1);
+    storage.reset_requests(&["stream", "done"]);
+    assert_eq!(reg.replies_for("stream").len(), 1);
+    assert_eq!(reg.replies_for("done").len(), 1);
+    assert!(storage.unprocessed_messages(&[addr], None).is_ok());
 }
