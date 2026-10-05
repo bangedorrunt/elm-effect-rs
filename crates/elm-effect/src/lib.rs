@@ -22,6 +22,7 @@ mod fiber;
 mod foundation;
 #[cfg(feature = "tokio")]
 mod layer;
+mod metric;
 mod optic;
 #[cfg(feature = "tokio")]
 mod policy;
@@ -44,6 +45,7 @@ pub use cause::{
 };
 pub use concurrency::{Body, Concurrency, all, for_each, partition, validate, validate_discard};
 pub use effect::{Effect, Requirement};
+pub use metric::{Counter, CounterState, MetricRegistry};
 #[cfg(feature = "schema")]
 pub use elm_effect_schema::{Schema, SchemaError, Unknown};
 #[cfg(feature = "tokio")]
