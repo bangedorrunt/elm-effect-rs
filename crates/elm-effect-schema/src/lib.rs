@@ -331,6 +331,11 @@ impl Schema<Unknown> {
         Self::new(Ok, |value| value.clone(), SchemaKind::Opaque("any"))
     }
 
+    /// Anything decodes (`Unknown` shape): identity, like `any`.
+    pub fn unknown() -> Self {
+        Self::new(Ok, |value| value.clone(), SchemaKind::Opaque("unknown"))
+    }
+
     /// No value decodes (`Never` shape): decode always fails.
     pub fn never() -> Self {
         Self::new(
@@ -1100,5 +1105,56 @@ impl Schema<std::collections::BTreeMap<String, Unknown>> {
         input: std::collections::BTreeMap<String, Unknown>,
     ) -> Result<std::collections::BTreeMap<String, Unknown>, SchemaError> {
         self.decode(Unknown::Object(input))
+    }
+}
+
+// Value formatting
+
+/// Render a value the way `toFormatter` does: JSON shapes with `never`
+/// for impossible values. Numbers print without a trailing `.0`.
+pub fn format_value(value: &Unknown) -> String {
+    match value {
+        Unknown::Null => "null".to_string(),
+        Unknown::Bool(true) => "true".to_string(),
+        Unknown::Bool(false) => "false".to_string(),
+        Unknown::Number(number) => format_number(*number),
+        Unknown::Text(text) => serde_json::to_string(text).unwrap_or_else(|_| "\"\"".to_string()),
+        Unknown::Array(items) => {
+            let inner: Vec<String> = items.iter().map(format_value).collect();
+            format!("[{}]", inner.join(","))
+        }
+        Unknown::Object(fields) => {
+            let inner: Vec<String> = fields
+                .iter()
+                .map(|(key, item)| {
+                    format!(
+                        "{}:{}",
+                        serde_json::to_string(key).unwrap_or_else(|_| "\"\"".to_string()),
+                        format_value(item)
+                    )
+                })
+                .collect();
+            format!("{{{}}}", inner.join(","))
+        }
+    }
+}
+
+/// A JS-style number: integers print bare.
+fn format_number(number: f64) -> String {
+    if number.fract() == 0.0 && number.abs() < 1e15 {
+        format!("{}", number as i64)
+    } else {
+        format!("{number}")
+    }
+}
+
+impl<T> Schema<T> {
+    /// The value formatter for this schema: `never` schemas always print
+    /// `"never"`, everything else renders the value.
+    pub fn formatter(&self) -> Box<dyn Fn(&Unknown) -> String + Send + Sync + 'static> {
+        match &self.kind {
+            SchemaKind::Opaque("never") => Box::new(|_| "never".to_string()),
+            _ => Box::new(|value| format_value(value)),
+        }
     }
 }
