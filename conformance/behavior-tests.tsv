@@ -2906,20 +2906,20 @@ unported	packages/effect/test/Predicate.test.ts	27	it	composes a refinement with
 ported	packages/effect/test/Predicate.test.ts	38	it	maps input before applying the predicate (curried)	equivalence_and_predicate_basics
 ported	packages/effect/test/Predicate.test.ts	50	it	maps input before applying the predicate (uncurried)	equivalence_and_predicate_basics
 unported	packages/effect/test/Predicate.test.ts	61	it	returns true only when all element predicates succeed	
-unported	packages/effect/test/Predicate.test.ts	70	it	stops checking after the first failing predicate	
+ported	packages/effect/test/Predicate.test.ts	70	it	stops checking after the first failing predicate	predicate_and_stops_at_first_failure
 unported	packages/effect/test/Predicate.test.ts	89	it	returns true only when all field predicates succeed	
 unported	packages/effect/test/Predicate.test.ts	98	it	ignores extra keys and stops at first failing field	
 ported	packages/effect/test/Predicate.test.ts	117	it	negates the underlying predicate	equivalence_and_predicate_basics
 ported	packages/effect/test/Predicate.test.ts	127	it	returns true when either predicate is true	equivalence_and_predicate_basics
 unported	packages/effect/test/Predicate.test.ts	137	it	returns true only when both predicates are true	
-unported	packages/effect/test/Predicate.test.ts	147	it	returns true only when exactly one predicate is true	
+ported	packages/effect/test/Predicate.test.ts	147	it	returns true only when exactly one predicate is true	predicate_xor_needs_exactly_one
 unported	packages/effect/test/Predicate.test.ts	156	it	returns true when both predicates agree	
 unported	packages/effect/test/Predicate.test.ts	165	it	returns true when antecedent is false or consequent is true	
 unported	packages/effect/test/Predicate.test.ts	174	it	returns true only when both predicates are false	
 unported	packages/effect/test/Predicate.test.ts	183	it	returns false only when both predicates are true	
 unported	packages/effect/test/Predicate.test.ts	192	it	returns true when all predicates pass	
 unported	packages/effect/test/Predicate.test.ts	200	it	returns true for empty collections	
-unported	packages/effect/test/Predicate.test.ts	208	it	returns true when any predicate passes	
+ported	packages/effect/test/Predicate.test.ts	208	it	returns true when any predicate passes	predicate_or_needs_any_and_not_flips
 unported	packages/effect/test/Predicate.test.ts	216	it	returns false for empty collections	
 unported	packages/effect/test/Predicate.test.ts	224	it	uses JavaScript truthiness	
 unported	packages/effect/test/Predicate.test.ts	237	it	detects Set instances	

@@ -103,6 +103,38 @@ impl<T> Predicate<T> {
         Self::make(move |value| self.test(value) || other.test(value))
     }
 
+    /// Negation.
+    pub fn not(self) -> Self
+    where
+        T: 'static,
+    {
+        Self::make(move |value| !self.test(value))
+    }
+
+    /// Exactly one holds.
+    pub fn xor(self, other: Self) -> Self
+    where
+        T: 'static,
+    {
+        Self::make(move |value| self.test(value) ^ other.test(value))
+    }
+
+    /// All hold (vacuously true when empty).
+    pub fn every(predicates: Vec<Self>) -> Self
+    where
+        T: 'static,
+    {
+        Self::make(move |value| predicates.iter().all(|p| p.test(value)))
+    }
+
+    /// At least one holds (false when empty).
+    pub fn some(predicates: Vec<Self>) -> Self
+    where
+        T: 'static,
+    {
+        Self::make(move |value| predicates.iter().any(|p| p.test(value)))
+    }
+
     /// Test the input through a projection first.
     pub fn map_input<U>(self, f: impl Fn(&U) -> T + Send + Sync + 'static) -> Predicate<U>
     where

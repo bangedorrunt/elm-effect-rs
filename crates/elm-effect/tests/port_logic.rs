@@ -163,3 +163,41 @@ fn function_and_ordering_basics() {
         Ordering::Greater
     );
 }
+
+#[test]
+fn predicate_and_stops_at_first_failure() {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::sync::Arc;
+    let calls = Arc::new(AtomicUsize::new(0));
+    let probe = calls.clone();
+    let failing = Predicate::make(|_: &u32| false);
+    let counting = Predicate::make(move |_: &u32| {
+        probe.fetch_add(1, Ordering::SeqCst);
+        true
+    });
+    assert!(!failing.and(counting).test(&1));
+    assert_eq!(calls.load(Ordering::SeqCst), 0);
+    let probe2 = calls.clone();
+    let counting2 = Predicate::make(move |_: &u32| {
+        probe2.fetch_add(1, Ordering::SeqCst);
+        true
+    });
+    assert!(counting2.and(Predicate::make(|_: &u32| true)).test(&1));
+    assert_eq!(calls.load(Ordering::SeqCst), 1);
+}
+
+#[test]
+fn predicate_or_needs_any_and_not_flips() {
+    assert!(Predicate::make(|_: &u32| false).or(Predicate::make(|_: &u32| true)).test(&0));
+    assert!(!Predicate::make(|_: &u32| false).or(Predicate::make(|_: &u32| false)).test(&0));
+    assert!(!Predicate::make(|_: &u32| true).not().test(&0));
+    assert!(Predicate::make(|_: &u32| false).not().test(&0));
+}
+
+#[test]
+fn predicate_xor_needs_exactly_one() {
+    assert!(Predicate::make(|_: &u32| true).xor(Predicate::make(|_: &u32| false)).test(&0));
+    assert!(!Predicate::make(|_: &u32| true).xor(Predicate::make(|_: &u32| true)).test(&0));
+    assert!(!Predicate::make(|_: &u32| false).xor(Predicate::make(|_: &u32| false)).test(&0));
+}
+
