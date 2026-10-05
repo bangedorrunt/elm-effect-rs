@@ -1,0 +1,177 @@
+import { Flow } from "./components/Flow.jsx"
+
+# Use the APIs
+
+This page is the call catalog. Each section names the crate, the function, and the value you pass. The other guides explain one topic. This page shows the call.
+
+`elm-effect` is the facade. `elm-effect-elm` is the fold. `elm-effect-journal` is the log and the plans. `elm-effect-schema` is decode and encode.
+
+<Flow
+  label="Guide crates"
+  nodes={[
+    { id: "elm", label: "elm-effect-elm" },
+    { id: "journal", label: "elm-effect-journal" },
+    { id: "facade", label: "elm-effect" },
+    { id: "schema", label: "elm-effect-schema" },
+  ]}
+  edges={[
+    ["elm", "facade"],
+    ["journal", "facade"],
+    ["facade", "schema"],
+  ]}
+/>
+
+## Run one description
+
+Call `Runtime::run` in `main` or in a test. Call `Runtime::run_main` when the process must exit.
+
+```rust
+use elm_effect::{Effect, Runtime};
+
+fn main() {
+    let exit = Runtime::run(Effect::succeed("ok"));
+    let code = Runtime::exit_code(&exit);
+    std::process::exit(code);
+}
+```
+
+`Runtime::new` builds a runtime when `Remote::call` needs a reference. `shutdown` stops live fibers and waits for finalizers.
+
+## Build a description
+
+| Call | Result |
+| --- | --- |
+| `Effect::succeed(value)` | Success `A`. `E` is `Infallible` until you fail |
+| `Effect::fail(error)` | Typed error `E` |
+| `Effect::die(defect)` | A defect. Not a typed error |
+| `Effect::interrupt()` | An interrupt reason |
+| `Effect::sync(closure)` | The closure runs when the effect runs |
+| `.map(f)` | A new success value |
+| `.flat_map(f)` | A next effect after success |
+| `.catch(f)` | A typed error becomes a new effect |
+| `.result()` | `Effect<Result<A, E>, Infallible, R>` |
+| `.exit()` | `Effect<Exit<A, E>, Infallible, R>` |
+
+A description does no I/O until `Runtime::run`.
+
+## Ask for a service
+
+```rust
+let need_db = use_service::<DbTag>();
+let ready = need_db.provide::<DbTag, ()>(db.clone());
+let exit = Runtime::run(ready);
+```
+
+`use_service::<T>` sets `R` to the tag `T`. `provide` removes that tag. Supply the first tag in the tuple first. After 16 tags, use `Cons`.
+
+`Layer::<DbTag, Infallible, ()>::from_value(db)` builds a layer from a value. `layer.build(&scope)` runs the constructors. `layer.fresh()` clears the memo so the next build runs the constructors again. `Layer::provide` rejects a cycle before a constructor runs.
+
+## Acquire and release
+
+```rust
+let scope = Scope::new(1);
+let resource = scope.acquire_release(
+    Effect::succeed(handle.clone()),
+    |handle| Effect::sync(move || handle.close()),
+);
+```
+
+`add_finalizer` registers a closure. `add_finalizer_effect` registers an effect. `close` runs finalizers in reverse order. A closed scope releases the resource at once and returns an interrupt.
+
+## Retry, repeat, and a remote call
+
+```rust
+let exit = Runtime::run(retry(
+    || load_rows(),
+    Schedule::<DbError, u64>::recurs(3),
+));
+```
+
+`retry` calls the factory again after a typed failure. `repeat` calls the factory again after success. A defect or an interrupt stops both.
+
+```rust
+let remote = Remote::new(RemotePolicy::default());
+let exit = remote.call(&Runtime::new(), &clock, || load_rows());
+```
+
+`call` admits in this order: filter, cache, rate limit, bulkhead. The attempt timeout starts after the bulkhead admits the call. Read the numbers in [Retry and remote policy](08-policy.mdx).
+
+## Many effects
+
+`all` with no bound runs one effect, then the next. `for_each` does the same for a list. `race` returns the first success. `race_first` returns the first completion. `timeout` races the effect against `Clock`.
+
+`Concurrency::Unbounded` starts every task. Do not pass it to a remote policy.
+
+## A stream
+
+```rust
+let stream = from_iter(0..100, 16);
+let exit = stream.map(|n| n + 1).take(10).run_collect();
+```
+
+`run_fold` consumes the stream. `map_effect` runs an effect per chunk. The `bound` argument is the maximum number of chunks in flight. `cancel` stops the pull.
+
+## A schema
+
+Enable the `schema` feature.
+
+```rust
+use elm_effect::Schema;
+
+let schema = Schema::<String>::string();
+let text = schema.decode_json("\"hello\"")?;
+let json = schema.encode_json(&text)?;
+```
+
+`decode` takes `Unknown`. `encode` returns `Unknown`. A bad shape is `SchemaError::TypeMismatch`. Bad bytes are `SchemaError::InvalidJson`. `catch_tag` matches a `TaggedError` on its tag.
+
+## A cell
+
+`Ref::new(value)` stores a cloneable value. `get` returns a clone. `update` applies a pure function. The function must not call a service.
+
+`MutableRef` has `set`. `SynchronizedRef::update_effect` runs an effect one time under the permit. `Queue::new(capacity)` is the bound for two tasks. `Semaphore::new(permits)` limits in-flight work.
+
+## A long-lived program
+
+```rust
+let mut loop_ = Loop::<App, AppInterp>::boot(&boot);
+loop_.send(msg);
+let model = loop_.model();
+```
+
+`boot` calls `Program::init` and runs the first commands. `send` is the only entrance. `model` reads the fold. `intents` lists durable keys in order. A `Subscriber` has `read` and no write method.
+
+## A durable log
+
+```rust
+let log = MemLog::new();
+let offset = log.append_json(
+    r#"{"v":1,"producer":{"producer_id":"job","epoch":1,"seq":0},"payload":"ok"}"#,
+)?;
+let rows = log.read_from(&Offset::Start)?;
+```
+
+The next new `seq` for that epoch is `last + 1`. The same triple returns the same offset. `Offset::At` that this log did not mint fails with `UnknownOffset`.
+
+## A dispatch plan and a park
+
+```rust
+let plan = plan_attempt(None, &cap);
+let park = plan_park(until_ms, max_wait_secs, now_ms, None);
+```
+
+`None` for the current row means `DispatchNew`. `plan_park` with no ceiling uses 86400 seconds. A larger `max_wait_secs` is `RefusedOverCeiling`. A past `until_ms` is `ResumeNow`. `PendingStore::upsert_pending` writes one park. The same `(run_id, promise_id, park_generation)` writes nothing the second time.
+
+## Where to read next
+
+| You are about to | Read |
+| --- | --- |
+| Handle `Fail`, `Die`, or `Interrupt` | [Two error types](04-two-error-types.mdx) |
+| Supply a service | [Services](06-services.mdx) |
+| Release a socket | [Scope](07-scope.mdx) |
+| Set retry numbers | [Retry and remote policy](08-policy.mdx) |
+| Write a test | [Tests](09-tests.mdx) |
+| Exit a process | [A command line program](10-cli.mdx) |
+| Fold messages | [A long-lived program](11-application.mdx) |
+| Resume after a crash | [The durable log](12-durable-log.mdx) |
+| Add a tag, a log, or a program | [Add a capability](13-add-a-capability.mdx) |

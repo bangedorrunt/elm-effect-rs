@@ -1,0 +1,71 @@
+import { Flow } from "./components/Flow.jsx"
+
+# Create effects
+
+Build a description. Then run it at the edge.
+
+<Flow
+  label="Compose then run"
+  nodes={[
+    { id: "v", label: "Effect value" },
+    { id: "m", label: "map or flat_map" },
+    { id: "r", label: "Runtime.run" },
+    { id: "x", label: "Exit" },
+  ]}
+  edges={[
+    ["v", "m"],
+    ["m", "r"],
+    ["r", "x"],
+  ]}
+/>
+
+## Success and failure
+
+```rust
+use elm_effect::{Effect, Runtime};
+
+let ok = Effect::succeed(1u32);
+let bad: Effect<u32, &str, ()> = Effect::fail("no rows");
+
+assert!(Runtime::run(ok).is_success());
+```
+
+`Effect::sync` runs a closure when the effect runs. The closure must not do I/O that needs a release. Put that work in a service.
+
+`Effect::die` records a defect. A defect is not a typed error. Read [Two error types](04-two-error-types.mdx).
+
+## Map and flat_map
+
+`map` changes the success value. `flat_map` runs a second effect after the first success.
+
+```rust
+let program = Effect::succeed(2u32).map(|n| n + 1);
+let chained = program.flat_map(|n| Effect::succeed(n * 10));
+let exit = Runtime::run(chained);
+```
+
+`retry` needs a factory, because an effect runs once.
+
+```rust
+use elm_effect::{retry, Schedule};
+
+let exit = Runtime::run(retry(
+    || Effect::fail("down"),
+    Schedule::<&str, u64>::recurs(3),
+));
+```
+
+`Schedule::recurs(3)` allows 3 retries after the first attempt.
+
+## The effect macro
+
+`effect!` is in the crate. Each `let` binds a success value. A typed failure, a defect, or an interrupt stops the rest. Do not put `?` after an effect. The macro cannot see it.
+
+```rust
+use elm_effect::effect;
+
+let program = effect! {
+    let n = Effect::succeed(2u32);
+    Effect::succeed(n + 1)
+};
+```

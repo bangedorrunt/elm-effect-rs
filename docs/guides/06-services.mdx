@@ -1,0 +1,50 @@
+import { Flow } from "./components/Flow.jsx"
+
+# Services
+
+A service tag is a zero-sized type. It has a string id and a service type. The service type must be `Clone + Send + Sync`. Put a socket in an `Arc` and use that as the service type.
+
+The figure shows how `provide` removes the tag before the run. The mark moves along the arrows.
+
+<Flow
+  label="Provide a service then run"
+  nodes={[
+    { id: "t", label: "use_service Tag" },
+    { id: "r", label: "R is the tag" },
+    { id: "p", label: "provide service" },
+    { id: "e", label: "R is empty" },
+    { id: "run", label: "Runtime.run" },
+  ]}
+  edges={[
+    ["t", "r"],
+    ["r", "p"],
+    ["p", "e"],
+    ["e", "run"],
+  ]}
+/>
+
+```rust
+use std::sync::Arc;
+use elm_effect::{use_service, Effect, Runtime, ServiceTag};
+
+#[derive(Clone)]
+struct Db { url: String }
+
+struct DbTag;
+impl ServiceTag for DbTag {
+    type Service = Db;
+    const ID: &'static str = "app/Db";
+}
+
+let description: Effect<Db, std::convert::Infallible, DbTag> = use_service::<DbTag>();
+let ready = description.provide::<DbTag, ()>(Db { url: "sqlite://app.db".into() });
+let exit = Runtime::run(ready);
+```
+
+`provide` removes the tag from `R`. You supply the head tag first. A tuple holds up to 16 tags. `Cons` is the form after 16. A missing tag is a compile error.
+
+Build the layer in `main`. Domain code calls `use_service`. Domain code does not read environment variables.
+
+Two capabilities are two tags, even when one client can do both jobs.
+
+`read_reference` is for an ambient value with a default, such as a log level. It is not a service.

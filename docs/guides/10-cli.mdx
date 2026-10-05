@@ -1,0 +1,38 @@
+import { Flow } from "./components/Flow.jsx"
+
+# A command line program
+
+A CLI parses arguments, runs one effect, and exits. A process that stays up for messages is an application. Read [A long-lived program](11-application.mdx).
+
+<Flow
+  label="CLI data flow"
+  nodes={[
+    { id: "a", label: "argv" },
+    { id: "p", label: "pure parse" },
+    { id: "l", label: "Layer in main" },
+    { id: "r", label: "run_main" },
+    { id: "c", label: "exit code" },
+  ]}
+  edges={[
+    ["a", "p"],
+    ["p", "l"],
+    ["l", "r"],
+    ["r", "c"],
+  ]}
+/>
+
+## Steps
+
+1. Parse argv into a typed request in a pure function. Do no I/O in that function.
+2. Reject an invalid flag set in the parser. Do this before you build a layer.
+3. Read config into `Boot` before `Runtime` starts. A bad file is a typed error.
+4. Build the layer in `main`.
+5. Call `Runtime::run_main` on one effect.
+
+`Runtime::exit_code` is 0, 1, 2, or 130. Read [Two error types](04-two-error-types.mdx). Stdout is the success value. Logs go to stderr through `tracing`.
+
+Join or scope each fiber before `main` returns. `fork_detach` keeps the process up after you print the result.
+
+`--dry-run` is a request variant. The interpreter for that variant does no write.
+
+Ctrl-C is an interrupt. The scope releases. The process then exits 130.

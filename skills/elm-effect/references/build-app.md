@@ -1,6 +1,6 @@
 # Build an application
 
-A long-running program. One-shot tools use `build-cli.md` instead. Laws L12, L15, and, when the process must resume, L14 and L16 live in ADR-0002. This file is the shape.
+Read `docs/guides/11-application.mdx` and `docs/guides/15-use-the-apis.mdx` before you write code. A one-shot tool is `build-cli.md`. Laws L12, L15, L14, and L16 stay in ADR-0002. If a crash must resume the work, read `references/durable-log.md` after this file.
 
 ## Crate
 

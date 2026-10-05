@@ -1,0 +1,25 @@
+# Agents
+
+An agent that writes application code reads [Use the APIs](15-use-the-apis.mdx) and then the guide for that task. It reads ADR-0002 when it changes the carrier or the ledger. It reads `skills/elm-effect` when the user says migrate, port a module, or build an app. Extension is [Add a capability](13-add-a-capability.mdx). It is one task, not the whole manual.
+
+## Rules that do not change
+
+* Return `Effect` from library code. Call `Runtime::run` in `main` or in a test.
+* Keep `Fail`, `Die`, `Interrupt`, and park apart.
+* Put services in tags. Call `provide` at the edge.
+* Use `policy` or `Schedule` for retry. Do not sleep in a loop.
+* Use `TestClock` in the order fork, adjust, join.
+* A `Program::update` is pure. Commands are data.
+* A durable append uses one `epoch` and one `seq` for one retry of the same append.
+* Do not rebuild `.beads/gates.jsonl` from the issues log.
+* Do not remove the Resonate dependency during a migration.
+
+## A port of an Effect module
+
+Open `conformance/behavior-tests.tsv`. Port each row for that module. Set `status` to `ported` only when the Rust test fails on a stub and then passes. Fill the `rust` column. A `ported` row with an empty `rust` column fails the ledger test.
+
+The path under `packages/effect/src/` links only to the same path under `packages/effect/test/`.
+
+## Extension from an application
+
+Add a `ServiceTag`, a `Program`, or a `DurableLog`. Do not add a second scheduler. The guide [Add a capability](13-add-a-capability.mdx) is the full rule.

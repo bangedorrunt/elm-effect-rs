@@ -1,0 +1,53 @@
+import { Flow } from "./components/Flow.jsx"
+
+# The Effect type
+
+`Effect<A, E, R>` is a value. The value describes a program.
+
+* `A` is the success value.
+* `E` is the typed error.
+* `R` is the set of services. `()` means no service.
+
+The program does not run when you build the value. The program runs when you call `Runtime::run`. A drop of the value does no I/O. The compiler warns on a drop because the type is `must_use` after ADR-0003.
+
+The figure shows that flow. The mark moves along the arrows.
+
+<Flow
+  label="Run or drop an Effect"
+  nodes={[
+    { id: "e", label: "Effect A E R" },
+    { id: "r", label: "Runtime.run" },
+    { id: "x", label: "Exit" },
+    { id: "d", label: "Drop" },
+    { id: "n", label: "No IO" },
+  ]}
+  edges={[
+    ["e", "r"],
+    ["r", "x"],
+    ["e", "d"],
+    ["d", "n"],
+  ]}
+/>
+
+`E = Infallible` means no typed error. Do not use `()` for that channel.
+
+```rust
+use elm_effect::{Effect, Exit, Runtime};
+
+let description: Effect<&'static str, Infallible, ()> = Effect::succeed("world");
+let exit: Exit<&str, Infallible> = Runtime::run(description);
+```
+
+Use `Infallible` from `std::convert`.
+
+## Do not run work in a library
+
+A library returns `Effect`. The binary calls `Runtime::run` or `Runtime::run_main`. A test can call `Runtime::run`.
+
+## Three shapes
+
+| The work | The type |
+| --- | --- |
+| A pure calculation | A function. `Result` is sufficient when the failure is already known |
+| One unit of work that can fail, wait, or need a service | `Effect<A, E, R>` |
+| A process that receives messages over time | `Program` in `elm-effect-elm` |

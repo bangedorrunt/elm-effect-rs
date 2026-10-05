@@ -1,0 +1,52 @@
+import { Flow } from "./components/Flow.jsx"
+
+# A long-lived program
+
+`Program` in `elm-effect-elm` is the fold. `update` is pure. The same model and the same message yield the same next model and the same commands.
+
+<Flow
+  label="Program loop"
+  nodes={[
+    { id: "m", label: "Msg" },
+    { id: "u", label: "Program.update" },
+    { id: "c", label: "Commands" },
+    { id: "i", label: "Interpret" },
+    { id: "e", label: "Effect" },
+  ]}
+  edges={[
+    ["m", "u"],
+    ["u", "c"],
+    ["c", "i"],
+    ["i", "e"],
+    ["e", "m"],
+  ]}
+/>
+
+```rust
+use elm_effect_elm::{Boot, Program, Update};
+
+struct App;
+impl Program for App {
+    type Model = u32;
+    type Msg = u32;
+    type Cmd = Tick;
+
+    fn init(_boot: &Boot) -> Update<u32, Tick> {
+        Update::quiet(0)
+    }
+
+    fn update(model: &u32, msg: &u32) -> Update<u32, Tick> {
+        Update::quiet(model + msg)
+    }
+}
+```
+
+`Cmd` is serializable. `Cmd::durability` returns `Ephemeral` or `Durable { key }`. `Interpret::interpret` turns one command into an `Effect`. That function is the only place that builds an effect for the loop.
+
+Time enters as a message. `update` does not call `SystemTime::now`.
+
+A subscriber can read the model. The subscriber type has no method that writes the model.
+
+Use `BTreeMap` in `Model` when iteration order changes the command list. Do not use `HashMap` there.
+
+The application crate depends on `elm-effect`. `elm-effect` does not depend on the application.

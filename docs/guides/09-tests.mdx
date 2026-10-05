@@ -1,0 +1,34 @@
+import { Flow } from "./components/Flow.jsx"
+
+# Tests
+
+A test supplies the clock, the random source, and the services. The test does not read the wall clock.
+
+Use `TestClock`. Fork the sleeper. Adjust the clock. Join the fiber.
+
+<Flow
+  label="TestClock order"
+  nodes={[
+    { id: "f", label: "Fork the sleeper" },
+    { id: "a", label: "Adjust TestClock" },
+    { id: "j", label: "Join the fiber" },
+  ]}
+  edges={[
+    ["f", "a"],
+    ["a", "j"],
+  ]}
+/>
+
+```rust
+clock.adjust(Duration::from_secs(60));
+```
+
+If you adjust the clock before the sleep is scheduled, the fiber stays suspended. That order is the test.
+
+`elm-effect-test` gives `DeterministicExecutor`. It runs one ready task at a time, in registration order. It does not call `tokio::time::pause`.
+
+`Random` in a test comes from a seed. Do not call `thread_rng` in a fold.
+
+A pure `Program::update` has a replay test. Run the same message list twice. The commands must match.
+
+A dropped `Effect` in a test performs no I/O. Count the calls on a fake service. The count stays 0 when you drop the description.

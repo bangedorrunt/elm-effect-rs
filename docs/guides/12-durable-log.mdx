@@ -1,0 +1,43 @@
+import { Flow } from "./components/Flow.jsx"
+
+# The durable log
+
+Use the log when a crash must resume the same work. `DurableLog` is the trait. `MemLog` is the in-process implementation. An application can implement the trait for its own store.
+
+<Flow
+  label="Journal and stream commit"
+  nodes={[
+    { id: "row", label: "Journal row" },
+    { id: "append", label: "Stream append" },
+    { id: "tx", label: "One transaction" },
+    { id: "offset", label: "Offset" },
+    { id: "retry", label: "Same append retry" },
+    { id: "same", label: "Same epoch and seq" },
+  ]}
+  edges={[
+    ["row", "tx"],
+    ["append", "tx"],
+    ["tx", "offset"],
+    ["retry", "same"],
+  ]}
+/>
+
+An offset is opaque. The log mints it. `Offset::Start` and `Offset::Now` are sentinels. The log never mints those values. A hand-built `Offset::At` fails the read.
+
+## Append
+
+One append is atomic. A crash keeps the previous offset. A read returns whole messages.
+
+The JSON body has `v`, `producer`, and `payload`. `v` is `1`. `producer` has `producer_id`, `epoch`, and `seq`, or the append fails with `PartialIdentity`.
+
+`seq` starts at 0 for an epoch. The next new append uses `last + 1`. The same triple appends once and returns the same offset. A gap fails with `SeqGap`.
+
+`epoch` changes when a new owner takes the effect. A retry of the same append sends the same `epoch` and the same `seq`. The attempt number on a journal row is a different field.
+
+`Closed` rejects a later append. Bytes from before the close stay readable.
+
+## Park
+
+A park is not a typed failure. The toron store writes a park with `upsert_pending`. The key is `(run_id, promise_id, park_generation)`. A second insert with that key writes nothing. A row that is already `Parked` resumes. It does not dispatch a new call.
+
+The journal row and the stream append for that step commit in one transaction.

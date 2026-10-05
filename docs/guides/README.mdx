@@ -1,0 +1,63 @@
+import { Flow } from "./components/Flow.jsx"
+
+# elm-effect guides
+
+These guides tell a Rust programmer and an agent how to use `elm-effect`.
+
+Read the guides in order. Each guide shows how you call the API. [Use the APIs](15-use-the-apis.mdx) is the catalog. You return to it when you write code.
+
+Extension is one chapter, [Add a capability](13-add-a-capability.mdx). ADR-0002 is the law. ADR-0003 is the adoption rule. You do not need those records for the first program.
+
+The text uses simplified technical English. The files are MDX. The mark on a figure moves along the arrows.
+
+<Flow
+  label="Guide path"
+  dir="col"
+  nodes={[
+    { id: "a", label: "Effect type" },
+    { id: "b", label: "Create effects" },
+    { id: "c", label: "Two error types" },
+    { id: "d", label: "Concurrency" },
+    { id: "e", label: "Services" },
+    { id: "f", label: "Scope" },
+    { id: "g", label: "Policy" },
+    { id: "h", label: "Tests" },
+    { id: "i", label: "CLI or Program" },
+    { id: "j", label: "Durable log" },
+    { id: "k", label: "API catalog" },
+  ]}
+  edges={[
+    ["a", "b"],
+    ["b", "c"],
+    ["c", "d"],
+    ["d", "e"],
+    ["e", "f"],
+    ["f", "g"],
+    ["g", "h"],
+    ["h", "i"],
+    ["i", "j"],
+    ["j", "k"],
+  ]}
+/>
+
+## Path
+
+1. [The Effect type](01-effect-type.mdx)
+2. [Installation](02-installation.mdx)
+3. [Create effects](03-create-effects.mdx)
+4. [Two error types](04-two-error-types.mdx)
+5. [Concurrency](05-concurrency.mdx)
+6. [Services](06-services.mdx)
+7. [Scope](07-scope.mdx)
+8. [Retry and remote policy](08-policy.mdx)
+9. [Tests](09-tests.mdx)
+10. [A command line program](10-cli.mdx)
+11. [A long-lived program](11-application.mdx)
+12. [The durable log](12-durable-log.mdx)
+13. [Add a capability](13-add-a-capability.mdx)
+14. [Agents](14-agents.mdx)
+15. [Use the APIs](15-use-the-apis.mdx)
+
+## One rule
+
+Return `Effect` from work that can fail, wait, or need a service. Keep a pure decision as a function. Call `Runtime::run` once, in `main` or in a test.

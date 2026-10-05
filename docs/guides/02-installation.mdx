@@ -1,0 +1,34 @@
+# Installation
+
+The facade crate is `elm-effect`. Edition 2024.
+
+Add a path dependency until the crate is on crates.io.
+
+```toml
+[dependencies]
+elm-effect = { path = "../elm-effect-rs/crates/elm-effect" }
+```
+
+## Features
+
+Today the default features are `tokio`, `schema`, and `stm`. ADR-0003 changes the default to `tokio` only. Enable `full` when you need schema or STM after that change.
+
+| Feature | You get |
+| --- | --- |
+| `tokio` | `Runtime`, fibers, `Scope`, `Layer`, remote policy |
+| `schema` | `Schema` from `elm-effect-schema` |
+| `stm` | `TxRef` and `atomically` |
+| `full` | `schema` and `stm`, after ADR-0003 |
+
+`Runtime` needs the `tokio` feature.
+
+## Related crates
+
+| Crate | Use it for |
+| --- | --- |
+| `elm-effect-test` | A deterministic executor |
+| `elm-effect-elm` | `Program` |
+| `elm-effect-journal` | `DurableLog` and the journal plans |
+| `elm-effect-unstable` | HTTP, SQL, workflow, and other unstable modules |
+
+Do not enable `elm-effect-unstable` in a stable CLI.

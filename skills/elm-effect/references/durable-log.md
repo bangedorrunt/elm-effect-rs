@@ -1,6 +1,6 @@
 # Durable log
 
-Read ADR-0002 section "Durable log" and law L16. This file is the order of work, not a second spec.
+Read `docs/guides/12-durable-log.mdx` and ADR-0002 section "Durable log". This file is the order of work, not a second spec.
 
 Pin: Durable Streams `PROTOCOL.md` draft 1.0, commit `461b40267aabd644558f9b19dbb9507dd5f691cf`. The header date inside the file is the placeholder `2025-01-XX`.
 

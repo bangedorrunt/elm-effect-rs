@@ -1,0 +1,38 @@
+import { Flow } from "./components/Flow.jsx"
+
+# Concurrency
+
+Structured concurrency means a parent fiber owns its children. The parent waits for release when the parent stops.
+
+<Flow
+  label="Parent owns the child release"
+  nodes={[
+    { id: "p", label: "Parent fiber" },
+    { id: "c", label: "Child fiber" },
+    { id: "s", label: "Parent stops" },
+    { id: "r", label: "Child release runs" },
+  ]}
+  edges={[
+    ["p", "c"],
+    ["p", "s"],
+    ["s", "r"],
+  ]}
+/>
+
+| Function | Behavior |
+| --- | --- |
+| `all` | Runs the effects one by one when you pass no bound |
+| `for_each` | The same rule, for a list |
+| `race` | The first success wins. A failure does not hide a later success |
+| `race_first` | The first completion wins, including a failure |
+| `timeout` | Races the effect against a sleep on `Clock` |
+
+`Concurrency::Unbounded` starts every task. `RemotePolicy` does not select it.
+
+A child from `fork` stops when the parent stops. `fork_detach` attaches the child to the runtime root. The child stops when the runtime stops. Do not detach a fiber in a CLI that must exit.
+
+The attempt timeout starts after bulkhead admission. A wait in the queue does not consume the attempt timeout.
+
+## Do a test of the order
+
+Fork the sleeper first. Then adjust `TestClock`. Then join the fiber. If you adjust the clock first, the sleep stays suspended.

@@ -1,0 +1,54 @@
+import { Flow } from "./components/Flow.jsx"
+
+# Retry and remote policy
+
+Attach policy to the call. Do not write a loop that sleeps in a service.
+
+<Flow
+  label="Remote.call admission"
+  dir="col"
+  nodes={[
+    { id: "c", label: "Remote.call" },
+    { id: "f", label: "filter" },
+    { id: "cache", label: "cache" },
+    { id: "limit", label: "rate limit" },
+    { id: "b", label: "bulkhead" },
+    { id: "a", label: "attempt timeout" },
+    { id: "w", label: "the call" },
+  ]}
+  edges={[
+    ["c", "f"],
+    ["f", "cache"],
+    ["cache", "limit"],
+    ["limit", "b"],
+    ["b", "a"],
+    ["a", "w"],
+  ]}
+/>
+
+## Retry
+
+```rust
+use elm_effect::{retry, Effect, Schedule, Runtime};
+
+let exit = Runtime::run(retry(
+    || Effect::fail("timeout"),
+    Schedule::<&str, u64>::recurs(3),
+));
+```
+
+`retry` runs again after a typed failure. It does not run again after a defect or an interrupt. `repeat` runs again after success. They are different functions.
+
+## Remote::call
+
+`Remote::new(RemotePolicy::default())` builds the stack. `call` runs one factory through it.
+
+The default retry count is 3 after the first attempt. The backoff starts at 250 ms. The ceiling is 10 s. The attempt timeout is 30 s. The budget is 2 minutes.
+
+The bulkhead allows 8 calls in flight and 32 calls in the queue. The queue wait is 5 s.
+
+`call` admits the call in this order: filter, cache, rate limit, bulkhead. Then it runs attempts. The attempt timeout starts after the bulkhead admits the call. A full bulkhead is `RemoteError::BulkheadFull`. It is a typed error.
+
+Cache stores a success. It does not store a failure unless you set that in the policy.
+
+Do not hedge a call that is not safe to run twice.

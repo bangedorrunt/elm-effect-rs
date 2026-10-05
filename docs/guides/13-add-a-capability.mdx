@@ -1,0 +1,43 @@
+import { Flow } from "./components/Flow.jsx"
+
+# Add a capability
+
+You extend the framework with a value. You do not fork the runtime. ADR-0003 records this rule.
+
+<Flow
+  label="Application values enter the runtime"
+  nodes={[
+    { id: "app", label: "Application crate" },
+    { id: "tag", label: "ServiceTag" },
+    { id: "prog", label: "Program" },
+    { id: "log", label: "DurableLog" },
+    { id: "rt", label: "Runtime" },
+    { id: "journal", label: "elm-effect-journal" },
+  ]}
+  edges={[
+    ["app", "tag"],
+    ["app", "prog"],
+    ["app", "log"],
+    ["tag", "rt"],
+    ["prog", "rt"],
+    ["log", "journal"],
+  ]}
+/>
+
+| You need | You write | The framework runs |
+| --- | --- | --- |
+| A database, a clock, or a client | A `ServiceTag` and a service value. Call `provide` in `main` | `use_service` |
+| A retry policy | A `Schedule` or a `RemotePolicy` | `retry` or `Remote::call` |
+| A process that receives messages | A `Program` and an `Interpret` | The loop |
+| A store that must survive a crash | `DurableLog` for that store | The L16 rules on your type |
+| A pure rule | A function | You call it from `update` or from `map` |
+
+The string `ID` on a tag is unique in the process. Two applications use two ids. The same `Runtime` can run both programs.
+
+A pure function stays a function. Lift it with `Effect::sync` or `Effect::from_result` only when the caller must compose it with a service or a policy.
+
+## When you must change this repository
+
+Change `elm-effect` when the fiber steps must change. Add a behavior row, or put the module in `elm-effect-unstable` behind feature `ext`. Do not mark a fictional Effect path as `ported`.
+
+An application crate depends on `elm-effect`. The dependency does not go the other way.

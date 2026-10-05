@@ -1,0 +1,35 @@
+import { Flow } from "./components/Flow.jsx"
+
+# Scope
+
+`acquire_release` stores a finalizer on the scope. The runtime runs the finalizer. `Drop` does not run an async release.
+
+<Flow
+  label="Release on every exit"
+  dir="col"
+  nodes={[
+    { id: "a", label: "acquire" },
+    { id: "u", label: "use resource" },
+    { id: "ok", label: "Success" },
+    { id: "fail", label: "Typed failure" },
+    { id: "intr", label: "Interrupt" },
+    { id: "rel", label: "release, reverse order" },
+  ]}
+  edges={[
+    ["a", "u"],
+    ["u", "ok"],
+    ["u", "fail"],
+    ["u", "intr"],
+    ["ok", "rel"],
+    ["fail", "rel"],
+    ["intr", "rel"],
+  ]}
+/>
+
+The finalizer runs on success, on typed failure, and on interrupt. The order is the reverse of acquire. A finalizer runs to the end. A cancel during release does not skip the rest of the release. A finalizer error is one more reason on the cause. It does not erase the first reason.
+
+## CAUTION
+
+Do not use `tokio::time::timeout` as the definition of cancel. That call drops a future. The drop does not run an async finalizer. Use `timeout` from `elm_effect`. It interrupts the fiber and then runs the scope.
+
+Put a commit or a release in an uninterruptible region. The region finishes. Then the interrupt runs.

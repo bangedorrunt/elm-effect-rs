@@ -1,36 +1,23 @@
-# Write inside elm-effect-rs
+# A red test in elm-effect-rs
 
-No sibling in the utterance. Implement the next phase whose law tests are red. Phase order is ADR-0002. Tests for the phase land first and fail, then the implementation.
+The carrier from ADR-0002 and the adoption rules in ADR-0003 are in the crates. Do not re-implement a phase whose tests pass.
 
-## Pick the phase
+## Pick the failure
 
-Run the law tests. The first red phase is the work. Do not start a later phase to look busy.
-
-| Red | Build |
-| --- | --- |
-| No `conformance/PIN`, or `cargo test -p elm-effect-conformance` is red | Phase 0. The ignored test stays red until phase 13 |
-| L1, L2, L6, L7 | Phase 1 |
-| L5, sixteen-service check | Phase 2 |
-| L4, L8, L9, L10 | Phase 3 |
-| `all_without_concurrency_is_sequential` | Phase 4 |
-| Stream ledger rows | Phase 5 |
-| Schema corpus | Phase 6 |
-| Single-flight and batch | Phase 7 |
-| L12, L15 | Phase 8 |
-| L14, `golden_transitions` | Phase 9 |
-| L16 | Phase 9b, and read `references/durable-log.md` |
-| Later phases | The ADR phase with that number |
+1. Run `cargo test -p elm-effect`.
+2. If that command fails, fix the failing test. Read the guide for that API in `docs/guides/` before you edit.
+3. If only `cargo test -p elm-effect-conformance -- --ignored` fails, the open rows are in `conformance/behavior-tests.tsv`. Follow `references/port-module.md` for the rows you were asked to port. Do not mark the rest `ported`.
+4. Do not start a later phase because an earlier ignored ledger is open.
 
 ## Shape
 
-- A library function returns `Effect`. `Runtime::run` appears only in the allow-listed crates.
-- `?` carries the typed error. A panic is `Die` at the supervisor.
-- `policy::remote` is the retry stack. A `for` loop that sleeps inside a service is the wrong shape.
-- A long-lived loop implements `Program`. A one-shot CLI does not.
-- Commands are `Serialize`. The interpreter is the only place an effect starts.
+- Library code returns `Effect`. `Runtime::run` stays in `main` and tests.
+- `effect!` binds with `let`. Do not write `?` after an effect in the macro.
+- `Remote::call` or `retry` is the retry path. A `for` loop that sleeps in a service is the wrong shape.
+- A long-lived loop implements `Program`. A CLI does not.
 
 ## Done
 
-- [ ] The phase's named tests pass.
-- [ ] `cargo test --no-default-features -p elm-effect` passes with no network, once that crate exists.
-- [ ] The report names the phase and the tests. It does not ask which phase is next.
+- [ ] `cargo test -p elm-effect` passes.
+- [ ] You did not flip feature defaults in `Cargo.toml`.
+- [ ] The report names the test that was red and the test that is green.

@@ -1,0 +1,63 @@
+import { Flow } from "./components/Flow.jsx"
+
+# Two error types
+
+`Cause<E>` holds a list of reasons. The reasons stay separate.
+
+The figure shows the path from a run to an exit code. Park is a separate store. The mark moves along the arrows.
+
+<Flow
+  label="Exit codes and park"
+  dir="col"
+  nodes={[
+    { id: "run", label: "Runtime.run" },
+    { id: "exit", label: "Exit" },
+    { id: "ok", label: "Success code 0" },
+    { id: "cause", label: "Cause" },
+    { id: "fail", label: "Fail code 1" },
+    { id: "die", label: "Die code 2" },
+    { id: "intr", label: "Interrupt code 130" },
+    { id: "park", label: "Park" },
+    { id: "pending", label: "workflow_pending" },
+  ]}
+  edges={[
+    ["run", "exit"],
+    ["exit", "ok"],
+    ["exit", "cause"],
+    ["cause", "fail"],
+    ["cause", "die"],
+    ["cause", "intr"],
+    ["park", "pending"],
+  ]}
+/>
+
+| Reason | Meaning | Who handles it |
+| --- | --- | --- |
+| `Fail` | A typed error `E` | `catch` or `Result` from `Effect::result` |
+| `Die` | A defect. A panic at the fiber boundary is a defect | The supervisor. `catch_defect` in rare library code |
+| `Interrupt` | The fiber stopped because of cancellation | The runtime. Release still runs |
+
+Park is a fifth outcome. Park is a durable wait. Park is not `Fail` and not `Interrupt`. Read [The durable log](12-durable-log.mdx).
+
+## Catch only the typed error
+
+```rust
+let recovered = Effect::fail("missing").catch(|error: &str| Effect::succeed(error.len()));
+```
+
+`catch` does not take a defect or an interrupt. `catch_cause` sees all three reasons. Do not call `catch_cause` in business code. The supervisor calls it.
+
+`or_die` turns every typed error into a defect. Do not call `or_die` after a retry. The caller still needs the typed error.
+
+## Exit codes
+
+`Runtime::exit_code` maps an `Exit`.
+
+| Exit | Code |
+| --- | --- |
+| Success | 0 |
+| Typed failure | 1 |
+| Defect | 2 |
+| Interrupt | 130 |
+
+`Runtime::run_main` runs the effect and then stops the process with that code.

@@ -1,69 +1,63 @@
 ---
 name: elm-effect
 description: >
-  Build an application or CLI on elm-effect, port or add an Effect module to
-  the framework, and migrate flywheel, toron, beads, or chiebukuro onto it.
-  Use when the user says build, scaffold, or write an app, service, or CLI
-  with elm-effect; port, add, or extend an Effect TS module (Cache, HttpClient,
-  Stream, Schema, or any ledger row); or migrate, rewrite, integrate, or adopt
-  elm-effect, the Elm loop, the effect journal, or a durable stream. The skill
-  picks app versus CLI versus module port versus sibling migration. It does
-  not ask whether ADR-0002 is accepted, whether Resonate is deleted, which
-  crate a new module belongs in, or whether a cursor is the resume position.
+  Use the finished elm-effect framework: call its APIs, build an app or CLI,
+  add a ServiceTag, Program, or DurableLog, port an Effect module, or migrate
+  flywheel, toron, beads, or chiebukuro. Use when the user says use, call,
+  guide, API, build, scaffold, port, add, extend, migrate, rewrite, or
+  integrate elm-effect, Effect, the Elm loop, the journal, or a durable log.
+  The skill sends you to docs/guides first. It does not ask you to rebuild
+  the carrier, delete Resonate, or treat a cursor as the resume position.
 ---
 
 # elm-effect
 
-The law is `/Users/bangedorrunt/workspace/elm-effect-rs/docs/decisions/0002-port-effect-4-into-rust-with-an-elm-loop.md`. This file is the steps. Do not copy a law into a sibling. Point at the ADR section. The phases land in that repo even when the utterance was typed in a sibling checkout.
+The carrier is in the crates. ADR-0002 is the law. ADR-0003 is adoption. The calls are `docs/guides/15-use-the-apis.mdx` and the topic guide next to it. This file only picks the branch. Do not copy an API table into a sibling.
+
+Repo root: `/Users/bangedorrunt/workspace/elm-effect-rs`.
 
 ## Closed
 
-Do not ask these. The ADR agent-authority section already answered them.
-
-- Status `proposed` is not a stop. Implement.
-- Resonate stays. Do not remove the git dependency in the migration change.
-- Resume position is `offset`. `collapsing_cursor` is the HTTP CDN token only.
-- The log is in-process. Do not add the Node or Caddy server as the runtime.
-- `schema`, `stm`, and `tokio` default on. Feature `durable-streams` stays off.
-- Executor defaults are 4 workers and queue bound 4096.
-- Issues and gates are two streams. Gates are `.beads/gates.jsonl`.
-- A migration that names no sibling: say the four names and stop. An app, a CLI, or a module port does not need a sibling.
+- Do not rebuild a phase whose tests already pass.
+- Do not ask if ADR-0002 is accepted.
+- Resonate stays during a migration.
+- The resume field is `offset`. `seq` is not the journal attempt number.
+- Read `crates/elm-effect/Cargo.toml` for features. Do not change them in an application task.
+- Gates are `.beads/gates.jsonl`. Do not rebuild them from the issues log.
+- A migration with no sibling name: list flywheel, toron, beads, and chiebukuro, then stop.
 
 ## Branch
 
-A named Effect module, or the word module, is `references/port-module.md` even when a sibling or a CLI is also named. Finish that file, then the row below. Otherwise the first matching row wins.
+Read `docs/guides/15-use-the-apis.mdx` on every branch. Then the first matching row. A named Effect module is `references/port-module.md` even when a CLI or a sibling is also named. Finish that file, then the row.
 
-| Utterance names | Read, the whole file | Do not read |
+| Utterance | Then read | Do not read |
 | --- | --- | --- |
-| flywheel | `references/migrate-flywheel.md` | the other migrate files, both build files |
-| toron | `references/migrate-toron.md` | the other migrate files, both build files |
-| beads, br, gates | `references/migrate-beads.md` | the other migrate files, both build files |
-| chiebukuro, chie, resonate pipeline | `references/migrate-chiebukuro.md` | the other migrate files, both build files |
-| port, add, or extend a named Effect module, or a new framework module | `references/port-module.md` | migrate files. Read one build file after, only when the utterance also names an app or a CLI |
-| CLI, command, argv, subcommand | `references/build-cli.md` | `build-app.md`, migrate files |
-| app, service, long-running program, fold | `references/build-app.md` | `build-cli.md`, migrate files |
-| next phase, keep going, no module and no product | `references/write.md` | migrate files, both build files |
-| durable stream, offset, epoch, fork, snapshot, after a branch is already chosen | that branch's file, then `references/durable-log.md` | the state protocol, the HTTP client design |
-
-A build that resumes after a crash also reads `references/durable-log.md`. A build that names an Effect module whose ledger row is not `matched` reads `references/port-module.md` first, then the build file. A sibling branch that persists or replays does the same with `durable-log.md`. A retry wrapper does not.
+| how to call, example, API, guide | the topic file under `docs/guides/` | migrate files |
+| flywheel | `references/migrate-flywheel.md` | other migrate files |
+| toron | `references/migrate-toron.md` | other migrate files |
+| beads, br, gates | `references/migrate-beads.md` | other migrate files |
+| chiebukuro, resonate pipeline | `references/migrate-chiebukuro.md` | other migrate files |
+| port or add an Effect module | `references/port-module.md` | migrate files until the port is done |
+| CLI, argv | `references/build-cli.md` | `build-app.md` |
+| app, long-lived program, fold | `references/build-app.md` | `build-cli.md` |
+| add a service, log, or program type | `docs/guides/13-add-a-capability.mdx` | a new scheduler |
+| crash must resume | `references/durable-log.md` | the state protocol |
+| red test inside elm-effect-rs | `references/write.md` | a sibling |
 
 ## Gate
 
-Before editing a sibling, the tests named in that sibling file are green in elm-effect-rs. Red means implement that phase in elm-effect-rs first, in the same task, then edit the sibling. Do not split the task by asking.
-
-Phase order is ADR-0002's phase list. Do not skip a red law test to reach the sibling.
+A sibling edit waits until `cargo test -p elm-effect` is green. The ignored conformance test stays red while behavior rows are `unported`. That red test is not a reason to rebuild the kernel. Port the rows, or leave them, and say which.
 
 ## Done
 
-Done is the checklist in the file the branch table named, plus the `cargo test` that file names. Report the paths changed and the commands run. Do not end on a question.
+The branch file's checklist is true, and the `cargo test` it names passed. Report paths and commands. Do not end on a question.
 
 ## Never
 
-- A second `EffectState` enum. The boundary mirror has no `Parked`, and adding it there hides the drift instead of retiring the mirror.
-- A saga, a thunk, or a listener that starts work the fold did not return. Replay cannot see that work, so a crash runs it twice or not at all.
-- `HashMap` inside a `Program::Model`. Iteration order changes the command list across processes.
-- Rebuilding `.beads/gates.jsonl` from `issues.jsonl`. The issues log does not hold verdicts, and a rebuild empties them.
-- `or_die` after a retry budget. The caller still needs the typed error to fall back. `catch_cause` belongs to the fiber supervisor, because a business handler that sees defects swallows bugs.
-- Storing `collapsing_cursor` as the fold offset. That token is for CDN fan-in. The resume token is `offset`.
-- Expiring producer epoch state on a TTL. The draft allows it. A zombie after expiry double-sends mail.
-- Treating `UpToDate` as EOF. Caught up means more appends may arrive. `Closed` is the end.
+- A second `EffectState`. Park is not a new effect-row edge.
+- A saga or a listener that starts work the fold did not return.
+- `HashMap` in a `Program::Model`.
+- `or_die` after retry. `catch_cause` outside the supervisor.
+- `tokio::time::sleep` or `tokio::time::pause` inside an effect.
+- A hand-built offset. A `seq` gap. A producer id with only epoch or only seq.
+- `UpToDate` treated as EOF.

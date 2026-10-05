@@ -1,6 +1,6 @@
 # Port or add a module
 
-Extending the framework. One Effect module, or one new module this stack needs that Effect does not have. Building a product on top of a module that already exists is `build-app.md` or `build-cli.md`.
+Read `docs/guides/15-use-the-apis.mdx` and `docs/guides/13-add-a-capability.mdx`. One Effect module, or one new module this stack needs that Effect does not have. A product on top of a module that already exists is `build-app.md` or `build-cli.md`.
 
 The pin is `conformance/PIN`. Read the TypeScript at that tag, not `main`. Placement and stability are ADR-0002, sections "What 100% feature and test parity means", "Crate map", and "Platform substitutes".
 
