@@ -704,15 +704,15 @@ ported	packages/effect/test/Config.test.ts	227	it	url decodes valid URLs and rep
 ported	packages/effect/test/Config.test.ts	243	it	map transforms successful values in data-first and data-last form	config_arrays_and_combinators
 unported	packages/effect/test/Config.test.ts	258	it	mapOrFail supports effectful validation	
 ported	packages/effect/test/Config.test.ts	281	it	orElse evaluates the fallback after absence	config_arrays_and_combinators
-unported	packages/effect/test/Config.test.ts	307	it	lets an inner config propagate parsing failure	
-unported	packages/effect/test/Config.test.ts	314	it	lets an inner config propagate key absence	
-unported	packages/effect/test/Config.test.ts	321	it	lets recover after an inner config propagated parsing failure	
-unported	packages/effect/test/Config.test.ts	328	it	lets recover after an inner config propagated key absence	
-unported	packages/effect/test/Config.test.ts	335	it	propagates inner config success	
-unported	packages/effect/test/Config.test.ts	342	it	lets the base config propagate parsing failure	
-unported	packages/effect/test/Config.test.ts	349	it	lets the base config propagate key absence	
-unported	packages/effect/test/Config.test.ts	356	it	lets recover after the base config propagated parsing failure	
-unported	packages/effect/test/Config.test.ts	363	it	lets recover after the base config propagated key absence	
+ported	packages/effect/test/Config.test.ts	307	it	lets an inner config propagate parsing failure	config_inner_propagates_parsing_failure
+ported	packages/effect/test/Config.test.ts	314	it	lets an inner config propagate key absence	config_inner_propagates_key_absence
+ported	packages/effect/test/Config.test.ts	321	it	lets recover after an inner config propagated parsing failure	config_recovers_after_inner_parsing_failure
+ported	packages/effect/test/Config.test.ts	328	it	lets recover after an inner config propagated key absence	config_recovers_after_inner_key_absence
+ported	packages/effect/test/Config.test.ts	335	it	propagates inner config success	config_propagates_inner_success
+ported	packages/effect/test/Config.test.ts	342	it	lets the base config propagate parsing failure	config_base_propagates_parsing_failure
+ported	packages/effect/test/Config.test.ts	349	it	lets the base config propagate key absence	config_base_propagates_key_absence
+ported	packages/effect/test/Config.test.ts	356	it	lets recover after the base config propagated parsing failure	config_recovers_after_base_parsing_failure
+ported	packages/effect/test/Config.test.ts	363	it	lets recover after the base config propagated key absence	config_recovers_after_base_key_absence
 ported	packages/effect/test/Config.test.ts	370	it	handles chains of multiple flatMaps and withDefaults	config_flat_map_chains
 unported	packages/effect/test/Config.test.ts	408	it	lifts absence in nested composition	
 ported	packages/effect/test/Config.test.ts	423	it.effect	matches map when chained with succeed, including grouped defaults and options	config_map_chained_with_succeed
