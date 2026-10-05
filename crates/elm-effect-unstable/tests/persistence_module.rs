@@ -141,6 +141,15 @@ fn queue_cleanup_prunes() {
 // ------------------------------------------------------------------- redis ---
 
 #[test]
+fn redis_clear_empty_succeeds() {
+    let mut r = FakeRedis::new();
+    r.clear();
+    r.subscribe("a").unwrap();
+    r.clear();
+    assert_eq!(r.dequeue("a", false).unwrap(), None);
+}
+
+#[test]
 fn redis_proto_key_survives() {
     let mut r = FakeRedis::new();
     let sha = r.script_load("__proto__ = 1");

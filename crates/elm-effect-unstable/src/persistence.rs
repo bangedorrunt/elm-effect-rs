@@ -541,6 +541,13 @@ impl FakeRedis {
         }))
     }
 
+    /// Clear everything (succeeds on empty stores).
+    pub fn clear(&mut self) {
+        self.scripts.clear();
+        self.channels.clear();
+        self.listeners.clear();
+    }
+
     /// Shut down: releases the subscriber with no more messages.
     pub fn shutdown(&mut self) {
         self.down = true;
