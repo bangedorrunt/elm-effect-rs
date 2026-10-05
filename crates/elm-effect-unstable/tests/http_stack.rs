@@ -113,3 +113,33 @@ fn http_body_renders_with_content_type() {
         b"a=b+c".to_vec()
     );
 }
+
+#[test]
+fn url_params_roundtrip_ordered_pairs() {
+    use elm_effect_unstable::http::UrlParams;
+    let params = UrlParams::parse("?b=2&a=1&b=3&flag");
+    assert_eq!(
+        params.pairs(),
+        &[
+            ("b".to_string(), Some("2".to_string())),
+            ("a".to_string(), Some("1".to_string())),
+            ("b".to_string(), Some("3".to_string())),
+            ("flag".to_string(), None),
+        ]
+    );
+    assert_eq!(params.render(), "b=2&a=1&b=3&flag");
+    assert_eq!(UrlParams::parse(&params.render()), params);
+}
+
+#[test]
+fn url_params_first_last_and_set_replace() {
+    use elm_effect_unstable::http::UrlParams;
+    let mut params = UrlParams::parse("b=2&b=3");
+    assert_eq!(params.get_first("b"), Some("2"));
+    assert_eq!(params.get_last("b"), Some("3"));
+    assert_eq!(params.get_first("missing"), None);
+    params.set("b", Some("9".to_string()));
+    assert_eq!(params.pairs(), &[("b".to_string(), Some("9".to_string()))]);
+    assert!(params.remove("b"));
+    assert!(!params.remove("b"));
+}

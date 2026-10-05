@@ -6701,9 +6701,9 @@ unported	packages/effect/test/http/Url.test.ts	110	it	modifyUrlParams
 unported	packages/effect/test/http/Url.test.ts	114	it	urlParams	
 unported	packages/effect/test/http/Url.test.ts	119	it	setUrlParams	
 unported	packages/effect/test/http/UrlParams.test.ts	9	it	coerces null to a string	
-unported	packages/effect/test/http/UrlParams.test.ts	15	it	does not retain parameters when reusing UrlParams overrides	
-unported	packages/effect/test/http/UrlParams.test.ts	27	it	round-trips ordered pairs with the serializer annotation	
-unported	packages/effect/test/http/UrlParams.test.ts	35	it	getFirst and getLast return Option	
+ported	packages/effect/test/http/UrlParams.test.ts	15	it	does not retain parameters when reusing UrlParams overrides	url_params_first_last_and_set_replace
+ported	packages/effect/test/http/UrlParams.test.ts	27	it	round-trips ordered pairs with the serializer annotation	url_params_roundtrip_ordered_pairs
+ported	packages/effect/test/http/UrlParams.test.ts	35	it	getFirst and getLast return Option	url_params_first_last_and_set_replace
 unported	packages/effect/test/http/UrlParams.test.ts	49	it	JsonFromUrlParamsField applies a JSON reviver	
 unported	packages/effect/test/http/UrlParams.test.ts	60	it	RecordFromUrlParams preserves single and repeated values	
 unported	packages/effect/test/httpapi/HttpApi.test.ts	6	it	stores the supplied identifier	

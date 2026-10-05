@@ -551,3 +551,139 @@ fn percent_encode(text: &str) -> String {
     }
     out
 }
+
+/// Ordered URL query parameters with repeat support.
+///
+/// Ports the portable core of `UrlParams.ts`: pairs keep insertion order,
+/// names may repeat, a missing `=` is a `None` value. `get_first`/`get_last`
+/// return `Option` (`None` values read as empty strings).
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct UrlParams {
+    pairs: Vec<(String, Option<String>)>,
+}
+
+impl UrlParams {
+    /// Empty parameters.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Build from pairs.
+    pub fn from_pairs(pairs: Vec<(String, Option<String>)>) -> Self {
+        Self { pairs }
+    }
+
+    /// Parse a query string (leading `?` allowed).
+    pub fn parse(query: &str) -> Self {
+        let query = query.strip_prefix('?').unwrap_or(query);
+        if query.is_empty() {
+            return Self::new();
+        }
+        Self {
+            pairs: query
+                .split('&')
+                .filter(|segment| !segment.is_empty())
+                .map(|segment| match segment.split_once('=') {
+                    Some((name, value)) => {
+                        (percent_decode(name), Some(percent_decode(value)))
+                    }
+                    None => (percent_decode(segment), None),
+                })
+                .collect(),
+        }
+    }
+
+    /// First value for `name`, or `None` when absent (`None` values read
+    /// as empty strings).
+    pub fn get_first(&self, name: &str) -> Option<&str> {
+        self.pairs
+            .iter()
+            .find(|(n, _)| n == name)
+            .map(|(_, v)| v.as_deref().unwrap_or(""))
+    }
+
+    /// Last value for `name`, or `None` when absent.
+    pub fn get_last(&self, name: &str) -> Option<&str> {
+        self.pairs
+            .iter()
+            .rev()
+            .find(|(n, _)| n == name)
+            .map(|(_, v)| v.as_deref().unwrap_or(""))
+    }
+
+    /// Set, dropping every existing pair with `name` (overrides replace).
+    pub fn set(&mut self, name: impl Into<String>, value: Option<String>) {
+        let name = name.into();
+        self.pairs.retain(|(n, _)| n != &name);
+        self.pairs.push((name, value));
+    }
+
+    /// Append without dropping existing pairs.
+    pub fn append(&mut self, name: impl Into<String>, value: Option<String>) {
+        self.pairs.push((name.into(), value));
+    }
+
+    /// Remove every pair with `name`; true when something was removed.
+    pub fn remove(&mut self, name: &str) -> bool {
+        let before = self.pairs.len();
+        self.pairs.retain(|(n, _)| n != name);
+        self.pairs.len() != before
+    }
+
+    /// All pairs in insertion order.
+    pub fn pairs(&self) -> &[(String, Option<String>)] {
+        &self.pairs
+    }
+
+    /// Render back to a query string (`None` values render as bare keys).
+    pub fn render(&self) -> String {
+        self.pairs
+            .iter()
+            .map(|(name, value)| match value {
+                Some(v) => format!("{}={}", percent_encode(name), percent_encode(v)),
+                None => percent_encode(name),
+            })
+            .collect::<Vec<_>>()
+            .join("&")
+    }
+}
+
+fn hex_val(byte: u8) -> Option<u8> {
+    match byte {
+        b'0'..=b'9' => Some(byte - b'0'),
+        b'a'..=b'f' => Some(byte - b'a' + 10),
+        b'A'..=b'F' => Some(byte - b'A' + 10),
+        _ => None,
+    }
+}
+
+fn percent_decode(text: &str) -> String {
+    let mut out = Vec::new();
+    let bytes = text.as_bytes();
+    let mut i = 0;
+    while i < bytes.len() {
+        match bytes[i] {
+            b'+' => {
+                out.push(b' ');
+                i += 1;
+            }
+            b'%' if i + 2 <= bytes.len() => {
+                match (hex_val(bytes[i + 1]), hex_val(bytes[i + 2])) {
+                    (Some(hi), Some(lo)) => {
+                        out.push(hi << 4 | lo);
+                        i += 3;
+                    }
+                    _ => {
+                        out.push(b'%');
+                        i += 1;
+                    }
+                }
+            }
+            byte => {
+                out.push(byte);
+                i += 1;
+            }
+        }
+    }
+    String::from_utf8_lossy(&out).into_owned()
+}
