@@ -1504,7 +1504,7 @@ unported	packages/effect/test/EffectEager.test.ts	562	it.effect	falls back to re
 unported	packages/effect/test/EffectEager.test.ts	600	it.effect	falls back to regular matchCause for delayed failure effects	
 unported	packages/effect/test/EffectEager.test.ts	638	it	handles cause information correctly	
 unported	packages/effect/test/EffectEager.test.ts	658	it.effect	preserves effect execution behavior for non-eager paths	
-unported	packages/effect/test/EffectKeepAlive.test.ts	4	it	makeRunMain keeps process alive until completion	
+ported	packages/effect/test/EffectKeepAlive.test.ts	4	it	makeRunMain keeps process alive until completion	keepalive_child_completes_slow_effect
 unported	packages/effect/test/EffectKeepAlive.test.ts	41	it	makeRunMain when setInterval is blocked	
 unported	packages/effect/test/Effectable.test.ts	19	it.effect	evaluates asEffect	
 unported	packages/effect/test/Effectable.test.ts	25	it.effect	propagates failures	
@@ -2855,9 +2855,9 @@ unported	packages/effect/test/PartitionedSemaphore.test.ts	93	it.effect	interrup
 ported	packages/effect/test/PartitionedSemaphore.test.ts	122	it.effect	competing takes cannot acquire the same permit across scheduler yields	semaphore_competing_takes_serialize
 unported	packages/effect/test/PartitionedSemaphore.test.ts	161	it.effect	interrupting withPermitsIfAvailable before cleanup is installed restores permits	
 unported	packages/effect/test/PartitionedSemaphore.test.ts	196	it.effect	interrupting a resumed waiter preserves the next ${key}-key waiter	
-unported	packages/effect/test/Pathfinding.test.ts	27	it	should find paths using Dijkstra algorithm	
-unported	packages/effect/test/Pathfinding.test.ts	40	it	should find paths using Bellman-Ford algorithm	
-unported	packages/effect/test/Pathfinding.test.ts	53	it	should find paths using A* algorithm	
+ported	packages/effect/test/Pathfinding.test.ts	27	it	should find paths using Dijkstra algorithm	dijkstra_finds_cheapest_detour
+ported	packages/effect/test/Pathfinding.test.ts	40	it	should find paths using Bellman-Ford algorithm	bellman_ford_finds_cheapest_detour
+ported	packages/effect/test/Pathfinding.test.ts	53	it	should find paths using A* algorithm	astar_finds_cheapest_detour
 unported	packages/effect/test/Pool.test.ts	11	it.effect	preallocates pool items	
 unported	packages/effect/test/Pool.test.ts	35	it.effect	cleans up items when shut down	
 unported	packages/effect/test/Pool.test.ts	50	it.effect	defects don't prevent cleanup	
