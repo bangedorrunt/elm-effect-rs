@@ -6966,18 +6966,18 @@ unported	packages/effect/test/net/IpNetwork.test.ts	206	it	checks network contai
 unported	packages/effect/test/net/IpNetwork.test.ts	221	it	provides checked unsafe wrappers	
 unported	packages/effect/test/net/IpNetwork.test.ts	229	it	decodes declarations and canonically encodes Schema strings	
 unported	packages/effect/test/net/IpNetwork.test.ts	244	it	matches independent range models for generated networks	
-unported	packages/effect/test/net/NetAddress.test.ts	19	it	returns IP address widths	
-unported	packages/effect/test/net/NetAddress.test.ts	25	it	parses strict dotted decimal	
-unported	packages/effect/test/net/NetAddress.test.ts	35	it	rejects malformed inputs	
+ported	packages/effect/test/net/NetAddress.test.ts	19	it	returns IP address widths	strict_ip_parses_widths_and_octets
+ported	packages/effect/test/net/NetAddress.test.ts	25	it	parses strict dotted decimal	strict_ip_parses_widths_and_octets
+ported	packages/effect/test/net/NetAddress.test.ts	35	it	rejects malformed inputs	strict_ip_rejects_malformed
 unported	packages/effect/test/net/NetAddress.test.ts	71	it	uses canonical compression and embedded IPv4 policy	
-unported	packages/effect/test/net/NetAddress.test.ts	79	it	rejects malformed inputs	
+ported	packages/effect/test/net/NetAddress.test.ts	79	it	rejects malformed inputs	strict_ip_rejects_malformed
 unported	packages/effect/test/net/NetAddress.test.ts	104	it	round trips constructed numeric values	
 unported	packages/effect/test/net/NetAddress.test.ts	116	it	uses numeric equality and hash laws	
 unported	packages/effect/test/net/NetAddress.test.ts	123	it	converts mapped IPv4 addresses	
-unported	packages/effect/test/net/NetAddress.test.ts	134	it	returns IPv6 octets	
+ported	packages/effect/test/net/NetAddress.test.ts	134	it	returns IPv6 octets	strict_ip_parses_widths_and_octets
 unported	packages/effect/test/net/NetAddress.test.ts	165	it	parses and canonically formats six octets	
 unported	packages/effect/test/net/NetAddress.test.ts	177	it	rejects malformed inputs and invalid octets	
-unported	packages/effect/test/net/NetAddress.test.ts	196	it	classifies address bits	
+ported	packages/effect/test/net/NetAddress.test.ts	196	it	classifies address bits	strict_ip_classifies_bits
 unported	packages/effect/test/net/NetAddress.test.ts	208	it	classifies documented address ranges at their boundaries	
 unported	packages/effect/test/net/NetAddress.test.ts	242	it	classifies IP boundaries without claiming reachability	
 unported	packages/effect/test/net/NetAddress.test.ts	273	it	classifies the independent MAC group and administration bits	

@@ -197,3 +197,129 @@ impl IpInterface {
         }
     }
 }
+
+/// Address class for bit classification.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum IpClass {
+    /// `0.0.0.0` / `::`.
+    Unspecified,
+    /// `127.0.0.0/8` / `::1`.
+    Loopback,
+    /// RFC 1918 / ULA.
+    Private,
+    /// Link-local (`169.254/16`, `fe80::/10`).
+    LinkLocal,
+    /// Multicast.
+    Multicast,
+    /// Limited broadcast `255.255.255.255`.
+    Broadcast,
+    /// Anything else (no reachability claim).
+    Global,
+}
+
+/// A strictly parsed IP address with classification.
+///
+/// Ports the portable core of `NetAddress.ts` IP handling: strict dotted
+/// decimal (no whitespace, no empty parts, no leading zeros, 0-255),
+/// full IPv6 via the standard parser, canonical text, octets, widths,
+/// and bit classification. Sockets, zones, MAC, and schemas are out of
+/// scope here.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct StrictIp {
+    addr: IpAddr,
+}
+
+impl StrictIp {
+    /// Parse strictly. IPv4 requires exactly four dot-separated decimal
+    /// parts without leading zeros; IPv6 uses standard notation.
+    pub fn parse(text: &str) -> Option<Self> {
+        if text.is_empty() || text.bytes().any(|b| b.is_ascii_whitespace()) {
+            return None;
+        }
+        if text.contains('.') && !text.contains(':') {
+            let parts: Vec<&str> = text.split('.').collect();
+            if parts.len() != 4 {
+                return None;
+            }
+            let mut octets = [0u8; 4];
+            for (i, part) in parts.iter().enumerate() {
+                if part.is_empty()
+                    || part.len() > 3
+                    || !part.bytes().all(|b| b.is_ascii_digit())
+                    || (part.len() > 1 && part.starts_with('0'))
+                {
+                    return None;
+                }
+                octets[i] = part.parse().ok()?;
+            }
+            return Some(Self {
+                addr: IpAddr::V4(octets.into()),
+            });
+        }
+        let addr: IpAddr = text.parse().ok()?;
+        Some(Self { addr })
+    }
+
+    /// The address width in bits (32 or 128).
+    pub fn width(&self) -> u8 {
+        match self.addr {
+            IpAddr::V4(_) => 32,
+            IpAddr::V6(_) => 128,
+        }
+    }
+
+    /// Raw octets in network order.
+    pub fn octets(&self) -> Vec<u8> {
+        match self.addr {
+            IpAddr::V4(v4) => v4.octets().to_vec(),
+            IpAddr::V6(v6) => v6.octets().to_vec(),
+        }
+    }
+
+    /// Canonical text (compressed IPv6, dotted IPv4).
+    pub fn render(&self) -> String {
+        self.addr.to_string()
+    }
+
+    /// Bit classification (no reachability claim).
+    pub fn classify(&self) -> IpClass {
+        match self.addr {
+            IpAddr::V4(v4) => {
+                let o = v4.octets();
+                if o == [0, 0, 0, 0] {
+                    IpClass::Unspecified
+                } else if o[0] == 127 {
+                    IpClass::Loopback
+                } else if o[0] == 10
+                    || (o[0] == 172 && (16..32).contains(&o[1]))
+                    || (o[0] == 192 && o[1] == 168)
+                {
+                    IpClass::Private
+                } else if o[0] == 169 && o[1] == 254 {
+                    IpClass::LinkLocal
+                } else if (224..240).contains(&o[0]) {
+                    IpClass::Multicast
+                } else if o == [255, 255, 255, 255] {
+                    IpClass::Broadcast
+                } else {
+                    IpClass::Global
+                }
+            }
+            IpAddr::V6(v6) => {
+                if v6.is_unspecified() {
+                    IpClass::Unspecified
+                } else if v6.is_loopback() {
+                    IpClass::Loopback
+                } else if (v6.segments()[0] & 0xfe00) == 0xfc00 {
+                    IpClass::Private
+                } else if (v6.segments()[0] & 0xffc0) == 0xfe80 {
+                    IpClass::LinkLocal
+                } else if v6.is_multicast() {
+                    IpClass::Multicast
+                } else {
+                    IpClass::Global
+                }
+            }
+        }
+    }
+}

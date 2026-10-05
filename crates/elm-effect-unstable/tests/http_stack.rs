@@ -316,3 +316,34 @@ fn ipinterface_bare_defaults_full_width() {
     assert!(net.contains_addr(IpInterface::from_addr(v4).address()));
     assert_eq!(IpInterface::from_addr(v4).network(), IpNetwork::parse("10.0.0.9/32").unwrap());
 }
+
+#[test]
+fn strict_ip_parses_widths_and_octets() {
+    use elm_effect_unstable::net::StrictIp;
+    let v4 = StrictIp::parse("192.168.1.7").unwrap();
+    assert_eq!(v4.width(), 32);
+    assert_eq!(v4.octets(), vec![192, 168, 1, 7]);
+    assert_eq!(v4.render(), "192.168.1.7");
+    let v6 = StrictIp::parse("2001:db8::1").unwrap();
+    assert_eq!(v6.width(), 128);
+    assert_eq!(v6.octets().len(), 16);
+    assert_eq!(v6.render(), "2001:db8::1");
+}
+
+#[test]
+fn strict_ip_rejects_malformed() {
+    use elm_effect_unstable::net::StrictIp;
+    for bad in ["", "1.2.3", "1.2.3.4.5", "256.1.1.1", "01.2.3.4", "1.2.3.x", " 1.2.3.4", "1.2.3.4 ", ":::"] {
+        assert!(StrictIp::parse(bad).is_none(), "{bad}");
+    }
+}
+
+#[test]
+fn strict_ip_classifies_bits() {
+    use elm_effect_unstable::net::{IpClass, StrictIp};
+    assert_eq!(StrictIp::parse("127.0.0.1").unwrap().classify(), IpClass::Loopback);
+    assert_eq!(StrictIp::parse("10.1.2.3").unwrap().classify(), IpClass::Private);
+    assert_eq!(StrictIp::parse("224.0.0.1").unwrap().classify(), IpClass::Multicast);
+    assert_eq!(StrictIp::parse("8.8.8.8").unwrap().classify(), IpClass::Global);
+    assert_eq!(StrictIp::parse("::1").unwrap().classify(), IpClass::Loopback);
+}
