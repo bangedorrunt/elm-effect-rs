@@ -240,3 +240,72 @@ impl ChildHandle {
         }
     }
 }
+
+// Pipelines
+
+/// A chain of commands with stdout piped into the next stdin.
+#[derive(Clone, Debug)]
+pub struct Pipeline {
+    stages: Vec<CommandSpec>,
+}
+
+impl Pipeline {
+    /// Build from stages (at least one).
+    pub fn new(stages: Vec<CommandSpec>) -> Self {
+        Self { stages }
+    }
+
+    /// True for multi-stage (piped) commands.
+    pub fn is_piped(&self) -> bool {
+        self.stages.len() > 1
+    }
+
+    /// Run the chain: each stage reads the previous stdout. Returns the
+    /// last stage output (its code and streams).
+    pub fn run(&self) -> Result<CommandOutput, ProcessError> {
+        if self.stages.is_empty() {
+            return Err(ProcessError::Spawn("empty pipeline".to_string()));
+        }
+        let mut previous: Option<std::process::ChildStdout> = None;
+        let mut children: Vec<std::process::Child> = Vec::new();
+        for (index, stage) in self.stages.iter().enumerate() {
+            let last = index + 1 == self.stages.len();
+            let mut command = std::process::Command::new(stage.program());
+            command
+                .args(stage.args())
+                .stdin(match previous.take() {
+                    Some(stdout) => stdout.into(),
+                    None => std::process::Stdio::inherit(),
+                })
+                .stdout(std::process::Stdio::piped())
+                .stderr(std::process::Stdio::piped());
+            if let Some(dir) = &stage.cwd {
+                command.current_dir(dir);
+            }
+            if stage.clear_env {
+                command.env_clear();
+            }
+            for (name, value) in &stage.envs {
+                command.env(name, value);
+            }
+            let mut child = command.spawn().map_err(|e| ProcessError::Spawn(e.to_string()))?;
+            if !last {
+                previous = child.stdout.take();
+            } else {
+                let output = child
+                    .wait_with_output()
+                    .map_err(|e| ProcessError::Spawn(e.to_string()))?;
+                for mut earlier in children.drain(..) {
+                    let _: Result<_, _> = earlier.wait();
+                }
+                return Ok(CommandOutput {
+                    code: output.status.code(),
+                    stdout: output.stdout,
+                    stderr: output.stderr,
+                });
+            }
+            children.push(child);
+        }
+        Err(ProcessError::Spawn("empty pipeline".to_string()))
+    }
+}

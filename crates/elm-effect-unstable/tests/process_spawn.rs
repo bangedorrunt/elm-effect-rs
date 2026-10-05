@@ -68,3 +68,25 @@ fn env_vars_merge_and_override() {
     let out = child.wait().unwrap();
     assert_eq!(out.stdout_text().trim(), "templated");
 }
+
+#[test]
+fn pipelines_chain_stdio() {
+    use process::Pipeline;
+    let pipe = Pipeline::new(vec![
+        command_array("echo", &["hello"]),
+        command_array("tr", &["a-z", "A-Z"]),
+    ]);
+    assert!(pipe.is_piped());
+    let out = pipe.run().unwrap();
+    assert!(out.is_success());
+    assert_eq!(out.stdout_text().trim(), "HELLO");
+}
+
+#[test]
+fn single_stage_is_not_piped() {
+    use process::Pipeline;
+    let single = Pipeline::new(vec![command_array("echo", &["hi"])]);
+    assert!(!single.is_piped());
+    let out = single.run().unwrap();
+    assert_eq!(out.stdout_text().trim(), "hi");
+}
