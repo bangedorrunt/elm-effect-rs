@@ -475,4 +475,44 @@ impl IpInterface {
     pub fn must_parse(text: &str) -> Self {
         Self::parse(text).expect("valid interface")
     }
+
+    /// The runtime type tag (TS `_tag: "IpInterface"`).
+    pub const TAG: &'static str = "IpInterface";
+
+    /// Checked unsafe constructor: range-checked prefix, host bits kept
+    /// (interfaces carry an address, not a network). Panics on invalid
+    /// input (TS `makeUnsafe`).
+    pub fn make_unsafe(address: IpAddr, prefix: f64) -> Self {
+        let max = match address {
+            IpAddr::V4(_) => 32,
+            IpAddr::V6(_) => 128,
+        };
+        assert!(
+            prefix.is_finite()
+                && prefix.fract() == 0.0
+                && prefix >= 0.0
+                && prefix <= f64::from(max),
+            "invalid prefix"
+        );
+        Self {
+            address,
+            prefix: prefix as u8,
+        }
+    }
+
+    /// Any interface counts (TS `isIpInterface`; the negative halves are
+    /// unrepresentable here).
+    pub fn is_interface(&self) -> bool {
+        true
+    }
+
+    /// True for IPv4 interfaces (TS `isIpv4Interface`).
+    pub fn is_ipv4(&self) -> bool {
+        matches!(self.address, IpAddr::V4(_))
+    }
+
+    /// True for IPv6 interfaces (TS `isIpv6Interface`).
+    pub fn is_ipv6(&self) -> bool {
+        matches!(self.address, IpAddr::V6(_))
+    }
 }

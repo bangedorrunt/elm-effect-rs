@@ -142,3 +142,17 @@ fn from_address_truncates_host_bits() {
         assert_eq!(net.render(), expected, "{addr}/{prefix}");
     }
 }
+
+#[test]
+fn interfaces_share_one_tagged_representation() {
+    use net::IpInterface;
+    let v4 = IpInterface::make_unsafe("0.0.0.0".parse().unwrap(), 0.0);
+    let v6 = IpInterface::make_unsafe("::".parse().unwrap(), 0.0);
+    assert_eq!(IpInterface::TAG, "IpInterface");
+    assert!(v4.is_ipv4());
+    assert!(v6.is_ipv6());
+    assert!(!v4.is_ipv6());
+    assert!(!v6.is_ipv4());
+    assert!(v4.is_interface());
+    assert!(v6.is_interface());
+}
