@@ -8379,7 +8379,7 @@ unported	packages/effect/test/schema/SchemaParser.test.ts	521	it	should throw an
 unported	packages/effect/test/schema/SchemaParser.test.ts	531	it	should throw an error when the cause contains both an Issue and a defect	
 unported	packages/effect/test/schema/SchemaParser.test.ts	555	it	should reject with an error when the input is invalid	
 unported	packages/effect/test/schema/SchemaParser.test.ts	565	it	should reject with an error when the cause contains both an Issue and a defect	
-unported	packages/effect/test/schema/SchemaParser.test.ts	590	it	should return none when the input is invalid	
+ported	packages/effect/test/schema/SchemaParser.test.ts	590	it	should return none when the input is invalid	parser_decode_option_none_on_invalid
 unported	packages/effect/test/schema/SchemaParser.test.ts	598	it	should throw an error when the cause is not an Issue	
 unported	packages/effect/test/schema/SchemaParser.test.ts	620	it	should throw an error when the cause contains both an Issue and a defect	
 ported	packages/effect/test/schema/SchemaParser.test.ts	644	it	should return false when the input is invalid	parser_type_side_and_options

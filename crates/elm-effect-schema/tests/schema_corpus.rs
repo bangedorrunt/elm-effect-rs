@@ -1073,3 +1073,25 @@ fn parser_decode_json_rejects_trailing_garbage() {
     assert!(Schema::number().decode_json("1 ").is_err() || Schema::number().decode_json("1").is_ok());
     assert!(Schema::string().decode_json("\"unterminated").is_err());
 }
+
+#[test]
+fn parser_decode_option_none_on_invalid() {
+    let schema = Schema::number();
+    assert_eq!(schema.decode(Unknown::Number(1.0)).ok(), Some(1.0));
+    assert_eq!(schema.decode(Unknown::Text("x".to_string())).ok(), None);
+    assert_eq!(schema.decode(Unknown::Null).ok(), None);
+}
+
+#[test]
+fn parser_decode_option_struct_fields() {
+    use elm_effect_schema::Field;
+    let schema = Schema::struct_shape(vec![
+        Field::required("n", Schema::as_unknown(Schema::number())),
+    ]);
+    let mut good = std::collections::BTreeMap::new();
+    good.insert("n".to_string(), Unknown::Number(1.0));
+    assert!(schema.decode(Unknown::Object(good)).ok().is_some());
+    let mut bad = std::collections::BTreeMap::new();
+    bad.insert("n".to_string(), Unknown::Text("x".to_string()));
+    assert_eq!(schema.decode(Unknown::Object(bad)).ok(), None);
+}
