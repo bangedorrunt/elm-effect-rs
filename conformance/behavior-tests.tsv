@@ -155,7 +155,7 @@ unported	packages/effect/test/ArrayNaNIndex.test.ts	23	it	rejects NaN in modify
 unported	packages/effect/test/ArrayNaNIndex.test.ts	27	it	treats removing NaN as an out-of-bounds no-op	
 unported	packages/effect/test/ArrayNaNIndex.test.ts	33	it	floors the index in replace	
 unported	packages/effect/test/ArrayNaNIndex.test.ts	37	it	floors the index in modify	
-unported	packages/effect/test/AtomRef.test.ts	5	it	notifies each subscribed listener once when a listener resubscribes itself	
+ported	packages/effect/test/AtomRef.test.ts	5	it	notifies each subscribed listener once when a listener resubscribes itself	resubscribe_notifies_each_listener_once
 ported	packages/effect/test/BigDecimal.test.ts	29	it	make	decimal_make_and_normalize
 ported	packages/effect/test/BigDecimal.test.ts	37	it	makeNormalizedUnsafe validates the value and scale	decimal_make_validates_scale
 ported	packages/effect/test/BigDecimal.test.ts	43	it	isBigDecimal	decimal_is_bigdecimal_brand
@@ -1740,7 +1740,7 @@ unported	packages/effect/test/FiberSet.test.ts	94	it.effect	propagateInterruptio
 unported	packages/effect/test/FiberSet.test.ts	105	it.effect	propagateInterruption true fails join on external interruption	
 unported	packages/effect/test/FiberSet.test.ts	120	it.effect	awaitEmpty	
 unported	packages/effect/test/FiberSet.test.ts	135	it.effect	makeRuntimePromise	
-unported	packages/effect/test/FiberSetRuntimePropagation.test.ts	6	it.effect	records external interruption when enabled	
+ported	packages/effect/test/FiberSetRuntimePropagation.test.ts	6	it.effect	records external interruption when enabled	set_interrupt_all_records_external_interruption
 unported	packages/effect/test/FileSystem.test-utils.ts	21	it	readFile	
 unported	packages/effect/test/FileSystem.test-utils.ts	29	it	makeTempDirectory	
 unported	packages/effect/test/FileSystem.test-utils.ts	42	it	makeTempDirectoryScoped	
@@ -9846,18 +9846,18 @@ unported	packages/effect/test/sql/SqlResolver.test.ts	67	it.effect	deduplicates 
 unported	packages/effect/test/sql/SqlResolver.test.ts	98	it.effect	does not execute a batch when every request fails encoding	
 unported	packages/effect/test/sql/SqlResolver.test.ts	116	it.effect	keeps valid results aligned when another request fails encoding	
 unported	packages/effect/test/sql/SqlResolver.test.ts	136	it.effect	does not execute a batch when every request fails encoding	
-unported	packages/effect/test/sql/SqlSchema.test.ts	10	it.effect	returns decoded results	
-unported	packages/effect/test/sql/SqlSchema.test.ts	22	it.effect	returns empty array when no rows	
-unported	packages/effect/test/sql/SqlSchema.test.ts	34	it.effect	fails when a row cannot be decoded	
+ported	packages/effect/test/sql/SqlSchema.test.ts	10	it.effect	returns decoded results	schema_find_all_decodes_or_fails
+ported	packages/effect/test/sql/SqlSchema.test.ts	22	it.effect	returns empty array when no rows	schema_find_all_decodes_or_fails
+ported	packages/effect/test/sql/SqlSchema.test.ts	34	it.effect	fails when a row cannot be decoded	schema_find_all_decodes_or_fails
 unported	packages/effect/test/sql/SqlSchema.test.ts	48	it.effect	returns non-empty decoded results	
 unported	packages/effect/test/sql/SqlSchema.test.ts	60	it.effect	fails with NoSuchElementError when no rows	
-unported	packages/effect/test/sql/SqlSchema.test.ts	74	it.effect	encodes request and discards result	
-unported	packages/effect/test/sql/SqlSchema.test.ts	91	it.effect	returns the first decoded row	
-unported	packages/effect/test/sql/SqlSchema.test.ts	103	it.effect	fails with NoSuchElementError when no rows are returned	
-unported	packages/effect/test/sql/SqlSchema.test.ts	115	it.effect	fails when the first row cannot be decoded	
-unported	packages/effect/test/sql/SqlSchema.test.ts	129	it.effect	returns Option.some when a row exists	
-unported	packages/effect/test/sql/SqlSchema.test.ts	144	it.effect	returns Option.none when no rows are returned	
-unported	packages/effect/test/sql/SqlSchema.test.ts	156	it.effect	fails when the first row cannot be decoded	
+ported	packages/effect/test/sql/SqlSchema.test.ts	74	it.effect	encodes request and discards result	schema_execute_discards_result
+ported	packages/effect/test/sql/SqlSchema.test.ts	91	it.effect	returns the first decoded row	schema_find_one_and_option
+ported	packages/effect/test/sql/SqlSchema.test.ts	103	it.effect	fails with NoSuchElementError when no rows are returned	schema_find_one_and_option
+ported	packages/effect/test/sql/SqlSchema.test.ts	115	it.effect	fails when the first row cannot be decoded	schema_find_one_and_option
+ported	packages/effect/test/sql/SqlSchema.test.ts	129	it.effect	returns Option.some when a row exists	schema_find_one_and_option
+ported	packages/effect/test/sql/SqlSchema.test.ts	144	it.effect	returns Option.none when no rows are returned	schema_find_one_and_option
+ported	packages/effect/test/sql/SqlSchema.test.ts	156	it.effect	fails when the first row cannot be decoded	schema_find_one_and_option
 unported	packages/effect/test/sql/Statement.test.ts	9	it	defaultTransforms ignores inherited properties	
 unported	packages/effect/test/sql/Statement.test.ts	22	it	compiles one fragment independently for each compiler	
 unported	packages/effect/test/sql/Statement.test.ts	40	it	renumbers a cached returning fragment	

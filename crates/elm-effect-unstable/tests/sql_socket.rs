@@ -201,6 +201,10 @@ fn schema_find_one_and_option() {
         Ok(Some("a".to_string()))
     );
     assert!(
+        db.query_option("t", |_| Err::<String, String>("bad row".to_string()))
+            .is_err()
+    );
+    assert!(
         db.query_one("t", |_| Err::<String, String>("bad row".to_string()))
             .is_err()
     );
