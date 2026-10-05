@@ -5385,7 +5385,7 @@ unported	packages/effect/test/arbitrary/Arbitrary.test.ts	978	it.effect	shrinks 
 unported	packages/effect/test/arbitrary/Arbitrary.test.ts	994	it.effect	structurally shrinks regular-expression repetitions	
 unported	packages/effect/test/arbitrary/Arbitrary.test.ts	1010	it.effect	structurally shrinks regular-expression alternatives to the first one	
 unported	packages/effect/test/arbitrary/Arbitrary.test.ts	1026	it.effect	derives independent random streams for adjacent attempts	
-unported	packages/effect/test/arbitrary/Arbitrary.test.ts	1037	it.effect	reaches both integer parities across the complete safe range	
+ported	packages/effect/test/arbitrary/Arbitrary.test.ts	1037	it.effect	reaches both integer parities across the complete safe range	safe_integers_cover_both_parities
 ported	packages/effect/test/arbitrary/Arbitrary.test.ts	1054	it.effect	spreads bounded integer samples across the complete domain	bounded_integers_cover_domain_and_edges
 unported	packages/effect/test/arbitrary/Arbitrary.test.ts	1072	it.effect	spreads bounded Number samples across one IEEE-754 binade	
 unported	packages/effect/test/arbitrary/Arbitrary.test.ts	1094	it.effect	targets bounded integer and BigInt edges while preserving broad coverage	

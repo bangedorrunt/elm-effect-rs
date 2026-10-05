@@ -95,3 +95,16 @@ fn array_honors_minima_maxima_and_exact_lengths() {
         4
     );
 }
+
+#[test]
+fn safe_integers_cover_both_parities() {
+    // Arbitrary.test.ts:1037 — the complete safe range reaches both parities.
+    const MIN_SAFE: i64 = -9_007_199_254_740_991;
+    const MAX_SAFE: i64 = 9_007_199_254_740_991;
+    let g = integer(MIN_SAFE, MAX_SAFE);
+    let mut rng = Rng::new(99);
+    let values: Vec<i64> = (0..200).map(|_| g.sample(&mut rng)).collect();
+    assert!(values.iter().all(|v| *v >= MIN_SAFE && *v <= MAX_SAFE));
+    assert!(values.iter().any(|v| v.rem_euclid(2) == 0));
+    assert!(values.iter().any(|v| v.rem_euclid(2) == 1));
+}
