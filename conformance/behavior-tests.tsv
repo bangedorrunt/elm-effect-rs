@@ -6451,12 +6451,12 @@ unported	packages/effect/test/http/FindMyWay/regex.test.ts	112	it	avoids backtra
 unported	packages/effect/test/http/FindMyWay/regex.test.ts	119	it	avoids backtracking across mixed static parameter separators	
 unported	packages/effect/test/http/Headers.test.ts	9	it	serializer annotation	
 unported	packages/effect/test/http/Headers.test.ts	26	it	does not expose inspectable prototype methods during for..in iteration	
-unported	packages/effect/test/http/Headers.test.ts	37	it	remove	
+ported	packages/effect/test/http/Headers.test.ts	37	it	remove	headers_are_case_insensitive_multimap
 unported	packages/effect/test/http/Headers.test.ts	43	it	removeMany deletes multiple headers	
 unported	packages/effect/test/http/Headers.test.ts	49	it	removeMany normalizes keys to lowercase	
 unported	packages/effect/test/http/Headers.test.ts	55	it	isRedactedName compares string patterns case-insensitively	
 unported	packages/effect/test/http/Headers.test.ts	59	it	works with for..in based headers polyfills	
-unported	packages/effect/test/http/Headers.test.ts	72	it	get returns Option	
+ported	packages/effect/test/http/Headers.test.ts	72	it	get returns Option	headers_are_case_insensitive_multimap
 unported	packages/effect/test/http/Headers.test.ts	78	it	redacts each header independently with a global pattern	
 unported	packages/effect/test/http/Headers.test.ts	88	it	checks each header independently with a sticky pattern	
 unported	packages/effect/test/http/Headers.test.ts	95	it	preserves caller-owned stateful pattern cursors	
