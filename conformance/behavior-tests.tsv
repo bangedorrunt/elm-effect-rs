@@ -6099,10 +6099,10 @@ unported	packages/effect/test/devtools/DevToolsClient.test.ts	7	it.effect	sends 
 ported	packages/effect/test/encoding/Base64.test.ts	6	it	encodes strings and bytes	base64_encodes_strings_and_bytes
 ported	packages/effect/test/encoding/Base64.test.ts	11	it	decodes bytes and UTF-8 strings	base64_decodes_bytes_and_strings
 ported	packages/effect/test/encoding/Base64.test.ts	19	it	rejects invalid input with format information	base64_rejects_invalid_input
-unported	packages/effect/test/encoding/Base64Url.test.ts	6	it	encodes strings and bytes without padding	
-unported	packages/effect/test/encoding/Base64Url.test.ts	11	it	decodes padded and unpadded input	
-unported	packages/effect/test/encoding/Base64Url.test.ts	19	it	rejects the standard Base64 alphabet and malformed lengths	
-unported	packages/effect/test/encoding/Base64Url.test.ts	31	it	rejects malformed padding	
+ported	packages/effect/test/encoding/Base64Url.test.ts	6	it	encodes strings and bytes without padding	base64_url_encodes_without_padding
+ported	packages/effect/test/encoding/Base64Url.test.ts	11	it	decodes padded and unpadded input	base64_url_decodes_padded_and_unpadded
+ported	packages/effect/test/encoding/Base64Url.test.ts	19	it	rejects the standard Base64 alphabet and malformed lengths	base64_url_rejects_standard_alphabet_and_bad_lengths
+ported	packages/effect/test/encoding/Base64Url.test.ts	31	it	rejects malformed padding	base64_url_rejects_malformed_padding
 ported	packages/effect/test/encoding/EncodingError.test.ts	5	it	constructs errors with encoding failure metadata	encoding_error_metadata
 unported	packages/effect/test/encoding/EncodingError.test.ts	24	it	identifies encoding errors	
 ported	packages/effect/test/encoding/Hex.test.ts	12	it	encodes strings and bytes as lowercase hexadecimal	hex_encodes_lowercase
