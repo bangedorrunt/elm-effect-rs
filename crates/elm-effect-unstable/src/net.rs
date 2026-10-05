@@ -62,6 +62,40 @@ impl IpNetwork {
         })
     }
 
+    /// Checked unsafe constructor: like `make`, but panics on invalid
+    /// input (TS `makeUnsafe`).
+    pub fn make_unsafe(addr: IpAddr, prefix: f64) -> Self {
+        Self::make(addr, prefix).expect("invalid network")
+    }
+
+    /// Lenient unsafe constructor: masks host bits instead of rejecting
+    /// them, still panicking on out-of-range prefixes (TS
+    /// `fromAddressUnsafe`).
+    pub fn from_address_unsafe(addr: IpAddr, prefix: f64) -> Self {
+        let max = match addr {
+            IpAddr::V4(_) => 32,
+            IpAddr::V6(_) => 128,
+        };
+        assert!(
+            prefix.is_finite()
+                && prefix.fract() == 0.0
+                && prefix >= 0.0
+                && prefix <= f64::from(max),
+            "invalid prefix"
+        );
+        let bits = prefix as u8;
+        Self {
+            network: mask(addr, bits),
+            prefix: bits,
+        }
+    }
+
+    /// Checked unsafe parse: panics on invalid input (TS
+    /// `fromStringUnsafe`).
+    pub fn from_string_unsafe(text: &str) -> Self {
+        Self::parse_reported(text).expect("invalid network")
+    }
+
     /// Strict parse with error-input echo (TS `fromString`): an unparsable
     /// address echoes the offending dotted quad (or whole address text); a
     /// malformed prefix echoes the full input once the address parsed;

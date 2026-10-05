@@ -99,3 +99,32 @@ fn checked_constructors_reject_bad_prefixes_and_host_bits() {
     assert_eq!(err.input, NetworkErrorInput::Addr(v4));
     assert!(IpNetwork::make("10.0.0.0".parse().unwrap(), 8.0).is_ok());
 }
+
+#[test]
+fn unsafe_string_forms_serialize_canonically() {
+    for text in ["192.0.2.0/24", "2001:db8::/32"] {
+        let net = IpNetwork::from_string_unsafe(text);
+        assert_eq!(net.render(), text);
+    }
+}
+
+#[test]
+fn unsafe_wrappers_mask_or_throw() {
+    use net::IpNetwork;
+    let masked = IpNetwork::from_address_unsafe("10.1.2.3".parse().unwrap(), 8.0);
+    assert_eq!(masked.render(), "10.0.0.0/8");
+    let valid = IpNetwork::from_string_unsafe("10.0.0.0/8");
+    assert_eq!(valid.render(), "10.0.0.0/8");
+    assert!(std::panic::catch_unwind(|| {
+        IpNetwork::make_unsafe("10.1.2.3".parse().unwrap(), 8.0)
+    })
+    .is_err());
+    assert!(std::panic::catch_unwind(|| {
+        IpNetwork::from_string_unsafe("10.1.2.3/8")
+    })
+    .is_err());
+    assert!(std::panic::catch_unwind(|| {
+        IpNetwork::from_address_unsafe("10.1.2.3".parse().unwrap(), 33.0)
+    })
+    .is_err());
+}
