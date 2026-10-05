@@ -2,7 +2,7 @@
 //! edges, shrink-to-boundary, and composition.
 
 use elm_effect_unstable::arbitrary::{
-    Rng, array, ascii_string, boolean, constant, hex_string, integer, option, record, tuple,
+    Rng, array, ascii_string, boolean, constant, hex_string, integer, number, option, record, tuple,
 };
 
 #[test]
@@ -107,4 +107,34 @@ fn safe_integers_cover_both_parities() {
     assert!(values.iter().all(|v| *v >= MIN_SAFE && *v <= MAX_SAFE));
     assert!(values.iter().any(|v| v.rem_euclid(2) == 0));
     assert!(values.iter().any(|v| v.rem_euclid(2) == 1));
+}
+
+#[test]
+fn numbers_cover_binade_buckets() {
+    // Arbitrary.test.ts:1072 — [1, 2) spreads across 4 buckets, 10-40% each.
+    let values = number(1.0, 2.0, false, true).sample_n(11, 8192);
+    let mut buckets = [0usize; 4];
+    for v in &values {
+        buckets[(((v - 1.0) * 4.0) as usize).min(3)] += 1;
+    }
+    for b in buckets {
+        assert!((819..=3277).contains(&b), "bucket {b} outside 10-40%");
+    }
+}
+
+#[test]
+fn numbers_reach_nan_below_upper_bound() {
+    // Arbitrary.test.ts:1603 — one-sided (..= 0] reaches NaN.
+    let values = number(f64::NEG_INFINITY, 0.0, false, false).sample_n(12, 1000);
+    assert!(values.iter().all(|v| *v <= 0.0 || v.is_nan()));
+    assert!(values.iter().any(|v| v.is_nan()));
+}
+
+#[test]
+fn numbers_hit_sole_value_between_adjacent_bounds() {
+    // Arbitrary.test.ts:1738 — exclusive-adjacent bounds yield the one value.
+    let minimum = 2f64.powi(100);
+    let unit = 2f64.powi(48);
+    let values = number(minimum, minimum + unit * 2.0, true, true).sample_n(13, 20);
+    assert!(values.iter().all(|&v| v == minimum + unit));
 }

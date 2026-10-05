@@ -5387,7 +5387,7 @@ unported	packages/effect/test/arbitrary/Arbitrary.test.ts	1010	it.effect	structu
 unported	packages/effect/test/arbitrary/Arbitrary.test.ts	1026	it.effect	derives independent random streams for adjacent attempts	
 ported	packages/effect/test/arbitrary/Arbitrary.test.ts	1037	it.effect	reaches both integer parities across the complete safe range	safe_integers_cover_both_parities
 ported	packages/effect/test/arbitrary/Arbitrary.test.ts	1054	it.effect	spreads bounded integer samples across the complete domain	bounded_integers_cover_domain_and_edges
-unported	packages/effect/test/arbitrary/Arbitrary.test.ts	1072	it.effect	spreads bounded Number samples across one IEEE-754 binade	
+ported	packages/effect/test/arbitrary/Arbitrary.test.ts	1072	it.effect	spreads bounded Number samples across one IEEE-754 binade	numbers_cover_binade_buckets
 unported	packages/effect/test/arbitrary/Arbitrary.test.ts	1094	it.effect	targets bounded integer and BigInt edges while preserving broad coverage	
 unported	packages/effect/test/arbitrary/Arbitrary.test.ts	1122	it.effect	targets String, Array, and Record cardinality boundaries while preserving intermediate sizes	
 unported	packages/effect/test/arbitrary/Arbitrary.test.ts	1151	it.effect	starts progressive checks for Records with an explicit minimum property count	
@@ -5408,7 +5408,7 @@ unported	packages/effect/test/arbitrary/Arbitrary.test.ts	1496	it.effect	injects
 unported	packages/effect/test/arbitrary/Arbitrary.test.ts	1525	it.effect	scales unconstrained String, Array, and Record sizes without hidden ceilings	
 unported	packages/effect/test/arbitrary/Arbitrary.test.ts	1552	it.effect	scales the specialized Json generator with size	
 unported	packages/effect/test/arbitrary/Arbitrary.test.ts	1573	it.effect	targets IEEE-754 edge cases while preserving intermediate values	
-unported	packages/effect/test/arbitrary/Arbitrary.test.ts	1603	it.effect	reaches NaN through a one-sided upper Number bound	
+ported	packages/effect/test/arbitrary/Arbitrary.test.ts	1603	it.effect	reaches NaN through a one-sided upper Number bound	numbers_reach_nan_below_upper_bound
 unported	packages/effect/test/arbitrary/Arbitrary.test.ts	1616	it	rejects integer bounds outside the safe range	
 unported	packages/effect/test/arbitrary/Arbitrary.test.ts	1627	it	rejects NaN numeric bounds	
 unported	packages/effect/test/arbitrary/Arbitrary.test.ts	1639	it.effect	generates BigInts across arbitrary-width bounded ranges	
@@ -5416,7 +5416,7 @@ unported	packages/effect/test/arbitrary/Arbitrary.test.ts	1653	it.effect	generat
 unported	packages/effect/test/arbitrary/Arbitrary.test.ts	1672	it.effect	constructs one-sided BigInts beyond a large finite bound	
 unported	packages/effect/test/arbitrary/Arbitrary.test.ts	1686	it.effect	covers intermediate BigInt magnitudes on the finite side of one-sided bounds	
 unported	packages/effect/test/arbitrary/Arbitrary.test.ts	1712	it.effect	shrinks BigInts to a common semantic boundary	
-unported	packages/effect/test/arbitrary/Arbitrary.test.ts	1738	it.effect	generates the sole Number between adjacent exclusive IEEE-754 bounds	
+ported	packages/effect/test/arbitrary/Arbitrary.test.ts	1738	it.effect	generates the sole Number between adjacent exclusive IEEE-754 bounds	numbers_hit_sole_value_between_adjacent_bounds
 unported	packages/effect/test/arbitrary/Arbitrary.test.ts	1758	it.effect	preserves both signed zeros in an inclusive zero interval	
 unported	packages/effect/test/arbitrary/Arbitrary.test.ts	1772	it.effect	generates exact subnormal and infinite singleton intervals	
 unported	packages/effect/test/arbitrary/Arbitrary.test.ts	1797	it.effect	generates infinity from one-sided inclusive bounds	

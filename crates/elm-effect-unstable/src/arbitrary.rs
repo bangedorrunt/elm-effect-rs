@@ -157,6 +157,44 @@ pub fn integer(min: i64, max: i64) -> Gen<i64> {
     )
 }
 
+/// Floating-point bounds with optional exclusivity.
+/// Mirrors `Schema.Number` range checks: NaN is reachable only when a side
+/// is unbounded, and exclusive ends snap to the adjacent representable
+/// value (so adjacent-exclusive bounds yield their sole interior value).
+pub fn number(min: f64, max: f64, exclusive_min: bool, exclusive_max: bool) -> Gen<f64> {
+    assert!(
+        min <= max && !min.is_nan() && !max.is_nan(),
+        "number bounds outside the valid range"
+    );
+    let lo = if exclusive_min { min.next_up() } else { min }.max(f64::MIN);
+    let hi = if exclusive_max { max.next_down() } else { max }.min(f64::MAX);
+    assert!(lo <= hi, "number bounds exclude every value");
+    let open = !min.is_finite() || !max.is_finite();
+    Gen::new(
+        move |rng| {
+            if open && rng.next_u64() % 64 == 0 {
+                return f64::NAN;
+            }
+            if lo == hi {
+                return lo;
+            }
+            let t = (rng.next_u64() as f64) / (u64::MAX as f64);
+            lo + (hi - lo) * t
+        },
+        move |v| {
+            let mut out = Vec::new();
+            if *v > lo {
+                out.push(lo);
+                let mid = lo + (*v - lo) / 2.0;
+                if mid < *v {
+                    out.push(mid);
+                }
+            }
+            out
+        },
+    )
+}
+
 /// ASCII lowercase strings of `len` chars.
 pub fn ascii_string(len: usize) -> Gen<String> {
     Gen::new(
