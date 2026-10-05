@@ -308,3 +308,44 @@ fn test_assert_helpers_hold() {
     assert_eq!(testing::assert_succeeds::<u32, String>(Ok(1)), 1);
     assert_eq!(testing::assert_fails::<u32, _>(Err::<u32, String>("nope".into())), "nope");
 }
+
+#[test]
+fn ndjson_roundtrip_skips_blanks() {
+    let values = vec![
+        serde_json::json!({"a": 1}),
+        serde_json::json!([true, "x"]),
+    ];
+    let text = encoding::ndjson::encode(&values);
+    assert_eq!(text, "{\"a\":1}\n[true,\"x\"]\n");
+    assert_eq!(
+        encoding::ndjson::decode(&format!("\n{text}\n")).unwrap(),
+        values
+    );
+}
+
+#[test]
+fn ndjson_names_the_bad_line() {
+    let err = encoding::ndjson::decode("{\"ok\":true}\n{bad}\n").unwrap_err();
+    assert!(err.to_string().contains("line 2"), "{err}");
+}
+
+#[test]
+fn sse_encode_decode_roundtrip() {
+    let event = encoding::sse::Event {
+        event: "tick".into(),
+        data: "one\ntwo".into(),
+        id: Some("7".into()),
+        retry: Some(1500),
+    };
+    let text = encoding::sse::encode(&event);
+    assert_eq!(text, "event: tick\ndata: one\ndata: two\nid: 7\nretry: 1500\n\n");
+    assert_eq!(encoding::sse::decode(&text), vec![event]);
+}
+
+#[test]
+fn sse_ignores_comments_and_empty_blocks() {
+    let events = encoding::sse::decode(": keep-alive\n\n\ndata: hi\n\n");
+    assert_eq!(events.len(), 1);
+    assert_eq!(events[0].data, "hi");
+    assert_eq!(events[0].event, "");
+}

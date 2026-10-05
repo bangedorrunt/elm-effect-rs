@@ -20,3 +20,4 @@ opentelemetry = { version = "0.28", optional = true }
 opentelemetry_sdk = { version = "0.28", optional = true, features = ["testing"] }
 ureq = { version = "2", optional = true, default-features = false, features = ["tls"] }
 clap = { version = "4", default-features = false, features = ["std", "help"] }
+serde_json = { version = "1" }

@@ -238,3 +238,129 @@ pub fn hex_random(length: usize) -> String {
     }
     hex_encode(&bytes)
 }
+
+/// Newline-delimited JSON: one JSON value per line, blank lines skipped.
+///
+/// Ports `packages/effect/src/encoding/Ndjson.ts` (string layer only; schema
+/// variants collapse to `serde_json::Value` round trips).
+pub mod ndjson {
+    /// Encode values as NDJSON: each value on its own line, trailing newline.
+    pub fn encode(values: &[serde_json::Value]) -> String {
+        let mut out = String::new();
+        for v in values {
+            out.push_str(&v.to_string());
+            out.push('\n');
+        }
+        out
+    }
+
+    /// Decode NDJSON, skipping blank lines. Fails naming the first bad line.
+    pub fn decode(input: &str) -> Result<Vec<serde_json::Value>, super::EncodingError> {
+        let mut values = Vec::new();
+        for (index, line) in input.lines().enumerate() {
+            if line.trim().is_empty() {
+                continue;
+            }
+            let value: serde_json::Value = serde_json::from_str(line).map_err(|e| {
+                super::EncodingError::decode("ndjson", line, format!("line {}: {e}", index + 1))
+            })?;
+            values.push(value);
+        }
+        Ok(values)
+    }
+}
+
+/// Server-sent events (`text/event-stream`) encode/decode.
+///
+/// Ports `packages/effect/src/encoding/Sse.ts` (string layer): `event:`,
+/// `data:`, `id:`, `retry:` fields, `:` comments, blank line dispatches one
+/// event; multi-line `data:` joins with `\n`.
+pub mod sse {
+    /// One decoded event.
+    #[derive(Debug, Clone, PartialEq, Eq)]
+    pub struct Event {
+        /// Event name (`event:` field, empty when unset).
+        pub event: String,
+        /// Payload (`data:` lines joined with `\n`).
+        pub data: String,
+        /// Last `id:` field seen for this event, if any.
+        pub id: Option<String>,
+        /// Last `retry:` field (millis) seen for this event, if any.
+        pub retry: Option<u64>,
+    }
+
+    /// Encode one event. `retry` renders as `retry: <millis>`.
+    pub fn encode(event: &Event) -> String {
+        let mut out = String::new();
+        if !event.event.is_empty() {
+            out.push_str("event: ");
+            out.push_str(&event.event);
+            out.push('\n');
+        }
+        for line in event.data.split('\n') {
+            out.push_str("data: ");
+            out.push_str(line);
+            out.push('\n');
+        }
+        if let Some(id) = &event.id {
+            out.push_str("id: ");
+            out.push_str(id);
+            out.push('\n');
+        }
+        if let Some(retry) = event.retry {
+            out.push_str(&format!("retry: {retry}\n"));
+        }
+        out.push('\n');
+        out
+    }
+
+    /// Decode a stream, dispatching one [`Event`] per blank-line block.
+    /// Comment lines (`:...`) are ignored; a block with no `data:` still
+    /// dispatches (empty data), matching the reference parser.
+    pub fn decode(input: &str) -> Vec<Event> {
+        let mut events = Vec::new();
+        let mut event = String::new();
+        let mut data: Vec<String> = Vec::new();
+        let mut id: Option<String> = None;
+        let mut retry: Option<u64> = None;
+        let mut flush = |event: &mut String, data: &mut Vec<String>, id: &mut Option<String>, retry: &mut Option<u64>| {
+            events.push(Event {
+                event: core::mem::take(event),
+                data: core::mem::take(data).join("\n"),
+                id: id.take(),
+                retry: retry.take(),
+            });
+        };
+        for line in input.split('\n') {
+            let line = line.strip_suffix('\r').unwrap_or(line);
+            if line.is_empty() {
+                if !event.is_empty() || !data.is_empty() || id.is_some() || retry.is_some() {
+                    flush(&mut event, &mut data, &mut id, &mut retry);
+                }
+                continue;
+            }
+            if line.starts_with(':') {
+                continue;
+            }
+            let (field, value) = match line.find(':') {
+                Some(i) => (&line[..i], line[i + 1..].strip_prefix(' ').unwrap_or(&line[i + 1..])),
+                None => (line, ""),
+            };
+            match field {
+                "event" => event = value.to_string(),
+                "data" => data.push(value.to_string()),
+                "id" => id = Some(value.to_string()),
+                "retry" => {
+                    if let Ok(millis) = value.parse::<u64>() {
+                        retry = Some(millis);
+                    }
+                }
+                _ => {}
+            }
+        }
+        if !event.is_empty() || !data.is_empty() || id.is_some() || retry.is_some() {
+            flush(&mut event, &mut data, &mut id, &mut retry);
+        }
+        events
+    }
+}
