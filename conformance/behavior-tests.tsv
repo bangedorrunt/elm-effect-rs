@@ -6971,9 +6971,9 @@ ported	packages/effect/test/net/NetAddress.test.ts	25	it	parses strict dotted de
 ported	packages/effect/test/net/NetAddress.test.ts	35	it	rejects malformed inputs	strict_ip_rejects_malformed
 unported	packages/effect/test/net/NetAddress.test.ts	71	it	uses canonical compression and embedded IPv4 policy	
 ported	packages/effect/test/net/NetAddress.test.ts	79	it	rejects malformed inputs	strict_ip_rejects_malformed
-unported	packages/effect/test/net/NetAddress.test.ts	104	it	round trips constructed numeric values	
-unported	packages/effect/test/net/NetAddress.test.ts	116	it	uses numeric equality and hash laws	
-unported	packages/effect/test/net/NetAddress.test.ts	123	it	converts mapped IPv4 addresses	
+ported	packages/effect/test/net/NetAddress.test.ts	104	it	round trips constructed numeric values	net_addresses_roundtrip_numeric_forms
+ported	packages/effect/test/net/NetAddress.test.ts	116	it	uses numeric equality and hash laws	net_addresses_share_numeric_equality_and_hash
+ported	packages/effect/test/net/NetAddress.test.ts	123	it	converts mapped IPv4 addresses	net_addresses_convert_mapped_ipv4
 ported	packages/effect/test/net/NetAddress.test.ts	134	it	returns IPv6 octets	strict_ip_parses_widths_and_octets
 unported	packages/effect/test/net/NetAddress.test.ts	165	it	parses and canonically formats six octets	
 unported	packages/effect/test/net/NetAddress.test.ts	177	it	rejects malformed inputs and invalid octets	
