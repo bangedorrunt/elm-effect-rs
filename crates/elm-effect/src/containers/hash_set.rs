@@ -4,7 +4,8 @@
 //! table is cloned. Keys use [`Hash`] + [`Eq`].
 
 use super::hash_map::HashMap;
-use std::hash::Hash;
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
 
 /// Persistent set. Updates return new sets.
 #[derive(Clone, Debug, Default)]
@@ -133,6 +134,21 @@ where
     pub fn every(&self, f: impl Fn(&T) -> bool) -> bool {
         self.inner.keys().all(f)
     }
+
+    /// `true` when every value here is also present in `other`.
+    pub fn is_subset(&self, other: &Self) -> bool {
+        self.inner.keys().all(|v| other.has(v))
+    }
+
+    /// Folds every value into an accumulator.
+    pub fn reduce<B>(&self, init: B, f: impl Fn(B, &T) -> B) -> B {
+        self.inner.keys().fold(init, f)
+    }
+
+    /// Borrows an iterator over the values; order is not promised.
+    pub fn iter(&self) -> impl Iterator<Item = &T> {
+        self.values()
+    }
 }
 
 impl<T> PartialEq for HashSet<T>
@@ -145,3 +161,31 @@ where
 }
 
 impl<T> Eq for HashSet<T> where T: Hash + Eq {}
+
+impl<T> Hash for HashSet<T>
+where
+    T: Hash + Eq,
+{
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        // Commutative combine: insertion order never leaks into the hash.
+        self.size().hash(state);
+        let mut acc: u64 = 0;
+        for v in self.inner.keys() {
+            let mut h = DefaultHasher::new();
+            v.hash(&mut h);
+            acc = acc.wrapping_add(h.finish());
+        }
+        acc.hash(state);
+    }
+}
+
+impl<'a, T> IntoIterator for &'a HashSet<T>
+where
+    T: Hash + Eq,
+{
+    type Item = &'a T;
+    type IntoIter = Box<dyn Iterator<Item = &'a T> + 'a>;
+    fn into_iter(self) -> Self::IntoIter {
+        Box::new(self.values())
+    }
+}

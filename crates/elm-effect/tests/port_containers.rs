@@ -135,6 +135,59 @@ fn hash_set_algebra_and_transforms() {
     assert!(a.every(|v| *v > 0));
 }
 
+#[test]
+fn hash_set_subset_reduce_iterate() {
+    let a = HashSet::make([1, 2]);
+    let b = HashSet::make([1, 2, 3]);
+    assert!(a.is_subset(&b));
+    assert!(!b.is_subset(&a));
+    assert!(a.is_subset(&a));
+    assert!(HashSet::<i32>::empty().is_subset(&b));
+    assert_eq!(b.reduce(0, |acc, v| acc + v), 6);
+    assert_eq!(b.reduce(1, |acc, v| acc * v), 6);
+    let mut seen: Vec<i32> = b.iter().copied().collect();
+    seen.sort();
+    assert_eq!(seen, vec![1, 2, 3]);
+    let mut total = 0;
+    for v in &b {
+        total += v;
+    }
+    assert_eq!(total, 6);
+}
+
+#[test]
+fn hash_set_equality_hash_membership() {
+    let a = HashSet::make([1, 2, 3]);
+    let b = HashSet::make([3, 2, 1]);
+    assert_eq!(a, b);
+    assert_eq!(hash_of(&a), hash_of(&b));
+    let c = HashSet::make([1, 2, 3, 4]);
+    assert_ne!(hash_of(&a), hash_of(&c));
+    #[derive(Clone, Debug)]
+    struct Ci(String);
+    impl PartialEq for Ci {
+        fn eq(&self, other: &Self) -> bool {
+            self.0.eq_ignore_ascii_case(&other.0)
+        }
+    }
+    impl Eq for Ci {}
+    impl std::hash::Hash for Ci {
+        fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+            self.0.to_ascii_lowercase().hash(state);
+        }
+    }
+    let s = HashSet::make([Ci("A".to_owned())]);
+    assert!(s.has(&Ci("a".to_owned())));
+    assert_eq!(s.add(Ci("a".to_owned())).size(), 1);
+}
+
+fn hash_of<T: std::hash::Hash>(v: &T) -> u64 {
+    use std::hash::Hasher;
+    let mut h = std::collections::hash_map::DefaultHasher::new();
+    v.hash(&mut h);
+    h.finish()
+}
+
 // --- MutableHashMap ---
 
 #[test]
