@@ -84,7 +84,10 @@ fn match_path_extracts_params() {
     );
     assert_eq!(match_path("/users/:id", "/users/"), None);
     assert_eq!(match_path("/a", "/a/b"), None);
-    assert_eq!(match_path("/a/:x", "/a/b?x=1#frag"), Some(vec![("x".to_string(), "b".to_string())]));
+    assert_eq!(
+        match_path("/a/:x", "/a/b?x=1#frag"),
+        Some(vec![("x".to_string(), "b".to_string())])
+    );
 }
 
 #[test]
@@ -131,11 +134,20 @@ fn response_status_and_headers_preserved() {
     let handle = std::thread::spawn(move || server.serve_once().expect("serve"));
     let (code, headers, _) = get(&addr, "/created");
     assert_eq!(code, 201);
-    assert!(headers.iter().any(|(n, v)| n == "Content-Type" && v == "application/json"));
+    assert!(
+        headers
+            .iter()
+            .any(|(n, v)| n == "Content-Type" && v == "application/json")
+    );
     let _ = handle.join().expect("join");
 }
 
-fn post(addr: &std::net::SocketAddr, path: &str, content_type: &str, body: &[u8]) -> (u16, Vec<(String, String)>, Vec<u8>) {
+fn post(
+    addr: &std::net::SocketAddr,
+    path: &str,
+    content_type: &str,
+    body: &[u8],
+) -> (u16, Vec<(String, String)>, Vec<u8>) {
     use std::io::{BufRead, BufReader, Write};
     use std::net::TcpStream;
     let mut stream = TcpStream::connect(addr).expect("connect");
@@ -149,7 +161,12 @@ fn post(addr: &std::net::SocketAddr, path: &str, content_type: &str, body: &[u8]
     let mut reader = BufReader::new(stream);
     let mut status = String::new();
     reader.read_line(&mut status).expect("status");
-    let code: u16 = status.split_whitespace().nth(1).expect("code").parse().expect("code");
+    let code: u16 = status
+        .split_whitespace()
+        .nth(1)
+        .expect("code")
+        .parse()
+        .expect("code");
     let mut headers = Vec::new();
     loop {
         let mut line = String::new();
@@ -166,4 +183,57 @@ fn post(addr: &std::net::SocketAddr, path: &str, content_type: &str, body: &[u8]
     use std::io::Read;
     reader.read_to_end(&mut response_body).expect("body");
     (code, headers, response_body)
+}
+
+#[test]
+fn match_path_ci_static_levels() {
+    use elm_effect_unstable::http_server::match_path_ci;
+    assert_eq!(match_path_ci("/woo", "/WOO"), Some(vec![]));
+    assert_eq!(match_path_ci("/foo/bar", "/FOO/BAR"), Some(vec![]));
+    assert_eq!(
+        match_path_ci("/a/b/c", "/A/B/C"),
+        Some(vec![]),
+        "three static levels fold case"
+    );
+    assert_eq!(match_path_ci("/woo", "/nope"), None);
+    assert_eq!(match_path_ci("/a/b", "/a/b/c"), None);
+}
+
+#[test]
+fn match_path_ci_params_keep_path_case() {
+    use elm_effect_unstable::http_server::match_path_ci;
+    assert_eq!(
+        match_path_ci("/users/:id", "/USERS/AbC"),
+        Some(vec![("id".to_string(), "AbC".to_string())]),
+        "static folds, capture keeps original"
+    );
+    assert_eq!(
+        match_path_ci("/API/:Version/items", "/api/v2/ITEMS"),
+        Some(vec![("Version".to_string(), "v2".to_string())]),
+        "capital pattern folds against lower path"
+    );
+    assert_eq!(match_path_ci("/users/:id", "/USERS/"), None);
+}
+
+#[test]
+fn match_path_ci_multiple_routes_first_pattern_wins() {
+    use elm_effect_unstable::http_server::{match_path, match_path_ci};
+    for path in ["/One/Two", "/ONE/two", "/one/TWO"] {
+        assert_eq!(
+            match_path_ci("/one/two", path),
+            Some(vec![]),
+            "every case folds to the same route"
+        );
+        assert_eq!(match_path("/one/two", path), None, "sensitive keeps case");
+    }
+    assert_eq!(match_path("/one/two", "/one/two"), Some(vec![]));
+}
+
+#[test]
+fn match_path_ci_strips_query_and_fragment() {
+    use elm_effect_unstable::http_server::match_path_ci;
+    assert_eq!(
+        match_path_ci("/Search/:q", "/SEARCH/Rust?lang=en#top"),
+        Some(vec![("q".to_string(), "Rust".to_string())])
+    );
 }

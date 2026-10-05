@@ -110,6 +110,21 @@ impl HttpServer {
 /// `:name` segments capture one non-empty segment; a query string or
 /// fragment is stripped before matching. Returns captures in order.
 pub fn match_path(pattern: &str, path: &str) -> Option<Vec<(String, String)>> {
+    match_path_with(pattern, path, true)
+}
+
+/// Case-insensitive route match (FindMyWay `caseSensitive: false`): static
+/// segments compare ASCII-case-insensitively while `:param` captures keep
+/// the request path's original case.
+pub fn match_path_ci(pattern: &str, path: &str) -> Option<Vec<(String, String)>> {
+    match_path_with(pattern, path, false)
+}
+
+fn match_path_with(
+    pattern: &str,
+    path: &str,
+    case_sensitive: bool,
+) -> Option<Vec<(String, String)>> {
     let path = path.split(['?', '#']).next().unwrap_or(path);
     let pattern_segs: Vec<&str> = pattern.split('/').collect();
     let path_segs: Vec<&str> = path.split('/').collect();
@@ -123,7 +138,9 @@ pub fn match_path(pattern: &str, path: &str) -> Option<Vec<(String, String)>> {
                 return None;
             }
             params.push((name.to_string(), (*path_seg).to_string()));
-        } else if pattern_seg != path_seg {
+        } else if case_sensitive && pattern_seg != path_seg {
+            return None;
+        } else if !case_sensitive && !pattern_seg.eq_ignore_ascii_case(path_seg) {
             return None;
         }
     }
