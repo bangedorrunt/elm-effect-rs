@@ -775,3 +775,17 @@ fn provider_preserves_empty_strings_when_requested() {
     let d = Provider::from_pairs(vec![("e".to_string(), "".to_string())]);
     assert_eq!(d.get(&["e".to_string()]), None);
 }
+
+#[test]
+fn provider_listings_keep_empty_valued_keys() {
+    let p = provider(&[("a", ""), ("b", "value1")]);
+    assert_eq!(
+        p.root_keys(),
+        vec!["a".to_string(), "b".to_string()]
+    );
+    assert_eq!(p.get(&["a".to_string()]), None);
+    assert_eq!(
+        p.get(&["b".to_string()]),
+        Some("value1".to_string())
+    );
+}

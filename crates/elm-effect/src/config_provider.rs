@@ -14,6 +14,7 @@ use std::collections::BTreeMap;
 #[derive(Clone, Debug, Default)]
 pub struct Provider {
     values: BTreeMap<Vec<String>, String>,
+    preserve_empty: bool,
 }
 
 impl Provider {
@@ -22,13 +23,13 @@ impl Provider {
         Self::default()
     }
 
-    /// Build from `(dotted.path, value)` pairs. Empty values are absent
-    /// (ignored), matching the spec default and `from_env`.
+    /// Build from `(dotted.path, value)` pairs. Empty values read as
+    /// absent at lookup (see `get`) but stay stored, preserving structure.
     pub fn from_pairs(pairs: impl IntoIterator<Item = (String, String)>) -> Self {
         Self {
+            preserve_empty: false,
             values: pairs
                 .into_iter()
-                .filter(|(_, v)| !v.is_empty())
                 .map(|(k, v)| (k.split('.').map(str::to_string).collect(), v))
                 .collect(),
         }
@@ -36,10 +37,9 @@ impl Provider {
 
     /// Build from pairs keeping empty values (`preserveEmptyStrings`
     /// opt-out of the missing-by-default rule).
-    pub fn from_pairs_preserving(
-        pairs: impl IntoIterator<Item = (String, String)>,
-    ) -> Self {
+    pub fn from_pairs_preserving(pairs: impl IntoIterator<Item = (String, String)>) -> Self {
         Self {
+            preserve_empty: true,
             values: pairs
                 .into_iter()
                 .map(|(k, v)| (k.split('.').map(str::to_string).collect(), v))
@@ -47,32 +47,49 @@ impl Provider {
         }
     }
 
-    /// Snapshot the process environment once. Empty values are
-    /// absent (ignored), matching the spec default.
+    /// Snapshot the process environment once. Empty values read as absent
+    /// (see `get`); stored keys keep structure for listings.
     pub fn from_env() -> Self {
         Self {
-            values: std::env::vars()
-                .filter(|(_, v)| !v.is_empty())
-                .map(|(k, v)| (vec![k], v))
-                .collect(),
+            preserve_empty: false,
+            values: std::env::vars().map(|(k, v)| (vec![k], v)).collect(),
         }
     }
 
     /// One-shot single-path provider (array elements, tests). Empty values
-    /// are absent (ignored), matching the spec default.
+    /// read as absent at lookup (see `get`).
     pub fn single(path: Vec<String>, value: Option<String>) -> Self {
         let mut values = BTreeMap::new();
         if let Some(v) = value {
-            if !v.is_empty() {
-                values.insert(path, v);
-            }
+            values.insert(path, v);
         }
-        Self { values }
+        Self {
+            values,
+            preserve_empty: false,
+        }
     }
 
-    /// Look up a path.
+    /// Look up a path. Empty values read as absent (spec default); stored
+    /// keys are untouched, so listings keep structure.
     pub fn get(&self, path: &[String]) -> Option<String> {
-        self.values.get(path).cloned()
+        match self.values.get(path) {
+            Some(v) if v.is_empty() && !self.preserve_empty => None,
+            found => found.cloned(),
+        }
+    }
+
+    /// First path segments of every stored key, in order (structure
+    /// listing: keys with empty values are included).
+    pub fn root_keys(&self) -> Vec<String> {
+        let mut out = Vec::new();
+        for key in self.values.keys() {
+            if let Some(first) = key.first() {
+                if out.last() != Some(first) {
+                    out.push(first.clone());
+                }
+            }
+        }
+        out
     }
 
     /// Scope every lookup under `prefix` (dotted).
