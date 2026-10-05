@@ -6425,7 +6425,7 @@ unported	packages/effect/test/http/FindMyWay/params-collisions.test.ts	66	it	nod
 unported	packages/effect/test/http/FindMyWay/params-collisions.test.ts	76	it	should set up regexp node and node with static ending	
 unported	packages/effect/test/http/FindMyWay/params-collisions.test.ts	86	it	distinguishes routes with different static parts between parameters	
 unported	packages/effect/test/http/FindMyWay/params-collisions.test.ts	96	it	preserves prototype-sensitive parameter names as own properties	
-unported	packages/effect/test/http/FindMyWay/path-params-match.test.ts	4	it	path params match	
+ported	packages/effect/test/http/FindMyWay/path-params-match.test.ts	4	it	path params match	api_path_params_extract
 unported	packages/effect/test/http/FindMyWay/path-params-match.test.ts	45	it	builds null-prototype params for static and parameterized routes	
 unported	packages/effect/test/http/FindMyWay/path-params-match.test.ts	64	it	does not compile parameter names with Function	
 unported	packages/effect/test/http/FindMyWay/path-params-match.test.ts	88	it	does not read inherited static child entries	
