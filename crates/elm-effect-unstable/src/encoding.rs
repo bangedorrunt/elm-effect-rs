@@ -110,11 +110,20 @@ fn b64_value(byte: u8, url: bool) -> Option<u8> {
 
 fn b64_decode(input: &str, module: &'static str, url: bool) -> Result<Vec<u8>, EncodingError> {
     let fail = |message: &str| EncodingError::decode(module, input, message);
-    let clean: Vec<u8> = input.bytes().filter(|b| !b.is_ascii_whitespace()).collect();
+    let mut clean: Vec<u8> = input.bytes().filter(|b| !b.is_ascii_whitespace()).collect();
     if clean.is_empty() {
         return Ok(vec![]);
     }
-    if clean.len() % 4 != 0 {
+    if url {
+        // Unpadded tails: a 2-char tail carries 1 byte, a 3-char tail 2.
+        // Virtually pad so the chunk decoder below derives them; a
+        // 1-char remainder can never be valid.
+        match clean.len() % 4 {
+            0 => {}
+            1 => return Err(fail("invalid length")),
+            rem => clean.extend(std::iter::repeat(b'=').take(4 - rem)),
+        }
+    } else if clean.len() % 4 != 0 {
         return Err(fail("invalid length"));
     }
     let mut out = Vec::new();
@@ -148,9 +157,9 @@ pub fn base64_encode(bytes: &[u8]) -> String {
     b64_encode(bytes, B64_STD)
 }
 
-/// URL-safe Base64 encode (`-`/`_` alphabet, padding kept).
+/// URL-safe Base64 encode (`-`/`_` alphabet, no padding).
 pub fn base64_url_encode(bytes: &[u8]) -> String {
-    b64_encode(bytes, B64_URL)
+    b64_encode(bytes, B64_URL).trim_end_matches('=').to_string()
 }
 
 /// Standard Base64 decode; ASCII whitespace is skipped.
@@ -323,7 +332,10 @@ pub mod sse {
         let mut data: Vec<String> = Vec::new();
         let mut id: Option<String> = None;
         let mut retry: Option<u64> = None;
-        let mut flush = |event: &mut String, data: &mut Vec<String>, id: &mut Option<String>, retry: &mut Option<u64>| {
+        let mut flush = |event: &mut String,
+                         data: &mut Vec<String>,
+                         id: &mut Option<String>,
+                         retry: &mut Option<u64>| {
             events.push(Event {
                 event: core::mem::take(event),
                 data: core::mem::take(data).join("\n"),
@@ -343,7 +355,10 @@ pub mod sse {
                 continue;
             }
             let (field, value) = match line.find(':') {
-                Some(i) => (&line[..i], line[i + 1..].strip_prefix(' ').unwrap_or(&line[i + 1..])),
+                Some(i) => (
+                    &line[..i],
+                    line[i + 1..].strip_prefix(' ').unwrap_or(&line[i + 1..]),
+                ),
                 None => (line, ""),
             };
             match field {

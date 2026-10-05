@@ -6,10 +6,10 @@
 mod encoding;
 #[path = "../src/ini.rs"]
 mod ini;
-#[path = "../src/toml.rs"]
-mod toml;
 #[path = "../src/testing.rs"]
 mod testing;
+#[path = "../src/toml.rs"]
+mod toml;
 
 use encoding::EncodingError;
 
@@ -52,6 +52,48 @@ fn base64_url_roundtrip() {
     );
     assert!(encoding::base64_decode("ab-c").is_err());
     assert!(encoding::base64_url_decode("ab+c").is_err());
+}
+
+#[test]
+fn base64_url_encodes_without_padding() {
+    assert_eq!(encoding::base64_url_encode(b"hello?"), "aGVsbG8_");
+    assert_eq!(encoding::base64_url_encode(&[251, 255]), "-_8");
+}
+
+#[test]
+fn base64_url_decodes_padded_and_unpadded() {
+    assert_eq!(
+        encoding::base64_url_decode("SGVsbG8_").unwrap(),
+        vec![72, 101, 108, 108, 111, 63]
+    );
+    assert_eq!(
+        encoding::base64_url_decode("-_8=").unwrap(),
+        vec![251, 255]
+    );
+    assert_eq!(
+        encoding::base64_url_decode_string("8J-Riw").unwrap(),
+        "\u{1f44b}"
+    );
+    assert_eq!(
+        encoding::base64_url_decode_string("8J-Riw==").unwrap(),
+        "\u{1f44b}"
+    );
+}
+
+#[test]
+fn base64_url_rejects_standard_alphabet_and_bad_lengths() {
+    let err = encoding::base64_url_decode("+/8=").unwrap_err();
+    assert_eq!(err.kind(), "Decode");
+    assert_eq!(err.module(), "Base64Url");
+    assert_eq!(err.input(), "+/8=");
+    assert!(encoding::base64_url_decode("a").is_err());
+}
+
+#[test]
+fn base64_url_rejects_malformed_padding() {
+    for bad in ["SGVsbG8_=", "SGVsbG8_==", "AAAA=", "AAAA==", "AAA=="] {
+        assert!(encoding::base64_url_decode(bad).is_err(), "{bad}");
+    }
 }
 
 #[test]
@@ -172,9 +214,13 @@ fn ini_sections_arrays_scalars() {
 
 #[test]
 fn ini_quoted_comments_escaped_dots() {
-    let doc = ini::parse("\nplain=value ; comment\nquoted=\"value # retained\"\n[a\\.b]\nkey=yes\n");
+    let doc =
+        ini::parse("\nplain=value ; comment\nquoted=\"value # retained\"\n[a\\.b]\nkey=yes\n");
     assert_eq!(doc.get("plain"), Some(&ini::IniValue::Text("value".into())));
-    assert_eq!(doc.get("quoted"), Some(&ini::IniValue::Text("value # retained".into())));
+    assert_eq!(
+        doc.get("quoted"),
+        Some(&ini::IniValue::Text("value # retained".into()))
+    );
     assert_eq!(
         doc.get("a.b"),
         Some(&ini::IniValue::Section(
@@ -193,19 +239,26 @@ fn toml_tables_dotted_keys_arrays() {
     assert_eq!(doc["title"], toml::TomlValue::Text("Effect".into()));
     assert_eq!(
         doc["ports"],
-        toml::TomlValue::Array(vec![toml::TomlValue::Integer(8000), toml::TomlValue::Integer(8001)])
+        toml::TomlValue::Array(vec![
+            toml::TomlValue::Integer(8000),
+            toml::TomlValue::Integer(8001)
+        ])
     );
 }
 
 #[test]
 fn toml_servers_with_datetimes() {
-    let doc = toml::parse("\n[[servers]]\nname = \"alpha\"\nstarted = 2026-08-05T01:02:03Z\n").unwrap();
+    let doc =
+        toml::parse("\n[[servers]]\nname = \"alpha\"\nstarted = 2026-08-05T01:02:03Z\n").unwrap();
     match &doc["servers"] {
         toml::TomlValue::Array(items) => {
             assert_eq!(items.len(), 1);
             match &items[0] {
                 toml::TomlValue::Table(map) => {
-                    assert_eq!(map["started"], toml::TomlValue::Datetime("2026-08-05T01:02:03.000Z".into()));
+                    assert_eq!(
+                        map["started"],
+                        toml::TomlValue::Datetime("2026-08-05T01:02:03.000Z".into())
+                    );
                 }
                 _ => panic!("not a table"),
             }
@@ -237,7 +290,10 @@ fn toml_multiline_and_numbers() {
     assert_eq!(doc["message"], toml::TomlValue::Text("hello world".into()));
     assert_eq!(doc["hex"], toml::TomlValue::Integer(0xdeadbeef));
     assert_eq!(doc["fraction"], toml::TomlValue::Float(1000.5));
-    assert_eq!(doc["local"], toml::TomlValue::Datetime("2026-08-05T01:02:03".into()));
+    assert_eq!(
+        doc["local"],
+        toml::TomlValue::Datetime("2026-08-05T01:02:03".into())
+    );
 }
 
 #[test]
@@ -298,7 +354,10 @@ fn testrng_is_seeded_and_bounded() {
         assert!(rng.next_int_range(-3, 3) >= -3);
     }
     assert_eq!(rng.next_string(8).len(), 8);
-    assert_eq!(testing::TestRng::new(0).next_u64(), testing::TestRng::new(0).next_u64());
+    assert_eq!(
+        testing::TestRng::new(0).next_u64(),
+        testing::TestRng::new(0).next_u64()
+    );
 }
 
 #[test]
@@ -306,15 +365,15 @@ fn test_assert_helpers_hold() {
     let v = testing::assert_roundtrip(7u32, |n| n.to_string(), |s: String| s.parse::<u32>());
     assert_eq!(v, 7);
     assert_eq!(testing::assert_succeeds::<u32, String>(Ok(1)), 1);
-    assert_eq!(testing::assert_fails::<u32, _>(Err::<u32, String>("nope".into())), "nope");
+    assert_eq!(
+        testing::assert_fails::<u32, _>(Err::<u32, String>("nope".into())),
+        "nope"
+    );
 }
 
 #[test]
 fn ndjson_roundtrip_skips_blanks() {
-    let values = vec![
-        serde_json::json!({"a": 1}),
-        serde_json::json!([true, "x"]),
-    ];
+    let values = vec![serde_json::json!({"a": 1}), serde_json::json!([true, "x"])];
     let text = encoding::ndjson::encode(&values);
     assert_eq!(text, "{\"a\":1}\n[true,\"x\"]\n");
     assert_eq!(
@@ -338,7 +397,10 @@ fn sse_encode_decode_roundtrip() {
         retry: Some(1500),
     };
     let text = encoding::sse::encode(&event);
-    assert_eq!(text, "event: tick\ndata: one\ndata: two\nid: 7\nretry: 1500\n\n");
+    assert_eq!(
+        text,
+        "event: tick\ndata: one\ndata: two\nid: 7\nretry: 1500\n\n"
+    );
     assert_eq!(encoding::sse::decode(&text), vec![event]);
 }
 
