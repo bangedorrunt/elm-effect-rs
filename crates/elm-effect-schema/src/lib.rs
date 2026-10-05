@@ -896,3 +896,159 @@ impl Unknown {
         }
     }
 }
+
+// Template literals
+
+/// One part of a template-literal parser: a span (string-like capture) or a
+/// literal anchor that must match verbatim.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum TemplatePart {
+    /// Any string, possibly empty.
+    AnyString,
+    /// A non-empty string.
+    NonEmptyString,
+    /// A leading integer (`-`? digits).
+    Int,
+    /// A literal anchor matched verbatim.
+    Anchor(String),
+}
+
+/// A template-literal parser: a sequence of spans and anchors matched
+/// greedily with backtracking. Decoding yields one capture per part (anchors
+/// echo themselves); encoding concatenates the captures back.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct TemplateParser {
+    parts: Vec<TemplatePart>,
+}
+
+impl TemplateParser {
+    /// Build from parts.
+    pub fn new(parts: Vec<TemplatePart>) -> Self {
+        Self { parts }
+    }
+
+    /// Parse the input, returning one capture per part, or `None`.
+    pub fn parse(&self, input: &str) -> Option<Vec<Unknown>> {
+        let mut captures = Vec::new();
+        Self::match_parts(&self.parts, input, &mut captures).then_some(captures)
+    }
+
+    /// Render captures back to a string (encoding axis).
+    pub fn render(&self, captures: &[Unknown]) -> Option<String> {
+        if captures.len() != self.parts.len() {
+            return None;
+        }
+        let mut out = String::new();
+        for capture in captures {
+            match capture {
+                Unknown::Text(text) => out.push_str(text),
+                Unknown::Number(number) => out.push_str(&trim_int(*number)),
+                _ => return None,
+            }
+        }
+        Some(out)
+    }
+
+    fn match_parts(parts: &[TemplatePart], input: &str, captures: &mut Vec<Unknown>) -> bool {
+        let Some((first, rest)) = parts.split_first() else {
+            return input.is_empty();
+        };
+        match first {
+            TemplatePart::Anchor(anchor) => {
+                let Some(tail) = input.strip_prefix(anchor.as_str()) else {
+                    return false;
+                };
+                captures.push(Unknown::Text(anchor.clone()));
+                if Self::match_parts(rest, tail, captures) {
+                    return true;
+                }
+                captures.pop();
+                false
+            }
+            span => {
+                let min = match span {
+                    &TemplatePart::NonEmptyString | &TemplatePart::Int => 1,
+                    _ => 0,
+                };
+                let mut end = input.len();
+                loop {
+                    while end > 0 && !input.is_char_boundary(end) {
+                        end -= 1;
+                    }
+                    if end < min {
+                        return false;
+                    }
+                    let (head, tail) = input.split_at(end);
+                    if let Some(capture) = check_span(span, head) {
+                        captures.push(capture);
+                        if Self::match_parts(rest, tail, captures) {
+                            return true;
+                        }
+                        captures.pop();
+                    }
+                    if end == 0 {
+                        return false;
+                    }
+                    end -= 1;
+                }
+            }
+        }
+    }
+}
+
+/// Format an integer-valued float without a trailing `.0`.
+fn trim_int(number: f64) -> String {
+    if number.fract() == 0.0 && number.abs() < 1e15 {
+        format!("{}", number as i64)
+    } else {
+        format!("{number}")
+    }
+}
+
+/// Check one span candidate, returning its capture.
+fn check_span(span: &TemplatePart, head: &str) -> Option<Unknown> {
+    match *span {
+        TemplatePart::AnyString => Some(Unknown::Text(head.to_string())),
+        TemplatePart::NonEmptyString => {
+            (!head.is_empty()).then(|| Unknown::Text(head.to_string()))
+        }
+        TemplatePart::Int => parse_int(head).map(Unknown::Number),
+        TemplatePart::Anchor(_) => None,
+    }
+}
+
+/// A leading integer: optional `-` plus digits, the longest valid prefix.
+/// The caller enumerates lengths, so this only validates one candidate.
+fn parse_int(head: &str) -> Option<f64> {
+    let digits = head.strip_prefix('-').unwrap_or(head);
+    if digits.is_empty() || !digits.bytes().all(|b| b.is_ascii_digit()) {
+        return None;
+    }
+    head.parse::<f64>().ok()
+}
+
+impl Schema<Vec<Unknown>> {
+    /// A template-literal parser schema: decodes text into per-part
+    /// captures, encodes captures back into text.
+    pub fn template(parts: Vec<TemplatePart>) -> Self {
+        let parser = TemplateParser::new(parts);
+        let encode_parser = parser.clone();
+        Self::new(
+            move |unknown| match unknown {
+                Unknown::Text(input) => parser.parse(&input).ok_or_else(|| SchemaError::TypeMismatch {
+                    path: "$".to_string(),
+                    expected: "a string matching template literal parts",
+                    got: "no match",
+                }),
+                other => mismatch("$", "string", &other),
+            },
+            move |captures| {
+                encode_parser
+                    .render(captures)
+                    .map(Unknown::Text)
+                    .unwrap_or(Unknown::Null)
+            },
+            SchemaKind::Opaque("template"),
+        )
+    }
+}
