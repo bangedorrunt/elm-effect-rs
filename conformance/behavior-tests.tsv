@@ -6955,7 +6955,7 @@ ported	packages/effect/test/net/IpNetwork.test.ts	33	it	retains the address supp
 ported	packages/effect/test/net/IpNetwork.test.ts	40	it	forwards errors from address and prefix validation	parse_errors_echo_offending_input
 unported	packages/effect/test/net/IpNetwork.test.ts	51	it	constructs immutable canonical networks and preserves family identity	
 ported	packages/effect/test/net/IpNetwork.test.ts	68	it	rejects invalid prefix lengths and host bits	checked_constructors_reject_bad_prefixes_and_host_bits
-unported	packages/effect/test/net/IpNetwork.test.ts	85	it	explicitly truncates byte-aligned and partial-byte host addresses	
+ported	packages/effect/test/net/IpNetwork.test.ts	85	it	explicitly truncates byte-aligned and partial-byte host addresses	from_address_truncates_host_bits
 unported	packages/effect/test/net/IpNetwork.test.ts	98	it	requires derived addresses to revalidate refinements	
 ported	packages/effect/test/net/IpNetwork.test.ts	129	it	parses strict CIDR and formats canonical address text	ipnetwork_parses_strict_cidr
 ported	packages/effect/test/net/IpNetwork.test.ts	138	it	rejects malformed and non-network CIDR input	ipnetwork_parses_strict_cidr
