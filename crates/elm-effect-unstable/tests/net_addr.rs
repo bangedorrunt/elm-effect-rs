@@ -157,6 +157,65 @@ fn interfaces_share_one_tagged_representation() {
     assert!(v6.is_interface());
 }
 
+fn ip(text: &str) -> net::NetAddress {
+    net::NetAddress::ipv6_from_string(text)
+        .or_else(|_| net::NetAddress::ipv4_from_string(text))
+        .expect("valid IP in test")
+}
+
+#[test]
+fn net_addresses_classify_boundaries() {
+    use net::NetAddress;
+    for text in [
+        "1.2.3.4",
+        "127.0.0.1",
+        "169.254.1.1",
+        "240.0.0.1",
+        "::1",
+        "fe80::1",
+    ] {
+        assert!(ip(text).is_unicast(), "{text}");
+    }
+    for text in ["0.0.0.0", "224.0.0.0", "255.255.255.255", "::", "ff00::"] {
+        assert!(!ip(text).is_unicast(), "{text}");
+    }
+    for text in ["127.0.0.0", "127.255.255.255", "::1"] {
+        assert!(ip(text).is_loopback(), "{text}");
+    }
+    for text in ["128.0.0.0", "::2", "::ffff:127.0.0.1"] {
+        assert!(!ip(text).is_loopback(), "{text}");
+    }
+    assert!(!ip("::ffff:224.0.0.1").is_multicast());
+    for text in ["169.254.0.0", "169.254.255.255", "fe80::", "febf:ffff:ffff:ffff:ffff:ffff:ffff:ffff"]
+    {
+        assert!(ip(text).is_link_local(), "{text}");
+    }
+    for text in ["169.255.0.0", "fec0::"] {
+        assert!(!ip(text).is_link_local(), "{text}");
+    }
+    for text in [
+        "10.0.0.0",
+        "10.255.255.255",
+        "172.16.0.0",
+        "172.31.255.255",
+        "192.168.0.0",
+    ] {
+        assert!(ip(text).is_private(), "{text}");
+    }
+    for text in [
+        "9.255.255.255",
+        "172.15.255.255",
+        "172.32.0.0",
+        "192.169.0.0",
+        "100.64.0.1",
+    ] {
+        assert!(!ip(text).is_private(), "{text}");
+    }
+    assert!(ip("fc00::").is_unique_local());
+    assert!(ip("fdff:ffff:ffff:ffff:ffff:ffff:ffff:ffff").is_unique_local());
+    assert!(!ip("fe00::").is_unique_local());
+}
+
 #[test]
 fn networks_share_one_tagged_family_identity() {
     use net::IpNetwork;

@@ -595,6 +595,79 @@ impl NetAddress {
     pub fn to_canonical(&self) -> Self {
         self.from_ipv4_mapped().unwrap_or(*self)
     }
+
+    /// True for `0.0.0.0` / `::` (TS `isUnspecified`).
+    pub fn is_unspecified(&self) -> bool {
+        match self {
+            Self::V4(v4) => u32::from_be_bytes(v4.octets()) == 0,
+            Self::V6(v6) => v6.segments() == [0, 0, 0, 0, 0, 0, 0, 0],
+        }
+    }
+
+    /// True for IPv4 `127.0.0.0/8` or IPv6 `::1` (TS `isLoopback`).
+    pub fn is_loopback(&self) -> bool {
+        match self {
+            Self::V4(v4) => (u32::from_be_bytes(v4.octets()) >> 24) == 127,
+            Self::V6(v6) => v6.segments() == [0, 0, 0, 0, 0, 0, 0, 1],
+        }
+    }
+
+    /// True for IPv4 `224.0.0.0/4` (top nibble `0xe`, so `240.0.0.0/4`
+    /// reserved space is excluded) or IPv6 `ff00::/8` (TS `isMulticast`).
+    pub fn is_multicast(&self) -> bool {
+        match self {
+            Self::V4(v4) => (u32::from_be_bytes(v4.octets()) >> 28) == 0xe,
+            Self::V6(v6) => (v6.segments()[0] >> 8) == 0xff,
+        }
+    }
+
+    /// True for the IPv4 limited broadcast `255.255.255.255` (TS
+    /// `isBroadcast`; directed broadcast needs a prefix and is not
+    /// classified here).
+    pub fn is_broadcast(&self) -> bool {
+        match self {
+            Self::V4(v4) => u32::from_be_bytes(v4.octets()) == 0xffff_ffff,
+            Self::V6(_) => false,
+        }
+    }
+
+    /// True when syntactically unicast: not multicast, not unspecified,
+    /// and (for IPv4) not broadcast (TS `isUnicast`). Says nothing about
+    /// reachability.
+    pub fn is_unicast(&self) -> bool {
+        !self.is_multicast() && !self.is_unspecified() && !self.is_broadcast()
+    }
+
+    /// True for IPv4 `169.254.0.0/16` or IPv6 `fe80::/10` (TS
+    /// `isLinkLocal`).
+    pub fn is_link_local(&self) -> bool {
+        match self {
+            Self::V4(v4) => (u32::from_be_bytes(v4.octets()) >> 16) == 0xa9fe,
+            Self::V6(v6) => (v6.segments()[0] & 0xffc0) == 0xfe80,
+        }
+    }
+
+    /// True for RFC 1918 ranges `10/8`, `172.16/12`, `192.168/16` (TS
+    /// `isPrivate`; IPv4-only).
+    pub fn is_private(&self) -> bool {
+        match self {
+            Self::V4(v4) => {
+                let value = u32::from_be_bytes(v4.octets());
+                (value >> 24) == 10
+                    || ((value >> 16) & 0xfff0) == 0xac10
+                    || (value >> 16) == 0xc0a8
+            }
+            Self::V6(_) => false,
+        }
+    }
+
+    /// True for IPv6 unique-local `fc00::/7` (TS `isUniqueLocal`).
+    pub fn is_unique_local(&self) -> bool {
+        match self {
+            Self::V4(_) => false,
+            Self::V6(v6) => ((v6.segments()[0] >> 8) & 0xfe) == 0xfc,
+        }
+    }
 }
 
 impl IpInterface {
