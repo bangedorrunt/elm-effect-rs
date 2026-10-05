@@ -633,3 +633,54 @@ fn provider_fallback_fires_through_empty_primary() {
     );
     assert_eq!(view.get(&["missing".to_string()]), None);
 }
+
+#[test]
+fn config_all_combines_positionally() {
+    use config::ConfigError;
+    let c = Config::all(vec![
+        Config::non_empty_string(named("a")),
+        Config::finite(named("b")),
+    ]);
+    assert_eq!(
+        c.load(&provider(&[("a", "a"), ("b", "1")])).unwrap(),
+        Value::List(vec![Value::Str("a".to_string()), Value::Num(1.0)])
+    );
+    assert_eq!(
+        c.load(&provider(&[("a", ""), ("b", "1")])).unwrap_err(),
+        vec![ConfigError::Missing {
+            path: vec!["a".to_string()]
+        }]
+    );
+    assert!(c.load(&provider(&[("a", "a"), ("b", "b")])).is_err());
+}
+
+#[test]
+fn config_record_combines_named() {
+    let c = Config::record(vec![
+        ("a".to_string(), Config::non_empty_string(named("b"))),
+        ("c".to_string(), Config::finite(named("d"))),
+    ]);
+    assert_eq!(
+        c.load(&provider(&[("b", "b"), ("d", "1")])).unwrap(),
+        Value::Map(vec![
+            ("a".to_string(), Value::Str("b".to_string())),
+            ("c".to_string(), Value::Num(1.0))
+        ])
+    );
+    assert!(c.load(&provider(&[("d", "1")])).is_err());
+}
+
+#[test]
+fn config_all_prefixes_every_child() {
+    let c = Config::all(vec![
+        Config::non_empty_string(named("a")),
+        Config::finite(named("b")),
+    ])
+    .nested("svc");
+    assert_eq!(
+        c.load(&provider(&[("svc.a", "a"), ("svc.b", "1")]))
+            .unwrap(),
+        Value::List(vec![Value::Str("a".to_string()), Value::Num(1.0)])
+    );
+    assert!(c.load(&provider(&[("a", "a"), ("b", "1")])).is_err());
+}

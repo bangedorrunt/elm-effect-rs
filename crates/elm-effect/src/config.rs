@@ -354,6 +354,53 @@ impl Config {
         })
     }
 
+    /// Combine configs positionally (`Config.all` tuple/iterable shape):
+    /// every member loads under the same prefix; values keep order,
+    /// errors accumulate.
+    pub fn all(configs: Vec<Config>) -> Self {
+        Self {
+            name: None,
+            run: std::rc::Rc::new(move |provider, prefix| {
+                let mut out = Vec::new();
+                let mut errors = Vec::new();
+                for c in &configs {
+                    match (c.run)(provider, prefix) {
+                        Ok(v) => out.push(v),
+                        Err(mut e) => errors.append(&mut e),
+                    }
+                }
+                if errors.is_empty() {
+                    Ok(Value::List(out))
+                } else {
+                    Err(errors)
+                }
+            }),
+        }
+    }
+
+    /// Combine named configs (`Config.all` record / `unwrap` shape):
+    /// values keep their keys, errors accumulate.
+    pub fn record(fields: Vec<(String, Config)>) -> Self {
+        Self {
+            name: None,
+            run: std::rc::Rc::new(move |provider, prefix| {
+                let mut out = Vec::new();
+                let mut errors = Vec::new();
+                for (key, c) in &fields {
+                    match (c.run)(provider, prefix) {
+                        Ok(v) => out.push((key.clone(), v)),
+                        Err(mut e) => errors.append(&mut e),
+                    }
+                }
+                if errors.is_empty() {
+                    Ok(Value::Map(out))
+                } else {
+                    Err(errors)
+                }
+            }),
+        }
+    }
+
     /// Always-failing config.
     pub fn fail(message: &str) -> Self {
         let message = message.to_string();
