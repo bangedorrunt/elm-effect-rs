@@ -46,9 +46,21 @@ where
         self.inner.borrow().contains_key(key)
     }
 
-    /// Set `key` in place.
-    pub fn set(&self, key: K, value: V) {
+    /// Set `key` in place; returns `self` for chaining.
+    pub fn set(&self, key: K, value: V) -> &Self {
         self.inner.borrow_mut().insert(key, value);
+        self
+    }
+
+    /// Update the cloned value at `key` in place; missing keys are ignored.
+    pub fn modify(&self, key: &K, f: impl FnOnce(V) -> V)
+    where
+        V: Clone,
+    {
+        if let Some(slot) = self.inner.borrow_mut().get_mut(key) {
+            let next = f(slot.clone());
+            *slot = next;
+        }
     }
 
     /// Remove `key` in place, returning the old cloned value.

@@ -207,6 +207,30 @@ fn mutable_hash_map_in_place() {
     assert!(MutableHashMap::<String, i32>::empty().is_empty());
 }
 
+#[test]
+fn mutable_hash_map_modify_from_iterate_and_pipe() {
+    // MutableHashMap.test.ts:124 — fromIterable builds from entries.
+    let m = MutableHashMap::make(vec![("a".to_owned(), 1), ("b".to_owned(), 2)]);
+    assert_eq!(m.size(), 2);
+    assert!(m.has(&"a".to_owned()));
+    // :135 — iterate visits every entry.
+    assert_eq!(m.keys().len(), 2);
+    // :314 — modify updates existing keys, ignores missing ones.
+    m.modify(&"a".to_owned(), |v| v + 10);
+    assert_eq!(m.get(&"a".to_owned()), Some(11));
+    m.modify(&"missing".to_owned(), |v| v + 1);
+    assert_eq!(m.size(), 2);
+    // MutableHashMap.test.ts:285 — set overwrites equal keys without growing.
+    m.set("a".to_owned(), 99);
+    assert_eq!(m.get(&"a".to_owned()), Some(99));
+    assert_eq!(m.size(), 2);
+    // :340 — pipe(): chained in-place ops equal a built map.
+    let piped = MutableHashMap::<String, String>::empty();
+    piped.set("key".to_owned(), "value".to_owned());
+    assert_eq!(piped.get(&"key".to_owned()), Some("value".to_owned()));
+    assert_eq!(piped.size(), 1);
+}
+
 // --- MutableHashSet ---
 
 #[test]
