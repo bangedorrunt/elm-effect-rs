@@ -687,3 +687,191 @@ fn percent_decode(text: &str) -> String {
     }
     String::from_utf8_lossy(&out).into_owned()
 }
+
+/// A parsed absolute URL with mutation.
+///
+/// Ports the portable core of `Url.ts` (`fromString`, setters, relative
+/// resolution): scheme, authority (optional userinfo + host + port), path,
+/// query (kept raw; use [`UrlParams`] for structure), and fragment.
+/// Rendering preserves the parts; passwords render as stored.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Url {
+    /// `https` in `https://…` (lowercased).
+    pub scheme: String,
+    /// Optional `user` (never includes the password).
+    pub username: String,
+    /// Optional password.
+    pub password: Option<String>,
+    /// Host without brackets (lowercased).
+    pub host: String,
+    /// Explicit port, if any.
+    pub port: Option<u16>,
+    /// Path starting with `/` (defaults to `/`).
+    pub path: String,
+    /// Raw query without `?`.
+    pub query: String,
+    /// Fragment without `#`.
+    pub fragment: String,
+}
+
+impl Url {
+    /// Parse an absolute URL. Fails on missing/invalid scheme, missing
+    /// host, bad port, or whitespace.
+    pub fn parse(text: &str) -> Option<Self> {
+        if text.bytes().any(|b| b.is_ascii_whitespace()) {
+            return None;
+        }
+        let (scheme, rest) = text.split_once("://")?;
+        if scheme.is_empty() || !scheme.bytes().all(|b| b.is_ascii_alphanumeric() || matches!(b, b'+' | b'-' | b'.')) {
+            return None;
+        }
+        let (authority, path_query_frag) = match rest.find('/') {
+            Some(i) => (&rest[..i], &rest[i..]),
+            None => (rest, "/"),
+        };
+        if authority.is_empty() {
+            return None;
+        }
+        let (userinfo, host_port) = match authority.rsplit_once('@') {
+            Some((u, h)) => (Some(u), h),
+            None => (None, authority),
+        };
+        let (username, password) = match userinfo {
+            Some(u) => match u.split_once(':') {
+                Some((name, pass)) => (name.to_string(), Some(pass.to_string())),
+                None => (u.to_string(), None),
+            },
+            None => (String::new(), None),
+        };
+        let (host, port) = if let Some(stripped) = host_port.strip_prefix('[') {
+            let (host, rest) = stripped.split_once(']')?;
+            let port = match rest.strip_prefix(':') {
+                Some(p) if !p.is_empty() => Some(p.parse().ok()?),
+                Some(_) => return None,
+                None if rest.is_empty() => None,
+                None => return None,
+            };
+            (format!("[{host}]"), port)
+        } else {
+            match host_port.rsplit_once(':') {
+                Some((h, p)) if !h.is_empty() => {
+                    let port: u16 = if p.is_empty() { return None } else { p.parse().ok()? };
+                    (h.to_ascii_lowercase(), Some(port))
+                }
+                _ => (host_port.to_ascii_lowercase(), None),
+            }
+        };
+        if host.is_empty() {
+            return None;
+        }
+        let (path_query, fragment) = match path_query_frag.split_once('#') {
+            Some((pq, f)) => (pq, f.to_string()),
+            None => (path_query_frag, String::new()),
+        };
+        let (path, query) = match path_query.split_once('?') {
+            Some((p, q)) => (p.to_string(), q.to_string()),
+            None => (path_query.to_string(), String::new()),
+        };
+        Some(Self {
+            scheme: scheme.to_ascii_lowercase(),
+            username,
+            password,
+            host,
+            port,
+            path: if path.is_empty() { "/".to_string() } else { path },
+            query,
+            fragment,
+        })
+    }
+
+    /// Resolve a relative reference against this base URL.
+    /// Absolute references parse directly; absolute paths keep the base
+    /// authority; other references merge onto the base directory.
+    pub fn resolve(&self, reference: &str) -> Option<Self> {
+        if reference.contains("://") {
+            return Self::parse(reference);
+        }
+        if let Some(path) = reference.strip_prefix('/') {
+            let mut resolved = self.clone();
+            let (path, query_frag) = match path.find(['?', '#']) {
+                Some(i) => (&path[..i], &path[i..]),
+                None => (path, ""),
+            };
+            resolved.path = format!("/{path}");
+            resolved.query = query_frag.strip_prefix('?').unwrap_or(query_frag).split('#').next().unwrap_or("").to_string();
+            resolved.fragment = query_frag.split('#').nth(1).unwrap_or("").to_string();
+            return Some(resolved);
+        }
+        let mut base_dir = self.path.clone();
+        if let Some(i) = base_dir.rfind('/') {
+            base_dir.truncate(i + 1);
+        }
+        let (ref_path, ref_query_frag) = match reference.find(['?', '#']) {
+            Some(i) => (&reference[..i], &reference[i..]),
+            None => (reference, ""),
+        };
+        let merged = normalize_path(&format!("{base_dir}{ref_path}"));
+        let mut resolved = self.clone();
+        resolved.path = merged;
+        resolved.query = ref_query_frag
+            .strip_prefix('?')
+            .unwrap_or(ref_query_frag)
+            .split('#')
+            .next()
+            .unwrap_or("")
+            .to_string();
+        resolved.fragment = ref_query_frag.split('#').nth(1).unwrap_or("").to_string();
+        Some(resolved)
+    }
+
+    /// Render the full URL.
+    pub fn render(&self) -> String {
+        let mut out = format!("{}://", self.scheme);
+        if !self.username.is_empty() {
+            out.push_str(&self.username);
+            if let Some(password) = &self.password {
+                out.push(':');
+                out.push_str(password);
+            }
+            out.push('@');
+        }
+        out.push_str(&self.host);
+        if let Some(port) = self.port {
+            out.push_str(&format!(":{port}"));
+        }
+        out.push_str(&self.path);
+        if !self.query.is_empty() {
+            out.push('?');
+            out.push_str(&self.query);
+        }
+        if !self.fragment.is_empty() {
+            out.push('#');
+            out.push_str(&self.fragment);
+        }
+        out
+    }
+
+    /// Structured query parameters.
+    pub fn url_params(&self) -> UrlParams {
+        UrlParams::parse(&self.query)
+    }
+
+    /// Replace the query from structured parameters.
+    pub fn set_url_params(&mut self, params: &UrlParams) {
+        self.query = params.render();
+    }
+}
+
+fn normalize_path(path: &str) -> String {
+    let mut segments: Vec<&str> = Vec::new();
+    for segment in path.split('/') {
+        match segment {
+            "" | "." => {}
+            ".." => {
+                segments.pop();
+            }
+            other => segments.push(other),
+        }
+    }
+    format!("/{}", segments.join("/"))
+}

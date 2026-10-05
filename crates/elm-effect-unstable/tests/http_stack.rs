@@ -179,3 +179,53 @@ fn ipnetwork_contains_addr_and_network() {
     assert!(outer.contains_network(&inner));
     assert!(!inner.contains_network(&outer));
 }
+
+#[test]
+fn url_parses_absolute_and_renders() {
+    use elm_effect_unstable::http::Url;
+    let url = Url::parse("https://user:pass@example.com:8443/a/b?q=1#frag").unwrap();
+    assert_eq!(url.scheme, "https");
+    assert_eq!(url.host, "example.com");
+    assert_eq!(url.port, Some(8443));
+    assert_eq!(url.path, "/a/b");
+    assert_eq!(url.query, "q=1");
+    assert_eq!(url.fragment, "frag");
+    assert_eq!(url.render(), "https://user:pass@example.com:8443/a/b?q=1#frag");
+    assert_eq!(Url::parse("https://example.com").unwrap().path, "/");
+}
+
+#[test]
+fn url_rejects_garbage() {
+    use elm_effect_unstable::http::Url;
+    assert!(Url::parse("not a url").is_none());
+    assert!(Url::parse(":///missing").is_none());
+    assert!(Url::parse("https://example.com:abc/").is_none());
+    assert!(Url::parse("https://").is_none());
+}
+
+#[test]
+fn url_resolves_relative_against_base() {
+    use elm_effect_unstable::http::Url;
+    let base = Url::parse("https://example.com/dir/page?q=1").unwrap();
+    assert_eq!(base.resolve("/other").unwrap().render(), "https://example.com/other");
+    assert_eq!(
+        base.resolve("next?x=2").unwrap().render(),
+        "https://example.com/dir/next?x=2"
+    );
+    assert_eq!(
+        base.resolve("https://other.com/y").unwrap().render(),
+        "https://other.com/y"
+    );
+}
+
+#[test]
+fn url_query_params_roundtrip() {
+    use elm_effect_unstable::http::{Url, UrlParams};
+    let mut url = Url::parse("https://example.com/s?a=1").unwrap();
+    let mut params = url.url_params();
+    params.append("b".to_string(), Some("2".to_string()));
+    url.set_url_params(&params);
+    assert_eq!(url.query, "a=1&b=2");
+    let appended = Url::parse("https://example.com/s?a=1#frag").unwrap();
+    assert_eq!(appended.render(), "https://example.com/s?a=1#frag");
+}
