@@ -8,6 +8,8 @@ mod encoding;
 mod ini;
 #[path = "../src/toml.rs"]
 mod toml;
+#[path = "../src/testing.rs"]
+mod testing;
 
 use encoding::EncodingError;
 
@@ -242,4 +244,67 @@ fn toml_multiline_and_numbers() {
 fn toml_rejects_duplicates() {
     assert!(toml::parse("key = 1\nkey = 2\n").is_err());
     assert!(toml::parse("key = 1__000\n").is_err());
+}
+
+#[test]
+fn testclock_adjust_wakes_in_deadline_order() {
+    let mut clock = testing::TestClock::new();
+    clock.sleep(1, 30);
+    clock.sleep(2, 10);
+    clock.sleep(3, 20);
+    assert_eq!(clock.pending(), 3);
+    assert_eq!(clock.adjust(15), vec![2]);
+    assert_eq!(clock.now_millis(), 15);
+    assert_eq!(clock.adjust(15), vec![3, 1]);
+    assert_eq!(clock.pending(), 0);
+}
+
+#[test]
+fn testclock_set_time_never_runs_backwards() {
+    let mut clock = testing::TestClock::new();
+    clock.sleep(7, 50);
+    assert_eq!(clock.set_time(100), vec![7]);
+    assert_eq!(clock.now_millis(), 100);
+    assert_eq!(clock.set_time(40), Vec::<u64>::new());
+    assert_eq!(clock.now_millis(), 100);
+}
+
+#[test]
+fn testconsole_captures_and_clears() {
+    let mut console = testing::TestConsole::new();
+    assert!(console.is_empty());
+    console.log("hello");
+    console.error("boom");
+    console.debug("trace");
+    assert_eq!(console.out_lines(), ["hello"]);
+    assert_eq!(console.err_lines(), ["boom"]);
+    assert_eq!(console.debug_lines(), ["trace"]);
+    assert_eq!(console.len(), 3);
+    console.clear();
+    assert!(console.is_empty());
+}
+
+#[test]
+fn testrng_is_seeded_and_bounded() {
+    let mut a = testing::TestRng::new(42);
+    let mut b = testing::TestRng::new(42);
+    for _ in 0..16 {
+        assert_eq!(a.next_u64(), b.next_u64());
+    }
+    let mut rng = testing::TestRng::new(1);
+    for _ in 0..64 {
+        assert!(rng.next_bounded(10) < 10);
+        assert!(rng.next_int_range(5, 5) == 5);
+        assert!(rng.next_int_range(-3, 3) >= -3);
+    }
+    assert_eq!(rng.next_string(8).len(), 8);
+    assert_eq!(testing::TestRng::new(0).next_u64(), testing::TestRng::new(0).next_u64());
+}
+
+#[test]
+fn test_assert_helpers_hold() {
+    let v = testing::assert_roundtrip(7u32, |n| n.to_string(), |s: String| s.parse::<u32>());
+    assert_eq!(v, 7);
+    assert_eq!(testing::assert_succeeds::<u32, String>(Ok(1)), 1);
+    assert_eq!(testing::assert_fails::<u32, _>(Err::<u32, String>("nope".into())), "nope");
 }
