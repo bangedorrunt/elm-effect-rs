@@ -6096,23 +6096,23 @@ ported	packages/effect/test/cluster/interruptors.test.ts	12	it	releases entity k
 ported	packages/effect/test/cluster/interruptors.test.ts	19	it	refcounts overlapping acquires	membership_returns_to_baseline
 ported	packages/effect/test/cluster/interruptors.test.ts	28	it.effect	aroundEntityType restores the key after the effect	around_entity_type_restores_the_key
 unported	packages/effect/test/devtools/DevToolsClient.test.ts	7	it.effect	sends a short-lived span once in each state	
-unported	packages/effect/test/encoding/Base64.test.ts	6	it	encodes strings and bytes	
-unported	packages/effect/test/encoding/Base64.test.ts	11	it	decodes bytes and UTF-8 strings	
-unported	packages/effect/test/encoding/Base64.test.ts	19	it	rejects invalid input with format information	
+ported	packages/effect/test/encoding/Base64.test.ts	6	it	encodes strings and bytes	base64_encodes_strings_and_bytes
+ported	packages/effect/test/encoding/Base64.test.ts	11	it	decodes bytes and UTF-8 strings	base64_decodes_bytes_and_strings
+ported	packages/effect/test/encoding/Base64.test.ts	19	it	rejects invalid input with format information	base64_rejects_invalid_input
 unported	packages/effect/test/encoding/Base64Url.test.ts	6	it	encodes strings and bytes without padding	
 unported	packages/effect/test/encoding/Base64Url.test.ts	11	it	decodes padded and unpadded input	
 unported	packages/effect/test/encoding/Base64Url.test.ts	19	it	rejects the standard Base64 alphabet and malformed lengths	
 unported	packages/effect/test/encoding/Base64Url.test.ts	31	it	rejects malformed padding	
-unported	packages/effect/test/encoding/EncodingError.test.ts	5	it	constructs errors with encoding failure metadata	
+ported	packages/effect/test/encoding/EncodingError.test.ts	5	it	constructs errors with encoding failure metadata	encoding_error_metadata
 unported	packages/effect/test/encoding/EncodingError.test.ts	24	it	identifies encoding errors	
-unported	packages/effect/test/encoding/Hex.test.ts	12	it	encodes strings and bytes as lowercase hexadecimal	
-unported	packages/effect/test/encoding/Hex.test.ts	17	it	decodes mixed-case bytes and UTF-8 strings	
-unported	packages/effect/test/encoding/Hex.test.ts	25	it	rejects odd lengths and non-hexadecimal characters	
+ported	packages/effect/test/encoding/Hex.test.ts	12	it	encodes strings and bytes as lowercase hexadecimal	hex_encodes_lowercase
+ported	packages/effect/test/encoding/Hex.test.ts	17	it	decodes mixed-case bytes and UTF-8 strings	hex_decodes_mixed_case
+ported	packages/effect/test/encoding/Hex.test.ts	25	it	rejects odd lengths and non-hexadecimal characters	hex_rejects_odd_and_nonhex
 unported	packages/effect/test/encoding/Hex.test.ts	38	it	generates lowercase hexadecimal words	
 unported	packages/effect/test/encoding/Hex.test.ts	45	it	rounds non-negative lengths down to multiples of 8	
 unported	packages/effect/test/encoding/Hex.test.ts	51	it	uses unsigned 32-bit coercion without validation	
-unported	packages/effect/test/encoding/Ini.test.ts	5	it	parses sections, arrays, and scalar values	
-unported	packages/effect/test/encoding/Ini.test.ts	31	it	supports quoted values, comments, and escaped section dots	
+ported	packages/effect/test/encoding/Ini.test.ts	5	it	parses sections, arrays, and scalar values	ini_sections_arrays_scalars
+ported	packages/effect/test/encoding/Ini.test.ts	31	it	supports quoted values, comments, and escaped section dots	ini_quoted_comments_escaped_dots
 unported	packages/effect/test/encoding/Ndjson.test.ts	7	it.effect	fails for values without a JSON representation	
 unported	packages/effect/test/encoding/Ndjson.test.ts	23	it.effect	decodeSchema decodes records split across Uint8Array chunks	
 unported	packages/effect/test/encoding/Ndjson.test.ts	35	it	identifies Ndjson errors	
@@ -6320,11 +6320,11 @@ unported	packages/effect/test/encoding/Sse.test.ts	157	it.effect	fails when an u
 unported	packages/effect/test/encoding/Sse.test.ts	170	it.effect	fails when pending data exceeds maxEventSize	
 unported	packages/effect/test/encoding/Sse.test.ts	183	it.effect	parses pending state just under maxEventSize	
 unported	packages/effect/test/encoding/Sse.test.ts	198	it.effect	parses well-formed events split across chunks	
-unported	packages/effect/test/encoding/Toml.test.ts	5	it	parses tables, dotted keys, arrays, and inline tables	
-unported	packages/effect/test/encoding/Toml.test.ts	28	it	parses arrays of tables and date-time values	
-unported	packages/effect/test/encoding/Toml.test.ts	48	it	parses child tables under distinct array entries	
-unported	packages/effect/test/encoding/Toml.test.ts	61	it	parses multiline strings and numeric formats	
-unported	packages/effect/test/encoding/Toml.test.ts	80	it	rejects duplicate keys	
+ported	packages/effect/test/encoding/Toml.test.ts	5	it	parses tables, dotted keys, arrays, and inline tables	toml_tables_dotted_keys_arrays
+ported	packages/effect/test/encoding/Toml.test.ts	28	it	parses arrays of tables and date-time values	toml_servers_with_datetimes
+ported	packages/effect/test/encoding/Toml.test.ts	48	it	parses child tables under distinct array entries	toml_child_tables_attach_to_last_element
+ported	packages/effect/test/encoding/Toml.test.ts	61	it	parses multiline strings and numeric formats	toml_multiline_and_numbers
+ported	packages/effect/test/encoding/Toml.test.ts	80	it	rejects duplicate keys	toml_rejects_duplicates
 unported	packages/effect/test/encoding/Yaml.test.ts	5	it	parses nested block and flow collections	
 unported	packages/effect/test/encoding/Yaml.test.ts	34	it	parses quoted and block scalars	
 unported	packages/effect/test/encoding/Yaml.test.ts	53	it	preserves paragraph and indentation breaks in folded block scalars	
@@ -9501,11 +9501,11 @@ unported	packages/effect/test/schema/toFormatter.test.ts	61	it	BigInt
 unported	packages/effect/test/schema/toFormatter.test.ts	66	it	Symbol	
 unported	packages/effect/test/schema/toFormatter.test.ts	71	it	UniqueSymbol	
 unported	packages/effect/test/schema/toFormatter.test.ts	76	it	ObjectKeyword	
-unported	packages/effect/test/schema/toFormatter.test.ts	84	it	string	
-unported	packages/effect/test/schema/toFormatter.test.ts	89	it	number	
-unported	packages/effect/test/schema/toFormatter.test.ts	94	it	boolean	
+ported	packages/effect/test/schema/toFormatter.test.ts	84	it	string	formatter_literal_string_quotes
+ported	packages/effect/test/schema/toFormatter.test.ts	89	it	number	formatter_literal_number_bare
+ported	packages/effect/test/schema/toFormatter.test.ts	94	it	boolean	formatter_literal_boolean_word
 unported	packages/effect/test/schema/toFormatter.test.ts	99	it	bigint	
-unported	packages/effect/test/schema/toFormatter.test.ts	105	it	Literals	
+ported	packages/effect/test/schema/toFormatter.test.ts	105	it	Literals	formatter_literals_union_members
 unported	packages/effect/test/schema/toFormatter.test.ts	112	it	TemplateLiteral	
 unported	packages/effect/test/schema/toFormatter.test.ts	119	it	Numeric enum	
 unported	packages/effect/test/schema/toFormatter.test.ts	128	it	String enum	
