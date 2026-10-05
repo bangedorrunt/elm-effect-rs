@@ -1,9 +1,9 @@
 //! SQL service + sockets: typed errors, journaled transactions, loopback I/O.
 
-#[path = "../src/sql.rs"]
-mod sql;
 #[path = "../src/socket.rs"]
 mod socket;
+#[path = "../src/sql.rs"]
+mod sql;
 
 use socket::socket_pair;
 use sql::{Faults, SqlClient, SqlError, SqlReason, classify_sqlite_error};
@@ -21,19 +21,22 @@ fn sql_error_reasons_classify() {
     assert!(!unique.retryable);
 
     assert!(matches!(
-        classify_sqlite_error(Some("SQLITE_CONSTRAINT_UNIQUE"), "UNIQUE constraint failed: users.email"),
+        classify_sqlite_error(Some("SQLITE_CONSTRAINT_UNIQUE"), None, "UNIQUE constraint failed: users.email"),
         SqlReason::UniqueViolation { constraint: Some(name) } if name == "users.email"
     ));
     assert!(matches!(
-        classify_sqlite_error(Some("SQLITE_CONSTRAINT_CHECK"), "check failed"),
+        classify_sqlite_error(Some("SQLITE_CONSTRAINT_CHECK"), None, "check failed"),
         SqlReason::ConstraintError { .. }
     ));
     assert_eq!(
-        classify_sqlite_error(Some("SQLITE_CONSTRAINT_UNIQUE"), "no identifier here"),
+        classify_sqlite_error(Some("SQLITE_CONSTRAINT_UNIQUE"), None, "no identifier here"),
         SqlReason::UniqueViolation { constraint: None }
     );
-    assert_eq!(classify_sqlite_error(None, ""), SqlReason::Unknown);
-    assert_eq!(classify_sqlite_error(Some(""), "x"), SqlReason::Unknown);
+    assert_eq!(classify_sqlite_error(None, None, ""), SqlReason::Unknown);
+    assert_eq!(
+        classify_sqlite_error(Some(""), None, "x"),
+        SqlReason::Unknown
+    );
     for reason in [
         SqlReason::ForeignKeyViolation,
         SqlReason::SyntaxError,
@@ -44,6 +47,21 @@ fn sql_error_reasons_classify() {
         assert!(err.retryable);
         assert!(err.to_string().contains("boom"));
     }
+}
+
+#[test]
+fn classify_prefers_explicit_unique_constraint() {
+    // SqlError.test.ts:157 — explicit sqlite identifier wins, trimmed.
+    assert_eq!(
+        classify_sqlite_error(
+            Some("SQLITE_CONSTRAINT_UNIQUE"),
+            Some(" users_email_key "),
+            "UNIQUE constraint failed: users.email"
+        ),
+        SqlReason::UniqueViolation {
+            constraint: Some("users_email_key".to_string())
+        }
+    );
 }
 
 #[test]
@@ -155,9 +173,10 @@ fn schema_find_all_decodes_or_fails() {
         Ok(vec![1, 2])
     );
     db.insert("t", vec!["nope".to_string()]);
-    assert!(db
-        .query_all("t", |row| row[0].parse::<i64>().map_err(|e| e.to_string()))
-        .is_err());
+    assert!(
+        db.query_all("t", |row| row[0].parse::<i64>().map_err(|e| e.to_string()))
+            .is_err()
+    );
 }
 
 #[test]
@@ -181,9 +200,10 @@ fn schema_find_one_and_option() {
         db.query_option("t", |row| Ok::<String, String>(row[0].clone())),
         Ok(Some("a".to_string()))
     );
-    assert!(db
-        .query_one("t", |_| Err::<String, String>("bad row".to_string()))
-        .is_err());
+    assert!(
+        db.query_one("t", |_| Err::<String, String>("bad row".to_string()))
+            .is_err()
+    );
 }
 
 #[test]
@@ -213,7 +233,12 @@ fn resolver_dedups_and_aligns() {
     let out = resolver.resolve_each(&["1", "1", "2"], |keys| {
         runs.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
         keys.iter()
-            .map(|k| db.scan("t").into_iter().find(|r| &r[0] == k).unwrap_or_default())
+            .map(|k| {
+                db.scan("t")
+                    .into_iter()
+                    .find(|r| &r[0] == k)
+                    .unwrap_or_default()
+            })
             .collect()
     });
     assert!(resolver.executed());
@@ -243,12 +268,19 @@ fn resolver_completes_duplicates_when_encoding_fails() {
 
 #[test]
 fn error_guards_match_wrapper_and_reasons() {
-    let err = SqlError::new(SqlReason::UniqueViolation { constraint: None }, false, "dup");
+    let err = SqlError::new(
+        SqlReason::UniqueViolation { constraint: None },
+        false,
+        "dup",
+    );
     assert_eq!(err.reason_tag(), "UniqueViolation");
     assert!(matches!(err.reason, SqlReason::UniqueViolation { .. }));
     assert!(!matches!(err.reason, SqlReason::ConstraintError { .. }));
     for (reason, tag) in [
-        (SqlReason::ConstraintError { detail: None }, "ConstraintError"),
+        (
+            SqlReason::ConstraintError { detail: None },
+            "ConstraintError",
+        ),
         (SqlReason::ForeignKeyViolation, "ForeignKeyViolation"),
         (SqlReason::SyntaxError, "SyntaxError"),
         (SqlReason::ConnectionLost, "ConnectionLost"),
@@ -265,7 +297,9 @@ fn error_guards_match_wrapper_and_reasons() {
 #[test]
 fn error_schema_roundtrip_preserves_wrapper() {
     let err = SqlError::new(
-        SqlReason::UniqueViolation { constraint: Some("k".to_string()) },
+        SqlReason::UniqueViolation {
+            constraint: Some("k".to_string()),
+        },
         false,
         "dup key",
     );
@@ -279,12 +313,9 @@ fn failed_savepoint_never_rolls_back() {
     let db = SqlClient::fake();
     db.insert("t", vec!["seed".to_string()]);
     let err = SqlError::new(SqlReason::Unknown, false, "savepoint refused");
-    let out = db.savepoint(
-        "sp1",
-        Err(err.clone()),
-        &Faults::default(),
-        || Ok::<u32, SqlError>(1),
-    );
+    let out = db.savepoint("sp1", Err(err.clone()), &Faults::default(), || {
+        Ok::<u32, SqlError>(1)
+    });
     assert_eq!(out, Err(err));
     assert_eq!(db.scan("t"), vec![vec!["seed".to_string()]]);
 }
@@ -303,21 +334,31 @@ fn commit_returns_value_on_success() {
 #[test]
 fn skipped_release_when_rollback_fails() {
     let db = SqlClient::fake().with_savepoints(false);
-    let faults = Faults { fail_release: false, fail_rollback: true };
+    let faults = Faults {
+        fail_release: false,
+        fail_rollback: true,
+    };
     let out = db.savepoint("sp1", Ok(()), &faults, || {
         db.insert("t", vec!["x".to_string()]);
         Err::<u32, SqlError>(SqlError::new(SqlReason::Unknown, true, "boom"))
     });
-    assert_eq!(out.map_err(|e| e.message), Err("rollback failed".to_string()));
+    assert_eq!(
+        out.map_err(|e| e.message),
+        Err("rollback failed".to_string())
+    );
     assert_eq!(db.savepoint_count(), 1);
 }
 
 #[test]
 fn outer_rolls_back_when_release_fails() {
     let db = SqlClient::fake();
-    let faults = Faults { fail_release: true, fail_rollback: false };
+    let faults = Faults {
+        fail_release: true,
+        fail_rollback: false,
+    };
     let out = db.transaction(Ok(()), || {
-        db.savepoint("sp1", Ok(()), &faults, || Ok::<(), SqlError>(())).map(|_| 0u32)
+        db.savepoint("sp1", Ok(()), &faults, || Ok::<(), SqlError>(()))
+            .map(|_| 0u32)
     });
     assert!(out.is_err());
     assert!(db.scan("t").is_empty());

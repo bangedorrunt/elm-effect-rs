@@ -50,7 +50,11 @@ pub struct SqlError {
 impl SqlError {
     /// Build from reason, retryability, and message.
     pub fn new(reason: SqlReason, retryable: bool, message: &str) -> Self {
-        Self { reason, retryable, message: message.to_string() }
+        Self {
+            reason,
+            retryable,
+            message: message.to_string(),
+        }
     }
 
     /// True for unique violations.
@@ -68,18 +72,29 @@ impl std::fmt::Display for SqlError {
 impl std::error::Error for SqlError {}
 
 /// Map sqlite codes and messages to reasons.
-pub fn classify_sqlite_error(code: Option<&str>, message: &str) -> SqlReason {
+pub fn classify_sqlite_error(
+    code: Option<&str>,
+    constraint: Option<&str>,
+    message: &str,
+) -> SqlReason {
     let lower = message.to_lowercase();
+    // An explicit sqlite identifier wins over message parsing.
+    let explicit = constraint
+        .map(str::trim)
+        .filter(|c| !c.is_empty())
+        .map(str::to_string);
     match code {
         Some("SQLITE_CONSTRAINT_UNIQUE") => SqlReason::UniqueViolation {
-            constraint: unique_detail(message),
+            constraint: explicit.clone().or_else(|| unique_detail(message)),
         },
-        Some("SQLITE_CONSTRAINT_CHECK") | Some("SQLITE_CONSTRAINT") => {
-            SqlReason::ConstraintError { detail: (!message.is_empty()).then(|| message.to_string()) }
-        }
+        Some("SQLITE_CONSTRAINT_CHECK") | Some("SQLITE_CONSTRAINT") => SqlReason::ConstraintError {
+            detail: (!message.is_empty()).then(|| message.to_string()),
+        },
         _ => {
             if lower.contains("unique") {
-                return SqlReason::UniqueViolation { constraint: unique_detail(message) };
+                return SqlReason::UniqueViolation {
+                    constraint: explicit.clone().or_else(|| unique_detail(message)),
+                };
             }
             SqlReason::Unknown
         }
@@ -115,7 +130,11 @@ pub struct SqlClient {
 impl SqlClient {
     /// Empty fake with savepoints enabled.
     pub fn fake() -> Self {
-        Self { tables: Default::default(), savepoints_held: std::cell::RefCell::new(0), strict_savepoints: true }
+        Self {
+            tables: Default::default(),
+            savepoints_held: std::cell::RefCell::new(0),
+            strict_savepoints: true,
+        }
     }
 
     /// Toggle savepoint support (`with_savepoints(false)` keeps the
@@ -127,7 +146,11 @@ impl SqlClient {
 
     /// Stage one row.
     pub fn insert(&self, table: &str, row: Vec<String>) {
-        self.tables.borrow_mut().entry(table.to_string()).or_default().push(row);
+        self.tables
+            .borrow_mut()
+            .entry(table.to_string())
+            .or_default()
+            .push(row);
     }
 
     /// Read staged rows.
@@ -237,9 +260,9 @@ impl SqlClient {
         decode: impl Fn(&[String]) -> Result<T, String>,
     ) -> Result<T, SqlError> {
         let rows = self.scan(table);
-        let first = rows.first().ok_or_else(|| {
-            SqlError::new(SqlReason::EmptyResult, false, "no rows returned")
-        })?;
+        let first = rows
+            .first()
+            .ok_or_else(|| SqlError::new(SqlReason::EmptyResult, false, "no rows returned"))?;
         decode(first).map_err(|message| SqlError::new(SqlReason::Unknown, false, &message))
     }
 
@@ -314,7 +337,8 @@ impl BatchResolver {
         }
         let mut rows: HashMap<String, Vec<String>> = HashMap::new();
         if !unique.is_empty() {
-            self.executed.store(true, std::sync::atomic::Ordering::SeqCst);
+            self.executed
+                .store(true, std::sync::atomic::Ordering::SeqCst);
             for (key, row) in unique.iter().zip(run(unique.as_slice()).into_iter()) {
                 rows.insert(key.clone(), row);
             }
@@ -395,7 +419,10 @@ impl SqlError {
                     .map(str::to_string),
             },
             "ConstraintError" => SqlReason::ConstraintError {
-                detail: value.get("detail").and_then(|d| d.as_str()).map(str::to_string),
+                detail: value
+                    .get("detail")
+                    .and_then(|d| d.as_str())
+                    .map(str::to_string),
             },
             "ForeignKeyViolation" => SqlReason::ForeignKeyViolation,
             "SyntaxError" => SqlReason::SyntaxError,
@@ -406,8 +433,15 @@ impl SqlError {
         };
         Some(SqlError {
             reason,
-            message: value.get("message").and_then(|m| m.as_str()).unwrap_or_default().to_string(),
-            retryable: value.get("retryable").and_then(|r| r.as_bool()).unwrap_or(false),
+            message: value
+                .get("message")
+                .and_then(|m| m.as_str())
+                .unwrap_or_default()
+                .to_string(),
+            retryable: value
+                .get("retryable")
+                .and_then(|r| r.as_bool())
+                .unwrap_or(false),
         })
     }
 }

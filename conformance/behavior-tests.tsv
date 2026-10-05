@@ -9835,7 +9835,7 @@ unported	packages/effect/test/sql/SqlError.test.ts	103	it	isSqlErrorReason only 
 ported	packages/effect/test/sql/SqlError.test.ts	113	it	constructs and recognizes UniqueViolation reasons	sql_error_reasons_classify
 ported	packages/effect/test/sql/SqlError.test.ts	127	it	classifySqliteError maps sqlite unique constraint codes to UniqueViolation	sql_error_reasons_classify
 ported	packages/effect/test/sql/SqlError.test.ts	148	it	classifySqliteError extracts sqlite unique descriptors from messages	sql_error_reasons_classify
-unported	packages/effect/test/sql/SqlError.test.ts	157	it	classifySqliteError prefers explicit sqlite unique constraint identifiers	
+ported	packages/effect/test/sql/SqlError.test.ts	157	it	classifySqliteError prefers explicit sqlite unique constraint identifiers	classify_prefers_explicit_unique_constraint
 ported	packages/effect/test/sql/SqlError.test.ts	167	it	classifySqliteError falls back to unknown for blank or missing sqlite unique identifiers	sql_error_reasons_classify
 ported	packages/effect/test/sql/SqlError.test.ts	186	it	classifySqliteError keeps generic sqlite constraints as ConstraintError	sql_error_reasons_classify
 unported	packages/effect/test/sql/SqlError.test.ts	201	it.effect	schema roundtrip for SqlError wrapping ${reasonCase.tag}	
