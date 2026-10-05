@@ -26,3 +26,5 @@ pub mod process;
 pub mod workers;
 
 pub mod reactivity;
+
+pub mod devtools;
