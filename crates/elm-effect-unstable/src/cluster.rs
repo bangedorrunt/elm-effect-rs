@@ -362,3 +362,98 @@ impl<T> ResourceMap<T> {
         Ok(&self.entries[key])
     }
 }
+
+/// Address of a runner: host plus port.
+///
+/// Ports `packages/effect/src/cluster/RunnerAddress.ts` (`make`):
+/// parses and renders `host:port` pairs.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct RunnerAddress {
+    /// Hostname or IP.
+    pub host: String,
+    /// Port number.
+    pub port: u16,
+}
+
+impl RunnerAddress {
+    /// Build from parts.
+    pub fn make(host: impl Into<String>, port: u16) -> Self {
+        Self {
+            host: host.into(),
+            port,
+        }
+    }
+
+    /// Parse `host:port`; fails on missing or non-numeric ports.
+    pub fn parse(text: &str) -> Option<Self> {
+        let (host, port) = text.rsplit_once(':')?;
+        if host.is_empty() {
+            return None;
+        }
+        Some(Self {
+            host: host.to_string(),
+            port: port.parse().ok()?,
+        })
+    }
+
+    /// Render as `host:port`.
+    pub fn render(&self) -> String {
+        format!("{}:{}", self.host, self.port)
+    }
+}
+
+/// Cluster failure modes.
+///
+/// Ports `packages/effect/src/cluster/ClusterError.ts`: one variant per
+/// tagged error class, each carrying a message.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ClusterError {
+    /// A message arrived while another was still processing.
+    AlreadyProcessingMessage(String),
+    /// The entity is not assigned to this runner.
+    EntityNotAssignedToRunner(String),
+    /// The entity mailbox is full.
+    MailboxFull(String),
+    /// A message failed to deserialize.
+    MalformedMessage(String),
+    /// The persistence backend failed.
+    PersistenceError(String),
+    /// No runner is registered for the address.
+    RunnerNotRegistered(String),
+    /// The runner is unreachable.
+    RunnerUnavailable(String),
+}
+
+impl ClusterError {
+    /// The failure message.
+    pub fn message(&self) -> &str {
+        match self {
+            Self::AlreadyProcessingMessage(m)
+            | Self::EntityNotAssignedToRunner(m)
+            | Self::MailboxFull(m)
+            | Self::MalformedMessage(m)
+            | Self::PersistenceError(m)
+            | Self::RunnerNotRegistered(m)
+            | Self::RunnerUnavailable(m) => m,
+        }
+    }
+
+    /// The upstream error tag.
+    pub fn tag(&self) -> &'static str {
+        match self {
+            Self::AlreadyProcessingMessage(_) => "AlreadyProcessingMessage",
+            Self::EntityNotAssignedToRunner(_) => "EntityNotAssignedToRunner",
+            Self::MailboxFull(_) => "MailboxFull",
+            Self::MalformedMessage(_) => "MalformedMessage",
+            Self::PersistenceError(_) => "PersistenceError",
+            Self::RunnerNotRegistered(_) => "RunnerNotRegistered",
+            Self::RunnerUnavailable(_) => "RunnerUnavailable",
+        }
+    }
+}
+
+impl core::fmt::Display for ClusterError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "{}: {}", self.tag(), self.message())
+    }
+}

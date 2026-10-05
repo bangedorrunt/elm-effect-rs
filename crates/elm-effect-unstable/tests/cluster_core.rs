@@ -111,3 +111,25 @@ fn clear_address_drops_index_and_interrupts() {
     assert!(s.interrupts_for(&a).is_empty());
     assert!(s.unprocessed_messages(&[a], None).unwrap().is_empty());
 }
+
+#[test]
+fn runner_address_roundtrip() {
+    let addr = cluster::RunnerAddress::make("runner-1", 8080);
+    assert_eq!(addr.render(), "runner-1:8080");
+    assert_eq!(cluster::RunnerAddress::parse("runner-1:8080"), Some(addr));
+    assert_eq!(cluster::RunnerAddress::parse("no-port"), None);
+    assert_eq!(cluster::RunnerAddress::parse(":8080"), None);
+    assert_eq!(cluster::RunnerAddress::parse("host:abc"), None);
+}
+
+#[test]
+fn cluster_errors_carry_tag_and_message() {
+    let e = cluster::ClusterError::MailboxFull("box at 100".into());
+    assert_eq!(e.tag(), "MailboxFull");
+    assert_eq!(e.message(), "box at 100");
+    assert_eq!(e.to_string(), "MailboxFull: box at 100");
+    assert_eq!(
+        cluster::ClusterError::RunnerUnavailable("down".into()).tag(),
+        "RunnerUnavailable"
+    );
+}
