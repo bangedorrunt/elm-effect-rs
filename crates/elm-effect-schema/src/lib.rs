@@ -581,10 +581,27 @@ impl<A: Send + Sync + 'static, B: Send + Sync + 'static> Schema<(A, B)> {
 }
 
 /// One field of a struct shape: required or optional with a decoder.
+///
+/// Two optional flavors: [`OptionalKey`](Optionality::OptionalKey) (exact:
+/// the key may be absent, but an explicit null still decodes the inner
+/// schema) and [`Optional`](Optionality::Optional) (absent or null both
+/// skip the inner schema).
 pub struct Field {
     name: String,
     schema: Arc<Schema<Unknown>>,
-    optional: bool,
+    optionality: Optionality,
+}
+
+/// How optional a struct field is on the decoding axis.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Optionality {
+    /// The key must be present.
+    Required,
+    /// Exact optional: the key may be absent, but an explicit null still
+    /// decodes the inner schema.
+    OptionalKey,
+    /// The key may be absent or null; both skip the inner schema.
+    Optional,
 }
 
 impl Field {
@@ -593,7 +610,7 @@ impl Field {
         Self {
             name: name.to_string(),
             schema: Arc::new(schema),
-            optional: false,
+            optionality: Optionality::Required,
         }
     }
 
@@ -602,8 +619,29 @@ impl Field {
         Self {
             name: name.to_string(),
             schema: Arc::new(schema),
-            optional: true,
+            optionality: Optionality::Optional,
         }
+    }
+
+    /// An exact-optional field: the key may be absent, but an explicit
+    /// null still decodes the inner schema.
+    pub fn optional_key(name: &str, schema: Schema<Unknown>) -> Self {
+        Self {
+            name: name.to_string(),
+            schema: Arc::new(schema),
+            optionality: Optionality::OptionalKey,
+        }
+    }
+
+    /// Reverse `optional`/`optional_key`: the field becomes required.
+    pub fn require(mut self) -> Self {
+        self.optionality = Optionality::Required;
+        self
+    }
+
+    /// Make every field required (`required` over a struct shape).
+    pub fn require_all(fields: Vec<Field>) -> Vec<Field> {
+        fields.into_iter().map(Field::require).collect()
     }
 }
 
@@ -618,7 +656,8 @@ impl Schema<BTreeMap<String, Unknown>> {
                     let mut out = BTreeMap::new();
                     for field in &fields {
                         match input.remove(&field.name) {
-                            None | Some(Unknown::Null) if field.optional => {}
+                            None if field.optionality != Optionality::Required => {}
+                            Some(Unknown::Null) if field.optionality == Optionality::Optional => {}
                             None => {
                                 return Err(SchemaError::TypeMismatch {
                                     path: format!("$.{}", field.name),
