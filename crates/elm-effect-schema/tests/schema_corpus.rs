@@ -1142,3 +1142,34 @@ fn codec_date_bare_struct_tuple_json() {
         (MILLIS, "x".to_string())
     );
 }
+
+#[test]
+fn formatter_never_prints_never() {
+    let format = Schema::<Unknown>::never().formatter();
+    assert_eq!(format(&Unknown::Number(1.0)), "never");
+}
+
+#[test]
+fn formatter_null_prints_null() {
+    let format = Schema::<()>::null().formatter();
+    assert_eq!(format(&Unknown::Null), "null");
+}
+
+#[test]
+fn formatter_string_json_quotes() {
+    let format = Schema::<String>::string().formatter();
+    assert_eq!(format(&Unknown::Text("a".to_string())), "\"a\"");
+}
+
+#[test]
+fn formatter_number_prints_bare() {
+    let format = Schema::<f64>::number().formatter();
+    assert_eq!(format(&Unknown::Number(1.0)), "1");
+}
+
+#[test]
+fn formatter_boolean_prints_words() {
+    let format = Schema::<bool>::boolean().formatter();
+    assert_eq!(format(&Unknown::Bool(true)), "true");
+    assert_eq!(format(&Unknown::Bool(false)), "false");
+}
