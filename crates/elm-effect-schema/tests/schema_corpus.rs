@@ -1173,3 +1173,36 @@ fn formatter_boolean_prints_words() {
     assert_eq!(format(&Unknown::Bool(true)), "true");
     assert_eq!(format(&Unknown::Bool(false)), "false");
 }
+
+#[test]
+fn formatter_literal_string_quotes() {
+    let format = Schema::literal(Unknown::Text("a".to_string())).formatter();
+    assert_eq!(format(&Unknown::Text("a".to_string())), "\"a\"");
+}
+
+#[test]
+fn formatter_literal_number_bare() {
+    let format = Schema::literal(Unknown::Number(1.0)).formatter();
+    assert_eq!(format(&Unknown::Number(1.0)), "1");
+}
+
+#[test]
+fn formatter_literal_boolean_word() {
+    let format = Schema::literal(Unknown::Bool(true)).formatter();
+    assert_eq!(format(&Unknown::Bool(true)), "true");
+}
+
+#[test]
+fn formatter_literals_union_members() {
+    let format = Schema::union(
+        Schema::literal(Unknown::Text("a".to_string())),
+        Schema::union(
+            Schema::literal(Unknown::Text("b".to_string())),
+            Schema::literal(Unknown::Text("c".to_string())),
+        ),
+    )
+    .formatter();
+    assert_eq!(format(&Unknown::Text("a".to_string())), "\"a\"");
+    assert_eq!(format(&Unknown::Text("b".to_string())), "\"b\"");
+    assert_eq!(format(&Unknown::Text("c".to_string())), "\"c\"");
+}
