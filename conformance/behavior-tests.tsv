@@ -6377,17 +6377,17 @@ unported	packages/effect/test/eventlog/SqlEventLogServerUnencryptedStorageTest.t
 unported	packages/effect/test/eventlog/SqlEventLogServerUnencryptedStorageTest.ts	64	it.effect	replays backlog and then streams live changes without startup duplication	
 unported	packages/effect/test/eventlog/SqlEventLogServerUnencryptedStorageTest.ts	96	it.effect	handles the changes startup race without losing or duplicating rows	
 unported	packages/effect/test/eventlog/SqlEventLogServerUnencryptedStorageTest.ts	136	it.effect	isolates reads and streams between stores	
-unported	packages/effect/test/http/Cookies.test.ts	11	it	rejects cookie attribute delimiters in names, domains, and paths	
-unported	packages/effect/test/http/Cookies.test.ts	26	it	accepts RFC 6265 token names and legitimate domains and paths	
-unported	packages/effect/test/http/Cookies.test.ts	44	it	ignores invalid cookie names	
+ported	packages/effect/test/http/Cookies.test.ts	11	it	rejects cookie attribute delimiters in names, domains, and paths	cookies_reject_invalid_names
+ported	packages/effect/test/http/Cookies.test.ts	26	it	accepts RFC 6265 token names and legitimate domains and paths	cookies_reject_invalid_names
+ported	packages/effect/test/http/Cookies.test.ts	44	it	ignores invalid cookie names	cookies_reject_invalid_names
 unported	packages/effect/test/http/Cookies.test.ts	63	it	rejects invalid cookies supplied through fromIterable	
-unported	packages/effect/test/http/Cookies.test.ts	69	it	rejects invalid cookies supplied through setCookie	
+ported	packages/effect/test/http/Cookies.test.ts	69	it	rejects invalid cookies supplied through setCookie	cookies_reject_invalid_names
 ported	packages/effect/test/http/Cookies.test.ts	76	it	expireCookie returns a Result with an expired Set-Cookie value	cookie_expired_renders_cleared_set_cookie
 ported	packages/effect/test/http/Cookies.test.ts	90	it	expireCookieUnsafe adds an expired Set-Cookie value	cookie_expired_renders_cleared_set_cookie
 unported	packages/effect/test/http/Cookies.test.ts	105	it	serializerIso annotation	
 unported	packages/effect/test/http/Cookies.test.ts	118	it	toCodecJson	
 unported	packages/effect/test/http/Cookies.test.ts	139	it	RecordFromCookies converts cookies to decoded string values	
-unported	packages/effect/test/http/Cookies.test.ts	154	it	get and getValue return Option	
+ported	packages/effect/test/http/Cookies.test.ts	154	it	get and getValue return Option	cookies_reject_invalid_names
 unported	packages/effect/test/http/Cookies.test.ts	163	it	identifies cookies errors	
 unported	packages/effect/test/http/FetchHttpClient.test.ts	6	it.effect	sends bodies from Web requests	
 unported	packages/effect/test/http/FindMyWay/case-insensitive.test.ts	9	it	case insensitive static routes of level 1	

@@ -382,11 +382,23 @@ impl Cookie {
         }
     }
 
-    /// Parse one `name=value` pair (no attributes).
+    /// True for RFC 6265 token names (no separators, spaces, or controls).
+    pub fn is_valid_name(name: &str) -> bool {
+        !name.is_empty() && name.bytes().all(|b| {
+            b.is_ascii_alphanumeric()
+                || matches!(b, b'!' | b'#' | b'$' | b'%' | b'&' | b'\'' | b'*' | b'+' | b'-' | b'.' | b'^' | b'_' | b'`' | b'|' | b'~')
+        })
+    }
+
+    /// Parse one `name=value` pair (no attributes). Invalid names fail.
     pub fn parse_pair(pair: &str) -> Option<Self> {
         let (name, value) = pair.split_once('=')?;
+        let name = name.trim();
+        if !Self::is_valid_name(name) {
+            return None;
+        }
         Some(Self {
-            name: name.trim().to_string(),
+            name: name.to_string(),
             value: Self::unquote(value.trim()),
             max_age: None,
             expires: None,
@@ -461,6 +473,44 @@ impl Cookie {
         } else {
             value.to_string()
         }
+    }
+}
+
+/// An ordered jar of request cookies.
+///
+/// Ports the `Cookies` collection core: header parsing (invalid names
+/// dropped), `get`/`get_value` returning `Option`.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Cookies {
+    cookies: Vec<Cookie>,
+}
+
+impl Cookies {
+    /// Empty jar.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Parse a `Cookie` header, dropping invalid names.
+    pub fn parse_header(header: &str) -> Self {
+        Self {
+            cookies: Cookie::parse_header(header),
+        }
+    }
+
+    /// First cookie with `name`.
+    pub fn get(&self, name: &str) -> Option<&Cookie> {
+        self.cookies.iter().find(|c| c.name == name)
+    }
+
+    /// First cookie value with `name`.
+    pub fn get_value(&self, name: &str) -> Option<&str> {
+        self.get(name).map(|c| c.value.as_str())
+    }
+
+    /// True when no cookies are held.
+    pub fn is_empty(&self) -> bool {
+        self.cookies.is_empty()
     }
 }
 

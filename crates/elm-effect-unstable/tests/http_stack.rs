@@ -359,3 +359,19 @@ fn cookie_expired_renders_cleared_set_cookie() {
     assert_eq!(back.max_age, Some(0));
     assert_eq!(back.name, "session");
 }
+
+#[test]
+fn cookies_reject_invalid_names() {
+    use elm_effect_unstable::http::{Cookie, Cookies};
+    assert!(Cookie::is_valid_name("session_id-1.2~x"));
+    for bad in ["", "has space", "semi;colon", "quo\"te", "back\\slash", "contr\x7fol"] {
+        assert!(!Cookie::is_valid_name(bad), "{bad}");
+    }
+    assert!(Cookie::parse_pair("bad name=1").is_none());
+    assert!(Cookie::parse_set_cookie("bad name=1; Path=/").is_none());
+    let jar = Cookies::parse_header("a=1; bad name=2; b=3");
+    assert_eq!(jar.get_value("a"), Some("1"));
+    assert_eq!(jar.get_value("b"), Some("3"));
+    assert_eq!(jar.get_value("missing"), None);
+    assert_eq!(jar.get("a").unwrap().name, "a");
+}
