@@ -6108,9 +6108,9 @@ unported	packages/effect/test/encoding/EncodingError.test.ts	24	it	identifies en
 ported	packages/effect/test/encoding/Hex.test.ts	12	it	encodes strings and bytes as lowercase hexadecimal	hex_encodes_lowercase
 ported	packages/effect/test/encoding/Hex.test.ts	17	it	decodes mixed-case bytes and UTF-8 strings	hex_decodes_mixed_case
 ported	packages/effect/test/encoding/Hex.test.ts	25	it	rejects odd lengths and non-hexadecimal characters	hex_rejects_odd_and_nonhex
-unported	packages/effect/test/encoding/Hex.test.ts	38	it	generates lowercase hexadecimal words	
-unported	packages/effect/test/encoding/Hex.test.ts	45	it	rounds non-negative lengths down to multiples of 8	
-unported	packages/effect/test/encoding/Hex.test.ts	51	it	uses unsigned 32-bit coercion without validation	
+ported	packages/effect/test/encoding/Hex.test.ts	38	it	generates lowercase hexadecimal words	hex_random_words_are_lowercase_of_exact_length
+ported	packages/effect/test/encoding/Hex.test.ts	45	it	rounds non-negative lengths down to multiples of 8	hex_random_rounds_down_to_multiples_of_8
+ported	packages/effect/test/encoding/Hex.test.ts	51	it	uses unsigned 32-bit coercion without validation	hex_random_coerces_u32_without_validation
 ported	packages/effect/test/encoding/Ini.test.ts	5	it	parses sections, arrays, and scalar values	ini_sections_arrays_scalars
 ported	packages/effect/test/encoding/Ini.test.ts	31	it	supports quoted values, comments, and escaped section dots	ini_quoted_comments_escaped_dots
 unported	packages/effect/test/encoding/Ndjson.test.ts	7	it.effect	fails for values without a JSON representation	
