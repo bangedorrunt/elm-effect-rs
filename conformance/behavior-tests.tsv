@@ -834,9 +834,9 @@ unported	packages/effect/test/Config.test.ts	2483	it	decodes Undefined
 unported	packages/effect/test/Config.test.ts	2491	it	decodes Null	
 unported	packages/effect/test/Config.test.ts	2499	it	decodes String and rejects object input	
 unported	packages/effect/test/Config.test.ts	2507	it	decodes Number and rejects invalid input	
-unported	packages/effect/test/Config.test.ts	2520	it	decodes Finite and rejects invalid input	
-unported	packages/effect/test/Config.test.ts	2532	it	decodes Int and rejects invalid input	
-unported	packages/effect/test/Config.test.ts	2544	it	decodes Boolean and rejects invalid input	
+ported	packages/effect/test/Config.test.ts	2520	it	decodes Finite and rejects invalid input	config_scalars_reject_invalid_input
+ported	packages/effect/test/Config.test.ts	2532	it	decodes Int and rejects invalid input	config_scalars_reject_invalid_input
+ported	packages/effect/test/Config.test.ts	2544	it	decodes Boolean and rejects invalid input	config_scalars_reject_invalid_input
 unported	packages/effect/test/Config.test.ts	2554	it	requires and validates required properties	
 unported	packages/effect/test/Config.test.ts	2573	it	omits absent optionalKey properties	
 unported	packages/effect/test/Config.test.ts	2581	it	omits absent optional properties	
