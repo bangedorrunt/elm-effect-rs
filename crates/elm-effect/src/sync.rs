@@ -478,6 +478,75 @@ impl PartitionedSemaphore {
         }
     }
 
+    /// Blocking acquire that observes external interruption: waits on the
+    /// changed latch in a 1ms quantum (the TestClock sleep precedent) and
+    /// gives up, holding nothing, once `interrupted` turns true.
+    pub fn acquire_interruptible(
+        &self,
+        partition: usize,
+        interrupted: &dyn Fn() -> bool,
+    ) -> bool {
+        let mut pools = self.partitions.lock().unwrap();
+        loop {
+            if interrupted() {
+                return false;
+            }
+            if pools[partition] > 0 {
+                pools[partition] -= 1;
+                return true;
+            }
+            let (guard, _waited) = self
+                .changed
+                .wait_timeout(pools, std::time::Duration::from_millis(1))
+                .unwrap();
+            pools = guard;
+            if interrupted() {
+                return false;
+            }
+        }
+    }
+
+    /// Scoped multi-permit take with interruption restore (`withPermits`
+    /// shape): takes `count` permits, runs `f`, releases everything after.
+    /// An interruption before the take completes releases the partial
+    /// take and yields `None`; an interruption after the take but before
+    /// `f` runs also releases and yields `None`. A resumed waiter never
+    /// steals another partition's permits: takes are per-partition.
+    pub fn with_permits_interruptible<R>(
+        &self,
+        partition: usize,
+        count: usize,
+        interrupted: &dyn Fn() -> bool,
+        f: impl FnOnce() -> R,
+    ) -> Option<R> {
+        let mut taken = 0;
+        while taken < count {
+            if interrupted() {
+                self.release_n(partition, taken);
+                return None;
+            }
+            if !self.acquire_interruptible(partition, interrupted) {
+                self.release_n(partition, taken);
+                return None;
+            }
+            taken += 1;
+        }
+        if interrupted() {
+            self.release_n(partition, taken);
+            return None;
+        }
+        let out = f();
+        self.release_n(partition, taken);
+        Some(out)
+    }
+
+    fn release_n(&self, partition: usize, mut count: usize) {
+        while count > 0 {
+            self.release(partition);
+            count -= 1;
+        }
+    }
+
     /// Return one permit to `partition`.
     pub fn release(&self, partition: usize) {
         if let Some(permits) = self.partitions.lock().unwrap().get_mut(partition) {

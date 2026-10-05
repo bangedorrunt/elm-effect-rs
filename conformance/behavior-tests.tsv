@@ -2850,10 +2850,10 @@ ported	packages/effect/test/Ordering.test.ts	25	it	match selects the branch for 
 ported	packages/effect/test/PartitionedSemaphore.test.ts	5	it.effect	module-level combinators delegate to the instance api	semaphore_module_delegates_to_instance
 ported	packages/effect/test/PartitionedSemaphore.test.ts	37	it.effect	zero permits run immediately	semaphore_zero_permits_run_immediately
 ported	packages/effect/test/PartitionedSemaphore.test.ts	55	it.effect	withPermitsIfAvailable does not block or run when unavailable	semaphore_try_acquire_reports
-unported	packages/effect/test/PartitionedSemaphore.test.ts	75	it.effect	interrupting a partially satisfied waiter releases all acquired permits	
-unported	packages/effect/test/PartitionedSemaphore.test.ts	93	it.effect	interrupting an immediately satisfied take before completion restores permits	
+ported	packages/effect/test/PartitionedSemaphore.test.ts	75	it.effect	interrupting a partially satisfied waiter releases all acquired permits	partial_take_releases_on_interrupt
+ported	packages/effect/test/PartitionedSemaphore.test.ts	93	it.effect	interrupting an immediately satisfied take before completion restores permits	satisfied_take_restores_on_interrupt_before_body
 ported	packages/effect/test/PartitionedSemaphore.test.ts	122	it.effect	competing takes cannot acquire the same permit across scheduler yields	semaphore_competing_takes_serialize
-unported	packages/effect/test/PartitionedSemaphore.test.ts	161	it.effect	interrupting withPermitsIfAvailable before cleanup is installed restores permits	
+ported	packages/effect/test/PartitionedSemaphore.test.ts	161	it.effect	interrupting withPermitsIfAvailable before cleanup is installed restores permits	interrupted_before_take_holds_no_permit
 unported	packages/effect/test/PartitionedSemaphore.test.ts	196	it.effect	interrupting a resumed waiter preserves the next ${key}-key waiter	
 ported	packages/effect/test/Pathfinding.test.ts	27	it	should find paths using Dijkstra algorithm	dijkstra_finds_cheapest_detour
 ported	packages/effect/test/Pathfinding.test.ts	40	it	should find paths using Bellman-Ford algorithm	bellman_ford_finds_cheapest_detour
