@@ -5,3 +5,6 @@
 pub mod otel;
 
 pub mod workflow;
+
+#[cfg(feature = "eventlog")]
+pub mod eventlog;
