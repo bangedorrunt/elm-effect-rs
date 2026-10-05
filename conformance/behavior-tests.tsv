@@ -4316,11 +4316,11 @@ unported	packages/effect/test/TxPubSub.test.ts	347	it.effect	closing scope remov
 unported	packages/effect/test/TxPubSub.test.ts	364	it.effect	subscriber receives messages only while scope is open	
 unported	packages/effect/test/TxPubSub.test.ts	387	it.effect	isTxPubSub returns true for TxPubSub instances	
 unported	packages/effect/test/TxPubSub.test.ts	398	it.effect	concurrent publishers and subscribers	
-unported	packages/effect/test/TxQueue.test.ts	6	it.effect	TxEnqueue provides write-only interface	
-unported	packages/effect/test/TxQueue.test.ts	24	it.effect	TxDequeue provides read-only interface	
-unported	packages/effect/test/TxQueue.test.ts	43	it.effect	TxQueue provides both enqueue and dequeue operations	
-unported	packages/effect/test/TxQueue.test.ts	60	it.effect	TxEnqueue interface enforces write-only operations	
-unported	packages/effect/test/TxQueue.test.ts	80	it.effect	TxDequeue interface enforces read-only operations	
+ported	packages/effect/test/TxQueue.test.ts	6	it.effect	TxEnqueue provides write-only interface	tx_enqueue_provides_write_only_interface
+ported	packages/effect/test/TxQueue.test.ts	24	it.effect	TxDequeue provides read-only interface	tx_dequeue_provides_read_only_interface
+ported	packages/effect/test/TxQueue.test.ts	43	it.effect	TxQueue provides both enqueue and dequeue operations	tx_queue_serves_both_faces
+ported	packages/effect/test/TxQueue.test.ts	60	it.effect	TxEnqueue interface enforces write-only operations	tx_enqueue_shutdown_ops
+ported	packages/effect/test/TxQueue.test.ts	80	it.effect	TxDequeue interface enforces read-only operations	tx_dequeue_inspection_ops
 unported	packages/effect/test/TxQueue.test.ts	107	it.effect	Interface assignments maintain type safety	
 unported	packages/effect/test/TxQueue.test.ts	132	it.effect	Interface type guards work correctly	
 ported	packages/effect/test/TxQueue.test.ts	152	it.effect	bounded creates queue with specified capacity	tx_queue_bounded_offer_take
