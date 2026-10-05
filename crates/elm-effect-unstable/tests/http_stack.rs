@@ -229,3 +229,36 @@ fn url_query_params_roundtrip() {
     let appended = Url::parse("https://example.com/s?a=1#frag").unwrap();
     assert_eq!(appended.render(), "https://example.com/s?a=1#frag");
 }
+
+#[test]
+fn url_setters_mutate_parts() {
+    use elm_effect_unstable::http::Url;
+    let url = Url::parse("https://user:pass@example.com:8443/a?q=1#frag").unwrap().mutate(|u| {
+        u.set_hash("other");
+        u.set_pathname("b");
+        u.set_search("?x=2");
+        u.set_port(None);
+        u.set_protocol("http:");
+        u.set_username("admin");
+        u.set_password("s3cret");
+    });
+    assert_eq!(url.render(), "http://admin:s3cret@example.com/b?x=2#other");
+    assert!(url.redacted().contains("admin:***@"));
+    assert!(!url.redacted().contains("s3cret"));
+}
+
+#[test]
+fn url_host_setters_split_hostname_and_port() {
+    use elm_effect_unstable::http::Url;
+    let mut url = Url::parse("https://example.com:8443/a").unwrap();
+    url.set_hostname("other.com");
+    assert_eq!(url.port, Some(8443));
+    url.set_host("third.com:9000");
+    assert_eq!(url.host.as_str(), "third.com");
+    assert_eq!(url.port, Some(9000));
+    let before = url.clone();
+    url.set_href("not a url");
+    assert_eq!(url, before);
+    url.set_href("http://plain.com/");
+    assert_eq!(url.render(), "http://plain.com/");
+}

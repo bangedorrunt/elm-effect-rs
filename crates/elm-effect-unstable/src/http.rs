@@ -875,3 +875,104 @@ fn normalize_path(path: &str) -> String {
     }
     format!("/{}", segments.join("/"))
 }
+
+impl Url {
+    /// Replace the fragment (`#` added on render).
+    pub fn set_hash(&mut self, hash: impl Into<String>) {
+        let hash = hash.into();
+        self.fragment = hash.strip_prefix('#').unwrap_or(&hash).to_string();
+    }
+
+    /// Replace host, accepting `host` or `host:port`.
+    pub fn set_host(&mut self, host: impl Into<String>) {
+        let host = host.into();
+        if let Some(stripped) = host.strip_prefix('[') {
+            if let Some((h, rest)) = stripped.split_once(']') {
+                self.host = format!("[{h}]");
+                self.port = rest.strip_prefix(':').and_then(|p| p.parse().ok());
+                return;
+            }
+        }
+        match host.rsplit_once(':') {
+            Some((h, p)) if !h.is_empty() => {
+                if let Ok(port) = p.parse::<u16>() {
+                    self.host = h.to_ascii_lowercase();
+                    self.port = Some(port);
+                    return;
+                }
+                self.host = host.to_ascii_lowercase();
+                self.port = None;
+            }
+            _ => {
+                self.host = host.to_ascii_lowercase();
+                self.port = None;
+            }
+        }
+    }
+
+    /// Replace the hostname, keeping the port.
+    pub fn set_hostname(&mut self, hostname: impl Into<String>) {
+        self.host = hostname.into().to_ascii_lowercase();
+    }
+
+    /// Replace the whole URL by re-parsing; keeps the old value when the
+    /// replacement does not parse.
+    pub fn set_href(&mut self, href: &str) {
+        if let Some(url) = Self::parse(href) {
+            *self = url;
+        }
+    }
+
+    /// Replace the password.
+    pub fn set_password(&mut self, password: impl Into<String>) {
+        self.password = Some(password.into());
+    }
+
+    /// Replace the path (a leading `/` is added when missing).
+    pub fn set_pathname(&mut self, pathname: impl Into<String>) {
+        let pathname = pathname.into();
+        self.path = if pathname.starts_with('/') {
+            pathname
+        } else {
+            format!("/{pathname}")
+        };
+    }
+
+    /// Replace the port (`None` clears it).
+    pub fn set_port(&mut self, port: Option<u16>) {
+        self.port = port;
+    }
+
+    /// Replace the scheme (lowercased).
+    pub fn set_protocol(&mut self, protocol: impl Into<String>) {
+        let protocol = protocol.into();
+        let scheme = protocol.strip_suffix(':').unwrap_or(&protocol);
+        self.scheme = scheme.to_ascii_lowercase();
+    }
+
+    /// Replace the query (a leading `?` is stripped).
+    pub fn set_search(&mut self, search: impl Into<String>) {
+        let search = search.into();
+        self.query = search.strip_prefix('?').unwrap_or(&search).to_string();
+    }
+
+    /// Replace the username.
+    pub fn set_username(&mut self, username: impl Into<String>) {
+        self.username = username.into();
+    }
+
+    /// Apply several mutations at once, returning the updated URL.
+    pub fn mutate(mut self, f: impl FnOnce(&mut Self)) -> Self {
+        f(&mut self);
+        self
+    }
+
+    /// Render with the password masked.
+    pub fn redacted(&self) -> String {
+        let mut masked = self.clone();
+        if masked.password.is_some() {
+            masked.password = Some("***".to_string());
+        }
+        masked.render()
+    }
+}

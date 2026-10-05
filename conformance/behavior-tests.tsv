@@ -6685,18 +6685,18 @@ ported	packages/effect/test/http/Url.test.ts	24	it	appends query parameters and 
 ported	packages/effect/test/http/Url.test.ts	35	it	fails when the URL cannot be constructed	url_rejects_garbage
 ported	packages/effect/test/http/Url.test.ts	44	it	parses absolute URLs	url_parses_absolute_and_renders
 ported	packages/effect/test/http/Url.test.ts	49	it	resolves relative URLs against a base URL	url_resolves_relative_against_base
-unported	packages/effect/test/http/Url.test.ts	55	it	mutate	
-unported	packages/effect/test/http/Url.test.ts	65	it	setHash	
-unported	packages/effect/test/http/Url.test.ts	69	it	setHost	
-unported	packages/effect/test/http/Url.test.ts	73	it	setHostname	
-unported	packages/effect/test/http/Url.test.ts	77	it	setHref	
-unported	packages/effect/test/http/Url.test.ts	81	it	setPassword	
-unported	packages/effect/test/http/Url.test.ts	85	it	setPassword - Redacted	
-unported	packages/effect/test/http/Url.test.ts	89	it	setPathname	
-unported	packages/effect/test/http/Url.test.ts	93	it	setPort	
-unported	packages/effect/test/http/Url.test.ts	98	it	setProtocol	
-unported	packages/effect/test/http/Url.test.ts	102	it	setSearch	
-unported	packages/effect/test/http/Url.test.ts	106	it	setUsername	
+ported	packages/effect/test/http/Url.test.ts	55	it	mutate	url_setters_mutate_parts
+ported	packages/effect/test/http/Url.test.ts	65	it	setHash	url_setters_mutate_parts
+ported	packages/effect/test/http/Url.test.ts	69	it	setHost	url_host_setters_split_hostname_and_port
+ported	packages/effect/test/http/Url.test.ts	73	it	setHostname	url_host_setters_split_hostname_and_port
+ported	packages/effect/test/http/Url.test.ts	77	it	setHref	url_host_setters_split_hostname_and_port
+ported	packages/effect/test/http/Url.test.ts	81	it	setPassword	url_setters_mutate_parts
+ported	packages/effect/test/http/Url.test.ts	85	it	setPassword - Redacted	url_setters_mutate_parts
+ported	packages/effect/test/http/Url.test.ts	89	it	setPathname	url_setters_mutate_parts
+ported	packages/effect/test/http/Url.test.ts	93	it	setPort	url_host_setters_split_hostname_and_port
+ported	packages/effect/test/http/Url.test.ts	98	it	setProtocol	url_setters_mutate_parts
+ported	packages/effect/test/http/Url.test.ts	102	it	setSearch	url_setters_mutate_parts
+ported	packages/effect/test/http/Url.test.ts	106	it	setUsername	url_setters_mutate_parts
 ported	packages/effect/test/http/Url.test.ts	110	it	modifyUrlParams	url_query_params_roundtrip
 ported	packages/effect/test/http/Url.test.ts	114	it	urlParams	url_query_params_roundtrip
 ported	packages/effect/test/http/Url.test.ts	119	it	setUrlParams	url_query_params_roundtrip
