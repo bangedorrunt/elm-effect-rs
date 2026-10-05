@@ -4,6 +4,10 @@
 
 #[path = "../src/encoding.rs"]
 mod encoding;
+#[path = "../src/ini.rs"]
+mod ini;
+#[path = "../src/toml.rs"]
+mod toml;
 
 use encoding::EncodingError;
 
@@ -143,4 +147,99 @@ fn reactivity_signal_versions_and_watchers() {
     assert_eq!(*seen.lock().unwrap(), vec![2]);
     let doubled = elm_effect_unstable::reactivity::computed(&signal, |n: &i32| n * 2);
     assert_eq!(doubled, 4);
+}
+
+// ---------------------------------------------------------------------------
+// Ini
+// ---------------------------------------------------------------------------
+
+#[test]
+fn ini_sections_arrays_scalars() {
+    let doc = ini::parse("\nenabled=true\nmissing=null\nname=effect\ntag[]=one\ntag[]=two\n");
+    assert_eq!(doc.get("enabled"), Some(&ini::IniValue::Bool(true)));
+    assert_eq!(doc.get("missing"), Some(&ini::IniValue::Null));
+    assert_eq!(doc.get("name"), Some(&ini::IniValue::Text("effect".into())));
+    assert_eq!(
+        doc.get("tag"),
+        Some(&ini::IniValue::Array(vec![
+            ini::IniValue::Text("one".into()),
+            ini::IniValue::Text("two".into())
+        ]))
+    );
+}
+
+#[test]
+fn ini_quoted_comments_escaped_dots() {
+    let doc = ini::parse("\nplain=value ; comment\nquoted=\"value # retained\"\n[a\\.b]\nkey=yes\n");
+    assert_eq!(doc.get("plain"), Some(&ini::IniValue::Text("value".into())));
+    assert_eq!(doc.get("quoted"), Some(&ini::IniValue::Text("value # retained".into())));
+    assert_eq!(
+        doc.get("a.b"),
+        Some(&ini::IniValue::Section(
+            [("key".to_string(), ini::IniValue::Text("yes".into()))].into()
+        ))
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Toml
+// ---------------------------------------------------------------------------
+
+#[test]
+fn toml_tables_dotted_keys_arrays() {
+    let doc = toml::parse("\ntitle = \"Effect\"\nports = [8000, 8001]\n").unwrap();
+    assert_eq!(doc["title"], toml::TomlValue::Text("Effect".into()));
+    assert_eq!(
+        doc["ports"],
+        toml::TomlValue::Array(vec![toml::TomlValue::Integer(8000), toml::TomlValue::Integer(8001)])
+    );
+}
+
+#[test]
+fn toml_servers_with_datetimes() {
+    let doc = toml::parse("\n[[servers]]\nname = \"alpha\"\nstarted = 2026-08-05T01:02:03Z\n").unwrap();
+    match &doc["servers"] {
+        toml::TomlValue::Array(items) => {
+            assert_eq!(items.len(), 1);
+            match &items[0] {
+                toml::TomlValue::Table(map) => {
+                    assert_eq!(map["started"], toml::TomlValue::Datetime("2026-08-05T01:02:03.000Z".into()));
+                }
+                _ => panic!("not a table"),
+            }
+        }
+        _ => panic!("not an array"),
+    }
+}
+
+#[test]
+fn toml_child_tables_attach_to_last_element() {
+    let doc = toml::parse("\n[[servers]]\n[servers.tls]\n\n[[servers]]\n[servers.tls]\n").unwrap();
+    match &doc["servers"] {
+        toml::TomlValue::Array(items) => {
+            assert_eq!(items.len(), 2);
+            for item in items {
+                match item {
+                    toml::TomlValue::Table(map) => assert!(map.contains_key("tls")),
+                    _ => panic!("not a table"),
+                }
+            }
+        }
+        _ => panic!("not an array"),
+    }
+}
+
+#[test]
+fn toml_multiline_and_numbers() {
+    let doc = toml::parse("message = \u{22}\u{22}\u{22}\nhello \\\n  world\u{22}\u{22}\u{22}\nhex = 0xDEAD_BEEF\nfraction = 1_000.5\nlocal = 2026-08-05 01:02:03\n").unwrap();
+    assert_eq!(doc["message"], toml::TomlValue::Text("hello world".into()));
+    assert_eq!(doc["hex"], toml::TomlValue::Integer(0xdeadbeef));
+    assert_eq!(doc["fraction"], toml::TomlValue::Float(1000.5));
+    assert_eq!(doc["local"], toml::TomlValue::Datetime("2026-08-05T01:02:03".into()));
+}
+
+#[test]
+fn toml_rejects_duplicates() {
+    assert!(toml::parse("key = 1\nkey = 2\n").is_err());
+    assert!(toml::parse("key = 1__000\n").is_err());
 }

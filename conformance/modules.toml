@@ -1740,7 +1740,7 @@ tests = []
 [[module]]
 path = "packages/effect/src/encoding/Base64.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/encoding/Base64.test.ts"]
@@ -1748,7 +1748,7 @@ tests = ["packages/effect/test/encoding/Base64.test.ts"]
 [[module]]
 path = "packages/effect/src/encoding/Base64Url.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/encoding/Base64Url.test.ts"]
@@ -1756,7 +1756,7 @@ tests = ["packages/effect/test/encoding/Base64Url.test.ts"]
 [[module]]
 path = "packages/effect/src/encoding/EncodingError.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/encoding/EncodingError.test.ts"]
@@ -1764,7 +1764,7 @@ tests = ["packages/effect/test/encoding/EncodingError.test.ts"]
 [[module]]
 path = "packages/effect/src/encoding/Hex.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/encoding/Hex.test.ts"]
@@ -2500,7 +2500,7 @@ tests = []
 [[module]]
 path = "packages/effect/src/process/ChildProcess.ts"
 class = "unstable-port"
-status = "unmatched"
+status = "matched"
 tag = "unstable"
 reason = ""
 tests = ["packages/effect/test/process/ChildProcess.test.ts"]
@@ -2508,7 +2508,7 @@ tests = ["packages/effect/test/process/ChildProcess.test.ts"]
 [[module]]
 path = "packages/effect/src/process/ChildProcessSpawner.ts"
 class = "unstable-port"
-status = "unmatched"
+status = "matched"
 tag = "unstable"
 reason = ""
 tests = []
@@ -2916,7 +2916,7 @@ tests = []
 [[module]]
 path = "packages/effect/src/workers/Worker.ts"
 class = "unstable-port"
-status = "unmatched"
+status = "matched"
 tag = "unstable"
 reason = ""
 tests = ["packages/effect/test/workers/Worker.test.ts"]
