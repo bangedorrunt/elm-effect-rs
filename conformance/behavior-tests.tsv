@@ -1505,7 +1505,7 @@ unported	packages/effect/test/EffectEager.test.ts	600	it.effect	falls back to re
 unported	packages/effect/test/EffectEager.test.ts	638	it	handles cause information correctly	
 unported	packages/effect/test/EffectEager.test.ts	658	it.effect	preserves effect execution behavior for non-eager paths	
 ported	packages/effect/test/EffectKeepAlive.test.ts	4	it	makeRunMain keeps process alive until completion	keepalive_child_completes_slow_effect
-unported	packages/effect/test/EffectKeepAlive.test.ts	41	it	makeRunMain when setInterval is blocked	
+ported	packages/effect/test/EffectKeepAlive.test.ts	41	it	makeRunMain when setInterval is blocked	blocked_interval_does_not_hold_exit
 unported	packages/effect/test/Effectable.test.ts	19	it.effect	evaluates asEffect	
 unported	packages/effect/test/Effectable.test.ts	25	it.effect	propagates failures	
 unported	packages/effect/test/Effectable.test.ts	36	it.effect	uses provided services	
