@@ -41,11 +41,20 @@ impl Json {
             Self::Num(n) => n.clone(),
             Self::Str(s) => encode_string(s),
             Self::Arr(items) => {
-                format!("[{}]", items.iter().map(|v| v.encode()).collect::<Vec<_>>().join(","))
+                format!(
+                    "[{}]",
+                    items
+                        .iter()
+                        .map(|v| v.encode())
+                        .collect::<Vec<_>>()
+                        .join(",")
+                )
             }
             Self::Obj(map) => {
-                let parts: Vec<String> =
-                    map.iter().map(|(k, v)| format!("{}:{}", encode_string(k), v.encode())).collect();
+                let parts: Vec<String> = map
+                    .iter()
+                    .map(|(k, v)| format!("{}:{}", encode_string(k), v.encode()))
+                    .collect();
                 format!("{{{}}}", parts.join(","))
             }
         }
@@ -54,7 +63,10 @@ impl Json {
     /// Decode JSON text; inherited properties cannot exist here because
     /// objects are built fresh from own parsed pairs.
     pub fn decode(text: &str) -> Result<Self, String> {
-        let mut parser = Parser { bytes: text.as_bytes(), pos: 0 };
+        let mut parser = Parser {
+            bytes: text.as_bytes(),
+            pos: 0,
+        };
         parser.value().and_then(|v| {
             parser.ws();
             if parser.pos == parser.bytes.len() {
@@ -120,27 +132,30 @@ impl Parser<'_> {
     }
 
     fn string(&mut self) -> Result<String, String> {
-        // Opening quote already peeked.
+        // Opening quote already peeked. Raw bytes accumulate so multibyte
+        // sequences survive; UTF-8 decodes once at the close quote.
         self.pos += 1;
-        let mut out = String::new();
+        let mut raw = Vec::new();
         loop {
             match self.bytes.get(self.pos) {
                 None => return Err("unterminated string".to_string()),
                 Some(b'"') => {
                     self.pos += 1;
-                    return Ok(out);
+                    return std::str::from_utf8(&raw)
+                        .map(|text| text.to_string())
+                        .map_err(|_| "invalid utf-8 in string".to_string());
                 }
                 Some(b'\\') => {
                     self.pos += 1;
                     match self.bytes.get(self.pos) {
-                        Some(b'"') => out.push('"'),
-                        Some(b'\\') => out.push('\\'),
-                        Some(b'/') => out.push('/'),
-                        Some(b'n') => out.push('\n'),
-                        Some(b'r') => out.push('\r'),
-                        Some(b't') => out.push('\t'),
-                        Some(b'b') => out.push('\x08'),
-                        Some(b'f') => out.push('\x0c'),
+                        Some(b'"') => raw.push(b'"'),
+                        Some(b'\\') => raw.push(b'\\'),
+                        Some(b'/') => raw.push(b'/'),
+                        Some(b'n') => raw.push(b'\n'),
+                        Some(b'r') => raw.push(b'\r'),
+                        Some(b't') => raw.push(b'\t'),
+                        Some(b'b') => raw.push(8),
+                        Some(b'f') => raw.push(12),
                         Some(b'u') => {
                             if self.pos + 4 >= self.bytes.len() {
                                 return Err("bad unicode escape".to_string());
@@ -149,7 +164,13 @@ impl Parser<'_> {
                                 .map_err(|_| "bad unicode escape".to_string())?;
                             let code = u32::from_str_radix(hex, 16)
                                 .map_err(|_| "bad unicode escape".to_string())?;
-                            out.push(char::from_u32(code).unwrap_or('\u{FFFD}'));
+                            let mut encoded = [0u8; 4];
+                            raw.extend_from_slice(
+                                char::from_u32(code)
+                                    .unwrap_or('\u{FFFD}')
+                                    .encode_utf8(&mut encoded)
+                                    .as_bytes(),
+                            );
                             self.pos += 4;
                         }
                         _ => return Err("bad escape".to_string()),
@@ -157,7 +178,7 @@ impl Parser<'_> {
                     self.pos += 1;
                 }
                 Some(_) => {
-                    out.push(self.bytes[self.pos] as char);
+                    raw.push(self.bytes[self.pos]);
                     self.pos += 1;
                 }
             }
@@ -239,7 +260,9 @@ impl Parser<'_> {
         {
             self.pos += 1;
         }
-        Ok(Json::Num(String::from_utf8_lossy(&self.bytes[start..self.pos]).into_owned()))
+        Ok(Json::Num(
+            String::from_utf8_lossy(&self.bytes[start..self.pos]).into_owned(),
+        ))
     }
 }
 
@@ -281,7 +304,11 @@ impl Message {
     /// Encode to a JSON string.
     pub fn encode(&self) -> String {
         match self {
-            Self::Request { id, method, payload } => {
+            Self::Request {
+                id,
+                method,
+                payload,
+            } => {
                 let mut map = BTreeMap::new();
                 map.insert("_tag".to_string(), Json::Str("Request".to_string()));
                 map.insert("requestId".to_string(), id.clone());
@@ -323,7 +350,11 @@ impl Message {
                     Some(single) => Json::Arr(vec![single.clone()]),
                     None => Json::Arr(vec![]),
                 };
-                Ok(Self::Request { id, method, payload })
+                Ok(Self::Request {
+                    id,
+                    method,
+                    payload,
+                })
             }
             "Exit" => {
                 let exit = match obj.get("exit") {
@@ -404,12 +435,19 @@ impl Router {
     /// Dispatch a request message.
     pub fn dispatch(&self, msg: &Message) -> Message {
         match msg {
-            Message::Request { id, method, payload } => {
+            Message::Request {
+                id,
+                method,
+                payload,
+            } => {
                 let exit = match self.routes.get(method) {
                     Some(handler) => handler(payload.clone()),
                     None => Exit::Defect(format!("unknown method: {method}")),
                 };
-                Message::Response { id: id.clone(), exit }
+                Message::Response {
+                    id: id.clone(),
+                    exit,
+                }
             }
             Message::Response { .. } => Message::Response {
                 id: Json::Null,
@@ -444,7 +482,10 @@ impl Group {
 
     /// Add a route schema.
     pub fn route(&mut self, method: &str, description: &str) {
-        self.routes.push(RouteSchema { method: method.to_string(), description: description.to_string() });
+        self.routes.push(RouteSchema {
+            method: method.to_string(),
+            description: description.to_string(),
+        });
     }
 
     /// Stream schemas carried by this group (none here: streams need the
@@ -482,7 +523,10 @@ pub struct FakePair {
 impl FakePair {
     /// Empty pair.
     pub fn new() -> Self {
-        Self { router: Router::new(), middlewares: Vec::new() }
+        Self {
+            router: Router::new(),
+            middlewares: Vec::new(),
+        }
     }
 
     /// Register a handler (server side).
@@ -512,5 +556,88 @@ impl FakePair {
             Some(middleware) => middleware.run(msg, &|m| self.apply(index + 1, m)),
             None => self.router.dispatch(msg),
         }
+    }
+}
+
+/// One message per line over byte chunks (the ndjson framing shape).
+///
+/// Complete `\n`-terminated lines decode immediately; the tail waits for
+/// more bytes, so a multibyte character split across chunks reassembles.
+/// Lines that are not messages are skipped without losing the rest. When
+/// `max_buffer` is set, an unterminated tail past that many bytes fails
+/// the feed; `None` holds partial frames without bound.
+#[derive(Debug, Default)]
+pub struct NdjsonDecoder {
+    tail: Vec<u8>,
+    max_buffer: Option<usize>,
+}
+
+impl NdjsonDecoder {
+    /// A decoder failing tails past `max_buffer` bytes (`None`: unbounded).
+    pub fn new(max_buffer: Option<usize>) -> Self {
+        Self {
+            tail: Vec::new(),
+            max_buffer,
+        }
+    }
+
+    /// Feed bytes; returns the messages completed by this chunk.
+    pub fn feed(&mut self, bytes: &[u8]) -> Result<Vec<Message>, String> {
+        self.tail.extend_from_slice(bytes);
+        let mut out = Vec::new();
+        while let Some(end) = self.tail.iter().position(|&b| b == b'\n') {
+            let mut line = self.tail.drain(..=end).collect::<Vec<u8>>();
+            line.pop();
+            if line.last() == Some(&b'\r') {
+                line.pop();
+            }
+            let text = match std::str::from_utf8(&line) {
+                Ok(text) => text,
+                Err(_) => continue,
+            };
+            if text.trim().is_empty() {
+                continue;
+            }
+            if let Ok(message) = Message::decode(text) {
+                out.push(message);
+            }
+        }
+        match self.max_buffer {
+            Some(max) if self.tail.len() > max => {
+                return Err(format!("unterminated frame exceeds maxBufferSize {max}"));
+            }
+            _ => {}
+        }
+        Ok(out)
+    }
+}
+
+/// Encode messages for the JSON-RPC shape: one message renders as its
+/// object, several render as an array.
+pub fn encode_batch(messages: &[Message]) -> String {
+    if messages.len() == 1 {
+        messages[0].encode()
+    } else {
+        format!(
+            "[{}]",
+            messages
+                .iter()
+                .map(|message| message.encode())
+                .collect::<Vec<_>>()
+                .join(",")
+        )
+    }
+}
+
+/// Decode a batch: objects decode alone, arrays decode per element with
+/// non-objects skipped, anything else yields nothing.
+pub fn decode_batch(text: &str) -> Vec<Message> {
+    match Json::decode(text) {
+        Ok(Json::Arr(items)) => items
+            .iter()
+            .filter_map(|item| Message::decode(&item.encode()).ok())
+            .collect(),
+        Ok(_) => Message::decode(text).ok().into_iter().collect(),
+        Err(_) => Vec::new(),
     }
 }
