@@ -349,3 +349,35 @@ fn sse_ignores_comments_and_empty_blocks() {
     assert_eq!(events[0].data, "hi");
     assert_eq!(events[0].event, "");
 }
+
+#[test]
+fn worker_errors_carry_kind_and_message() {
+    let e = elm_effect_unstable::workers::WorkerError::Spawn("no binary".into());
+    assert!(e.is_spawn() && !e.is_send() && !e.is_receive());
+    assert_eq!(e.message(), "no binary");
+    assert_eq!(e.to_string(), "WorkerError(spawn): no binary");
+    assert!(elm_effect_unstable::workers::WorkerError::Receive("eof".into()).is_receive());
+}
+
+#[test]
+fn collector_hands_buffers_out_once() {
+    let mut collector = elm_effect_unstable::workers::Collector::new();
+    assert!(collector.is_empty());
+    let id = collector.offer(vec![1, 2, 3]);
+    assert_eq!(collector.len(), 1);
+    assert_eq!(collector.take(id), Some(vec![1, 2, 3]));
+    assert_eq!(collector.take(id), None);
+    assert!(collector.is_empty());
+}
+
+#[test]
+fn runner_collects_until_close() {
+    use elm_effect_unstable::workers::PlatformMessage::{Close, Payload};
+    let payloads = elm_effect_unstable::workers::run_runner(&[
+        Payload(vec![1]),
+        Payload(vec![2]),
+        Close,
+        Payload(vec![3]),
+    ]);
+    assert_eq!(payloads, vec![vec![1], vec![2]]);
+}
