@@ -6953,7 +6953,7 @@ unported	packages/effect/test/net/IpInterface.test.ts	105	it	decodes and canonic
 ported	packages/effect/test/net/IpNetwork.test.ts	24	it	serializes and inspects canonical strings	unsafe_string_forms_serialize_canonically
 ported	packages/effect/test/net/IpNetwork.test.ts	33	it	retains the address supplied to checked constructors	checked_constructors_retain_rejected_address
 ported	packages/effect/test/net/IpNetwork.test.ts	40	it	forwards errors from address and prefix validation	parse_errors_echo_offending_input
-unported	packages/effect/test/net/IpNetwork.test.ts	51	it	constructs immutable canonical networks and preserves family identity	
+ported	packages/effect/test/net/IpNetwork.test.ts	51	it	constructs immutable canonical networks and preserves family identity	networks_share_one_tagged_family_identity
 ported	packages/effect/test/net/IpNetwork.test.ts	68	it	rejects invalid prefix lengths and host bits	checked_constructors_reject_bad_prefixes_and_host_bits
 ported	packages/effect/test/net/IpNetwork.test.ts	85	it	explicitly truncates byte-aligned and partial-byte host addresses	from_address_truncates_host_bits
 unported	packages/effect/test/net/IpNetwork.test.ts	98	it	requires derived addresses to revalidate refinements	
