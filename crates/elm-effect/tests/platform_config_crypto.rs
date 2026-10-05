@@ -587,3 +587,37 @@ fn config_nested_prefix_flows_through_flat_map() {
         Value::None
     );
 }
+
+#[test]
+fn provider_empty_strings_are_missing_by_default() {
+    use config::ConfigError;
+    let p = provider(&[("a", ""), ("b", "value1")]);
+    assert_eq!(p.get(&["a".to_string()]), None);
+    assert_eq!(
+        p.get(&["b".to_string()]),
+        Some("value1".to_string())
+    );
+    assert_eq!(
+        Config::string(named("a")).load(&p).unwrap_err(),
+        vec![ConfigError::Missing {
+            path: vec!["a".to_string()]
+        }]
+    );
+    assert_eq!(
+        Config::string(named("b")).load(&p).unwrap(),
+        Value::Str("value1".to_string())
+    );
+}
+
+#[test]
+fn provider_fallback_fires_through_empty_primary() {
+    let primary = provider(&[("a", "")]);
+    let secondary = provider(&[("a", "fallback"), ("b", "kept")]);
+    let view = primary.or_else(&secondary);
+    assert_eq!(view.get(&["a".to_string()]), Some("fallback".to_string()));
+    assert_eq!(
+        view.get(&["b".to_string()]),
+        Some("kept".to_string())
+    );
+    assert_eq!(view.get(&["missing".to_string()]), None);
+}

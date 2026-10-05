@@ -22,11 +22,13 @@ impl Provider {
         Self::default()
     }
 
-    /// Build from `(dotted.path, value)` pairs.
+    /// Build from `(dotted.path, value)` pairs. Empty values are absent
+    /// (ignored), matching the spec default and `from_env`.
     pub fn from_pairs(pairs: impl IntoIterator<Item = (String, String)>) -> Self {
         Self {
             values: pairs
                 .into_iter()
+                .filter(|(_, v)| !v.is_empty())
                 .map(|(k, v)| (k.split('.').map(str::to_string).collect(), v))
                 .collect(),
         }
@@ -43,11 +45,14 @@ impl Provider {
         }
     }
 
-    /// One-shot single-path provider (array elements, tests).
+    /// One-shot single-path provider (array elements, tests). Empty values
+    /// are absent (ignored), matching the spec default.
     pub fn single(path: Vec<String>, value: Option<String>) -> Self {
         let mut values = BTreeMap::new();
         if let Some(v) = value {
-            values.insert(path, v);
+            if !v.is_empty() {
+                values.insert(path, v);
+            }
         }
         Self { values }
     }
