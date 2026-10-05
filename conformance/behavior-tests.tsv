@@ -6003,7 +6003,7 @@ unported	packages/effect/test/cluster/MessageStorage.test.ts	259	it.effect	regis
 unported	packages/effect/test/cluster/MessageStorage.test.ts	277	it.effect	unregisterShardReplyHandlers fails parked waiters during rebalance	
 unported	packages/effect/test/cluster/MessageStorage.test.ts	298	it.effect	unregisterShardReplyHandlers annotates parked waiters during shutdown	
 unported	packages/effect/test/cluster/MessageStorage.test.ts	320	it.effect	reply handlers receive the persisted defect fallback for unencodable replies	
-unported	packages/effect/test/cluster/ResourceMap.test.ts	6	it.effect	closes a failed lookup scope	
+ported	packages/effect/test/cluster/ResourceMap.test.ts	6	it.effect	closes a failed lookup scope	
 unported	packages/effect/test/cluster/ResourceRef.test.ts	7	it.live	does not wedge await after a failed rebuild	
 unported	packages/effect/test/cluster/ResourceRef.test.ts	29	it.effect	does not let a stale rebuild overwrite a newer acquisition	
 unported	packages/effect/test/cluster/ResourceRef.test.ts	69	it.effect	does not leak teardown membership when a rebuild is discarded	
@@ -6015,8 +6015,8 @@ unported	packages/effect/test/cluster/RunnerServer.test.ts	249	it.effect	release
 unported	packages/effect/test/cluster/RunnerServer.test.ts	304	it.effect	does not admit a request with an already-closed caller scope	
 unported	packages/effect/test/cluster/RunnerServer.test.ts	333	it.effect	persisted	
 unported	packages/effect/test/cluster/RunnerServer.test.ts	380	it.effect	fills the entity payload and reply holes with the serialization's codec	
-unported	packages/effect/test/cluster/RunnerStorage.test.ts	6	it.effect	tracks runner health in memory	
-unported	packages/effect/test/cluster/RunnerStorage.test.ts	16	it.effect	memory acquire accepts a one-shot iterable	
+ported	packages/effect/test/cluster/RunnerStorage.test.ts	6	it.effect	tracks runner health in memory	
+ported	packages/effect/test/cluster/RunnerStorage.test.ts	16	it.effect	memory acquire accepts a one-shot iterable	
 unported	packages/effect/test/cluster/Runners.test.ts	94	it.effect	preserves a leading slash in HTTP client paths	
 unported	packages/effect/test/cluster/Runners.test.ts	120	it.effect	preserves a leading slash in WebSocket client paths	
 unported	packages/effect/test/cluster/Runners.test.ts	179	it.effect	a reply that fails to serialize fails only its own request	
@@ -6089,9 +6089,9 @@ unported	packages/effect/test/cluster/Sharding.test.ts	2223	it.effect	reacquires
 unported	packages/effect/test/cluster/Sharding.test.ts	2279	it.effect	keeps the graceful timeout for normal shard reassignment	
 unported	packages/effect/test/cluster/Sharding.test.ts	2354	it.effect	does not wait for entity construction before a forced shard release	
 unported	packages/effect/test/cluster/Sharding.test.ts	2422	it.effect	does not acquire shards while a forced release is pending	
-unported	packages/effect/test/cluster/ShardingConfig.test.ts	6	it.effect	bounds runner residency and storage reads by default	
-unported	packages/effect/test/cluster/ShardingConfig.test.ts	33	it.effect	omits the optional listen address when its host is absent	
-unported	packages/effect/test/cluster/ShardingConfig.test.ts	61	it.effect	rejects non-positive residency and batch limits	
+ported	packages/effect/test/cluster/ShardingConfig.test.ts	6	it.effect	bounds runner residency and storage reads by default	
+ported	packages/effect/test/cluster/ShardingConfig.test.ts	33	it.effect	omits the optional listen address when its host is absent	
+ported	packages/effect/test/cluster/ShardingConfig.test.ts	61	it.effect	rejects non-positive residency and batch limits	
 ported	packages/effect/test/cluster/interruptors.test.ts	12	it	releases entity keys so membership returns to baseline	
 ported	packages/effect/test/cluster/interruptors.test.ts	19	it	refcounts overlapping acquires	
 ported	packages/effect/test/cluster/interruptors.test.ts	28	it.effect	aroundEntityType restores the key after the effect	
