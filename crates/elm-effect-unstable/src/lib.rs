@@ -12,4 +12,7 @@ pub mod eventlog;
 #[cfg(feature = "persistence")]
 pub mod persistence;
 
+#[cfg(feature = "schema_obs")]
+pub mod schema_obs;
+
 pub mod http;

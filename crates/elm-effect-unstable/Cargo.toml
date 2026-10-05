@@ -9,6 +9,7 @@ publish = false
 otel = ["dep:opentelemetry", "dep:opentelemetry_sdk"]
 eventlog = []
 persistence = []
+schema_obs = []
 http = ["dep:ureq"]
 
 [dependencies]
