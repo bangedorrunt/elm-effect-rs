@@ -364,3 +364,21 @@ fn config_map_chained_with_succeed() {
     });
     assert_eq!(doubled.load(&p), Ok(Value::Int(4)));
 }
+
+#[test]
+fn loglevel_defaults_to_info() {
+    assert_eq!(config::LogLevel::default(), config::LogLevel::Info);
+    assert!(config::LogLevel::Info.passes(config::LogLevel::Info));
+    assert!(!config::LogLevel::Debug.passes(config::LogLevel::Info));
+}
+
+#[test]
+fn loglevel_all_and_none_are_sentinels() {
+    assert!(config::LogLevel::Fatal.passes(config::LogLevel::All));
+    assert!(!config::LogLevel::Fatal.passes(config::LogLevel::None));
+    assert_eq!(config::LogLevel::parse("All"), Some(config::LogLevel::All));
+    assert_eq!(config::LogLevel::parse("None"), Some(config::LogLevel::None));
+    assert_eq!(config::LogLevel::parse("Verbose"), None);
+    assert!(config::LogLevel::All < config::LogLevel::Trace);
+    assert!(config::LogLevel::Fatal < config::LogLevel::None);
+}

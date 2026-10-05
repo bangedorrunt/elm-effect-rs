@@ -507,3 +507,56 @@ fn parse_bytes(s: &str) -> Option<i64> {
     }
     Some(raw as i64)
 }
+
+/// Log verbosity with `All`/`None` sentinels.
+///
+/// Ports `packages/effect/src/LogLevel.ts`: levels order
+/// `All < Trace < Debug < Info < Warning < Error < Fatal < None`, and the
+/// default minimum is `Info`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum LogLevel {
+    /// Everything passes.
+    All,
+    /// Finest detail.
+    Trace,
+    /// Debugging detail.
+    Debug,
+    /// Default minimum.
+    Info,
+    /// Potential problems.
+    Warning,
+    /// Errors.
+    Error,
+    /// Unrecoverable failures.
+    Fatal,
+    /// Nothing passes.
+    None,
+}
+
+impl Default for LogLevel {
+    fn default() -> Self {
+        Self::Info
+    }
+}
+
+impl LogLevel {
+    /// Parse a level name; `None` when unrecognized.
+    pub fn parse(text: &str) -> Option<Self> {
+        match text {
+            "All" => Some(Self::All),
+            "Trace" => Some(Self::Trace),
+            "Debug" => Some(Self::Debug),
+            "Info" => Some(Self::Info),
+            "Warning" => Some(Self::Warning),
+            "Error" => Some(Self::Error),
+            "Fatal" => Some(Self::Fatal),
+            "None" => Some(Self::None),
+            _ => None,
+        }
+    }
+
+    /// True when a message at `message` passes a `minimum` threshold.
+    pub fn passes(self, minimum: Self) -> bool {
+        self >= minimum
+    }
+}

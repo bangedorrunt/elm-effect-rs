@@ -2501,8 +2501,8 @@ unported	packages/effect/test/LayerRef.test.ts	25	it.effect	make lazily acquires
 unported	packages/effect/test/LayerRef.test.ts	49	it.effect	invalidate releases an idle resource and acquires a fresh one	
 unported	packages/effect/test/LayerRef.test.ts	80	it.effect	preload acquires the resource when the LayerRef is created	
 unported	packages/effect/test/LayerRef.test.ts	102	it.effect	Service exposes layer, get, contextEffect, and invalidate	
-unported	packages/effect/test/LogLevel.test.ts	8	it.effect	uses Info as the default minimum log level	
-unported	packages/effect/test/LogLevel.test.ts	15	it.effect	supports All and None sentinel thresholds	
+ported	packages/effect/test/LogLevel.test.ts	8	it.effect	uses Info as the default minimum log level	loglevel_defaults_to_info
+ported	packages/effect/test/LogLevel.test.ts	15	it.effect	supports All and None sentinel thresholds	loglevel_all_and_none_are_sentinels
 unported	packages/effect/test/Logger.test.ts	11	it.effect	should output logs	
 unported	packages/effect/test/Logger.test.ts	29	it.effect	replace loggers	
 unported	packages/effect/test/Logger.test.ts	43	it.effect	formatLogFmt does not double quote string messages or annotations	
