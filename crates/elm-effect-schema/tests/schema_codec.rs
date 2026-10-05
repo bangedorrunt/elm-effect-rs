@@ -189,3 +189,61 @@ fn codec_array_of_literals_covers_enum() {
     let bad = Unknown::Array(vec![Unknown::Text("z".to_string())]);
     assert!(schema.decode(bad).is_err());
 }
+
+#[test]
+fn codec_optional_date_json_shapes() {
+    use elm_effect_schema::transform::date_schema;
+    const ISO: &str = "2021-01-01T00:00:00.000Z";
+    const MILLIS: i64 = 1_609_459_200_000;
+    // Bare NullOr/UndefinedOr/optional(Date).
+    let nullable = Schema::optional(date_schema());
+    assert_eq!(
+        nullable.decode(Unknown::Text(ISO.to_string())).unwrap(),
+        Some(MILLIS)
+    );
+    assert_eq!(nullable.decode(Unknown::Null).unwrap(), None);
+    assert!(nullable.decode(Unknown::Number(1.0)).is_err());
+    assert_eq!(
+        nullable.encode(&Some(MILLIS)),
+        Unknown::Text(ISO.to_string())
+    );
+    assert_eq!(nullable.encode(&None), Unknown::Null);
+    // Struct NullOr/UndefinedOr/optional(Date): present, null, absent.
+    let strukt = Schema::struct_shape(vec![Field::optional(
+        "a",
+        Schema::as_unknown(Schema::optional(date_schema())),
+    )]);
+    let mut present = BTreeMap::new();
+    present.insert("a".to_string(), Unknown::Text(ISO.to_string()));
+    assert_eq!(
+        strukt.decode(Unknown::Object(present.clone())).unwrap()["a"],
+        Unknown::Text(ISO.to_string())
+    );
+    assert_eq!(strukt.encode(&present), Unknown::Object(present));
+    let mut nullish = BTreeMap::new();
+    nullish.insert("a".to_string(), Unknown::Null);
+    // Explicit null normalizes to absent (TS decodes it to undefined).
+    assert!(!strukt
+        .decode(Unknown::Object(nullish))
+        .unwrap()
+        .contains_key("a"));
+    assert!(!strukt
+        .decode(Unknown::Object(BTreeMap::new()))
+        .unwrap()
+        .contains_key("a"));
+    // Struct optionalKey(Date): absent ok, explicit null decodes inner.
+    let keyed = Schema::struct_shape(vec![Field::optional_key(
+        "a",
+        Schema::as_unknown(Schema::optional(date_schema())),
+    )]);
+    assert!(!keyed
+        .decode(Unknown::Object(BTreeMap::new()))
+        .unwrap()
+        .contains_key("a"));
+    let mut null_wire = BTreeMap::new();
+    null_wire.insert("a".to_string(), Unknown::Null);
+    assert_eq!(
+        keyed.decode(Unknown::Object(null_wire)).unwrap()["a"],
+        Unknown::Null
+    );
+}
