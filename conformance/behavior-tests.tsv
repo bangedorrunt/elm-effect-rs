@@ -9839,13 +9839,13 @@ ported	packages/effect/test/sql/SqlError.test.ts	157	it	classifySqliteError pref
 ported	packages/effect/test/sql/SqlError.test.ts	167	it	classifySqliteError falls back to unknown for blank or missing sqlite unique identifiers	sql_error_reasons_classify
 ported	packages/effect/test/sql/SqlError.test.ts	186	it	classifySqliteError keeps generic sqlite constraints as ConstraintError	sql_error_reasons_classify
 unported	packages/effect/test/sql/SqlError.test.ts	201	it.effect	schema roundtrip for SqlError wrapping ${reasonCase.tag}	
-unported	packages/effect/test/sql/SqlResolver.test.ts	8	it.effect	does not execute a batch when every request fails encoding	
-unported	packages/effect/test/sql/SqlResolver.test.ts	30	it.effect	does not execute a batch when every request fails encoding	
-unported	packages/effect/test/sql/SqlResolver.test.ts	49	it.effect	completes duplicate requests when id encoding fails	
-unported	packages/effect/test/sql/SqlResolver.test.ts	67	it.effect	deduplicates requests by id	
-unported	packages/effect/test/sql/SqlResolver.test.ts	98	it.effect	does not execute a batch when every request fails encoding	
-unported	packages/effect/test/sql/SqlResolver.test.ts	116	it.effect	keeps valid results aligned when another request fails encoding	
-unported	packages/effect/test/sql/SqlResolver.test.ts	136	it.effect	does not execute a batch when every request fails encoding	
+ported	packages/effect/test/sql/SqlResolver.test.ts	8	it.effect	does not execute a batch when every request fails encoding	resolver_skips_batch_when_all_ids_fail_encoding
+ported	packages/effect/test/sql/SqlResolver.test.ts	30	it.effect	does not execute a batch when every request fails encoding	resolver_skips_batch_when_all_ids_fail_encoding
+ported	packages/effect/test/sql/SqlResolver.test.ts	49	it.effect	completes duplicate requests when id encoding fails	resolver_completes_duplicates_when_encoding_fails
+ported	packages/effect/test/sql/SqlResolver.test.ts	67	it.effect	deduplicates requests by id	resolver_dedups_and_aligns
+ported	packages/effect/test/sql/SqlResolver.test.ts	98	it.effect	does not execute a batch when every request fails encoding	resolver_skips_batch_when_all_ids_fail_encoding
+ported	packages/effect/test/sql/SqlResolver.test.ts	116	it.effect	keeps valid results aligned when another request fails encoding	resolver_completes_duplicates_when_encoding_fails
+ported	packages/effect/test/sql/SqlResolver.test.ts	136	it.effect	does not execute a batch when every request fails encoding	resolver_skips_batch_when_all_ids_fail_encoding
 ported	packages/effect/test/sql/SqlSchema.test.ts	10	it.effect	returns decoded results	schema_find_all_decodes_or_fails
 ported	packages/effect/test/sql/SqlSchema.test.ts	22	it.effect	returns empty array when no rows	schema_find_all_decodes_or_fails
 ported	packages/effect/test/sql/SqlSchema.test.ts	34	it.effect	fails when a row cannot be decoded	schema_find_all_decodes_or_fails
