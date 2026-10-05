@@ -43,3 +43,28 @@ fn spawn_collects_stdout() {
     assert!(out.is_success());
     assert_eq!(out.stdout_text().trim(), "hello");
 }
+
+#[test]
+fn shell_form_executes_commands() {
+    let mut child = command_array("sh", &["-c", "echo shell-hey"]).spawn().unwrap();
+    let out = child.wait().unwrap();
+    assert!(out.is_success());
+    assert_eq!(out.stdout_text().trim(), "shell-hey");
+}
+
+#[test]
+fn env_vars_merge_and_override() {
+    let mut child = command_array("sh", &["-c", "echo $SGH_PROBE"])
+        .env("SGH_PROBE", "merged")
+        .spawn()
+        .unwrap();
+    let out = child.wait().unwrap();
+    assert_eq!(out.stdout_text().trim(), "merged");
+
+    let mut child = command_template("sh -c 'echo $SGH_PROBE'")
+        .env("SGH_PROBE", "templated")
+        .spawn()
+        .unwrap();
+    let out = child.wait().unwrap();
+    assert_eq!(out.stdout_text().trim(), "templated");
+}
