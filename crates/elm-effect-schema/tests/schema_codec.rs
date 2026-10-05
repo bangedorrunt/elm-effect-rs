@@ -167,6 +167,20 @@ fn codec_literal_accepts_only_its_value() {
 }
 
 #[test]
+fn codec_union_of_literals_covers_enum() {
+    let schema = Schema::union(
+        Schema::literal(Unknown::Text("a".to_string())),
+        Schema::literal(Unknown::Text("b".to_string())),
+    );
+    for member in ["a", "b"] {
+        let wire = Unknown::Text(member.to_string());
+        let decoded = schema.decode(wire.clone()).unwrap();
+        assert_eq!(schema.encode(&decoded), wire);
+    }
+    assert!(schema.decode(Unknown::Text("z".to_string())).is_err());
+}
+
+#[test]
 fn codec_array_of_literals_covers_enum() {
     let schema = Schema::array(Schema::literal(Unknown::Text("a".to_string())));
     let wire = Unknown::Array(vec![Unknown::Text("a".to_string())]);
