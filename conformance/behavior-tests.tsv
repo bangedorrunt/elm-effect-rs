@@ -2119,7 +2119,7 @@ ported	packages/effect/test/HashSet.test.ts	121	it	intersection keeps only value
 ported	packages/effect/test/HashSet.test.ts	133	it	difference removes values found in the second set	hash_set_algebra_and_transforms
 ported	packages/effect/test/HashSet.test.ts	144	it	isSubset checks whether all values exist in another set	hash_set_subset_reduce_iterate
 ported	packages/effect/test/HashSet.test.ts	157	it	map transforms every value	hash_set_algebra_and_transforms
-unported	packages/effect/test/HashSet.test.ts	167	it	map removes duplicate transformed values	
+ported	packages/effect/test/HashSet.test.ts	167	it	map removes duplicate transformed values	hash_set_algebra_and_transforms
 ported	packages/effect/test/HashSet.test.ts	176	it	filter keeps values that satisfy the predicate	hash_set_algebra_and_transforms
 ported	packages/effect/test/HashSet.test.ts	187	it	some returns true when any value satisfies the predicate	hash_set_algebra_and_transforms
 ported	packages/effect/test/HashSet.test.ts	197	it	every returns true when all values satisfy the predicate	hash_set_algebra_and_transforms
