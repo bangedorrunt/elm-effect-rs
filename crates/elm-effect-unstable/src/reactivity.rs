@@ -13,12 +13,16 @@ pub struct Signal<T> {
 }
 
 /// A subscriber callback: sees every assigned value.
-pub type Watcher<T> = Box<dyn Fn(&T) + Send>;
+pub type Watcher<T> = std::sync::Arc<dyn Fn(&T) + Send + Sync>;
+
+/// Handle for one subscription: pass to [`Signal::unwatch`].
+pub type WatcherId = u64;
 
 struct SignalState<T> {
     value: T,
     version: u64,
-    watchers: Vec<Watcher<T>>,
+    watchers: Vec<(WatcherId, Watcher<T>)>,
+    next_watcher: WatcherId,
 }
 
 impl<T: Clone + Send + 'static> Signal<T> {
@@ -29,6 +33,7 @@ impl<T: Clone + Send + 'static> Signal<T> {
                 value: initial,
                 version: 0,
                 watchers: Vec::new(),
+                next_watcher: 0,
             }),
         }
     }
@@ -45,17 +50,54 @@ impl<T: Clone + Send + 'static> Signal<T> {
 
     /// Assign and notify every watcher with the new value.
     pub fn set(&self, value: T) {
-        let mut state = self.inner.lock().unwrap();
-        state.value = value.clone();
-        state.version += 1;
-        for watcher in &state.watchers {
-            watcher(&value);
+        // Snapshot ids first: a watcher may unsubscribe mid-notify, and
+        // positional iteration would then skip its neighbour.
+        let ids: Vec<WatcherId> = {
+            let mut state = self.inner.lock().unwrap();
+            state.value = value.clone();
+            state.version += 1;
+            state.watchers.iter().map(|(id, _)| *id).collect()
+        };
+        for id in ids {
+            // Clone under the lock, call past it: a watcher may
+            // unsubscribe (or be removed) mid-notify without deadlock.
+            let watcher = {
+                let guard = self.inner.lock().unwrap();
+                guard.watchers.iter().find(|(seen, _)| *seen == id).map(|(_, w)| w.clone())
+            };
+            if let Some(watcher) = watcher {
+                watcher(&value);
+            }
         }
     }
 
     /// Register a callback run on every future `set`.
-    pub fn watch(&self, watcher: impl Fn(&T) + Send + 'static) {
-        self.inner.lock().unwrap().watchers.push(Box::new(watcher));
+    pub fn watch(&self, watcher: impl Fn(&T) + Send + Sync + 'static) -> WatcherId {
+        let mut state = self.inner.lock().unwrap();
+        let id = state.next_watcher;
+        state.next_watcher += 1;
+        state.watchers.push((id, Arc::new(watcher)));
+        id
+    }
+
+    /// Drop a subscription; a removed watcher misses later `set`s, even
+    /// one already in flight. Returns false for an unknown id.
+    pub fn unwatch(&self, id: WatcherId) -> bool {
+        let mut state = self.inner.lock().unwrap();
+        let before = state.watchers.len();
+        state.watchers.retain(|(seen, _)| *seen != id);
+        state.watchers.len() != before
+    }
+
+    /// Assign only when `value` differs: equivalent values neither bump
+    /// the version nor notify (the `withEquality` shape).
+    pub fn set_if_changed(&self, value: T)
+    where
+        T: PartialEq,
+    {
+        if self.get() != value {
+            self.set(value);
+        }
     }
 }
 
@@ -144,5 +186,52 @@ impl AtomRegistry {
 impl Default for AtomRegistry {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn unsubscribe_during_notify_does_not_skip_later_listeners() {
+        let signal = Arc::new(Signal::new(0));
+        let seen = Arc::new(Mutex::new(Vec::new()));
+        let removed = Arc::new(Mutex::new(None::<WatcherId>));
+        // A runs first and drops B mid-flight; C must still run.
+        let seen_a = seen.clone();
+        let removed_a = removed.clone();
+        let s = signal.clone();
+        signal.clone().watch(move |_| {
+            seen_a.lock().unwrap().push("a");
+            if let Some(id) = *removed_a.lock().unwrap() {
+                s.unwatch(id);
+            }
+        });
+        let seen_b = seen.clone();
+        *removed.lock().unwrap() = Some(signal.clone().watch(move |_| {
+            seen_b.lock().unwrap().push("b");
+        }));
+        let seen_c = seen.clone();
+        signal.watch(move |_| {
+            seen_c.lock().unwrap().push("c");
+        });
+        signal.set(1);
+        assert_eq!(*seen.lock().unwrap(), vec!["a", "c"]);
+    }
+
+    #[test]
+    fn set_if_changed_skips_equivalent_notifications() {
+        let signal = Signal::new("x".to_string());
+        let calls = Arc::new(Mutex::new(0u32));
+        let count = calls.clone();
+        signal.watch(move |_| {
+            *count.lock().unwrap() += 1;
+        });
+        signal.set_if_changed("x".to_string());
+        assert_eq!(signal.version(), 0);
+        signal.set_if_changed("y".to_string());
+        assert_eq!(*calls.lock().unwrap(), 1);
+        assert_eq!(signal.version(), 1);
     }
 }

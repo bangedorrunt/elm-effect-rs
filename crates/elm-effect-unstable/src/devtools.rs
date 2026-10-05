@@ -118,3 +118,92 @@ impl DevToolsClient {
         self.buffer.lock().unwrap().drain(..).collect()
     }
 }
+
+/// Wire-protocol schema for [`DevEvent`]: one line per event (the
+/// `DevToolsSchema` shape, without a JSON dependency). Payloads are
+/// length-prefixed so names and texts may hold any characters.
+///
+/// ```
+/// use elm_effect_unstable::devtools::{DevEvent, decode, encode};
+/// let event = DevEvent::SpanStart { id: 1, parent: None, name: "a b".to_string() };
+/// assert_eq!(decode(&encode(&event)), Some(event));
+/// ```
+pub fn encode(event: &DevEvent) -> String {
+    match event {
+        DevEvent::SpanStart { id, parent, name } => {
+            let scope = parent.map_or("-".to_string(), |p| p.to_string());
+            format!("S {id} {scope} {}:{name}", name.len())
+        }
+        DevEvent::SpanEnd { id } => format!("E {id}"),
+        DevEvent::Message { span, text } => {
+            let scope = span.map_or("-".to_string(), |s| s.to_string());
+            format!("M {scope} {}:{text}", text.len())
+        }
+    }
+}
+
+/// Parse one [`encode`] line; anything malformed is `None`.
+pub fn decode(line: &str) -> Option<DevEvent> {
+    let (kind, rest) = line.split_once(' ')?;
+    match kind {
+        "E" => rest.parse::<u64>().ok().map(|id| DevEvent::SpanEnd { id }),
+        "S" => {
+            let (id, rest) = rest.split_once(' ')?;
+            let (parent, rest) = rest.split_once(' ')?;
+            let (len, body) = rest.split_once(':')?;
+            let id = id.parse::<u64>().ok()?;
+            let parent = if parent == "-" {
+                None
+            } else {
+                Some(parent.parse::<u64>().ok()?)
+            };
+            Some(DevEvent::SpanStart { id, parent, name: split_len_body(len, body)?.to_string() })
+        }
+        "M" => {
+            let (scope, rest) = rest.split_once(' ')?;
+            let (len, body) = rest.split_once(':')?;
+            let scope = if scope == "-" {
+                None
+            } else {
+                Some(scope.parse::<u64>().ok()?)
+            };
+            Some(DevEvent::Message { span: scope, text: split_len_body(len, body)?.to_string() })
+        }
+        _ => None,
+    }
+}
+
+/// Split a `len:body` tail, rejecting short, long, and cut-UTF-8 bodies.
+fn split_len_body<'a>(len: &str, body: &'a str) -> Option<&'a str> {
+    let text = body.get(..len.parse::<usize>().ok()?)?;
+    if body.len() != text.len() {
+        return None;
+    }
+    Some(text)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn wire_round_trip_preserves_every_event_shape() {
+        let events = [
+            DevEvent::SpanStart { id: 1, parent: None, name: "a:b".to_string() },
+            DevEvent::SpanStart { id: 2, parent: Some(1), name: "".to_string() },
+            DevEvent::SpanEnd { id: 1 },
+            DevEvent::Message { span: Some(2), text: "hi\nthere".to_string() },
+            DevEvent::Message { span: None, text: "".to_string() },
+        ];
+        for event in events {
+            assert_eq!(decode(&encode(&event)), Some(event));
+        }
+    }
+
+    #[test]
+    fn wire_decode_rejects_garbage() {
+        for bad in ["", "nope", "S 1", "S x - 0:", "E", "E x", "M 1 5:abc", "S 1 - 9:short", "Z 1"] {
+            assert_eq!(decode(bad), None, "input {bad:?}");
+        }
+    }
+}
