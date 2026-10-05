@@ -130,6 +130,7 @@ fn hash_set_algebra_and_transforms() {
     assert_eq!(a.difference(&b).size(), 1);
     assert_eq!(a.map(|v| v * 2).size(), 3);
     assert!(a.map(|v| v * 2).has(&4));
+    assert_eq!(a.map(|_| 0).size(), 1);
     assert_eq!(a.filter(|v| *v > 1).size(), 2);
     assert!(a.some(|v| *v == 3));
     assert!(a.every(|v| *v > 0));
