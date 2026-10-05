@@ -125,6 +125,7 @@ pub struct TxQueue<T> {
     capacity: Option<usize>,
     strategy: QueueStrategy,
     closed: Mutex<bool>,
+    failed: Mutex<bool>,
 }
 
 impl<T> TxQueue<T> {
@@ -135,6 +136,7 @@ impl<T> TxQueue<T> {
             capacity: Some(capacity),
             strategy: QueueStrategy::BackPressure,
             closed: Mutex::new(false),
+            failed: Mutex::new(false),
         }
     }
 
@@ -145,6 +147,7 @@ impl<T> TxQueue<T> {
             capacity: None,
             strategy: QueueStrategy::BackPressure,
             closed: Mutex::new(false),
+            failed: Mutex::new(false),
         }
     }
 
@@ -155,6 +158,7 @@ impl<T> TxQueue<T> {
             capacity: Some(capacity),
             strategy: QueueStrategy::Dropping,
             closed: Mutex::new(false),
+            failed: Mutex::new(false),
         }
     }
 
@@ -165,12 +169,13 @@ impl<T> TxQueue<T> {
             capacity: Some(capacity),
             strategy: QueueStrategy::Sliding,
             closed: Mutex::new(false),
+            failed: Mutex::new(false),
         }
     }
 
-    /// Push back; `false` when a bounded queue is full or closed.
+    /// Push back; `false` when a bounded queue is full, closed, or failed.
     pub fn offer(&self, value: T) -> bool {
-        if *self.closed.lock().unwrap() {
+        if *self.closed.lock().unwrap() || *self.failed.lock().unwrap() {
             return false;
         }
         atomically(|| {
@@ -217,13 +222,74 @@ impl<T> TxQueue<T> {
         *self.closed.lock().unwrap() = true;
     }
 
-    /// Push every value (`offerAll`); closed queues take none.
-    pub fn offer_all(&self, values: impl IntoIterator<Item = T>) {
-        for value in values {
-            if !self.offer(value) {
-                break;
-            }
+    /// Halt the queue with a failure (`failCause`); queued items still
+    /// drain. True on the first halt, false when already done.
+    pub fn fail(&self) -> bool {
+        let mut failed = self.failed.lock().unwrap();
+        if *failed || *self.closed.lock().unwrap() {
+            return false;
         }
+        *failed = true;
+        *self.closed.lock().unwrap() = true;
+        true
+    }
+
+    /// Graceful shutdown (`end`); true when this call ends the queue,
+    /// false when already done.
+    pub fn end(&self) -> bool {
+        let mut closed = self.closed.lock().unwrap();
+        if *closed {
+            return false;
+        }
+        *closed = true;
+        true
+    }
+
+    /// True while offers are still accepted.
+    pub fn is_open(&self) -> bool {
+        !*self.closed.lock().unwrap()
+    }
+
+    /// The write-only face (`TxEnqueue` interface).
+    pub fn as_enqueue(&self) -> TxEnqueue<'_, T> {
+        TxEnqueue { queue: self }
+    }
+
+    /// The read-only face (`TxDequeue` interface).
+    pub fn as_dequeue(&self) -> TxDequeue<'_, T> {
+        TxDequeue { queue: self }
+    }
+
+    /// Push every value (`offerAll`), returning the rejected tail.
+    /// Closed or failed queues take none.
+    pub fn offer_all(&self, values: impl IntoIterator<Item = T>) -> Vec<T> {
+        if *self.closed.lock().unwrap() || *self.failed.lock().unwrap() {
+            return values.into_iter().collect();
+        }
+        let mut rejected = Vec::new();
+        let mut taking = true;
+        atomically(|| {
+            let mut queue = self.inner.lock().unwrap();
+            for value in values {
+                if !taking {
+                    rejected.push(value);
+                    continue;
+                }
+                match (self.capacity, self.strategy) {
+                    (Some(limit), QueueStrategy::BackPressure) if queue.len() >= limit => {
+                        taking = false;
+                        rejected.push(value);
+                    }
+                    (Some(limit), QueueStrategy::Dropping) if queue.len() >= limit => {}
+                    (Some(limit), QueueStrategy::Sliding) if queue.len() >= limit => {
+                        queue.pop_front();
+                        queue.push_back(value);
+                    }
+                    _ => queue.push_back(value),
+                }
+            }
+        });
+        rejected
     }
 
     /// Drain everything in order (`takeAll`).
@@ -260,6 +326,74 @@ impl<T> TxQueue<T> {
             drop(queue);
             self.take_n(take)
         })
+    }
+}
+
+/// The write-only face of a [`TxQueue`] (`TxEnqueue` interface):
+/// enqueue and shutdown operations only, no reads.
+pub struct TxEnqueue<'a, T> {
+    queue: &'a TxQueue<T>,
+}
+
+impl<T> TxEnqueue<'_, T> {
+    /// Push back; `false` when full, closed, or failed.
+    pub fn offer(&self, value: T) -> bool {
+        self.queue.offer(value)
+    }
+
+    /// Push every value, returning the rejected tail.
+    pub fn offer_all(&self, values: impl IntoIterator<Item = T>) -> Vec<T> {
+        self.queue.offer_all(values)
+    }
+
+    /// Halt the queue; true on the first halt.
+    pub fn fail(&self) -> bool {
+        self.queue.fail()
+    }
+
+    /// Graceful shutdown; false when already done.
+    pub fn end(&self) -> bool {
+        self.queue.end()
+    }
+}
+
+/// The read-only face of a [`TxQueue`] (`TxDequeue` interface):
+/// dequeue and inspection operations only, no writes.
+pub struct TxDequeue<'a, T> {
+    queue: &'a TxQueue<T>,
+}
+
+impl<T> TxDequeue<'_, T> {
+    /// Pop front without blocking (`None` when empty).
+    pub fn take(&self) -> Option<T> {
+        self.queue.take()
+    }
+
+    /// Pop front without blocking (`None` when empty).
+    pub fn poll(&self) -> Option<T> {
+        self.queue.poll()
+    }
+
+    /// The current depth.
+    pub fn size(&self) -> usize {
+        self.queue.size()
+    }
+
+    /// True when no items wait.
+    pub fn is_empty(&self) -> bool {
+        self.queue.is_empty()
+    }
+
+    /// True while offers are still accepted.
+    pub fn is_open(&self) -> bool {
+        self.queue.is_open()
+    }
+}
+
+impl<T: Clone> TxDequeue<'_, T> {
+    /// Front item without removing it.
+    pub fn peek(&self) -> Option<T> {
+        self.queue.peek()
     }
 }
 

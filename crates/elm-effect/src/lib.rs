@@ -39,7 +39,7 @@ mod supervisor;
 mod sync;
 mod time;
 
-pub use cause::{Cause, Defect, FiberId, Reason};
+pub use cause::{Cause, Defect, FiberId, Reason, is_die_reason, is_fail_reason, is_interrupt_reason};
 pub use concurrency::{Body, Concurrency, all, for_each, partition, validate, validate_discard};
 pub use effect::{Effect, Requirement};
 #[cfg(feature = "schema")]
@@ -72,8 +72,8 @@ pub use scope::Scope;
 pub use service::{Cons, MemoMap, Provide, Reference, ServiceTag, read_reference, use_service};
 #[cfg(feature = "stm")]
 pub use stm::{
-    TxChunk, TxDeferred, TxHashMap, TxHashSet, TxPriorityQueue, TxPubSub, TxQueue, TxReentrantLock,
-    TxRef, TxSemaphore, TxSubscriptionRef, atomically,
+    TxChunk, TxDeferred, TxDequeue, TxEnqueue, TxHashMap, TxHashSet, TxPriorityQueue, TxPubSub,
+    TxQueue, TxReentrantLock, TxRef, TxSemaphore, TxSubscriptionRef, atomically,
 };
 pub use stream::{Stream, from_iter};
 pub use sync::{Deferred, MutableRef, PartitionedSemaphore, Queue, Ref, Semaphore, SubscriptionRef, SynchronizedRef};

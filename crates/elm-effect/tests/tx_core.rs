@@ -245,3 +245,54 @@ fn tx_queue_take_between_min_and_max() {
     assert!(queue.take_between(5, 9).is_empty());
     assert!(queue.take_between(2, 1).is_empty());
 }
+
+#[test]
+fn tx_enqueue_provides_write_only_interface() {
+    let queue = TxQueue::bounded(5);
+    let enqueue = queue.as_enqueue();
+    assert!(enqueue.offer(42));
+    assert_eq!(enqueue.offer_all([1, 2, 3]), Vec::<i32>::new());
+    assert_eq!(queue.take_all(), vec![42, 1, 2, 3]);
+}
+
+#[test]
+fn tx_dequeue_provides_read_only_interface() {
+    let queue = TxQueue::bounded(5);
+    queue.offer_all([1, 2, 3]);
+    let dequeue = queue.as_dequeue();
+    assert_eq!(dequeue.take(), Some(1));
+    assert_eq!(dequeue.poll(), Some(2));
+    assert_eq!(queue.take(), Some(3));
+}
+
+#[test]
+fn tx_queue_serves_both_faces() {
+    let queue = TxQueue::bounded(5);
+    queue.as_enqueue().offer(42);
+    assert_eq!(queue.as_dequeue().take(), Some(42));
+    assert!(queue.is_open());
+}
+
+#[test]
+fn tx_enqueue_shutdown_ops() {
+    let queue = TxQueue::<i32>::bounded(5);
+    let enqueue = queue.as_enqueue();
+    assert!(enqueue.offer(42));
+    assert_eq!(enqueue.offer_all([1, 2, 3]), Vec::<i32>::new());
+    assert!(enqueue.fail());
+    assert!(!enqueue.end());
+    assert!(!queue.is_open());
+}
+
+#[test]
+fn tx_dequeue_inspection_ops() {
+    let queue = TxQueue::bounded(5);
+    queue.offer_all([1, 2, 3]);
+    let dequeue = queue.as_dequeue();
+    assert_eq!(dequeue.take(), Some(1));
+    assert_eq!(dequeue.poll(), Some(2));
+    assert_eq!(dequeue.peek(), Some(3));
+    assert_eq!(dequeue.size(), 1);
+    assert!(!dequeue.is_empty());
+    assert!(dequeue.is_open());
+}
