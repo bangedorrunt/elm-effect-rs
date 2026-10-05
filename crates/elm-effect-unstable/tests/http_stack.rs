@@ -375,3 +375,16 @@ fn cookies_reject_invalid_names() {
     assert_eq!(jar.get_value("missing"), None);
     assert_eq!(jar.get("a").unwrap().name, "a");
 }
+
+#[test]
+fn cookies_from_pairs_rejects_invalid_names() {
+    use elm_effect_unstable::http::Cookies;
+    let jar = Cookies::from_pairs(vec![
+        ("ok".to_string(), "1".to_string()),
+        ("bad name".to_string(), "2".to_string()),
+    ]);
+    assert_eq!(jar.get_value("ok"), Some("1"));
+    assert_eq!(jar.get_value("bad name"), None);
+    assert!(!jar.is_empty());
+    assert!(Cookies::new().is_empty());
+}

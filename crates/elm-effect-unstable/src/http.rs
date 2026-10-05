@@ -498,6 +498,27 @@ impl Cookies {
         }
     }
 
+    /// Build from name/value pairs, dropping invalid names.
+    pub fn from_pairs(pairs: Vec<(String, String)>) -> Self {
+        Self {
+            cookies: pairs
+                .into_iter()
+                .filter(|(name, _)| Cookie::is_valid_name(name))
+                .map(|(name, value)| Cookie {
+                    name,
+                    value,
+                    max_age: None,
+                    expires: None,
+                    domain: None,
+                    path: None,
+                    secure: false,
+                    http_only: false,
+                    same_site: None,
+                })
+                .collect(),
+        }
+    }
+
     /// First cookie with `name`.
     pub fn get(&self, name: &str) -> Option<&Cookie> {
         self.cookies.iter().find(|c| c.name == name)

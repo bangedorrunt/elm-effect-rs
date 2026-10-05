@@ -6380,7 +6380,7 @@ unported	packages/effect/test/eventlog/SqlEventLogServerUnencryptedStorageTest.t
 ported	packages/effect/test/http/Cookies.test.ts	11	it	rejects cookie attribute delimiters in names, domains, and paths	cookies_reject_invalid_names
 ported	packages/effect/test/http/Cookies.test.ts	26	it	accepts RFC 6265 token names and legitimate domains and paths	cookies_reject_invalid_names
 ported	packages/effect/test/http/Cookies.test.ts	44	it	ignores invalid cookie names	cookies_reject_invalid_names
-unported	packages/effect/test/http/Cookies.test.ts	63	it	rejects invalid cookies supplied through fromIterable	
+ported	packages/effect/test/http/Cookies.test.ts	63	it	rejects invalid cookies supplied through fromIterable	cookies_from_pairs_rejects_invalid_names
 ported	packages/effect/test/http/Cookies.test.ts	69	it	rejects invalid cookies supplied through setCookie	cookies_reject_invalid_names
 ported	packages/effect/test/http/Cookies.test.ts	76	it	expireCookie returns a Result with an expired Set-Cookie value	cookie_expired_renders_cleared_set_cookie
 ported	packages/effect/test/http/Cookies.test.ts	90	it	expireCookieUnsafe adds an expired Set-Cookie value	cookie_expired_renders_cleared_set_cookie
