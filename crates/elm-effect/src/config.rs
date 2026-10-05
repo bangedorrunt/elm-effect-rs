@@ -263,10 +263,46 @@ impl Config {
         })
     }
 
-    /// ISO date string, kept verbatim after shape validation.
+    /// Strict civil-date check for [`Config::date`]: `YYYY-MM-DD` with real
+    /// month/day ranges (leap-aware); a `T`/space time tail may follow.
+    fn is_calendar_date(s: &str) -> bool {
+        let head = s.split(['T', ' ']).next().unwrap_or("");
+        let b = head.as_bytes();
+        if b.len() != 10 || b[4] != b'-' || b[7] != b'-' {
+            return false;
+        }
+        let digits = |lo: usize, hi: usize| -> Option<u32> {
+            let mut n = 0u32;
+            for &c in &b[lo..hi] {
+                if !c.is_ascii_digit() {
+                    return None;
+                }
+                n = n * 10 + (c - b'0') as u32;
+            }
+            Some(n)
+        };
+        let (Some(y), Some(m), Some(d)) = (digits(0, 4), digits(5, 7), digits(8, 10)) else {
+            return false;
+        };
+        if m == 0 || m > 12 || d == 0 {
+            return false;
+        }
+        let leap = (y % 4 == 0 && y % 100 != 0) || y % 400 == 0;
+        let dim = match m {
+            2 if leap => 29,
+            2 => 28,
+            4 | 6 | 9 | 11 => 30,
+            _ => 31,
+        };
+        d <= dim
+    }
+
+    /// ISO date string, kept verbatim after real calendar validation
+    /// (`YYYY-MM-DD`, leap-aware; an optional `T`/space time tail is
+    /// allowed and unchecked beyond presence).
     pub fn date(name: Option<String>) -> Self {
         Self::leaf(name, |text, path| match text {
-            Some(t) if t.len() >= 8 && t.contains('-') => Ok(Value::Str(t)),
+            Some(t) if Self::is_calendar_date(&t) => Ok(Value::Str(t)),
             Some(t) => Err(vec![ConfigError::Invalid {
                 path,
                 got: t,

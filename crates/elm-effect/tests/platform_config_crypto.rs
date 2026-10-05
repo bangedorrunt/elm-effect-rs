@@ -684,3 +684,25 @@ fn config_all_prefixes_every_child() {
     );
     assert!(c.load(&provider(&[("a", "a"), ("b", "1")])).is_err());
 }
+
+#[test]
+fn config_date_validates_real_calendars() {
+    let d = |v: &str| Config::date(named("d")).load(&provider(&[("d", v)]));
+    assert_eq!(
+        d("2021-01-01").unwrap(),
+        Value::Str("2021-01-01".to_string())
+    );
+    assert_eq!(
+        d("2024-02-29").unwrap(),
+        Value::Str("2024-02-29".to_string())
+    );
+    assert_eq!(
+        d("2021-01-01T00:00:00.000Z").unwrap(),
+        Value::Str("2021-01-01T00:00:00.000Z".to_string())
+    );
+    assert!(d("invalid").is_err());
+    assert!(d("2021-13-01").is_err());
+    assert!(d("2021-02-29").is_err());
+    assert!(d("--------").is_err());
+    assert!(d("2021-1-1").is_err());
+}
