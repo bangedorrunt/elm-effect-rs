@@ -309,6 +309,23 @@ fn error_schema_roundtrip_preserves_wrapper() {
     );
     let back = SqlError::from_json(&err.to_json()).unwrap();
     assert_eq!(back, err);
+    // SqlError.test.ts:201 — every reason tag roundtrips.
+    for reason in [
+        SqlReason::UniqueViolation {
+            constraint: Some("k".to_string()),
+        },
+        SqlReason::ConstraintError {
+            detail: Some("d".to_string()),
+        },
+        SqlReason::ForeignKeyViolation,
+        SqlReason::SyntaxError,
+        SqlReason::ConnectionLost,
+        SqlReason::EmptyResult,
+        SqlReason::Unknown,
+    ] {
+        let err = SqlError::new(reason, true, "m");
+        assert_eq!(SqlError::from_json(&err.to_json()).unwrap(), err);
+    }
     assert!(SqlError::from_json(&serde_json::json!({"tag": "Nope"})).is_none());
 }
 
