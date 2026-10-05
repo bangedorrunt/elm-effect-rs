@@ -11,3 +11,5 @@ pub mod eventlog;
 
 #[cfg(feature = "persistence")]
 pub mod persistence;
+
+pub mod http;

@@ -9,8 +9,10 @@ publish = false
 otel = ["dep:opentelemetry", "dep:opentelemetry_sdk"]
 eventlog = []
 persistence = []
+http = ["dep:ureq"]
 
 [dependencies]
 elm-effect = { path = "../elm-effect" }
 opentelemetry = { version = "0.28", optional = true }
 opentelemetry_sdk = { version = "0.28", optional = true, features = ["testing"] }
+ureq = { version = "2", optional = true, default-features = false, features = ["tls"] }
