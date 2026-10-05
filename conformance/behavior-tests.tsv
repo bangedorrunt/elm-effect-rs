@@ -6429,8 +6429,8 @@ ported	packages/effect/test/http/FindMyWay/path-params-match.test.ts	4	it	path p
 unported	packages/effect/test/http/FindMyWay/path-params-match.test.ts	45	it	builds null-prototype params for static and parameterized routes	
 unported	packages/effect/test/http/FindMyWay/path-params-match.test.ts	64	it	does not compile parameter names with Function	
 unported	packages/effect/test/http/FindMyWay/path-params-match.test.ts	88	it	does not read inherited static child entries	
-unported	packages/effect/test/http/FindMyWay/querystring.test.ts	4	it	should sanitize the url - query	
-unported	packages/effect/test/http/FindMyWay/querystring.test.ts	13	it	should sanitize the url - hash	
+ported	packages/effect/test/http/FindMyWay/querystring.test.ts	4	it	should sanitize the url - query	match_path_extracts_params
+ported	packages/effect/test/http/FindMyWay/querystring.test.ts	13	it	should sanitize the url - hash	match_path_extracts_params
 unported	packages/effect/test/http/FindMyWay/querystring.test.ts	23	it	handles path and query separated by ;	
 unported	packages/effect/test/http/FindMyWay/querystring.test.ts	32	it	handles %	
 unported	packages/effect/test/http/FindMyWay/regex.test.ts	4	it	route with matching regex	

@@ -106,6 +106,30 @@ impl HttpServer {
     }
 }
 
+/// Match a route pattern against a request path.
+/// `:name` segments capture one non-empty segment; a query string or
+/// fragment is stripped before matching. Returns captures in order.
+pub fn match_path(pattern: &str, path: &str) -> Option<Vec<(String, String)>> {
+    let path = path.split(['?', '#']).next().unwrap_or(path);
+    let pattern_segs: Vec<&str> = pattern.split('/').collect();
+    let path_segs: Vec<&str> = path.split('/').collect();
+    if pattern_segs.len() != path_segs.len() {
+        return None;
+    }
+    let mut params = Vec::new();
+    for (pattern_seg, path_seg) in pattern_segs.iter().zip(path_segs.iter()) {
+        if let Some(name) = pattern_seg.strip_prefix(':') {
+            if path_seg.is_empty() {
+                return None;
+            }
+            params.push((name.to_string(), (*path_seg).to_string()));
+        } else if pattern_seg != path_seg {
+            return None;
+        }
+    }
+    Some(params)
+}
+
 fn handle_one(
     stream: TcpStream,
     routes: &Arc<Mutex<HashMap<Route, Response>>>,
@@ -124,15 +148,28 @@ fn handle_one(
     let mut parts = request_line.split_whitespace();
     let method = parts.next().unwrap_or("").to_owned();
     let path = parts.next().unwrap_or("/").to_owned();
-    let response = routes
-        .lock()
-        .expect("server")
-        .get(&Route {
-            method: method.clone(),
-            path: path.clone(),
-        })
-        .cloned()
-        .unwrap_or_else(Response::not_found);
+    let response = {
+        let table = routes.lock().expect("server");
+        if let Some(response) = table
+            .get(&Route {
+                method: method.clone(),
+                path: path.clone(),
+            })
+            .cloned()
+        {
+            response
+        } else {
+            // Exact miss: first `:param` pattern for this method wins.
+            // ponytail: HashMap scan order; a route Vec if patterns multiply.
+            table
+                .iter()
+                .find(|(route, _)| {
+                    route.method == method && match_path(&route.path, &path).is_some()
+                })
+                .map(|(_, response)| response.clone())
+                .unwrap_or_else(Response::not_found)
+        }
+    };
     let mut writer = stream;
     let mut head = format!("HTTP/1.1 {} {}\r\n", response.status, response.reason).into_bytes();
     for (name, value) in &response.headers {

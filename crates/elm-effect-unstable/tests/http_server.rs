@@ -74,3 +74,26 @@ fn explicit_host_is_preserved() {
     let addr = server.local_addr().expect("addr");
     assert_eq!(addr.ip().to_string(), "127.0.0.1");
 }
+
+#[test]
+fn match_path_extracts_params() {
+    use elm_effect_unstable::http_server::match_path;
+    assert_eq!(
+        match_path("/users/:id", "/users/7"),
+        Some(vec![("id".to_string(), "7".to_string())])
+    );
+    assert_eq!(match_path("/users/:id", "/users/"), None);
+    assert_eq!(match_path("/a", "/a/b"), None);
+    assert_eq!(match_path("/a/:x", "/a/b?x=1#frag"), Some(vec![("x".to_string(), "b".to_string())]));
+}
+
+#[test]
+fn patterned_route_serves_with_query_stripped() {
+    let server = HttpServer::bind("127.0.0.1:0").expect("bind");
+    let addr = server.local_addr().expect("addr");
+    server.route("GET", "/users/:id", Response::ok("user"));
+    let handle = std::thread::spawn(move || server.serve_once().expect("serve"));
+    let (code, _, _) = get(&addr, "/users/7?verbose=1");
+    assert_eq!(code, 200);
+    let _ = handle.join().expect("join");
+}
