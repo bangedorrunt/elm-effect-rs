@@ -607,6 +607,18 @@ fn provider_empty_strings_are_missing_by_default() {
         Config::string(named("b")).load(&p).unwrap(),
         Value::Str("value1".to_string())
     );
+    // Co-located record values: the empty leaf is missing, children keep
+    // working through the same provider.
+    let co = provider(&[("r.empty", ""), ("r.kept", "v")]);
+    assert_eq!(co.get(&["r".to_string(), "empty".to_string()]), None);
+    assert_eq!(
+        Config::string(named("kept")).nested("r").load(&co).unwrap(),
+        Value::Str("v".to_string())
+    );
+    assert!(Config::string(named("empty"))
+        .nested("r")
+        .load(&co)
+        .is_err());
 }
 
 #[test]
