@@ -776,7 +776,7 @@ ported	packages/effect/test/Config.test.ts	1534	it	reports missing redacted inpu
 ported	packages/effect/test/Config.test.ts	1544	it	decodes supported boolean spellings	config_boolean_spellings
 unported	packages/effect/test/Config.test.ts	1577	it	decodes durations including infinities	
 ported	packages/effect/test/Config.test.ts	1598	it	decodes exact byte sizes and reports invalid input	config_duration_date_bytes_url_port_level
-unported	packages/effect/test/Config.test.ts	1612	it	validates port ranges	
+ported	packages/effect/test/Config.test.ts	1612	it	validates port ranges	config_port_validates_range_and_decodes_number
 ported	packages/effect/test/Config.test.ts	1627	it	validates log-level literals	config_duration_date_bytes_url_port_level
 unported	packages/effect/test/Config.test.ts	1650	it	decodes object input	
 unported	packages/effect/test/Config.test.ts	1670	it	decodes separated string input	
@@ -808,11 +808,11 @@ unported	packages/effect/test/Config.test.ts	2142	it	uses a co-located scalar in
 unported	packages/effect/test/Config.test.ts	2149	it	uses a co-located scalar instead of array children for a leaf schema	
 unported	packages/effect/test/Config.test.ts	2156	it	prefers object children when a node can be both object and array	
 unported	packages/effect/test/Config.test.ts	2166	it	decodes Null	
-unported	packages/effect/test/Config.test.ts	2179	it	decodes String and reports absence	
-unported	packages/effect/test/Config.test.ts	2192	it	decodes Number and reports absence	
-unported	packages/effect/test/Config.test.ts	2205	it	decodes Finite and reports absence	
-unported	packages/effect/test/Config.test.ts	2218	it	decodes Int and reports absence	
-unported	packages/effect/test/Config.test.ts	2231	it	decodes Boolean and reports absence	
+ported	packages/effect/test/Config.test.ts	2179	it	decodes String and reports absence	config_string_decodes_and_reports_absence
+ported	packages/effect/test/Config.test.ts	2192	it	decodes Number and reports absence	config_scalars_decode_and_report_absence
+ported	packages/effect/test/Config.test.ts	2205	it	decodes Finite and reports absence	config_scalars_decode_and_report_absence
+ported	packages/effect/test/Config.test.ts	2218	it	decodes Int and reports absence	config_scalars_decode_and_report_absence
+ported	packages/effect/test/Config.test.ts	2231	it	decodes Boolean and reports absence	config_scalars_decode_and_report_absence
 unported	packages/effect/test/Config.test.ts	2246	it	decodes required properties	
 unported	packages/effect/test/Config.test.ts	2253	it	omits absent optionalKey properties	
 unported	packages/effect/test/Config.test.ts	2261	it	omits absent optional properties	
