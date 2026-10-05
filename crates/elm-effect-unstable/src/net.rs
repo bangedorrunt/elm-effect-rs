@@ -136,3 +136,64 @@ fn broadcast(network: IpAddr, prefix: u8) -> IpAddr {
         }
     }
 }
+
+/// An IP interface: address plus prefix, host bits preserved.
+///
+/// Ports the portable core of `net/IpInterface.ts`: unlike [`IpNetwork`],
+/// construction keeps host bits; [`Self::network`] derives the containing
+/// network. Bare addresses default to full-width prefixes (/32, /128).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct IpInterface {
+    address: IpAddr,
+    prefix: u8,
+}
+
+impl IpInterface {
+    /// Parse `address/prefix`, keeping host bits. Fails on malformed
+    /// input or out-of-range prefixes.
+    pub fn parse(text: &str) -> Option<Self> {
+        let (addr_text, prefix_text) = text.split_once('/')?;
+        let address: IpAddr = addr_text.parse().ok()?;
+        let prefix: u8 = prefix_text.parse().ok()?;
+        let max = match address {
+            IpAddr::V4(_) => 32,
+            IpAddr::V6(_) => 128,
+        };
+        if prefix > max {
+            return None;
+        }
+        Some(Self { address, prefix })
+    }
+
+    /// A bare address with a full-width prefix.
+    pub fn from_addr(address: IpAddr) -> Self {
+        let prefix = match address {
+            IpAddr::V4(_) => 32,
+            IpAddr::V6(_) => 128,
+        };
+        Self { address, prefix }
+    }
+
+    /// The address, host bits intact.
+    pub fn address(&self) -> IpAddr {
+        self.address
+    }
+
+    /// The prefix length.
+    pub fn prefix(&self) -> u8 {
+        self.prefix
+    }
+
+    /// Canonical `address/prefix` text.
+    pub fn render(&self) -> String {
+        format!("{}/{}", self.address, self.prefix)
+    }
+
+    /// The containing network (host bits masked off).
+    pub fn network(&self) -> IpNetwork {
+        IpNetwork {
+            network: mask(self.address, self.prefix),
+            prefix: self.prefix,
+        }
+    }
+}

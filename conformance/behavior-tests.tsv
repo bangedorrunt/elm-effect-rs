@@ -6939,15 +6939,15 @@ unported	packages/effect/test/httpapi/OpenApiRepresentation.test.ts	108	it	uses 
 unported	packages/effect/test/httpapi/OpenApiRepresentation.test.ts	131	it	shares definitions and returns cached copies by API identity	
 unported	packages/effect/test/httpapi/OpenApiRepresentation.test.ts	155	it	retains referenced parameter schemas without emitting the parameter container	
 unported	packages/effect/test/httpapi/OpenApiRepresentation.test.ts	179	it	caches generated specs by API and options identity	
-unported	packages/effect/test/net/IpInterface.test.ts	23	it	serializes and inspects canonical strings	
-unported	packages/effect/test/net/IpInterface.test.ts	32	it	retains the address supplied to checked constructors	
-unported	packages/effect/test/net/IpInterface.test.ts	37	it	forwards errors from address and prefix validation	
+ported	packages/effect/test/net/IpInterface.test.ts	23	it	serializes and inspects canonical strings	ipinterface_keeps_host_bits
+ported	packages/effect/test/net/IpInterface.test.ts	32	it	retains the address supplied to checked constructors	ipinterface_keeps_host_bits
+ported	packages/effect/test/net/IpInterface.test.ts	37	it	forwards errors from address and prefix validation	ipinterface_keeps_host_bits
 unported	packages/effect/test/net/IpInterface.test.ts	48	it	constructs one generic runtime representation	
-unported	packages/effect/test/net/IpInterface.test.ts	60	it	defaults bare addresses to full-width prefixes	
-unported	packages/effect/test/net/IpInterface.test.ts	65	it	parses prefixes and preserves host bits	
-unported	packages/effect/test/net/IpInterface.test.ts	73	it	rejects invalid prefixes and malformed input	
+ported	packages/effect/test/net/IpInterface.test.ts	60	it	defaults bare addresses to full-width prefixes	ipinterface_bare_defaults_full_width
+ported	packages/effect/test/net/IpInterface.test.ts	65	it	parses prefixes and preserves host bits	ipinterface_keeps_host_bits
+ported	packages/effect/test/net/IpInterface.test.ts	73	it	rejects invalid prefixes and malformed input	ipinterface_keeps_host_bits
 unported	packages/effect/test/net/IpInterface.test.ts	88	it	uses address and prefix equality with matching hashes	
-unported	packages/effect/test/net/IpInterface.test.ts	96	it	converts to the canonical containing network	
+ported	packages/effect/test/net/IpInterface.test.ts	96	it	converts to the canonical containing network	ipinterface_bare_defaults_full_width
 unported	packages/effect/test/net/IpInterface.test.ts	100	it	provides throwing counterparts	
 unported	packages/effect/test/net/IpInterface.test.ts	105	it	decodes and canonically encodes schemas	
 unported	packages/effect/test/net/IpNetwork.test.ts	24	it	serializes and inspects canonical strings	

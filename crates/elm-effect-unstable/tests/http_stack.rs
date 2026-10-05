@@ -292,3 +292,27 @@ fn request_hash_stores_option_and_removes() {
     request.remove_hash();
     assert_eq!(request.hash, None);
 }
+
+#[test]
+fn ipinterface_keeps_host_bits() {
+    use elm_effect_unstable::net::IpInterface;
+    let iface = IpInterface::parse("192.168.1.7/24").unwrap();
+    assert_eq!(iface.address().to_string(), "192.168.1.7");
+    assert_eq!(iface.render(), "192.168.1.7/24");
+    assert_eq!(iface.network().render(), "192.168.1.0/24");
+    assert!(IpInterface::parse("192.168.1.7/33").is_none());
+    assert!(IpInterface::parse("nope").is_none());
+}
+
+#[test]
+fn ipinterface_bare_defaults_full_width() {
+    use elm_effect_unstable::net::{IpInterface, IpNetwork};
+    use std::net::IpAddr;
+    let v4: IpAddr = "10.0.0.9".parse().unwrap();
+    let v6: IpAddr = "::1".parse().unwrap();
+    assert_eq!(IpInterface::from_addr(v4).prefix(), 32);
+    assert_eq!(IpInterface::from_addr(v6).prefix(), 128);
+    let net = IpNetwork::parse("10.0.0.0/8").unwrap();
+    assert!(net.contains_addr(IpInterface::from_addr(v4).address()));
+    assert_eq!(IpInterface::from_addr(v4).network(), IpNetwork::parse("10.0.0.9/32").unwrap());
+}
