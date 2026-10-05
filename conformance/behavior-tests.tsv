@@ -882,7 +882,7 @@ unported	packages/effect/test/ConfigProvider.test.ts	319	it	env without an under
 unported	packages/effect/test/ConfigProvider.test.ts	325	it	missing key returns None	
 unported	packages/effect/test/ConfigProvider.test.ts	331	it	does not read inherited environment properties	
 unported	packages/effect/test/ConfigProvider.test.ts	336	it	does not traverse inherited trie properties	
-unported	packages/effect/test/ConfigProvider.test.ts	346	it	treats empty string values as missing while preserving structure by default	
+ported	packages/effect/test/ConfigProvider.test.ts	346	it	treats empty string values as missing while preserving structure by default	provider_listings_keep_empty_valued_keys
 ported	packages/effect/test/ConfigProvider.test.ts	355	it	preserves empty strings when requested	provider_preserves_empty_strings_when_requested
 ported	packages/effect/test/ConfigProvider.test.ts	363	it	treats empty co-located record values as missing and preserves children	provider_empty_strings_are_missing_by_default
 unported	packages/effect/test/ConfigProvider.test.ts	371	it	preserves empty co-located record values when requested	
