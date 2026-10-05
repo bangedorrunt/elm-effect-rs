@@ -34,6 +34,57 @@ impl IpNetwork {
         Some(Self { network, prefix })
     }
 
+    /// Checked constructor: finite integer prefix in family range with no
+    /// host bits set, echoing the address on any failure (TS `make` /
+    /// `fromAddress`, whose failures carry the supplied address as input).
+    pub fn make(addr: IpAddr, prefix: f64) -> Result<Self, NetworkError> {
+        let max = match addr {
+            IpAddr::V4(_) => 32,
+            IpAddr::V6(_) => 128,
+        };
+        if !prefix.is_finite()
+            || prefix.fract() != 0.0
+            || prefix < 0.0
+            || prefix > f64::from(max)
+        {
+            return Err(NetworkError::addr(
+                addr,
+                format!("prefix length must be an integer from 0 through {max}"),
+            ));
+        }
+        let bits = prefix as u8;
+        if mask(addr, bits) != addr {
+            return Err(NetworkError::addr(addr, "host bits set".to_string()));
+        }
+        Ok(Self {
+            network: addr,
+            prefix: bits,
+        })
+    }
+
+    /// Strict parse with error-input echo (TS `fromString`): an unparsable
+    /// address echoes the offending dotted quad (or whole address text); a
+    /// malformed prefix echoes the full input once the address parsed;
+    /// out-of-range prefixes and host bits echo the parsed address.
+    pub fn parse_reported(text: &str) -> Result<Self, NetworkError> {
+        let (addr_text, prefix_text) = text
+            .split_once('/')
+            .ok_or_else(|| NetworkError::text(text, "missing prefix".to_string()))?;
+        let addr: IpAddr = addr_text.parse().map_err(|_| {
+            NetworkError::text(
+                offending_address(addr_text),
+                "invalid address".to_string(),
+            )
+        })?;
+        if prefix_text.starts_with('+') {
+            return Err(NetworkError::text(text, "invalid prefix".to_string()));
+        }
+        let prefix: f64 = prefix_text
+            .parse()
+            .map_err(|_| NetworkError::text(text, "invalid prefix".to_string()))?;
+        Self::make(addr, prefix)
+    }
+
     /// The masked network address.
     pub fn network_address(&self) -> IpAddr {
         self.network
@@ -88,6 +139,50 @@ impl IpNetwork {
     /// is exact; cross-family pairs never overlap.
     pub fn overlaps(&self, other: &Self) -> bool {
         self.contains_addr(other.network) || other.contains_addr(self.network)
+    }
+}
+
+/// Which input a network constructor rejected: the parsed address or the
+/// raw text, mirroring TS `failure(...).input`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum NetworkErrorInput {
+    Addr(IpAddr),
+    Text(String),
+}
+
+/// A rejected network construction, carrying the offending input.
+/// `tag`/`message` mirror TS `NetAddressError` failures.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NetworkError {
+    pub input: NetworkErrorInput,
+    pub tag: &'static str,
+    pub message: String,
+}
+
+impl NetworkError {
+    fn addr(addr: IpAddr, message: String) -> Self {
+        Self {
+            input: NetworkErrorInput::Addr(addr),
+            tag: "NetAddressError",
+            message,
+        }
+    }
+
+    fn text(text: &str, message: String) -> Self {
+        Self {
+            input: NetworkErrorInput::Text(text.to_string()),
+            tag: "NetAddressError",
+            message,
+        }
+    }
+}
+
+/// The dotted quad that failed inside an address text: the tail after the
+/// last colon when it carries dots (embedded IPv4), else the whole text.
+fn offending_address(addr_text: &str) -> &str {
+    match addr_text.rsplit_once(':') {
+        Some((_, tail)) if tail.contains('.') => tail,
+        _ => addr_text,
     }
 }
 
