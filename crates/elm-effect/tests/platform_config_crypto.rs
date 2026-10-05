@@ -761,3 +761,17 @@ fn config_scalars_reject_invalid_input() {
     assert!(Config::finite(named("f")).load(&p).is_err());
     assert!(Config::boolean(named("b")).load(&p).is_err());
 }
+
+#[test]
+fn provider_preserves_empty_strings_when_requested() {
+    use config_provider::Provider;
+    let p = Provider::from_pairs_preserving(vec![("e".to_string(), "".to_string())]);
+    assert_eq!(p.get(&["e".to_string()]), Some("".to_string()));
+    assert_eq!(
+        Config::string(named("e")).load(&p).unwrap(),
+        Value::Str("".to_string())
+    );
+    // Default still drops.
+    let d = Provider::from_pairs(vec![("e".to_string(), "".to_string())]);
+    assert_eq!(d.get(&["e".to_string()]), None);
+}

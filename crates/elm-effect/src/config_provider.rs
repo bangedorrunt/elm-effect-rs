@@ -34,6 +34,19 @@ impl Provider {
         }
     }
 
+    /// Build from pairs keeping empty values (`preserveEmptyStrings`
+    /// opt-out of the missing-by-default rule).
+    pub fn from_pairs_preserving(
+        pairs: impl IntoIterator<Item = (String, String)>,
+    ) -> Self {
+        Self {
+            values: pairs
+                .into_iter()
+                .map(|(k, v)| (k.split('.').map(str::to_string).collect(), v))
+                .collect(),
+        }
+    }
+
     /// Snapshot the process environment once. Empty values are
     /// absent (ignored), matching the spec default.
     pub fn from_env() -> Self {
