@@ -82,6 +82,13 @@ impl IpNetwork {
     pub fn contains_network(&self, other: &Self) -> bool {
         self.prefix <= other.prefix && self.contains_addr(other.network)
     }
+
+    /// True when the two networks share at least one address: either base
+    /// lies inside the other. CIDR blocks are nested-or-disjoint, so this
+    /// is exact; cross-family pairs never overlap.
+    pub fn overlaps(&self, other: &Self) -> bool {
+        self.contains_addr(other.network) || other.contains_addr(self.network)
+    }
 }
 
 fn same_family(a: IpAddr, b: IpAddr) -> bool {
