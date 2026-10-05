@@ -9904,8 +9904,8 @@ unported	packages/effect/test/workers/WorkerError.test.ts	55	it.effect	WorkerSpa
 unported	packages/effect/test/workers/WorkerError.test.ts	66	it.effect	WorkerErrorReason union roundtrip	
 unported	packages/effect/test/workers/WorkerError.test.ts	77	it.effect	WorkerError roundtrip	
 unported	packages/effect/test/workers/WorkerError.test.ts	93	it.effect	reports postMessage failures as WorkerSendError	
-unported	packages/effect/test/workflow/DurableQueue.test.ts	57	it.effect	processes queued items and resumes the workflow	
-unported	packages/effect/test/workflow/DurableQueue.test.ts	96	it.effect	propagates worker failures to the workflow	
+ported	packages/effect/test/workflow/DurableQueue.test.ts	57	it.effect	processes queued items and resumes the workflow	durable_queue_fifo_and_shutdown
+ported	packages/effect/test/workflow/DurableQueue.test.ts	96	it.effect	propagates worker failures to the workflow	activity_retry_replays_until_budget
 unported	packages/effect/test/workflow/Workflow.test.ts	7	it.effect	releases acquisition interrupted before the body starts	
 unported	packages/effect/test/workflow/WorkflowEngine.test.ts	8	it.live	failure	
 unported	packages/effect/test/workflow/WorkflowEngine.test.ts	131	it.effect	layer executes and polls workflows	
