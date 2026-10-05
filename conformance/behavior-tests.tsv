@@ -6382,8 +6382,8 @@ unported	packages/effect/test/http/Cookies.test.ts	26	it	accepts RFC 6265 token 
 unported	packages/effect/test/http/Cookies.test.ts	44	it	ignores invalid cookie names	
 unported	packages/effect/test/http/Cookies.test.ts	63	it	rejects invalid cookies supplied through fromIterable	
 unported	packages/effect/test/http/Cookies.test.ts	69	it	rejects invalid cookies supplied through setCookie	
-unported	packages/effect/test/http/Cookies.test.ts	76	it	expireCookie returns a Result with an expired Set-Cookie value	
-unported	packages/effect/test/http/Cookies.test.ts	90	it	expireCookieUnsafe adds an expired Set-Cookie value	
+ported	packages/effect/test/http/Cookies.test.ts	76	it	expireCookie returns a Result with an expired Set-Cookie value	cookie_expired_renders_cleared_set_cookie
+ported	packages/effect/test/http/Cookies.test.ts	90	it	expireCookieUnsafe adds an expired Set-Cookie value	cookie_expired_renders_cleared_set_cookie
 unported	packages/effect/test/http/Cookies.test.ts	105	it	serializerIso annotation	
 unported	packages/effect/test/http/Cookies.test.ts	118	it	toCodecJson	
 unported	packages/effect/test/http/Cookies.test.ts	139	it	RecordFromCookies converts cookies to decoded string values	

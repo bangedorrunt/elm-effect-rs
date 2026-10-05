@@ -347,3 +347,15 @@ fn strict_ip_classifies_bits() {
     assert_eq!(StrictIp::parse("8.8.8.8").unwrap().classify(), IpClass::Global);
     assert_eq!(StrictIp::parse("::1").unwrap().classify(), IpClass::Loopback);
 }
+
+#[test]
+fn cookie_expired_renders_cleared_set_cookie() {
+    use elm_effect_unstable::http::Cookie;
+    let expired = Cookie::expired("session");
+    let rendered = expired.to_set_cookie();
+    assert!(rendered.contains("Max-Age=0"), "{rendered}");
+    assert!(rendered.contains("Expires="), "{rendered}");
+    let back = Cookie::parse_set_cookie(&rendered).unwrap();
+    assert_eq!(back.max_age, Some(0));
+    assert_eq!(back.name, "session");
+}

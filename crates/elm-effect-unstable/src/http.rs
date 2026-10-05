@@ -351,6 +351,8 @@ pub struct Cookie {
     pub value: String,
     /// Max-Age seconds, if present.
     pub max_age: Option<u64>,
+    /// Expires date, if present.
+    pub expires: Option<String>,
     /// Domain attribute, if present.
     pub domain: Option<String>,
     /// Path attribute, if present.
@@ -364,6 +366,22 @@ pub struct Cookie {
 }
 
 impl Cookie {
+    /// An already-expired cookie for `name` (clears it in the client).
+    /// Renders with `Max-Age=0` plus a past `Expires` date.
+    pub fn expired(name: impl Into<String>) -> Self {
+        Self {
+            name: name.into(),
+            value: String::new(),
+            max_age: Some(0),
+            expires: Some("Thu, 01 Jan 1970 00:00:00 GMT".to_string()),
+            domain: None,
+            path: Some("/".to_string()),
+            secure: false,
+            http_only: false,
+            same_site: None,
+        }
+    }
+
     /// Parse one `name=value` pair (no attributes).
     pub fn parse_pair(pair: &str) -> Option<Self> {
         let (name, value) = pair.split_once('=')?;
@@ -371,6 +389,7 @@ impl Cookie {
             name: name.trim().to_string(),
             value: Self::unquote(value.trim()),
             max_age: None,
+            expires: None,
             domain: None,
             path: None,
             secure: false,
@@ -397,6 +416,7 @@ impl Cookie {
             };
             match (attr.as_str(), val) {
                 ("max-age", Some(v)) => cookie.max_age = v.parse().ok(),
+                ("expires", Some(v)) => cookie.expires = Some(v.to_string()),
                 ("domain", Some(v)) => cookie.domain = Some(v.to_string()),
                 ("path", Some(v)) => cookie.path = Some(v.to_string()),
                 ("secure", _) => cookie.secure = true,
@@ -413,6 +433,9 @@ impl Cookie {
         let mut out = format!("{}={}", self.name, self.value);
         if let Some(max_age) = self.max_age {
             out.push_str(&format!("; Max-Age={max_age}"));
+        }
+        if let Some(expires) = &self.expires {
+            out.push_str(&format!("; Expires={expires}"));
         }
         if let Some(domain) = &self.domain {
             out.push_str(&format!("; Domain={domain}"));
