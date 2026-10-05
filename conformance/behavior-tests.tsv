@@ -2526,9 +2526,9 @@ ported	packages/effect/test/Match.test.ts	27	it	fn can match a projected value	t
 ported	packages/effect/test/Match.test.ts	38	it	tag matches an exact _tag and falls through for null	tagged_structs_match_by_tag
 ported	packages/effect/test/Match.test.ts	49	it	tagStartsWith matches a _tag prefix and falls through otherwise	tagged_structs_match_by_tag
 unported	packages/effect/test/Match.test.ts	60	it	checks symbol-keyed object pattern properties	
-unported	packages/effect/test/Metric.test.ts	21	it.effect	keeps shared metrics scoped to the active registry	
+ported	packages/effect/test/Metric.test.ts	21	it.effect	keeps shared metrics scoped to the active registry	shared_metrics_stay_scoped_to_active_registry
 unported	packages/effect/test/Metric.test.ts	37	it.effect	keeps attributed metrics scoped to the active registry	
-unported	packages/effect/test/Metric.test.ts	52	it.effect	registers an unattributed metric again after the registry is cleared	
+ported	packages/effect/test/Metric.test.ts	52	it.effect	registers an unattributed metric again after the registry is cleared	cleared_registry_reregisters_unattributed_metric
 unported	packages/effect/test/Metric.test.ts	67	it.effect	shares one series between no attributes and empty attributes	
 unported	packages/effect/test/Metric.test.ts	82	it.effect	keeps distinct attribute sets in separate series	
 unported	packages/effect/test/Metric.test.ts	95	it.effect	keeps an id containing a colon apart from an id with a description	
