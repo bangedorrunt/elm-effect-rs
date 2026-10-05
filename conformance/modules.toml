@@ -1804,7 +1804,7 @@ tests = ["packages/effect/test/encoding/Sse.test.ts"]
 [[module]]
 path = "packages/effect/src/encoding/Toml.ts"
 class = "unstable-port"
-status = "unmatched"
+status = "matched"
 tag = "unstable"
 reason = ""
 tests = ["packages/effect/test/encoding/Toml.test.ts"]
