@@ -197,6 +197,7 @@ pub struct Queue<A> {
     capacity: usize,
     not_full: Condvar,
     not_empty: Condvar,
+    shutdown: Mutex<bool>,
 }
 
 impl<A: Send> Queue<A> {
@@ -207,6 +208,7 @@ impl<A: Send> Queue<A> {
             capacity,
             not_full: Condvar::new(),
             not_empty: Condvar::new(),
+            shutdown: Mutex::new(false),
         }
     }
 
@@ -238,6 +240,9 @@ impl<A: Send> Queue<A> {
 
     /// Push without blocking. False when full.
     pub fn try_offer(&self, value: A) -> bool {
+        if *self.shutdown.lock().unwrap() {
+            return false;
+        }
         let mut guard = self.inner.lock().unwrap();
         if guard.len() >= self.capacity {
             return false;
@@ -253,6 +258,40 @@ impl<A: Send> Queue<A> {
         let value = guard.pop_front()?;
         self.not_full.notify_one();
         Some(value)
+    }
+
+    /// Oldest item without removing it. Needs `Clone` because the lock
+    /// cannot hand out references.
+    pub fn peek(&self) -> Option<A>
+    where
+        A: Clone,
+    {
+        self.inner.lock().unwrap().front().cloned()
+    }
+
+    /// Remove everything buffered.
+    pub fn take_all(&self) -> Vec<A> {
+        let mut guard = self.inner.lock().unwrap();
+        let out: Vec<A> = guard.drain(..).collect();
+        self.not_full.notify_all();
+        out
+    }
+
+    /// Drop everything buffered; returns the count dropped.
+    pub fn clear(&self) -> usize {
+        self.take_all().len()
+    }
+
+    /// Freeze offers; buffered items still drain. Wakes blocked takers
+    /// so they observe the drain instead of sleeping.
+    pub fn shutdown(&self) {
+        *self.shutdown.lock().unwrap() = true;
+        self.not_empty.notify_all();
+    }
+
+    /// True after [`Self::shutdown`].
+    pub fn is_shutdown(&self) -> bool {
+        *self.shutdown.lock().unwrap()
     }
 
     /// Items currently queued.

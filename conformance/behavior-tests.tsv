@@ -3045,8 +3045,8 @@ unported	packages/effect/test/Queue.test.ts	462	it.effect	done completes takes
 unported	packages/effect/test/Queue.test.ts	473	it.effect	end	
 unported	packages/effect/test/Queue.test.ts	486	it.effect	end with take	
 unported	packages/effect/test/Queue.test.ts	500	it.effect	interrupt allows draining	
-unported	packages/effect/test/Queue.test.ts	525	it.effect	poll returns Option for non-blocking take	
-unported	packages/effect/test/Queue.test.ts	546	it.effect	peek views item without removing it	
+ported	packages/effect/test/Queue.test.ts	525	it.effect	poll returns Option for non-blocking take	offers_and_polls_roundtrip
+ported	packages/effect/test/Queue.test.ts	546	it.effect	peek views item without removing it	peek_views_without_removing
 unported	packages/effect/test/Queue.test.ts	572	it.effect	fail drains buffered values before failing takers	
 unported	packages/effect/test/Queue.test.ts	589	it.effect	shutdown	
 unported	packages/effect/test/Queue.test.ts	603	it.effect	shutdownUnsafe interrupts waiting takers synchronously	
@@ -7837,12 +7837,12 @@ unported	packages/effect/test/schema/Schema.test.ts	6557	it	< + h + (1|2n) + >
 unported	packages/effect/test/schema/Schema.test.ts	6570	it	a	
 unported	packages/effect/test/schema/Schema.test.ts	6590	it	a	
 unported	packages/effect/test/schema/Schema.test.ts	6599	it	should expose the parts	
-unported	packages/effect/test/schema/Schema.test.ts	6605	it	preserves greedy segmentation at repeated literal anchors	
-unported	packages/effect/test/schema/Schema.test.ts	6612	it	backtracks from an invalid literal anchor	
-unported	packages/effect/test/schema/Schema.test.ts	6619	it	backtracks across an empty literal anchor	
-unported	packages/effect/test/schema/Schema.test.ts	6626	it	NonEmptyString + String	
-unported	packages/effect/test/schema/Schema.test.ts	6634	it	a	
-unported	packages/effect/test/schema/Schema.test.ts	6654	it	a b	
+ported	packages/effect/test/schema/Schema.test.ts	6605	it	preserves greedy segmentation at repeated literal anchors	greedy_segmentation_at_repeated_anchors
+ported	packages/effect/test/schema/Schema.test.ts	6612	it	backtracks from an invalid literal anchor	backtracks_from_an_invalid_literal_anchor
+ported	packages/effect/test/schema/Schema.test.ts	6619	it	backtracks across an empty literal anchor	backtracks_across_an_empty_literal_anchor
+ported	packages/effect/test/schema/Schema.test.ts	6626	it	NonEmptyString + String	adjacent_spans_split_greedily
+ported	packages/effect/test/schema/Schema.test.ts	6634	it	a	single_anchor_matches_whole
+ported	packages/effect/test/schema/Schema.test.ts	6654	it	a b	anchors_with_spaces_roundtrip
 unported	packages/effect/test/schema/Schema.test.ts	6667	it	a	
 unported	packages/effect/test/schema/Schema.test.ts	6687	it	Int + String	
 unported	packages/effect/test/schema/Schema.test.ts	6695	it	a	
