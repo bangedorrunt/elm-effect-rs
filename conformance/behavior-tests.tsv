@@ -1362,18 +1362,18 @@ unported	packages/effect/test/Effect.test.ts	2922	it.effect	rethrown caught erro
 unported	packages/effect/test/Effect.test.ts	2935	it.effect	rethrown caught error in usage	
 unported	packages/effect/test/Effect.test.ts	2945	it.effect	onResult - ensures that a cleanup function runs when an effect fails	
 unported	packages/effect/test/Effect.test.ts	2962	it.effect	onExit - callback observes interrupt exit when the fiber is interrupted	
-unported	packages/effect/test/Effect.test.ts	3007	it.effect	does not log when log is omitted	
-unported	packages/effect/test/Effect.test.ts	3013	it.effect	does not log when log is false	
-unported	packages/effect/test/Effect.test.ts	3019	it.effect	logs with the current level when log is true	
-unported	packages/effect/test/Effect.test.ts	3027	it.effect	logs with the provided level when log is a LogLevel	
-unported	packages/effect/test/Effect.test.ts	3035	it.effect	prepends the provided message when logging	
-unported	packages/effect/test/Effect.test.ts	3073	it.effect	ignores defects	
-unported	packages/effect/test/Effect.test.ts	3079	it.effect	ignores interrupts	
-unported	packages/effect/test/Effect.test.ts	3085	it.effect	does not log when log is omitted	
-unported	packages/effect/test/Effect.test.ts	3091	it.effect	does not log when log is false	
-unported	packages/effect/test/Effect.test.ts	3097	it.effect	logs with the current level when log is true	
-unported	packages/effect/test/Effect.test.ts	3105	it.effect	logs with the provided level when log is a LogLevel	
-unported	packages/effect/test/Effect.test.ts	3113	it.effect	prepends the provided message when logging	
+ported	packages/effect/test/Effect.test.ts	3007	it.effect	does not log when log is omitted	ignore_omitted_logs_nothing
+ported	packages/effect/test/Effect.test.ts	3013	it.effect	does not log when log is false	ignore_false_logs_nothing
+ported	packages/effect/test/Effect.test.ts	3019	it.effect	logs with the current level when log is true	ignore_true_logs_at_current_level
+ported	packages/effect/test/Effect.test.ts	3027	it.effect	logs with the provided level when log is a LogLevel	ignore_level_overrides_current
+ported	packages/effect/test/Effect.test.ts	3035	it.effect	prepends the provided message when logging	ignore_message_replaces_cause
+ported	packages/effect/test/Effect.test.ts	3073	it.effect	ignores defects	ignore_cause_swallows_defects
+ported	packages/effect/test/Effect.test.ts	3079	it.effect	ignores interrupts	ignore_cause_swallows_interrupts
+ported	packages/effect/test/Effect.test.ts	3085	it.effect	does not log when log is omitted	ignore_cause_omitted_logs_nothing
+ported	packages/effect/test/Effect.test.ts	3091	it.effect	does not log when log is false	ignore_cause_false_logs_nothing
+ported	packages/effect/test/Effect.test.ts	3097	it.effect	logs with the current level when log is true	ignore_cause_true_logs_at_current_level
+ported	packages/effect/test/Effect.test.ts	3105	it.effect	logs with the provided level when log is a LogLevel	ignore_cause_level_overrides_current
+ported	packages/effect/test/Effect.test.ts	3113	it.effect	prepends the provided message when logging	ignore_cause_message_replaces_cause
 unported	packages/effect/test/Effect.test.ts	3127	it.effect	catchTag	
 unported	packages/effect/test/Effect.test.ts	3142	it.effect	catchTag orElse	
 unported	packages/effect/test/Effect.test.ts	3157	it.effect	catchTags orElse	
@@ -2104,31 +2104,31 @@ unported	packages/effect/test/HashRing.test.ts	6	it	updates the stored node when
 unported	packages/effect/test/HashRing.test.ts	27	it	updates the stored node when changing its weight	
 unported	packages/effect/test/HashRing.test.ts	48	it	getShards normalizes the shard count	
 unported	packages/effect/test/HashRing.test.ts	63	it	getShards considers the first ring entry when excluding allocated nodes	
-unported	packages/effect/test/HashSet.test.ts	6	it	empty creates an empty set	
-unported	packages/effect/test/HashSet.test.ts	12	it	make creates a set from distinct values	
-unported	packages/effect/test/HashSet.test.ts	21	it	make removes duplicate values	
-unported	packages/effect/test/HashSet.test.ts	29	it	fromIterable removes duplicate values from an iterable	
-unported	packages/effect/test/HashSet.test.ts	39	it	add returns a new set without mutating the original	
-unported	packages/effect/test/HashSet.test.ts	54	it	add returns the same set when the value already exists	
-unported	packages/effect/test/HashSet.test.ts	62	it	remove returns a new set without mutating the original	
-unported	packages/effect/test/HashSet.test.ts	77	it	remove returns the same set when the value is absent	
-unported	packages/effect/test/HashSet.test.ts	85	it	has checks membership for present and absent values	
-unported	packages/effect/test/HashSet.test.ts	94	it	size and isEmpty reflect set cardinality	
-unported	packages/effect/test/HashSet.test.ts	110	it	union keeps values from both sets	
-unported	packages/effect/test/HashSet.test.ts	121	it	intersection keeps only values present in both sets	
-unported	packages/effect/test/HashSet.test.ts	133	it	difference removes values found in the second set	
-unported	packages/effect/test/HashSet.test.ts	144	it	isSubset checks whether all values exist in another set	
-unported	packages/effect/test/HashSet.test.ts	157	it	map transforms every value	
+ported	packages/effect/test/HashSet.test.ts	6	it	empty creates an empty set	hash_set_add_remove_membership
+ported	packages/effect/test/HashSet.test.ts	12	it	make creates a set from distinct values	hash_set_add_remove_membership
+ported	packages/effect/test/HashSet.test.ts	21	it	make removes duplicate values	hash_set_add_remove_membership
+ported	packages/effect/test/HashSet.test.ts	29	it	fromIterable removes duplicate values from an iterable	hash_set_add_remove_membership
+ported	packages/effect/test/HashSet.test.ts	39	it	add returns a new set without mutating the original	hash_set_add_remove_membership
+ported	packages/effect/test/HashSet.test.ts	54	it	add returns the same set when the value already exists	hash_set_add_remove_membership
+ported	packages/effect/test/HashSet.test.ts	62	it	remove returns a new set without mutating the original	hash_set_add_remove_membership
+ported	packages/effect/test/HashSet.test.ts	77	it	remove returns the same set when the value is absent	hash_set_add_remove_membership
+ported	packages/effect/test/HashSet.test.ts	85	it	has checks membership for present and absent values	hash_set_add_remove_membership
+ported	packages/effect/test/HashSet.test.ts	94	it	size and isEmpty reflect set cardinality	hash_set_add_remove_membership
+ported	packages/effect/test/HashSet.test.ts	110	it	union keeps values from both sets	hash_set_algebra_and_transforms
+ported	packages/effect/test/HashSet.test.ts	121	it	intersection keeps only values present in both sets	hash_set_algebra_and_transforms
+ported	packages/effect/test/HashSet.test.ts	133	it	difference removes values found in the second set	hash_set_algebra_and_transforms
+ported	packages/effect/test/HashSet.test.ts	144	it	isSubset checks whether all values exist in another set	hash_set_subset_reduce_iterate
+ported	packages/effect/test/HashSet.test.ts	157	it	map transforms every value	hash_set_algebra_and_transforms
 unported	packages/effect/test/HashSet.test.ts	167	it	map removes duplicate transformed values	
-unported	packages/effect/test/HashSet.test.ts	176	it	filter keeps values that satisfy the predicate	
-unported	packages/effect/test/HashSet.test.ts	187	it	some returns true when any value satisfies the predicate	
-unported	packages/effect/test/HashSet.test.ts	197	it	every returns true when all values satisfy the predicate	
-unported	packages/effect/test/HashSet.test.ts	207	it	reduce folds every value into an accumulator	
-unported	packages/effect/test/HashSet.test.ts	220	it	Symbol.iterator iterates over the set values	
-unported	packages/effect/test/HashSet.test.ts	227	it	supports for...of iteration	
-unported	packages/effect/test/HashSet.test.ts	240	it	structural equality ignores insertion order	
-unported	packages/effect/test/HashSet.test.ts	249	it	hash is consistent for sets with the same values	
-unported	packages/effect/test/HashSet.test.ts	270	it	uses Equal and Hash implementations for membership and uniqueness	
+ported	packages/effect/test/HashSet.test.ts	176	it	filter keeps values that satisfy the predicate	hash_set_algebra_and_transforms
+ported	packages/effect/test/HashSet.test.ts	187	it	some returns true when any value satisfies the predicate	hash_set_algebra_and_transforms
+ported	packages/effect/test/HashSet.test.ts	197	it	every returns true when all values satisfy the predicate	hash_set_algebra_and_transforms
+ported	packages/effect/test/HashSet.test.ts	207	it	reduce folds every value into an accumulator	hash_set_subset_reduce_iterate
+ported	packages/effect/test/HashSet.test.ts	220	it	Symbol.iterator iterates over the set values	hash_set_subset_reduce_iterate
+ported	packages/effect/test/HashSet.test.ts	227	it	supports for...of iteration	hash_set_subset_reduce_iterate
+ported	packages/effect/test/HashSet.test.ts	240	it	structural equality ignores insertion order	hash_set_equality_hash_membership
+ported	packages/effect/test/HashSet.test.ts	249	it	hash is consistent for sets with the same values	hash_set_equality_hash_membership
+ported	packages/effect/test/HashSet.test.ts	270	it	uses Equal and Hash implementations for membership and uniqueness	hash_set_equality_hash_membership
 unported	packages/effect/test/HashSet.test.ts	286	it	isHashSet identifies HashSet values	
 unported	packages/effect/test/HttpClient.test.ts	107	it.layer	get	
 unported	packages/effect/test/HttpClient.test.ts	108	it.effect	get	
@@ -2828,11 +2828,11 @@ ported	packages/effect/test/Option.test.ts	513	it	bind	option_do_gen_bind_shapes
 ported	packages/effect/test/Option.test.ts	535	it	let	option_do_gen_bind_shapes
 ported	packages/effect/test/Option.test.ts	552	it	as	option_map_flatmap_flatten
 ported	packages/effect/test/Option.test.ts	560	it	asVoid	option_map_flatmap_flatten
-unported	packages/effect/test/Order.test.ts	6	it	Struct	
-unported	packages/effect/test/Order.test.ts	13	it	Tuple	
+ported	packages/effect/test/Order.test.ts	6	it	Struct	order_struct_compares_fieldwise
+ported	packages/effect/test/Order.test.ts	13	it	Tuple	order_tuple_compares_pairwise
 ported	packages/effect/test/Order.test.ts	21	it	mapInput	order_composes_lexicographically
 ported	packages/effect/test/Order.test.ts	28	it	Number compares numeric values and treats NaN as the lowest value	order_number_nan_rules
-unported	packages/effect/test/Order.test.ts	40	it	Date compares by timestamp	
+ported	packages/effect/test/Order.test.ts	40	it	Date compares by timestamp	order_date_compares_by_timestamp
 ported	packages/effect/test/Order.test.ts	47	it	clamp keeps values inside inclusive bounds	order_number_nan_rules
 ported	packages/effect/test/Order.test.ts	58	it	isBetween checks inclusive bounds	order_number_nan_rules
 ported	packages/effect/test/Order.test.ts	69	it	flip reverses an existing order	function_and_ordering_basics
@@ -2844,7 +2844,7 @@ ported	packages/effect/test/Order.test.ts	104	it	min	order_number_nan_rules
 ported	packages/effect/test/Order.test.ts	119	it	max	order_number_nan_rules
 ported	packages/effect/test/Order.test.ts	134	it	combineAll reuses finite criteria across comparisons	order_number_nan_rules
 ported	packages/effect/test/Order.test.ts	140	it	combine	order_composes_lexicographically
-unported	packages/effect/test/Ordering.test.ts	6	it	Reducer	
+ported	packages/effect/test/Ordering.test.ts	6	it	Reducer	ordering_reducer_folds_verdicts
 ported	packages/effect/test/Ordering.test.ts	19	it	reverse flips less-than and greater-than and leaves equal unchanged	function_and_ordering_basics
 ported	packages/effect/test/Ordering.test.ts	25	it	match selects the branch for the ordering in both data-first and data-last forms	function_and_ordering_basics
 ported	packages/effect/test/PartitionedSemaphore.test.ts	5	it.effect	module-level combinators delegate to the instance api	semaphore_module_delegates_to_instance
@@ -9254,14 +9254,14 @@ unported	packages/effect/test/schema/toCodec.test.ts	630	it	Literals
 unported	packages/effect/test/schema/toCodec.test.ts	642	it	1n + string	
 unported	packages/effect/test/schema/toCodec.test.ts	653	it	a	
 unported	packages/effect/test/schema/toCodec.test.ts	665	it	Enum	
-unported	packages/effect/test/schema/toCodec.test.ts	683	it	Date	
+ported	packages/effect/test/schema/toCodec.test.ts	683	it	Date	codec_date_bare_struct_tuple_json
 unported	packages/effect/test/schema/toCodec.test.ts	696	it	UndefinedOr(Date)	
 unported	packages/effect/test/schema/toCodec.test.ts	715	it	NullOr(Date)	
 unported	packages/effect/test/schema/toCodec.test.ts	734	it	optionalKey(Date)	
 unported	packages/effect/test/schema/toCodec.test.ts	753	it	optional(Date)	
 unported	packages/effect/test/schema/toCodec.test.ts	775	it	Record(Symbol, Date)	
 unported	packages/effect/test/schema/toCodec.test.ts	792	it	Struct with an explicitly encoded Symbol property name	
-unported	packages/effect/test/schema/toCodec.test.ts	804	it	Date	
+ported	packages/effect/test/schema/toCodec.test.ts	804	it	Date	codec_date_bare_struct_tuple_json
 unported	packages/effect/test/schema/toCodec.test.ts	821	it	UndefinedOr(Date)	
 unported	packages/effect/test/schema/toCodec.test.ts	839	it	NullOr(Date)	
 unported	packages/effect/test/schema/toCodec.test.ts	856	it	optionalKey(Date)	
@@ -9274,7 +9274,7 @@ unported	packages/effect/test/schema/toCodec.test.ts	942	it	Union(Schema.Date, F
 unported	packages/effect/test/schema/toCodec.test.ts	955	it	Suspend	
 unported	packages/effect/test/schema/toCodec.test.ts	995	it	Class	
 unported	packages/effect/test/schema/toCodec.test.ts	1008	it	Error	
-unported	packages/effect/test/schema/toCodec.test.ts	1021	it	Date	
+ported	packages/effect/test/schema/toCodec.test.ts	1021	it	Date	codec_date_bare_struct_tuple_json
 unported	packages/effect/test/schema/toCodec.test.ts	1032	it	Error	
 unported	packages/effect/test/schema/toCodec.test.ts	1104	it	Error with stack	
 unported	packages/effect/test/schema/toCodec.test.ts	1128	it	Error with excluded cause	
@@ -9489,14 +9489,14 @@ unported	packages/effect/test/schema/toEquivalence.test.ts	635	it	DateTimeZoned
 unported	packages/effect/test/schema/toEquivalence.test.ts	647	it	String	
 unported	packages/effect/test/schema/toEquivalence.test.ts	655	it	String & isMinLength(1)	
 unported	packages/effect/test/schema/toEquivalence.test.ts	663	it	overrides a compiler-owned Declaration	
-unported	packages/effect/test/schema/toFormatter.test.ts	6	it	Never	
+ported	packages/effect/test/schema/toFormatter.test.ts	6	it	Never	formatter_never_prints_never
 unported	packages/effect/test/schema/toFormatter.test.ts	11	it	Any	
 unported	packages/effect/test/schema/toFormatter.test.ts	23	it	Unknown	
 unported	packages/effect/test/schema/toFormatter.test.ts	35	it	Void	
-unported	packages/effect/test/schema/toFormatter.test.ts	40	it	Null	
-unported	packages/effect/test/schema/toFormatter.test.ts	45	it	String	
-unported	packages/effect/test/schema/toFormatter.test.ts	50	it	Number	
-unported	packages/effect/test/schema/toFormatter.test.ts	55	it	Boolean	
+ported	packages/effect/test/schema/toFormatter.test.ts	40	it	Null	formatter_null_prints_null
+ported	packages/effect/test/schema/toFormatter.test.ts	45	it	String	formatter_string_json_quotes
+ported	packages/effect/test/schema/toFormatter.test.ts	50	it	Number	formatter_number_prints_bare
+ported	packages/effect/test/schema/toFormatter.test.ts	55	it	Boolean	formatter_boolean_prints_words
 unported	packages/effect/test/schema/toFormatter.test.ts	61	it	BigInt	
 unported	packages/effect/test/schema/toFormatter.test.ts	66	it	Symbol	
 unported	packages/effect/test/schema/toFormatter.test.ts	71	it	UniqueSymbol	
