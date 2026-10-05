@@ -53,6 +53,7 @@ pub struct DevToolsServer {
 pub struct DevToolsClient {
     buffer: std::sync::Arc<Mutex<VecDeque<DevEvent>>>,
     next_id: std::sync::Arc<Mutex<u64>>,
+    enabled: std::sync::Arc<std::sync::atomic::AtomicBool>,
 }
 
 impl DevToolsServer {
@@ -68,6 +69,7 @@ impl DevToolsServer {
         DevToolsClient {
             buffer: self.buffer.clone(),
             next_id: std::sync::Arc::new(Mutex::new(1)),
+            enabled: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(true)),
         }
     }
 
@@ -84,11 +86,14 @@ impl Default for DevToolsServer {
 }
 
 impl DevToolsClient {
-    /// Open a span, returning its id.
+    /// Open a span, returning its id. Disabled clients drop the event.
     pub fn span_start(&self, parent: Option<u64>, name: &str) -> u64 {
         let mut next = self.next_id.lock().unwrap();
         let id = *next;
         *next += 1;
+        if !self.is_enabled() {
+            return id;
+        }
         self.buffer.lock().unwrap().push_back(DevEvent::SpanStart {
             id,
             parent,
@@ -97,16 +102,22 @@ impl DevToolsClient {
         id
     }
 
-    /// Close a span.
+    /// Close a span. Disabled clients drop the event.
     pub fn span_end(&self, id: u64) {
+        if !self.is_enabled() {
+            return;
+        }
         self.buffer
             .lock()
             .unwrap()
             .push_back(DevEvent::SpanEnd { id });
     }
 
-    /// Log a line.
+    /// Log a line. Disabled clients drop the event.
     pub fn message(&self, span: Option<u64>, text: &str) {
+        if !self.is_enabled() {
+            return;
+        }
         self.buffer.lock().unwrap().push_back(DevEvent::Message {
             span,
             text: text.to_string(),
@@ -116,6 +127,17 @@ impl DevToolsClient {
     /// Take every event this client recorded.
     pub fn drain(&self) -> Vec<DevEvent> {
         self.buffer.lock().unwrap().drain(..).collect()
+    }
+
+    /// Flip recording on or off (a client-side state).
+    pub fn set_enabled(&self, enabled: bool) {
+        self.enabled
+            .store(enabled, std::sync::atomic::Ordering::SeqCst);
+    }
+
+    /// Whether this client currently records.
+    pub fn is_enabled(&self) -> bool {
+        self.enabled.load(std::sync::atomic::Ordering::SeqCst)
     }
 }
 
@@ -157,7 +179,11 @@ pub fn decode(line: &str) -> Option<DevEvent> {
             } else {
                 Some(parent.parse::<u64>().ok()?)
             };
-            Some(DevEvent::SpanStart { id, parent, name: split_len_body(len, body)?.to_string() })
+            Some(DevEvent::SpanStart {
+                id,
+                parent,
+                name: split_len_body(len, body)?.to_string(),
+            })
         }
         "M" => {
             let (scope, rest) = rest.split_once(' ')?;
@@ -167,7 +193,10 @@ pub fn decode(line: &str) -> Option<DevEvent> {
             } else {
                 Some(scope.parse::<u64>().ok()?)
             };
-            Some(DevEvent::Message { span: scope, text: split_len_body(len, body)?.to_string() })
+            Some(DevEvent::Message {
+                span: scope,
+                text: split_len_body(len, body)?.to_string(),
+            })
         }
         _ => None,
     }
@@ -187,13 +216,46 @@ mod tests {
     use super::*;
 
     #[test]
+    fn short_lived_span_sends_once_in_each_state() {
+        let server = DevToolsServer::new();
+        let client = server.client();
+        let span = client.span_start(None, "work");
+        client.span_end(span);
+        assert_eq!(server.drain().len(), 2);
+        client.set_enabled(false);
+        assert!(!client.is_enabled());
+        let span = client.span_start(None, "work");
+        client.message(Some(span), "halfway");
+        client.span_end(span);
+        assert!(server.drain().is_empty());
+        client.set_enabled(true);
+        let span = client.span_start(None, "work");
+        client.span_end(span);
+        assert_eq!(server.drain().len(), 2);
+    }
+
+    #[test]
     fn wire_round_trip_preserves_every_event_shape() {
         let events = [
-            DevEvent::SpanStart { id: 1, parent: None, name: "a:b".to_string() },
-            DevEvent::SpanStart { id: 2, parent: Some(1), name: "".to_string() },
+            DevEvent::SpanStart {
+                id: 1,
+                parent: None,
+                name: "a:b".to_string(),
+            },
+            DevEvent::SpanStart {
+                id: 2,
+                parent: Some(1),
+                name: "".to_string(),
+            },
             DevEvent::SpanEnd { id: 1 },
-            DevEvent::Message { span: Some(2), text: "hi\nthere".to_string() },
-            DevEvent::Message { span: None, text: "".to_string() },
+            DevEvent::Message {
+                span: Some(2),
+                text: "hi\nthere".to_string(),
+            },
+            DevEvent::Message {
+                span: None,
+                text: "".to_string(),
+            },
         ];
         for event in events {
             assert_eq!(decode(&encode(&event)), Some(event));
@@ -202,7 +264,17 @@ mod tests {
 
     #[test]
     fn wire_decode_rejects_garbage() {
-        for bad in ["", "nope", "S 1", "S x - 0:", "E", "E x", "M 1 5:abc", "S 1 - 9:short", "Z 1"] {
+        for bad in [
+            "",
+            "nope",
+            "S 1",
+            "S x - 0:",
+            "E",
+            "E x",
+            "M 1 5:abc",
+            "S 1 - 9:short",
+            "Z 1",
+        ] {
             assert_eq!(decode(bad), None, "input {bad:?}");
         }
     }

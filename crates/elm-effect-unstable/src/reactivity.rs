@@ -63,7 +63,11 @@ impl<T: Clone + Send + 'static> Signal<T> {
             // unsubscribe (or be removed) mid-notify without deadlock.
             let watcher = {
                 let guard = self.inner.lock().unwrap();
-                guard.watchers.iter().find(|(seen, _)| *seen == id).map(|(_, w)| w.clone())
+                guard
+                    .watchers
+                    .iter()
+                    .find(|(seen, _)| *seen == id)
+                    .map(|(_, w)| w.clone())
             };
             if let Some(watcher) = watcher {
                 watcher(&value);
@@ -192,6 +196,29 @@ impl Default for AtomRegistry {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn signal_get_set_bumps_version() {
+        let signal = Signal::new(1);
+        assert_eq!(signal.get(), 1);
+        assert_eq!(signal.version(), 0);
+        signal.set(2);
+        assert_eq!(signal.get(), 2);
+        assert_eq!(signal.version(), 1);
+    }
+
+    #[test]
+    fn signal_subscribe_receives_every_set() {
+        let signal = Signal::new(0);
+        let seen = Arc::new(Mutex::new(Vec::new()));
+        let log = seen.clone();
+        signal.watch(move |value| {
+            log.lock().unwrap().push(*value);
+        });
+        signal.set(1);
+        signal.set(2);
+        assert_eq!(*seen.lock().unwrap(), vec![1, 2]);
+    }
 
     #[test]
     fn unsubscribe_during_notify_does_not_skip_later_listeners() {
