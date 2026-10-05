@@ -863,7 +863,7 @@ unported	packages/effect/test/ConfigProvider.test.ts	103	it	does not evaluate th
 unported	packages/effect/test/ConfigProvider.test.ts	113	it	preserves each operand's transformations	
 unported	packages/effect/test/ConfigProvider.test.ts	129	it	distributes mapInput over both operands	
 unported	packages/effect/test/ConfigProvider.test.ts	149	it	distributes nested over both operands	
-unported	packages/effect/test/ConfigProvider.test.ts	165	it	uses the fallback when the primary value is an empty string	
+ported	packages/effect/test/ConfigProvider.test.ts	165	it	uses the fallback when the primary value is an empty string	provider_empty_strings_are_missing_by_default
 unported	packages/effect/test/ConfigProvider.test.ts	176	it	does not merge a fallback container into an existing primary container	
 unported	packages/effect/test/ConfigProvider.test.ts	187	it	composes transformations in application order	
 unported	packages/effect/test/ConfigProvider.test.ts	202	it	converts string path segments to config case	
@@ -876,7 +876,7 @@ unported	packages/effect/test/ConfigProvider.test.ts	261	it	preserves order when
 ported	packages/effect/test/ConfigProvider.test.ts	270	it	composes multiple prefixes as wrappers	provider_fallback_and_nesting
 unported	packages/effect/test/ConfigProvider.test.ts	279	it	allows a later mapInput to transform the prefixed path	
 unported	packages/effect/test/ConfigProvider.test.ts	292	it	reads defined values and skips undefined values	
-unported	packages/effect/test/ConfigProvider.test.ts	304	it	treats empty strings as missing by default	
+ported	packages/effect/test/ConfigProvider.test.ts	304	it	treats empty strings as missing by default	provider_empty_strings_are_missing_by_default
 unported	packages/effect/test/ConfigProvider.test.ts	308	it	preserves empty strings when requested	
 unported	packages/effect/test/ConfigProvider.test.ts	319	it	env without an underscore	
 unported	packages/effect/test/ConfigProvider.test.ts	325	it	missing key returns None	
@@ -884,7 +884,7 @@ unported	packages/effect/test/ConfigProvider.test.ts	331	it	does not read inheri
 unported	packages/effect/test/ConfigProvider.test.ts	336	it	does not traverse inherited trie properties	
 unported	packages/effect/test/ConfigProvider.test.ts	346	it	treats empty string values as missing while preserving structure by default	
 unported	packages/effect/test/ConfigProvider.test.ts	355	it	preserves empty strings when requested	
-unported	packages/effect/test/ConfigProvider.test.ts	363	it	treats empty co-located record values as missing and preserves children	
+ported	packages/effect/test/ConfigProvider.test.ts	363	it	treats empty co-located record values as missing and preserves children	provider_empty_strings_are_missing_by_default
 unported	packages/effect/test/ConfigProvider.test.ts	371	it	preserves empty co-located record values when requested	
 unported	packages/effect/test/ConfigProvider.test.ts	379	it	treats empty co-located array values as missing and preserves children	
 unported	packages/effect/test/ConfigProvider.test.ts	387	it	preserves empty array children structurally while treating their values as missing	
@@ -6951,10 +6951,10 @@ ported	packages/effect/test/net/IpInterface.test.ts	96	it	converts to the canoni
 ported	packages/effect/test/net/IpInterface.test.ts	100	it	provides throwing counterparts	ipinterface_equality_and_throwing_parse
 unported	packages/effect/test/net/IpInterface.test.ts	105	it	decodes and canonically encodes schemas	
 unported	packages/effect/test/net/IpNetwork.test.ts	24	it	serializes and inspects canonical strings	
-unported	packages/effect/test/net/IpNetwork.test.ts	33	it	retains the address supplied to checked constructors	
-unported	packages/effect/test/net/IpNetwork.test.ts	40	it	forwards errors from address and prefix validation	
+ported	packages/effect/test/net/IpNetwork.test.ts	33	it	retains the address supplied to checked constructors	checked_constructors_retain_rejected_address
+ported	packages/effect/test/net/IpNetwork.test.ts	40	it	forwards errors from address and prefix validation	parse_errors_echo_offending_input
 unported	packages/effect/test/net/IpNetwork.test.ts	51	it	constructs immutable canonical networks and preserves family identity	
-unported	packages/effect/test/net/IpNetwork.test.ts	68	it	rejects invalid prefix lengths and host bits	
+ported	packages/effect/test/net/IpNetwork.test.ts	68	it	rejects invalid prefix lengths and host bits	checked_constructors_reject_bad_prefixes_and_host_bits
 unported	packages/effect/test/net/IpNetwork.test.ts	85	it	explicitly truncates byte-aligned and partial-byte host addresses	
 unported	packages/effect/test/net/IpNetwork.test.ts	98	it	requires derived addresses to revalidate refinements	
 ported	packages/effect/test/net/IpNetwork.test.ts	129	it	parses strict CIDR and formats canonical address text	ipnetwork_parses_strict_cidr
