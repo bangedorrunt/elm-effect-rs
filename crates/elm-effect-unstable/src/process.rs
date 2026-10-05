@@ -309,3 +309,22 @@ impl Pipeline {
         Err(ProcessError::Spawn("empty pipeline".to_string()))
     }
 }
+
+// File-descriptor names
+
+/// Parse an extra fd name (`"fd3"` and up) to its number. The standard
+/// streams (`stdin`/`stdout`/`stderr`, `fd0`–`fd2`) and anything else
+/// parse to `None`: only *additional* fds have names.
+pub fn parse_fd_name(name: &str) -> Option<u32> {
+    let digits = name.strip_prefix("fd")?;
+    if digits.is_empty() || !digits.bytes().all(|b| b.is_ascii_digit()) {
+        return None;
+    }
+    let number: u32 = digits.parse().ok()?;
+    (number >= 3).then_some(number)
+}
+
+/// Render an fd number back to its name.
+pub fn fd_name(number: u32) -> String {
+    format!("fd{number}")
+}

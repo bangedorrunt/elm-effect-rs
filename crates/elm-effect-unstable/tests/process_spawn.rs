@@ -90,3 +90,16 @@ fn single_stage_is_not_piped() {
     let out = single.run().unwrap();
     assert_eq!(out.stdout_text().trim(), "hi");
 }
+
+#[test]
+fn fd_names_parse_and_render() {
+    use process::{fd_name, parse_fd_name};
+    assert_eq!(parse_fd_name("fd3"), Some(3));
+    assert_eq!(parse_fd_name("fd10"), Some(10));
+    assert_eq!(parse_fd_name("fd100"), Some(100));
+    for bad in ["stdin", "stdout", "stderr", "fd0", "fd1", "fd2", "invalid", "fd", ""] {
+        assert_eq!(parse_fd_name(bad), None, "{bad}");
+    }
+    assert_eq!(fd_name(3), "fd3");
+    assert_eq!(fd_name(10), "fd10");
+}
