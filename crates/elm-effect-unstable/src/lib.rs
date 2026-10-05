@@ -21,6 +21,8 @@ pub mod schema_obs;
 
 pub mod http;
 
+pub mod http_server;
+
 pub mod process;
 
 pub mod workers;

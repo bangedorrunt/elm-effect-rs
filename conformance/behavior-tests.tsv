@@ -6609,10 +6609,10 @@ unported	packages/effect/test/http/HttpRouter.test.ts	34	it	handles prefixed rou
 unported	packages/effect/test/http/HttpRouter.test.ts	57	it.effect	preserves the local URL for the ${prefix} prefix	
 unported	packages/effect/test/http/HttpRouter.test.ts	67	it.effect	nests a prefixed sub-router beneath a prefixed parent router	
 unported	packages/effect/test/http/HttpRouter.test.ts	78	it.effect	nests a prefixRoute prefix beneath a prefixed parent router	
-unported	packages/effect/test/http/HttpServer.test.ts	9	it	accepts a canonical socket address	
-unported	packages/effect/test/http/HttpServer.test.ts	19	it.effect	passes formatted server addresses to the callback	
+ported	packages/effect/test/http/HttpServer.test.ts	9	it	accepts a canonical socket address	binds_loopback_and_serves_one_route
+ported	packages/effect/test/http/HttpServer.test.ts	19	it.effect	passes formatted server addresses to the callback	binds_loopback_and_serves_one_route
 unported	packages/effect/test/http/HttpServer.test.ts	55	it.effect	rejects scoped IPv6 test server addresses before dropping their scope	
-unported	packages/effect/test/http/HttpServer.test.ts	73	it.effect	uses IPv4 loopback for unspecified listeners and preserves explicit hosts	
+ported	packages/effect/test/http/HttpServer.test.ts	73	it.effect	uses IPv4 loopback for unspecified listeners and preserves explicit hosts	explicit_host_is_preserved
 unported	packages/effect/test/http/HttpServerError.test.ts	23	it	formats request reason messages	
 unported	packages/effect/test/http/HttpServerError.test.ts	35	it	formats response reason messages	
 unported	packages/effect/test/http/HttpServerError.test.ts	49	it	delegates message and accessors	
