@@ -62,3 +62,54 @@ fn net_addr_parses_host_port() {
     assert!(NetAddr::parse("no-port").is_err());
     assert!(NetAddr::parse("bad:port").is_err());
 }
+
+#[test]
+fn headers_are_case_insensitive_multimap() {
+    use elm_effect_unstable::http::Headers;
+    let mut headers = Headers::new();
+    headers.append("X-A", "1");
+    headers.append("x-a", "2");
+    assert_eq!(headers.get("X-A"), Some("2"));
+    assert_eq!(headers.get_all("x-a"), vec!["1", "2"]);
+    headers.set("X-A", "3");
+    assert_eq!(headers.get_all("X-A"), vec!["3"]);
+    assert!(headers.has("x-a"));
+    assert!(headers.remove("X-A"));
+    assert!(!headers.has("x-a"));
+}
+
+#[test]
+fn cookies_parse_header_and_set_cookie() {
+    use elm_effect_unstable::http::Cookie;
+    let pairs = Cookie::parse_header("a=1; b=\"two\"");
+    assert_eq!(pairs.len(), 2);
+    assert_eq!(pairs[1].value, "two");
+    let set = Cookie::parse_set_cookie("id=7; Path=/; HttpOnly; SameSite=Lax; Max-Age=60").unwrap();
+    assert_eq!(set.path.as_deref(), Some("/"));
+    assert!(set.http_only && !set.secure);
+    assert_eq!(set.max_age, Some(60));
+    assert!(set.to_set_cookie().contains("HttpOnly"));
+}
+
+#[test]
+fn etag_renders_and_matches_weakly() {
+    use elm_effect_unstable::http::Etag;
+    let strong = Etag::strong_for(b"body");
+    assert!(strong.render().starts_with('"'));
+    let weak = Etag::weak_for(b"body");
+    assert!(weak.render().starts_with("W/"));
+    assert!(strong.is_fresh(&weak.render()));
+    assert!(strong.is_fresh("*"));
+    assert!(!strong.is_fresh("\"other\""));
+}
+
+#[test]
+fn http_body_renders_with_content_type() {
+    use elm_effect_unstable::http::HttpBody;
+    assert_eq!(HttpBody::Empty.render(), Vec::<u8>::new());
+    assert_eq!(HttpBody::Text("hi".into()).content_type(), Some("text/plain; charset=utf-8"));
+    assert_eq!(
+        HttpBody::Form(vec![("a".into(), "b c".into())]).render(),
+        b"a=b+c".to_vec()
+    );
+}
