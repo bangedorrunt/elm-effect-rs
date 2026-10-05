@@ -3,3 +3,5 @@
 
 #[cfg(feature = "otel")]
 pub mod otel;
+
+pub mod workflow;
