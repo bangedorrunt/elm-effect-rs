@@ -83,3 +83,160 @@ pub fn run(program: &str, args: &[&str]) -> Result<CommandOutput, ProcessError> 
         stderr: output.stderr,
     })
 }
+
+// Command builders and handles
+
+/// A child command: program plus arguments, directory, and environment.
+#[derive(Clone, Debug, Default)]
+pub struct CommandSpec {
+    program: String,
+    args: Vec<String>,
+    cwd: Option<std::path::PathBuf>,
+    envs: Vec<(String, String)>,
+    clear_env: bool,
+}
+
+/// Split a template into words: whitespace separates, single/double quotes
+/// group, backslash escapes the next character (astral escapes survive as
+/// ordinary characters).
+pub fn split_template(template: &str) -> Vec<String> {
+    let mut words = Vec::new();
+    let mut current = String::new();
+    let mut quote: Option<char> = None;
+    let mut chars = template.chars().peekable();
+    let mut in_word = false;
+    while let Some(c) = chars.next() {
+        if let Some(q) = quote {
+            if c == q {
+                quote = None;
+            } else if c == '\\' {
+                if let Some(next) = chars.next() {
+                    current.push(next);
+                }
+            } else {
+                current.push(c);
+            }
+        } else if c == '\'' || c == '"' {
+            quote = Some(c);
+            in_word = true;
+        } else if c == '\\' {
+            if let Some(next) = chars.next() {
+                current.push(next);
+            }
+            in_word = true;
+        } else if c.is_whitespace() {
+            if in_word {
+                words.push(std::mem::take(&mut current));
+                in_word = false;
+            }
+        } else {
+            current.push(c);
+            in_word = true;
+        }
+    }
+    if in_word {
+        words.push(current);
+    }
+    words
+}
+
+/// Build from a template: the first word is the program, the rest are args.
+pub fn command_template(template: &str) -> CommandSpec {
+    let mut words = split_template(template);
+    let program = if words.is_empty() { String::new() } else { words.remove(0) };
+    CommandSpec { program, args: words, ..CommandSpec::default() }
+}
+
+/// Build from a program plus an argument array.
+pub fn command_array(program: &str, args: &[&str]) -> CommandSpec {
+    CommandSpec {
+        program: program.to_string(),
+        args: args.iter().map(|a| a.to_string()).collect(),
+        ..CommandSpec::default()
+    }
+}
+
+impl CommandSpec {
+    /// The program.
+    pub fn program(&self) -> &str {
+        &self.program
+    }
+
+    /// The arguments.
+    pub fn args(&self) -> &[String] {
+        &self.args
+    }
+
+    /// Set the working directory.
+    pub fn cwd(mut self, dir: impl Into<std::path::PathBuf>) -> Self {
+        self.cwd = Some(dir.into());
+        self
+    }
+
+    /// Add an environment variable.
+    pub fn env(mut self, name: &str, value: &str) -> Self {
+        self.envs.push((name.to_string(), value.to_string()));
+        self
+    }
+
+    /// Start with an empty environment.
+    pub fn clear_env(mut self) -> Self {
+        self.clear_env = true;
+        self
+    }
+
+    /// Spawn the child, returning a handle.
+    pub fn spawn(&self) -> Result<ChildHandle, ProcessError> {
+        let mut command = std::process::Command::new(&self.program);
+        command
+            .args(&self.args)
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped());
+        if let Some(dir) = &self.cwd {
+            command.current_dir(dir);
+        }
+        if self.clear_env {
+            command.env_clear();
+        }
+        for (name, value) in &self.envs {
+            command.env(name, value);
+        }
+        command
+            .spawn()
+            .map(|child| ChildHandle { child: Some(child) })
+            .map_err(|e| ProcessError::Spawn(e.to_string()))
+    }
+}
+
+/// A running child: wait for the exit, read the streams, or kill it.
+pub struct ChildHandle {
+    child: Option<std::process::Child>,
+}
+
+impl ChildHandle {
+    /// The OS process id, if still running.
+    pub fn id(&self) -> Option<u32> {
+        self.child.as_ref().map(|c| c.id())
+    }
+
+    /// Wait for the exit, collecting stdout and stderr.
+    pub fn wait(&mut self) -> Result<CommandOutput, ProcessError> {
+        let child = self.child.take().ok_or_else(|| ProcessError::Spawn("already waited".to_string()))?;
+        let output = child
+            .wait_with_output()
+            .map_err(|e| ProcessError::Spawn(e.to_string()))?;
+        Ok(CommandOutput {
+            code: output.status.code(),
+            stdout: output.stdout,
+            stderr: output.stderr,
+        })
+    }
+
+    /// Kill the child.
+    pub fn kill(&mut self) -> Result<(), ProcessError> {
+        match self.child.as_mut() {
+            Some(child) => child.kill().map_err(|e| ProcessError::Spawn(e.to_string())),
+            None => Ok(()),
+        }
+    }
+}
