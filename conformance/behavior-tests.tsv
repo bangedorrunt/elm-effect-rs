@@ -6886,13 +6886,13 @@ unported	packages/effect/test/httpapi/HttpApiSchema.test.ts	268	it	defaults the 
 unported	packages/effect/test/httpapi/HttpApiSchema.test.ts	272	it	uses the body defaults instead of source response metadata	
 unported	packages/effect/test/httpapi/HttpApiSchema.test.ts	295	it	does not identify buffered schemas as stream schemas	
 unported	packages/effect/test/httpapi/HttpApiSchema.test.ts	301	it	accepts status literals	
-unported	packages/effect/test/httpapi/HttpApiSecurity.test.ts	18	it.effect	decodes a bearer token without a leading space	
-unported	packages/effect/test/httpapi/HttpApiSecurity.test.ts	35	it.effect	decodes a custom http scheme without a leading space	
-unported	packages/effect/test/httpapi/HttpApiSecurity.test.ts	42	it.effect	matches HTTP schemes case-insensitively	
-unported	packages/effect/test/httpapi/HttpApiSecurity.test.ts	49	it.effect	accepts multiple spaces before HTTP credentials	
-unported	packages/effect/test/httpapi/HttpApiSecurity.test.ts	56	it.effect	rejects mismatched and malformed HTTP schemes	
-unported	packages/effect/test/httpapi/HttpApiSecurity.test.ts	65	it.effect	decodes Basic credentials using the first colon separator	
-unported	packages/effect/test/httpapi/HttpApiSecurity.test.ts	74	it.effect	rejects Basic credentials from a different scheme	
+ported	packages/effect/test/httpapi/HttpApiSecurity.test.ts	18	it.effect	decodes a bearer token without a leading space	decodes_bearer_token_trimmed
+ported	packages/effect/test/httpapi/HttpApiSecurity.test.ts	35	it.effect	decodes a custom http scheme without a leading space	decodes_custom_scheme_trimmed
+ported	packages/effect/test/httpapi/HttpApiSecurity.test.ts	42	it.effect	matches HTTP schemes case-insensitively	matches_schemes_case_insensitively
+ported	packages/effect/test/httpapi/HttpApiSecurity.test.ts	49	it.effect	accepts multiple spaces before HTTP credentials	accepts_multiple_spaces_before_credentials
+ported	packages/effect/test/httpapi/HttpApiSecurity.test.ts	56	it.effect	rejects mismatched and malformed HTTP schemes	rejects_mismatched_and_malformed_schemes
+ported	packages/effect/test/httpapi/HttpApiSecurity.test.ts	65	it.effect	decodes Basic credentials using the first colon separator	decodes_basic_at_first_colon
+ported	packages/effect/test/httpapi/HttpApiSecurity.test.ts	74	it.effect	rejects Basic credentials from a different scheme	rejects_basic_from_other_schemes_empty
 unported	packages/effect/test/httpapi/OpenApi.test.ts	73	it	preserves literal action suffixes in path templates	
 unported	packages/effect/test/httpapi/OpenApi.test.ts	89	it	keeps action paths literal when no parameter schema is declared	
 unported	packages/effect/test/httpapi/OpenApi.test.ts	99	it	preserves parameter schemas when an endpoint transform reorders parameters	
