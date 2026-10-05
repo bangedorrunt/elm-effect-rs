@@ -519,3 +519,71 @@ fn config_recovers_after_base_key_absence() {
         Ok(Value::Str("localhost".to_string()))
     );
 }
+
+#[test]
+fn config_nested_prefixes_root() {
+    use config::ConfigError;
+    let c = Config::string(None).nested("a");
+    assert_eq!(
+        c.load(&provider(&[("a", "value")])).unwrap(),
+        Value::Str("value".to_string())
+    );
+    assert_eq!(
+        c.load(&provider(&[])).unwrap_err(),
+        vec![ConfigError::Missing {
+            path: vec!["a".to_string()]
+        }]
+    );
+}
+
+#[test]
+fn config_nested_prefixes_compose_outside_in() {
+    let m = Config::string(named("a")).nested("b").nested("c");
+    assert_eq!(
+        m.load(&provider(&[("c.b.a", "value")])).unwrap(),
+        Value::Str("value".to_string())
+    );
+    assert!(m.load(&provider(&[("b.a", "value")])).is_err());
+}
+
+#[test]
+fn config_nested_prefix_flows_through_flat_map() {
+    let picked = Config::integer(named("port")).flat_map(|port| {
+        let key = if port == config::Value::Int(80) {
+            "prodHost"
+        } else {
+            "devHost"
+        };
+        Config::string(Some(key.to_string())).nested("hosts")
+    });
+    let config = picked.nested("service");
+    let p = provider(&[
+        ("port", "3000"),
+        ("hosts.prodHost", "root-prod"),
+        ("hosts.devHost", "root-dev"),
+        ("service.port", "80"),
+        ("service.hosts.prodHost", "service-prod"),
+        ("service.hosts.devHost", "service-dev"),
+    ]);
+    // Innermost scope wins: service.port selects prodHost under service.
+    assert_eq!(
+        config.load(&p).unwrap(),
+        Value::Str("service-prod".to_string())
+    );
+    // Missing inner leaf errors on the composed path, no root fallback.
+    let missing = provider(&[("service.port", "80")]);
+    assert_eq!(
+        config.load(&missing).unwrap_err(),
+        vec![config::ConfigError::Missing {
+            path: vec![
+                "service".to_string(),
+                "hosts".to_string(),
+                "prodHost".to_string()
+            ]
+        }]
+    );
+    assert_eq!(
+        config.option().load(&missing).unwrap(),
+        Value::None
+    );
+}
