@@ -745,3 +745,19 @@ fn config_scalars_decode_and_report_absence() {
     );
     assert!(Config::boolean(named("missing")).load(&p).is_err());
 }
+
+#[test]
+fn config_scalars_reject_invalid_input() {
+    use config::ConfigError;
+    let p = provider(&[("i", "a"), ("f", "b"), ("b", "maybe")]);
+    assert_eq!(
+        Config::integer(named("i")).load(&p).unwrap_err(),
+        vec![ConfigError::Invalid {
+            path: vec!["i".to_string()],
+            got: "a".to_string(),
+            reason: "not an integer".to_string(),
+        }]
+    );
+    assert!(Config::finite(named("f")).load(&p).is_err());
+    assert!(Config::boolean(named("b")).load(&p).is_err());
+}
