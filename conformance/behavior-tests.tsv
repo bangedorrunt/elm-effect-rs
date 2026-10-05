@@ -2614,7 +2614,7 @@ unported	packages/effect/test/MutableHashMap.test.ts	285	it	set overwrites equal
 unported	packages/effect/test/MutableHashMap.test.ts	301	it	size	
 unported	packages/effect/test/MutableHashMap.test.ts	314	it	modify updates existing keys and ignores missing keys	
 unported	packages/effect/test/MutableHashMap.test.ts	340	it	pipe()	
-unported	packages/effect/test/MutableHashSet.test.ts	6	it	isMutableHashSet distinguishes Effect mutable hash sets from native sets	
+ported	packages/effect/test/MutableHashSet.test.ts	6	it	isMutableHashSet distinguishes Effect mutable hash sets from native sets	mutable_set_distinguishes_from_persistent_set
 ported	packages/effect/test/MutableList.test.ts	6	it	prependAll with no values preserves existing elements	mutable_list_core
 ported	packages/effect/test/MutableList.test.ts	16	it	prependAll with no values keeps an empty list appendable	mutable_list_core
 skipped-upstream	packages/effect/test/MutableList.test.ts	26	it	bounds the retained slots of a list that never fully drains	
