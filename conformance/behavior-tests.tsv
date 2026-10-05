@@ -2602,18 +2602,18 @@ unported	packages/effect/test/MutableHashMap.test.ts	72	it	isMutableHashMap
 unported	packages/effect/test/MutableHashMap.test.ts	77	it	toString	
 unported	packages/effect/test/MutableHashMap.test.ts	89	it	toJSON	
 unported	packages/effect/test/MutableHashMap.test.ts	98	it	inspect	
-unported	packages/effect/test/MutableHashMap.test.ts	113	it	make	
-unported	packages/effect/test/MutableHashMap.test.ts	124	it	fromIterable	
-unported	packages/effect/test/MutableHashMap.test.ts	135	it	iterate	
-unported	packages/effect/test/MutableHashMap.test.ts	157	it	get returns the latest value for an equal key	
-unported	packages/effect/test/MutableHashMap.test.ts	172	it	has	
-unported	packages/effect/test/MutableHashMap.test.ts	200	it	keys	
-unported	packages/effect/test/MutableHashMap.test.ts	213	it	values	
-unported	packages/effect/test/MutableHashMap.test.ts	256	it	remove deletes an equal key in place	
-unported	packages/effect/test/MutableHashMap.test.ts	285	it	set overwrites equal keys without changing size	
-unported	packages/effect/test/MutableHashMap.test.ts	301	it	size	
-unported	packages/effect/test/MutableHashMap.test.ts	314	it	modify updates existing keys and ignores missing keys	
-unported	packages/effect/test/MutableHashMap.test.ts	340	it	pipe()	
+ported	packages/effect/test/MutableHashMap.test.ts	113	it	make	mutable_hash_map_in_place
+ported	packages/effect/test/MutableHashMap.test.ts	124	it	fromIterable	mutable_hash_map_modify_from_iterate_and_pipe
+ported	packages/effect/test/MutableHashMap.test.ts	135	it	iterate	mutable_hash_map_modify_from_iterate_and_pipe
+ported	packages/effect/test/MutableHashMap.test.ts	157	it	get returns the latest value for an equal key	mutable_hash_map_in_place
+ported	packages/effect/test/MutableHashMap.test.ts	172	it	has	mutable_hash_map_in_place
+ported	packages/effect/test/MutableHashMap.test.ts	200	it	keys	mutable_hash_map_in_place
+ported	packages/effect/test/MutableHashMap.test.ts	213	it	values	mutable_hash_map_in_place
+ported	packages/effect/test/MutableHashMap.test.ts	256	it	remove deletes an equal key in place	mutable_hash_map_in_place
+ported	packages/effect/test/MutableHashMap.test.ts	285	it	set overwrites equal keys without changing size	mutable_hash_map_modify_from_iterate_and_pipe
+ported	packages/effect/test/MutableHashMap.test.ts	301	it	size	mutable_hash_map_in_place
+ported	packages/effect/test/MutableHashMap.test.ts	314	it	modify updates existing keys and ignores missing keys	mutable_hash_map_modify_from_iterate_and_pipe
+ported	packages/effect/test/MutableHashMap.test.ts	340	it	pipe()	mutable_hash_map_modify_from_iterate_and_pipe
 ported	packages/effect/test/MutableHashSet.test.ts	6	it	isMutableHashSet distinguishes Effect mutable hash sets from native sets	mutable_set_distinguishes_from_persistent_set
 ported	packages/effect/test/MutableList.test.ts	6	it	prependAll with no values preserves existing elements	mutable_list_core
 ported	packages/effect/test/MutableList.test.ts	16	it	prependAll with no values keeps an empty list appendable	mutable_list_core
@@ -6017,8 +6017,8 @@ unported	packages/effect/test/cluster/RunnerServer.test.ts	333	it.effect	persist
 unported	packages/effect/test/cluster/RunnerServer.test.ts	380	it.effect	fills the entity payload and reply holes with the serialization's codec	
 ported	packages/effect/test/cluster/RunnerStorage.test.ts	6	it.effect	tracks runner health in memory	runner_storage_tracks_health_in_memory
 ported	packages/effect/test/cluster/RunnerStorage.test.ts	16	it.effect	memory acquire accepts a one-shot iterable	runner_storage_acquires_one_shot_iterables
-unported	packages/effect/test/cluster/Runners.test.ts	94	it.effect	preserves a leading slash in HTTP client paths	
-unported	packages/effect/test/cluster/Runners.test.ts	120	it.effect	preserves a leading slash in WebSocket client paths	
+ported	packages/effect/test/cluster/Runners.test.ts	94	it.effect	preserves a leading slash in HTTP client paths	runner_endpoint_preserves_leading_slash
+ported	packages/effect/test/cluster/Runners.test.ts	120	it.effect	preserves a leading slash in WebSocket client paths	runner_endpoint_adds_missing_leading_slash
 unported	packages/effect/test/cluster/Runners.test.ts	179	it.effect	a reply that fails to serialize fails only its own request	
 unported	packages/effect/test/cluster/Runners.test.ts	203	it.effect	a stream reply that fails to serialize ends the stream with the defect	
 unported	packages/effect/test/cluster/Runners.test.ts	315	it.effect	uses the client protocol codec for simulated remote serialization	
