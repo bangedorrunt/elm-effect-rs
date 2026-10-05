@@ -234,3 +234,77 @@ impl SqlClient {
         self.insert(table, row);
     }
 }
+
+// Batch resolver
+
+/// A batched id lookup: encode ids, run one batch, align results back to
+/// requests (duplicates share one execution).
+pub struct BatchResolver {
+    encode_id: Box<dyn Fn(&str) -> Result<String, String> + Send + Sync>,
+    executed: std::sync::atomic::AtomicBool,
+}
+
+impl BatchResolver {
+    /// Build with an id-encoding function.
+    pub fn new(encode_id: impl Fn(&str) -> Result<String, String> + Send + Sync + 'static) -> Self {
+        Self {
+            encode_id: Box::new(encode_id),
+            executed: std::sync::atomic::AtomicBool::new(false),
+        }
+    }
+
+    /// Whether the batch runner ran (test seam: failed-only batches never run).
+    pub fn executed(&self) -> bool {
+        self.executed.load(std::sync::atomic::Ordering::SeqCst)
+    }
+
+    /// Resolve each id: encode failures complete individually (duplicates
+    /// included) without running the batch; when every request fails
+    /// encoding the batch never executes. Valid results stay aligned with
+    /// their requests.
+    pub fn resolve_each(
+        &self,
+        ids: &[&str],
+        run: impl FnOnce(&[String]) -> Vec<Vec<String>>,
+    ) -> Vec<Result<Vec<String>, SqlError>> {
+        use std::collections::HashMap;
+        let mut encoded: Vec<Option<String>> = Vec::with_capacity(ids.len());
+        let mut failures: HashMap<String, String> = HashMap::new();
+        let mut unique: Vec<String> = Vec::new();
+        for id in ids {
+            match (self.encode_id)(id) {
+                Ok(key) => {
+                    if !unique.contains(&key) {
+                        unique.push(key.clone());
+                    }
+                    encoded.push(Some(key));
+                }
+                Err(message) => {
+                    failures.insert(id.to_string(), message);
+                    encoded.push(None);
+                }
+            }
+        }
+        let mut rows: HashMap<String, Vec<String>> = HashMap::new();
+        if !unique.is_empty() {
+            self.executed.store(true, std::sync::atomic::Ordering::SeqCst);
+            for (key, row) in unique.iter().zip(run(unique.as_slice()).into_iter()) {
+                rows.insert(key.clone(), row);
+            }
+        }
+        encoded
+            .into_iter()
+            .zip(ids.iter())
+            .map(|(key, id)| match key {
+                Some(key) => rows.get(&key).cloned().ok_or_else(|| {
+                    SqlError::new(SqlReason::EmptyResult, false, "no row for encoded id")
+                }),
+                None => Err(SqlError::new(
+                    SqlReason::Unknown,
+                    false,
+                    &failures[id.to_string().as_str()].clone(),
+                )),
+            })
+            .collect()
+    }
+}

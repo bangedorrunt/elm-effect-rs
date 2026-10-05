@@ -192,3 +192,51 @@ fn schema_execute_discards_result() {
     db.execute("t", vec!["x".to_string()]);
     assert_eq!(db.scan("t"), vec![vec!["x".to_string()]]);
 }
+
+#[test]
+fn resolver_skips_batch_when_all_ids_fail_encoding() {
+    use sql::BatchResolver;
+    let resolver = BatchResolver::new(|_| Err::<String, String>("bad id".to_string()));
+    let out = resolver.resolve_each(&["a", "b"], |_| panic!("must not run"));
+    assert_eq!(out.len(), 2);
+    assert!(out.iter().all(|r| r.is_err()));
+    assert!(!resolver.executed());
+}
+
+#[test]
+fn resolver_dedups_and_aligns() {
+    use sql::BatchResolver;
+    let db = SqlClient::fake();
+    db.insert("t", vec!["1".to_string()]);
+    let resolver = BatchResolver::new(|id| Ok::<String, String>(id.to_string()));
+    let runs = std::sync::atomic::AtomicUsize::new(0);
+    let out = resolver.resolve_each(&["1", "1", "2"], |keys| {
+        runs.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        keys.iter()
+            .map(|k| db.scan("t").into_iter().find(|r| &r[0] == k).unwrap_or_default())
+            .collect()
+    });
+    assert!(resolver.executed());
+    assert_eq!(runs.load(std::sync::atomic::Ordering::SeqCst), 1);
+    assert_eq!(out[0], out[1]);
+    assert_eq!(out[2], Ok(vec![]));
+}
+
+#[test]
+fn resolver_completes_duplicates_when_encoding_fails() {
+    use sql::BatchResolver;
+    let resolver = BatchResolver::new(|id| {
+        if id == "bad" {
+            Err::<String, String>("bad id".to_string())
+        } else {
+            Ok(id.to_string())
+        }
+    });
+    let out = resolver.resolve_each(&["bad", "bad", "ok"], |keys| {
+        assert_eq!(keys, &["ok".to_string()]);
+        vec![vec!["row".to_string()]]
+    });
+    assert!(out[0].is_err());
+    assert_eq!(out[0], out[1]);
+    assert_eq!(out[2], Ok(vec!["row".to_string()]));
+}
