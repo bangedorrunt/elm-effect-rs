@@ -430,3 +430,122 @@ fn headers_redact_matching_names_case_insensitively() {
     assert_eq!(redacted.get("X-A"), Some("1"));
     assert_eq!(headers.get("Authorization"), Some("secret"));
 }
+
+fn redirect_header<'a>(headers: &'a [(String, String)], name: &str) -> Option<&'a str> {
+    headers
+        .iter()
+        .rev()
+        .find(|(n, _)| n.eq_ignore_ascii_case(name))
+        .map(|(_, v)| v.as_str())
+}
+
+#[test]
+fn redirect_preserves_credentials_on_same_origin() {
+    use elm_effect_unstable::http::{HttpClient, HttpMethod};
+    let request = HttpClient::get("https://origin.test/start")
+        .header("Authorization", "Bearer secret")
+        .header("Cookie", "session=secret");
+    let next = request
+        .redirect_next(302, "https://origin.test/destination")
+        .expect("same-origin 302 follows");
+    assert_eq!(next.method, HttpMethod::GET);
+    assert_eq!(next.url, "https://origin.test/destination");
+    assert_eq!(
+        redirect_header(&next.headers, "authorization"),
+        Some("Bearer secret")
+    );
+    assert_eq!(
+        redirect_header(&next.headers, "cookie"),
+        Some("session=secret")
+    );
+}
+
+#[test]
+fn redirect_strips_credentials_cross_origin() {
+    use elm_effect_unstable::http::HttpClient;
+    let request = HttpClient::get("https://origin.test/start")
+        .header("Authorization", "Bearer secret")
+        .header("Cookie", "session=secret")
+        .header("Proxy-Authorization", "Basic secret")
+        .header("X-Test", "retained");
+    let next = request
+        .redirect_next(302, "https://redirect.test/destination")
+        .expect("cross-origin 302 follows");
+    assert_eq!(next.url, "https://redirect.test/destination");
+    assert_eq!(redirect_header(&next.headers, "authorization"), None);
+    assert_eq!(redirect_header(&next.headers, "cookie"), None);
+    assert_eq!(redirect_header(&next.headers, "proxy-authorization"), None);
+    assert_eq!(redirect_header(&next.headers, "x-test"), Some("retained"));
+}
+
+#[test]
+fn redirect_strips_credentials_on_scheme_downgrade() {
+    use elm_effect_unstable::http::HttpClient;
+    let request = HttpClient::get("https://origin.test/start")
+        .header("Authorization", "Bearer secret")
+        .header("Cookie", "session=secret")
+        .header("Proxy-Authorization", "Basic secret");
+    let next = request
+        .redirect_next(302, "http://origin.test/destination")
+        .expect("downgrade 302 follows");
+    assert_eq!(next.url, "http://origin.test/destination");
+    assert_eq!(redirect_header(&next.headers, "authorization"), None);
+    assert_eq!(redirect_header(&next.headers, "cookie"), None);
+    assert_eq!(redirect_header(&next.headers, "proxy-authorization"), None);
+}
+
+#[test]
+fn redirect_resolves_relative_locations_against_current_hop() {
+    use elm_effect_unstable::http::HttpClient;
+    let request =
+        HttpClient::get("https://origin.test/path/start").header("Authorization", "Bearer secret");
+    let first = request
+        .redirect_next(302, "../next/step")
+        .expect("relative 302 follows");
+    assert_eq!(first.url, "https://origin.test/next/step");
+    let second = first
+        .redirect_next(302, "destination")
+        .expect("second hop follows");
+    assert_eq!(second.url, "https://origin.test/next/destination");
+    assert_eq!(
+        redirect_header(&second.headers, "authorization"),
+        Some("Bearer secret")
+    );
+}
+
+#[test]
+fn redirect_303_post_becomes_get_without_body() {
+    use elm_effect_unstable::http::{HttpClient, HttpMethod};
+    let mut request = HttpClient::post("https://origin.test/start", "payload");
+    request
+        .headers
+        .push(("content-type".to_string(), "text/plain".to_string()));
+    request
+        .headers
+        .push(("content-length".to_string(), "7".to_string()));
+    let next = request
+        .redirect_next(303, "/destination")
+        .expect("303 follows");
+    assert_eq!(next.method, HttpMethod::GET);
+    assert_eq!(next.url, "https://origin.test/destination");
+    assert_eq!(next.body, None);
+    assert_eq!(redirect_header(&next.headers, "content-type"), None);
+    assert_eq!(redirect_header(&next.headers, "content-length"), None);
+}
+
+#[test]
+fn redirect_ignores_non_redirect_status_and_empty_location() {
+    use elm_effect_unstable::http::HttpClient;
+    let request = HttpClient::get("https://origin.test/start");
+    assert!(
+        request
+            .redirect_next(200, "https://origin.test/x")
+            .is_none()
+    );
+    assert!(request.redirect_next(302, "").is_none());
+    assert!(
+        request
+            .redirect_next(500, "https://origin.test/x")
+            .is_none()
+    );
+}

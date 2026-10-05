@@ -176,6 +176,46 @@ impl HttpRequest {
     pub fn remove_hash(&mut self) {
         self.hash = None;
     }
+
+    /// The follow-up request for a redirect response, or `None` when
+    /// this status/location pair is not a redirect.
+    ///
+    /// Ports `HttpClient.followRedirects` single-hop semantics from
+    /// `packages/effect/src/http/HttpClient.ts`: 3xx with a location,
+    /// 301/302 POST and non-GET/HEAD 303 switch to GET with the body
+    /// dropped, and credential headers (`authorization`, `cookie`,
+    /// `proxy-authorization`) are stripped when the origin (scheme,
+    /// host, effective port) changes. The caller bounds the hop count.
+    pub fn redirect_next(&self, status: u16, location: &str) -> Option<HttpRequest> {
+        if !(300..400).contains(&status) || location.is_empty() {
+            return None;
+        }
+        let base = Url::parse(&self.url)?;
+        let target = base.resolve(location)?;
+        let mut next = self.clone();
+        if ((status == 301 || status == 302) && self.method == HttpMethod::POST)
+            || (status == 303 && self.method != HttpMethod::GET && self.method != HttpMethod::HEAD)
+        {
+            next.method = HttpMethod::GET;
+            next.body = None;
+            next.headers.retain(|(name, _)| {
+                !name.eq_ignore_ascii_case("content-length")
+                    && !name.eq_ignore_ascii_case("content-type")
+            });
+        }
+        if base.scheme != target.scheme
+            || base.host != target.host
+            || effective_port(&base) != effective_port(&target)
+        {
+            next.headers.retain(|(name, _)| {
+                !name.eq_ignore_ascii_case("authorization")
+                    && !name.eq_ignore_ascii_case("cookie")
+                    && !name.eq_ignore_ascii_case("proxy-authorization")
+            });
+        }
+        next.url = target.render();
+        Some(next)
+    }
 }
 
 /// A static route table: method + path patterns to handler names.
@@ -1131,4 +1171,14 @@ pub fn join_url(base: &str, path: &str) -> String {
     } else {
         format!("{base}/{path}")
     }
+}
+
+/// Explicit port, else the scheme default (http 80, https 443).
+/// Used for redirect origin comparison (`URL.origin` semantics).
+fn effective_port(url: &Url) -> Option<u16> {
+    url.port.or(match url.scheme.as_str() {
+        "http" => Some(80),
+        "https" => Some(443),
+        _ => None,
+    })
 }
