@@ -7560,7 +7560,7 @@ unported	packages/effect/test/schema/Schema.test.ts	1318	it	multiple checks
 unported	packages/effect/test/schema/Schema.test.ts	1339	it	aborting checks	
 unported	packages/effect/test/schema/Schema.test.ts	1353	it	makeFilterGroup	
 unported	packages/effect/test/schema/Schema.test.ts	1380	it	object-level checks are validated against the decoded value when encoding	
-unported	packages/effect/test/schema/Schema.test.ts	1393	it	suspended checks are not supported	
+ported	packages/effect/test/schema/Schema.test.ts	1393	it	suspended checks are not supported	suspend_preserves_inner_refinement
 ported	packages/effect/test/schema/Schema.test.ts	1405	it	refine	refine_rejects_failing_values
 unported	packages/effect/test/schema/Schema.test.ts	1427	it	isPattern	
 unported	packages/effect/test/schema/Schema.test.ts	1446	it	isPattern with stateful RegExp flags	
@@ -7690,7 +7690,7 @@ unported	packages/effect/test/schema/Schema.test.ts	3917	it	nested defaults (Str
 unported	packages/effect/test/schema/Schema.test.ts	3933	it	inner defaults (Tuple)	
 unported	packages/effect/test/schema/Schema.test.ts	3948	it	nested defaults (Tuple)	
 unported	packages/effect/test/schema/Schema.test.ts	3967	it	Record(String, Number)	
-unported	packages/effect/test/schema/Schema.test.ts	3994	it	recursive values stay lazy	
+ported	packages/effect/test/schema/Schema.test.ts	3994	it	recursive values stay lazy	suspend_recursive_shape_decodes_nested
 unported	packages/effect/test/schema/Schema.test.ts	4009	it.effect	sequential parsing resumes without replaying entries	
 unported	packages/effect/test/schema/Schema.test.ts	4028	it	Record(String, optionalKey(Number)) should throw	
 unported	packages/effect/test/schema/Schema.test.ts	4035	it	Record(String, optional(Number))	
@@ -7726,8 +7726,8 @@ unported	packages/effect/test/schema/Schema.test.ts	4472	it	oneOf
 unported	packages/effect/test/schema/Schema.test.ts	4484	it	preserves member order after sentinel dispatch	
 unported	packages/effect/test/schema/Schema.test.ts	4504	it	preserves recovering members during runtime type dispatch	
 unported	packages/effect/test/schema/Schema.test.ts	4551	it	preserves recovering members during sentinel dispatch	
-unported	packages/effect/test/schema/Schema.test.ts	4586	it	keeps suspended members lazy during candidate selection	
-unported	packages/effect/test/schema/Schema.test.ts	4627	it	does not force a recursive suspended member after an earlier success	
+ported	packages/effect/test/schema/Schema.test.ts	4586	it	keeps suspended members lazy during candidate selection	union_skips_suspended_loser_after_success
+ported	packages/effect/test/schema/Schema.test.ts	4627	it	does not force a recursive suspended member after an earlier success	union_skips_suspended_loser_after_success
 unported	packages/effect/test/schema/Schema.test.ts	4641	it.effect	does not start later members after an asynchronous success	
 unported	packages/effect/test/schema/Schema.test.ts	4676	it.effect	starts the next member only after an asynchronous failure	
 unported	packages/effect/test/schema/Schema.test.ts	4711	it.effect	oneOf	
@@ -7859,7 +7859,7 @@ unported	packages/effect/test/schema/Schema.test.ts	6869	it	make validates an ex
 unported	packages/effect/test/schema/Schema.test.ts	6884	it	make validates a nested Class source and output once	
 unported	packages/effect/test/schema/Schema.test.ts	6905	it	make allows an optional nested Class to be omitted	
 unported	packages/effect/test/schema/Schema.test.ts	6912	it	make applies constructor defaults only at a field occurrence	
-unported	packages/effect/test/schema/Schema.test.ts	6932	it	suspend before initialization	
+ported	packages/effect/test/schema/Schema.test.ts	6932	it	suspend before initialization	suspend_reads_late_initialized_binding
 unported	packages/effect/test/schema/Schema.test.ts	6946	it	should memoize the ast	
 unported	packages/effect/test/schema/Schema.test.ts	6953	it	should set the identifier annotation	
 unported	packages/effect/test/schema/Schema.test.ts	6961	it	`[immerable]`	
@@ -8076,7 +8076,7 @@ unported	packages/effect/test/schema/Schema.test.ts	10628	it	inherits the schema
 unported	packages/effect/test/schema/Schema.test.ts	10639	it	extending a rebuilt schema	
 unported	packages/effect/test/schema/Schema.test.ts	10646	it	static getter using this	
 unported	packages/effect/test/schema/Schema.test.ts	10656	it	static property	
-unported	packages/effect/test/schema/Schema.test.ts	10664	it	static property using Schema.suspend	
+ported	packages/effect/test/schema/Schema.test.ts	10664	it	static property using Schema.suspend	struct_field_using_suspend
 unported	packages/effect/test/schema/Schema.test.ts	10672	it	wrapping a Struct schema	
 unported	packages/effect/test/schema/Schema.test.ts	10686	it	does not create class instances	
 unported	packages/effect/test/schema/Schema.test.ts	10695	it	subclassing	
