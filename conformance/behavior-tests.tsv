@@ -5985,19 +5985,19 @@ unported	packages/effect/test/cluster/Envelope.test.ts	30	it	carries a non-JSON 
 unported	packages/effect/test/cluster/Envelope.test.ts	38	it	compiles the hole and Reply.Encoded as a bytes leaf under SchemaBinary	
 unported	packages/effect/test/cluster/Envelope.test.ts	53	it	reports non-byte OpaqueHole inputs as schema failures	
 unported	packages/effect/test/cluster/K8sHttpClient.test.ts	7	it.effect	decodes null condition lastTransitionTime values	
-unported	packages/effect/test/cluster/MessageStorage.test.ts	28	it.effect	removes the primary-key index when clearing an address	
-unported	packages/effect/test/cluster/MessageStorage.test.ts	54	it.effect	removes a queued Interrupt when clearing an address	
-unported	packages/effect/test/cluster/MessageStorage.test.ts	72	it.effect	encoded unprocessedMessages fails closed for an empty address filter	
-unported	packages/effect/test/cluster/MessageStorage.test.ts	88	it.effect	encoded resetAddresses fails closed for an empty address list	
-unported	packages/effect/test/cluster/MessageStorage.test.ts	107	it.effect	resetRequests with no IDs leaves existing claims untouched	
-unported	packages/effect/test/cluster/MessageStorage.test.ts	119	it.effect	resetRequests releases only the selected request at a shared address	
+ported	packages/effect/test/cluster/MessageStorage.test.ts	28	it.effect	removes the primary-key index when clearing an address	
+ported	packages/effect/test/cluster/MessageStorage.test.ts	54	it.effect	removes a queued Interrupt when clearing an address	
+ported	packages/effect/test/cluster/MessageStorage.test.ts	72	it.effect	encoded unprocessedMessages fails closed for an empty address filter	
+ported	packages/effect/test/cluster/MessageStorage.test.ts	88	it.effect	encoded resetAddresses fails closed for an empty address list	
+ported	packages/effect/test/cluster/MessageStorage.test.ts	107	it.effect	resetRequests with no IDs leaves existing claims untouched	
+ported	packages/effect/test/cluster/MessageStorage.test.ts	119	it.effect	resetRequests releases only the selected request at a shared address	
 unported	packages/effect/test/cluster/MessageStorage.test.ts	134	it.effect	resetRequests preserves chunk replies, exit replies, and completed state	
-unported	packages/effect/test/cluster/MessageStorage.test.ts	153	it.effect	saves a request	
-unported	packages/effect/test/cluster/MessageStorage.test.ts	163	it.effect	detects duplicates	
-unported	packages/effect/test/cluster/MessageStorage.test.ts	181	it.effect	unprocessedMessages excludes complete requests	
-unported	packages/effect/test/cluster/MessageStorage.test.ts	190	it.effect	unprocessedMessages honors the limit option	
-unported	packages/effect/test/cluster/MessageStorage.test.ts	204	it.effect	unprocessedMessages filters by address	
-unported	packages/effect/test/cluster/MessageStorage.test.ts	226	it.effect	resetAddresses makes claimed messages eligible again	
+ported	packages/effect/test/cluster/MessageStorage.test.ts	153	it.effect	saves a request	
+ported	packages/effect/test/cluster/MessageStorage.test.ts	163	it.effect	detects duplicates	
+ported	packages/effect/test/cluster/MessageStorage.test.ts	181	it.effect	unprocessedMessages excludes complete requests	
+ported	packages/effect/test/cluster/MessageStorage.test.ts	190	it.effect	unprocessedMessages honors the limit option	
+ported	packages/effect/test/cluster/MessageStorage.test.ts	204	it.effect	unprocessedMessages filters by address	
+ported	packages/effect/test/cluster/MessageStorage.test.ts	226	it.effect	resetAddresses makes claimed messages eligible again	
 unported	packages/effect/test/cluster/MessageStorage.test.ts	246	it.effect	repliesFor	
 unported	packages/effect/test/cluster/MessageStorage.test.ts	259	it.effect	registerReplyHandler	
 unported	packages/effect/test/cluster/MessageStorage.test.ts	277	it.effect	unregisterShardReplyHandlers fails parked waiters during rebalance	
@@ -6092,9 +6092,9 @@ unported	packages/effect/test/cluster/Sharding.test.ts	2422	it.effect	does not a
 unported	packages/effect/test/cluster/ShardingConfig.test.ts	6	it.effect	bounds runner residency and storage reads by default	
 unported	packages/effect/test/cluster/ShardingConfig.test.ts	33	it.effect	omits the optional listen address when its host is absent	
 unported	packages/effect/test/cluster/ShardingConfig.test.ts	61	it.effect	rejects non-positive residency and batch limits	
-unported	packages/effect/test/cluster/interruptors.test.ts	12	it	releases entity keys so membership returns to baseline	
-unported	packages/effect/test/cluster/interruptors.test.ts	19	it	refcounts overlapping acquires	
-unported	packages/effect/test/cluster/interruptors.test.ts	28	it.effect	aroundEntityType restores the key after the effect	
+ported	packages/effect/test/cluster/interruptors.test.ts	12	it	releases entity keys so membership returns to baseline	
+ported	packages/effect/test/cluster/interruptors.test.ts	19	it	refcounts overlapping acquires	
+ported	packages/effect/test/cluster/interruptors.test.ts	28	it.effect	aroundEntityType restores the key after the effect	
 unported	packages/effect/test/devtools/DevToolsClient.test.ts	7	it.effect	sends a short-lived span once in each state	
 unported	packages/effect/test/encoding/Base64.test.ts	6	it	encodes strings and bytes	
 unported	packages/effect/test/encoding/Base64.test.ts	11	it	decodes bytes and UTF-8 strings	

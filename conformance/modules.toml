@@ -1436,7 +1436,7 @@ tests = ["packages/effect/test/cluster/Entity.test.ts"]
 [[module]]
 path = "packages/effect/src/cluster/EntityAddress.ts"
 class = "unstable-port"
-status = "unmatched"
+status = "matched"
 tag = "unstable"
 reason = ""
 tests = []
@@ -1444,7 +1444,7 @@ tests = []
 [[module]]
 path = "packages/effect/src/cluster/EntityId.ts"
 class = "unstable-port"
-status = "unmatched"
+status = "matched"
 tag = "unstable"
 reason = ""
 tests = []
@@ -1516,7 +1516,7 @@ tests = []
 [[module]]
 path = "packages/effect/src/cluster/MachineId.ts"
 class = "unstable-port"
-status = "unmatched"
+status = "matched"
 tag = "unstable"
 reason = ""
 tests = []
