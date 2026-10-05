@@ -140,3 +140,55 @@ fn socket_pauses_at_high_water_mark() {
     });
     assert_eq!(written.load(Ordering::SeqCst), 8);
 }
+
+#[test]
+fn schema_find_all_decodes_or_fails() {
+    let db = SqlClient::fake();
+    assert_eq!(
+        db.query_all("t", |row| row[0].parse::<i64>().map_err(|e| e.to_string())),
+        Ok(vec![])
+    );
+    db.insert("t", vec!["1".to_string()]);
+    db.insert("t", vec!["2".to_string()]);
+    assert_eq!(
+        db.query_all("t", |row| row[0].parse::<i64>().map_err(|e| e.to_string())),
+        Ok(vec![1, 2])
+    );
+    db.insert("t", vec!["nope".to_string()]);
+    assert!(db
+        .query_all("t", |row| row[0].parse::<i64>().map_err(|e| e.to_string()))
+        .is_err());
+}
+
+#[test]
+fn schema_find_one_and_option() {
+    let db = SqlClient::fake();
+    let err = db
+        .query_one("t", |row| Ok::<String, String>(row[0].clone()))
+        .unwrap_err();
+    assert_eq!(err.reason, SqlReason::EmptyResult);
+    assert_eq!(
+        db.query_option("t", |row| Ok::<String, String>(row[0].clone())),
+        Ok(None)
+    );
+
+    db.insert("t", vec!["a".to_string()]);
+    assert_eq!(
+        db.query_one("t", |row| Ok::<String, String>(row[0].clone())),
+        Ok("a".to_string())
+    );
+    assert_eq!(
+        db.query_option("t", |row| Ok::<String, String>(row[0].clone())),
+        Ok(Some("a".to_string()))
+    );
+    assert!(db
+        .query_one("t", |_| Err::<String, String>("bad row".to_string()))
+        .is_err());
+}
+
+#[test]
+fn schema_execute_discards_result() {
+    let db = SqlClient::fake();
+    db.execute("t", vec!["x".to_string()]);
+    assert_eq!(db.scan("t"), vec![vec!["x".to_string()]]);
+}

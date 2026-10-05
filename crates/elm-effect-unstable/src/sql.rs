@@ -30,6 +30,8 @@ pub enum SqlReason {
     SyntaxError,
     /// Connection lost.
     ConnectionLost,
+    /// A query expected rows but got none (`NoSuchElement`).
+    EmptyResult,
     /// Anything else.
     Unknown,
 }
@@ -179,5 +181,56 @@ impl SqlClient {
             *self.tables.borrow_mut() = snapshot;
         }
         out
+    }
+}
+
+// Result-set decoders
+
+impl SqlClient {
+    /// Decode every row (`findAll`): empty tables yield `[]`, and the first
+    /// undecodable row fails the whole query.
+    pub fn query_all<T>(
+        &self,
+        table: &str,
+        decode: impl Fn(&[String]) -> Result<T, String>,
+    ) -> Result<Vec<T>, SqlError> {
+        self.scan(table)
+            .iter()
+            .map(|row| {
+                decode(row).map_err(|message| SqlError::new(SqlReason::Unknown, false, &message))
+            })
+            .collect()
+    }
+
+    /// Decode the first row (`findOne`/`head`): no rows is [`EmptyResult`](SqlReason::EmptyResult),
+    /// and an undecodable first row fails.
+    pub fn query_one<T>(
+        &self,
+        table: &str,
+        decode: impl Fn(&[String]) -> Result<T, String>,
+    ) -> Result<T, SqlError> {
+        let rows = self.scan(table);
+        let first = rows.first().ok_or_else(|| {
+            SqlError::new(SqlReason::EmptyResult, false, "no rows returned")
+        })?;
+        decode(first).map_err(|message| SqlError::new(SqlReason::Unknown, false, &message))
+    }
+
+    /// Decode the first row when present (`option`): `None` for no rows.
+    pub fn query_option<T>(
+        &self,
+        table: &str,
+        decode: impl Fn(&[String]) -> Result<T, String>,
+    ) -> Result<Option<T>, SqlError> {
+        match self.query_one(table, decode) {
+            Ok(value) => Ok(Some(value)),
+            Err(error) if error.reason == SqlReason::EmptyResult => Ok(None),
+            Err(error) => Err(error),
+        }
+    }
+
+    /// Run a write and discard the result (`execute`).
+    pub fn execute(&self, table: &str, row: Vec<String>) {
+        self.insert(table, row);
     }
 }
