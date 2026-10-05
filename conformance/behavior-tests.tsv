@@ -7640,7 +7640,7 @@ unported	packages/effect/test/schema/Schema.test.ts	2917	it	Redacted(FiniteFromS
 unported	packages/effect/test/schema/Schema.test.ts	2970	it	with label	
 unported	packages/effect/test/schema/Schema.test.ts	3008	it	should decode a value	
 unported	packages/effect/test/schema/Schema.test.ts	3034	it	should expose the value	
-unported	packages/effect/test/schema/Schema.test.ts	3040	it	Option(FiniteFromString)	
+ported	packages/effect/test/schema/Schema.test.ts	3040	it	Option(FiniteFromString)	ffs_composes_with_optional
 unported	packages/effect/test/schema/Schema.test.ts	3070	it	OptionFromNullOr	
 unported	packages/effect/test/schema/Schema.test.ts	3088	it	OptionFromUndefinedOr	
 unported	packages/effect/test/schema/Schema.test.ts	3107	it	onNoneEncoding: null	
@@ -7739,8 +7739,8 @@ unported	packages/effect/test/schema/Schema.test.ts	4821	it	tagged struct union
 unported	packages/effect/test/schema/Schema.test.ts	4845	it	tagged tuple union	
 unported	packages/effect/test/schema/Schema.test.ts	4872	it	A required element cannot follow an optional element	
 unported	packages/effect/test/schema/Schema.test.ts	4891	it	An optional element cannot follow a rest element	
-unported	packages/effect/test/schema/Schema.test.ts	4910	it	[FiniteFromString, String] + [Boolean, String]	
-unported	packages/effect/test/schema/Schema.test.ts	4947	it	[FiniteFromString, String] + [Boolean, String, Number]	
+ported	packages/effect/test/schema/Schema.test.ts	4910	it	[FiniteFromString, String] + [Boolean, String]	ffs_tuples_union_by_shape
+ported	packages/effect/test/schema/Schema.test.ts	4947	it	[FiniteFromString, String] + [Boolean, String, Number]	ffs_tuples_union_by_shape
 unported	packages/effect/test/schema/Schema.test.ts	4979	it	[String] + [Boolean, String, Number, Number] validates every post-rest index	
 unported	packages/effect/test/schema/Schema.test.ts	4997	it	should throw an error if there are duplicate property signatures	
 unported	packages/effect/test/schema/Schema.test.ts	5008	it	should throw an error if there are encodings	
@@ -7938,16 +7938,16 @@ unported	packages/effect/test/schema/Schema.test.ts	8255	it	decodeTo as composit
 unported	packages/effect/test/schema/Schema.test.ts	8286	it	encodeTo as composition	
 unported	packages/effect/test/schema/Schema.test.ts	8323	it	no context	
 unported	packages/effect/test/schema/Schema.test.ts	8346	it	with context	
-unported	packages/effect/test/schema/Schema.test.ts	8377	it	FiniteFromString	
-unported	packages/effect/test/schema/Schema.test.ts	8386	it	FiniteFromString	
-unported	packages/effect/test/schema/Schema.test.ts	8403	it	FiniteFromString	
+ported	packages/effect/test/schema/Schema.test.ts	8377	it	FiniteFromString	ffs_decodes_plain_numbers
+ported	packages/effect/test/schema/Schema.test.ts	8386	it	FiniteFromString	ffs_rejects_non_numeric_text
+ported	packages/effect/test/schema/Schema.test.ts	8403	it	FiniteFromString	ffs_rejects_non_text
 unported	packages/effect/test/schema/Schema.test.ts	8435	it	should reject with an error when the cause contains both a schema issue and a defect	
-unported	packages/effect/test/schema/Schema.test.ts	8464	it	FiniteFromString	
+ported	packages/effect/test/schema/Schema.test.ts	8464	it	FiniteFromString	ffs_encodes_numbers_to_text
 unported	packages/effect/test/schema/Schema.test.ts	8482	it	should throw an error when the cause is not a schema issue	
 unported	packages/effect/test/schema/Schema.test.ts	8504	it	should throw an error when the cause contains both a schema issue and a defect	
-unported	packages/effect/test/schema/Schema.test.ts	8532	it	FiniteFromString	
+ported	packages/effect/test/schema/Schema.test.ts	8532	it	FiniteFromString	ffs_round_trips
 unported	packages/effect/test/schema/Schema.test.ts	8566	it	should throw an error when the cause contains both a schema issue and a defect	
-unported	packages/effect/test/schema/Schema.test.ts	8594	it	FiniteFromString	
+ported	packages/effect/test/schema/Schema.test.ts	8594	it	FiniteFromString	ffs_round_trips
 unported	packages/effect/test/schema/Schema.test.ts	8619	it	should throw an error when the cause contains both a schema issue and a defect	
 unported	packages/effect/test/schema/Schema.test.ts	8647	it	should throw on async decoding	
 unported	packages/effect/test/schema/Schema.test.ts	8662	it	should throw on missing dependency	

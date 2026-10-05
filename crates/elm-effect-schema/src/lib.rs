@@ -420,6 +420,27 @@ impl Schema<f64> {
             SchemaKind::Number,
         )
     }
+
+    /// A finite number written as text (`FiniteFromString`): `"1.5"`
+    /// decodes to `1.5`. Non-text, blank, unparseable, and non-finite
+    /// (`NaN`, infinities) inputs fail; encoding renders the number back
+    /// to text.
+    pub fn finite_from_string() -> Self {
+        Self::new(
+            |unknown| match unknown {
+                Unknown::Text(ref text) => {
+                    let trimmed = text.trim();
+                    match trimmed.parse::<f64>() {
+                        Ok(number) if number.is_finite() => Ok(number),
+                        _ => mismatch("$", "a finite number string", &unknown),
+                    }
+                }
+                other => mismatch("$", "a finite number string", &other),
+            },
+            |value| Unknown::Text(value.to_string()),
+            SchemaKind::Opaque("finiteFromString"),
+        )
+    }
 }
 
 impl Schema<bool> {

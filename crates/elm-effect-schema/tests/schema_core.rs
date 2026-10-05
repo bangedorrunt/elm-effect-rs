@@ -137,3 +137,89 @@ fn facade_reexports_schema() {
         1.0
     );
 }
+
+#[test]
+fn ffs_decodes_plain_numbers() {
+    let schema = Schema::finite_from_string();
+    assert_eq!(schema.decode(Unknown::Text("1.5".to_string())), Ok(1.5));
+    assert_eq!(schema.decode(Unknown::Text("-0.5".to_string())), Ok(-0.5));
+    assert_eq!(schema.decode(Unknown::Text("1e3".to_string())), Ok(1000.0));
+    assert_eq!(schema.decode(Unknown::Text("  42  ".to_string())), Ok(42.0));
+}
+
+#[test]
+fn ffs_rejects_non_numeric_text() {
+    let schema = Schema::finite_from_string();
+    for text in ["", "   ", "abc", "12px", "NaN", "Infinity", "-Infinity", "0x10"] {
+        assert!(
+            schema.decode(Unknown::Text(text.to_string())).is_err(),
+            "{text:?} must not decode"
+        );
+    }
+}
+
+#[test]
+fn ffs_rejects_non_text() {
+    let schema = Schema::finite_from_string();
+    assert!(schema.decode(Unknown::Number(1.5)).is_err());
+    assert!(schema.decode(Unknown::Null).is_err());
+    assert!(schema.decode(Unknown::Bool(true)).is_err());
+}
+
+#[test]
+fn ffs_encodes_numbers_to_text() {
+    let schema = Schema::finite_from_string();
+    assert_eq!(schema.encode(&1.5), Unknown::Text("1.5".to_string()));
+}
+
+#[test]
+fn ffs_round_trips() {
+    let schema = Schema::finite_from_string();
+    let value = schema.decode(Unknown::Text("42".to_string())).unwrap();
+    assert_eq!(value, 42.0);
+    assert_eq!(schema.encode(&value), Unknown::Text("42".to_string()));
+}
+
+#[test]
+fn ffs_composes_with_optional() {
+    let schema = Schema::optional(Schema::finite_from_string());
+    assert_eq!(schema.decode(Unknown::Null).unwrap(), None);
+    assert_eq!(
+        schema.decode(Unknown::Text("2.5".to_string())).unwrap(),
+        Some(2.5)
+    );
+    assert!(schema.decode(Unknown::Text("nope".to_string())).is_err());
+}
+
+#[test]
+fn ffs_tuples_union_by_shape() {
+    let left = Schema::as_unknown(Schema::tuple2(
+        Schema::finite_from_string(),
+        Schema::string(),
+    ));
+    let right = Schema::as_unknown(Schema::tuple2(Schema::boolean(), Schema::string()));
+    let schema = Schema::union(left, right);
+    assert_eq!(
+        schema.decode(Unknown::Array(vec![
+            Unknown::Text("1".to_string()),
+            Unknown::Text("x".to_string())
+        ])),
+        Ok(Unknown::Array(vec![
+            Unknown::Text("1".to_string()),
+            Unknown::Text("x".to_string())
+        ])),
+        "numeric-first tuple takes the left branch"
+    );
+    assert_eq!(
+        schema.decode(Unknown::Array(vec![
+            Unknown::Bool(true),
+            Unknown::Text("x".to_string())
+        ])),
+        Ok(Unknown::Array(vec![
+            Unknown::Bool(true),
+            Unknown::Text("x".to_string())
+        ])),
+        "boolean-first tuple falls to the right branch"
+    );
+    assert!(schema.decode(Unknown::Array(vec![Unknown::Null])).is_err());
+}
