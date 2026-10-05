@@ -4,7 +4,7 @@
 //! (strict CIDR parsing, canonical text, first/last/count, address and
 //! network containment). Schema codecs are not modeled here.
 
-use std::net::IpAddr;
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 
 /// A parsed CIDR network with host bits masked off.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -203,19 +203,19 @@ pub struct NetworkError {
 }
 
 impl NetworkError {
-    fn addr(addr: IpAddr, message: String) -> Self {
+    fn addr(addr: IpAddr, message: impl Into<String>) -> Self {
         Self {
             input: NetworkErrorInput::Addr(addr),
             tag: "NetAddressError",
-            message,
+            message: message.into(),
         }
     }
 
-    fn text(text: &str, message: String) -> Self {
+    fn text(text: &str, message: impl Into<String>) -> Self {
         Self {
             input: NetworkErrorInput::Text(text.to_string()),
             tag: "NetAddressError",
-            message,
+            message: message.into(),
         }
     }
 }
@@ -405,6 +405,11 @@ impl StrictIp {
         Some(Self { addr })
     }
 
+    /// The parsed address value.
+    pub fn addr(&self) -> IpAddr {
+        self.addr
+    }
+
     /// The address width in bits (32 or 128).
     pub fn width(&self) -> u8 {
         match self.addr {
@@ -466,6 +471,110 @@ impl StrictIp {
                 }
             }
         }
+    }
+}
+
+// Numeric addresses
+
+/// A bare IP address value: the runtime representation shared by the
+/// `NetAddress` numeric constructors (hostnames, URLs, and sockets arrive
+/// as later variants).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum NetAddress {
+    V4(Ipv4Addr),
+    V6(Ipv6Addr),
+}
+
+impl NetAddress {
+    /// Build from eight 16-bit segments (TS `ipv6FromSegments`).
+    pub fn ipv6_from_segments(segments: [u16; 8]) -> Self {
+        Self::V6(Ipv6Addr::from(segments))
+    }
+
+    /// Strict dotted-quad parse, rejecting non-IPv4 input (TS
+    /// `ipv4FromString`).
+    pub fn ipv4_from_string(text: &str) -> Result<Self, NetworkError> {
+        match StrictIp::parse(text) {
+            Some(strict) => match strict.addr() {
+                IpAddr::V4(v4) => Ok(Self::V4(v4)),
+                IpAddr::V6(_) => Err(NetworkError::text(text, "not an IPv4 address")),
+            },
+            None => Err(NetworkError::text(text, "invalid address")),
+        }
+    }
+
+    /// Strict IP parse of either family (TS `ipv6FromString`).
+    pub fn ipv6_from_string(text: &str) -> Result<Self, NetworkError> {
+        match StrictIp::parse(text) {
+            Some(strict) => match strict.addr() {
+                IpAddr::V6(v6) => Ok(Self::V6(v6)),
+                IpAddr::V4(_) => Err(NetworkError::text(text, "not an IPv6 address")),
+            },
+            None => Err(NetworkError::text(text, "invalid address")),
+        }
+    }
+
+    /// Canonical text: compressed IPv6, dotted IPv4 (TS `formatIp`).
+    pub fn format_ip(&self) -> String {
+        match self {
+            Self::V4(v4) => v4.to_string(),
+            Self::V6(v6) => v6.to_string(),
+        }
+    }
+
+    /// Map an IPv4 address into `::ffff:0:0/96`, passing other values
+    /// through (TS `toIpv4Mapped`).
+    pub fn to_ipv4_mapped(&self) -> Self {
+        match self {
+            Self::V4(v4) => {
+                let o = v4.octets();
+                Self::V6(Ipv6Addr::new(
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0xffff,
+                    u16::from_be_bytes([o[0], o[1]]),
+                    u16::from_be_bytes([o[2], o[3]]),
+                ))
+            }
+            Self::V6(_) => *self,
+        }
+    }
+
+    /// True for `::ffff:a.b.c.d` forms (TS `isIpv4Mapped`).
+    pub fn is_ipv4_mapped(&self) -> bool {
+        match self {
+            Self::V4(_) => false,
+            Self::V6(v6) => {
+                let s = v6.segments();
+                s[0] == 0 && s[1] == 0 && s[2] == 0 && s[3] == 0 && s[4] == 0 && s[5] == 0xffff
+            }
+        }
+    }
+
+    /// Recover the IPv4 address from a mapped value (TS `fromIpv4Mapped`).
+    pub fn from_ipv4_mapped(&self) -> Option<Self> {
+        match self {
+            Self::V4(_) => None,
+            Self::V6(v6) if self.is_ipv4_mapped() => {
+                let s = v6.segments();
+                Some(Self::V4(Ipv4Addr::new(
+                    (s[6] >> 8) as u8,
+                    (s[6] & 0xff) as u8,
+                    (s[7] >> 8) as u8,
+                    (s[7] & 0xff) as u8,
+                )))
+            }
+            Self::V6(_) => None,
+        }
+    }
+
+    /// Canonical form: mapped values collapse to IPv4, everything else
+    /// passes through (TS `toCanonical`).
+    pub fn to_canonical(&self) -> Self {
+        self.from_ipv4_mapped().unwrap_or(*self)
     }
 }
 

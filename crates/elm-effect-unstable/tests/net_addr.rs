@@ -156,3 +156,47 @@ fn interfaces_share_one_tagged_representation() {
     assert!(v4.is_interface());
     assert!(v6.is_interface());
 }
+
+fn net_hash(address: &net::NetAddress) -> u64 {
+    use std::collections::hash_map::DefaultHasher;
+    use std::hash::{Hash, Hasher};
+    let mut hasher = DefaultHasher::new();
+    address.hash(&mut hasher);
+    hasher.finish()
+}
+
+#[test]
+fn net_addresses_roundtrip_numeric_forms() {
+    use net::NetAddress;
+    for segments in [
+        [0, 0, 0, 0, 0, 0, 0, 0],
+        [0x2001, 0xdb8, 0, 1, 2, 3, 4, 5],
+        [0xffff, 0xffff, 0xffff, 0xffff, 0xffff, 0xffff, 0xffff, 0xffff],
+    ] {
+        let value = NetAddress::ipv6_from_segments(segments);
+        let encoded = value.format_ip();
+        assert_eq!(NetAddress::ipv6_from_string(&encoded).unwrap(), value);
+    }
+}
+
+#[test]
+fn net_addresses_share_numeric_equality_and_hash() {
+    use net::NetAddress;
+    let expanded = NetAddress::ipv6_from_string("2001:db8:0:0:0:0:0:1").unwrap();
+    let compressed = NetAddress::ipv6_from_string("2001:db8::1").unwrap();
+    assert_eq!(expanded, compressed);
+    assert_eq!(net_hash(&expanded), net_hash(&compressed));
+}
+
+#[test]
+fn net_addresses_convert_mapped_ipv4() {
+    use net::NetAddress;
+    let ipv4 = NetAddress::ipv4_from_string("192.0.2.128").unwrap();
+    let mapped = ipv4.to_ipv4_mapped();
+    assert!(mapped.is_ipv4_mapped());
+    assert_eq!(mapped.format_ip(), "::ffff:192.0.2.128");
+    assert_eq!(mapped.from_ipv4_mapped().unwrap(), ipv4);
+    assert!(NetAddress::ipv6_from_string("::1").unwrap().from_ipv4_mapped().is_none());
+    assert_eq!(mapped.to_canonical(), ipv4);
+    assert_eq!(ipv4.to_canonical(), ipv4);
+}
