@@ -68,26 +68,35 @@ impl IpNetwork {
         Self::make(addr, prefix).expect("invalid network")
     }
 
-    /// Lenient unsafe constructor: masks host bits instead of rejecting
-    /// them, still panicking on out-of-range prefixes (TS
-    /// `fromAddressUnsafe`).
-    pub fn from_address_unsafe(addr: IpAddr, prefix: f64) -> Self {
+    /// Lenient checked constructor: masks host bits instead of rejecting
+    /// them, still failing on out-of-range prefixes (TS `fromAddress`).
+    pub fn from_address(addr: IpAddr, prefix: f64) -> Result<Self, NetworkError> {
         let max = match addr {
             IpAddr::V4(_) => 32,
             IpAddr::V6(_) => 128,
         };
-        assert!(
-            prefix.is_finite()
-                && prefix.fract() == 0.0
-                && prefix >= 0.0
-                && prefix <= f64::from(max),
-            "invalid prefix"
-        );
+        if !prefix.is_finite()
+            || prefix.fract() != 0.0
+            || prefix < 0.0
+            || prefix > f64::from(max)
+        {
+            return Err(NetworkError::addr(
+                addr,
+                format!("prefix length must be an integer from 0 through {max}"),
+            ));
+        }
         let bits = prefix as u8;
-        Self {
+        Ok(Self {
             network: mask(addr, bits),
             prefix: bits,
-        }
+        })
+    }
+
+    /// Lenient unsafe constructor: masks host bits instead of rejecting
+    /// them, still panicking on out-of-range prefixes (TS
+    /// `fromAddressUnsafe`).
+    pub fn from_address_unsafe(addr: IpAddr, prefix: f64) -> Self {
+        Self::from_address(addr, prefix).expect("invalid network")
     }
 
     /// Checked unsafe parse: panics on invalid input (TS

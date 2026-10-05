@@ -128,3 +128,17 @@ fn unsafe_wrappers_mask_or_throw() {
     })
     .is_err());
 }
+
+#[test]
+fn from_address_truncates_host_bits() {
+    use net::IpNetwork;
+    for (addr, prefix, expected) in [
+        ("10.1.2.3", 8.0, "10.0.0.0/8"),
+        ("192.0.2.255", 25.0, "192.0.2.128/25"),
+        ("2001:db8:0:1:ffff::1", 63.0, "2001:db8::/63"),
+        ("2001:db8:0:1:ffff::1", 65.0, "2001:db8:0:1:8000::/65"),
+    ] {
+        let net = IpNetwork::from_address(addr.parse().unwrap(), prefix).unwrap();
+        assert_eq!(net.render(), expected, "{addr}/{prefix}");
+    }
+}
