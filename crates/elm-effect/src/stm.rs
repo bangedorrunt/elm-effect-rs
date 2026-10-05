@@ -108,10 +108,23 @@ impl<T> Default for TxDeferred<T> {
     }
 }
 
+/// What a full bounded queue does on `offer`.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum QueueStrategy {
+    /// Reject the value (`false`).
+    BackPressure,
+    /// Keep the queue, drop the value (`true`).
+    Dropping,
+    /// Evict the oldest, keep the value (`true`).
+    Sliding,
+}
+
 /// A transactional FIFO queue, optionally bounded.
 pub struct TxQueue<T> {
     inner: Mutex<VecDeque<T>>,
     capacity: Option<usize>,
+    strategy: QueueStrategy,
+    closed: Mutex<bool>,
 }
 
 impl<T> TxQueue<T> {
@@ -120,6 +133,8 @@ impl<T> TxQueue<T> {
         Self {
             inner: Mutex::new(VecDeque::new()),
             capacity: Some(capacity),
+            strategy: QueueStrategy::BackPressure,
+            closed: Mutex::new(false),
         }
     }
 
@@ -128,15 +143,46 @@ impl<T> TxQueue<T> {
         Self {
             inner: Mutex::new(VecDeque::new()),
             capacity: None,
+            strategy: QueueStrategy::BackPressure,
+            closed: Mutex::new(false),
         }
     }
 
-    /// Push back; `false` when a bounded queue is full.
+    /// A bounded queue that drops new values when full (`offer` stays `true`).
+    pub fn dropping(capacity: usize) -> Self {
+        Self {
+            inner: Mutex::new(VecDeque::new()),
+            capacity: Some(capacity),
+            strategy: QueueStrategy::Dropping,
+            closed: Mutex::new(false),
+        }
+    }
+
+    /// A bounded queue that evicts the oldest value when full.
+    pub fn sliding(capacity: usize) -> Self {
+        Self {
+            inner: Mutex::new(VecDeque::new()),
+            capacity: Some(capacity),
+            strategy: QueueStrategy::Sliding,
+            closed: Mutex::new(false),
+        }
+    }
+
+    /// Push back; `false` when a bounded queue is full or closed.
     pub fn offer(&self, value: T) -> bool {
+        if *self.closed.lock().unwrap() {
+            return false;
+        }
         atomically(|| {
             let mut queue = self.inner.lock().unwrap();
-            match self.capacity {
-                Some(limit) if queue.len() >= limit => false,
+            match (self.capacity, self.strategy) {
+                (Some(limit), QueueStrategy::BackPressure) if queue.len() >= limit => false,
+                (Some(limit), QueueStrategy::Dropping) if queue.len() >= limit => true,
+                (Some(limit), QueueStrategy::Sliding) if queue.len() >= limit => {
+                    queue.pop_front();
+                    queue.push_back(value);
+                    true
+                }
                 _ => {
                     queue.push_back(value);
                     true
@@ -153,6 +199,22 @@ impl<T> TxQueue<T> {
     /// The current depth.
     pub fn size(&self) -> usize {
         atomically(|| self.inner.lock().unwrap().len())
+    }
+
+    /// True when no items wait.
+    pub fn is_empty(&self) -> bool {
+        self.size() == 0
+    }
+
+    /// Pop front without blocking (`None` when empty): the `poll` shape.
+    pub fn poll(&self) -> Option<T> {
+        self.take()
+    }
+
+    /// Stop accepting offers; queued items still drain, then `take`/`poll`
+    /// settle on `None`.
+    pub fn close(&self) {
+        *self.closed.lock().unwrap() = true;
     }
 }
 
@@ -300,6 +362,31 @@ impl<T> TxChunk<T> {
     }
 }
 
+impl<T> FromIterator<T> for TxChunk<T> {
+    /// Build from values (`fromIterable`).
+    fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
+        let chunk = Self::new();
+        chunk.extend(iter.into_iter().collect());
+        chunk
+    }
+}
+
+impl<T> TxChunk<T> {
+    /// Replace the whole contents (`set`).
+    pub fn set_all(&self, values: Vec<T>) {
+        atomically(|| {
+            *self.inner.lock().unwrap() = values;
+        });
+    }
+
+    /// Insert at the front (`prepend`).
+    pub fn prepend(&self, value: T) {
+        atomically(|| {
+            self.inner.lock().unwrap().insert(0, value);
+        });
+    }
+}
+
 impl<T> Default for TxChunk<T> {
     fn default() -> Self {
         Self::new()
@@ -311,12 +398,28 @@ pub struct TxHashMap<K, V> {
     inner: Mutex<HashMap<K, V>>,
 }
 
+impl<K: Eq + Hash, V> FromIterator<(K, V)> for TxHashMap<K, V> {
+    /// Build from pairs; later pairs win (`fromIterable`).
+    fn from_iter<I: IntoIterator<Item = (K, V)>>(iter: I) -> Self {
+        let map = Self::new();
+        for (key, value) in iter {
+            map.insert(key, value);
+        }
+        map
+    }
+}
+
 impl<K: Eq + Hash, V> TxHashMap<K, V> {
     /// An empty map.
     pub fn new() -> Self {
         Self {
             inner: Mutex::new(HashMap::new()),
         }
+    }
+
+    /// True when `key` maps to anything (`has`).
+    pub fn contains(&self, key: &K) -> bool {
+        atomically(|| self.inner.lock().unwrap().contains_key(key))
     }
 
     /// Insert, returning the displaced value if any.
@@ -357,6 +460,17 @@ impl<K: Eq + Hash, V> Default for TxHashMap<K, V> {
 /// A transactional hash set.
 pub struct TxHashSet<T> {
     inner: Mutex<HashSet<T>>,
+}
+
+impl<T: Eq + Hash> FromIterator<T> for TxHashSet<T> {
+    /// Build from values; duplicates collapse (`make`/`fromIterable`).
+    fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
+        let set = Self::new();
+        for value in iter {
+            set.insert(value);
+        }
+        set
+    }
 }
 
 impl<T: Eq + Hash> TxHashSet<T> {
