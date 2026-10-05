@@ -146,12 +146,12 @@ pub fn parse(app: &CliApp, argv: &[String]) -> Result<CliRequest, CliError> {
 
 /// Walk the matched subcommand chain, binding each level's flags.
 fn descend(request: &mut CliRequest, level: &ArgMatches, pool: &[CliCommand]) {
-    if let Some((name, sub)) = level.subcommand() {
-        if let Some(node) = pool.iter().find(|c| c.name == name) {
-            request.command.push(name.to_owned());
-            bind_flags(sub, &node.flags, request);
-            descend(request, sub, &node.subcommands);
-        }
+    if let Some((name, sub)) = level.subcommand()
+        && let Some(node) = pool.iter().find(|c| c.name == name)
+    {
+        request.command.push(name.to_owned());
+        bind_flags(sub, &node.flags, request);
+        descend(request, sub, &node.subcommands);
     }
 }
 

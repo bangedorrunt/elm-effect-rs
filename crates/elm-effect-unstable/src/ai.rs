@@ -249,15 +249,15 @@ impl AiReason {
 
     /// Whether retrying may succeed.
     pub fn is_retryable(&self) -> bool {
-        match self {
+        matches!(
+            self,
             Self::RateLimit { .. }
-            | Self::InternalProvider { .. }
-            | Self::InvalidOutput { .. }
-            | Self::StructuredOutput { .. }
-            | Self::ToolNotFound { .. }
-            | Self::ToolParameterValidation { .. } => true,
-            _ => false,
-        }
+                | Self::InternalProvider { .. }
+                | Self::InvalidOutput { .. }
+                | Self::StructuredOutput { .. }
+                | Self::ToolNotFound { .. }
+                | Self::ToolParameterValidation { .. }
+        )
     }
 
     /// Human message, mirroring the tag's `message` getters.
@@ -273,7 +273,10 @@ impl AiReason {
                 Some(d) => format!("Content policy violation: {d}"),
                 None => "Content policy violation".to_owned(),
             },
-            Self::InvalidRequest { parameter, constraint } => {
+            Self::InvalidRequest {
+                parameter,
+                constraint,
+            } => {
                 format!("Invalid request: parameter '{parameter}' {constraint}")
             }
             Self::InvalidOutput { details } => format!("Invalid output: {details}"),
@@ -291,7 +294,9 @@ impl AiReason {
                 format!("Tool parameter validation failed: {details}")
             }
             Self::InvalidToolResult { details } => format!("Invalid tool result: {details}"),
-            Self::ToolResultEncoding { details } => format!("Tool result encoding failed: {details}"),
+            Self::ToolResultEncoding { details } => {
+                format!("Tool result encoding failed: {details}")
+            }
             Self::ToolConfiguration { details } => format!("Tool misconfigured: {details}"),
             Self::StructuredOutput { details } => format!("Structured output error: {details}"),
             Self::UnsupportedSchema { details } => format!("Unsupported schema: {details}"),
@@ -344,5 +349,135 @@ impl AiError {
 impl std::fmt::Display for AiError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.message())
+    }
+}
+
+// --- Chat port (ai/Chat.ts at the pin): persisted history with TTL ---
+
+/// Message role.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum ChatRole {
+    /// End-user message.
+    User,
+    /// Assistant message.
+    Assistant,
+    /// Tool result message.
+    Tool,
+}
+
+/// One chat message with a stable identifier.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ChatMessage {
+    /// Stable id (`msg-N` in encounter order unless set explicitly).
+    pub id: String,
+    /// Who sent it.
+    pub role: ChatRole,
+    /// Text content.
+    pub content: String,
+}
+
+/// Missing chat error.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ChatNotFound {
+    /// Requested chat id.
+    pub chat_id: String,
+}
+
+impl std::fmt::Display for ChatNotFound {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "chat not found: {}", self.chat_id)
+    }
+}
+
+struct StoredChat {
+    history: Vec<ChatMessage>,
+    /// Last write time, for TTL expiry.
+    written_at: std::time::Instant,
+    next_id: u64,
+}
+
+/// Persisted chat histories with an optional time to live.
+pub struct ChatStore {
+    chats: std::sync::Mutex<std::collections::HashMap<String, StoredChat>>,
+    ttl: Option<std::time::Duration>,
+}
+
+impl ChatStore {
+    /// Empty store with no expiry.
+    pub fn new() -> Self {
+        Self {
+            chats: std::sync::Mutex::new(std::collections::HashMap::new()),
+            ttl: None,
+        }
+    }
+
+    /// Empty store expiring chats `ttl` after their last write.
+    pub fn with_ttl(ttl: std::time::Duration) -> Self {
+        Self {
+            chats: std::sync::Mutex::new(std::collections::HashMap::new()),
+            ttl: Some(ttl),
+        }
+    }
+
+    fn expired(&self, written_at: std::time::Instant) -> bool {
+        match self.ttl {
+            None => false,
+            Some(ttl) => written_at.elapsed() >= ttl,
+        }
+    }
+
+    /// Persist `history` under `chat_id`, assigning `msg-N` ids to messages
+    /// without one (preserving explicit ids).
+    pub fn save(&self, chat_id: &str, history: Vec<ChatMessage>) {
+        let mut chats = self.chats.lock().expect("chat store");
+        let slot = chats
+            .entry(chat_id.to_owned())
+            .or_insert_with(|| StoredChat {
+                history: Vec::new(),
+                written_at: std::time::Instant::now(),
+                next_id: 1,
+            });
+        for mut message in history {
+            if message.id.is_empty() {
+                message.id = format!("msg-{}", slot.next_id);
+                slot.next_id += 1;
+            }
+            slot.history.push(message);
+        }
+        slot.written_at = std::time::Instant::now();
+    }
+
+    /// Load history, or [`ChatNotFound`] when missing or expired.
+    pub fn load(&self, chat_id: &str) -> Result<Vec<ChatMessage>, ChatNotFound> {
+        let mut chats = self.chats.lock().expect("chat store");
+        match chats.get(chat_id) {
+            Some(stored) if !self.expired(stored.written_at) => Ok(stored.history.clone()),
+            _ => {
+                chats.remove(chat_id);
+                Err(ChatNotFound {
+                    chat_id: chat_id.to_owned(),
+                })
+            }
+        }
+    }
+
+    /// Identifier of the most recent assistant message, if any. New
+    /// assistant-bound identifiers prefer this over a fresh counter, so
+    /// follow-ups keep the thread's identity.
+    pub fn latest_assistant_id(&self, chat_id: &str) -> Option<String> {
+        let chats = self.chats.lock().expect("chat store");
+        chats.get(chat_id)?.history.iter().rev().find_map(|m| {
+            if m.role == ChatRole::Assistant {
+                Some(m.id.clone())
+            } else {
+                None
+            }
+        })
+    }
+}
+
+impl Default for ChatStore {
+    fn default() -> Self {
+        Self::new()
     }
 }
