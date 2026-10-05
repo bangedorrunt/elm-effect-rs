@@ -2516,7 +2516,7 @@ tests = []
 [[module]]
 path = "packages/effect/src/process/index.ts"
 class = "unstable-port"
-status = "unmatched"
+status = "matched"
 tag = "unstable"
 reason = ""
 tests = []
