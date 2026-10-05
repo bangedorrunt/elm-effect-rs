@@ -143,8 +143,16 @@ pub fn split_template(template: &str) -> Vec<String> {
 /// Build from a template: the first word is the program, the rest are args.
 pub fn command_template(template: &str) -> CommandSpec {
     let mut words = split_template(template);
-    let program = if words.is_empty() { String::new() } else { words.remove(0) };
-    CommandSpec { program, args: words, ..CommandSpec::default() }
+    let program = if words.is_empty() {
+        String::new()
+    } else {
+        words.remove(0)
+    };
+    CommandSpec {
+        program,
+        args: words,
+        ..CommandSpec::default()
+    }
 }
 
 /// Build from a program plus an argument array.
@@ -221,7 +229,10 @@ impl ChildHandle {
 
     /// Wait for the exit, collecting stdout and stderr.
     pub fn wait(&mut self) -> Result<CommandOutput, ProcessError> {
-        let child = self.child.take().ok_or_else(|| ProcessError::Spawn("already waited".to_string()))?;
+        let child = self
+            .child
+            .take()
+            .ok_or_else(|| ProcessError::Spawn("already waited".to_string()))?;
         let output = child
             .wait_with_output()
             .map_err(|e| ProcessError::Spawn(e.to_string()))?;
@@ -288,7 +299,9 @@ impl Pipeline {
             for (name, value) in &stage.envs {
                 command.env(name, value);
             }
-            let mut child = command.spawn().map_err(|e| ProcessError::Spawn(e.to_string()))?;
+            let mut child = command
+                .spawn()
+                .map_err(|e| ProcessError::Spawn(e.to_string()))?;
             if !last {
                 previous = child.stdout.take();
             } else {
@@ -327,4 +340,33 @@ pub fn parse_fd_name(name: &str) -> Option<u32> {
 /// Render an fd number back to its name.
 pub fn fd_name(number: u32) -> String {
     format!("fd{number}")
+}
+
+// Command guards
+
+/// Either runnable form: a single standard command or a multi-stage
+/// pipeline. Mirrors TS `Command = StandardCommand | PipedCommand`.
+#[derive(Clone, Debug)]
+pub enum Command {
+    Standard(CommandSpec),
+    Piped(Pipeline),
+}
+
+impl Command {
+    /// Any command counts: both constructors are commands, and
+    /// non-commands are unrepresentable here (the type system rejects
+    /// TS's `null` / unknown-tag cases at compile time).
+    pub fn is_command(&self) -> bool {
+        matches!(self, Command::Standard(_) | Command::Piped(_))
+    }
+
+    /// Only single commands (array or template form).
+    pub fn is_standard_command(&self) -> bool {
+        matches!(self, Command::Standard(_))
+    }
+
+    /// Only multi-stage pipelines.
+    pub fn is_piped_command(&self) -> bool {
+        matches!(self, Command::Piped(_))
+    }
 }

@@ -4,7 +4,7 @@
 #[allow(dead_code)]
 mod process;
 
-use process::{command_array, command_template, split_template};
+use process::{Command, Pipeline, command_array, command_template, split_template};
 
 #[test]
 fn template_form_creates_standard_command() {
@@ -21,7 +21,10 @@ fn template_preserves_escapes_and_quotes() {
 
 #[test]
 fn array_and_options_forms_work() {
-    let cmd = command_array("echo", &["hi"]).cwd("/tmp").env("K", "V").clear_env();
+    let cmd = command_array("echo", &["hi"])
+        .cwd("/tmp")
+        .env("K", "V")
+        .clear_env();
     assert_eq!(cmd.program(), "echo");
     assert_eq!(cmd.args(), &["hi".to_string()]);
 }
@@ -46,7 +49,9 @@ fn spawn_collects_stdout() {
 
 #[test]
 fn shell_form_executes_commands() {
-    let mut child = command_array("sh", &["-c", "echo shell-hey"]).spawn().unwrap();
+    let mut child = command_array("sh", &["-c", "echo shell-hey"])
+        .spawn()
+        .unwrap();
     let out = child.wait().unwrap();
     assert!(out.is_success());
     assert_eq!(out.stdout_text().trim(), "shell-hey");
@@ -97,9 +102,46 @@ fn fd_names_parse_and_render() {
     assert_eq!(parse_fd_name("fd3"), Some(3));
     assert_eq!(parse_fd_name("fd10"), Some(10));
     assert_eq!(parse_fd_name("fd100"), Some(100));
-    for bad in ["stdin", "stdout", "stderr", "fd0", "fd1", "fd2", "invalid", "fd", ""] {
+    for bad in [
+        "stdin", "stdout", "stderr", "fd0", "fd1", "fd2", "invalid", "fd", "",
+    ] {
         assert_eq!(parse_fd_name(bad), None, "{bad}");
     }
     assert_eq!(fd_name(3), "fd3");
     assert_eq!(fd_name(10), "fd10");
+}
+
+#[test]
+fn is_command_detects_both_forms() {
+    let single = Command::Standard(command_template("echo hello"));
+    let piped = Command::Piped(Pipeline::new(vec![
+        command_array("cat", &["file"]),
+        command_array("grep", &["pattern"]),
+    ]));
+    assert!(single.is_command());
+    assert!(piped.is_command());
+}
+
+#[test]
+fn is_standard_command_rejects_piped() {
+    let array = Command::Standard(command_array("echo", &["hello"]));
+    let templated = Command::Standard(command_template("echo hello"));
+    let piped = Command::Piped(Pipeline::new(vec![
+        command_array("cat", &["file"]),
+        command_array("grep", &["pattern"]),
+    ]));
+    assert!(array.is_standard_command());
+    assert!(templated.is_standard_command());
+    assert!(!piped.is_standard_command());
+}
+
+#[test]
+fn is_piped_command_rejects_single() {
+    let single = Command::Standard(command_template("echo hello"));
+    let piped = Command::Piped(Pipeline::new(vec![
+        command_array("cat", &["file"]),
+        command_array("grep", &["pattern"]),
+    ]));
+    assert!(!single.is_piped_command());
+    assert!(piped.is_piped_command());
 }
