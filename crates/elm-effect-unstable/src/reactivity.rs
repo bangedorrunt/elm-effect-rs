@@ -74,3 +74,75 @@ pub type SharedSignal<T> = Arc<Signal<T>>;
 pub fn shared<T: Clone + Send + 'static>(initial: T) -> SharedSignal<T> {
     Arc::new(Signal::new(initial))
 }
+
+/// A named collection of string atoms (`AtomRegistry` shape): atoms are
+/// created on first access and shared by name. Values are strings so the
+/// whole registry snapshots as JSON.
+///
+/// ```
+/// use elm_effect_unstable::reactivity::AtomRegistry;
+/// let registry = AtomRegistry::new();
+/// registry.set("theme", "dark");
+/// assert_eq!(registry.get("theme"), Some("dark".to_string()));
+/// assert_eq!(registry.get("missing"), None);
+/// ```
+pub struct AtomRegistry {
+    atoms: Mutex<std::collections::HashMap<String, SharedSignal<String>>>,
+}
+
+impl AtomRegistry {
+    /// An empty registry.
+    pub fn new() -> Self {
+        Self {
+            atoms: Mutex::new(std::collections::HashMap::new()),
+        }
+    }
+
+    /// The atom called `name`, creating it empty when missing.
+    pub fn atom(&self, name: &str) -> SharedSignal<String> {
+        let mut atoms = self.atoms.lock().unwrap();
+        atoms
+            .entry(name.to_string())
+            .or_insert_with(|| shared(String::new()))
+            .clone()
+    }
+
+    /// Assign an atom's value, creating it when missing.
+    pub fn set(&self, name: &str, value: &str) {
+        self.atom(name).set(value.to_string());
+    }
+
+    /// An atom's value, if the atom exists.
+    pub fn get(&self, name: &str) -> Option<String> {
+        self.atoms.lock().unwrap().get(name).map(|atom| atom.get())
+    }
+
+    /// Every atom name currently registered.
+    pub fn names(&self) -> Vec<String> {
+        self.atoms.lock().unwrap().keys().cloned().collect()
+    }
+
+    /// A snapshot of every atom (`Hydration` export shape).
+    pub fn snapshot(&self) -> std::collections::BTreeMap<String, String> {
+        self.atoms
+            .lock()
+            .unwrap()
+            .iter()
+            .map(|(name, atom)| (name.clone(), atom.get()))
+            .collect()
+    }
+
+    /// Restore a snapshot (`Hydration` import shape): every entry becomes
+    /// (or updates) an atom.
+    pub fn restore(&self, snapshot: &std::collections::BTreeMap<String, String>) {
+        for (name, value) in snapshot {
+            self.set(name, value);
+        }
+    }
+}
+
+impl Default for AtomRegistry {
+    fn default() -> Self {
+        Self::new()
+    }
+}
