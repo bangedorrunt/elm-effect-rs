@@ -216,6 +216,51 @@ impl<T> TxQueue<T> {
     pub fn close(&self) {
         *self.closed.lock().unwrap() = true;
     }
+
+    /// Push every value (`offerAll`); closed queues take none.
+    pub fn offer_all(&self, values: impl IntoIterator<Item = T>) {
+        for value in values {
+            if !self.offer(value) {
+                break;
+            }
+        }
+    }
+
+    /// Drain everything in order (`takeAll`).
+    pub fn take_all(&self) -> Vec<T> {
+        atomically(|| self.inner.lock().unwrap().drain(..).collect())
+    }
+
+    /// Drain up to `n` items in order (`takeN`); `take_n(0)` is empty.
+    pub fn take_n(&self, n: usize) -> Vec<T> {
+        atomically(|| {
+            let mut queue = self.inner.lock().unwrap();
+            let take = n.min(queue.len());
+            queue.drain(..take).collect()
+        })
+    }
+
+    /// Front item without removing it (`peek`).
+    pub fn peek(&self) -> Option<T>
+    where
+        T: Clone,
+    {
+        atomically(|| self.inner.lock().unwrap().front().cloned())
+    }
+
+    /// Drain up to `max` items, but nothing when fewer than `min` wait
+    /// or the range is inverted (`takeBetween`).
+    pub fn take_between(&self, min: usize, max: usize) -> Vec<T> {
+        atomically(|| {
+            let queue = self.inner.lock().unwrap();
+            if min > max || queue.len() < min {
+                return Vec::new();
+            }
+            let take = max.min(queue.len());
+            drop(queue);
+            self.take_n(take)
+        })
+    }
 }
 
 /// A transactional counting semaphore (non-blocking end only).

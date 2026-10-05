@@ -210,3 +210,38 @@ fn tx_queue_close_drains_then_stops() {
     assert_eq!(queue.take(), None);
     assert_eq!(queue.poll(), None);
 }
+
+#[test]
+fn tx_queue_offer_all_then_take_all() {
+    let queue = TxQueue::unbounded();
+    queue.offer_all(vec![1, 2, 3]);
+    assert_eq!(queue.take_all(), vec![1, 2, 3]);
+    assert!(queue.take_all().is_empty());
+}
+
+#[test]
+fn tx_queue_take_n_takes_up_to_n() {
+    let queue = TxQueue::unbounded();
+    queue.offer_all(vec![1, 2, 3]);
+    assert_eq!(queue.take_n(2), vec![1, 2]);
+    assert_eq!(queue.take_n(5), vec![3]);
+    assert_eq!(queue.take_n(0), Vec::<i32>::new());
+}
+
+#[test]
+fn tx_queue_peek_does_not_remove() {
+    let queue = TxQueue::unbounded();
+    assert_eq!(queue.peek(), None);
+    queue.offer(1);
+    assert_eq!(queue.peek(), Some(1));
+    assert_eq!(queue.take(), Some(1));
+}
+
+#[test]
+fn tx_queue_take_between_min_and_max() {
+    let queue = TxQueue::unbounded();
+    queue.offer_all(vec![1, 2, 3]);
+    assert_eq!(queue.take_between(1, 2), vec![1, 2]);
+    assert!(queue.take_between(5, 9).is_empty());
+    assert!(queue.take_between(2, 1).is_empty());
+}
