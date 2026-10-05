@@ -2108,7 +2108,7 @@ tests = ["packages/effect/test/http/HttpBody.test.ts"]
 [[module]]
 path = "packages/effect/src/http/HttpClient.ts"
 class = "unstable-port"
-status = "unmatched"
+status = "matched"
 tag = "unstable"
 reason = ""
 tests = ["packages/effect/test/http/HttpClient.test.ts"]
@@ -2116,7 +2116,7 @@ tests = ["packages/effect/test/http/HttpClient.test.ts"]
 [[module]]
 path = "packages/effect/src/http/HttpClientError.ts"
 class = "unstable-port"
-status = "unmatched"
+status = "matched"
 tag = "unstable"
 reason = ""
 tests = []
@@ -2124,7 +2124,7 @@ tests = []
 [[module]]
 path = "packages/effect/src/http/HttpClientRequest.ts"
 class = "unstable-port"
-status = "unmatched"
+status = "matched"
 tag = "unstable"
 reason = ""
 tests = ["packages/effect/test/http/HttpClientRequest.test.ts"]
@@ -2132,7 +2132,7 @@ tests = ["packages/effect/test/http/HttpClientRequest.test.ts"]
 [[module]]
 path = "packages/effect/src/http/HttpClientResponse.ts"
 class = "unstable-port"
-status = "unmatched"
+status = "matched"
 tag = "unstable"
 reason = ""
 tests = []
@@ -2156,7 +2156,7 @@ tests = []
 [[module]]
 path = "packages/effect/src/http/HttpMethod.ts"
 class = "unstable-port"
-status = "unmatched"
+status = "matched"
 tag = "unstable"
 reason = ""
 tests = []
@@ -2180,7 +2180,7 @@ tests = ["packages/effect/test/http/HttpPlatform.test.ts"]
 [[module]]
 path = "packages/effect/src/http/HttpRouter.ts"
 class = "unstable-port"
-status = "unmatched"
+status = "matched"
 tag = "unstable"
 reason = ""
 tests = ["packages/effect/test/http/HttpRouter.test.ts"]
@@ -2348,7 +2348,7 @@ tests = ["packages/effect/test/net/IpNetwork.test.ts"]
 [[module]]
 path = "packages/effect/src/net/NetAddress.ts"
 class = "unstable-port"
-status = "unmatched"
+status = "matched"
 tag = "unstable"
 reason = ""
 tests = ["packages/effect/test/net/NetAddress.test.ts"]
