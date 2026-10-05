@@ -325,6 +325,12 @@ impl Headers {
         self.entries.len() != before
     }
 
+    /// Remove every name in `names`; returns the count of names that
+    /// removed something.
+    pub fn remove_many(&mut self, names: &[&str]) -> usize {
+        names.iter().filter(|name| self.remove(name)).count()
+    }
+
     /// Merge another map in (set semantics per name).
     pub fn merge(&mut self, other: &Headers) {
         for (name, value) in &other.entries {

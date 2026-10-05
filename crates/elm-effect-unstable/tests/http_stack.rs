@@ -402,3 +402,18 @@ fn ipinterface_equality_and_throwing_parse() {
     );
     assert_eq!(IpInterface::must_parse("10.0.0.1/8").render(), "10.0.0.1/8");
 }
+
+#[test]
+fn headers_remove_many_drops_each_case_insensitively() {
+    use elm_effect_unstable::http::Headers;
+    let mut headers = Headers::from_pairs(vec![
+        ("X-A".to_string(), "1".to_string()),
+        ("x-b".to_string(), "2".to_string()),
+        ("X-C".to_string(), "3".to_string()),
+    ]);
+    assert_eq!(headers.remove_many(&["x-a", "X-B", "absent"]), 2);
+    assert_eq!(
+        headers.entries(),
+        &[("X-C".to_string(), "3".to_string())]
+    );
+}
