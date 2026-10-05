@@ -27,6 +27,8 @@ pub struct HttpRequest {
     pub headers: Vec<(String, String)>,
     /// The optional body.
     pub body: Option<Vec<u8>>,
+    /// Optional URL fragment (without `#`).
+    pub hash: Option<String>,
 }
 
 /// A received response: status, headers, body bytes.
@@ -84,6 +86,7 @@ impl HttpClient {
             url: url.to_string(),
             headers: Vec::new(),
             body: None,
+            hash: None,
         }
     }
 
@@ -94,6 +97,7 @@ impl HttpClient {
             url: url.to_string(),
             headers: Vec::new(),
             body: Some(body.as_bytes().to_vec()),
+            hash: None,
         }
     }
 
@@ -153,6 +157,24 @@ impl HttpRequest {
     pub fn header(mut self, name: &str, value: &str) -> Self {
         self.headers.push((name.to_string(), value.to_string()));
         self
+    }
+
+    /// Remove every header with `name` (case-insensitive); true when any
+    /// was removed. Missing names are a no-op returning false.
+    pub fn remove_header(&mut self, name: &str) -> bool {
+        let before = self.headers.len();
+        self.headers.retain(|(n, _)| !n.eq_ignore_ascii_case(name));
+        self.headers.len() != before
+    }
+
+    /// Set the URL fragment (without `#`).
+    pub fn set_hash(&mut self, hash: impl Into<String>) {
+        self.hash = Some(hash.into());
+    }
+
+    /// Clear the URL fragment.
+    pub fn remove_hash(&mut self) {
+        self.hash = None;
     }
 }
 
@@ -974,5 +996,21 @@ impl Url {
             masked.password = Some("***".to_string());
         }
         masked.render()
+    }
+}
+
+/// Join a base URL and a path with exactly one slash between them.
+///
+/// Ports `HttpClientRequest` path joining: empty paths no-op, existing
+/// and leading slashes are preserved without doubling.
+pub fn join_url(base: &str, path: &str) -> String {
+    if path.is_empty() {
+        return base.to_string();
+    }
+    let base = base.strip_suffix('/').unwrap_or(base);
+    if path.starts_with('/') {
+        format!("{base}{path}")
+    } else {
+        format!("{base}/{path}")
     }
 }

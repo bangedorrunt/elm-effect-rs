@@ -6505,22 +6505,22 @@ unported	packages/effect/test/http/HttpClient.test.ts	1260	it.effect	keeps adapt
 unported	packages/effect/test/http/HttpClient.test.ts	1313	it.effect	prefers explicit RateLimit reset headers over adaptive Retry-After feedback	
 unported	packages/effect/test/http/HttpClientRequest.test.ts	16	it.each	sets the exact outgoing Content-Length for $name	
 unported	packages/effect/test/http/HttpClientRequest.test.ts	37	it	propagates typed BadArgument from file range validation	
-unported	packages/effect/test/http/HttpClientRequest.test.ts	52	it	joins segments without slashes	
-unported	packages/effect/test/http/HttpClientRequest.test.ts	60	it	avoids double slashes	
-unported	packages/effect/test/http/HttpClientRequest.test.ts	68	it	preserves existing slash	
-unported	packages/effect/test/http/HttpClientRequest.test.ts	76	it	preserves leading slash	
-unported	packages/effect/test/http/HttpClientRequest.test.ts	84	it	no-ops on empty path	
+ported	packages/effect/test/http/HttpClientRequest.test.ts	52	it	joins segments without slashes	url_paths_join_without_doubling_slashes
+ported	packages/effect/test/http/HttpClientRequest.test.ts	60	it	avoids double slashes	url_paths_join_without_doubling_slashes
+ported	packages/effect/test/http/HttpClientRequest.test.ts	68	it	preserves existing slash	url_paths_join_without_doubling_slashes
+ported	packages/effect/test/http/HttpClientRequest.test.ts	76	it	preserves leading slash	url_paths_join_without_doubling_slashes
+ported	packages/effect/test/http/HttpClientRequest.test.ts	84	it	no-ops on empty path	url_paths_join_without_doubling_slashes
 unported	packages/effect/test/http/HttpClientRequest.test.ts	94	it	creates a form data body from a record	
 unported	packages/effect/test/http/HttpClientRequest.test.ts	117	it	removes content headers when switching to form data	
 unported	packages/effect/test/http/HttpClientRequest.test.ts	129	it	removes stale content length when the replacement body has no known length	
-unported	packages/effect/test/http/HttpClientRequest.test.ts	139	it	removes an existing header	
-unported	packages/effect/test/http/HttpClientRequest.test.ts	148	it	no-ops on a missing header	
+ported	packages/effect/test/http/HttpClientRequest.test.ts	139	it	removes an existing header	request_headers_remove_and_missing_noop
+ported	packages/effect/test/http/HttpClientRequest.test.ts	148	it	no-ops on a missing header	request_headers_remove_and_missing_noop
 unported	packages/effect/test/http/HttpClientRequest.test.ts	157	it	preserves the request prototype	
 unported	packages/effect/test/http/HttpClientRequest.test.ts	167	it	transforms the header collection	
 unported	packages/effect/test/http/HttpClientRequest.test.ts	176	it	preserves the request prototype	
 unported	packages/effect/test/http/HttpClientRequest.test.ts	185	it	supports the data-first overload	
-unported	packages/effect/test/http/HttpClientRequest.test.ts	194	it	stores hash as Option	
-unported	packages/effect/test/http/HttpClientRequest.test.ts	204	it	removes hash	
+ported	packages/effect/test/http/HttpClientRequest.test.ts	194	it	stores hash as Option	request_hash_stores_option_and_removes
+ported	packages/effect/test/http/HttpClientRequest.test.ts	204	it	removes hash	request_hash_stores_option_and_removes
 unported	packages/effect/test/http/HttpClientRequest.test.ts	212	it	returns none for invalid url	
 unported	packages/effect/test/http/HttpClientRequest.test.ts	221	it.effect	fromWeb	
 unported	packages/effect/test/http/HttpClientRequest.test.ts	247	it	fromWeb ignores malformed or unsafe content lengths	

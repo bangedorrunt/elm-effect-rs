@@ -262,3 +262,33 @@ fn url_host_setters_split_hostname_and_port() {
     url.set_href("http://plain.com/");
     assert_eq!(url.render(), "http://plain.com/");
 }
+
+#[test]
+fn url_paths_join_without_doubling_slashes() {
+    use elm_effect_unstable::http::join_url;
+    assert_eq!(join_url("https://a.com/api", "users"), "https://a.com/api/users");
+    assert_eq!(join_url("https://a.com/api", "/users"), "https://a.com/api/users");
+    assert_eq!(join_url("https://a.com/api/", "users"), "https://a.com/api/users");
+    assert_eq!(join_url("https://a.com/api", ""), "https://a.com/api");
+}
+
+#[test]
+fn request_headers_remove_and_missing_noop() {
+    let mut request = elm_effect_unstable::http::HttpClient::get("https://a.com/")
+        .header("X-A", "1")
+        .header("x-a", "2");
+    assert!(request.remove_header("X-A"));
+    assert!(!request.remove_header("X-A"));
+    assert!(!request.remove_header("absent"));
+    assert!(request.headers.is_empty());
+}
+
+#[test]
+fn request_hash_stores_option_and_removes() {
+    let mut request = elm_effect_unstable::http::HttpClient::get("https://a.com/");
+    assert_eq!(request.hash, None);
+    request.set_hash("frag");
+    assert_eq!(request.hash, Some("frag".to_string()));
+    request.remove_hash();
+    assert_eq!(request.hash, None);
+}
