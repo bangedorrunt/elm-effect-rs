@@ -8606,17 +8606,17 @@ unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.
 unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	82	it	imports string lengths by code point and integers as safe integers	
 unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	106	it	uses imported string semantics while intersecting primitive literals	
 unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	119	it	reports patterns unsupported in ECMAScript Unicode mode	
-unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	152	it	unconstrained schema	
+ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	152	it	unconstrained schema	json_schema_unconstrained_imports_as_any
 unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	177	it	keeps annotation-only schemas unconstrained	
-unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	184	it	string literal	
-unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	195	it	const: literal (number)	
-unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	202	it	const: literal (boolean)	
-unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	209	it	null literal	
+ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	184	it	string literal	json_schema_single_member_enum
+ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	195	it	const: literal (number)	json_schema_const_numbers_and_booleans
+ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	202	it	const: literal (boolean)	json_schema_const_numbers_and_booleans
+ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	209	it	null literal	json_schema_null_and_typed_imports
 unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	220	it	rejects structured values	
-unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	231	it	single string member	
-unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	242	it	single enum (number)	
-unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	249	it	single enum (boolean)	
-unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	256	it	multiple literal members	
+ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	231	it	single string member	json_schema_single_member_enum
+ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	242	it	single enum (number)	json_schema_single_member_enums
+ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	249	it	single enum (boolean)	json_schema_single_member_enums
+ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	256	it	multiple literal members	json_schema_const_and_enum_import_as_literals
 unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	267	it	enum containing null	
 unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	275	it	anyOf	
 unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	282	it	anyOf with siblings	
