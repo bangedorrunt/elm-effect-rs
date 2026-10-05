@@ -8,6 +8,7 @@ publish = false
 [features]
 otel = ["dep:opentelemetry", "dep:opentelemetry_sdk"]
 eventlog = []
+persistence = []
 
 [dependencies]
 elm-effect = { path = "../elm-effect" }

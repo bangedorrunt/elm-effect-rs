@@ -8,3 +8,6 @@ pub mod workflow;
 
 #[cfg(feature = "eventlog")]
 pub mod eventlog;
+
+#[cfg(feature = "persistence")]
+pub mod persistence;

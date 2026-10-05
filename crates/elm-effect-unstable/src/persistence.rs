@@ -14,10 +14,11 @@ use std::sync::Mutex;
 
 // ------------------------------------------------------------------- store ---
 
-/// Stored entry with optional deadline.
+/// Stored entry with optional deadline. Values are bytes: strings are
+/// UTF-8 views, so binary values round-trip untouched.
 #[derive(Clone, Debug)]
 struct Entry {
-    value: String,
+    value: Vec<u8>,
     expires_at: Option<u64>,
 }
 
@@ -48,7 +49,7 @@ impl KeyValueStore {
 
     /// Insert without TTL.
     pub fn set(&mut self, key: &str, value: &str) {
-        self.map.insert(key.to_string(), Entry { value: value.to_string(), expires_at: None });
+        self.map.insert(key.to_string(), Entry { value: value.as_bytes().to_vec(), expires_at: None });
     }
 
     /// Insert many without TTL.
@@ -63,13 +64,35 @@ impl KeyValueStore {
         let ttl = ttl_millis.ceil().max(0.0) as u64;
         self.map.insert(
             key.to_string(),
-            Entry { value: value.to_string(), expires_at: Some(self.now_ms + ttl) },
+            Entry { value: value.as_bytes().to_vec(), expires_at: Some(self.now_ms + ttl) },
         );
     }
 
-    /// Read; missing or expired is [`None`].
+    /// Read as UTF-8 text; missing, expired, or non-UTF-8 is [`None`].
     pub fn get(&self, key: &str) -> Option<String> {
+        self.live(key).and_then(|e| String::from_utf8(e.value.clone()).ok())
+    }
+
+    /// Live entry count.
+    pub fn size(&self) -> usize {
+        let now = self.now_ms;
+        self.map
+            .values()
+            .filter(|e| match e.expires_at {
+                Some(deadline) => now < deadline,
+                None => true,
+            })
+            .count()
+    }
+
+    /// Raw bytes (binary values round-trip untouched).
+    pub fn get_bytes(&self, key: &str) -> Option<Vec<u8>> {
         self.live(key).map(|e| e.value.clone())
+    }
+
+    /// Store raw bytes.
+    pub fn set_bytes(&mut self, key: &str, bytes: &[u8]) {
+        self.map.insert(key.to_string(), Entry { value: bytes.to_vec(), expires_at: None });
     }
 
     /// Presence (live entries only).
@@ -93,6 +116,22 @@ impl KeyValueStore {
         match next {
             Some(v) => {
                 self.set(key, &v);
+                Some(v)
+            }
+            None => None,
+        }
+    }
+
+    /// Modify raw bytes (binary-safe modify path).
+    pub fn modify_bytes(
+        &mut self,
+        key: &str,
+        f: impl FnOnce(Option<Vec<u8>>) -> Option<Vec<u8>>,
+    ) -> Option<Vec<u8>> {
+        let next = f(self.get_bytes(key));
+        match next {
+            Some(v) => {
+                self.set_bytes(key, &v);
                 Some(v)
             }
             None => None,
@@ -337,6 +376,21 @@ impl RateLimiter {
 pub struct PersistedQueue {
     attempts: HashMap<String, u64>,
     completed: VecDeque<(String, u64)>,
+    pending: VecDeque<QueuedItem>,
+    in_flight: HashMap<String, QueuedItem>,
+    max_attempts: u64,
+    dedupe: HashMap<String, String>,
+}
+
+/// One queued element with its attempt count.
+#[derive(Clone, Debug, PartialEq)]
+pub struct QueuedItem {
+    /// Caller id (dedupe key scope).
+    pub id: String,
+    /// Payload bytes.
+    pub payload: Vec<u8>,
+    /// Attempts so far (starts at 1 on first delivery).
+    pub attempts: u64,
 }
 
 impl PersistedQueue {
@@ -367,6 +421,57 @@ impl PersistedQueue {
     /// Completed count (test introspection).
     pub fn completed_len(&self) -> usize {
         self.completed.len()
+    }
+
+    /// Offer an element; same id twice dedupes within this queue.
+    pub fn offer(&mut self, id: &str, payload: Vec<u8>) -> bool {
+        if self.dedupe.contains_key(id) {
+            return false;
+        }
+        self.dedupe.insert(id.to_string(), id.to_string());
+        self.pending.push_back(QueuedItem { id: id.to_string(), payload, attempts: 0 });
+        true
+    }
+
+    /// Take the next element, marking it in-flight with attempt 1+.
+    /// Elements that fail to decode are dead-lettered, never redelivered.
+    pub fn take(&mut self) -> Option<QueuedItem> {
+        let mut item = self.pending.pop_front()?;
+        item.attempts = self.attempts.get(&item.id).copied().unwrap_or(0) + 1;
+        self.attempts.insert(item.id.clone(), item.attempts);
+        self.in_flight.insert(item.id.clone(), item.clone());
+        Some(item)
+    }
+
+    /// Acknowledge: completed, prunable later.
+    pub fn ack(&mut self, id: &str, now_ms: u64) -> bool {
+        if self.in_flight.remove(id).is_some() {
+            self.completed.push_back((id.to_string(), now_ms));
+            true
+        } else {
+            false
+        }
+    }
+
+    /// Fail: redeliver while attempts remain, else dead-letter.
+    /// Returns the redelivered item, or [`None`] when dead.
+    pub fn fail(&mut self, id: &str, max_attempts: u64) -> Option<QueuedItem> {
+        let item = self.in_flight.remove(id)?;
+        if item.attempts >= max_attempts {
+            return None;
+        }
+        self.pending.push_back(item.clone());
+        Some(item)
+    }
+
+    /// Pending depth (test introspection).
+    pub fn pending_len(&self) -> usize {
+        self.pending.len()
+    }
+
+    /// In-flight count (test introspection).
+    pub fn in_flight_len(&self) -> usize {
+        self.in_flight.len()
     }
 }
 
