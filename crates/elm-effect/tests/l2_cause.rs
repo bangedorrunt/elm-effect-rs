@@ -244,3 +244,32 @@ fn library_crate_has_no_run() {
         "run/block_on outside the edge: {offenders:?}"
     );
 }
+
+#[test]
+fn cause_narrows_channels() {
+    use elm_effect::{Cause, Reason};
+    let cause = Cause {
+        reasons: vec![
+            Reason::Fail("e1"),
+            Reason::Die(elm_effect::Defect::new("d1")),
+            Reason::Interrupt { fiber_id: None },
+            Reason::Fail("e2"),
+        ],
+    };
+    assert_eq!(cause.failures(), [&"e1", &"e2"]);
+    assert_eq!(cause.interruptors(), [None]);
+    assert!(cause.is_interrupted());
+    let fails = cause.strip_dies_and_interrupts();
+    assert_eq!(fails.failures().len(), 2);
+    assert!(!fails.is_interrupted());
+    let dies = cause.strip_failures_and_interrupts();
+    assert!(dies.failures().is_empty());
+    assert_eq!(dies.defects().len(), 1);
+    let ints = cause.strip_failures_and_dies();
+    assert!(ints.failures().is_empty());
+    assert!(ints.is_interrupted());
+    let clean = Cause::<&str>::empty();
+    assert!(clean.failures().is_empty());
+    assert!(clean.interruptors().is_empty());
+    assert!(!clean.is_interrupted());
+}

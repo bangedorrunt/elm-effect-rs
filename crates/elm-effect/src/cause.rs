@@ -119,6 +119,74 @@ impl<E> Cause<E> {
             .iter()
             .any(|r| matches!(r, Reason::Interrupt { .. }))
     }
+
+    /// Expected error values, in order ().
+    pub fn failures(&self) -> Vec<&E> {
+        self.reasons
+            .iter()
+            .filter_map(|r| match r {
+                Reason::Fail(e) => Some(e),
+                _ => None,
+            })
+            .collect()
+    }
+
+    /// Interrupting fibers, in order ().
+    pub fn interruptors(&self) -> Vec<Option<FiberId>> {
+        self.reasons
+            .iter()
+            .filter_map(|r| match r {
+                Reason::Interrupt { fiber_id } => Some(*fiber_id),
+                _ => None,
+            })
+            .collect()
+    }
+
+    /// Keep only  reasons (narrow to failures, rejecting dies and
+    /// interrupts).
+    pub fn strip_dies_and_interrupts(&self) -> Self
+    where
+        E: Clone,
+    {
+        Self {
+            reasons: self
+                .reasons
+                .iter()
+                .filter(|r| matches!(r, Reason::Fail(_)))
+                .cloned()
+                .collect(),
+        }
+    }
+
+    /// Keep only  reasons (narrow to defects).
+    pub fn strip_failures_and_interrupts(&self) -> Self
+    where
+        E: Clone,
+    {
+        Self {
+            reasons: self
+                .reasons
+                .iter()
+                .filter(|r| matches!(r, Reason::Die(_)))
+                .cloned()
+                .collect(),
+        }
+    }
+
+    /// Keep only  reasons (narrow to interruptions).
+    pub fn strip_failures_and_dies(&self) -> Self
+    where
+        E: Clone,
+    {
+        Self {
+            reasons: self
+                .reasons
+                .iter()
+                .filter(|r| matches!(r, Reason::Interrupt { .. }))
+                .cloned()
+                .collect(),
+        }
+    }
 }
 
 impl<E> Default for Cause<E> {
