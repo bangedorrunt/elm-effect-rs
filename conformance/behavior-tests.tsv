@@ -9212,15 +9212,15 @@ unported	packages/effect/test/schema/representation/toRepresentations.test.ts	41
 unported	packages/effect/test/schema/toCodec.test.ts	40	it	${name} preserves union order when branded members share an AST	
 unported	packages/effect/test/schema/toCodec.test.ts	57	it	exposes the source schema	
 ported	packages/effect/test/schema/toCodec.test.ts	63	it	treats Json as canonical	json_bytes_decode_and_encode
-unported	packages/effect/test/schema/toCodec.test.ts	68	it	is idempotent	
+ported	packages/effect/test/schema/toCodec.test.ts	68	it	is idempotent	codec_struct_is_idempotent
 unported	packages/effect/test/schema/toCodec.test.ts	73	it	should reorder the types in the Union based on the encoded side	
 unported	packages/effect/test/schema/toCodec.test.ts	90	it	Struct with Symbol property name	
 unported	packages/effect/test/schema/toCodec.test.ts	103	it	instanceOf without annotations	
 unported	packages/effect/test/schema/toCodec.test.ts	115	it	arg: message: string	
 unported	packages/effect/test/schema/toCodec.test.ts	147	it	arg: struct	
-unported	packages/effect/test/schema/toCodec.test.ts	195	it	Struct	
-unported	packages/effect/test/schema/toCodec.test.ts	204	it	Record	
-unported	packages/effect/test/schema/toCodec.test.ts	210	it	Tuple	
+ported	packages/effect/test/schema/toCodec.test.ts	195	it	Struct	codec_struct_is_idempotent
+ported	packages/effect/test/schema/toCodec.test.ts	204	it	Record	codec_record_round_trips_and_keeps_empty
+ported	packages/effect/test/schema/toCodec.test.ts	210	it	Tuple	codec_tuple_round_trips_in_order
 unported	packages/effect/test/schema/toCodec.test.ts	216	it	Array	
 unported	packages/effect/test/schema/toCodec.test.ts	222	it	Union	
 unported	packages/effect/test/schema/toCodec.test.ts	229	it	should apply the construction process to the provided link in the serializer annotation	
