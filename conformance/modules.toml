@@ -2436,7 +2436,7 @@ tests = []
 [[module]]
 path = "packages/effect/src/persistence/KeyValueStore.ts"
 class = "unstable-port"
-status = "unmatched"
+status = "matched"
 tag = "unstable"
 reason = ""
 tests = ["packages/effect/test/persistence/KeyValueStore.test.ts"]
@@ -2460,7 +2460,7 @@ tests = ["packages/effect/test/persistence/PersistedCache.test.ts"]
 [[module]]
 path = "packages/effect/src/persistence/PersistedQueue.ts"
 class = "unstable-port"
-status = "unmatched"
+status = "matched"
 tag = "unstable"
 reason = ""
 tests = ["packages/effect/test/persistence/PersistedQueue.test.ts"]
@@ -2476,7 +2476,7 @@ tests = []
 [[module]]
 path = "packages/effect/src/persistence/RateLimiter.ts"
 class = "unstable-port"
-status = "unmatched"
+status = "matched"
 tag = "unstable"
 reason = ""
 tests = ["packages/effect/test/persistence/RateLimiter.test.ts"]
@@ -2484,7 +2484,7 @@ tests = ["packages/effect/test/persistence/RateLimiter.test.ts"]
 [[module]]
 path = "packages/effect/src/persistence/Redis.ts"
 class = "unstable-port"
-status = "unmatched"
+status = "matched"
 tag = "unstable"
 reason = ""
 tests = ["packages/effect/test/persistence/Redis.test.ts"]
