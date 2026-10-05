@@ -184,6 +184,74 @@ where
     })
 }
 
+/// Catch every failure (`catchCauseFilter` with an error extractor): the
+/// channel-level `Fail` already carries the typed error, so any failure is
+/// replaced by driving `handler(error)` to completion.
+pub fn catch_all<A, E, F>(handler: F) -> Channel<A, E, A>
+where
+    A: Send + 'static,
+    E: Send + 'static,
+    F: FnMut(E) -> Pull<A, E> + Send + 'static,
+{
+    catch_if(|_| true, handler)
+}
+
+/// Catch with a fallback (`catchTag`/`catchReason` orElse shape): a `Fail`
+/// satisfying `predicate` is replaced by driving `on_match(error)` to
+/// completion; any other failure is replaced by driving `or_else(error)`
+/// instead of passing through. Tag dispatch lives in the predicate, so
+/// nested reasons compose through ordinary closures.
+pub fn catch_or_else<A, E, P, F, G>(
+    mut predicate: P,
+    mut on_match: F,
+    mut or_else: G,
+) -> Channel<A, E, A>
+where
+    A: Send + 'static,
+    E: Send + 'static,
+    P: FnMut(&E) -> bool + Send + 'static,
+    F: FnMut(E) -> Pull<A, E> + Send + 'static,
+    G: FnMut(E) -> Pull<A, E> + Send + 'static,
+{
+    Channel::from_fn(move |take| match take {
+        Take::Items(items) => vec![Take::Items(items)],
+        Take::End => vec![Take::End],
+        Take::Fail(e) => {
+            let mut inner = if predicate(&e) {
+                on_match(e)
+            } else {
+                or_else(e)
+            };
+            let mut out = Vec::new();
+            loop {
+                match inner.pull() {
+                    Take::Items(mut chunk) => out.append(&mut chunk),
+                    Take::End => break,
+                    Take::Fail(e) => return vec![Take::Fail(e)],
+                }
+            }
+            vec![Take::Items(out)]
+        }
+    })
+}
+
+/// Unwrap a nested reason (`unwrapReason`): a `Fail` satisfying `predicate`
+/// is replaced by `Fail(reason(error))`; other failures pass through.
+pub fn unwrap_reason<A, E, P, F>(mut predicate: P, mut reason: F) -> Channel<A, E, A>
+where
+    A: Send + 'static,
+    E: Send + 'static,
+    P: FnMut(&E) -> bool + Send + 'static,
+    F: FnMut(E) -> E + Send + 'static,
+{
+    Channel::from_fn(move |take| match take {
+        Take::Items(items) => vec![Take::Items(items)],
+        Take::End => vec![Take::End],
+        Take::Fail(e) if predicate(&e) => vec![Take::Fail(reason(e))],
+        Take::Fail(e) => vec![Take::Fail(e)],
+    })
+}
+
 /// Decode UTF-8 bytes split across pulls (`decodeText` shapes): incomplete
 /// trailing sequences buffer until complete; a stream ending mid-character
 /// or with invalid bytes fails. Empty prefixes emit nothing (the driver

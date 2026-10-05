@@ -566,3 +566,139 @@ fn from_write_aborts_on_failure() {
     assert!(matches!(exit2, elm_effect::Exit::Failure(_)));
     assert_eq!(flushes2.load(Ordering::SeqCst), 0);
 }
+
+#[test]
+fn channel_catch_all_recovers_any_failure() {
+    // One-shot failure: Pull::fail repeats forever, so recovery tests
+    // need a source that ends after failing once.
+    let mut first = true;
+    let source = pull::Pull::from_fn(move || {
+        if first {
+            first = false;
+            Take::Fail("boom".to_string())
+        } else {
+            Take::End
+        }
+    });
+    let piped = channel::catch_all(|_: String| pull::Pull::of(vec![9]));
+    let mut piped = piped.run(source);
+    assert_eq!(piped.pull(), Take::Items(vec![9]));
+    assert_eq!(piped.pull(), Take::End);
+}
+
+#[test]
+fn channel_catch_or_else_splits_match_and_fallback() {
+    #[derive(Debug, Clone, PartialEq)]
+    enum Problem {
+        Http,
+        Validation,
+    }
+    let run = |p: Problem| {
+        let mut first = true;
+        let source = pull::Pull::from_fn(move || {
+            if first {
+                first = false;
+                Take::Fail(p.clone())
+            } else {
+                Take::End
+            }
+        });
+        let mut piped = channel::catch_or_else(
+            |e: &Problem| matches!(e, Problem::Http),
+            |_: Problem| pull::Pull::of(vec!["http".to_string()]),
+            |_: Problem| pull::Pull::of(vec!["fallback".to_string()]),
+        )
+        .run(source);
+        let first = piped.pull();
+        assert_eq!(piped.pull(), Take::End);
+        first
+    };
+    assert_eq!(run(Problem::Http), Take::Items(vec!["http".to_string()]));
+    assert_eq!(
+        run(Problem::Validation),
+        Take::Items(vec!["fallback".to_string()])
+    );
+}
+
+#[test]
+fn channel_catch_or_else_nests_reason_match() {
+    #[derive(Debug, Clone, PartialEq)]
+    enum Reason {
+        RateLimit(u64),
+        Quota(u64),
+    }
+    #[derive(Debug, Clone, PartialEq)]
+    enum Problem {
+        Ai(Reason),
+        Other,
+    }
+    let run = |p: Problem| {
+        let mut first = true;
+        let source = pull::Pull::from_fn(move || {
+            if first {
+                first = false;
+                Take::Fail(p.clone())
+            } else {
+                Take::End
+            }
+        });
+        let mut piped = channel::catch_or_else(
+            |e: &Problem| matches!(e, Problem::Ai(_)),
+            |e: Problem| match e {
+                Problem::Ai(Reason::RateLimit(n)) => {
+                    pull::Pull::of(vec![format!("retry: {n}")])
+                }
+                Problem::Ai(Reason::Quota(n)) => {
+                    pull::Pull::of(vec![format!("quota: {n}")])
+                }
+                Problem::Other => unreachable!(),
+            },
+            |_: Problem| pull::Pull::of(vec!["other".to_string()]),
+        )
+        .run(source);
+        let first = piped.pull();
+        assert_eq!(piped.pull(), Take::End);
+        first
+    };
+    assert_eq!(
+        run(Problem::Ai(Reason::Quota(100))),
+        Take::Items(vec!["quota: 100".to_string()])
+    );
+    assert_eq!(
+        run(Problem::Ai(Reason::RateLimit(60))),
+        Take::Items(vec!["retry: 60".to_string()])
+    );
+    assert_eq!(
+        run(Problem::Other),
+        Take::Items(vec!["other".to_string()])
+    );
+}
+
+#[test]
+fn channel_unwrap_reason_extracts_nested_failure() {
+    #[derive(Debug, Clone, PartialEq)]
+    enum Problem {
+        Ai(String),
+        RateLimit(u64),
+    }
+    let source = pull::Pull::<i32, Problem>::fail(Problem::Ai("inner".to_string()));
+    let mut piped = channel::unwrap_reason(
+        |e: &Problem| matches!(e, Problem::Ai(_)),
+        |e: Problem| match e {
+            Problem::Ai(s) => Problem::RateLimit(s.len() as u64),
+            other => other,
+        },
+    )
+    .run(source);
+    assert_eq!(piped.pull(), Take::Fail(Problem::RateLimit(5)));
+    let source = pull::Pull::<i32, Problem>::fail(Problem::RateLimit(7));
+    let mut piped = channel::unwrap_reason(
+        |e: &Problem| matches!(e, Problem::Ai(_)),
+        |e: Problem| match e {
+            Problem::Ai(s) => Problem::RateLimit(s.len() as u64),
+            other => other,
+        },
+    )
+    .run(source);
+    assert_eq!(piped.pull(), Take::Fail(Problem::RateLimit(7)));
+}
