@@ -39,7 +39,9 @@ mod supervisor;
 mod sync;
 mod time;
 
-pub use cause::{Cause, Defect, FiberId, Reason, is_die_reason, is_fail_reason, is_interrupt_reason};
+pub use cause::{
+    Cause, Defect, FiberId, Reason, is_die_reason, is_fail_reason, is_interrupt_reason,
+};
 pub use concurrency::{Body, Concurrency, all, for_each, partition, validate, validate_discard};
 pub use effect::{Effect, Requirement};
 #[cfg(feature = "schema")]

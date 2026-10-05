@@ -44,6 +44,26 @@ pub enum Reason<E> {
     Interrupt { fiber_id: Option<FiberId> },
 }
 
+impl<E> Reason<E> {
+    /// Type identity string, mirroring `Cause.ReasonTypeId`.
+    pub const REASON_TYPE_ID: &'static str = "~effect/Cause/Reason";
+}
+
+/// True for [`Reason::Fail`] reasons, mirroring `Cause.isFailReason`.
+pub fn is_fail_reason<E>(reason: &Reason<E>) -> bool {
+    matches!(reason, Reason::Fail(_))
+}
+
+/// True for [`Reason::Die`] reasons, mirroring `Cause.isDieReason`.
+pub fn is_die_reason<E>(reason: &Reason<E>) -> bool {
+    matches!(reason, Reason::Die(_))
+}
+
+/// True for [`Reason::Interrupt`] reasons, mirroring `Cause.isInterruptReason`.
+pub fn is_interrupt_reason<E>(reason: &Reason<E>) -> bool {
+    matches!(reason, Reason::Interrupt { .. })
+}
+
 /// Why an effect failed: a vector of [`Reason`]. Ordinary data.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Cause<E> {
@@ -52,6 +72,9 @@ pub struct Cause<E> {
 }
 
 impl<E> Cause<E> {
+    /// Type identity string, mirroring `Cause.TypeId`.
+    pub const TYPE_ID: &'static str = "~effect/Cause";
+
     /// A cause with no reasons. There is no `Empty` variant to confuse with
     /// "failed with nothing".
     pub fn empty() -> Self {

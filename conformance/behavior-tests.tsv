@@ -397,24 +397,24 @@ unported	packages/effect/test/Cache.test.ts	1728	it.effect	with different key ty
 unported	packages/effect/test/Cache.test.ts	1742	it.effect	with different key types - number keys	
 unported	packages/effect/test/Cache.test.ts	1758	it.effect	with different key types - complex object keys	
 unported	packages/effect/test/Cache.test.ts	1782	it.effect	persists synchronous lookup defects	
-unported	packages/effect/test/Cause.test.ts	15	it	is a string constant	
-unported	packages/effect/test/Cause.test.ts	21	it	is a string constant	
+ported	packages/effect/test/Cause.test.ts	15	it	is a string constant	cause_type_ids_match_wire
+ported	packages/effect/test/Cause.test.ts	21	it	is a string constant	cause_type_ids_match_wire
 unported	packages/effect/test/Cause.test.ts	27	it	returns true for Cause values	
 unported	packages/effect/test/Cause.test.ts	34	it	returns false for non-Cause values	
 unported	packages/effect/test/Cause.test.ts	45	it	returns true for Reason values	
 unported	packages/effect/test/Cause.test.ts	51	it	returns true for reasons extracted from a cause	
 unported	packages/effect/test/Cause.test.ts	56	it	returns false for non-Reason values	
-unported	packages/effect/test/Cause.test.ts	64	it	narrows Fail reasons	
-unported	packages/effect/test/Cause.test.ts	69	it	rejects Die and Interrupt reasons	
-unported	packages/effect/test/Cause.test.ts	78	it	narrows Die reasons	
-unported	packages/effect/test/Cause.test.ts	83	it	rejects Fail and Interrupt reasons	
-unported	packages/effect/test/Cause.test.ts	92	it	narrows Interrupt reasons	
-unported	packages/effect/test/Cause.test.ts	97	it	rejects Fail and Die reasons	
-unported	packages/effect/test/Cause.test.ts	106	it	has no reasons	
+ported	packages/effect/test/Cause.test.ts	64	it	narrows Fail reasons	cause_reason_narrowers_reject
+ported	packages/effect/test/Cause.test.ts	69	it	rejects Die and Interrupt reasons	cause_reason_narrowers_reject
+ported	packages/effect/test/Cause.test.ts	78	it	narrows Die reasons	cause_reason_narrowers_reject
+ported	packages/effect/test/Cause.test.ts	83	it	rejects Fail and Interrupt reasons	cause_reason_narrowers_reject
+ported	packages/effect/test/Cause.test.ts	92	it	narrows Interrupt reasons	cause_reason_narrowers_reject
+ported	packages/effect/test/Cause.test.ts	97	it	rejects Fail and Die reasons	cause_reason_narrowers_reject
+ported	packages/effect/test/Cause.test.ts	106	it	has no reasons	cause_fail_reason_shape
 unported	packages/effect/test/Cause.test.ts	110	it	is a Cause	
-unported	packages/effect/test/Cause.test.ts	116	it	creates a cause with a single Fail reason	
-unported	packages/effect/test/Cause.test.ts	122	it	preserves the error value	
-unported	packages/effect/test/Cause.test.ts	130	it	works with various error types	
+ported	packages/effect/test/Cause.test.ts	116	it	creates a cause with a single Fail reason	cause_fail_reason_shape
+ported	packages/effect/test/Cause.test.ts	122	it	preserves the error value	cause_fail_reason_shape
+ported	packages/effect/test/Cause.test.ts	130	it	works with various error types	cause_fail_reason_shape
 unported	packages/effect/test/Cause.test.ts	141	it	creates a cause with a single Die reason	
 unported	packages/effect/test/Cause.test.ts	147	it	preserves the defect value	
 unported	packages/effect/test/Cause.test.ts	155	it	works with Error instances	

@@ -3,7 +3,9 @@
 //! A cause is ordinary data: a vector of reasons. A defect is never a typed
 //! error value, and an exit is data, not an effect.
 
-use elm_effect::{Cause, Defect, Exit, FiberId, Reason};
+use elm_effect::{
+    Cause, Defect, Exit, FiberId, Reason, is_die_reason, is_fail_reason, is_interrupt_reason,
+};
 use std::convert::Infallible;
 
 #[test]
@@ -272,4 +274,46 @@ fn cause_narrows_channels() {
     assert!(clean.failures().is_empty());
     assert!(clean.interruptors().is_empty());
     assert!(!clean.is_interrupted());
+}
+
+#[test]
+fn cause_type_ids_match_wire() {
+    // Cause.test.ts:15, 21 — string constants.
+    assert_eq!(Cause::<String>::TYPE_ID, "~effect/Cause");
+    assert_eq!(Reason::<String>::REASON_TYPE_ID, "~effect/Cause/Reason");
+}
+
+#[test]
+fn cause_fail_reason_shape() {
+    // Cause.test.ts:106 — empty has no reasons.
+    let empty: Cause<String> = Cause::empty();
+    assert_eq!(empty.reasons.len(), 0);
+    // Cause.test.ts:116 — fail creates a single Fail reason.
+    let cause = Cause::fail("error");
+    assert_eq!(cause.reasons.len(), 1);
+    assert!(is_fail_reason(&cause.reasons[0]));
+    // Cause.test.ts:122 — preserves the error value.
+    assert!(matches!(&cause.reasons[0], Reason::Fail(e) if *e == "error"));
+    // Cause.test.ts:130 — works with various error types.
+    let obj = Cause::fail(vec!["key".to_owned()]);
+    assert!(matches!(&obj.reasons[0], Reason::Fail(v) if v == &vec!["key".to_owned()]));
+}
+
+#[test]
+fn cause_reason_narrowers_reject() {
+    let fail = Cause::fail("error");
+    let die: Cause<String> = Cause::die(Defect::new("defect"));
+    let interrupt: Cause<String> = Cause::interrupt(None);
+    // Cause.test.ts:64, 69 — Fail narrows; Die and Interrupt rejected.
+    assert!(is_fail_reason(&fail.reasons[0]));
+    assert!(!is_fail_reason(&die.reasons[0]));
+    assert!(!is_fail_reason(&interrupt.reasons[0]));
+    // Cause.test.ts:78, 83 — Die narrows; Fail and Interrupt rejected.
+    assert!(is_die_reason(&die.reasons[0]));
+    assert!(!is_die_reason(&fail.reasons[0]));
+    assert!(!is_die_reason(&interrupt.reasons[0]));
+    // Cause.test.ts:92, 97 — Interrupt narrows; Fail and Die rejected.
+    assert!(is_interrupt_reason(&interrupt.reasons[0]));
+    assert!(!is_interrupt_reason(&fail.reasons[0]));
+    assert!(!is_interrupt_reason(&die.reasons[0]));
 }
