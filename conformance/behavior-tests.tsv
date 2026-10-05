@@ -716,7 +716,7 @@ ported	packages/effect/test/Config.test.ts	363	it	lets recover after the base co
 ported	packages/effect/test/Config.test.ts	370	it	handles chains of multiple flatMaps and withDefaults	config_flat_map_chains
 unported	packages/effect/test/Config.test.ts	408	it	lifts absence in nested composition	
 ported	packages/effect/test/Config.test.ts	423	it.effect	matches map when chained with succeed, including grouped defaults and options	config_map_chained_with_succeed
-unported	packages/effect/test/Config.test.ts	457	it.effect	preserves the outer prefix and composes prefixes in the selected config	
+ported	packages/effect/test/Config.test.ts	457	it.effect	preserves the outer prefix and composes prefixes in the selected config	config_nested_prefix_flows_through_flat_map
 unported	packages/effect/test/Config.test.ts	484	it.effect	defers user callbacks until the Config Effect is executed	
 unported	packages/effect/test/Config.test.ts	525	it.effect	resolves empty groups without using a default	
 unported	packages/effect/test/Config.test.ts	536	it.effect	preserves Result values as configuration data	
@@ -760,13 +760,13 @@ unported	packages/effect/test/Config.test.ts	1265	it.effect	normalizes unavailab
 unported	packages/effect/test/Config.test.ts	1286	it.effect	treats incompatible container representations as absent	
 unported	packages/effect/test/Config.test.ts	1308	it.effect	propagates provider failures	
 unported	packages/effect/test/Config.test.ts	1321	it.effect	rejects present containers with incompatible shapes	
-unported	packages/effect/test/Config.test.ts	1339	it	prefixes a root config	
+ported	packages/effect/test/Config.test.ts	1339	it	prefixes a root config	config_nested_prefixes_root
 unported	packages/effect/test/Config.test.ts	1355	it	composes a constructor path with a prefix	
-unported	packages/effect/test/Config.test.ts	1371	it	composes multiple prefixes from outermost to innermost	
+ported	packages/effect/test/Config.test.ts	1371	it	composes multiple prefixes from outermost to innermost	config_nested_prefixes_compose_outside_in
 unported	packages/effect/test/Config.test.ts	1387	it	prefixes every child of an all product	
-unported	packages/effect/test/Config.test.ts	1408	it	prefixes a root config	
+ported	packages/effect/test/Config.test.ts	1408	it	prefixes a root config	config_nested_prefixes_root
 unported	packages/effect/test/Config.test.ts	1424	it	composes a constructor path with a prefix	
-unported	packages/effect/test/Config.test.ts	1440	it	composes multiple prefixes from outermost to innermost	
+ported	packages/effect/test/Config.test.ts	1440	it	composes multiple prefixes from outermost to innermost	config_nested_prefixes_compose_outside_in
 unported	packages/effect/test/Config.test.ts	1456	it	prefixes every child of an all product	
 unported	packages/effect/test/Config.test.ts	1475	it	composes Config and provider prefixes without leaking provider paths into errors	
 unported	packages/effect/test/Config.test.ts	1490	it	preserves logical error paths through provider fallback	
