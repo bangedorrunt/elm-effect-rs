@@ -721,9 +721,9 @@ unported	packages/effect/test/Config.test.ts	484	it.effect	defers user callbacks
 unported	packages/effect/test/Config.test.ts	525	it.effect	resolves empty groups without using a default	
 unported	packages/effect/test/Config.test.ts	536	it.effect	preserves Result values as configuration data	
 unported	packages/effect/test/Config.test.ts	551	it.effect	preserves special record keys without changing the prototype	
-unported	packages/effect/test/Config.test.ts	562	it	combines tuple inputs and preserves positions	
-unported	packages/effect/test/Config.test.ts	580	it	combines generic iterables in iteration order	
-unported	packages/effect/test/Config.test.ts	598	it	combines named fields and preserves their keys	
+ported	packages/effect/test/Config.test.ts	562	it	combines tuple inputs and preserves positions	config_all_combines_positionally
+ported	packages/effect/test/Config.test.ts	580	it	combines generic iterables in iteration order	config_all_combines_positionally
+ported	packages/effect/test/Config.test.ts	598	it	combines named fields and preserves their keys	config_record_combines_named
 unported	packages/effect/test/Config.test.ts	618	it	uses the parsed value when present and the default when absent	
 ported	packages/effect/test/Config.test.ts	632	it	supports redacted default values	config_secret_redacted_masked
 ported	packages/effect/test/Config.test.ts	640	it	treats ignored empty env strings as absent	config_env_empty_is_absent
@@ -763,14 +763,14 @@ unported	packages/effect/test/Config.test.ts	1321	it.effect	rejects present cont
 ported	packages/effect/test/Config.test.ts	1339	it	prefixes a root config	config_nested_prefixes_root
 unported	packages/effect/test/Config.test.ts	1355	it	composes a constructor path with a prefix	
 ported	packages/effect/test/Config.test.ts	1371	it	composes multiple prefixes from outermost to innermost	config_nested_prefixes_compose_outside_in
-unported	packages/effect/test/Config.test.ts	1387	it	prefixes every child of an all product	
+ported	packages/effect/test/Config.test.ts	1387	it	prefixes every child of an all product	config_all_prefixes_every_child
 ported	packages/effect/test/Config.test.ts	1408	it	prefixes a root config	config_nested_prefixes_root
 unported	packages/effect/test/Config.test.ts	1424	it	composes a constructor path with a prefix	
 ported	packages/effect/test/Config.test.ts	1440	it	composes multiple prefixes from outermost to innermost	config_nested_prefixes_compose_outside_in
-unported	packages/effect/test/Config.test.ts	1456	it	prefixes every child of an all product	
+ported	packages/effect/test/Config.test.ts	1456	it	prefixes every child of an all product	config_all_prefixes_every_child
 unported	packages/effect/test/Config.test.ts	1475	it	composes Config and provider prefixes without leaking provider paths into errors	
 unported	packages/effect/test/Config.test.ts	1490	it	preserves logical error paths through provider fallback	
-unported	packages/effect/test/Config.test.ts	1509	it	combines a plain record of configs	
+ported	packages/effect/test/Config.test.ts	1509	it	combines a plain record of configs	config_record_combines_named
 unported	packages/effect/test/Config.test.ts	1517	it	recursively combines nested records	
 ported	packages/effect/test/Config.test.ts	1534	it	reports missing redacted input	config_secret_redacted_masked
 ported	packages/effect/test/Config.test.ts	1544	it	decodes supported boolean spellings	config_boolean_spellings
@@ -6950,7 +6950,7 @@ ported	packages/effect/test/net/IpInterface.test.ts	88	it	uses address and prefi
 ported	packages/effect/test/net/IpInterface.test.ts	96	it	converts to the canonical containing network	ipinterface_bare_defaults_full_width
 ported	packages/effect/test/net/IpInterface.test.ts	100	it	provides throwing counterparts	ipinterface_equality_and_throwing_parse
 unported	packages/effect/test/net/IpInterface.test.ts	105	it	decodes and canonically encodes schemas	
-unported	packages/effect/test/net/IpNetwork.test.ts	24	it	serializes and inspects canonical strings	
+ported	packages/effect/test/net/IpNetwork.test.ts	24	it	serializes and inspects canonical strings	unsafe_string_forms_serialize_canonically
 ported	packages/effect/test/net/IpNetwork.test.ts	33	it	retains the address supplied to checked constructors	checked_constructors_retain_rejected_address
 ported	packages/effect/test/net/IpNetwork.test.ts	40	it	forwards errors from address and prefix validation	parse_errors_echo_offending_input
 unported	packages/effect/test/net/IpNetwork.test.ts	51	it	constructs immutable canonical networks and preserves family identity	
@@ -6963,7 +6963,7 @@ ported	packages/effect/test/net/IpNetwork.test.ts	162	it	uses numeric equality a
 ported	packages/effect/test/net/IpNetwork.test.ts	170	it	computes first, last, and exact address counts	ipnetwork_first_last_count
 ported	packages/effect/test/net/IpNetwork.test.ts	196	it	checks address containment in data-first and data-last forms	ipnetwork_contains_addr_and_network
 ported	packages/effect/test/net/IpNetwork.test.ts	206	it	checks network containment and overlap	networks_contain_and_overlap
-unported	packages/effect/test/net/IpNetwork.test.ts	221	it	provides checked unsafe wrappers	
+ported	packages/effect/test/net/IpNetwork.test.ts	221	it	provides checked unsafe wrappers	unsafe_wrappers_mask_or_throw
 unported	packages/effect/test/net/IpNetwork.test.ts	229	it	decodes declarations and canonically encodes Schema strings	
 unported	packages/effect/test/net/IpNetwork.test.ts	244	it	matches independent range models for generated networks	
 ported	packages/effect/test/net/NetAddress.test.ts	19	it	returns IP address widths	strict_ip_parses_widths_and_octets
