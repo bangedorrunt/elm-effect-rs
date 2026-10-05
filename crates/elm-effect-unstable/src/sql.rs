@@ -308,3 +308,79 @@ impl BatchResolver {
             .collect()
     }
 }
+
+// Error guards and schema roundtrip
+
+impl SqlReason {
+    /// The stable tag for this reason (guard + roundtrip surface).
+    pub fn tag(&self) -> &'static str {
+        match self {
+            SqlReason::UniqueViolation { .. } => "UniqueViolation",
+            SqlReason::ConstraintError { .. } => "ConstraintError",
+            SqlReason::ForeignKeyViolation => "ForeignKeyViolation",
+            SqlReason::SyntaxError => "SyntaxError",
+            SqlReason::ConnectionLost => "ConnectionLost",
+            SqlReason::EmptyResult => "EmptyResult",
+            SqlReason::Unknown => "Unknown",
+        }
+    }
+}
+
+impl SqlError {
+    /// The reason tag (only a real `SqlError` has one: guards match the
+    /// wrapper, never bare values).
+    pub fn reason_tag(&self) -> &'static str {
+        self.reason.tag()
+    }
+
+    /// Encode to a plain `{tag, message, retryable}` object (plus the
+    /// reason payload when it has one).
+    pub fn to_json(&self) -> serde_json::Value {
+        let mut out = serde_json::json!({
+            "tag": self.reason_tag(),
+            "message": self.message,
+            "retryable": self.retryable,
+        });
+        match &self.reason {
+            SqlReason::UniqueViolation { constraint } => {
+                if let Some(constraint) = constraint {
+                    out["constraint"] = serde_json::Value::String(constraint.clone());
+                }
+            }
+            SqlReason::ConstraintError { detail } => {
+                if let Some(detail) = detail {
+                    out["detail"] = serde_json::Value::String(detail.clone());
+                }
+            }
+            _ => {}
+        }
+        out
+    }
+
+    /// Decode back. Unknown tags fail closed to `None`.
+    pub fn from_json(value: &serde_json::Value) -> Option<Self> {
+        let tag = value.get("tag")?.as_str()?;
+        let reason = match tag {
+            "UniqueViolation" => SqlReason::UniqueViolation {
+                constraint: value
+                    .get("constraint")
+                    .and_then(|c| c.as_str())
+                    .map(str::to_string),
+            },
+            "ConstraintError" => SqlReason::ConstraintError {
+                detail: value.get("detail").and_then(|d| d.as_str()).map(str::to_string),
+            },
+            "ForeignKeyViolation" => SqlReason::ForeignKeyViolation,
+            "SyntaxError" => SqlReason::SyntaxError,
+            "ConnectionLost" => SqlReason::ConnectionLost,
+            "EmptyResult" => SqlReason::EmptyResult,
+            "Unknown" => SqlReason::Unknown,
+            _ => return None,
+        };
+        Some(SqlError {
+            reason,
+            message: value.get("message").and_then(|m| m.as_str()).unwrap_or_default().to_string(),
+            retryable: value.get("retryable").and_then(|r| r.as_bool()).unwrap_or(false),
+        })
+    }
+}

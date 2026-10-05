@@ -240,3 +240,36 @@ fn resolver_completes_duplicates_when_encoding_fails() {
     assert_eq!(out[0], out[1]);
     assert_eq!(out[2], Ok(vec!["row".to_string()]));
 }
+
+#[test]
+fn error_guards_match_wrapper_and_reasons() {
+    let err = SqlError::new(SqlReason::UniqueViolation { constraint: None }, false, "dup");
+    assert_eq!(err.reason_tag(), "UniqueViolation");
+    assert!(matches!(err.reason, SqlReason::UniqueViolation { .. }));
+    assert!(!matches!(err.reason, SqlReason::ConstraintError { .. }));
+    for (reason, tag) in [
+        (SqlReason::ConstraintError { detail: None }, "ConstraintError"),
+        (SqlReason::ForeignKeyViolation, "ForeignKeyViolation"),
+        (SqlReason::SyntaxError, "SyntaxError"),
+        (SqlReason::ConnectionLost, "ConnectionLost"),
+        (SqlReason::EmptyResult, "EmptyResult"),
+        (SqlReason::Unknown, "Unknown"),
+    ] {
+        let err = SqlError::new(reason, true, "m");
+        assert_eq!(err.reason_tag(), tag);
+        assert!(err.retryable);
+        assert_eq!(err.message, "m");
+    }
+}
+
+#[test]
+fn error_schema_roundtrip_preserves_wrapper() {
+    let err = SqlError::new(
+        SqlReason::UniqueViolation { constraint: Some("k".to_string()) },
+        false,
+        "dup key",
+    );
+    let back = SqlError::from_json(&err.to_json()).unwrap();
+    assert_eq!(back, err);
+    assert!(SqlError::from_json(&serde_json::json!({"tag": "Nope"})).is_none());
+}
