@@ -5386,7 +5386,7 @@ unported	packages/effect/test/arbitrary/Arbitrary.test.ts	994	it.effect	structur
 unported	packages/effect/test/arbitrary/Arbitrary.test.ts	1010	it.effect	structurally shrinks regular-expression alternatives to the first one	
 unported	packages/effect/test/arbitrary/Arbitrary.test.ts	1026	it.effect	derives independent random streams for adjacent attempts	
 unported	packages/effect/test/arbitrary/Arbitrary.test.ts	1037	it.effect	reaches both integer parities across the complete safe range	
-unported	packages/effect/test/arbitrary/Arbitrary.test.ts	1054	it.effect	spreads bounded integer samples across the complete domain	
+ported	packages/effect/test/arbitrary/Arbitrary.test.ts	1054	it.effect	spreads bounded integer samples across the complete domain	bounded_integers_cover_domain_and_edges
 unported	packages/effect/test/arbitrary/Arbitrary.test.ts	1072	it.effect	spreads bounded Number samples across one IEEE-754 binade	
 unported	packages/effect/test/arbitrary/Arbitrary.test.ts	1094	it.effect	targets bounded integer and BigInt edges while preserving broad coverage	
 unported	packages/effect/test/arbitrary/Arbitrary.test.ts	1122	it.effect	targets String, Array, and Record cardinality boundaries while preserving intermediate sizes	
@@ -5495,7 +5495,7 @@ unported	packages/effect/test/arbitrary/Arbitrary.test.ts	3467	it.effect	reports
 unported	packages/effect/test/arbitrary/Arbitrary.test.ts	3506	it	formats diagnostic values without ambiguity	
 unported	packages/effect/test/arbitrary/Arbitrary.test.ts	3562	it.effect	isolates generation Random from property Random	
 unported	packages/effect/test/arbitrary/Arbitrary.test.ts	3583	it.effect	grows size across successful runs without advancing on discards	
-unported	packages/effect/test/arbitrary/Arbitrary.test.ts	3607	it.effect	shrinks integers to the local failure boundary	
+ported	packages/effect/test/arbitrary/Arbitrary.test.ts	3607	it.effect	shrinks integers to the local failure boundary	integers_shrink_toward_the_boundary
 unported	packages/effect/test/arbitrary/Arbitrary.test.ts	3621	it.effect	shrinks bounded positive BigInts toward the minimum	
 unported	packages/effect/test/arbitrary/Arbitrary.test.ts	3636	it.effect	shrinks bounded BigInts to the local failure boundary	
 unported	packages/effect/test/arbitrary/Arbitrary.test.ts	3651	it.effect	selects the closest-to-zero BigInt shrink target	
