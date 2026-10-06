@@ -409,3 +409,35 @@ fn ignore_cause_swallows_interrupts() {
         "ignore_cause must swallow interrupts"
     );
 }
+
+#[test]
+fn format_logfmt_quotes_only_when_needed() {
+    use observability::{LogLevel, format_logfmt};
+    let output = format_logfmt(
+        LogLevel::Info,
+        "Welcome to the Effect Playground!",
+        &[
+            ("annotation1".to_string(), "first".to_string()),
+            ("annotation2".to_string(), "second".to_string()),
+            ("annotation3".to_string(), "\"omg\"".to_string()),
+        ],
+    );
+    assert!(output.contains("message=\"Welcome to the Effect Playground!\""));
+    assert!(output.contains("annotation1=first"));
+    assert!(output.contains("annotation2=second"));
+    assert!(output.contains("annotation3=\"\\\"omg\\\"\""));
+    assert!(!output.contains("message=\"\\\"Welcome"));
+    assert!(!output.contains("annotation1=\"\\\"first\""));
+}
+
+#[test]
+fn format_simple_quotes_only_when_needed() {
+    use observability::format_simple;
+    let output = format_simple(
+        "hello world",
+        &[("annotation".to_string(), "value with spaces".to_string())],
+    );
+    assert!(output.contains("message=\"hello world\""));
+    assert!(output.contains("annotation=\"value with spaces\""));
+    assert!(!output.contains("message=\"\\\"hello world\""));
+}

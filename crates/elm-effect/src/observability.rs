@@ -457,3 +457,48 @@ where
 {
     ignore(effect, options, current, minimum, logger)
 }
+
+// Log line formatters
+
+/// Quote a logfmt value only when it needs it: values with whitespace
+/// or quotes (or empty) render `"..."` with inner quotes escaped;
+/// anything else renders bare, so strings are never double-quoted.
+pub fn quote_logfmt_value(value: &str) -> String {
+    if value.is_empty() || value.chars().any(|c| c.is_whitespace() || c == '"') {
+        format!("\"{}\"", value.replace('"', "\\\""))
+    } else {
+        value.to_string()
+    }
+}
+
+/// One `key=value` logfmt field.
+pub fn format_logfmt_field(key: &str, value: &str) -> String {
+    format!("{}={}", key, quote_logfmt_value(value))
+}
+
+/// A logfmt line: level, message, then annotations (TS `formatLogFmt`;
+/// only the quoting contract is pinned, layouts stay minimal).
+pub fn format_logfmt(level: LogLevel, message: &str, annotations: &[(String, String)]) -> String {
+    let mut parts = vec![
+        format!("level={:?}", level),
+        format!("message={}", quote_logfmt_value(message)),
+    ];
+    parts.extend(
+        annotations
+            .iter()
+            .map(|(key, value)| format_logfmt_field(key, value)),
+    );
+    parts.join(" ")
+}
+
+/// A simple human line: message then annotations (TS `formatSimple`;
+/// same quoting contract as [`format_logfmt`]).
+pub fn format_simple(message: &str, annotations: &[(String, String)]) -> String {
+    let mut parts = vec![format!("message={}", quote_logfmt_value(message))];
+    parts.extend(
+        annotations
+            .iter()
+            .map(|(key, value)| format_logfmt_field(key, value)),
+    );
+    parts.join(" ")
+}
