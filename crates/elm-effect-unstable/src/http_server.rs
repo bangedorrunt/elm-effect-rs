@@ -120,12 +120,40 @@ pub fn match_path_ci(pattern: &str, path: &str) -> Option<Vec<(String, String)>>
     match_path_with(pattern, path, false)
 }
 
+/// Percent-decode one URL component like `decodeURIComponent`: `%XX`
+/// becomes the byte, `+` stays a plus. A truncated or non-hex escape is
+/// rejected (`None`) rather than passed through, so a malformed segment
+/// never silently matches a route.
+pub fn decode_component(input: &str) -> Option<String> {
+    let bytes = input.as_bytes();
+    let mut out: Vec<u8> = Vec::with_capacity(bytes.len());
+    let mut i = 0;
+    while i < bytes.len() {
+        match bytes[i] {
+            b'%' => {
+                if i + 2 >= bytes.len() {
+                    return None;
+                }
+                let hex = std::str::from_utf8(&bytes[i + 1..i + 3]).ok()?;
+                let byte = u8::from_str_radix(hex, 16).ok()?;
+                out.push(byte);
+                i += 3;
+            }
+            byte => {
+                out.push(byte);
+                i += 1;
+            }
+        }
+    }
+    String::from_utf8(out).ok()
+}
+
 fn match_path_with(
     pattern: &str,
     path: &str,
     case_sensitive: bool,
 ) -> Option<Vec<(String, String)>> {
-    let path = path.split(['?', '#']).next().unwrap_or(path);
+    let path = path.split(['?', '#', ';']).next().unwrap_or(path);
     let pattern_segs: Vec<&str> = pattern.split('/').collect();
     let path_segs: Vec<&str> = path.split('/').collect();
     if pattern_segs.len() != path_segs.len() {

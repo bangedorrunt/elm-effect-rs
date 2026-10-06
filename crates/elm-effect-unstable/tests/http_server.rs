@@ -332,3 +332,30 @@ fn exact_route_beats_pattern_in_dispatch() {
     assert_eq!(body, b"pattern");
     let _ = handle.join().expect("join");
 }
+
+#[test]
+fn semicolon_separates_path_from_query() {
+    use elm_effect_unstable::http_server::match_path;
+    // `;` starts the query, exactly like `?`.
+    assert_eq!(match_path("/items", "/items;page=2"), Some(vec![]));
+    assert_eq!(match_path("/items/:id", "/items/7;page=2"), Some(vec![("id".to_string(), "7".to_string())]));
+    assert_eq!(match_path("/items/:id", "/items/7"), Some(vec![("id".to_string(), "7".to_string())]));
+    // A `;` inside a segment is a separator, so it cannot be a literal.
+    assert_eq!(match_path("/a/b", "/a;b"), None);
+}
+
+#[test]
+fn decode_component_rejects_truncated_escapes() {
+    use elm_effect_unstable::http_server::decode_component;
+    assert_eq!(decode_component("a%20b").as_deref(), Some("a b"));
+    assert_eq!(decode_component("%7Bx%7D").as_deref(), Some("{x}"));
+    assert_eq!(decode_component("plain+plus").as_deref(), Some("plain+plus"));
+    assert_eq!(decode_component("%25").as_deref(), Some("%"));
+    // Truncated: escape at the end, and a byte pair cut short.
+    assert_eq!(decode_component("abc%"), None);
+    assert_eq!(decode_component("abc%2"), None);
+    // Non-hex escape.
+    assert_eq!(decode_component("%zz"), None);
+    // Decoded bytes that are not valid UTF-8 are rejected, not lossy.
+    assert_eq!(decode_component("%FF"), None);
+}

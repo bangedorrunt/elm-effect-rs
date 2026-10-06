@@ -6431,7 +6431,7 @@ ported	packages/effect/test/http/FindMyWay/path-params-match.test.ts	64	it	does 
 ported	packages/effect/test/http/FindMyWay/path-params-match.test.ts	88	it	does not read inherited static child entries	param_maps_are_own_property_maps
 ported	packages/effect/test/http/FindMyWay/querystring.test.ts	4	it	should sanitize the url - query	match_path_extracts_params
 ported	packages/effect/test/http/FindMyWay/querystring.test.ts	13	it	should sanitize the url - hash	match_path_extracts_params
-unported	packages/effect/test/http/FindMyWay/querystring.test.ts	23	it	handles path and query separated by ;	
+ported	packages/effect/test/http/FindMyWay/querystring.test.ts	23	it	handles path and query separated by ;	semicolon_separates_path_from_query
 unported	packages/effect/test/http/FindMyWay/querystring.test.ts	32	it	handles %	
 unported	packages/effect/test/http/FindMyWay/regex.test.ts	4	it	route with matching regex	
 unported	packages/effect/test/http/FindMyWay/regex.test.ts	10	it	route without matching regex	
@@ -6442,8 +6442,8 @@ unported	packages/effect/test/http/FindMyWay/regex.test.ts	41	it	mixed nested ro
 unported	packages/effect/test/http/FindMyWay/regex.test.ts	50	it	mixed nested route without double matching regex	
 unported	packages/effect/test/http/FindMyWay/regex.test.ts	56	it	route with an extension regex	
 unported	packages/effect/test/http/FindMyWay/regex.test.ts	62	it	route with an extension regex - no match	
-unported	packages/effect/test/http/FindMyWay/regex.test.ts	68	it	safe decodeURIComponent	
-unported	packages/effect/test/http/FindMyWay/regex.test.ts	74	it	rejects truncated percent encodings	
+ported	packages/effect/test/http/FindMyWay/regex.test.ts	68	it	safe decodeURIComponent	decode_component_rejects_truncated_escapes
+ported	packages/effect/test/http/FindMyWay/regex.test.ts	74	it	rejects truncated percent encodings	decode_component_rejects_truncated_escapes
 unported	packages/effect/test/http/FindMyWay/regex.test.ts	82	it	does not match an empty segment against a non-empty regex	
 unported	packages/effect/test/http/FindMyWay/regex.test.ts	91	it	matches undefined regex captures as empty strings	
 unported	packages/effect/test/http/FindMyWay/regex.test.ts	102	it	falls back when a parameter exceeds maxParamLength	
