@@ -1068,3 +1068,56 @@ fn provider_dir_reads_trimmed_leaves() {
     );
     std::fs::remove_dir_all(&root).unwrap();
 }
+
+#[test]
+fn config_with_default_present_absent_and_product() {
+    let scalar = Config::finite(named("a")).with_default(Value::Num(0.0));
+    assert_eq!(
+        scalar.load(&provider(&[("a", "1")])).unwrap(),
+        Value::Num(1.0)
+    );
+    assert_eq!(
+        scalar.load(&provider(&[])).unwrap(),
+        Value::Num(0.0)
+    );
+    let product = Config::record(vec![
+        ("a".to_string(), Config::non_empty_string(named("b"))),
+        ("c".to_string(), Config::finite(named("d"))),
+    ])
+    .with_default(Value::Map(vec![
+        ("a".to_string(), Value::Str("a".to_string())),
+        ("c".to_string(), Value::Num(0.0)),
+    ]));
+    assert_eq!(
+        product
+            .load(&provider(&[("b", "b"), ("d", "1")]))
+            .unwrap(),
+        Value::Map(vec![
+            ("a".to_string(), Value::Str("b".to_string())),
+            ("c".to_string(), Value::Num(1.0))
+        ])
+    );
+    assert_eq!(
+        product.load(&provider(&[])).unwrap(),
+        Value::Map(vec![
+            ("a".to_string(), Value::Str("a".to_string())),
+            ("c".to_string(), Value::Num(0.0))
+        ])
+    );
+}
+
+#[test]
+fn config_with_default_covers_absent_nested() {
+    let nested =
+        Config::string(named("host")).nested("database").with_default(Value::Str("fb".to_string()));
+    assert_eq!(
+        nested.load(&provider(&[])).unwrap(),
+        Value::Str("fb".to_string())
+    );
+    assert_eq!(
+        nested
+            .load(&provider(&[("database.host", "h")]))
+            .unwrap(),
+        Value::Str("h".to_string())
+    );
+}
