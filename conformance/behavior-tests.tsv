@@ -6332,7 +6332,7 @@ ported	packages/effect/test/encoding/Yaml.test.ts	72	it.each	preserves %s	keeps_
 ported	packages/effect/test/encoding/Yaml.test.ts	92	it	resolves aliases	resolves_anchors_and_aliases
 ported	packages/effect/test/encoding/Yaml.test.ts	108	it	rejects invalid indentation	rejects_invalid_indentation
 ported	packages/effect/test/encoding/Yaml.test.ts	114	it.each	parses $name	parses_indentless_matrix
-unported	packages/effect/test/encoding/Yaml.test.ts	163	it.each	folds %s	
+ported	packages/effect/test/encoding/Yaml.test.ts	163	it.each	folds %s	folds_plain_scalars_everywhere
 ported	packages/effect/test/encoding/Yaml.test.ts	220	it	ends plain scalars at sibling keys after terminating comments	folds_plain_multiline_scalars
 ported	packages/effect/test/encoding/Yaml.test.ts	227	it	folds plain sequence items	folds_plain_sequence_items
 ported	packages/effect/test/encoding/Yaml.test.ts	233	it.each	rejects %s	rejects_scalar_boundary_violations

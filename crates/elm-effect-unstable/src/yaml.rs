@@ -271,6 +271,25 @@ impl Parser {
         Ok(pairs)
     }
 
+    /// True for bare plain lines that may start a nested plain block.
+    fn is_plain_nested_line(line: &str) -> bool {
+        !(line == "-"
+            || line.starts_with("- ")
+            || split_key(line).is_some()
+            || is_block_header(line)
+            || line.starts_with("&")
+            || line.starts_with("*")
+            || line.starts_with("[")
+            || line.starts_with("{")
+            || line.starts_with("\"")
+            || line.starts_with("'"))
+    }
+
+    /// True for quoted or flow values, which never fold plain lines.
+    fn is_quoted_or_flow(text: &str) -> bool {
+        text.starts_with(|c| c == '"' || c == '\'' || c == '[' || c == '{')
+    }
+
     /// An inline value, or a nested block when the value is empty.
     fn inline_or_nested(&mut self, indent: usize, value: String) -> Result<YamlValue, YamlError> {
         let (value, head_comment) = strip_inline_comment(&value);
@@ -289,9 +308,17 @@ impl Parser {
         }
         if value.is_empty() {
             match self.peek().cloned() {
-                Some((next, _)) if next > indent => self.parse_block(next),
-                // YAML 1.2.2 §8.2.1: a mapping value's block sequence may
-                // sit at the key's own indent.
+                Some((next, line)) if next > indent => {
+                    if Self::is_plain_nested_line(&line) {
+                        self.cursor += 1;
+                        let (first, first_comment) = strip_inline_comment(&line);
+                        if first.is_empty() || first_comment {
+                            return parse_inline(&first);
+                        }
+                        return parse_inline(&self.fold_plain_rest(indent, first));
+                    }
+                    self.parse_block(next)
+                }
                 Some((next, line)) if next == indent && (line.starts_with("- ") || line == "-") => {
                     self.parse_seq(next).map(YamlValue::Seq)
                 }
@@ -301,8 +328,7 @@ impl Parser {
             self.parse_block_scalar(indent, value)
         } else {
             let mut text = value;
-            // Quoted scalars fold deeper lines until the quote closes.
-            if (text.starts_with('"') || text.starts_with('\'')) && !quotes_closed(&text) {
+            if (text.starts_with("\"") || text.starts_with("'")) && !quotes_closed(&text) {
                 while !quotes_closed(&text) {
                     match self.peek().cloned() {
                         Some((next_indent, next_line)) if next_indent > indent => {
@@ -313,27 +339,45 @@ impl Parser {
                         _ => break,
                     }
                 }
-            // Plain scalars fold deeper-indented non-structural lines.
-            // A comment on the first line terminates the scalar: further
-            // lines belong to following structure (or fail).
-            } else if !head_comment
-                && !text.starts_with(|c| c == '"' || c == '\'' || c == '[' || c == '{')
-            {
-                while let Some((next_indent, next_line)) = self.peek().cloned() {
-                    if next_indent <= indent || is_structural_line(&next_line) {
-                        break;
-                    }
-                    self.cursor += 1;
-                    let (piece, piece_comment) = strip_inline_comment(&next_line);
-                    text.push(' ');
-                    text.push_str(&piece);
-                    if piece_comment {
-                        break;
-                    }
-                }
+            } else if !head_comment && !Self::is_quoted_or_flow(&text) {
+                text = self.fold_plain_rest(indent, text);
             }
             parse_inline(&text)
         }
+    }
+
+    /// Fold deeper plain lines after `first`: blank runs break lines,
+    /// structural lines end, comment lines vanish.
+    fn fold_plain_rest(&mut self, floor: usize, first: String) -> String {
+        let mut text = first;
+        let mut pending_blanks = 0usize;
+        while let Some((next_indent, next_line)) = self.peek_raw().cloned() {
+            if next_indent == usize::MAX {
+                self.cursor += 1;
+                pending_blanks += 1;
+                continue;
+            }
+            if next_line.starts_with('#') {
+                self.cursor += 1;
+                continue;
+            }
+            if next_indent <= floor || is_structural_line(&next_line) {
+                break;
+            }
+            self.cursor += 1;
+            let (piece, piece_comment) = strip_inline_comment(&next_line);
+            if pending_blanks > 0 {
+                text.push_str(&"\n".repeat(pending_blanks));
+                pending_blanks = 0;
+            } else {
+                text.push(' ');
+            }
+            text.push_str(&piece);
+            if piece_comment {
+                break;
+            }
+        }
+        text
     }
 
     /// A `|` literal or `>` folded block: content lines nested deeper

@@ -340,3 +340,42 @@ fn rejects_scalar_boundary_violations() {
         assert!(yaml::parse(source).is_err(), "should reject {source:?}");
     }
 }
+
+#[test]
+fn folds_plain_scalars_everywhere() {
+    // Yaml.test.ts:163 - plain scalars fold below keys and across blanks.
+    for (source, expected) in [
+        (
+            "description:\n  Deploy the service\n  and verify it.\n",
+            "Deploy the service and verify it.",
+        ),
+        (
+            "description: Deploy the service\n  and verify it.\n",
+            "Deploy the service and verify it.",
+        ),
+        (
+            "description:\n    Deploy\n  the service\n      and verify it.\n",
+            "Deploy the service and verify it.",
+        ),
+        (
+            "description: Deploy\n\n  and verify.\n",
+            "Deploy\nand verify.",
+        ),
+        (
+            "description: Deploy\n\n\n  and verify.\n",
+            "Deploy\n\nand verify.",
+        ),
+        (
+            "description: Deploy\n   \n  and verify.\n",
+            "Deploy\nand verify.",
+        ),
+        (
+            "# before key\ndescription: # before value\n  # before scalar\n  Deploy\n  and verify. # after scalar\n# after value\n",
+            "Deploy and verify.",
+        ),
+    ] {
+        let parsed = yaml::parse(source).expect("parses");
+        let want = YamlValue::Map(vec![("description".to_owned(), text(expected))]);
+        assert_eq!(parsed, want);
+    }
+}
