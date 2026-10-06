@@ -401,3 +401,32 @@ fn address_values_construct_across_forms() {
     assert_eq!(mac.octets(), [0x00, 0x00, 0x5e, 0x00, 0x53, 0x01]);
     assert_eq!(unix.format_socket_address(), "server.sock");
 }
+
+#[test]
+fn canonical_strings_hide_private_bytes() {
+    use net::{MacAddress, NetAddress};
+    for (address, expected) in [
+        (
+            NetAddress::ipv4_from_string("127.0.0.1").unwrap(),
+            "127.0.0.1",
+        ),
+        (NetAddress::ipv6_from_string("::1").unwrap(), "::1"),
+        (
+            NetAddress::inet_address_from_string_unsafe("127.0.0.1:80"),
+            "127.0.0.1:80",
+        ),
+        (
+            NetAddress::inet_address_from_string_unsafe("[fe80::1%2]:80"),
+            "[fe80::1%2]:80",
+        ),
+        (
+            NetAddress::unix_path_address("./run/../server.sock"),
+            "./run/../server.sock",
+        ),
+    ] {
+        assert_eq!(address.to_string(), expected);
+        assert_eq!(format!("{address:?}"), expected);
+    }
+    let mac = MacAddress::parse("02:0A:0B:0C:0D:0E").unwrap();
+    assert_eq!(mac.to_string(), "02:0a:0b:0c:0d:0e");
+}

@@ -505,8 +505,8 @@ impl StrictIp {
 
 /// A bare IP or Unix-socket address value: the runtime representation
 /// shared by the `NetAddress` constructors (hostnames and URLs arrive as
-/// later variants).
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+/// later variants). Debug prints canonical text (see below).
+#[derive(Clone, PartialEq, Eq, Hash)]
 pub enum NetAddress {
     V4(Ipv4Addr),
     V6(Ipv6Addr),
@@ -747,7 +747,29 @@ impl NetAddress {
             Self::Inet(socket) => format!("{scheme}://{socket}"),
         }
     }
+}
 
+impl std::fmt::Display for NetAddress {
+    /// Canonical text per variant: bare IPs, socket addrs, verbatim Unix
+    /// paths (TS `toJSON` strings).
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::V4(_) | Self::V6(_) => write!(f, "{}", self.format_ip()),
+            Self::UnixPath(path) => write!(f, "{path}"),
+            Self::Inet(socket) => write!(f, "{socket}"),
+        }
+    }
+}
+
+impl std::fmt::Debug for NetAddress {
+    /// Canonical text, no private bytes (TS `inspect` parity; mirrors the
+    /// `Redacted` convention of hiding internals in `Debug`).
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{self}")
+    }
+}
+
+impl NetAddress {
     /// True for `0.0.0.0` / `::` (TS `isUnspecified`).
     pub fn is_unspecified(&self) -> bool {
         match self {
@@ -859,6 +881,18 @@ impl MacAddress {
     /// The six octets in transmission order.
     pub fn octets(&self) -> [u8; 6] {
         self.0
+    }
+}
+
+impl std::fmt::Display for MacAddress {
+    /// Lowercase colon-separated hex (TS canonical MAC text).
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let o = self.0;
+        write!(
+            f,
+            "{:02x}:{:02x}:{:02x}:{:02x}:{:02x}:{:02x}",
+            o[0], o[1], o[2], o[3], o[4], o[5]
+        )
     }
 }
 
