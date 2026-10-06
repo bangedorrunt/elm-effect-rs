@@ -51,6 +51,23 @@ pub fn strip_margin_with(s: &str, margin: char) -> String {
         .join("\n")
 }
 
+/// Convert `snake_case` to `camelCase` (`snakeToCamel`).
+pub fn snake_to_camel(s: &str) -> String {
+    let mut parts = s.split('_');
+    let mut out = parts.next().unwrap_or("").to_owned();
+    for part in parts {
+        let mut chars = part.chars();
+        match chars.next() {
+            None => {}
+            Some(first) => {
+                out.extend(first.to_uppercase());
+                out.push_str(chars.as_str());
+            }
+        }
+    }
+    out
+}
+
 /// First `n` characters (`takeLeft`; floored counts, empty for
 /// non-positive or NaN).
 pub fn take_left(s: &str, count: f64) -> String {

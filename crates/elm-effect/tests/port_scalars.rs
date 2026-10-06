@@ -1044,3 +1044,15 @@ fn string_lines_edges_and_margins() {
     let strip_hash = |s: &str| string::strip_margin_with(s, '#');
     assert_eq!(strip_hash("  #hello\n  #world"), "hello\nworld");
 }
+
+#[test]
+fn string_margin_passthrough_and_camel() {
+    // String.test.ts:583 - lines without margins stay trimmed.
+    assert_eq!(string::strip_margin_with("no margin\n  |yes", '|'), "no margin\nyes");
+    // :589 - snake to camel.
+    assert_eq!(string::snake_to_camel("hello_world"), "helloWorld");
+    // :594 - single words pass through.
+    assert_eq!(string::snake_to_camel("hello"), "hello");
+    // :598 - empty stays empty.
+    assert_eq!(string::snake_to_camel(""), "");
+}

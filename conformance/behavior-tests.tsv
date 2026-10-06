@@ -3961,10 +3961,10 @@ ported	packages/effect/test/String.test.ts	563	it	handles line without trailing 
 ported	packages/effect/test/String.test.ts	569	it	strips | margin	string_lines_edges_and_margins
 ported	packages/effect/test/String.test.ts	575	it	strips custom margin character (data-first)	string_lines_edges_and_margins
 ported	packages/effect/test/String.test.ts	579	it	strips custom margin character (data-last)	string_lines_edges_and_margins
-unported	packages/effect/test/String.test.ts	583	it	leaves lines without margin unchanged	
-unported	packages/effect/test/String.test.ts	589	it	converts snake_case to camelCase	
-unported	packages/effect/test/String.test.ts	594	it	handles single word	
-unported	packages/effect/test/String.test.ts	598	it	handles an empty string	
+ported	packages/effect/test/String.test.ts	583	it	leaves lines without margin unchanged	string_margin_passthrough_and_camel
+ported	packages/effect/test/String.test.ts	589	it	converts snake_case to camelCase	string_margin_passthrough_and_camel
+ported	packages/effect/test/String.test.ts	594	it	handles single word	string_margin_passthrough_and_camel
+ported	packages/effect/test/String.test.ts	598	it	handles an empty string	string_margin_passthrough_and_camel
 unported	packages/effect/test/String.test.ts	604	it	converts snake_case to PascalCase	
 unported	packages/effect/test/String.test.ts	609	it	handles an empty string	
 unported	packages/effect/test/String.test.ts	615	it	converts snake_case to kebab-case	
