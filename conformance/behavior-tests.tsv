@@ -9912,8 +9912,8 @@ unported	packages/effect/test/workflow/WorkflowEngine.test.ts	131	it.effect	laye
 unported	packages/effect/test/workflow/WorkflowEngine.test.ts	152	it.effect	layerMemory replays suspended activity fan-out with concurrency ${concurrency}	
 unported	packages/effect/test/workflow/WorkflowEngine.test.ts	224	it.effect	layerMemory resumes when children complete during activity cleanup	
 unported	packages/effect/test/workflow/WorkflowEngine.test.ts	272	it.effect	layerMemory releases a pending child registration on ${mode}	
-unported	packages/effect/test/workflow/WorkflowEngine.test.ts	334	it.effect	discard returns the deterministic execution ID	
-unported	packages/effect/test/workflow/WorkflowEngine.test.ts	346	it.effect	distinguishes workflow tags and idempotency keys at string boundaries	
+ported	packages/effect/test/workflow/WorkflowEngine.test.ts	334	it.effect	discard returns the deterministic execution ID	execution_id_is_deterministic_for_repeated_calls
+ported	packages/effect/test/workflow/WorkflowEngine.test.ts	346	it.effect	distinguishes workflow tags and idempotency keys at string boundaries	execution_id_separates_tags_and_keys_at_boundaries
 unported	packages/effect/test/workflow/WorkflowEngine.test.ts	373	it.effect	supports class extension	
 unported	packages/effect/test/workflow/WorkflowEngine.test.ts	385	it.effect	layerMemory wakes an active workflow when a durable deferred completes	
 unported	packages/effect/test/workflow/WorkflowEngine.test.ts	420	it.effect	layerMemory propagates interruption when the engine is shut down	
