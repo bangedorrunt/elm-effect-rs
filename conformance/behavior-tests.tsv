@@ -1048,19 +1048,19 @@ unported	packages/effect/test/Data.test.ts	138	it	data-last: matches Rect
 unported	packages/effect/test/Data.test.ts	143	it	data-first: matches directly	
 unported	packages/effect/test/Data.test.ts	160	it	accepts void for empty variants	
 unported	packages/effect/test/Data.test.ts	165	it	works with $match for empty variants	
-unported	packages/effect/test/Data.test.ts	179	it	is an instance of globalThis.Error	
+ported	packages/effect/test/Data.test.ts	179	it	is an instance of globalThis.Error	tagged_errors_act_like_errors
 ported	packages/effect/test/Data.test.ts	184	it	assigns fields	tagged_structs_match_by_tag
-unported	packages/effect/test/Data.test.ts	190	it	has a stack trace	
-unported	packages/effect/test/Data.test.ts	196	it	allows errors without fields to be constructed without args	
+ported	packages/effect/test/Data.test.ts	190	it	has a stack trace	tagged_errors_act_like_errors
+ported	packages/effect/test/Data.test.ts	196	it	allows errors without fields to be constructed without args	tagged_errors_act_like_errors
 unported	packages/effect/test/Data.test.ts	202	it	can be yielded in Effect.gen to fail	
 unported	packages/effect/test/Data.test.ts	212	it	toJSON includes fields	
-unported	packages/effect/test/Data.test.ts	225	it	sets _tag	
+ported	packages/effect/test/Data.test.ts	225	it	sets _tag	tagged_errors_act_like_errors
 ported	packages/effect/test/Data.test.ts	230	it	assigns fields	tagged_structs_match_by_tag
-unported	packages/effect/test/Data.test.ts	235	it	is an instance of globalThis.Error	
+ported	packages/effect/test/Data.test.ts	235	it	is an instance of globalThis.Error	tagged_errors_act_like_errors
 unported	packages/effect/test/Data.test.ts	240	it	can be caught with Effect.catchTag	
-unported	packages/effect/test/Data.test.ts	250	it	allows tagged errors without fields to be constructed without args	
-unported	packages/effect/test/Data.test.ts	257	it	sets .name to the tag	
-unported	packages/effect/test/Data.test.ts	262	it	different tags produce non-equal errors	
+ported	packages/effect/test/Data.test.ts	250	it	allows tagged errors without fields to be constructed without args	tagged_errors_act_like_errors
+ported	packages/effect/test/Data.test.ts	257	it	sets .name to the tag	tagged_errors_act_like_errors
+ported	packages/effect/test/Data.test.ts	262	it	different tags produce non-equal errors	tagged_errors_act_like_errors
 ported	packages/effect/test/DateTime.test.ts	15	it.effect	should mutate the date	mutate_adds_a_day
 ported	packages/effect/test/DateTime.test.ts	25	it.effect	preserves the named zone when mutating across DST	mutate_preserves_zone_across_dst
 ported	packages/effect/test/DateTime.test.ts	45	it.effect	adds calendar days to a UTC DateTime	add_calendar_days_utc

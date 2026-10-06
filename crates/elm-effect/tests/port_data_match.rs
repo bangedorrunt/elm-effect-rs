@@ -144,3 +144,27 @@ fn data_struct_pipe_and_fields() {
     names.sort();
     assert_eq!(names, ["a", "b"]);
 }
+
+#[test]
+fn tagged_errors_act_like_errors() {
+    use data::{Field, TaggedError};
+    // Data.test.ts:179/235 - tagged errors are std errors.
+    let err = TaggedError::new("MyError", "boom", Vec::<(String, Field)>::new());
+    let boxed: Box<dyn std::error::Error> = Box::new(err);
+    assert_eq!(boxed.to_string(), "MyError: boom");
+    // :190 - they carry a stack trace.
+    let err = TaggedError::new("MyError", "boom", Vec::<(String, Field)>::new());
+    assert!(!err.stack().is_empty());
+    // :196/:250 - fieldless errors construct.
+    let bare = TaggedError::new("Bare", "x", Vec::<(String, data::Field)>::new());
+    assert_eq!(bare.tag(), "Bare");
+    // :225/:257 - the tag is set and doubles as the name.
+    assert_eq!(bare.name(), "Bare");
+    // :262 - different tags are not equal.
+    let other = TaggedError::new("Other", "x", Vec::<(String, Field)>::new());
+    assert_ne!(bare, other);
+    assert_eq!(
+        bare,
+        TaggedError::new("Bare", "x", Vec::<(String, Field)>::new())
+    );
+}
