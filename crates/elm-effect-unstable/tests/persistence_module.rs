@@ -309,3 +309,102 @@ fn kv_json_shaped_strings_survive_byte_exact() {
     assert_eq!(db.get("doc").as_deref(), Some(doc));
     assert_eq!(db.get_bytes("doc"), Some(doc.as_bytes().to_vec()));
 }
+
+#[test]
+fn queue_offer_and_take_round_trip() {
+    let mut q = PersistedQueue::new();
+    assert!(q.offer("a", b"1".to_vec()));
+    assert_eq!(q.pending_len(), 1);
+    let item = q.take().expect("pending element");
+    assert_eq!(item.id, "a");
+    assert_eq!(item.payload, b"1".to_vec());
+    assert_eq!(item.attempts, 1, "a take counts as the first attempt");
+    assert_eq!(q.pending_len(), 0);
+    assert_eq!(q.in_flight_len(), 1);
+    assert_eq!(q.take(), None, "nothing left to take");
+}
+
+#[test]
+fn queue_offer_is_idempotent_per_id() {
+    let mut q = PersistedQueue::new();
+    assert!(q.offer("dup", b"1".to_vec()));
+    assert!(!q.offer("dup", b"2".to_vec()), "second offer rejected");
+    assert_eq!(q.pending_len(), 1);
+    let item = q.take().expect("one element");
+    assert_eq!(item.payload, b"1".to_vec(), "first payload wins");
+}
+
+#[test]
+fn queue_dedupes_independently_per_queue() {
+    let mut first = PersistedQueue::new();
+    let mut second = PersistedQueue::new();
+    assert!(first.offer("same", b"a".to_vec()));
+    assert!(
+        second.offer("same", b"b".to_vec()),
+        "a second queue is unaffected by the first"
+    );
+    assert_eq!(first.take().expect("first").payload, b"a".to_vec());
+    assert_eq!(second.take().expect("second").payload, b"b".to_vec());
+}
+
+#[test]
+fn queue_does_not_redeliver_in_flight_elements() {
+    let mut q = PersistedQueue::new();
+    q.offer("a", b"1".to_vec());
+    let taken = q.take().expect("taken");
+    assert_eq!(q.pending_len(), 0, "in-flight is not pending again");
+    assert_eq!(q.take(), None);
+    assert_eq!(taken.attempts, 1);
+}
+
+#[test]
+fn queue_fail_redelivers_until_attempts_exhausted() {
+    let mut q = PersistedQueue::new();
+    q.offer("a", b"1".to_vec());
+    let first = q.take().expect("first attempt");
+    let again = q.fail(&first.id, 3).expect("attempts remain: redelivered");
+    assert_eq!(again.attempts, first.attempts, "attempt count is carried");
+    assert_eq!(q.pending_len(), 1);
+    let second = q.take().expect("redelivered is taken again");
+    assert_eq!(second.attempts, 2);
+    q.fail(&second.id, 3).expect("still attempts left");
+    let third = q.take().expect("third attempt");
+    assert_eq!(third.attempts, 3);
+    assert_eq!(
+        q.fail(&third.id, 3),
+        None,
+        "exhausted: dead-lettered, never redelivered"
+    );
+    assert_eq!(q.pending_len(), 0);
+    assert_eq!(q.in_flight_len(), 0);
+}
+
+#[test]
+fn queue_retry_delay_follows_schedule() {
+    let mut q = PersistedQueue::new();
+    q.offer("a", b"1".to_vec());
+    let item = q.take().expect("taken");
+    q.fail(&item.id, 5).expect("redelivered");
+    // Later attempts back off further from the same base.
+    let base = 100;
+    let first = q.retry_delay(&item.id, base);
+    let second = q.retry_delay(&item.id, base);
+    assert!(second >= first, "delay never shrinks: {first} then {second}");
+    assert!(first >= base, "first delay starts at the base: {first}");
+}
+
+#[test]
+fn queue_complete_records_once_and_prunes() {
+    let mut q = PersistedQueue::new();
+    q.offer("a", b"1".to_vec());
+    let item = q.take().expect("taken");
+    q.complete(&item.id, 1_000);
+    assert_eq!(q.completed_len(), 1);
+    assert_eq!(q.prune(500, 2_000), 1, "older than the window: pruned");
+    assert_eq!(q.completed_len(), 0);
+    assert_eq!(
+        q.prune(10_000, 3_000),
+        0,
+        "inside the window: kept"
+    );
+}
