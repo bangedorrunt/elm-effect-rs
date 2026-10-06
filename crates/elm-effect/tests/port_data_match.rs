@@ -217,3 +217,23 @@ fn shape_area_matches_by_tag() {
         .or_else(f64::NAN);
     assert_eq!(area, 12.0);
 }
+
+#[test]
+fn empty_variants_match() {
+    use data::Variant;
+    // Data.test.ts:160 - empty variants carry their tag.
+    let none = Variant::empty("None");
+    assert_eq!(none.tag(), "None");
+    // :165 - empty variants match by tag.
+    let show_none = elm_effect::Matcher::value(none)
+        .when(
+            elm_effect::Predicate::make(|shape: &Variant| shape.tag() == "None"),
+            |_| "none".to_owned(),
+        )
+        .when(
+            elm_effect::Predicate::make(|shape: &Variant| shape.tag() == "Some"),
+            |_| "some".to_owned(),
+        )
+        .or_else("unreachable".to_owned());
+    assert_eq!(show_none, "none");
+}

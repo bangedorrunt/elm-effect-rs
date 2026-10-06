@@ -1046,8 +1046,8 @@ ported	packages/effect/test/Data.test.ts	119	it	returns false for non-tagged val
 ported	packages/effect/test/Data.test.ts	133	it	data-last: matches Circle	shape_area_matches_by_tag
 ported	packages/effect/test/Data.test.ts	138	it	data-last: matches Rect	shape_area_matches_by_tag
 unported	packages/effect/test/Data.test.ts	143	it	data-first: matches directly	
-unported	packages/effect/test/Data.test.ts	160	it	accepts void for empty variants	
-unported	packages/effect/test/Data.test.ts	165	it	works with $match for empty variants	
+ported	packages/effect/test/Data.test.ts	160	it	accepts void for empty variants	empty_variants_match
+ported	packages/effect/test/Data.test.ts	165	it	works with $match for empty variants	empty_variants_match
 ported	packages/effect/test/Data.test.ts	179	it	is an instance of globalThis.Error	tagged_errors_act_like_errors
 ported	packages/effect/test/Data.test.ts	184	it	assigns fields	tagged_structs_match_by_tag
 ported	packages/effect/test/Data.test.ts	190	it	has a stack trace	tagged_errors_act_like_errors
