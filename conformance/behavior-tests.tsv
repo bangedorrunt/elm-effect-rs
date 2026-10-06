@@ -9226,12 +9226,12 @@ unported	packages/effect/test/schema/toCodec.test.ts	222	it	Union
 unported	packages/effect/test/schema/toCodec.test.ts	229	it	should apply the construction process to the provided link in the serializer annotation	
 unported	packages/effect/test/schema/toCodec.test.ts	249	it	Never	
 unported	packages/effect/test/schema/toCodec.test.ts	257	it	Any	
-unported	packages/effect/test/schema/toCodec.test.ts	268	it	Unknown	
-unported	packages/effect/test/schema/toCodec.test.ts	291	it	ObjectKeyword	
-unported	packages/effect/test/schema/toCodec.test.ts	308	it	Undefined	
-unported	packages/effect/test/schema/toCodec.test.ts	316	it	Void	
-unported	packages/effect/test/schema/toCodec.test.ts	324	it	Null	
-unported	packages/effect/test/schema/toCodec.test.ts	332	it	String	
+ported	packages/effect/test/schema/toCodec.test.ts	268	it	Unknown	codec_unknown_round_trips_any_json
+ported	packages/effect/test/schema/toCodec.test.ts	291	it	ObjectKeyword	codec_object_keyword_takes_objects_only
+ported	packages/effect/test/schema/toCodec.test.ts	308	it	Undefined	codec_void_and_undefined_map_to_null
+ported	packages/effect/test/schema/toCodec.test.ts	316	it	Void	codec_void_and_undefined_map_to_null
+ported	packages/effect/test/schema/toCodec.test.ts	324	it	Null	codec_null_and_string_are_identity
+ported	packages/effect/test/schema/toCodec.test.ts	332	it	String	codec_null_and_string_are_identity
 unported	packages/effect/test/schema/toCodec.test.ts	344	it	reuses the Finite AST in the canonical encoding	
 unported	packages/effect/test/schema/toCodec.test.ts	353	it	does not propagate constructor defaults to the canonical encoding	
 unported	packages/effect/test/schema/toCodec.test.ts	375	it	Number	
