@@ -1029,15 +1029,15 @@ ported	packages/effect/test/Crypto.test.ts	136	it.effect	can access a provided c
 ported	packages/effect/test/Data.test.ts	11	it	assigns fields from constructor args	tagged_structs_match_by_tag
 ported	packages/effect/test/Data.test.ts	17	it	structural equality via Equal.equals	tagged_structs_match_by_tag
 ported	packages/effect/test/Data.test.ts	23	it	not equal when fields differ	tagged_structs_match_by_tag
-unported	packages/effect/test/Data.test.ts	29	it	supports .pipe()	
-unported	packages/effect/test/Data.test.ts	35	it	allows classes without fields to be constructed without args	
-unported	packages/effect/test/Data.test.ts	41	it	fields are enumerable	
+ported	packages/effect/test/Data.test.ts	29	it	supports .pipe()	data_struct_pipe_and_fields
+ported	packages/effect/test/Data.test.ts	35	it	allows classes without fields to be constructed without args	data_struct_pipe_and_fields
+ported	packages/effect/test/Data.test.ts	41	it	fields are enumerable	data_struct_pipe_and_fields
 ported	packages/effect/test/Data.test.ts	50	it	sets _tag to the provided tag	tagged_structs_match_by_tag
 ported	packages/effect/test/Data.test.ts	55	it	assigns fields	tagged_structs_match_by_tag
 ported	packages/effect/test/Data.test.ts	60	it	structural equality includes _tag	tagged_structs_match_by_tag
 ported	packages/effect/test/Data.test.ts	66	it	different tags are not equal	tagged_structs_match_by_tag
-unported	packages/effect/test/Data.test.ts	73	it	allows tagged classes without fields to be constructed without args	
-unported	packages/effect/test/Data.test.ts	79	it	supports .pipe()	
+ported	packages/effect/test/Data.test.ts	73	it	allows tagged classes without fields to be constructed without args	data_struct_pipe_and_fields
+ported	packages/effect/test/Data.test.ts	79	it	supports .pipe()	data_struct_pipe_and_fields
 ported	packages/effect/test/Data.test.ts	94	it	creates a variant with _tag	tagged_structs_match_by_tag
 ported	packages/effect/test/Data.test.ts	100	it	creates different variants	tagged_structs_match_by_tag
 ported	packages/effect/test/Data.test.ts	109	it	returns true for matching variant	tagged_structs_match_by_tag

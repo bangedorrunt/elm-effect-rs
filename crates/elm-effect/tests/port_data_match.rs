@@ -5,6 +5,9 @@ use elm_effect::{
     Combiner, Differ, Equal, Filter, Hash, Matcher, Predicate, Reducer, Tagged, ord_order, tagged,
 };
 
+#[path = "../src/data/data.rs"]
+mod data;
+
 #[test]
 fn tagged_structs_match_by_tag() {
     let circle = tagged("circle", 1u32);
@@ -120,4 +123,24 @@ fn differ_patches_round_trip() {
     );
     let patch = order_differ.diff(&5u32, &7u32);
     assert_eq!(order_differ.patch(&5u32, &patch), 7);
+}
+
+#[test]
+fn data_struct_pipe_and_fields() {
+    use data::{Field, Struct};
+    // Data.test.ts:29/79 - .pipe() applies and returns.
+    let person = Struct::new([("name", Field::Str("C".to_owned())), ("age", Field::Int(1))]);
+    let name = person.pipe(|s| match s.get("name") {
+        Some(Field::Str(name)) => name.clone(),
+        _ => String::new(),
+    });
+    assert_eq!(name, "C");
+    // :35/:73 - fieldless structs construct.
+    let empty = Struct::new(Vec::<(String, Field)>::new());
+    assert!(empty.field_names().is_empty());
+    // :41 - fields are enumerable.
+    let ordered = Struct::new([("b", Field::Int(2)), ("a", Field::Int(1))]);
+    let mut names = ordered.field_names();
+    names.sort();
+    assert_eq!(names, ["a", "b"]);
 }
