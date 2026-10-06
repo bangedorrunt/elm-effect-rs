@@ -2505,8 +2505,8 @@ ported	packages/effect/test/LogLevel.test.ts	8	it.effect	uses Info as the defaul
 ported	packages/effect/test/LogLevel.test.ts	15	it.effect	supports All and None sentinel thresholds	loglevel_all_and_none_are_sentinels
 unported	packages/effect/test/Logger.test.ts	11	it.effect	should output logs	
 unported	packages/effect/test/Logger.test.ts	29	it.effect	replace loggers	
-unported	packages/effect/test/Logger.test.ts	43	it.effect	formatLogFmt does not double quote string messages or annotations	
-unported	packages/effect/test/Logger.test.ts	71	it.effect	formatSimple does not double quote string messages or annotations	
+ported	packages/effect/test/Logger.test.ts	43	it.effect	formatLogFmt does not double quote string messages or annotations	format_logfmt_quotes_only_when_needed
+ported	packages/effect/test/Logger.test.ts	71	it.effect	formatSimple does not double quote string messages or annotations	format_simple_quotes_only_when_needed
 unported	packages/effect/test/Logger.test.ts	93	it.effect	formats BigInt messages consistently	
 unported	packages/effect/test/Logger.test.ts	118	it.effect	formatJson includes the message of plain Errors	
 unported	packages/effect/test/Logger.test.ts	134	it.effect	annotateLogsScoped applies annotations only while scoped	
