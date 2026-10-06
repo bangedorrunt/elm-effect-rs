@@ -6116,7 +6116,7 @@ ported	packages/effect/test/encoding/Ini.test.ts	31	it	supports quoted values, c
 unported	packages/effect/test/encoding/Ndjson.test.ts	7	it.effect	fails for values without a JSON representation	
 unported	packages/effect/test/encoding/Ndjson.test.ts	23	it.effect	decodeSchema decodes records split across Uint8Array chunks	
 unported	packages/effect/test/encoding/Ndjson.test.ts	35	it	identifies Ndjson errors	
-unported	packages/effect/test/encoding/SchemaBinary.test.ts	148	it	packs fixed-size array elements	
+ported	packages/effect/test/encoding/SchemaBinary.test.ts	148	it	packs fixed-size array elements	binary_arrays_pack_fixed_elements
 unported	packages/effect/test/encoding/SchemaBinary.test.ts	164	it	length-prefixes variable-size array elements and nested arrays	
 unported	packages/effect/test/encoding/SchemaBinary.test.ts	175	it	round-trips zero-width array elements	
 unported	packages/effect/test/encoding/SchemaBinary.test.ts	183	it	distinguishes absent optionals from present zero-width values	
