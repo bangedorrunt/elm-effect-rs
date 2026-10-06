@@ -258,6 +258,7 @@ where
                 return Pooled {
                     value: Some(value),
                     pool: self,
+                    returning: true,
                 };
             }
             if guard.total < self.max {
@@ -267,6 +268,7 @@ where
                 return Pooled {
                     value: Some(value),
                     pool: self,
+                    returning: true,
                 };
             }
             guard = self.available.wait(guard).unwrap();
@@ -293,6 +295,48 @@ where
         }
         self.available.notify_one();
     }
+
+    /// Drop a value without returning it to circulation: the total
+    /// shrinks and one waiter (if any) wakes to make a replacement.
+    fn discard(&self, value: T) {
+        drop(value);
+        let mut guard = self.inner.lock().unwrap();
+        guard.total -= 1;
+        self.available.notify_one();
+    }
+
+    /// Fill idle storage up to `count` values (bounded by `max` total).
+    /// Mirrors pool preallocation: later acquires reuse without making.
+    pub fn preallocate(&self, count: usize) {
+        loop {
+            let room = {
+                let guard = self.inner.lock().unwrap();
+                guard.idle.len() < count && guard.total < self.max
+            };
+            if !room {
+                return;
+            }
+            let value = (self.make)();
+            let mut guard = self.inner.lock().unwrap();
+            if guard.idle.len() < count && guard.total < self.max {
+                guard.total += 1;
+                guard.idle.push((value, std::time::Instant::now()));
+            } else {
+                drop(guard);
+                drop(value);
+                return;
+            }
+            self.available.notify_one();
+        }
+    }
+
+    /// Take a value out of shared circulation permanently: dropping the
+    /// guard shrinks the pool instead of returning the value.
+    pub fn reserve(&self) -> Pooled<'_, T> {
+        let mut guard = self.acquire();
+        guard.returning = false;
+        guard
+    }
 }
 
 /// A checked-out pool value. Dropping returns it (or releases it when the
@@ -300,6 +344,7 @@ where
 pub struct Pooled<'a, T: Send + 'static> {
     value: Option<T>,
     pool: &'a Pool<T>,
+    returning: bool,
 }
 
 impl<T: Send + 'static> std::ops::Deref for Pooled<'_, T> {
@@ -316,10 +361,24 @@ impl<T: Send + 'static> std::ops::DerefMut for Pooled<'_, T> {
     }
 }
 
+impl<T: Send + 'static> Pooled<'_, T> {
+    /// Reject a checked-out value: drops it without returning it to the
+    /// pool (a broken item never circulates again).
+    pub fn invalidate(mut self) {
+        if let Some(value) = self.value.take() {
+            self.pool.discard(value);
+        }
+    }
+}
+
 impl<T: Send + 'static> Drop for Pooled<'_, T> {
     fn drop(&mut self) {
         if let Some(value) = self.value.take() {
-            self.pool.release(value);
+            if self.returning {
+                self.pool.release(value);
+            } else {
+                self.pool.discard(value);
+            }
         }
     }
 }

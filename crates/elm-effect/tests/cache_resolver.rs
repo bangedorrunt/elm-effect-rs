@@ -171,3 +171,129 @@ fn pool_blocks_while_exhausted() {
     });
     assert_eq!(done.load(Ordering::SeqCst), 1);
 }
+
+#[test]
+fn pool_preallocates_idle_values() {
+    let made = Arc::new(AtomicUsize::new(0));
+    let pool = Pool::new(
+        4,
+        IdlePolicy::default(),
+        {
+            let made = Arc::clone(&made);
+            move || {
+                made.fetch_add(1, Ordering::SeqCst);
+                7u32
+            }
+        },
+    );
+    pool.preallocate(3);
+    assert_eq!(made.load(Ordering::SeqCst), 3);
+    assert_eq!(pool.idle_count(), 3);
+    assert_eq!(pool.in_use(), 0);
+    let a = pool.acquire();
+    assert_eq!(*a, 7);
+    assert_eq!(made.load(Ordering::SeqCst), 3, "acquire reuses, not makes");
+    drop(a);
+}
+
+#[test]
+fn pool_invalidate_drops_item_from_circulation() {
+    let made = Arc::new(AtomicUsize::new(0));
+    let pool = Pool::new(
+        2,
+        IdlePolicy::default(),
+        {
+            let made = Arc::clone(&made);
+            move || {
+                made.fetch_add(1, Ordering::SeqCst);
+                7u32
+            }
+        },
+    );
+    let bad = pool.acquire();
+    assert_eq!(made.load(Ordering::SeqCst), 1);
+    bad.invalidate();
+    assert_eq!(pool.idle_count(), 0, "invalidated item never returns");
+    assert_eq!(pool.in_use(), 0);
+    let fresh = pool.acquire();
+    assert_eq!(made.load(Ordering::SeqCst), 2, "replacement is made");
+    drop(fresh);
+}
+
+#[test]
+fn pool_reserve_removes_item_permanently() {
+    let made = Arc::new(AtomicUsize::new(0));
+    let pool = Pool::new(
+        2,
+        IdlePolicy::default(),
+        {
+            let made = Arc::clone(&made);
+            move || {
+                made.fetch_add(1, Ordering::SeqCst);
+                7u32
+            }
+        },
+    );
+    let held = pool.reserve();
+    assert_eq!(*held, 7);
+    drop(held);
+    assert_eq!(pool.idle_count(), 0, "reserved item leaves circulation");
+    assert_eq!(pool.in_use(), 0);
+    let next = pool.acquire();
+    assert_eq!(made.load(Ordering::SeqCst), 2, "pool makes a replacement");
+    drop(next);
+}
+
+#[test]
+fn pool_max_size_with_concurrency() {
+    let made = Arc::new(AtomicUsize::new(0));
+    let pool = Arc::new(Pool::new(
+        3,
+        IdlePolicy::default(),
+        {
+            let made = Arc::clone(&made);
+            move || {
+                made.fetch_add(1, Ordering::SeqCst);
+                7u32
+            }
+        },
+    ));
+    let a = pool.acquire();
+    let b = pool.acquire();
+    let c = pool.acquire();
+    assert_eq!(pool.in_use(), 3);
+    let done = Arc::new(AtomicUsize::new(0));
+    std::thread::scope(|s| {
+        for _ in 0..3 {
+            let (pool, done) = (Arc::clone(&pool), Arc::clone(&done));
+            s.spawn(move || {
+                let guard = pool.acquire();
+                assert_eq!(*guard, 7);
+                done.fetch_add(1, Ordering::SeqCst);
+            });
+        }
+        std::thread::sleep(std::time::Duration::from_millis(20));
+        assert_eq!(done.load(Ordering::SeqCst), 0, "waiters block at max");
+        drop(a);
+        drop(b);
+        drop(c);
+    });
+    assert_eq!(done.load(Ordering::SeqCst), 3);
+    assert_eq!(made.load(Ordering::SeqCst), 3, "no over-make past max");
+}
+
+#[test]
+fn pool_reclaims_after_concurrent_use() {
+    let pool = Pool::new(2, IdlePolicy::default(), || 7u32);
+    std::thread::scope(|s| {
+        for _ in 0..4 {
+            s.spawn(|| {
+                let guard = pool.acquire();
+                assert_eq!(*guard, 7);
+            });
+        }
+    });
+    assert_eq!(pool.in_use(), 0, "everything returned");
+    assert!(pool.idle_count() <= 2);
+    let _ = pool.acquire();
+}
