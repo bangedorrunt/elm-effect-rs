@@ -937,6 +937,9 @@ fn string_char_access() {
     assert_eq!(string::char_at("abc", 10), None);
     // :345 - code point at index.
     assert_eq!(string::code_point_at("abc", 1), Some(98));
+    // String.test.ts:344 - data-last through a closure.
+    let point_at = |index: usize| string::code_point_at("abc", index);
+    assert_eq!(point_at(1), Some(98));
     // :348 - none out of bounds.
     assert_eq!(string::code_point_at("abc", 10), None);
 }

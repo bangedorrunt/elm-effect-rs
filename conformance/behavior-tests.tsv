@@ -3915,7 +3915,7 @@ ported	packages/effect/test/String.test.ts	324	it	returns none for out of bounds
 ported	packages/effect/test/String.test.ts	330	it	returns character at index (data-first)	string_char_access
 ported	packages/effect/test/String.test.ts	334	it	returns character at index (data-last)	string_char_access
 ported	packages/effect/test/String.test.ts	338	it	returns none for out of bounds	string_char_access
-unported	packages/effect/test/String.test.ts	344	it	returns code point at index	
+ported	packages/effect/test/String.test.ts	344	it	returns code point at index	string_char_access
 ported	packages/effect/test/String.test.ts	348	it	returns none for out of bounds	string_char_access
 ported	packages/effect/test/String.test.ts	352	it	handles surrogate pairs	string_index_search
 ported	packages/effect/test/String.test.ts	358	it	returns index of first occurrence	string_index_search
