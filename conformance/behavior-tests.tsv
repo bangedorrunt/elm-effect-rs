@@ -9522,7 +9522,7 @@ unported	packages/effect/test/schema/toFormatter.test.ts	231	it	TupleWithRest
 unported	packages/effect/test/schema/toFormatter.test.ts	242	it	TupleWithRest with multiple post-rest elements	
 unported	packages/effect/test/schema/toFormatter.test.ts	262	it	one trailing element after the rest element	
 unported	packages/effect/test/schema/toFormatter.test.ts	269	it	multiple trailing elements after the rest element	
-unported	packages/effect/test/schema/toFormatter.test.ts	279	it	empty	
+ported	packages/effect/test/schema/toFormatter.test.ts	279	it	empty	formatter_empty_struct_renders_shapes
 unported	packages/effect/test/schema/toFormatter.test.ts	290	it	required fields	
 unported	packages/effect/test/schema/toFormatter.test.ts	298	it	required field with undefined	
 unported	packages/effect/test/schema/toFormatter.test.ts	307	it	optionalKey field	
