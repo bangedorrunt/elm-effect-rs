@@ -6316,9 +6316,9 @@ unported	packages/effect/test/encoding/Sse.test.ts	92	it	ignores retry values th
 unported	packages/effect/test/encoding/Sse.test.ts	101	it	Event preserves string payloads	
 unported	packages/effect/test/encoding/Sse.test.ts	121	it	EventEncoded consumers can explicitly decode json payloads	
 unported	packages/effect/test/encoding/Sse.test.ts	139	it.effect	decodeDataSchema decodes json payload from SSE stream	
-unported	packages/effect/test/encoding/Sse.test.ts	157	it.effect	fails when an unterminated line exceeds maxEventSize	
-unported	packages/effect/test/encoding/Sse.test.ts	170	it.effect	fails when pending data exceeds maxEventSize	
-unported	packages/effect/test/encoding/Sse.test.ts	183	it.effect	parses pending state just under maxEventSize	
+ported	packages/effect/test/encoding/Sse.test.ts	157	it.effect	fails when an unterminated line exceeds maxEventSize	sse_fails_unterminated_line_over_max
+ported	packages/effect/test/encoding/Sse.test.ts	170	it.effect	fails when pending data exceeds maxEventSize	sse_fails_pending_data_over_max
+ported	packages/effect/test/encoding/Sse.test.ts	183	it.effect	parses pending state just under maxEventSize	sse_parses_pending_just_under_max
 ported	packages/effect/test/encoding/Sse.test.ts	198	it.effect	parses well-formed events split across chunks	sse_parses_events_split_across_chunks
 ported	packages/effect/test/encoding/Toml.test.ts	5	it	parses tables, dotted keys, arrays, and inline tables	toml_tables_dotted_keys_arrays
 ported	packages/effect/test/encoding/Toml.test.ts	28	it	parses arrays of tables and date-time values	toml_servers_with_datetimes
