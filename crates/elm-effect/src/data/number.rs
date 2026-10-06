@@ -35,6 +35,11 @@ pub fn div(a: f64, b: f64) -> f64 {
     a / b
 }
 
+/// Divide, yielding `None` for zero divisors (including `-0.0`).
+pub fn divide(a: f64, b: f64) -> Option<f64> {
+    if b == 0.0 { None } else { Some(a / b) }
+}
+
 /// Integer and decimal remainders (`remainder`).
 pub fn remainder(a: f64, b: f64) -> f64 {
     a % b
@@ -96,6 +101,19 @@ pub fn sum(values: &[f64]) -> f64 {
     values.iter().sum()
 }
 
+/// Product of values, stopping at the first zero like the reference fold.
+/// Empty multiplies to 1.
+pub fn product(values: impl IntoIterator<Item = f64>) -> f64 {
+    let mut out = 1.0;
+    for value in values {
+        out *= value;
+        if value == 0.0 {
+            return out;
+        }
+    }
+    out
+}
+
 /// Mean of a slice (`avg`); empty is `None`.
 pub fn avg(values: &[f64]) -> Option<f64> {
     if values.is_empty() {
@@ -135,4 +153,19 @@ pub fn clamp_ordered(x: f64, min: f64, max: f64) -> f64 {
 /// Order-based less-than (delegates to `Number.Order`, so `NaN < x`).
 pub fn less_than(a: f64, b: f64) -> bool {
     compare(a, b) == std::cmp::Ordering::Less
+}
+
+/// `true` when `a` is strictly greater than `b`.
+pub fn greater_than(a: f64, b: f64) -> bool {
+    a > b
+}
+
+/// `true` when `a` is smaller than or equal to `b`.
+pub fn less_than_or_equal(a: f64, b: f64) -> bool {
+    a <= b
+}
+
+/// `true` when `a` is greater than or equal to `b`.
+pub fn greater_than_or_equal(a: f64, b: f64) -> bool {
+    a >= b
 }

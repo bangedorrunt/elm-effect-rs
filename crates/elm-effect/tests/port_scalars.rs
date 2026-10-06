@@ -371,6 +371,8 @@ fn number_range() {
     assert_eq!(number::clamp(15.0, 0.0, 10.0), 10.0);
     assert_eq!(number::min(2.0, 3.0), 2.0);
     assert_eq!(number::max(2.0, 3.0), 3.0);
+    assert_eq!(number::min(2.0, 2.0), 2.0);
+    assert_eq!(number::max(2.0, 2.0), 2.0);
     assert!(number::between(5.0, 0.0, 10.0));
     assert!(number::between(0.0, 0.0, 10.0));
     assert!(!number::between(11.0, 0.0, 10.0));
@@ -688,4 +690,35 @@ fn string_case_first_char() {
     assert_eq!(string::uncapitalize("A"), "a");
     assert_eq!(string::uncapitalize(""), "");
     assert_eq!(string::uncapitalize("ABC"), "aBC");
+}
+
+#[test]
+fn number_divide_product_and_order() {
+    // Number.test.ts:95 - divide yields None for zero divisors.
+    assert_eq!(number::divide(6.0, 3.0), Some(2.0));
+    assert_eq!(number::divide(0.0, 3.0), Some(0.0));
+    assert_eq!(number::divide(6.0, 0.0), None);
+    assert_eq!(number::divide(6.0, -0.0), None);
+    // :279/:284 - product multiplies; iteration stops at zero.
+    assert_eq!(number::product([2.0, 3.0, 4.0]), 24.0);
+    assert_eq!(number::product([]), 1.0);
+    assert_eq!(number::product([2.0, 0.0, 5.0]), 0.0);
+    // :147/:153 - lessThan is strict; data-last is the same call in Rust.
+    assert!(number::less_than(1.0, 2.0));
+    assert!(!number::less_than(2.0, 2.0));
+    assert!(!number::less_than(2.0, 1.0));
+    // :159/:165 - lessThanOrEqual.
+    assert!(number::less_than_or_equal(2.0, 2.0));
+    assert!(number::less_than_or_equal(1.0, 2.0));
+    assert!(!number::less_than_or_equal(3.0, 2.0));
+    // :171/:177 - greaterThan is strict.
+    assert!(number::greater_than(2.0, 1.0));
+    assert!(!number::greater_than(2.0, 2.0));
+    assert!(!number::greater_than(1.0, 2.0));
+    // :183/:189 - greaterThanOrEqual.
+    assert!(number::greater_than_or_equal(2.0, 2.0));
+    assert!(number::greater_than_or_equal(2.0, 1.0));
+    assert!(!number::greater_than_or_equal(1.0, 2.0));
+    // :205/:219 - clamping covers its data-last form the same way.
+    assert_eq!(number::clamp(5.0, 0.0, 10.0), 5.0);
 }

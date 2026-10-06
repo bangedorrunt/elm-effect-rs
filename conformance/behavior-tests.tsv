@@ -2649,44 +2649,44 @@ unported	packages/effect/test/Number.test.ts	24	it	re-exports the global Number 
 unported	packages/effect/test/Number.test.ts	28	it	coerces values with Number semantics	
 ported	packages/effect/test/Number.test.ts	37	it	returns true for numbers, including NaN and infinities	number_parse
 unported	packages/effect/test/Number.test.ts	44	it	returns false for non-number values	
-unported	packages/effect/test/Number.test.ts	53	it	adds numbers in data-first and data-last forms	
+ported	packages/effect/test/Number.test.ts	53	it	adds numbers in data-first and data-last forms	number_arithmetic
 ported	packages/effect/test/Number.test.ts	58	it	preserves zero and supports negative operands	number_arithmetic
-unported	packages/effect/test/Number.test.ts	65	it	multiplies numbers in data-first and data-last forms	
+ported	packages/effect/test/Number.test.ts	65	it	multiplies numbers in data-first and data-last forms	number_arithmetic
 ported	packages/effect/test/Number.test.ts	70	it	handles zero and negative operands	number_arithmetic
-unported	packages/effect/test/Number.test.ts	77	it	subtracts numbers in data-first and data-last forms	
-unported	packages/effect/test/Number.test.ts	82	it	supports negative results	
-unported	packages/effect/test/Number.test.ts	89	it	divides numbers in data-first and data-last forms	
-unported	packages/effect/test/Number.test.ts	95	it	returns none for zero and negative-zero divisors	
+ported	packages/effect/test/Number.test.ts	77	it	subtracts numbers in data-first and data-last forms	number_arithmetic
+ported	packages/effect/test/Number.test.ts	82	it	supports negative results	number_arithmetic
+ported	packages/effect/test/Number.test.ts	89	it	divides numbers in data-first and data-last forms	number_arithmetic
+ported	packages/effect/test/Number.test.ts	95	it	returns none for zero and negative-zero divisors	number_divide_product_and_order
 ported	packages/effect/test/Number.test.ts	102	it	adds one to the input	number_arithmetic
 ported	packages/effect/test/Number.test.ts	109	it	subtracts one from the input	number_arithmetic
 ported	packages/effect/test/Number.test.ts	116	it	compares less than, equal, and greater than values	number_order_nan_rows
 ported	packages/effect/test/Number.test.ts	122	it	treats NaN as less than any non-NaN and equal to NaN	number_order_nan_rows
 ported	packages/effect/test/Number.test.ts	128	it	treats 0 and -0 as equal	number_order_nan_rows
-unported	packages/effect/test/Number.test.ts	135	it	returns true for equal numbers and false for different numbers	
+ported	packages/effect/test/Number.test.ts	135	it	returns true for equal numbers and false for different numbers	number_order_nan_rows
 ported	packages/effect/test/Number.test.ts	140	it	treats NaN as equivalent to NaN and 0 as equivalent to -0	number_order_nan_rows
-unported	packages/effect/test/Number.test.ts	147	it	returns true only when the first operand is strictly smaller	
-unported	packages/effect/test/Number.test.ts	153	it	supports the data-last form	
-unported	packages/effect/test/Number.test.ts	159	it	returns true for smaller or equal values	
-unported	packages/effect/test/Number.test.ts	165	it	supports the data-last form	
-unported	packages/effect/test/Number.test.ts	171	it	returns true only when the first operand is strictly greater	
-unported	packages/effect/test/Number.test.ts	177	it	supports the data-last form	
-unported	packages/effect/test/Number.test.ts	183	it	returns true for greater or equal values	
-unported	packages/effect/test/Number.test.ts	189	it	supports the data-last form	
+ported	packages/effect/test/Number.test.ts	147	it	returns true only when the first operand is strictly smaller	number_divide_product_and_order
+ported	packages/effect/test/Number.test.ts	153	it	supports the data-last form	number_divide_product_and_order
+ported	packages/effect/test/Number.test.ts	159	it	returns true for smaller or equal values	number_divide_product_and_order
+ported	packages/effect/test/Number.test.ts	165	it	supports the data-last form	number_divide_product_and_order
+ported	packages/effect/test/Number.test.ts	171	it	returns true only when the first operand is strictly greater	number_divide_product_and_order
+ported	packages/effect/test/Number.test.ts	177	it	supports the data-last form	number_divide_product_and_order
+ported	packages/effect/test/Number.test.ts	183	it	returns true for greater or equal values	number_divide_product_and_order
+ported	packages/effect/test/Number.test.ts	189	it	supports the data-last form	number_divide_product_and_order
 ported	packages/effect/test/Number.test.ts	195	it	includes both bounds and excludes values outside the range	number_range
-unported	packages/effect/test/Number.test.ts	205	it	supports the data-last form	
+ported	packages/effect/test/Number.test.ts	205	it	supports the data-last form	number_range
 ported	packages/effect/test/Number.test.ts	211	it	returns the input when it is within bounds and clamps out-of-range values	number_range
 unported	packages/effect/test/Number.test.ts	219	it	supports the data-last form	
 ported	packages/effect/test/Number.test.ts	223	it	clamps NaN to the minimum according to Number.Order	number_order_nan_rows
-unported	packages/effect/test/Number.test.ts	229	it	returns the smaller value in data-first and data-last forms	
-unported	packages/effect/test/Number.test.ts	235	it	returns the first argument when both values compare as equal	
-unported	packages/effect/test/Number.test.ts	242	it	returns the larger value in data-first and data-last forms	
-unported	packages/effect/test/Number.test.ts	248	it	returns the first argument when both values compare as equal	
+ported	packages/effect/test/Number.test.ts	229	it	returns the smaller value in data-first and data-last forms	number_range
+ported	packages/effect/test/Number.test.ts	235	it	returns the first argument when both values compare as equal	number_range
+ported	packages/effect/test/Number.test.ts	242	it	returns the larger value in data-first and data-last forms	number_range
+ported	packages/effect/test/Number.test.ts	248	it	returns the first argument when both values compare as equal	number_range
 ported	packages/effect/test/Number.test.ts	255	it	returns -1, 0, or 1 for negative, zero, and positive numbers	number_range
 ported	packages/effect/test/Number.test.ts	262	it	treats NaN as less than zero because it delegates to Number.Order	number_order_nan_rows
 ported	packages/effect/test/Number.test.ts	268	it	sums arrays and arbitrary iterables	number_aggregate
 ported	packages/effect/test/Number.test.ts	273	it	returns zero for an empty iterable	number_aggregate
-unported	packages/effect/test/Number.test.ts	279	it	multiplies arrays and returns one for an empty iterable	
-unported	packages/effect/test/Number.test.ts	284	it	stops iterating once it encounters zero	
+ported	packages/effect/test/Number.test.ts	279	it	multiplies arrays and returns one for an empty iterable	number_divide_product_and_order
+ported	packages/effect/test/Number.test.ts	284	it	stops iterating once it encounters zero	number_divide_product_and_order
 unported	packages/effect/test/Number.test.ts	290	it	computes integer and decimal remainders in data-first and data-last forms	
 unported	packages/effect/test/Number.test.ts	296	it	preserves the dividend sign, including negative zero	
 unported	packages/effect/test/Number.test.ts	302	it	preserves the dividend sign with negative divisors	
