@@ -612,3 +612,29 @@ fn inet_addresses_convert_to_normalized_urls() {
         None
     );
 }
+
+#[test]
+fn net_addresses_format_url_display_values() {
+    use net::NetAddress;
+    // NetAddress.test.ts:388 - display URLs omit default ports and slashes.
+    let v4loop = NetAddress::ipv4_from_string("127.0.0.1").expect("valid");
+    assert_eq!(
+        v4loop.format_url_value(None).as_deref(),
+        Some("http://127.0.0.1")
+    );
+    let v6loop = NetAddress::ipv6_from_string("::1").expect("valid");
+    assert_eq!(
+        v6loop.format_url_value(Some("https")).as_deref(),
+        Some("https://[::1]")
+    );
+    for (input, scheme, expected) in [
+        ("192.0.2.1:80", "http", "http://192.0.2.1"),
+        ("[::1]:443", "HTTPS", "https://[::1]"),
+        ("[::]:3000", "http", "http://[::]:3000"),
+        ("[::1]:0", "http", "http://[::1]:0"),
+        ("127.0.0.1:80", "tcp", "tcp://127.0.0.1:80"),
+    ] {
+        let address = NetAddress::socket_address_from_input(input).expect("valid socket");
+        assert_eq!(address.format_url_value(Some(scheme)).as_deref(), Some(expected), "{input}");
+    }
+}

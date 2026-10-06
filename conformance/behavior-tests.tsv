@@ -6986,7 +6986,7 @@ ported	packages/effect/test/net/NetAddress.test.ts	317	it	preserves the input re
 ported	packages/effect/test/net/NetAddress.test.ts	339	it	retains the address supplied to checked socket constructors	net_addresses_preserve_rejected_inputs
 ported	packages/effect/test/net/NetAddress.test.ts	347	it	converts internet addresses to normalized URL values	inet_addresses_convert_to_normalized_urls
 ported	packages/effect/test/net/NetAddress.test.ts	372	it	converts bare IP addresses without adding an explicit port	bare_ips_convert_to_urls_without_ports
-unported	packages/effect/test/net/NetAddress.test.ts	388	it	formats URL strings without trailing slashes or default ports	
+ported	packages/effect/test/net/NetAddress.test.ts	388	it	formats URL strings without trailing slashes or default ports	net_addresses_format_url_display_values
 ported	packages/effect/test/net/NetAddress.test.ts	415	it	formats Unix socket paths without encoding or normalizing them	unix_paths_format_verbatim
 unported	packages/effect/test/net/NetAddress.test.ts	432	it	returns URL conversion errors for scopes and rejected URLs	
 unported	packages/effect/test/net/NetAddress.test.ts	451	it	canonicalizes mapped internet addresses while retaining their port	

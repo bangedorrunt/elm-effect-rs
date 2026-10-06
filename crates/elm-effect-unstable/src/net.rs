@@ -872,6 +872,40 @@ impl NetAddress {
             format!("{scheme}://{host}:{}/", socket.port())
         })
     }
+
+    /// Display URL without trailing slash, defaulting an omitted scheme
+    /// to http (TS `formatUrl`). Returns `None` for Unix paths.
+    pub fn format_url_value(&self, scheme: Option<&str>) -> Option<String> {
+        let scheme = scheme.unwrap_or("http").to_ascii_lowercase();
+        let default = matches!(
+            (scheme.as_str(), self.port_or_none()),
+            (_, None)
+                | ("ftp", Some(21))
+                | ("http" | "ws", Some(80))
+                | ("https" | "wss", Some(443))
+        );
+        let host = match self {
+            Self::V4(v4) => v4.to_string(),
+            Self::V6(v6) => format!("[{v6}]"),
+            Self::UnixPath(_) => return None,
+            Self::Inet(socket) => match socket.ip() {
+                std::net::IpAddr::V4(v4) => v4.to_string(),
+                std::net::IpAddr::V6(v6) => format!("[{v6}]"),
+            },
+        };
+        Some(match self.port_or_none() {
+            Some(port) if !default => format!("{scheme}://{host}:{port}"),
+            _ => format!("{scheme}://{host}"),
+        })
+    }
+
+    /// Port for socket addresses, if present.
+    fn port_or_none(&self) -> Option<u16> {
+        match self {
+            Self::Inet(socket) => Some(socket.port()),
+            _ => None,
+        }
+    }
 }
 
 impl std::fmt::Display for NetAddress {
