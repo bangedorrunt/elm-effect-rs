@@ -5653,12 +5653,12 @@ unported	packages/effect/test/cli/Errors.test.ts	252	it	preserves line feeds and
 unported	packages/effect/test/cli/Errors.test.ts	267	it	formats single error with ERROR header	
 unported	packages/effect/test/cli/Errors.test.ts	277	it	formats multiple errors with ERRORS header	
 unported	packages/effect/test/cli/Errors.test.ts	291	it	returns empty string for empty array	
-unported	packages/effect/test/cli/Errors.test.ts	299	it	prefers the user-facing message over the cause	
-unported	packages/effect/test/cli/Errors.test.ts	308	it	uses an Error cause message as the fallback	
-unported	packages/effect/test/cli/Errors.test.ts	316	it	uses a string cause as the fallback	
-unported	packages/effect/test/cli/Errors.test.ts	322	it	uses a generic fallback for causes without a message	
-unported	packages/effect/test/cli/Errors.test.ts	328	it	falls back past empty user-facing and cause messages	
-unported	packages/effect/test/cli/Errors.test.ts	339	it	allows runtime reporting before the CLI runner renders it	
+ported	packages/effect/test/cli/Errors.test.ts	299	it	prefers the user-facing message over the cause	user_error_message_fallback_chain
+ported	packages/effect/test/cli/Errors.test.ts	308	it	uses an Error cause message as the fallback	user_error_message_fallback_chain
+ported	packages/effect/test/cli/Errors.test.ts	316	it	uses a string cause as the fallback	user_error_message_fallback_chain
+ported	packages/effect/test/cli/Errors.test.ts	322	it	uses a generic fallback for causes without a message	user_error_message_fallback_chain
+ported	packages/effect/test/cli/Errors.test.ts	328	it	falls back past empty user-facing and cause messages	user_error_message_fallback_chain
+ported	packages/effect/test/cli/Errors.test.ts	339	it	allows runtime reporting before the CLI runner renders it	user_error_message_fallback_chain
 unported	packages/effect/test/cli/Errors.test.ts	345	it	escapes control characters in the user-facing message	
 unported	packages/effect/test/cli/Errors.test.ts	358	it	formats the resolved fallback message with other CLI errors	
 unported	packages/effect/test/cli/Errors.test.ts	367	it	labels a bare expected description	

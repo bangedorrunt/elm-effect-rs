@@ -572,3 +572,28 @@ fn lexer_tokenizes_argv() {
         ]
     );
 }
+
+#[test]
+fn user_error_message_fallback_chain() {
+    use elm_effect_unstable::cli::{UserCause, UserError};
+    // Errors.test.ts:299 - the user-facing message wins over the cause.
+    let error = UserError::new(UserCause::Error("internal details".to_owned()))
+        .with_message("Could not deploy the application");
+    assert_eq!(error.message(), "Could not deploy the application");
+    // :308 - an Error cause message is the fallback.
+    let error = UserError::new(UserCause::Error("Connection refused".to_owned()));
+    assert_eq!(error.message(), "Connection refused");
+    // :316 - a string cause is the fallback.
+    let error = UserError::new(UserCause::Text("Connection refused".to_owned()));
+    assert_eq!(error.message(), "Connection refused");
+    // :322 - causes without a message get the generic fallback.
+    let error = UserError::new(UserCause::Opaque);
+    assert_eq!(error.message(), "An error occurred");
+    // :328 - empty messages fall through to the next fallback.
+    let error = UserError::new(UserCause::Error("Connection refused".to_owned())).with_message("");
+    assert_eq!(error.message(), "Connection refused");
+    let error = UserError::new(UserCause::Text("".to_owned()));
+    assert_eq!(error.message(), "An error occurred");
+    // :339 - the runtime reports user errors before rendering.
+    assert!(UserError::new(UserCause::Text("failed".to_owned())).is_error_reported());
+}

@@ -344,3 +344,59 @@ pub fn lex_argv(argv: &[&str]) -> Lexed {
         trailing_operands,
     }
 }
+
+/// Cause carried by a [`UserError`]: text, an error message, or an
+/// opaque value with no message to borrow.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum UserCause {
+    /// Plain-text failure detail.
+    Text(String),
+    /// An error's message.
+    Error(String),
+    /// Anything else: no message to borrow.
+    Opaque,
+}
+
+/// A user handler failure with an explicit message fallback chain.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct UserError {
+    /// What failed.
+    pub cause: UserCause,
+    /// Explicit user-facing message, when present.
+    pub user_message: Option<String>,
+}
+
+impl UserError {
+    /// Build from a cause, mirroring the `UserError` constructor.
+    pub fn new(cause: UserCause) -> Self {
+        Self {
+            cause,
+            user_message: None,
+        }
+    }
+
+    /// Attach the explicit user-facing message.
+    pub fn with_message(mut self, message: &str) -> Self {
+        self.user_message = Some(message.to_owned());
+        self
+    }
+
+    /// The explicit message, else the cause message, else a generic fallback.
+    pub fn message(&self) -> String {
+        if let Some(message) = &self.user_message {
+            if !message.is_empty() {
+                return message.clone();
+            }
+        }
+        match &self.cause {
+            UserCause::Text(detail) if !detail.is_empty() => detail.clone(),
+            UserCause::Error(message) if !message.is_empty() => message.clone(),
+            _ => "An error occurred".to_owned(),
+        }
+    }
+
+    /// The runtime reports user errors before the runner renders them.
+    pub fn is_error_reported(&self) -> bool {
+        true
+    }
+}
