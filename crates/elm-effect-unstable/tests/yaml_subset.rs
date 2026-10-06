@@ -54,3 +54,26 @@ fn rejects_content_outside_the_subset() {
     ));
     assert!(yaml::parse("").is_err());
 }
+
+#[test]
+fn parses_quoted_and_block_scalars() {
+    use yaml::YamlValue;
+    let parsed =
+        yaml::parse("quoted: \"line\\nvalue\"\nliteral: |\n  first\n  second\nfolded: >-\n  first\n  second\n")
+            .unwrap();
+    let expected = YamlValue::Map(vec![
+        (
+            "quoted".to_string(),
+            YamlValue::Text("line\nvalue".to_string()),
+        ),
+        (
+            "literal".to_string(),
+            YamlValue::Text("first\nsecond\n".to_string()),
+        ),
+        (
+            "folded".to_string(),
+            YamlValue::Text("first second".to_string()),
+        ),
+    ]);
+    assert_eq!(parsed, expected);
+}

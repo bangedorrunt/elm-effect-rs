@@ -128,9 +128,54 @@ impl Parser {
                 Some((next, _)) if *next > indent => self.parse_block(*next),
                 _ => Ok(YamlValue::Null),
             }
+        } else if is_block_header(&value) {
+            self.parse_block_scalar(indent, value)
         } else {
             parse_inline(&value)
         }
+    }
+
+    /// A `|` literal or `>` folded block: content lines nested deeper
+    /// than the key; `-` strips the trailing break, otherwise clipped to
+    /// one. `+` (keep) and explicit indent digits stay open.
+    fn parse_block_scalar(&mut self, indent: usize, header: String) -> Result<YamlValue, YamlError> {
+        let style = header.as_bytes()[0];
+        let flags: String = header[1..].trim().to_string();
+        if flags.contains('+') || flags.chars().any(|c| c.is_ascii_digit()) {
+            return Err(YamlError("keep chomping and indent digits stay open".to_string()));
+        }
+        if flags.chars().any(|c| c != '-') {
+            return Err(YamlError(format!("bad block header: {header}")));
+        }
+        let stripped = flags.contains('-');
+        let mut content: Vec<String> = Vec::new();
+        let mut content_indent: Option<usize> = None;
+        while let Some((line_indent, line)) = self.peek().cloned() {
+            if line_indent <= indent {
+                break;
+            }
+            match content_indent {
+                None => content_indent = Some(line_indent),
+                Some(known) if line_indent < known => {
+                    return Err(YamlError("bad block indentation".to_string()))
+                }
+                _ => {}
+            }
+            self.cursor += 1;
+            content.push(line);
+        }
+        if content.is_empty() {
+            return Ok(YamlValue::Text(String::new()));
+        }
+        let mut body = if style == b'|' {
+            content.join("\n")
+        } else {
+            content.join(" ")
+        };
+        if !stripped {
+            body.push('\n');
+        }
+        Ok(YamlValue::Text(body))
     }
 }
 
@@ -224,14 +269,59 @@ fn parse_flow(body: &str) -> Result<YamlValue, YamlError> {
     Ok(YamlValue::Seq(items))
 }
 
-/// Strip one pair of matching single or double quotes (no escape
-/// processing in this subset).
+/// A block-scalar header: `|`, `>`, optionally followed by chomping
+/// flags, digits, or trailing space.
+fn is_block_header(value: &str) -> bool {
+    let bytes = value.as_bytes();
+    if bytes.is_empty() || (bytes[0] != b'|' && bytes[0] != b'>') {
+        return false;
+    }
+    let rest = &value[1..];
+    rest.is_empty() || rest.starts_with(' ') || rest.starts_with('-') || rest.starts_with('+')
+}
+
+/// Strip one pair of matching quotes, processing escapes: double quotes
+/// take `\\`, `\"`, `\n`, `\t`, `\r`, `\b`, `\f`, and `\uXXXX`;
+/// single quotes take doubled `''` as one quote.
 fn strip_quotes(text: &str) -> Option<String> {
     if text.len() >= 2 {
         let (first, last) = (text.as_bytes()[0], text.as_bytes()[text.len() - 1]);
-        if (first == b'\'' && last == b'\'') || (first == b'"' && last == b'"') {
-            return Some(text[1..text.len() - 1].to_string());
+        if first == b'\'' && last == b'\'' {
+            return Some(text[1..text.len() - 1].replace("''", "'"));
+        }
+        if first == b'"' && last == b'"' {
+            return unescape_double(&text[1..text.len() - 1]);
         }
     }
     None
+}
+
+/// Process double-quote escapes; `None` on malformed input.
+fn unescape_double(body: &str) -> Option<String> {
+    let mut out = String::with_capacity(body.len());
+    let mut chars = body.chars();
+    while let Some(char) = chars.next() {
+        if char != '\\' {
+            out.push(char);
+            continue;
+        }
+        match chars.next()? {
+            '\\' => out.push('\\'),
+            '"' => out.push('"'),
+            'n' => out.push('\n'),
+            't' => out.push('\t'),
+            'r' => out.push('\r'),
+            'b' => out.push('\u{8}'),
+            'f' => out.push('\u{c}'),
+            'u' => {
+                let hex: String = chars.by_ref().take(4).collect();
+                if hex.len() != 4 {
+                    return None;
+                }
+                out.push(char::from_u32(u32::from_str_radix(&hex, 16).ok()?)?);
+            }
+            _ => return None,
+        }
+    }
+    Some(out)
 }
