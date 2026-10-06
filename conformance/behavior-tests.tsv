@@ -6002,7 +6002,7 @@ ported	packages/effect/test/cluster/MessageStorage.test.ts	246	it.effect	replies
 ported	packages/effect/test/cluster/MessageStorage.test.ts	259	it.effect	registerReplyHandler	parked_waiter_releases_when_reply_arrives
 ported	packages/effect/test/cluster/MessageStorage.test.ts	277	it.effect	unregisterShardReplyHandlers fails parked waiters during rebalance	unregister_shard_fails_parked_waiters_on_rebalance
 ported	packages/effect/test/cluster/MessageStorage.test.ts	298	it.effect	unregisterShardReplyHandlers annotates parked waiters during shutdown	unregister_shard_abandons_parked_waiters_on_shutdown
-unported	packages/effect/test/cluster/MessageStorage.test.ts	320	it.effect	reply handlers receive the persisted defect fallback for unencodable replies	
+ported	packages/effect/test/cluster/MessageStorage.test.ts	320	it.effect	reply handlers receive the persisted defect fallback for unencodable replies	unencodable_reply_stores_malformed_defect
 ported	packages/effect/test/cluster/ResourceMap.test.ts	6	it.effect	closes a failed lookup scope	resource_map_closes_failed_lookup_scopes
 unported	packages/effect/test/cluster/ResourceRef.test.ts	7	it.live	does not wedge await after a failed rebuild	
 unported	packages/effect/test/cluster/ResourceRef.test.ts	29	it.effect	does not let a stale rebuild overwrite a newer acquisition	
@@ -6019,8 +6019,8 @@ ported	packages/effect/test/cluster/RunnerStorage.test.ts	6	it.effect	tracks run
 ported	packages/effect/test/cluster/RunnerStorage.test.ts	16	it.effect	memory acquire accepts a one-shot iterable	runner_storage_acquires_one_shot_iterables
 ported	packages/effect/test/cluster/Runners.test.ts	94	it.effect	preserves a leading slash in HTTP client paths	runner_endpoint_preserves_leading_slash
 ported	packages/effect/test/cluster/Runners.test.ts	120	it.effect	preserves a leading slash in WebSocket client paths	runner_endpoint_adds_missing_leading_slash
-unported	packages/effect/test/cluster/Runners.test.ts	179	it.effect	a reply that fails to serialize fails only its own request	
-unported	packages/effect/test/cluster/Runners.test.ts	203	it.effect	a stream reply that fails to serialize ends the stream with the defect	
+ported	packages/effect/test/cluster/Runners.test.ts	179	it.effect	a reply that fails to serialize fails only its own request	failed_reply_serialization_isolates_one_request
+ported	packages/effect/test/cluster/Runners.test.ts	203	it.effect	a stream reply that fails to serialize ends the stream with the defect	stream_reply_ends_with_serialization_defect
 unported	packages/effect/test/cluster/Runners.test.ts	315	it.effect	uses the client protocol codec for simulated remote serialization	
 unported	packages/effect/test/cluster/Runners.test.ts	362	it.effect	a server-delivered defect resolves the request instead of RunnerUnavailable	
 unported	packages/effect/test/cluster/Runners.test.ts	386	it.effect	transport failures still map to RunnerUnavailable	

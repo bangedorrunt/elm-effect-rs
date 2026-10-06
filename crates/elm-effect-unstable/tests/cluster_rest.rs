@@ -226,7 +226,9 @@ fn failed_reply_serialization_isolates_one_request() {
     ));
     assert_eq!(
         reg.replies_for("good-1"),
-        vec![StoredReply::Exit { payload: vec![7, 8] }]
+        vec![StoredReply::Exit {
+            payload: vec![7, 8]
+        }]
     );
     assert_eq!(reg.poll_waiter("good-1"), Some("good-1".to_string()));
 }
