@@ -878,3 +878,40 @@ fn primitive_string_and_choice() {
     // :231 - tag.
     assert_eq!(primitive::CHOICE_TAG, "Choice");
 }
+
+#[test]
+fn primitive_path_resolution() {
+    use elm_effect_unstable::cli::primitive::{self, PathKind};
+    // Primitive.test.ts:252 - paths resolve without requiring existence.
+    let relative = primitive::parse_path("./test.txt", PathKind::Either, false).expect("resolves");
+    assert!(relative.contains("test.txt"), "{relative}");
+    assert!(std::path::Path::new(&relative).is_absolute(), "{relative}");
+    assert_eq!(
+        primitive::parse_path("/absolute/path", PathKind::Either, false).expect("kept"),
+        "/absolute/path"
+    );
+    let nested =
+        primitive::parse_path("relative/path", PathKind::Either, false).expect("resolves");
+    assert!(nested.contains("relative/path"), "{nested}");
+    // :265 - tag.
+    assert_eq!(primitive::PATH_TAG, "Path");
+    // :269 - a required file that is missing fails naming the path.
+    let missing = primitive::parse_path("/non/existent/file.txt", PathKind::File, true)
+        .expect_err("rejects");
+    assert_eq!(missing, "Path does not exist: /non/existent/file.txt");
+    // Present paths pass through existence checks.
+    let manifest = env!("CARGO_MANIFEST_DIR");
+    assert!(
+        primitive::parse_path(
+            &format!("{manifest}/Cargo.toml"),
+            PathKind::File,
+            true
+        )
+        .is_ok()
+    );
+    // :294 - a required directory that is missing fails too.
+    let missing_dir =
+        primitive::parse_path("/non/existent/dir", PathKind::Directory, true).expect_err("rejects");
+    assert_eq!(missing_dir, "Path does not exist: /non/existent/dir");
+    assert!(primitive::parse_path(manifest, PathKind::Directory, true).is_ok());
+}

@@ -443,6 +443,8 @@ pub mod primitive {
     pub const STRING_TAG: &str = "String";
     /// Tag of the choice primitive.
     pub const CHOICE_TAG: &str = "Choice";
+    /// Tag of the path primitive.
+    pub const PATH_TAG: &str = "Path";
 
     /// Parse `true/1/y/yes/on` and `false/0/n/no/off`, rejecting anything else.
     pub fn parse_bool(text: &str) -> Result<bool, String> {
@@ -493,6 +495,37 @@ pub mod primitive {
                 .collect::<Vec<_>>()
                 .join(" | ")),
         }
+    }
+
+    /// What a path primitive accepts (`Primitive.Path` kinds).
+    #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+    pub enum PathKind {
+        /// Files or directories.
+        Either,
+        /// Files only.
+        File,
+        /// Directories only.
+        Directory,
+    }
+
+    /// Parse a path: relative inputs resolve against the working
+    /// directory; when `must_exist`, missing paths fail naming the
+    /// resolved path. (Kind mismatch validation stays open: no row
+    /// pins its message yet.)
+    pub fn parse_path(text: &str, _kind: PathKind, must_exist: bool) -> Result<String, String> {
+        let path = std::path::Path::new(text);
+        let resolved = if path.is_absolute() {
+            text.to_owned()
+        } else {
+            match std::env::current_dir() {
+                Ok(cwd) => cwd.join(path).to_string_lossy().into_owned(),
+                Err(_) => text.to_owned(),
+            }
+        };
+        if must_exist && std::fs::metadata(&resolved).is_err() {
+            return Err(format!("Path does not exist: {resolved}"));
+        }
+        Ok(resolved)
     }
 }
 

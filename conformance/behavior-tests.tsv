@@ -5757,10 +5757,10 @@ ported	packages/effect/test/cli/Primitive.test.ts	220	it.effect	should fail for 
 ported	packages/effect/test/cli/Primitive.test.ts	231	it	should have correct _tag	primitive_string_and_choice
 unported	packages/effect/test/cli/Primitive.test.ts	241	it.effect	should work with different value types	
 unported	packages/effect/test/cli/Primitive.test.ts	251	it.layer	should resolve paths without requiring existence	
-unported	packages/effect/test/cli/Primitive.test.ts	252	it.effect	should resolve paths without requiring existence	
-unported	packages/effect/test/cli/Primitive.test.ts	265	it	should have correct _tag	
-unported	packages/effect/test/cli/Primitive.test.ts	269	it.effect	should fail when a required file path does not exist	
-unported	packages/effect/test/cli/Primitive.test.ts	294	it.effect	should fail when a required directory path does not exist	
+ported	packages/effect/test/cli/Primitive.test.ts	252	it.effect	should resolve paths without requiring existence	primitive_path_resolution
+ported	packages/effect/test/cli/Primitive.test.ts	265	it	should have correct _tag	primitive_path_resolution
+ported	packages/effect/test/cli/Primitive.test.ts	269	it.effect	should fail when a required file path does not exist	primitive_path_resolution
+ported	packages/effect/test/cli/Primitive.test.ts	294	it.effect	should fail when a required directory path does not exist	primitive_path_resolution
 unported	packages/effect/test/cli/Primitive.test.ts	322	it.layer	should parse and redact values	
 unported	packages/effect/test/cli/Primitive.test.ts	323	it.effect	should parse and redact values	
 unported	packages/effect/test/cli/Primitive.test.ts	332	it	should have correct _tag	
