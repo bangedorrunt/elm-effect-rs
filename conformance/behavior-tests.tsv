@@ -718,7 +718,7 @@ unported	packages/effect/test/Config.test.ts	408	it	lifts absence in nested comp
 ported	packages/effect/test/Config.test.ts	423	it.effect	matches map when chained with succeed, including grouped defaults and options	config_map_chained_with_succeed
 ported	packages/effect/test/Config.test.ts	457	it.effect	preserves the outer prefix and composes prefixes in the selected config	config_nested_prefix_flows_through_flat_map
 unported	packages/effect/test/Config.test.ts	484	it.effect	defers user callbacks until the Config Effect is executed	
-unported	packages/effect/test/Config.test.ts	525	it.effect	resolves empty groups without using a default	
+ported	packages/effect/test/Config.test.ts	525	it.effect	resolves empty groups without using a default	config_empty_groups_resolve_without_default
 unported	packages/effect/test/Config.test.ts	536	it.effect	preserves Result values as configuration data	
 unported	packages/effect/test/Config.test.ts	551	it.effect	preserves special record keys without changing the prototype	
 ported	packages/effect/test/Config.test.ts	562	it	combines tuple inputs and preserves positions	config_all_combines_positionally
@@ -749,7 +749,7 @@ unported	packages/effect/test/Config.test.ts	1042	it.effect	propagates nested gr
 unported	packages/effect/test/Config.test.ts	1060	it.effect	treats mapped, effectfully mapped, and constant siblings alike	
 unported	packages/effect/test/Config.test.ts	1077	it.effect	recovers an absent sibling after orElse handles invalid input	
 unported	packages/effect/test/Config.test.ts	1095	it.effect	recovers an absent sibling after orElse handles absence	
-unported	packages/effect/test/Config.test.ts	1109	it.effect	lets defaults and option handle an absent orElse fallback	
+ported	packages/effect/test/Config.test.ts	1109	it.effect	lets defaults and option handle an absent orElse fallback	config_or_else_falls_back_then_defaults
 unported	packages/effect/test/Config.test.ts	1126	it.effect	uses the orElse fallback result within the nested path	
 unported	packages/effect/test/Config.test.ts	1154	it.effect	propagates an orElse fallback source error after recovering invalid input	
 unported	packages/effect/test/Config.test.ts	1173	it.effect	recovers an absent sibling after orElse handles mapEffect failure	
@@ -6980,7 +6980,7 @@ unported	packages/effect/test/net/NetAddress.test.ts	177	it	rejects malformed in
 ported	packages/effect/test/net/NetAddress.test.ts	196	it	classifies address bits	strict_ip_classifies_bits
 unported	packages/effect/test/net/NetAddress.test.ts	208	it	classifies documented address ranges at their boundaries	
 ported	packages/effect/test/net/NetAddress.test.ts	242	it	classifies IP boundaries without claiming reachability	net_addresses_classify_boundaries
-unported	packages/effect/test/net/NetAddress.test.ts	273	it	classifies the independent MAC group and administration bits	
+ported	packages/effect/test/net/NetAddress.test.ts	273	it	classifies the independent MAC group and administration bits	mac_group_and_admin_bits_classify
 ported	packages/effect/test/net/NetAddress.test.ts	300	it	serializes and inspects canonical strings without private bytes	canonical_strings_hide_private_bytes
 unported	packages/effect/test/net/NetAddress.test.ts	317	it	preserves the input rejected by the failing operation	
 unported	packages/effect/test/net/NetAddress.test.ts	339	it	retains the address supplied to checked socket constructors	
