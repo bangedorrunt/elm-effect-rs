@@ -31,6 +31,9 @@ impl std::fmt::Display for BinaryError {
 
 impl std::error::Error for BinaryError {}
 
+/// Expected envelope description, mirroring the reference codec.
+const EXPECTED_ENVELOPE: &str = "version 2 envelope, flags 0";
+
 /// Array-run envelope tag.
 const ARRAY_TAG: u8 = 0x20;
 /// Number-run element modes.
@@ -227,11 +230,13 @@ pub fn decode_int_scalar(bytes: &[u8]) -> Result<f64, BinaryError> {
     let tag = *bytes.get(pos).ok_or_else(|| fail("truncated tag"))?;
     pos += 1;
     if tag != ARRAY_TAG {
-        return Err(fail("unexpected envelope tag"));
+        return Err(fail(&format!(
+            "expected {EXPECTED_ENVELOPE}, actual {tag:#04x}"
+        )));
     }
     let word = uvarint_decode(bytes, &mut pos).ok_or_else(|| fail("truncated scalar"))?;
     if pos != bytes.len() {
-        return Err(fail("trailing bytes"));
+        return Err(fail("no leftover bytes"));
     }
     let negative = word & 1 == 1;
     let magnitude = word >> 1;
@@ -313,14 +318,16 @@ pub fn decode_union(bytes: &[u8]) -> Result<UnionValue, BinaryError> {
     let tag = *bytes.get(pos).ok_or_else(|| fail("truncated tag"))?;
     pos += 1;
     if tag != ARRAY_TAG {
-        return Err(fail("unexpected envelope tag"));
+        return Err(fail(&format!(
+            "expected {EXPECTED_ENVELOPE}, actual {tag:#04x}"
+        )));
     }
     let kind = *bytes.get(pos).ok_or_else(|| fail("truncated kind"))?;
     pos += 1;
     if kind == UNION_STRING {
         let text = std::str::from_utf8(&bytes[pos..]).map_err(|_| fail("invalid utf-8"))?;
         if pos + text.len() != bytes.len() {
-            return Err(fail("trailing bytes"));
+            return Err(fail("no leftover bytes"));
         }
         return Ok(UnionValue::Text(text.to_owned()));
     }
@@ -336,9 +343,12 @@ pub fn decode_union(bytes: &[u8]) -> Result<UnionValue, BinaryError> {
     if pos == bytes.len() {
         return Ok(UnionValue::Number(sign_magnitude_to_f64(word, 0)));
     }
+    if pos + 1 != bytes.len() {
+        return Err(fail("no leftover bytes"));
+    }
     let scale = bytes[pos];
     pos += 1;
-    if scale > DECIMAL_SCALE_MAX as u8 || pos != bytes.len() {
+    if scale > DECIMAL_SCALE_MAX as u8 {
         return Err(fail("bad union scale"));
     }
     let negative = word & 1 == 1;
@@ -375,7 +385,9 @@ pub fn decode_number_scalar(bytes: &[u8]) -> Result<f64, BinaryError> {
     let tag = *bytes.get(pos).ok_or_else(|| fail("truncated tag"))?;
     pos += 1;
     if tag != ARRAY_TAG {
-        return Err(fail("unexpected envelope tag"));
+        return Err(fail(&format!(
+            "expected {EXPECTED_ENVELOPE}, actual {tag:#04x}"
+        )));
     }
     if bytes.len() - pos == 8 {
         let mut word = [0u8; 8];
@@ -386,9 +398,12 @@ pub fn decode_number_scalar(bytes: &[u8]) -> Result<f64, BinaryError> {
     if pos == bytes.len() {
         return Ok(sign_magnitude_to_f64(word, 0));
     }
+    if pos + 1 != bytes.len() {
+        return Err(fail("no leftover bytes"));
+    }
     let scale = bytes[pos];
     pos += 1;
-    if scale > DECIMAL_SCALE_MAX as u8 || pos != bytes.len() {
+    if scale > DECIMAL_SCALE_MAX as u8 {
         return Err(fail("bad scalar scale"));
     }
     // The mantissa word of a scalar decimal reuses the sign-magnitude form.
@@ -416,7 +431,9 @@ pub fn decode_string_array(bytes: &[u8]) -> Result<Vec<String>, BinaryError> {
     let tag = *bytes.get(pos).ok_or_else(|| fail("truncated tag"))?;
     pos += 1;
     if tag != ARRAY_TAG {
-        return Err(fail("unexpected envelope tag"));
+        return Err(fail(&format!(
+            "expected {EXPECTED_ENVELOPE}, actual {tag:#04x}"
+        )));
     }
     let count = uvarint_decode(bytes, &mut pos).ok_or_else(|| fail("truncated count"))?;
     let _ = STRING_RUN;
@@ -433,7 +450,7 @@ pub fn decode_string_array(bytes: &[u8]) -> Result<Vec<String>, BinaryError> {
         pos = end;
     }
     if pos != bytes.len() {
-        return Err(fail("trailing bytes"));
+        return Err(fail("no leftover bytes"));
     }
     Ok(out)
 }
@@ -477,7 +494,7 @@ fn read_envelope(input: &[u8], pos: &mut usize) -> Result<(u64, u8), BinaryError
     let _length = cursor.uvarint()?;
     let tag = cursor.byte()?;
     if tag != ARRAY_TAG {
-        return Err(cursor.fail("unexpected envelope tag"));
+        return Err(cursor.fail(&format!("expected {EXPECTED_ENVELOPE}, actual {tag:#04x}")));
     }
     let count = cursor.uvarint()?;
     let mode = cursor.byte()?;
@@ -537,7 +554,7 @@ pub fn decode_number_array(bytes: &[u8]) -> Result<Vec<f64>, BinaryError> {
     let (count, mode) = read_envelope(bytes, &mut pos)?;
     let out = decode_number_run(bytes, &mut pos, count, mode)?;
     if pos != bytes.len() {
-        return Err(fail("trailing bytes"));
+        return Err(fail("no leftover bytes"));
     }
     Ok(out)
 }
@@ -571,7 +588,7 @@ pub fn decode_nested_number_array(bytes: &[u8]) -> Result<Vec<Vec<f64>>, BinaryE
         out.push(decode_number_run(bytes, &mut pos, inner_count, inner_mode)?);
     }
     if pos != bytes.len() {
-        return Err(fail("trailing bytes"));
+        return Err(fail("no leftover bytes"));
     }
     Ok(out)
 }
@@ -584,7 +601,9 @@ pub fn decode_bool_array(bytes: &[u8]) -> Result<Vec<bool>, BinaryError> {
     let tag = *bytes.get(pos).ok_or_else(|| fail("truncated tag"))?;
     pos += 1;
     if tag != ARRAY_TAG {
-        return Err(fail("unexpected envelope tag"));
+        return Err(fail(&format!(
+            "expected {EXPECTED_ENVELOPE}, actual {tag:#04x}"
+        )));
     }
     let count = uvarint_decode(bytes, &mut pos).ok_or_else(|| fail("truncated count"))?;
     let mut out = Vec::new();
@@ -594,7 +613,7 @@ pub fn decode_bool_array(bytes: &[u8]) -> Result<Vec<bool>, BinaryError> {
         out.push(byte != 0);
     }
     if pos != bytes.len() {
-        return Err(fail("trailing bytes"));
+        return Err(fail("no leftover bytes"));
     }
     Ok(out)
 }

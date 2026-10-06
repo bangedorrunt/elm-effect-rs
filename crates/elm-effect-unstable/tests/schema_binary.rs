@@ -261,3 +261,20 @@ fn binary_unions_carry_forms_behind_kind() {
         UnionValue::Text("".to_owned())
     );
 }
+
+#[test]
+fn binary_frames_reject_envelope_and_leftovers() {
+    // SchemaBinary.test.ts:239 - length-first frames with envelope checks.
+    assert_eq!(encode_number_scalar(1.0), vec![2, 0x20, 0x02]);
+    let mut flags = encode_number_scalar(1.0);
+    flags[1] = 0x21;
+    let err = decode_number_scalar(&flags).expect_err("flags");
+    assert!(err.message().contains("version 2 envelope, flags 0"));
+    let mut version = encode_number_scalar(1.0);
+    version[1] = 0x30;
+    let err = decode_number_scalar(&version).expect_err("version");
+    assert!(err.message().contains("version 2 envelope, flags 0"));
+    let doubled = [encode_number_scalar(1.0), encode_number_scalar(1.0)].concat();
+    let err = decode_number_scalar(&doubled).expect_err("leftovers");
+    assert!(err.message().contains("no leftover bytes"));
+}

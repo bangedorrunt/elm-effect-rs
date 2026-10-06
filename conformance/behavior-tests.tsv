@@ -6124,7 +6124,7 @@ unported	packages/effect/test/encoding/SchemaBinary.test.ts	195	it	includes non-
 unported	packages/effect/test/encoding/SchemaBinary.test.ts	203	it	round-trips every literal leaf kind and registered symbols	
 unported	packages/effect/test/encoding/SchemaBinary.test.ts	219	it	omits the count for fixed tuples and includes it for optional tuples	
 unported	packages/effect/test/encoding/SchemaBinary.test.ts	230	it	supports tuple rest and trailing slots	
-unported	packages/effect/test/encoding/SchemaBinary.test.ts	239	it	writes a length-first frame and rejects envelope or leftovers	
+ported	packages/effect/test/encoding/SchemaBinary.test.ts	239	it	writes a length-first frame and rejects envelope or leftovers	binary_frames_reject_envelope_and_leftovers
 unported	packages/effect/test/encoding/SchemaBinary.test.ts	259	it	preserves a leading U+FEFF in strings	
 unported	packages/effect/test/encoding/SchemaBinary.test.ts	265	it	keeps an earlier result stable through later encodes and arena rollover	
 unported	packages/effect/test/encoding/SchemaBinary.test.ts	282	it	keeps different results independent inside a shared arena	
