@@ -5518,8 +5518,8 @@ unported	packages/effect/test/arbitrary/Arbitrary.test.ts	4061	it.effect	preserv
 unported	packages/effect/test/arbitrary/Arbitrary.test.ts	4075	it.effect	requires an explicit true result from pure and Effectful properties	
 unported	packages/effect/test/arbitrary/Arbitrary.test.ts	4093	it.effect	does not turn synchronous property defects into a property result	
 unported	packages/effect/test/arbitrary/Arbitrary.test.ts	4104	it.effect	does not turn interruption into a property result	
-unported	packages/effect/test/cli/Ansi.test.ts	4	it	emits a standard CSI horizontal absolute sequence	
-unported	packages/effect/test/cli/Ansi.test.ts	8	it	emits a standard CSI cursor-position sequence	
+ported	packages/effect/test/cli/Ansi.test.ts	4	it	emits a standard CSI horizontal absolute sequence	ansi_cursor_sequences
+ported	packages/effect/test/cli/Ansi.test.ts	8	it	emits a standard CSI cursor-position sequence	ansi_cursor_sequences
 unported	packages/effect/test/cli/Arguments.test.ts	52	it.effect	should parse all argument types correctly	
 unported	packages/effect/test/cli/Arguments.test.ts	92	it.effect	should handle file mustExist validation	
 unported	packages/effect/test/cli/Arguments.test.ts	132	it.effect	should fail with invalid arguments	

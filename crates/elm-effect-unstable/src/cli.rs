@@ -204,3 +204,12 @@ pub fn demo_app() -> CliApp {
         }],
     }
 }
+
+/// Move the cursor, mirroring `cursorTo`: one-indexed CSI sequences with
+/// the column clamped at zero.
+pub fn cursor_to(column: i64, row: Option<i64>) -> String {
+    match row {
+        None => format!("\x1b[{}G", (column + 1).max(0)),
+        Some(row) => format!("\x1b[{};{}H", row + 1, (column + 1).max(0)),
+    }
+}

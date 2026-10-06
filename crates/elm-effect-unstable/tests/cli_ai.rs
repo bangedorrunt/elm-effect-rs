@@ -521,3 +521,12 @@ fn ai_error_wrapper_tag_is_distinct_from_reason() {
     // :630 - non-AiError values cannot reach this API in Rust; the type
     // system rules out the TS runtime-shape cases.
 }
+
+#[test]
+fn ansi_cursor_sequences() {
+    use elm_effect_unstable::cli::cursor_to;
+    // Ansi.test.ts:4 - horizontal absolute, one-indexed.
+    assert_eq!(cursor_to(0, None), "\x1b[1G");
+    // Ansi.test.ts:8 - cursor position, one-indexed row and column.
+    assert_eq!(cursor_to(2, Some(3)), "\x1b[4;3H");
+}
