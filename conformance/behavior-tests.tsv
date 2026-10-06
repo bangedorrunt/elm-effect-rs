@@ -6991,7 +6991,7 @@ ported	packages/effect/test/net/NetAddress.test.ts	415	it	formats Unix socket pa
 unported	packages/effect/test/net/NetAddress.test.ts	432	it	returns URL conversion errors for scopes and rejected URLs	
 unported	packages/effect/test/net/NetAddress.test.ts	451	it	canonicalizes mapped internet addresses while retaining their port	
 unported	packages/effect/test/net/NetAddress.test.ts	464	it	retains identity and scope for internet addresses that need no canonicalization	
-unported	packages/effect/test/net/NetAddress.test.ts	474	it	constructs immutable address values	
+ported	packages/effect/test/net/NetAddress.test.ts	474	it	constructs immutable address values	address_values_construct_across_forms
 ported	packages/effect/test/net/NetAddress.test.ts	487	it	copies byte constructor inputs	byte_constructor_inputs_are_copied
 ported	packages/effect/test/net/NetAddress.test.ts	505	it	copies Buffer constructor inputs	byte_constructor_inputs_are_copied
 unported	packages/effect/test/net/NetAddress.test.ts	525	it	discriminates addresses sharing the common type id	
