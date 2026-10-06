@@ -379,3 +379,17 @@ fn folds_plain_scalars_everywhere() {
         assert_eq!(parsed, want);
     }
 }
+
+#[test]
+fn preserves_numeric_and_quoted_colons() {
+    // Yaml.test.ts:253 - ints decode, quotes shelter colons.
+    assert_eq!(
+        yaml::parse("description: 123\nquoted: 'Use when: deploy'\ntrailing: \"Deploy:\"\n")
+            .expect("parses"),
+        YamlValue::Map(vec![
+            ("description".to_owned(), YamlValue::Int(123)),
+            ("quoted".to_owned(), text("Use when: deploy")),
+            ("trailing".to_owned(), text("Deploy:")),
+        ])
+    );
+}

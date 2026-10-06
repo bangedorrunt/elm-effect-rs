@@ -6336,7 +6336,7 @@ ported	packages/effect/test/encoding/Yaml.test.ts	163	it.each	folds %s	folds_pla
 ported	packages/effect/test/encoding/Yaml.test.ts	220	it	ends plain scalars at sibling keys after terminating comments	folds_plain_multiline_scalars
 ported	packages/effect/test/encoding/Yaml.test.ts	227	it	folds plain sequence items	folds_plain_sequence_items
 ported	packages/effect/test/encoding/Yaml.test.ts	233	it.each	rejects %s	rejects_scalar_boundary_violations
-unported	packages/effect/test/encoding/Yaml.test.ts	253	it	preserves numeric decoding and quoted colon content	
+ported	packages/effect/test/encoding/Yaml.test.ts	253	it	preserves numeric decoding and quoted colon content	preserves_numeric_and_quoted_colons
 unported	packages/effect/test/encoding/Yaml.test.ts	268	it.each	rejects %s alone and before or after valid shapes	
 unported	packages/effect/test/encoding/Yaml.test.ts	286	it.each	rejects %s	
 unported	packages/effect/test/encoding/Yaml.test.ts	299	it.each	preserves a dash in a plain continuation of a %s	
