@@ -423,3 +423,16 @@ fn rejects_nested_sequences() {
         assert!(yaml::parse(source).is_err(), "should reject {source:?}");
     }
 }
+
+#[test]
+fn folds_dashes_after_content() {
+    // Yaml.test.ts:299 - dashes fold after non-empty content.
+    assert_eq!(
+        yaml::parse("a: one\n  - two\n").expect("parses"),
+        YamlValue::Map(vec![("a".to_owned(), text("one - two"))])
+    );
+    assert_eq!(
+        yaml::parse("- one\n  - two\n").expect("parses"),
+        YamlValue::Seq(vec![text("one - two")])
+    );
+}

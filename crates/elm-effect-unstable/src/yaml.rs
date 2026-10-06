@@ -106,12 +106,12 @@ fn quotes_closed(text: &str) -> bool {
     !open
 }
 
-/// True for lines that start nested structure rather than continuing
-/// a plain scalar.
+/// True for lines that end a plain continuation: keys, block
+/// headers, anchors, aliases, and flow openers. Dashes do NOT end
+/// one: `- x` after content folds as text (only empty values start
+/// sequences, decided by the caller).
 fn is_structural_line(line: &str) -> bool {
-    line.starts_with("- ")
-        || line == "-"
-        || line.starts_with('|')
+    line.starts_with('|')
         || line.starts_with('>')
         || line.starts_with('&')
         || line.starts_with('*')
