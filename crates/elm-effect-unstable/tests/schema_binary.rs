@@ -4,9 +4,10 @@
 mod schema_binary;
 
 use schema_binary::{
-    decode_bool_array, decode_int_scalar, decode_nested_number_array, decode_number_array,
-    decode_number_scalar, decode_string_array, encode_bool_array, encode_nested_number_array,
-    encode_number_array, encode_number_scalar, encode_string_array,
+    UnionValue, decode_bool_array, decode_int_scalar, decode_nested_number_array,
+    decode_number_array, decode_number_scalar, decode_string_array, decode_union,
+    encode_bool_array, encode_nested_number_array, encode_number_array, encode_number_scalar,
+    encode_string_array, encode_union, split_frames,
 };
 
 #[test]
@@ -215,5 +216,48 @@ fn binary_nested_number_arrays_roundtrip() {
     assert_eq!(
         decode_nested_number_array(&encode_nested_number_array(&nested)).expect("decodes"),
         nested
+    );
+}
+
+#[test]
+fn binary_tuples_split_prefixed_frames() {
+    // SchemaBinary.test.ts:446 - each number slot carries its length prefix.
+    let pair = [encode_number_scalar(1.0), encode_number_scalar(2.5)];
+    let bytes: Vec<u8> = pair.concat();
+    assert_eq!(bytes.len(), 7);
+    let frames = split_frames(&bytes).expect("splits");
+    assert_eq!(frames.len(), 2);
+    assert_eq!(decode_number_scalar(frames[0]).expect("decodes"), 1.0);
+    assert_eq!(decode_number_scalar(frames[1]).expect("decodes"), 2.5);
+    let pi_pair = [
+        encode_number_scalar(1.0),
+        encode_number_scalar(std::f64::consts::PI),
+    ];
+    let bytes: Vec<u8> = pi_pair.concat();
+    assert_eq!(bytes.len(), 13);
+}
+
+#[test]
+fn binary_unions_carry_forms_behind_kind() {
+    // :457 - number and string forms behind the union kind byte.
+    assert_eq!(
+        encode_union(&UnionValue::Number(5.0)),
+        vec![3, 0x20, 4, 0x0a]
+    );
+    assert_eq!(
+        decode_union(&encode_union(&UnionValue::Number(5.5))).expect("decodes"),
+        UnionValue::Number(5.5)
+    );
+    assert_eq!(
+        decode_union(&encode_union(&UnionValue::Number(std::f64::consts::PI))).expect("decodes"),
+        UnionValue::Number(std::f64::consts::PI)
+    );
+    assert_eq!(
+        decode_union(&encode_union(&UnionValue::Text("hi".to_owned()))).expect("decodes"),
+        UnionValue::Text("hi".to_owned())
+    );
+    assert_eq!(
+        decode_union(&encode_union(&UnionValue::Text("".to_owned()))).expect("decodes"),
+        UnionValue::Text("".to_owned())
     );
 }

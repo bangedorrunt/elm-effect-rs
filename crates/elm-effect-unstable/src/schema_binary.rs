@@ -244,7 +244,9 @@ pub fn decode_int_scalar(bytes: &[u8]) -> Result<f64, BinaryError> {
 
 /// Encode one scalar number: bare sign-magnitude varint, mantissa
 /// varint plus scale byte for short decimals, or raw f64.
-pub fn encode_number_scalar(value: f64) -> Vec<u8> {
+/// Scalar number payload without the envelope: bare varint,
+/// mantissa varint plus scale byte, or raw f64.
+fn number_scalar_payload(value: f64) -> Vec<u8> {
     let mut payload = Vec::new();
     if is_varint_number(value) {
         number_varint(value, &mut payload);
@@ -257,11 +259,111 @@ pub fn encode_number_scalar(value: f64) -> Vec<u8> {
             payload.push(scale as u8);
         }
     }
+    payload
+}
+
+/// Encode one scalar number: bare sign-magnitude varint, mantissa
+/// varint plus scale byte for short decimals, or raw f64.
+pub fn encode_number_scalar(value: f64) -> Vec<u8> {
+    let payload = number_scalar_payload(value);
     let mut out = Vec::new();
     uvarint(1 + payload.len() as u64, &mut out);
     out.push(ARRAY_TAG);
     out.extend_from_slice(&payload);
     out
+}
+
+/// Union value: the two forms row 457 covers.
+#[derive(Clone, Debug, PartialEq)]
+pub enum UnionValue {
+    Number(f64),
+    Text(String),
+}
+
+/// Union member tags.
+const UNION_NUMBER: u8 = 4;
+const UNION_STRING: u8 = 5;
+
+/// Encode one union member: kind byte plus the scalar number payload or
+/// raw string bytes.
+pub fn encode_union(value: &UnionValue) -> Vec<u8> {
+    let mut payload = Vec::new();
+    match value {
+        UnionValue::Number(value) => {
+            payload.push(UNION_NUMBER);
+            payload.extend_from_slice(&number_scalar_payload(*value));
+        }
+        UnionValue::Text(text) => {
+            payload.push(UNION_STRING);
+            payload.extend_from_slice(text.as_bytes());
+        }
+    }
+    let mut out = Vec::new();
+    uvarint(1 + payload.len() as u64, &mut out);
+    out.push(ARRAY_TAG);
+    out.extend_from_slice(&payload);
+    out
+}
+
+/// Decode one union member.
+pub fn decode_union(bytes: &[u8]) -> Result<UnionValue, BinaryError> {
+    let fail = |message: &str| BinaryError::new(format!("{} [{}]", message, hex_preview(bytes)));
+    let mut pos = 0;
+    let _length = uvarint_decode(bytes, &mut pos).ok_or_else(|| fail("truncated length"))?;
+    let tag = *bytes.get(pos).ok_or_else(|| fail("truncated tag"))?;
+    pos += 1;
+    if tag != ARRAY_TAG {
+        return Err(fail("unexpected envelope tag"));
+    }
+    let kind = *bytes.get(pos).ok_or_else(|| fail("truncated kind"))?;
+    pos += 1;
+    if kind == UNION_STRING {
+        let text = std::str::from_utf8(&bytes[pos..]).map_err(|_| fail("invalid utf-8"))?;
+        if pos + text.len() != bytes.len() {
+            return Err(fail("trailing bytes"));
+        }
+        return Ok(UnionValue::Text(text.to_owned()));
+    }
+    if kind != UNION_NUMBER {
+        return Err(fail("unknown union kind"));
+    }
+    if bytes.len() - pos == 8 {
+        let mut word = [0u8; 8];
+        word.copy_from_slice(&bytes[pos..pos + 8]);
+        return Ok(UnionValue::Number(f64::from_le_bytes(word)));
+    }
+    let word = uvarint_decode(bytes, &mut pos).ok_or_else(|| fail("truncated union number"))?;
+    if pos == bytes.len() {
+        return Ok(UnionValue::Number(sign_magnitude_to_f64(word, 0)));
+    }
+    let scale = bytes[pos];
+    pos += 1;
+    if scale > DECIMAL_SCALE_MAX as u8 || pos != bytes.len() {
+        return Err(fail("bad union scale"));
+    }
+    let negative = word & 1 == 1;
+    let magnitude = (word >> 1) as f64;
+    let value = magnitude / POW10[scale as usize];
+    Ok(UnionValue::Number(if negative { -value } else { value }))
+}
+
+/// Split concatenated length-prefixed frames (tuple slots).
+pub fn split_frames(bytes: &[u8]) -> Result<Vec<&[u8]>, BinaryError> {
+    let fail = |message: &str| BinaryError::new(format!("{} [{}]", message, hex_preview(bytes)));
+    let mut pos = 0;
+    let mut out = Vec::new();
+    while pos < bytes.len() {
+        let start = pos;
+        let len =
+            uvarint_decode(bytes, &mut pos).ok_or_else(|| fail("truncated frame length"))? as usize;
+        let end = pos
+            .checked_add(len)
+            .filter(|end| *end <= bytes.len())
+            .ok_or_else(|| fail("truncated frame"))?;
+        out.push(&bytes[start..end]);
+        pos = end;
+    }
+    Ok(out)
 }
 
 /// Decode one scalar number: 8-byte payloads are f64, otherwise a
