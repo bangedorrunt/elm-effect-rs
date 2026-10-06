@@ -649,3 +649,17 @@ fn provider_metadata_roundtrip() {
         nulled
     );
 }
+
+#[test]
+fn usage_info_roundtrip() {
+    use elm_effect_unstable::ai::UsageInfo;
+    // AiError.test.ts:670 - usage totals encode and decode round-trip.
+    let usage = UsageInfo {
+        prompt_tokens: 100,
+        completion_tokens: 50,
+        total_tokens: 150,
+    };
+    let text = serde_json::to_string(&usage.to_json()).expect("encodes");
+    let back = UsageInfo::from_json(&serde_json::from_str(&text).expect("json")).expect("decodes");
+    assert_eq!(back, usage);
+}

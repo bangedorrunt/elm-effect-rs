@@ -685,3 +685,34 @@ impl Tool {
 /// Provider-specific metadata keyed by provider name; each value is JSON
 /// metadata or `null`.
 pub type ProviderMetadata = HashMap<String, Option<serde_json::Value>>;
+
+/// Token usage totals.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct UsageInfo {
+    /// Input tokens consumed.
+    pub prompt_tokens: u64,
+    /// Output tokens produced.
+    pub completion_tokens: u64,
+    /// Total tokens billed.
+    pub total_tokens: u64,
+}
+
+impl UsageInfo {
+    /// Encode to the wire JSON shape.
+    pub fn to_json(&self) -> serde_json::Value {
+        serde_json::json!({
+            "promptTokens": self.prompt_tokens,
+            "completionTokens": self.completion_tokens,
+            "totalTokens": self.total_tokens,
+        })
+    }
+
+    /// Decode from the wire JSON shape.
+    pub fn from_json(value: &serde_json::Value) -> Option<Self> {
+        Some(Self {
+            prompt_tokens: value.get("promptTokens")?.as_u64()?,
+            completion_tokens: value.get("completionTokens")?.as_u64()?,
+            total_tokens: value.get("totalTokens")?.as_u64()?,
+        })
+    }
+}

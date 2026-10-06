@@ -4553,7 +4553,7 @@ ported	packages/effect/test/ai/AiError.test.ts	621	it	should return true for AiE
 unported	packages/effect/test/ai/AiError.test.ts	630	it	should return false for non-AiError values	
 ported	packages/effect/test/ai/AiError.test.ts	637	it	should return false for reason types	ai_error_wrapper_tag_is_distinct_from_reason
 ported	packages/effect/test/ai/AiError.test.ts	655	it.effect	should encode and decode roundtrip	provider_metadata_roundtrip
-unported	packages/effect/test/ai/AiError.test.ts	670	it.effect	should encode and decode roundtrip	
+ported	packages/effect/test/ai/AiError.test.ts	670	it.effect	should encode and decode roundtrip	usage_info_roundtrip
 unported	packages/effect/test/ai/AiError.test.ts	684	it.effect	should encode and decode roundtrip	
 unported	packages/effect/test/ai/AiError.test.ts	708	it.effect	RateLimitError roundtrip	
 unported	packages/effect/test/ai/AiError.test.ts	719	it.effect	AiErrorReason union roundtrip	
