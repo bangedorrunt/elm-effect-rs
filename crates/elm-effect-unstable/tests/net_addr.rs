@@ -603,7 +603,11 @@ fn inet_addresses_convert_to_normalized_urls() {
         ("192.0.2.1:65535", "http", "http://192.0.2.1:65535/"),
     ] {
         let address = NetAddress::socket_address_from_input(input).expect("valid socket");
-        assert_eq!(address.to_url(scheme).as_deref().ok(), Some(expected), "{input}");
+        assert_eq!(
+            address.to_url(scheme).as_deref().ok(),
+            Some(expected),
+            "{input}"
+        );
     }
     assert_eq!(
         NetAddress::ipv4_from_string("127.0.0.1")
@@ -636,7 +640,11 @@ fn net_addresses_format_url_display_values() {
         ("127.0.0.1:80", "tcp", "tcp://127.0.0.1:80"),
     ] {
         let address = NetAddress::socket_address_from_input(input).expect("valid socket");
-        assert_eq!(address.format_url_value(Some(scheme)).as_deref(), Some(expected), "{input}");
+        assert_eq!(
+            address.format_url_value(Some(scheme)).as_deref(),
+            Some(expected),
+            "{input}"
+        );
     }
 }
 
@@ -659,4 +667,48 @@ fn net_addresses_reject_bad_urls() {
         assert_eq!(err.message, "failed to construct URL");
         assert!(err.cause.as_deref().unwrap_or("").contains("TypeError"));
     }
+}
+
+#[test]
+fn inet_sockets_canonicalize_mapped_keeping_port() {
+    use net::NetAddress;
+    // NetAddress.test.ts:451 - mapped sockets canonicalize to v4, port kept.
+    let ipv4 = NetAddress::ipv4_from_string("192.0.2.128").expect("valid");
+    let expected = NetAddress::socket_address_from_parts(&ipv4, 4567).expect("parts");
+    let mapped = ipv4.to_ipv4_mapped();
+    for scope_id in [0u32, 7] {
+        let socket =
+            NetAddress::inet_address_v6(&mapped, 4567, scope_id).expect("scoped mapped socket");
+        let canonical = socket.to_canonical();
+        assert_eq!(canonical, expected);
+        assert_eq!(canonical.to_canonical(), expected);
+        fn net_hash<T: std::hash::Hash>(v: &T) -> u64 {
+            use std::hash::Hasher;
+            let mut h = std::collections::hash_map::DefaultHasher::new();
+            v.hash(&mut h);
+            h.finish()
+        }
+        assert_eq!(net_hash(&canonical), net_hash(&expected));
+    }
+}
+
+#[test]
+fn inet_sockets_keep_identity_and_scope() {
+    use net::NetAddress;
+    // NetAddress.test.ts:464 - plain and scoped sockets are already canonical.
+    // (The bare-address identity case needs scopes on bare addresses, which
+    // the model only carries on sockets.)
+    let plain = NetAddress::socket_address_from_parts(
+        &NetAddress::ipv4_from_string("127.0.0.1").expect("valid"),
+        1234,
+    )
+    .expect("parts");
+    assert_eq!(plain.to_canonical(), plain);
+    let scoped = NetAddress::inet_address_v6(
+        &NetAddress::ipv6_from_string("fe80::1").expect("valid"),
+        1234,
+        3,
+    )
+    .expect("scoped socket");
+    assert_eq!(scoped.to_canonical(), scoped);
 }

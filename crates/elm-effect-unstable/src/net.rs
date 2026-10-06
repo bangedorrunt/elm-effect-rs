@@ -666,22 +666,32 @@ impl NetAddress {
         }
     }
 
+    /// The IPv4 address inside a mapped `::ffff:a.b.c.d` value, if mapped.
+    fn mapped_ipv4(v6: &Ipv6Addr) -> Option<Ipv4Addr> {
+        let s = v6.segments();
+        if s[0] == 0 && s[1] == 0 && s[2] == 0 && s[3] == 0 && s[4] == 0 && s[5] == 0xffff {
+            Some(Ipv4Addr::new(
+                (s[6] >> 8) as u8,
+                (s[6] & 0xff) as u8,
+                (s[7] >> 8) as u8,
+                (s[7] & 0xff) as u8,
+            ))
+        } else {
+            None
+        }
+    }
+
     /// Recover the IPv4 address from a mapped value (TS `fromIpv4Mapped`).
     pub fn from_ipv4_mapped(&self) -> Option<Self> {
         match self {
             Self::V4(_) => None,
             Self::UnixPath(_) => None,
-            Self::Inet(_) => None,
-            Self::V6(v6) if self.is_ipv4_mapped() => {
-                let s = v6.segments();
-                Some(Self::V4(Ipv4Addr::new(
-                    (s[6] >> 8) as u8,
-                    (s[6] & 0xff) as u8,
-                    (s[7] >> 8) as u8,
-                    (s[7] & 0xff) as u8,
-                )))
-            }
-            Self::V6(_) => None,
+            Self::Inet(socket) => match socket.ip() {
+                IpAddr::V6(v6) => Self::mapped_ipv4(&v6)
+                    .map(|v4| Self::Inet(SocketAddr::new(IpAddr::V4(v4), socket.port()))),
+                _ => None,
+            },
+            Self::V6(v6) => Self::mapped_ipv4(v6).map(Self::V4),
         }
     }
 
