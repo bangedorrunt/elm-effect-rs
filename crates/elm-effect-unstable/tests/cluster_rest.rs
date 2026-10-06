@@ -220,7 +220,10 @@ fn failed_reply_serialization_isolates_one_request() {
     reg.register_waiter("good-1", "shard-a");
     reg.store_encoded("bad-1", || Err("not json encodable".to_string()));
     reg.store_encoded("good-1", || Ok(vec![7, 8]));
-    assert!(matches!(reg.replies_for("bad-1")[0], StoredReply::Defect { .. }));
+    assert!(matches!(
+        reg.replies_for("bad-1")[0],
+        StoredReply::Defect { .. }
+    ));
     assert_eq!(
         reg.replies_for("good-1"),
         vec![StoredReply::Exit { payload: vec![7, 8] }]
