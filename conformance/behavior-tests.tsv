@@ -5642,9 +5642,9 @@ unported	packages/effect/test/cli/Errors.test.ts	50	it	throws DuplicateOption wh
 unported	packages/effect/test/cli/Errors.test.ts	73	it	allows parent local flags to reuse child flag names	
 ported	packages/effect/test/cli/Errors.test.ts	89	it.effect	accumulates multiple UnrecognizedOption errors	options_parser_missing_and_unknown
 unported	packages/effect/test/cli/Errors.test.ts	106	it.effect	accumulates UnknownSubcommand error with suggestions	
-unported	packages/effect/test/cli/Errors.test.ts	127	it.effect	fails with UnexpectedArgument when a bounded variadic leaves operands	
-unported	packages/effect/test/cli/Errors.test.ts	143	it.effect	allows a bounded variadic to leave an operand for a following argument	
-unported	packages/effect/test/cli/Errors.test.ts	162	it.effect	fails with UnexpectedArgument when a fixed argument leaves operands	
+ported	packages/effect/test/cli/Errors.test.ts	127	it.effect	fails with UnexpectedArgument when a bounded variadic leaves operands	positionals_sequence_and_bounds
+ported	packages/effect/test/cli/Errors.test.ts	143	it.effect	allows a bounded variadic to leave an operand for a following argument	positionals_sequence_and_bounds
+ported	packages/effect/test/cli/Errors.test.ts	162	it.effect	fails with UnexpectedArgument when a fixed argument leaves operands	positionals_sequence_and_bounds
 unported	packages/effect/test/cli/Errors.test.ts	180	it	escapes control characters in an unrecognized flag	
 unported	packages/effect/test/cli/Errors.test.ts	193	it	escapes control characters in an unknown subcommand with colors enabled	
 unported	packages/effect/test/cli/Errors.test.ts	206	it	escapes control characters in an invalid argument value without colors	

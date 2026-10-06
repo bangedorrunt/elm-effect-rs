@@ -1056,3 +1056,54 @@ fn options_parser_missing_and_unknown() {
         CliError::UnrecognizedOption { .. }
     )));
 }
+
+#[test]
+fn positionals_sequence_and_bounds() {
+    use elm_effect_unstable::cli::primitive::PositionalSpec;
+    use elm_effect_unstable::cli::{primitive, CliError};
+    let argv = |words: &[&str]| words.iter().map(|w| (*w).to_owned()).collect::<Vec<_>>();
+    let values = || PositionalSpec::Variadic {
+        name: "values".to_owned(),
+        max: 2,
+    };
+    // Errors.test.ts:127 - a bounded run rejects its overflow.
+    let overflow =
+        primitive::parse_positionals(&[values()], &argv(&["one", "two", "three"])).expect_err("fails");
+    assert!(matches!(overflow, CliError::UnexpectedArgument { ref arguments } if arguments == &["three".to_owned()]));
+    // :143 - the run leaves room for what follows.
+    let shared = primitive::parse_positionals(
+        &[
+            values(),
+            PositionalSpec::Fixed {
+                name: "destination".to_owned(),
+            },
+        ],
+        &argv(&["one", "two", "destination"]),
+    )
+    .expect("fits");
+    assert_eq!(
+        shared,
+        [
+            ("values".to_owned(), vec!["one".to_owned(), "two".to_owned()]),
+            ("destination".to_owned(), vec!["destination".to_owned()]),
+        ]
+    );
+    // :162 - a fixed positional rejects its overflow.
+    let fixed = primitive::parse_positionals(
+        &[PositionalSpec::Fixed {
+            name: "value".to_owned(),
+        }],
+        &argv(&["one", "two"]),
+    )
+    .expect_err("fails");
+    assert!(matches!(fixed, CliError::UnexpectedArgument { ref arguments } if arguments == &["two".to_owned()]));
+    // Absent fixed positionals report their name.
+    let missing = primitive::parse_positionals(
+        &[PositionalSpec::Fixed {
+            name: "value".to_owned(),
+        }],
+        &[],
+    )
+    .expect_err("fails");
+    assert!(matches!(missing, CliError::MissingArgument { ref argument } if argument == "value"));
+}

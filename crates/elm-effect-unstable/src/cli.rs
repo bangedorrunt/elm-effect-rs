@@ -848,6 +848,64 @@ pub mod primitive {
             None => Ok(ParsedOptions { values, errors }),
         }
     }
+
+    /// A positional spec: one fixed value or a bounded run.
+    #[derive(Clone, Debug, PartialEq, Eq)]
+    pub enum PositionalSpec {
+        /// Exactly one value.
+        Fixed {
+            /// Positional name.
+            name: String,
+        },
+        /// Up to `max` values (may be empty).
+        Variadic {
+            /// Positional name.
+            name: String,
+            /// Upper bound.
+            max: usize,
+        },
+    }
+
+    /// Parse positionals in order: bounded runs leave room for
+    /// following fixed specs, leftovers fail (`UnexpectedArgument`).
+    pub fn parse_positionals(
+        specs: &[PositionalSpec],
+        inputs: &[String],
+    ) -> Result<Vec<(String, Vec<String>)>, super::CliError> {
+        let mut bound = Vec::new();
+        let mut rest = inputs;
+        for (index, spec) in specs.iter().enumerate() {
+            match spec {
+                PositionalSpec::Fixed { name } => match rest.split_first() {
+                    Some((first, tail)) => {
+                        bound.push((name.clone(), vec![first.clone()]));
+                        rest = tail;
+                    }
+                    None => {
+                        return Err(super::CliError::MissingArgument {
+                            argument: name.clone(),
+                        });
+                    }
+                },
+                PositionalSpec::Variadic { name, max } => {
+                    let need = specs[index + 1..]
+                        .iter()
+                        .filter(|spec| matches!(spec, PositionalSpec::Fixed { .. }))
+                        .count();
+                    let take = rest.len().saturating_sub(need).min(*max);
+                    bound.push((name.clone(), rest[..take].to_vec()));
+                    rest = &rest[take..];
+                }
+            }
+        }
+        if rest.is_empty() {
+            Ok(bound)
+        } else {
+            Err(super::CliError::UnexpectedArgument {
+                arguments: rest.to_vec(),
+            })
+        }
+    }
 }
 
 /// Cause carried by a [`UserError`]: text, an error message, or an
