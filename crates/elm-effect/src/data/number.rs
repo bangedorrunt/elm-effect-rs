@@ -111,16 +111,50 @@ fn decimal_parts(value: f64) -> Option<(Big, i32)> {
     if !value.is_finite() {
         return None;
     }
-    let text = format!("{}", value.abs());
-    let (int, frac) = match text.split_once(".") {
-        Some(pair) => pair,
-        None => (text.as_str(), ""),
+    if value.fract() == 0.0 {
+        // BigInt(n): integers stay exact at any size.
+        return Some((exact_integer(value.abs())?, 0));
+    }
+    // toExponential() digits for fractions (shortest exponential form).
+    let text = format!("{:e}", value.abs());
+    let (mantissa, exp) = text.split_once('e')?;
+    let digits: String = mantissa.chars().filter(|c| *c != '.').collect();
+    let shift = exp.parse::<i32>().ok()?;
+    let trimmed = digits.trim_start_matches('0');
+    let coefficient = Big::from_string(if trimmed.is_empty() { "0" } else { trimmed })?;
+    Some((coefficient, shift - digits.len() as i32 + 1))
+}
+
+/// Exact integer value of an integral float (`BigInt(n)` semantics).
+fn exact_integer(value: f64) -> Option<Big> {
+    let bits = value.to_bits();
+    let raw_exponent = ((bits >> 52) & 0x7ff) as i32;
+    let raw_mantissa = bits & 0xfffffffffffff;
+    if raw_exponent == 0x7ff {
+        return None;
+    }
+    let mantissa = if raw_exponent == 0 {
+        raw_mantissa
+    } else {
+        raw_mantissa | 0x10000000000000
     };
-    let digits = format!("{int}{frac}");
-    let digits = digits.trim_start_matches('0');
-    let digits = if digits.is_empty() { "0" } else { digits };
-    let coefficient = Big::from_string(digits)?;
-    Some((coefficient, -(frac.len() as i32)))
+    let exp2 = if raw_exponent == 0 {
+        -1074
+    } else {
+        raw_exponent - 1075
+    };
+    let two = Big::from_int(2);
+    let mut out = Big::from_int(mantissa as i64);
+    if exp2 >= 0 {
+        for _ in 0..exp2 {
+            out = out.multiply(&two);
+        }
+    } else {
+        for _ in 0..(-exp2) {
+            out = out.divide(&two)?;
+        }
+    }
+    Some(out)
 }
 
 /// `10^exp` as an exact big integer.

@@ -1152,3 +1152,12 @@ fn number_clamp_options() {
     let clamp_1_5 = |x: f64| number::clamp(x, 1.0, 5.0);
     assert_eq!(clamp_1_5(3.0), 3.0);
 }
+
+#[test]
+fn number_exact_dividends() {
+    // Number.test.ts:393 - exact integer dividends with fractional divisors.
+    let large = 2f64.powi(60);
+    assert_eq!(number::remainder(large, 2.5), 1.0);
+    assert_eq!(number::remainder(large, 1.25), 1.0);
+}
+
