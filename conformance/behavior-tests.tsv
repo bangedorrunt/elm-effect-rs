@@ -3852,12 +3852,12 @@ unported	packages/effect/test/String.test.ts	9	it	converts values to strings
 ported	packages/effect/test/String.test.ts	17	it	returns true for strings	string_basics
 unported	packages/effect/test/String.test.ts	22	it	returns false for non-strings	
 ported	packages/effect/test/String.test.ts	32	it	compares strings lexicographically	function_and_ordering_basics
-unported	packages/effect/test/String.test.ts	38	it	compares empty strings	
+ported	packages/effect/test/String.test.ts	38	it	compares empty strings	string_order_and_concat
 ported	packages/effect/test/String.test.ts	46	it	returns true for equal strings	equal_primitives_are_structural
 ported	packages/effect/test/String.test.ts	50	it	returns false for different strings	equal_primitives_are_structural
 ported	packages/effect/test/String.test.ts	56	it	is the empty string	string_basics
-unported	packages/effect/test/String.test.ts	62	it	data-first	
-unported	packages/effect/test/String.test.ts	66	it	data-last (pipeable)	
+ported	packages/effect/test/String.test.ts	62	it	data-first	string_order_and_concat
+ported	packages/effect/test/String.test.ts	66	it	data-last (pipeable)	string_order_and_concat
 ported	packages/effect/test/String.test.ts	70	it	concatenates empty strings	string_basics
 ported	packages/effect/test/String.test.ts	78	it	converts to uppercase	string_basics
 unported	packages/effect/test/String.test.ts	82	it	handles empty string	

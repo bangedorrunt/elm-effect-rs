@@ -795,3 +795,18 @@ fn string_slice_js_semantics() {
     assert_eq!(string::slice("", 0, None), "");
     assert_eq!(string::slice("hello", 3, Some(1)), "");
 }
+
+#[test]
+fn string_order_and_concat() {
+    use std::cmp::Ordering;
+    // String.test.ts:38 - empty strings compare.
+    assert_eq!(string::order("", ""), Ordering::Equal);
+    assert_eq!(string::order("", "a"), Ordering::Less);
+    assert_eq!(string::order("a", ""), Ordering::Greater);
+    // :62 - data-first concat.
+    assert_eq!(string::concat("hello", " world"), "hello world");
+    // :66 - data-last (pipeable) concat: the suffix section applied to a receiver.
+    let with_world = |receiver: &str| string::concat(receiver, " world");
+    assert_eq!(with_world("hello"), "hello world");
+    assert_eq!(string::concat("", ""), "");
+}

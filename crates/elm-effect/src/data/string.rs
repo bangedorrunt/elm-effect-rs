@@ -181,6 +181,11 @@ pub fn concat(first: &str, second: &str) -> String {
     first.to_owned() + second
 }
 
+/// Total order on strings (`Order`; the `Ord` implementation).
+pub fn order(first: &str, second: &str) -> std::cmp::Ordering {
+    first.cmp(second)
+}
+
 /// Contains (`includes`).
 pub fn contains(s: &str, needle: &str) -> bool {
     s.contains(needle)
