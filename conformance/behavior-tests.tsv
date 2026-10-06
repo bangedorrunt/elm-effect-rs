@@ -6987,7 +6987,7 @@ unported	packages/effect/test/net/NetAddress.test.ts	339	it	retains the address 
 unported	packages/effect/test/net/NetAddress.test.ts	347	it	converts internet addresses to normalized URL values	
 unported	packages/effect/test/net/NetAddress.test.ts	372	it	converts bare IP addresses without adding an explicit port	
 unported	packages/effect/test/net/NetAddress.test.ts	388	it	formats URL strings without trailing slashes or default ports	
-unported	packages/effect/test/net/NetAddress.test.ts	415	it	formats Unix socket paths without encoding or normalizing them	
+ported	packages/effect/test/net/NetAddress.test.ts	415	it	formats Unix socket paths without encoding or normalizing them	unix_paths_format_verbatim
 unported	packages/effect/test/net/NetAddress.test.ts	432	it	returns URL conversion errors for scopes and rejected URLs	
 unported	packages/effect/test/net/NetAddress.test.ts	451	it	canonicalizes mapped internet addresses while retaining their port	
 unported	packages/effect/test/net/NetAddress.test.ts	464	it	retains identity and scope for internet addresses that need no canonicalization	
@@ -7007,7 +7007,7 @@ unported	packages/effect/test/net/NetAddress.test.ts	685	it	provides throwing co
 unported	packages/effect/test/net/NetAddress.test.ts	698	it	checks port boundaries and rejects ambiguous input	
 unported	packages/effect/test/net/NetAddress.test.ts	732	it	preserves IPv6 scope metadata in equality and hashing	
 unported	packages/effect/test/net/NetAddress.test.ts	742	it	round trips numeric IPv6 scope identifiers	
-unported	packages/effect/test/net/NetAddress.test.ts	753	it	keeps Unix paths opaque	
+ported	packages/effect/test/net/NetAddress.test.ts	753	it	keeps Unix paths opaque	unix_paths_stay_opaque
 unported	packages/effect/test/net/NetAddress.test.ts	761	it	decodes and canonically encodes schemas	
 unported	packages/effect/test/net/NetAddress.test.ts	778	it	validates branded address schemas on decode and encode	
 unported	packages/effect/test/observability/OtlpConfig.test.ts	8	it.effect	configures exporters from OTEL environment variables	
