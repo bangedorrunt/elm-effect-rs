@@ -400,13 +400,15 @@ impl<T: Clone> TxDequeue<'_, T> {
 /// A transactional counting semaphore (non-blocking end only).
 pub struct TxSemaphore {
     permits: Mutex<usize>,
+    capacity: usize,
 }
 
 impl TxSemaphore {
-    /// A semaphore with `permits` available.
+    /// A semaphore with `permits` available; releases never exceed it.
     pub fn new(permits: usize) -> Self {
         Self {
             permits: Mutex::new(permits),
+            capacity: permits,
         }
     }
 
@@ -423,9 +425,63 @@ impl TxSemaphore {
         })
     }
 
-    /// Return one permit.
+    /// Return one permit, capped at capacity.
     pub fn release(&self) {
-        tx_cell(&self.permits, |permits| *permits += 1);
+        self.release_n(1);
+    }
+
+    /// Take `n` permits without blocking (`false` when short).
+    /// Panics on zero, mirroring the `acquireN` defect.
+    pub fn acquire_n(&self, n: usize) -> bool {
+        assert!(n > 0, "acquire_n needs a positive count");
+        atomically(|| {
+            let mut permits = self.permits.lock().unwrap();
+            if *permits < n {
+                false
+            } else {
+                *permits -= n;
+                true
+            }
+        })
+    }
+
+    /// `tryAcquireN`: same non-blocking take as [`Self::acquire_n`].
+    pub fn try_acquire_n(&self, n: usize) -> bool {
+        self.acquire_n(n)
+    }
+
+    /// Return `n` permits, capped at capacity.
+    /// Panics on zero, mirroring the `releaseN` defect.
+    pub fn release_n(&self, n: usize) {
+        assert!(n > 0, "release_n needs a positive count");
+        tx_cell(&self.permits, |permits| {
+            *permits = (*permits + n).min(self.capacity);
+        });
+    }
+
+    /// Run `f` holding one permit, released on return (`withPermit`).
+    /// `None` when no permit is available.
+    pub fn with_permit<R>(&self, f: impl FnOnce() -> R) -> Option<R> {
+        self.with_permits(1, f)
+    }
+
+    /// Run `f` holding `n` permits, released on return (`withPermits`).
+    /// `None` when short (panics on zero, like `acquireN`).
+    pub fn with_permits<R>(&self, n: usize, f: impl FnOnce() -> R) -> Option<R> {
+        if !self.acquire_n(n) {
+            return None;
+        }
+        struct Guard<'a> {
+            sem: &'a TxSemaphore,
+            n: usize,
+        }
+        impl Drop for Guard<'_> {
+            fn drop(&mut self) {
+                self.sem.release_n(self.n);
+            }
+        }
+        let _guard = Guard { sem: self, n };
+        Some(f())
     }
 
     /// Permits currently available.

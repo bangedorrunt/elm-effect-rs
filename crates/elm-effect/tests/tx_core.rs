@@ -296,3 +296,78 @@ fn tx_dequeue_inspection_ops() {
     assert!(!dequeue.is_empty());
     assert!(dequeue.is_open());
 }
+
+#[test]
+fn tx_semaphore_zero_permits_starts_empty() {
+    let sem = TxSemaphore::new(0);
+    assert_eq!(sem.available(), 0);
+    assert!(!sem.try_acquire());
+}
+
+#[test]
+fn tx_semaphore_acquire_n_and_release_n() {
+    let sem = TxSemaphore::new(3);
+    assert!(sem.acquire_n(2));
+    assert_eq!(sem.available(), 1);
+    sem.release_n(2);
+    assert_eq!(sem.available(), 3);
+}
+
+#[test]
+fn tx_semaphore_try_acquire_n_needs_enough() {
+    let sem = TxSemaphore::new(2);
+    assert!(sem.try_acquire_n(2));
+    assert!(!sem.try_acquire_n(1));
+}
+
+#[test]
+fn tx_semaphore_with_permit_manages_lifecycle() {
+    let sem = TxSemaphore::new(1);
+    let ran = sem.with_permit(|| 42);
+    assert_eq!(ran, Some(42));
+    assert_eq!(sem.available(), 1);
+    sem.try_acquire();
+    assert_eq!(sem.with_permit(|| 1), None);
+    assert_eq!(sem.available(), 0);
+}
+
+#[test]
+fn tx_semaphore_with_permits_manages_many() {
+    let sem = TxSemaphore::new(3);
+    assert_eq!(sem.with_permits(2, || "held"), Some("held"));
+    assert_eq!(sem.available(), 3);
+}
+
+#[test]
+#[should_panic(expected = "positive count")]
+fn tx_semaphore_acquire_n_zero_defects() {
+    TxSemaphore::new(1).acquire_n(0);
+}
+
+#[test]
+#[should_panic(expected = "positive count")]
+fn tx_semaphore_release_n_zero_defects() {
+    TxSemaphore::new(1).release_n(0);
+}
+
+#[test]
+fn tx_semaphore_release_caps_at_capacity() {
+    let sem = TxSemaphore::new(2);
+    sem.release();
+    assert_eq!(sem.available(), 2);
+    sem.release_n(5);
+    assert_eq!(sem.available(), 2);
+    assert!(sem.acquire_n(2));
+    assert_eq!(sem.available(), 0);
+}
+
+#[test]
+fn tx_semaphore_ops_stay_atomic_in_transactions() {
+    let sem = TxSemaphore::new(2);
+    atomically(|| {
+        assert!(sem.acquire_n(2));
+        assert_eq!(sem.available(), 0);
+        sem.release_n(2);
+    });
+    assert_eq!(sem.available(), 2);
+}
