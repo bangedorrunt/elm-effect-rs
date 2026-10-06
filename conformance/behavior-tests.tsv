@@ -6996,7 +6996,7 @@ ported	packages/effect/test/net/NetAddress.test.ts	487	it	copies byte constructo
 ported	packages/effect/test/net/NetAddress.test.ts	505	it	copies Buffer constructor inputs	byte_constructor_inputs_are_copied
 unported	packages/effect/test/net/NetAddress.test.ts	525	it	discriminates addresses sharing the common type id	
 unported	packages/effect/test/net/NetAddress.test.ts	531	it	returns NetAddressError from checked operations	
-unported	packages/effect/test/net/NetAddress.test.ts	540	it	constructs socket addresses from input	
+ported	packages/effect/test/net/NetAddress.test.ts	540	it	constructs socket addresses from input	socket_addresses_parse_format_and_reject
 unported	packages/effect/test/net/NetAddress.test.ts	575	it	parses and formats bracketed numeric addresses	
 unported	packages/effect/test/net/NetAddress.test.ts	588	it	formats separate socket hosts while preserving IPv6 scope	
 unported	packages/effect/test/net/NetAddress.test.ts	604	it	formats native hosts using the supplied platform and interface names	
