@@ -4173,21 +4173,21 @@ unported	packages/effect/test/TxChunk.test.ts	344	it	isTxChunk should identify T
 ported	packages/effect/test/TxDeferred.test.ts	6	it.effect	make creates a deferred that polls as None	tx_deferred_complete_and_poll
 ported	packages/effect/test/TxDeferred.test.ts	15	it.effect	poll returns None on fresh deferred	tx_deferred_complete_and_poll
 ported	packages/effect/test/TxDeferred.test.ts	22	it.effect	poll returns Some(Success(value)) after succeed	tx_deferred_complete_and_poll
-unported	packages/effect/test/TxDeferred.test.ts	36	it.effect	poll returns Some(Failure(error)) after fail	
-unported	packages/effect/test/TxDeferred.test.ts	50	it.effect	await returns value after succeed	
-unported	packages/effect/test/TxDeferred.test.ts	58	it.effect	await fails with error after fail	
-unported	packages/effect/test/TxDeferred.test.ts	66	it.effect	await retries until completed	
-unported	packages/effect/test/TxDeferred.test.ts	77	it.effect	succeed returns true on fresh deferred	
-unported	packages/effect/test/TxDeferred.test.ts	84	it.effect	succeed returns false if already completed	
-unported	packages/effect/test/TxDeferred.test.ts	92	it.effect	fail returns true on fresh deferred	
-unported	packages/effect/test/TxDeferred.test.ts	99	it.effect	fail returns false if already completed	
-unported	packages/effect/test/TxDeferred.test.ts	107	it.effect	done with Result.succeed behaves like succeed	
-unported	packages/effect/test/TxDeferred.test.ts	116	it.effect	done with Result.fail behaves like fail	
+ported	packages/effect/test/TxDeferred.test.ts	36	it.effect	poll returns Some(Failure(error)) after fail	deferred_poll_failure_after_fail
+ported	packages/effect/test/TxDeferred.test.ts	50	it.effect	await returns value after succeed	deferred_await_value_and_error
+ported	packages/effect/test/TxDeferred.test.ts	58	it.effect	await fails with error after fail	deferred_await_value_and_error
+ported	packages/effect/test/TxDeferred.test.ts	66	it.effect	await retries until completed	deferred_await_blocks_until_completed
+ported	packages/effect/test/TxDeferred.test.ts	77	it.effect	succeed returns true on fresh deferred	deferred_succeed_first_wins
+ported	packages/effect/test/TxDeferred.test.ts	84	it.effect	succeed returns false if already completed	deferred_succeed_first_wins
+ported	packages/effect/test/TxDeferred.test.ts	92	it.effect	fail returns true on fresh deferred	deferred_fail_first_wins
+ported	packages/effect/test/TxDeferred.test.ts	99	it.effect	fail returns false if already completed	deferred_fail_first_wins
+ported	packages/effect/test/TxDeferred.test.ts	107	it.effect	done with Result.succeed behaves like succeed	deferred_done_behaves_like_succeed_and_fail
+ported	packages/effect/test/TxDeferred.test.ts	116	it.effect	done with Result.fail behaves like fail	deferred_done_behaves_like_succeed_and_fail
 unported	packages/effect/test/TxDeferred.test.ts	127	it.effect	isTxDeferred returns true for deferred, false for others	
-unported	packages/effect/test/TxDeferred.test.ts	139	it.effect	await observes completion made earlier in the same transaction	
-unported	packages/effect/test/TxDeferred.test.ts	151	it.effect	two deferreds modified atomically	
-unported	packages/effect/test/TxDeferred.test.ts	169	it.effect	multiple fibers awaiting same deferred all unblock	
-unported	packages/effect/test/TxDeferred.test.ts	186	it.effect	race between succeed and fail: only first wins	
+ported	packages/effect/test/TxDeferred.test.ts	139	it.effect	await observes completion made earlier in the same transaction	deferred_await_inside_same_transaction
+ported	packages/effect/test/TxDeferred.test.ts	151	it.effect	two deferreds modified atomically	deferred_two_gates_complete_atomically
+ported	packages/effect/test/TxDeferred.test.ts	169	it.effect	multiple fibers awaiting same deferred all unblock	deferred_all_waiters_unblock
+ported	packages/effect/test/TxDeferred.test.ts	186	it.effect	race between succeed and fail: only first wins	deferred_succeed_fail_race_first_wins
 ported	packages/effect/test/TxHashMap.test.ts	6	it.effect	empty	tx_hash_map_crud
 ported	packages/effect/test/TxHashMap.test.ts	16	it.effect	make	tx_hash_map_crud
 unported	packages/effect/test/TxHashMap.test.ts	30	it.effect	fromIterable	

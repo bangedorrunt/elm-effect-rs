@@ -69,40 +69,118 @@ impl<T> TxRef<T> {
     }
 }
 
-/// A transactional one-shot gate: first completion wins.
-pub struct TxDeferred<T> {
-    cell: Mutex<Option<T>>,
+/// A transactional one-shot gate: first completion wins. The infallible
+/// face (`complete`/`poll`) stays as-is; the fallible face (`succeed` /
+/// `fail` / `done` / `await_outcome` / `poll_outcome`) records the winner
+/// as a value or an error. `E` defaults so existing `TxDeferred<T>`
+/// uses keep compiling.
+#[derive(Debug, Clone)]
+enum Slot<T, E> {
+    Value(T),
+    Error(E),
 }
 
-impl<T> TxDeferred<T> {
+/// A transactional one-shot gate: first completion wins.
+pub struct TxDeferred<T, E = std::convert::Infallible> {
+    cell: Mutex<Option<Slot<T, E>>>,
+    changed: std::sync::Condvar,
+}
+
+impl<T, E> TxDeferred<T, E> {
     /// An empty gate.
     pub fn new() -> Self {
         Self {
             cell: Mutex::new(None),
+            changed: std::sync::Condvar::new(),
         }
+    }
+
+    fn settle(&self, slot: Slot<T, E>) -> bool {
+        let done = atomically(|| match *self.cell.lock().unwrap() {
+            Some(_) => false,
+            ref mut cell => {
+                *cell = Some(slot);
+                true
+            }
+        });
+        if done {
+            self.changed.notify_all();
+        }
+        done
     }
 
     /// Complete once; `false` when already completed.
     pub fn complete(&self, value: T) -> bool {
-        atomically(|| match *self.cell.lock().unwrap() {
-            Some(_) => false,
-            ref mut slot => {
-                *slot = Some(value);
-                true
-            }
-        })
+        self.settle(Slot::Value(value))
     }
 
-    /// The value without blocking (`None` until completed).
+    /// Complete with a value once; `false` when already completed.
+    /// (Fallible face: mirrors `Deferred.succeed`.)
+    pub fn succeed(&self, value: T) -> bool {
+        self.settle(Slot::Value(value))
+    }
+
+    /// Complete with an error once; `false` when already completed.
+    /// (Fallible face: mirrors `Deferred.fail`.)
+    pub fn fail(&self, error: E) -> bool {
+        self.settle(Slot::Error(error))
+    }
+
+    /// Complete with an outcome once; `false` when already completed.
+    /// (Fallible face: mirrors `Deferred.done`.)
+    pub fn done(&self, outcome: Result<T, E>) -> bool {
+        match outcome {
+            Ok(value) => self.settle(Slot::Value(value)),
+            Err(error) => self.settle(Slot::Error(error)),
+        }
+    }
+
+    /// Block until completed, then report the winner. Every waiter
+    /// unblocks; the first completion decides for all of them.
+    pub fn await_outcome(&self) -> Result<T, E>
+    where
+        T: Clone,
+        E: Clone,
+    {
+        let mut cell = self.cell.lock().unwrap();
+        while cell.is_none() {
+            cell = self.changed.wait(cell).unwrap();
+        }
+        match cell.clone().expect("guarded by the loop") {
+            Slot::Value(value) => Ok(value),
+            Slot::Error(error) => Err(error),
+        }
+    }
+
+    /// The value without blocking (`None` until completed, and `None`
+    /// when the gate completed with an error — use `poll_outcome` for
+    /// the fallible face).
     pub fn poll(&self) -> Option<T>
     where
         T: Clone,
+        E: Clone,
     {
-        tx_read(&self.cell)
+        match tx_read(&self.cell) {
+            Some(Slot::Value(value)) => Some(value),
+            _ => None,
+        }
+    }
+
+    /// The outcome without blocking (`None` until completed).
+    /// `Some(Err)` after `fail`: mirrors `Deferred.poll`.
+    pub fn poll_outcome(&self) -> Option<Result<T, E>>
+    where
+        T: Clone,
+        E: Clone,
+    {
+        tx_read(&self.cell).map(|slot| match slot {
+            Slot::Value(value) => Ok(value),
+            Slot::Error(error) => Err(error),
+        })
     }
 }
 
-impl<T> Default for TxDeferred<T> {
+impl<T, E> Default for TxDeferred<T, E> {
     fn default() -> Self {
         Self::new()
     }
