@@ -393,3 +393,33 @@ fn preserves_numeric_and_quoted_colons() {
         ])
     );
 }
+
+#[test]
+fn rejects_malformed_around_shapes() {
+    // Yaml.test.ts:268 - malformed content throws.
+    for source in [
+        "broken: [one, two\n",
+        "broken: {one: two\n",
+        "broken: true\nunmatched\n",
+        "broken:\n\tchild: true\n",
+        "broken:\n   child: true\n  sibling: false\n",
+        "broken: one\nbroken: two\n",
+    ] {
+        assert!(yaml::parse(source).is_err(), "should reject {source:?}");
+    }
+}
+
+#[test]
+fn rejects_nested_sequences() {
+    // Yaml.test.ts:286 - valid but unsupported nesting throws.
+    for source in [
+        "a:\n- - 1\n  - 2\n",
+        "a:\n  - - 1\n    - 2\n",
+        "- - 1\n  - 2\n",
+        "- - 1\n\n  - 2\n",
+        "a:\n- 1\n- - 2\n",
+        "a:\n- - b: 1\n",
+    ] {
+        assert!(yaml::parse(source).is_err(), "should reject {source:?}");
+    }
+}

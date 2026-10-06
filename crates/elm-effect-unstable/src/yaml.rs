@@ -23,18 +23,22 @@ pub struct YamlError(pub String);
 
 /// Parse a document in the supported subset.
 pub fn parse(text: &str) -> Result<YamlValue, YamlError> {
-    let lines: Vec<(usize, String)> = text
-        .lines()
-        .map(|line| {
-            if line.trim().is_empty() {
-                // Blank sentinel: only block scalars consume these.
-                (usize::MAX, String::new())
-            } else {
-                let indent = line.len() - line.trim_start_matches(' ').len();
-                (indent, line.trim().to_string())
+    let mut lines: Vec<(usize, String)> = Vec::new();
+    for line in text.lines() {
+        if line.trim().is_empty() {
+            // Blank sentinel: only block scalars consume these.
+            lines.push((usize::MAX, String::new()));
+        } else {
+            let leading: String = line
+                .chars()
+                .take_while(|c| *c == ' ' || *c == '\t')
+                .collect();
+            if leading.contains('\t') {
+                return Err(YamlError("tabs for indentation".to_string()));
             }
-        })
-        .collect();
+            lines.push((leading.len(), line.trim().to_string()));
+        }
+    }
     if lines.iter().all(|(_, line)| line.is_empty()) {
         return Err(YamlError("empty document".to_string()));
     }
@@ -224,6 +228,9 @@ impl Parser {
     /// A sequence item: either an inline value or a mapping whose first
     /// pair sits on the dash line with the rest nested deeper.
     fn parse_seq_item(&mut self, indent: usize, rest: String) -> Result<YamlValue, YamlError> {
+        if rest == "-" || rest.starts_with("- ") {
+            return Err(YamlError("nested sequences stay open".to_string()));
+        }
         if rest.is_empty() {
             return self.parse_block(indent + 1).or(Ok(YamlValue::Null));
         }
