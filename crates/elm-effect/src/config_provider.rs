@@ -428,16 +428,25 @@ impl EnvProvider {
                 continue;
             }
             let value = v.trim();
-            let unquoted = value
+            let decoded = if let Some(inner) = value
                 .strip_prefix('"')
                 .and_then(|s| s.strip_suffix('"'))
+            {
+                unescape_double(inner)
+            } else if let Some(inner) = value
+                .strip_prefix('\'')
+                .and_then(|s| s.strip_suffix('\''))
                 .or_else(|| {
                     value
-                        .strip_prefix('\'')
-                        .and_then(|s| s.strip_suffix('\''))
+                        .strip_prefix('`')
+                        .and_then(|s| s.strip_suffix('`'))
                 })
-                .unwrap_or(value);
-            values.insert(key, unquoted.to_string());
+            {
+                inner.to_string()
+            } else {
+                strip_inline_comment(value).trim().to_string()
+            };
+            values.insert(key, decoded);
         }
         Self { values }
     }
@@ -447,6 +456,7 @@ impl EnvProvider {
     pub fn from_dotenv_file(path: &str) -> Result<Self, std::io::Error> {
         std::fs::read_to_string(path).map(|text| Self::from_dotenv(&text))
     }
+
 
     /// Look up by joining segments with `_` (inherent alias of
     /// [`Lookup::get`]).
@@ -461,6 +471,41 @@ impl Lookup for EnvProvider {
             Some(v) if !v.is_empty() => Some(v.clone()),
             _ => None,
         }
+    }
+}
+
+/// Decode backslash escapes inside double-quoted dotenv values:
+/// `\n` `\r` `\t` `\\` `\"` `\'`; anything else keeps the backslash.
+fn unescape_double(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    let mut chars = s.chars();
+    while let Some(c) = chars.next() {
+        if c != '\\' {
+            out.push(c);
+            continue;
+        }
+        match chars.next() {
+            Some('n') => out.push('\n'),
+            Some('r') => out.push('\r'),
+            Some('t') => out.push('\t'),
+            Some('\\') => out.push('\\'),
+            Some('"') => out.push('"'),
+            Some('\'') => out.push('\''),
+            Some(other) => {
+                out.push('\\');
+                out.push(other);
+            }
+            None => out.push('\\'),
+        }
+    }
+    out
+}
+
+/// Cut an unquoted dotenv value at the first ` #` comment marker.
+fn strip_inline_comment(s: &str) -> &str {
+    match s.find(" #") {
+        Some(i) => s[..i].trim_end(),
+        None => s,
     }
 }
 

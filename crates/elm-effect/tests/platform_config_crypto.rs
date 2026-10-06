@@ -924,6 +924,47 @@ fn provider_dotenv_parses_key_value_text() {
 }
 
 #[test]
+fn provider_dotenv_quotes_comments_and_underscores() {
+    use config_provider::EnvProvider;
+    let env = EnvProvider::from_dotenv(
+        "SINGLE='value # one'\nDOUBLE=\"line 1\\nline 2\"\nBACKTICK=`value # two`\nPLAIN=value # comment\nOBJECT_key1=value1\n",
+    );
+    assert_eq!(
+        env.get(&["SINGLE".to_string()]),
+        Some("value # one".to_string())
+    );
+    assert_eq!(
+        env.get(&["DOUBLE".to_string()]),
+        Some("line 1\nline 2".to_string())
+    );
+    assert_eq!(
+        env.get(&["BACKTICK".to_string()]),
+        Some("value # two".to_string())
+    );
+    assert_eq!(env.get(&["PLAIN".to_string()]), Some("value".to_string()));
+    assert_eq!(
+        env.get(&["OBJECT".to_string(), "key1".to_string()]),
+        Some("value1".to_string())
+    );
+}
+
+#[test]
+fn provider_env_underscore_segments() {
+    use config_provider::EnvProvider;
+    for (key, path) in [
+        ("_", vec!["", ""]),
+        ("__", vec!["", "", ""]),
+        ("_A", vec!["", "A"]),
+        ("A_", vec!["A", ""]),
+        ("A_B", vec!["A", "B"]),
+    ] {
+        let env = EnvProvider::from_env_map(vec![(key.to_string(), "v".to_string())]);
+        let segs: Vec<String> = path.iter().map(|s| s.to_string()).collect();
+        assert_eq!(env.get(&segs), Some("v".to_string()), "key {key}");
+    }
+}
+
+#[test]
 fn provider_dotenv_file_reads_path_and_errors_missing() {
     use config_provider::EnvProvider;
     use std::sync::atomic::{AtomicU64, Ordering};
@@ -1011,6 +1052,17 @@ fn provider_env_basics_hit_miss_and_no_inheritance() {
     assert_eq!(env.get(&["A".to_string()]), Some("value1".to_string()));
     assert_eq!(env.get(&["missing".to_string()]), None);
     assert_eq!(env.get(&["constructor".to_string()]), None);
+}
+
+#[test]
+fn provider_nested_empty_leaves_read_missing() {
+    let p = provider(&[("a", ""), ("b", "value1"), ("record.key", "")]);
+    assert_eq!(p.get(&["a".to_string()]), None);
+    assert_eq!(p.get(&["b".to_string()]), Some("value1".to_string()));
+    assert_eq!(
+        p.get(&["record".to_string(), "key".to_string()]),
+        None
+    );
 }
 
 #[test]
