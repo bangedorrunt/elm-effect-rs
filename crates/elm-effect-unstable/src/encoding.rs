@@ -478,8 +478,14 @@ pub mod sse {
                     self.id_seen = true;
                 }
                 "retry" => {
-                    if let Ok(millis) = value.parse::<u64>() {
-                        self.retry = Some(millis);
+                    // ASCII digits only: a leading `+`/`-`, decimals, or
+                    // trailing junk never count (TS title verbatim).
+                    if !value.is_empty()
+                        && value.bytes().all(|b| b.is_ascii_digit())
+                    {
+                        if let Ok(millis) = value.parse::<u64>() {
+                            self.retry = Some(millis);
+                        }
                     }
                 }
                 _ => {}

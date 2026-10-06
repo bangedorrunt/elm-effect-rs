@@ -514,6 +514,38 @@ fn sse_parses_pending_just_under_max() {
 }
 
 #[test]
+fn sse_parses_mixed_crlf_and_lf_endings() {
+    use encoding::sse::Decoder;
+    let mut decoder = Decoder::new();
+    let events = decoder.feed("data: first\r\ndata: second\n\n").unwrap();
+    assert_eq!(events.len(), 1);
+    assert_eq!(events[0].data, "first\nsecond");
+    assert_eq!(events[0].event, "message");
+}
+
+#[test]
+fn sse_roundtrips_empty_data() {
+    use encoding::sse::{Event, decode, encode};
+    let input = Event {
+        event: "message".to_string(),
+        data: String::new(),
+        id: None,
+        retry: None,
+    };
+    assert_eq!(decode(&encode(&input)), vec![input]);
+}
+
+#[test]
+fn sse_ignores_non_digit_retry_values() {
+    use encoding::sse::Decoder;
+    for value in ["123x", "+123", "-123", "1.5"] {
+        let mut decoder = Decoder::new();
+        let events = decoder.feed(&format!("retry: {value}\n")).unwrap();
+        assert!(events.is_empty(), "{value}");
+    }
+}
+
+#[test]
 fn worker_errors_carry_kind_and_message() {
     let e = elm_effect_unstable::workers::WorkerError::Spawn("no binary".into());
     assert!(e.is_spawn() && !e.is_send() && !e.is_receive());
