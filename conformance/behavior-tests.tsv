@@ -6306,13 +6306,13 @@ unported	packages/effect/test/encoding/SchemaBinary.test.ts	3249	it.effect	round
 unported	packages/effect/test/encoding/SchemaBinary.test.ts	3278	it.effect	supports async transformations on encode and decode	
 unported	packages/effect/test/encoding/SchemaBinary.test.ts	3297	it.effect	supports async transformations across a duplex channel	
 unported	packages/effect/test/encoding/SchemaBinary.test.ts	3315	it.effect	emits values decoded before an async transformation failure	
-unported	packages/effect/test/encoding/Sse.test.ts	7	it	parses mixed CRLF and LF line endings	
+ported	packages/effect/test/encoding/Sse.test.ts	7	it	parses mixed CRLF and LF line endings	sse_parses_mixed_crlf_and_lf_endings
 ported	packages/effect/test/encoding/Sse.test.ts	21	it	treats CRLF split across chunks as one line ending	sse_joins_crlf_split_across_chunks
 ported	packages/effect/test/encoding/Sse.test.ts	36	it	retains the last event ID for later events	sse_retains_last_event_id
-unported	packages/effect/test/encoding/Sse.test.ts	58	it	roundtrips an SSE event with empty data	
+ported	packages/effect/test/encoding/Sse.test.ts	58	it	roundtrips an SSE event with empty data	sse_roundtrips_empty_data
 ported	packages/effect/test/encoding/Sse.test.ts	68	it	strips a UTF-8 BOM from the start of an SSE stream	sse_strips_leading_bom_once
-unported	packages/effect/test/encoding/Sse.test.ts	82	it	uses message for an empty SSE event type	
-unported	packages/effect/test/encoding/Sse.test.ts	92	it	ignores retry values that are not ASCII digits	
+ported	packages/effect/test/encoding/Sse.test.ts	82	it	uses message for an empty SSE event type	sse_ignores_comments_and_empty_blocks
+ported	packages/effect/test/encoding/Sse.test.ts	92	it	ignores retry values that are not ASCII digits	sse_ignores_non_digit_retry_values
 unported	packages/effect/test/encoding/Sse.test.ts	101	it	Event preserves string payloads	
 unported	packages/effect/test/encoding/Sse.test.ts	121	it	EventEncoded consumers can explicitly decode json payloads	
 unported	packages/effect/test/encoding/Sse.test.ts	139	it.effect	decodeDataSchema decodes json payload from SSE stream	
