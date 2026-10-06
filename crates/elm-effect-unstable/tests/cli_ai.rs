@@ -1004,3 +1004,20 @@ fn primitive_date_values() {
     // :158 - tag.
     assert_eq!(primitive::DATE_TAG, "Date");
 }
+
+#[test]
+fn primitive_file_text_and_json() {
+    use elm_effect_unstable::cli::primitive;
+    // Primitive.test.ts:375 (FileText/FileParse portions) - files read
+    // as text and parsed as JSON; FileSchema stays open (needs Schema).
+    let path = std::env::temp_dir().join(format!("prim-file-{}.json", std::process::id()));
+    std::fs::write(&path, "{\"enabled\":true}").expect("writes");
+    let text = primitive::parse_file_text(path.to_str().expect("utf8")).expect("reads");
+    assert_eq!(text, "{\"enabled\":true}");
+    assert_eq!(
+        primitive::parse_file_json(path.to_str().expect("utf8")).expect("parses"),
+        serde_json::json!({ "enabled": true })
+    );
+    assert!(primitive::parse_file_text("/non/existent/file.txt").is_err());
+    std::fs::remove_file(&path).ok();
+}

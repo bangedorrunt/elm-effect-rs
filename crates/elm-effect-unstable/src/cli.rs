@@ -569,6 +569,18 @@ pub mod primitive {
         Err("This option does not accept values".to_owned())
     }
 
+    /// Read a file as text (`Primitive.FileText` core; OS errors
+    /// surface as messages).
+    pub fn parse_file_text(path: &str) -> Result<String, String> {
+        std::fs::read_to_string(path).map_err(|e| e.to_string())
+    }
+
+    /// Read a file and parse its JSON (`Primitive.FileParse` core).
+    pub fn parse_file_json(path: &str) -> Result<serde_json::Value, String> {
+        let text = parse_file_text(path)?;
+        serde_json::from_str(&text).map_err(|e| e.to_string())
+    }
+
     /// A calendar date-time in UTC with millis (`Primitive.Date` values).
     #[derive(Clone, Copy, Debug, PartialEq, Eq)]
     pub struct CliDate {
