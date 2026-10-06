@@ -560,6 +560,22 @@ impl NetAddress {
         }
     }
 
+    /// Checked IP parse dispatching on family: dotted text needs exactly
+    /// four decimal octets (message verbatim from TS `ipFromString`),
+    /// colon text parses as IPv6.
+    pub fn ip_from_string(text: &str) -> Result<Self, NetworkError> {
+        if text.contains(':') {
+            return Self::ipv6_from_string(text);
+        }
+        if text.split('.').count() != 4 {
+            return Err(NetworkError::text(
+                text,
+                "expected exactly four decimal octets",
+            ));
+        }
+        Self::ipv4_from_string(text)
+    }
+
     /// Strict IP parse of either family (TS `ipv6FromString`).
     pub fn ipv6_from_string(text: &str) -> Result<Self, NetworkError> {
         match StrictIp::parse(text) {

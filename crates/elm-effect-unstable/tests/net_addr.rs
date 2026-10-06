@@ -458,3 +458,17 @@ fn mac_group_and_admin_bits_classify() {
     assert!(ipv4_broadcast.is_broadcast());
     assert!(!ipv4_broadcast.is_multicast());
 }
+
+#[test]
+fn checked_parsing_returns_typed_errors() {
+    use net::{NetAddress, NetworkErrorInput};
+    let err = NetAddress::ip_from_string("localhost").unwrap_err();
+    assert_eq!(err.tag, "NetAddressError");
+    assert_eq!(err.message, "expected exactly four decimal octets");
+    assert_eq!(
+        err.input,
+        NetworkErrorInput::Text("localhost".to_string())
+    );
+    assert!(NetAddress::ip_from_string("127.0.0.1").is_ok());
+    assert!(NetAddress::ip_from_string("::1").is_ok());
+}
