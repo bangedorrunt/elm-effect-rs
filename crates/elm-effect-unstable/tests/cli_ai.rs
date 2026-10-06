@@ -978,3 +978,24 @@ fn primitive_never_rejects_all() {
         "This option does not accept values"
     );
 }
+
+#[test]
+fn primitive_date_values() {
+    use elm_effect_unstable::cli::primitive;
+    // Primitive.test.ts:129 - valid dates parse.
+    let day = primitive::parse_date("2024-01-15").expect("date");
+    assert_eq!(&day.to_iso_string()[..10], "2024-01-15");
+    let moment = primitive::parse_date("2024-01-15T12:30:45.123Z").expect("datetime");
+    assert_eq!(moment.to_iso_string(), "2024-01-15T12:30:45.123Z");
+    // Offsets normalize to UTC.
+    let shifted = primitive::parse_date("2024-01-15T12:30:45+02:00").expect("offset");
+    assert_eq!(shifted.hour, 10);
+    assert_eq!(shifted.minute, 30);
+    // :155 - invalid values name the failure.
+    assert_eq!(
+        primitive::parse_date("not-a-date").expect_err("rejects"),
+        "Expected a valid Date"
+    );
+    // :158 - tag.
+    assert_eq!(primitive::DATE_TAG, "Date");
+}

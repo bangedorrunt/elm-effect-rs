@@ -449,6 +449,8 @@ pub mod primitive {
     pub const REDACTED_TAG: &str = "Redacted";
     /// Tag of the never primitive.
     pub const NEVER_TAG: &str = "Never";
+    /// Tag of the date primitive.
+    pub const DATE_TAG: &str = "Date";
 
     /// Parse `true/1/y/yes/on` and `false/0/n/no/off`, rejecting anything else.
     pub fn parse_bool(text: &str) -> Result<bool, String> {
@@ -565,6 +567,185 @@ pub mod primitive {
     /// Reject every input: the always-failing sentinel.
     pub fn parse_never(_text: &str) -> Result<String, String> {
         Err("This option does not accept values".to_owned())
+    }
+
+    /// A calendar date-time in UTC with millis (`Primitive.Date` values).
+    #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+    pub struct CliDate {
+        /// Proleptic Gregorian year.
+        pub year: i64,
+        /// Month 1-12.
+        pub month: u32,
+        /// Day 1-31.
+        pub day: u32,
+        /// Hour 0-23.
+        pub hour: u32,
+        /// Minute 0-59.
+        pub minute: u32,
+        /// Second 0-59.
+        pub second: u32,
+        /// Millis 0-999.
+        pub millis: u32,
+    }
+
+    impl CliDate {
+        /// Render full ISO UTC (`toISOString`).
+        pub fn to_iso_string(&self) -> String {
+            format!(
+                "{:04}-{:02}-{:02}T{:02}:{:02}:{:02}.{:03}Z",
+                self.year, self.month, self.day, self.hour, self.minute, self.second, self.millis
+            )
+        }
+    }
+
+    /// Days since the Unix epoch (Hinnant's civil-day algorithm).
+    fn days_from_civil(year: i64, month: i64, day: i64) -> i64 {
+        let year = if month <= 2 { year - 1 } else { year };
+        let era = year.div_euclid(400);
+        let year_of_era = year - era * 400;
+        let month_prime = (month + 9) % 12;
+        let day_of_year = (153 * month_prime + 2) / 5 + day - 1;
+        let day_of_era = year_of_era * 365 + year_of_era / 4 - year_of_era / 100 + day_of_year;
+        era * 146097 + day_of_era - 719468
+    }
+
+    /// Inverse of [`days_from_civil`]: (year, month, day).
+    fn civil_from_days(days: i64) -> (i64, u32, u32) {
+        let shifted = days + 719468;
+        let era = shifted.div_euclid(146097);
+        let day_of_era = shifted - era * 146097;
+        let year_of_era =
+            (day_of_era - day_of_era / 1460 + day_of_era / 36524 - day_of_era / 146096) / 365;
+        let year = year_of_era + era * 400;
+        let day_of_year = day_of_era - (365 * year_of_era + year_of_era / 4 - year_of_era / 100);
+        let month_prime = (5 * day_of_year + 2) / 153;
+        let day = day_of_year - (153 * month_prime + 2) / 5 + 1;
+        let month = if month_prime < 10 {
+            month_prime + 3
+        } else {
+            month_prime - 9
+        };
+        (
+            if month <= 2 { year + 1 } else { year },
+            month as u32,
+            day as u32,
+        )
+    }
+
+    /// Parse ISO dates, full UTC datetimes, and offset datetimes;
+    /// zone-less datetimes fail (local-time semantics stay open).
+    pub fn parse_date(text: &str) -> Result<CliDate, String> {
+        let fail = || "Expected a valid Date".to_owned();
+        let (date_text, time_text) = match text.split_once('T') {
+            None => (text, None),
+            Some((date, time)) => (date, Some(time)),
+        };
+        let mut date_parts = date_text.split('-');
+        let (year, month, day) = match (date_parts.next(), date_parts.next(), date_parts.next()) {
+            (Some(year), Some(month), Some(day)) if date_parts.next().is_none() => (
+                year.parse::<i64>().map_err(|_| fail())?,
+                month.parse::<i64>().map_err(|_| fail())?,
+                day.parse::<i64>().map_err(|_| fail())?,
+            ),
+            _ => return Err(fail()),
+        };
+        if !(1..=12).contains(&month)
+            || civil_from_days(days_from_civil(year, month, day))
+                != (year, month as u32, day as u32)
+        {
+            return Err(fail());
+        }
+        let Some(time) = time_text else {
+            return Ok(CliDate {
+                year,
+                month: month as u32,
+                day: day as u32,
+                hour: 0,
+                minute: 0,
+                second: 0,
+                millis: 0,
+            });
+        };
+        let mut time_parts = time.splitn(3, ':');
+        let (hour_text, minute_text, second_text) =
+            match (time_parts.next(), time_parts.next(), time_parts.next()) {
+                (Some(hour), Some(minute), Some(second)) => (hour, minute, second),
+                _ => return Err(fail()),
+            };
+        let (second_digits, zone) =
+            match second_text.split_once(|c| c == '.' || c == 'Z' || c == '+' || c == '-') {
+                None => (second_text, None),
+                Some((digits, _)) => {
+                    let at = second_text.len() - second_text[digits.len()..].len();
+                    (digits, Some(&second_text[at..]))
+                }
+            };
+        let (millis, zone) = match zone {
+            None => (0u32, None),
+            Some(rest) if rest.starts_with('.') => {
+                let zone_at = rest.find(|c| c == 'Z' || c == '+' || c == '-');
+                let (digits, zone) = match zone_at {
+                    None => (&rest[1..], None),
+                    Some(at) => (&rest[1..at], Some(&rest[at..])),
+                };
+                if digits.is_empty() || !digits.bytes().all(|b| b.is_ascii_digit()) {
+                    return Err(fail());
+                }
+                let kept = &digits[..digits.len().min(3)];
+                let scale = 10u32.pow(3 - kept.len() as u32);
+                (kept.parse::<u32>().map_err(|_| fail())? * scale, zone)
+            }
+            Some(zone) => (0, Some(zone)),
+        };
+        let offset_minutes: i64 = match zone {
+            None => return Err(fail()),
+            Some("Z") => 0,
+            Some(offset) => {
+                let sign = if offset.starts_with('+') { 1 } else { -1 };
+                let digits = offset
+                    .strip_prefix('+')
+                    .or_else(|| offset.strip_prefix('-'));
+                let digits = match digits {
+                    Some(digits) => digits,
+                    None => return Err(fail()),
+                };
+                match digits.split_once(':') {
+                    Some((hours, minutes)) if hours.len() == 2 && minutes.len() == 2 => {
+                        let hours = hours.parse::<i64>().map_err(|_| fail())?;
+                        let minutes = minutes.parse::<i64>().map_err(|_| fail())?;
+                        if hours > 23 || minutes > 59 {
+                            return Err(fail());
+                        }
+                        sign * (hours * 60 + minutes)
+                    }
+                    _ => return Err(fail()),
+                }
+            }
+        };
+        let hour = hour_text.parse::<i64>().map_err(|_| fail())?;
+        let minute = minute_text.parse::<i64>().map_err(|_| fail())?;
+        let second = second_digits.parse::<i64>().map_err(|_| fail())?;
+        if !(0..24).contains(&hour) || !(0..60).contains(&minute) || !(0..60).contains(&second) {
+            return Err(fail());
+        }
+        let day_millis = days_from_civil(year, month, day) * 86_400_000
+            + hour * 3_600_000
+            + minute * 60_000
+            + second * 1_000
+            + i64::from(millis)
+            - offset_minutes * 60_000;
+        let days = day_millis.div_euclid(86_400_000);
+        let clock = day_millis.rem_euclid(86_400_000);
+        let (year, month, day) = civil_from_days(days);
+        Ok(CliDate {
+            year,
+            month,
+            day,
+            hour: (clock / 3_600_000) as u32,
+            minute: ((clock / 60_000) % 60) as u32,
+            second: ((clock / 1_000) % 60) as u32,
+            millis: (clock % 1_000) as u32,
+        })
     }
 
     /// Parse `key=value` on the first `=`; both sides must be non-empty.
