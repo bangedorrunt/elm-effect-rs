@@ -789,3 +789,40 @@ fn provider_listings_keep_empty_valued_keys() {
         Some("value1".to_string())
     );
 }
+
+#[test]
+fn provider_from_fn_reads_through_lookup() {
+    use config_provider::Provider;
+    let fp = Provider::from_fn(|path: &[String]| {
+        let joined = path.join(".");
+        (joined == "A.B").then(|| "value".to_string())
+    });
+    assert_eq!(
+        fp.get(&["A".to_string(), "B".to_string()]),
+        Some("value".to_string())
+    );
+    assert_eq!(fp.get(&["missing".to_string()]), None);
+    assert_eq!(
+        Config::string(named("B")).nested("A").load(&fp).unwrap(),
+        Value::Str("value".to_string())
+    );
+}
+
+#[test]
+fn provider_map_input_prefixes_lookups() {
+    let base = provider(&[("APP.PORT", "3000")]);
+    let mapped = base.map_input(|path| {
+        let mut full = vec!["APP".to_string()];
+        full.extend(path.iter().cloned());
+        full
+    });
+    assert_eq!(
+        mapped.get(&["PORT".to_string()]),
+        Some("3000".to_string())
+    );
+    assert_eq!(mapped.get(&["MISSING".to_string()]), None);
+    assert_eq!(
+        Config::string(named("PORT")).load(&mapped).unwrap(),
+        Value::Str("3000".to_string())
+    );
+}

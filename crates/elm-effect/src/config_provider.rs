@@ -9,6 +9,15 @@
 
 use std::collections::BTreeMap;
 
+/// Key/value lookup backing [`Config`](super::Config) descriptors.
+/// Implemented by [`Provider`] and its views so custom sources
+/// (lookup functions, path transforms) feed `Config::load` directly.
+pub trait Lookup {
+    /// Value at `path`, or `None` when absent (empty reads missing
+    /// unless the source preserves them).
+    fn get(&self, path: &[String]) -> Option<String>;
+}
+
 /// Layered key/value lookup for [`Config`](super::Config) descriptors.
 /// (Loaded by path; `super::` resolves under both layouts.)
 #[derive(Clone, Debug, Default)]
@@ -69,13 +78,10 @@ impl Provider {
         }
     }
 
-    /// Look up a path. Empty values read as absent (spec default); stored
-    /// keys are untouched, so listings keep structure.
+    /// Look up a path (inherent alias of [`Lookup::get`]; kept so plain
+    /// `Provider` callers need no trait import).
     pub fn get(&self, path: &[String]) -> Option<String> {
-        match self.values.get(path) {
-            Some(v) if v.is_empty() && !self.preserve_empty => None,
-            found => found.cloned(),
-        }
+        Lookup::get(self, path)
     }
 
     /// First path segments of every stored key, in order (structure
@@ -83,10 +89,10 @@ impl Provider {
     pub fn root_keys(&self) -> Vec<String> {
         let mut out = Vec::new();
         for key in self.values.keys() {
-            if let Some(first) = key.first() {
-                if out.last() != Some(first) {
-                    out.push(first.clone());
-                }
+            if let Some(first) = key.first()
+                && out.last() != Some(first)
+            {
+                out.push(first.clone());
             }
         }
         out
@@ -101,23 +107,46 @@ impl Provider {
     }
 
     /// Fall through to `other` on absence.
-    pub fn or_else<'a>(&'a self, other: &'a Provider) -> Fallback<'a> {
+    pub fn or_else<'a>(&'a self, other: &'a dyn Lookup) -> Fallback<'a> {
         Fallback { first: self, second: other }
+    }
+
+    /// Transform every lookup path before delegating (`mapInput`).
+    pub fn map_input<F>(&self, map: F) -> Mapped<'_, F>
+    where
+        F: Fn(&[String]) -> Vec<String>,
+    {
+        Mapped { inner: self, map }
+    }
+
+    /// Build from a lookup function (`make`): `None` reads as absent.
+    pub fn from_fn<F>(lookup: F) -> FnProvider<F>
+    where
+        F: Fn(&[String]) -> Option<String>,
+    {
+        FnProvider { lookup }
     }
 }
 
-/// Prefixed view of a provider.
+impl Lookup for Provider {
+    fn get(&self, path: &[String]) -> Option<String> {
+        match self.values.get(path) {
+            Some(v) if v.is_empty() && !self.preserve_empty => None,
+            found => found.cloned(),
+        }
+    }
+}
+
+/// Prefixed view of a lookup source.
 pub struct Nested<'a> {
-    inner: &'a Provider,
+    inner: &'a dyn Lookup,
     prefix: Vec<String>,
 }
 
 impl Nested<'_> {
-    /// Look up under the prefix.
+    /// Look up under the prefix (inherent alias of [`Lookup::get`]).
     pub fn get(&self, path: &[String]) -> Option<String> {
-        let mut full = self.prefix.clone();
-        full.extend(path.iter().cloned());
-        self.inner.get(&full)
+        Lookup::get(self, path)
     }
 
     /// Compose another prefix outside this one.
@@ -128,15 +157,80 @@ impl Nested<'_> {
     }
 }
 
-/// Two providers tried in order.
+/// Two lookup sources tried in order.
 pub struct Fallback<'a> {
-    first: &'a Provider,
-    second: &'a Provider,
+    first: &'a dyn Lookup,
+    second: &'a dyn Lookup,
 }
 
 impl Fallback<'_> {
-    /// First hit wins.
+    /// First hit wins (inherent alias of [`Lookup::get`]).
     pub fn get(&self, path: &[String]) -> Option<String> {
+        Lookup::get(self, path)
+    }
+}
+
+impl Lookup for Nested<'_> {
+    fn get(&self, path: &[String]) -> Option<String> {
+        let mut full = self.prefix.clone();
+        full.extend(path.iter().cloned());
+        self.inner.get(&full)
+    }
+}
+
+impl Lookup for Fallback<'_> {
+    fn get(&self, path: &[String]) -> Option<String> {
         self.first.get(path).or_else(|| self.second.get(path))
+    }
+}
+
+/// Path-transformed view of a lookup source (`mapInput`): every lookup
+/// runs against the mapped path.
+pub struct Mapped<'a, F> {
+    inner: &'a dyn Lookup,
+    map: F,
+}
+
+impl<F> Mapped<'_, F>
+where
+    F: Fn(&[String]) -> Vec<String>,
+{
+    /// Look up through the mapped path (inherent alias of [`Lookup::get`]).
+    pub fn get(&self, path: &[String]) -> Option<String> {
+        Lookup::get(self, path)
+    }
+}
+
+impl<F> Lookup for Mapped<'_, F>
+where
+    F: Fn(&[String]) -> Vec<String>,
+{
+    fn get(&self, path: &[String]) -> Option<String> {
+        self.inner.get(&(self.map)(path))
+    }
+}
+
+/// Lookup source backed by a function (`make` with a lookup closure):
+/// missing maps to `None`.
+pub struct FnProvider<F> {
+    lookup: F,
+}
+
+impl<F> FnProvider<F>
+where
+    F: Fn(&[String]) -> Option<String>,
+{
+    /// Look up through the closure (inherent alias of [`Lookup::get`]).
+    pub fn get(&self, path: &[String]) -> Option<String> {
+        Lookup::get(self, path)
+    }
+}
+
+impl<F> Lookup for FnProvider<F>
+where
+    F: Fn(&[String]) -> Option<String>,
+{
+    fn get(&self, path: &[String]) -> Option<String> {
+        (self.lookup)(path)
     }
 }

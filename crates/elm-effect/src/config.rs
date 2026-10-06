@@ -11,7 +11,7 @@
 //! never touches the environment. Failures are [`ConfigError`] values
 //! carrying paths (`Missing` for absence, `Invalid` for bad input).
 
-use super::config_provider::Provider;
+use super::config_provider::{Lookup, Provider};
 
 /// Stringly value with its source path.
 #[derive(Clone, Debug, PartialEq)]
@@ -108,7 +108,7 @@ impl Value {
 #[derive(Clone)]
 pub struct Config {
     name: Option<String>,
-    run: std::rc::Rc<dyn Fn(&Provider, &[String]) -> Result<Value, Vec<ConfigError>>>,
+    run: std::rc::Rc<dyn Fn(&dyn Lookup, &[String]) -> Result<Value, Vec<ConfigError>>>,
 }
 
 impl Config {
@@ -578,7 +578,7 @@ impl Config {
     }
 
     /// Run against one provider with no prefix.
-    pub fn load(&self, provider: &Provider) -> Result<Value, Vec<ConfigError>> {
+    pub fn load(&self, provider: &dyn Lookup) -> Result<Value, Vec<ConfigError>> {
         (self.run)(provider, &[])
     }
 
