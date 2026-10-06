@@ -6997,8 +6997,8 @@ ported	packages/effect/test/net/NetAddress.test.ts	505	it	copies Buffer construc
 ported	packages/effect/test/net/NetAddress.test.ts	525	it	discriminates addresses sharing the common type id	net_addresses_discriminate_by_type_id
 ported	packages/effect/test/net/NetAddress.test.ts	531	it	returns NetAddressError from checked operations	checked_parsing_returns_typed_errors
 ported	packages/effect/test/net/NetAddress.test.ts	540	it	constructs socket addresses from input	socket_addresses_parse_format_and_reject
-unported	packages/effect/test/net/NetAddress.test.ts	575	it	parses and formats bracketed numeric addresses	
-unported	packages/effect/test/net/NetAddress.test.ts	588	it	formats separate socket hosts while preserving IPv6 scope	
+ported	packages/effect/test/net/NetAddress.test.ts	575	it	parses and formats bracketed numeric addresses	net_addresses_format_bracketed_hosts
+ported	packages/effect/test/net/NetAddress.test.ts	588	it	formats separate socket hosts while preserving IPv6 scope	net_addresses_format_socket_hosts_with_scope
 unported	packages/effect/test/net/NetAddress.test.ts	604	it	formats native hosts using the supplied platform and interface names	
 unported	packages/effect/test/net/NetAddress.test.ts	631	it	formats multicast interfaces using the supplied platform and scope map	
 unported	packages/effect/test/net/NetAddress.test.ts	653	it	resolves named IPv6 zones only through the supplied scope map	

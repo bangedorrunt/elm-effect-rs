@@ -876,6 +876,39 @@ impl NetAddress {
         self.path().map(|path| format!("unix://{path}"))
     }
 
+    /// Build a socket from an IP string plus port (TS `inetAddressFromIpString`).
+    pub fn inet_address_from_ip_string(ip: &str, port: u32) -> Result<Self, NetworkError> {
+        let address = NetAddress::ipv4_from_string(ip).or_else(|_| NetAddress::ipv6_from_string(ip))?;
+        NetAddress::socket_address_from_parts(&address, port)
+    }
+
+    /// Bracketed host for URLs: plain IPv4, bracketed IPv6, nothing else
+    /// (TS `formatUrlHost`).
+    pub fn format_url_host(&self) -> Option<String> {
+        match self {
+            Self::V4(v4) => Some(v4.to_string()),
+            Self::V6(v6) => Some(format!("[{v6}]")),
+            _ => None,
+        }
+    }
+
+    /// Socket host text with nonzero scope preserved (TS `formatHost`).
+    pub fn format_host(&self) -> Option<String> {
+        let Self::Inet(socket) = self else {
+            return None;
+        };
+        match socket {
+            std::net::SocketAddr::V4(v4) => Some(v4.ip().to_string()),
+            std::net::SocketAddr::V6(v6) => {
+                if v6.scope_id() == 0 {
+                    Some(v6.ip().to_string())
+                } else {
+                    Some(format!("{}%{}", v6.ip(), v6.scope_id()))
+                }
+            }
+        }
+    }
+
     /// The socket address text: Unix paths verbatim, bare IPs without a
     /// port (TS `formatSocketAddress`; ports arrive with socket addresses).
     pub fn format_socket_address(&self) -> String {

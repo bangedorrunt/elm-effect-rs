@@ -778,3 +778,44 @@ fn net_addresses_discriminate_by_type_id() {
         NetAddress::ipv6_from_string("::1").expect("valid")
     );
 }
+
+#[test]
+fn net_addresses_format_bracketed_hosts() {
+    use net::NetAddress;
+    // NetAddress.test.ts:575 - bracketed numerics and URL hosts.
+    let v4socket = NetAddress::socket_address_from_input("127.0.0.1:8080").expect("valid");
+    assert_eq!(v4socket.format_socket_address(), "127.0.0.1:8080");
+    let v6socket = NetAddress::socket_address_from_input("[0:0:0:0:0:0:0:1]:8080").expect("valid");
+    assert_eq!(v6socket.format_socket_address(), "[::1]:8080");
+    let via_ip = NetAddress::inet_address_from_ip_string("::1", 8080).expect("valid");
+    assert_eq!(via_ip.format_socket_address(), "[::1]:8080");
+    let bare_v6 = NetAddress::ipv6_from_string("::1").expect("valid");
+    assert_eq!(bare_v6.format_url_host().as_deref(), Some("[::1]"));
+}
+
+#[test]
+fn net_addresses_format_socket_hosts_with_scope() {
+    use net::NetAddress;
+    // NetAddress.test.ts:588 - hosts keep nonzero scope, drop zero scope.
+    for (input, expected) in [
+        ("127.0.0.1:8080", "127.0.0.1"),
+        ("[0:0:0:0:0:0:0:1]:8080", "::1"),
+        ("[fe80::1%7]:4567", "fe80::1%7"),
+        ("[fe80::1%0]:4567", "fe80::1"),
+    ] {
+        let address = NetAddress::socket_address_from_input(input).expect("valid");
+        let host = address.format_host().expect("host");
+        assert_eq!(host, expected, "{input}");
+        let port = address.port().expect("port");
+        let rebuilt = if host.contains(':') {
+            format!("[{host}]:{port}")
+        } else {
+            format!("{host}:{port}")
+        };
+        assert_eq!(
+            NetAddress::socket_address_from_input(&rebuilt).expect("rebuild"),
+            address,
+            "{input}"
+        );
+    }
+}
