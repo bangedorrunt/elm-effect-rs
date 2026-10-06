@@ -783,3 +783,15 @@ fn number_remainder_scientific_and_subnormal() {
     assert_eq!(number::remainder(1152921504606846976.0, 5.0), 1.0);
     assert_eq!(number::remainder(-1152921504606846976.0, 5.0), -1.0);
 }
+
+#[test]
+fn string_slice_js_semantics() {
+    // String.test.ts:186 - extracts a section.
+    assert_eq!(string::slice("abcd", 1, Some(3)), "bc");
+    // :190 - negative indices count from the end.
+    assert_eq!(string::slice("hello", -3, None), "llo");
+    // :194 - no arguments returns the full string.
+    assert_eq!(string::slice("hello", 0, None), "hello");
+    assert_eq!(string::slice("", 0, None), "");
+    assert_eq!(string::slice("hello", 3, Some(1)), "");
+}

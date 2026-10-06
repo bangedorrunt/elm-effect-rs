@@ -70,6 +70,22 @@ pub fn slice_chars(s: &str, start: usize, end: usize) -> String {
         .collect()
 }
 
+/// Char-range slice with JS semantics: negative indices count from the
+/// end (clamped at zero), an omitted end runs to the end (`slice`).
+pub fn slice(s: &str, start: i64, end: Option<i64>) -> String {
+    let len = s.chars().count() as i64;
+    let clamp = |index: i64| index.clamp(0, len) as usize;
+    let from = clamp(if start < 0 { len + start } else { start });
+    let to = match end {
+        Some(end) => clamp(if end < 0 { len + end } else { end }),
+        None => len as usize,
+    };
+    if from >= to {
+        return String::new();
+    }
+    s.chars().skip(from).take(to - from).collect()
+}
+
 /// Capitalize the first character.
 pub fn capitalize(s: &str) -> String {
     let mut chars = s.chars();

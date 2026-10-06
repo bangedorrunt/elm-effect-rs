@@ -3882,9 +3882,9 @@ unported	packages/effect/test/String.test.ts	166	it	trims leading whitespace
 unported	packages/effect/test/String.test.ts	170	it	handles empty string	
 unported	packages/effect/test/String.test.ts	176	it	trims trailing whitespace	
 unported	packages/effect/test/String.test.ts	180	it	handles empty string	
-unported	packages/effect/test/String.test.ts	186	it	extracts a section	
-unported	packages/effect/test/String.test.ts	190	it	handles negative indices	
-unported	packages/effect/test/String.test.ts	194	it	no arguments returns full string	
+ported	packages/effect/test/String.test.ts	186	it	extracts a section	string_slice_js_semantics
+ported	packages/effect/test/String.test.ts	190	it	handles negative indices	string_slice_js_semantics
+ported	packages/effect/test/String.test.ts	194	it	no arguments returns full string	string_slice_js_semantics
 unported	packages/effect/test/String.test.ts	200	it	returns true for empty string	
 unported	packages/effect/test/String.test.ts	204	it	returns false for non-empty string	
 unported	packages/effect/test/String.test.ts	211	it	returns true for non-empty string	
