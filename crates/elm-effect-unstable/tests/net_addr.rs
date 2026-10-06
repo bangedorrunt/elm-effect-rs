@@ -193,7 +193,6 @@ fn ip(text: &str) -> net::NetAddress {
 
 #[test]
 fn net_addresses_classify_boundaries() {
-    use net::NetAddress;
     for text in [
         "1.2.3.4",
         "127.0.0.1",
@@ -303,4 +302,23 @@ fn net_addresses_convert_mapped_ipv4() {
     assert!(NetAddress::ipv6_from_string("::1").unwrap().from_ipv4_mapped().is_none());
     assert_eq!(mapped.to_canonical(), ipv4);
     assert_eq!(ipv4.to_canonical(), ipv4);
+}
+
+#[test]
+fn byte_constructor_inputs_are_copied() {
+    use net::NetAddress;
+    // Node `Buffer` shares `Uint8Array` semantics: one test covers both
+    // constructor rows (487 Uint8Array, 505 Buffer).
+    let mut v4bytes = vec![127u8, 0, 0, 1];
+    let mut v6bytes = vec![0u8; 16];
+    v6bytes[15] = 1;
+    let ipv4 = NetAddress::ipv4_from_bytes(&v4bytes);
+    let ipv6 = NetAddress::ipv6_from_bytes(&v6bytes);
+    let (hash4, hash6) = (net_hash(&ipv4), net_hash(&ipv6));
+    v4bytes[0] = 1;
+    v6bytes[15] = 2;
+    assert_eq!(ipv4.format_ip(), "127.0.0.1");
+    assert_eq!(ipv6.format_ip(), "::1");
+    assert_eq!(net_hash(&ipv4), hash4);
+    assert_eq!(net_hash(&ipv6), hash6);
 }

@@ -525,6 +525,17 @@ impl NetAddress {
         Self::V4(Ipv4Addr::new(bytes[0], bytes[1], bytes[2], bytes[3]))
     }
 
+    /// Build from sixteen octets in network order (TS
+    /// `ipv6FromBytesUnsafe`; any other length panics).
+    pub fn ipv6_from_bytes(bytes: &[u8]) -> Self {
+        assert_eq!(bytes.len(), 16, "IPv6 needs exactly 16 octets");
+        let mut segments = [0u16; 8];
+        for (i, pair) in bytes.chunks_exact(2).enumerate() {
+            segments[i] = u16::from_be_bytes([pair[0], pair[1]]);
+        }
+        Self::V6(Ipv6Addr::from(segments))
+    }
+
     /// Strict dotted-quad parse, rejecting non-IPv4 input (TS
     /// `ipv4FromString`).
     pub fn ipv4_from_string(text: &str) -> Result<Self, NetworkError> {
