@@ -72,3 +72,86 @@ fn require_all_makes_optional_keys_required() {
         ]))
         .is_ok());
 }
+
+// Record rows: every value decodes with the value schema, keys pass through.
+#[test]
+fn record_string_number_decodes_every_value() {
+    let schema = Schema::record(Schema::as_unknown(Schema::number()));
+    let decoded = schema
+        .decode(Unknown::Object(
+            [
+                ("a".to_string(), Unknown::Number(1.0)),
+                ("b".to_string(), Unknown::Number(2.0)),
+            ]
+            .into_iter()
+            .collect(),
+        ))
+        .expect("record decodes");
+    assert_eq!(decoded["a"], Unknown::Number(1.0));
+    assert_eq!(decoded["b"], Unknown::Number(2.0));
+    assert_eq!(
+        schema.encode(&decoded),
+        Unknown::Object(
+            [
+                ("a".to_string(), Unknown::Number(1.0)),
+                ("b".to_string(), Unknown::Number(2.0)),
+            ]
+            .into_iter()
+            .collect()
+        ),
+        "record round-trips keys and values"
+    );
+}
+
+#[test]
+fn record_rejects_non_object_and_names_the_key() {
+    let schema = Schema::record(Schema::as_unknown(Schema::number()));
+    assert!(schema.decode(Unknown::Null).is_err(), "not an object");
+    let error = schema
+        .decode(Unknown::Object(
+            [("bad".to_string(), Unknown::Text("x".to_string()))]
+                .into_iter()
+                .collect(),
+        ))
+        .unwrap_err();
+    assert!(
+        error.to_string().contains("bad"),
+        "error names the offending key: {error}"
+    );
+}
+
+#[test]
+fn record_empty_object_decodes() {
+    let schema = Schema::record(Schema::as_unknown(Schema::number()));
+    let decoded = schema
+        .decode(Unknown::Object(BTreeMap::new()))
+        .expect("empty record decodes");
+    assert!(decoded.is_empty());
+    assert_eq!(schema.encode(&decoded), Unknown::Object(BTreeMap::new()));
+}
+
+#[test]
+fn record_optional_values_accept_null_but_reject_wrong_type() {
+    // Record(String, optional(Number)): a null value decodes to None,
+    // any present non-number still fails.
+    let schema = Schema::record(Schema::as_unknown(Schema::optional(Schema::number())));
+    let decoded = schema
+        .decode(Unknown::Object(
+            [
+                ("here".to_string(), Unknown::Number(1.0)),
+                ("gone".to_string(), Unknown::Null),
+            ]
+            .into_iter()
+            .collect(),
+        ))
+        .expect("optional values decode");
+    assert_eq!(decoded["here"], Unknown::Number(1.0));
+    assert_eq!(decoded["gone"], Unknown::Null);
+    assert!(schema
+        .decode(Unknown::Object(
+            [("bad".to_string(), Unknown::Text("x".to_string()))]
+                .into_iter()
+                .collect()
+        ))
+        .is_err());
+}
