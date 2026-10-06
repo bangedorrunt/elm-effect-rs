@@ -3865,13 +3865,13 @@ unported	packages/effect/test/String.test.ts	86	it	pipeable
 ported	packages/effect/test/String.test.ts	92	it	converts to lowercase	string_basics
 unported	packages/effect/test/String.test.ts	96	it	handles empty string	
 ported	packages/effect/test/String.test.ts	102	it	capitalizes first character	string_shapes
-unported	packages/effect/test/String.test.ts	106	it	handles single character	
-unported	packages/effect/test/String.test.ts	110	it	handles empty string	
-unported	packages/effect/test/String.test.ts	114	it	does not change already capitalized	
-unported	packages/effect/test/String.test.ts	120	it	uncapitalizes first character	
-unported	packages/effect/test/String.test.ts	124	it	handles single character	
-unported	packages/effect/test/String.test.ts	128	it	handles empty string	
-unported	packages/effect/test/String.test.ts	132	it	preserves rest of string	
+ported	packages/effect/test/String.test.ts	106	it	handles single character	string_case_first_char
+ported	packages/effect/test/String.test.ts	110	it	handles empty string	string_case_first_char
+ported	packages/effect/test/String.test.ts	114	it	does not change already capitalized	string_case_first_char
+ported	packages/effect/test/String.test.ts	120	it	uncapitalizes first character	string_case_first_char
+ported	packages/effect/test/String.test.ts	124	it	handles single character	string_case_first_char
+ported	packages/effect/test/String.test.ts	128	it	handles empty string	string_case_first_char
+ported	packages/effect/test/String.test.ts	132	it	preserves rest of string	string_case_first_char
 unported	packages/effect/test/String.test.ts	138	it	replaces first occurrence	
 unported	packages/effect/test/String.test.ts	142	it	replaces with regex	
 unported	packages/effect/test/String.test.ts	146	it	returns unchanged if no match	

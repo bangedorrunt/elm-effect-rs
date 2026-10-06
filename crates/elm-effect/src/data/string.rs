@@ -79,6 +79,15 @@ pub fn capitalize(s: &str) -> String {
     }
 }
 
+/// Lowercase the first character, leaving the rest unchanged (`uncapitalize`).
+pub fn uncapitalize(s: &str) -> String {
+    let mut chars = s.chars();
+    match chars.next() {
+        None => String::new(),
+        Some(first) => first.to_lowercase().collect::<String>() + chars.as_str(),
+    }
+}
+
 /// Pad on the left to `width` with `pad` (`padStart`).
 pub fn pad_start(s: &str, width: usize, pad: char) -> String {
     let len = s.chars().count();

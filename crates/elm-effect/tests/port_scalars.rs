@@ -676,3 +676,16 @@ fn scalars_residuals() {
     assert!(number::sqrt(-1.0).is_nan());
     assert!(number::div(0.0, 0.0).is_nan());
 }
+
+#[test]
+fn string_case_first_char() {
+    // String.test.ts:106/110/114 - capitalize first/single/empty/already.
+    assert_eq!(string::capitalize("a"), "A");
+    assert_eq!(string::capitalize(""), "");
+    assert_eq!(string::capitalize("Hello"), "Hello");
+    // :120/:124/:128/:132 - uncapitalize mirrors it.
+    assert_eq!(string::uncapitalize("Hello"), "hello");
+    assert_eq!(string::uncapitalize("A"), "a");
+    assert_eq!(string::uncapitalize(""), "");
+    assert_eq!(string::uncapitalize("ABC"), "aBC");
+}
