@@ -3921,8 +3921,8 @@ ported	packages/effect/test/String.test.ts	352	it	handles surrogate pairs	string
 ported	packages/effect/test/String.test.ts	358	it	returns index of first occurrence	string_index_search
 ported	packages/effect/test/String.test.ts	362	it	returns none when not found	string_index_search
 ported	packages/effect/test/String.test.ts	368	it	returns index of last occurrence	string_index_search
-unported	packages/effect/test/String.test.ts	372	it	returns none when not found	
-unported	packages/effect/test/String.test.ts	378	it	returns ordering	
+ported	packages/effect/test/String.test.ts	372	it	returns none when not found	string_index_search
+ported	packages/effect/test/String.test.ts	378	it	returns ordering	string_order_and_concat
 unported	packages/effect/test/String.test.ts	386	it	returns matched text and native match metadata	
 unported	packages/effect/test/String.test.ts	392	it	returns none when the pattern does not match	
 unported	packages/effect/test/String.test.ts	398	it	returns all matches	

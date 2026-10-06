@@ -803,6 +803,10 @@ fn string_order_and_concat() {
     assert_eq!(string::order("", ""), Ordering::Equal);
     assert_eq!(string::order("", "a"), Ordering::Less);
     assert_eq!(string::order("a", ""), Ordering::Greater);
+    // String.test.ts:378 - ASCII ordering matches localeCompare.
+    assert_eq!(string::order("a", "b"), Ordering::Less);
+    assert_eq!(string::order("b", "a"), Ordering::Greater);
+    assert_eq!(string::order("a", "a"), Ordering::Equal);
     // :62 - data-first concat.
     assert_eq!(string::concat("hello", " world"), "hello world");
     // :66 - data-last (pipeable) concat: the suffix section applied to a receiver.
