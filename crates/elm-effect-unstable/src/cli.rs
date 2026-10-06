@@ -492,9 +492,9 @@ pub mod primitive {
 
     /// Parse one of `options`, mapping the input to its output.
     /// Failures name the allowed inputs as `"a" | "b"`.
-    pub fn parse_choice(text: &str, options: &[(&str, &str)]) -> Result<String, String> {
+    pub fn parse_choice<T: Clone>(text: &str, options: &[(&str, T)]) -> Result<T, String> {
         match options.iter().find(|(input, _)| *input == text) {
-            Some((_, output)) => Ok((*output).to_owned()),
+            Some((_, output)) => Ok(output.clone()),
             None => Err(options
                 .iter()
                 .map(|(input, _)| format!("\"{input}\""))

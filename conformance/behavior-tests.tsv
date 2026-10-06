@@ -5755,7 +5755,7 @@ unported	packages/effect/test/cli/Primitive.test.ts	212	it.layer	should parse va
 ported	packages/effect/test/cli/Primitive.test.ts	213	it.effect	should parse valid choices	primitive_string_and_choice
 ported	packages/effect/test/cli/Primitive.test.ts	220	it.effect	should fail for invalid choices	primitive_string_and_choice
 ported	packages/effect/test/cli/Primitive.test.ts	231	it	should have correct _tag	primitive_string_and_choice
-unported	packages/effect/test/cli/Primitive.test.ts	241	it.effect	should work with different value types	
+ported	packages/effect/test/cli/Primitive.test.ts	241	it.effect	should work with different value types	primitive_string_and_choice
 unported	packages/effect/test/cli/Primitive.test.ts	251	it.layer	should resolve paths without requiring existence	
 ported	packages/effect/test/cli/Primitive.test.ts	252	it.effect	should resolve paths without requiring existence	primitive_path_resolution
 ported	packages/effect/test/cli/Primitive.test.ts	265	it	should have correct _tag	primitive_path_resolution

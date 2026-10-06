@@ -877,6 +877,11 @@ fn primitive_string_and_choice() {
     }
     // :231 - tag.
     assert_eq!(primitive::CHOICE_TAG, "Choice");
+    // Primitive.test.ts:241 - choices map to non-string values too.
+    let numbers = [("one", 1), ("two", 2), ("three", 3)];
+    for (text, want) in [("one", 1), ("two", 2), ("three", 3)] {
+        assert_eq!(primitive::parse_choice(text, &numbers), Ok(want));
+    }
 }
 
 #[test]
