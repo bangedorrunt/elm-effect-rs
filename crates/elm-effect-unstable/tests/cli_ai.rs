@@ -663,3 +663,26 @@ fn usage_info_roundtrip() {
     let back = UsageInfo::from_json(&serde_json::from_str(&text).expect("json")).expect("decodes");
     assert_eq!(back, usage);
 }
+
+#[test]
+fn http_context_roundtrip() {
+    use elm_effect_unstable::ai::{HttpContext, HttpRequestContext, HttpResponseContext};
+    use std::collections::HashMap;
+    // AiError.test.ts:684 - request/response/body encode and decode round-trip.
+    let mut headers = HashMap::new();
+    headers.insert("Content-Type".to_owned(), "application/json".to_owned());
+    let context = HttpContext {
+        request: HttpRequestContext {
+            method: "POST".to_owned(),
+            url: "https://api.example.com/v1/chat".to_owned(),
+            url_params: vec![("model".to_owned(), "gpt-4".to_owned())],
+            hash: None,
+            headers: headers.clone(),
+        },
+        response: HttpResponseContext { status: 200, headers },
+        body: "{\"result\": \"success\"}".to_owned(),
+    };
+    let text = serde_json::to_string(&context.to_json()).expect("encodes");
+    let back = HttpContext::from_json(&serde_json::from_str(&text).expect("json")).expect("decodes");
+    assert_eq!(back, context);
+}

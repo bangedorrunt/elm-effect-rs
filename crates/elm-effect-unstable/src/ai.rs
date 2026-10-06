@@ -716,3 +716,103 @@ impl UsageInfo {
         })
     }
 }
+
+/// HTTP request half of an [`HttpContext`].
+#[derive(Clone, Debug, PartialEq)]
+pub struct HttpRequestContext {
+    /// Uppercase method (`POST`).
+    pub method: String,
+    /// Full URL.
+    pub url: String,
+    /// Query pairs in order.
+    pub url_params: Vec<(String, String)>,
+    /// Fragment, when present.
+    pub hash: Option<String>,
+    /// Request headers.
+    pub headers: HashMap<String, String>,
+}
+
+/// HTTP response half of an [`HttpContext`].
+#[derive(Clone, Debug, PartialEq)]
+pub struct HttpResponseContext {
+    /// Numeric status.
+    pub status: u16,
+    /// Response headers.
+    pub headers: HashMap<String, String>,
+}
+
+/// Request/response/body bundle carried by error metadata.
+#[derive(Clone, Debug, PartialEq)]
+pub struct HttpContext {
+    /// The request.
+    pub request: HttpRequestContext,
+    /// The response.
+    pub response: HttpResponseContext,
+    /// Raw body text.
+    pub body: String,
+}
+
+impl HttpContext {
+    /// Encode to the wire JSON shape.
+    pub fn to_json(&self) -> serde_json::Value {
+        let params: Vec<serde_json::Value> = self
+            .request
+            .url_params
+            .iter()
+            .map(|(k, v)| serde_json::json!([k, v]))
+            .collect();
+        serde_json::json!({
+            "request": {
+                "method": self.request.method,
+                "url": self.request.url,
+                "urlParams": params,
+                "hash": self.request.hash,
+                "headers": self.request.headers,
+            },
+            "response": {
+                "status": self.response.status,
+                "headers": self.response.headers,
+            },
+            "body": self.body,
+        })
+    }
+
+    /// Decode from the wire JSON shape.
+    pub fn from_json(value: &serde_json::Value) -> Option<Self> {
+        let request = value.get("request")?;
+        let response = value.get("response")?;
+        let mut url_params = Vec::new();
+        for pair in request.get("urlParams")?.as_array()? {
+            let pair = pair.as_array()?;
+            url_params.push((
+                pair.first()?.as_str()?.to_owned(),
+                pair.get(1)?.as_str()?.to_owned(),
+            ));
+        }
+        let mut headers = HashMap::new();
+        for (key, val) in request.get("headers")?.as_object()? {
+            headers.insert(key.clone(), val.as_str()?.to_owned());
+        }
+        let mut response_headers = HashMap::new();
+        for (key, val) in response.get("headers")?.as_object()? {
+            response_headers.insert(key.clone(), val.as_str()?.to_owned());
+        }
+        Some(Self {
+            request: HttpRequestContext {
+                method: request.get("method")?.as_str()?.to_owned(),
+                url: request.get("url")?.as_str()?.to_owned(),
+                url_params,
+                hash: request
+                    .get("hash")
+                    .and_then(|hash| hash.as_str())
+                    .map(str::to_owned),
+                headers,
+            },
+            response: HttpResponseContext {
+                status: response.get("status")?.as_u64()? as u16,
+                headers: response_headers,
+            },
+            body: value.get("body")?.as_str()?.to_owned(),
+        })
+    }
+}
