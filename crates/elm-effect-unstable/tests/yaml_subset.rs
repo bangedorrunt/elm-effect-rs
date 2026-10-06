@@ -92,3 +92,26 @@ fn folds_block_scalars() {
     ]);
     assert_eq!(parsed, want);
 }
+
+#[test]
+fn keeps_chomping_and_digit_indents() {
+    // Yaml.test.ts:72 - explicit digits, keep chomping, blank runs.
+    for (source, expected) in [
+        (
+            "message: >-2\n\n    first\n  second\n",
+            "\n  first\nsecond",
+        ),
+        (
+            "message: >+2\n  first\n    second\n",
+            "first\n  second\n",
+        ),
+        (
+            "message: >-\n  first\n\n\n  second\n",
+            "first\n\nsecond",
+        ),
+    ] {
+        let parsed = yaml::parse(source).expect("parses");
+        let want = YamlValue::Map(vec![("message".to_owned(), text(expected))]);
+        assert_eq!(parsed, want, "{source:?}");
+    }
+}

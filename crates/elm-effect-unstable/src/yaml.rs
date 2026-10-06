@@ -198,7 +198,7 @@ impl Parser {
 
     /// A `|` literal or `>` folded block: content lines nested deeper
     /// than the key; `-` strips the trailing break, otherwise clipped to
-    /// one. `+` (keep) and explicit indent digits stay open.
+    /// one; `+` keeps trailing breaks, digits pin the base indent.
     fn parse_block_scalar(
         &mut self,
         indent: usize,
@@ -206,15 +206,18 @@ impl Parser {
     ) -> Result<YamlValue, YamlError> {
         let style = header.as_bytes()[0];
         let flags: String = header[1..].trim().to_string();
-        if flags.contains('+') || flags.chars().any(|c| c.is_ascii_digit()) {
-            return Err(YamlError(
-                "keep chomping and indent digits stay open".to_string(),
-            ));
-        }
-        if flags.chars().any(|c| c != '-') {
-            return Err(YamlError(format!("bad block header: {header}")));
-        }
         let stripped = flags.contains('-');
+        let keep = flags.contains('+');
+        let digits: String = flags.chars().filter(|c| *c != '-' && *c != '+').collect();
+        let explicit_base: Option<usize> = if digits.is_empty() {
+            None
+        } else {
+            Some(
+                digits
+                    .parse()
+                    .map_err(|_| YamlError(format!("bad block header: {header}")))?,
+            )
+        };
         // (indent, text) items; `None` marks a blank line inside the block.
         let mut content: Vec<Option<(usize, String)>> = Vec::new();
         let mut content_indent: Option<usize> = None;
@@ -227,24 +230,27 @@ impl Parser {
             if line_indent <= indent {
                 break;
             }
-            match content_indent {
-                None => content_indent = Some(line_indent),
-                Some(known) if line_indent < known => {
-                    return Err(YamlError("bad block indentation".to_string()));
-                }
-                _ => {}
+            // Explicit digits pin the floor; otherwise the first line does.
+            let floor = explicit_base.unwrap_or(content_indent.unwrap_or(line_indent));
+            if line_indent < floor {
+                return Err(YamlError("bad block indentation".to_string()));
+            }
+            if content_indent.is_none() {
+                content_indent = Some(line_indent);
             }
             self.cursor += 1;
             content.push(Some((line_indent, line)));
         }
         // Trailing blanks are chomping territory, not content.
+        let mut trailing_blanks = 0usize;
         while matches!(content.last(), Some(None)) {
             content.pop();
+            trailing_blanks += 1;
         }
         if content.is_empty() {
             return Ok(YamlValue::Text(String::new()));
         }
-        let base = content_indent.unwrap_or(indent + 1);
+        let base = explicit_base.or(content_indent).unwrap_or(indent + 1);
         let mut body = if style == b'|' {
             content
                 .iter()
@@ -257,7 +263,9 @@ impl Parser {
         } else {
             fold_block_lines(&content, base)
         };
-        if !stripped {
+        if keep {
+            body.push_str(&"\n".repeat(trailing_blanks + 1));
+        } else if !stripped {
             body.push('\n');
         }
         Ok(YamlValue::Text(body))
