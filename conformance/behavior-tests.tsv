@@ -6345,8 +6345,8 @@ ported	packages/effect/test/encoding/Yaml.test.ts	321	it.each	rejects a document
 ported	packages/effect/test/encoding/Yaml.test.ts	332	it.each	preserves single-document markers around a %s	preserves_single_document_markers
 ported	packages/effect/test/encoding/Yaml.test.ts	345	it.each	resolves anchored multiline %s scalars	resolves_anchored_multiline
 ported	packages/effect/test/encoding/Yaml.test.ts	361	it	resolves anchored nested indentless sequences	resolves_anchored_indentless_sequences
-unported	packages/effect/test/encoding/Yaml.test.ts	368	it	preserves hashes in JSON-style flow strings without colon spacing	
-unported	packages/effect/test/encoding/Yaml.test.ts	372	it	preserves hashes in single- and double-quoted flow sequence items	
+ported	packages/effect/test/encoding/Yaml.test.ts	368	it	preserves hashes in JSON-style flow strings without colon spacing	preserves_hashes_in_flow_and_quotes
+ported	packages/effect/test/encoding/Yaml.test.ts	372	it	preserves hashes in single- and double-quoted flow sequence items	preserves_hashes_in_flow_and_quotes
 ported	packages/effect/test/eventlog/EventJournal.test.ts	14	it.effect	relays an imported entry to another remote	remote_seq_conflict_and_relay
 ported	packages/effect/test/eventlog/EventJournal.test.ts	51	it.effect	returns the next unused remote sequence	remote_seq_conflict_and_relay
 ported	packages/effect/test/eventlog/EventJournal.test.ts	77	it.effect	reports the first newer conflicting entry	remote_seq_conflict_and_relay

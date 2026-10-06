@@ -547,3 +547,21 @@ fn resolves_anchored_indentless_sequences() {
         )])
     );
 }
+
+#[test]
+fn preserves_hashes_in_flow_and_quotes() {
+    // Yaml.test.ts:368 - hashes inside flow survive with trailing comments.
+    assert_eq!(
+        yaml::parse("{\"description\":\"Deploy # now\"} # end\n").expect("parses"),
+        YamlValue::Map(vec![("description".to_owned(), text("Deploy # now"))])
+    );
+    // :372 - hashes inside quoted sequence items survive too.
+    assert_eq!(
+        yaml::parse("descriptions: [\"Deploy # now\", 'Verify # later'] # end\n")
+            .expect("parses"),
+        YamlValue::Map(vec![(
+            "descriptions".to_owned(),
+            YamlValue::Seq(vec![text("Deploy # now"), text("Verify # later")]),
+        )])
+    );
+}

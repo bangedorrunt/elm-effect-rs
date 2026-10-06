@@ -232,6 +232,10 @@ impl Parser {
         }
         if line == "-" || line.starts_with("- ") {
             Ok(YamlValue::Seq(self.parse_seq(line_indent)?))
+        } else if line.starts_with('[') || line.starts_with('{') {
+            self.cursor += 1;
+            let (text, _) = strip_inline_comment(&line);
+            parse_inline(&text)
         } else {
             Ok(YamlValue::Map(self.parse_map(line_indent)?))
         }
@@ -559,6 +563,12 @@ fn split_key(line: &str) -> Option<(String, String)> {
 /// One inline value: flow sequence, boolean, number, or string.
 fn parse_inline(text: &str) -> Result<YamlValue, YamlError> {
     let text = text.trim();
+    if let Some(inner) = text.strip_prefix('{') {
+        let Some(body) = inner.strip_suffix('}') else {
+            return Err(YamlError("unclosed flow mapping".to_string()));
+        };
+        return parse_flow_map(body);
+    }
     if let Some(inner) = text.strip_prefix('[') {
         let Some(body) = inner.strip_suffix(']') else {
             return Err(YamlError("unclosed flow sequence".to_string()));
@@ -592,6 +602,114 @@ fn parse_inline(text: &str) -> Result<YamlValue, YamlError> {
 
 /// Comma-separated flow items at one bracket level; nested `[...]`
 /// recurses. Empty items are skipped.
+/// Split a flow body on top-level commas, respecting quotes and
+/// nesting (slices land on ASCII delimiters only).
+fn split_flow_items(body: &str) -> Result<Vec<String>, YamlError> {
+    let mut items = Vec::new();
+    let mut depth = 0usize;
+    let mut quote: Option<char> = None;
+    let mut start = 0usize;
+    let chars: Vec<(usize, char)> = body.char_indices().collect();
+    let mut index = 0;
+    while index < chars.len() {
+        let (pos, c) = chars[index];
+        if let Some(q) = quote {
+            if c == '\\' && q == '"' {
+                index += 2;
+                continue;
+            }
+            if c == q {
+                if q == '\'' && index + 1 < chars.len() && chars[index + 1].1 == '\'' {
+                    index += 2;
+                    continue;
+                }
+                quote = None;
+            }
+        } else {
+            match c {
+                '\'' | '"' => quote = Some(c),
+                '[' | '{' => depth += 1,
+                ']' | '}' => {
+                    if depth == 0 {
+                        return Err(YamlError("unbalanced flow".to_string()));
+                    }
+                    depth -= 1;
+                }
+                ',' if depth == 0 => {
+                    items.push(body[start..pos].to_string());
+                    start = chars
+                        .get(index + 1)
+                        .map(|(next, _)| *next)
+                        .unwrap_or(body.len());
+                }
+                _ => {}
+            }
+        }
+        index += 1;
+    }
+    if quote.is_some() || depth != 0 {
+        return Err(YamlError("unbalanced flow".to_string()));
+    }
+    items.push(body[start..].to_string());
+    Ok(items)
+}
+
+/// Split one `key: value` flow pair on its first top-level colon.
+fn split_flow_key(item: &str) -> Option<(String, String)> {
+    let mut quote: Option<char> = None;
+    let mut chars = item.char_indices().peekable();
+    while let Some((pos, c)) = chars.next() {
+        if let Some(q) = quote {
+            if c == q {
+                quote = None;
+            }
+        } else {
+            match c {
+                '\'' | '"' => quote = Some(c),
+                ':' => {
+                    let rest = &item[pos + 1..];
+                    let next = rest.chars().next();
+                    let boundary = match next {
+                        None => true,
+                        Some(c) => {
+                            c == ' ' || c == '\t' || c == '"' || c == '\'' || c == '[' || c == '{'
+                        }
+                    };
+                    if boundary {
+                        return Some((item[..pos].to_string(), rest.trim_start().to_string()));
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+    None
+}
+
+/// Parse `{k: v, ...}` flow mappings.
+fn parse_flow_map(body: &str) -> Result<YamlValue, YamlError> {
+    let mut pairs = Vec::new();
+    for item in split_flow_items(body)? {
+        let item = item.trim();
+        if item.is_empty() {
+            continue;
+        }
+        let Some((key, value)) = split_flow_key(item) else {
+            return Err(YamlError(format!("bad flow mapping entry: {item}")));
+        };
+        let key = key.trim();
+        let key = match strip_quotes(key) {
+            Some(inner) => inner,
+            None => key.to_owned(),
+        };
+        if pairs.iter().any(|(existing, _)| *existing == key) {
+            return Err(YamlError(format!("duplicate key: {key}")));
+        }
+        pairs.push((key, parse_inline(&value)?));
+    }
+    Ok(YamlValue::Map(pairs))
+}
+
 fn parse_flow(body: &str) -> Result<YamlValue, YamlError> {
     let mut items = Vec::new();
     let mut depth = 0usize;
