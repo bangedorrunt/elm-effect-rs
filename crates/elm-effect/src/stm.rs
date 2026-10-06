@@ -698,6 +698,95 @@ impl<T> TxChunk<T> {
             self.inner.lock().unwrap().insert(0, value);
         });
     }
+
+    /// True when at least one element waits.
+    pub fn is_non_empty(&self) -> bool {
+        !self.is_empty()
+    }
+
+    /// Build from any iterable (`fromIterable`).
+    pub fn from_iterable(values: impl IntoIterator<Item = T>) -> Self {
+        Self {
+            inner: Mutex::new(values.into_iter().collect()),
+        }
+    }
+
+    /// Transform in place, returning the previous length (`modify`).
+    pub fn modify<R>(&self, f: impl FnOnce(&mut Vec<T>) -> R) -> R {
+        atomically(|| f(&mut self.inner.lock().unwrap()))
+    }
+
+    /// Replace the contents with `f`'s result (`update`).
+    pub fn update(&self, f: impl FnOnce(&[T]) -> Vec<T>) {
+        let next = atomically(|| f(&self.inner.lock().unwrap()));
+        self.set_all(next);
+    }
+}
+
+impl<T: Clone> TxChunk<T> {
+    /// Keep the first `n` elements.
+    pub fn take(&self, n: usize) {
+        self.update(|values| values.iter().take(n).cloned().collect());
+    }
+
+    /// Remove the first `n` elements.
+    pub fn drop(&self, n: usize) {
+        self.update(|values| values.iter().skip(n).cloned().collect());
+    }
+
+    /// Keep `[start, end)`, clamped to the length.
+    pub fn slice(&self, start: usize, end: usize) {
+        self.update(|values| {
+            values
+                .iter()
+                .skip(start)
+                .take(end.saturating_sub(start))
+                .cloned()
+                .collect()
+        });
+    }
+
+    /// Transform each element in place.
+    pub fn map(&self, f: impl FnMut(T) -> T) {
+        let mut f = f;
+        self.update(|values| values.iter().cloned().map(&mut f).collect());
+    }
+
+    /// Keep the elements that satisfy `f`.
+    pub fn filter(&self, f: impl FnMut(&T) -> bool) {
+        let mut f = f;
+        self.update(|values| values.iter().filter(|value| f(value)).cloned().collect());
+    }
+
+    /// Append every element of `other` to the end (`appendAll`).
+    pub fn append_all(&self, other: &TxChunk<T>) {
+        let extra = other.to_vec();
+        self.update(move |values| {
+            let mut next = values.to_vec();
+            next.extend(extra.iter().cloned());
+            next
+        });
+    }
+
+    /// Prepend every element of `other` to the front (`prependAll`).
+    pub fn prepend_all(&self, other: &TxChunk<T>) {
+        let extra = other.to_vec();
+        self.update(move |values| {
+            let mut next = extra.clone();
+            next.extend(values.iter().cloned());
+            next
+        });
+    }
+
+    /// Append `other` to the end (`concat`).
+    pub fn concat(&self, other: &TxChunk<T>) {
+        self.append_all(other);
+    }
+
+    /// A snapshot of the contents in order (`get`).
+    pub fn to_vec(&self) -> Vec<T> {
+        atomically(|| self.inner.lock().unwrap().clone())
+    }
 }
 
 impl<T> Default for TxChunk<T> {

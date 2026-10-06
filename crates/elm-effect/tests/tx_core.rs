@@ -371,3 +371,86 @@ fn tx_semaphore_ops_stay_atomic_in_transactions() {
     });
     assert_eq!(sem.available(), 2);
 }
+
+#[test]
+fn tx_chunk_from_iterable_and_size_flags() {
+    let chunk = TxChunk::from_iterable([1, 2, 3]);
+    assert_eq!(chunk.to_vec(), vec![1, 2, 3]);
+    assert_eq!(chunk.len(), 3);
+    assert!(!chunk.is_empty());
+    assert!(chunk.is_non_empty());
+    let empty: TxChunk<i32> = TxChunk::new();
+    assert!(!empty.is_non_empty());
+}
+
+#[test]
+fn tx_chunk_modify_returns_previous_size() {
+    let chunk = TxChunk::from_iterable([1, 2, 3]);
+    let old_size = chunk.modify(|values| {
+        let size = values.len();
+        values.push(4);
+        size
+    });
+    assert_eq!(old_size, 3);
+    assert_eq!(chunk.to_vec(), vec![1, 2, 3, 4]);
+}
+
+#[test]
+fn tx_chunk_update_maps_values() {
+    let chunk = TxChunk::from_iterable([1, 2, 3]);
+    chunk.update(|values| values.iter().map(|x| x * 2).collect());
+    assert_eq!(chunk.to_vec(), vec![2, 4, 6]);
+}
+
+#[test]
+fn tx_chunk_slice_operations() {
+    let chunk = TxChunk::from_iterable([1, 2, 3, 4, 5]);
+    chunk.take(3);
+    assert_eq!(chunk.to_vec(), vec![1, 2, 3]);
+    let chunk = TxChunk::from_iterable([1, 2, 3, 4, 5]);
+    chunk.drop(2);
+    assert_eq!(chunk.to_vec(), vec![3, 4, 5]);
+    let chunk = TxChunk::from_iterable([1, 2, 3, 4, 5]);
+    chunk.slice(1, 4);
+    assert_eq!(chunk.to_vec(), vec![2, 3, 4]);
+}
+
+#[test]
+fn tx_chunk_map_and_filter() {
+    let chunk = TxChunk::from_iterable([1, 2, 3]);
+    chunk.map(|x| x + 10);
+    assert_eq!(chunk.to_vec(), vec![11, 12, 13]);
+    chunk.filter(|x| *x % 2 == 1);
+    assert_eq!(chunk.to_vec(), vec![11, 13]);
+}
+
+#[test]
+fn tx_chunk_concat_appends() {
+    let left = TxChunk::from_iterable([1, 2]);
+    let right = TxChunk::from_iterable([3, 4]);
+    left.concat(&right);
+    assert_eq!(left.to_vec(), vec![1, 2, 3, 4]);
+    assert_eq!(right.to_vec(), vec![3, 4]);
+}
+
+#[test]
+fn tx_chunk_append_and_prepend_all() {
+    let left = TxChunk::from_iterable([3]);
+    let other = TxChunk::from_iterable([1, 2]);
+    left.append_all(&other);
+    assert_eq!(left.to_vec(), vec![3, 1, 2]);
+    let head = TxChunk::from_iterable([1, 2]);
+    head.prepend_all(&TxChunk::from_iterable([9]));
+    assert_eq!(head.to_vec(), vec![9, 1, 2]);
+}
+
+#[test]
+fn tx_chunk_ops_stay_atomic_in_a_transaction() {
+    let chunk = TxChunk::from_iterable([1, 2, 3]);
+    atomically(|| {
+        chunk.update(|values| values.iter().map(|x| x * 3).collect());
+        chunk.prepend(0);
+        assert_eq!(chunk.to_vec(), vec![0, 3, 6, 9]);
+    });
+    assert_eq!(chunk.to_vec(), vec![0, 3, 6, 9]);
+}
