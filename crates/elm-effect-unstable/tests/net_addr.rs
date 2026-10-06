@@ -494,3 +494,29 @@ fn bare_ips_convert_to_urls_without_ports() {
     .expect("bare IP");
     assert_eq!(secure.href(), "https://[::1]/");
 }
+
+#[test]
+fn mac_addresses_parse_six_octets_and_reject_malformed() {
+    use net::MacAddress;
+    // NetAddress.test.ts:165 - parses and canonically formats six octets.
+    let address = MacAddress::parse("02:0A:0b:0C:0d:0E").expect("valid");
+    assert_eq!(address.to_string(), "02:0a:0b:0c:0d:0e");
+    assert_eq!(address.octets(), [2, 10, 11, 12, 13, 14]);
+    // :177 - malformed inputs and invalid octets are rejected.
+    for input in [
+        "",
+        "00:11:22:33:44:55:66",
+        "0:11:22:33:44:55",
+        "00-11-22-33-44-55",
+        "0011.2233.4455",
+        "gg:11:22:33:44:55",
+    ] {
+        assert!(MacAddress::parse(input).is_none(), "{input}");
+    }
+    assert!(MacAddress::from_numbers([0, 0, 0, 0, 0, 256]).is_none());
+    // Non-integer octets like 1.5 are unrepresentable in i64: rejected by type.
+    assert_eq!(
+        MacAddress::from_numbers([0, 0, 0, 0, 0, 1]).expect("valid").octets()[5],
+        1
+    );
+}

@@ -877,7 +877,7 @@ impl NetAddress {
 pub struct MacAddress([u8; 6]);
 
 impl MacAddress {
-    /// Parse `xx:xx:xx:xx:xx:xx` with one or two hex digits per group
+    /// Parse `xx:xx:xx:xx:xx:xx` with exactly two hex digits per group
     /// (TS `macAddressFromString`).
     pub fn parse(text: &str) -> Option<Self> {
         let parts: Vec<&str> = text.split(':').collect();
@@ -886,7 +886,7 @@ impl MacAddress {
         }
         let mut octets = [0u8; 6];
         for (i, part) in parts.iter().enumerate() {
-            if part.is_empty() || part.len() > 2 || !part.bytes().all(|b| b.is_ascii_hexdigit()) {
+            if part.len() != 2 || !part.bytes().all(|b| b.is_ascii_hexdigit()) {
                 return None;
             }
             octets[i] = u8::from_str_radix(part, 16).ok()?;
@@ -897,6 +897,19 @@ impl MacAddress {
     /// The six octets in transmission order.
     pub fn octets(&self) -> [u8; 6] {
         self.0
+    }
+
+    /// Build from six octets (always valid: `u8` carries the range).
+    pub fn from_octets(octets: [u8; 6]) -> Self {
+        Self(octets)
+    }
+
+    /// Build from decimal octet values, rejecting out-of-range entries.
+    pub fn from_numbers(octets: [i64; 6]) -> Option<Self> {
+        if !octets.iter().all(|o| (0..=255).contains(o)) {
+            return None;
+        }
+        Some(Self(octets.map(|o| o as u8)))
     }
 
     /// True when the group bit (first-octet LSB) marks multicast (TS

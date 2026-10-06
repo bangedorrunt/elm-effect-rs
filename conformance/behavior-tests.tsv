@@ -6975,8 +6975,8 @@ ported	packages/effect/test/net/NetAddress.test.ts	104	it	round trips constructe
 ported	packages/effect/test/net/NetAddress.test.ts	116	it	uses numeric equality and hash laws	net_addresses_share_numeric_equality_and_hash
 ported	packages/effect/test/net/NetAddress.test.ts	123	it	converts mapped IPv4 addresses	net_addresses_convert_mapped_ipv4
 ported	packages/effect/test/net/NetAddress.test.ts	134	it	returns IPv6 octets	strict_ip_parses_widths_and_octets
-unported	packages/effect/test/net/NetAddress.test.ts	165	it	parses and canonically formats six octets	
-unported	packages/effect/test/net/NetAddress.test.ts	177	it	rejects malformed inputs and invalid octets	
+ported	packages/effect/test/net/NetAddress.test.ts	165	it	parses and canonically formats six octets	mac_addresses_parse_six_octets_and_reject_malformed
+ported	packages/effect/test/net/NetAddress.test.ts	177	it	rejects malformed inputs and invalid octets	mac_addresses_parse_six_octets_and_reject_malformed
 ported	packages/effect/test/net/NetAddress.test.ts	196	it	classifies address bits	strict_ip_classifies_bits
 unported	packages/effect/test/net/NetAddress.test.ts	208	it	classifies documented address ranges at their boundaries	
 ported	packages/effect/test/net/NetAddress.test.ts	242	it	classifies IP boundaries without claiming reachability	net_addresses_classify_boundaries
