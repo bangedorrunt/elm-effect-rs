@@ -6104,7 +6104,7 @@ ported	packages/effect/test/encoding/Base64Url.test.ts	11	it	decodes padded and 
 ported	packages/effect/test/encoding/Base64Url.test.ts	19	it	rejects the standard Base64 alphabet and malformed lengths	base64_url_rejects_standard_alphabet_and_bad_lengths
 ported	packages/effect/test/encoding/Base64Url.test.ts	31	it	rejects malformed padding	base64_url_rejects_malformed_padding
 ported	packages/effect/test/encoding/EncodingError.test.ts	5	it	constructs errors with encoding failure metadata	encoding_error_metadata
-unported	packages/effect/test/encoding/EncodingError.test.ts	24	it	identifies encoding errors	
+ported	packages/effect/test/encoding/EncodingError.test.ts	24	it	identifies encoding errors	encoding_error_guard
 ported	packages/effect/test/encoding/Hex.test.ts	12	it	encodes strings and bytes as lowercase hexadecimal	hex_encodes_lowercase
 ported	packages/effect/test/encoding/Hex.test.ts	17	it	decodes mixed-case bytes and UTF-8 strings	hex_decodes_mixed_case
 ported	packages/effect/test/encoding/Hex.test.ts	25	it	rejects odd lengths and non-hexadecimal characters	hex_rejects_odd_and_nonhex

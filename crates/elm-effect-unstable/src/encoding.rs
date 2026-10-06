@@ -4,21 +4,24 @@
 //!
 //! - Base64 decode skips ASCII whitespace (`SGVs\r\nbG8=` decodes).
 //! - Hex decode accepts mixed case; odd lengths and non-hex fail.
-//! - Every decode failure reports [`DecodeKind::Decode`] with the module
+//! - Every decode failure reports [`ErrorKind::Decode`] with the module
 //!   name and the original input.
 
-/// Why a decode failed. Only decoding fails in this port.
+/// Why an encode or decode failed.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum DecodeKind {
+pub enum ErrorKind {
     /// Input bytes are malformed.
     Decode,
+    /// Input could not be encoded.
+    Encode,
 }
 
-impl DecodeKind {
+impl ErrorKind {
     /// The spec tag string.
     pub fn tag(&self) -> &'static str {
         match self {
             Self::Decode => "Decode",
+            Self::Encode => "Encode",
         }
     }
 }
@@ -26,7 +29,7 @@ impl DecodeKind {
 /// An encoding failure with placement metadata.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct EncodingError {
-    kind: DecodeKind,
+    kind: ErrorKind,
     module: &'static str,
     input: String,
     message: String,
@@ -36,14 +39,38 @@ impl EncodingError {
     /// Build a decode failure for `module` over `input`.
     pub fn decode(module: &'static str, input: &str, message: impl Into<String>) -> Self {
         Self {
-            kind: DecodeKind::Decode,
+            kind: ErrorKind::Decode,
             module,
             input: input.to_string(),
             message: message.into(),
         }
     }
 
-    /// Failure class tag (`"Decode"` here).
+    /// Type tag for the `isEncodingError` guard.
+    pub const TYPE_ID: &str = "EncodingError";
+
+    /// Build an encode failure for `module` over `input`.
+    pub fn encode(module: &'static str, input: &str, message: impl Into<String>) -> Self {
+        Self {
+            kind: ErrorKind::Encode,
+            module,
+            input: input.to_string(),
+            message: message.into(),
+        }
+    }
+
+    /// True for live values; the `false` arm is the tag check below,
+    /// which rejects foreign tags (a foreign error is a different type).
+    pub fn is_encoding_error(&self) -> bool {
+        Self::is_encoding_error_tag(Self::TYPE_ID)
+    }
+
+    /// Tag dispatch behind the guard: only the error tag passes.
+    pub fn is_encoding_error_tag(tag: &str) -> bool {
+        tag == Self::TYPE_ID
+    }
+
+    /// Failure class tag (`"Decode"` or `"Encode"`).
     pub fn kind(&self) -> &'static str {
         self.kind.tag()
     }

@@ -576,3 +576,16 @@ fn runner_collects_until_close() {
     ]);
     assert_eq!(payloads, vec![vec![1], vec![2]]);
 }
+
+#[test]
+fn encoding_error_guard() {
+    // EncodingError.test.ts:24 - identifies encoding errors.
+    let error = EncodingError::encode("Hex", "", "Invalid input");
+    assert_eq!(error.kind(), "Encode");
+    assert_eq!(error.module(), "Hex");
+    assert_eq!(error.input(), "");
+    assert_eq!(error.message(), "Invalid input");
+    assert!(error.is_encoding_error());
+    assert!(EncodingError::is_encoding_error_tag("EncodingError"));
+    assert!(!EncodingError::is_encoding_error_tag("Error"));
+}
