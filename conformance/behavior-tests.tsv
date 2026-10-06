@@ -5703,12 +5703,12 @@ ported	packages/effect/test/cli/Param.test.ts	40	it.effect	Never remains an alwa
 ported	packages/effect/test/cli/Param.test.ts	51	it.effect	returns MissingOption when a boolean flag is omitted	param_boolean_defaults
 ported	packages/effect/test/cli/Param.test.ts	63	it.effect	uses the requested default when a boolean flag is omitted	param_boolean_defaults
 ported	packages/effect/test/cli/Param.test.ts	75	it.effect	restores switch behavior with a false default	param_boolean_defaults
-unported	packages/effect/test/cli/Param.test.ts	88	it.effect	recognizes the alternate flag declared by orElse	
+ported	packages/effect/test/cli/Param.test.ts	88	it.effect	recognizes the alternate flag declared by orElse	param_or_else_fallbacks
 unported	packages/effect/test/cli/Param.test.ts	102	it.effect	registers and parses the alternate flag declared by orElseResult	
 unported	packages/effect/test/cli/Param.test.ts	118	it	preserves __proto__ as an own makeSingle option	
 ported	packages/effect/test/cli/Param.test.ts	133	it.effect	returns none when an optional boolean flag is omitted	param_optional_booleans
 ported	packages/effect/test/cli/Param.test.ts	145	it.effect	returns some false when an optional boolean flag is explicitly disabled	param_optional_booleans
-unported	packages/effect/test/cli/Param.test.ts	157	it.effect	supports alternative flags	
+ported	packages/effect/test/cli/Param.test.ts	157	it.effect	supports alternative flags	param_or_else_fallbacks
 ported	packages/effect/test/cli/Param.test.ts	170	it.effect	uses the default when a required variadic argument is omitted	positional_defaults_and_supplied_beats_config
 unported	packages/effect/test/cli/Param.test.ts	183	it.effect	prompts for missing flag values and preserves remaining args	
 unported	packages/effect/test/cli/Param.test.ts	200	it.effect	does not prompt when flag value is provided	

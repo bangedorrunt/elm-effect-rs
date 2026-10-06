@@ -1289,3 +1289,41 @@ fn positional_defaults_and_supplied_beats_config() {
         .expect("present");
     assert_eq!(value, ParamValue::Switch(false));
 }
+
+#[test]
+fn param_or_else_fallbacks() {
+    use elm_effect_unstable::cli::param::{CliOptions, CliParam, ParamKind, ParamValue};
+    use std::collections::BTreeMap;
+    let config = || CliParam::text(ParamKind::Flag, "config");
+    let config_url = || CliParam::text(ParamKind::Flag, "config-url");
+    // Param.test.ts:88 - the alternate flag fills in.
+    let (_, value) = elm_effect_unstable::cli::param::or_else(
+        &config(),
+        &config_url(),
+        &CliOptions {
+            flags: BTreeMap::from([(
+                "config-url".to_owned(),
+                vec!["https://example.com".to_owned()],
+            )]),
+            ..CliOptions::default()
+        },
+    )
+    .expect("fallback")
+    .expect("present");
+    assert_eq!(
+        value,
+        ParamValue::Text("https://example.com".to_owned())
+    );
+    // :157 - the first flag wins when present.
+    let (_, kept) = elm_effect_unstable::cli::param::or_else(
+        &config(),
+        &config_url(),
+        &CliOptions {
+            flags: BTreeMap::from([("config".to_owned(), vec!["config.json".to_owned()])]),
+            ..CliOptions::default()
+        },
+    )
+    .expect("first")
+    .expect("present");
+    assert_eq!(kept, ParamValue::Text("config.json".to_owned()));
+}

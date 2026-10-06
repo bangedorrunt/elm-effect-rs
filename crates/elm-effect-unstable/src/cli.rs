@@ -1125,6 +1125,21 @@ pub mod param {
             }
         }
     }
+
+    /// Try `first`, falling back to `second` on absence (`orElse`
+    /// and `orElseResult` alike; hard failures propagate unmasked).
+    pub fn or_else(
+        first: &CliParam,
+        second: &CliParam,
+        options: &CliOptions,
+    ) -> Result<Option<(String, ParamValue)>, super::CliError> {
+        match first.parse(options) {
+            Err(
+                super::CliError::MissingOption { .. } | super::CliError::MissingArgument { .. },
+            ) => second.parse(options),
+            result => result,
+        }
+    }
 }
 
 /// Cause carried by a [`UserError`]: text, an error message, or an
