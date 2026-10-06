@@ -712,3 +712,52 @@ fn inet_sockets_keep_identity_and_scope() {
     .expect("scoped socket");
     assert_eq!(scoped.to_canonical(), scoped);
 }
+
+#[test]
+fn net_addresses_format_canonical_compression() {
+    use net::NetAddress;
+    // NetAddress.test.ts:71 - canonical compression and embedded IPv4 policy.
+    for (input, expected) in [
+        ("0:0:0:0:0:0:0:0", "::"),
+        ("0:0:0:0:0:0:0:1", "::1"),
+        (
+            "2001:0DB8:0000:0000:0001:0000:0000:0001",
+            "2001:db8::1:0:0:1",
+        ),
+        ("2001:db8:0:1:0:0:0:1", "2001:db8:0:1::1"),
+        ("2001:0:0:1:0:0:1:1", "2001::1:0:0:1:1"),
+        ("::ffff:192.0.2.128", "::ffff:192.0.2.128"),
+        ("::192.0.2.128", "::c000:280"),
+        ("2001:db8::192.0.2.1", "2001:db8::c000:201"),
+    ] {
+        let parsed = NetAddress::ipv6_from_string(input).expect("valid");
+        assert_eq!(parsed.format_ip(), expected, "{input}");
+    }
+}
+
+#[test]
+fn net_addresses_check_port_boundaries() {
+    use net::NetAddress;
+    // NetAddress.test.ts:698 - port boundaries and ambiguous input.
+    for port in [0u16, 1, 65535] {
+        let address =
+            NetAddress::socket_address_from_input(&format!("127.0.0.1:{port}")).expect("valid");
+        assert_eq!(address.port(), Some(port));
+    }
+    for input in [
+        "127.0.0.1:-1",
+        "127.0.0.1:65536",
+        "127.0.0.1:1.5",
+        "127.0.0.1:00",
+        "127.0.0.1:080",
+        "localhost:80",
+        "::1:80",
+        "[::1]80",
+        "[127.0.0.1]:80",
+    ] {
+        assert!(
+            NetAddress::socket_address_from_input(input).is_err(),
+            "{input}"
+        );
+    }
+}

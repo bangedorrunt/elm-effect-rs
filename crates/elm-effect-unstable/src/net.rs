@@ -952,7 +952,7 @@ impl NetAddress {
     pub fn format_url_value(&self, scheme: Option<&str>) -> Option<String> {
         let scheme = scheme.unwrap_or("http").to_ascii_lowercase();
         let default = matches!(
-            (scheme.as_str(), self.port_or_none()),
+            (scheme.as_str(), self.port()),
             (_, None)
                 | ("ftp", Some(21))
                 | ("http" | "ws", Some(80))
@@ -967,14 +967,14 @@ impl NetAddress {
                 std::net::IpAddr::V6(v6) => format!("[{v6}]"),
             },
         };
-        Some(match self.port_or_none() {
+        Some(match self.port() {
             Some(port) if !default => format!("{scheme}://{host}:{port}"),
             _ => format!("{scheme}://{host}"),
         })
     }
 
     /// Port for socket addresses, if present.
-    fn port_or_none(&self) -> Option<u16> {
+    pub fn port(&self) -> Option<u16> {
         match self {
             Self::Inet(socket) => Some(socket.port()),
             _ => None,
@@ -1070,9 +1070,7 @@ impl NetAddress {
         match self {
             Self::V4(v4) => {
                 let value = u32::from_be_bytes(v4.octets());
-                (value >> 24) == 10
-                    || ((value >> 16) & 0xfff0) == 0xac10
-                    || (value >> 16) == 0xc0a8
+                (value >> 24) == 10 || ((value >> 16) & 0xfff0) == 0xac10 || (value >> 16) == 0xc0a8
             }
             Self::V6(_) => false,
             Self::UnixPath(_) => false,
