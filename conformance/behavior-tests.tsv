@@ -6340,8 +6340,8 @@ ported	packages/effect/test/encoding/Yaml.test.ts	253	it	preserves numeric decod
 ported	packages/effect/test/encoding/Yaml.test.ts	268	it.each	rejects %s alone and before or after valid shapes	rejects_malformed_around_shapes
 ported	packages/effect/test/encoding/Yaml.test.ts	286	it.each	rejects %s	rejects_nested_sequences
 ported	packages/effect/test/encoding/Yaml.test.ts	299	it.each	preserves a dash in a plain continuation of a %s	folds_dashes_after_content
-unported	packages/effect/test/encoding/Yaml.test.ts	311	it.each	preserves indented %s%s as a mapping value	
-unported	packages/effect/test/encoding/Yaml.test.ts	321	it.each	rejects a document stream containing %s	
+ported	packages/effect/test/encoding/Yaml.test.ts	311	it.each	preserves indented %s%s as a mapping value	preserves_indented_markers
+ported	packages/effect/test/encoding/Yaml.test.ts	321	it.each	rejects a document stream containing %s	rejects_document_streams
 unported	packages/effect/test/encoding/Yaml.test.ts	332	it.each	preserves single-document markers around a %s	
 unported	packages/effect/test/encoding/Yaml.test.ts	345	it.each	resolves anchored multiline %s scalars	
 unported	packages/effect/test/encoding/Yaml.test.ts	361	it	resolves anchored nested indentless sequences	

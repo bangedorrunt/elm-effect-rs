@@ -436,3 +436,39 @@ fn folds_dashes_after_content() {
         YamlValue::Seq(vec![text("one - two")])
     );
 }
+
+#[test]
+fn preserves_indented_markers() {
+    // Yaml.test.ts:311 - indented markers stay plain values.
+    for (marker, suffix) in [("---", ""), ("---", " # comment"), ("...", ""), ("...", " # comment")] {
+        let source = format!("a:\n  {marker}{suffix}\n");
+        assert_eq!(
+            yaml::parse(&source).expect("parses"),
+            YamlValue::Map(vec![("a".to_owned(), text(marker))]),
+            "{source:?}"
+        );
+        let nested = format!("metadata:\n  a:\n    {marker}{suffix}\n");
+        assert_eq!(
+            yaml::parse(&nested).expect("parses"),
+            YamlValue::Map(vec![(
+                "metadata".to_owned(),
+                YamlValue::Map(vec![("a".to_owned(), text(marker))]),
+            )]),
+            "{nested:?}"
+        );
+    }
+}
+
+#[test]
+fn rejects_document_streams() {
+    // Yaml.test.ts:321 - only single documents parse.
+    for source in [
+        "a: 1\n---\nb: 2\n",
+        "one\n---\ntwo\n",
+        "---\na: 1\n--- # second document\nb: 2\n",
+        "---\n---\nb: 2\n",
+        "a: 1\n---\n",
+    ] {
+        assert!(yaml::parse(source).is_err(), "should reject {source:?}");
+    }
+}
