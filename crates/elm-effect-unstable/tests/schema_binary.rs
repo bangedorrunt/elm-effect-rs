@@ -4,8 +4,9 @@
 mod schema_binary;
 
 use schema_binary::{
-    decode_bool_array, decode_number_array, decode_number_scalar, decode_string_array,
-    encode_bool_array, encode_number_array, encode_number_scalar, encode_string_array,
+    decode_bool_array, decode_int_scalar, decode_number_array, decode_number_scalar,
+    decode_string_array, encode_bool_array, encode_number_array, encode_number_scalar,
+    encode_string_array,
 };
 
 #[test]
@@ -154,4 +155,21 @@ fn binary_string_runs_are_length_prefixed() {
         decode_string_array(&unicode).expect("decodes"),
         vec!["héllo".to_owned()]
     );
+}
+
+#[test]
+fn binary_int_scalars_reject_unsafe_varints() {
+    // SchemaBinary.test.ts:517 - magnitudes past 2^53-1 fail, not round.
+    let unsafe_bytes = [9u8, 0x20, 0x82, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x20];
+    let err = decode_int_scalar(&unsafe_bytes).expect_err("rejects");
+    assert!(err.message().contains("integer"));
+    // The boundary itself still decodes bit-exactly.
+    let max_safe = [9u8, 0x20, 0xfe, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x1f];
+    assert_eq!(
+        decode_int_scalar(&max_safe).expect("decodes"),
+        9_007_199_254_740_991.0
+    );
+    assert_eq!(decode_int_scalar(&[2, 0x20, 4]).expect("decodes"), 2.0);
+    let neg_zero = decode_int_scalar(&[2, 0x20, 1]).expect("decodes");
+    assert!(neg_zero.is_sign_negative() && neg_zero == 0.0);
 }

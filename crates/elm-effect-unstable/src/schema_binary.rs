@@ -213,6 +213,33 @@ pub fn encode_number_array(values: &[f64]) -> Vec<u8> {
     frame(ARRAY_TAG, values.len() as u64, Some(mode), &payload)
 }
 
+/// Largest exactly-representable integer magnitude (2^53 - 1).
+const MAX_SAFE_INTEGER: u64 = 9_007_199_254_740_991;
+
+/// Decode one scalar integer: bare sign-magnitude varint only, magnitudes
+/// past the safe range fail instead of rounding.
+pub fn decode_int_scalar(bytes: &[u8]) -> Result<f64, BinaryError> {
+    let fail = |message: &str| BinaryError::new(format!("{} [{}]", message, hex_preview(bytes)));
+    let mut pos = 0;
+    let _length = uvarint_decode(bytes, &mut pos).ok_or_else(|| fail("truncated length"))?;
+    let tag = *bytes.get(pos).ok_or_else(|| fail("truncated tag"))?;
+    pos += 1;
+    if tag != ARRAY_TAG {
+        return Err(fail("unexpected envelope tag"));
+    }
+    let word = uvarint_decode(bytes, &mut pos).ok_or_else(|| fail("truncated scalar"))?;
+    if pos != bytes.len() {
+        return Err(fail("trailing bytes"));
+    }
+    let negative = word & 1 == 1;
+    let magnitude = word >> 1;
+    if magnitude > MAX_SAFE_INTEGER {
+        return Err(fail("integer varint outside the safe-number range"));
+    }
+    let value = magnitude as f64;
+    Ok(if negative { -value } else { value })
+}
+
 /// Encode one scalar number: bare sign-magnitude varint, mantissa
 /// varint plus scale byte for short decimals, or raw f64.
 pub fn encode_number_scalar(value: f64) -> Vec<u8> {
