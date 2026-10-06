@@ -195,3 +195,47 @@ fn runner_endpoint_brackets_bare_ipv6() {
     let addr = RunnerAddress::make("::1", 8080);
     assert_eq!(addr.endpoint("http", "/runner"), "http://[::1]:8080/runner");
 }
+
+#[test]
+fn unencodable_reply_stores_malformed_defect() {
+    use cluster::{ReplyRegistry, StoredReply};
+    let mut reg = ReplyRegistry::new();
+    reg.register_waiter("bad-1", "shard-a");
+    let stored = reg.store_encoded("bad-1", || Err("not json encodable".to_string()));
+    assert_eq!(
+        stored,
+        StoredReply::Defect {
+            reason: "MalformedMessage: not json encodable".to_string()
+        }
+    );
+    assert_eq!(reg.replies_for("bad-1"), vec![stored]);
+    assert_eq!(reg.poll_waiter("bad-1"), Some("bad-1".to_string()));
+}
+
+#[test]
+fn failed_reply_serialization_isolates_one_request() {
+    use cluster::{ReplyRegistry, StoredReply};
+    let mut reg = ReplyRegistry::new();
+    reg.register_waiter("bad-1", "shard-a");
+    reg.register_waiter("good-1", "shard-a");
+    reg.store_encoded("bad-1", || Err("not json encodable".to_string()));
+    reg.store_encoded("good-1", || Ok(vec![7, 8]));
+    assert!(matches!(reg.replies_for("bad-1")[0], StoredReply::Defect { .. }));
+    assert_eq!(
+        reg.replies_for("good-1"),
+        vec![StoredReply::Exit { payload: vec![7, 8] }]
+    );
+    assert_eq!(reg.poll_waiter("good-1"), Some("good-1".to_string()));
+}
+
+#[test]
+fn stream_reply_ends_with_serialization_defect() {
+    use cluster::{ReplyRegistry, StoredReply};
+    let mut reg = ReplyRegistry::new();
+    reg.store_encoded_chunk("s1", || Ok(vec![1, 2]));
+    let tail = reg.store_encoded_chunk("s1", || Err("not json encodable".to_string()));
+    assert!(matches!(tail, StoredReply::Defect { .. }));
+    let stored = reg.replies_for("s1");
+    assert_eq!(stored.len(), 2);
+    assert!(matches!(stored.last(), Some(StoredReply::Defect { .. })));
+}

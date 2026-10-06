@@ -237,6 +237,9 @@ impl MessageStorage {
 pub enum StoredReply {
     Chunk { payload: Vec<u8>, acked: bool },
     Exit { payload: Vec<u8> },
+    /// Encode failed: the persisted `MalformedMessage` defect that reply
+    /// handlers observe instead of the unencodable payload.
+    Defect { reason: String },
 }
 
 /// Why a parked reply waiter was released without its reply.
@@ -275,6 +278,43 @@ impl ReplyRegistry {
             .push(reply);
     }
 
+    /// Store an encoded reply: the encoded bytes on success, the
+    /// persisted `MalformedMessage` defect on encode failure.
+    ///
+    /// One request's failure never touches another's replies, which is
+    /// what `a reply that fails to serialize fails only its own request`
+    /// asserts upstream.
+    pub fn store_encoded(
+        &mut self,
+        request_id: impl Into<String>,
+        encode: impl FnOnce() -> Result<Vec<u8>, String>,
+    ) -> StoredReply {
+        let reply = match encode() {
+            Ok(payload) => StoredReply::Exit { payload },
+            Err(reason) => StoredReply::Defect {
+                reason: format!("MalformedMessage: {reason}"),
+            },
+        };
+        self.store(request_id, reply.clone());
+        reply
+    }
+
+    /// Store an encoded chunk, so a stream reply ends on its defect.
+    pub fn store_encoded_chunk(
+        &mut self,
+        request_id: impl Into<String>,
+        encode: impl FnOnce() -> Result<Vec<u8>, String>,
+    ) -> StoredReply {
+        let reply = match encode() {
+            Ok(payload) => StoredReply::Chunk { payload, acked: false },
+            Err(reason) => StoredReply::Defect {
+                reason: format!("MalformedMessage: {reason}"),
+            },
+        };
+        self.store(request_id, reply.clone());
+        reply
+    }
+
     /// Un-acknowledged chunks plus exits for a request, in store order.
     pub fn replies_for(&self, request_id: &str) -> Vec<StoredReply> {
         self.replies
@@ -284,7 +324,7 @@ impl ReplyRegistry {
                     .iter()
                     .filter(|reply| match reply {
                         StoredReply::Chunk { acked, .. } => !acked,
-                        StoredReply::Exit { .. } => true,
+                        StoredReply::Exit { .. } | StoredReply::Defect { .. } => true,
                     })
                     .cloned()
                     .collect()
