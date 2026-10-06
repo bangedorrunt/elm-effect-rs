@@ -724,11 +724,11 @@ unported	packages/effect/test/Config.test.ts	551	it.effect	preserves special rec
 ported	packages/effect/test/Config.test.ts	562	it	combines tuple inputs and preserves positions	config_all_combines_positionally
 ported	packages/effect/test/Config.test.ts	580	it	combines generic iterables in iteration order	config_all_combines_positionally
 ported	packages/effect/test/Config.test.ts	598	it	combines named fields and preserves their keys	config_record_combines_named
-unported	packages/effect/test/Config.test.ts	618	it	uses the parsed value when present and the default when absent	
+ported	packages/effect/test/Config.test.ts	618	it	uses the parsed value when present and the default when absent	config_with_default_present_absent_and_product
 ported	packages/effect/test/Config.test.ts	632	it	supports redacted default values	config_secret_redacted_masked
 ported	packages/effect/test/Config.test.ts	640	it	treats ignored empty env strings as absent	config_env_empty_is_absent
 unported	packages/effect/test/Config.test.ts	651	it	validates empty env numbers when they are preserved	
-unported	packages/effect/test/Config.test.ts	665	it	defaults the whole product when any required child is absent	
+ported	packages/effect/test/Config.test.ts	665	it	defaults the whole product when any required child is absent	config_with_default_present_absent_and_product
 unported	packages/effect/test/Config.test.ts	684	it	does not recover from invalid union input	
 unported	packages/effect/test/Config.test.ts	696	it	does not recover from schema refinement failures	
 unported	packages/effect/test/Config.test.ts	715	it	uses the default unless a plain Array schema receives an array representation	
@@ -737,7 +737,7 @@ unported	packages/effect/test/Config.test.ts	796	it	preserves values successfull
 unported	packages/effect/test/Config.test.ts	806	it	wraps present values and maps absence to None	
 unported	packages/effect/test/Config.test.ts	826	it	returns None when any required child is absent	
 unported	packages/effect/test/Config.test.ts	845	it.effect	wraps successfully decoded undefined in Some	
-unported	packages/effect/test/Config.test.ts	870	it	default wholly absent nested configurations	
+ported	packages/effect/test/Config.test.ts	870	it	default wholly absent nested configurations	config_with_default_covers_absent_nested
 unported	packages/effect/test/Config.test.ts	877	it	distinguish an explicit empty schema container from an absent all group	
 unported	packages/effect/test/Config.test.ts	897	it	validates partial schema objects and recovers absent all children	
 unported	packages/effect/test/Config.test.ts	910	it.effect	recovers an absent child alongside a successfully decoded undefined	
