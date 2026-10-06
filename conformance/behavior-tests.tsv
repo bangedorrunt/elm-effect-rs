@@ -5971,8 +5971,8 @@ unported	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	1744	it.effe
 unported	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	1779	it.effect	SuspendOnFailure	
 unported	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	1797	it.effect	catchCause activity	
 unported	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	1811	it.effect	can serialize workflow defects	
-unported	packages/effect/test/cluster/Entity.test.ts	64	it.effect	provides an activation scope per entity and closes it with the client	
-unported	packages/effect/test/cluster/Entity.test.ts	90	it.effect	creates an in-memory client for an entity layer	
+ported	packages/effect/test/cluster/Entity.test.ts	64	it.effect	provides an activation scope per entity and closes it with the client	entity_activation_scope_per_entity_closes_with_client
+ported	packages/effect/test/cluster/Entity.test.ts	90	it.effect	creates an in-memory client for an entity layer	entity_clients_close_activations_on_demand
 unported	packages/effect/test/cluster/Entity.test.ts	98	it.effect	does not freeze the acquiring fiber's context into the entity server	
 unported	packages/effect/test/cluster/Entity.test.ts	110	it.live	isolates defects when disableFatalDefects is ${label}	
 unported	packages/effect/test/cluster/Entity.test.ts	121	it.live	keeps typed failures request-local when disableFatalDefects is ${label}	
