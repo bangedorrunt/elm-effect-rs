@@ -849,6 +849,29 @@ impl NetAddress {
             Self::Inet(socket) => format!("{scheme}://{socket}"),
         }
     }
+
+    /// Normalized URL value (TS `toUrl`): lowercased scheme, default
+    /// ports omitted, trailing slash. Returns `None` for addresses
+    /// without a port.
+    pub fn to_url(&self, scheme: &str) -> Option<String> {
+        let Self::Inet(socket) = self else {
+            return None;
+        };
+        let scheme = scheme.to_ascii_lowercase();
+        let default = matches!(
+            (scheme.as_str(), socket.port()),
+            ("ftp", 21) | ("http" | "ws", 80) | ("https" | "wss", 443)
+        );
+        let host = match socket.ip() {
+            std::net::IpAddr::V4(v4) => v4.to_string(),
+            std::net::IpAddr::V6(v6) => format!("[{v6}]"),
+        };
+        Some(if default {
+            format!("{scheme}://{host}/")
+        } else {
+            format!("{scheme}://{host}:{}/", socket.port())
+        })
+    }
 }
 
 impl std::fmt::Display for NetAddress {

@@ -588,3 +588,27 @@ fn net_addresses_preserve_rejected_inputs() {
     let err = NetAddress::socket_address_from_parts(&ipv4, u32::MAX).expect_err("parts port");
     assert_eq!(err.input, NetworkErrorInput::Addr(loopback));
 }
+
+#[test]
+fn inet_addresses_convert_to_normalized_urls() {
+    use net::NetAddress;
+    // NetAddress.test.ts:347 - scheme, default ports, trailing slash.
+    for (input, scheme, expected) in [
+        ("[::]:3000", "https", "https://[::]:3000/"),
+        ("0.0.0.0:3000", "http", "http://0.0.0.0:3000/"),
+        ("[::1]:3000", "ws", "ws://[::1]:3000/"),
+        ("192.0.2.1:80", "http", "http://192.0.2.1/"),
+        ("[::1]:443", "HTTPS", "https://[::1]/"),
+        ("[::1]:0", "http", "http://[::1]:0/"),
+        ("192.0.2.1:65535", "http", "http://192.0.2.1:65535/"),
+    ] {
+        let address = NetAddress::socket_address_from_input(input).expect("valid socket");
+        assert_eq!(address.to_url(scheme).as_deref(), Some(expected), "{input}");
+    }
+    assert_eq!(
+        NetAddress::ipv4_from_string("127.0.0.1")
+            .expect("valid")
+            .to_url("http"),
+        None
+    );
+}
