@@ -362,6 +362,14 @@ impl IpInterface {
     }
 }
 
+impl IpNetwork {
+    /// Build from an interface's address and prefix, masking host bits
+    /// (TS `fromInterface`).
+    pub fn from_interface(interface: &IpInterface) -> Self {
+        interface.network()
+    }
+}
+
 /// Address class for bit classification.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum IpClass {
@@ -508,6 +516,13 @@ impl NetAddress {
     /// Build from eight 16-bit segments (TS `ipv6FromSegments`).
     pub fn ipv6_from_segments(segments: [u16; 8]) -> Self {
         Self::V6(Ipv6Addr::from(segments))
+    }
+
+    /// Build from four octets (TS `ipv4FromBytesUnsafe`; any other length
+    /// cannot name an IPv4 address and panics).
+    pub fn ipv4_from_bytes(bytes: &[u8]) -> Self {
+        assert_eq!(bytes.len(), 4, "IPv4 needs exactly 4 octets");
+        Self::V4(Ipv4Addr::new(bytes[0], bytes[1], bytes[2], bytes[3]))
     }
 
     /// Strict dotted-quad parse, rejecting non-IPv4 input (TS

@@ -157,6 +157,34 @@ fn interfaces_share_one_tagged_representation() {
     assert!(v6.is_interface());
 }
 
+fn as_address(addr: std::net::IpAddr) -> net::NetAddress {
+    match addr {
+        std::net::IpAddr::V4(v4) => net::NetAddress::V4(v4),
+        std::net::IpAddr::V6(v6) => net::NetAddress::V6(v6),
+    }
+}
+
+#[test]
+fn derived_addresses_revalidate_refinements() {
+    use net::{IpInterface, IpNetwork, NetAddress};
+    let multicast = NetAddress::ipv4_from_bytes(&[224, 0, 0, 1]);
+    assert!(multicast.is_multicast());
+    let addr = match multicast {
+        NetAddress::V4(v4) => std::net::IpAddr::V4(v4),
+        NetAddress::V6(v6) => std::net::IpAddr::V6(v6),
+    };
+    for derived in [
+        IpNetwork::from_address_unsafe(addr, 0.0),
+        IpNetwork::from_interface(&IpInterface::make_unsafe(addr, 0.0)),
+    ] {
+        assert_eq!(derived.network_address().to_string(), "0.0.0.0");
+        assert!(!as_address(derived.network_address()).is_multicast());
+        let last = derived.last();
+        assert_eq!(last.to_string(), "255.255.255.255");
+        assert!(!as_address(last).is_multicast());
+    }
+}
+
 fn ip(text: &str) -> net::NetAddress {
     net::NetAddress::ipv6_from_string(text)
         .or_else(|_| net::NetAddress::ipv4_from_string(text))
