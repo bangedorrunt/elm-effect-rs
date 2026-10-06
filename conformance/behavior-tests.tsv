@@ -6325,8 +6325,8 @@ ported	packages/effect/test/encoding/Toml.test.ts	28	it	parses arrays of tables 
 ported	packages/effect/test/encoding/Toml.test.ts	48	it	parses child tables under distinct array entries	toml_child_tables_attach_to_last_element
 ported	packages/effect/test/encoding/Toml.test.ts	61	it	parses multiline strings and numeric formats	toml_multiline_and_numbers
 ported	packages/effect/test/encoding/Toml.test.ts	80	it	rejects duplicate keys	toml_rejects_duplicates
-unported	packages/effect/test/encoding/Yaml.test.ts	5	it	parses nested block and flow collections	
-unported	packages/effect/test/encoding/Yaml.test.ts	34	it	parses quoted and block scalars	
+ported	packages/effect/test/encoding/Yaml.test.ts	5	it	parses nested block and flow collections	parses_nested_block_and_flow_collections
+ported	packages/effect/test/encoding/Yaml.test.ts	34	it	parses quoted and block scalars	parses_quoted_and_block_scalars
 unported	packages/effect/test/encoding/Yaml.test.ts	53	it	preserves paragraph and indentation breaks in folded block scalars	
 unported	packages/effect/test/encoding/Yaml.test.ts	72	it.each	preserves %s	
 unported	packages/effect/test/encoding/Yaml.test.ts	92	it	resolves aliases	
