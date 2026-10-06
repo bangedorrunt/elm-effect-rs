@@ -6136,7 +6136,7 @@ ported	packages/effect/test/encoding/SchemaBinary.test.ts	352	it	encodes short d
 ported	packages/effect/test/encoding/SchemaBinary.test.ts	369	it	keeps f64 for values neither a capped varint nor a decimal can hold	binary_scalars_pack_decimals_and_f64_fallback
 unported	packages/effect/test/encoding/SchemaBinary.test.ts	389	it	discriminates struct number forms with the field wire kind	
 unported	packages/effect/test/encoding/SchemaBinary.test.ts	401	it	uses the decimal wire kind in struct fields and record pairs	
-unported	packages/effect/test/encoding/SchemaBinary.test.ts	410	it	packs a uniform number array behind one mode byte	
+ported	packages/effect/test/encoding/SchemaBinary.test.ts	410	it	packs a uniform number array behind one mode byte	binary_number_runs_pack_behind_one_mode_byte
 unported	packages/effect/test/encoding/SchemaBinary.test.ts	437	it	rejects non-number elements in uniform number arrays	
 unported	packages/effect/test/encoding/SchemaBinary.test.ts	446	it	length-prefixes each number slot of a tuple	
 unported	packages/effect/test/encoding/SchemaBinary.test.ts	457	it	carries every form behind the union kind byte	

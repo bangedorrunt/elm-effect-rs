@@ -173,3 +173,33 @@ fn binary_int_scalars_reject_unsafe_varints() {
     let neg_zero = decode_int_scalar(&[2, 0x20, 1]).expect("decodes");
     assert!(neg_zero.is_sign_negative() && neg_zero == 0.0);
 }
+
+#[test]
+fn binary_number_runs_pack_behind_one_mode_byte() {
+    // SchemaBinary.test.ts:410 - uniform runs share a single mode byte.
+    let integers = [0.0, -0.0, 1.0, -1.0, 1000.0, -1000.0];
+    assert_eq!(encode_number_array(&integers).len(), 12);
+    let back = decode_number_array(&encode_number_array(&integers)).expect("decodes");
+    for (got, want) in back.iter().zip(integers.iter()) {
+        assert_eq!(got.to_bits(), want.to_bits());
+    }
+    // One short decimal moves the run to packed decimal mode.
+    let mixed = [1.0, 2.5];
+    assert_eq!(encode_number_array(&mixed).len(), 7);
+    assert_eq!(
+        decode_number_array(&encode_number_array(&mixed)).expect("decodes"),
+        vec![1.0, 2.5]
+    );
+    let decimals = [-0.0, 0.25, 1e6, -12.75];
+    let back = decode_number_array(&encode_number_array(&decimals)).expect("decodes");
+    for (got, want) in back.iter().zip(decimals.iter()) {
+        assert_eq!(got.to_bits(), want.to_bits());
+    }
+    // One value outside both modes moves the whole run to f64.
+    let wide = [1.0, std::f64::consts::PI];
+    assert_eq!(encode_number_array(&wide).len(), 20);
+    let back = decode_number_array(&encode_number_array(&wide)).expect("decodes");
+    assert_eq!(back, vec![1.0, std::f64::consts::PI]);
+    // SchemaBinary.test.ts:437 needs runtime non-numbers, which cannot
+    // inhabit &[f64]; the type system rejects them at compile time.
+}
