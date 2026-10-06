@@ -863,6 +863,8 @@ pub mod primitive {
             name: String,
             /// Upper bound.
             max: usize,
+            /// Used when no inputs remain (`withDefault`).
+            default: Option<Vec<String>>,
         },
     }
 
@@ -887,7 +889,11 @@ pub mod primitive {
                         });
                     }
                 },
-                PositionalSpec::Variadic { name, max } => {
+                PositionalSpec::Variadic { name, max, default } => {
+                    if rest.is_empty() {
+                        bound.push((name.clone(), default.clone().unwrap_or_default()));
+                        continue;
+                    }
                     let need = specs[index + 1..]
                         .iter()
                         .filter(|spec| matches!(spec, PositionalSpec::Fixed { .. }))

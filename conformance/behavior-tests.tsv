@@ -5709,7 +5709,7 @@ unported	packages/effect/test/cli/Param.test.ts	118	it	preserves __proto__ as an
 ported	packages/effect/test/cli/Param.test.ts	133	it.effect	returns none when an optional boolean flag is omitted	param_optional_booleans
 ported	packages/effect/test/cli/Param.test.ts	145	it.effect	returns some false when an optional boolean flag is explicitly disabled	param_optional_booleans
 unported	packages/effect/test/cli/Param.test.ts	157	it.effect	supports alternative flags	
-unported	packages/effect/test/cli/Param.test.ts	170	it.effect	uses the default when a required variadic argument is omitted	
+ported	packages/effect/test/cli/Param.test.ts	170	it.effect	uses the default when a required variadic argument is omitted	positional_defaults_and_supplied_beats_config
 unported	packages/effect/test/cli/Param.test.ts	183	it.effect	prompts for missing flag values and preserves remaining args	
 unported	packages/effect/test/cli/Param.test.ts	200	it.effect	does not prompt when flag value is provided	
 unported	packages/effect/test/cli/Param.test.ts	213	it.effect	prompts for missing arguments	
@@ -5724,7 +5724,7 @@ unported	packages/effect/test/cli/Param.test.ts	371	it.effect	uses an explicitly
 unported	packages/effect/test/cli/Param.test.ts	384	it.effect	returns MissingOption when prompt is cancelled	
 unported	packages/effect/test/cli/Param.test.ts	401	it.effect	returns MissingArgument when argument prompt is cancelled	
 ported	packages/effect/test/cli/Param.test.ts	420	it.effect	uses ConfigProvider when a boolean flag is missing	param_config_fallback_chain
-unported	packages/effect/test/cli/Param.test.ts	444	it.effect	uses an explicitly disabled boolean before reading config fallbacks	
+ported	packages/effect/test/cli/Param.test.ts	444	it.effect	uses an explicitly disabled boolean before reading config fallbacks	positional_defaults_and_supplied_beats_config
 ported	packages/effect/test/cli/Param.test.ts	468	it.effect	uses ConfigProvider when a flag is missing	param_config_fallback_chain
 ported	packages/effect/test/cli/Param.test.ts	492	it.effect	uses flag values before reading config fallbacks	param_config_fallback_chain
 ported	packages/effect/test/cli/Param.test.ts	516	it.effect	uses ConfigProvider when an argument is missing	param_config_fallback_chain

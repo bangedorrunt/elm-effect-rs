@@ -1065,6 +1065,7 @@ fn positionals_sequence_and_bounds() {
     let values = || PositionalSpec::Variadic {
         name: "values".to_owned(),
         max: 2,
+        default: None,
     };
     // Errors.test.ts:127 - a bounded run rejects its overflow.
     let overflow =
@@ -1258,4 +1259,33 @@ fn param_config_fallback_chain() {
             }),
         Err(CliError::InvalidValue { .. })
     ));
+}
+
+#[test]
+fn positional_defaults_and_supplied_beats_config() {
+    use elm_effect_unstable::cli::param::{CliOptions, CliParam, ParamValue};
+    use elm_effect_unstable::cli::primitive::PositionalSpec;
+    use std::collections::BTreeMap;
+    // Param.test.ts:170 - an omitted variadic takes its default.
+    let files = PositionalSpec::Variadic {
+        name: "files".to_owned(),
+        max: 100,
+        default: Some(vec!["README.md".to_owned()]),
+    };
+    assert_eq!(
+        elm_effect_unstable::cli::primitive::parse_positionals(&[files], &[]),
+        Ok(vec![("files".to_owned(), vec!["README.md".to_owned()])])
+    );
+    // :444 - explicitly supplied values beat config fallbacks.
+    let options = CliOptions {
+        flags: BTreeMap::from([("verbose".to_owned(), vec!["false".to_owned()])]),
+        config: BTreeMap::from([("VERBOSE".to_owned(), "true".to_owned())]),
+        ..CliOptions::default()
+    };
+    let (_, value) = CliParam::boolean("verbose")
+        .with_fallback_config("VERBOSE")
+        .parse(&options)
+        .expect("supplied")
+        .expect("present");
+    assert_eq!(value, ParamValue::Switch(false));
 }
