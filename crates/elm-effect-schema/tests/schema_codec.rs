@@ -247,3 +247,62 @@ fn codec_optional_date_json_shapes() {
         Unknown::Null
     );
 }
+
+#[test]
+fn codec_unknown_round_trips_any_json() {
+    let schema = Schema::unknown();
+    for value in [
+        Unknown::Text("a".to_string()),
+        Unknown::Number(1.0),
+        Unknown::Bool(true),
+        Unknown::Null,
+        Unknown::Object([("a".to_string(), Unknown::Text("a".to_string()))].into()),
+        Unknown::Array(vec![Unknown::Text("a".to_string()), Unknown::Number(1.0)]),
+    ] {
+        let encoded = schema.encode(&value);
+        assert_eq!(encoded, value);
+        assert_eq!(schema.decode(value.clone()).unwrap(), value);
+    }
+}
+
+#[test]
+fn codec_object_keyword_takes_objects_only() {
+    let schema = Schema::object();
+    let fields: BTreeMap<String, Unknown> =
+        [("a".to_string(), Unknown::Text("a".to_string()))].into();
+    assert_eq!(
+        schema.decode(Unknown::Object(fields.clone())).unwrap(),
+        fields
+    );
+    assert_eq!(schema.encode(&fields), Unknown::Object(fields));
+    assert!(schema.decode(Unknown::Array(vec![])).is_err());
+    assert!(schema.decode(Unknown::Null).is_err());
+}
+
+#[test]
+fn codec_null_and_string_are_identity() {
+    let null = Schema::<()>::null();
+    assert!(null.decode(Unknown::Null).is_ok());
+    assert!(null.decode(Unknown::Text("a".to_string())).is_err());
+
+    let string = Schema::string();
+    assert_eq!(
+        string.decode(Unknown::Text("a".to_string())).unwrap(),
+        "a".to_string()
+    );
+    assert_eq!(
+        string.encode(&"a".to_string()),
+        Unknown::Text("a".to_string())
+    );
+    assert!(string.decode(Unknown::Number(1.0)).is_err());
+}
+
+#[test]
+fn codec_void_and_undefined_map_to_null() {
+    // TS Void/Undefined hold no data and travel as JSON null; the Rust
+    // wire representation is the same literal.
+    let void = Schema::<Unknown>::literal(Unknown::Null);
+    assert_eq!(void.encode(&Unknown::Null), Unknown::Null);
+    assert_eq!(void.decode(Unknown::Null).unwrap(), Unknown::Null);
+    assert!(void.decode(Unknown::Text("a".to_string())).is_err());
+}
