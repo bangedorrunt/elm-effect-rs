@@ -71,6 +71,17 @@ fn hash_map_set_remove_persist() {
     assert_eq!(m4.size(), 4);
     let m5 = m4.remove_many(["c".to_owned(), "d".to_owned()]);
     assert_eq!(m5.size(), 2);
+    // HashMap.test.ts:104 — removing a missing key changes nothing.
+    let m6 = m2.remove(&"zzz".to_owned());
+    assert_eq!(m6.size(), 2);
+    assert!(m6.has(&"a".to_owned()));
+    // :235 — bulk ops chain; :244 — any iterable works.
+    assert_eq!(
+        m2.set_many(vec![("e".to_owned(), 5)])
+            .remove_many(["e".to_owned()])
+            .size(),
+        2
+    );
 }
 
 #[test]
