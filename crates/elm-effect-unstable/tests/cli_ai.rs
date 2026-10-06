@@ -1156,4 +1156,10 @@ fn param_boolean_defaults() {
         .parse(&empty, &empty)
         .expect("defaults");
     assert_eq!(value, ParamValue::Switch(true));
+    // Param.test.ts:75 - a false default restores switch behavior.
+    let (_, off) = CliParam::boolean("verbose")
+        .with_default(ParamValue::Switch(false))
+        .parse(&empty, &empty)
+        .expect("defaults");
+    assert_eq!(off, ParamValue::Switch(false));
 }
