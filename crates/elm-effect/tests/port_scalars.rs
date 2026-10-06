@@ -810,3 +810,18 @@ fn string_order_and_concat() {
     assert_eq!(with_world("hello"), "hello world");
     assert_eq!(string::concat("", ""), "");
 }
+
+#[test]
+fn string_case_conversions() {
+    // String.test.ts:78 - converts to uppercase.
+    assert_eq!(string::to_uppercase("hello"), "HELLO");
+    // :82 - uppercase handles empty string.
+    assert_eq!(string::to_uppercase(""), "");
+    // :86 - pipeable: the function applied to a receiver.
+    let upper = |receiver: &str| string::to_uppercase(receiver);
+    assert_eq!(upper("abc"), "ABC");
+    // :93 - converts to lowercase.
+    assert_eq!(string::to_lowercase("HELLO"), "hello");
+    // :96 - lowercase handles empty string.
+    assert_eq!(string::to_lowercase(""), "");
+}

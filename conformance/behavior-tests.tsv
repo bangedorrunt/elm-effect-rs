@@ -3860,10 +3860,10 @@ ported	packages/effect/test/String.test.ts	62	it	data-first	string_order_and_con
 ported	packages/effect/test/String.test.ts	66	it	data-last (pipeable)	string_order_and_concat
 ported	packages/effect/test/String.test.ts	70	it	concatenates empty strings	string_basics
 ported	packages/effect/test/String.test.ts	78	it	converts to uppercase	string_basics
-unported	packages/effect/test/String.test.ts	82	it	handles empty string	
-unported	packages/effect/test/String.test.ts	86	it	pipeable	
+ported	packages/effect/test/String.test.ts	82	it	handles empty string	string_case_conversions
+ported	packages/effect/test/String.test.ts	86	it	pipeable	string_case_conversions
 ported	packages/effect/test/String.test.ts	92	it	converts to lowercase	string_basics
-unported	packages/effect/test/String.test.ts	96	it	handles empty string	
+ported	packages/effect/test/String.test.ts	96	it	handles empty string	string_case_conversions
 ported	packages/effect/test/String.test.ts	102	it	capitalizes first character	string_shapes
 ported	packages/effect/test/String.test.ts	106	it	handles single character	string_case_first_char
 ported	packages/effect/test/String.test.ts	110	it	handles empty string	string_case_first_char
