@@ -861,6 +861,12 @@ fn provider_nested_dotted_numeric_prefix() {
         nested.get(&["PORT".to_string()]),
         Some("3000".to_string())
     );
+    let plain_base = provider(&[("db.host", "db.internal")]);
+    let plain = plain_base.nested("db");
+    assert_eq!(
+        plain.get(&["host".to_string()]),
+        Some("db.internal".to_string())
+    );
 }
 
 #[test]
@@ -933,4 +939,76 @@ fn provider_dotenv_file_reads_path_and_errors_missing() {
     assert_eq!(env.get(&["A".to_string()]), Some("1".to_string()));
     std::fs::remove_file(&path).unwrap();
     assert!(EnvProvider::from_dotenv_file(path.to_str().unwrap()).is_err());
+}
+
+#[test]
+fn provider_fallback_skips_evaluation_after_hit() {
+    use config_provider::Provider;
+    use std::cell::Cell;
+    let primary = provider(&[("a", "hit")]);
+    let calls = Cell::new(0);
+    let secondary = Provider::from_fn(|path: &[String]| {
+        calls.set(calls.get() + 1);
+        Some(path.join("/"))
+    });
+    let view = primary.or_else(&secondary);
+    assert_eq!(view.get(&["a".to_string()]), Some("hit".to_string()));
+    assert_eq!(calls.get(), 0);
+    assert_eq!(view.get(&["b".to_string()]), Some("b".to_string()));
+    assert_eq!(calls.get(), 1);
+}
+
+#[test]
+fn provider_nested_distributes_over_fallback_operands() {
+    use config_provider::Lookup;
+    let a = provider(&[("p.x", "ax")]);
+    let b = provider(&[("p.y", "by")]);
+    let fb = a.or_else(&b);
+    let nested_fallback = config_provider::Lookup::nested(&fb, vec!["p".to_string()]);
+    let na = config_provider::Lookup::nested(&a, vec!["p".to_string()]);
+    let nb = config_provider::Lookup::nested(&b, vec!["p".to_string()]);
+    let fallback_nested = na.or_else(&nb);
+    for key in ["x", "y"] {
+        let path = vec![key.to_string()];
+        assert_eq!(
+            nested_fallback.get(&path),
+            fallback_nested.get(&path)
+        );
+    }
+    assert_eq!(
+        nested_fallback.get(&["x".to_string()]),
+        Some("ax".to_string())
+    );
+}
+
+#[test]
+fn provider_map_distributes_over_fallback_operands() {
+    use config_provider::Lookup;
+    fn upper(path: &[String]) -> Vec<String> {
+        path.iter().map(|s| s.to_uppercase()).collect()
+    }
+    let a = provider(&[("A", "ax")]);
+    let b = provider(&[("B", "by")]);
+    let fb = a.or_else(&b);
+    let mapped_fallback = Lookup::mapped(&fb, upper);
+    let ma = Lookup::mapped(&a, upper);
+    let mb = Lookup::mapped(&b, upper);
+    let fallback_mapped = ma.or_else(&mb);
+    for key in ["a", "b"] {
+        let path = vec![key.to_string()];
+        assert_eq!(mapped_fallback.get(&path), fallback_mapped.get(&path));
+    }
+    assert_eq!(
+        mapped_fallback.get(&["a".to_string()]),
+        Some("ax".to_string())
+    );
+}
+
+#[test]
+fn provider_env_basics_hit_miss_and_no_inheritance() {
+    use config_provider::EnvProvider;
+    let env = EnvProvider::from_env_map(vec![("A".to_string(), "value1".to_string())]);
+    assert_eq!(env.get(&["A".to_string()]), Some("value1".to_string()));
+    assert_eq!(env.get(&["missing".to_string()]), None);
+    assert_eq!(env.get(&["constructor".to_string()]), None);
 }

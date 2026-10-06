@@ -29,6 +29,38 @@ pub trait Lookup {
             ops: Vec::new(),
         }
     }
+
+    /// Fall through to `other` on absence (works on any lookup, so
+    /// views compose uniformly).
+    fn or_else<'a>(&'a self, other: &'a dyn Lookup) -> Fallback<'a>
+    where
+        Self: Sized,
+    {
+        Fallback {
+            first: self,
+            second: other,
+        }
+    }
+
+    /// Scope lookups under literal `prefix` segments.
+    fn nested(&self, prefix: Vec<String>) -> Nested<'_>
+    where
+        Self: Sized,
+    {
+        Nested {
+            inner: self,
+            prefix,
+        }
+    }
+
+    /// Transform every lookup path before delegating.
+    fn mapped<F>(&self, map: F) -> Mapped<'_, F>
+    where
+        Self: Sized,
+        F: Fn(&[String]) -> Vec<String>,
+    {
+        Mapped { inner: self, map }
+    }
 }
 
 fn constant_case_path(path: &[String]) -> Vec<String> {
