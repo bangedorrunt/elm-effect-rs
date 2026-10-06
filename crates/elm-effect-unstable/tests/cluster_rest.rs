@@ -244,3 +244,67 @@ fn stream_reply_ends_with_serialization_defect() {
     assert_eq!(stored.len(), 2);
     assert!(matches!(stored.last(), Some(StoredReply::Defect { .. })));
 }
+
+#[test]
+fn entity_activation_scope_per_entity_closes_with_client() {
+    use cluster::EntityClients;
+    use std::sync::{Arc, Mutex};
+    let closed: Arc<Mutex<Vec<String>>> = Arc::new(Mutex::new(Vec::new()));
+    {
+        let clients = EntityClients::new();
+        for id in ["one", "two"] {
+            let scope = clients.activate(id);
+            assert_eq!(scope.entity_id(), id);
+            let sink = Arc::clone(&closed);
+            let owned = id.to_string();
+            scope.add_finalizer(move || sink.lock().unwrap().push(owned));
+        }
+        let activations = clients.activations();
+        assert_eq!(activations.len(), 2);
+        assert!(!Arc::ptr_eq(&activations[0], &activations[1]));
+        assert!(activations.iter().all(|s| !s.is_closed()));
+        assert!(closed.lock().unwrap().is_empty());
+    }
+    let mut seen = closed.lock().unwrap().clone();
+    seen.sort();
+    assert_eq!(seen, vec!["one".to_string(), "two".to_string()]);
+}
+
+#[test]
+fn entity_scope_closes_finalizers_newest_first_once() {
+    use cluster::EntityScope;
+    let order = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+    let scope = EntityScope::new("counter");
+    for step in ["first", "second"] {
+        let order = std::sync::Arc::clone(&order);
+        let name = step.to_string();
+        scope.add_finalizer(move || order.lock().unwrap().push(name));
+    }
+    scope.close();
+    scope.close();
+    assert!(scope.is_closed());
+    assert_eq!(*order.lock().unwrap(), vec!["second", "first"]);
+}
+
+#[test]
+fn entity_scope_rejects_finalizers_after_close() {
+    use cluster::EntityScope;
+    let scope = EntityScope::new("counter");
+    scope.close();
+    let ran = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let flag = std::sync::Arc::clone(&ran);
+    scope.add_finalizer(move || flag.store(true, std::sync::atomic::Ordering::SeqCst));
+    assert!(!ran.load(std::sync::atomic::Ordering::SeqCst));
+}
+
+#[test]
+fn entity_clients_close_activations_on_demand() {
+    use cluster::EntityClients;
+    let clients = EntityClients::new();
+    clients.activate("a");
+    clients.activate("b");
+    let activations = clients.activations();
+    clients.close();
+    assert!(activations.iter().all(|scope| scope.is_closed()));
+    clients.close();
+}

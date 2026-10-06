@@ -7,6 +7,8 @@
 //! belong to later parts.
 
 use std::collections::{HashMap, HashSet};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex};
 
 // Addresses
 
@@ -648,5 +650,119 @@ impl ClusterError {
 impl core::fmt::Display for ClusterError {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(f, "{}: {}", self.tag(), self.message())
+    }
+}
+
+/// One entity's activation scope: finalizers run when the scope closes.
+///
+/// Ports the per-entity `Scope` that `Entity.makeTestClient` provides to
+/// an entity layer, in its sync form: a scope per activation, closed with
+/// the client.
+pub struct EntityScope {
+    entity_id: String,
+    closed: AtomicBool,
+    finalizers: Mutex<Vec<Box<dyn FnOnce() + Send>>>,
+}
+
+impl EntityScope {
+    /// A fresh open scope for one entity.
+    pub fn new(entity_id: impl Into<String>) -> Self {
+        Self {
+            entity_id: entity_id.into(),
+            closed: AtomicBool::new(false),
+            finalizers: Mutex::new(Vec::new()),
+        }
+    }
+
+    /// The entity this scope belongs to.
+    pub fn entity_id(&self) -> &str {
+        &self.entity_id
+    }
+
+    /// Register a finalizer; ignored once closed.
+    pub fn add_finalizer(&self, f: impl FnOnce() + Send + 'static) {
+        let mut finalizers = self.finalizers.lock().unwrap();
+        if self.closed.load(Ordering::SeqCst) {
+            return;
+        }
+        finalizers.push(Box::new(f));
+    }
+
+    /// True once [`Self::close`] has run.
+    pub fn is_closed(&self) -> bool {
+        self.closed.load(Ordering::SeqCst)
+    }
+
+    /// Close the scope, running finalizers newest first. Idempotent.
+    pub fn close(&self) {
+        if self.closed.swap(true, Ordering::SeqCst) {
+            return;
+        }
+        loop {
+            let next = self.finalizers.lock().unwrap().pop();
+            match next {
+                Some(run) => run(),
+                None => break,
+            }
+        }
+    }
+}
+
+impl Drop for EntityScope {
+    fn drop(&mut self) {
+        self.close();
+    }
+}
+
+/// The client side of [`EntityScope`]: one scope per activated entity,
+/// all closed together with the client.
+///
+/// Ports `Entity.makeTestClient`, which hands each activation its own
+/// scope and closes them with the client.
+pub struct EntityClients {
+    scopes: Mutex<Vec<Arc<EntityScope>>>,
+}
+
+impl Default for EntityClients {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl EntityClients {
+    /// A client with no activations yet.
+    pub fn new() -> Self {
+        Self {
+            scopes: Mutex::new(Vec::new()),
+        }
+    }
+
+    /// Activate an entity, returning its own scope.
+    pub fn activate(&self, entity_id: impl Into<String>) -> Arc<EntityScope> {
+        let scope = Arc::new(EntityScope::new(entity_id));
+        self.scopes.lock().unwrap().push(Arc::clone(&scope));
+        Arc::clone(&scope)
+    }
+
+    /// Live activation scopes, oldest first.
+    pub fn activations(&self) -> Vec<Arc<EntityScope>> {
+        self.scopes.lock().unwrap().clone()
+    }
+
+    /// Close every scope, newest first.
+    pub fn close(&self) {
+        loop {
+            let next = self.scopes.lock().unwrap().pop();
+            match next {
+                Some(scope) => scope.close(),
+                None => break,
+            }
+        }
+    }
+}
+
+impl Drop for EntityClients {
+    fn drop(&mut self) {
+        self.close();
     }
 }
