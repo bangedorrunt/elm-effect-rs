@@ -825,3 +825,20 @@ fn string_case_conversions() {
     // :96 - lowercase handles empty string.
     assert_eq!(string::to_lowercase(""), "");
 }
+
+#[test]
+fn string_replace_and_trim() {
+    // String.test.ts:138 - replaces the first occurrence.
+    assert_eq!(string::replace_first("abab", "b", "c"), "acab");
+    // :142 - a non-global pattern replaces the first match too (same observable).
+    assert_eq!(string::replace_first("abc", "b", "d"), "adc");
+    // :146 - unchanged when nothing matches.
+    assert_eq!(string::replace_first("abc", "z", "x"), "abc");
+    // :156 - trims tabs and newlines.
+    assert_eq!(string::trim("\t\nhello\t\n"), "hello");
+    // :160 - trims to empty.
+    assert_eq!(string::trim(""), "");
+    // :166 - trims leading whitespace only.
+    assert_eq!(string::trim_start("  hello  "), "hello  ");
+    assert_eq!(string::trim_end("  hello  "), "  hello");
+}

@@ -216,6 +216,16 @@ pub fn trim(s: &str) -> &str {
     s.trim()
 }
 
+/// Trim leading whitespace (`trimStart`).
+pub fn trim_start(s: &str) -> &str {
+    s.trim_start()
+}
+
+/// Trim trailing whitespace (`trimEnd`).
+pub fn trim_end(s: &str) -> &str {
+    s.trim_end()
+}
+
 /// First character, if any (`charAt(0)` shape).
 pub fn head(s: &str) -> Option<char> {
     s.chars().next()

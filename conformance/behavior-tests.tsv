@@ -3872,13 +3872,13 @@ ported	packages/effect/test/String.test.ts	120	it	uncapitalizes first character	
 ported	packages/effect/test/String.test.ts	124	it	handles single character	string_case_first_char
 ported	packages/effect/test/String.test.ts	128	it	handles empty string	string_case_first_char
 ported	packages/effect/test/String.test.ts	132	it	preserves rest of string	string_case_first_char
-unported	packages/effect/test/String.test.ts	138	it	replaces first occurrence	
-unported	packages/effect/test/String.test.ts	142	it	replaces with regex	
-unported	packages/effect/test/String.test.ts	146	it	returns unchanged if no match	
+ported	packages/effect/test/String.test.ts	138	it	replaces first occurrence	string_replace_and_trim
+ported	packages/effect/test/String.test.ts	142	it	replaces with regex	string_replace_and_trim
+ported	packages/effect/test/String.test.ts	146	it	returns unchanged if no match	string_replace_and_trim
 ported	packages/effect/test/String.test.ts	152	it	trims whitespace from both ends	string_basics
-unported	packages/effect/test/String.test.ts	156	it	trims tabs and newlines	
-unported	packages/effect/test/String.test.ts	160	it	handles empty string	
-unported	packages/effect/test/String.test.ts	166	it	trims leading whitespace	
+ported	packages/effect/test/String.test.ts	156	it	trims tabs and newlines	string_replace_and_trim
+ported	packages/effect/test/String.test.ts	160	it	handles empty string	string_replace_and_trim
+ported	packages/effect/test/String.test.ts	166	it	trims leading whitespace	string_replace_and_trim
 unported	packages/effect/test/String.test.ts	170	it	handles empty string	
 unported	packages/effect/test/String.test.ts	176	it	trims trailing whitespace	
 unported	packages/effect/test/String.test.ts	180	it	handles empty string	
