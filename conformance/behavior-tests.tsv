@@ -6981,7 +6981,7 @@ ported	packages/effect/test/net/NetAddress.test.ts	196	it	classifies address bit
 unported	packages/effect/test/net/NetAddress.test.ts	208	it	classifies documented address ranges at their boundaries	
 ported	packages/effect/test/net/NetAddress.test.ts	242	it	classifies IP boundaries without claiming reachability	net_addresses_classify_boundaries
 unported	packages/effect/test/net/NetAddress.test.ts	273	it	classifies the independent MAC group and administration bits	
-unported	packages/effect/test/net/NetAddress.test.ts	300	it	serializes and inspects canonical strings without private bytes	
+ported	packages/effect/test/net/NetAddress.test.ts	300	it	serializes and inspects canonical strings without private bytes	canonical_strings_hide_private_bytes
 unported	packages/effect/test/net/NetAddress.test.ts	317	it	preserves the input rejected by the failing operation	
 unported	packages/effect/test/net/NetAddress.test.ts	339	it	retains the address supplied to checked socket constructors	
 unported	packages/effect/test/net/NetAddress.test.ts	347	it	converts internet addresses to normalized URL values	
