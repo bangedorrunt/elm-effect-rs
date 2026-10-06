@@ -472,3 +472,25 @@ fn checked_parsing_returns_typed_errors() {
     assert!(NetAddress::ip_from_string("127.0.0.1").is_ok());
     assert!(NetAddress::ip_from_string("::1").is_ok());
 }
+
+#[test]
+fn bare_ips_convert_to_urls_without_ports() {
+    use net::{NetAddress, NetUrl};
+    for (input, expected) in [
+        ("127.0.0.1", "http://127.0.0.1/"),
+        ("::1", "http://[::1]/"),
+        ("0.0.0.0", "http://0.0.0.0/"),
+        ("::", "http://[::]/"),
+    ] {
+        let url = NetUrl::from_ip(&NetAddress::ip_from_string(input).unwrap(), "http")
+            .expect("bare IP");
+        assert_eq!(url.href(), expected);
+        assert_eq!(url.port(), "");
+    }
+    let secure = NetUrl::from_ip(
+        &NetAddress::ipv6_from_string("::1").unwrap(),
+        "https",
+    )
+    .expect("bare IP");
+    assert_eq!(secure.href(), "https://[::1]/");
+}

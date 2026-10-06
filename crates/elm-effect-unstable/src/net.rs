@@ -955,6 +955,48 @@ impl std::fmt::Display for MacAddress {
     }
 }
 
+// URL forms
+
+/// A URL built from a bare IP address: scheme plus host, no port, no
+/// path beyond `/` (TS `toUrl` over bare IPs; hostnames, ports, and
+/// paths arrive with URL parsing).
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct NetUrl {
+    scheme: String,
+    host: String,
+}
+
+impl NetUrl {
+    /// Build from a bare IP address with an explicit scheme (TS `toUrl`).
+    /// Non-IP values have no URL form here.
+    pub fn from_ip(address: &NetAddress, scheme: &str) -> Option<Self> {
+        let host = match address {
+            NetAddress::V4(v4) => v4.to_string(),
+            NetAddress::V6(v6) => format!("[{v6}]"),
+            NetAddress::UnixPath(_) | NetAddress::Inet(_) => return None,
+        };
+        Some(Self {
+            scheme: scheme.to_string(),
+            host,
+        })
+    }
+
+    /// Canonical `scheme://host/` text (TS `href`).
+    pub fn href(&self) -> String {
+        format!("{}://{}/", self.scheme, self.host)
+    }
+
+    /// The explicit port text: always empty for bare-IP URLs (TS `port`).
+    pub fn port(&self) -> &str {
+        ""
+    }
+
+    /// The URL scheme.
+    pub fn scheme(&self) -> &str {
+        &self.scheme
+    }
+}
+
 impl IpInterface {
     /// Parse, panicking on invalid input. The throwing counterpart of
     /// [`Self::parse`] for trusted literals.
