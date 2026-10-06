@@ -946,9 +946,9 @@ unported	packages/effect/test/ConfigProvider.test.ts	915	it	should support `expa
 unported	packages/effect/test/ConfigProvider.test.ts	929	it	should treat empty string values as missing while preserving structure by default	
 unported	packages/effect/test/ConfigProvider.test.ts	942	it	should support `preserveEmptyStrings` option	
 ported	packages/effect/test/ConfigProvider.test.ts	954	it	fails with the FileSystem error when the file cannot be read	provider_dotenv_file_reads_path_and_errors_missing
-unported	packages/effect/test/ConfigProvider.test.ts	993	it	reads trimmed file contents at root and nested paths	
-unported	packages/effect/test/ConfigProvider.test.ts	1005	it	treats empty files as missing by default	
-unported	packages/effect/test/ConfigProvider.test.ts	1026	it	preserves empty files when requested	
+ported	packages/effect/test/ConfigProvider.test.ts	993	it	reads trimmed file contents at root and nested paths	provider_dir_reads_trimmed_leaves
+ported	packages/effect/test/ConfigProvider.test.ts	1005	it	treats empty files as missing by default	provider_dir_reads_trimmed_leaves
+ported	packages/effect/test/ConfigProvider.test.ts	1026	it	preserves empty files when requested	provider_dir_reads_trimmed_leaves
 unported	packages/effect/test/ConfigProvider.test.ts	1046	it	reads directory entries as a record	
 unported	packages/effect/test/ConfigProvider.test.ts	1067	it	wraps non-NotFound failures in SourceError	
 unported	packages/effect/test/ConfigProvider.test.ts	1101	it	layer installs a provider	
