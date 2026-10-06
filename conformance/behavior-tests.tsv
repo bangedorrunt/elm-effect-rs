@@ -6978,7 +6978,7 @@ ported	packages/effect/test/net/NetAddress.test.ts	134	it	returns IPv6 octets	st
 ported	packages/effect/test/net/NetAddress.test.ts	165	it	parses and canonically formats six octets	mac_addresses_parse_six_octets_and_reject_malformed
 ported	packages/effect/test/net/NetAddress.test.ts	177	it	rejects malformed inputs and invalid octets	mac_addresses_parse_six_octets_and_reject_malformed
 ported	packages/effect/test/net/NetAddress.test.ts	196	it	classifies address bits	strict_ip_classifies_bits
-unported	packages/effect/test/net/NetAddress.test.ts	208	it	classifies documented address ranges at their boundaries	
+ported	packages/effect/test/net/NetAddress.test.ts	208	it	classifies documented address ranges at their boundaries	net_addresses_classify_documented_ranges
 ported	packages/effect/test/net/NetAddress.test.ts	242	it	classifies IP boundaries without claiming reachability	net_addresses_classify_boundaries
 ported	packages/effect/test/net/NetAddress.test.ts	273	it	classifies the independent MAC group and administration bits	mac_group_and_admin_bits_classify
 ported	packages/effect/test/net/NetAddress.test.ts	300	it	serializes and inspects canonical strings without private bytes	canonical_strings_hide_private_bytes

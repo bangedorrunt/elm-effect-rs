@@ -520,3 +520,30 @@ fn mac_addresses_parse_six_octets_and_reject_malformed() {
         1
     );
 }
+
+#[test]
+fn net_addresses_classify_documented_ranges() {
+    // NetAddress.test.ts:208 - boundary classification per predicate.
+    assert!(ip("0.0.0.0").is_unspecified());
+    assert!(ip("::").is_unspecified());
+    assert!(ip("127.255.255.255").is_loopback());
+    assert!(!ip("128.0.0.0").is_loopback());
+    assert!(ip("224.0.0.0").is_multicast());
+    assert!(!ip("223.255.255.255").is_multicast());
+    assert!(ip("ff00::").is_multicast());
+    assert!(ip("255.255.255.255").is_broadcast());
+    assert!(!ip("255.255.255.254").is_broadcast());
+    assert!(ip("169.254.255.255").is_link_local());
+    assert!(!ip("169.255.0.0").is_link_local());
+    assert!(ip("febf::").is_link_local());
+    assert!(!ip("fec0::").is_link_local());
+    assert!(ip("10.255.255.255").is_private());
+    assert!(ip("172.31.255.255").is_private());
+    assert!(ip("192.168.0.0").is_private());
+    assert!(!ip("172.32.0.0").is_private());
+    assert!(ip("fc00::").is_unique_local());
+    assert!(ip("fdff:ffff:ffff:ffff:ffff:ffff:ffff:ffff").is_unique_local());
+    assert!(!ip("fe00::").is_unique_local());
+    assert_eq!(net::NetAddress::IPV4_UNSPECIFIED, ip("0.0.0.0"));
+    assert_eq!(net::NetAddress::IPV6_UNSPECIFIED, ip("::"));
+}

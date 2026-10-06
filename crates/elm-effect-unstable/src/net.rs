@@ -517,6 +517,11 @@ pub enum NetAddress {
 }
 
 impl NetAddress {
+    /// `0.0.0.0` (TS `ipv4Unspecified`).
+    pub const IPV4_UNSPECIFIED: Self = Self::V4(Ipv4Addr::UNSPECIFIED);
+    /// `::` (TS `ipv6Unspecified`).
+    pub const IPV6_UNSPECIFIED: Self = Self::V6(Ipv6Addr::UNSPECIFIED);
+
     /// Wrap a standard address (shared by Inet classification).
     fn from_std_ip(ip: IpAddr) -> Self {
         match ip {
