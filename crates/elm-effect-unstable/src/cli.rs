@@ -931,6 +931,8 @@ pub mod param {
         pub primitive: ParamPrimitive,
         /// Fallback when absent (mirrors `withDefault`).
         pub default: Option<ParamValue>,
+        /// Absence yields `None` instead of failing (mirrors `optional`).
+        pub optional: bool,
     }
 
     /// Value shapes a descriptor can produce.
@@ -960,6 +962,7 @@ pub mod param {
                 name: "__never__".to_owned(),
                 primitive: ParamPrimitive::Never,
                 default: None,
+                optional: false,
             }
         }
 
@@ -980,6 +983,7 @@ pub mod param {
                 name: name.to_owned(),
                 primitive: ParamPrimitive::Boolean,
                 default: None,
+                optional: false,
             }
         }
 
@@ -989,13 +993,19 @@ pub mod param {
             self
         }
 
+        /// Yield `None` instead of failing when absent (`optional`).
+        pub fn optional(mut self) -> Self {
+            self.optional = true;
+            self
+        }
+
         /// Parse from bound maps: absent names take the default or fail
         /// as `MissingOption`; supplied values run the primitive.
         pub fn parse(
             &self,
             flags: &std::collections::BTreeMap<String, Vec<String>>,
             args: &std::collections::BTreeMap<String, Vec<String>>,
-        ) -> Result<(String, ParamValue), super::CliError> {
+        ) -> Result<Option<(String, ParamValue)>, super::CliError> {
             let map = match self.kind {
                 ParamKind::Flag => flags,
                 ParamKind::Argument => args,
@@ -1004,7 +1014,8 @@ pub mod param {
                 Some(values) => values,
                 None => {
                     return match &self.default {
-                        Some(value) => Ok((self.name.clone(), value.clone())),
+                        Some(value) => Ok(Some((self.name.clone(), value.clone()))),
+                        None if self.optional => Ok(None),
                         None => Err(super::CliError::MissingOption {
                             option: self.name.clone(),
                         }),
@@ -1023,10 +1034,10 @@ pub mod param {
                 }),
                 ParamPrimitive::Boolean => {
                     if values.is_empty() {
-                        return Ok((self.name.clone(), ParamValue::Switch(true)));
+                        return Ok(Some((self.name.clone(), ParamValue::Switch(true))));
                     }
                     match super::primitive::parse_bool(&values[0]) {
-                        Ok(flag) => Ok((self.name.clone(), ParamValue::Switch(flag))),
+                        Ok(flag) => Ok(Some((self.name.clone(), ParamValue::Switch(flag)))),
                         Err(expected) => Err(super::CliError::InvalidValue {
                             option: self.name.clone(),
                             value: values.join(" "),

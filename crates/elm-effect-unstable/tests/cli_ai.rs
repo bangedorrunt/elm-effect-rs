@@ -1154,12 +1154,37 @@ fn param_boolean_defaults() {
     let (_, value) = CliParam::boolean("verbose")
         .with_default(ParamValue::Switch(true))
         .parse(&empty, &empty)
-        .expect("defaults");
+        .expect("defaults")
+        .expect("present");
     assert_eq!(value, ParamValue::Switch(true));
     // Param.test.ts:75 - a false default restores switch behavior.
     let (_, off) = CliParam::boolean("verbose")
         .with_default(ParamValue::Switch(false))
         .parse(&empty, &empty)
-        .expect("defaults");
+        .expect("defaults")
+        .expect("present");
     assert_eq!(off, ParamValue::Switch(false));
+}
+
+#[test]
+fn param_optional_booleans() {
+    use elm_effect_unstable::cli::param::CliParam;
+    use std::collections::BTreeMap;
+    let empty: BTreeMap<String, Vec<String>> = BTreeMap::new();
+    // Param.test.ts:133 - an omitted optional yields none.
+    assert_eq!(
+        CliParam::boolean("verbose").optional().parse(&empty, &empty),
+        Ok(None)
+    );
+    // :145 - a supplied optional yields its value.
+    assert_eq!(
+        CliParam::boolean("verbose").optional().parse(
+            &BTreeMap::from([("verbose".to_owned(), vec!["false".to_owned()])]),
+            &empty,
+        ),
+        Ok(Some((
+            "verbose".to_owned(),
+            elm_effect_unstable::cli::param::ParamValue::Switch(false)
+        )))
+    );
 }
