@@ -9510,7 +9510,7 @@ ported	packages/effect/test/schema/toFormatter.test.ts	112	it	TemplateLiteral	fo
 unported	packages/effect/test/schema/toFormatter.test.ts	119	it	Numeric enum	
 unported	packages/effect/test/schema/toFormatter.test.ts	128	it	String enum	
 unported	packages/effect/test/schema/toFormatter.test.ts	138	it	Const enum	
-unported	packages/effect/test/schema/toFormatter.test.ts	149	it	Union	
+ported	packages/effect/test/schema/toFormatter.test.ts	149	it	Union	formatter_union_renders_member_values
 unported	packages/effect/test/schema/toFormatter.test.ts	155	it	precompiles Union members	
 unported	packages/effect/test/schema/toFormatter.test.ts	171	it	selects transformed Union members on the Type side	
 unported	packages/effect/test/schema/toFormatter.test.ts	186	it	preserves Union member formatter annotations	
