@@ -7614,16 +7614,16 @@ unported	packages/effect/test/schema/Schema.test.ts	2319	it	should expose the so
 ported	packages/effect/test/schema/Schema.test.ts	2326	it	required to required	require_reverses_optional_wrapping
 ported	packages/effect/test/schema/Schema.test.ts	2354	it	required to optional	require_reverses_optional_wrapping
 ported	packages/effect/test/schema/Schema.test.ts	2381	it	optionalKey to required	require_reverses_optional_wrapping
-unported	packages/effect/test/schema/Schema.test.ts	2403	it	double transformation	
-unported	packages/effect/test/schema/Schema.test.ts	2421	it	double transformation with checks	
+ported	packages/effect/test/schema/Schema.test.ts	2403	it	double transformation	double_text_number_flag_round_trips
+ported	packages/effect/test/schema/Schema.test.ts	2421	it	double transformation with checks	double_with_checks_rejects_between_steps
 unported	packages/effect/test/schema/Schema.test.ts	2453	it	nested defaults	
-unported	packages/effect/test/schema/Schema.test.ts	2485	it	double transformation	
+ported	packages/effect/test/schema/Schema.test.ts	2485	it	double transformation	double_text_number_flag_round_trips
 ported	packages/effect/test/schema/Schema.test.ts	2505	it	required to required	require_all_makes_optional_keys_required
 unported	packages/effect/test/schema/Schema.test.ts	2533	it	required to optionalKey	
 ported	packages/effect/test/schema/Schema.test.ts	2555	it	optionalKey to required	require_all_makes_optional_keys_required
-unported	packages/effect/test/schema/Schema.test.ts	2582	it	double transformation	
-unported	packages/effect/test/schema/Schema.test.ts	2600	it	double transformation with checks	
-unported	packages/effect/test/schema/Schema.test.ts	2634	it	double transformation	
+ported	packages/effect/test/schema/Schema.test.ts	2582	it	double transformation	double_text_number_flag_round_trips
+ported	packages/effect/test/schema/Schema.test.ts	2600	it	double transformation with checks	double_with_checks_rejects_between_steps
+ported	packages/effect/test/schema/Schema.test.ts	2634	it	double transformation	double_text_number_flag_round_trips
 unported	packages/effect/test/schema/Schema.test.ts	2654	it	should expose the schema	
 unported	packages/effect/test/schema/Schema.test.ts	2662	it	string & isMinLength(3) <-> number & isGreaterThan(2)	
 unported	packages/effect/test/schema/Schema.test.ts	2684	it	Struct & flip & check & flip should apply the check to the encoded side	

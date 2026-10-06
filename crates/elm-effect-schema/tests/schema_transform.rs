@@ -12,7 +12,12 @@ use elm_effect_schema::{Schema, Unknown};
 use std::collections::BTreeMap;
 
 fn obj(pairs: &[(&str, Unknown)]) -> Unknown {
-    Unknown::Object(pairs.iter().map(|(k, v)| (k.to_string(), v.clone())).collect())
+    Unknown::Object(
+        pairs
+            .iter()
+            .map(|(k, v)| (k.to_string(), v.clone()))
+            .collect(),
+    )
 }
 
 fn text(s: &str) -> Unknown {
@@ -23,7 +28,9 @@ fn text(s: &str) -> Unknown {
 
 #[test]
 fn is_transformation_tags_structures() {
-    assert!(is_transformation(&Transformation::<Unknown, Unknown>::passthrough()));
+    assert!(is_transformation(
+        &Transformation::<Unknown, Unknown>::passthrough()
+    ));
 }
 
 #[test]
@@ -61,10 +68,7 @@ fn pipe_composes_both_directions() {
 
 #[test]
 fn transformation_made_from_pair_preserves_steps() {
-    let t = Transformation::new(
-        |n: i64| Ok(n + 1),
-        |n: i64| Ok(n - 1),
-    );
+    let t = Transformation::new(|n: i64| Ok(n + 1), |n: i64| Ok(n - 1));
     assert_eq!(t.forward(1).unwrap(), 2);
     assert_eq!(t.backward(2).unwrap(), 1);
 }
@@ -88,9 +92,11 @@ fn getter_reads_array_index() {
 
 #[test]
 fn getter_map_threads_values() {
-    let g = Getter::key("a".to_string())
-        .map(|_| Ok(Unknown::Bool(true)));
-    assert_eq!(g.read(&obj(&[("a", text("1"))])).unwrap(), Unknown::Bool(true));
+    let g = Getter::key("a".to_string()).map(|_| Ok(Unknown::Bool(true)));
+    assert_eq!(
+        g.read(&obj(&[("a", text("1"))])).unwrap(),
+        Unknown::Bool(true)
+    );
 }
 
 #[test]
@@ -108,7 +114,13 @@ fn tree_record_duplicate_paths_keep_arrays() {
         (vec![Segment::Key("permissions".to_string())], arr("write")),
         (vec![Segment::Key("permissions".to_string())], arr("share")),
     ]);
-    assert_eq!(out, obj(&[("permissions", Unknown::Array(vec![text("read"), text("write"), text("share")]))]));
+    assert_eq!(
+        out,
+        obj(&[(
+            "permissions",
+            Unknown::Array(vec![text("read"), text("write"), text("share")])
+        )])
+    );
 }
 
 #[test]
@@ -153,10 +165,7 @@ fn tree_record_missing_middles_initialize() {
 
 #[test]
 fn tree_record_bad_index_stays_object_key() {
-    let out = make_tree_record(vec![(
-        vec![Segment::Key("k".to_string())],
-        text("v"),
-    )]);
+    let out = make_tree_record(vec![(vec![Segment::Key("k".to_string())], text("v"))]);
     assert_eq!(out, obj(&[("k", text("v"))]));
 }
 
@@ -206,9 +215,10 @@ fn tree_record_form_paths() {
     ]);
     assert_eq!(
         out,
-        obj(&[("a", Unknown::Array(vec![
-            obj(&[("b", text("1")), ("c", text("2"))]),
-        ]))])
+        obj(&[(
+            "a",
+            Unknown::Array(vec![obj(&[("b", text("1")), ("c", text("2"))]),])
+        )])
     );
     // `__proto__` and `constructor` are plain own keys: no prototype
     // chain exists in this model, so nothing is traversed or skipped.
@@ -224,8 +234,14 @@ fn tree_record_form_paths() {
 
 #[test]
 fn datetime_utc_from_inputs() {
-    assert_eq!(datetime_utc_from_input("2024-01-01 01:00:00").unwrap(), 1704070800000);
-    assert_eq!(datetime_utc_from_input("2020-02-01T11:17:00+1100").unwrap(), 1580516220000);
+    assert_eq!(
+        datetime_utc_from_input("2024-01-01 01:00:00").unwrap(),
+        1704070800000
+    );
+    assert_eq!(
+        datetime_utc_from_input("2020-02-01T11:17:00+1100").unwrap(),
+        1580516220000
+    );
     assert_eq!(
         datetime_utc_from_input("Tue, 27 Jan 2026 17:14:06 GMT").unwrap(),
         1769534046000
@@ -241,7 +257,12 @@ fn parser_type_side_and_options() {
     let s = Schema::string();
     assert!(Parser::is(&s, &text("hi")));
     assert!(!Parser::is(&s, &Unknown::Bool(true)));
-    assert_eq!(ParseOptions::default(), ParseOptions { preserve_excess: false });
+    assert_eq!(
+        ParseOptions::default(),
+        ParseOptions {
+            preserve_excess: false
+        }
+    );
 }
 
 #[test]
@@ -261,10 +282,7 @@ fn parser_decode_all_collects_vec() {
 
 #[test]
 fn parser_decode_fields_accumulates() {
-    let fields = [
-        ("a", Schema::string()),
-        ("b", Schema::string()),
-    ];
+    let fields = [("a", Schema::string()), ("b", Schema::string())];
     let input = obj(&[("a", text("ok"))]);
     let errs = Parser::decode_fields(&fields, &input).unwrap_err();
     assert_eq!(errs.len(), 1);
@@ -316,7 +334,10 @@ fn channel_chunks_round_trip() {
     let c = ChannelSchema::new(Schema::string());
     let out = c.decode_chunk(vec![text("a"), text("b")]).unwrap();
     assert_eq!(out, vec!["a".to_string(), "b".to_string()]);
-    assert!(c.decode_chunk(vec![text("a"), Unknown::Bool(true)]).is_err());
+    assert!(
+        c.decode_chunk(vec![text("a"), Unknown::Bool(true)])
+            .is_err()
+    );
     let back = c.encode_chunk(&["a".to_string()]);
     assert_eq!(back, vec![text("a")]);
 }
@@ -336,4 +357,133 @@ fn branded_checks_refinement() {
 fn branded_empty_map_has_no_constraints() {
     let m: BTreeMap<String, Unknown> = BTreeMap::new();
     assert_eq!(Unknown::Object(m.clone()), Unknown::Object(m));
+}
+
+#[test]
+fn double_text_number_flag_round_trips() {
+    use elm_effect_schema::SchemaError;
+    let parse = Transformation::new(
+        |u: Unknown| match u {
+            Unknown::Text(s) => match s.trim().parse::<f64>() {
+                Ok(n) if n.is_finite() => Ok(Unknown::Number(n)),
+                _ => Err(SchemaError::TypeMismatch {
+                    path: String::new(),
+                    expected: "a finite number",
+                    got: "text",
+                }),
+            },
+            other => Err(SchemaError::TypeMismatch {
+                path: String::new(),
+                expected: "text",
+                got: other.kind(),
+            }),
+        },
+        |u: Unknown| match u {
+            Unknown::Number(n) => Ok(Unknown::Text(n.to_string())),
+            other => Err(SchemaError::TypeMismatch {
+                path: String::new(),
+                expected: "number",
+                got: other.kind(),
+            }),
+        },
+    );
+    let flag = Transformation::new(
+        |u: Unknown| match u {
+            Unknown::Number(n) => Ok(Unknown::Bool(n != 0.0)),
+            other => Err(SchemaError::TypeMismatch {
+                path: String::new(),
+                expected: "number",
+                got: other.kind(),
+            }),
+        },
+        |u: Unknown| match u {
+            Unknown::Bool(b) => Ok(Unknown::Number(if b { 1.0 } else { 0.0 })),
+            other => Err(SchemaError::TypeMismatch {
+                path: String::new(),
+                expected: "boolean",
+                got: other.kind(),
+            }),
+        },
+    );
+    let double = parse.pipe(flag);
+    assert_eq!(double.forward(text("2")).unwrap(), Unknown::Bool(true));
+    assert_eq!(double.forward(text("0")).unwrap(), Unknown::Bool(false));
+    assert_eq!(double.backward(Unknown::Bool(true)).unwrap(), text("1"));
+}
+
+#[test]
+fn double_with_checks_rejects_between_steps() {
+    use elm_effect_schema::SchemaError;
+    let parse = Transformation::new(
+        |u: Unknown| match u {
+            Unknown::Text(s) => match s.trim().parse::<f64>() {
+                Ok(n) if n.is_finite() => Ok(Unknown::Number(n)),
+                _ => Err(SchemaError::TypeMismatch {
+                    path: String::new(),
+                    expected: "a finite number",
+                    got: "text",
+                }),
+            },
+            other => Err(SchemaError::TypeMismatch {
+                path: String::new(),
+                expected: "text",
+                got: other.kind(),
+            }),
+        },
+        |u: Unknown| Ok(u),
+    );
+    let positive = Transformation::new(
+        |u: Unknown| match u {
+            Unknown::Number(n) if n > 0.0 => Ok(Unknown::Number(n)),
+            _ => Err(SchemaError::TypeMismatch {
+                path: String::new(),
+                expected: "a positive number",
+                got: "number",
+            }),
+        },
+        |u: Unknown| Ok(u),
+    );
+    let checked = parse.pipe(positive);
+    assert_eq!(checked.forward(text("3")).unwrap(), Unknown::Number(3.0));
+    let err = checked.forward(text("-1")).unwrap_err().to_string();
+    assert!(err.contains("positive"), "second-step check names itself: {err}");
+}
+
+#[test]
+fn double_failure_reports_first_failing_step() {
+    use elm_effect_schema::SchemaError;
+    let parse = Transformation::new(
+        |u: Unknown| match u {
+            Unknown::Text(s) => match s.trim().parse::<f64>() {
+                Ok(n) if n.is_finite() => Ok(Unknown::Number(n)),
+                _ => Err(SchemaError::TypeMismatch {
+                    path: String::new(),
+                    expected: "a finite number",
+                    got: "text",
+                }),
+            },
+            other => Err(SchemaError::TypeMismatch {
+                path: String::new(),
+                expected: "text",
+                got: other.kind(),
+            }),
+        },
+        |u: Unknown| Ok(u),
+    );
+    let flag = Transformation::new(
+        |u: Unknown| match u {
+            Unknown::Number(n) => Ok(Unknown::Bool(n != 0.0)),
+            other => Err(SchemaError::TypeMismatch {
+                path: String::new(),
+                expected: "number",
+                got: other.kind(),
+            }),
+        },
+        |u: Unknown| Ok(u),
+    );
+    let double = parse.pipe(flag);
+    let err = double.forward(text("nope")).unwrap_err().to_string();
+    assert!(err.contains("finite"), "first-step failure surfaces: {err}");
+    let err = double.forward(Unknown::Null).unwrap_err().to_string();
+    assert!(err.contains("text"), "wrong input shape fails fast: {err}");
 }
