@@ -377,3 +377,30 @@ fn trie_modify_many_and_longest_prefix() {
     );
     assert_eq!(prefixed.longest_prefix_of("q"), None);
 }
+
+#[test]
+fn hash_map_unsafe_and_flat_map() {
+    // HashMap.test.ts:111 - getUnsafe returns existing values.
+    let m = HashMap::make([("a".to_owned(), 1), ("b".to_owned(), 2)]);
+    assert_eq!(*m.get_unsafe(&"a".to_owned()), 1);
+    assert_eq!(*m.get_unsafe(&"b".to_owned()), 2);
+    // :117 - getUnsafe panics with a tagged message when absent.
+    let single = HashMap::make([("a".to_owned(), 1)]);
+    let absent = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        single.get_unsafe(&"b".to_owned())
+    }));
+    let message = absent.unwrap_err();
+    let message = message
+        .downcast_ref::<String>()
+        .cloned()
+        .or_else(|| message.downcast_ref::<&str>().map(|s| s.to_string()))
+        .unwrap_or_default();
+    assert!(message.contains("HashMap.getUnsafe"));
+    // :285 - flatMap merges one map per entry.
+    let flat = m.flat_map(|v, k| HashMap::make([(k.clone() + "1", *v), (k.clone() + "2", v * 2)]));
+    assert_eq!(flat.size(), 4);
+    assert_eq!(flat.get(&"a1".to_owned()), Some(&1));
+    assert_eq!(flat.get(&"a2".to_owned()), Some(&2));
+    assert_eq!(flat.get(&"b1".to_owned()), Some(&2));
+    assert_eq!(flat.get(&"b2".to_owned()), Some(&4));
+}

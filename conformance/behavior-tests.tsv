@@ -2056,8 +2056,8 @@ unported	packages/effect/test/HashMap.test.ts	71	it	set - new key
 unported	packages/effect/test/HashMap.test.ts	82	it	set - existing key	
 unported	packages/effect/test/HashMap.test.ts	92	it	remove - existing key	
 unported	packages/effect/test/HashMap.test.ts	104	it	remove - non-existing key	
-unported	packages/effect/test/HashMap.test.ts	111	it	getUnsafe - existing key	
-unported	packages/effect/test/HashMap.test.ts	117	it	getUnsafe - non-existing key	
+ported	packages/effect/test/HashMap.test.ts	111	it	getUnsafe - existing key	hash_map_unsafe_and_flat_map
+ported	packages/effect/test/HashMap.test.ts	117	it	getUnsafe - non-existing key	hash_map_unsafe_and_flat_map
 unported	packages/effect/test/HashMap.test.ts	124	it	keys	
 unported	packages/effect/test/HashMap.test.ts	130	it	values	
 unported	packages/effect/test/HashMap.test.ts	136	it	toValues	
@@ -2072,7 +2072,7 @@ unported	packages/effect/test/HashMap.test.ts	235	it	setMany - pipe syntax
 unported	packages/effect/test/HashMap.test.ts	244	it	setMany - different iterables	
 unported	packages/effect/test/HashMap.test.ts	264	it	union	
 unported	packages/effect/test/HashMap.test.ts	276	it	map	
-unported	packages/effect/test/HashMap.test.ts	285	it	flatMap	
+ported	packages/effect/test/HashMap.test.ts	285	it	flatMap	hash_map_unsafe_and_flat_map
 unported	packages/effect/test/HashMap.test.ts	297	it	filter	
 unported	packages/effect/test/HashMap.test.ts	307	it	compact	
 unported	packages/effect/test/HashMap.test.ts	320	it	filterMap	

@@ -46,6 +46,12 @@ where
         self.inner.get(key)
     }
 
+    /// Value for `key`, panicking with a tagged message when absent.
+    pub fn get_unsafe(&self, key: &K) -> &V {
+        self.get(key)
+            .unwrap_or_else(|| panic!("HashMap.getUnsafe: key not found"))
+    }
+
     /// `true` when `key` is present.
     pub fn has(&self, key: &K) -> bool {
         self.inner.contains_key(key)
@@ -143,6 +149,19 @@ where
         HashMap {
             inner: self.inner.iter().map(|(k, v)| (k.clone(), f(v))).collect(),
         }
+    }
+
+    /// New map merging one map per entry.
+    pub fn flat_map<W>(&self, f: impl Fn(&V, &K) -> HashMap<K, W>) -> HashMap<K, W> {
+        let mut out = HashMap {
+            inner: StdMap::new(),
+        };
+        for (key, value) in self.inner.iter() {
+            for (key, value) in f(value, key).inner {
+                out.inner.insert(key, value);
+            }
+        }
+        out
     }
 
     /// New map keeping entries that satisfy `f`.
