@@ -18,6 +18,46 @@ pub trait Lookup {
     fn get(&self, path: &[String]) -> Option<String>;
 }
 
+fn constant_case_path(path: &[String]) -> Vec<String> {
+    path.iter().map(|s| constant_case_segment(s)).collect()
+}
+
+fn constant_case_segment(segment: &str) -> String {
+    let mut words: Vec<String> = Vec::new();
+    let mut current = String::new();
+    let flush = |current: &mut String, words: &mut Vec<String>| {
+        if !current.is_empty() {
+            words.push(std::mem::take(current));
+        }
+    };
+    let chars: Vec<char> = segment.chars().collect();
+    let mut i = 0;
+    while i < chars.len() {
+        let c = chars[i];
+        if !c.is_alphanumeric() {
+            flush(&mut current, &mut words);
+            i += 1;
+            continue;
+        }
+        let boundary = if c.is_uppercase() && !current.is_empty() {
+            let prev = current.chars().next_back().unwrap_or('\0');
+            let next = chars.get(i + 1).copied();
+            prev.is_lowercase()
+                || prev.is_numeric()
+                || (prev.is_uppercase() && matches!(next, Some(n) if n.is_lowercase()))
+        } else {
+            false
+        };
+        if boundary {
+            flush(&mut current, &mut words);
+        }
+        current.push(c);
+        i += 1;
+    }
+    flush(&mut current, &mut words);
+    words.join("_").to_uppercase()
+}
+
 /// Layered key/value lookup for [`Config`](super::Config) descriptors.
 /// (Loaded by path; `super::` resolves under both layouts.)
 #[derive(Clone, Debug, Default)]
@@ -117,6 +157,16 @@ impl Provider {
         F: Fn(&[String]) -> Vec<String>,
     {
         Mapped { inner: self, map }
+    }
+
+    /// Map lookup paths to CONSTANT_CASE (`constantCase`): segments split
+    /// on non-alphanumerics and camel boundaries (numeric groups stay
+    /// attached), then join with `_` uppercased.
+    pub fn constant_case(&self) -> Mapped<'_, fn(&[String]) -> Vec<String>> {
+        Mapped {
+            inner: self,
+            map: constant_case_path,
+        }
     }
 
     /// Build from a lookup function (`make`): `None` reads as absent.

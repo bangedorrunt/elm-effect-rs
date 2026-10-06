@@ -826,3 +826,39 @@ fn provider_map_input_prefixes_lookups() {
         Value::Str("3000".to_string())
     );
 }
+
+#[test]
+fn provider_constant_case_converts_segments() {
+    let base0 = provider(&[("CONSTANT_CASE", "value1")]);
+    let cc = base0.constant_case();
+    assert_eq!(
+        cc.get(&["constant.case".to_string()]),
+        Some("value1".to_string())
+    );
+    let base = provider(&[("API_V2_XML", "value1"), ("FIELD2_VALUE", "value2")]);
+    let ncc = base.constant_case();
+    assert_eq!(
+        ncc.get(&["api-v2 xml".to_string()]),
+        Some("value1".to_string())
+    );
+    assert_eq!(
+        ncc.get(&["field2Value".to_string()]),
+        Some("value2".to_string())
+    );
+    let items_base = provider(&[("ITEMS.0", "value")]);
+    let items = items_base.constant_case();
+    assert_eq!(
+        items.get(&["items".to_string(), "0".to_string()]),
+        Some("value".to_string())
+    );
+}
+
+#[test]
+fn provider_nested_dotted_numeric_prefix() {
+    let base = provider(&[("apps.0.PORT", "3000")]);
+    let nested = base.nested("apps.0");
+    assert_eq!(
+        nested.get(&["PORT".to_string()]),
+        Some("3000".to_string())
+    );
+}
