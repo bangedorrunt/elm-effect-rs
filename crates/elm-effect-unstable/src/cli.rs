@@ -445,6 +445,8 @@ pub mod primitive {
     pub const CHOICE_TAG: &str = "Choice";
     /// Tag of the path primitive.
     pub const PATH_TAG: &str = "Path";
+    /// Tag of the redacted primitive.
+    pub const REDACTED_TAG: &str = "Redacted";
 
     /// Parse `true/1/y/yes/on` and `false/0/n/no/off`, rejecting anything else.
     pub fn parse_bool(text: &str) -> Result<bool, String> {
@@ -526,6 +528,36 @@ pub mod primitive {
             return Err(format!("Path does not exist: {resolved}"));
         }
         Ok(resolved)
+    }
+
+    /// A parsed secret: renders as `<redacted>`, never the bytes
+    /// (`Primitive.Redacted`; mirrors the unwired core `Redacted`
+    /// until it joins the library tree).
+    #[derive(Clone, PartialEq, Eq)]
+    pub struct RedactedString(String);
+
+    impl RedactedString {
+        /// Read the secret bytes back.
+        pub fn value(&self) -> &str {
+            &self.0
+        }
+    }
+
+    impl std::fmt::Debug for RedactedString {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str("<redacted>")
+        }
+    }
+
+    impl std::fmt::Display for RedactedString {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str("<redacted>")
+        }
+    }
+
+    /// Parse a secret (every input is valid; the wrapper hides it).
+    pub fn parse_redacted(text: &str) -> RedactedString {
+        RedactedString(text.to_owned())
     }
 }
 

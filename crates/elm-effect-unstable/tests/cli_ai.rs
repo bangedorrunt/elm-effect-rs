@@ -915,3 +915,19 @@ fn primitive_path_resolution() {
     assert_eq!(missing_dir, "Path does not exist: /non/existent/dir");
     assert!(primitive::parse_path(manifest, PathKind::Directory, true).is_ok());
 }
+
+#[test]
+fn primitive_redacted_hides_values() {
+    use elm_effect_unstable::cli::primitive;
+    // Primitive.test.ts:323 - secrets parse and render redacted.
+    let secret = primitive::parse_redacted("secret-value");
+    assert_eq!(secret.value(), "secret-value");
+    assert_eq!(format!("{secret}"), "<redacted>");
+    assert_eq!(format!("{secret:?}"), "<redacted>");
+    // :332 - tag.
+    assert_eq!(primitive::REDACTED_TAG, "Redacted");
+    // :336 - empty strings parse too.
+    let empty = primitive::parse_redacted("");
+    assert_eq!(empty.value(), "");
+    assert_eq!(format!("{empty}"), "<redacted>");
+}
