@@ -772,6 +772,82 @@ pub mod primitive {
             Some((key, value)) => Ok((key.to_owned(), value.to_owned())),
         }
     }
+    /// A string option descriptor: long name plus whether absence fails.
+    #[derive(Clone, Debug, PartialEq, Eq)]
+    pub struct StrOption {
+        /// Long name without dashes.
+        pub name: String,
+        /// Fail with `MissingOption` when absent.
+        pub required: bool,
+    }
+
+    /// Parsed options: bound values plus accumulated recognition errors.
+    #[derive(Clone, Debug, PartialEq, Eq)]
+    pub struct ParsedOptions {
+        /// Bound `name -> value` pairs in argv order.
+        pub values: Vec<(String, String)>,
+        /// Unknown flags in argv order (fatal only via `MissingOption`).
+        pub errors: Vec<super::CliError>,
+    }
+
+    /// Parse `--name value` (`--name=value` too) against string
+    /// descriptors: unknown flags accumulate, absent required flags
+    /// fail. Positionals belong to the Args layer and are skipped.
+    pub fn parse_options(
+        descriptors: &[StrOption],
+        argv: &[String],
+    ) -> Result<ParsedOptions, super::CliError> {
+        let mut values = Vec::new();
+        let mut errors = Vec::new();
+        let mut index = 0;
+        while index < argv.len() {
+            let arg = &argv[index];
+            index += 1;
+            let Some(flag) = arg.strip_prefix("--") else {
+                continue;
+            };
+            let (name, inline) = match flag.split_once('=') {
+                Some((name, value)) => (name, Some(value.to_owned())),
+                None => (flag, None),
+            };
+            let known = descriptors.iter().any(|d| d.name == name);
+            if !known {
+                errors.push(super::CliError::UnrecognizedOption {
+                    option: name.to_owned(),
+                    command: None,
+                    suggestions: Vec::new(),
+                });
+                continue;
+            }
+            let value = match inline {
+                Some(value) => value,
+                None => match argv.get(index).filter(|next| !next.starts_with("--")) {
+                    Some(value) => {
+                        index += 1;
+                        value.clone()
+                    }
+                    None => {
+                        return Err(super::CliError::InvalidValue {
+                            option: name.to_owned(),
+                            value: String::new(),
+                            expected: "a value".to_owned(),
+                            kind: "option".to_owned(),
+                        });
+                    }
+                },
+            };
+            values.push((name.to_owned(), value));
+        }
+        match descriptors
+            .iter()
+            .find(|d| d.required && !values.iter().any(|(name, _)| name == &d.name))
+        {
+            Some(missing) => Err(super::CliError::MissingOption {
+                option: missing.name.clone(),
+            }),
+            None => Ok(ParsedOptions { values, errors }),
+        }
+    }
 }
 
 /// Cause carried by a [`UserError`]: text, an error message, or an

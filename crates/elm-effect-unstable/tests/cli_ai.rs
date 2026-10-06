@@ -1021,3 +1021,38 @@ fn primitive_file_text_and_json() {
     assert!(primitive::parse_file_text("/non/existent/file.txt").is_err());
     std::fs::remove_file(&path).ok();
 }
+
+#[test]
+fn options_parser_missing_and_unknown() {
+    use elm_effect_unstable::cli::primitive::{self, StrOption};
+    use elm_effect_unstable::cli::CliError;
+    let required = StrOption {
+        name: "value".to_owned(),
+        required: true,
+    };
+    // Errors.test.ts:38 - an absent required flag fails.
+    let missing = primitive::parse_options(&[required.clone()], &[]).expect_err("fails");
+    assert!(matches!(missing, CliError::MissingOption { ref option } if option == "value"));
+    // Present values bind.
+    let bound = primitive::parse_options(
+        &[required],
+        &["--value".to_owned(), "x".to_owned()],
+    )
+    .expect("binds");
+    assert_eq!(bound.values, [("value".to_owned(), "x".to_owned())]);
+    assert!(bound.errors.is_empty());
+    // Errors.test.ts:89 - unknown flags accumulate instead of failing.
+    let collected = primitive::parse_options(
+        &[StrOption {
+            name: "verbose".to_owned(),
+            required: false,
+        }],
+        &["--unknown1".to_owned(), "--unknown2".to_owned()],
+    )
+    .expect("collects");
+    assert_eq!(collected.errors.len(), 2);
+    assert!(collected.errors.iter().all(|error| matches!(
+        error,
+        CliError::UnrecognizedOption { .. }
+    )));
+}
