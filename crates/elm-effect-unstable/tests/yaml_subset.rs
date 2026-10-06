@@ -188,3 +188,22 @@ fn parses_indentless_sequences() {
         assert_eq!(yaml::parse(source).expect("parses"), expected, "{source:?}");
     }
 }
+
+#[test]
+fn folds_plain_multiline_scalars() {
+    // Yaml.test.ts:220 - plain scalars fold across lines around comments.
+    let parsed = yaml::parse(
+        "description: Deploy\n  and verify. # end\n# between keys\nenabled: true\n",
+    )
+    .expect("parses");
+    assert_eq!(
+        parsed,
+        yaml::YamlValue::Map(vec![
+            (
+                "description".to_owned(),
+                yaml::YamlValue::Text("Deploy and verify.".to_owned())
+            ),
+            ("enabled".to_owned(), yaml::YamlValue::Bool(true)),
+        ])
+    );
+}

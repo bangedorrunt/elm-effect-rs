@@ -6333,7 +6333,7 @@ ported	packages/effect/test/encoding/Yaml.test.ts	92	it	resolves aliases	resolve
 ported	packages/effect/test/encoding/Yaml.test.ts	108	it	rejects invalid indentation	rejects_invalid_indentation
 unported	packages/effect/test/encoding/Yaml.test.ts	114	it.each	parses $name	
 unported	packages/effect/test/encoding/Yaml.test.ts	163	it.each	folds %s	
-unported	packages/effect/test/encoding/Yaml.test.ts	220	it	ends plain scalars at sibling keys after terminating comments	
+ported	packages/effect/test/encoding/Yaml.test.ts	220	it	ends plain scalars at sibling keys after terminating comments	folds_plain_multiline_scalars
 unported	packages/effect/test/encoding/Yaml.test.ts	227	it	folds plain sequence items	
 unported	packages/effect/test/encoding/Yaml.test.ts	233	it.each	rejects %s	
 unported	packages/effect/test/encoding/Yaml.test.ts	253	it	preserves numeric decoding and quoted colon content	

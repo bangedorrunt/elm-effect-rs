@@ -79,6 +79,21 @@ fn strip_inline_comment(value: &str) -> String {
     value[..cut].trim_end().to_owned()
 }
 
+/// True for lines that start nested structure rather than continuing
+/// a plain scalar.
+fn is_structural_line(line: &str) -> bool {
+    line.starts_with("- ")
+        || line == "-"
+        || line.starts_with('|')
+        || line.starts_with('>')
+        || line.starts_with('&')
+        || line.starts_with('*')
+        || line.starts_with('[')
+        || line.starts_with('{')
+        || line.contains(": ")
+        || line.ends_with(':')
+}
+
 /// Split a leading `&name` anchor from its remainder.
 fn split_anchor(value: &str) -> Option<(String, String)> {
     let rest = value.strip_prefix('&')?;
@@ -259,7 +274,19 @@ impl Parser {
         } else if is_block_header(&value) {
             self.parse_block_scalar(indent, value)
         } else {
-            parse_inline(&value)
+            let mut text = value;
+            // Plain scalars fold deeper-indented non-structural lines.
+            if !text.starts_with(|c| c == '"' || c == '\'' || c == '[' || c == '{') {
+                while let Some((next_indent, next_line)) = self.peek().cloned() {
+                    if next_indent <= indent || is_structural_line(&next_line) {
+                        break;
+                    }
+                    self.cursor += 1;
+                    text.push(' ');
+                    text.push_str(&strip_inline_comment(&next_line));
+                }
+            }
+            parse_inline(&text)
         }
     }
 
