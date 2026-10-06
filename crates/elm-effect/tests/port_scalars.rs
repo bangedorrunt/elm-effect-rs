@@ -921,3 +921,18 @@ fn string_index_access() {
     // :324 - none out of bounds.
     assert_eq!(string::char_at("abc", 10), None);
 }
+
+#[test]
+fn string_char_access() {
+    // String.test.ts:330 - character at index, data-first.
+    assert_eq!(string::char_at("abc", 1).map(|c| c.to_string()), Some("b".to_owned()));
+    // :334 - data-last through a closure.
+    let at_one = |s: &str| string::char_at(s, 1).map(|c| c.to_string());
+    assert_eq!(at_one("abc"), Some("b".to_owned()));
+    // :338 - none out of bounds.
+    assert_eq!(string::char_at("abc", 10), None);
+    // :345 - code point at index.
+    assert_eq!(string::code_point_at("abc", 1), Some(98));
+    // :348 - none out of bounds.
+    assert_eq!(string::code_point_at("abc", 10), None);
+}

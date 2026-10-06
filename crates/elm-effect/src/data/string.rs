@@ -283,6 +283,12 @@ pub fn char_at(s: &str, index: usize) -> Option<char> {
     s.chars().nth(index)
 }
 
+/// Unicode scalar at a char index, if any (`codePointAt`; full points,
+/// never lone surrogates).
+pub fn code_point_at(s: &str, index: usize) -> Option<u32> {
+    s.chars().nth(index).map(|c| c as u32)
+}
+
 /// Char-range slice with JS `substring` semantics: negatives count as
 /// zero, inverted ends swap, an omitted end runs out.
 pub fn substring(s: &str, start: i64, end: Option<i64>) -> String {

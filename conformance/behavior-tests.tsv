@@ -3912,11 +3912,11 @@ ported	packages/effect/test/String.test.ts	310	it	extracts characters between in
 ported	packages/effect/test/String.test.ts	314	it	extracts from start to end	string_index_access
 ported	packages/effect/test/String.test.ts	320	it	returns character at index	string_index_access
 ported	packages/effect/test/String.test.ts	324	it	returns none for out of bounds	string_index_access
-unported	packages/effect/test/String.test.ts	330	it	returns character at index (data-first)	
-unported	packages/effect/test/String.test.ts	334	it	returns character at index (data-last)	
-unported	packages/effect/test/String.test.ts	338	it	returns none for out of bounds	
+ported	packages/effect/test/String.test.ts	330	it	returns character at index (data-first)	string_char_access
+ported	packages/effect/test/String.test.ts	334	it	returns character at index (data-last)	string_char_access
+ported	packages/effect/test/String.test.ts	338	it	returns none for out of bounds	string_char_access
 unported	packages/effect/test/String.test.ts	344	it	returns code point at index	
-unported	packages/effect/test/String.test.ts	348	it	returns none for out of bounds	
+ported	packages/effect/test/String.test.ts	348	it	returns none for out of bounds	string_char_access
 unported	packages/effect/test/String.test.ts	352	it	handles surrogate pairs	
 unported	packages/effect/test/String.test.ts	358	it	returns index of first occurrence	
 unported	packages/effect/test/String.test.ts	362	it	returns none when not found	
