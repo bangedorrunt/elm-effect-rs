@@ -5770,8 +5770,8 @@ ported	packages/effect/test/cli/Primitive.test.ts	346	it.effect	should preserve 
 ported	packages/effect/test/cli/Primitive.test.ts	356	it.effect	should preserve trailing '=' in padded values	primitive_key_value_pairs
 ported	packages/effect/test/cli/Primitive.test.ts	362	it.effect	should fail when the input is malformed	primitive_key_value_pairs
 unported	packages/effect/test/cli/Primitive.test.ts	375	it.effect	file constructors preserve text, parsed content, and schema decoding	
-unported	packages/effect/test/cli/Primitive.test.ts	394	it	Never has the matching primitive tag	
-unported	packages/effect/test/cli/Primitive.test.ts	398	it.effect	Never remains an always-failing sentinel	
+ported	packages/effect/test/cli/Primitive.test.ts	394	it	Never has the matching primitive tag	primitive_never_rejects_all
+ported	packages/effect/test/cli/Primitive.test.ts	398	it.effect	Never remains an always-failing sentinel	primitive_never_rejects_all
 unported	packages/effect/test/cli/Prompt.test.ts	53	it.effect	renders two-digit years, teen ordinals, and noon meridiem correctly	
 unported	packages/effect/test/cli/Prompt.test.ts	67	it.effect	starts a fresh typed buffer when Tab advances to the next field	
 unported	packages/effect/test/cli/Prompt.test.ts	80	it.effect	starts a fresh typed buffer when Tab wraps to the first field	

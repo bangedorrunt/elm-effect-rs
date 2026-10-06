@@ -966,3 +966,15 @@ fn primitive_key_value_pairs() {
         assert_eq!(primitive::parse_key_value(text).expect_err("rejects"), want);
     }
 }
+
+#[test]
+fn primitive_never_rejects_all() {
+    use elm_effect_unstable::cli::primitive;
+    // Primitive.test.ts:394 - tag.
+    assert_eq!(primitive::NEVER_TAG, "Never");
+    // :398 - every input fails with the pinned message.
+    assert_eq!(
+        primitive::parse_never("value").expect_err("rejects"),
+        "This option does not accept values"
+    );
+}

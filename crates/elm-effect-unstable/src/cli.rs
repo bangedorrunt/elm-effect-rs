@@ -447,6 +447,8 @@ pub mod primitive {
     pub const PATH_TAG: &str = "Path";
     /// Tag of the redacted primitive.
     pub const REDACTED_TAG: &str = "Redacted";
+    /// Tag of the never primitive.
+    pub const NEVER_TAG: &str = "Never";
 
     /// Parse `true/1/y/yes/on` and `false/0/n/no/off`, rejecting anything else.
     pub fn parse_bool(text: &str) -> Result<bool, String> {
@@ -558,6 +560,11 @@ pub mod primitive {
     /// Parse a secret (every input is valid; the wrapper hides it).
     pub fn parse_redacted(text: &str) -> RedactedString {
         RedactedString(text.to_owned())
+    }
+
+    /// Reject every input: the always-failing sentinel.
+    pub fn parse_never(_text: &str) -> Result<String, String> {
+        Err("This option does not accept values".to_owned())
     }
 
     /// Parse `key=value` on the first `=`; both sides must be non-empty.
