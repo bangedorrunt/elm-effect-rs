@@ -597,3 +597,33 @@ fn user_error_message_fallback_chain() {
     // :339 - the runtime reports user errors before rendering.
     assert!(UserError::new(UserCause::Text("failed".to_owned())).is_error_reported());
 }
+
+#[test]
+fn primitive_value_parsers() {
+    use elm_effect_unstable::cli::primitive;
+    // Primitive.test.ts:65/66 - true values.
+    for text in ["true", "1", "y", "yes", "on"] {
+        assert_eq!(primitive::parse_bool(text), Ok(true), "{text}");
+    }
+    // :75 - false values.
+    for text in ["false", "0", "n", "no", "off"] {
+        assert_eq!(primitive::parse_bool(text), Ok(false), "{text}");
+    }
+    // :84 - anything else fails with the expected set.
+    assert_eq!(
+        primitive::parse_bool("invalid"),
+        Err("Expected \"true\" | \"yes\" | \"on\" | \"1\" | \"y\" | \"false\" | \"no\" | \"off\" | \"0\" | \"n\"".to_owned())
+    );
+    // :91/:121 - tags.
+    assert_eq!(primitive::BOOLEAN_TAG, "Boolean");
+    assert_eq!(primitive::FINITE_TAG, "Finite");
+    // :98/99 - finite numbers parse.
+    for (text, want) in [("42", 42.0), ("3.14", 3.14), ("-42.5", -42.5), ("0", 0.0), ("1e3", 1000.0)] {
+        assert_eq!(primitive::parse_finite(text), Ok(want), "{text}");
+    }
+    // :108/:113 - the rest fail naming finite numbers.
+    for text in ["not-a-number", "NaN", "Infinity", "-Infinity", "1e309"] {
+        let err = primitive::parse_finite(text).expect_err("rejects");
+        assert!(err.contains("finite number"), "{text}");
+    }
+}

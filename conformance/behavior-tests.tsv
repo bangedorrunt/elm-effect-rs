@@ -5730,16 +5730,16 @@ unported	packages/effect/test/cli/Param.test.ts	492	it.effect	uses flag values b
 unported	packages/effect/test/cli/Param.test.ts	516	it.effect	uses ConfigProvider when an argument is missing	
 unported	packages/effect/test/cli/Param.test.ts	540	it.effect	returns MissingOption when config is missing	
 unported	packages/effect/test/cli/Param.test.ts	562	it.effect	returns InvalidValue when config fails to parse	
-unported	packages/effect/test/cli/Primitive.test.ts	65	it.layer	should parse true values correctly	
-unported	packages/effect/test/cli/Primitive.test.ts	66	it.effect	should parse true values correctly	
-unported	packages/effect/test/cli/Primitive.test.ts	75	it.effect	should parse false values correctly	
-unported	packages/effect/test/cli/Primitive.test.ts	84	it.effect	should fail for invalid values	
-unported	packages/effect/test/cli/Primitive.test.ts	91	it	should have correct _tag	
-unported	packages/effect/test/cli/Primitive.test.ts	98	it.layer	should parse valid finite numbers	
-unported	packages/effect/test/cli/Primitive.test.ts	99	it.effect	should parse valid finite numbers	
-unported	packages/effect/test/cli/Primitive.test.ts	108	it.effect	should fail for invalid values	
-unported	packages/effect/test/cli/Primitive.test.ts	113	it.effect	should reject non-finite numbers and overflow	
-unported	packages/effect/test/cli/Primitive.test.ts	121	it	should have correct _tag	
+ported	packages/effect/test/cli/Primitive.test.ts	65	it.layer	should parse true values correctly	primitive_value_parsers
+ported	packages/effect/test/cli/Primitive.test.ts	66	it.effect	should parse true values correctly	primitive_value_parsers
+ported	packages/effect/test/cli/Primitive.test.ts	75	it.effect	should parse false values correctly	primitive_value_parsers
+ported	packages/effect/test/cli/Primitive.test.ts	84	it.effect	should fail for invalid values	primitive_value_parsers
+ported	packages/effect/test/cli/Primitive.test.ts	91	it	should have correct _tag	primitive_value_parsers
+ported	packages/effect/test/cli/Primitive.test.ts	98	it.layer	should parse valid finite numbers	primitive_value_parsers
+ported	packages/effect/test/cli/Primitive.test.ts	99	it.effect	should parse valid finite numbers	primitive_value_parsers
+ported	packages/effect/test/cli/Primitive.test.ts	108	it.effect	should fail for invalid values	primitive_value_parsers
+ported	packages/effect/test/cli/Primitive.test.ts	113	it.effect	should reject non-finite numbers and overflow	primitive_value_parsers
+ported	packages/effect/test/cli/Primitive.test.ts	121	it	should have correct _tag	primitive_value_parsers
 unported	packages/effect/test/cli/Primitive.test.ts	128	it.layer	should parse valid date values	
 unported	packages/effect/test/cli/Primitive.test.ts	129	it.effect	should parse valid date values	
 unported	packages/effect/test/cli/Primitive.test.ts	155	it.effect	should fail for invalid values	

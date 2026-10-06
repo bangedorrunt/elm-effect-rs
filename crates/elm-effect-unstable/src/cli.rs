@@ -345,6 +345,31 @@ pub fn lex_argv(argv: &[&str]) -> Lexed {
     }
 }
 
+/// Primitive CLI value parsers: the pure tables behind the option types.
+pub mod primitive {
+    /// Tag of the boolean primitive.
+    pub const BOOLEAN_TAG: &str = "Boolean";
+    /// Tag of the finite-number primitive.
+    pub const FINITE_TAG: &str = "Finite";
+
+    /// Parse `true/1/y/yes/on` and `false/0/n/no/off`, rejecting anything else.
+    pub fn parse_bool(text: &str) -> Result<bool, String> {
+        match text {
+            "true" | "1" | "y" | "yes" | "on" => Ok(true),
+            "false" | "0" | "n" | "no" | "off" => Ok(false),
+            _ => Err("Expected \"true\" | \"yes\" | \"on\" | \"1\" | \"y\" | \"false\" | \"no\" | \"off\" | \"0\" | \"n\"".to_owned()),
+        }
+    }
+
+    /// Parse a finite number, rejecting the rest with a tagged message.
+    pub fn parse_finite(text: &str) -> Result<f64, String> {
+        match text.parse::<f64>() {
+            Ok(value) if value.is_finite() => Ok(value),
+            _ => Err("Expected a string representing a finite number".to_owned()),
+        }
+    }
+}
+
 /// Cause carried by a [`UserError`]: text, an error message, or an
 /// opaque value with no message to borrow.
 #[derive(Clone, Debug, PartialEq, Eq)]
