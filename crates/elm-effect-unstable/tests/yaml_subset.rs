@@ -207,3 +207,15 @@ fn folds_plain_multiline_scalars() {
         ])
     );
 }
+
+#[test]
+fn folds_plain_sequence_items() {
+    // Yaml.test.ts:227 - sequence items fold continuations too.
+    assert_eq!(
+        yaml::parse("- Deploy\n  and verify.\n- Finish\n").expect("parses"),
+        yaml::YamlValue::Seq(vec![
+            yaml::YamlValue::Text("Deploy and verify.".to_owned()),
+            yaml::YamlValue::Text("Finish".to_owned()),
+        ])
+    );
+}

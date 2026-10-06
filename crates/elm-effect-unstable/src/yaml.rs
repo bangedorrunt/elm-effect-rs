@@ -210,7 +210,7 @@ impl Parser {
                 pairs.extend(self.parse_map_rest(indent + 1)?);
                 Ok(YamlValue::Map(pairs))
             }
-            None => parse_inline(&rest),
+            None => self.inline_or_nested(indent, rest),
         }
     }
 
