@@ -819,3 +819,52 @@ fn net_addresses_format_socket_hosts_with_scope() {
         );
     }
 }
+
+#[test]
+fn net_addresses_format_native_hosts() {
+    use net::NetAddress;
+    use std::collections::BTreeMap;
+    // NetAddress.test.ts:604 - native hosts map scopes to interface names.
+    let scope_ids = NetAddress::scope_ids_from_interfaces(&[("en0", 7), ("en1", 7)]);
+    for platform in [None, Some("linux"), Some("darwin")] {
+        for (input, expected) in [
+            ("127.0.0.1:8080", "127.0.0.1"),
+            ("[0:0:0:0:0:0:0:1]:8080", "::1"),
+            ("[fe80::1%0]:4567", "fe80::1"),
+            ("[fe80::1%7]:4567", "fe80::1%en0"),
+            ("[fe80::1%9]:4567", "fe80::1%9"),
+        ] {
+            let address = NetAddress::socket_address_from_input(input).expect("valid");
+            let host = address
+                .format_native_host(&scope_ids, platform)
+                .expect("host");
+            assert_eq!(host, expected, "{input:?} on {platform:?}");
+            let port = address.port().expect("port");
+            assert_eq!(
+                NetAddress::socket_address_from_host_string(&host, u32::from(port), &scope_ids)
+                    .expect("rebuild"),
+                address,
+                "{input:?}"
+            );
+        }
+    }
+    // Windows keeps numeric scopes.
+    let scoped = NetAddress::socket_address_from_input("[fe80::1%7]:4567").expect("valid");
+    assert_eq!(
+        scoped
+            .format_native_host(&scope_ids, Some("win32"))
+            .as_deref(),
+        Some("fe80::1%7")
+    );
+    // Empty tables and direct tables behave.
+    let empty = BTreeMap::new();
+    assert_eq!(
+        scoped.format_native_host(&empty, Some("linux")).as_deref(),
+        Some("fe80::1%7")
+    );
+    let direct = BTreeMap::from([("eth0".to_owned(), 7u32)]);
+    assert_eq!(
+        scoped.format_native_host(&direct, Some("linux")).as_deref(),
+        Some("fe80::1%eth0")
+    );
+}

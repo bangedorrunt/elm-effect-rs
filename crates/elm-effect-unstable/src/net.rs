@@ -4,6 +4,7 @@
 //! (strict CIDR parsing, canonical text, first/last/count, address and
 //! network containment). Schema codecs are not modeled here.
 
+use std::collections::BTreeMap;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV6};
 
 /// A parsed CIDR network with host bits masked off.
@@ -907,6 +908,75 @@ impl NetAddress {
                 }
             }
         }
+    }
+
+    /// Build an interface-name to scope-id table from `(name, scope id)`
+    /// pairs (mirrors `scopeIdsFromInterfaces`, which extracts these from
+    /// OS interface records; pass the extracted pairs directly here).
+    pub fn scope_ids_from_interfaces(entries: &[(&str, u32)]) -> BTreeMap<String, u32> {
+        entries
+            .iter()
+            .map(|(name, scope_id)| ((*name).to_owned(), *scope_id))
+            .collect()
+    }
+
+    /// Native host text: nonzero scopes render as interface names when
+    /// known, except on `win32` which keeps numeric ids (TS
+    /// `formatNativeHost`; unknown ids stay numeric, zero drops).
+    pub fn format_native_host(
+        &self,
+        scope_ids: &BTreeMap<String, u32>,
+        platform: Option<&str>,
+    ) -> Option<String> {
+        let Self::Inet(socket) = self else {
+            return None;
+        };
+        match socket {
+            std::net::SocketAddr::V4(v4) => Some(v4.ip().to_string()),
+            std::net::SocketAddr::V6(v6) => {
+                let scope = v6.scope_id();
+                if scope == 0 {
+                    return Some(v6.ip().to_string());
+                }
+                let name = (platform != Some("win32")).then(|| {
+                    scope_ids
+                        .iter()
+                        .find(|(_, id)| **id == scope)
+                        .map(|(name, _)| name)
+                });
+                match name {
+                    Some(Some(interface)) => Some(format!("{}%{interface}", v6.ip())),
+                    _ => Some(format!("{}%{scope}", v6.ip())),
+                }
+            }
+        }
+    }
+
+    /// Build a socket from a host plus port, resolving `%name` zones
+    /// through the scope table (TS `inetAddressFromHostString`).
+    pub fn socket_address_from_host_string(
+        host: &str,
+        port: u32,
+        scope_ids: &BTreeMap<String, u32>,
+    ) -> Result<Self, NetworkError> {
+        let numeric = match host.split_once('%') {
+            None => host.to_owned(),
+            Some((bare, zone)) => {
+                let scope = match zone.parse::<u32>() {
+                    Ok(scope) => scope,
+                    Err(_) => *scope_ids.get(zone).ok_or_else(|| {
+                        NetworkError::text(host, format!("unknown interface '{zone}'"))
+                    })?,
+                };
+                format!("{bare}%{scope}")
+            }
+        };
+        let text = if numeric.contains(':') {
+            format!("[{numeric}]:{port}")
+        } else {
+            format!("{numeric}:{port}")
+        };
+        Self::socket_address_from_input(&text)
     }
 
     /// The socket address text: Unix paths verbatim, bare IPs without a
