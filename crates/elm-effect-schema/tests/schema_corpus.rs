@@ -1,7 +1,7 @@
 //! Wave corpus: literal / union / boundary / optional-field shapes.
 //! Ports packages/effect/test/schema/Schema.test.ts rows by exact behavior.
 
-use elm_effect_schema::{Field, Schema, Unknown};
+use elm_effect_schema::{Field, Schema, TemplatePart, Unknown};
 
 #[test]
 fn literal_exposes_its_value() {
@@ -1205,4 +1205,15 @@ fn formatter_literals_union_members() {
     assert_eq!(format(&Unknown::Text("a".to_string())), "\"a\"");
     assert_eq!(format(&Unknown::Text("b".to_string())), "\"b\"");
     assert_eq!(format(&Unknown::Text("c".to_string())), "\"c\"");
+}
+
+#[test]
+fn formatter_template_literal_strings() {
+    let format = Schema::<Vec<Unknown>>::template(vec![
+        TemplatePart::Anchor("a".to_string()),
+        TemplatePart::AnyString,
+    ])
+    .formatter();
+    assert_eq!(format(&Unknown::Text("a".to_string())), "\"a\"");
+    assert_eq!(format(&Unknown::Text("ab".to_string())), "\"ab\"");
 }
