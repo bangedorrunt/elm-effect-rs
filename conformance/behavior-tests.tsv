@@ -854,8 +854,8 @@ unported	packages/effect/test/Config.test.ts	2726	it	still decodes numeric input
 unported	packages/effect/test/Config.test.ts	2735	it	decodes recursive suspended schemas	
 unported	packages/effect/test/Config.test.ts	2753	it	reports nested Int validation errors	
 unported	packages/effect/test/Config.test.ts	2772	it	decodes nested URL values	
-unported	packages/effect/test/ConfigProvider.test.ts	40	it.effect	exposes lookup absence and input transformation as provider behavior	
-unported	packages/effect/test/ConfigProvider.test.ts	56	it	creates a provider from a lookup function	
+ported	packages/effect/test/ConfigProvider.test.ts	40	it.effect	exposes lookup absence and input transformation as provider behavior	provider_map_input_prefixes_lookups
+ported	packages/effect/test/ConfigProvider.test.ts	56	it	creates a provider from a lookup function	provider_from_fn_reads_through_lookup
 unported	packages/effect/test/ConfigProvider.test.ts	69	it	preserves SourceError failures	
 ported	packages/effect/test/ConfigProvider.test.ts	79	it	uses the fallback when the primary provider is missing the path	provider_fallback_and_nesting
 unported	packages/effect/test/ConfigProvider.test.ts	95	it	does not use the fallback after a SourceError	
