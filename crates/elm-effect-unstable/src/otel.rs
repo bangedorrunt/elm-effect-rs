@@ -126,3 +126,54 @@ pub fn parse_otlp_headers(text: &str) -> Vec<(String, String)> {
         })
         .collect()
 }
+
+/// Explicit resource options (`OtlpResource.fromConfig` arguments).
+#[derive(Clone, Copy, Debug, Default)]
+pub struct OtlpResourceOptions<'a> {
+    /// Explicit service name (beats everything for `service.name`).
+    pub service_name: Option<&'a str>,
+    /// Explicit service version (beats everything for `service.version`).
+    pub service_version: Option<&'a str>,
+    /// Explicit attributes (beat env-sourced values per key).
+    pub attributes: &'a [(&'a str, &'a str)],
+}
+
+/// Merge resource attributes with OTLP precedence: explicit service
+/// options, then explicit attributes, then dedicated service env vars,
+/// then `OTEL_RESOURCE_ATTRIBUTES` text (`OtlpResource.fromConfig`
+/// core; unset service keys are omitted, never empty).
+pub fn otlp_resource_attributes(
+    env_service_name: Option<&str>,
+    env_service_version: Option<&str>,
+    env_attributes_text: Option<&str>,
+    options: &OtlpResourceOptions,
+) -> Vec<(String, String)> {
+    fn upsert(into: &mut Vec<(String, String)>, key: &str, value: &str) {
+        match into.iter_mut().find(|(existing, _)| existing == key) {
+            Some((_, slot)) => *slot = value.to_owned(),
+            None => into.push((key.to_owned(), value.to_owned())),
+        }
+    }
+    let mut out = Vec::new();
+    if let Some(text) = env_attributes_text {
+        for (key, value) in parse_otlp_headers(text) {
+            upsert(&mut out, &key, &value);
+        }
+    }
+    if let Some(name) = env_service_name {
+        upsert(&mut out, "service.name", name);
+    }
+    if let Some(version) = env_service_version {
+        upsert(&mut out, "service.version", version);
+    }
+    for (key, value) in options.attributes {
+        upsert(&mut out, key, value);
+    }
+    if let Some(name) = options.service_name {
+        upsert(&mut out, "service.name", name);
+    }
+    if let Some(version) = options.service_version {
+        upsert(&mut out, "service.version", version);
+    }
+    out
+}

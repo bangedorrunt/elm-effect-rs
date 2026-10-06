@@ -7048,7 +7048,7 @@ unported	packages/effect/test/observability/OtlpMetrics.test.ts	449	it.effect	ex
 ported	packages/effect/test/observability/OtlpResource.test.ts	10	it.effect	decodes percent-encoded OTEL_RESOURCE_ATTRIBUTES	resource_percent_env_and_precedence
 ported	packages/effect/test/observability/OtlpResource.test.ts	31	it.effect	uses explicit service options before attributes and environment variables	resource_percent_env_and_precedence
 ported	packages/effect/test/observability/OtlpResource.test.ts	61	it.effect	uses explicit attributes before environment variables	resource_percent_env_and_precedence
-unported	packages/effect/test/observability/OtlpResource.test.ts	90	it.effect	uses dedicated service variables before OTEL resource attributes	
+ported	packages/effect/test/observability/OtlpResource.test.ts	90	it.effect	uses dedicated service variables before OTEL resource attributes	otlp_resource_precedence
 ported	packages/effect/test/observability/OtlpResource.test.ts	111	it.effect	omits service.version when it is not configured	resource_bigint_precision
 ported	packages/effect/test/observability/OtlpResource.test.ts	131	it	preserves bigint attribute precision	resource_bigint_precision
 ported	packages/effect/test/observability/OtlpSerialization.test.ts	5	it	encodes a negative protobuf int64 as a ten-byte varint	varint_negative_ten_bytes

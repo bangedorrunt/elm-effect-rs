@@ -49,3 +49,54 @@ fn otlp_env_headers_decode() {
         ]
     );
 }
+
+#[test]
+fn otlp_resource_precedence() {
+    use elm_effect_unstable::otel::{OtlpResourceOptions, otlp_resource_attributes};
+    use std::collections::BTreeMap;
+    let record = |pairs: Vec<(String, String)>| {
+        pairs.into_iter().collect::<BTreeMap<String, String>>()
+    };
+    let empty = OtlpResourceOptions::default();
+    // OtlpResource.test.ts:90 - dedicated service vars beat attributes text.
+    assert_eq!(
+        record(otlp_resource_attributes(
+            Some("env-service"),
+            Some("env-version"),
+            Some("service.name=env-attribute-service,service.version=env-attribute-version"),
+            &empty,
+        )),
+        BTreeMap::from([
+            ("service.name".to_owned(), "env-service".to_owned()),
+            ("service.version".to_owned(), "env-version".to_owned()),
+        ])
+    );
+    // Explicit options beat everything per key.
+    let options = OtlpResourceOptions {
+        service_name: Some("explicit-service"),
+        service_version: Some("explicit-version"),
+        attributes: &[
+            ("custom.attribute", "explicit"),
+            ("service.name", "explicit-attribute-service"),
+            ("service.version", "explicit-attribute-version"),
+        ],
+    };
+    assert_eq!(
+        record(otlp_resource_attributes(
+            Some("env-service"),
+            Some("env-version"),
+            Some("service.name=env-attribute-service"),
+            &options,
+        )),
+        BTreeMap::from([
+            ("custom.attribute".to_owned(), "explicit".to_owned()),
+            ("service.name".to_owned(), "explicit-service".to_owned()),
+            ("service.version".to_owned(), "explicit-version".to_owned()),
+        ])
+    );
+    // Unset service keys are omitted, never empty.
+    assert_eq!(
+        record(otlp_resource_attributes(None, None, None, &empty)),
+        BTreeMap::new()
+    );
+}
