@@ -5698,8 +5698,8 @@ unported	packages/effect/test/cli/LogLevel.test.ts	129	it.effect	uses Info as th
 unported	packages/effect/test/cli/LogLevel.test.ts	137	it.effect	exposes the built-in log-level setting value	
 unported	packages/effect/test/cli/LogLevel.test.ts	154	it.effect	applies the selected log level to subcommands	
 unported	packages/effect/test/cli/LogLevel.test.ts	183	it.effect	keeps concurrent command log levels scoped to each run	
-unported	packages/effect/test/cli/Param.test.ts	30	it.effect	Never remains an always-failing flag sentinel	
-unported	packages/effect/test/cli/Param.test.ts	40	it.effect	Never remains an always-failing argument sentinel	
+ported	packages/effect/test/cli/Param.test.ts	30	it.effect	Never remains an always-failing flag sentinel	param_never_sentinels
+ported	packages/effect/test/cli/Param.test.ts	40	it.effect	Never remains an always-failing argument sentinel	param_never_sentinels
 unported	packages/effect/test/cli/Param.test.ts	51	it.effect	returns MissingOption when a boolean flag is omitted	
 unported	packages/effect/test/cli/Param.test.ts	63	it.effect	uses the requested default when a boolean flag is omitted	
 unported	packages/effect/test/cli/Param.test.ts	75	it.effect	restores switch behavior with a false default	

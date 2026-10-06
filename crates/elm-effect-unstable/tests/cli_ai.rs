@@ -1107,3 +1107,35 @@ fn positionals_sequence_and_bounds() {
     .expect_err("fails");
     assert!(matches!(missing, CliError::MissingArgument { ref argument } if argument == "value"));
 }
+
+#[test]
+fn param_never_sentinels() {
+    use elm_effect_unstable::cli::param::{CliParam, ParamKind};
+    use elm_effect_unstable::cli::CliError;
+    use std::collections::BTreeMap;
+    let empty: BTreeMap<String, Vec<String>> = BTreeMap::new();
+    // Param.test.ts:30 - flag sentinels fail missing and supplied.
+    for sentinel in [CliParam::flag_never(), CliParam::never(ParamKind::Flag)] {
+        let missing = sentinel.parse(&empty, &empty).expect_err("fails");
+        assert!(matches!(missing, CliError::MissingOption { .. }));
+        let supplied = sentinel
+            .parse(
+                &BTreeMap::from([("__never__".to_owned(), vec!["value".to_owned()])]),
+                &empty,
+            )
+            .expect_err("fails");
+        assert!(matches!(supplied, CliError::InvalidValue { .. }));
+    }
+    // :40 - argument sentinels fail missing and supplied.
+    for sentinel in [CliParam::argument_never(), CliParam::never(ParamKind::Argument)] {
+        let missing = sentinel.parse(&empty, &empty).expect_err("fails");
+        assert!(matches!(missing, CliError::MissingOption { .. }));
+        let supplied = sentinel
+            .parse(
+                &empty,
+                &BTreeMap::from([("__never__".to_owned(), vec!["value".to_owned()])]),
+            )
+            .expect_err("fails");
+        assert!(matches!(supplied, CliError::InvalidValue { .. }));
+    }
+}

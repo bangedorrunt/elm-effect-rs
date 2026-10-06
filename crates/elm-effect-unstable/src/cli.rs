@@ -908,6 +908,75 @@ pub mod primitive {
     }
 }
 
+/// Parameter descriptors: typed `flags`/`args` readers (first brick:
+/// never-sentinels only; value descriptors extend `CliParam::parse`).
+pub mod param {
+    /// Descriptor kind: flags read `flags`, arguments read `args`.
+    #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+    pub enum ParamKind {
+        /// A `--flag` reader.
+        Flag,
+        /// A positional reader.
+        Argument,
+    }
+
+    /// A parameter descriptor (mirrors `Flag.*`, `Argument.*`, `Param.*`).
+    #[derive(Clone, Debug, PartialEq, Eq)]
+    pub struct CliParam {
+        /// Which map `parse` reads.
+        pub kind: ParamKind,
+        /// Bound name (`"__never__"` for sentinels).
+        pub name: String,
+    }
+
+    impl CliParam {
+        /// An always-failing sentinel of `kind` (`Param.Never`).
+        pub fn never(kind: ParamKind) -> Self {
+            Self {
+                kind,
+                name: "__never__".to_owned(),
+            }
+        }
+
+        /// An always-failing flag sentinel (`Flag.Never`).
+        pub fn flag_never() -> Self {
+            Self::never(ParamKind::Flag)
+        }
+
+        /// An always-failing argument sentinel (`Argument.Never`).
+        pub fn argument_never() -> Self {
+            Self::never(ParamKind::Argument)
+        }
+
+        /// Parse from bound maps: absent names fail as `MissingOption`,
+        /// supplied sentinel values fail as `InvalidValue`.
+        pub fn parse(
+            &self,
+            flags: &std::collections::BTreeMap<String, Vec<String>>,
+            args: &std::collections::BTreeMap<String, Vec<String>>,
+        ) -> Result<String, super::CliError> {
+            let map = match self.kind {
+                ParamKind::Flag => flags,
+                ParamKind::Argument => args,
+            };
+            match map.get(&self.name) {
+                None => Err(super::CliError::MissingOption {
+                    option: self.name.clone(),
+                }),
+                Some(values) => Err(super::CliError::InvalidValue {
+                    option: self.name.clone(),
+                    value: values.join(" "),
+                    expected: "This option does not accept values".to_owned(),
+                    kind: match self.kind {
+                        ParamKind::Flag => "option".to_owned(),
+                        ParamKind::Argument => "argument".to_owned(),
+                    },
+                }),
+            }
+        }
+    }
+}
+
 /// Cause carried by a [`UserError`]: text, an error message, or an
 /// opaque value with no message to borrow.
 #[derive(Clone, Debug, PartialEq, Eq)]
