@@ -278,6 +278,68 @@ pub fn hex_random(length: f64) -> String {
     hex_encode(&bytes)
 }
 
+/// Pack/unpack direction of an NDJSON failure.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum NdjsonKind {
+    /// A value had no JSON representation.
+    Pack,
+    /// A line failed to parse.
+    Unpack,
+}
+
+impl NdjsonKind {
+    /// The spec tag string.
+    pub fn tag(&self) -> &'static str {
+        match self {
+            Self::Pack => "Pack",
+            Self::Unpack => "Unpack",
+        }
+    }
+}
+
+/// An NDJSON failure with its direction (mirrors `NdjsonError`; brand
+/// membership is the type itself, so `isNdjsonError` positives are
+/// construction and foreign values fail by type).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct NdjsonError {
+    kind: NdjsonKind,
+    message: String,
+}
+
+impl NdjsonError {
+    /// Type tag for the guard.
+    pub const TYPE_ID: &str = "NdjsonError";
+
+    /// Build a failure in `kind` with `message` as its cause text.
+    pub fn new(kind: NdjsonKind, message: impl Into<String>) -> Self {
+        Self {
+            kind,
+            message: message.into(),
+        }
+    }
+
+    /// Failure direction tag (`"Pack"` or `"Unpack"`).
+    pub fn kind(&self) -> &'static str {
+        self.kind.tag()
+    }
+
+    /// Cause text.
+    pub fn message(&self) -> &str {
+        &self.message
+    }
+
+    /// True for live values; foreign values fail by type.
+    pub fn is_ndjson_error(&self) -> bool {
+        true
+    }
+}
+
+impl std::fmt::Display for NdjsonError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}: {}", self.kind.tag(), self.message)
+    }
+}
+
 /// Newline-delimited JSON: one JSON value per line, blank lines skipped.
 ///
 /// Ports `packages/effect/src/encoding/Ndjson.ts` (string layer only; schema
@@ -294,14 +356,17 @@ pub mod ndjson {
     }
 
     /// Decode NDJSON, skipping blank lines. Fails naming the first bad line.
-    pub fn decode(input: &str) -> Result<Vec<serde_json::Value>, super::EncodingError> {
+    pub fn decode(input: &str) -> Result<Vec<serde_json::Value>, super::NdjsonError> {
         let mut values = Vec::new();
         for (index, line) in input.lines().enumerate() {
             if line.trim().is_empty() {
                 continue;
             }
             let value: serde_json::Value = serde_json::from_str(line).map_err(|e| {
-                super::EncodingError::decode("ndjson", line, format!("line {}: {e}", index + 1))
+                super::NdjsonError::new(
+                    super::NdjsonKind::Unpack,
+                    format!("line {}: {e}", index + 1),
+                )
             })?;
             values.push(value);
         }

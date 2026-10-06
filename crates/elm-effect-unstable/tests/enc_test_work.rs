@@ -589,3 +589,17 @@ fn encoding_error_guard() {
     assert!(EncodingError::is_encoding_error_tag("EncodingError"));
     assert!(!EncodingError::is_encoding_error_tag("Error"));
 }
+
+#[test]
+fn ndjson_error_guard() {
+    use encoding::{NdjsonError, NdjsonKind};
+    // Ndjson.test.ts:35 - identifies Ndjson errors by brand (the type).
+    let error = NdjsonError::new(NdjsonKind::Pack, "no JSON representation");
+    assert_eq!(error.kind(), "Pack");
+    assert!(error.is_ndjson_error());
+    assert_eq!(NdjsonError::TYPE_ID, "NdjsonError");
+    // Unpack failures name the line through the same type.
+    let bad = encoding::ndjson::decode("{bad}\n").unwrap_err();
+    assert_eq!(bad.kind(), "Unpack");
+    assert!(bad.to_string().contains("line 1"));
+}

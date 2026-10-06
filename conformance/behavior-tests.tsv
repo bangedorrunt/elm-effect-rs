@@ -6115,7 +6115,7 @@ ported	packages/effect/test/encoding/Ini.test.ts	5	it	parses sections, arrays, a
 ported	packages/effect/test/encoding/Ini.test.ts	31	it	supports quoted values, comments, and escaped section dots	ini_quoted_comments_escaped_dots
 unported	packages/effect/test/encoding/Ndjson.test.ts	7	it.effect	fails for values without a JSON representation	
 unported	packages/effect/test/encoding/Ndjson.test.ts	23	it.effect	decodeSchema decodes records split across Uint8Array chunks	
-unported	packages/effect/test/encoding/Ndjson.test.ts	35	it	identifies Ndjson errors	
+ported	packages/effect/test/encoding/Ndjson.test.ts	35	it	identifies Ndjson errors	ndjson_error_guard
 ported	packages/effect/test/encoding/SchemaBinary.test.ts	148	it	packs fixed-size array elements	binary_arrays_pack_fixed_elements
 ported	packages/effect/test/encoding/SchemaBinary.test.ts	164	it	length-prefixes variable-size array elements and nested arrays	binary_nested_number_arrays_roundtrip
 ported	packages/effect/test/encoding/SchemaBinary.test.ts	175	it	round-trips zero-width array elements	binary_string_runs_are_length_prefixed
