@@ -190,6 +190,16 @@ where
         self.inner.iter().all(|(k, v)| f(k, v))
     }
 
+    /// `true` when some entry satisfies `f`.
+    pub fn has_by(&self, f: impl Fn(&K, &V) -> bool) -> bool {
+        self.some(f)
+    }
+
+    /// First entry satisfying `f`, if any.
+    pub fn find_first(&self, f: impl Fn(&K, &V) -> bool) -> Option<(&K, &V)> {
+        self.inner.iter().find(|(k, v)| f(k, v))
+    }
+
     /// Keep entries whose mapped value is `Some`.
     pub fn filter_map<W>(&self, f: impl Fn(&K, &V) -> Option<W>) -> HashMap<K, W>
     where

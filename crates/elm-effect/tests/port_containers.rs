@@ -415,3 +415,30 @@ fn hash_map_unsafe_and_flat_map() {
     assert_eq!(flat.get(&"b1".to_owned()), Some(&2));
     assert_eq!(flat.get(&"b2".to_owned()), Some(&4));
 }
+
+#[test]
+fn hash_map_find_compact_and_keyed() {
+    // HashMap.test.ts:346/352 - findFirst returns the entry or nothing.
+    let m = HashMap::make([
+        ("a".to_owned(), 1),
+        ("b".to_owned(), 2),
+        ("c".to_owned(), 3),
+    ]);
+    assert_eq!(
+        m.find_first(|_, v| *v > 2).map(|(k, v)| (k.clone(), *v)),
+        Some(("c".to_owned(), 3))
+    );
+    assert_eq!(m.find_first(|_, v| *v > 5), None);
+    // :307 - compact drops Nones.
+    let opt = HashMap::make([("a".to_owned(), Some(1)), ("b".to_owned(), None)]);
+    let flat = opt.compact();
+    assert_eq!(flat.size(), 1);
+    assert_eq!(flat.get(&"a".to_owned()), Some(&1));
+    // :330 - filterMap can use the key.
+    let keyed = m.filter_map(|k, v| if k == "b" { Some(v * 10) } else { None });
+    assert_eq!(keyed.get(&"b".to_owned()), Some(&20));
+    assert_eq!(keyed.size(), 1);
+    // :370 - hasBy checks key and value together.
+    assert!(m.has_by(|k, v| k == "b" && *v == 2));
+    assert!(!m.has_by(|k, v| k == "b" && *v == 5));
+}
