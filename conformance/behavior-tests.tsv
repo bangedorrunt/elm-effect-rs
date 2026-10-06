@@ -2858,21 +2858,21 @@ unported	packages/effect/test/PartitionedSemaphore.test.ts	196	it.effect	interru
 ported	packages/effect/test/Pathfinding.test.ts	27	it	should find paths using Dijkstra algorithm	dijkstra_finds_cheapest_detour
 ported	packages/effect/test/Pathfinding.test.ts	40	it	should find paths using Bellman-Ford algorithm	bellman_ford_finds_cheapest_detour
 ported	packages/effect/test/Pathfinding.test.ts	53	it	should find paths using A* algorithm	astar_finds_cheapest_detour
-unported	packages/effect/test/Pool.test.ts	11	it.effect	preallocates pool items	
+ported	packages/effect/test/Pool.test.ts	11	it.effect	preallocates pool items	pool_preallocates_idle_values
 unported	packages/effect/test/Pool.test.ts	35	it.effect	cleans up items when shut down	
 unported	packages/effect/test/Pool.test.ts	50	it.effect	defects don't prevent cleanup	
 ported	packages/effect/test/Pool.test.ts	65	it.effect	acquire one item	pool_releases_idle_extras
 unported	packages/effect/test/Pool.test.ts	78	it.effect	keeps failed background capacity until a borrower reaches it	
 ported	packages/effect/test/Pool.test.ts	116	it.live	blocks when item not available	pool_blocks_while_exhausted
 ported	packages/effect/test/Pool.test.ts	133	it.effect	reuse released items	pool_releases_idle_extras
-unported	packages/effect/test/Pool.test.ts	146	it.effect	invalidate item	
+ported	packages/effect/test/Pool.test.ts	146	it.effect	invalidate item	pool_invalidate_drops_item_from_circulation
 unported	packages/effect/test/Pool.test.ts	163	it.effect	invalidate all items in pool and check that pool.get doesn't hang forever	
 unported	packages/effect/test/Pool.test.ts	183	it.live	retry on failed acquire should not exhaust pool	
 unported	packages/effect/test/Pool.test.ts	198	it.effect	compositional retry	
-unported	packages/effect/test/Pool.test.ts	213	it.effect	max pool size	
-unported	packages/effect/test/Pool.test.ts	244	it.effect	max pool size with concurrency: 3	
-unported	packages/effect/test/Pool.test.ts	276	it.effect	concurrency reclaim	
-unported	packages/effect/test/Pool.test.ts	303	it.effect	reserve takes an item out of shared circulation	
+ported	packages/effect/test/Pool.test.ts	213	it.effect	max pool size	pool_max_size_with_concurrency
+ported	packages/effect/test/Pool.test.ts	244	it.effect	max pool size with concurrency: 3	pool_max_size_with_concurrency
+ported	packages/effect/test/Pool.test.ts	276	it.effect	concurrency reclaim	pool_reclaims_after_concurrent_use
+ported	packages/effect/test/Pool.test.ts	303	it.effect	reserve takes an item out of shared circulation	pool_reserve_removes_item_permanently
 unported	packages/effect/test/Pool.test.ts	338	it.effect	releasing a shared borrower preserves an active reservation	
 unported	packages/effect/test/Pool.test.ts	359	it.effect	overlapping reservations keep an item reserved until both close	
 unported	packages/effect/test/Pool.test.ts	385	it.effect	releasing a reservation wakes all available slots after borrowers return	
@@ -4093,21 +4093,21 @@ unported	packages/effect/test/Trie.test.ts	62	it	iterates no entries for an empt
 unported	packages/effect/test/Trie.test.ts	69	it	insert returns new tries and orders entries by key	
 unported	packages/effect/test/Trie.test.ts	84	it	insert replaces a key without mutating or growing the original	
 unported	packages/effect/test/Trie.test.ts	95	it	fromIterable preserves an empty iterable	
-unported	packages/effect/test/Trie.test.ts	101	it	make builds a trie from entry pairs	
-unported	packages/effect/test/Trie.test.ts	107	it	fromIterable builds the same trie as make	
+ported	packages/effect/test/Trie.test.ts	101	it	make builds a trie from entry pairs	trie_make_insert_get
+ported	packages/effect/test/Trie.test.ts	107	it	fromIterable builds the same trie as make	trie_make_insert_get
 unported	packages/effect/test/Trie.test.ts	114	it	fromIterable orders entries by key	
 unported	packages/effect/test/Trie.test.ts	120	it	fromIterable preserves already sorted entries	
 unported	packages/effect/test/Trie.test.ts	126	it	fromIterable accepts a single entry	
 unported	packages/effect/test/Trie.test.ts	132	it	fromIterable orders keys when one key is a prefix	
-unported	packages/effect/test/Trie.test.ts	138	it	size counts stored keys	
-unported	packages/effect/test/Trie.test.ts	147	it	isEmpty distinguishes empty and populated tries	
-unported	packages/effect/test/Trie.test.ts	154	it	get returns Some only for exact keys	
+ported	packages/effect/test/Trie.test.ts	138	it	size counts stored keys	trie_make_insert_get
+ported	packages/effect/test/Trie.test.ts	147	it	isEmpty distinguishes empty and populated tries	trie_make_insert_get
+ported	packages/effect/test/Trie.test.ts	154	it	get returns Some only for exact keys	trie_make_insert_get
 unported	packages/effect/test/Trie.test.ts	171	it	stores undefined values	
 unported	packages/effect/test/Trie.test.ts	179	it	get distinguishes complete keys from prefixes	
-unported	packages/effect/test/Trie.test.ts	192	it	has returns true only for exact keys	
+ported	packages/effect/test/Trie.test.ts	192	it	has returns true only for exact keys	trie_make_insert_get
 unported	packages/effect/test/Trie.test.ts	209	it	getUnsafe returns the value or throws when the key is missing	
-unported	packages/effect/test/Trie.test.ts	217	it	remove deletes a key without mutating the original trie	
-unported	packages/effect/test/Trie.test.ts	237	it	remove preserves a valued prefix	
+ported	packages/effect/test/Trie.test.ts	217	it	remove deletes a key without mutating the original trie	trie_remove_persists_and_prefix
+ported	packages/effect/test/Trie.test.ts	237	it	remove preserves a valued prefix	trie_remove_persists_and_prefix
 unported	packages/effect/test/Trie.test.ts	243	it	keys returns keys in sorted order	
 unported	packages/effect/test/Trie.test.ts	254	it	keys orders nested prefixes alphabetically	
 unported	packages/effect/test/Trie.test.ts	291	it	values follow key iteration order	
@@ -4117,15 +4117,15 @@ unported	packages/effect/test/Trie.test.ts	322	it	keysWithPrefix returns matchin
 unported	packages/effect/test/Trie.test.ts	338	it	valuesWithPrefix returns matching values in key order	
 unported	packages/effect/test/Trie.test.ts	351	it	entriesWithPrefix returns matching entries in key order	
 unported	packages/effect/test/Trie.test.ts	364	it	toEntriesWithPrefix returns matching entries as an array	
-unported	packages/effect/test/Trie.test.ts	376	it	longestPrefixOf returns the longest stored key that prefixes the input	
-unported	packages/effect/test/Trie.test.ts	389	it	longestPrefixOf ignores valued sibling nodes that do not match the input	
+ported	packages/effect/test/Trie.test.ts	376	it	longestPrefixOf returns the longest stored key that prefixes the input	trie_modify_many_and_longest_prefix
+ported	packages/effect/test/Trie.test.ts	389	it	longestPrefixOf ignores valued sibling nodes that do not match the input	trie_modify_many_and_longest_prefix
 unported	packages/effect/test/Trie.test.ts	399	it	map transforms values and can use keys	
 unported	packages/effect/test/Trie.test.ts	422	it	filter keeps entries by value or key	
 unported	packages/effect/test/Trie.test.ts	442	it	filterMap keeps Result successes and can use keys	
 unported	packages/effect/test/Trie.test.ts	465	it	compact keeps Some values	
-unported	packages/effect/test/Trie.test.ts	480	it	modify updates an existing key and ignores a missing key	
-unported	packages/effect/test/Trie.test.ts	491	it	removeMany deletes all matching keys	
-unported	packages/effect/test/Trie.test.ts	504	it	insertMany inserts all entries	
+ported	packages/effect/test/Trie.test.ts	480	it	modify updates an existing key and ignores a missing key	trie_modify_many_and_longest_prefix
+ported	packages/effect/test/Trie.test.ts	491	it	removeMany deletes all matching keys	trie_modify_many_and_longest_prefix
+ported	packages/effect/test/Trie.test.ts	504	it	insertMany inserts all entries	trie_modify_many_and_longest_prefix
 unported	packages/effect/test/Trie.test.ts	524	it	reduce visits entries in key order	
 unported	packages/effect/test/Trie.test.ts	551	it	forEach	
 unported	packages/effect/test/Trie.test.ts	566	it	Equal compares tries by entries	
