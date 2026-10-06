@@ -6515,13 +6515,13 @@ unported	packages/effect/test/http/HttpClientRequest.test.ts	117	it	removes cont
 unported	packages/effect/test/http/HttpClientRequest.test.ts	129	it	removes stale content length when the replacement body has no known length	
 ported	packages/effect/test/http/HttpClientRequest.test.ts	139	it	removes an existing header	request_headers_remove_and_missing_noop
 ported	packages/effect/test/http/HttpClientRequest.test.ts	148	it	no-ops on a missing header	request_headers_remove_and_missing_noop
-unported	packages/effect/test/http/HttpClientRequest.test.ts	157	it	preserves the request prototype	
-unported	packages/effect/test/http/HttpClientRequest.test.ts	167	it	transforms the header collection	
-unported	packages/effect/test/http/HttpClientRequest.test.ts	176	it	preserves the request prototype	
-unported	packages/effect/test/http/HttpClientRequest.test.ts	185	it	supports the data-first overload	
+ported	packages/effect/test/http/HttpClientRequest.test.ts	157	it	preserves the request prototype	request_remove_header_keeps_the_request
+ported	packages/effect/test/http/HttpClientRequest.test.ts	167	it	transforms the header collection	request_update_headers_transforms_collection
+ported	packages/effect/test/http/HttpClientRequest.test.ts	176	it	preserves the request prototype	request_update_headers_keeps_the_request
+ported	packages/effect/test/http/HttpClientRequest.test.ts	185	it	supports the data-first overload	request_update_headers_keeps_the_request
 ported	packages/effect/test/http/HttpClientRequest.test.ts	194	it	stores hash as Option	request_hash_stores_option_and_removes
 ported	packages/effect/test/http/HttpClientRequest.test.ts	204	it	removes hash	request_hash_stores_option_and_removes
-unported	packages/effect/test/http/HttpClientRequest.test.ts	212	it	returns none for invalid url	
+ported	packages/effect/test/http/HttpClientRequest.test.ts	212	it	returns none for invalid url	request_to_url_is_none_for_invalid_url
 unported	packages/effect/test/http/HttpClientRequest.test.ts	221	it.effect	fromWeb	
 unported	packages/effect/test/http/HttpClientRequest.test.ts	247	it	fromWeb ignores malformed or unsafe content lengths	
 unported	packages/effect/test/http/HttpClientRequest.test.ts	265	it.effect	toWeb stream body	
