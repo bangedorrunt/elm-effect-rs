@@ -168,3 +168,52 @@ fn tagged_errors_act_like_errors() {
         TaggedError::new("Bare", "x", Vec::<(String, Field)>::new())
     );
 }
+
+#[test]
+fn shape_area_matches_by_tag() {
+    use data::{Field, Variant};
+    // Data.test.ts:133 - Circle area via tag match.
+    let circle = Variant::new("Circle", [("radius".to_owned(), Field::Float(5.0))]);
+    let area = elm_effect::Matcher::value(circle)
+        .when(
+            elm_effect::Predicate::make(|shape: &Variant| shape.tag() == "Circle"),
+            |shape| match shape.get("radius") {
+                Some(Field::Float(radius)) => std::f64::consts::PI * radius * radius,
+                _ => f64::NAN,
+            },
+        )
+        .when(
+            elm_effect::Predicate::make(|shape: &Variant| shape.tag() == "Rect"),
+            |shape| match (shape.get("width"), shape.get("height")) {
+                (Some(Field::Float(width)), Some(Field::Float(height))) => width * height,
+                _ => f64::NAN,
+            },
+        )
+        .or_else(f64::NAN);
+    assert_eq!(area, std::f64::consts::PI * 25.0);
+    // :138 - Rect area via tag match.
+    let rect = Variant::new(
+        "Rect",
+        [
+            ("width".to_owned(), Field::Float(3.0)),
+            ("height".to_owned(), Field::Float(4.0)),
+        ],
+    );
+    let area = elm_effect::Matcher::value(rect)
+        .when(
+            elm_effect::Predicate::make(|shape: &Variant| shape.tag() == "Circle"),
+            |shape| match shape.get("radius") {
+                Some(Field::Float(radius)) => std::f64::consts::PI * radius * radius,
+                _ => f64::NAN,
+            },
+        )
+        .when(
+            elm_effect::Predicate::make(|shape: &Variant| shape.tag() == "Rect"),
+            |shape| match (shape.get("width"), shape.get("height")) {
+                (Some(Field::Float(width)), Some(Field::Float(height))) => width * height,
+                _ => f64::NAN,
+            },
+        )
+        .or_else(f64::NAN);
+    assert_eq!(area, 12.0);
+}

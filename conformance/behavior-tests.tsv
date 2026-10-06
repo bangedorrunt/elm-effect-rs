@@ -1043,8 +1043,8 @@ ported	packages/effect/test/Data.test.ts	100	it	creates different variants	tagge
 ported	packages/effect/test/Data.test.ts	109	it	returns true for matching variant	tagged_structs_match_by_tag
 ported	packages/effect/test/Data.test.ts	114	it	returns false for non-matching variant	tagged_structs_match_by_tag
 ported	packages/effect/test/Data.test.ts	119	it	returns false for non-tagged values	tagged_structs_match_by_tag
-unported	packages/effect/test/Data.test.ts	133	it	data-last: matches Circle	
-unported	packages/effect/test/Data.test.ts	138	it	data-last: matches Rect	
+ported	packages/effect/test/Data.test.ts	133	it	data-last: matches Circle	shape_area_matches_by_tag
+ported	packages/effect/test/Data.test.ts	138	it	data-last: matches Rect	shape_area_matches_by_tag
 unported	packages/effect/test/Data.test.ts	143	it	data-first: matches directly	
 unported	packages/effect/test/Data.test.ts	160	it	accepts void for empty variants	
 unported	packages/effect/test/Data.test.ts	165	it	works with $match for empty variants	
