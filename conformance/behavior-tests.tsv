@@ -859,28 +859,28 @@ ported	packages/effect/test/ConfigProvider.test.ts	56	it	creates a provider from
 unported	packages/effect/test/ConfigProvider.test.ts	69	it	preserves SourceError failures	
 ported	packages/effect/test/ConfigProvider.test.ts	79	it	uses the fallback when the primary provider is missing the path	provider_fallback_and_nesting
 unported	packages/effect/test/ConfigProvider.test.ts	95	it	does not use the fallback after a SourceError	
-unported	packages/effect/test/ConfigProvider.test.ts	103	it	does not evaluate the fallback after the primary provider finds a node	
+ported	packages/effect/test/ConfigProvider.test.ts	103	it	does not evaluate the fallback after the primary provider finds a node	provider_fallback_skips_evaluation_after_hit
 unported	packages/effect/test/ConfigProvider.test.ts	113	it	preserves each operand's transformations	
-unported	packages/effect/test/ConfigProvider.test.ts	129	it	distributes mapInput over both operands	
-unported	packages/effect/test/ConfigProvider.test.ts	149	it	distributes nested over both operands	
+ported	packages/effect/test/ConfigProvider.test.ts	129	it	distributes mapInput over both operands	provider_map_distributes_over_fallback_operands
+ported	packages/effect/test/ConfigProvider.test.ts	149	it	distributes nested over both operands	provider_nested_distributes_over_fallback_operands
 ported	packages/effect/test/ConfigProvider.test.ts	165	it	uses the fallback when the primary value is an empty string	provider_empty_strings_are_missing_by_default
 unported	packages/effect/test/ConfigProvider.test.ts	176	it	does not merge a fallback container into an existing primary container	
 unported	packages/effect/test/ConfigProvider.test.ts	187	it	composes transformations in application order	
 ported	packages/effect/test/ConfigProvider.test.ts	202	it	converts string path segments to config case	provider_constant_case_converts_segments
 ported	packages/effect/test/ConfigProvider.test.ts	211	it	preserves numeric word groups	provider_constant_case_converts_segments
 ported	packages/effect/test/ConfigProvider.test.ts	222	it	leaves numeric path segments unchanged	provider_constant_case_converts_segments
-unported	packages/effect/test/ConfigProvider.test.ts	232	it	adds a string prefix to the path	
+ported	packages/effect/test/ConfigProvider.test.ts	232	it	adds a string prefix to the path	provider_nested_dotted_numeric_prefix
 ported	packages/effect/test/ConfigProvider.test.ts	241	it	adds a Path prefix with string and numeric segments	provider_nested_dotted_numeric_prefix
 ported	packages/effect/test/ConfigProvider.test.ts	252	it	preserves order when constantCase is applied before nested	provider_env_chain_applies_constant_case_before_nested
 ported	packages/effect/test/ConfigProvider.test.ts	261	it	preserves order when constantCase is applied after nested	provider_env_chain_applies_nested_before_constant_case
 ported	packages/effect/test/ConfigProvider.test.ts	270	it	composes multiple prefixes as wrappers	provider_fallback_and_nesting
-unported	packages/effect/test/ConfigProvider.test.ts	279	it	allows a later mapInput to transform the prefixed path	
+ported	packages/effect/test/ConfigProvider.test.ts	279	it	allows a later mapInput to transform the prefixed path	provider_chain_maps_after_prefix
 unported	packages/effect/test/ConfigProvider.test.ts	292	it	reads defined values and skips undefined values	
 ported	packages/effect/test/ConfigProvider.test.ts	304	it	treats empty strings as missing by default	provider_empty_strings_are_missing_by_default
 ported	packages/effect/test/ConfigProvider.test.ts	308	it	preserves empty strings when requested	provider_preserves_empty_strings_when_requested
-unported	packages/effect/test/ConfigProvider.test.ts	319	it	env without an underscore	
-unported	packages/effect/test/ConfigProvider.test.ts	325	it	missing key returns None	
-unported	packages/effect/test/ConfigProvider.test.ts	331	it	does not read inherited environment properties	
+ported	packages/effect/test/ConfigProvider.test.ts	319	it	env without an underscore	provider_env_basics_hit_miss_and_no_inheritance
+ported	packages/effect/test/ConfigProvider.test.ts	325	it	missing key returns None	provider_env_basics_hit_miss_and_no_inheritance
+ported	packages/effect/test/ConfigProvider.test.ts	331	it	does not read inherited environment properties	provider_env_basics_hit_miss_and_no_inheritance
 unported	packages/effect/test/ConfigProvider.test.ts	336	it	does not traverse inherited trie properties	
 ported	packages/effect/test/ConfigProvider.test.ts	346	it	treats empty string values as missing while preserving structure by default	provider_listings_keep_empty_valued_keys
 ported	packages/effect/test/ConfigProvider.test.ts	355	it	preserves empty strings when requested	provider_preserves_empty_strings_when_requested
