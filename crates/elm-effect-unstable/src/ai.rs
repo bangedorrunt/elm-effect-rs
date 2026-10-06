@@ -816,3 +816,273 @@ impl HttpContext {
         })
     }
 }
+
+fn get_string(value: &serde_json::Value, key: &str) -> Option<String> {
+    value.get(key)?.as_str().map(str::to_owned)
+}
+
+fn get_opt_string(value: &serde_json::Value, key: &str) -> Option<Option<String>> {
+    match value.get(key) {
+        None | Some(serde_json::Value::Null) => Some(None),
+        Some(text) => text.as_str().map(|text| Some(text.to_owned())),
+    }
+}
+
+impl AiReason {
+    /// Encode to the tagged JSON shape.
+    pub fn to_json(&self) -> serde_json::Value {
+        let mut out = serde_json::Map::new();
+        out.insert(
+            "_tag".to_owned(),
+            serde_json::Value::String(self.tag().to_owned()),
+        );
+        match self {
+            AiReason::RateLimit { retry_after_secs } => {
+                out.insert(
+                    "retryAfter".to_owned(),
+                    match retry_after_secs {
+                        Some(secs) => serde_json::Value::from(*secs),
+                        None => serde_json::Value::Null,
+                    },
+                );
+            }
+            AiReason::QuotaExhausted => {}
+            AiReason::Authentication { kind } => {
+                out.insert("kind".to_owned(), serde_json::Value::String(kind.clone()));
+            }
+            AiReason::ContentPolicy { description } => {
+                out.insert(
+                    "description".to_owned(),
+                    match description {
+                        Some(detail) => serde_json::Value::String(detail.clone()),
+                        None => serde_json::Value::Null,
+                    },
+                );
+            }
+            AiReason::InvalidRequest {
+                parameter,
+                constraint,
+            } => {
+                out.insert(
+                    "parameter".to_owned(),
+                    serde_json::Value::String(parameter.clone()),
+                );
+                out.insert(
+                    "constraint".to_owned(),
+                    serde_json::Value::String(constraint.clone()),
+                );
+            }
+            AiReason::InvalidOutput { details } => {
+                out.insert(
+                    "details".to_owned(),
+                    serde_json::Value::String(details.clone()),
+                );
+            }
+            AiReason::InternalProvider { details } => {
+                out.insert(
+                    "details".to_owned(),
+                    serde_json::Value::String(details.clone()),
+                );
+            }
+            AiReason::Unknown => {}
+            AiReason::ToolNotFound { tool, available } => {
+                out.insert("tool".to_owned(), serde_json::Value::String(tool.clone()));
+                out.insert(
+                    "available".to_owned(),
+                    serde_json::Value::Array(
+                        available
+                            .iter()
+                            .map(|name| serde_json::Value::String(name.clone()))
+                            .collect(),
+                    ),
+                );
+            }
+            AiReason::ToolParameterValidation {
+                tool_name,
+                description,
+            } => {
+                out.insert(
+                    "toolName".to_owned(),
+                    serde_json::Value::String(tool_name.clone()),
+                );
+                out.insert(
+                    "description".to_owned(),
+                    serde_json::Value::String(description.clone()),
+                );
+            }
+            AiReason::InvalidToolResult {
+                tool_name,
+                description,
+            } => {
+                out.insert(
+                    "toolName".to_owned(),
+                    serde_json::Value::String(tool_name.clone()),
+                );
+                out.insert(
+                    "description".to_owned(),
+                    serde_json::Value::String(description.clone()),
+                );
+            }
+            AiReason::ToolResultEncoding {
+                tool_name,
+                tool_result,
+                description,
+            } => {
+                out.insert(
+                    "toolName".to_owned(),
+                    serde_json::Value::String(tool_name.clone()),
+                );
+                out.insert(
+                    "toolResult".to_owned(),
+                    serde_json::Value::String(tool_result.clone()),
+                );
+                out.insert(
+                    "description".to_owned(),
+                    serde_json::Value::String(description.clone()),
+                );
+            }
+            AiReason::ToolConfiguration {
+                tool_name,
+                description,
+            } => {
+                out.insert(
+                    "toolName".to_owned(),
+                    serde_json::Value::String(tool_name.clone()),
+                );
+                out.insert(
+                    "description".to_owned(),
+                    serde_json::Value::String(description.clone()),
+                );
+            }
+            AiReason::StructuredOutput { details } => {
+                out.insert(
+                    "details".to_owned(),
+                    serde_json::Value::String(details.clone()),
+                );
+            }
+            AiReason::UnsupportedSchema { details } => {
+                out.insert(
+                    "details".to_owned(),
+                    serde_json::Value::String(details.clone()),
+                );
+            }
+            AiReason::InvalidUserInput { details } => {
+                out.insert(
+                    "details".to_owned(),
+                    serde_json::Value::String(details.clone()),
+                );
+            }
+            AiReason::ToolkitRequired => {}
+            AiReason::NetworkError { details } => {
+                out.insert(
+                    "details".to_owned(),
+                    serde_json::Value::String(details.clone()),
+                );
+            }
+        }
+        serde_json::Value::Object(out)
+    }
+}
+impl AiReason {
+    /// Decode from the tagged JSON shape; unknown tags fail.
+    pub fn from_json(value: &serde_json::Value) -> Option<Self> {
+        let tag = value.get("_tag")?.as_str()?;
+        Some(match tag {
+            "RateLimitError" => AiReason::RateLimit {
+                retry_after_secs: match value.get("retryAfter") {
+                    None | Some(serde_json::Value::Null) => None,
+                    Some(secs) => Some(secs.as_u64()?),
+                },
+            },
+            "QuotaExhaustedError" => AiReason::QuotaExhausted,
+            "AuthenticationError" => AiReason::Authentication {
+                kind: get_string(value, "kind")?,
+            },
+            "ContentPolicyError" => AiReason::ContentPolicy {
+                description: get_opt_string(value, "description")?,
+            },
+            "InvalidRequestError" => AiReason::InvalidRequest {
+                parameter: get_string(value, "parameter")?,
+                constraint: get_string(value, "constraint")?,
+            },
+            "InvalidOutputError" => AiReason::InvalidOutput {
+                details: get_string(value, "details")?,
+            },
+            "InternalProviderError" => AiReason::InternalProvider {
+                details: get_string(value, "details")?,
+            },
+            "UnknownError" => AiReason::Unknown,
+            "ToolNotFoundError" => AiReason::ToolNotFound {
+                tool: get_string(value, "tool")?,
+                available: value
+                    .get("available")?
+                    .as_array()?
+                    .iter()
+                    .map(|name| name.as_str().map(str::to_owned))
+                    .collect::<Option<Vec<_>>>()?,
+            },
+            "ToolParameterValidationError" => AiReason::ToolParameterValidation {
+                tool_name: get_string(value, "toolName")?,
+                description: get_string(value, "description")?,
+            },
+            "InvalidToolResultError" => AiReason::InvalidToolResult {
+                tool_name: get_string(value, "toolName")?,
+                description: get_string(value, "description")?,
+            },
+            "ToolResultEncodingError" => AiReason::ToolResultEncoding {
+                tool_name: get_string(value, "toolName")?,
+                tool_result: get_string(value, "toolResult")?,
+                description: get_string(value, "description")?,
+            },
+            "ToolConfigurationError" => AiReason::ToolConfiguration {
+                tool_name: get_string(value, "toolName")?,
+                description: get_string(value, "description")?,
+            },
+            "StructuredOutputError" => AiReason::StructuredOutput {
+                details: get_string(value, "details")?,
+            },
+            "UnsupportedSchemaError" => AiReason::UnsupportedSchema {
+                details: get_string(value, "details")?,
+            },
+            "InvalidUserInputError" => AiReason::InvalidUserInput {
+                details: get_string(value, "details")?,
+            },
+            "ToolkitRequiredError" => AiReason::ToolkitRequired,
+            "NetworkError" => AiReason::NetworkError {
+                details: get_string(value, "details")?,
+            },
+            _ => return None,
+        })
+    }
+}
+
+impl AiError {
+    /// Encode the wrapper with its reason.
+    pub fn to_json(&self) -> serde_json::Value {
+        serde_json::json!({
+            "_tag": AiError::TYPE_ID,
+            "module": self.module,
+            "method": self.method,
+            "reason": self.reason.to_json(),
+            "description": self.description,
+        })
+    }
+
+    /// Decode the wrapper with its reason.
+    pub fn from_json(value: &serde_json::Value) -> Option<Self> {
+        if value.get("_tag")?.as_str()? != AiError::TYPE_ID {
+            return None;
+        }
+        let mut error = AiError::new(AiReason::from_json(value.get("reason")?)?);
+        if let Some(module) = value.get("module").and_then(|module| module.as_str()) {
+            error.module = Some(module.to_owned());
+        }
+        if let Some(method) = value.get("method").and_then(|method| method.as_str()) {
+            error.method = Some(method.to_owned());
+        }
+        if let Some(description) = value.get("description").and_then(|d| d.as_str()) {
+            error = error.with_description(description);
+        }
+        Some(error)
+    }
+}

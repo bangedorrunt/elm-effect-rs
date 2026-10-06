@@ -686,3 +686,54 @@ fn http_context_roundtrip() {
     let back = HttpContext::from_json(&serde_json::from_str(&text).expect("json")).expect("decodes");
     assert_eq!(back, context);
 }
+
+#[test]
+fn ai_reasons_roundtrip_json() {
+    use elm_effect_unstable::ai::{AiError, AiReason};
+    let reasons = vec![
+        AiReason::RateLimit { retry_after_secs: Some(60) },
+        AiReason::RateLimit { retry_after_secs: None },
+        AiReason::QuotaExhausted,
+        AiReason::Authentication { kind: "InvalidKey".to_owned() },
+        AiReason::ContentPolicy { description: Some("d".to_owned()) },
+        AiReason::InvalidRequest { parameter: "p".to_owned(), constraint: "c".to_owned() },
+        AiReason::InvalidOutput { details: "d".to_owned() },
+        AiReason::InternalProvider { details: "d".to_owned() },
+        AiReason::Unknown,
+        AiReason::ToolNotFound { tool: "t".to_owned(), available: vec!["a".to_owned()] },
+        AiReason::ToolParameterValidation { tool_name: "t".to_owned(), description: "d".to_owned() },
+        AiReason::InvalidToolResult { tool_name: "t".to_owned(), description: "d".to_owned() },
+        AiReason::ToolResultEncoding {
+            tool_name: "t".to_owned(),
+            tool_result: "r".to_owned(),
+            description: "d".to_owned(),
+        },
+        AiReason::ToolConfiguration { tool_name: "t".to_owned(), description: "d".to_owned() },
+        AiReason::StructuredOutput { details: "d".to_owned() },
+        AiReason::UnsupportedSchema { details: "d".to_owned() },
+        AiReason::InvalidUserInput { details: "d".to_owned() },
+        AiReason::ToolkitRequired,
+        AiReason::NetworkError { details: "d".to_owned() },
+    ];
+    for reason in &reasons {
+        let text = serde_json::to_string(&reason.to_json()).expect("encodes");
+        let back = AiReason::from_json(&serde_json::from_str(&text).expect("json")).expect("decodes");
+        assert_eq!(&back, reason);
+    }
+    // AiError.test.ts:708 - RateLimitError keeps its tag and retry info.
+    let limited = AiReason::RateLimit { retry_after_secs: Some(60) };
+    let back = AiReason::from_json(&limited.to_json()).expect("decodes");
+    assert_eq!(back.tag(), "RateLimitError");
+    assert!(matches!(back, AiReason::RateLimit { retry_after_secs: Some(60) }));
+    // :719 - the union dispatches on _tag.
+    let auth = AiReason::Authentication { kind: "InvalidKey".to_owned() };
+    let back = AiReason::from_json(&auth.to_json()).expect("decodes");
+    assert_eq!(back.tag(), "AuthenticationError");
+    // :734 - the wrapper round-trips with its reason.
+    let error = AiError::new(AiReason::Unknown).with_context("Test", "test");
+    let text = serde_json::to_string(&error.to_json()).expect("encodes");
+    let back = AiError::from_json(&serde_json::from_str(&text).expect("json")).expect("decodes");
+    assert_eq!(back.tag, "AiError");
+    assert_eq!(back.reason_tag(), "UnknownError");
+    assert_eq!(back, error);
+}

@@ -4555,17 +4555,17 @@ ported	packages/effect/test/ai/AiError.test.ts	637	it	should return false for re
 ported	packages/effect/test/ai/AiError.test.ts	655	it.effect	should encode and decode roundtrip	provider_metadata_roundtrip
 ported	packages/effect/test/ai/AiError.test.ts	670	it.effect	should encode and decode roundtrip	usage_info_roundtrip
 ported	packages/effect/test/ai/AiError.test.ts	684	it.effect	should encode and decode roundtrip	http_context_roundtrip
-unported	packages/effect/test/ai/AiError.test.ts	708	it.effect	RateLimitError roundtrip	
-unported	packages/effect/test/ai/AiError.test.ts	719	it.effect	AiErrorReason union roundtrip	
-unported	packages/effect/test/ai/AiError.test.ts	734	it.effect	AiError roundtrip	
-unported	packages/effect/test/ai/AiError.test.ts	749	it.effect	ToolNotFoundError roundtrip	
-unported	packages/effect/test/ai/AiError.test.ts	762	it.effect	ToolParameterValidationError roundtrip	
-unported	packages/effect/test/ai/AiError.test.ts	775	it.effect	InvalidToolResultError roundtrip	
-unported	packages/effect/test/ai/AiError.test.ts	788	it.effect	ToolResultEncodingError roundtrip	
-unported	packages/effect/test/ai/AiError.test.ts	802	it.effect	ToolConfigurationError roundtrip	
-unported	packages/effect/test/ai/AiError.test.ts	815	it.effect	StructuredOutputError roundtrip	
-unported	packages/effect/test/ai/AiError.test.ts	828	it.effect	UnsupportedSchemaError roundtrip	
-unported	packages/effect/test/ai/AiError.test.ts	839	it.effect	AiErrorReason union with tool errors roundtrip	
+ported	packages/effect/test/ai/AiError.test.ts	708	it.effect	RateLimitError roundtrip	ai_reasons_roundtrip_json
+ported	packages/effect/test/ai/AiError.test.ts	719	it.effect	AiErrorReason union roundtrip	ai_reasons_roundtrip_json
+ported	packages/effect/test/ai/AiError.test.ts	734	it.effect	AiError roundtrip	ai_reasons_roundtrip_json
+ported	packages/effect/test/ai/AiError.test.ts	749	it.effect	ToolNotFoundError roundtrip	ai_reasons_roundtrip_json
+ported	packages/effect/test/ai/AiError.test.ts	762	it.effect	ToolParameterValidationError roundtrip	ai_reasons_roundtrip_json
+ported	packages/effect/test/ai/AiError.test.ts	775	it.effect	InvalidToolResultError roundtrip	ai_reasons_roundtrip_json
+ported	packages/effect/test/ai/AiError.test.ts	788	it.effect	ToolResultEncodingError roundtrip	ai_reasons_roundtrip_json
+ported	packages/effect/test/ai/AiError.test.ts	802	it.effect	ToolConfigurationError roundtrip	ai_reasons_roundtrip_json
+ported	packages/effect/test/ai/AiError.test.ts	815	it.effect	StructuredOutputError roundtrip	ai_reasons_roundtrip_json
+ported	packages/effect/test/ai/AiError.test.ts	828	it.effect	UnsupportedSchemaError roundtrip	ai_reasons_roundtrip_json
+ported	packages/effect/test/ai/AiError.test.ts	839	it.effect	AiErrorReason union with tool errors roundtrip	ai_reasons_roundtrip_json
 unported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	17	it	encodes Undefined as null	
 unported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	21	it	encodes a bigint Literal as a string	
 unported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	26	it	encodes post-rest elements as object properties	
