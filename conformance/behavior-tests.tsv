@@ -6307,10 +6307,10 @@ unported	packages/effect/test/encoding/SchemaBinary.test.ts	3278	it.effect	suppo
 unported	packages/effect/test/encoding/SchemaBinary.test.ts	3297	it.effect	supports async transformations across a duplex channel	
 unported	packages/effect/test/encoding/SchemaBinary.test.ts	3315	it.effect	emits values decoded before an async transformation failure	
 unported	packages/effect/test/encoding/Sse.test.ts	7	it	parses mixed CRLF and LF line endings	
-unported	packages/effect/test/encoding/Sse.test.ts	21	it	treats CRLF split across chunks as one line ending	
-unported	packages/effect/test/encoding/Sse.test.ts	36	it	retains the last event ID for later events	
+ported	packages/effect/test/encoding/Sse.test.ts	21	it	treats CRLF split across chunks as one line ending	sse_joins_crlf_split_across_chunks
+ported	packages/effect/test/encoding/Sse.test.ts	36	it	retains the last event ID for later events	sse_retains_last_event_id
 unported	packages/effect/test/encoding/Sse.test.ts	58	it	roundtrips an SSE event with empty data	
-unported	packages/effect/test/encoding/Sse.test.ts	68	it	strips a UTF-8 BOM from the start of an SSE stream	
+ported	packages/effect/test/encoding/Sse.test.ts	68	it	strips a UTF-8 BOM from the start of an SSE stream	sse_strips_leading_bom_once
 unported	packages/effect/test/encoding/Sse.test.ts	82	it	uses message for an empty SSE event type	
 unported	packages/effect/test/encoding/Sse.test.ts	92	it	ignores retry values that are not ASCII digits	
 unported	packages/effect/test/encoding/Sse.test.ts	101	it	Event preserves string payloads	
@@ -6319,7 +6319,7 @@ unported	packages/effect/test/encoding/Sse.test.ts	139	it.effect	decodeDataSchem
 unported	packages/effect/test/encoding/Sse.test.ts	157	it.effect	fails when an unterminated line exceeds maxEventSize	
 unported	packages/effect/test/encoding/Sse.test.ts	170	it.effect	fails when pending data exceeds maxEventSize	
 unported	packages/effect/test/encoding/Sse.test.ts	183	it.effect	parses pending state just under maxEventSize	
-unported	packages/effect/test/encoding/Sse.test.ts	198	it.effect	parses well-formed events split across chunks	
+ported	packages/effect/test/encoding/Sse.test.ts	198	it.effect	parses well-formed events split across chunks	sse_parses_events_split_across_chunks
 ported	packages/effect/test/encoding/Toml.test.ts	5	it	parses tables, dotted keys, arrays, and inline tables	toml_tables_dotted_keys_arrays
 ported	packages/effect/test/encoding/Toml.test.ts	28	it	parses arrays of tables and date-time values	toml_servers_with_datetimes
 ported	packages/effect/test/encoding/Toml.test.ts	48	it	parses child tables under distinct array entries	toml_child_tables_attach_to_last_element
