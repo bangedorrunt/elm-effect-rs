@@ -541,6 +541,26 @@ impl NetAddress {
     pub const IPV4_UNSPECIFIED: Self = Self::V4(Ipv4Addr::UNSPECIFIED);
     /// `::` (TS `ipv6Unspecified`).
     pub const IPV6_UNSPECIFIED: Self = Self::V6(Ipv6Addr::UNSPECIFIED);
+    /// `127.0.0.1` (TS `ipv4Loopback`).
+    pub const IPV4_LOOPBACK: Self = Self::V4(Ipv4Addr::LOCALHOST);
+    /// `::1` (TS `ipv6Loopback`).
+    pub const IPV6_LOOPBACK: Self = Self::V6(Ipv6Addr::LOCALHOST);
+
+    /// `true` for plain IPv4 addresses (TS `isIpv4Address`).
+    pub fn is_ipv4_address(&self) -> bool {
+        matches!(self, Self::V4(_))
+    }
+
+    /// `true` for plain IPv6 addresses (TS `isIpv6Address`).
+    pub fn is_ipv6_address(&self) -> bool {
+        matches!(self, Self::V6(_))
+    }
+
+    /// Always `false`: this address type cannot hold MAC values, so the
+    /// TS `isMacAddress` check never matches it.
+    pub fn is_mac_address(&self) -> bool {
+        false
+    }
 
     /// Wrap a standard address (shared by Inet classification).
     fn from_std_ip(ip: IpAddr) -> Self {

@@ -761,3 +761,20 @@ fn net_addresses_check_port_boundaries() {
         );
     }
 }
+
+#[test]
+fn net_addresses_discriminate_by_type_id() {
+    use net::NetAddress;
+    // NetAddress.test.ts:525 - addresses sharing one type id discriminate.
+    assert!(NetAddress::IPV4_LOOPBACK.is_ipv4_address());
+    assert!(!NetAddress::IPV4_LOOPBACK.is_ipv6_address());
+    assert!(!NetAddress::IPV4_LOOPBACK.is_mac_address());
+    assert_eq!(
+        NetAddress::IPV4_LOOPBACK,
+        NetAddress::ipv4_from_string("127.0.0.1").expect("valid")
+    );
+    assert_eq!(
+        NetAddress::IPV6_LOOPBACK,
+        NetAddress::ipv6_from_string("::1").expect("valid")
+    );
+}
