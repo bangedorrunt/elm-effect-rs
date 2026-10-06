@@ -381,3 +381,23 @@ fn socket_addresses_parse_format_and_reject() {
     })
     .is_err());
 }
+
+#[test]
+fn address_values_construct_across_forms() {
+    use net::{MacAddress, NetAddress};
+    // Immutability is structural (private fields, no setters): building
+    // every form is the assertion (TS `Object.isFrozen` per value).
+    let ipv4 = NetAddress::ipv4_from_string("127.0.0.1").unwrap();
+    let ipv6 = NetAddress::ipv6_from_string("::1").unwrap();
+    let inet4 = NetAddress::inet_address_v4(&ipv4, 80).unwrap();
+    let inet6 = NetAddress::inet_address_v6(&ipv6, 80, 2).unwrap();
+    let mac = MacAddress::parse("00:00:5e:00:53:01").unwrap();
+    let unix = NetAddress::unix_path_address("server.sock");
+    assert_eq!(ipv4.format_ip(), "127.0.0.1");
+    assert_eq!(ipv6.format_ip(), "::1");
+    assert_eq!(inet4.format_socket_address(), "127.0.0.1:80");
+    // Scoped rendering follows the std socket form.
+    assert_eq!(inet6.format_socket_address(), "[::1%2]:80");
+    assert_eq!(mac.octets(), [0x00, 0x00, 0x5e, 0x00, 0x53, 0x01]);
+    assert_eq!(unix.format_socket_address(), "server.sock");
+}

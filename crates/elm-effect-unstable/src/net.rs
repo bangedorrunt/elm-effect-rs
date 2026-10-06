@@ -4,7 +4,7 @@
 //! (strict CIDR parsing, canonical text, first/last/count, address and
 //! network containment). Schema codecs are not modeled here.
 
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV6};
 
 /// A parsed CIDR network with host bits masked off.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -657,6 +657,28 @@ impl NetAddress {
         Self::Inet(text.parse::<SocketAddr>().expect("invalid socket address"))
     }
 
+    /// Build an IPv4 socket address from parts (TS `inetAddressV4`).
+    pub fn inet_address_v4(address: &NetAddress, port: u32) -> Result<Self, NetworkError> {
+        Self::socket_address_from_parts(address, port)
+    }
+
+    /// Build an IPv6 socket address with scope id (TS `inetAddressV6`).
+    /// Scope zero is the default; only IPv6 carries one.
+    pub fn inet_address_v6(address: &NetAddress, port: u32, scope_id: u32) -> Result<Self, NetworkError> {
+        if port > 65535 {
+            return Err(NetworkError::text("out-of-range port", "invalid port"));
+        }
+        match address {
+            Self::V6(v6) => Ok(Self::Inet(SocketAddr::V6(SocketAddrV6::new(
+                *v6,
+                port as u16,
+                0,
+                scope_id,
+            )))),
+            _ => Err(NetworkError::text("non-IPv6 socket address", "invalid address")),
+        }
+    }
+
     /// Build from an address plus port: bare IPs gain the port, Unix and
     /// nested values fail (TS `socketAddressFromInput` struct form).
     pub fn socket_address_from_parts(address: &NetAddress, port: u32) -> Result<Self, NetworkError> {
@@ -811,6 +833,32 @@ impl NetAddress {
             Self::UnixPath(_) => false,
             Self::Inet(socket) => Self::from_std_ip(socket.ip()).is_unique_local(),
         }
+    }
+}
+
+pub struct MacAddress([u8; 6]);
+
+impl MacAddress {
+    /// Parse `xx:xx:xx:xx:xx:xx` with one or two hex digits per group
+    /// (TS `macAddressFromString`).
+    pub fn parse(text: &str) -> Option<Self> {
+        let parts: Vec<&str> = text.split(':').collect();
+        if parts.len() != 6 {
+            return None;
+        }
+        let mut octets = [0u8; 6];
+        for (i, part) in parts.iter().enumerate() {
+            if part.is_empty() || part.len() > 2 || !part.bytes().all(|b| b.is_ascii_hexdigit()) {
+                return None;
+            }
+            octets[i] = u8::from_str_radix(part, 16).ok()?;
+        }
+        Some(Self(octets))
+    }
+
+    /// The six octets in transmission order.
+    pub fn octets(&self) -> [u8; 6] {
+        self.0
     }
 }
 
