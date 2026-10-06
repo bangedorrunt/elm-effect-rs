@@ -6995,7 +6995,7 @@ ported	packages/effect/test/net/NetAddress.test.ts	474	it	constructs immutable a
 ported	packages/effect/test/net/NetAddress.test.ts	487	it	copies byte constructor inputs	byte_constructor_inputs_are_copied
 ported	packages/effect/test/net/NetAddress.test.ts	505	it	copies Buffer constructor inputs	byte_constructor_inputs_are_copied
 unported	packages/effect/test/net/NetAddress.test.ts	525	it	discriminates addresses sharing the common type id	
-unported	packages/effect/test/net/NetAddress.test.ts	531	it	returns NetAddressError from checked operations	
+ported	packages/effect/test/net/NetAddress.test.ts	531	it	returns NetAddressError from checked operations	checked_parsing_returns_typed_errors
 ported	packages/effect/test/net/NetAddress.test.ts	540	it	constructs socket addresses from input	socket_addresses_parse_format_and_reject
 unported	packages/effect/test/net/NetAddress.test.ts	575	it	parses and formats bracketed numeric addresses	
 unported	packages/effect/test/net/NetAddress.test.ts	588	it	formats separate socket hosts while preserving IPv6 scope	
