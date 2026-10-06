@@ -586,9 +586,15 @@ impl NetAddress {
         match StrictIp::parse(text) {
             Some(strict) => match strict.addr() {
                 IpAddr::V6(v6) => Ok(Self::V6(v6)),
-                IpAddr::V4(_) => Err(NetworkError::text(text, "not an IPv6 address")),
+                IpAddr::V4(_) => Err(NetworkError::text(
+                    offending_address(text),
+                    "not an IPv6 address",
+                )),
             },
-            None => Err(NetworkError::text(text, "invalid address")),
+            None => Err(NetworkError::text(
+                offending_address(text),
+                "invalid address",
+            )),
         }
     }
 
@@ -702,26 +708,101 @@ impl NetAddress {
 
     /// Build from an address plus port: bare IPs gain the port, Unix and
     /// nested values fail (TS `socketAddressFromInput` struct form).
-    pub fn socket_address_from_parts(address: &NetAddress, port: u32) -> Result<Self, NetworkError> {
-        if port > 65535 {
-            return Err(NetworkError::text("out-of-range port", "invalid port"));
-        }
+    pub fn socket_address_from_parts(
+        address: &NetAddress,
+        port: u32,
+    ) -> Result<Self, NetworkError> {
         let ip = match address {
             Self::V4(v4) => IpAddr::V4(*v4),
             Self::V6(v6) => IpAddr::V6(*v6),
             Self::UnixPath(_) | Self::Inet(_) => {
-                return Err(NetworkError::text("non-IP socket address", "invalid address"))
+                return Err(NetworkError::text(
+                    "non-IP socket address",
+                    "invalid address",
+                ));
             }
         };
+        if port > 65535 {
+            return Err(NetworkError::addr(ip, "invalid port"));
+        }
         Ok(Self::Inet(SocketAddr::new(ip, port as u16)))
     }
 
-    /// Build from strict `ip:port` text, rejecting hostnames (TS
-    /// `socketAddressFromInput` string form).
+    /// Build from `host:port` / `[IPv6]:port` text, rejecting hostnames (TS
+    /// `socketAddressFromString` string form). Structural failures keep the
+    /// full text; a bad host keeps the offending address; a bad port keeps
+    /// the parsed address.
     pub fn socket_address_from_input(text: &str) -> Result<Self, NetworkError> {
-        match text.parse::<SocketAddr>() {
-            Ok(socket) => Ok(Self::Inet(socket)),
-            Err(_) => Err(NetworkError::text(text, "invalid socket address")),
+        let invalid = |message: &str| NetworkError::text(text, message);
+        let (host, port_text, bracketed, scope_id) = if let Some(rest) = text.strip_prefix('[') {
+            let end = rest
+                .find(']')
+                .ok_or_else(|| invalid("expected [IPv6]:port"))?;
+            let after = &rest[end + 1..];
+            let port = after
+                .strip_prefix(':')
+                .filter(|port| !port.contains(']'))
+                .ok_or_else(|| invalid("expected [IPv6]:port"))?;
+            let (host, scope_id) = match rest[..end].split_once('%') {
+                None => (rest[..end].to_owned(), 0u32),
+                Some((bare, zone)) => {
+                    if zone.is_empty() || !zone.bytes().all(|b| b.is_ascii_digit()) {
+                        return Err(invalid("scope identifier must be decimal"));
+                    }
+                    let scope_id: u32 = zone.parse().map_err(|_| {
+                        invalid("scope identifier must be an unsigned 32-bit integer")
+                    })?;
+                    (bare.to_owned(), scope_id)
+                }
+            };
+            (host, port, true, scope_id)
+        } else {
+            match text.rfind(':') {
+                None => return Err(invalid("expected host:port or [IPv6]:port")),
+                Some(separator) => {
+                    if text[..separator].contains(':') {
+                        return Err(invalid("IPv6 addresses must be bracketed"));
+                    }
+                    (
+                        text[..separator].to_owned(),
+                        &text[separator + 1..],
+                        false,
+                        0,
+                    )
+                }
+            }
+        };
+        if port_text.is_empty()
+            || !port_text.bytes().all(|b| b.is_ascii_digit())
+            || (port_text.len() > 1 && port_text.starts_with('0'))
+        {
+            return Err(invalid("port must be an unpadded decimal integer"));
+        }
+        // Unrepresentable ports fail the range check below like TS Number().
+        let port = port_text.parse::<u64>().unwrap_or(u64::MAX);
+        let ip = match StrictIp::parse(&host) {
+            Some(strict) => strict.addr(),
+            None => {
+                return Err(NetworkError::text(
+                    offending_address(&host),
+                    "invalid address",
+                ));
+            }
+        };
+        if bracketed != matches!(ip, IpAddr::V6(_)) {
+            return Err(invalid("only IPv6 addresses use brackets"));
+        }
+        if port > 65535 {
+            return Err(NetworkError::addr(ip, "invalid port"));
+        }
+        match ip {
+            IpAddr::V4(v4) => Ok(Self::Inet(SocketAddr::new(IpAddr::V4(v4), port as u16))),
+            IpAddr::V6(v6) => Ok(Self::Inet(SocketAddr::V6(SocketAddrV6::new(
+                v6,
+                port as u16,
+                0,
+                scope_id,
+            )))),
         }
     }
 
@@ -879,6 +960,7 @@ impl NetAddress {
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct MacAddress([u8; 6]);
 
 impl MacAddress {
@@ -897,6 +979,11 @@ impl MacAddress {
             octets[i] = u8::from_str_radix(part, 16).ok()?;
         }
         Some(Self(octets))
+    }
+
+    /// Parse, keeping the rejected text on failure.
+    pub fn parse_reported(text: &str) -> Result<Self, NetworkError> {
+        Self::parse(text).ok_or_else(|| NetworkError::text(text, "invalid MAC address"))
     }
 
     /// The six octets in transmission order.

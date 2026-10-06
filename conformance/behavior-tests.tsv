@@ -6982,8 +6982,8 @@ ported	packages/effect/test/net/NetAddress.test.ts	208	it	classifies documented 
 ported	packages/effect/test/net/NetAddress.test.ts	242	it	classifies IP boundaries without claiming reachability	net_addresses_classify_boundaries
 ported	packages/effect/test/net/NetAddress.test.ts	273	it	classifies the independent MAC group and administration bits	mac_group_and_admin_bits_classify
 ported	packages/effect/test/net/NetAddress.test.ts	300	it	serializes and inspects canonical strings without private bytes	canonical_strings_hide_private_bytes
-unported	packages/effect/test/net/NetAddress.test.ts	317	it	preserves the input rejected by the failing operation	
-unported	packages/effect/test/net/NetAddress.test.ts	339	it	retains the address supplied to checked socket constructors	
+ported	packages/effect/test/net/NetAddress.test.ts	317	it	preserves the input rejected by the failing operation	net_addresses_preserve_rejected_inputs
+ported	packages/effect/test/net/NetAddress.test.ts	339	it	retains the address supplied to checked socket constructors	net_addresses_preserve_rejected_inputs
 unported	packages/effect/test/net/NetAddress.test.ts	347	it	converts internet addresses to normalized URL values	
 ported	packages/effect/test/net/NetAddress.test.ts	372	it	converts bare IP addresses without adding an explicit port	bare_ips_convert_to_urls_without_ports
 unported	packages/effect/test/net/NetAddress.test.ts	388	it	formats URL strings without trailing slashes or default ports	

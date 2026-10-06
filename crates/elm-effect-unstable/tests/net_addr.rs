@@ -547,3 +547,44 @@ fn net_addresses_classify_documented_ranges() {
     assert_eq!(net::NetAddress::IPV4_UNSPECIFIED, ip("0.0.0.0"));
     assert_eq!(net::NetAddress::IPV6_UNSPECIFIED, ip("::"));
 }
+
+#[test]
+fn net_addresses_preserve_rejected_inputs() {
+    use net::{MacAddress, NetAddress, NetworkErrorInput};
+    // NetAddress.test.ts:317 - failures keep the offending input.
+    let err = NetAddress::ipv4_from_string("01.2.3.4").expect_err("leading zeros");
+    assert_eq!(err.input, NetworkErrorInput::Text("01.2.3.4".to_owned()));
+    let err = NetAddress::ipv6_from_string("::ffff:192.000.2.1").expect_err("embedded");
+    assert_eq!(err.input, NetworkErrorInput::Text("192.000.2.1".to_owned()));
+    let err = MacAddress::parse_reported("00-11-22-33-44-55").expect_err("hyphens");
+    assert_eq!(
+        err.input,
+        NetworkErrorInput::Text("00-11-22-33-44-55".to_owned())
+    );
+    let err = NetAddress::socket_address_from_input("localhost:80").expect_err("hostname");
+    assert_eq!(err.input, NetworkErrorInput::Text("localhost".to_owned()));
+    let err = NetAddress::socket_address_from_input("[::ffff:999.0.0.1]:80")
+        .expect_err("embedded socket");
+    assert_eq!(err.input, NetworkErrorInput::Text("999.0.0.1".to_owned()));
+    let err = NetAddress::socket_address_from_input("[fe80::1%bad]:80").expect_err("bad scope");
+    assert_eq!(
+        err.input,
+        NetworkErrorInput::Text("[fe80::1%bad]:80".to_owned())
+    );
+    let loopback: std::net::IpAddr = "127.0.0.1".parse().unwrap();
+    let err = NetAddress::socket_address_from_input("127.0.0.1:65536").expect_err("port range");
+    assert_eq!(err.input, NetworkErrorInput::Addr(loopback));
+    // NetAddress.test.ts:339 - checked socket constructors keep the address.
+    // Negative ports / scope ids are unrepresentable as u32: u32::MAX rides
+    // the same range check.
+    let ipv4 = NetAddress::ipv4_from_string("127.0.0.1").expect("valid");
+    let err = NetAddress::socket_address_from_parts(&ipv4, u32::MAX).expect_err("parts port");
+    assert_eq!(err.input, NetworkErrorInput::Addr(loopback));
+    let ipv6 = NetAddress::ipv6_from_string("::1").expect("valid");
+    let err = NetAddress::socket_address_from_parts(&ipv6, u32::MAX).expect_err("parts port v6");
+    assert_eq!(err.input, NetworkErrorInput::Addr("::1".parse().unwrap()));
+    // :339 - checked socket constructors keep the supplied address.
+    let ipv4 = NetAddress::ipv4_from_string("127.0.0.1").expect("valid");
+    let err = NetAddress::socket_address_from_parts(&ipv4, u32::MAX).expect_err("parts port");
+    assert_eq!(err.input, NetworkErrorInput::Addr(loopback));
+}
