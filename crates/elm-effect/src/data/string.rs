@@ -35,20 +35,23 @@ pub fn strip_margin(s: &str) -> String {
         .join("\n")
 }
 
-/// First `n` characters (`takeLeft`).
-pub fn take_left(s: &str, n: usize) -> String {
-    s.chars().take(n).collect()
+/// First `n` characters (`takeLeft`; floored counts, empty for
+/// non-positive or NaN).
+pub fn take_left(s: &str, count: f64) -> String {
+    if !count.is_finite() || count < 1.0 {
+        return String::new();
+    }
+    s.chars().take(count.floor() as usize).collect()
 }
 
-/// Last `n` characters (`takeRight`).
-pub fn take_right(s: &str, n: usize) -> String {
-    s.chars()
-        .rev()
-        .take(n)
-        .collect::<Vec<_>>()
-        .into_iter()
-        .rev()
-        .collect()
+/// Last `n` characters (`takeRight`; floored counts, empty for
+/// non-positive or NaN).
+pub fn take_right(s: &str, count: f64) -> String {
+    if !count.is_finite() || count < 1.0 {
+        return String::new();
+    }
+    let skip = s.chars().count().saturating_sub(count.floor() as usize);
+    s.chars().skip(skip).collect()
 }
 
 /// Drop the first `n` characters (`dropLeft`).
@@ -131,7 +134,7 @@ pub fn ellipsis(s: &str, max: usize) -> String {
     } else if max <= 1 {
         "…".to_string()
     } else {
-        take_left(s, max - 1) + "…"
+        take_left(s, (max - 1) as f64) + "…"
     }
 }
 

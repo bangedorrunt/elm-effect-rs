@@ -416,8 +416,8 @@ fn string_basics() {
 
 #[test]
 fn string_shapes() {
-    assert_eq!(string::take_left("hello", 2), "he");
-    assert_eq!(string::take_right("hello", 2), "lo");
+    assert_eq!(string::take_left("hello", 2.0), "he");
+    assert_eq!(string::take_right("hello", 2.0), "lo");
     assert_eq!(string::drop_left("hello", 2), "llo");
     assert_eq!(string::drop_right("hello", 2), "hel");
     assert_eq!(string::slice_chars("hello", 1, 4), "ell");
@@ -975,4 +975,37 @@ fn string_pad_and_repeat() {
     assert_eq!(string::repeat("ab", 0.0), "");
     assert_eq!(string::repeat("ab", -1.0), "");
     assert_eq!(string::repeat("ab", f64::NAN), "");
+}
+
+#[test]
+fn string_take_replace_search_locale() {
+    // String.test.ts:455 - replaces all with string.
+    assert_eq!(string::replace_all("ababb", "b", "c"), "acacc");
+    // :465/:469 - search finds offsets both ways.
+    assert_eq!(string::index_of("ababb", "b"), Some(1));
+    let search_b = |s: &str| string::index_of(s, "b");
+    assert_eq!(search_b("ababb"), Some(1));
+    // :473 - none when absent.
+    assert_eq!(string::index_of("ababb", "d"), None);
+    // :483/:489 - ASCII locale cases match case conversion.
+    assert_eq!(string::to_lowercase("ABC"), "abc");
+    assert_eq!(string::to_uppercase("abc"), "ABC");
+    // :495/:500 - takeLeft both shapes, flooring floats.
+    assert_eq!(string::take_left("Hello World", 5.0), "Hello");
+    assert_eq!(string::take_left("abc", 1.5), "a");
+    // :504 - whole string when longer.
+    assert_eq!(string::take_left("abc", 10.0), "abc");
+    // :508 - empty for non-positive or NaN.
+    assert_eq!(string::take_left("abc", 0.0), "");
+    assert_eq!(string::take_left("abc", -1.0), "");
+    assert_eq!(string::take_left("abc", f64::NAN), "");
+    // :516/:521 - takeRight both shapes.
+    assert_eq!(string::take_right("Hello World", 5.0), "World");
+    assert_eq!(string::take_right("abc", 1.5), "c");
+    // :525 - whole string when longer.
+    assert_eq!(string::take_right("abc", 10.0), "abc");
+    // :529 - empty for non-positive or NaN.
+    assert_eq!(string::take_right("abc", 0.0), "");
+    assert_eq!(string::take_right("abc", -1.0), "");
+    assert_eq!(string::take_right("abc", f64::NAN), "");
 }

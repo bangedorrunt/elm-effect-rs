@@ -3937,20 +3937,20 @@ ported	packages/effect/test/String.test.ts	442	it	repeats the string	string_port
 ported	packages/effect/test/String.test.ts	447	it	returns an empty string for non-positive or NaN counts	string_pad_and_repeat
 ported	packages/effect/test/String.test.ts	455	it	replaces all occurrences with string	string_portable_remainder
 unported	packages/effect/test/String.test.ts	459	it	replaces all occurrences with regex	
-unported	packages/effect/test/String.test.ts	465	it	returns index on match (data-first)	
-unported	packages/effect/test/String.test.ts	469	it	returns index on match (data-last)	
-unported	packages/effect/test/String.test.ts	473	it	returns none when not found	
+ported	packages/effect/test/String.test.ts	465	it	returns index on match (data-first)	string_take_replace_search_locale
+ported	packages/effect/test/String.test.ts	469	it	returns index on match (data-last)	string_take_replace_search_locale
+ported	packages/effect/test/String.test.ts	473	it	returns none when not found	string_take_replace_search_locale
 unported	packages/effect/test/String.test.ts	477	it	works with regex	
-unported	packages/effect/test/String.test.ts	483	it	converts to locale lowercase	
-unported	packages/effect/test/String.test.ts	489	it	converts to locale uppercase	
-unported	packages/effect/test/String.test.ts	495	it	takes n characters from the start (data-first)	
-unported	packages/effect/test/String.test.ts	500	it	takes n characters from the start (data-last)	
-unported	packages/effect/test/String.test.ts	504	it	returns whole string if n > length	
-unported	packages/effect/test/String.test.ts	508	it	returns an empty string for non-positive or NaN counts	
-unported	packages/effect/test/String.test.ts	516	it	takes n characters from the end (data-first)	
-unported	packages/effect/test/String.test.ts	521	it	takes n characters from the end (data-last)	
-unported	packages/effect/test/String.test.ts	525	it	returns whole string if n > length	
-unported	packages/effect/test/String.test.ts	529	it	returns an empty string for non-positive or NaN counts	
+ported	packages/effect/test/String.test.ts	483	it	converts to locale lowercase	string_take_replace_search_locale
+ported	packages/effect/test/String.test.ts	489	it	converts to locale uppercase	string_take_replace_search_locale
+ported	packages/effect/test/String.test.ts	495	it	takes n characters from the start (data-first)	string_take_replace_search_locale
+ported	packages/effect/test/String.test.ts	500	it	takes n characters from the start (data-last)	string_take_replace_search_locale
+ported	packages/effect/test/String.test.ts	504	it	returns whole string if n > length	string_take_replace_search_locale
+ported	packages/effect/test/String.test.ts	508	it	returns an empty string for non-positive or NaN counts	string_take_replace_search_locale
+ported	packages/effect/test/String.test.ts	516	it	takes n characters from the end (data-first)	string_take_replace_search_locale
+ported	packages/effect/test/String.test.ts	521	it	takes n characters from the end (data-last)	string_take_replace_search_locale
+ported	packages/effect/test/String.test.ts	525	it	returns whole string if n > length	string_take_replace_search_locale
+ported	packages/effect/test/String.test.ts	529	it	returns an empty string for non-positive or NaN counts	string_take_replace_search_locale
 unported	packages/effect/test/String.test.ts	537	it	yields lines without separators	
 unported	packages/effect/test/String.test.ts	541	it	handles CRLF	
 unported	packages/effect/test/String.test.ts	545	it	handles single line without newline	
