@@ -332,9 +332,29 @@ pub mod sse {
     /// dispatches (empty data), matching the reference parser.
     pub fn decode(input: &str) -> Vec<Event> {
         let mut decoder = Decoder::new();
-        let mut events = decoder.feed(input);
+        let mut events = decoder.feed(input).expect("unlimited decoder");
         events.extend(decoder.finish());
         events
+    }
+
+    /// A failed decode: the reason carries the limit (TS `SseError`).
+    #[derive(Debug, Clone, PartialEq, Eq)]
+    pub struct SseError {
+        pub reason: SseErrorReason,
+    }
+
+    /// Why decoding failed (TS `EventTooLarge`).
+    #[derive(Debug, Clone, PartialEq, Eq)]
+    pub enum SseErrorReason {
+        EventTooLarge { max_event_size: usize },
+    }
+
+    impl SseError {
+        fn too_large(max_event_size: usize) -> Self {
+            Self {
+                reason: SseErrorReason::EventTooLarge { max_event_size },
+            }
+        }
     }
 
     /// Incremental SSE decoder: feed text chunks, dispatch one [`Event`]
@@ -351,6 +371,7 @@ pub mod sse {
         retry: Option<u64>,
         last_event_id: Option<String>,
         started: bool,
+        max_event_size: Option<usize>,
     }
 
     impl Decoder {
@@ -359,13 +380,23 @@ pub mod sse {
             Self::default()
         }
 
+        /// A decoder failing any line longer than `max_event_size` (TS
+        /// `maxEventSize`: lengths count UTF-16 units, as in TS strings).
+        pub fn with_max_event_size(max_event_size: usize) -> Self {
+            Self {
+                max_event_size: Some(max_event_size),
+                ..Self::default()
+            }
+        }
+
         /// The retained last event id, if any.
         pub fn last_event_id(&self) -> Option<&str> {
             self.last_event_id.as_deref()
         }
 
-        /// Feed a chunk; returns events completed by blank-line blocks.
-        pub fn feed(&mut self, chunk: &str) -> Vec<Event> {
+        /// Feed a chunk; returns events completed by blank-line blocks,
+        /// or the first overlong line as an error.
+        pub fn feed(&mut self, chunk: &str) -> Result<Vec<Event>, SseError> {
             if !self.started {
                 self.started = true;
                 self.pending
@@ -373,9 +404,17 @@ pub mod sse {
             } else {
                 self.pending.push_str(chunk);
             }
+            if let Some(max) = self.max_event_size {
+                for line in self.pending.split('\n') {
+                    let bare = line.strip_suffix('\r').unwrap_or(line);
+                    if bare.encode_utf16().count() > max {
+                        return Err(SseError::too_large(max));
+                    }
+                }
+            }
             let mut events = Vec::new();
             self.drain_complete(&mut events);
-            events
+            Ok(events)
         }
 
         /// Dispatch the buffered remainder as a final block, then flush

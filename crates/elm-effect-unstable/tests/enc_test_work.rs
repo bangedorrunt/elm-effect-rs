@@ -438,8 +438,8 @@ fn sse_ignores_comments_and_empty_blocks() {
 #[test]
 fn sse_joins_crlf_split_across_chunks() {
     let mut decoder = encoding::sse::Decoder::new();
-    let mut events = decoder.feed("data: first\r");
-    events.extend(decoder.feed("\ndata: second\n\n"));
+    let mut events = decoder.feed("data: first\r").unwrap();
+    events.extend(decoder.feed("\ndata: second\n\n").unwrap());
     assert_eq!(events.len(), 1);
     assert_eq!(events[0].data, "first\nsecond");
     assert_eq!(events[0].event, "message");
@@ -448,7 +448,7 @@ fn sse_joins_crlf_split_across_chunks() {
 #[test]
 fn sse_retains_last_event_id() {
     let mut decoder = encoding::sse::Decoder::new();
-    let events = decoder.feed("id: 1\ndata: first\n\ndata: second\n\n");
+    let events = decoder.feed("id: 1\ndata: first\n\ndata: second\n\n").unwrap();
     assert_eq!(events.len(), 2);
     assert_eq!(events[0].id.as_deref(), Some("1"));
     assert_eq!(events[0].data, "first");
@@ -459,7 +459,7 @@ fn sse_retains_last_event_id() {
 #[test]
 fn sse_strips_leading_bom_once() {
     let mut decoder = encoding::sse::Decoder::new();
-    let events = decoder.feed("\u{FEFF}data: ok\n\n");
+    let events = decoder.feed("\u{FEFF}data: ok\n\n").unwrap();
     assert_eq!(events.len(), 1);
     assert_eq!(events[0].data, "ok");
     assert_eq!(events[0].event, "message");
@@ -469,14 +469,48 @@ fn sse_strips_leading_bom_once() {
 #[test]
 fn sse_parses_events_split_across_chunks() {
     let mut decoder = encoding::sse::Decoder::new();
-    let mut events = decoder.feed("id: 1\nevent: up");
-    events.extend(decoder.feed("date\ndata: hel"));
-    events.extend(decoder.feed("lo\n"));
-    events.extend(decoder.feed("\n"));
+    let mut events = decoder.feed("id: 1\nevent: up").unwrap();
+    events.extend(decoder.feed("date\ndata: hel").unwrap());
+    events.extend(decoder.feed("lo\n").unwrap());
+    events.extend(decoder.feed("\n").unwrap());
     assert_eq!(events.len(), 1);
     assert_eq!(events[0].event, "update");
     assert_eq!(events[0].data, "hello");
     assert_eq!(events[0].id.as_deref(), Some("1"));
+}
+
+#[test]
+fn sse_fails_unterminated_line_over_max() {
+    use encoding::sse::{Decoder, SseErrorReason};
+    let mut decoder = Decoder::with_max_event_size(4);
+    let err = decoder.feed("12345").unwrap_err();
+    assert_eq!(
+        err.reason,
+        SseErrorReason::EventTooLarge { max_event_size: 4 }
+    );
+}
+
+#[test]
+fn sse_fails_pending_data_over_max() {
+    use encoding::sse::{Decoder, SseErrorReason};
+    let mut decoder = Decoder::with_max_event_size(3);
+    let err = decoder.feed("data: a\n").unwrap_err();
+    assert_eq!(
+        err.reason,
+        SseErrorReason::EventTooLarge { max_event_size: 3 }
+    );
+}
+
+#[test]
+fn sse_parses_pending_just_under_max() {
+    use encoding::sse::Decoder;
+    let mut decoder = Decoder::with_max_event_size(10);
+    let events = decoder.feed("data: a\ndata: b").unwrap();
+    assert!(events.is_empty());
+    let events = decoder.feed("\n\n").unwrap();
+    assert_eq!(events.len(), 1);
+    assert_eq!(events[0].data, "a\nb");
+    assert_eq!(events[0].event, "message");
 }
 
 #[test]
