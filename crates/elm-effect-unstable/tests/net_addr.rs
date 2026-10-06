@@ -172,6 +172,8 @@ fn derived_addresses_revalidate_refinements() {
     let addr = match multicast {
         NetAddress::V4(v4) => std::net::IpAddr::V4(v4),
         NetAddress::V6(v6) => std::net::IpAddr::V6(v6),
+        // This test builds an IPv4 multicast value; no Unix arm runs.
+        NetAddress::UnixPath(_) => unreachable!("multicast fixture is IPv4"),
     };
     for derived in [
         IpNetwork::from_address_unsafe(addr, 0.0),
@@ -321,4 +323,33 @@ fn byte_constructor_inputs_are_copied() {
     assert_eq!(ipv6.format_ip(), "::1");
     assert_eq!(net_hash(&ipv4), hash4);
     assert_eq!(net_hash(&ipv6), hash6);
+}
+
+#[test]
+fn unix_paths_format_verbatim() {
+    use net::NetAddress;
+    for (path, expected) in [
+        ("/tmp/server.sock", "unix:///tmp/server.sock"),
+        ("./run/../server.sock", "unix://./run/../server.sock"),
+        ("/tmp/socket?#%20", "unix:///tmp/socket?#%20"),
+        ("/tmp/socket with spaces.sock", "unix:///tmp/socket with spaces.sock"),
+        ("", "unix://"),
+    ] {
+        let address = NetAddress::unix_path_address(path);
+        assert_eq!(address.format_unix_path().as_deref(), Some(expected));
+        assert_eq!(address.format_url("http"), expected);
+        assert_eq!(address.format_url("https"), expected);
+    }
+}
+
+#[test]
+fn unix_paths_stay_opaque() {
+    use net::NetAddress;
+    let address = NetAddress::unix_path_address("./run/../server.sock");
+    assert_eq!(address.path(), Some("./run/../server.sock"));
+    assert_eq!(address.format_socket_address(), "./run/../server.sock");
+    assert_eq!(
+        address,
+        NetAddress::unix_path_address("./run/../server.sock")
+    );
 }

@@ -503,13 +503,15 @@ impl StrictIp {
 
 // Numeric addresses
 
-/// A bare IP address value: the runtime representation shared by the
-/// `NetAddress` numeric constructors (hostnames, URLs, and sockets arrive
-/// as later variants).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+/// A bare IP or Unix-socket address value: the runtime representation
+/// shared by the `NetAddress` constructors (hostnames and URLs arrive as
+/// later variants).
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum NetAddress {
     V4(Ipv4Addr),
     V6(Ipv6Addr),
+    /// A Unix socket path, kept opaque: never encoded or normalized.
+    UnixPath(String),
 }
 
 impl NetAddress {
@@ -564,6 +566,8 @@ impl NetAddress {
         match self {
             Self::V4(v4) => v4.to_string(),
             Self::V6(v6) => v6.to_string(),
+            // Opaque passthrough: Unix paths have no IP text.
+            Self::UnixPath(path) => path.clone(),
         }
     }
 
@@ -584,7 +588,8 @@ impl NetAddress {
                     u16::from_be_bytes([o[2], o[3]]),
                 ))
             }
-            Self::V6(_) => *self,
+            Self::V6(_) => self.clone(),
+            Self::UnixPath(_) => self.clone(),
         }
     }
 
@@ -592,6 +597,7 @@ impl NetAddress {
     pub fn is_ipv4_mapped(&self) -> bool {
         match self {
             Self::V4(_) => false,
+            Self::UnixPath(_) => false,
             Self::V6(v6) => {
                 let s = v6.segments();
                 s[0] == 0 && s[1] == 0 && s[2] == 0 && s[3] == 0 && s[4] == 0 && s[5] == 0xffff
@@ -603,6 +609,7 @@ impl NetAddress {
     pub fn from_ipv4_mapped(&self) -> Option<Self> {
         match self {
             Self::V4(_) => None,
+            Self::UnixPath(_) => None,
             Self::V6(v6) if self.is_ipv4_mapped() => {
                 let s = v6.segments();
                 Some(Self::V4(Ipv4Addr::new(
@@ -619,7 +626,47 @@ impl NetAddress {
     /// Canonical form: mapped values collapse to IPv4, everything else
     /// passes through (TS `toCanonical`).
     pub fn to_canonical(&self) -> Self {
-        self.from_ipv4_mapped().unwrap_or(*self)
+        self.from_ipv4_mapped().unwrap_or_else(|| self.clone())
+    }
+
+    /// Build a Unix socket address from a path, kept verbatim (TS
+    /// `unixPathAddress`).
+    pub fn unix_path_address(path: impl Into<String>) -> Self {
+        Self::UnixPath(path.into())
+    }
+
+    /// The socket path for Unix addresses (TS `path`).
+    pub fn path(&self) -> Option<&str> {
+        match self {
+            Self::UnixPath(path) => Some(path),
+            Self::V4(_) | Self::V6(_) => None,
+        }
+    }
+
+    /// `unix://` plus the verbatim path: no encoding, no normalization
+    /// (TS `formatUnixPath`).
+    pub fn format_unix_path(&self) -> Option<String> {
+        self.path().map(|path| format!("unix://{path}"))
+    }
+
+    /// The socket address text: Unix paths verbatim, bare IPs without a
+    /// port (TS `formatSocketAddress`; ports arrive with socket addresses).
+    pub fn format_socket_address(&self) -> String {
+        match self {
+            Self::UnixPath(path) => path.clone(),
+            Self::V4(_) | Self::V6(_) => self.format_ip(),
+        }
+    }
+
+    /// URL text: `unix://` paths verbatim under any scheme, IPs as
+    /// `scheme://host` with brackets for IPv6 and no trailing slash (TS
+    /// `formatUrl`/`formatUrlUnsafe` for the portless forms).
+    pub fn format_url(&self, scheme: &str) -> String {
+        match self {
+            Self::UnixPath(path) => format!("unix://{path}"),
+            Self::V4(v4) => format!("{scheme}://{v4}"),
+            Self::V6(v6) => format!("{scheme}://[{v6}]"),
+        }
     }
 
     /// True for `0.0.0.0` / `::` (TS `isUnspecified`).
@@ -627,6 +674,7 @@ impl NetAddress {
         match self {
             Self::V4(v4) => u32::from_be_bytes(v4.octets()) == 0,
             Self::V6(v6) => v6.segments() == [0, 0, 0, 0, 0, 0, 0, 0],
+            Self::UnixPath(_) => false,
         }
     }
 
@@ -635,6 +683,7 @@ impl NetAddress {
         match self {
             Self::V4(v4) => (u32::from_be_bytes(v4.octets()) >> 24) == 127,
             Self::V6(v6) => v6.segments() == [0, 0, 0, 0, 0, 0, 0, 1],
+            Self::UnixPath(_) => false,
         }
     }
 
@@ -644,6 +693,7 @@ impl NetAddress {
         match self {
             Self::V4(v4) => (u32::from_be_bytes(v4.octets()) >> 28) == 0xe,
             Self::V6(v6) => (v6.segments()[0] >> 8) == 0xff,
+            Self::UnixPath(_) => false,
         }
     }
 
@@ -654,6 +704,7 @@ impl NetAddress {
         match self {
             Self::V4(v4) => u32::from_be_bytes(v4.octets()) == 0xffff_ffff,
             Self::V6(_) => false,
+            Self::UnixPath(_) => false,
         }
     }
 
@@ -670,6 +721,7 @@ impl NetAddress {
         match self {
             Self::V4(v4) => (u32::from_be_bytes(v4.octets()) >> 16) == 0xa9fe,
             Self::V6(v6) => (v6.segments()[0] & 0xffc0) == 0xfe80,
+            Self::UnixPath(_) => false,
         }
     }
 
@@ -684,6 +736,7 @@ impl NetAddress {
                     || (value >> 16) == 0xc0a8
             }
             Self::V6(_) => false,
+            Self::UnixPath(_) => false,
         }
     }
 
@@ -692,6 +745,7 @@ impl NetAddress {
         match self {
             Self::V4(_) => false,
             Self::V6(v6) => ((v6.segments()[0] >> 8) & 0xfe) == 0xfc,
+            Self::UnixPath(_) => false,
         }
     }
 }
