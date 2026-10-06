@@ -1092,3 +1092,12 @@ fn string_no_case_words() {
     assert_eq!(string::no_case("field2value", " "), "field 2 value");
     assert_eq!(string::no_case("field2Value", " "), "field 2 value");
 }
+
+#[test]
+fn string_pascal_case_words() {
+    // String.test.ts:680 - words join capitalized.
+    assert_eq!(string::pascal_case("hello world"), "HelloWorld");
+    // :686 - numeric segments attach without separators.
+    assert_eq!(string::pascal_case("foo 2 bar"), "Foo2Bar");
+    assert_eq!(string::pascal_case("api-v2 xml"), "ApiV2Xml");
+}

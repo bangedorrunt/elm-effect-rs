@@ -125,6 +125,11 @@ pub fn no_case(s: &str, delimiter: &str) -> String {
         .join(delimiter)
 }
 
+/// Capitalized-joined words (`pascalCase`).
+pub fn pascal_case(s: &str) -> String {
+    split_words(s).iter().map(|word| capitalize(word)).collect()
+}
+
 /// Split before each uppercase letter, lowercasing all (`camelToSnake`
 /// and `pascalToSnake` share this rule for the row cases).
 pub fn camel_to_snake(s: &str) -> String {

@@ -3979,8 +3979,8 @@ unported	packages/effect/test/String.test.ts	660	it	uses a custom strip regular 
 unported	packages/effect/test/String.test.ts	664	it	uses custom strip regular expressions	
 ported	packages/effect/test/String.test.ts	668	it	handles underscores and hyphens	string_no_case_words
 ported	packages/effect/test/String.test.ts	673	it	splits digit-letter boundaries	string_no_case_words
-unported	packages/effect/test/String.test.ts	680	it	converts to PascalCase	
-unported	packages/effect/test/String.test.ts	686	it	does not prefix numeric segments with underscores	
+ported	packages/effect/test/String.test.ts	680	it	converts to PascalCase	string_pascal_case_words
+ported	packages/effect/test/String.test.ts	686	it	does not prefix numeric segments with underscores	string_pascal_case_words
 unported	packages/effect/test/String.test.ts	693	it	converts to camelCase	
 unported	packages/effect/test/String.test.ts	699	it	does not prefix numeric segments with underscores	
 unported	packages/effect/test/String.test.ts	706	it	converts to CONSTANT_CASE	
