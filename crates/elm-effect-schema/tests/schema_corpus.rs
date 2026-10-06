@@ -1238,3 +1238,14 @@ fn formatter_object_keyword_renders_shapes() {
         "[1,2,3]"
     );
 }
+
+#[test]
+fn formatter_union_renders_member_values() {
+    let format = Schema::union(
+        Schema::literal(Unknown::Text("a".to_string())),
+        Schema::literal(Unknown::Number(1.0)),
+    )
+    .formatter();
+    assert_eq!(format(&Unknown::Text("a".to_string())), "\"a\"");
+    assert_eq!(format(&Unknown::Number(1.0)), "1");
+}
