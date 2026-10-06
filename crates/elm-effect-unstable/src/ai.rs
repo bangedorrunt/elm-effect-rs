@@ -212,6 +212,8 @@ pub enum AiReason {
     StructuredOutput {
         /// Detail text.
         details: String,
+        /// Source response text, when captured.
+        response_text: String,
     },
     /// Schema shape unsupported by the provider.
     UnsupportedSchema {
@@ -334,7 +336,7 @@ impl AiReason {
             } => {
                 format!("Invalid configuration for tool '{tool_name}': {description}")
             }
-            Self::StructuredOutput { details } => format!("Structured output error: {details}"),
+            Self::StructuredOutput { details, .. } => format!("Structured output error: {details}"),
             Self::UnsupportedSchema { details } => format!("Unsupported schema: {details}"),
             Self::InvalidUserInput { details } => format!("Invalid user input: {details}"),
             Self::ToolkitRequired => "Toolkit required".to_owned(),
@@ -829,6 +831,26 @@ fn get_opt_string(value: &serde_json::Value, key: &str) -> Option<Option<String>
 }
 
 impl AiReason {
+    /// Build from a schema failure message, mirroring the
+    /// `fromSchemaError` constructors, which copy `error.message`.
+    /// Takes the message directly: no Schema layer exists here yet.
+    pub fn invalid_output_from_message(message: &str) -> AiReason {
+        AiReason::InvalidOutput {
+            details: message.to_owned(),
+        }
+    }
+
+    /// Build from a schema failure message plus the source response
+    /// text, mirroring `StructuredOutputError.fromSchemaError`.
+    pub fn structured_output_from_message(message: &str, response_text: &str) -> AiReason {
+        AiReason::StructuredOutput {
+            details: message.to_owned(),
+            response_text: response_text.to_owned(),
+        }
+    }
+}
+
+impl AiReason {
     /// Encode to the tagged JSON shape.
     pub fn to_json(&self) -> serde_json::Value {
         let mut out = serde_json::Map::new();
@@ -954,10 +976,17 @@ impl AiReason {
                     serde_json::Value::String(description.clone()),
                 );
             }
-            AiReason::StructuredOutput { details } => {
+            AiReason::StructuredOutput {
+                details,
+                response_text,
+            } => {
                 out.insert(
                     "details".to_owned(),
                     serde_json::Value::String(details.clone()),
+                );
+                out.insert(
+                    "responseText".to_owned(),
+                    serde_json::Value::String(response_text.clone()),
                 );
             }
             AiReason::UnsupportedSchema { details } => {
@@ -1040,6 +1069,7 @@ impl AiReason {
             },
             "StructuredOutputError" => AiReason::StructuredOutput {
                 details: get_string(value, "details")?,
+                response_text: get_string(value, "responseText").unwrap_or_default(),
             },
             "UnsupportedSchemaError" => AiReason::UnsupportedSchema {
                 details: get_string(value, "details")?,

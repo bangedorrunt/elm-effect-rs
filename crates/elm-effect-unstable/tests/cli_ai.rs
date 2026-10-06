@@ -164,6 +164,7 @@ fn ai_error_tags_and_retryability() {
         (
             AiReason::StructuredOutput {
                 details: "x".to_owned(),
+                response_text: String::new(),
             },
             "StructuredOutputError",
             true,
@@ -709,7 +710,7 @@ fn ai_reasons_roundtrip_json() {
             description: "d".to_owned(),
         },
         AiReason::ToolConfiguration { tool_name: "t".to_owned(), description: "d".to_owned() },
-        AiReason::StructuredOutput { details: "d".to_owned() },
+        AiReason::StructuredOutput { details: "d".to_owned(), response_text: String::new() },
         AiReason::UnsupportedSchema { details: "d".to_owned() },
         AiReason::InvalidUserInput { details: "d".to_owned() },
         AiReason::ToolkitRequired,
@@ -736,4 +737,28 @@ fn ai_reasons_roundtrip_json() {
     assert_eq!(back.tag, "AiError");
     assert_eq!(back.reason_tag(), "UnknownError");
     assert_eq!(back, error);
+}
+
+#[test]
+fn ai_errors_from_schema_messages() {
+    use elm_effect_unstable::ai::{AiError, AiReason};
+    // AiError.test.ts:185 - InvalidOutputError carries the schema message.
+    let invalid = AiReason::invalid_output_from_message("Expected string but got number");
+    assert_eq!(invalid.tag(), "InvalidOutputError");
+    // AiError.test.ts:444 - StructuredOutputError keeps message and response.
+    let structured =
+        AiReason::structured_output_from_message("Expected string", "{\"name\":123}");
+    assert_eq!(structured.tag(), "StructuredOutputError");
+    // AiError.test.ts:88 - descriptions survive JSON round-trips.
+    let described = AiError::new(AiReason::Authentication {
+        kind: "ExpiredKey".to_owned(),
+    })
+    .with_description("The security token included in the request is expired");
+    let text = serde_json::to_string(&described.to_json()).expect("encodes");
+    let back = AiError::from_json(&serde_json::from_str(&text).expect("json")).expect("decodes");
+    assert_eq!(
+        back.description.as_deref(),
+        Some("The security token included in the request is expired")
+    );
+    assert_eq!(back.tag, "AiError");
 }
