@@ -903,3 +903,34 @@ fn net_addresses_format_multicast_interfaces() {
         "::%eth0"
     );
 }
+
+#[test]
+fn net_addresses_resolve_named_zones_through_scope_table() {
+    use net::{NetAddress, NetworkErrorInput};
+    use std::collections::BTreeMap;
+    // NetAddress.test.ts:653 - named zones resolve only via the table.
+    for scope_id in [7u32, 9u32] {
+        let scope_ids = BTreeMap::from([("en0".to_owned(), scope_id)]);
+        let address =
+            NetAddress::socket_address_from_host_string("fe80::1%en0", 4567, &scope_ids)
+                .expect("resolves");
+        assert_eq!(
+            address,
+            NetAddress::socket_address_from_input(&format!("[fe80::1%{scope_id}]:4567"))
+                .expect("parses")
+        );
+    }
+    // Unknown names fail carrying the host as input.
+    let other = BTreeMap::from([("en1".to_owned(), 7u32)]);
+    let unknown =
+        NetAddress::socket_address_from_host_string("fe80::1%en0", 4567, &other).unwrap_err();
+    assert!(
+        matches!(unknown.input, NetworkErrorInput::Text(ref text) if text == "fe80::1%en0"),
+        "{unknown:?}"
+    );
+    // No table at all fails too.
+    let empty = BTreeMap::new();
+    assert!(
+        NetAddress::socket_address_from_host_string("fe80::1%en0", 4567, &empty).is_err()
+    );
+}
