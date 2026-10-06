@@ -4,8 +4,8 @@
 mod schema_binary;
 
 use schema_binary::{
-    decode_bool_array, decode_number_array, decode_number_scalar, encode_bool_array,
-    encode_number_array, encode_number_scalar,
+    decode_bool_array, decode_number_array, decode_number_scalar, decode_string_array,
+    encode_bool_array, encode_number_array, encode_number_scalar, encode_string_array,
 };
 
 #[test]
@@ -125,4 +125,33 @@ fn binary_scalars_pack_decimals_and_f64_fallback() {
             v.to_bits()
         );
     }
+}
+
+#[test]
+fn binary_string_runs_are_length_prefixed() {
+    // SchemaBinary.test.ts:164 - variable-size elements carry a length prefix.
+    assert_eq!(
+        encode_string_array(&["a", "bb", ""]),
+        vec![0x08, 0x20, 0x03, 0x01, b'a', 0x02, b'b', b'b', 0x00]
+    );
+    assert_eq!(
+        encode_string_array(&["hello"]),
+        vec![0x08, 0x20, 0x01, 0x05, b'h', b'e', b'l', b'l', b'o']
+    );
+    // Multi-byte UTF-8 is measured in bytes, not chars.
+    let unicode = encode_string_array(&["héllo"]);
+    assert_eq!(unicode[3], 6);
+    // :175 - zero-width elements round-trip.
+    assert_eq!(
+        decode_string_array(&encode_string_array(&["", ""])).expect("decodes"),
+        vec!["".to_owned(), "".to_owned()]
+    );
+    assert_eq!(
+        decode_string_array(&encode_string_array(&["a", "bb", ""])).expect("decodes"),
+        vec!["a".to_owned(), "bb".to_owned(), "".to_owned()]
+    );
+    assert_eq!(
+        decode_string_array(&unicode).expect("decodes"),
+        vec!["héllo".to_owned()]
+    );
 }

@@ -6117,8 +6117,8 @@ unported	packages/effect/test/encoding/Ndjson.test.ts	7	it.effect	fails for valu
 unported	packages/effect/test/encoding/Ndjson.test.ts	23	it.effect	decodeSchema decodes records split across Uint8Array chunks	
 unported	packages/effect/test/encoding/Ndjson.test.ts	35	it	identifies Ndjson errors	
 ported	packages/effect/test/encoding/SchemaBinary.test.ts	148	it	packs fixed-size array elements	binary_arrays_pack_fixed_elements
-unported	packages/effect/test/encoding/SchemaBinary.test.ts	164	it	length-prefixes variable-size array elements and nested arrays	
-unported	packages/effect/test/encoding/SchemaBinary.test.ts	175	it	round-trips zero-width array elements	
+ported	packages/effect/test/encoding/SchemaBinary.test.ts	164	it	length-prefixes variable-size array elements and nested arrays	binary_string_runs_are_length_prefixed
+ported	packages/effect/test/encoding/SchemaBinary.test.ts	175	it	round-trips zero-width array elements	binary_string_runs_are_length_prefixed
 unported	packages/effect/test/encoding/SchemaBinary.test.ts	183	it	distinguishes absent optionals from present zero-width values	
 unported	packages/effect/test/encoding/SchemaBinary.test.ts	195	it	includes non-enumerable fields in row presence masks	
 unported	packages/effect/test/encoding/SchemaBinary.test.ts	203	it	round-trips every literal leaf kind and registered symbols	

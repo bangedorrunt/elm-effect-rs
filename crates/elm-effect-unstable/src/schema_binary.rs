@@ -37,6 +37,9 @@ const ARRAY_TAG: u8 = 0x20;
 const NUMBER_RUN_F64: u8 = 0;
 const NUMBER_RUN_VARINT: u8 = 1;
 const NUMBER_RUN_DECIMAL: u8 = 2;
+/// Length-prefixed string run (the reference codec writes no mode byte for
+/// strings; the schema picks the decoder).
+const STRING_RUN: u8 = 1;
 /// Varint path bound (2^48 - 1).
 const VARINT_NUMBER_MAX_MAGNITUDE: f64 = 281_474_976_710_655.0;
 /// Short-decimal mantissa bound (2^41 - 1).
@@ -262,6 +265,46 @@ pub fn decode_number_scalar(bytes: &[u8]) -> Result<f64, BinaryError> {
     let magnitude = (word >> 1) as f64;
     let value = magnitude / POW10[scale as usize];
     Ok(if negative { -value } else { value })
+}
+
+/// Encode strings as length-prefixed UTF-8 behind the array envelope.
+pub fn encode_string_array(values: &[&str]) -> Vec<u8> {
+    let mut payload = Vec::new();
+    for value in values {
+        uvarint(value.len() as u64, &mut payload);
+        payload.extend_from_slice(value.as_bytes());
+    }
+    frame(ARRAY_TAG, values.len() as u64, None, &payload)
+}
+
+/// Decode one length-prefixed string run (no mode byte on the wire).
+pub fn decode_string_array(bytes: &[u8]) -> Result<Vec<String>, BinaryError> {
+    let mut pos = 0;
+    let fail = |message: &str| BinaryError::new(format!("{} [{}]", message, hex_preview(bytes)));
+    let _length = uvarint_decode(bytes, &mut pos).ok_or_else(|| fail("truncated length"))?;
+    let tag = *bytes.get(pos).ok_or_else(|| fail("truncated tag"))?;
+    pos += 1;
+    if tag != ARRAY_TAG {
+        return Err(fail("unexpected envelope tag"));
+    }
+    let count = uvarint_decode(bytes, &mut pos).ok_or_else(|| fail("truncated count"))?;
+    let _ = STRING_RUN;
+    let mut out = Vec::new();
+    for _ in 0..count {
+        let len = uvarint_decode(bytes, &mut pos).ok_or_else(|| fail("truncated string length"))?
+            as usize;
+        let end = pos
+            .checked_add(len)
+            .filter(|end| *end <= bytes.len())
+            .ok_or_else(|| fail("truncated string bytes"))?;
+        let text = std::str::from_utf8(&bytes[pos..end]).map_err(|_| fail("invalid utf-8"))?;
+        out.push(text.to_owned());
+        pos = end;
+    }
+    if pos != bytes.len() {
+        return Err(fail("trailing bytes"));
+    }
+    Ok(out)
 }
 
 /// Encode booleans as raw bytes behind the array envelope (no run mode).
