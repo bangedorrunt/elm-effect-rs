@@ -137,8 +137,21 @@ pub fn ellipsis(s: &str, max: usize) -> String {
 
 // --- Wave-6 portable remainder (regex shapes stay residual: no engine) ---
 
-/// Split on a separator (`split`, data shapes).
+/// Split on a separator (`split`, data shapes; an empty separator
+/// splits into chars the way JS does, without edge empties).
 pub fn split<'a>(s: &'a str, separator: &str) -> Vec<&'a str> {
+    if separator.is_empty() {
+        if s.is_empty() {
+            return vec![""];
+        }
+        let mut out = Vec::new();
+        let mut chars = s.char_indices().peekable();
+        while let Some((start, _)) = chars.next() {
+            let end = chars.peek().map(|(index, _)| *index).unwrap_or(s.len());
+            out.push(&s[start..end]);
+        }
+        return out;
+    }
     s.split(separator).collect()
 }
 

@@ -3889,12 +3889,12 @@ ported	packages/effect/test/String.test.ts	200	it	returns true for empty string	
 ported	packages/effect/test/String.test.ts	204	it	returns false for non-empty string	string_trim_ends_and_emptiness
 ported	packages/effect/test/String.test.ts	211	it	returns true for non-empty string	string_trim_ends_and_emptiness
 ported	packages/effect/test/String.test.ts	215	it	returns false for empty string	string_trim_ends_and_emptiness
-unported	packages/effect/test/String.test.ts	221	it	returns string length	
-unported	packages/effect/test/String.test.ts	225	it	returns 0 for empty string	
-unported	packages/effect/test/String.test.ts	231	it	splits by string separator (data-last)	
-unported	packages/effect/test/String.test.ts	235	it	splits by string separator (data-first)	
-unported	packages/effect/test/String.test.ts	239	it	splits by empty string	
-unported	packages/effect/test/String.test.ts	243	it	splits empty string by empty string	
+ported	packages/effect/test/String.test.ts	221	it	returns string length	string_length_and_split
+ported	packages/effect/test/String.test.ts	225	it	returns 0 for empty string	string_length_and_split
+ported	packages/effect/test/String.test.ts	231	it	splits by string separator (data-last)	string_length_and_split
+ported	packages/effect/test/String.test.ts	235	it	splits by string separator (data-first)	string_length_and_split
+ported	packages/effect/test/String.test.ts	239	it	splits by empty string	string_length_and_split
+ported	packages/effect/test/String.test.ts	243	it	splits empty string by empty string	string_length_and_split
 unported	packages/effect/test/String.test.ts	247	it	splits by regex	
 ported	packages/effect/test/String.test.ts	253	it	returns true when substring found	string_basics
 ported	packages/effect/test/String.test.ts	257	it	returns false when substring not found	string_basics

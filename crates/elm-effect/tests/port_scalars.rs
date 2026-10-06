@@ -858,3 +858,19 @@ fn string_trim_ends_and_emptiness() {
     assert!(string::is_non_empty("a"));
     assert!(!string::is_non_empty(""));
 }
+
+#[test]
+fn string_length_and_split() {
+    // String.test.ts:221 - string length.
+    assert_eq!(string::length("abc"), 3);
+    // :225 - empty length.
+    assert_eq!(string::length(""), 0);
+    // :231 - data-last split.
+    assert_eq!(string::split("a,b,c", ","), ["a", "b", "c"]);
+    // :235 - data-first split.
+    assert_eq!(string::split("hello,world", ","), ["hello", "world"]);
+    // :239 - empty separator splits into chars.
+    assert_eq!(string::split("abc", ""), ["a", "b", "c"]);
+    // :243 - empty split by empty.
+    assert_eq!(string::split("", ""), [""]);
+}
