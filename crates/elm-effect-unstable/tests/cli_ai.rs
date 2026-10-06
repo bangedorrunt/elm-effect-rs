@@ -783,3 +783,75 @@ fn ai_errors_from_schema_messages() {
     );
     assert_eq!(back.tag, "AiError");
 }
+
+#[test]
+fn cli_error_taxonomy_tags() {
+    use elm_effect_unstable::cli::CliError;
+    // Errors.test.ts:28 - the UnknownSubcommand class name is its tag.
+    let unknown = CliError::UnknownSubcommand {
+        subcommand: "deplyo".to_owned(),
+        parent: None,
+        suggestions: vec!["deploy".to_owned()],
+    };
+    assert_eq!(unknown.tag(), "UnknownSubcommand");
+    match &unknown {
+        CliError::UnknownSubcommand {
+            subcommand,
+            suggestions,
+            ..
+        } => {
+            assert_eq!(subcommand, "deplyo");
+            assert_eq!(suggestions, &["deploy".to_owned()]);
+        }
+        _ => panic!("wrong variant"),
+    }
+    assert_eq!(
+        CliError::MissingOption {
+            option: "value".to_owned()
+        }
+        .tag(),
+        "MissingOption"
+    );
+    assert_eq!(
+        CliError::UnrecognizedOption {
+            option: "--verboes".to_owned(),
+            command: None,
+            suggestions: vec!["--verbose".to_owned()],
+        }
+        .tag(),
+        "UnrecognizedOption"
+    );
+    assert_eq!(
+        CliError::DuplicateOption {
+            option: "--verbose".to_owned(),
+            parent_command: vec!["root".to_owned()],
+            child_command: vec!["root".to_owned(), "serve".to_owned()],
+        }
+        .tag(),
+        "DuplicateOption"
+    );
+    assert_eq!(
+        CliError::MissingArgument {
+            argument: "input".to_owned()
+        }
+        .tag(),
+        "MissingArgument"
+    );
+    assert_eq!(
+        CliError::UnexpectedArgument {
+            arguments: vec!["extra".to_owned()]
+        }
+        .tag(),
+        "UnexpectedArgument"
+    );
+    assert_eq!(
+        CliError::InvalidValue {
+            option: "--port".to_owned(),
+            value: "abc".to_owned(),
+            expected: "an integer".to_owned(),
+            kind: "option".to_owned(),
+        }
+        .tag(),
+        "InvalidValue"
+    );
+}

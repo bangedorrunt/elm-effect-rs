@@ -69,12 +69,65 @@ pub struct CliRequest {
 /// Parse failure.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum CliError {
-    /// No such command or flag (carries clap's message).
+    /// No such command or flag (carries clap's message; clap-compat shim).
     Unknown(String),
-    /// A value flag got no value.
+    /// A value flag got no value (clap-compat shim).
     MissingValue(String),
     /// Help or version was requested (carries the rendered text).
     Help(String),
+    /// Flag not defined by the command (`UnrecognizedOption`).
+    UnrecognizedOption {
+        /// Flag as typed.
+        option: String,
+        /// Command path from the root, when inside a subcommand.
+        command: Option<Vec<String>>,
+        /// Known flags with similar names.
+        suggestions: Vec<String>,
+    },
+    /// Same flag on a parent and child command (`DuplicateOption`).
+    DuplicateOption {
+        /// Repeated flag.
+        option: String,
+        /// Parent command path.
+        parent_command: Vec<String>,
+        /// Child command path.
+        child_command: Vec<String>,
+    },
+    /// A required flag is absent (`MissingOption`).
+    MissingOption {
+        /// Missing flag.
+        option: String,
+    },
+    /// A required positional is absent (`MissingArgument`).
+    MissingArgument {
+        /// Missing positional.
+        argument: String,
+    },
+    /// Extra positionals beyond the definition (`UnexpectedArgument`).
+    UnexpectedArgument {
+        /// Surplus positionals.
+        arguments: Vec<String>,
+    },
+    /// A value failed its primitive (`InvalidValue`).
+    InvalidValue {
+        /// Flag or positional name.
+        option: String,
+        /// Rejected text.
+        value: String,
+        /// What the primitive wanted.
+        expected: String,
+        /// `"option"` or `"argument"`.
+        kind: String,
+    },
+    /// No such subcommand (`UnknownSubcommand`).
+    UnknownSubcommand {
+        /// Subcommand as typed.
+        subcommand: String,
+        /// Parent command path, when nested.
+        parent: Option<Vec<String>>,
+        /// Known subcommands with similar names.
+        suggestions: Vec<String>,
+    },
 }
 
 impl std::fmt::Display for CliError {
@@ -83,6 +136,39 @@ impl std::fmt::Display for CliError {
             Self::Unknown(what) => write!(f, "unknown: {what}"),
             Self::MissingValue(flag) => write!(f, "missing value: {flag}"),
             Self::Help(text) => write!(f, "{text}"),
+            Self::UnrecognizedOption { option, .. } => {
+                write!(f, "unrecognized option: {option}")
+            }
+            Self::DuplicateOption { option, .. } => write!(f, "duplicate option: {option}"),
+            Self::MissingOption { option } => write!(f, "missing option: {option}"),
+            Self::MissingArgument { argument } => write!(f, "missing argument: {argument}"),
+            Self::UnexpectedArgument { arguments } => {
+                write!(f, "unexpected arguments: {}", arguments.join(" "))
+            }
+            Self::InvalidValue { option, value, .. } => {
+                write!(f, "invalid value for {option}: {value}")
+            }
+            Self::UnknownSubcommand { subcommand, .. } => {
+                write!(f, "unknown subcommand: {subcommand}")
+            }
+        }
+    }
+}
+
+impl CliError {
+    /// Runtime tag matching the `CliError.*` class name.
+    pub fn tag(&self) -> &'static str {
+        match self {
+            Self::Unknown(_) => "Unknown",
+            Self::MissingValue(_) => "MissingValue",
+            Self::Help(_) => "Help",
+            Self::UnrecognizedOption { .. } => "UnrecognizedOption",
+            Self::DuplicateOption { .. } => "DuplicateOption",
+            Self::MissingOption { .. } => "MissingOption",
+            Self::MissingArgument { .. } => "MissingArgument",
+            Self::UnexpectedArgument { .. } => "UnexpectedArgument",
+            Self::InvalidValue { .. } => "InvalidValue",
+            Self::UnknownSubcommand { .. } => "UnknownSubcommand",
         }
     }
 }

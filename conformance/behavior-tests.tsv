@@ -5636,7 +5636,7 @@ unported	packages/effect/test/cli/Command.test.ts	2273	it.effect	should expose e
 unported	packages/effect/test/cli/Command.test.ts	2290	it.effect	should preserve examples when adding subcommands	
 unported	packages/effect/test/cli/Command.test.ts	2308	it.effect	should include flag choices in help doc descriptions	
 unported	packages/effect/test/cli/Command.test.ts	2337	it.effect	should render flag choices in formatted help output	
-unported	packages/effect/test/cli/Errors.test.ts	28	it	uses the UnknownSubcommand class name as its runtime tag	
+ported	packages/effect/test/cli/Errors.test.ts	28	it	uses the UnknownSubcommand class name as its runtime tag	cli_error_taxonomy_tags
 unported	packages/effect/test/cli/Errors.test.ts	38	it.effect	fails with MissingOption when a required flag is absent	
 unported	packages/effect/test/cli/Errors.test.ts	50	it	throws DuplicateOption when shared parent and child flags reuse a name	
 unported	packages/effect/test/cli/Errors.test.ts	73	it	allows parent local flags to reuse child flag names	
