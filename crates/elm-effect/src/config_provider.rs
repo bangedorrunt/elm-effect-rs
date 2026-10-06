@@ -378,6 +378,44 @@ impl EnvProvider {
         }
     }
 
+    /// Parse `.env` text (`KEY=value` lines; blanks, `#` comments, and a
+    /// leading `export ` are skipped; surrounding quotes stripped).
+    pub fn from_dotenv(text: &str) -> Self {
+        let mut values = BTreeMap::new();
+        for raw in text.lines() {
+            let line = raw.trim();
+            if line.is_empty() || line.starts_with('#') {
+                continue;
+            }
+            let body = line.strip_prefix("export ").unwrap_or(line).trim();
+            let Some((k, v)) = body.split_once('=') else {
+                continue;
+            };
+            let key = k.trim().to_string();
+            if key.is_empty() {
+                continue;
+            }
+            let value = v.trim();
+            let unquoted = value
+                .strip_prefix('"')
+                .and_then(|s| s.strip_suffix('"'))
+                .or_else(|| {
+                    value
+                        .strip_prefix('\'')
+                        .and_then(|s| s.strip_suffix('\''))
+                })
+                .unwrap_or(value);
+            values.insert(key, unquoted.to_string());
+        }
+        Self { values }
+    }
+
+    /// Read and parse a `.env` file (`fromDotEnv({ path })`); a missing
+    /// or unreadable file is an I/O error, never an empty provider.
+    pub fn from_dotenv_file(path: &str) -> Result<Self, std::io::Error> {
+        std::fs::read_to_string(path).map(|text| Self::from_dotenv(&text))
+    }
+
     /// Look up by joining segments with `_` (inherent alias of
     /// [`Lookup::get`]).
     pub fn get(&self, path: &[String]) -> Option<String> {

@@ -902,3 +902,35 @@ fn provider_env_chain_applies_nested_before_constant_case() {
         Some("value".to_string())
     );
 }
+
+#[test]
+fn provider_dotenv_parses_key_value_text() {
+    use config_provider::EnvProvider;
+    let env = EnvProvider::from_dotenv("PATH=.env\nA=1\n# comment\n\nQUOTED=\"sp ace\"\nexport EXP=yes\n");
+    assert_eq!(env.get(&["PATH".to_string()]), Some(".env".to_string()));
+    assert_eq!(env.get(&["A".to_string()]), Some("1".to_string()));
+    assert_eq!(
+        env.get(&["QUOTED".to_string()]),
+        Some("sp ace".to_string())
+    );
+    assert_eq!(env.get(&["EXP".to_string()]), Some("yes".to_string()));
+    assert_eq!(env.get(&["missing".to_string()]), None);
+}
+
+#[test]
+fn provider_dotenv_file_reads_path_and_errors_missing() {
+    use config_provider::EnvProvider;
+    use std::sync::atomic::{AtomicU64, Ordering};
+    static N: AtomicU64 = AtomicU64::new(0);
+    let n = N.fetch_add(1, Ordering::SeqCst);
+    let path = std::env::temp_dir().join(format!("foggybasin-dotenv-{n}.env"));
+    std::fs::write(&path, "CUSTOM_PATH=custom.env\nA=1\n").unwrap();
+    let env = EnvProvider::from_dotenv_file(path.to_str().unwrap()).unwrap();
+    assert_eq!(
+        env.get(&["CUSTOM_PATH".to_string()]),
+        Some("custom.env".to_string())
+    );
+    assert_eq!(env.get(&["A".to_string()]), Some("1".to_string()));
+    std::fs::remove_file(&path).unwrap();
+    assert!(EnvProvider::from_dotenv_file(path.to_str().unwrap()).is_err());
+}
