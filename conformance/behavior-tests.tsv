@@ -871,8 +871,8 @@ ported	packages/effect/test/ConfigProvider.test.ts	211	it	preserves numeric word
 ported	packages/effect/test/ConfigProvider.test.ts	222	it	leaves numeric path segments unchanged	provider_constant_case_converts_segments
 unported	packages/effect/test/ConfigProvider.test.ts	232	it	adds a string prefix to the path	
 ported	packages/effect/test/ConfigProvider.test.ts	241	it	adds a Path prefix with string and numeric segments	provider_nested_dotted_numeric_prefix
-unported	packages/effect/test/ConfigProvider.test.ts	252	it	preserves order when constantCase is applied before nested	
-unported	packages/effect/test/ConfigProvider.test.ts	261	it	preserves order when constantCase is applied after nested	
+ported	packages/effect/test/ConfigProvider.test.ts	252	it	preserves order when constantCase is applied before nested	provider_env_chain_applies_constant_case_before_nested
+ported	packages/effect/test/ConfigProvider.test.ts	261	it	preserves order when constantCase is applied after nested	provider_env_chain_applies_nested_before_constant_case
 ported	packages/effect/test/ConfigProvider.test.ts	270	it	composes multiple prefixes as wrappers	provider_fallback_and_nesting
 unported	packages/effect/test/ConfigProvider.test.ts	279	it	allows a later mapInput to transform the prefixed path	
 unported	packages/effect/test/ConfigProvider.test.ts	292	it	reads defined values and skips undefined values	
