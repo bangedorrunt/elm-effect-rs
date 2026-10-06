@@ -722,3 +722,23 @@ fn number_divide_product_and_order() {
     // :205/:219 - clamping covers its data-last form the same way.
     assert_eq!(number::clamp(5.0, 0.0, 10.0), 5.0);
 }
+
+#[test]
+fn number_remainder_sign_and_nan() {
+    // Number.test.ts:290 - integer and decimal remainders.
+    assert_eq!(number::remainder(3.0, 2.0), 1.0);
+    assert_eq!(number::remainder(0.3, 0.2), 0.09999999999999998);
+    // :296/:302 - the dividend sign survives, including negative zero.
+    assert_eq!(number::remainder(-5.0, 2.0), -1.0);
+    assert!(number::remainder(-4.0, 2.0).is_sign_negative());
+    assert!(number::remainder(-0.0, 2.0).is_sign_negative());
+    assert_eq!(number::remainder(5.0, -2.0), 1.0);
+    assert_eq!(number::remainder(-5.0, -2.0), -1.0);
+    assert!(number::remainder(-4.0, -2.0).is_sign_negative());
+    // :313 - zero divisors and non-finite operands yield NaN.
+    assert!(number::remainder(5.0, 0.0).is_nan());
+    assert!(number::remainder(1e-101, 0.0).is_nan());
+    assert!(number::remainder(f64::NAN, 2.0).is_nan());
+    assert!(number::remainder(f64::INFINITY, 2.0).is_nan());
+    assert_eq!(number::remainder(2.0, f64::INFINITY), 2.0);
+}
