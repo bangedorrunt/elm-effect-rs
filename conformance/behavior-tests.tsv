@@ -3896,8 +3896,8 @@ unported	packages/effect/test/String.test.ts	235	it	splits by string separator (
 unported	packages/effect/test/String.test.ts	239	it	splits by empty string	
 unported	packages/effect/test/String.test.ts	243	it	splits empty string by empty string	
 unported	packages/effect/test/String.test.ts	247	it	splits by regex	
-unported	packages/effect/test/String.test.ts	253	it	returns true when substring found	
-unported	packages/effect/test/String.test.ts	257	it	returns false when substring not found	
+ported	packages/effect/test/String.test.ts	253	it	returns true when substring found	string_basics
+ported	packages/effect/test/String.test.ts	257	it	returns false when substring not found	string_basics
 unported	packages/effect/test/String.test.ts	261	it	starts searching at the given position	
 unported	packages/effect/test/String.test.ts	268	it	returns true when string starts with search	
 unported	packages/effect/test/String.test.ts	272	it	returns false when string does not start with search	

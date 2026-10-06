@@ -405,6 +405,7 @@ fn string_basics() {
     assert!(string::starts_with("hello", "he"));
     assert!(string::ends_with("hello", "lo"));
     assert!(string::contains("hello", "ll"));
+    assert!(!string::contains("hello", "z"));
     assert_eq!(string::split("a,b", ","), vec!["a", "b"]);
     assert_eq!(string::replace_all("aaa", "a", "b"), "bbb");
     assert_eq!(string::to_uppercase("hello"), "HELLO");
