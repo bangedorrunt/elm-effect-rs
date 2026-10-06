@@ -9506,7 +9506,7 @@ ported	packages/effect/test/schema/toFormatter.test.ts	89	it	number	formatter_li
 ported	packages/effect/test/schema/toFormatter.test.ts	94	it	boolean	formatter_literal_boolean_word
 unported	packages/effect/test/schema/toFormatter.test.ts	99	it	bigint	
 ported	packages/effect/test/schema/toFormatter.test.ts	105	it	Literals	formatter_literals_union_members
-unported	packages/effect/test/schema/toFormatter.test.ts	112	it	TemplateLiteral	
+ported	packages/effect/test/schema/toFormatter.test.ts	112	it	TemplateLiteral	formatter_template_literal_strings
 unported	packages/effect/test/schema/toFormatter.test.ts	119	it	Numeric enum	
 unported	packages/effect/test/schema/toFormatter.test.ts	128	it	String enum	
 unported	packages/effect/test/schema/toFormatter.test.ts	138	it	Const enum	
