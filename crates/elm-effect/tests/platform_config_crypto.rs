@@ -1121,3 +1121,36 @@ fn config_with_default_covers_absent_nested() {
         Value::Str("h".to_string())
     );
 }
+
+#[test]
+fn config_empty_groups_resolve_without_default() {
+    let empty_list = Config::all(vec![]).with_default(Value::Str("fallback".to_string()));
+    assert_eq!(
+        empty_list.load(&provider(&[])).unwrap(),
+        Value::List(vec![])
+    );
+    let empty_map = Config::record(vec![]).with_default(Value::Str("fallback".to_string()));
+    assert_eq!(
+        empty_map.load(&provider(&[])).unwrap(),
+        Value::Map(vec![])
+    );
+}
+
+#[test]
+fn config_or_else_falls_back_then_defaults() {
+    let config = Config::integer(named("primary"))
+        .or_else(Config::string(named("fallback")))
+        .with_default(Value::Str("default".to_string()));
+    assert_eq!(
+        config.load(&provider(&[("primary", "invalid")])).unwrap(),
+        Value::Str("default".to_string())
+    );
+    assert_eq!(
+        Config::integer(named("primary"))
+            .or_else(Config::string(named("fallback")))
+            .option()
+            .load(&provider(&[("primary", "invalid")]))
+            .unwrap(),
+        Value::None
+    );
+}
