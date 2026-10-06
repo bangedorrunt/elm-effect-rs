@@ -1141,3 +1141,14 @@ fn string_kebab_snake_reducer() {
         "a"
     );
 }
+
+#[test]
+fn number_clamp_options() {
+    // Number.test.ts:211 - clamps within bounds and outside.
+    assert_eq!(number::clamp(3.0, 1.0, 5.0), 3.0);
+    assert_eq!(number::clamp(0.0, 1.0, 5.0), 1.0);
+    assert_eq!(number::clamp(6.0, 1.0, 5.0), 5.0);
+    // :219 - data-last through a closure.
+    let clamp_1_5 = |x: f64| number::clamp(x, 1.0, 5.0);
+    assert_eq!(clamp_1_5(3.0), 3.0);
+}

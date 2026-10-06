@@ -2675,7 +2675,7 @@ ported	packages/effect/test/Number.test.ts	189	it	supports the data-last form	nu
 ported	packages/effect/test/Number.test.ts	195	it	includes both bounds and excludes values outside the range	number_range
 ported	packages/effect/test/Number.test.ts	205	it	supports the data-last form	number_range
 ported	packages/effect/test/Number.test.ts	211	it	returns the input when it is within bounds and clamps out-of-range values	number_range
-unported	packages/effect/test/Number.test.ts	219	it	supports the data-last form	
+ported	packages/effect/test/Number.test.ts	219	it	supports the data-last form	number_clamp_options
 ported	packages/effect/test/Number.test.ts	223	it	clamps NaN to the minimum according to Number.Order	number_order_nan_rows
 ported	packages/effect/test/Number.test.ts	229	it	returns the smaller value in data-first and data-last forms	number_range
 ported	packages/effect/test/Number.test.ts	235	it	returns the first argument when both values compare as equal	number_range
