@@ -1012,3 +1012,18 @@ fn provider_env_basics_hit_miss_and_no_inheritance() {
     assert_eq!(env.get(&["missing".to_string()]), None);
     assert_eq!(env.get(&["constructor".to_string()]), None);
 }
+
+#[test]
+fn provider_chain_maps_after_prefix() {
+    use config_provider::Lookup;
+    fn upper(path: &[String]) -> Vec<String> {
+        path.iter().map(|s| s.to_uppercase()).collect()
+    }
+    let base = provider(&[("P.A", "v")]);
+    let chained = base.chain().prepended(vec!["p".to_string()]).mapped(upper);
+    assert_eq!(
+        chained.get(&["a".to_string()]),
+        Some("v".to_string())
+    );
+    assert_eq!(chained.get(&["missing".to_string()]), None);
+}
