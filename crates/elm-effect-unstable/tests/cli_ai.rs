@@ -1327,3 +1327,37 @@ fn param_or_else_fallbacks() {
     .expect("present");
     assert_eq!(kept, ParamValue::Text("config.json".to_owned()));
 }
+
+#[test]
+fn command_routes_unknown_with_suggestions() {
+    use elm_effect_unstable::cli::{CliCommand, CliError};
+    let app = CliCommand {
+        name: "app",
+        subcommands: vec![CliCommand {
+            name: "deploy",
+            ..Default::default()
+        }],
+        ..Default::default()
+    };
+    // Errors.test.ts:106 - unknown subcommands name themselves + suggest.
+    let error = app
+        .route(&["deplyo".to_owned()])
+        .expect_err("unknown");
+    match &error {
+        CliError::UnknownSubcommand {
+            subcommand,
+            suggestions,
+            ..
+        } => {
+            assert_eq!(subcommand, "deplyo");
+            assert!(suggestions.contains(&"deploy".to_owned()), "{suggestions:?}");
+        }
+        _ => panic!("wrong variant: {error:?}"),
+    }
+    // Known routes resolve with their remainder.
+    let routed = app
+        .route(&["deploy".to_owned(), "--dry-run".to_owned()])
+        .expect("routes");
+    assert_eq!(routed.path, ["app".to_owned(), "deploy".to_owned()]);
+    assert_eq!(routed.rest, ["--dry-run".to_owned()]);
+}

@@ -40,6 +40,64 @@ pub struct CliCommand {
     pub subcommands: Vec<CliCommand>,
 }
 
+/// A routed command: path plus remaining argv.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct CommandRoute {
+    /// Command path from the root.
+    pub path: Vec<String>,
+    /// Argv left for the routed command.
+    pub rest: Vec<String>,
+}
+
+impl CliCommand {
+    /// Attach a subcommand.
+    pub fn subcommand(mut self, child: CliCommand) -> Self {
+        self.subcommands.push(child);
+        self
+    }
+
+    /// Route argv: the first positional selects a subcommand, flags
+    /// stay with the current command (subcommand routing core).
+    pub fn route(&self, argv: &[String]) -> Result<CommandRoute, CliError> {
+        let mut path = vec![self.name.to_owned()];
+        let mut node = self;
+        let mut rest = argv;
+        loop {
+            let Some((first, tail)) = rest.split_first() else {
+                break;
+            };
+            if first.starts_with("--") {
+                break;
+            }
+            match node.subcommands.iter().find(|child| child.name == *first) {
+                Some(child) => {
+                    path.push(child.name.to_owned());
+                    node = child;
+                    rest = tail;
+                }
+                None => {
+                    return Err(CliError::UnknownSubcommand {
+                        subcommand: first.clone(),
+                        parent: Some(path.clone()),
+                        suggestions: suggest(
+                            first,
+                            &node
+                                .subcommands
+                                .iter()
+                                .map(|child| child.name)
+                                .collect::<Vec<_>>(),
+                        ),
+                    });
+                }
+            }
+        }
+        Ok(CommandRoute {
+            path,
+            rest: rest.to_vec(),
+        })
+    }
+}
+
 /// Whole application: top-level flags plus commands.
 #[derive(Clone, Debug, Default)]
 pub struct CliApp {
@@ -1140,6 +1198,41 @@ pub mod param {
             result => result,
         }
     }
+}
+
+/// Levenshtein distance over chars (mirrors the TS helper; astral
+/// planes count scalars here, UTF-16 units there).
+pub fn levenshtein(first: &str, second: &str) -> usize {
+    let left: Vec<char> = first.chars().collect();
+    let right: Vec<char> = second.chars().collect();
+    let mut previous: Vec<usize> = (0..=right.len()).collect();
+    for (i, &a) in left.iter().enumerate() {
+        let mut current = vec![i + 1];
+        for (j, &b) in right.iter().enumerate() {
+            let cost = usize::from(a != b);
+            current.push(
+                (previous[j] + 1)
+                    .min(current[j] + 1)
+                    .min(previous[j] + cost),
+            );
+        }
+        previous = current;
+    }
+    previous[right.len()]
+}
+
+/// Candidates within distance 2, nearest first (mirrors `suggest`).
+pub fn suggest(input: &str, candidates: &[&str]) -> Vec<String> {
+    let mut scored: Vec<(usize, &str)> = candidates
+        .iter()
+        .map(|candidate| (levenshtein(input, candidate), *candidate))
+        .filter(|(distance, _)| *distance <= 2)
+        .collect();
+    scored.sort_by_key(|(distance, _)| *distance);
+    scored
+        .into_iter()
+        .map(|(_, candidate)| candidate.to_owned())
+        .collect()
 }
 
 /// Cause carried by a [`UserError`]: text, an error message, or an

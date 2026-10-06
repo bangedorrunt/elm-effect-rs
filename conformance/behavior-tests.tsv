@@ -5641,7 +5641,7 @@ ported	packages/effect/test/cli/Errors.test.ts	38	it.effect	fails with MissingOp
 unported	packages/effect/test/cli/Errors.test.ts	50	it	throws DuplicateOption when shared parent and child flags reuse a name	
 unported	packages/effect/test/cli/Errors.test.ts	73	it	allows parent local flags to reuse child flag names	
 ported	packages/effect/test/cli/Errors.test.ts	89	it.effect	accumulates multiple UnrecognizedOption errors	options_parser_missing_and_unknown
-unported	packages/effect/test/cli/Errors.test.ts	106	it.effect	accumulates UnknownSubcommand error with suggestions	
+ported	packages/effect/test/cli/Errors.test.ts	106	it.effect	accumulates UnknownSubcommand error with suggestions	command_routes_unknown_with_suggestions
 ported	packages/effect/test/cli/Errors.test.ts	127	it.effect	fails with UnexpectedArgument when a bounded variadic leaves operands	positionals_sequence_and_bounds
 ported	packages/effect/test/cli/Errors.test.ts	143	it.effect	allows a bounded variadic to leave an operand for a following argument	positionals_sequence_and_bounds
 ported	packages/effect/test/cli/Errors.test.ts	162	it.effect	fails with UnexpectedArgument when a fixed argument leaves operands	positionals_sequence_and_bounds
