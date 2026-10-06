@@ -936,3 +936,16 @@ fn string_char_access() {
     // :348 - none out of bounds.
     assert_eq!(string::code_point_at("abc", 10), None);
 }
+
+#[test]
+fn string_index_search() {
+    // String.test.ts:352 - astral scalars read as one point.
+    assert_eq!(string::code_point_at("\u{1D7D8}", 0), Some(120792));
+    // :358 - first occurrence offset.
+    assert_eq!(string::index_of("abbbc", "b"), Some(1));
+    // :362 - none when absent.
+    assert_eq!(string::index_of("abbbc", "z"), None);
+    // :368 - last occurrence offset.
+    assert_eq!(string::last_index_of("abbbc", "b"), Some(3));
+    assert_eq!(string::last_index_of("abbbc", "z"), None);
+}

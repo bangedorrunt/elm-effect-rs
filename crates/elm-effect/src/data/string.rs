@@ -289,6 +289,31 @@ pub fn code_point_at(s: &str, index: usize) -> Option<u32> {
     s.chars().nth(index).map(|c| c as u32)
 }
 
+/// UTF-16 unit offset of the first occurrence, if any (`indexOf`;
+/// units match TS exactly, unlike the char-based slicers).
+pub fn index_of(s: &str, needle: &str) -> Option<usize> {
+    if needle.is_empty() {
+        return Some(0);
+    }
+    let haystack: Vec<u16> = s.encode_utf16().collect();
+    let needle: Vec<u16> = needle.encode_utf16().collect();
+    haystack
+        .windows(needle.len())
+        .position(|window| window == needle.as_slice())
+}
+
+/// UTF-16 unit offset of the last occurrence, if any (`lastIndexOf`).
+pub fn last_index_of(s: &str, needle: &str) -> Option<usize> {
+    let haystack: Vec<u16> = s.encode_utf16().collect();
+    if needle.is_empty() {
+        return Some(haystack.len());
+    }
+    let needle: Vec<u16> = needle.encode_utf16().collect();
+    haystack
+        .windows(needle.len())
+        .rposition(|window| window == needle.as_slice())
+}
+
 /// Char-range slice with JS `substring` semantics: negatives count as
 /// zero, inverted ends swap, an omitted end runs out.
 pub fn substring(s: &str, start: i64, end: Option<i64>) -> String {
