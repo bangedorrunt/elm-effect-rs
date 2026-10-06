@@ -862,3 +862,43 @@ fn provider_nested_dotted_numeric_prefix() {
         Some("3000".to_string())
     );
 }
+
+#[test]
+fn provider_env_chain_applies_constant_case_before_nested() {
+    use config_provider::{EnvProvider, Lookup};
+    let env = EnvProvider::from_env_map(vec![(
+        "prefix_KEY_WITH_DOTS".to_string(),
+        "value".to_string(),
+    )]);
+    let chained = env.chain().constant_cased().prepended(vec!["prefix".to_string()]);
+    assert_eq!(
+        env.get(&["prefix_KEY_WITH_DOTS".to_string()]),
+        Some("value".to_string())
+    );
+    assert_eq!(
+        chained.get(&["key.with.dots".to_string()]),
+        Some("value".to_string())
+    );
+    assert_eq!(chained.get(&["other".to_string()]), None);
+}
+
+#[test]
+fn provider_env_chain_applies_nested_before_constant_case() {
+    use config_provider::{EnvProvider, Lookup};
+    let env = EnvProvider::from_env_map(vec![(
+        "PREFIX_WITH_DOTS_KEY_WITH_DOTS".to_string(),
+        "value".to_string(),
+    )]);
+    let chained = env
+        .chain()
+        .prepended(vec![
+            "prefix".to_string(),
+            "with".to_string(),
+            "dots".to_string(),
+        ])
+        .constant_cased();
+    assert_eq!(
+        chained.get(&["key.with.dots".to_string()]),
+        Some("value".to_string())
+    );
+}

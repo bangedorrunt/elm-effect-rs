@@ -8,6 +8,7 @@
 //! the one-shot provider the array-element path uses internally.
 
 use std::collections::BTreeMap;
+use std::rc::Rc;
 
 /// Key/value lookup backing [`Config`](super::Config) descriptors.
 /// Implemented by [`Provider`] and its views so custom sources
@@ -16,6 +17,18 @@ pub trait Lookup {
     /// Value at `path`, or `None` when absent (empty reads missing
     /// unless the source preserves them).
     fn get(&self, path: &[String]) -> Option<String>;
+
+    /// Ordered transform pipeline over this source (pipe order: each
+    /// step sees the previous step's path).
+    fn chain(&self) -> Chain<'_>
+    where
+        Self: Sized,
+    {
+        Chain {
+            inner: self,
+            ops: Vec::new(),
+        }
+    }
 }
 
 fn constant_case_path(path: &[String]) -> Vec<String> {
@@ -57,6 +70,11 @@ fn constant_case_segment(segment: &str) -> String {
     flush(&mut current, &mut words);
     words.join("_").to_uppercase()
 }
+
+/// Path-mapping function: whole-path in, whole-path out.
+pub type PathMapFn = fn(&[String]) -> Vec<String>;
+/// Shared path-mapping function (pipelines).
+pub type PathMap = Rc<dyn Fn(&[String]) -> Vec<String>>;
 
 /// Layered key/value lookup for [`Config`](super::Config) descriptors.
 /// (Loaded by path; `super::` resolves under both layouts.)
@@ -162,7 +180,7 @@ impl Provider {
     /// Map lookup paths to CONSTANT_CASE (`constantCase`): segments split
     /// on non-alphanumerics and camel boundaries (numeric groups stay
     /// attached), then join with `_` uppercased.
-    pub fn constant_case(&self) -> Mapped<'_, fn(&[String]) -> Vec<String>> {
+    pub fn constant_case(&self) -> Mapped<'_, PathMapFn> {
         Mapped {
             inner: self,
             map: constant_case_path,
@@ -282,5 +300,96 @@ where
 {
     fn get(&self, path: &[String]) -> Option<String> {
         (self.lookup)(path)
+    }
+}
+
+/// One path operation inside a [`Chain`]: prepend literal segments, or
+/// map the whole path.
+pub enum PathOp {
+    /// Prepend literal segments (nested prefix, unmapped).
+    Prepend(Vec<String>),
+    /// Replace the path with the mapped one.
+    Map(PathMap),
+}
+
+/// Ordered transform pipeline: operations apply in pipe order, then the
+/// final path reads from the inner source. Single views apply one
+/// operation; chains preserve multi-step order (map-then-prepend differs
+/// from prepend-then-map).
+pub struct Chain<'a> {
+    inner: &'a dyn Lookup,
+    ops: Vec<PathOp>,
+}
+
+impl<'a> Chain<'a> {
+    /// Append a literal prefix (nested).
+    pub fn prepended(mut self, prefix: Vec<String>) -> Self {
+        self.ops.push(PathOp::Prepend(prefix));
+        self
+    }
+
+    /// Append a path map.
+    pub fn mapped<F>(mut self, map: F) -> Self
+    where
+        F: Fn(&[String]) -> Vec<String> + 'static,
+    {
+        self.ops.push(PathOp::Map(Rc::new(map)));
+        self
+    }
+
+    /// Append the CONSTANT_CASE map.
+    pub fn constant_cased(self) -> Self {
+        self.mapped(constant_case_path)
+    }
+}
+
+impl Lookup for Chain<'_> {
+    fn get(&self, path: &[String]) -> Option<String> {
+        let mut current: Vec<String> = path.to_vec();
+        for op in &self.ops {
+            match op {
+                PathOp::Prepend(prefix) => {
+                    let mut next = prefix.clone();
+                    next.extend(current);
+                    current = next;
+                }
+                PathOp::Map(map) => {
+                    current = map(&current);
+                }
+            }
+        }
+        self.inner.get(&current)
+    }
+}
+
+/// Flat environment-variable source (`fromEnv`): lookups join segments
+/// with `_` and match whole variable names exactly (empty reads missing).
+/// Injectable form is [`EnvProvider::from_env_map`]; [`Provider::from_env`]
+/// snapshots the process environment into a plain [`Provider`].
+pub struct EnvProvider {
+    values: BTreeMap<String, String>,
+}
+
+impl EnvProvider {
+    /// Build from `(VARIABLE_NAME, value)` pairs.
+    pub fn from_env_map(pairs: impl IntoIterator<Item = (String, String)>) -> Self {
+        Self {
+            values: pairs.into_iter().collect(),
+        }
+    }
+
+    /// Look up by joining segments with `_` (inherent alias of
+    /// [`Lookup::get`]).
+    pub fn get(&self, path: &[String]) -> Option<String> {
+        Lookup::get(self, path)
+    }
+}
+
+impl Lookup for EnvProvider {
+    fn get(&self, path: &[String]) -> Option<String> {
+        match self.values.get(&path.join("_")) {
+            Some(v) if !v.is_empty() => Some(v.clone()),
+            _ => None,
+        }
     }
 }
