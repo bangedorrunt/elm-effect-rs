@@ -842,3 +842,19 @@ fn string_replace_and_trim() {
     assert_eq!(string::trim_start("  hello  "), "hello  ");
     assert_eq!(string::trim_end("  hello  "), "  hello");
 }
+
+#[test]
+fn string_trim_ends_and_emptiness() {
+    // String.test.ts:170 - trimStart on empty.
+    assert_eq!(string::trim_start(""), "");
+    // :176 - trims trailing whitespace.
+    assert_eq!(string::trim_end("  hello  "), "  hello");
+    // :180 - trimEnd on empty.
+    assert_eq!(string::trim_end(""), "");
+    // :200/:204 - isEmpty.
+    assert!(string::is_empty(""));
+    assert!(!string::is_empty("a"));
+    // :211/:215 - isNonEmpty.
+    assert!(string::is_non_empty("a"));
+    assert!(!string::is_non_empty(""));
+}

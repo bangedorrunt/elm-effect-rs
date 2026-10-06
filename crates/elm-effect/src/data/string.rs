@@ -226,6 +226,16 @@ pub fn trim_end(s: &str) -> &str {
     s.trim_end()
 }
 
+/// True for empty strings (`isEmpty`).
+pub fn is_empty(s: &str) -> bool {
+    s.is_empty()
+}
+
+/// True for non-empty strings (`isNonEmpty`).
+pub fn is_non_empty(s: &str) -> bool {
+    !s.is_empty()
+}
+
 /// First character, if any (`charAt(0)` shape).
 pub fn head(s: &str) -> Option<char> {
     s.chars().next()
