@@ -497,3 +497,53 @@ fn preserves_single_document_markers() {
         assert_eq!(yaml::parse(source).expect("parses"), expected, "{source:?}");
     }
 }
+
+#[test]
+fn resolves_anchored_multiline() {
+    // Yaml.test.ts:345 - anchors capture folded scalars for aliases.
+    for (source, expected) in [
+        (
+            "description: &text Deploy\n  and verify.\nalias: *text\n",
+            "Deploy and verify.",
+        ),
+        (
+            "description: &text 'Deploy # first\n  # second' # end\nalias: *text\n",
+            "Deploy # first # second",
+        ),
+        (
+            "description: &text \"Deploy # first\n  # second\" # end\nalias: *text\n",
+            "Deploy # first # second",
+        ),
+    ] {
+        assert_eq!(
+            yaml::parse(source).expect("parses"),
+            YamlValue::Map(vec![
+                ("description".to_owned(), text(expected)),
+                ("alias".to_owned(), text(expected)),
+            ]),
+            "{source:?}"
+        );
+    }
+}
+
+#[test]
+fn resolves_anchored_indentless_sequences() {
+    // Yaml.test.ts:361 - anchors capture indentless sequences.
+    assert_eq!(
+        yaml::parse("metadata:\n  tools: &tools\n  - Read\n  - Bash\n  alias: *tools\n")
+            .expect("parses"),
+        YamlValue::Map(vec![(
+            "metadata".to_owned(),
+            YamlValue::Map(vec![
+                (
+                    "tools".to_owned(),
+                    YamlValue::Seq(vec![text("Read"), text("Bash")]),
+                ),
+                (
+                    "alias".to_owned(),
+                    YamlValue::Seq(vec![text("Read"), text("Bash")]),
+                ),
+            ]),
+        )])
+    );
+}

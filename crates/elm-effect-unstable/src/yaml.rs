@@ -369,15 +369,21 @@ impl Parser {
             let mut text = value;
             if (text.starts_with("\"") || text.starts_with("'")) && !quotes_closed(&text) {
                 while !quotes_closed(&text) {
-                    match self.peek().cloned() {
+                    match self.peek_raw().cloned() {
+                        // Inside open quotes every deeper line is content,
+                        // even comment-looking ones; blanks still vanish.
                         Some((next_indent, next_line)) if next_indent > indent => {
                             self.cursor += 1;
+                            if next_indent == usize::MAX {
+                                continue;
+                            }
                             text.push(' ');
                             text.push_str(&next_line);
                         }
                         _ => break,
                     }
                 }
+                text = strip_inline_comment(&text).0;
             } else if !head_comment && !Self::is_quoted_or_flow(&text) {
                 text = self.fold_plain_rest(indent, text);
             }
