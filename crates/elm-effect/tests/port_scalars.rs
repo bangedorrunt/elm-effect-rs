@@ -647,7 +647,7 @@ fn string_portable_remainder() {
     assert_eq!(string::replace_first("aaa", "a", "b"), "baa");
     assert_eq!(string::to_uppercase("ab"), "AB");
     assert_eq!(string::to_lowercase("AB"), "ab");
-    assert_eq!(string::repeat("ab", 2), "abab");
+    assert_eq!(string::repeat("ab", 2.0), "abab");
     assert_eq!(string::concat("a", "b"), "ab");
     assert!(string::contains("abc", "b"));
     assert!(string::starts_with("abc", "ab"));
@@ -952,4 +952,27 @@ fn string_index_search() {
     // :368 - last occurrence offset.
     assert_eq!(string::last_index_of("abbbc", "b"), Some(3));
     assert_eq!(string::last_index_of("abbbc", "z"), None);
+}
+
+#[test]
+fn string_pad_and_repeat() {
+    // String.test.ts:414 - pads from end with spaces.
+    assert_eq!(string::pad_end("a", 5, ' '), "a    ");
+    // :418 - pads from end with fill string.
+    assert_eq!(string::pad_end("a", 5, '_'), "a____");
+    // :422 - no truncation when longer.
+    assert_eq!(string::pad_end("hello", 3, ' '), "hello");
+    // :428 - pads from start with spaces.
+    assert_eq!(string::pad_start("a", 5, ' '), "    a");
+    // :432 - pads from start with fill string.
+    assert_eq!(string::pad_start("a", 5, '_'), "____a");
+    // :436 - no truncation when longer.
+    assert_eq!(string::pad_start("hello", 3, ' '), "hello");
+    // :442 - repeats, flooring fractional counts.
+    assert_eq!(string::repeat("ab", 3.0), "ababab");
+    assert_eq!(string::repeat("ab", 1.5), "ab");
+    // :447 - empty for non-positive or NaN counts.
+    assert_eq!(string::repeat("ab", 0.0), "");
+    assert_eq!(string::repeat("ab", -1.0), "");
+    assert_eq!(string::repeat("ab", f64::NAN), "");
 }

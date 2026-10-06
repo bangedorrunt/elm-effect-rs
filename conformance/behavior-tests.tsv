@@ -3927,14 +3927,14 @@ unported	packages/effect/test/String.test.ts	386	it	returns matched text and nat
 unported	packages/effect/test/String.test.ts	392	it	returns none when the pattern does not match	
 unported	packages/effect/test/String.test.ts	398	it	returns all matches	
 unported	packages/effect/test/String.test.ts	405	it	normalizes with different forms	
-unported	packages/effect/test/String.test.ts	414	it	pads from end with spaces	
-unported	packages/effect/test/String.test.ts	418	it	pads from end with fill string	
-unported	packages/effect/test/String.test.ts	422	it	does not truncate if already longer	
-unported	packages/effect/test/String.test.ts	428	it	pads from start with spaces	
-unported	packages/effect/test/String.test.ts	432	it	pads from start with fill string	
-unported	packages/effect/test/String.test.ts	436	it	does not truncate if already longer	
+ported	packages/effect/test/String.test.ts	414	it	pads from end with spaces	string_pad_and_repeat
+ported	packages/effect/test/String.test.ts	418	it	pads from end with fill string	string_pad_and_repeat
+ported	packages/effect/test/String.test.ts	422	it	does not truncate if already longer	string_pad_and_repeat
+ported	packages/effect/test/String.test.ts	428	it	pads from start with spaces	string_pad_and_repeat
+ported	packages/effect/test/String.test.ts	432	it	pads from start with fill string	string_pad_and_repeat
+ported	packages/effect/test/String.test.ts	436	it	does not truncate if already longer	string_pad_and_repeat
 ported	packages/effect/test/String.test.ts	442	it	repeats the string	string_portable_remainder
-unported	packages/effect/test/String.test.ts	447	it	returns an empty string for non-positive or NaN counts	
+ported	packages/effect/test/String.test.ts	447	it	returns an empty string for non-positive or NaN counts	string_pad_and_repeat
 ported	packages/effect/test/String.test.ts	455	it	replaces all occurrences with string	string_portable_remainder
 unported	packages/effect/test/String.test.ts	459	it	replaces all occurrences with regex	
 unported	packages/effect/test/String.test.ts	465	it	returns index on match (data-first)	

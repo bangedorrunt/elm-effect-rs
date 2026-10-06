@@ -184,9 +184,12 @@ pub fn to_lowercase(s: &str) -> String {
     s.to_lowercase()
 }
 
-/// Repeat `n` times (`repeat`).
-pub fn repeat(s: &str, n: usize) -> String {
-    s.repeat(n)
+/// Repeat floored `count` times; non-positive and NaN give `""` (`repeat`).
+pub fn repeat(s: &str, count: f64) -> String {
+    if !count.is_finite() || count < 1.0 {
+        return String::new();
+    }
+    s.repeat(count.floor() as usize)
 }
 
 /// Concatenate (`concat`).
