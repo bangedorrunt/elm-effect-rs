@@ -4537,9 +4537,9 @@ unported	packages/effect/test/ai/AiError.test.ts	444	it.effect	should create fro
 ported	packages/effect/test/ai/AiError.test.ts	464	it	should not be retryable	ai_error_tags_and_retryability
 ported	packages/effect/test/ai/AiError.test.ts	471	it	should format message with description	ai_error_message_shapes
 ported	packages/effect/test/ai/AiError.test.ts	479	it	should have _tag set correctly	ai_error_tags_and_retryability
-unported	packages/effect/test/ai/AiError.test.ts	489	it	should delegate isRetryable to reason	
-unported	packages/effect/test/ai/AiError.test.ts	505	it	should delegate retryAfter to reason	
-unported	packages/effect/test/ai/AiError.test.ts	523	it	should format message with module, method, and reason	
+ported	packages/effect/test/ai/AiError.test.ts	489	it	should delegate isRetryable to reason	ai_error_delegates_to_reason_with_context
+ported	packages/effect/test/ai/AiError.test.ts	505	it	should delegate retryAfter to reason	ai_error_delegates_to_reason_with_context
+ported	packages/effect/test/ai/AiError.test.ts	523	it	should format message with module, method, and reason	ai_error_delegates_to_reason_with_context
 ported	packages/effect/test/ai/AiError.test.ts	533	it	should have _tag set correctly	ai_error_tags_and_retryability
 unported	packages/effect/test/ai/AiError.test.ts	545	it	should create AiError	
 ported	packages/effect/test/ai/AiError.test.ts	559	it	should map 400 to InvalidRequestError	ai_error_reason_from_http_status

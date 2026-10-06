@@ -357,7 +357,9 @@ fn ai_error_tool_messages() {
         description: "Expected string".to_owned(),
     });
     assert!(
-        params.message().contains("Invalid parameters for tool 'GetWeather'")
+        params
+            .message()
+            .contains("Invalid parameters for tool 'GetWeather'")
     );
     // AiError.test.ts:286 — validation message renders.
     let validation = AiError::new(AiReason::ToolParameterValidation {
@@ -377,7 +379,11 @@ fn ai_error_tool_messages() {
         tool_name: "GetWeather".to_owned(),
         description: "missing required field".to_owned(),
     });
-    assert!(result.message().contains("Tool 'GetWeather' returned invalid result"));
+    assert!(
+        result
+            .message()
+            .contains("Tool 'GetWeather' returned invalid result")
+    );
     // AiError.test.ts:356 + 365.
     let encoding = AiError::new(AiReason::ToolResultEncoding {
         tool_name: "GetWeather".to_owned(),
@@ -385,21 +391,29 @@ fn ai_error_tool_messages() {
         description: "Cannot encode".to_owned(),
     });
     assert!(
-        encoding.message().contains("Failed to encode result for tool 'GetWeather'")
+        encoding
+            .message()
+            .contains("Failed to encode result for tool 'GetWeather'")
     );
     let circular = AiError::new(AiReason::ToolResultEncoding {
         tool_name: "GetWeather".to_owned(),
         tool_result: "{}".to_owned(),
         description: "Cannot encode circular reference".to_owned(),
     });
-    assert!(circular.message().contains("Cannot encode circular reference"));
+    assert!(
+        circular
+            .message()
+            .contains("Cannot encode circular reference")
+    );
     // AiError.test.ts:393.
     let config = AiError::new(AiReason::ToolConfiguration {
         tool_name: "OpenAiCodeInterpreter".to_owned(),
         description: "Invalid container ID format".to_owned(),
     });
     assert!(
-        config.message().contains("Invalid configuration for tool 'OpenAiCodeInterpreter'")
+        config
+            .message()
+            .contains("Invalid configuration for tool 'OpenAiCodeInterpreter'")
     );
 }
 
@@ -407,7 +421,10 @@ fn ai_error_tool_messages() {
 fn ai_error_reason_from_http_status() {
     use elm_effect_unstable::ai::{AiError, AiReason};
     // AiError.test.ts:559 — 400 maps to InvalidRequestError.
-    assert_eq!(AiError::reason_from_http_status(400, None).tag, "InvalidRequestError");
+    assert_eq!(
+        AiError::reason_from_http_status(400, None).tag,
+        "InvalidRequestError"
+    );
     // :564 — 401 maps to AuthenticationError with InvalidKey.
     let keyed = AiError::reason_from_http_status(401, None);
     assert_eq!(keyed.tag, "AuthenticationError");
@@ -421,14 +438,58 @@ fn ai_error_reason_from_http_status() {
     ));
     // :580 — description threads into the 401/403 message.
     let threaded = AiError::reason_from_http_status(403, Some("User is not authorized"));
-    assert_eq!(threaded.description.as_deref(), Some("User is not authorized"));
+    assert_eq!(
+        threaded.description.as_deref(),
+        Some("User is not authorized")
+    );
     assert!(threaded.message().contains("User is not authorized"));
     // :592 — 429 maps to retryable RateLimitError.
     let limited = AiError::reason_from_http_status(429, None);
     assert_eq!(limited.tag, "RateLimitError");
     assert!(limited.is_retryable);
     // :597 — 5xx maps to InternalProviderError.
-    assert_eq!(AiError::reason_from_http_status(503, None).tag, "InternalProviderError");
+    assert_eq!(
+        AiError::reason_from_http_status(503, None).tag,
+        "InternalProviderError"
+    );
     // :612 — unknown statuses map to UnknownError.
-    assert_eq!(AiError::reason_from_http_status(418, None).tag, "UnknownError");
+    assert_eq!(
+        AiError::reason_from_http_status(418, None).tag,
+        "UnknownError"
+    );
+}
+
+#[test]
+fn ai_error_delegates_to_reason_with_context() {
+    use elm_effect_unstable::ai::{AiError, AiReason};
+    // AiError.test.ts:489 - isRetryable delegates to the reason.
+    let retryable = AiError::new(AiReason::RateLimit {
+        retry_after_secs: None,
+    })
+    .with_context("OpenAI", "completion");
+    assert!(retryable.is_retryable);
+    let keyed = AiError::new(AiReason::Authentication {
+        kind: "InvalidKey".to_owned(),
+    })
+    .with_context("OpenAI", "completion");
+    assert!(!keyed.is_retryable);
+    // :505 - retryAfter delegates to the reason.
+    assert_eq!(
+        AiError::new(AiReason::RateLimit {
+            retry_after_secs: Some(60),
+        })
+        .retry_after_secs(),
+        Some(60)
+    );
+    assert_eq!(keyed.retry_after_secs(), None);
+    // :523 - message carries module, method, and reason.
+    let message = retryable.message();
+    assert!(message.starts_with("OpenAI.completion:"));
+    assert!(message.contains("Rate limit exceeded"));
+    // :545 / :621 need a wrapper brand (separate from the reason tag);
+    // Rust keeps a single tag here, so those rows stay open.
+    let unknown = AiError::new(AiReason::Unknown).with_context("Test", "test");
+    assert!(unknown.message().starts_with("Test.test:"));
+    // Without a context the message stays the bare reason message.
+    assert_eq!(AiError::new(AiReason::Unknown).message(), "Unknown error");
 }

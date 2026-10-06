@@ -309,18 +309,31 @@ impl AiReason {
                 };
                 format!("Tool '{tool}' not found. Available tools: {list}")
             }
-            Self::ToolParameterValidation { tool_name, description } => {
+            Self::ToolParameterValidation {
+                tool_name,
+                description,
+            } => {
                 format!("Invalid parameters for tool '{tool_name}': {description}")
             }
-            Self::InvalidToolResult { tool_name, description } => {
+            Self::InvalidToolResult {
+                tool_name,
+                description,
+            } => {
                 format!("Tool '{tool_name}' returned invalid result: {description}")
             }
-            Self::ToolResultEncoding { tool_name, description, .. } => {
+            Self::ToolResultEncoding {
+                tool_name,
+                description,
+                ..
+            } => {
                 format!("Failed to encode result for tool '{tool_name}': {description}")
             }
-            Self::ToolConfiguration { tool_name, description } => {
+            Self::ToolConfiguration {
+                tool_name,
+                description,
+            } => {
                 format!("Invalid configuration for tool '{tool_name}': {description}")
-            },
+            }
             Self::StructuredOutput { details } => format!("Structured output error: {details}"),
             Self::UnsupportedSchema { details } => format!("Unsupported schema: {details}"),
             Self::InvalidUserInput { details } => format!("Invalid user input: {details}"),
@@ -347,6 +360,10 @@ pub struct AiError {
     pub tag: String,
     /// Structured reason.
     pub reason: AiReason,
+    /// Provider module, when the caller records one.
+    pub module: Option<String>,
+    /// Provider method, when the caller records one.
+    pub method: Option<String>,
     /// Caller description, overriding the default message when present.
     pub description: Option<String>,
     /// Whether retrying may succeed.
@@ -361,6 +378,8 @@ impl AiError {
             description: None,
             is_retryable: reason.is_retryable(),
             reason,
+            module: None,
+            method: None,
         }
     }
 
@@ -398,12 +417,31 @@ impl AiError {
         error
     }
 
-    /// Rendered message: the description composed per reason when present,
-    /// else the default.
+    /// Record the provider module and method the call was made through.
+    pub fn with_context(mut self, module: &str, method: &str) -> Self {
+        self.module = Some(module.to_owned());
+        self.method = Some(method.to_owned());
+        self
+    }
+
+    /// Retry delay carried by the reason, if any.
+    pub fn retry_after_secs(&self) -> Option<u64> {
+        match &self.reason {
+            AiReason::RateLimit { retry_after_secs } => *retry_after_secs,
+            _ => None,
+        }
+    }
+
+    /// Rendered message: the reason message, prefixed `module.method:` when
+    /// the caller recorded a context.
     pub fn message(&self) -> String {
-        match &self.description {
+        let rendered = match &self.description {
             Some(d) => self.reason.message_with_description(d),
             None => self.reason.message(),
+        };
+        match (&self.module, &self.method) {
+            (Some(module), Some(method)) => format!("{module}.{method}: {rendered}"),
+            _ => rendered,
         }
     }
 }
