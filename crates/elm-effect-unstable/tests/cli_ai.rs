@@ -402,3 +402,33 @@ fn ai_error_tool_messages() {
         config.message().contains("Invalid configuration for tool 'OpenAiCodeInterpreter'")
     );
 }
+
+#[test]
+fn ai_error_reason_from_http_status() {
+    use elm_effect_unstable::ai::{AiError, AiReason};
+    // AiError.test.ts:559 — 400 maps to InvalidRequestError.
+    assert_eq!(AiError::reason_from_http_status(400, None).tag, "InvalidRequestError");
+    // :564 — 401 maps to AuthenticationError with InvalidKey.
+    let keyed = AiError::reason_from_http_status(401, None);
+    assert_eq!(keyed.tag, "AuthenticationError");
+    assert!(matches!(&keyed.reason, AiReason::Authentication { kind } if kind == "InvalidKey"));
+    // :572 — 403 maps to AuthenticationError with InsufficientPermissions.
+    let forbidden = AiError::reason_from_http_status(403, None);
+    assert_eq!(forbidden.tag, "AuthenticationError");
+    assert!(matches!(
+        &forbidden.reason,
+        AiReason::Authentication { kind } if kind == "InsufficientPermissions"
+    ));
+    // :580 — description threads into the 401/403 message.
+    let threaded = AiError::reason_from_http_status(403, Some("User is not authorized"));
+    assert_eq!(threaded.description.as_deref(), Some("User is not authorized"));
+    assert!(threaded.message().contains("User is not authorized"));
+    // :592 — 429 maps to retryable RateLimitError.
+    let limited = AiError::reason_from_http_status(429, None);
+    assert_eq!(limited.tag, "RateLimitError");
+    assert!(limited.is_retryable);
+    // :597 — 5xx maps to InternalProviderError.
+    assert_eq!(AiError::reason_from_http_status(503, None).tag, "InternalProviderError");
+    // :612 — unknown statuses map to UnknownError.
+    assert_eq!(AiError::reason_from_http_status(418, None).tag, "UnknownError");
+}

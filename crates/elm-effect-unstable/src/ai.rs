@@ -364,10 +364,38 @@ impl AiError {
         }
     }
 
-    /// Attach a description: the message renders it unchanged.
+    /// Attach a description, composed per reason by [`AiError::message`].
     pub fn with_description(mut self, description: &str) -> Self {
         self.description = Some(description.to_owned());
         self
+    }
+
+    /// Classify an HTTP status into an error, mirroring `reasonFromHttpStatus`.
+    pub fn reason_from_http_status(status: u16, description: Option<&str>) -> Self {
+        let reason = match status {
+            400 => AiReason::InvalidRequest {
+                parameter: String::new(),
+                constraint: String::new(),
+            },
+            401 => AiReason::Authentication {
+                kind: "InvalidKey".to_owned(),
+            },
+            403 => AiReason::Authentication {
+                kind: "InsufficientPermissions".to_owned(),
+            },
+            429 => AiReason::RateLimit {
+                retry_after_secs: None,
+            },
+            _ if status >= 500 => AiReason::InternalProvider {
+                details: "Server error".to_owned(),
+            },
+            _ => AiReason::Unknown,
+        };
+        let mut error = AiError::new(reason);
+        if let Some(description) = description {
+            error = error.with_description(description);
+        }
+        error
     }
 
     /// Rendered message: the description composed per reason when present,
