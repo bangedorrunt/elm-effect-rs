@@ -6342,7 +6342,7 @@ ported	packages/effect/test/encoding/Yaml.test.ts	286	it.each	rejects %s	rejects
 ported	packages/effect/test/encoding/Yaml.test.ts	299	it.each	preserves a dash in a plain continuation of a %s	folds_dashes_after_content
 ported	packages/effect/test/encoding/Yaml.test.ts	311	it.each	preserves indented %s%s as a mapping value	preserves_indented_markers
 ported	packages/effect/test/encoding/Yaml.test.ts	321	it.each	rejects a document stream containing %s	rejects_document_streams
-unported	packages/effect/test/encoding/Yaml.test.ts	332	it.each	preserves single-document markers around a %s	
+ported	packages/effect/test/encoding/Yaml.test.ts	332	it.each	preserves single-document markers around a %s	preserves_single_document_markers
 unported	packages/effect/test/encoding/Yaml.test.ts	345	it.each	resolves anchored multiline %s scalars	
 unported	packages/effect/test/encoding/Yaml.test.ts	361	it	resolves anchored nested indentless sequences	
 unported	packages/effect/test/encoding/Yaml.test.ts	368	it	preserves hashes in JSON-style flow strings without colon spacing	

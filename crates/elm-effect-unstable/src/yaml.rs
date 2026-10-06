@@ -47,9 +47,38 @@ pub fn parse(text: &str) -> Result<YamlValue, YamlError> {
         cursor: 0,
         anchors: HashMap::new(),
     };
-    let value = parser.parse_block(0)?;
-    while matches!(parser.lines.get(parser.cursor), Some((usize::MAX, _))) {
-        parser.cursor += 1;
+    // Skip one leading start marker (`...` goes to the empty branch).
+    if let Some((0, line)) = parser.peek().cloned() {
+        if is_start_marker(&line) {
+            parser.cursor += 1;
+        }
+    }
+    let value = match parser.peek().cloned() {
+        // A lone end marker means an empty document.
+        Some((0, line)) if is_document_marker(&line) => {
+            parser.cursor += 1;
+            YamlValue::Null
+        }
+        // A bare plain line is a scalar document.
+        Some((_, line)) if Parser::is_plain_nested_line(&line) => {
+            parser.cursor += 1;
+            let (first, first_comment) = strip_inline_comment(&line);
+            if first.is_empty() || first_comment {
+                parse_inline(&first)?
+            } else {
+                parse_inline(&parser.fold_plain_rest(0, first))?
+            }
+        }
+        _ => parser.parse_block(0)?,
+    };
+    // Skip trailing trivia: blanks, comments, and top-level markers.
+    loop {
+        match parser.lines.get(parser.cursor) {
+            Some((usize::MAX, _)) => parser.cursor += 1,
+            Some((_, line)) if line.starts_with('#') => parser.cursor += 1,
+            Some((0, line)) if is_end_marker(line) => parser.cursor += 1,
+            _ => break,
+        }
     }
     if parser.cursor != parser.lines.len() {
         return Err(YamlError("trailing content".to_string()));
@@ -248,6 +277,9 @@ impl Parser {
         let mut pairs = Vec::new();
         while let Some((line_indent, line)) = self.peek().cloned() {
             if line_indent != indent {
+                break;
+            }
+            if indent == 0 && is_document_marker(&line) {
                 break;
             }
             let Some((key, value)) = split_key(&line) else {
@@ -470,6 +502,33 @@ impl Parser {
 
 /// Split `key: value` at the first colon followed by a space or
 /// end-of-line (so `http://x` never splits). Returns the trimmed key.
+/// True for a document start marker, ignoring a trailing comment.
+fn is_start_marker(line: &str) -> bool {
+    let bare = match line.find(" #") {
+        Some(index) => line[..index].trim_end(),
+        None => line.trim_end(),
+    };
+    bare == "---"
+}
+
+/// True for a document end marker, ignoring a trailing comment.
+fn is_end_marker(line: &str) -> bool {
+    let bare = match line.find(" #") {
+        Some(index) => line[..index].trim_end(),
+        None => line.trim_end(),
+    };
+    bare == "..."
+}
+
+/// True for top-level document markers, ignoring a trailing comment.
+fn is_document_marker(line: &str) -> bool {
+    let bare = match line.find(" #") {
+        Some(index) => line[..index].trim_end(),
+        None => line.trim_end(),
+    };
+    bare == "---" || bare == "..."
+}
+
 fn split_key(line: &str) -> Option<(String, String)> {
     let bytes = line.as_bytes();
     let mut i = 0;

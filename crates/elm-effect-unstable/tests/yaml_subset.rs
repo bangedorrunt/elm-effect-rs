@@ -472,3 +472,28 @@ fn rejects_document_streams() {
         assert!(yaml::parse(source).is_err(), "should reject {source:?}");
     }
 }
+
+#[test]
+fn preserves_single_document_markers() {
+    // Yaml.test.ts:332 - single-document markers are skipped, not content.
+    for (source, expected) in [
+        (
+            "# before\n--- # start\na: 1\n... # end\n# after\n",
+            YamlValue::Map(vec![("a".to_owned(), YamlValue::Int(1))]),
+        ),
+        (
+            "---\n- one\n- two\n...\n",
+            YamlValue::Seq(vec![text("one"), text("two")]),
+        ),
+        (
+            "---\none\n...\n",
+            YamlValue::Text("one".to_owned()),
+        ),
+        (
+            "---\n...\n",
+            YamlValue::Null,
+        ),
+    ] {
+        assert_eq!(yaml::parse(source).expect("parses"), expected, "{source:?}");
+    }
+}
