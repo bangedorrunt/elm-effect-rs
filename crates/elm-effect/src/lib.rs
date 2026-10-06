@@ -55,10 +55,10 @@ pub use exit::Exit;
 pub use fiber::{Ctx, FiberHandle, ForkOpts, Mask, StartMode};
 pub use foundation::{
     Combiner, Differ, Equal, Equivalence, Filter, Hash, Matcher, Order, Predicate, Reducer, Tagged,
-    array_equivalence, boolean_equivalence, boolean_order, combine_hash, combine_ordering, compose,
-    const_false, const_true, constant, flip, hash_f64, hash_str, identity, match_ordering,
-    number_equivalence, number_order, ord_order, reverse_ordering, string_equivalence,
-    string_order, tagged, tuple_equivalence,
+    absurd, array_equivalence, boolean_equivalence, boolean_order, combine_hash, combine_ordering,
+    compose, const_false, const_null, const_true, constant, flip, flip_curried, hash_f64, hash_str,
+    identity, match_ordering, number_equivalence, number_order, ord_order, reverse_ordering,
+    string_equivalence, string_order, tagged, tuple_equivalence, tupled, untupled,
 };
 #[cfg(feature = "tokio")]
 pub use layer::{BuiltServices, Cycle, Layer, RequirementIds};

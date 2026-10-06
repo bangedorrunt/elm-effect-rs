@@ -5,9 +5,9 @@ use std::ops::Not;
 
 use elm_effect::{
     Equal, Equivalence, Hash, Order, Predicate, array_equivalence, boolean_equivalence,
-    boolean_order, combine_hash, combine_ordering, compose, const_false, const_true, constant,
-    flip, hash_f64, hash_str, identity, match_ordering, number_equivalence, number_order,
-    ord_order, reverse_ordering, string_equivalence, string_order, tuple_equivalence,
+    boolean_order, combine_hash, combine_ordering, compose, const_false, const_null, const_true, constant,
+    flip, flip_curried, hash_f64, hash_str, identity, match_ordering, number_equivalence, number_order,
+    ord_order, reverse_ordering, string_equivalence, string_order, tuple_equivalence, tupled, untupled,
 };
 
 #[test]
@@ -201,3 +201,36 @@ fn predicate_xor_needs_exactly_one() {
     assert!(!Predicate::make(|_: &u32| false).xor(Predicate::make(|_: &u32| false)).test(&0));
 }
 
+#[test]
+fn function_combinators() {
+    // Function.test.ts:93/101 - identity returns values and references.
+    assert_eq!(identity(3), 3);
+    let obj = vec![1];
+    assert!(std::ptr::eq(identity(&obj), &obj));
+    // :108/:114 - satisfies/cast are identity at runtime.
+    assert_eq!(identity(5), 5);
+    assert_eq!(identity(42), 42);
+    // :120 - constant returns the value every time.
+    let c = constant(42);
+    assert_eq!(c(), 42);
+    assert_eq!(c(), 42);
+    // :135/:141/:147 - nullary constants.
+    assert!(const_true()());
+    assert!(!const_false()());
+    assert_eq!(const_null::<i32>(), None);
+    // :165 - flip reverses curried arguments.
+    fn subtract_len(a: i64) -> Box<dyn Fn(&str) -> i64> {
+        Box::new(move |s: &str| a - s.len() as i64)
+    }
+    assert_eq!(flip_curried(subtract_len)("aaa")(2), -1);
+    // :175 - compose runs left to right.
+    let increment = |n: i32| n + 1;
+    let double = |n: i32| n * 2;
+    assert_eq!(compose(increment, double)(2), 6);
+    // :193/:201 - tupled and untupled convert both ways.
+    fn add(a: i32, b: i32) -> i32 {
+        a + b
+    }
+    assert_eq!(tupled(add)((1, 2)), 3);
+    assert_eq!(untupled(|pair: (i32, i32)| pair.0 + pair.1)(1, 2), 3);
+}

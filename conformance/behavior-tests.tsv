@@ -1846,23 +1846,23 @@ unported	packages/effect/test/Function.test.ts	57	it	predicate-based - data-firs
 unported	packages/effect/test/Function.test.ts	68	it	predicate-based - data-last	
 unported	packages/effect/test/Function.test.ts	81	it	applies a value to a function	
 unported	packages/effect/test/Function.test.ts	86	it	works with pipe	
-unported	packages/effect/test/Function.test.ts	93	it	returns the same value for primitives	
-unported	packages/effect/test/Function.test.ts	101	it	returns the same reference for objects	
-unported	packages/effect/test/Function.test.ts	108	it	returns value unchanged	
-unported	packages/effect/test/Function.test.ts	114	it	returns value unchanged at runtime	
-unported	packages/effect/test/Function.test.ts	120	it	returns the same value every time	
-unported	packages/effect/test/Function.test.ts	126	it	returns reference-equal objects	
-unported	packages/effect/test/Function.test.ts	135	it	returns true	
-unported	packages/effect/test/Function.test.ts	141	it	returns false	
-unported	packages/effect/test/Function.test.ts	147	it	returns null	
+ported	packages/effect/test/Function.test.ts	93	it	returns the same value for primitives	function_combinators
+ported	packages/effect/test/Function.test.ts	101	it	returns the same reference for objects	function_combinators
+ported	packages/effect/test/Function.test.ts	108	it	returns value unchanged	function_combinators
+ported	packages/effect/test/Function.test.ts	114	it	returns value unchanged at runtime	function_combinators
+ported	packages/effect/test/Function.test.ts	120	it	returns the same value every time	function_combinators
+ported	packages/effect/test/Function.test.ts	126	it	returns reference-equal objects	function_combinators
+ported	packages/effect/test/Function.test.ts	135	it	returns true	function_combinators
+ported	packages/effect/test/Function.test.ts	141	it	returns false	function_combinators
+ported	packages/effect/test/Function.test.ts	147	it	returns null	function_combinators
 unported	packages/effect/test/Function.test.ts	153	it	returns undefined	
 unported	packages/effect/test/Function.test.ts	159	it	returns undefined	
-unported	packages/effect/test/Function.test.ts	165	it	reverses the order of curried arguments	
-unported	packages/effect/test/Function.test.ts	175	it	data-first: composes left-to-right	
+ported	packages/effect/test/Function.test.ts	165	it	reverses the order of curried arguments	function_combinators
+ported	packages/effect/test/Function.test.ts	175	it	data-first: composes left-to-right	function_combinators
 unported	packages/effect/test/Function.test.ts	179	it	data-last: composes with pipe	
 unported	packages/effect/test/Function.test.ts	185	it	throws an error when called	
-unported	packages/effect/test/Function.test.ts	193	it	converts a multi-arg function to accept a tuple	
-unported	packages/effect/test/Function.test.ts	201	it	converts a tuple-accepting function to multi-arg	
+ported	packages/effect/test/Function.test.ts	193	it	converts a multi-arg function to accept a tuple	function_combinators
+ported	packages/effect/test/Function.test.ts	201	it	converts a tuple-accepting function to multi-arg	function_combinators
 unported	packages/effect/test/Function.test.ts	209	it	returns value with no functions	
 unported	packages/effect/test/Function.test.ts	213	it	applies one function	
 unported	packages/effect/test/Function.test.ts	217	it	applies two functions	

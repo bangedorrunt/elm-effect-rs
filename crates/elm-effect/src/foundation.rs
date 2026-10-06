@@ -189,6 +189,52 @@ pub fn compose<A, B, C>(f: impl Fn(A) -> B, g: impl Fn(B) -> C) -> impl Fn(A) ->
     move |a| g(f(a))
 }
 
+/// Nothing (`None`), mirroring `constNull`.
+pub fn const_null<T>() -> Option<T> {
+    None
+}
+
+/// Reverse a curried two-argument function. Needs `Clone` because the
+/// outer function is shared across applications, and `B: Clone` because
+/// each flipped call replays its captured second argument.
+pub fn flip_curried<A, B, C, F, G>(f: F) -> impl Fn(B) -> Box<dyn Fn(A) -> C>
+where
+    F: Fn(A) -> G + Clone + 'static,
+    G: Fn(B) -> C + 'static,
+    A: 'static,
+    B: Clone + 'static,
+    C: 'static,
+{
+    move |b| {
+        let f = f.clone();
+        Box::new(move |a| {
+            let again = b.clone();
+            f(a)(again)
+        }) as Box<dyn Fn(A) -> C>
+    }
+}
+
+/// Make a two-argument function take its arguments as one tuple.
+pub fn tupled<A, B, C, F>(f: F) -> impl Fn((A, B)) -> C
+where
+    F: Fn(A, B) -> C,
+{
+    move |(a, b)| f(a, b)
+}
+
+/// Make a tuple-accepting function take two arguments.
+pub fn untupled<A, B, C, F>(f: F) -> impl Fn(A, B) -> C
+where
+    F: Fn((A, B)) -> C,
+{
+    move |a, b| f((a, b))
+}
+
+/// Diverging function for impossible branches.
+pub fn absurd<T>(_: std::convert::Infallible) -> T {
+    panic!("Called `absurd` function which should be uncallable")
+}
+
 // Hash
 
 /// Structural hash with the pin's exact formulas (MurmurHash3 finalizer,
