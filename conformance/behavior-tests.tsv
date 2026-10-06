@@ -4147,28 +4147,28 @@ ported	packages/effect/test/Tuple.test.ts	138	it	makeEquivalence compares tuple 
 ported	packages/effect/test/Tuple.test.ts	149	it	makeOrder orders tuple positions lexicographically	tuple_shapes
 unported	packages/effect/test/TxChunk.test.ts	6	it	make should create a TxChunk with initial chunk	
 ported	packages/effect/test/TxChunk.test.ts	18	it	empty should create an empty TxChunk	tx_chunk_push_get_extend
-unported	packages/effect/test/TxChunk.test.ts	29	it	fromIterable should create a TxChunk from an iterable	
+ported	packages/effect/test/TxChunk.test.ts	29	it	fromIterable should create a TxChunk from an iterable	tx_chunk_from_iterable_and_size_flags
 ported	packages/effect/test/TxChunk.test.ts	42	it	get should read the current chunk	tx_chunk_push_get_extend
 unported	packages/effect/test/TxChunk.test.ts	53	it	set should replace the entire chunk	
 ported	packages/effect/test/TxChunk.test.ts	68	it	append should add element to the end	tx_chunk_push_get_extend
 unported	packages/effect/test/TxChunk.test.ts	82	it	prepend should add element to the beginning	
-unported	packages/effect/test/TxChunk.test.ts	96	it	size should return the chunk size	
-unported	packages/effect/test/TxChunk.test.ts	107	it	isEmpty should return true for empty chunk	
-unported	packages/effect/test/TxChunk.test.ts	118	it	isEmpty should return false for non-empty chunk	
-unported	packages/effect/test/TxChunk.test.ts	129	it	isNonEmpty should return false for empty chunk	
-unported	packages/effect/test/TxChunk.test.ts	140	it	isNonEmpty should return true for non-empty chunk	
-unported	packages/effect/test/TxChunk.test.ts	153	it	should perform atomic operations within a transaction	
-unported	packages/effect/test/TxChunk.test.ts	170	it	modify should transform and return a value atomically	
-unported	packages/effect/test/TxChunk.test.ts	188	it	update should transform the chunk	
-unported	packages/effect/test/TxChunk.test.ts	204	it	take should keep first n elements	
-unported	packages/effect/test/TxChunk.test.ts	218	it	drop should remove first n elements	
-unported	packages/effect/test/TxChunk.test.ts	232	it	slice should extract elements from start to end	
-unported	packages/effect/test/TxChunk.test.ts	248	it	map should transform each element	
-unported	packages/effect/test/TxChunk.test.ts	262	it	filter should keep elements that satisfy predicate	
-unported	packages/effect/test/TxChunk.test.ts	278	it	appendAll should concatenate chunk to the end	
-unported	packages/effect/test/TxChunk.test.ts	293	it	prependAll should concatenate chunk to the beginning	
-unported	packages/effect/test/TxChunk.test.ts	308	it	concat should concatenate another TxChunk to the end	
-unported	packages/effect/test/TxChunk.test.ts	323	it	concat should work atomically within transactions	
+ported	packages/effect/test/TxChunk.test.ts	96	it	size should return the chunk size	tx_chunk_from_iterable_and_size_flags
+ported	packages/effect/test/TxChunk.test.ts	107	it	isEmpty should return true for empty chunk	tx_chunk_from_iterable_and_size_flags
+ported	packages/effect/test/TxChunk.test.ts	118	it	isEmpty should return false for non-empty chunk	tx_chunk_from_iterable_and_size_flags
+ported	packages/effect/test/TxChunk.test.ts	129	it	isNonEmpty should return false for empty chunk	tx_chunk_from_iterable_and_size_flags
+ported	packages/effect/test/TxChunk.test.ts	140	it	isNonEmpty should return true for non-empty chunk	tx_chunk_from_iterable_and_size_flags
+ported	packages/effect/test/TxChunk.test.ts	153	it	should perform atomic operations within a transaction	tx_chunk_ops_stay_atomic_in_a_transaction
+ported	packages/effect/test/TxChunk.test.ts	170	it	modify should transform and return a value atomically	tx_chunk_modify_returns_previous_size
+ported	packages/effect/test/TxChunk.test.ts	188	it	update should transform the chunk	tx_chunk_update_maps_values
+ported	packages/effect/test/TxChunk.test.ts	204	it	take should keep first n elements	tx_chunk_slice_operations
+ported	packages/effect/test/TxChunk.test.ts	218	it	drop should remove first n elements	tx_chunk_slice_operations
+ported	packages/effect/test/TxChunk.test.ts	232	it	slice should extract elements from start to end	tx_chunk_slice_operations
+ported	packages/effect/test/TxChunk.test.ts	248	it	map should transform each element	tx_chunk_map_and_filter
+ported	packages/effect/test/TxChunk.test.ts	262	it	filter should keep elements that satisfy predicate	tx_chunk_map_and_filter
+ported	packages/effect/test/TxChunk.test.ts	278	it	appendAll should concatenate chunk to the end	tx_chunk_concat_appends
+ported	packages/effect/test/TxChunk.test.ts	293	it	prependAll should concatenate chunk to the beginning	tx_chunk_append_and_prepend_all
+ported	packages/effect/test/TxChunk.test.ts	308	it	concat should concatenate another TxChunk to the end	tx_chunk_append_and_prepend_all
+ported	packages/effect/test/TxChunk.test.ts	323	it	concat should work atomically within transactions	tx_chunk_concat_appends
 unported	packages/effect/test/TxChunk.test.ts	344	it	isTxChunk should identify TxChunk instances	
 ported	packages/effect/test/TxDeferred.test.ts	6	it.effect	make creates a deferred that polls as None	tx_deferred_complete_and_poll
 ported	packages/effect/test/TxDeferred.test.ts	15	it.effect	poll returns None on fresh deferred	tx_deferred_complete_and_poll
