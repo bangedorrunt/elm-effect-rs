@@ -7012,7 +7012,7 @@ unported	packages/effect/test/net/NetAddress.test.ts	761	it	decodes and canonica
 unported	packages/effect/test/net/NetAddress.test.ts	778	it	validates branded address schemas on decode and encode	
 unported	packages/effect/test/observability/OtlpConfig.test.ts	8	it.effect	configures exporters from OTEL environment variables	
 unported	packages/effect/test/observability/OtlpConfig.test.ts	49	it.effect	does not install exporters when OTEL_SDK_DISABLED is true	
-unported	packages/effect/test/observability/OtlpEnvHeaders.test.ts	5	it.effect	decodes percent-encoded OTLP header values	
+ported	packages/effect/test/observability/OtlpEnvHeaders.test.ts	5	it.effect	decodes percent-encoded OTLP header values	otlp_env_headers_decode
 unported	packages/effect/test/observability/OtlpExporter.test.ts	110	it.effect	allows an in-flight timer export to finish during shutdown	
 unported	packages/effect/test/observability/OtlpExporter.test.ts	131	it.effect	waits for each periodic export before starting the next interval	
 unported	packages/effect/test/observability/OtlpExporter.test.ts	160	it.effect	allows an in-flight batch export to finish during shutdown	

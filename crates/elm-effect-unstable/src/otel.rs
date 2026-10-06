@@ -87,3 +87,42 @@ pub fn attribute(data: &SpanData, key: &str) -> Option<String> {
         }
     })
 }
+
+/// Decode `%XX` sequences, leaving `+` alone (OTLP header values
+/// use URL-encoding without form semantics; distinct from the query
+/// decoder on purpose).
+fn decode_header_value(text: &str) -> String {
+    let mut out = Vec::new();
+    let bytes = text.as_bytes();
+    let mut i = 0;
+    while i < bytes.len() {
+        if bytes[i] == b'%' && i + 2 < bytes.len() + 1 {
+            let hex = |b: u8| (b as char).to_digit(16);
+            match (hex(bytes[i + 1]), hex(bytes[i + 2])) {
+                (Some(hi), Some(lo)) => {
+                    out.push((hi * 16 + lo) as u8);
+                    i += 3;
+                }
+                _ => {
+                    out.push(b'%');
+                    i += 1;
+                }
+            }
+        } else {
+            out.push(bytes[i]);
+            i += 1;
+        }
+    }
+    String::from_utf8_lossy(&out).into_owned()
+}
+
+/// Parse `k=v,k=v` OTLP header lists with percent-decoded values
+/// (`OtlpEnv.headers` core; `=`-less members are skipped).
+pub fn parse_otlp_headers(text: &str) -> Vec<(String, String)> {
+    text.split(',')
+        .filter_map(|pair| {
+            let (name, value) = pair.split_once('=')?;
+            Some((name.trim().to_owned(), decode_header_value(value)))
+        })
+        .collect()
+}

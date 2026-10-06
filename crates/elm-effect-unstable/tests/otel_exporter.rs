@@ -36,3 +36,16 @@ fn exporter_records_span_name_and_attributes() {
     assert_eq!(exported[1].name, "http.server");
     assert_eq!(attribute(&exported[1], "db.system"), None);
 }
+
+#[test]
+fn otlp_env_headers_decode() {
+    use elm_effect_unstable::otel::parse_otlp_headers;
+    // OtlpEnvHeaders.test.ts:5 - percent-encoded header values decode.
+    assert_eq!(
+        parse_otlp_headers("authorization=Bearer%20token,x-comma=comma%2Cvalue"),
+        [
+            ("authorization".to_owned(), "Bearer token".to_owned()),
+            ("x-comma".to_owned(), "comma,value".to_owned()),
+        ]
+    );
+}
