@@ -927,6 +927,29 @@ pub mod param {
         pub kind: ParamKind,
         /// Bound name (`"__never__"` for sentinels).
         pub name: String,
+        /// Value parser for supplied inputs.
+        pub primitive: ParamPrimitive,
+        /// Fallback when absent (mirrors `withDefault`).
+        pub default: Option<ParamValue>,
+    }
+
+    /// Value shapes a descriptor can produce.
+    #[derive(Clone, Debug, PartialEq, Eq)]
+    pub enum ParamValue {
+        /// Plain text.
+        Text(String),
+        /// A switch state.
+        Switch(bool),
+    }
+
+    /// Primitive parsers a descriptor can carry (first brick: never +
+    /// boolean; text/choice/integer reuse `super::primitive`).
+    #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+    pub enum ParamPrimitive {
+        /// Always fails.
+        Never,
+        /// Switches and explicit booleans.
+        Boolean,
     }
 
     impl CliParam {
@@ -935,6 +958,8 @@ pub mod param {
             Self {
                 kind,
                 name: "__never__".to_owned(),
+                primitive: ParamPrimitive::Never,
+                default: None,
             }
         }
 
@@ -948,22 +973,46 @@ pub mod param {
             Self::never(ParamKind::Argument)
         }
 
-        /// Parse from bound maps: absent names fail as `MissingOption`,
-        /// supplied sentinel values fail as `InvalidValue`.
+        /// A boolean switch (`Flag.Boolean`).
+        pub fn boolean(name: &str) -> Self {
+            Self {
+                kind: ParamKind::Flag,
+                name: name.to_owned(),
+                primitive: ParamPrimitive::Boolean,
+                default: None,
+            }
+        }
+
+        /// Fall back to `value` when absent (`withDefault`).
+        pub fn with_default(mut self, value: ParamValue) -> Self {
+            self.default = Some(value);
+            self
+        }
+
+        /// Parse from bound maps: absent names take the default or fail
+        /// as `MissingOption`; supplied values run the primitive.
         pub fn parse(
             &self,
             flags: &std::collections::BTreeMap<String, Vec<String>>,
             args: &std::collections::BTreeMap<String, Vec<String>>,
-        ) -> Result<String, super::CliError> {
+        ) -> Result<(String, ParamValue), super::CliError> {
             let map = match self.kind {
                 ParamKind::Flag => flags,
                 ParamKind::Argument => args,
             };
-            match map.get(&self.name) {
-                None => Err(super::CliError::MissingOption {
-                    option: self.name.clone(),
-                }),
-                Some(values) => Err(super::CliError::InvalidValue {
+            let values = match map.get(&self.name) {
+                Some(values) => values,
+                None => {
+                    return match &self.default {
+                        Some(value) => Ok((self.name.clone(), value.clone())),
+                        None => Err(super::CliError::MissingOption {
+                            option: self.name.clone(),
+                        }),
+                    };
+                }
+            };
+            match self.primitive {
+                ParamPrimitive::Never => Err(super::CliError::InvalidValue {
                     option: self.name.clone(),
                     value: values.join(" "),
                     expected: "This option does not accept values".to_owned(),
@@ -972,6 +1021,20 @@ pub mod param {
                         ParamKind::Argument => "argument".to_owned(),
                     },
                 }),
+                ParamPrimitive::Boolean => {
+                    if values.is_empty() {
+                        return Ok((self.name.clone(), ParamValue::Switch(true)));
+                    }
+                    match super::primitive::parse_bool(&values[0]) {
+                        Ok(flag) => Ok((self.name.clone(), ParamValue::Switch(flag))),
+                        Err(expected) => Err(super::CliError::InvalidValue {
+                            option: self.name.clone(),
+                            value: values.join(" "),
+                            expected,
+                            kind: "option".to_owned(),
+                        }),
+                    }
+                }
             }
         }
     }

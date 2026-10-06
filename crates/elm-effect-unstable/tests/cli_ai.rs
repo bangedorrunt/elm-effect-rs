@@ -1139,3 +1139,21 @@ fn param_never_sentinels() {
         assert!(matches!(supplied, CliError::InvalidValue { .. }));
     }
 }
+
+#[test]
+fn param_boolean_defaults() {
+    use elm_effect_unstable::cli::param::{CliParam, ParamValue};
+    use std::collections::BTreeMap;
+    let empty: BTreeMap<String, Vec<String>> = BTreeMap::new();
+    // Param.test.ts:51 - an omitted boolean fails.
+    assert!(matches!(
+        CliParam::boolean("verbose").parse(&empty, &empty),
+        Err(elm_effect_unstable::cli::CliError::MissingOption { .. })
+    ));
+    // :63 - the requested default fills in.
+    let (_, value) = CliParam::boolean("verbose")
+        .with_default(ParamValue::Switch(true))
+        .parse(&empty, &empty)
+        .expect("defaults");
+    assert_eq!(value, ParamValue::Switch(true));
+}
