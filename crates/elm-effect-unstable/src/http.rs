@@ -840,6 +840,18 @@ impl UrlParams {
         Self { pairs }
     }
 
+    /// Build from possibly-absent values, coercing absence to `"null"`
+    /// (`UrlParams.fromInput` core for the null case; richer shapes
+    /// arrive stringified at the call site).
+    pub fn from_input(pairs: Vec<(String, Option<String>)>) -> Self {
+        Self {
+            pairs: pairs
+                .into_iter()
+                .map(|(name, value)| (name, Some(value.unwrap_or_else(|| "null".to_owned()))))
+                .collect(),
+        }
+    }
+
     /// Parse a query string (leading `?` allowed).
     pub fn parse(query: &str) -> Self {
         let query = query.strip_prefix('?').unwrap_or(query);

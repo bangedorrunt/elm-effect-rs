@@ -619,3 +619,13 @@ fn http_status_from_literal_names() {
     }
     assert_eq!(http_status_from_literal("NoSuchStatus"), None);
 }
+
+#[test]
+fn url_params_from_input_coerces() {
+    use elm_effect_unstable::http::UrlParams;
+    // UrlParams.test.ts:9 - absent values coerce to "null".
+    assert_eq!(
+        UrlParams::from_input(vec![("filter".to_owned(), None)]).pairs(),
+        &[("filter".to_owned(), Some("null".to_owned()))]
+    );
+}
