@@ -1155,6 +1155,14 @@ impl NetAddress {
             _ => None,
         }
     }
+
+    /// Scope id for IPv6 sockets, if present (TS `scopeId`).
+    pub fn scope_id(&self) -> Option<u32> {
+        match self {
+            Self::Inet(std::net::SocketAddr::V6(v6)) => Some(v6.scope_id()),
+            _ => None,
+        }
+    }
 }
 
 impl std::fmt::Display for NetAddress {

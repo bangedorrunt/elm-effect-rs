@@ -983,3 +983,36 @@ fn net_addresses_snapshot_scope_ids_from_interfaces() {
     );
     assert_eq!(NetAddress::scope_ids_from_interfaces(&[]), BTreeMap::new());
 }
+
+#[test]
+fn net_addresses_keep_scope_in_equality_and_hash() {
+    use net::NetAddress;
+    use std::collections::hash_map::DefaultHasher;
+    use std::hash::{Hash, Hasher};
+    // NetAddress.test.ts:732 - scope metadata feeds equality and hashing.
+    let address = NetAddress::ipv6_from_string("fe80::1").expect("valid");
+    let first = NetAddress::inet_address_v6(&address, 80, 7).expect("scoped");
+    let second = NetAddress::inet_address_v6(&address, 80, 7).expect("scoped");
+    let other_scope = NetAddress::inet_address_v6(&address, 80, 9).expect("scoped");
+    assert_eq!(first, second);
+    assert_ne!(first, other_scope);
+    let hash_of = |value: &NetAddress| {
+        let mut hasher = DefaultHasher::new();
+        value.hash(&mut hasher);
+        hasher.finish()
+    };
+    assert_eq!(hash_of(&first), hash_of(&second));
+}
+
+#[test]
+fn net_addresses_roundtrip_max_scope_ids() {
+    use net::NetAddress;
+    // NetAddress.test.ts:742 - the full u32 scope range survives.
+    let scoped =
+        NetAddress::socket_address_from_input("[fe80::1%4294967295]:80").expect("parses");
+    assert_eq!(scoped.scope_id(), Some(0xffffffff));
+    assert_eq!(scoped.format_socket_address(), "[fe80::1%4294967295]:80");
+    let plain = NetAddress::socket_address_from_input("[fe80::1]:80").expect("parses");
+    assert_eq!(plain.scope_id(), Some(0));
+    assert_eq!(plain.format_socket_address(), "[fe80::1]:80");
+}
