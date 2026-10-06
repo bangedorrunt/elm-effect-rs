@@ -1249,3 +1249,11 @@ fn formatter_union_renders_member_values() {
     assert_eq!(format(&Unknown::Text("a".to_string())), "\"a\"");
     assert_eq!(format(&Unknown::Number(1.0)), "1");
 }
+
+#[test]
+fn formatter_empty_struct_renders_shapes() {
+    use std::collections::BTreeMap;
+    let format = Schema::<BTreeMap<String, Unknown>>::object().formatter();
+    assert_eq!(format(&Unknown::Object(BTreeMap::new())), "{}");
+    assert_eq!(format(&Unknown::Number(1.0)), "1");
+}
