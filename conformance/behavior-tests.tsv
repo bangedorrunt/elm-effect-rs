@@ -9500,7 +9500,7 @@ ported	packages/effect/test/schema/toFormatter.test.ts	55	it	Boolean	formatter_b
 unported	packages/effect/test/schema/toFormatter.test.ts	61	it	BigInt	
 unported	packages/effect/test/schema/toFormatter.test.ts	66	it	Symbol	
 unported	packages/effect/test/schema/toFormatter.test.ts	71	it	UniqueSymbol	
-unported	packages/effect/test/schema/toFormatter.test.ts	76	it	ObjectKeyword	
+ported	packages/effect/test/schema/toFormatter.test.ts	76	it	ObjectKeyword	formatter_object_keyword_renders_shapes
 ported	packages/effect/test/schema/toFormatter.test.ts	84	it	string	formatter_literal_string_quotes
 ported	packages/effect/test/schema/toFormatter.test.ts	89	it	number	formatter_literal_number_bare
 ported	packages/effect/test/schema/toFormatter.test.ts	94	it	boolean	formatter_literal_boolean_word
