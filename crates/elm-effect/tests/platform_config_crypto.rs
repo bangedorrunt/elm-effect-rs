@@ -1027,3 +1027,44 @@ fn provider_chain_maps_after_prefix() {
     );
     assert_eq!(chained.get(&["missing".to_string()]), None);
 }
+
+#[test]
+fn provider_dir_reads_trimmed_leaves() {
+    use config_provider::DirProvider;
+    use std::sync::atomic::{AtomicU64, Ordering};
+    static N: AtomicU64 = AtomicU64::new(0);
+    let root = std::env::temp_dir()
+        .join(format!("foggybasin-dir-{}", N.fetch_add(1, Ordering::SeqCst)));
+    std::fs::create_dir_all(root.join("nested")).unwrap();
+    std::fs::write(root.join("secret"), "keepitsafe\n").unwrap();
+    std::fs::write(root.join("SHOUTING"), "value").unwrap();
+    std::fs::write(root.join("integer"), "123").unwrap();
+    std::fs::write(root.join("nested").join("config"), "hello").unwrap();
+    std::fs::write(root.join("empty"), "  \n").unwrap();
+    let dir = DirProvider::from_dir(&root);
+    assert_eq!(
+        dir.get(&["secret".to_string()]),
+        Some("keepitsafe".to_string())
+    );
+    assert_eq!(
+        dir.get(&["SHOUTING".to_string()]),
+        Some("value".to_string())
+    );
+    assert_eq!(
+        dir.get(&["integer".to_string()]),
+        Some("123".to_string())
+    );
+    assert_eq!(
+        dir.get(&["nested".to_string(), "config".to_string()]),
+        Some("hello".to_string())
+    );
+    assert_eq!(dir.get(&["missing".to_string()]), None);
+    assert_eq!(dir.get(&["empty".to_string()]), None);
+    assert_eq!(dir.get(&["nested".to_string()]), None);
+    let keeping = DirProvider::from_dir_preserving(&root);
+    assert_eq!(
+        keeping.get(&["empty".to_string()]),
+        Some("".to_string())
+    );
+    std::fs::remove_dir_all(&root).unwrap();
+}

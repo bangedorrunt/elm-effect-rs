@@ -463,3 +463,55 @@ impl Lookup for EnvProvider {
         }
     }
 }
+
+/// Filesystem directory source (`fromDir`, leaf values only): each path
+/// segment descends one level; file contents read trimmed. Directories
+/// and unreadable files read as absent; empty-after-trim reads missing
+/// unless preserving.
+pub struct DirProvider {
+    root: std::path::PathBuf,
+    preserve_empty: bool,
+}
+
+impl DirProvider {
+    /// Read leaves under `root` (`fromDir`); empty files read missing.
+    pub fn from_dir(root: impl Into<std::path::PathBuf>) -> Self {
+        Self {
+            root: root.into(),
+            preserve_empty: false,
+        }
+    }
+
+    /// Read leaves under `root`, keeping empty files
+    /// (`preserveEmptyStrings`).
+    pub fn from_dir_preserving(root: impl Into<std::path::PathBuf>) -> Self {
+        Self {
+            root: root.into(),
+            preserve_empty: true,
+        }
+    }
+
+    /// Look up a file under the root (inherent alias of [`Lookup::get`]).
+    pub fn get(&self, path: &[String]) -> Option<String> {
+        Lookup::get(self, path)
+    }
+}
+
+impl Lookup for DirProvider {
+    fn get(&self, path: &[String]) -> Option<String> {
+        let mut full = self.root.clone();
+        for seg in path {
+            if seg.is_empty() || seg == ".." {
+                return None;
+            }
+            full.push(seg);
+        }
+        let text = std::fs::read_to_string(&full).ok()?;
+        let trimmed = text.trim().to_string();
+        if trimmed.is_empty() && !self.preserve_empty {
+            None
+        } else {
+            Some(trimmed)
+        }
+    }
+}
