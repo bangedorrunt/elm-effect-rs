@@ -432,7 +432,51 @@ fn sse_ignores_comments_and_empty_blocks() {
     let events = encoding::sse::decode(": keep-alive\n\n\ndata: hi\n\n");
     assert_eq!(events.len(), 1);
     assert_eq!(events[0].data, "hi");
-    assert_eq!(events[0].event, "");
+    assert_eq!(events[0].event, "message");
+}
+
+#[test]
+fn sse_joins_crlf_split_across_chunks() {
+    let mut decoder = encoding::sse::Decoder::new();
+    let mut events = decoder.feed("data: first\r");
+    events.extend(decoder.feed("\ndata: second\n\n"));
+    assert_eq!(events.len(), 1);
+    assert_eq!(events[0].data, "first\nsecond");
+    assert_eq!(events[0].event, "message");
+}
+
+#[test]
+fn sse_retains_last_event_id() {
+    let mut decoder = encoding::sse::Decoder::new();
+    let events = decoder.feed("id: 1\ndata: first\n\ndata: second\n\n");
+    assert_eq!(events.len(), 2);
+    assert_eq!(events[0].id.as_deref(), Some("1"));
+    assert_eq!(events[0].data, "first");
+    assert_eq!(events[1].id.as_deref(), Some("1"));
+    assert_eq!(events[1].data, "second");
+}
+
+#[test]
+fn sse_strips_leading_bom_once() {
+    let mut decoder = encoding::sse::Decoder::new();
+    let events = decoder.feed("\u{FEFF}data: ok\n\n");
+    assert_eq!(events.len(), 1);
+    assert_eq!(events[0].data, "ok");
+    assert_eq!(events[0].event, "message");
+    assert_eq!(events[0].id, None);
+}
+
+#[test]
+fn sse_parses_events_split_across_chunks() {
+    let mut decoder = encoding::sse::Decoder::new();
+    let mut events = decoder.feed("id: 1\nevent: up");
+    events.extend(decoder.feed("date\ndata: hel"));
+    events.extend(decoder.feed("lo\n"));
+    events.extend(decoder.feed("\n"));
+    assert_eq!(events.len(), 1);
+    assert_eq!(events[0].event, "update");
+    assert_eq!(events[0].data, "hello");
+    assert_eq!(events[0].id.as_deref(), Some("1"));
 }
 
 #[test]

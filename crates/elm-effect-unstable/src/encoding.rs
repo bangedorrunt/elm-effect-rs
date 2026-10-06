@@ -291,7 +291,7 @@ pub mod sse {
     /// One decoded event.
     #[derive(Debug, Clone, PartialEq, Eq)]
     pub struct Event {
-        /// Event name (`event:` field, empty when unset).
+        /// Event name (`event:` field, `"message"` when the block sets none).
         pub event: String,
         /// Payload (`data:` lines joined with `\n`).
         pub data: String,
@@ -301,10 +301,11 @@ pub mod sse {
         pub retry: Option<u64>,
     }
 
-    /// Encode one event. `retry` renders as `retry: <millis>`.
+    /// Encode one event. `retry` renders as `retry: <millis>`; a `"message"`
+/// type field is omitted (the decoder restores it).
     pub fn encode(event: &Event) -> String {
         let mut out = String::new();
-        if !event.event.is_empty() {
+        if !event.event.is_empty() && event.event != "message" {
             out.push_str("event: ");
             out.push_str(&event.event);
             out.push('\n');
@@ -330,32 +331,98 @@ pub mod sse {
     /// Comment lines (`:...`) are ignored; a block with no `data:` still
     /// dispatches (empty data), matching the reference parser.
     pub fn decode(input: &str) -> Vec<Event> {
-        let mut events = Vec::new();
-        let mut event = String::new();
-        let mut data: Vec<String> = Vec::new();
-        let mut id: Option<String> = None;
-        let mut retry: Option<u64> = None;
-        let mut flush = |event: &mut String,
-                         data: &mut Vec<String>,
-                         id: &mut Option<String>,
-                         retry: &mut Option<u64>| {
-            events.push(Event {
-                event: core::mem::take(event),
-                data: core::mem::take(data).join("\n"),
-                id: id.take(),
-                retry: retry.take(),
-            });
-        };
-        for line in input.split('\n') {
+        let mut decoder = Decoder::new();
+        let mut events = decoder.feed(input);
+        events.extend(decoder.finish());
+        events
+    }
+
+    /// Incremental SSE decoder: feed text chunks, dispatch one [`Event`]
+    /// per blank-line block (TS `makeParser`). Holds partial lines across
+    /// feeds (a split CRLF joins); retains the last event id across
+    /// events and feeds; strips one leading BOM at stream start. A
+    /// missing `event:` field reads as `"message"`.
+    #[derive(Debug, Clone, Default)]
+    pub struct Decoder {
+        pending: String,
+        event: String,
+        data: Vec<String>,
+        id_seen: bool,
+        retry: Option<u64>,
+        last_event_id: Option<String>,
+        started: bool,
+    }
+
+    impl Decoder {
+        /// An empty decoder.
+        pub fn new() -> Self {
+            Self::default()
+        }
+
+        /// The retained last event id, if any.
+        pub fn last_event_id(&self) -> Option<&str> {
+            self.last_event_id.as_deref()
+        }
+
+        /// Feed a chunk; returns events completed by blank-line blocks.
+        pub fn feed(&mut self, chunk: &str) -> Vec<Event> {
+            if !self.started {
+                self.started = true;
+                self.pending
+                    .push_str(chunk.strip_prefix('\u{FEFF}').unwrap_or(chunk));
+            } else {
+                self.pending.push_str(chunk);
+            }
+            let mut events = Vec::new();
+            self.drain_complete(&mut events);
+            events
+        }
+
+        /// Dispatch the buffered remainder as a final block, then flush
+        /// any open block (whole-input parity: a trailing unterminated
+        /// block still dispatches).
+        pub fn finish(&mut self) -> Vec<Event> {
+            let rest = core::mem::take(&mut self.pending);
+            let mut events = Vec::new();
+            if !rest.is_empty() {
+                for line in rest.split('\n') {
+                    self.parse_line(line, &mut events);
+                }
+            }
+            self.flush_block(&mut events);
+            events
+        }
+
+        /// Parse complete lines (through the last `\n`), holding the
+        /// unterminated tail: a trailing lone `\r` may complete a CRLF
+        /// in a later feed.
+        fn drain_complete(&mut self, events: &mut Vec<Event>) {
+            let text = core::mem::take(&mut self.pending);
+            match text.rfind('\n') {
+                Some(i) => {
+                    let (head, tail) = text.split_at(i + 1);
+                    // The final segment is the `\n` terminator itself, not a
+                    // blank line: only inner blanks dispatch.
+                    let mut lines: Vec<&str> = head.split('\n').collect();
+                    lines.pop();
+                    for line in lines {
+                        self.parse_line(line, events);
+                    }
+                    self.pending = tail.to_string();
+                }
+                None => self.pending = text,
+            }
+        }
+
+        /// Parse one line into the open block.
+        fn parse_line(&mut self, line: &str, events: &mut Vec<Event>) {
             let line = line.strip_suffix('\r').unwrap_or(line);
             if line.is_empty() {
-                if !event.is_empty() || !data.is_empty() || id.is_some() || retry.is_some() {
-                    flush(&mut event, &mut data, &mut id, &mut retry);
-                }
-                continue;
+                self.flush_block(events);
+                return;
             }
             if line.starts_with(':') {
-                continue;
+                return;
             }
             let (field, value) = match line.find(':') {
                 Some(i) => (
@@ -365,20 +432,45 @@ pub mod sse {
                 None => (line, ""),
             };
             match field {
-                "event" => event = value.to_string(),
-                "data" => data.push(value.to_string()),
-                "id" => id = Some(value.to_string()),
+                "event" => self.event = value.to_string(),
+                "data" => self.data.push(value.to_string()),
+                "id" => {
+                    self.last_event_id = Some(value.to_string());
+                    self.id_seen = true;
+                }
                 "retry" => {
                     if let Ok(millis) = value.parse::<u64>() {
-                        retry = Some(millis);
+                        self.retry = Some(millis);
                     }
                 }
                 _ => {}
             }
         }
-        if !event.is_empty() || !data.is_empty() || id.is_some() || retry.is_some() {
-            flush(&mut event, &mut data, &mut id, &mut retry);
+
+        /// Dispatch the open block when it carries anything; the event
+        /// keeps the retained id while block-local fields reset.
+        fn flush_block(&mut self, events: &mut Vec<Event>) {
+            if self.event.is_empty()
+                && self.data.is_empty()
+                && !self.id_seen
+                && self.retry.is_none()
+            {
+                return;
+            }
+            let event = if self.event.is_empty() {
+                "message".to_string()
+            } else {
+                core::mem::take(&mut self.event)
+            };
+            events.push(Event {
+                event,
+                data: core::mem::take(&mut self.data).join("\n"),
+                id: self.last_event_id.clone(),
+                retry: self.retry.take(),
+            });
+            self.event.clear();
+            self.data.clear();
+            self.id_seen = false;
         }
-        events
     }
 }
