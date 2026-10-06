@@ -213,3 +213,134 @@ pub fn cursor_to(column: i64, row: Option<i64>) -> String {
         Some(row) => format!("\x1b[{};{}H", row + 1, (column + 1).max(0)),
     }
 }
+
+/// One lexed command-line token.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum LexToken {
+    /// `--name` or `--name=value`.
+    LongOption {
+        name: String,
+        raw: String,
+        value: Option<String>,
+    },
+    /// `-f` cluster element or `-f=value`.
+    ShortOption {
+        flag: String,
+        raw: String,
+        value: Option<String>,
+    },
+    /// Anything else, including negative numbers.
+    Value { value: String },
+}
+
+/// Lexed argv: tokens plus everything after a `--` delimiter.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Lexed {
+    pub tokens: Vec<LexToken>,
+    pub trailing_operands: Vec<String>,
+}
+
+/// `true` for `-2`, `-3.70`, `-.5`, `-1e3`: optional fraction plus
+/// optional exponent, fully consumed.
+fn is_negative_number(arg: &str) -> bool {
+    let rest = match arg.strip_prefix('-') {
+        Some(rest) if !rest.is_empty() => rest,
+        _ => return false,
+    };
+    let bytes = rest.as_bytes();
+    let mut i = 0;
+    let mut digits = 0;
+    while i < bytes.len() && bytes[i].is_ascii_digit() {
+        i += 1;
+        digits += 1;
+    }
+    if i < bytes.len() && bytes[i] == b'.' {
+        i += 1;
+        while i < bytes.len() && bytes[i].is_ascii_digit() {
+            i += 1;
+            digits += 1;
+        }
+        if digits == 0 {
+            return false;
+        }
+    } else if digits == 0 {
+        // No leading digits and no dot: `-`, `-e`, `-.` are not numbers.
+        return false;
+    }
+    if i < bytes.len() && (bytes[i] == b'e' || bytes[i] == b'E') {
+        i += 1;
+        if i < bytes.len() && (bytes[i] == b'+' || bytes[i] == b'-') {
+            i += 1;
+        }
+        let start = i;
+        while i < bytes.len() && bytes[i].is_ascii_digit() {
+            i += 1;
+        }
+        if i == start {
+            return false;
+        }
+    }
+    i == bytes.len()
+}
+
+/// Split argv into tokens, mirroring the reference `lex`.
+pub fn lex_argv(argv: &[&str]) -> Lexed {
+    let end = argv.iter().position(|arg| *arg == "--");
+    let (head, trailing_operands) = match end {
+        None => (argv, Vec::new()),
+        Some(index) => (
+            &argv[..index],
+            argv[index + 1..].iter().map(|s| s.to_string()).collect(),
+        ),
+    };
+    let mut tokens = Vec::new();
+    for arg in head {
+        if !arg.starts_with('-') || is_negative_number(arg) {
+            tokens.push(LexToken::Value {
+                value: arg.to_string(),
+            });
+        } else if let Some(long) = arg.strip_prefix("--") {
+            match long.find('=') {
+                Some(equal) => tokens.push(LexToken::LongOption {
+                    name: long[..equal].to_string(),
+                    raw: arg.to_string(),
+                    value: Some(long[equal + 1..].to_string()),
+                }),
+                None => tokens.push(LexToken::LongOption {
+                    name: long.to_string(),
+                    raw: arg.to_string(),
+                    value: None,
+                }),
+            }
+        } else if arg.len() > 1 {
+            let flags = &arg[1..];
+            match flags.find('=') {
+                Some(equal) => {
+                    let flag = &flags[..equal];
+                    tokens.push(LexToken::ShortOption {
+                        flag: flag.to_string(),
+                        raw: format!("-{flag}"),
+                        value: Some(flags[equal + 1..].to_string()),
+                    });
+                }
+                None => {
+                    for ch in flags.chars() {
+                        tokens.push(LexToken::ShortOption {
+                            flag: ch.to_string(),
+                            raw: format!("-{ch}"),
+                            value: None,
+                        });
+                    }
+                }
+            }
+        } else {
+            tokens.push(LexToken::Value {
+                value: arg.to_string(),
+            });
+        }
+    }
+    Lexed {
+        tokens,
+        trailing_operands,
+    }
+}

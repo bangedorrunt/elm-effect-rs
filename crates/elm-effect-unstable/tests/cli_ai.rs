@@ -530,3 +530,45 @@ fn ansi_cursor_sequences() {
     // Ansi.test.ts:8 - cursor position, one-indexed row and column.
     assert_eq!(cursor_to(2, Some(3)), "\x1b[4;3H");
 }
+
+#[test]
+fn lexer_tokenizes_argv() {
+    use elm_effect_unstable::cli::{LexToken, lex_argv};
+    // Lexer.test.ts:5 - every equals sign survives in the inline value.
+    let lexed = lex_argv(&["--query=left=right"]);
+    assert_eq!(
+        lexed.tokens,
+        vec![LexToken::LongOption {
+            name: "query".to_owned(),
+            raw: "--query=left=right".to_owned(),
+            value: Some("left=right".to_owned()),
+        }]
+    );
+    assert!(lexed.trailing_operands.is_empty());
+    // :16 - negative numbers lex as values.
+    let lexed = lex_argv(&["--lon", "-3.70", "-2", "-.5", "-1e3"]);
+    assert_eq!(
+        lexed.tokens,
+        vec![
+            LexToken::LongOption {
+                name: "lon".to_owned(),
+                raw: "--lon".to_owned(),
+                value: None,
+            },
+            LexToken::Value { value: "-3.70".to_owned() },
+            LexToken::Value { value: "-2".to_owned() },
+            LexToken::Value { value: "-.5".to_owned() },
+            LexToken::Value { value: "-1e3".to_owned() },
+        ]
+    );
+    // :28 - short options that are not negative numbers split per char.
+    let lexed = lex_argv(&["-1a", "-e"]);
+    assert_eq!(
+        lexed.tokens,
+        vec![
+            LexToken::ShortOption { flag: "1".to_owned(), raw: "-1".to_owned(), value: None },
+            LexToken::ShortOption { flag: "a".to_owned(), raw: "-a".to_owned(), value: None },
+            LexToken::ShortOption { flag: "e".to_owned(), raw: "-e".to_owned(), value: None },
+        ]
+    );
+}

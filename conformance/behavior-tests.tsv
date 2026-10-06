@@ -5691,9 +5691,9 @@ unported	packages/effect/test/cli/Help.test.ts	578	it.effect	includes inherited 
 unported	packages/effect/test/cli/Help.test.ts	600	it.effect	renders grouped subcommands	
 unported	packages/effect/test/cli/Help.test.ts	665	it.effect	renders subcommand aliases in listings	
 unported	packages/effect/test/cli/Help.test.ts	695	it.effect	keeps subcommand flags in aliased completion contexts	
-unported	packages/effect/test/cli/Lexer.test.ts	5	it	preserves every equals sign in a long option's inline value	
-unported	packages/effect/test/cli/Lexer.test.ts	16	it	lexes negative numbers as values	
-unported	packages/effect/test/cli/Lexer.test.ts	28	it	still lexes short options that are not negative numbers	
+ported	packages/effect/test/cli/Lexer.test.ts	5	it	preserves every equals sign in a long option's inline value	lexer_tokenizes_argv
+ported	packages/effect/test/cli/Lexer.test.ts	16	it	lexes negative numbers as values	lexer_tokenizes_argv
+ported	packages/effect/test/cli/Lexer.test.ts	28	it	still lexes short options that are not negative numbers	lexer_tokenizes_argv
 unported	packages/effect/test/cli/LogLevel.test.ts	129	it.effect	uses Info as the default minimum when --log-level is omitted	
 unported	packages/effect/test/cli/LogLevel.test.ts	137	it.effect	exposes the built-in log-level setting value	
 unported	packages/effect/test/cli/LogLevel.test.ts	154	it.effect	applies the selected log level to subcommands	
