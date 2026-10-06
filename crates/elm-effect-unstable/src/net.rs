@@ -979,6 +979,25 @@ impl NetAddress {
         Self::socket_address_from_input(&text)
     }
 
+    /// Formats a multicast scope as `::`, `::%id`, or `::%name` (TS
+    /// `formatMulticastInterface` over scope ids; pass addresses to
+    /// `format_ip`, which covers the address arm).
+    pub fn format_multicast_interface_scope(
+        scope_id: u32,
+        scope_ids: &BTreeMap<String, u32>,
+        platform: Option<&str>,
+    ) -> String {
+        if scope_id == 0 {
+            return "::".to_owned();
+        }
+        if platform != Some("win32") {
+            if let Some((name, _)) = scope_ids.iter().find(|(_, id)| **id == scope_id) {
+                return format!("::%{name}");
+            }
+        }
+        format!("::%{scope_id}")
+    }
+
     /// The socket address text: Unix paths verbatim, bare IPs without a
     /// port (TS `formatSocketAddress`; ports arrive with socket addresses).
     pub fn format_socket_address(&self) -> String {

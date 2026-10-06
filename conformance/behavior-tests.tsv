@@ -7000,7 +7000,7 @@ ported	packages/effect/test/net/NetAddress.test.ts	540	it	constructs socket addr
 ported	packages/effect/test/net/NetAddress.test.ts	575	it	parses and formats bracketed numeric addresses	net_addresses_format_bracketed_hosts
 ported	packages/effect/test/net/NetAddress.test.ts	588	it	formats separate socket hosts while preserving IPv6 scope	net_addresses_format_socket_hosts_with_scope
 ported	packages/effect/test/net/NetAddress.test.ts	604	it	formats native hosts using the supplied platform and interface names	net_addresses_format_native_hosts
-unported	packages/effect/test/net/NetAddress.test.ts	631	it	formats multicast interfaces using the supplied platform and scope map	
+ported	packages/effect/test/net/NetAddress.test.ts	631	it	formats multicast interfaces using the supplied platform and scope map	net_addresses_format_multicast_interfaces
 unported	packages/effect/test/net/NetAddress.test.ts	653	it	resolves named IPv6 zones only through the supplied scope map	
 unported	packages/effect/test/net/NetAddress.test.ts	664	it	snapshots the first positive IPv6 scope ID from each interface	
 unported	packages/effect/test/net/NetAddress.test.ts	685	it	provides throwing counterparts for trusted construction	

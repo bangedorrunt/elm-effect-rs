@@ -868,3 +868,38 @@ fn net_addresses_format_native_hosts() {
         Some("fe80::1%eth0")
     );
 }
+
+#[test]
+fn net_addresses_format_multicast_interfaces() {
+    use net::NetAddress;
+    use std::collections::BTreeMap;
+    // NetAddress.test.ts:631 - multicast interfaces render scopes.
+    assert_eq!(NetAddress::IPV4_LOOPBACK.format_ip(), "127.0.0.1");
+    let scope_ids = NetAddress::scope_ids_from_interfaces(&[("en0", 7), ("en1", 7)]);
+    for platform in [None, Some("win32"), Some("linux"), Some("darwin")] {
+        assert_eq!(
+            NetAddress::format_multicast_interface_scope(0, &scope_ids, platform),
+            "::"
+        );
+        assert_eq!(
+            NetAddress::format_multicast_interface_scope(7, &scope_ids, platform),
+            if platform == Some("win32") { "::%7" } else { "::%en0" }
+        );
+        assert_eq!(
+            NetAddress::format_multicast_interface_scope(9, &scope_ids, platform),
+            "::%9"
+        );
+    }
+    let scoped = NetAddress::format_multicast_interface_scope(7, &scope_ids, None);
+    assert_eq!(scoped, "::%en0");
+    let empty = BTreeMap::new();
+    assert_eq!(
+        NetAddress::format_multicast_interface_scope(7, &empty, Some("linux")),
+        "::%7"
+    );
+    let direct = BTreeMap::from([("eth0".to_owned(), 7u32)]);
+    assert_eq!(
+        NetAddress::format_multicast_interface_scope(7, &direct, Some("linux")),
+        "::%eth0"
+    );
+}
