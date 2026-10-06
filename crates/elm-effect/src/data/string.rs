@@ -83,6 +83,48 @@ pub fn kebab_to_snake(s: &str) -> String {
     s.replace('-', "_")
 }
 
+/// Split into lowercase-ready words: separators, camelCase humps,
+/// and digit-letter boundaries (`noCase` core, default options).
+fn split_words(s: &str) -> Vec<String> {
+    let mut words = Vec::new();
+    let mut current = String::new();
+    let mut previous: Option<char> = None;
+    for c in s.chars() {
+        if !c.is_alphanumeric() {
+            if !current.is_empty() {
+                words.push(std::mem::take(&mut current));
+            }
+        } else {
+            let boundary = match previous {
+                Some(prev) => {
+                    (prev.is_lowercase() && c.is_uppercase())
+                        || (prev.is_alphabetic() && c.is_numeric())
+                        || (prev.is_numeric() && c.is_alphabetic())
+                }
+                None => false,
+            };
+            if boundary && !current.is_empty() {
+                words.push(std::mem::take(&mut current));
+            }
+            current.push(c);
+        }
+        previous = Some(c);
+    }
+    if !current.is_empty() {
+        words.push(current);
+    }
+    words
+}
+
+/// Lowercase space-joined words with `delimiter` (`noCase`).
+pub fn no_case(s: &str, delimiter: &str) -> String {
+    split_words(s)
+        .iter()
+        .map(|word| word.to_lowercase())
+        .collect::<Vec<_>>()
+        .join(delimiter)
+}
+
 /// Split before each uppercase letter, lowercasing all (`camelToSnake`
 /// and `pascalToSnake` share this rule for the row cases).
 pub fn camel_to_snake(s: &str) -> String {

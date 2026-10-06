@@ -3971,14 +3971,14 @@ ported	packages/effect/test/String.test.ts	615	it	converts snake_case to kebab-c
 ported	packages/effect/test/String.test.ts	622	it	converts camelCase to snake_case	string_case_converters
 ported	packages/effect/test/String.test.ts	629	it	converts PascalCase to snake_case	string_case_converters
 ported	packages/effect/test/String.test.ts	636	it	converts kebab-case to snake_case	string_case_converters
-unported	packages/effect/test/String.test.ts	643	it	converts to space-separated lowercase by default	
-unported	packages/effect/test/String.test.ts	648	it	data-last with options	
+ported	packages/effect/test/String.test.ts	643	it	converts to space-separated lowercase by default	string_no_case_words
+ported	packages/effect/test/String.test.ts	648	it	data-last with options	string_no_case_words
 unported	packages/effect/test/String.test.ts	652	it	uses a custom split regular expression	
 unported	packages/effect/test/String.test.ts	656	it	uses custom split regular expressions	
 unported	packages/effect/test/String.test.ts	660	it	uses a custom strip regular expression	
 unported	packages/effect/test/String.test.ts	664	it	uses custom strip regular expressions	
-unported	packages/effect/test/String.test.ts	668	it	handles underscores and hyphens	
-unported	packages/effect/test/String.test.ts	673	it	splits digit-letter boundaries	
+ported	packages/effect/test/String.test.ts	668	it	handles underscores and hyphens	string_no_case_words
+ported	packages/effect/test/String.test.ts	673	it	splits digit-letter boundaries	string_no_case_words
 unported	packages/effect/test/String.test.ts	680	it	converts to PascalCase	
 unported	packages/effect/test/String.test.ts	686	it	does not prefix numeric segments with underscores	
 unported	packages/effect/test/String.test.ts	693	it	converts to camelCase	

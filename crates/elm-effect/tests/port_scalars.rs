@@ -1076,3 +1076,19 @@ fn string_case_converters() {
     assert_eq!(string::kebab_to_snake("hello-world"), "hello_world");
     assert_eq!(string::kebab_to_snake("foo-bar-baz"), "foo_bar_baz");
 }
+
+#[test]
+fn string_no_case_words() {
+    // String.test.ts:643 - default space-joined lowercase.
+    assert_eq!(string::no_case("helloWorld", " "), "hello world");
+    assert_eq!(string::no_case("HelloWorld", " "), "hello world");
+    // :648 - custom delimiter, data-last through a closure.
+    let dashed = |s: &str| string::no_case(s, "-");
+    assert_eq!(dashed("helloWorld"), "hello-world");
+    // :668 - underscores and hyphens split.
+    assert_eq!(string::no_case("hello_world", " "), "hello world");
+    assert_eq!(string::no_case("hello-world", " "), "hello world");
+    // :673 - digit-letter boundaries split both ways.
+    assert_eq!(string::no_case("field2value", " "), "field 2 value");
+    assert_eq!(string::no_case("field2Value", " "), "field 2 value");
+}
