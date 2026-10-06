@@ -177,6 +177,23 @@ impl HttpRequest {
         self.hash = None;
     }
 
+    /// Replace every header with `pairs` (`setHeaders`).
+    pub fn set_headers(mut self, pairs: Vec<(String, String)>) -> Self {
+        self.headers = pairs;
+        self
+    }
+
+    /// Transform the whole header collection (`updateHeaders`).
+    pub fn update_headers(mut self, f: impl FnOnce(Headers) -> Headers) -> Self {
+        self.headers = f(Headers::from_pairs(self.headers)).entries().to_vec();
+        self
+    }
+
+    /// The request as a parsed URL; `None` when the URL is malformed.
+    pub fn to_url(&self) -> Option<Url> {
+        Url::parse(&self.url)
+    }
+
     /// The follow-up request for a redirect response, or `None` when
     /// this status/location pair is not a redirect.
     ///

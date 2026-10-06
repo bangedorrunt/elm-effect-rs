@@ -549,3 +549,54 @@ fn redirect_ignores_non_redirect_status_and_empty_location() {
             .is_none()
     );
 }
+
+#[test]
+fn request_update_headers_transforms_collection() {
+    use elm_effect_unstable::http::HttpClient;
+    let request = HttpClient::get("/")
+        .set_headers(vec![
+            ("X-A".to_string(), "a".to_string()),
+            ("X-B".to_string(), "b".to_string()),
+        ])
+        .update_headers(|headers| {
+            let mut headers = headers;
+            headers.remove("X-A");
+            headers.set("X-C", "c");
+            headers
+        });
+    let names: Vec<&str> = request.headers.iter().map(|(n, _)| n.as_str()).collect();
+    assert!(names.contains(&"X-B") && names.contains(&"X-C"));
+    assert!(!names.iter().any(|n| n.eq_ignore_ascii_case("X-A")));
+}
+
+#[test]
+fn request_update_headers_keeps_the_request() {
+    use elm_effect_unstable::http::{Headers, HttpClient};
+    let request = HttpClient::get("/").update_headers(|mut headers| {
+        headers.set("X-Test", "ok");
+        headers
+    });
+    assert_eq!(redirect_header(&request.headers, "x-test"), Some("ok"));
+    assert_eq!(request.url, "/");
+}
+
+#[test]
+fn request_remove_header_keeps_the_request() {
+    use elm_effect_unstable::http::HttpClient;
+    let mut request = HttpClient::get("/").header("X-Test", "gone");
+    assert!(request.remove_header("x-test"));
+    assert!(request.headers.is_empty());
+    assert_eq!(request.to_url(), None);
+}
+
+#[test]
+fn request_to_url_is_none_for_invalid_url() {
+    use elm_effect_unstable::http::HttpClient;
+    let request = HttpClient::get("http://[::1");
+    assert!(request.to_url().is_none());
+    let ok = HttpClient::get("http://example.com/path?x=1");
+    assert_eq!(
+        ok.to_url().map(|u| u.render()),
+        Some("http://example.com/path?x=1".to_string())
+    );
+}
