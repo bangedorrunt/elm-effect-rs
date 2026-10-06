@@ -115,3 +115,27 @@ fn keeps_chomping_and_digit_indents() {
         assert_eq!(parsed, want, "{source:?}");
     }
 }
+
+#[test]
+fn resolves_anchors_and_aliases() {
+    // Yaml.test.ts:92 - anchored mappings resolve through aliases.
+    let parsed = yaml::parse(
+        "defaults: &defaults\n  host: localhost\n  port: 5432\ndevelopment:\n  settings: *defaults\n",
+    )
+    .expect("parses");
+    let host = ("host".to_owned(), text("localhost"));
+    let port = ("port".to_owned(), YamlValue::Int(5432));
+    let want = YamlValue::Map(vec![
+        ("defaults".to_owned(), YamlValue::Map(vec![host.clone(), port.clone()])),
+        (
+            "development".to_owned(),
+            YamlValue::Map(vec![(
+                "settings".to_owned(),
+                YamlValue::Map(vec![host, port]),
+            )]),
+        ),
+    ]);
+    assert_eq!(parsed, want);
+    // Unknown aliases fail instead of resolving to null.
+    assert!(yaml::parse("settings: *missing\n").is_err());
+}

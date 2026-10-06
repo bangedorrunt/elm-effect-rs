@@ -1,8 +1,9 @@
-//! YAML subset: nested block mappings/sequences, flow sequences, and
-//! scalars (booleans, integers, floats, strings). Anchors, aliases, tags,
-//! comments, and multi-line scalars arrive with the full parser; anything
-//! outside the subset is a parse error, never silent garbage. Blank lines
-//! are skipped (no multi-line scalars exist in this subset).
+//! YAML subset: nested block mappings/sequences, flow sequences, plain
+//! scalars (booleans, integers, floats, strings), anchors and aliases.
+//! Tags and comments arrive with the full parser; anything outside the
+//! subset is a parse error, never silent garbage.
+
+use std::collections::HashMap;
 
 /// A parsed YAML value.
 #[derive(Debug, Clone, PartialEq)]
@@ -37,7 +38,11 @@ pub fn parse(text: &str) -> Result<YamlValue, YamlError> {
     if lines.iter().all(|(_, line)| line.is_empty()) {
         return Err(YamlError("empty document".to_string()));
     }
-    let mut parser = Parser { lines, cursor: 0 };
+    let mut parser = Parser {
+        lines,
+        cursor: 0,
+        anchors: HashMap::new(),
+    };
     let value = parser.parse_block(0)?;
     while matches!(parser.lines.get(parser.cursor), Some((usize::MAX, _))) {
         parser.cursor += 1;
@@ -48,8 +53,19 @@ pub fn parse(text: &str) -> Result<YamlValue, YamlError> {
     Ok(value)
 }
 
-/// Fold `>` lines: single breaks become spaces, breaks around
-/// more-indented lines and blank runs become newlines (extra indent
+/// Split a leading `&name` anchor from its remainder.
+fn split_anchor(value: &str) -> Option<(String, String)> {
+    let rest = value.strip_prefix('&')?;
+    let end = rest
+        .find(|c: char| !(c.is_alphanumeric() || c == '_' || c == '-'))
+        .unwrap_or(rest.len());
+    if end == 0 {
+        return None;
+    }
+    Some((rest[..end].to_owned(), rest[end..].trim().to_string()))
+}
+
+/// Fold `>` lines: single breaks become spaces, breaks aroundndent
 /// is preserved on the deeper line).
 fn fold_block_lines(content: &[Option<(usize, String)>], base: usize) -> String {
     let mut out = String::new();
@@ -88,6 +104,7 @@ fn fold_block_lines(content: &[Option<(usize, String)>], base: usize) -> String 
 struct Parser {
     lines: Vec<(usize, String)>,
     cursor: usize,
+    anchors: HashMap<String, YamlValue>,
 }
 
 impl Parser {
@@ -184,6 +201,19 @@ impl Parser {
 
     /// An inline value, or a nested block when the value is empty.
     fn inline_or_nested(&mut self, indent: usize, value: String) -> Result<YamlValue, YamlError> {
+        if let Some(alias) = value.strip_prefix('*') {
+            let name = alias.trim();
+            return self
+                .anchors
+                .get(name)
+                .cloned()
+                .ok_or_else(|| YamlError(format!("unknown alias: {name}")));
+        }
+        if let Some((name, rest)) = split_anchor(&value) {
+            let parsed = self.inline_or_nested(indent, rest)?;
+            self.anchors.insert(name, parsed.clone());
+            return Ok(parsed);
+        }
         if value.is_empty() {
             match self.peek().cloned() {
                 Some((next, _)) if next > indent => self.parse_block(next),

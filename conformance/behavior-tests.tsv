@@ -6329,7 +6329,7 @@ ported	packages/effect/test/encoding/Yaml.test.ts	5	it	parses nested block and f
 ported	packages/effect/test/encoding/Yaml.test.ts	34	it	parses quoted and block scalars	parses_quoted_and_block_scalars
 ported	packages/effect/test/encoding/Yaml.test.ts	53	it	preserves paragraph and indentation breaks in folded block scalars	folds_block_scalars
 ported	packages/effect/test/encoding/Yaml.test.ts	72	it.each	preserves %s	keeps_chomping_and_digit_indents
-unported	packages/effect/test/encoding/Yaml.test.ts	92	it	resolves aliases	
+ported	packages/effect/test/encoding/Yaml.test.ts	92	it	resolves aliases	resolves_anchors_and_aliases
 unported	packages/effect/test/encoding/Yaml.test.ts	108	it	rejects invalid indentation	
 unported	packages/effect/test/encoding/Yaml.test.ts	114	it.each	parses $name	
 unported	packages/effect/test/encoding/Yaml.test.ts	163	it.each	folds %s	
