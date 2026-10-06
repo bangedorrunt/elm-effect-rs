@@ -933,6 +933,20 @@ pub mod param {
         pub default: Option<ParamValue>,
         /// Absence yields `None` instead of failing (mirrors `optional`).
         pub optional: bool,
+        /// Config key consulted between supplied values and defaults
+        /// (mirrors `withFallbackConfig`).
+        pub fallback_config: Option<String>,
+    }
+
+    /// Bound inputs a descriptor reads: supplied maps plus config.
+    #[derive(Clone, Debug, Default, PartialEq, Eq)]
+    pub struct CliOptions {
+        /// Bound `--flag` values by name.
+        pub flags: std::collections::BTreeMap<String, Vec<String>>,
+        /// Bound positional values by name.
+        pub args: std::collections::BTreeMap<String, Vec<String>>,
+        /// Config fallback values by key.
+        pub config: std::collections::BTreeMap<String, String>,
     }
 
     /// Value shapes a descriptor can produce.
@@ -942,6 +956,8 @@ pub mod param {
         Text(String),
         /// A switch state.
         Switch(bool),
+        /// An integer.
+        Integer(i64),
     }
 
     /// Primitive parsers a descriptor can carry (first brick: never +
@@ -952,6 +968,10 @@ pub mod param {
         Never,
         /// Switches and explicit booleans.
         Boolean,
+        /// Plain text.
+        Text,
+        /// Integers.
+        Integer,
     }
 
     impl CliParam {
@@ -963,6 +983,7 @@ pub mod param {
                 primitive: ParamPrimitive::Never,
                 default: None,
                 optional: false,
+                fallback_config: None,
             }
         }
 
@@ -984,6 +1005,37 @@ pub mod param {
                 primitive: ParamPrimitive::Boolean,
                 default: None,
                 optional: false,
+                fallback_config: None,
+            }
+        }
+
+        /// A text value of `kind` (`Flag.String`, `Argument.String`).
+        pub fn text(kind: ParamKind, name: &str) -> Self {
+            Self {
+                kind,
+                name: name.to_owned(),
+                primitive: ParamPrimitive::Text,
+                default: None,
+                optional: false,
+                fallback_config: None,
+            }
+        }
+
+        /// Read the config key when nothing is supplied (`withFallbackConfig`).
+        pub fn with_fallback_config(mut self, key: &str) -> Self {
+            self.fallback_config = Some(key.to_owned());
+            self
+        }
+
+        /// An integer value of `kind` (`Flag.Int`, `Argument.Int`).
+        pub fn integer(kind: ParamKind, name: &str) -> Self {
+            Self {
+                kind,
+                name: name.to_owned(),
+                primitive: ParamPrimitive::Integer,
+                default: None,
+                optional: false,
+                fallback_config: None,
             }
         }
 
@@ -1003,49 +1055,67 @@ pub mod param {
         /// as `MissingOption`; supplied values run the primitive.
         pub fn parse(
             &self,
-            flags: &std::collections::BTreeMap<String, Vec<String>>,
-            args: &std::collections::BTreeMap<String, Vec<String>>,
+            options: &CliOptions,
         ) -> Result<Option<(String, ParamValue)>, super::CliError> {
             let map = match self.kind {
-                ParamKind::Flag => flags,
-                ParamKind::Argument => args,
+                ParamKind::Flag => &options.flags,
+                ParamKind::Argument => &options.args,
             };
-            let values = match map.get(&self.name) {
-                Some(values) => values,
-                None => {
-                    return match &self.default {
-                        Some(value) => Ok(Some((self.name.clone(), value.clone()))),
-                        None if self.optional => Ok(None),
-                        None => Err(super::CliError::MissingOption {
-                            option: self.name.clone(),
-                        }),
-                    };
+            if let Some(values) = map.get(&self.name) {
+                return self.parse_values(values);
+            }
+            if let Some(key) = &self.fallback_config {
+                if let Some(value) = options.config.get(key) {
+                    return self.parse_values(&[value.clone()]);
                 }
+            }
+            match &self.default {
+                Some(value) => Ok(Some((self.name.clone(), value.clone()))),
+                None if self.optional => Ok(None),
+                None => Err(super::CliError::MissingOption {
+                    option: self.name.clone(),
+                }),
+            }
+        }
+
+        /// Run the primitive over bound values.
+        fn parse_values(
+            &self,
+            values: &[String],
+        ) -> Result<Option<(String, ParamValue)>, super::CliError> {
+            let invalid = |expected: String| super::CliError::InvalidValue {
+                option: self.name.clone(),
+                value: values.join(" "),
+                expected,
+                kind: match self.kind {
+                    ParamKind::Flag => "option".to_owned(),
+                    ParamKind::Argument => "argument".to_owned(),
+                },
             };
             match self.primitive {
-                ParamPrimitive::Never => Err(super::CliError::InvalidValue {
-                    option: self.name.clone(),
-                    value: values.join(" "),
-                    expected: "This option does not accept values".to_owned(),
-                    kind: match self.kind {
-                        ParamKind::Flag => "option".to_owned(),
-                        ParamKind::Argument => "argument".to_owned(),
-                    },
-                }),
+                ParamPrimitive::Never => {
+                    Err(invalid("This option does not accept values".to_owned()))
+                }
                 ParamPrimitive::Boolean => {
                     if values.is_empty() {
                         return Ok(Some((self.name.clone(), ParamValue::Switch(true))));
                     }
-                    match super::primitive::parse_bool(&values[0]) {
+                    match super::primitive::parse_bool(&values[values.len() - 1]) {
                         Ok(flag) => Ok(Some((self.name.clone(), ParamValue::Switch(flag)))),
-                        Err(expected) => Err(super::CliError::InvalidValue {
-                            option: self.name.clone(),
-                            value: values.join(" "),
-                            expected,
-                            kind: "option".to_owned(),
-                        }),
+                        Err(expected) => Err(invalid(expected)),
                     }
                 }
+                ParamPrimitive::Text => match values.last() {
+                    Some(value) => Ok(Some((self.name.clone(), ParamValue::Text(value.clone())))),
+                    None => Err(invalid("a value".to_owned())),
+                },
+                ParamPrimitive::Integer => match values.last() {
+                    Some(value) => match super::primitive::parse_int(value) {
+                        Ok(count) => Ok(Some((self.name.clone(), ParamValue::Integer(count)))),
+                        Err(expected) => Err(invalid(expected)),
+                    },
+                    None => Err(invalid("a value".to_owned())),
+                },
             }
         }
     }

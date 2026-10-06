@@ -1110,31 +1110,30 @@ fn positionals_sequence_and_bounds() {
 
 #[test]
 fn param_never_sentinels() {
-    use elm_effect_unstable::cli::param::{CliParam, ParamKind};
+    use elm_effect_unstable::cli::param::{CliOptions, CliParam, ParamKind};
     use elm_effect_unstable::cli::CliError;
     use std::collections::BTreeMap;
-    let empty: BTreeMap<String, Vec<String>> = BTreeMap::new();
     // Param.test.ts:30 - flag sentinels fail missing and supplied.
     for sentinel in [CliParam::flag_never(), CliParam::never(ParamKind::Flag)] {
-        let missing = sentinel.parse(&empty, &empty).expect_err("fails");
+        let missing = sentinel.parse(&CliOptions::default()).expect_err("fails");
         assert!(matches!(missing, CliError::MissingOption { .. }));
         let supplied = sentinel
-            .parse(
-                &BTreeMap::from([("__never__".to_owned(), vec!["value".to_owned()])]),
-                &empty,
-            )
+            .parse(&CliOptions {
+                flags: BTreeMap::from([("__never__".to_owned(), vec!["value".to_owned()])]),
+                ..CliOptions::default()
+            })
             .expect_err("fails");
         assert!(matches!(supplied, CliError::InvalidValue { .. }));
     }
     // :40 - argument sentinels fail missing and supplied.
     for sentinel in [CliParam::argument_never(), CliParam::never(ParamKind::Argument)] {
-        let missing = sentinel.parse(&empty, &empty).expect_err("fails");
+        let missing = sentinel.parse(&CliOptions::default()).expect_err("fails");
         assert!(matches!(missing, CliError::MissingOption { .. }));
         let supplied = sentinel
-            .parse(
-                &empty,
-                &BTreeMap::from([("__never__".to_owned(), vec!["value".to_owned()])]),
-            )
+            .parse(&CliOptions {
+                args: BTreeMap::from([("__never__".to_owned(), vec!["value".to_owned()])]),
+                ..CliOptions::default()
+            })
             .expect_err("fails");
         assert!(matches!(supplied, CliError::InvalidValue { .. }));
     }
@@ -1142,25 +1141,23 @@ fn param_never_sentinels() {
 
 #[test]
 fn param_boolean_defaults() {
-    use elm_effect_unstable::cli::param::{CliParam, ParamValue};
-    use std::collections::BTreeMap;
-    let empty: BTreeMap<String, Vec<String>> = BTreeMap::new();
+    use elm_effect_unstable::cli::param::{CliOptions, CliParam, ParamValue};
     // Param.test.ts:51 - an omitted boolean fails.
     assert!(matches!(
-        CliParam::boolean("verbose").parse(&empty, &empty),
+        CliParam::boolean("verbose").parse(&CliOptions::default()),
         Err(elm_effect_unstable::cli::CliError::MissingOption { .. })
     ));
     // :63 - the requested default fills in.
     let (_, value) = CliParam::boolean("verbose")
         .with_default(ParamValue::Switch(true))
-        .parse(&empty, &empty)
+        .parse(&CliOptions::default())
         .expect("defaults")
         .expect("present");
     assert_eq!(value, ParamValue::Switch(true));
     // Param.test.ts:75 - a false default restores switch behavior.
     let (_, off) = CliParam::boolean("verbose")
         .with_default(ParamValue::Switch(false))
-        .parse(&empty, &empty)
+        .parse(&CliOptions::default())
         .expect("defaults")
         .expect("present");
     assert_eq!(off, ParamValue::Switch(false));
@@ -1170,21 +1167,95 @@ fn param_boolean_defaults() {
 fn param_optional_booleans() {
     use elm_effect_unstable::cli::param::CliParam;
     use std::collections::BTreeMap;
-    let empty: BTreeMap<String, Vec<String>> = BTreeMap::new();
     // Param.test.ts:133 - an omitted optional yields none.
     assert_eq!(
-        CliParam::boolean("verbose").optional().parse(&empty, &empty),
+        CliParam::boolean("verbose").optional().parse(
+            &elm_effect_unstable::cli::param::CliOptions::default(),
+        ),
         Ok(None)
     );
     // :145 - a supplied optional yields its value.
     assert_eq!(
         CliParam::boolean("verbose").optional().parse(
-            &BTreeMap::from([("verbose".to_owned(), vec!["false".to_owned()])]),
-            &empty,
+            &elm_effect_unstable::cli::param::CliOptions {
+                flags: BTreeMap::from([("verbose".to_owned(), vec!["false".to_owned()])]),
+                ..elm_effect_unstable::cli::param::CliOptions::default()
+            },
         ),
         Ok(Some((
             "verbose".to_owned(),
             elm_effect_unstable::cli::param::ParamValue::Switch(false)
         )))
     );
+}
+
+#[test]
+fn param_config_fallback_chain() {
+    use elm_effect_unstable::cli::param::{CliOptions, CliParam, ParamKind, ParamValue};
+    use elm_effect_unstable::cli::CliError;
+    use std::collections::BTreeMap;
+    let config = |pairs: &[(&str, &str)]| {
+        pairs
+            .iter()
+            .map(|(k, v)| ((*k).to_owned(), (*v).to_owned()))
+            .collect::<BTreeMap<String, String>>()
+    };
+    // Param.test.ts:420 - config fills a missing boolean.
+    let (_, value) = CliParam::boolean("verbose")
+        .with_fallback_config("VERBOSE")
+        .parse(&CliOptions {
+            config: config(&[("VERBOSE", "true")]),
+            ..CliOptions::default()
+        })
+        .expect("config")
+        .expect("present");
+    assert_eq!(value, ParamValue::Switch(true));
+    // :468 - config fills missing text.
+    let (_, name) = CliParam::text(ParamKind::Flag, "name")
+        .with_fallback_config("NAME")
+        .parse(&CliOptions {
+            config: config(&[("NAME", "Ava")]),
+            ..CliOptions::default()
+        })
+        .expect("config")
+        .expect("present");
+    assert_eq!(name, ParamValue::Text("Ava".to_owned()));
+    // :492 - supplied values beat config.
+    let (_, kept) = CliParam::text(ParamKind::Flag, "name")
+        .with_fallback_config("NAME")
+        .parse(&CliOptions {
+            flags: BTreeMap::from([("name".to_owned(), vec!["from-flags".to_owned()])]),
+            config: config(&[("NAME", "from-config")]),
+            ..CliOptions::default()
+        })
+        .expect("supplied")
+        .expect("present");
+    assert_eq!(kept, ParamValue::Text("from-flags".to_owned()));
+    // :516 - config fills missing arguments.
+    let (_, repo) = CliParam::text(ParamKind::Argument, "repository")
+        .with_fallback_config("REPOSITORY")
+        .parse(&CliOptions {
+            config: config(&[("REPOSITORY", "effect")]),
+            ..CliOptions::default()
+        })
+        .expect("config")
+        .expect("present");
+    assert_eq!(repo, ParamValue::Text("effect".to_owned()));
+    // :540 - missing config still fails.
+    assert!(matches!(
+        CliParam::text(ParamKind::Flag, "name")
+            .with_fallback_config("NAME")
+            .parse(&CliOptions::default()),
+        Err(CliError::MissingOption { .. })
+    ));
+    // :562 - unparsable config fails as invalid.
+    assert!(matches!(
+        CliParam::integer(ParamKind::Flag, "count")
+            .with_fallback_config("COUNT")
+            .parse(&CliOptions {
+                config: config(&[("COUNT", "nope")]),
+                ..CliOptions::default()
+            }),
+        Err(CliError::InvalidValue { .. })
+    ));
 }
