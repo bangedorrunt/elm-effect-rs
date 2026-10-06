@@ -9,7 +9,7 @@
 //! telemetry spans, tokenizer bindings, MCP/Anthropic/OpenAI surfaces, and
 //! the full response/tool-call shapes (plain text + JSON strings here).
 
-use std::collections::VecDeque;
+use std::collections::{HashMap, VecDeque};
 use std::sync::{Arc, Mutex};
 
 /// Generated text plus the stop reason.
@@ -681,3 +681,7 @@ impl Tool {
         }
     }
 }
+
+/// Provider-specific metadata keyed by provider name; each value is JSON
+/// metadata or `null`.
+pub type ProviderMetadata = HashMap<String, Option<serde_json::Value>>;

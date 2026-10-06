@@ -627,3 +627,25 @@ fn primitive_value_parsers() {
         assert!(err.contains("finite number"), "{text}");
     }
 }
+
+#[test]
+fn provider_metadata_roundtrip() {
+    use elm_effect_unstable::ai::ProviderMetadata;
+    use serde_json::json;
+    // AiError.test.ts:655 - metadata encodes and decodes round-trip.
+    let mut metadata = ProviderMetadata::new();
+    metadata.insert("name".to_owned(), Some(json!("OpenAI")));
+    metadata.insert("errorCode".to_owned(), Some(json!("rate_limit_exceeded")));
+    metadata.insert("errorType".to_owned(), Some(json!("rate_limit")));
+    metadata.insert("requestId".to_owned(), Some(json!("req_123abc")));
+    let text = serde_json::to_string(&metadata).expect("encodes");
+    let back: ProviderMetadata = serde_json::from_str(&text).expect("decodes");
+    assert_eq!(back, metadata);
+    let mut nulled = ProviderMetadata::new();
+    nulled.insert("anthropic".to_owned(), None);
+    let text = serde_json::to_string(&nulled).expect("encodes");
+    assert_eq!(
+        serde_json::from_str::<ProviderMetadata>(&text).expect("decodes"),
+        nulled
+    );
+}
