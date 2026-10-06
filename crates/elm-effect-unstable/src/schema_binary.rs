@@ -37,6 +37,8 @@ const ARRAY_TAG: u8 = 0x20;
 const NUMBER_RUN_F64: u8 = 0;
 const NUMBER_RUN_VARINT: u8 = 1;
 const NUMBER_RUN_DECIMAL: u8 = 2;
+/// Array-of-arrays run: elements are inner bodies without length or tag.
+const NESTED_RUN: u8 = 4;
 /// Length-prefixed string run (the reference codec writes no mode byte for
 /// strings; the schema picks the decoder).
 const STRING_RUN: u8 = 1;
@@ -381,22 +383,25 @@ fn read_envelope(input: &[u8], pos: &mut usize) -> Result<(u64, u8), BinaryError
     Ok((count, mode))
 }
 
-/// Decode one number array run.
-pub fn decode_number_array(bytes: &[u8]) -> Result<Vec<f64>, BinaryError> {
-    let mut pos = 0;
+/// Decode one number run body shared by flat and nested arrays.
+fn decode_number_run(
+    bytes: &[u8],
+    mut pos: &mut usize,
+    count: u64,
+    mode: u8,
+) -> Result<Vec<f64>, BinaryError> {
     let fail = |message: &str| BinaryError::new(format!("{} [{}]", message, hex_preview(bytes)));
-    let (count, mode) = read_envelope(bytes, &mut pos)?;
     let mut out = Vec::new();
     match mode {
         NUMBER_RUN_F64 => {
             let need = count.checked_mul(8).ok_or_else(|| fail("count overflow"))?;
-            if bytes.len() - pos < need as usize {
+            if bytes.len() - *pos < need as usize {
                 return Err(fail("truncated f64 run"));
             }
             for _ in 0..count {
                 let mut word = [0u8; 8];
-                word.copy_from_slice(&bytes[pos..pos + 8]);
-                pos += 8;
+                word.copy_from_slice(&bytes[*pos..*pos + 8]);
+                *pos += 8;
                 out.push(f64::from_le_bytes(word));
             }
         }
@@ -419,6 +424,49 @@ pub fn decode_number_array(bytes: &[u8]) -> Result<Vec<f64>, BinaryError> {
             }
         }
         _ => return Err(fail("unknown number-run mode")),
+    }
+    Ok(out)
+}
+
+/// Decode one number array run.
+pub fn decode_number_array(bytes: &[u8]) -> Result<Vec<f64>, BinaryError> {
+    let mut pos = 0;
+    let fail = |message: &str| BinaryError::new(format!("{} [{}]", message, hex_preview(bytes)));
+    let (count, mode) = read_envelope(bytes, &mut pos)?;
+    let out = decode_number_run(bytes, &mut pos, count, mode)?;
+    if pos != bytes.len() {
+        return Err(fail("trailing bytes"));
+    }
+    Ok(out)
+}
+
+/// Encode nested number arrays: inner bodies without length or tag.
+pub fn encode_nested_number_array(values: &[Vec<f64>]) -> Vec<u8> {
+    let mut payload = Vec::new();
+    for inner in values {
+        let frame = encode_number_array(inner);
+        payload.extend_from_slice(&frame[2..]);
+    }
+    frame(ARRAY_TAG, values.len() as u64, Some(NESTED_RUN), &payload)
+}
+
+/// Decode one nested number array run.
+pub fn decode_nested_number_array(bytes: &[u8]) -> Result<Vec<Vec<f64>>, BinaryError> {
+    let mut pos = 0;
+    let fail = |message: &str| BinaryError::new(format!("{} [{}]", message, hex_preview(bytes)));
+    let (count, mode) = read_envelope(bytes, &mut pos)?;
+    if mode != NESTED_RUN {
+        return Err(fail("not a nested run"));
+    }
+    let mut out = Vec::new();
+    for _ in 0..count {
+        let mut cursor = Cursor { input: bytes, pos };
+        let inner_count = cursor
+            .uvarint()
+            .map_err(|_| fail("truncated nested count"))?;
+        let inner_mode = cursor.byte().map_err(|_| fail("truncated nested mode"))?;
+        pos = cursor.pos;
+        out.push(decode_number_run(bytes, &mut pos, inner_count, inner_mode)?);
     }
     if pos != bytes.len() {
         return Err(fail("trailing bytes"));

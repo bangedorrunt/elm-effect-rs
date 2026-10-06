@@ -4,9 +4,9 @@
 mod schema_binary;
 
 use schema_binary::{
-    decode_bool_array, decode_int_scalar, decode_number_array, decode_number_scalar,
-    decode_string_array, encode_bool_array, encode_number_array, encode_number_scalar,
-    encode_string_array,
+    decode_bool_array, decode_int_scalar, decode_nested_number_array, decode_number_array,
+    decode_number_scalar, decode_string_array, encode_bool_array, encode_nested_number_array,
+    encode_number_array, encode_number_scalar, encode_string_array,
 };
 
 #[test]
@@ -202,4 +202,18 @@ fn binary_number_runs_pack_behind_one_mode_byte() {
     assert_eq!(back, vec![1.0, std::f64::consts::PI]);
     // SchemaBinary.test.ts:437 needs runtime non-numbers, which cannot
     // inhabit &[f64]; the type system rejects them at compile time.
+}
+
+#[test]
+fn binary_nested_number_arrays_roundtrip() {
+    // SchemaBinary.test.ts:164 - variable-size elements and nested arrays.
+    assert_eq!(
+        decode_string_array(&encode_string_array(&["ab", "", "cd\u{e9}"])).expect("decodes"),
+        vec!["ab".to_owned(), "".to_owned(), "cd\u{e9}".to_owned()]
+    );
+    let nested = vec![vec![1.0, 2.0], vec![], vec![3.0]];
+    assert_eq!(
+        decode_nested_number_array(&encode_nested_number_array(&nested)).expect("decodes"),
+        nested
+    );
 }
