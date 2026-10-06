@@ -914,7 +914,7 @@ unported	packages/effect/test/ConfigProvider.test.ts	594	it	array: non-integer i
 unported	packages/effect/test/ConfigProvider.test.ts	622	it	Root node	
 unported	packages/effect/test/ConfigProvider.test.ts	632	it	Exact leaf resolution	
 ported	packages/effect/test/ConfigProvider.test.ts	640	it	treats empty string leaves as missing by default	provider_nested_empty_leaves_read_missing
-unported	packages/effect/test/ConfigProvider.test.ts	659	it	preserves empty string leaves when requested	
+ported	packages/effect/test/ConfigProvider.test.ts	659	it	preserves empty string leaves when requested	provider_dotenv_preserves_empty_when_requested
 unported	packages/effect/test/ConfigProvider.test.ts	672	it	Object detection	
 unported	packages/effect/test/ConfigProvider.test.ts	677	it	Array detection	
 ported	packages/effect/test/ConfigProvider.test.ts	682	it	should return None on non-existing paths	provider_env_root_keys_and_dotenv_structure
@@ -925,18 +925,18 @@ unported	packages/effect/test/ConfigProvider.test.ts	707	it	boolean values
 unported	packages/effect/test/ConfigProvider.test.ts	711	it	bigint values	
 unported	packages/effect/test/ConfigProvider.test.ts	715	it	undefined values	
 unported	packages/effect/test/ConfigProvider.test.ts	719	it	unknown values	
-unported	packages/effect/test/ConfigProvider.test.ts	725	it	comments are ignored	
-unported	packages/effect/test/ConfigProvider.test.ts	734	it	export is allowed	
+ported	packages/effect/test/ConfigProvider.test.ts	725	it	comments are ignored	provider_dotenv_parses_key_value_text
+ported	packages/effect/test/ConfigProvider.test.ts	734	it	export is allowed	provider_dotenv_parses_key_value_text
 ported	packages/effect/test/ConfigProvider.test.ts	742	it	supports single, double, and backtick quoted values	provider_dotenv_quotes_comments_and_underscores
 ported	packages/effect/test/ConfigProvider.test.ts	753	it	removes inline comments from unquoted values	provider_dotenv_quotes_comments_and_underscores
 ported	packages/effect/test/ConfigProvider.test.ts	759	it	objects are supported	provider_dotenv_quotes_comments_and_underscores
 ported	packages/effect/test/ConfigProvider.test.ts	770	it	treats empty string values as missing while preserving structure by default	provider_env_root_keys_and_dotenv_structure
-unported	packages/effect/test/ConfigProvider.test.ts	780	it	preserves empty strings when requested	
+ported	packages/effect/test/ConfigProvider.test.ts	780	it	preserves empty strings when requested	provider_dotenv_preserves_empty_when_requested
 unported	packages/effect/test/ConfigProvider.test.ts	791	it	a node may be both leaf and object	
 unported	packages/effect/test/ConfigProvider.test.ts	803	it	a node may be both leaf and array	
 unported	packages/effect/test/ConfigProvider.test.ts	815	it	arrays are supported	
-unported	packages/effect/test/ConfigProvider.test.ts	826	it	expansion of environment variables is off by default	
-unported	packages/effect/test/ConfigProvider.test.ts	836	it	expansion of environment variables is supported	
+ported	packages/effect/test/ConfigProvider.test.ts	826	it	expansion of environment variables is off by default	provider_dotenv_expansion_is_opt_in
+ported	packages/effect/test/ConfigProvider.test.ts	836	it	expansion of environment variables is supported	provider_dotenv_expansion_is_opt_in
 unported	packages/effect/test/ConfigProvider.test.ts	849	it	expands referenced values as literal data	
 unported	packages/effect/test/ConfigProvider.test.ts	860	it	expansion defaults are used only for empty or unset variables	
 unported	packages/effect/test/ConfigProvider.test.ts	876	it	does not expand missing inherited variables	
