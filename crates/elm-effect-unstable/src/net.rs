@@ -882,6 +882,49 @@ impl MacAddress {
     pub fn octets(&self) -> [u8; 6] {
         self.0
     }
+
+    /// True when the group bit (first-octet LSB) marks multicast (TS
+    /// `isMulticast` / `isMacMulticast`).
+    pub fn is_multicast(&self) -> bool {
+        self.0[0] & 1 == 1
+    }
+
+    /// MAC-scoped twin of [`Self::is_multicast`].
+    pub fn is_mac_multicast(&self) -> bool {
+        self.is_multicast()
+    }
+
+    /// True when unicast (TS `isUnicast` / `isMacUnicast`).
+    pub fn is_unicast(&self) -> bool {
+        !self.is_multicast()
+    }
+
+    /// MAC-scoped twin of [`Self::is_unicast`].
+    pub fn is_mac_unicast(&self) -> bool {
+        self.is_unicast()
+    }
+
+    /// True for the all-ones address (TS `isBroadcast` / `isMacBroadcast`).
+    pub fn is_broadcast(&self) -> bool {
+        self.0 == [0xff; 6]
+    }
+
+    /// MAC-scoped twin of [`Self::is_broadcast`].
+    pub fn is_mac_broadcast(&self) -> bool {
+        self.is_broadcast()
+    }
+
+    /// True when the administration bit (first-octet second LSB) marks
+    /// local administration (TS `isMacLocallyAdministered`).
+    pub fn is_mac_locally_administered(&self) -> bool {
+        self.0[0] & 2 == 2
+    }
+
+    /// True when universally administered (TS
+    /// `isMacUniversallyAdministered`).
+    pub fn is_mac_universally_administered(&self) -> bool {
+        !self.is_mac_locally_administered()
+    }
 }
 
 impl std::fmt::Display for MacAddress {

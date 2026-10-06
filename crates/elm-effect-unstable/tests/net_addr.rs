@@ -430,3 +430,31 @@ fn canonical_strings_hide_private_bytes() {
     let mac = MacAddress::parse("02:0A:0B:0C:0D:0E").unwrap();
     assert_eq!(mac.to_string(), "02:0a:0b:0c:0d:0e");
 }
+
+#[test]
+fn mac_group_and_admin_bits_classify() {
+    use net::{MacAddress, NetAddress};
+    for (text, multicast, local) in [
+        ("00:00:5e:00:53:01", false, false),
+        ("01:00:5e:00:00:01", true, false),
+        ("02:00:00:00:00:01", false, true),
+        ("03:00:00:00:00:01", true, true),
+        ("ff:ff:ff:ff:ff:ff", true, true),
+    ] {
+        let address = MacAddress::parse(text).unwrap();
+        assert_eq!(address.is_multicast(), multicast, "{text}");
+        assert_eq!(address.is_mac_multicast(), multicast, "{text}");
+        assert_eq!(address.is_unicast(), !multicast, "{text}");
+        assert_eq!(address.is_mac_unicast(), !multicast, "{text}");
+        assert_eq!(address.is_mac_locally_administered(), local, "{text}");
+        assert_eq!(address.is_mac_universally_administered(), !local, "{text}");
+    }
+    let broadcast = MacAddress::parse("ff:ff:ff:ff:ff:ff").unwrap();
+    assert!(broadcast.is_broadcast());
+    assert!(broadcast.is_mac_broadcast());
+    assert!(broadcast.is_multicast());
+    assert!(!MacAddress::parse("01:00:5e:00:00:01").unwrap().is_broadcast());
+    let ipv4_broadcast = NetAddress::ipv4_from_string("255.255.255.255").unwrap();
+    assert!(ipv4_broadcast.is_broadcast());
+    assert!(!ipv4_broadcast.is_multicast());
+}
