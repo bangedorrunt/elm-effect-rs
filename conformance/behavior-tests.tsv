@@ -6330,7 +6330,7 @@ ported	packages/effect/test/encoding/Yaml.test.ts	34	it	parses quoted and block 
 ported	packages/effect/test/encoding/Yaml.test.ts	53	it	preserves paragraph and indentation breaks in folded block scalars	folds_block_scalars
 ported	packages/effect/test/encoding/Yaml.test.ts	72	it.each	preserves %s	keeps_chomping_and_digit_indents
 ported	packages/effect/test/encoding/Yaml.test.ts	92	it	resolves aliases	resolves_anchors_and_aliases
-unported	packages/effect/test/encoding/Yaml.test.ts	108	it	rejects invalid indentation	
+ported	packages/effect/test/encoding/Yaml.test.ts	108	it	rejects invalid indentation	rejects_invalid_indentation
 unported	packages/effect/test/encoding/Yaml.test.ts	114	it.each	parses $name	
 unported	packages/effect/test/encoding/Yaml.test.ts	163	it.each	folds %s	
 unported	packages/effect/test/encoding/Yaml.test.ts	220	it	ends plain scalars at sibling keys after terminating comments	

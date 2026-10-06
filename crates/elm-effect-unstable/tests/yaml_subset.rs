@@ -138,4 +138,9 @@ fn resolves_anchors_and_aliases() {
     assert_eq!(parsed, want);
     // Unknown aliases fail instead of resolving to null.
     assert!(yaml::parse("settings: *missing\n").is_err());
+}#[test]
+fn rejects_invalid_indentation() {
+    // Yaml.test.ts:108 - inconsistent dedents fail instead of merging.
+    let rejected = yaml::parse("root:\n   child: true\n  sibling: false\n");
+    assert!(rejected.is_err(), "expected rejection, got {rejected:?}");
 }
