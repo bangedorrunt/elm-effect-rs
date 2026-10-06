@@ -249,6 +249,24 @@ pub fn is_non_empty(s: &str) -> bool {
     !s.is_empty()
 }
 
+/// Char offset of a position, clamped at the end.
+fn char_offset(s: &str, position: usize) -> usize {
+    s.char_indices()
+        .nth(position)
+        .map(|(index, _)| index)
+        .unwrap_or(s.len())
+}
+
+/// `includes` searching from a char position (clamped at the end).
+pub fn includes_from(s: &str, needle: &str, position: usize) -> bool {
+    s[char_offset(s, position)..].contains(needle)
+}
+
+/// `startsWith` checking at a char position (clamped at the end).
+pub fn starts_with_at(s: &str, prefix: &str, position: usize) -> bool {
+    s[char_offset(s, position)..].starts_with(prefix)
+}
+
 /// First character, if any (`charAt(0)` shape).
 pub fn head(s: &str) -> Option<char> {
     s.chars().next()

@@ -874,3 +874,20 @@ fn string_length_and_split() {
     // :243 - empty split by empty.
     assert_eq!(string::split("", ""), [""]);
 }
+
+#[test]
+fn string_positional_search() {
+    // String.test.ts:253 - substring found.
+    assert!(string::includes_from("hello world", "world", 0));
+    // :257 - substring not found.
+    assert!(!string::includes_from("hello world", "foo", 0));
+    // :261 - searching starts at the given position.
+    assert!(!string::includes_from("hello", "hel", 1));
+    assert!(string::includes_from("hello", "llo", 1));
+    // :268 - starts with the search.
+    assert!(string::starts_with_at("hello world", "hello", 0));
+    // :272 - false when it does not start with the search.
+    assert!(!string::starts_with_at("hello world", "world", 0));
+    // :276 - prefix checked at the given position.
+    assert!(string::starts_with_at("hello world", "world", 6));
+}

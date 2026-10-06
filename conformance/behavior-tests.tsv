@@ -3898,10 +3898,10 @@ ported	packages/effect/test/String.test.ts	243	it	splits empty string by empty s
 unported	packages/effect/test/String.test.ts	247	it	splits by regex	
 ported	packages/effect/test/String.test.ts	253	it	returns true when substring found	string_basics
 ported	packages/effect/test/String.test.ts	257	it	returns false when substring not found	string_basics
-unported	packages/effect/test/String.test.ts	261	it	starts searching at the given position	
-unported	packages/effect/test/String.test.ts	268	it	returns true when string starts with search	
-unported	packages/effect/test/String.test.ts	272	it	returns false when string does not start with search	
-unported	packages/effect/test/String.test.ts	276	it	checks the prefix at the given position	
+ported	packages/effect/test/String.test.ts	261	it	starts searching at the given position	string_positional_search
+ported	packages/effect/test/String.test.ts	268	it	returns true when string starts with search	string_positional_search
+ported	packages/effect/test/String.test.ts	272	it	returns false when string does not start with search	string_positional_search
+ported	packages/effect/test/String.test.ts	276	it	checks the prefix at the given position	string_positional_search
 unported	packages/effect/test/String.test.ts	282	it	returns true when string ends with search	
 unported	packages/effect/test/String.test.ts	286	it	returns false when string does not end with search	
 unported	packages/effect/test/String.test.ts	290	it	checks the suffix at the given end position	
