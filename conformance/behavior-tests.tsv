@@ -3985,10 +3985,10 @@ ported	packages/effect/test/String.test.ts	693	it	converts to camelCase	string_c
 ported	packages/effect/test/String.test.ts	699	it	does not prefix numeric segments with underscores	string_camel_constant_cases
 ported	packages/effect/test/String.test.ts	706	it	converts to CONSTANT_CASE	string_camel_constant_cases
 ported	packages/effect/test/String.test.ts	714	it	converts to CONFIG_CASE	string_camel_constant_cases
-unported	packages/effect/test/String.test.ts	723	it	converts to kebab-case	
-unported	packages/effect/test/String.test.ts	730	it	converts to snake_case	
-unported	packages/effect/test/String.test.ts	737	it	combines strings	
-unported	packages/effect/test/String.test.ts	741	it	identity with initialValue	
+ported	packages/effect/test/String.test.ts	723	it	converts to kebab-case	string_kebab_snake_reducer
+ported	packages/effect/test/String.test.ts	730	it	converts to snake_case	string_kebab_snake_reducer
+ported	packages/effect/test/String.test.ts	737	it	combines strings	string_kebab_snake_reducer
+ported	packages/effect/test/String.test.ts	741	it	identity with initialValue	string_kebab_snake_reducer
 ported	packages/effect/test/Struct.test.ts	9	it	get	struct_shapes
 ported	packages/effect/test/Struct.test.ts	17	it	keys	struct_shapes
 ported	packages/effect/test/Struct.test.ts	24	it	defined properties	struct_shapes

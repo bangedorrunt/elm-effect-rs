@@ -1117,3 +1117,24 @@ fn string_camel_constant_cases() {
     assert_eq!(string::config_case("helloWorld"), "HELLO_WORLD");
     assert_eq!(string::config_case("api-v2 xml"), "API_V2_XML");
 }
+
+#[test]
+fn string_kebab_snake_reducer() {
+    // String.test.ts:723 - dash-joined words.
+    assert_eq!(string::kebab_case("hello world"), "hello-world");
+    assert_eq!(string::kebab_case("helloWorld"), "hello-world");
+    // :730 - underscore-joined words.
+    assert_eq!(string::snake_case("hello world"), "hello_world");
+    assert_eq!(string::snake_case("helloWorld"), "hello_world");
+    // :737 - concatenation combines.
+    assert_eq!(string::ReducerConcat::combine("a", "b"), "ab");
+    // :741 - the empty value is the identity.
+    assert_eq!(
+        string::ReducerConcat::combine("a", &string::ReducerConcat::initial_value()),
+        "a"
+    );
+    assert_eq!(
+        string::ReducerConcat::combine(&string::ReducerConcat::initial_value(), "a"),
+        "a"
+    );
+}

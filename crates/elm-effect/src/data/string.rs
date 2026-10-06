@@ -168,6 +168,31 @@ pub fn config_case(s: &str) -> String {
     constant_case(s)
 }
 
+/// Dash-joined lowercase words (`kebabCase`).
+pub fn kebab_case(s: &str) -> String {
+    no_case(s, "-")
+}
+
+/// Underscore-joined lowercase words (`snakeCase`).
+pub fn snake_case(s: &str) -> String {
+    no_case(s, "_")
+}
+
+/// String concatenation reducer (`ReducerConcat` core).
+pub struct ReducerConcat;
+
+impl ReducerConcat {
+    /// Empty starting value.
+    pub fn initial_value() -> String {
+        String::new()
+    }
+
+    /// Concatenate two pieces.
+    pub fn combine(first: &str, second: &str) -> String {
+        first.to_owned() + second
+    }
+}
+
 /// Split before each uppercase letter, lowercasing all (`camelToSnake`
 /// and `pascalToSnake` share this rule for the row cases).
 pub fn camel_to_snake(s: &str) -> String {
