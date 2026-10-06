@@ -68,7 +68,48 @@ pub fn snake_to_camel(s: &str) -> String {
     out
 }
 
-/// First `n` characters (`takeLeft`; floored counts, empty for
+/// Convert `snake_case` to `PascalCase` (`snakeToPascal`).
+pub fn snake_to_pascal(s: &str) -> String {
+    capitalize(&snake_to_camel(s))
+}
+
+/// Convert `snake_case` to `kebab-case` (`snakeToKebab`).
+pub fn snake_to_kebab(s: &str) -> String {
+    s.replace('_', "-")
+}
+
+/// Convert `kebab-case` to `snake_case` (`kebabToSnake`).
+pub fn kebab_to_snake(s: &str) -> String {
+    s.replace('-', "_")
+}
+
+/// Split before each uppercase letter, lowercasing all (`camelToSnake`
+/// and `pascalToSnake` share this rule for the row cases).
+pub fn camel_to_snake(s: &str) -> String {
+    split_camel(s)
+}
+
+/// Convert `PascalCase` to `snake_case` (`pascalToSnake`).
+pub fn pascal_to_snake(s: &str) -> String {
+    split_camel(s)
+}
+
+/// Shared camel/Pascal splitter: `_` before every uppercase letter
+/// except a leading one, all lowercased.
+fn split_camel(s: &str) -> String {
+    let mut out = String::new();
+    for (index, c) in s.chars().enumerate() {
+        if c.is_uppercase() {
+            if index > 0 {
+                out.push('_');
+            }
+            out.extend(c.to_lowercase());
+        } else {
+            out.push(c);
+        }
+    }
+    out
+}
 /// non-positive or NaN).
 pub fn take_left(s: &str, count: f64) -> String {
     if !count.is_finite() || count < 1.0 {

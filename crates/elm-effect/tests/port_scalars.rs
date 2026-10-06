@@ -1056,3 +1056,23 @@ fn string_margin_passthrough_and_camel() {
     // :598 - empty stays empty.
     assert_eq!(string::snake_to_camel(""), "");
 }
+
+#[test]
+fn string_case_converters() {
+    // String.test.ts:604 - snake to Pascal.
+    assert_eq!(string::snake_to_pascal("hello_world"), "HelloWorld");
+    // :609 - Pascal of empty.
+    assert_eq!(string::snake_to_pascal(""), "");
+    // :615 - snake to kebab.
+    assert_eq!(string::snake_to_kebab("hello_world"), "hello-world");
+    assert_eq!(string::snake_to_kebab("foo_bar_baz"), "foo-bar-baz");
+    // :622 - camel to snake.
+    assert_eq!(string::camel_to_snake("helloWorld"), "hello_world");
+    assert_eq!(string::camel_to_snake("fooBarBaz"), "foo_bar_baz");
+    // :629 - Pascal to snake.
+    assert_eq!(string::pascal_to_snake("HelloWorld"), "hello_world");
+    assert_eq!(string::pascal_to_snake("FooBarBaz"), "foo_bar_baz");
+    // :636 - kebab to snake.
+    assert_eq!(string::kebab_to_snake("hello-world"), "hello_world");
+    assert_eq!(string::kebab_to_snake("foo-bar-baz"), "foo_bar_baz");
+}
