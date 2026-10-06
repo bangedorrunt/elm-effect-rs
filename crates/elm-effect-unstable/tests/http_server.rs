@@ -187,7 +187,7 @@ fn post(
 
 #[test]
 fn match_path_ci_static_levels() {
-    use elm_effect_unstable::http_server::match_path_ci;
+    use elm_effect_unstable::http_server::{match_path, match_path_ci};
     assert_eq!(match_path_ci("/woo", "/WOO"), Some(vec![]));
     assert_eq!(match_path_ci("/foo/bar", "/FOO/BAR"), Some(vec![]));
     assert_eq!(
@@ -201,7 +201,7 @@ fn match_path_ci_static_levels() {
 
 #[test]
 fn match_path_ci_params_keep_path_case() {
-    use elm_effect_unstable::http_server::match_path_ci;
+    use elm_effect_unstable::http_server::{match_path, match_path_ci};
     assert_eq!(
         match_path_ci("/users/:id", "/USERS/AbC"),
         Some(vec![("id".to_string(), "AbC".to_string())]),
@@ -231,7 +231,7 @@ fn match_path_ci_multiple_routes_first_pattern_wins() {
 
 #[test]
 fn match_path_ci_strips_query_and_fragment() {
-    use elm_effect_unstable::http_server::match_path_ci;
+    use elm_effect_unstable::http_server::{match_path, match_path_ci};
     assert_eq!(
         match_path_ci("/Search/:q", "/SEARCH/Rust?lang=en#top"),
         Some(vec![("q".to_string(), "Rust".to_string())])
@@ -358,4 +358,55 @@ fn decode_component_rejects_truncated_escapes() {
     assert_eq!(decode_component("%zz"), None);
     // Decoded bytes that are not valid UTF-8 are rejected, not lossy.
     assert_eq!(decode_component("%FF"), None);
+}
+
+#[test]
+fn wildcard_segment_matches_anything() {
+    use elm_effect_unstable::http_server::match_path;
+    assert_eq!(match_path("/files/*", "/files/any.txt"), Some(vec![]));
+    assert_eq!(match_path("/files/*", "/files/x/y"), None, "wildcard is one segment");
+    assert_eq!(
+        match_path("/files/*", "/files/"),
+        Some(vec![]),
+        "wildcard takes an empty segment"
+    );
+    assert_eq!(match_path("/files/*", "/other"), None);
+}
+
+#[test]
+fn multi_param_segments_split_on_separators() {
+    use elm_effect_unstable::http_server::{match_path_ci, match_path};
+    // Case-insensitive forms of FindMyWay's multi-param routes.
+    assert_eq!(
+        match_path_ci("/:a-:b", "/x-y"),
+        Some(vec![
+            ("a".to_string(), "x".to_string()),
+            ("b".to_string(), "y".to_string())
+        ])
+    );
+    assert_eq!(
+        match_path_ci("/Mixed/Case-:v", "/mixed/case-2"),
+        Some(vec![("v".to_string(), "2".to_string())]),
+        "static part folds, capture keeps original"
+    );
+    assert_eq!(
+        match_path_ci("/:a-:b-:c", "/1-2-3"),
+        Some(vec![
+            ("a".to_string(), "1".to_string()),
+            ("b".to_string(), "2".to_string()),
+            ("c".to_string(), "3".to_string())
+        ])
+    );
+}
+
+#[test]
+fn multi_param_segments_reject_mismatched_shapes() {
+    use elm_effect_unstable::http_server::{match_path, match_path_ci};
+    assert_eq!(match_path_ci("/:a-:b", "/nodelimiter"), None);
+    assert_eq!(match_path_ci("/:a-:b", "/-"), None, "empty captures rejected");
+    assert_eq!(match_path_ci("/:a-:b", "/x-y-extra"), None, "trailing text");
+    assert_eq!(match_path_ci("/:a-:b", "/X-Y"), Some(vec![
+        ("a".to_string(), "X".to_string()),
+        ("b".to_string(), "Y".to_string())
+    ]));
 }

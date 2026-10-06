@@ -161,6 +161,46 @@ fn match_path_with(
     }
     let mut params = Vec::new();
     for (pattern_seg, path_seg) in pattern_segs.iter().zip(path_segs.iter()) {
+        if *pattern_seg == "*" {
+            // Wildcard: any single segment, empty included.
+            continue;
+        }
+        if pattern_seg.contains(':') && pattern_seg.contains('-') {
+            // Multi-parameter segment (`:a-:b`): literal and `:name` parts
+            // alternate, separated by `-`; every capture is non-empty.
+            let mut rest = *path_seg;
+            for (index, part) in pattern_seg.split('-').enumerate() {
+                if index > 0 {
+                    if !rest.starts_with('-') {
+                        return None;
+                    }
+                    rest = &rest[1..];
+                }
+                if let Some(name) = part.strip_prefix(':') {
+                    let stop = rest.find('-').unwrap_or(rest.len());
+                    if stop == 0 {
+                        return None;
+                    }
+                    params.push((name.to_string(), rest[..stop].to_string()));
+                    rest = &rest[stop..];
+                } else {
+                    let matches = if case_sensitive {
+                        rest.starts_with(part)
+                    } else {
+                        rest.len() >= part.len()
+                            && rest[..part.len()].eq_ignore_ascii_case(part)
+                    };
+                    if !matches {
+                        return None;
+                    }
+                    rest = &rest[part.len()..];
+                }
+            }
+            if !rest.is_empty() {
+                return None;
+            }
+            continue;
+        }
         if let Some(name) = pattern_seg.strip_prefix(':') {
             if path_seg.is_empty() {
                 return None;
