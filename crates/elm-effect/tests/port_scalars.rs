@@ -1009,3 +1009,14 @@ fn string_take_replace_search_locale() {
     assert_eq!(string::take_right("abc", -1.0), "");
     assert_eq!(string::take_right("abc", f64::NAN), "");
 }
+
+#[test]
+fn string_lines_with_and_without_separators() {
+    // String.test.ts:537 - lines without separators.
+    assert_eq!(string::lines("hello\nworld\n"), ["hello", "world"]);
+    // :555 - lines with separators.
+    assert_eq!(
+        string::lines_with_separators("hello\nworld\n"),
+        ["hello\n", "world\n"]
+    );
+}

@@ -3951,11 +3951,11 @@ ported	packages/effect/test/String.test.ts	516	it	takes n characters from the en
 ported	packages/effect/test/String.test.ts	521	it	takes n characters from the end (data-last)	string_take_replace_search_locale
 ported	packages/effect/test/String.test.ts	525	it	returns whole string if n > length	string_take_replace_search_locale
 ported	packages/effect/test/String.test.ts	529	it	returns an empty string for non-positive or NaN counts	string_take_replace_search_locale
-unported	packages/effect/test/String.test.ts	537	it	yields lines without separators	
+ported	packages/effect/test/String.test.ts	537	it	yields lines without separators	string_lines_with_and_without_separators
 unported	packages/effect/test/String.test.ts	541	it	handles CRLF	
 unported	packages/effect/test/String.test.ts	545	it	handles single line without newline	
 unported	packages/effect/test/String.test.ts	549	it	handles empty string	
-unported	packages/effect/test/String.test.ts	555	it	yields lines with separators	
+ported	packages/effect/test/String.test.ts	555	it	yields lines with separators	string_lines_with_and_without_separators
 unported	packages/effect/test/String.test.ts	559	it	handles CRLF	
 unported	packages/effect/test/String.test.ts	563	it	handles line without trailing newline	
 unported	packages/effect/test/String.test.ts	569	it	strips | margin	

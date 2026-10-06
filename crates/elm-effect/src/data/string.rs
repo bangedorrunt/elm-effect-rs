@@ -23,6 +23,11 @@ pub fn lines(s: &str) -> Vec<&str> {
     s.lines().collect()
 }
 
+/// Lines with their `\n` terminators kept (`linesWithSeparators`).
+pub fn lines_with_separators(s: &str) -> Vec<&str> {
+    s.split_inclusive('\n').collect()
+}
+
 /// Strip one common indent prefix (`stripMargin` shape: drops a leading `|`
 /// per line after trimming leading whitespace).
 pub fn strip_margin(s: &str) -> String {
