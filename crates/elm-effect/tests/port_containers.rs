@@ -344,3 +344,36 @@ fn hash_ring_shard_count_normalizes() {
     assert_eq!(one.len(), 1);
     assert_eq!(one[0].id, "a");
 }
+
+#[test]
+fn trie_modify_many_and_longest_prefix() {
+    // Trie.test.ts:480 - modify updates an existing key, ignores a missing one.
+    let t = Trie::make([("app/db".to_owned(), 1)]);
+    let bumped = t.modify("app/db", |v| v + 1);
+    assert_eq!(bumped.get("app/db"), Some(&2));
+    assert_eq!(t.get("app/db"), Some(&1));
+    assert_eq!(t.modify("app/none", |v| v + 1).size(), 1);
+    // :504 - insertMany inserts every entry.
+    let many = t.insert_many([("a".to_owned(), 1), ("b".to_owned(), 2)]);
+    assert_eq!(many.size(), 3);
+    // :491 - removeMany deletes every matching key.
+    let pruned = many.remove_many(["app/db", "a"]);
+    assert_eq!(pruned.size(), 1);
+    assert!(pruned.has("b"));
+    assert!(many.has("app/db"));
+    // :376 / :389 - longestPrefixOf returns the longest stored key.
+    let prefixed = Trie::make([
+        ("ab".to_owned(), 1),
+        ("abc".to_owned(), 2),
+        ("zz".to_owned(), 3),
+    ]);
+    assert_eq!(
+        prefixed.longest_prefix_of("abcd").map(|(k, _)| k),
+        Some("abc".to_owned())
+    );
+    assert_eq!(
+        prefixed.longest_prefix_of("abx").map(|(k, _)| k),
+        Some("ab".to_owned())
+    );
+    assert_eq!(prefixed.longest_prefix_of("q"), None);
+}

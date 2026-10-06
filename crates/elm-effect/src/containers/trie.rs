@@ -118,6 +118,60 @@ impl<V> Trie<V> {
         next
     }
 
+    /// Update the value at `key`; missing keys are left alone.
+    pub fn modify(&self, key: &str, f: impl FnOnce(&V) -> V) -> Self
+    where
+        V: Clone,
+    {
+        match self.get(key) {
+            None => self.clone(),
+            Some(current) => self.insert(key, f(current)),
+        }
+    }
+
+    /// Insert every entry, left to right.
+    pub fn insert_many<K, V2>(&self, entries: impl IntoIterator<Item = (K, V2)>) -> Self
+    where
+        K: AsRef<str>,
+        V: Clone,
+        V2: Into<V>,
+    {
+        entries
+            .into_iter()
+            .fold(self.clone(), |trie: Self, (key, value)| {
+                trie.insert(key.as_ref(), value.into())
+            })
+    }
+
+    /// Remove every key.
+    pub fn remove_many<K: AsRef<str>>(&self, keys: impl IntoIterator<Item = K>) -> Self
+    where
+        V: Clone,
+    {
+        keys.into_iter()
+            .fold(self.clone(), |trie: Self, key| trie.remove(key.as_ref()))
+    }
+
+    /// Longest stored key that prefixes `input`, paired with its value.
+    pub fn longest_prefix_of(&self, input: &str) -> Option<(String, &V)>
+    where
+        V: Clone,
+    {
+        let bytes = input.as_bytes();
+        let mut best: Option<(String, &V)> = None;
+        for split in (1..=bytes.len()).rev() {
+            let candidate = &input[..split];
+            if !input.is_char_boundary(split) {
+                continue;
+            }
+            if let Some(value) = self.get(candidate) {
+                best = Some((candidate.to_owned(), value));
+                break;
+            }
+        }
+        best
+    }
+
     /// Number of keys.
     pub fn size(&self) -> usize {
         self.len
