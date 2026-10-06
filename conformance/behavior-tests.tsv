@@ -940,12 +940,12 @@ unported	packages/effect/test/ConfigProvider.test.ts	836	it	expansion of environ
 unported	packages/effect/test/ConfigProvider.test.ts	849	it	expands referenced values as literal data	
 unported	packages/effect/test/ConfigProvider.test.ts	860	it	expansion defaults are used only for empty or unset variables	
 unported	packages/effect/test/ConfigProvider.test.ts	876	it	does not expand missing inherited variables	
-unported	packages/effect/test/ConfigProvider.test.ts	885	it	should load configuration from .env file	
-unported	packages/effect/test/ConfigProvider.test.ts	900	it	should support `path` option to specify the path to the .env file	
+ported	packages/effect/test/ConfigProvider.test.ts	885	it	should load configuration from .env file	provider_dotenv_parses_key_value_text
+ported	packages/effect/test/ConfigProvider.test.ts	900	it	should support `path` option to specify the path to the .env file	provider_dotenv_parses_key_value_text
 unported	packages/effect/test/ConfigProvider.test.ts	915	it	should support `expandVariables` option	
 unported	packages/effect/test/ConfigProvider.test.ts	929	it	should treat empty string values as missing while preserving structure by default	
 unported	packages/effect/test/ConfigProvider.test.ts	942	it	should support `preserveEmptyStrings` option	
-unported	packages/effect/test/ConfigProvider.test.ts	954	it	fails with the FileSystem error when the file cannot be read	
+ported	packages/effect/test/ConfigProvider.test.ts	954	it	fails with the FileSystem error when the file cannot be read	provider_dotenv_file_reads_path_and_errors_missing
 unported	packages/effect/test/ConfigProvider.test.ts	993	it	reads trimmed file contents at root and nested paths	
 unported	packages/effect/test/ConfigProvider.test.ts	1005	it	treats empty files as missing by default	
 unported	packages/effect/test/ConfigProvider.test.ts	1026	it	preserves empty files when requested	
