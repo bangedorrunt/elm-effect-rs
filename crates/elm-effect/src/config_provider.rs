@@ -400,6 +400,7 @@ impl Lookup for Chain<'_> {
 /// snapshots the process environment into a plain [`Provider`].
 pub struct EnvProvider {
     values: BTreeMap<String, String>,
+    preserve_empty: bool,
 }
 
 impl EnvProvider {
@@ -407,6 +408,7 @@ impl EnvProvider {
     pub fn from_env_map(pairs: impl IntoIterator<Item = (String, String)>) -> Self {
         Self {
             values: pairs.into_iter().collect(),
+            preserve_empty: false,
         }
     }
 
@@ -426,8 +428,24 @@ impl EnvProvider {
     }
 
     /// Parse `.env` text (`KEY=value` lines; blanks, `#` comments, and a
-    /// leading `export ` are skipped; surrounding quotes stripped).
+    /// leading `export ` are skipped; surrounding quotes stripped; empty
+    /// values read missing; `$VAR` stays literal).
     pub fn from_dotenv(text: &str) -> Self {
+        Self::from_dotenv_with(text, false, false)
+    }
+
+    /// Parse `.env` keeping empty values (`preserveEmptyStrings`).
+    pub fn from_dotenv_preserving(text: &str) -> Self {
+        Self::from_dotenv_with(text, false, true)
+    }
+
+    /// Parse `.env` expanding `$VAR` and `${VAR}` from earlier entries
+    /// (`expandVariables`).
+    pub fn from_dotenv_expanding(text: &str) -> Self {
+        Self::from_dotenv_with(text, true, false)
+    }
+
+    fn from_dotenv_with(text: &str, expand: bool, preserve_empty: bool) -> Self {
         let mut values = BTreeMap::new();
         for raw in text.lines() {
             let line = raw.trim();
@@ -461,9 +479,17 @@ impl EnvProvider {
             } else {
                 strip_inline_comment(value).trim().to_string()
             };
+            let decoded = if expand {
+                expand_refs(&decoded, &values)
+            } else {
+                decoded
+            };
             values.insert(key, decoded);
         }
-        Self { values }
+        Self {
+            values,
+            preserve_empty,
+        }
     }
 
     /// Read and parse a `.env` file (`fromDotEnv({ path })`); a missing
@@ -483,10 +509,45 @@ impl EnvProvider {
 impl Lookup for EnvProvider {
     fn get(&self, path: &[String]) -> Option<String> {
         match self.values.get(&path.join("_")) {
-            Some(v) if !v.is_empty() => Some(v.clone()),
-            _ => None,
+            Some(v) if v.is_empty() && !self.preserve_empty => None,
+            found => found.cloned(),
         }
     }
+}
+
+/// Expand `$NAME` and `${NAME}` from already-parsed entries; unknown
+/// names stay literal.
+fn expand_refs(s: &str, values: &BTreeMap<String, String>) -> String {
+    let mut out = String::with_capacity(s.len());
+    let chars: Vec<char> = s.chars().collect();
+    let mut i = 0;
+    while i < chars.len() {
+        if chars[i] != '$' {
+            out.push(chars[i]);
+            i += 1;
+            continue;
+        }
+        let braced = chars.get(i + 1) == Some(&'{');
+        let start = if braced { i + 2 } else { i + 1 };
+        let mut end = start;
+        while end < chars.len()
+            && (chars[end].is_alphanumeric() || chars[end] == '_')
+        {
+            end += 1;
+        }
+        let name: String = chars[start..end].iter().collect();
+        let known = !name.is_empty() && values.contains_key(&name);
+        if known {
+            if let Some(v) = values.get(&name) {
+                out.push_str(v);
+            }
+            i = if braced { end + 1 } else { end };
+        } else {
+            out.push('$');
+            i += 1;
+        }
+    }
+    out
 }
 
 /// Decode backslash escapes inside double-quoted dotenv values:

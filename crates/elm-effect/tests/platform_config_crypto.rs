@@ -1230,3 +1230,49 @@ fn provider_env_root_keys_and_dotenv_structure() {
         Some("value1".to_string())
     );
 }
+
+#[test]
+fn provider_dotenv_expansion_is_opt_in() {
+    use config_provider::EnvProvider;
+    let plain = EnvProvider::from_dotenv("PASSWORD=\"value\"\nDB_PASS=$PASSWORD\nBRACED=${PASSWORD}\nUNKNOWN=$NOPE\n");
+    assert_eq!(
+        plain.get(&["PASSWORD".to_string()]),
+        Some("value".to_string())
+    );
+    assert_eq!(
+        plain.get(&["DB_PASS".to_string()]),
+        Some("$PASSWORD".to_string())
+    );
+    assert_eq!(
+        plain.get(&["BRACED".to_string()]),
+        Some("${PASSWORD}".to_string())
+    );
+    assert_eq!(
+        plain.get(&["UNKNOWN".to_string()]),
+        Some("$NOPE".to_string())
+    );
+    let expanding = EnvProvider::from_dotenv_expanding(
+        "PASSWORD=\"value\"\nDB_PASS=${PASSWORD}\nLATE=$PASSWORD\n",
+    );
+    assert_eq!(
+        expanding.get(&["DB_PASS".to_string()]),
+        Some("value".to_string())
+    );
+    assert_eq!(
+        expanding.get(&["LATE".to_string()]),
+        Some("value".to_string())
+    );
+}
+
+#[test]
+fn provider_dotenv_preserves_empty_when_requested() {
+    use config_provider::EnvProvider;
+    let plain = EnvProvider::from_dotenv("A=\n");
+    assert_eq!(plain.get(&["A".to_string()]), None);
+    let keeping = EnvProvider::from_dotenv_preserving("A=\n");
+    assert_eq!(keeping.get(&["A".to_string()]), Some("".to_string()));
+    assert_eq!(
+        keeping.root_keys(),
+        vec!["A".to_string()]
+    );
+}
