@@ -267,6 +267,11 @@ pub fn starts_with_at(s: &str, prefix: &str, position: usize) -> bool {
     s[char_offset(s, position)..].starts_with(prefix)
 }
 
+/// `endsWith` checking within the first `len` chars (clamped).
+pub fn ends_with_at(s: &str, suffix: &str, len: usize) -> bool {
+    s[..char_offset(s, len)].ends_with(suffix)
+}
+
 /// First character, if any (`charAt(0)` shape).
 pub fn head(s: &str) -> Option<char> {
     s.chars().next()

@@ -891,3 +891,14 @@ fn string_positional_search() {
     // :276 - prefix checked at the given position.
     assert!(string::starts_with_at("hello world", "world", 6));
 }
+
+#[test]
+fn string_suffix_checks() {
+    // String.test.ts:282 - ends with the search.
+    assert!(string::ends_with("hello world", "world"));
+    // :286 - false when it does not end with the search.
+    assert!(!string::ends_with("hello world", "hello"));
+    // :290 - suffix checked at the given end position.
+    assert!(string::ends_with_at("hello world", "hello", 5));
+    assert!(!string::ends_with_at("hello world", "world", 5));
+}

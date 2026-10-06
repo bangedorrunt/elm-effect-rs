@@ -3902,9 +3902,9 @@ ported	packages/effect/test/String.test.ts	261	it	starts searching at the given 
 ported	packages/effect/test/String.test.ts	268	it	returns true when string starts with search	string_positional_search
 ported	packages/effect/test/String.test.ts	272	it	returns false when string does not start with search	string_positional_search
 ported	packages/effect/test/String.test.ts	276	it	checks the prefix at the given position	string_positional_search
-unported	packages/effect/test/String.test.ts	282	it	returns true when string ends with search	
-unported	packages/effect/test/String.test.ts	286	it	returns false when string does not end with search	
-unported	packages/effect/test/String.test.ts	290	it	checks the suffix at the given end position	
+ported	packages/effect/test/String.test.ts	282	it	returns true when string ends with search	string_suffix_checks
+ported	packages/effect/test/String.test.ts	286	it	returns false when string does not end with search	string_suffix_checks
+ported	packages/effect/test/String.test.ts	290	it	checks the suffix at the given end position	string_suffix_checks
 unported	packages/effect/test/String.test.ts	296	it	returns char code at index (data-first)	
 unported	packages/effect/test/String.test.ts	300	it	returns char code at index (data-last)	
 unported	packages/effect/test/String.test.ts	304	it	returns none for out of bounds	
