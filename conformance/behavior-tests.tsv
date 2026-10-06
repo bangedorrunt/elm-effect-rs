@@ -3905,13 +3905,13 @@ ported	packages/effect/test/String.test.ts	276	it	checks the prefix at the given
 ported	packages/effect/test/String.test.ts	282	it	returns true when string ends with search	string_suffix_checks
 ported	packages/effect/test/String.test.ts	286	it	returns false when string does not end with search	string_suffix_checks
 ported	packages/effect/test/String.test.ts	290	it	checks the suffix at the given end position	string_suffix_checks
-unported	packages/effect/test/String.test.ts	296	it	returns char code at index (data-first)	
-unported	packages/effect/test/String.test.ts	300	it	returns char code at index (data-last)	
-unported	packages/effect/test/String.test.ts	304	it	returns none for out of bounds	
-unported	packages/effect/test/String.test.ts	310	it	extracts characters between indices	
-unported	packages/effect/test/String.test.ts	314	it	extracts from start to end	
-unported	packages/effect/test/String.test.ts	320	it	returns character at index	
-unported	packages/effect/test/String.test.ts	324	it	returns none for out of bounds	
+ported	packages/effect/test/String.test.ts	296	it	returns char code at index (data-first)	string_index_access
+ported	packages/effect/test/String.test.ts	300	it	returns char code at index (data-last)	string_index_access
+ported	packages/effect/test/String.test.ts	304	it	returns none for out of bounds	string_index_access
+ported	packages/effect/test/String.test.ts	310	it	extracts characters between indices	string_index_access
+ported	packages/effect/test/String.test.ts	314	it	extracts from start to end	string_index_access
+ported	packages/effect/test/String.test.ts	320	it	returns character at index	string_index_access
+ported	packages/effect/test/String.test.ts	324	it	returns none for out of bounds	string_index_access
 unported	packages/effect/test/String.test.ts	330	it	returns character at index (data-first)	
 unported	packages/effect/test/String.test.ts	334	it	returns character at index (data-last)	
 unported	packages/effect/test/String.test.ts	338	it	returns none for out of bounds	

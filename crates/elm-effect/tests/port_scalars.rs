@@ -902,3 +902,22 @@ fn string_suffix_checks() {
     assert!(string::ends_with_at("hello world", "hello", 5));
     assert!(!string::ends_with_at("hello world", "world", 5));
 }
+
+#[test]
+fn string_index_access() {
+    // String.test.ts:296 - char code at index, data-first.
+    assert_eq!(string::char_code_at("abc", 1), Some(98));
+    // :300 - data-last through a closure.
+    let code_at = |index: usize| string::char_code_at("abc", index);
+    assert_eq!(code_at(0), Some(97));
+    // :304 - none out of bounds.
+    assert_eq!(string::char_code_at("abc", 10), None);
+    // :310 - substring between indices.
+    assert_eq!(string::substring("abcd", 1, Some(3)), "bc");
+    // :314 - omitted end runs out.
+    assert_eq!(string::substring("abcd", 1, None), "bcd");
+    // :320 - character at index.
+    assert_eq!(string::char_at("abc", 1), Some('b'));
+    // :324 - none out of bounds.
+    assert_eq!(string::char_at("abc", 10), None);
+}

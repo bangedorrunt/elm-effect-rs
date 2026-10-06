@@ -272,6 +272,32 @@ pub fn ends_with_at(s: &str, suffix: &str, len: usize) -> bool {
     s[..char_offset(s, len)].ends_with(suffix)
 }
 
+/// Code point at a char index, if any (`charCodeAt`; astral planes
+/// differ from UTF-16 surrogates by design — chars throughout).
+pub fn char_code_at(s: &str, index: usize) -> Option<u32> {
+    s.chars().nth(index).map(|c| c as u32)
+}
+
+/// Character at a char index, if any (`at`).
+pub fn char_at(s: &str, index: usize) -> Option<char> {
+    s.chars().nth(index)
+}
+
+/// Char-range slice with JS `substring` semantics: negatives count as
+/// zero, inverted ends swap, an omitted end runs out.
+pub fn substring(s: &str, start: i64, end: Option<i64>) -> String {
+    let len = s.chars().count() as i64;
+    let clamp = |index: i64| index.clamp(0, len) as usize;
+    let (mut from, mut to) = match end {
+        Some(end) => (clamp(start), clamp(end)),
+        None => (clamp(start), len as usize),
+    };
+    if from > to {
+        std::mem::swap(&mut from, &mut to);
+    }
+    s.chars().skip(from).take(to - from).collect()
+}
+
 /// First character, if any (`charAt(0)` shape).
 pub fn head(s: &str) -> Option<char> {
     s.chars().next()
