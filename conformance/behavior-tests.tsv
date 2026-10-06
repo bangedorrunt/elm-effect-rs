@@ -7101,16 +7101,16 @@ ported	packages/effect/test/persistence/PersistedQueue.test.ts	13	it.layer	Persi
 ported	packages/effect/test/persistence/PersistedQueue.test.ts	16	it.effect	derives growing delays from the persisted attempt count	queue_retry_grows_with_attempts
 ported	packages/effect/test/persistence/PersistedQueue.test.ts	52	it.layer	PersistedQueue.layerCleanup	queue_cleanup_prunes
 ported	packages/effect/test/persistence/PersistedQueue.test.ts	55	it.effect	prunes completed elements on the configured interval	queue_cleanup_prunes
-unported	packages/effect/test/persistence/PersistedQueueTest.ts	43	it.effect	offer + take	
+ported	packages/effect/test/persistence/PersistedQueueTest.ts	43	it.effect	offer + take	queue_offer_and_take_round_trip
 unported	packages/effect/test/persistence/PersistedQueueTest.ts	57	it.effect	interrupt	
-unported	packages/effect/test/persistence/PersistedQueueTest.ts	86	it.effect	failure	
-unported	packages/effect/test/persistence/PersistedQueueTest.ts	106	it.effect	delays retries with the retry schedule	
-unported	packages/effect/test/persistence/PersistedQueueTest.ts	140	it.effect	idempotent offer	
-unported	packages/effect/test/persistence/PersistedQueueTest.ts	159	it.effect	deduplicates custom ids independently in each queue	
-unported	packages/effect/test/persistence/PersistedQueueTest.ts	175	it.effect	does not redeliver in-flight elements	
-unported	packages/effect/test/persistence/PersistedQueueTest.ts	203	it.effect	stops delivering when maxAttempts is exhausted	
+ported	packages/effect/test/persistence/PersistedQueueTest.ts	86	it.effect	failure	queue_fail_redelivers_until_attempts_exhausted
+ported	packages/effect/test/persistence/PersistedQueueTest.ts	106	it.effect	delays retries with the retry schedule	queue_retry_delay_follows_schedule
+ported	packages/effect/test/persistence/PersistedQueueTest.ts	140	it.effect	idempotent offer	queue_offer_is_idempotent_per_id
+ported	packages/effect/test/persistence/PersistedQueueTest.ts	159	it.effect	deduplicates custom ids independently in each queue	queue_dedupes_independently_per_queue
+ported	packages/effect/test/persistence/PersistedQueueTest.ts	175	it.effect	does not redeliver in-flight elements	queue_does_not_redeliver_in_flight_elements
+ported	packages/effect/test/persistence/PersistedQueueTest.ts	203	it.effect	stops delivering when maxAttempts is exhausted	queue_fail_redelivers_until_attempts_exhausted
 unported	packages/effect/test/persistence/PersistedQueueTest.ts	222	it.effect	dead-letters elements that fail to decode	
-unported	packages/effect/test/persistence/PersistedQueueTest.ts	248	it.effect	cleanup removes expired completed elements	
+ported	packages/effect/test/persistence/PersistedQueueTest.ts	248	it.effect	cleanup removes expired completed elements	queue_complete_records_once_and_prunes
 unported	packages/effect/test/persistence/PersistedQueueTest.ts	273	it.effect	cleanup removes failed elements only with failedTimeToLive	
 unported	packages/effect/test/persistence/PersistedQueueTest.ts	302	it.effect	cleanup keeps dedupe entries for unprocessed elements	
 unported	packages/effect/test/persistence/PersistedQueueTest.ts	325	it.effect	processes concurrent elements exactly once with retries	
