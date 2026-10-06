@@ -1217,3 +1217,24 @@ fn formatter_template_literal_strings() {
     assert_eq!(format(&Unknown::Text("a".to_string())), "\"a\"");
     assert_eq!(format(&Unknown::Text("ab".to_string())), "\"ab\"");
 }
+
+#[test]
+fn formatter_object_keyword_renders_shapes() {
+    use std::collections::BTreeMap;
+    let format = Schema::<BTreeMap<String, Unknown>>::object().formatter();
+    assert_eq!(
+        format(&Unknown::Object(BTreeMap::new())),
+        "{}"
+    );
+    let mut fields = BTreeMap::new();
+    fields.insert("a".to_string(), Unknown::Number(1.0));
+    assert_eq!(format(&Unknown::Object(fields)), "{\"a\":1}");
+    assert_eq!(
+        format(&Unknown::Array(vec![
+            Unknown::Number(1.0),
+            Unknown::Number(2.0),
+            Unknown::Number(3.0)
+        ])),
+        "[1,2,3]"
+    );
+}
