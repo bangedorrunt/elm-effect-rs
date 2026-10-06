@@ -144,3 +144,47 @@ fn rejects_invalid_indentation() {
     let rejected = yaml::parse("root:\n   child: true\n  sibling: false\n");
     assert!(rejected.is_err(), "expected rejection, got {rejected:?}");
 }
+
+#[test]
+fn parses_indentless_sequences() {
+    // Yaml.test.ts:114 - block sequences may sit at the key's indent.
+    for (source, expected) in [
+        (
+            "allowed-tools:\n- Read\n- Bash\n",
+            YamlValue::Map(vec![(
+                "allowed-tools".to_owned(),
+                YamlValue::Seq(vec![text("Read"), text("Bash")]),
+            )]),
+        ),
+        (
+            "metadata:\n  tools:\n  - Read\n",
+            YamlValue::Map(vec![(
+                "metadata".to_owned(),
+                YamlValue::Map(vec![(
+                    "tools".to_owned(),
+                    YamlValue::Seq(vec![text("Read")]),
+                )]),
+            )]),
+        ),
+        (
+            "tools:\n- Read\n- Bash\nroles:\n- admin\n",
+            YamlValue::Map(vec![
+                (
+                    "tools".to_owned(),
+                    YamlValue::Seq(vec![text("Read"), text("Bash")]),
+                ),
+                ("roles".to_owned(), YamlValue::Seq(vec![text("admin")])),
+            ]),
+        ),
+        // Comments and blanks vanish around indentless items.
+        (
+            "tools: # key comment\n# before sequence\n\n- Read\n- Bash\n",
+            YamlValue::Map(vec![(
+                "tools".to_owned(),
+                YamlValue::Seq(vec![text("Read"), text("Bash")]),
+            )]),
+        ),
+    ] {
+        assert_eq!(yaml::parse(source).expect("parses"), expected, "{source:?}");
+    }
+}

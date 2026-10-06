@@ -53,6 +53,32 @@ pub fn parse(text: &str) -> Result<YamlValue, YamlError> {
     Ok(value)
 }
 
+/// Cut a ` #` comment tail, ignoring `#` inside quotes.
+fn strip_inline_comment(value: &str) -> String {
+    let mut in_single = false;
+    let mut in_double = false;
+    let mut cut = value.len();
+    let bytes = value.as_bytes();
+    let mut i = 0;
+    while i < bytes.len() {
+        let c = bytes[i];
+        if c == b'\'' && !in_double {
+            in_single = !in_single;
+        } else if c == b'"' && !in_single {
+            in_double = !in_double;
+        } else if c == b'#'
+            && !in_single
+            && !in_double
+            && (i == 0 || bytes[i - 1] == b' ' || bytes[i - 1] == b'\t')
+        {
+            cut = if i > 0 { i - 1 } else { 0 };
+            break;
+        }
+        i += 1;
+    }
+    value[..cut].trim_end().to_owned()
+}
+
 /// Split a leading `&name` anchor from its remainder.
 fn split_anchor(value: &str) -> Option<(String, String)> {
     let rest = value.strip_prefix('&')?;
@@ -109,8 +135,13 @@ struct Parser {
 
 impl Parser {
     fn peek(&mut self) -> Option<&(usize, String)> {
-        while matches!(self.lines.get(self.cursor), Some((usize::MAX, _))) {
-            self.cursor += 1;
+        loop {
+            match self.lines.get(self.cursor) {
+                // Blank sentinels and full-line comments never start values.
+                Some((usize::MAX, _)) => self.cursor += 1,
+                Some((_, line)) if line.starts_with('#') => self.cursor += 1,
+                _ => break,
+            }
         }
         self.lines.get(self.cursor)
     }
@@ -201,6 +232,7 @@ impl Parser {
 
     /// An inline value, or a nested block when the value is empty.
     fn inline_or_nested(&mut self, indent: usize, value: String) -> Result<YamlValue, YamlError> {
+        let value = strip_inline_comment(&value);
         if let Some(alias) = value.strip_prefix('*') {
             let name = alias.trim();
             return self
@@ -217,6 +249,11 @@ impl Parser {
         if value.is_empty() {
             match self.peek().cloned() {
                 Some((next, _)) if next > indent => self.parse_block(next),
+                // YAML 1.2.2 §8.2.1: a mapping value's block sequence may
+                // sit at the key's own indent.
+                Some((next, line)) if next == indent && (line.starts_with("- ") || line == "-") => {
+                    self.parse_seq(next).map(YamlValue::Seq)
+                }
                 _ => Ok(YamlValue::Null),
             }
         } else if is_block_header(&value) {
@@ -255,6 +292,11 @@ impl Parser {
             if line_indent == usize::MAX {
                 self.cursor += 1;
                 content.push(None);
+                continue;
+            }
+            if line.starts_with('#') {
+                // Full-line comments vanish inside scalars too.
+                self.cursor += 1;
                 continue;
             }
             if line_indent <= indent {
