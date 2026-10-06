@@ -410,6 +410,21 @@ impl EnvProvider {
         }
     }
 
+    /// Top-level key segments, splitting names on `_` (structure
+    /// listing: `B_C` surfaces as `B`).
+    pub fn root_keys(&self) -> Vec<String> {
+        let mut out: Vec<String> = Vec::new();
+        let mut keys: Vec<&str> = self.values.keys().map(|s| s.as_str()).collect();
+        keys.sort();
+        for key in keys {
+            let first = key.split('_').next().unwrap_or("");
+            if out.last().map(|s| s.as_str()) != Some(first) {
+                out.push(first.to_string());
+            }
+        }
+        out
+    }
+
     /// Parse `.env` text (`KEY=value` lines; blanks, `#` comments, and a
     /// leading `export ` are skipped; surrounding quotes stripped).
     pub fn from_dotenv(text: &str) -> Self {

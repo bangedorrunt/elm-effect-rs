@@ -1206,3 +1206,27 @@ fn config_or_else_falls_back_then_defaults() {
         Value::None
     );
 }
+
+#[test]
+fn provider_env_root_keys_and_dotenv_structure() {
+    use config_provider::EnvProvider;
+    let env = EnvProvider::from_env_map(vec![
+        ("A".to_string(), "value1".to_string()),
+        ("B_C".to_string(), "value2".to_string()),
+    ]);
+    assert_eq!(
+        env.root_keys(),
+        vec!["A".to_string(), "B".to_string()]
+    );
+    assert_eq!(env.get(&["missing".to_string()]), None);
+    let dotenv = EnvProvider::from_dotenv("A=\nB=value1\n");
+    assert_eq!(
+        dotenv.root_keys(),
+        vec!["A".to_string(), "B".to_string()]
+    );
+    assert_eq!(dotenv.get(&["A".to_string()]), None);
+    assert_eq!(
+        dotenv.get(&["B".to_string()]),
+        Some("value1".to_string())
+    );
+}
