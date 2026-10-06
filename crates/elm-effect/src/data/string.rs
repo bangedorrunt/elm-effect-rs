@@ -40,6 +40,17 @@ pub fn strip_margin(s: &str) -> String {
         .join("\n")
 }
 
+/// Strip a custom margin character per line (`stripMarginWith`).
+pub fn strip_margin_with(s: &str, margin: char) -> String {
+    s.lines()
+        .map(|line| {
+            let trimmed = line.trim_start();
+            trimmed.strip_prefix(margin).unwrap_or(trimmed)
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
 /// First `n` characters (`takeLeft`; floored counts, empty for
 /// non-positive or NaN).
 pub fn take_left(s: &str, count: f64) -> String {

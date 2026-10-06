@@ -1020,3 +1020,27 @@ fn string_lines_with_and_without_separators() {
         ["hello\n", "world\n"]
     );
 }
+
+#[test]
+fn string_lines_edges_and_margins() {
+    // String.test.ts:541 - CRLF lines.
+    assert_eq!(string::lines("a\r\nb\r\n"), ["a", "b"]);
+    // :545 - single line without newline.
+    assert_eq!(string::lines("hello"), ["hello"]);
+    // :549 - empty string lines.
+    assert_eq!(string::lines(""), Vec::<&str>::new());
+    // :559 - separators kept through CRLF.
+    assert_eq!(
+        string::lines_with_separators("a\r\nb\r\n"),
+        ["a\r\n", "b\r\n"]
+    );
+    // :563 - single line without trailing newline.
+    assert_eq!(string::lines_with_separators("hello"), ["hello"]);
+    // :569 - strips pipe margins.
+    assert_eq!(string::strip_margin("  |hello\n  |world"), "hello\nworld");
+    // :575 - strips custom margins, data-first.
+    assert_eq!(string::strip_margin_with("  #hello\n  #world", '#'), "hello\nworld");
+    // :579 - data-last through a closure.
+    let strip_hash = |s: &str| string::strip_margin_with(s, '#');
+    assert_eq!(strip_hash("  #hello\n  #world"), "hello\nworld");
+}
