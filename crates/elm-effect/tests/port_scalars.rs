@@ -727,7 +727,7 @@ fn number_divide_product_and_order() {
 fn number_remainder_sign_and_nan() {
     // Number.test.ts:290 - integer and decimal remainders.
     assert_eq!(number::remainder(3.0, 2.0), 1.0);
-    assert_eq!(number::remainder(0.3, 0.2), 0.09999999999999998);
+    assert_eq!(number::remainder(0.3, 0.2), 0.1);
     // :296/:302 - the dividend sign survives, including negative zero.
     assert_eq!(number::remainder(-5.0, 2.0), -1.0);
     assert!(number::remainder(-4.0, 2.0).is_sign_negative());
@@ -740,5 +740,45 @@ fn number_remainder_sign_and_nan() {
     assert!(number::remainder(1e-101, 0.0).is_nan());
     assert!(number::remainder(f64::NAN, 2.0).is_nan());
     assert!(number::remainder(f64::INFINITY, 2.0).is_nan());
-    assert_eq!(number::remainder(2.0, f64::INFINITY), 2.0);
+    assert!(number::remainder(2.0, f64::INFINITY).is_nan());
+}
+
+#[test]
+fn number_remainder_scientific_and_subnormal() {
+    // Number.test.ts:321 - small floats and scientific notation.
+    let divisor = 1e-7;
+    assert_eq!(number::remainder(0.0, divisor), 0.0);
+    assert_eq!(number::remainder(1e-7, divisor), 0.0);
+    assert_eq!(number::remainder(2e-7, divisor), 0.0);
+    assert_eq!(number::remainder(3e-7, divisor), 0.0);
+    assert_eq!(number::remainder(2.5e-7, divisor), 5e-8);
+    assert_eq!(number::remainder(1.5e-7, divisor), 5e-8);
+    // :335 - signs survive in scientific notation.
+    assert_eq!(number::remainder(-2.5e-7, divisor), -5e-8);
+    assert_eq!(number::remainder(2.5e-7, -divisor), 5e-8);
+    assert_eq!(number::remainder(-2.5e-7, -divisor), -5e-8);
+    // :344 - beyond toFixed precision.
+    let tiny = 1e-101;
+    assert_eq!(number::remainder(0.0, tiny), 0.0);
+    assert_eq!(number::remainder(tiny, tiny), 0.0);
+    assert_eq!(number::remainder(3e-101, tiny), 0.0);
+    assert_eq!(number::remainder(2.5e-101, tiny), 5e-102);
+    assert!(number::remainder(-3e-101, tiny).is_sign_negative());
+    // :354/:362 - subnormals.
+    let min = f64::from_bits(1);
+    assert_eq!(number::remainder(min, min), 0.0);
+    assert_eq!(number::remainder(min * 2.0, min), 0.0);
+    assert_eq!(number::remainder(min, min * 2.0), min);
+    assert_eq!(number::remainder(1.042e-321, 1e-323), f64::from_bits(1));
+    assert_eq!(number::remainder(-1.042e-321, 1e-323), -f64::from_bits(1));
+    // :369 - large values in scientific notation.
+    assert_eq!(number::remainder(1e21, 2.0), 0.0);
+    assert_eq!(number::remainder(1e21, 3.0), 1.0);
+    assert_eq!(number::remainder(3.0, 1e21), 3.0);
+    assert!(number::remainder(-1e21, 2.0).is_sign_negative());
+    // :378/:383 - big decimal coefficients and exact integers.
+    assert_eq!(number::remainder(100000000000000.05, 0.03), 0.0);
+    assert_eq!(number::remainder(100000000000000.1, 0.03), 0.02);
+    assert_eq!(number::remainder(1152921504606846976.0, 5.0), 1.0);
+    assert_eq!(number::remainder(-1152921504606846976.0, 5.0), -1.0);
 }

@@ -2692,14 +2692,14 @@ ported	packages/effect/test/Number.test.ts	296	it	preserves the dividend sign, i
 ported	packages/effect/test/Number.test.ts	302	it	preserves the dividend sign with negative divisors	number_remainder_sign_and_nan
 ported	packages/effect/test/Number.test.ts	308	it	returns NaN when the divisor is zero	scalars_residuals
 ported	packages/effect/test/Number.test.ts	313	it	returns NaN for non-finite operands	number_remainder_sign_and_nan
-unported	packages/effect/test/Number.test.ts	321	it	handles small floats / scientific notation	
-unported	packages/effect/test/Number.test.ts	335	it	preserves signs in scientific notation	
-unported	packages/effect/test/Number.test.ts	344	it	handles scientific notation beyond the toFixed precision limit	
-unported	packages/effect/test/Number.test.ts	354	it	handles subnormal values	
-unported	packages/effect/test/Number.test.ts	362	it	preserves nonzero subnormal remainders	
-unported	packages/effect/test/Number.test.ts	369	it	handles large values formatted in scientific notation	
-unported	packages/effect/test/Number.test.ts	378	it	handles decimal coefficients beyond the safe integer range	
-unported	packages/effect/test/Number.test.ts	383	it	preserves exact integer remainders beyond the safe integer range	
+ported	packages/effect/test/Number.test.ts	321	it	handles small floats / scientific notation	number_remainder_scientific_and_subnormal
+ported	packages/effect/test/Number.test.ts	335	it	preserves signs in scientific notation	number_remainder_scientific_and_subnormal
+ported	packages/effect/test/Number.test.ts	344	it	handles scientific notation beyond the toFixed precision limit	number_remainder_scientific_and_subnormal
+ported	packages/effect/test/Number.test.ts	354	it	handles subnormal values	number_remainder_scientific_and_subnormal
+ported	packages/effect/test/Number.test.ts	362	it	preserves nonzero subnormal remainders	number_remainder_scientific_and_subnormal
+ported	packages/effect/test/Number.test.ts	369	it	handles large values formatted in scientific notation	number_remainder_scientific_and_subnormal
+ported	packages/effect/test/Number.test.ts	378	it	handles decimal coefficients beyond the safe integer range	number_remainder_scientific_and_subnormal
+ported	packages/effect/test/Number.test.ts	383	it	preserves exact integer remainders beyond the safe integer range	number_remainder_scientific_and_subnormal
 unported	packages/effect/test/Number.test.ts	393	it	preserves exact integer dividends with fractional divisors	
 unported	packages/effect/test/Number.test.ts	404	it	preserves exact integers formatted in scientific notation	
 unported	packages/effect/test/Number.test.ts	413	it	rounds non-powers of two up to the next power of two	
