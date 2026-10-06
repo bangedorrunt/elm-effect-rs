@@ -1101,3 +1101,19 @@ fn string_pascal_case_words() {
     assert_eq!(string::pascal_case("foo 2 bar"), "Foo2Bar");
     assert_eq!(string::pascal_case("api-v2 xml"), "ApiV2Xml");
 }
+
+#[test]
+fn string_camel_constant_cases() {
+    // String.test.ts:693 - words join lower-first camel.
+    assert_eq!(string::camel_case("hello world"), "helloWorld");
+    // :699 - numeric segments attach directly.
+    assert_eq!(string::camel_case("foo 2 bar"), "foo2Bar");
+    assert_eq!(string::camel_case("api-v2 xml"), "apiV2Xml");
+    // :706 - upper underscore joins.
+    assert_eq!(string::constant_case("hello world"), "HELLO_WORLD");
+    assert_eq!(string::constant_case("helloWorld"), "HELLO_WORLD");
+    // :714 - config shares the rule for the row cases.
+    assert_eq!(string::config_case("hello world"), "HELLO_WORLD");
+    assert_eq!(string::config_case("helloWorld"), "HELLO_WORLD");
+    assert_eq!(string::config_case("api-v2 xml"), "API_V2_XML");
+}

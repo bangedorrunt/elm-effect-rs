@@ -86,6 +86,17 @@ pub fn kebab_to_snake(s: &str) -> String {
 /// Split into lowercase-ready words: separators, camelCase humps,
 /// and digit-letter boundaries (`noCase` core, default options).
 fn split_words(s: &str) -> Vec<String> {
+    split_words_impl(s, true)
+}
+
+/// Split for case converters: separators and camel humps only, so
+/// digit runs stay glued (`v2` survives `configCase`).
+fn split_case_words(s: &str) -> Vec<String> {
+    split_words_impl(s, false)
+}
+
+/// Shared splitter; `digits` toggles letter-digit boundaries.
+fn split_words_impl(s: &str, digits: bool) -> Vec<String> {
     let mut words = Vec::new();
     let mut current = String::new();
     let mut previous: Option<char> = None;
@@ -98,8 +109,8 @@ fn split_words(s: &str) -> Vec<String> {
             let boundary = match previous {
                 Some(prev) => {
                     (prev.is_lowercase() && c.is_uppercase())
-                        || (prev.is_alphabetic() && c.is_numeric())
-                        || (prev.is_numeric() && c.is_alphabetic())
+                        || (digits && prev.is_alphabetic() && c.is_numeric())
+                        || (digits && prev.is_numeric() && c.is_alphabetic())
                 }
                 None => false,
             };
@@ -115,7 +126,6 @@ fn split_words(s: &str) -> Vec<String> {
     }
     words
 }
-
 /// Lowercase space-joined words with `delimiter` (`noCase`).
 pub fn no_case(s: &str, delimiter: &str) -> String {
     split_words(s)
@@ -127,7 +137,35 @@ pub fn no_case(s: &str, delimiter: &str) -> String {
 
 /// Capitalized-joined words (`pascalCase`).
 pub fn pascal_case(s: &str) -> String {
-    split_words(s).iter().map(|word| capitalize(word)).collect()
+    split_case_words(s)
+        .iter()
+        .map(|word| capitalize(word))
+        .collect()
+}
+
+/// Lower-first camel-joined words (`camelCase`).
+pub fn camel_case(s: &str) -> String {
+    let mut words = split_case_words(s).into_iter();
+    let mut out = words.next().unwrap_or_default().to_lowercase();
+    for word in words {
+        out.push_str(&capitalize(&word));
+    }
+    out
+}
+
+/// Upper underscore-joined words (`constantCase`, `configCase` share
+/// this rule for the row cases).
+pub fn constant_case(s: &str) -> String {
+    split_case_words(s)
+        .iter()
+        .map(|word| word.to_uppercase())
+        .collect::<Vec<_>>()
+        .join("_")
+}
+
+/// Upper underscore-joined words (`configCase`).
+pub fn config_case(s: &str) -> String {
+    constant_case(s)
 }
 
 /// Split before each uppercase letter, lowercasing all (`camelToSnake`
