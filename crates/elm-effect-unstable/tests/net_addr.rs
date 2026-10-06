@@ -603,13 +603,14 @@ fn inet_addresses_convert_to_normalized_urls() {
         ("192.0.2.1:65535", "http", "http://192.0.2.1:65535/"),
     ] {
         let address = NetAddress::socket_address_from_input(input).expect("valid socket");
-        assert_eq!(address.to_url(scheme).as_deref(), Some(expected), "{input}");
+        assert_eq!(address.to_url(scheme).as_deref().ok(), Some(expected), "{input}");
     }
     assert_eq!(
         NetAddress::ipv4_from_string("127.0.0.1")
             .expect("valid")
-            .to_url("http"),
-        None
+            .to_url("http")
+            .as_deref(),
+        Ok("http://127.0.0.1/")
     );
 }
 
@@ -636,5 +637,26 @@ fn net_addresses_format_url_display_values() {
     ] {
         let address = NetAddress::socket_address_from_input(input).expect("valid socket");
         assert_eq!(address.format_url_value(Some(scheme)).as_deref(), Some(expected), "{input}");
+    }
+}
+
+#[test]
+fn net_addresses_reject_bad_urls() {
+    use net::{NetAddress, NetworkErrorInput};
+    // NetAddress.test.ts:432 - scoped IPv6 fails with the address.
+    for input in ["[fe80::1%2]:3000", "[::%2]:3000"] {
+        let scoped = NetAddress::socket_address_from_input(input).expect("valid scoped socket");
+        let err = scoped.to_url("http").expect_err("scoped");
+        assert_eq!(err.input, NetworkErrorInput::Address(scoped.clone()));
+        assert!(err.message.contains("scoped IPv6"));
+        assert!(err.cause.is_none());
+    }
+    // Bad schemes fail with the address and a TypeError cause.
+    let address = NetAddress::socket_address_from_input("127.0.0.1:80").expect("valid");
+    for scheme in ["", "1http", "file"] {
+        let err = address.to_url(scheme).expect_err("bad scheme");
+        assert_eq!(err.input, NetworkErrorInput::Address(address.clone()));
+        assert_eq!(err.message, "failed to construct URL");
+        assert!(err.cause.as_deref().unwrap_or("").contains("TypeError"));
     }
 }

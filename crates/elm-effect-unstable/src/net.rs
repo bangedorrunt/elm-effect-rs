@@ -210,6 +210,8 @@ impl IpNetwork {
 pub enum NetworkErrorInput {
     Addr(IpAddr),
     Text(String),
+    /// A constructed address value (TS failures carrying `input`).
+    Address(NetAddress),
 }
 
 /// A rejected network construction, carrying the offending input.
@@ -219,6 +221,8 @@ pub struct NetworkError {
     pub input: NetworkErrorInput,
     pub tag: &'static str,
     pub message: String,
+    /// Underlying failure text, when the constructor reports one.
+    pub cause: Option<String>,
 }
 
 impl NetworkError {
@@ -227,7 +231,22 @@ impl NetworkError {
             input: NetworkErrorInput::Addr(addr),
             tag: "NetAddressError",
             message: message.into(),
+            cause: None,
         }
+    }
+
+    fn address(address: NetAddress, message: impl Into<String>) -> Self {
+        Self {
+            input: NetworkErrorInput::Address(address),
+            tag: "NetAddressError",
+            message: message.into(),
+            cause: None,
+        }
+    }
+
+    fn caused(mut self, cause: impl Into<String>) -> Self {
+        self.cause = Some(cause.into());
+        self
     }
 
     fn text(text: &str, message: impl Into<String>) -> Self {
@@ -235,6 +254,7 @@ impl NetworkError {
             input: NetworkErrorInput::Text(text.to_string()),
             tag: "NetAddressError",
             message: message.into(),
+            cause: None,
         }
     }
 }
@@ -851,26 +871,70 @@ impl NetAddress {
     }
 
     /// Normalized URL value (TS `toUrl`): lowercased scheme, default
-    /// ports omitted, trailing slash. Returns `None` for addresses
-    /// without a port.
-    pub fn to_url(&self, scheme: &str) -> Option<String> {
-        let Self::Inet(socket) = self else {
-            return None;
-        };
+    /// ports omitted, trailing slash. Scoped IPv6, bad schemes, and
+    /// file URLs with ports fail with the address as input.
+    pub fn to_url(&self, scheme: &str) -> Result<String, NetworkError> {
+        if !Self::valid_scheme(scheme) {
+            return Err(
+                NetworkError::address(self.clone(), "failed to construct URL")
+                    .caused("TypeError: invalid scheme"),
+            );
+        }
         let scheme = scheme.to_ascii_lowercase();
-        let default = matches!(
-            (scheme.as_str(), socket.port()),
-            ("ftp", 21) | ("http" | "ws", 80) | ("https" | "wss", 443)
-        );
-        let host = match socket.ip() {
-            std::net::IpAddr::V4(v4) => v4.to_string(),
-            std::net::IpAddr::V6(v6) => format!("[{v6}]"),
+        let (host, port) = match self {
+            Self::V4(v4) => (v4.to_string(), None),
+            Self::V6(v6) => (format!("[{v6}]"), None),
+            Self::UnixPath(_) => {
+                return Err(
+                    NetworkError::address(self.clone(), "failed to construct URL")
+                        .caused("TypeError: unsupported address"),
+                );
+            }
+            Self::Inet(socket) => {
+                if let std::net::SocketAddr::V6(v6) = socket {
+                    if v6.scope_id() != 0 {
+                        return Err(NetworkError::address(
+                            self.clone(),
+                            "scoped IPv6 addresses are not supported",
+                        ));
+                    }
+                }
+                let host = match socket.ip() {
+                    std::net::IpAddr::V4(v4) => v4.to_string(),
+                    std::net::IpAddr::V6(v6) => format!("[{v6}]"),
+                };
+                (host, Some(socket.port()))
+            }
         };
-        Some(if default {
-            format!("{scheme}://{host}/")
-        } else {
-            format!("{scheme}://{host}:{}/", socket.port())
+        let default = matches!(
+            (scheme.as_str(), port),
+            (_, None)
+                | ("ftp", Some(21))
+                | ("http" | "ws", Some(80))
+                | ("https" | "wss", Some(443))
+        );
+        if scheme == "file" && port.is_some() {
+            return Err(
+                NetworkError::address(self.clone(), "failed to construct URL")
+                    .caused("TypeError: file URLs take no port"),
+            );
+        }
+        Ok(match port {
+            Some(port) if !default => format!("{scheme}://{host}:{port}/"),
+            _ => format!("{scheme}://{host}/"),
         })
+    }
+
+    /// `true` for URL scheme syntax (`ALPHA *( ALPHA / DIGIT / "+" / "-" / "." )`).
+    fn valid_scheme(scheme: &str) -> bool {
+        let mut chars = scheme.chars();
+        match chars.next() {
+            Some(first) if first.is_ascii_alphabetic() => (),
+            _ => return false,
+        }
+        scheme
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'+' | b'-' | b'.'))
     }
 
     /// Display URL without trailing slash, defaulting an omitted scheme

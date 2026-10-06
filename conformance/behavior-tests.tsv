@@ -6988,7 +6988,7 @@ ported	packages/effect/test/net/NetAddress.test.ts	347	it	converts internet addr
 ported	packages/effect/test/net/NetAddress.test.ts	372	it	converts bare IP addresses without adding an explicit port	bare_ips_convert_to_urls_without_ports
 ported	packages/effect/test/net/NetAddress.test.ts	388	it	formats URL strings without trailing slashes or default ports	net_addresses_format_url_display_values
 ported	packages/effect/test/net/NetAddress.test.ts	415	it	formats Unix socket paths without encoding or normalizing them	unix_paths_format_verbatim
-unported	packages/effect/test/net/NetAddress.test.ts	432	it	returns URL conversion errors for scopes and rejected URLs	
+ported	packages/effect/test/net/NetAddress.test.ts	432	it	returns URL conversion errors for scopes and rejected URLs	net_addresses_reject_bad_urls
 unported	packages/effect/test/net/NetAddress.test.ts	451	it	canonicalizes mapped internet addresses while retaining their port	
 unported	packages/effect/test/net/NetAddress.test.ts	464	it	retains identity and scope for internet addresses that need no canonicalization	
 ported	packages/effect/test/net/NetAddress.test.ts	474	it	constructs immutable address values	address_values_construct_across_forms
