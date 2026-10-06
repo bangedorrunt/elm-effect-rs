@@ -5745,9 +5745,9 @@ unported	packages/effect/test/cli/Primitive.test.ts	129	it.effect	should parse v
 unported	packages/effect/test/cli/Primitive.test.ts	155	it.effect	should fail for invalid values	
 unported	packages/effect/test/cli/Primitive.test.ts	158	it	should have correct _tag	
 unported	packages/effect/test/cli/Primitive.test.ts	165	it.layer	should parse valid integer values	
-unported	packages/effect/test/cli/Primitive.test.ts	166	it.effect	should parse valid integer values	
-unported	packages/effect/test/cli/Primitive.test.ts	175	it.effect	should fail for invalid values	
-unported	packages/effect/test/cli/Primitive.test.ts	182	it	should have correct _tag	
+ported	packages/effect/test/cli/Primitive.test.ts	166	it.effect	should parse valid integer values	primitive_value_parsers
+ported	packages/effect/test/cli/Primitive.test.ts	175	it.effect	should fail for invalid values	primitive_value_parsers
+ported	packages/effect/test/cli/Primitive.test.ts	182	it	should have correct _tag	primitive_value_parsers
 unported	packages/effect/test/cli/Primitive.test.ts	189	it.layer	should parse string values	
 unported	packages/effect/test/cli/Primitive.test.ts	190	it.effect	should parse string values	
 unported	packages/effect/test/cli/Primitive.test.ts	199	it	should have correct _tag	

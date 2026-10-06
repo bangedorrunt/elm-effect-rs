@@ -623,6 +623,27 @@ fn primitive_value_parsers() {
         assert_eq!(primitive::parse_finite(text), Ok(want), "{text}");
     }
     // :108/:113 - the rest fail naming finite numbers.
+    // Primitive.test.ts:166 - valid integers parse.
+    for (text, want) in [
+        ("42", 42),
+        ("-123", -123),
+        ("0", 0),
+        ("9007199254740991", 9007199254740991),
+        ("1e3", 1000),
+    ] {
+        assert_eq!(primitive::parse_int(text), Ok(want), "{text}");
+    }
+    // :175 - non-integers and non-numbers fail with tagged messages.
+    for text in ["3.14", "not-a-number"] {
+        let err = primitive::parse_int(text).expect_err("rejects");
+        assert!(
+            err == "Expected an integer"
+                || err == "Expected a string representing a finite number",
+            "{text}"
+        );
+    }
+    // :182 - tag.
+    assert_eq!(primitive::INT_TAG, "Int");
     for text in ["not-a-number", "NaN", "Infinity", "-Infinity", "1e309"] {
         let err = primitive::parse_finite(text).expect_err("rejects");
         assert!(err.contains("finite number"), "{text}");

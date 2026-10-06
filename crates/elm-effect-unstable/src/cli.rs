@@ -351,6 +351,8 @@ pub mod primitive {
     pub const BOOLEAN_TAG: &str = "Boolean";
     /// Tag of the finite-number primitive.
     pub const FINITE_TAG: &str = "Finite";
+    /// Tag of the integer primitive.
+    pub const INT_TAG: &str = "Int";
 
     /// Parse `true/1/y/yes/on` and `false/0/n/no/off`, rejecting anything else.
     pub fn parse_bool(text: &str) -> Result<bool, String> {
@@ -366,6 +368,22 @@ pub mod primitive {
         match text.parse::<f64>() {
             Ok(value) if value.is_finite() => Ok(value),
             _ => Err("Expected a string representing a finite number".to_owned()),
+        }
+    }
+
+    /// Parse an integer, rejecting the rest with tagged messages.
+    pub fn parse_int(text: &str) -> Result<i64, String> {
+        match text.parse::<f64>() {
+            Ok(value)
+                if value.is_finite()
+                    && value.fract() == 0.0
+                    && value >= i64::MIN as f64
+                    && value <= i64::MAX as f64 =>
+            {
+                Ok(value as i64)
+            }
+            Ok(_) => Err("Expected an integer".to_owned()),
+            Err(_) => Err("Expected a string representing a finite number".to_owned()),
         }
     }
 }
