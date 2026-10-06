@@ -24,21 +24,65 @@ pub struct YamlError(pub String);
 pub fn parse(text: &str) -> Result<YamlValue, YamlError> {
     let lines: Vec<(usize, String)> = text
         .lines()
-        .filter(|line| !line.trim().is_empty())
         .map(|line| {
-            let indent = line.len() - line.trim_start_matches(' ').len();
-            (indent, line.trim().to_string())
+            if line.trim().is_empty() {
+                // Blank sentinel: only block scalars consume these.
+                (usize::MAX, String::new())
+            } else {
+                let indent = line.len() - line.trim_start_matches(' ').len();
+                (indent, line.trim().to_string())
+            }
         })
         .collect();
-    if lines.is_empty() {
+    if lines.iter().all(|(_, line)| line.is_empty()) {
         return Err(YamlError("empty document".to_string()));
     }
     let mut parser = Parser { lines, cursor: 0 };
     let value = parser.parse_block(0)?;
+    while matches!(parser.lines.get(parser.cursor), Some((usize::MAX, _))) {
+        parser.cursor += 1;
+    }
     if parser.cursor != parser.lines.len() {
         return Err(YamlError("trailing content".to_string()));
     }
     Ok(value)
+}
+
+/// Fold `>` lines: single breaks become spaces, breaks around
+/// more-indented lines and blank runs become newlines (extra indent
+/// is preserved on the deeper line).
+fn fold_block_lines(content: &[Option<(usize, String)>], base: usize) -> String {
+    let mut out = String::new();
+    let mut first = true;
+    let mut pending_blanks = 0usize;
+    let mut prev_deep = false;
+    for item in content {
+        match item {
+            None => pending_blanks += 1,
+            Some((line_indent, line)) => {
+                let deep = *line_indent > base;
+                if first {
+                    if pending_blanks > 0 {
+                        out.push_str(&"\n".repeat(pending_blanks));
+                    }
+                } else if pending_blanks > 0 {
+                    out.push_str(&"\n".repeat(pending_blanks));
+                } else if prev_deep || deep {
+                    out.push('\n');
+                } else {
+                    out.push(' ');
+                }
+                if deep {
+                    out.push_str(&" ".repeat(line_indent - base));
+                }
+                out.push_str(line);
+                pending_blanks = 0;
+                prev_deep = deep;
+                first = false;
+            }
+        }
+    }
+    out
 }
 
 struct Parser {
@@ -47,12 +91,23 @@ struct Parser {
 }
 
 impl Parser {
-    fn peek(&self) -> Option<&(usize, String)> {
+    fn peek(&mut self) -> Option<&(usize, String)> {
+        while matches!(self.lines.get(self.cursor), Some((usize::MAX, _))) {
+            self.cursor += 1;
+        }
+        self.lines.get(self.cursor)
+    }
+
+    /// Raw lookahead including blank sentinels (block scalars only).
+    fn peek_raw(&self) -> Option<&(usize, String)> {
         self.lines.get(self.cursor)
     }
 
     fn parse_block(&mut self, indent: usize) -> Result<YamlValue, YamlError> {
-        let (line_indent, line) = self.peek().cloned().ok_or_else(|| YamlError("empty block".to_string()))?;
+        let (line_indent, line) = self
+            .peek()
+            .cloned()
+            .ok_or_else(|| YamlError("empty block".to_string()))?;
         if line_indent < indent {
             return Err(YamlError("bad indentation".to_string()));
         }
@@ -70,7 +125,11 @@ impl Parser {
                 break;
             }
             self.cursor += 1;
-            let rest = if line == "-" { String::new() } else { line[2..].to_string() };
+            let rest = if line == "-" {
+                String::new()
+            } else {
+                line[2..].to_string()
+            };
             items.push(self.parse_seq_item(indent, rest)?);
         }
         Ok(items)
@@ -114,7 +173,9 @@ impl Parser {
             if line_indent < min_indent {
                 break;
             }
-            let Some((key, value)) = split_key(&line) else { break };
+            let Some((key, value)) = split_key(&line) else {
+                break;
+            };
             self.cursor += 1;
             pairs.push((key, self.inline_or_nested(line_indent, value)?));
         }
@@ -124,8 +185,8 @@ impl Parser {
     /// An inline value, or a nested block when the value is empty.
     fn inline_or_nested(&mut self, indent: usize, value: String) -> Result<YamlValue, YamlError> {
         if value.is_empty() {
-            match self.peek() {
-                Some((next, _)) if *next > indent => self.parse_block(*next),
+            match self.peek().cloned() {
+                Some((next, _)) if next > indent => self.parse_block(next),
                 _ => Ok(YamlValue::Null),
             }
         } else if is_block_header(&value) {
@@ -138,39 +199,63 @@ impl Parser {
     /// A `|` literal or `>` folded block: content lines nested deeper
     /// than the key; `-` strips the trailing break, otherwise clipped to
     /// one. `+` (keep) and explicit indent digits stay open.
-    fn parse_block_scalar(&mut self, indent: usize, header: String) -> Result<YamlValue, YamlError> {
+    fn parse_block_scalar(
+        &mut self,
+        indent: usize,
+        header: String,
+    ) -> Result<YamlValue, YamlError> {
         let style = header.as_bytes()[0];
         let flags: String = header[1..].trim().to_string();
         if flags.contains('+') || flags.chars().any(|c| c.is_ascii_digit()) {
-            return Err(YamlError("keep chomping and indent digits stay open".to_string()));
+            return Err(YamlError(
+                "keep chomping and indent digits stay open".to_string(),
+            ));
         }
         if flags.chars().any(|c| c != '-') {
             return Err(YamlError(format!("bad block header: {header}")));
         }
         let stripped = flags.contains('-');
-        let mut content: Vec<String> = Vec::new();
+        // (indent, text) items; `None` marks a blank line inside the block.
+        let mut content: Vec<Option<(usize, String)>> = Vec::new();
         let mut content_indent: Option<usize> = None;
-        while let Some((line_indent, line)) = self.peek().cloned() {
+        while let Some((line_indent, line)) = self.peek_raw().cloned() {
+            if line_indent == usize::MAX {
+                self.cursor += 1;
+                content.push(None);
+                continue;
+            }
             if line_indent <= indent {
                 break;
             }
             match content_indent {
                 None => content_indent = Some(line_indent),
                 Some(known) if line_indent < known => {
-                    return Err(YamlError("bad block indentation".to_string()))
+                    return Err(YamlError("bad block indentation".to_string()));
                 }
                 _ => {}
             }
             self.cursor += 1;
-            content.push(line);
+            content.push(Some((line_indent, line)));
+        }
+        // Trailing blanks are chomping territory, not content.
+        while matches!(content.last(), Some(None)) {
+            content.pop();
         }
         if content.is_empty() {
             return Ok(YamlValue::Text(String::new()));
         }
+        let base = content_indent.unwrap_or(indent + 1);
         let mut body = if style == b'|' {
-            content.join("\n")
+            content
+                .iter()
+                .map(|item| match item {
+                    None => String::new(),
+                    Some((_, line)) => line.clone(),
+                })
+                .collect::<Vec<_>>()
+                .join("\n")
         } else {
-            content.join(" ")
+            fold_block_lines(&content, base)
         };
         if !stripped {
             body.push('\n');

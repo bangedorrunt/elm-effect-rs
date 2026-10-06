@@ -6327,7 +6327,7 @@ ported	packages/effect/test/encoding/Toml.test.ts	61	it	parses multiline strings
 ported	packages/effect/test/encoding/Toml.test.ts	80	it	rejects duplicate keys	toml_rejects_duplicates
 ported	packages/effect/test/encoding/Yaml.test.ts	5	it	parses nested block and flow collections	parses_nested_block_and_flow_collections
 ported	packages/effect/test/encoding/Yaml.test.ts	34	it	parses quoted and block scalars	parses_quoted_and_block_scalars
-unported	packages/effect/test/encoding/Yaml.test.ts	53	it	preserves paragraph and indentation breaks in folded block scalars	
+ported	packages/effect/test/encoding/Yaml.test.ts	53	it	preserves paragraph and indentation breaks in folded block scalars	folds_block_scalars
 unported	packages/effect/test/encoding/Yaml.test.ts	72	it.each	preserves %s	
 unported	packages/effect/test/encoding/Yaml.test.ts	92	it	resolves aliases	
 unported	packages/effect/test/encoding/Yaml.test.ts	108	it	rejects invalid indentation	

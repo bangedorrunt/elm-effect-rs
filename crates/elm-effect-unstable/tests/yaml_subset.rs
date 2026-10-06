@@ -77,3 +77,18 @@ fn parses_quoted_and_block_scalars() {
     ]);
     assert_eq!(parsed, expected);
 }
+
+#[test]
+fn folds_block_scalars() {
+    use std::collections::BTreeMap;
+    // Yaml.test.ts:53 - folded breaks: blanks and indent shifts break lines.
+    let parsed = yaml::parse(
+        "paragraph: >-\n  first\n\n  second\nindented: >-\n  first\n    second\n  third\n",
+    )
+    .expect("parses");
+    let want = YamlValue::Map(vec![
+        ("paragraph".to_owned(), text("first\nsecond")),
+        ("indented".to_owned(), text("first\n  second\nthird")),
+    ]);
+    assert_eq!(parsed, want);
+}
