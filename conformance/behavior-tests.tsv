@@ -4541,7 +4541,7 @@ ported	packages/effect/test/ai/AiError.test.ts	489	it	should delegate isRetryabl
 ported	packages/effect/test/ai/AiError.test.ts	505	it	should delegate retryAfter to reason	ai_error_delegates_to_reason_with_context
 ported	packages/effect/test/ai/AiError.test.ts	523	it	should format message with module, method, and reason	ai_error_delegates_to_reason_with_context
 ported	packages/effect/test/ai/AiError.test.ts	533	it	should have _tag set correctly	ai_error_tags_and_retryability
-unported	packages/effect/test/ai/AiError.test.ts	545	it	should create AiError	
+ported	packages/effect/test/ai/AiError.test.ts	545	it	should create AiError	ai_error_wrapper_tag_is_distinct_from_reason
 ported	packages/effect/test/ai/AiError.test.ts	559	it	should map 400 to InvalidRequestError	ai_error_reason_from_http_status
 ported	packages/effect/test/ai/AiError.test.ts	564	it	should map 401 to AuthenticationError with InvalidKey	ai_error_reason_from_http_status
 ported	packages/effect/test/ai/AiError.test.ts	572	it	should map 403 to AuthenticationError with InsufficientPermissions	ai_error_reason_from_http_status
@@ -4549,9 +4549,9 @@ ported	packages/effect/test/ai/AiError.test.ts	580	it	should thread the descript
 ported	packages/effect/test/ai/AiError.test.ts	592	it	should map 429 to RateLimitError	ai_error_reason_from_http_status
 ported	packages/effect/test/ai/AiError.test.ts	597	it	should map 5xx to InternalProviderError	ai_error_reason_from_http_status
 ported	packages/effect/test/ai/AiError.test.ts	612	it	should map unknown status to UnknownError	ai_error_reason_from_http_status
-unported	packages/effect/test/ai/AiError.test.ts	621	it	should return true for AiError	
+ported	packages/effect/test/ai/AiError.test.ts	621	it	should return true for AiError	ai_error_wrapper_tag_is_distinct_from_reason
 unported	packages/effect/test/ai/AiError.test.ts	630	it	should return false for non-AiError values	
-unported	packages/effect/test/ai/AiError.test.ts	637	it	should return false for reason types	
+ported	packages/effect/test/ai/AiError.test.ts	637	it	should return false for reason types	ai_error_wrapper_tag_is_distinct_from_reason
 unported	packages/effect/test/ai/AiError.test.ts	655	it.effect	should encode and decode roundtrip	
 unported	packages/effect/test/ai/AiError.test.ts	670	it.effect	should encode and decode roundtrip	
 unported	packages/effect/test/ai/AiError.test.ts	684	it.effect	should encode and decode roundtrip	

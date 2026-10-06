@@ -356,7 +356,7 @@ impl AiReason {
 /// Tagged AI failure: a reason with its message.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct AiError {
-    /// Machine tag (mirrors `_tag`).
+    /// Wrapper tag, mirroring `AiError._tag` (the reason carries its own tag).
     pub tag: String,
     /// Structured reason.
     pub reason: AiReason,
@@ -371,10 +371,13 @@ pub struct AiError {
 }
 
 impl AiError {
+    /// Wrapper type identity, mirroring `AiError.TypeId`.
+    pub const TYPE_ID: &'static str = "AiError";
+
     /// Build from a reason, rendering tag/retryability from it.
     pub fn new(reason: AiReason) -> Self {
         Self {
-            tag: reason.tag().to_owned(),
+            tag: AiError::TYPE_ID.to_owned(),
             description: None,
             is_retryable: reason.is_retryable(),
             reason,
@@ -422,6 +425,17 @@ impl AiError {
         self.module = Some(module.to_owned());
         self.method = Some(method.to_owned());
         self
+    }
+
+    /// Tag of the wrapped reason, mirroring `AiError._tag` on the reason.
+    pub fn reason_tag(&self) -> &'static str {
+        self.reason.tag()
+    }
+
+    /// `true` when this value carries the AiError wrapper tag. Rust's type
+    /// system rules out the runtime-shape cases `isAiError` guards in TS.
+    pub fn is_ai_error(&self) -> bool {
+        self.tag == AiError::TYPE_ID
     }
 
     /// Retry delay carried by the reason, if any.

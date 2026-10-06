@@ -193,7 +193,7 @@ fn ai_error_tags_and_retryability() {
     ];
     for (reason, tag, retryable) in cases {
         let error = AiError::new(reason);
-        assert_eq!(error.tag, tag);
+        assert_eq!(error.reason_tag(), tag);
         assert_eq!(error.is_retryable, retryable, "retryability of {tag}");
     }
 }
@@ -372,7 +372,7 @@ fn ai_error_tool_messages() {
         tool_name: "GetWeather".to_owned(),
         description: "Expected finite number, got NaN".to_owned(),
     });
-    assert_eq!(nan.tag, "ToolParameterValidationError");
+    assert_eq!(nan.reason_tag(), "ToolParameterValidationError");
     assert!(nan.message().contains("NaN"));
     // AiError.test.ts:321.
     let result = AiError::new(AiReason::InvalidToolResult {
@@ -422,16 +422,16 @@ fn ai_error_reason_from_http_status() {
     use elm_effect_unstable::ai::{AiError, AiReason};
     // AiError.test.ts:559 — 400 maps to InvalidRequestError.
     assert_eq!(
-        AiError::reason_from_http_status(400, None).tag,
+        AiError::reason_from_http_status(400, None).reason_tag(),
         "InvalidRequestError"
     );
     // :564 — 401 maps to AuthenticationError with InvalidKey.
     let keyed = AiError::reason_from_http_status(401, None);
-    assert_eq!(keyed.tag, "AuthenticationError");
+    assert_eq!(keyed.reason_tag(), "AuthenticationError");
     assert!(matches!(&keyed.reason, AiReason::Authentication { kind } if kind == "InvalidKey"));
     // :572 — 403 maps to AuthenticationError with InsufficientPermissions.
     let forbidden = AiError::reason_from_http_status(403, None);
-    assert_eq!(forbidden.tag, "AuthenticationError");
+    assert_eq!(forbidden.reason_tag(), "AuthenticationError");
     assert!(matches!(
         &forbidden.reason,
         AiReason::Authentication { kind } if kind == "InsufficientPermissions"
@@ -445,16 +445,16 @@ fn ai_error_reason_from_http_status() {
     assert!(threaded.message().contains("User is not authorized"));
     // :592 — 429 maps to retryable RateLimitError.
     let limited = AiError::reason_from_http_status(429, None);
-    assert_eq!(limited.tag, "RateLimitError");
+    assert_eq!(limited.reason_tag(), "RateLimitError");
     assert!(limited.is_retryable);
     // :597 — 5xx maps to InternalProviderError.
     assert_eq!(
-        AiError::reason_from_http_status(503, None).tag,
+        AiError::reason_from_http_status(503, None).reason_tag(),
         "InternalProviderError"
     );
     // :612 — unknown statuses map to UnknownError.
     assert_eq!(
-        AiError::reason_from_http_status(418, None).tag,
+        AiError::reason_from_http_status(418, None).reason_tag(),
         "UnknownError"
     );
 }
@@ -492,4 +492,32 @@ fn ai_error_delegates_to_reason_with_context() {
     assert!(unknown.message().starts_with("Test.test:"));
     // Without a context the message stays the bare reason message.
     assert_eq!(AiError::new(AiReason::Unknown).message(), "Unknown error");
+}
+
+#[test]
+fn ai_error_wrapper_tag_is_distinct_from_reason() {
+    use elm_effect_unstable::ai::{AiError, AiReason};
+    // AiError.test.ts:545 - the wrapper tag is "AiError" for every reason.
+    let unknown = AiError::new(AiReason::Unknown).with_context("Test", "test");
+    assert_eq!(unknown.tag, "AiError");
+    assert_eq!(AiError::TYPE_ID, "AiError");
+    let limited = AiError::new(AiReason::RateLimit {
+        retry_after_secs: None,
+    });
+    assert_eq!(limited.tag, "AiError");
+    assert_eq!(limited.reason_tag(), "RateLimitError");
+    // :621 - isAiError holds for the wrapper.
+    assert!(unknown.is_ai_error());
+    assert!(limited.is_ai_error());
+    // :637 - reasons are not wrappers: their tag never matches TYPE_ID.
+    for reason in [
+        AiReason::NetworkError {
+            details: "d".to_owned(),
+        },
+        AiReason::QuotaExhausted,
+    ] {
+        assert_ne!(reason.tag(), AiError::TYPE_ID);
+    }
+    // :630 - non-AiError values cannot reach this API in Rust; the type
+    // system rules out the TS runtime-shape cases.
 }
