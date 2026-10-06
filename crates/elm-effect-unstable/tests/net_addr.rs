@@ -825,7 +825,16 @@ fn net_addresses_format_native_hosts() {
     use net::NetAddress;
     use std::collections::BTreeMap;
     // NetAddress.test.ts:604 - native hosts map scopes to interface names.
-    let scope_ids = NetAddress::scope_ids_from_interfaces(&[("en0", 7), ("en1", 7)]);
+    let scope_ids = NetAddress::scope_ids_from_interfaces(&[
+        (
+            "en0",
+            Some(&[net::InterfaceAddress::new(true, Some(7))][..]),
+        ),
+        (
+            "en1",
+            Some(&[net::InterfaceAddress::new(true, Some(7))][..]),
+        ),
+    ]);
     for platform in [None, Some("linux"), Some("darwin")] {
         for (input, expected) in [
             ("127.0.0.1:8080", "127.0.0.1"),
@@ -875,7 +884,16 @@ fn net_addresses_format_multicast_interfaces() {
     use std::collections::BTreeMap;
     // NetAddress.test.ts:631 - multicast interfaces render scopes.
     assert_eq!(NetAddress::IPV4_LOOPBACK.format_ip(), "127.0.0.1");
-    let scope_ids = NetAddress::scope_ids_from_interfaces(&[("en0", 7), ("en1", 7)]);
+    let scope_ids = NetAddress::scope_ids_from_interfaces(&[
+        (
+            "en0",
+            Some(&[net::InterfaceAddress::new(true, Some(7))][..]),
+        ),
+        (
+            "en1",
+            Some(&[net::InterfaceAddress::new(true, Some(7))][..]),
+        ),
+    ]);
     for platform in [None, Some("win32"), Some("linux"), Some("darwin")] {
         assert_eq!(
             NetAddress::format_multicast_interface_scope(0, &scope_ids, platform),
@@ -933,4 +951,35 @@ fn net_addresses_resolve_named_zones_through_scope_table() {
     assert!(
         NetAddress::socket_address_from_host_string("fe80::1%en0", 4567, &empty).is_err()
     );
+}
+
+#[test]
+fn net_addresses_snapshot_scope_ids_from_interfaces() {
+    use net::{InterfaceAddress, NetAddress};
+    use std::collections::BTreeMap;
+    // NetAddress.test.ts:664 - first positive IPv6 scope id wins per interface.
+    let v4 = |scope_id| InterfaceAddress::new(false, scope_id);
+    let v6 = |scope_id| InterfaceAddress::new(true, scope_id);
+    let en0 = [
+        v4(Some(99)),
+        v6(None),
+        v6(Some(0)),
+        v6(Some(-1)),
+        v6(Some(7)),
+        v6(Some(9)),
+    ];
+    let en2 = [v4(None), v6(Some(0))];
+    let en3 = [v6(Some(11))];
+    let scope_ids = NetAddress::scope_ids_from_interfaces(&[
+        ("en0", Some(&en0[..])),
+        ("en1", None),
+        ("en2", Some(&en2[..])),
+        ("en3", Some(&en3[..])),
+    ]);
+    // Snapshots values: later record mutation cannot move the table.
+    assert_eq!(
+        scope_ids,
+        BTreeMap::from([("en0".to_owned(), 7u32), ("en3".to_owned(), 11u32)])
+    );
+    assert_eq!(NetAddress::scope_ids_from_interfaces(&[]), BTreeMap::new());
 }

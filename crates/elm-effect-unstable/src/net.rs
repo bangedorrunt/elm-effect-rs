@@ -537,6 +537,24 @@ pub enum NetAddress {
     Inet(SocketAddr),
 }
 
+/// One OS interface address record for scope extraction.
+/// (`family` plus an optional numeric scope id.)
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct InterfaceAddress {
+    /// True for IPv6 records (only these carry scope ids).
+    pub ipv6: bool,
+    /// Numeric scope id, when present.
+    pub scope_id: Option<i32>,
+}
+
+impl InterfaceAddress {
+    /// Build a record.
+    pub fn new(ipv6: bool, scope_id: Option<i32>) -> Self {
+        Self { ipv6, scope_id }
+    }
+}
+
+
 impl NetAddress {
     /// `0.0.0.0` (TS `ipv4Unspecified`).
     pub const IPV4_UNSPECIFIED: Self = Self::V4(Ipv4Addr::UNSPECIFIED);
@@ -910,14 +928,29 @@ impl NetAddress {
         }
     }
 
-    /// Build an interface-name to scope-id table from `(name, scope id)`
-    /// pairs (mirrors `scopeIdsFromInterfaces`, which extracts these from
-    /// OS interface records; pass the extracted pairs directly here).
-    pub fn scope_ids_from_interfaces(entries: &[(&str, u32)]) -> BTreeMap<String, u32> {
-        entries
-            .iter()
-            .map(|(name, scope_id)| ((*name).to_owned(), *scope_id))
-            .collect()
+    /// Snapshot the first positive IPv6 scope id per interface (TS
+    /// `scopeIdsFromInterfaces`; IPv4, missing, zero, and negative ids
+    /// never win, and missing interfaces are skipped).
+    pub fn scope_ids_from_interfaces(
+        interfaces: &[(&str, Option<&[InterfaceAddress]>)],
+    ) -> BTreeMap<String, u32> {
+        let mut out = BTreeMap::new();
+        for (name, addresses) in interfaces {
+            let Some(addresses) = addresses else {
+                continue;
+            };
+            for record in *addresses {
+                if record.ipv6 {
+                    if let Some(scope_id) = record.scope_id {
+                        if scope_id > 0 {
+                            out.insert((*name).to_owned(), scope_id as u32);
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+        out
     }
 
     /// Native host text: nonzero scopes render as interface names when
