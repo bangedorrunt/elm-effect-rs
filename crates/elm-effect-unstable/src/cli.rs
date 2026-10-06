@@ -439,6 +439,10 @@ pub mod primitive {
     pub const FINITE_TAG: &str = "Finite";
     /// Tag of the integer primitive.
     pub const INT_TAG: &str = "Int";
+    /// Tag of the string primitive.
+    pub const STRING_TAG: &str = "String";
+    /// Tag of the choice primitive.
+    pub const CHOICE_TAG: &str = "Choice";
 
     /// Parse `true/1/y/yes/on` and `false/0/n/no/off`, rejecting anything else.
     pub fn parse_bool(text: &str) -> Result<bool, String> {
@@ -470,6 +474,24 @@ pub mod primitive {
             }
             Ok(_) => Err("Expected an integer".to_owned()),
             Err(_) => Err("Expected a string representing a finite number".to_owned()),
+        }
+    }
+
+    /// Parse a string (identity; every input is valid).
+    pub fn parse_string(text: &str) -> String {
+        text.to_owned()
+    }
+
+    /// Parse one of `options`, mapping the input to its output.
+    /// Failures name the allowed inputs as `"a" | "b"`.
+    pub fn parse_choice(text: &str, options: &[(&str, &str)]) -> Result<String, String> {
+        match options.iter().find(|(input, _)| *input == text) {
+            Some((_, output)) => Ok((*output).to_owned()),
+            None => Err(options
+                .iter()
+                .map(|(input, _)| format!("\"{input}\""))
+                .collect::<Vec<_>>()
+                .join(" | ")),
         }
     }
 }

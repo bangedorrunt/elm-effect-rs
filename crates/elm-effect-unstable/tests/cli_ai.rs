@@ -855,3 +855,26 @@ fn cli_error_taxonomy_tags() {
         "InvalidValue"
     );
 }
+
+#[test]
+fn primitive_string_and_choice() {
+    use elm_effect_unstable::cli::primitive;
+    // Primitive.test.ts:190 - strings pass through untouched.
+    for text in ["hello", "", " spaces ", "123", "special!@#$%"] {
+        assert_eq!(primitive::parse_string(text), text);
+    }
+    // :199 - tag.
+    assert_eq!(primitive::STRING_TAG, "String");
+    // :213 - valid choices map to their outputs.
+    let colors = [("red", "RED"), ("green", "GREEN"), ("blue", "BLUE")];
+    for (text, want) in [("red", "RED"), ("green", "GREEN"), ("blue", "BLUE")] {
+        assert_eq!(primitive::parse_choice(text, &colors).as_deref(), Ok(want));
+    }
+    // :220 - the rest fail naming the allowed inputs.
+    for text in ["yellow", "purple", ""] {
+        let err = primitive::parse_choice(text, &colors).expect_err("rejects");
+        assert_eq!(err, "\"red\" | \"green\" | \"blue\"", "{text}");
+    }
+    // :231 - tag.
+    assert_eq!(primitive::CHOICE_TAG, "Choice");
+}
