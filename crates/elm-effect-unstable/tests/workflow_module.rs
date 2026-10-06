@@ -150,3 +150,35 @@ fn compensation_fires_on_failure_and_cancel_only() {
     assert_eq!(out, Ok(2));
     assert_eq!(undone3.load(Ordering::SeqCst), 0);
 }
+
+#[test]
+fn hash_digest_matches_sha256_vectors() {
+    use elm_effect_unstable::workflow::hash_digest;
+    assert_eq!(hash_digest(""), "e3b0c44298fc1c149afbf4c8996fb924");
+    assert_eq!(hash_digest("abc"), "ba7816bf8f01cfea414140de5dae2223");
+}
+
+#[test]
+fn execution_id_separates_tags_and_keys_at_boundaries() {
+    use elm_effect_unstable::workflow::execution_id;
+    for (left_tag, left_key, right_tag, right_key) in [
+        ("Order", "Pay-42", "Order-Pay", "42"),
+        ("Order", "Pay:42", "Order:Pay", "42"),
+        ("", "-", "-", ""),
+        ("A\"", "B\\", "A\"-B", "\\"),
+    ] {
+        let left = execution_id(left_tag, left_key);
+        let right = execution_id(right_tag, right_key);
+        assert_ne!(left, right, "boundary must separate");
+        assert_eq!(execution_id(left_tag, left_key), left);
+    }
+}
+
+#[test]
+fn execution_id_is_deterministic_for_repeated_calls() {
+    use elm_effect_unstable::workflow::execution_id;
+    let first = execution_id("Increment", "1");
+    let discarded = execution_id("Increment", "1");
+    assert_eq!(first, discarded);
+    assert_eq!(first.len(), 32);
+}
