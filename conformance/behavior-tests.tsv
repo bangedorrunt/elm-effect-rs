@@ -6130,10 +6130,10 @@ unported	packages/effect/test/encoding/SchemaBinary.test.ts	265	it	keeps an earl
 unported	packages/effect/test/encoding/SchemaBinary.test.ts	282	it	keeps different results independent inside a shared arena	
 unported	packages/effect/test/encoding/SchemaBinary.test.ts	295	it	preserves nested two-phase codec composition	
 unported	packages/effect/test/encoding/SchemaBinary.test.ts	304	it.effect	keeps concurrent fiber results readable after their producing turn	
-unported	packages/effect/test/encoding/SchemaBinary.test.ts	324	it	encodes integral values as sign-magnitude varints	
-unported	packages/effect/test/encoding/SchemaBinary.test.ts	334	it	covers every varint width up to the seven byte cap, both signs	
-unported	packages/effect/test/encoding/SchemaBinary.test.ts	352	it	encodes short decimals as a mantissa varint plus one scale byte	
-unported	packages/effect/test/encoding/SchemaBinary.test.ts	369	it	keeps f64 for values neither a capped varint nor a decimal can hold	
+ported	packages/effect/test/encoding/SchemaBinary.test.ts	324	it	encodes integral values as sign-magnitude varints	binary_scalars_pack_varints_by_width
+ported	packages/effect/test/encoding/SchemaBinary.test.ts	334	it	covers every varint width up to the seven byte cap, both signs	binary_scalars_pack_varints_by_width
+ported	packages/effect/test/encoding/SchemaBinary.test.ts	352	it	encodes short decimals as a mantissa varint plus one scale byte	binary_scalars_pack_decimals_and_f64_fallback
+ported	packages/effect/test/encoding/SchemaBinary.test.ts	369	it	keeps f64 for values neither a capped varint nor a decimal can hold	binary_scalars_pack_decimals_and_f64_fallback
 unported	packages/effect/test/encoding/SchemaBinary.test.ts	389	it	discriminates struct number forms with the field wire kind	
 unported	packages/effect/test/encoding/SchemaBinary.test.ts	401	it	uses the decimal wire kind in struct fields and record pairs	
 unported	packages/effect/test/encoding/SchemaBinary.test.ts	410	it	packs a uniform number array behind one mode byte	

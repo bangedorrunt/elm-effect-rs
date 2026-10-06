@@ -210,6 +210,60 @@ pub fn encode_number_array(values: &[f64]) -> Vec<u8> {
     frame(ARRAY_TAG, values.len() as u64, Some(mode), &payload)
 }
 
+/// Encode one scalar number: bare sign-magnitude varint, mantissa
+/// varint plus scale byte for short decimals, or raw f64.
+pub fn encode_number_scalar(value: f64) -> Vec<u8> {
+    let mut payload = Vec::new();
+    if is_varint_number(value) {
+        number_varint(value, &mut payload);
+    } else {
+        let scale = decimal_scale(value);
+        if scale == 0 {
+            payload.extend_from_slice(&value.to_le_bytes());
+        } else {
+            number_varint(js_round(value * POW10[scale as usize]), &mut payload);
+            payload.push(scale as u8);
+        }
+    }
+    let mut out = Vec::new();
+    uvarint(1 + payload.len() as u64, &mut out);
+    out.push(ARRAY_TAG);
+    out.extend_from_slice(&payload);
+    out
+}
+
+/// Decode one scalar number: 8-byte payloads are f64, otherwise a
+/// varint with an optional trailing scale byte.
+pub fn decode_number_scalar(bytes: &[u8]) -> Result<f64, BinaryError> {
+    let fail = |message: &str| BinaryError::new(format!("{} [{}]", message, hex_preview(bytes)));
+    let mut pos = 0;
+    let _length = uvarint_decode(bytes, &mut pos).ok_or_else(|| fail("truncated length"))?;
+    let tag = *bytes.get(pos).ok_or_else(|| fail("truncated tag"))?;
+    pos += 1;
+    if tag != ARRAY_TAG {
+        return Err(fail("unexpected envelope tag"));
+    }
+    if bytes.len() - pos == 8 {
+        let mut word = [0u8; 8];
+        word.copy_from_slice(&bytes[pos..pos + 8]);
+        return Ok(f64::from_le_bytes(word));
+    }
+    let word = uvarint_decode(bytes, &mut pos).ok_or_else(|| fail("truncated scalar"))?;
+    if pos == bytes.len() {
+        return Ok(sign_magnitude_to_f64(word, 0));
+    }
+    let scale = bytes[pos];
+    pos += 1;
+    if scale > DECIMAL_SCALE_MAX as u8 || pos != bytes.len() {
+        return Err(fail("bad scalar scale"));
+    }
+    // The mantissa word of a scalar decimal reuses the sign-magnitude form.
+    let negative = word & 1 == 1;
+    let magnitude = (word >> 1) as f64;
+    let value = magnitude / POW10[scale as usize];
+    Ok(if negative { -value } else { value })
+}
+
 /// Encode booleans as raw bytes behind the array envelope (no run mode).
 pub fn encode_bool_array(values: &[bool]) -> Vec<u8> {
     let payload: Vec<u8> = values.iter().map(|value| u8::from(*value)).collect();

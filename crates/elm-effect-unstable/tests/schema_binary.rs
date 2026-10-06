@@ -4,7 +4,8 @@
 mod schema_binary;
 
 use schema_binary::{
-    decode_bool_array, decode_number_array, encode_bool_array, encode_number_array,
+    decode_bool_array, decode_number_array, decode_number_scalar, encode_bool_array,
+    encode_number_array, encode_number_scalar,
 };
 
 #[test]
@@ -56,4 +57,72 @@ fn binary_number_runs_pick_compact_modes() {
         decode_number_array(&[0x03, 0x20, 0x00, 0x01]).expect("decodes"),
         Vec::<f64>::new()
     );
+}
+
+#[test]
+fn binary_scalars_pack_varints_by_width() {
+    // SchemaBinary.test.ts:324 — integral scalars as sign-magnitude varints.
+    assert_eq!(encode_number_scalar(0.0), vec![2, 0x20, 0]);
+    assert_eq!(encode_number_scalar(-0.0), vec![2, 0x20, 1]);
+    assert_eq!(encode_number_scalar(1.0), vec![2, 0x20, 2]);
+    assert_eq!(encode_number_scalar(-1.0), vec![2, 0x20, 3]);
+    for v in [0.0, -0.0, 1.0, -1.0, 42.0, -42.0, 127.0, -128.0] {
+        let back = decode_number_scalar(&encode_number_scalar(v)).expect("decodes");
+        assert_eq!(back.to_bits(), v.to_bits());
+    }
+    // :334 — every varint width to the seven-byte cap, both signs; f64 past it.
+    for width in 1..=7u32 {
+        let last = (1u64 << (7 * width - 1)) - 1;
+        for sign in [1.0, -1.0] {
+            let inside = sign * last as f64;
+            assert_eq!(encode_number_scalar(inside).len(), 2 + width as usize);
+            assert_eq!(
+                decode_number_scalar(&encode_number_scalar(inside))
+                    .expect("decodes")
+                    .to_bits(),
+                inside.to_bits()
+            );
+            let outside = sign * (last as f64 + 1.0);
+            let expected = if width == 7 { 10 } else { 3 + width as usize };
+            assert_eq!(encode_number_scalar(outside).len(), expected);
+            assert_eq!(
+                decode_number_scalar(&encode_number_scalar(outside))
+                    .expect("decodes")
+                    .to_bits(),
+                outside.to_bits()
+            );
+        }
+    }
+}
+
+#[test]
+fn binary_scalars_pack_decimals_and_f64_fallback() {
+    // :352 — short decimals as mantissa varint plus scale byte.
+    assert_eq!(encode_number_scalar(1.5), vec![3, 0x20, 30, 1]);
+    assert_eq!(encode_number_scalar(-0.5), vec![3, 0x20, 11, 1]);
+    for v in [0.1, 1.3, 4.7, 98.5, -123.456] {
+        let back = decode_number_scalar(&encode_number_scalar(v)).expect("decodes");
+        assert_eq!(back.to_bits(), v.to_bits());
+    }
+    // :369 — neither capped-varint nor decimal stays raw f64.
+    for v in [
+        f64::EPSILON,
+        f64::NAN,
+        f64::INFINITY,
+        f64::NEG_INFINITY,
+        9_007_199_254_740_991.0,
+        -9_007_199_254_740_991.0,
+        f64::MAX,
+        std::f64::consts::PI,
+        1e-9,
+        2f64.powi(48),
+        -(2f64.powi(48)),
+    ] {
+        let bytes = encode_number_scalar(v);
+        assert_eq!(bytes.len(), 10);
+        assert_eq!(
+            decode_number_scalar(&bytes).expect("decodes").to_bits(),
+            v.to_bits()
+        );
+    }
 }
