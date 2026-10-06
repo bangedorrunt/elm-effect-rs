@@ -1016,3 +1016,24 @@ fn net_addresses_roundtrip_max_scope_ids() {
     assert_eq!(plain.scope_id(), Some(0));
     assert_eq!(plain.format_socket_address(), "[fe80::1]:80");
 }
+
+#[test]
+fn net_addresses_throw_for_trusted_construction() {
+    use net::NetAddress;
+    // NetAddress.test.ts:685 - throwing counterparts for trusted input.
+    let ip = NetAddress::ip_from_string_unsafe("::1");
+    assert_eq!(ip.format_ip(), "::1");
+    let socket = NetAddress::inet_address_unsafe(&ip, 8080);
+    assert_eq!(socket.format_socket_address(), "[::1]:8080");
+    assert_eq!(
+        NetAddress::inet_address_from_string_unsafe("127.0.0.1:8080").format_socket_address(),
+        "127.0.0.1:8080"
+    );
+    // Untrusted input panics instead.
+    assert!(std::panic::catch_unwind(|| NetAddress::ip_from_string_unsafe("localhost")).is_err());
+    assert!(std::panic::catch_unwind(|| NetAddress::inet_address_unsafe(&ip, -1)).is_err());
+    assert!(
+        std::panic::catch_unwind(|| NetAddress::inet_address_from_string_unsafe("localhost:8080"))
+            .is_err()
+    );
+}

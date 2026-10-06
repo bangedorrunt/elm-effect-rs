@@ -7003,7 +7003,7 @@ ported	packages/effect/test/net/NetAddress.test.ts	604	it	formats native hosts u
 ported	packages/effect/test/net/NetAddress.test.ts	631	it	formats multicast interfaces using the supplied platform and scope map	net_addresses_format_multicast_interfaces
 ported	packages/effect/test/net/NetAddress.test.ts	653	it	resolves named IPv6 zones only through the supplied scope map	net_addresses_resolve_named_zones_through_scope_table
 ported	packages/effect/test/net/NetAddress.test.ts	664	it	snapshots the first positive IPv6 scope ID from each interface	net_addresses_snapshot_scope_ids_from_interfaces
-unported	packages/effect/test/net/NetAddress.test.ts	685	it	provides throwing counterparts for trusted construction	
+ported	packages/effect/test/net/NetAddress.test.ts	685	it	provides throwing counterparts for trusted construction	net_addresses_throw_for_trusted_construction
 ported	packages/effect/test/net/NetAddress.test.ts	698	it	checks port boundaries and rejects ambiguous input	net_addresses_check_port_boundaries
 ported	packages/effect/test/net/NetAddress.test.ts	732	it	preserves IPv6 scope metadata in equality and hashing	net_addresses_keep_scope_in_equality_and_hash
 ported	packages/effect/test/net/NetAddress.test.ts	742	it	round trips numeric IPv6 scope identifiers	net_addresses_roundtrip_max_scope_ids

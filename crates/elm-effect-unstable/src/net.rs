@@ -640,6 +640,11 @@ impl NetAddress {
         Self::ipv4_from_string(text)
     }
 
+    /// Parse an IP, panicking on invalid input (TS `ipFromStringUnsafe`).
+    pub fn ip_from_string_unsafe(text: &str) -> Self {
+        Self::ip_from_string(text).expect("invalid IP address")
+    }
+
     /// Strict IP parse of either family (TS `ipv6FromString`).
     pub fn ipv6_from_string(text: &str) -> Result<Self, NetworkError> {
         match StrictIp::parse(text) {
@@ -777,6 +782,20 @@ impl NetAddress {
 
     /// Build from an address plus port: bare IPs gain the port, Unix and
     /// nested values fail (TS `socketAddressFromInput` struct form).
+    /// Build a socket from a bare IP plus port (TS `inetAddress`;
+    /// signed ports let callers express out-of-range values).
+    pub fn inet_address(address: &NetAddress, port: i64) -> Result<Self, NetworkError> {
+        if !(0..=65535).contains(&port) {
+            return Err(NetworkError::text(&port.to_string(), "invalid port"));
+        }
+        Self::socket_address_from_parts(address, port as u32)
+    }
+
+    /// Throwing twin of [`Self::inet_address`] (TS `inetAddressUnsafe`).
+    pub fn inet_address_unsafe(address: &NetAddress, port: i64) -> Self {
+        Self::inet_address(address, port).expect("invalid socket address")
+    }
+
     pub fn socket_address_from_parts(
         address: &NetAddress,
         port: u32,
