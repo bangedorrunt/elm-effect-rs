@@ -172,8 +172,8 @@ fn derived_addresses_revalidate_refinements() {
     let addr = match multicast {
         NetAddress::V4(v4) => std::net::IpAddr::V4(v4),
         NetAddress::V6(v6) => std::net::IpAddr::V6(v6),
-        // This test builds an IPv4 multicast value; no Unix arm runs.
-        NetAddress::UnixPath(_) => unreachable!("multicast fixture is IPv4"),
+        // This test builds an IPv4 multicast value; no other arm runs.
+        _ => unreachable!("multicast fixture is IPv4"),
     };
     for derived in [
         IpNetwork::from_address_unsafe(addr, 0.0),
@@ -352,4 +352,32 @@ fn unix_paths_stay_opaque() {
         address,
         NetAddress::unix_path_address("./run/../server.sock")
     );
+}
+
+#[test]
+fn socket_addresses_parse_format_and_reject() {
+    use net::NetAddress;
+    let inet = NetAddress::inet_address_from_string_unsafe("127.0.0.1:8080");
+    assert_eq!(inet.format_socket_address(), "127.0.0.1:8080");
+    assert_eq!(
+        NetAddress::socket_address_from_input("127.0.0.1:3000")
+            .unwrap()
+            .format_socket_address(),
+        "127.0.0.1:3000"
+    );
+    assert_eq!(
+        NetAddress::socket_address_from_input("[::1]:3000")
+            .unwrap()
+            .format_socket_address(),
+        "[::1]:3000"
+    );
+    let loopback = NetAddress::ipv4_from_string("127.0.0.1").unwrap();
+    let composed = NetAddress::socket_address_from_parts(&loopback, 8080).unwrap();
+    assert_eq!(composed.format_socket_address(), "127.0.0.1:8080");
+    assert!(NetAddress::socket_address_from_parts(&loopback, 65536).is_err());
+    assert!(NetAddress::socket_address_from_input("localhost:8080").is_err());
+    assert!(std::panic::catch_unwind(|| {
+        NetAddress::socket_address_from_input_unsafe("localhost:8080")
+    })
+    .is_err());
 }
