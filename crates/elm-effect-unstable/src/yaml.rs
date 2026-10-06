@@ -53,8 +53,9 @@ pub fn parse(text: &str) -> Result<YamlValue, YamlError> {
     Ok(value)
 }
 
-/// Cut a ` #` comment tail, ignoring `#` inside quotes.
-fn strip_inline_comment(value: &str) -> String {
+/// Cut a ` #` comment tail, ignoring `#` inside quotes; reports whether
+/// anything was cut.
+fn strip_inline_comment(value: &str) -> (String, bool) {
     let mut in_single = false;
     let mut in_double = false;
     let mut cut = value.len();
@@ -76,7 +77,29 @@ fn strip_inline_comment(value: &str) -> String {
         }
         i += 1;
     }
-    value[..cut].trim_end().to_owned()
+    (value[..cut].trim_end().to_owned(), cut < value.len())
+}
+
+/// True when the opening quote of `text` has its closer (`''`
+/// counts as an escaped literal inside single quotes).
+fn quotes_closed(text: &str) -> bool {
+    let mut chars = text.chars();
+    let quote = match chars.next() {
+        Some(q) if q == '\'' || q == '"' => q,
+        _ => return true,
+    };
+    let mut open = true;
+    let mut chars = chars.peekable();
+    while let Some(c) = chars.next() {
+        if c == '\\' && quote == '"' {
+            chars.next();
+        } else if c == '\'' && quote == '\'' && chars.peek() == Some(&'\'') {
+            chars.next();
+        } else if c == quote {
+            open = !open;
+        }
+    }
+    !open
 }
 
 /// True for lines that start nested structure rather than continuing
@@ -224,6 +247,9 @@ impl Parser {
                 return Err(YamlError(format!("expected key: {line}")));
             };
             self.cursor += 1;
+            if pairs.iter().any(|(existing, _)| *existing == key) {
+                return Err(YamlError(format!("duplicate key: {key}")));
+            }
             pairs.push((key, self.inline_or_nested(indent, value)?));
         }
         Ok(pairs)
@@ -247,7 +273,7 @@ impl Parser {
 
     /// An inline value, or a nested block when the value is empty.
     fn inline_or_nested(&mut self, indent: usize, value: String) -> Result<YamlValue, YamlError> {
-        let value = strip_inline_comment(&value);
+        let (value, head_comment) = strip_inline_comment(&value);
         if let Some(alias) = value.strip_prefix('*') {
             let name = alias.trim();
             return self
@@ -275,15 +301,35 @@ impl Parser {
             self.parse_block_scalar(indent, value)
         } else {
             let mut text = value;
+            // Quoted scalars fold deeper lines until the quote closes.
+            if (text.starts_with('"') || text.starts_with('\'')) && !quotes_closed(&text) {
+                while !quotes_closed(&text) {
+                    match self.peek().cloned() {
+                        Some((next_indent, next_line)) if next_indent > indent => {
+                            self.cursor += 1;
+                            text.push(' ');
+                            text.push_str(&next_line);
+                        }
+                        _ => break,
+                    }
+                }
             // Plain scalars fold deeper-indented non-structural lines.
-            if !text.starts_with(|c| c == '"' || c == '\'' || c == '[' || c == '{') {
+            // A comment on the first line terminates the scalar: further
+            // lines belong to following structure (or fail).
+            } else if !head_comment
+                && !text.starts_with(|c| c == '"' || c == '\'' || c == '[' || c == '{')
+            {
                 while let Some((next_indent, next_line)) = self.peek().cloned() {
                     if next_indent <= indent || is_structural_line(&next_line) {
                         break;
                     }
                     self.cursor += 1;
+                    let (piece, piece_comment) = strip_inline_comment(&next_line);
                     text.push(' ');
-                    text.push_str(&strip_inline_comment(&next_line));
+                    text.push_str(&piece);
+                    if piece_comment {
+                        break;
+                    }
                 }
             }
             parse_inline(&text)
@@ -408,14 +454,20 @@ fn parse_inline(text: &str) -> Result<YamlValue, YamlError> {
         "false" => Ok(YamlValue::Bool(false)),
         "null" | "~" => Ok(YamlValue::Null),
         _ => {
-            if let Some(stripped) = strip_quotes(text) {
-                return Ok(YamlValue::Text(stripped));
+            if text.starts_with('\'') || text.starts_with('"') {
+                return match strip_quotes(text) {
+                    Some(stripped) => Ok(YamlValue::Text(stripped)),
+                    None => Err(YamlError("bad quoted scalar".to_string())),
+                };
             }
             if let Ok(int) = text.parse::<i64>() {
                 return Ok(YamlValue::Int(int));
             }
             if let Ok(float) = text.parse::<f64>() {
                 return Ok(YamlValue::Float(float));
+            }
+            if text.contains(": ") || text.contains(":\t") || text.ends_with(':') {
+                return Err(YamlError("bad plain scalar".to_string()));
             }
             Ok(YamlValue::Text(text.to_string()))
         }

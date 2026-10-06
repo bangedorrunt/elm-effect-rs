@@ -219,3 +219,124 @@ fn folds_plain_sequence_items() {
         ])
     );
 }
+
+#[test]
+fn parses_indentless_matrix() {
+    // Yaml.test.ts:114 - the full indentless matrix.
+    for (source, expected) in [
+        (
+            "allowed-tools:\n- Read\n- Bash\n",
+            YamlValue::Map(vec![(
+                "allowed-tools".to_owned(),
+                YamlValue::Seq(vec![text("Read"), text("Bash")]),
+            )]),
+        ),
+        (
+            "metadata:\n  tools:\n  - Read\n",
+            YamlValue::Map(vec![(
+                "metadata".to_owned(),
+                YamlValue::Map(vec![(
+                    "tools".to_owned(),
+                    YamlValue::Seq(vec![text("Read")]),
+                )]),
+            )]),
+        ),
+        (
+            "tools:\n- Read\n- Bash\nroles:\n- admin\n",
+            YamlValue::Map(vec![
+                (
+                    "tools".to_owned(),
+                    YamlValue::Seq(vec![text("Read"), text("Bash")]),
+                ),
+                ("roles".to_owned(), YamlValue::Seq(vec![text("admin")])),
+            ]),
+        ),
+        (
+            "tools: # key comment\n# before sequence\n\n- Read # item comment\n  # between items\n\n- Bash\n",
+            YamlValue::Map(vec![(
+                "tools".to_owned(),
+                YamlValue::Seq(vec![text("Read"), text("Bash")]),
+            )]),
+        ),
+        (
+            "steps:\n- name: deploy\n  tools:\n  - Read\n  - Bash\n  enabled: true\n- name: verify\n",
+            YamlValue::Map(vec![(
+                "steps".to_owned(),
+                YamlValue::Seq(vec![
+                    YamlValue::Map(vec![
+                        ("name".to_owned(), text("deploy")),
+                        (
+                            "tools".to_owned(),
+                            YamlValue::Seq(vec![text("Read"), text("Bash")]),
+                        ),
+                        ("enabled".to_owned(), YamlValue::Bool(true)),
+                    ]),
+                    YamlValue::Map(vec![("name".to_owned(), text("verify"))]),
+                ]),
+            )]),
+        ),
+        (
+            "metadata:\n  tools:\n  - Read\n  roles:\n  - admin\n  enabled: true\nname: deploy\n",
+            YamlValue::Map(vec![
+                (
+                    "metadata".to_owned(),
+                    YamlValue::Map(vec![
+                        (
+                            "tools".to_owned(),
+                            YamlValue::Seq(vec![text("Read")]),
+                        ),
+                        (
+                            "roles".to_owned(),
+                            YamlValue::Seq(vec![text("admin")]),
+                        ),
+                        ("enabled".to_owned(), YamlValue::Bool(true)),
+                    ]),
+                ),
+                ("name".to_owned(), text("deploy")),
+            ]),
+        ),
+        (
+            "description: Deploy the service\n  and verify it.\ntools:\n- Read\nmetadata:\n  description: 'Check\n    the logs'\n  tools:\n  - Bash\n",
+            YamlValue::Map(vec![
+                (
+                    "description".to_owned(),
+                    text("Deploy the service and verify it."),
+                ),
+                (
+                    "tools".to_owned(),
+                    YamlValue::Seq(vec![text("Read")]),
+                ),
+                (
+                    "metadata".to_owned(),
+                    YamlValue::Map(vec![
+                        ("description".to_owned(), text("Check the logs")),
+                        (
+                            "tools".to_owned(),
+                            YamlValue::Seq(vec![text("Bash")]),
+                        ),
+                    ]),
+                ),
+            ]),
+        ),
+    ] {
+        assert_eq!(yaml::parse(source).expect("parses"), expected, "{source:?}");
+    }
+}
+
+#[test]
+fn rejects_scalar_boundary_violations() {
+    // Yaml.test.ts:233 - every boundary shape throws.
+    for source in [
+        "description: Use when: deploy\n",
+        "description: Deploy:\n",
+        "description: Use when:\tdeploy\n",
+        "description: Deploy\n  when: ready\n",
+        "description: Deploy # end\n  and verify.\n",
+        "description: \"Deploy\" extra\n",
+        "description: 'Deploy' extra\n",
+        "description:\n\tDeploy\n",
+        "description: first\ndescription: second\n",
+    ] {
+        assert!(yaml::parse(source).is_err(), "should reject {source:?}");
+    }
+}

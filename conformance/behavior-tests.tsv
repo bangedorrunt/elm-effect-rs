@@ -6331,11 +6331,11 @@ ported	packages/effect/test/encoding/Yaml.test.ts	53	it	preserves paragraph and 
 ported	packages/effect/test/encoding/Yaml.test.ts	72	it.each	preserves %s	keeps_chomping_and_digit_indents
 ported	packages/effect/test/encoding/Yaml.test.ts	92	it	resolves aliases	resolves_anchors_and_aliases
 ported	packages/effect/test/encoding/Yaml.test.ts	108	it	rejects invalid indentation	rejects_invalid_indentation
-unported	packages/effect/test/encoding/Yaml.test.ts	114	it.each	parses $name	
+ported	packages/effect/test/encoding/Yaml.test.ts	114	it.each	parses $name	parses_indentless_matrix
 unported	packages/effect/test/encoding/Yaml.test.ts	163	it.each	folds %s	
 ported	packages/effect/test/encoding/Yaml.test.ts	220	it	ends plain scalars at sibling keys after terminating comments	folds_plain_multiline_scalars
 ported	packages/effect/test/encoding/Yaml.test.ts	227	it	folds plain sequence items	folds_plain_sequence_items
-unported	packages/effect/test/encoding/Yaml.test.ts	233	it.each	rejects %s	
+ported	packages/effect/test/encoding/Yaml.test.ts	233	it.each	rejects %s	rejects_scalar_boundary_violations
 unported	packages/effect/test/encoding/Yaml.test.ts	253	it	preserves numeric decoding and quoted colon content	
 unported	packages/effect/test/encoding/Yaml.test.ts	268	it.each	rejects %s alone and before or after valid shapes	
 unported	packages/effect/test/encoding/Yaml.test.ts	286	it.each	rejects %s	
