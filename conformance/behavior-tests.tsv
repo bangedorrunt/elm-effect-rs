@@ -6655,7 +6655,7 @@ unported	packages/effect/test/http/HttpStaticServer.test.ts	28	it.effect	preserv
 unported	packages/effect/test/http/HttpStaticServer.test.ts	54	it.effect	ignores Range on HEAD requests	
 unported	packages/effect/test/http/HttpStaticServer.test.ts	107	it.effect	preserves ${range} and the exact total for ${url}	
 unported	packages/effect/test/http/HttpStaticServer.test.ts	125	it.effect	preserves the exact total in a 416 response	
-unported	packages/effect/test/http/HttpStatus.test.ts	6	it	fromLiteral returns the numeric status code	
+ported	packages/effect/test/http/HttpStatus.test.ts	6	it	fromLiteral returns the numeric status code	http_status_from_literal_names
 ported	packages/effect/test/http/Mime.test.ts	6	it	looks up common static file types	looks_up_common_static_file_types
 ported	packages/effect/test/http/Mime.test.ts	15	it	looks up standard MIME types	looks_up_standard_mime_types
 ported	packages/effect/test/http/Mime.test.ts	22	it	returns none for unknown and missing extensions	returns_none_for_unknown_and_missing_extensions

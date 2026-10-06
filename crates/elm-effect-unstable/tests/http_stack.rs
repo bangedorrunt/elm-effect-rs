@@ -600,3 +600,22 @@ fn request_to_url_is_none_for_invalid_url() {
         Some("http://example.com/path?x=1".to_string())
     );
 }
+
+#[test]
+fn http_status_from_literal_names() {
+    use elm_effect_unstable::http::http_status_from_literal;
+    // HttpStatus.test.ts:6 - literals resolve to numeric codes.
+    for (name, code) in [
+        ("Continue", 100),
+        ("OK", 200),
+        ("Ok", 200),
+        ("Created", 201),
+        ("MovedPermanently", 301),
+        ("Conflict", 409),
+        ("InternalServerError", 500),
+        ("NetworkAuthenticationRequired", 511),
+    ] {
+        assert_eq!(http_status_from_literal(name), Some(code), "{name}");
+    }
+    assert_eq!(http_status_from_literal("NoSuchStatus"), None);
+}
