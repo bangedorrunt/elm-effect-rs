@@ -5766,9 +5766,9 @@ ported	packages/effect/test/cli/Primitive.test.ts	323	it.effect	should parse and
 ported	packages/effect/test/cli/Primitive.test.ts	332	it	should have correct _tag	primitive_redacted_hides_values
 ported	packages/effect/test/cli/Primitive.test.ts	336	it.effect	should handle empty strings	primitive_redacted_hides_values
 unported	packages/effect/test/cli/Primitive.test.ts	345	it.layer	should preserve '=' in URL query parameters	
-unported	packages/effect/test/cli/Primitive.test.ts	346	it.effect	should preserve '=' in URL query parameters	
-unported	packages/effect/test/cli/Primitive.test.ts	356	it.effect	should preserve trailing '=' in padded values	
-unported	packages/effect/test/cli/Primitive.test.ts	362	it.effect	should fail when the input is malformed	
+ported	packages/effect/test/cli/Primitive.test.ts	346	it.effect	should preserve '=' in URL query parameters	primitive_key_value_pairs
+ported	packages/effect/test/cli/Primitive.test.ts	356	it.effect	should preserve trailing '=' in padded values	primitive_key_value_pairs
+ported	packages/effect/test/cli/Primitive.test.ts	362	it.effect	should fail when the input is malformed	primitive_key_value_pairs
 unported	packages/effect/test/cli/Primitive.test.ts	375	it.effect	file constructors preserve text, parsed content, and schema decoding	
 unported	packages/effect/test/cli/Primitive.test.ts	394	it	Never has the matching primitive tag	
 unported	packages/effect/test/cli/Primitive.test.ts	398	it.effect	Never remains an always-failing sentinel	

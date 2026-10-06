@@ -559,6 +559,19 @@ pub mod primitive {
     pub fn parse_redacted(text: &str) -> RedactedString {
         RedactedString(text.to_owned())
     }
+
+    /// Parse `key=value` on the first `=`; both sides must be non-empty.
+    pub fn parse_key_value(text: &str) -> Result<(String, String), String> {
+        match text.split_once('=') {
+            None => Err(format!(
+                "Invalid key=value format. Expected format: key=value, got: {text}"
+            )),
+            Some((key, value)) if key.is_empty() || value.is_empty() => Err(format!(
+                "Invalid key=value format. Both key and value must be non-empty. Got: {text}"
+            )),
+            Some((key, value)) => Ok((key.to_owned(), value.to_owned())),
+        }
+    }
 }
 
 /// Cause carried by a [`UserError`]: text, an error message, or an

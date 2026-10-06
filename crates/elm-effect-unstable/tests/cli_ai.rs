@@ -931,3 +931,38 @@ fn primitive_redacted_hides_values() {
     assert_eq!(empty.value(), "");
     assert_eq!(format!("{empty}"), "<redacted>");
 }
+
+#[test]
+fn primitive_key_value_pairs() {
+    use elm_effect_unstable::cli::primitive;
+    // Primitive.test.ts:346 - `=` inside values survives.
+    assert_eq!(
+        primitive::parse_key_value("DATABASE_URL=postgres://user:pass@host:5432/db?sslmode=require"),
+        Ok((
+            "DATABASE_URL".to_owned(),
+            "postgres://user:pass@host:5432/db?sslmode=require".to_owned()
+        ))
+    );
+    // :356 - trailing padding survives.
+    assert_eq!(
+        primitive::parse_key_value("TOKEN=YWJjZA=="),
+        Ok(("TOKEN".to_owned(), "YWJjZA==".to_owned()))
+    );
+    // :362 - malformed inputs fail with pinned messages.
+    for (text, want) in [
+        (
+            "invalid",
+            "Invalid key=value format. Expected format: key=value, got: invalid",
+        ),
+        (
+            "=value",
+            "Invalid key=value format. Both key and value must be non-empty. Got: =value",
+        ),
+        (
+            "key=",
+            "Invalid key=value format. Both key and value must be non-empty. Got: key=",
+        ),
+    ] {
+        assert_eq!(primitive::parse_key_value(text).expect_err("rejects"), want);
+    }
+}
