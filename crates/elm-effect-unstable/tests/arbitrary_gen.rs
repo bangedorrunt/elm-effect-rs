@@ -46,6 +46,10 @@ fn primitives_and_constants() {
     let bools: Vec<bool> = boolean().sample_n(99, 200);
     assert!(bools.contains(&true) && bools.contains(&false));
     assert_eq!(constant(7).sample(&mut Rng::new(0)), 7);
+    // Arbitrary.test.ts:2920 — a constant generates its value with no
+    // shrink candidates (the check-runner report shape is runner
+    // machinery; the generator kernel is the value plus empty shrinks).
+    assert_eq!(constant(7).shrink(&7), Vec::<i32>::new());
     let s = ascii_string(8).sample(&mut Rng::new(3));
     assert_eq!(s.len(), 8);
     assert!(s.bytes().all(|b| b.is_ascii_lowercase()));

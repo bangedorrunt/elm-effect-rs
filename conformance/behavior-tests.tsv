@@ -5471,7 +5471,7 @@ unported	packages/effect/test/arbitrary/Arbitrary.test.ts	2843	it.effect	evaluat
 unported	packages/effect/test/arbitrary/Arbitrary.test.ts	2859	it.effect	interrupts a synchronous residual-filter generation loop	
 unported	packages/effect/test/arbitrary/Arbitrary.test.ts	2875	it.effect	interrupts a synchronous successful generation loop	
 unported	packages/effect/test/arbitrary/Arbitrary.test.ts	2902	it.effect	interrupts deep suspended generation	
-unported	packages/effect/test/arbitrary/Arbitrary.test.ts	2920	it.effect	generates a constant without shrink candidates	
+ported	packages/effect/test/arbitrary/Arbitrary.test.ts	2920	it.effect	generates a constant without shrink candidates	primitives_and_constants
 unported	packages/effect/test/arbitrary/Arbitrary.test.ts	2940	it.effect	maps generated values and the complete shrink tree	
 unported	packages/effect/test/arbitrary/Arbitrary.test.ts	2957	it.effect	preserves duplicate shrink positions after a non-injective map	
 unported	packages/effect/test/arbitrary/Arbitrary.test.ts	2978	it.effect	bounds values rejected by filter	
