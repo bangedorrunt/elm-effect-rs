@@ -13,6 +13,9 @@ use elm_effect::{
 #[path = "../src/data/bigint.rs"]
 mod bigint;
 
+#[path = "../src/cron.rs"]
+mod cron;
+
 #[test]
 #[allow(invalid_nan_comparisons, clippy::assertions_on_constants)]
 fn equal_nan_is_nan() {
@@ -144,6 +147,32 @@ fn bigint_equivalence() {
     let eq = Equivalence::make(|a: &bigint::Big, b: &bigint::Big| a == b);
     assert!(eq.is_equivalent(&bigint::Big::from_int(1), &bigint::Big::from_int(1)));
     assert!(!eq.is_equivalent(&bigint::Big::from_int(1), &bigint::Big::from_int(2)));
+}
+
+#[test]
+fn struct_string_keys_equivalence() {
+    // Equivalence.test.ts:85 — per-field struct equivalence.
+    let eq = tuple_equivalence::<String, i32>();
+    assert!(eq.is_equivalent(&("a".to_string(), 1), &("a".to_string(), 1)));
+    assert!(!eq.is_equivalent(&("a".to_string(), 1), &("b".to_string(), 1)));
+    assert!(!eq.is_equivalent(&("a".to_string(), 1), &("a".to_string(), 2)));
+}
+
+#[test]
+fn date_equivalence_by_instant() {
+    // Equivalence.test.ts:154 — dates compare by instant.
+    let eq = Equivalence::make(|a: &cron::DateTime, b: &cron::DateTime| {
+        a.epoch_millis() == b.epoch_millis()
+    });
+    let d = |s: &str| cron::DateTime::make_unsafe(s);
+    assert!(eq.is_equivalent(
+        &d("2020-01-01T00:00:00.000Z"),
+        &d("2020-01-01T00:00:00.000Z")
+    ));
+    assert!(!eq.is_equivalent(
+        &d("2020-01-01T00:00:00.000Z"),
+        &d("2021-01-01T00:00:00.000Z")
+    ));
 }
 
 #[test]

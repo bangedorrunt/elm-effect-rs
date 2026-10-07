@@ -1658,13 +1658,13 @@ ported	packages/effect/test/Equivalence.test.ts	44	it	combine	equivalence_and_pr
 ported	packages/effect/test/Equivalence.test.ts	55	it	combineAll	equivalence_and_predicate_basics
 ported	packages/effect/test/Equivalence.test.ts	67	it	Tuple	equivalence_and_predicate_basics
 ported	packages/effect/test/Equivalence.test.ts	75	it	Array	equivalence_and_predicate_basics
-unported	packages/effect/test/Equivalence.test.ts	85	it	string keys	
+ported	packages/effect/test/Equivalence.test.ts	85	it	string keys	struct_string_keys_equivalence
 unported	packages/effect/test/Equivalence.test.ts	96	it	symbol keys	
 unported	packages/effect/test/Equivalence.test.ts	109	it	mixed keys	
 unported	packages/effect/test/Equivalence.test.ts	123	it	string keys	
 unported	packages/effect/test/Equivalence.test.ts	132	it	symbol keys	
 unported	packages/effect/test/Equivalence.test.ts	143	it	mixed keys	
-unported	packages/effect/test/Equivalence.test.ts	154	it	Date	
+ported	packages/effect/test/Equivalence.test.ts	154	it	Date	date_equivalence_by_instant
 unported	packages/effect/test/ExecutionPlan.test.ts	62	it	rejects zero attempts	
 unported	packages/effect/test/ExecutionPlan.test.ts	88	it.effect	captures while predicate requirements	
 unported	packages/effect/test/ExecutionPlan.test.ts	95	it.effect	prefers captured while predicate requirements over the ambient context	
