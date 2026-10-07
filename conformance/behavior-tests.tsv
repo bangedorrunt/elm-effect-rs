@@ -4145,13 +4145,13 @@ ported	packages/effect/test/Tuple.test.ts	128	it	appendElement appends a single 
 ported	packages/effect/test/Tuple.test.ts	133	it	appendElements concatenates a tuple in both data-first and data-last forms	tuple_shapes
 ported	packages/effect/test/Tuple.test.ts	138	it	makeEquivalence compares tuple positions independently	tuple_shapes
 ported	packages/effect/test/Tuple.test.ts	149	it	makeOrder orders tuple positions lexicographically	tuple_shapes
-unported	packages/effect/test/TxChunk.test.ts	6	it	make should create a TxChunk with initial chunk	
+ported	packages/effect/test/TxChunk.test.ts	6	it	make should create a TxChunk with initial chunk	tx_chunk_from_iter_prepend_set_all
 ported	packages/effect/test/TxChunk.test.ts	18	it	empty should create an empty TxChunk	tx_chunk_push_get_extend
 ported	packages/effect/test/TxChunk.test.ts	29	it	fromIterable should create a TxChunk from an iterable	tx_chunk_from_iterable_and_size_flags
 ported	packages/effect/test/TxChunk.test.ts	42	it	get should read the current chunk	tx_chunk_push_get_extend
-unported	packages/effect/test/TxChunk.test.ts	53	it	set should replace the entire chunk	
+ported	packages/effect/test/TxChunk.test.ts	53	it	set should replace the entire chunk	tx_chunk_from_iter_prepend_set_all
 ported	packages/effect/test/TxChunk.test.ts	68	it	append should add element to the end	tx_chunk_push_get_extend
-unported	packages/effect/test/TxChunk.test.ts	82	it	prepend should add element to the beginning	
+ported	packages/effect/test/TxChunk.test.ts	82	it	prepend should add element to the beginning	tx_chunk_from_iter_prepend_set_all
 ported	packages/effect/test/TxChunk.test.ts	96	it	size should return the chunk size	tx_chunk_from_iterable_and_size_flags
 ported	packages/effect/test/TxChunk.test.ts	107	it	isEmpty should return true for empty chunk	tx_chunk_from_iterable_and_size_flags
 ported	packages/effect/test/TxChunk.test.ts	118	it	isEmpty should return false for non-empty chunk	tx_chunk_from_iterable_and_size_flags
@@ -4169,7 +4169,7 @@ ported	packages/effect/test/TxChunk.test.ts	278	it	appendAll should concatenate 
 ported	packages/effect/test/TxChunk.test.ts	293	it	prependAll should concatenate chunk to the beginning	tx_chunk_append_and_prepend_all
 ported	packages/effect/test/TxChunk.test.ts	308	it	concat should concatenate another TxChunk to the end	tx_chunk_append_and_prepend_all
 ported	packages/effect/test/TxChunk.test.ts	323	it	concat should work atomically within transactions	tx_chunk_concat_appends
-unported	packages/effect/test/TxChunk.test.ts	344	it	isTxChunk should identify TxChunk instances	
+ported	packages/effect/test/TxChunk.test.ts	344	it	isTxChunk should identify TxChunk instances	tx_chunk_guard_identifies_chunks
 ported	packages/effect/test/TxDeferred.test.ts	6	it.effect	make creates a deferred that polls as None	tx_deferred_complete_and_poll
 ported	packages/effect/test/TxDeferred.test.ts	15	it.effect	poll returns None on fresh deferred	tx_deferred_complete_and_poll
 ported	packages/effect/test/TxDeferred.test.ts	22	it.effect	poll returns Some(Success(value)) after succeed	tx_deferred_complete_and_poll

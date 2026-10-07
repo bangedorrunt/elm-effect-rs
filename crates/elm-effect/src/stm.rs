@@ -675,6 +675,13 @@ impl<T> TxChunk<T> {
     }
 }
 
+/// Always true for `TxChunk` (the type already narrows; mirrors
+/// `isTxChunk`, like `is_number` mirrors `isNumber`). Foreign values
+/// are different types and cannot reach this predicate.
+pub fn is_tx_chunk<T>(_: &TxChunk<T>) -> bool {
+    true
+}
+
 impl<T> FromIterator<T> for TxChunk<T> {
     /// Build from values (`fromIterable`).
     fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {

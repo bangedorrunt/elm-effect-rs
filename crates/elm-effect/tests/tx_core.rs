@@ -4,7 +4,7 @@
 
 use elm_effect::{
     TxChunk, TxDeferred, TxHashMap, TxHashSet, TxPriorityQueue, TxPubSub, TxQueue, TxReentrantLock,
-    TxRef, TxSemaphore, TxSubscriptionRef, atomically,
+    TxRef, TxSemaphore, TxSubscriptionRef, atomically, is_tx_chunk,
 };
 
 #[test]
@@ -171,6 +171,14 @@ fn tx_chunk_from_iter_prepend_set_all() {
     chunk.set_all(vec![9]);
     assert_eq!(chunk.get(0), Some(9));
     assert_eq!(chunk.len(), 1);
+}
+
+#[test]
+fn tx_chunk_guard_identifies_chunks() {
+    // TxChunk.test.ts:344 — the guard matches chunk instances.
+    // Foreign values are different types and cannot reach the predicate.
+    assert!(is_tx_chunk(&TxChunk::from_iter([1, 2])));
+    assert!(is_tx_chunk(&TxChunk::<i32>::new()));
 }
 
 #[test]
