@@ -865,7 +865,7 @@ ported	packages/effect/test/ConfigProvider.test.ts	129	it	distributes mapInput o
 ported	packages/effect/test/ConfigProvider.test.ts	149	it	distributes nested over both operands	provider_nested_distributes_over_fallback_operands
 ported	packages/effect/test/ConfigProvider.test.ts	165	it	uses the fallback when the primary value is an empty string	provider_empty_strings_are_missing_by_default
 unported	packages/effect/test/ConfigProvider.test.ts	176	it	does not merge a fallback container into an existing primary container	
-unported	packages/effect/test/ConfigProvider.test.ts	187	it	composes transformations in application order	
+ported	packages/effect/test/ConfigProvider.test.ts	187	it	composes transformations in application order	provider_map_input_composes_in_application_order
 ported	packages/effect/test/ConfigProvider.test.ts	202	it	converts string path segments to config case	provider_constant_case_converts_segments
 ported	packages/effect/test/ConfigProvider.test.ts	211	it	preserves numeric word groups	provider_constant_case_converts_segments
 ported	packages/effect/test/ConfigProvider.test.ts	222	it	leaves numeric path segments unchanged	provider_constant_case_converts_segments

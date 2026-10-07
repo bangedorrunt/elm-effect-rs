@@ -291,13 +291,28 @@ pub struct Mapped<'a, F> {
     map: F,
 }
 
-impl<F> Mapped<'_, F>
+impl<'a, F> Mapped<'a, F>
 where
     F: Fn(&[String]) -> Vec<String>,
 {
     /// Look up through the mapped path (inherent alias of [`Lookup::get`]).
     pub fn get(&self, path: &[String]) -> Option<String> {
         Lookup::get(self, path)
+    }
+
+    /// Compose another transform applied AFTER this one. Chained
+    /// `mapInput` applies in application order (first-added runs first),
+    /// which nesting alone would invert, so the two maps fuse into one.
+    pub fn then_map<G>(self, next: G) -> Mapped<'a, impl Fn(&[String]) -> Vec<String> + 'a>
+    where
+        F: 'a,
+        G: Fn(&[String]) -> Vec<String> + 'a,
+    {
+        let Mapped { inner, map } = self;
+        Mapped {
+            inner,
+            map: move |path: &[String]| next(&map(path)),
+        }
     }
 }
 

@@ -920,6 +920,19 @@ fn provider_map_input_prefixes_lookups() {
 }
 
 #[test]
+fn provider_map_input_composes_in_application_order() {
+    // ConfigProvider.test.ts:187 — first-added transform runs first.
+    let base = provider(&[("KEY_A_B", "value")]);
+    let piped = base
+        .map_input(|path| path.iter().map(|s| format!("{s}_A")).collect())
+        .then_map(|path| path.iter().map(|s| format!("{s}_B")).collect());
+    assert_eq!(
+        piped.get(&["KEY".to_string()]),
+        Some("value".to_string())
+    );
+}
+
+#[test]
 fn provider_constant_case_converts_segments() {
     let base0 = provider(&[("CONSTANT_CASE", "value1")]);
     let cc = base0.constant_case();
