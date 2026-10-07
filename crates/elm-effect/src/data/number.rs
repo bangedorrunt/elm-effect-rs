@@ -175,6 +175,28 @@ pub fn ceil(x: f64) -> f64 {
     x.ceil()
 }
 
+/// Round to `precision` decimal places (`round`): `round(1.567, 2) == 1.57.
+/// Mirrors the tag op-for-op (`10^precision`, `Math.round`, divide) with
+/// `Math.round` as `(v + 0.5).floor` (half toward +inf, like the tag).
+/// Negative precision rounds left of the point (`round(145, -1) == 150`).
+pub fn round_with_precision(x: f64, precision: i32) -> f64 {
+    let factor = 10f64.powi(precision);
+    ((x * factor) + 0.5).floor() / factor
+}
+
+/// Next power of two (`nextPow2`): `nextPow2(5) == 8`, `nextPow2(8) == 8,
+/// values below 2 clamp to 2, negatives are NaN. Mirrors the tag formula
+/// (`2^ceil(ln(n)/ln(2))`, floored at 2); the NaN arm is explicit because
+/// Rust's `max` returns the other side on NaN while `Math.max` yields NaN.
+pub fn next_pow2(n: f64) -> f64 {
+    let p = 2f64.powf((n.ln() / std::f64::consts::LN_2).ceil());
+    if p.is_nan() {
+        f64::NAN
+    } else {
+        p.max(2.0)
+    }
+}
+
 /// Clamp to `[min, max]`. NaN propagates (Rust semantics); the tag orders
 /// NaN least via `Number.Order`, owned by .17.
 pub fn clamp(x: f64, min: f64, max: f64) -> f64 {
@@ -186,6 +208,19 @@ pub fn min(a: f64, b: f64) -> f64 {
 }
 pub fn max(a: f64, b: f64) -> f64 {
     a.max(b)
+}
+
+/// Fold with `max`, empty folds to `-inf` (`ReducerMax.combineAll`).
+/// NaN follows `max` above (Rust picks the other side); the tag's
+/// order-based fold keeps the left NaN instead. No row pins NaN here.
+pub fn max_all(values: impl IntoIterator<Item = f64>) -> f64 {
+    values.into_iter().fold(f64::NEG_INFINITY, max)
+}
+
+/// Fold with `min`, empty folds to `+inf` (`ReducerMin.combineAll`).
+/// Same NaN caveat as `max_all`.
+pub fn min_all(values: impl IntoIterator<Item = f64>) -> f64 {
+    values.into_iter().fold(f64::INFINITY, min)
 }
 
 /// Sign: -1, 0, or 1 (NaN yields NaN, like the tag).

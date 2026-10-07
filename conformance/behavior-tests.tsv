@@ -2702,23 +2702,23 @@ ported	packages/effect/test/Number.test.ts	378	it	handles decimal coefficients b
 ported	packages/effect/test/Number.test.ts	383	it	preserves exact integer remainders beyond the safe integer range	number_remainder_scientific_and_subnormal
 ported	packages/effect/test/Number.test.ts	393	it	preserves exact integer dividends with fractional divisors	number_exact_dividends
 ported	packages/effect/test/Number.test.ts	404	it	preserves exact integers formatted in scientific notation	number_exact_dividends
-unported	packages/effect/test/Number.test.ts	413	it	rounds non-powers of two up to the next power of two	
-unported	packages/effect/test/Number.test.ts	418	it	returns the same value for powers of two and a minimum of two otherwise	
+ported	packages/effect/test/Number.test.ts	413	it	rounds non-powers of two up to the next power of two	number_next_pow2
+ported	packages/effect/test/Number.test.ts	418	it	returns the same value for powers of two and a minimum of two otherwise	number_next_pow2
 ported	packages/effect/test/Number.test.ts	425	it	returns NaN for negative inputs	scalars_residuals
 ported	packages/effect/test/Number.test.ts	431	it	parses valid numeric strings using Number semantics	number_parse
 ported	packages/effect/test/Number.test.ts	437	it	supports NaN and infinities as explicit string literals	number_parse
 ported	packages/effect/test/Number.test.ts	443	it	returns none for empty or invalid strings	number_parse
-unported	packages/effect/test/Number.test.ts	451	it	rounds with positive precision in data-first and data-last forms	
-unported	packages/effect/test/Number.test.ts	457	it	supports zero and negative precision	
-unported	packages/effect/test/Number.test.ts	462	it	follows Math.round semantics for negative halves	
-unported	packages/effect/test/Number.test.ts	468	it	combines values and uses zero as the identity	
-unported	packages/effect/test/Number.test.ts	474	it	reduces iterables with combineAll	
-unported	packages/effect/test/Number.test.ts	481	it	combines values and uses one as the identity	
-unported	packages/effect/test/Number.test.ts	487	it	reduces iterables and short-circuits on zero	
-unported	packages/effect/test/Number.test.ts	495	it	combines values and uses negative infinity as the identity	
-unported	packages/effect/test/Number.test.ts	501	it	reduces iterables with combineAll	
-unported	packages/effect/test/Number.test.ts	508	it	combines values and uses infinity as the identity	
-unported	packages/effect/test/Number.test.ts	514	it	reduces iterables with combineAll	
+ported	packages/effect/test/Number.test.ts	451	it	rounds with positive precision in data-first and data-last forms	number_round_precision
+ported	packages/effect/test/Number.test.ts	457	it	supports zero and negative precision	number_round_precision
+ported	packages/effect/test/Number.test.ts	462	it	follows Math.round semantics for negative halves	number_round_precision
+ported	packages/effect/test/Number.test.ts	468	it	combines values and uses zero as the identity	number_reducer_sum
+ported	packages/effect/test/Number.test.ts	474	it	reduces iterables with combineAll	number_reducer_sum
+ported	packages/effect/test/Number.test.ts	481	it	combines values and uses one as the identity	number_reducer_multiply
+ported	packages/effect/test/Number.test.ts	487	it	reduces iterables and short-circuits on zero	number_reducer_multiply
+ported	packages/effect/test/Number.test.ts	495	it	combines values and uses negative infinity as the identity	number_reducer_max
+ported	packages/effect/test/Number.test.ts	501	it	reduces iterables with combineAll	number_reducer_max
+ported	packages/effect/test/Number.test.ts	508	it	combines values and uses infinity as the identity	number_reducer_min
+ported	packages/effect/test/Number.test.ts	514	it	reduces iterables with combineAll	number_reducer_min
 skipped-upstream	packages/effect/test/Optic.test.ts	35	it	replace should throw an error if the object has a non-Object constructor or null prototype	
 skipped-upstream	packages/effect/test/Optic.test.ts	57	it	preserves __proto__ as an own property	
 ported	packages/effect/test/Optic.test.ts	73	it	id	id_iso_roundtrip

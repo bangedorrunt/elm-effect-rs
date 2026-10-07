@@ -391,6 +391,68 @@ fn number_aggregate() {
     assert_eq!(number::sqrt(9.0), 3.0);
 }
 
+#[test]
+fn number_next_pow2() {
+    assert_eq!(number::next_pow2(5.0), 8.0);
+    assert_eq!(number::next_pow2(17.0), 32.0);
+    assert_eq!(number::next_pow2(8.0), 8.0);
+    assert_eq!(number::next_pow2(1.0), 2.0);
+    assert_eq!(number::next_pow2(0.0), 2.0);
+    assert_eq!(number::next_pow2(1.5), 2.0);
+    assert!(number::next_pow2(-1.0).is_nan());
+}
+
+#[test]
+fn number_round_precision() {
+    assert_eq!(number::round_with_precision(1.1234, 2), 1.12);
+    assert_eq!(number::round_with_precision(1.567, 2), 1.57);
+    assert_eq!(number::round_with_precision(1.5, 0), 2.0);
+    assert_eq!(number::round_with_precision(145.0, -1), 150.0);
+    // Math.round semantics for negative halves (half toward +inf).
+    assert_eq!(number::round_with_precision(-1.25, 1), -1.2);
+}
+
+#[test]
+fn number_reducer_sum() {
+    assert_eq!(number::add(1.0, 2.0), 3.0);
+    assert_eq!(number::add(0.0, 2.0), 2.0);
+    assert_eq!(number::add(2.0, 0.0), 2.0);
+    assert_eq!(number::sum(&[1.0, 2.0, 3.0]), 6.0);
+    assert_eq!(number::sum(&[]), 0.0);
+}
+
+#[test]
+fn number_reducer_multiply() {
+    assert_eq!(number::mul(2.0, 3.0), 6.0);
+    assert_eq!(number::mul(1.0, 2.0), 2.0);
+    assert_eq!(number::mul(2.0, 1.0), 2.0);
+    assert_eq!(number::product([2.0, 3.0, 4.0]), 24.0);
+    assert_eq!(number::product([]), 1.0);
+    // Short-circuits: elements past the first zero are never consumed.
+    let poisoned = [2.0, 3.0, 0.0]
+        .into_iter()
+        .chain(std::iter::repeat_with(|| panic!("read past zero")));
+    assert_eq!(number::product(poisoned), 0.0);
+}
+
+#[test]
+fn number_reducer_max() {
+    assert_eq!(number::max(1.0, 2.0), 2.0);
+    assert_eq!(number::max(f64::NEG_INFINITY, 2.0), 2.0);
+    assert_eq!(number::max(2.0, f64::NEG_INFINITY), 2.0);
+    assert_eq!(number::max_all([1.0, 5.0, 3.0]), 5.0);
+    assert_eq!(number::max_all([]), f64::NEG_INFINITY);
+}
+
+#[test]
+fn number_reducer_min() {
+    assert_eq!(number::min(1.0, 2.0), 1.0);
+    assert_eq!(number::min(f64::INFINITY, 2.0), 2.0);
+    assert_eq!(number::min(2.0, f64::INFINITY), 2.0);
+    assert_eq!(number::min_all([1.0, 5.0, 3.0]), 1.0);
+    assert_eq!(number::min_all([]), f64::INFINITY);
+}
+
 // ---------- String ----------
 
 #[test]
