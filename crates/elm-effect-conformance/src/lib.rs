@@ -93,6 +93,9 @@ impl Behavior {
         Ok(rows)
     }
 
+    /// Rows still blocking the port: `unported` only. `ported` rows are
+    /// done, `skipped-upstream` rows are the tag's own skips, and
+    /// `not-applicable` rows carry a reason instead of a test.
     pub fn still_open(rows: &[Self]) -> usize {
         rows.iter().filter(|row| row.status == "unported").count()
     }

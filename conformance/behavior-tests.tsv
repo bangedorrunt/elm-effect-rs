@@ -147,14 +147,14 @@ ported	packages/effect/test/Array.test.ts	1625	it	returns a new reference	array_
 ported	packages/effect/test/Array.test.ts	1634	it	returns empty when seed produces Option.none	array_std_substrate
 skipped-upstream	packages/effect/test/Array.test.ts	1639	it	bindTo	
 skipped-upstream	packages/effect/test/Array.test.ts	1645	it	Do notation	
-unported	packages/effect/test/ArrayNaNIndex.test.ts	7	it	rejects NaN in get	
-unported	packages/effect/test/ArrayNaNIndex.test.ts	11	it	rejects NaN in getUnsafe	
-unported	packages/effect/test/ArrayNaNIndex.test.ts	15	it	rejects NaN in insertAt	
-unported	packages/effect/test/ArrayNaNIndex.test.ts	19	it	rejects NaN in replace	
-unported	packages/effect/test/ArrayNaNIndex.test.ts	23	it	rejects NaN in modify	
-unported	packages/effect/test/ArrayNaNIndex.test.ts	27	it	treats removing NaN as an out-of-bounds no-op	
-unported	packages/effect/test/ArrayNaNIndex.test.ts	33	it	floors the index in replace	
-unported	packages/effect/test/ArrayNaNIndex.test.ts	37	it	floors the index in modify	
+not-applicable	packages/effect/test/ArrayNaNIndex.test.ts	7	it	rejects NaN in get	N/A: float indexes unrepresentable as usize; rejection holds by construction
+not-applicable	packages/effect/test/ArrayNaNIndex.test.ts	11	it	rejects NaN in getUnsafe	N/A: float indexes unrepresentable as usize; rejection holds by construction
+not-applicable	packages/effect/test/ArrayNaNIndex.test.ts	15	it	rejects NaN in insertAt	N/A: float indexes unrepresentable as usize; rejection holds by construction
+not-applicable	packages/effect/test/ArrayNaNIndex.test.ts	19	it	rejects NaN in replace	N/A: float indexes unrepresentable as usize; rejection holds by construction
+not-applicable	packages/effect/test/ArrayNaNIndex.test.ts	23	it	rejects NaN in modify	N/A: float indexes unrepresentable as usize; rejection holds by construction
+not-applicable	packages/effect/test/ArrayNaNIndex.test.ts	27	it	treats removing NaN as an out-of-bounds no-op	N/A: float indexes unrepresentable as usize; rejection holds by construction
+not-applicable	packages/effect/test/ArrayNaNIndex.test.ts	33	it	floors the index in replace	N/A: float indexes unrepresentable as usize; rejection holds by construction
+not-applicable	packages/effect/test/ArrayNaNIndex.test.ts	37	it	floors the index in modify	N/A: float indexes unrepresentable as usize; rejection holds by construction
 ported	packages/effect/test/AtomRef.test.ts	5	it	notifies each subscribed listener once when a listener resubscribes itself	resubscribe_notifies_each_listener_once
 ported	packages/effect/test/BigDecimal.test.ts	29	it	make	decimal_make_and_normalize
 ported	packages/effect/test/BigDecimal.test.ts	37	it	makeNormalizedUnsafe validates the value and scale	decimal_make_validates_scale
@@ -1659,11 +1659,11 @@ ported	packages/effect/test/Equivalence.test.ts	55	it	combineAll	equivalence_and
 ported	packages/effect/test/Equivalence.test.ts	67	it	Tuple	equivalence_and_predicate_basics
 ported	packages/effect/test/Equivalence.test.ts	75	it	Array	equivalence_and_predicate_basics
 ported	packages/effect/test/Equivalence.test.ts	85	it	string keys	struct_string_keys_equivalence
-unported	packages/effect/test/Equivalence.test.ts	96	it	symbol keys	
-unported	packages/effect/test/Equivalence.test.ts	109	it	mixed keys	
+not-applicable	packages/effect/test/Equivalence.test.ts	96	it	symbol keys	N/A: JS symbol keys have no Rust analog
+not-applicable	packages/effect/test/Equivalence.test.ts	109	it	mixed keys	N/A: JS symbol keys have no Rust analog
 ported	packages/effect/test/Equivalence.test.ts	123	it	string keys	record_string_keys_equivalence
-unported	packages/effect/test/Equivalence.test.ts	132	it	symbol keys	
-unported	packages/effect/test/Equivalence.test.ts	143	it	mixed keys	
+not-applicable	packages/effect/test/Equivalence.test.ts	132	it	symbol keys	N/A: JS symbol keys have no Rust analog
+not-applicable	packages/effect/test/Equivalence.test.ts	143	it	mixed keys	N/A: JS symbol keys have no Rust analog
 ported	packages/effect/test/Equivalence.test.ts	154	it	Date	date_equivalence_by_instant
 unported	packages/effect/test/ExecutionPlan.test.ts	62	it	rejects zero attempts	
 unported	packages/effect/test/ExecutionPlan.test.ts	88	it.effect	captures while predicate requirements	
@@ -3500,10 +3500,10 @@ unported	packages/effect/test/StackCapture.test.ts	33	it	Effect.fn skips definit
 unported	packages/effect/test/StackCapture.test.ts	38	it	Effect.fn skips invocation capture at limit zero	
 unported	packages/effect/test/StackCapture.test.ts	44	it	default spans skip capture at limit zero	
 unported	packages/effect/test/StackCapture.test.ts	49	it	explicit span capture works at limit zero	
-unported	packages/effect/test/StackTraceLimit.test.ts	9	it	isStackTraceLimitWritable returns true	
-unported	packages/effect/test/StackTraceLimit.test.ts	13	it	getStackTraceLimit reflects the current value	
-unported	packages/effect/test/StackTraceLimit.test.ts	20	it	setStackTraceLimit updates and restores the limit	
-unported	packages/effect/test/StackTraceLimit.test.ts	32	it	degrades to a no-op without throwing	
+not-applicable	packages/effect/test/StackTraceLimit.test.ts	9	it	isStackTraceLimitWritable returns true	N/A: V8 Error.stackTraceLimit plumbing; no Rust analog
+not-applicable	packages/effect/test/StackTraceLimit.test.ts	13	it	getStackTraceLimit reflects the current value	N/A: V8 Error.stackTraceLimit plumbing; no Rust analog
+not-applicable	packages/effect/test/StackTraceLimit.test.ts	20	it	setStackTraceLimit updates and restores the limit	N/A: V8 Error.stackTraceLimit plumbing; no Rust analog
+not-applicable	packages/effect/test/StackTraceLimit.test.ts	32	it	degrades to a no-op without throwing	N/A: V8 Error.stackTraceLimit plumbing; no Rust analog
 ported	packages/effect/test/Stdio.test.ts	6	it.effect	layerTest defaults terminal state to false	stdio_fake_records_and_replays
 ported	packages/effect/test/Stdio.test.ts	13	it.effect	layerTest allows terminal state overrides	stdio_fake_terminal_overrides
 unported	packages/effect/test/Stream.test.ts	43	it.effect	with take	
@@ -4022,15 +4022,15 @@ ported	packages/effect/test/SubscriptionRef.test.ts	20	it.effect	getAndUpdateSom
 ported	packages/effect/test/SubscriptionRef.test.ts	28	it.effect	multiple subscribers can receive changes	subscription_ref_streams_changes
 ported	packages/effect/test/SubscriptionRef.test.ts	55	it.effect	subscriptions are interruptible	subscription_ref_unsubscribe_stops
 ported	packages/effect/test/SubscriptionRef.test.ts	83	it.effect	concurrent subscribes and unsubscribes are handled correctly	subscription_ref_concurrent_use
-unported	packages/effect/test/Symbol.test.ts	7	it	returns true for primitive symbols created with Symbol()	
-unported	packages/effect/test/Symbol.test.ts	11	it	returns true for global registry symbols created with Symbol.for()	
-unported	packages/effect/test/Symbol.test.ts	15	it	returns true for well-known primitive symbols	
-unported	packages/effect/test/Symbol.test.ts	21	it	returns false for strings	
-unported	packages/effect/test/Symbol.test.ts	26	it	returns false for numbers	
-unported	packages/effect/test/Symbol.test.ts	31	it	returns false for booleans	
-unported	packages/effect/test/Symbol.test.ts	36	it	returns false for null and undefined	
-unported	packages/effect/test/Symbol.test.ts	41	it	returns false for objects and arrays	
-unported	packages/effect/test/Symbol.test.ts	46	it	returns false for functions	
+not-applicable	packages/effect/test/Symbol.test.ts	7	it	returns true for primitive symbols created with Symbol()	N/A: JS symbols have no Rust analog
+not-applicable	packages/effect/test/Symbol.test.ts	11	it	returns true for global registry symbols created with Symbol.for()	N/A: JS symbols have no Rust analog
+not-applicable	packages/effect/test/Symbol.test.ts	15	it	returns true for well-known primitive symbols	N/A: JS symbols have no Rust analog
+not-applicable	packages/effect/test/Symbol.test.ts	21	it	returns false for strings	N/A: JS symbols have no Rust analog
+not-applicable	packages/effect/test/Symbol.test.ts	26	it	returns false for numbers	N/A: JS symbols have no Rust analog
+not-applicable	packages/effect/test/Symbol.test.ts	31	it	returns false for booleans	N/A: JS symbols have no Rust analog
+not-applicable	packages/effect/test/Symbol.test.ts	36	it	returns false for null and undefined	N/A: JS symbols have no Rust analog
+not-applicable	packages/effect/test/Symbol.test.ts	41	it	returns false for objects and arrays	N/A: JS symbols have no Rust analog
+not-applicable	packages/effect/test/Symbol.test.ts	46	it	returns false for functions	N/A: JS symbols have no Rust analog
 ported	packages/effect/test/SynchronizedRef.modifySomeEffect.test.ts	5	it.effect	supports callback-only currying	modify_some_effect_applies_update_and_yields_result
 ported	packages/effect/test/SynchronizedRef.modifySomeEffect.test.ts	16	it.effect	preserves the value for Option.none	modify_some_effect_none_preserves_value_with_fallback
 unported	packages/effect/test/SynchronizedRef.test.ts	32	it.effect	get	

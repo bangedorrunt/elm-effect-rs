@@ -119,7 +119,7 @@ fn ledger_is_well_formed() {
         assert!(
             matches!(
                 row.status.as_str(),
-                "unported" | "ported" | "skipped-upstream"
+                "unported" | "ported" | "skipped-upstream" | "not-applicable"
             ),
             "{}:{} status {}",
             row.path,
@@ -143,9 +143,31 @@ fn ledger_is_well_formed() {
                 row.line
             );
         }
+        if row.status == "not-applicable" {
+            assert!(
+                !row.rust.is_empty(),
+                "{}:{} not-applicable without a reason",
+                row.path,
+                row.line
+            );
+        }
     }
     assert!(effect_n > 3_000, "it.effect rows: {effect_n}");
     assert!(each_n > 10, "it.each rows: {each_n}");
+    let unported = behaviors
+        .iter()
+        .filter(|row| row.status == "unported")
+        .count();
+    let excused = behaviors
+        .iter()
+        .filter(|row| row.status == "not-applicable")
+        .count();
+    assert!(excused > 0, "expected migrated not-applicable rows");
+    assert_eq!(
+        Behavior::still_open(&behaviors),
+        unported,
+        "still_open must count unported only"
+    );
     assert!(behaviors.iter().any(|row| {
         row.path.ends_with("sql/SqlSchema.test.ts")
             && row.title == "returns decoded results"
