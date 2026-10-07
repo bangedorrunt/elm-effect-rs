@@ -874,6 +874,11 @@ impl<K: Eq + Hash, V> TxHashMap<K, V> {
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }
+
+    /// Drop every entry.
+    pub fn clear(&self) {
+        atomically(|| self.inner.lock().unwrap().clear())
+    }
 }
 
 impl<K: Eq + Hash, V> Default for TxHashMap<K, V> {

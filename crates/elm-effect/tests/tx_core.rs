@@ -179,6 +179,25 @@ fn tx_hash_map_contains_and_from_iter() {
 }
 
 #[test]
+fn tx_hash_map_has_set_remove_clear_size_flags() {
+    // TxHashMap.test.ts:65/75 has, 83/95 set, 107/120 remove,
+    // 131 clear, 145 size, 156/165 isEmpty/isNonEmpty, 30 fromIterable.
+    let map = TxHashMap::from_iter([("a", 1), ("b", 2)]);
+    assert!(map.contains(&"a"));
+    assert!(!map.contains(&"z"));
+    assert_eq!(map.insert("c", 3), None);
+    assert_eq!(map.insert("a", 10), Some(1));
+    assert_eq!(map.len(), 3);
+    assert!(!map.is_empty());
+    assert_eq!(map.remove(&"b"), Some(2));
+    assert_eq!(map.remove(&"b"), None);
+    map.clear();
+    assert_eq!(map.len(), 0);
+    assert!(map.is_empty());
+    assert!(!map.contains(&"a"));
+}
+
+#[test]
 fn tx_hash_set_from_iter_dedups() {
     let set = TxHashSet::from_iter([1, 2, 2, 3]);
     assert_eq!(set.len(), 3);

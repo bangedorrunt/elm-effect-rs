@@ -4190,19 +4190,19 @@ ported	packages/effect/test/TxDeferred.test.ts	169	it.effect	multiple fibers awa
 ported	packages/effect/test/TxDeferred.test.ts	186	it.effect	race between succeed and fail: only first wins	deferred_succeed_fail_race_first_wins
 ported	packages/effect/test/TxHashMap.test.ts	6	it.effect	empty	tx_hash_map_crud
 ported	packages/effect/test/TxHashMap.test.ts	16	it.effect	make	tx_hash_map_crud
-unported	packages/effect/test/TxHashMap.test.ts	30	it.effect	fromIterable	
+ported	packages/effect/test/TxHashMap.test.ts	30	it.effect	fromIterable	tx_hash_map_has_set_remove_clear_size_flags
 ported	packages/effect/test/TxHashMap.test.ts	47	it.effect	get - existing key	tx_hash_map_crud
 ported	packages/effect/test/TxHashMap.test.ts	57	it.effect	get - non-existing key	tx_hash_map_crud
-unported	packages/effect/test/TxHashMap.test.ts	65	it.effect	has - existing key	
-unported	packages/effect/test/TxHashMap.test.ts	75	it.effect	has - non-existing key	
-unported	packages/effect/test/TxHashMap.test.ts	83	it.effect	set - new key	
-unported	packages/effect/test/TxHashMap.test.ts	95	it.effect	set - existing key	
-unported	packages/effect/test/TxHashMap.test.ts	107	it.effect	remove - existing key	
-unported	packages/effect/test/TxHashMap.test.ts	120	it.effect	remove - non-existing key	
-unported	packages/effect/test/TxHashMap.test.ts	131	it.effect	clear	
-unported	packages/effect/test/TxHashMap.test.ts	145	it.effect	size	
-unported	packages/effect/test/TxHashMap.test.ts	156	it.effect	isEmpty	
-unported	packages/effect/test/TxHashMap.test.ts	165	it.effect	isNonEmpty	
+ported	packages/effect/test/TxHashMap.test.ts	65	it.effect	has - existing key	tx_hash_map_has_set_remove_clear_size_flags
+ported	packages/effect/test/TxHashMap.test.ts	75	it.effect	has - non-existing key	tx_hash_map_has_set_remove_clear_size_flags
+ported	packages/effect/test/TxHashMap.test.ts	83	it.effect	set - new key	tx_hash_map_has_set_remove_clear_size_flags
+ported	packages/effect/test/TxHashMap.test.ts	95	it.effect	set - existing key	tx_hash_map_has_set_remove_clear_size_flags
+ported	packages/effect/test/TxHashMap.test.ts	107	it.effect	remove - existing key	tx_hash_map_has_set_remove_clear_size_flags
+ported	packages/effect/test/TxHashMap.test.ts	120	it.effect	remove - non-existing key	tx_hash_map_has_set_remove_clear_size_flags
+ported	packages/effect/test/TxHashMap.test.ts	131	it.effect	clear	tx_hash_map_has_set_remove_clear_size_flags
+ported	packages/effect/test/TxHashMap.test.ts	145	it.effect	size	tx_hash_map_has_set_remove_clear_size_flags
+ported	packages/effect/test/TxHashMap.test.ts	156	it.effect	isEmpty	tx_hash_map_has_set_remove_clear_size_flags
+ported	packages/effect/test/TxHashMap.test.ts	165	it.effect	isNonEmpty	tx_hash_map_has_set_remove_clear_size_flags
 unported	packages/effect/test/TxHashMap.test.ts	176	it.effect	modify - existing key	
 unported	packages/effect/test/TxHashMap.test.ts	186	it.effect	modify - non-existing key	
 unported	packages/effect/test/TxHashMap.test.ts	196	it.effect	modifyAt - insert new value	
