@@ -491,6 +491,13 @@ impl TxSemaphore {
     }
 }
 
+/// Always true for `TxHashSet` (the type already narrows; mirrors
+/// `isTxHashSet`). Foreign values are different types and cannot
+/// reach this predicate.
+pub fn is_tx_hash_set<T>(_: &TxHashSet<T>) -> bool {
+    true
+}
+
 /// Always true for `TxDeferred` (the type already narrows; mirrors
 /// `isTxDeferred`). Foreign values are different types and cannot
 /// reach this predicate.
@@ -914,6 +921,16 @@ impl<T: Eq + Hash> TxHashSet<T> {
     /// Insert; `false` when already present.
     pub fn insert(&self, value: T) -> bool {
         atomically(|| self.inner.lock().unwrap().insert(value))
+    }
+
+    /// Remove; `true` when present.
+    pub fn remove(&self, value: &T) -> bool {
+        atomically(|| self.inner.lock().unwrap().remove(value))
+    }
+
+    /// Drop every element.
+    pub fn clear(&self) {
+        atomically(|| self.inner.lock().unwrap().clear())
     }
 
     /// Whether `value` is present.

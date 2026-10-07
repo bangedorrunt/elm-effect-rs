@@ -4,7 +4,7 @@
 
 use elm_effect::{
     TxChunk, TxDeferred, TxHashMap, TxHashSet, TxPriorityQueue, TxPubSub, TxQueue, TxReentrantLock,
-    TxRef, TxSemaphore, TxSubscriptionRef, atomically, is_tx_chunk, is_tx_semaphore,
+    TxRef, TxSemaphore, TxSubscriptionRef, atomically, is_tx_chunk, is_tx_hash_set, is_tx_semaphore,
 };
 
 #[test]
@@ -115,6 +115,29 @@ fn tx_hash_set_add_contains() {
     assert!(!set.insert(1));
     assert!(set.contains(&1));
     assert_eq!(set.len(), 1);
+}
+
+#[test]
+fn tx_hash_set_make_remove_clear_size_flags() {
+    // TxHashSet.test.ts:32/44/52/63 make/fromIterable/fromHashSet,
+    // 92 add, 105 remove, 120 has, 128 size, 140 isEmpty/isNonEmpty,
+    // 151 clear, 77 isTxHashSet.
+    use std::collections::HashSet;
+    let set = TxHashSet::from_iter([1, 2, 2, 3]);
+    assert_eq!(set.len(), 3);
+    assert!(set.contains(&1));
+    assert!(!set.contains(&9));
+    assert!(set.remove(&2));
+    assert!(!set.remove(&2));
+    assert!(!set.is_empty());
+    set.clear();
+    assert_eq!(set.len(), 0);
+    assert!(set.is_empty());
+    let std_set: HashSet<i32> = HashSet::from([4, 5]);
+    let from_std = TxHashSet::from_iter(std_set);
+    assert_eq!(from_std.len(), 2);
+    assert!(is_tx_hash_set(&from_std));
+    assert!(is_tx_hash_set(&TxHashSet::<i32>::new()));
 }
 
 #[test]

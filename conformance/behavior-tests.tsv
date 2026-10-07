@@ -4238,17 +4238,17 @@ unported	packages/effect/test/TxHashMap.test.ts	888	it.effect	toEntries should r
 unported	packages/effect/test/TxHashMap.test.ts	909	it.effect	toValues should return all values as array	
 unported	packages/effect/test/TxHashMap.test.ts	930	it.effect	specialized operations should work correctly	
 ported	packages/effect/test/TxHashSet.test.ts	22	it.effect	empty creates an empty TxHashSet	tx_hash_set_add_contains
-unported	packages/effect/test/TxHashSet.test.ts	32	it.effect	make creates TxHashSet from values	
-unported	packages/effect/test/TxHashSet.test.ts	44	it.effect	make removes duplicates	
-unported	packages/effect/test/TxHashSet.test.ts	52	it.effect	fromIterable creates TxHashSet from iterable	
-unported	packages/effect/test/TxHashSet.test.ts	63	it.effect	fromHashSet creates TxHashSet from HashSet	
-unported	packages/effect/test/TxHashSet.test.ts	77	it.effect	isTxHashSet identifies TxHashSet instances	
-unported	packages/effect/test/TxHashSet.test.ts	92	it.effect	add adds values to TxHashSet	
-unported	packages/effect/test/TxHashSet.test.ts	105	it.effect	remove removes values from TxHashSet	
-unported	packages/effect/test/TxHashSet.test.ts	120	it.effect	has checks for value existence	
-unported	packages/effect/test/TxHashSet.test.ts	128	it.effect	size returns correct count	
-unported	packages/effect/test/TxHashSet.test.ts	140	it.effect	isEmpty and isNonEmpty check the set	
-unported	packages/effect/test/TxHashSet.test.ts	151	it.effect	clear removes all values	
+ported	packages/effect/test/TxHashSet.test.ts	32	it.effect	make creates TxHashSet from values	tx_hash_set_make_remove_clear_size_flags
+ported	packages/effect/test/TxHashSet.test.ts	44	it.effect	make removes duplicates	tx_hash_set_make_remove_clear_size_flags
+ported	packages/effect/test/TxHashSet.test.ts	52	it.effect	fromIterable creates TxHashSet from iterable	tx_hash_set_make_remove_clear_size_flags
+ported	packages/effect/test/TxHashSet.test.ts	63	it.effect	fromHashSet creates TxHashSet from HashSet	tx_hash_set_make_remove_clear_size_flags
+ported	packages/effect/test/TxHashSet.test.ts	77	it.effect	isTxHashSet identifies TxHashSet instances	tx_hash_set_make_remove_clear_size_flags
+ported	packages/effect/test/TxHashSet.test.ts	92	it.effect	add adds values to TxHashSet	tx_hash_set_make_remove_clear_size_flags
+ported	packages/effect/test/TxHashSet.test.ts	105	it.effect	remove removes values from TxHashSet	tx_hash_set_make_remove_clear_size_flags
+ported	packages/effect/test/TxHashSet.test.ts	120	it.effect	has checks for value existence	tx_hash_set_make_remove_clear_size_flags
+ported	packages/effect/test/TxHashSet.test.ts	128	it.effect	size returns correct count	tx_hash_set_make_remove_clear_size_flags
+ported	packages/effect/test/TxHashSet.test.ts	140	it.effect	isEmpty and isNonEmpty check the set	tx_hash_set_make_remove_clear_size_flags
+ported	packages/effect/test/TxHashSet.test.ts	151	it.effect	clear removes all values	tx_hash_set_make_remove_clear_size_flags
 unported	packages/effect/test/TxHashSet.test.ts	163	it.effect	union combines two sets	
 unported	packages/effect/test/TxHashSet.test.ts	175	it.effect	intersection finds common elements	
 unported	packages/effect/test/TxHashSet.test.ts	187	it.effect	difference finds elements only in first set	
