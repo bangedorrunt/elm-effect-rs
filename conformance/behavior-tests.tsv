@@ -727,7 +727,7 @@ ported	packages/effect/test/Config.test.ts	598	it	combines named fields and pres
 ported	packages/effect/test/Config.test.ts	618	it	uses the parsed value when present and the default when absent	config_with_default_present_absent_and_product
 ported	packages/effect/test/Config.test.ts	632	it	supports redacted default values	config_secret_redacted_masked
 ported	packages/effect/test/Config.test.ts	640	it	treats ignored empty env strings as absent	config_env_empty_is_absent
-unported	packages/effect/test/Config.test.ts	651	it	validates empty env numbers when they are preserved	
+ported	packages/effect/test/Config.test.ts	651	it	validates empty env numbers when they are preserved	config_empty_numbers_validate_when_preserved
 ported	packages/effect/test/Config.test.ts	665	it	defaults the whole product when any required child is absent	config_with_default_present_absent_and_product
 unported	packages/effect/test/Config.test.ts	684	it	does not recover from invalid union input	
 unported	packages/effect/test/Config.test.ts	696	it	does not recover from schema refinement failures	

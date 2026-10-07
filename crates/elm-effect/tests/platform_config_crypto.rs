@@ -41,6 +41,20 @@ fn config_defers_user_callbacks_until_load() {
     assert_eq!(out, Ok(Value::Int(1)));
 }
 
+#[test]
+fn config_empty_numbers_validate_when_preserved() {
+    // Config.test.ts:651 — ignored empties read as absent (default wins);
+    // preserved empties validate (and fail as numbers).
+    use config::ConfigError;
+    let cfg = || Config::number(named("a")).with_default(Value::Num(0.0));
+    let ignored = Provider::from_pairs(vec![("a".to_string(), "".to_string())]);
+    assert_eq!(cfg().load(&ignored), Ok(Value::Num(0.0)));
+    let kept =
+        Provider::from_pairs_preserving(vec![("a".to_string(), "".to_string())]);
+    let err = cfg().load(&kept).unwrap_err();
+    assert!(err.iter().all(|e| matches!(e, ConfigError::Invalid { .. })));
+}
+
 fn named(name: &str) -> Option<String> {
     Some(name.to_string())
 }
