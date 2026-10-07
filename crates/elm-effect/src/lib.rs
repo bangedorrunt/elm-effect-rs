@@ -13,6 +13,7 @@
 
 mod cause;
 mod concurrency;
+mod context;
 mod effect;
 #[cfg(feature = "tokio")]
 mod executor;
@@ -44,6 +45,7 @@ pub use cause::{
     Cause, Defect, FiberId, Reason, is_die_reason, is_fail_reason, is_interrupt_reason,
 };
 pub use concurrency::{Body, Concurrency, all, for_each, partition, validate, validate_discard};
+pub use context::{Context, Tag};
 pub use effect::{Effect, Requirement};
 pub use metric::{Counter, CounterState, MetricRegistry};
 #[cfg(feature = "schema")]

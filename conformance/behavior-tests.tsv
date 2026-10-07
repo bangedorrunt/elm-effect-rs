@@ -955,9 +955,9 @@ unported	packages/effect/test/ConfigProvider.test.ts	1101	it	layer installs a pr
 unported	packages/effect/test/ConfigProvider.test.ts	1111	it	layer accepts an Effect that produces a provider	
 unported	packages/effect/test/ConfigProvider.test.ts	1121	it	layerAdd adds an Effect-produced provider as fallback	
 unported	packages/effect/test/ConfigProvider.test.ts	1149	it	layerAdd can install the added provider as primary	
-unported	packages/effect/test/Context.test.ts	13	it	keeps the source immutable across additions	
-unported	packages/effect/test/Context.test.ts	21	it	removes a service with addOrOmit	
-unported	packages/effect/test/Context.test.ts	27	it	preserves Map insertion order for replacements and appends	
+ported	packages/effect/test/Context.test.ts	13	it	keeps the source immutable across additions	context_add_keeps_source_immutable
+ported	packages/effect/test/Context.test.ts	21	it	removes a service with addOrOmit	context_add_or_omit_removes
+ported	packages/effect/test/Context.test.ts	27	it	preserves Map insertion order for replacements and appends	context_preserves_insertion_order
 unported	packages/effect/test/Context.test.ts	45	it	invalidates the fiber cache only for opted-in keys	
 unported	packages/effect/test/Context.test.ts	84	it	supports the Redactable fallback context	
 unported	packages/effect/test/Context.test.ts	100	it	distinguishes an undefined service from an absent service	
@@ -966,8 +966,8 @@ unported	packages/effect/test/Context.test.ts	133	it	flattens after repeated bas
 unported	packages/effect/test/Context.test.ts	152	it	defers flattening a large base until enough base hits	
 unported	packages/effect/test/Context.test.ts	181	it	supports the ReadonlyMap surface through mapUnsafe	
 unported	packages/effect/test/Context.test.ts	195	it	supports equality and JSON materialization	
-unported	packages/effect/test/Context.test.ts	207	it	merges with right bias and preserves empty operand identity	
-unported	packages/effect/test/Context.test.ts	217	it	pick and omit retain source ordering	
+ported	packages/effect/test/Context.test.ts	207	it	merges with right bias and preserves empty operand identity	context_merge_is_right_biased
+ported	packages/effect/test/Context.test.ts	217	it	pick and omit retain source ordering	context_pick_omit_retain_source_order
 unported	packages/effect/test/Context.test.ts	224	it	resolves reference defaults lazily and caches them	
 unported	packages/effect/test/Context.test.ts	241	it	retains the makeUnsafe input map	
 ported	packages/effect/test/Cron.test.ts	18	it	isCronParseError	cron_parse_error_predicate
