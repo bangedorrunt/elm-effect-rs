@@ -176,6 +176,23 @@ fn date_equivalence_by_instant() {
 }
 
 #[test]
+fn record_string_keys_equivalence() {
+    // Equivalence.test.ts:123 — record equality needs the same keys
+    // with equivalent values on both sides.
+    use std::collections::BTreeMap;
+    let eq = Equivalence::make(|a: &BTreeMap<String, i32>, b: &BTreeMap<String, i32>| a == b);
+    let full = || BTreeMap::from([("a".to_string(), 1), ("b".to_string(), 2)]);
+    assert!(eq.is_equivalent(&full(), &full()));
+    let mut changed = full();
+    changed.insert("b".to_string(), 3);
+    assert!(!eq.is_equivalent(&full(), &changed));
+    let mut missing = full();
+    missing.remove("b");
+    assert!(!eq.is_equivalent(&full(), &missing));
+    assert!(!eq.is_equivalent(&missing, &full()));
+}
+
+#[test]
 fn function_and_ordering_basics() {
     assert_eq!(identity(3), 3);
     assert_eq!(constant(7)(), 7);

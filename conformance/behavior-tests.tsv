@@ -1661,7 +1661,7 @@ ported	packages/effect/test/Equivalence.test.ts	75	it	Array	equivalence_and_pred
 ported	packages/effect/test/Equivalence.test.ts	85	it	string keys	struct_string_keys_equivalence
 unported	packages/effect/test/Equivalence.test.ts	96	it	symbol keys	
 unported	packages/effect/test/Equivalence.test.ts	109	it	mixed keys	
-unported	packages/effect/test/Equivalence.test.ts	123	it	string keys	
+ported	packages/effect/test/Equivalence.test.ts	123	it	string keys	record_string_keys_equivalence
 unported	packages/effect/test/Equivalence.test.ts	132	it	symbol keys	
 unported	packages/effect/test/Equivalence.test.ts	143	it	mixed keys	
 ported	packages/effect/test/Equivalence.test.ts	154	it	Date	date_equivalence_by_instant
