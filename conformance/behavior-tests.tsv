@@ -1509,11 +1509,11 @@ ported	packages/effect/test/EffectKeepAlive.test.ts	41	it	makeRunMain when setIn
 unported	packages/effect/test/Effectable.test.ts	19	it.effect	evaluates asEffect	
 unported	packages/effect/test/Effectable.test.ts	25	it.effect	propagates failures	
 unported	packages/effect/test/Effectable.test.ts	36	it.effect	uses provided services	
-unported	packages/effect/test/Effectable.test.ts	49	it	shadows base prototype methods without modifying them	
-unported	packages/effect/test/Effectable.test.ts	71	it	inserts the Effect prototype between the subclass and original class	
-unported	packages/effect/test/Effectable.test.ts	83	it	preserves the original constructor and instance members	
+not-applicable	packages/effect/test/Effectable.test.ts	49	it	shadows base prototype methods without modifying them	N/A: JS prototype-chain surgery has no Rust analog
+not-applicable	packages/effect/test/Effectable.test.ts	71	it	inserts the Effect prototype between the subclass and original class	N/A: JS prototype-chain surgery has no Rust analog
+not-applicable	packages/effect/test/Effectable.test.ts	83	it	preserves the original constructor and instance members	N/A: JS prototype-chain surgery has no Rust analog
 unported	packages/effect/test/Effectable.test.ts	92	it	makes instances behave as Effects	
-unported	packages/effect/test/Effectable.test.ts	98	it	does not modify the original class prototype	
+not-applicable	packages/effect/test/Effectable.test.ts	98	it	does not modify the original class prototype	N/A: JS prototype-chain surgery has no Rust analog
 unported	packages/effect/test/Equal.test.ts	21	it	does not cache an equality found through a provisional circular pair	
 unported	packages/effect/test/Equal.test.ts	69	it	does not let an earlier comparison change a later result	
 unported	packages/effect/test/Equal.test.ts	76	it	assumes cycles equal pair by pair	
@@ -6450,12 +6450,12 @@ unported	packages/effect/test/http/FindMyWay/regex.test.ts	102	it	falls back whe
 unported	packages/effect/test/http/FindMyWay/regex.test.ts	112	it	avoids backtracking across static parameter separators	
 unported	packages/effect/test/http/FindMyWay/regex.test.ts	119	it	avoids backtracking across mixed static parameter separators	
 unported	packages/effect/test/http/Headers.test.ts	9	it	serializer annotation	
-unported	packages/effect/test/http/Headers.test.ts	26	it	does not expose inspectable prototype methods during for..in iteration	
+not-applicable	packages/effect/test/http/Headers.test.ts	26	it	does not expose inspectable prototype methods during for..in iteration	N/A: for..in prototype iteration is JS-object-specific
 ported	packages/effect/test/http/Headers.test.ts	37	it	remove	headers_are_case_insensitive_multimap
 ported	packages/effect/test/http/Headers.test.ts	43	it	removeMany deletes multiple headers	headers_remove_many_drops_each_case_insensitively
 ported	packages/effect/test/http/Headers.test.ts	49	it	removeMany normalizes keys to lowercase	headers_remove_many_drops_each_case_insensitively
 ported	packages/effect/test/http/Headers.test.ts	55	it	isRedactedName compares string patterns case-insensitively	headers_redact_matching_names_case_insensitively
-unported	packages/effect/test/http/Headers.test.ts	59	it	works with for..in based headers polyfills	
+not-applicable	packages/effect/test/http/Headers.test.ts	59	it	works with for..in based headers polyfills	N/A: for..in prototype iteration is JS-object-specific
 ported	packages/effect/test/http/Headers.test.ts	72	it	get returns Option	headers_are_case_insensitive_multimap
 unported	packages/effect/test/http/Headers.test.ts	78	it	redacts each header independently with a global pattern	
 unported	packages/effect/test/http/Headers.test.ts	88	it	checks each header independently with a sticky pattern	
