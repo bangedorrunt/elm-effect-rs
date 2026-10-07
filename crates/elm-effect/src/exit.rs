@@ -35,3 +35,15 @@ impl<A, E> Exit<A, E> {
         matches!(self, Self::Success(_))
     }
 }
+
+/// Tag-compatible rendering (`Success(1)`, `Failure(Cause([Fail("e")]))`).
+/// Values render with `Debug`, matching the tag's inspect for the covered
+/// shapes (strings quoted, numbers bare).
+impl<A: std::fmt::Debug, E: std::fmt::Debug> std::fmt::Display for Exit<A, E> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Exit::Success(value) => write!(f, "Success({value:?})"),
+            Exit::Failure(cause) => write!(f, "Failure({cause})"),
+        }
+    }
+}

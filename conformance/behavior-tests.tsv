@@ -1688,7 +1688,7 @@ unported	packages/effect/test/ExecutionPlan.test.ts	495	it.effect	emits events w
 unported	packages/effect/test/ExecutionPlan.test.ts	512	it.effect	emits AttemptFailure when interrupted mid-attempt	
 unported	packages/effect/test/ExecutionPlan.test.ts	538	it.effect	emits AttemptFailure for defects without retrying	
 unported	packages/effect/test/ExecutionPlan.test.ts	557	it.effect	emits events when a partial stream fails with fallback disabled	
-unported	packages/effect/test/Exit.test.ts	5	it	toString	
+ported	packages/effect/test/Exit.test.ts	5	it	toString	exit_to_string
 unported	packages/effect/test/Fiber.test.ts	5	it	is a fiber	
 unported	packages/effect/test/Fiber.test.ts	10	it	notifies all observers when an observer cancels during exit	
 unported	packages/effect/test/Fiber.test.ts	27	it	stops notifying an observer once it is removed	

@@ -64,11 +64,43 @@ pub fn is_interrupt_reason<E>(reason: &Reason<E>) -> bool {
     matches!(reason, Reason::Interrupt { .. })
 }
 
+/// Tag-compatible rendering (`Fail("boom")`, `Die("kaboom"),
+/// `Interrupt(7)`). Values render with `Debug`, which matches the tag's
+/// inspect for strings (quoted) and numbers (bare). An unknown interrupter
+/// renders as `undefined`: the tag's word for an absent value.
+impl<E: std::fmt::Debug> std::fmt::Display for Reason<E> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Reason::Fail(error) => write!(f, "Fail({error:?})"),
+            Reason::Die(defect) => write!(f, "Die({:?})", defect.message),
+            Reason::Interrupt { fiber_id } => match fiber_id {
+                Some(id) => write!(f, "Interrupt({})", id.0),
+                None => write!(f, "Interrupt(undefined)"),
+            },
+        }
+    }
+}
+
 /// Why an effect failed: a vector of [`Reason`]. Ordinary data.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Cause<E> {
     /// Every reason, in the order recorded. Empty means no failure recorded.
     pub reasons: Vec<Reason<E>>,
+}
+
+/// Tag-compatible rendering (`Cause([Fail("boom")])`); reasons join with
+/// `", "` like the tag's array rendering. Empty renders `Cause([])`.
+impl<E: std::fmt::Debug> std::fmt::Display for Cause<E> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Cause([")?;
+        for (i, reason) in self.reasons.iter().enumerate() {
+            if i > 0 {
+                write!(f, ", ")?;
+            }
+            write!(f, "{reason}")?;
+        }
+        write!(f, "])")
+    }
 }
 
 impl<E> Cause<E> {

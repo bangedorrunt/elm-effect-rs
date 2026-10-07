@@ -28,6 +28,27 @@ fn cause_reasons_classify() {
 }
 
 #[test]
+fn exit_to_string() {
+    assert_eq!(Exit::<i32, String>::succeed(1).to_string(), "Success(1)");
+    assert_eq!(
+        Exit::<(), String>::fail("error".to_string()).to_string(),
+        "Failure(Cause([Fail(\"error\")]))"
+    );
+    assert_eq!(
+        Exit::<(), String>::die(Defect::new("error")).to_string(),
+        "Failure(Cause([Die(\"error\")]))"
+    );
+    assert_eq!(
+        Exit::<(), String>::Failure(Cause::interrupt(Some(FiberId(1)))).to_string(),
+        "Failure(Cause([Interrupt(1)]))"
+    );
+    assert_eq!(
+        Exit::<(), String>::Failure(Cause::interrupt(None)).to_string(),
+        "Failure(Cause([Interrupt(undefined)]))"
+    );
+}
+
+#[test]
 fn cause_structural_eq() {
     let a = Cause::fail("x".to_string());
     let b = Cause::fail("x".to_string());
