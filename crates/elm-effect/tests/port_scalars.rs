@@ -1159,5 +1159,9 @@ fn number_exact_dividends() {
     let large = 2f64.powi(60);
     assert_eq!(number::remainder(large, 2.5), 1.0);
     assert_eq!(number::remainder(large, 1.25), 1.0);
+    // Number.test.ts:404 - larger exact dividends, including fractions.
+    let larger = 2f64.powi(70);
+    assert_eq!(number::remainder(larger, 3.0), 1.0);
+    assert_eq!(number::remainder(larger, 2.5), 1.5);
 }
 
