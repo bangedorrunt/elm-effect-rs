@@ -3164,15 +3164,15 @@ ported	packages/effect/test/Record.test.ts	369	it	makeEquivalence	record_core
 ported	packages/effect/test/Record.test.ts	378	it	mapKeys	record_core
 ported	packages/effect/test/Record.test.ts	385	it	mapEntries	record_core
 ported	packages/effect/test/Record.test.ts	390	it	refinement/predicate	record_core
-unported	packages/effect/test/Redacted.test.ts	6	it	chunk constructor	
-unported	packages/effect/test/Redacted.test.ts	11	it	value	
+ported	packages/effect/test/Redacted.test.ts	6	it	chunk constructor	redacted_display_equal_hash_value
+ported	packages/effect/test/Redacted.test.ts	11	it	value	secret_debug_is_redacted
 unported	packages/effect/test/Redacted.test.ts	17	it	pipe supports extracting the protected value	
-unported	packages/effect/test/Redacted.test.ts	24	it	toString returns a redacted placeholder	
+ported	packages/effect/test/Redacted.test.ts	24	it	toString returns a redacted placeholder	redacted_display_equal_hash_value
 unported	packages/effect/test/Redacted.test.ts	29	it	toJSON serializes the redacted placeholder	
 unported	packages/effect/test/Redacted.test.ts	34	it	label appears in redacted output and wipe errors	
 unported	packages/effect/test/Redacted.test.ts	44	it	wipeUnsafe removes access to the protected value	
-unported	packages/effect/test/Redacted.test.ts	50	it	Equal compares the protected values of two Redacted values	
-unported	packages/effect/test/Redacted.test.ts	55	it	Hash is derived from the protected value	
+ported	packages/effect/test/Redacted.test.ts	50	it	Equal compares the protected values of two Redacted values	redacted_display_equal_hash_value
+ported	packages/effect/test/Redacted.test.ts	55	it	Hash is derived from the protected value	redacted_display_equal_hash_value
 ported	packages/effect/test/Reducer.test.ts	6	it	flip	combiners_fold
 unported	packages/effect/test/Ref.test.ts	30	it.effect	get returns the current value	
 unported	packages/effect/test/Ref.test.ts	36	it.effect	getAndSet returns the previous value and stores the replacement	

@@ -50,6 +50,30 @@ fn secret_debug_is_redacted() {
 }
 
 #[test]
+fn redacted_display_equal_hash_value() {
+    // Redacted.test.ts:24 — default stringification is the placeholder.
+    assert_eq!(format!("{}", Redacted::make("redacted")), "<redacted>");
+    // :50 — equality compares protected values.
+    assert_eq!(Redacted::make(1), Redacted::make(1));
+    assert_ne!(Redacted::make(1), Redacted::make(2));
+    // Chunk constructor values compare too (composites wrap like scalars).
+    assert_eq!(
+        Redacted::make(vec![1, 2]),
+        Redacted::make(vec![1, 2])
+    );
+    // :55 — hash derives from the protected value.
+    use std::collections::hash_map::DefaultHasher;
+    use std::hash::{Hash, Hasher};
+    let hash_of = |v: Redacted<i32>| {
+        let mut h = DefaultHasher::new();
+        v.hash(&mut h);
+        h.finish()
+    };
+    assert_eq!(hash_of(Redacted::make(1)), hash_of(Redacted::make(1)));
+    assert_ne!(hash_of(Redacted::make(1)), hash_of(Redacted::make(2)));
+}
+
+#[test]
 fn span_name_and_attributes() {
     let tracer = Tracer::new();
     let exit = elm_effect::Runtime::run(with_span(

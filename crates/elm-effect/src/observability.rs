@@ -67,6 +67,29 @@ impl<T> std::fmt::Debug for Redacted<T> {
     }
 }
 
+/// Default stringification never shows the bytes (mirrors `toString`).
+impl<T> std::fmt::Display for Redacted<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("<redacted>")
+    }
+}
+
+/// Equality compares protected values (mirrors `Equal`).
+impl<T: PartialEq> PartialEq for Redacted<T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.value == other.value
+    }
+}
+
+impl<T: Eq> Eq for Redacted<T> {}
+
+/// Hash derives from the protected value (mirrors `Hash`).
+impl<T: std::hash::Hash> std::hash::Hash for Redacted<T> {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.value.hash(state);
+    }
+}
+
 impl<T: Clone> Clone for Redacted<T> {
     fn clone(&self) -> Self {
         Self {
