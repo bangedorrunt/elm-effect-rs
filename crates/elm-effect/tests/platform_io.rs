@@ -29,6 +29,17 @@ fn stdio_fake_records_and_replays() {
 }
 
 #[test]
+fn stdio_fake_terminal_overrides() {
+    // Stdio.test.ts:13 — layerTest allows terminal state overrides.
+    let io = FakeStdio::new(vec![], vec![]).with_terminals(true, true);
+    assert!(io.stdin_is_terminal());
+    assert!(io.stdout_is_terminal());
+    let io = FakeStdio::new(vec![], vec![]).with_terminals(true, false);
+    assert!(io.stdin_is_terminal());
+    assert!(!io.stdout_is_terminal());
+}
+
+#[test]
 fn terminal_fake_scripts_and_quits() {
     let term = FakeTerminal::new(vec![Ok("yes".to_owned()), Err(QuitError)]);
     assert_eq!(term.read_line("> "), Ok("yes".to_owned()));

@@ -85,6 +85,8 @@ struct FakeState {
 pub struct FakeStdio {
     state: Arc<Mutex<FakeState>>,
     args: Vec<String>,
+    stdin_terminal: bool,
+    stdout_terminal: bool,
 }
 
 impl FakeStdio {
@@ -97,7 +99,16 @@ impl FakeStdio {
                 stdin: stdin_lines.into(),
             })),
             args,
+            stdin_terminal: false,
+            stdout_terminal: false,
         }
+    }
+
+    /// Override the terminal flags (`layerTest` overrides).
+    pub fn with_terminals(mut self, stdin_terminal: bool, stdout_terminal: bool) -> Self {
+        self.stdin_terminal = stdin_terminal;
+        self.stdout_terminal = stdout_terminal;
+        self
     }
 
     /// Recorded stdout chunks.
@@ -117,11 +128,11 @@ impl Stdio for FakeStdio {
     }
 
     fn stdin_is_terminal(&self) -> bool {
-        false
+        self.stdin_terminal
     }
 
     fn stdout_is_terminal(&self) -> bool {
-        false
+        self.stdout_terminal
     }
 
     fn write_stdout(&self, chunk: &str) {

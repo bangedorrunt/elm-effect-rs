@@ -3504,8 +3504,8 @@ unported	packages/effect/test/StackTraceLimit.test.ts	9	it	isStackTraceLimitWrit
 unported	packages/effect/test/StackTraceLimit.test.ts	13	it	getStackTraceLimit reflects the current value	
 unported	packages/effect/test/StackTraceLimit.test.ts	20	it	setStackTraceLimit updates and restores the limit	
 unported	packages/effect/test/StackTraceLimit.test.ts	32	it	degrades to a no-op without throwing	
-unported	packages/effect/test/Stdio.test.ts	6	it.effect	layerTest defaults terminal state to false	
-unported	packages/effect/test/Stdio.test.ts	13	it.effect	layerTest allows terminal state overrides	
+ported	packages/effect/test/Stdio.test.ts	6	it.effect	layerTest defaults terminal state to false	stdio_fake_records_and_replays
+ported	packages/effect/test/Stdio.test.ts	13	it.effect	layerTest allows terminal state overrides	stdio_fake_terminal_overrides
 unported	packages/effect/test/Stream.test.ts	43	it.effect	with take	
 unported	packages/effect/test/Stream.test.ts	59	it.effect	with cleanup	
 unported	packages/effect/test/Stream.test.ts	80	it.effect	signals the end of the stream	
