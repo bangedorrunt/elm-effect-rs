@@ -137,6 +137,29 @@ fn tx_pubsub_broadcasts() {
 }
 
 #[test]
+fn tx_pubsub_constructors_set_capacity_and_strategy() {
+    // TxPubSub.test.ts:13/19/25 — unbounded/dropping/sliding.
+    assert_eq!(TxPubSub::<i32>::unbounded().capacity(), None);
+    assert_eq!(TxPubSub::<i32>::dropping(4).capacity(), Some(4));
+    assert_eq!(TxPubSub::<i32>::sliding(4).capacity(), Some(4));
+    assert_eq!(TxPubSub::<i32>::bounded(16).capacity(), Some(16));
+    let sliding = TxPubSub::sliding(2);
+    sliding.publish(1);
+    sliding.publish(2);
+    sliding.publish(3);
+    assert_eq!(sliding.drain(), vec![2, 3]);
+    let dropping = TxPubSub::dropping(2);
+    dropping.publish(1);
+    dropping.publish(2);
+    dropping.publish(3);
+    assert_eq!(dropping.drain(), vec![1, 2]);
+    let open = TxPubSub::<i32>::unbounded();
+    open.publish(1);
+    open.publish(2);
+    assert_eq!(open.drain(), vec![1, 2]);
+}
+
+#[test]
 fn tx_subscription_ref_notifies() {
     let watched = TxSubscriptionRef::new(0);
     assert_eq!(watched.get(), 0);

@@ -4291,9 +4291,9 @@ unported	packages/effect/test/TxPriorityQueue.test.ts	192	it.effect	isTxPriority
 unported	packages/effect/test/TxPriorityQueue.test.ts	203	it.effect	concurrent offer and take	
 unported	packages/effect/test/TxPriorityQueue.test.ts	220	it.effect	reverse order (max-first)	
 ported	packages/effect/test/TxPubSub.test.ts	6	it.effect	bounded creates pubsub with specified capacity	tx_pubsub_broadcasts
-unported	packages/effect/test/TxPubSub.test.ts	13	it.effect	unbounded creates pubsub with unlimited capacity	
-unported	packages/effect/test/TxPubSub.test.ts	19	it.effect	dropping creates pubsub with dropping strategy	
-unported	packages/effect/test/TxPubSub.test.ts	25	it.effect	sliding creates pubsub with sliding strategy	
+ported	packages/effect/test/TxPubSub.test.ts	13	it.effect	unbounded creates pubsub with unlimited capacity	tx_pubsub_constructors_set_capacity_and_strategy
+ported	packages/effect/test/TxPubSub.test.ts	19	it.effect	dropping creates pubsub with dropping strategy	tx_pubsub_constructors_set_capacity_and_strategy
+ported	packages/effect/test/TxPubSub.test.ts	25	it.effect	sliding creates pubsub with sliding strategy	tx_pubsub_constructors_set_capacity_and_strategy
 unported	packages/effect/test/TxPubSub.test.ts	33	it.effect	publish with no subscribers is a no-op	
 unported	packages/effect/test/TxPubSub.test.ts	40	it.effect	subscribe then publish then take	
 unported	packages/effect/test/TxPubSub.test.ts	54	it.effect	multiple subscribers each receive all messages	

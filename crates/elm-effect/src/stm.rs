@@ -974,26 +974,67 @@ impl<T: Ord> Default for TxPriorityQueue<T> {
 }
 
 /// A transactional broadcast bus: every published value is retained for
-/// draining subscribers. Bounded: publishing past capacity drops oldest.
+/// draining subscribers. Bounded buses drop oldest (sliding) or newest
+/// (dropping) past capacity; unbounded buses retain everything.
 pub struct TxPubSub<T> {
     inner: Mutex<VecDeque<T>>,
-    capacity: usize,
+    capacity: Option<usize>,
+    dropping: bool,
 }
 
 impl<T> TxPubSub<T> {
-    /// A bus retaining at most `capacity` values.
+    /// A bus retaining at most `capacity` values, dropping oldest past it.
     pub fn new(capacity: usize) -> Self {
+        Self::sliding(capacity)
+    }
+
+    /// A bus retaining at most `capacity` values.
+    pub fn bounded(capacity: usize) -> Self {
+        Self::sliding(capacity)
+    }
+
+    /// A bus retaining everything.
+    pub fn unbounded() -> Self {
         Self {
             inner: Mutex::new(VecDeque::new()),
-            capacity,
+            capacity: None,
+            dropping: false,
         }
     }
 
-    /// Publish one value, dropping oldest past capacity.
+    /// A bus dropping newest values past `capacity`.
+    pub fn dropping(capacity: usize) -> Self {
+        Self {
+            inner: Mutex::new(VecDeque::new()),
+            capacity: Some(capacity),
+            dropping: true,
+        }
+    }
+
+    /// A bus dropping oldest values past `capacity`.
+    pub fn sliding(capacity: usize) -> Self {
+        Self {
+            inner: Mutex::new(VecDeque::new()),
+            capacity: Some(capacity),
+            dropping: false,
+        }
+    }
+
+    /// Capacity (`None` when unbounded).
+    pub fn capacity(&self) -> Option<usize> {
+        self.capacity
+    }
+
+    /// Publish one value, applying the overflow strategy past capacity.
     pub fn publish(&self, value: T) {
         tx_cell(&self.inner, |buffer| {
-            if buffer.len() >= self.capacity {
-                buffer.pop_front();
+            if let Some(cap) = self.capacity {
+                if buffer.len() >= cap {
+                    if self.dropping {
+                        return;
+                    }
+                    buffer.pop_front();
+                }
             }
             buffer.push_back(value);
         });
