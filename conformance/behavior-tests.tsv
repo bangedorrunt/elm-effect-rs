@@ -1652,7 +1652,7 @@ unported	packages/effect/test/Equal.test.ts	1470	it	should return false for obje
 ported	packages/effect/test/Equivalence.test.ts	6	it	String	equivalence_and_predicate_basics
 ported	packages/effect/test/Equivalence.test.ts	11	it	Number	equivalence_and_predicate_basics
 ported	packages/effect/test/Equivalence.test.ts	20	it	Boolean	equivalence_and_predicate_basics
-unported	packages/effect/test/Equivalence.test.ts	27	it	BigInt	
+ported	packages/effect/test/Equivalence.test.ts	27	it	BigInt	bigint_equivalence
 ported	packages/effect/test/Equivalence.test.ts	32	it	mapInput	equivalence_and_predicate_basics
 ported	packages/effect/test/Equivalence.test.ts	44	it	combine	equivalence_and_predicate_basics
 ported	packages/effect/test/Equivalence.test.ts	55	it	combineAll	equivalence_and_predicate_basics

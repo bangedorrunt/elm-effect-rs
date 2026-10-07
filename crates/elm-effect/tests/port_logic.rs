@@ -10,6 +10,9 @@ use elm_effect::{
     ord_order, reverse_ordering, string_equivalence, string_order, tuple_equivalence, tupled, untupled,
 };
 
+#[path = "../src/data/bigint.rs"]
+mod bigint;
+
 #[test]
 #[allow(invalid_nan_comparisons, clippy::assertions_on_constants)]
 fn equal_nan_is_nan() {
@@ -133,6 +136,14 @@ fn equivalence_and_predicate_basics() {
     assert!(Predicate::<Option<i32>>::is_none().test(&None));
     let projected = even.clone().map_input(|pair: &(i32, i32)| pair.0);
     assert!(projected.test(&(4, 1)));
+}
+
+#[test]
+fn bigint_equivalence() {
+    // Equivalence.test.ts:27 — BigInt equivalence compares values.
+    let eq = Equivalence::make(|a: &bigint::Big, b: &bigint::Big| a == b);
+    assert!(eq.is_equivalent(&bigint::Big::from_int(1), &bigint::Big::from_int(1)));
+    assert!(!eq.is_equivalent(&bigint::Big::from_int(1), &bigint::Big::from_int(2)));
 }
 
 #[test]
