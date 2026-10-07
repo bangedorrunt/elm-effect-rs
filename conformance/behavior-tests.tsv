@@ -968,7 +968,7 @@ unported	packages/effect/test/Context.test.ts	181	it	supports the ReadonlyMap su
 unported	packages/effect/test/Context.test.ts	195	it	supports equality and JSON materialization	
 ported	packages/effect/test/Context.test.ts	207	it	merges with right bias and preserves empty operand identity	context_merge_is_right_biased
 ported	packages/effect/test/Context.test.ts	217	it	pick and omit retain source ordering	context_pick_omit_retain_source_order
-unported	packages/effect/test/Context.test.ts	224	it	resolves reference defaults lazily and caches them	
+ported	packages/effect/test/Context.test.ts	224	it	resolves reference defaults lazily and caches them	context_reference_defaults_resolve_lazily_and_cache
 unported	packages/effect/test/Context.test.ts	241	it	retains the makeUnsafe input map	
 ported	packages/effect/test/Cron.test.ts	18	it	isCronParseError	cron_parse_error_predicate
 ported	packages/effect/test/Cron.test.ts	26	it	CronParseError constructor	cron_parse_error_constructor_fields

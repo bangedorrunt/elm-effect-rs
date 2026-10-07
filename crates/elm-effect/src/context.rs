@@ -33,6 +33,28 @@ impl<T> Tag<T> {
     }
 }
 
+/// A service tag with a lazy default (`Context.Reference`): the first
+/// resolution computes the default and caches it in the map.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct ContextReference<T> {
+    /// Stable lookup key.
+    pub key: &'static str,
+    /// Computes the value on first resolution.
+    pub default: fn() -> T,
+    marker: PhantomData<fn() -> T>,
+}
+
+impl<T> ContextReference<T> {
+    /// A reference tag with its default factory.
+    pub const fn new(key: &'static str, default: fn() -> T) -> Self {
+        Self {
+            key,
+            default,
+            marker: PhantomData,
+        }
+    }
+}
+
 /// An ordered service map.
 #[derive(Clone, Debug, Default)]
 pub struct Context {
@@ -105,5 +127,22 @@ impl Context {
     /// Keys in insertion order.
     pub fn keys(&self) -> Vec<&str> {
         self.entries.iter().map(|(k, _)| k.as_str()).collect()
+    }
+
+    /// Resolve a reference: the stored service when present, otherwise
+    /// the default, computed once and cached in the map for later
+    /// resolutions (shared by [`Arc`](std::sync::Arc)).
+    pub fn resolve<T: Send + Sync + 'static>(&mut self, tag: ContextReference<T>) -> Arc<T> {
+        if let Some(hit) = self
+            .entries
+            .iter()
+            .find(|(k, _)| k == tag.key)
+            .and_then(|(_, v)| v.clone().downcast::<T>().ok())
+        {
+            return hit;
+        }
+        let value: Arc<T> = Arc::new((tag.default)());
+        self.entries.push((tag.key.to_string(), value.clone()));
+        value
     }
 }

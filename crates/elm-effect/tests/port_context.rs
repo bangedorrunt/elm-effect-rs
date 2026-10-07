@@ -1,6 +1,6 @@
 //! Service-map behavior: `Context.ts` ordering, omission, and merge rows.
 
-use elm_effect::{Context, Tag};
+use elm_effect::{Context, ContextReference, Tag};
 
 const A: Tag<i32> = Tag::new("ContextTest/A");
 const B: Tag<i32> = Tag::new("ContextTest/B");
@@ -68,4 +68,24 @@ fn context_pick_omit_retain_source_order() {
         source.clone().omit(B).keys(),
         vec!["ContextTest/A", "ContextTest/C"]
     );
+}
+
+#[test]
+fn context_reference_defaults_resolve_lazily_and_cache() {
+    // Context.test.ts:224 — the default computes on first resolution
+    // and the cached value is shared after.
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    static CALLS: AtomicUsize = AtomicUsize::new(0);
+    let tag = ContextReference::new("ContextTest/LazyRef", || {
+        CALLS.fetch_add(1, Ordering::SeqCst);
+        7i32
+    });
+    let mut context = Context::empty();
+    assert_eq!(CALLS.load(Ordering::SeqCst), 0);
+    let first = context.resolve(tag);
+    assert_eq!(*first, 7);
+    assert_eq!(CALLS.load(Ordering::SeqCst), 1);
+    let second = context.resolve(tag);
+    assert!(std::sync::Arc::ptr_eq(&first, &second));
+    assert_eq!(CALLS.load(Ordering::SeqCst), 1);
 }
