@@ -36,6 +36,16 @@ pub enum SqlReason {
     Unknown,
 }
 
+impl SqlReason {
+    /// Default retryability per reason, from the tag's reason table
+    /// (connection-class retries; everything else does not).
+    /// `ForeignKeyViolation`/`EmptyResult` have no tag counterpart and take
+    /// the non-retryable default.
+    pub fn default_retryable(&self) -> bool {
+        matches!(self, SqlReason::ConnectionLost)
+    }
+}
+
 /// Typed SQL failure.
 #[derive(Clone, Debug, PartialEq)]
 pub struct SqlError {
@@ -61,6 +71,30 @@ impl SqlError {
     pub fn is_unique_violation(&self) -> bool {
         matches!(self.reason, SqlReason::UniqueViolation { .. })
     }
+
+    /// Wrap a bare reason: message falls back to the reason tag and
+    /// retryability comes from the reason, mirroring the tag's `SqlError`
+    /// delegation (`message = reason.message || tag`). Uses the local
+    /// [`SqlReason::tag`] (roundtrip key); its strings predate this change.
+    /// An explicitly built error keeps its own message; empty included.
+    pub fn wrap(reason: SqlReason) -> Self {
+        let retryable = reason.default_retryable();
+        let message = reason.tag().to_string();
+        Self::new(reason, retryable, &message)
+    }
+}
+
+/// Always true for `SqlError` (the type already narrows; mirrors
+/// `isSqlError`, like `is_number` mirrors `isNumber`). A bare reason is a
+/// different type and cannot reach this predicate.
+pub fn is_sql_error(_: &SqlError) -> bool {
+    true
+}
+
+/// Always true for `SqlReason` (mirrors `isSqlErrorReason`). A wrapped
+/// error is a different type and cannot reach this predicate.
+pub fn is_sql_error_reason(_: &SqlReason) -> bool {
+    true
 }
 
 impl std::fmt::Display for SqlError {

@@ -6,7 +6,7 @@ mod socket;
 mod sql;
 
 use socket::socket_pair;
-use sql::{Faults, SqlClient, SqlError, SqlReason, classify_sqlite_error};
+use sql::{Faults, SqlClient, SqlError, SqlReason, classify_sqlite_error, is_sql_error, is_sql_error_reason};
 
 #[test]
 fn sql_error_reasons_classify() {
@@ -47,6 +47,36 @@ fn sql_error_reasons_classify() {
         assert!(err.retryable);
         assert!(err.to_string().contains("boom"));
     }
+}
+
+#[test]
+fn sql_error_wrap_delegates_and_guards() {
+    // SqlError.test.ts:59 — the wrapper falls back to the reason tag and
+    // takes retryability from the reason; explicit messages win.
+    for (reason, retryable) in [
+        (SqlReason::ConnectionLost, true),
+        (SqlReason::SyntaxError, false),
+        (
+            SqlReason::UniqueViolation { constraint: None },
+            false,
+        ),
+        (SqlReason::ConstraintError { detail: None }, false),
+        (SqlReason::ForeignKeyViolation, false),
+        (SqlReason::EmptyResult, false),
+        (SqlReason::Unknown, false),
+    ] {
+        let tag = reason.tag().to_string();
+        let wrapped = SqlError::wrap(reason.clone());
+        assert_eq!(wrapped.message, tag);
+        assert_eq!(wrapped.reason, reason);
+        assert_eq!(wrapped.retryable, retryable);
+        // SqlError.test.ts:91/103 — guards match their own wrapper type.
+        assert!(is_sql_error(&wrapped));
+        assert!(is_sql_error_reason(&reason));
+    }
+    let explicit = SqlError::new(SqlReason::Unknown, true, "custom");
+    assert_eq!(explicit.message, "custom");
+    assert!(is_sql_error(&explicit));
 }
 
 #[test]

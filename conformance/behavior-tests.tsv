@@ -9829,9 +9829,9 @@ ported	packages/effect/test/sql/SqlClient.test.ts	210	it.effect	skips savepoint 
 ported	packages/effect/test/sql/SqlClient.test.ts	228	it.effect	rolls back the outer transaction when a savepoint release fails	outer_rolls_back_when_release_fails
 ported	packages/effect/test/sql/SqlClient.test.ts	246	it.effect	commits and returns the value when the wrapped effect succeeds	commit_returns_value_on_success
 ported	packages/effect/test/sql/SqlError.test.ts	43	it	reason classes expose expected tags and retryability	sql_error_reasons_classify
-unported	packages/effect/test/sql/SqlError.test.ts	59	it	delegates message, cause and retryability for every reason type	
-unported	packages/effect/test/sql/SqlError.test.ts	91	it	isSqlError only matches the SqlError wrapper	
-unported	packages/effect/test/sql/SqlError.test.ts	103	it	isSqlErrorReason only matches reason values	
+ported	packages/effect/test/sql/SqlError.test.ts	59	it	delegates message, cause and retryability for every reason type	sql_error_wrap_delegates_and_guards
+ported	packages/effect/test/sql/SqlError.test.ts	91	it	isSqlError only matches the SqlError wrapper	sql_error_wrap_delegates_and_guards
+ported	packages/effect/test/sql/SqlError.test.ts	103	it	isSqlErrorReason only matches reason values	sql_error_wrap_delegates_and_guards
 ported	packages/effect/test/sql/SqlError.test.ts	113	it	constructs and recognizes UniqueViolation reasons	sql_error_reasons_classify
 ported	packages/effect/test/sql/SqlError.test.ts	127	it	classifySqliteError maps sqlite unique constraint codes to UniqueViolation	sql_error_reasons_classify
 ported	packages/effect/test/sql/SqlError.test.ts	148	it	classifySqliteError extracts sqlite unique descriptors from messages	sql_error_reasons_classify
