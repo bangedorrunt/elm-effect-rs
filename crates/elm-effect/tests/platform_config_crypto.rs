@@ -1039,6 +1039,32 @@ fn provider_dotenv_preserve_empty_strings_option() {
 }
 
 #[test]
+fn provider_dotenv_expansion_defaults_and_missing() {
+    // ConfigProvider.test.ts:860 — `:-` defaults apply to empty or
+    // unset names only.
+    use config_provider::EnvProvider;
+    let p = EnvProvider::from_dotenv_expanding(
+        "SET=actual\nEMPTY=\nFROM_SET=${SET:-fallback}\nFROM_EMPTY=${EMPTY:-fallback}\nFROM_UNSET=${UNSET:-fallback}\n",
+    );
+    assert_eq!(
+        p.get(&["FROM_SET".to_string()]),
+        Some("actual".to_string())
+    );
+    assert_eq!(
+        p.get(&["FROM_EMPTY".to_string()]),
+        Some("fallback".to_string())
+    );
+    assert_eq!(
+        p.get(&["FROM_UNSET".to_string()]),
+        Some("fallback".to_string())
+    );
+    // ConfigProvider.test.ts:876 — missing references expand to empty,
+    // which reads as missing.
+    let q = EnvProvider::from_dotenv_expanding("VALUE=$constructor\n");
+    assert_eq!(q.get(&["VALUE".to_string()]), None);
+}
+
+#[test]
 fn provider_dotenv_expands_refs_keeps_literal_dollars() {
     // ConfigProvider.test.ts:849 — referenced values expand; `$` not
     // starting a name stays literal.

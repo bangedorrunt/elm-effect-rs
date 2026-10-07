@@ -938,8 +938,8 @@ unported	packages/effect/test/ConfigProvider.test.ts	815	it	arrays are supported
 ported	packages/effect/test/ConfigProvider.test.ts	826	it	expansion of environment variables is off by default	provider_dotenv_expansion_is_opt_in
 ported	packages/effect/test/ConfigProvider.test.ts	836	it	expansion of environment variables is supported	provider_dotenv_expansion_is_opt_in
 ported	packages/effect/test/ConfigProvider.test.ts	849	it	expands referenced values as literal data	provider_dotenv_expands_refs_keeps_literal_dollars
-unported	packages/effect/test/ConfigProvider.test.ts	860	it	expansion defaults are used only for empty or unset variables	
-unported	packages/effect/test/ConfigProvider.test.ts	876	it	does not expand missing inherited variables	
+ported	packages/effect/test/ConfigProvider.test.ts	860	it	expansion defaults are used only for empty or unset variables	provider_dotenv_expansion_defaults_and_missing
+ported	packages/effect/test/ConfigProvider.test.ts	876	it	does not expand missing inherited variables	provider_dotenv_expansion_defaults_and_missing
 ported	packages/effect/test/ConfigProvider.test.ts	885	it	should load configuration from .env file	provider_dotenv_parses_key_value_text
 ported	packages/effect/test/ConfigProvider.test.ts	900	it	should support `path` option to specify the path to the .env file	provider_dotenv_parses_key_value_text
 unported	packages/effect/test/ConfigProvider.test.ts	915	it	should support `expandVariables` option	

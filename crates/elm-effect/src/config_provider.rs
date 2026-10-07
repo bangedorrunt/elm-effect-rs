@@ -542,24 +542,55 @@ fn expand_refs(s: &str, values: &BTreeMap<String, String>) -> String {
             i += 1;
             continue;
         }
-        let braced = chars.get(i + 1) == Some(&'{');
-        let start = if braced { i + 2 } else { i + 1 };
-        let mut end = start;
-        while end < chars.len()
-            && (chars[end].is_alphanumeric() || chars[end] == '_')
+        if chars.get(i + 1) == Some(&'{') {
+            // Braced `${NAME}` or `${NAME:-fallback}`; an unterminated
+            // `${` stays literal. Unknown or empty names expand to empty
+            // (missing at lookup unless preserved), and `:-` supplies the
+            // default for empty or unset names.
+            let rest = &chars[i + 2..];
+            match rest.iter().position(|&c| c == '}') {
+                None => {
+                    out.push('$');
+                    i += 1;
+                }
+                Some(close) => {
+                    let inner: String = rest[..close].iter().collect();
+                    let (name, default) = match inner.split_once(":-") {
+                        Some((n, d)) => (n, Some(d)),
+                        None => (inner.as_str(), None),
+                    };
+                    if name.is_empty() && default.is_none() {
+                        out.push('$');
+                        i += 1;
+                    } else {
+                        let current = values.get(name).filter(|v| !v.is_empty());
+                        match (current, default) {
+                            (Some(v), _) => out.push_str(v),
+                            (None, Some(d)) => out.push_str(d),
+                            (None, None) => {}
+                        }
+                        i += 2 + close + 1;
+                    }
+                }
+            }
+            continue;
+        }
+        // Unbraced `$NAME`: unknown names expand to empty (missing at
+        // lookup unless preserved); a bare `$` stays literal.
+        let mut end = i + 1;
+        while end < chars.len() && (chars[end].is_alphanumeric() || chars[end] == '_')
         {
             end += 1;
         }
-        let name: String = chars[start..end].iter().collect();
-        let known = !name.is_empty() && values.contains_key(&name);
-        if known {
+        let name: String = chars[i + 1..end].iter().collect();
+        if name.is_empty() {
+            out.push('$');
+            i += 1;
+        } else {
             if let Some(v) = values.get(&name) {
                 out.push_str(v);
             }
-            i = if braced { end + 1 } else { end };
-        } else {
-            out.push('$');
-            i += 1;
+            i = end;
         }
     }
     out
