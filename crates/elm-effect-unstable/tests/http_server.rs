@@ -1,6 +1,9 @@
 //! Listener-stack fence: explicit bind, route dispatch, 404 fallback.
 
-use elm_effect_unstable::http_server::{HttpServer, Response};
+use elm_effect_unstable::http_server::{
+    HttpServer, HttpServerError, Response, ServerErrorReason, ServerRequest, ServerResponse,
+    is_http_server_error,
+};
 use std::io::{BufRead, BufReader, Write};
 use std::net::TcpStream;
 
@@ -409,4 +412,133 @@ fn multi_param_segments_reject_mismatched_shapes() {
         ("a".to_string(), "X".to_string()),
         ("b".to_string(), "Y".to_string())
     ]));
+}
+
+fn error_request() -> ServerRequest {
+    ServerRequest {
+        method: "POST".to_string(),
+        url: "http://example.com/widgets".to_string(),
+    }
+}
+
+#[test]
+fn server_error_formats_request_reason_messages() {
+    // HttpServerError.test.ts:23.
+    let parse = ServerErrorReason::RequestParse {
+        request: error_request(),
+        description: "invalid body".to_string(),
+    };
+    assert_eq!(
+        parse.message(),
+        "RequestParseError (POST /widgets): invalid body"
+    );
+    let missing = ServerErrorReason::RouteNotFound {
+        request: error_request(),
+    };
+    assert_eq!(missing.message(), "RouteNotFound (POST /widgets)");
+}
+
+#[test]
+fn server_error_formats_response_reason_messages() {
+    // HttpServerError.test.ts:35.
+    let request = ServerRequest {
+        method: "GET".to_string(),
+        url: "http://example.com/tea".to_string(),
+    };
+    let response = ServerResponse { status: 418 };
+    let reason = ServerErrorReason::Response {
+        request,
+        response,
+        description: Some("short and stout".to_string()),
+    };
+    assert_eq!(
+        reason.message(),
+        "ResponseError (418 GET /tea): short and stout"
+    );
+}
+
+#[test]
+fn server_error_wrapper_delegates() {
+    // HttpServerError.test.ts:49 — message, request, response, and
+    // reason all delegate to the reason.
+    let request = ServerRequest {
+        method: "GET".to_string(),
+        url: "http://example.com/ok".to_string(),
+    };
+    let response = ServerResponse { status: 503 };
+    let reason = ServerErrorReason::Response {
+        request: request.clone(),
+        response: response.clone(),
+        description: None,
+    };
+    let error = HttpServerError {
+        reason: reason.clone(),
+    };
+    assert_eq!(error.message(), reason.message());
+    assert_eq!(error.message(), "ResponseError (503 GET /ok)");
+    assert_eq!(error.request(), &request);
+    assert_eq!(error.response(), Some(&response));
+    assert_eq!(error.reason, reason);
+}
+
+#[test]
+fn server_error_forwards_cause_and_maps_status() {
+    // HttpServerError.test.ts:61 — the wrapper forwards the reason cause.
+    let reason = ServerErrorReason::Internal {
+        request: ServerRequest {
+            method: "GET".to_string(),
+            url: "http://example.com/boom".to_string(),
+        },
+        cause: "boom".to_string(),
+    };
+    let error = HttpServerError {
+        reason,
+    };
+    assert_eq!(error.cause(), Some("boom"));
+    // HttpServerError.test.ts:73 — reasons map to status codes.
+    let request = ServerRequest {
+        method: "GET".to_string(),
+        url: "http://example.com/status".to_string(),
+    };
+    let cases = [
+        (
+            ServerErrorReason::RequestParse {
+                request: request.clone(),
+                description: "bad".to_string(),
+            },
+            400,
+        ),
+        (ServerErrorReason::RouteNotFound { request: request.clone() }, 404),
+        (
+            ServerErrorReason::Internal {
+                request: request.clone(),
+                cause: "boom".to_string(),
+            },
+            500,
+        ),
+        (
+            ServerErrorReason::Response {
+                request: request.clone(),
+                response: ServerResponse { status: 418 },
+                description: None,
+            },
+            500,
+        ),
+    ];
+    for (reason, status) in cases {
+        assert_eq!(reason.status_code(), status);
+        assert_eq!(HttpServerError { reason }.status_code(), status);
+    }
+}
+
+#[test]
+fn server_error_guard_matches_wrapper_only() {
+    // HttpServerError.test.ts:93 — the guard matches the wrapper.
+    // A bare reason is a different type and cannot reach the predicate.
+    let error = HttpServerError {
+        reason: ServerErrorReason::RouteNotFound {
+            request: error_request(),
+        },
+    };
+    assert!(is_http_server_error(&error));
 }

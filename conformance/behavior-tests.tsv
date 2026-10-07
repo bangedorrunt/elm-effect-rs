@@ -6613,12 +6613,12 @@ ported	packages/effect/test/http/HttpServer.test.ts	9	it	accepts a canonical soc
 ported	packages/effect/test/http/HttpServer.test.ts	19	it.effect	passes formatted server addresses to the callback	binds_loopback_and_serves_one_route
 unported	packages/effect/test/http/HttpServer.test.ts	55	it.effect	rejects scoped IPv6 test server addresses before dropping their scope	
 ported	packages/effect/test/http/HttpServer.test.ts	73	it.effect	uses IPv4 loopback for unspecified listeners and preserves explicit hosts	explicit_host_is_preserved
-unported	packages/effect/test/http/HttpServerError.test.ts	23	it	formats request reason messages	
-unported	packages/effect/test/http/HttpServerError.test.ts	35	it	formats response reason messages	
-unported	packages/effect/test/http/HttpServerError.test.ts	49	it	delegates message and accessors	
-unported	packages/effect/test/http/HttpServerError.test.ts	61	it	forwards the reason cause	
-unported	packages/effect/test/http/HttpServerError.test.ts	73	it.effect	maps reasons to status codes	
-unported	packages/effect/test/http/HttpServerError.test.ts	93	it	matches wrapper only	
+ported	packages/effect/test/http/HttpServerError.test.ts	23	it	formats request reason messages	server_error_formats_request_reason_messages
+ported	packages/effect/test/http/HttpServerError.test.ts	35	it	formats response reason messages	server_error_formats_response_reason_messages
+ported	packages/effect/test/http/HttpServerError.test.ts	49	it	delegates message and accessors	server_error_wrapper_delegates
+ported	packages/effect/test/http/HttpServerError.test.ts	61	it	forwards the reason cause	server_error_forwards_cause_and_maps_status
+ported	packages/effect/test/http/HttpServerError.test.ts	73	it.effect	maps reasons to status codes	server_error_forwards_cause_and_maps_status
+ported	packages/effect/test/http/HttpServerError.test.ts	93	it	matches wrapper only	server_error_guard_matches_wrapper_only
 unported	packages/effect/test/http/HttpServerError.test.ts	107	it	returns none cause for response defects	
 unported	packages/effect/test/http/HttpServerError.test.ts	114	it	returns some cause for non-response failures	
 unported	packages/effect/test/http/HttpServerRequest.test.ts	8	it.effect	preserves FormData through client-server-client conversion	

@@ -265,3 +265,185 @@ fn handle_one(
     writer.write_all(&head).expect("write response");
     (method, path)
 }
+
+/// Server-side request identity for error reporting.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ServerRequest {
+    /// The request verb (`"POST"`, …).
+    pub method: String,
+    /// The full request URL.
+    pub url: String,
+}
+
+/// Server-side response identity for error reporting.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ServerResponse {
+    /// The status code.
+    pub status: u16,
+}
+
+/// Why a request failed (mirrors `HttpServerError` reason classes).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum ServerErrorReason {
+    /// The request could not be parsed.
+    RequestParse {
+        /// The failing request.
+        request: ServerRequest,
+        /// What was wrong with it.
+        description: String,
+    },
+    /// No route matched.
+    RouteNotFound {
+        /// The unmatched request.
+        request: ServerRequest,
+    },
+    /// A handler produced a failing response.
+    Response {
+        /// The failing request.
+        request: ServerRequest,
+        /// The failing response.
+        response: ServerResponse,
+        /// What was wrong with it, if stated.
+        description: Option<String>,
+    },
+    /// Anything else, with its cause.
+    Internal {
+        /// The failing request.
+        request: ServerRequest,
+        /// The underlying failure.
+        cause: String,
+    },
+}
+
+/// Path part of a URL (`"http://example.com/widgets"` → `"/widgets"`).
+fn url_path(url: &str) -> &str {
+    let after_scheme = match url.find("://") {
+        Some(i) => &url[i + 3..],
+        None => return url,
+    };
+    let path = match after_scheme.find('/') {
+        Some(i) => &after_scheme[i..],
+        None => "/",
+    };
+    let path = match path.find(['?', '#']) {
+        Some(i) => &path[..i],
+        None => path,
+    };
+    if path.is_empty() {
+        "/"
+    } else {
+        path
+    }
+}
+
+impl ServerErrorReason {
+    /// Human message, mirroring the tag's formats
+    /// (`"RequestParseError (POST /widgets): invalid body"`,
+    /// `"RouteNotFound (POST /widgets)"`,
+    /// `"ResponseError (418 GET /tea): short and stout"`).
+    /// `Internal` has no tag-side format pinned, so it follows the same
+    /// shape with its cause.
+    pub fn message(&self) -> String {
+        match self {
+            ServerErrorReason::RequestParse {
+                request,
+                description,
+            } => format!(
+                "RequestParseError ({} {}): {}",
+                request.method,
+                url_path(&request.url),
+                description
+            ),
+            ServerErrorReason::RouteNotFound { request } => format!(
+                "RouteNotFound ({} {})",
+                request.method,
+                url_path(&request.url)
+            ),
+            ServerErrorReason::Response {
+                request,
+                response,
+                description,
+            } => {
+                let head = format!(
+                    "ResponseError ({} {} {})",
+                    response.status, request.method,
+                    url_path(&request.url)
+                );
+                match description {
+                    Some(d) => format!("{head}: {d}"),
+                    None => head,
+                }
+            }
+            ServerErrorReason::Internal { request, cause } => format!(
+                "InternalError ({} {}): {}",
+                request.method,
+                url_path(&request.url),
+                cause
+            ),
+        }
+    }
+
+    /// Status code for the failure (`RequestParse` → 400,
+    /// `RouteNotFound` → 404, everything else → 500: a failing response
+    /// is still a server failure).
+    pub fn status_code(&self) -> u16 {
+        match self {
+            ServerErrorReason::RequestParse { .. } => 400,
+            ServerErrorReason::RouteNotFound { .. } => 404,
+            ServerErrorReason::Response { .. } | ServerErrorReason::Internal { .. } => 500,
+        }
+    }
+}
+
+/// Server failure wrapper: message, request, response, and cause all
+/// delegate to the reason (mirrors `HttpServerError`).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct HttpServerError {
+    /// The classified failure.
+    pub reason: ServerErrorReason,
+}
+
+impl HttpServerError {
+    /// The reason's message.
+    pub fn message(&self) -> String {
+        self.reason.message()
+    }
+
+    /// The failing request.
+    pub fn request(&self) -> &ServerRequest {
+        match &self.reason {
+            ServerErrorReason::RequestParse { request, .. }
+            | ServerErrorReason::RouteNotFound { request }
+            | ServerErrorReason::Response { request, .. }
+            | ServerErrorReason::Internal { request, .. } => request,
+        }
+    }
+
+    /// The failing response, when the reason carries one.
+    pub fn response(&self) -> Option<&ServerResponse> {
+        match &self.reason {
+            ServerErrorReason::Response { response, .. } => Some(response),
+            _ => None,
+        }
+    }
+
+    /// The underlying cause, when the reason carries one.
+    pub fn cause(&self) -> Option<&str> {
+        match &self.reason {
+            ServerErrorReason::Internal { cause, .. } => Some(cause),
+            _ => None,
+        }
+    }
+
+    /// The response status for the failure.
+    pub fn status_code(&self) -> u16 {
+        self.reason.status_code()
+    }
+}
+
+/// Always true for `HttpServerError` (the type already narrows; mirrors
+/// `isHttpServerError`, like `is_number` mirrors `isNumber`). A bare
+/// reason is a different type and cannot reach this predicate.
+pub fn is_http_server_error(_: &HttpServerError) -> bool {
+    true
+}
