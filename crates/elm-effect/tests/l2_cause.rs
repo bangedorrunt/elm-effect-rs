@@ -49,6 +49,17 @@ fn exit_to_string() {
 }
 
 #[test]
+fn cause_map_preserves_annotations() {
+    // CauseMapAnnotations.test.ts:5 — annotations survive mapping.
+    let cause = Cause::<String>::fail("error".to_string())
+        .annotate("RequestId", "request-1")
+        .map(|error| error.to_uppercase());
+    assert_eq!(cause.failure(), Some(&"ERROR".to_string()));
+    assert_eq!(cause.annotation("RequestId"), Some("request-1"));
+    assert_eq!(cause.annotation("Missing"), None);
+}
+
+#[test]
 fn cause_structural_eq() {
     let a = Cause::fail("x".to_string());
     let b = Cause::fail("x".to_string());
@@ -278,6 +289,7 @@ fn cause_narrows_channels() {
             Reason::Interrupt { fiber_id: None },
             Reason::Fail("e2"),
         ],
+        annotations: Vec::new(),
     };
     assert_eq!(cause.failures(), [&"e1", &"e2"]);
     assert_eq!(cause.interruptors(), [None]);

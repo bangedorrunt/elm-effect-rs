@@ -86,6 +86,10 @@ impl<E: std::fmt::Debug> std::fmt::Display for Reason<E> {
 pub struct Cause<E> {
     /// Every reason, in the order recorded. Empty means no failure recorded.
     pub reasons: Vec<Reason<E>>,
+    /// Context annotations (`Cause.annotate`): string-keyed pairs.
+    /// The tag keys these by service type; `std` has no such keys, so
+    /// the key is the service name (last segment preserved verbatim).
+    pub annotations: Vec<(String, String)>,
 }
 
 /// Tag-compatible rendering (`Cause([Fail("boom")])`); reasons join with
@@ -112,6 +116,7 @@ impl<E> Cause<E> {
     pub fn empty() -> Self {
         Self {
             reasons: Vec::new(),
+            annotations: Vec::new(),
         }
     }
 
@@ -119,6 +124,7 @@ impl<E> Cause<E> {
     pub fn fail(error: E) -> Self {
         Self {
             reasons: vec![Reason::Fail(error)],
+            annotations: Vec::new(),
         }
     }
 
@@ -126,6 +132,7 @@ impl<E> Cause<E> {
     pub fn die(defect: Defect) -> Self {
         Self {
             reasons: vec![Reason::Die(defect)],
+            annotations: Vec::new(),
         }
     }
 
@@ -133,6 +140,7 @@ impl<E> Cause<E> {
     pub fn interrupt(fiber_id: Option<FiberId>) -> Self {
         Self {
             reasons: vec![Reason::Interrupt { fiber_id }],
+            annotations: Vec::new(),
         }
     }
 
@@ -141,6 +149,7 @@ impl<E> Cause<E> {
     pub fn from_defects(defects: Vec<Defect>) -> Self {
         Self {
             reasons: defects.into_iter().map(Reason::Die).collect(),
+            annotations: Vec::new(),
         }
     }
 
@@ -210,6 +219,7 @@ impl<E> Cause<E> {
                 .filter(|r| matches!(r, Reason::Fail(_)))
                 .cloned()
                 .collect(),
+            annotations: self.annotations.clone(),
         }
     }
 
@@ -225,6 +235,7 @@ impl<E> Cause<E> {
                 .filter(|r| matches!(r, Reason::Die(_)))
                 .cloned()
                 .collect(),
+            annotations: self.annotations.clone(),
         }
     }
 
@@ -240,6 +251,49 @@ impl<E> Cause<E> {
                 .filter(|r| matches!(r, Reason::Interrupt { .. }))
                 .cloned()
                 .collect(),
+            annotations: self.annotations.clone(),
+        }
+    }
+}
+
+/// Annotation and mapping support (`Cause.annotate`, `Cause.map`):
+/// annotations are metadata, so narrowing keeps them.
+impl<E> Cause<E> {
+    /// Attach a context annotation, replacing any earlier value for `key`.
+    pub fn annotate(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
+        let key = key.into();
+        if let Some(slot) = self.annotations.iter_mut().find(|(k, _)| *k == key) {
+            slot.1 = value.into();
+        } else {
+            self.annotations.push((key, value.into()));
+        }
+        self
+    }
+
+    /// Read an annotation by key (`None` when absent).
+    pub fn annotation(&self, key: &str) -> Option<&str> {
+        self.annotations
+            .iter()
+            .find(|(k, _)| k == key)
+            .map(|(_, v)| v.as_str())
+    }
+
+    /// Map typed failures, preserving annotations and other reasons.
+    pub fn map<F, U>(self, f: F) -> Cause<U>
+    where
+        F: Fn(E) -> U,
+    {
+        Cause {
+            reasons: self
+                .reasons
+                .into_iter()
+                .map(|r| match r {
+                    Reason::Fail(e) => Reason::Fail(f(e)),
+                    Reason::Die(d) => Reason::Die(d),
+                    Reason::Interrupt { fiber_id } => Reason::Interrupt { fiber_id },
+                })
+                .collect(),
+            annotations: self.annotations,
         }
     }
 }

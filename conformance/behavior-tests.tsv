@@ -524,7 +524,7 @@ unported	packages/effect/test/Cause.test.ts	905	it	is an instance of Error
 unported	packages/effect/test/Cause.test.ts	911	it	returns true for UnknownError instances	
 unported	packages/effect/test/Cause.test.ts	915	it	returns false for other values	
 unported	packages/effect/test/Cause.test.ts	922	it	is a string constant	
-unported	packages/effect/test/CauseMapAnnotations.test.ts	5	it	preserves annotations on mapped failures	
+ported	packages/effect/test/CauseMapAnnotations.test.ts	5	it	preserves annotations on mapped failures	cause_map_preserves_annotations
 unported	packages/effect/test/Channel.test.ts	24	it.effect	 work per repetition does not grow	
 ported	packages/effect/test/Channel.test.ts	36	it.effect	empty	pull_empty_ends_immediately
 ported	packages/effect/test/Channel.test.ts	44	it.effect	succeed	pull_constructors
