@@ -78,6 +78,25 @@ impl Response {
             .find(|(n, _)| n.eq_ignore_ascii_case(name))
             .map(|(_, v)| v.as_str())
     }
+
+    /// Replace the body, synchronizing body metadata headers: content
+    /// headers drop first; a non-empty body regains `content-length`, and
+    /// an explicit content type is set. Stream bodies (unknown length)
+    /// have no representation here — use `set_header` directly for those.
+    pub fn set_body(&mut self, body: &[u8], content_type: Option<&str>) {
+        self.headers.retain(|(n, _)| {
+            !n.eq_ignore_ascii_case("content-length")
+                && !n.eq_ignore_ascii_case("content-type")
+        });
+        self.body = body.to_vec();
+        if let Some(ct) = content_type {
+            self.headers.push(("content-type".to_owned(), ct.to_owned()));
+        }
+        if !body.is_empty() {
+            self.headers
+                .push(("content-length".to_owned(), body.len().to_string()));
+        }
+    }
 }
 
 /// Minimal listener stack: explicit host bind, route table, one-shot serve.

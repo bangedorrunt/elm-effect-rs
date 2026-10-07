@@ -555,3 +555,23 @@ fn response_set_header_overrides_body_headers() {
     assert_eq!(response.header("content-length"), Some("1"));
     assert_eq!(response.body, b"body");
 }
+
+#[test]
+fn response_set_body_syncs_metadata_headers() {
+    // HttpServerResponse.test.ts:276 — replacing the body drops stale
+    // content headers; stream bodies (unknown length) have no
+    // representation here, so only the empty/bytes cases pin.
+    use elm_effect_unstable::http_server::Response;
+    let mut replaced = Response::text("abc");
+    replaced.set_body(b"", None);
+    assert_eq!(replaced.header("content-type"), None);
+    assert_eq!(replaced.header("content-length"), None);
+    assert!(replaced.body.is_empty());
+    let mut bytes = Response::text("abc");
+    bytes.set_body(b"xy", Some("application/octet-stream"));
+    assert_eq!(
+        bytes.header("content-type"),
+        Some("application/octet-stream")
+    );
+    assert_eq!(bytes.header("content-length"), Some("2"));
+}
