@@ -1095,7 +1095,7 @@ ported	packages/effect/test/DateTime.test.ts	321	it	partial	set_parts_partial
 ported	packages/effect/test/DateTime.test.ts	336	it	accounts for time zone	set_parts_accounts_for_zone
 ported	packages/effect/test/DateTime.test.ts	354	it	full	format_iso_full
 ported	packages/effect/test/DateTime.test.ts	361	it.effect	correctly adds offset	format_iso_offset_adds_offset
-unported	packages/effect/test/DateTime.test.ts	371	it.effect	correctly adds offset	
+ported	packages/effect/test/DateTime.test.ts	371	it.effect	correctly adds offset	format_iso_offset_adds_offset
 ported	packages/effect/test/DateTime.test.ts	381	it	removes time	remove_time_midnights
 ported	packages/effect/test/DateTime.test.ts	391	it	returns epoch seconds	to_epoch_seconds_returns_seconds
 ported	packages/effect/test/DateTime.test.ts	396	it	floors to nearest second	to_epoch_seconds_floors
