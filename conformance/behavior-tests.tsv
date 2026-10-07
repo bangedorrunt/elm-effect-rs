@@ -750,7 +750,7 @@ unported	packages/effect/test/Config.test.ts	1060	it.effect	treats mapped, effec
 unported	packages/effect/test/Config.test.ts	1077	it.effect	recovers an absent sibling after orElse handles invalid input	
 unported	packages/effect/test/Config.test.ts	1095	it.effect	recovers an absent sibling after orElse handles absence	
 ported	packages/effect/test/Config.test.ts	1109	it.effect	lets defaults and option handle an absent orElse fallback	config_or_else_falls_back_then_defaults
-unported	packages/effect/test/Config.test.ts	1126	it.effect	uses the orElse fallback result within the nested path	
+ported	packages/effect/test/Config.test.ts	1126	it.effect	uses the orElse fallback result within the nested path	config_or_else_fallback_inside_nested_path
 unported	packages/effect/test/Config.test.ts	1154	it.effect	propagates an orElse fallback source error after recovering invalid input	
 unported	packages/effect/test/Config.test.ts	1173	it.effect	recovers an absent sibling after orElse handles mapEffect failure	
 unported	packages/effect/test/Config.test.ts	1193	it.effect	recovers an absent sibling after orElse handles a descendant source failure	

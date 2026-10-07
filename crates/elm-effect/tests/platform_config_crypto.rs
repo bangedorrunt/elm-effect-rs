@@ -55,6 +55,36 @@ fn config_empty_numbers_validate_when_preserved() {
     assert!(err.iter().all(|e| matches!(e, ConfigError::Invalid { .. })));
 }
 
+#[test]
+fn config_or_else_fallback_inside_nested_path() {
+    // Config.test.ts:1126 — orElse resolves within the nested prefix.
+    use config::ConfigError;
+    let cfg = || {
+        Config::integer(named("primary"))
+            .or_else(Config::integer(named("fallback")))
+            .nested("service")
+    };
+    let pairs = |ps: &[(&str, &str)]| {
+        Provider::from_pairs(ps.iter().map(|(k, v)| (k.to_string(), v.to_string())))
+    };
+    // Invalid primary falls back to the nested fallback value.
+    let p1 = pairs(&[("service.primary", "invalid"), ("service.fallback", "80")]);
+    assert_eq!(cfg().load(&p1), Ok(Value::Int(80)));
+    // A fallback outside the nest stays missing, so the default wins.
+    let p2 = pairs(&[("service.primary", "invalid"), ("fallback", "80")]);
+    assert_eq!(
+        cfg().with_default(Value::Int(3000)).load(&p2),
+        Ok(Value::Int(3000))
+    );
+    // Both invalid: the error names the nested fallback path.
+    let p3 = pairs(&[("service.primary", "invalid"), ("service.fallback", "1.5")]);
+    let err = cfg().load(&p3).unwrap_err();
+    assert!(matches!(
+        err.as_slice(),
+        [ConfigError::Invalid { path, .. }] if path == &["service".to_string(), "fallback".to_string()]
+    ));
+}
+
 fn named(name: &str) -> Option<String> {
     Some(name.to_string())
 }
