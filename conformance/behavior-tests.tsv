@@ -944,7 +944,7 @@ ported	packages/effect/test/ConfigProvider.test.ts	885	it	should load configurat
 ported	packages/effect/test/ConfigProvider.test.ts	900	it	should support `path` option to specify the path to the .env file	provider_dotenv_parses_key_value_text
 unported	packages/effect/test/ConfigProvider.test.ts	915	it	should support `expandVariables` option	
 ported	packages/effect/test/ConfigProvider.test.ts	929	it	should treat empty string values as missing while preserving structure by default	provider_env_root_keys_and_dotenv_structure
-unported	packages/effect/test/ConfigProvider.test.ts	942	it	should support `preserveEmptyStrings` option	
+ported	packages/effect/test/ConfigProvider.test.ts	942	it	should support `preserveEmptyStrings` option	provider_dotenv_preserve_empty_strings_option
 ported	packages/effect/test/ConfigProvider.test.ts	954	it	fails with the FileSystem error when the file cannot be read	provider_dotenv_file_reads_path_and_errors_missing
 ported	packages/effect/test/ConfigProvider.test.ts	993	it	reads trimmed file contents at root and nested paths	provider_dir_reads_trimmed_leaves
 ported	packages/effect/test/ConfigProvider.test.ts	1005	it	treats empty files as missing by default	provider_dir_reads_trimmed_leaves

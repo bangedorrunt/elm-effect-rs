@@ -1029,6 +1029,16 @@ fn provider_dotenv_parses_key_value_text() {
 }
 
 #[test]
+fn provider_dotenv_preserve_empty_strings_option() {
+    // ConfigProvider.test.ts:942 — preserving keeps `A=` as empty.
+    use config_provider::EnvProvider;
+    let kept = EnvProvider::from_dotenv_preserving("A=");
+    assert_eq!(kept.get(&["A".to_string()]), Some("".to_string()));
+    let dropped = EnvProvider::from_dotenv("A=");
+    assert_eq!(dropped.get(&["A".to_string()]), None);
+}
+
+#[test]
 fn provider_dotenv_quotes_comments_and_underscores() {
     use config_provider::EnvProvider;
     let env = EnvProvider::from_dotenv(
