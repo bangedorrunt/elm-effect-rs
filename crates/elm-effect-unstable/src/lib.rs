@@ -34,3 +34,5 @@ pub mod reactivity;
 pub mod devtools;
 
 pub mod arbitrary;
+
+pub mod schema_binary;

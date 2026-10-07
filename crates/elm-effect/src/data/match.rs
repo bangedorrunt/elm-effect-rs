@@ -59,7 +59,10 @@ pub struct Matcher<R> {
 impl<R> Matcher<R> {
     /// Empty matcher; add arms with [`Matcher::arm`].
     pub fn new() -> Self {
-        Self { arms: Vec::new(), otherwise: None }
+        Self {
+            arms: Vec::new(),
+            otherwise: None,
+        }
     }
 
     /// Push an arm.
@@ -68,7 +71,10 @@ impl<R> Matcher<R> {
         check: impl Fn(&Input) -> bool + 'static,
         body: impl Fn(&Input) -> R + 'static,
     ) -> Self {
-        self.arms.push(Arm { check: Box::new(check), body: Box::new(body) });
+        self.arms.push(Arm {
+            check: Box::new(check),
+            body: Box::new(body),
+        });
         self
     }
 

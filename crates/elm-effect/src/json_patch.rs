@@ -96,13 +96,18 @@ fn diff(old: &Json, new: &Json, path: &[String], ops: &mut Vec<Operation>) {
                 let mut child = path.to_vec();
                 child.push(key.clone());
                 match b.get(key) {
-                    None => ops.push(Operation::Remove { path: at(path, key) }),
+                    None => ops.push(Operation::Remove {
+                        path: at(path, key),
+                    }),
                     Some(v) => diff(&a[key], v, &child, ops),
                 }
             }
             for key in b.keys() {
                 if !a.contains_key(key) {
-                    ops.push(Operation::Add { path: at(path, key), value: b[key].clone() });
+                    ops.push(Operation::Add {
+                        path: at(path, key),
+                        value: b[key].clone(),
+                    });
                 }
             }
         }
@@ -117,17 +122,25 @@ fn diff(old: &Json, new: &Json, path: &[String], ops: &mut Vec<Operation>) {
                 for (i, v) in b.iter().enumerate().skip(a.len()) {
                     let mut p = path.to_vec();
                     p.push(i.to_string());
-                    ops.push(Operation::Add { path: super::json_pointer::format(&p), value: v.clone() });
+                    ops.push(Operation::Add {
+                        path: super::json_pointer::format(&p),
+                        value: v.clone(),
+                    });
                 }
             } else {
                 for i in (b.len()..a.len()).rev() {
                     let mut p = path.to_vec();
                     p.push(i.to_string());
-                    ops.push(Operation::Remove { path: super::json_pointer::format(&p) });
+                    ops.push(Operation::Remove {
+                        path: super::json_pointer::format(&p),
+                    });
                 }
             }
         }
-        _ => ops.push(Operation::Replace { path: here, value: new.clone() }),
+        _ => ops.push(Operation::Replace {
+            path: here,
+            value: new.clone(),
+        }),
     }
 }
 
@@ -146,7 +159,9 @@ fn apply_one(op: &Operation, doc: &Json) -> Result<Json, PatchError> {
     match op {
         Operation::Replace { value, .. } if tokens.is_empty() => Ok(value.clone()),
         Operation::Add { value, .. } if tokens.is_empty() => Ok(value.clone()),
-        Operation::Remove { .. } if tokens.is_empty() => Err(PatchError::BadTarget("remove at root".into())),
+        Operation::Remove { .. } if tokens.is_empty() => {
+            Err(PatchError::BadTarget("remove at root".into()))
+        }
         _ => set_at(doc, &tokens, op),
     }
 }
@@ -161,8 +176,12 @@ fn set_at(doc: &Json, tokens: &[String], op: &Operation) -> Result<Json, PatchEr
                 .get_mut(step)
                 .ok_or_else(|| PatchError::Unresolvable(step.clone()))?,
             Json::Arr(items) => {
-                let i: usize = step.parse().map_err(|_| PatchError::Unresolvable(step.clone()))?;
-                items.get_mut(i).ok_or_else(|| PatchError::Unresolvable(step.clone()))?
+                let i: usize = step
+                    .parse()
+                    .map_err(|_| PatchError::Unresolvable(step.clone()))?;
+                items
+                    .get_mut(i)
+                    .ok_or_else(|| PatchError::Unresolvable(step.clone()))?
             }
             _ => return Err(PatchError::Unresolvable(step.clone())),
         };
@@ -193,7 +212,9 @@ fn set_at(doc: &Json, tokens: &[String], op: &Operation) -> Result<Json, PatchEr
             if last == "-" {
                 items.push(value.clone());
             } else {
-                let i: usize = last.parse().map_err(|_| PatchError::BadTarget(last.clone()))?;
+                let i: usize = last
+                    .parse()
+                    .map_err(|_| PatchError::BadTarget(last.clone()))?;
                 if i > items.len() {
                     return Err(PatchError::BadTarget(last.clone()));
                 }
@@ -205,8 +226,12 @@ fn set_at(doc: &Json, tokens: &[String], op: &Operation) -> Result<Json, PatchEr
             if last == "-" {
                 return Err(PatchError::BadTarget("-".into()));
             }
-            let i: usize = last.parse().map_err(|_| PatchError::BadTarget(last.clone()))?;
-            let slot = items.get_mut(i).ok_or_else(|| PatchError::BadTarget(last.clone()))?;
+            let i: usize = last
+                .parse()
+                .map_err(|_| PatchError::BadTarget(last.clone()))?;
+            let slot = items
+                .get_mut(i)
+                .ok_or_else(|| PatchError::BadTarget(last.clone()))?;
             *slot = value.clone();
             Ok(current)
         }
@@ -214,7 +239,9 @@ fn set_at(doc: &Json, tokens: &[String], op: &Operation) -> Result<Json, PatchEr
             if last == "-" {
                 return Err(PatchError::BadTarget("-".into()));
             }
-            let i: usize = last.parse().map_err(|_| PatchError::BadTarget(last.clone()))?;
+            let i: usize = last
+                .parse()
+                .map_err(|_| PatchError::BadTarget(last.clone()))?;
             if i >= items.len() {
                 return Err(PatchError::BadTarget(last.clone()));
             }

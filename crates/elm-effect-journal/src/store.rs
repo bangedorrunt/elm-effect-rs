@@ -127,7 +127,11 @@ impl InMemoryStore {
     /// Build keeping the last `retention` offset entries.
     pub fn new(retention: usize) -> Self {
         Self {
-            inner: Mutex::new(Inner { rows: BTreeMap::new(), log: Vec::new(), next_offset: 0 }),
+            inner: Mutex::new(Inner {
+                rows: BTreeMap::new(),
+                log: Vec::new(),
+                next_offset: 0,
+            }),
             retention: retention.max(1),
         }
     }
@@ -138,7 +142,9 @@ impl InMemoryStore {
         let mut row = row.clone();
         row.offset = offset;
         inner.rows.insert(key.to_string(), row);
-        inner.log.push((offset, key.to_string(), inner.rows[key].state));
+        inner
+            .log
+            .push((offset, key.to_string(), inner.rows[key].state));
         while inner.log.len() > self.retention {
             inner.log.remove(0);
         }
@@ -214,17 +220,25 @@ impl JournalStore for InMemoryStore {
         let inner = self.inner.lock().unwrap();
         if offset == -1 {
             let (o, k, _) = inner.log.last()?;
-            return Some(Read::Entry { offset: *o, row: inner.rows[k].clone() });
+            return Some(Read::Entry {
+                offset: *o,
+                row: inner.rows[k].clone(),
+            });
         }
         let first = Self::first_replayable(&inner);
         if offset < first {
-            return Some(Read::Gone { first_replayable: first });
+            return Some(Read::Gone {
+                first_replayable: first,
+            });
         }
         inner
             .log
             .iter()
             .find(|(o, _, _)| *o == offset)
-            .map(|(o, k, _)| Read::Entry { offset: *o, row: inner.rows[k].clone() })
+            .map(|(o, k, _)| Read::Entry {
+                offset: *o,
+                row: inner.rows[k].clone(),
+            })
     }
 
     fn get(&self, key: &str) -> Option<Row> {

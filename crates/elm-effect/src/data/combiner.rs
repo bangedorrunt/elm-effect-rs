@@ -15,7 +15,9 @@ pub struct Combiner<A> {
 impl<A: 'static> Combiner<A> {
     /// Build from a merge function.
     pub fn make(combine: impl Fn(&A, &A) -> A + 'static) -> Self {
-        Self { combine: std::rc::Rc::new(combine) }
+        Self {
+            combine: std::rc::Rc::new(combine),
+        }
     }
 
     /// Merge two values.
@@ -81,18 +83,25 @@ pub struct Reducer<A> {
 impl<A: Clone + 'static> Reducer<A> {
     /// Build from identity and merge.
     pub fn make(zero: A, combine: impl Fn(&A, &A) -> A + 'static) -> Self {
-        Self { zero, combiner: Combiner::make(combine) }
+        Self {
+            zero,
+            combiner: Combiner::make(combine),
+        }
     }
 
     /// Fold a whole iterator (`combineAll`).
     pub fn combine_all(&self, iter: impl IntoIterator<Item = A>) -> A {
-        iter.into_iter().fold(self.zero.clone(), |acc, x| self.combiner.combine(&acc, &x))
+        iter.into_iter()
+            .fold(self.zero.clone(), |acc, x| self.combiner.combine(&acc, &x))
     }
 
     /// Swap argument order (`flip`): the fold still runs left to right,
     /// each step flipped.
     pub fn flip(&self) -> Self {
-        Self { zero: self.zero.clone(), combiner: self.combiner.flip() }
+        Self {
+            zero: self.zero.clone(),
+            combiner: self.combiner.flip(),
+        }
     }
 }
 

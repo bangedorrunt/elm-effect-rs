@@ -53,14 +53,22 @@ fn decode_ignores_unknown_fields() {
 #[test]
 fn json_decode_array_rules() {
     // Arrays stay flat; single payloads wrap on the request path.
-    let req = Message::decode(r#"{"_tag":"Request","requestId":1,"method":"m","payload":[1,2]}"#).unwrap();
+    let req = Message::decode(r#"{"_tag":"Request","requestId":1,"method":"m","payload":[1,2]}"#)
+        .unwrap();
     match req {
-        Message::Request { payload: Json::Arr(items), .. } => assert_eq!(items.len(), 2),
+        Message::Request {
+            payload: Json::Arr(items),
+            ..
+        } => assert_eq!(items.len(), 2),
         other => panic!("expected array payload, got {other:?}"),
     }
-    let req = Message::decode(r#"{"_tag":"Request","requestId":1,"method":"m","payload":1}"#).unwrap();
+    let req =
+        Message::decode(r#"{"_tag":"Request","requestId":1,"method":"m","payload":1}"#).unwrap();
     match req {
-        Message::Request { payload: Json::Arr(items), .. } => assert_eq!(items.len(), 1),
+        Message::Request {
+            payload: Json::Arr(items),
+            ..
+        } => assert_eq!(items.len(), 1),
         other => panic!("expected wrapped payload, got {other:?}"),
     }
 }
@@ -78,7 +86,13 @@ fn defect_and_interrupt_exits() {
     // Interrupt exits use null for a missing message elsewhere; here the
     // bare Interrupt tag decodes directly.
     let text = r#"{"_tag":"Exit","requestId":1,"exit":{"_tag":"Interrupt"}}"#;
-    assert!(matches!(Message::decode(text).unwrap(), Message::Response { exit: Exit::Interrupt, .. }));
+    assert!(matches!(
+        Message::decode(text).unwrap(),
+        Message::Response {
+            exit: Exit::Interrupt,
+            ..
+        }
+    ));
 }
 
 #[test]
@@ -94,7 +108,10 @@ fn router_single_handler() {
         payload: Json::Arr(vec![Json::Num("1".to_string())]),
     });
     match out {
-        Message::Response { exit: Exit::Success(Json::Num(n)), .. } => assert_eq!(n, "1"),
+        Message::Response {
+            exit: Exit::Success(Json::Num(n)),
+            ..
+        } => assert_eq!(n, "1"),
         other => panic!("expected success, got {other:?}"),
     }
     // Unknown methods use the defect schema.
@@ -103,7 +120,13 @@ fn router_single_handler() {
         method: "missing".to_string(),
         payload: Json::Null,
     });
-    assert!(matches!(out, Message::Response { exit: Exit::Defect(_), .. }));
+    assert!(matches!(
+        out,
+        Message::Response {
+            exit: Exit::Defect(_),
+            ..
+        }
+    ));
 }
 
 #[test]
@@ -119,17 +142,21 @@ fn group_stream_schemas_empty() {
 fn middleware_wraps_dispatch() {
     let mut pair = FakePair::new();
     pair.route("ping", |_| Exit::Success(Json::Str("pong".to_string())));
-    pair.middleware(Middleware::new(|msg, next| {
-        match next(msg) {
-            Message::Response { id, exit: Exit::Success(v) } => Message::Response {
-                id,
-                exit: Exit::Success(Json::Arr(vec![v])),
-            },
-            other => other,
-        }
+    pair.middleware(Middleware::new(|msg, next| match next(msg) {
+        Message::Response {
+            id,
+            exit: Exit::Success(v),
+        } => Message::Response {
+            id,
+            exit: Exit::Success(Json::Arr(vec![v])),
+        },
+        other => other,
     }));
     match pair.call("ping", Json::Null).unwrap() {
-        Message::Response { exit: Exit::Success(Json::Arr(_)), .. } => {}
+        Message::Response {
+            exit: Exit::Success(Json::Arr(_)),
+            ..
+        } => {}
         other => panic!("expected wrapped success, got {other:?}"),
     }
 }

@@ -84,7 +84,10 @@ pub fn parse(pointer: &str) -> Result<Vec<String>, PointerError> {
 /// Join tokens into a pointer string, escaping each one first.
 /// No tokens formats as `""` (the document root).
 pub fn format(tokens: &[String]) -> String {
-    tokens.iter().map(|t| format!("/{}", escape_token(t))).collect()
+    tokens
+        .iter()
+        .map(|t| format!("/{}", escape_token(t)))
+        .collect()
 }
 
 /// Percent-decode `%XX` runs into bytes, then UTF-8. Fails on stray `%`,

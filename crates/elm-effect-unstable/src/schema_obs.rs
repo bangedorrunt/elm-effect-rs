@@ -30,7 +30,10 @@ impl VariantSchema {
 
     /// Keep `fields` for `variant`.
     pub fn field_only(&mut self, variant: &str, fields: &[&str]) {
-        self.variants.insert(variant.to_string(), fields.iter().map(|s| s.to_string()).collect());
+        self.variants.insert(
+            variant.to_string(),
+            fields.iter().map(|s| s.to_string()).collect(),
+        );
     }
 
     /// Fields kept for `variant` (all fields when unlisted).
@@ -44,14 +47,22 @@ impl VariantSchema {
     /// Project a field map down to one variant, dropping the rest.
     /// `__default` never collides with a real variant name: an explicit
     /// variant always wins over the default entry.
-    pub fn project(&self, variant: &str, fields: &BTreeMap<String, String>) -> BTreeMap<String, String> {
+    pub fn project(
+        &self,
+        variant: &str,
+        fields: &BTreeMap<String, String>,
+    ) -> BTreeMap<String, String> {
         let key = if variant == "__default" && !self.variants.contains_key(variant) {
             return fields.clone();
         } else {
             variant
         };
         let keep = self.fields_for(key, &[]);
-        fields.iter().filter(|(k, _)| keep.contains(k)).map(|(k, v)| (k.clone(), v.clone())).collect()
+        fields
+            .iter()
+            .filter(|(k, _)| keep.contains(k))
+            .map(|(k, v)| (k.clone(), v.clone()))
+            .collect()
     }
 }
 
@@ -127,15 +138,13 @@ pub struct Jit {
 impl Jit {
     /// Uncompiled.
     pub fn new() -> Self {
-        Self { built: std::sync::Mutex::new(None) }
+        Self {
+            built: std::sync::Mutex::new(None),
+        }
     }
 
     /// Compile lazily (once) and validate.
-    pub fn check(
-        &self,
-        value: &str,
-        build: impl FnOnce() -> Compiled,
-    ) -> bool {
+    pub fn check(&self, value: &str, build: impl FnOnce() -> Compiled) -> bool {
         let mut guard = self.built.lock().unwrap();
         let compiled = guard.get_or_insert_with(build);
         compiled.check(value)
@@ -178,7 +187,11 @@ impl Attribute {
             Self::Int(n) => n.to_string(),
             Self::BigInt(s) => s.clone(),
             Self::Bool(b) => b.to_string(),
-            Self::Arr(items) => items.iter().map(|a| a.render()).collect::<Vec<_>>().join(","),
+            Self::Arr(items) => items
+                .iter()
+                .map(|a| a.render())
+                .collect::<Vec<_>>()
+                .join(","),
         }
     }
 }
@@ -206,12 +219,15 @@ impl Resource {
     /// overwriting explicit attributes; percent-decoding applies.
     pub fn fill_from_env_text(&mut self, text: &str) {
         for pair in text.split(',') {
-            let Some((k, v)) = pair.split_once('=') else { continue };
+            let Some((k, v)) = pair.split_once('=') else {
+                continue;
+            };
             let key = k.trim().to_string();
             if key.is_empty() || self.attrs.contains_key(&key) {
                 continue;
             }
-            self.attrs.insert(key, Attribute::Str(percent_decode(v.trim())));
+            self.attrs
+                .insert(key, Attribute::Str(percent_decode(v.trim())));
         }
     }
 
@@ -324,7 +340,10 @@ fn sanitize_name(name: &str) -> String {
 }
 
 fn escape_label(value: &str) -> String {
-    value.replace('\\', "\\\\").replace('"', "\\\"").replace('\n', "\\n")
+    value
+        .replace('\\', "\\\\")
+        .replace('"', "\\\"")
+        .replace('\n', "\\n")
 }
 
 fn escape_help(text: &str) -> String {
@@ -416,7 +435,11 @@ impl Prometheus {
                 format!("{{{}}}", pairs.join(","))
             };
             let val = |v: f64| render_float(v);
-            let labeled = if attrs.is_empty() { name.clone() } else { format!("{name}{attrs}") };
+            let labeled = if attrs.is_empty() {
+                name.clone()
+            } else {
+                format!("{name}{attrs}")
+            };
             let (kind, body) = match &m.point {
                 MetricPoint::Sum(v) => ("counter", format!("{} {}", labeled, val(*v))),
                 MetricPoint::Gauge(v) => ("gauge", format!("{} {}", labeled, val(*v))),
@@ -466,7 +489,11 @@ impl Prometheus {
                     ("summary", lines.join("\n"))
                 }
             };
-            out.push_str(&format!("# HELP {} {}\n", name, escape_help(&m.description)));
+            out.push_str(&format!(
+                "# HELP {} {}\n",
+                name,
+                escape_help(&m.description)
+            ));
             out.push_str(&format!("# TYPE {} {}\n", name, kind));
             out.push_str(&body);
             out.push('\n');

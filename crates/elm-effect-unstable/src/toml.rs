@@ -98,7 +98,6 @@ pub fn parse(input: &str) -> Result<BTreeMap<String, TomlValue>, TomlError> {
     Ok(root)
 }
 
-
 /// Create tables along `sub` inside array `array_path[index]`.
 fn ensure_element_subtable(
     root: &mut BTreeMap<String, TomlValue>,
@@ -115,9 +114,9 @@ fn ensure_element_subtable(
         };
     }
     let element = match cursor.get_mut(&name[0]) {
-        Some(TomlValue::Array(items)) => {
-            items.get_mut(index).ok_or_else(|| TomlError("no such element".into()))?
-        }
+        Some(TomlValue::Array(items)) => items
+            .get_mut(index)
+            .ok_or_else(|| TomlError("no such element".into()))?,
         _ => return Err(TomlError("not an array".into())),
     };
     let mut node = match element {
@@ -125,7 +124,9 @@ fn ensure_element_subtable(
         _ => return Err(TomlError("not a table".into())),
     };
     for segment in sub {
-        let entry = node.entry(segment.clone()).or_insert_with(|| TomlValue::Table(BTreeMap::new()));
+        let entry = node
+            .entry(segment.clone())
+            .or_insert_with(|| TomlValue::Table(BTreeMap::new()));
         match entry {
             TomlValue::Table(next) => node = next,
             _ => return Err(TomlError("duplicate key".into())),
@@ -151,9 +152,9 @@ fn insert_at_element(
         };
     }
     let element = match cursor.get_mut(&name[0]) {
-        Some(TomlValue::Array(items)) => {
-            items.get_mut(index).ok_or_else(|| TomlError("no such element".into()))?
-        }
+        Some(TomlValue::Array(items)) => items
+            .get_mut(index)
+            .ok_or_else(|| TomlError("no such element".into()))?,
         _ => return Err(TomlError("not an array".into())),
     };
     let map = match element {
@@ -162,7 +163,9 @@ fn insert_at_element(
     };
     let mut node = map;
     for segment in sub {
-        let entry = node.entry(segment.clone()).or_insert_with(|| TomlValue::Table(BTreeMap::new()));
+        let entry = node
+            .entry(segment.clone())
+            .or_insert_with(|| TomlValue::Table(BTreeMap::new()));
         match entry {
             TomlValue::Table(next) => node = next,
             _ => return Err(TomlError("duplicate key".into())),
@@ -221,20 +224,23 @@ fn join_continuations(input: &str) -> String {
             if let Some(pos) = chunk.find(&triple) {
                 let after = chunk[pos + 3..].to_string();
                 if after.contains(&triple) {
-                    out.push_str(&chunk); out.push('\n');
+                    out.push_str(&chunk);
+                    out.push('\n');
                 } else {
                     current.push_str(&chunk);
                     in_triple = true;
                 }
             } else {
-                out.push_str(&chunk); out.push('\n');
+                out.push_str(&chunk);
+                out.push('\n');
             }
             continue;
         }
         if let Some(end) = chunk.find(&triple) {
             current.push_str(&chunk[..end + 3]);
             current.push_str(&chunk[end + 3..]);
-            out.push_str(&current); out.push('\n');
+            out.push_str(&current);
+            out.push('\n');
             current = String::new();
             in_triple = false;
             continue;
@@ -261,11 +267,16 @@ fn split_path(path: &str) -> Result<Vec<String>, TomlError> {
 
 /// Append a fresh table element to the array at `path`, creating parent
 /// tables. Returns the new element index.
-fn push_array_element(root: &mut BTreeMap<String, TomlValue>, path: &[String]) -> Result<usize, TomlError> {
+fn push_array_element(
+    root: &mut BTreeMap<String, TomlValue>,
+    path: &[String],
+) -> Result<usize, TomlError> {
     let (parent, name) = path.split_at(path.len() - 1);
     let mut node = root;
     for segment in parent {
-        let entry = node.entry(segment.clone()).or_insert_with(|| TomlValue::Table(BTreeMap::new()));
+        let entry = node
+            .entry(segment.clone())
+            .or_insert_with(|| TomlValue::Table(BTreeMap::new()));
         match entry {
             TomlValue::Table(next) => node = next,
             _ => return Err(TomlError("not a table".into())),
@@ -277,7 +288,10 @@ fn push_array_element(root: &mut BTreeMap<String, TomlValue>, path: &[String]) -
             Ok(items.len() - 1)
         }
         None => {
-            node.insert(name[0].clone(), TomlValue::Array(vec![TomlValue::Table(BTreeMap::new())]));
+            node.insert(
+                name[0].clone(),
+                TomlValue::Array(vec![TomlValue::Table(BTreeMap::new())]),
+            );
             Ok(0)
         }
         _ => Err(TomlError("not an array".into())),
@@ -287,7 +301,9 @@ fn push_array_element(root: &mut BTreeMap<String, TomlValue>, path: &[String]) -
 fn ensure_table(root: &mut BTreeMap<String, TomlValue>, path: &[String]) -> Result<(), TomlError> {
     let mut node = root;
     for segment in path {
-        let entry = node.entry(segment.clone()).or_insert_with(|| TomlValue::Table(BTreeMap::new()));
+        let entry = node
+            .entry(segment.clone())
+            .or_insert_with(|| TomlValue::Table(BTreeMap::new()));
         match entry {
             TomlValue::Table(next) => node = next,
             _ => return Err(TomlError("duplicate key".into())),
@@ -297,7 +313,9 @@ fn ensure_table(root: &mut BTreeMap<String, TomlValue>, path: &[String]) -> Resu
 }
 
 fn split_key_value(line: &str) -> Result<(Vec<String>, String), TomlError> {
-    let equals = line.find('=').ok_or_else(|| TomlError("expected key = value".into()))?;
+    let equals = line
+        .find('=')
+        .ok_or_else(|| TomlError("expected key = value".into()))?;
     let key = split_path(line[..equals].trim())?;
     let value = line[equals + 1..].trim().to_string();
     if value.is_empty() {
@@ -306,11 +324,17 @@ fn split_key_value(line: &str) -> Result<(Vec<String>, String), TomlError> {
     Ok((key, value))
 }
 
-fn insert_dotted(map: &mut BTreeMap<String, TomlValue>, key: &[String], value: TomlValue) -> Result<(), TomlError> {
+fn insert_dotted(
+    map: &mut BTreeMap<String, TomlValue>,
+    key: &[String],
+    value: TomlValue,
+) -> Result<(), TomlError> {
     let (prefix, last) = key.split_at(key.len() - 1);
     let mut node = map;
     for segment in prefix {
-        let entry = node.entry(segment.clone()).or_insert_with(|| TomlValue::Table(BTreeMap::new()));
+        let entry = node
+            .entry(segment.clone())
+            .or_insert_with(|| TomlValue::Table(BTreeMap::new()));
         match entry {
             TomlValue::Table(next) => node = next,
             _ => return Err(TomlError("duplicate key".into())),
@@ -355,7 +379,9 @@ fn parse_value(raw: &str) -> Result<TomlValue, TomlError> {
 
 fn parse_basic_string(text: &str) -> Result<TomlValue, TomlError> {
     if let Some(inner) = text.strip_prefix("\"\"\"") {
-        let body = inner.strip_suffix("\"\"\"").ok_or_else(|| TomlError("unterminated string".into()))?;
+        let body = inner
+            .strip_suffix("\"\"\"")
+            .ok_or_else(|| TomlError("unterminated string".into()))?;
         let body = body.strip_prefix('\n').unwrap_or(body);
         return Ok(TomlValue::Text(unescape(body)));
     }
@@ -423,7 +449,9 @@ fn parse_inline_table(text: &str) -> Result<TomlValue, TomlError> {
         return Ok(TomlValue::Table(map));
     }
     for pair in inner.split(',') {
-        let equals = pair.find('=').ok_or_else(|| TomlError("expected key = value".into()))?;
+        let equals = pair
+            .find('=')
+            .ok_or_else(|| TomlError("expected key = value".into()))?;
         let key = pair[..equals].trim().to_string();
         let value = parse_value(pair[equals + 1..].trim())?;
         if map.contains_key(&key) {
@@ -453,7 +481,11 @@ fn parse_number(text: &str) -> Option<TomlValue> {
         return i64::from_str_radix(bin, 2).ok().map(TomlValue::Integer);
     }
     if digits.contains(['.', 'e', 'E']) {
-        return digits.parse::<f64>().ok().filter(|n| n.is_finite()).map(TomlValue::Float);
+        return digits
+            .parse::<f64>()
+            .ok()
+            .filter(|n| n.is_finite())
+            .map(TomlValue::Float);
     }
     let unsigned = digits.strip_prefix(['+', '-']).unwrap_or(&digits);
     if unsigned.is_empty() || !unsigned.bytes().all(|b| b.is_ascii_digit()) {
@@ -508,5 +540,7 @@ fn valid_date(date: &str) -> bool {
 fn valid_clock(clock: &str) -> bool {
     let parts: Vec<&str> = clock.split(':').collect();
     (parts.len() == 2 || parts.len() == 3)
-        && parts.iter().all(|p| p.len() == 2 && p.bytes().all(|b| b.is_ascii_digit()))
+        && parts
+            .iter()
+            .all(|p| p.len() == 2 && p.bytes().all(|b| b.is_ascii_digit()))
 }

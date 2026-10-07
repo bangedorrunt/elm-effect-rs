@@ -4,7 +4,9 @@
 #[path = "../src/schema_obs.rs"]
 mod schema_obs;
 
-use schema_obs::{Aot, Attribute, Exporter, Jit, Metric, MetricPoint, Prometheus, Resource, VariantSchema, varint};
+use schema_obs::{
+    Aot, Attribute, Exporter, Jit, Metric, MetricPoint, Prometheus, Resource, VariantSchema, varint,
+};
 use std::collections::BTreeMap;
 
 // ---------------------------------------------------------------- variants ---
@@ -17,7 +19,11 @@ fn variant_field_selection() {
     assert_eq!(v.fields_for("Circle", &all), vec!["radius".to_string()]);
     assert_eq!(
         v.fields_for("Other", &all),
-        vec!["kind".to_string(), "radius".to_string(), "width".to_string()]
+        vec![
+            "kind".to_string(),
+            "radius".to_string(),
+            "width".to_string()
+        ]
     );
 }
 
@@ -46,16 +52,22 @@ fn variant_projection_drops_rest() {
 
 #[test]
 fn aot_guard_and_diagnostic() {
-    let c = Aot::compile(|v: &str| v == "ok", |v: &str| {
-        if v == "ok" {
-            None
-        } else {
-            Some(format!("expected ok, got {v:?}"))
-        }
-    });
+    let c = Aot::compile(
+        |v: &str| v == "ok",
+        |v: &str| {
+            if v == "ok" {
+                None
+            } else {
+                Some(format!("expected ok, got {v:?}"))
+            }
+        },
+    );
     assert!(c.check("ok"));
     assert!(!c.check("nope"));
-    assert_eq!(c.diagnose("nope"), Some("expected ok, got \"nope\"".to_string()));
+    assert_eq!(
+        c.diagnose("nope"),
+        Some("expected ok, got \"nope\"".to_string())
+    );
     assert_eq!(c.diagnose("ok"), None);
 }
 
@@ -164,7 +176,10 @@ fn prometheus_options_and_specials() {
     assert!(text.contains("_9lives_"), "{text}");
     assert!(text.contains("path=\"a\\\"b\\\\c\""), "{text}");
     assert!(text.contains("line1\\nline2"), "{text}");
-    assert!(text.contains("Nan") && text.contains("+Inf") && text.contains("-Inf"), "{text}");
+    assert!(
+        text.contains("Nan") && text.contains("+Inf") && text.contains("-Inf"),
+        "{text}"
+    );
     assert!(text.ends_with('\n'));
 }
 
@@ -214,7 +229,9 @@ fn prometheus_histogram_and_summary() {
         name: "q".to_string(),
         description: String::new(),
         attrs: BTreeMap::new(),
-        point: MetricPoint::Summary { quantiles: vec![(0.5, 5.0)] },
+        point: MetricPoint::Summary {
+            quantiles: vec![(0.5, 5.0)],
+        },
     });
     let text = p.render();
     assert!(text.contains("lat_bucket{le=\"10\"} 2"));

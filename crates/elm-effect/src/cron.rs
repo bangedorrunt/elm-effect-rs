@@ -164,11 +164,17 @@ fn parse_segment(
         }
     };
     for (index, field) in fields.iter().enumerate() {
-        let (raw, step_raw) = if index == 0 { (first_raw, first_step) } else { split_step(field) };
+        let (raw, step_raw) = if index == 0 {
+            (first_raw, first_step)
+        } else {
+            split_step(field)
+        };
         let step = match step_raw {
             None => None,
             Some(st) => {
-                let v: i32 = st.parse().map_err(|_| fail("Expected a positive integer"))?;
+                let v: i32 = st
+                    .parse()
+                    .map_err(|_| fail("Expected a positive integer"))?;
                 if v < 1 {
                     return Err(fail("Expected step value to be greater than 0"));
                 }
@@ -192,7 +198,8 @@ fn parse_segment(
             Some((l, r)) => (l, Some(r)),
             None => (raw, None),
         };
-        let left = atom_value(left_raw, min, max, alias).map_err(|_| fail("Expected a value in range"))?;
+        let left =
+            atom_value(left_raw, min, max, alias).map_err(|_| fail("Expected a value in range"))?;
         match right_raw {
             None => {
                 let end = if step.is_some() { max } else { left };
@@ -201,7 +208,8 @@ fn parse_segment(
                 }
             }
             Some(r) => {
-                let right = atom_value(r, min, max, alias).map_err(|_| fail("Expected a value in range"))?;
+                let right = atom_value(r, min, max, alias)
+                    .map_err(|_| fail("Expected a value in range"))?;
                 if right < min || right > max {
                     return Err(fail("Expected a value in range"));
                 }
@@ -272,12 +280,14 @@ impl Cron {
     ) -> Result<Self, CronError> {
         let zone = match (zone, tz) {
             (Some(z), _) => Some(z),
-            (None, Some(t)) => Some(
-                datetime::zone_from_string(t).ok_or_else(|| CronError::Parse {
-                    message: "Invalid time zone in cron expression".to_string(),
-                    input: t.to_string(),
-                })?,
-            ),
+            (None, Some(t)) => {
+                Some(
+                    datetime::zone_from_string(t).ok_or_else(|| CronError::Parse {
+                        message: "Invalid time zone in cron expression".to_string(),
+                        input: t.to_string(),
+                    })?,
+                )
+            }
             (None, None) => None,
         };
         let mut segs: Vec<&str> = input.trim().split_whitespace().collect();
@@ -416,7 +426,9 @@ impl Cron {
         // is instant math: a wall rebuild would collapse fold occurrences.
         let mut at = from.set_zone(&zone);
         let floored = at.epoch_millis() - at.epoch_millis().rem_euclid(1_000);
-        at = DateTime::from_epoch_millis(floored).set_zone(&zone).add_millis(1000 * tick);
+        at = DateTime::from_epoch_millis(floored)
+            .set_zone(&zone)
+            .add_millis(1000 * tick);
         for _ in 0..20_000 {
             // Fold policy (mirrors TS `adjustDst`): a repeated wall is
             // visited once. Forward jumps over the duplicate by the drift;
@@ -546,7 +558,11 @@ fn shift_month(
         let cand = DateParts {
             year: y as i16,
             month: m as i8,
-            day: if tick > 0 { 1 } else { month_end(y as i16, m as i8) },
+            day: if tick > 0 {
+                1
+            } else {
+                month_end(y as i16, m as i8)
+            },
             hour: if tick > 0 { 0 } else { 23 },
             minute: if tick > 0 { 0 } else { 59 },
             second: if tick > 0 { 0 } else { 59 },
@@ -595,7 +611,11 @@ fn shift_hour(
     _dis: Disambiguation,
 ) -> Result<DateTime, CronError> {
     let floored = at.epoch_millis() - at.epoch_millis().rem_euclid(3_600_000);
-    let base = if tick > 0 { floored + 3_600_000 } else { floored - 1_000 };
+    let base = if tick > 0 {
+        floored + 3_600_000
+    } else {
+        floored - 1_000
+    };
     Ok(DateTime::from_epoch_millis(base).set_zone(&at.zone()))
 }
 
@@ -607,7 +627,11 @@ fn shift_minute(
     _dis: Disambiguation,
 ) -> Result<DateTime, CronError> {
     let floored = at.epoch_millis() - at.epoch_millis().rem_euclid(60_000);
-    let base = if tick > 0 { floored + 60_000 } else { floored - 1_000 };
+    let base = if tick > 0 {
+        floored + 60_000
+    } else {
+        floored - 1_000
+    };
     Ok(DateTime::from_epoch_millis(base).set_zone(&at.zone()))
 }
 

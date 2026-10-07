@@ -88,7 +88,9 @@ impl ByteSize {
 
     /// To machine number: some only inside the safe-integer range.
     pub fn to_number(&self) -> Option<i64> {
-        i64::try_from(self.0).ok().filter(|v| (*v as i128) <= MAX_SAFE)
+        i64::try_from(self.0)
+            .ok()
+            .filter(|v| (*v as i128) <= MAX_SAFE)
     }
 
     /// Checked add.

@@ -367,7 +367,10 @@ fn fixed_zone_of(ts: Timestamp, original: &str) -> Result<TimeZone, DateTimeErro
 
 impl DateTime {
     fn wrap(zoned: jiff::Zoned) -> Self {
-        Self { zoned, zone: Zone::Utc }
+        Self {
+            zoned,
+            zone: Zone::Utc,
+        }
     }
 
     fn wrap_zoned(zoned: jiff::Zoned, zone: Zone) -> Self {
@@ -387,7 +390,11 @@ impl DateTime {
 
     /// Instant from epoch millis, in UTC (`DateTime.make`).
     pub fn from_epoch_millis(millis: i64) -> Self {
-        Self::wrap(Timestamp::from_millisecond(millis).expect("epoch millis").to_zoned(TimeZone::UTC))
+        Self::wrap(
+            Timestamp::from_millisecond(millis)
+                .expect("epoch millis")
+                .to_zoned(TimeZone::UTC),
+        )
     }
 
     /// Parse ISO-8601, panicking on garbage (`makeUnsafe`).
@@ -465,8 +472,7 @@ impl DateTime {
 
     /// System time of this instant (`toDate`/`toDateUtc`).
     pub fn to_system_time(&self) -> std::time::SystemTime {
-        std::time::UNIX_EPOCH
-            + std::time::Duration::from_millis(self.epoch_millis().max(0) as u64)
+        std::time::UNIX_EPOCH + std::time::Duration::from_millis(self.epoch_millis().max(0) as u64)
     }
 
     /// Mutate UTC wall parts, rebuilding in UTC (`setPartsUtc`:
@@ -694,16 +700,28 @@ impl DateTime {
     /// Inclusive ceiling of the unit period (`endOf`): one millisecond
     /// before the next boundary.
     pub fn end_of(&self, unit: Unit, week_starts_on: i8) -> Self {
-        let step = if unit == Unit::Weeks { Unit::Days } else { unit };
+        let step = if unit == Unit::Weeks {
+            Unit::Days
+        } else {
+            unit
+        };
         let n = if unit == Unit::Weeks { 7 } else { 1 };
-        self.start_of(unit, week_starts_on).add_signed(step, n).add_millis(-1)
+        self.start_of(unit, week_starts_on)
+            .add_signed(step, n)
+            .add_millis(-1)
     }
 
     /// Round to the nearest boundary, halves up (`nearest`).
     pub fn nearest(&self, unit: Unit, week_starts_on: i8) -> Self {
         let start = self.start_of(unit, week_starts_on);
-        let step = if unit == Unit::Weeks { Unit::Days } else { unit };
-        let len = start.add_signed(step, if unit == Unit::Weeks { 7 } else { 1 }).epoch_millis()
+        let step = if unit == Unit::Weeks {
+            Unit::Days
+        } else {
+            unit
+        };
+        let len = start
+            .add_signed(step, if unit == Unit::Weeks { 7 } else { 1 })
+            .epoch_millis()
             - start.epoch_millis();
         let elapsed = self.epoch_millis() - start.epoch_millis();
         if elapsed * 2 >= len {
@@ -782,7 +800,11 @@ impl DateTime {
             Zone::Utc => self.utc_iso(),
             Zone::Offset(_) => {
                 let off = self.zoned.offset().seconds() / 60;
-                format!("{}{}", iso_civil(&self.zoned.datetime()), format_offset(off))
+                format!(
+                    "{}{}",
+                    iso_civil(&self.zoned.datetime()),
+                    format_offset(off)
+                )
             }
             Zone::Named(name) => {
                 let civil = self.zoned.datetime();
@@ -807,7 +829,11 @@ impl DateTime {
     /// Civil plus offset, never a bracket (`formatIsoOffset`).
     pub fn format_iso_offset(&self) -> String {
         let off = self.zoned.offset().seconds() / 60;
-        format!("{}{}", iso_civil(&self.zoned.datetime()), format_offset(off))
+        format!(
+            "{}{}",
+            iso_civil(&self.zoned.datetime()),
+            format_offset(off)
+        )
     }
 
     /// UTC ISO with `Z` for any zone (`formatUtc`).
@@ -819,13 +845,21 @@ impl DateTime {
     /// Only the zones named in tests resolve to long names; anything
     /// else falls back to `GMT±h` (reported residual, not silent).
     pub fn format_full(&self) -> String {
-        en_full(&self.zoned.datetime(), &self.long_zone_name(), self.hour12())
+        en_full(
+            &self.zoned.datetime(),
+            &self.long_zone_name(),
+            self.hour12(),
+        )
     }
 
     /// en-US full date+time rendered in UTC (`formatUtc` with styles).
     pub fn format_full_utc(&self) -> String {
         let utc = self.set_zone(&Zone::Utc);
-        en_full(&utc.zoned.datetime(), "Coordinated Universal Time", utc.hour12())
+        en_full(
+            &utc.zoned.datetime(),
+            "Coordinated Universal Time",
+            utc.hour12(),
+        )
     }
 
     fn long_zone_name(&self) -> String {
@@ -930,11 +964,27 @@ fn is_leap(year: i16) -> bool {
 
 fn en_full(civil: &Civil, zone_name: &str, hour12: (i8, &str)) -> String {
     const WEEKDAYS: [&str; 7] = [
-        "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday",
+        "Sunday",
+        "Monday",
+        "Tuesday",
+        "Wednesday",
+        "Thursday",
+        "Friday",
+        "Saturday",
     ];
     const MONTHS: [&str; 12] = [
-        "January", "February", "March", "April", "May", "June", "July", "August",
-        "September", "October", "November", "December",
+        "January",
+        "February",
+        "March",
+        "April",
+        "May",
+        "June",
+        "July",
+        "August",
+        "September",
+        "October",
+        "November",
+        "December",
     ];
     let wd = WEEKDAYS[civil.weekday().to_sunday_zero_offset() as usize];
     format!(

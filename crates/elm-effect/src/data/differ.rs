@@ -27,7 +27,10 @@ impl<T: 'static, P: 'static> Differ<T, P> {
         diff: impl Fn(&T, &T) -> P + 'static,
         patch: impl Fn(&P, &T) -> T + 'static,
     ) -> Self {
-        Self { diff: Box::new(diff), patch: Box::new(patch) }
+        Self {
+            diff: Box::new(diff),
+            patch: Box::new(patch),
+        }
     }
 
     /// Compute the patch from old to new.
@@ -53,7 +56,13 @@ impl<T: 'static, P: 'static> Differ<T, P> {
 /// Equality differ: `Same` when equal, `Replace` otherwise.
 pub fn by_value<T: Clone + PartialEq + 'static>() -> Differ<T, Patch<T>> {
     Differ::make(
-        |old: &T, new: &T| if old == new { Patch::Same } else { Patch::Replace(new.clone()) },
+        |old: &T, new: &T| {
+            if old == new {
+                Patch::Same
+            } else {
+                Patch::Replace(new.clone())
+            }
+        },
         |patch, old| match patch {
             Patch::Same => old.clone(),
             Patch::Replace(v) => v.clone(),

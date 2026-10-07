@@ -72,12 +72,18 @@ impl Decimal {
 
     /// Zero.
     pub fn zero() -> Self {
-        Self { mantissa: NBI::zero(), scale: 0 }
+        Self {
+            mantissa: NBI::zero(),
+            scale: 0,
+        }
     }
 
     /// One.
     pub fn one() -> Self {
-        Self { mantissa: NBI::one(), scale: 0 }
+        Self {
+            mantissa: NBI::one(),
+            scale: 0,
+        }
     }
 
     /// Mantissa accessor (for tests).
@@ -112,7 +118,10 @@ impl Decimal {
         };
         let dropped = (digits.len() - end) as i64;
         let mantissa: NBI = stripped.parse().unwrap_or_else(|_| self.mantissa.clone());
-        Self { mantissa, scale: self.scale - dropped }
+        Self {
+            mantissa,
+            scale: self.scale - dropped,
+        }
     }
 
     /// True for zero.
@@ -147,13 +156,20 @@ impl Decimal {
             }
             v
         };
-        (up(&self.mantissa, self.scale), up(&other.mantissa, other.scale), scale)
+        (
+            up(&self.mantissa, self.scale),
+            up(&other.mantissa, other.scale),
+            scale,
+        )
     }
 
     /// Add.
     pub fn add(&self, other: &Self) -> Self {
         let (a, b, scale) = self.aligned(other);
-        Self { mantissa: a + b, scale }
+        Self {
+            mantissa: a + b,
+            scale,
+        }
     }
 
     /// Sum many.
@@ -164,7 +180,10 @@ impl Decimal {
     /// Subtract.
     pub fn subtract(&self, other: &Self) -> Self {
         let (a, b, scale) = self.aligned(other);
-        Self { mantissa: a - b, scale }
+        Self {
+            mantissa: a - b,
+            scale,
+        }
     }
 
     /// Multiply (scales add).
@@ -190,9 +209,16 @@ impl Decimal {
         }
         if self.mantissa == other.mantissa {
             let _ = self.scale - other.scale;
-            return Some(Self { mantissa: NBI::one(), scale: self.scale - other.scale });
+            return Some(Self {
+                mantissa: NBI::one(),
+                scale: self.scale - other.scale,
+            });
         }
-        Some(divide_precise(&self.mantissa, &other.mantissa, self.scale - other.scale))
+        Some(divide_precise(
+            &self.mantissa,
+            &other.mantissa,
+            self.scale - other.scale,
+        ))
     }
 
     /// Truncating remainder: none on zero divisor.
@@ -201,7 +227,10 @@ impl Decimal {
             return None;
         }
         let (a, b, scale) = self.aligned(other);
-        Some(Self { mantissa: a % b, scale })
+        Some(Self {
+            mantissa: a % b,
+            scale,
+        })
     }
 
     /// Remainder, panicking on zero divisor.
@@ -211,12 +240,18 @@ impl Decimal {
 
     /// Negate.
     pub fn negate(&self) -> Self {
-        Self { mantissa: -&self.mantissa, scale: self.scale }
+        Self {
+            mantissa: -&self.mantissa,
+            scale: self.scale,
+        }
     }
 
     /// Absolute value.
     pub fn abs(&self) -> Self {
-        Self { mantissa: self.mantissa.abs(), scale: self.scale }
+        Self {
+            mantissa: self.mantissa.abs(),
+            scale: self.scale,
+        }
     }
 
     /// Value comparison.
@@ -330,7 +365,10 @@ impl Decimal {
                     return None;
                 }
                 let exp: i64 = trail.parse().ok()?;
-                if !trail.chars().all(|c| c.is_ascii_digit() || c == '+' || c == '-') {
+                if !trail
+                    .chars()
+                    .all(|c| c.is_ascii_digit() || c == '+' || c == '-')
+                {
                     return None;
                 }
                 if trail.trim_start_matches(['+', '-']).is_empty() {
@@ -419,14 +457,14 @@ impl Decimal {
     }
 
     fn pow10(n: u32) -> NBI {
-    let mut v = NBI::from(1);
-    for _ in 0..n {
-        v *= 10;
+        let mut v = NBI::from(1);
+        for _ in 0..n {
+            v *= 10;
+        }
+        v
     }
-    v
-}
 
-/// Hash-stable key: normalized rendering.
+    /// Hash-stable key: normalized rendering.
     pub fn hash_key(&self) -> String {
         let n = self.normalize();
         format!("{0}/{1}", n.mantissa, n.scale)
@@ -474,7 +512,10 @@ fn divide_precise(num: &NBI, den: &NBI, scale: i64) -> Decimal {
         if negate {
             quotient = -quotient;
         }
-        return Decimal { mantissa: quotient, scale };
+        return Decimal {
+            mantissa: quotient,
+            scale,
+        };
     }
     let mut count = quotient.to_string().len();
     remainder *= &ten;
@@ -497,5 +538,8 @@ fn divide_precise(num: &NBI, den: &NBI, scale: i64) -> Decimal {
     if negate {
         quotient = -quotient;
     }
-    Decimal { mantissa: quotient, scale }
+    Decimal {
+        mantissa: quotient,
+        scale,
+    }
 }

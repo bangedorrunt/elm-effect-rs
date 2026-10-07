@@ -24,10 +24,7 @@ impl<Input, Pass, Fail> Filter<Input, Pass, Fail> {
     }
 
     /// Map the failure (`mapFail`).
-    pub fn map_fail<Fail2>(
-        self,
-        f: impl Fn(Fail) -> Fail2 + 'static,
-    ) -> Filter<Input, Pass, Fail2>
+    pub fn map_fail<Fail2>(self, f: impl Fn(Fail) -> Fail2 + 'static) -> Filter<Input, Pass, Fail2>
     where
         Input: 'static,
         Pass: 'static,
@@ -48,9 +45,7 @@ impl<Input, Pass, Fail> Filter<Input, Pass, Fail> {
 }
 
 /// Pass inputs satisfying the predicate, failing with the input itself.
-pub fn from_predicate<T: 'static>(
-    check: impl Fn(&T) -> bool + 'static,
-) -> Filter<T, T, T> {
+pub fn from_predicate<T: 'static>(check: impl Fn(&T) -> bool + 'static) -> Filter<T, T, T> {
     Filter::make(move |input: T| if check(&input) { Ok(input) } else { Err(input) })
 }
 
@@ -71,11 +66,10 @@ pub fn string(input: &str) -> Result<String, String> {
 }
 
 /// Property presence (`Filter.has`): the map must contain `key`.
-pub fn has<V: Clone>(
-    map: &std::collections::BTreeMap<String, V>,
-    key: &str,
-) -> Result<V, String> {
-    map.get(key).cloned().ok_or_else(|| format!("missing property: {key}"))
+pub fn has<V: Clone>(map: &std::collections::BTreeMap<String, V>, key: &str) -> Result<V, String> {
+    map.get(key)
+        .cloned()
+        .ok_or_else(|| format!("missing property: {key}"))
 }
 
 /// Tag check (`Filter.instanceOf` by tag name).

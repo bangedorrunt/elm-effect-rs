@@ -221,6 +221,16 @@ mod tests {
     }
 
     #[test]
+    fn registry_snapshot_restores_into_empty() {
+        let source = AtomRegistry::new();
+        source.set("theme", "dark");
+        let snapshot = source.snapshot();
+        let target = AtomRegistry::new();
+        target.restore(&snapshot);
+        assert_eq!(target.get("theme"), Some("dark".to_string()));
+    }
+
+    #[test]
     fn unsubscribe_during_notify_does_not_skip_later_listeners() {
         let signal = Arc::new(Signal::new(0));
         let seen = Arc::new(Mutex::new(Vec::new()));

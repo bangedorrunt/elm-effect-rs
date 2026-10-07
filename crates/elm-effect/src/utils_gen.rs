@@ -16,7 +16,11 @@ pub struct SingleShotGen<T, A> {
 impl<T, A> SingleShotGen<T, A> {
     /// Build around a value to yield once.
     pub fn new(value: T) -> Self {
-        Self { value: Some(value), yielded: false, back: None }
+        Self {
+            value: Some(value),
+            yielded: false,
+            back: None,
+        }
     }
 
     /// Advance: the first call yields the stored value; later calls

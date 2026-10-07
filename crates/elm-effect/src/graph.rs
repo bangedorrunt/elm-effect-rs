@@ -17,9 +17,6 @@ pub type NodeIndex = usize;
 /// An edge identifier. Stable across removals.
 pub type EdgeIndex = usize;
 
-/// Largest allocatable index (`Number.MAX_SAFE_INTEGER` upstream).
-pub const MAX_SAFE_INDEX: usize = 9_007_199_254_740_991;
-
 /// Directed or undirected.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Kind {
@@ -35,21 +32,13 @@ impl Kind {
         match kind {
             "directed" => Ok(Self::Directed),
             "undirected" => Ok(Self::Undirected),
-            _ => Err(GraphError("Graph type must be directed or undirected".into())),
+            _ => Err(GraphError(
+                "Graph type must be directed or undirected".into(),
+            )),
         }
     }
 
-    /// True for directed graphs.
-    pub fn is_directed(&self) -> bool {
-        matches!(self, Self::Directed)
-    }
-
-    /// True for undirected graphs.
-    pub fn is_undirected(&self) -> bool {
-        matches!(self, Self::Undirected)
-    }
-
-    /// The spec kind string.
+/// The spec kind string.
     pub fn name(&self) -> &'static str {
         match self {
             Self::Directed => "directed",
@@ -100,17 +89,35 @@ pub struct Graph<N, E> {
 impl<N, E> Graph<N, E> {
     /// Empty graph of a parsed kind string.
     pub fn make(kind: &str) -> Result<Self, GraphError> {
-        Ok(Self { kind: Kind::parse(kind)?, nodes: BTreeMap::new(), edges: BTreeMap::new(), next_node: 0, next_edge: 0 })
+        Ok(Self {
+            kind: Kind::parse(kind)?,
+            nodes: BTreeMap::new(),
+            edges: BTreeMap::new(),
+            next_node: 0,
+            next_edge: 0,
+        })
     }
 
     /// Empty directed graph.
     pub fn directed() -> Self {
-        Self { kind: Kind::Directed, nodes: BTreeMap::new(), edges: BTreeMap::new(), next_node: 0, next_edge: 0 }
+        Self {
+            kind: Kind::Directed,
+            nodes: BTreeMap::new(),
+            edges: BTreeMap::new(),
+            next_node: 0,
+            next_edge: 0,
+        }
     }
 
     /// Empty undirected graph.
     pub fn undirected() -> Self {
-        Self { kind: Kind::Undirected, nodes: BTreeMap::new(), edges: BTreeMap::new(), next_node: 0, next_edge: 0 }
+        Self {
+            kind: Kind::Undirected,
+            nodes: BTreeMap::new(),
+            edges: BTreeMap::new(),
+            next_node: 0,
+            next_edge: 0,
+        }
     }
 
     /// Always false: this handle is immutable.
@@ -144,7 +151,9 @@ impl<N, E> Graph<N, E> {
         let mut last_node: Option<NodeIndex> = None;
         for n in snap.nodes {
             if last_node.is_some_and(|last| n.index <= last) {
-                return Err(GraphError("Node indexes must be strictly increasing".into()));
+                return Err(GraphError(
+                    "Node indexes must be strictly increasing".into(),
+                ));
             }
             last_node = Some(n.index);
             next_node = next_node.max(n.index + 1);
@@ -153,16 +162,38 @@ impl<N, E> Graph<N, E> {
         let mut last_edge: Option<EdgeIndex> = None;
         for e in snap.edges {
             if last_edge.is_some_and(|last| e.index <= last) {
-                return Err(GraphError("Edge indexes must be strictly increasing".into()));
+                return Err(GraphError(
+                    "Edge indexes must be strictly increasing".into(),
+                ));
             }
             last_edge = Some(e.index);
             if !nodes.contains_key(&e.source) || !nodes.contains_key(&e.target) {
-                return Err(GraphError(format!("Node {} does not exist", if !nodes.contains_key(&e.source) { e.source } else { e.target })));
+                return Err(GraphError(format!(
+                    "Node {} does not exist",
+                    if !nodes.contains_key(&e.source) {
+                        e.source
+                    } else {
+                        e.target
+                    }
+                )));
             }
             next_edge = next_edge.max(e.index + 1);
-            edges.insert(e.index, StoredEdge { source: e.source, target: e.target, data: e.data });
+            edges.insert(
+                e.index,
+                StoredEdge {
+                    source: e.source,
+                    target: e.target,
+                    data: e.data,
+                },
+            );
         }
-        Ok(Self { kind: snap.kind, nodes, edges, next_node, next_edge })
+        Ok(Self {
+            kind: snap.kind,
+            nodes,
+            edges,
+            next_node,
+            next_edge,
+        })
     }
 
     /// Snapshot with active nodes/edges in index order (fresh clones, never
@@ -174,11 +205,23 @@ impl<N, E> Graph<N, E> {
     {
         Snapshot {
             kind: self.kind,
-            nodes: self.nodes.iter().map(|(i, n)| IndexedNode { index: *i, data: n.clone() }).collect(),
+            nodes: self
+                .nodes
+                .iter()
+                .map(|(i, n)| IndexedNode {
+                    index: *i,
+                    data: n.clone(),
+                })
+                .collect(),
             edges: self
                 .edges
                 .iter()
-                .map(|(i, e)| IndexedEdge { index: *i, source: e.source, target: e.target, data: e.data.clone() })
+                .map(|(i, e)| IndexedEdge {
+                    index: *i,
+                    source: e.source,
+                    target: e.target,
+                    data: e.data.clone(),
+                })
                 .collect(),
         }
     }
@@ -186,7 +229,13 @@ impl<N, E> Graph<N, E> {
 
 impl<N, E> std::fmt::Display for Graph<N, E> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Graph({}, {}, {})", self.kind.name(), self.nodes.len(), self.edges.len())
+        write!(
+            f,
+            "Graph({}, {}, {})",
+            self.kind.name(),
+            self.nodes.len(),
+            self.edges.len()
+        )
     }
 }
 
@@ -266,7 +315,9 @@ impl<N, E> MutableGraph<N, E> {
             return Err(GraphError("Graph is not mutable".into()));
         }
         if borrow.depth > 0 {
-            return Err(GraphError("Cannot mutate graph during a transformation".into()));
+            return Err(GraphError(
+                "Cannot mutate graph during a transformation".into(),
+            ));
         }
         Ok(borrow)
     }
@@ -278,7 +329,9 @@ impl<N, E> MutableGraph<N, E> {
                 return Err(GraphError("Graph is not mutable".into()));
             }
             if borrow.depth > 0 {
-                return Err(GraphError("Cannot mutate graph during a transformation".into()));
+                return Err(GraphError(
+                    "Cannot mutate graph during a transformation".into(),
+                ));
             }
             borrow.depth += 1;
         }
@@ -321,9 +374,6 @@ impl<N, E> MutableGraph<N, E> {
     pub fn add_node(&self, data: N) -> Result<NodeIndex, GraphError> {
         let mut borrow = self.check()?;
         let index = borrow.graph.next_node;
-        if index > MAX_SAFE_INDEX {
-            return Err(GraphError("Graph has exhausted safe node indexes".into()));
-        }
         borrow.graph.next_node += 1;
         borrow.graph.nodes.insert(index, data);
         Ok(index)
@@ -331,7 +381,12 @@ impl<N, E> MutableGraph<N, E> {
 
     /// Allocate an edge, returning its stable index. Missing endpoints are
     /// [`GraphError`] (`Node {i} does not exist`).
-    pub fn add_edge(&self, source: NodeIndex, target: NodeIndex, data: E) -> Result<EdgeIndex, GraphError> {
+    pub fn add_edge(
+        &self,
+        source: NodeIndex,
+        target: NodeIndex,
+        data: E,
+    ) -> Result<EdgeIndex, GraphError> {
         let mut borrow = self.check()?;
         for endpoint in [source, target] {
             if !borrow.graph.nodes.contains_key(&endpoint) {
@@ -339,11 +394,15 @@ impl<N, E> MutableGraph<N, E> {
             }
         }
         let index = borrow.graph.next_edge;
-        if index > MAX_SAFE_INDEX {
-            return Err(GraphError("Graph has exhausted safe edge indexes".into()));
-        }
         borrow.graph.next_edge += 1;
-        borrow.graph.edges.insert(index, StoredEdge { source, target, data });
+        borrow.graph.edges.insert(
+            index,
+            StoredEdge {
+                source,
+                target,
+                data,
+            },
+        );
         Ok(index)
     }
 
@@ -382,7 +441,13 @@ impl<N, E> MutableGraph<N, E> {
     {
         self.transforming(|g| {
             if let Some(edge) = g.edges.get(&index).cloned() {
-                g.edges.insert(index, StoredEdge { data: f(&edge.data), ..edge });
+                g.edges.insert(
+                    index,
+                    StoredEdge {
+                        data: f(&edge.data),
+                        ..edge
+                    },
+                );
             }
         })
     }
@@ -391,7 +456,8 @@ impl<N, E> MutableGraph<N, E> {
     pub fn remove_node(&self, index: NodeIndex) -> Result<(), GraphError> {
         self.transforming(|g| {
             if g.nodes.remove(&index).is_some() {
-                g.edges.retain(|_, e| e.source != index && e.target != index);
+                g.edges
+                    .retain(|_, e| e.source != index && e.target != index);
             }
         })
     }
@@ -402,7 +468,8 @@ impl<N, E> MutableGraph<N, E> {
         self.transforming(|g| {
             for index in &owned {
                 if g.nodes.remove(index).is_some() {
-                    g.edges.retain(|_, e| e.source != *index && e.target != *index);
+                    g.edges
+                        .retain(|_, e| e.source != *index && e.target != *index);
                 }
             }
         })
@@ -461,7 +528,8 @@ impl<N, E> MutableGraph<N, E> {
             }
             for index in drop {
                 g.nodes.remove(&index);
-                g.edges.retain(|_, e| e.source != index && e.target != index);
+                g.edges
+                    .retain(|_, e| e.source != index && e.target != index);
             }
         })
     }
@@ -535,7 +603,9 @@ impl<N, E> MutableGraph<N, E> {
             return Err(GraphError("Graph is not mutable".into()));
         }
         if borrow.depth > 0 {
-            return Err(GraphError("Cannot mutate graph during a transformation".into()));
+            return Err(GraphError(
+                "Cannot mutate graph during a transformation".into(),
+            ));
         }
         borrow.live = false;
         Ok(borrow.graph.clone())
@@ -565,7 +635,10 @@ impl<N, E> View<N, E> for Graph<N, E> {
     where
         N: Clone,
     {
-        self.node_vec().into_iter().map(|(i, n)| (i, n.clone())).collect()
+        self.node_vec()
+            .into_iter()
+            .map(|(i, n)| (i, n.clone()))
+            .collect()
     }
     fn edge_vec(&self) -> Vec<(EdgeIndex, StoredEdge<E>)>
     where
@@ -583,13 +656,25 @@ impl<N, E> View<N, E> for MutableGraph<N, E> {
     where
         N: Clone,
     {
-        self.inner.borrow().graph.node_vec().into_iter().map(|(i, n)| (i, n.clone())).collect()
+        self.inner
+            .borrow()
+            .graph
+            .node_vec()
+            .into_iter()
+            .map(|(i, n)| (i, n.clone()))
+            .collect()
     }
     fn edge_vec(&self) -> Vec<(EdgeIndex, StoredEdge<E>)>
     where
         E: Clone,
     {
-        self.inner.borrow().graph.edges.iter().map(|(i, e)| (*i, e.clone())).collect()
+        self.inner
+            .borrow()
+            .graph
+            .edges
+            .iter()
+            .map(|(i, e)| (*i, e.clone()))
+            .collect()
     }
 }
 
@@ -600,23 +685,41 @@ where
     N: Clone,
     E: Clone,
 {
-    MutableGraph { inner: Rc::new(RefCell::new(MutInner { graph: graph.clone(), live: true, depth: 0 })) }
+    MutableGraph {
+        inner: Rc::new(RefCell::new(MutInner {
+            graph: graph.clone(),
+            live: true,
+            depth: 0,
+        })),
+    }
 }
 
 /// Run a builder to a finalized immutable graph.
-pub fn build<N, E>(kind: Kind, f: impl FnOnce(&MutableGraph<N, E>) -> Result<(), GraphError>) -> Result<Graph<N, E>, GraphError>
+pub fn build<N, E>(
+    kind: Kind,
+    f: impl FnOnce(&MutableGraph<N, E>) -> Result<(), GraphError>,
+) -> Result<Graph<N, E>, GraphError>
 where
     N: Clone,
     E: Clone,
 {
-    let base = Graph { kind, nodes: BTreeMap::new(), edges: BTreeMap::new(), next_node: 0, next_edge: 0 };
+    let base = Graph {
+        kind,
+        nodes: BTreeMap::new(),
+        edges: BTreeMap::new(),
+        next_node: 0,
+        next_edge: 0,
+    };
     let mutable = begin_mutation(&base);
     scoped(&mutable, f)
 }
 
 /// Run `f` to finalization: the handle retires on return, on error, and on
 /// panic (which resumes after retiring, so retained handles stay dead).
-fn scoped<N, E>(mutable: &MutableGraph<N, E>, f: impl FnOnce(&MutableGraph<N, E>) -> Result<(), GraphError>) -> Result<Graph<N, E>, GraphError>
+fn scoped<N, E>(
+    mutable: &MutableGraph<N, E>,
+    f: impl FnOnce(&MutableGraph<N, E>) -> Result<(), GraphError>,
+) -> Result<Graph<N, E>, GraphError>
 where
     N: Clone,
     E: Clone,
@@ -638,7 +741,10 @@ where
 }
 
 /// Run a scoped mutation over an immutable graph to a new immutable graph.
-pub fn mutate<N, E>(graph: &Graph<N, E>, f: impl FnOnce(&MutableGraph<N, E>) -> Result<(), GraphError>) -> Result<Graph<N, E>, GraphError>
+pub fn mutate<N, E>(
+    graph: &Graph<N, E>,
+    f: impl FnOnce(&MutableGraph<N, E>) -> Result<(), GraphError>,
+) -> Result<Graph<N, E>, GraphError>
 where
     N: Clone,
     E: Clone,
@@ -659,7 +765,9 @@ where
     E: Clone,
 {
     if graph.kind() != Kind::Directed {
-        return Err(GraphError("Cannot get successors of undirected graph".into()));
+        return Err(GraphError(
+            "Cannot get successors of undirected graph".into(),
+        ));
     }
     Ok(succ_impl(graph, node))
 }
@@ -690,7 +798,9 @@ where
     E: Clone,
 {
     if graph.kind() != Kind::Directed {
-        return Err(GraphError("Cannot get predecessors of undirected graph".into()));
+        return Err(GraphError(
+            "Cannot get predecessors of undirected graph".into(),
+        ));
     }
     Ok(pred_impl(graph, node))
 }
@@ -760,14 +870,20 @@ where
 }
 
 /// Directional neighbors: outgoing, incoming, or undirected adjacency.
-pub fn neighbors_directed<N, E, V>(graph: &V, node: NodeIndex, dir: Direction) -> Result<Vec<NodeIndex>, GraphError>
+pub fn neighbors_directed<N, E, V>(
+    graph: &V,
+    node: NodeIndex,
+    dir: Direction,
+) -> Result<Vec<NodeIndex>, GraphError>
 where
     V: View<N, E>,
     N: Clone,
     E: Clone,
 {
     if graph.kind() != Kind::Directed && dir != Direction::Undirected {
-        return Err(GraphError("Cannot get directed neighbors of undirected graph".into()));
+        return Err(GraphError(
+            "Cannot get directed neighbors of undirected graph".into(),
+        ));
     }
     Ok(match dir {
         Direction::Outgoing => succ_impl(graph, node),
@@ -851,7 +967,9 @@ where
     E: Clone,
 {
     if graph.kind() != Kind::Directed {
-        return Err(GraphError("Cannot get outgoing edges of undirected graph".into()));
+        return Err(GraphError(
+            "Cannot get outgoing edges of undirected graph".into(),
+        ));
     }
     Ok(out_impl(graph, node))
 }
@@ -863,7 +981,11 @@ where
     N: Clone,
     E: Clone,
 {
-    edge_list(graph).into_iter().filter(|(_, e)| e.source == node).map(|(i, _)| i).collect()
+    edge_list(graph)
+        .into_iter()
+        .filter(|(_, e)| e.source == node)
+        .map(|(i, _)| i)
+        .collect()
 }
 
 /// Incoming edge indexes of `node`, in index order.
@@ -874,7 +996,9 @@ where
     E: Clone,
 {
     if graph.kind() != Kind::Directed {
-        return Err(GraphError("Cannot get incoming edges of undirected graph".into()));
+        return Err(GraphError(
+            "Cannot get incoming edges of undirected graph".into(),
+        ));
     }
     Ok(in_impl(graph, node))
 }
@@ -886,7 +1010,11 @@ where
     N: Clone,
     E: Clone,
 {
-    edge_list(graph).into_iter().filter(|(_, e)| e.target == node).map(|(i, _)| i).collect()
+    edge_list(graph)
+        .into_iter()
+        .filter(|(_, e)| e.target == node)
+        .map(|(i, _)| i)
+        .collect()
 }
 
 /// Edge indexes from `a` to `b` (either direction when undirected).
@@ -946,7 +1074,11 @@ where
     N: Clone,
     E: Clone,
 {
-    graph.node_vec().into_iter().find(|(i, _)| *i == index).map(|(_, n)| n)
+    graph
+        .node_vec()
+        .into_iter()
+        .find(|(i, _)| *i == index)
+        .map(|(_, n)| n)
 }
 
 /// Cloned edge record, if the index is live.
@@ -956,7 +1088,11 @@ where
     N: Clone,
     E: Clone,
 {
-    graph.edge_vec().into_iter().find(|(i, _)| *i == index).map(|(_, e)| e)
+    graph
+        .edge_vec()
+        .into_iter()
+        .find(|(i, _)| *i == index)
+        .map(|(_, e)| e)
 }
 
 /// True when the node index is live.
@@ -987,7 +1123,10 @@ where
     N: Clone,
     E: Clone,
 {
-    node_list(graph).into_iter().find(|(_, n)| pred(n)).map(|(i, _)| i)
+    node_list(graph)
+        .into_iter()
+        .find(|(_, n)| pred(n))
+        .map(|(i, _)| i)
 }
 
 /// Every node index in index order satisfying `pred`.
@@ -997,30 +1136,46 @@ where
     N: Clone,
     E: Clone,
 {
-    node_list(graph).into_iter().filter(|(_, n)| pred(n)).map(|(i, _)| i).collect()
+    node_list(graph)
+        .into_iter()
+        .filter(|(_, n)| pred(n))
+        .map(|(i, _)| i)
+        .collect()
 }
 
 /// Every edge index satisfying `pred`, in index order.
-pub fn find_edges<N, E, V>(graph: &V, mut pred: impl FnMut(&E, NodeIndex, NodeIndex) -> bool) -> Vec<EdgeIndex>
+pub fn find_edges<N, E, V>(
+    graph: &V,
+    mut pred: impl FnMut(&E, NodeIndex, NodeIndex) -> bool,
+) -> Vec<EdgeIndex>
 where
     V: View<N, E>,
     N: Clone,
     E: Clone,
 {
-    edge_list(graph).into_iter().filter(|(_, e)| pred(&e.data, e.source, e.target)).map(|(i, _)| i).collect()
+    edge_list(graph)
+        .into_iter()
+        .filter(|(_, e)| pred(&e.data, e.source, e.target))
+        .map(|(i, _)| i)
+        .collect()
 }
 
 /// First edge index whose stored endpoints and data satisfy `pred`.
-pub fn find_edge<N, E, V>(graph: &V, mut pred: impl FnMut(&E, NodeIndex, NodeIndex) -> bool) -> Option<EdgeIndex>
+pub fn find_edge<N, E, V>(
+    graph: &V,
+    mut pred: impl FnMut(&E, NodeIndex, NodeIndex) -> bool,
+) -> Option<EdgeIndex>
 where
     V: View<N, E>,
     N: Clone,
     E: Clone,
 {
-    edge_list(graph).into_iter().find(|(_, e)| pred(&e.data, e.source, e.target)).map(|(i, _)| i)
+    edge_list(graph)
+        .into_iter()
+        .find(|(_, e)| pred(&e.data, e.source, e.target))
+        .map(|(i, _)| i)
 }
 
-/// All live nodes in index order (residual API of the .21 port).
 pub fn node_list<N, E, V>(graph: &V) -> Vec<(NodeIndex, N)>
 where
     V: View<N, E>,
@@ -1045,7 +1200,9 @@ fn same_kind(a: Kind, b: Kind) -> Result<Kind, GraphError> {
     if a == b {
         Ok(a)
     } else {
-        Err(GraphError("Cannot combine directed and undirected graphs".into()))
+        Err(GraphError(
+            "Cannot combine directed and undirected graphs".into(),
+        ))
     }
 }
 
@@ -1102,14 +1259,28 @@ where
         .filter_map(|e| edge_ident(directed, &b.nodes, e, node_identity))
         .collect();
     for e in a.edges.values() {
-        let Some(key) = edge_ident(directed, &a.nodes, e, node_identity) else { continue };
-        if !b_keys.iter().any(|k| k.0 == key.0 && k.1 == key.1 && k.2 == key.2) {
+        let Some(key) = edge_ident(directed, &a.nodes, e, node_identity) else {
+            continue;
+        };
+        if !b_keys
+            .iter()
+            .any(|k| k.0 == key.0 && k.1 == key.1 && k.2 == key.2)
+        {
             continue;
         }
-        let (Some(s), Some(t)) = (index_of.get(&e.source), index_of.get(&e.target)) else { continue };
+        let (Some(s), Some(t)) = (index_of.get(&e.source), index_of.get(&e.target)) else {
+            continue;
+        };
         let ei = out.next_edge;
         out.next_edge += 1;
-        out.edges.insert(ei, StoredEdge { source: *s, target: *t, data: e.data.clone() });
+        out.edges.insert(
+            ei,
+            StoredEdge {
+                source: *s,
+                target: *t,
+                data: e.data.clone(),
+            },
+        );
     }
     Ok(out)
 }
@@ -1143,14 +1314,28 @@ where
         .filter_map(|e| edge_ident(directed, &b.nodes, e, node_identity))
         .collect();
     for e in a.edges.values() {
-        let Some(key) = edge_ident(directed, &a.nodes, e, node_identity) else { continue };
-        if b_keys.iter().any(|k| k.0 == key.0 && k.1 == key.1 && k.2 == key.2) {
+        let Some(key) = edge_ident(directed, &a.nodes, e, node_identity) else {
+            continue;
+        };
+        if b_keys
+            .iter()
+            .any(|k| k.0 == key.0 && k.1 == key.1 && k.2 == key.2)
+        {
             continue;
         }
-        let (Some(s), Some(t)) = (index_of.get(&e.source), index_of.get(&e.target)) else { continue };
+        let (Some(s), Some(t)) = (index_of.get(&e.source), index_of.get(&e.target)) else {
+            continue;
+        };
         let ei = out.next_edge;
         out.next_edge += 1;
-        out.edges.insert(ei, StoredEdge { source: *s, target: *t, data: e.data.clone() });
+        out.edges.insert(
+            ei,
+            StoredEdge {
+                source: *s,
+                target: *t,
+                data: e.data.clone(),
+            },
+        );
     }
     Ok(out)
 }
@@ -1207,22 +1392,42 @@ where
         .values()
         .filter_map(|e| edge_ident(directed, &b.nodes, e, node_identity))
         .collect();
-    let mut emit = |e: &StoredEdge<E>, map: &HashMap<NodeIndex, NodeIndex>, out: &mut Graph<N, E>| {
-        let (Some(s), Some(t)) = (map.get(&e.source), map.get(&e.target)) else { return };
-        let ei = out.next_edge;
-        out.next_edge += 1;
-        out.edges.insert(ei, StoredEdge { source: *s, target: *t, data: e.data.clone() });
-    };
+    let mut emit =
+        |e: &StoredEdge<E>, map: &HashMap<NodeIndex, NodeIndex>, out: &mut Graph<N, E>| {
+            let (Some(s), Some(t)) = (map.get(&e.source), map.get(&e.target)) else {
+                return;
+            };
+            let ei = out.next_edge;
+            out.next_edge += 1;
+            out.edges.insert(
+                ei,
+                StoredEdge {
+                    source: *s,
+                    target: *t,
+                    data: e.data.clone(),
+                },
+            );
+        };
     for e in a.edges.values() {
-        let Some(key) = edge_ident(directed, &a.nodes, e, node_identity) else { continue };
-        if keys_b.iter().any(|k| k.0 == key.0 && k.1 == key.1 && k.2 == key.2) {
+        let Some(key) = edge_ident(directed, &a.nodes, e, node_identity) else {
+            continue;
+        };
+        if keys_b
+            .iter()
+            .any(|k| k.0 == key.0 && k.1 == key.1 && k.2 == key.2)
+        {
             continue;
         }
         emit(e, &index_of_a, &mut out);
     }
     for e in b.edges.values() {
-        let Some(key) = edge_ident(directed, &b.nodes, e, node_identity) else { continue };
-        if keys_a.iter().any(|k| k.0 == key.0 && k.1 == key.1 && k.2 == key.2) {
+        let Some(key) = edge_ident(directed, &b.nodes, e, node_identity) else {
+            continue;
+        };
+        if keys_a
+            .iter()
+            .any(|k| k.0 == key.0 && k.1 == key.1 && k.2 == key.2)
+        {
             continue;
         }
         emit(e, &index_of_b, &mut out);
@@ -1251,7 +1456,11 @@ where
         out.next_edge += 1;
         out.edges.insert(
             ei,
-            StoredEdge { source: remap[&e.source], target: remap[&e.target], data: e.data.clone() },
+            StoredEdge {
+                source: remap[&e.source],
+                target: remap[&e.target],
+                data: e.data.clone(),
+            },
         );
     }
     Ok(out)
@@ -1278,7 +1487,8 @@ where
             if a == b {
                 continue;
             }
-            if graph.kind == Kind::Undirected && ids.iter().position(|x| *x == b).unwrap_or(0) < ia {
+            if graph.kind == Kind::Undirected && ids.iter().position(|x| *x == b).unwrap_or(0) < ia
+            {
                 continue;
             }
             pairs.push((a, b));
@@ -1296,7 +1506,11 @@ where
         out.next_edge += 1;
         out.edges.insert(
             ei,
-            StoredEdge { source: a, target: b, data: create(&graph.nodes[&a], &graph.nodes[&b]) },
+            StoredEdge {
+                source: a,
+                target: b,
+                data: create(&graph.nodes[&a], &graph.nodes[&b]),
+            },
         );
     }
     out
@@ -1318,13 +1532,20 @@ pub fn radius_from_f64(value: f64) -> Result<Radius, GraphError> {
     } else if value.is_finite() && value >= 0.0 && value.fract() == 0.0 {
         Ok(Radius::Hops(value as usize))
     } else {
-        Err(GraphError("Traversal radius must be a non-negative integer or Infinity".into()))
+        Err(GraphError(
+            "Traversal radius must be a non-negative integer or Infinity".into(),
+        ))
     }
 }
 
 /// Nodes within `radius` hops of `node` (BFS order), as a fresh graph with
 /// dense indexes. `direction` ignores orientation when [`Direction::Undirected`].
-pub fn neighborhood<N, E, V>(graph: &V, node: NodeIndex, radius: f64, direction: Direction) -> Result<Graph<N, E>, GraphError>
+pub fn neighborhood<N, E, V>(
+    graph: &V,
+    node: NodeIndex,
+    radius: f64,
+    direction: Direction,
+) -> Result<Graph<N, E>, GraphError>
 where
     V: View<N, E>,
     N: Clone,
@@ -1355,7 +1576,13 @@ where
     let mut order: Vec<NodeIndex> = dist.keys().copied().collect();
     order.sort_by_key(|n| (dist[n], *n));
     let mut remap: HashMap<NodeIndex, NodeIndex> = HashMap::new();
-    let mut out = Graph { kind: graph.kind(), nodes: BTreeMap::new(), edges: BTreeMap::new(), next_node: 0, next_edge: 0 };
+    let mut out = Graph {
+        kind: graph.kind(),
+        nodes: BTreeMap::new(),
+        edges: BTreeMap::new(),
+        next_node: 0,
+        next_edge: 0,
+    };
     for (fresh, old) in order.iter().enumerate() {
         remap.insert(*old, fresh);
         out.nodes.insert(fresh, node_data(graph, *old));
@@ -1368,7 +1595,11 @@ where
             out.next_edge += 1;
             out.edges.insert(
                 ei,
-                StoredEdge { source: remap[&edge.source], target: remap[&edge.target], data: edge.data.clone() },
+                StoredEdge {
+                    source: remap[&edge.source],
+                    target: remap[&edge.target],
+                    data: edge.data.clone(),
+                },
             );
         }
     }
@@ -1380,12 +1611,20 @@ where
     V: View<N, E>,
     N: Clone,
 {
-    graph.node_vec().into_iter().find(|(i, _)| *i == node).map(|(_, n)| n).expect("visited nodes exist")
+    graph
+        .node_vec()
+        .into_iter()
+        .find(|(i, _)| *i == node)
+        .map(|(_, n)| n)
+        .expect("visited nodes exist")
 }
 
 /// Induced subgraph on `indexes`, preserving sparse indexes. Missing nodes
 /// are [`GraphError`] (`Node {i} does not exist`).
-pub fn induced_subgraph<N, E, V>(graph: &V, indexes: &[NodeIndex]) -> Result<Graph<N, E>, GraphError>
+pub fn induced_subgraph<N, E, V>(
+    graph: &V,
+    indexes: &[NodeIndex],
+) -> Result<Graph<N, E>, GraphError>
 where
     V: View<N, E>,
     N: Clone,
@@ -1437,7 +1676,9 @@ where
 {
     /// Build from a fixed entry list (the Rust spelling of `new Walker`).
     pub fn custom(items: Vec<T>) -> Self {
-        Self { run: std::rc::Rc::new(move || Ok(items.clone())) }
+        Self {
+            run: std::rc::Rc::new(move || Ok(items.clone())),
+        }
     }
 
     fn run(&self) -> Result<Vec<T>, GraphError> {
@@ -1525,7 +1766,9 @@ where
 }
 
 /// Edge records of an edge walk.
-pub fn edge_values<E>(walker: &Walker<(EdgeIndex, StoredEdge<E>)>) -> Result<Vec<StoredEdge<E>>, GraphError>
+pub fn edge_values<E>(
+    walker: &Walker<(EdgeIndex, StoredEdge<E>)>,
+) -> Result<Vec<StoredEdge<E>>, GraphError>
 where
     E: Clone + 'static,
 {
@@ -1540,7 +1783,9 @@ where
     E: Clone + 'static,
 {
     let view = graph.clone();
-    Walker { run: std::rc::Rc::new(move || Ok(view.edge_vec())) }
+    Walker {
+        run: std::rc::Rc::new(move || Ok(view.edge_vec())),
+    }
 }
 
 /// A live node walk over a graph in index order.
@@ -1551,7 +1796,9 @@ where
     E: Clone + 'static,
 {
     let view = graph.clone();
-    Walker { run: std::rc::Rc::new(move || Ok(view.node_vec())) }
+    Walker {
+        run: std::rc::Rc::new(move || Ok(view.node_vec())),
+    }
 }
 
 fn check_starts<N, E, V>(graph: &V, starts: &[NodeIndex]) -> Result<(), GraphError>
@@ -1572,7 +1819,12 @@ where
 /// float (non-negative integers and infinity; anything else errors here),
 /// following `direction`. Within a level, neighbors visit in edge order.
 /// Starts and radius validate eagerly; the walk runs live per projection.
-pub fn bfs<N, E, V>(graph: &V, starts: &[NodeIndex], radius: f64, direction: Direction) -> Result<Walker<(NodeIndex, N)>, GraphError>
+pub fn bfs<N, E, V>(
+    graph: &V,
+    starts: &[NodeIndex],
+    radius: f64,
+    direction: Direction,
+) -> Result<Walker<(NodeIndex, N)>, GraphError>
 where
     V: View<N, E> + Clone + 'static,
     N: Clone + 'static,
@@ -1590,7 +1842,11 @@ where
     })
 }
 
-fn bfs_run<N, E, V>(graph: &V, seeds: &[NodeIndex], direction: Direction) -> Result<Vec<(NodeIndex, N)>, GraphError>
+fn bfs_run<N, E, V>(
+    graph: &V,
+    seeds: &[NodeIndex],
+    direction: Direction,
+) -> Result<Vec<(NodeIndex, N)>, GraphError>
 where
     V: View<N, E>,
     N: Clone,
@@ -1658,12 +1914,20 @@ where
             }
         }
     }
-    walk.iter().filter(|(i, _)| dist.get(i).is_some_and(|d| *d <= bound)).cloned().collect()
+    walk.iter()
+        .filter(|(i, _)| dist.get(i).is_some_and(|d| *d <= bound))
+        .cloned()
+        .collect()
 }
 
 /// Depth-first walk (neighbors in edge order, distinct roots prioritized
 /// in the order given). Radius filters membership by shortest distance.
-pub fn dfs<N, E, V>(graph: &V, starts: &[NodeIndex], radius: f64, direction: Direction) -> Result<Walker<(NodeIndex, N)>, GraphError>
+pub fn dfs<N, E, V>(
+    graph: &V,
+    starts: &[NodeIndex],
+    radius: f64,
+    direction: Direction,
+) -> Result<Walker<(NodeIndex, N)>, GraphError>
 where
     V: View<N, E> + Clone + 'static,
     N: Clone + 'static,
@@ -1681,7 +1945,11 @@ where
     })
 }
 
-fn dfs_run<N, E, V>(graph: &V, seeds: &[NodeIndex], direction: Direction) -> Result<Vec<(NodeIndex, N)>, GraphError>
+fn dfs_run<N, E, V>(
+    graph: &V,
+    seeds: &[NodeIndex],
+    direction: Direction,
+) -> Result<Vec<(NodeIndex, N)>, GraphError>
 where
     V: View<N, E>,
     N: Clone,
@@ -1714,7 +1982,12 @@ where
 
 /// Postorder walk: a node lands after its successors. Radius filters
 /// membership by shortest distance.
-pub fn dfs_post_order<N, E, V>(graph: &V, starts: &[NodeIndex], radius: f64, direction: Direction) -> Result<Walker<(NodeIndex, N)>, GraphError>
+pub fn dfs_post_order<N, E, V>(
+    graph: &V,
+    starts: &[NodeIndex],
+    radius: f64,
+    direction: Direction,
+) -> Result<Walker<(NodeIndex, N)>, GraphError>
 where
     V: View<N, E> + Clone + 'static,
     N: Clone + 'static,
@@ -1732,7 +2005,11 @@ where
     })
 }
 
-fn postorder_run<N, E, V>(graph: &V, seeds: &[NodeIndex], direction: Direction) -> Result<Vec<(NodeIndex, N)>, GraphError>
+fn postorder_run<N, E, V>(
+    graph: &V,
+    seeds: &[NodeIndex],
+    direction: Direction,
+) -> Result<Vec<(NodeIndex, N)>, GraphError>
 where
     V: View<N, E>,
     N: Clone,
@@ -1768,7 +2045,12 @@ where
 }
 
 /// Nodes within `radius` hops of any start, in BFS order.
-pub fn within_radius<N, E, V>(graph: &V, starts: &[NodeIndex], radius: f64, direction: Direction) -> Result<Walker<(NodeIndex, N)>, GraphError>
+pub fn within_radius<N, E, V>(
+    graph: &V,
+    starts: &[NodeIndex],
+    radius: f64,
+    direction: Direction,
+) -> Result<Walker<(NodeIndex, N)>, GraphError>
 where
     V: View<N, E> + Clone + 'static,
     N: Clone + 'static,
@@ -1780,7 +2062,10 @@ where
 /// Topological order (Kahn, lowest index first, `initials` prioritized).
 /// Missing initials error eagerly; cycles and non-source initials error
 /// per projection, so fresh iterations track live mutation.
-pub fn topo<N, E, V>(graph: &V, initials: &[NodeIndex]) -> Result<Walker<(NodeIndex, N)>, GraphError>
+pub fn topo<N, E, V>(
+    graph: &V,
+    initials: &[NodeIndex],
+) -> Result<Walker<(NodeIndex, N)>, GraphError>
 where
     V: View<N, E> + Clone + 'static,
     N: Clone + 'static,
@@ -1805,12 +2090,16 @@ where
     E: Clone,
 {
     if graph.kind() != Kind::Directed {
-        return Err(GraphError("Cannot perform topological sort on undirected graph".into()));
+        return Err(GraphError(
+            "Cannot perform topological sort on undirected graph".into(),
+        ));
     }
     for initial in initials {
         let incoming = in_impl(graph, *initial);
         if !incoming.is_empty() {
-            return Err(GraphError(format!("Initial node {initial} has incoming edges")));
+            return Err(GraphError(format!(
+                "Initial node {initial} has incoming edges"
+            )));
         }
     }
     let mut indeg: HashMap<NodeIndex, usize> = HashMap::new();
@@ -1836,7 +2125,11 @@ where
     inits.sort();
     rest.sort();
     // Initials keep their given order among themselves.
-    let mut ordered_inits: Vec<NodeIndex> = initials.iter().filter(|n| inits.contains(n)).copied().collect();
+    let mut ordered_inits: Vec<NodeIndex> = initials
+        .iter()
+        .filter(|n| inits.contains(n))
+        .copied()
+        .collect();
     ordered_inits.extend(rest);
     let mut queue: VecDeque<NodeIndex> = ordered_inits.into();
     let mut queued: BTreeSet<NodeIndex> = queue.iter().copied().collect();
@@ -1858,7 +2151,9 @@ where
         queue.extend(freed);
     }
     if order.len() != graph.node_vec().len() {
-        return Err(GraphError("Cannot perform topological sort on cyclic graph".into()));
+        return Err(GraphError(
+            "Cannot perform topological sort on cyclic graph".into(),
+        ));
     }
     Ok(order)
 }
@@ -1883,14 +2178,20 @@ pub struct PathResult<E> {
 /// Validate a weight value: finite numbers only.
 fn check_weight(edge: EdgeIndex, w: f64) -> Result<f64, GraphError> {
     if !w.is_finite() {
-        return Err(GraphError(format!("Edge {edge} weight must be a finite number")));
+        return Err(GraphError(format!(
+            "Edge {edge} weight must be a finite number"
+        )));
     }
     Ok(w)
 }
 
 /// Scan every edge weight first: NaN and negative fail Dijkstra-style
 /// algorithms with their message, before any early return.
-fn prescan_nonnegative<N, E, V>(graph: &V, weight: impl Fn(&E) -> f64, message: &str) -> Result<(), GraphError>
+fn prescan_nonnegative<N, E, V>(
+    graph: &V,
+    weight: impl Fn(&E) -> f64,
+    message: &str,
+) -> Result<(), GraphError>
 where
     V: View<N, E>,
     N: Clone,
@@ -1910,7 +2211,11 @@ where
 
 /// Scan every edge weight first: NaN and -Infinity fail Bellman-Ford-style
 /// algorithms with their message. Positive infinity stays traversable.
-fn prescan_no_nan_neg_inf<N, E, V>(graph: &V, weight: impl Fn(&E) -> f64, message: &str) -> Result<(), GraphError>
+fn prescan_no_nan_neg_inf<N, E, V>(
+    graph: &V,
+    weight: impl Fn(&E) -> f64,
+    message: &str,
+) -> Result<(), GraphError>
 where
     V: View<N, E>,
     N: Clone,
@@ -1935,11 +2240,17 @@ pub fn parse_limit(limit: f64) -> Result<Option<usize>, GraphError> {
     } else if limit.is_finite() && limit >= 0.0 && limit.fract() == 0.0 {
         Ok(Some(limit as usize))
     } else {
-        Err(GraphError("Path enumeration limit must be a non-negative integer or Infinity".into()))
+        Err(GraphError(
+            "Path enumeration limit must be a non-negative integer or Infinity".into(),
+        ))
     }
 }
 
-fn check_endpoints<N, E, V>(graph: &V, source: NodeIndex, target: NodeIndex) -> Result<(), GraphError>
+fn check_endpoints<N, E, V>(
+    graph: &V,
+    source: NodeIndex,
+    target: NodeIndex,
+) -> Result<(), GraphError>
 where
     V: View<N, E>,
     N: Clone,
@@ -1973,7 +2284,10 @@ impl PartialOrd for Open {
 }
 impl Ord for Open {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        other.dist.total_cmp(&self.dist).then_with(|| other.seq.cmp(&self.seq))
+        other
+            .dist
+            .total_cmp(&self.dist)
+            .then_with(|| other.seq.cmp(&self.seq))
     }
 }
 
@@ -1991,16 +2305,29 @@ where
     E: Clone,
 {
     check_endpoints(graph, source, target)?;
-    prescan_nonnegative(graph, &weight, "Dijkstra's algorithm requires non-negative edge weights")?;
+    prescan_nonnegative(
+        graph,
+        &weight,
+        "Dijkstra's algorithm requires non-negative edge weights",
+    )?;
     if source == target {
-        return Ok(Some(PathResult { path: vec![source], edges: vec![], distance: 0.0, costs: vec![] }));
+        return Ok(Some(PathResult {
+            path: vec![source],
+            edges: vec![],
+            distance: 0.0,
+            costs: vec![],
+        }));
     }
     let mut dist: HashMap<NodeIndex, f64> = HashMap::new();
     let mut prev: HashMap<NodeIndex, (NodeIndex, EdgeIndex)> = HashMap::new();
     let mut heap = std::collections::BinaryHeap::new();
     let mut seq = 0u64;
     dist.insert(source, 0.0);
-    heap.push(Open { dist: 0.0, seq, node: source });
+    heap.push(Open {
+        dist: 0.0,
+        seq,
+        node: source,
+    });
     while let Some(Open { dist: d, node, .. }) = heap.pop() {
         if d > dist[&node] {
             continue;
@@ -2020,12 +2347,23 @@ where
                 dist.insert(edge.target, nd);
                 prev.insert(edge.target, (node, id));
                 seq += 1;
-                heap.push(Open { dist: nd, seq, node: edge.target });
+                heap.push(Open {
+                    dist: nd,
+                    seq,
+                    node: edge.target,
+                });
             }
             let _ = id;
         }
     }
-    finish_path(graph, source, target, &dist, &prev, "Dijkstra distance calculation exceeded the finite number range")
+    finish_path(
+        graph,
+        source,
+        target,
+        &dist,
+        &prev,
+        "Dijkstra distance calculation exceeded the finite number range",
+    )
 }
 
 fn finish_path<N, E, V>(
@@ -2058,12 +2396,20 @@ where
     let mut current = target;
     let mut walked: BTreeSet<NodeIndex> = BTreeSet::from([target]);
     while current != source {
-        let (parent, edge) = prev.get(&current).ok_or_else(|| GraphError(overflow.into()))?;
+        let (parent, edge) = prev
+            .get(&current)
+            .ok_or_else(|| GraphError(overflow.into()))?;
         if !walked.insert(*parent) {
             return Err(GraphError(overflow.into()));
         }
-        let data = graph.edge_vec().into_iter().find(|(i, _)| i == edge).map(|(_, e)| e.data);
-        let Some(data) = data else { return Err(GraphError(overflow.into())) };
+        let data = graph
+            .edge_vec()
+            .into_iter()
+            .find(|(i, _)| i == edge)
+            .map(|(_, e)| e.data);
+        let Some(data) = data else {
+            return Err(GraphError(overflow.into()));
+        };
         edges.push(*edge);
         costs.push(data);
         path.push(*parent);
@@ -2072,7 +2418,12 @@ where
     path.reverse();
     edges.reverse();
     costs.reverse();
-    Ok(Some(PathResult { path, edges, distance, costs }))
+    Ok(Some(PathResult {
+        path,
+        edges,
+        distance,
+        costs,
+    }))
 }
 
 /// A* shortest path: Dijkstra guided by `heuristic` (must be finite and
@@ -2090,13 +2441,24 @@ where
     E: Clone,
 {
     check_endpoints(graph, source, target)?;
-    prescan_nonnegative(graph, &weight, "A* algorithm requires non-negative edge weights")?;
+    prescan_nonnegative(
+        graph,
+        &weight,
+        "A* algorithm requires non-negative edge weights",
+    )?;
     let h0 = heuristic(source);
     if !h0.is_finite() || h0 < 0.0 {
-        return Err(GraphError("A* algorithm requires finite heuristic values".into()));
+        return Err(GraphError(
+            "A* algorithm requires finite heuristic values".into(),
+        ));
     }
     if source == target {
-        return Ok(Some(PathResult { path: vec![source], edges: vec![], distance: 0.0, costs: vec![] }));
+        return Ok(Some(PathResult {
+            path: vec![source],
+            edges: vec![],
+            distance: 0.0,
+            costs: vec![],
+        }));
     }
     let mut dist: HashMap<NodeIndex, f64> = HashMap::new();
     let mut prev: HashMap<NodeIndex, (NodeIndex, EdgeIndex)> = HashMap::new();
@@ -2104,11 +2466,20 @@ where
     let mut heap = std::collections::BinaryHeap::new();
     let mut seq = 0u64;
     dist.insert(source, 0.0);
-    heap.push(Open { dist: h0, seq, node: source });
-    while let Some(Open { dist: est, node, .. }) = heap.pop() {
+    heap.push(Open {
+        dist: h0,
+        seq,
+        node: source,
+    });
+    while let Some(Open {
+        dist: est, node, ..
+    }) = heap.pop()
+    {
         let h = heuristic(node);
         if !h.is_finite() || h < 0.0 {
-            return Err(GraphError("A* algorithm requires finite heuristic values".into()));
+            return Err(GraphError(
+                "A* algorithm requires finite heuristic values".into(),
+            ));
         }
         let d = est - h;
         if d > *dist.get(&node).unwrap_or(&f64::INFINITY) {
@@ -2134,18 +2505,33 @@ where
                 seq += 1;
                 let ht = heuristic(edge.target);
                 if !ht.is_finite() || ht < 0.0 {
-                    return Err(GraphError("A* algorithm requires finite heuristic values".into()));
+                    return Err(GraphError(
+                        "A* algorithm requires finite heuristic values".into(),
+                    ));
                 }
                 let est2 = nd + ht;
                 if !est2.is_finite() && nd.is_finite() && ht.is_finite() {
-                    return Err(GraphError("A* priority calculation exceeded the finite number range".into()));
+                    return Err(GraphError(
+                        "A* priority calculation exceeded the finite number range".into(),
+                    ));
                 }
-                heap.push(Open { dist: est2, seq, node: edge.target });
+                heap.push(Open {
+                    dist: est2,
+                    seq,
+                    node: edge.target,
+                });
             }
             let _ = id;
         }
     }
-    finish_path(graph, source, target, &dist, &prev, "A* distance calculation exceeded the finite number range")
+    finish_path(
+        graph,
+        source,
+        target,
+        &dist,
+        &prev,
+        "A* distance calculation exceeded the finite number range",
+    )
 }
 
 /// Bellman-Ford shortest path: negative edges allowed. A negative cycle on
@@ -2163,7 +2549,11 @@ where
     E: Clone,
 {
     check_endpoints(graph, source, target)?;
-    prescan_no_nan_neg_inf(graph, &weight, "Bellman-Ford algorithm does not support NaN or -Infinity edge weights")?;
+    prescan_no_nan_neg_inf(
+        graph,
+        &weight,
+        "Bellman-Ford algorithm does not support NaN or -Infinity edge weights",
+    )?;
     let nodes: Vec<NodeIndex> = graph.node_vec().into_iter().map(|(i, _)| i).collect();
     let mut edges: Vec<(EdgeIndex, StoredEdge<E>)> = graph.edge_vec();
     edges.sort_by_key(|(i, _)| *i);
@@ -2204,15 +2594,26 @@ where
         }
     }
     if bad.contains(&target) {
-        return Err(GraphError(format!("Negative cycle affects path to node {target}")));
+        return Err(GraphError(format!(
+            "Negative cycle affects path to node {target}"
+        )));
     }
     // Finite-range overflow surfaces when the witness left finite arithmetic.
     if let Some(d) = dist.get(&target) {
         if !d.is_finite() && prev.contains_key(&target) {
-            return Err(GraphError("Bellman-Ford distance calculation exceeded the finite number range".into()));
+            return Err(GraphError(
+                "Bellman-Ford distance calculation exceeded the finite number range".into(),
+            ));
         }
     }
-    finish_path(graph, source, target, &dist, &prev, "Bellman-Ford distance calculation exceeded the finite number range")
+    finish_path(
+        graph,
+        source,
+        target,
+        &dist,
+        &prev,
+        "Bellman-Ford distance calculation exceeded the finite number range",
+    )
 }
 
 /// All-pairs shortest paths (Floyd-Warshall): nested maps of distances,
@@ -2238,7 +2639,11 @@ where
     N: Clone,
     E: Clone,
 {
-    prescan_no_nan_neg_inf(graph, &weight, "Floyd-Warshall algorithm does not support NaN or -Infinity edge weights")?;
+    prescan_no_nan_neg_inf(
+        graph,
+        &weight,
+        "Floyd-Warshall algorithm does not support NaN or -Infinity edge weights",
+    )?;
     let nodes: Vec<NodeIndex> = graph.node_vec().into_iter().map(|(i, _)| i).collect();
     let mut edges: Vec<(EdgeIndex, StoredEdge<E>)> = graph.edge_vec();
     edges.sort_by_key(|(i, _)| *i);
@@ -2265,7 +2670,8 @@ where
                     let nd = dik + dkj;
                     if !nd.is_finite() {
                         return Err(GraphError(
-                            "Floyd-Warshall distance calculation exceeded the finite number range".into(),
+                            "Floyd-Warshall distance calculation exceeded the finite number range"
+                                .into(),
                         ));
                     }
                     if nd < *dist.get(&(*i, *j)).unwrap_or(&f64::INFINITY) {
@@ -2282,7 +2688,9 @@ where
     ordered.sort();
     for n in ordered {
         if dist.get(&(n, n)).is_some_and(|d| *d < 0.0) {
-            return Err(GraphError(format!("Negative cycle detected involving node {n}")));
+            return Err(GraphError(format!(
+                "Negative cycle detected involving node {n}"
+            )));
         }
     }
     let by_id: HashMap<EdgeIndex, StoredEdge<E>> = edges.into_iter().collect();
@@ -2361,14 +2769,20 @@ where
     for (id, e) in &edges {
         let w = weight(&e.data);
         if w.is_nan() || w < 0.0 {
-            return Err(GraphError("All shortest paths requires non-negative edge weights".into()));
+            return Err(GraphError(
+                "All shortest paths requires non-negative edge weights".into(),
+            ));
         }
         let _ = id;
     }
     let mut dist: HashMap<NodeIndex, f64> = nodes.iter().map(|n| (*n, f64::INFINITY)).collect();
     dist.insert(source, 0.0);
     let mut heap = std::collections::BinaryHeap::new();
-    heap.push(Open { dist: 0.0, seq: 0, node: source });
+    heap.push(Open {
+        dist: 0.0,
+        seq: 0,
+        node: source,
+    });
     while let Some(Open { dist: d, node, .. }) = heap.pop() {
         if d > dist[&node] {
             continue;
@@ -2377,12 +2791,17 @@ where
             let nd = d + weight(&e.data);
             if !nd.is_finite() && d.is_finite() {
                 return Err(GraphError(
-                    "All shortest paths distance calculation exceeded the finite number range".into(),
+                    "All shortest paths distance calculation exceeded the finite number range"
+                        .into(),
                 ));
             }
             if nd < dist[&e.target] {
                 dist.insert(e.target, nd);
-                heap.push(Open { dist: nd, seq: 0, node: e.target });
+                heap.push(Open {
+                    dist: nd,
+                    seq: 0,
+                    node: e.target,
+                });
             }
             let _ = id;
         }
@@ -2392,7 +2811,8 @@ where
     }
     // Enumerate every tight-edge route in edge order.
     let mut out: Vec<SimplePath<E>> = vec![];
-    let mut stack: Vec<(NodeIndex, Vec<NodeIndex>, Vec<EdgeIndex>)> = vec![(target, vec![target], vec![])];
+    let mut stack: Vec<(NodeIndex, Vec<NodeIndex>, Vec<EdgeIndex>)> =
+        vec![(target, vec![target], vec![])];
     while let Some((current, node_path, edge_path)) = stack.pop() {
         if let Some(max) = limit {
             if out.len() >= max {
@@ -2406,10 +2826,20 @@ where
             e.reverse();
             let costs: Vec<E> = e
                 .iter()
-                .map(|id| graph.edge_vec().into_iter().find(|(i, _)| i == id).map(|(_, x)| x.data))
+                .map(|id| {
+                    graph
+                        .edge_vec()
+                        .into_iter()
+                        .find(|(i, _)| i == id)
+                        .map(|(_, x)| x.data)
+                })
                 .collect::<Option<Vec<E>>>()
                 .unwrap_or_default();
-            out.push(SimplePath { nodes: p, edges: e, costs });
+            out.push(SimplePath {
+                nodes: p,
+                edges: e,
+                costs,
+            });
             continue;
         }
         let mut preds: Vec<(EdgeIndex, NodeIndex)> = vec![];
@@ -2518,7 +2948,12 @@ where
     edges.sort_by_key(|(i, _)| *i);
     let mut out: Vec<SimplePath<E>> = vec![];
     // Stack of (current, node-path, edge-path, visited-set).
-    let mut stack: Vec<(NodeIndex, Vec<NodeIndex>, Vec<EdgeIndex>, BTreeSet<NodeIndex>)> = vec![];
+    let mut stack: Vec<(
+        NodeIndex,
+        Vec<NodeIndex>,
+        Vec<EdgeIndex>,
+        BTreeSet<NodeIndex>,
+    )> = vec![];
     let mut start_visited = BTreeSet::new();
     start_visited.insert(source);
     stack.push((source, vec![source], vec![], start_visited));
@@ -2531,10 +2966,20 @@ where
         if current == target && nodes.len() > 1 {
             let costs: Vec<E> = edge_ids
                 .iter()
-                .map(|id| graph.edge_vec().into_iter().find(|(i, _)| i == id).map(|(_, e)| e.data))
+                .map(|id| {
+                    graph
+                        .edge_vec()
+                        .into_iter()
+                        .find(|(i, _)| i == id)
+                        .map(|(_, e)| e.data)
+                })
                 .collect::<Option<Vec<E>>>()
                 .unwrap_or_default();
-            out.push(SimplePath { nodes, edges: edge_ids, costs });
+            out.push(SimplePath {
+                nodes,
+                edges: edge_ids,
+                costs,
+            });
             continue;
         }
         if current == target {
@@ -2562,7 +3007,10 @@ where
 }
 
 /// Unweighted hop distances from `source` (BFS). Unreachable nodes absent.
-pub fn unweighted_distances<N, E, V>(graph: &V, source: NodeIndex) -> Result<HashMap<NodeIndex, usize>, GraphError>
+pub fn unweighted_distances<N, E, V>(
+    graph: &V,
+    source: NodeIndex,
+) -> Result<HashMap<NodeIndex, usize>, GraphError>
 where
     V: View<N, E>,
     N: Clone,
@@ -2592,7 +3040,12 @@ where
 }
 
 /// True when a directed-or-undirected route (per `direction`) joins them.
-pub fn has_path<N, E, V>(graph: &V, source: NodeIndex, target: NodeIndex, direction: Direction) -> bool
+pub fn has_path<N, E, V>(
+    graph: &V,
+    source: NodeIndex,
+    target: NodeIndex,
+    direction: Direction,
+) -> bool
 where
     V: View<N, E>,
     N: Clone,
@@ -2641,7 +3094,8 @@ where
 {
     let undirected = graph.kind() == Kind::Undirected;
     // 0 = white, 1 = gray, 2 = black.
-    let mut color: HashMap<NodeIndex, u8> = graph.node_vec().into_iter().map(|(i, _)| (i, 0)).collect();
+    let mut color: HashMap<NodeIndex, u8> =
+        graph.node_vec().into_iter().map(|(i, _)| (i, 0)).collect();
     let mut stack: Vec<NodeIndex> = vec![];
     let mut stack_edges: Vec<EdgeIndex> = vec![];
     // (node, neighbor-iterator state) manual recursion.
@@ -2687,7 +3141,11 @@ where
     None
 }
 
-fn ordered_neighbors<N, E, V>(graph: &V, node: NodeIndex, undirected: bool) -> Vec<(EdgeIndex, NodeIndex)>
+fn ordered_neighbors<N, E, V>(
+    graph: &V,
+    node: NodeIndex,
+    undirected: bool,
+) -> Vec<(EdgeIndex, NodeIndex)>
 where
     V: View<N, E>,
     N: Clone,
@@ -2724,7 +3182,9 @@ where
     E: Clone,
 {
     if graph.kind() != Kind::Undirected {
-        return Err(GraphError("Cannot find connected components of directed graph".into()));
+        return Err(GraphError(
+            "Cannot find connected components of directed graph".into(),
+        ));
     }
     Ok(components_undirected(graph))
 }
@@ -2765,7 +3225,9 @@ where
     E: Clone,
 {
     if graph.kind() != Kind::Directed {
-        return Err(GraphError("Cannot find weakly connected components of undirected graph".into()));
+        return Err(GraphError(
+            "Cannot find weakly connected components of undirected graph".into(),
+        ));
     }
     Ok(components_undirected(graph))
 }
@@ -2779,7 +3241,9 @@ where
     E: Clone,
 {
     if graph.kind() != Kind::Directed {
-        return Err(GraphError("Cannot find strongly connected components of undirected graph".into()));
+        return Err(GraphError(
+            "Cannot find strongly connected components of undirected graph".into(),
+        ));
     }
     let nodes: Vec<NodeIndex> = graph.node_vec().into_iter().map(|(i, _)| i).collect();
     // Pass one: finishing order over outgoing edges.
@@ -2789,7 +3253,8 @@ where
         if !seen.insert(*root) {
             continue;
         }
-        let mut work: Vec<(NodeIndex, Vec<NodeIndex>, usize)> = vec![(*root, succ_impl(graph, *root), 0)];
+        let mut work: Vec<(NodeIndex, Vec<NodeIndex>, usize)> =
+            vec![(*root, succ_impl(graph, *root), 0)];
         while let Some((current, nexts, pos)) = work.pop() {
             if pos < nexts.len() {
                 work.push((current, nexts.clone(), pos + 1));
@@ -2856,7 +3321,9 @@ where
     if graph.kind() == Kind::Undirected {
         return components_undirected(graph).len() <= 1;
     }
-    strongly_connected_components(graph).map(|parts| parts.len() <= 1).unwrap_or(false)
+    strongly_connected_components(graph)
+        .map(|parts| parts.len() <= 1)
+        .unwrap_or(false)
 }
 
 /// True for a connected acyclic undirected graph (empty counts as a tree).
@@ -2867,7 +3334,9 @@ where
     E: Clone,
 {
     if graph.kind() != Kind::Undirected {
-        return Err(GraphError("Cannot determine tree status of directed graph".into()));
+        return Err(GraphError(
+            "Cannot determine tree status of directed graph".into(),
+        ));
     }
     if graph.node_vec().is_empty() {
         return Ok(false);
@@ -2932,7 +3401,9 @@ where
                     parent_edge.insert(next, Some(id));
                     edge_stack.push(id);
                     work.push((next, ordered_neighbors(graph, next, true), 0));
-                } else if Some(id) != parent_edge.get(&current).copied().flatten() && disc[&next] < disc[&current] {
+                } else if Some(id) != parent_edge.get(&current).copied().flatten()
+                    && disc[&next] < disc[&current]
+                {
                     // Back edge: update low, track the cycle's edges.
                     let lo = low[&current].min(disc[&next]);
                     low.insert(current, lo);
@@ -2989,7 +3460,11 @@ where
     }
     bridges.sort();
     biconnected.sort();
-    LowLink { articulation, bridges, biconnected }
+    LowLink {
+        articulation,
+        bridges,
+        biconnected,
+    }
 }
 
 /// Articulation points (undirected): removal grows the component count.
@@ -3000,7 +3475,9 @@ where
     E: Clone,
 {
     if graph.kind() != Kind::Undirected {
-        return Err(GraphError("Cannot analyze undirected connectivity of directed graph".into()));
+        return Err(GraphError(
+            "Cannot analyze undirected connectivity of directed graph".into(),
+        ));
     }
     Ok(low_link(graph).articulation.into_iter().collect())
 }
@@ -3013,7 +3490,9 @@ where
     E: Clone,
 {
     if graph.kind() != Kind::Undirected {
-        return Err(GraphError("Cannot analyze undirected connectivity of directed graph".into()));
+        return Err(GraphError(
+            "Cannot analyze undirected connectivity of directed graph".into(),
+        ));
     }
     Ok(low_link(graph).bridges)
 }
@@ -3027,7 +3506,9 @@ where
     E: Clone,
 {
     if graph.kind() != Kind::Undirected {
-        return Err(GraphError("Cannot analyze undirected connectivity of directed graph".into()));
+        return Err(GraphError(
+            "Cannot analyze undirected connectivity of directed graph".into(),
+        ));
     }
     Ok(low_link(graph).biconnected)
 }
@@ -3078,7 +3559,9 @@ where
     E: Clone,
 {
     if graph.kind() != Kind::Undirected {
-        return Err(GraphError("Cannot determine bipartite status of directed graph".into()));
+        return Err(GraphError(
+            "Cannot determine bipartite status of directed graph".into(),
+        ));
     }
     Ok(bipartite_colors(graph).is_some())
 }
@@ -3103,19 +3586,29 @@ where
     E: Clone,
 {
     if graph.kind() != Kind::Undirected {
-        return Err(GraphError("Cannot find bipartite matching of directed graph".into()));
+        return Err(GraphError(
+            "Cannot find bipartite matching of directed graph".into(),
+        ));
     }
     let Some(colors) = bipartite_colors(graph) else {
-        return Err(GraphError("Cannot find bipartite matching of non-bipartite graph".into()));
+        return Err(GraphError(
+            "Cannot find bipartite matching of non-bipartite graph".into(),
+        ));
     };
-    let mut lefts: Vec<NodeIndex> = colors.iter().filter(|(_, c)| !**c).map(|(n, _)| *n).collect();
+    let mut lefts: Vec<NodeIndex> = colors
+        .iter()
+        .filter(|(_, c)| !**c)
+        .map(|(n, _)| *n)
+        .collect();
     lefts.sort();
     // Adjacency: left node -> sorted edge indexes to right nodes.
     let mut edges: Vec<(EdgeIndex, StoredEdge<E>)> = graph.edge_vec();
     edges.sort_by_key(|(i, _)| *i);
     let mut adjacent: HashMap<NodeIndex, Vec<(EdgeIndex, NodeIndex)>> = HashMap::new();
     for (id, e) in &edges {
-        let (l, r) = if colors.get(&e.source) == Some(&false) && colors.get(&e.target) == Some(&true) {
+        let (l, r) = if colors.get(&e.source) == Some(&false)
+            && colors.get(&e.target) == Some(&true)
+        {
             (e.source, e.target)
         } else if colors.get(&e.source) == Some(&true) && colors.get(&e.target) == Some(&false) {
             (e.target, e.source)
@@ -3170,14 +3663,19 @@ fn augment(
 
 /// Minimum spanning forest (Kruskal): edges by ascending weight, ties broken
 /// by first edge order. Undirected graphs only.
-pub fn minimum_spanning_forest<N, E, V>(graph: &V, weight: impl Fn(&E) -> f64) -> Result<Graph<N, E>, GraphError>
+pub fn minimum_spanning_forest<N, E, V>(
+    graph: &V,
+    weight: impl Fn(&E) -> f64,
+) -> Result<Graph<N, E>, GraphError>
 where
     V: View<N, E>,
     N: Clone,
     E: Clone,
 {
     if graph.kind() != Kind::Undirected {
-        return Err(GraphError("Cannot find minimum spanning forest of directed graph".into()));
+        return Err(GraphError(
+            "Cannot find minimum spanning forest of directed graph".into(),
+        ));
     }
     let mut weighted: Vec<(EdgeIndex, f64)> = vec![];
     for (id, e) in graph.edge_vec() {
@@ -3236,7 +3734,9 @@ where
     E: Clone,
 {
     if graph.kind() != Kind::Directed {
-        return Err(GraphError("Cannot transitively reduce undirected graph".into()));
+        return Err(GraphError(
+            "Cannot transitively reduce undirected graph".into(),
+        ));
     }
     if !is_acyclic(graph) {
         return Err(GraphError("Cannot transitively reduce cyclic graph".into()));
@@ -3332,7 +3832,9 @@ where
         return Err(GraphError(format!("Node {target} does not exist")));
     }
     if source == target {
-        return Err(GraphError("Flow source and target must be different nodes".into()));
+        return Err(GraphError(
+            "Flow source and target must be different nodes".into(),
+        ));
     }
     let mut edges: Vec<(EdgeIndex, StoredEdge<E>)> = graph.edge_vec();
     edges.sort_by_key(|(i, _)| *i);
@@ -3340,7 +3842,9 @@ where
     for (id, e) in &edges {
         let c = capacity(&e.data);
         if !c.is_finite() || c < 0.0 {
-            return Err(GraphError(format!("Edge {id} capacity must be a finite non-negative number")));
+            return Err(GraphError(format!(
+                "Edge {id} capacity must be a finite non-negative number"
+            )));
         }
         cap.insert(*id, c);
     }
@@ -3375,7 +3879,11 @@ where
         let mut node = target;
         while node != source {
             let (parent, id, forward) = prev[&node];
-            let room = if forward { cap[&id] - flow[&id] } else { flow[&id] };
+            let room = if forward {
+                cap[&id] - flow[&id]
+            } else {
+                flow[&id]
+            };
             bottleneck = bottleneck.min(room);
             node = parent;
         }
@@ -3392,14 +3900,26 @@ where
             }
             node = parent;
         }
-        let total: f64 = edges.iter().filter(|(_, e)| e.source == source).map(|(i, _)| flow[i]).sum();
+        let total: f64 = edges
+            .iter()
+            .filter(|(_, e)| e.source == source)
+            .map(|(i, _)| flow[i])
+            .sum();
         if !total.is_finite() {
-            return Err(GraphError("Maximum flow exceeds the finite number range".into()));
+            return Err(GraphError(
+                "Maximum flow exceeds the finite number range".into(),
+            ));
         }
     }
-    let value: f64 = edges.iter().filter(|(_, e)| e.source == source).map(|(i, _)| flow[i]).sum();
+    let value: f64 = edges
+        .iter()
+        .filter(|(_, e)| e.source == source)
+        .map(|(i, _)| flow[i])
+        .sum();
     if !value.is_finite() {
-        return Err(GraphError("Maximum flow exceeds the finite number range".into()));
+        return Err(GraphError(
+            "Maximum flow exceeds the finite number range".into(),
+        ));
     }
     // Residual-reachable side.
     let mut side: BTreeSet<NodeIndex> = BTreeSet::new();
@@ -3463,8 +3983,18 @@ where
     cut.sort();
     let _ = flows;
     let source_side: Vec<NodeIndex> = side.into_iter().collect();
-    let target_side: Vec<NodeIndex> = graph.node_vec().into_iter().map(|(i, _)| i).filter(|n| !source_side.contains(n)).collect();
-    Ok(CutResult { value, edges: cut, source: source_side, target: target_side })
+    let target_side: Vec<NodeIndex> = graph
+        .node_vec()
+        .into_iter()
+        .map(|(i, _)| i)
+        .filter(|n| !source_side.contains(n))
+        .collect();
+    Ok(CutResult {
+        value,
+        edges: cut,
+        source: source_side,
+        target: target_side,
+    })
 }
 
 // ---------------------------------------------------------------------------
@@ -3499,11 +4029,22 @@ where
     E: Clone,
 {
     let mut out = String::new();
-    let keyword = if graph.kind() == Kind::Directed { "digraph" } else { "graph" };
-    let link = if graph.kind() == Kind::Directed { "->" } else { "--" };
+    let keyword = if graph.kind() == Kind::Directed {
+        "digraph"
+    } else {
+        "graph"
+    };
+    let link = if graph.kind() == Kind::Directed {
+        "->"
+    } else {
+        "--"
+    };
     out.push_str(&format!("{keyword} \"{}\" {{\n", graphviz_escape(name)));
     for (i, n) in graph.node_vec() {
-        out.push_str(&format!("  \"{i}\" [label=\"{}\"];\n", graphviz_escape(&node_label(&n))));
+        out.push_str(&format!(
+            "  \"{i}\" [label=\"{}\"];\n",
+            graphviz_escape(&node_label(&n))
+        ));
     }
     for (_, e) in graph.edge_vec() {
         out.push_str(&format!(
@@ -3594,9 +4135,15 @@ where
     E: Clone,
 {
     let mut out = String::new();
-    out.push_str(&format!("{} {direction}\n", if flowchart { "flowchart" } else { "graph" }));
+    out.push_str(&format!(
+        "{} {direction}\n",
+        if flowchart { "flowchart" } else { "graph" }
+    ));
     for (i, n) in graph.node_vec() {
-        out.push_str(&format!("  {}\n", mermaid_node(i, &node_label(&n), shape(&n))));
+        out.push_str(&format!(
+            "  {}\n",
+            mermaid_node(i, &node_label(&n), shape(&n))
+        ));
     }
     for (_, e) in graph.edge_vec() {
         let label = edge_label(&e.data);
@@ -3604,12 +4151,22 @@ where
             if label.is_empty() {
                 out.push_str(&format!("  {} --> {}\n", e.source, e.target));
             } else {
-                out.push_str(&format!("  {} -->|\"{}\"| {}\n", e.source, mermaid_escape(&label), e.target));
+                out.push_str(&format!(
+                    "  {} -->|\"{}\"| {}\n",
+                    e.source,
+                    mermaid_escape(&label),
+                    e.target
+                ));
             }
         } else if label.is_empty() {
             out.push_str(&format!("  {} --- {}\n", e.source, e.target));
         } else {
-            out.push_str(&format!("  {} ---|\"{}\"| {}\n", e.source, mermaid_escape(&label), e.target));
+            out.push_str(&format!(
+                "  {} ---|\"{}\"| {}\n",
+                e.source,
+                mermaid_escape(&label),
+                e.target
+            ));
         }
     }
     out.pop();
@@ -3618,7 +4175,6 @@ where
 
 // Immutable transforms: reverse and relational composition
 // ---------------------------------------------------------------------------
-
 
 /// Overlay composition: union of nodes by projected identity (right
 /// payloads win conflicts) with the union of edges, deduplicated by
@@ -3665,16 +4221,33 @@ where
         }
     }
     let mut seen: Vec<(K, K, E)> = vec![];
-    let mut emit = |e: &StoredEdge<E>, nodes: &BTreeMap<NodeIndex, N>, map: &HashMap<NodeIndex, NodeIndex>, out: &mut Graph<N, E>| {
-        let Some(key) = edge_ident(directed, nodes, e, node_identity) else { return };
-        if seen.iter().any(|k| k.0 == key.0 && k.1 == key.1 && k.2 == key.2) {
+    let mut emit = |e: &StoredEdge<E>,
+                    nodes: &BTreeMap<NodeIndex, N>,
+                    map: &HashMap<NodeIndex, NodeIndex>,
+                    out: &mut Graph<N, E>| {
+        let Some(key) = edge_ident(directed, nodes, e, node_identity) else {
+            return;
+        };
+        if seen
+            .iter()
+            .any(|k| k.0 == key.0 && k.1 == key.1 && k.2 == key.2)
+        {
             return;
         }
         seen.push(key);
-        let (Some(s), Some(t)) = (map.get(&e.source), map.get(&e.target)) else { return };
+        let (Some(s), Some(t)) = (map.get(&e.source), map.get(&e.target)) else {
+            return;
+        };
         let ei = out.next_edge;
         out.next_edge += 1;
-        out.edges.insert(ei, StoredEdge { source: *s, target: *t, data: e.data.clone() });
+        out.edges.insert(
+            ei,
+            StoredEdge {
+                source: *s,
+                target: *t,
+                data: e.data.clone(),
+            },
+        );
     };
     for e in a.edges.values() {
         emit(e, &a.nodes, &index_of_a, &mut out);

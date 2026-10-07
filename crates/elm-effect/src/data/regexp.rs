@@ -19,7 +19,10 @@ pub struct RegExp {
 impl RegExp {
     /// Build from source and flags.
     pub fn new(source: impl Into<String>, flags: impl Into<String>) -> Self {
-        Self { source: source.into(), flags: flags.into() }
+        Self {
+            source: source.into(),
+            flags: flags.into(),
+        }
     }
 
     /// Render `/source/flags`.

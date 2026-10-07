@@ -142,9 +142,8 @@ impl End {
 
     /// Next buffered message as UTF-8 text.
     pub fn reader_string(&self) -> Option<Result<String, String>> {
-        self.reader_bytes().map(|bytes| {
-            String::from_utf8(bytes).map_err(|_| "invalid UTF-8".to_string())
-        })
+        self.reader_bytes()
+            .map(|bytes| String::from_utf8(bytes).map_err(|_| "invalid UTF-8".to_string()))
     }
 }
 
@@ -174,7 +173,13 @@ pub fn socket_pair(high_water: usize) -> (End, End) {
         wake: Condvar::new(),
     });
     (
-        End { channel: channel.clone(), side: Side::A },
-        End { channel, side: Side::B },
+        End {
+            channel: channel.clone(),
+            side: Side::A,
+        },
+        End {
+            channel,
+            side: Side::B,
+        },
     )
 }

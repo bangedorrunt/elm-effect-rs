@@ -41,7 +41,10 @@ impl Big {
 
     /// From a float: some only for safe integral values.
     pub fn from_number(x: f64) -> Option<Self> {
-        if !x.is_finite() || x.fract() != 0.0 || !(-9_007_199_254_740_992.0..9_007_199_254_740_992.0).contains(&x) {
+        if !x.is_finite()
+            || x.fract() != 0.0
+            || !(-9_007_199_254_740_992.0..9_007_199_254_740_992.0).contains(&x)
+        {
             return None;
         }
         // `x as i64` is exact inside the safe range.

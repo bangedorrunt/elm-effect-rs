@@ -61,10 +61,17 @@ fn unprocessed_filters_complete_claimed_and_capped() {
     s.complete("r2");
     s.claim("r3", "runner-a");
 
-    let all = s.unprocessed_messages(&[addr("T", "1"), addr("T", "2")], None).unwrap();
-    assert_eq!(all.iter().map(|r| r.id.as_str()).collect::<Vec<_>>(), vec!["r1"]);
+    let all = s
+        .unprocessed_messages(&[addr("T", "1"), addr("T", "2")], None)
+        .unwrap();
+    assert_eq!(
+        all.iter().map(|r| r.id.as_str()).collect::<Vec<_>>(),
+        vec!["r1"]
+    );
 
-    let capped = s.unprocessed_messages(&[addr("T", "1"), addr("T", "2")], Some(0)).unwrap();
+    let capped = s
+        .unprocessed_messages(&[addr("T", "1"), addr("T", "2")], Some(0))
+        .unwrap();
     assert!(capped.is_empty());
 
     assert!(s.unprocessed_messages(&[], None).is_err());
@@ -80,11 +87,18 @@ fn reset_requests_releases_only_selected() {
     s.claim("r2", "runner-a");
 
     s.reset_requests(&[]);
-    assert!(s.unprocessed_messages(&[a.clone()], None).unwrap().is_empty());
+    assert!(
+        s.unprocessed_messages(&[a.clone()], None)
+            .unwrap()
+            .is_empty()
+    );
 
     s.reset_requests(&["r1"]);
     let pending = s.unprocessed_messages(&[a.clone()], None).unwrap();
-    assert_eq!(pending.iter().map(|r| r.id.as_str()).collect::<Vec<_>>(), vec!["r1"]);
+    assert_eq!(
+        pending.iter().map(|r| r.id.as_str()).collect::<Vec<_>>(),
+        vec!["r1"]
+    );
 }
 
 #[test]
