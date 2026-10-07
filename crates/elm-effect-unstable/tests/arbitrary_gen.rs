@@ -82,6 +82,10 @@ fn arrays_honor_length_bounds() {
 fn array_rejects_invalid_bounds_immediately() {
     let result = std::panic::catch_unwind(|| array(integer(0, 9), 5, 2));
     assert!(result.is_err());
+    // Upstream also rejects -1/0.5/NaN/Infinity/>u32 bounds: unrepresentable
+    // as `usize`, so the type already refuses them; the largest upstream
+    // bound constructs (sampling it would not terminate, as upstream).
+    let _ = array(integer(0, 9), 0, u32::MAX as usize);
 }
 
 #[test]
@@ -94,6 +98,14 @@ fn array_honors_minima_maxima_and_exact_lengths() {
         array(integer(0, 9), 4, 4).sample(&mut Rng::new(22)).len(),
         4
     );
+    // Upstream { maxLength: 2 } and { minLength: 3 } across sizes: no size
+    // parameter exists here, so pin the bounds over repeated samples.
+    for v in array(integer(0, 9), 0, 2).sample_n(23, 50) {
+        assert!(v.len() <= 2);
+    }
+    for v in array(integer(0, 9), 3, 9).sample_n(24, 50) {
+        assert!((3..=9).contains(&v.len()));
+    }
 }
 
 #[test]

@@ -5320,8 +5320,8 @@ unported	packages/effect/test/ai/ToolRepresentation.test.ts	10	it	uses custom JS
 unported	packages/effect/test/arbitrary/Arbitrary.array.test.ts	7	it.effect	reduces custom command sequences to Reset followed by Stop	
 unported	packages/effect/test/arbitrary/Arbitrary.array.test.ts	45	it.effect	retries a previously passing element shrink after deletion (${name})	
 unported	packages/effect/test/arbitrary/Arbitrary.array.test.ts	71	it.effect	removes a middle block when no single deletion fails (${name})	
-unported	packages/effect/test/arbitrary/Arbitrary.array.test.ts	87	it	rejects invalid length bounds immediately	
-unported	packages/effect/test/arbitrary/Arbitrary.array.test.ts	96	it.effect	honors minima at size zero, maxima and exact lengths	
+ported	packages/effect/test/arbitrary/Arbitrary.array.test.ts	87	it	rejects invalid length bounds immediately	array_rejects_invalid_bounds_immediately
+ported	packages/effect/test/arbitrary/Arbitrary.array.test.ts	96	it.effect	honors minima at size zero, maxima and exact lengths	array_honors_minima_maxima_and_exact_lengths
 unported	packages/effect/test/arbitrary/Arbitrary.array.test.ts	116	it.effect	does not generate elements for an empty array or shorten a discarded generation	
 unported	packages/effect/test/arbitrary/Arbitrary.array.test.ts	135	it.effect	preserves retained object identities and order without generating replacements	
 unported	packages/effect/test/arbitrary/Arbitrary.array.test.ts	159	it.effect	counts rejected element candidates against maxShrinks and replays past them	
