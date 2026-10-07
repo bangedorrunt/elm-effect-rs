@@ -489,7 +489,16 @@ impl TxSemaphore {
             capacity: permits,
         }
     }
+}
 
+/// Always true for `TxSemaphore` (the type already narrows; mirrors
+/// `isTxSemaphore`). Foreign values are different types and cannot
+/// reach this predicate.
+pub fn is_tx_semaphore(_: &TxSemaphore) -> bool {
+    true
+}
+
+impl TxSemaphore {
     /// Take one permit without blocking (`false` when empty).
     pub fn try_acquire(&self) -> bool {
         atomically(|| {

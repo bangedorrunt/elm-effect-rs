@@ -4,7 +4,7 @@
 
 use elm_effect::{
     TxChunk, TxDeferred, TxHashMap, TxHashSet, TxPriorityQueue, TxPubSub, TxQueue, TxReentrantLock,
-    TxRef, TxSemaphore, TxSubscriptionRef, atomically, is_tx_chunk,
+    TxRef, TxSemaphore, TxSubscriptionRef, atomically, is_tx_chunk, is_tx_semaphore,
 };
 
 #[test]
@@ -179,6 +179,13 @@ fn tx_chunk_guard_identifies_chunks() {
     // Foreign values are different types and cannot reach the predicate.
     assert!(is_tx_chunk(&TxChunk::from_iter([1, 2])));
     assert!(is_tx_chunk(&TxChunk::<i32>::new()));
+}
+
+#[test]
+fn tx_semaphore_guard_identifies_semaphores() {
+    // TxSemaphore.test.ts:224 — the guard matches semaphore instances.
+    assert!(is_tx_semaphore(&TxSemaphore::new(1)));
+    assert!(is_tx_semaphore(&TxSemaphore::new(0)));
 }
 
 #[test]

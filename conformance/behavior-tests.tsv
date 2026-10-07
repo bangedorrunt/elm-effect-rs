@@ -4437,7 +4437,7 @@ unported	packages/effect/test/TxReentrantLock.test.ts	414	it.effect	releases a s
 unported	packages/effect/test/TxReentrantLock.test.ts	427	it.effect	releases a scoped write lock when another fiber closes the scope	
 ported	packages/effect/test/TxSemaphore.test.ts	6	it.effect	make creates semaphore with specified permits	tx_semaphore_permits
 ported	packages/effect/test/TxSemaphore.test.ts	16	it.effect	make with zero permits creates empty semaphore	tx_semaphore_zero_permits_starts_empty
-unported	packages/effect/test/TxSemaphore.test.ts	26	it.effect	make with negative permits causes defect	
+not-applicable	packages/effect/test/TxSemaphore.test.ts	26	it.effect	make with negative permits causes defect	N/A: negative permits unrepresentable as usize
 ported	packages/effect/test/TxSemaphore.test.ts	34	it.effect	acquire and release work correctly	tx_semaphore_permits
 ported	packages/effect/test/TxSemaphore.test.ts	47	it.effect	acquireN and releaseN work correctly	tx_semaphore_acquire_n_and_release_n
 ported	packages/effect/test/TxSemaphore.test.ts	60	it.effect	tryAcquire succeeds when permits available	tx_semaphore_permits
@@ -4448,12 +4448,12 @@ ported	packages/effect/test/TxSemaphore.test.ts	110	it.effect	withPermit automat
 ported	packages/effect/test/TxSemaphore.test.ts	130	it.effect	withPermits automatically manages multiple permits	tx_semaphore_with_permits_manages_many
 unported	packages/effect/test/TxSemaphore.test.ts	151	it.effect	withPermitScoped works within scoped context	
 ported	packages/effect/test/TxSemaphore.test.ts	171	it.effect	acquireN with zero permits causes defect	tx_semaphore_acquire_n_zero_defects
-unported	packages/effect/test/TxSemaphore.test.ts	178	it.effect	acquireN with negative permits causes defect	
+not-applicable	packages/effect/test/TxSemaphore.test.ts	178	it.effect	acquireN with negative permits causes defect	N/A: negative permits unrepresentable as usize
 ported	packages/effect/test/TxSemaphore.test.ts	185	it.effect	releaseN with zero permits causes defect	tx_semaphore_release_n_zero_defects
-unported	packages/effect/test/TxSemaphore.test.ts	192	it.effect	releaseN with negative permits causes defect	
+not-applicable	packages/effect/test/TxSemaphore.test.ts	192	it.effect	releaseN with negative permits causes defect	N/A: negative permits unrepresentable as usize
 ported	packages/effect/test/TxSemaphore.test.ts	199	it.effect	release does not exceed capacity	tx_semaphore_release_caps_at_capacity
 ported	packages/effect/test/TxSemaphore.test.ts	211	it.effect	releaseN does not exceed capacity	tx_semaphore_release_caps_at_capacity
-unported	packages/effect/test/TxSemaphore.test.ts	224	it.effect	isTxSemaphore correctly identifies TxSemaphore instances	
+ported	packages/effect/test/TxSemaphore.test.ts	224	it.effect	isTxSemaphore correctly identifies TxSemaphore instances	tx_semaphore_guard_identifies_semaphores
 unported	packages/effect/test/TxSemaphore.test.ts	238	it.effect	withPermit bounds concurrent work and releases for the next waiter	
 ported	packages/effect/test/TxSemaphore.test.ts	271	it.effect	operations are atomic within transactions	tx_semaphore_ops_stay_atomic_in_transactions
 ported	packages/effect/test/TxSubscriptionRef.test.ts	6	it.effect	make creates ref with initial value	tx_subscription_ref_notifies
