@@ -55,6 +55,29 @@ impl Response {
             body: Vec::new(),
         }
     }
+
+    /// 200 with a text body and a `content-type: text/plain` header.
+    pub fn text(body: &str) -> Self {
+        let mut out = Self::ok(body);
+        out.set_header("content-type", "text/plain");
+        out
+    }
+
+    /// Set a header, replacing any existing entry case-insensitively
+    /// (explicit headers override body-derived ones).
+    pub fn set_header(&mut self, name: &str, value: &str) {
+        self.headers
+            .retain(|(n, _)| !n.eq_ignore_ascii_case(name));
+        self.headers.push((name.to_owned(), value.to_owned()));
+    }
+
+    /// First header value for `name` (case-insensitive), if present.
+    pub fn header(&self, name: &str) -> Option<&str> {
+        self.headers
+            .iter()
+            .find(|(n, _)| n.eq_ignore_ascii_case(name))
+            .map(|(_, v)| v.as_str())
+    }
 }
 
 /// Minimal listener stack: explicit host bind, route table, one-shot serve.

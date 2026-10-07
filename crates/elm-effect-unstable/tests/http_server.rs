@@ -542,3 +542,16 @@ fn server_error_guard_matches_wrapper_only() {
     };
     assert!(is_http_server_error(&error));
 }
+
+#[test]
+fn response_set_header_overrides_body_headers() {
+    // HttpServerResponse.test.ts:141 — explicit headers win over
+    // body-derived content headers.
+    use elm_effect_unstable::http_server::Response;
+    let mut response = Response::text("body");
+    response.set_header("content-type", "text/custom");
+    response.set_header("content-length", "1");
+    assert_eq!(response.header("content-type"), Some("text/custom"));
+    assert_eq!(response.header("content-length"), Some("1"));
+    assert_eq!(response.body, b"body");
+}
