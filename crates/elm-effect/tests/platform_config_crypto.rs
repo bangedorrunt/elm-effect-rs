@@ -56,6 +56,30 @@ fn config_empty_numbers_validate_when_preserved() {
 }
 
 #[test]
+fn config_map_effect_validates_at_load() {
+    // Config.test.ts:258 — effectful validation runs at load: success
+    // transforms, failure surfaces the message. Deferred execution is
+    // the load boundary (see config_defers_user_callbacks_until_load).
+    use config::ConfigError;
+    let cfg = || {
+        Config::string(named("a")).flat_map(|v| match v {
+            Value::Str(s) if s.is_empty() => Config::fail("empty"),
+            Value::Str(s) => Config::succeed(Value::Str(s.to_uppercase())),
+            other => Config::succeed(other),
+        })
+    };
+    let p = Provider::single(vec!["a".to_string()], Some("value".to_string()));
+    assert_eq!(cfg().load(&p), Ok(Value::Str("VALUE".to_string())));
+    let kept =
+        Provider::from_pairs_preserving(vec![("a".to_string(), "".to_string())]);
+    let err = cfg().load(&kept).unwrap_err();
+    assert!(err.iter().any(|e| matches!(
+        e,
+        ConfigError::Invalid { reason, .. } if reason == "empty"
+    )));
+}
+
+#[test]
 fn config_or_else_fallback_inside_nested_path() {
     // Config.test.ts:1126 — orElse resolves within the nested prefix.
     use config::ConfigError;

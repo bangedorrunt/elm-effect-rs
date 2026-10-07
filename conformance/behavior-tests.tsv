@@ -702,7 +702,7 @@ ported	packages/effect/test/Config.test.ts	202	it	date rejects invalid dates	con
 ported	packages/effect/test/Config.test.ts	213	it	redacted creates redacted values and reports missing input	config_secret_redacted_masked
 ported	packages/effect/test/Config.test.ts	227	it	url decodes valid URLs and reports absence	config_duration_date_bytes_url_port_level
 ported	packages/effect/test/Config.test.ts	243	it	map transforms successful values in data-first and data-last form	config_arrays_and_combinators
-unported	packages/effect/test/Config.test.ts	258	it	mapOrFail supports effectful validation	
+ported	packages/effect/test/Config.test.ts	258	it	mapOrFail supports effectful validation	config_map_effect_validates_at_load
 ported	packages/effect/test/Config.test.ts	281	it	orElse evaluates the fallback after absence	config_arrays_and_combinators
 ported	packages/effect/test/Config.test.ts	307	it	lets an inner config propagate parsing failure	config_inner_propagates_parsing_failure
 ported	packages/effect/test/Config.test.ts	314	it	lets an inner config propagate key absence	config_inner_propagates_key_absence
