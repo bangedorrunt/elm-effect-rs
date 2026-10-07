@@ -717,7 +717,7 @@ ported	packages/effect/test/Config.test.ts	370	it	handles chains of multiple fla
 unported	packages/effect/test/Config.test.ts	408	it	lifts absence in nested composition	
 ported	packages/effect/test/Config.test.ts	423	it.effect	matches map when chained with succeed, including grouped defaults and options	config_map_chained_with_succeed
 ported	packages/effect/test/Config.test.ts	457	it.effect	preserves the outer prefix and composes prefixes in the selected config	config_nested_prefix_flows_through_flat_map
-unported	packages/effect/test/Config.test.ts	484	it.effect	defers user callbacks until the Config Effect is executed	
+ported	packages/effect/test/Config.test.ts	484	it.effect	defers user callbacks until the Config Effect is executed	config_defers_user_callbacks_until_load
 ported	packages/effect/test/Config.test.ts	525	it.effect	resolves empty groups without using a default	config_empty_groups_resolve_without_default
 unported	packages/effect/test/Config.test.ts	536	it.effect	preserves Result values as configuration data	
 unported	packages/effect/test/Config.test.ts	551	it.effect	preserves special record keys without changing the prototype	

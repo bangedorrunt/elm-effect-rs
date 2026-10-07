@@ -17,6 +17,30 @@ fn provider(pairs: &[(&str, &str)]) -> Provider {
     Provider::from_pairs(pairs.iter().map(|(k, v)| (k.to_string(), v.to_string())))
 }
 
+#[test]
+fn config_defers_user_callbacks_until_load() {
+    // Config.test.ts:484 — building descriptors runs no user code.
+    let validate_called = std::rc::Rc::new(std::cell::Cell::new(false));
+    let flat_called = std::rc::Rc::new(std::cell::Cell::new(false));
+    let v_flag = validate_called.clone();
+    let f_flag = flat_called.clone();
+    let cfg = Config::succeed(Value::Int(1))
+        .validate(move |_| {
+            v_flag.set(true);
+            Ok(())
+        })
+        .flat_map(move |v| {
+            f_flag.set(true);
+            Config::succeed(v)
+        });
+    assert!(!validate_called.get());
+    assert!(!flat_called.get());
+    let out = cfg.load(&provider(&[]));
+    assert!(validate_called.get());
+    assert!(flat_called.get());
+    assert_eq!(out, Ok(Value::Int(1)));
+}
+
 fn named(name: &str) -> Option<String> {
     Some(name.to_string())
 }
