@@ -4,7 +4,7 @@
 //! first completion wins; every waiter unblocks).
 #![cfg(feature = "tokio")]
 
-use elm_effect::{TxDeferred, atomically};
+use elm_effect::{TxDeferred, atomically, is_tx_deferred};
 use std::sync::Arc;
 
 // Row 36: poll reports the failure after fail.
@@ -125,4 +125,10 @@ fn deferred_succeed_fail_race_first_wins() {
         let outcome = gate.await_outcome();
         assert_eq!(outcome.is_ok(), main_won, "await agrees with the winner");
     }
+}
+
+#[test]
+fn tx_deferred_guard_identifies_deferreds() {
+    // TxDeferred.test.ts:127 — the guard matches deferred instances.
+    assert!(is_tx_deferred(&TxDeferred::<i32, String>::new()));
 }

@@ -491,6 +491,13 @@ impl TxSemaphore {
     }
 }
 
+/// Always true for `TxDeferred` (the type already narrows; mirrors
+/// `isTxDeferred`). Foreign values are different types and cannot
+/// reach this predicate.
+pub fn is_tx_deferred<T, E>(_: &TxDeferred<T, E>) -> bool {
+    true
+}
+
 /// Always true for `TxSemaphore` (the type already narrows; mirrors
 /// `isTxSemaphore`). Foreign values are different types and cannot
 /// reach this predicate.

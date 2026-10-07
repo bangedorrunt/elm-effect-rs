@@ -4183,7 +4183,7 @@ ported	packages/effect/test/TxDeferred.test.ts	92	it.effect	fail returns true on
 ported	packages/effect/test/TxDeferred.test.ts	99	it.effect	fail returns false if already completed	deferred_fail_first_wins
 ported	packages/effect/test/TxDeferred.test.ts	107	it.effect	done with Result.succeed behaves like succeed	deferred_done_behaves_like_succeed_and_fail
 ported	packages/effect/test/TxDeferred.test.ts	116	it.effect	done with Result.fail behaves like fail	deferred_done_behaves_like_succeed_and_fail
-unported	packages/effect/test/TxDeferred.test.ts	127	it.effect	isTxDeferred returns true for deferred, false for others	
+ported	packages/effect/test/TxDeferred.test.ts	127	it.effect	isTxDeferred returns true for deferred, false for others	tx_deferred_guard_identifies_deferreds
 ported	packages/effect/test/TxDeferred.test.ts	139	it.effect	await observes completion made earlier in the same transaction	deferred_await_inside_same_transaction
 ported	packages/effect/test/TxDeferred.test.ts	151	it.effect	two deferreds modified atomically	deferred_two_gates_complete_atomically
 ported	packages/effect/test/TxDeferred.test.ts	169	it.effect	multiple fibers awaiting same deferred all unblock	deferred_all_waiters_unblock
