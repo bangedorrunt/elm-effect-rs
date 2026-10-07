@@ -2521,11 +2521,11 @@ unported	packages/effect/test/ManagedRuntime.test.ts	50	test	supports await usin
 unported	packages/effect/test/ManagedRuntime.test.ts	65	it	fibers are interrupted on dispose	
 unported	packages/effect/test/ManagedRuntime.test.ts	75	it	finishes request cleanup before releasing layer resources with ${method}	
 unported	packages/effect/test/ManagedRuntime.test.ts	127	it	completes sequential layer finalizers when disposeEffect is interrupted	
-unported	packages/effect/test/Match.test.ts	6	it	fn keeps the selector arguments	
+ported	packages/effect/test/Match.test.ts	6	it	fn keeps the selector arguments	match_fn_keeps_selector_arguments
 ported	packages/effect/test/Match.test.ts	27	it	fn can match a projected value	tagged_structs_match_by_tag
 ported	packages/effect/test/Match.test.ts	38	it	tag matches an exact _tag and falls through for null	tagged_structs_match_by_tag
 ported	packages/effect/test/Match.test.ts	49	it	tagStartsWith matches a _tag prefix and falls through otherwise	tagged_structs_match_by_tag
-unported	packages/effect/test/Match.test.ts	60	it	checks symbol-keyed object pattern properties	
+ported	packages/effect/test/Match.test.ts	60	it	checks symbol-keyed object pattern properties	match_field_value_hit_miss_missing
 ported	packages/effect/test/Metric.test.ts	21	it.effect	keeps shared metrics scoped to the active registry	shared_metrics_stay_scoped_to_active_registry
 unported	packages/effect/test/Metric.test.ts	37	it.effect	keeps attributed metrics scoped to the active registry	
 ported	packages/effect/test/Metric.test.ts	52	it.effect	registers an unattributed metric again after the registry is cleared	cleared_registry_reregisters_unattributed_metric

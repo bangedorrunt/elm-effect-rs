@@ -219,6 +219,56 @@ fn shape_area_matches_by_tag() {
 }
 
 #[test]
+fn match_fn_keeps_selector_arguments() {
+    // Match.test.ts:6 — arms match the projected selector while bodies
+    // keep the full input (both selector arguments).
+    let run = |filter: &'static str| {
+        let todos = vec![false, true];
+        elm_effect::Matcher::value((todos, filter))
+            .discriminator(|(_, f)| *f, "All", |(t, _)| t.len())
+            .discriminator(|(_, f)| *f, "Active", |(t, _)| {
+                t.iter().filter(|completed| !**completed).count()
+            })
+            .discriminator(|(_, f)| *f, "Completed", |(t, _)| {
+                t.iter().filter(|completed| **completed).count()
+            })
+            .exhaustive()
+    };
+    assert_eq!(run("All"), 2);
+    assert_eq!(run("Active"), 1);
+    assert_eq!(run("Completed"), 1);
+}
+
+#[test]
+fn match_field_value_hit_miss_missing() {
+    // Match.test.ts:60 — symbol-keyed pattern properties; keys are plain
+    // strings here (documented divergence), so pin field-value matching
+    // with hit, mismatch, and missing cases.
+    use data::{Field, Variant};
+    let run = |fields: Vec<(String, Field)>| {
+        elm_effect::Matcher::value(Variant::new("Obj", fields))
+            .discriminator(
+                |shape: &Variant| match shape.get("key") {
+                    Some(Field::Str(s)) => Some(s.clone()),
+                    _ => None,
+                },
+                Some("expected".to_string()),
+                |_| "hit",
+            )
+            .or_else("miss")
+    };
+    assert_eq!(
+        run(vec![("key".to_string(), Field::Str("expected".to_string()))]),
+        "hit"
+    );
+    assert_eq!(
+        run(vec![("key".to_string(), Field::Str("other".to_string()))]),
+        "miss"
+    );
+    assert_eq!(run(vec![]), "miss");
+}
+
+#[test]
 fn empty_variants_match() {
     use data::Variant;
     // Data.test.ts:160 - empty variants carry their tag.
