@@ -1039,6 +1039,20 @@ fn provider_dotenv_preserve_empty_strings_option() {
 }
 
 #[test]
+fn provider_dotenv_expands_refs_keeps_literal_dollars() {
+    // ConfigProvider.test.ts:849 — referenced values expand; `$` not
+    // starting a name stays literal.
+    use config_provider::EnvProvider;
+    let expanding = EnvProvider::from_dotenv_expanding(
+        "SOURCE=a$&b$'c$`d\nTARGET=${SOURCE}\n",
+    );
+    assert_eq!(
+        expanding.get(&["TARGET".to_string()]),
+        Some("a$&b$'c$`d".to_string())
+    );
+}
+
+#[test]
 fn provider_dotenv_quotes_comments_and_underscores() {
     use config_provider::EnvProvider;
     let env = EnvProvider::from_dotenv(
