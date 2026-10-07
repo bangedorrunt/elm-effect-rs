@@ -111,3 +111,24 @@ fn causes_roundtrip_every_variant() {
         assert_eq!(RpcCause::decode(&cause.encode()), Some(cause));
     }
 }
+
+#[test]
+fn interrupt_without_fiber_encodes_null_fiber_id() {
+    // Rpc.test.ts:56 — a missing fiber id is explicit null, never absent.
+    assert_eq!(
+        RpcCause::Interrupt.encode(),
+        json!({"_tag": "Interrupt", "fiberId": null})
+    );
+    // Decode accepts the null form and the bare legacy form.
+    assert_eq!(
+        RpcCause::decode(&json!({"_tag": "Interrupt", "fiberId": null})),
+        Some(RpcCause::Interrupt)
+    );
+    assert_eq!(
+        RpcCause::decode(&json!({"_tag": "Interrupt"})),
+        Some(RpcCause::Interrupt)
+    );
+    // Re-encoding the decoded value is stable.
+    let decoded = RpcCause::decode(&json!({"_tag": "Interrupt"})).unwrap();
+    assert_eq!(decoded.encode(), json!({"_tag": "Interrupt", "fiberId": null}));
+}

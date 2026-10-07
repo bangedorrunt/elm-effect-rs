@@ -7394,7 +7394,7 @@ unported	packages/effect/test/reactivity/AtomRpc.test.ts	158	it.effect	dehydrate
 unported	packages/effect/test/reactivity/AtomRpc.test.ts	188	it.effect	settles promise dehydration when client middleware later fails	
 ported	packages/effect/test/rpc/Rpc.test.ts	16	it.effect	can implement a single handler	router_single_handler
 ported	packages/effect/test/rpc/Rpc.test.ts	36	it	exitSchema uses custom defect schema	router_single_handler
-unported	packages/effect/test/rpc/Rpc.test.ts	56	it	JSON-encoded interrupt exits use null for a missing fiberId	
+ported	packages/effect/test/rpc/Rpc.test.ts	56	it	JSON-encoded interrupt exits use null for a missing fiberId	interrupt_without_fiber_encodes_null_fiber_id
 ported	packages/effect/test/rpc/Rpc.test.ts	68	it	RpcSchema.getStreamSchemas returns Option	group_stream_schemas_empty
 unported	packages/effect/test/rpc/RpcClient.test.ts	66	it.effect	releases the ${consumer} consumer when the request write is interrupted	
 unported	packages/effect/test/rpc/RpcClient.test.ts	85	it.effect	releases a worker pool slot when the worker run fails	

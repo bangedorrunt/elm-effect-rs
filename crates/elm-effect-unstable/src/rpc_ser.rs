@@ -187,9 +187,11 @@ impl RpcCause {
     /// Encode (every variant survives, including empty).
     pub fn encode(&self) -> Value {
         match self {
-            RpcCause::Failure(message) => serde_json::json!({"_tag": "Failure", "message": message}),
+            RpcCause::Failure(message) => {
+                serde_json::json!({"_tag": "Failure", "message": message})
+            }
             RpcCause::Defect(message) => serde_json::json!({"_tag": "Defect", "message": message}),
-            RpcCause::Interrupt => serde_json::json!({"_tag": "Interrupt"}),
+            RpcCause::Interrupt => serde_json::json!({"_tag": "Interrupt", "fiberId": null}),
             RpcCause::Empty => serde_json::json!({"_tag": "Empty"}),
         }
     }
@@ -199,11 +201,22 @@ impl RpcCause {
         let tag = value.get("_tag")?.as_str()?;
         match tag {
             "Failure" => Some(RpcCause::Failure(
-                value.get("message").and_then(Value::as_str).unwrap_or_default().to_string(),
+                value
+                    .get("message")
+                    .and_then(Value::as_str)
+                    .unwrap_or_default()
+                    .to_string(),
             )),
             "Defect" => Some(RpcCause::Defect(
-                value.get("message").and_then(Value::as_str).unwrap_or_default().to_string(),
+                value
+                    .get("message")
+                    .and_then(Value::as_str)
+                    .unwrap_or_default()
+                    .to_string(),
             )),
+            // A missing fiber id encodes as explicit null (never absent);
+            // decode accepts both, and drops a present id: this layer
+            // carries no fiber identity.
             "Interrupt" => Some(RpcCause::Interrupt),
             "Empty" => Some(RpcCause::Empty),
             _ => None,
