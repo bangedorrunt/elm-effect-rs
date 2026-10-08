@@ -200,6 +200,56 @@ impl<A: Send + 'static, E: Send + 'static, R: crate::effect::Requirement> Stream
         })
     }
 
+    /// `Stream.scan` at the pin: emit the running fold, excluding the initial
+    /// value. One output chunk per input chunk, like the pin's channel map.
+    pub fn scan<S, F>(self, init: S, f: F) -> Stream<S, E, R>
+    where
+        S: Clone + Send + 'static,
+        F: Fn(S, A) -> S + Send + Sync + 'static,
+    {
+        let (pull, f, state) = (self.pull, Arc::new(f), Arc::new(Mutex::new(init)));
+        let exec = Arc::clone(&self.exec);
+        Self::derive(exec, move || {
+            let (pull, f, state) = (Arc::clone(&pull), Arc::clone(&f), Arc::clone(&state));
+            call(&pull).map(move |chunk| {
+                let mut st = state.lock().unwrap();
+                chunk.map(|items| {
+                    items
+                        .into_iter()
+                        .map(|a| {
+                            let next = f(st.clone(), a);
+                            *st = next.clone();
+                            next
+                        })
+                        .collect()
+                })
+            })
+        })
+    }
+
+    /// `Stream.mapAccumArray` at the pin: thread state across chunks, emitting
+    /// zero or more values per chunk. The mapping runs once per chunk.
+    pub fn map_accum_array<S, B, F>(self, init: S, f: F) -> Stream<B, E, R>
+    where
+        S: Clone + Send + 'static,
+        B: Send + 'static,
+        F: Fn(S, Vec<A>) -> (S, Vec<B>) + Send + Sync + 'static,
+    {
+        let (pull, f, state) = (self.pull, Arc::new(f), Arc::new(Mutex::new(init)));
+        let exec = Arc::clone(&self.exec);
+        Self::derive(exec, move || {
+            let (pull, f, state) = (Arc::clone(&pull), Arc::clone(&f), Arc::clone(&state));
+            call(&pull).map(move |chunk| {
+                let mut st = state.lock().unwrap();
+                chunk.map(|items| {
+                    let (next, values) = f(st.clone(), items);
+                    *st = next;
+                    values
+                })
+            })
+        })
+    }
+
     /// `Stream.takeWhile` at the pin: take while `f` holds. The element that
     /// failed is NOT taken, and nothing after it is seen. A chunk that
     /// becomes empty without a stop pumps again, like the pin's `pump`.

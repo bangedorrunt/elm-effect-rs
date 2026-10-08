@@ -194,3 +194,49 @@ fn take_while_first_element_fails_ends_immediately() {
     let exit = stream.run_collect();
     assert!(matches!(exit, Exit::Success(ref v) if v.is_empty()));
 }
+
+// ---------------------------------------------------------------------------
+// Scanning at the pin: scan, mapAccumArray
+// ---------------------------------------------------------------------------
+
+#[test]
+fn scan_emits_running_fold_without_init() {
+    // Stream.make(1, 2, 3, 4, 5).pipe(Stream.scan(() => 0, (a, c) => a + c),
+    //   Stream.runCollect) === Array.scan([1,2,3,4,5], 0, (a, c) => a + c)
+    // The initial value is never emitted; only the running totals are.
+    let stream: Stream<i64, String, ()> =
+        from_iter(vec![1i64, 2, 3, 4, 5].into_iter(), 5).scan(0i64, |acc, cur| acc + cur);
+    let exit = stream.run_collect();
+    assert!(matches!(exit, Exit::Success(ref v) if *v == vec![1i64, 3, 6, 10, 15]));
+}
+
+#[test]
+fn scan_state_survives_chunk_boundaries() {
+    // The accumulator threads across pulls, so the chunking must not change
+    // the running totals.
+    let coarser: Exit<Vec<i64>, String> = from_iter(vec![1i64, 2, 3, 4, 5].into_iter(), 1)
+        .scan(0i64, |acc, cur| acc + cur)
+        .run_collect();
+    assert!(matches!(coarser, Exit::Success(ref v) if *v == vec![1i64, 3, 6, 10, 15]));
+}
+
+#[test]
+fn map_accum_array_maps_once_per_chunk() {
+    // Stream.mapAccumArrayEffect(Stream.make(1, 2, 3), () => 0,
+    //   (sum, values) => Effect.succeed([sum + values.length, values])
+    //   ).pipe(Stream.runCollect) === [1, 2, 3]
+    // make(1, 2, 3) is one chunk, so the mapper runs once: 0 + 3 = 3.
+    let stream: Stream<i64, String, ()> = from_iter(vec![1i64, 2, 3].into_iter(), 3)
+        .map_accum_array(0i64, |_sum, values| (values.len() as i64, values));
+    let exit = stream.run_collect();
+    assert!(matches!(exit, Exit::Success(ref v) if *v == vec![1i64, 2, 3]));
+}
+
+#[test]
+fn map_accum_array_threads_state_across_chunks() {
+    // Two chunks, state carried: [1,2] -> sum 3 emits values, [3,4] -> sum 7.
+    let stream: Stream<i64, String, ()> = from_iter(vec![1i64, 2, 3, 4].into_iter(), 2)
+        .map_accum_array(0i64, |sum, values| (sum + values.len() as i64, values));
+    let exit = stream.run_collect();
+    assert!(matches!(exit, Exit::Success(ref v) if *v == vec![1i64, 2, 3, 4]));
+}

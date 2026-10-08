@@ -3597,9 +3597,9 @@ unported	packages/effect/test/Stream.test.ts	1335	it.effect	does not log when lo
 unported	packages/effect/test/Stream.test.ts	1341	it.effect	does not log when log is false	
 unported	packages/effect/test/Stream.test.ts	1347	it.effect	logs with the current level when log is true	
 unported	packages/effect/test/Stream.test.ts	1355	it.effect	logs with the provided level when log is a LogLevel	
-unported	packages/effect/test/Stream.test.ts	1366	it.effect	scan	
+ported	packages/effect/test/Stream.test.ts	1366	it.effect	scan	scan_emits_running_fold_without_init	
 unported	packages/effect/test/Stream.test.ts	1378	it.effect	scanEffect	
-unported	packages/effect/test/Stream.test.ts	1388	it.effect	mapAccumArrayEffect data-first	
+ported	packages/effect/test/Stream.test.ts	1388	it.effect	mapAccumArrayEffect data-first	map_accum_array_maps_once_per_chunk
 unported	packages/effect/test/Stream.test.ts	1401	it.effect	groupBy	
 unported	packages/effect/test/Stream.test.ts	1430	it.effect	work per part does not grow with the length of a chain	
 unported	packages/effect/test/Stream.test.ts	1451	it.effect	runs nested chains in order, closing each part before the next starts	
