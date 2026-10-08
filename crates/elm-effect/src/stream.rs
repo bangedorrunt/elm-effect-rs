@@ -10,6 +10,7 @@
 //! Sharing is [`Arc`] over [`Mutex`]-guarded factories, so only `Send` is
 //! ever required: requirement tags (which are not `Sync`) stream fine.
 
+use std::convert::Infallible;
 use std::sync::{Arc, Mutex};
 
 use crate::{Effect, Exit};
@@ -183,6 +184,54 @@ impl<A: Send + 'static, E: Send + 'static, R: crate::effect::Requirement> Stream
     }
 }
 
+/// Mirror of the pin's `Count.normalizeNonEmpty` (`internal/count.ts`):
+/// `NaN` and non-positive values become 1, a positive value floors, and
+/// a positive infinity saturates to `usize::MAX` exactly as `Math.floor`
+/// preserves it in TypeScript.
+pub fn normalize_non_empty(n: f64) -> usize {
+    if n > 0.0 {
+        n.floor() as usize
+    } else {
+        1
+    }
+}
+
+/// The pin's `Channel.DefaultChunkSize` (`Channel.ts:458`).
+pub const DEFAULT_CHUNK_SIZE: f64 = 4096.0;
+
+impl Stream<i64, Infallible, ()> {
+    /// `Stream.range` at the pin: inclusive integer range, chunked. `min` above
+    /// `max` is empty; the chunk size normalizes like the pin's `Count`. Pulls
+    /// yield chunks of `normalize(chunk_size)` until the range is exhausted,
+    /// then end (`None`), never a zero-length chunk.
+    pub fn range(min: i64, max: i64, chunk_size: f64) -> Self {
+        if min > max {
+            return Self::empty();
+        }
+        let chunk = normalize_non_empty(chunk_size) as u64;
+        let (first, last) = (min as u64, max as u64);
+        let mut start = first;
+        let mut done = false;
+        Self::from_pull(move || {
+            if done {
+                return Effect::succeed(None);
+            }
+            let remaining = last - start + 1;
+            let (take, finished) = if remaining > chunk {
+                (chunk, false)
+            } else {
+                (remaining, true)
+            };
+            // `take <= remaining`, so `start + take <= last + 1` cannot overflow.
+            let end = start + take;
+            let out: Vec<i64> = ((start as i64)..(end as i64)).collect();
+            start = end;
+            done = finished;
+            Effect::succeed(Some(out))
+        })
+    }
+}
+
 /// Stream an iterator in bounded chunks without materializing it.
 pub fn from_iter<T, E, I>(iter: I, chunk_size: usize) -> Stream<T, E, ()>
 where
@@ -235,6 +284,49 @@ where
             out.push(item);
             out
         })
+    }
+
+    /// Collect chunks as emitted, preserving pull boundaries. This is the
+    /// observable `Stream.chunks().runCollect()`: an element-level fold
+    /// cannot see the boundaries a chunked pull produces.
+    pub fn run_collect_chunks(self) -> Exit<Vec<Vec<A>>, E> {
+        let mut out = Vec::new();
+        loop {
+            match call(&self.pull).run_sync() {
+                Ok(None) => return Exit::Success(out),
+                Ok(Some(items)) => out.push(items),
+                Err(cause) => return Exit::Failure(cause),
+            }
+        }
+    }
+
+    /// `Stream.runForEachWhile` at the pin: visit every element, stopping at
+    /// the first whose predicate returns false. That element IS visited
+    /// (the predicate's own effect runs first); everything after it is not.
+    /// Returns unit on normal completion or a false stop, like the pin's
+    /// `Effect<void>`.
+    pub fn run_for_each_while<F>(self, f: F) -> Exit<(), E>
+    where
+        F: Fn(A) -> bool,
+    {
+        let mut stop = false;
+        loop {
+            if stop {
+                return Exit::Success(());
+            }
+            match call(&self.pull).run_sync() {
+                Ok(None) => return Exit::Success(()),
+                Ok(Some(items)) => {
+                    for item in items {
+                        if !f(item) {
+                            stop = true;
+                            break;
+                        }
+                    }
+                }
+                Err(cause) => return Exit::Failure(cause),
+            }
+        }
     }
 }
 

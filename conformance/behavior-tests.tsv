@@ -3513,8 +3513,8 @@ unported	packages/effect/test/Stream.test.ts	89	it.effect	handles errors
 unported	packages/effect/test/Stream.test.ts	102	it.effect	handles defects	
 unported	packages/effect/test/Stream.test.ts	114	it.effect	backpressure	
 unported	packages/effect/test/Stream.test.ts	155	it.effect	mkArrayBuffer - concatenates Uint8Array chunks	
-unported	packages/effect/test/Stream.test.ts	165	it.effect	runForEachWhile continues across chunk boundaries	
-unported	packages/effect/test/Stream.test.ts	179	it.effect	runForEachWhile stops when predicate returns false	
+ported	packages/effect/test/Stream.test.ts	165	it.effect	runForEachWhile continues across chunk boundaries	run_for_each_while_continues_across_chunks
+ported	packages/effect/test/Stream.test.ts	179	it.effect	runForEachWhile stops when predicate returns false	run_for_each_while_stops_on_false
 unported	packages/effect/test/Stream.test.ts	193	it.effect	toAsyncIterable - return interrupts an in-flight pull	
 unported	packages/effect/test/Stream.test.ts	222	it.effect	toAsyncIterable - return does not reject an unawaited in-flight next	
 unported	packages/effect/test/Stream.test.ts	245	it.effect	toAsyncIterable - early for await exit interrupts the producer	
@@ -3523,14 +3523,14 @@ unported	packages/effect/test/Stream.test.ts	285	it.effect	toAsyncIterable - nat
 unported	packages/effect/test/Stream.test.ts	307	it.effect	toAsyncIterable - stream failure is forwarded to the scope	
 unported	packages/effect/test/Stream.test.ts	337	it.effect	toAsyncIterable - throw forwards a failure exit and preserves its error	
 unported	packages/effect/test/Stream.test.ts	368	it.effect	toAsyncIterable - throw interrupts an in-flight pull	
-unported	packages/effect/test/Stream.test.ts	404	it.effect	range - min less than max	
-unported	packages/effect/test/Stream.test.ts	410	it.effect	range - zero chunk size does not change the emitted range	
-unported	packages/effect/test/Stream.test.ts	420	it.effect	range - normalizes the chunk size without changing emitted values	
+ported	packages/effect/test/Stream.test.ts	404	it.effect	range - min less than max	range_min_less_than_max
+ported	packages/effect/test/Stream.test.ts	410	it.effect	range - zero chunk size does not change the emitted range	range_zero_chunk_size
+ported	packages/effect/test/Stream.test.ts	420	it.effect	range - normalizes the chunk size without changing emitted values	range_normalizes_chunk_size
 unported	packages/effect/test/Stream.test.ts	434	it.effect	service	
 unported	packages/effect/test/Stream.test.ts	446	it.effect	serviceOption - some	
 unported	packages/effect/test/Stream.test.ts	458	it.effect	serviceOption - none	
-unported	packages/effect/test/Stream.test.ts	464	it.effect	range - min greater than max	
-unported	packages/effect/test/Stream.test.ts	470	it.effect	range - min equal to max	
+ported	packages/effect/test/Stream.test.ts	464	it.effect	range - min greater than max	range_min_greater_than_max
+ported	packages/effect/test/Stream.test.ts	470	it.effect	range - min equal to max	range_min_equal_to_max
 unported	packages/effect/test/Stream.test.ts	476	it.effect	fromIteratorSucceed - normalizes the chunk size	
 unported	packages/effect/test/Stream.test.ts	490	it.effect	fromIterable - emits array as one chunk by default	
 ported	packages/effect/test/Stream.test.ts	499	it.effect	fromIterable - supports chunkSize option	run_fold_sums_chunks
