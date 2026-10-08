@@ -3549,7 +3549,7 @@ unported	packages/effect/test/Stream.test.ts	642	it.effect	emits the final line 
 unported	packages/effect/test/Stream.test.ts	648	it.effect	does not pull upstream again after flushing the final line	
 unported	packages/effect/test/Stream.test.ts	677	it.effect	handles standalone carriage returns within a chunk	
 unported	packages/effect/test/Stream.test.ts	683	it.effect	handles standalone carriage returns across chunk boundaries	
-unported	packages/effect/test/Stream.test.ts	706	it.effect	filterMap	
+ported	packages/effect/test/Stream.test.ts	706	it.effect	filterMap	filter_map_keeps_some_only
 unported	packages/effect/test/Stream.test.ts	715	it.effect	filterMapEffect	
 unported	packages/effect/test/Stream.test.ts	726	it.effect	limitBytes - does not evaluate the fallback below the limit	
 unported	packages/effect/test/Stream.test.ts	742	it.effect	limitBytes - does not evaluate the fallback at the limit	
@@ -3560,8 +3560,8 @@ ported	packages/effect/test/Stream.test.ts	791	it.effect	take - short-circuits s
 ported	packages/effect/test/Stream.test.ts	801	it.effect	take - taking 0 short-circuits stream evaluation	take_terminates_infinite_input
 unported	packages/effect/test/Stream.test.ts	810	it.effect	take - treating NaN as a non-positive count	
 unported	packages/effect/test/Stream.test.ts	819	it.effect	take - NaN short-circuits stream evaluation	
-unported	packages/effect/test/Stream.test.ts	828	it.effect	takeUntil - takes elements until a predicate is satisfied	
-unported	packages/effect/test/Stream.test.ts	837	it.effect	takeWhile - takes elements while a predicate is satisfied	
+ported	packages/effect/test/Stream.test.ts	828	it.effect	takeUntil - takes elements until a predicate is satisfied	take_until_takes_through_match
+ported	packages/effect/test/Stream.test.ts	837	it.effect	takeWhile - takes elements while a predicate is satisfied	take_while_takes_prefix
 unported	packages/effect/test/Stream.test.ts	846	it.effect	takeWhileFilter - takes elements while a filter succeeds	
 unported	packages/effect/test/Stream.test.ts	855	it.effect	takeUntilEffect - takes elements until an effectful predicate is satisfied	
 unported	packages/effect/test/Stream.test.ts	864	it.effect	takeWhileEffect - takes elements while an effectful predicate is satisfied	

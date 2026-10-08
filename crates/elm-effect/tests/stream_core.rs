@@ -134,3 +134,63 @@ fn map_effect_smaller_bound_is_sequential() {
     let exit = stream.run_collect();
     assert!(matches!(exit, Exit::Success(ref v) if *v == vec![1u32, 2, 3, 4, 5]));
 }
+
+// ---------------------------------------------------------------------------
+// Streaming transforms at the pin: filterMap, takeWhile, takeUntil
+// ---------------------------------------------------------------------------
+
+#[test]
+fn filter_map_keeps_some_only() {
+    // Stream.make(1, 2, 3, 4).pipe(Stream.filterMap(n => n % 2 === 0
+    //   ? Result.succeed(n + 10) : Result.failVoid), Stream.runCollect)
+    let stream: Stream<i64, String, ()> = from_iter(vec![1i64, 2, 3, 4].into_iter(), 4)
+        .filter_map(|n| (n % 2 == 0).then(|| n + 10));
+    let exit = stream.run_collect();
+    assert!(matches!(exit, Exit::Success(ref v) if *v == vec![12i64, 14]));
+}
+
+#[test]
+fn take_while_takes_prefix() {
+    // Stream.range(1, 5).pipe(Stream.takeWhile(n => n % 3 !== 0), ...)
+    // === [1, 2]: the first miss is dropped, nothing after it is seen.
+    let stream: Stream<i64, String, ()> = from_iter(vec![1i64, 2, 3, 4, 5].into_iter(), 5)
+        .take_while(|n| n % 3 != 0);
+    let exit = stream.run_collect();
+    assert!(matches!(exit, Exit::Success(ref v) if *v == vec![1i64, 2]));
+}
+
+#[test]
+fn take_until_takes_through_match() {
+    // Stream.range(1, 5).pipe(Stream.takeUntil(n => n % 3 === 0), ...)
+    // === [1, 2, 3]: the matching element IS taken, then the stream ends.
+    let stream: Stream<i64, String, ()> = from_iter(vec![1i64, 2, 3, 4, 5].into_iter(), 5)
+        .take_until(|n| n % 3 == 0);
+    let exit = stream.run_collect();
+    assert!(matches!(exit, Exit::Success(ref v) if *v == vec![1i64, 2, 3]));
+}
+
+#[test]
+fn take_until_ends_after_the_match() {
+    // The stop must be remembered: pulling again after the truncated chunk
+    // yields nothing, not the rest of the source.
+    let stream: Stream<i64, String, ()> = from_iter(vec![1i64, 2, 3, 4, 5].into_iter(), 2);
+    let stream = stream.take_until(|n| *n == 2);
+    let exit = stream.run_collect();
+    assert!(matches!(exit, Exit::Success(ref v) if *v == vec![1i64, 2]));
+}
+
+#[test]
+fn take_while_all_pass_yields_everything() {
+    let stream: Stream<i64, String, ()> = from_iter(vec![1i64, 2, 3].into_iter(), 1)
+        .take_while(|_| true);
+    let exit = stream.run_collect();
+    assert!(matches!(exit, Exit::Success(ref v) if *v == vec![1i64, 2, 3]));
+}
+
+#[test]
+fn take_while_first_element_fails_ends_immediately() {
+    let stream: Stream<i64, String, ()> = from_iter(vec![1i64, 2, 3].into_iter(), 1)
+        .take_while(|n| *n > 10);
+    let exit = stream.run_collect();
+    assert!(matches!(exit, Exit::Success(ref v) if v.is_empty()));
+}

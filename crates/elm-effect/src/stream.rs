@@ -11,6 +11,7 @@
 //! ever required: requirement tags (which are not `Sync`) stream fine.
 
 use std::convert::Infallible;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
 use crate::{Effect, Exit};
@@ -161,7 +162,6 @@ impl<A: Send + 'static, E: Send + 'static, R: crate::effect::Requirement> Stream
 
     /// Run `other` after `self` ends.
     pub fn concat(self, other: Self) -> Self {
-        use std::sync::atomic::{AtomicBool, Ordering};
         let exec = Arc::clone(&self.exec);
         let (first, second, drained) = (
             self.pull,
@@ -182,6 +182,134 @@ impl<A: Send + 'static, E: Send + 'static, R: crate::effect::Requirement> Stream
             })
         })
     }
+
+    /// `Stream.filterMap` at the pin: keep only elements that map to `Some`.
+    /// The pin's `Filter` can fail, but the observable subset here is the
+    /// pure `Option` case (a failure maps to `None`).
+    pub fn filter_map<B, F>(self, f: F) -> Stream<B, E, R>
+    where
+        B: Send + 'static,
+        F: Fn(A) -> Option<B> + Send + Sync + 'static,
+    {
+        let (pull, f, exec) = (self.pull, Arc::new(f), Arc::clone(&self.exec));
+        Self::derive(exec, move || {
+            let f = Arc::clone(&f);
+            call(&pull).map(move |chunk| {
+                chunk.map(|items| items.into_iter().filter_map(|a| f(a)).collect())
+            })
+        })
+    }
+
+    /// `Stream.takeWhile` at the pin: take while `f` holds. The element that
+    /// failed is NOT taken, and nothing after it is seen. A chunk that
+    /// becomes empty without a stop pumps again, like the pin's `pump`.
+    pub fn take_while<F>(self, f: F) -> Self
+    where
+        F: Fn(&A) -> bool + Send + Sync + 'static,
+    {
+        let f: Arc<dyn Fn(&A) -> bool + Send + Sync> = Arc::new(f);
+        let (pull, done) = (self.pull, Arc::new(AtomicBool::new(false)));
+        let exec = Arc::clone(&self.exec);
+        let (p, d) = (Arc::clone(&pull), Arc::clone(&done));
+        Self::derive(exec, move || {
+            take_while_pump(Arc::clone(&p), Arc::clone(&f), Arc::clone(&d))
+        })
+    }
+
+    /// `Stream.takeUntil` at the pin: take until `f` holds. The element that
+    /// satisfied `f` IS taken (the default; the pin's `excludeLast` option
+    /// would drop it), then the stream ends.
+    pub fn take_until<F>(self, f: F) -> Self
+    where
+        F: Fn(&A) -> bool + Send + Sync + 'static,
+    {
+        let f: Arc<dyn Fn(&A) -> bool + Send + Sync> = Arc::new(f);
+        let (pull, done) = (self.pull, Arc::new(AtomicBool::new(false)));
+        let exec = Arc::clone(&self.exec);
+        let (p, d) = (Arc::clone(&pull), Arc::clone(&done));
+        Self::derive(exec, move || {
+            take_until_pump(Arc::clone(&p), Arc::clone(&f), Arc::clone(&d))
+        })
+    }
+}
+
+/// `takeWhile`'s pull step: pull once, keep the prefix that satisfies `f`,
+/// stop at the first miss. `done` is shared so a later factory call ends.
+fn take_while_pump<A, E, R>(
+    pull: Pull<A, E, R>,
+    f: Arc<dyn Fn(&A) -> bool + Send + Sync>,
+    done: Arc<AtomicBool>,
+) -> Effect<Option<Vec<A>>, E, R>
+where
+    A: Send + 'static,
+    E: Send + 'static,
+    R: crate::effect::Requirement,
+{
+    if done.load(Ordering::SeqCst) {
+        return Effect::succeed(None);
+    }
+    call(&pull).flat_map(move |chunk| {
+        let (pull, f, done) = (Arc::clone(&pull), Arc::clone(&f), Arc::clone(&done));
+        match chunk {
+            None => Effect::succeed(None),
+            Some(items) => {
+                let mut out: Vec<A> = Vec::new();
+                let mut stop = false;
+                for a in items {
+                    if f(&a) {
+                        out.push(a);
+                    } else {
+                        stop = true;
+                        break;
+                    }
+                }
+                if stop {
+                    done.store(true, Ordering::SeqCst);
+                    if out.is_empty() {
+                        Effect::succeed(None)
+                    } else {
+                        Effect::succeed(Some(out))
+                    }
+                } else {
+                    // The whole chunk passed; the next pull asks upstream
+                    // again. An empty chunk here is the pin's `pump`.
+                    Effect::succeed(Some(out))
+                }
+            }
+        }
+    })
+}
+
+/// `takeUntil`'s pull step: pull once, and take through the first element
+/// that satisfies `f` (inclusive). Before any match, the chunk passes.
+fn take_until_pump<A, E, R>(
+    pull: Pull<A, E, R>,
+    f: Arc<dyn Fn(&A) -> bool + Send + Sync>,
+    done: Arc<AtomicBool>,
+) -> Effect<Option<Vec<A>>, E, R>
+where
+    A: Send + 'static,
+    E: Send + 'static,
+    R: crate::effect::Requirement,
+{
+    if done.load(Ordering::SeqCst) {
+        return Effect::succeed(None);
+    }
+    call(&pull).flat_map(move |chunk| {
+        let done = Arc::clone(&done);
+        match chunk {
+            None => Effect::succeed(None),
+            Some(items) => match items.iter().position(|a| f(a)) {
+                Some(index) => {
+                    done.store(true, Ordering::SeqCst);
+                    let mut out = items;
+                    out.truncate(index + 1);
+                    Effect::succeed(Some(out))
+                }
+                None => Effect::succeed(Some(items)),
+            },
+        }
+    })
 }
 
 /// Mirror of the pin's `Count.normalizeNonEmpty` (`internal/count.ts`):
