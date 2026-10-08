@@ -9,6 +9,7 @@
 use crate::{Cause, Defect, Exit, Reason};
 use std::any::Any;
 use std::marker::PhantomData;
+use std::sync::Arc;
 
 pub(crate) mod sealed {
     pub trait Sealed {}
@@ -209,6 +210,48 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
             std::option::Option::Some(effect) => effect.map(std::option::Option::Some),
             std::option::Option::None => Effect::succeed(std::option::Option::None),
         }
+    }
+
+    /// `Effect.onError` at the pin: run `finalizer` only on a clean typed
+    /// `Fail`, then re-raise that failure unchanged. Defects and interrupts
+    /// pass through untouched (the same fire condition as [`catch`]).
+    pub fn on_error<F>(self, finalizer: F) -> Self
+    where
+        F: FnOnce() + Send + 'static,
+    {
+        self.catch(move |e| {
+            finalizer();
+            Effect::fail(e)
+        })
+    }
+
+    /// `Effect.ensuring` at the pin: run `finalizer` on every exit —
+    /// success, typed failure, defect, and interrupt — then pass the exit
+    /// through unchanged. Deliberately simple: the finalizer is a plain
+    /// side effect, not an effect, so its own failure cannot append to the
+    /// cause (L6's append rule needs a merging error channel this port does
+    /// not express). The rows this covers finalize with `Effect.sync`.
+    pub fn ensuring<F>(self, finalizer: F) -> Self
+    where
+        F: Fn() + Send + Sync + 'static,
+    {
+        let fin = Arc::new(finalizer);
+        self.fold_e(
+            {
+                let fin = Arc::clone(&fin);
+                move |value| {
+                    fin();
+                    Effect::succeed(value)
+                }
+            },
+            {
+                let fin = Arc::clone(&fin);
+                move |cause| {
+                    fin();
+                    Effect::fail_with(cause)
+                }
+            },
+        )
     }
 
     /// Handle the typed error channel. Fires only on a clean single `Fail`;

@@ -109,3 +109,100 @@ fn typed_failure_stays_a_fail_reason() {
         Exit::Success(_) => panic!("expected a typed failure"),
     }
 }
+
+// ---------------------------------------------------------------------------
+// finalization at the pin (describe "finalization")
+// ---------------------------------------------------------------------------
+
+#[test]
+fn ensuring_runs_on_a_typed_failure_and_preserves_it() {
+    // Effect.fail("body failure").pipe(Effect.ensuring(sync), Effect.exit)
+    // === Exit.fail("body failure") with the finalizer having run.
+    let finalized = std::sync::Arc::new(std::sync::Mutex::new(false));
+    let seen = finalized.clone();
+    let effect: Effect<&str, String, ()> =
+        Effect::<&str, String>::fail("body failure".to_string())
+            .ensuring(move || *seen.lock().unwrap() = true);
+    match run(effect) {
+        Exit::Failure(cause) => assert_eq!(cause.failure(), Some(&"body failure".to_string())),
+        Exit::Success(_) => panic!("expected the typed failure"),
+    }
+    assert!(*finalized.lock().unwrap(), "the finalizer must have run");
+}
+
+#[test]
+fn ensuring_runs_on_success() {
+    // A success exit keeps its value and still runs the finalizer.
+    let finalized = std::sync::Arc::new(std::sync::Mutex::new(false));
+    let seen = finalized.clone();
+    let effect: Effect<u32, String, ()> =
+        Effect::<u32, String>::succeed(1).ensuring(move || *seen.lock().unwrap() = true);
+    assert!(matches!(run(effect), Exit::Success(1)));
+    assert!(*finalized.lock().unwrap(), "the finalizer must have run");
+}
+
+#[test]
+fn on_error_runs_only_on_a_typed_failure() {
+    // Effect.fail("body failure").pipe(Effect.onError(sync), Effect.exit)
+    // === Exit.fail("body failure") with the finalizer having run.
+    let calls = std::sync::Arc::new(std::sync::Mutex::new(0u32));
+    let seen = calls.clone();
+    let effect: Effect<&str, String, ()> =
+        Effect::<&str, String>::fail("body failure".to_string()).on_error(move || {
+            *seen.lock().unwrap() += 1;
+        });
+    match run(effect) {
+        Exit::Failure(cause) => assert_eq!(cause.failure(), Some(&"body failure".to_string())),
+        Exit::Success(_) => panic!("expected the typed failure"),
+    }
+    assert_eq!(*calls.lock().unwrap(), 1);
+}
+
+#[test]
+fn on_error_does_not_run_on_success() {
+    // A success never fires the typed-error finalizer.
+    let calls = std::sync::Arc::new(std::sync::Mutex::new(0u32));
+    let seen = calls.clone();
+    let effect: Effect<u32, String, ()> =
+        Effect::<u32, String>::succeed(7).on_error(move || {
+            *seen.lock().unwrap() += 1;
+        });
+    assert!(matches!(run(effect), Exit::Success(7)));
+    assert_eq!(*calls.lock().unwrap(), 0);
+}
+
+#[test]
+fn on_error_does_not_run_on_a_defect() {
+    // A defect is not a typed failure: onError must leave it alone.
+    let calls = std::sync::Arc::new(std::sync::Mutex::new(0u32));
+    let seen = calls.clone();
+    let effect: Effect<u32, String, ()> =
+        Effect::<u32, String>::die(elm_effect::Defect::new("boom")).on_error(move || {
+            *seen.lock().unwrap() += 1;
+        });
+    match run(effect) {
+        Exit::Failure(cause) => assert!(!cause.defects().is_empty(), "the defect survives"),
+        Exit::Success(_) => panic!("expected the defect"),
+    }
+    assert_eq!(*calls.lock().unwrap(), 0, "onError must not fire on a defect");
+}
+
+#[test]
+fn ensuring_does_not_change_the_cause() {
+    // The finalizer is a plain side effect, so the original cause is passed
+    // through byte-for-byte: a defect and an interrupt survive untouched.
+    let calls = std::sync::Arc::new(std::sync::Mutex::new(0u32));
+    let seen = calls.clone();
+    let effect: Effect<u32, String, ()> =
+        Effect::<u32, String>::die(elm_effect::Defect::new("boom")).ensuring(move || {
+            *seen.lock().unwrap() += 1;
+        });
+    match run(effect) {
+        Exit::Failure(cause) => {
+            assert!(cause.is_interrupted() == false);
+            assert_eq!(cause.defects().len(), 1);
+        }
+        Exit::Success(_) => panic!("expected the defect"),
+    }
+    assert_eq!(*calls.lock().unwrap(), 1);
+}
