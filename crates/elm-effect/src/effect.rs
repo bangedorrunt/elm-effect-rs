@@ -175,6 +175,42 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
         }
     }
 
+    /// `Effect.fromOption` at the pin: `Some` succeeds, `None` fails with the
+    /// supplied error. The pin defaults to `NoSuchElementError`; this port
+    /// takes the error builder explicitly, so no invented type stands in.
+    pub fn from_option<F>(option: std::option::Option<A>, on_none: F) -> Self
+    where
+        F: FnOnce() -> E,
+    {
+        match option {
+            std::option::Option::Some(value) => Effect::succeed(value),
+            std::option::Option::None => Effect::fail(on_none()),
+        }
+    }
+
+    /// `Effect.fromResult` at the pin: `Ok` succeeds, `Err` fails with its
+    /// error. The typed error channel only; defects never enter here.
+    pub fn from_result(result: std::result::Result<A, E>) -> Self {
+        match result {
+            std::result::Result::Ok(value) => Effect::succeed(value),
+            std::result::Result::Err(error) => Effect::fail(error),
+        }
+    }
+
+    /// `Effect.transposeOption` at the pin: `Some(effect)` maps the success
+    /// into `Some`, `None` succeeds with `None`. The inner effect is not run
+    /// until interpreted, like every description.
+    pub fn transpose_option(option: std::option::Option<Self>) -> Effect<
+        std::option::Option<A>,
+        E,
+        R,
+    > {
+        match option {
+            std::option::Option::Some(effect) => effect.map(std::option::Option::Some),
+            std::option::Option::None => Effect::succeed(std::option::Option::None),
+        }
+    }
+
     /// Handle the typed error channel. Fires only on a clean single `Fail`;
     /// `Die`, `Interrupt`, and mixed causes pass through untouched.
     pub fn catch<F>(self, on_fail: F) -> Self

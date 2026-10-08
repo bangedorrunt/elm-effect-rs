@@ -1194,15 +1194,15 @@ unported	packages/effect/test/Effect.test.ts	315	it	acquireUseRelease interrupt
 unported	packages/effect/test/Effect.test.ts	342	it.effect	acquireUseRelease runs release when use throws	
 unported	packages/effect/test/Effect.test.ts	370	it	acquireUseRelease uninterruptible	
 unported	packages/effect/test/Effect.test.ts	398	it.effect	Context.Service	
-unported	packages/effect/test/Effect.test.ts	405	it.effect	from a some	
+ported	packages/effect/test/Effect.test.ts	405	it.effect	from a some	from_option_some_succeeds
 unported	packages/effect/test/Effect.test.ts	411	it.effect	from a none	
-unported	packages/effect/test/Effect.test.ts	418	it.effect	from a none with a custom error	
-unported	packages/effect/test/Effect.test.ts	425	it.effect	from a none with a custom error data-last	
-unported	packages/effect/test/Effect.test.ts	437	it.effect	transposes a none	
-unported	packages/effect/test/Effect.test.ts	443	it.effect	transposes a some containing a success	
-unported	packages/effect/test/Effect.test.ts	449	it.effect	transposes a some containing a failure	
-unported	packages/effect/test/Effect.test.ts	457	it.effect	from a success	
-unported	packages/effect/test/Effect.test.ts	463	it.effect	from a failure	
+ported	packages/effect/test/Effect.test.ts	418	it.effect	from a none with a custom error	from_option_none_fails_with_the_supplied_error
+ported	packages/effect/test/Effect.test.ts	425	it.effect	from a none with a custom error data-last	from_option_none_fails_with_the_supplied_error
+ported	packages/effect/test/Effect.test.ts	437	it.effect	transposes a none	transpose_option_none_succeeds_with_none
+ported	packages/effect/test/Effect.test.ts	443	it.effect	transposes a some containing a success	transpose_option_some_of_success_succeeds_with_some
+ported	packages/effect/test/Effect.test.ts	449	it.effect	transposes a some containing a failure	transpose_option_some_of_failure_keeps_the_error
+ported	packages/effect/test/Effect.test.ts	457	it.effect	from a success	from_result_success_succeeds
+ported	packages/effect/test/Effect.test.ts	463	it.effect	from a failure	from_result_failure_fails_with_its_error
 unported	packages/effect/test/Effect.test.ts	472	it.effect	succeeds with the returned value in direct-thunk form	
 unported	packages/effect/test/Effect.test.ts	478	it.effect	maps thrown values to UnknownError in direct-thunk form	
 unported	packages/effect/test/Effect.test.ts	487	it.effect	succeeds with the returned value	
