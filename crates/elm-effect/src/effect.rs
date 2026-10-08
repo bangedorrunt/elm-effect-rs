@@ -254,6 +254,45 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
         )
     }
 
+    /// `Effect.onExit` at the pin: observe the finished exit, then pass the
+    /// original outcome through unchanged. The callback sees exactly the
+    /// `Exit` a caller would (success, typed failure, defect, or interrupt),
+    /// and the effect's own `A` and `E` are preserved. Exactly one call
+    /// happens: the shared slot is taken in whichever arm runs.
+    ///
+    /// The callback borrows the exit rather than owning it, so no `Clone`
+    /// bound on `E` is imposed (the pin hands the exit over by value; a
+    /// shared reference carries the same observable claim).
+    pub fn on_exit<F>(self, f: F) -> Self
+    where
+        F: FnOnce(&Exit<A, E>) + Send + 'static,
+    {
+        let slot = Arc::new(std::sync::Mutex::new(Some(f)));
+        let (success_slot, failure_slot) = (Arc::clone(&slot), Arc::clone(&slot));
+        self.fold_e(
+            move |value| {
+                let exit = Exit::Success(value);
+                if let Some(cb) = success_slot.lock().unwrap().take() {
+                    cb(&exit);
+                }
+                match exit {
+                    Exit::Success(a) => Effect::succeed(a),
+                    Exit::Failure(cause) => unreachable!("just built as success"),
+                }
+            },
+            move |cause| {
+                let exit = Exit::Failure(cause);
+                if let Some(cb) = failure_slot.lock().unwrap().take() {
+                    cb(&exit);
+                }
+                match exit {
+                    Exit::Failure(cause) => Effect::fail_with(cause),
+                    Exit::Success(_) => unreachable!("just built as failure"),
+                }
+            },
+        )
+    }
+
     /// Handle the typed error channel. Fires only on a clean single `Fail`;
     /// `Die`, `Interrupt`, and mixed causes pass through untouched.
     pub fn catch<F>(self, on_fail: F) -> Self

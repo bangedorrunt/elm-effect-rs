@@ -206,3 +206,99 @@ fn ensuring_does_not_change_the_cause() {
     }
     assert_eq!(*calls.lock().unwrap(), 1);
 }
+
+// ---------------------------------------------------------------------------
+// onExit / onResult at the pin (describe "finalization")
+// ---------------------------------------------------------------------------
+
+#[test]
+fn on_exit_observes_a_defect_and_passes_it_through() {
+    // Effect.die("boom").pipe(Effect.onExit(exit => hasDies(exit) ? ... ))
+    // The cleanup runs and the defect survives untouched.
+    let observed = std::sync::Arc::new(std::sync::Mutex::new(String::new()));
+    let mark = observed.clone();
+    let effect: Effect<&str, String, ()> =
+        Effect::<&str, String>::die(elm_effect::Defect::new("boom")).on_exit(move |exit| {
+            *mark.lock().unwrap() = match exit {
+                Exit::Failure(cause) if !cause.defects().is_empty() => "die".to_string(),
+                Exit::Failure(cause) if cause.is_interrupted() => "interrupt".to_string(),
+                Exit::Failure(_) => "fail".to_string(),
+                Exit::Success(_) => "success".to_string(),
+            };
+        });
+    match run(effect) {
+        Exit::Failure(cause) => {
+            assert_eq!(cause.defects().len(), 1, "the defect survives");
+            assert_eq!(cause.defects()[0].message, "boom");
+        }
+        Exit::Success(_) => panic!("expected the defect"),
+    }
+    assert_eq!(*observed.lock().unwrap(), "die");
+}
+
+#[test]
+fn on_exit_observes_a_typed_failure() {
+    let observed = std::sync::Arc::new(std::sync::Mutex::new(String::new()));
+    let mark = observed.clone();
+    let effect: Effect<&str, String, ()> =
+        Effect::<&str, String>::fail("body failure".to_string()).on_exit(move |exit| {
+            *mark.lock().unwrap() = match exit {
+                Exit::Failure(cause) if !cause.defects().is_empty() => "die".to_string(),
+                Exit::Failure(_) => "fail".to_string(),
+                Exit::Success(_) => "success".to_string(),
+            };
+        });
+    match run(effect) {
+        Exit::Failure(cause) => assert_eq!(cause.failure(), Some(&"body failure".to_string())),
+        Exit::Success(_) => panic!("expected the typed failure"),
+    }
+    assert_eq!(*observed.lock().unwrap(), "fail");
+}
+
+#[test]
+fn on_exit_observes_success() {
+    // A success exit reaches the callback with the success outcome.
+    let observed = std::sync::Arc::new(std::sync::Mutex::new(String::new()));
+    let mark = observed.clone();
+    let effect: Effect<u32, String, ()> = Effect::<u32, String>::succeed(1).on_exit(move |exit| {
+        *mark.lock().unwrap() = match exit {
+            Exit::Success(_) => "success".to_string(),
+            Exit::Failure(_) => "failure".to_string(),
+        };
+    });
+    assert!(matches!(run(effect), Exit::Success(1)));
+    assert_eq!(*observed.lock().unwrap(), "success");
+}
+
+#[test]
+fn on_exit_runs_exactly_once() {
+    // The shared slot is taken in whichever arm runs: two runs, one call each.
+    let calls = std::sync::Arc::new(std::sync::Mutex::new(0u32));
+    let mark = calls.clone();
+    let effect: Effect<u32, String, ()> = Effect::<u32, String>::succeed(1).on_exit(move |_| {
+        *mark.lock().unwrap() += 1;
+    });
+    assert!(matches!(run(effect), Exit::Success(1)));
+    assert_eq!(*calls.lock().unwrap(), 1);
+}
+
+#[test]
+fn on_result_runs_the_cleanup_when_the_effect_dies() {
+    // onResult's cleanup runs for a defect. The pin's test branches on
+    // Exit.hasDies; the observable claim is that the cleanup runs.
+    use std::sync::Arc as StdArc;
+    use std::sync::Mutex as StdMutex;
+    let cleaned = StdArc::new(StdMutex::new(false));
+    let mark = StdArc::clone(&cleaned);
+    let effect: Effect<&str, String, ()> =
+        Effect::<&str, String>::die(elm_effect::Defect::new("boom")).on_exit(move |exit| {
+            if let Exit::Failure(cause) = exit {
+                if !cause.defects().is_empty() {
+                    *mark.lock().unwrap() = true;
+                }
+            }
+        });
+    let _ = run(effect);
+    assert!(*cleaned.lock().unwrap(), "the cleanup must run on a defect");
+}
+

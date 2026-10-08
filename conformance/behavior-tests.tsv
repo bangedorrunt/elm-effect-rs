@@ -1360,7 +1360,7 @@ unported	packages/effect/test/Effect.test.ts	2899	it.effect	combines usage and r
 unported	packages/effect/test/Effect.test.ts	2912	it.effect	rethrown caught error in acquisition	
 unported	packages/effect/test/Effect.test.ts	2922	it.effect	rethrown caught error in release	
 unported	packages/effect/test/Effect.test.ts	2935	it.effect	rethrown caught error in usage	
-unported	packages/effect/test/Effect.test.ts	2945	it.effect	onResult - ensures that a cleanup function runs when an effect fails	
+ported	packages/effect/test/Effect.test.ts	2945	it.effect	onResult - ensures that a cleanup function runs when an effect fails	on_result_runs_the_cleanup_when_the_effect_dies
 unported	packages/effect/test/Effect.test.ts	2962	it.effect	onExit - callback observes interrupt exit when the fiber is interrupted	
 ported	packages/effect/test/Effect.test.ts	3007	it.effect	does not log when log is omitted	ignore_omitted_logs_nothing
 ported	packages/effect/test/Effect.test.ts	3013	it.effect	does not log when log is false	ignore_false_logs_nothing
