@@ -222,3 +222,121 @@ fn acquire_into_closed_scope_releases_immediately() {
     ));
     assert_eq!(*log.lock().unwrap(), vec!["res"]);
 }
+
+// ---------------------------------------------------------------------------
+// acquireUseRelease at the pin (Effect.test.ts describe "acquireUseRelease")
+// ---------------------------------------------------------------------------
+
+#[test]
+fn acquire_use_release_returns_the_usage_result() {
+    // acquireUseRelease(Effect.void, () => Effect.succeed(42), () => Effect.void)
+    // === 42. The release runs at the fiber's end, after use.
+    let rt = Runtime::new();
+    let released = Arc::new(AtomicBool::new(false));
+    let fin_released = released.clone();
+    let exit = rt
+        .fork_detach(
+            move |ctx| -> Exit<u32, String> {
+                let res = ctx.acquire_release(
+                    Effect::<u32, String>::succeed(1),
+                    move |_| -> Effect<(), String> {
+                        fin_released.store(true, Ordering::SeqCst);
+                        Effect::succeed(())
+                    },
+                );
+                match res {
+                    Ok(_) => Exit::succeed(42),
+                    Err(cause) => Exit::Failure(cause),
+                }
+            },
+        )
+        .join();
+    assert!(matches!(exit, Exit::Success(42)));
+    assert!(released.load(Ordering::SeqCst), "release runs after use");
+}
+
+#[test]
+fn acquire_use_release_error_in_just_acquisition() {
+    // The acquire fails: no use runs, no release registers, and the fiber
+    // carries the typed failure.
+    let rt = Runtime::new();
+    let exit = rt
+        .fork_detach(
+            move |ctx| -> Exit<u32, String> {
+                match ctx.acquire_release(
+                    Effect::<u32, String>::fail("acq boom".to_string()),
+                    |_| -> Effect<(), String> { Effect::succeed(()) },
+                ) {
+                    Ok(n) => Exit::succeed(n),
+                    Err(cause) => Exit::Failure(cause),
+                }
+            },
+        )
+        .join();
+    match exit {
+        Exit::Failure(cause) => assert_eq!(cause.failure(), Some(&"acq boom".to_string())),
+        Exit::Success(_) => panic!("expected the acquisition failure"),
+    }
+}
+
+#[test]
+fn acquire_use_release_error_in_just_release() {
+    // The release dies. A failing release appends as a Die, so a successful
+    // use ends as a defect-only failure (L6: the original reason survives
+    // as the release's own failure, never erased).
+    let rt = Runtime::new();
+    let release_calls = Arc::new(AtomicBool::new(false));
+    let fin_calls = release_calls.clone();
+    let exit = rt
+        .fork_detach(
+            move |ctx| -> Exit<u32, String> {
+                let res = ctx.acquire_release(
+                    Effect::<u32, String>::succeed(1),
+                    move |_| -> Effect<(), String> {
+                        fin_calls.store(true, Ordering::SeqCst);
+                        Effect::die(elm_effect::Defect::new("rel boom"))
+                    },
+                );
+                match res {
+                    Ok(n) => Exit::succeed(n),
+                    Err(cause) => Exit::Failure(cause),
+                }
+            },
+        )
+        .join();
+    assert!(release_calls.load(Ordering::SeqCst), "release must run");
+    match exit {
+        Exit::Failure(cause) => {
+            assert!(cause.failure().is_none(), "a die is not a typed failure");
+            assert_eq!(cause.defects().len(), 1);
+        }
+        Exit::Success(_) => panic!("a failing release must fail the fiber"),
+    }
+}
+
+#[test]
+fn acquire_use_release_error_in_just_usage() {
+    // The use fails with a typed error; a successful release appends nothing.
+    let rt = Runtime::new();
+    let exit = rt
+        .fork_detach(
+            move |ctx| -> Exit<u32, String> {
+                let res = ctx.acquire_release(
+                    Effect::<u32, String>::succeed(1),
+                    |_| -> Effect<(), String> { Effect::succeed(()) },
+                );
+                match res {
+                    Ok(_) => Exit::Failure(Cause::fail("usage boom".to_string())),
+                    Err(cause) => Exit::Failure(cause),
+                }
+            },
+        )
+        .join();
+    match exit {
+        Exit::Failure(cause) => {
+            assert_eq!(cause.failure(), Some(&"usage boom".to_string()));
+            assert!(cause.defects().is_empty(), "no release failure to append");
+        }
+        Exit::Success(_) => panic!("expected the usage failure"),
+    }
+}

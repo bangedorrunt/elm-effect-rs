@@ -1352,10 +1352,10 @@ ported	packages/effect/test/Effect.test.ts	2783	it.effect	fail on error	on_error
 unported	packages/effect/test/Effect.test.ts	2798	it.effect	finalizer errors merged	
 unported	packages/effect/test/Effect.test.ts	2816	it.effect	finalizer errors reported	
 unported	packages/effect/test/Effect.test.ts	2838	it.effect	scoped combines usage and finalizer failures	
-unported	packages/effect/test/Effect.test.ts	2850	it.effect	acquireUseRelease usage result	
-unported	packages/effect/test/Effect.test.ts	2860	it.effect	error in just acquisition	
-unported	packages/effect/test/Effect.test.ts	2873	it.effect	error in just release	
-unported	packages/effect/test/Effect.test.ts	2886	it.effect	error in just usage	
+ported	packages/effect/test/Effect.test.ts	2850	it.effect	acquireUseRelease usage result	acquire_use_release_returns_the_usage_result
+ported	packages/effect/test/Effect.test.ts	2860	it.effect	error in just acquisition	acquire_use_release_error_in_just_acquisition
+ported	packages/effect/test/Effect.test.ts	2873	it.effect	error in just release	acquire_use_release_error_in_just_release
+ported	packages/effect/test/Effect.test.ts	2886	it.effect	error in just usage	acquire_use_release_error_in_just_usage
 unported	packages/effect/test/Effect.test.ts	2899	it.effect	combines usage and release failures	
 unported	packages/effect/test/Effect.test.ts	2912	it.effect	rethrown caught error in acquisition	
 unported	packages/effect/test/Effect.test.ts	2922	it.effect	rethrown caught error in release	
