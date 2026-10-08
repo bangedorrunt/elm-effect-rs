@@ -6,6 +6,8 @@
 //! how many run at once. Fail-fast: the first failure interrupts the rest
 //! and wins; `validate` (.26) is the collecting twin.
 
+use std::sync::Arc;
+
 use crate::{Cause, Ctx, Exit, FiberHandle, ForkOpts, Reason, Runtime};
 
 /// How many bodies run at once.
@@ -155,6 +157,146 @@ where
         })
         .collect();
     all(rt, bodies, concurrency)
+}
+
+/// `Effect.reduce` at the pin: fold items in order, sequentially, passing the
+/// index. `init` is evaluated once per run, so a lazy zero stays lazy. Stops
+/// at the first failure; the items after the failing one are not seen.
+pub fn reduce<T, S, E, F0, F>(rt: &Runtime, items: Vec<T>, init: F0, f: F) -> Exit<S, E>
+where
+    T: Send + 'static,
+    S: Send + 'static,
+    E: Send + 'static,
+    F0: Fn() -> S,
+    F: Fn(S, T, usize) -> Exit<S, E> + Send + Sync + 'static,
+{
+    let f = Arc::new(f);
+    let mut state = init();
+    for (index, item) in items.into_iter().enumerate() {
+        let (f, current) = (Arc::clone(&f), state);
+        let body: Body<S, E> = Box::new(move |_ctx: &Ctx| f(current, item, index));
+        match rt.fork_detach_with(body, ForkOpts::immediate()).join() {
+            Exit::Success(next) => state = next,
+            Exit::Failure(cause) => return Exit::Failure(cause),
+        }
+    }
+    Exit::Success(state)
+}
+
+/// `Effect.findFirst` at the pin: return the first element whose predicate
+/// passes, then stop. Elements after the match are never visited, and a
+/// predicate failure fails the run.
+pub fn find_first<T, E, F>(rt: &Runtime, items: Vec<T>, f: F) -> Exit<Option<T>, E>
+where
+    T: Clone + Send + 'static,
+    E: Send + 'static,
+    F: Fn(T, usize) -> Exit<bool, E> + Send + Sync + 'static,
+{
+    let f = Arc::new(f);
+    for (index, item) in items.into_iter().enumerate() {
+        let (f, probe) = (Arc::clone(&f), item.clone());
+        let body: Body<bool, E> = Box::new(move |_ctx: &Ctx| f(probe, index));
+        match rt.fork_detach_with(body, ForkOpts::immediate()).join() {
+            Exit::Success(true) => return Exit::Success(Some(item)),
+            Exit::Success(false) => continue,
+            Exit::Failure(cause) => return Exit::Failure(cause),
+        }
+    }
+    Exit::Success(None)
+}
+
+/// `Effect.findFirstFilter` at the pin: return the first successful mapped
+/// value, then stop. A `None` mapping is a skip, not a failure.
+pub fn find_first_filter<T, U, E, F>(rt: &Runtime, items: Vec<T>, f: F) -> Exit<Option<U>, E>
+where
+    T: Send + 'static,
+    U: Send + 'static,
+    E: Send + 'static,
+    F: Fn(T, usize) -> Option<U> + Send + Sync + 'static,
+{
+    let f = Arc::new(f);
+    for (index, item) in items.into_iter().enumerate() {
+        let f = Arc::clone(&f);
+        let body: Body<Option<U>, E> = Box::new(move |_ctx: &Ctx| {
+            Exit::Success(f(item, index))
+        });
+        match rt.fork_detach_with(body, ForkOpts::immediate()).join() {
+            Exit::Success(Some(value)) => return Exit::Success(Some(value)),
+            Exit::Success(None) => continue,
+            Exit::Failure(cause) => return Exit::Failure(cause),
+        }
+    }
+    Exit::Success(None)
+}
+
+/// `Effect.partition(items, f)` at the pin: map each item through `f` and
+/// collect typed successes and failures in order. Defects and interrupts
+/// still fail fast through [`partition`].
+pub fn partition_items<T, A, E, F>(
+    rt: &Runtime,
+    items: Vec<T>,
+    concurrency: Concurrency,
+    f: F,
+) -> Exit<(Vec<A>, Vec<E>), E>
+where
+    T: Send + 'static,
+    A: Send + 'static,
+    E: Send + 'static,
+    F: Fn(T, &Ctx) -> Exit<A, E> + Send + Sync + 'static,
+{
+    partition(rt, item_bodies(items, f), concurrency)
+}
+
+/// `Effect.validate(items, f)` at the pin: every typed failure accumulates
+/// into the error list, which is the failure channel itself.
+pub fn validate_items<T, A, E, F>(
+    rt: &Runtime,
+    items: Vec<T>,
+    concurrency: Concurrency,
+    f: F,
+) -> Exit<Vec<A>, Vec<E>>
+where
+    T: Send + 'static,
+    A: Send + 'static,
+    E: Send + 'static,
+    F: Fn(T, &Ctx) -> Exit<A, E> + Send + Sync + 'static,
+{
+    validate(rt, item_bodies(items, f), concurrency)
+}
+
+/// `Effect.validate(items, f, { discard: true })`: `()` when everything
+/// passes, every collected error otherwise.
+pub fn validate_discard_items<T, A, E, F>(
+    rt: &Runtime,
+    items: Vec<T>,
+    concurrency: Concurrency,
+    f: F,
+) -> Exit<(), Vec<E>>
+where
+    T: Send + 'static,
+    A: Send + 'static,
+    E: Send + 'static,
+    F: Fn(T, &Ctx) -> Exit<A, E> + Send + Sync + 'static,
+{
+    validate_discard(rt, item_bodies(items, f), concurrency)
+}
+
+/// Build one fiber body per item (the pin's data-first collection form).
+fn item_bodies<T, A, E, F>(items: Vec<T>, f: F) -> Vec<Body<A, E>>
+where
+    T: Send + 'static,
+    A: Send + 'static,
+    E: Send + 'static,
+    F: Fn(T, &Ctx) -> Exit<A, E> + Send + Sync + 'static,
+{
+    let f = Arc::new(f);
+    items
+        .into_iter()
+        .map(|item| {
+            let f = Arc::clone(&f);
+            Box::new(move |ctx: &Ctx| f(item, ctx)) as Body<A, E>
+        })
+        .collect()
 }
 
 /// Run every body, collecting successes and typed failures in order. A

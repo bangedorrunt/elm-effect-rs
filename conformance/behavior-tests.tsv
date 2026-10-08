@@ -1245,23 +1245,23 @@ unported	packages/effect/test/Effect.test.ts	978	it.effect	iterable
 unported	packages/effect/test/Effect.test.ts	990	it.effect	tuple result mode	
 unported	packages/effect/test/Effect.test.ts	1021	it.effect	record result mode	
 unported	packages/effect/test/Effect.test.ts	1039	it.effect	concurrency interrupts started siblings on failure	
-unported	packages/effect/test/Effect.test.ts	1070	it.effect	collects only successes	
-unported	packages/effect/test/Effect.test.ts	1078	it.effect	collects only failures	
-unported	packages/effect/test/Effect.test.ts	1086	it.effect	collects successes and failures	
-unported	packages/effect/test/Effect.test.ts	1094	it.effect	supports concurrency option	
-unported	packages/effect/test/Effect.test.ts	1108	it.effect	runs sequentially from left to right and passes the index	
-unported	packages/effect/test/Effect.test.ts	1121	it.effect	stops at the first failure	
-unported	packages/effect/test/Effect.test.ts	1137	it.effect	returns zero for an empty iterable	
+ported	packages/effect/test/Effect.test.ts	1070	it.effect	collects only successes	partition_collects_only_successes
+ported	packages/effect/test/Effect.test.ts	1078	it.effect	collects only failures	partition_collects_only_failures
+ported	packages/effect/test/Effect.test.ts	1086	it.effect	collects successes and failures	partition_collects_successes_and_failures
+ported	packages/effect/test/Effect.test.ts	1094	it.effect	supports concurrency option	partition_supports_concurrency_option
+ported	packages/effect/test/Effect.test.ts	1108	it.effect	runs sequentially from left to right and passes the index	reduce_runs_sequentially_and_passes_the_index
+ported	packages/effect/test/Effect.test.ts	1121	it.effect	stops at the first failure	reduce_stops_at_the_first_failure
+ported	packages/effect/test/Effect.test.ts	1137	it.effect	returns zero for an empty iterable	reduce_returns_an_empty_iterable_initial_value
 unported	packages/effect/test/Effect.test.ts	1143	it.effect	evaluates zero lazily for each run	
-unported	packages/effect/test/Effect.test.ts	1159	it.effect	collects successes when all effects succeed	
-unported	packages/effect/test/Effect.test.ts	1166	it.effect	accumulates all failures	
-unported	packages/effect/test/Effect.test.ts	1175	it.effect	supports discard option	
-unported	packages/effect/test/Effect.test.ts	1183	it.effect	returns first matching element	
-unported	packages/effect/test/Effect.test.ts	1189	it.effect	returns none when no element matches	
-unported	packages/effect/test/Effect.test.ts	1195	it.effect	short-circuits on first match	
-unported	packages/effect/test/Effect.test.ts	1209	it.effect	returns first successful transformed value	
-unported	packages/effect/test/Effect.test.ts	1216	it.effect	passes index to filter	
-unported	packages/effect/test/Effect.test.ts	1223	it.effect	returns none when filter never succeeds	
+ported	packages/effect/test/Effect.test.ts	1159	it.effect	collects successes when all effects succeed	validate_collects_successes_when_all_succeed
+ported	packages/effect/test/Effect.test.ts	1166	it.effect	accumulates all failures	validate_accumulates_all_failures
+ported	packages/effect/test/Effect.test.ts	1175	it.effect	supports discard option	validate_supports_discard_option
+ported	packages/effect/test/Effect.test.ts	1183	it.effect	returns first matching element	find_first_returns_first_matching_element
+ported	packages/effect/test/Effect.test.ts	1189	it.effect	returns none when no element matches	find_first_returns_none_when_no_element_matches
+ported	packages/effect/test/Effect.test.ts	1195	it.effect	short-circuits on first match	find_first_short_circuits_on_first_match
+ported	packages/effect/test/Effect.test.ts	1209	it.effect	returns first successful transformed value	find_first_filter_returns_first_successful_transformed_value
+ported	packages/effect/test/Effect.test.ts	1216	it.effect	passes index to filter	find_first_filter_passes_index_to_filter
+ported	packages/effect/test/Effect.test.ts	1223	it.effect	returns none when filter never succeeds	find_first_filter_returns_none_when_filter_never_succeeds
 unported	packages/effect/test/Effect.test.ts	1231	it.live	odd numbers	
 unported	packages/effect/test/Effect.test.ts	1237	it.live	iterable	
 unported	packages/effect/test/Effect.test.ts	1245	it.effect	releases disposables	
