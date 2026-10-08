@@ -358,6 +358,17 @@ impl ManagedRuntime {
         &self.runtime
     }
 
+    /// The edge for a non-effect caller (a CLI handler, a test, a host
+    /// loop): run `effect` to an [`Exit`]. Delegates to
+    /// [`Runtime::run`]; it lives here so library crates never name it (L3).
+    pub fn run<A, E>(&self, effect: Effect<A, E>) -> Exit<A, E>
+    where
+        A: Send + 'static,
+        E: Send + 'static,
+    {
+        Runtime::run(effect)
+    }
+
     /// Interrupt live fibers and wait for finalizers. Idempotent.
     pub fn shutdown(&self) {
         self.runtime.shutdown();

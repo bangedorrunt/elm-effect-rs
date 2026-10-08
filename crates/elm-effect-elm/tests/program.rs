@@ -1,7 +1,7 @@
 //! Elm loop fence: Program/Update/Boot fold, durable intents,
 //! interpretation feedback, subscriber read-only shape.
 
-use elm_effect::Effect;
+use elm_effect::{Effect, ManagedRuntime};
 use elm_effect_elm::{Boot, Cmd, Durability, Interpret, InterpretError, Loop, Program, Subscriber, Update};
 use serde::{Deserialize, Serialize};
 
@@ -77,7 +77,7 @@ fn boot_parses_config_without_live_handles() {
 
 #[test]
 fn fold_updates_model() {
-    let mut app = Loop::<Counter, Run>::boot(&Boot::parse(vec!["start=5".to_string()]));
+    let mut app = Loop::<Counter, Run>::boot(&Boot::parse(vec!["start=5".to_string()]), ManagedRuntime::new());
     assert_eq!(app.model().count, 5);
     // Time enters as a message.
     app.send(Msg::Tick);
@@ -88,7 +88,7 @@ fn fold_updates_model() {
 
 #[test]
 fn durable_intents_recorded_ephemeral_not() {
-    let mut app = Loop::<Counter, Run>::boot(&Boot::default());
+    let mut app = Loop::<Counter, Run>::boot(&Boot::default(), ManagedRuntime::new());
     app.send(Msg::Tick);
     let keys: Vec<&str> = app.intents().iter().map(|r| r.key.as_str()).collect();
     assert_eq!(keys, vec!["count"]);
@@ -99,7 +99,7 @@ fn durable_intents_recorded_ephemeral_not() {
 #[test]
 fn interpret_feedback_runs_commands() {
     // Persist interprets to Add(0): model moves only by the Tick fold.
-    let mut app = Loop::<Counter, Run>::boot(&Boot::default());
+    let mut app = Loop::<Counter, Run>::boot(&Boot::default(), ManagedRuntime::new());
     app.send(Msg::Tick);
     assert_eq!(app.model().count, 1);
     assert_eq!(app.intents().len(), 1);
@@ -110,7 +110,7 @@ fn subscriber_cannot_write() {
     fn only_reads(s: Subscriber<Model>) -> i64 {
         s.read().count
     }
-    let app = Loop::<Counter, Run>::boot(&Boot::default());
+    let app = Loop::<Counter, Run>::boot(&Boot::default(), ManagedRuntime::new());
     assert_eq!(only_reads(app.subscriber()), 0);
 }
 

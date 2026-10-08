@@ -14,7 +14,7 @@
 
 use std::collections::BTreeMap;
 
-use elm_effect::{Effect, Exit, Runtime};
+use elm_effect::{Effect, Exit, ManagedRuntime};
 
 pub mod replay;
 use serde::{Deserialize, Serialize};
@@ -136,10 +136,13 @@ impl<Model> Subscriber<Model> {
     }
 }
 
-/// The runtime loop: fold, record, interpret, feed back.
+/// The runtime loop: fold, record, interpret, feed back. The edge bridge is
+/// supplied by the host (L3: interpreting a description stays at the edge,
+/// not in a library crate).
 pub struct Loop<P: Program, I: Interpret<P>> {
     model: P::Model,
     intents: Vec<Recorded>,
+    rt: ManagedRuntime,
     _interpret: std::marker::PhantomData<I>,
 }
 
@@ -148,17 +151,16 @@ where
     P::Msg: Send + 'static,
     I::Error: Send + 'static,
 {
-    /// Boot the program: run `init`, record and run initial commands.
-    pub fn boot(boot: &Boot) -> Self {
+    /// Boot the program with the host's runtime.
+    pub fn boot(boot: &Boot, rt: ManagedRuntime) -> Self {
+        let initial = P::init(boot);
         let mut this = Self {
-            model: P::init(boot).model,
+            model: initial.model,
             intents: Vec::new(),
+            rt,
             _interpret: std::marker::PhantomData,
         };
-        let initial = P::init(boot);
-        this.model = initial.model;
-        let commands = initial.commands;
-        this.run_commands(commands);
+        this.run_commands(initial.commands);
         this
     }
 
@@ -198,7 +200,7 @@ where
             }
         }
         for cmd in commands {
-            match Runtime::run(I::interpret(&cmd)) {
+            match self.rt.run(I::interpret(&cmd)) {
                 Exit::Success(msg) => queue.push(msg),
                 Exit::Failure(_) => {}
             }
