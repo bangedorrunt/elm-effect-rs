@@ -1221,9 +1221,9 @@ unported	packages/effect/test/Effect.test.ts	652	it.effect	aborts the provided A
 unported	packages/effect/test/Effect.test.ts	665	it	gen	
 unported	packages/effect/test/Effect.test.ts	672	it	gen with context	
 unported	packages/effect/test/Effect.test.ts	679	it	iterator yields the effect once, then completes with the sent value	
-unported	packages/effect/test/Effect.test.ts	691	it.effect	sequential	
-unported	packages/effect/test/Effect.test.ts	697	it.effect	unbounded	
-unported	packages/effect/test/Effect.test.ts	703	it.effect	bounded	
+ported	packages/effect/test/Effect.test.ts	691	it.effect	sequential	for_each_sequential_preserves_input_order
+ported	packages/effect/test/Effect.test.ts	697	it.effect	unbounded	for_each_unbounded_runs_every_item
+ported	packages/effect/test/Effect.test.ts	703	it.effect	bounded	for_each_bounded_respects_the_bound
 unported	packages/effect/test/Effect.test.ts	709	it.effect	sequential interrupt	
 unported	packages/effect/test/Effect.test.ts	724	it.effect	unbounded interrupt	
 unported	packages/effect/test/Effect.test.ts	739	it.effect	bounded interrupt	

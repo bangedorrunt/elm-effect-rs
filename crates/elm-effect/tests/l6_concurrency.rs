@@ -152,3 +152,55 @@ fn for_each_mirrors_bounds() {
     });
     assert_eq!(exit, Exit::Success(vec![10, 20, 30]));
 }
+
+#[test]
+fn for_each_sequential_preserves_input_order() {
+    // Effect.forEach([1, 2, 3], succeed) === [1, 2, 3]
+    let rt = Runtime::new();
+    let exit = for_each(&rt, vec![1, 2, 3], Concurrency::Sequential, |a: i32, _| {
+        Exit::<i32, Infallible>::succeed(a)
+    });
+    assert_eq!(exit, Exit::Success(vec![1, 2, 3]));
+}
+
+#[test]
+fn for_each_unbounded_runs_every_item() {
+    // concurrency "unbounded" starts every item; the result keeps input order.
+    let rt = Runtime::new();
+    let exit = for_each(&rt, vec![1, 2, 3], Concurrency::Unbounded, |a: i32, _| {
+        Exit::<i32, Infallible>::succeed(a)
+    });
+    assert_eq!(exit, Exit::Success(vec![1, 2, 3]));
+}
+
+#[test]
+fn for_each_bounded_respects_the_bound() {
+    // concurrency 2 caps the workers without changing the collected order.
+    use std::sync::atomic::AtomicUsize;
+    let current = Arc::new(AtomicUsize::new(0));
+    let peak = Arc::new(AtomicUsize::new(0));
+    let rt = Runtime::new();
+    let exit = for_each(
+        &rt,
+        vec![1, 2, 3, 4, 5],
+        Concurrency::Bounded(2),
+        {
+            let (current, peak) = (Arc::clone(&current), Arc::clone(&peak));
+            move |a: i32, _ctx: &Ctx| {
+                let (current, peak) = (Arc::clone(&current), Arc::clone(&peak));
+                Exit::<i32, Infallible>::Success({
+                    let now = current.fetch_add(1, Ordering::SeqCst) + 1;
+                    peak.fetch_max(now, Ordering::SeqCst);
+                    std::thread::sleep(Duration::from_millis(20));
+                    current.fetch_sub(1, Ordering::SeqCst);
+                    a
+                })
+            }
+        },
+    );
+    assert_eq!(exit, Exit::Success(vec![1, 2, 3, 4, 5]));
+    assert!(
+        peak.load(Ordering::SeqCst) <= 2,
+        "a bound of 2 must never run more than two at once"
+    );
+}
