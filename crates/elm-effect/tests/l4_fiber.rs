@@ -263,3 +263,56 @@ fn closing_scope_interrupts_members() {
     assert!(is_set(&saw));
     assert!(matches!(exit, Exit::Failure(_)));
 }
+
+// ---------------------------------------------------------------------------
+// awaitAllChildren at the pin (Effect.test.ts describe "awaitAllChildren")
+// ---------------------------------------------------------------------------
+
+#[test]
+fn await_all_children_completes_immediately_without_children() {
+    // Effect.succeed(1).pipe(Effect.awaitAllChildren) === 1: nothing is
+    // forked, so there is nothing to await. The runtime must outlive the
+    // join here: dropping it shuts down and interrupts every live fiber.
+    let rt = Runtime::new();
+    let exit = rt.fork_detach(|_ctx| -> Exit<u32, String> { Exit::succeed(1) });
+    assert_eq!(exit.join(), Exit::Success(1));
+}
+
+#[test]
+fn await_all_children_waits_for_the_child_the_body_forked() {
+    // The wrapped effect forks a child that stays parked. The parent's join
+    // returns only after that child's finalizers run, which is the
+    // observable claim of Effect.awaitAllChildren in this port (a parent
+    // waits for its children's finalizers).
+    //
+    // The child must poll `is_interrupted` (the proven idiom in this file):
+    // a body that never checks it spins forever once the supervisor
+    // interrupts it, which is what hung the first version of this test.
+    let running = flag();
+    let body_running = running.clone();
+    let finalized = flag();
+    let body_finalized = finalized.clone();
+
+    let rt = Runtime::new();
+    let parent = rt.fork_detach(move |ctx| -> Exit<(), String> {
+        ctx.fork_child(
+            move |cctx| -> Exit<(), String> {
+                cctx.add_finalizer(move || body_finalized.store(true, Ordering::SeqCst));
+                body_running.store(true, Ordering::SeqCst);
+                while !cctx.is_interrupted() {
+                    std::thread::park_timeout(Duration::from_millis(1));
+                }
+                Exit::Failure(Cause::interrupt(None))
+            },
+            ForkOpts::immediate(),
+        );
+        while !is_set(&running) {
+            std::thread::park_timeout(Duration::from_millis(1));
+        }
+        Exit::succeed(())
+    });
+
+    assert_eq!(parent.join(), Exit::Success(()));
+    // The child was interrupted and finalized before join returned.
+    assert!(is_set(&finalized));
+}
