@@ -3540,14 +3540,14 @@ unported	packages/effect/test/Stream.test.ts	539	it.effect	scoped - provides sco
 unported	packages/effect/test/Stream.test.ts	557	it.effect	fromReadableStream - errored streams fail with the mapped error, not a finalizer defect	
 unported	packages/effect/test/Stream.test.ts	578	it.effect	decodeText handles multi-byte characters split across chunks	
 unported	packages/effect/test/Stream.test.ts	588	it.effect	decodeText handles mixed ASCII and multi-byte characters across chunks	
-unported	packages/effect/test/Stream.test.ts	606	it.effect	handles an empty stream	
-unported	packages/effect/test/Stream.test.ts	612	it.effect	handles empty chunks and repeated line feeds	
-unported	packages/effect/test/Stream.test.ts	618	it.effect	handles line feeds across chunks	
-unported	packages/effect/test/Stream.test.ts	624	it.effect	handles carriage return / line feed pairs across chunks	
-unported	packages/effect/test/Stream.test.ts	630	it.effect	emits a carriage-return-terminated line before pulling upstream again	
-unported	packages/effect/test/Stream.test.ts	642	it.effect	emits the final line when the stream does not end with a newline	
-unported	packages/effect/test/Stream.test.ts	648	it.effect	does not pull upstream again after flushing the final line	
-unported	packages/effect/test/Stream.test.ts	677	it.effect	handles standalone carriage returns within a chunk	
+ported	packages/effect/test/Stream.test.ts	606	it.effect	handles an empty stream	split_lines_handles_an_empty_stream
+ported	packages/effect/test/Stream.test.ts	612	it.effect	handles empty chunks and repeated line feeds	split_lines_handles_empty_chunks_and_repeated_line_feeds
+ported	packages/effect/test/Stream.test.ts	618	it.effect	handles line feeds across chunks	split_lines_handles_line_feeds_across_chunks
+ported	packages/effect/test/Stream.test.ts	624	it.effect	handles carriage return / line feed pairs across chunks	split_lines_handles_carriage_return_line_feed_pairs_across_chunks
+ported	packages/effect/test/Stream.test.ts	630	it.effect	emits a carriage-return-terminated line before pulling upstream again	split_lines_emits_a_carriage_return_terminated_line_before_pulling_upstream
+ported	packages/effect/test/Stream.test.ts	642	it.effect	emits the final line when the stream does not end with a newline	split_lines_emits_the_final_line_when_the_stream_does_not_end_with_a_newline
+ported	packages/effect/test/Stream.test.ts	648	it.effect	does not pull upstream again after flushing the final line	split_lines_handles_standalone_carriage_returns_across_chunk_boundaries
+ported	packages/effect/test/Stream.test.ts	677	it.effect	handles standalone carriage returns within a chunk	split_lines_handles_standalone_carriage_returns_across_chunk_boundaries
 unported	packages/effect/test/Stream.test.ts	683	it.effect	handles standalone carriage returns across chunk boundaries	
 ported	packages/effect/test/Stream.test.ts	706	it.effect	filterMap	filter_map_keeps_some_only
 unported	packages/effect/test/Stream.test.ts	715	it.effect	filterMapEffect	

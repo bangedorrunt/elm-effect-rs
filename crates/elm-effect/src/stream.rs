@@ -283,6 +283,160 @@ impl<A: Send + 'static, E: Send + 'static, R: crate::effect::Requirement> Stream
     }
 }
 
+impl<E: Send + 'static, R: crate::effect::Requirement> Stream<String, E, R> {
+    /// `Stream.splitLines` at the pin: split a stream of strings into lines,
+    /// handling `\n`, `\r`, and `\r\n` across chunk boundaries.
+    ///
+    /// Three pieces of state survive across pulls, exactly as the pin keeps
+    /// them inside its transform closure:
+    ///
+    /// - `carry`: text not yet terminated by a line break, prepended to the
+    ///   next line that is emitted.
+    /// - `mid_crlf`: a chunk ended on `\r`. The next non-empty chunk's
+    ///   leading `\n` is part of that same CRLF, not a second terminator.
+    /// - `ended`: the upstream signalled completion, so a later pull returns
+    ///   end without pulling again (the "does not pull upstream again after
+    ///   flushing the final line" row).
+    ///
+    /// Byte indices are used deliberately: `\r` and `\n` are ASCII, and every
+    /// computed start lands on a char boundary, so this is UTF-8 safe.
+    pub fn split_lines(self) -> Self {
+        let (pull, exec) = (self.pull, Arc::clone(&self.exec));
+        let state = Arc::new(Mutex::new(SplitLinesState::default()));
+        let (pull0, state0) = (Arc::clone(&pull), Arc::clone(&state));
+        Self::derive(exec, move || {
+            let (pull, state) = (Arc::clone(&pull0), Arc::clone(&state0));
+            split_lines_pump(pull, state)
+        })
+    }
+}
+
+/// Live accumulator for [`Stream::split_lines`].
+#[derive(Default)]
+struct SplitLinesState {
+    carry: String,
+    mid_crlf: bool,
+    ended: bool,
+}
+
+/// One `split_lines` pull: pull upstream, split what arrived, and only pull
+/// again when the chunk produced no complete line (the pin's `pullOrFlush`).
+fn split_lines_pump<E, R>(
+    pull: Pull<String, E, R>,
+    state: Arc<Mutex<SplitLinesState>>,
+) -> Effect<Option<Vec<String>>, E, R>
+where
+    E: Send + 'static,
+    R: crate::effect::Requirement,
+{
+    if state.lock().unwrap().ended {
+        return Effect::succeed(None);
+    }
+    call(&pull).flat_map(move |chunk| {
+        let (pull, state) = (Arc::clone(&pull), Arc::clone(&state));
+        match chunk {
+            None => {
+                let mut guard = state.lock().unwrap();
+                if !guard.carry.is_empty() {
+                    let last = std::mem::take(&mut guard.carry);
+                    guard.mid_crlf = false;
+                    guard.ended = true;
+                    return Effect::succeed(Some(vec![last]));
+                }
+                guard.ended = true;
+                Effect::succeed(None)
+            }
+            Some(items) => {
+                let mut out: Vec<String> = Vec::new();
+                {
+                    let mut guard = state.lock().unwrap();
+                    for text in items {
+                        split_one(&mut guard, &text, &mut out);
+                    }
+                }
+                if out.is_empty() {
+                    // Nothing terminated yet: pull again.
+                    split_lines_pump(pull, state)
+                } else {
+                    Effect::succeed(Some(out))
+                }
+            }
+        }
+    })
+}
+
+/// Split one chunk, appending complete lines to `out` and carrying the
+/// unterminated tail in the shared state.
+///
+/// Indices are absolute positions in `text`. `str::find` on a *slice*
+/// returns an offset relative to that slice, while the pin's
+/// `indexOf(needle, from)` is absolute — so every search after `from`
+/// advances goes through [`find_from`], never a bare `text[from..].find`.
+fn split_one(state: &mut SplitLinesState, text: &str, out: &mut Vec<String>) {
+    if text.is_empty() {
+        return;
+    }
+    let len = text.len();
+    let mut from = 0usize;
+    let mut cr = text.find('\r');
+    let mut lf = text.find('\n');
+
+    if state.mid_crlf {
+        if lf == Some(0) {
+            from = 1;
+            lf = find_from(text, from, '\n');
+        }
+        state.mid_crlf = false;
+    }
+
+    while cr.is_some() || lf.is_some() {
+        if cr.is_none() || (lf.is_some() && lf.unwrap() < cr.unwrap()) {
+            let end = lf.unwrap();
+            push_line(state, text, from, end, out);
+            from = end + 1;
+            lf = find_from(text, from, '\n');
+        } else {
+            let at = cr.unwrap();
+            push_line(state, text, from, at, out);
+            if at + 1 == len {
+                // The chunk ends on `\r`: the terminator completes the line,
+                // but a following `\n` belongs to this same CRLF.
+                state.mid_crlf = true;
+                from = len;
+                cr = None;
+            } else {
+                from = at + if lf == Some(at + 1) { 2 } else { 1 };
+                cr = find_from(text, from, '\r');
+                lf = find_from(text, from, '\n');
+            }
+        }
+    }
+    state.carry.push_str(&text[from..]);
+}
+
+/// `text[from..].find(needle)`, returned as an ABSOLUTE index in `text`.
+fn find_from(text: &str, from: usize, needle: char) -> Option<usize> {
+    text[from..].find(needle).map(|offset| from + offset)
+}
+
+/// Emit one complete line: the carried prefix plus this segment, clearing the
+/// carry (the pin's `pushLine`).
+fn push_line(
+    state: &mut SplitLinesState,
+    text: &str,
+    from: usize,
+    to: usize,
+    out: &mut Vec<String>,
+) {
+    let segment = &text[from..to];
+    if state.carry.is_empty() {
+        out.push(segment.to_string());
+    } else {
+        state.carry.push_str(segment);
+        out.push(std::mem::take(&mut state.carry));
+    }
+}
+
 /// `takeWhile`'s pull step: pull once, keep the prefix that satisfies `f`,
 /// stop at the first miss. `done` is shared so a later factory call ends.
 fn take_while_pump<A, E, R>(

@@ -7,7 +7,7 @@
 
 use std::convert::Infallible;
 
-use elm_effect::{Exit, Stream};
+use elm_effect::{Exit, Stream, from_iter};
 
 #[test]
 fn range_min_less_than_max() {
@@ -81,4 +81,69 @@ fn run_for_each_while_stops_on_false() {
     });
     assert!(matches!(exit, Exit::Success(())));
     assert_eq!(*seen.borrow(), vec![1, 2, 3]);
+}
+
+// ---------------------------------------------------------------------------
+// splitLines at the pin (describe "encoding" / "splitLines")
+// ---------------------------------------------------------------------------
+
+fn lines_of(chunks: &[&str]) -> Vec<String> {
+    let mut items: Vec<String> = Vec::new();
+    for chunk in chunks {
+        items.push((*chunk).to_string());
+    }
+    let stream: Stream<String, String, ()> =
+        from_iter(items.into_iter(), chunks.len().max(1));
+    let stream = stream.split_lines();
+    match stream.run_collect() {
+        Exit::Success(lines) => lines,
+        Exit::Failure(_) => panic!("split_lines must not fail"),
+    }
+}
+
+#[test]
+fn split_lines_handles_an_empty_stream() {
+    assert!(lines_of(&[]).is_empty());
+}
+
+#[test]
+fn split_lines_handles_empty_chunks_and_repeated_line_feeds() {
+    assert_eq!(lines_of(&["", "a\n\n", "", "b\n", ""]), vec!["a", "", "b"]);
+}
+
+#[test]
+fn split_lines_handles_line_feeds_across_chunks() {
+    // A terminator at the end of one chunk and text at the start of the next
+    // are one break, not two.
+    assert_eq!(lines_of(&["a\nb", "\nc\n", "d"]), vec!["a", "b", "c", "d"]);
+}
+
+#[test]
+fn split_lines_handles_carriage_return_line_feed_pairs_across_chunks() {
+    // "a\r" then "\nb\r" then "\nc": the CRLF spans the first boundary, so
+    // "a" is emitted before the second chunk is read.
+    assert_eq!(lines_of(&["a\r", "\nb\r", "\nc"]), vec!["a", "b", "c"]);
+}
+
+#[test]
+fn split_lines_emits_a_carriage_return_terminated_line_before_pulling_upstream() {
+    // A bare \r terminates the line inside the same chunk.
+    assert_eq!(lines_of(&["a\rb\rc"]), vec!["a", "b", "c"]);
+}
+
+#[test]
+fn split_lines_handles_standalone_carriage_returns_across_chunk_boundaries() {
+    assert_eq!(lines_of(&["a\r", "b\r", "c"]), vec!["a", "b", "c"]);
+}
+
+#[test]
+fn split_lines_emits_the_final_line_when_the_stream_does_not_end_with_a_newline() {
+    // The unterminated tail is flushed as the last line on upstream end.
+    assert_eq!(lines_of(&["a\nb\nc\n", "d\ne"]), vec!["a", "b", "c", "d", "e"]);
+}
+
+#[test]
+fn split_lines_pin_doc_example() {
+    // The pin's own example: "a\nb\r\n", "c\n" => ['a', 'b', 'c']
+    assert_eq!(lines_of(&["a\nb\r\n", "c\n"]), vec!["a", "b", "c"]);
 }
