@@ -216,6 +216,64 @@ fn reactivity_signal_versions_and_watchers() {
     assert_eq!(doubled, 4);
 }
 
+#[test]
+fn reactivity_unsubscribe_during_notify_does_not_skip_later_listeners() {
+    // Atom.test.ts "subscribe does not skip listeners when unsubscribing
+    // during notify": the first listener removes itself while notification is
+    // in flight, and the second listener must still fire exactly once.
+    //
+    // Pinned against the port's real hazard: `set` notifies while holding no
+    // lock per callback, so an unwatch from inside a watcher takes effect for
+    // the remaining snapshotted ids instead of deadlocking or corrupting the
+    // iteration.
+    use std::sync::Arc;
+    use std::sync::Mutex;
+    use std::sync::atomic::{AtomicU32, Ordering};
+
+    let signal = Arc::new(elm_effect_unstable::reactivity::Signal::new(0));
+    let first = Arc::new(AtomicU32::new(0));
+    let second = Arc::new(AtomicU32::new(0));
+    let first_seen = Arc::clone(&first);
+    let second_seen = Arc::clone(&second);
+
+    // The handle lands here after registration, so the watcher can remove
+    // itself mid-notify (it cannot capture `signal` while `watch` borrows it).
+    let cancel: Arc<Mutex<Option<elm_effect_unstable::reactivity::WatcherId>>> =
+        Arc::new(Mutex::new(None));
+    let signal_for_watcher = Arc::clone(&signal);
+    let cancel_for_watcher = Arc::clone(&cancel);
+
+    let id = signal.watch(move |_value: &i32| {
+        first_seen.fetch_add(1, Ordering::SeqCst);
+        let handle = *cancel_for_watcher.lock().unwrap();
+        if let Some(handle) = handle {
+            signal_for_watcher.unwatch(handle);
+        }
+    });
+    *cancel.lock().unwrap() = Some(id);
+
+    signal.watch(move |_value: &i32| {
+        second_seen.fetch_add(1, Ordering::SeqCst);
+    });
+
+    signal.set(1);
+    assert_eq!(
+        first.load(Ordering::SeqCst),
+        1,
+        "the self-removing listener still fired"
+    );
+    assert_eq!(
+        second.load(Ordering::SeqCst),
+        1,
+        "and the later listener was not skipped"
+    );
+
+    // After the self-removal, a later set reaches only the survivor.
+    signal.set(2);
+    assert_eq!(first.load(Ordering::SeqCst), 1, "the removed listener is gone");
+    assert_eq!(second.load(Ordering::SeqCst), 2);
+}
+
 // ---------------------------------------------------------------------------
 // Ini
 // ---------------------------------------------------------------------------

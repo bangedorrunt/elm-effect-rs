@@ -7263,7 +7263,7 @@ unported	packages/effect/test/reactivity/Atom.test.ts	45	it	get/set
 unported	packages/effect/test/reactivity/Atom.test.ts	53	it	keepAlive false	
 unported	packages/effect/test/reactivity/Atom.test.ts	62	it	keepAlive true	
 unported	packages/effect/test/reactivity/Atom.test.ts	73	it	subscribe	
-unported	packages/effect/test/reactivity/Atom.test.ts	90	it	subscribe does not skip listeners when unsubscribing during notify	
+ported	packages/effect/test/reactivity/Atom.test.ts	90	it	subscribe does not skip listeners when unsubscribing during notify	reactivity_unsubscribe_during_notify_does_not_skip_later_listeners
 unported	packages/effect/test/reactivity/Atom.test.ts	113	it	withEquality skips notifications for equivalent values	
 unported	packages/effect/test/reactivity/Atom.test.ts	134	it	withEquality skips invalidation of derived atoms	
 unported	packages/effect/test/reactivity/Atom.test.ts	156	it	searchParam with schema reads initial query value	
