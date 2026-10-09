@@ -3174,18 +3174,18 @@ unported	packages/effect/test/Redacted.test.ts	44	it	wipeUnsafe removes access t
 ported	packages/effect/test/Redacted.test.ts	50	it	Equal compares the protected values of two Redacted values	redacted_display_equal_hash_value
 ported	packages/effect/test/Redacted.test.ts	55	it	Hash is derived from the protected value	redacted_display_equal_hash_value
 ported	packages/effect/test/Reducer.test.ts	6	it	flip	combiners_fold
-unported	packages/effect/test/Ref.test.ts	30	it.effect	get returns the current value	
-unported	packages/effect/test/Ref.test.ts	36	it.effect	getAndSet returns the previous value and stores the replacement	
-unported	packages/effect/test/Ref.test.ts	43	it.effect	getAndUpdate returns the previous value and stores the computed value	
-unported	packages/effect/test/Ref.test.ts	50	it.effect	getAndUpdateSome leaves state unchanged when no transition matches	
-unported	packages/effect/test/Ref.test.ts	62	it.effect	getAndUpdateSome returns each previous state while applying matching transitions	
-unported	packages/effect/test/Ref.test.ts	81	it.effect	set stores the provided value	
-unported	packages/effect/test/Ref.test.ts	89	it.effect	update stores the computed value	
-unported	packages/effect/test/Ref.test.ts	97	it.effect	updateAndGet stores and returns the computed value	
-unported	packages/effect/test/Ref.test.ts	104	it.effect	updateSome leaves state unchanged when no transition matches	
-unported	packages/effect/test/Ref.test.ts	112	it.effect	updateSome applies matching transitions to the stored state	
-unported	packages/effect/test/Ref.test.ts	128	it.effect	updateSomeAndGet returns the current state when no transition matches	
-unported	packages/effect/test/Ref.test.ts	134	it.effect	updateSomeAndGet - twice	
+ported	packages/effect/test/Ref.test.ts	30	it.effect	get returns the current value	get_returns_the_current_value
+ported	packages/effect/test/Ref.test.ts	36	it.effect	getAndSet returns the previous value and stores the replacement	get_and_set_returns_the_previous_value
+ported	packages/effect/test/Ref.test.ts	43	it.effect	getAndUpdate returns the previous value and stores the computed value	get_and_update_returns_previous_and_stores_computed
+ported	packages/effect/test/Ref.test.ts	50	it.effect	getAndUpdateSome leaves state unchanged when no transition matches	get_and_update_some_leaves_state_unchanged_when_no_transition_matches
+ported	packages/effect/test/Ref.test.ts	62	it.effect	getAndUpdateSome returns each previous state while applying matching transitions	get_and_update_some_applies_matching_transitions
+ported	packages/effect/test/Ref.test.ts	81	it.effect	set stores the provided value	set_stores_the_provided_value
+ported	packages/effect/test/Ref.test.ts	89	it.effect	update stores the computed value	update_stores_the_computed_value
+ported	packages/effect/test/Ref.test.ts	97	it.effect	updateAndGet stores and returns the computed value	update_and_get_stores_and_returns_the_computed_value
+ported	packages/effect/test/Ref.test.ts	104	it.effect	updateSome leaves state unchanged when no transition matches	update_some_leaves_state_unchanged_when_no_transition_matches
+ported	packages/effect/test/Ref.test.ts	112	it.effect	updateSome applies matching transitions to the stored state	update_some_applies_matching_transitions
+ported	packages/effect/test/Ref.test.ts	128	it.effect	updateSomeAndGet returns the current state when no transition matches	update_some_and_get_returns_current_when_no_transition_matches
+ported	packages/effect/test/Ref.test.ts	134	it.effect	updateSomeAndGet - twice	update_some_and_get_applies_and_returns_the_new_value
 unported	packages/effect/test/Ref.test.ts	152	it.effect	modify returns a result while storing the new value	
 unported	packages/effect/test/Ref.test.ts	160	it.effect	modifySome - once	
 unported	packages/effect/test/Ref.test.ts	170	it.effect	modifySome returns a result while applying matching transitions	

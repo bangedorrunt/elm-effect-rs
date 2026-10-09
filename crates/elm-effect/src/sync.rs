@@ -47,6 +47,81 @@ impl<A: Clone + Send> Ref<A> {
         self.inner.lock().unwrap().value.clone()
     }
 
+    /// `Ref.getAndSet`: store `value` and return the PREVIOUS value, in one
+    /// step. Atomic by construction (the whole read-and-write happens under
+    /// the same lock), unlike a get followed by a set.
+    pub fn get_and_set(&self, value: A) -> A {
+        let mut inner = self.inner.lock().unwrap();
+        let previous = std::mem::replace(&mut inner.value, value);
+        inner.version += 1;
+        previous
+    }
+
+    /// `Ref.getAndUpdate`: store `f(current)` and return the PREVIOUS value,
+    /// atomically.
+    pub fn get_and_update(&self, f: impl Fn(&A) -> A) -> A {
+        let mut inner = self.inner.lock().unwrap();
+        // Evaluate the closure BEFORE taking the mutable borrow: replace
+        // would otherwise borrow `value` mutably and immutably at once.
+        let next = f(&inner.value);
+        let previous = std::mem::replace(&mut inner.value, next);
+        inner.version += 1;
+        previous
+    }
+
+    /// `Ref.updateAndGet`: store `f(current)` and return the NEW value,
+    /// atomically.
+    pub fn update_and_get(&self, f: impl Fn(&A) -> A) -> A {
+        let mut inner = self.inner.lock().unwrap();
+        inner.value = f(&inner.value);
+        inner.version += 1;
+        inner.value.clone()
+    }
+
+    /// `Ref.getAndUpdateSome`: apply `f` only when it returns `Some`,
+    /// storing the new value, and always return the PREVIOUS value. `None`
+    /// leaves the cell untouched but still reports what was there.
+    pub fn get_and_update_some(&self, f: impl Fn(&A) -> Option<A>) -> A {
+        let mut inner = self.inner.lock().unwrap();
+        let previous = inner.value.clone();
+        if let Some(next) = f(&inner.value) {
+            inner.value = next;
+            inner.version += 1;
+        }
+        previous
+    }
+
+    /// `Ref.updateSome`: apply `f` only when it returns `Some`. `None`
+    /// leaves the cell untouched (and, matching the pin, bumps no version).
+    pub fn update_some(&self, f: impl Fn(&A) -> Option<A>) {
+        let mut inner = self.inner.lock().unwrap();
+        if let Some(next) = f(&inner.value) {
+            inner.value = next;
+            inner.version += 1;
+        }
+    }
+
+    /// `Ref.updateSomeAndGet`: apply `f` when it returns `Some` and return
+    /// the resulting CURRENT value. On `None` the cell is unchanged, so the
+    /// current value is the one already held.
+    pub fn update_some_and_get(&self, f: impl Fn(&A) -> Option<A>) -> A {
+        let mut inner = self.inner.lock().unwrap();
+        if let Some(next) = f(&inner.value) {
+            inner.value = next;
+            inner.version += 1;
+        }
+        inner.value.clone()
+    }
+
+    /// `Ref.set`: store `value`, unconditionally. Verified at the pin
+    /// (`Ref.ts:236`); the port was missing it, so the row that asserts it
+    /// could not be pinned without it.
+    pub fn set(&self, value: A) {
+        let mut inner = self.inner.lock().unwrap();
+        inner.value = value;
+        inner.version += 1;
+    }
+
     /// Apply a pure function, retrying on contention. The closure runs
     /// outside the lock and may run more than once: keep it pure.
     pub fn update(&self, f: impl Fn(&A) -> A) -> A {
