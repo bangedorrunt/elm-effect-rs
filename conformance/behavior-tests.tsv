@@ -2516,7 +2516,7 @@ unported	packages/effect/test/Logger.test.ts	206	it.effect	default logger preser
 unported	packages/effect/test/ManagedRuntime.test.ts	6	test	memoizes the layer build	
 unported	packages/effect/test/ManagedRuntime.test.ts	18	test	provides context	
 unported	packages/effect/test/ManagedRuntime.test.ts	27	test	allows sharing a MemoMap	
-unported	packages/effect/test/ManagedRuntime.test.ts	41	it	can be built synchronously	
+ported	packages/effect/test/ManagedRuntime.test.ts	41	it	can be built synchronously	managed_runtime_make_exposes_built_services
 unported	packages/effect/test/ManagedRuntime.test.ts	50	test	supports await using	
 unported	packages/effect/test/ManagedRuntime.test.ts	65	it	fibers are interrupted on dispose	
 unported	packages/effect/test/ManagedRuntime.test.ts	75	it	finishes request cleanup before releasing layer resources with ${method}	

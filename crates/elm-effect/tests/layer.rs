@@ -6,7 +6,7 @@ use std::sync::{
     atomic::{AtomicUsize, Ordering},
 };
 
-use elm_effect::{Effect, Layer, Scope, ServiceTag, use_service};
+use elm_effect::{ManagedRuntime,Effect, Layer, Scope, ServiceTag, use_service};
 
 struct Db;
 struct DbConn(u64);
@@ -107,4 +107,42 @@ fn provide_wires_and_hides() {
         layer.provide(effect, &scope).expect("wires");
     let exit = Runtime::run(provided);
     assert!(matches!(exit, Exit::Success(41)));
+}
+
+struct StringConn(String);
+
+/// A tag distinct from the file's existing `Db` so there is no duplicate
+/// ServiceTag implementation.
+struct SrvTag;
+
+impl ServiceTag for SrvTag {
+    type Service = StringConn;
+    const ID: &'static str = "test/managed-string";
+}
+
+impl Clone for StringConn {
+    fn clone(&self) -> Self {
+        Self(self.0.clone())
+    }
+}
+
+#[test]
+fn managed_runtime_make_exposes_built_services() {
+    // ManagedRuntime row "can be built synchronously": the build happens in
+    // `make` (not lazily at first use), and the resulting services are
+    // readable back -- the pin's contextEffect -> Context.get(services, tag).
+    let layer = Layer::<SrvTag, std::convert::Infallible, ()>::from_value(StringConn("test".to_string()));
+    let runtime = ManagedRuntime::make(&layer);
+
+    let services = runtime.context().expect("built services");
+    assert_eq!(services.get::<SrvTag>().map(|s| s.0), Some("test".to_string()));
+}
+
+#[test]
+fn managed_runtime_new_has_no_built_services() {
+    // The default constructor builds nothing, which is what distinguishes
+    // `new` from `make`: reading services off it yields None rather than an
+    // empty (and therefore silently wrong) context.
+    let runtime = ManagedRuntime::new();
+    assert!(runtime.context().is_none());
 }

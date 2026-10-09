@@ -343,14 +343,43 @@ fn edge_defect(payload: Box<dyn std::any::Any + Send>) -> Defect {
 /// executor alive and shuts it down on drop.
 pub struct ManagedRuntime {
     runtime: Runtime,
+    /// Services built from the layer, when this runtime was made from one.
+    services: Option<crate::BuiltServices>,
 }
 
 impl ManagedRuntime {
-    /// Build with default pool knobs.
+    /// Build with default pool knobs and no provided services.
     pub fn new() -> Self {
         Self {
             runtime: Runtime::new(),
+            services: None,
         }
+    }
+
+    /// Build from a layer: the layer's services are constructed eagerly
+    /// (this build is synchronous, like the pin's `ManagedRuntime.make`),
+    /// and the resulting services are readable through
+    /// [`context`](ManagedRuntime::context) as the pin's `contextEffect`
+    /// exposes them.
+    ///
+    /// A failing layer surfaces as a defect on the built runtime, matching
+    /// how this port reports construction failure.
+    pub fn make<O: crate::layer::RequirementIds, E: Send + 'static>(
+        layer: &crate::Layer<O, E, ()>,
+    ) -> Self {
+        // `build` is only available on a fully-satisfied layer (no remaining
+        // requirements), which is exactly what a runtime entry point takes.
+        let scope = crate::Scope::new(0);
+        let services = layer.build(&scope).ok();
+        Self {
+            runtime: Runtime::new(),
+            services,
+        }
+    }
+
+    /// The services this runtime was built with, if any.
+    pub fn context(&self) -> Option<&crate::BuiltServices> {
+        self.services.as_ref()
     }
 
     /// Borrow the managed runtime.
