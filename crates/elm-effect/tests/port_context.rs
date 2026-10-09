@@ -89,3 +89,27 @@ fn context_reference_defaults_resolve_lazily_and_cache() {
     assert!(std::sync::Arc::ptr_eq(&first, &second));
     assert_eq!(CALLS.load(Ordering::SeqCst), 1);
 }
+
+const PRESENT: Tag<i32> = Tag::new("ContextTest/Present");
+const ABSENT: Tag<i32> = Tag::new("ContextTest/Absent");
+
+#[test]
+fn get_distinguishes_present_from_absent() {
+    // Context row "distinguishes an undefined service from an absent
+    // service": a service that was ADDED is retrievable, one that was never
+    // added is not. The pin expresses this with getOption returning Some vs
+    // None, which maps directly onto this port's Option<&T>.
+    let context = Context::empty().add(PRESENT, 1);
+    assert!(context.get(PRESENT).is_some(), "an added service is present");
+    assert!(
+        context.get(ABSENT).is_none(),
+        "a service never added is absent, not defaulted"
+    );
+}
+
+#[test]
+fn get_on_an_empty_context_is_absent() {
+    // Nothing has been added at all, so every tag reads absent.
+    let context = Context::empty();
+    assert!(context.get(PRESENT).is_none());
+}
