@@ -1,5 +1,7 @@
 # ADR-0002 bead briefs — seed source
 
+The product finish line is the witness list in ADR-0002. A brief below that says "port every behavior row" is the ledger index, not that finish line. Mark a row `not-applicable` with a reason when we will not carry that Effect internal.
+
 This file is the authored decomposition of `docs/decisions/0001-*.md` and
 `docs/decisions/0002-*.md` into dispatchable beads. `seed-beads.py` parses it
 into `br` (once, on a fresh tracker). The briefs are the work contract.

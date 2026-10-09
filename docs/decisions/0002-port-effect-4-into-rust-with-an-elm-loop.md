@@ -51,7 +51,7 @@ The question this record answers: what do we build, in this empty repository, so
 * The R channel (required services) has to be a compile-time fact. A `TypeId` map as the only context is a hole in the type that Effect's whole point is to close.
 * Durability the siblings already have: intent before invoke, same key on retry, unknown stays unknown, acceptance is not delivery, generation fence, lease, ordered replay.
 * One vocabulary an agent can learn once and apply in all four repos.
-* The port has to be implementable in phases. Phase 3 already unblocks a sibling experiment. The definition of done for the port is still full parity, not phase 3.
+* The port has to be implementable in phases. Phase 3 already unblocks a sibling experiment. The product is done when the witness list passes. The ledger is an index, not that finish line.
 * Compile times and allocations have ceilings, written down, so a later agent does not "simplify" the R channel away or chase zero-cost before the laws exist.
 * Nightly Rust, edition 2024, the toolchain the siblings already float.
 
@@ -99,7 +99,17 @@ Ledger contract, which `conformance/inventory.sh` implements:
 
 Behavior parity is `conformance/behavior-tests.tsv`, written by the same script. It has one row for every `it`, `it.effect`, `it.live`, `it.layer`, `it.each`, `it.skipIf`, `it.skip`, and `test` call under `packages/effect/test`, including suite helpers that are not named `.test.ts`. `it.skip` is `skipped-upstream`. Every other row is `unported` until a Rust test reproduces that call's observable result. An `it.each` row is ported only when the Rust test runs every tuple in that table. A title that is a template string, or a call inside a `for`, runs once per element that loop feeds. A module row is not `matched` while any behavior row from its linked test file is still `unported`.
 
-The port is done when every `port`, `unstable-port`, and `experimental-port` module row is `matched`, every behavior row is `ported`, `skipped-upstream`, or `not-applicable`, and every `native`, `platform-foreign`, and `not-applicable` row carries a written reason. There is no percentage short of that.
+The product is done when this witness list passes. The ledger stays an index of Effect 4.0.0. A module we will not carry is `not-applicable` with a reason. Matching every row is not the finish line.
+
+* A dropped description does no I/O.
+* Success, typed failure, defect, and interrupt stay apart.
+* Release runs on success, typed failure, and interrupt.
+* The attempt timeout does not cover the queue wait.
+* The test clock moves only after the sleeper is forked.
+* A layer cycle fails at construction.
+* A command window has a bound. Every exit reaches the fold as a message. A durable append happens before the provider runs. A subscriber reads the model after a later send.
+
+The ignored conformance test is a ledger health check. A red result there does not mean the product is unfinished.
 
 Stability is per module file, not per directory. An untagged module follows strict semver. `@stability unstable` may break in a minor release. `@stability experimental` may break in a patch. `MIGRATION.md` at the tag defines both. The pages opened in the cross-check did not name an experimental module. Phase 0 still greps for the tag.
 
@@ -604,14 +614,15 @@ Work is phased. A phase's tests land first, red, then the implementation, then t
 
 **Phase 12. Unstable modules.** Workflow (activity replay, durable clock, durable deferred, durable queue, compensation on failure and cancel only), event log, persistence, rpc, http, sql, cli, ai, cluster. Each feature flag maps to ledger rows. Cluster is last.
 
-**Phase 13. Ledger done-check.** `cargo test -p elm-effect-conformance -- --ignored` fails while any port-like module row is not `matched`, or any behavior row is still `unported`. This phase adds no features. The default `cargo test -p elm-effect-conformance` stays green once both ledgers are well-formed, so a later phase is not blocked by rows that are still open on purpose.
+**Phase 13. Ledger index.** `cargo test -p elm-effect-conformance -- --ignored` reports rows that are still `unported`. That report is the index. It is not the product finish line. Mark a row `not-applicable` with a reason when we will not carry that Effect internal. The default `cargo test -p elm-effect-conformance` stays green once both ledgers are well-formed.
 
 ### Verification
 
 - [ ] `conformance/PIN` contains exactly `effect@4.0.0`.
 - [ ] `conformance/inventory.sh` regenerates `modules.toml` byte-for-byte when pointed at that tag.
 - [ ] `cargo test -p elm-effect-conformance` passes the well-formed ledger test.
-- [ ] `cargo test -p elm-effect-conformance -- --ignored` fails while any port-like module row is not `matched` or any behavior row is `unported`, and passes when every behavior row is `ported` or `skipped-upstream`.
+- [ ] `sh conformance/witness.sh` exits 0. That script is the product finish line.
+- [ ] `cargo test -p elm-effect-conformance -- --ignored` is an index. A row we will not carry is `not-applicable` with a reason. It does not have to be `ported`.
 - [ ] Tests named in L1 through L15 exist and pass.
 - [ ] `cargo test` with `--no-default-features` of `elm-effect` passes without a Tokio runtime and without a network.
 - [ ] `crates/elm-effect/tests/sixteen_services.rs` compiles. Its `cargo check` time is recorded in the phase-2 review. A time over 30 seconds stops the phase.

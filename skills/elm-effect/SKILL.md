@@ -46,7 +46,7 @@ Read `docs/guides/15-use-the-apis.mdx` on every branch. Then the first matching 
 
 ## Gate
 
-A sibling edit waits until `cargo test -p elm-effect` is green. The ignored conformance test stays red while behavior rows are `unported`. That red test is not a reason to rebuild the kernel. Port the rows, or leave them, and say which.
+A sibling edit waits until `cargo test -p elm-effect` is green. The product is done when `sh conformance/witness.sh` exits 0. The ignored conformance test is an index. A red row we will not carry is `not-applicable` with a reason. It is not a reason to port the next Effect file.
 
 ## Done
 

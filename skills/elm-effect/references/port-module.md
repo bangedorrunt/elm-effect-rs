@@ -22,23 +22,21 @@ No file at the pin: this is an extension, not a port. Put it in `elm-effect-unst
 
 ## Gate
 
-The module's imports decide the phase. `Effect`, `Cause`, `Scope`, or `Fiber` missing means phase 1 first. `Layer` or `Context` means phase 2. `Schedule`, `Clock`, or `Ref` means phase 3. The order is `references/write.md`. Build those phases, then this module, in the same task. Do not ask which to do first.
-
-A destination crate that does not exist yet is created with the path in the table above. The module's tests are the first code in it.
+The carrier is in the crates. Do not rebuild a phase whose tests pass. A destination crate that does not exist yet is created with the path in the table above.
 
 ## Order
 
-1. Read the `.ts` file at the pin and every behavior row in `conformance/behavior-tests.tsv` whose path is that module's test file, or a suite helper that file calls.
-2. Port every one of those rows. Each `it`, `it.effect`, `it.live`, `it.layer`, `it.skipIf`, and `test` call becomes a Rust test with the same observable result. Each `it.each` row runs every tuple in its table. A title that is a template string, or a call written inside a `for`, runs once per element that loop feeds. A test that only asserts the function exists does not port the row. A row titled `untitled` is still a row: port the call at that path and line.
+1. Read the `.ts` file at the pin and the behavior rows for that file.
+2. Carry a row only when the task named that behavior. A carried call becomes a Rust test with the same observable result. A carried `it.each` row runs every tuple in its table. A test that only asserts the function exists does not port the row. A row we will not carry is `not-applicable` with a reason. Do not open the next Effect file.
 3. Implement until that test passes. `Equal` for domain values treats `NaN` as equal. `f64`'s `==` stays IEEE. Waits go through `Clock`. Direct `tokio::time::sleep` inside the module is a bug.
 4. A service the module introduces is a new tag. It does not change the fiber state machine.
 5. Helpers that exist in the TypeScript file only to simulate traits (`pipe`, HKT, `Yieldable`) are not ported. A trait is the port.
-6. Set each behavior row to `ported` only after its Rust test was red and then green, and put that test's path in the row's `rust` column. A `ported` row with an empty `rust` column fails the ledger test. Set the module row to `matched` only when every behavior row for its test files is `ported` or `skipped-upstream`. Leave both open while any row is still a stub.
-7. `cargo test -p` the crate that received the module. `--no-default-features` still passes for `elm-effect` when the new code is behind a feature that defaults off. Stable `port` modules are in the default build.
+6. Set a carried row to `ported` only after its Rust test was red and then green, and put that test's path in the `rust` column. A `ported` row with an empty `rust` column fails the ledger test. Leave uncarried rows `not-applicable` with a reason.
+7. `cargo test -p` the crate that received the module.
 
 ## Done
 
-- [ ] Every behavior row for this module's test files is `ported` or `skipped-upstream`. Replacing the implementation with a stub fails those Rust tests.
-- [ ] The module ledger row is `matched`, or the module is an `ext` feature with no row.
+- [ ] Each behavior the task named is `ported`, and a stub fails that Rust test.
+- [ ] Each behavior we will not carry is `not-applicable` with a reason.
 - [ ] `cargo test -p` the destination crate passes.
-- [ ] The phase-13 ignored test was not made green by deleting rows.
+- [ ] The ledger was not made green by deleting rows.

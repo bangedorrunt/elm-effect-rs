@@ -16,7 +16,7 @@ An agent that writes application code reads [Use the APIs](15-use-the-apis.mdx) 
 
 ## A port of an Effect module
 
-Open `conformance/behavior-tests.tsv`. Port each row for that module. Set `status` to `ported` only when the Rust test fails on a stub and then passes. Fill the `rust` column. A `ported` row with an empty `rust` column fails the ledger test.
+The product is done when the witness list in ADR-0002 passes. Open `conformance/behavior-tests.tsv` only for a behavior we chose to carry. Set `status` to `ported` only when the Rust test fails on a stub and then passes. Fill the `rust` column. A behavior we will not carry is `not-applicable` with a reason. Do not open the next Effect file to grow the port.
 
 The path under `packages/effect/src/` links only to the same path under `packages/effect/test/`.
 

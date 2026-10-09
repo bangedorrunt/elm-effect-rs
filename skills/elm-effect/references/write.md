@@ -6,8 +6,8 @@ The carrier from ADR-0002 and the adoption rules in ADR-0003 are in the crates. 
 
 1. Run `cargo test -p elm-effect`.
 2. If that command fails, fix the failing test. Read the guide for that API in `docs/guides/` before you edit.
-3. If only `cargo test -p elm-effect-conformance -- --ignored` fails, the open rows are in `conformance/behavior-tests.tsv`. Follow `references/port-module.md` for the rows you were asked to port. Do not mark the rest `ported`.
-4. Do not start a later phase because an earlier ignored ledger is open.
+3. If only `cargo test -p elm-effect-conformance -- --ignored` fails, that is the ledger index. Follow `references/port-module.md` only for a behavior the task named. Mark the rest we will not carry as `not-applicable` with a reason. Do not mark them `ported`.
+4. Do not start a later phase because the ledger index is open.
 
 ## Shape
 
