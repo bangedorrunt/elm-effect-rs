@@ -420,3 +420,39 @@ fn catch_if_recovers_on_a_later_pull_after_a_pass_through() {
         Exit::Failure(cause) => panic!("catchIf must recover after a pass-through, got {cause:?}"),
     }
 }
+
+#[test]
+fn catch_filter_routes_through_selector_result() {
+    // catchFilter(selector, handler, or_else): a selector returning Ok routes
+    // to handler, one returning Err routes to or_else. Both arms recover, so
+    // nothing is re-raised.
+    //
+    // Port shape: the selector is FnOnce(E) -> Result<S, String>; S here is
+    // usize (the matched length) and the failure arm carries the String.
+    let matched = Stream::<u32, String, ()>::fail("boom".to_string()).catch_filter(
+        |error: String| {
+            if error == "boom" {
+                Ok(error.len())
+            } else {
+                Err(format!("fallback: {error}"))
+            }
+        },
+        |length: usize| from_iter(vec![length as u32].into_iter(), 1),
+        |failure: String| from_iter(vec![1u32].into_iter(), 1),
+    );
+    assert!(matches!(matched.run_collect(), Exit::Success(ref v) if *v == vec![4]));
+
+    let unmatched = Stream::<u32, String, ()>::fail("42".to_string()).catch_filter(
+        |error: String| {
+            if error == "boom" {
+                Ok(error.len())
+            } else {
+                Err(format!("fallback: {error}"))
+            }
+        },
+        |length: usize| from_iter(vec![length as u32].into_iter(), 1),
+        |failure: String| from_iter(vec![failure.len() as u32].into_iter(), 1),
+    );
+    // "fallback: 42" is 12 chars, which is what the fallback arm produces.
+    assert!(matches!(unmatched.run_collect(), Exit::Success(ref v) if *v == vec![12]));
+}

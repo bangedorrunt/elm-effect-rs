@@ -3577,7 +3577,7 @@ unported	packages/effect/test/Stream.test.ts	980	it.effect	catchIf with refineme
 unported	packages/effect/test/Stream.test.ts	998	it.effect	catchIf with refinement orElse	
 ported	packages/effect/test/Stream.test.ts	1017	it.effect	catchIf with predicate	catch_if_recovers_a_matching_typed_failure
 ported	packages/effect/test/Stream.test.ts	1030	it.effect	catchIf predicate no match	catch_if_re_raises_an_unmatched_failure_unchanged
-unported	packages/effect/test/Stream.test.ts	1044	it.effect	catchIf with filter input	
+ported	packages/effect/test/Stream.test.ts	1044	it.effect	catchIf with filter input	catch_filter_routes_through_selector_result
 unported	packages/effect/test/Stream.test.ts	1062	it.effect	catchCauseFilter	
 unported	packages/effect/test/Stream.test.ts	1074	it.effect	catchTag orElse	
 unported	packages/effect/test/Stream.test.ts	1119	it.effect	does not log when log is omitted	

@@ -1141,3 +1141,60 @@ impl<A: Send + 'static, E: Send + 'static, R: crate::effect::Requirement> Stream
         })
     }
 }
+
+impl<A: Send + 'static, E: Send + 'static, R: crate::effect::Requirement> Stream<A, E, R> {
+    /// `Stream.catchFilter` at the pin: a `Result`-returning selector decides
+    /// the recovery. `Ok(value)` is passed to `handler`, whose stream
+    /// replaces the failure; `Err(failure)` is passed to `or_else`, whose
+    /// stream replaces it instead. Both arms recover, so nothing is
+    /// re-raised.
+    ///
+    /// This is the `orElse` shape the port already has on `Channel`, with a
+    /// `Result` selector in place of a boolean predicate.
+    pub fn catch_filter<S, EF, H, G>(self, selector: EF, handler: H, or_else: G) -> Self
+    where
+        S: Send + 'static,
+        EF: FnOnce(E) -> std::result::Result<S, String> + Send + 'static,
+        H: FnOnce(S) -> Self + Send + 'static,
+        G: FnOnce(String) -> Self + Send + 'static,
+    {
+        // Own state, not CatchState: the selector produces a type S that the
+        // handler consumes, which CatchState's FnOnce(E) handler cannot
+        // express. The failure channel is fixed at String here because that
+        // is what the port's selector maps to.
+        let substitute: Arc<Mutex<Option<Self>>> = Arc::new(Mutex::new(None));
+        let or_else: std::sync::Arc<Mutex<Option<Box<dyn FnOnce(String) -> Self + Send>>>> =
+            std::sync::Arc::new(std::sync::Mutex::new(Some(Box::new(or_else))));
+        let (pull, exec) = (self.pull, Arc::clone(&self.exec));
+        // Both callables are FnOnce but the factory is FnMut, so each lives
+        // behind a Mutex<Option<_>> and is taken when the failure arrives.
+        let handler = Arc::new(Mutex::new(Some(handler)));
+        let selector = Arc::new(Mutex::new(Some(selector)));
+        let (pull0, sub0) = (Arc::clone(&pull), Arc::clone(&substitute));
+        Self::derive(exec, move || {
+            // Once substituted, the replacement owns every later pull.
+            let delegate = { sub0.lock().unwrap().as_ref().map(Stream::clone_of_pull) };
+            if let Some(sub) = delegate {
+                return call(&sub);
+            }
+            let (selector, or_else) = (Arc::clone(&selector), Arc::clone(&or_else));
+            let (handler, sub) = (Arc::clone(&handler), Arc::clone(&sub0));
+            call(&pull0).catch(move |error| {
+                let Some(select) = selector.lock().unwrap().take() else {
+                    return Effect::fail(error);
+                };
+                let replacement = match select(error) {
+                    std::result::Result::Ok(value) => {
+                        handler.lock().unwrap().take().expect("checked")(value)
+                    }
+                    std::result::Result::Err(failure) => {
+                        or_else.lock().unwrap().take().expect("checked")(failure)
+                    }
+                };
+                let first = Arc::clone(&replacement.pull);
+                *sub.lock().unwrap() = Some(replacement);
+                call(&first)
+            })
+        })
+    }
+}
