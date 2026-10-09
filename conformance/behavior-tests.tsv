@@ -2917,10 +2917,10 @@ ported	packages/effect/test/Predicate.test.ts	156	it	returns true when both pred
 ported	packages/effect/test/Predicate.test.ts	165	it	returns true when antecedent is false or consequent is true	predicate_implies_truth_table
 ported	packages/effect/test/Predicate.test.ts	174	it	returns true only when both predicates are false	predicate_nor_truth_table
 ported	packages/effect/test/Predicate.test.ts	183	it	returns false only when both predicates are true	predicate_nand_truth_table
-unported	packages/effect/test/Predicate.test.ts	192	it	returns true when all predicates pass	
-unported	packages/effect/test/Predicate.test.ts	200	it	returns true for empty collections	
+ported	packages/effect/test/Predicate.test.ts	192	it	returns true when all predicates pass	predicate_all_of_requires_every_predicate_to_pass
+ported	packages/effect/test/Predicate.test.ts	200	it	returns true for empty collections	predicate_all_of_empty_list_is_true
 ported	packages/effect/test/Predicate.test.ts	208	it	returns true when any predicate passes	predicate_or_needs_any_and_not_flips
-unported	packages/effect/test/Predicate.test.ts	216	it	returns false for empty collections	
+ported	packages/effect/test/Predicate.test.ts	216	it	returns false for empty collections	predicate_any_of_empty_list_is_false
 unported	packages/effect/test/Predicate.test.ts	224	it	uses JavaScript truthiness	
 unported	packages/effect/test/Predicate.test.ts	237	it	detects Set instances	
 unported	packages/effect/test/Predicate.test.ts	247	it	detects Map instances	

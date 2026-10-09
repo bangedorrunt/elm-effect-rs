@@ -116,6 +116,31 @@ pub fn never<T>() -> Predicate<T> {
     Predicate::new(|_| false)
 }
 
+/// `Predicate.every` (the COMBINING form): one predicate that holds when
+/// every predicate in the list holds. An empty list is vacuously true.
+///
+/// Named `all_of` to keep it distinct from [`every`] above, which is the
+/// slice form: one predicate quantified over a list of VALUES. The pin uses
+/// the same spelling for both, which is a shape Rust cannot express in one
+/// name without ambiguity, so the two forms carry different names here.
+///
+/// Built directly from the closures rather than by folding `and`: the fold
+/// cannot prove `T: 'static` from the free-named function's bound, because
+/// `Predicate<T>` itself carries no such bound on the struct.
+pub fn all_of<T: 'static>(predicates: Vec<Predicate<T>>) -> Predicate<T> {
+    let tests: Vec<std::sync::Arc<dyn Fn(&T) -> bool + Send + Sync>> =
+        predicates.into_iter().map(|p| p.test).collect();
+    Predicate::new(move |v: &T| tests.iter().all(|t| t(v)))
+}
+
+/// `Predicate.some` (the COMBINING form): one predicate that holds when any
+/// predicate in the list holds. An empty list is false.
+pub fn any_of<T: 'static>(predicates: Vec<Predicate<T>>) -> Predicate<T> {
+    let tests: Vec<std::sync::Arc<dyn Fn(&T) -> bool + Send + Sync>> =
+        predicates.into_iter().map(|p| p.test).collect();
+    Predicate::new(move |v: &T| tests.iter().any(|t| t(v)))
+}
+
 /// True when every element passes (vacuous on empty).
 pub fn every<T>(predicate: &Predicate<T>, values: &[T]) -> bool {
     values.iter().all(|v| predicate.test(v))

@@ -5,8 +5,8 @@
 mod basics;
 
 use basics::{
-    Predicate, SeedRandom, always, between_ms, clamp_ms, compare_ms, divide_ms, equals_ms, every,
-    from_input, from_input_unsafe, max_ms, min_ms, never, some,
+    Predicate, SeedRandom, all_of, always, any_of, between_ms, clamp_ms, compare_ms, divide_ms,
+    equals_ms, every, from_input, from_input_unsafe, max_ms, min_ms, never, some,
 };
 use std::cmp::Ordering;
 
@@ -252,4 +252,54 @@ fn predicate_nand_truth_table() {
     assert!(yes.nand(&no).test(&0));
     assert!(no.nand(&yes).test(&0));
     assert!(no.nand(&no).test(&0));
+}
+
+// ---------------------------------------------------------------------------
+// Predicate combining form at the pin (describe every / some)
+// ---------------------------------------------------------------------------
+
+/// `Predicate.every` combining form: true only when all listed predicates
+/// pass on the same input.
+#[test]
+fn predicate_all_of_requires_every_predicate_to_pass() {
+    let is_positive = Predicate::new(|n: &i32| *n > 0);
+    let under_two = Predicate::new(|n: &i32| *n < 2);
+    let combined = all_of(vec![is_positive, under_two]);
+
+    assert!(combined.test(&1), "both hold");
+    assert!(!combined.test(&0), "first holds, second fails");
+    assert!(!combined.test(&-2), "both fail");
+}
+
+/// An empty list is vacuously true (the pin's `every([])` row).
+#[test]
+fn predicate_all_of_empty_list_is_true() {
+    assert!(all_of::<i32>(vec![]).test(&0));
+}
+
+/// `Predicate.some` combining form: true when any listed predicate passes.
+#[test]
+fn predicate_any_of_holds_when_any_predicate_passes() {
+    let is_positive = Predicate::new(|n: &i32| *n > 0);
+    let is_negative = Predicate::new(|n: &i32| *n < 0);
+    let combined = any_of(vec![is_positive, is_negative]);
+
+    assert!(!combined.test(&0), "neither holds");
+    assert!(combined.test(&-1), "second holds");
+    assert!(combined.test(&1), "first holds");
+}
+
+/// An empty list is false (the pin's `some([])` row).
+#[test]
+fn predicate_any_of_empty_list_is_false() {
+    assert!(!any_of::<i32>(vec![]).test(&0));
+}
+
+/// A single-element list is exactly that predicate.
+#[test]
+fn predicate_combining_forms_with_one_predicate_are_it() {
+    let is_positive = Predicate::new(|n: &i32| *n > 0);
+    assert!(all_of(vec![is_positive.clone()]).test(&3));
+    assert!(!all_of(vec![is_positive.clone()]).test(&-3));
+    assert!(any_of(vec![is_positive]).test(&3));
 }
