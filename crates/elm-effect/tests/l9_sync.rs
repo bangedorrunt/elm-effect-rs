@@ -116,7 +116,7 @@ fn mutable_ref_and_deferred_handoff() {
     cell.update(|v| *v += 1);
     assert_eq!(cell.get(), 42);
 
-    let done = Arc::new(Deferred::new());
+    let done: Arc<Deferred<&str, std::convert::Infallible>> = Arc::new(Deferred::new());
     let waiter = {
         let done = Arc::clone(&done);
         std::thread::spawn(move || done.wait())

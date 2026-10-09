@@ -1116,22 +1116,22 @@ ported	packages/effect/test/DateTime.test.ts	503	it	treats strings without zone 
 ported	packages/effect/test/DateTime.test.ts	508	it	does not append Z to strings ending with Z	z_strings_keep_instant
 ported	packages/effect/test/DateTime.test.ts	513	it	does not append Z to strings with explicit offset	explicit_offset_converts_to_utc_json
 ported	packages/effect/test/DateTime.test.ts	518	it	does not append Z to strings containing GMT	gmt_strings_parse
-unported	packages/effect/test/Deferred.test.ts	10	it.effect	succeed - should propagate the value	
+ported	packages/effect/test/Deferred.test.ts	10	it.effect	succeed - should propagate the value	complete_records_the_success
 unported	packages/effect/test/Deferred.test.ts	18	it.effect	complete - should memoize the result of the provided effect	
 unported	packages/effect/test/Deferred.test.ts	34	it.effect	completeWith - should not memoize the provided effect	
-unported	packages/effect/test/Deferred.test.ts	56	it.effect	fail - should propagate the failure	
+ported	packages/effect/test/Deferred.test.ts	56	it.effect	fail - should propagate the failure	fail_records_the_failure
 unported	packages/effect/test/Deferred.test.ts	65	it.effect	complete - should memoize the failure of the provided effect	
 unported	packages/effect/test/Deferred.test.ts	76	it.effect	completeWith - should memoize the provided effect	
-unported	packages/effect/test/Deferred.test.ts	93	it.effect	interrupt - should propagate the interruption	
+ported	packages/effect/test/Deferred.test.ts	93	it.effect	interrupt - should propagate the interruption	interrupt_records_the_interruption
 unported	packages/effect/test/Deferred.test.ts	102	it.effect	await - interrupting a suspended waiter removes it	
 unported	packages/effect/test/Deferred.test.ts	121	it.effect	await - interrupting a waiter after completion does not die	
 unported	packages/effect/test/Deferred.test.ts	149	it.effect	done with an interrupt cause resumes every suspended waiter	
-unported	packages/effect/test/Deferred.test.ts	179	it.effect	poll - should return Option.none when the deferred is incomplete	
-unported	packages/effect/test/Deferred.test.ts	186	it.effect	poll - should return Option.some when the deferred was completed	
-unported	packages/effect/test/Deferred.test.ts	199	it.effect	poll - should return Option.some when the deferred was failed	
-unported	packages/effect/test/Deferred.test.ts	212	it.effect	poll - should return Option.some when the deferred was interrupted	
-unported	packages/effect/test/Deferred.test.ts	227	it.effect	isDone - should return true when suceeded	
-unported	packages/effect/test/Deferred.test.ts	234	it.effect	isDone - should return true when failed	
+ported	packages/effect/test/Deferred.test.ts	179	it.effect	poll - should return Option.none when the deferred is incomplete	poll_returns_none_while_incomplete
+ported	packages/effect/test/Deferred.test.ts	186	it.effect	poll - should return Option.some when the deferred was completed	complete_records_the_success
+ported	packages/effect/test/Deferred.test.ts	199	it.effect	poll - should return Option.some when the deferred was failed	fail_records_the_failure
+ported	packages/effect/test/Deferred.test.ts	212	it.effect	poll - should return Option.some when the deferred was interrupted	interrupt_records_the_interruption
+ported	packages/effect/test/Deferred.test.ts	227	it.effect	isDone - should return true when suceeded	is_done_is_true_only_once_completed
+ported	packages/effect/test/Deferred.test.ts	234	it.effect	isDone - should return true when failed	is_done_is_true_only_once_completed
 unported	packages/effect/test/Duration.test.ts	14	it	fromInputUnsafe	
 unported	packages/effect/test/Duration.test.ts	116	it	fromInput	
 unported	packages/effect/test/Duration.test.ts	158	it	Order	

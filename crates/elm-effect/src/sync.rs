@@ -11,6 +11,7 @@
 //! which runs its update computation under the permit.
 
 use std::collections::VecDeque;
+use crate::Exit;
 use std::sync::{Condvar, Mutex};
 
 use crate::Effect;
@@ -248,12 +249,18 @@ impl<A: Clone + Send + 'static> SynchronizedRef<A> {
 }
 
 /// A one-shot handoff: completed once, waited on by anyone.
-pub struct Deferred<A> {
-    inner: Mutex<Option<A>>,
+///
+/// Carries an [`Exit`], not a bare value, because the pin completes a
+/// `Deferred` "exactly once with a success, failure, defect, or
+/// interruption" (`Deferred.ts:3`) -- four outcomes, not one. The previous
+/// `Option<A>` shape could only record success, so every failure/interrupt
+/// row was unreachable.
+pub struct Deferred<A, E> {
+    inner: Mutex<Option<Exit<A, E>>>,
     ready: Condvar,
 }
 
-impl<A: Clone + Send> Deferred<A> {
+impl<A: Clone + Send, E: Clone + Send> Deferred<A, E> {
     /// An empty handoff.
     pub fn new() -> Self {
         Self {
@@ -262,29 +269,56 @@ impl<A: Clone + Send> Deferred<A> {
         }
     }
 
-    /// Complete with `value`. Returns false if already completed; the first
-    /// value wins.
+    /// Complete with a value. Returns false if already completed; the first
+    /// completion wins and later ones are ignored.
     pub fn complete(&self, value: A) -> bool {
+        self.complete_exit(Exit::Success(value))
+    }
+
+    /// Complete with any outcome, including a failure or an interrupt.
+    pub fn complete_exit(&self, outcome: Exit<A, E>) -> bool {
         let mut guard = self.inner.lock().unwrap();
         if guard.is_some() {
             return false;
         }
-        *guard = Some(value);
+        *guard = Some(outcome);
         self.ready.notify_all();
         true
     }
 
-    /// Block until completed, then return the value.
-    pub fn wait(&self) -> A {
+    /// The recorded outcome, or `None` while still empty.
+    pub fn poll(&self) -> Option<Exit<A, E>> {
+        self.inner.lock().unwrap().clone()
+    }
+
+    /// True once any outcome has been recorded.
+    pub fn is_done(&self) -> bool {
+        self.inner.lock().unwrap().is_some()
+    }
+
+    /// Block until completed, then return the value. Panics only when the
+    /// recorded outcome was not a success: use [`poll`] to inspect why.
+    ///
+    /// `E: Debug` is required by the failure message only, and is declared on
+    /// this method rather than the `impl` so the rest of the type stays free
+    /// of it.
+    pub fn wait(&self) -> A
+    where
+        E: std::fmt::Debug,
+        A: std::fmt::Debug,
+    {
         let mut guard = self.inner.lock().unwrap();
         while guard.is_none() {
             guard = self.ready.wait(guard).unwrap();
         }
-        guard.clone().expect("checked")
+        match guard.clone().expect("checked") {
+            Exit::Success(value) => value,
+            other => panic!("deferred did not complete with a success: {other:?}"),
+        }
     }
 }
 
-impl<A: Clone + Send> Default for Deferred<A> {
+impl<A: Clone + Send, E: Clone + Send> Default for Deferred<A, E> {
     fn default() -> Self {
         Self::new()
     }
