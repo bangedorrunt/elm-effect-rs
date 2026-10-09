@@ -308,6 +308,79 @@ impl<A: Send + 'static, E: Send + 'static, R: crate::effect::Requirement> Stream
     }
 }
 
+impl<A: Send + 'static, E: Send + 'static, R: crate::effect::Requirement> Stream<A, E, R> {
+    /// Clone this stream's pull factory (the shared `Arc`).
+    ///
+    /// Used by [`Stream::catch`] to keep the replacement stream in the shared
+    /// state while still handing over a first chunk: the pull is an `Arc`, so
+    /// cloning it lets the stream itself move into the state.
+    pub(crate) fn clone_of_pull(&self) -> Pull<A, E, R> {
+        Arc::clone(&self.pull)
+    }
+
+    /// `Stream.catch` at the pin: when this stream fails with a typed error,
+    /// continue instead with the stream `handler` returns (observing that
+    /// error). Defects and interruptions are NOT caught and pass through
+    /// untouched.
+    ///
+    /// The failure never appears inside the pull's continuation (flat_map only
+    /// sees successful chunks), so the catch is applied at the Effect level,
+    /// where `Effect::catch` already fires only on a clean single `Fail`.
+    pub fn catch<F>(self, handler: F) -> Self
+    where
+        F: FnOnce(E) -> Self + Send + 'static,
+    {
+        let handler: Arc<Mutex<Option<F>>> = Arc::new(Mutex::new(Some(handler)));
+        // Installed on the first failure; every later pull delegates to it.
+        let substitute: Arc<Mutex<Option<Self>>> = Arc::new(Mutex::new(None));
+        let (pull, exec) = (self.pull, Arc::clone(&self.exec));
+        let (p, h, s) = (
+            Arc::clone(&pull),
+            Arc::clone(&handler),
+            Arc::clone(&substitute),
+        );
+        Self::derive(exec, move || {
+            // Once substituted, the replacement owns every later pull.
+            let delegate = { s.lock().unwrap().as_ref().map(Stream::clone_of_pull) };
+            if let Some(pull) = delegate {
+                return call(&pull);
+            }
+            let h = Arc::clone(&h);
+            let s = Arc::clone(&s);
+            call(&pull).catch(move |error| {
+                let handler = h
+                    .lock()
+                    .unwrap()
+                    .take()
+                    .expect("catch handler ran on a second failure");
+                let replacement = handler(error);
+                // Keep the replacement for later pulls, and hand over its
+                // first chunk now. Cloning the pull (an Arc) lets the
+                // replacement move into the state.
+                let first = Arc::clone(&replacement.pull);
+                *s.lock().unwrap() = Some(replacement);
+                call(&first)
+            })
+        })
+    }
+}
+
+impl<A: Send + 'static, E: Send + 'static> Stream<A, E, ()> {
+    /// `Stream.fail` at the pin: a stream whose pull fails with `error`, then
+    /// ends. First pull fails; a later pull sees an already-ended stream.
+    ///
+    /// Own generics on its own `impl`, separate from the combinator block:
+    /// `A` and `E` are free here because this CONSTRUCTS the stream rather
+    /// than taking `self` (the same shape as `range`).
+    pub fn fail(error: E) -> Self {
+        let once: Arc<Mutex<Option<E>>> = Arc::new(Mutex::new(Some(error)));
+        Stream::from_pull(move || match once.lock().unwrap().take() {
+            Some(error) => Effect::<Option<Vec<A>>, E>::fail(error),
+            None => Effect::succeed(None::<Vec<A>>),
+        })
+    }
+}
+
 impl<E: Send + 'static, R: crate::effect::Requirement> Stream<String, E, R> {
     /// `Stream.splitLines` at the pin: split a stream of strings into lines,
     /// handling `\n`, `\r`, and `\r\n` across chunk boundaries.

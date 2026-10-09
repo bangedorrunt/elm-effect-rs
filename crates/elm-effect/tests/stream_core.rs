@@ -2,6 +2,7 @@
 
 use std::convert::Infallible;
 use std::sync::Arc;
+use std::sync::Mutex;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use elm_effect::{Defect, Effect, Exit, Stream, from_iter};
@@ -324,4 +325,50 @@ fn take_right_zero_count_does_not_evaluate_the_upstream() {
         0,
         "takeRight(0) must not pull the source"
     );
+}
+
+// ---------------------------------------------------------------------------
+// Stream.catch at the pin (describe "error handling")
+// ---------------------------------------------------------------------------
+
+#[test]
+fn stream_catch_recovers_from_a_typed_failure() {
+    // Stream.make(1,2,3).concat(Stream.fail("boom")).pipe(
+    //   Stream.catch(e => Stream.make(4,5,6)), Stream.runCollect)
+    // === [1, 2, 3, 4, 5, 6], and the error "boom" was observed.
+    let seen = Arc::new(Mutex::new(Vec::<String>::new()));
+    let observed = Arc::clone(&seen);
+
+    let head = from_iter(vec![1u32, 2, 3].into_iter(), 3);
+    let tail = Stream::<u32, String, ()>::fail("boom".to_string());
+    let stream = head.concat(tail).catch(move |error: String| {
+        observed.lock().unwrap().push(error);
+        from_iter(vec![4u32, 5, 6].into_iter(), 3)
+    });
+
+    match stream.run_collect() {
+        Exit::Success(values) => assert_eq!(values, vec![1, 2, 3, 4, 5, 6]),
+        Exit::Failure(_) => panic!("catch must recover from the typed failure"),
+    }
+    assert_eq!(*seen.lock().unwrap(), vec!["boom".to_string()]);
+}
+
+#[test]
+fn stream_catch_does_not_swallow_a_defect() {
+    // catch only handles the typed error channel. A stream that dies must
+    // still die: catch does NOT fire, so the defect survives.
+    let called = Arc::new(AtomicUsize::new(0));
+    let fenced = Arc::clone(&called);
+    let source = Stream::<u32, String, ()>::from_pull(|| {
+        Effect::<Option<Vec<u32>>, String>::die(Defect::new("boom"))
+    });
+    let stream = source.catch(move |_error: String| {
+        fenced.fetch_add(1, Ordering::SeqCst);
+        from_iter(vec![4u32].into_iter(), 1)
+    });
+    match stream.run_collect() {
+        Exit::Failure(cause) => assert!(!cause.defects().is_empty(), "the defect survives"),
+        Exit::Success(_) => panic!("a dying stream must not be recovered by catch"),
+    }
+    assert_eq!(called.load(Ordering::SeqCst), 0, "catch must not fire on a defect");
 }

@@ -3569,7 +3569,7 @@ ported	packages/effect/test/Stream.test.ts	873	it.effect	takeRight	take_right_ke
 ported	packages/effect/test/Stream.test.ts	884	it.effect	takeRight - normalizes the element count	take_right_normalizes_the_element_count
 ported	packages/effect/test/Stream.test.ts	894	it.effect	takeRight - zero normalized counts do not evaluate the upstream	take_right_zero_count_does_not_evaluate_the_upstream
 unported	packages/effect/test/Stream.test.ts	905	it.effect	paginate	
-unported	packages/effect/test/Stream.test.ts	928	it.effect	catch	
+ported	packages/effect/test/Stream.test.ts	928	it.effect	catch	stream_catch_recovers_from_a_typed_failure
 unported	packages/effect/test/Stream.test.ts	943	it.effect	tapCause preserves failures	
 unported	packages/effect/test/Stream.test.ts	953	it.effect	tapCause preserves defects	
 unported	packages/effect/test/Stream.test.ts	964	it.effect	catchDefect	
