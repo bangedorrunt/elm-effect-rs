@@ -1273,7 +1273,7 @@ unported	packages/effect/test/Effect.test.ts	1325	it.effect	raceAllFirst
 ported	packages/effect/test/Effect.test.ts	1345	it.effect	race interrupts the loser when the other side succeeds	race_interrupts_the_loser_when_the_other_side_succeeds
 ported	packages/effect/test/Effect.test.ts	1364	it.effect	raceFirst interrupts the loser when the other side succeeds	race_first_interrupts_the_loser_when_the_other_side_succeeds
 ported	packages/effect/test/Effect.test.ts	1383	it.effect	raceFirst interrupts the loser when the other side fails	race_first_interrupts_the_loser_when_the_other_side_fails
-unported	packages/effect/test/Effect.test.ts	1404	it.effect	${name} interrupts a loser that settles the race while starting	
+ported	packages/effect/test/Effect.test.ts	1404	it.effect	${name} interrupts a loser that settles the race while starting	race_interrupts_a_loser_that_settles_the_race_while_starting
 unported	packages/effect/test/Effect.test.ts	1422	it.effect	${name} interrupts the loser when interrupted while starting	
 unported	packages/effect/test/Effect.test.ts	1444	it.effect	is interruptible	
 unported	packages/effect/test/Effect.test.ts	1456	it.effect	repeat/until - repeats until a condition is true	

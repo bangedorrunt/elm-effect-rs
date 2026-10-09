@@ -2,7 +2,7 @@
 
 use std::sync::{
     Arc,
-    atomic::{AtomicUsize, Ordering},
+    atomic::{AtomicBool, AtomicUsize, Ordering},
 };
 
 use elm_effect::{Cause, Effect, Exit, Reason, Runtime, race, race_first};
@@ -244,4 +244,54 @@ fn race_first_interrupts_the_loser_when_the_other_side_fails() {
     // Any completion decides, so the failure carries the outcome.
     assert!(matches!(exit, Exit::Failure(ref c) if c.failure() == Some(&"boom".to_string())));
     assert_eq!(released.load(Ordering::SeqCst), 1);
+}
+
+#[test]
+fn race_interrupts_a_loser_that_settles_the_race_while_starting() {
+    // "interrupts a loser that settles the race while starting": one side
+    // awaits a deferred, the other SETTLES that deferred and then never
+    // completes. The awaiter wins, and the settler -- now suspended in
+    // never -- is interrupted, which is what its onInterrupt observes.
+    //
+    // Ordering is load-bearing and follows the pin: onInterrupt wraps the
+    // whole settle-then-never effect, so the finalizer is registered BEFORE
+    // the deferred is settled. Registering first closes the window where the
+    // winner returns and the loser is interrupted before it armed its
+    // finalizer, which would make this flaky.
+    let gate = Arc::new(AtomicBool::new(false));
+    let settler = Arc::clone(&gate);
+    let awaiter = Arc::clone(&gate);
+    let released = Arc::new(AtomicUsize::new(0));
+    let setter_released = Arc::clone(&released);
+
+    let rt = Runtime::new();
+    let exit = race::<&'static str, String>(
+        &rt,
+        move |_| {
+            while !awaiter.load(Ordering::SeqCst) {
+                std::thread::park_timeout(std::time::Duration::from_millis(1));
+            }
+            Exit::Success("awaited")
+        },
+        move |ctx| {
+            ctx.acquire_release(
+                Effect::<(), String>::succeed(()),
+                move |_| {
+                    setter_released.fetch_add(1, Ordering::SeqCst);
+                    Effect::<(), String>::succeed(())
+                },
+            )
+            .expect("acquire cannot fail");
+            // Settle the deferred the other side is waiting on, then never
+            // complete: this side is the loser.
+            settler.store(true, Ordering::SeqCst);
+            while !ctx.is_interrupted() {
+                std::thread::park_timeout(std::time::Duration::from_millis(1));
+            }
+            Exit::Failure(Cause::interrupt(None))
+        },
+    );
+
+    assert!(matches!(exit, Exit::Success("awaited")));
+    assert_eq!(released.load(Ordering::SeqCst), 1, "the settler was interrupted");
 }
