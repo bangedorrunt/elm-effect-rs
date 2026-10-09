@@ -17,6 +17,8 @@ mod fiber_set;
 #[path = "../src/scheduler.rs"]
 mod scheduler;
 
+use std::time::Duration;
+
 use elm_effect::{Cause, Exit, Runtime};
 use execution_plan::ExecutionPlan;
 use fiber_map::FiberMap;
@@ -238,4 +240,32 @@ fn scheduler_runs_fifo_and_counts_yields() {
     assert_eq!(sched.yields(), 2);
     assert_eq!(sched.pending(), 0);
     assert_eq!(sched.max_ops(), 2);
+}
+
+#[test]
+fn set_await_empty_waits_for_in_flight_fibers() {
+    // FiberSet row "awaitEmpty": the wait is not satisfied while fibers are
+    // still running. The pin asserts this by forking awaitEmpty and checking
+    // it is still undefined mid-wait; here the bodies park on a latch so the
+    // wait has something to really wait for.
+    let release = flag();
+    let started = counter();
+    let mut set = FiberSet::new(Runtime::new());
+    for _ in 0..3 {
+        let (release, started) = (release.clone(), started.clone());
+        set.run(move |_| {
+            started.fetch_add(1, Ordering::SeqCst);
+            while !release.load(Ordering::SeqCst) {
+                std::thread::park_timeout(Duration::from_millis(1));
+            }
+            Exit::<(), String>::succeed(())
+        });
+    }
+    wait_until(|| started.load(Ordering::SeqCst) == 3, "three fibers parked");
+    // Nothing has completed, so the set is not empty and await_empty must
+    // block rather than reaping an unfinished set.
+    assert_eq!(set.size(), 3);
+    release.store(true, Ordering::SeqCst);
+    assert_eq!(set.await_empty(), Exit::Success(()));
+    assert!(set.is_empty());
 }

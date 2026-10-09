@@ -1734,11 +1734,11 @@ unported	packages/effect/test/FiberSet.test.ts	7	it.effect	run defers startup
 unported	packages/effect/test/FiberSet.test.ts	23	it.effect	identifies FiberSet in JSON	
 unported	packages/effect/test/FiberSet.test.ts	29	it.effect	interrupts running fibers when the scope closes	
 unported	packages/effect/test/FiberSet.test.ts	50	it.effect	runtime	
-unported	packages/effect/test/FiberSet.test.ts	73	it.effect	runs fibers concurrently and awaitEmpty waits for completion	
-unported	packages/effect/test/FiberSet.test.ts	83	it.effect	size	
+ported	packages/effect/test/FiberSet.test.ts	73	it.effect	runs fibers concurrently and awaitEmpty waits for completion	set_join_reports_first_failure
+ported	packages/effect/test/FiberSet.test.ts	83	it.effect	size	set_runs_and_joins
 unported	packages/effect/test/FiberSet.test.ts	94	it.effect	propagateInterruption false ignores external interruption	
 unported	packages/effect/test/FiberSet.test.ts	105	it.effect	propagateInterruption true fails join on external interruption	
-unported	packages/effect/test/FiberSet.test.ts	120	it.effect	awaitEmpty	
+ported	packages/effect/test/FiberSet.test.ts	120	it.effect	awaitEmpty	set_await_empty_waits_for_in_flight_fibers
 unported	packages/effect/test/FiberSet.test.ts	135	it.effect	makeRuntimePromise	
 ported	packages/effect/test/FiberSetRuntimePropagation.test.ts	6	it.effect	records external interruption when enabled	set_interrupt_all_records_external_interruption
 unported	packages/effect/test/FileSystem.test-utils.ts	21	it	readFile	
