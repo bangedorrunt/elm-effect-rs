@@ -1051,3 +1051,93 @@ where
         }
     })
 }
+
+/// Live state for the catch-family (see [`Stream::catch`, [`Stream::catch_if`]).
+///
+/// Installed on the first caught failure; every later pull delegates to it.
+/// Kept private to this module: the public surface is the combinators
+/// themselves.
+struct CatchState<A: Send + 'static, E: Send + 'static, R: crate::effect::Requirement> {
+    substitute: std::sync::Arc<Mutex<Option<Stream<A, E, R>>>>,
+    /// The handler arming, if any. `None` until a failure is caught.
+    handler: std::sync::Arc<Mutex<Option<Box<dyn FnOnce(E) -> Stream<A, E, R> + Send>>>>,
+}
+
+impl<A: Send + 'static, E: Send + 'static, R: crate::effect::Requirement> Clone for CatchState<A, E, R> {
+    fn clone(&self) -> Self {
+        Self {
+            substitute: Arc::clone(&self.substitute),
+            handler: Arc::clone(&self.handler),
+        }
+    }
+}
+
+/// Shared driver for the catch family, mirroring [`Stream::catch`]'s shape
+/// but taking a predicate: an unhandled failure re-raises, a handled one
+/// installs the handler's replacement stream.
+fn catch_family_pump<A, E, R>(
+    pull: Pull<A, E, R>,
+    state: CatchState<A, E, R>,
+    predicate: Arc<dyn Fn(&E) -> bool + Send + Sync>,
+) -> Effect<Option<Vec<A>>, E, R>
+where
+    A: Send + 'static,
+    E: Send + 'static,
+    R: crate::effect::Requirement,
+{
+    let delegate = { state.substitute.lock().unwrap().as_ref().map(Stream::clone_of_pull) };
+    if let Some(sub) = delegate {
+        return call(&sub);
+    }
+    let (state, predicate) = (state.clone(), Arc::clone(&predicate));
+    call(&pull).catch(move |error| {
+        // Take the handler ONCE. The earlier version took it for the
+        // predicate check and then took it again with an expect(), which
+        // panicked because the first take had already emptied the mutex.
+        let arm = state.handler.lock().unwrap().take();
+        // Unhandled when the handler is already spent, or the predicate
+        // rejects this error. Put the handler back for a later pull and
+        // re-raise the SAME typed failure, unchanged.
+        let arm = match arm {
+            Some(arm) if predicate(&error) => arm,
+            maybe => {
+                *state.handler.lock().unwrap() = maybe;
+                return Effect::fail(error);
+            }
+        };
+        let replacement = arm(error);
+        // Clone the replacement's pull (an Arc) so the stream itself can move
+        // into the shared state while we hand over its first chunk now.
+        let first = Arc::clone(&replacement.pull);
+        *state.substitute.lock().unwrap() = Some(replacement);
+        call(&first)
+    })
+}
+
+impl<A: Send + 'static, E: Send + 'static, R: crate::effect::Requirement> Stream<A, E, R> {
+    /// `Stream.catchIf` at the pin: catch only failures satisfying
+    /// `predicate`, continuing with the stream `handler` produces. A failure
+    /// the predicate rejects is re-raised unchanged, so `catchIf` never
+    /// accidentally recovers an error it does not name.
+    ///
+    /// Tag dispatch lives in the predicate, which is how the pin's
+    /// `catchTag`/`catchReason` compose through ordinary closures.
+    pub fn catch_if<P, F>(self, predicate: P, handler: F) -> Self
+    where
+        P: Fn(&E) -> bool + Send + Sync + 'static,
+        F: FnOnce(E) -> Self + Send + 'static,
+    {
+        let state = CatchState {
+            substitute: Arc::new(Mutex::new(None)),
+            handler: Arc::new(Mutex::new(Some(Box::new(handler)))),
+        };
+        let (pull, exec) = (self.pull, Arc::clone(&self.exec));
+        // Coerce to a trait object here: the pump takes Arc<dyn Fn(&E) -> bool>,
+        // and an Arc<P> will not coerce implicitly inside the closure.
+        let predicate: Arc<dyn Fn(&E) -> bool + Send + Sync> = Arc::new(predicate);
+        let (pull0, state0, p0) = (Arc::clone(&pull), state.clone(), Arc::clone(&predicate));
+        Self::derive(exec, move || {
+            catch_family_pump(Arc::clone(&pull0), state0.clone(), Arc::clone(&p0))
+        })
+    }
+}

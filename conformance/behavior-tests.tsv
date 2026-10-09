@@ -3575,8 +3575,8 @@ unported	packages/effect/test/Stream.test.ts	953	it.effect	tapCause preserves de
 unported	packages/effect/test/Stream.test.ts	964	it.effect	catchDefect	
 unported	packages/effect/test/Stream.test.ts	980	it.effect	catchIf with refinement	
 unported	packages/effect/test/Stream.test.ts	998	it.effect	catchIf with refinement orElse	
-unported	packages/effect/test/Stream.test.ts	1017	it.effect	catchIf with predicate	
-unported	packages/effect/test/Stream.test.ts	1030	it.effect	catchIf predicate no match	
+ported	packages/effect/test/Stream.test.ts	1017	it.effect	catchIf with predicate	catch_if_recovers_a_matching_typed_failure
+ported	packages/effect/test/Stream.test.ts	1030	it.effect	catchIf predicate no match	catch_if_re_raises_an_unmatched_failure_unchanged
 unported	packages/effect/test/Stream.test.ts	1044	it.effect	catchIf with filter input	
 unported	packages/effect/test/Stream.test.ts	1062	it.effect	catchCauseFilter	
 unported	packages/effect/test/Stream.test.ts	1074	it.effect	catchTag orElse	

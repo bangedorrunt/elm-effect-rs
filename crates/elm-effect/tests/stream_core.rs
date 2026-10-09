@@ -372,3 +372,51 @@ fn stream_catch_does_not_swallow_a_defect() {
     }
     assert_eq!(called.load(Ordering::SeqCst), 0, "catch must not fire on a defect");
 }
+
+// ---------------------------------------------------------------------------
+// Stream.catchIf at the pin (describe "error handling")
+// ---------------------------------------------------------------------------
+
+#[test]
+fn catch_if_recovers_a_matching_typed_failure() {
+    // catchIf(e => typeof e === "string", e => succeed(`caught: ${e}`)) over
+    // a stream failing with "boom" => ["caught: boom"].
+    let stream = Stream::<u32, String, ()>::fail("boom".to_string()).catch_if(
+        |error: &String| error == "boom",
+        |_error: String| from_iter(vec![11u32].into_iter(), 1),
+    );
+    match stream.run_collect() {
+        Exit::Success(values) => assert_eq!(values, vec![11]),
+        Exit::Failure(cause) => panic!("catchIf must recover a matching failure, got {cause:?}"),
+    }
+}
+
+#[test]
+fn catch_if_re_raises_an_unmatched_failure_unchanged() {
+    // A failure the predicate rejects is re-raised unchanged: catchIf must
+    // never accidentally recover an error it does not name.
+    let stream = Stream::<u32, String, ()>::fail("42".to_string()).catch_if(
+        |error: &String| error == "boom",
+        |_error: String| from_iter(vec![11u32].into_iter(), 1),
+    );
+    match stream.run_collect() {
+        Exit::Failure(cause) => assert_eq!(cause.failure(), Some(&"42".to_string())),
+        Exit::Success(_) => panic!("a rejected failure must not be recovered"),
+    }
+}
+
+#[test]
+fn catch_if_recovers_on_a_later_pull_after_a_pass_through() {
+    // The substitution must persist across pulls, not just the first one:
+    // a head of elements, then a matching failure, must still recover.
+    let head = from_iter(vec![1u32, 2].into_iter(), 2);
+    let tail = Stream::<u32, String, ()>::fail("boom".to_string());
+    let stream = head.concat(tail).catch_if(
+        |error: &String| error == "boom",
+        |_error: String| from_iter(vec![7u32].into_iter(), 1),
+    );
+    match stream.run_collect() {
+        Exit::Success(values) => assert_eq!(values, vec![1, 2, 7]),
+        Exit::Failure(cause) => panic!("catchIf must recover after a pass-through, got {cause:?}"),
+    }
+}
