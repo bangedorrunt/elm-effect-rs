@@ -3532,7 +3532,7 @@ unported	packages/effect/test/Stream.test.ts	458	it.effect	serviceOption - none
 ported	packages/effect/test/Stream.test.ts	464	it.effect	range - min greater than max	range_min_greater_than_max
 ported	packages/effect/test/Stream.test.ts	470	it.effect	range - min equal to max	range_min_equal_to_max
 unported	packages/effect/test/Stream.test.ts	476	it.effect	fromIteratorSucceed - normalizes the chunk size	
-unported	packages/effect/test/Stream.test.ts	490	it.effect	fromIterable - emits array as one chunk by default	
+ported	packages/effect/test/Stream.test.ts	490	it.effect	fromIterable - emits array as one chunk by default	from_iterable_emits_the_array_as_one_chunk_by_default
 ported	packages/effect/test/Stream.test.ts	499	it.effect	fromIterable - supports chunkSize option	run_fold_sums_chunks
 ported	packages/effect/test/Stream.test.ts	508	it.effect	fromIterable - normalizes the chunk size	run_fold_sums_chunks
 unported	packages/effect/test/Stream.test.ts	522	it.effect	scoped - provides scope to fromEffect pull effects	

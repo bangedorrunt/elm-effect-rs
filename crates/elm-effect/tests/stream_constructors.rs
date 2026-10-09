@@ -147,3 +147,16 @@ fn split_lines_pin_doc_example() {
     // The pin's own example: "a\nb\r\n", "c\n" => ['a', 'b', 'c']
     assert_eq!(lines_of(&["a\nb\r\n", "c\n"]), vec!["a", "b", "c"]);
 }
+
+#[test]
+fn from_iterable_emits_the_array_as_one_chunk_by_default() {
+    // Stream.fromIterable([1,2,3,4]).pipe(Stream.chunks, Stream.runCollect)
+    // === [[1, 2, 3, 4]]. The default chunk size is the whole array, so the
+    // observable claim is that the chunk boundary is the array itself.
+    let items: Vec<u32> = vec![1, 2, 3, 4];
+    let stream: Stream<u32, String, ()> = from_iter(items.into_iter(), 4);
+    match stream.run_collect_chunks() {
+        Exit::Success(chunks) => assert_eq!(chunks, vec![vec![1, 2, 3, 4]]),
+        Exit::Failure(_) => panic!("must not fail"),
+    }
+}
