@@ -3573,8 +3573,8 @@ ported	packages/effect/test/Stream.test.ts	928	it.effect	catch	stream_catch_reco
 ported	packages/effect/test/Stream.test.ts	943	it.effect	tapCause preserves failures	tap_cause_preserves_a_typed_failure
 ported	packages/effect/test/Stream.test.ts	953	it.effect	tapCause preserves defects	tap_cause_preserves_a_defect
 ported	packages/effect/test/Stream.test.ts	964	it.effect	catchDefect	catch_defect_recovers_a_defect_but_not_a_typed_failure
-unported	packages/effect/test/Stream.test.ts	980	it.effect	catchIf with refinement	
-unported	packages/effect/test/Stream.test.ts	998	it.effect	catchIf with refinement orElse	
+ported	packages/effect/test/Stream.test.ts	980	it.effect	catchIf with refinement	catch_if_re_raises_an_unmatched_failure_unchanged
+ported	packages/effect/test/Stream.test.ts	998	it.effect	catchIf with refinement orElse	catch_if_re_raises_an_unmatched_failure_unchanged
 ported	packages/effect/test/Stream.test.ts	1017	it.effect	catchIf with predicate	catch_if_recovers_a_matching_typed_failure
 ported	packages/effect/test/Stream.test.ts	1030	it.effect	catchIf predicate no match	catch_if_re_raises_an_unmatched_failure_unchanged
 ported	packages/effect/test/Stream.test.ts	1044	it.effect	catchIf with filter input	catch_filter_routes_through_selector_result
