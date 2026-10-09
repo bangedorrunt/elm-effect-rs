@@ -405,3 +405,25 @@ fn semaphore_competing_takes_serialize() {
     assert_eq!(order.lock().unwrap().len(), 2);
     assert_eq!(sem.available("k".to_string()), 1);
 }
+
+#[test]
+fn replay_window_does_not_retain_values_that_slid_out() {
+    // Row: "does not retain values published outside an undrained replay
+    // window". A replay-1 hub: publish one value, snapshot the window, then
+    // publish two more. The first value must have slid out of the LIVE
+    // window, while the snapshot still holds it.
+    let hub = PubSub::with_replay(usize::MAX, Strategy::Unbounded, 1);
+    assert!(hub.publish(1));
+    let snapshot = hub.replay_window();
+    assert_eq!(snapshot, vec![1]);
+
+    // Two more publishes push the first value out of the live window.
+    assert!(hub.publish(2));
+    assert!(hub.publish(3));
+    assert_eq!(hub.replay_window(), vec![3], "only the last value survives");
+
+    // The snapshot is independent: it retains what it copied, and the value
+    // that slid out is NOT in the live window.
+    assert!(!hub.replay_window().contains(&1));
+    assert_eq!(snapshot, vec![1]);
+}

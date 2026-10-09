@@ -2983,7 +2983,7 @@ ported	packages/effect/test/PubSub.test.ts	465	it	normalizes low-level polling a
 unported	packages/effect/test/PubSub.test.ts	488	it	polls MutableList.Empty as a value	
 ported	packages/effect/test/PubSub.test.ts	496	it	publishes after a capacity-one subscriber unsubscribes from a slid message	pubsub_unsubscribe_then_publish
 unported	packages/effect/test/PubSub.test.ts	510	it	does not retain values published after the replay window is drained	
-unported	packages/effect/test/PubSub.test.ts	523	it	does not retain values published outside an undrained replay window	
+ported	packages/effect/test/PubSub.test.ts	523	it	does not retain values published outside an undrained replay window	replay_window_does_not_retain_values_that_slid_out
 unported	packages/effect/test/PubSub.test.ts	537	it	preserves replay order across multiple slides	
 ported	packages/effect/test/PubSub.test.ts	552	it.effect	unbounded	pubsub_replay_window_prefills
 ported	packages/effect/test/PubSub.test.ts	561	it.effect	unbounded rounds up fractional replay	pubsub_replay_count_rounding
