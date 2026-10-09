@@ -1136,13 +1136,13 @@ unported	packages/effect/test/Duration.test.ts	14	it	fromInputUnsafe
 unported	packages/effect/test/Duration.test.ts	116	it	fromInput	
 unported	packages/effect/test/Duration.test.ts	158	it	Order	
 unported	packages/effect/test/Duration.test.ts	179	it	Equivalence	
-unported	packages/effect/test/Duration.test.ts	200	it	max	
-unported	packages/effect/test/Duration.test.ts	205	it	min	
-unported	packages/effect/test/Duration.test.ts	210	it	clamp	
-unported	packages/effect/test/Duration.test.ts	227	it	equals	
+ported	packages/effect/test/Duration.test.ts	200	it	max	max_ms
+ported	packages/effect/test/Duration.test.ts	205	it	min	min_ms
+ported	packages/effect/test/Duration.test.ts	210	it	clamp	clamp_ms
+ported	packages/effect/test/Duration.test.ts	227	it	equals	equals_ms
 unported	packages/effect/test/Duration.test.ts	231	it	Hash.symbol agrees with equals across Millis/Nanos representations	
 unported	packages/effect/test/Duration.test.ts	245	it	Hash.symbol handles finite millis too large to convert to nanos	
-unported	packages/effect/test/Duration.test.ts	252	it	between	
+ported	packages/effect/test/Duration.test.ts	252	it	between	between_ms
 unported	packages/effect/test/Duration.test.ts	265	it	divide	
 unported	packages/effect/test/Duration.test.ts	304	it	divideUnsafe	
 unported	packages/effect/test/Duration.test.ts	345	it	times	

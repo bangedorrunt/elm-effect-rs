@@ -136,3 +136,55 @@ fn hash_grids_do_not_collide() {
         .collect();
     assert_eq!(hashed.len(), 300);
 }
+
+// ---------------------------------------------------------------------------
+// Duration millis rows at the pin (Duration.test.ts describe max..between)
+// ---------------------------------------------------------------------------
+
+#[test]
+fn duration_max_returns_the_larger() {
+    // Duration.max(millis(1), millis(2)) === millis(2)
+    // Duration.max(minutes(1), millis(2)) === minutes(1)
+    assert_eq!(max_ms(1, 2), 2);
+    assert_eq!(max_ms(60_000, 2), 60_000);
+    // A match on both sides returns either bound.
+    assert_eq!(max_ms(7, 7), 7);
+}
+
+#[test]
+fn duration_min_returns_the_smaller() {
+    // Duration.min(millis(1), millis(2)) === millis(1)
+    // Duration.min(minutes(1), millis(2)) === millis(2)
+    assert_eq!(min_ms(1, 2), 1);
+    assert_eq!(min_ms(60_000, 2), 2);
+    assert_eq!(min_ms(7, 7), 7);
+}
+
+#[test]
+fn duration_clamp_bounds_both_ends() {
+    // Below the minimum clamps up at it, above the maximum clamps down at it,
+    // and a value inside the range is preserved exactly (minutes(1.5) stays).
+    assert_eq!(clamp_ms(1, 2, 3), 2, "below the minimum clamps up");
+    assert_eq!(clamp_ms(99, 2, 3), 3, "above the maximum clamps down");
+    assert_eq!(clamp_ms(90_000, 60_000, 120_000), 90_000, "inside is preserved");
+}
+
+#[test]
+fn duration_equals_across_units() {
+    // Duration.equals(hours(1), minutes(60)): the comparison is on the
+    // underlying millis, so differing units with the same span are equal.
+    assert!(equals_ms(3_600_000, 3_600_000));
+    assert!(equals_ms(3_600_000, 60 * 60_000));
+    assert!(!equals_ms(1, 60_000));
+}
+
+#[test]
+fn duration_between_is_inclusive_on_both_bounds() {
+    // Duration.between(hours(1), { minimum: minutes(59), maximum: minutes(61) })
+    assert!(between_ms(3_600_000, 59 * 60_000, 61 * 60_000));
+    assert!(between_ms(60_000, 59_000, 61_000));
+    // Just outside either bound is not between. 3_700_000 ms is past the
+    // 61-minute maximum (3_660_000), so it is out.
+    assert!(!between_ms(3_700_000, 59 * 60_000, 61 * 60_000));
+    assert!(!between_ms(62_000, 60_000, 61_000));
+}
