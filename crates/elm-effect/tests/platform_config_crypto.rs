@@ -1431,3 +1431,26 @@ fn provider_dotenv_preserves_empty_when_requested() {
         vec!["A".to_string()]
     );
 }
+
+#[test]
+fn config_literals_accepts_configured_number_alternatives() {
+    // Config row "literals accepts configured number alternatives": the
+    // options are rendered as their source strings, so "1" matches the
+    // option 1 and "3" does not match [1, 2]. The failure names the
+    // location it was read from, which is the part a bare is_err() would miss.
+    let ok = provider(&[("a", "1")]);
+    let bad = provider(&[("b", "3")]);
+
+    assert_eq!(
+        Config::literals(named("a"), &["1", "2"]).load(&ok),
+        Ok(Value::Str("1".to_string()))
+    );
+
+    let err = Config::literals(named("b"), &["1", "2"])
+        .load(&bad)
+        .expect_err("3 is not a configured alternative");
+    assert!(
+        !err.is_empty(),
+        "the failure must name the path it failed at, not just `expected one of`"
+    );
+}
