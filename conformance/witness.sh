@@ -1,5 +1,6 @@
 #!/bin/sh
 # Product finish line. ADR-0002 witness list. Not the Effect ledger.
+# The open epic closes against this script.
 set -eu
 cd "$(dirname "$0")/.."
 
