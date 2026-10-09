@@ -291,3 +291,31 @@ fn layerref_builds_once_and_refreshes() {
     assert_eq!(cell.get(), 5);
     assert_eq!(builds.load(Ordering::SeqCst), 2);
 }
+
+#[test]
+fn latch_is_open_tracks_open_and_close() {
+    // Latch row "isOpen reflects the state of the latch": closed at
+    // construction, open after open(), and back to closed after close().
+    // The pin interposes a yield between open and the assertion, so the
+    // state must survive a context switch, not just be readable inline.
+    let latch = Latch::new_closed();
+    assert!(!latch.is_open(), "a latch built closed is not open");
+
+    assert!(latch.open(), "opening a closed latch flips it");
+    // Give any parked/contending observer a chance to run before asserting.
+    std::thread::yield_now();
+    assert!(latch.is_open(), "the latch stays open across a yield");
+
+    assert!(latch.close(), "closing an open latch flips it");
+    assert!(!latch.is_open(), "the latch reads closed again");
+}
+
+#[test]
+fn latch_open_is_idempotent_and_reports_the_flip() {
+    // The return value distinguishes "I opened it" from "it was already
+    // open" -- the pin's open/close return these same booleans.
+    let latch = Latch::new_open();
+    assert!(!latch.open(), "an already-open latch reports no flip");
+    assert!(latch.close());
+    assert!(!latch.close(), "an already-closed latch reports no flip");
+}

@@ -2443,7 +2443,7 @@ unported	packages/effect/test/JsonSchema.test.ts	2927	it	${name} does not mutate
 unported	packages/effect/test/JsonSchema.test.ts	2939	it	toMultiDocumentOpenApi3_1 does not mutate its input	
 unported	packages/effect/test/JsonSchema.test.ts	2952	it	preserves a Draft-07 schema and definitions through canonical form	
 unported	packages/effect/test/Latch.test.ts	6	it.effect	release wakes current waiters and keeps the latch closed	
-unported	packages/effect/test/Latch.test.ts	23	it.effect	isOpen reflects the state of the latch	
+ported	packages/effect/test/Latch.test.ts	23	it.effect	isOpen reflects the state of the latch	latch_is_open_tracks_open_and_close
 unported	packages/effect/test/Latch.test.ts	35	it.effect	open then close does not resume waiters registered after close	
 unported	packages/effect/test/Latch.test.ts	57	it.effect	release while a flush is pending covers the new waiters	
 unported	packages/effect/test/Latch.test.ts	95	it.effect	release does not resume waiters registered after the release	
