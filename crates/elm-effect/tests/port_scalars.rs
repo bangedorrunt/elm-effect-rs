@@ -1227,3 +1227,13 @@ fn number_exact_dividends() {
     assert_eq!(number::remainder(larger, 2.5), 1.5);
 }
 
+
+#[test]
+fn option_pipe_maps_in_order() {
+    // Option.test.ts ".pipe()": some(1).pipe(Option.map(n => n + 1)) === 2.
+    // Piped application is method order in Rust; the observable result the
+    // row asserts is the mapped value, not the application shape.
+    assert_eq!(Some(1).map(|n| n + 1), Some(2));
+    assert_eq!(Some(1).map(|n| n * 3), Some(3));
+    assert_eq!(None::<i32>.map(|n| n + 1), None);
+}

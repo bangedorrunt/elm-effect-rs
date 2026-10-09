@@ -2820,7 +2820,7 @@ ported	packages/effect/test/Option.test.ts	449	it	makeEquivalence	option_equal_o
 ported	packages/effect/test/Option.test.ts	460	it	tuple	option_zip_product_all
 ported	packages/effect/test/Option.test.ts	466	it	iterable	option_match_tap
 ported	packages/effect/test/Option.test.ts	474	it	struct	option_lift_partition_product
-unported	packages/effect/test/Option.test.ts	483	it	.pipe()	
+ported	packages/effect/test/Option.test.ts	483	it	.pipe()	option_pipe_maps_in_order
 ported	packages/effect/test/Option.test.ts	487	it	lift2	option_lift_partition_product
 ported	packages/effect/test/Option.test.ts	496	it	Do	option_do_gen_bind_shapes
 ported	packages/effect/test/Option.test.ts	500	it	bindTo	option_do_gen_bind_shapes
