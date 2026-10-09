@@ -10,11 +10,18 @@
 //! Durable commands record their JSON intent under their key before
 //! running; [`Ephemeral`](Durability::Ephemeral) commands leave no trace.
 //! [`Subscriber`] reads the model and cannot write it: the handle exposes
-//! no send path by construction (see `subscriber_cannot_write`).
+//! no send path by construction (see `subscriber_cannot_write`). No
+//! command outcome is lost: success keeps the interpreter's message, and
+//! every failure, defect, and interrupt enters through
+//! [`Program::failure`] as a [`Failure`].
 
+use std::cell::RefCell;
 use std::collections::BTreeMap;
+use std::rc::Rc;
+use std::sync::Arc;
 
-use elm_effect::{Effect, Exit, ManagedRuntime};
+use elm_effect::{Cause, Effect, Exit, ManagedRuntime};
+use elm_effect_journal::durable_log::{AppendError, DurableLog, SCHEMA_VERSION};
 
 pub mod replay;
 use serde::{Deserialize, Serialize};
@@ -102,6 +109,48 @@ pub trait Program {
 
     /// Pure fold: next model plus commands.
     fn update(model: &Self::Model, msg: &Self::Msg) -> Update<Self::Model, Self::Cmd>;
+
+    /// How a command outcome that was not success reaches the fold.
+    /// Required, so the loop never discards one: a program that cannot
+    /// name this shape could only drop failures, and dropping them is
+    /// the bug this method exists to prevent.
+    fn failure(failure: &Failure) -> Self::Msg;
+}
+
+/// A command outcome that was not success. The three cause kinds stay
+/// apart (ADR-0002 L2): a program that handles a typed failure
+/// structurally cannot accidentally swallow a defect or an interrupt.
+/// The typed value arrives here rendered by its `Display`, because
+/// [`Program`] cannot name the interpreter's error type; the kind does
+/// not collapse.
+#[derive(Clone, Debug, PartialEq)]
+pub enum Failure {
+    /// The interpreter's typed failure, rendered.
+    Fail(String),
+    /// A defect: a panic or a broken invariant. Never a typed error value.
+    Defect(String),
+    /// Interruption: not a failure, not a defect.
+    Interrupted,
+    /// The durable log rejected the append, so the command never ran.
+    NotAppended(String),
+}
+
+impl Failure {
+    /// Classify one cause with `squash`'s priority — fail, then defect,
+    /// then interrupt — so one exit yields one message. A cause carrying
+    /// several kinds reports the first, in that order.
+    fn of_cause<E: std::fmt::Display>(cause: &Cause<E>) -> Self {
+        if let Some(error) = cause.failure() {
+            return Self::Fail(error.to_string());
+        }
+        if let Some(defect) = cause.defects().first() {
+            return Self::Defect(defect.message.clone());
+        }
+        if cause.is_interrupted() {
+            return Self::Interrupted;
+        }
+        Self::Defect("empty cause".to_string())
+    }
 }
 
 /// Command interpreter: each command becomes an effect yielding a message.
@@ -136,13 +185,41 @@ impl<Model> Subscriber<Model> {
     }
 }
 
+/// Producer identity for durable appends (Law L16). `seq` is where this
+/// loop resumes: a fresh host starts at 0, a restarted host reuses the
+/// last committed seq so appends stay gap-free.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Producer {
+    /// Stable writer id.
+    pub producer_id: String,
+    /// The producer's epoch (restarts begin a new epoch).
+    pub epoch: u64,
+    /// Next sequence number to append.
+    pub seq: u64,
+}
+
+impl Producer {
+    /// A fresh producer at epoch 0, sequence 0.
+    pub fn new(producer_id: impl Into<String>) -> Self {
+        Self { producer_id: producer_id.into(), epoch: 0, seq: 0 }
+    }
+}
+
 /// The runtime loop: fold, record, interpret, feed back. The edge bridge is
 /// supplied by the host (L3: interpreting a description stays at the edge,
 /// not in a library crate).
 pub struct Loop<P: Program, I: Interpret<P>> {
     model: P::Model,
+    /// Live view of the model for subscribers: updated on every fold so a
+    /// handle taken earlier reads later sends, not the state at subscribe.
+    view: Rc<RefCell<P::Model>>,
+    /// Durable intents recorded so far, in order (cache of log appends).
     intents: Vec<Recorded>,
     rt: ManagedRuntime,
+    log: Arc<dyn DurableLog>,
+    producer: Producer,
+    /// Commands per window (bounded map-reduce, Law L13); default 8.
+    bound: usize,
     _interpret: std::marker::PhantomData<I>,
 }
 
@@ -151,24 +228,47 @@ where
     P::Msg: Send + 'static,
     I::Error: Send + 'static,
 {
-    /// Boot the program with the host's runtime.
-    pub fn boot(boot: &Boot, rt: ManagedRuntime) -> Self {
+    /// Boot the program with the host's runtime, durable log, and producer
+    /// identity. Durable commands append to `log` before they run.
+    pub fn boot(
+        boot: &Boot,
+        rt: ManagedRuntime,
+        log: Arc<dyn DurableLog>,
+        producer: Producer,
+    ) -> Self {
         let initial = P::init(boot);
         let mut this = Self {
-            model: initial.model,
+            model: initial.model.clone(),
+            view: Rc::new(RefCell::new(initial.model)),
             intents: Vec::new(),
             rt,
+            log,
+            producer,
+            bound: 8,
             _interpret: std::marker::PhantomData,
         };
         this.run_commands(initial.commands);
         this
     }
 
+    /// Commands per window. `run_commands` finishes one window of at most
+    /// `bound` commands before the next window starts; the default is 8.
+    /// `bound` is clamped to at least 1.
+    pub fn with_bound(mut self, bound: usize) -> Self {
+        self.bound = bound.max(1);
+        self
+    }
+
     /// The one entrance: fold one message, run resulting commands.
     pub fn send(&mut self, msg: P::Msg) {
         let update = P::update(&self.model, &msg);
-        self.model = update.model;
+        self.set_model(update.model);
         self.run_commands(update.commands);
+    }
+
+    fn set_model(&mut self, model: P::Model) {
+        self.model = model.clone();
+        *self.view.borrow_mut() = model;
     }
 
     /// Current model.
@@ -181,33 +281,73 @@ where
         &self.intents
     }
 
-    /// Read-only subscriber handle.
+    /// Read-only subscriber handle sharing the loop's live model: a handle
+    /// taken now reads later sends too.
     pub fn subscriber(&self) -> Subscriber<P::Model>
     where
         P::Model: 'static,
     {
-        let model = self.model.clone();
-        Subscriber { read: std::rc::Rc::new(move || model.clone()) }
+        let view = Rc::clone(&self.view);
+        Subscriber { read: Rc::new(move || view.borrow().clone()) }
     }
 
+    /// Bounded map-reduce (Law L13): split the command list into windows of
+    /// at most `bound`; map each command (append the durable intent first,
+    /// then run it synchronously) and reduce the outcomes through the fold
+    /// before the next window starts. Nothing is dropped: success keeps the
+    /// interpreter's message, a failure classifies into a [`Failure`], and
+    /// a rejected append reports one instead of skipping the command in
+    /// silence. Message order equals command order.
     fn run_commands(&mut self, commands: Vec<P::Cmd>) {
-        let mut queue: Vec<P::Msg> = Vec::new();
-        for cmd in &commands {
-            if let Durability::Durable { key } = cmd.durability() {
-                if let Ok(body) = serde_json::to_value(cmd) {
-                    self.intents.push(Recorded { key, body });
+        for window in commands.chunks(self.bound) {
+            let mut msgs = Vec::with_capacity(window.len());
+            for cmd in window {
+                msgs.push(self.run_one(cmd));
+            }
+            for msg in msgs {
+                self.send(msg);
+            }
+        }
+    }
+
+    /// Map one command to its message. A durable intent appends through the
+    /// log before the provider runs; a rejected append is reported to the
+    /// fold and the command is not run, so no provider outruns its record.
+    fn run_one(&mut self, cmd: &P::Cmd) -> P::Msg {
+        if let Durability::Durable { key } = cmd.durability() {
+            match self.append_durable(&key, cmd) {
+                Ok(recorded) => self.intents.push(recorded),
+                Err(error) => {
+                    return P::failure(&Failure::NotAppended(format!(
+                        "durable append rejected: {error}"
+                    )));
                 }
             }
         }
-        for cmd in commands {
-            match self.rt.run(I::interpret(&cmd)) {
-                Exit::Success(msg) => queue.push(msg),
-                Exit::Failure(_) => {}
-            }
+        match self.rt.run(I::interpret(cmd)) {
+            Exit::Success(msg) => msg,
+            Exit::Failure(cause) => P::failure(&Failure::of_cause(&cause)),
         }
-        for msg in queue {
-            self.send(msg);
-        }
+    }
+
+    /// Append one durable intent through the log. The payload is the same
+    /// `{key, body}` pair `intents()` reports. Consumes a sequence number
+    /// only on a successful append, so a retry stays gap-free.
+    fn append_durable(&mut self, key: &str, cmd: &P::Cmd) -> Result<Recorded, AppendError> {
+        let body = serde_json::to_value(cmd)
+            .map_err(|e| AppendError::NotAnEnvelope(e.to_string()))?;
+        let envelope = serde_json::json!({
+            "v": SCHEMA_VERSION,
+            "producer": {
+                "producer_id": self.producer.producer_id,
+                "epoch": self.producer.epoch,
+                "seq": self.producer.seq,
+            },
+            "payload": { "key": key, "body": body },
+        });
+        self.log.append_json(&envelope.to_string())?;
+        self.producer.seq += 1;
+        Ok(Recorded { key: key.to_string(), body })
     }
 }
 

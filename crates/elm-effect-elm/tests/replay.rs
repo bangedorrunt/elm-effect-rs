@@ -2,7 +2,7 @@
 //! model-plus-offset snapshots, middleware mapping, snapshot streams.
 
 use elm_effect_elm::replay::{Middleware, Player, Replay};
-use elm_effect_elm::{Boot, Cmd, Durability, Program, Update};
+use elm_effect_elm::{Boot, Cmd, Durability, Failure, Program, Update};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -50,6 +50,10 @@ impl Program for Counter {
             ),
             Msg::Add(n) => Update::quiet(Model { count: model.count + n }),
         }
+    }
+
+    fn failure(_failure: &Failure) -> Msg {
+        Msg::Add(0)
     }
 }
 

@@ -338,6 +338,7 @@ name = "elm-effect-elm"
 version = "0.1.0"
 dependencies = [
  "elm-effect",
+ "elm-effect-journal",
  "serde",
  "serde_json",
  "thiserror 1.0.69",

@@ -1,9 +1,24 @@
 //! Elm loop fence: Program/Update/Boot fold, durable intents,
 //! interpretation feedback, subscriber read-only shape.
 
+use std::sync::Arc;
+
 use elm_effect::{Effect, ManagedRuntime};
-use elm_effect_elm::{Boot, Cmd, Durability, Interpret, InterpretError, Loop, Program, Subscriber, Update};
+use elm_effect_elm::{
+    Boot, Cmd, Durability, Failure, Interpret, InterpretError, Loop, Producer, Program, Subscriber,
+    Update,
+};
+use elm_effect_journal::durable_log::MemLog;
 use serde::{Deserialize, Serialize};
+
+fn app(boot: &Boot) -> Loop<Counter, Run> {
+    Loop::<Counter, Run>::boot(
+        boot,
+        ManagedRuntime::new(),
+        Arc::new(MemLog::new()),
+        Producer::new("test"),
+    )
+}
 
 #[derive(Clone, Debug, PartialEq)]
 struct Model {
@@ -52,6 +67,12 @@ impl Program for Counter {
             Msg::Add(n) => Update::quiet(Model { count: model.count + n }),
         }
     }
+
+    fn failure(_failure: &Failure) -> Msg {
+        // This program's interpreters complete silently, so a failure
+        // folds like one: no count change, no silent skip.
+        Msg::Add(0)
+    }
 }
 
 struct Run;
@@ -77,7 +98,7 @@ fn boot_parses_config_without_live_handles() {
 
 #[test]
 fn fold_updates_model() {
-    let mut app = Loop::<Counter, Run>::boot(&Boot::parse(vec!["start=5".to_string()]), ManagedRuntime::new());
+    let mut app = app(&Boot::parse(vec!["start=5".to_string()]));
     assert_eq!(app.model().count, 5);
     // Time enters as a message.
     app.send(Msg::Tick);
@@ -88,7 +109,7 @@ fn fold_updates_model() {
 
 #[test]
 fn durable_intents_recorded_ephemeral_not() {
-    let mut app = Loop::<Counter, Run>::boot(&Boot::default(), ManagedRuntime::new());
+    let mut app = app(&Boot::default());
     app.send(Msg::Tick);
     let keys: Vec<&str> = app.intents().iter().map(|r| r.key.as_str()).collect();
     assert_eq!(keys, vec!["count"]);
@@ -99,7 +120,7 @@ fn durable_intents_recorded_ephemeral_not() {
 #[test]
 fn interpret_feedback_runs_commands() {
     // Persist interprets to Add(0): model moves only by the Tick fold.
-    let mut app = Loop::<Counter, Run>::boot(&Boot::default(), ManagedRuntime::new());
+    let mut app = app(&Boot::default());
     app.send(Msg::Tick);
     assert_eq!(app.model().count, 1);
     assert_eq!(app.intents().len(), 1);
@@ -110,7 +131,7 @@ fn subscriber_cannot_write() {
     fn only_reads(s: Subscriber<Model>) -> i64 {
         s.read().count
     }
-    let app = Loop::<Counter, Run>::boot(&Boot::default(), ManagedRuntime::new());
+    let app = app(&Boot::default());
     assert_eq!(only_reads(app.subscriber()), 0);
 }
 
