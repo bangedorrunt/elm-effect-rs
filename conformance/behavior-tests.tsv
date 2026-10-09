@@ -442,22 +442,22 @@ ported	packages/effect/test/Cause.test.ts	304	it	returns the first Fail even aft
 ported	packages/effect/test/Cause.test.ts	314	it	returns the first Die when there are no Fails	squash_returns_the_first_die_when_there_are_no_fails
 ported	packages/effect/test/Cause.test.ts	323	it	reports an interrupt-only cause	squash_reports_an_interrupt_only_cause
 ported	packages/effect/test/Cause.test.ts	329	it	reports an empty cause	squash_reports_an_empty_cause
-unported	packages/effect/test/Cause.test.ts	337	it	returns success with the first Fail reason	
-unported	packages/effect/test/Cause.test.ts	346	it	returns failure when no Fail reason exists	
-unported	packages/effect/test/Cause.test.ts	351	it	returns failure for empty cause	
-unported	packages/effect/test/Cause.test.ts	358	it	returns success with the error value	
-unported	packages/effect/test/Cause.test.ts	366	it	returns failure when no Fail reason exists	
-unported	packages/effect/test/Cause.test.ts	373	it	returns Some with the error value	
-unported	packages/effect/test/Cause.test.ts	381	it	returns None when no Fail reason exists	
-unported	packages/effect/test/Cause.test.ts	388	it	returns success with the first Die reason	
-unported	packages/effect/test/Cause.test.ts	397	it	returns failure when no Die reason exists	
-unported	packages/effect/test/Cause.test.ts	404	it	returns success with the defect value	
-unported	packages/effect/test/Cause.test.ts	412	it	returns failure when no Die reason exists	
-unported	packages/effect/test/Cause.test.ts	419	it	returns success with the first Interrupt reason	
-unported	packages/effect/test/Cause.test.ts	428	it	returns failure when no Interrupt reason exists	
-unported	packages/effect/test/Cause.test.ts	435	it	returns a set of fiber IDs	
-unported	packages/effect/test/Cause.test.ts	443	it	returns empty set for non-interrupt causes	
-unported	packages/effect/test/Cause.test.ts	448	it	excludes undefined fiber IDs from set	
+ported	packages/effect/test/Cause.test.ts	337	it	returns success with the first Fail reason	find_fail_returns_the_first_fail_reason
+ported	packages/effect/test/Cause.test.ts	346	it	returns failure when no Fail reason exists	find_fail_is_absent_without_a_fail_reason
+ported	packages/effect/test/Cause.test.ts	351	it	returns failure for empty cause	find_fail_is_absent_without_a_fail_reason
+ported	packages/effect/test/Cause.test.ts	358	it	returns success with the error value	find_error_returns_the_error_value
+ported	packages/effect/test/Cause.test.ts	366	it	returns failure when no Fail reason exists	find_error_returns_the_error_value
+ported	packages/effect/test/Cause.test.ts	373	it	returns Some with the error value	find_error_option_is_none_without_a_fail_reason
+ported	packages/effect/test/Cause.test.ts	381	it	returns None when no Fail reason exists	find_error_option_is_none_without_a_fail_reason
+ported	packages/effect/test/Cause.test.ts	388	it	returns success with the first Die reason	find_die_returns_the_first_die_reason
+ported	packages/effect/test/Cause.test.ts	397	it	returns failure when no Die reason exists	find_die_returns_the_first_die_reason
+ported	packages/effect/test/Cause.test.ts	404	it	returns success with the defect value	find_defect_returns_the_defect_value
+ported	packages/effect/test/Cause.test.ts	412	it	returns failure when no Die reason exists	find_defect_returns_the_defect_value
+ported	packages/effect/test/Cause.test.ts	419	it	returns success with the first Interrupt reason	find_interrupt_returns_the_first_interrupt_reason
+ported	packages/effect/test/Cause.test.ts	428	it	returns failure when no Interrupt reason exists	find_interrupt_returns_the_first_interrupt_reason
+ported	packages/effect/test/Cause.test.ts	435	it	returns a set of fiber IDs	interruptor_ids_is_a_deduplicated_ordered_set
+ported	packages/effect/test/Cause.test.ts	443	it	returns empty set for non-interrupt causes	interruptor_ids_is_empty_for_non_interrupt_causes
+ported	packages/effect/test/Cause.test.ts	448	it	excludes undefined fiber IDs from set	interruptor_ids_excludes_undefined_fiber_ids
 unported	packages/effect/test/Cause.test.ts	456	it	returns success with fiber ID set when interrupts exist	
 unported	packages/effect/test/Cause.test.ts	464	it	returns failure when no interrupts exist	
 unported	packages/effect/test/Cause.test.ts	471	it	transforms error values in Fail reasons (data-first)	

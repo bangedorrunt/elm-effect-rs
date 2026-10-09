@@ -468,3 +468,105 @@ fn squash_reports_an_empty_cause() {
     let cause = Cause::<String>::empty();
     assert_eq!(cause.squash(), elm_effect::Squash::Empty);
 }
+
+// ---------------------------------------------------------------------------
+// Cause.find* family at the pin (describe findFail..findInterrupt)
+// ---------------------------------------------------------------------------
+
+#[test]
+fn find_fail_returns_the_first_fail_reason() {
+    let cause = Cause::from_reasons(vec![
+        Reason::Interrupt { fiber_id: Some(elm_effect::FiberId(1)) },
+        Reason::Fail("error".to_string()),
+        Reason::Fail("second".to_string()),
+    ]);
+    match cause.find_fail() {
+        Some(Reason::Fail(e)) => assert_eq!(e, "error"),
+        other => panic!("expected the first Fail, got {other:?}"),
+    }
+}
+
+#[test]
+fn find_fail_is_absent_without_a_fail_reason() {
+    let none = Cause::<String>::die(Defect::new("defect"));
+    assert!(none.find_fail().is_none());
+    assert!(Cause::<String>::empty().find_fail().is_none());
+}
+
+#[test]
+fn find_error_returns_the_error_value() {
+    let cause = Cause::fail("error".to_string());
+    assert_eq!(cause.find_error(), Some(&"error".to_string()));
+    assert!(Cause::<String>::die(Defect::new("d")).find_error().is_none());
+}
+
+#[test]
+fn find_error_option_is_none_without_a_fail_reason() {
+    assert!(Cause::<String>::die(Defect::new("defect")).find_error_option().is_none());
+    assert!(Cause::<String>::empty().find_error_option().is_none());
+}
+
+#[test]
+fn find_die_returns_the_first_die_reason() {
+    let cause = Cause::from_reasons(vec![
+        Reason::Fail("error".to_string()),
+        Reason::Die(Defect::new("first")),
+        Reason::Die(Defect::new("second")),
+    ]);
+    match cause.find_die() {
+        Some(Reason::Die(d)) => assert_eq!(d.message, "first"),
+        other => panic!("expected the first Die, got {other:?}"),
+    }
+    assert!(Cause::fail("e".to_string()).find_die().is_none());
+}
+
+#[test]
+fn find_defect_returns_the_defect_value() {
+    let cause = Cause::<String>::die(Defect::new("defect"));
+    assert_eq!(cause.find_defect().map(|d| d.message.clone()), Some("defect".to_string()));
+    assert!(Cause::fail("e".to_string()).find_defect().is_none());
+}
+
+#[test]
+fn find_interrupt_returns_the_first_interrupt_reason() {
+    let cause = Cause::<String>::interrupt(Some(elm_effect::FiberId(42)));
+    match cause.find_interrupt() {
+        Some(Reason::Interrupt { fiber_id }) => {
+            assert_eq!(*fiber_id, Some(elm_effect::FiberId(42)));
+        }
+        other => panic!("expected an Interrupt, got {other:?}"),
+    }
+    assert!(Cause::fail("e".to_string()).find_interrupt().is_none());
+}
+
+#[test]
+fn interruptor_ids_is_a_deduplicated_ordered_set() {
+    let cause = Cause::<String>::from_reasons(vec![
+        Reason::Interrupt { fiber_id: Some(elm_effect::FiberId(3)) },
+        Reason::Interrupt { fiber_id: Some(elm_effect::FiberId(1)) },
+        Reason::Interrupt { fiber_id: Some(elm_effect::FiberId(3)) },
+    ]);
+    assert_eq!(
+        cause.interruptor_ids(),
+        vec![elm_effect::FiberId(1), elm_effect::FiberId(3)],
+        "a set: ordered and without the duplicate"
+    );
+}
+
+#[test]
+fn interruptor_ids_is_empty_for_non_interrupt_causes() {
+    assert!(Cause::fail("e".to_string()).interruptor_ids().is_empty());
+    assert!(Cause::<String>::empty().interruptor_ids().is_empty());
+}
+
+#[test]
+fn interruptor_ids_excludes_undefined_fiber_ids() {
+    // A `None` fiber ID is not a member of the set.
+    let cause = Cause::<String>::from_reasons(vec![
+        Reason::Interrupt { fiber_id: None },
+        Reason::Interrupt { fiber_id: Some(elm_effect::FiberId(7)) },
+        Reason::Interrupt { fiber_id: None },
+    ]);
+    assert_eq!(cause.interruptor_ids(), vec![elm_effect::FiberId(7)]);
+    assert_eq!(cause.interruptors().len(), 3, "the raw list keeps every entry");
+}

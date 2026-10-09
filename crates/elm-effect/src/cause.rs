@@ -195,7 +195,7 @@ impl<E> Cause<E> {
             .collect()
     }
 
-    /// Interrupting fibers, in order ().
+    /// Interrupting fibers, in order (`Cause.interruptors`).
     pub fn interruptors(&self) -> Vec<Option<FiberId>> {
         self.reasons
             .iter()
@@ -204,6 +204,52 @@ impl<E> Cause<E> {
                 _ => None,
             })
             .collect()
+    }
+
+    /// The defined interrupting fiber IDs (`Cause.interruptors`'s set form):
+    /// `None` entries are excluded, and the result is ordered and deduplicated
+    /// so a caller sees a set rather than the raw per-reason list.
+    pub fn interruptor_ids(&self) -> Vec<FiberId> {
+        let mut ids: Vec<FiberId> = self
+            .interruptors()
+            .into_iter()
+            .flatten()
+            .collect();
+        ids.sort_by_key(|id| id.0);
+        ids.dedup();
+        ids
+    }
+
+    /// `Cause.findFail`: the first [`Reason::Fail`], or a unit failure when
+    /// the cause holds none (the pin's `Result<T, void>`).
+    pub fn find_fail(&self) -> Option<&Reason<E>> {
+        self.reasons.iter().find(|r| is_fail_reason(r))
+    }
+
+    /// `Cause.findError`: the first typed error value.
+    pub fn find_error(&self) -> Option<&E> {
+        self.failure()
+    }
+
+    /// `Cause.findErrorOption`: `Some` with the first typed error value,
+    /// `None` when the cause holds no `Fail` (empty causes included).
+    pub fn find_error_option(&self) -> Option<&E> {
+        self.failure()
+    }
+
+    /// `Cause.findDie`: the first [`Reason::Die`].
+    pub fn find_die(&self) -> Option<&Reason<E>> {
+        self.reasons.iter().find(|r| is_die_reason(r))
+    }
+
+    /// `Cause.findDefect`: the first defect value.
+    pub fn find_defect(&self) -> Option<&Defect> {
+        self.defects().first().copied()
+    }
+
+    /// `Cause.findInterrupt`: the first [`Reason::Interrupt`].
+    pub fn find_interrupt(&self) -> Option<&Reason<E>> {
+        self.reasons.iter().find(|r| is_interrupt_reason(r))
     }
 
     /// Keep only  reasons (narrow to failures, rejecting dies and
