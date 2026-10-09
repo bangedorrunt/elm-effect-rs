@@ -611,3 +611,85 @@ fn concat_causes<E>(mut first: crate::Cause<E>, second: crate::Cause<E>) -> crat
     first.reasons.extend(second.reasons);
     first
 }
+
+/// `Effect.raceAll` at the pin: run every body, and complete on the first
+/// SUCCESS. A failure does not end the race -- it is a loser, interrupted
+/// like any other, and the race continues to the first success. If every
+/// body fails, the causes are concatenated. The winners' and losers'
+/// releases all finish before the outcome is returned.
+pub fn race_all<A: Send + 'static, E: Send + 'static>(
+    rt: &Runtime,
+    bodies: Vec<Body<A, E>>,
+) -> Exit<A, E> {
+    race_all_impl(rt, bodies, true)
+}
+
+/// `Effect.raceAllFirst` at the pin: run every body, and complete on the
+/// first COMPLETION of any kind. A failure ends the race immediately (with
+/// that failure), which is what distinguishes it from [`race_all`].
+pub fn race_all_first<A: Send + 'static, E: Send + 'static>(
+    rt: &Runtime,
+    bodies: Vec<Body<A, E>>,
+) -> Exit<A, E> {
+    race_all_impl(rt, bodies, false)
+}
+
+/// Shared driver. `success_wins` selects `race_all` (true) over
+/// `race_all_first` (false).
+///
+/// An empty list has no winner by construction. The pin fails with
+/// NoSuchElementError; this port has no such type, so the empty case is a
+/// named invariant rather than a silent default outcome.
+fn race_all_impl<A: Send + 'static, E: Send + 'static>(
+    rt: &Runtime,
+    bodies: Vec<Body<A, E>>,
+    success_wins: bool,
+) -> Exit<A, E> {
+    assert!(
+        !bodies.is_empty(),
+        "raceAll of an empty iterable has no winner; the pin fails with NoSuchElementError"
+    );
+    let (tx, rx) = std::sync::mpsc::channel::<Exit<A, E>>();
+    let immediate = ForkOpts::immediate();
+    let handles: Vec<FiberHandle<(), std::convert::Infallible>> = bodies
+        .into_iter()
+        .map(|body| {
+            let tx = tx.clone();
+            rt.fork_detach_with(
+                move |ctx| {
+                    let _ = tx.send(body(ctx));
+                    Exit::<(), std::convert::Infallible>::succeed(())
+                },
+                immediate,
+            )
+        })
+        .collect();
+    // Drop the last sender: once every leg has answered, the channel closes
+    // instead of blocking this thread on a nobody.
+    drop(tx);
+
+    let mut failures: Vec<crate::Reason<E>> = Vec::new();
+    let winner = loop {
+        match rx.recv() {
+            Ok(Exit::Success(a)) => break Exit::Success(a),
+            Ok(Exit::Failure(cause)) => {
+                if !success_wins {
+                    break Exit::Failure(cause);
+                }
+                failures.extend(cause.reasons);
+            }
+            // Every leg answered: the channel closed. Only reachable when
+            // success_wins is true and every body failed.
+            Err(_) => break Exit::Failure(crate::Cause { reasons: failures, ..crate::Cause::empty() }),
+        }
+    };
+
+    // Interrupt then join every leg, so all releases finish before returning.
+    for handle in &handles {
+        handle.interrupt();
+    }
+    for handle in handles {
+        handle.join();
+    }
+    winner
+}

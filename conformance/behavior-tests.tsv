@@ -1268,8 +1268,8 @@ unported	packages/effect/test/Effect.test.ts	1245	it.effect	releases disposables
 unported	packages/effect/test/Effect.test.ts	1254	it.effect	releases async disposables	
 unported	packages/effect/test/Effect.test.ts	1265	it.live	releases on interrupt	
 unported	packages/effect/test/Effect.test.ts	1283	it.effect	supports release dependencies	
-unported	packages/effect/test/Effect.test.ts	1306	it.effect	raceAll	
-unported	packages/effect/test/Effect.test.ts	1325	it.effect	raceAllFirst	
+ported	packages/effect/test/Effect.test.ts	1306	it.effect	raceAll	race_all_completes_on_the_first_success_not_the_first_completion
+ported	packages/effect/test/Effect.test.ts	1325	it.effect	raceAllFirst	race_all_first_completes_on_the_first_completion_even_a_failure
 ported	packages/effect/test/Effect.test.ts	1345	it.effect	race interrupts the loser when the other side succeeds	race_interrupts_the_loser_when_the_other_side_succeeds
 ported	packages/effect/test/Effect.test.ts	1364	it.effect	raceFirst interrupts the loser when the other side succeeds	race_first_interrupts_the_loser_when_the_other_side_succeeds
 ported	packages/effect/test/Effect.test.ts	1383	it.effect	raceFirst interrupts the loser when the other side fails	race_first_interrupts_the_loser_when_the_other_side_fails

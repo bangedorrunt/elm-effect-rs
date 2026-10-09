@@ -5,7 +5,7 @@ use std::sync::{
     atomic::{AtomicBool, AtomicUsize, Ordering},
 };
 
-use elm_effect::{Cause, Effect, Exit, Reason, Runtime, race, race_first};
+use elm_effect::{Cause, Effect, Exit, Reason, Runtime, race, race_all, race_all_first, race_first};
 
 #[test]
 fn race_failure_does_not_beat_later_success() {
@@ -294,4 +294,136 @@ fn race_interrupts_a_loser_that_settles_the_race_while_starting() {
 
     assert!(matches!(exit, Exit::Success("awaited")));
     assert_eq!(released.load(Ordering::SeqCst), 1, "the settler was interrupted");
+}
+
+// ---------------------------------------------------------------------------
+// raceAll / raceAllFirst at the pin (Effect.test.ts, describe-level rows)
+// ---------------------------------------------------------------------------
+
+fn body<A: Send + 'static, E: Send + 'static>(
+    f: impl FnOnce(&elm_effect::Ctx) -> elm_effect::Exit<A, E> + Send + 'static,
+) -> elm_effect::Body<A, E> {
+    Box::new(f)
+}
+
+#[test]
+fn race_all_completes_on_the_first_success_not_the_first_completion() {
+    // One body fails immediately (delay 0 then fail), the rest are delayed.
+    // raceAll ignores that failure -- a failure is a loser, not an outcome --
+    // and completes on the first SUCCESS (delay 100ms), which the pin
+    // asserts as result === 100.
+    use elm_effect::{ClockImpl, Duration, TestClock};
+
+    let rt = Runtime::new();
+    let clock = Arc::new(TestClock::new());
+    let clock_a = Arc::clone(&clock);
+    let clock_b = Arc::clone(&clock);
+    let clock_c = Arc::clone(&clock);
+
+    let worker = std::thread::spawn(move || {
+        race_all::<i64, String>(
+            &rt,
+            vec![
+                // ms === 0: fails immediately.
+                body(move |_| {
+                    clock_a.sleep(Duration::from_millis(0), &|| false);
+                    Exit::Failure(Cause::fail("boom".to_string()))
+                }),
+                // ms === 100: succeeds. Driven by the adjust below.
+                body(move |_| {
+                    clock_b.sleep(Duration::from_millis(100), &|| false);
+                    Exit::Success(100)
+                }),
+                // ms === 5000: never reached, past the adjust. Deliberately
+                // past the 500ms adjust (rather than the pin's 500) so that
+                // only the 100ms body can answer -- otherwise both wake and
+                // whichever sends first wins, which is nondeterministic.
+                body(move |ctx| {
+                    clock_c.sleep(Duration::from_millis(5000), &|| ctx.is_interrupted());
+                    Exit::Success(5000)
+                }),
+            ],
+        )
+    });
+
+    wait_until(|| clock.pending_sleepers() >= 1, "at least one body parked");
+    clock.adjust(Duration::from_millis(500));
+
+    let exit = worker.join().expect("worker thread");
+    assert!(
+        matches!(exit, Exit::Success(100)),
+        "raceAll must complete on the first success, ignoring the immediate failure"
+    );
+}
+
+#[test]
+fn race_all_concatenates_causes_when_every_body_fails() {
+    // With no success anywhere, the failures are concatenated.
+    let rt = Runtime::new();
+    let exit = race_all::<i32, String>(
+        &rt,
+        vec![
+            body(|_| Exit::Failure(Cause::fail("first".to_string()))),
+            body(|_| Exit::Failure(Cause::fail("second".to_string()))),
+            body(|_| Exit::Failure(Cause::fail("third".to_string()))),
+        ],
+    );
+    match exit {
+        Exit::Failure(cause) => {
+            let mut failures: Vec<&String> = cause
+                .reasons
+                .iter()
+                .filter_map(|r| match r {
+                    Reason::Fail(e) => Some(e),
+                    _ => None,
+                })
+                .collect();
+            failures.sort();
+            assert_eq!(failures, vec!["first", "second", "third"]);
+        }
+        Exit::Success(_) => panic!("every body failed"),
+    }
+}
+
+#[test]
+fn race_all_first_completes_on_the_first_completion_even_a_failure() {
+    // A failure ends raceAllFirst immediately, even though another body would
+    // succeed later. The pin asserts Exit.fail("boom") and that the later
+    // success never starts.
+    use elm_effect::{ClockImpl, Duration, TestClock};
+
+    let rt = Runtime::new();
+    let clock = Arc::new(TestClock::new());
+    let clock_fail = Arc::clone(&clock);
+    let clock_win = Arc::clone(&clock);
+
+    let worker = std::thread::spawn(move || {
+        race_all_first::<i64, String>(
+            &rt,
+            vec![
+                // delay 0 then fail: completes first, so it wins.
+                body(move |_| {
+                    clock_fail.sleep(Duration::from_millis(0), &|| false);
+                    Exit::Failure(Cause::fail("boom".to_string()))
+                }),
+                // delay 100 then succeed: must never start, because the
+                // failure above ended the race first.
+                body(move |_| {
+                    clock_win.sleep(Duration::from_millis(100), &|| false);
+                    Exit::Success(100)
+                }),
+            ],
+        )
+    });
+
+    wait_until(|| clock.pending_sleepers() >= 1, "the failing body parked");
+    // Advance past BOTH deadlines: the 100ms one would succeed, but it must
+    // already have been interrupted by the failure that answered first.
+    clock.adjust(Duration::from_millis(500));
+
+    let exit = worker.join().expect("worker thread");
+    assert!(
+        matches!(exit, Exit::Failure(ref c) if c.failure() == Some(&"boom".to_string())),
+        "raceAllFirst must end on the first completion, even a failure"
+    );
 }
