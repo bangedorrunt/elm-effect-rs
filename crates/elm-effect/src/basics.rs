@@ -94,6 +94,16 @@ impl<T> Predicate<T> {
         let (a, b) = (self.test.clone(), other.test.clone());
         Self::new(move |v| !((a)(v) && (b)(v)))
     }
+
+    /// Both agree (`Predicate.eqv` / xnor): true only when the two
+    /// predicates return the same answer.
+    pub fn eqv(&self, other: &Self) -> Self
+    where
+        T: 'static,
+    {
+        let (a, b) = (self.test.clone(), other.test.clone());
+        Self::new(move |v| (a)(v) == (b)(v))
+    }
 }
 
 /// Always true.

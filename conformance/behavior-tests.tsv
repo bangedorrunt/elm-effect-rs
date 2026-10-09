@@ -2911,12 +2911,12 @@ unported	packages/effect/test/Predicate.test.ts	89	it	returns true only when all
 unported	packages/effect/test/Predicate.test.ts	98	it	ignores extra keys and stops at first failing field	
 ported	packages/effect/test/Predicate.test.ts	117	it	negates the underlying predicate	equivalence_and_predicate_basics
 ported	packages/effect/test/Predicate.test.ts	127	it	returns true when either predicate is true	equivalence_and_predicate_basics
-unported	packages/effect/test/Predicate.test.ts	137	it	returns true only when both predicates are true	
+ported	packages/effect/test/Predicate.test.ts	137	it	returns true only when both predicates are true	predicate_and_truth_table
 ported	packages/effect/test/Predicate.test.ts	147	it	returns true only when exactly one predicate is true	predicate_xor_needs_exactly_one
-unported	packages/effect/test/Predicate.test.ts	156	it	returns true when both predicates agree	
-unported	packages/effect/test/Predicate.test.ts	165	it	returns true when antecedent is false or consequent is true	
-unported	packages/effect/test/Predicate.test.ts	174	it	returns true only when both predicates are false	
-unported	packages/effect/test/Predicate.test.ts	183	it	returns false only when both predicates are true	
+ported	packages/effect/test/Predicate.test.ts	156	it	returns true when both predicates agree	predicate_eqv_truth_table
+ported	packages/effect/test/Predicate.test.ts	165	it	returns true when antecedent is false or consequent is true	predicate_implies_truth_table
+ported	packages/effect/test/Predicate.test.ts	174	it	returns true only when both predicates are false	predicate_nor_truth_table
+ported	packages/effect/test/Predicate.test.ts	183	it	returns false only when both predicates are true	predicate_nand_truth_table
 unported	packages/effect/test/Predicate.test.ts	192	it	returns true when all predicates pass	
 unported	packages/effect/test/Predicate.test.ts	200	it	returns true for empty collections	
 ported	packages/effect/test/Predicate.test.ts	208	it	returns true when any predicate passes	predicate_or_needs_any_and_not_flips

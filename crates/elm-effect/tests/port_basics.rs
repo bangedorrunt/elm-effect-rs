@@ -188,3 +188,68 @@ fn duration_between_is_inclusive_on_both_bounds() {
     assert!(!between_ms(3_700_000, 59 * 60_000, 61 * 60_000));
     assert!(!between_ms(62_000, 60_000, 61_000));
 }
+
+// ---------------------------------------------------------------------------
+// Predicate truth tables at the pin (Predicate.test.ts describe and/xor/
+// eqv/implies/nor/nand, driven by constTrue / constFalse)
+// ---------------------------------------------------------------------------
+
+/// `and`: true only when both hold.
+#[test]
+fn predicate_and_truth_table() {
+    let (yes, no) = (always::<u8>(), never::<u8>());
+    assert!(yes.and(&yes).test(&0));
+    assert!(!yes.and(&no).test(&0));
+    assert!(!no.and(&yes).test(&0));
+    assert!(!no.and(&no).test(&0));
+}
+
+/// `xor`: true only when exactly one holds.
+#[test]
+fn predicate_xor_truth_table() {
+    let (yes, no) = (always::<u8>(), never::<u8>());
+    assert!(!yes.xor(&yes).test(&0));
+    assert!(yes.xor(&no).test(&0));
+    assert!(no.xor(&yes).test(&0));
+    assert!(!no.xor(&no).test(&0));
+}
+
+/// `eqv`: true only when the two agree.
+#[test]
+fn predicate_eqv_truth_table() {
+    let (yes, no) = (always::<u8>(), never::<u8>());
+    assert!(yes.eqv(&yes).test(&0));
+    assert!(!yes.eqv(&no).test(&0));
+    assert!(!no.eqv(&yes).test(&0));
+    assert!(no.eqv(&no).test(&0));
+}
+
+/// `implies`: true unless the antecedent holds and the consequent does not.
+#[test]
+fn predicate_implies_truth_table() {
+    let (yes, no) = (always::<u8>(), never::<u8>());
+    assert!(yes.implies(&yes).test(&0));
+    assert!(!yes.implies(&no).test(&0));
+    assert!(no.implies(&yes).test(&0));
+    assert!(no.implies(&no).test(&0));
+}
+
+/// `nor`: true only when both are false.
+#[test]
+fn predicate_nor_truth_table() {
+    let (yes, no) = (always::<u8>(), never::<u8>());
+    assert!(!yes.nor(&yes).test(&0));
+    assert!(!yes.nor(&no).test(&0));
+    assert!(!no.nor(&yes).test(&0));
+    assert!(no.nor(&no).test(&0));
+}
+
+/// `nand`: false only when both are true.
+#[test]
+fn predicate_nand_truth_table() {
+    let (yes, no) = (always::<u8>(), never::<u8>());
+    assert!(!yes.nand(&yes).test(&0));
+    assert!(yes.nand(&no).test(&0));
+    assert!(no.nand(&yes).test(&0));
+    assert!(no.nand(&no).test(&0));
+}
