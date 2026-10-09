@@ -350,3 +350,121 @@ fn cause_reason_narrowers_reject() {
     assert!(!is_interrupt_reason(&fail.reasons[0]));
     assert!(!is_interrupt_reason(&die.reasons[0]));
 }
+
+// ---------------------------------------------------------------------------
+// Cause combinators at the pin (describe fromReasons/has*/squash)
+// ---------------------------------------------------------------------------
+
+#[test]
+fn from_reasons_builds_a_cause_from_an_array() {
+    // Cause.fromReasons([Fail("error"), Die("defect"), Interrupt(1)])
+    let cause = Cause::from_reasons(vec![
+        Reason::Fail("error".to_string()),
+        Reason::Die(Defect::new("defect")),
+        Reason::Interrupt { fiber_id: Some(elm_effect::FiberId(1)) },
+    ]);
+    assert_eq!(cause.reasons.len(), 3);
+}
+
+#[test]
+fn from_reasons_empty_is_empty_cause() {
+    // An empty reason list is Cause.empty, not a distinct state.
+    let cause = Cause::<String>::from_reasons(Vec::new());
+    assert!(cause.reasons.is_empty());
+    assert!(!cause.has_fails());
+}
+
+#[test]
+fn has_fails_requires_a_fail_reason() {
+    assert!(Cause::fail("e".to_string()).has_fails());
+    assert!(!Cause::<String>::die(Defect::new("d")).has_fails());
+    assert!(!Cause::<String>::interrupt(Some(elm_effect::FiberId(1))).has_fails());
+    assert!(!Cause::<String>::empty().has_fails());
+}
+
+#[test]
+fn has_fails_is_true_for_a_combined_cause() {
+    // squash-order pinning: a Die plus a Fail still has fails.
+    let cause = Cause::from_reasons(vec![
+        Reason::Die(Defect::new("defect")),
+        Reason::Fail("error".to_string()),
+    ]);
+    assert!(cause.has_fails());
+}
+
+#[test]
+fn has_dies_requires_a_die_reason() {
+    assert!(Cause::<String>::die(Defect::new("d")).has_dies());
+    assert!(!Cause::fail("e".to_string()).has_dies());
+    assert!(!Cause::<String>::interrupt(Some(elm_effect::FiberId(1))).has_dies());
+    assert!(!Cause::<String>::empty().has_dies());
+}
+
+#[test]
+fn has_interrupts_requires_an_interrupt_reason() {
+    assert!(Cause::<String>::interrupt(Some(elm_effect::FiberId(1))).has_interrupts());
+    assert!(!Cause::fail("e".to_string()).has_interrupts());
+    assert!(!Cause::<String>::die(Defect::new("d")).has_interrupts());
+    assert!(!Cause::<String>::empty().has_interrupts());
+}
+
+#[test]
+fn has_interrupts_only_is_true_when_every_reason_is_an_interrupt() {
+    // One interrupt, and a cause combining two, are both interrupt-only.
+    assert!(
+        Cause::<String>::interrupt(Some(elm_effect::FiberId(1))).has_interrupts_only()
+    );
+    let two = Cause::<String>::from_reasons(vec![
+        Reason::Interrupt { fiber_id: Some(elm_effect::FiberId(1)) },
+        Reason::Interrupt { fiber_id: Some(elm_effect::FiberId(2)) },
+    ]);
+    assert!(two.has_interrupts_only());
+}
+
+#[test]
+fn has_interrupts_only_is_false_for_an_empty_cause() {
+    // An empty cause is NOT interrupt-only: the empty case is its own answer.
+    assert!(!Cause::<String>::empty().has_interrupts_only());
+}
+
+#[test]
+fn has_interrupts_only_is_false_when_mixed() {
+    let mixed = Cause::from_reasons(vec![
+        Reason::Interrupt { fiber_id: Some(elm_effect::FiberId(1)) },
+        Reason::Fail("error".to_string()),
+    ]);
+    assert!(!mixed.has_interrupts_only());
+}
+
+#[test]
+fn squash_prefers_the_first_fail_even_after_interrupt_and_die() {
+    let cause = Cause::from_reasons(vec![
+        Reason::Interrupt { fiber_id: Some(elm_effect::FiberId(1)) },
+        Reason::Die(Defect::new("defect")),
+        Reason::Fail("first".to_string()),
+        Reason::Fail("second".to_string()),
+    ]);
+    assert_eq!(cause.squash(), elm_effect::Squash::Fail("first".to_string()));
+}
+
+#[test]
+fn squash_returns_the_first_die_when_there_are_no_fails() {
+    let cause = Cause::<String>::from_reasons(vec![
+        Reason::Interrupt { fiber_id: Some(elm_effect::FiberId(1)) },
+        Reason::Die(Defect::new("first")),
+        Reason::Die(Defect::new("second")),
+    ]);
+    assert_eq!(cause.squash(), elm_effect::Squash::Die(Defect::new("first")));
+}
+
+#[test]
+fn squash_reports_an_interrupt_only_cause() {
+    let cause = Cause::<String>::interrupt(Some(elm_effect::FiberId(1)));
+    assert_eq!(cause.squash(), elm_effect::Squash::Interrupted);
+}
+
+#[test]
+fn squash_reports_an_empty_cause() {
+    let cause = Cause::<String>::empty();
+    assert_eq!(cause.squash(), elm_effect::Squash::Empty);
+}

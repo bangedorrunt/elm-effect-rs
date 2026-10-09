@@ -296,6 +296,75 @@ impl<E> Cause<E> {
             annotations: self.annotations,
         }
     }
+
+    /// Build from an explicit reason list (`Cause.fromReasons`). An empty
+    /// list is [`Cause::empty`], not a distinct state.
+    pub fn from_reasons(reasons: Vec<Reason<E>>) -> Self {
+        Self {
+            reasons,
+            annotations: Vec::new(),
+        }
+    }
+
+    /// `Cause.hasFails`: at least one [`Reason::Fail`].
+    pub fn has_fails(&self) -> bool {
+        self.reasons.iter().any(is_fail_reason)
+    }
+
+    /// `Cause.hasDies`: at least one [`Reason::Die`].
+    pub fn has_dies(&self) -> bool {
+        self.reasons.iter().any(is_die_reason)
+    }
+
+    /// `Cause.hasInterrupts`: at least one [`Reason::Interrupt`].
+    pub fn has_interrupts(&self) -> bool {
+        self.reasons.iter().any(is_interrupt_reason)
+    }
+
+    /// `Cause.hasInterruptsOnly`: non-empty and every reason an interrupt.
+    /// An empty cause is NOT interrupt-only (pinned by the "false for empty
+    /// cause" row).
+    pub fn has_interrupts_only(&self) -> bool {
+        !self.reasons.is_empty() && self.reasons.iter().all(is_interrupt_reason)
+    }
+
+    /// `Cause.squash`: the reason a caller sees, in the pin's priority —
+    /// first `Fail`, else first `Die`, else the interrupt-only or empty
+    /// summary. Values are handed back by clone so the cause stays intact.
+    pub fn squash(&self) -> Squash<E>
+    where
+        E: Clone,
+    {
+        if let Some(e) = self.failure() {
+            return Squash::Fail(e.clone());
+        }
+        if let Some(defect) = self.defects().first() {
+            return Squash::Die((*defect).clone());
+        }
+        if self.has_interrupts_only() {
+            return Squash::Interrupted;
+        }
+        if self.reasons.is_empty() {
+            return Squash::Empty;
+        }
+        unreachable!("a non-empty cause has at least one reason kind");
+    }
+}
+
+/// `Cause.squash`'s outcome. `Interrupted` and `Empty` mirror the pin's
+/// two summary errors ("All fibers interrupted without error", "Empty
+/// cause"); the port carries them as distinct variants rather than `String`
+/// messages so a caller cannot confuse them with a defect.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Squash<E> {
+    /// The first typed failure, by value.
+    Fail(E),
+    /// The first defect, by value.
+    Die(Defect),
+    /// Interrupt-only cause: the pin's "All fibers interrupted without error".
+    Interrupted,
+    /// Empty cause: the pin's "Empty cause".
+    Empty,
 }
 
 impl<E> Default for Cause<E> {

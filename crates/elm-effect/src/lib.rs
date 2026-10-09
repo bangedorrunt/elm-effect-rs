@@ -42,7 +42,7 @@ mod sync;
 mod time;
 
 pub use cause::{
-    Cause, Defect, FiberId, Reason, is_die_reason, is_fail_reason, is_interrupt_reason,
+    Cause, Defect, FiberId, Reason, Squash, is_die_reason, is_fail_reason, is_interrupt_reason,
 };
 pub use concurrency::{
     Body, Concurrency, all, find_first, find_first_filter, for_each, partition, partition_items,

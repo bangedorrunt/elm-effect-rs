@@ -421,27 +421,27 @@ unported	packages/effect/test/Cause.test.ts	155	it	works with Error instances
 unported	packages/effect/test/Cause.test.ts	166	it	creates a cause with a single Interrupt reason	
 unported	packages/effect/test/Cause.test.ts	172	it	preserves the fiber ID	
 unported	packages/effect/test/Cause.test.ts	180	it	allows undefined fiber ID	
-unported	packages/effect/test/Cause.test.ts	190	it	creates a cause from an array of reasons	
-unported	packages/effect/test/Cause.test.ts	199	it	creates empty cause from empty array	
-unported	packages/effect/test/Cause.test.ts	204	it	supports mixed reason types	
+ported	packages/effect/test/Cause.test.ts	190	it	creates a cause from an array of reasons	from_reasons_builds_a_cause_from_an_array
+ported	packages/effect/test/Cause.test.ts	199	it	creates empty cause from empty array	from_reasons_empty_is_empty_cause
+ported	packages/effect/test/Cause.test.ts	204	it	supports mixed reason types	from_reasons_builds_a_cause_from_an_array
 unported	packages/effect/test/Cause.test.ts	216	it	creates a Fail reason with _tag and error	
 unported	packages/effect/test/Cause.test.ts	224	it	creates a Die reason with _tag and defect	
 unported	packages/effect/test/Cause.test.ts	232	it	creates an Interrupt reason with _tag and fiberId	
 unported	packages/effect/test/Cause.test.ts	238	it	allows undefined fiberId	
-unported	packages/effect/test/Cause.test.ts	246	it	returns true when cause has Fail reasons	
-unported	packages/effect/test/Cause.test.ts	250	it	returns false when cause has no Fail reasons	
-unported	packages/effect/test/Cause.test.ts	256	it	returns true for combined cause with at least one Fail	
-unported	packages/effect/test/Cause.test.ts	263	it	returns true when cause has Die reasons	
-unported	packages/effect/test/Cause.test.ts	267	it	returns false when cause has no Die reasons	
-unported	packages/effect/test/Cause.test.ts	275	it	returns true when cause has Interrupt reasons	
-unported	packages/effect/test/Cause.test.ts	279	it	returns false when cause has no Interrupt reasons	
-unported	packages/effect/test/Cause.test.ts	287	it	returns true when all reasons are Interrupts	
-unported	packages/effect/test/Cause.test.ts	293	it	returns false for empty cause	
-unported	packages/effect/test/Cause.test.ts	297	it	returns false when mixed with other reason types	
-unported	packages/effect/test/Cause.test.ts	304	it	returns the first Fail even after an interrupt and a defect	
-unported	packages/effect/test/Cause.test.ts	314	it	returns the first Die when there are no Fails	
-unported	packages/effect/test/Cause.test.ts	323	it	reports an interrupt-only cause	
-unported	packages/effect/test/Cause.test.ts	329	it	reports an empty cause	
+ported	packages/effect/test/Cause.test.ts	246	it	returns true when cause has Fail reasons	has_fails_requires_a_fail_reason
+ported	packages/effect/test/Cause.test.ts	250	it	returns false when cause has no Fail reasons	has_fails_requires_a_fail_reason
+ported	packages/effect/test/Cause.test.ts	256	it	returns true for combined cause with at least one Fail	has_fails_is_true_for_a_combined_cause
+ported	packages/effect/test/Cause.test.ts	263	it	returns true when cause has Die reasons	has_dies_requires_a_die_reason
+ported	packages/effect/test/Cause.test.ts	267	it	returns false when cause has no Die reasons	has_dies_requires_a_die_reason
+ported	packages/effect/test/Cause.test.ts	275	it	returns true when cause has Interrupt reasons	has_interrupts_requires_an_interrupt_reason
+ported	packages/effect/test/Cause.test.ts	279	it	returns false when cause has no Interrupt reasons	has_interrupts_requires_an_interrupt_reason
+ported	packages/effect/test/Cause.test.ts	287	it	returns true when all reasons are Interrupts	has_interrupts_only_is_true_when_every_reason_is_an_interrupt
+ported	packages/effect/test/Cause.test.ts	293	it	returns false for empty cause	has_interrupts_only_is_false_for_an_empty_cause
+ported	packages/effect/test/Cause.test.ts	297	it	returns false when mixed with other reason types	has_interrupts_only_is_false_when_mixed
+ported	packages/effect/test/Cause.test.ts	304	it	returns the first Fail even after an interrupt and a defect	squash_prefers_the_first_fail_even_after_interrupt_and_die
+ported	packages/effect/test/Cause.test.ts	314	it	returns the first Die when there are no Fails	squash_returns_the_first_die_when_there_are_no_fails
+ported	packages/effect/test/Cause.test.ts	323	it	reports an interrupt-only cause	squash_reports_an_interrupt_only_cause
+ported	packages/effect/test/Cause.test.ts	329	it	reports an empty cause	squash_reports_an_empty_cause
 unported	packages/effect/test/Cause.test.ts	337	it	returns success with the first Fail reason	
 unported	packages/effect/test/Cause.test.ts	346	it	returns failure when no Fail reason exists	
 unported	packages/effect/test/Cause.test.ts	351	it	returns failure for empty cause	
