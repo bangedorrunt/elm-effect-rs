@@ -297,3 +297,52 @@ fn pool_reclaims_after_concurrent_use() {
     assert!(pool.idle_count() <= 2);
     let _ = pool.acquire();
 }
+
+// ---------------------------------------------------------------------------
+// Cache.getOption at the pin (describe "getOption")
+// ---------------------------------------------------------------------------
+
+#[test]
+fn get_option_returns_some_after_a_get() {
+    // Cache.get(cache, "test") then Cache.getOption(cache, "test") === Some(4)
+    let cache = Cache::new(10, |key: &String| Ok::<usize, String>(key.len()));
+    assert_eq!(cache.get(&"test".to_string()), Ok(4));
+    assert_eq!(cache.get_option(&"test".to_string()), Some(4));
+}
+
+#[test]
+fn get_option_returns_none_for_a_missing_key_and_never_runs_the_lookup() {
+    // Cache.getOption(cache, "test") === None. The observable claim that
+    // distinguishes getOption from get is that a MISS does NOT invoke the
+    // lookup: this is a pure read of the map.
+    let calls = Arc::new(AtomicUsize::new(0));
+    let cache = Cache::new(10, {
+        let calls = Arc::clone(&calls);
+        move |key: &String| {
+            calls.fetch_add(1, Ordering::SeqCst);
+            Ok::<usize, String>(key.len())
+        }
+    });
+    assert_eq!(cache.get_option(&"test".to_string()), None);
+    assert_eq!(
+        calls.load(Ordering::SeqCst),
+        0,
+        "a getOption miss must not run the lookup"
+    );
+    // A later get still populates and then reports the value.
+    assert_eq!(cache.get(&"test".to_string()), Ok(4));
+    assert_eq!(cache.get_option(&"test".to_string()), Some(4));
+    assert_eq!(calls.load(Ordering::SeqCst), 1, "only the get ran the lookup");
+}
+
+#[test]
+fn get_option_reports_absent_for_a_cached_failure() {
+    // A cached failure is not a value: getOption reports absence rather than
+    // resurrecting the error, which is what keeps it a "did I hold this key"
+    // question.
+    let cache = Cache::new(10, |_key: &String| Err::<usize, String>("boom".to_string()))
+        .cache_errors(true);
+    assert!(cache.get(&"k".to_string()).is_err());
+    assert_eq!(cache.len(), 1, "the failure is cached");
+    assert_eq!(cache.get_option(&"k".to_string()), None);
+}

@@ -326,8 +326,8 @@ unported	packages/effect/test/Cache.test.ts	436	it.effect	concurrent access - in
 unported	packages/effect/test/Cache.test.ts	463	it.effect	interrupting a getOption waiter keeps the shared lookup available	
 unported	packages/effect/test/Cache.test.ts	492	it.effect	concurrent access - interrupting the last consumer interrupts the lookup	
 unported	packages/effect/test/Cache.test.ts	518	it.effect	concurrent access - interrupted lookup does not remove a newer set value	
-unported	packages/effect/test/Cache.test.ts	542	it.effect	returns Some for existing cached value	
-unported	packages/effect/test/Cache.test.ts	555	it.effect	returns None for non-existent key	
+ported	packages/effect/test/Cache.test.ts	542	it.effect	returns Some for existing cached value	get_option_returns_some_after_a_get
+ported	packages/effect/test/Cache.test.ts	555	it.effect	returns None for non-existent key	get_option_returns_none_for_a_missing_key_and_never_runs_the_lookup
 unported	packages/effect/test/Cache.test.ts	567	it.effect	returns None for expired value	
 unported	packages/effect/test/Cache.test.ts	582	it.effect	waits for value being computed and returns result	
 unported	packages/effect/test/Cache.test.ts	604	it.effect	returns Some for successfully cached value	

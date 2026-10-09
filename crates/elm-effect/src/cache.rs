@@ -84,6 +84,22 @@ where
         self.map.lock().unwrap().len()
     }
 
+    /// `Cache.getOption` at the pin: `Some(value)` for an entry already held,
+    /// `None` otherwise. Notably a MISS never runs the lookup — this reads
+    /// the map and nothing else, which is what distinguishes it from `get`.
+    ///
+    /// Deliberate scope limit: the port's cache has no TTL, so the pin's
+    /// "returns None for expired value" row (which drives `TestClock`) is
+    /// not reproducible here and stays unported.
+    pub fn get_option(&self, key: &K) -> Option<V> {
+        match self.map.lock().unwrap().get(key) {
+            Some(Ok(value)) => Some(value.clone()),
+            // A cached failure is not a value: getOption reports absence.
+            Some(Err(_)) => None,
+            None => None,
+        }
+    }
+
     /// Drop every entry.
     pub fn clear(&self) {
         self.map.lock().unwrap().clear();
