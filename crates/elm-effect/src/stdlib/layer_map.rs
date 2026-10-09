@@ -30,6 +30,27 @@ where
         }
     }
 
+    /// `LayerMap.make` with `preloadKeys`: build the listed keys eagerly.
+    ///
+    /// Without preload, `make` asserts nothing about which keys exist yet --
+    /// the default TTL means nothing is built until first use, which is what
+    /// the row "make does not preload with the default idle TTL" observes.
+    /// Callers that want eager construction pass `Some(keys)`; `None` keeps
+    /// the existing lazy behavior.
+    pub fn make_with_preload(
+        build: impl Fn(&K) -> V + Send + Sync + 'static,
+        preload: Option<Vec<K>>,
+    ) -> Self {
+        let mut this = Self::make(build);
+        if let Some(keys) = preload {
+            for key in keys {
+                // Build through get(), which memoizes on first use.
+                this.get(&key);
+            }
+        }
+        this
+    }
+
     /// Set the idle TTL (`idleTimeToLive` shape, static form).
     pub fn set_idle_ttl(&mut self, ttl: Option<Duration>) {
         self.inner.set_idle_ttl(ttl);

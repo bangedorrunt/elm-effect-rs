@@ -319,3 +319,43 @@ fn latch_open_is_idempotent_and_reports_the_flip() {
     assert!(latch.close());
     assert!(!latch.close(), "an already-closed latch reports no flip");
 }
+
+#[test]
+fn layer_map_does_not_preload_with_default_idle_ttl() {
+    // LayerMap row "make does not preload with the default idle TTL": with
+    // no preload keys and the default TTL, nothing is built -- no key is
+    // acquired and so none is released either.
+    let built = std::sync::Arc::new(std::sync::Mutex::new(Vec::<String>::new()));
+    let built_factory = built.clone();
+    let map = LayerMap::make_with_preload(
+        move |key: &String| {
+            built_factory.lock().unwrap().push(key.clone());
+            key.clone()
+        },
+        None,
+    );
+    assert!(built.lock().unwrap().is_empty(), "no key is preloaded");
+    assert!(map.keys().is_empty(), "and the map holds nothing");
+}
+
+#[test]
+fn layer_map_preloads_listed_keys_eagerly() {
+    // The companion shape: with preload keys, exactly those keys are built
+    // up front. Without this, the row above cannot distinguish "preload is
+    // off" from "preload is broken", which is the failure mode that makes a
+    // negative row untrustworthy on its own.
+    let built = std::sync::Arc::new(std::sync::Mutex::new(Vec::<String>::new()));
+    let built_factory = built.clone();
+    let mut map = LayerMap::make_with_preload(
+        move |key: &String| {
+            built_factory.lock().unwrap().push(key.clone());
+            key.clone()
+        },
+        Some(vec!["a".to_string(), "b".to_string()]),
+    );
+    assert_eq!(built.lock().unwrap().clone(), vec!["a", "b"]);
+    assert_eq!(map.keys().len(), 2);
+    // A second get does not rebuild: preloaded entries are memoized.
+    assert_eq!(map.get(&"a".to_string()), Some("a".to_string()));
+    assert_eq!(built.lock().unwrap().clone(), vec!["a", "b"]);
+}
