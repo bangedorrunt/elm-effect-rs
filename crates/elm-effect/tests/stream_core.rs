@@ -526,3 +526,41 @@ fn catch_defect_recovers_a_defect_but_not_a_typed_failure() {
         Exit::Success(_) => panic!("catchDefect must not recover a typed failure"),
     }
 }
+
+#[test]
+fn catch_cause_filter_recovers_through_a_cause_extractor() {
+    // The extractor sees the WHOLE cause and decides: Ok(value) recovers via
+    // handler, Err(cause) re-raises that cause unchanged.
+    //
+    // Pin shape: Cause.hasFails(cause) ? Ok(squash) : Err(cause). The port's
+    // equivalent uses failure().cloned() for the squash value.
+    let recovered = Stream::<u32, String, ()>::fail("boom".to_string()).catch_cause_filter(
+        |cause: elm_effect::Cause<String>| -> std::result::Result<String, elm_effect::Cause<String>> {
+            cause.failure().cloned().ok_or(cause)
+        },
+        |failure: String| from_iter(vec![failure.len() as u32].into_iter(), 1),
+    );
+    assert!(
+        matches!(recovered.run_collect(), Exit::Success(ref v) if *v == vec![4]),
+        "catchCauseFilter must recover a Fail through the extractor"
+    );
+}
+
+#[test]
+fn catch_cause_filter_re_raises_a_declined_cause() {
+    // A cause the extractor declines must be re-raised VERBATIM: a defect is
+    // not a Fail, so the extractor declines and the defect survives.
+    let stream = Stream::<u32, String, ()>::die(Defect::new("boom")).catch_cause_filter(
+        |cause: elm_effect::Cause<String>| -> std::result::Result<String, elm_effect::Cause<String>> {
+            cause.failure().cloned().ok_or(cause)
+        },
+        |failure: String| from_iter(vec![failure.len() as u32].into_iter(), 1),
+    );
+    match stream.run_collect() {
+        Exit::Failure(cause) => {
+            assert_eq!(cause.defects().len(), 1, "the declined defect survives verbatim");
+            assert!(cause.failures().is_empty(), "not collapsed into a typed failure");
+        }
+        Exit::Success(_) => panic!("a declined cause must be re-raised, not recovered"),
+    }
+}

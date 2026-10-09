@@ -1284,3 +1284,52 @@ impl<A: Send + 'static, E: Send + 'static> Stream<A, E, ()> {
         })
     }
 }
+
+impl<A: Send + 'static, E: Clone + Send + 'static, R: crate::effect::Requirement> Stream<A, E, R> {
+    /// `Stream.catchCauseFilter` at the pin: a cause-level extractor decides
+    /// the recovery. `Ok(value)` is passed to `handler`, whose stream
+    /// replaces the failure; `Err(cause)` RE-RAISES that cause unchanged, so
+    /// a cause the extractor declines is preserved verbatim.
+    ///
+    /// Cause-level, not error-level: the extractor sees the whole cause
+    /// (matching the pin's `Cause.hasFails ? Ok(squash) : Err(cause)` shape),
+    /// which is what lets a non-typed reason reach the re-raise path instead
+    /// of being collapsed into a typed failure.
+    pub fn catch_cause_filter<V, EF, H>(self, extractor: EF, handler: H) -> Self
+    where
+        V: Send + 'static,
+        EF: FnOnce(crate::Cause<E>) -> std::result::Result<V, crate::Cause<E>> + Send + 'static,
+        H: FnOnce(V) -> Self + Send + 'static,
+    {
+        let (pull, exec) = (self.pull, Arc::clone(&self.exec));
+        let substitute: Arc<Mutex<Option<Self>>> = Arc::new(Mutex::new(None));
+        let extractor = Arc::new(Mutex::new(Some(extractor)));
+        let handler = Arc::new(Mutex::new(Some(handler)));
+        let (pull0, sub0) = (Arc::clone(&pull), Arc::clone(&substitute));
+        let (ex0, h0) = (Arc::clone(&extractor), Arc::clone(&handler));
+        Self::derive(exec, move || {
+            let delegate = { sub0.lock().unwrap().as_ref().map(Stream::clone_of_pull) };
+            if let Some(sub) = delegate {
+                return call(&sub);
+            }
+            let (extractor, handler, sub) =
+                (Arc::clone(&ex0), Arc::clone(&h0), Arc::clone(&sub0));
+            call(&pull0).catch_cause(move |cause| {
+                let Some(extract) = extractor.lock().unwrap().take() else {
+                    return Effect::fail_cause(cause);
+                };
+                match extract(cause) {
+                    std::result::Result::Ok(value) => {
+                        let arm = handler.lock().unwrap().take().expect("checked");
+                        let replacement = arm(value);
+                        let first = Arc::clone(&replacement.pull);
+                        *sub.lock().unwrap() = Some(replacement);
+                        call(&first)
+                    }
+                    // Declined: put the cause back exactly as it came.
+                    std::result::Result::Err(declined) => Effect::fail_cause(declined),
+                }
+            })
+        })
+    }
+}
