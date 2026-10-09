@@ -28,3 +28,22 @@ fn modify_some_effect_none_preserves_value_with_fallback() {
     assert!(matches!(exit, Exit::Success(ref s) if s == "fallback"));
     assert_eq!(cell.get(), 10, "None leaves the stored value untouched");
 }
+
+#[test]
+fn synchronised_ref_get_returns_current() {
+    let cell = elm_effect::SynchronizedRef::new(5u32);
+    assert_eq!(cell.get(), 5);
+}
+
+#[test]
+fn get_and_update_effect_returns_previous_and_stores_update() {
+    // SynchronizedRef row "getAndUpdateEffect - happy path": the RESULT is
+    // the previous value and the cell now holds the update. Distinct from
+    // update_effect, which returns the effect's own result.
+    let cell = elm_effect::SynchronizedRef::new(1u32);
+    let effect: Effect<u32, String, ()> =
+        cell.get_and_update_effect(|current: &u32| (current + 10, Effect::succeed(99)));
+    let exit = elm_effect::Runtime::run(effect);
+    assert!(matches!(exit, Exit::Success(1)), "returns the PREVIOUS value");
+    assert_eq!(cell.get(), 11, "stores the update");
+}

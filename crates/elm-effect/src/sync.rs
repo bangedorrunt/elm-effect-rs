@@ -216,6 +216,50 @@ impl<A: Clone + Send + 'static> SynchronizedRef<A> {
         })
     }
 
+    /// `SynchronizedRef.getAndUpdateEffect`: store `f(current)` and return
+    /// the PREVIOUS value, running `f`'s effect once afterwards.
+    ///
+    /// Distinct from [`update_effect`], which returns the effect's result:
+    /// the pin's getAndUpdateEffect returns what was in the cell before the
+    /// update, which is what makes the two rows distinguishable.
+    pub fn get_and_update_effect<B, E, R, F>(&self, f: F) -> Effect<A, E, R>
+    where
+        A: Clone + Send + 'static,
+        B: Send + 'static,
+        E: Send + 'static,
+        R: crate::effect::Requirement,
+        F: FnOnce(&A) -> (A, Effect<B, E, R>) + Send + 'static,
+    {
+        let inner = std::sync::Arc::clone(&self.inner);
+        let previous: std::sync::Arc<Mutex<Option<A>>> = std::sync::Arc::new(Mutex::new(None));
+        let slot: std::sync::Arc<Mutex<Option<Effect<B, E, R>>>> =
+            std::sync::Arc::new(Mutex::new(None));
+        let setup = Effect::<(), E, R>::sync({
+            let (inner, previous, slot) = (
+                std::sync::Arc::clone(&inner),
+                std::sync::Arc::clone(&previous),
+                std::sync::Arc::clone(&slot),
+            );
+            move || {
+                let mut guard = inner.lock().unwrap();
+                let (next, effect) = f(&*guard);
+                *previous.lock().unwrap() = Some(std::mem::replace(&mut *guard, next));
+                *slot.lock().unwrap() = Some(effect);
+            }
+        });
+        let (previous, slot) = (std::sync::Arc::clone(&previous), std::sync::Arc::clone(&slot));
+        setup.flat_map(move |_| {
+            let effect = slot.lock().unwrap().take();
+            let previous = std::sync::Arc::clone(&previous);
+            match effect {
+                Some(effect) => effect.flat_map(move |_| {
+                    Effect::succeed(previous.lock().unwrap().take().expect("recorded in setup"))
+                }),
+                None => Effect::succeed(previous.lock().unwrap().take().expect("recorded in setup")),
+            }
+        })
+    }
+
     /// Compute `(new_value, effect)` under the permit, store the value, then
     /// run the effect once. The permit serializes the computation, not the
     /// effect's execution.

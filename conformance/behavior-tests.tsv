@@ -4033,8 +4033,8 @@ not-applicable	packages/effect/test/Symbol.test.ts	41	it	returns false for objec
 not-applicable	packages/effect/test/Symbol.test.ts	46	it	returns false for functions	N/A: JS symbols have no Rust analog
 ported	packages/effect/test/SynchronizedRef.modifySomeEffect.test.ts	5	it.effect	supports callback-only currying	modify_some_effect_applies_update_and_yields_result
 ported	packages/effect/test/SynchronizedRef.modifySomeEffect.test.ts	16	it.effect	preserves the value for Option.none	modify_some_effect_none_preserves_value_with_fallback
-unported	packages/effect/test/SynchronizedRef.test.ts	32	it.effect	get	
-unported	packages/effect/test/SynchronizedRef.test.ts	37	it.effect	getAndUpdateEffect - happy path	
+ported	packages/effect/test/SynchronizedRef.test.ts	32	it.effect	get	synchronised_ref_get_returns_current
+ported	packages/effect/test/SynchronizedRef.test.ts	37	it.effect	getAndUpdateEffect - happy path	get_and_update_effect_returns_previous_and_stores_update
 unported	packages/effect/test/SynchronizedRef.test.ts	45	it.effect	getAndUpdateEffect - with failure	
 unported	packages/effect/test/SynchronizedRef.test.ts	51	it.effect	getAndUpdateSomeEffect - happy path	
 unported	packages/effect/test/SynchronizedRef.test.ts	62	it.effect	getAndUpdateSomeEffect - twice	
