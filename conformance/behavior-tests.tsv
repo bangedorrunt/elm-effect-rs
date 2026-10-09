@@ -4459,10 +4459,10 @@ ported	packages/effect/test/TxSemaphore.test.ts	271	it.effect	operations are ato
 ported	packages/effect/test/TxSubscriptionRef.test.ts	6	it.effect	make creates ref with initial value	tx_subscription_ref_notifies
 ported	packages/effect/test/TxSubscriptionRef.test.ts	15	it.effect	set updates the value	tx_subscription_ref_notifies
 unported	packages/effect/test/TxSubscriptionRef.test.ts	22	it.effect	update applies a function	
-unported	packages/effect/test/TxSubscriptionRef.test.ts	29	it.effect	modify returns a value and updates	
-unported	packages/effect/test/TxSubscriptionRef.test.ts	37	it.effect	getAndSet returns old value and sets new	
-unported	packages/effect/test/TxSubscriptionRef.test.ts	45	it.effect	getAndUpdate returns old value and applies function	
-unported	packages/effect/test/TxSubscriptionRef.test.ts	53	it.effect	updateAndGet applies function and returns new value	
+ported	packages/effect/test/TxSubscriptionRef.test.ts	29	it.effect	modify returns a value and updates	tx_subscription_ref_modify_returns_value_and_updates
+ported	packages/effect/test/TxSubscriptionRef.test.ts	37	it.effect	getAndSet returns old value and sets new	tx_subscription_ref_get_and_set_returns_old_value
+ported	packages/effect/test/TxSubscriptionRef.test.ts	45	it.effect	getAndUpdate returns old value and applies function	tx_subscription_ref_get_and_update_returns_old_and_applies
+ported	packages/effect/test/TxSubscriptionRef.test.ts	53	it.effect	updateAndGet applies function and returns new value	tx_subscription_ref_update_and_get_returns_new
 unported	packages/effect/test/TxSubscriptionRef.test.ts	63	it.effect	changes includes current value as first element	
 unported	packages/effect/test/TxSubscriptionRef.test.ts	76	it.effect	changes receives updates in order	
 unported	packages/effect/test/TxSubscriptionRef.test.ts	98	it.effect	multiple subscribers each see all changes	

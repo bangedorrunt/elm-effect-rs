@@ -1101,4 +1101,36 @@ impl<T: Clone> TxSubscriptionRef<T> {
     pub fn changes(&self) -> Vec<T> {
         atomically(|| self.history.lock().unwrap().clone())
     }
+
+    /// `TxSubscriptionRef.modify`: derive a result AND a successor value in
+    /// one step, storing the successor and recording it. Returns the derived
+    /// result.
+    ///
+    /// The other read-then-write forms are derived from this exactly as the
+    /// pin derives them, so there is one place where the value moves.
+    pub fn modify<B>(&self, f: impl FnOnce(T) -> (B, T)) -> B {
+        let (result, next) = f(tx_read(&self.current));
+        self.set(next);
+        result
+    }
+
+    /// `TxSubscriptionRef.getAndSet`: store `value`, return the PREVIOUS.
+    pub fn get_and_set(&self, value: T) -> T {
+        self.modify(|current| (current, value))
+    }
+
+    /// `TxSubscriptionRef.getAndUpdate`: store `f(current)`, return the
+    /// PREVIOUS.
+    pub fn get_and_update(&self, f: impl FnOnce(T) -> T) -> T {
+        let previous = tx_read(&self.current);
+        self.set(f(previous.clone()));
+        previous
+    }
+
+    /// `TxSubscriptionRef.updateAndGet`: store `f(current)`, return the NEW.
+    pub fn update_and_get(&self, f: impl FnOnce(T) -> T) -> T {
+        let next = f(tx_read(&self.current));
+        self.set(next.clone());
+        next
+    }
 }

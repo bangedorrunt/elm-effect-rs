@@ -534,3 +534,48 @@ fn tx_chunk_ops_stay_atomic_in_a_transaction() {
     });
     assert_eq!(chunk.to_vec(), vec![0, 3, 6, 9]);
 }
+
+// ---------------------------------------------------------------------------
+// TxSubscriptionRef read-then-write at the pin
+// ---------------------------------------------------------------------------
+
+#[test]
+fn tx_subscription_ref_modify_returns_value_and_updates() {
+    let cell = TxSubscriptionRef::new(10u32);
+    let result = cell.modify(|current| (format!("was {current}"), current + 1));
+    assert_eq!(result, "was 10");
+    assert_eq!(cell.get(), 11);
+}
+
+#[test]
+fn tx_subscription_ref_get_and_set_returns_old_value() {
+    let cell = TxSubscriptionRef::new("a");
+    assert_eq!(cell.get_and_set("b"), "a");
+    assert_eq!(cell.get(), "b");
+}
+
+#[test]
+fn tx_subscription_ref_get_and_update_returns_old_and_applies() {
+    let cell = TxSubscriptionRef::new(1u32);
+    assert_eq!(cell.get_and_update(|n| n + 10), 1);
+    assert_eq!(cell.get(), 11);
+}
+
+#[test]
+fn tx_subscription_ref_update_and_get_returns_new() {
+    let cell = TxSubscriptionRef::new(1u32);
+    assert_eq!(cell.update_and_get(|n| n + 10), 11);
+    assert_eq!(cell.get(), 11);
+}
+
+#[test]
+fn tx_subscription_ref_updates_publish_to_the_change_log() {
+    // The whole reason these sit on a SubscriptionRef rather than a plain
+    // TxRef: every assigned value lands in the change log, so a subscriber
+    // replaying `changes` sees the full sequence.
+    let cell = TxSubscriptionRef::new(0u32);
+    cell.get_and_set(1);
+    cell.get_and_update(|n| n + 1);
+    cell.update_and_get(|n| n * 3);
+    assert_eq!(cell.changes(), vec![0, 1, 2, 6]);
+}
