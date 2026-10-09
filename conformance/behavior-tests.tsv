@@ -3565,9 +3565,9 @@ ported	packages/effect/test/Stream.test.ts	837	it.effect	takeWhile - takes eleme
 unported	packages/effect/test/Stream.test.ts	846	it.effect	takeWhileFilter - takes elements while a filter succeeds	
 unported	packages/effect/test/Stream.test.ts	855	it.effect	takeUntilEffect - takes elements until an effectful predicate is satisfied	
 unported	packages/effect/test/Stream.test.ts	864	it.effect	takeWhileEffect - takes elements while an effectful predicate is satisfied	
-unported	packages/effect/test/Stream.test.ts	873	it.effect	takeRight	
-unported	packages/effect/test/Stream.test.ts	884	it.effect	takeRight - normalizes the element count	
-unported	packages/effect/test/Stream.test.ts	894	it.effect	takeRight - zero normalized counts do not evaluate the upstream	
+ported	packages/effect/test/Stream.test.ts	873	it.effect	takeRight	take_right_keeps_the_last_n_elements_in_order
+ported	packages/effect/test/Stream.test.ts	884	it.effect	takeRight - normalizes the element count	take_right_normalizes_the_element_count
+ported	packages/effect/test/Stream.test.ts	894	it.effect	takeRight - zero normalized counts do not evaluate the upstream	take_right_zero_count_does_not_evaluate_the_upstream
 unported	packages/effect/test/Stream.test.ts	905	it.effect	paginate	
 unported	packages/effect/test/Stream.test.ts	928	it.effect	catch	
 unported	packages/effect/test/Stream.test.ts	943	it.effect	tapCause preserves failures	

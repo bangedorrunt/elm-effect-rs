@@ -11,6 +11,7 @@
 //! ever required: requirement tags (which are not `Sync`) stream fine.
 
 use std::convert::Infallible;
+use std::collections::VecDeque;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
@@ -281,6 +282,30 @@ impl<A: Send + 'static, E: Send + 'static, R: crate::effect::Requirement> Stream
             take_until_pump(Arc::clone(&p), Arc::clone(&f), Arc::clone(&d))
         })
     }
+
+    /// `Stream.takeRight` at the pin: keep the last `n` elements, in order.
+    /// `n` normalizes like the pin's `Count.normalize`, whose empty is 0.
+    ///
+    /// The whole upstream is drained before anything is emitted, so this
+    /// holds a ring of at most `n` elements. That is also why a ZERO count is
+    /// handled by returning [`Stream::empty`] rather than by draining and
+    /// emitting nothing: the pin's "zero normalized counts do not evaluate
+    /// the upstream" row asserts the upstream is never pulled at all, which a
+    /// draining implementation could not honor.
+    pub fn take_right(self, n: f64) -> Self {
+        let count = normalize(n);
+        if count == 0 {
+            // Drop the source without pulling it.
+            return Stream::<A, E, R>::empty();
+        }
+        let (pull, exec) = (self.pull, Arc::clone(&self.exec));
+        let state = Arc::new(Mutex::new(TakeRight::new(count)));
+        let (pull0, state0) = (Arc::clone(&pull), Arc::clone(&state));
+        Self::derive(exec, move || {
+            let (pull, state) = (Arc::clone(&pull0), Arc::clone(&state0));
+            take_right_pump(pull, state)
+        })
+    }
 }
 
 impl<E: Send + 'static, R: crate::effect::Requirement> Stream<String, E, R> {
@@ -520,12 +545,20 @@ where
 /// `NaN` and non-positive values become 1, a positive value floors, and
 /// a positive infinity saturates to `usize::MAX` exactly as `Math.floor`
 /// preserves it in TypeScript.
-pub fn normalize_non_empty(n: f64) -> usize {
+/// Mirror of the pin's `Count.normalize` (`internal/count.ts`), the sibling
+/// of [`normalize_non_empty`]: `NaN` and non-positive values become 0, a
+/// positive value floors. The pin keeps these as two functions because a
+/// chunk size and an element count have different empty behavior.
+pub fn normalize(n: f64) -> usize {
     if n > 0.0 {
         n.floor() as usize
     } else {
-        1
+        0
     }
+}
+
+pub fn normalize_non_empty(n: f64) -> usize {
+    normalize(n).max(1)
 }
 
 /// The pin's `Channel.DefaultChunkSize` (`Channel.ts:458`).
@@ -860,4 +893,88 @@ where
             None => Ok(Some(results.into_iter().flatten().collect())),
         }
     }
+}
+
+/// Live state for [`Stream::take_right`].
+///
+/// Generic in `A` because the ring stores the VALUES themselves: elements
+/// are moved out of each pulled chunk into the ring, so no `Clone` bound is
+/// imposed on `A` (an earlier attempt stored "positions" instead and needed
+/// placeholder projections to recover them, which was fake scaffolding).
+struct TakeRight<A> {
+    /// At most `count` elements, oldest first, drained into output order.
+    ring: VecDeque<A>,
+    count: usize,
+    /// The upstream signalled completion, so nothing further is pulled.
+    drained: bool,
+    /// The ring has been handed over; the stream is finished.
+    flushed: bool,
+}
+
+impl<A> TakeRight<A> {
+    fn new(count: usize) -> Self {
+        Self {
+            ring: VecDeque::with_capacity(count),
+            count,
+            drained: false,
+            flushed: false,
+        }
+    }
+
+    /// Keep `item`, dropping the oldest once the ring is full.
+    fn observe(&mut self, item: A) {
+        if self.ring.len() == self.count {
+            self.ring.pop_front();
+        }
+        self.ring.push_back(item);
+    }
+}
+
+/// One `take_right` pull: drain the upstream into the ring, then hand the
+/// ring out once and end.
+///
+/// Written as a `flat_map` chain rather than a `run_sync` loop so that no
+/// service requirement is imposed: an upstream failure short-circuits the
+/// same chain, and an error is never re-raised with a constructor this
+/// module does not own.
+fn take_right_pump<A, E, R>(
+    pull: Pull<A, E, R>,
+    state: Arc<Mutex<TakeRight<A>>>,
+) -> Effect<Option<Vec<A>>, E, R>
+where
+    A: Send + 'static,
+    E: Send + 'static,
+    R: crate::effect::Requirement,
+{
+    if state.lock().unwrap().flushed {
+        return Effect::succeed(None);
+    }
+    call(&pull).flat_map(move |chunk| {
+        let (pull, state) = (Arc::clone(&pull), Arc::clone(&state));
+        match chunk {
+            // Upstream ended: emit whatever survived in the ring.
+            None => {
+                let mut guard = state.lock().unwrap();
+                guard.drained = true;
+                guard.flushed = true;
+                let out: Vec<A> = guard.ring.drain(..).collect();
+                drop(guard);
+                if out.is_empty() {
+                    Effect::succeed(None)
+                } else {
+                    Effect::succeed(Some(out))
+                }
+            }
+            // Observe every element, then pull again to drain the rest.
+            Some(items) => {
+                {
+                    let mut guard = state.lock().unwrap();
+                    for item in items {
+                        guard.observe(item);
+                    }
+                }
+                take_right_pump(pull, state)
+            }
+        }
+    })
 }

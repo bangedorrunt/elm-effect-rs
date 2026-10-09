@@ -2,8 +2,9 @@
 
 use std::convert::Infallible;
 use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
-use elm_effect::{Effect, Exit, Stream, from_iter};
+use elm_effect::{Defect, Effect, Exit, Stream, from_iter};
 
 #[test]
 fn run_fold_sums_chunks() {
@@ -266,4 +267,61 @@ fn filter_map_effect_keeps_only_some_results() {
         }, 1)
         .filter_map(|maybe: Option<i64>| maybe);
     assert!(matches!(stream.run_collect(), Exit::Success(ref v) if *v == vec![3i64, 5]));
+}
+
+// ---------------------------------------------------------------------------
+// Stream.takeRight at the pin (describe "taking")
+// ---------------------------------------------------------------------------
+
+#[test]
+fn take_right_keeps_the_last_n_elements_in_order() {
+    // Stream.range(1, 5).pipe(Stream.takeRight(3), Stream.runCollect)
+    // === [3, 4, 5], matching Array.takeRight(3) of [1, 2, 3, 4, 5].
+    let stream: Stream<i64, Infallible, ()> = Stream::range(1, 5, 4096.0).take_right(3.0);
+    assert!(
+        matches!(stream.run_collect(), Exit::Success(ref v) if *v == vec![3i64, 4, 5])
+    );
+}
+
+#[test]
+fn take_right_normalizes_the_element_count() {
+    // n normalizes like the pin's Count.normalize: NaN and non-positive
+    // become 0, a positive value floors. Over [1, 2, 3]:
+    //   NaN -> [], -1 -> [], 0.5 -> [], 1.9 -> [3], 2.9 -> [2, 3]
+    let expected: Vec<Vec<i64>> = vec![vec![], vec![], vec![], vec![3], vec![2, 3]];
+    let got: Vec<Vec<i64>> = [f64::NAN, -1.0, 0.5, 1.9, 2.9]
+        .iter()
+        .map(|n| {
+            let stream: Stream<i64, String, ()> =
+                from_iter(vec![1i64, 2, 3].into_iter(), 3).take_right(*n);
+            match stream.run_collect() {
+                Exit::Success(v) => v,
+                Exit::Failure(_) => panic!("takeRight must not fail"),
+            }
+        })
+        .collect();
+    assert_eq!(got, expected);
+}
+
+#[test]
+fn take_right_zero_count_does_not_evaluate_the_upstream() {
+    // A zero normalized count must not pull the upstream at all: the pin's
+    // row drives a source that dies, so any pull would surface as a defect
+    // rather than an empty result.
+    let pulls = Arc::new(AtomicUsize::new(0));
+    let counter = Arc::clone(&pulls);
+    let source: Stream<i32, String, ()> = Stream::from_pull(move || {
+        counter.fetch_add(1, Ordering::SeqCst);
+        Effect::<Option<Vec<i32>>, String>::die(elm_effect::Defect::new("upstream evaluated"))
+    });
+    let stream = source.take_right(f64::NAN);
+    match stream.run_collect() {
+        Exit::Success(v) => assert!(v.is_empty()),
+        Exit::Failure(_) => panic!("a zero count must not evaluate the upstream"),
+    }
+    assert_eq!(
+        pulls.load(Ordering::SeqCst),
+        0,
+        "takeRight(0) must not pull the source"
+    );
 }
