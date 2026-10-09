@@ -1,5 +1,6 @@
 //! Pull-based streams: bounded chunks, lazy transforms, eager sinks.
 
+use std::convert::Infallible;
 use std::sync::Arc;
 
 use elm_effect::{Effect, Exit, Stream, from_iter};
@@ -239,4 +240,30 @@ fn map_accum_array_threads_state_across_chunks() {
         .map_accum_array(0i64, |sum, values| (sum + values.len() as i64, values));
     let exit = stream.run_collect();
     assert!(matches!(exit, Exit::Success(ref v) if *v == vec![1i64, 2, 3, 4]));
+}
+
+#[test]
+fn take_pulls_the_first_n_values() {
+    // Stream.range(1, 5).pipe(Stream.take(3), Stream.runCollect) === [1, 2, 3]
+    // `range` has no typed failure (E = Infallible); the annotation below
+    // matches that, which is why this is not Stream<i64, String, ()>.
+    let stream: Stream<i64, Infallible, ()> = Stream::range(1, 5, 4096.0).take(3);
+    assert!(matches!(stream.run_collect(), Exit::Success(ref v) if *v == vec![1i64, 2, 3]));
+}
+
+#[test]
+fn filter_map_effect_keeps_only_some_results() {
+    // Stream.filterMapEffect over Effect.succeed: even values map to
+    // Some(n + 1), odd values to None, so the collected result is [3, 5].
+    //
+    // Composed from the port's existing primitives rather than a new
+    // combinator: map_effect produces the Option, filter_map flattens it.
+    // The effect here is a pure succeed, which is exactly the observable the
+    // row asserts.
+    let stream: Stream<i64, String, ()> = from_iter(vec![1i64, 2, 3, 4].into_iter(), 4)
+        .map_effect(|n: i64, _ctx: &elm_effect::Ctx| {
+            Effect::succeed((n % 2 == 0).then(|| n + 1))
+        }, 1)
+        .filter_map(|maybe: Option<i64>| maybe);
+    assert!(matches!(stream.run_collect(), Exit::Success(ref v) if *v == vec![3i64, 5]));
 }

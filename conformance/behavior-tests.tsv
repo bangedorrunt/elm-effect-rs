@@ -3550,11 +3550,11 @@ ported	packages/effect/test/Stream.test.ts	648	it.effect	does not pull upstream 
 ported	packages/effect/test/Stream.test.ts	677	it.effect	handles standalone carriage returns within a chunk	split_lines_handles_standalone_carriage_returns_across_chunk_boundaries
 unported	packages/effect/test/Stream.test.ts	683	it.effect	handles standalone carriage returns across chunk boundaries	
 ported	packages/effect/test/Stream.test.ts	706	it.effect	filterMap	filter_map_keeps_some_only
-unported	packages/effect/test/Stream.test.ts	715	it.effect	filterMapEffect	
+ported	packages/effect/test/Stream.test.ts	715	it.effect	filterMapEffect	filter_map_effect_keeps_only_some_results
 unported	packages/effect/test/Stream.test.ts	726	it.effect	limitBytes - does not evaluate the fallback below the limit	
 unported	packages/effect/test/Stream.test.ts	742	it.effect	limitBytes - does not evaluate the fallback at the limit	
 unported	packages/effect/test/Stream.test.ts	758	it.effect	limitBytes - drops the crossing chunk and switches to the fallback	
-unported	packages/effect/test/Stream.test.ts	772	it.effect	take - pulls the first `n` values from a stream	
+ported	packages/effect/test/Stream.test.ts	772	it.effect	take - pulls the first `n` values from a stream	take_pulls_the_first_n_values
 unported	packages/effect/test/Stream.test.ts	781	it.effect	take - rounds positive fractional counts down	
 ported	packages/effect/test/Stream.test.ts	791	it.effect	take - short-circuits stream evaluation	take_terminates_infinite_input
 ported	packages/effect/test/Stream.test.ts	801	it.effect	take - taking 0 short-circuits stream evaluation	take_terminates_infinite_input
