@@ -15,7 +15,7 @@ use std::collections::VecDeque;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
-use crate::{Effect, Exit};
+use crate::{Cause, Defect, Effect, Exit};
 
 /// A shared pull factory: rebuilt effects, one call at a time.
 type Pull<A, E, R> = Arc<Mutex<Box<dyn FnMut() -> Effect<Option<Vec<A>>, E, R> + Send>>>;
@@ -879,7 +879,6 @@ enum ChildDone<B, E> {
     Failed(Cause<E>),
 }
 
-use crate::Cause;
 
 impl<A, B, E, R, F> crate::effect::ErasedStep<Option<Vec<B>>, E> for MapEffect<A, B, E, R, F>
 where
@@ -1115,6 +1114,80 @@ where
 }
 
 impl<A: Send + 'static, E: Send + 'static, R: crate::effect::Requirement> Stream<A, E, R> {
+    /// `Stream.tapCause` at the pin: observe the whole cause, then re-raise
+    /// it VERBATIM. `Fail` stays a typed failure and `Die` stays a defect,
+    /// which is the property rows 943/953 assert.
+    ///
+    /// Applied at the Effect level via `catch_cause` (the failure never
+    /// appears inside the pull's continuation), and re-raised with
+    /// `Effect::fail_cause` so nothing is collapsed.
+    pub fn tap_cause<F>(self, observer: F) -> Self
+    where
+        F: FnOnce(&crate::Cause<E>) + Send + 'static,
+    {
+        let (pull, exec) = (self.pull, Arc::clone(&self.exec));
+        let observer = Arc::new(Mutex::new(Some(observer)));
+        let (pull0, obs0) = (Arc::clone(&pull), Arc::clone(&observer));
+        Self::derive(exec, move || {
+            let observer = Arc::clone(&obs0);
+            let pull = Arc::clone(&pull0);
+            // Taking the observer out of the mutex IS the once-only guard: a
+            // later pull finds it empty and re-raises without observing twice.
+            call(&pull).catch_cause(move |cause| {
+                if let Some(observe) = observer.lock().unwrap().take() {
+                    observe(&cause);
+                }
+                Effect::fail_cause(cause)
+            })
+        })
+    }
+
+    /// `Stream.catchDefect` at the pin: recover from a DEFECT with
+    /// `handler`, continuing with the stream it returns. A typed `Fail` is
+    /// NOT a defect: it is re-raised unchanged, so `catchDefect` never
+    /// swallows a typed failure.
+    ///
+    /// "Defect" here means a cause with at least one `Die` and no `Fail`,
+    /// mirroring how the pin keeps the two reason kinds apart.
+    pub fn catch_defect<F>(self, handler: F) -> Self
+    where
+        F: FnOnce(Defect) -> Self + Send + 'static,
+    {
+        let (pull, exec) = (self.pull, Arc::clone(&self.exec));
+        let substitute: Arc<Mutex<Option<Self>>> = Arc::new(Mutex::new(None));
+        let handler = Arc::new(Mutex::new(Some(handler)));
+        let (pull0, sub0, h0) = (
+            Arc::clone(&pull),
+            Arc::clone(&substitute),
+            Arc::clone(&handler),
+        );
+        Self::derive(exec, move || {
+            let delegate = { sub0.lock().unwrap().as_ref().map(Stream::clone_of_pull) };
+            if let Some(sub) = delegate {
+                return call(&sub);
+            }
+            let (handler, sub) = (Arc::clone(&h0), Arc::clone(&sub0));
+            call(&pull0).catch_cause(move |cause| {
+                // Only a defect-only cause is recoverable. Anything carrying a
+                // Fail reason is re-raised verbatim.
+                if cause.failures().is_empty() {
+                    // defects() yields Vec<&Defect>, so first() is Option<&&Defect>
+                // and copied() one level short: clone once to own it.
+                if let Some(defect) = cause.defects().first().map(|d| (*d).clone()) {
+                        let arm = handler.lock().unwrap().take();
+                        if let Some(arm) = arm {
+                            let replacement = arm(defect);
+                            let first = Arc::clone(&replacement.pull);
+                            *sub.lock().unwrap() = Some(replacement);
+                            return call(&first);
+                        }
+                    }
+                }
+                Effect::fail_cause(cause)
+            })
+        })
+    }
+
     /// `Stream.catchIf` at the pin: catch only failures satisfying
     /// `predicate`, continuing with the stream `handler` produces. A failure
     /// the predicate rejects is re-raised unchanged, so `catchIf` never
@@ -1195,6 +1268,19 @@ impl<A: Send + 'static, E: Send + 'static, R: crate::effect::Requirement> Stream
                 *sub.lock().unwrap() = Some(replacement);
                 call(&first)
             })
+        })
+    }
+}
+
+impl<A: Send + 'static, E: Send + 'static> Stream<A, E, ()> {
+    /// `Stream.die` at the pin: a stream whose pull dies with `defect`, then
+    /// ends. Distinct from [`Stream::fail`]: a defect is never a typed error,
+    /// so `catch_if`/`catch` must not recover it.
+    pub fn die(defect: Defect) -> Self {
+        let once: Arc<Mutex<Option<Defect>>> = Arc::new(Mutex::new(Some(defect)));
+        Stream::from_pull(move || match once.lock().unwrap().take() {
+            Some(defect) => Effect::<Option<Vec<A>>, E>::die(defect),
+            None => Effect::succeed(None::<Vec<A>>),
         })
     }
 }

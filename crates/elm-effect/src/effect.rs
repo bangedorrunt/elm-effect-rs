@@ -460,6 +460,22 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
         )
     }
 
+    /// Re-raise a cause verbatim (`Effect.failCause` at the pin): every
+    /// reason survives unchanged, so a `Fail` stays a typed failure and a
+    /// `Die` stays a defect.
+    ///
+    /// Public because cause-observing combinators outside this crate (the
+    /// stream `tapCause`/`catchDefect` family) must re-raise what they saw
+    /// without collapsing the typed/defect distinction, which `die_like`
+    /// deliberately does.
+    pub fn fail_cause(cause: Cause<E>) -> Self {
+        Self {
+            step: Step::Fail(cause),
+            services: crate::service::empty_services(),
+            marker: PhantomData,
+        }
+    }
+
     /// Build a defect-channel effect from any cause: `Die`/`Interrupt`
     /// reasons survive as-is, `Fail` renders to a defect. Private: only
     /// `result` and `or_die` narrow the error channel.

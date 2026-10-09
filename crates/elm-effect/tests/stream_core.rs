@@ -456,3 +456,73 @@ fn catch_filter_routes_through_selector_result() {
     // "fallback: 42" is 12 chars, which is what the fallback arm produces.
     assert!(matches!(unmatched.run_collect(), Exit::Success(ref v) if *v == vec![12]));
 }
+
+// ---------------------------------------------------------------------------
+// Stream tapCause / catchDefect / die at the pin
+// ---------------------------------------------------------------------------
+
+#[test]
+fn die_stream_dies_rather_than_failing() {
+    // Stream.die is not Stream.fail: the defect is not a typed error, so it
+    // must not appear in the error channel.
+    let stream = Stream::<u32, String, ()>::die(Defect::new("boom"));
+    match stream.run_collect() {
+        Exit::Failure(cause) => {
+            assert!(!cause.defects().is_empty(), "a die is a defect");
+            assert!(cause.failures().is_empty(), "a die is not a typed failure");
+        }
+        Exit::Success(_) => panic!("a dying stream must not succeed"),
+    }
+}
+
+#[test]
+fn tap_cause_preserves_a_typed_failure() {
+    // tapCause observes and re-raises: the failure survives verbatim.
+    let observed = Arc::new(Mutex::new(false));
+    let saw = Arc::clone(&observed);
+    let stream = Stream::<u32, String, ()>::fail("boom".to_string()).tap_cause(move |_cause| {
+        *saw.lock().unwrap() = true;
+    });
+    match stream.run_collect() {
+        Exit::Failure(cause) => {
+            assert_eq!(cause.failure(), Some(&"boom".to_string()));
+            assert!(cause.defects().is_empty(), "a Fail must not become a Die");
+        }
+        Exit::Success(_) => panic!("tapCause must not swallow the failure"),
+    }
+    assert!(*observed.lock().unwrap(), "tapCause must have observed the cause");
+}
+
+#[test]
+fn tap_cause_preserves_a_defect() {
+    // The defect kind survives too: tapCause re-raises without collapsing.
+    let stream = Stream::<u32, String, ()>::die(Defect::new("boom")).tap_cause(|_cause| {});
+    match stream.run_collect() {
+        Exit::Failure(cause) => {
+            assert_eq!(cause.defects().len(), 1, "the defect survives");
+            assert!(cause.failures().is_empty(), "no typed failure appears");
+        }
+        Exit::Success(_) => panic!("tapCause must not swallow the defect"),
+    }
+}
+
+#[test]
+fn catch_defect_recovers_a_defect_but_not_a_typed_failure() {
+    // die -> recovered with the defect value; fail -> NOT recovered.
+    let recovered = Stream::<u32, String, ()>::die(Defect::new("boom")).catch_defect(|defect| {
+        // The handler's stream reproduces the defect value as a string.
+        from_iter(vec![defect.message.len() as u32].into_iter(), 1)
+    });
+    assert!(
+        matches!(recovered.run_collect(), Exit::Success(ref v) if *v == vec![4]),
+        "catchDefect must recover a defect"
+    );
+
+    let failed = Stream::<u32, String, ()>::fail("failure".to_string()).catch_defect(|_defect| {
+        from_iter(vec![9u32].into_iter(), 1)
+    });
+    match failed.run_collect() {
+        Exit::Failure(cause) => assert_eq!(cause.failure(), Some(&"failure".to_string())),
+        Exit::Success(_) => panic!("catchDefect must not recover a typed failure"),
+    }
+}
