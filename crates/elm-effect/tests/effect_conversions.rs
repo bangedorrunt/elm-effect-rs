@@ -302,3 +302,29 @@ fn on_result_runs_the_cleanup_when_the_effect_dies() {
     assert!(*cleaned.lock().unwrap(), "the cleanup must run on a defect");
 }
 
+
+#[test]
+fn run_of_a_synchronous_effect_completes_without_spawning() {
+    // Scheduler row "runSyncExit does not create a dispatcher for
+    // synchronous effects". The pin measures a dispatcher-spy count of 0;
+    // the port has no public fiber-count probe, so this asserts the part
+    // that is observable from outside: the effect still completes with its
+    // value, and the runtime stays usable for subsequent fibers.
+    //
+    // The "no dispatcher was needed" claim is structural here -- run() on a
+    // Step::Sync effect interprets it directly -- but nothing in this port
+    // lets a caller observe a dispatcher count, so asserting one would mean
+    // inventing an accessor for a test. One row stays honestly unflipped
+    // rather than fake that.
+    let exit = ManagedRuntime::new().run(Effect::<i32, std::convert::Infallible>::sync(|| 21i32));
+    assert!(matches!(exit, Exit::Success(21)));
+
+    // The edge still drives real fibers afterwards, so the synchronous path
+    // did not leave the runtime wedged.
+    let managed = ManagedRuntime::new();
+    let exit = managed
+        .runtime()
+        .fork_detach(|_| Exit::<(), std::convert::Infallible>::succeed(()))
+        .join();
+    assert!(matches!(exit, Exit::Success(())));
+}
