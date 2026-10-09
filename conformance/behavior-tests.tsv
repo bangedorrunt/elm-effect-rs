@@ -415,12 +415,12 @@ unported	packages/effect/test/Cause.test.ts	110	it	is a Cause
 ported	packages/effect/test/Cause.test.ts	116	it	creates a cause with a single Fail reason	cause_fail_reason_shape
 ported	packages/effect/test/Cause.test.ts	122	it	preserves the error value	cause_fail_reason_shape
 ported	packages/effect/test/Cause.test.ts	130	it	works with various error types	cause_fail_reason_shape
-unported	packages/effect/test/Cause.test.ts	141	it	creates a cause with a single Die reason	
-unported	packages/effect/test/Cause.test.ts	147	it	preserves the defect value	
+ported	packages/effect/test/Cause.test.ts	141	it	creates a cause with a single Die reason	die_creates_a_cause_with_a_single_die_reason
+ported	packages/effect/test/Cause.test.ts	147	it	preserves the defect value	die_creates_a_cause_with_a_single_die_reason
 unported	packages/effect/test/Cause.test.ts	155	it	works with Error instances	
-unported	packages/effect/test/Cause.test.ts	166	it	creates a cause with a single Interrupt reason	
-unported	packages/effect/test/Cause.test.ts	172	it	preserves the fiber ID	
-unported	packages/effect/test/Cause.test.ts	180	it	allows undefined fiber ID	
+ported	packages/effect/test/Cause.test.ts	166	it	creates a cause with a single Interrupt reason	interrupt_creates_a_cause_with_a_single_interrupt_reason
+ported	packages/effect/test/Cause.test.ts	172	it	preserves the fiber ID	interrupt_preserves_the_fiber_id
+ported	packages/effect/test/Cause.test.ts	180	it	allows undefined fiber ID	interrupt_allows_an_undefined_fiber_id
 ported	packages/effect/test/Cause.test.ts	190	it	creates a cause from an array of reasons	from_reasons_builds_a_cause_from_an_array
 ported	packages/effect/test/Cause.test.ts	199	it	creates empty cause from empty array	from_reasons_empty_is_empty_cause
 ported	packages/effect/test/Cause.test.ts	204	it	supports mixed reason types	from_reasons_builds_a_cause_from_an_array
@@ -460,16 +460,16 @@ ported	packages/effect/test/Cause.test.ts	443	it	returns empty set for non-inter
 ported	packages/effect/test/Cause.test.ts	448	it	excludes undefined fiber IDs from set	interruptor_ids_excludes_undefined_fiber_ids
 unported	packages/effect/test/Cause.test.ts	456	it	returns success with fiber ID set when interrupts exist	
 unported	packages/effect/test/Cause.test.ts	464	it	returns failure when no interrupts exist	
-unported	packages/effect/test/Cause.test.ts	471	it	transforms error values in Fail reasons (data-first)	
-unported	packages/effect/test/Cause.test.ts	480	it	works in data-last (pipeable) form	
-unported	packages/effect/test/Cause.test.ts	488	it	does not affect Die reasons	
-unported	packages/effect/test/Cause.test.ts	495	it	does not affect Interrupt reasons	
-unported	packages/effect/test/Cause.test.ts	502	it	maps empty cause to empty cause	
+ported	packages/effect/test/Cause.test.ts	471	it	transforms error values in Fail reasons (data-first)	map_transforms_fail_reasons_only
+ported	packages/effect/test/Cause.test.ts	480	it	works in data-last (pipeable) form	map_transforms_fail_reasons_only
+ported	packages/effect/test/Cause.test.ts	488	it	does not affect Die reasons	map_transforms_fail_reasons_only
+ported	packages/effect/test/Cause.test.ts	495	it	does not affect Interrupt reasons	map_leaves_interrupt_reasons_alone
+ported	packages/effect/test/Cause.test.ts	502	it	maps empty cause to empty cause	map_of_an_empty_cause_is_empty
 unported	packages/effect/test/Cause.test.ts	509	it	preserves unequal reasons with colliding hashes while removing duplicates	
-unported	packages/effect/test/Cause.test.ts	536	it	merges two causes (data-first)	
-unported	packages/effect/test/Cause.test.ts	541	it	works in data-last (pipeable) form	
-unported	packages/effect/test/Cause.test.ts	546	it	combining with empty returns the other cause	
-unported	packages/effect/test/Cause.test.ts	554	it	combines mixed reason types	
+ported	packages/effect/test/Cause.test.ts	536	it	merges two causes (data-first)	combine_merges_two_causes
+ported	packages/effect/test/Cause.test.ts	541	it	works in data-last (pipeable) form	combine_merges_two_causes
+ported	packages/effect/test/Cause.test.ts	546	it	combining with empty returns the other cause	combine_with_empty_returns_the_other_cause
+ported	packages/effect/test/Cause.test.ts	554	it	combines mixed reason types	combine_handles_mixed_reason_types
 unported	packages/effect/test/Cause.test.ts	564	it	converts Fail with Error to array of Errors	
 unported	packages/effect/test/Cause.test.ts	572	it	converts Fail with string to Error	
 unported	packages/effect/test/Cause.test.ts	579	it	converts Die to Error	

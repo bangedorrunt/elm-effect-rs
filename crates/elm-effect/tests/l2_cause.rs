@@ -570,3 +570,91 @@ fn interruptor_ids_excludes_undefined_fiber_ids() {
     assert_eq!(cause.interruptor_ids(), vec![elm_effect::FiberId(7)]);
     assert_eq!(cause.interruptors().len(), 3, "the raw list keeps every entry");
 }
+
+// ---------------------------------------------------------------------------
+// Cause.combine / map / constructors at the pin
+// ---------------------------------------------------------------------------
+
+#[test]
+fn combine_merges_two_causes() {
+    let combined = Cause::fail("a".to_string()).combine(Cause::fail("b".to_string()));
+    assert_eq!(combined.reasons.len(), 2);
+}
+
+#[test]
+fn combine_with_empty_returns_the_other_cause() {
+    let one = Cause::fail("error".to_string());
+    assert_eq!(one.clone().combine(Cause::empty()).reasons.len(), 1);
+    assert_eq!(Cause::empty().combine(one).reasons.len(), 1);
+}
+
+#[test]
+fn combine_handles_mixed_reason_types() {
+    let combined = Cause::fail("error".to_string())
+        .combine(Cause::die(Defect::new("defect")).combine(Cause::<String>::interrupt(Some(
+            elm_effect::FiberId(1),
+        ))));
+    assert_eq!(combined.reasons.len(), 3);
+    assert!(combined.has_fails() && combined.has_dies() && combined.has_interrupts());
+}
+
+#[test]
+fn die_creates_a_cause_with_a_single_die_reason() {
+    let cause = Cause::<String>::die(Defect::new("defect"));
+    assert_eq!(cause.reasons.len(), 1);
+    assert!(is_die_reason(&cause.reasons[0]));
+    match &cause.reasons[0] {
+        Reason::Die(defect) => assert_eq!(defect.message, "defect"),
+        other => panic!("expected a Die reason, got {other:?}"),
+    }
+}
+
+#[test]
+fn interrupt_creates_a_cause_with_a_single_interrupt_reason() {
+    let cause = Cause::<String>::interrupt(Some(elm_effect::FiberId(123)));
+    assert_eq!(cause.reasons.len(), 1);
+    assert!(is_interrupt_reason(&cause.reasons[0]));
+}
+
+#[test]
+fn map_transforms_fail_reasons_only() {
+    let cause = Cause::fail(1u32).combine(Cause::<u32>::die(Defect::new("d")));
+    let mapped = cause.map(|n| n + 10);
+    assert_eq!(mapped.failures(), vec![&11u32]);
+    assert_eq!(mapped.defects().len(), 1, "a Die is untouched");
+}
+
+#[test]
+fn map_leaves_interrupt_reasons_alone() {
+    let cause = Cause::fail(1u32).combine(Cause::<u32>::interrupt(Some(elm_effect::FiberId(9))));
+    let mapped = cause.map(|n| n + 10);
+    assert!(mapped.has_interrupts(), "an Interrupt reason survives the map");
+    assert_eq!(mapped.failures(), vec![&11u32]);
+}
+
+#[test]
+fn map_of_an_empty_cause_is_empty() {
+    let cause = Cause::<u32>::empty();
+    let mapped = cause.map(|n| n + 10);
+    assert!(mapped.reasons.is_empty());
+}
+
+#[test]
+fn interrupt_preserves_the_fiber_id() {
+    let cause = Cause::<String>::interrupt(Some(FiberId(42)));
+    match &cause.reasons[0] {
+        Reason::Interrupt { fiber_id } => {
+            assert_eq!(*fiber_id, Some(FiberId(42)));
+        }
+        other => panic!("expected an Interrupt reason, got {other:?}"),
+    }
+}
+
+#[test]
+fn interrupt_allows_an_undefined_fiber_id() {
+    let cause = Cause::<String>::interrupt(None);
+    match &cause.reasons[0] {
+        Reason::Interrupt { fiber_id } => assert!(fiber_id.is_none()),
+        other => panic!("expected an Interrupt reason, got {other:?}"),
+    }
+}

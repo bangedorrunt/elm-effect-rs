@@ -352,6 +352,17 @@ impl<E> Cause<E> {
         }
     }
 
+    /// `Cause.combine`: merge two causes, appending the right-hand reasons to
+    /// the left. Combining with an empty cause returns the other unchanged,
+    /// and mixed reason kinds all land in one flat list.
+    pub fn combine(self, other: Self) -> Self {
+        let mut reasons = self.reasons;
+        reasons.extend(other.reasons);
+        let mut annotations = self.annotations;
+        annotations.extend(other.annotations);
+        Self { reasons, annotations }
+    }
+
     /// `Cause.hasFails`: at least one [`Reason::Fail`].
     pub fn has_fails(&self) -> bool {
         self.reasons.iter().any(is_fail_reason)
