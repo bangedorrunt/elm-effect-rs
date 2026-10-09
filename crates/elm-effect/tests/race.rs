@@ -92,3 +92,156 @@ fn race_first_takes_any_completion() {
         Exit::Success(_) => panic!("expected the fast failure"),
     }
 }
+
+// ---------------------------------------------------------------------------
+// Virtual-time races at the pin (Effect.test.ts describe race / raceFirst)
+// ---------------------------------------------------------------------------
+
+/// Poll until `cond` holds or 10s pass; panic naming `what` on expiry.
+fn wait_until(cond: impl Fn() -> bool, what: &str) {
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+    while !cond() {
+        assert!(
+            std::time::Instant::now() < deadline,
+            "timed out waiting for: {what}"
+        );
+        std::thread::park_timeout(std::time::Duration::from_millis(1));
+    }
+}
+
+#[test]
+fn race_interrupts_the_loser_when_the_other_side_succeeds() {
+    // Effect.race(delay(100, succeed("fast")), delay(500, succeed("slow")))
+    // with TestClock.adjust("500 millis") => "fast", and the slow side's
+    // onInterrupt ran. The pin drives its clock in one 500ms step, which
+    // would wake BOTH sleepers here, so the slow side sleeps past the adjust
+    // instead: it stays parked, race interrupts it, and its finalizer is the
+    // observable "interrupted" signal.
+    use elm_effect::{ClockImpl, Duration, TestClock};
+
+    let rt = Runtime::new();
+    let clock = Arc::new(TestClock::new());
+    let clock_fast = Arc::clone(&clock);
+    let clock_slow = Arc::clone(&clock);
+    let released = Arc::new(AtomicUsize::new(0));
+    let slow_released = Arc::clone(&released);
+
+    let worker = std::thread::spawn(move || {
+        race::<&'static str, String>(
+            &rt,
+            move |_| {
+                clock_fast.sleep(Duration::from_millis(100), &|| false);
+                Exit::Success("fast")
+            },
+            move |ctx| {
+                ctx.acquire_release(
+                    Effect::<(), String>::succeed(()),
+                    move |_| {
+                        slow_released.fetch_add(1, Ordering::SeqCst);
+                        Effect::<(), String>::succeed(())
+                    },
+                )
+                .expect("acquire cannot fail");
+                // Past the adjust below, so this side is still parked when
+                // the winner returns and is interrupted rather than started.
+                clock_slow.sleep(Duration::from_secs(5), &|| ctx.is_interrupted());
+                Exit::Failure(Cause::interrupt(None))
+            },
+        )
+    });
+
+    wait_until(|| clock.pending_sleepers() == 2, "both sides parked on the clock");
+    clock.adjust(Duration::from_millis(500));
+
+    let exit = worker.join().expect("worker thread");
+    assert!(matches!(exit, Exit::Success("fast")));
+    // The loser was interrupted and released before the winner returned.
+    assert_eq!(released.load(Ordering::SeqCst), 1);
+}
+
+#[test]
+fn race_first_interrupts_the_loser_when_the_other_side_succeeds() {
+    // raceFirst's observable claim is the same as race's here: the winner
+    // returns and the parked loser is released.
+    use elm_effect::{ClockImpl, Duration, TestClock};
+
+    let rt = Runtime::new();
+    let clock = Arc::new(TestClock::new());
+    let clock_fast = Arc::clone(&clock);
+    let clock_slow = Arc::clone(&clock);
+    let released = Arc::new(AtomicUsize::new(0));
+    let slow_released = Arc::clone(&released);
+
+    let worker = std::thread::spawn(move || {
+        race_first::<&'static str, String>(
+            &rt,
+            move |_| {
+                clock_fast.sleep(Duration::from_millis(100), &|| false);
+                Exit::Success("fast")
+            },
+            move |ctx| {
+                ctx.acquire_release(
+                    Effect::<(), String>::succeed(()),
+                    move |_| {
+                        slow_released.fetch_add(1, Ordering::SeqCst);
+                        Effect::<(), String>::succeed(())
+                    },
+                )
+                .expect("acquire cannot fail");
+                clock_slow.sleep(Duration::from_secs(5), &|| ctx.is_interrupted());
+                Exit::Failure(Cause::interrupt(None))
+            },
+        )
+    });
+
+    wait_until(|| clock.pending_sleepers() == 2, "both sides parked on the clock");
+    clock.adjust(Duration::from_millis(500));
+
+    let exit = worker.join().expect("worker thread");
+    assert!(matches!(exit, Exit::Success("fast")));
+    assert_eq!(released.load(Ordering::SeqCst), 1);
+}
+
+#[test]
+fn race_first_interrupts_the_loser_when_the_other_side_fails() {
+    // raceFirst(any completion wins): the FAILING side decides, and the
+    // still-parked loser is released.
+    use elm_effect::{ClockImpl, Duration, TestClock};
+
+    let rt = Runtime::new();
+    let clock = Arc::new(TestClock::new());
+    let clock_fast = Arc::clone(&clock);
+    let clock_slow = Arc::clone(&clock);
+    let released = Arc::new(AtomicUsize::new(0));
+    let slow_released = Arc::clone(&released);
+
+    let worker = std::thread::spawn(move || {
+        race_first::<&'static str, String>(
+            &rt,
+            move |_| {
+                clock_fast.sleep(Duration::from_millis(100), &|| false);
+                Exit::Failure(Cause::fail("boom".to_string()))
+            },
+            move |ctx| {
+                ctx.acquire_release(
+                    Effect::<(), String>::succeed(()),
+                    move |_| {
+                        slow_released.fetch_add(1, Ordering::SeqCst);
+                        Effect::<(), String>::succeed(())
+                    },
+                )
+                .expect("acquire cannot fail");
+                clock_slow.sleep(Duration::from_secs(5), &|| ctx.is_interrupted());
+                Exit::Failure(Cause::interrupt(None))
+            },
+        )
+    });
+
+    wait_until(|| clock.pending_sleepers() == 2, "both sides parked on the clock");
+    clock.adjust(Duration::from_millis(500));
+
+    let exit = worker.join().expect("worker thread");
+    // Any completion decides, so the failure carries the outcome.
+    assert!(matches!(exit, Exit::Failure(ref c) if c.failure() == Some(&"boom".to_string())));
+    assert_eq!(released.load(Ordering::SeqCst), 1);
+}
