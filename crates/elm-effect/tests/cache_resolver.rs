@@ -903,3 +903,125 @@ fn cache_values_and_entries_exclude_failures_and_expired_rows() {
     assert!(hourly.values().is_empty());
     assert_eq!(hourly.size(), 0, "the walk removed the expired rows");
 }
+
+#[test]
+fn cache_invalidate_when_judges_only_a_held_success_value() {
+    // Cache.test.ts:851, :865, :879, :891 — invalidateWhen reports true and
+    // drops the row only when the predicate accepts the held success value;
+    // a miss keeps the row, and a missing key or a cached failure never
+    // calls the predicate at all: there is no value to judge.
+    let lookup = |key: &String| {
+        if key == "fail" {
+            Err::<usize, String>("error".to_string())
+        } else {
+            Ok(key.len())
+        }
+    };
+    let cache = Cache::new(10, lookup);
+    assert_eq!(cache.get(&"test".to_string()), Ok(4));
+
+    let mut called = 0;
+    assert!(cache.invalidate_when(&"test".to_string(), |value| {
+        called += 1;
+        value == 4
+    }));
+    assert_eq!(called, 1);
+    assert!(!cache.has(&"test".to_string()));
+
+    assert_eq!(cache.get(&"test".to_string()), Ok(4));
+    assert!(!cache.invalidate_when(&"test".to_string(), |value| {
+        called += 1;
+        value == 5
+    }));
+    assert_eq!(called, 2);
+    assert!(cache.has(&"test".to_string()), "a miss keeps the row");
+
+    assert!(!cache.invalidate_when(&"absent".to_string(), |_| {
+        called += 1;
+        true
+    }));
+    assert_eq!(called, 2, "no predicate call for a missing key");
+
+    let failing = Cache::new(10, lookup).cache_errors(true);
+    assert_eq!(failing.get(&"fail".to_string()), Err("error".to_string()));
+    assert!(!failing.invalidate_when(&"fail".to_string(), |_| {
+        called += 1;
+        true
+    }));
+    assert_eq!(called, 2, "no predicate call for a cached failure");
+    assert!(failing.has(&"fail".to_string()), "the failed row stays");
+}
+
+#[test]
+fn cache_invalidate_and_invalidate_all_units() {
+    // Cache.test.ts:773, :787, :800, :1069, :1087 — invalidate drops exactly
+    // one held row and an unknown key is a no-op, the next get reruns the
+    // lookup, and invalidateAll empties the map so size reads zero.
+    let calls = Arc::new(AtomicUsize::new(0));
+    let cache = Cache::new(10, {
+        let calls = Arc::clone(&calls);
+        move |_: &String| {
+            calls.fetch_add(1, Ordering::SeqCst);
+            Ok::<usize, String>(calls.load(Ordering::SeqCst))
+        }
+    });
+    assert_eq!(cache.get(&"a".to_string()), Ok(1));
+    cache.invalidate(&"a".to_string());
+    assert!(!cache.has(&"a".to_string()));
+    cache.invalidate(&"missing".to_string());
+    assert_eq!(
+        cache.get(&"a".to_string()),
+        Ok(2),
+        "a get after invalidate reruns the lookup"
+    );
+
+    for key in ["a", "b", "c"] {
+        assert!(cache.get(&key.to_string()).is_ok());
+    }
+    cache.invalidate_all();
+    for key in ["a", "b", "c"] {
+        assert!(!cache.has(&key.to_string()));
+    }
+    assert_eq!(cache.size(), 0);
+}
+
+#[test]
+fn scoped_cache_invalidate_when_shares_the_predicate_rule() {
+    // ScopedCache.test.ts:848, :862, :876, :888 — the scoped cache answers
+    // invalidateWhen exactly like the plain one.
+    use cache::TimeToLive;
+    use elm_effect::SystemClock;
+
+    let lookup = |key: &String| Ok::<usize, String>(key.len());
+    let cache = ScopedCache::make(
+        10,
+        TimeToLive::Infinite,
+        Arc::new(SystemClock),
+        Arc::new(Scope::new(11)),
+        lookup,
+    );
+    assert_eq!(cache.get(&"test".to_string()), Ok(4));
+    assert!(cache.invalidate_when(&"test".to_string(), |value| value == 4));
+    assert!(!cache.has(&"test".to_string()));
+
+    assert_eq!(cache.get(&"test".to_string()), Ok(4));
+    assert!(!cache.invalidate_when(&"test".to_string(), |value| value == 5));
+    assert!(cache.has(&"test".to_string()));
+
+    let mut called = 0;
+    assert!(!cache.invalidate_when(&"missing".to_string(), |_| {
+        called += 1;
+        true
+    }));
+    assert_eq!(called, 0, "no predicate call for a missing key");
+
+    let failing = ScopedCache::make(
+        10,
+        TimeToLive::Infinite,
+        Arc::new(SystemClock),
+        Arc::new(Scope::new(12)),
+        |_: &String| Err::<usize, String>("error".to_string()),
+    );
+    assert!(failing.get(&"test".to_string()).is_err());
+    assert!(!failing.invalidate_when(&"test".to_string(), |_| true));
+}

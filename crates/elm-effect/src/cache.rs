@@ -268,6 +268,36 @@ where
         self.forget(&mut map, key);
     }
 
+    /// `Cache.invalidateWhen`: drop `key` only when the predicate accepts
+    /// its held success value, reporting whether it did.
+    ///
+    /// A missing key or a cached failure never calls the predicate: there is
+    /// no value to judge, and the pin's failure rows record an empty verdict
+    /// list. A miss keeps the row; only the predicate's `true` forgets it.
+    ///
+    /// The pin judges the value the invalidator saw. Here the entry and its
+    /// verdict are one locked step, so a later `set` cannot land between
+    /// them; the interleavings where an in-flight lookup settles after a
+    /// newer write (Cache.test.ts:818) need the pending-entry model that the
+    /// synchronous port does not carry.
+    pub fn invalidate_when(&self, key: &K, predicate: impl FnOnce(V) -> bool) -> bool {
+        let mut map = self.map.lock().unwrap();
+        if self.expired_now(key) {
+            self.forget(&mut map, key);
+            return false;
+        }
+        let accepted = match map.get(key) {
+            Some(Ok(value)) => Some(predicate(value.clone())),
+            _ => None,
+        };
+        if accepted == Some(true) {
+            self.forget(&mut map, key);
+            true
+        } else {
+            false
+        }
+    }
+
     /// Active keys (`Cache.keys`): every held key whose entry has not
     /// expired. An expired row is REMOVED by the walk, not merely filtered
     /// out, so `size` falls with it. The pin hands back a lazy iterable over
@@ -685,6 +715,12 @@ where
     /// `ScopedCache.invalidate`: drop one entry; unknown keys are a no-op.
     pub fn invalidate(&self, key: &K) {
         self.cache.invalidate(key)
+    }
+
+    /// `ScopedCache.invalidateWhen`: the plain cache's predicate rule, one
+    /// entry at a time (ScopedCache.test.ts:848, :862, :876, :888).
+    pub fn invalidate_when(&self, key: &K, predicate: impl FnOnce(V) -> bool) -> bool {
+        self.cache.invalidate_when(key, predicate)
     }
 
     /// Entries currently held.

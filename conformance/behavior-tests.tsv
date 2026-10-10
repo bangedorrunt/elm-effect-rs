@@ -343,14 +343,14 @@ unported	packages/effect/test/Cache.test.ts	712	it.effect	set enforces capacity
 unported	packages/effect/test/Cache.test.ts	731	it.effect	returns true for existing key	
 unported	packages/effect/test/Cache.test.ts	744	it.effect	returns false for non-existent key	
 unported	packages/effect/test/Cache.test.ts	756	it.effect	returns false for expired key	
-unported	packages/effect/test/Cache.test.ts	773	it.effect	invalidates existing key	
-unported	packages/effect/test/Cache.test.ts	787	it.effect	invalidating non-existent key doesn't error	
-unported	packages/effect/test/Cache.test.ts	800	it.effect	get after invalidate invokes lookup again	
+ported	packages/effect/test/Cache.test.ts	773	it.effect	invalidates existing key	cache_invalidate_and_invalidate_all_units
+ported	packages/effect/test/Cache.test.ts	787	it.effect	invalidating non-existent key doesn't error	cache_invalidate_and_invalidate_all_units
+ported	packages/effect/test/Cache.test.ts	800	it.effect	get after invalidate invokes lookup again	cache_invalidate_and_invalidate_all_units
 unported	packages/effect/test/Cache.test.ts	818	it.each	preserves a newer set value after an old lookup completes (%#)	
-unported	packages/effect/test/Cache.test.ts	851	it.effect	invalidates when predicate matches	
-unported	packages/effect/test/Cache.test.ts	865	it.effect	doesn't invalidate when predicate doesn't match	
-unported	packages/effect/test/Cache.test.ts	879	it.effect	returns false for non-existent key	
-unported	packages/effect/test/Cache.test.ts	891	it.effect	returns false for failed cached value	
+ported	packages/effect/test/Cache.test.ts	851	it.effect	invalidates when predicate matches	cache_invalidate_when_judges_only_a_held_success_value
+ported	packages/effect/test/Cache.test.ts	865	it.effect	doesn't invalidate when predicate doesn't match	cache_invalidate_when_judges_only_a_held_success_value
+ported	packages/effect/test/Cache.test.ts	879	it.effect	returns false for non-existent key	cache_invalidate_when_judges_only_a_held_success_value
+ported	packages/effect/test/Cache.test.ts	891	it.effect	returns false for failed cached value	cache_invalidate_when_judges_only_a_held_success_value
 ported	packages/effect/test/Cache.test.ts	906	it.effect	refresh existing key invokes lookup again	cache_refresh_reruns_the_lookup
 ported	packages/effect/test/Cache.test.ts	920	it.effect	refresh non-existent key invokes lookup and enforces capacity	cache_refresh_missing_key_enforces_capacity
 unported	packages/effect/test/Cache.test.ts	936	it.effect	refresh enforces capacity when the existing key is evicted during lookup	
@@ -360,8 +360,8 @@ unported	packages/effect/test/Cache.test.ts	995	it.each	zero-TTL refresh with re
 ported	packages/effect/test/Cache.test.ts	1018	it.effect	zero-TTL refresh removes its own entry	cache_zero_ttl_stores_nothing
 ported	packages/effect/test/Cache.test.ts	1029	it.effect	refresh updates TTL	cache_refresh_updates_ttl
 ported	packages/effect/test/Cache.test.ts	1045	it.effect	concurrent refresh calls each invoke lookup independently	concurrent_refreshes_each_run_the_lookup
-unported	packages/effect/test/Cache.test.ts	1069	it.effect	clears all entries	
-unported	packages/effect/test/Cache.test.ts	1087	it.effect	size becomes 0 after invalidateAll	
+ported	packages/effect/test/Cache.test.ts	1069	it.effect	clears all entries	cache_invalidate_and_invalidate_all_units
+ported	packages/effect/test/Cache.test.ts	1087	it.effect	size becomes 0 after invalidateAll	cache_invalidate_and_invalidate_all_units
 unported	packages/effect/test/Cache.test.ts	1104	it.effect	all keys return None after invalidateAll	
 ported	packages/effect/test/Cache.test.ts	1127	it.effect	empty cache returns 0	cache_size_counts_stored_entries
 ported	packages/effect/test/Cache.test.ts	1139	it.effect	returns correct count after adding entries	cache_size_counts_stored_entries
@@ -3374,10 +3374,10 @@ ported	packages/effect/test/ScopedCache.test.ts	754	it.effect	invalidating non-e
 ported	packages/effect/test/ScopedCache.test.ts	767	it.effect	get after invalidate invokes lookup again	scoped_cache_invalidate_forgets_entry
 unported	packages/effect/test/ScopedCache.test.ts	783	it.effect	resource cleanup when invalidating entry	
 unported	packages/effect/test/ScopedCache.test.ts	797	it.each	preserves a replacement resource after an old lookup completes (%#)	
-unported	packages/effect/test/ScopedCache.test.ts	848	it.effect	invalidates when predicate matches	
-unported	packages/effect/test/ScopedCache.test.ts	862	it.effect	doesn't invalidate when predicate doesn't match	
-unported	packages/effect/test/ScopedCache.test.ts	876	it.effect	returns false for non-existent key	
-unported	packages/effect/test/ScopedCache.test.ts	888	it.effect	returns false for failed cached value	
+ported	packages/effect/test/ScopedCache.test.ts	848	it.effect	invalidates when predicate matches	scoped_cache_invalidate_when_shares_the_predicate_rule
+ported	packages/effect/test/ScopedCache.test.ts	862	it.effect	doesn't invalidate when predicate doesn't match	scoped_cache_invalidate_when_shares_the_predicate_rule
+ported	packages/effect/test/ScopedCache.test.ts	876	it.effect	returns false for non-existent key	scoped_cache_invalidate_when_shares_the_predicate_rule
+ported	packages/effect/test/ScopedCache.test.ts	888	it.effect	returns false for failed cached value	scoped_cache_invalidate_when_shares_the_predicate_rule
 unported	packages/effect/test/ScopedCache.test.ts	901	it.effect	resource cleanup when predicate matches	
 unported	packages/effect/test/ScopedCache.test.ts	916	it.effect	caches a synchronous lookup defect for a missing key	
 unported	packages/effect/test/ScopedCache.test.ts	939	it.effect	replaces an existing entry with a synchronous lookup defect	
