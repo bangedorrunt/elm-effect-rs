@@ -100,7 +100,7 @@ tests = ["packages/effect/test/Chunk.test.ts"]
 [[module]]
 path = "packages/effect/src/Clock.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/Clock.test.ts"]
@@ -156,7 +156,7 @@ tests = ["packages/effect/test/Cron.test.ts"]
 [[module]]
 path = "packages/effect/src/Crypto.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/Crypto.test.ts"]
@@ -228,7 +228,7 @@ tests = ["packages/effect/test/Equal.test.ts"]
 [[module]]
 path = "packages/effect/src/Equivalence.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/Equivalence.test.ts"]
@@ -252,7 +252,7 @@ tests = ["packages/effect/test/ExecutionPlan.test.ts"]
 [[module]]
 path = "packages/effect/src/Exit.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/Exit.test.ts"]
@@ -444,7 +444,7 @@ tests = ["packages/effect/test/LayerRef.test.ts"]
 [[module]]
 path = "packages/effect/src/LogLevel.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/LogLevel.test.ts"]
@@ -492,7 +492,7 @@ tests = ["packages/effect/test/MutableHashMap.test.ts"]
 [[module]]
 path = "packages/effect/src/MutableHashSet.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/MutableHashSet.test.ts"]
@@ -556,7 +556,7 @@ tests = ["packages/effect/test/Option.test.ts"]
 [[module]]
 path = "packages/effect/src/Order.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/Order.test.ts"]
@@ -564,7 +564,7 @@ tests = ["packages/effect/test/Order.test.ts"]
 [[module]]
 path = "packages/effect/src/Ordering.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/Ordering.test.ts"]
@@ -892,7 +892,7 @@ tests = []
 [[module]]
 path = "packages/effect/src/Stdio.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/Stdio.test.ts"]
@@ -1532,7 +1532,7 @@ tests = []
 [[module]]
 path = "packages/effect/src/cluster/MessageStorage.ts"
 class = "unstable-port"
-status = "unmatched"
+status = "matched"
 tag = "unstable"
 reason = ""
 tests = ["packages/effect/test/cluster/MessageStorage.test.ts"]
@@ -1580,7 +1580,7 @@ tests = ["packages/effect/test/cluster/RunnerServer.test.ts"]
 [[module]]
 path = "packages/effect/src/cluster/RunnerStorage.ts"
 class = "unstable-port"
-status = "unmatched"
+status = "matched"
 tag = "unstable"
 reason = ""
 tests = ["packages/effect/test/cluster/RunnerStorage.test.ts"]
@@ -1812,7 +1812,7 @@ tests = ["packages/effect/test/encoding/Toml.test.ts"]
 [[module]]
 path = "packages/effect/src/encoding/Yaml.ts"
 class = "unstable-port"
-status = "unmatched"
+status = "matched"
 tag = "unstable"
 reason = ""
 tests = ["packages/effect/test/encoding/Yaml.test.ts"]
@@ -1844,7 +1844,7 @@ tests = []
 [[module]]
 path = "packages/effect/src/eventlog/EventJournal.ts"
 class = "unstable-port"
-status = "unmatched"
+status = "matched"
 tag = "unstable"
 reason = ""
 tests = ["packages/effect/test/eventlog/EventJournal.test.ts"]
@@ -1868,7 +1868,7 @@ tests = []
 [[module]]
 path = "packages/effect/src/eventlog/EventLogMessage.ts"
 class = "unstable-port"
-status = "unmatched"
+status = "matched"
 tag = "unstable"
 reason = ""
 tests = ["packages/effect/test/eventlog/EventLogMessage.test.ts"]
@@ -2236,7 +2236,7 @@ tests = ["packages/effect/test/http/HttpStaticServer.test.ts"]
 [[module]]
 path = "packages/effect/src/http/HttpStatus.ts"
 class = "unstable-port"
-status = "unmatched"
+status = "matched"
 tag = "unstable"
 reason = ""
 tests = ["packages/effect/test/http/HttpStatus.test.ts"]
@@ -2252,7 +2252,7 @@ tests = []
 [[module]]
 path = "packages/effect/src/http/Mime.ts"
 class = "unstable-port"
-status = "unmatched"
+status = "matched"
 tag = "unstable"
 reason = ""
 tests = ["packages/effect/test/http/Mime.test.ts"]
@@ -2396,7 +2396,7 @@ tests = ["packages/effect/test/observability/OtlpMetrics.test.ts"]
 [[module]]
 path = "packages/effect/src/observability/OtlpResource.ts"
 class = "unstable-port"
-status = "unmatched"
+status = "matched"
 tag = "unstable"
 reason = ""
 tests = ["packages/effect/test/observability/OtlpResource.test.ts"]
@@ -2404,7 +2404,7 @@ tests = ["packages/effect/test/observability/OtlpResource.test.ts"]
 [[module]]
 path = "packages/effect/src/observability/OtlpSerialization.ts"
 class = "unstable-port"
-status = "unmatched"
+status = "matched"
 tag = "unstable"
 reason = ""
 tests = ["packages/effect/test/observability/OtlpSerialization.test.ts"]
@@ -2420,7 +2420,7 @@ tests = []
 [[module]]
 path = "packages/effect/src/observability/PrometheusMetrics.ts"
 class = "unstable-port"
-status = "unmatched"
+status = "matched"
 tag = "unstable"
 reason = ""
 tests = ["packages/effect/test/observability/PrometheusMetrics.test.ts"]
@@ -2596,7 +2596,7 @@ tests = []
 [[module]]
 path = "packages/effect/src/rpc/Rpc.ts"
 class = "unstable-port"
-status = "unmatched"
+status = "matched"
 tag = "unstable"
 reason = ""
 tests = ["packages/effect/test/rpc/Rpc.test.ts"]
@@ -2836,7 +2836,7 @@ tests = []
 [[module]]
 path = "packages/effect/src/sql/SqlResolver.ts"
 class = "unstable-port"
-status = "unmatched"
+status = "matched"
 tag = "unstable"
 reason = "no surface yet"
 tests = ["packages/effect/test/sql/SqlResolver.test.ts"]
@@ -2972,7 +2972,7 @@ tests = []
 [[module]]
 path = "packages/effect/src/workflow/DurableQueue.ts"
 class = "unstable-port"
-status = "unmatched"
+status = "matched"
 tag = "unstable"
 reason = ""
 tests = ["packages/effect/test/workflow/DurableQueue.test.ts"]
