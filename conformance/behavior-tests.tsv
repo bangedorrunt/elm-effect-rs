@@ -310,8 +310,8 @@ unported	packages/effect/test/Cache.test.ts	107	it.effect	make - spans are conne
 unported	packages/effect/test/Cache.test.ts	133	it.effect	makeWith - creates cache with function-based TTL	
 unported	packages/effect/test/Cache.test.ts	165	it.effect	makeWith - TTL function receives correct parameters	
 ported	packages/effect/test/Cache.test.ts	197	it.effect	does not retain a synchronous zero-TTL lookup	cache_zero_ttl_stores_nothing
-unported	packages/effect/test/Cache.test.ts	208	it.effect	removes a suspended zero-TTL lookup after completion	
-unported	packages/effect/test/Cache.test.ts	226	it.effect	zero-TTL failure does not evict a live entry at capacity	
+ported	packages/effect/test/Cache.test.ts	208	it.effect	removes a suspended zero-TTL lookup after completion	suspended_zero_ttl_get_is_removed_when_it_completes
+ported	packages/effect/test/Cache.test.ts	226	it.effect	zero-TTL failure does not evict a live entry at capacity	zero_ttl_failure_does_not_evict_a_live_entry_at_capacity
 unported	packages/effect/test/Cache.test.ts	244	it.effect	zero-TTL lookup after expiration does not evict a live entry	
 unported	packages/effect/test/Cache.test.ts	268	it.effect	zero-TTL completion does not remove a newer set value	
 unported	packages/effect/test/Cache.test.ts	290	it.effect	does not retain synchronously interrupted lookups	
@@ -346,17 +346,17 @@ unported	packages/effect/test/Cache.test.ts	756	it.effect	returns false for expi
 ported	packages/effect/test/Cache.test.ts	773	it.effect	invalidates existing key	cache_invalidate_and_invalidate_all_units
 ported	packages/effect/test/Cache.test.ts	787	it.effect	invalidating non-existent key doesn't error	cache_invalidate_and_invalidate_all_units
 ported	packages/effect/test/Cache.test.ts	800	it.effect	get after invalidate invokes lookup again	cache_invalidate_and_invalidate_all_units
-unported	packages/effect/test/Cache.test.ts	818	it.each	preserves a newer set value after an old lookup completes (%#)	
+ported	packages/effect/test/Cache.test.ts	818	it.each	preserves a newer set value after an old lookup completes (%#)	invalidate_when_judges_a_pending_lookup_and_spares_a_newer_value
 ported	packages/effect/test/Cache.test.ts	851	it.effect	invalidates when predicate matches	cache_invalidate_when_judges_only_a_held_success_value
 ported	packages/effect/test/Cache.test.ts	865	it.effect	doesn't invalidate when predicate doesn't match	cache_invalidate_when_judges_only_a_held_success_value
 ported	packages/effect/test/Cache.test.ts	879	it.effect	returns false for non-existent key	cache_invalidate_when_judges_only_a_held_success_value
 ported	packages/effect/test/Cache.test.ts	891	it.effect	returns false for failed cached value	cache_invalidate_when_judges_only_a_held_success_value
 ported	packages/effect/test/Cache.test.ts	906	it.effect	refresh existing key invokes lookup again	cache_refresh_reruns_the_lookup
 ported	packages/effect/test/Cache.test.ts	920	it.effect	refresh non-existent key invokes lookup and enforces capacity	cache_refresh_missing_key_enforces_capacity
-unported	packages/effect/test/Cache.test.ts	936	it.effect	refresh enforces capacity when the existing key is evicted during lookup	
-unported	packages/effect/test/Cache.test.ts	960	it.effect	repro: interrupting a missing-key refresh does not remove a newer set value	
-unported	packages/effect/test/Cache.test.ts	978	it.effect	interrupting a missing-key refresh removes its pending entry	
-unported	packages/effect/test/Cache.test.ts	995	it.each	zero-TTL refresh with replacement (existing: %s)	
+ported	packages/effect/test/Cache.test.ts	936	it.effect	refresh enforces capacity when the existing key is evicted during lookup	refresh_reenters_and_trims_when_evicted_during_lookup
+ported	packages/effect/test/Cache.test.ts	960	it.effect	repro: interrupting a missing-key refresh does not remove a newer set value	cancelling_a_missing_key_refresh_keeps_a_newer_set_value
+ported	packages/effect/test/Cache.test.ts	978	it.effect	interrupting a missing-key refresh removes its pending entry	refresh_pending_row_is_visible_and_cancel_removes_it
+ported	packages/effect/test/Cache.test.ts	995	it.each	zero-TTL refresh with replacement (existing: %s)	zero_ttl_refresh_with_replacement_rules
 ported	packages/effect/test/Cache.test.ts	1018	it.effect	zero-TTL refresh removes its own entry	cache_zero_ttl_stores_nothing
 ported	packages/effect/test/Cache.test.ts	1029	it.effect	refresh updates TTL	cache_refresh_updates_ttl
 ported	packages/effect/test/Cache.test.ts	1045	it.effect	concurrent refresh calls each invoke lookup independently	concurrent_refreshes_each_run_the_lookup

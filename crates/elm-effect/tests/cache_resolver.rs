@@ -904,6 +904,275 @@ fn cache_values_and_entries_exclude_failures_and_expired_rows() {
     assert_eq!(hourly.size(), 0, "the walk removed the expired rows");
 }
 
+// Pending entries: the interleavings the pin's suspended lookups allow.
+
+/// A lookup that signals `entered` when it starts, blocks until `released`
+/// sends, then answers with `outcome`: the pin's suspended lookup, as threads.
+fn gated(
+    outcome: Result<usize, String>,
+) -> (
+    impl Fn(&String) -> Result<usize, String>,
+    std::sync::mpsc::Receiver<()>,
+    std::sync::mpsc::Sender<()>,
+) {
+    let (entered_tx, entered_rx) = std::sync::mpsc::channel::<()>();
+    let (release_tx, release_rx) = std::sync::mpsc::channel::<()>();
+    let release_rx = Arc::new(std::sync::Mutex::new(release_rx));
+    let lookup = move |_key: &String| {
+        entered_tx.send(()).unwrap();
+        release_rx.lock().unwrap().recv().unwrap();
+        outcome.clone()
+    };
+    (lookup, entered_rx, release_tx)
+}
+
+#[test]
+fn refresh_pending_row_is_visible_and_cancel_removes_it() {
+    // Cache.test.ts:978 — while a missing-key refresh runs its pending row is
+    // a real row (`has` is true), and interrupting the refresh removes only
+    // that row: the orphaned lookup still answers its caller, and it never
+    // reinstalls the row.
+    let (lookup, entered, release) = gated(Ok(7));
+    let cache = Arc::new(Cache::new(1, lookup));
+    let refresher = {
+        let cache = Arc::clone(&cache);
+        std::thread::spawn(move || cache.refresh(&"key".to_string()))
+    };
+    entered.recv().unwrap();
+    assert!(cache.has(&"key".to_string()), "the pending row is visible");
+    assert_eq!(cache.size(), 1);
+
+    assert!(cache.cancel_pending(&"key".to_string()));
+    assert!(!cache.has(&"key".to_string()), "cancel removed the pending row");
+
+    release.send(()).unwrap();
+    assert_eq!(refresher.join().unwrap(), Ok(7), "the orphan still answers");
+    assert!(!cache.has(&"key".to_string()), "and never reinstalls its row");
+}
+
+#[test]
+fn cancelling_a_missing_key_refresh_keeps_a_newer_set_value() {
+    // Cache.test.ts:960 — a value written while a missing-key refresh runs is
+    // never removed by the refresh's completion or by an interrupt.
+    let (lookup, entered, release) = gated(Ok(1));
+    let cache = Arc::new(Cache::new(1, lookup));
+    let refresher = {
+        let cache = Arc::clone(&cache);
+        std::thread::spawn(move || cache.refresh(&"key".to_string()))
+    };
+    entered.recv().unwrap();
+    cache.set("key".to_string(), 99);
+    assert_eq!(cache.get_option(&"key".to_string()), Some(99));
+    assert!(
+        !cache.cancel_pending(&"key".to_string()),
+        "the row belongs to the set now"
+    );
+
+    release.send(()).unwrap();
+    assert_eq!(refresher.join().unwrap(), Ok(1));
+    assert_eq!(
+        cache.get_option(&"key".to_string()),
+        Some(99),
+        "the newer value survived the orphaned completion"
+    );
+}
+
+#[test]
+fn zero_ttl_refresh_with_replacement_rules() {
+    // Cache.test.ts:995 — a zero-TTL refresh that was UPDATING an existing
+    // entry removes the row that is there now, even a value written during
+    // the lookup; one that was CREATING an entry removes only its own row, so
+    // a replacement survives.
+    use cache::TimeToLive;
+    use elm_effect::{Duration, TestClock};
+
+    fn failing_ttl(outcome: &Result<usize, String>, _key: &String) -> TimeToLive {
+        match outcome {
+            Err(_) => TimeToLive::For(Duration::ZERO),
+            Ok(_) => TimeToLive::For(Duration::from_minutes(60)),
+        }
+    }
+
+    // existing: true — the refresh replaces a live entry.
+    let (lookup, entered, release) = gated(Err("error".to_string()));
+    let cache = Arc::new(Cache::new(1, lookup).with_ttl_fn(failing_ttl, Arc::new(TestClock::new())));
+    cache.set("key".to_string(), 1);
+    let refresher = {
+        let cache = Arc::clone(&cache);
+        std::thread::spawn(move || cache.refresh(&"key".to_string()))
+    };
+    entered.recv().unwrap();
+    cache.set("key".to_string(), 99);
+    assert_eq!(cache.get_option(&"key".to_string()), Some(99));
+    release.send(()).unwrap();
+    assert_eq!(refresher.join().unwrap(), Err("error".to_string()));
+    assert_eq!(
+        cache.get_option(&"key".to_string()),
+        None,
+        "the updating refresh removed the current row"
+    );
+
+    // existing: false — the refresh was creating the entry, so the value
+    // written mid-lookup is not its row to remove.
+    let (lookup, entered, release) = gated(Err("error".to_string()));
+    let cache = Arc::new(Cache::new(1, lookup).with_ttl_fn(failing_ttl, Arc::new(TestClock::new())));
+    let refresher = {
+        let cache = Arc::clone(&cache);
+        std::thread::spawn(move || cache.refresh(&"key".to_string()))
+    };
+    entered.recv().unwrap();
+    cache.set("key".to_string(), 99);
+    release.send(()).unwrap();
+    assert_eq!(refresher.join().unwrap(), Err("error".to_string()));
+    assert_eq!(
+        cache.get_option(&"key".to_string()),
+        Some(99),
+        "the replacement survived"
+    );
+}
+
+#[test]
+fn refresh_reenters_and_trims_when_evicted_during_lookup() {
+    // Cache.test.ts:936 — a refreshed key that was evicted while its lookup
+    // ran comes back at the back of the queue, and capacity runs again.
+    let (lookup, entered, release) = gated(Ok(2));
+    let cache = Arc::new(Cache::new(1, lookup));
+    cache.set("a".to_string(), 1);
+    let refresher = {
+        let cache = Arc::clone(&cache);
+        std::thread::spawn(move || cache.refresh(&"a".to_string()))
+    };
+    entered.recv().unwrap();
+    cache.set("b".to_string(), 99);
+    assert!(!cache.has(&"a".to_string()), "b evicted a during the lookup");
+    release.send(()).unwrap();
+    assert_eq!(refresher.join().unwrap(), Ok(2));
+    assert_eq!(cache.size(), 1);
+    assert_eq!(cache.keys(), vec!["a".to_string()]);
+    assert_eq!(cache.get_option(&"a".to_string()), Some(2));
+}
+
+#[test]
+fn suspended_zero_ttl_get_is_removed_when_it_completes() {
+    // Cache.test.ts:208 — a suspended zero-TTL get is a visible row while it
+    // runs (size counts it) and leaves nothing when it completes.
+    use cache::TimeToLive;
+    use elm_effect::{Duration, TestClock};
+
+    let (lookup, entered, release) = gated(Ok(42));
+    let cache = Arc::new(Cache::new(1, lookup).with_ttl(
+        TimeToLive::For(Duration::ZERO),
+        Arc::new(TestClock::new()),
+    ));
+    let getter = {
+        let cache = Arc::clone(&cache);
+        std::thread::spawn(move || cache.get(&"key".to_string()))
+    };
+    entered.recv().unwrap();
+    assert_eq!(cache.size(), 1, "the in-flight row counts");
+    release.send(()).unwrap();
+    assert_eq!(getter.join().unwrap(), Ok(42));
+    assert_eq!(cache.size(), 0, "the completed lookup left no row");
+    assert!(!cache.has(&"key".to_string()));
+}
+
+#[test]
+fn invalidate_when_judges_a_pending_lookup_and_spares_a_newer_value() {
+    // Cache.test.ts:818 — the invalidator waits for the in-flight lookup and
+    // judges ITS value; when a `set` replaced the row in the meantime the row
+    // is spared and the verdict is false. The failing tuple never calls the
+    // predicate at all.
+    use std::time::Duration as StdDuration;
+
+    let (lookup, entered, release) = gated(Ok(1));
+    let cache = Arc::new(Cache::new(1, lookup));
+    let getter = {
+        let cache = Arc::clone(&cache);
+        std::thread::spawn(move || cache.get(&"key".to_string()))
+    };
+    entered.recv().unwrap();
+
+    let seen = Arc::new(std::sync::Mutex::new(Vec::<usize>::new()));
+    let invalidator = {
+        let cache = Arc::clone(&cache);
+        let seen = Arc::clone(&seen);
+        std::thread::spawn(move || {
+            cache.invalidate_when(&"key".to_string(), |value| {
+                seen.lock().unwrap().push(value);
+                value == 1
+            })
+        })
+    };
+    // Let the invalidator park on the pending cell before the write lands, as
+    // the pin's forked invalidator does.
+    std::thread::sleep(StdDuration::from_millis(50));
+    cache.set("key".to_string(), 99);
+    release.send(()).unwrap();
+
+    assert_eq!(getter.join().unwrap(), Ok(1));
+    assert!(!invalidator.join().unwrap());
+    assert_eq!(*seen.lock().unwrap(), vec![1], "the predicate saw the old value");
+    assert_eq!(cache.get_option(&"key".to_string()), Some(99));
+
+    // Failing tuple: the predicate is never called and the row is spared.
+    let (lookup, entered, release) = gated(Err("error".to_string()));
+    let cache = Arc::new(Cache::new(1, lookup));
+    let getter = {
+        let cache = Arc::clone(&cache);
+        std::thread::spawn(move || cache.get(&"key".to_string()))
+    };
+    entered.recv().unwrap();
+    let seen = Arc::new(std::sync::Mutex::new(Vec::<usize>::new()));
+    let invalidator = {
+        let cache = Arc::clone(&cache);
+        let seen = Arc::clone(&seen);
+        std::thread::spawn(move || {
+            cache.invalidate_when(&"key".to_string(), |value| {
+                seen.lock().unwrap().push(value);
+                true
+            })
+        })
+    };
+    std::thread::sleep(StdDuration::from_millis(50));
+    cache.set("key".to_string(), 99);
+    release.send(()).unwrap();
+
+    assert_eq!(getter.join().unwrap(), Err("error".to_string()));
+    assert!(!invalidator.join().unwrap());
+    assert!(seen.lock().unwrap().is_empty(), "no predicate call for a failure");
+    assert_eq!(cache.get_option(&"key".to_string()), Some(99));
+}
+
+#[test]
+fn zero_ttl_failure_does_not_evict_a_live_entry_at_capacity() {
+    // Cache.test.ts:226 — a zero-TTL failure row leaves again without running
+    // capacity against the entries that were there first.
+    use cache::TimeToLive;
+    use elm_effect::{Duration, TestClock};
+
+    fn failure_is_instant(outcome: &Result<usize, String>, _key: &String) -> TimeToLive {
+        match outcome {
+            Err(_) => TimeToLive::For(Duration::ZERO),
+            Ok(_) => TimeToLive::For(Duration::from_minutes(60)),
+        }
+    }
+
+    let lookup = |key: &String| {
+        if key == "bad" {
+            Err("error".to_string())
+        } else {
+            Ok(key.len())
+        }
+    };
+    let cache = Cache::new(2, lookup).with_ttl_fn(failure_is_instant, Arc::new(TestClock::new()));
+    cache.get(&"a".to_string());
+    assert_eq!(cache.get(&"bad".to_string()), Err("error".to_string()));
+    assert_eq!(cache.size(), 1);
+    cache.get(&"b".to_string());
+    assert_eq!(cache.get_option(&"a".to_string()), Some(1));
+    assert_eq!(cache.get_option(&"b".to_string()), Some(1));
+}
+
 #[test]
 fn cache_invalidate_when_judges_only_a_held_success_value() {
     // Cache.test.ts:851, :865, :879, :891 — invalidateWhen reports true and
