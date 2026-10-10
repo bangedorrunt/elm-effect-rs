@@ -208,6 +208,69 @@ fn scoped_cache_make_capacity_and_ttl() {
 }
 
 #[test]
+fn scoped_cache_set_fills_without_lookup() {
+    // ScopedCache.test.ts:594, :605, :617, :628, :634 — set writes an entry
+    // without running the lookup, overwrites in place, starts the TTL at the
+    // write, and respects capacity by evicting the oldest entry.
+    use cache::TimeToLive;
+    use elm_effect::{Duration, TestClock};
+
+    let clock = Arc::new(TestClock::new());
+    let calls = Arc::new(AtomicUsize::new(0));
+    let counting = {
+        let calls = Arc::clone(&calls);
+        move |k: &String| {
+            calls.fetch_add(1, Ordering::SeqCst);
+            Ok::<usize, String>(k.len())
+        }
+    };
+    let cache = ScopedCache::make(
+        10,
+        TimeToLive::Infinite,
+        clock.clone(),
+        Arc::new(Scope::new(7)),
+        counting,
+    );
+    cache.set("test".to_string(), 42);
+    assert_eq!(cache.get(&"test".to_string()), Ok(42));
+    assert_eq!(calls.load(Ordering::SeqCst), 0);
+
+    cache.set("test".to_string(), 100);
+    assert_eq!(cache.get(&"test".to_string()), Ok(100));
+    cache.set("test2".to_string(), 43);
+    cache.set("test3".to_string(), 44);
+    assert_eq!(calls.load(Ordering::SeqCst), 0);
+
+    let hourly = ScopedCache::make(
+        10,
+        TimeToLive::For(Duration::from_minutes(60)),
+        clock.clone(),
+        Arc::new(Scope::new(8)),
+        |k: &String| Ok::<usize, String>(k.len()),
+    );
+    hourly.set("test".to_string(), 42);
+    assert!(hourly.has(&"test".to_string()));
+    clock.adjust(Duration::from_minutes(120));
+    assert!(!hourly.has(&"test".to_string()));
+
+    let bounded = ScopedCache::make(
+        2,
+        TimeToLive::Infinite,
+        clock.clone(),
+        Arc::new(Scope::new(9)),
+        |k: &String| Ok::<usize, String>(k.len()),
+    );
+    bounded.set("a".to_string(), 1);
+    bounded.set("b".to_string(), 2);
+    assert_eq!(bounded.size(), 2);
+    bounded.set("c".to_string(), 3);
+    assert_eq!(bounded.size(), 2);
+    // The oldest entry made room; the newest is present.
+    assert!(!bounded.has(&"a".to_string()));
+    assert!(bounded.has(&"c".to_string()));
+}
+
+#[test]
 fn pool_blocks_while_exhausted() {
     let pool = Pool::new(1, IdlePolicy::default(), || 1u32);
     let held = pool.acquire();

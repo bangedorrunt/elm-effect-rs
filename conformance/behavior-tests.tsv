@@ -3345,11 +3345,11 @@ unported	packages/effect/test/ScopedCache.test.ts	537	it.effect	returns Some for
 unported	packages/effect/test/ScopedCache.test.ts	550	it.effect	returns None for failed cached value	
 unported	packages/effect/test/ScopedCache.test.ts	563	it.effect	returns None for non-existent key	
 unported	packages/effect/test/ScopedCache.test.ts	575	it.effect	returns None for expired value	
-unported	packages/effect/test/ScopedCache.test.ts	594	it.effect	sets new key-value pair	
-unported	packages/effect/test/ScopedCache.test.ts	605	it.effect	overwrites existing key	
-unported	packages/effect/test/ScopedCache.test.ts	619	it.effect	set with TTL - value expires	
-unported	packages/effect/test/ScopedCache.test.ts	634	it.effect	set doesn't invoke lookup function	
-unported	packages/effect/test/ScopedCache.test.ts	645	it.effect	set enforces capacity constraints	
+ported	packages/effect/test/ScopedCache.test.ts	594	it.effect	sets new key-value pair	scoped_cache_set_fills_without_lookup
+ported	packages/effect/test/ScopedCache.test.ts	605	it.effect	overwrites existing key	scoped_cache_set_fills_without_lookup
+ported	packages/effect/test/ScopedCache.test.ts	619	it.effect	set with TTL - value expires	scoped_cache_set_fills_without_lookup
+ported	packages/effect/test/ScopedCache.test.ts	634	it.effect	set doesn't invoke lookup function	scoped_cache_set_fills_without_lookup
+ported	packages/effect/test/ScopedCache.test.ts	645	it.effect	set enforces capacity constraints	scoped_cache_set_fills_without_lookup
 unported	packages/effect/test/ScopedCache.test.ts	662	it.effect	resource cleanup when overwriting existing entry	
 unported	packages/effect/test/ScopedCache.test.ts	677	it.effect	returns true for existing key	
 unported	packages/effect/test/ScopedCache.test.ts	690	it.effect	returns false for non-existent key	

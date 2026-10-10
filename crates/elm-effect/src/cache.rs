@@ -154,6 +154,32 @@ where
         self.map.lock().unwrap().len()
     }
 
+    /// Entries currently held, under the pin's name for it (`Cache.size`).
+    pub fn size(&self) -> usize {
+        self.len()
+    }
+
+    /// Store `value` for `key` without running the lookup (`Cache.set`).
+    ///
+    /// This is a fresh write, not a refresh: the key moves to the back of
+    /// the recency queue and its TTL starts now, so a `set` after an
+    /// expired `get` cannot resurrect the old stamp. Capacity is enforced
+    /// exactly as a lookup's store does, evicting the oldest entry.
+    pub fn set(&self, key: K, value: V) {
+        let mut map = self.map.lock().unwrap();
+        self.forget(&mut map, &key);
+        if map.len() >= self.capacity {
+            let mut order = self.order.lock().unwrap();
+            if let Some(oldest) = order.pop_front() {
+                map.remove(&oldest);
+                self.stamps.lock().unwrap().remove(&oldest);
+            }
+        }
+        map.insert(key.clone(), Ok(value));
+        self.order.lock().unwrap().push_back(key.clone());
+        self.stamps.lock().unwrap().insert(key, self.clock.now_millis());
+    }
+
     /// `Cache.getOption` at the pin: `Some(value)` for an entry already
     /// held and unexpired, `None` otherwise. Notably a MISS never runs the
     /// lookup — this reads the map and nothing else, which is what
@@ -523,6 +549,16 @@ where
     /// The value for `key`, running the lookup at most once per miss.
     pub fn get(&self, key: &K) -> Result<V, E> {
         self.cache.get(key)
+    }
+
+    /// `ScopedCache.set`: store a value without running the lookup.
+    pub fn set(&self, key: K, value: V) {
+        self.cache.set(key, value)
+    }
+
+    /// Entries currently held.
+    pub fn size(&self) -> usize {
+        self.cache.size()
     }
 
     /// Drop every entry and close the scope.
