@@ -136,12 +136,38 @@ impl EventJournal {
     }
 }
 
+/// One entry as a remote sent it: the remote's entry identity, the remote
+/// sequence, and the event.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct RemoteEntry {
+    /// Remote-assigned entry identity. This is the dedup key: a remote may
+    /// resend the same entry under a fresh sequence and it is still the same
+    /// entry.
+    pub entry_id: String,
+    /// Remote sequence number.
+    pub remote_sequence: u64,
+    /// The event.
+    pub event: Event,
+}
+
+/// Outcome of importing remote entries.
+#[derive(Debug, Default, PartialEq, Eq)]
+pub struct RemoteWrite {
+    /// Entries committed locally (and published to subscribers).
+    pub written: Vec<Entry>,
+    /// Entries already known under the same `(remote, entry_id)`, skipped.
+    pub duplicates: Vec<RemoteEntry>,
+}
+
 /// Typed event log over a journal: writes typed events, commits entries,
 /// runs group handlers, and tracks remote sequences with conflict reports.
 pub struct EventLog {
     journal: EventJournal,
     group: EventGroup,
     remote_seqs: HashMap<String, u64>,
+    /// `(remote, entry_id)` pairs already imported, so a resend is a
+    /// duplicate rather than a second local entry.
+    seen_remote_ids: HashSet<(String, String)>,
 }
 
 impl EventLog {
@@ -151,6 +177,7 @@ impl EventLog {
             journal: EventJournal::new(),
             group,
             remote_seqs: HashMap::new(),
+            seen_remote_ids: HashSet::new(),
         }
     }
 
@@ -164,6 +191,19 @@ impl EventLog {
     /// Committed entries in order.
     pub fn entries(&self) -> &[Entry] {
         self.journal.entries()
+    }
+
+    /// Subscribe to local changes; the returned id unsubscribes.
+    pub fn subscribe(
+        &mut self,
+        on_entry: impl Fn(&Entry) + Send + Sync + 'static,
+    ) -> SubscriptionId {
+        self.journal.subscribe(on_entry)
+    }
+
+    /// Drop a subscription; `false` when unknown.
+    pub fn unsubscribe(&mut self, id: &SubscriptionId) -> bool {
+        self.journal.unsubscribe(id)
     }
 
     /// Next unused remote sequence for `remote` (starts at 1).
@@ -181,6 +221,28 @@ impl EventLog {
             self.remote_seqs.insert(remote.to_owned(), seq);
         }
         self.journal.record(event)
+    }
+
+    /// Import entries from a remote (`writeFromRemote`): unseen entry ids
+    /// commit locally and publish, ids already seen for that remote come
+    /// back as duplicates, and a fresh remote sequence advances the remote's
+    /// high-water mark even when the entry itself is a duplicate.
+    pub fn write_from_remote(&mut self, remote: &str, entries: Vec<RemoteEntry>) -> RemoteWrite {
+        let mut write = RemoteWrite::default();
+        for entry in entries {
+            let key = (remote.to_owned(), entry.entry_id.clone());
+            let last = self.remote_seqs.get(remote).copied().unwrap_or(0);
+            if entry.remote_sequence > last {
+                self.remote_seqs.insert(remote.to_owned(), entry.remote_sequence);
+            }
+            if self.seen_remote_ids.contains(&key) {
+                write.duplicates.push(entry);
+                continue;
+            }
+            self.seen_remote_ids.insert(key);
+            write.written.push(self.journal.record(entry.event));
+        }
+        write
     }
 
     /// First entry newer than `seq` from a different producer shape: the

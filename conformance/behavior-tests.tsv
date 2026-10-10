@@ -6354,7 +6354,7 @@ ported	packages/effect/test/eventlog/EventJournal.test.ts	95	it.effect	records e
 ported	packages/effect/test/eventlog/EventLog.test.ts	45	it.effect	writes a typed event, commits the entry, and runs its handler	log_writes_typed_events_and_runs_handlers
 ported	packages/effect/test/eventlog/EventLog.test.ts	63	it.effect	retries a failed remote write and flushes changes made during the retry	retry_flushes_changes_made_during_retry
 unported	packages/effect/test/eventlog/EventLog.test.ts	135	it.effect	encrypts and decrypts entries with a distinct IV per entry	
-unported	packages/effect/test/eventlog/EventLog.test.ts	159	it.effect	publishes local journal changes through a scoped subscription	
+ported	packages/effect/test/eventlog/EventLog.test.ts	159	it.effect	publishes local journal changes through a scoped subscription	write_from_remote_reports_duplicates_and_publishes
 unported	packages/effect/test/eventlog/EventLogIdentityDerivation.test.ts	36	it.effect	derives the same material for identities with the same root secret	
 unported	packages/effect/test/eventlog/EventLogIdentityDerivation.test.ts	57	it.effect	uses versioned, domain-separated labels for encryption and signing	
 unported	packages/effect/test/eventlog/EventLogIdentityDerivation.test.ts	71	it.effect	memoizes derived material for the same identity instance	

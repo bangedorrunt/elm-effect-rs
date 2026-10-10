@@ -5,7 +5,7 @@
 #![cfg(feature = "eventlog")]
 
 use elm_effect_unstable::eventlog::{
-    Entry, Event, EventGroup, EventJournal, EventLog, join_chunks, split_data,
+    Entry, Event, EventGroup, EventJournal, EventLog, RemoteEntry, join_chunks, split_data,
 };
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -32,6 +32,57 @@ fn journal_records_and_publishes() {
     journal.record(Event::new("c", vec![3]));
     assert_eq!(seen.load(Ordering::SeqCst), 2);
     assert!(!journal.unsubscribe(&sub));
+}
+
+#[test]
+fn write_from_remote_reports_duplicates_and_publishes() {
+    // EventLog.test.ts:159 — each committed import publishes to subscribers,
+    // and re-importing the same entry id, even under a fresh remote sequence,
+    // is reported as a duplicate instead of being written twice.
+    let mut log = EventLog::new(EventGroup::new());
+    let seen = counter();
+    let seen_body = seen.clone();
+    let sub = log.subscribe(move |_| {
+        seen_body.fetch_add(1, Ordering::SeqCst);
+    });
+
+    let remote_entry = |seq: u64| RemoteEntry {
+        entry_id: "e1".to_string(),
+        remote_sequence: seq,
+        event: Event::new("UserCreated", vec![1]),
+    };
+
+    let first = log.write_from_remote("remote-1", vec![remote_entry(1)]);
+    assert!(first.duplicates.is_empty());
+    assert_eq!(first.written.len(), 1);
+    assert_eq!(seen.load(Ordering::SeqCst), 1);
+
+    // Same entry id, new sequence: a duplicate, and nothing new published.
+    let second = log.write_from_remote("remote-1", vec![remote_entry(2)]);
+    assert_eq!(second.duplicates.len(), 1);
+    assert_eq!(second.duplicates[0].entry_id, "e1");
+    assert!(second.written.is_empty());
+    assert_eq!(seen.load(Ordering::SeqCst), 1);
+
+    // Identity is per remote: the same id from another remote is its own entry.
+    let other = log.write_from_remote("remote-2", vec![remote_entry(1)]);
+    assert_eq!(other.written.len(), 1);
+    assert!(other.duplicates.is_empty());
+    assert_eq!(seen.load(Ordering::SeqCst), 2);
+
+    // Dropping the subscription stops delivery of later local changes.
+    assert!(log.unsubscribe(&sub));
+    let third = log.write_from_remote(
+        "remote-2",
+        vec![RemoteEntry {
+            entry_id: "e2".to_string(),
+            remote_sequence: 2,
+            event: Event::new("UserCreated", vec![2]),
+        }],
+    );
+    assert_eq!(third.written.len(), 1);
+    assert_eq!(seen.load(Ordering::SeqCst), 2);
+    assert_eq!(log.entries().len(), 3);
 }
 
 #[test]
