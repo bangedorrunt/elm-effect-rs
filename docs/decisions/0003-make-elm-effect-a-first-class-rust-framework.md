@@ -18,7 +18,7 @@ How does a Rust programmer adopt the crate? How does an application add a capabi
 
 ## Decision Drivers
 
-* Stable Rust. Nightly blocks programmers who do not use the toolchain of the four Rust repositories.
+* The compiler channel is nightly. The four Rust repositories already float nightly. A stable pin would split this crate from them.
 * A short first compile. Default features that include schema and STM make `cargo add` slow.
 * The ecosystem doors are `Result`, `Future`, and `tracing`.
 * rust-analyzer must show the requirement parameter `R`.
@@ -28,15 +28,15 @@ How does a Rust programmer adopt the crate? How does an application add a capabi
 ## Considered Options
 
 * Keep the ADR-0002 defaults: nightly, and default features `tokio`, `schema`, and `stm`. Document the crate only in ADR-0002.
-* Make the public crate a stable Rust interface. Keep the Effect laws. Let applications extend the crate with framework types.
+* Make the public API a small semver surface. Keep nightly as the compiler. Let applications extend the crate with framework types.
 
 ## Decision Outcome
 
-Chosen option: "Make the public crate a stable Rust interface." ADR-0002 remains the law for the carrier. This record is the law for adoption and for extension.
+Chosen option: "Make the public API a small semver surface." The compiler stays nightly. ADR-0002 remains the law for the carrier. This record is the law for adoption and for extension.
 
 ### Public crate
 
-* Set `rust-version` in `crates/elm-effect/Cargo.toml` to a stable compiler. Do not require nightly for the public API.
+* Keep `rust-toolchain.toml` on `channel = "nightly"`. Do not set `rust-version` to a stable compiler. Re-run clippy after a nightly bump, the same way the four sibling repositories do.
 * Default features are `tokio` only. `schema` and `stm` stay available behind the feature `full`.
 * Put `#[must_use]` on `Effect`. The compiler must report a drop of a description.
 * Add `Effect::from_result` and `Effect::try_future` as the doors in. Add `Effect::into_future` as the door out. Only `main`, a server handler, and tests call `into_future` or `Runtime::run`.
@@ -82,7 +82,7 @@ A new combinator that changes fiber steps belongs in this repository. Add a beha
 
 ### Verification
 
-- [ ] `cargo check` of `examples/` succeeds on the stable `rust-version` with default features.
+- [ ] `cargo check` of `examples/` succeeds on the nightly channel in `rust-toolchain.toml`, with default features.
 - [ ] A dropped `Effect` causes a `must_use` report from the compiler.
 - [ ] `ServiceTag` from an external crate compiles and `provide` removes the tag.
 - [ ] `MemLog` and a second `DurableLog` implement pass the same L16 tests.
@@ -96,7 +96,7 @@ A new combinator that changes fiber steps belongs in this repository. Add a beha
 * Bad, because programmers outside that toolchain cannot start.
 * Bad, because the only manual is the decision record.
 
-### Stable Rust interface and effect-native extension
+### Small public API on nightly, and effect-native extension
 
 * Good, because extension is a new value, not a fork.
 * Good, because version 1.0 has a boundary.
