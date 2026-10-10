@@ -76,6 +76,7 @@ if [[ -d $checkout/packages/effect/test ]]; then
 fi
 
 declare -A prev_module_status=()
+declare -A prev_module_reason=()
 if [[ -f $dest ]]; then
   prev_path=""
   while IFS= read -r line || [[ -n $line ]]; do
@@ -88,6 +89,12 @@ if [[ -f $dest ]]; then
         if [[ -n $prev_path ]]; then
           prev_module_status[$prev_path]=${line#*\"}
           prev_module_status[$prev_path]=${prev_module_status[$prev_path]%\"}
+        fi
+        ;;
+      reason\ =\ \"*\")
+        if [[ -n $prev_path ]]; then
+          prev_module_reason[$prev_path]=${line#*\"}
+          prev_module_reason[$prev_path]=${prev_module_reason[$prev_path]%\"}
         fi
         ;;
     esac
@@ -173,6 +180,11 @@ count=0
           ;;
       esac
     fi
+    # Progress notes written into the ledger by hand (port fences, "no surface
+    # yet") are not derivable from the pin, so a regen must carry them over.
+    if [[ -z $reason && -n ${prev_module_reason[$rel]+x} ]]; then
+      reason="${prev_module_reason[$rel]}"
+    fi
     src_key="${rel#packages/effect/src/}"
     src_key="${src_key%.ts}"
     tests_field=""
@@ -206,8 +218,9 @@ count=0
 echo "wrote $count modules to $dest"
 
 # One row per behavior test under packages/effect/test, including suite
-# helpers that are not named .test.ts. Status survives a regen when path,
-# line, and title are unchanged.
+# helpers that are not named .test.ts. Chained declarations (it.effect.each,
+# it.effect.skipIf, it.live.prop) record their call form as kind. Status
+# survives a regen when path, line, and title are unchanged.
 behavior_dest="$root/conformance/behavior-tests.tsv"
 declare -A prev_status=()
 declare -A prev_rust=()
@@ -221,23 +234,63 @@ fi
 
 behavior_tmp="$(mktemp)"
 behavior_count=0
+# Prefer the quote character the line actually opens with: a template title can
+# hold quoted fragments (`... ${x ? "a" : "b"} ...`) that must not win.
 take_title() {
-  local chunk="$1"
-  if [[ $chunk =~ \"([^\"]*)\" ]]; then
-    title="${BASH_REMATCH[1]}"
-  elif [[ $chunk =~ \'([^\']*)\' ]]; then
-    title="${BASH_REMATCH[1]}"
-  elif [[ $chunk =~ \`([^\`]*)\` ]]; then
-    title="${BASH_REMATCH[1]}"
-  fi
+  local chunk="$1" lead
+  lead="${chunk#"${chunk%%[![:space:]]*}"}"
+  case "$lead" in
+    \"*)
+      if [[ $chunk =~ \"([^\"]*)\" ]]; then
+        title="${BASH_REMATCH[1]}"
+      fi
+      ;;
+    \'*)
+      if [[ $chunk =~ \'([^\']*)\' ]]; then
+        title="${BASH_REMATCH[1]}"
+      fi
+      ;;
+    \`*)
+      if [[ $chunk =~ \`([^\`]*)\` ]]; then
+        title="${BASH_REMATCH[1]}"
+      fi
+      ;;
+    *)
+      if [[ $chunk =~ \"([^\"]*)\" ]]; then
+        title="${BASH_REMATCH[1]}"
+      elif [[ $chunk =~ \'([^\']*)\' ]]; then
+        title="${BASH_REMATCH[1]}"
+      elif [[ $chunk =~ \`([^\`]*)\` ]]; then
+        title="${BASH_REMATCH[1]}"
+      fi
+      ;;
+  esac
 }
 while IFS= read -r file; do
   rel="${file#"$checkout"/}"
   mapfile -t lines <"$file"
   for ((i = 0; i < ${#lines[@]}; i++)); do
     line="${lines[$i]}"
-    [[ $line =~ ^[[:space:]]*(it\.effect|it\.live|it\.layer|it\.skipIf|it\.skip|it\.each|it|test)\( ]] || continue
+    [[ $line =~ ^[[:space:]]*(it(\.[A-Za-z]+)*|test)\( ]] || continue
     kind="${BASH_REMATCH[1]}"
+    if [[ $kind == it.* ]]; then
+      # Declarations chain modifiers: it.effect.each, it.effect.skipIf,
+      # it.live.prop. The ledger kind is the call form (it.each), so a chained
+      # row counts beside its plain siblings. Anything else (it.isFailure,
+      # it.mock.calls) is a matcher, not a test declaration.
+      chain="${kind#it.}"
+      kind=""
+      while :; do
+        seg="${chain%%.*}"
+        case "$seg" in
+          effect | live | layer | each | skipIf | skip | prop) kind="it.$seg" ;;
+          *) kind=""; break ;;
+        esac
+        [[ $chain == *.* ]] || break
+        chain="${chain#*.}"
+      done
+      [[ -z $kind ]] && continue
+    fi
     title=""
     if [[ $kind == it.each ]]; then
       for ((j = i; j < i + 80 && j < ${#lines[@]}; j++)); do
@@ -251,6 +304,28 @@ while IFS= read -r file; do
           [[ -n $title ]] && break
         fi
       done
+    elif [[ $kind == it.skipIf ]]; then
+      # A skipIf condition is arbitrary code and may hold quoted strings
+      # (`it.effect.skipIf(version !== "2025-11-25")(`), so the title is what
+      # follows the argument list, never the first quote on the line.
+      if [[ $line =~ \)[[:space:]]*\([[:space:]]*\"([^\"]*)\" ]]; then
+        title="${BASH_REMATCH[1]}"
+      elif [[ $line =~ \)[[:space:]]*\([[:space:]]*\'([^\']*)\' ]]; then
+        title="${BASH_REMATCH[1]}"
+      elif [[ $line =~ \)[[:space:]]*\([[:space:]]*\`([^\`]*)\` ]]; then
+        title="${BASH_REMATCH[1]}"
+      elif [[ $line =~ \)[[:space:]]*\([[:space:]]*$ && $((i + 1)) -lt ${#lines[@]} ]]; then
+        take_title "${lines[$((i + 1))]}"
+      fi
+      if [[ -z $title ]]; then
+        for ((j = i + 1; j < i + 8 && j < ${#lines[@]}; j++)); do
+          take_title "${lines[$j]}"
+          [[ -n $title ]] && break
+        done
+      fi
+      if [[ -z $title && $line =~ \(([A-Za-z_][A-Za-z0-9_]*)[[:space:]]*, ]]; then
+        title="${BASH_REMATCH[1]}"
+      fi
     else
       take_title "$line"
       if [[ -z $title ]]; then
