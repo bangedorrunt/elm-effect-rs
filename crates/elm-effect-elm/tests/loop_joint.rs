@@ -744,7 +744,7 @@ fn a_services_runtime_reaches_a_static_interpreter() {
     let layer = Layer::<LedgerTag, std::convert::Infallible, ()>::from_value(LedgerWorld {
         connection: "sqlite://app.db".to_string(),
     });
-    let mut app = boot_ledger(ManagedRuntime::make(&layer));
+    let mut app = boot_ledger(ManagedRuntime::make(&layer).expect("layer builds"));
 
     app.send(LedgerMsg::Read);
 
