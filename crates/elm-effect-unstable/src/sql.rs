@@ -286,6 +286,25 @@ impl SqlClient {
             .collect()
     }
 
+    /// Decode every row, failing with [`EmptyResult`](SqlReason::EmptyResult)
+    /// when the table has none (`findNonEmpty`). An undecodable row fails
+    /// the query on its own reason, never as `EmptyResult`.
+    pub fn query_non_empty<T>(
+        &self,
+        table: &str,
+        decode: impl Fn(&[String]) -> Result<T, String>,
+    ) -> Result<Vec<T>, SqlError> {
+        let rows = self.query_all(table, decode)?;
+        if rows.is_empty() {
+            return Err(SqlError::new(
+                SqlReason::EmptyResult,
+                false,
+                "no rows returned",
+            ));
+        }
+        Ok(rows)
+    }
+
     /// Decode the first row (`findOne`/`head`): no rows is [`EmptyResult`](SqlReason::EmptyResult),
     /// and an undecodable first row fails.
     pub fn query_one<T>(

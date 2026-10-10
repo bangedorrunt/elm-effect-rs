@@ -9849,8 +9849,8 @@ ported	packages/effect/test/sql/SqlResolver.test.ts	136	it.effect	does not execu
 ported	packages/effect/test/sql/SqlSchema.test.ts	10	it.effect	returns decoded results	schema_find_all_decodes_or_fails
 ported	packages/effect/test/sql/SqlSchema.test.ts	22	it.effect	returns empty array when no rows	schema_find_all_decodes_or_fails
 ported	packages/effect/test/sql/SqlSchema.test.ts	34	it.effect	fails when a row cannot be decoded	schema_find_all_decodes_or_fails
-unported	packages/effect/test/sql/SqlSchema.test.ts	48	it.effect	returns non-empty decoded results	
-unported	packages/effect/test/sql/SqlSchema.test.ts	60	it.effect	fails with NoSuchElementError when no rows	
+ported	packages/effect/test/sql/SqlSchema.test.ts	48	it.effect	returns non-empty decoded results	schema_find_non_empty_or_fails
+ported	packages/effect/test/sql/SqlSchema.test.ts	60	it.effect	fails with NoSuchElementError when no rows	schema_find_non_empty_or_fails
 ported	packages/effect/test/sql/SqlSchema.test.ts	74	it.effect	encodes request and discards result	schema_execute_discards_result
 ported	packages/effect/test/sql/SqlSchema.test.ts	91	it.effect	returns the first decoded row	schema_find_one_and_option
 ported	packages/effect/test/sql/SqlSchema.test.ts	103	it.effect	fails with NoSuchElementError when no rows are returned	schema_find_one_and_option

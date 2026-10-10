@@ -210,6 +210,31 @@ fn schema_find_all_decodes_or_fails() {
 }
 
 #[test]
+fn schema_find_non_empty_or_fails() {
+    // SqlSchema.test.ts:48 — non-empty results decode; :60 — no rows is a
+    // failure (the pin's NoSuchElementError maps to SqlReason::EmptyResult).
+    let db = SqlClient::fake();
+    let err = db
+        .query_non_empty("t", |row| row[0].parse::<i64>().map_err(|e| e.to_string()))
+        .unwrap_err();
+    assert_eq!(err.reason, SqlReason::EmptyResult);
+
+    db.insert("t", vec!["1".to_string()]);
+    db.insert("t", vec!["2".to_string()]);
+    assert_eq!(
+        db.query_non_empty("t", |row| row[0].parse::<i64>().map_err(|e| e.to_string())),
+        Ok(vec![1, 2])
+    );
+
+    // An undecodable row still fails, and its reason is not EmptyResult.
+    db.insert("t", vec!["nope".to_string()]);
+    let decode_err = db
+        .query_non_empty("t", |row| row[0].parse::<i64>().map_err(|e| e.to_string()))
+        .unwrap_err();
+    assert_ne!(decode_err.reason, SqlReason::EmptyResult);
+}
+
+#[test]
 fn schema_find_one_and_option() {
     let db = SqlClient::fake();
     let err = db
