@@ -2854,7 +2854,7 @@ ported	packages/effect/test/PartitionedSemaphore.test.ts	75	it.effect	interrupti
 ported	packages/effect/test/PartitionedSemaphore.test.ts	93	it.effect	interrupting an immediately satisfied take before completion restores permits	satisfied_take_restores_on_interrupt_before_body
 ported	packages/effect/test/PartitionedSemaphore.test.ts	122	it.effect	competing takes cannot acquire the same permit across scheduler yields	semaphore_competing_takes_serialize
 ported	packages/effect/test/PartitionedSemaphore.test.ts	161	it.effect	interrupting withPermitsIfAvailable before cleanup is installed restores permits	interrupted_before_take_holds_no_permit
-unported	packages/effect/test/PartitionedSemaphore.test.ts	196	it.effect	interrupting a resumed waiter preserves the next ${key}-key waiter	
+ported	packages/effect/test/PartitionedSemaphore.test.ts	196	it.effect	interrupting a resumed waiter preserves the next ${key}-key waiter	interrupted_resumed_waiter_leaves_the_permit_for_the_next
 ported	packages/effect/test/Pathfinding.test.ts	27	it	should find paths using Dijkstra algorithm	dijkstra_finds_cheapest_detour
 ported	packages/effect/test/Pathfinding.test.ts	40	it	should find paths using Bellman-Ford algorithm	bellman_ford_finds_cheapest_detour
 ported	packages/effect/test/Pathfinding.test.ts	53	it	should find paths using A* algorithm	astar_finds_cheapest_detour

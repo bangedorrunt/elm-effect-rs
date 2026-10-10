@@ -572,7 +572,7 @@ tests = ["packages/effect/test/Ordering.test.ts"]
 [[module]]
 path = "packages/effect/src/PartitionedSemaphore.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/PartitionedSemaphore.test.ts"]
