@@ -80,12 +80,14 @@ impl Attributes {
 /// `overlays` holds `withAttributes` applications in pipe order, first applied
 /// first, because the pin applies the outermost pipe last and the first
 /// overlay therefore wins.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Counter {
     id: String,
     description: Option<String>,
     attributes: Attributes,
     overlays: Vec<Attributes>,
+    incremental: bool,
+    constant_input: Option<f64>,
 }
 
 impl Counter {
@@ -96,6 +98,8 @@ impl Counter {
             description: None,
             attributes: Attributes::default(),
             overlays: Vec::new(),
+            incremental: false,
+            constant_input: None,
         }
     }
 
@@ -116,6 +120,32 @@ impl Counter {
     pub fn with_extra_attributes(mut self, attributes: Attributes) -> Self {
         self.overlays.insert(0, attributes);
         self
+    }
+
+    /// TS `Metric.counter(id, { incremental: true })`: only non-negative
+    /// inputs are applied.
+    pub fn incremental(mut self) -> Self {
+        self.incremental = true;
+        self
+    }
+
+    /// TS `Metric.withConstantInput`: every input contributes this instead of
+    /// the tracked value.
+    pub fn with_constant_input(mut self, constant: f64) -> Self {
+        self.constant_input = Some(constant);
+        self
+    }
+
+    /// The amount this input contributes, or `None` when the counter refuses
+    /// it. TS `canUpdate` for an incremental counter is `value >= 0`, applied
+    /// to the mapped input.
+    pub fn input_amount(&self, tracked: f64) -> Option<f64> {
+        let amount = self.constant_input.unwrap_or(tracked);
+        if self.incremental && amount < 0.0 {
+            None
+        } else {
+            Some(amount)
+        }
     }
 
     /// The registry key. Attribute entries are sorted by name, so the record
@@ -200,12 +230,21 @@ impl MetricRegistry {
     }
 
     /// `update` under TS `Metric.CurrentMetricAttributes`.
+    ///
+    /// The series is registered by the update call itself, so a refused input
+    /// still leaves `{ count: 0, incremental: true }` in place, exactly as the
+    /// pin's hook does: the hook is registered first and `canUpdate` gates only
+    /// the accumulation.
     pub fn update_with(&mut self, counter: &Counter, amount: f64, contextual: &Attributes) {
         let key = counter.key(contextual);
-        let entry = self.series.entry(key).or_insert_with(|| {
-            (CounterState::zero(), counter.merged_attributes(contextual))
-        });
-        entry.0.count += amount;
+        let entry = self
+            .series
+            .entry(key)
+            .or_insert_with(|| (CounterState::zero(), counter.merged_attributes(contextual)));
+        entry.0.incremental = counter.incremental;
+        if let Some(amount) = counter.input_amount(amount) {
+            entry.0.count += amount;
+        }
     }
 
     /// The series' count; zero when never updated.

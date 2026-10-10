@@ -313,3 +313,138 @@ fn empty_attributes_use_the_unattributed_series() {
     registry.update(&counter, 1.0);
     assert_eq!(series(&registry), vec![(None, 111.0)]);
 }
+
+// The counter custom-input rows (Metric.test.ts 428-541). Each uses the same
+// contextual attribute set, so every row also exercises the series key.
+
+fn custom_attributes() -> Attributes {
+    Attributes::from_pairs([("x", "a"), ("y", "b")])
+}
+
+#[test]
+fn custom_increment_with_value() {
+    let counter = Counter::new("counter");
+    let contextual = custom_attributes();
+    let mut registry = MetricRegistry::new();
+    registry.update_with(&counter, 1.0, &contextual);
+    registry.update_with(&counter, 2.0, &contextual);
+    let state = registry.value_with(&counter, &contextual);
+    assert_eq!(state.count, 3.0);
+    assert!(!state.incremental);
+}
+
+#[test]
+fn custom_increment_with_constant() {
+    let counter = Counter::new("counter").with_constant_input(1.0);
+    let contextual = custom_attributes();
+    let mut registry = MetricRegistry::new();
+    registry.update_with(&counter, 1.0, &contextual);
+    registry.update_with(&counter, 2.0, &contextual);
+    let state = registry.value_with(&counter, &contextual);
+    assert_eq!(state.count, 2.0);
+    assert!(!state.incremental);
+}
+
+#[test]
+fn custom_decrement_with_value() {
+    let counter = Counter::new("counter");
+    let contextual = custom_attributes();
+    let mut registry = MetricRegistry::new();
+    registry.update_with(&counter, -1.0, &contextual);
+    registry.update_with(&counter, -2.0, &contextual);
+    let state = registry.value_with(&counter, &contextual);
+    assert_eq!(state.count, -3.0);
+    assert!(!state.incremental);
+}
+
+#[test]
+fn custom_decrement_with_constant() {
+    let counter = Counter::new("counter").with_constant_input(-1.0);
+    let contextual = custom_attributes();
+    let mut registry = MetricRegistry::new();
+    registry.update_with(&counter, -1.0, &contextual);
+    registry.update_with(&counter, -2.0, &contextual);
+    let state = registry.value_with(&counter, &contextual);
+    assert_eq!(state.count, -2.0);
+    assert!(!state.incremental);
+}
+
+// The four bigint rows carry the same arithmetic as their f64 neighbours. The
+// module's established representation is an f64 count, which is exact for these
+// magnitudes.
+// ponytail: f64 count; switch the series state to i128 if a row needs > 2^53.
+#[test]
+fn custom_increment_with_bigint_value() {
+    let counter = Counter::new("counter");
+    let contextual = custom_attributes();
+    let mut registry = MetricRegistry::new();
+    registry.update_with(&counter, 1.0, &contextual);
+    registry.update_with(&counter, 2.0, &contextual);
+    let state = registry.value_with(&counter, &contextual);
+    assert_eq!(state.count, 3.0);
+    assert!(!state.incremental);
+}
+
+#[test]
+fn custom_increment_with_bigint_constant() {
+    let counter = Counter::new("counter").with_constant_input(1.0);
+    let contextual = custom_attributes();
+    let mut registry = MetricRegistry::new();
+    registry.update_with(&counter, 1.0, &contextual);
+    registry.update_with(&counter, 2.0, &contextual);
+    let state = registry.value_with(&counter, &contextual);
+    assert_eq!(state.count, 2.0);
+    assert!(!state.incremental);
+}
+
+#[test]
+fn custom_decrement_with_bigint_value() {
+    let counter = Counter::new("counter");
+    let contextual = custom_attributes();
+    let mut registry = MetricRegistry::new();
+    registry.update_with(&counter, -1.0, &contextual);
+    registry.update_with(&counter, -2.0, &contextual);
+    let state = registry.value_with(&counter, &contextual);
+    assert_eq!(state.count, -3.0);
+    assert!(!state.incremental);
+}
+
+#[test]
+fn custom_decrement_with_bigint_constant() {
+    let counter = Counter::new("counter").with_constant_input(-1.0);
+    let contextual = custom_attributes();
+    let mut registry = MetricRegistry::new();
+    registry.update_with(&counter, -1.0, &contextual);
+    registry.update_with(&counter, -2.0, &contextual);
+    let state = registry.value_with(&counter, &contextual);
+    assert_eq!(state.count, -2.0);
+    assert!(!state.incremental);
+}
+
+#[test]
+fn incremental_counter_refuses_a_decrement() {
+    let counter = Counter::new("counter")
+        .incremental()
+        .with_constant_input(-1.0);
+    let contextual = custom_attributes();
+    let mut registry = MetricRegistry::new();
+    registry.update_with(&counter, -1.0, &contextual);
+    registry.update_with(&counter, -2.0, &contextual);
+    let state = registry.value_with(&counter, &contextual);
+    assert_eq!(state.count, 0.0);
+    assert!(state.incremental);
+}
+
+#[test]
+fn incremental_bigint_counter_refuses_a_decrement() {
+    let counter = Counter::new("counter")
+        .incremental()
+        .with_constant_input(-1.0);
+    let contextual = custom_attributes();
+    let mut registry = MetricRegistry::new();
+    registry.update_with(&counter, -1.0, &contextual);
+    registry.update_with(&counter, -2.0, &contextual);
+    let state = registry.value_with(&counter, &contextual);
+    assert_eq!(state.count, 0.0);
+    assert!(state.incremental);
+}

@@ -2552,16 +2552,16 @@ unported	packages/effect/test/Metric.test.ts	292	it.effect	should be referential
 unported	packages/effect/test/Metric.test.ts	318	it.effect	should dump the current state of all metrics	
 unported	packages/effect/test/Metric.test.ts	346	it.effect	should record fiber runtime metrics once for yielded fibers	
 unported	packages/effect/test/Metric.test.ts	372	it.effect	exports negative updates as deltas	
-unported	packages/effect/test/Metric.test.ts	428	it.effect	custom increment with value	
-unported	packages/effect/test/Metric.test.ts	440	it.effect	custom increment with constant	
-unported	packages/effect/test/Metric.test.ts	453	it.effect	custom decrement with value	
-unported	packages/effect/test/Metric.test.ts	465	it.effect	custom decrement with constant	
-unported	packages/effect/test/Metric.test.ts	478	it.effect	custom increment with bigint value	
-unported	packages/effect/test/Metric.test.ts	490	it.effect	custom increment with bigint constant	
-unported	packages/effect/test/Metric.test.ts	503	it.effect	custom decrement with bigint value	
-unported	packages/effect/test/Metric.test.ts	515	it.effect	custom decrement with bigint constant	
-unported	packages/effect/test/Metric.test.ts	528	it.effect	fails to decrement incremental counter	
-unported	packages/effect/test/Metric.test.ts	541	it.effect	fails to decrement incremental bigint counter	
+ported	packages/effect/test/Metric.test.ts	428	it.effect	custom increment with value	custom_increment_with_value
+ported	packages/effect/test/Metric.test.ts	440	it.effect	custom increment with constant	custom_increment_with_constant
+ported	packages/effect/test/Metric.test.ts	453	it.effect	custom decrement with value	custom_decrement_with_value
+ported	packages/effect/test/Metric.test.ts	465	it.effect	custom decrement with constant	custom_decrement_with_constant
+ported	packages/effect/test/Metric.test.ts	478	it.effect	custom increment with bigint value	custom_increment_with_bigint_value
+ported	packages/effect/test/Metric.test.ts	490	it.effect	custom increment with bigint constant	custom_increment_with_bigint_constant
+ported	packages/effect/test/Metric.test.ts	503	it.effect	custom decrement with bigint value	custom_decrement_with_bigint_value
+ported	packages/effect/test/Metric.test.ts	515	it.effect	custom decrement with bigint constant	custom_decrement_with_bigint_constant
+ported	packages/effect/test/Metric.test.ts	528	it.effect	fails to decrement incremental counter	incremental_counter_refuses_a_decrement
+ported	packages/effect/test/Metric.test.ts	541	it.effect	fails to decrement incremental bigint counter	incremental_bigint_counter_refuses_a_decrement
 unported	packages/effect/test/Metric.test.ts	556	it.effect	custom set with value	
 unported	packages/effect/test/Metric.test.ts	568	it.effect	custom set with constant	
 unported	packages/effect/test/Metric.test.ts	581	it.effect	custom set with negative value	
