@@ -132,9 +132,9 @@ tests = ["packages/effect/test/ConfigProvider.test.ts"]
 [[module]]
 path = "packages/effect/src/Console.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
-reason = ""
+reason = "port: crates/elm-effect/src/platform/console.rs; fence: tests/platform_io.rs (console_fake_splits_levels, exit_codes_pin_discipline)"
 tests = []
 
 [[module]]
@@ -620,9 +620,9 @@ tests = ["packages/effect/test/Predicate.test.ts"]
 [[module]]
 path = "packages/effect/src/PrimaryKey.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
-reason = ""
+reason = "port: crates/elm-effect/src/containers/primary_key.rs; fence: tests/port_containers.rs (primary_key_value_contract)"
 tests = []
 
 [[module]]
@@ -956,9 +956,9 @@ tests = []
 [[module]]
 path = "packages/effect/src/Terminal.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
-reason = ""
+reason = "port: crates/elm-effect/src/platform/terminal.rs; fence: tests/platform_io.rs (terminal_fake_scripts_and_quits)"
 tests = []
 
 [[module]]
