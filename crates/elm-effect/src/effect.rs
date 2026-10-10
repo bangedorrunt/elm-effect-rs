@@ -464,6 +464,29 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
         )
     }
 
+    /// `Effect.mapError` at the pin: translate the typed failure channel.
+    ///
+    /// The direction a service read needs. `use_service::<T>()` is
+    /// `Infallible`, because resolving a tag either succeeds or is a defect;
+    /// but the `Err` a `Program` declares is a real typed channel, and the
+    /// two do not unify. Without this, `use_service` could not be composed
+    /// into an [`Interpret`] at all, which is why
+    /// [`Effect::provide_from`] needs it rather than standing alone.
+    ///
+    /// A defect or an interrupt is not a typed failure, so it passes through
+    /// untouched: [`Cause::map`] keeps every non-`Fail` reason and every
+    /// annotation verbatim, so the four outcomes stay apart.
+    pub fn map_err<F, E2>(self, on_error: F) -> Effect<A, E2, R>
+    where
+        F: Fn(E) -> E2 + Send + 'static,
+        E2: Send + 'static,
+    {
+        self.fold_e(
+            move |a| Effect::succeed(a),
+            move |cause| Effect::fail_cause(cause.map(on_error)),
+        )
+    }
+
     /// Re-raise a cause verbatim (`Effect.failCause` at the pin): every
     /// reason survives unchanged, so a `Fail` stays a typed failure and a
     /// `Die` stays a defect.

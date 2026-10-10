@@ -6,7 +6,9 @@ use std::sync::{
     atomic::{AtomicUsize, Ordering},
 };
 
-use elm_effect::{ManagedRuntime,Effect, Layer, Scope, ServiceTag, use_service};
+use elm_effect::{
+    Effect, Exit, Layer, ManagedRuntime, Runtime, Scope, ServiceTag, use_service,
+};
 
 struct Db;
 struct DbConn(u64);
@@ -145,4 +147,42 @@ fn managed_runtime_new_has_no_built_services() {
     // empty (and therefore silently wrong) context.
     let runtime = ManagedRuntime::new();
     assert!(runtime.context().is_none());
+}
+
+#[test]
+fn provide_from_closes_a_tag_from_a_runtime_built_services() {
+    // The primitive a static handler needs: `provide` wants a value, and a
+    // trait method has no `self` to be handed one, so this closes the tag
+    // out of the runtime's layer instead. Without it, `use_service` inside
+    // anything static is a dead end.
+    let layer = Layer::<SrvTag, std::convert::Infallible, ()>::from_value(StringConn(
+        "from-layer".to_string(),
+    ));
+    let runtime = ManagedRuntime::make(&layer);
+    let services = runtime.context().expect("built services");
+    let ready: Effect<String, std::convert::Infallible, ()> =
+        use_service::<SrvTag>().map(|c| c.0).provide_from(services);
+    assert!(matches!(Runtime::run(ready), Exit::Success(ref s) if s == "from-layer"));
+}
+
+#[test]
+fn provide_from_with_a_layer_that_never_built_the_tag_is_a_defect_not_a_default() {
+    // Fail-closed in the other direction. A runtime built from a layer for
+    // a DIFFERENT tag must not hand the interpreter a default value when it
+    // asks for this one: the missing tag surfaces at the run edge.
+    let layer = Layer::<Db, std::convert::Infallible, ()>::from_value(DbConn(7));
+    let runtime = ManagedRuntime::make(&layer);
+    let services = runtime.context().expect("built services");
+    let ready: Effect<String, std::convert::Infallible, ()> =
+        use_service::<SrvTag>().map(|c| c.0).provide_from(services);
+    match Runtime::run(ready) {
+        Exit::Failure(cause) => {
+            let rendered = format!("{cause:?}");
+            assert!(
+                rendered.contains("missing service"),
+                "a missing tag must name itself, got: {rendered}"
+            );
+        }
+        other => panic!("a missing tag produced {other:?}, not a failure"),
+    }
 }

@@ -230,6 +230,39 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
         self.provide::<T0, Mid>(s0).provide::<T1, Rest>(s1)
     }
 
+    /// Close tag `T` from a runtime's built services rather than from a
+    /// value in hand: `Effect<A, E, T>` becomes `Effect<A, E, ()>`.
+    ///
+    /// This is the primitive a static handler needs. `provide` needs a
+    /// value, and a trait method such as `Interpret::interpret` has no way
+    /// to be handed one, so `use_service::<T>()` inside one used to be a
+    /// dead end: the tag could never be closed, and the runtime built by
+    /// `ManagedRuntime::make` was never consulted at all.
+    ///
+    /// Fail-closed: a tag the layer did not build is not a silent `None`. It
+    /// surfaces as `missing service: <id>` at the run edge, so a runtime
+    /// booted with the wrong layer refuses rather than running with a
+    /// default. (Providing one tag twice with distinct values is already
+    /// impossible through the type-level API, which is why the `ambiguous
+    /// tag` branch you can still hit through a layer merge has no public
+    /// witness here.)
+    pub fn provide_from<T, Rest>(
+        self,
+        services: &crate::BuiltServices,
+    ) -> Effect<A, E, Rest>
+    where
+        T: ServiceTag,
+        R: Provide<T, Rest>,
+        Rest: Requirement,
+    {
+        let merged = crate::service::merged_services(&services.env(), &self.services);
+        Effect {
+            step: self.step,
+            services: merged,
+            marker: PhantomData,
+        }
+    }
+
     /// Override an ambient [`Reference`] for this effect and its children:
     /// innermost wins, `R` unchanged. Replaces any outer override.
     pub fn provide_reference<T>(self, reference: &'static Reference<T>, value: T) -> Self

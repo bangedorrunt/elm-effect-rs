@@ -207,6 +207,13 @@ impl BuiltServices {
             .downcast_ref::<T::Service>()
             .cloned()
     }
+
+    /// The whole built provision, for a handler that boots a runtime from a
+    /// layer and then hands the layer to a static interpreter: see
+    /// [`Effect::provide_from`]. Crate-private so `Services` stays internal.
+    pub(crate) fn env(&self) -> Services {
+        Arc::clone(&self.values)
+    }
 }
 
 impl<O: RequirementIds, E, I: RequirementIds> std::fmt::Debug for Layer<O, E, I> {

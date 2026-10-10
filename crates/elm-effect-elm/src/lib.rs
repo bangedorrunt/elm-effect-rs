@@ -178,6 +178,26 @@ impl<E> Failure<E> {
 pub trait Interpret<P: Program> {
     /// Turn one command into an effect producing the follow-up message.
     fn interpret(cmd: &P::Cmd) -> Effect<P::Msg, P::Err>;
+
+    /// The form [`Loop`] actually calls: `interpret` with the loop's built
+    /// services in hand.
+    ///
+    /// The two-method shape exists because `interpret` is static — it has
+    /// no `self` and no parameters a host could use to hand over the world —
+    /// so `use_service::<T>()` inside it was a dead end. Override this one
+    /// to close that tag with [`Effect::provide_from`], and boot the loop
+    /// with a `ManagedRuntime` built from a layer.
+    ///
+    /// The default ignores the services and calls `interpret`, so an
+    /// existing interpreter keeps working unchanged and one that needs no
+    /// service never names them.
+    fn interpret_in_env(
+        cmd: &P::Cmd,
+        services: Option<&elm_effect::BuiltServices>,
+    ) -> Effect<P::Msg, P::Err> {
+        let _ = services;
+        Self::interpret(cmd)
+    }
 }
 
 /// Recorded durable intent: key plus JSON body.
@@ -340,7 +360,7 @@ where
                     }
                 }
             }
-            effects.push(I::interpret(cmd));
+            effects.push(I::interpret_in_env(cmd, self.rt.context()));
         }
         run_effects(effects, &self.rt)
             .into_iter()

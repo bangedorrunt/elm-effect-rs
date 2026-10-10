@@ -5,7 +5,7 @@
 
 use std::sync::{Arc, Mutex};
 
-use elm_effect::{Cause, Defect, Effect, ManagedRuntime};
+use elm_effect::{BuiltServices, Cause, Defect, Effect, Layer, ManagedRuntime, ServiceTag, use_service};
 use elm_effect_elm::{
     Boot, Cmd, Durability, Failure, Interpret, InterpretError, Loop, Producer, Program, Update,
 };
@@ -628,4 +628,146 @@ fn a_panicking_provider_in_a_window_becomes_a_defect_not_a_crash() {
     // Each of the three panicked, and the loop folded three defects
     // instead of dying on the first `join`.
     assert_eq!(app.model().defects, 3);
+}
+
+// ---------------------------------------------------------------------------
+// A service-holding interpreter. `interpret` is static and takes no
+// parameters a host could use to hand it the world, so `use_service` inside
+// one could never close its tag and the loop's built services were read
+// back for tests but never consulted at a run. `interpret_in_env` is the
+// seam: the loop passes its own `BuiltServices` in, and the interpreter
+// closes the tag with `provide_from`.
+
+/// The world a single-threaded host would hand an interpreter.
+#[derive(Clone, Debug, PartialEq)]
+struct LedgerWorld {
+    connection: String,
+}
+
+struct LedgerTag;
+
+impl ServiceTag for LedgerTag {
+    type Service = LedgerWorld;
+    const ID: &'static str = "test/loop-ledger";
+}
+
+#[derive(Clone, Debug, Default, PartialEq)]
+struct LedgerModel {
+    seen: Vec<String>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+enum LedgerMsg {
+    Read,
+    ReadBack(String),
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+enum LedgerCmd {
+    Read,
+}
+
+impl Cmd for LedgerCmd {
+    fn durability(&self) -> Durability {
+        Durability::Ephemeral
+    }
+}
+
+struct LedgerReader;
+
+impl Program for LedgerReader {
+    type Model = LedgerModel;
+    type Msg = LedgerMsg;
+    type Cmd = LedgerCmd;
+    type Err = InterpretError;
+
+    fn init(_boot: &Boot) -> Update<LedgerModel, LedgerCmd> {
+        Update::quiet(LedgerModel::default())
+    }
+
+    fn update(model: &LedgerModel, msg: &LedgerMsg) -> Update<LedgerModel, LedgerCmd> {
+        match msg {
+            LedgerMsg::Read => Update::with_commands(model.clone(), vec![LedgerCmd::Read]),
+            LedgerMsg::ReadBack(value) => {
+                let mut next = model.clone();
+                next.seen.push(value.clone());
+                Update::quiet(next)
+            }
+        }
+    }
+
+    fn failure(failure: &Failure<InterpretError>) -> LedgerMsg {
+        LedgerMsg::ReadBack(format!("failure: {failure:?}"))
+    }
+}
+
+impl Interpret<LedgerReader> for LedgerReader {
+    /// The static form, which cannot reach the world. A loop that runs this
+    /// one dies with a named defect rather than guessing a default.
+    fn interpret(_cmd: &LedgerCmd) -> Effect<LedgerMsg, InterpretError> {
+        Effect::die(Defect::new(
+            "interpret called without an environment: boot the loop with a services runtime",
+        ))
+    }
+
+    fn interpret_in_env(
+        _cmd: &LedgerCmd,
+        services: Option<&BuiltServices>,
+    ) -> Effect<LedgerMsg, InterpretError> {
+        let Some(services) = services else {
+            return Effect::die(Defect::new(
+                "no services: boot the loop with ManagedRuntime::make",
+            ));
+        };
+        // The composition a real interpreter writes: resolve the tag, widen
+        // its `Infallible` channel to the program's typed error, then close
+        // the tag out of the runtime's layer instead of capturing a value.
+        use_service::<LedgerTag>()
+            .map(|world| world.connection)
+            .map_err(|_: std::convert::Infallible| InterpretError("unreachable".into()))
+            .map(LedgerMsg::ReadBack)
+            .provide_from(services)
+    }
+}
+
+fn boot_ledger(runtime: ManagedRuntime) -> Loop<LedgerReader, LedgerReader> {
+    Loop::<LedgerReader, LedgerReader>::boot(
+        &Boot::default(),
+        runtime,
+        Arc::new(MemLog::new()),
+        Producer::new("test"),
+    )
+}
+
+#[test]
+fn a_services_runtime_reaches_a_static_interpreter() {
+    let layer = Layer::<LedgerTag, std::convert::Infallible, ()>::from_value(LedgerWorld {
+        connection: "sqlite://app.db".to_string(),
+    });
+    let mut app = boot_ledger(ManagedRuntime::make(&layer));
+
+    app.send(LedgerMsg::Read);
+
+    assert_eq!(
+        app.model().seen,
+        vec!["sqlite://app.db".to_string()],
+        "the interpreter reached the world the loop was booted with"
+    );
+}
+
+#[test]
+fn a_loop_without_services_refuses_loudly_instead_of_defaulting() {
+    // `ManagedRuntime::new` builds no layer, so the interpreter dies with a
+    // named defect. That defect is folded, not raised: the loop stays alive
+    // and every other command in the window still reports.
+    let mut app = boot_ledger(ManagedRuntime::new());
+
+    app.send(LedgerMsg::Read);
+
+    assert_eq!(app.model().seen.len(), 1, "the defect reached the fold");
+    assert!(
+        app.model().seen[0].contains("no services"),
+        "the fold saw the named defect, got: {}",
+        app.model().seen[0]
+    );
 }
