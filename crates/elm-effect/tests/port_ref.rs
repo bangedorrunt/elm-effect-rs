@@ -94,3 +94,49 @@ fn update_some_and_get_applies_and_returns_the_new_value() {
     assert_eq!(cell.update_some_and_get(|current| Some(current - 4)), 6);
     assert_eq!(cell.get(), 6);
 }
+
+#[test]
+fn modify_returns_a_result_while_storing_the_new_value() {
+    // "modify returns a result while storing the new value": the returned
+    // result and the stored value are independent halves of one atomic step.
+    let cell = Ref::new("current".to_string());
+    let result = cell.modify(|_current| ("hello".to_string(), "update".to_string()));
+    assert_eq!(result, "hello");
+    assert_eq!(cell.get(), "update");
+}
+
+#[test]
+fn modify_some_once() {
+    // "modifySome - once": a non-matching transition still returns its
+    // result and leaves the cell unchanged.
+    let cell = Ref::new("Active".to_string());
+    let result = cell.modify_some(|state| {
+        if state == "Closed" {
+            ("active".to_string(), Some("Active".to_string()))
+        } else {
+            ("state does not change".to_string(), None)
+        }
+    });
+    assert_eq!(result, "state does not change");
+    assert_eq!(cell.get(), "Active");
+}
+
+#[test]
+fn modify_some_returns_a_result_while_applying_matching_transitions() {
+    let cell = Ref::new("Active".to_string());
+    let result1 = cell.modify_some(|state| {
+        if state == "Active" {
+            ("changed".to_string(), Some("Changed".to_string()))
+        } else {
+            ("state does not change".to_string(), None)
+        }
+    });
+    let result2 = cell.modify_some(|state| match state.as_str() {
+        "Active" => ("changed".to_string(), Some("Changed".to_string())),
+        "Changed" => ("closed".to_string(), Some("Closed".to_string())),
+        _ => ("state does not change".to_string(), None),
+    });
+    assert_eq!(result1, "changed");
+    assert_eq!(result2, "closed");
+    assert_eq!(cell.get(), "Closed");
+}

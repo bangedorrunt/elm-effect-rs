@@ -114,6 +114,33 @@ impl<A: Clone + Send> Ref<A> {
         inner.value.clone()
     }
 
+    /// `Ref.modify`: compute `(result, next)` in one step, store `next`
+    /// unconditionally, and return `result`. The whole read-compute-write
+    /// happens under the lock, so it is atomic unlike a get followed by a
+    /// set (`Ref.ts:461`).
+    pub fn modify<B>(&self, f: impl Fn(&A) -> (B, A)) -> B {
+        let mut inner = self.inner.lock().unwrap();
+        let (out, next) = f(&inner.value);
+        inner.value = next;
+        inner.version += 1;
+        out
+    }
+
+    /// `Ref.modifySome`: like [`modify`](Ref::modify), but `None` from `f`
+    /// leaves the cell unchanged. The result is always returned; the pin
+    /// implements this by delegating to `modify` and substituting the
+    /// current value on `None` (`Ref.ts:521`), so a `None` stores nothing
+    /// and bumps no version.
+    pub fn modify_some<B>(&self, f: impl Fn(&A) -> (B, Option<A>)) -> B {
+        let mut inner = self.inner.lock().unwrap();
+        let (out, next) = f(&inner.value);
+        if let Some(next) = next {
+            inner.value = next;
+            inner.version += 1;
+        }
+        out
+    }
+
     /// `Ref.set`: store `value`, unconditionally. Verified at the pin
     /// (`Ref.ts:236`); the port was missing it, so the row that asserts it
     /// could not be pinned without it.
@@ -178,6 +205,11 @@ pub struct SynchronizedRef<A> {
     inner: std::sync::Arc<Mutex<A>>,
 }
 
+/// The effect a `SynchronizedRef` combinator parks between its decision step
+/// and its `flat_map`. Named because the inline type trips clippy's
+/// complexity check once an `Option` is nested inside.
+type ParkedEffect<T> = std::sync::Arc<Mutex<Option<T>>>;
+
 impl<A: Clone + Send + 'static> SynchronizedRef<A> {
     /// A cell holding `value`.
     pub fn new(value: A) -> Self {
@@ -213,6 +245,94 @@ impl<A: Clone + Send + 'static> SynchronizedRef<A> {
                 }
                 None => fallback,
             }
+        })
+    }
+
+    /// `SynchronizedRef.getAndUpdateSomeEffect`: run `f(current)`'s effect;
+    /// `Some(next)` stores `next`, `None` leaves the cell unchanged. Either
+    /// way the effect yields the PREVIOUS value (`SynchronizedRef.ts:249`).
+    /// The decision step runs once under the permit; the effect runs after,
+    /// so a lock is never held across effect interpretation.
+    pub fn get_and_update_some_effect<E, R, F>(&self, f: F) -> Effect<A, E, R>
+    where
+        A: Clone + Send + 'static,
+        E: Send + 'static,
+        R: crate::effect::Requirement,
+        F: FnOnce(&A) -> Effect<Option<A>, E, R> + Send + 'static,
+    {
+        let inner = std::sync::Arc::clone(&self.inner);
+        let previous: std::sync::Arc<Mutex<Option<A>>> = std::sync::Arc::new(Mutex::new(None));
+        let slot: ParkedEffect<Effect<Option<A>, E, R>> = std::sync::Arc::new(Mutex::new(None));
+        let setup = Effect::<(), E, R>::sync({
+            let (inner, previous, slot) = (
+                std::sync::Arc::clone(&inner),
+                std::sync::Arc::clone(&previous),
+                std::sync::Arc::clone(&slot),
+            );
+            move || {
+                let guard = inner.lock().unwrap();
+                let current = guard.clone();
+                *slot.lock().unwrap() = Some(f(&current));
+                *previous.lock().unwrap() = Some(current);
+            }
+        });
+        let (inner, previous, slot) = (
+            std::sync::Arc::clone(&inner),
+            std::sync::Arc::clone(&previous),
+            std::sync::Arc::clone(&slot),
+        );
+        setup.flat_map(move |_| {
+            let effect = slot.lock().unwrap().take().expect("recorded in setup");
+            effect.flat_map(move |next| {
+                if let Some(next) = next {
+                    *inner.lock().unwrap() = next;
+                }
+                Effect::succeed(previous.lock().unwrap().take().expect("recorded in setup"))
+            })
+        })
+    }
+
+    /// `SynchronizedRef.getAndUpdateSome`: the pure conditional variant —
+    /// apply `f` when it returns `Some`, and return the PREVIOUS value
+    /// (`SynchronizedRef.ts:224`).
+    pub fn get_and_update_some(&self, f: impl Fn(&A) -> Option<A>) -> A {
+        let mut guard = self.inner.lock().unwrap();
+        let previous = guard.clone();
+        if let Some(next) = f(&guard) {
+            *guard = next;
+        }
+        previous
+    }
+
+    /// `SynchronizedRef.updateAndGetEffect`: run `f(current)`'s effect, store
+    /// its result, and return it (`SynchronizedRef.ts:538`). Distinct from
+    /// [`update_effect`](SynchronizedRef::update_effect), whose effect result
+    /// is unrelated to the stored value.
+    pub fn update_and_get_effect<E, R, F>(&self, f: F) -> Effect<A, E, R>
+    where
+        A: Clone + Send + 'static,
+        E: Send + 'static,
+        R: crate::effect::Requirement,
+        F: FnOnce(&A) -> Effect<A, E, R> + Send + 'static,
+    {
+        let inner = std::sync::Arc::clone(&self.inner);
+        let slot: std::sync::Arc<Mutex<Option<Effect<A, E, R>>>> =
+            std::sync::Arc::new(Mutex::new(None));
+        let setup = Effect::<(), E, R>::sync({
+            let (inner, slot) = (std::sync::Arc::clone(&inner), std::sync::Arc::clone(&slot));
+            move || {
+                let guard = inner.lock().unwrap();
+                *slot.lock().unwrap() = Some(f(&guard));
+            }
+        });
+        let (inner, slot) = (std::sync::Arc::clone(&inner), std::sync::Arc::clone(&slot));
+        setup.flat_map(move |_| {
+            let effect = slot.lock().unwrap().take().expect("recorded in setup");
+            let inner = std::sync::Arc::clone(&inner);
+            effect.map(move |new_value| {
+                *inner.lock().unwrap() = new_value.clone();
+                new_value
+            })
         })
     }
 

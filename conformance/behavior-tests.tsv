@@ -3186,9 +3186,9 @@ ported	packages/effect/test/Ref.test.ts	104	it.effect	updateSome leaves state un
 ported	packages/effect/test/Ref.test.ts	112	it.effect	updateSome applies matching transitions to the stored state	update_some_applies_matching_transitions
 ported	packages/effect/test/Ref.test.ts	128	it.effect	updateSomeAndGet returns the current state when no transition matches	update_some_and_get_returns_current_when_no_transition_matches
 ported	packages/effect/test/Ref.test.ts	134	it.effect	updateSomeAndGet - twice	update_some_and_get_applies_and_returns_the_new_value
-unported	packages/effect/test/Ref.test.ts	152	it.effect	modify returns a result while storing the new value	
-unported	packages/effect/test/Ref.test.ts	160	it.effect	modifySome - once	
-unported	packages/effect/test/Ref.test.ts	170	it.effect	modifySome returns a result while applying matching transitions	
+ported	packages/effect/test/Ref.test.ts	152	it.effect	modify returns a result while storing the new value	modify_returns_a_result_while_storing_the_new_value
+ported	packages/effect/test/Ref.test.ts	160	it.effect	modifySome - once	modify_some_once
+ported	packages/effect/test/Ref.test.ts	170	it.effect	modifySome returns a result while applying matching transitions	modify_some_returns_a_result_while_applying_matching_transitions
 unported	packages/effect/test/Request.test.ts	137	it	preserves __proto__ as an own constructor property	
 unported	packages/effect/test/Request.test.ts	150	it	copies enumerable symbol properties in Class	
 unported	packages/effect/test/Request.test.ts	157	it	compares StructuralProto values when hashes collide	
@@ -4035,12 +4035,12 @@ ported	packages/effect/test/SynchronizedRef.modifySomeEffect.test.ts	5	it.effect
 ported	packages/effect/test/SynchronizedRef.modifySomeEffect.test.ts	16	it.effect	preserves the value for Option.none	modify_some_effect_none_preserves_value_with_fallback
 ported	packages/effect/test/SynchronizedRef.test.ts	32	it.effect	get	synchronised_ref_get_returns_current
 ported	packages/effect/test/SynchronizedRef.test.ts	37	it.effect	getAndUpdateEffect - happy path	get_and_update_effect_returns_previous_and_stores_update
-unported	packages/effect/test/SynchronizedRef.test.ts	45	it.effect	getAndUpdateEffect - with failure	
-unported	packages/effect/test/SynchronizedRef.test.ts	51	it.effect	getAndUpdateSomeEffect - happy path	
-unported	packages/effect/test/SynchronizedRef.test.ts	62	it.effect	getAndUpdateSomeEffect - twice	
-unported	packages/effect/test/SynchronizedRef.test.ts	80	it.effect	getAndUpdateSomeEffect - with failure	
-unported	packages/effect/test/SynchronizedRef.test.ts	92	it.effect	getAndUpdateSomeEffect - interrupt parent fiber and update	
-unported	packages/effect/test/SynchronizedRef.test.ts	105	it.effect	getAndUpdateSome updates the backing ref	
+ported	packages/effect/test/SynchronizedRef.test.ts	45	it.effect	getAndUpdateEffect - with failure	get_and_update_effect_with_failure_yields_the_failure
+ported	packages/effect/test/SynchronizedRef.test.ts	51	it.effect	getAndUpdateSomeEffect - happy path	get_and_update_some_effect_happy_path_keeps_active
+ported	packages/effect/test/SynchronizedRef.test.ts	62	it.effect	getAndUpdateSomeEffect - twice	get_and_update_some_effect_twice
+ported	packages/effect/test/SynchronizedRef.test.ts	80	it.effect	getAndUpdateSomeEffect - with failure	get_and_update_some_effect_with_failure_yields_the_failure
+ported	packages/effect/test/SynchronizedRef.test.ts	92	it.effect	getAndUpdateSomeEffect - interrupt parent fiber and update	get_and_update_some_effect_interrupt_parent_fiber_and_update
+ported	packages/effect/test/SynchronizedRef.test.ts	105	it.effect	getAndUpdateSome updates the backing ref	get_and_update_some_updates_the_backing_ref
 unported	packages/effect/test/TestClock.test.ts	8	it.effect	sleep - does not require passage of wall time	
 unported	packages/effect/test/TestClock.test.ts	18	it.effect	sleep - delays effects until time is adjusted	
 unported	packages/effect/test/TestClock.test.ts	31	it.effect	sleep - handles multiple sleeps	

@@ -708,7 +708,7 @@ tests = ["packages/effect/test/Reducer.test.ts"]
 [[module]]
 path = "packages/effect/src/Ref.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/Ref.test.ts"]
@@ -940,7 +940,7 @@ tests = ["packages/effect/test/Symbol.test.ts"]
 [[module]]
 path = "packages/effect/src/SynchronizedRef.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/SynchronizedRef.test.ts"]
