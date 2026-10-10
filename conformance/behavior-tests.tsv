@@ -2531,21 +2531,21 @@ ported	packages/effect/test/Match.test.ts	38	it	tag matches an exact _tag and fa
 ported	packages/effect/test/Match.test.ts	49	it	tagStartsWith matches a _tag prefix and falls through otherwise	tagged_structs_match_by_tag
 ported	packages/effect/test/Match.test.ts	60	it	checks symbol-keyed object pattern properties	match_field_value_hit_miss_missing
 ported	packages/effect/test/Metric.test.ts	21	it.effect	keeps shared metrics scoped to the active registry	shared_metrics_stay_scoped_to_active_registry
-unported	packages/effect/test/Metric.test.ts	37	it.effect	keeps attributed metrics scoped to the active registry	
+ported	packages/effect/test/Metric.test.ts	37	it.effect	keeps attributed metrics scoped to the active registry	attributed_metrics_stay_scoped_to_active_registry
 ported	packages/effect/test/Metric.test.ts	52	it.effect	registers an unattributed metric again after the registry is cleared	cleared_registry_reregisters_unattributed_metric
-unported	packages/effect/test/Metric.test.ts	67	it.effect	shares one series between no attributes and empty attributes	
-unported	packages/effect/test/Metric.test.ts	82	it.effect	keeps distinct attribute sets in separate series	
-unported	packages/effect/test/Metric.test.ts	95	it.effect	keeps an id containing a colon apart from an id with a description	
-unported	packages/effect/test/Metric.test.ts	109	it.effect	keeps a description apart from attributes	
-unported	packages/effect/test/Metric.test.ts	123	it.effect	keeps equal attribute names with different values in separate series	
-unported	packages/effect/test/Metric.test.ts	135	it.effect	shares a series for equal attributes in different record orders	
-unported	packages/effect/test/Metric.test.ts	147	it.effect	follows contextual attributes that change between updates of a plain metric	
-unported	packages/effect/test/Metric.test.ts	160	it.effect	shares a series after merging metric and contextual attributes	
-unported	packages/effect/test/Metric.test.ts	178	it.effect	preserves attribute order in snapshots	
-unported	packages/effect/test/Metric.test.ts	189	it.effect	follows the contextual attributes when they change between updates	
-unported	packages/effect/test/Metric.test.ts	205	it.effect	applies inner attributes over outer, contextual and metric attributes	
-unported	packages/effect/test/Metric.test.ts	223	it.effect	registers the series again after the registry is cleared	
-unported	packages/effect/test/Metric.test.ts	236	it.effect	uses the unattributed series for empty attributes	
+ported	packages/effect/test/Metric.test.ts	67	it.effect	shares one series between no attributes and empty attributes	no_attributes_and_empty_attributes_share_one_series
+ported	packages/effect/test/Metric.test.ts	82	it.effect	keeps distinct attribute sets in separate series	distinct_attribute_sets_stay_in_separate_series
+ported	packages/effect/test/Metric.test.ts	95	it.effect	keeps an id containing a colon apart from an id with a description	a_colon_in_the_id_is_not_a_description
+ported	packages/effect/test/Metric.test.ts	109	it.effect	keeps a description apart from attributes	a_description_is_not_attributes
+ported	packages/effect/test/Metric.test.ts	123	it.effect	keeps equal attribute names with different values in separate series	equal_names_with_different_values_stay_separate
+ported	packages/effect/test/Metric.test.ts	135	it.effect	shares a series for equal attributes in different record orders	equal_attributes_in_different_record_orders_share_a_series
+ported	packages/effect/test/Metric.test.ts	147	it.effect	follows contextual attributes that change between updates of a plain metric	contextual_attributes_that_change_split_a_plain_metric
+ported	packages/effect/test/Metric.test.ts	160	it.effect	shares a series after merging metric and contextual attributes	merging_metric_and_contextual_attributes_shares_a_series
+ported	packages/effect/test/Metric.test.ts	178	it.effect	preserves attribute order in snapshots	snapshots_preserve_attribute_order
+ported	packages/effect/test/Metric.test.ts	189	it.effect	follows the contextual attributes when they change between updates	with_attributes_follows_the_contextual_attributes
+ported	packages/effect/test/Metric.test.ts	205	it.effect	applies inner attributes over outer, contextual and metric attributes	inner_attributes_win_over_outer_contextual_and_metric
+ported	packages/effect/test/Metric.test.ts	223	it.effect	registers the series again after the registry is cleared	a_cleared_registry_registers_the_attributed_series_again
+ported	packages/effect/test/Metric.test.ts	236	it.effect	uses the unattributed series for empty attributes	empty_attributes_use_the_unattributed_series
 unported	packages/effect/test/Metric.test.ts	247	it.effect	modifies and reads the attributed series	
 unported	packages/effect/test/Metric.test.ts	261	it.each	uses collection interval starts for delta $name points	
 unported	packages/effect/test/Metric.test.ts	292	it.effect	should be referentially transparent	
