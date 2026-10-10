@@ -50,7 +50,9 @@ pub use concurrency::{
 };
 pub use context::{Context, ContextReference, Tag};
 pub use effect::{Effect, Requirement};
-pub use metric::{Attributes, Counter, CounterState, MetricRegistry, Series};
+pub use metric::{
+    Attributes, Counter, CounterState, Gauge, GaugeState, MetricRegistry, Series, SeriesState,
+};
 #[cfg(feature = "schema")]
 pub use elm_effect_schema::{Schema, SchemaError, Unknown};
 #[cfg(feature = "tokio")]

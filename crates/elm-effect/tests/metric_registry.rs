@@ -1,7 +1,7 @@
 //! Metric registry scoping: isolation across registries, clear/re-register,
 //! and the attribute series key (TS `Metric.test.ts` registry rows).
 
-use elm_effect::{Attributes, Counter, MetricRegistry};
+use elm_effect::{Attributes, Counter, Gauge, MetricRegistry, SeriesState};
 
 /// TS `series`: `(attributes ?? null, count)`, ordered the way the pin's own
 /// `JSON.stringify` sort orders them (`null` sorts before any object).
@@ -9,7 +9,10 @@ fn series(registry: &MetricRegistry) -> Vec<(Option<Vec<(String, String)>>, f64)
     let mut rows: Vec<(Option<Vec<(String, String)>>, f64)> = registry
         .snapshot()
         .into_iter()
-        .map(|s| (s.attributes.map(|a| a.pairs()), s.state.count))
+        .filter_map(|s| match s.state {
+            SeriesState::Counter(state) => Some((s.attributes.map(|a| a.pairs()), state.count)),
+            SeriesState::Gauge(_) => None,
+        })
         .collect();
     rows.sort_by(|a, b| sort_key(&a.0).cmp(&sort_key(&b.0)));
     rows
@@ -58,8 +61,13 @@ fn cleared_registry_reregisters_unattributed_metric() {
     registry.update(&counter, 10.0);
     let snapshots = registry.snapshot();
     assert_eq!(snapshots.len(), 1);
-    assert_eq!(snapshots[0].state.count, 10.0);
-    assert!(!snapshots[0].state.incremental);
+    match snapshots[0].state {
+        SeriesState::Counter(state) => {
+            assert_eq!(state.count, 10.0);
+            assert!(!state.incremental);
+        }
+        SeriesState::Gauge(_) => panic!("expected a counter series"),
+    }
     assert_eq!(registry.value(&counter).count, 10.0);
 }
 
@@ -447,4 +455,105 @@ fn incremental_bigint_counter_refuses_a_decrement() {
     let state = registry.value_with(&counter, &contextual);
     assert_eq!(state.count, 0.0);
     assert!(state.incremental);
+}
+
+// The gauge rows (Metric.test.ts 247, 556-654). A gauge's update replaces the
+// value and its modify adds to it, which is the opposite of a counter.
+
+#[test]
+fn modifies_and_reads_the_attributed_series() {
+    let gauge = Gauge::new("gauge");
+    let tagged = Gauge::new("gauge").with_extra_attributes(Attributes::from_pairs([
+        ("route", "/users"),
+    ]));
+    let contextual = Attributes::default();
+    let mut registry = MetricRegistry::new();
+    registry.set_with(&tagged, 5.0, &contextual);
+    registry.add_with(&tagged, 2.0, &contextual);
+    registry.set_with(&gauge, 1.0, &contextual);
+    assert_eq!(registry.gauge_value_with(&tagged, &contextual).value, 7.0);
+    assert_eq!(registry.gauge_value_with(&gauge, &contextual).value, 1.0);
+}
+
+#[test]
+fn gauge_set_with_value() {
+    let gauge = Gauge::new("gauge");
+    let contextual = custom_attributes();
+    let mut registry = MetricRegistry::new();
+    registry.set_with(&gauge, 1.0, &contextual);
+    registry.set_with(&gauge, 2.0, &contextual);
+    assert_eq!(registry.gauge_value_with(&gauge, &contextual).value, 2.0);
+}
+
+#[test]
+fn gauge_set_with_constant() {
+    let gauge = Gauge::new("gauge").with_constant_input(1.0);
+    let contextual = custom_attributes();
+    let mut registry = MetricRegistry::new();
+    registry.set_with(&gauge, 1.0, &contextual);
+    registry.set_with(&gauge, 2.0, &contextual);
+    assert_eq!(registry.gauge_value_with(&gauge, &contextual).value, 1.0);
+}
+
+#[test]
+fn gauge_set_with_negative_value() {
+    let gauge = Gauge::new("gauge");
+    let contextual = custom_attributes();
+    let mut registry = MetricRegistry::new();
+    registry.set_with(&gauge, -1.0, &contextual);
+    registry.set_with(&gauge, -2.0, &contextual);
+    assert_eq!(registry.gauge_value_with(&gauge, &contextual).value, -2.0);
+}
+
+#[test]
+fn gauge_set_with_negative_constant() {
+    let gauge = Gauge::new("gauge").with_constant_input(-1.0);
+    let contextual = custom_attributes();
+    let mut registry = MetricRegistry::new();
+    registry.set_with(&gauge, -1.0, &contextual);
+    registry.set_with(&gauge, -2.0, &contextual);
+    assert_eq!(registry.gauge_value_with(&gauge, &contextual).value, -1.0);
+}
+
+// The four bigint gauge rows carry the same arithmetic as their f64 neighbours
+// under the module's established f64 value representation.
+// ponytail: f64 value; switch the series state to i128 if a row needs > 2^53.
+#[test]
+fn gauge_set_with_bigint_value() {
+    let gauge = Gauge::new("gauge");
+    let contextual = custom_attributes();
+    let mut registry = MetricRegistry::new();
+    registry.set_with(&gauge, 1.0, &contextual);
+    registry.set_with(&gauge, 2.0, &contextual);
+    assert_eq!(registry.gauge_value_with(&gauge, &contextual).value, 2.0);
+}
+
+#[test]
+fn gauge_set_with_bigint_constant() {
+    let gauge = Gauge::new("gauge").with_constant_input(1.0);
+    let contextual = custom_attributes();
+    let mut registry = MetricRegistry::new();
+    registry.set_with(&gauge, 1.0, &contextual);
+    registry.set_with(&gauge, 2.0, &contextual);
+    assert_eq!(registry.gauge_value_with(&gauge, &contextual).value, 1.0);
+}
+
+#[test]
+fn gauge_set_with_negative_bigint_value() {
+    let gauge = Gauge::new("gauge");
+    let contextual = custom_attributes();
+    let mut registry = MetricRegistry::new();
+    registry.set_with(&gauge, -1.0, &contextual);
+    registry.set_with(&gauge, -2.0, &contextual);
+    assert_eq!(registry.gauge_value_with(&gauge, &contextual).value, -2.0);
+}
+
+#[test]
+fn gauge_set_with_negative_bigint_constant() {
+    let gauge = Gauge::new("gauge").with_constant_input(-1.0);
+    let contextual = custom_attributes();
+    let mut registry = MetricRegistry::new();
+    registry.set_with(&gauge, -1.0, &contextual);
+    registry.set_with(&gauge, -2.0, &contextual);
+    assert_eq!(registry.gauge_value_with(&gauge, &contextual).value, -1.0);
 }

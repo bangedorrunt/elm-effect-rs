@@ -2546,7 +2546,7 @@ ported	packages/effect/test/Metric.test.ts	189	it.effect	follows the contextual 
 ported	packages/effect/test/Metric.test.ts	205	it.effect	applies inner attributes over outer, contextual and metric attributes	inner_attributes_win_over_outer_contextual_and_metric
 ported	packages/effect/test/Metric.test.ts	223	it.effect	registers the series again after the registry is cleared	a_cleared_registry_registers_the_attributed_series_again
 ported	packages/effect/test/Metric.test.ts	236	it.effect	uses the unattributed series for empty attributes	empty_attributes_use_the_unattributed_series
-unported	packages/effect/test/Metric.test.ts	247	it.effect	modifies and reads the attributed series	
+ported	packages/effect/test/Metric.test.ts	247	it.effect	modifies and reads the attributed series	modifies_and_reads_the_attributed_series
 unported	packages/effect/test/Metric.test.ts	261	it.each	uses collection interval starts for delta $name points	
 unported	packages/effect/test/Metric.test.ts	292	it.effect	should be referentially transparent	
 unported	packages/effect/test/Metric.test.ts	318	it.effect	should dump the current state of all metrics	
@@ -2562,14 +2562,14 @@ ported	packages/effect/test/Metric.test.ts	503	it.effect	custom decrement with b
 ported	packages/effect/test/Metric.test.ts	515	it.effect	custom decrement with bigint constant	custom_decrement_with_bigint_constant
 ported	packages/effect/test/Metric.test.ts	528	it.effect	fails to decrement incremental counter	incremental_counter_refuses_a_decrement
 ported	packages/effect/test/Metric.test.ts	541	it.effect	fails to decrement incremental bigint counter	incremental_bigint_counter_refuses_a_decrement
-unported	packages/effect/test/Metric.test.ts	556	it.effect	custom set with value	
-unported	packages/effect/test/Metric.test.ts	568	it.effect	custom set with constant	
-unported	packages/effect/test/Metric.test.ts	581	it.effect	custom set with negative value	
-unported	packages/effect/test/Metric.test.ts	593	it.effect	custom set with negative constant	
-unported	packages/effect/test/Metric.test.ts	606	it.effect	custom set with bigint value	
-unported	packages/effect/test/Metric.test.ts	618	it.effect	custom set with bigint constant	
-unported	packages/effect/test/Metric.test.ts	631	it.effect	custom set with negative bigint value	
-unported	packages/effect/test/Metric.test.ts	643	it.effect	custom set with negative bigint constant	
+ported	packages/effect/test/Metric.test.ts	556	it.effect	custom set with value	gauge_set_with_value
+ported	packages/effect/test/Metric.test.ts	568	it.effect	custom set with constant	gauge_set_with_constant
+ported	packages/effect/test/Metric.test.ts	581	it.effect	custom set with negative value	gauge_set_with_negative_value
+ported	packages/effect/test/Metric.test.ts	593	it.effect	custom set with negative constant	gauge_set_with_negative_constant
+ported	packages/effect/test/Metric.test.ts	606	it.effect	custom set with bigint value	gauge_set_with_bigint_value
+ported	packages/effect/test/Metric.test.ts	618	it.effect	custom set with bigint constant	gauge_set_with_bigint_constant
+ported	packages/effect/test/Metric.test.ts	631	it.effect	custom set with negative bigint value	gauge_set_with_negative_bigint_value
+ported	packages/effect/test/Metric.test.ts	643	it.effect	custom set with negative bigint constant	gauge_set_with_negative_bigint_constant
 unported	packages/effect/test/Metric.test.ts	658	it.effect	custom occurence with value	
 unported	packages/effect/test/Metric.test.ts	672	it.effect	custom set with constant	
 unported	packages/effect/test/Metric.test.ts	688	it.effect	uses finite extrema for empty histogram and summary states	
