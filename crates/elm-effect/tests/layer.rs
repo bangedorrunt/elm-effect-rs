@@ -134,7 +134,7 @@ fn managed_runtime_make_exposes_built_services() {
     // `make` (not lazily at first use), and the resulting services are
     // readable back -- the pin's contextEffect -> Context.get(services, tag).
     let layer = Layer::<SrvTag, std::convert::Infallible, ()>::from_value(StringConn("test".to_string()));
-    let runtime = ManagedRuntime::make(&layer);
+    let runtime = ManagedRuntime::make(&layer).expect("layer builds");
 
     let services = runtime.context().expect("built services");
     assert_eq!(services.get::<SrvTag>().map(|s| s.0), Some("test".to_string()));
@@ -150,6 +150,29 @@ fn managed_runtime_new_has_no_built_services() {
 }
 
 #[test]
+fn make_returns_a_construction_failure_instead_of_swallowing_it() {
+    // The pin's shape: ManagedRuntime.make yields an Effect, so a layer whose
+    // constructor fails fails the build and the caller cannot ignore it.
+    // `build(..).ok()` used to turn a refused connection into a runtime
+    // indistinguishable from `new()`, which a services interpreter then
+    // reported as "no services" — naming the wrong cause.
+    let layer = Layer::<SrvTag, String, ()>::from_factory(|| {
+        Effect::fail("connection refused".to_string())
+    })
+    .expect("well-formed layer");
+    match ManagedRuntime::make(&layer) {
+        Err(cause) => {
+            let rendered = format!("{cause:?}");
+            assert!(
+                rendered.contains("connection refused"),
+                "the construction failure must reach the caller, got: {rendered}"
+            );
+        }
+        Ok(_) => panic!("a failing layer must not produce a runtime"),
+    }
+}
+
+#[test]
 fn provide_from_closes_a_tag_from_a_runtime_built_services() {
     // The primitive a static handler needs: `provide` wants a value, and a
     // trait method has no `self` to be handed one, so this closes the tag
@@ -158,7 +181,7 @@ fn provide_from_closes_a_tag_from_a_runtime_built_services() {
     let layer = Layer::<SrvTag, std::convert::Infallible, ()>::from_value(StringConn(
         "from-layer".to_string(),
     ));
-    let runtime = ManagedRuntime::make(&layer);
+    let runtime = ManagedRuntime::make(&layer).expect("layer builds");
     let services = runtime.context().expect("built services");
     let ready: Effect<String, std::convert::Infallible, ()> =
         use_service::<SrvTag>().map(|c| c.0).provide_from(services);
@@ -171,7 +194,7 @@ fn provide_from_with_a_layer_that_never_built_the_tag_is_a_defect_not_a_default(
     // a DIFFERENT tag must not hand the interpreter a default value when it
     // asks for this one: the missing tag surfaces at the run edge.
     let layer = Layer::<Db, std::convert::Infallible, ()>::from_value(DbConn(7));
-    let runtime = ManagedRuntime::make(&layer);
+    let runtime = ManagedRuntime::make(&layer).expect("layer builds");
     let services = runtime.context().expect("built services");
     let ready: Effect<String, std::convert::Infallible, ()> =
         use_service::<SrvTag>().map(|c| c.0).provide_from(services);
