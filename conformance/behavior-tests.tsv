@@ -6633,8 +6633,8 @@ unported	packages/effect/test/http/HttpServerRequest.test.ts	170	it.effect	strea
 unported	packages/effect/test/http/HttpServerRequest.test.ts	180	it.effect	schemaBodyJson applies parse options	
 unported	packages/effect/test/http/HttpServerRequest.test.ts	213	it	remoteAddress defaults to none for web requests	
 unported	packages/effect/test/http/HttpServerRequest.test.ts	218	it	modify distinguishes missing and explicit none remoteAddress	
-unported	packages/effect/test/http/HttpServerRespondable.test.ts	7	it.effect	maps SchemaError to a 400 response	
-unported	packages/effect/test/http/HttpServerRespondable.test.ts	16	it.effect	falls back for other errors	
+not-applicable	packages/effect/test/http/HttpServerRespondable.test.ts	7	it.effect	maps SchemaError to a 400 response	N/A: SchemaError exists only behind elm-effect's non-default schema feature, which elm-effect-unstable does not enable; no schema error value is reachable from this crate
+ported	packages/effect/test/http/HttpServerRespondable.test.ts	16	it.effect	falls back for other errors	server_respondable_to_response_or_else_falls_back
 unported	packages/effect/test/http/HttpServerResponse.test.ts	9	it.each	prefers outer status $status and merges raw Response headers with withoutBody=$withoutBody	
 unported	packages/effect/test/http/HttpServerResponse.test.ts	46	it	preserves raw Response metadata for HEAD	
 unported	packages/effect/test/http/HttpServerResponse.test.ts	64	it	returns the raw Response with merged headers for GET	

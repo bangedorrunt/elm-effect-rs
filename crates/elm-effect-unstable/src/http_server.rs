@@ -542,6 +542,20 @@ pub fn cause_response_stripped<E>(
     (response.unwrap_or_else(|| Response::empty(500)), leftover)
 }
 
+/// `toResponseOrElse`: a response is used as-is, anything else takes the
+/// fallback.
+///
+/// The pin also maps schema errors to 400 and missing elements to 404;
+/// neither type is reachable from this crate (`SchemaError` sits behind
+/// elm-effect's non-default `schema` feature), so those arms are absent
+/// rather than present and permanently dead.
+pub fn to_response_or_else(value: &dyn std::any::Any, or_else: Response) -> Response {
+    match value.downcast_ref::<Response>() {
+        Some(response) => response.clone(),
+        None => or_else,
+    }
+}
+
 /// Always true for `HttpServerError` (the type already narrows; mirrors
 /// `isHttpServerError`, like `is_number` mirrors `isNumber`). A bare
 /// reason is a different type and cannot reach this predicate.

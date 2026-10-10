@@ -4,7 +4,7 @@ use elm_effect::Cause;
 use elm_effect::Reason;
 use elm_effect_unstable::http_server::{
     HttpServer, HttpServerError, Response, ServerErrorReason, ServerRequest, ServerResponse,
-    cause_response_stripped, is_http_server_error,
+    cause_response_stripped, is_http_server_error, to_response_or_else,
 };
 use std::io::{BufRead, BufReader, Write};
 use std::net::TcpStream;
@@ -588,6 +588,22 @@ fn server_error_cause_response_stripped() {
     let (out, leftover) = cause_response_stripped(mixed, classify);
     assert_eq!(out.status, 418);
     assert_eq!(leftover.map(|cause| cause.reasons.len()), Some(1));
+}
+
+#[test]
+fn server_respondable_to_response_or_else_falls_back() {
+    // HttpServerRespondable.test.ts:16 — a value that is not a response and
+    // carries no protocol implementation gets the fallback. The :7 row
+    // (SchemaError -> 400) has no input here: SchemaError lives behind
+    // elm-effect's non-default schema feature, which this crate never
+    // enables.
+    let fallback = Response::empty(500);
+    let boom = std::io::Error::other("boom");
+    assert_eq!(to_response_or_else(&boom, fallback.clone()), fallback);
+
+    // A response passes through untouched.
+    let response = Response::empty(418);
+    assert_eq!(to_response_or_else(&response, fallback), response);
 }
 
 #[test]
