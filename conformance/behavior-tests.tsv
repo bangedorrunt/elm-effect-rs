@@ -3471,7 +3471,7 @@ unported	packages/effect/test/Semaphore.test.ts	580	it.effect	partial permit all
 unported	packages/effect/test/Semaphore.test.ts	613	it.effect	zero permits requested	
 unported	packages/effect/test/Semaphore.test.ts	627	it.effect	sequential tasks in same partition	
 ported	packages/effect/test/Sink.test.ts	16	it.effect	fromWritableStream - aborts instead of closing on upstream failure	from_write_aborts_on_failure
-unported	packages/effect/test/Sink.test.ts	43	it.effect	fromWritableStream - aborts instead of closing on interruption	
+ported	packages/effect/test/Sink.test.ts	43	it.effect	fromWritableStream - aborts instead of closing on interruption	from_write_interruptible_aborts_instead_of_closing
 ported	packages/effect/test/Sink.test.ts	76	it.effect	empty	sink_take_while_stops
 ported	packages/effect/test/Sink.test.ts	85	it.effect	termination in the middle	sink_take_while_stops
 ported	packages/effect/test/Sink.test.ts	93	it.effect	immediate termination	sink_take_while_stops

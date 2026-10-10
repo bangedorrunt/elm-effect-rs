@@ -568,6 +568,87 @@ fn from_write_aborts_on_failure() {
 }
 
 #[test]
+fn from_write_interruptible_aborts_instead_of_closing() {
+    use sink::from_write_interruptible;
+    use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+
+    struct Tee {
+        seen: Arc<Mutex<Vec<u8>>>,
+        flushes: Arc<AtomicUsize>,
+    }
+    impl std::io::Write for Tee {
+        fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+            self.seen.lock().unwrap().extend_from_slice(buf);
+            Ok(buf.len())
+        }
+        fn flush(&mut self) -> std::io::Result<()> {
+            self.flushes.fetch_add(1, Ordering::SeqCst);
+            Ok(())
+        }
+    }
+
+    // Close path: End flushes, exit succeeds.
+    let (seen, flushes) = (
+        Arc::new(Mutex::new(Vec::new())),
+        Arc::new(AtomicUsize::new(0)),
+    );
+    let closing = Arc::new(AtomicBool::new(false));
+    let source = pull::Pull::from_fn({
+        let items = Arc::new(Mutex::new(vec![
+            Take::<u8, String>::End,
+            Take::<u8, String>::Items(vec![104u8, 105]),
+        ]));
+        move || items.lock().unwrap().pop().unwrap_or(Take::End)
+    });
+    let exit = from_write_interruptible(
+        Tee {
+            seen: Arc::clone(&seen),
+            flushes: Arc::clone(&flushes),
+        },
+        {
+            let closing = Arc::clone(&closing);
+            move || closing.load(Ordering::SeqCst)
+        },
+    )
+    .run(source);
+    assert!(matches!(exit, elm_effect::Exit::Success(())));
+    assert_eq!(*seen.lock().unwrap(), vec![104u8, 105]);
+    assert_eq!(flushes.load(Ordering::SeqCst), 1);
+
+    // Interrupt path: the bytes already written stay, no close flush runs,
+    // and the exit says interrupted rather than success.
+    let (seen2, flushes2) = (
+        Arc::new(Mutex::new(Vec::new())),
+        Arc::new(AtomicUsize::new(0)),
+    );
+    let interrupted = Arc::new(AtomicBool::new(false));
+    let source2 = pull::Pull::from_fn({
+        let interrupted = Arc::clone(&interrupted);
+        move || {
+            interrupted.store(true, Ordering::SeqCst);
+            Take::<u8, String>::Items(vec![104u8])
+        }
+    });
+    let exit2 = from_write_interruptible(
+        Tee {
+            seen: Arc::clone(&seen2),
+            flushes: Arc::clone(&flushes2),
+        },
+        {
+            let interrupted = Arc::clone(&interrupted);
+            move || interrupted.load(Ordering::SeqCst)
+        },
+    )
+    .run(source2);
+    assert_eq!(*seen2.lock().unwrap(), vec![104u8]);
+    assert_eq!(flushes2.load(Ordering::SeqCst), 0);
+    match exit2 {
+        elm_effect::Exit::Failure(cause) => assert!(cause.is_interrupted()),
+        elm_effect::Exit::Success(()) => panic!("interrupted write reported a close"),
+    }
+}
+
+#[test]
 fn channel_catch_all_recovers_any_failure() {
     // One-shot failure: Pull::fail repeats forever, so recovery tests
     // need a source that ends after failing once.

@@ -297,3 +297,39 @@ where
         }
     })
 }
+
+/// [`from_write`] with an interruption probe: an aborted copy must not look
+/// like a close. `End` still flushes; once `interrupted` reports true the
+/// sink stops without flushing and exits with an interrupt cause, so bytes
+/// written so far survive but no close-side flush runs.
+pub fn from_write_interruptible<W, E>(
+    mut writer: W,
+    interrupted: impl Fn() -> bool + Send + 'static,
+) -> Sink<u8, E, ()>
+where
+    W: std::io::Write + Send + 'static,
+    E: Send + 'static,
+{
+    Sink::from_fn(move |mut source| {
+        use elm_effect::Exit;
+        loop {
+            if interrupted() {
+                return Exit::Failure(elm_effect::Cause::interrupt(None));
+            }
+            match source.pull() {
+                Take::Items(items) => {
+                    if writer.write_all(&items).is_err() {
+                        return Exit::Failure(elm_effect::Cause::die(elm_effect::Defect::new(
+                            "sink writer failed",
+                        )));
+                    }
+                }
+                Take::End => {
+                    let _ = writer.flush();
+                    return Exit::Success(());
+                }
+                Take::Fail(e) => return Exit::Failure(elm_effect::Cause::fail(e)),
+            }
+        }
+    })
+}
