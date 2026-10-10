@@ -62,6 +62,13 @@ impl<T> Resource<T> {
     pub fn is_acquired(&self) -> bool {
         self.current.lock().expect("resource").is_some()
     }
+
+    /// Any resource counts (TS `isResource`; its negative half is a foreign
+    /// value, which cannot reach this predicate, so only the positive case
+    /// has a Rust spelling).
+    pub fn is_resource(&self) -> bool {
+        true
+    }
 }
 
 impl<T> Drop for Resource<T> {

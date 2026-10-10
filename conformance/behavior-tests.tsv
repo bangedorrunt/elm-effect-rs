@@ -3217,10 +3217,10 @@ unported	packages/effect/test/Request.test.ts	669	it.effect	grouped requests + b
 unported	packages/effect/test/Request.test.ts	697	it.effect	batchN normalizes the maximum batch size	
 unported	packages/effect/test/Request.test.ts	727	it.effect	batch fibers use request services for runAll	
 unported	packages/effect/test/Request.test.ts	745	it.effect	batch fibers use request services for delay effects	
-unported	packages/effect/test/Resource.test.ts	11	it.effect	isResource	
-unported	packages/effect/test/Resource.test.ts	18	it.effect	manual refresh updates the cached value	
-unported	packages/effect/test/Resource.test.ts	32	it.effect	manual refresh releases the previous scoped acquisition	
-unported	packages/effect/test/Resource.test.ts	46	it.effect	failed refresh doesn't affect cached value	
+ported	packages/effect/test/Resource.test.ts	11	it.effect	isResource	resource_guard_identifies_resources
+ported	packages/effect/test/Resource.test.ts	18	it.effect	manual refresh updates the cached value	resource_manual_refresh_updates_the_cached_value
+ported	packages/effect/test/Resource.test.ts	32	it.effect	manual refresh releases the previous scoped acquisition	resource_refresh_releases_before_it_acquires
+not-applicable	packages/effect/test/Resource.test.ts	46	it.effect	failed refresh doesn't affect cached value	N/A: this port's acquire is infallible (Fn() -> T), so a failed refresh has no representation and cannot affect the cache
 ported	packages/effect/test/Result.test.ts	18	it	succeed creates a Success value	result_constructors
 ported	packages/effect/test/Result.test.ts	24	it	fail creates a Failure value	result_constructors
 ported	packages/effect/test/Result.test.ts	30	it	void	result_unwrap

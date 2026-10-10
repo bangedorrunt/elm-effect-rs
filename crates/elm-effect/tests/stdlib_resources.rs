@@ -115,6 +115,63 @@ fn resource_acquires_refreshes_releases() {
     assert_eq!(released.load(Ordering::SeqCst), 2);
 }
 
+#[test]
+fn resource_guard_identifies_resources() {
+    // Resource.test.ts:11 — `isResource` accepts a resource and rejects a
+    // plain `Set`. Rust types are the guard, so a foreign value cannot reach
+    // the predicate and the positive case is the whole check.
+    let res = Resource::manual(|| 0, |_| {});
+    assert!(res.is_resource());
+}
+
+#[test]
+fn resource_manual_refresh_updates_the_cached_value() {
+    // Resource.test.ts:18 — after the source changes, refresh caches the new
+    // value and every later get returns it.
+    let source = std::sync::Arc::new(std::sync::Mutex::new(0));
+    let read = source.clone();
+    let res = Resource::manual(move || *read.lock().expect("source"), |_| {});
+    assert_eq!(res.get(), 0);
+    *source.lock().expect("source") = 1;
+    assert_eq!(res.refresh(), 1);
+    assert_eq!(res.get(), 1);
+}
+
+#[test]
+fn resource_refresh_releases_before_it_acquires() {
+    // Resource.test.ts:32 — the row's claim is that a refresh gives up the
+    // previous acquisition. Its body drives that through `Resource.auto` on a
+    // TestClock schedule; auto-refresh policies are this port's documented
+    // residual (resource.rs header), so what is pinned here is the order the
+    // row asserts around: release the old value, then acquire the new one,
+    // and hand back the fresh value.
+    let order = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+    let acquired = order.clone();
+    let released = order.clone();
+    let res = Resource::manual(
+        move || {
+            acquired.lock().expect("order").push("acquire");
+            7
+        },
+        move |_| {
+            released.lock().expect("order").push("release");
+        },
+    );
+    assert_eq!(res.get(), 7);
+    assert_eq!(res.refresh(), 7);
+    assert_eq!(
+        *order.lock().expect("order"),
+        ["acquire", "release", "acquire"],
+        "release lands between the two acquisitions"
+    );
+    assert_eq!(res.get(), 7);
+    assert_eq!(
+        order.lock().expect("order").len(),
+        3,
+        "the refreshed value is cached, not re-acquired per get"
+    );
+}
+
 // --- ScopedRef ---
 
 #[test]
