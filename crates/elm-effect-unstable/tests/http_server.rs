@@ -1,8 +1,10 @@
 //! Listener-stack fence: explicit bind, route dispatch, 404 fallback.
 
+use elm_effect::Cause;
+use elm_effect::Reason;
 use elm_effect_unstable::http_server::{
     HttpServer, HttpServerError, Response, ServerErrorReason, ServerRequest, ServerResponse,
-    is_http_server_error,
+    cause_response_stripped, is_http_server_error,
 };
 use std::io::{BufRead, BufReader, Write};
 use std::net::TcpStream;
@@ -541,6 +543,51 @@ fn server_error_guard_matches_wrapper_only() {
         },
     };
     assert!(is_http_server_error(&error));
+}
+
+#[test]
+fn server_error_cause_response_stripped() {
+    // HttpServerError.test.ts:107 and :114 — a response carried by a cause
+    // becomes the response with nothing left over; anything else yields a
+    // 500 and keeps the remaining reasons.
+    #[derive(Clone, Debug, PartialEq, Eq)]
+    enum HandlerError {
+        Respond(Response),
+        NotFound(String),
+    }
+    let classify = |e: &HandlerError| match e {
+        HandlerError::Respond(r) => Some(r.clone()),
+        HandlerError::NotFound(_) => None,
+    };
+
+    // :107 — the only reason is a response: used as-is, no leftover cause.
+    let response = Response::empty(418);
+    let (out, leftover) = cause_response_stripped(
+        Cause::fail(HandlerError::Respond(response.clone())),
+        classify,
+    );
+    assert_eq!(out, response);
+    assert!(leftover.is_none());
+
+    // :114 — the failure is not a response: a 500 and the cause survives.
+    let cause_in = Cause::fail(HandlerError::NotFound(
+        "http://example.com/fail".to_string(),
+    ));
+    let (out, leftover) = cause_response_stripped(cause_in.clone(), classify);
+    assert_eq!(out.status, 500);
+    assert_eq!(leftover, Some(cause_in));
+
+    // Mixed: the response reason is stripped and the other one remains.
+    let mixed = Cause {
+        reasons: vec![
+            Reason::Fail(HandlerError::NotFound("x".to_string())),
+            Reason::Fail(HandlerError::Respond(Response::empty(418))),
+        ],
+        annotations: Vec::new(),
+    };
+    let (out, leftover) = cause_response_stripped(mixed, classify);
+    assert_eq!(out.status, 418);
+    assert_eq!(leftover.map(|cause| cause.reasons.len()), Some(1));
 }
 
 #[test]

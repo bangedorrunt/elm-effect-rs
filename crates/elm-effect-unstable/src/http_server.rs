@@ -8,6 +8,7 @@
 //! Residuals: TLS, scoped-IPv6 guards, keep-alive pipelining, chunked
 //! request bodies, router middleware, and graceful drain.
 
+use elm_effect::{Cause, Reason};
 use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Write};
 use std::net::{SocketAddr, TcpListener, TcpStream};
@@ -43,6 +44,18 @@ impl Response {
             reason: "OK".to_owned(),
             headers: vec![("content-length".to_owned(), body.len().to_string())],
             body: body.as_bytes().to_vec(),
+        }
+    }
+
+    /// Empty body with an explicit status (`Response.empty`). The reason
+    /// phrase is canonical for the codes this port produces, empty for
+    /// anything else, so an unknown status never ships a made-up phrase.
+    pub fn empty(status: u16) -> Self {
+        Self {
+            status,
+            reason: reason_phrase(status).to_owned(),
+            headers: vec![("content-length".to_owned(), "0".to_owned())],
+            body: Vec::new(),
         }
     }
 
@@ -96,6 +109,17 @@ impl Response {
             self.headers
                 .push(("content-length".to_owned(), body.len().to_string()));
         }
+    }
+}
+
+fn reason_phrase(status: u16) -> &'static str {
+    match status {
+        200 => "OK",
+        400 => "Bad Request",
+        404 => "Not Found",
+        500 => "Internal Server Error",
+        503 => "Service Unavailable",
+        _ => "",
     }
 }
 
@@ -481,6 +505,41 @@ impl HttpServerError {
     pub fn status_code(&self) -> u16 {
         self.reason.status_code()
     }
+}
+
+/// `causeResponseStripped`: reasons that `into_response` maps become the
+/// response and are stripped; the remaining reasons survive as a cause, or
+/// `None` when nothing is left. No response found yields a 500 response.
+///
+/// The pin detects a response inside a `Die` defect; a defect here carries
+/// only a message, so the classifier closure plays that role instead.
+pub fn cause_response_stripped<E>(
+    cause: Cause<E>,
+    into_response: impl Fn(&E) -> Option<Response>,
+) -> (Response, Option<Cause<E>>) {
+    let mut response: Option<Response> = None;
+    let mut rest: Vec<Reason<E>> = Vec::new();
+    for reason in cause.reasons {
+        let mapped = match &reason {
+            Reason::Fail(value) => into_response(value),
+            _ => None,
+        };
+        match mapped {
+            // First response wins; a second one is dropped rather than
+            // reported, which is what the pin's `??` assignment does.
+            Some(value) => response = response.or(Some(value)),
+            None => rest.push(reason),
+        }
+    }
+    let leftover = if rest.is_empty() {
+        None
+    } else {
+        Some(Cause {
+            reasons: rest,
+            annotations: cause.annotations,
+        })
+    };
+    (response.unwrap_or_else(|| Response::empty(500)), leftover)
 }
 
 /// Always true for `HttpServerError` (the type already narrows; mirrors

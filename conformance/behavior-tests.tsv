@@ -6619,8 +6619,8 @@ ported	packages/effect/test/http/HttpServerError.test.ts	49	it	delegates message
 ported	packages/effect/test/http/HttpServerError.test.ts	61	it	forwards the reason cause	server_error_forwards_cause_and_maps_status
 ported	packages/effect/test/http/HttpServerError.test.ts	73	it.effect	maps reasons to status codes	server_error_forwards_cause_and_maps_status
 ported	packages/effect/test/http/HttpServerError.test.ts	93	it	matches wrapper only	server_error_guard_matches_wrapper_only
-unported	packages/effect/test/http/HttpServerError.test.ts	107	it	returns none cause for response defects	
-unported	packages/effect/test/http/HttpServerError.test.ts	114	it	returns some cause for non-response failures	
+ported	packages/effect/test/http/HttpServerError.test.ts	107	it	returns none cause for response defects	server_error_cause_response_stripped
+ported	packages/effect/test/http/HttpServerError.test.ts	114	it	returns some cause for non-response failures	server_error_cause_response_stripped
 unported	packages/effect/test/http/HttpServerRequest.test.ts	8	it.effect	preserves FormData through client-server-client conversion	
 unported	packages/effect/test/http/HttpServerRequest.test.ts	32	it	toClientRequest	
 unported	packages/effect/test/http/HttpServerRequest.test.ts	68	it	toClientRequest ignores malformed or unsafe content lengths	
