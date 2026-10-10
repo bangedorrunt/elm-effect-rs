@@ -308,7 +308,7 @@ unported	packages/effect/test/Cache.test.ts	88	it.effect	make - lookup function 
 unported	packages/effect/test/Cache.test.ts	107	it.effect	make - spans are connected	
 unported	packages/effect/test/Cache.test.ts	133	it.effect	makeWith - creates cache with function-based TTL	
 unported	packages/effect/test/Cache.test.ts	165	it.effect	makeWith - TTL function receives correct parameters	
-unported	packages/effect/test/Cache.test.ts	197	it.effect	does not retain a synchronous zero-TTL lookup	
+ported	packages/effect/test/Cache.test.ts	197	it.effect	does not retain a synchronous zero-TTL lookup	cache_zero_ttl_stores_nothing
 unported	packages/effect/test/Cache.test.ts	208	it.effect	removes a suspended zero-TTL lookup after completion	
 unported	packages/effect/test/Cache.test.ts	226	it.effect	zero-TTL failure does not evict a live entry at capacity	
 unported	packages/effect/test/Cache.test.ts	244	it.effect	zero-TTL lookup after expiration does not evict a live entry	
@@ -349,14 +349,14 @@ unported	packages/effect/test/Cache.test.ts	851	it.effect	invalidates when predi
 unported	packages/effect/test/Cache.test.ts	865	it.effect	doesn't invalidate when predicate doesn't match	
 unported	packages/effect/test/Cache.test.ts	879	it.effect	returns false for non-existent key	
 unported	packages/effect/test/Cache.test.ts	891	it.effect	returns false for failed cached value	
-unported	packages/effect/test/Cache.test.ts	906	it.effect	refresh existing key invokes lookup again	
-unported	packages/effect/test/Cache.test.ts	920	it.effect	refresh non-existent key invokes lookup and enforces capacity	
+ported	packages/effect/test/Cache.test.ts	906	it.effect	refresh existing key invokes lookup again	cache_refresh_reruns_the_lookup
+ported	packages/effect/test/Cache.test.ts	920	it.effect	refresh non-existent key invokes lookup and enforces capacity	cache_refresh_missing_key_enforces_capacity
 unported	packages/effect/test/Cache.test.ts	936	it.effect	refresh enforces capacity when the existing key is evicted during lookup	
 unported	packages/effect/test/Cache.test.ts	960	it.effect	repro: interrupting a missing-key refresh does not remove a newer set value	
 unported	packages/effect/test/Cache.test.ts	978	it.effect	interrupting a missing-key refresh removes its pending entry	
-unported	packages/effect/test/Cache.test.ts	1018	it.effect	zero-TTL refresh removes its own entry	
-unported	packages/effect/test/Cache.test.ts	1029	it.effect	refresh updates TTL	
-unported	packages/effect/test/Cache.test.ts	1045	it.effect	concurrent refresh calls each invoke lookup independently	
+ported	packages/effect/test/Cache.test.ts	1018	it.effect	zero-TTL refresh removes its own entry	cache_zero_ttl_stores_nothing
+ported	packages/effect/test/Cache.test.ts	1029	it.effect	refresh updates TTL	cache_refresh_updates_ttl
+ported	packages/effect/test/Cache.test.ts	1045	it.effect	concurrent refresh calls each invoke lookup independently	concurrent_refreshes_each_run_the_lookup
 unported	packages/effect/test/Cache.test.ts	1069	it.effect	clears all entries	
 unported	packages/effect/test/Cache.test.ts	1087	it.effect	size becomes 0 after invalidateAll	
 unported	packages/effect/test/Cache.test.ts	1104	it.effect	all keys return None after invalidateAll	
@@ -386,10 +386,10 @@ unported	packages/effect/test/Cache.test.ts	1530	it.effect	function-based TTL - 
 unported	packages/effect/test/Cache.test.ts	1545	it.effect	function-based TTL - TTL based on value	
 unported	packages/effect/test/Cache.test.ts	1563	it.effect	infinite TTL	
 unported	packages/effect/test/Cache.test.ts	1575	it.effect	zero duration TTL	
-unported	packages/effect/test/Cache.test.ts	1588	it.effect	TTL updates on refresh	
+ported	packages/effect/test/Cache.test.ts	1588	it.effect	TTL updates on refresh	cache_refresh_updates_ttl
 unported	packages/effect/test/Cache.test.ts	1613	it.effect	failed lookup caches the failure	
 unported	packages/effect/test/Cache.test.ts	1628	it.effect	subsequent gets return same failure	
-unported	packages/effect/test/Cache.test.ts	1643	it.effect	can refresh after failure	
+ported	packages/effect/test/Cache.test.ts	1643	it.effect	can refresh after failure	cache_refresh_reruns_the_lookup
 unported	packages/effect/test/Cache.test.ts	1659	it.effect	multiple fibers encountering same error	
 unported	packages/effect/test/Cache.test.ts	1690	it.effect	with TestClock - multiple time advances	
 unported	packages/effect/test/Cache.test.ts	1712	it.effect	with TestClock - set specific time	

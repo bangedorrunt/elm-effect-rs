@@ -87,6 +87,14 @@ where
         self
     }
 
+    /// True when the configured lifetime is zero. The pin skips the store
+    /// outright in that case, so a lookup leaves no row behind rather than
+    /// one that expired on arrival. A later expiry still counts until it is
+    /// touched (`Cache::size`); only the write is skipped.
+    fn zero_ttl(&self) -> bool {
+        matches!(self.ttl, TimeToLive::For(duration) if duration.is_zero())
+    }
+
     /// The value for `key`, running the lookup at most once per miss.
     pub fn get(&self, key: &K) -> Result<V, E> {
         let mut map = self.map.lock().unwrap();
@@ -105,7 +113,7 @@ where
             Ok(_) => true,
             Err(_) => self.cache_errors,
         };
-        if store {
+        if store && !self.zero_ttl() {
             if map.len() >= self.capacity {
                 let mut order = self.order.lock().unwrap();
                 if let Some(oldest) = order.pop_front() {
@@ -115,6 +123,47 @@ where
             }
             map.insert(key.clone(), outcome.clone());
             self.order.lock().unwrap().push_back(key.clone());
+            self.stamps.lock().unwrap().insert(key.clone(), self.clock.now_millis());
+        }
+        outcome
+    }
+
+    /// Force `key`'s value (`Cache.refresh`): the lookup always runs, even
+    /// on a hit.
+    ///
+    /// A live entry is replaced IN PLACE: its recency row does not move, so
+    /// a refresh is not a use and does not rescue the key from eviction
+    /// (the pin's plain map set keeps position, unlike the read path's
+    /// move). The TTL restarts at the new value. A missing or expired key
+    /// goes to the back of the queue and pays the capacity check. Under a
+    /// zero TTL the row goes instead of staying expired-on-arrival.
+    pub fn refresh(&self, key: &K) -> Result<V, E> {
+        let mut map = self.map.lock().unwrap();
+        let existing = if self.expired_now(key) {
+            self.forget(&mut map, key);
+            false
+        } else {
+            map.contains_key(key)
+        };
+        let outcome = (self.lookup)(key);
+        let store = match &outcome {
+            Ok(_) => true,
+            Err(_) => self.cache_errors,
+        };
+        if self.zero_ttl() {
+            self.forget(&mut map, key);
+        } else if store {
+            if !existing {
+                if map.len() >= self.capacity {
+                    let mut order = self.order.lock().unwrap();
+                    if let Some(oldest) = order.pop_front() {
+                        map.remove(&oldest);
+                        self.stamps.lock().unwrap().remove(&oldest);
+                    }
+                }
+                self.order.lock().unwrap().push_back(key.clone());
+            }
+            map.insert(key.clone(), outcome.clone());
             self.stamps.lock().unwrap().insert(key.clone(), self.clock.now_millis());
         }
         outcome
@@ -173,6 +222,11 @@ where
     pub fn set(&self, key: K, value: V) {
         let mut map = self.map.lock().unwrap();
         self.forget(&mut map, &key);
+        if self.zero_ttl() {
+            // The pin removes any existing row and stores nothing under a
+            // zero TTL, so `set` cannot leave a row expired on arrival.
+            return;
+        }
         if map.len() >= self.capacity {
             let mut order = self.order.lock().unwrap();
             if let Some(oldest) = order.pop_front() {

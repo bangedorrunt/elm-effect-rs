@@ -644,6 +644,145 @@ fn get_option_reports_absent_for_a_cached_failure() {
     assert_eq!(cache.get_option(&"k".to_string()), None);
 }
 
+// Cache refresh and zero-TTL writes
+
+#[test]
+fn cache_refresh_reruns_the_lookup() {
+    // Cache.test.ts:906, :1643 — refresh always runs the lookup, even on a
+    // hit, and a cached failure can be refreshed into a success.
+    let counter = Arc::new(AtomicUsize::new(0));
+    let cache = Cache::new(10, {
+        let counter = Arc::clone(&counter);
+        move |_: &String| {
+            counter.fetch_add(1, Ordering::SeqCst);
+            Ok::<usize, String>(counter.load(Ordering::SeqCst))
+        }
+    });
+    assert_eq!(cache.get(&"test".to_string()), Ok(1));
+    assert_eq!(cache.refresh(&"test".to_string()), Ok(2));
+
+    // The refresh replaces the cached failure.
+    let failing = Cache::new(10, |_: &String| Err::<usize, String>("error".to_string()))
+        .cache_errors(true);
+    assert!(failing.get(&"test".to_string()).is_err());
+    assert_eq!(failing.refresh(&"test".to_string()), Err("error".to_string()));
+}
+
+#[test]
+fn cache_refresh_missing_key_enforces_capacity() {
+    // Cache.test.ts:920 — refreshing a key that is not held runs the lookup
+    // and inserts at the back of the queue, so the capacity check runs and
+    // the oldest row makes room.
+    let counter = Arc::new(AtomicUsize::new(0));
+    let cache = Cache::new(1, {
+        let counter = Arc::clone(&counter);
+        move |_: &String| {
+            counter.fetch_add(1, Ordering::SeqCst);
+            Ok::<usize, String>(counter.load(Ordering::SeqCst))
+        }
+    });
+    cache.set("other".to_string(), 99);
+    assert_eq!(cache.refresh(&"test".to_string()), Ok(1));
+    assert_eq!(cache.size(), 1);
+    assert_eq!(cache.keys(), vec!["test".to_string()]);
+}
+
+#[test]
+fn cache_refresh_updates_ttl() {
+    // Cache.test.ts:1029, :1588 — the refresh restarts the lifetime, so an
+    // entry refreshed inside its TTL outlives the original stamp.
+    use cache::TimeToLive;
+    use elm_effect::{Duration, TestClock};
+
+    let clock = Arc::new(TestClock::new());
+    let cache = Cache::new(10, |key: &String| Ok::<usize, String>(key.len())).with_ttl(
+        TimeToLive::For(Duration::from_minutes(60)),
+        clock.clone(),
+    );
+    cache.get(&"test".to_string());
+    clock.adjust(Duration::from_minutes(45));
+    assert!(cache.has(&"test".to_string()));
+    cache.refresh(&"test".to_string());
+    clock.adjust(Duration::from_minutes(30));
+    assert!(cache.has(&"test".to_string()), "45 + 30 is past the first TTL");
+    clock.adjust(Duration::from_minutes(31));
+    assert!(!cache.has(&"test".to_string()), "61 minutes after the refresh");
+}
+
+#[test]
+fn cache_refresh_is_not_a_use_for_eviction() {
+    // The pin's refresh replaces the entry in place (a plain map set keeps
+    // position), so a refreshed key keeps its old recency row and the next
+    // write still evicts it. `get` moves the key, `refresh` does not.
+    let cache = Cache::new(2, |key: &String| Ok::<usize, String>(key.len()));
+    cache.get(&"a".to_string());
+    cache.get(&"b".to_string());
+    cache.refresh(&"a".to_string());
+    cache.get(&"c".to_string());
+    assert!(!cache.has(&"a".to_string()), "refresh did not refresh recency");
+    assert!(cache.has(&"b".to_string()));
+    assert!(cache.has(&"c".to_string()));
+}
+
+#[test]
+fn concurrent_refreshes_each_run_the_lookup() {
+    // Cache.test.ts:1045 — refresh is not single-flight: three refreshes of
+    // one key run the lookup three times. The map lock serializes them, so
+    // the results are a permutation of the three calls, never a repeat of a
+    // cached value.
+    let counter = Arc::new(AtomicUsize::new(0));
+    let cache = Arc::new(Cache::new(10, {
+        let counter = Arc::clone(&counter);
+        move |_: &String| {
+            counter.fetch_add(1, Ordering::SeqCst);
+            Ok::<usize, String>(counter.load(Ordering::SeqCst))
+        }
+    }));
+    cache.get(&"test".to_string());
+    let mut results: Vec<usize> = std::thread::scope(|s| {
+        let mut handles = Vec::new();
+        for _ in 0..3 {
+            handles.push(s.spawn(|| cache.refresh(&"test".to_string()).unwrap()));
+        }
+        handles.into_iter().map(|h| h.join().unwrap()).collect()
+    });
+    results.sort();
+    assert_eq!(results, vec![2, 3, 4]);
+}
+
+#[test]
+fn cache_zero_ttl_stores_nothing() {
+    // Cache.test.ts:197, :1018 — a zero TTL skips the write entirely: a get
+    // leaves no row (size 0, not an expired one), and a refresh removes its
+    // own row rather than leaving it expired on arrival. A TTL that expires
+    // LATER still counts until it is touched (Cache.test.ts:1172, pinned in
+    // cache_size_counts_stored_entries), so this is a write-time rule, not
+    // an expiry rule.
+    use cache::TimeToLive;
+    use elm_effect::{Duration, TestClock};
+
+    let clock = Arc::new(TestClock::new());
+    let zero = Cache::new(1, |_: &String| Ok::<usize, String>(42)).with_ttl(
+        TimeToLive::For(Duration::ZERO),
+        clock.clone(),
+    );
+    assert_eq!(zero.get(&"key".to_string()), Ok(42));
+    assert_eq!(zero.size(), 0, "a zero-TTL get stores nothing");
+    assert!(!zero.has(&"key".to_string()));
+
+    let failing = Cache::new(1, |_: &String| Err::<usize, String>("error".to_string())).with_ttl(
+        TimeToLive::For(Duration::ZERO),
+        clock.clone(),
+    );
+    assert_eq!(failing.refresh(&"key".to_string()), Err("error".to_string()));
+    assert!(!failing.has(&"key".to_string()));
+
+    // A zero-TTL set also stores nothing, and drops a row that was there.
+    zero.set("key".to_string(), 7);
+    assert!(!zero.has(&"key".to_string()));
+    assert_eq!(zero.size(), 0);
+}
+
 // Cache inspection: size, keys, values, entries
 
 #[test]
