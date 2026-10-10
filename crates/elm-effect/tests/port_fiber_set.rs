@@ -7,7 +7,7 @@
 #[path = "../src/fiber_set.rs"]
 mod fiber_set;
 
-use elm_effect::{Cause, Exit, Reason, Runtime, is_interrupt_reason};
+use elm_effect::{Cause, Exit, Runtime, is_interrupt_reason};
 use fiber_set::FiberSet;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};

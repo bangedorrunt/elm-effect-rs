@@ -7,7 +7,12 @@
 //! `format_json` renders valid JSON with optional indentation. JS-only rows
 //! (circular refs, class instances, `toString` hooks, `SchemaIssue`
 //! reports) are skipped-upstream in the ledger.
-
+// This file belongs to the parked port campaign: a test reaches it through
+// a `#[path]` include to port specific rows, so most of its surface is
+// unused by any one test target. Warnings about the unexercised remainder
+// describe the test's coverage, not a defect in the crate, so they are
+// allowed here rather than fixed one by one.
+#![allow(dead_code)]
 use super::json::Json;
 
 /// A formatting function from `Value` to `Format` (default `String`).

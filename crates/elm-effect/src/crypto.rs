@@ -7,7 +7,12 @@
 //! timestamp, so formatting is pure and separately testable. Digest
 //! algorithms are the spec literals (`SHA-256` implemented; the rest
 //! report [`CryptoError::Unsupported`] instead of pretending).
-
+// This file belongs to the parked port campaign: a test reaches it through
+// a `#[path]` include to port specific rows, so most of its surface is
+// unused by any one test target. Warnings about the unexercised remainder
+// describe the test's coverage, not a defect in the crate, so they are
+// allowed here rather than fixed one by one.
+#![allow(dead_code)]
 use std::sync::{Arc, Mutex};
 
 /// Digest algorithm literals from the spec.

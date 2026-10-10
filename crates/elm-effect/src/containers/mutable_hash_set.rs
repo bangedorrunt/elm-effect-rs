@@ -2,7 +2,12 @@
 //!
 //! In-place set behind shared ownership; same clone-out rule as
 //! [`super::mutable_hash_map`].
-
+// This file belongs to the parked port campaign: a test reaches it through
+// a `#[path]` include to port specific rows, so most of its surface is
+// unused by any one test target. Warnings about the unexercised remainder
+// describe the test's coverage, not a defect in the crate, so they are
+// allowed here rather than fixed one by one.
+#![allow(dead_code)]
 use std::cell::RefCell;
 use std::collections::HashSet as StdSet;
 use std::hash::Hash;

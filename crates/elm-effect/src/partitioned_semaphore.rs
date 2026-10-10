@@ -13,7 +13,12 @@
 //!
 //! Fibers and cross-schedule interruption belong to the Effect runtime;
 //! the explicit [`Guard`] drop is the portable cancellation story.
-
+// This file belongs to the parked port campaign: a test reaches it through
+// a `#[path]` include to port specific rows, so most of its surface is
+// unused by any one test target. Warnings about the unexercised remainder
+// describe the test's coverage, not a defect in the crate, so they are
+// allowed here rather than fixed one by one.
+#![allow(dead_code)]
 use std::collections::HashMap;
 use std::hash::Hash;
 use std::sync::{Arc, Condvar, Mutex};

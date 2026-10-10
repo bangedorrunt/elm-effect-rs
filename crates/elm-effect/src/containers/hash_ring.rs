@@ -9,7 +9,12 @@
 //! within this port) instead of the tag's string hash, so exact
 //! input-to-node assignments differ from TypeScript while the ring
 //! properties (stability, weight proportionality, shard caps) hold.
-
+// This file belongs to the parked port campaign: a test reaches it through
+// a `#[path]` include to port specific rows, so most of its surface is
+// unused by any one test target. Warnings about the unexercised remainder
+// describe the test's coverage, not a defect in the crate, so they are
+// allowed here rather than fixed one by one.
+#![allow(dead_code)]
 use super::primary_key::PrimaryKey;
 use std::collections::{HashMap, HashSet};
 

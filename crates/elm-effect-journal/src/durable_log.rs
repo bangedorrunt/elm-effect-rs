@@ -92,8 +92,6 @@ struct MemInner {
 #[derive(Debug, Clone)]
 struct MemEntry {
     offset: String,
-    producer: (String, u64),
-    seq: u64,
     message: String,
 }
 
@@ -179,12 +177,7 @@ impl DurableLog for MemLog {
         inner
             .offsets
             .insert((id.clone(), epoch, seq), offset.clone());
-        inner.entries.push(MemEntry {
-            offset: offset.clone(),
-            producer: (id, epoch),
-            seq,
-            message,
-        });
+        inner.entries.push(MemEntry { offset: offset.clone(), message });
         Ok(Offset::At(offset))
     }
 

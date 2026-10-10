@@ -11,13 +11,22 @@
 //! Self-contained on purpose: `lib.rs` is owned by the `.0c6.11` bead, so
 //! this includes [`datetime`] by path instead of `crate::datetime`. The
 //! follow-up is one `mod`/`pub use` pair plus dropping this shim.
-
+// This file belongs to the parked port campaign: a test reaches it through
+// a `#[path]` include to port specific rows, so most of its surface is
+// unused by any one test target. Warnings about the unexercised remainder
+// describe the test's coverage, not a defect in the crate, so they are
+// allowed here rather than fixed one by one.
+#![allow(dead_code)]
 #[path = "datetime.rs"]
 mod datetime;
 
+// A test that includes this module by `#[path]` re-exports a wider set through
+// it, so a few names are unused by this file itself. Allowing the single line
+// keeps the parked module's surface intact for its includers.
+#[allow(unused_imports)]
 pub use datetime::{
-    DateParts, DateTime, DateTimeError, Disambiguation, Parts, Unit, Zone, clear_test_now_millis,
-    current_zone, set_test_now_millis, with_current_zone, zone_from_string, zone_to_string,
+    DateParts, DateTime, Disambiguation, Unit, Zone, clear_test_now_millis, current_zone,
+    set_test_now_millis, with_current_zone, zone_from_string, zone_to_string,
 };
 use std::collections::BTreeSet;
 
@@ -158,7 +167,7 @@ fn parse_segment(
     // A leading bare `*` (no step, or step 1) voids every add: the field
     // stays a wildcard no matter what follows the comma.
     let void_add = wildcard && (first_step.is_none() || first_step == Some("1"));
-    let mut add = |v: i32, values: &mut BTreeSet<i32>| {
+    let add = |v: i32, values: &mut BTreeSet<i32>| {
         if !void_add {
             values.insert(normalize(v));
         }

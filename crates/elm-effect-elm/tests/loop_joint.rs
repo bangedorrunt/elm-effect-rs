@@ -536,6 +536,86 @@ impl Interpret<Panicky> for BoomRun {
     }
 }
 
+/// A panic while *building* the effect (`interpret`) happens before the run,
+/// on the calling thread. It is not a provider outcome, so it must not be
+/// caught and re-labelled: the loop's contract is that a dropped or
+/// misclassified outcome is impossible, not that every outcome is survivable.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+enum BCmd {
+    Landmine,
+}
+
+impl Cmd for BCmd {
+    fn durability(&self) -> Durability {
+        Durability::Ephemeral
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+enum BMsg {
+    Went,
+    SawDefect,
+}
+
+#[derive(Clone, Debug, Default, PartialEq)]
+struct BModel {
+    explode: bool,
+    defects: usize,
+}
+
+struct Landmine;
+
+impl Program for Landmine {
+    type Model = BModel;
+    type Msg = BMsg;
+    type Cmd = BCmd;
+    type Err = InterpretError;
+
+    fn init(_boot: &Boot) -> Update<BModel, BCmd> {
+        Update::quiet(BModel::default())
+    }
+
+    fn update(model: &BModel, msg: &BMsg) -> Update<BModel, BCmd> {
+        match msg {
+            BMsg::Went => Update::with_commands(model.clone(), vec![BCmd::Landmine, BCmd::Landmine]),
+            BMsg::SawDefect => {
+                let mut m = model.clone();
+                m.defects += 1;
+                Update::quiet(m)
+            }
+        }
+    }
+
+    fn failure(_failure: &Failure<InterpretError>) -> BMsg {
+        BMsg::SawDefect
+    }
+}
+
+struct LandmineRun;
+
+impl Interpret<Landmine> for LandmineRun {
+    fn interpret(cmd: &BCmd) -> Effect<BMsg, InterpretError> {
+        // Runs off the run edge: outside its catch_unwind, on the calling
+        // thread. A panic here is a bug in the interpreter, not a provider
+        // outcome, and must reach the host rather than become a message.
+        match cmd {
+            BCmd::Landmine => panic!("interpreter exploded while building the effect"),
+        }
+    }
+}
+
+#[test]
+#[should_panic(expected = "interpreter exploded")]
+fn a_panic_in_interpret_is_not_swallowed_as_a_provider_outcome() {
+    let mut app = Loop::<Landmine, LandmineRun>::boot(
+        &Boot::default(),
+        ManagedRuntime::new(),
+        Arc::new(MemLog::new()),
+        Producer::new("test"),
+    );
+    app.send(BMsg::Went);
+}
+
 #[test]
 fn a_panicking_provider_in_a_window_becomes_a_defect_not_a_crash() {
     let mut app = Loop::<Panicky, BoomRun>::boot(

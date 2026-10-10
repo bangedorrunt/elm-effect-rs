@@ -14,7 +14,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use super::{Cmd, Program};
+use super::Program;
 
 /// Message log trait. Wave 12 backs this durably; until then the
 /// in-crate [`InMemoryLog`] is the one implementation (do not fork it).

@@ -385,6 +385,13 @@ pub struct InterpretError(pub String);
 ///
 /// A window of one runs inline: there is nothing to overlap, and a thread
 /// would cost more than the work.
+///
+/// Both branches below the `Ok(Ok(..))` arm are unreachable as written: the
+/// closure only calls the runtime's own guard, so it cannot panic, and
+/// `thread::scope` joins every handle it hands out. They exist so that a
+/// future edit which moves work outside that guard fails closed (a defect)
+/// rather than unwrapping the panic onto the loop's own thread, which would
+/// unwind the fold and lose every other command's outcome.
 fn run_effects<A, E>(effects: Vec<Effect<A, E>>, rt: &ManagedRuntime) -> Vec<Exit<A, E>>
 where
     A: Send + 'static,
@@ -396,8 +403,33 @@ where
     std::thread::scope(|scope| {
         let handles: Vec<_> = effects
             .into_iter()
-            .map(|effect| scope.spawn(|| rt.run(effect)))
+            .map(|effect| {
+                scope.spawn(|| {
+                    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| rt.run(effect)))
+                })
+            })
             .collect();
-        handles.into_iter().map(|handle| handle.join().unwrap()).collect()
+        handles
+            .into_iter()
+            .map(|handle| match handle.join() {
+                Ok(Ok(exit)) => exit,
+                Ok(Err(payload)) => exit_thread_died(payload),
+                // The thread was cancelled before finishing. Not a typed
+                // error: a defect, like every other unexpected death.
+                Err(_) => Exit::Failure(Cause::die(Defect::new(
+                    "command thread died before returning an outcome",
+                ))),
+            })
+            .collect()
     })
+}
+
+/// Render a panic payload escaped from a command thread as a defect.
+fn exit_thread_died<A, E>(payload: Box<dyn std::any::Any + Send>) -> Exit<A, E> {
+    let message = payload
+        .downcast_ref::<&str>()
+        .map(|s| s.to_string())
+        .or_else(|| payload.downcast_ref::<String>().cloned())
+        .unwrap_or_else(|| "command thread panicked".to_string());
+    Exit::Failure(Cause::die(Defect::new(message)))
 }

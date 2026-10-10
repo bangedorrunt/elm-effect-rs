@@ -7,7 +7,12 @@
 //! shared handle (`Rc<RefCell<..>>`): retained handles see finalization,
 //! and a depth guard rejects nested mutation inside transformation
 //! callbacks, so every lifecycle error row ports exactly.
-
+// This file belongs to the parked port campaign: a test reaches it through
+// a `#[path]` include to port specific rows, so most of its surface is
+// unused by any one test target. Warnings about the unexercised remainder
+// describe the test's coverage, not a defect in the crate, so they are
+// allowed here rather than fixed one by one.
+#![allow(dead_code)]
 use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet, HashMap, VecDeque};
 use std::rc::Rc;
@@ -344,7 +349,6 @@ impl<N, E> MutableGraph<N, E> {
         // SAFETY: `graph_ptr` addresses live `Rc` contents owned by `self`;
         // `self` outlives `f`, and nested access re-borrows (never aliasing
         // this `&mut`, which callbacks cannot retain).
-        let graph_ptr: *mut Graph<N, E> = unsafe { &mut (*self.inner.as_ptr()).graph };
         let out = f(unsafe { &mut *graph_ptr });
         self.inner.borrow_mut().depth -= 1;
         Ok(out)
@@ -1392,7 +1396,7 @@ where
         .values()
         .filter_map(|e| edge_ident(directed, &b.nodes, e, node_identity))
         .collect();
-    let mut emit =
+    let emit =
         |e: &StoredEdge<E>, map: &HashMap<NodeIndex, NodeIndex>, out: &mut Graph<N, E>| {
             let (Some(s), Some(t)) = (map.get(&e.source), map.get(&e.target)) else {
                 return;

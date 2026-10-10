@@ -6,7 +6,12 @@
 //! Values are ordinary immutable data: "does not mutate" rows hold because
 //! every operation takes `&Json`, and "preserves references" rows hold as
 //! clone-equality.
-
+// This file belongs to the parked port campaign: a test reaches it through
+// a `#[path]` include to port specific rows, so most of its surface is
+// unused by any one test target. Warnings about the unexercised remainder
+// describe the test's coverage, not a defect in the crate, so they are
+// allowed here rather than fixed one by one.
+#![allow(dead_code)]
 use std::collections::BTreeMap;
 
 /// A JSON value. Ordinary immutable data.

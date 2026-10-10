@@ -19,7 +19,6 @@ mod json_pointer;
 mod utils_gen;
 
 use json::Json;
-use std::collections::BTreeMap;
 
 fn obj(pairs: &[(&str, Json)]) -> Json {
     Json::Obj(
@@ -705,8 +704,7 @@ fn singleshot_yields_once_then_completes() {
 // ---------------------------------------------------------------------------
 
 use graph::{
-    Graph, GraphError, Kind, MutableGraph, Snapshot, View, begin_mutation, build,
-    maximum_bipartite_matching, maximum_flow, minimum_cut, mutate,
+    Graph, GraphError, Kind, MutableGraph, Snapshot, View, begin_mutation, build, mutate,
 };
 
 fn directed(nodes: &[&str], edges: &[(usize, usize, i32)]) -> Graph<String, i32> {
@@ -1070,19 +1068,6 @@ fn filter_nodes_drops_incident_edges() {
 // Graph: queries
 // ---------------------------------------------------------------------------
 
-fn query_graph() -> Graph<String, &'static str> {
-    undirected(
-        &["A", "B", "C"],
-        &[
-            (0, 1, "first"),
-            (0, 1, "parallel"),
-            (2, 0, "incoming"),
-            (0, 0, "loop"),
-            (0, 2, "last"),
-        ],
-    )
-}
-
 #[test]
 fn edge_order_multiplicity_and_degrees() {
     let g = directed(
@@ -1423,7 +1408,6 @@ fn graphviz_exact_strings() {
     );
 }
 
-#[test]
 #[test]
 fn graphviz_escapes_names_and_labels() {
     let label = "C:\\new\n\"line\"";

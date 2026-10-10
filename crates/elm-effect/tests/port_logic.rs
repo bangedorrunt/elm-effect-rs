@@ -1,7 +1,6 @@
 //! Foundation behavior at the `effect@4.0.0` pin.
 
 use std::cmp::Ordering;
-use std::ops::Not;
 
 use elm_effect::{
     Equal, Equivalence, Hash, Order, Predicate, array_equivalence, boolean_equivalence,

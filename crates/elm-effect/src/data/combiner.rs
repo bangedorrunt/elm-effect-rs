@@ -5,7 +5,12 @@
 //! [`constant`] (ignore right), [`min`]/[`max`] (bounds), [`flip`]
 //! (argument order), [`intercalate`] (separator between combines).
 //! String concat is the canonical instance (`ReducerConcat`).
-
+// This file belongs to the parked port campaign: a test reaches it through
+// a `#[path]` include to port specific rows, so most of its surface is
+// unused by any one test target. Warnings about the unexercised remainder
+// describe the test's coverage, not a defect in the crate, so they are
+// allowed here rather than fixed one by one.
+#![allow(dead_code)]
 /// Associative merge (`Combiner<A>`).
 #[derive(Clone)]
 pub struct Combiner<A> {

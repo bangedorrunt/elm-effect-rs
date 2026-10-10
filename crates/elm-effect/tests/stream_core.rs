@@ -438,7 +438,7 @@ fn catch_filter_routes_through_selector_result() {
             }
         },
         |length: usize| from_iter(vec![length as u32].into_iter(), 1),
-        |failure: String| from_iter(vec![1u32].into_iter(), 1),
+        |_failure: String| from_iter(vec![1u32].into_iter(), 1),
     );
     assert!(matches!(matched.run_collect(), Exit::Success(ref v) if *v == vec![4]));
 

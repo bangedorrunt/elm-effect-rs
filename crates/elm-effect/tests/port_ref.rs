@@ -56,7 +56,7 @@ fn update_stores_the_computed_value() {
 fn get_and_update_some_leaves_state_unchanged_when_no_transition_matches() {
     // None => no update, but the PREVIOUS value is still returned.
     let cell = Ref::new(10u32);
-    assert_eq!(cell.get_and_update_some(|current| None::<u32>), 10);
+    assert_eq!(cell.get_and_update_some(|_current| None::<u32>), 10);
     assert_eq!(cell.get(), 10, "a None transition must not touch the cell");
 }
 
@@ -70,7 +70,7 @@ fn get_and_update_some_applies_matching_transitions() {
 #[test]
 fn update_some_leaves_state_unchanged_when_no_transition_matches() {
     let cell = Ref::new(10u32);
-    cell.update_some(|current| None::<u32>);
+    cell.update_some(|_current| None::<u32>);
     assert_eq!(cell.get(), 10);
 }
 
@@ -84,7 +84,7 @@ fn update_some_applies_matching_transitions() {
 #[test]
 fn update_some_and_get_returns_current_when_no_transition_matches() {
     let cell = Ref::new(10u32);
-    assert_eq!(cell.update_some_and_get(|current| None::<u32>), 10);
+    assert_eq!(cell.update_some_and_get(|_current| None::<u32>), 10);
     assert_eq!(cell.get(), 10);
 }
 
