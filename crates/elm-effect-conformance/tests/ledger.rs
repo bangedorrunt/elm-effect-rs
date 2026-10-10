@@ -209,12 +209,16 @@ fn matched_modules_have_no_unported_behaviors() {
     let ledger = Ledger::load(&root.join("conformance/modules.toml")).unwrap();
     let behaviors = Behavior::load(&root.join("conformance/behavior-tests.tsv")).unwrap();
 
-    let mut linked: BTreeMap<&str, (usize, usize)> = BTreeMap::new();
+    // (linked rows, ported, unported). The ported count is load-bearing: see
+    // the `matched if ported == 0` arm below.
+    let mut linked: BTreeMap<&str, (usize, usize, usize)> = BTreeMap::new();
     for row in &behaviors {
-        let slot = linked.entry(row.path.as_str()).or_insert((0, 0));
+        let slot = linked.entry(row.path.as_str()).or_insert((0, 0, 0));
         slot.0 += 1;
-        if row.status == "unported" {
-            slot.1 += 1;
+        match row.status.as_str() {
+            "ported" => slot.1 += 1,
+            "unported" => slot.2 += 1,
+            _ => {}
         }
     }
 
@@ -228,17 +232,29 @@ fn matched_modules_have_no_unported_behaviors() {
             continue;
         }
         let mut rows = 0usize;
+        let mut ported = 0usize;
         let mut unported = 0usize;
         for test in &module.tests {
-            if let Some((total, open)) = linked.get(test.as_str()) {
+            if let Some((total, done, open)) = linked.get(test.as_str()) {
                 rows += total;
+                ported += done;
                 unported += open;
             }
         }
         match module.status.as_str() {
-            // ADR-0002:565 — parity theater: types without tests.
+            // ADR-0002:565 — parity theater: types without tests. A module
+            // can claim parity with nothing behind it three ways, and each
+            // needs its own arm: no linked test file, linked rows that are
+            // all excused as not-applicable, and linked rows with nothing
+            // ported at all. The last is the one an excuse-only ledger hits.
             "matched" if rows == 0 => {
                 unearned.push(format!("{}: matched with no linked behavior rows", module.path));
+            }
+            "matched" if ported == 0 => {
+                unearned.push(format!(
+                    "{}: matched with zero ported behavior rows ({} linked, {} excused)",
+                    module.path, rows, rows - unported
+                ));
             }
             // ADR-0002:100 — matched while a linked row is still open.
             "matched" if unported > 0 => {
@@ -249,7 +265,7 @@ fn matched_modules_have_no_unported_behaviors() {
             }
             // The other direction: every row ported but the module never
             // advanced. Deriving the status makes both impossible.
-            "unmatched" if rows > 0 && unported == 0 => {
+            "unmatched" if rows > 0 && unported == 0 && ported > 0 => {
                 drift.push(format!(
                     "{}: unmatched with every behavior row already ported",
                     module.path

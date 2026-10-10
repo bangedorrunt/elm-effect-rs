@@ -113,15 +113,17 @@ fi
 # changes, which is itself a regeneration artifact, so the previous file'"'"'s
 # counts are the counts this run will emit.
 declare -A rows_in=()
+declare -A ported_in=()
 declare -A unported_in=()
 behavior_prev="$root/conformance/behavior-tests.tsv"
 if [[ -f $behavior_prev ]]; then
   while IFS=$'\t' read -r bstatus bpath _bline _bkind _btitle _brust || [[ -n ${bstatus:-} ]]; do
     [[ $bstatus == \#* || $bstatus == status || -z ${bpath:-} ]] && continue
     rows_in[$bpath]=$(( ${rows_in[$bpath]:-0} + 1 ))
-    if [[ $bstatus == unported ]]; then
-      unported_in[$bpath]=$(( ${unported_in[$bpath]:-0} + 1 ))
-    fi
+    case "$bstatus" in
+      unported) unported_in[$bpath]=$(( ${unported_in[$bpath]:-0} + 1 )) ;;
+      ported)   ported_in[$bpath]=$(( ${ported_in[$bpath]:-0} + 1 )) ;;
+    esac
   done <"$behavior_prev"
 fi
 
@@ -221,21 +223,27 @@ count=0
         tests_field+="\"$test_rel\""
       done < <(printf '%s\n' "${tests_for[$src_key]}" | sort)
     fi
-    # ADR-0002:100 + :565. `matched` is derived, never carried: a module
-    # claims parity only when its linked test file exists and every row in it
-    # is ported, not-applicable, or skipped-upstream. A module with no linked
-    # test file is `unmatched`, because "matched requires a named test".
+    # ADR-0002:100 + :565. `matched` is derived, never carried. A module
+    # claims parity only when its linked test file has AT LEAST ONE PORTED row
+    # and NO unported row. The ported count is load-bearing, not a nicety:
+    # without it a module whose every row was excused as not-applicable would
+    # read as matched parity with zero tests run, which is the exact parity
+    # theater :565 names ("types without tests"). An experiment that excused
+    # all 6940 open rows silently promoted 63 modules to matched that way,
+    # JsonSchema.ts among them.
     if [[ $class == port || $class == unstable-port || $class == experimental-port ]]; then
       linked_rows=0
+      linked_ported=0
       linked_unported=0
       # tests_field is '"path", "path"': strip quotes and the comma
       # separator, or every key misses and every module reads as testless.
       for t in ${tests_field//[\",]/ }; do
         [[ -z $t ]] && continue
         linked_rows=$(( linked_rows + ${rows_in[$t]:-0} ))
+        linked_ported=$(( linked_ported + ${ported_in[$t]:-0} ))
         linked_unported=$(( linked_unported + ${unported_in[$t]:-0} ))
       done
-      if (( linked_rows == 0 || linked_unported > 0 )); then
+      if (( linked_rows == 0 || linked_ported == 0 || linked_unported > 0 )); then
         status="unmatched"
       else
         status="matched"
