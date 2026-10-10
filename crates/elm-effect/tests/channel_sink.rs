@@ -649,6 +649,88 @@ fn from_write_interruptible_aborts_instead_of_closing() {
 }
 
 #[test]
+fn sink_flat_map_preserves_leftovers() {
+    use sink::{count, head};
+
+    // Chunks mirror the TS case: [[1,2], [3,4,5], [], [7,8,9,10]].
+    let source = pull::Pull::from_fn({
+        let chunks = Arc::new(Mutex::new(vec![
+            Take::<u32, String>::End,
+            Take::Items(vec![7, 8, 9, 10]),
+            Take::Items(vec![]),
+            Take::Items(vec![3, 4, 5]),
+            Take::Items(vec![1, 2]),
+        ]));
+        move || chunks.lock().unwrap().pop().unwrap_or(Take::End)
+    });
+    let sink = head::<u32, String>().flat_map(|head: Option<u32>| {
+        count::<u32, String>().map(move |n| (head, n))
+    });
+    match sink.run(source) {
+        elm_effect::Exit::Success((head, n)) => {
+            assert_eq!(head, Some(1));
+            // head consumed exactly one element, so the count sees the
+            // other eight; together they account for all nine delivered.
+            assert_eq!(n, 8);
+            assert_eq!(n + usize::from(head.is_some()), 9);
+        }
+        elm_effect::Exit::Failure(_) => panic!("expected success"),
+    }
+}
+
+#[test]
+fn sink_with_duration_measures_clock_delta() {
+    use elm_effect::{ClockImpl, Duration, TestClock};
+    use sink::{count, with_duration};
+
+    // The source advances the shared test clock mid-run, so the measured
+    // delta is exactly the adjustment, read from the clock service.
+    let clock = Arc::new(TestClock::new());
+    let ticker = Arc::clone(&clock);
+    let source = pull::Pull::from_fn(move || {
+        ticker.adjust(Duration::from_millis(100));
+        Take::<u32, String>::End
+    });
+    match with_duration(count::<u32, String>(), clock).run(source) {
+        elm_effect::Exit::Success((n, elapsed)) => {
+            assert_eq!(n, 0);
+            assert_eq!(elapsed, Duration::from_millis(100));
+        }
+        elm_effect::Exit::Failure(_) => panic!("expected success"),
+    }
+
+    // A clock that steps backward (a wall regression) clamps the delta to
+    // zero instead of wrapping: the subtraction saturates.
+    struct Backward {
+        reads: std::sync::Mutex<Vec<u64>>,
+    }
+    impl ClockImpl for Backward {
+        fn sleep(
+            &self,
+            _duration: Duration,
+            _interrupted: &dyn Fn() -> bool,
+        ) -> elm_effect::SleepOutcome {
+            elm_effect::SleepOutcome::Elapsed
+        }
+        fn now_millis(&self) -> u64 {
+            let mut reads = self.reads.lock().unwrap();
+            let value = if reads.is_empty() { 1000 } else { 0 };
+            reads.push(value);
+            value
+        }
+    }
+    let backward = Arc::new(Backward {
+        reads: std::sync::Mutex::new(Vec::new()),
+    });
+    match with_duration(count::<u32, String>(), backward)
+        .run(pull::Pull::<u32, String>::empty())
+    {
+        elm_effect::Exit::Success((_, elapsed)) => assert_eq!(elapsed, Duration::ZERO),
+        elm_effect::Exit::Failure(_) => panic!("expected success"),
+    }
+}
+
+#[test]
 fn channel_catch_all_recovers_any_failure() {
     // One-shot failure: Pull::fail repeats forever, so recovery tests
     // need a source that ends after failing once.

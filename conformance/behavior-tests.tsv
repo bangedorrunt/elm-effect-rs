@@ -3491,11 +3491,11 @@ ported	packages/effect/test/Sink.test.ts	262	it.effect	takeWhileFilter consumes 
 ported	packages/effect/test/Sink.test.ts	271	it.effect	takeWhileEffect	take_while_keeps_leftovers
 ported	packages/effect/test/Sink.test.ts	279	it.effect	takeWhileFilterEffect	take_while_keeps_leftovers
 ported	packages/effect/test/Sink.test.ts	287	it.effect	takeWhileFilterEffect consumes the first failing input	take_while_keeps_leftovers
-unported	packages/effect/test/Sink.test.ts	300	it.effect	uses monotonic time when wall time moves backward	
+ported	packages/effect/test/Sink.test.ts	300	it.effect	uses monotonic time when wall time moves backward	sink_with_duration_measures_clock_delta
 ported	packages/effect/test/Sink.test.ts	317	it.effect	preserves leftovers when the next sink consumes no input	take_while_keeps_leftovers
 ported	packages/effect/test/Sink.test.ts	327	it.effect	flatMap - empty input	channel_flat_map_concatenates
 ported	packages/effect/test/Sink.test.ts	334	it.effect	flatMap - non-empty input	channel_flat_map_concatenates
-unported	packages/effect/test/Sink.test.ts	341	it.effect	flatMap - with leftovers	
+ported	packages/effect/test/Sink.test.ts	341	it.effect	flatMap - with leftovers	sink_flat_map_preserves_leftovers
 unported	packages/effect/test/StackCapture.test.ts	33	it	Effect.fn skips definition capture at limit zero	
 unported	packages/effect/test/StackCapture.test.ts	38	it	Effect.fn skips invocation capture at limit zero	
 unported	packages/effect/test/StackCapture.test.ts	44	it	default spans skip capture at limit zero	

@@ -4,6 +4,9 @@
 
 use super::pull::Pull;
 use super::take::Take;
+use elm_effect::{ClockImpl, Duration};
+use std::collections::VecDeque;
+use std::sync::{Arc, Mutex};
 
 /// A consumer driver: pulls takes until done.
 pub type FoldFn<A, E, S> = Box<dyn FnMut(Pull<A, E>) -> elm_effect::Exit<S, E> + Send>;
@@ -11,6 +14,46 @@ pub type FoldFn<A, E, S> = Box<dyn FnMut(Pull<A, E>) -> elm_effect::Exit<S, E> +
 /// A consumer: folds takes into one value.
 pub struct Sink<A, E, S> {
     fold: FoldFn<A, E, S>,
+}
+
+/// Shared source behind [`Sink::flat_map`]: one item per pull, so a sink
+/// that stops early leaves the rest of the stream for the next one.
+struct OneByOne<A, E> {
+    inner: Pull<A, E>,
+    pending: VecDeque<A>,
+}
+
+impl<A, E> OneByOne<A, E>
+where
+    A: Send + 'static,
+    E: Send + 'static,
+{
+    fn as_pull(shared: &Arc<Mutex<Self>>) -> Pull<A, E> {
+        let shared = Arc::clone(shared);
+        Pull::from_fn(move || {
+            let mut state = shared.lock().unwrap();
+            loop {
+                if let Some(item) = state.pending.pop_front() {
+                    return Take::Items(vec![item]);
+                }
+                match state.inner.pull() {
+                    Take::Items(items) => {
+                        let mut iter = items.into_iter();
+                        match iter.next() {
+                            Some(first) => {
+                                state.pending.extend(iter);
+                                return Take::Items(vec![first]);
+                            }
+                            // Empty chunk: keep pulling rather than report End.
+                            None => continue,
+                        }
+                    }
+                    Take::End => return Take::End,
+                    Take::Fail(e) => return Take::Fail(e),
+                }
+            }
+        })
+    }
 }
 
 impl<A, E, S> Sink<A, E, S>
@@ -31,6 +74,49 @@ where
     /// Run to completion: `End` finishes, `Fail` propagates.
     pub fn run(mut self, source: Pull<A, E>) -> elm_effect::Exit<S, E> {
         (self.fold)(source)
+    }
+
+    /// Chain sinks: `next` runs over this sink's folded value, with the
+    /// inputs this sink did not consume still available. The first fold
+    /// sees one item per pull, so an early stop (`head`) hands the rest of
+    /// the stream to the next sink instead of dropping it.
+    pub fn flat_map<B, F>(mut self, next: F) -> Sink<A, E, B>
+    where
+        B: Send + 'static,
+        F: FnOnce(S) -> Sink<A, E, B> + Send + 'static,
+    {
+        let mut next = Some(next);
+        Sink::from_fn(move |source| {
+            use elm_effect::Exit;
+            let shared = Arc::new(Mutex::new(OneByOne {
+                inner: source,
+                pending: VecDeque::new(),
+            }));
+            match (self.fold)(OneByOne::as_pull(&shared)) {
+                Exit::Success(value) => {
+                    let next = next.take().expect("flat_map continuation ran once");
+                    (next(value).fold)(OneByOne::as_pull(&shared))
+                }
+                Exit::Failure(cause) => Exit::Failure(cause),
+            }
+        })
+    }
+
+    /// Transform this sink's folded value.
+    pub fn map<B>(mut self, f: impl FnOnce(S) -> B + Send + 'static) -> Sink<A, E, B>
+    where
+        B: Send + 'static,
+    {
+        let mut f = Some(f);
+        Sink::from_fn(move |source| {
+            use elm_effect::Exit;
+            match (self.fold)(source) {
+                Exit::Success(value) => {
+                    Exit::Success((f.take().expect("sink map ran once"))(value))
+                }
+                Exit::Failure(cause) => Exit::Failure(cause),
+            }
+        })
     }
 }
 
@@ -267,6 +353,32 @@ where
             }
         }
         Exit::Success((taken, leftover))
+    })
+}
+
+/// Run `inner`, pairing its value with the time the run took, measured as
+/// two reads of the clock service. The delta saturates, so a clock that
+/// steps backward clamps to zero instead of wrapping (`withDuration`).
+pub fn with_duration<A, E, S>(
+    inner: Sink<A, E, S>,
+    clock: Arc<dyn ClockImpl>,
+) -> Sink<A, E, (S, Duration)>
+where
+    A: Send + 'static,
+    E: Send + 'static,
+    S: Send + 'static,
+{
+    let mut inner = inner;
+    Sink::from_fn(move |source| {
+        use elm_effect::Exit;
+        let start_ms = clock.now_millis();
+        match (inner.fold)(source) {
+            Exit::Success(value) => Exit::Success((
+                value,
+                Duration::from_millis(clock.now_millis().saturating_sub(start_ms)),
+            )),
+            Exit::Failure(cause) => Exit::Failure(cause),
+        }
     })
 }
 
