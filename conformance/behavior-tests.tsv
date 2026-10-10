@@ -2100,10 +2100,10 @@ unported	packages/effect/test/HashMap.test.ts	572	it	keeps all inserted entries 
 unported	packages/effect/test/HashMap.test.ts	606	it	isHashMap	
 unported	packages/effect/test/HashMap.test.ts	618	it	handles many inserts, lookups, and removals	
 unported	packages/effect/test/HashMap.test.ts	650	it	should handle hash collisions	
-unported	packages/effect/test/HashRing.test.ts	6	it	updates the stored node when adding the same primary key	
-unported	packages/effect/test/HashRing.test.ts	27	it	updates the stored node when changing its weight	
-unported	packages/effect/test/HashRing.test.ts	48	it	getShards normalizes the shard count	
-unported	packages/effect/test/HashRing.test.ts	63	it	getShards considers the first ring entry when excluding allocated nodes	
+ported	packages/effect/test/HashRing.test.ts	6	it	updates the stored node when adding the same primary key	hash_ring_add_replaces_node_for_the_same_primary_key
+ported	packages/effect/test/HashRing.test.ts	27	it	updates the stored node when changing its weight	hash_ring_add_with_new_weight_replaces_the_stored_node
+ported	packages/effect/test/HashRing.test.ts	48	it	getShards normalizes the shard count	hash_ring_shard_count_normalizes
+ported	packages/effect/test/HashRing.test.ts	63	it	getShards considers the first ring entry when excluding allocated nodes	hash_ring_shards_overflow_to_the_first_ring_entry
 ported	packages/effect/test/HashSet.test.ts	6	it	empty creates an empty set	hash_set_add_remove_membership
 ported	packages/effect/test/HashSet.test.ts	12	it	make creates a set from distinct values	hash_set_add_remove_membership
 ported	packages/effect/test/HashSet.test.ts	21	it	make removes duplicate values	hash_set_add_remove_membership

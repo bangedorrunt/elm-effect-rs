@@ -184,13 +184,21 @@ where
         self.nodes.get(key).map(|(n, _)| n.clone())
     }
 
-    /// Assign `count` shard indexes to nodes with per-node caps
+    /// Assign shard indexes to nodes with per-node caps
     /// (`max(1, floor(count * weight / total))`), mirroring the tag's
-    /// two-pass allocation. `None` on an empty ring.
-    pub fn get_shards(&self, count: usize) -> Option<Vec<A>> {
+    /// two-pass allocation. The count is a number like the tag's: `NaN`, a
+    /// negative count, and anything under one mean zero shards, and a
+    /// fractional count truncates (`1.9` -> one, `2.9` -> two). `None` on an
+    /// empty ring.
+    pub fn get_shards(&self, count: f64) -> Option<Vec<A>> {
         if self.ring.is_empty() {
             return None;
         }
+        let count = if count.is_finite() && count > 0.0 {
+            count.floor() as usize
+        } else {
+            0
+        };
         let mut shards: Vec<Option<A>> = vec![None; count];
         let mut allocations: HashMap<String, usize> = HashMap::new();
         let mut remaining: HashSet<usize> = (0..count).collect();

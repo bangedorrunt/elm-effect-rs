@@ -295,11 +295,55 @@ fn trie_remove_persists_and_prefix() {
 
 // --- HashRing ---
 
+/// Node with a payload we can tell apart from another node sharing its
+/// primary key: rows :6 / :27 update a node in place.
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+struct RingNode {
+    id: String,
+    payload: &'static str,
+}
+
+impl PrimaryKey for RingNode {
+    fn primary_key(&self) -> String {
+        self.id.clone()
+    }
+}
+
+fn ring_node(id: &str, payload: &'static str) -> RingNode {
+    RingNode {
+        id: id.to_owned(),
+        payload,
+    }
+}
+
+#[test]
+fn hash_ring_add_replaces_node_for_the_same_primary_key() {
+    // HashRing.test.ts:6 — re-adding an existing primary key updates the
+    // stored node, so routing hands back the newest payload.
+    let mut ring = HashRing::make(None);
+    ring.add(ring_node("node", "first"), None);
+    assert_eq!(ring.get("request").map(|n| n.payload), Some("first"));
+    ring.add(ring_node("node", "updated"), None);
+    assert_eq!(ring.get("request").map(|n| n.payload), Some("updated"));
+    assert_eq!(ring.nodes().count(), 1, "one node per primary key");
+}
+
+#[test]
+fn hash_ring_add_with_new_weight_replaces_the_stored_node() {
+    // HashRing.test.ts:27 — a weight change re-points the node, and the
+    // payload handed back is the updated one.
+    let mut ring = HashRing::make(None);
+    ring.add(ring_node("node", "first"), None);
+    ring.add(ring_node("node", "updated"), Some(2.0));
+    assert_eq!(ring.get("request").map(|n| n.payload), Some("updated"));
+    assert_eq!(ring.nodes().count(), 1, "one node per primary key");
+}
+
 #[test]
 fn hash_ring_empty_and_membership() {
     let ring = HashRing::<Node>::make(None);
     assert_eq!(ring.get("anything"), None);
-    assert_eq!(ring.get_shards(3), None);
+    assert_eq!(ring.get_shards(3.0), None);
     let mut ring = HashRing::make(None);
     ring.add(node("a"), None);
     assert!(ring.has(&node("a")));
@@ -326,7 +370,7 @@ fn hash_ring_routes_stably_and_shards_cover() {
     assert_eq!(first, second);
     assert!(first.iter().all(|n| n.is_some()));
     // Shards cover every index exactly once across the node set.
-    let shards = ring.get_shards(6).expect("non-empty ring shards");
+    let shards = ring.get_shards(6.0).expect("non-empty ring shards");
     assert_eq!(shards.len(), 6);
     // Weighted caps: removing a node remaps only its shards.
     let before: Vec<String> = ["s1", "s2", "s3", "s4", "s5", "s6"]
@@ -348,12 +392,49 @@ fn hash_ring_routes_stably_and_shards_cover() {
 
 #[test]
 fn hash_ring_shard_count_normalizes() {
+    // HashRing.test.ts:48 — the tag's count is a `number`: NaN, a negative
+    // count, and anything under one mean zero shards, and a fractional count
+    // truncates (1.9 -> 1, 2.9 -> 2).
     let mut ring = HashRing::make(None);
     ring.add(node("a"), None);
-    assert_eq!(ring.get_shards(0).map(|s| s.len()), Some(0));
-    let one = ring.get_shards(1).expect("shards");
+    assert_eq!(ring.get_shards(f64::NAN).map(|s| s.len()), Some(0));
+    assert_eq!(ring.get_shards(-1.0).map(|s| s.len()), Some(0));
+    assert_eq!(ring.get_shards(0.0).map(|s| s.len()), Some(0));
+    assert_eq!(ring.get_shards(0.5).map(|s| s.len()), Some(0));
+    let one = ring.get_shards(1.9).expect("shards");
     assert_eq!(one.len(), 1);
     assert_eq!(one[0].id, "a");
+    assert_eq!(ring.get_shards(2.9).map(|s| s.len()), Some(2));
+}
+
+#[test]
+fn hash_ring_shards_overflow_to_the_first_ring_entry() {
+    // HashRing.test.ts:63 — with one ring entry per node, these keys make
+    // every shard nearest `second`, so `first` at ring index 0 is allocated
+    // only by the exclusion scan, which has to spiral back to the ring's
+    // first entry to find it.
+    let mut ring = HashRing::make(Some(1));
+    ring.add(ring_node("node-0", "first"), None);
+    ring.add(ring_node("node-1", "second"), None);
+    // `get` hashes its input with the same function the shard count uses on
+    // `shard-N`, so this is the node each shard sees first.
+    for shard in 0..3 {
+        let nearest = ring.get(&format!("shard-{shard}")).expect("nearest");
+        assert_eq!(nearest.payload, "second", "shard-{shard} nearest");
+    }
+    let shards = ring.get_shards(3.0).expect("allocated");
+    let payloads: Vec<&str> = shards.iter().map(|n| n.payload).collect();
+    assert_eq!(payloads.len(), 3);
+    assert_eq!(
+        payloads.iter().filter(|p| **p == "first").count(),
+        1,
+        "the overflow reaches the first ring entry: {payloads:?}"
+    );
+    assert_eq!(
+        payloads.iter().filter(|p| **p == "second").count(),
+        2,
+        "`second` keeps its one-shard cap plus the last shard: {payloads:?}"
+    );
 }
 
 #[test]

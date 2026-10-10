@@ -356,7 +356,7 @@ tests = ["packages/effect/test/HashMap.test.ts"]
 [[module]]
 path = "packages/effect/src/HashRing.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/HashRing.test.ts"]
