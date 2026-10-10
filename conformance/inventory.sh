@@ -101,6 +101,30 @@ if [[ -f $dest ]]; then
   done <"$dest"
 fi
 
+# ADR-0002 '"'"'Behavior parity'"'"': "A module row is not `matched` while any
+# behavior row from its linked test file is still `unported`." That rule lived
+# only in prose, so a hand-set `matched` survived every regen: 26 modules
+# claimed parity with up to 122 of their own rows still unported, and 31 more
+# were `matched` with no linked test file at all. The status is derived here
+# rather than carried, so a regen cannot drift.
+#
+# Read from the previous behavior file rather than from the one this run
+# writes: a row'"'"'s status only changes when its (path, line, title) key
+# changes, which is itself a regeneration artifact, so the previous file'"'"'s
+# counts are the counts this run will emit.
+declare -A rows_in=()
+declare -A unported_in=()
+behavior_prev="$root/conformance/behavior-tests.tsv"
+if [[ -f $behavior_prev ]]; then
+  while IFS=$'\t' read -r bstatus bpath _bline _bkind _btitle _brust || [[ -n ${bstatus:-} ]]; do
+    [[ $bstatus == \#* || $bstatus == status || -z ${bpath:-} ]] && continue
+    rows_in[$bpath]=$(( ${rows_in[$bpath]:-0} + 1 ))
+    if [[ $bstatus == unported ]]; then
+      unported_in[$bpath]=$(( ${unported_in[$bpath]:-0} + 1 ))
+    fi
+  done <"$behavior_prev"
+fi
+
 tag_of() {
   local head
   head="$(head -n 40 "$1")"
@@ -196,6 +220,26 @@ count=0
         fi
         tests_field+="\"$test_rel\""
       done < <(printf '%s\n' "${tests_for[$src_key]}" | sort)
+    fi
+    # ADR-0002:100 + :565. `matched` is derived, never carried: a module
+    # claims parity only when its linked test file exists and every row in it
+    # is ported, not-applicable, or skipped-upstream. A module with no linked
+    # test file is `unmatched`, because "matched requires a named test".
+    if [[ $class == port || $class == unstable-port || $class == experimental-port ]]; then
+      linked_rows=0
+      linked_unported=0
+      # tests_field is '"path", "path"': strip quotes and the comma
+      # separator, or every key misses and every module reads as testless.
+      for t in ${tests_field//[\",]/ }; do
+        [[ -z $t ]] && continue
+        linked_rows=$(( linked_rows + ${rows_in[$t]:-0} ))
+        linked_unported=$(( linked_unported + ${unported_in[$t]:-0} ))
+      done
+      if (( linked_rows == 0 || linked_unported > 0 )); then
+        status="unmatched"
+      else
+        status="matched"
+      fi
     fi
     printf '%s\n' "[[module]]"
     printf 'path = "%s"\n' "$rel"

@@ -1,4 +1,4 @@
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 
 use elm_effect_conformance::{Behavior, Ledger, repo_root};
@@ -192,4 +192,83 @@ fn port_rows_are_matched() {
     let behaviors = Behavior::load(&root.join("conformance/behavior-tests.tsv")).unwrap();
     let still = Behavior::still_open(&behaviors);
     assert_eq!(still, 0, "{still} behavior tests are still unported");
+}
+
+/// ADR-0002 §"Behavior parity": "A module row is not `matched` while any
+/// behavior row from its linked test file is still `unported`."
+///
+/// This rule lived only in prose, so `inventory.sh` carried a hand-set
+/// `matched` forward forever. 26 modules claimed parity while up to 122 of
+/// their own rows were still `unported` (`JsonSchema.ts` was `matched` with
+/// **zero** ported rows), and 31 more were `matched` with no linked test
+/// file at all. The status is now derived in the generator; this test is what
+/// makes that permanent, so a regen or a hand edit cannot reintroduce drift.
+#[test]
+fn matched_modules_have_no_unported_behaviors() {
+    let root = repo_root();
+    let ledger = Ledger::load(&root.join("conformance/modules.toml")).unwrap();
+    let behaviors = Behavior::load(&root.join("conformance/behavior-tests.tsv")).unwrap();
+
+    let mut linked: BTreeMap<&str, (usize, usize)> = BTreeMap::new();
+    for row in &behaviors {
+        let slot = linked.entry(row.path.as_str()).or_insert((0, 0));
+        slot.0 += 1;
+        if row.status == "unported" {
+            slot.1 += 1;
+        }
+    }
+
+    let mut unearned = Vec::new();
+    let mut drift = Vec::new();
+    for module in &ledger.modules {
+        if !matches!(
+            module.class.as_str(),
+            "port" | "unstable-port" | "experimental-port"
+        ) {
+            continue;
+        }
+        let mut rows = 0usize;
+        let mut unported = 0usize;
+        for test in &module.tests {
+            if let Some((total, open)) = linked.get(test.as_str()) {
+                rows += total;
+                unported += open;
+            }
+        }
+        match module.status.as_str() {
+            // ADR-0002:565 — parity theater: types without tests.
+            "matched" if rows == 0 => {
+                unearned.push(format!("{}: matched with no linked behavior rows", module.path));
+            }
+            // ADR-0002:100 — matched while a linked row is still open.
+            "matched" if unported > 0 => {
+                drift.push(format!(
+                    "{}: matched with {unported} unported behavior rows",
+                    module.path
+                ));
+            }
+            // The other direction: every row ported but the module never
+            // advanced. Deriving the status makes both impossible.
+            "unmatched" if rows > 0 && unported == 0 => {
+                drift.push(format!(
+                    "{}: unmatched with every behavior row already ported",
+                    module.path
+                ));
+            }
+            _ => {}
+        }
+    }
+
+    assert!(
+        unearned.is_empty(),
+        "{} modules claim parity with no linked test:\n{}",
+        unearned.len(),
+        unearned.join("\n")
+    );
+    assert!(
+        drift.is_empty(),
+        "{} modules drift from ADR-0002:\n{}",
+        drift.len(),
+        drift.join("\n")
+    );
 }
