@@ -2597,11 +2597,11 @@ unported	packages/effect/test/Migrator.test.ts	29	it.effect	fromBabelGlob accept
 unported	packages/effect/test/Migrator.test.ts	46	it.effect	fromFileSystem accepts js, ts, mjs, and mts files	
 unported	packages/effect/test/Migrator.test.ts	70	it.effect	fromFileSystem imports migrations through the file URL the platform resolves	
 unported	packages/effect/test/Migrator.test.ts	101	it.effect	fromFileSystem surfaces file URL failures as import errors	
-unported	packages/effect/test/MutableHashMap.test.ts	62	it	retains its entries after it is used as a lookup key	
-unported	packages/effect/test/MutableHashMap.test.ts	72	it	isMutableHashMap	
-unported	packages/effect/test/MutableHashMap.test.ts	77	it	toString	
-unported	packages/effect/test/MutableHashMap.test.ts	89	it	toJSON	
-unported	packages/effect/test/MutableHashMap.test.ts	98	it	inspect	
+not-applicable	packages/effect/test/MutableHashMap.test.ts	62	it	retains its entries after it is used as a lookup key	N/A: the pin makes a map another map's lookup key, which needs JS structural hashing; this port's map has no Hash/Eq, so a map cannot be a key
+ported	packages/effect/test/MutableHashMap.test.ts	72	it	isMutableHashMap	mutable_hash_map_guard_identifies_mutable_maps
+ported	packages/effect/test/MutableHashMap.test.ts	77	it	toString	mutable_hash_map_runtime_shapes
+ported	packages/effect/test/MutableHashMap.test.ts	89	it	toJSON	mutable_hash_map_runtime_shapes
+ported	packages/effect/test/MutableHashMap.test.ts	98	it	inspect	mutable_hash_map_runtime_shapes
 ported	packages/effect/test/MutableHashMap.test.ts	113	it	make	mutable_hash_map_in_place
 ported	packages/effect/test/MutableHashMap.test.ts	124	it	fromIterable	mutable_hash_map_modify_from_iterate_and_pipe
 ported	packages/effect/test/MutableHashMap.test.ts	135	it	iterate	mutable_hash_map_modify_from_iterate_and_pipe

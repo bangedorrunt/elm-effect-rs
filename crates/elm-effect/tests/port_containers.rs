@@ -260,6 +260,37 @@ fn mutable_hash_map_modify_from_iterate_and_pipe() {
     assert_eq!(piped.size(), 1);
 }
 
+#[test]
+fn mutable_hash_map_runtime_shapes() {
+    // MutableHashMap.test.ts:77 — `String(map)` renders the tagged map;
+    // :98 — `inspect` is the same shape (Rust's spelling is `Debug`);
+    // :89 — `toJSON` is the `values` shape. Entries render sorted by their
+    // rendering because the backing map has no insertion order.
+    let m = MutableHashMap::make([(0, "a"), (1, "b")]);
+    assert_eq!(m.to_string(), "MutableHashMap([[0,\"a\"],[1,\"b\"]])");
+    assert_eq!(format!("{m:?}"), "MutableHashMap([[0,\"a\"],[1,\"b\"]])");
+    assert_eq!(
+        m.json_shape(),
+        "{\"_id\":\"MutableHashMap\",\"values\":[[0,\"a\"],[1,\"b\"]]}"
+    );
+}
+
+#[test]
+fn mutable_hash_map_guard_identifies_mutable_maps() {
+    // MutableHashMap.test.ts:72 — `isMutableHashMap` accepts the mutable map
+    // and rejects a plain JS `Map`. Rust types are the guard, so the negative
+    // is a foreign value that cannot reach the predicate; what the guard is
+    // for is pinned instead: the mutable map updates in place through a shared
+    // reference, the persistent one hands back a new map.
+    let mutable = MutableHashMap::make([("a".to_owned(), 1)]);
+    let persistent = HashMap::make([("a".to_owned(), 1)]);
+    mutable.set("b".to_owned(), 2);
+    assert_eq!(mutable.size(), 2, "the shared map grew in place");
+    let grown = persistent.set("b".to_owned(), 2);
+    assert_eq!(persistent.size(), 1, "the persistent map did not");
+    assert_eq!(grown.size(), 2);
+}
+
 // --- MutableHashSet ---
 
 #[test]

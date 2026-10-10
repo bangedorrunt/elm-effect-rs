@@ -484,7 +484,7 @@ tests = ["packages/effect/test/Metric.test.ts"]
 [[module]]
 path = "packages/effect/src/MutableHashMap.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/MutableHashMap.test.ts"]

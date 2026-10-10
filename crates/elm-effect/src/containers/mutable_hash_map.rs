@@ -10,9 +10,59 @@ use std::hash::Hash;
 use std::rc::Rc;
 
 /// In-place map behind shared ownership.
-#[derive(Clone, Debug, Default)]
+///
+/// `Debug` and `Display` are written by hand rather than derived: the pin
+/// renders the map as `MutableHashMap([[0,"a"],[1,"b"]])`, and a derived
+/// `Debug` would print the `Rc<RefCell<..>>` wrapper instead. Entries are
+/// sorted by their rendering because the backing map keeps no insertion
+/// order, which is what makes the shape stable.
+#[derive(Clone, Default)]
 pub struct MutableHashMap<K, V> {
     inner: Rc<RefCell<StdMap<K, V>>>,
+}
+
+/// `[[key,value],...]`, sorted by rendering (see the struct docs).
+fn rendered_entries<K: std::fmt::Debug, V: std::fmt::Debug>(
+    inner: &Rc<RefCell<StdMap<K, V>>>,
+) -> Vec<String> {
+    let map = inner.borrow();
+    let mut parts: Vec<String> = map
+        .iter()
+        .map(|(key, value)| format!("[{key:?},{value:?}]"))
+        .collect();
+    parts.sort();
+    parts
+}
+
+impl<K: std::fmt::Debug, V: std::fmt::Debug> MutableHashMap<K, V> {
+    /// `toJSON` shape: `{"_id":"MutableHashMap","values":[[0,"a"]]}`.
+    pub fn json_shape(&self) -> String {
+        format!(
+            "{{\"_id\":\"MutableHashMap\",\"values\":[{}]}}",
+            rendered_entries(&self.inner).join(",")
+        )
+    }
+}
+
+impl<K: std::fmt::Debug, V: std::fmt::Debug> std::fmt::Display for MutableHashMap<K, V> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "MutableHashMap([{}])",
+            rendered_entries(&self.inner).join(",")
+        )
+    }
+}
+
+impl<K: std::fmt::Debug, V: std::fmt::Debug> std::fmt::Debug for MutableHashMap<K, V> {
+    /// The pin's `inspect` shape, which is the same rendering as `toString`.
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "MutableHashMap([{}])",
+            rendered_entries(&self.inner).join(",")
+        )
+    }
 }
 
 impl<K, V> MutableHashMap<K, V>
