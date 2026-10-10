@@ -3,14 +3,13 @@
 //! subscriber handles read later sends, and command lists run as bounded
 //! map-reduce windows.
 
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 
 use elm_effect::{Cause, Defect, Effect, ManagedRuntime};
 use elm_effect_elm::{
     Boot, Cmd, Durability, Failure, Interpret, InterpretError, Loop, Producer, Program, Update,
 };
-use elm_effect_journal::durable_log::{DurableLog, MemLog, Offset};
+use elm_effect_journal::durable_log::{AppendError, DurableLog, MemLog, Offset};
 use serde::{Deserialize, Serialize};
 
 // ---------------------------------------------------------------------------
@@ -20,8 +19,12 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Debug, Default, PartialEq)]
 struct CModel {
     count: i64,
-    failures: Vec<Failure>,
-    reported: Vec<Failure>,
+    failures: Vec<Failure<InterpretError>>,
+    reported: Vec<Failure<InterpretError>>,
+    /// Provider runs observed by the fold. The test double holds this
+    /// counter: nothing process-global, so parallel test threads cannot
+    /// interleave it.
+    provider_runs: usize,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -31,8 +34,10 @@ enum CMsg {
     Defect,
     Interrupt,
     Empty,
-    Failed(Failure),
-    Noop,
+    Failed(Failure<InterpretError>),
+    /// Reported by the test double when its provider ran. The fold counts
+    /// it; there is no static counter to guard.
+    ProviderRan,
     Report,
 }
 
@@ -60,6 +65,7 @@ impl Program for Counter {
     type Model = CModel;
     type Msg = CMsg;
     type Cmd = CCmd;
+    type Err = InterpretError;
 
     fn init(_boot: &Boot) -> Update<CModel, CCmd> {
         Update::quiet(CModel::default())
@@ -80,7 +86,11 @@ impl Program for Counter {
                 m.failures.push(failure.clone());
                 Update::quiet(m)
             }
-            CMsg::Noop => Update::quiet(model.clone()),
+            CMsg::ProviderRan => {
+                let mut m = model.clone();
+                m.provider_runs += 1;
+                Update::quiet(m)
+            }
             CMsg::Report => {
                 let mut m = model.clone();
                 m.reported = m.failures.clone();
@@ -89,30 +99,18 @@ impl Program for Counter {
         }
     }
 
-    fn failure(failure: &Failure) -> CMsg {
+    fn failure(failure: &Failure<InterpretError>) -> CMsg {
         CMsg::Failed(failure.clone())
     }
 }
 
-/// Every test that can run `CCmd::Persist` takes this lock: the counter is
-/// a process-wide static, so an unlocked test silently breaks the counts
-/// the provider tests assert. Measured: `subscriber_reads_model_after_later_sends`
-/// folded `Add`, which persists, from outside the lock and both provider tests
-/// failed under parallel threads.
-static PROVIDER_LOCK: Mutex<()> = Mutex::new(());
-static PROVIDER_RUNS: AtomicUsize = AtomicUsize::new(0);
-
 struct Run;
 
 impl Interpret<Counter> for Run {
-    type Error = InterpretError;
-
     fn interpret(cmd: &CCmd) -> Effect<CMsg, InterpretError> {
         match cmd {
-            CCmd::Persist { .. } => {
-                PROVIDER_RUNS.fetch_add(1, Ordering::SeqCst);
-                Effect::sync(|| CMsg::Noop)
-            }
+            // The test double reports its own run. See CMsg::ProviderRan.
+            CCmd::Persist { .. } => Effect::sync(|| CMsg::ProviderRan),
             CCmd::Explode(why) => Effect::fail(InterpretError(why.clone())),
             CCmd::Defect => Effect::die(Defect::new("kaboom")),
             CCmd::Interrupt => Effect::interrupt(),
@@ -130,9 +128,10 @@ fn failing_command_becomes_a_message_and_later_update_sees_it() {
     let mut app = boot_app(Arc::new(MemLog::new()), Producer::new("test"));
     app.send(CMsg::Explode("boom".to_string()));
     assert_eq!(app.model().failures.len(), 1, "failure reached the fold");
-    // Match the kind structurally, not by grepping a rendered string.
+    // Match the kind and the typed value structurally, not by grepping a
+    // rendered string: the fold sees the interpreter's error by value.
     match &app.model().failures[0] {
-        Failure::Fail(message) => assert!(message.contains("boom"), "{message}"),
+        Failure::Fail(error) => assert_eq!(error, &InterpretError("boom".to_string())),
         other => panic!("expected a typed failure, got {other:?}"),
     }
     // A later fold sees the failure recorded by the earlier one.
@@ -147,7 +146,7 @@ fn defect_becomes_a_message_too() {
     app.send(CMsg::Defect);
     assert_eq!(app.model().failures.len(), 1, "defect reached the fold");
     match &app.model().failures[0] {
-        Failure::Defect(message) => assert_eq!(message, "kaboom"),
+        Failure::Defect(defect) => assert_eq!(defect.message, "kaboom"),
         other => panic!("expected a defect, got {other:?}"),
     }
 }
@@ -165,14 +164,12 @@ fn interrupt_becomes_a_message_and_is_not_swallowed_by_a_handler() {
     app.send(CMsg::Empty);
     assert_eq!(
         app.model().failures[1],
-        Failure::Defect("empty cause".to_string())
+        Failure::Defect(Defect::new("empty cause"))
     );
 }
 
 #[test]
 fn durable_command_appends_through_the_log_before_running() {
-    let _guard = PROVIDER_LOCK.lock().unwrap();
-    PROVIDER_RUNS.store(0, Ordering::SeqCst);
     let log: Arc<dyn DurableLog> = Arc::new(MemLog::new());
     let mut app = boot_app(Arc::clone(&log), Producer::new("test"));
     app.send(CMsg::Add(3));
@@ -181,36 +178,37 @@ fn durable_command_appends_through_the_log_before_running() {
     assert_eq!(entries.len(), 1);
     assert!(entries[0].1.contains("\"count\""), "payload carries the intent key");
     assert_eq!(app.intents().len(), 1);
-    assert_eq!(PROVIDER_RUNS.load(Ordering::SeqCst), 1, "provider ran");
+    // The provider ran, and the fold counted it. No process global.
+    assert_eq!(app.model().provider_runs, 1);
 }
 
 #[test]
 fn append_failure_skips_the_provider() {
-    let _guard = PROVIDER_LOCK.lock().unwrap();
-    PROVIDER_RUNS.store(0, Ordering::SeqCst);
     let log: Arc<dyn DurableLog> = Arc::new(MemLog::new());
     // seq 3 on an empty log is a gap: the append fails, the durable
     // command must not run.
     let producer = Producer { producer_id: "test".to_string(), epoch: 0, seq: 3 };
     let mut app = boot_app(Arc::clone(&log), producer);
     app.send(CMsg::Add(3));
-    assert_eq!(PROVIDER_RUNS.load(Ordering::SeqCst), 0, "provider must not run");
+    // The fold counted zero provider runs, so the provider did not run.
+    assert_eq!(app.model().provider_runs, 0, "provider must not run");
     assert!(app.intents().is_empty());
     assert!(log.read_from(&Offset::Start).unwrap().is_empty());
     // The fold still learns the command was dropped: a rejection is a
-    // reported outcome, not a silent skip.
+    // reported outcome carrying the log's typed error, not a silent skip.
     let reported = &app.model().failures;
     match reported.last() {
-        Some(Failure::NotAppended(message)) => assert!(message.contains("seq gap"), "{message}"),
+        Some(Failure::NotAppended(error)) => {
+            assert!(matches!(error, AppendError::SeqGap { .. }), "{error:?}")
+        }
         other => panic!("expected NotAppended, got {other:?}"),
     }
 }
 
 #[test]
 fn subscriber_reads_model_after_later_sends() {
-    // Add folds into a durable Persist, so this test writes the shared
-    // provider counter and takes the same lock the provider tests do.
-    let _guard = PROVIDER_LOCK.lock().unwrap();
+    // The fold owns the provider run count, so nothing else shares state
+    // with the provider tests: no lock, no static, parallel threads safe.
     let mut app = boot_app(Arc::new(MemLog::new()), Producer::new("test"));
     let sub = app.subscriber();
     app.send(CMsg::Add(1));
@@ -250,6 +248,7 @@ impl Program for Windowed {
     type Model = u32;
     type Msg = WMsg;
     type Cmd = WCmd;
+    type Err = InterpretError;
 
     fn init(_boot: &Boot) -> Update<u32, WCmd> {
         Update::quiet(0)
@@ -266,7 +265,7 @@ impl Program for Windowed {
         }
     }
 
-    fn failure(_failure: &Failure) -> WMsg {
+    fn failure(_failure: &Failure<InterpretError>) -> WMsg {
         WMsg::NextDone(0)
     }
 }
@@ -278,8 +277,6 @@ static ORDER: Mutex<Vec<String>> = Mutex::new(Vec::new());
 struct WinRun;
 
 impl Interpret<Windowed> for WinRun {
-    type Error = InterpretError;
-
     fn interpret(cmd: &WCmd) -> Effect<WMsg, InterpretError> {
         match cmd {
             WCmd::Do(i) => {
@@ -340,4 +337,215 @@ fn default_bound_is_eight() {
     expected.push("run9".to_string());
     expected.push("next9".to_string());
     assert_eq!(order, expected);
+}
+// ---------------------------------------------------------------------------
+// Overlap: a window's commands run concurrently, and still in order.
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+enum SCmd {
+    Slow(u32),
+}
+
+impl Cmd for SCmd {
+    fn durability(&self) -> Durability {
+        Durability::Ephemeral
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+enum SMsg {
+    /// Emits the window. A message, so the bound is already set when the
+    /// window runs (boot's init window runs at the default bound before
+    /// `with_bound` could apply).
+    Launch,
+    Done(u32),
+}
+
+#[derive(Clone, Debug, Default, PartialEq)]
+struct SModel {
+    done: Vec<u32>,
+    waits: Vec<u32>,
+}
+
+struct Overlapping;
+
+impl Program for Overlapping {
+    type Model = SModel;
+    type Msg = SMsg;
+    type Cmd = SCmd;
+    type Err = InterpretError;
+
+    fn init(boot: &Boot) -> Update<SModel, SCmd> {
+        let waits = boot
+            .get("waits")
+            .unwrap_or("")
+            .split(',')
+            .filter(|s| !s.is_empty())
+            .filter_map(|w| w.parse().ok())
+            .collect();
+        Update::quiet(SModel { done: Vec::new(), waits })
+    }
+
+    fn update(model: &SModel, msg: &SMsg) -> Update<SModel, SCmd> {
+        match msg {
+            SMsg::Launch => {
+                let window = model.waits.iter().map(|w| SCmd::Slow(*w)).collect();
+                Update::with_commands(model.clone(), window)
+            }
+            SMsg::Done(n) => {
+                let mut m = model.clone();
+                m.done.push(*n);
+                Update::quiet(m)
+            }
+        }
+    }
+
+    fn failure(_failure: &Failure<InterpretError>) -> SMsg {
+        SMsg::Done(u32::MAX)
+    }
+}
+
+struct SlowRun;
+
+impl Interpret<Overlapping> for SlowRun {
+    fn interpret(cmd: &SCmd) -> Effect<SMsg, InterpretError> {
+        let n = match cmd {
+            SCmd::Slow(n) => *n,
+        };
+        // A provider that holds its thread: four of them overlapped cost
+        // one wait, sequenced they cost four.
+        Effect::sync(move || {
+            std::thread::sleep(std::time::Duration::from_millis(n as u64));
+            SMsg::Done(n)
+        })
+    }
+}
+
+fn boot_overlapping(bound: usize) -> (Loop<Overlapping, SlowRun>, std::time::Instant) {
+    let boot = Boot::parse(vec!["waits=50,50,50,50".to_string()]);
+    let started = std::time::Instant::now();
+    let app = Loop::<Overlapping, SlowRun>::boot(
+        &boot,
+        ManagedRuntime::new(),
+        Arc::new(MemLog::new()),
+        Producer::new("test"),
+    )
+    .with_bound(bound);
+    (app, started)
+}
+
+#[test]
+fn a_window_overlaps_its_commands_and_keeps_their_order() {
+    let (mut app, _started) = boot_overlapping(8);
+    let started = std::time::Instant::now();
+    app.send(SMsg::Launch);
+    let elapsed = started.elapsed();
+    // 4 x 50ms: overlapped the window costs about one wait (~50ms),
+    // sequenced about four (~200ms). 120ms sits in the empty middle, so a
+    // loaded box cannot fake either answer by drifting.
+    assert!(
+        elapsed < std::time::Duration::from_millis(120),
+        "a 4-command window of 50ms each took {elapsed:?}: it did not overlap"
+    );
+    // The overlap must not reorder the reduce.
+    assert_eq!(app.model().done, vec![50, 50, 50, 50]);
+}
+
+#[test]
+fn a_sequential_window_costs_the_sum_of_its_commands() {
+    let (mut app, _started) = boot_overlapping(1);
+    let started = std::time::Instant::now();
+    app.send(SMsg::Launch);
+    let elapsed = started.elapsed();
+    assert!(
+        elapsed >= std::time::Duration::from_millis(150),
+        "bound 1 should run one at a time, costing about 200ms, took {elapsed:?}"
+    );
+    assert_eq!(app.model().done, vec![50, 50, 50, 50]);
+}
+
+/// A provider that panics inside a concurrent window: the runtime's run
+/// edge catches the unwind, so the fold still gets a defect message and the
+/// loop survives. Without that guard, `handle.join().unwrap()` would tear
+/// the loop down on one bad provider.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+enum PCmd {
+    Boom(i64),
+}
+
+impl Cmd for PCmd {
+    fn durability(&self) -> Durability {
+        Durability::Ephemeral
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+enum PMsg {
+    /// Emits three panicking providers in one window.
+    Went,
+    /// The fold saw this defect.
+    SawDefect,
+}
+
+#[derive(Clone, Debug, Default, PartialEq)]
+struct PModel {
+    defects: usize,
+}
+
+struct Panicky;
+
+impl Program for Panicky {
+    type Model = PModel;
+    type Msg = PMsg;
+    type Cmd = PCmd;
+    type Err = InterpretError;
+
+    fn init(_boot: &Boot) -> Update<PModel, PCmd> {
+        Update::quiet(PModel::default())
+    }
+
+    fn update(model: &PModel, msg: &PMsg) -> Update<PModel, PCmd> {
+        match msg {
+            PMsg::Went => Update::with_commands(
+                model.clone(),
+                vec![PCmd::Boom(1), PCmd::Boom(2), PCmd::Boom(3)],
+            ),
+            PMsg::SawDefect => {
+                let mut m = model.clone();
+                m.defects += 1;
+                Update::quiet(m)
+            }
+        }
+    }
+
+    fn failure(_failure: &Failure<InterpretError>) -> PMsg {
+        // A panic is a defect, never a typed failure: L2 keeps them apart,
+        // and this handler takes the defect path only.
+        PMsg::SawDefect
+    }
+}
+
+struct BoomRun;
+
+impl Interpret<Panicky> for BoomRun {
+    fn interpret(cmd: &PCmd) -> Effect<PMsg, InterpretError> {
+        let n = match cmd {
+            PCmd::Boom(n) => *n,
+        };
+        Effect::sync(move || panic!("provider {n} panicked"))
+    }
+}
+
+#[test]
+fn a_panicking_provider_in_a_window_becomes_a_defect_not_a_crash() {
+    let mut app = Loop::<Panicky, BoomRun>::boot(
+        &Boot::default(),
+        ManagedRuntime::new(),
+        Arc::new(MemLog::new()),
+        Producer::new("test"),
+    );
+    app.send(PMsg::Went);
+    // Each of the three panicked, and the loop folded three defects
+    // instead of dying on the first `join`.
+    assert_eq!(app.model().defects, 3);
 }

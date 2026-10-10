@@ -8,4 +8,6 @@ serde_json = "1"
 thiserror = "1"
 
 [dev-dependencies]
-elm-effect = { path = "../elm-effect" }
+# The tests decode through `elm_effect`'s Schema re-export, which the schema
+# feature gates.
+elm-effect = { path = "../elm-effect", features = ["schema"] }

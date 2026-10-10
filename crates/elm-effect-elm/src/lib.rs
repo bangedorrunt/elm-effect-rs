@@ -13,14 +13,17 @@
 //! no send path by construction (see `subscriber_cannot_write`). No
 //! command outcome is lost: success keeps the interpreter's message, and
 //! every failure, defect, and interrupt enters through
-//! [`Program::failure`] as a [`Failure`].
+//! [`Program::failure`] as a [`Failure`]. A command window runs its
+//! commands concurrently, because the runtime's run edge is stateless and
+//! [`ManagedRuntime`] is `Sync`; the fold stays sequential, so a
+//! concurrent window is still deterministic and ordered.
 
 use std::cell::RefCell;
 use std::collections::BTreeMap;
 use std::rc::Rc;
 use std::sync::Arc;
 
-use elm_effect::{Cause, Effect, Exit, ManagedRuntime};
+use elm_effect::{Cause, Defect, Effect, Exit, ManagedRuntime, Reason};
 use elm_effect_journal::durable_log::{AppendError, DurableLog, SCHEMA_VERSION};
 
 pub mod replay;
@@ -103,6 +106,10 @@ pub trait Program {
     type Msg: Send + 'static;
     /// Outgoing intents.
     type Cmd: Cmd;
+    /// The typed error a command's interpreter fails with, by value.
+    /// [`Failure::Fail`] carries it, and [`Interpret`] fails with it: the
+    /// two change together.
+    type Err: Send + 'static;
 
     /// Starting model plus initial commands.
     fn init(boot: &Boot) -> Update<Self::Model, Self::Cmd>;
@@ -114,52 +121,63 @@ pub trait Program {
     /// Required, so the loop never discards one: a program that cannot
     /// name this shape could only drop failures, and dropping them is
     /// the bug this method exists to prevent.
-    fn failure(failure: &Failure) -> Self::Msg;
+    ///
+    /// [`Failure::Fail`] carries the interpreter's error type by value, so
+    /// the fold matches on the error structurally rather than on its
+    /// rendered text. [`Interpret`] and this method change together: the
+    /// error type is the one declared on [`Program`].
+    fn failure(failure: &Failure<Self::Err>) -> Self::Msg;
 }
 
 /// A command outcome that was not success. The three cause kinds stay
 /// apart (ADR-0002 L2): a program that handles a typed failure
 /// structurally cannot accidentally swallow a defect or an interrupt.
-/// The typed value arrives here rendered by its `Display`, because
-/// [`Program`] cannot name the interpreter's error type; the kind does
-/// not collapse.
+/// [`Failure::Fail`] hands the fold the interpreter's error by value, not
+/// its `Display` text, so the fold decides on data rather than on a
+/// string it has to re-parse.
 #[derive(Clone, Debug, PartialEq)]
-pub enum Failure {
-    /// The interpreter's typed failure, rendered.
-    Fail(String),
+pub enum Failure<E> {
+    /// The interpreter's typed failure, by value. Not a rendered message:
+    /// a fold that needs the text can render it itself.
+    Fail(E),
     /// A defect: a panic or a broken invariant. Never a typed error value.
-    Defect(String),
+    Defect(Defect),
     /// Interruption: not a failure, not a defect.
     Interrupted,
     /// The durable log rejected the append, so the command never ran.
-    NotAppended(String),
+    NotAppended(AppendError),
 }
 
-impl Failure {
+impl<E> Failure<E> {
     /// Classify one cause with `squash`'s priority — fail, then defect,
-    /// then interrupt — so one exit yields one message. A cause carrying
-    /// several kinds reports the first, in that order.
-    fn of_cause<E: std::fmt::Display>(cause: &Cause<E>) -> Self {
-        if let Some(error) = cause.failure() {
-            return Self::Fail(error.to_string());
+    /// then interrupt — so one exit yields one message. Takes the cause by
+    /// value because the typed failure is handed over unrendered.
+    pub fn of_cause(cause: Cause<E>) -> Self {
+        let mut defect = None;
+        let mut interrupted = false;
+        for reason in cause.reasons {
+            match reason {
+                Reason::Fail(error) => return Self::Fail(error),
+                Reason::Die(d) => defect = Some(d),
+                Reason::Interrupt { .. } => interrupted = true,
+            }
         }
-        if let Some(defect) = cause.defects().first() {
-            return Self::Defect(defect.message.clone());
+        if let Some(d) = defect {
+            return Self::Defect(d);
         }
-        if cause.is_interrupted() {
+        if interrupted {
             return Self::Interrupted;
         }
-        Self::Defect("empty cause".to_string())
+        Self::Defect(Defect::new("empty cause"))
     }
 }
 
 /// Command interpreter: each command becomes an effect yielding a message.
+/// The failure channel is the program's [`Program::Err`], so the error the
+/// fold receives is the same type the interpreter declared.
 pub trait Interpret<P: Program> {
-    /// Failure shape of interpretation.
-    type Error: std::fmt::Display + Send + 'static;
-
     /// Turn one command into an effect producing the follow-up message.
-    fn interpret(cmd: &P::Cmd) -> Effect<P::Msg, Self::Error>;
+    fn interpret(cmd: &P::Cmd) -> Effect<P::Msg, P::Err>;
 }
 
 /// Recorded durable intent: key plus JSON body.
@@ -226,7 +244,7 @@ pub struct Loop<P: Program, I: Interpret<P>> {
 impl<P: Program, I: Interpret<P>> Loop<P, I>
 where
     P::Msg: Send + 'static,
-    I::Error: Send + 'static,
+    P::Err: Send + 'static,
 {
     /// Boot the program with the host's runtime, durable log, and producer
     /// identity. Durable commands append to `log` before they run.
@@ -292,42 +310,45 @@ where
     }
 
     /// Bounded map-reduce (Law L13): split the command list into windows of
-    /// at most `bound`; map each command (append the durable intent first,
-    /// then run it synchronously) and reduce the outcomes through the fold
-    /// before the next window starts. Nothing is dropped: success keeps the
-    /// interpreter's message, a failure classifies into a [`Failure`], and
-    /// a rejected append reports one instead of skipping the command in
-    /// silence. Message order equals command order.
+    /// at most [`Loop::bound`]; map each command (append the durable intent
+    /// first, then interpret it), run the window, and reduce the outcomes
+    /// through the fold before the next window starts. Nothing is dropped:
+    /// success keeps the interpreter's message, a failure classifies into a
+    /// [`Failure`], and a rejected append reports one instead of skipping
+    /// the command in silence. Result order equals command order.
     fn run_commands(&mut self, commands: Vec<P::Cmd>) {
         for window in commands.chunks(self.bound) {
-            let mut msgs = Vec::with_capacity(window.len());
-            for cmd in window {
-                msgs.push(self.run_one(cmd));
-            }
-            for msg in msgs {
+            for msg in self.run_window(window) {
                 self.send(msg);
             }
         }
     }
 
-    /// Map one command to its message. A durable intent appends through the
-    /// log before the provider runs; a rejected append is reported to the
-    /// fold and the command is not run, so no provider outruns its record.
-    fn run_one(&mut self, cmd: &P::Cmd) -> P::Msg {
-        if let Durability::Durable { key } = cmd.durability() {
-            match self.append_durable(&key, cmd) {
-                Ok(recorded) => self.intents.push(recorded),
-                Err(error) => {
-                    return P::failure(&Failure::NotAppended(format!(
-                        "durable append rejected: {error}"
-                    )));
+    /// Map one window to its messages. The durable append happens first, in
+    /// order, because offset and seq are loop state; a rejected append is
+    /// reported to the fold and its provider never runs, so no provider
+    /// outruns its record.
+    fn run_window(&mut self, window: &[P::Cmd]) -> Vec<P::Msg> {
+        let mut effects: Vec<Effect<P::Msg, P::Err>> = Vec::with_capacity(window.len());
+        for cmd in window {
+            if let Durability::Durable { key } = cmd.durability() {
+                match self.append_durable(&key, cmd) {
+                    Ok(recorded) => self.intents.push(recorded),
+                    Err(error) => {
+                        effects.push(Effect::succeed(P::failure(&Failure::NotAppended(error))));
+                        continue;
+                    }
                 }
             }
+            effects.push(I::interpret(cmd));
         }
-        match self.rt.run(I::interpret(cmd)) {
-            Exit::Success(msg) => msg,
-            Exit::Failure(cause) => P::failure(&Failure::of_cause(&cause)),
-        }
+        run_effects(effects, &self.rt)
+            .into_iter()
+            .map(|outcome| match outcome {
+                Exit::Success(msg) => msg,
+                Exit::Failure(cause) => P::failure(&Failure::of_cause(cause)),
+            })
+            .collect()
     }
 
     /// Append one durable intent through the log. The payload is the same
@@ -355,3 +376,28 @@ where
 #[derive(Debug, Clone, PartialEq, thiserror::Error)]
 #[error("interpretation failed: {0}")]
 pub struct InterpretError(pub String);
+
+/// Run one window's effects, concurrently. The runtime's run edge is
+/// stateless and `catch_unwind`-guarded and [`ManagedRuntime`] is `Sync`,
+/// so commands in a window may overlap: two scoped threads running effects
+/// on one runtime both succeed. Results keep their position, so the caller
+/// sees them in command order no matter how the threads interleaved.
+///
+/// A window of one runs inline: there is nothing to overlap, and a thread
+/// would cost more than the work.
+fn run_effects<A, E>(effects: Vec<Effect<A, E>>, rt: &ManagedRuntime) -> Vec<Exit<A, E>>
+where
+    A: Send + 'static,
+    E: Send + 'static,
+{
+    if effects.len() < 2 {
+        return effects.into_iter().map(|effect| rt.run(effect)).collect();
+    }
+    std::thread::scope(|scope| {
+        let handles: Vec<_> = effects
+            .into_iter()
+            .map(|effect| scope.spawn(|| rt.run(effect)))
+            .collect();
+        handles.into_iter().map(|handle| handle.join().unwrap()).collect()
+    })
+}

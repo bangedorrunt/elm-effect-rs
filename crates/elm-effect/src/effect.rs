@@ -121,6 +121,10 @@ pub(crate) enum Step<A, E> {
 
 /// An effect: a lazy description of work producing `A`, failing with typed
 /// `E`, needing environment `R`. Building or dropping one runs nothing.
+///
+/// Dropping an unused description warns, because a description that is
+/// never run is work the programmer meant to happen and did not.
+#[must_use = "an unused Effect is a description nobody runs; run it or store it"]
 pub struct Effect<A: Send + 'static, E: Send + 'static, R: Requirement = ()> {
     pub(crate) step: Step<A, E>,
     pub(crate) services: crate::service::Services,

@@ -52,6 +52,7 @@ impl Program for Counter {
     type Model = Model;
     type Msg = Msg;
     type Cmd = CounterCmd;
+    type Err = InterpretError;
 
     fn init(boot: &Boot) -> Update<Model, CounterCmd> {
         let start: i64 = boot.get("start").and_then(|s| s.parse().ok()).unwrap_or(0);
@@ -68,7 +69,7 @@ impl Program for Counter {
         }
     }
 
-    fn failure(_failure: &Failure) -> Msg {
+    fn failure(_failure: &Failure<InterpretError>) -> Msg {
         // This program's interpreters complete silently, so a failure
         // folds like one: no count change, no silent skip.
         Msg::Add(0)
@@ -78,8 +79,6 @@ impl Program for Counter {
 struct Run;
 
 impl Interpret<Counter> for Run {
-    type Error = InterpretError;
-
     fn interpret(cmd: &CounterCmd) -> Effect<Msg, InterpretError> {
         // Persistence completes silently: the fold already moved the model.
         match cmd.clone() {

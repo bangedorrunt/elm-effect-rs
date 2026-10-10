@@ -37,6 +37,7 @@ impl Program for Counter {
     type Model = Model;
     type Msg = Msg;
     type Cmd = CounterCmd;
+    type Err = ();
 
     fn init(_boot: &Boot) -> Update<Model, CounterCmd> {
         Update::quiet(Model { count: 0 })
@@ -52,7 +53,7 @@ impl Program for Counter {
         }
     }
 
-    fn failure(_failure: &Failure) -> Msg {
+    fn failure(_failure: &Failure<()>) -> Msg {
         Msg::Add(0)
     }
 }

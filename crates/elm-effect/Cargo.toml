@@ -6,10 +6,20 @@ license = "MIT"
 publish = false
 
 [features]
-default = ["tokio", "schema", "stm"]
+default = ["tokio"]
 tokio = ["dep:tokio"]
 schema = ["dep:elm-effect-schema"]
 stm = []
+full = ["schema", "stm"]
+
+# STM tests need the stm feature (no longer default: default is tokio only).
+[[test]]
+name = "tx_core"
+required-features = ["stm"]
+
+[[test]]
+name = "tx_deferred"
+required-features = ["stm"]
 
 [dependencies]
 elm-effect-schema = { path = "../elm-effect-schema", optional = true }
