@@ -6113,8 +6113,8 @@ ported	packages/effect/test/encoding/Hex.test.ts	45	it	rounds non-negative lengt
 ported	packages/effect/test/encoding/Hex.test.ts	51	it	uses unsigned 32-bit coercion without validation	hex_random_coerces_u32_without_validation
 ported	packages/effect/test/encoding/Ini.test.ts	5	it	parses sections, arrays, and scalar values	ini_sections_arrays_scalars
 ported	packages/effect/test/encoding/Ini.test.ts	31	it	supports quoted values, comments, and escaped section dots	ini_quoted_comments_escaped_dots
-unported	packages/effect/test/encoding/Ndjson.test.ts	7	it.effect	fails for values without a JSON representation	
-unported	packages/effect/test/encoding/Ndjson.test.ts	23	it.effect	decodeSchema decodes records split across Uint8Array chunks	
+not-applicable	packages/effect/test/encoding/Ndjson.test.ts	7	it.effect	fails for values without a JSON representation	N/A: serde_json::Value has no undefined/function/symbol variants, so ndjson::encode has no input lacking a JSON representation; the Pack failure cannot be constructed
+ported	packages/effect/test/encoding/Ndjson.test.ts	23	it.effect	decodeSchema decodes records split across Uint8Array chunks	ndjson_splits_frames_and_keeps_tail
 ported	packages/effect/test/encoding/Ndjson.test.ts	35	it	identifies Ndjson errors	ndjson_error_guard
 ported	packages/effect/test/encoding/SchemaBinary.test.ts	148	it	packs fixed-size array elements	binary_arrays_pack_fixed_elements
 ported	packages/effect/test/encoding/SchemaBinary.test.ts	164	it	length-prefixes variable-size array elements and nested arrays	binary_nested_number_arrays_roundtrip
