@@ -48,3 +48,26 @@ Build the layer in `main`. Domain code calls `use_service`. Domain code does not
 Two capabilities are two tags, even when one client can do both jobs.
 
 `read_reference` is for an ambient value with a default, such as a log level. It is not a service.
+
+## When there is no value to hand
+
+`provide` needs a value, and a trait method has no `self` to be handed one. An `Interpret` is that case: `interpret(cmd) -> Effect<Msg, Err>` is static, so it cannot capture a database its caller opened.
+
+Boot a runtime from a layer and let it supply the tag at run time:
+
+```rust
+let runtime = ManagedRuntime::make(&layer);
+let ready = use_service::<LedgerTag>()
+    .map(|ledger| ledger.read(cmd))
+    .map_err(|_: std::convert::Infallible| MyError::Unreachable)
+    .provide_from(runtime.context().unwrap());
+let exit = runtime.run(ready);
+```
+
+`provide_from` closes the tag out of the runtime's built services. A tag the layer never built is a defect at the run edge, never a default value, so a runtime booted with the wrong layer refuses instead of running with a made-up world. `map_err` is what makes the join possible at all: `use_service` is `Infallible`, and your `Program` declares a real `Err`.
+
+A `Loop` hands its own `context()` to `Interpret::interpret_in_env`, so an interpreter that needs the world overrides that one method and leaves `interpret` for the case where it needs nothing.
+
+## A `!Sync` world
+
+A service value must be `Clone + Send + Sync`. That is not the same as the store being `Sync`: put the store behind an `Arc<Mutex<..>>` and the handle is all three, which is how a single-threaded database still rides in an effect. The interpreter's effects are `Effect::sync` over the mutex, so the runtime may overlap them at the edge while the store still sees one at a time.

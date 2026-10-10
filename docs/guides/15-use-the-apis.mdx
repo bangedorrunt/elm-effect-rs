@@ -66,6 +66,17 @@ let exit = Runtime::run(ready);
 
 `Layer::<DbTag, Infallible, ()>::from_value(db)` builds a layer from a value. `layer.build(&scope)` runs the constructors. `layer.fresh()` clears the memo so the next build runs the constructors again. `Layer::provide` rejects a cycle before a constructor runs.
 
+When you have no value to hand — inside an `Interpret`, which is static — close the tag from the runtime's built services instead:
+
+```rust
+let layer = Layer::<DbTag, Infallible, ()>::from_value(db);
+let runtime = ManagedRuntime::make(&layer);
+let ready = use_service::<DbTag>().provide_from(runtime.context().unwrap());
+let exit = runtime.run(ready);
+```
+
+`provide_from` takes the services out of a `ManagedRuntime` built from a layer. A tag the layer never built is a defect at the run edge, not a default value. `map_err` translates the typed failure channel, which is how `use_service` (always `Infallible`) joins the `E` your `Program` declares. A `Loop` calls `Interpret::interpret_in_env` with its own `context()`, so an interpreter that needs the world overrides that one method and leaves `interpret` alone.
+
 ## Acquire and release
 
 ```rust
