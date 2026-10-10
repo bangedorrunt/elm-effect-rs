@@ -3351,13 +3351,13 @@ ported	packages/effect/test/ScopedCache.test.ts	619	it.effect	set with TTL - val
 ported	packages/effect/test/ScopedCache.test.ts	634	it.effect	set doesn't invoke lookup function	scoped_cache_set_fills_without_lookup
 ported	packages/effect/test/ScopedCache.test.ts	645	it.effect	set enforces capacity constraints	scoped_cache_set_fills_without_lookup
 unported	packages/effect/test/ScopedCache.test.ts	662	it.effect	resource cleanup when overwriting existing entry	
-unported	packages/effect/test/ScopedCache.test.ts	677	it.effect	returns true for existing key	
-unported	packages/effect/test/ScopedCache.test.ts	690	it.effect	returns false for non-existent key	
-unported	packages/effect/test/ScopedCache.test.ts	702	it.effect	returns false for expired key	
-unported	packages/effect/test/ScopedCache.test.ts	717	it.effect	does not affect LRU order	
-unported	packages/effect/test/ScopedCache.test.ts	740	it.effect	invalidates existing key	
-unported	packages/effect/test/ScopedCache.test.ts	754	it.effect	invalidating non-existent key doesn't error	
-unported	packages/effect/test/ScopedCache.test.ts	767	it.effect	get after invalidate invokes lookup again	
+ported	packages/effect/test/ScopedCache.test.ts	677	it.effect	returns true for existing key	scoped_cache_has_reports_presence_without_touching_lru
+ported	packages/effect/test/ScopedCache.test.ts	690	it.effect	returns false for non-existent key	scoped_cache_has_reports_presence_without_touching_lru
+ported	packages/effect/test/ScopedCache.test.ts	702	it.effect	returns false for expired key	scoped_cache_has_reports_presence_without_touching_lru
+ported	packages/effect/test/ScopedCache.test.ts	717	it.effect	does not affect LRU order	scoped_cache_has_reports_presence_without_touching_lru
+ported	packages/effect/test/ScopedCache.test.ts	740	it.effect	invalidates existing key	scoped_cache_invalidate_forgets_entry
+ported	packages/effect/test/ScopedCache.test.ts	754	it.effect	invalidating non-existent key doesn't error	scoped_cache_invalidate_forgets_entry
+ported	packages/effect/test/ScopedCache.test.ts	767	it.effect	get after invalidate invokes lookup again	scoped_cache_invalidate_forgets_entry
 unported	packages/effect/test/ScopedCache.test.ts	783	it.effect	resource cleanup when invalidating entry	
 unported	packages/effect/test/ScopedCache.test.ts	848	it.effect	invalidates when predicate matches	
 unported	packages/effect/test/ScopedCache.test.ts	862	it.effect	doesn't invalidate when predicate doesn't match	

@@ -271,6 +271,181 @@ fn scoped_cache_set_fills_without_lookup() {
 }
 
 #[test]
+fn scoped_cache_has_reports_presence_without_touching_lru() {
+    // ScopedCache.test.ts:677, :690, :702, :717 — has reports a held,
+    // unexpired entry, and reading it must not refresh recency.
+    use cache::TimeToLive;
+    use elm_effect::{Duration, TestClock};
+
+    let clock = Arc::new(TestClock::new());
+    let lookup = |k: &String| Ok::<usize, String>(k.len());
+
+    let plain = ScopedCache::make(
+        10,
+        TimeToLive::Infinite,
+        clock.clone(),
+        Arc::new(Scope::new(11)),
+        lookup,
+    );
+    assert!(!plain.has(&"test".to_string()));
+    assert_eq!(plain.get(&"test".to_string()), Ok(4));
+    assert!(plain.has(&"test".to_string()));
+
+    let hourly = ScopedCache::make(
+        10,
+        TimeToLive::For(Duration::from_minutes(60)),
+        clock.clone(),
+        Arc::new(Scope::new(12)),
+        lookup,
+    );
+    assert_eq!(hourly.get(&"test".to_string()), Ok(4));
+    clock.adjust(Duration::from_minutes(120));
+    assert!(!hourly.has(&"test".to_string()));
+
+    // With capacity 2, adding "c" must still evict "a" (the oldest), not
+    // the key whose presence was just checked.
+    let bounded = ScopedCache::make(
+        2,
+        TimeToLive::Infinite,
+        clock.clone(),
+        Arc::new(Scope::new(13)),
+        lookup,
+    );
+    bounded.get(&"a".to_string());
+    bounded.get(&"b".to_string());
+    assert!(bounded.has(&"a".to_string()));
+    bounded.get(&"c".to_string());
+    assert!(!bounded.has(&"a".to_string()));
+    assert!(bounded.has(&"b".to_string()));
+    assert!(bounded.has(&"c".to_string()));
+
+    // The row's own sequence above cannot see a recency touch: with two
+    // entries and a capacity of two, the eviction victim is the queue head
+    // either way. A longer run can: if has refreshes recency, the check
+    // leaves a stale name in the queue and a later write evicts a ghost
+    // instead of a live entry, so capacity ends up violated.
+    for key in ["d", "e"] {
+        bounded.get(&key.to_string());
+    }
+    assert_eq!(bounded.size(), 2);
+}
+
+#[test]
+fn scoped_cache_evicts_least_recently_used() {
+    // ScopedCache.test.ts:1572, :1597, :1620, :1639 — eviction takes the
+    // least recently used entry, a hit counts as a use, a capacity of one
+    // keeps only the newest key, and a large capacity keeps everything.
+    use cache::TimeToLive;
+    use elm_effect::TestClock;
+
+    let clock = Arc::new(TestClock::new());
+    let lookup = |k: &String| Ok::<usize, String>(k.len());
+
+    let three = ScopedCache::make(
+        3,
+        TimeToLive::Infinite,
+        clock.clone(),
+        Arc::new(Scope::new(31)),
+        lookup,
+    );
+    for key in ["first", "second", "third"] {
+        three.get(&key.to_string());
+    }
+    assert!(three.has(&"first".to_string()));
+    assert!(three.has(&"second".to_string()));
+    assert!(three.has(&"third".to_string()));
+    three.get(&"fourth".to_string());
+    assert!(!three.has(&"first".to_string()));
+    assert!(three.has(&"second".to_string()));
+    assert!(three.has(&"third".to_string()));
+    assert!(three.has(&"fourth".to_string()));
+
+    let accessed = ScopedCache::make(
+        3,
+        TimeToLive::Infinite,
+        clock.clone(),
+        Arc::new(Scope::new(32)),
+        lookup,
+    );
+    for key in ["a", "b", "c"] {
+        accessed.get(&key.to_string());
+    }
+    // Touching "a" makes "b" the least recently used.
+    accessed.get(&"a".to_string());
+    accessed.get(&"d".to_string());
+    assert!(accessed.has(&"a".to_string()));
+    assert!(!accessed.has(&"b".to_string()));
+    assert!(accessed.has(&"c".to_string()));
+    assert!(accessed.has(&"d".to_string()));
+
+    let single = ScopedCache::make(
+        1,
+        TimeToLive::Infinite,
+        clock.clone(),
+        Arc::new(Scope::new(33)),
+        lookup,
+    );
+    single.get(&"a".to_string());
+    assert!(single.has(&"a".to_string()));
+    single.get(&"b".to_string());
+    assert!(!single.has(&"a".to_string()));
+    assert!(single.has(&"b".to_string()));
+    single.get(&"c".to_string());
+    assert!(!single.has(&"b".to_string()));
+    assert!(single.has(&"c".to_string()));
+
+    let roomy = ScopedCache::make(
+        10_000,
+        TimeToLive::Infinite,
+        clock.clone(),
+        Arc::new(Scope::new(34)),
+        lookup,
+    );
+    for index in 0..100 {
+        roomy.get(&format!("key-{index}"));
+    }
+    for index in 0..100 {
+        assert!(roomy.has(&format!("key-{index}")));
+    }
+    assert_eq!(roomy.size(), 100);
+}
+
+#[test]
+fn scoped_cache_invalidate_forgets_entry() {
+    // ScopedCache.test.ts:740, :754, :767 — invalidate drops the entry,
+    // tolerates a missing key, and forces the next get to run the lookup
+    // again. What invalidate does to the stamp map beyond that is not
+    // observable (see `Cache::invalidate`), so nothing here asserts it.
+    use cache::TimeToLive;
+    use elm_effect::TestClock;
+
+    let clock = Arc::new(TestClock::new());
+    let calls = Arc::new(AtomicUsize::new(0));
+    let counting = {
+        let calls = Arc::clone(&calls);
+        move |_k: &String| {
+            calls.fetch_add(1, Ordering::SeqCst);
+            Ok::<usize, String>(1)
+        }
+    };
+    let cache = ScopedCache::make(
+        10,
+        TimeToLive::Infinite,
+        clock.clone(),
+        Arc::new(Scope::new(21)),
+        counting,
+    );
+    assert_eq!(cache.get(&"test".to_string()), Ok(1));
+    cache.invalidate(&"test".to_string());
+    assert!(!cache.has(&"test".to_string()));
+    // Invalidating an absent key is a no-op, not an error.
+    cache.invalidate(&"test".to_string());
+    assert!(!cache.has(&"test".to_string()));
+    assert_eq!(cache.get(&"test".to_string()), Ok(1));
+    assert_eq!(calls.load(Ordering::SeqCst), 2);
+}
+
+#[test]
 fn pool_blocks_while_exhausted() {
     let pool = Pool::new(1, IdlePolicy::default(), || 1u32);
     let held = pool.acquire();

@@ -93,6 +93,11 @@ where
         if self.expired_now(key) {
             self.forget(&mut map, key);
         } else if let Some(hit) = map.get(key) {
+            // Access order: a hit refreshes recency, so the least recently
+            // used entry is the eviction victim. This is what distinguishes
+            // `get` from `has`, which must leave the order alone.
+            self.order.lock().unwrap().retain(|held| held != key);
+            self.order.lock().unwrap().push_back(key.clone());
             return hit.clone();
         }
         let outcome = (self.lookup)(key);
@@ -194,6 +199,19 @@ where
             Some(Err(_)) => None,
             None => None,
         }
+    }
+
+    /// Drop `key` if held (`Cache.invalidate`): value, recency row, and
+    /// stamp. An unknown key is a no-op rather than an error.
+    ///
+    /// Taking the stamp is hygiene, not observable behavior: every read
+    /// consults a stamp only for a key the map still holds and forgets a
+    /// stale one before running the lookup, so a kept stamp could never
+    /// change an answer. It is dropped anyway, because invalidation-only
+    /// traffic would otherwise grow the stamp map without bound.
+    pub fn invalidate(&self, key: &K) {
+        let mut map = self.map.lock().unwrap();
+        self.forget(&mut map, key);
     }
 
     /// Drop every entry.
@@ -554,6 +572,11 @@ where
     /// `ScopedCache.set`: store a value without running the lookup.
     pub fn set(&self, key: K, value: V) {
         self.cache.set(key, value)
+    }
+
+    /// `ScopedCache.invalidate`: drop one entry; unknown keys are a no-op.
+    pub fn invalidate(&self, key: &K) {
+        self.cache.invalidate(key)
     }
 
     /// Entries currently held.
