@@ -303,10 +303,12 @@ fn broadcast(network: IpAddr, prefix: u8) -> IpAddr {
     match network {
         IpAddr::V4(v4) => {
             let bits = u32::from(v4);
+            // A host route (/32) has no host bits to fill, and shifting by
+            // the full width would overflow: checked_shr yields that zero.
             let host = if prefix == 0 {
                 u32::MAX
             } else {
-                u32::MAX >> prefix
+                u32::MAX.checked_shr(prefix as u32).unwrap_or(0)
             };
             IpAddr::V4((bits | host).into())
         }
@@ -315,7 +317,7 @@ fn broadcast(network: IpAddr, prefix: u8) -> IpAddr {
             let host = if prefix == 0 {
                 u128::MAX
             } else {
-                u128::MAX >> prefix
+                u128::MAX.checked_shr(prefix as u32).unwrap_or(0)
             };
             IpAddr::V6((bits | host).into())
         }

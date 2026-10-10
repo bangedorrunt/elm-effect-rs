@@ -165,6 +165,98 @@ fn ipnetwork_first_last_count() {
 }
 
 #[test]
+fn ipnetwork_matches_independent_range_model() {
+    // IpNetwork.test.ts:244 — first, last, count, canonical round trip, and
+    // containment must agree with an independent bit model, for generated
+    // IPv4 and IPv6 networks.
+    use elm_effect_unstable::net::IpNetwork;
+    use std::net::{IpAddr, Ipv6Addr};
+
+    // Seeded xorshift: the sample set is fixed, so a failure reproduces.
+    let mut seed: u64 = 0x2545_F491_4F6C_DD1D;
+    let mut next = move || {
+        seed ^= seed << 13;
+        seed ^= seed >> 7;
+        seed ^= seed << 17;
+        seed
+    };
+
+    for _ in 0..200 {
+        let octets = [
+            (next() & 0xff) as u8,
+            (next() & 0xff) as u8,
+            (next() & 0xff) as u8,
+            (next() & 0xff) as u8,
+        ];
+        let prefix = (next() % 33) as u8;
+        let input = u32::from_be_bytes(octets);
+        let host_bits = 32 - prefix as u32;
+        let host_mask: u32 = if host_bits == 32 {
+            u32::MAX
+        } else {
+            (1u32 << host_bits) - 1
+        };
+        let first = input & !host_mask;
+        let last = first | host_mask;
+
+        let addr = IpAddr::from(octets);
+        let net = IpNetwork::from_address(addr, prefix as f64).expect("valid prefix");
+        assert!(matches!(net.first(), IpAddr::V4(_)), "expected IPv4 bounds");
+        assert_eq!(net.first(), IpAddr::from(first.to_be_bytes()));
+        assert_eq!(net.last(), IpAddr::from(last.to_be_bytes()));
+        assert_eq!(net.address_count(), 1u128 << host_bits);
+        assert!(net.contains_addr(addr));
+        let parsed = IpNetwork::parse(&net.render()).expect("canonical text parses");
+        assert_eq!(parsed, net);
+    }
+
+    for _ in 0..200 {
+        let mut segments = [0u16; 8];
+        for segment in segments.iter_mut() {
+            *segment = next() as u16;
+        }
+        let prefix = (next() % 129) as u8;
+        let input = segments
+            .iter()
+            .fold(0u128, |value, segment| (value << 16) | *segment as u128);
+        let host_bits = 128 - prefix as u32;
+        let host_mask: u128 = if host_bits == 128 {
+            u128::MAX
+        } else {
+            (1u128 << host_bits) - 1
+        };
+        let first = input & !host_mask;
+        let last = first | host_mask;
+        // Matches the port's saturating count for the /0 case.
+        let count = if host_bits >= 128 {
+            u128::MAX
+        } else {
+            1u128 << host_bits
+        };
+
+        let addr = IpAddr::V6(Ipv6Addr::from(segments));
+        let net = IpNetwork::from_address(addr, prefix as f64).expect("valid prefix");
+        assert!(matches!(net.first(), IpAddr::V6(_)), "expected IPv6 bounds");
+        assert_eq!(net.first(), IpAddr::V6(Ipv6Addr::from(first.to_be_bytes())));
+        assert_eq!(net.last(), IpAddr::V6(Ipv6Addr::from(last.to_be_bytes())));
+        assert_eq!(net.address_count(), count);
+        assert!(net.contains_addr(addr));
+        let parsed = IpNetwork::parse(&net.render()).expect("canonical text parses");
+        assert_eq!(parsed, net);
+    }
+
+    // Host routes regress the range model at its tightest prefix: one
+    // address, so first == last, and the broadcast fill must not shift by
+    // the full width (which panicked before this row was ported).
+    let host4 = IpNetwork::parse("10.1.2.3/32").expect("host route");
+    assert_eq!(host4.first(), host4.last());
+    assert_eq!(host4.address_count(), 1);
+    let host6 = IpNetwork::parse("2001:db8::1/128").expect("host route");
+    assert_eq!(host6.first(), host6.last());
+    assert_eq!(host6.address_count(), 1);
+}
+
+#[test]
 fn ipnetwork_contains_addr_and_network() {
     use elm_effect_unstable::net::IpNetwork;
     use std::net::IpAddr;

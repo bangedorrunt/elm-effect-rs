@@ -6964,8 +6964,8 @@ ported	packages/effect/test/net/IpNetwork.test.ts	170	it	computes first, last, a
 ported	packages/effect/test/net/IpNetwork.test.ts	196	it	checks address containment in data-first and data-last forms	ipnetwork_contains_addr_and_network
 ported	packages/effect/test/net/IpNetwork.test.ts	206	it	checks network containment and overlap	networks_contain_and_overlap
 ported	packages/effect/test/net/IpNetwork.test.ts	221	it	provides checked unsafe wrappers	unsafe_wrappers_mask_or_throw
-unported	packages/effect/test/net/IpNetwork.test.ts	229	it	decodes declarations and canonically encodes Schema strings	
-unported	packages/effect/test/net/IpNetwork.test.ts	244	it	matches independent range models for generated networks	
+not-applicable	packages/effect/test/net/IpNetwork.test.ts	229	it	decodes declarations and canonically encodes Schema strings	N/A: it is a Schema-codec row and Schema sits behind elm-effect's non-default schema feature, unreachable from this crate; its portable content (strict CIDR parse, canonical text) is already pinned by ipnetwork_parses_strict_cidr and unsafe_string_forms_serialize_canonically
+ported	packages/effect/test/net/IpNetwork.test.ts	244	it	matches independent range models for generated networks	ipnetwork_matches_independent_range_model
 ported	packages/effect/test/net/NetAddress.test.ts	19	it	returns IP address widths	strict_ip_parses_widths_and_octets
 ported	packages/effect/test/net/NetAddress.test.ts	25	it	parses strict dotted decimal	strict_ip_parses_widths_and_octets
 ported	packages/effect/test/net/NetAddress.test.ts	35	it	rejects malformed inputs	strict_ip_rejects_malformed
