@@ -2129,7 +2129,7 @@ ported	packages/effect/test/HashSet.test.ts	227	it	supports for...of iteration	h
 ported	packages/effect/test/HashSet.test.ts	240	it	structural equality ignores insertion order	hash_set_equality_hash_membership
 ported	packages/effect/test/HashSet.test.ts	249	it	hash is consistent for sets with the same values	hash_set_equality_hash_membership
 ported	packages/effect/test/HashSet.test.ts	270	it	uses Equal and Hash implementations for membership and uniqueness	hash_set_equality_hash_membership
-unported	packages/effect/test/HashSet.test.ts	286	it	isHashSet identifies HashSet values	
+ported	packages/effect/test/HashSet.test.ts	286	it	isHashSet identifies HashSet values	hash_set_guard_identifies_sets
 unported	packages/effect/test/HttpClient.test.ts	107	it.layer	get	
 unported	packages/effect/test/HttpClient.test.ts	108	it.effect	get	
 unported	packages/effect/test/HttpClient.test.ts	116	it.effect	followRedirects	
@@ -6095,7 +6095,7 @@ ported	packages/effect/test/cluster/ShardingConfig.test.ts	61	it.effect	rejects 
 ported	packages/effect/test/cluster/interruptors.test.ts	12	it	releases entity keys so membership returns to baseline	membership_returns_to_baseline
 ported	packages/effect/test/cluster/interruptors.test.ts	19	it	refcounts overlapping acquires	membership_returns_to_baseline
 ported	packages/effect/test/cluster/interruptors.test.ts	28	it.effect	aroundEntityType restores the key after the effect	around_entity_type_restores_the_key
-unported	packages/effect/test/devtools/DevToolsClient.test.ts	7	it.effect	sends a short-lived span once in each state	
+ported	packages/effect/test/devtools/DevToolsClient.test.ts	7	it.effect	sends a short-lived span once in each state	short_lived_span_arrives_once_in_each_state
 ported	packages/effect/test/encoding/Base64.test.ts	6	it	encodes strings and bytes	base64_encodes_strings_and_bytes
 ported	packages/effect/test/encoding/Base64.test.ts	11	it	decodes bytes and UTF-8 strings	base64_decodes_bytes_and_strings
 ported	packages/effect/test/encoding/Base64.test.ts	19	it	rejects invalid input with format information	base64_rejects_invalid_input
@@ -6949,7 +6949,7 @@ ported	packages/effect/test/net/IpInterface.test.ts	73	it	rejects invalid prefix
 ported	packages/effect/test/net/IpInterface.test.ts	88	it	uses address and prefix equality with matching hashes	ipinterface_equality_and_throwing_parse
 ported	packages/effect/test/net/IpInterface.test.ts	96	it	converts to the canonical containing network	ipinterface_bare_defaults_full_width
 ported	packages/effect/test/net/IpInterface.test.ts	100	it	provides throwing counterparts	ipinterface_equality_and_throwing_parse
-unported	packages/effect/test/net/IpInterface.test.ts	105	it	decodes and canonically encodes schemas	
+ported	packages/effect/test/net/IpInterface.test.ts	105	it	decodes and canonically encodes schemas	ipinterface_schema_round_trips_canonical_text
 ported	packages/effect/test/net/IpNetwork.test.ts	24	it	serializes and inspects canonical strings	unsafe_string_forms_serialize_canonically
 ported	packages/effect/test/net/IpNetwork.test.ts	33	it	retains the address supplied to checked constructors	checked_constructors_retain_rejected_address
 ported	packages/effect/test/net/IpNetwork.test.ts	40	it	forwards errors from address and prefix validation	parse_errors_echo_offending_input

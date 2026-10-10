@@ -364,7 +364,7 @@ tests = ["packages/effect/test/HashRing.test.ts"]
 [[module]]
 path = "packages/effect/src/HashSet.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/HashSet.test.ts"]
@@ -1708,7 +1708,7 @@ tests = []
 [[module]]
 path = "packages/effect/src/devtools/DevToolsClient.ts"
 class = "unstable-port"
-status = "unmatched"
+status = "matched"
 tag = "unstable"
 reason = ""
 tests = ["packages/effect/test/devtools/DevToolsClient.test.ts"]
@@ -2332,7 +2332,7 @@ tests = []
 [[module]]
 path = "packages/effect/src/net/IpInterface.ts"
 class = "unstable-port"
-status = "unmatched"
+status = "matched"
 tag = "unstable"
 reason = ""
 tests = ["packages/effect/test/net/IpInterface.test.ts"]

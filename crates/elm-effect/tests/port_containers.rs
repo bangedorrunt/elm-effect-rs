@@ -133,6 +133,24 @@ fn hash_set_add_remove_membership() {
 }
 
 #[test]
+fn hash_set_guard_identifies_sets() {
+    // HashSet.test.ts:286 — `isHashSet` separates a set from the array and
+    // object values the guard rejects. Rust's types are the guard, so the
+    // negatives (an array, an object, null, undefined) cannot reach it at
+    // all; the port pins the difference the guard exists to make — a set
+    // answers membership by value and collapses a duplicate on add, a plain
+    // array does neither.
+    let set = HashSet::make(["a", "b", "c"]);
+    assert!(set.has(&"a"));
+    assert!(!set.has(&"z"));
+    assert_eq!(set.size(), 3);
+    assert_eq!(set.add("a").size(), 3, "a set de-duplicates on add");
+    let mut array = vec!["a", "b", "c"];
+    array.push("a");
+    assert_eq!(array.len(), 4, "an array keeps the duplicate");
+}
+
+#[test]
 fn hash_set_algebra_and_transforms() {
     let a = HashSet::make([1, 2, 3]);
     let b = HashSet::make([2, 3, 4]);

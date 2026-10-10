@@ -305,6 +305,20 @@ fn ipinterface_keeps_host_bits() {
 }
 
 #[test]
+fn ipinterface_schema_round_trips_canonical_text() {
+    // IpInterface.test.ts:105 — the schema decodes the tagged string form
+    // and encodes it back unchanged: canonical text in, the same text out.
+    // `parse` is the decode edge and `render` the encode edge, and host bits
+    // survive the round trip (masking them is `network`'s job, not the
+    // codec's).
+    use elm_effect_unstable::net::IpInterface;
+    let value = IpInterface::parse("192.0.2.1/24").expect("decodes");
+    assert_eq!(value.render(), "192.0.2.1/24");
+    assert_eq!(value.address().to_string(), "192.0.2.1");
+    assert_eq!(value.network().render(), "192.0.2.0/24");
+}
+
+#[test]
 fn ipinterface_bare_defaults_full_width() {
     use elm_effect_unstable::net::{IpInterface, IpNetwork};
     use std::net::IpAddr;
