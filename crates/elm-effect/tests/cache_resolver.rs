@@ -149,6 +149,65 @@ fn scoped_cache_close_clears() {
 }
 
 #[test]
+fn scoped_cache_make_capacity_and_ttl() {
+    // ScopedCache.test.ts:50, :60, :73, :89 — capacity is fixed at
+    // construction, the default TTL never expires, a fixed TTL is measured
+    // against the clock, and a zero TTL expires immediately.
+    use cache::TimeToLive;
+    use elm_effect::{Duration, TestClock};
+
+    let clock = Arc::new(TestClock::new());
+    let lookup = |k: &String| Ok::<usize, String>(k.len());
+
+    let fixed = ScopedCache::make(
+        10,
+        TimeToLive::Infinite,
+        clock.clone(),
+        Arc::new(Scope::new(1)),
+        lookup,
+    );
+    assert_eq!(fixed.capacity(), 10);
+    assert_eq!(fixed.get(&"test".to_string()), Ok(4));
+    clock.adjust(Duration::from_secs(1000 * 3600));
+    assert!(fixed.has(&"test".to_string()));
+
+    let hourly = ScopedCache::make(
+        10,
+        TimeToLive::For(Duration::from_minutes(60)),
+        clock.clone(),
+        Arc::new(Scope::new(2)),
+        lookup,
+    );
+    assert_eq!(hourly.get(&"test".to_string()), Ok(4));
+    clock.adjust(Duration::from_minutes(30));
+    assert!(hourly.has(&"test".to_string()));
+    clock.adjust(Duration::from_minutes(31));
+    assert!(!hourly.has(&"test".to_string()));
+    // ScopedCache.test.ts:481 — an expired entry reads as absent, and
+    // getOption does not run the lookup to discover that.
+    assert_eq!(hourly.get_option(&"test".to_string()), None);
+
+    // Cache.test.ts:567 — the same expiry rule on the unscoped cache.
+    let plain = Cache::new(10, lookup).with_ttl(
+        TimeToLive::For(Duration::from_minutes(60)),
+        clock.clone(),
+    );
+    assert_eq!(plain.get(&"test".to_string()), Ok(4));
+    clock.adjust(Duration::from_minutes(120));
+    assert_eq!(plain.get_option(&"test".to_string()), None);
+
+    let zero = ScopedCache::make(
+        10,
+        TimeToLive::For(Duration::ZERO),
+        clock.clone(),
+        Arc::new(Scope::new(3)),
+        lookup,
+    );
+    assert_eq!(zero.get(&"test".to_string()), Ok(4));
+    assert!(!zero.has(&"test".to_string()));
+}
+
+#[test]
 fn pool_blocks_while_exhausted() {
     let pool = Pool::new(1, IdlePolicy::default(), || 1u32);
     let held = pool.acquire();

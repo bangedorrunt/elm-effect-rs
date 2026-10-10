@@ -328,7 +328,7 @@ unported	packages/effect/test/Cache.test.ts	492	it.effect	concurrent access - in
 unported	packages/effect/test/Cache.test.ts	518	it.effect	concurrent access - interrupted lookup does not remove a newer set value	
 ported	packages/effect/test/Cache.test.ts	542	it.effect	returns Some for existing cached value	get_option_returns_some_after_a_get
 ported	packages/effect/test/Cache.test.ts	555	it.effect	returns None for non-existent key	get_option_returns_none_for_a_missing_key_and_never_runs_the_lookup
-unported	packages/effect/test/Cache.test.ts	567	it.effect	returns None for expired value	
+ported	packages/effect/test/Cache.test.ts	567	it.effect	returns None for expired value	scoped_cache_make_capacity_and_ttl
 unported	packages/effect/test/Cache.test.ts	582	it.effect	waits for value being computed and returns result	
 unported	packages/effect/test/Cache.test.ts	604	it.effect	returns Some for successfully cached value	
 unported	packages/effect/test/Cache.test.ts	617	it.effect	returns None for failed cached value	
@@ -3313,10 +3313,10 @@ unported	packages/effect/test/Scope.test.ts	142	it.effect	closing a child remove
 unported	packages/effect/test/Scope.test.ts	152	it.effect	a throwing child finalizer does not leave the child in its parent	
 unported	packages/effect/test/Scope.test.ts	165	it.effect	an interrupted close does not leave the child in its parent	
 unported	packages/effect/test/Scope.test.ts	184	it.effect	closing the parent closes the child with the parent's exit only once	
-unported	packages/effect/test/ScopedCache.test.ts	50	it.effect	creates cache with fixed capacity	
-unported	packages/effect/test/ScopedCache.test.ts	60	it.effect	creates cache with default infinite TTL	
-unported	packages/effect/test/ScopedCache.test.ts	73	it.effect	creates cache with custom TTL	
-unported	packages/effect/test/ScopedCache.test.ts	89	it.effect	uses a numeric zero TTL	
+ported	packages/effect/test/ScopedCache.test.ts	50	it.effect	creates cache with fixed capacity	scoped_cache_make_capacity_and_ttl
+ported	packages/effect/test/ScopedCache.test.ts	60	it.effect	creates cache with default infinite TTL	scoped_cache_make_capacity_and_ttl
+ported	packages/effect/test/ScopedCache.test.ts	73	it.effect	creates cache with custom TTL	scoped_cache_make_capacity_and_ttl
+ported	packages/effect/test/ScopedCache.test.ts	89	it.effect	uses a numeric zero TTL	scoped_cache_make_capacity_and_ttl
 unported	packages/effect/test/ScopedCache.test.ts	102	it.effect	lookup function context is preserved	
 unported	packages/effect/test/ScopedCache.test.ts	123	it.effect	cache resources are released and future gets interrupt when scope closes	
 unported	packages/effect/test/ScopedCache.test.ts	142	it.effect	creates cache with function-based TTL	
@@ -3338,7 +3338,7 @@ unported	packages/effect/test/ScopedCache.test.ts	415	it.effect	scope is properl
 unported	packages/effect/test/ScopedCache.test.ts	440	it.effect	cache closed state - get returns interrupt	
 unported	packages/effect/test/ScopedCache.test.ts	456	it.effect	returns Some for existing cached value	
 unported	packages/effect/test/ScopedCache.test.ts	469	it.effect	returns None for non-existent key	
-unported	packages/effect/test/ScopedCache.test.ts	481	it.effect	returns None for expired value	
+ported	packages/effect/test/ScopedCache.test.ts	481	it.effect	returns None for expired value	scoped_cache_make_capacity_and_ttl
 unported	packages/effect/test/ScopedCache.test.ts	496	it.effect	waits for value being computed and returns result	
 unported	packages/effect/test/ScopedCache.test.ts	516	it.effect	affects LRU order	
 unported	packages/effect/test/ScopedCache.test.ts	537	it.effect	returns Some for successfully cached value	

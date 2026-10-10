@@ -17,13 +17,28 @@ use std::sync::{Arc, Condvar, Mutex};
 /// A shared lookup function.
 type LookupFn<K, V, E> = Arc<dyn Fn(&K) -> Result<V, E> + Send + Sync>;
 
-/// A bounded memo table with single-flight lookups.
+/// How long a stored entry stays valid.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum TimeToLive {
+    /// Entries never expire (the pin's default when `timeToLive` is absent).
+    Infinite,
+    /// Entries expire this long after they are stored. A zero duration
+    /// expires at once, so a lookup is never served from the cache.
+    For(elm_effect::Duration),
+}
+
+/// A bounded memo table with single-flight lookups and an optional TTL.
 pub struct Cache<K, V, E> {
     map: Mutex<HashMap<K, Result<V, E>>>,
     order: Mutex<VecDeque<K>>,
     capacity: usize,
     lookup: LookupFn<K, V, E>,
     cache_errors: bool,
+    ttl: TimeToLive,
+    clock: Arc<dyn elm_effect::ClockImpl>,
+    /// When each held key was stored, in clock millis (and which keys carry
+    /// one at all: without a TTL nothing is stamped).
+    stamps: Mutex<HashMap<K, u64>>,
 }
 
 impl<K, V, E> Cache<K, V, E>
@@ -46,7 +61,24 @@ where
             capacity: capacity.max(1),
             lookup: Arc::new(lookup),
             cache_errors: false,
+            ttl: TimeToLive::Infinite,
+            clock: Arc::new(elm_effect::SystemClock),
+            stamps: Mutex::new(HashMap::new()),
         }
+    }
+
+    /// Give entries a lifetime, measured on `clock`. An expired entry is a
+    /// miss everywhere it is read: `get` runs the lookup again, `has` and
+    /// `get_option` report absence, and the stale entry is dropped.
+    pub fn with_ttl(mut self, ttl: TimeToLive, clock: Arc<dyn elm_effect::ClockImpl>) -> Self {
+        self.ttl = ttl;
+        self.clock = clock;
+        self
+    }
+
+    /// Configured entry capacity.
+    pub fn capacity(&self) -> usize {
+        self.capacity
     }
 
     /// Also cache failures, returning them again instead of re-running.
@@ -58,7 +90,9 @@ where
     /// The value for `key`, running the lookup at most once per miss.
     pub fn get(&self, key: &K) -> Result<V, E> {
         let mut map = self.map.lock().unwrap();
-        if let Some(hit) = map.get(key) {
+        if self.expired_now(key) {
+            self.forget(&mut map, key);
+        } else if let Some(hit) = map.get(key) {
             return hit.clone();
         }
         let outcome = (self.lookup)(key);
@@ -71,12 +105,48 @@ where
                 let mut order = self.order.lock().unwrap();
                 if let Some(oldest) = order.pop_front() {
                     map.remove(&oldest);
+                    self.stamps.lock().unwrap().remove(&oldest);
                 }
             }
             map.insert(key.clone(), outcome.clone());
             self.order.lock().unwrap().push_back(key.clone());
+            self.stamps.lock().unwrap().insert(key.clone(), self.clock.now_millis());
         }
         outcome
+    }
+
+    /// Whether the stamp on `key` says it has expired. A never-stored key
+    /// carries no stamp and is not expired (it is simply absent).
+    fn expired_now(&self, key: &K) -> bool {
+        match self.stamps.lock().unwrap().get(key).copied() {
+            Some(stamp) => match self.ttl {
+                TimeToLive::Infinite => false,
+                TimeToLive::For(duration) => {
+                    self.clock.now_millis().saturating_sub(stamp) >= duration.as_millis()
+                }
+            },
+            None => false,
+        }
+    }
+
+    /// Forget `key` everywhere: value, recency queue, and stamp.
+    fn forget(&self, map: &mut HashMap<K, Result<V, E>>, key: &K) {
+        map.remove(key);
+        self.order.lock().unwrap().retain(|held| held != key);
+        self.stamps.lock().unwrap().remove(key);
+    }
+
+    /// Whether `key` is held and unexpired; an expired entry is dropped.
+    pub fn has(&self, key: &K) -> bool {
+        let mut map = self.map.lock().unwrap();
+        if !map.contains_key(key) {
+            return false;
+        }
+        if self.expired_now(key) {
+            self.forget(&mut map, key);
+            return false;
+        }
+        true
     }
 
     /// Entries currently held.
@@ -84,14 +154,14 @@ where
         self.map.lock().unwrap().len()
     }
 
-    /// `Cache.getOption` at the pin: `Some(value)` for an entry already held,
-    /// `None` otherwise. Notably a MISS never runs the lookup — this reads
-    /// the map and nothing else, which is what distinguishes it from `get`.
-    ///
-    /// Deliberate scope limit: the port's cache has no TTL, so the pin's
-    /// "returns None for expired value" row (which drives `TestClock`) is
-    /// not reproducible here and stays unported.
+    /// `Cache.getOption` at the pin: `Some(value)` for an entry already
+    /// held and unexpired, `None` otherwise. Notably a MISS never runs the
+    /// lookup — this reads the map and nothing else, which is what
+    /// distinguishes it from `get`.
     pub fn get_option(&self, key: &K) -> Option<V> {
+        if !self.has(key) {
+            return None;
+        }
         match self.map.lock().unwrap().get(key) {
             Some(Ok(value)) => Some(value.clone()),
             // A cached failure is not a value: getOption reports absence.
@@ -104,6 +174,7 @@ where
     pub fn clear(&self) {
         self.map.lock().unwrap().clear();
         self.order.lock().unwrap().clear();
+        self.stamps.lock().unwrap().clear();
     }
 }
 
@@ -417,6 +488,36 @@ where
     /// Wrap a cache with its construction scope.
     pub fn new(cache: Cache<K, V, E>, scope: std::sync::Arc<elm_effect::Scope>) -> Self {
         Self { cache, scope }
+    }
+
+    /// `ScopedCache.make`: one step from capacity, lifetime, clock, scope,
+    /// and lookup to a scoped cache.
+    pub fn make(
+        capacity: usize,
+        ttl: TimeToLive,
+        clock: Arc<dyn elm_effect::ClockImpl>,
+        scope: std::sync::Arc<elm_effect::Scope>,
+        lookup: impl Fn(&K) -> Result<V, E> + Send + Sync + 'static,
+    ) -> Self {
+        Self {
+            cache: Cache::new(capacity, lookup).with_ttl(ttl, clock),
+            scope,
+        }
+    }
+
+    /// Configured entry capacity.
+    pub fn capacity(&self) -> usize {
+        self.cache.capacity()
+    }
+
+    /// Whether `key` is held and unexpired.
+    pub fn has(&self, key: &K) -> bool {
+        self.cache.has(key)
+    }
+
+    /// `ScopedCache.getOption`: the held value, never running the lookup.
+    pub fn get_option(&self, key: &K) -> Option<V> {
+        self.cache.get_option(key)
     }
 
     /// The value for `key`, running the lookup at most once per miss.
