@@ -3347,7 +3347,7 @@ unported	packages/effect/test/ScopedCache.test.ts	322	it.effect	cache miss - inv
 unported	packages/effect/test/ScopedCache.test.ts	343	it.effect	error handling - lookup function fails	
 unported	packages/effect/test/ScopedCache.test.ts	355	it.effect	concurrent access - multiple fibers getting same key only invoke lookup once	
 unported	packages/effect/test/ScopedCache.test.ts	373	it.effect	concurrent access - race between get and invalidate	
-unported	packages/effect/test/ScopedCache.test.ts	400	it.effect	resource cleanup when entry is replaced	
+ported	packages/effect/test/ScopedCache.test.ts	400	it.effect	resource cleanup when entry is replaced	scoped_entry_resource_releases_on_eviction
 unported	packages/effect/test/ScopedCache.test.ts	415	it.effect	scope is properly provided to lookup function	
 unported	packages/effect/test/ScopedCache.test.ts	440	it.effect	cache closed state - get returns interrupt	
 unported	packages/effect/test/ScopedCache.test.ts	456	it.effect	returns Some for existing cached value	
@@ -3364,7 +3364,7 @@ ported	packages/effect/test/ScopedCache.test.ts	605	it.effect	overwrites existin
 ported	packages/effect/test/ScopedCache.test.ts	619	it.effect	set with TTL - value expires	scoped_cache_set_fills_without_lookup
 ported	packages/effect/test/ScopedCache.test.ts	634	it.effect	set doesn't invoke lookup function	scoped_cache_set_fills_without_lookup
 ported	packages/effect/test/ScopedCache.test.ts	645	it.effect	set enforces capacity constraints	scoped_cache_set_fills_without_lookup
-unported	packages/effect/test/ScopedCache.test.ts	662	it.effect	resource cleanup when overwriting existing entry	
+ported	packages/effect/test/ScopedCache.test.ts	662	it.effect	resource cleanup when overwriting existing entry	scoped_entry_resource_releases_on_overwrite
 ported	packages/effect/test/ScopedCache.test.ts	677	it.effect	returns true for existing key	scoped_cache_has_reports_presence_without_touching_lru
 ported	packages/effect/test/ScopedCache.test.ts	690	it.effect	returns false for non-existent key	scoped_cache_has_reports_presence_without_touching_lru
 ported	packages/effect/test/ScopedCache.test.ts	702	it.effect	returns false for expired key	scoped_cache_has_reports_presence_without_touching_lru
@@ -3372,13 +3372,13 @@ ported	packages/effect/test/ScopedCache.test.ts	717	it.effect	does not affect LR
 ported	packages/effect/test/ScopedCache.test.ts	740	it.effect	invalidates existing key	scoped_cache_invalidate_forgets_entry
 ported	packages/effect/test/ScopedCache.test.ts	754	it.effect	invalidating non-existent key doesn't error	scoped_cache_invalidate_forgets_entry
 ported	packages/effect/test/ScopedCache.test.ts	767	it.effect	get after invalidate invokes lookup again	scoped_cache_invalidate_forgets_entry
-unported	packages/effect/test/ScopedCache.test.ts	783	it.effect	resource cleanup when invalidating entry	
-unported	packages/effect/test/ScopedCache.test.ts	797	it.each	preserves a replacement resource after an old lookup completes (%#)	
+ported	packages/effect/test/ScopedCache.test.ts	783	it.effect	resource cleanup when invalidating entry	scoped_entry_resource_releases_on_invalidate
+ported	packages/effect/test/ScopedCache.test.ts	797	it.each	preserves a replacement resource after an old lookup completes (%#)	scoped_displaced_completion_releases_only_its_own_resource
 ported	packages/effect/test/ScopedCache.test.ts	848	it.effect	invalidates when predicate matches	scoped_cache_invalidate_when_shares_the_predicate_rule
 ported	packages/effect/test/ScopedCache.test.ts	862	it.effect	doesn't invalidate when predicate doesn't match	scoped_cache_invalidate_when_shares_the_predicate_rule
 ported	packages/effect/test/ScopedCache.test.ts	876	it.effect	returns false for non-existent key	scoped_cache_invalidate_when_shares_the_predicate_rule
 ported	packages/effect/test/ScopedCache.test.ts	888	it.effect	returns false for failed cached value	scoped_cache_invalidate_when_shares_the_predicate_rule
-unported	packages/effect/test/ScopedCache.test.ts	901	it.effect	resource cleanup when predicate matches	
+ported	packages/effect/test/ScopedCache.test.ts	901	it.effect	resource cleanup when predicate matches	scoped_entry_resource_releases_when_invalidate_when_matches
 unported	packages/effect/test/ScopedCache.test.ts	916	it.effect	caches a synchronous lookup defect for a missing key	
 unported	packages/effect/test/ScopedCache.test.ts	939	it.effect	replaces an existing entry with a synchronous lookup defect	
 unported	packages/effect/test/ScopedCache.test.ts	967	it.effect	refresh existing key invokes lookup again	
@@ -3386,13 +3386,13 @@ unported	packages/effect/test/ScopedCache.test.ts	981	it.effect	refresh non-exis
 unported	packages/effect/test/ScopedCache.test.ts	997	it.effect	refresh enforces capacity when the existing key is evicted during lookup	
 unported	packages/effect/test/ScopedCache.test.ts	1036	it.effect	refresh updates TTL	
 unported	packages/effect/test/ScopedCache.test.ts	1052	it.effect	concurrent refresh calls each invoke lookup independently	
-unported	packages/effect/test/ScopedCache.test.ts	1074	it.effect	resource cleanup for old entry after refresh	
-unported	packages/effect/test/ScopedCache.test.ts	1088	it.each	retains ownership of entries refreshed by finalizers (yield: %s)	
-unported	packages/effect/test/ScopedCache.test.ts	1126	it.effect	removes all entries before running finalizers	
+ported	packages/effect/test/ScopedCache.test.ts	1074	it.effect	resource cleanup for old entry after refresh	scoped_entry_resource_releases_on_refresh
+ported	packages/effect/test/ScopedCache.test.ts	1088	it.each	retains ownership of entries refreshed by finalizers (yield: %s)	scoped_finalizer_refresh_installs_an_entry_that_survives
+ported	packages/effect/test/ScopedCache.test.ts	1126	it.effect	removes all entries before running finalizers	scoped_invalidate_all_empties_the_cache_before_finalizers
 unported	packages/effect/test/ScopedCache.test.ts	1148	it.effect	clears all entries	
 unported	packages/effect/test/ScopedCache.test.ts	1166	it.effect	size becomes 0 after invalidateAll	
 unported	packages/effect/test/ScopedCache.test.ts	1183	it.effect	all keys return None after invalidateAll	
-unported	packages/effect/test/ScopedCache.test.ts	1202	it.effect	resource cleanup for all entries	
+ported	packages/effect/test/ScopedCache.test.ts	1202	it.effect	resource cleanup for all entries	scoped_entry_resources_release_on_invalidate_all
 unported	packages/effect/test/ScopedCache.test.ts	1220	it.effect	empty cache returns 0	
 unported	packages/effect/test/ScopedCache.test.ts	1232	it.effect	returns correct count after adding entries	
 unported	packages/effect/test/ScopedCache.test.ts	1248	it.effect	decreases after invalidation	
@@ -3400,24 +3400,24 @@ unported	packages/effect/test/ScopedCache.test.ts	1265	it.effect	expired entries
 unported	packages/effect/test/ScopedCache.test.ts	1290	it.effect	returns all active keys	
 unported	packages/effect/test/ScopedCache.test.ts	1306	it.effect	excludes keys for expired entries	
 unported	packages/effect/test/ScopedCache.test.ts	1324	it.effect	empty after invalidateAll	
-unported	packages/effect/test/ScopedCache.test.ts	1340	it.effect	resource cleanup for expired entries as side effect	
+ported	packages/effect/test/ScopedCache.test.ts	1340	it.effect	resource cleanup for expired entries as side effect	scoped_entry_resource_releases_when_a_walk_prunes_expiry
 unported	packages/effect/test/ScopedCache.test.ts	1379	it.effect	returns all successful cached values	
 unported	packages/effect/test/ScopedCache.test.ts	1397	it.effect	doesn't include failed lookups	
 unported	packages/effect/test/ScopedCache.test.ts	1415	it.effect	doesn't include expired values	
-unported	packages/effect/test/ScopedCache.test.ts	1433	it.effect	resource cleanup for expired entries as side effect	
+ported	packages/effect/test/ScopedCache.test.ts	1433	it.effect	resource cleanup for expired entries as side effect	scoped_entry_resource_releases_when_a_walk_prunes_expiry
 unported	packages/effect/test/ScopedCache.test.ts	1472	it.effect	returns all key-value pairs	
 unported	packages/effect/test/ScopedCache.test.ts	1490	it.effect	filters out failed lookups	
 unported	packages/effect/test/ScopedCache.test.ts	1508	it.effect	filters out expired entries	
-unported	packages/effect/test/ScopedCache.test.ts	1525	it.effect	removes expired entries as side effect with resource cleanup	
+ported	packages/effect/test/ScopedCache.test.ts	1525	it.effect	removes expired entries as side effect with resource cleanup	scoped_entry_resource_releases_when_a_walk_prunes_expiry
 unported	packages/effect/test/ScopedCache.test.ts	1572	it.effect	oldest entries removed when capacity exceeded	
 unported	packages/effect/test/ScopedCache.test.ts	1597	it.effect	access order determines eviction	
 unported	packages/effect/test/ScopedCache.test.ts	1620	it.effect	capacity of 1	
 unported	packages/effect/test/ScopedCache.test.ts	1639	it.effect	very large capacity	
-unported	packages/effect/test/ScopedCache.test.ts	1660	it.effect	resource cleanup for evicted entries	
+ported	packages/effect/test/ScopedCache.test.ts	1660	it.effect	resource cleanup for evicted entries	scoped_entry_resource_releases_on_eviction
 unported	packages/effect/test/ScopedCache.test.ts	1681	it.effect	entry expires after specified duration	
 unported	packages/effect/test/ScopedCache.test.ts	1698	it.effect	get after expiration invokes lookup	
 unported	packages/effect/test/ScopedCache.test.ts	1718	it.effect	has returns false for expired entries	
-unported	packages/effect/test/ScopedCache.test.ts	1733	it.effect	resource cleanup for expired entries	
+ported	packages/effect/test/ScopedCache.test.ts	1733	it.effect	resource cleanup for expired entries	scoped_entry_resource_releases_when_has_prunes_expiry
 unported	packages/effect/test/ScopedCache.test.ts	1769	it.effect	different TTL for success vs failure	
 unported	packages/effect/test/ScopedCache.test.ts	1788	it.effect	TTL based on key	
 unported	packages/effect/test/ScopedCache.test.ts	1814	it.effect	TTL based on value	
@@ -3428,11 +3428,11 @@ unported	packages/effect/test/ScopedCache.test.ts	1895	it.effect	failed lookup c
 unported	packages/effect/test/ScopedCache.test.ts	1911	it.effect	subsequent gets return same failure	
 unported	packages/effect/test/ScopedCache.test.ts	1931	it.effect	can refresh after failure	
 unported	packages/effect/test/ScopedCache.test.ts	1947	it.effect	multiple fibers encountering same error	
-unported	packages/effect/test/ScopedCache.test.ts	1976	it.effect	resource cleanup for failed entries	
+ported	packages/effect/test/ScopedCache.test.ts	1976	it.effect	resource cleanup for failed entries	scoped_failed_entry_keeps_its_resource_until_evicted
 unported	packages/effect/test/ScopedCache.test.ts	2010	it.effect	resources are properly scoped to cache entries	
-unported	packages/effect/test/ScopedCache.test.ts	2033	it.effect	resources are cleaned up when entries are evicted	
-unported	packages/effect/test/ScopedCache.test.ts	2058	it.effect	resources are cleaned up when cache is closed	
-unported	packages/effect/test/ScopedCache.test.ts	2093	it.effect	resources are cleaned up when entries expire	
+ported	packages/effect/test/ScopedCache.test.ts	2033	it.effect	resources are cleaned up when entries are evicted	scoped_entry_resource_releases_on_eviction
+ported	packages/effect/test/ScopedCache.test.ts	2058	it.effect	resources are cleaned up when cache is closed	scoped_entry_resources_release_on_close
+ported	packages/effect/test/ScopedCache.test.ts	2093	it.effect	resources are cleaned up when entries expire	scoped_entry_resource_releases_when_has_prunes_expiry
 unported	packages/effect/test/ScopedCache.test.ts	2120	it.effect	resources are cleaned up when entries are invalidated	
 unported	packages/effect/test/ScopedCache.test.ts	2143	it.effect	resource cleanup is atomic and doesn't leak	
 unported	packages/effect/test/ScopedCache.test.ts	2182	it.effect	cache becomes closed when parent scope is closed	

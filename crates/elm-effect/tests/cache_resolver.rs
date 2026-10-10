@@ -1173,6 +1173,488 @@ fn zero_ttl_failure_does_not_evict_a_live_entry_at_capacity() {
     assert_eq!(cache.get_option(&"b".to_string()), Some(1));
 }
 
+// Scoped entries: what an entry owns, and when it goes.
+
+/// A tracker both events land in, so their order is observable.
+type ResourceLog = Arc<std::sync::Mutex<Vec<String>>>;
+
+fn log_of(log: &ResourceLog) -> Vec<String> {
+    log.lock().unwrap().clone()
+}
+
+/// The pin's `makeManagedResourceCache`: every entry acquires a resource on
+/// its key and releases it when the entry stops being the entry.
+fn managed_resource_cache(
+    capacity: usize,
+    scope: u64,
+) -> (ScopedCache<String, String, String>, ResourceLog) {
+    use cache::TimeToLive;
+
+    let log: ResourceLog = Arc::new(std::sync::Mutex::new(Vec::new()));
+    let cache = ScopedCache::make_resource(
+        capacity,
+        TimeToLive::Infinite,
+        Arc::new(elm_effect::SystemClock),
+        Arc::new(Scope::new(scope)),
+        {
+            let log = Arc::clone(&log);
+            move |key: &String| -> (Result<String, String>, Option<cache::Release>) {
+                log.lock().unwrap().push(format!("acquired-{key}"));
+                let released = Arc::clone(&log);
+                let key = key.clone();
+                (
+                    Ok(format!("value-{key}")),
+                    Some(Box::new(move || {
+                        released.lock().unwrap().push(format!("released-{key}"));
+                    })),
+                )
+            }
+        },
+    );
+    (cache, log)
+}
+
+#[test]
+fn scoped_entry_resource_releases_on_eviction() {
+    // ScopedCache.test.ts:400, :1660, :2033 — filling past capacity evicts the
+    // oldest entry and releases its resource, and the release lands BEFORE the
+    // lookup that displaced it acquires its own.
+    let (cache, log) = managed_resource_cache(2, 20);
+    assert_eq!(cache.get(&"a".to_string()), Ok("value-a".to_string()));
+    assert_eq!(cache.get(&"b".to_string()), Ok("value-b".to_string()));
+    assert_eq!(log_of(&log), vec!["acquired-a", "acquired-b"]);
+
+    assert_eq!(cache.get(&"c".to_string()), Ok("value-c".to_string()));
+    assert_eq!(
+        log_of(&log),
+        vec!["acquired-a", "acquired-b", "released-a", "acquired-c"],
+        "the evicted entry released before the new lookup acquired"
+    );
+    assert_eq!(cache.size(), 2);
+}
+
+#[test]
+fn scoped_entry_resource_releases_on_overwrite() {
+    // ScopedCache.test.ts:662 — a `set` over a live entry releases what that
+    // entry held, and the written value takes its place.
+    let (cache, log) = managed_resource_cache(10, 21);
+    assert_eq!(cache.get(&"test".to_string()), Ok("value-test".to_string()));
+    assert_eq!(log_of(&log), vec!["acquired-test"]);
+
+    cache.set("test".to_string(), "new-value".to_string());
+    assert_eq!(log_of(&log), vec!["acquired-test", "released-test"]);
+    assert_eq!(
+        cache.get_option(&"test".to_string()),
+        Some("new-value".to_string())
+    );
+}
+
+#[test]
+fn scoped_entry_resource_releases_on_invalidate() {
+    // ScopedCache.test.ts:783 — invalidating an entry releases its resource.
+    let (cache, log) = managed_resource_cache(10, 22);
+    assert_eq!(cache.get(&"test".to_string()), Ok("value-test".to_string()));
+    assert_eq!(log_of(&log), vec!["acquired-test"]);
+
+    cache.invalidate(&"test".to_string());
+    assert_eq!(log_of(&log), vec!["acquired-test", "released-test"]);
+    assert!(!cache.has(&"test".to_string()));
+}
+
+#[test]
+fn scoped_entry_resource_releases_when_invalidate_when_matches() {
+    // ScopedCache.test.ts:901 — the predicate's `true` releases the resource of
+    // the entry it judged; a `false` leaves the entry (and its resource) held.
+    let (cache, log) = managed_resource_cache(10, 23);
+    assert_eq!(cache.get(&"test".to_string()), Ok("value-test".to_string()));
+
+    assert!(!cache.invalidate_when(&"test".to_string(), |value| value == "value-other"));
+    assert_eq!(log_of(&log), vec!["acquired-test"], "no match holds the resource");
+
+    assert!(cache.invalidate_when(&"test".to_string(), |value| value == "value-test"));
+    assert_eq!(log_of(&log), vec!["acquired-test", "released-test"]);
+    assert!(!cache.has(&"test".to_string()));
+}
+
+#[test]
+fn scoped_entry_resource_releases_on_refresh() {
+    // ScopedCache.test.ts:1074 — a refresh replaces the entry, so the old
+    // entry's resource goes and the new lookup's rides the new entry.
+    let (cache, log) = managed_resource_cache(10, 24);
+    assert_eq!(cache.get(&"test".to_string()), Ok("value-test".to_string()));
+    assert_eq!(log_of(&log), vec!["acquired-test"]);
+
+    assert_eq!(cache.refresh(&"test".to_string()), Ok("value-test".to_string()));
+    let events = log_of(&log);
+    assert_eq!(
+        events
+            .iter()
+            .filter(|event| event.as_str() == "released-test")
+            .count(),
+        1,
+        "the replaced entry released its resource"
+    );
+    assert_eq!(
+        events
+            .iter()
+            .filter(|event| event.as_str() == "acquired-test")
+            .count(),
+        2,
+        "the refresh ran the lookup again"
+    );
+    assert_eq!(
+        cache.get_option(&"test".to_string()),
+        Some("value-test".to_string()),
+        "the refreshed entry is held"
+    );
+}
+
+#[test]
+fn scoped_entry_resources_release_on_invalidate_all() {
+    // ScopedCache.test.ts:1202 — invalidateAll releases every entry's resource.
+    let (cache, log) = managed_resource_cache(10, 25);
+    for key in ["test1", "test2", "test3"] {
+        assert_eq!(
+            cache.get(&key.to_string()),
+            Ok(format!("value-{key}"))
+        );
+    }
+    assert_eq!(log_of(&log), vec!["acquired-test1", "acquired-test2", "acquired-test3"]);
+
+    cache.invalidate_all();
+    let mut released = log_of(&log);
+    released.retain(|entry| entry.starts_with("released-"));
+    released.sort();
+    assert_eq!(
+        released,
+        vec!["released-test1", "released-test2", "released-test3"],
+        "every entry released, whatever the map's order"
+    );
+    assert_eq!(cache.size(), 0);
+}
+
+#[test]
+fn scoped_entry_resources_release_on_close() {
+    // ScopedCache.test.ts:2058 — closing the cache releases every entry's
+    // resource through the scope the cache owns.
+    let (cache, log) = managed_resource_cache(10, 26);
+    assert_eq!(cache.get(&"test1".to_string()), Ok("value-test1".to_string()));
+    assert_eq!(cache.get(&"test2".to_string()), Ok("value-test2".to_string()));
+    assert_eq!(log_of(&log), vec!["acquired-test1", "acquired-test2"]);
+
+    cache.close();
+    let mut released = log_of(&log);
+    released.retain(|entry| entry.starts_with("released-"));
+    released.sort();
+    assert_eq!(released, vec!["released-test1", "released-test2"]);
+    assert_eq!(cache.size(), 0);
+}
+
+#[test]
+fn scoped_entry_resource_releases_when_has_prunes_expiry() {
+    // ScopedCache.test.ts:2093 — reading past the TTL prunes the expired entry
+    // and releases its resource.
+    use cache::TimeToLive;
+    use elm_effect::{Duration, TestClock};
+
+    let log: ResourceLog = Arc::new(std::sync::Mutex::new(Vec::new()));
+    let clock = Arc::new(TestClock::new());
+    let cache = ScopedCache::make_resource(
+        10,
+        TimeToLive::For(Duration::from_minutes(60)),
+        clock.clone(),
+        Arc::new(Scope::new(27)),
+        {
+            let log = Arc::clone(&log);
+            move |key: &String| -> (Result<String, String>, Option<cache::Release>) {
+                log.lock().unwrap().push(format!("acquired-{key}"));
+                let released = Arc::clone(&log);
+                let key = key.clone();
+                (
+                    Ok(format!("value-{key}")),
+                    Some(Box::new(move || {
+                        released.lock().unwrap().push(format!("released-{key}"));
+                    })),
+                )
+            }
+        },
+    );
+    assert_eq!(cache.get(&"test".to_string()), Ok("value-test".to_string()));
+    assert_eq!(log_of(&log), vec!["acquired-test"]);
+
+    clock.adjust(Duration::from_minutes(120));
+    assert!(!cache.has(&"test".to_string()));
+    assert_eq!(log_of(&log), vec!["acquired-test", "released-test"]);
+}
+
+#[test]
+fn scoped_entry_resource_releases_when_a_walk_prunes_expiry() {
+    // ScopedCache.test.ts:1340, :1433, :1525, :1733 — the walking reads (keys,
+    // values, entries) prune expired rows as a side effect, and pruning
+    // releases what the row owned.
+    use cache::TimeToLive;
+    use elm_effect::{Duration, TestClock};
+
+    let build = |scope: u64| {
+        let log: ResourceLog = Arc::new(std::sync::Mutex::new(Vec::new()));
+        let clock = Arc::new(TestClock::new());
+        let cache = ScopedCache::make_resource(
+            10,
+            TimeToLive::For(Duration::from_minutes(60)),
+            clock.clone(),
+            Arc::new(Scope::new(scope)),
+            {
+                let log = Arc::clone(&log);
+                move |key: &String| -> (Result<String, String>, Option<cache::Release>) {
+                    log.lock().unwrap().push(format!("acquired-{key}"));
+                    let released = Arc::clone(&log);
+                    let key = key.clone();
+                    (
+                        Ok(format!("value-{key}")),
+                        Some(Box::new(move || {
+                            released.lock().unwrap().push(format!("released-{key}"));
+                        })),
+                    )
+                }
+            },
+        );
+        (cache, log, clock)
+    };
+
+    let (cache, log, clock) = build(28);
+    cache.get(&"a".to_string());
+    clock.adjust(Duration::from_minutes(120));
+    assert!(cache.keys().is_empty());
+    assert_eq!(log_of(&log), vec!["acquired-a", "released-a"], "keys pruned it");
+
+    let (cache, log, clock) = build(29);
+    cache.get(&"b".to_string());
+    clock.adjust(Duration::from_minutes(120));
+    assert!(cache.values().is_empty());
+    assert_eq!(log_of(&log), vec!["acquired-b", "released-b"], "values pruned it");
+
+    let (cache, log, clock) = build(30);
+    cache.get(&"c".to_string());
+    clock.adjust(Duration::from_minutes(120));
+    assert!(cache.entries().is_empty());
+    assert_eq!(log_of(&log), vec!["acquired-c", "released-c"], "entries pruned it");
+}
+
+#[test]
+fn scoped_failed_entry_keeps_its_resource_until_evicted() {
+    // ScopedCache.test.ts:1976 — a failed lookup still occupies a row with its
+    // resource alive, and eviction at capacity is what releases it.
+    use cache::TimeToLive;
+
+    let log: ResourceLog = Arc::new(std::sync::Mutex::new(Vec::new()));
+    let cache = ScopedCache::make_resource(
+        2,
+        TimeToLive::Infinite,
+        Arc::new(elm_effect::SystemClock),
+        Arc::new(Scope::new(31)),
+        {
+            let log = Arc::clone(&log);
+            move |key: &String| -> (Result<String, String>, Option<cache::Release>) {
+                log.lock().unwrap().push(format!("acquired-{key}"));
+                let released = Arc::clone(&log);
+                let key = key.clone();
+                (
+                    Err(format!("error-{key}")),
+                    Some(Box::new(move || {
+                        released.lock().unwrap().push(format!("released-{key}"));
+                    })),
+                )
+            }
+        },
+    );
+    assert_eq!(cache.get(&"fail1".to_string()), Err("error-fail1".to_string()));
+    assert_eq!(cache.get(&"fail2".to_string()), Err("error-fail2".to_string()));
+    assert_eq!(
+        log_of(&log),
+        vec!["acquired-fail1", "acquired-fail2"],
+        "both failed entries are held"
+    );
+
+    assert_eq!(cache.get(&"fail3".to_string()), Err("error-fail3".to_string()));
+    assert_eq!(
+        log_of(&log),
+        vec!["acquired-fail1", "acquired-fail2", "released-fail1", "acquired-fail3"],
+        "evicting the oldest failure released its resource"
+    );
+}
+
+#[test]
+fn scoped_displaced_completion_releases_only_its_own_resource() {
+    // ScopedCache.test.ts:797 — a lookup that no longer owns its row releases
+    // the resource IT acquired, never the replacement's, and the replacement's
+    // resource stays alive until the cache closes.
+    use cache::TimeToLive;
+
+    let log: ResourceLog = Arc::new(std::sync::Mutex::new(Vec::new()));
+    let acquired = Arc::new(AtomicUsize::new(0));
+    let (entered_tx, entered_rx) = std::sync::mpsc::channel::<()>();
+    let (gate_tx, gate_rx) = std::sync::mpsc::channel::<()>();
+    let gate_rx = Arc::new(std::sync::Mutex::new(gate_rx));
+    let cache = Arc::new(ScopedCache::make_resource(
+        1,
+        TimeToLive::Infinite,
+        Arc::new(elm_effect::SystemClock),
+        Arc::new(Scope::new(32)),
+        {
+            let log = Arc::clone(&log);
+            let acquired = Arc::clone(&acquired);
+            move |_key: &String| -> (Result<String, String>, Option<cache::Release>) {
+                let id = acquired.fetch_add(1, Ordering::SeqCst) + 1;
+                log.lock().unwrap().push(format!("acquired-{id}"));
+                if id == 1 {
+                    entered_tx.send(()).unwrap();
+                    gate_rx.lock().unwrap().recv().unwrap();
+                }
+                let released = Arc::clone(&log);
+                (
+                    Ok(format!("resource-{id}")),
+                    Some(Box::new(move || {
+                        released.lock().unwrap().push(format!("released-{id}"));
+                    })),
+                )
+            }
+        },
+    ));
+
+    let first = {
+        let cache = Arc::clone(&cache);
+        std::thread::spawn(move || cache.get(&"key".to_string()))
+    };
+    entered_rx.recv().unwrap();
+    // The first lookup is in flight and owns nothing yet, so this drops the
+    // pending row without releasing anything.
+    cache.invalidate(&"key".to_string());
+    assert_eq!(cache.get(&"key".to_string()), Ok("resource-2".to_string()));
+    assert_eq!(log_of(&log), vec!["acquired-1", "acquired-2"]);
+
+    gate_tx.send(()).unwrap();
+    assert_eq!(first.join().unwrap(), Ok("resource-1".to_string()));
+    assert_eq!(
+        log_of(&log),
+        vec!["acquired-1", "acquired-2", "released-1"],
+        "the displaced completion released its own resource only"
+    );
+    assert_eq!(
+        cache.get_option(&"key".to_string()),
+        Some("resource-2".to_string()),
+        "the replacement still holds its resource"
+    );
+
+    cache.close();
+    assert_eq!(
+        log_of(&log),
+        vec!["acquired-1", "acquired-2", "released-1", "released-2"]
+    );
+}
+
+#[test]
+fn scoped_invalidate_all_empties_the_cache_before_finalizers() {
+    // ScopedCache.test.ts:1126 — every row leaves before any finalizer runs,
+    // so a finalizer that reads the cache finds it empty.
+    use cache::TimeToLive;
+
+    type Observed = Arc<std::sync::Mutex<Vec<(usize, Vec<String>)>>>;
+    let observed: Observed = Arc::new(std::sync::Mutex::new(Vec::new()));
+    let holder: Arc<std::sync::Mutex<std::sync::Weak<ScopedCache<String, String, String>>>> =
+        Arc::new(std::sync::Mutex::new(std::sync::Weak::new()));
+    let cache = Arc::new(ScopedCache::make_resource(
+        10,
+        TimeToLive::Infinite,
+        Arc::new(elm_effect::SystemClock),
+        Arc::new(Scope::new(33)),
+        {
+            let observed = Arc::clone(&observed);
+            let holder = Arc::clone(&holder);
+            move |key: &String| -> (Result<String, String>, Option<cache::Release>) {
+                let key = key.clone();
+                let observed = Arc::clone(&observed);
+                let holder = Arc::clone(&holder);
+                (
+                    Ok(format!("value-{key}")),
+                    Some(Box::new(move || {
+                        if let Some(cache) = holder.lock().unwrap().upgrade() {
+                            observed
+                                .lock()
+                                .unwrap()
+                                .push((cache.size(), cache.keys()));
+                        }
+                    })),
+                )
+            }
+        },
+    ));
+    *holder.lock().unwrap() = Arc::downgrade(&cache);
+
+    assert_eq!(cache.get(&"key".to_string()), Ok("value-key".to_string()));
+    cache.invalidate_all();
+    assert_eq!(
+        *observed.lock().unwrap(),
+        vec![(0, Vec::<String>::new())],
+        "the finalizer saw an empty cache"
+    );
+}
+
+#[test]
+fn scoped_finalizer_refresh_installs_an_entry_that_survives() {
+    // ScopedCache.test.ts:1088 — a finalizer that refreshes while invalidateAll
+    // runs owns the entry it installs: the invalidation releases only the
+    // resource it displaced, and the refresh's resource goes at close. (The
+    // pin also runs a yielded tuple; with no yield point between the two in a
+    // synchronous port, this one test covers both.)
+    use cache::TimeToLive;
+
+    let released: Arc<std::sync::Mutex<Vec<usize>>> = Arc::new(std::sync::Mutex::new(Vec::new()));
+    let acquired = Arc::new(AtomicUsize::new(0));
+    let holder: Arc<std::sync::Mutex<std::sync::Weak<ScopedCache<String, usize, String>>>> =
+        Arc::new(std::sync::Mutex::new(std::sync::Weak::new()));
+    let cache = Arc::new(ScopedCache::make_resource(
+        10,
+        TimeToLive::Infinite,
+        Arc::new(elm_effect::SystemClock),
+        Arc::new(Scope::new(34)),
+        {
+            let released = Arc::clone(&released);
+            let acquired = Arc::clone(&acquired);
+            let holder = Arc::clone(&holder);
+            move |_key: &String| -> (Result<usize, String>, Option<cache::Release>) {
+                let id = acquired.fetch_add(1, Ordering::SeqCst) + 1;
+                let released = Arc::clone(&released);
+                let holder = Arc::clone(&holder);
+                (
+                    Ok(id),
+                    Some(Box::new(move || {
+                        released.lock().unwrap().push(id);
+                        if id == 1
+                            && let Some(cache) = holder.lock().unwrap().upgrade()
+                        {
+                            let _ = cache.refresh(&"key".to_string());
+                        }
+                    })),
+                )
+            }
+        },
+    ));
+    *holder.lock().unwrap() = Arc::downgrade(&cache);
+
+    assert_eq!(cache.get(&"key".to_string()), Ok(1));
+    cache.invalidate_all();
+    assert_eq!(*released.lock().unwrap(), vec![1], "only the displaced resource");
+    assert_eq!(acquired.load(Ordering::SeqCst), 2, "the finalizer's refresh ran");
+    assert_eq!(
+        cache.get_option(&"key".to_string()),
+        Some(2),
+        "the entry the finalizer installed survived the invalidation"
+    );
+
+    cache.close();
+    assert_eq!(*released.lock().unwrap(), vec![1, 2]);
+}
+
 #[test]
 fn cache_invalidate_when_judges_only_a_held_success_value() {
     // Cache.test.ts:851, :865, :879, :891 — invalidateWhen reports true and

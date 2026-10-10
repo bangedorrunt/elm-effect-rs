@@ -18,8 +18,60 @@ use std::sync::{Arc, Condvar, Mutex};
 
 // Cache
 
-/// A shared lookup function.
-type LookupFn<K, V, E> = Arc<dyn Fn(&K) -> Result<V, E> + Send + Sync>;
+/// What an entry owns, run once when it stops being the entry: the pin's
+/// entry scope, closed when the entry is displaced, evicted, invalidated,
+/// expired, or overwritten (ScopedCache.test.ts:400, :662, :783, :901, :1074,
+/// :1202, :1660, :1976, :2058, :2093).
+pub type Release = Box<dyn FnOnce() + Send + 'static>;
+
+/// Releases collected while the map lock was held, run by `run` once it is
+/// gone. A finalizer may call back into the cache (ScopedCache.test.ts:1088
+/// refreshes from one), so firing under the lock would deadlock; and
+/// `invalidate_all` drains every row before running any of them
+/// (ScopedCache.test.ts:1126).
+#[must_use = "collected releases must run, or an entry's resources leak"]
+struct Releases(Vec<Release>);
+
+impl Releases {
+    fn new() -> Self {
+        Self(Vec::new())
+    }
+
+    fn take(&mut self, release: Option<Release>) {
+        if let Some(release) = release {
+            self.0.push(release);
+        }
+    }
+
+    fn extend(&mut self, releases: Vec<Release>) {
+        self.0.extend(releases);
+    }
+
+    fn fire(&mut self) {
+        for release in self.0.drain(..) {
+            release();
+        }
+    }
+
+    fn run(mut self) {
+        self.fire();
+    }
+}
+
+impl Drop for Releases {
+    /// Backstop for a path with an early return: the collector is declared
+    /// before the map lock, so it drops after it, and a finalizer never runs
+    /// holding the lock.
+    fn drop(&mut self) {
+        self.fire();
+    }
+}
+
+/// A shared lookup function. Its second half is what the entry owns: the pin
+/// runs a lookup inside the entry's scope, so `Effect.acquireRelease` there
+/// is this `Option<Release>`, handed over even when the lookup failed (a
+/// failed lookup's resource still needs releasing).
+type LookupFn<K, V, E> = Arc<dyn Fn(&K) -> (Result<V, E>, Option<Release>) + Send + Sync>;
 
 /// The pin's `makeWith` lifetime: a function of the lookup's exit and key, so
 /// one cache can hold successes for an hour and drop failures at once.
@@ -44,15 +96,38 @@ pub enum TimeToLive {
 struct Cell<V, E> {
     outcome: Mutex<Option<Result<V, E>>>,
     ready: Condvar,
+    /// What this entry owns until something fires it. It lives on the cell so
+    /// a completion can hand its release to the row it installed, and a
+    /// completion that no longer owns the row fires its own release instead
+    /// of the replacement's (ScopedCache.test.ts:797, :1088).
+    release: Mutex<Option<Release>>,
 }
 
 impl<V: Clone, E: Clone> Cell<V, E> {
     fn pending() -> Self {
-        Self { outcome: Mutex::new(None), ready: Condvar::new() }
+        Self {
+            outcome: Mutex::new(None),
+            ready: Condvar::new(),
+            release: Mutex::new(None),
+        }
     }
 
     fn settled(outcome: Result<V, E>) -> Self {
-        Self { outcome: Mutex::new(Some(outcome)), ready: Condvar::new() }
+        Self {
+            outcome: Mutex::new(Some(outcome)),
+            ready: Condvar::new(),
+            release: Mutex::new(None),
+        }
+    }
+
+    /// Give this entry what its lookup acquired.
+    fn hold(&self, release: Release) {
+        *self.release.lock().unwrap() = Some(release);
+    }
+
+    /// Take what this entry owns, if it still owns anything.
+    fn take_release(&self) -> Option<Release> {
+        self.release.lock().unwrap().take()
     }
 
     /// The outcome if the lookup has completed, `None` while it runs.
@@ -105,6 +180,16 @@ where
     pub fn new(
         capacity: usize,
         lookup: impl Fn(&K) -> Result<V, E> + Send + Sync + 'static,
+    ) -> Self {
+        Self::new_owned(capacity, move |key| ((lookup)(key), None))
+    }
+
+    /// [`Cache::new`] for a lookup that acquires something its entry owns.
+    /// The release runs when the entry stops being the entry, or at once when
+    /// the row is never stored or is no longer the lookup's own.
+    pub fn new_owned(
+        capacity: usize,
+        lookup: impl Fn(&K) -> (Result<V, E>, Option<Release>) + Send + Sync + 'static,
     ) -> Self {
         Self {
             map: Mutex::new(HashMap::new()),
@@ -179,10 +264,11 @@ where
     /// Concurrent callers for one key share the same in-flight cell; a caller
     /// that finds one waits on it instead of starting a second lookup.
     pub fn get(&self, key: &K) -> Result<V, E> {
+        let mut install = Releases::new();
         let (cell, owner) = {
             let mut map = self.map.lock().unwrap();
             if self.expired_now(key) {
-                self.forget(&mut map, key);
+                install.take(self.forget(&mut map, key));
             }
             match map.get(key).cloned() {
                 Some(cell) => {
@@ -201,19 +287,25 @@ where
                     let cell = Arc::new(Cell::pending());
                     map.insert(key.clone(), Arc::clone(&cell));
                     self.order.lock().unwrap().push_back(key.clone());
-                    self.trim(&mut map);
+                    install.extend(self.trim(&mut map));
                     (cell, true)
                 }
             }
         };
+        // An eviction releases what it dropped BEFORE the lookup runs, so a
+        // lookup that acquires sees the release already happen
+        // (ScopedCache.test.ts:2033 orders `acquired-a`, `acquired-b`,
+        // `released-a`, `acquired-c`).
+        install.run();
         if !owner {
             return cell.wait();
         }
+        let mut releases = Releases::new();
         // The lookup runs outside the map lock: that is the point of the cell.
         // Holding the lock here would make the pin's interleavings (a set that
         // lands mid-lookup, an interrupt that removes the pending row)
         // inexpressible.
-        let outcome = (self.lookup)(key);
+        let (outcome, release) = (self.lookup)(key);
         {
             let mut map = self.map.lock().unwrap();
             let store = match &outcome {
@@ -224,14 +316,23 @@ where
             let zero = matches!(ttl, TimeToLive::For(duration) if duration.is_zero());
             if zero || !store {
                 // Nothing is stored: the row leaves with the completed lookup
-                // unless a concurrent write already replaced it.
+                // unless a concurrent write already replaced it, and what the
+                // lookup acquired goes with it.
                 if Self::owns(&map, key, &cell) {
-                    self.forget(&mut map, key);
+                    releases.take(self.forget(&mut map, key));
                 }
+                releases.take(release);
             } else if Self::owns(&map, key, &cell) {
+                // The row is this lookup's, so it owns what the lookup took.
+                if let Some(release) = release {
+                    cell.hold(release);
+                }
                 self.record_expiry(key, ttl);
+            } else {
+                releases.take(release);
             }
         }
+        releases.run();
         cell.settle(outcome.clone());
         outcome
     }
@@ -246,10 +347,11 @@ where
     /// goes to the back of the queue and pays the capacity check. Under a
     /// zero TTL the row goes instead of staying expired-on-arrival.
     pub fn refresh(&self, key: &K) -> Result<V, E> {
+        let mut install = Releases::new();
         let (cell, existing) = {
             let mut map = self.map.lock().unwrap();
             let existing = if self.expired_now(key) {
-                self.forget(&mut map, key);
+                install.take(self.forget(&mut map, key));
                 false
             } else {
                 map.contains_key(key)
@@ -262,11 +364,13 @@ where
                 // completion, keeping its position (a refresh is not a use).
                 map.insert(key.clone(), Arc::clone(&cell));
                 self.order.lock().unwrap().push_back(key.clone());
-                self.trim(&mut map);
+                install.extend(self.trim(&mut map));
             }
             (cell, existing)
         };
-        let outcome = (self.lookup)(key);
+        install.run();
+        let mut releases = Releases::new();
+        let (outcome, release) = (self.lookup)(key);
         {
             let mut map = self.map.lock().unwrap();
             let store = match &outcome {
@@ -279,32 +383,52 @@ where
                 // A zero-TTL refresh removes the row that is there now when it
                 // was updating an existing entry, and only its own row when it
                 // was creating one: a value written during the lookup survives
-                // the latter (Cache.test.ts:995).
+                // the latter (Cache.test.ts:995). Either way its own lookup's
+                // resource has no entry left to belong to.
                 if existing || Self::owns(&map, key, &cell) {
-                    self.forget(&mut map, key);
+                    releases.take(self.forget(&mut map, key));
                 }
+                releases.take(release);
             } else if store {
                 if existing {
                     // Replace the current row with this lookup's cell. If the
                     // key was evicted while the lookup ran it re-enters at the
-                    // back and capacity runs again (Cache.test.ts:936).
+                    // back and capacity runs again (Cache.test.ts:936). The
+                    // row that was replaced hands over what it owned
+                    // (ScopedCache.test.ts:1074).
                     let present = map.contains_key(key);
-                    map.insert(key.clone(), Arc::clone(&cell));
+                    if let Some(old) = map.insert(key.clone(), Arc::clone(&cell)) {
+                        releases.take(old.take_release());
+                    }
                     if !present {
                         self.order.lock().unwrap().push_back(key.clone());
-                        self.trim(&mut map);
+                        releases.extend(self.trim(&mut map));
+                    }
+                    if let Some(release) = release {
+                        cell.hold(release);
                     }
                     self.record_expiry(key, ttl);
                 } else if Self::owns(&map, key, &cell) {
                     // The row went up at the start; completing it is an expiry.
+                    if let Some(release) = release {
+                        cell.hold(release);
+                    }
                     self.record_expiry(key, ttl);
+                } else {
+                    releases.take(release);
                 }
-            } else if !existing && Self::owns(&map, key, &cell) {
+            } else {
                 // Failures are not cached unless asked for, so a failed
-                // creating refresh drops the row it put up.
-                self.forget(&mut map, key);
+                // creating refresh drops the row it put up. A failed refresh
+                // of a live entry keeps that entry, and the new lookup's own
+                // resource goes with the lookup.
+                if !existing && Self::owns(&map, key, &cell) {
+                    releases.take(self.forget(&mut map, key));
+                }
+                releases.take(release);
             }
         }
+        releases.run();
         cell.settle(outcome.clone());
         outcome
     }
@@ -318,25 +442,34 @@ where
         }
     }
 
-    /// Forget `key` everywhere: cell, recency queue, and expiry.
-    fn forget(&self, map: &mut HashMap<K, Arc<Cell<V, E>>>, key: &K) {
-        map.remove(key);
+    /// Forget `key` everywhere: cell, recency queue, and expiry. Hands back
+    /// whatever the row owned, for the caller to run once the lock is gone.
+    fn forget(&self, map: &mut HashMap<K, Arc<Cell<V, E>>>, key: &K) -> Option<Release> {
+        let release = map.remove(key).and_then(|cell| cell.take_release());
         self.order.lock().unwrap().retain(|held| held != key);
         self.expiry.lock().unwrap().remove(key);
+        release
     }
 
-    /// Drop the oldest rows until the map fits the capacity.
-    fn trim(&self, map: &mut HashMap<K, Arc<Cell<V, E>>>) {
+    /// Drop the oldest rows until the map fits the capacity, handing back
+    /// what they owned.
+    fn trim(&self, map: &mut HashMap<K, Arc<Cell<V, E>>>) -> Vec<Release> {
+        let mut releases = Vec::new();
         while map.len() > self.capacity {
             let oldest = self.order.lock().unwrap().pop_front();
             match oldest {
                 Some(oldest) => {
-                    map.remove(&oldest);
+                    if let Some(cell) = map.remove(&oldest)
+                        && let Some(release) = cell.take_release()
+                    {
+                        releases.push(release);
+                    }
                     self.expiry.lock().unwrap().remove(&oldest);
                 }
                 None => break,
             }
         }
+        releases
     }
 
     /// Whether `key`'s current row is `cell`: the pin's entry identity.
@@ -346,15 +479,16 @@ where
 
     /// Whether `key` is held and unexpired; an expired entry is dropped.
     pub fn has(&self, key: &K) -> bool {
-        let mut map = self.map.lock().unwrap();
-        if !map.contains_key(key) {
-            return false;
-        }
-        if self.expired_now(key) {
-            self.forget(&mut map, key);
-            return false;
-        }
-        true
+        let mut releases = Releases::new();
+        let held = {
+            let mut map = self.map.lock().unwrap();
+            if map.contains_key(key) && self.expired_now(key) {
+                releases.take(self.forget(&mut map, key));
+            }
+            map.contains_key(key)
+        };
+        releases.run();
+        held
     }
 
     /// Entries currently held.
@@ -374,19 +508,25 @@ where
     /// expired `get` cannot resurrect the old stamp. Capacity is enforced
     /// exactly as a lookup's store does, evicting the oldest entry.
     pub fn set(&self, key: K, value: V) {
+        let mut releases = Releases::new();
         let outcome = Ok(value);
         let ttl = self.lifetime(&outcome, &key);
-        let mut map = self.map.lock().unwrap();
-        self.forget(&mut map, &key);
-        if matches!(ttl, TimeToLive::For(duration) if duration.is_zero()) {
-            // The pin removes any existing row and stores nothing under a
-            // zero TTL, so `set` cannot leave a row expired on arrival.
-            return;
+        {
+            let mut map = self.map.lock().unwrap();
+            // The overwritten row hands over what it owned
+            // (ScopedCache.test.ts:662).
+            releases.take(self.forget(&mut map, &key));
+            if matches!(ttl, TimeToLive::For(duration) if duration.is_zero()) {
+                // The pin removes any existing row and stores nothing under a
+                // zero TTL, so `set` cannot leave a row expired on arrival.
+            } else {
+                map.insert(key.clone(), Arc::new(Cell::settled(outcome)));
+                self.order.lock().unwrap().push_back(key.clone());
+                releases.extend(self.trim(&mut map));
+                self.record_expiry(&key, ttl);
+            }
         }
-        map.insert(key.clone(), Arc::new(Cell::settled(outcome)));
-        self.order.lock().unwrap().push_back(key.clone());
-        self.trim(&mut map);
-        self.record_expiry(&key, ttl);
+        releases.run();
     }
 
     /// `Cache.getOption` at the pin: `Some(value)` for an entry already
@@ -418,8 +558,12 @@ where
     /// change an answer. It is dropped anyway, because invalidation-only
     /// traffic would otherwise grow the stamp map without bound.
     pub fn invalidate(&self, key: &K) {
-        let mut map = self.map.lock().unwrap();
-        self.forget(&mut map, key);
+        let mut releases = Releases::new();
+        {
+            let mut map = self.map.lock().unwrap();
+            releases.take(self.forget(&mut map, key));
+        }
+        releases.run();
     }
 
     /// `Cache.invalidateWhen`: drop `key` only when the predicate accepts
@@ -436,10 +580,11 @@ where
     /// Cache.test.ts:818 puts a `set` in between, and the newer value must
     /// survive.
     pub fn invalidate_when(&self, key: &K, predicate: impl FnOnce(V) -> bool) -> bool {
+        let mut releases = Releases::new();
         let cell = {
             let mut map = self.map.lock().unwrap();
             if self.expired_now(key) {
-                self.forget(&mut map, key);
+                releases.take(self.forget(&mut map, key));
                 return false;
             }
             match map.get(key).cloned() {
@@ -451,7 +596,7 @@ where
                         return match outcome {
                             Ok(value) => {
                                 if predicate(value) {
-                                    self.forget(&mut map, key);
+                                    releases.take(self.forget(&mut map, key));
                                     true
                                 } else {
                                     false
@@ -475,7 +620,7 @@ where
                 }
                 let mut map = self.map.lock().unwrap();
                 if Self::owns(&map, key, &cell) {
-                    self.forget(&mut map, key);
+                    releases.take(self.forget(&mut map, key));
                     true
                 } else {
                     false
@@ -489,14 +634,17 @@ where
     /// keeps running, but its completion no longer touches the map, and a
     /// value written in the meantime is never removed (Cache.test.ts:960).
     pub fn cancel_pending(&self, key: &K) -> bool {
-        let mut map = self.map.lock().unwrap();
-        let pending = map.get(key).map_or(false, |cell| cell.poll().is_none());
-        if pending {
-            self.forget(&mut map, key);
-            true
-        } else {
-            false
-        }
+        let mut releases = Releases::new();
+        let pending = {
+            let mut map = self.map.lock().unwrap();
+            let pending = map.get(key).map_or(false, |cell| cell.poll().is_none());
+            if pending {
+                releases.take(self.forget(&mut map, key));
+            }
+            pending
+        };
+        releases.run();
+        pending
     }
 
     /// Active keys (`Cache.keys`): every held key whose entry has not
@@ -505,19 +653,24 @@ where
     /// the live map; an eager snapshot is the honest Rust form here, since a
     /// lazy iterator would have to hold the map lock across yields.
     pub fn keys(&self) -> Vec<K> {
-        let mut map = self.map.lock().unwrap();
-        let mut live = Vec::new();
-        let mut expired = Vec::new();
-        for key in map.keys() {
-            if self.expired_now(key) {
-                expired.push(key.clone());
-            } else {
-                live.push(key.clone());
+        let mut releases = Releases::new();
+        let live = {
+            let mut map = self.map.lock().unwrap();
+            let mut live = Vec::new();
+            let mut expired = Vec::new();
+            for key in map.keys() {
+                if self.expired_now(key) {
+                    expired.push(key.clone());
+                } else {
+                    live.push(key.clone());
+                }
             }
-        }
-        for key in expired {
-            self.forget(&mut map, &key);
-        }
+            for key in expired {
+                releases.take(self.forget(&mut map, &key));
+            }
+            live
+        };
+        releases.run();
         live
     }
 
@@ -532,19 +685,24 @@ where
     /// failure is a stored row but never an entry, and expired rows are
     /// removed by the walk.
     pub fn entries(&self) -> Vec<(K, V)> {
-        let mut map = self.map.lock().unwrap();
-        let mut live = Vec::new();
-        let mut expired = Vec::new();
-        for (key, cell) in map.iter() {
-            if self.expired_now(key) {
-                expired.push(key.clone());
-            } else if let Some(Ok(value)) = cell.poll() {
-                live.push((key.clone(), value.clone()));
+        let mut releases = Releases::new();
+        let live = {
+            let mut map = self.map.lock().unwrap();
+            let mut live = Vec::new();
+            let mut expired = Vec::new();
+            for (key, cell) in map.iter() {
+                if self.expired_now(key) {
+                    expired.push(key.clone());
+                } else if let Some(Ok(value)) = cell.poll() {
+                    live.push((key.clone(), value.clone()));
+                }
             }
-        }
-        for key in expired {
-            self.forget(&mut map, &key);
-        }
+            for key in expired {
+                releases.take(self.forget(&mut map, &key));
+            }
+            live
+        };
+        releases.run();
         live
     }
 
@@ -553,11 +711,21 @@ where
         self.clear()
     }
 
-    /// Drop every entry.
+    /// Drop every entry. Every row leaves the map before any finalizer runs,
+    /// so a finalizer that re-enters the cache sees it empty and an entry it
+    /// installs survives (ScopedCache.test.ts:1126, :1088).
     pub fn clear(&self) {
-        self.map.lock().unwrap().clear();
+        let mut releases = Releases::new();
+        {
+            let mut map = self.map.lock().unwrap();
+            for cell in map.values() {
+                releases.take(cell.take_release());
+            }
+            map.clear();
+        }
         self.order.lock().unwrap().clear();
         self.expiry.lock().unwrap().clear();
+        releases.run();
     }
 }
 
@@ -888,6 +1056,31 @@ where
         }
     }
 
+    /// `ScopedCache.make` for a lookup that acquires something its entry
+    /// owns: the resource rides the entry, so it is released when the entry is
+    /// displaced, evicted, invalidated, expired, overwritten, or when the
+    /// cache closes, and a lookup that no longer owns its row releases its
+    /// own rather than a replacement's (ScopedCache.test.ts:400, :662, :783,
+    /// :797, :901, :1074, :1088, :1126, :1202, :1660, :1976, :2033, :2058,
+    /// :2093).
+    pub fn make_resource(
+        capacity: usize,
+        ttl: TimeToLive,
+        clock: Arc<dyn elm_effect::ClockImpl>,
+        scope: std::sync::Arc<elm_effect::Scope>,
+        lookup: impl Fn(&K) -> (Result<V, E>, Option<Release>) + Send + Sync + 'static,
+    ) -> Self {
+        Self {
+            // The pin's ScopedCache keeps failed entries as rows, so their
+            // resources stay alive until the entry goes and an eviction
+            // releases them (ScopedCache.test.ts:1976).
+            cache: Cache::new_owned(capacity, lookup)
+                .with_ttl(ttl, clock)
+                .cache_errors(true),
+            scope,
+        }
+    }
+
     /// Configured entry capacity.
     pub fn capacity(&self) -> usize {
         self.cache.capacity()
@@ -896,6 +1089,31 @@ where
     /// Whether `key` is held and unexpired.
     pub fn has(&self, key: &K) -> bool {
         self.cache.has(key)
+    }
+
+    /// `ScopedCache.refresh`.
+    pub fn refresh(&self, key: &K) -> Result<V, E> {
+        self.cache.refresh(key)
+    }
+
+    /// `ScopedCache.invalidateAll`.
+    pub fn invalidate_all(&self) {
+        self.cache.invalidate_all()
+    }
+
+    /// `ScopedCache.keys`.
+    pub fn keys(&self) -> Vec<K> {
+        self.cache.keys()
+    }
+
+    /// `ScopedCache.values`.
+    pub fn values(&self) -> Vec<V> {
+        self.cache.values()
+    }
+
+    /// `ScopedCache.entries`.
+    pub fn entries(&self) -> Vec<(K, V)> {
+        self.cache.entries()
     }
 
     /// `ScopedCache.getOption`: the held value, never running the lookup.
