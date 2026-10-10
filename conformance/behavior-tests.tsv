@@ -360,20 +360,20 @@ unported	packages/effect/test/Cache.test.ts	1045	it.effect	concurrent refresh ca
 unported	packages/effect/test/Cache.test.ts	1069	it.effect	clears all entries	
 unported	packages/effect/test/Cache.test.ts	1087	it.effect	size becomes 0 after invalidateAll	
 unported	packages/effect/test/Cache.test.ts	1104	it.effect	all keys return None after invalidateAll	
-unported	packages/effect/test/Cache.test.ts	1127	it.effect	empty cache returns 0	
-unported	packages/effect/test/Cache.test.ts	1139	it.effect	returns correct count after adding entries	
-unported	packages/effect/test/Cache.test.ts	1155	it.effect	decreases after invalidation	
-unported	packages/effect/test/Cache.test.ts	1172	it.effect	expired entries are counted until accessed	
-unported	packages/effect/test/Cache.test.ts	1197	it.effect	returns all active keys	
-unported	packages/effect/test/Cache.test.ts	1213	it.effect	excludes keys for expired entries	
-unported	packages/effect/test/Cache.test.ts	1231	it.effect	empty after invalidateAll	
-unported	packages/effect/test/Cache.test.ts	1249	it.effect	returns all successful cached values	
-unported	packages/effect/test/Cache.test.ts	1267	it.effect	doesn't include failed lookups	
-unported	packages/effect/test/Cache.test.ts	1285	it.effect	doesn't include expired values	
-unported	packages/effect/test/Cache.test.ts	1306	it.effect	returns all key-value pairs	
-unported	packages/effect/test/Cache.test.ts	1324	it.effect	filters out failed lookups	
-unported	packages/effect/test/Cache.test.ts	1342	it.effect	filters out expired entries	
-unported	packages/effect/test/Cache.test.ts	1361	it.effect	removes expired entries as side effect	
+ported	packages/effect/test/Cache.test.ts	1127	it.effect	empty cache returns 0	cache_size_counts_stored_entries
+ported	packages/effect/test/Cache.test.ts	1139	it.effect	returns correct count after adding entries	cache_size_counts_stored_entries
+ported	packages/effect/test/Cache.test.ts	1155	it.effect	decreases after invalidation	cache_size_counts_stored_entries
+ported	packages/effect/test/Cache.test.ts	1172	it.effect	expired entries are counted until accessed	cache_size_counts_stored_entries
+ported	packages/effect/test/Cache.test.ts	1197	it.effect	returns all active keys	cache_keys_lists_active_keys
+ported	packages/effect/test/Cache.test.ts	1213	it.effect	excludes keys for expired entries	cache_keys_lists_active_keys
+ported	packages/effect/test/Cache.test.ts	1231	it.effect	empty after invalidateAll	cache_keys_lists_active_keys
+ported	packages/effect/test/Cache.test.ts	1249	it.effect	returns all successful cached values	cache_values_and_entries_exclude_failures_and_expired_rows
+ported	packages/effect/test/Cache.test.ts	1267	it.effect	doesn't include failed lookups	cache_values_and_entries_exclude_failures_and_expired_rows
+ported	packages/effect/test/Cache.test.ts	1285	it.effect	doesn't include expired values	cache_values_and_entries_exclude_failures_and_expired_rows
+ported	packages/effect/test/Cache.test.ts	1306	it.effect	returns all key-value pairs	cache_values_and_entries_exclude_failures_and_expired_rows
+ported	packages/effect/test/Cache.test.ts	1324	it.effect	filters out failed lookups	cache_values_and_entries_exclude_failures_and_expired_rows
+ported	packages/effect/test/Cache.test.ts	1342	it.effect	filters out expired entries	cache_values_and_entries_exclude_failures_and_expired_rows
+ported	packages/effect/test/Cache.test.ts	1361	it.effect	removes expired entries as side effect	cache_values_and_entries_exclude_failures_and_expired_rows
 unported	packages/effect/test/Cache.test.ts	1390	it.effect	LRU eviction - oldest entries removed when capacity exceeded	
 unported	packages/effect/test/Cache.test.ts	1408	it.effect	LRU eviction - access order determines eviction	
 unported	packages/effect/test/Cache.test.ts	1429	it.effect	capacity of 1	

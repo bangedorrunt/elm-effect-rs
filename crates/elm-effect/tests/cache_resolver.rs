@@ -643,3 +643,124 @@ fn get_option_reports_absent_for_a_cached_failure() {
     assert_eq!(cache.len(), 1, "the failure is cached");
     assert_eq!(cache.get_option(&"k".to_string()), None);
 }
+
+// Cache inspection: size, keys, values, entries
+
+#[test]
+fn cache_size_counts_stored_entries() {
+    // Cache.test.ts:1127, :1139, :1155, :1172 — size is the number of stored
+    // rows: 0 when empty, one per get, one fewer after invalidate, and an
+    // expired row keeps counting until something touches it.
+    use cache::TimeToLive;
+    use elm_effect::{Duration, TestClock};
+
+    let clock = Arc::new(TestClock::new());
+    let cache = Cache::new(10, |key: &String| Ok::<usize, String>(key.len()))
+        .with_ttl(TimeToLive::For(Duration::from_minutes(60)), clock.clone());
+
+    assert_eq!(cache.size(), 0);
+    for key in ["a", "b", "c"] {
+        assert!(cache.get(&key.to_string()).is_ok());
+    }
+    assert_eq!(cache.size(), 3);
+    cache.invalidate(&"b".to_string());
+    assert_eq!(cache.size(), 2);
+
+    // Two hours on, both rows are expired but still held: size counts what
+    // is stored, not what is valid. Touching one drops it.
+    clock.adjust(Duration::from_minutes(120));
+    assert_eq!(cache.size(), 2);
+    assert!(!cache.has(&"a".to_string()));
+    assert_eq!(cache.size(), 1);
+}
+
+#[test]
+fn cache_keys_lists_active_keys() {
+    // Cache.test.ts:1197, :1213, :1231 — the unexpired keys; an expired row
+    // is removed by the walk rather than merely filtered out, and
+    // invalidateAll leaves nothing behind.
+    use cache::TimeToLive;
+    use elm_effect::{Duration, TestClock};
+
+    let clock = Arc::new(TestClock::new());
+    let lookup = |key: &String| Ok::<usize, String>(key.len());
+
+    let endless = Cache::new(10, lookup);
+    for key in ["a", "b", "c"] {
+        endless.get(&key.to_string());
+    }
+    let mut keys = endless.keys();
+    keys.sort();
+    assert_eq!(keys, vec!["a".to_string(), "b".to_string(), "c".to_string()]);
+
+    endless.invalidate_all();
+    assert!(endless.keys().is_empty());
+    assert_eq!(endless.size(), 0);
+
+    let hourly = Cache::new(10, lookup)
+        .with_ttl(TimeToLive::For(Duration::from_minutes(60)), clock.clone());
+    hourly.get(&"a".to_string());
+    hourly.get(&"b".to_string());
+    clock.adjust(Duration::from_minutes(120));
+    assert!(hourly.keys().is_empty());
+    // Removing, not filtering: the expired rows are gone from the map too.
+    assert_eq!(hourly.size(), 0);
+}
+
+#[test]
+fn cache_values_and_entries_exclude_failures_and_expired_rows() {
+    // Cache.test.ts:1249, :1267, :1285, :1306, :1324, :1342, :1361 — values
+    // and entries report successful rows only, a cached failure is filtered
+    // from both (but still counted by size), and expired rows are removed by
+    // the walk, so size falls as a side effect.
+    use cache::TimeToLive;
+    use elm_effect::{Duration, TestClock};
+
+    let clock = Arc::new(TestClock::new());
+    let ttl = TimeToLive::For(Duration::from_minutes(60));
+    let lookup = |key: &String| {
+        if key == "fail" {
+            Err::<usize, String>("error".to_string())
+        } else {
+            Ok(key.len())
+        }
+    };
+
+    let cache = Cache::new(10, lookup).with_ttl(ttl, clock.clone());
+    for key in ["a", "ab", "abc"] {
+        assert!(cache.get(&key.to_string()).is_ok());
+    }
+    let mut values = cache.values();
+    values.sort();
+    assert_eq!(values, vec![1, 2, 3]);
+    let mut entries = cache.entries();
+    entries.sort();
+    assert_eq!(
+        entries,
+        vec![
+            ("a".to_string(), 1),
+            ("ab".to_string(), 2),
+            ("abc".to_string(), 3)
+        ]
+    );
+
+    // A cached failure is a stored row, so size counts it, but it is not a
+    // value and not an entry.
+    let failing = Cache::new(10, lookup)
+        .with_ttl(ttl, clock.clone())
+        .cache_errors(true);
+    assert!(failing.get(&"a".to_string()).is_ok());
+    assert!(failing.get(&"fail".to_string()).is_err());
+    assert_eq!(failing.size(), 2);
+    assert_eq!(failing.values(), vec![1]);
+    assert_eq!(failing.entries(), vec![("a".to_string(), 1)]);
+
+    let hourly = Cache::new(10, lookup).with_ttl(ttl, clock.clone());
+    hourly.get(&"a".to_string());
+    hourly.get(&"b".to_string());
+    clock.adjust(Duration::from_minutes(120));
+    assert_eq!(hourly.size(), 2);
+    assert!(hourly.entries().is_empty());
+    assert!(hourly.values().is_empty());
+    assert_eq!(hourly.size(), 0, "the walk removed the expired rows");
+}

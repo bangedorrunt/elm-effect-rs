@@ -214,6 +214,60 @@ where
         self.forget(&mut map, key);
     }
 
+    /// Active keys (`Cache.keys`): every held key whose entry has not
+    /// expired. An expired row is REMOVED by the walk, not merely filtered
+    /// out, so `size` falls with it. The pin hands back a lazy iterable over
+    /// the live map; an eager snapshot is the honest Rust form here, since a
+    /// lazy iterator would have to hold the map lock across yields.
+    pub fn keys(&self) -> Vec<K> {
+        let mut map = self.map.lock().unwrap();
+        let mut live = Vec::new();
+        let mut expired = Vec::new();
+        for key in map.keys() {
+            if self.expired_now(key) {
+                expired.push(key.clone());
+            } else {
+                live.push(key.clone());
+            }
+        }
+        for key in expired {
+            self.forget(&mut map, &key);
+        }
+        live
+    }
+
+    /// Values of every successful, unexpired entry (`Cache.values`). A failed
+    /// lookup is never a value, and expired rows go as a side effect of the
+    /// walk (the pin defines `values` as a map over `entries`).
+    pub fn values(&self) -> Vec<V> {
+        self.entries().into_iter().map(|(_, value)| value).collect()
+    }
+
+    /// Successful, unexpired `(key, value)` pairs (`Cache.entries`). A cached
+    /// failure is a stored row but never an entry, and expired rows are
+    /// removed by the walk.
+    pub fn entries(&self) -> Vec<(K, V)> {
+        let mut map = self.map.lock().unwrap();
+        let mut live = Vec::new();
+        let mut expired = Vec::new();
+        for (key, outcome) in map.iter() {
+            if self.expired_now(key) {
+                expired.push(key.clone());
+            } else if let Ok(value) = outcome {
+                live.push((key.clone(), value.clone()));
+            }
+        }
+        for key in expired {
+            self.forget(&mut map, &key);
+        }
+        live
+    }
+
+    /// Drop every entry (`Cache.invalidateAll`).
+    pub fn invalidate_all(&self) {
+        self.clear()
+    }
+
     /// Drop every entry.
     pub fn clear(&self) {
         self.map.lock().unwrap().clear();
