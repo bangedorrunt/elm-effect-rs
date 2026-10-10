@@ -1527,23 +1527,23 @@ unported	packages/effect/test/Equal.test.ts	136	it	should return true for same r
 unported	packages/effect/test/Equal.test.ts	141	it	should return true for empty objects	
 unported	packages/effect/test/Equal.test.ts	145	it	should return false for objects with different values	
 unported	packages/effect/test/Equal.test.ts	151	it	should return false for objects with different keys	
-unported	packages/effect/test/Equal.test.ts	158	it	should return true for objects with identical symbol keys and values	
-unported	packages/effect/test/Equal.test.ts	166	it	should return false for objects with different symbol keys	
-unported	packages/effect/test/Equal.test.ts	174	it	should return false for objects with different symbol values	
-unported	packages/effect/test/Equal.test.ts	181	it	should return true for objects with mixed string and symbol keys	
-unported	packages/effect/test/Equal.test.ts	188	it	should return false when one object has symbol keys and the other doesn't	
-unported	packages/effect/test/Equal.test.ts	195	it	should consider non-enumerable symbol properties	
-unported	packages/effect/test/Equal.test.ts	212	it	should consider non-enumerable symbol properties even when they differ	
-unported	packages/effect/test/Equal.test.ts	229	it	should consider enumerable symbol properties even when string properties are the same	
+not-applicable	packages/effect/test/Equal.test.ts	158	it	should return true for objects with identical symbol keys and values	N/A: JS symbols have no Rust analog; this port has no Symbol type, so a symbol-keyed property is unrepresentable and the assertion cannot be constructed
+not-applicable	packages/effect/test/Equal.test.ts	166	it	should return false for objects with different symbol keys	N/A: JS symbols have no Rust analog; this port has no Symbol type, so a symbol-keyed property is unrepresentable and the assertion cannot be constructed
+not-applicable	packages/effect/test/Equal.test.ts	174	it	should return false for objects with different symbol values	N/A: JS symbols have no Rust analog; this port has no Symbol type, so a symbol-keyed property is unrepresentable and the assertion cannot be constructed
+not-applicable	packages/effect/test/Equal.test.ts	181	it	should return true for objects with mixed string and symbol keys	N/A: JS symbols have no Rust analog; this port has no Symbol type, so a symbol-keyed property is unrepresentable and the assertion cannot be constructed
+not-applicable	packages/effect/test/Equal.test.ts	188	it	should return false when one object has symbol keys and the other doesn't	N/A: JS symbols have no Rust analog; this port has no Symbol type, so a symbol-keyed property is unrepresentable and the assertion cannot be constructed
+not-applicable	packages/effect/test/Equal.test.ts	195	it	should consider non-enumerable symbol properties	N/A: JS symbols have no Rust analog; this port has no Symbol type, so a symbol-keyed property is unrepresentable and the assertion cannot be constructed
+not-applicable	packages/effect/test/Equal.test.ts	212	it	should consider non-enumerable symbol properties even when they differ	N/A: JS symbols have no Rust analog; this port has no Symbol type, so a symbol-keyed property is unrepresentable and the assertion cannot be constructed
+not-applicable	packages/effect/test/Equal.test.ts	229	it	should consider enumerable symbol properties even when string properties are the same	N/A: JS symbols have no Rust analog; this port has no Symbol type, so a symbol-keyed property is unrepresentable and the assertion cannot be constructed
 unported	packages/effect/test/Equal.test.ts	242	it	should handle non-enumerable string properties correctly	
 unported	packages/effect/test/Equal.test.ts	252	it	should consider non-enumerable string properties even when they differ	
 unported	packages/effect/test/Equal.test.ts	262	it	should consider enumerable properties and non-enumerable ones	
-unported	packages/effect/test/Equal.test.ts	279	it	should produce same hash for objects with identical symbol keys and values	
-unported	packages/effect/test/Equal.test.ts	289	it	should return false for equality even if symbols have same hash	
-unported	packages/effect/test/Equal.test.ts	300	it	should produce different hash for symbols with different descriptions	
-unported	packages/effect/test/Equal.test.ts	310	it	should produce different hash for objects with different symbol values	
-unported	packages/effect/test/Equal.test.ts	319	it	should produce same hash for objects with mixed string and symbol keys	
-unported	packages/effect/test/Equal.test.ts	328	it	should consider non-enumerable symbol properties in hash calculation	
+not-applicable	packages/effect/test/Equal.test.ts	279	it	should produce same hash for objects with identical symbol keys and values	N/A: JS symbols have no Rust analog; this port has no Symbol type, so a symbol-keyed property is unrepresentable and the assertion cannot be constructed
+not-applicable	packages/effect/test/Equal.test.ts	289	it	should return false for equality even if symbols have same hash	N/A: JS symbols have no Rust analog; this port has no Symbol type, so a symbol-keyed property is unrepresentable and the assertion cannot be constructed
+not-applicable	packages/effect/test/Equal.test.ts	300	it	should produce different hash for symbols with different descriptions	N/A: JS symbols have no Rust analog; this port has no Symbol type, so a symbol-keyed property is unrepresentable and the assertion cannot be constructed
+not-applicable	packages/effect/test/Equal.test.ts	310	it	should produce different hash for objects with different symbol values	N/A: JS symbols have no Rust analog; this port has no Symbol type, so a symbol-keyed property is unrepresentable and the assertion cannot be constructed
+not-applicable	packages/effect/test/Equal.test.ts	319	it	should produce same hash for objects with mixed string and symbol keys	N/A: JS symbols have no Rust analog; this port has no Symbol type, so a symbol-keyed property is unrepresentable and the assertion cannot be constructed
+not-applicable	packages/effect/test/Equal.test.ts	328	it	should consider non-enumerable symbol properties in hash calculation	N/A: JS symbols have no Rust analog; this port has no Symbol type, so a symbol-keyed property is unrepresentable and the assertion cannot be constructed
 unported	packages/effect/test/Equal.test.ts	349	it	should return true for structurally identical arrays (structural equality)	
 unported	packages/effect/test/Equal.test.ts	355	it	should return true for same reference	
 unported	packages/effect/test/Equal.test.ts	360	it	should return true for empty arrays	
