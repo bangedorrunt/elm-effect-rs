@@ -62,18 +62,59 @@ fi
 # Key is the path under src/ or test/ with the extension removed, so
 # src/ai/Prompt.ts links only to test/ai/Prompt.test.ts.
 declare -A tests_for=()
+declare -A tests_by_base=()
 if [[ -d $checkout/packages/effect/test ]]; then
   while IFS= read -r test_path; do
     rel="${test_path#"$checkout"/}"
     key="${rel#packages/effect/test/}"
-    key="${key%.test.ts}"
+    # Two naming conventions live side by side: `Foo.test.ts` and, for the
+    # persistence and MCP conformance suites, `FooTest.ts` / `Foo.test-utils.ts`.
+    # The behavior scanner below reads every `.ts`, so these rows are already
+    # witnessed; only the link needs the wider match, or their module reads
+    # `tests = []` while its rows sit in the ledger.
+    case "$key" in
+      *.test.ts)    key="${key%.test.ts}" ;;
+      *Test.ts)     key="${key%Test.ts}" ;;
+      *) continue ;;
+    esac
     if [[ -n ${tests_for[$key]+x} ]]; then
       tests_for[$key]+=$'\n'"$rel"
     else
       tests_for[$key]=$rel
     fi
-  done < <(find "$checkout/packages/effect/test" -name '*.test.ts' | sort)
+    # The Effect repo does not lay src/ and test/ out symmetrically, so a
+    # module can be tested from a directory its own path does not predict:
+    # src/Schema.ts by test/schema/Schema.test.ts, src/testing/TestClock.ts by
+    # test/TestClock.test.ts. The relative key misses both, so index the
+    # basename as a second, weaker route (see the fallback below).
+    base="${rel##*/}"
+    base="${base%.test.ts}"
+    base="${base%Test.ts}"
+    if [[ -n ${tests_by_base[$base]+x} ]]; then
+      tests_by_base[$base]+=$'\n'"$rel"
+    else
+      tests_by_base[$base]=$rel
+    fi
+  done < <(find "$checkout/packages/effect/test" -name '*.ts' ! -path '*/internal/*' | sort)
 fi
+
+# Which test files a module already links by the relative key. A basename is
+# not unique across the package (test/Graph.test.ts and
+# test/schema/Graph.test.ts both exist), and a test file can be claimed by a
+# module the basename does not name: test/ai/Model.test.ts belongs to
+# src/ai/Model.ts, so src/schema/Model.ts must not fall back onto it. The
+# relative key is the stronger claim, so collect them before any fallback.
+declare -A claimed_by_relative=()
+while IFS= read -r file; do
+  rel="${file#"$checkout"/}"
+  src_key="${rel#packages/effect/src/}"
+  src_key="${src_key%.ts}"
+  [[ -z ${tests_for[$src_key]+x} ]] && continue
+  while IFS= read -r t; do
+    [[ -z $t ]] && continue
+    claimed_by_relative[$t]=1
+  done < <(printf '%s\n' "${tests_for[$src_key]}")
+done < <(find "$src" -name '*.ts' ! -path '*/internal/*' | sort)
 
 declare -A prev_module_status=()
 declare -A prev_module_reason=()
@@ -214,15 +255,39 @@ count=0
     src_key="${rel#packages/effect/src/}"
     src_key="${src_key%.ts}"
     tests_field=""
-    if [[ -n ${tests_for[$src_key]+x} ]]; then
+    # The relative key wins when it resolves. `src/ai/Prompt.ts` and
+    # `src/cli/Prompt.ts` share a basename and must stay apart, which is why
+    # the directory is the primary route and never a tiebreaker.
+    link_keys=("$src_key")
+    if [[ -z ${tests_for[$src_key]+x} ]]; then
+      # Fall back to the basename, but only to a file no other module links
+      # relatively and only when that leaves exactly one candidate. An
+      # ambiguous basename links nothing rather than guessing, and a test file
+      # already spoken for keeps its owner.
+      base="${src_key##*/}"
+      if [[ -n ${tests_by_base[$base]+x} ]]; then
+        unclaimed=()
+        while IFS= read -r t; do
+          [[ -z $t ]] && continue
+          [[ -n ${claimed_by_relative[$t]+x} ]] && continue
+          unclaimed+=("$t")
+        done < <(printf '%s\n' "${tests_by_base[$base]}")
+        if (( ${#unclaimed[@]} == 1 )); then
+          k="${unclaimed[0]#packages/effect/test/}"
+          link_keys=("${k%.test.ts}")
+        fi
+      fi
+    fi
+    for link_key in "${link_keys[@]}"; do
+      [[ -z ${tests_for[$link_key]+x} ]] && continue
       while IFS= read -r test_rel; do
         [[ -z $test_rel ]] && continue
         if [[ -n $tests_field ]]; then
           tests_field+=", "
         fi
         tests_field+="\"$test_rel\""
-      done < <(printf '%s\n' "${tests_for[$src_key]}" | sort)
-    fi
+      done < <(printf '%s\n' "${tests_for[$link_key]}" | sort)
+    done
     # ADR-0002:100 + :565. `matched` is derived, never carried. A module
     # claims parity only when its linked test file has AT LEAST ONE PORTED row
     # and NO unported row. The ported count is load-bearing, not a nicety:
