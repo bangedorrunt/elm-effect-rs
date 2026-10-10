@@ -485,9 +485,9 @@ unported	packages/effect/test/Cause.test.ts	626	it	returns a string for empty ca
 unported	packages/effect/test/Cause.test.ts	631	it	cuts the stack of a defect at the internal frame that called user code	
 unported	packages/effect/test/Cause.test.ts	661	it	does not render internal frames from match and matchCause handlers	
 unported	packages/effect/test/Cause.test.ts	668	it	does not render internal frames from map	
-unported	packages/effect/test/Cause.test.ts	674	it	attaches annotations to a cause (data-first)	
-unported	packages/effect/test/Cause.test.ts	681	it	works in data-last (pipeable) form	
-unported	packages/effect/test/Cause.test.ts	686	it	does not mutate the original cause	
+ported	packages/effect/test/Cause.test.ts	674	it	attaches annotations to a cause (data-first)	crates/elm-effect/tests/l2_cause.rs::annotate_attaches_annotations_and_keeps_the_reason
+not-applicable	packages/effect/test/Cause.test.ts	681	it	works in data-last (pipeable) form	a binary crate has no data-last/pipeable form; the skill rule is that pipe is not ported, and the data-first method is the port
+ported	packages/effect/test/Cause.test.ts	686	it	does not mutate the original cause	crates/elm-effect/tests/l2_cause.rs::annotate_leaves_the_source_cause_unchanged
 unported	packages/effect/test/Cause.test.ts	694	it	returns annotations from a reason	
 unported	packages/effect/test/Cause.test.ts	702	it	returns merged annotations from a cause	
 unported	packages/effect/test/Cause.test.ts	710	it	is a Context.Service	

@@ -658,3 +658,43 @@ fn interrupt_allows_an_undefined_fiber_id() {
         other => panic!("expected an Interrupt reason, got {other:?}"),
     }
 }
+
+// --- Cause.annotate (packages/effect/test/Cause.test.ts, describe "annotate")
+
+/// "attaches annotations to a cause (data-first)".
+///
+/// The pin asserts the result is still a Cause carrying the original reason;
+/// the annotation is additive context, never a replacement for the failure.
+#[test]
+fn annotate_attaches_annotations_and_keeps_the_reason() {
+    let cause = Cause::<String>::fail("boom".to_string());
+
+    let annotated = cause.clone().annotate("service", "Db");
+
+    assert_eq!(annotated.reasons.len(), 1, "annotating must not drop the reason");
+    assert!(matches!(annotated.reasons[0], Reason::Fail(ref e) if e == "boom"));
+    assert_eq!(annotated.annotation("service"), Some("Db"));
+}
+
+/// "does not mutate the original cause".
+///
+/// The pin holds the original's reason count unchanged after annotating. This
+/// port consumes `self`, so the invariant is stated at the boundary the caller
+/// actually has: a cause handed on to a sibling is not silently carrier of
+/// another call's context. Proved with a clone because the method takes
+/// ownership — which is what makes the non-mutation total rather than
+/// incidental.
+#[test]
+fn annotate_leaves_the_source_cause_unchanged() {
+    let original = Cause::<String>::fail("boom".to_string());
+    let handed_on = original.clone();
+
+    let annotated = original.annotate("service", "Db");
+
+    assert_eq!(annotated.annotations.len(), 1, "the annotation landed on the new value");
+    assert!(
+        handed_on.annotations.is_empty(),
+        "annotating a clone carried context back to the source"
+    );
+    assert_eq!(handed_on.reasons.len(), 1, "the source's reasons are untouched");
+}
