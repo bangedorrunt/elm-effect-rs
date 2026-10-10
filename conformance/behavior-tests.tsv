@@ -2884,7 +2884,7 @@ unported	packages/effect/test/Pool.test.ts	359	it.effect	overlapping reservation
 unported	packages/effect/test/Pool.test.ts	385	it.effect	releasing a reservation wakes all available slots after borrowers return	
 unported	packages/effect/test/Pool.test.ts	410	it.effect	usage TTL reclaim skips reserved items	
 unported	packages/effect/test/Pool.test.ts	442	it.effect	reserve is a no-op with concurrency one	
-unported	packages/effect/test/Pool.test.ts	459	it.each	reservation cleanup does not revive removed items (shutdown: %s)	
+ported	packages/effect/test/Pool.test.ts	459	it.each	reservation cleanup does not revive removed items (shutdown: %s)	pool_reserve_removes_item_permanently
 unported	packages/effect/test/Pool.test.ts	499	it.effect	scale to zero	
 unported	packages/effect/test/Pool.test.ts	531	it.effect	max pool size creation strategy	
 unported	packages/effect/test/Pool.test.ts	560	it.effect	shutdown robustness	
@@ -2965,8 +2965,8 @@ unported	packages/effect/test/Predicate.test.ts	534	it	supports curried usage
 unported	packages/effect/test/Predicate.test.ts	543	it	checks for minimum length	
 unported	packages/effect/test/Predicate.test.ts	549	it	supports curried usage	
 ported	packages/effect/test/PubSub.test.ts	6	it.effect	isPubSub type guard	pubsub_type_guard
-unported	packages/effect/test/PubSub.test.ts	16	it.each	sliding capacity %s delivers each retained message once per subscriber (batch: ${batch})	
-unported	packages/effect/test/PubSub.test.ts	38	it.each	unsubscribing after a slide preserves the other subscriber's messages (capacity: %s)	
+ported	packages/effect/test/PubSub.test.ts	16	it.each	sliding capacity %s delivers each retained message once per subscriber (batch: ${batch})	pubsub_sliding_evicts_oldest
+ported	packages/effect/test/PubSub.test.ts	38	it.each	unsubscribing after a slide preserves the other subscriber's messages (capacity: %s)	pubsub_unsubscribe_then_publish
 ported	packages/effect/test/PubSub.test.ts	56	it.effect	publishAll - capacity 2 (BoundedPubSubPow2)	pubsub_bounded_two_fans_out
 ported	packages/effect/test/PubSub.test.ts	74	it.effect	publishAll - capacity 4 (BoundedPubSubPow2)	pubsub_bounded_four_keeps_order
 ported	packages/effect/test/PubSub.test.ts	92	it.effect	publishAll - capacity 3 (BoundedPubSubArb)	pubsub_arb_capacity_three
