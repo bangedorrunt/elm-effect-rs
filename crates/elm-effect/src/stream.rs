@@ -334,7 +334,7 @@ impl<A: Send + 'static, E: Send + 'static, R: crate::effect::Requirement> Stream
         // Installed on the first failure; every later pull delegates to it.
         let substitute: Arc<Mutex<Option<Self>>> = Arc::new(Mutex::new(None));
         let (pull, exec) = (self.pull, Arc::clone(&self.exec));
-        let (p, h, s) = (
+        let (_p, h, s) = (
             Arc::clone(&pull),
             Arc::clone(&handler),
             Arc::clone(&substitute),
@@ -551,7 +551,7 @@ where
         return Effect::succeed(None);
     }
     call(&pull).flat_map(move |chunk| {
-        let (pull, f, done) = (Arc::clone(&pull), Arc::clone(&f), Arc::clone(&done));
+        let (_pull, f, done) = (Arc::clone(&pull), Arc::clone(&f), Arc::clone(&done));
         match chunk {
             None => Effect::succeed(None),
             Some(items) => {
@@ -633,9 +633,6 @@ pub fn normalize(n: f64) -> usize {
 pub fn normalize_non_empty(n: f64) -> usize {
     normalize(n).max(1)
 }
-
-/// The pin's `Channel.DefaultChunkSize` (`Channel.ts:458`).
-pub const DEFAULT_CHUNK_SIZE: f64 = 4096.0;
 
 impl Stream<i64, Infallible, ()> {
     /// `Stream.range` at the pin: inclusive integer range, chunked. `min` above

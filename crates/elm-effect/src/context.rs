@@ -35,13 +35,32 @@ impl<T> Tag<T> {
 
 /// A service tag with a lazy default (`Context.Reference`): the first
 /// resolution computes the default and caches it in the map.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+///
+/// Equality and hashing are by `key` only. Comparing the `default` factory
+/// by value compares function pointer addresses, which the language does
+/// not guarantee unique, so two tags built from the same factory function
+/// could read as unequal.
+#[derive(Clone, Copy, Debug)]
 pub struct ContextReference<T> {
     /// Stable lookup key.
     pub key: &'static str,
     /// Computes the value on first resolution.
     pub default: fn() -> T,
     marker: PhantomData<fn() -> T>,
+}
+
+impl<T> PartialEq for ContextReference<T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.key == other.key
+    }
+}
+
+impl<T> Eq for ContextReference<T> {}
+
+impl<T> std::hash::Hash for ContextReference<T> {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.key.hash(state);
+    }
 }
 
 impl<T> ContextReference<T> {

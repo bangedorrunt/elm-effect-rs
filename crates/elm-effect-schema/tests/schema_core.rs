@@ -130,15 +130,6 @@ fn malformed_json_is_a_schema_error() {
 }
 
 #[test]
-fn facade_reexports_schema() {
-    let schema = elm_effect::Schema::number();
-    assert_eq!(
-        schema.decode(elm_effect::Unknown::Number(1.0)).unwrap(),
-        1.0
-    );
-}
-
-#[test]
 fn ffs_decodes_plain_numbers() {
     let schema = Schema::finite_from_string();
     assert_eq!(schema.decode(Unknown::Text("1.5".to_string())), Ok(1.5));

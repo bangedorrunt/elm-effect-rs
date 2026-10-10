@@ -281,7 +281,7 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
                 }
                 match exit {
                     Exit::Success(a) => Effect::succeed(a),
-                    Exit::Failure(cause) => unreachable!("just built as success"),
+                    Exit::Failure(_cause) => unreachable!("just built as success"),
                 }
             },
             move |cause| {

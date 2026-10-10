@@ -21,11 +21,23 @@ required-features = ["stm"]
 name = "tx_deferred"
 required-features = ["stm"]
 
+# The schema surface is re-exported from this crate, so its fence lives here.
+[[test]]
+name = "schema_facade"
+required-features = ["schema"]
+
 [dependencies]
 elm-effect-schema = { path = "../elm-effect-schema", optional = true }
+thiserror = "1"
+tokio = { version = "1", optional = true, features = ["rt", "rt-multi-thread", "sync", "time"] }
+
+# These four are used only by test targets, which compile parts of the
+# source tree through `#[path]` includes (the `data/` and `cron/` modules
+# the port campaign parked). Declared as normal dependencies, cargo's
+# unused-dependency lint flags each for the lib target, which never uses
+# them.
+[dev-dependencies]
 jiff = "0.2"
 num-bigint = "0.4"
 num-integer = "0.1"
 num-traits = "0.2"
-thiserror = "1"
-tokio = { version = "1", optional = true, features = ["rt", "rt-multi-thread", "sync", "time"] }
