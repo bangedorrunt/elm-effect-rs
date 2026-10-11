@@ -1005,6 +1005,129 @@ impl<T: Eq + Hash> TxHashSet<T> {
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }
+
+}
+
+/// The set algebra. Split from the block above so these methods can require
+/// `Clone` without widening the bound on `new`, `insert` and the rest, which
+/// hold a non-`Clone` `T` fine.
+impl<T: Eq + Hash + Clone> TxHashSet<T> {
+    /// An immutable snapshot of the current contents (`toHashSet`).
+    pub fn to_hash_set(&self) -> HashSet<T> {
+        atomically(|| HashSet::from_iter(self.inner.lock().unwrap().iter().cloned()))
+    }
+
+    /// Every element in `self` or `other` (`union`). Neither side is
+    /// consumed; both are read, which also keeps `x.union(&x)` from
+    /// deadlocking on one mutex held twice.
+    pub fn union(&self, other: &Self) -> Self
+    where
+        T: Clone,
+    {
+        atomically(|| {
+            let mut merged: HashSet<T> = self.to_snapshot();
+            let theirs = other.inner.lock().unwrap();
+            for value in theirs.iter() {
+                merged.insert(value.clone());
+            }
+            Self { inner: Mutex::new(merged) }
+        })
+    }
+
+    /// Only the elements in both (`intersection`).
+    pub fn intersection(&self, other: &Self) -> Self
+    where
+        T: Clone,
+    {
+        atomically(|| {
+            let theirs: HashSet<T> = {
+                let guard = other.inner.lock().unwrap();
+                guard.iter().cloned().collect()
+            };
+            let mine = self.inner.lock().unwrap();
+            let kept: HashSet<T> = mine.iter().filter(|v| theirs.contains(*v)).cloned().collect();
+            Self { inner: Mutex::new(kept) }
+        })
+    }
+
+    /// Only the elements not in `other` (`difference`).
+    pub fn difference(&self, other: &Self) -> Self
+    where
+        T: Clone,
+    {
+        atomically(|| {
+            let theirs: HashSet<T> = {
+                let guard = other.inner.lock().unwrap();
+                guard.iter().cloned().collect()
+            };
+            let mine = self.inner.lock().unwrap();
+            let kept: HashSet<T> = mine.iter().filter(|v| !theirs.contains(*v)).cloned().collect();
+            Self { inner: Mutex::new(kept) }
+        })
+    }
+
+    /// Whether every element of `self` is in `other` (`isSubset`). Reads each
+    /// side separately, so `x.is_subset(&x)` holds one lock at a time rather
+    /// than deadlocking on the same mutex.
+    pub fn is_subset(&self, other: &Self) -> bool {
+        atomically(|| {
+            let theirs: HashSet<T> = {
+                let guard = other.inner.lock().unwrap();
+                guard.iter().cloned().collect()
+            };
+            let mine = self.inner.lock().unwrap();
+            mine.iter().all(|v| theirs.contains(v))
+        })
+    }
+
+    /// Whether any element satisfies `f` (`some`).
+    pub fn some(&self, f: impl Fn(&T) -> bool) -> bool {
+        atomically(|| self.inner.lock().unwrap().iter().any(|v| f(v)))
+    }
+
+    /// Whether every element satisfies `f` (`every`).
+    pub fn every(&self, f: impl Fn(&T) -> bool) -> bool {
+        atomically(|| self.inner.lock().unwrap().iter().all(|v| f(v)))
+    }
+
+    /// `f` applied to each element, collapsing duplicates (`map`).
+    pub fn map<U>(&self, f: impl Fn(&T) -> U) -> TxHashSet<U>
+    where
+        U: Eq + Hash,
+        T: 'static,
+    {
+        atomically(|| self.inner.lock().unwrap().iter().map(f).collect())
+    }
+
+    /// Only the elements `f` keeps (`filter`).
+    pub fn filter(&self, f: impl Fn(&T) -> bool) -> Self {
+        atomically(|| {
+            self.inner
+                .lock()
+                .unwrap()
+                .iter()
+                .filter(|v| f(v))
+                .cloned()
+                .collect()
+        })
+    }
+
+    /// A private clone of the current contents, used by the set algebra so no
+    /// method holds this set's lock while acquiring another's.
+    fn to_snapshot(&self) -> HashSet<T>
+    where
+        T: Clone,
+    {
+        atomically(|| {
+            let guard = self.inner.lock().unwrap();
+            guard.iter().cloned().collect()
+        })
+    }
+
+    /// Fold the elements into one value (`reduce`).
+    pub fn reduce<R>(&self, init: R, f: impl Fn(R, &T) -> R) -> R {
+        atomically(|| self.inner.lock().unwrap().iter().fold(init, |acc, v| f(acc, v)))
+    }
 }
 
 impl<T: Eq + Hash> Default for TxHashSet<T> {

@@ -1012,7 +1012,7 @@ tests = ["packages/effect/test/TxHashMap.test.ts"]
 [[module]]
 path = "packages/effect/src/TxHashSet.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/TxHashSet.test.ts"]

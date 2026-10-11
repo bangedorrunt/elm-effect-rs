@@ -4269,24 +4269,24 @@ ported	packages/effect/test/TxHashSet.test.ts	120	it.effect	has checks for value
 ported	packages/effect/test/TxHashSet.test.ts	128	it.effect	size returns correct count	tx_hash_set_make_remove_clear_size_flags
 ported	packages/effect/test/TxHashSet.test.ts	140	it.effect	isEmpty and isNonEmpty check the set	tx_hash_set_make_remove_clear_size_flags
 ported	packages/effect/test/TxHashSet.test.ts	151	it.effect	clear removes all values	tx_hash_set_make_remove_clear_size_flags
-unported	packages/effect/test/TxHashSet.test.ts	163	it.effect	union combines two sets	
-unported	packages/effect/test/TxHashSet.test.ts	175	it.effect	intersection finds common elements	
-unported	packages/effect/test/TxHashSet.test.ts	187	it.effect	difference finds elements only in first set	
-unported	packages/effect/test/TxHashSet.test.ts	199	it.effect	isSubset checks subset relationship	
-unported	packages/effect/test/TxHashSet.test.ts	213	it.effect	some tests if any element satisfies predicate	
-unported	packages/effect/test/TxHashSet.test.ts	224	it.effect	every tests if all elements satisfy predicate	
-unported	packages/effect/test/TxHashSet.test.ts	237	it.effect	map transforms values	
-unported	packages/effect/test/TxHashSet.test.ts	248	it.effect	map can reduce size with duplicate results	
-unported	packages/effect/test/TxHashSet.test.ts	258	it.effect	filter keeps only matching values	
-unported	packages/effect/test/TxHashSet.test.ts	269	it.effect	reduce accumulates values	
-unported	packages/effect/test/TxHashSet.test.ts	288	it.effect	toHashSet creates immutable snapshot	
-unported	packages/effect/test/TxHashSet.test.ts	304	it.effect	works with custom Equal implementations	
-unported	packages/effect/test/TxHashSet.test.ts	329	it.effect	operations are atomic within transactions	
-unported	packages/effect/test/TxHashSet.test.ts	346	it.effect	multiple set operations work together	
-unported	packages/effect/test/TxHashSet.test.ts	370	it.effect	handles large number of operations	
-unported	packages/effect/test/TxHashSet.test.ts	396	it.effect	functional operations work with large sets	
-unported	packages/effect/test/TxHashSet.test.ts	412	it.effect	handles empty set operations correctly	
-unported	packages/effect/test/TxHashSet.test.ts	431	it.effect	handles single element sets	
+ported	packages/effect/test/TxHashSet.test.ts	163	it.effect	union combines two sets	union_intersection_difference
+ported	packages/effect/test/TxHashSet.test.ts	175	it.effect	intersection finds common elements	union_intersection_difference
+ported	packages/effect/test/TxHashSet.test.ts	187	it.effect	difference finds elements only in first set	union_intersection_difference
+ported	packages/effect/test/TxHashSet.test.ts	199	it.effect	isSubset checks subset relationship	is_subset_is_reflexive_and_ordering_sensitive
+ported	packages/effect/test/TxHashSet.test.ts	213	it.effect	some tests if any element satisfies predicate	some_and_every_read_each_element
+ported	packages/effect/test/TxHashSet.test.ts	224	it.effect	every tests if all elements satisfy predicate	some_and_every_read_each_element
+ported	packages/effect/test/TxHashSet.test.ts	237	it.effect	map transforms values	map_filter_and_reduce
+ported	packages/effect/test/TxHashSet.test.ts	248	it.effect	map can reduce size with duplicate results	map_filter_and_reduce
+ported	packages/effect/test/TxHashSet.test.ts	258	it.effect	filter keeps only matching values	map_filter_and_reduce
+ported	packages/effect/test/TxHashSet.test.ts	269	it.effect	reduce accumulates values	map_filter_and_reduce
+ported	packages/effect/test/TxHashSet.test.ts	288	it.effect	toHashSet creates immutable snapshot	to_hash_set_snapshots_and_detaches
+ported	packages/effect/test/TxHashSet.test.ts	304	it.effect	works with custom Equal implementations	a_custom_hash_and_eq_decide_membership
+ported	packages/effect/test/TxHashSet.test.ts	329	it.effect	operations are atomic within transactions	a_multi_op_block_runs_as_one_transaction
+ported	packages/effect/test/TxHashSet.test.ts	346	it.effect	multiple set operations work together	multiple_set_operations_work_together
+ported	packages/effect/test/TxHashSet.test.ts	370	it.effect	handles large number of operations	map_filter_and_reduce
+ported	packages/effect/test/TxHashSet.test.ts	396	it.effect	functional operations work with large sets	map_filter_and_reduce
+ported	packages/effect/test/TxHashSet.test.ts	412	it.effect	handles empty set operations correctly	union_intersection_difference
+ported	packages/effect/test/TxHashSet.test.ts	431	it.effect	handles single element sets	is_subset_is_reflexive_and_ordering_sensitive
 ported	packages/effect/test/TxPriorityQueue.test.ts	6	it.effect	empty creates an empty queue	tx_priority_queue_orders
 unported	packages/effect/test/TxPriorityQueue.test.ts	14	it.effect	fromIterable creates a sorted queue	
 unported	packages/effect/test/TxPriorityQueue.test.ts	21	it.effect	fromIterable supports the curried call	
