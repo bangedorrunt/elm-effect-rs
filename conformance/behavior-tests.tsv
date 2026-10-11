@@ -2092,9 +2092,9 @@ ported	packages/effect/test/HashMap.test.ts	394	it	modifyAt - remove via None	ha
 ported	packages/effect/test/HashMap.test.ts	401	it	modify	hash_map_modify_and_modify_at
 ported	packages/effect/test/HashMap.test.ts	410	it	reduce	hash_map_reduce_and_for_each
 ported	packages/effect/test/HashMap.test.ts	416	it	forEach visits each key and value	hash_map_reduce_and_for_each
-unported	packages/effect/test/HashMap.test.ts	427	it	mutate allows in-place modifications	
-unported	packages/effect/test/HashMap.test.ts	442	it	beginMutation creates distinct mutable instance	
-unported	packages/effect/test/HashMap.test.ts	459	it	mutations are isolated from original	
+ported	packages/effect/test/HashMap.test.ts	427	it	mutate allows in-place modifications	hash_map_mutate_and_begin_mutation
+ported	packages/effect/test/HashMap.test.ts	442	it	beginMutation creates distinct mutable instance	hash_map_mutate_and_begin_mutation
+ported	packages/effect/test/HashMap.test.ts	459	it	mutations are isolated from original	hash_map_mutate_and_begin_mutation
 ported	packages/effect/test/HashMap.test.ts	480	it	Equal.equals	hash_map_equal_and_hash_ignore_insertion_order
 ported	packages/effect/test/HashMap.test.ts	489	it	Hash.hash	hash_map_equal_and_hash_ignore_insertion_order
 ported	packages/effect/test/HashMap.test.ts	512	it	should work with Equal objects as keys	hash_map_works_with_equal_objects_as_keys

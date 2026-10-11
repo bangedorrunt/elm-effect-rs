@@ -519,6 +519,52 @@ fn hash_map_keeps_entries_addressable_across_bit31_heavy_shapes() {
 }
 
 #[test]
+fn hash_map_mutate_and_begin_mutation() {
+    // HashMap.test.ts :427/:442/:459.
+    //
+    // mutate applies a batch of in-place updates and returns the new map. A
+    // mutation replaces the held map rather than mutating through it, so the
+    // source is untouched: that is the property all three rows assert.
+    let source = HashMap::make([("a".to_owned(), 1)]);
+
+    // :427 mutate sets two entries on top of one.
+    let grown = source.mutate(|m| {
+        m.set("b".to_owned(), 2);
+        m.set("c".to_owned(), 3);
+    });
+    assert_eq!(source.size(), 1, "mutate must not touch the original");
+    assert_eq!(grown.size(), 3);
+    assert_eq!(grown.get(&"a".to_owned()), Some(&1));
+    assert_eq!(grown.get(&"b".to_owned()), Some(&2));
+    assert_eq!(grown.get(&"c".to_owned()), Some(&3));
+
+    // :442 beginMutation produces a distinct instance, and its updates do not
+    // reach the source. `into_map` freezes it.
+    let mutable = source.begin_mutation();
+    mutable.set("b".to_owned(), 2);
+    assert_eq!(mutable.size(), 2);
+    assert_eq!(source.size(), 1, "the source stays at one entry");
+    assert_eq!(mutable.into_map().size(), 2);
+
+    // :459 mutations are isolated from the original across set, remove and set
+    // again, so a remove during the batch does not remove from the source.
+    let original = HashMap::make([("a".to_owned(), 1), ("b".to_owned(), 2)]);
+    let changed = original.mutate(|m| {
+        m.set("a".to_owned(), 100);
+        m.remove(&"b".to_owned());
+        m.set("c".to_owned(), 3);
+    });
+    assert_eq!(original.get(&"a".to_owned()), Some(&1));
+    assert_eq!(original.get(&"b".to_owned()), Some(&2));
+    assert!(!original.has(&"c".to_owned()));
+    assert_eq!(changed.get(&"a".to_owned()), Some(&100));
+    assert!(!changed.has(&"b".to_owned()));
+    assert_eq!(changed.get(&"c".to_owned()), Some(&3));
+    // The source is still usable as a source for another mutation.
+    assert_eq!(original.size(), 2);
+}
+
+#[test]
 fn hash_map_transforms_and_predicates() {
     let m = HashMap::make([("a".to_owned(), 1), ("b".to_owned(), 2)]);
     assert_eq!(m.map(|v| v * 10).get(&"a".to_owned()), Some(&10));

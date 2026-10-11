@@ -16,6 +16,86 @@
 #![allow(dead_code)]
 use std::collections::HashMap as StdMap;
 use std::hash::{Hash, Hasher};
+use std::sync::Mutex;
+
+/// `HashMap.mutate` at the pin: apply a batch of in-place updates and return
+/// the resulting map, leaving the source unchanged.
+///
+/// The pin's `beginMutation` returns a structurally shared editable map and
+/// `endMutation` freezes it, with `mutate` as the composition. This port has no
+/// structural sharing, so [`Mutation`] holds the map and each update replaces
+/// it: the observable shape is the same, the source is never modified, and no
+/// `unsafe` is needed to hand out `&self` updaters.
+impl<K, V> HashMap<K, V>
+where
+    K: Hash + Eq + Clone,
+{
+    pub fn mutate<F>(&self, f: F) -> Self
+    where
+        F: FnOnce(&Mutation<K, V>),
+        V: Clone,
+    {
+        let mutable = Mutation::new(self.clone());
+        f(&mutable);
+        mutable.into_map()
+    }
+
+    /// `HashMap.beginMutation` at the pin: a distinct map the caller can update
+    /// in place.
+    pub fn begin_mutation(&self) -> Mutation<K, V>
+    where
+        V: Clone,
+    {
+        Mutation::new(self.clone())
+    }
+}
+
+/// A map being mutated in place (the pin's editable `HashMap`).
+///
+/// The held map is behind a `Mutex` because the pin hands the same mutable
+/// value to several calls in one batch and offers the updaters on `&self`.
+pub struct Mutation<K, V> {
+    map: Mutex<HashMap<K, V>>,
+}
+
+impl<K, V> Mutation<K, V>
+where
+    K: Hash + Eq + Clone,
+    V: Clone,
+{
+    fn new(map: HashMap<K, V>) -> Self {
+        Self {
+            map: Mutex::new(map),
+        }
+    }
+
+    /// The current map (a clone), which is what `into_map` freezes.
+    fn snapshot(&self) -> HashMap<K, V> {
+        self.map.lock().unwrap().clone()
+    }
+
+    /// `HashMap.set` on the mutable map: replaces the held map.
+    pub fn set(&self, key: K, value: V) {
+        let updated = self.snapshot().set(key, value);
+        *self.map.lock().unwrap() = updated;
+    }
+
+    /// `HashMap.remove` on the mutable map: replaces the held map.
+    pub fn remove(&self, key: &K) {
+        let updated = self.snapshot().remove(key);
+        *self.map.lock().unwrap() = updated;
+    }
+
+    /// The map's size.
+    pub fn size(&self) -> usize {
+        self.map.lock().unwrap().size()
+    }
+
+    /// `HashMap.endMutation` at the pin: freeze and hand back the map.
+    pub fn into_map(self) -> HashMap<K, V> {
+        self.map.into_inner().unwrap()
+    }
+}
 
 /// Persistent string-keyed-or-any-key map. Updates return new maps.
 #[derive(Clone, Debug, Default)]
