@@ -902,6 +902,23 @@ where
     })
 }
 
+/// `Stream.fromIteratorSucceed` at the pin: a stream from an iterator whose
+/// chunk size is a `number`, normalized by the same
+/// `Count.normalizeNonEmpty` law `rechunk` and `grouped` use (NaN and
+/// non-positive become 1, a positive value floors).
+///
+/// The pin keeps this distinct from `fromIterable`, whose chunking arrives as
+/// an option; this port likewise keeps the `usize` `from_iter` for its
+/// existing callers and normalizes here rather than widening all of them.
+pub fn from_iterator_succeed<T, E, I>(iter: I, max_chunk_size: f64) -> Stream<T, E, ()>
+where
+    T: Send + 'static,
+    E: Send + 'static,
+    I: Iterator<Item = T> + Send + 'static,
+{
+    from_iter(iter, normalize_non_empty(max_chunk_size))
+}
+
 impl<A, E> Stream<A, E, ()>
 where
     A: Send + 'static,

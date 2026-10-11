@@ -5,7 +5,7 @@ use std::sync::Arc;
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-use elm_effect::{Defect, Effect, Exit, Stream, from_iter};
+use elm_effect::{Defect, Effect, Exit, Stream, from_iter, from_iterator_succeed};
 
 #[test]
 fn run_fold_sums_chunks() {
@@ -435,6 +435,38 @@ fn rechunk_and_grouped_normalize_their_chunk_size() {
         })
         .collect();
     assert_eq!(grouped, expected);
+}
+
+// ---------------------------------------------------------------------------
+// fromIteratorSucceed normalizes the chunk size (Stream.test.ts 476)
+// ---------------------------------------------------------------------------
+
+#[test]
+fn from_iterator_succeed_normalizes_the_chunk_size() {
+    // Stream.fromIteratorSucceed([1, 2, 3][Symbol.iterator](), maxChunkSize)
+    // .pipe(Stream.chunks, Stream.runCollect) for maxChunkSize in
+    // [NaN, -1, 1.9] each yields [[1], [2], [3]].
+    //
+    // A chunk size is normalized by Count.normalizeNonEmpty, whose empty is
+    // 1: NaN and non-positive become 1 and a positive value floors, so 1.9
+    // also chunks by 1 and nothing chunks by 0. This is the same law
+    // `rechunk` already applies, reached through a different constructor.
+    let expected: Vec<Vec<Vec<i64>>> = vec![
+        vec![vec![1], vec![2], vec![3]],
+        vec![vec![1], vec![2], vec![3]],
+        vec![vec![1], vec![2], vec![3]],
+    ];
+    let got: Vec<Vec<Vec<i64>>> = [f64::NAN, -1.0, 1.9]
+        .iter()
+        .map(|n| {
+            let stream: Stream<i64, &str, ()> = from_iterator_succeed(vec![1i64, 2, 3].into_iter(), *n);
+            match stream.run_collect_chunks() {
+                Exit::Success(v) => v,
+                other => panic!("from_iterator_succeed failed: {other:?}"),
+            }
+        })
+        .collect();
+    assert_eq!(got, expected);
 }
 
 // ---------------------------------------------------------------------------

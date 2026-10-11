@@ -89,6 +89,6 @@ pub use stm::{
     TxQueue, TxReentrantLock, TxRef, TxSemaphore, TxSubscriptionRef, atomically, is_tx_chunk,
     is_tx_deferred, is_tx_hash_set, is_tx_semaphore,
 };
-pub use stream::{Stream, from_iter};
+pub use stream::{Stream, from_iter, from_iterator_succeed};
 pub use sync::{Deferred, MutableRef, PartitionedSemaphore, Queue, Ref, Semaphore, SubscriptionRef, SynchronizedRef};
 pub use time::{Clock, ClockImpl, Duration, SleepOutcome, SystemClock, TestClock};
