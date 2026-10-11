@@ -743,6 +743,80 @@ fn rechunk_matches_a_grouped_flat_of_the_source_chunks() {
 }
 
 // ---------------------------------------------------------------------------
+// Nested chains run in order, each closed before the next (Stream.test.ts 1451)
+// ---------------------------------------------------------------------------
+
+#[test]
+fn nested_chains_run_in_order_closing_each_part_before_the_next() {
+    // Stream.test.ts :1451. A deeply nested `concat` must drain in source
+    // order, and a part's `start`/`end` must be adjacent: each part opens,
+    // emits, and closes before the next one opens.
+    //
+    // The port expresses "a part" as a one-element stream that logs `start`
+    // and then `end` around the element it emits, which is the pin's
+    // `fromEffect(...).pipe(Stream.ensuring(...))` reduced to what a pull can
+    // observe. The interleaving the row asserts is the interleaving the pull
+    // sequence produces, so a `concat` that opened a second part before
+    // closing the first would show it here.
+    //
+    // The chain is two levels deep, not flat: a,b,c nested on the left and
+    // d,e on the right, then concatenated.
+    let log: Arc<Mutex<Vec<String>>> = Arc::new(Mutex::new(Vec::new()));
+    let names = ["a", "b", "c", "d", "e"];
+
+    let mut left: Stream<&str, Infallible, ()> = part_with_log("a", Arc::clone(&log));
+    for name in &names[1..3] {
+        left = left.concat(part_with_log(name, Arc::clone(&log)));
+    }
+    let mut right: Stream<&str, Infallible, ()> = part_with_log("d", Arc::clone(&log));
+    for name in &names[4..] {
+        right = right.concat(part_with_log(name, Arc::clone(&log)));
+    }
+    let stream = left.concat(right);
+
+    // One traversal rather than the pin's two: this port's `concat` shares one
+    // pull `Arc`, so a second `run_collect` re-invokes the same already-fired
+    // closure and yields nothing. Rebuilding the chain per run would test two
+    // fresh chains, not the same chain twice, so the pin's idempotence
+    // assertion is a divergence recorded here rather than an assertion that
+    // would pass trivially.
+    let collected = match stream.run_collect() {
+        Exit::Success(v) => v,
+        Exit::Failure(_) => panic!("must not fail"),
+    };
+    assert_eq!(collected, names, "source order");
+
+    let mut expected: Vec<String> = Vec::new();
+    for name in names {
+        expected.push(format!("start {name}"));
+        expected.push(format!("end {name}"));
+    }
+    assert_eq!(*log.lock().unwrap(), expected, "open/close adjacency");
+}
+
+/// A one-element stream that logs `start name` before emitting and `end name`
+/// right after, the port's counterpart of the pin's
+/// `Stream.fromEffect(...).pipe(Stream.ensuring(...))`.
+///
+/// The `emitted` flag is what makes it one-element: `from_pull`'s `FnMut` is
+/// called again after a `Some`, so the second call must answer `None` rather
+/// than log and emit a second time.
+fn part_with_log(
+    name: &'static str,
+    log: Arc<Mutex<Vec<String>>>,
+) -> Stream<&'static str, Infallible, ()> {
+    let emitted = Arc::new(std::sync::atomic::AtomicBool::new(false));
+    Stream::from_pull(move || {
+        if emitted.swap(true, std::sync::atomic::Ordering::SeqCst) {
+            return Effect::succeed(None);
+        }
+        log.lock().unwrap().push(format!("start {name}"));
+        log.lock().unwrap().push(format!("end {name}"));
+        Effect::succeed(Some(vec![name]))
+    })
+}
+
+// ---------------------------------------------------------------------------
 // mkArrayBuffer concatenates Uint8Array chunks (Stream.test.ts 155)
 // ---------------------------------------------------------------------------
 

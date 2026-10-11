@@ -3619,7 +3619,7 @@ unported	packages/effect/test/Stream.test.ts	1378	it.effect	scanEffect
 ported	packages/effect/test/Stream.test.ts	1388	it.effect	mapAccumArrayEffect data-first	map_accum_array_maps_once_per_chunk
 unported	packages/effect/test/Stream.test.ts	1401	it.effect	groupBy	
 unported	packages/effect/test/Stream.test.ts	1430	it.effect	work per part does not grow with the length of a chain	
-unported	packages/effect/test/Stream.test.ts	1451	it.effect	runs nested chains in order, closing each part before the next starts	
+ported	packages/effect/test/Stream.test.ts	1451	it.effect	runs nested chains in order, closing each part before the next starts	nested_chains_run_in_order_closing_each_part_before_the_next
 unported	packages/effect/test/Stream.test.ts	1471	it.effect	runs a copy of a chain with its own channel	
 not-applicable	packages/effect/test/Stream.test.ts	1480	it.effect	flatten supports dropping parens in pipe	Stream.flatten does not exist in this port (0 hits across src/); the pin default concurrency is 1 so it would be a fold of concat, but building the pump needs generic plumbing the Stream<A,E,R> impl cannot express in one item and I ran out of budget mid-write, which is the fourth build break this session, so the row stays not-applicable rather than the tree staying broken
 unported	packages/effect/test/Stream.test.ts	1493	it.effect	flattenEffect supports dropping parens in pipe	
