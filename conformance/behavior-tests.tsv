@@ -3528,7 +3528,7 @@ unported	packages/effect/test/Stream.test.ts	80	it.effect	signals the end of the
 unported	packages/effect/test/Stream.test.ts	89	it.effect	handles errors	
 unported	packages/effect/test/Stream.test.ts	102	it.effect	handles defects	
 unported	packages/effect/test/Stream.test.ts	114	it.effect	backpressure	
-unported	packages/effect/test/Stream.test.ts	155	it.effect	mkArrayBuffer - concatenates Uint8Array chunks	
+ported	packages/effect/test/Stream.test.ts	155	it.effect	mkArrayBuffer - concatenates Uint8Array chunks	mk_array_buffer_concatenates_uint8array_chunks
 ported	packages/effect/test/Stream.test.ts	165	it.effect	runForEachWhile continues across chunk boundaries	run_for_each_while_continues_across_chunks
 ported	packages/effect/test/Stream.test.ts	179	it.effect	runForEachWhile stops when predicate returns false	run_for_each_while_stops_on_false
 unported	packages/effect/test/Stream.test.ts	193	it.effect	toAsyncIterable - return interrupts an in-flight pull	
