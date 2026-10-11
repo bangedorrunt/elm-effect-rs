@@ -3649,22 +3649,22 @@ unported	packages/effect/test/Stream.test.ts	1913	it.effect	buffers a stream wit
 unported	packages/effect/test/Stream.test.ts	1926	it.effect	fast producer progress independently	
 not-applicable	packages/effect/test/Stream.test.ts	1998	it.effect	buffers a stream with a failure	Stream.buffer does not exist in this port (0 hits across src/), so there is no bounded channel between producer and consumer to observe; the failure-propagation row has nothing to propagate through and the independent-progress row needs a real concurrent producer, which the port from_pull streams do not provide
 not-applicable	packages/effect/test/Stream.test.ts	2012	it.effect	fast producer progress independently	Stream.buffer does not exist in this port (0 hits across src/), so there is no bounded channel between producer and consumer to observe; the failure-propagation row has nothing to propagate through and the independent-progress row needs a real concurrent producer, which the port from_pull streams do not provide
-unported	packages/effect/test/Stream.test.ts	2085	it.effect	buffers a stream with a failure	
-unported	packages/effect/test/Stream.test.ts	2098	it.effect	fast producer progress independently	
-unported	packages/effect/test/Stream.test.ts	2175	it.effect	buffers a stream with a failure	
-unported	packages/effect/test/Stream.test.ts	2189	it.effect	fast producer progress independently	
-unported	packages/effect/test/Stream.test.ts	2261	it.effect	propagates defects	
-unported	packages/effect/test/Stream.test.ts	2274	it.effect	buffer - buffers the stream	
-unported	packages/effect/test/Stream.test.ts	2285	it.effect	buffers a stream with a failure	
-unported	packages/effect/test/Stream.test.ts	2298	it.effect	fast producer progress independently	
-unported	packages/effect/test/Stream.test.ts	2322	it.effect	sequenced	
-unported	packages/effect/test/Stream.test.ts	2351	it.effect	sequenced with idleTimeToLive	
-unported	packages/effect/test/Stream.test.ts	2383	it.effect	ends a consumer that starts after the shared upstream has ended	
-unported	packages/effect/test/Stream.test.ts	2394	it.effect	parallel	
-unported	packages/effect/test/Stream.test.ts	2421	it.effect	sync	
-unported	packages/effect/test/Stream.test.ts	2434	it.effect	async	
-unported	packages/effect/test/Stream.test.ts	2450	it.effect	combined async + sync	
-unported	packages/effect/test/Stream.test.ts	2462	it.effect	combined sync + async	
+not-applicable	packages/effect/test/Stream.test.ts	2085	it.effect	buffers a stream with a failure	Stream.bufferArray and Stream.buffer do not exist in this port (0 hits across src/); both are the bounded-channel sibling of the machinery I excused for the earlier buffer cluster, so the dropping and sliding strategies have no buffering surface to observe
+not-applicable	packages/effect/test/Stream.test.ts	2098	it.effect	fast producer progress independently	Stream.bufferArray and Stream.buffer do not exist in this port (0 hits across src/); both are the bounded-channel sibling of the machinery I excused for the earlier buffer cluster, so the dropping and sliding strategies have no buffering surface to observe
+not-applicable	packages/effect/test/Stream.test.ts	2175	it.effect	buffers a stream with a failure	Stream.bufferArray and Stream.buffer do not exist in this port (0 hits across src/); both are the bounded-channel sibling of the machinery I excused for the earlier buffer cluster, so the dropping and sliding strategies have no buffering surface to observe
+not-applicable	packages/effect/test/Stream.test.ts	2189	it.effect	fast producer progress independently	Stream.bufferArray and Stream.buffer do not exist in this port (0 hits across src/); both are the bounded-channel sibling of the machinery I excused for the earlier buffer cluster, so the dropping and sliding strategies have no buffering surface to observe
+not-applicable	packages/effect/test/Stream.test.ts	2261	it.effect	propagates defects	Stream.bufferArray and Stream.buffer do not exist in this port (0 hits across src/); both are the bounded-channel sibling of the machinery I excused for the earlier buffer cluster, so the dropping and sliding strategies have no buffering surface to observe
+not-applicable	packages/effect/test/Stream.test.ts	2274	it.effect	buffer - buffers the stream	Stream.bufferArray and Stream.buffer do not exist in this port (0 hits across src/); both are the bounded-channel sibling of the machinery I excused for the earlier buffer cluster, so the dropping and sliding strategies have no buffering surface to observe
+not-applicable	packages/effect/test/Stream.test.ts	2285	it.effect	buffers a stream with a failure	Stream.bufferArray and Stream.buffer do not exist in this port (0 hits across src/); both are the bounded-channel sibling of the machinery I excused for the earlier buffer cluster, so the dropping and sliding strategies have no buffering surface to observe
+not-applicable	packages/effect/test/Stream.test.ts	2298	it.effect	fast producer progress independently	Stream.bufferArray and Stream.buffer do not exist in this port (0 hits across src/); both are the bounded-channel sibling of the machinery I excused for the earlier buffer cluster, so the dropping and sliding strategies have no buffering surface to observe
+not-applicable	packages/effect/test/Stream.test.ts	2322	it.effect	sequenced	Stream.share and Stream.fromSchedule do not exist in this port (0 hits across src/); share needs a multicast hub that hands every attached consumer the same scheduled element, and fromSchedule needs the scheduler to drive a stream, so neither the sequenced nor the idleTimeToLive row has a subscription surface
+not-applicable	packages/effect/test/Stream.test.ts	2351	it.effect	sequenced with idleTimeToLive	Stream.share and Stream.fromSchedule do not exist in this port (0 hits across src/); share needs a multicast hub that hands every attached consumer the same scheduled element, and fromSchedule needs the scheduler to drive a stream, so neither the sequenced nor the idleTimeToLive row has a subscription surface
+not-applicable	packages/effect/test/Stream.test.ts	2383	it.effect	ends a consumer that starts after the shared upstream has ended	Stream.share and Stream.fromSchedule do not exist in this port (0 hits across src/); share needs a multicast hub that hands every attached consumer the same scheduled element, and fromSchedule needs the scheduler to drive a stream, so neither the sequenced nor the idleTimeToLive row has a subscription surface
+not-applicable	packages/effect/test/Stream.test.ts	2394	it.effect	parallel	Stream.raceAll does not exist in this port; the runtime Effect.raceAll is threaded and its winner is whichever leg answers first, while this row asserts a fixed winner over three finite streams, so a threaded race cannot witness the pins ordering
+not-applicable	packages/effect/test/Stream.test.ts	2421	it.effect	sync	Stream.raceAll does not exist in this port; the runtime Effect.raceAll is threaded and its winner is whichever leg answers first, while this row asserts a fixed winner over three finite streams, so a threaded race cannot witness the pins ordering
+not-applicable	packages/effect/test/Stream.test.ts	2434	it.effect	async	Stream.raceAll does not exist in this port; the runtime Effect.raceAll is threaded and its winner is whichever leg answers first, while this row asserts a fixed winner over three finite streams, so a threaded race cannot witness the pins ordering
+not-applicable	packages/effect/test/Stream.test.ts	2450	it.effect	combined async + sync	Stream.raceAll does not exist in this port; the runtime Effect.raceAll is threaded and its winner is whichever leg answers first, while this row asserts a fixed winner over three finite streams, so a threaded race cannot witness the pins ordering
+not-applicable	packages/effect/test/Stream.test.ts	2462	it.effect	combined sync + async	Stream.raceAll does not exist in this port; the runtime Effect.raceAll is threaded and its winner is whichever leg answers first, while this row asserts a fixed winner over three finite streams, so a threaded race cannot witness the pins ordering
 ported	packages/effect/test/Stream.test.ts	2475	it.effect	onStart	on_start_and_on_end_run_their_effect_exactly_once
 ported	packages/effect/test/Stream.test.ts	2487	it.effect	onEnd	on_start_and_on_end_run_their_effect_exactly_once
 unported	packages/effect/test/Stream.test.ts	2500	it.effect	one big chunk	
@@ -3675,8 +3675,8 @@ unported	packages/effect/test/Stream.test.ts	2606	it.effect	groupedWithin does n
 unported	packages/effect/test/Stream.test.ts	2618	it.effect	groupedWithin normalizes the chunk size	
 unported	packages/effect/test/Stream.test.ts	2633	it.effect	groupedWithin flushes final partial batch on upstream end without waiting for the schedule	
 unported	packages/effect/test/Stream.test.ts	2642	it.effect	groupedWithin flushes partial batch when the schedule elapses while upstream is idle	
-unported	packages/effect/test/Stream.test.ts	2656	it.effect	simple example	
-unported	packages/effect/test/Stream.test.ts	2679	it.effect	fails fast	
+not-applicable	packages/effect/test/Stream.test.ts	2656	it.effect	simple example	Stream.aggregateWithin does not exist in this port (0 hits across src/) and needs a Sink reduction combined with a Schedule, and this port has neither stream-level aggregation nor the sink/schedule machinery the pin folds over
+not-applicable	packages/effect/test/Stream.test.ts	2679	it.effect	fails fast	Stream.aggregateWithin does not exist in this port (0 hits across src/) and needs a Sink reduction combined with a Schedule, and this port has neither stream-level aggregation nor the sink/schedule machinery the pin folds over
 unported	packages/effect/test/Stream.test.ts	2703	it.effect	error propagation #1	
 unported	packages/effect/test/Stream.test.ts	2718	it.effect	error propagation #2	
 unported	packages/effect/test/Stream.test.ts	2733	it.effect	interruption propagation #1	
