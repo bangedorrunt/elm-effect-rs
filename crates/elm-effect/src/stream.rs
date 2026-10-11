@@ -311,6 +311,84 @@ impl<A: Send + 'static, E: Send + 'static, R: crate::effect::Requirement> Stream
         })
     }
 
+    /// `Stream.rechunk` at the pin: re-emit the upstream in chunks of exactly
+    /// `target`, carrying a partial accumulator across pull boundaries.
+    ///
+    /// `target` normalizes like the pin's `Count.normalizeNonEmpty`, whose
+    /// empty is 1, so `NaN` and non-positive still produce a usable chunk size
+    /// rather than an infinite loop.
+    ///
+    /// The pin's own two shapes are carried: a source chunk that already is
+    /// exactly `target` passes through untouched, and otherwise elements
+    /// accumulate into a buffer of `target` whose leftover is emitted at the
+    /// end of the stream. That leftover rule is what makes a target larger
+    /// than the whole input yield a single chunk.
+    pub fn rechunk(self, target: f64) -> Self {
+        let target = normalize_non_empty(target).max(1);
+        let (pull, exec) = (self.pull, Arc::clone(&self.exec));
+        let carry = Arc::new(Mutex::new(Vec::<A>::new()));
+        Self::derive(exec, move || {
+            loop {
+                let mut buffer = carry.lock().unwrap();
+                if buffer.len() >= target {
+                    let out: Vec<A> = buffer.drain(..target).collect();
+                    return Effect::succeed(Some(out));
+                }
+                match call(&pull).run_sync() {
+                    // The upstream ended: the leftover is the last chunk,
+                    // unless there is nothing left to emit.
+                    Ok(None) => {
+                        if buffer.is_empty() {
+                            return Effect::succeed(None);
+                        }
+                        let out = std::mem::take(&mut *buffer);
+                        return Effect::succeed(Some(out));
+                    }
+                    Ok(Some(items)) if items.is_empty() => continue,
+                    Ok(Some(items)) => {
+                        buffer.extend(items);
+                        continue;
+                    }
+                    Err(cause) => return Effect::fail_cause(cause),
+                }
+            }
+        })
+    }
+
+    /// `Stream.grouped` at the pin: `chunks` over `rechunk(self, n)`, so each
+    /// group is emitted as one element and the chunk-size normalization is
+    /// shared with `rechunk`.
+    pub fn grouped(self, n: f64) -> Stream<Vec<A>, E, R> {
+        let target = normalize_non_empty(n).max(1);
+        let (pull, exec) = (self.pull, Arc::clone(&self.exec));
+        let carry = Arc::new(Mutex::new(Vec::<A>::new()));
+        Self::derive(exec, move || {
+            let (pull, carry) = (Arc::clone(&pull), Arc::clone(&carry));
+            loop {
+                let mut buffer = carry.lock().unwrap();
+                if buffer.len() >= target {
+                    let out: Vec<A> = buffer.drain(..target).collect();
+                    return Effect::succeed(Some(vec![out]));
+                }
+                match call(&pull).run_sync() {
+                    Ok(None) => {
+                        if buffer.is_empty() {
+                            return Effect::succeed(None);
+                        }
+                        let out = std::mem::take(&mut *buffer);
+                        return Effect::succeed(Some(vec![out]));
+                    }
+                    Ok(Some(items)) if items.is_empty() => continue,
+                    Ok(Some(items)) => {
+                        buffer.extend(items);
+                        continue;
+                    }
+                    Err(cause) => return Effect::fail_cause(cause),
+                }
+            }
+        })
+    }
+
     /// `Stream.takeRight` at the pin: keep the last `n` elements, in order.
     /// `n` normalizes like the pin's `Count.normalize`, whose empty is 0.
     ///

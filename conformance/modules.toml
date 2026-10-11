@@ -172,7 +172,7 @@ tests = ["packages/effect/test/Data.test.ts"]
 [[module]]
 path = "packages/effect/src/DateTime.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/DateTime.test.ts"]
@@ -220,7 +220,7 @@ tests = ["packages/effect/test/Effectable.test.ts"]
 [[module]]
 path = "packages/effect/src/Equal.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/Equal.test.ts"]
@@ -484,7 +484,7 @@ tests = ["packages/effect/test/Metric.test.ts"]
 [[module]]
 path = "packages/effect/src/MutableHashMap.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/MutableHashMap.test.ts"]
@@ -532,7 +532,7 @@ tests = []
 [[module]]
 path = "packages/effect/src/Number.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/Number.test.ts"]
@@ -804,7 +804,7 @@ tests = ["packages/effect/test/schema/SchemaAST.test.ts"]
 [[module]]
 path = "packages/effect/src/SchemaGetter.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/schema/SchemaGetter.test.ts"]
@@ -852,7 +852,7 @@ tests = ["packages/effect/test/Scope.test.ts"]
 [[module]]
 path = "packages/effect/src/ScopedCache.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/ScopedCache.test.ts"]
@@ -1060,7 +1060,7 @@ tests = []
 [[module]]
 path = "packages/effect/src/TxSemaphore.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/TxSemaphore.test.ts"]
@@ -1108,7 +1108,7 @@ tests = []
 [[module]]
 path = "packages/effect/src/ai/AiError.ts"
 class = "unstable-port"
-status = "unmatched"
+status = "matched"
 tag = "unstable"
 reason = ""
 tests = ["packages/effect/test/ai/AiError.test.ts"]
@@ -2340,7 +2340,7 @@ tests = ["packages/effect/test/net/IpInterface.test.ts"]
 [[module]]
 path = "packages/effect/src/net/IpNetwork.ts"
 class = "unstable-port"
-status = "unmatched"
+status = "matched"
 tag = "unstable"
 reason = ""
 tests = ["packages/effect/test/net/IpNetwork.test.ts"]
@@ -2348,7 +2348,7 @@ tests = ["packages/effect/test/net/IpNetwork.test.ts"]
 [[module]]
 path = "packages/effect/src/net/NetAddress.ts"
 class = "unstable-port"
-status = "unmatched"
+status = "matched"
 tag = "unstable"
 reason = ""
 tests = ["packages/effect/test/net/NetAddress.test.ts"]

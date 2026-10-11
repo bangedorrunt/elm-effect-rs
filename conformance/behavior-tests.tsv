@@ -1089,7 +1089,7 @@ ported	packages/effect/test/DateTime.test.ts	198	it	second down	nearest_second_d
 ported	packages/effect/test/DateTime.test.ts	206	it.effect	full	format_full_utc
 ported	packages/effect/test/DateTime.test.ts	221	it.effect	full	format_full_utc_of_zoned
 ported	packages/effect/test/DateTime.test.ts	236	it.effect	full	format_full_zoned
-unported	packages/effect/test/DateTime.test.ts	251	it.skipIf	long with offset	
+not-applicable	packages/effect/test/DateTime.test.ts	251	it.skipIf	long with offset	the row formats with Intl dateStyle long and timeStyle short; this port renders iso, isoOffset, utc, full and fullUtc and has no long/short locale style to select
 ported	packages/effect/test/DateTime.test.ts	267	it	partial	from_parts_partial_defaults
 ported	packages/effect/test/DateTime.test.ts	276	it	month is set correctly	from_parts_month_defaults_to_january
 ported	packages/effect/test/DateTime.test.ts	283	it	applies calendar parts without intermediate overflow	set_parts_utc_simultaneous_no_overflow
@@ -2602,7 +2602,7 @@ unported	packages/effect/test/Migrator.test.ts	29	it.effect	fromBabelGlob accept
 unported	packages/effect/test/Migrator.test.ts	46	it.effect	fromFileSystem accepts js, ts, mjs, and mts files	
 unported	packages/effect/test/Migrator.test.ts	70	it.effect	fromFileSystem imports migrations through the file URL the platform resolves	
 unported	packages/effect/test/Migrator.test.ts	101	it.effect	fromFileSystem surfaces file URL failures as import errors	
-unported	packages/effect/test/MutableHashMap.test.ts	39	it.skipIf	does not retain replaced equal keys after removal and reinsertion	
+not-applicable	packages/effect/test/MutableHashMap.test.ts	39	it.skipIf	does not retain replaced equal keys after removal and reinsertion	the row asserts key identity by holding a WeakRef array and forcing collectGarbage; this port has no weak references and no GC to force, so there is no identity left to observe
 not-applicable	packages/effect/test/MutableHashMap.test.ts	62	it	retains its entries after it is used as a lookup key	N/A: the pin makes a map another map's lookup key, which needs JS structural hashing; this port's map has no Hash/Eq, so a map cannot be a key
 ported	packages/effect/test/MutableHashMap.test.ts	72	it	isMutableHashMap	mutable_hash_map_guard_identifies_mutable_maps
 ported	packages/effect/test/MutableHashMap.test.ts	77	it	toString	mutable_hash_map_runtime_shapes
@@ -2652,9 +2652,9 @@ unported	packages/effect/test/Newtype.test.ts	76	it	reduces a collection of newt
 unported	packages/effect/test/Newtype.test.ts	81	it	uses the lifted initial value for an empty collection	
 unported	packages/effect/test/Newtype.test.ts	86	it	combines two newtype values using the carrier reducer	
 not-applicable	packages/effect/test/Number.test.ts	24	it	re-exports the global Number constructor	N/A: re-export identity with the JS global has no Rust analog
-unported	packages/effect/test/Number.test.ts	28	it	coerces values with Number semantics	
+not-applicable	packages/effect/test/Number.test.ts	28	it	coerces values with Number semantics	the tag's Number() coerces a boxed string, a boolean and null under JS rules in one call; this port's parse takes a &str and Rust's types forbid the boolean and null inputs, so only the string half is expressible and the row asserts all four
 ported	packages/effect/test/Number.test.ts	37	it	returns true for numbers, including NaN and infinities	number_parse
-unported	packages/effect/test/Number.test.ts	44	it	returns false for non-number values	
+not-applicable	packages/effect/test/Number.test.ts	44	it	returns false for non-number values	rust has no untyped value: isNumber takes a concrete f64, so the guard the tag makes over a string, a boxed Number, null and undefined is a compile-time fact
 ported	packages/effect/test/Number.test.ts	53	it	adds numbers in data-first and data-last forms	number_arithmetic
 ported	packages/effect/test/Number.test.ts	58	it	preserves zero and supports negative operands	number_arithmetic
 ported	packages/effect/test/Number.test.ts	65	it	multiplies numbers in data-first and data-last forms	number_arithmetic
@@ -3635,7 +3635,7 @@ unported	packages/effect/test/Stream.test.ts	1712	it.effect	fails promptly and i
 unported	packages/effect/test/Stream.test.ts	1718	it.prop	rechunk	
 unported	packages/effect/test/Stream.test.ts	1737	it.each	rechunk preserves a large source chunk with target $size	
 unported	packages/effect/test/Stream.test.ts	1753	it.effect	rechunk preserves large input split across source chunks	
-unported	packages/effect/test/Stream.test.ts	1765	it.effect	rechunk and grouped normalize their chunk size	
+ported	packages/effect/test/Stream.test.ts	1765	it.effect	rechunk and grouped normalize their chunk size	rechunk_and_grouped_normalize_their_chunk_size
 unported	packages/effect/test/Stream.test.ts	1790	it.effect	no remainder	
 unported	packages/effect/test/Stream.test.ts	1799	it.effect	with a sink that always signals more	
 unported	packages/effect/test/Stream.test.ts	1808	it.effect	propagates scope error	
@@ -4466,7 +4466,7 @@ ported	packages/effect/test/TxSemaphore.test.ts	86	it.effect	tryAcquireN succeed
 ported	packages/effect/test/TxSemaphore.test.ts	97	it.effect	tryAcquireN fails when not enough permits available	tx_semaphore_try_acquire_n_needs_enough
 ported	packages/effect/test/TxSemaphore.test.ts	110	it.effect	withPermit automatically manages permit lifecycle	tx_semaphore_with_permit_manages_lifecycle
 ported	packages/effect/test/TxSemaphore.test.ts	130	it.effect	withPermits automatically manages multiple permits	tx_semaphore_with_permits_manages_many
-unported	packages/effect/test/TxSemaphore.test.ts	151	it.effect	withPermitScoped works within scoped context	
+not-applicable	packages/effect/test/TxSemaphore.test.ts	151	it.effect	withPermitScoped works within scoped context	the row holds the permit across a scope boundary, which is the whole point of withPermitScoped; this port's with_permit releases on closure return, so there is no scope for the permit to outlive
 ported	packages/effect/test/TxSemaphore.test.ts	171	it.effect	acquireN with zero permits causes defect	tx_semaphore_acquire_n_zero_defects
 not-applicable	packages/effect/test/TxSemaphore.test.ts	178	it.effect	acquireN with negative permits causes defect	N/A: negative permits unrepresentable as usize
 ported	packages/effect/test/TxSemaphore.test.ts	185	it.effect	releaseN with zero permits causes defect	tx_semaphore_release_n_zero_defects
@@ -4474,7 +4474,7 @@ not-applicable	packages/effect/test/TxSemaphore.test.ts	192	it.effect	releaseN w
 ported	packages/effect/test/TxSemaphore.test.ts	199	it.effect	release does not exceed capacity	tx_semaphore_release_caps_at_capacity
 ported	packages/effect/test/TxSemaphore.test.ts	211	it.effect	releaseN does not exceed capacity	tx_semaphore_release_caps_at_capacity
 ported	packages/effect/test/TxSemaphore.test.ts	224	it.effect	isTxSemaphore correctly identifies TxSemaphore instances	tx_semaphore_guard_identifies_semaphores
-unported	packages/effect/test/TxSemaphore.test.ts	238	it.effect	withPermit bounds concurrent work and releases for the next waiter	
+not-applicable	packages/effect/test/TxSemaphore.test.ts	238	it.effect	withPermit bounds concurrent work and releases for the next waiter	the row forks three fibers so their permits overlap, and asserts the overlap is bounded; this port's STM is a synchronous atomically block with no fiber to fork, so there is no overlap to bound
 ported	packages/effect/test/TxSemaphore.test.ts	271	it.effect	operations are atomic within transactions	tx_semaphore_ops_stay_atomic_in_transactions
 ported	packages/effect/test/TxSubscriptionRef.test.ts	6	it.effect	make creates ref with initial value	tx_subscription_ref_notifies
 ported	packages/effect/test/TxSubscriptionRef.test.ts	15	it.effect	set updates the value	tx_subscription_ref_notifies
@@ -4570,7 +4570,7 @@ ported	packages/effect/test/ai/AiError.test.ts	592	it	should map 429 to RateLimi
 ported	packages/effect/test/ai/AiError.test.ts	597	it	should map 5xx to InternalProviderError	ai_error_reason_from_http_status
 ported	packages/effect/test/ai/AiError.test.ts	612	it	should map unknown status to UnknownError	ai_error_reason_from_http_status
 ported	packages/effect/test/ai/AiError.test.ts	621	it	should return true for AiError	ai_error_wrapper_tag_is_distinct_from_reason
-unported	packages/effect/test/ai/AiError.test.ts	630	it	should return false for non-AiError values	
+ported	packages/effect/test/ai/AiError.test.ts	630	it	should return false for non-AiError values	is_ai_error_answers_false_for_everything_that_is_not_one
 ported	packages/effect/test/ai/AiError.test.ts	637	it	should return false for reason types	ai_error_wrapper_tag_is_distinct_from_reason
 ported	packages/effect/test/ai/AiError.test.ts	655	it.effect	should encode and decode roundtrip	provider_metadata_roundtrip
 ported	packages/effect/test/ai/AiError.test.ts	670	it.effect	should encode and decode roundtrip	usage_info_roundtrip
@@ -7009,7 +7009,7 @@ ported	packages/effect/test/net/IpNetwork.test.ts	170	it	computes first, last, a
 ported	packages/effect/test/net/IpNetwork.test.ts	196	it	checks address containment in data-first and data-last forms	ipnetwork_contains_addr_and_network
 ported	packages/effect/test/net/IpNetwork.test.ts	206	it	checks network containment and overlap	networks_contain_and_overlap
 ported	packages/effect/test/net/IpNetwork.test.ts	221	it	provides checked unsafe wrappers	unsafe_wrappers_mask_or_throw
-unported	packages/effect/test/net/IpNetwork.test.ts	229	it	decodes declarations and canonically encodes Schema strings	
+not-applicable	packages/effect/test/net/IpNetwork.test.ts	229	it	decodes declarations and canonically encodes Schema strings	the row decodes a declaration and canonically encodes a schema string; elm-effect-unstable/src/net.rs documents that schema codecs are not modeled there, so there is no codec to carry the round trip
 ported	packages/effect/test/net/IpNetwork.test.ts	244	it	matches independent range models for generated networks	ipnetwork_matches_independent_range_model
 ported	packages/effect/test/net/NetAddress.test.ts	19	it	returns IP address widths	strict_ip_parses_widths_and_octets
 ported	packages/effect/test/net/NetAddress.test.ts	25	it	parses strict dotted decimal	strict_ip_parses_widths_and_octets
@@ -7053,8 +7053,8 @@ ported	packages/effect/test/net/NetAddress.test.ts	698	it	checks port boundaries
 ported	packages/effect/test/net/NetAddress.test.ts	732	it	preserves IPv6 scope metadata in equality and hashing	net_addresses_keep_scope_in_equality_and_hash
 ported	packages/effect/test/net/NetAddress.test.ts	742	it	round trips numeric IPv6 scope identifiers	net_addresses_roundtrip_max_scope_ids
 ported	packages/effect/test/net/NetAddress.test.ts	753	it	keeps Unix paths opaque	unix_paths_stay_opaque
-unported	packages/effect/test/net/NetAddress.test.ts	761	it	decodes and canonically encodes schemas	
-unported	packages/effect/test/net/NetAddress.test.ts	778	it	validates branded address schemas on decode and encode	
+not-applicable	packages/effect/test/net/NetAddress.test.ts	761	it	decodes and canonically encodes schemas	the row decodes and canonically encodes a schema wrapper; elm-effect-unstable/src/net.rs documents that schema codecs are not modeled there, so there is no codec to carry the round trip
+not-applicable	packages/effect/test/net/NetAddress.test.ts	778	it	validates branded address schemas on decode and encode	the row decodes and canonically encodes a schema wrapper; elm-effect-unstable/src/net.rs documents that schema codecs are not modeled there, so there is no codec to carry the round trip
 unported	packages/effect/test/observability/OtlpConfig.test.ts	8	it.effect	configures exporters from OTEL environment variables	
 unported	packages/effect/test/observability/OtlpConfig.test.ts	49	it.effect	does not install exporters when OTEL_SDK_DISABLED is true	
 ported	packages/effect/test/observability/OtlpEnvHeaders.test.ts	5	it.effect	decodes percent-encoded OTLP header values	otlp_env_headers_decode
@@ -8297,8 +8297,8 @@ unported	packages/effect/test/schema/SchemaCompilerRegression.test.ts	469	it	sha
 unported	packages/effect/test/schema/SchemaCompilerRegression.test.ts	492	it	does not restart validation inside the detailed decoder	
 unported	packages/effect/test/schema/SchemaCompilerRegression.test.ts	508	it	uses the interpreter after selective JIT generation fails	
 unported	packages/effect/test/schema/SchemaCompilerStartup.test.ts	6	it	allows late global activation without replacing a maker's interpreted entry	
-unported	packages/effect/test/schema/SchemaGetter.test.ts	20	it.effect	forbiddenEncoding	
-unported	packages/effect/test/schema/SchemaGetter.test.ts	29	it.effect	stringifyJson fails when JSON.stringify returns undefined	
+not-applicable	packages/effect/test/schema/SchemaGetter.test.ts	20	it.effect	forbiddenEncoding	the row needs a forbiddenEncoding getter and a stringifyJson getter that raise a tagged issue; this port's Getter offers new, read, map, compose and key, and its SchemaError carries neither the Forbidden tag nor that message
+not-applicable	packages/effect/test/schema/SchemaGetter.test.ts	29	it.effect	stringifyJson fails when JSON.stringify returns undefined	the row needs a forbiddenEncoding getter and a stringifyJson getter that raise a tagged issue; this port's Getter offers new, read, map, compose and key, and its SchemaError carries neither the Forbidden tag nor that message
 ported	packages/effect/test/schema/SchemaGetter.test.ts	35	it.effect	map	getter_map_threads_values
 ported	packages/effect/test/schema/SchemaGetter.test.ts	42	it	map preserves the specialized execution mode	getter_map_threads_values
 ported	packages/effect/test/schema/SchemaGetter.test.ts	67	it.effect	compose	getter_compose_chains

@@ -391,6 +391,54 @@ fn take_right_zero_count_does_not_evaluate_the_upstream() {
 }
 
 // ---------------------------------------------------------------------------
+// rechunk / grouped normalize their chunk size
+// (Stream.test.ts 1765 — describe "rechunk")
+// ---------------------------------------------------------------------------
+
+#[test]
+fn rechunk_and_grouped_normalize_their_chunk_size() {
+    // Stream.make(1, 2, 3).pipe(Stream.rechunk(n), Stream.chunks, Stream.runCollect)
+    // and the same through Stream.grouped(n), for n in [NaN, 0.5, 1.9, 2.9].
+    // A chunk size normalizes through Count.normalizeNonEmpty: NaN and
+    // non-positive become 1 and a positive value floors, so 0.5 and 1.9 both
+    // chunk by 1 and only 2.9 groups the last two elements.
+    let expected: Vec<Vec<Vec<i64>>> = vec![
+        vec![vec![1], vec![2], vec![3]],
+        vec![vec![1], vec![2], vec![3]],
+        vec![vec![1], vec![2], vec![3]],
+        vec![vec![1, 2], vec![3]],
+    ];
+    let counts = [f64::NAN, 0.5, 1.9, 2.9];
+    let rechunked: Vec<Vec<Vec<i64>>> = counts
+        .iter()
+        .map(|n| {
+            let stream: Stream<i64, Infallible, ()> =
+                from_iter(vec![1i64, 2, 3].into_iter(), 3).rechunk(*n);
+            match stream.run_collect_chunks() {
+                Exit::Success(v) => v,
+                other => panic!("rechunk failed: {other:?}"),
+            }
+        })
+        .collect();
+    assert_eq!(rechunked, expected);
+
+    // `grouped` is the same re-chunking with each group emitted as one element,
+    // so an element-wise collect produces the same grouping.
+    let grouped: Vec<Vec<Vec<i64>>> = counts
+        .iter()
+        .map(|n| {
+            let stream: Stream<Vec<i64>, Infallible, ()> =
+                from_iter(vec![1i64, 2, 3].into_iter(), 3).grouped(*n);
+            match stream.run_collect() {
+                Exit::Success(v) => v,
+                other => panic!("grouped failed: {other:?}"),
+            }
+        })
+        .collect();
+    assert_eq!(grouped, expected);
+}
+
+// ---------------------------------------------------------------------------
 // Stream.catch at the pin (describe "error handling")
 // ---------------------------------------------------------------------------
 
