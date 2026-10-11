@@ -414,6 +414,68 @@ impl<A: Send + 'static, E: Send + 'static, R: crate::effect::Requirement> Stream
     }
 }
 
+/// `Stream.decodeText` at the pin: decode UTF-8 bytes to text, holding an
+/// incomplete trailing sequence until a later pull completes it.
+///
+/// The pin preserves the failure channel `E`, so an invalid or truncated
+/// sequence is carried in `E` through the same bound `channel::decode_text`
+/// uses rather than in a fresh error type.
+impl<E, R> Stream<u8, E, R>
+where
+    E: From<std::string::FromUtf8Error> + Send + 'static,
+    R: crate::effect::Requirement,
+{
+    /// The pin's `mkString` is a fold over the chunks joined with `""`, which
+    /// for this port is `run_collect` then `concat`.
+    pub fn decode_text(self) -> Stream<String, E, R> {
+        let (pull, exec) = (self.pull, Arc::clone(&self.exec));
+        let carry = Arc::new(Mutex::new(Vec::<u8>::new()));
+        Self::derive(exec, move || {
+            loop {
+                let mut buffer = carry.lock().unwrap();
+                let text = drain_valid_utf8_prefix(&mut buffer);
+                if !text.is_empty() {
+                    return Effect::succeed(Some(vec![text]));
+                }
+                match call(&pull).run_sync() {
+                    Ok(None) => {
+                        // The upstream ended. An empty buffer is a clean end;
+                        // anything left is a truncated sequence or invalid
+                        // bytes, carried in E rather than emitted as a
+                        // replacement character.
+                        if buffer.is_empty() {
+                            return Effect::succeed(None);
+                        }
+                        match String::from_utf8(std::mem::take(&mut buffer)) {
+                            Ok(text) => return Effect::succeed(Some(vec![text])),
+                            Err(error) => return Effect::fail(error.into()),
+                        }
+                    }
+                    Ok(Some(items)) => {
+                        buffer.extend(items);
+                        continue;
+                    }
+                    Err(cause) => return Effect::fail_cause(cause),
+                }
+            }
+        })
+    }
+}
+
+/// Drain the longest valid UTF-8 prefix of `buffer`, leaving an incomplete
+/// trailing sequence in place. Strict, never lossy.
+///
+/// This is the same boundary rule `channel::decode_text` needs, but
+/// `channel.rs` is a `#[path]`-included test-only module, so it is a separate
+/// compilation unit and the helper cannot be shared across it.
+fn drain_valid_utf8_prefix(buffer: &mut Vec<u8>) -> String {
+    let valid_up_to = match std::str::from_utf8(buffer) {
+        Ok(_) => buffer.len(),
+        Err(error) => error.valid_up_to(),
+    };
+    String::from_utf8(buffer.drain(..valid_up_to).collect()).expect("valid prefix")
+}
+
 impl<A: Send + 'static, E: Send + 'static, R: crate::effect::Requirement> Stream<A, E, R> {
     /// Clone this stream's pull factory (the shared `Arc`).
     ///

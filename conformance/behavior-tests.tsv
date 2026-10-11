@@ -3554,8 +3554,8 @@ ported	packages/effect/test/Stream.test.ts	508	it.effect	fromIterable - normaliz
 unported	packages/effect/test/Stream.test.ts	522	it.effect	scoped - provides scope to fromEffect pull effects	
 unported	packages/effect/test/Stream.test.ts	539	it.effect	scoped - provides scope to sequential mapEffect pull effects	
 unported	packages/effect/test/Stream.test.ts	557	it.effect	fromReadableStream - errored streams fail with the mapped error, not a finalizer defect	
-unported	packages/effect/test/Stream.test.ts	578	it.effect	decodeText handles multi-byte characters split across chunks	
-unported	packages/effect/test/Stream.test.ts	588	it.effect	decodeText handles mixed ASCII and multi-byte characters across chunks	
+ported	packages/effect/test/Stream.test.ts	578	it.effect	decodeText handles multi-byte characters split across chunks	decode_text_handles_multibyte_characters_split_across_chunks
+ported	packages/effect/test/Stream.test.ts	588	it.effect	decodeText handles mixed ASCII and multi-byte characters across chunks	decode_text_handles_mixed_ascii_and_multibyte_across_chunks
 ported	packages/effect/test/Stream.test.ts	606	it.effect	handles an empty stream	split_lines_handles_an_empty_stream
 ported	packages/effect/test/Stream.test.ts	612	it.effect	handles empty chunks and repeated line feeds	split_lines_handles_empty_chunks_and_repeated_line_feeds
 ported	packages/effect/test/Stream.test.ts	618	it.effect	handles line feeds across chunks	split_lines_handles_line_feeds_across_chunks

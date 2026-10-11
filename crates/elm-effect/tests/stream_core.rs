@@ -437,6 +437,42 @@ fn rechunk_and_grouped_normalize_their_chunk_size() {
     assert_eq!(grouped, expected);
 }
 
+// ---------------------------------------------------------------------------
+// decodeText across chunk boundaries (Stream.test.ts 578, 588)
+// ---------------------------------------------------------------------------
+
+use std::string::FromUtf8Error;
+
+#[test]
+fn decode_text_handles_multibyte_characters_split_across_chunks() {
+    // Stream.make(bytes[0..2], bytes[2..]).pipe(Stream.decodeText(),
+    // Stream.mkString) === "🌍". The emoji is four UTF-8 bytes, so the first
+    // chunk ends mid-character and the decoder must hold the partial sequence
+    // until the second chunk completes it.
+    // One byte stream chunked at 2, so the emoji's four bytes straddle a pull
+    // boundary: the decoder must hold bytes 2..4 after emitting nothing for
+    // the first chunk.
+    let bytes = "🌍".as_bytes().to_vec();
+    let stream: Stream<String, FromUtf8Error, ()> = from_iter(bytes.into_iter(), 2).decode_text();
+    match stream.run_collect() {
+        Exit::Success(v) => assert_eq!(v.concat(), "🌍"),
+        Exit::Failure(_) => panic!("decodeText must not fail on a split character"),
+    }
+}
+
+#[test]
+fn decode_text_handles_mixed_ascii_and_multibyte_across_chunks() {
+    // Stream.make(bytes[0..8], bytes[8..]).pipe(Stream.decodeText(),
+    // Stream.mkString) === "Hello 🌍!". The split lands inside the emoji, so
+    // the boundary case is the same one with ASCII on both sides.
+    let bytes = "Hello 🌍!".as_bytes().to_vec();
+    let stream: Stream<String, FromUtf8Error, ()> = from_iter(bytes.into_iter(), 8).decode_text();
+    match stream.run_collect() {
+        Exit::Success(v) => assert_eq!(v.concat(), "Hello 🌍!"),
+        Exit::Failure(_) => panic!("decodeText must not fail on a split character"),
+    }
+}
+
 fn collect_chunks_or_panic<A: Send + 'static>(stream: Stream<A, Infallible, ()>) -> Vec<Vec<A>> {
     match stream.run_collect_chunks() {
         Exit::Success(v) => v,
