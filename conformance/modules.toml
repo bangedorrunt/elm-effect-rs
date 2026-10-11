@@ -76,7 +76,7 @@ tests = ["packages/effect/test/Cause.test.ts"]
 [[module]]
 path = "packages/effect/src/Channel.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/Channel.test.ts"]

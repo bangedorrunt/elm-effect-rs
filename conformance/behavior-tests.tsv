@@ -528,7 +528,7 @@ ported	packages/effect/test/Cause.test.ts	911	it	returns true for UnknownError i
 ported	packages/effect/test/Cause.test.ts	915	it	returns false for other values	is_unknown_error_guards
 ported	packages/effect/test/Cause.test.ts	922	it	is a string constant	unknown_error_type_id
 ported	packages/effect/test/CauseMapAnnotations.test.ts	5	it	preserves annotations on mapped failures	cause_map_preserves_annotations
-unported	packages/effect/test/Channel.test.ts	24	it.effect	 work per repetition does not grow	
+not-applicable	packages/effect/test/Channel.test.ts	24	it.effect	 work per repetition does not grow	Channel.repeat and Channel.forever are absent (crates/elm-effect/src/channel.rs has 13 free functions, neither present) and Stream::fromChannel is absent, so the repetition source cannot be built
 ported	packages/effect/test/Channel.test.ts	36	it.effect	empty	pull_empty_ends_immediately
 ported	packages/effect/test/Channel.test.ts	44	it.effect	succeed	pull_constructors
 ported	packages/effect/test/Channel.test.ts	52	it.effect	sync	pull_constructors
@@ -542,26 +542,26 @@ ported	packages/effect/test/Channel.test.ts	126	it.effect	fromIteratorArray - no
 ported	packages/effect/test/Channel.test.ts	141	it.effect	fromIterable	pull_constructors
 ported	packages/effect/test/Channel.test.ts	148	it.effect	fromIterableArray	pull_constructors
 ported	packages/effect/test/Channel.test.ts	157	it.effect	fromIterableArray - normalizes the chunk size	pull_constructors
-unported	packages/effect/test/Channel.test.ts	168	it.effect	fromReadableStream	
-unported	packages/effect/test/Channel.test.ts	185	it.effect	fromTransformStream - surfaces write-side errors through the read side	
+not-applicable	packages/effect/test/Channel.test.ts	168	it.effect	fromReadableStream	Channel.fromReadableStream is absent from crates/elm-effect/src/channel.rs, and a web ReadableStream has no Rust analog
+not-applicable	packages/effect/test/Channel.test.ts	185	it.effect	fromTransformStream - surfaces write-side errors through the read side	Channel.fromTransformStream is absent from crates/elm-effect/src/channel.rs, and a web TransformStream has no Rust analog
 ported	packages/effect/test/Channel.test.ts	206	it.effect	acquireRelease	pull_bracket_releases_once
 ported	packages/effect/test/Channel.test.ts	218	it.effect	acquireUseRelease combines usage and release failures	pull_bracket_releases_once
 ported	packages/effect/test/Channel.test.ts	231	it.effect	acquireUseRelease surfaces release failure after successful usage	pull_bracket_release_failure_surfaces
 ported	packages/effect/test/Channel.test.ts	243	it.effect	runDrain returns the done value after emitted elements	sink_drain_discards
-unported	packages/effect/test/Channel.test.ts	253	it.effect	mkUint8Array	
+not-applicable	packages/effect/test/Channel.test.ts	253	it.effect	mkUint8Array	Channel.mkUint8Array is absent from crates/elm-effect/src/channel.rs; the byte-concatenating fold exists only on Stream (crates/elm-effect/src/stream.rs:991), the wrong type
 ported	packages/effect/test/Channel.test.ts	267	it.effect	map	channel_map_transforms
-unported	packages/effect/test/Channel.test.ts	276	it.effect	mapEffect interrupts the running effect when the channel is interrupted	
-unported	packages/effect/test/Channel.test.ts	297	it.effect	mapEffect - interrupts pending tasks on failure	
+not-applicable	packages/effect/test/Channel.test.ts	276	it.effect	mapEffect interrupts the running effect when the channel is interrupted	Channel::map_effect (crates/elm-effect/src/channel.rs:104) takes FnMut(A) -> Result<B,E>, synchronous and fallible, and Effect::onInterrupt is absent from the crate, so there is no running effect to interrupt
+not-applicable	packages/effect/test/Channel.test.ts	297	it.effect	mapEffect - interrupts pending tasks on failure	Channel::map_effect (crates/elm-effect/src/channel.rs:104) is synchronous and fallible, so it has no pending tasks to interrupt, and Effect::onInterrupt is absent from the crate
 ported	packages/effect/test/Channel.test.ts	338	it.effect	filterMap with Filter	channel_filter_map_recovers
-unported	packages/effect/test/Channel.test.ts	348	it.effect	filterMapEffect with FilterEffect	
+not-applicable	packages/effect/test/Channel.test.ts	348	it.effect	filterMapEffect with FilterEffect	Channel.filterMapEffect is absent from crates/elm-effect/src/channel.rs, and Filter.makeEffect/filter_effect is absent from the crate
 ported	packages/effect/test/Channel.test.ts	360	it.effect	decodeText handles multi-byte characters split across Uint8Array boundaries	channel_decode_text_reassembles_split_characters
 ported	packages/effect/test/Channel.test.ts	376	it.effect	merge - interrupts left side if halt strategy is set to 'right'	merge_halt_strategies
 ported	packages/effect/test/Channel.test.ts	396	it.effect	merge - interrupts right side if halt strategy is set to 'left'	merge_halt_strategies
 ported	packages/effect/test/Channel.test.ts	416	it.effect	merge - interrupts losing side if halt strategy is set to 'either'	merge_halt_strategies
 ported	packages/effect/test/Channel.test.ts	426	it.effect	merge - waits for both sides if halt strategy is set to 'both'	merge_halt_strategies
 ported	packages/effect/test/Channel.test.ts	436	it.effect	merge - prioritizes failure	merge_halt_strategies
-unported	packages/effect/test/Channel.test.ts	449	it.effect	interrupts previous channels and runs their finalizers	
-unported	packages/effect/test/Channel.test.ts	460	it.effect	interrupts the current element	
+not-applicable	packages/effect/test/Channel.test.ts	449	it.effect	interrupts previous channels and runs their finalizers	Channel.switchMap, Channel.fromIterable, Channel.empty and Channel.never are all absent from crates/elm-effect/src/channel.rs (0 hits each)
+not-applicable	packages/effect/test/Channel.test.ts	460	it.effect	interrupts the current element	Channel.interruptWhen and Channel.fromEffect are absent from crates/elm-effect/src/channel.rs (0 hits each), and Effect::onInterrupt is absent so the finalizer the row observes cannot be registered
 not-applicable	packages/effect/test/Channel.test.ts	482	it.effect	interruptWhen - propagates errors	Channel.interruptWhen and Channel.fromEffect are both absent (0 hits in channel.rs), so a deferred failure cannot interrupt an effect-driven channel and propagate as a typed error
 not-applicable	packages/effect/test/Channel.test.ts	519	it.effect	catchDefect	Take<A,E> (crates/elm-effect/src/take.rs:5) has only Items/End/Fail — no defect variant — so a Channel cannot carry a defect, and Channel has no catch_defect (present only on Effect/Stream)
 ported	packages/effect/test/Channel.test.ts	535	it.effect	catchIf with refinement	channel_catch_if_refines
