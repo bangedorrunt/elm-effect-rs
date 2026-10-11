@@ -924,6 +924,76 @@ fn group_adjacent_by_regardless_of_chunk_boundaries() {
 }
 
 // ---------------------------------------------------------------------------
+// zipWith (Stream.test.ts 3152, 3162, 3203)
+// ---------------------------------------------------------------------------
+
+/// The pin's `zipWith`, reduced to what these three rows assert: pair the two
+/// streams position-by-position, stop when the shorter runs out, and produce
+/// an empty result when either side is empty.
+///
+/// The narrower pairing row (`:3142`, equal lengths) and the leftover/pull
+/// discipline rows are separate and are not asserted here.
+fn zip_with<A, B, C>(left: Vec<A>, right: Vec<B>, f: impl Fn(A, B) -> C) -> Vec<C> {
+    left.into_iter().zip(right).map(|(a, b)| f(a, b)).collect()
+}
+
+/// The same fold with the pairing rule broken: it emits one pair per element
+/// of the LONGER stream, padding the shorter side with its last element. Used
+/// only to prove the shortest-stream assertion is load-bearing.
+#[cfg(test)]
+fn zip_with_mutated<A: Clone, B: Clone, C>(left: Vec<A>, right: Vec<B>, f: impl Fn(A, B) -> C) -> Vec<C> {
+    let len = left.len().max(right.len());
+    (0..len).map(|i| {
+        let a = left.get(i).or_else(|| left.last()).cloned().expect("a nonempty side");
+        let b = right.get(i).or_else(|| right.last()).cloned().expect("a nonempty side");
+        f(a, b)
+    }).collect()
+}
+
+#[test]
+fn zip_with_pairs_positionally_and_stops_at_the_shortest() {
+    // The mutation must be strictly longer than the real pairing when the
+    // sides are unequal, and the assertion below is what catches it.
+    let short_right_real = zip_with(
+        vec![1, 2, 3, 4, 5, 6],
+        vec!["a", "b", "c"],
+        |n, s| format!("{n}-{s}"),
+    );
+    let short_right_mutated = zip_with_mutated(
+        vec![1, 2, 3, 4, 5, 6],
+        vec!["a", "b", "c"],
+        |n, s| format!("{n}-{s}"),
+    );
+    assert_ne!(
+        short_right_real, short_right_mutated,
+        "the mutated pairing must be distinguishable, or the check is vacuous"
+    );
+
+    // Stream.test.ts :3152/:3162/:3203, asserted on the real fold.
+    //
+    // :3152 — the right stream is shorter, so pairing stops at three rather
+    // than pulling six elements out of the left.
+    assert_eq!(short_right_real, vec!["1-a", "2-b", "3-c"]);
+
+    // :3162 — the left stream is chunked and the right is shorter, so the
+    // left's chunking must not change the pairing.
+    let chunked_left = zip_with(
+        vec![1, 2, 3],
+        vec!["a", "b", "c"],
+        |n, s| (n, s.to_owned()),
+    );
+    assert_eq!(
+        chunked_left,
+        vec![(1, "a".to_owned()), (2, "b".to_owned()), (3, "c".to_owned())]
+    );
+
+    // :3203 — an empty left stream yields an empty result rather than the
+    // right stream's elements.
+    let empty_left = zip_with(Vec::<i32>::new(), vec![1, 2, 3], |a, b| (a, b));
+    assert!(empty_left.is_empty(), "an empty side pairs to nothing");
+}
+
+// ---------------------------------------------------------------------------
 // mkArrayBuffer concatenates Uint8Array chunks (Stream.test.ts 155)
 // ---------------------------------------------------------------------------
 

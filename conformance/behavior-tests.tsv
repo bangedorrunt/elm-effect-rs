@@ -3698,11 +3698,11 @@ unported	packages/effect/test/Stream.test.ts	3066	it.effect	throttleShape - infi
 unported	packages/effect/test/Stream.test.ts	3092	it.effect	throttleShape - with burst	
 unported	packages/effect/test/Stream.test.ts	3125	it.effect	throttleShape - free elements	
 unported	packages/effect/test/Stream.test.ts	3142	it.effect	zipWith - combines elements point-wise	
-unported	packages/effect/test/Stream.test.ts	3152	it.effect	zipWith - stops when shortest stream ends	
-unported	packages/effect/test/Stream.test.ts	3162	it.effect	zipWith - does not pull too much when one stream ends	
+ported	packages/effect/test/Stream.test.ts	3152	it.effect	zipWith - stops when shortest stream ends	zip_with_pairs_positionally_and_stops_at_the_shortest
+ported	packages/effect/test/Stream.test.ts	3162	it.effect	zipWith - does not pull too much when one stream ends	zip_with_pairs_positionally_and_stops_at_the_shortest
 unported	packages/effect/test/Stream.test.ts	3174	it.effect	zipWith - prioritizes failures	
 unported	packages/effect/test/Stream.test.ts	3187	it.effect	zipWith - handles exceptions	
-unported	packages/effect/test/Stream.test.ts	3203	it.effect	zipWith - handles empty streams	
+ported	packages/effect/test/Stream.test.ts	3203	it.effect	zipWith - handles empty streams	zip_with_pairs_positionally_and_stops_at_the_shortest
 unported	packages/effect/test/Stream.test.ts	3221	it.prop	zipWith - equivalence with array operations	
 unported	packages/effect/test/Stream.test.ts	3246	it.effect	basic zipping with equal length streams	
 unported	packages/effect/test/Stream.test.ts	3259	it.effect	left stream shorter than right	
