@@ -5,6 +5,8 @@
 
 use std::backtrace::Backtrace;
 
+use crate::context::Tag;
+
 /// Identity of the fiber that was interrupted, when known.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct FiberId(pub u64);
@@ -352,12 +354,21 @@ impl<E> Cause<E> {
         }
     }
 
-    /// `Cause.combine`: merge two causes, appending the right-hand reasons to
-    /// the left. Combining with an empty cause returns the other unchanged,
-    /// and mixed reason kinds all land in one flat list.
-    pub fn combine(self, other: Self) -> Self {
+    /// `Cause.combine`: merge two causes. The tag dedups reasons by
+    /// (Equal, Hash); a `Vec`'s `PartialEq` is the same observable rule, so
+    /// unequal reasons never merge, an equal one does, and the first
+    /// occurrence keeps its place. Combining with an empty cause returns the
+    /// other unchanged, and mixed reason kinds all land in one flat list.
+    pub fn combine(self, other: Self) -> Self
+    where
+        E: PartialEq,
+    {
         let mut reasons = self.reasons;
-        reasons.extend(other.reasons);
+        for reason in other.reasons {
+            if !reasons.contains(&reason) {
+                reasons.push(reason);
+            }
+        }
         let mut annotations = self.annotations;
         annotations.extend(other.annotations);
         Self { reasons, annotations }
@@ -429,3 +440,342 @@ impl<E> Default for Cause<E> {
         Self::empty()
     }
 }
+
+/// `Cause.NoSuchElementError` and its siblings. The tag models each as its own
+/// class extending `TaggedError(name)`, so each carries an optional message
+/// and is an `Error`. This port uses one enum rather than five structs because
+/// the guards below must answer "is this one of ours, and which" about a single
+/// value, and a five-way `match` is the same discriminator the tag's five
+/// classes give it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum CauseError {
+    /// `Cause.NoSuchElementError`: an element that was not there.
+    NoSuchElement(Option<String>),
+    /// `Cause.TimeoutError`: an operation that ran out of time.
+    Timeout(Option<String>),
+    /// `Cause.IllegalArgumentError`: a caller passed an unusable argument.
+    IllegalArgument(Option<String>),
+    /// `Cause.ExceededCapacityError`: a bounded structure was full.
+    ExceededCapacity(Option<String>),
+    /// `Cause.UnknownError`: an untyped failure wrapped for the error channel,
+    /// with the original kept as text so it survives the boundary.
+    Unknown {
+        /// The wrapper's message, when the caller supplied one.
+        message: Option<String>,
+        /// The original failure, rendered. The tag carries `unknown` here; a
+        /// Rust boundary cannot, so the value crosses as its rendering.
+        cause: String,
+    },
+}
+
+impl CauseError {
+    /// `Cause.NoSuchElementErrorTypeId`.
+    pub const NO_SUCH_ELEMENT_TYPE_ID: &'static str = "~effect/Cause/NoSuchElementError";
+    /// `Cause.TimeoutErrorTypeId`.
+    pub const TIMEOUT_TYPE_ID: &'static str = "~effect/Cause/TimeoutError";
+    /// `Cause.IllegalArgumentErrorTypeId`.
+    pub const ILLEGAL_ARGUMENT_TYPE_ID: &'static str = "~effect/Cause/IllegalArgumentError";
+    /// `Cause.ExceededCapacityErrorTypeId`.
+    pub const EXCEEDED_CAPACITY_TYPE_ID: &'static str = "~effect/Cause/ExceededCapacityError";
+    /// `Cause.UnknownErrorTypeId`.
+    pub const UNKNOWN_TYPE_ID: &'static str = "~effect/Cause/UnknownError";
+
+    /// `new Cause.NoSuchElementError(message?)`.
+    pub fn no_such_element(message: impl Into<String>) -> Self {
+        Self::NoSuchElement(Some(message.into()))
+    }
+
+    /// `new Cause.NoSuchElementError()`.
+    pub fn no_such_element_bare() -> Self {
+        Self::NoSuchElement(None)
+    }
+
+    /// `new Cause.TimeoutError(message?)`.
+    pub fn timeout(message: impl Into<String>) -> Self {
+        Self::Timeout(Some(message.into()))
+    }
+
+    /// `new Cause.TimeoutError()`.
+    pub fn timeout_bare() -> Self {
+        Self::Timeout(None)
+    }
+
+    /// `new Cause.IllegalArgumentError(message?)`.
+    pub fn illegal_argument(message: impl Into<String>) -> Self {
+        Self::IllegalArgument(Some(message.into()))
+    }
+
+    /// `new Cause.IllegalArgumentError()`.
+    pub fn illegal_argument_bare() -> Self {
+        Self::IllegalArgument(None)
+    }
+
+    /// `new Cause.ExceededCapacityError(message?)`.
+    pub fn exceeded_capacity(message: impl Into<String>) -> Self {
+        Self::ExceededCapacity(Some(message.into()))
+    }
+
+    /// `new Cause.ExceededCapacityError()`.
+    pub fn exceeded_capacity_bare() -> Self {
+        Self::ExceededCapacity(None)
+    }
+
+    /// `new Cause.UnknownError(cause, message?)`.
+    pub fn unknown(cause: impl Into<String>, message: impl Into<String>) -> Self {
+        Self::Unknown {
+            message: Some(message.into()),
+            cause: cause.into(),
+        }
+    }
+
+    /// `new Cause.UnknownError(cause)`.
+    pub fn unknown_bare(cause: impl Into<String>) -> Self {
+        Self::Unknown {
+            message: None,
+            cause: cause.into(),
+        }
+    }
+
+    /// The `_tag` this value renders as.
+    pub fn tag(&self) -> &'static str {
+        match self {
+            Self::NoSuchElement(_) => "NoSuchElementError",
+            Self::Timeout(_) => "TimeoutError",
+            Self::IllegalArgument(_) => "IllegalArgumentError",
+            Self::ExceededCapacity(_) => "ExceededCapacityError",
+            Self::Unknown { .. } => "UnknownError",
+        }
+    }
+
+    /// The `message`, which the tag's constructors leave absent when unset.
+    pub fn message(&self) -> Option<&str> {
+        match self {
+            Self::NoSuchElement(m) | Self::Timeout(m) | Self::IllegalArgument(m) => m.as_deref(),
+            Self::ExceededCapacity(m) => m.as_deref(),
+            Self::Unknown { message, .. } => message.as_deref(),
+        }
+    }
+
+    /// The wrapped failure, for [`CauseError::Unknown`].
+    pub fn cause(&self) -> Option<&str> {
+        match self {
+            Self::Unknown { cause, .. } => Some(cause),
+            _ => None,
+        }
+    }
+
+    /// `error.name` in the tag, which its `TaggedError` sets from the tag.
+    pub fn name(&self) -> &'static str {
+        self.tag()
+    }
+
+    /// True for [`CauseError::NoSuchElement`], mirroring
+    /// `Cause.isNoSuchElementError`.
+    pub fn is_no_such_element(&self) -> bool {
+        matches!(self, Self::NoSuchElement(_))
+    }
+
+    /// True for [`CauseError::Timeout`], mirroring `Cause.isTimeoutError`.
+    pub fn is_timeout(&self) -> bool {
+        matches!(self, Self::Timeout(_))
+    }
+
+    /// True for [`CauseError::IllegalArgument`], mirroring
+    /// `Cause.isIllegalArgumentError`.
+    pub fn is_illegal_argument(&self) -> bool {
+        matches!(self, Self::IllegalArgument(_))
+    }
+
+    /// True for [`CauseError::ExceededCapacity`], mirroring
+    /// `Cause.isExceededCapacityError`.
+    pub fn is_exceeded_capacity(&self) -> bool {
+        matches!(self, Self::ExceededCapacity(_))
+    }
+
+    /// True for [`CauseError::Unknown`], mirroring `Cause.isUnknownError`.
+    pub fn is_unknown(&self) -> bool {
+        matches!(self, Self::Unknown { .. })
+    }
+}
+
+impl std::fmt::Display for CauseError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self.message() {
+            Some(message) => write!(f, "{}: {}", self.tag(), message),
+            None => write!(f, "{}", self.tag()),
+        }
+    }
+}
+
+impl std::error::Error for CauseError {}
+
+/// The tag guards an arbitrary value against one error class. Rust has no
+/// untyped value, so the guard takes a borrowed `Any` and an `Option` slot: the
+/// `None` case is the tag's `null`/`undefined`, which its guard answers `false`
+/// for. `Some("nope")` and `Some(42)` are `false` too, so the same call answers
+/// every assertion the tag's row makes.
+macro_rules! cause_error_guard {
+    ($name:ident, $variant:pat) => {
+        /// `Cause::is*Error` over a possibly-absent borrowed value.
+        pub fn $name(value: Option<&dyn std::any::Any>) -> bool {
+            value
+                .and_then(|value| value.downcast_ref::<CauseError>())
+                .is_some_and(|error| matches!(error, $variant))
+        }
+    };
+}
+
+cause_error_guard!(is_no_such_element_error, CauseError::NoSuchElement(_));
+cause_error_guard!(is_timeout_error, CauseError::Timeout(_));
+cause_error_guard!(is_illegal_argument_error, CauseError::IllegalArgument(_));
+cause_error_guard!(is_exceeded_capacity_error, CauseError::ExceededCapacity(_));
+cause_error_guard!(is_unknown_error, CauseError::Unknown { .. });
+
+/// `Cause.Done`: a graceful completion signal carried through the error
+/// channel, with an optional payload. `V` is the payload type; the tag
+/// defaults it to `void`.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Done<V = ()> {
+    /// The signal's payload, absent for `Cause.Done()`.
+    pub value: Option<V>,
+}
+
+impl<V> Done<V> {
+    /// `Cause.DoneTypeId`.
+    pub const TYPE_ID: &'static str = "~effect/Cause/Done";
+
+    /// `Cause.Done()`.
+    pub fn empty() -> Self {
+        Self { value: None }
+    }
+
+    /// `Cause.Done(value)`.
+    pub fn new(value: V) -> Self {
+        Self { value: Some(value) }
+    }
+
+    /// The `_tag` this value renders as.
+    pub fn tag(&self) -> &'static str {
+        "Done"
+    }
+}
+
+/// `Cause.isDone` over a possibly-absent borrowed value, with the same
+/// `None`-means-nullish contract as the guards above.
+pub fn is_done<V: 'static>(value: Option<&dyn std::any::Any>) -> bool {
+    value
+        .and_then(|value| value.downcast_ref::<Done<V>>())
+        .is_some()
+}
+
+/// `Reason`'s own `_tag`, which the tag's reason objects carry as a field.
+impl<E> Reason<E> {
+    /// `Fail`, `Die`, or `Interrupt`.
+    pub fn tag(&self) -> &'static str {
+        match self {
+            Self::Fail(_) => "Fail",
+            Self::Die(_) => "Die",
+            Self::Interrupt { .. } => "Interrupt",
+        }
+    }
+}
+
+/// `Cause.makeFailReason`: build a reason directly rather than through a cause.
+pub fn make_fail_reason<E>(error: E) -> Reason<E> {
+    Reason::Fail(error)
+}
+
+/// `Cause.makeDieReason`.
+pub fn make_die_reason<E>(defect: Defect) -> Reason<E> {
+    Reason::Die(defect)
+}
+
+/// `Cause.makeInterruptReason`. The tag takes a raw fiber id and defaults it to
+/// `undefined`; this port's `Option<FiberId>` is the same distinction.
+pub fn make_interrupt_reason<E>(fiber_id: Option<FiberId>) -> Reason<E> {
+    Reason::Interrupt { fiber_id }
+}
+
+impl<E> Cause<E> {
+    /// `Cause.filterInterruptors`: the interrupting fiber ids when this cause
+    /// interrupts, else the cause itself. The failure value is the cause, which
+    /// is what the tag puts in the error channel.
+    pub fn filter_interruptors(&self) -> Result<Vec<FiberId>, Self>
+    where
+        E: Clone,
+    {
+        if !self.is_interrupted() {
+            return Err(self.clone());
+        }
+        Ok(self.interruptor_ids())
+    }
+
+    /// `Cause.annotations`: every attached annotation. This port's reasons
+    /// carry none, so this is the whole set the tag merges.
+    pub fn annotation_pairs(&self) -> &[(String, String)] {
+        &self.annotations
+    }
+
+    /// `Cause.prettyErrors`: one `Error` per reason, suitable for logging or
+    /// rethrowing. A typed failure and a defect each become one error; an
+    /// interrupt-only cause becomes an interrupt error; an empty cause yields
+    /// nothing.
+    pub fn pretty_errors(&self) -> Vec<Box<dyn std::error::Error + Send + Sync>>
+    where
+        E: std::fmt::Display + Send + Sync + 'static,
+    {
+        let mut errors: Vec<Box<dyn std::error::Error + Send + Sync>> = Vec::new();
+        for reason in &self.reasons {
+            match reason {
+                Reason::Fail(error) => {
+                    errors.push(Box::new(PrettyError(format!("{error}"))));
+                }
+                Reason::Die(defect) => {
+                    errors.push(Box::new(PrettyError(defect.message.clone())));
+                }
+                Reason::Interrupt { fiber_id } => {
+                    errors.push(Box::new(PrettyError(match fiber_id {
+                        Some(id) => format!("fiber {} interrupted", id.0),
+                        None => "interrupted".to_owned(),
+                    })));
+                }
+            }
+        }
+        errors
+    }
+
+    /// `Cause.pretty`: the whole cause as one string.
+    pub fn pretty(&self) -> String
+    where
+        E: std::fmt::Debug,
+    {
+        self.to_string()
+    }
+}
+
+/// One rendered reason from [`Cause::pretty_errors`].
+#[derive(Debug)]
+struct PrettyError(String);
+
+impl std::fmt::Display for PrettyError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl std::error::Error for PrettyError {}
+
+/// `Cause.StackTrace`: the service the tag reads to render a defect's stack.
+/// The port keeps the tag as a service so a caller can substitute a renderer,
+/// which is the reason the tag models it as a context service at all.
+pub struct StackTraceService;
+
+/// `Cause.StackTrace`.
+pub const STACK_TRACE: Tag<StackTraceService> = Tag::new("effect/Cause/StackTrace");
+
+/// `Cause.InterruptorStackTrace`: the same, for the interrupting fiber's stack.
+pub struct InterruptorStackTraceService;
+
+/// `Cause.InterruptorStackTrace`.
+pub const INTERRUPTOR_STACK_TRACE: Tag<InterruptorStackTraceService> =
+    Tag::new("effect/Cause/InterruptorStackTrace");

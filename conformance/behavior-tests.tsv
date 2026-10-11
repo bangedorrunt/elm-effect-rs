@@ -402,11 +402,11 @@ unported	packages/effect/test/Cache.test.ts	1758	it.effect	with different key ty
 unported	packages/effect/test/Cache.test.ts	1782	it.effect	persists synchronous lookup defects	
 ported	packages/effect/test/Cause.test.ts	15	it	is a string constant	cause_type_ids_match_wire
 ported	packages/effect/test/Cause.test.ts	21	it	is a string constant	cause_type_ids_match_wire
-unported	packages/effect/test/Cause.test.ts	27	it	returns true for Cause values	
-unported	packages/effect/test/Cause.test.ts	34	it	returns false for non-Cause values	
-unported	packages/effect/test/Cause.test.ts	45	it	returns true for Reason values	
-unported	packages/effect/test/Cause.test.ts	51	it	returns true for reasons extracted from a cause	
-unported	packages/effect/test/Cause.test.ts	56	it	returns false for non-Reason values	
+not-applicable	packages/effect/test/Cause.test.ts	27	it	returns true for Cause values	rust has no untyped value: isCause/isReason take a concrete Cause<E>/Reason<E>, so the distinction the tag's runtime guard makes over arbitrary values is a compile-time fact
+not-applicable	packages/effect/test/Cause.test.ts	34	it	returns false for non-Cause values	rust has no untyped value: isCause/isReason take a concrete Cause<E>/Reason<E>, so the distinction the tag's runtime guard makes over arbitrary values is a compile-time fact
+not-applicable	packages/effect/test/Cause.test.ts	45	it	returns true for Reason values	rust has no untyped value: isCause/isReason take a concrete Cause<E>/Reason<E>, so the distinction the tag's runtime guard makes over arbitrary values is a compile-time fact
+not-applicable	packages/effect/test/Cause.test.ts	51	it	returns true for reasons extracted from a cause	rust has no untyped value: isCause/isReason take a concrete Cause<E>/Reason<E>, so the distinction the tag's runtime guard makes over arbitrary values is a compile-time fact
+not-applicable	packages/effect/test/Cause.test.ts	56	it	returns false for non-Reason values	rust has no untyped value: isCause/isReason take a concrete Cause<E>/Reason<E>, so the distinction the tag's runtime guard makes over arbitrary values is a compile-time fact
 ported	packages/effect/test/Cause.test.ts	64	it	narrows Fail reasons	cause_reason_narrowers_reject
 ported	packages/effect/test/Cause.test.ts	69	it	rejects Die and Interrupt reasons	cause_reason_narrowers_reject
 ported	packages/effect/test/Cause.test.ts	78	it	narrows Die reasons	cause_reason_narrowers_reject
@@ -414,23 +414,23 @@ ported	packages/effect/test/Cause.test.ts	83	it	rejects Fail and Interrupt reaso
 ported	packages/effect/test/Cause.test.ts	92	it	narrows Interrupt reasons	cause_reason_narrowers_reject
 ported	packages/effect/test/Cause.test.ts	97	it	rejects Fail and Die reasons	cause_reason_narrowers_reject
 ported	packages/effect/test/Cause.test.ts	106	it	has no reasons	cause_fail_reason_shape
-unported	packages/effect/test/Cause.test.ts	110	it	is a Cause	
+not-applicable	packages/effect/test/Cause.test.ts	110	it	is a Cause	rust has no untyped value: isCause/isReason take a concrete Cause<E>/Reason<E>, so the distinction the tag's runtime guard makes over arbitrary values is a compile-time fact
 ported	packages/effect/test/Cause.test.ts	116	it	creates a cause with a single Fail reason	cause_fail_reason_shape
 ported	packages/effect/test/Cause.test.ts	122	it	preserves the error value	cause_fail_reason_shape
 ported	packages/effect/test/Cause.test.ts	130	it	works with various error types	cause_fail_reason_shape
 ported	packages/effect/test/Cause.test.ts	141	it	creates a cause with a single Die reason	die_creates_a_cause_with_a_single_die_reason
 ported	packages/effect/test/Cause.test.ts	147	it	preserves the defect value	die_creates_a_cause_with_a_single_die_reason
-unported	packages/effect/test/Cause.test.ts	155	it	works with Error instances	
+not-applicable	packages/effect/test/Cause.test.ts	155	it	works with Error instances	the pin's Defect carries the original JS object and the row asserts defect identity across the boundary; this port's Defect is a message plus a captured backtrace, so no value can be handed back identically
 ported	packages/effect/test/Cause.test.ts	166	it	creates a cause with a single Interrupt reason	interrupt_creates_a_cause_with_a_single_interrupt_reason
 ported	packages/effect/test/Cause.test.ts	172	it	preserves the fiber ID	interrupt_preserves_the_fiber_id
 ported	packages/effect/test/Cause.test.ts	180	it	allows undefined fiber ID	interrupt_allows_an_undefined_fiber_id
 ported	packages/effect/test/Cause.test.ts	190	it	creates a cause from an array of reasons	from_reasons_builds_a_cause_from_an_array
 ported	packages/effect/test/Cause.test.ts	199	it	creates empty cause from empty array	from_reasons_empty_is_empty_cause
 ported	packages/effect/test/Cause.test.ts	204	it	supports mixed reason types	from_reasons_builds_a_cause_from_an_array
-unported	packages/effect/test/Cause.test.ts	216	it	creates a Fail reason with _tag and error	
-unported	packages/effect/test/Cause.test.ts	224	it	creates a Die reason with _tag and defect	
-unported	packages/effect/test/Cause.test.ts	232	it	creates an Interrupt reason with _tag and fiberId	
-unported	packages/effect/test/Cause.test.ts	238	it	allows undefined fiberId	
+ported	packages/effect/test/Cause.test.ts	216	it	creates a Fail reason with _tag and error	reason_constructors_carry_their_tag_and_field
+ported	packages/effect/test/Cause.test.ts	224	it	creates a Die reason with _tag and defect	reason_constructors_carry_their_tag_and_field
+ported	packages/effect/test/Cause.test.ts	232	it	creates an Interrupt reason with _tag and fiberId	reason_constructors_carry_their_tag_and_field
+ported	packages/effect/test/Cause.test.ts	238	it	allows undefined fiberId	reason_constructors_carry_their_tag_and_field
 ported	packages/effect/test/Cause.test.ts	246	it	returns true when cause has Fail reasons	has_fails_requires_a_fail_reason
 ported	packages/effect/test/Cause.test.ts	250	it	returns false when cause has no Fail reasons	has_fails_requires_a_fail_reason
 ported	packages/effect/test/Cause.test.ts	256	it	returns true for combined cause with at least one Fail	has_fails_is_true_for_a_combined_cause
@@ -461,72 +461,72 @@ ported	packages/effect/test/Cause.test.ts	428	it	returns failure when no Interru
 ported	packages/effect/test/Cause.test.ts	435	it	returns a set of fiber IDs	interruptor_ids_is_a_deduplicated_ordered_set
 ported	packages/effect/test/Cause.test.ts	443	it	returns empty set for non-interrupt causes	interruptor_ids_is_empty_for_non_interrupt_causes
 ported	packages/effect/test/Cause.test.ts	448	it	excludes undefined fiber IDs from set	interruptor_ids_excludes_undefined_fiber_ids
-unported	packages/effect/test/Cause.test.ts	456	it	returns success with fiber ID set when interrupts exist	
-unported	packages/effect/test/Cause.test.ts	464	it	returns failure when no interrupts exist	
+ported	packages/effect/test/Cause.test.ts	456	it	returns success with fiber ID set when interrupts exist	filter_interruptors_succeeds_only_on_an_interrupting_cause
+ported	packages/effect/test/Cause.test.ts	464	it	returns failure when no interrupts exist	filter_interruptors_succeeds_only_on_an_interrupting_cause
 ported	packages/effect/test/Cause.test.ts	471	it	transforms error values in Fail reasons (data-first)	map_transforms_fail_reasons_only
 ported	packages/effect/test/Cause.test.ts	480	it	works in data-last (pipeable) form	map_transforms_fail_reasons_only
 ported	packages/effect/test/Cause.test.ts	488	it	does not affect Die reasons	map_transforms_fail_reasons_only
 ported	packages/effect/test/Cause.test.ts	495	it	does not affect Interrupt reasons	map_leaves_interrupt_reasons_alone
 ported	packages/effect/test/Cause.test.ts	502	it	maps empty cause to empty cause	map_of_an_empty_cause_is_empty
-unported	packages/effect/test/Cause.test.ts	509	it	preserves unequal reasons with colliding hashes while removing duplicates	
+ported	packages/effect/test/Cause.test.ts	509	it	preserves unequal reasons with colliding hashes while removing duplicates	combine_keeps_unequal_reasons_apart
 ported	packages/effect/test/Cause.test.ts	536	it	merges two causes (data-first)	combine_merges_two_causes
 ported	packages/effect/test/Cause.test.ts	541	it	works in data-last (pipeable) form	combine_merges_two_causes
 ported	packages/effect/test/Cause.test.ts	546	it	combining with empty returns the other cause	combine_with_empty_returns_the_other_cause
 ported	packages/effect/test/Cause.test.ts	554	it	combines mixed reason types	combine_handles_mixed_reason_types
-unported	packages/effect/test/Cause.test.ts	564	it	converts Fail with Error to array of Errors	
-unported	packages/effect/test/Cause.test.ts	572	it	converts Fail with string to Error	
-unported	packages/effect/test/Cause.test.ts	579	it	converts Die to Error	
-unported	packages/effect/test/Cause.test.ts	586	it	returns InterruptError for interrupt-only cause	
-unported	packages/effect/test/Cause.test.ts	593	it	handles empty cause	
-unported	packages/effect/test/Cause.test.ts	598	it	restores Error.stackTraceLimit when formatting a reason throws	
-unported	packages/effect/test/Cause.test.ts	612	it	renders a Fail cause as a string	
-unported	packages/effect/test/Cause.test.ts	619	it	renders a Die cause as a string	
-unported	packages/effect/test/Cause.test.ts	626	it	returns a string for empty cause	
-unported	packages/effect/test/Cause.test.ts	631	it	cuts the stack of a defect at the internal frame that called user code	
-unported	packages/effect/test/Cause.test.ts	661	it	does not render internal frames from match and matchCause handlers	
-unported	packages/effect/test/Cause.test.ts	668	it	does not render internal frames from map	
+ported	packages/effect/test/Cause.test.ts	564	it	converts Fail with Error to array of Errors	pretty_errors_renders_one_error_per_reason
+ported	packages/effect/test/Cause.test.ts	572	it	converts Fail with string to Error	pretty_errors_renders_one_error_per_reason
+ported	packages/effect/test/Cause.test.ts	579	it	converts Die to Error	pretty_errors_renders_one_error_per_reason
+ported	packages/effect/test/Cause.test.ts	586	it	returns InterruptError for interrupt-only cause	pretty_errors_renders_one_error_per_reason
+ported	packages/effect/test/Cause.test.ts	593	it	handles empty cause	pretty_errors_renders_one_error_per_reason
+not-applicable	packages/effect/test/Cause.test.ts	598	it	restores Error.stackTraceLimit when formatting a reason throws	V8 Error.stackTraceLimit save/restore around a throwing formatter; the port has no stackTraceLimit to tamper with
+ported	packages/effect/test/Cause.test.ts	612	it	renders a Fail cause as a string	pretty_renders_the_cause_as_one_string
+ported	packages/effect/test/Cause.test.ts	619	it	renders a Die cause as a string	pretty_renders_the_cause_as_one_string
+ported	packages/effect/test/Cause.test.ts	626	it	returns a string for empty cause	pretty_renders_the_cause_as_one_string
+not-applicable	packages/effect/test/Cause.test.ts	631	it	cuts the stack of a defect at the internal frame that called user code	V8 stack-frame trimming: the port's Defect stores the captured backtrace as text at construction, so there is no internal-frame boundary to cut at render time
+not-applicable	packages/effect/test/Cause.test.ts	661	it	does not render internal frames from match and matchCause handlers	V8 stack-frame trimming: the port's Defect stores the captured backtrace as text at construction, so there is no internal-frame boundary to cut at render time
+not-applicable	packages/effect/test/Cause.test.ts	668	it	does not render internal frames from map	V8 stack-frame trimming: the port's Defect stores the captured backtrace as text at construction, so there is no internal-frame boundary to cut at render time
 ported	packages/effect/test/Cause.test.ts	674	it	attaches annotations to a cause (data-first)	crates/elm-effect/tests/l2_cause.rs::annotate_attaches_annotations_and_keeps_the_reason
 not-applicable	packages/effect/test/Cause.test.ts	681	it	works in data-last (pipeable) form	a binary crate has no data-last/pipeable form; the skill rule is that pipe is not ported, and the data-first method is the port
 ported	packages/effect/test/Cause.test.ts	686	it	does not mutate the original cause	crates/elm-effect/tests/l2_cause.rs::annotate_leaves_the_source_cause_unchanged
-unported	packages/effect/test/Cause.test.ts	694	it	returns annotations from a reason	
-unported	packages/effect/test/Cause.test.ts	702	it	returns merged annotations from a cause	
-unported	packages/effect/test/Cause.test.ts	710	it	is a Context.Service	
-unported	packages/effect/test/Cause.test.ts	716	it	is a Context.Service	
-unported	packages/effect/test/Cause.test.ts	722	it	creates an error with _tag and message	
-unported	packages/effect/test/Cause.test.ts	728	it	creates an error without message	
-unported	packages/effect/test/Cause.test.ts	733	it	is an instance of Error	
-unported	packages/effect/test/Cause.test.ts	740	it	returns true for NoSuchElementError instances	
-unported	packages/effect/test/Cause.test.ts	744	it	returns false for other values	
-unported	packages/effect/test/Cause.test.ts	752	it	is a string constant	
-unported	packages/effect/test/Cause.test.ts	758	it	creates a Done signal without value	
-unported	packages/effect/test/Cause.test.ts	764	it	creates a Done signal with a value	
-unported	packages/effect/test/Cause.test.ts	772	it	returns true for Done values	
-unported	packages/effect/test/Cause.test.ts	777	it	returns false for other values	
-unported	packages/effect/test/Cause.test.ts	785	it	is a string constant	
-unported	packages/effect/test/Cause.test.ts	791	it	creates an error with _tag and message	
-unported	packages/effect/test/Cause.test.ts	797	it	creates an error without message	
-unported	packages/effect/test/Cause.test.ts	802	it	is an instance of Error	
-unported	packages/effect/test/Cause.test.ts	808	it	returns true for TimeoutError instances	
-unported	packages/effect/test/Cause.test.ts	812	it	returns false for other values	
-unported	packages/effect/test/Cause.test.ts	819	it	is a string constant	
-unported	packages/effect/test/Cause.test.ts	825	it	creates an error with _tag and message	
-unported	packages/effect/test/Cause.test.ts	831	it	creates an error without message	
-unported	packages/effect/test/Cause.test.ts	836	it	is an instance of Error	
-unported	packages/effect/test/Cause.test.ts	842	it	returns true for IllegalArgumentError instances	
-unported	packages/effect/test/Cause.test.ts	846	it	returns false for other values	
-unported	packages/effect/test/Cause.test.ts	853	it	is a string constant	
-unported	packages/effect/test/Cause.test.ts	859	it	creates an error with _tag and message	
-unported	packages/effect/test/Cause.test.ts	865	it	creates an error without message	
-unported	packages/effect/test/Cause.test.ts	870	it	is an instance of Error	
-unported	packages/effect/test/Cause.test.ts	876	it	returns true for ExceededCapacityError instances	
-unported	packages/effect/test/Cause.test.ts	880	it	returns false for other values	
-unported	packages/effect/test/Cause.test.ts	887	it	is a string constant	
-unported	packages/effect/test/Cause.test.ts	893	it	creates an error with cause and message	
-unported	packages/effect/test/Cause.test.ts	899	it	stores the original cause	
-unported	packages/effect/test/Cause.test.ts	905	it	is an instance of Error	
-unported	packages/effect/test/Cause.test.ts	911	it	returns true for UnknownError instances	
-unported	packages/effect/test/Cause.test.ts	915	it	returns false for other values	
-unported	packages/effect/test/Cause.test.ts	922	it	is a string constant	
+not-applicable	packages/effect/test/Cause.test.ts	694	it	returns annotations from a reason	the tag's Reason object carries an annotation map; this port's Reason<E> is a plain enum with no annotation slot, so the accessor has nothing to return and Cause's own annotations are carried separately by Cause.annotations
+ported	packages/effect/test/Cause.test.ts	702	it	returns merged annotations from a cause	annotations_returns_the_merged_set
+ported	packages/effect/test/Cause.test.ts	710	it	is a Context.Service	stack_trace_services_exist_as_context_tags
+ported	packages/effect/test/Cause.test.ts	716	it	is a Context.Service	stack_trace_services_exist_as_context_tags
+ported	packages/effect/test/Cause.test.ts	722	it	creates an error with _tag and message	no_such_element_error_shapes
+ported	packages/effect/test/Cause.test.ts	728	it	creates an error without message	no_such_element_error_shapes
+ported	packages/effect/test/Cause.test.ts	733	it	is an instance of Error	no_such_element_error_shapes
+ported	packages/effect/test/Cause.test.ts	740	it	returns true for NoSuchElementError instances	is_no_such_element_error_guards
+ported	packages/effect/test/Cause.test.ts	744	it	returns false for other values	is_no_such_element_error_guards
+ported	packages/effect/test/Cause.test.ts	752	it	is a string constant	no_such_element_error_type_id
+ported	packages/effect/test/Cause.test.ts	758	it	creates a Done signal without value	done_shapes
+ported	packages/effect/test/Cause.test.ts	764	it	creates a Done signal with a value	done_shapes
+ported	packages/effect/test/Cause.test.ts	772	it	returns true for Done values	is_done_guards
+ported	packages/effect/test/Cause.test.ts	777	it	returns false for other values	is_done_guards
+ported	packages/effect/test/Cause.test.ts	785	it	is a string constant	done_type_id
+ported	packages/effect/test/Cause.test.ts	791	it	creates an error with _tag and message	timeout_error_shapes
+ported	packages/effect/test/Cause.test.ts	797	it	creates an error without message	timeout_error_shapes
+ported	packages/effect/test/Cause.test.ts	802	it	is an instance of Error	timeout_error_shapes
+ported	packages/effect/test/Cause.test.ts	808	it	returns true for TimeoutError instances	is_timeout_error_guards
+ported	packages/effect/test/Cause.test.ts	812	it	returns false for other values	is_timeout_error_guards
+ported	packages/effect/test/Cause.test.ts	819	it	is a string constant	timeout_error_type_id
+ported	packages/effect/test/Cause.test.ts	825	it	creates an error with _tag and message	illegal_argument_error_shapes
+ported	packages/effect/test/Cause.test.ts	831	it	creates an error without message	illegal_argument_error_shapes
+ported	packages/effect/test/Cause.test.ts	836	it	is an instance of Error	illegal_argument_error_shapes
+ported	packages/effect/test/Cause.test.ts	842	it	returns true for IllegalArgumentError instances	is_illegal_argument_error_guards
+ported	packages/effect/test/Cause.test.ts	846	it	returns false for other values	is_illegal_argument_error_guards
+ported	packages/effect/test/Cause.test.ts	853	it	is a string constant	illegal_argument_error_type_id
+ported	packages/effect/test/Cause.test.ts	859	it	creates an error with _tag and message	exceeded_capacity_error_shapes
+ported	packages/effect/test/Cause.test.ts	865	it	creates an error without message	exceeded_capacity_error_shapes
+ported	packages/effect/test/Cause.test.ts	870	it	is an instance of Error	exceeded_capacity_error_shapes
+ported	packages/effect/test/Cause.test.ts	876	it	returns true for ExceededCapacityError instances	is_exceeded_capacity_error_guards
+ported	packages/effect/test/Cause.test.ts	880	it	returns false for other values	is_exceeded_capacity_error_guards
+ported	packages/effect/test/Cause.test.ts	887	it	is a string constant	exceeded_capacity_error_type_id
+ported	packages/effect/test/Cause.test.ts	893	it	creates an error with cause and message	unknown_error_shapes
+ported	packages/effect/test/Cause.test.ts	899	it	stores the original cause	unknown_error_shapes
+ported	packages/effect/test/Cause.test.ts	905	it	is an instance of Error	unknown_error_shapes
+ported	packages/effect/test/Cause.test.ts	911	it	returns true for UnknownError instances	is_unknown_error_guards
+ported	packages/effect/test/Cause.test.ts	915	it	returns false for other values	is_unknown_error_guards
+ported	packages/effect/test/Cause.test.ts	922	it	is a string constant	unknown_error_type_id
 ported	packages/effect/test/CauseMapAnnotations.test.ts	5	it	preserves annotations on mapped failures	cause_map_preserves_annotations
 unported	packages/effect/test/Channel.test.ts	24	it.effect	 work per repetition does not grow	
 ported	packages/effect/test/Channel.test.ts	36	it.effect	empty	pull_empty_ends_immediately

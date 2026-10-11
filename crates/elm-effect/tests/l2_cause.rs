@@ -4,7 +4,12 @@
 //! error value, and an exit is data, not an effect.
 
 use elm_effect::{
-    Cause, Defect, Exit, FiberId, Reason, is_die_reason, is_fail_reason, is_interrupt_reason,
+    cause::{
+        make_die_reason, make_fail_reason, make_interrupt_reason, INTERRUPTOR_STACK_TRACE, STACK_TRACE,
+    },
+    is_done, is_exceeded_capacity_error, is_illegal_argument_error, is_no_such_element_error,
+    is_timeout_error, is_unknown_error, Cause, CauseError, Defect, Done, Exit, FiberId, Reason,
+    is_die_reason, is_fail_reason, is_interrupt_reason,
 };
 use std::convert::Infallible;
 
@@ -697,4 +702,305 @@ fn annotate_leaves_the_source_cause_unchanged() {
         "annotating a clone carried context back to the source"
     );
     assert_eq!(handed_on.reasons.len(), 1, "the source's reasons are untouched");
+}
+
+#[test]
+fn no_such_element_error_shapes() {
+    // Cause.test.ts:722 — carries _tag and message.
+    let with = CauseError::no_such_element("not found");
+    assert_eq!(with.tag(), "NoSuchElementError");
+    assert_eq!(with.message(), Some("not found"));
+    // Cause.test.ts:728 — the message is optional.
+    let bare = CauseError::no_such_element_bare();
+    assert_eq!(bare.tag(), "NoSuchElementError");
+    assert_eq!(bare.message(), None);
+    // Cause.test.ts:733 — it is an Error, not a bare value.
+    let boxed: Box<dyn std::error::Error> = Box::new(bare.clone());
+    assert_eq!(boxed.to_string(), "NoSuchElementError");
+}
+
+#[test]
+fn is_no_such_element_error_guards() {
+    // Cause.test.ts:740 — true for its own instances.
+    assert!(is_no_such_element_error(Some(&CauseError::no_such_element("x"))));
+    assert!(is_no_such_element_error(Some(&CauseError::no_such_element_bare())));
+    // Cause.test.ts:744 — false for everything else, including the nullish
+    // case the tag answers false for.
+    assert!(!is_no_such_element_error(Some(&"nope")));
+    assert!(!is_no_such_element_error(Some(&Defect::new("plain"))));
+    assert!(!is_no_such_element_error(Some(&CauseError::timeout_bare())));
+    assert!(!is_no_such_element_error(None));
+}
+
+#[test]
+fn no_such_element_error_type_id() {
+    // Cause.test.ts:752 — a string constant on the wire.
+    assert_eq!(CauseError::NO_SUCH_ELEMENT_TYPE_ID, "~effect/Cause/NoSuchElementError");
+}
+
+#[test]
+fn done_shapes() {
+    // Cause.test.ts:758 — no value by default.
+    let bare = Done::<i32>::empty();
+    assert_eq!(bare.tag(), "Done");
+    assert_eq!(bare.value, None);
+    // Cause.test.ts:764 — carries a value.
+    let valued = Done::<i32>::new(42);
+    assert_eq!(valued.tag(), "Done");
+    assert_eq!(valued.value, Some(42));
+}
+
+#[test]
+fn is_done_guards() {
+    // Cause.test.ts:772 — true for Done, valued or not.
+    assert!(is_done::<i32>(Some(&Done::<i32>::empty())));
+    assert!(is_done::<i32>(Some(&Done::<i32>::new(42))));
+    // Cause.test.ts:777 — false for other values and for the nullish case.
+    assert!(!is_done::<i32>(Some(&"not done")));
+    assert!(!is_done::<i32>(Some(&CauseError::no_such_element_bare())));
+    assert!(!is_done::<i32>(None));
+}
+
+#[test]
+fn done_type_id() {
+    // Cause.test.ts:785 — a string constant on the wire.
+    assert_eq!(Done::<()>::TYPE_ID, "~effect/Cause/Done");
+}
+
+#[test]
+fn timeout_error_shapes() {
+    // Cause.test.ts:791, :797, :802.
+    let with = CauseError::timeout("timed out");
+    assert_eq!(with.tag(), "TimeoutError");
+    assert_eq!(with.message(), Some("timed out"));
+    let bare = CauseError::timeout_bare();
+    assert_eq!(bare.tag(), "TimeoutError");
+    assert_eq!(bare.message(), None);
+    let boxed: Box<dyn std::error::Error> = Box::new(bare);
+    assert_eq!(boxed.to_string(), "TimeoutError");
+}
+
+#[test]
+fn is_timeout_error_guards() {
+    // Cause.test.ts:808, :812.
+    assert!(is_timeout_error(Some(&CauseError::timeout("x"))));
+    assert!(is_timeout_error(Some(&CauseError::timeout_bare())));
+    assert!(!is_timeout_error(Some(&"nope")));
+    assert!(!is_timeout_error(Some(&Defect::new("plain"))));
+    assert!(!is_timeout_error(None));
+}
+
+#[test]
+fn timeout_error_type_id() {
+    // Cause.test.ts:819.
+    assert_eq!(CauseError::TIMEOUT_TYPE_ID, "~effect/Cause/TimeoutError");
+}
+
+#[test]
+fn illegal_argument_error_shapes() {
+    // Cause.test.ts:825, :831, :836.
+    let with = CauseError::illegal_argument("bad arg");
+    assert_eq!(with.tag(), "IllegalArgumentError");
+    assert_eq!(with.message(), Some("bad arg"));
+    let bare = CauseError::illegal_argument_bare();
+    assert_eq!(bare.tag(), "IllegalArgumentError");
+    assert_eq!(bare.message(), None);
+    let boxed: Box<dyn std::error::Error> = Box::new(bare);
+    assert_eq!(boxed.to_string(), "IllegalArgumentError");
+}
+
+#[test]
+fn is_illegal_argument_error_guards() {
+    // Cause.test.ts:842, :846.
+    assert!(is_illegal_argument_error(Some(&CauseError::illegal_argument("x"))));
+    assert!(is_illegal_argument_error(Some(&CauseError::illegal_argument_bare())));
+    assert!(!is_illegal_argument_error(Some(&"nope")));
+    assert!(!is_illegal_argument_error(Some(&Defect::new("plain"))));
+    assert!(!is_illegal_argument_error(None));
+}
+
+#[test]
+fn illegal_argument_error_type_id() {
+    // Cause.test.ts:853.
+    assert_eq!(
+        CauseError::ILLEGAL_ARGUMENT_TYPE_ID,
+        "~effect/Cause/IllegalArgumentError"
+    );
+}
+
+#[test]
+fn exceeded_capacity_error_shapes() {
+    // Cause.test.ts:859, :865, :870.
+    let with = CauseError::exceeded_capacity("queue full");
+    assert_eq!(with.tag(), "ExceededCapacityError");
+    assert_eq!(with.message(), Some("queue full"));
+    let bare = CauseError::exceeded_capacity_bare();
+    assert_eq!(bare.tag(), "ExceededCapacityError");
+    assert_eq!(bare.message(), None);
+    let boxed: Box<dyn std::error::Error> = Box::new(bare);
+    assert_eq!(boxed.to_string(), "ExceededCapacityError");
+}
+
+#[test]
+fn is_exceeded_capacity_error_guards() {
+    // Cause.test.ts:876, :880.
+    assert!(is_exceeded_capacity_error(Some(&CauseError::exceeded_capacity("x"))));
+    assert!(is_exceeded_capacity_error(Some(&CauseError::exceeded_capacity_bare())));
+    assert!(!is_exceeded_capacity_error(Some(&"nope")));
+    assert!(!is_exceeded_capacity_error(Some(&Defect::new("plain"))));
+    assert!(!is_exceeded_capacity_error(None));
+}
+
+#[test]
+fn exceeded_capacity_error_type_id() {
+    // Cause.test.ts:887.
+    assert_eq!(
+        CauseError::EXCEEDED_CAPACITY_TYPE_ID,
+        "~effect/Cause/ExceededCapacityError"
+    );
+}
+
+#[test]
+fn unknown_error_shapes() {
+    // Cause.test.ts:893 — cause and message both carried.
+    let with = CauseError::unknown("original", "wrapper message");
+    assert_eq!(with.tag(), "UnknownError");
+    assert_eq!(with.message(), Some("wrapper message"));
+    assert_eq!(with.cause(), Some("original"));
+    // Cause.test.ts:899 — the cause is stored even without a wrapper message.
+    let bare = CauseError::unknown_bare("original");
+    assert_eq!(bare.tag(), "UnknownError");
+    assert_eq!(bare.cause(), Some("original"));
+    assert_eq!(bare.message(), None);
+    // Cause.test.ts:905 — it is an Error.
+    let boxed: Box<dyn std::error::Error> = Box::new(with);
+    assert_eq!(boxed.to_string(), "UnknownError: wrapper message");
+}
+
+#[test]
+fn is_unknown_error_guards() {
+    // Cause.test.ts:911, :915.
+    assert!(is_unknown_error(Some(&CauseError::unknown("x", "y"))));
+    assert!(is_unknown_error(Some(&CauseError::unknown_bare("x"))));
+    assert!(!is_unknown_error(Some(&"nope")));
+    assert!(!is_unknown_error(Some(&Defect::new("plain"))));
+    assert!(!is_unknown_error(None));
+}
+
+#[test]
+fn unknown_error_type_id() {
+    // Cause.test.ts:922.
+    assert_eq!(CauseError::UNKNOWN_TYPE_ID, "~effect/Cause/UnknownError");
+}
+
+#[test]
+fn reason_constructors_carry_their_tag_and_field() {
+    // Cause.test.ts:216 — makeFailReason.
+    let reason: Reason<String> = make_fail_reason("error".to_owned());
+    assert_eq!(reason.tag(), "Fail");
+    assert!(matches!(&reason, Reason::Fail(e) if e == "error"));
+    // Cause.test.ts:224 — makeDieReason.
+    let reason: Reason<String> = make_die_reason(Defect::new("defect"));
+    assert_eq!(reason.tag(), "Die");
+    assert!(matches!(&reason, Reason::Die(d) if d.message == "defect"));
+    // Cause.test.ts:232 — makeInterruptReason with a fiber id.
+    let reason: Reason<String> = make_interrupt_reason(Some(FiberId(42)));
+    assert_eq!(reason.tag(), "Interrupt");
+    assert!(matches!(&reason, Reason::Interrupt { fiber_id: Some(id) } if id.0 == 42));
+    // Cause.test.ts:238 — and without one.
+    let reason: Reason<String> = make_interrupt_reason(None);
+    assert_eq!(reason.tag(), "Interrupt");
+    assert!(matches!(&reason, Reason::Interrupt { fiber_id: None }));
+}
+
+#[test]
+fn filter_interruptors_succeeds_only_on_an_interrupting_cause() {
+    // Cause.test.ts:456 — success with the interrupting fiber id.
+    let result = Cause::<String>::interrupt(Some(FiberId(1))).filter_interruptors();
+    assert_eq!(result, Ok(vec![FiberId(1)]));
+    // Cause.test.ts:464 — failure carrying the cause itself.
+    let failed = Cause::<String>::fail("error".to_owned()).filter_interruptors();
+    assert!(failed.is_err());
+    assert_eq!(
+        failed.unwrap_err(),
+        Cause::<String>::fail("error".to_owned())
+    );
+}
+
+#[test]
+fn combine_keeps_unequal_reasons_apart() {
+    // Cause.test.ts:509 — dedup is by value, never by hash, so two reasons that
+    // a hash would collide both survive while an exact duplicate is removed.
+    // Rust has no Equal/Hash pair to collide, which is the same observable
+    // result: unequal values are never merged.
+    let collision = Defect::new("collision");
+    let other = Defect::new("different");
+    let dup_of_other = other.clone();
+    let combined = Cause::<String>::die(collision.clone())
+        .combine(Cause::<String>::die(collision.clone()))
+        .combine(Cause::<String>::die(dup_of_other));
+    assert_eq!(combined.reasons.len(), 2);
+    assert_eq!(combined.reasons[0], Reason::Die(collision));
+    assert_eq!(combined.reasons[1], Reason::Die(other.clone()));
+    // A recombined duplicate leaves the cause unchanged.
+    assert_eq!(
+        combined.clone().combine(Cause::<String>::die(other.clone())),
+        combined
+    );
+}
+
+#[test]
+fn pretty_errors_renders_one_error_per_reason() {
+    // Cause.test.ts:564 — a typed failure becomes one error carrying it.
+    let errors = Cause::fail("boom".to_owned()).pretty_errors();
+    assert_eq!(errors.len(), 1);
+    assert!(errors[0].to_string().contains("boom"));
+    // Cause.test.ts:572 — a string failure becomes an Error too.
+    let errors = Cause::fail("string error".to_owned()).pretty_errors();
+    assert_eq!(errors.len(), 1);
+    // Cause.test.ts:579 — a defect becomes an Error.
+    let errors = Cause::<String>::die(Defect::new("defect")).pretty_errors();
+    assert_eq!(errors.len(), 1);
+    // Cause.test.ts:586 — an interrupt-only cause becomes an interrupt Error.
+    let errors = Cause::<String>::interrupt(Some(FiberId(1))).pretty_errors();
+    assert_eq!(errors.len(), 1);
+    // Cause.test.ts:593 — an empty cause yields no errors at all.
+    let errors = Cause::<String>::empty().pretty_errors();
+    assert!(errors.is_empty());
+}
+
+#[test]
+fn pretty_renders_the_cause_as_one_string() {
+    // Cause.test.ts:612 — a Fail cause renders the failure text.
+    let rendered = Cause::fail("something went wrong".to_owned()).pretty();
+    assert!(rendered.contains("something went wrong"));
+    // Cause.test.ts:619 — a Die cause renders the defect text.
+    let rendered = Cause::<String>::die(Defect::new("unexpected")).pretty();
+    assert!(rendered.contains("unexpected"));
+    // Cause.test.ts:626 — an empty cause still renders to a string.
+    let rendered = Cause::<String>::empty().pretty();
+    assert!(!rendered.is_empty());
+}
+
+#[test]
+fn annotations_returns_the_merged_set() {
+    // Cause.test.ts:702 — the cause's annotations, merged.
+    let cause = Cause::<String>::fail("error".to_owned())
+        .annotate("a", "1")
+        .annotate("b", "2");
+    let pairs = cause.annotation_pairs();
+    assert_eq!(pairs.len(), 2);
+    assert!(pairs.contains(&("a".to_owned(), "1".to_owned())));
+    assert!(pairs.contains(&("b".to_owned(), "2".to_owned())));
+}
+
+#[test]
+fn stack_trace_services_exist_as_context_tags() {
+    // Cause.test.ts:710, :716 — both are context services, so a caller can
+    // substitute the renderer.
+    assert_eq!(STACK_TRACE.key, "effect/Cause/StackTrace");
+    assert_eq!(
+        INTERRUPTOR_STACK_TRACE.key,
+        "effect/Cause/InterruptorStackTrace"
+    );
 }

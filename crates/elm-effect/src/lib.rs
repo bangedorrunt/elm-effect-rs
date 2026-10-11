@@ -11,7 +11,7 @@
 //!   never catches.
 //! - Phase 1 has zero `unsafe`.
 
-mod cause;
+pub mod cause;
 mod concurrency;
 mod context;
 mod effect;
@@ -42,7 +42,9 @@ mod sync;
 mod time;
 
 pub use cause::{
-    Cause, Defect, FiberId, Reason, Squash, is_die_reason, is_fail_reason, is_interrupt_reason,
+    is_exceeded_capacity_error, is_illegal_argument_error, is_no_such_element_error,
+    is_timeout_error, is_unknown_error, Cause, CauseError, Defect, Done, FiberId, Reason, Squash,
+    is_die_reason, is_fail_reason, is_interrupt_reason, is_done,
 };
 pub use concurrency::{
     Body, Concurrency, all, find_first, find_first_filter, for_each, partition, partition_items,
