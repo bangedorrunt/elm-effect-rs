@@ -80,6 +80,14 @@ pub enum AppendError {
         /// The producer's current epoch.
         current: u64,
     },
+    /// The log could not be reached or did not answer (a store-backed log
+    /// whose backing store failed, or whose bridge was called from the wrong
+    /// thread). Unlike every other variant this is **not** a verdict on the
+    /// envelope: the append's outcome is unknown, so a caller must reconcile
+    /// (ask the log whether it holds the triple) before retrying. `MemLog`
+    /// never returns it.
+    #[error("log unavailable (outcome unknown, reconcile): {0}")]
+    Unavailable(String),
 }
 
 /// A durable log: atomic appends, validated reads.
