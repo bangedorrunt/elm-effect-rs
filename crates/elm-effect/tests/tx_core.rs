@@ -3,10 +3,29 @@
 //! atomic, isolated multi-op blocks; blocking-retry is a residual).
 
 use elm_effect::{
-    Effect, Exit, Runtime, TxChunk, TxDeferred, TxHashMap, TxHashSet, TxPriorityQueue, TxPubSub,
-    TxQueue, TxReentrantLock, TxRef, TxSemaphore, TxSubscriptionRef, atomically, is_tx_chunk,
-    is_tx_hash_set, is_tx_semaphore,
+    Deferred, Effect, Exit, ForkOpts, Runtime, TxChunk, TxDeferred, TxHashMap, TxHashSet,
+    TxPriorityQueue, TxPubSub, TxQueue, TxReentrantLock, TxRef, TxSemaphore, TxSubscriptionRef,
+    atomically, is_tx_chunk, is_tx_hash_set, is_tx_semaphore,
 };
+
+use std::sync::Arc;
+use std::sync::Mutex;
+use std::sync::atomic::{AtomicUsize, Ordering};
+
+/// Bounded wait for a condition, the port's stand-in for the pin's
+/// cooperative `Effect.repeat(Effect.yieldNow, { times: n })`: the pin
+/// yields to let the other fiber advance, this port's fibers are threads,
+/// so the test waits on the row's own counter with a ceiling that fails
+/// loudly instead of hanging.
+fn spin_until(condition: impl Fn() -> bool) -> bool {
+    for _ in 0..50_000 {
+        if condition() {
+            return true;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(1));
+    }
+    false
+}
 
 #[test]
 fn tx_ref_read_write_update() {
@@ -588,13 +607,18 @@ fn separate_tx_boundaries_each_commit_their_own_writes() {
     // boundaries; each commits, and later reads see committed values.
     let ref1 = TxRef::new(0);
     let ref2 = TxRef::new(100);
-    // Each closure owns a handle to the same cell; `TxRef::clone` shares
-    // the cell rather than copying it.
-    let (set2, read1, read2) = (ref2.clone(), ref1.clone(), ref2.clone());
-    let program: Effect<(i32, i32), std::convert::Infallible> = Effect::tx(ref1.set_effect(10))
-        .flat_map(move |_| Effect::tx(set2.set_effect(200)))
-        .flat_map(move |_| Effect::tx(read1.get_effect()))
-        .flat_map(move |v1| Effect::tx(read2.get_effect()).map(move |v2| (v1, v2)));
+    // One handle per `tx` body: descriptions are single-shot, so the
+    // boundary's factory hands each attempt its own handle.
+    // (`TxRef::clone` shares the cell rather than copying it.)
+    let (outer, set2, read1, read2) = (ref1.clone(), ref2.clone(), ref1.clone(), ref2.clone());
+    let program: Effect<(i32, i32), std::convert::Infallible> = Effect::tx(move || {
+        let (set2, read1, read2) = (set2.clone(), read1.clone(), read2.clone());
+        outer
+            .set_effect(10)
+            .flat_map(move |_| Effect::tx(move || set2.set_effect(200)))
+            .flat_map(move |_| Effect::tx(move || read1.get_effect()))
+            .flat_map(move |v1| Effect::tx(move || read2.get_effect()).map(move |v2| (v1, v2)))
+    });
     assert_eq!(Runtime::run(program), Exit::Success((10, 200)));
 }
 
@@ -609,7 +633,7 @@ fn tx_ref_modify_outside_a_transaction_is_one_atomic_step() {
     let program: Effect<(i32, i32), std::convert::Infallible> = cell
         .modify_effect(|current| (current + 1, current + 10))
         .flat_map(move |result| {
-            Effect::tx(read_back.get_effect()).map(move |value| (result, value))
+            Effect::tx(move || read_back.get_effect()).map(move |value| (result, value))
         });
     assert_eq!(Runtime::run(program), Exit::Success((1, 10)));
 }
@@ -621,12 +645,14 @@ fn failure_of_the_outer_boundary_rolls_back_the_nested_writes() {
     // boundary, so the escaping failure discards both staged writes.
     let ref1 = TxRef::new(0);
     let ref2 = TxRef::new(100);
-    let nested = ref2.clone();
-    let program: Effect<(), String> = Effect::tx(
-        ref1.set_effect(10)
-            .flat_map(move |_| Effect::tx(nested.set_effect(200)))
-            .flat_map(|_| Effect::fail("parent failed".to_string())),
-    );
+    let (outer, nested) = (ref1.clone(), ref2.clone());
+    let program: Effect<(), String> = Effect::tx(move || {
+        let nested = nested.clone();
+        outer
+            .set_effect(10)
+            .flat_map(move |_| Effect::tx(move || nested.set_effect(200)))
+            .flat_map(|_| Effect::fail("parent failed".to_string()))
+    });
     match Runtime::run(program) {
         Exit::Failure(cause) => assert_eq!(cause.failure(), Some(&"parent failed".to_string())),
         Exit::Success(_) => panic!("expected the parent failure"),
@@ -645,21 +671,22 @@ fn catching_the_nested_failure_inside_the_body_keeps_both_writes() {
     // the row's `Result.isFailure(childResult)` claim directly.
     let ref1 = TxRef::new(0);
     let ref2 = TxRef::new(100);
-    let (in_child, in_parent) = (ref2.clone(), ref1.clone());
-    let program: Effect<(), String> = Effect::tx(
-        ref1.set_effect(10)
-            .flat_map(move |_| {
-                Effect::tx(
-                    in_child.set_effect(200)
-                        .flat_map(|_| Effect::fail("child failed".to_string())),
-                )
-                .catch(|child_error| {
-                    assert_eq!(child_error, "child failed");
-                    Effect::succeed(())
-                })
+    let (outer, in_child, in_parent) = (ref1.clone(), ref2.clone(), ref1.clone());
+    let program: Effect<(), String> = Effect::tx(move || {
+        let (in_child, in_parent) = (in_child.clone(), in_parent.clone());
+        outer.set_effect(10).flat_map(move |_| {
+            Effect::tx(move || {
+                in_child
+                    .set_effect(200)
+                    .flat_map(|_| Effect::fail("child failed".to_string()))
             })
-            .flat_map(move |_| in_parent.set_effect(20)),
-    );
+            .catch(|child_error| {
+                assert_eq!(child_error, "child failed");
+                Effect::succeed(())
+            })
+        })
+        .flat_map(move |_| in_parent.set_effect(20))
+    });
     assert!(matches!(Runtime::run(program), Exit::Success(())));
     assert_eq!(ref1.read(), 20);
     assert_eq!(ref2.read(), 200, "the caught child's write survived");
@@ -672,12 +699,17 @@ fn three_levels_of_nested_transactions_compose_into_one() {
     let ref1 = TxRef::new(0);
     let ref2 = TxRef::new(0);
     let ref3 = TxRef::new(0);
-    let (mid, deep) = (ref2.clone(), ref3.clone());
-    let program: Effect<(), std::convert::Infallible> = Effect::tx(ref1.set_effect(1).flat_map(
-        move |_| {
-            Effect::tx(mid.set_effect(2).flat_map(move |_| Effect::tx(deep.set_effect(3))))
-        },
-    ));
+    let (outer, mid, deep) = (ref1.clone(), ref2.clone(), ref3.clone());
+    let program: Effect<(), std::convert::Infallible> = Effect::tx(move || {
+        let (mid, deep) = (mid.clone(), deep.clone());
+        outer.set_effect(1).flat_map(move |_| {
+            Effect::tx(move || {
+                let deep = deep.clone();
+                mid.set_effect(2)
+                    .flat_map(move |_| Effect::tx(move || deep.set_effect(3)))
+            })
+        })
+    });
     assert!(matches!(Runtime::run(program), Exit::Success(())));
     assert_eq!((ref1.read(), ref2.read(), ref3.read()), (1, 2, 3));
 }
@@ -689,13 +721,15 @@ fn nested_tx_calls_join_the_same_transaction_and_read_their_writes() {
     // happen inside the boundary, so they see the staged writes.
     let ref1 = TxRef::new(0);
     let ref2 = TxRef::new(0);
-    let (set2, read1, read2) = (ref2.clone(), ref1.clone(), ref2.clone());
-    let program: Effect<(i32, i32), std::convert::Infallible> = Effect::tx(
-        ref1.set_effect(10)
-            .flat_map(move |_| Effect::tx(set2.set_effect(20)))
-            .flat_map(move |_| Effect::tx(read1.get_effect()))
-            .flat_map(move |v1| Effect::tx(read2.get_effect()).map(move |v2| (v1, v2))),
-    );
+    let (outer, set2, read1, read2) = (ref1.clone(), ref2.clone(), ref1.clone(), ref2.clone());
+    let program: Effect<(i32, i32), std::convert::Infallible> = Effect::tx(move || {
+        let (set2, read1, read2) = (set2.clone(), read1.clone(), read2.clone());
+        outer
+            .set_effect(10)
+            .flat_map(move |_| Effect::tx(move || set2.set_effect(20)))
+            .flat_map(move |_| Effect::tx(move || read1.get_effect()))
+            .flat_map(move |v1| Effect::tx(move || read2.get_effect()).map(move |v2| (v1, v2)))
+    });
     assert_eq!(Runtime::run(program), Exit::Success((10, 20)));
 }
 
@@ -705,13 +739,17 @@ fn an_escaping_nested_failure_rolls_back_the_composed_transaction() {
     // transaction on failure" — the nested failure is not caught, so the
     // whole composed boundary fails and no write survives.
     let cell = TxRef::new(0);
-    let staged = cell.clone();
-    let program: Effect<(), String> = Effect::tx(staged.set_effect(10).flat_map(move |_| {
-        Effect::tx(
-            staged.set_effect(20)
-                .flat_map(|_| Effect::fail("nested failure".to_string())),
-        )
-    }));
+    let (outer, staged) = (cell.clone(), cell.clone());
+    let program: Effect<(), String> = Effect::tx(move || {
+        let staged = staged.clone();
+        outer.set_effect(10).flat_map(move |_| {
+            Effect::tx(move || {
+                staged
+                    .set_effect(20)
+                    .flat_map(|_| Effect::fail("nested failure".to_string()))
+            })
+        })
+    });
     match Runtime::run(program) {
         Exit::Failure(cause) => assert_eq!(cause.failure(), Some(&"nested failure".to_string())),
         Exit::Success(_) => panic!("expected the nested failure to escape"),
@@ -725,17 +763,21 @@ fn a_caught_nested_failure_preserves_the_nested_write() {
     // failure is caught" — the child failure is caught by the parent body,
     // so the child's write survives in the same boundary.
     let cell = TxRef::new(0);
-    let staged = cell.clone();
-    let program: Effect<(), String> = Effect::tx(staged.set_effect(10).flat_map(move |_| {
-        Effect::tx(
-            staged.set_effect(20)
-                .flat_map(|_| Effect::fail("transaction nested failure".to_string())),
-        )
-        .catch(|child_error| {
-            assert_eq!(child_error, "transaction nested failure");
-            Effect::succeed(())
+    let (outer, staged) = (cell.clone(), cell.clone());
+    let program: Effect<(), String> = Effect::tx(move || {
+        let staged = staged.clone();
+        outer.set_effect(10).flat_map(move |_| {
+            Effect::tx(move || {
+                staged
+                    .set_effect(20)
+                    .flat_map(|_| Effect::fail("transaction nested failure".to_string()))
+            })
+            .catch(|child_error| {
+                assert_eq!(child_error, "transaction nested failure");
+                Effect::succeed(())
+            })
         })
-    }));
+    });
     assert!(matches!(Runtime::run(program), Exit::Success(())));
     assert_eq!(cell.read(), 20, "the caught nested write survived");
 }
@@ -750,7 +792,10 @@ fn each_interpretation_of_a_transaction_description_opens_its_own_boundary() {
     // interpretation opens its own boundary.
     let build = || -> Effect<i32, std::convert::Infallible, ()> {
         let staged = cell.clone();
-        Effect::tx(staged.set_effect(1).flat_map(move |_| Effect::tx(staged.get_effect())))
+        Effect::tx(move || {
+            let staged = staged.clone();
+            staged.set_effect(1).flat_map(move |_| Effect::tx(move || staged.get_effect()))
+        })
     };
     assert_eq!(Runtime::run(build()), Exit::Success(1));
     assert_eq!(Runtime::run(build()), Exit::Success(1), "a second boundary over the same cell");
@@ -763,16 +808,178 @@ fn a_defect_inside_the_body_also_discards_the_staged_writes() {
     // boundary like a typed failure, so nothing it staged survives.
     let cell = TxRef::new(0);
     let staged = cell.clone();
-    let program: Effect<(), std::convert::Infallible> = Effect::tx(
+    let program: Effect<(), std::convert::Infallible> = Effect::tx(move || {
+        let staged = staged.clone();
         staged
             .set_effect(10)
-            .flat_map(|_| Effect::<(), std::convert::Infallible>::die(elm_effect::Defect::new("boom"))),
-    );
+            .flat_map(|_| Effect::<(), std::convert::Infallible>::die(elm_effect::Defect::new("boom")))
+    });
     match Runtime::run(program) {
         Exit::Failure(cause) => assert_eq!(cause.defects()[0].message, "boom"),
         Exit::Success(_) => panic!("expected the defect"),
     }
     assert_eq!(cell.read(), 0, "the defect discarded the staged write");
+}
+
+#[test]
+fn tx_retry_outside_a_transaction_is_a_defect() {
+    // Beyond the rows: the pin's `txRetry` requires the transaction
+    // service, so calling it with no boundary open cannot succeed. The
+    // port's fail-closed answer is a defect naming the missing context.
+    let program: Effect<std::convert::Infallible, std::convert::Infallible> =
+        Effect::tx_retry();
+    match Runtime::run(program) {
+        Exit::Failure(cause) => {
+            assert_eq!(cause.defects()[0].message, "txRetry outside a transaction")
+        }
+        Exit::Success(never) => match never {},
+    }
+}
+
+// ---------------------------------------------------------------------------
+// transaction retry (Effect.test.ts describe "retry": :3940-:3996)
+//
+// `Effect.txRetry` marks the running boundary for another attempt and
+// interrupts the body; the boundary parks on the one-shot every ref in
+// its read set shares with the committer, and a commit wakes the waiters
+// of the refs it WRITES. Registration happens before the consistency
+// check, so a commit that lands first leaves a stale read set and an
+// immediate rerun rather than a lost wake.
+// ---------------------------------------------------------------------------
+
+#[test]
+fn a_read_ref_changed_while_the_transaction_was_suspended_reruns_it() {
+    // Effect.test.ts :3940 "should rerun when a read ref changed while the
+    // transaction was suspended". The pin's `Deferred.await` is a blocking
+    // wait here and `TestClock` has no role; the observable is the rerun's
+    // result. The commit lands while the body is still suspended, so the
+    // parked attempt finds a stale read set and reruns at once.
+    let rt = Runtime::new();
+    let cell = TxRef::new(0);
+    let read = Arc::new(Deferred::<(), std::convert::Infallible>::new());
+    let committed = Arc::new(Deferred::<(), std::convert::Infallible>::new());
+    let waiter = {
+        let (cell, read, committed) = (cell.clone(), Arc::clone(&read), Arc::clone(&committed));
+        rt.fork_detach_with(
+            move |_ctx| {
+                Runtime::run(Effect::tx(move || {
+                    let (cell, read, committed) =
+                        (cell.clone(), read.clone(), committed.clone());
+                    cell.get_effect().flat_map(move |value| {
+                        if value == 0 {
+                            read.complete(());
+                            committed.wait();
+                            Effect::<i32, std::convert::Infallible>::tx_retry()
+                        } else {
+                            Effect::succeed(value)
+                        }
+                    })
+                }))
+            },
+            ForkOpts::immediate(),
+        )
+    };
+    read.wait();
+    let main: Effect<(), std::convert::Infallible> = Effect::tx(move || cell.set_effect(1));
+    assert!(matches!(Runtime::run(main), Exit::Success(())));
+    committed.complete(());
+    assert_eq!(waiter.join(), Exit::Success(1));
+}
+
+#[test]
+fn commits_wake_the_waiters_of_refs_they_write_not_refs_they_read() {
+    // Effect.test.ts :3969. The pin sequences with cooperative `yieldNow`;
+    // this port's fibers are threads, so the row's own run counter is the
+    // synchronizer. The claims, in the row's order: a read-only commit does
+    // not wake the waiter, a same-value WRITE does, and a value-changing
+    // write both wakes it and delivers the new value.
+    let rt = Runtime::new();
+    let gate = TxRef::new(0);
+    let other = TxRef::new(0);
+    let runs = Arc::new(AtomicUsize::new(0));
+    let waiter = {
+        let (gate, runs) = (gate.clone(), Arc::clone(&runs));
+        rt.fork_detach_with(
+            move |_ctx| {
+                Runtime::run(Effect::tx(move || {
+                    let (gate, runs) = (gate.clone(), Arc::clone(&runs));
+                    Effect::sync(move || {
+                        runs.fetch_add(1, Ordering::SeqCst);
+                    })
+                    .flat_map(move |_| gate.get_effect())
+                    .flat_map(|value| {
+                        if value == 0 {
+                            Effect::<i32, std::convert::Infallible>::tx_retry()
+                        } else {
+                            Effect::succeed(value)
+                        }
+                    })
+                }))
+            },
+            ForkOpts::immediate(),
+        )
+    };
+    assert!(spin_until(|| runs.load(Ordering::SeqCst) >= 1), "the waiter never started");
+
+    // A commit that READS the gate and writes another ref: the waiter's
+    // read set includes the gate, but nothing it read changed.
+    let reader: Effect<(), std::convert::Infallible> =
+        Effect::tx({ let gate = gate.clone(); move || {
+            let other = other.clone();
+            gate.get_effect().flat_map(move |_| other.set_effect(1))
+        } });
+    assert!(matches!(Runtime::run(reader), Exit::Success(())));
+    assert_eq!(runs.load(Ordering::SeqCst), 1, "reading a ref should not wake its waiters");
+
+    // Writing the SAME value still wakes: the wake follows the write, not
+    // the change.
+    let same: Effect<(), std::convert::Infallible> =
+        Effect::tx({ let gate = gate.clone(); move || gate.set_effect(0) });
+    assert!(matches!(Runtime::run(same), Exit::Success(())));
+    assert!(spin_until(|| runs.load(Ordering::SeqCst) >= 2), "the same-value write never woke the waiter");
+    assert_eq!(runs.load(Ordering::SeqCst), 2);
+
+    // Writing a new value wakes the waiter and delivers it.
+    let change: Effect<(), std::convert::Infallible> =
+        Effect::tx({ let gate = gate.clone(); move || gate.set_effect(1) });
+    assert!(matches!(Runtime::run(change), Exit::Success(())));
+    assert_eq!(waiter.join(), Exit::Success(1));
+}
+
+#[test]
+fn a_write_of_negative_zero_over_zero_is_published_and_wakes_its_waiters() {
+    // Effect.test.ts :3996. The pin's `Object.is(value, 0)` tells -0 from
+    // 0 and Rust's `==` does not, so the attempt compares bits; the write
+    // publishes, and the woken rerun divides by the published -0.
+    let rt = Runtime::new();
+    let zero = TxRef::new(0.0f64);
+    let runs = Arc::new(AtomicUsize::new(0));
+    let waiter = {
+        let (zero, runs) = (zero.clone(), Arc::clone(&runs));
+        rt.fork_detach_with(
+            move |_ctx| {
+                Runtime::run(Effect::tx(move || {
+                    let (zero, runs) = (zero.clone(), Arc::clone(&runs));
+                    Effect::sync(move || {
+                        runs.fetch_add(1, Ordering::SeqCst);
+                    })
+                    .flat_map(move |_| zero.get_effect())
+                    .flat_map(|value| {
+                        if value.to_bits() == 0.0f64.to_bits() {
+                            Effect::<f64, std::convert::Infallible>::tx_retry()
+                        } else {
+                            Effect::succeed(1.0 / value)
+                        }
+                    })
+                }))
+            },
+            ForkOpts::immediate(),
+        )
+    };
+    assert!(spin_until(|| runs.load(Ordering::SeqCst) >= 1), "the waiter never started");
+    let negative_zero: Effect<(), std::convert::Infallible> = Effect::tx(move || zero.set_effect(-0.0));
+    assert!(matches!(Runtime::run(negative_zero), Exit::Success(())));
+    assert_eq!(waiter.join(), Exit::Success(f64::NEG_INFINITY));
 }
 
 #[test]

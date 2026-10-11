@@ -554,7 +554,10 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
         }
     }
 
-    fn suspend(op: impl ErasedStep<A, E> + 'static, env: crate::service::Services) -> Self {
+    pub(crate) fn suspend(
+        op: impl ErasedStep<A, E> + 'static,
+        env: crate::service::Services,
+    ) -> Self {
         Self {
             step: Step::Suspend(Box::new(op)),
             services: env,
@@ -766,38 +769,54 @@ where
     effect.map_err(|never| match never {})
 }
 
-/// `Effect.tx` at the pin: the outermost call opens a transaction
-/// boundary. Writes to transactional refs made inside the body stage on
-/// those refs and publish together when the body succeeds; a failure
-/// that escapes the boundary discards them. A nested `tx` inside a
-/// running boundary composes into it — the same journal, no inner
-/// boundary — so a failure caught inside the body is an ordinary value
-/// and its writes survive with it.
-///
-/// The boundary is staged per interpretation: running the same
-/// description twice opens two boundaries with two journals, which is
-/// why the transaction is created inside the run, not at construction.
 #[cfg(feature = "stm")]
 impl<A: Send + 'static, E: Send + 'static> Effect<A, E, ()> {
-    pub fn tx(self) -> Self {
-        let body = self;
+    /// `Effect.tx` at the pin: the outermost call opens a transaction
+    /// boundary. Writes to transactional refs made inside the body stage
+    /// on those refs and publish together when the body succeeds; a
+    /// failure that escapes the boundary discards them. A nested `tx`
+    /// inside a running boundary composes into it — the same journal, no
+    /// inner boundary — so a failure caught inside the body is an
+    /// ordinary value and its writes survive with it.
+    ///
+    /// A body that calls [`tx_retry`](Self::tx_retry), or whose read set
+    /// went stale while it ran, is parked on its read set and run again
+    /// when a commit moves it: the boundary's loop is optimistic
+    /// concurrency, one attempt per commit of a ref it read.
+    ///
+    /// The body is a factory because this port's descriptions are
+    /// single-shot: running consumes one, so an attempt loop needs a
+    /// fresh build per attempt (the pin re-runs one value; Rust rebuilds
+    /// it). The boundary is likewise staged per interpretation — running
+    /// the same `tx` description twice opens two boundaries with two
+    /// journals.
+    pub fn tx<F>(build: F) -> Self
+    where
+        F: Fn() -> Effect<A, E, ()> + Send + 'static,
+    {
+        Effect::suspend(
+            crate::stm::TxBoundary {
+                build: Box::new(build),
+                env: crate::service::empty_services(),
+                marker: std::marker::PhantomData,
+            },
+            crate::service::empty_services(),
+        )
+    }
+
+    /// `Effect.txRetry` at the pin: mark the running boundary for
+    /// another attempt and interrupt the body. The boundary's loop parks
+    /// on its read set and reruns when a commit moves it. Outside a
+    /// boundary it is a defect, the port's fail-closed answer to missing
+    /// context.
+    pub fn tx_retry() -> Self {
         widen_infallible(crate::service::read_reference(&crate::stm::TX_CURRENT)).flat_map(
-            move |current| {
-                if current.is_some() {
-                    // Nested: compose into the running boundary.
-                    return body;
+            |current| match current {
+                Some(tx) => {
+                    tx.set_retry();
+                    Effect::interrupt()
                 }
-                Effect::sync(|| Arc::new(crate::stm::Transaction::new())).flat_map(move |tx| {
-                    let boundary = Arc::clone(&tx);
-                    body.provide_reference(&crate::stm::TX_CURRENT, Some(tx))
-                        .on_exit(move |exit| {
-                            if exit.is_success() {
-                                boundary.commit();
-                            } else {
-                                boundary.clear();
-                            }
-                        })
-                })
+                None => Effect::die(Defect::new("txRetry outside a transaction")),
             },
         )
     }

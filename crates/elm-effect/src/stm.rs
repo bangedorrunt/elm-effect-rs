@@ -5,15 +5,22 @@
 //! mutexes nest inside (global first, always), so no lock order inverts.
 //! This is coarse but correct; optimistic concurrency, blocking `retry`
 //! and cross-thread fairness are residuals, not silent gaps.
+//!
+//! The effect face (`TxRef::get_effect` and friends under
+//! [`crate::Effect::tx`]) is a staged journal rather than that lock:
+//! writes land on the refs only when the boundary's body succeeds, a
+//! body that calls `tx_retry` parks on its read set and runs again when
+//! a commit moves it. The version counter and pending waiters that
+//! needs live beside the staged views.
 
 use std::cell::Cell;
 use std::collections::{BinaryHeap, HashMap, HashSet, VecDeque};
 use std::hash::Hash;
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
 
 use crate::service::{Reference, read_reference};
-use crate::Effect;
+use crate::{Deferred, Effect};
 
 static GLOBAL: Mutex<()> = Mutex::new(());
 
@@ -45,26 +52,43 @@ fn tx_read<T: Clone>(cell: &Mutex<T>) -> T {
     atomically(|| cell.lock().unwrap().clone())
 }
 
-/// One transaction's staged view of one ref.
+/// One transaction's staged view of one ref. `version` is the version
+/// the ref carried when this view was created: a ref whose version has
+/// since moved makes the owning transaction's read set stale.
 struct Staged<T> {
+    version: u64,
     value: T,
     written: bool,
 }
 
-/// A ref's committed value plus the staged views of every transaction
-/// that has touched it, keyed by transaction id so concurrent
-/// transactions never share a staging slot.
-struct RefState<T> {
-    value: T,
-    staged: HashMap<u64, Staged<T>>,
+/// A registered wake on one ref. `live` is swapped false when the waiter
+/// deregisters (a stale rerun), so a commit skips a dead entry instead of
+/// waking a transaction that already moved on; the next commit of the
+/// ref drains the list.
+struct Waiter {
+    live: Arc<AtomicBool>,
+    wake: Arc<dyn Fn() + Send + Sync>,
 }
 
-/// Publish or discard one transaction's staged view of a ref. Erased so a
-/// journal can hold refs of different value types; the values themselves
-/// never leave their ref.
+/// A ref's committed value and version (bumped by every published
+/// write), the staged views of the transactions touching it, and the
+/// waiters parked on it.
+struct RefState<T> {
+    version: u64,
+    value: T,
+    staged: HashMap<u64, Staged<T>>,
+    pending: Vec<Waiter>,
+}
+
+/// Publish or discard one transaction's staged view of a ref, and report
+/// what the read set needs to know. Erased so a journal can hold refs of
+/// different value types; the values themselves never leave their ref.
 trait Touched: Send + Sync {
     fn commit_tx(&self, tx: u64);
     fn clear_tx(&self, tx: u64);
+    fn staged_version(&self, tx: u64) -> Option<u64>;
+    fn current_version(&self) -> u64;
+    fn register_waiter(&self, waiter: Waiter);
 }
 
 struct RefHandle<T> {
@@ -73,17 +97,51 @@ struct RefHandle<T> {
 }
 
 impl<T: Send + 'static> Touched for RefHandle<T> {
+    /// Publish the staged write (if any), bump the version, wake every
+    /// live waiter, and drop the staged view.
     fn commit_tx(&self, tx: u64) {
         let mut state = self.state.lock().unwrap();
         if let Some(staged) = state.staged.remove(&tx) {
             if staged.written {
+                // shortcut: publish and bump on every write. The pin skips
+                // the bump when `Object.is` matches the old value, which
+                // only matters for a row observing the version counter,
+                // and none of these rows does.
                 state.value = staged.value;
+                state.version = state.version.wrapping_add(1);
+            }
+        }
+        for waiter in state.pending.drain(..) {
+            if waiter.live.swap(false, Ordering::SeqCst) {
+                (waiter.wake)();
             }
         }
     }
 
+    /// Discard the staged view without publishing.
     fn clear_tx(&self, tx: u64) {
         self.state.lock().unwrap().staged.remove(&tx);
+    }
+
+    /// The version this transaction's staged view recorded, if it has a
+    /// view: one entry of the read set.
+    fn staged_version(&self, tx: u64) -> Option<u64> {
+        self.state
+            .lock()
+            .unwrap()
+            .staged
+            .get(&tx)
+            .map(|staged| staged.version)
+    }
+
+    /// The ref's current version.
+    fn current_version(&self) -> u64 {
+        self.state.lock().unwrap().version
+    }
+
+    /// Register a wake, fired by this ref's next commit.
+    fn register_waiter(&self, waiter: Waiter) {
+        self.state.lock().unwrap().pending.push(waiter);
     }
 }
 
@@ -106,8 +164,10 @@ impl<T> TxRef<T> {
             handle: Arc::new(RefHandle {
                 id: NEXT_TX_ID.fetch_add(1, Ordering::Relaxed),
                 state: Mutex::new(RefState {
+                    version: 0,
                     value: initial,
                     staged: HashMap::new(),
+                    pending: Vec::new(),
                 }),
             }),
         }
@@ -143,10 +203,13 @@ pub(crate) static TX_CURRENT: Reference<Option<Arc<Transaction>>> = Reference {
 /// One transaction. The journal is the set of refs it has touched; the
 /// staged values live on the refs. [`crate::Effect::tx`] opens one
 /// boundary per interpretation, commits when the body succeeds, and
-/// clears otherwise.
+/// clears otherwise; a boundary whose body asked for a retry, or whose
+/// read set went stale, parks until a commit moves the set and runs
+/// again.
 pub struct Transaction {
     id: u64,
     touched: Mutex<Vec<Arc<dyn Touched>>>,
+    retry: AtomicBool,
 }
 
 impl Transaction {
@@ -154,6 +217,7 @@ impl Transaction {
         Self {
             id: NEXT_TX_ID.fetch_add(1, Ordering::Relaxed),
             touched: Mutex::new(Vec::new()),
+            retry: AtomicBool::new(false),
         }
     }
 
@@ -163,6 +227,56 @@ impl Transaction {
     fn touch<T: Send + 'static>(&self, handle: &Arc<RefHandle<T>>) {
         let driver: Arc<dyn Touched> = Arc::clone(handle) as Arc<dyn Touched>;
         self.touched.lock().unwrap().push(driver);
+    }
+
+    /// Mark the boundary for another attempt ([`crate::Effect::tx_retry`]).
+    pub(crate) fn set_retry(&self) {
+        self.retry.store(true, Ordering::SeqCst);
+    }
+
+    /// True once the body asked for a retry.
+    pub(crate) fn needs_retry(&self) -> bool {
+        self.retry.load(Ordering::SeqCst)
+    }
+
+    /// True when no ref in the read set moved since this transaction
+    /// read it.
+    fn is_consistent(&self) -> bool {
+        let drivers = self.touched.lock().unwrap();
+        drivers.iter().all(|driver| match driver.staged_version(self.id) {
+            Some(read_version) => read_version == driver.current_version(),
+            None => true,
+        })
+    }
+
+    /// Park until a commit touches the read set, or return at once when
+    /// the read set is already stale. Registration happens BEFORE the
+    /// consistency check, so a commit that lands first leaves a stale
+    /// read set and an immediate rerun instead of a lost wake: the ref
+    /// mutex serializes the two, and a stale registration is skipped and
+    /// cleared by the next commit.
+    fn await_pending(&self) {
+        let parked = Arc::new(Deferred::<(), std::convert::Infallible>::new());
+        let waiter = Waiter {
+            live: Arc::new(AtomicBool::new(true)),
+            wake: {
+                let parked = Arc::clone(&parked);
+                Arc::new(move || {
+                    parked.complete(());
+                })
+            },
+        };
+        for driver in self.touched.lock().unwrap().iter() {
+            driver.register_waiter(Waiter {
+                live: Arc::clone(&waiter.live),
+                wake: Arc::clone(&waiter.wake),
+            });
+        }
+        if !self.is_consistent() {
+            waiter.live.store(false, Ordering::SeqCst);
+            return;
+        }
+        parked.wait();
     }
 
     /// Publish every written staged value. Nothing read-only staged
@@ -196,11 +310,13 @@ impl<T: Clone + Send + 'static> TxRef<T> {
                 Some(tx) => Effect::sync(move || {
                     tx.touch(&handle);
                     let mut state = handle.state.lock().unwrap();
+                    let read_version = state.version;
                     let committed = state.value.clone();
                     state
                         .staged
                         .entry(tx.id)
                         .or_insert_with(|| Staged {
+                            version: read_version,
                             value: committed,
                             written: false,
                         })
@@ -224,11 +340,13 @@ impl<T: Clone + Send + 'static> TxRef<T> {
                 Some(tx) => Effect::sync(move || {
                     tx.touch(&handle);
                     let mut state = handle.state.lock().unwrap();
+                    let read_version = state.version;
                     let committed = state.value.clone();
                     let staged = state
                         .staged
                         .entry(tx.id)
                         .or_insert_with(|| Staged {
+                            version: read_version,
                             value: committed,
                             written: false,
                         });
@@ -257,11 +375,13 @@ impl<T: Clone + Send + 'static> TxRef<T> {
                 Some(tx) => Effect::sync(move || {
                     tx.touch(&handle);
                     let mut state = handle.state.lock().unwrap();
+                    let read_version = state.version;
                     let committed = state.value.clone();
                     let staged = state
                         .staged
                         .entry(tx.id)
                         .or_insert_with(|| Staged {
+                            version: read_version,
                             value: committed,
                             written: false,
                         });
@@ -280,6 +400,71 @@ impl<T: Clone + Send + 'static> TxRef<T> {
                 }),
             }
         })
+    }
+}
+
+/// Read the ambient transaction out of a scope: `Some` while a boundary
+/// body is interpreting.
+fn ambient_transaction(scope: &crate::service::Services) -> Option<Arc<Transaction>> {
+    scope
+        .get_ref(TX_CURRENT.id)
+        .and_then(|any| Arc::downcast::<Option<Arc<Transaction>>>(any).ok())
+        .and_then(|option| (*option).clone())
+}
+
+/// Add the transaction to a scope as the ambient value for the body and
+/// everything it composes.
+fn scope_with_transaction(
+    scope: &crate::service::Services,
+    tx: &Arc<Transaction>,
+) -> crate::service::Services {
+    let mut maps = (**scope).clone();
+    maps.insert_ref(TX_CURRENT.id, Arc::new(Some(Arc::clone(tx))));
+    Arc::new(maps)
+}
+
+/// The transaction boundary's interpreter: build the body under a fresh
+/// transaction, and while it asks for a retry, or its read set went
+/// stale, park until a commit moves the set, clear, and build it again.
+/// The pin's `tx` loop lives in its runtime the same way; the commit or
+/// clear at the end is the boundary's verdict on the final attempt.
+///
+/// The body is a factory, not a value: this port's descriptions are
+/// single-shot (running consumes them, per Law L1's "a fresh build runs
+/// again"), so an attempt loop needs a fresh build per attempt.
+pub(crate) struct TxBoundary<A: Send + 'static, E: Send + 'static, R: crate::Requirement> {
+    pub(crate) build: Box<dyn Fn() -> Effect<A, E, R> + Send>,
+    pub(crate) env: crate::service::Services,
+    pub(crate) marker: std::marker::PhantomData<fn() -> R>,
+}
+
+impl<A: Send + 'static, E: Send + 'static, R: crate::Requirement> crate::effect::ErasedStep<A, E>
+    for TxBoundary<A, E, R>
+{
+    fn run_erased(self: Box<Self>, scope: &crate::service::Services) -> Result<A, crate::Cause<E>> {
+        // Nested: compose into the running boundary, no new journal.
+        if ambient_transaction(scope).is_some() {
+            return (self.build)().run_sync_with(scope);
+        }
+        let Self { build, env, .. } = *self;
+        let scope = crate::service::merged_services(scope, &env);
+        loop {
+            let tx = Arc::new(Transaction::new());
+            let inner = scope_with_transaction(&scope, &tx);
+            let outcome = build().run_sync_with(&inner);
+            if !tx.needs_retry() && tx.is_consistent() {
+                match &outcome {
+                    Ok(_) => tx.commit(),
+                    Err(_) => tx.clear(),
+                }
+                return outcome;
+            }
+            // Retry asked for, or a concurrent commit moved the read set:
+            // park until the set moves (a stale set returns at once),
+            // discard the attempt, and build the body again.
+            tx.await_pending();
+            tx.clear();
+        }
     }
 }
 
