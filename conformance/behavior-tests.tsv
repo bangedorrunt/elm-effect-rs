@@ -563,7 +563,7 @@ ported	packages/effect/test/Channel.test.ts	436	it.effect	merge - prioritizes fa
 unported	packages/effect/test/Channel.test.ts	449	it.effect	interrupts previous channels and runs their finalizers	
 unported	packages/effect/test/Channel.test.ts	460	it.effect	interrupts the current element	
 unported	packages/effect/test/Channel.test.ts	482	it.effect	interruptWhen - propagates errors	
-unported	packages/effect/test/Channel.test.ts	519	it.effect	catchDefect	
+not-applicable	packages/effect/test/Channel.test.ts	519	it.effect	catchDefect	Take<A,E> (crates/elm-effect/src/take.rs:5) has only Items/End/Fail — no defect variant — so a Channel cannot carry a defect, and Channel has no catch_defect (present only on Effect/Stream)
 ported	packages/effect/test/Channel.test.ts	535	it.effect	catchIf with refinement	channel_catch_if_refines
 ported	packages/effect/test/Channel.test.ts	552	it.effect	catchIf with predicate	channel_catch_if_recovers_matching
 ported	packages/effect/test/Channel.test.ts	561	it.effect	catchFilter with Filter	channel_filter_map_recovers
