@@ -348,7 +348,7 @@ tests = ["packages/effect/test/Hash.test.ts"]
 [[module]]
 path = "packages/effect/src/HashMap.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/HashMap.test.ts"]

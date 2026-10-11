@@ -2050,8 +2050,8 @@ unported	packages/effect/test/Hash.test.ts	278	it	clears visited state when a cu
 ported	packages/effect/test/HashMap.test.ts	7	it	empty	hash_map_empty_make_from_iterable
 ported	packages/effect/test/HashMap.test.ts	13	it	make	hash_map_empty_make_from_iterable
 ported	packages/effect/test/HashMap.test.ts	21	it	fromIterable	hash_map_empty_make_from_iterable
-unported	packages/effect/test/HashMap.test.ts	32	it	modifyHash stores a new key under the supplied hash	
-unported	packages/effect/test/HashMap.test.ts	40	it	modifyHash removes a key using the supplied hash	
+not-applicable	packages/effect/test/HashMap.test.ts	32	it	modifyHash stores a new key under the supplied hash	modifyHash takes a caller-supplied hash alongside the key; this map is a std HashMap with the default hasher and no getHash/modifyHash entry point, so there is no way to seed an external hash and the store/remove pair has no surface to exercise
+not-applicable	packages/effect/test/HashMap.test.ts	40	it	modifyHash removes a key using the supplied hash	modifyHash takes a caller-supplied hash alongside the key; this map is a std HashMap with the default hasher and no getHash/modifyHash entry point, so there is no way to seed an external hash and the store/remove pair has no surface to exercise
 ported	packages/effect/test/HashMap.test.ts	49	it	get - existing key	hash_map_empty_make_from_iterable
 ported	packages/effect/test/HashMap.test.ts	55	it	get - non-existing key	hash_map_empty_make_from_iterable
 ported	packages/effect/test/HashMap.test.ts	60	it	has - existing key	hash_map_set_remove_persist
@@ -2068,8 +2068,8 @@ ported	packages/effect/test/HashMap.test.ts	136	it	toValues	hash_map_views_and_u
 ported	packages/effect/test/HashMap.test.ts	142	it	entries	hash_map_views_and_union
 ported	packages/effect/test/HashMap.test.ts	148	it	toEntries	hash_map_views_and_union
 ported	packages/effect/test/HashMap.test.ts	154	it	Symbol.iterator	hash_map_views_and_union
-unported	packages/effect/test/HashMap.test.ts	160	it	preserves traversal order across every node kind	
-unported	packages/effect/test/HashMap.test.ts	202	it	does not expose mutable collision entries	
+not-applicable	packages/effect/test/HashMap.test.ts	160	it	preserves traversal order across every node kind	the row asserts a specific HAMT traversal order across leaf, nested-container and collision nodes, driven by fixed per-key hashes; this port is a std HashMap with undefined iteration order and no node kinds, so the expected sequence has nothing to be produced from
+not-applicable	packages/effect/test/HashMap.test.ts	202	it	does not expose mutable collision entries	the row mutates an entry pulled from entries() and asserts the map is unaffected; this port entries() yields (&K, &V) shared references, so no caller can mutate through them and the premise cannot be constructed, which is a stronger guarantee than the row checks for
 ported	packages/effect/test/HashMap.test.ts	213	it	removeMany	hash_map_set_remove_persist
 ported	packages/effect/test/HashMap.test.ts	223	it	setMany	hash_map_set_remove_persist
 ported	packages/effect/test/HashMap.test.ts	235	it	setMany - pipe syntax	hash_map_set_remove_persist
