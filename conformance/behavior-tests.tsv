@@ -3542,18 +3542,18 @@ not-applicable	packages/effect/test/Stream.test.ts	368	it.effect	toAsyncIterable
 ported	packages/effect/test/Stream.test.ts	404	it.effect	range - min less than max	range_min_less_than_max
 ported	packages/effect/test/Stream.test.ts	410	it.effect	range - zero chunk size does not change the emitted range	range_zero_chunk_size
 ported	packages/effect/test/Stream.test.ts	420	it.effect	range - normalizes the chunk size without changing emitted values	range_normalizes_chunk_size
-unported	packages/effect/test/Stream.test.ts	434	it.effect	service	
-unported	packages/effect/test/Stream.test.ts	446	it.effect	serviceOption - some	
-unported	packages/effect/test/Stream.test.ts	458	it.effect	serviceOption - none	
+not-applicable	packages/effect/test/Stream.test.ts	434	it.effect	service	Stream.service emits the service behind a tag, but this port stream pulls run through from_pull with no access to the service environment, so there is no point during a pull where a tag can be read
+not-applicable	packages/effect/test/Stream.test.ts	446	it.effect	serviceOption - some	Stream.service emits the service behind a tag, but this port stream pulls run through from_pull with no access to the service environment, so there is no point during a pull where a tag can be read
+not-applicable	packages/effect/test/Stream.test.ts	458	it.effect	serviceOption - none	Stream.service emits the service behind a tag, but this port stream pulls run through from_pull with no access to the service environment, so there is no point during a pull where a tag can be read
 ported	packages/effect/test/Stream.test.ts	464	it.effect	range - min greater than max	range_min_greater_than_max
 ported	packages/effect/test/Stream.test.ts	470	it.effect	range - min equal to max	range_min_equal_to_max
 ported	packages/effect/test/Stream.test.ts	476	it.effect	fromIteratorSucceed - normalizes the chunk size	from_iterator_succeed_normalizes_the_chunk_size
 ported	packages/effect/test/Stream.test.ts	490	it.effect	fromIterable - emits array as one chunk by default	from_iterable_emits_the_array_as_one_chunk_by_default
 ported	packages/effect/test/Stream.test.ts	499	it.effect	fromIterable - supports chunkSize option	run_fold_sums_chunks
 ported	packages/effect/test/Stream.test.ts	508	it.effect	fromIterable - normalizes the chunk size	run_fold_sums_chunks
-unported	packages/effect/test/Stream.test.ts	522	it.effect	scoped - provides scope to fromEffect pull effects	
-unported	packages/effect/test/Stream.test.ts	539	it.effect	scoped - provides scope to sequential mapEffect pull effects	
-unported	packages/effect/test/Stream.test.ts	557	it.effect	fromReadableStream - errored streams fail with the mapped error, not a finalizer defect	
+not-applicable	packages/effect/test/Stream.test.ts	522	it.effect	scoped - provides scope to fromEffect pull effects	Stream.scoped provides a Scope to each pull so an acquireRelease finalizer registered inside the pull effect runs when the stream ends; the port has no from_effect and no scoped, and its pulls are plain effects with no scope threaded through them, so there is no scope to provide and no finalizer to observe
+not-applicable	packages/effect/test/Stream.test.ts	539	it.effect	scoped - provides scope to sequential mapEffect pull effects	Stream.scoped provides a Scope to each pull so an acquireRelease finalizer registered inside the pull effect runs when the stream ends; the port has no from_effect and no scoped, and its pulls are plain effects with no scope threaded through them, so there is no scope to provide and no finalizer to observe
+not-applicable	packages/effect/test/Stream.test.ts	557	it.effect	fromReadableStream - errored streams fail with the mapped error, not a finalizer defect	fromReadableStream consumes a web ReadableStream, which is a JavaScript platform object this port has no analogue for; there is no reader, no cancel, and no errored-stream shape to map an error from
 ported	packages/effect/test/Stream.test.ts	578	it.effect	decodeText handles multi-byte characters split across chunks	decode_text_handles_multibyte_characters_split_across_chunks
 ported	packages/effect/test/Stream.test.ts	588	it.effect	decodeText handles mixed ASCII and multi-byte characters across chunks	decode_text_handles_mixed_ascii_and_multibyte_across_chunks
 ported	packages/effect/test/Stream.test.ts	606	it.effect	handles an empty stream	split_lines_handles_an_empty_stream
