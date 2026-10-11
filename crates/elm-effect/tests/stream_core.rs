@@ -394,7 +394,6 @@ fn take_right_zero_count_does_not_evaluate_the_upstream() {
 // rechunk / grouped normalize their chunk size
 // (Stream.test.ts 1765 — describe "rechunk")
 // ---------------------------------------------------------------------------
-
 #[test]
 fn rechunk_and_grouped_normalize_their_chunk_size() {
     // Stream.make(1, 2, 3).pipe(Stream.rechunk(n), Stream.chunks, Stream.runCollect)
@@ -436,6 +435,53 @@ fn rechunk_and_grouped_normalize_their_chunk_size() {
         })
         .collect();
     assert_eq!(grouped, expected);
+}
+
+fn collect_chunks_or_panic<A: Send + 'static>(stream: Stream<A, Infallible, ()>) -> Vec<Vec<A>> {
+    match stream.run_collect_chunks() {
+        Exit::Success(v) => v,
+        Exit::Failure(_) => panic!("collect chunks failed"),
+    }
+}
+
+#[test]
+fn rechunk_preserves_a_large_source_chunk_with_target() {
+    // The pin's `it.each` rows over `Array.makeBy(200_000, i => i)`:
+    //   target 200_001 -> [200_000]   (target above the input, one chunk)
+    //   target 200_000 -> [200_000]    (target equal, one chunk)
+    //   target 199_999 -> [199_999, 1] (a full chunk plus a remainder)
+    let values: Vec<i64> = (0..200_000).collect();
+
+    let above: Vec<Vec<i64>> =
+        collect_chunks_or_panic(from_iter(values.clone().into_iter(), 200_000).rechunk(200_001.0));
+    assert_eq!(above, vec![values.clone()], "a target above the input yields one chunk");
+
+    let exact: Vec<Vec<i64>> =
+        collect_chunks_or_panic(from_iter(values.clone().into_iter(), 200_000).rechunk(200_000.0));
+    assert_eq!(exact, vec![values.clone()], "a target equal to the input yields one chunk");
+
+    let below: Vec<Vec<i64>> =
+        collect_chunks_or_panic(from_iter(values.into_iter(), 200_000).rechunk(199_999.0));
+    assert_eq!(below.len(), 2);
+    assert_eq!(below[0].len(), 199_999);
+    assert_eq!(below[1], vec![199_999], "the remainder is the final element");
+}
+
+#[test]
+fn rechunk_preserves_large_input_split_across_source_chunks() {
+    // Stream.fromArrays(one, rest).pipe(Stream.rechunk(200_002),
+    // Stream.chunks, Stream.runCollect) === [all 200_001]. The source's own
+    // chunking is irrelevant once the target exceeds the whole input: the
+    // carry accumulates across source boundaries and flushes once at the end.
+    // Built by concatenating two one-chunk sources, which is `fromArrays`.
+    let values: Vec<i64> = (0..200_001).collect();
+    let (head, tail) = (values[..1].to_vec(), values[1..].to_vec());
+    let tail_len = tail.len();
+    let split_source = from_iter(head.into_iter(), 1)
+        .concat(from_iter(tail.into_iter(), tail_len));
+    let chunks: Vec<Vec<i64>> = collect_chunks_or_panic(split_source.rechunk(200_002.0));
+    assert_eq!(chunks.len(), 1, "the whole input arrives as one chunk");
+    assert_eq!(chunks[0], values);
 }
 
 // ---------------------------------------------------------------------------
