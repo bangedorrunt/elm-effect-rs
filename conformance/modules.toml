@@ -1036,7 +1036,7 @@ tests = ["packages/effect/test/TxPubSub.test.ts"]
 [[module]]
 path = "packages/effect/src/TxQueue.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/TxQueue.test.ts"]
