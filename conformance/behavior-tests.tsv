@@ -2102,8 +2102,8 @@ unported	packages/effect/test/HashMap.test.ts	543	it	keeps entries addressable w
 unported	packages/effect/test/HashMap.test.ts	556	it	keeps entries addressable when mergeLeaves sees bit 31	
 unported	packages/effect/test/HashMap.test.ts	572	it	keeps all inserted entries addressable across random bit-31-heavy shapes	
 unported	packages/effect/test/HashMap.test.ts	606	it	isHashMap	
-unported	packages/effect/test/HashMap.test.ts	618	it	handles many inserts, lookups, and removals	
-unported	packages/effect/test/HashMap.test.ts	650	it	should handle hash collisions	
+ported	packages/effect/test/HashMap.test.ts	618	it	handles many inserts, lookups, and removals	hash_map_handles_many_inserts_lookups_and_removals
+ported	packages/effect/test/HashMap.test.ts	650	it	should handle hash collisions	hash_map_handles_hash_collisions
 ported	packages/effect/test/HashRing.test.ts	6	it	updates the stored node when adding the same primary key	hash_ring_add_replaces_node_for_the_same_primary_key
 ported	packages/effect/test/HashRing.test.ts	27	it	updates the stored node when changing its weight	hash_ring_add_with_new_weight_replaces_the_stored_node
 ported	packages/effect/test/HashRing.test.ts	48	it	getShards normalizes the shard count	hash_ring_shard_count_normalizes

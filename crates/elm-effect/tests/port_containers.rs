@@ -178,6 +178,74 @@ fn hash_map_filter_map_keeps_some_entries() {
 }
 
 #[test]
+fn hash_map_handles_many_inserts_lookups_and_removals() {
+    // HashMap.test.ts :618 — a thousand inserts, then a lookup range, then
+    // removals. Pure stress against the existing set/has/get/remove surface.
+    let mut m: HashMap<i32, String> = HashMap::empty();
+    for i in 0..1000 {
+        m = m.set(i, format!("value{i}"));
+    }
+    assert_eq!(m.size(), 1000);
+    for i in 500..1000 {
+        assert!(m.has(&i), "missing {i}");
+        assert_eq!(m.get(&i), Some(&format!("value{i}")));
+    }
+    for i in 0..500 {
+        m = m.remove(&i);
+    }
+    assert_eq!(m.size(), 500);
+    for i in 0..500 {
+        assert!(!m.has(&i));
+    }
+}
+
+#[test]
+fn hash_map_handles_hash_collisions() {
+    // HashMap.test.ts :650 — keys whose Hash all write the same value. Three
+    // entries survive, are addressable individually, and removing one leaves
+    // the other two. This is the row that would catch a map that keyed on the
+    // hash rather than on (hash, Eq).
+    #[derive(Clone, Debug)]
+    struct CollidingKey {
+        id: i32,
+    }
+    impl PartialEq for CollidingKey {
+        fn eq(&self, other: &Self) -> bool {
+            self.id == other.id
+        }
+    }
+    impl Eq for CollidingKey {}
+    impl std::hash::Hash for CollidingKey {
+        fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+            // Every key hashes identically, forcing collisions.
+            42i32.hash(state);
+        }
+    }
+
+    let (key1, key2, key3) = (
+        CollidingKey { id: 1 },
+        CollidingKey { id: 2 },
+        CollidingKey { id: 3 },
+    );
+    let mut m: HashMap<CollidingKey, String> = HashMap::empty();
+    m = m.set(key1.clone(), "value1".to_owned());
+    m = m.set(key2.clone(), "value2".to_owned());
+    m = m.set(key3.clone(), "value3".to_owned());
+
+    assert_eq!(m.size(), 3, "colliding keys must stay distinct entries");
+    assert_eq!(m.get(&key1), Some(&"value1".to_owned()));
+    assert_eq!(m.get(&key2), Some(&"value2".to_owned()));
+    assert_eq!(m.get(&key3), Some(&"value3".to_owned()));
+
+    // Removing one colliding key must not disturb the others.
+    m = m.remove(&key2);
+    assert_eq!(m.size(), 2);
+    assert!(m.has(&key1));
+    assert!(!m.has(&key2));
+    assert!(m.has(&key3));
+}
+
+#[test]
 fn hash_map_transforms_and_predicates() {
     let m = HashMap::make([("a".to_owned(), 1), ("b".to_owned(), 2)]);
     assert_eq!(m.map(|v| v * 10).get(&"a".to_owned()), Some(&10));
