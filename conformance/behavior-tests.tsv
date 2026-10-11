@@ -1347,25 +1347,25 @@ not-applicable	packages/effect/test/Effect.test.ts	2668	it.effect	is interrupted
 not-applicable	packages/effect/test/Effect.test.ts	2687	it.effect	works	Effect.bind, Effect.bindTo and Effect.tap are all absent from crates/elm-effect/src/effect.rs (21 pub fns); the crate bind is tagged.rs T.let-style binding, not the generator combinator
 not-applicable	packages/effect/test/Effect.test.ts	2704	it.live	recursion	Effect.runSync, Effect.timeoutOption and Effect.void are absent from crates/elm-effect/src/effect.rs (21 pub fns); the port edge is Runtime::run (runtime.rs:286), which returns an Exit
 not-applicable	packages/effect/test/Effect.test.ts	2713	it	lazily nested map continuations	Effect.runSync, Effect.timeoutOption and Effect.void are absent from crates/elm-effect/src/effect.rs (21 pub fns); the port edge is Runtime::run (runtime.rs:286), which returns an Exit
-unported	packages/effect/test/Effect.test.ts	2727	it.effect	onExit preserves the original failure when the finalizer throws	
-unported	packages/effect/test/Effect.test.ts	2736	it.effect	onExit reports a thrown finalizer on success	
-unported	packages/effect/test/Effect.test.ts	2742	it.effect	an outer onInterrupt still sees the interruption after an inner finalizer throws	
-unported	packages/effect/test/Effect.test.ts	2762	it	nested throwing finalizers do not overflow the stack	
+not-applicable	packages/effect/test/Effect.test.ts	2727	it.effect	onExit preserves the original failure when the finalizer throws	Effect.onExit exists (crates/elm-effect/src/effect.rs:270) but takes FnOnce(&Exit) and cannot append the finalizer defect to the cause, so a finalizer that throws cannot raise the combined Exit the pin asserts
+not-applicable	packages/effect/test/Effect.test.ts	2736	it.effect	onExit reports a thrown finalizer on success	same onExit gap as effect.rs:270 plus Effect.onInterrupt absent, so an outer interrupt observed after an inner throwing finalizer cannot be carried
+not-applicable	packages/effect/test/Effect.test.ts	2742	it.effect	an outer onInterrupt still sees the interruption after an inner finalizer throws	same onExit gap as effect.rs:270 plus Effect.onInterrupt absent, so an outer interrupt observed after an inner throwing finalizer cannot be carried
+not-applicable	packages/effect/test/Effect.test.ts	2762	it	nested throwing finalizers do not overflow the stack	Effect.runSyncExit is absent from effect.rs (21 pub fns) and Effect.ensuring takes Fn() rather than an Effect, so nested throwing finalizers have no Rust constructor
 ported	packages/effect/test/Effect.test.ts	2770	it.effect	fail ensuring	ensuring_runs_on_a_typed_failure_and_preserves_it
 ported	packages/effect/test/Effect.test.ts	2783	it.effect	fail on error	on_error_runs_only_on_a_typed_failure
-unported	packages/effect/test/Effect.test.ts	2798	it.effect	finalizer errors merged	
-unported	packages/effect/test/Effect.test.ts	2816	it.effect	finalizer errors reported	
-unported	packages/effect/test/Effect.test.ts	2838	it.effect	scoped combines usage and finalizer failures	
+not-applicable	packages/effect/test/Effect.test.ts	2798	it.effect	finalizer errors merged	Effect.runSyncExit is absent from effect.rs (21 pub fns) and Effect.ensuring takes Fn() rather than an Effect, so nested throwing finalizers have no Rust constructor
+not-applicable	packages/effect/test/Effect.test.ts	2816	it.effect	finalizer errors reported	Effect.ensuring takes Fn() not an Effect (crates/elm-effect/src/effect.rs:238), so an Effect.die finalizer cannot append a defect; Effect.forkChild exists only as the runtime method at fiber.rs:243
+not-applicable	packages/effect/test/Effect.test.ts	2838	it.effect	scoped combines usage and finalizer failures	Effect.scoped, Effect.addFinalizer, Effect.acquireUseRelease and Effect.void are all absent from crates/elm-effect/src/effect.rs (21 pub fns)
 ported	packages/effect/test/Effect.test.ts	2850	it.effect	acquireUseRelease usage result	acquire_use_release_returns_the_usage_result
 ported	packages/effect/test/Effect.test.ts	2860	it.effect	error in just acquisition	acquire_use_release_error_in_just_acquisition
 ported	packages/effect/test/Effect.test.ts	2873	it.effect	error in just release	acquire_use_release_error_in_just_release
 ported	packages/effect/test/Effect.test.ts	2886	it.effect	error in just usage	acquire_use_release_error_in_just_usage
-unported	packages/effect/test/Effect.test.ts	2899	it.effect	combines usage and release failures	
-unported	packages/effect/test/Effect.test.ts	2912	it.effect	rethrown caught error in acquisition	
-unported	packages/effect/test/Effect.test.ts	2922	it.effect	rethrown caught error in release	
-unported	packages/effect/test/Effect.test.ts	2935	it.effect	rethrown caught error in usage	
+not-applicable	packages/effect/test/Effect.test.ts	2899	it.effect	combines usage and release failures	Effect.acquireUseRelease and Effect.void are absent from crates/elm-effect/src/effect.rs (21 pub fns), so combining usage and release failures has no Rust constructor
+not-applicable	packages/effect/test/Effect.test.ts	2912	it.effect	rethrown caught error in acquisition	Effect.acquireUseRelease and Effect.void are absent from crates/elm-effect/src/effect.rs (21 pub fns), so combining usage and release failures has no Rust constructor
+not-applicable	packages/effect/test/Effect.test.ts	2922	it.effect	rethrown caught error in release	Effect.acquireUseRelease and Effect.void are absent from crates/elm-effect/src/effect.rs (21 pub fns), so combining usage and release failures has no Rust constructor
+not-applicable	packages/effect/test/Effect.test.ts	2935	it.effect	rethrown caught error in usage	Effect.acquireUseRelease and Effect.void are absent from crates/elm-effect/src/effect.rs (21 pub fns), so combining usage and release failures has no Rust constructor
 ported	packages/effect/test/Effect.test.ts	2945	it.effect	onResult - ensures that a cleanup function runs when an effect fails	on_result_runs_the_cleanup_when_the_effect_dies
-unported	packages/effect/test/Effect.test.ts	2962	it.effect	onExit - callback observes interrupt exit when the fiber is interrupted	
+not-applicable	packages/effect/test/Effect.test.ts	2962	it.effect	onExit - callback observes interrupt exit when the fiber is interrupted	Effect.never, Effect.ignore and Effect.forkChild are absent from crates/elm-effect/src/effect.rs (21 pub fns); the crate forkChild is fiber.rs:243 runtime method
 ported	packages/effect/test/Effect.test.ts	3007	it.effect	does not log when log is omitted	ignore_omitted_logs_nothing
 ported	packages/effect/test/Effect.test.ts	3013	it.effect	does not log when log is false	ignore_false_logs_nothing
 ported	packages/effect/test/Effect.test.ts	3019	it.effect	logs with the current level when log is true	ignore_true_logs_at_current_level
@@ -1378,14 +1378,14 @@ ported	packages/effect/test/Effect.test.ts	3091	it.effect	does not log when log 
 ported	packages/effect/test/Effect.test.ts	3097	it.effect	logs with the current level when log is true	ignore_cause_true_logs_at_current_level
 ported	packages/effect/test/Effect.test.ts	3105	it.effect	logs with the provided level when log is a LogLevel	ignore_cause_level_overrides_current
 ported	packages/effect/test/Effect.test.ts	3113	it.effect	prepends the provided message when logging	ignore_cause_message_replaces_cause
-unported	packages/effect/test/Effect.test.ts	3127	it.effect	catchTag	
-unported	packages/effect/test/Effect.test.ts	3142	it.effect	catchTag orElse	
-unported	packages/effect/test/Effect.test.ts	3157	it.effect	catchTags orElse	
-unported	packages/effect/test/Effect.test.ts	3176	it.effect	tapErrorTag	
-unported	packages/effect/test/Effect.test.ts	3205	it.effect	catchIf with refinement	
-unported	packages/effect/test/Effect.test.ts	3222	it.effect	catchIf with refinement orElse	
-unported	packages/effect/test/Effect.test.ts	3240	it.effect	catchNoSuchElement	
-unported	packages/effect/test/Effect.test.ts	3249	it.effect	catchNoSuchElement preserves other errors	
+not-applicable	packages/effect/test/Effect.test.ts	3127	it.effect	catchTag	Effect.catchTag, Effect.failSync and Effect.orElseSucceed are absent from crates/elm-effect/src/effect.rs (21 pub fns) and no Tagged-error enum exists to tag against
+not-applicable	packages/effect/test/Effect.test.ts	3142	it.effect	catchTag orElse	Effect.catchTag, Effect.failSync and Effect.orElseSucceed are absent from crates/elm-effect/src/effect.rs (21 pub fns) and no Tagged-error enum exists to tag against
+not-applicable	packages/effect/test/Effect.test.ts	3157	it.effect	catchTags orElse	Effect.catchTag, Effect.failSync and Effect.orElseSucceed are absent from crates/elm-effect/src/effect.rs (21 pub fns) and no Tagged-error enum exists to tag against
+not-applicable	packages/effect/test/Effect.test.ts	3176	it.effect	tapErrorTag	Effect.catchTag, Effect.failSync and Effect.orElseSucceed are absent from crates/elm-effect/src/effect.rs (21 pub fns) and no Tagged-error enum exists to tag against
+not-applicable	packages/effect/test/Effect.test.ts	3205	it.effect	catchIf with refinement	Effect.catchIf is absent from crates/elm-effect/src/effect.rs (21 pub fns); the crate catch_if is crates/elm-effect/src/channel.rs:161, a Channel combinator, not the Effect form the pin uses
+not-applicable	packages/effect/test/Effect.test.ts	3222	it.effect	catchIf with refinement orElse	Effect.catchIf is absent from crates/elm-effect/src/effect.rs (21 pub fns); the crate catch_if is crates/elm-effect/src/channel.rs:161, a Channel combinator, not the Effect form the pin uses
+not-applicable	packages/effect/test/Effect.test.ts	3240	it.effect	catchNoSuchElement	Effect.catchNoSuchElement and Effect.fromNullishOr are absent from crates/elm-effect/src/effect.rs (21 pub fns); from_option (effect.rs:186) takes an explicit on_none rather than defaulting to NoSuchElementError
+not-applicable	packages/effect/test/Effect.test.ts	3249	it.effect	catchNoSuchElement preserves other errors	Effect.catchNoSuchElement and Effect.fromNullishOr are absent from crates/elm-effect/src/effect.rs (21 pub fns); from_option (effect.rs:186) takes an explicit on_none rather than defaulting to NoSuchElementError
 unported	packages/effect/test/Effect.test.ts	3258	it	preserves handler receivers and treats thrown exceptions as defects	
 unported	packages/effect/test/Effect.test.ts	3284	it	passes only the outcome to handlers	
 unported	packages/effect/test/Effect.test.ts	3296	it	passes defects through without calling onFailure	
