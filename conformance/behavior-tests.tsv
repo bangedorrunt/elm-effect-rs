@@ -9564,7 +9564,7 @@ unported	packages/effect/test/schema/toFormatter.test.ts	155	it	precompiles Unio
 unported	packages/effect/test/schema/toFormatter.test.ts	171	it	selects transformed Union members on the Type side	
 unported	packages/effect/test/schema/toFormatter.test.ts	186	it	preserves Union member formatter annotations	
 unported	packages/effect/test/schema/toFormatter.test.ts	198	it	preserves Union member encoding metadata for onBefore	
-unported	packages/effect/test/schema/toFormatter.test.ts	213	it	empty	
+ported	packages/effect/test/schema/toFormatter.test.ts	213	it	empty	formatter_empty_tuple_renders_empty_array
 unported	packages/effect/test/schema/toFormatter.test.ts	218	it	elements	
 unported	packages/effect/test/schema/toFormatter.test.ts	225	it	Array	
 unported	packages/effect/test/schema/toFormatter.test.ts	231	it	TupleWithRest	
@@ -9582,8 +9582,8 @@ unported	packages/effect/test/schema/toFormatter.test.ts	342	it	Record(Symbol, O
 unported	packages/effect/test/schema/toFormatter.test.ts	349	it	StructWithRest	
 unported	packages/effect/test/schema/toFormatter.test.ts	357	it	Class	
 unported	packages/effect/test/schema/toFormatter.test.ts	367	it	compiles a recursive schema once	
-unported	packages/effect/test/schema/toFormatter.test.ts	388	it	Tuple	
-unported	packages/effect/test/schema/toFormatter.test.ts	399	it	Array	
+ported	packages/effect/test/schema/toFormatter.test.ts	388	it	Tuple	formatter_suspended_tuple_renders_nested_values
+ported	packages/effect/test/schema/toFormatter.test.ts	399	it	Array	formatter_suspended_array_renders_values
 unported	packages/effect/test/schema/toFormatter.test.ts	406	it	Struct	
 unported	packages/effect/test/schema/toFormatter.test.ts	419	it	Record	
 unported	packages/effect/test/schema/toFormatter.test.ts	426	it	optional	

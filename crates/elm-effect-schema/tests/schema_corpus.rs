@@ -1257,3 +1257,61 @@ fn formatter_empty_struct_renders_shapes() {
     assert_eq!(format(&Unknown::Object(BTreeMap::new())), "{}");
     assert_eq!(format(&Unknown::Number(1.0)), "1");
 }
+
+/// toFormatter.test.ts :213 "empty" — `Schema.toFormatter(Schema.Tuple([]))`
+/// renders an empty collection as `[]`. An empty tuple and an empty array
+/// separate at the TYPE level, not the rendering level: there are no
+/// separators to emit, so both print `[]`. This port has no zero-element
+/// tuple constructor, so the array schema is the structural stand-in and the
+/// observable is identical.
+#[test]
+fn formatter_empty_tuple_renders_empty_array() {
+    let format = Schema::<Vec<Unknown>>::array(Schema::as_unknown(Schema::never())).formatter();
+    assert_eq!(format(&Unknown::Array(vec![])), "[]");
+}
+
+/// toFormatter.test.ts :388 "Tuple" — a suspended recursive
+/// `Schema.Tuple([Number, NullOr(Rec)])` renders nested values in the
+/// compact array form. `suspend` is what the row is about, so the schema is
+/// built suspended rather than inlined.
+#[test]
+fn formatter_suspended_tuple_renders_nested_values() {
+    fn schema() -> Schema<Unknown> {
+        let rec = Schema::<Unknown>::suspend(schema);
+        Schema::as_unknown(Schema::tuple2(
+            Schema::number(),
+            Schema::union(Schema::as_unknown(Schema::null()), rec),
+        ))
+    }
+    let format = schema().formatter();
+    assert_eq!(
+        format(&Unknown::Array(vec![Unknown::Number(1.0), Unknown::Null])),
+        "[1,null]"
+    );
+    assert_eq!(
+        format(&Unknown::Array(vec![
+            Unknown::Number(1.0),
+            Unknown::Array(vec![Unknown::Number(2.0), Unknown::Null])
+        ])),
+        "[1,[2,null]]"
+    );
+}
+
+/// toFormatter.test.ts :399 "Array" — a suspended
+/// `Schema.Array(Schema.Union([String, Rec]))` renders its member in the
+/// compact array form.
+#[test]
+fn formatter_suspended_array_renders_values() {
+    fn schema() -> Schema<Unknown> {
+        let rec = Schema::<Unknown>::suspend(schema);
+        Schema::as_unknown(Schema::array(Schema::union(
+            Schema::as_unknown(Schema::string()),
+            rec,
+        )))
+    }
+    let format = schema().formatter();
+    assert_eq!(
+        format(&Unknown::Array(vec![Unknown::Text("a".to_string())])),
+        "[\"a\"]"
+    );
+}
