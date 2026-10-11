@@ -2101,7 +2101,7 @@ unported	packages/effect/test/HashMap.test.ts	512	it	should work with Equal obje
 unported	packages/effect/test/HashMap.test.ts	543	it	keeps entries addressable when bit 31 is present in indexed leaf insert	
 unported	packages/effect/test/HashMap.test.ts	556	it	keeps entries addressable when mergeLeaves sees bit 31	
 unported	packages/effect/test/HashMap.test.ts	572	it	keeps all inserted entries addressable across random bit-31-heavy shapes	
-unported	packages/effect/test/HashMap.test.ts	606	it	isHashMap	
+not-applicable	packages/effect/test/HashMap.test.ts	606	it	isHashMap	HashMap.isHashMap discriminates untyped inputs - a map, a plain object, null and undefined - at runtime; in Rust a HashMap<K,V> is a distinct type so "is this value a map" is a compile-time fact and no single untyped variable can hold the rows four inputs, so there is no runtime check to port
 ported	packages/effect/test/HashMap.test.ts	618	it	handles many inserts, lookups, and removals	hash_map_handles_many_inserts_lookups_and_removals
 ported	packages/effect/test/HashMap.test.ts	650	it	should handle hash collisions	hash_map_handles_hash_collisions
 ported	packages/effect/test/HashRing.test.ts	6	it	updates the stored node when adding the same primary key	hash_ring_add_replaces_node_for_the_same_primary_key
