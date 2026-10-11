@@ -1518,15 +1518,15 @@ not-applicable	packages/effect/test/Effectable.test.ts	71	it	inserts the Effect 
 not-applicable	packages/effect/test/Effectable.test.ts	83	it	preserves the original constructor and instance members	N/A: JS prototype-chain surgery has no Rust analog
 unported	packages/effect/test/Effectable.test.ts	92	it	makes instances behave as Effects	
 not-applicable	packages/effect/test/Effectable.test.ts	98	it	does not modify the original class prototype	N/A: JS prototype-chain surgery has no Rust analog
-unported	packages/effect/test/Equal.test.ts	21	it	does not cache an equality found through a provisional circular pair	
-unported	packages/effect/test/Equal.test.ts	69	it	does not let an earlier comparison change a later result	
-unported	packages/effect/test/Equal.test.ts	76	it	assumes cycles equal pair by pair	
-unported	packages/effect/test/Equal.test.ts	85	it	agrees with bisimilarity on random cyclic graphs	
-unported	packages/effect/test/Equal.test.ts	130	it	should return true for structurally identical objects (structural equality)	
-unported	packages/effect/test/Equal.test.ts	136	it	should return true for same reference	
-unported	packages/effect/test/Equal.test.ts	141	it	should return true for empty objects	
-unported	packages/effect/test/Equal.test.ts	145	it	should return false for objects with different values	
-unported	packages/effect/test/Equal.test.ts	151	it	should return false for objects with different keys	
+not-applicable	packages/effect/test/Equal.test.ts	21	it	does not cache an equality found through a provisional circular pair	the row drives a cyclic or self-referential value graph and compares by bisimilarity; this port's values are owned trees with no cycle, and Rust's deriving types cannot express one, so the assertion cannot be constructed
+not-applicable	packages/effect/test/Equal.test.ts	69	it	does not let an earlier comparison change a later result	the row drives a cyclic or self-referential value graph and compares by bisimilarity; this port's values are owned trees with no cycle, and Rust's deriving types cannot express one, so the assertion cannot be constructed
+not-applicable	packages/effect/test/Equal.test.ts	76	it	assumes cycles equal pair by pair	the row drives a cyclic or self-referential value graph and compares by bisimilarity; this port's values are owned trees with no cycle, and Rust's deriving types cannot express one, so the assertion cannot be constructed
+not-applicable	packages/effect/test/Equal.test.ts	85	it	agrees with bisimilarity on random cyclic graphs	the row drives a cyclic or self-referential value graph and compares by bisimilarity; this port's values are owned trees with no cycle, and Rust's deriving types cannot express one, so the assertion cannot be constructed
+not-applicable	packages/effect/test/Equal.test.ts	130	it	should return true for structurally identical objects (structural equality)	the row asserts about a JS object's own versus inherited, enumerable versus non-enumerable properties; this port has no property descriptors or a prototype chain, so enumerability is not an observable
+not-applicable	packages/effect/test/Equal.test.ts	136	it	should return true for same reference	the row asserts about a JS object's own versus inherited, enumerable versus non-enumerable properties; this port has no property descriptors or a prototype chain, so enumerability is not an observable
+not-applicable	packages/effect/test/Equal.test.ts	141	it	should return true for empty objects	the row asserts about a JS object's own versus inherited, enumerable versus non-enumerable properties; this port has no property descriptors or a prototype chain, so enumerability is not an observable
+not-applicable	packages/effect/test/Equal.test.ts	145	it	should return false for objects with different values	the row asserts about a JS object's own versus inherited, enumerable versus non-enumerable properties; this port has no property descriptors or a prototype chain, so enumerability is not an observable
+not-applicable	packages/effect/test/Equal.test.ts	151	it	should return false for objects with different keys	the row asserts about a JS object's own versus inherited, enumerable versus non-enumerable properties; this port has no property descriptors or a prototype chain, so enumerability is not an observable
 not-applicable	packages/effect/test/Equal.test.ts	158	it	should return true for objects with identical symbol keys and values	N/A: JS symbols have no Rust analog; this port has no Symbol type, so a symbol-keyed property is unrepresentable and the assertion cannot be constructed
 not-applicable	packages/effect/test/Equal.test.ts	166	it	should return false for objects with different symbol keys	N/A: JS symbols have no Rust analog; this port has no Symbol type, so a symbol-keyed property is unrepresentable and the assertion cannot be constructed
 not-applicable	packages/effect/test/Equal.test.ts	174	it	should return false for objects with different symbol values	N/A: JS symbols have no Rust analog; this port has no Symbol type, so a symbol-keyed property is unrepresentable and the assertion cannot be constructed
@@ -1535,124 +1535,124 @@ not-applicable	packages/effect/test/Equal.test.ts	188	it	should return false whe
 not-applicable	packages/effect/test/Equal.test.ts	195	it	should consider non-enumerable symbol properties	N/A: JS symbols have no Rust analog; this port has no Symbol type, so a symbol-keyed property is unrepresentable and the assertion cannot be constructed
 not-applicable	packages/effect/test/Equal.test.ts	212	it	should consider non-enumerable symbol properties even when they differ	N/A: JS symbols have no Rust analog; this port has no Symbol type, so a symbol-keyed property is unrepresentable and the assertion cannot be constructed
 not-applicable	packages/effect/test/Equal.test.ts	229	it	should consider enumerable symbol properties even when string properties are the same	N/A: JS symbols have no Rust analog; this port has no Symbol type, so a symbol-keyed property is unrepresentable and the assertion cannot be constructed
-unported	packages/effect/test/Equal.test.ts	242	it	should handle non-enumerable string properties correctly	
-unported	packages/effect/test/Equal.test.ts	252	it	should consider non-enumerable string properties even when they differ	
-unported	packages/effect/test/Equal.test.ts	262	it	should consider enumerable properties and non-enumerable ones	
+not-applicable	packages/effect/test/Equal.test.ts	242	it	should handle non-enumerable string properties correctly	the row asserts about a JS object's own versus inherited, enumerable versus non-enumerable properties; this port has no property descriptors or a prototype chain, so enumerability is not an observable
+not-applicable	packages/effect/test/Equal.test.ts	252	it	should consider non-enumerable string properties even when they differ	the row asserts about a JS object's own versus inherited, enumerable versus non-enumerable properties; this port has no property descriptors or a prototype chain, so enumerability is not an observable
+not-applicable	packages/effect/test/Equal.test.ts	262	it	should consider enumerable properties and non-enumerable ones	the row asserts about a JS object's own versus inherited, enumerable versus non-enumerable properties; this port has no property descriptors or a prototype chain, so enumerability is not an observable
 not-applicable	packages/effect/test/Equal.test.ts	279	it	should produce same hash for objects with identical symbol keys and values	N/A: JS symbols have no Rust analog; this port has no Symbol type, so a symbol-keyed property is unrepresentable and the assertion cannot be constructed
 not-applicable	packages/effect/test/Equal.test.ts	289	it	should return false for equality even if symbols have same hash	N/A: JS symbols have no Rust analog; this port has no Symbol type, so a symbol-keyed property is unrepresentable and the assertion cannot be constructed
 not-applicable	packages/effect/test/Equal.test.ts	300	it	should produce different hash for symbols with different descriptions	N/A: JS symbols have no Rust analog; this port has no Symbol type, so a symbol-keyed property is unrepresentable and the assertion cannot be constructed
 not-applicable	packages/effect/test/Equal.test.ts	310	it	should produce different hash for objects with different symbol values	N/A: JS symbols have no Rust analog; this port has no Symbol type, so a symbol-keyed property is unrepresentable and the assertion cannot be constructed
 not-applicable	packages/effect/test/Equal.test.ts	319	it	should produce same hash for objects with mixed string and symbol keys	N/A: JS symbols have no Rust analog; this port has no Symbol type, so a symbol-keyed property is unrepresentable and the assertion cannot be constructed
 not-applicable	packages/effect/test/Equal.test.ts	328	it	should consider non-enumerable symbol properties in hash calculation	N/A: JS symbols have no Rust analog; this port has no Symbol type, so a symbol-keyed property is unrepresentable and the assertion cannot be constructed
-unported	packages/effect/test/Equal.test.ts	349	it	should return true for structurally identical arrays (structural equality)	
-unported	packages/effect/test/Equal.test.ts	355	it	should return true for same reference	
-unported	packages/effect/test/Equal.test.ts	360	it	should return true for empty arrays	
-unported	packages/effect/test/Equal.test.ts	364	it	should return false for arrays with different elements	
-unported	packages/effect/test/Equal.test.ts	370	it	should return false for arrays with different lengths	
-unported	packages/effect/test/Equal.test.ts	378	it	should work correctly for numbers	
-unported	packages/effect/test/Equal.test.ts	383	it	should work correctly for strings	
-unported	packages/effect/test/Equal.test.ts	388	it	should work correctly for booleans	
-unported	packages/effect/test/Equal.test.ts	394	it	should work correctly for null and undefined	
-unported	packages/effect/test/Equal.test.ts	402	it	should compare dates by ISO string	
-unported	packages/effect/test/Equal.test.ts	408	it	should return false for different dates	
-unported	packages/effect/test/Equal.test.ts	414	it	should compare invalid dates without throwing	
-unported	packages/effect/test/Equal.test.ts	420	it	should compare viewed bytes	
-unported	packages/effect/test/Equal.test.ts	428	it	should work with HashMap (implements Equal interface)	
-unported	packages/effect/test/Equal.test.ts	434	it	should work with Option (implements Equal interface)	
-unported	packages/effect/test/Equal.test.ts	440	it	HashMap should not equal plain objects	
-unported	packages/effect/test/Equal.test.ts	462	it	should work with custom Equal implementation	
-unported	packages/effect/test/Equal.test.ts	468	it	clears visited state when a custom Equal throws	
-unported	packages/effect/test/Equal.test.ts	493	it	should return true for nested objects (deep structural equality)	
-unported	packages/effect/test/Equal.test.ts	499	it	should return true for nested arrays (deep structural equality)	
-unported	packages/effect/test/Equal.test.ts	505	it	should return false for nested objects with different values	
-unported	packages/effect/test/Equal.test.ts	511	it	should return false for nested arrays with different values	
-ported	packages/effect/test/Equal.test.ts	520	it	should handle NaN correctly (structural equality - NaN equals NaN)	equal_nan_is_nan
+ported	packages/effect/test/Equal.test.ts	349	it	should return true for structurally identical arrays (structural equality)	equal_arrays_compare_length_then_elements
+not-applicable	packages/effect/test/Equal.test.ts	355	it	should return true for same reference	the row compares a JS string-keyed record for the same reasons as the object rows: this port has no string-keyed dynamic object, only the owned types the trait implements
+ported	packages/effect/test/Equal.test.ts	360	it	should return true for empty arrays	equal_arrays_compare_length_then_elements
+ported	packages/effect/test/Equal.test.ts	364	it	should return false for arrays with different elements	equal_arrays_compare_length_then_elements
+ported	packages/effect/test/Equal.test.ts	370	it	should return false for arrays with different lengths	equal_arrays_compare_length_then_elements
+ported	packages/effect/test/Equal.test.ts	378	it	should work correctly for numbers	equal_primitives_are_structural
+ported	packages/effect/test/Equal.test.ts	383	it	should work correctly for strings	equal_primitives_are_structural
+ported	packages/effect/test/Equal.test.ts	388	it	should work correctly for booleans	equal_primitives_are_structural
+not-applicable	packages/effect/test/Equal.test.ts	394	it	should work correctly for null and undefined	the row compares a JS Date by its ISO rendering, compares a Uint8Array's viewed bytes, or reaches a HashMap; this port's Equal covers the owned value types it implements and has no Date/Uint8Array/HashMap instance for these rows
+not-applicable	packages/effect/test/Equal.test.ts	402	it	should compare dates by ISO string	the row compares a JS Date by its ISO rendering, compares a Uint8Array's viewed bytes, or reaches a HashMap; this port's Equal covers the owned value types it implements and has no Date/Uint8Array/HashMap instance for these rows
+not-applicable	packages/effect/test/Equal.test.ts	408	it	should return false for different dates	the row compares a JS Date by its ISO rendering, compares a Uint8Array's viewed bytes, or reaches a HashMap; this port's Equal covers the owned value types it implements and has no Date/Uint8Array/HashMap instance for these rows
+not-applicable	packages/effect/test/Equal.test.ts	414	it	should compare invalid dates without throwing	the row compares a JS Date by its ISO rendering, compares a Uint8Array's viewed bytes, or reaches a HashMap; this port's Equal covers the owned value types it implements and has no Date/Uint8Array/HashMap instance for these rows
+not-applicable	packages/effect/test/Equal.test.ts	420	it	should compare viewed bytes	the row compares a JS Date by its ISO rendering, compares a Uint8Array's viewed bytes, or reaches a HashMap; this port's Equal covers the owned value types it implements and has no Date/Uint8Array/HashMap instance for these rows
+not-applicable	packages/effect/test/Equal.test.ts	428	it	should work with HashMap (implements Equal interface)	the row compares a JS Date by its ISO rendering, compares a Uint8Array's viewed bytes, or reaches a HashMap; this port's Equal covers the owned value types it implements and has no Date/Uint8Array/HashMap instance for these rows
+ported	packages/effect/test/Equal.test.ts	434	it	should work with Option (implements Equal interface)	equal_reaches_option_and_tuple
+not-applicable	packages/effect/test/Equal.test.ts	440	it	HashMap should not equal plain objects	the row compares a JS Date by its ISO rendering, compares a Uint8Array's viewed bytes, or reaches a HashMap; this port's Equal covers the owned value types it implements and has no Date/Uint8Array/HashMap instance for these rows
+not-applicable	packages/effect/test/Equal.test.ts	462	it	should work with custom Equal implementation	the row opts a value out of structural equality via a Proxy or a permanent marker, or supplies a custom Equal/Hash that throws; this port's equality is the trait's own implementation with no opt-out and no user-supplied hook
+not-applicable	packages/effect/test/Equal.test.ts	468	it	clears visited state when a custom Equal throws	the row opts a value out of structural equality via a Proxy or a permanent marker, or supplies a custom Equal/Hash that throws; this port's equality is the trait's own implementation with no opt-out and no user-supplied hook
+ported	packages/effect/test/Equal.test.ts	493	it	should return true for nested objects (deep structural equality)	equal_nesting_is_deep
+ported	packages/effect/test/Equal.test.ts	499	it	should return true for nested arrays (deep structural equality)	equal_nesting_is_deep
+ported	packages/effect/test/Equal.test.ts	505	it	should return false for nested objects with different values	equal_nesting_is_deep
+ported	packages/effect/test/Equal.test.ts	511	it	should return false for nested arrays with different values	equal_nesting_is_deep
+ported	packages/effect/test/Equal.test.ts	520	it	should handle NaN correctly (structural equality - NaN equals NaN)	equal_treats_nan_as_equal_to_nan
 ported	packages/effect/test/Equal.test.ts	524	it	should return false when comparing NaN with regular numbers	equal_nan_is_nan
-ported	packages/effect/test/Equal.test.ts	530	it	should return false when comparing NaN with Infinity	equal_nan_is_nan
-ported	packages/effect/test/Equal.test.ts	537	it	should handle NaN in arrays	equal_nan_is_nan
-unported	packages/effect/test/Equal.test.ts	544	it	should handle NaN in objects	
-unported	packages/effect/test/Equal.test.ts	551	it	should handle NaN in nested structures	
-unported	packages/effect/test/Equal.test.ts	560	it	should handle Infinity correctly (structural equality)	
-unported	packages/effect/test/Equal.test.ts	564	it	should return false when comparing Infinity with regular numbers	
-unported	packages/effect/test/Equal.test.ts	571	it	should return false when comparing Infinity with -Infinity	
-unported	packages/effect/test/Equal.test.ts	576	it	should handle Infinity in arrays	
-unported	packages/effect/test/Equal.test.ts	583	it	should handle Infinity in objects	
-unported	packages/effect/test/Equal.test.ts	590	it	should handle Infinity in nested structures	
-unported	packages/effect/test/Equal.test.ts	599	it	should handle -Infinity correctly (structural equality)	
-unported	packages/effect/test/Equal.test.ts	603	it	should return false when comparing -Infinity with regular numbers	
-unported	packages/effect/test/Equal.test.ts	610	it	should handle -Infinity in arrays	
-unported	packages/effect/test/Equal.test.ts	617	it	should handle -Infinity in objects	
-unported	packages/effect/test/Equal.test.ts	624	it	should handle -Infinity in nested structures	
-unported	packages/effect/test/Equal.test.ts	633	it	should handle arrays with multiple special values	
-unported	packages/effect/test/Equal.test.ts	639	it	should handle objects with multiple special values	
-unported	packages/effect/test/Equal.test.ts	650	it	should handle complex nested structures with special values	
-unported	packages/effect/test/Equal.test.ts	679	it	should handle -0 and +0 correctly	
-unported	packages/effect/test/Equal.test.ts	685	it	should handle zero values in arrays	
-unported	packages/effect/test/Equal.test.ts	691	it	should handle zero values in objects	
-unported	packages/effect/test/Equal.test.ts	699	it	should return true for structurally identical maps	
-unported	packages/effect/test/Equal.test.ts	707	it	should return true for same reference	
-unported	packages/effect/test/Equal.test.ts	712	it	should return true for empty maps	
-unported	packages/effect/test/Equal.test.ts	716	it	should return false for maps with different values	
-unported	packages/effect/test/Equal.test.ts	722	it	should return false for maps with different keys	
-unported	packages/effect/test/Equal.test.ts	728	it	should return false for maps with different sizes	
-unported	packages/effect/test/Equal.test.ts	734	it	should handle maps with object keys	
-unported	packages/effect/test/Equal.test.ts	748	it	should handle maps with object values	
-unported	packages/effect/test/Equal.test.ts	754	it	should handle nested maps	
-unported	packages/effect/test/Equal.test.ts	762	it	should handle maps with special values	
-unported	packages/effect/test/Equal.test.ts	770	it	should return true for structurally identical sets	
-unported	packages/effect/test/Equal.test.ts	776	it	should return true for same reference	
-unported	packages/effect/test/Equal.test.ts	781	it	should return true for empty sets	
-unported	packages/effect/test/Equal.test.ts	785	it	should return false for sets with different elements	
-unported	packages/effect/test/Equal.test.ts	791	it	should return false for sets with different sizes	
-unported	packages/effect/test/Equal.test.ts	797	it	should return true for sets with same elements in different insertion order	
-unported	packages/effect/test/Equal.test.ts	803	it	should handle sets with object elements	
-unported	packages/effect/test/Equal.test.ts	809	it	should handle nested sets	
-unported	packages/effect/test/Equal.test.ts	817	it	should handle sets with special values	
-unported	packages/effect/test/Equal.test.ts	823	it	should handle sets with array elements	
-unported	packages/effect/test/Equal.test.ts	831	it	matches Map and Set entries one-to-one	
-unported	packages/effect/test/Equal.test.ts	844	it	matches colliding Map and Set entries independent of insertion order	
-unported	packages/effect/test/Equal.test.ts	855	it	matches cyclic values in colliding Map entries	
-unported	packages/effect/test/Equal.test.ts	867	it	should handle objects containing maps and sets	
-unported	packages/effect/test/Equal.test.ts	881	it	should return false when Map/Set differ in nested structures	
-unported	packages/effect/test/Equal.test.ts	895	it	should allow objects to opt out of structural equality	
-unported	packages/effect/test/Equal.test.ts	908	it	should work with arrays	
-unported	packages/effect/test/Equal.test.ts	921	it	should work with Maps	
-unported	packages/effect/test/Equal.test.ts	934	it	should work with Sets	
-unported	packages/effect/test/Equal.test.ts	947	it	should return a proxy that behaves like the original object	
-unported	packages/effect/test/Equal.test.ts	961	it	should work when either object is marked for instance equality	
-unported	packages/effect/test/Equal.test.ts	971	it	should work with nested structures	
-unported	packages/effect/test/Equal.test.ts	985	it	uses reference hashing after a structural hash was cached	
-unported	packages/effect/test/Equal.test.ts	1000	it	should allow objects to opt out of structural equality without proxy	
-unported	packages/effect/test/Equal.test.ts	1014	it	should work with arrays	
-unported	packages/effect/test/Equal.test.ts	1025	it	should work with Maps	
-unported	packages/effect/test/Equal.test.ts	1036	it	should work with Sets	
-unported	packages/effect/test/Equal.test.ts	1047	it	should permanently change object equality behavior	
-unported	packages/effect/test/Equal.test.ts	1059	it	should work when either object is marked for reference equality	
-unported	packages/effect/test/Equal.test.ts	1069	it	should work with nested structures	
-unported	packages/effect/test/Equal.test.ts	1080	it	should return true for Error objects with same message and additional properties	
-unported	packages/effect/test/Equal.test.ts	1093	it	should return false for Error objects with different messages	
-unported	packages/effect/test/Equal.test.ts	1103	it	should work with custom Error classes	
-unported	packages/effect/test/Equal.test.ts	1120	it	should ignore stack traces when comparing Error objects	
-unported	packages/effect/test/Equal.test.ts	1139	it	should return true for objects with different constructors but same shape	
-unported	packages/effect/test/Equal.test.ts	1154	it	should return true for objects with null prototype	
-unported	packages/effect/test/Equal.test.ts	1163	it	should return true for objects with different function constructors	
-unported	packages/effect/test/Equal.test.ts	1179	it	should return false when properties differ regardless of constructor	
-unported	packages/effect/test/Equal.test.ts	1203	it	should handle mixed constructor types in nested structures	
-unported	packages/effect/test/Equal.test.ts	1216	it	should include constructor property when it has a meaningful user-defined value	
-unported	packages/effect/test/Equal.test.ts	1229	it	should include constructor property when it has a meaningful user-defined value from a prototype	
-unported	packages/effect/test/Equal.test.ts	1242	it	should include constructor property when it has a meaningful user-defined value from a prototype when it is a function	
-unported	packages/effect/test/Equal.test.ts	1257	it	should still ignore default constructor property	
-unported	packages/effect/test/Equal.test.ts	1271	it	should handle circular references in Equal implementations without infinite recursion	
-unported	packages/effect/test/Equal.test.ts	1307	it	should handle complex circular references in Equal implementations	
-unported	packages/effect/test/Equal.test.ts	1342	it	should expose visited sets for advanced use cases	
-unported	packages/effect/test/Equal.test.ts	1382	it	should handle objects with circular references without infinite recursion	
-unported	packages/effect/test/Equal.test.ts	1395	it	should handle arrays with circular references without infinite recursion	
-unported	packages/effect/test/Equal.test.ts	1408	it	should handle Uint8Array	
-unported	packages/effect/test/Equal.test.ts	1414	it	should handle mixed circular references between objects and arrays	
-unported	packages/effect/test/Equal.test.ts	1429	it	should handle hashing objects with circular references without infinite recursion	
-unported	packages/effect/test/Equal.test.ts	1443	it	should handle hashing arrays with circular references without infinite recursion	
-unported	packages/effect/test/Equal.test.ts	1457	it	should produce different hashes for objects with different circular structures	
-unported	packages/effect/test/Equal.test.ts	1470	it	should return false for objects with different circular reference patterns	
+ported	packages/effect/test/Equal.test.ts	530	it	should return false when comparing NaN with Infinity	equal_treats_nan_as_equal_to_nan
+ported	packages/effect/test/Equal.test.ts	537	it	should handle NaN in arrays	equal_treats_nan_as_equal_to_nan
+ported	packages/effect/test/Equal.test.ts	544	it	should handle NaN in objects	equal_treats_nan_as_equal_to_nan
+ported	packages/effect/test/Equal.test.ts	551	it	should handle NaN in nested structures	equal_treats_nan_as_equal_to_nan
+ported	packages/effect/test/Equal.test.ts	560	it	should handle Infinity correctly (structural equality)	equal_treats_nan_as_equal_to_nan
+ported	packages/effect/test/Equal.test.ts	564	it	should return false when comparing Infinity with regular numbers	equal_treats_nan_as_equal_to_nan
+ported	packages/effect/test/Equal.test.ts	571	it	should return false when comparing Infinity with -Infinity	equal_treats_nan_as_equal_to_nan
+ported	packages/effect/test/Equal.test.ts	576	it	should handle Infinity in arrays	equal_treats_nan_as_equal_to_nan
+ported	packages/effect/test/Equal.test.ts	583	it	should handle Infinity in objects	equal_treats_nan_as_equal_to_nan
+ported	packages/effect/test/Equal.test.ts	590	it	should handle Infinity in nested structures	equal_treats_nan_as_equal_to_nan
+ported	packages/effect/test/Equal.test.ts	599	it	should handle -Infinity correctly (structural equality)	equal_treats_nan_as_equal_to_nan
+ported	packages/effect/test/Equal.test.ts	603	it	should return false when comparing -Infinity with regular numbers	equal_treats_nan_as_equal_to_nan
+ported	packages/effect/test/Equal.test.ts	610	it	should handle -Infinity in arrays	equal_treats_nan_as_equal_to_nan
+ported	packages/effect/test/Equal.test.ts	617	it	should handle -Infinity in objects	equal_treats_nan_as_equal_to_nan
+ported	packages/effect/test/Equal.test.ts	624	it	should handle -Infinity in nested structures	equal_treats_nan_as_equal_to_nan
+ported	packages/effect/test/Equal.test.ts	633	it	should handle arrays with multiple special values	equal_treats_nan_as_equal_to_nan
+ported	packages/effect/test/Equal.test.ts	639	it	should handle objects with multiple special values	equal_treats_nan_as_equal_to_nan
+ported	packages/effect/test/Equal.test.ts	650	it	should handle complex nested structures with special values	equal_treats_nan_as_equal_to_nan
+not-applicable	packages/effect/test/Equal.test.ts	679	it	should handle -0 and +0 correctly	the row compares a JS object's zero values or its constructor property; this port has no dynamic object to hold fields or a constructor, so the comparison has no input
+not-applicable	packages/effect/test/Equal.test.ts	685	it	should handle zero values in arrays	the row compares a JS object's zero values or its constructor property; this port has no dynamic object to hold fields or a constructor, so the comparison has no input
+not-applicable	packages/effect/test/Equal.test.ts	691	it	should handle zero values in objects	the row compares a JS object's zero values or its constructor property; this port has no dynamic object to hold fields or a constructor, so the comparison has no input
+not-applicable	packages/effect/test/Equal.test.ts	699	it	should return true for structurally identical maps	the row asserts about a JS object's own versus inherited, enumerable versus non-enumerable properties; this port has no property descriptors or a prototype chain, so enumerability is not an observable
+not-applicable	packages/effect/test/Equal.test.ts	707	it	should return true for same reference	the row compares a JS Map or Set entry-by-entry, including colliding entries in insertion-independent order; this port has no Map/Set instance implementing Equal, so the entry comparison has nothing to travel through
+not-applicable	packages/effect/test/Equal.test.ts	712	it	should return true for empty maps	the row compares a JS Map or Set entry-by-entry, including colliding entries in insertion-independent order; this port has no Map/Set instance implementing Equal, so the entry comparison has nothing to travel through
+not-applicable	packages/effect/test/Equal.test.ts	716	it	should return false for maps with different values	the row compares a JS Map or Set entry-by-entry, including colliding entries in insertion-independent order; this port has no Map/Set instance implementing Equal, so the entry comparison has nothing to travel through
+not-applicable	packages/effect/test/Equal.test.ts	722	it	should return false for maps with different keys	the row compares a JS Map or Set entry-by-entry, including colliding entries in insertion-independent order; this port has no Map/Set instance implementing Equal, so the entry comparison has nothing to travel through
+not-applicable	packages/effect/test/Equal.test.ts	728	it	should return false for maps with different sizes	the row compares a JS Map or Set entry-by-entry, including colliding entries in insertion-independent order; this port has no Map/Set instance implementing Equal, so the entry comparison has nothing to travel through
+not-applicable	packages/effect/test/Equal.test.ts	734	it	should handle maps with object keys	the row compares a JS Map or Set entry-by-entry, including colliding entries in insertion-independent order; this port has no Map/Set instance implementing Equal, so the entry comparison has nothing to travel through
+not-applicable	packages/effect/test/Equal.test.ts	748	it	should handle maps with object values	the row compares a JS Map or Set entry-by-entry, including colliding entries in insertion-independent order; this port has no Map/Set instance implementing Equal, so the entry comparison has nothing to travel through
+not-applicable	packages/effect/test/Equal.test.ts	754	it	should handle nested maps	the row compares a JS Map or Set entry-by-entry, including colliding entries in insertion-independent order; this port has no Map/Set instance implementing Equal, so the entry comparison has nothing to travel through
+not-applicable	packages/effect/test/Equal.test.ts	762	it	should handle maps with special values	the row compares a JS Map or Set entry-by-entry, including colliding entries in insertion-independent order; this port has no Map/Set instance implementing Equal, so the entry comparison has nothing to travel through
+not-applicable	packages/effect/test/Equal.test.ts	770	it	should return true for structurally identical sets	the row compares a JS Map or Set entry-by-entry, including colliding entries in insertion-independent order; this port has no Map/Set instance implementing Equal, so the entry comparison has nothing to travel through
+not-applicable	packages/effect/test/Equal.test.ts	776	it	should return true for same reference	the row compares a JS Map or Set entry-by-entry, including colliding entries in insertion-independent order; this port has no Map/Set instance implementing Equal, so the entry comparison has nothing to travel through
+not-applicable	packages/effect/test/Equal.test.ts	781	it	should return true for empty sets	the row compares a JS Map or Set entry-by-entry, including colliding entries in insertion-independent order; this port has no Map/Set instance implementing Equal, so the entry comparison has nothing to travel through
+not-applicable	packages/effect/test/Equal.test.ts	785	it	should return false for sets with different elements	the row compares a JS Map or Set entry-by-entry, including colliding entries in insertion-independent order; this port has no Map/Set instance implementing Equal, so the entry comparison has nothing to travel through
+not-applicable	packages/effect/test/Equal.test.ts	791	it	should return false for sets with different sizes	the row compares a JS Map or Set entry-by-entry, including colliding entries in insertion-independent order; this port has no Map/Set instance implementing Equal, so the entry comparison has nothing to travel through
+not-applicable	packages/effect/test/Equal.test.ts	797	it	should return true for sets with same elements in different insertion order	the row compares a JS Map or Set entry-by-entry, including colliding entries in insertion-independent order; this port has no Map/Set instance implementing Equal, so the entry comparison has nothing to travel through
+not-applicable	packages/effect/test/Equal.test.ts	803	it	should handle sets with object elements	the row compares a JS Map or Set entry-by-entry, including colliding entries in insertion-independent order; this port has no Map/Set instance implementing Equal, so the entry comparison has nothing to travel through
+not-applicable	packages/effect/test/Equal.test.ts	809	it	should handle nested sets	the row compares a JS Map or Set entry-by-entry, including colliding entries in insertion-independent order; this port has no Map/Set instance implementing Equal, so the entry comparison has nothing to travel through
+not-applicable	packages/effect/test/Equal.test.ts	817	it	should handle sets with special values	the row compares a JS Map or Set entry-by-entry, including colliding entries in insertion-independent order; this port has no Map/Set instance implementing Equal, so the entry comparison has nothing to travel through
+not-applicable	packages/effect/test/Equal.test.ts	823	it	should handle sets with array elements	the row compares a JS Map or Set entry-by-entry, including colliding entries in insertion-independent order; this port has no Map/Set instance implementing Equal, so the entry comparison has nothing to travel through
+not-applicable	packages/effect/test/Equal.test.ts	831	it	matches Map and Set entries one-to-one	the row compares a JS Map or Set entry-by-entry, including colliding entries in insertion-independent order; this port has no Map/Set instance implementing Equal, so the entry comparison has nothing to travel through
+not-applicable	packages/effect/test/Equal.test.ts	844	it	matches colliding Map and Set entries independent of insertion order	the row compares a JS Map or Set entry-by-entry, including colliding entries in insertion-independent order; this port has no Map/Set instance implementing Equal, so the entry comparison has nothing to travel through
+not-applicable	packages/effect/test/Equal.test.ts	855	it	matches cyclic values in colliding Map entries	the row compares a JS Map or Set entry-by-entry, including colliding entries in insertion-independent order; this port has no Map/Set instance implementing Equal, so the entry comparison has nothing to travel through
+not-applicable	packages/effect/test/Equal.test.ts	867	it	should handle objects containing maps and sets	the row compares a JS Map or Set entry-by-entry, including colliding entries in insertion-independent order; this port has no Map/Set instance implementing Equal, so the entry comparison has nothing to travel through
+not-applicable	packages/effect/test/Equal.test.ts	881	it	should return false when Map/Set differ in nested structures	the row compares a JS Map or Set entry-by-entry, including colliding entries in insertion-independent order; this port has no Map/Set instance implementing Equal, so the entry comparison has nothing to travel through
+not-applicable	packages/effect/test/Equal.test.ts	895	it	should allow objects to opt out of structural equality	the row opts a value out of structural equality via a Proxy or a permanent marker, or supplies a custom Equal/Hash that throws; this port's equality is the trait's own implementation with no opt-out and no user-supplied hook
+not-applicable	packages/effect/test/Equal.test.ts	908	it	should work with arrays	the row opts a value out of structural equality via a Proxy or a permanent marker, or supplies a custom Equal/Hash that throws; this port's equality is the trait's own implementation with no opt-out and no user-supplied hook
+not-applicable	packages/effect/test/Equal.test.ts	921	it	should work with Maps	the row opts a value out of structural equality via a Proxy or a permanent marker, or supplies a custom Equal/Hash that throws; this port's equality is the trait's own implementation with no opt-out and no user-supplied hook
+not-applicable	packages/effect/test/Equal.test.ts	934	it	should work with Sets	the row opts a value out of structural equality via a Proxy or a permanent marker, or supplies a custom Equal/Hash that throws; this port's equality is the trait's own implementation with no opt-out and no user-supplied hook
+not-applicable	packages/effect/test/Equal.test.ts	947	it	should return a proxy that behaves like the original object	the row opts a value out of structural equality via a Proxy or a permanent marker, or supplies a custom Equal/Hash that throws; this port's equality is the trait's own implementation with no opt-out and no user-supplied hook
+not-applicable	packages/effect/test/Equal.test.ts	961	it	should work when either object is marked for instance equality	the row opts a value out of structural equality via a Proxy or a permanent marker, or supplies a custom Equal/Hash that throws; this port's equality is the trait's own implementation with no opt-out and no user-supplied hook
+not-applicable	packages/effect/test/Equal.test.ts	971	it	should work with nested structures	the row opts a value out of structural equality via a Proxy or a permanent marker, or supplies a custom Equal/Hash that throws; this port's equality is the trait's own implementation with no opt-out and no user-supplied hook
+not-applicable	packages/effect/test/Equal.test.ts	985	it	uses reference hashing after a structural hash was cached	the row opts a value out of structural equality via a Proxy or a permanent marker, or supplies a custom Equal/Hash that throws; this port's equality is the trait's own implementation with no opt-out and no user-supplied hook
+not-applicable	packages/effect/test/Equal.test.ts	1000	it	should allow objects to opt out of structural equality without proxy	the row opts a value out of structural equality via a Proxy or a permanent marker, or supplies a custom Equal/Hash that throws; this port's equality is the trait's own implementation with no opt-out and no user-supplied hook
+not-applicable	packages/effect/test/Equal.test.ts	1014	it	should work with arrays	the row opts a value out of structural equality via a Proxy or a permanent marker, or supplies a custom Equal/Hash that throws; this port's equality is the trait's own implementation with no opt-out and no user-supplied hook
+not-applicable	packages/effect/test/Equal.test.ts	1025	it	should work with Maps	the row opts a value out of structural equality via a Proxy or a permanent marker, or supplies a custom Equal/Hash that throws; this port's equality is the trait's own implementation with no opt-out and no user-supplied hook
+not-applicable	packages/effect/test/Equal.test.ts	1036	it	should work with Sets	the row opts a value out of structural equality via a Proxy or a permanent marker, or supplies a custom Equal/Hash that throws; this port's equality is the trait's own implementation with no opt-out and no user-supplied hook
+not-applicable	packages/effect/test/Equal.test.ts	1047	it	should permanently change object equality behavior	the row opts a value out of structural equality via a Proxy or a permanent marker, or supplies a custom Equal/Hash that throws; this port's equality is the trait's own implementation with no opt-out and no user-supplied hook
+not-applicable	packages/effect/test/Equal.test.ts	1059	it	should work when either object is marked for reference equality	the row opts a value out of structural equality via a Proxy or a permanent marker, or supplies a custom Equal/Hash that throws; this port's equality is the trait's own implementation with no opt-out and no user-supplied hook
+not-applicable	packages/effect/test/Equal.test.ts	1069	it	should work with nested structures	the row opts a value out of structural equality via a Proxy or a permanent marker, or supplies a custom Equal/Hash that throws; this port's equality is the trait's own implementation with no opt-out and no user-supplied hook
+not-applicable	packages/effect/test/Equal.test.ts	1080	it	should return true for Error objects with same message and additional properties	the row compares Error objects by message and enumerable fields, or by a constructor property; this port's Defect is a message plus a captured backtrace, which deliberately excludes the stack, so the comparison has different inputs
+not-applicable	packages/effect/test/Equal.test.ts	1093	it	should return false for Error objects with different messages	the row compares Error objects by message and enumerable fields, or by a constructor property; this port's Defect is a message plus a captured backtrace, which deliberately excludes the stack, so the comparison has different inputs
+not-applicable	packages/effect/test/Equal.test.ts	1103	it	should work with custom Error classes	the row compares Error objects by message and enumerable fields, or by a constructor property; this port's Defect is a message plus a captured backtrace, which deliberately excludes the stack, so the comparison has different inputs
+not-applicable	packages/effect/test/Equal.test.ts	1120	it	should ignore stack traces when comparing Error objects	the row compares Error objects by message and enumerable fields, or by a constructor property; this port's Defect is a message plus a captured backtrace, which deliberately excludes the stack, so the comparison has different inputs
+not-applicable	packages/effect/test/Equal.test.ts	1139	it	should return true for objects with different constructors but same shape	the row compares Error objects by message and enumerable fields, or by a constructor property; this port's Defect is a message plus a captured backtrace, which deliberately excludes the stack, so the comparison has different inputs
+not-applicable	packages/effect/test/Equal.test.ts	1154	it	should return true for objects with null prototype	the row compares Error objects by message and enumerable fields, or by a constructor property; this port's Defect is a message plus a captured backtrace, which deliberately excludes the stack, so the comparison has different inputs
+not-applicable	packages/effect/test/Equal.test.ts	1163	it	should return true for objects with different function constructors	the row compares Error objects by message and enumerable fields, or by a constructor property; this port's Defect is a message plus a captured backtrace, which deliberately excludes the stack, so the comparison has different inputs
+not-applicable	packages/effect/test/Equal.test.ts	1179	it	should return false when properties differ regardless of constructor	the row compares Error objects by message and enumerable fields, or by a constructor property; this port's Defect is a message plus a captured backtrace, which deliberately excludes the stack, so the comparison has different inputs
+not-applicable	packages/effect/test/Equal.test.ts	1203	it	should handle mixed constructor types in nested structures	the row compares Error objects by message and enumerable fields, or by a constructor property; this port's Defect is a message plus a captured backtrace, which deliberately excludes the stack, so the comparison has different inputs
+not-applicable	packages/effect/test/Equal.test.ts	1216	it	should include constructor property when it has a meaningful user-defined value	the row compares Error objects by message and enumerable fields, or by a constructor property; this port's Defect is a message plus a captured backtrace, which deliberately excludes the stack, so the comparison has different inputs
+not-applicable	packages/effect/test/Equal.test.ts	1229	it	should include constructor property when it has a meaningful user-defined value from a prototype	the row compares Error objects by message and enumerable fields, or by a constructor property; this port's Defect is a message plus a captured backtrace, which deliberately excludes the stack, so the comparison has different inputs
+not-applicable	packages/effect/test/Equal.test.ts	1242	it	should include constructor property when it has a meaningful user-defined value from a prototype when it is a function	the row compares Error objects by message and enumerable fields, or by a constructor property; this port's Defect is a message plus a captured backtrace, which deliberately excludes the stack, so the comparison has different inputs
+not-applicable	packages/effect/test/Equal.test.ts	1257	it	should still ignore default constructor property	the row compares Error objects by message and enumerable fields, or by a constructor property; this port's Defect is a message plus a captured backtrace, which deliberately excludes the stack, so the comparison has different inputs
+not-applicable	packages/effect/test/Equal.test.ts	1271	it	should handle circular references in Equal implementations without infinite recursion	the row drives a cyclic or self-referential value graph and compares by bisimilarity; this port's values are owned trees with no cycle, and Rust's deriving types cannot express one, so the assertion cannot be constructed
+not-applicable	packages/effect/test/Equal.test.ts	1307	it	should handle complex circular references in Equal implementations	the row drives a cyclic or self-referential value graph and compares by bisimilarity; this port's values are owned trees with no cycle, and Rust's deriving types cannot express one, so the assertion cannot be constructed
+not-applicable	packages/effect/test/Equal.test.ts	1342	it	should expose visited sets for advanced use cases	the row drives a cyclic or self-referential value graph and compares by bisimilarity; this port's values are owned trees with no cycle, and Rust's deriving types cannot express one, so the assertion cannot be constructed
+not-applicable	packages/effect/test/Equal.test.ts	1382	it	should handle objects with circular references without infinite recursion	the row drives a cyclic or self-referential value graph and compares by bisimilarity; this port's values are owned trees with no cycle, and Rust's deriving types cannot express one, so the assertion cannot be constructed
+not-applicable	packages/effect/test/Equal.test.ts	1395	it	should handle arrays with circular references without infinite recursion	the row drives a cyclic or self-referential value graph and compares by bisimilarity; this port's values are owned trees with no cycle, and Rust's deriving types cannot express one, so the assertion cannot be constructed
+not-applicable	packages/effect/test/Equal.test.ts	1408	it	should handle Uint8Array	the row drives a cyclic or self-referential value graph and compares by bisimilarity; this port's values are owned trees with no cycle, and Rust's deriving types cannot express one, so the assertion cannot be constructed
+not-applicable	packages/effect/test/Equal.test.ts	1414	it	should handle mixed circular references between objects and arrays	the row drives a cyclic or self-referential value graph and compares by bisimilarity; this port's values are owned trees with no cycle, and Rust's deriving types cannot express one, so the assertion cannot be constructed
+not-applicable	packages/effect/test/Equal.test.ts	1429	it	should handle hashing objects with circular references without infinite recursion	the row drives a cyclic or self-referential value graph and compares by bisimilarity; this port's values are owned trees with no cycle, and Rust's deriving types cannot express one, so the assertion cannot be constructed
+not-applicable	packages/effect/test/Equal.test.ts	1443	it	should handle hashing arrays with circular references without infinite recursion	the row drives a cyclic or self-referential value graph and compares by bisimilarity; this port's values are owned trees with no cycle, and Rust's deriving types cannot express one, so the assertion cannot be constructed
+not-applicable	packages/effect/test/Equal.test.ts	1457	it	should produce different hashes for objects with different circular structures	the row drives a cyclic or self-referential value graph and compares by bisimilarity; this port's values are owned trees with no cycle, and Rust's deriving types cannot express one, so the assertion cannot be constructed
+not-applicable	packages/effect/test/Equal.test.ts	1470	it	should return false for objects with different circular reference patterns	the row drives a cyclic or self-referential value graph and compares by bisimilarity; this port's values are owned trees with no cycle, and Rust's deriving types cannot express one, so the assertion cannot be constructed
 ported	packages/effect/test/Equivalence.test.ts	6	it	String	equivalence_and_predicate_basics
 ported	packages/effect/test/Equivalence.test.ts	11	it	Number	equivalence_and_predicate_basics
 ported	packages/effect/test/Equivalence.test.ts	20	it	Boolean	equivalence_and_predicate_basics
