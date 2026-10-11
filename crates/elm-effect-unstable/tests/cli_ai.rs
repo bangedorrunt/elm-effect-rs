@@ -2,7 +2,8 @@
 //! contract. Parsing runs on argument vectors, never on the process.
 
 use elm_effect_unstable::ai::{
-    FakeModel, GeneratedText, LanguageModel, ModelError, object_has_keys,
+    AiError, AiReason, FakeModel, GeneratedText, LanguageModel, ModelError, is_ai_error,
+    object_has_keys,
 };
 use elm_effect_unstable::cli::{CliError, demo_app, parse};
 
@@ -1360,4 +1361,20 @@ fn command_routes_unknown_with_suggestions() {
         .expect("routes");
     assert_eq!(routed.path, ["app".to_owned(), "deploy".to_owned()]);
     assert_eq!(routed.rest, ["--dry-run".to_owned()]);
+}
+
+#[test]
+fn is_ai_error_answers_false_for_everything_that_is_not_one() {
+    // AiError.test.ts:630 — a plain Error, the nullish values, and a struct
+    // that only looks tagged are all rejected; only a real wrapper passes.
+    assert!(!is_ai_error(Some(&std::io::Error::other("regular error"))));
+    assert!(!is_ai_error(None));
+    let fake = FakeModel::new();
+    assert!(!is_ai_error(Some(fake.as_ref())), "a language model is not an AiError");
+    // :637 — a reason is not a wrapper either, and the tag agrees.
+    assert!(!is_ai_error(Some(&AiReason::QuotaExhausted)));
+
+    // :621 — the wrapper itself is the one value that passes.
+    let real = AiError::new(AiReason::Unknown).with_context("Test", "test");
+    assert!(is_ai_error(Some(&real)));
 }

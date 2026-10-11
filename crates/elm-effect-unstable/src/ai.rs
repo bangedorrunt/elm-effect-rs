@@ -372,6 +372,20 @@ pub struct AiError {
     pub is_retryable: bool,
 }
 
+/// `AiError.isAiError` over a possibly-absent borrowed value.
+///
+/// The tag guards an arbitrary value, so the port has to answer the same
+/// question about the same inputs. Rust has no untyped value, so the guard
+/// takes a borrowed `Any` and an `Option` slot: `None` is the tag's
+/// `null`/`undefined`, which its guard answers `false` for, and a boxed standard
+/// error or an unrelated struct is `false` because it is not this type. One
+/// call therefore covers every assertion the tag's row makes.
+pub fn is_ai_error(value: Option<&dyn std::any::Any>) -> bool {
+    value
+        .and_then(|value| value.downcast_ref::<AiError>())
+        .is_some()
+}
+
 impl AiError {
     /// Wrapper type identity, mirroring `AiError.TypeId`.
     pub const TYPE_ID: &'static str = "AiError";
