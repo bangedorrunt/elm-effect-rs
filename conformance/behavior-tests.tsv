@@ -2098,9 +2098,9 @@ unported	packages/effect/test/HashMap.test.ts	459	it	mutations are isolated from
 ported	packages/effect/test/HashMap.test.ts	480	it	Equal.equals	hash_map_equal_and_hash_ignore_insertion_order
 ported	packages/effect/test/HashMap.test.ts	489	it	Hash.hash	hash_map_equal_and_hash_ignore_insertion_order
 ported	packages/effect/test/HashMap.test.ts	512	it	should work with Equal objects as keys	hash_map_works_with_equal_objects_as_keys
-unported	packages/effect/test/HashMap.test.ts	543	it	keeps entries addressable when bit 31 is present in indexed leaf insert	
-unported	packages/effect/test/HashMap.test.ts	556	it	keeps entries addressable when mergeLeaves sees bit 31	
-unported	packages/effect/test/HashMap.test.ts	572	it	keeps all inserted entries addressable across random bit-31-heavy shapes	
+ported	packages/effect/test/HashMap.test.ts	543	it	keeps entries addressable when bit 31 is present in indexed leaf insert	hash_map_keeps_entries_addressable_when_bit_31_is_present
+ported	packages/effect/test/HashMap.test.ts	556	it	keeps entries addressable when mergeLeaves sees bit 31	hash_map_keeps_entries_addressable_when_merge_leaves_sees_bit_31
+ported	packages/effect/test/HashMap.test.ts	572	it	keeps all inserted entries addressable across random bit-31-heavy shapes	hash_map_keeps_entries_addressable_across_bit31_heavy_shapes
 not-applicable	packages/effect/test/HashMap.test.ts	606	it	isHashMap	HashMap.isHashMap discriminates untyped inputs - a map, a plain object, null and undefined - at runtime; in Rust a HashMap<K,V> is a distinct type so "is this value a map" is a compile-time fact and no single untyped variable can hold the rows four inputs, so there is no runtime check to port
 ported	packages/effect/test/HashMap.test.ts	618	it	handles many inserts, lookups, and removals	hash_map_handles_many_inserts_lookups_and_removals
 ported	packages/effect/test/HashMap.test.ts	650	it	should handle hash collisions	hash_map_handles_hash_collisions
@@ -8542,49 +8542,49 @@ ported	packages/effect/test/schema/representation/builtInRevivers.test.ts	394	it
 ported	packages/effect/test/schema/representation/builtInRevivers.test.ts	405	it	revives isLessThan	revives_is_less_than
 ported	packages/effect/test/schema/representation/builtInRevivers.test.ts	416	it	revives isLessThanOrEqualTo	revives_is_less_than_or_equal
 ported	packages/effect/test/schema/representation/builtInRevivers.test.ts	427	it	revives isBetween	revives_is_between_numbers
-unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	440	it	normalizes isBetween flags	
-unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	454	it	rejects a non-numeric isMultipleOf payload	
-unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	463	it	rejects a non-canonical isBetween payload	
+not-applicable	packages/effect/test/schema/representation/builtInRevivers.test.ts	440	it	normalizes isBetween flags	the row's only assertion is that isBetween records annotations.representation = {minimum:1, maximum:3, exclusiveMaximum:true}; crates/elm-effect-schema/src has no annotation layer (annotations and representation are 0 hits apart from a doc comment), so there is no slot to record the payload
+not-applicable	packages/effect/test/schema/representation/builtInRevivers.test.ts	454	it	rejects a non-numeric isMultipleOf payload	the row asserts SchemaRepresentation.toJson/fromRepresentation rejects a mutated non-numeric divisor; the Rust schema crate has no representation document (to_representation, from_representation and reviver are all 0 hits in crates/elm-effect-schema/src), so the mutated payload cannot be produced nor rejected
+not-applicable	packages/effect/test/schema/representation/builtInRevivers.test.ts	463	it	rejects a non-canonical isBetween payload	the row asserts SchemaRepresentation.toJson/fromRepresentation rejects a non-canonical exclusiveMinimum=false; the Rust schema crate has no representation document (to_representation, from_representation and reviver are all 0 hits in crates/elm-effect-schema/src), so the mutated payload cannot be produced nor rejected
 ported	packages/effect/test/schema/representation/builtInRevivers.test.ts	476	it	revives isGreaterThanBigInt	revives_greater_than_bigint
 ported	packages/effect/test/schema/representation/builtInRevivers.test.ts	487	it	revives isGreaterThanOrEqualToBigInt	revives_greater_than_or_equal_to_bigint
 ported	packages/effect/test/schema/representation/builtInRevivers.test.ts	498	it	revives isLessThanBigInt	revives_less_than_bigint
 ported	packages/effect/test/schema/representation/builtInRevivers.test.ts	509	it	revives isLessThanOrEqualToBigInt	revives_less_than_or_equal_to_bigint
 ported	packages/effect/test/schema/representation/builtInRevivers.test.ts	520	it	revives isBetweenBigInt	revives_between_bigint
-unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	533	it	persists large bounds as canonical decimal strings	
-unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	541	it	normalizes isBetweenBigInt flags	
+not-applicable	packages/effect/test/schema/representation/builtInRevivers.test.ts	533	it	persists large bounds as canonical decimal strings	the row's only assertion is that a 30-digit bigint bound is recorded as the canonical decimal string in annotations.representation; the Rust schema crate has no annotation layer, so the payload cannot be recorded
+not-applicable	packages/effect/test/schema/representation/builtInRevivers.test.ts	541	it	normalizes isBetweenBigInt flags	the row's only assertion is that isBetweenBigInt records the dropped exclusiveMinimum=false flag in annotations.representation; the Rust schema crate has no annotation layer, so the payload cannot be recorded
 ported	packages/effect/test/schema/representation/builtInRevivers.test.ts	564	it	revives isGreaterThanDate	revives_greater_than_date
 ported	packages/effect/test/schema/representation/builtInRevivers.test.ts	575	it	revives isGreaterThanOrEqualToDate	revives_greater_than_or_equal_to_date
 ported	packages/effect/test/schema/representation/builtInRevivers.test.ts	586	it	revives isLessThanDate	revives_less_than_date
 ported	packages/effect/test/schema/representation/builtInRevivers.test.ts	597	it	revives isLessThanOrEqualToDate	revives_less_than_or_equal_to_date
 ported	packages/effect/test/schema/representation/builtInRevivers.test.ts	608	it	revives isBetweenDate	revives_between_date
-unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	625	it	persists millisecond precision	
-unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	632	it	normalizes isBetweenDate flags	
+not-applicable	packages/effect/test/schema/representation/builtInRevivers.test.ts	625	it	persists millisecond precision	the row's only assertion is that the date bound is recorded to millisecond precision as 1970-01-01T00:00:00.123Z in annotations.representation; the Rust schema crate has no annotation layer, so the payload cannot be recorded
+not-applicable	packages/effect/test/schema/representation/builtInRevivers.test.ts	632	it	normalizes isBetweenDate flags	the row's only assertion is that isBetweenDate records the dropped exclusiveMinimum=false flag in annotations.representation; the Rust schema crate has no annotation layer, so the payload cannot be recorded
 ported	packages/effect/test/schema/representation/builtInRevivers.test.ts	653	it	revives isMinSize	revives_is_min_size
 ported	packages/effect/test/schema/representation/builtInRevivers.test.ts	664	it	revives isMaxSize	revives_is_max_size
 ported	packages/effect/test/schema/representation/builtInRevivers.test.ts	675	it	revives isBetweenSize	revives_is_between_size
 ported	packages/effect/test/schema/representation/builtInRevivers.test.ts	686	it	revives isUnique	revives_is_unique
 ported	packages/effect/test/schema/representation/builtInRevivers.test.ts	697	it	revives isUniqueKey	revives_is_unique_key
-unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	709	it	normalizes isMinSize	
-unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	716	it	normalizes isMaxSize	
-unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	723	it	normalizes isBetweenSize	
+not-applicable	packages/effect/test/schema/representation/builtInRevivers.test.ts	709	it	normalizes isMinSize	the row's only assertion is that isMinSize(-1) records minSize 0 in annotations.representation, the value being clamped not floored; the Rust schema crate has no annotation layer, so the payload cannot be recorded
+not-applicable	packages/effect/test/schema/representation/builtInRevivers.test.ts	716	it	normalizes isMaxSize	the row's only assertion is that isMaxSize(2.9) records maxSize 2 in annotations.representation, the value being floored; the Rust schema crate has no annotation layer, so the payload cannot be recorded
+not-applicable	packages/effect/test/schema/representation/builtInRevivers.test.ts	723	it	normalizes isBetweenSize	the row's only assertion is that isBetweenSize(1.9, 3.7) records minimum 1 and maximum 3 in annotations.representation, both bounds being floored; the Rust schema crate has no annotation layer, so the payload cannot be recorded
 ported	packages/effect/test/schema/representation/builtInRevivers.test.ts	732	it	revives isMinProperties	revives_is_min_properties
 ported	packages/effect/test/schema/representation/builtInRevivers.test.ts	743	it	revives isMaxProperties	revives_is_max_properties
 ported	packages/effect/test/schema/representation/builtInRevivers.test.ts	754	it	revives isBetweenProperties	revives_is_between_properties
 ported	packages/effect/test/schema/representation/builtInRevivers.test.ts	765	it	revives isPropertyNames	revives_property_names
-unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	779	it	persists the encoded key schema for isPropertyNames	
-unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	790	it	normalizes isMinProperties	
-unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	797	it	normalizes isMaxProperties	
-unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	804	it	normalizes isBetweenProperties	
-unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	813	it	revives Option	
-unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	822	it	revives Result	
-unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	831	it	revives Redacted	
-unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	840	it	revives CauseReason	
-unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	849	it	revives Cause	
-unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	858	it	revives Error	
-unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	867	it	revives Exit	
-unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	876	it	revives ReadonlyMap	
-unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	885	it	revives HashMap	
-unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	894	it	revives Graph	
+not-applicable	packages/effect/test/schema/representation/builtInRevivers.test.ts	779	it	persists the encoded key schema for isPropertyNames	the row's only assertion is that isPropertyNames records the key schema in annotations.representation.schemas; the Rust schema crate has no annotation layer, so the encoded key schema cannot be persisted
+not-applicable	packages/effect/test/schema/representation/builtInRevivers.test.ts	790	it	normalizes isMinProperties	the row's only assertion is that isMinProperties(-1) records minProperties 0 in annotations.representation, the value being clamped not floored; the Rust schema crate has no annotation layer, so the payload cannot be recorded
+not-applicable	packages/effect/test/schema/representation/builtInRevivers.test.ts	797	it	normalizes isMaxProperties	the row's only assertion is that isMaxProperties(2.9) records maxProperties 2 in annotations.representation, the value being floored; the Rust schema crate has no annotation layer, so the payload cannot be recorded
+not-applicable	packages/effect/test/schema/representation/builtInRevivers.test.ts	804	it	normalizes isBetweenProperties	the row's only assertion is that isBetweenProperties(1.9, 3.7) records minimum 1 and maximum 3 in annotations.representation, both bounds being floored; the Rust schema crate has no annotation layer, so the payload cannot be recorded
+not-applicable	packages/effect/test/schema/representation/builtInRevivers.test.ts	813	it	revives Option	Schema.Option does not exist on the Rust schema surface, and assertDeclarationReviver needs the representation document plus a reviver registry that crates/elm-effect-schema/src does not have
+not-applicable	packages/effect/test/schema/representation/builtInRevivers.test.ts	822	it	revives Result	Schema.Result does not exist on the Rust schema surface, and assertDeclarationReviver needs the representation document plus a reviver registry that crates/elm-effect-schema/src does not have
+not-applicable	packages/effect/test/schema/representation/builtInRevivers.test.ts	831	it	revives Redacted	Schema.Redacted does not exist on the Rust schema surface, and assertDeclarationReviver needs the representation document plus a reviver registry that crates/elm-effect-schema/src does not have
+not-applicable	packages/effect/test/schema/representation/builtInRevivers.test.ts	840	it	revives CauseReason	Schema.CauseReason does not exist on the Rust schema surface, and assertDeclarationReviver needs the representation document plus a reviver registry that crates/elm-effect-schema/src does not have
+not-applicable	packages/effect/test/schema/representation/builtInRevivers.test.ts	849	it	revives Cause	Schema.Cause does not exist on the Rust schema surface, and assertDeclarationReviver needs the representation document plus a reviver registry that crates/elm-effect-schema/src does not have
+not-applicable	packages/effect/test/schema/representation/builtInRevivers.test.ts	858	it	revives Error	Schema.ErrorInstance does not exist on the Rust schema surface, and assertDeclarationReviver needs the representation document plus a reviver registry that crates/elm-effect-schema/src does not have
+not-applicable	packages/effect/test/schema/representation/builtInRevivers.test.ts	867	it	revives Exit	Schema.Exit does not exist on the Rust schema surface, and assertDeclarationReviver needs the representation document plus a reviver registry that crates/elm-effect-schema/src does not have
+not-applicable	packages/effect/test/schema/representation/builtInRevivers.test.ts	876	it	revives ReadonlyMap	Schema.ReadonlyMap does not exist on the Rust schema surface, and assertDeclarationReviver needs the representation document plus a reviver registry that crates/elm-effect-schema/src does not have
+not-applicable	packages/effect/test/schema/representation/builtInRevivers.test.ts	885	it	revives HashMap	Schema.HashMap does not exist on the Rust schema surface, and assertDeclarationReviver needs the representation document plus a reviver registry that crates/elm-effect-schema/src does not have
+not-applicable	packages/effect/test/schema/representation/builtInRevivers.test.ts	894	it	revives Graph	Schema.Graph does not exist on the Rust schema surface, and assertDeclarationReviver needs the representation document plus a reviver registry that crates/elm-effect-schema/src does not have
 unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	903	it	revives ReadonlySet	
 unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	912	it	revives HashSet	
 unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	921	it	revives Chunk	
@@ -8605,12 +8605,12 @@ unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	1047
 unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	1056	it	revives DateTimeZoned	
 unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	1065	it	revives Json	
 unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	1074	it	revives MutableJson	
-unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	1083	it	persists Error includeStack	
-unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	1090	it	persists Error excludeCause	
-unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	1097	it	omits disabled Error options	
-unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	1104	it	persists a Redacted label	
-unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	1111	it	persists Redacted disallowJsonEncode	
-unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	1118	it	omits disabled Redacted options	
+not-applicable	packages/effect/test/schema/representation/builtInRevivers.test.ts	1083	it	persists Error includeStack	assertDeclarationReviver round-trips Schema.ErrorInstance's options through toRepresentation/toJson/fromRepresentation, then reads annotations.representation and toCode; the Rust schema crate has no representation document, no reviver registry and no annotation slot
+not-applicable	packages/effect/test/schema/representation/builtInRevivers.test.ts	1090	it	persists Error excludeCause	assertDeclarationReviver round-trips Schema.ErrorInstance's excludeCause option through the representation document; the Rust schema crate has no representation document, no reviver registry and no annotation slot
+not-applicable	packages/effect/test/schema/representation/builtInRevivers.test.ts	1097	it	omits disabled Error options	assertDeclarationReviver round-trips Schema.ErrorInstance with both options disabled, asserting the payload is null; the Rust schema crate has no representation document, no reviver registry and no annotation slot
+not-applicable	packages/effect/test/schema/representation/builtInRevivers.test.ts	1104	it	persists a Redacted label	assertDeclarationReviver round-trips Schema.Redacted's label option through the representation document; the Rust schema crate has no representation document, no reviver registry and no annotation slot
+not-applicable	packages/effect/test/schema/representation/builtInRevivers.test.ts	1111	it	persists Redacted disallowJsonEncode	assertDeclarationReviver round-trips Schema.Redacted's disallowJsonEncode option through the representation document; the Rust schema crate has no representation document, no reviver registry and no annotation slot
+not-applicable	packages/effect/test/schema/representation/builtInRevivers.test.ts	1118	it	omits disabled Redacted options	assertDeclarationReviver round-trips Schema.Redacted with label undefined and disallowJsonEncode false, asserting the payload is null; the Rust schema crate has no representation document, no reviver registry and no annotation slot
 ported	packages/effect/test/schema/representation/fromJson.test.ts	6	it	decodes a document	json_decodes_each_wire_type
 ported	packages/effect/test/schema/representation/fromJson.test.ts	19	it	decodes Null	json_decodes_each_wire_type
 unported	packages/effect/test/schema/representation/fromJson.test.ts	24	it	decodes Undefined	

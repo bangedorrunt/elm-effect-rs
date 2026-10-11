@@ -365,6 +365,160 @@ fn hash_map_works_with_equal_objects_as_keys() {
 }
 
 #[test]
+fn hash_map_keeps_entries_addressable_when_bit_31_is_present() {
+    // HashMap.test.ts :543. Keys whose Hash all write the same fixed value
+    // force the map's collision path. The pin uses hashes 31 and 30, which
+    // exercise the bit-31 branch of its indexed-leaf insert; Rust's std map
+    // has no such branch, but the observable these rows assert is the one
+    // that matters: entries at the same hash stay distinct and addressable.
+    //
+    // This is the row that would catch a map keyed on the hash rather than on
+    // (hash, Eq), which is the same invariant the :650 collision row asserts
+    // through a single constant hash.
+    #[derive(Clone, Debug)]
+    struct FixedHashKey {
+        id: &'static str,
+        hash: u32,
+    }
+    impl PartialEq for FixedHashKey {
+        fn eq(&self, other: &Self) -> bool {
+            self.id == other.id && self.hash == other.hash
+        }
+    }
+    impl Eq for FixedHashKey {}
+    impl std::hash::Hash for FixedHashKey {
+        fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+            self.hash.hash(state);
+        }
+    }
+
+    let bit31 = FixedHashKey {
+        id: "bit31",
+        hash: 31,
+    };
+    let bit30 = FixedHashKey {
+        id: "bit30",
+        hash: 30,
+    };
+    let mut m: HashMap<FixedHashKey, &str> = HashMap::empty();
+    m = m.set(bit31.clone(), "session1");
+    m = m.set(bit30.clone(), "session2");
+
+    assert_eq!(m.size(), 2, "distinct keys must stay distinct entries");
+    assert_eq!(m.get(&bit31), Some(&"session1"));
+    assert_eq!(m.get(&bit30), Some(&"session2"));
+}
+
+#[test]
+fn hash_map_keeps_entries_addressable_when_merge_leaves_sees_bit_31() {
+    // HashMap.test.ts :556. Two keys collide on the SAME fixed hash (31) and a
+    // third sits at a different one (30). Both colliding entries and the
+    // distinct one must all remain addressable, which is the case where a map
+    // that deduplicated on hash alone would silently drop one of them.
+    #[derive(Clone, Debug)]
+    struct FixedHashKey {
+        id: &'static str,
+        hash: u32,
+    }
+    impl PartialEq for FixedHashKey {
+        fn eq(&self, other: &Self) -> bool {
+            self.id == other.id && self.hash == other.hash
+        }
+    }
+    impl Eq for FixedHashKey {}
+    impl std::hash::Hash for FixedHashKey {
+        fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+            self.hash.hash(state);
+        }
+    }
+
+    let collision_a = FixedHashKey {
+        id: "collisionA",
+        hash: 31,
+    };
+    let collision_b = FixedHashKey {
+        id: "collisionB",
+        hash: 31,
+    };
+    let bit30 = FixedHashKey {
+        id: "bit30",
+        hash: 30,
+    };
+    let mut m: HashMap<FixedHashKey, &str> = HashMap::empty();
+    m = m.set(collision_a.clone(), "a");
+    m = m.set(collision_b.clone(), "b");
+    m = m.set(bit30.clone(), "c");
+
+    assert_eq!(m.size(), 3);
+    assert_eq!(m.get(&collision_a), Some(&"a"));
+    assert_eq!(m.get(&collision_b), Some(&"b"));
+    assert_eq!(m.get(&bit30), Some(&"c"));
+}
+
+#[test]
+fn hash_map_keeps_entries_addressable_across_bit31_heavy_shapes() {
+    // HashMap.test.ts :572, the property form over random bit-31-heavy shapes.
+    //
+    // The pin runs 200 fast-check cases, each an array of hashes in 0..=31
+    // prefixed with [31, 31, 30], with unique ids, inserting every entry and
+    // asserting each one is still addressable. The property is reproduced
+    // deterministically with a small LCG so the shapes are varied and
+    // reproducible without a property-testing dependency: the invariant is
+    // that NO shape loses an entry, not that one particular shape works.
+    #[derive(Clone, Debug)]
+    struct FixedHashKey {
+        id: String,
+        hash: u32,
+    }
+    impl PartialEq for FixedHashKey {
+        fn eq(&self, other: &Self) -> bool {
+            self.id == other.id
+        }
+    }
+    impl Eq for FixedHashKey {}
+    impl std::hash::Hash for FixedHashKey {
+        fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+            self.hash.hash(state);
+        }
+    }
+
+    // A small deterministic generator: same sequence every run, so a failure
+    // is reproducible rather than dependent on the test harness's RNG.
+    let mut seed: u64 = 0x2545_f491_4f6c_dd1d;
+    let mut next = move || {
+        seed ^= seed << 13;
+        seed ^= seed >> 7;
+        seed ^= seed << 17;
+        seed
+    };
+    for run in 0..200u32 {
+        // 0..=80 hashes, matching the pin's minLength/maxLength.
+        let count = (next() % 81) as usize;
+        let mut hashes: Vec<u32> = vec![31, 31, 30];
+        for _ in 0..count {
+            hashes.push((next() % 32) as u32);
+        }
+        let mut m: HashMap<FixedHashKey, String> = HashMap::empty();
+        let mut inserted: Vec<(FixedHashKey, String)> = Vec::with_capacity(hashes.len());
+        for (i, hash) in hashes.iter().enumerate() {
+            let id = format!("{run}-{i}");
+            let key = FixedHashKey {
+                id: id.clone(),
+                hash: *hash,
+            };
+            let value = format!("value-{id}");
+            m = m.set(key.clone(), value.clone());
+            inserted.push((key, value));
+        }
+        assert_eq!(m.size(), inserted.len(), "run {run} lost an entry");
+        for (key, value) in &inserted {
+            assert!(m.has(key), "run {run} lost {:?}", key.id);
+            assert_eq!(m.get(key), Some(value), "run {run} changed {:?}", key.id);
+        }
+    }
+}
+
+#[test]
 fn hash_map_transforms_and_predicates() {
     let m = HashMap::make([("a".to_owned(), 1), ("b".to_owned(), 2)]);
     assert_eq!(m.map(|v| v * 10).get(&"a".to_owned()), Some(&10));
