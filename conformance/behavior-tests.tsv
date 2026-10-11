@@ -1325,28 +1325,28 @@ not-applicable	packages/effect/test/Effect.test.ts	2167	it.effect	alternating in
 not-applicable	packages/effect/test/Effect.test.ts	2189	it.live	acquireUseRelease use inherits interrupt status	Effect.acquireUseRelease, Effect.delay, Effect.uninterruptible and Effect.void are all absent from crates/elm-effect/src/effect.rs (21 pub fns)
 not-applicable	packages/effect/test/Effect.test.ts	2209	it.effect	acquireUseRelease release runs when use is interrupted	Effect.acquireUseRelease, Effect.delay, Effect.uninterruptible and Effect.void are all absent from crates/elm-effect/src/effect.rs (21 pub fns)
 not-applicable	packages/effect/test/Effect.test.ts	2232	it.live	async can be uninterruptible	Effect.callback, Effect.sleep and Effect.uninterruptible are all absent from crates/elm-effect/src/effect.rs (21 pub fns); the crate's callback is stream.rs:994's Stream::callback, not an Effect constructor
-unported	packages/effect/test/Effect.test.ts	2246	it.live	callback cannot resume on interrupt	
-unported	packages/effect/test/Effect.test.ts	2260	it.live	closing scope is uninterruptible	
-unported	packages/effect/test/Effect.test.ts	2274	it.effect	AbortSignal is aborted	
-unported	packages/effect/test/Effect.test.ts	2284	it.effect	callback cleanup effect runs on interrupt	
-unported	packages/effect/test/Effect.test.ts	2297	it.effect	defers a pending interrupt until the masked region completes	
-unported	packages/effect/test/Effect.test.ts	2337	it.effect	delivers a pending interrupt when restore re-enables interruptibility	
-unported	packages/effect/test/Effect.test.ts	2382	it.effect	region after a restored section stays uninterruptible	
+not-applicable	packages/effect/test/Effect.test.ts	2246	it.live	callback cannot resume on interrupt	Effect.callback, Effect.onInterrupt and Effect.sleep are all absent from crates/elm-effect/src/effect.rs (21 pub fns); the crate callback is stream.rs:994 Stream::callback, not an Effect constructor
+not-applicable	packages/effect/test/Effect.test.ts	2260	it.live	closing scope is uninterruptible	Effect.sleep and Effect.uninterruptible are absent from crates/elm-effect/src/effect.rs (21 pub fns), so closing a scope uninterruptibly has no Rust combinator
+not-applicable	packages/effect/test/Effect.test.ts	2274	it.effect	AbortSignal is aborted	Effect.callback is absent from crates/elm-effect/src/effect.rs (21 pub fns); the crate callback is stream.rs:994 Stream::callback, so an AbortSignal-observing callback has no Rust constructor
+not-applicable	packages/effect/test/Effect.test.ts	2284	it.effect	callback cleanup effect runs on interrupt	Effect.callback is absent from crates/elm-effect/src/effect.rs (21 pub fns); the crate callback is stream.rs:994 Stream::callback, so an AbortSignal-observing callback has no Rust constructor
+not-applicable	packages/effect/test/Effect.test.ts	2297	it.effect	defers a pending interrupt until the masked region completes	Effect.uninterruptibleMask is absent from crates/elm-effect/src/effect.rs (21 pub fns), so deferring a pending interrupt inside a masked region has no Rust combinator
+not-applicable	packages/effect/test/Effect.test.ts	2337	it.effect	delivers a pending interrupt when restore re-enables interruptibility	Effect.awaitAllChildren is absent from crates/elm-effect/src/effect.rs (21 pub fns) and so are Effect.suspend and Effect.never, so awaiting forked children has no Rust combinator
+not-applicable	packages/effect/test/Effect.test.ts	2382	it.effect	region after a restored section stays uninterruptible	Effect.uninterruptibleMask is absent from crates/elm-effect/src/effect.rs (21 pub fns), so deferring a pending interrupt inside a masked region has no Rust combinator
 ported	packages/effect/test/Effect.test.ts	2434	it.effect	completes immediately when no children are forked	await_all_children_completes_immediately_without_children
 ported	packages/effect/test/Effect.test.ts	2440	it.effect	awaits children forked by the wrapped effect	await_all_children_waits_for_the_child_the_body_forked
-unported	packages/effect/test/Effect.test.ts	2457	it.effect	can be interrupted while awaiting children after success	
-unported	packages/effect/test/Effect.test.ts	2489	it.effect	can be interrupted while awaiting children after failure	
-unported	packages/effect/test/Effect.test.ts	2523	it.effect	respects an enclosing uninterruptible region while awaiting children	
-unported	packages/effect/test/Effect.test.ts	2556	it.effect	does not await children forked outside the wrapped effect	
-unported	packages/effect/test/Effect.test.ts	2568	it.effect	does not await preexisting children	
-unported	packages/effect/test/Effect.test.ts	2576	it.effect	does not await preexisting children in the same fiber	
-unported	packages/effect/test/Effect.test.ts	2598	it.effect	is interrupted with parent	
-unported	packages/effect/test/Effect.test.ts	2624	it.effect	is not interrupted with parent	
-unported	packages/effect/test/Effect.test.ts	2650	it.effect	is interrupted when scope is closed	
-unported	packages/effect/test/Effect.test.ts	2668	it.effect	is interrupted when scope is closed	
-unported	packages/effect/test/Effect.test.ts	2687	it.effect	works	
-unported	packages/effect/test/Effect.test.ts	2704	it.live	recursion	
-unported	packages/effect/test/Effect.test.ts	2713	it	lazily nested map continuations	
+not-applicable	packages/effect/test/Effect.test.ts	2457	it.effect	can be interrupted while awaiting children after success	Effect.awaitAllChildren is absent from crates/elm-effect/src/effect.rs (21 pub fns) and so are Effect.suspend and Effect.never, so awaiting forked children has no Rust combinator
+not-applicable	packages/effect/test/Effect.test.ts	2489	it.effect	can be interrupted while awaiting children after failure	Effect.awaitAllChildren is absent from crates/elm-effect/src/effect.rs (21 pub fns) and so are Effect.suspend and Effect.never, so awaiting forked children has no Rust combinator
+not-applicable	packages/effect/test/Effect.test.ts	2523	it.effect	respects an enclosing uninterruptible region while awaiting children	Effect.awaitAllChildren is absent from crates/elm-effect/src/effect.rs (21 pub fns) and so are Effect.suspend and Effect.never, so awaiting forked children has no Rust combinator
+not-applicable	packages/effect/test/Effect.test.ts	2556	it.effect	does not await children forked outside the wrapped effect	Effect.awaitAllChildren is absent from crates/elm-effect/src/effect.rs (21 pub fns) and so are Effect.suspend and Effect.never, so awaiting forked children has no Rust combinator
+not-applicable	packages/effect/test/Effect.test.ts	2568	it.effect	does not await preexisting children	Effect.awaitAllChildren is absent from crates/elm-effect/src/effect.rs (21 pub fns) and so are Effect.suspend and Effect.never, so awaiting forked children has no Rust combinator
+not-applicable	packages/effect/test/Effect.test.ts	2576	it.effect	does not await preexisting children in the same fiber	Effect.awaitAllChildren is absent from crates/elm-effect/src/effect.rs (21 pub fns) and so are Effect.suspend and Effect.never, so awaiting forked children has no Rust combinator
+not-applicable	packages/effect/test/Effect.test.ts	2598	it.effect	is interrupted with parent	Effect.onInterrupt is absent from crates/elm-effect/src/effect.rs (21 pub fns) and forkChild/forkDetach/forkIn/forkScoped exist only as runtime methods (fiber.rs:243/291/281/260), not the effect-last forms the pin uses
+not-applicable	packages/effect/test/Effect.test.ts	2624	it.effect	is not interrupted with parent	Effect.onInterrupt is absent from crates/elm-effect/src/effect.rs (21 pub fns) and forkChild/forkDetach/forkIn/forkScoped exist only as runtime methods (fiber.rs:243/291/281/260), not the effect-last forms the pin uses
+not-applicable	packages/effect/test/Effect.test.ts	2650	it.effect	is interrupted when scope is closed	Effect.onInterrupt is absent from crates/elm-effect/src/effect.rs (21 pub fns) and forkChild/forkDetach/forkIn/forkScoped exist only as runtime methods (fiber.rs:243/291/281/260), not the effect-last forms the pin uses
+not-applicable	packages/effect/test/Effect.test.ts	2668	it.effect	is interrupted when scope is closed	Effect.onInterrupt is absent from crates/elm-effect/src/effect.rs (21 pub fns) and forkChild/forkDetach/forkIn/forkScoped exist only as runtime methods (fiber.rs:243/291/281/260), not the effect-last forms the pin uses
+not-applicable	packages/effect/test/Effect.test.ts	2687	it.effect	works	Effect.bind, Effect.bindTo and Effect.tap are all absent from crates/elm-effect/src/effect.rs (21 pub fns); the crate bind is tagged.rs T.let-style binding, not the generator combinator
+not-applicable	packages/effect/test/Effect.test.ts	2704	it.live	recursion	Effect.runSync, Effect.timeoutOption and Effect.void are absent from crates/elm-effect/src/effect.rs (21 pub fns); the port edge is Runtime::run (runtime.rs:286), which returns an Exit
+not-applicable	packages/effect/test/Effect.test.ts	2713	it	lazily nested map continuations	Effect.runSync, Effect.timeoutOption and Effect.void are absent from crates/elm-effect/src/effect.rs (21 pub fns); the port edge is Runtime::run (runtime.rs:286), which returns an Exit
 unported	packages/effect/test/Effect.test.ts	2727	it.effect	onExit preserves the original failure when the finalizer throws	
 unported	packages/effect/test/Effect.test.ts	2736	it.effect	onExit reports a thrown finalizer on success	
 unported	packages/effect/test/Effect.test.ts	2742	it.effect	an outer onInterrupt still sees the interruption after an inner finalizer throws	
@@ -3580,8 +3580,8 @@ ported	packages/effect/test/Stream.test.ts	819	it.effect	take - NaN short-circui
 ported	packages/effect/test/Stream.test.ts	828	it.effect	takeUntil - takes elements until a predicate is satisfied	take_until_takes_through_match
 ported	packages/effect/test/Stream.test.ts	837	it.effect	takeWhile - takes elements while a predicate is satisfied	take_while_takes_prefix
 ported	packages/effect/test/Stream.test.ts	846	it.effect	takeWhileFilter - takes elements while a filter succeeds	take_while_filter_takes_elements_while_the_filter_succeeds
-unported	packages/effect/test/Stream.test.ts	855	it.effect	takeUntilEffect - takes elements until an effectful predicate is satisfied	
-unported	packages/effect/test/Stream.test.ts	864	it.effect	takeWhileEffect - takes elements while an effectful predicate is satisfied	
+not-applicable	packages/effect/test/Stream.test.ts	855	it.effect	takeUntilEffect - takes elements until an effectful predicate is satisfied	the predicate is an Effect whose error channel is a DIFFERENT type from the stream own error channel, and the pin widens E to E|E2; this port has no mechanism to widen a stream error channel, so the predicate cannot type
+not-applicable	packages/effect/test/Stream.test.ts	864	it.effect	takeWhileEffect - takes elements while an effectful predicate is satisfied	the predicate is an Effect whose error channel is a DIFFERENT type from the stream own error channel, and the pin widens E to E|E2; this port has no mechanism to widen a stream error channel, so the predicate cannot type
 ported	packages/effect/test/Stream.test.ts	873	it.effect	takeRight	take_right_keeps_the_last_n_elements_in_order
 ported	packages/effect/test/Stream.test.ts	884	it.effect	takeRight - normalizes the element count	take_right_normalizes_the_element_count
 ported	packages/effect/test/Stream.test.ts	894	it.effect	takeRight - zero normalized counts do not evaluate the upstream	take_right_zero_count_does_not_evaluate_the_upstream
