@@ -28,11 +28,74 @@ fn map_filter_transform_lazily() {
 #[test]
 fn take_terminates_infinite_input() {
     // Never materializes the unbounded input: only five pulls run.
-    let stream: Stream<u32, String, ()> = from_iter(0u32.., 4).take(5);
+    let stream: Stream<u32, String, ()> = from_iter(0u32.., 4).take(5.0);
     let exit = stream.run_collect();
     assert!(matches!(exit, Exit::Success(ref v) if *v == vec![0u32, 1, 2, 3, 4]));
-    let empty_take: Exit<Vec<u32>, String> = from_iter(1u32..=3, 2).take(0).run_collect();
+    let empty_take: Exit<Vec<u32>, String> = from_iter(1u32..=3, 2).take(0.0).run_collect();
     assert!(matches!(empty_take, Exit::Success(ref v) if v.is_empty()));
+}
+
+// ---------------------------------------------------------------------------
+// `take` with a fractional, NaN, or short-circuiting count
+// (Stream.test.ts 781, 810, 819 — describe "take")
+// ---------------------------------------------------------------------------
+
+#[test]
+fn take_rounds_positive_fractional_counts_down() {
+    // Stream.make(1, 2, 3).pipe(Stream.take(0.5), ...) === []
+    // Stream.make(1, 2, 3).pipe(Stream.take(1.9), ...) === [1]
+    // Stream.make(1, 2, 3).pipe(Stream.take(2.9), ...) === [1, 2]
+    // The pin floors, it does not round, so 1.9 takes one element.
+    let source = || from_iter(vec![1i64, 2, 3].into_iter(), 3);
+    let half: Exit<Vec<i64>, Infallible> = source().take(0.5).run_collect();
+    assert!(matches!(half, Exit::Success(ref v) if v.is_empty()));
+    let one: Exit<Vec<i64>, Infallible> = source().take(1.9).run_collect();
+    assert!(matches!(one, Exit::Success(ref v) if *v == vec![1i64]));
+    let two: Exit<Vec<i64>, Infallible> = source().take(2.9).run_collect();
+    assert!(matches!(two, Exit::Success(ref v) if *v == vec![1i64, 2]));
+}
+
+#[test]
+fn take_treats_nan_as_a_non_positive_count() {
+    // Stream.take(NaN) normalizes to 0, so nothing is collected. The pin's
+    // Count.normalize maps NaN to 0 for an element count, the same rule a
+    // chunk size uses.
+    let stream: Stream<i64, String, ()> = from_iter(vec![1i64, 2, 3].into_iter(), 3).take(f64::NAN);
+    assert!(matches!(stream.run_collect(), Exit::Success(ref v) if v.is_empty()));
+}
+
+#[test]
+fn take_nan_short_circuits_stream_evaluation() {
+    // Stream.never.pipe(Stream.take(NaN), Stream.runCollect) === [], and the
+    // unbounded upstream must never be pulled: NaN normalizes to 0, which is
+    // the same short-circuit the integer zero already asserts. A counting
+    // `map` observes whether the upstream was ever evaluated.
+    let pulled = Arc::new(AtomicUsize::new(0));
+    let seen = Arc::clone(&pulled);
+    let stream: Stream<u32, String, ()> = from_iter(0u32.., 4)
+        .map(move |n| {
+            seen.fetch_add(1, Ordering::SeqCst);
+            n
+        })
+        .take(f64::NAN);
+    assert!(matches!(stream.run_collect(), Exit::Success(ref v) if v.is_empty()));
+    assert_eq!(pulled.load(Ordering::SeqCst), 0, "a zero normalized count must not evaluate the upstream");
+}
+
+// ---------------------------------------------------------------------------
+// takeWhileFilter / takeUntilEffect / takeWhileEffect
+// (Stream.test.ts 846, 855, 864)
+// ---------------------------------------------------------------------------
+
+#[test]
+fn take_while_filter_takes_elements_while_the_filter_succeeds() {
+    // Stream.range(1, 5).pipe(Stream.takeWhileFilter(n =>
+    //   n < 3 ? Result.succeed(n + 10) : Result.failVoid), Stream.runCollect)
+    // === [11, 12]. A filter success is emitted, a failure ends the stream and
+    // drops the failing element.
+    let stream: Stream<i64, Infallible, ()> = Stream::range(1, 5, 4096.0)
+        .take_while_filter(|n| (*n < 3).then(|| *n + 10));
+    assert!(matches!(stream.run_collect(), Exit::Success(ref v) if *v == vec![11i64, 12]));
 }
 
 #[test]
@@ -249,7 +312,7 @@ fn take_pulls_the_first_n_values() {
     // Stream.range(1, 5).pipe(Stream.take(3), Stream.runCollect) === [1, 2, 3]
     // `range` has no typed failure (E = Infallible); the annotation below
     // matches that, which is why this is not Stream<i64, String, ()>.
-    let stream: Stream<i64, Infallible, ()> = Stream::range(1, 5, 4096.0).take(3);
+    let stream: Stream<i64, Infallible, ()> = Stream::range(1, 5, 4096.0).take(3.0);
     assert!(matches!(stream.run_collect(), Exit::Success(ref v) if *v == vec![1i64, 2, 3]));
 }
 

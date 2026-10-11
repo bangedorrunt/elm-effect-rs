@@ -20,7 +20,7 @@ fn range_min_less_than_max() {
 fn range_zero_chunk_size() {
     // Stream.range(1, 3, 0).pipe(Stream.take(4), Stream.runCollect) === [1, 2, 3]
     // A zero chunk size normalizes to 1, so the range is unchanged.
-    let s: Stream<i64, Infallible, ()> = Stream::range(1, 3, 0.0).take(4);
+    let s: Stream<i64, Infallible, ()> = Stream::range(1, 3, 0.0).take(4.0);
     assert!(matches!(s.run_collect(), Exit::Success(v) if v == vec![1, 2, 3]));
 }
 

@@ -137,11 +137,21 @@ impl<A: Send + 'static, E: Send + 'static, R: crate::effect::Requirement> Stream
     }
 
     /// Take at most `n` elements, then end.
-    pub fn take(self, n: u64) -> Self {
+    ///
+    /// `n` normalizes like the pin's `Count.normalize`, whose empty is 0:
+    /// `NaN` and non-positive counts become 0, a positive count floors. The
+    /// pin's count is a `number`, so `take(0.5)` takes nothing and `take(1.9)`
+    /// takes one, exactly as `take_right` already normalizes.
+    ///
+    /// A zero normalized count ends the stream without pulling the upstream,
+    /// which is the short-circuit the pin asserts for both the integer zero
+    /// and `NaN`.
+    pub fn take(self, n: f64) -> Self {
         use std::sync::atomic::{AtomicU64, Ordering};
+        let count = normalize(n) as u64;
         let (pull, remaining, exec) = (
             self.pull,
-            Arc::new(AtomicU64::new(n)),
+            Arc::new(AtomicU64::new(count)),
             Arc::clone(&self.exec),
         );
         Self::derive(exec, move || {
@@ -280,6 +290,24 @@ impl<A: Send + 'static, E: Send + 'static, R: crate::effect::Requirement> Stream
         let (p, d) = (Arc::clone(&pull), Arc::clone(&done));
         Self::derive(exec, move || {
             take_until_pump(Arc::clone(&p), Arc::clone(&f), Arc::clone(&d))
+        })
+    }
+
+    /// `Stream.takeWhileFilter` at the pin: keep the prefix the filter accepts,
+    /// mapping each accepted element through the filter. A filter failure ends
+    /// the stream and drops the failing element, which is the pin's
+    /// `Result.failVoid` arm.
+    pub fn take_while_filter<B, F>(self, f: F) -> Stream<B, E, R>
+    where
+        B: Send + 'static,
+        F: Fn(&A) -> Option<B> + Send + Sync + 'static,
+    {
+        let f: Arc<dyn Fn(&A) -> Option<B> + Send + Sync> = Arc::new(f);
+        let (pull, done) = (self.pull, Arc::new(AtomicBool::new(false)));
+        let exec = Arc::clone(&self.exec);
+        let (p, d) = (Arc::clone(&pull), Arc::clone(&done));
+        Self::derive(exec, move || {
+            take_while_filter_pump(Arc::clone(&p), Arc::clone(&f), Arc::clone(&d))
         })
     }
 
@@ -537,6 +565,51 @@ fn push_line(
 
 /// `takeWhile`'s pull step: pull once, keep the prefix that satisfies `f`,
 /// stop at the first miss. `done` is shared so a later factory call ends.
+fn take_while_filter_pump<A, B, E, R>(
+    pull: Pull<A, E, R>,
+    f: Arc<dyn Fn(&A) -> Option<B> + Send + Sync>,
+    done: Arc<AtomicBool>,
+) -> Effect<Option<Vec<B>>, E, R>
+where
+    A: Send + 'static,
+    B: Send + 'static,
+    E: Send + 'static,
+    R: crate::effect::Requirement,
+{
+    if done.load(Ordering::SeqCst) {
+        return Effect::succeed(None);
+    }
+    call(&pull).flat_map(move |chunk| {
+        match chunk {
+            None => Effect::succeed(None),
+            Some(items) => {
+                let mut out: Vec<B> = Vec::new();
+                let mut stop = false;
+                for a in items {
+                    match f(&a) {
+                        Some(b) => out.push(b),
+                        None => {
+                            stop = true;
+                            break;
+                        }
+                    }
+                }
+                if stop {
+                    done.store(true, Ordering::SeqCst);
+                }
+                if out.is_empty() && stop {
+                    Effect::succeed(None)
+                } else {
+                    // An empty `out` without a filter failure is the pin's
+                    // `pump` loop: ask upstream for more. Matches
+                    // `take_while`'s convention for an accepted-but-empty chunk.
+                    Effect::succeed(Some(out))
+                }
+            }
+        }
+    })
+}
+
 fn take_while_pump<A, E, R>(
     pull: Pull<A, E, R>,
     f: Arc<dyn Fn(&A) -> bool + Send + Sync>,
