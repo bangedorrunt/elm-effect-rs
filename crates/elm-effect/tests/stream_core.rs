@@ -602,6 +602,76 @@ fn stream_callback_defect_is_a_defect_not_a_typed_failure() {
     );
 }
 
+#[test]
+fn split_lines_matches_a_joined_lines_iterator() {
+    // Stream.test.ts :689 (it.effect.prop). The pin asserts that splitting a
+    // stream of chunks equals `String.linesIterator` of the joined text, for
+    // arbitrary chunk boundaries over the alphabet [ab\n\r].
+    //
+    // The property is that chunk boundaries never change the lines. This port
+    // splits on \n, \r and \r\n, which is the pin's linesSeparated, so the two
+    // agree by construction and this test is the witness for that agreement.
+    // Reproduced deterministically with an LCG over the four-character
+    // alphabet so a failure is reproducible rather than harness-RNG-dependent.
+    let mut seed: u64 = 0x9e37_79b9_7f4a_7c15;
+    let mut next = move || {
+        seed ^= seed << 13;
+        seed ^= seed >> 7;
+        seed ^= seed << 17;
+        seed
+    };
+    const ALPHABET: [char; 4] = ['a', 'b', '\n', '\r'];
+
+    for run in 0..200u32 {
+        // Up to 8 chunks, each up to 8 characters, matching the pin's maxLength.
+        let chunk_count = (next() % 9) as usize;
+        let chunks: Vec<String> = (0..chunk_count)
+            .map(|_| {
+                let len = (next() % 9) as usize;
+                (0..len)
+                    .map(|_| ALPHABET[(next() % 4) as usize])
+                    .collect()
+            })
+            .collect();
+
+        let joined: String = chunks.concat();
+        let expected = expected_lines(&joined);
+
+        let stream: Stream<String, String, ()> = from_iter(chunks.into_iter(), 4).split_lines();
+        match stream.run_collect() {
+            Exit::Success(v) => assert_eq!(v, expected, "run {run}, input {joined:?}"),
+            Exit::Failure(_) => panic!("run {run} must not fail"),
+        }
+    }
+}
+
+/// The lines of `joined` under the pin's `linesSeparated` rules: `\n`, `\r`,
+/// and `\r\n` each terminate a line, and a final unterminated segment is
+/// emitted while a trailing terminator produces no extra empty line.
+fn expected_lines(joined: &str) -> Vec<String> {
+    let mut out = Vec::new();
+    let mut current = String::new();
+    let mut chars = joined.chars().peekable();
+    while let Some(ch) = chars.next() {
+        match ch {
+            '\n' => {
+                out.push(std::mem::take(&mut current));
+            }
+            '\r' => {
+                if chars.peek() == Some(&'\n') {
+                    chars.next();
+                }
+                out.push(std::mem::take(&mut current));
+            }
+            other => current.push(other),
+        }
+    }
+    if !current.is_empty() {
+        out.push(current);
+    }
+    out
+}
+
 // ---------------------------------------------------------------------------
 // mkArrayBuffer concatenates Uint8Array chunks (Stream.test.ts 155)
 // ---------------------------------------------------------------------------
