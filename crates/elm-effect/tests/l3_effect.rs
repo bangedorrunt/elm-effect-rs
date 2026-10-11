@@ -4,7 +4,7 @@
 //! constructor and combinator is covered: if any of them ran work eagerly,
 //! its counter would be non-zero after the drop.
 
-use elm_effect::Effect;
+use elm_effect::{Effect, Exit, Runtime};
 use std::convert::Infallible;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -54,4 +54,24 @@ fn combinator_descriptions_drop_runs_nothing() {
 fn or_die_type_is_infallible() {
     let narrowed: Effect<i32, Infallible> = Effect::fail("e".to_string()).or_die();
     drop(narrowed);
+}
+
+/// Effect.test.ts :3706 "first argument as success" —
+/// `Effect.catch(Effect.succeed(1), () => Effect.fail("e2"))` yields 1, so a
+/// `catch` over an already-succeeding effect never runs its handler and the
+/// success value passes through unchanged. The pin's two-argument form maps to
+/// this port's `catch`, whose handler is the second argument.
+#[test]
+fn catch_first_argument_as_success() {
+    let effect = Effect::<i32, String>::succeed(1).catch(|_e| Effect::fail("e2".to_string()));
+    assert_eq!(Runtime::run(effect), Exit::Success(1));
+}
+
+/// Effect.test.ts :3763 "first argument as success" — the same claim for
+/// `catchCause`: the handler never fires over a success, so the value passes
+/// through and the typed error channel stays empty.
+#[test]
+fn catch_cause_first_argument_as_success() {
+    let effect = Effect::<i32, String>::succeed(1).catch_cause(|_cause| Effect::fail("e2".to_string()));
+    assert_eq!(Runtime::run(effect), Exit::Success(1));
 }

@@ -1419,12 +1419,12 @@ unported	packages/effect/test/Effect.test.ts	3662	it.effect	filter match receive
 unported	packages/effect/test/Effect.test.ts	3677	it.effect	predicate filters iterable	
 unported	packages/effect/test/Effect.test.ts	3685	it.effect	refinement narrows iterable	
 unported	packages/effect/test/Effect.test.ts	3693	it.effect	Filter.Filter overload maps pass values	
-unported	packages/effect/test/Effect.test.ts	3706	it.effect	first argument as success	
+ported	packages/effect/test/Effect.test.ts	3706	it.effect	first argument as success	catch_first_argument_as_success
 unported	packages/effect/test/Effect.test.ts	3711	it.effect	first argument as failure	
 unported	packages/effect/test/Effect.test.ts	3719	it.effect	returns the first success and does not run later effects	
 unported	packages/effect/test/Effect.test.ts	3738	it.effect	fails with the last failure when all effects fail	
 unported	packages/effect/test/Effect.test.ts	3749	it.effect	defects on an empty collection	
-unported	packages/effect/test/Effect.test.ts	3763	it.effect	first argument as success	
+ported	packages/effect/test/Effect.test.ts	3763	it.effect	first argument as success	catch_cause_first_argument_as_success
 unported	packages/effect/test/Effect.test.ts	3768	it.effect	first argument as failure	
 unported	packages/effect/test/Effect.test.ts	3779	it.effect	should create transaction boundaries when no transaction is active	
 unported	packages/effect/test/Effect.test.ts	3795	it.effect	should allow TxRef.modify outside an existing transaction	
