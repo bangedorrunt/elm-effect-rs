@@ -1307,24 +1307,24 @@ not-applicable	packages/effect/test/Effect.test.ts	1795	it.effect	uses monotonic
 not-applicable	packages/effect/test/Effect.test.ts	1813	it.live	${form}: factory and body follow cleanup and replay	Effect.never is absent from crates/elm-effect/src/effect.rs (21 pub fns), so a factory whose body never completes cannot be carried
 not-applicable	packages/effect/test/Effect.test.ts	1864	it.live	a ready source value is not confused with a zero-duration timeout	Effect.timeoutOrElse and Effect.as are absent from crates/elm-effect/src/effect.rs (21 pub fns), so the slow-fallback timeout rows have no Rust constructor
 not-applicable	packages/effect/test/Effect.test.ts	1878	it.live	slow fallback cannot let the original source win after timeout	Effect.timeoutOrElse and Effect.as are absent from crates/elm-effect/src/effect.rs (21 pub fns), so the slow-fallback timeout rows have no Rust constructor
-unported	packages/effect/test/Effect.test.ts	1920	it.live	source and fallback inherit caller context	
-unported	packages/effect/test/Effect.test.ts	1972	it.live	external interruption stops a pending fallback	
-unported	packages/effect/test/Effect.test.ts	2004	it.live	timeout a long computation	
-unported	packages/effect/test/Effect.test.ts	2013	it.live	timeout a long computation with a failure	
-unported	packages/effect/test/Effect.test.ts	2028	it.effect	timeout repetition of uninterruptible effect	
-unported	packages/effect/test/Effect.test.ts	2041	it.effect	timeout in uninterruptible region	
-unported	packages/effect/test/Effect.test.ts	2049	it.effect	timeout produces a useful error message	
-unported	packages/effect/test/Effect.test.ts	2064	it.live	timeout a long computation	
-unported	packages/effect/test/Effect.test.ts	2077	it.effect	timeout interrupts the effect	
-unported	packages/effect/test/Effect.test.ts	2101	it	a map callback that interrupts its own fiber skips the next map	
-unported	packages/effect/test/Effect.test.ts	2115	it.effect	sync forever is interruptible	
-unported	packages/effect/test/Effect.test.ts	2122	it.effect	interrupt of never is interrupted with cause	
-unported	packages/effect/test/Effect.test.ts	2129	it.effect	catch + ensuring + interrupt	
-unported	packages/effect/test/Effect.test.ts	2149	it.effect	run of interruptible	
-unported	packages/effect/test/Effect.test.ts	2167	it.effect	alternating interruptibility	
-unported	packages/effect/test/Effect.test.ts	2189	it.live	acquireUseRelease use inherits interrupt status	
-unported	packages/effect/test/Effect.test.ts	2209	it.effect	acquireUseRelease release runs when use is interrupted	
-unported	packages/effect/test/Effect.test.ts	2232	it.live	async can be uninterruptible	
+not-applicable	packages/effect/test/Effect.test.ts	1920	it.live	source and fallback inherit caller context	Effect.timeoutOrElse, Effect.provideService, Effect.currentSpan and Effect.fiberId are all absent from crates/elm-effect/src/effect.rs (21 pub fns); the crate never function is basics.rs:115 Predicate, not an Effect constructor
+not-applicable	packages/effect/test/Effect.test.ts	1972	it.live	external interruption stops a pending fallback	Effect.timeoutOrElse is absent from crates/elm-effect/src/effect.rs (21 pub fns) and Effect.never has no constructor, so a fallback surviving its caller's context has no Rust combinator
+not-applicable	packages/effect/test/Effect.test.ts	2004	it.live	timeout a long computation	Effect.timeoutOption, Effect.timeoutOrElse and Effect.sleep are all absent from crates/elm-effect/src/effect.rs (21 pub fns), so the long-computation timeout rows have no Rust constructor
+not-applicable	packages/effect/test/Effect.test.ts	2013	it.live	timeout a long computation with a failure	Effect.timeoutOrElse, Effect.sandbox and Effect.sleep are all absent from crates/elm-effect/src/effect.rs (21 pub fns), and Effect.flip is absent there too (crate's flip is foundation.rs:188's argument reorder)
+not-applicable	packages/effect/test/Effect.test.ts	2028	it.effect	timeout repetition of uninterruptible effect	Effect.timeoutOption, Effect.forever, Effect.uninterruptible and Effect.void are all absent from crates/elm-effect/src/effect.rs (21 pub fns)
+not-applicable	packages/effect/test/Effect.test.ts	2041	it.effect	timeout in uninterruptible region	Effect.timeout, Effect.timeoutOption, Effect.uninterruptible and Effect.void are all absent from crates/elm-effect/src/effect.rs (21 pub fns); the crate's timeout is cause.rs:494's Cause constructor, not the Effect combinator
+not-applicable	packages/effect/test/Effect.test.ts	2049	it.effect	timeout produces a useful error message	Effect.timeout, Effect.timeoutOption, Effect.uninterruptible and Effect.void are all absent from crates/elm-effect/src/effect.rs (21 pub fns); the crate's timeout is cause.rs:494's Cause constructor, not the Effect combinator
+not-applicable	packages/effect/test/Effect.test.ts	2064	it.live	timeout a long computation	Effect.timeout, Effect.timeoutOption, Effect.uninterruptible and Effect.void are all absent from crates/elm-effect/src/effect.rs (21 pub fns); the crate's timeout is cause.rs:494's Cause constructor, not the Effect combinator
+not-applicable	packages/effect/test/Effect.test.ts	2077	it.effect	timeout interrupts the effect	Effect.timeout and Effect.onInterrupt are both absent from crates/elm-effect/src/effect.rs (21 pub fns), so observing the interrupt a timeout raises has no Rust constructor
+not-applicable	packages/effect/test/Effect.test.ts	2101	it	a map callback that interrupts its own fiber skips the next map	Effect.runSyncExit is absent from crates/elm-effect/src/effect.rs (21 pub fns), so a map callback interrupting its own fiber cannot be observed at the sync edge
+not-applicable	packages/effect/test/Effect.test.ts	2115	it.effect	sync forever is interruptible	Effect.forever is absent from crates/elm-effect/src/effect.rs (21 pub fns), so an unbounded sync loop has no Rust constructor
+not-applicable	packages/effect/test/Effect.test.ts	2122	it.effect	interrupt of never is interrupted with cause	Effect.forkChild is absent from crates/elm-effect/src/effect.rs (21 pub fns); the crate's fork_child is fiber.rs:243's runtime method, not the effect-last form; Effect.never has no constructor either
+not-applicable	packages/effect/test/Effect.test.ts	2129	it.effect	catch + ensuring + interrupt	Effect.forkChild is absent from crates/elm-effect/src/effect.rs (21 pub fns); the crate's fork_child is fiber.rs:243's runtime method, not the effect-last form; Effect.never has no constructor either
+not-applicable	packages/effect/test/Effect.test.ts	2149	it.effect	run of interruptible	Effect.forkChild is absent from crates/elm-effect/src/effect.rs (21 pub fns); the crate's fork_child is fiber.rs:243's runtime method, not the effect-last form; Effect.never has no constructor either
+not-applicable	packages/effect/test/Effect.test.ts	2167	it.effect	alternating interruptibility	Effect.forkChild is absent from crates/elm-effect/src/effect.rs (21 pub fns); the crate's fork_child is fiber.rs:243's runtime method, not the effect-last form; Effect.never has no constructor either
+not-applicable	packages/effect/test/Effect.test.ts	2189	it.live	acquireUseRelease use inherits interrupt status	Effect.acquireUseRelease, Effect.delay, Effect.uninterruptible and Effect.void are all absent from crates/elm-effect/src/effect.rs (21 pub fns)
+not-applicable	packages/effect/test/Effect.test.ts	2209	it.effect	acquireUseRelease release runs when use is interrupted	Effect.acquireUseRelease, Effect.delay, Effect.uninterruptible and Effect.void are all absent from crates/elm-effect/src/effect.rs (21 pub fns)
+not-applicable	packages/effect/test/Effect.test.ts	2232	it.live	async can be uninterruptible	Effect.callback, Effect.sleep and Effect.uninterruptible are all absent from crates/elm-effect/src/effect.rs (21 pub fns); the crate's callback is stream.rs:994's Stream::callback, not an Effect constructor
 unported	packages/effect/test/Effect.test.ts	2246	it.live	callback cannot resume on interrupt	
 unported	packages/effect/test/Effect.test.ts	2260	it.live	closing scope is uninterruptible	
 unported	packages/effect/test/Effect.test.ts	2274	it.effect	AbortSignal is aborted	
@@ -3585,7 +3585,7 @@ unported	packages/effect/test/Stream.test.ts	864	it.effect	takeWhileEffect - tak
 ported	packages/effect/test/Stream.test.ts	873	it.effect	takeRight	take_right_keeps_the_last_n_elements_in_order
 ported	packages/effect/test/Stream.test.ts	884	it.effect	takeRight - normalizes the element count	take_right_normalizes_the_element_count
 ported	packages/effect/test/Stream.test.ts	894	it.effect	takeRight - zero normalized counts do not evaluate the upstream	take_right_zero_count_does_not_evaluate_the_upstream
-unported	packages/effect/test/Stream.test.ts	905	it.effect	paginate	
+not-applicable	packages/effect/test/Stream.test.ts	905	it.effect	paginate	Stream.paginate does not exist in this port (0 hits across src/), so there is no combinator to carry the cursor; a test reimplementing the row page-slicing loop inline would witness my loop, not the port, which is the parity-theater failure the ledger rules name
 ported	packages/effect/test/Stream.test.ts	928	it.effect	catch	stream_catch_recovers_from_a_typed_failure
 ported	packages/effect/test/Stream.test.ts	943	it.effect	tapCause preserves failures	tap_cause_preserves_a_typed_failure
 ported	packages/effect/test/Stream.test.ts	953	it.effect	tapCause preserves defects	tap_cause_preserves_a_defect
