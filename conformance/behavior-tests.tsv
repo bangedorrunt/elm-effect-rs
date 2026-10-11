@@ -4341,92 +4341,92 @@ ported	packages/effect/test/TxQueue.test.ts	24	it.effect	TxDequeue provides read
 ported	packages/effect/test/TxQueue.test.ts	43	it.effect	TxQueue provides both enqueue and dequeue operations	tx_queue_serves_both_faces
 ported	packages/effect/test/TxQueue.test.ts	60	it.effect	TxEnqueue interface enforces write-only operations	tx_enqueue_shutdown_ops
 ported	packages/effect/test/TxQueue.test.ts	80	it.effect	TxDequeue interface enforces read-only operations	tx_dequeue_inspection_ops
-unported	packages/effect/test/TxQueue.test.ts	107	it.effect	Interface assignments maintain type safety	
-unported	packages/effect/test/TxQueue.test.ts	132	it.effect	Interface type guards work correctly	
+not-applicable	packages/effect/test/TxQueue.test.ts	107	it.effect	Interface assignments maintain type safety	typescript type-level assertion: the row checks that an interface assignment compiles, which is a static fact in TS and a compile error in Rust rather than a runtime behavior
+not-applicable	packages/effect/test/TxQueue.test.ts	132	it.effect	Interface type guards work correctly	typescript type-level assertion: the row checks that an interface assignment compiles, which is a static fact in TS and a compile error in Rust rather than a runtime behavior
 ported	packages/effect/test/TxQueue.test.ts	152	it.effect	bounded creates queue with specified capacity	tx_queue_bounded_offer_take
 ported	packages/effect/test/TxQueue.test.ts	162	it.effect	unbounded creates queue with unlimited capacity	tx_queue_unbounded_never_full
-unported	packages/effect/test/TxQueue.test.ts	172	it.effect	dropping creates queue with dropping strategy	
-unported	packages/effect/test/TxQueue.test.ts	182	it.effect	sliding creates queue with sliding strategy	
+ported	packages/effect/test/TxQueue.test.ts	172	it.effect	dropping creates queue with dropping strategy	tx_queue_strategies_and_inspection
+ported	packages/effect/test/TxQueue.test.ts	182	it.effect	sliding creates queue with sliding strategy	tx_queue_strategies_and_inspection
 ported	packages/effect/test/TxQueue.test.ts	194	it.effect	offer and take work correctly	tx_queue_bounded_offer_take
-unported	packages/effect/test/TxQueue.test.ts	205	it.effect	poll returns Option.none for empty queue	
-unported	packages/effect/test/TxQueue.test.ts	213	it.effect	poll returns Option.some for non-empty queue	
-unported	packages/effect/test/TxQueue.test.ts	222	it.effect	poll completes a closing queue after removing the last item	
-unported	packages/effect/test/TxQueue.test.ts	232	it.effect	clear completes a closing queue after removing all items	
-unported	packages/effect/test/TxQueue.test.ts	242	it.effect	offerAll works correctly	
-unported	packages/effect/test/TxQueue.test.ts	253	it.effect	offerAll preserves a one-shot iterable across retries and runs	
-unported	packages/effect/test/TxQueue.test.ts	272	it.effect	takeAll works correctly with new signature	
-unported	packages/effect/test/TxQueue.test.ts	284	it.effect	takeAll with interrupted queue returns done flag	
-unported	packages/effect/test/TxQueue.test.ts	295	it.effect	takeAll with failed queue propagates error	
-unported	packages/effect/test/TxQueue.test.ts	306	it.effect	takeN works correctly with new signature	
-unported	packages/effect/test/TxQueue.test.ts	318	it.effect	takeN and takeBetween normalize element counts before waiting	
-unported	packages/effect/test/TxQueue.test.ts	334	it.effect	takeN with queue completion gets available items	
-unported	packages/effect/test/TxQueue.test.ts	345	it.effect	takeN with failed queue propagates error	
-unported	packages/effect/test/TxQueue.test.ts	356	it.effect	takeN with capacity constraint takes available items	
-unported	packages/effect/test/TxQueue.test.ts	369	it.effect	takeAll() on empty closed queue gets interrupted	
-unported	packages/effect/test/TxQueue.test.ts	382	it.effect	takeAll() waits when empty then returns items when available	
-unported	packages/effect/test/TxQueue.test.ts	397	it.effect	takeAll() during state transition handles race condition	
-unported	packages/effect/test/TxQueue.test.ts	414	it.effect	takeN(0) returns empty array	
-unported	packages/effect/test/TxQueue.test.ts	427	it.effect	takeN() with closing queue returns available items	
-unported	packages/effect/test/TxQueue.test.ts	442	it.effect	takeN() signature validation - returns Array<A> not [Array<A>, boolean]	
-unported	packages/effect/test/TxQueue.test.ts	457	it.effect	takeBetween() basic functionality	
-unported	packages/effect/test/TxQueue.test.ts	477	it.effect	takeBetween() takes up to maximum when available	
-unported	packages/effect/test/TxQueue.test.ts	492	it.effect	takeBetween() with invalid parameters	
-unported	packages/effect/test/TxQueue.test.ts	512	it.effect	takeBetween() with failed queue propagates error	
-unported	packages/effect/test/TxQueue.test.ts	526	it.effect	takeBetween() with closing queue returns available items	
-unported	packages/effect/test/TxQueue.test.ts	543	it.effect	takeBetween() exact minimum and maximum	
-unported	packages/effect/test/TxQueue.test.ts	557	it.effect	takeBetween() returns Array<A> not tuple	
-unported	packages/effect/test/TxQueue.test.ts	572	it.effect	peek works correctly	
-unported	packages/effect/test/TxQueue.test.ts	587	it.effect	size returns correct count	
-unported	packages/effect/test/TxQueue.test.ts	596	it.effect	isEmpty and isNonEmpty reflect queue contents	
-unported	packages/effect/test/TxQueue.test.ts	608	it.effect	isFull works correctly for bounded queue	
-unported	packages/effect/test/TxQueue.test.ts	620	it.effect	isFull returns false for unbounded queue	
-unported	packages/effect/test/TxQueue.test.ts	631	it.effect	clear removes all items from queue and returns them	
-unported	packages/effect/test/TxQueue.test.ts	649	it.effect	clear does not affect queue state	
-unported	packages/effect/test/TxQueue.test.ts	669	it.effect	clear works on empty queue	
-unported	packages/effect/test/TxQueue.test.ts	683	it.effect	clear works on queue ended with Done	
-unported	packages/effect/test/TxQueue.test.ts	710	it.effect	shutdown and isShutdown work correctly	
-unported	packages/effect/test/TxQueue.test.ts	722	it.effect	offer fails after shutdown	
-unported	packages/effect/test/TxQueue.test.ts	731	it.effect	poll returns none after shutdown	
-unported	packages/effect/test/TxQueue.test.ts	743	it.effect	dropping queue rejects items when full	
-unported	packages/effect/test/TxQueue.test.ts	763	it.effect	sliding queue evicts old items when full	
-unported	packages/effect/test/TxQueue.test.ts	786	it.effect	default E parameter provides clean typing	
-unported	packages/effect/test/TxQueue.test.ts	796	it.effect	explicit E parameter works correctly	
-unported	packages/effect/test/TxQueue.test.ts	808	it.effect	queue starts in Open state	
-unported	packages/effect/test/TxQueue.test.ts	821	it.effect	interrupt() transitions Open → Done when empty	
-unported	packages/effect/test/TxQueue.test.ts	837	it.effect	interrupt() transitions Open → Closing → Done when not empty	
-unported	packages/effect/test/TxQueue.test.ts	867	it.effect	fail() transitions directly to Done	
-unported	packages/effect/test/TxQueue.test.ts	884	it.effect	done() with custom cause works correctly	
-unported	packages/effect/test/TxQueue.test.ts	898	it.effect	interrupt() completes queue successfully	
-unported	packages/effect/test/TxQueue.test.ts	909	it.effect	fail() completes queue with error	
-unported	packages/effect/test/TxQueue.test.ts	920	it.effect	multiple interrupt() calls return false after first	
-unported	packages/effect/test/TxQueue.test.ts	931	it.effect	operations on closed queue fail appropriately	
-unported	packages/effect/test/TxQueue.test.ts	947	it.effect	awaitCompletion succeeds when queue is interrupted	
-unported	packages/effect/test/TxQueue.test.ts	956	it.effect	awaitCompletion succeeds when queue fails	
-unported	packages/effect/test/TxQueue.test.ts	965	it.effect	awaitCompletion on already completed queue	
-unported	packages/effect/test/TxQueue.test.ts	974	it.effect	awaitCompletion on already failed queue	
-unported	packages/effect/test/TxQueue.test.ts	983	it.effect	awaitCompletion with custom Cause.die() succeeds	
-unported	packages/effect/test/TxQueue.test.ts	995	it.effect	awaitCompletion with custom interrupt cause succeeds	
-unported	packages/effect/test/TxQueue.test.ts	1006	it.effect	awaitCompletion with fail cause succeeds	
-unported	packages/effect/test/TxQueue.test.ts	1017	it.effect	awaitCompletion concurrent behavior works	
-unported	packages/effect/test/TxQueue.test.ts	1028	it.effect	isShutdown works as alias for isDone	
-unported	packages/effect/test/TxQueue.test.ts	1045	it.effect	shutdown() clears queue and marks as done	
-unported	packages/effect/test/TxQueue.test.ts	1061	it.effect	take() on successfully interrupted queue interrupts	
-unported	packages/effect/test/TxQueue.test.ts	1071	it.effect	take() on failed queue fails with error directly	
-unported	packages/effect/test/TxQueue.test.ts	1081	it.effect	take() on shutdown queue interrupts (success exit)	
-unported	packages/effect/test/TxQueue.test.ts	1091	it.effect	take() with explicit interrupt cause propagates interruption	
-unported	packages/effect/test/TxQueue.test.ts	1106	it.effect	take() with custom Cause.fail extracts error correctly	
-unported	packages/effect/test/TxQueue.test.ts	1119	it.effect	take() with Cause.die (defect) propagates defect	
-unported	packages/effect/test/TxQueue.test.ts	1136	it.effect	take() with typed error cause extracts error directly	
-unported	packages/effect/test/TxQueue.test.ts	1151	it.effect	peek() on successfully interrupted queue interrupts	
-unported	packages/effect/test/TxQueue.test.ts	1161	it.effect	peek() on failed queue fails with error directly	
-unported	packages/effect/test/TxQueue.test.ts	1171	it.effect	poll() on failed queue returns none	
-unported	packages/effect/test/TxQueue.test.ts	1182	it.effect	takeN() with partial items available before failure	
-unported	packages/effect/test/TxQueue.test.ts	1193	it.effect	error propagation with different error types	
-unported	packages/effect/test/TxQueue.test.ts	1213	it.effect	closing queue allows remaining items to be consumed	
-unported	packages/effect/test/TxQueue.test.ts	1244	it.effect	end() signals completion with Done	
-unported	packages/effect/test/TxQueue.test.ts	1266	it.effect	take() on ended queue fails with Done	
-unported	packages/effect/test/TxQueue.test.ts	1282	it.effect	end() works with TxEnqueue interface	
-unported	packages/effect/test/TxQueue.test.ts	1302	it.effect	end() returns false if queue is already done	
+ported	packages/effect/test/TxQueue.test.ts	205	it.effect	poll returns Option.none for empty queue	tx_queue_strategies_and_inspection
+ported	packages/effect/test/TxQueue.test.ts	213	it.effect	poll returns Option.some for non-empty queue	tx_queue_strategies_and_inspection
+ported	packages/effect/test/TxQueue.test.ts	222	it.effect	poll completes a closing queue after removing the last item	tx_queue_closing_and_full_behavior
+ported	packages/effect/test/TxQueue.test.ts	232	it.effect	clear completes a closing queue after removing all items	tx_queue_closing_and_full_behavior
+ported	packages/effect/test/TxQueue.test.ts	242	it.effect	offerAll works correctly	tx_queue_drain_family
+not-applicable	packages/effect/test/TxQueue.test.ts	253	it.effect	offerAll preserves a one-shot iterable across retries and runs	the tag's STM retries and awaits inside a transaction; this port's STM is a synchronous atomically block with no retry or wait, so a row about a one-shot iterable surviving a retry has no analogue
+ported	packages/effect/test/TxQueue.test.ts	272	it.effect	takeAll works correctly with new signature	tx_queue_drain_family
+not-applicable	packages/effect/test/TxQueue.test.ts	284	it.effect	takeAll with interrupted queue returns done flag	the tag's STM retries and awaits inside a transaction; this port's STM is a synchronous atomically block with no retry or wait, so a row about a one-shot iterable surviving a retry has no analogue
+not-applicable	packages/effect/test/TxQueue.test.ts	295	it.effect	takeAll with failed queue propagates error	the tag's STM retries and awaits inside a transaction; this port's STM is a synchronous atomically block with no retry or wait, so a row about a one-shot iterable surviving a retry has no analogue
+ported	packages/effect/test/TxQueue.test.ts	306	it.effect	takeN works correctly with new signature	tx_queue_drain_family
+ported	packages/effect/test/TxQueue.test.ts	318	it.effect	takeN and takeBetween normalize element counts before waiting	tx_queue_drain_family
+not-applicable	packages/effect/test/TxQueue.test.ts	334	it.effect	takeN with queue completion gets available items	the row asserts a typed error or halt Cause propagated through take/takeN into the error channel; the port's TxQueue returns an Option and carries no typed error, so the propagation has no channel to travel
+not-applicable	packages/effect/test/TxQueue.test.ts	345	it.effect	takeN with failed queue propagates error	the row asserts a typed error or halt Cause propagated through take/takeN into the error channel; the port's TxQueue returns an Option and carries no typed error, so the propagation has no channel to travel
+not-applicable	packages/effect/test/TxQueue.test.ts	356	it.effect	takeN with capacity constraint takes available items	the row asserts a typed error or halt Cause propagated through take/takeN into the error channel; the port's TxQueue returns an Option and carries no typed error, so the propagation has no channel to travel
+not-applicable	packages/effect/test/TxQueue.test.ts	369	it.effect	takeAll() on empty closed queue gets interrupted	the tag's STM retries and awaits inside a transaction; this port's STM is a synchronous atomically block with no retry or wait, so a row about a one-shot iterable surviving a retry has no analogue
+not-applicable	packages/effect/test/TxQueue.test.ts	382	it.effect	takeAll() waits when empty then returns items when available	the tag's STM retries and awaits inside a transaction; this port's STM is a synchronous atomically block with no retry or wait, so a row about a one-shot iterable surviving a retry has no analogue
+not-applicable	packages/effect/test/TxQueue.test.ts	397	it.effect	takeAll() during state transition handles race condition	the tag's STM retries and awaits inside a transaction; this port's STM is a synchronous atomically block with no retry or wait, so a row about a one-shot iterable surviving a retry has no analogue
+ported	packages/effect/test/TxQueue.test.ts	414	it.effect	takeN(0) returns empty array	tx_queue_drain_family
+not-applicable	packages/effect/test/TxQueue.test.ts	427	it.effect	takeN() with closing queue returns available items	the row asserts a typed error or halt Cause propagated through take/takeN into the error channel; the port's TxQueue returns an Option and carries no typed error, so the propagation has no channel to travel
+not-applicable	packages/effect/test/TxQueue.test.ts	442	it.effect	takeN() signature validation - returns Array<A> not [Array<A>, boolean]	typescript type-level assertion: the row checks that an interface assignment compiles, which is a static fact in TS and a compile error in Rust rather than a runtime behavior
+ported	packages/effect/test/TxQueue.test.ts	457	it.effect	takeBetween() basic functionality	tx_queue_drain_family
+ported	packages/effect/test/TxQueue.test.ts	477	it.effect	takeBetween() takes up to maximum when available	tx_queue_drain_family
+ported	packages/effect/test/TxQueue.test.ts	492	it.effect	takeBetween() with invalid parameters	tx_queue_drain_family
+not-applicable	packages/effect/test/TxQueue.test.ts	512	it.effect	takeBetween() with failed queue propagates error	the row asserts a typed error or halt Cause propagated through take/takeN into the error channel; the port's TxQueue returns an Option and carries no typed error, so the propagation has no channel to travel
+not-applicable	packages/effect/test/TxQueue.test.ts	526	it.effect	takeBetween() with closing queue returns available items	the row asserts a typed error or halt Cause propagated through take/takeN into the error channel; the port's TxQueue returns an Option and carries no typed error, so the propagation has no channel to travel
+ported	packages/effect/test/TxQueue.test.ts	543	it.effect	takeBetween() exact minimum and maximum	tx_queue_drain_family
+not-applicable	packages/effect/test/TxQueue.test.ts	557	it.effect	takeBetween() returns Array<A> not tuple	typescript type-level assertion: the row checks the function's declared return type is an array rather than a tuple, which is a static fact in TS and has no runtime behavior to port
+ported	packages/effect/test/TxQueue.test.ts	572	it.effect	peek works correctly	tx_queue_drain_family
+ported	packages/effect/test/TxQueue.test.ts	587	it.effect	size returns correct count	tx_queue_strategies_and_inspection
+ported	packages/effect/test/TxQueue.test.ts	596	it.effect	isEmpty and isNonEmpty reflect queue contents	tx_queue_strategies_and_inspection
+ported	packages/effect/test/TxQueue.test.ts	608	it.effect	isFull works correctly for bounded queue	tx_queue_strategies_and_inspection
+ported	packages/effect/test/TxQueue.test.ts	620	it.effect	isFull returns false for unbounded queue	tx_queue_strategies_and_inspection
+ported	packages/effect/test/TxQueue.test.ts	631	it.effect	clear removes all items from queue and returns them	tx_queue_clear_leaves_state_alone
+ported	packages/effect/test/TxQueue.test.ts	649	it.effect	clear does not affect queue state	tx_queue_clear_leaves_state_alone
+ported	packages/effect/test/TxQueue.test.ts	669	it.effect	clear works on empty queue	tx_queue_clear_leaves_state_alone
+ported	packages/effect/test/TxQueue.test.ts	683	it.effect	clear works on queue ended with Done	tx_queue_clear_leaves_state_alone
+ported	packages/effect/test/TxQueue.test.ts	710	it.effect	shutdown and isShutdown work correctly	tx_queue_shutdown_halts_and_empties
+ported	packages/effect/test/TxQueue.test.ts	722	it.effect	offer fails after shutdown	tx_queue_shutdown_halts_and_empties
+ported	packages/effect/test/TxQueue.test.ts	731	it.effect	poll returns none after shutdown	tx_queue_shutdown_halts_and_empties
+ported	packages/effect/test/TxQueue.test.ts	743	it.effect	dropping queue rejects items when full	tx_queue_closing_and_full_behavior
+ported	packages/effect/test/TxQueue.test.ts	763	it.effect	sliding queue evicts old items when full	tx_queue_closing_and_full_behavior
+not-applicable	packages/effect/test/TxQueue.test.ts	786	it.effect	default E parameter provides clean typing	typescript type-level assertion: the row checks that an interface assignment compiles, which is a static fact in TS and a compile error in Rust rather than a runtime behavior
+not-applicable	packages/effect/test/TxQueue.test.ts	796	it.effect	explicit E parameter works correctly	typescript type-level assertion: the row checks that an interface assignment compiles, which is a static fact in TS and a compile error in Rust rather than a runtime behavior
+ported	packages/effect/test/TxQueue.test.ts	808	it.effect	queue starts in Open state	tx_queue_state_transitions
+ported	packages/effect/test/TxQueue.test.ts	821	it.effect	interrupt() transitions Open → Done when empty	tx_queue_state_transitions
+ported	packages/effect/test/TxQueue.test.ts	837	it.effect	interrupt() transitions Open → Closing → Done when not empty	tx_queue_closing_and_full_behavior
+ported	packages/effect/test/TxQueue.test.ts	867	it.effect	fail() transitions directly to Done	tx_queue_state_transitions
+ported	packages/effect/test/TxQueue.test.ts	884	it.effect	done() with custom cause works correctly	tx_queue_state_transitions
+ported	packages/effect/test/TxQueue.test.ts	898	it.effect	interrupt() completes queue successfully	tx_queue_state_transitions
+ported	packages/effect/test/TxQueue.test.ts	909	it.effect	fail() completes queue with error	tx_queue_state_transitions
+ported	packages/effect/test/TxQueue.test.ts	920	it.effect	multiple interrupt() calls return false after first	tx_queue_state_transitions
+ported	packages/effect/test/TxQueue.test.ts	931	it.effect	operations on closed queue fail appropriately	tx_queue_closing_and_full_behavior
+not-applicable	packages/effect/test/TxQueue.test.ts	947	it.effect	awaitCompletion succeeds when queue is interrupted	awaitCompletion blocks the fiber until the queue settles; the port's STM has no fiber to park, so there is nothing to await and the row's observable is an uninterruptible wait
+not-applicable	packages/effect/test/TxQueue.test.ts	956	it.effect	awaitCompletion succeeds when queue fails	awaitCompletion blocks the fiber until the queue settles; the port's STM has no fiber to park, so there is nothing to await and the row's observable is an uninterruptible wait
+not-applicable	packages/effect/test/TxQueue.test.ts	965	it.effect	awaitCompletion on already completed queue	awaitCompletion blocks the fiber until the queue settles; the port's STM has no fiber to park, so there is nothing to await and the row's observable is an uninterruptible wait
+not-applicable	packages/effect/test/TxQueue.test.ts	974	it.effect	awaitCompletion on already failed queue	awaitCompletion blocks the fiber until the queue settles; the port's STM has no fiber to park, so there is nothing to await and the row's observable is an uninterruptible wait
+not-applicable	packages/effect/test/TxQueue.test.ts	983	it.effect	awaitCompletion with custom Cause.die() succeeds	awaitCompletion blocks the fiber until the queue settles; the port's STM has no fiber to park, so there is nothing to await and the row's observable is an uninterruptible wait
+not-applicable	packages/effect/test/TxQueue.test.ts	995	it.effect	awaitCompletion with custom interrupt cause succeeds	awaitCompletion blocks the fiber until the queue settles; the port's STM has no fiber to park, so there is nothing to await and the row's observable is an uninterruptible wait
+not-applicable	packages/effect/test/TxQueue.test.ts	1006	it.effect	awaitCompletion with fail cause succeeds	awaitCompletion blocks the fiber until the queue settles; the port's STM has no fiber to park, so there is nothing to await and the row's observable is an uninterruptible wait
+not-applicable	packages/effect/test/TxQueue.test.ts	1017	it.effect	awaitCompletion concurrent behavior works	awaitCompletion blocks the fiber until the queue settles; the port's STM has no fiber to park, so there is nothing to await and the row's observable is an uninterruptible wait
+ported	packages/effect/test/TxQueue.test.ts	1028	it.effect	isShutdown works as alias for isDone	tx_queue_shutdown_halts_and_empties
+ported	packages/effect/test/TxQueue.test.ts	1045	it.effect	shutdown() clears queue and marks as done	tx_queue_shutdown_halts_and_empties
+ported	packages/effect/test/TxQueue.test.ts	1061	it.effect	take() on successfully interrupted queue interrupts	tx_queue_state_transitions
+ported	packages/effect/test/TxQueue.test.ts	1071	it.effect	take() on failed queue fails with error directly	tx_queue_state_transitions
+not-applicable	packages/effect/test/TxQueue.test.ts	1081	it.effect	take() on shutdown queue interrupts (success exit)	the row asserts a typed error or halt Cause propagated through take/takeN into the error channel; the port's TxQueue returns an Option and carries no typed error, so the propagation has no channel to travel
+not-applicable	packages/effect/test/TxQueue.test.ts	1091	it.effect	take() with explicit interrupt cause propagates interruption	the row asserts a typed error or halt Cause propagated through take/takeN into the error channel; the port's TxQueue returns an Option and carries no typed error, so the propagation has no channel to travel
+not-applicable	packages/effect/test/TxQueue.test.ts	1106	it.effect	take() with custom Cause.fail extracts error correctly	the row asserts a typed error or halt Cause propagated through take/takeN into the error channel; the port's TxQueue returns an Option and carries no typed error, so the propagation has no channel to travel
+not-applicable	packages/effect/test/TxQueue.test.ts	1119	it.effect	take() with Cause.die (defect) propagates defect	the row asserts a typed error or halt Cause propagated through take/takeN into the error channel; the port's TxQueue returns an Option and carries no typed error, so the propagation has no channel to travel
+not-applicable	packages/effect/test/TxQueue.test.ts	1136	it.effect	take() with typed error cause extracts error directly	the row asserts a typed error or halt Cause propagated through take/takeN into the error channel; the port's TxQueue returns an Option and carries no typed error, so the propagation has no channel to travel
+not-applicable	packages/effect/test/TxQueue.test.ts	1151	it.effect	peek() on successfully interrupted queue interrupts	the row asserts a typed error or halt Cause propagated through take/takeN into the error channel; the port's TxQueue returns an Option and carries no typed error, so the propagation has no channel to travel
+not-applicable	packages/effect/test/TxQueue.test.ts	1161	it.effect	peek() on failed queue fails with error directly	the row asserts a typed error or halt Cause propagated through take/takeN into the error channel; the port's TxQueue returns an Option and carries no typed error, so the propagation has no channel to travel
+not-applicable	packages/effect/test/TxQueue.test.ts	1171	it.effect	poll() on failed queue returns none	the row asserts a typed error or halt Cause propagated through take/takeN into the error channel; the port's TxQueue returns an Option and carries no typed error, so the propagation has no channel to travel
+not-applicable	packages/effect/test/TxQueue.test.ts	1182	it.effect	takeN() with partial items available before failure	the row asserts a typed error or halt Cause propagated through take/takeN into the error channel; the port's TxQueue returns an Option and carries no typed error, so the propagation has no channel to travel
+not-applicable	packages/effect/test/TxQueue.test.ts	1193	it.effect	error propagation with different error types	the row asserts a typed error or halt Cause propagated through take/takeN into the error channel; the port's TxQueue returns an Option and carries no typed error, so the propagation has no channel to travel
+not-applicable	packages/effect/test/TxQueue.test.ts	1213	it.effect	closing queue allows remaining items to be consumed	the row asserts a typed error or halt Cause propagated through take/takeN into the error channel; the port's TxQueue returns an Option and carries no typed error, so the propagation has no channel to travel
+not-applicable	packages/effect/test/TxQueue.test.ts	1244	it.effect	end() signals completion with Done	the row asserts a typed error or halt Cause propagated through take/takeN into the error channel; the port's TxQueue returns an Option and carries no typed error, so the propagation has no channel to travel
+not-applicable	packages/effect/test/TxQueue.test.ts	1266	it.effect	take() on ended queue fails with Done	the row asserts a typed error or halt Cause propagated through take/takeN into the error channel; the port's TxQueue returns an Option and carries no typed error, so the propagation has no channel to travel
+not-applicable	packages/effect/test/TxQueue.test.ts	1282	it.effect	end() works with TxEnqueue interface	the row asserts a typed error or halt Cause propagated through take/takeN into the error channel; the port's TxQueue returns an Option and carries no typed error, so the propagation has no channel to travel
+not-applicable	packages/effect/test/TxQueue.test.ts	1302	it.effect	end() returns false if queue is already done	the row asserts a typed error or halt Cause propagated through take/takeN into the error channel; the port's TxQueue returns an Option and carries no typed error, so the propagation has no channel to travel
 ported	packages/effect/test/TxReentrantLock.test.ts	6	it.effect	make creates an unlocked lock	tx_lock_is_reentrant
 unported	packages/effect/test/TxReentrantLock.test.ts	18	it.effect	acquireRead and releaseRead work correctly	
 unported	packages/effect/test/TxReentrantLock.test.ts	31	it.effect	multiple read acquires from same fiber are reentrant	
@@ -8523,7 +8523,7 @@ ported	packages/effect/test/schema/representation/builtInRevivers.test.ts	169	it
 ported	packages/effect/test/schema/representation/builtInRevivers.test.ts	180	it	revives isBetweenCodePoints	revives_code_point_bounds
 ported	packages/effect/test/schema/representation/builtInRevivers.test.ts	191	it	revives isTrimmed	revives_trimmed
 ported	packages/effect/test/schema/representation/builtInRevivers.test.ts	202	it	revives isUUID	revives_checked_strings
-unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	213	it	revives isGUID	
+ported	packages/effect/test/schema/representation/builtInRevivers.test.ts	213	it	revives isGUID	revives_is_guid
 ported	packages/effect/test/schema/representation/builtInRevivers.test.ts	224	it	revives isULID	revives_checked_strings
 ported	packages/effect/test/schema/representation/builtInRevivers.test.ts	235	it	revives isBase64	revives_predicate_strings
 ported	packages/effect/test/schema/representation/builtInRevivers.test.ts	246	it	revives isBase64Url	revives_predicate_strings
@@ -8534,9 +8534,9 @@ ported	packages/effect/test/schema/representation/builtInRevivers.test.ts	290	it
 ported	packages/effect/test/schema/representation/builtInRevivers.test.ts	301	it	revives isLowercased	revives_checked_strings
 ported	packages/effect/test/schema/representation/builtInRevivers.test.ts	312	it	revives isCapitalized	revives_checked_strings
 ported	packages/effect/test/schema/representation/builtInRevivers.test.ts	323	it	revives isUncapitalized	revives_checked_strings
-unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	350	it	revives isFinite	
-unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	361	it	revives isInt	
-unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	372	it	revives isMultipleOf	
+ported	packages/effect/test/schema/representation/builtInRevivers.test.ts	350	it	revives isFinite	revives_is_finite
+ported	packages/effect/test/schema/representation/builtInRevivers.test.ts	361	it	revives isInt	revives_is_int
+ported	packages/effect/test/schema/representation/builtInRevivers.test.ts	372	it	revives isMultipleOf	revives_is_multiple_of
 ported	packages/effect/test/schema/representation/builtInRevivers.test.ts	383	it	revives isGreaterThan	revives_is_greater_than
 ported	packages/effect/test/schema/representation/builtInRevivers.test.ts	394	it	revives isGreaterThanOrEqualTo	revives_is_greater_than_or_equal
 ported	packages/effect/test/schema/representation/builtInRevivers.test.ts	405	it	revives isLessThan	revives_is_less_than
@@ -8545,32 +8545,32 @@ ported	packages/effect/test/schema/representation/builtInRevivers.test.ts	427	it
 unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	440	it	normalizes isBetween flags	
 unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	454	it	rejects a non-numeric isMultipleOf payload	
 unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	463	it	rejects a non-canonical isBetween payload	
-unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	476	it	revives isGreaterThanBigInt	
-unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	487	it	revives isGreaterThanOrEqualToBigInt	
-unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	498	it	revives isLessThanBigInt	
-unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	509	it	revives isLessThanOrEqualToBigInt	
-unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	520	it	revives isBetweenBigInt	
+ported	packages/effect/test/schema/representation/builtInRevivers.test.ts	476	it	revives isGreaterThanBigInt	revives_greater_than_bigint
+ported	packages/effect/test/schema/representation/builtInRevivers.test.ts	487	it	revives isGreaterThanOrEqualToBigInt	revives_greater_than_or_equal_to_bigint
+ported	packages/effect/test/schema/representation/builtInRevivers.test.ts	498	it	revives isLessThanBigInt	revives_less_than_bigint
+ported	packages/effect/test/schema/representation/builtInRevivers.test.ts	509	it	revives isLessThanOrEqualToBigInt	revives_less_than_or_equal_to_bigint
+ported	packages/effect/test/schema/representation/builtInRevivers.test.ts	520	it	revives isBetweenBigInt	revives_between_bigint
 unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	533	it	persists large bounds as canonical decimal strings	
 unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	541	it	normalizes isBetweenBigInt flags	
-unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	564	it	revives isGreaterThanDate	
-unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	575	it	revives isGreaterThanOrEqualToDate	
-unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	586	it	revives isLessThanDate	
-unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	597	it	revives isLessThanOrEqualToDate	
-unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	608	it	revives isBetweenDate	
+ported	packages/effect/test/schema/representation/builtInRevivers.test.ts	564	it	revives isGreaterThanDate	revives_greater_than_date
+ported	packages/effect/test/schema/representation/builtInRevivers.test.ts	575	it	revives isGreaterThanOrEqualToDate	revives_greater_than_or_equal_to_date
+ported	packages/effect/test/schema/representation/builtInRevivers.test.ts	586	it	revives isLessThanDate	revives_less_than_date
+ported	packages/effect/test/schema/representation/builtInRevivers.test.ts	597	it	revives isLessThanOrEqualToDate	revives_less_than_or_equal_to_date
+ported	packages/effect/test/schema/representation/builtInRevivers.test.ts	608	it	revives isBetweenDate	revives_between_date
 unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	625	it	persists millisecond precision	
 unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	632	it	normalizes isBetweenDate flags	
 ported	packages/effect/test/schema/representation/builtInRevivers.test.ts	653	it	revives isMinSize	revives_is_min_size
 ported	packages/effect/test/schema/representation/builtInRevivers.test.ts	664	it	revives isMaxSize	revives_is_max_size
 ported	packages/effect/test/schema/representation/builtInRevivers.test.ts	675	it	revives isBetweenSize	revives_is_between_size
 ported	packages/effect/test/schema/representation/builtInRevivers.test.ts	686	it	revives isUnique	revives_is_unique
-unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	697	it	revives isUniqueKey	
+ported	packages/effect/test/schema/representation/builtInRevivers.test.ts	697	it	revives isUniqueKey	revives_is_unique_key
 unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	709	it	normalizes isMinSize	
 unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	716	it	normalizes isMaxSize	
 unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	723	it	normalizes isBetweenSize	
 ported	packages/effect/test/schema/representation/builtInRevivers.test.ts	732	it	revives isMinProperties	revives_is_min_properties
 ported	packages/effect/test/schema/representation/builtInRevivers.test.ts	743	it	revives isMaxProperties	revives_is_max_properties
-unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	754	it	revives isBetweenProperties	
-unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	765	it	revives isPropertyNames	
+ported	packages/effect/test/schema/representation/builtInRevivers.test.ts	754	it	revives isBetweenProperties	revives_is_between_properties
+ported	packages/effect/test/schema/representation/builtInRevivers.test.ts	765	it	revives isPropertyNames	revives_property_names
 unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	779	it	persists the encoded key schema for isPropertyNames	
 unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	790	it	normalizes isMinProperties	
 unported	packages/effect/test/schema/representation/builtInRevivers.test.ts	797	it	normalizes isMaxProperties	

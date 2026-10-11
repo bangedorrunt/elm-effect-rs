@@ -405,6 +405,64 @@ impl<T> TxQueue<T> {
             self.take_n(take)
         })
     }
+
+    /// True when at least one item waits (`isNonEmpty`).
+    pub fn is_non_empty(&self) -> bool {
+        !self.is_empty()
+    }
+
+    /// True when a bounded queue holds its capacity. An unbounded queue is
+    /// never full, so `offer` always succeeds on one.
+    pub fn is_full(&self) -> bool {
+        match self.capacity {
+            Some(limit) => self.size() >= limit,
+            None => false,
+        }
+    }
+
+    /// Remove every waiting item and hand them back (`clear`). The queue's
+    /// open/closed state is untouched, so a cleared open queue still accepts
+    /// offers. A queue that is already halted and drained returns nothing,
+    /// which is the same empty answer `takeAll` would give.
+    pub fn clear(&self) -> Vec<T> {
+        atomically(|| self.inner.lock().unwrap().drain(..).collect())
+    }
+
+    /// True when the queue is halted, by `end`, `fail`, `shutdown`, or a
+    /// drain that finished it (`isShutdown`).
+    pub fn is_shutdown(&self) -> bool {
+        !self.is_open()
+    }
+
+    /// Halt and empty the queue (`shutdown`): queued items are dropped rather
+    /// than drained, so a later `poll` finds nothing. True when this call
+    /// halts it, false when it was already halted.
+    pub fn shutdown(&self) -> bool {
+        let mut closed = self.closed.lock().unwrap();
+        let first = !*closed;
+        *closed = true;
+        drop(closed);
+        atomically(|| self.inner.lock().unwrap().clear());
+        first
+    }
+
+    /// Complete the queue with an interrupt (`interrupt`): an empty queue goes
+    /// straight to done, a non-empty one halts and drains. True on the first
+    /// call, false when already halted.
+    pub fn interrupt(&self) -> bool {
+        let mut closed = self.closed.lock().unwrap();
+        if *closed {
+            return false;
+        }
+        *closed = true;
+        true
+    }
+
+    /// Complete the queue with a halt cause (`done`). True on the first call,
+    /// false when already halted.
+    pub fn done(&self) -> bool {
+        self.interrupt()
+    }
 }
 
 /// The write-only face of a [`TxQueue`] (`TxEnqueue` interface):

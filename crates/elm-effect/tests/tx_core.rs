@@ -579,3 +579,212 @@ fn tx_subscription_ref_updates_publish_to_the_change_log() {
     cell.update_and_get(|n| n * 3);
     assert_eq!(cell.changes(), vec![0, 1, 2, 6]);
 }
+
+#[test]
+fn tx_queue_strategies_and_inspection() {
+    // TxQueue.test.ts:172, :182 — the two bounded strategies.
+    let dropping = TxQueue::dropping(2);
+    assert!(dropping.offer(1));
+    assert!(dropping.offer(2));
+    assert!(dropping.offer(3), "dropping stays true when full");
+    assert_eq!(dropping.size(), 2, "the newest value is dropped");
+    assert_eq!(dropping.take(), Some(1));
+
+    let sliding = TxQueue::sliding(2);
+    assert!(sliding.offer(1));
+    assert!(sliding.offer(2));
+    assert!(sliding.offer(3), "sliding stays true when full");
+    assert_eq!(sliding.size(), 2);
+    assert_eq!(sliding.take(), Some(2), "the oldest value was evicted");
+
+    // :205, :213 — poll answers Option both ways.
+    let queue: TxQueue<i32> = TxQueue::bounded(4);
+    assert_eq!(queue.poll(), None);
+    assert!(queue.offer(7));
+    assert_eq!(queue.poll(), Some(7));
+
+    // :587, :596 — size and the emptiness pair.
+    assert_eq!(queue.size(), 0);
+    assert!(queue.is_empty());
+    assert!(!queue.is_non_empty());
+    assert!(queue.offer(1));
+    assert!(!queue.is_empty());
+    assert!(queue.is_non_empty());
+
+    // :608, :620 — is_full distinguishes bounded from unbounded.
+    let full = TxQueue::bounded(1);
+    assert!(!full.is_full());
+    assert!(full.offer(1));
+    assert!(full.is_full());
+    let never = TxQueue::unbounded();
+    assert!(never.offer(1));
+    assert!(never.offer(2));
+    assert!(!never.is_full());
+}
+
+#[test]
+fn tx_queue_drain_family() {
+    // :242, :272 — offer_all pushes everything, take_all drains everything.
+    let queue = TxQueue::bounded(5);
+    assert!(queue.offer_all([1, 2, 3]).is_empty());
+    assert_eq!(queue.take_all(), vec![1, 2, 3]);
+
+    // :306, :414 — take_n honours its count, and zero takes nothing.
+    assert!(queue.offer_all([1, 2, 3, 4]).is_empty());
+    assert_eq!(queue.take_n(2), vec![1, 2]);
+    assert_eq!(queue.take_n(0), vec![]);
+    assert_eq!(queue.take_n(9), vec![3, 4], "more than held drains all");
+
+    // :572 — peek leaves the item in place.
+    assert_eq!(queue.peek(), None);
+    assert!(queue.offer(9));
+    assert_eq!(queue.peek(), Some(9));
+    assert_eq!(queue.size(), 1);
+
+    // :457, :477, :543 — take_between waits for the minimum.
+    let bounded = TxQueue::bounded(10);
+    assert!(bounded.offer_all([1, 2, 3]).is_empty());
+    assert_eq!(bounded.take_between(5, 8), vec![], "fewer than min waits");
+    assert_eq!(bounded.take_between(2, 8), vec![1, 2, 3]);
+    assert_eq!(bounded.take_between(0, 0), vec![]);
+    // :492 — an inverted range takes nothing rather than everything.
+    assert_eq!(bounded.take_between(4, 1), vec![]);
+}
+
+#[test]
+fn tx_queue_clear_leaves_state_alone() {
+    // :631 — clear hands back every item and empties the queue.
+    let queue: TxQueue<i32> = TxQueue::bounded(10);
+    assert!(queue.offer_all([1, 2, 3, 4, 5]).is_empty());
+    assert_eq!(queue.clear(), vec![1, 2, 3, 4, 5]);
+    assert_eq!(queue.size(), 0);
+    assert!(queue.is_empty());
+
+    // :649 — clearing does not close the queue, so offers still land.
+    assert!(queue.offer_all([1, 2, 3]).is_empty());
+    assert_eq!(queue.clear(), vec![1, 2, 3]);
+    assert!(queue.is_open());
+    assert!(queue.offer(42));
+    assert_eq!(queue.size(), 1);
+
+    // :669 — clearing an empty queue returns empty.
+    let empty: TxQueue<i32> = TxQueue::bounded(10);
+    assert_eq!(empty.clear(), vec![]);
+
+    // :683 — clearing a halted, drained queue also returns empty and stays done.
+    let ended: TxQueue<i32> = TxQueue::bounded(10);
+    assert!(ended.offer_all([1, 2, 3]).is_empty());
+    assert!(ended.end());
+    assert_eq!(ended.take_all(), vec![1, 2, 3]);
+    assert!(!ended.is_open());
+    assert_eq!(ended.clear(), vec![]);
+    assert!(!ended.is_open());
+}
+
+#[test]
+fn tx_queue_shutdown_halts_and_empties() {
+    // :710 — isShutdown is false before and true after.
+    let queue = TxQueue::bounded(10);
+    assert!(!queue.is_shutdown());
+    assert!(queue.shutdown());
+    assert!(queue.is_shutdown());
+
+    // :722 — offers are refused once halted.
+    assert!(!queue.offer(42));
+
+    // :731 — a poll finds nothing, even though an item had been offered.
+    let polled: TxQueue<i32> = TxQueue::bounded(10);
+    assert!(polled.offer(42));
+    assert!(polled.shutdown());
+    assert_eq!(polled.poll(), None, "shutdown drops what was queued");
+
+    // :1028, :1045 — shutdown is idempotent and stays a shutdown.
+    assert!(!polled.shutdown());
+    assert!(polled.is_shutdown());
+    assert_eq!(polled.size(), 0);
+}
+
+#[test]
+fn tx_queue_state_transitions() {
+    // :808 — a fresh queue is open and not closing or done.
+    let queue: TxQueue<i32> = TxQueue::bounded(5);
+    assert!(queue.is_open());
+    assert!(!queue.is_shutdown());
+
+    // :821 — interrupt on an empty queue halts it outright.
+    let empty: TxQueue<i32> = TxQueue::bounded(5);
+    assert!(empty.interrupt());
+    assert!(!empty.is_open());
+    assert!(empty.is_shutdown());
+
+    // :867, :909 — fail halts too, and reports the first halt only.
+    let failed: TxQueue<i32> = TxQueue::bounded(5);
+    assert!(failed.fail());
+    assert!(!failed.is_open());
+    assert!(!failed.offer(1));
+    assert!(!failed.fail());
+
+    // :884, :898 — done completes the queue, once.
+    let done: TxQueue<i32> = TxQueue::bounded(5);
+    assert!(done.done());
+    assert!(!done.done());
+    assert!(!done.is_open());
+
+    // :1061, :1071 — once halted, a drained queue yields nothing and an offer
+    // is refused, so take cannot resurrect the queue.
+    let drained: TxQueue<i32> = TxQueue::bounded(5);
+    assert!(drained.offer(1));
+    assert!(drained.interrupt());
+    assert_eq!(drained.take_all(), vec![1]);
+    assert_eq!(drained.take(), None);
+    assert!(!drained.offer(2));
+}
+
+#[test]
+fn tx_queue_closing_and_full_behavior() {
+    // :743, :763 — at capacity, dropping discards the newest and sliding
+    // evicts the oldest, and neither refuses the offer.
+    let dropping: TxQueue<i32> = TxQueue::dropping(2);
+    assert!(dropping.offer_all([1, 2]).is_empty());
+    assert!(dropping.offer(3));
+    assert_eq!(dropping.size(), 2);
+    assert_eq!(dropping.take_all(), vec![1, 2]);
+
+    let sliding: TxQueue<i32> = TxQueue::sliding(2);
+    assert!(sliding.offer_all([1, 2]).is_empty());
+    assert!(sliding.offer(3));
+    assert_eq!(sliding.size(), 2);
+    assert_eq!(sliding.take_all(), vec![2, 3]);
+
+    // :222, :232 — a closing queue still drains what it holds, then settles
+    // on empty. The port has no separate Closing state, so "drains then done"
+    // is the observable the row asserts.
+    let closing: TxQueue<i32> = TxQueue::bounded(10);
+    assert!(closing.offer_all([1, 2, 3]).is_empty());
+    assert!(closing.end());
+    assert_eq!(closing.poll(), Some(1));
+    assert_eq!(closing.poll(), Some(2));
+    assert_eq!(closing.poll(), Some(3));
+    assert_eq!(closing.poll(), None, "the last item completes the queue");
+    assert!(!closing.offer(4), "a closed queue takes no more offers");
+
+    // :837 — interrupt on a non-empty queue halts it while the items drain.
+    let partial: TxQueue<i32> = TxQueue::bounded(5);
+    assert!(partial.offer_all([1, 2, 3]).is_empty());
+    assert!(partial.interrupt());
+    assert!(!partial.is_open());
+    assert_eq!(partial.take_all(), vec![1, 2, 3]);
+
+    // :931 — every entry point on a halted queue answers without working.
+    let halted: TxQueue<i32> = TxQueue::bounded(5);
+    assert!(halted.offer(1));
+    assert!(halted.shutdown());
+    assert!(!halted.offer(2));
+    assert_eq!(halted.poll(), None);
+    assert_eq!(halted.take(), None);
+    assert_eq!(halted.take_all(), vec![]);
+    assert_eq!(halted.take_n(3), vec![]);
+    assert_eq!(halted.clear(), vec![]);
+    assert_eq!(halted.size(), 0);
+    assert!(halted.is_shutdown());
+}
