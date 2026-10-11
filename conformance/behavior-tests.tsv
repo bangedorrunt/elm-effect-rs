@@ -3866,7 +3866,7 @@ unported	packages/effect/test/Stream.test.ts	5591	it.effect	normalizes the numbe
 unported	packages/effect/test/Stream.test.ts	5601	it.effect	fans out to a fixed number of streams	
 unported	packages/effect/test/Stream.test.ts	5615	it.effect	ends a subscriber whose end a full dropping buffer would have dropped	
 unported	packages/effect/test/Stream.test.ts	5624	it.effect	propagates failures to all downstream streams	
-unported	packages/effect/test/Stream.test.ts	5640	it.effect	subscribes and emits events	
+not-applicable	packages/effect/test/Stream.test.ts	5640	it.effect	subscribes and emits events	Stream.fromEventListener is a DOM EventTarget subscription and this port has no EventTarget, no DOM event loop, and no fromEventListener constructor (0 hits across crates/), so the four-event dispatch has no mechanism to be observed
 not-applicable	packages/effect/test/Stream.test.ts	5667	it.effect	ends after the first event with once: true	Stream.fromEventListener is a DOM EventTarget subscription and this port has no EventTarget, no DOM event loop, and no fromEventListener constructor (0 hits across crates/), so the once:true single-shot subscription has no mechanism to be built on
 unported	packages/effect/test/String.test.ts	9	it	converts values to strings	
 ported	packages/effect/test/String.test.ts	17	it	returns true for strings	string_basics
