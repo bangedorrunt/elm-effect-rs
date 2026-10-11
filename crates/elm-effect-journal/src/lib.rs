@@ -10,11 +10,25 @@
 //! settled, which keeps park, success, and typed failure three distinct
 //! outcomes. [`settle_from_exit`] folds an [`Exit`](elm_effect::Exit)
 //! into the registry vocabulary (`Success` settles; any failure fails).
+//!
+//! Public modules: [`durable_log`] (the L16 append trait, now fencing a
+//! stale producer epoch through [`AppendError::StaleEpoch`](durable_log::AppendError::StaleEpoch)),
+//! [`laws`] (trait-level law checks any `DurableLog` implementation must
+//! pass, so a sibling's own log runs the same checks as [`MemLog`](durable_log::MemLog)),
+//! [`store`] (claim/settle), [`plan`] (`plan_attempt`, `plan_park`,
+//! `may_settle`), [`epoch`] (`EpochLog`, `Fence::StaleEpoch`) and [`stream`]
+//! (`Gone`, `Closed`, snapshot). `plan`, `epoch` and `stream` used to be
+//! reachable only through test-side `#[path]` includes; they are wired here
+//! so a sibling can depend on them (ADR-0002 Phase 9b, L16).
 
 use serde::{Deserialize, Serialize};
 
 pub mod durable_log;
+pub mod epoch;
+pub mod laws;
+pub mod plan;
 pub mod store;
+pub mod stream;
 
 /// Lifecycle state of one effect row. No `Absent`: absence is no row.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]

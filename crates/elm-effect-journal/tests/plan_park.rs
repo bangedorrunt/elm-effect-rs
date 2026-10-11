@@ -1,9 +1,8 @@
 //! `plan_park` fence: refusal above the ceiling, no wrapping, due-now
 //! resumes, idempotent pending upserts, and a resumable non-terminal Parked.
-//! The plan module loads via `#[path]` (the .15 precedent): no facade touch.
+//! The plan module is public on the crate (lib.rs wires it).
 
-#[path = "../src/plan.rs"]
-mod plan;
+use elm_effect_journal::plan;
 
 use elm_effect_journal::EffectState;
 use plan::{ParkDecision, PendingKey, PendingRow, PendingStore, park_intent, plan_park};

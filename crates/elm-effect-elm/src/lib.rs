@@ -246,6 +246,27 @@ impl Producer {
 /// The runtime loop: fold, record, interpret, feed back. The edge bridge is
 /// supplied by the host (L3: interpreting a description stays at the edge,
 /// not in a library crate).
+///
+/// # Hosting (single thread)
+///
+/// A `Loop` is deliberately **not `Send`**: the live model view behind
+/// [`Loop::subscriber`] is an `Rc<RefCell<_>>`, so the loop and every
+/// subscriber handle live on one OS thread. Host one loop per dedicated
+/// thread and pump external inputs (sockets, timers, herdr events, mail
+/// ingress) into [`Loop::send`] through a channel the thread drains; the
+/// fold never reaches for them itself (ADR-0002 L461). Readers on other
+/// threads get a snapshot over a channel, never the handle.
+///
+/// The [`DurableLog`] and the [`ManagedRuntime`] the loop is booted with
+/// are called synchronously on this thread. A log backed by an async store
+/// must answer through a request/reply channel to a runtime it does not
+/// share with the caller: calling `block_on` from inside a Tokio context on
+/// this thread is the nested-runtime panic, so a host must not run the
+/// loop on a Tokio worker thread.
+///
+/// A durable command whose append the log rejects (including
+/// [`AppendError::StaleEpoch`] for a producer whose epoch was superseded)
+/// reaches the fold as [`Failure::NotAppended`] and its provider never runs.
 pub struct Loop<P: Program, I: Interpret<P>> {
     model: P::Model,
     /// Live view of the model for subscribers: updated on every fold so a
