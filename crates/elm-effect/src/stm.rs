@@ -9,13 +9,21 @@
 use std::cell::Cell;
 use std::collections::{BinaryHeap, HashMap, HashSet, VecDeque};
 use std::hash::Hash;
-use std::sync::{Mutex, MutexGuard};
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{Arc, Mutex, MutexGuard};
+
+use crate::service::{Reference, read_reference};
+use crate::Effect;
 
 static GLOBAL: Mutex<()> = Mutex::new(());
 
 thread_local! {
     static IN_TX: Cell<bool> = const { Cell::new(false) };
 }
+
+/// Ids for refs and transactions: only uniqueness matters, and the two
+/// never share a comparison.
+static NEXT_TX_ID: AtomicU64 = AtomicU64::new(1);
 
 /// Run `body` as one atomic, isolated transaction.
 pub fn atomically<R>(body: impl FnOnce() -> R) -> R {
@@ -37,16 +45,71 @@ fn tx_read<T: Clone>(cell: &Mutex<T>) -> T {
     atomically(|| cell.lock().unwrap().clone())
 }
 
-/// A transactional cell: every op is atomic; [`atomically`] composes.
+/// One transaction's staged view of one ref.
+struct Staged<T> {
+    value: T,
+    written: bool,
+}
+
+/// A ref's committed value plus the staged views of every transaction
+/// that has touched it, keyed by transaction id so concurrent
+/// transactions never share a staging slot.
+struct RefState<T> {
+    value: T,
+    staged: HashMap<u64, Staged<T>>,
+}
+
+/// Publish or discard one transaction's staged view of a ref. Erased so a
+/// journal can hold refs of different value types; the values themselves
+/// never leave their ref.
+trait Touched: Send + Sync {
+    fn commit_tx(&self, tx: u64);
+    fn clear_tx(&self, tx: u64);
+}
+
+struct RefHandle<T> {
+    id: u64,
+    state: Mutex<RefState<T>>,
+}
+
+impl<T: Send + 'static> Touched for RefHandle<T> {
+    fn commit_tx(&self, tx: u64) {
+        let mut state = self.state.lock().unwrap();
+        if let Some(staged) = state.staged.remove(&tx) {
+            if staged.written {
+                state.value = staged.value;
+            }
+        }
+    }
+
+    fn clear_tx(&self, tx: u64) {
+        self.state.lock().unwrap().staged.remove(&tx);
+    }
+}
+
+/// A transactional cell. The [`atomically`] face is immediate: every op
+/// is one atomic step. The effect face (`get_effect`/`set_effect`/
+/// `modify_effect`) stages into the ambient [`Transaction`] and publishes
+/// only when the enclosing boundary's body succeeds.
+///
+/// `Clone` shares the cell, never copies it: two names, one identity,
+/// like the pin's `TxRef` handle.
+#[derive(Clone)]
 pub struct TxRef<T> {
-    cell: Mutex<T>,
+    handle: Arc<RefHandle<T>>,
 }
 
 impl<T> TxRef<T> {
     /// A cell holding `initial`.
     pub fn new(initial: T) -> Self {
         Self {
-            cell: Mutex::new(initial),
+            handle: Arc::new(RefHandle {
+                id: NEXT_TX_ID.fetch_add(1, Ordering::Relaxed),
+                state: Mutex::new(RefState {
+                    value: initial,
+                    staged: HashMap::new(),
+                }),
+            }),
         }
     }
 
@@ -55,17 +118,168 @@ impl<T> TxRef<T> {
     where
         T: Clone,
     {
-        tx_read(&self.cell)
+        atomically(|| self.handle.state.lock().unwrap().value.clone())
     }
 
     /// Replace the value.
     pub fn write(&self, value: T) {
-        tx_cell(&self.cell, |slot| *slot = value);
+        atomically(|| self.handle.state.lock().unwrap().value = value);
     }
 
     /// Run `f` on the value, returning its result.
     pub fn modify<R>(&self, f: impl FnOnce(&mut T) -> R) -> R {
-        atomically(|| f(&mut self.cell.lock().unwrap()))
+        atomically(|| f(&mut self.handle.state.lock().unwrap().value))
+    }
+}
+
+/// The ambient transaction: `Some` while an outermost `Effect::tx` body
+/// runs, visible to nested `tx` calls and every effect-face op. `None`
+/// is both the default and the "no boundary is open" answer.
+pub(crate) static TX_CURRENT: Reference<Option<Arc<Transaction>>> = Reference {
+    id: "effect/Effect/Transaction",
+    default: None,
+};
+
+/// One transaction. The journal is the set of refs it has touched; the
+/// staged values live on the refs. [`crate::Effect::tx`] opens one
+/// boundary per interpretation, commits when the body succeeds, and
+/// clears otherwise.
+pub struct Transaction {
+    id: u64,
+    touched: Mutex<Vec<Arc<dyn Touched>>>,
+}
+
+impl Transaction {
+    pub(crate) fn new() -> Self {
+        Self {
+            id: NEXT_TX_ID.fetch_add(1, Ordering::Relaxed),
+            touched: Mutex::new(Vec::new()),
+        }
+    }
+
+    /// Record one ref as touched. A repeated touch adds a second driver,
+    /// which is harmless: committing or clearing an already-removed
+    /// staged entry is a no-op.
+    fn touch<T: Send + 'static>(&self, handle: &Arc<RefHandle<T>>) {
+        let driver: Arc<dyn Touched> = Arc::clone(handle) as Arc<dyn Touched>;
+        self.touched.lock().unwrap().push(driver);
+    }
+
+    /// Publish every written staged value. Nothing read-only staged
+    /// survives as a write.
+    pub(crate) fn commit(&self) {
+        for driver in std::mem::take(&mut *self.touched.lock().unwrap()) {
+            driver.commit_tx(self.id);
+        }
+    }
+
+    /// Discard every staged value: the boundary failed, so nothing it
+    /// staged is published.
+    pub(crate) fn clear(&self) {
+        for driver in std::mem::take(&mut *self.touched.lock().unwrap()) {
+            driver.clear_tx(self.id);
+        }
+    }
+}
+
+impl<T: Clone + Send + 'static> TxRef<T> {
+    /// `TxRef.get` at the pin: the transaction's staged value when the
+    /// ambient boundary has touched the ref (read-your-writes), else the
+    /// committed value. Outside a boundary the read is immediate.
+    pub fn get_effect<E>(&self) -> Effect<T, E, ()>
+    where
+        E: Send + 'static,
+    {
+        let handle = Arc::clone(&self.handle);
+        crate::effect::widen_infallible(read_reference(&TX_CURRENT)).flat_map(move |current| {
+            match current {
+                Some(tx) => Effect::sync(move || {
+                    tx.touch(&handle);
+                    let mut state = handle.state.lock().unwrap();
+                    let committed = state.value.clone();
+                    state
+                        .staged
+                        .entry(tx.id)
+                        .or_insert_with(|| Staged {
+                            value: committed,
+                            written: false,
+                        })
+                        .value
+                        .clone()
+                }),
+                None => Effect::sync(move || handle.state.lock().unwrap().value.clone()),
+            }
+        })
+    }
+
+    /// `TxRef.set` at the pin: stage `value` in the ambient boundary, to
+    /// be published with it. Outside a boundary the write is immediate.
+    pub fn set_effect<E>(&self, value: T) -> Effect<(), E, ()>
+    where
+        E: Send + 'static,
+    {
+        let handle = Arc::clone(&self.handle);
+        crate::effect::widen_infallible(read_reference(&TX_CURRENT)).flat_map(move |current| {
+            match current {
+                Some(tx) => Effect::sync(move || {
+                    tx.touch(&handle);
+                    let mut state = handle.state.lock().unwrap();
+                    let committed = state.value.clone();
+                    let staged = state
+                        .staged
+                        .entry(tx.id)
+                        .or_insert_with(|| Staged {
+                            value: committed,
+                            written: false,
+                        });
+                    staged.value = value;
+                    staged.written = true;
+                }),
+                None => Effect::sync(move || handle.state.lock().unwrap().value = value),
+            }
+        })
+    }
+
+    /// `TxRef.modify` at the pin: `f` sees the staged value and returns
+    /// `(result, next)`; the successor is staged and the result yielded.
+    /// One atomic step with or without a boundary. The in-place `&mut`
+    /// form stays `modify`; the pin's pair form lands here because that
+    /// is the shape its journal step takes.
+    pub fn modify_effect<B, E, F>(&self, f: F) -> Effect<B, E, ()>
+    where
+        B: Send + 'static,
+        E: Send + 'static,
+        F: FnOnce(T) -> (B, T) + Send + 'static,
+    {
+        let handle = Arc::clone(&self.handle);
+        crate::effect::widen_infallible(read_reference(&TX_CURRENT)).flat_map(move |current| {
+            match current {
+                Some(tx) => Effect::sync(move || {
+                    tx.touch(&handle);
+                    let mut state = handle.state.lock().unwrap();
+                    let committed = state.value.clone();
+                    let staged = state
+                        .staged
+                        .entry(tx.id)
+                        .or_insert_with(|| Staged {
+                            value: committed,
+                            written: false,
+                        });
+                    let current = staged.value.clone();
+                    let (result, next) = f(current);
+                    staged.value = next;
+                    staged.written = true;
+                    result
+                }),
+                None => Effect::sync(move || {
+                    let mut state = handle.state.lock().unwrap();
+                    let current = state.value.clone();
+                    let (result, next) = f(current);
+                    state.value = next;
+                    result
+                }),
+            }
+        })
     }
 }
 

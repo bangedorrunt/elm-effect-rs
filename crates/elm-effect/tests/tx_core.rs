@@ -3,8 +3,9 @@
 //! atomic, isolated multi-op blocks; blocking-retry is a residual).
 
 use elm_effect::{
-    TxChunk, TxDeferred, TxHashMap, TxHashSet, TxPriorityQueue, TxPubSub, TxQueue, TxReentrantLock,
-    TxRef, TxSemaphore, TxSubscriptionRef, atomically, is_tx_chunk, is_tx_hash_set, is_tx_semaphore,
+    Effect, Exit, Runtime, TxChunk, TxDeferred, TxHashMap, TxHashSet, TxPriorityQueue, TxPubSub,
+    TxQueue, TxReentrantLock, TxRef, TxSemaphore, TxSubscriptionRef, atomically, is_tx_chunk,
+    is_tx_hash_set, is_tx_semaphore,
 };
 
 #[test]
@@ -566,6 +567,212 @@ fn tx_subscription_ref_update_and_get_returns_new() {
     let cell = TxSubscriptionRef::new(1u32);
     assert_eq!(cell.update_and_get(|n| n + 10), 11);
     assert_eq!(cell.get(), 11);
+}
+
+// ---------------------------------------------------------------------------
+// Effect.tx at the pin (Effect.test.ts describe "transaction
+// (composable transactions)", basic behavior / nesting / composition:
+// :3779-:3918)
+//
+// The outer boundary stages writes on each touched ref; they publish only
+// when the boundary's body succeeds. A nested `Effect.tx` composes into
+// the running boundary (no inner boundary), so a failure caught inside
+// the body is an ordinary value, and only a failure that escapes the
+// boundary discards the journal.
+// ---------------------------------------------------------------------------
+
+#[test]
+fn separate_tx_boundaries_each_commit_their_own_writes() {
+    // Effect.test.ts :3779 "should create transaction boundaries when no
+    // transaction is active" — three top-level `Effect.tx` calls are three
+    // boundaries; each commits, and later reads see committed values.
+    let ref1 = TxRef::new(0);
+    let ref2 = TxRef::new(100);
+    // Each closure owns a handle to the same cell; `TxRef::clone` shares
+    // the cell rather than copying it.
+    let (set2, read1, read2) = (ref2.clone(), ref1.clone(), ref2.clone());
+    let program: Effect<(i32, i32), std::convert::Infallible> = Effect::tx(ref1.set_effect(10))
+        .flat_map(move |_| Effect::tx(set2.set_effect(200)))
+        .flat_map(move |_| Effect::tx(read1.get_effect()))
+        .flat_map(move |v1| Effect::tx(read2.get_effect()).map(move |v2| (v1, v2)));
+    assert_eq!(Runtime::run(program), Exit::Success((10, 200)));
+}
+
+#[test]
+fn tx_ref_modify_outside_a_transaction_is_one_atomic_step() {
+    // Effect.test.ts :3795 "should allow TxRef.modify outside an existing
+    // transaction" — the pin's pair form returns the computed result and
+    // stores the successor. With no boundary open the pin wraps a bare op
+    // in its own `Effect.tx`, so the step is atomic and immediate.
+    let cell = TxRef::new(0);
+    let read_back = cell.clone();
+    let program: Effect<(i32, i32), std::convert::Infallible> = cell
+        .modify_effect(|current| (current + 1, current + 10))
+        .flat_map(move |result| {
+            Effect::tx(read_back.get_effect()).map(move |value| (result, value))
+        });
+    assert_eq!(Runtime::run(program), Exit::Success((1, 10)));
+}
+
+#[test]
+fn failure_of_the_outer_boundary_rolls_back_the_nested_writes() {
+    // Effect.test.ts :3806 "should roll back nested changes when the outer
+    // transaction fails" — the nested `tx` composes into the outer
+    // boundary, so the escaping failure discards both staged writes.
+    let ref1 = TxRef::new(0);
+    let ref2 = TxRef::new(100);
+    let nested = ref2.clone();
+    let program: Effect<(), String> = Effect::tx(
+        ref1.set_effect(10)
+            .flat_map(move |_| Effect::tx(nested.set_effect(200)))
+            .flat_map(|_| Effect::fail("parent failed".to_string())),
+    );
+    match Runtime::run(program) {
+        Exit::Failure(cause) => assert_eq!(cause.failure(), Some(&"parent failed".to_string())),
+        Exit::Success(_) => panic!("expected the parent failure"),
+    }
+    assert_eq!(ref1.read(), 0, "the outer write rolled back");
+    assert_eq!(ref2.read(), 100, "the nested write rolled back with it");
+}
+
+#[test]
+fn catching_the_nested_failure_inside_the_body_keeps_both_writes() {
+    // Effect.test.ts :3827 "should allow catching nested failures in the
+    // same transaction" — the child failure is caught inside the parent
+    // body, so the boundary never sees it and commits everything. The pin
+    // observes the catch with `Effect.result`; the port's `catch` is the
+    // same recovery with the error handed to the handler, which asserts
+    // the row's `Result.isFailure(childResult)` claim directly.
+    let ref1 = TxRef::new(0);
+    let ref2 = TxRef::new(100);
+    let (in_child, in_parent) = (ref2.clone(), ref1.clone());
+    let program: Effect<(), String> = Effect::tx(
+        ref1.set_effect(10)
+            .flat_map(move |_| {
+                Effect::tx(
+                    in_child.set_effect(200)
+                        .flat_map(|_| Effect::fail("child failed".to_string())),
+                )
+                .catch(|child_error| {
+                    assert_eq!(child_error, "child failed");
+                    Effect::succeed(())
+                })
+            })
+            .flat_map(move |_| in_parent.set_effect(20)),
+    );
+    assert!(matches!(Runtime::run(program), Exit::Success(())));
+    assert_eq!(ref1.read(), 20);
+    assert_eq!(ref2.read(), 200, "the caught child's write survived");
+}
+
+#[test]
+fn three_levels_of_nested_transactions_compose_into_one() {
+    // Effect.test.ts :3854 "should handle multiple levels of nested
+    // composed transactions" — every level joins the same boundary.
+    let ref1 = TxRef::new(0);
+    let ref2 = TxRef::new(0);
+    let ref3 = TxRef::new(0);
+    let (mid, deep) = (ref2.clone(), ref3.clone());
+    let program: Effect<(), std::convert::Infallible> = Effect::tx(ref1.set_effect(1).flat_map(
+        move |_| {
+            Effect::tx(mid.set_effect(2).flat_map(move |_| Effect::tx(deep.set_effect(3))))
+        },
+    ));
+    assert!(matches!(Runtime::run(program), Exit::Success(())));
+    assert_eq!((ref1.read(), ref2.read(), ref3.read()), (1, 2, 3));
+}
+
+#[test]
+fn nested_tx_calls_join_the_same_transaction_and_read_their_writes() {
+    // Effect.test.ts :3881 "should compose nested tx calls into the same
+    // transaction" — one boundary with a nested tx inside: the reads
+    // happen inside the boundary, so they see the staged writes.
+    let ref1 = TxRef::new(0);
+    let ref2 = TxRef::new(0);
+    let (set2, read1, read2) = (ref2.clone(), ref1.clone(), ref2.clone());
+    let program: Effect<(i32, i32), std::convert::Infallible> = Effect::tx(
+        ref1.set_effect(10)
+            .flat_map(move |_| Effect::tx(set2.set_effect(20)))
+            .flat_map(move |_| Effect::tx(read1.get_effect()))
+            .flat_map(move |v1| Effect::tx(read2.get_effect()).map(move |v2| (v1, v2))),
+    );
+    assert_eq!(Runtime::run(program), Exit::Success((10, 20)));
+}
+
+#[test]
+fn an_escaping_nested_failure_rolls_back_the_composed_transaction() {
+    // Effect.test.ts :3899 "should rollback the entire composed
+    // transaction on failure" — the nested failure is not caught, so the
+    // whole composed boundary fails and no write survives.
+    let cell = TxRef::new(0);
+    let staged = cell.clone();
+    let program: Effect<(), String> = Effect::tx(staged.set_effect(10).flat_map(move |_| {
+        Effect::tx(
+            staged.set_effect(20)
+                .flat_map(|_| Effect::fail("nested failure".to_string())),
+        )
+    }));
+    match Runtime::run(program) {
+        Exit::Failure(cause) => assert_eq!(cause.failure(), Some(&"nested failure".to_string())),
+        Exit::Success(_) => panic!("expected the nested failure to escape"),
+    }
+    assert_eq!(cell.read(), 0, "the composed transaction rolled back whole");
+}
+
+#[test]
+fn a_caught_nested_failure_preserves_the_nested_write() {
+    // Effect.test.ts :3918 "should preserve nested writes when nested
+    // failure is caught" — the child failure is caught by the parent body,
+    // so the child's write survives in the same boundary.
+    let cell = TxRef::new(0);
+    let staged = cell.clone();
+    let program: Effect<(), String> = Effect::tx(staged.set_effect(10).flat_map(move |_| {
+        Effect::tx(
+            staged.set_effect(20)
+                .flat_map(|_| Effect::fail("transaction nested failure".to_string())),
+        )
+        .catch(|child_error| {
+            assert_eq!(child_error, "transaction nested failure");
+            Effect::succeed(())
+        })
+    }));
+    assert!(matches!(Runtime::run(program), Exit::Success(())));
+    assert_eq!(cell.read(), 20, "the caught nested write survived");
+}
+
+#[test]
+fn each_interpretation_of_a_transaction_description_opens_its_own_boundary() {
+    // Beyond the rows: the pin opens its boundary per `tx` invocation, so
+    // re-running one description stages twice and commits twice. A shared
+    // boundary would leave the second run reading the first run's journal.
+    let cell = TxRef::new(0);
+    // A fresh build per run: running consumes a description (L1), and each
+    // interpretation opens its own boundary.
+    let build = || -> Effect<i32, std::convert::Infallible, ()> {
+        let staged = cell.clone();
+        Effect::tx(staged.set_effect(1).flat_map(move |_| Effect::tx(staged.get_effect())))
+    };
+    assert_eq!(Runtime::run(build()), Exit::Success(1));
+    assert_eq!(Runtime::run(build()), Exit::Success(1), "a second boundary over the same cell");
+    assert_eq!(cell.read(), 1);
+}
+
+#[test]
+fn a_defect_inside_the_body_also_discards_the_staged_writes() {
+    // Beyond the rows: only a success publishes. A defect escapes the
+    // boundary like a typed failure, so nothing it staged survives.
+    let cell = TxRef::new(0);
+    let staged = cell.clone();
+    let program: Effect<(), std::convert::Infallible> = Effect::tx(
+        staged
+            .set_effect(10)
+            .flat_map(|_| Effect::<(), std::convert::Infallible>::die(elm_effect::Defect::new("boom"))),
+    );
+    match Runtime::run(program) {
+        Exit::Failure(cause) => assert_eq!(cause.defects()[0].message, "boom"),
+        Exit::Success(_) => panic!("expected the defect"),
+    }
+    assert_eq!(cell.read(), 0, "the defect discarded the staged write");
 }
 
 #[test]

@@ -753,6 +753,56 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
     }
 }
 
+/// An infallible description satisfies any error channel vacuously: the
+/// step cannot fail, so the target `E` is a widening, not a claim. The
+/// pin gets this from variance over `never`; Rust states it.
+pub(crate) fn widen_infallible<E, A>(
+    effect: Effect<A, std::convert::Infallible, ()>,
+) -> Effect<A, E, ()>
+where
+    A: Send + 'static,
+    E: Send + 'static,
+{
+    effect.map_err(|never| match never {})
+}
+
+/// `Effect.tx` at the pin: the outermost call opens a transaction
+/// boundary. Writes to transactional refs made inside the body stage on
+/// those refs and publish together when the body succeeds; a failure
+/// that escapes the boundary discards them. A nested `tx` inside a
+/// running boundary composes into it — the same journal, no inner
+/// boundary — so a failure caught inside the body is an ordinary value
+/// and its writes survive with it.
+///
+/// The boundary is staged per interpretation: running the same
+/// description twice opens two boundaries with two journals, which is
+/// why the transaction is created inside the run, not at construction.
+#[cfg(feature = "stm")]
+impl<A: Send + 'static, E: Send + 'static> Effect<A, E, ()> {
+    pub fn tx(self) -> Self {
+        let body = self;
+        widen_infallible(crate::service::read_reference(&crate::stm::TX_CURRENT)).flat_map(
+            move |current| {
+                if current.is_some() {
+                    // Nested: compose into the running boundary.
+                    return body;
+                }
+                Effect::sync(|| Arc::new(crate::stm::Transaction::new())).flat_map(move |tx| {
+                    let boundary = Arc::clone(&tx);
+                    body.provide_reference(&crate::stm::TX_CURRENT, Some(tx))
+                        .on_exit(move |exit| {
+                            if exit.is_success() {
+                                boundary.commit();
+                            } else {
+                                boundary.clear();
+                            }
+                        })
+                })
+            },
+        )
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

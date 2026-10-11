@@ -1426,21 +1426,21 @@ ported	packages/effect/test/Effect.test.ts	3738	it.effect	fails with the last fa
 ported	packages/effect/test/Effect.test.ts	3749	it.effect	defects on an empty collection	first_success_of_defects_on_an_empty_collection
 ported	packages/effect/test/Effect.test.ts	3763	it.effect	first argument as success	catch_cause_first_argument_as_success
 ported	packages/effect/test/Effect.test.ts	3768	it.effect	first argument as failure	catch_cause_first_argument_as_failure
-unported	packages/effect/test/Effect.test.ts	3779	it.effect	should create transaction boundaries when no transaction is active	
-unported	packages/effect/test/Effect.test.ts	3795	it.effect	should allow TxRef.modify outside an existing transaction	
-unported	packages/effect/test/Effect.test.ts	3806	it.effect	should roll back nested changes when the outer transaction fails	
-unported	packages/effect/test/Effect.test.ts	3827	it.effect	should allow catching nested failures in the same transaction	
-unported	packages/effect/test/Effect.test.ts	3854	it.effect	should handle multiple levels of nested composed transactions	
-unported	packages/effect/test/Effect.test.ts	3881	it.effect	should compose nested tx calls into the same transaction	
-unported	packages/effect/test/Effect.test.ts	3899	it.effect	should rollback the entire composed transaction on failure	
-unported	packages/effect/test/Effect.test.ts	3918	it.effect	should preserve nested writes when nested failure is caught	
+ported	packages/effect/test/Effect.test.ts	3779	it.effect	should create transaction boundaries when no transaction is active	separate_tx_boundaries_each_commit_their_own_writes
+ported	packages/effect/test/Effect.test.ts	3795	it.effect	should allow TxRef.modify outside an existing transaction	tx_ref_modify_outside_a_transaction_is_one_atomic_step
+ported	packages/effect/test/Effect.test.ts	3806	it.effect	should roll back nested changes when the outer transaction fails	failure_of_the_outer_boundary_rolls_back_the_nested_writes
+ported	packages/effect/test/Effect.test.ts	3827	it.effect	should allow catching nested failures in the same transaction	catching_the_nested_failure_inside_the_body_keeps_both_writes
+ported	packages/effect/test/Effect.test.ts	3854	it.effect	should handle multiple levels of nested composed transactions	three_levels_of_nested_transactions_compose_into_one
+ported	packages/effect/test/Effect.test.ts	3881	it.effect	should compose nested tx calls into the same transaction	nested_tx_calls_join_the_same_transaction_and_read_their_writes
+ported	packages/effect/test/Effect.test.ts	3899	it.effect	should rollback the entire composed transaction on failure	an_escaping_nested_failure_rolls_back_the_composed_transaction
+ported	packages/effect/test/Effect.test.ts	3918	it.effect	should preserve nested writes when nested failure is caught	a_caught_nested_failure_preserves_the_nested_write
 unported	packages/effect/test/Effect.test.ts	3940	it.effect	should rerun when a read ref changed while the transaction was suspended	
 unported	packages/effect/test/Effect.test.ts	3969	it.effect	commits wake the waiters of refs they write, not refs they read	
 unported	packages/effect/test/Effect.test.ts	3996	it.effect	a write of -0 over 0 is published and wakes its waiters	
 ported	packages/effect/test/Effect.test.ts	4013	it.effect	should support pipeable arguments	effect_fn_appends_pipeable_args_to_the_result
 ported	packages/effect/test/Effect.test.ts	4023	it.effect	should support self with pipeable arguments	effect_fn_self_binding_uppercases_the_body_result
-unported	packages/effect/test/Effect.test.ts	4038	it	should proxy body length	
-unported	packages/effect/test/Effect.test.ts	4054	it.effect	should reuse the definition frame across calls	
+not-applicable	packages/effect/test/Effect.test.ts	4038	it	should proxy body length	Effect.fn is absent from crates/elm-effect/src/effect.rs; the port maps its rows to plain closures, and this row asserts the JS wrapper's .length arity, a function-object property with no Rust counterpart
+not-applicable	packages/effect/test/Effect.test.ts	4054	it.effect	should reuse the definition frame across calls	References.CurrentStackFrame and named definition frames are absent from crates/elm-effect/src (no stack-frame machinery exists in the port), so a definition frame reused across calls has nothing to observe
 unported	packages/effect/test/Effect.test.ts	4086	it.effect	catches matching reason - handler succeeds	
 unported	packages/effect/test/Effect.test.ts	4096	it.effect	orElse	
 unported	packages/effect/test/Effect.test.ts	4111	it.effect	catches matching reason - handler fails	
