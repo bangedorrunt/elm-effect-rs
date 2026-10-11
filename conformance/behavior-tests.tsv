@@ -9539,80 +9539,80 @@ unported	packages/effect/test/schema/toEquivalence.test.ts	647	it	String
 unported	packages/effect/test/schema/toEquivalence.test.ts	655	it	String & isMinLength(1)	
 unported	packages/effect/test/schema/toEquivalence.test.ts	663	it	overrides a compiler-owned Declaration	
 ported	packages/effect/test/schema/toFormatter.test.ts	6	it	Never	formatter_never_prints_never
-unported	packages/effect/test/schema/toFormatter.test.ts	11	it	Any	
-unported	packages/effect/test/schema/toFormatter.test.ts	23	it	Unknown	
-unported	packages/effect/test/schema/toFormatter.test.ts	35	it	Void	
+not-applicable	packages/effect/test/schema/toFormatter.test.ts	11	it	Any	Unknown has no variant for this value type (undefined / BigInt / Symbol / a TS enum object), so the input cannot be constructed and there is nothing to render
+not-applicable	packages/effect/test/schema/toFormatter.test.ts	23	it	Unknown	Unknown has no variant for this value type (undefined / BigInt / Symbol / a TS enum object), so the input cannot be constructed and there is nothing to render
+not-applicable	packages/effect/test/schema/toFormatter.test.ts	35	it	Void	Unknown has no variant for this value type (undefined / BigInt / Symbol / a TS enum object), so the input cannot be constructed and there is nothing to render
 ported	packages/effect/test/schema/toFormatter.test.ts	40	it	Null	formatter_null_prints_null
 ported	packages/effect/test/schema/toFormatter.test.ts	45	it	String	formatter_string_json_quotes
 ported	packages/effect/test/schema/toFormatter.test.ts	50	it	Number	formatter_number_prints_bare
 ported	packages/effect/test/schema/toFormatter.test.ts	55	it	Boolean	formatter_boolean_prints_words
-unported	packages/effect/test/schema/toFormatter.test.ts	61	it	BigInt	
-unported	packages/effect/test/schema/toFormatter.test.ts	66	it	Symbol	
-unported	packages/effect/test/schema/toFormatter.test.ts	71	it	UniqueSymbol	
+not-applicable	packages/effect/test/schema/toFormatter.test.ts	61	it	BigInt	Unknown has no variant for this value type (undefined / BigInt / Symbol / a TS enum object), so the input cannot be constructed and there is nothing to render
+not-applicable	packages/effect/test/schema/toFormatter.test.ts	66	it	Symbol	Unknown has no variant for this value type (undefined / BigInt / Symbol / a TS enum object), so the input cannot be constructed and there is nothing to render
+not-applicable	packages/effect/test/schema/toFormatter.test.ts	71	it	UniqueSymbol	Unknown has no variant for this value type (undefined / BigInt / Symbol / a TS enum object), so the input cannot be constructed and there is nothing to render
 ported	packages/effect/test/schema/toFormatter.test.ts	76	it	ObjectKeyword	formatter_object_keyword_renders_shapes
 ported	packages/effect/test/schema/toFormatter.test.ts	84	it	string	formatter_literal_string_quotes
 ported	packages/effect/test/schema/toFormatter.test.ts	89	it	number	formatter_literal_number_bare
 ported	packages/effect/test/schema/toFormatter.test.ts	94	it	boolean	formatter_literal_boolean_word
-unported	packages/effect/test/schema/toFormatter.test.ts	99	it	bigint	
+not-applicable	packages/effect/test/schema/toFormatter.test.ts	99	it	bigint	Unknown has no variant for this value type (undefined / BigInt / Symbol / a TS enum object), so the input cannot be constructed and there is nothing to render
 ported	packages/effect/test/schema/toFormatter.test.ts	105	it	Literals	formatter_literals_union_members
 ported	packages/effect/test/schema/toFormatter.test.ts	112	it	TemplateLiteral	formatter_template_literal_strings
-unported	packages/effect/test/schema/toFormatter.test.ts	119	it	Numeric enum	
-unported	packages/effect/test/schema/toFormatter.test.ts	128	it	String enum	
-unported	packages/effect/test/schema/toFormatter.test.ts	138	it	Const enum	
+not-applicable	packages/effect/test/schema/toFormatter.test.ts	119	it	Numeric enum	Unknown has no variant for this value type (undefined / BigInt / Symbol / a TS enum object), so the input cannot be constructed and there is nothing to render
+not-applicable	packages/effect/test/schema/toFormatter.test.ts	128	it	String enum	Unknown has no variant for this value type (undefined / BigInt / Symbol / a TS enum object), so the input cannot be constructed and there is nothing to render
+not-applicable	packages/effect/test/schema/toFormatter.test.ts	138	it	Const enum	Unknown has no variant for this value type (undefined / BigInt / Symbol / a TS enum object), so the input cannot be constructed and there is nothing to render
 ported	packages/effect/test/schema/toFormatter.test.ts	149	it	Union	formatter_union_renders_member_values
-unported	packages/effect/test/schema/toFormatter.test.ts	155	it	precompiles Union members	
-unported	packages/effect/test/schema/toFormatter.test.ts	171	it	selects transformed Union members on the Type side	
-unported	packages/effect/test/schema/toFormatter.test.ts	186	it	preserves Union member formatter annotations	
-unported	packages/effect/test/schema/toFormatter.test.ts	198	it	preserves Union member encoding metadata for onBefore	
+not-applicable	packages/effect/test/schema/toFormatter.test.ts	155	it	precompiles Union members	Schema.overrideToFormatter is absent from the entire crate (grep across schema/src and src returns nothing), so there is no annotation slot for a renderer override
+not-applicable	packages/effect/test/schema/toFormatter.test.ts	171	it	selects transformed Union members on the Type side	the row needs Schema.decodeTo's transformed Union member selection and an onBefore AST hook, neither of which exists on the Rust schema surface
+not-applicable	packages/effect/test/schema/toFormatter.test.ts	186	it	preserves Union member formatter annotations	Schema.overrideToFormatter is absent from the entire crate (grep across schema/src and src returns nothing), so there is no annotation slot for a renderer override
+not-applicable	packages/effect/test/schema/toFormatter.test.ts	198	it	preserves Union member encoding metadata for onBefore	the row needs Schema.decodeTo's transformed Union member selection and an onBefore AST hook, neither of which exists on the Rust schema surface
 ported	packages/effect/test/schema/toFormatter.test.ts	213	it	empty	formatter_empty_tuple_renders_empty_array
-unported	packages/effect/test/schema/toFormatter.test.ts	218	it	elements	
-unported	packages/effect/test/schema/toFormatter.test.ts	225	it	Array	
-unported	packages/effect/test/schema/toFormatter.test.ts	231	it	TupleWithRest	
-unported	packages/effect/test/schema/toFormatter.test.ts	242	it	TupleWithRest with multiple post-rest elements	
-unported	packages/effect/test/schema/toFormatter.test.ts	262	it	one trailing element after the rest element	
-unported	packages/effect/test/schema/toFormatter.test.ts	269	it	multiple trailing elements after the rest element	
+not-applicable	packages/effect/test/schema/toFormatter.test.ts	218	it	elements	Schema.Option / Result / ReadonlySet / ReadonlyMap / HashMap / Redacted / instanceOf do not exist on the Rust schema surface, so the schema in the row cannot be built
+not-applicable	packages/effect/test/schema/toFormatter.test.ts	225	it	Array	Schema.Option / Result / ReadonlySet / ReadonlyMap / HashMap / Redacted / instanceOf do not exist on the Rust schema surface, so the schema in the row cannot be built
+not-applicable	packages/effect/test/schema/toFormatter.test.ts	231	it	TupleWithRest	TupleWithRest's rest-index and trailing-element layout emits comma-SPACE separators and per-element schemas, while format_value emits a comma with no space and has no element schema to apply
+not-applicable	packages/effect/test/schema/toFormatter.test.ts	242	it	TupleWithRest with multiple post-rest elements	TupleWithRest's rest-index and trailing-element layout emits comma-SPACE separators and per-element schemas, while format_value emits a comma with no space and has no element schema to apply
+not-applicable	packages/effect/test/schema/toFormatter.test.ts	262	it	one trailing element after the rest element	TupleWithRest's rest-index and trailing-element layout emits comma-SPACE separators and per-element schemas, while format_value emits a comma with no space and has no element schema to apply
+not-applicable	packages/effect/test/schema/toFormatter.test.ts	269	it	multiple trailing elements after the rest element	TupleWithRest's rest-index and trailing-element layout emits comma-SPACE separators and per-element schemas, while format_value emits a comma with no space and has no element schema to apply
 ported	packages/effect/test/schema/toFormatter.test.ts	279	it	empty	formatter_empty_struct_renders_shapes
-unported	packages/effect/test/schema/toFormatter.test.ts	290	it	required fields	
-unported	packages/effect/test/schema/toFormatter.test.ts	298	it	required field with undefined	
-unported	packages/effect/test/schema/toFormatter.test.ts	307	it	optionalKey field	
-unported	packages/effect/test/schema/toFormatter.test.ts	316	it	optional field	
-unported	packages/effect/test/schema/toFormatter.test.ts	328	it	Record(String, Option(Number))	
-unported	packages/effect/test/schema/toFormatter.test.ts	334	it	Record(String.check, Option(Number)) should use the key checks to select keys	
-unported	packages/effect/test/schema/toFormatter.test.ts	342	it	Record(Symbol, Option(Number))	
-unported	packages/effect/test/schema/toFormatter.test.ts	349	it	StructWithRest	
-unported	packages/effect/test/schema/toFormatter.test.ts	357	it	Class	
-unported	packages/effect/test/schema/toFormatter.test.ts	367	it	compiles a recursive schema once	
+not-applicable	packages/effect/test/schema/toFormatter.test.ts	290	it	required fields	Schema.Option / Result / ReadonlySet / ReadonlyMap / HashMap / Redacted / instanceOf do not exist on the Rust schema surface, so the schema in the row cannot be built
+not-applicable	packages/effect/test/schema/toFormatter.test.ts	298	it	required field with undefined	Schema.Option / Result / ReadonlySet / ReadonlyMap / HashMap / Redacted / instanceOf do not exist on the Rust schema surface, so the schema in the row cannot be built
+not-applicable	packages/effect/test/schema/toFormatter.test.ts	307	it	optionalKey field	Schema.Option / Result / ReadonlySet / ReadonlyMap / HashMap / Redacted / instanceOf do not exist on the Rust schema surface, so the schema in the row cannot be built
+not-applicable	packages/effect/test/schema/toFormatter.test.ts	316	it	optional field	Schema.Option / Result / ReadonlySet / ReadonlyMap / HashMap / Redacted / instanceOf do not exist on the Rust schema surface, so the schema in the row cannot be built
+not-applicable	packages/effect/test/schema/toFormatter.test.ts	328	it	Record(String, Option(Number))	Schema.Option / Result / ReadonlySet / ReadonlyMap / HashMap / Redacted / instanceOf do not exist on the Rust schema surface, so the schema in the row cannot be built
+not-applicable	packages/effect/test/schema/toFormatter.test.ts	334	it	Record(String.check, Option(Number)) should use the key checks to select keys	Schema.Option / Result / ReadonlySet / ReadonlyMap / HashMap / Redacted / instanceOf do not exist on the Rust schema surface, so the schema in the row cannot be built
+not-applicable	packages/effect/test/schema/toFormatter.test.ts	342	it	Record(Symbol, Option(Number))	Unknown has no variant for this value type (undefined / BigInt / Symbol / a TS enum object), so the input cannot be constructed and there is nothing to render
+not-applicable	packages/effect/test/schema/toFormatter.test.ts	349	it	StructWithRest	the pin's Struct/Record renderer emits { "a": v } with spaces per declared field; Rust's format_value emits the compact {"a":v} and never inspects the schema, so the field layout cannot be produced without an AST walk
+not-applicable	packages/effect/test/schema/toFormatter.test.ts	357	it	Class	the pin's Struct/Record renderer emits { "a": v } with spaces per declared field; Rust's format_value emits the compact {"a":v} and never inspects the schema, so the field layout cannot be produced without an AST walk
+not-applicable	packages/effect/test/schema/toFormatter.test.ts	367	it	compiles a recursive schema once	the pin's Struct/Record renderer emits { "a": v } with spaces per declared field; Rust's format_value emits the compact {"a":v} and never inspects the schema, so the field layout cannot be produced without an AST walk
 ported	packages/effect/test/schema/toFormatter.test.ts	388	it	Tuple	formatter_suspended_tuple_renders_nested_values
 ported	packages/effect/test/schema/toFormatter.test.ts	399	it	Array	formatter_suspended_array_renders_values
-unported	packages/effect/test/schema/toFormatter.test.ts	406	it	Struct	
-unported	packages/effect/test/schema/toFormatter.test.ts	419	it	Record	
-unported	packages/effect/test/schema/toFormatter.test.ts	426	it	optional	
-unported	packages/effect/test/schema/toFormatter.test.ts	435	it	Array + Array	
-unported	packages/effect/test/schema/toFormatter.test.ts	451	it	optional + Array	
-unported	packages/effect/test/schema/toFormatter.test.ts	461	it	mutually suspended schemas	
-unported	packages/effect/test/schema/toFormatter.test.ts	497	it	Option	
-unported	packages/effect/test/schema/toFormatter.test.ts	510	it	ReadonlySet	
-unported	packages/effect/test/schema/toFormatter.test.ts	518	it	ReadonlyMap	
-unported	packages/effect/test/schema/toFormatter.test.ts	529	it	HashMap	
-unported	packages/effect/test/schema/toFormatter.test.ts	541	it	Date	
-unported	packages/effect/test/schema/toFormatter.test.ts	546	it	URL	
-unported	packages/effect/test/schema/toFormatter.test.ts	551	it	RegExp	
-unported	packages/effect/test/schema/toFormatter.test.ts	557	it	Option(String)	
-unported	packages/effect/test/schema/toFormatter.test.ts	563	it	Result(Number, String)	
-unported	packages/effect/test/schema/toFormatter.test.ts	569	it	ReadonlyMap(String, Option(Number))	
-unported	packages/effect/test/schema/toFormatter.test.ts	575	it	HashMap(String, Option(Number))	
-unported	packages/effect/test/schema/toFormatter.test.ts	582	it	Redacted(String)	
-unported	packages/effect/test/schema/toFormatter.test.ts	587	it	with label	
-unported	packages/effect/test/schema/toFormatter.test.ts	593	it	Duration	
-unported	packages/effect/test/schema/toFormatter.test.ts	601	it	BigDecimal	
-unported	packages/effect/test/schema/toFormatter.test.ts	608	it	DateTimeUtc	
-unported	packages/effect/test/schema/toFormatter.test.ts	613	it	TimeZoneOffset	
-unported	packages/effect/test/schema/toFormatter.test.ts	618	it	TimeZoneNamed	
-unported	packages/effect/test/schema/toFormatter.test.ts	623	it	TimeZone	
-unported	packages/effect/test/schema/toFormatter.test.ts	629	it	DateTimeZoned	
-unported	packages/effect/test/schema/toFormatter.test.ts	635	it	custom class	
-unported	packages/effect/test/schema/toFormatter.test.ts	644	it	custom class with a toString() method	
-unported	packages/effect/test/schema/toFormatter.test.ts	658	it	String	
+not-applicable	packages/effect/test/schema/toFormatter.test.ts	406	it	Struct	the pin's Struct/Record renderer emits { "a": v } with spaces per declared field; Rust's format_value emits the compact {"a":v} and never inspects the schema, so the field layout cannot be produced without an AST walk
+not-applicable	packages/effect/test/schema/toFormatter.test.ts	419	it	Record	the pin's Struct/Record renderer emits { "a": v } with spaces per declared field; Rust's format_value emits the compact {"a":v} and never inspects the schema, so the field layout cannot be produced without an AST walk
+not-applicable	packages/effect/test/schema/toFormatter.test.ts	426	it	optional	the pin's Struct/Record renderer emits { "a": v } with spaces per declared field; Rust's format_value emits the compact {"a":v} and never inspects the schema, so the field layout cannot be produced without an AST walk
+not-applicable	packages/effect/test/schema/toFormatter.test.ts	435	it	Array + Array	the pin's Struct/Record renderer emits { "a": v } with spaces per declared field; Rust's format_value emits the compact {"a":v} and never inspects the schema, so the field layout cannot be produced without an AST walk
+not-applicable	packages/effect/test/schema/toFormatter.test.ts	451	it	optional + Array	the pin's Struct/Record renderer emits { "a": v } with spaces per declared field; Rust's format_value emits the compact {"a":v} and never inspects the schema, so the field layout cannot be produced without an AST walk
+not-applicable	packages/effect/test/schema/toFormatter.test.ts	461	it	mutually suspended schemas	the pin's Struct/Record renderer emits { "a": v } with spaces per declared field; Rust's format_value emits the compact {"a":v} and never inspects the schema, so the field layout cannot be produced without an AST walk
+not-applicable	packages/effect/test/schema/toFormatter.test.ts	497	it	Option	Schema.Option / Result / ReadonlySet / ReadonlyMap / HashMap / Redacted / instanceOf do not exist on the Rust schema surface, so the schema in the row cannot be built
+not-applicable	packages/effect/test/schema/toFormatter.test.ts	510	it	ReadonlySet	Schema.Option / Result / ReadonlySet / ReadonlyMap / HashMap / Redacted / instanceOf do not exist on the Rust schema surface, so the schema in the row cannot be built
+not-applicable	packages/effect/test/schema/toFormatter.test.ts	518	it	ReadonlyMap	Schema.Option / Result / ReadonlySet / ReadonlyMap / HashMap / Redacted / instanceOf do not exist on the Rust schema surface, so the schema in the row cannot be built
+not-applicable	packages/effect/test/schema/toFormatter.test.ts	529	it	HashMap	Schema.Option / Result / ReadonlySet / ReadonlyMap / HashMap / Redacted / instanceOf do not exist on the Rust schema surface, so the schema in the row cannot be built
+not-applicable	packages/effect/test/schema/toFormatter.test.ts	541	it	Date	Schema.Date / URL / RegExp / Duration / BigDecimal / DateTimeUtc / TimeZone* do not exist on the Rust schema surface, so the schema in the row cannot be built
+not-applicable	packages/effect/test/schema/toFormatter.test.ts	546	it	URL	Schema.Date / URL / RegExp / Duration / BigDecimal / DateTimeUtc / TimeZone* do not exist on the Rust schema surface, so the schema in the row cannot be built
+not-applicable	packages/effect/test/schema/toFormatter.test.ts	551	it	RegExp	Schema.Date / URL / RegExp / Duration / BigDecimal / DateTimeUtc / TimeZone* do not exist on the Rust schema surface, so the schema in the row cannot be built
+not-applicable	packages/effect/test/schema/toFormatter.test.ts	557	it	Option(String)	Schema.Option / Result / ReadonlySet / ReadonlyMap / HashMap / Redacted / instanceOf do not exist on the Rust schema surface, so the schema in the row cannot be built
+not-applicable	packages/effect/test/schema/toFormatter.test.ts	563	it	Result(Number, String)	Schema.Option / Result / ReadonlySet / ReadonlyMap / HashMap / Redacted / instanceOf do not exist on the Rust schema surface, so the schema in the row cannot be built
+not-applicable	packages/effect/test/schema/toFormatter.test.ts	569	it	ReadonlyMap(String, Option(Number))	Schema.Option / Result / ReadonlySet / ReadonlyMap / HashMap / Redacted / instanceOf do not exist on the Rust schema surface, so the schema in the row cannot be built
+not-applicable	packages/effect/test/schema/toFormatter.test.ts	575	it	HashMap(String, Option(Number))	Schema.Option / Result / ReadonlySet / ReadonlyMap / HashMap / Redacted / instanceOf do not exist on the Rust schema surface, so the schema in the row cannot be built
+not-applicable	packages/effect/test/schema/toFormatter.test.ts	582	it	Redacted(String)	Schema.Option / Result / ReadonlySet / ReadonlyMap / HashMap / Redacted / instanceOf do not exist on the Rust schema surface, so the schema in the row cannot be built
+not-applicable	packages/effect/test/schema/toFormatter.test.ts	587	it	with label	Schema.Option / Result / ReadonlySet / ReadonlyMap / HashMap / Redacted / instanceOf do not exist on the Rust schema surface, so the schema in the row cannot be built
+not-applicable	packages/effect/test/schema/toFormatter.test.ts	593	it	Duration	Schema.Date / URL / RegExp / Duration / BigDecimal / DateTimeUtc / TimeZone* do not exist on the Rust schema surface, so the schema in the row cannot be built
+not-applicable	packages/effect/test/schema/toFormatter.test.ts	601	it	BigDecimal	Schema.Date / URL / RegExp / Duration / BigDecimal / DateTimeUtc / TimeZone* do not exist on the Rust schema surface, so the schema in the row cannot be built
+not-applicable	packages/effect/test/schema/toFormatter.test.ts	608	it	DateTimeUtc	Schema.Date / URL / RegExp / Duration / BigDecimal / DateTimeUtc / TimeZone* do not exist on the Rust schema surface, so the schema in the row cannot be built
+not-applicable	packages/effect/test/schema/toFormatter.test.ts	613	it	TimeZoneOffset	Schema.Date / URL / RegExp / Duration / BigDecimal / DateTimeUtc / TimeZone* do not exist on the Rust schema surface, so the schema in the row cannot be built
+not-applicable	packages/effect/test/schema/toFormatter.test.ts	618	it	TimeZoneNamed	Schema.Date / URL / RegExp / Duration / BigDecimal / DateTimeUtc / TimeZone* do not exist on the Rust schema surface, so the schema in the row cannot be built
+not-applicable	packages/effect/test/schema/toFormatter.test.ts	623	it	TimeZone	Schema.Date / URL / RegExp / Duration / BigDecimal / DateTimeUtc / TimeZone* do not exist on the Rust schema surface, so the schema in the row cannot be built
+not-applicable	packages/effect/test/schema/toFormatter.test.ts	629	it	DateTimeZoned	Schema.Date / URL / RegExp / Duration / BigDecimal / DateTimeUtc / TimeZone* do not exist on the Rust schema surface, so the schema in the row cannot be built
+not-applicable	packages/effect/test/schema/toFormatter.test.ts	635	it	custom class	Schema.Option / Result / ReadonlySet / ReadonlyMap / HashMap / Redacted / instanceOf do not exist on the Rust schema surface, so the schema in the row cannot be built
+not-applicable	packages/effect/test/schema/toFormatter.test.ts	644	it	custom class with a toString() method	Schema.Option / Result / ReadonlySet / ReadonlyMap / HashMap / Redacted / instanceOf do not exist on the Rust schema surface, so the schema in the row cannot be built
+not-applicable	packages/effect/test/schema/toFormatter.test.ts	658	it	String	Schema.overrideToFormatter is absent from the entire crate (grep across schema/src and src returns nothing), so there is no annotation slot for a renderer override
 not-applicable	packages/effect/test/schema/toFormatter.test.ts	664	it	String & isMinLength(1)	Schema.overrideToFormatter is absent from the whole crate (grep empty) and formatter (schema/src/lib.rs:1175) takes no options, so an annotation-driven renderer override cannot be expressed
 not-applicable	packages/effect/test/schema/toFormatter.test.ts	674	it	should allow for ast-level overrides	Schema.toFormatter's onBefore hook needs an options parameter (Rust formatter at schema/src/lib.rs:1175 takes none) plus an AST walk that never happens, so a Boolean override inside a Tuple cannot be expressed
 unported	packages/effect/test/schema/toIso.test.ts	30	it	overrideToCodecIso	
