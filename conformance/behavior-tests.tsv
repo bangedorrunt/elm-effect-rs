@@ -9614,7 +9614,7 @@ unported	packages/effect/test/schema/toFormatter.test.ts	635	it	custom class
 unported	packages/effect/test/schema/toFormatter.test.ts	644	it	custom class with a toString() method	
 unported	packages/effect/test/schema/toFormatter.test.ts	658	it	String	
 unported	packages/effect/test/schema/toFormatter.test.ts	664	it	String & isMinLength(1)	
-unported	packages/effect/test/schema/toFormatter.test.ts	674	it	should allow for ast-level overrides	
+not-applicable	packages/effect/test/schema/toFormatter.test.ts	674	it	should allow for ast-level overrides	Schema.toFormatter's onBefore hook needs an options parameter (Rust formatter at schema/src/lib.rs:1175 takes none) plus an AST walk that never happens, so a Boolean override inside a Tuple cannot be expressed
 unported	packages/effect/test/schema/toIso.test.ts	30	it	overrideToCodecIso	
 unported	packages/effect/test/schema/toIso.test.ts	39	it	Class	
 unported	packages/effect/test/schema/toIso.test.ts	54	it	toType(Class)	
