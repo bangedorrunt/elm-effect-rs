@@ -113,6 +113,60 @@ where
         self.inner.len()
     }
 
+    /// `HashMap.modifyAt` at the pin: update the entry at `key` with
+    /// `Option<V> -> Option<V>`. `Some` replaces the value, `None` removes an
+    /// existing key and is a no-op on a missing one.
+    ///
+    /// This is the primitive `modify` is expressed through, exactly as the
+    /// pin's `internal.modify` calls `modifyAt` with `Option.map(f)`.
+    pub fn modify_at(&self, key: K, f: impl FnOnce(Option<&V>) -> Option<V>) -> Self
+    where
+        K: Hash + Eq + Clone,
+        V: Clone,
+    {
+        let updated = f(self.get(&key));
+        match updated {
+            None => {
+                if self.has(&key) {
+                    self.remove(&key)
+                } else {
+                    self.clone()
+                }
+            }
+            Some(value) => self.set(key, value),
+        }
+    }
+
+    /// `HashMap.modify` at the pin: map the value at an existing `key`.
+    ///
+    /// A missing key is left missing, because `f` is applied to the present
+    /// value only, which is the pin's `Option.map` over the same update
+    /// function.
+    pub fn modify(&self, key: K, f: impl FnOnce(&V) -> V) -> Self
+    where
+        K: Hash + Eq + Clone,
+        V: Clone,
+    {
+        self.modify_at(key, |current| current.map(f))
+    }
+
+    /// `HashMap.reduce` at the pin: fold (accumulator, value, key) over every
+    /// entry.
+    pub fn reduce<Z>(&self, zero: Z, f: impl Fn(Z, &V, &K) -> Z) -> Z {
+        let mut result = zero;
+        for (key, value) in self.entries() {
+            result = f(result, value, key);
+        }
+        result
+    }
+
+    /// `HashMap.forEach` at the pin: visit every entry as `(value, key)`.
+    pub fn for_each(&self, mut f: impl FnMut(&V, &K)) {
+        for (key, value) in self.entries() {
+            f(value, key);
+        }
+    }
+
     /// `true` with no entries.
     pub fn is_empty(&self) -> bool {
         self.inner.is_empty()

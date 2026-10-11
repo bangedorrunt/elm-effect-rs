@@ -2079,19 +2079,19 @@ ported	packages/effect/test/HashMap.test.ts	276	it	map	hash_map_transforms_and_p
 ported	packages/effect/test/HashMap.test.ts	285	it	flatMap	hash_map_unsafe_and_flat_map
 ported	packages/effect/test/HashMap.test.ts	297	it	filter	hash_map_transforms_and_predicates
 ported	packages/effect/test/HashMap.test.ts	307	it	compact	hash_map_find_compact_and_keyed
-unported	packages/effect/test/HashMap.test.ts	320	it	filterMap	
+ported	packages/effect/test/HashMap.test.ts	320	it	filterMap	hash_map_filter_map_keeps_some_entries
 ported	packages/effect/test/HashMap.test.ts	330	it	filterMap - key argument	hash_map_find_compact_and_keyed
 ported	packages/effect/test/HashMap.test.ts	346	it	findFirst returns an entry matching both key and value	hash_map_find_compact_and_keyed
 ported	packages/effect/test/HashMap.test.ts	352	it	findFirst - not found	hash_map_find_compact_and_keyed
 ported	packages/effect/test/HashMap.test.ts	358	it	some	hash_map_transforms_and_predicates
 ported	packages/effect/test/HashMap.test.ts	364	it	every	hash_map_transforms_and_predicates
 ported	packages/effect/test/HashMap.test.ts	370	it	hasBy	hash_map_find_compact_and_keyed
-unported	packages/effect/test/HashMap.test.ts	378	it	modifyAt - existing key	
-unported	packages/effect/test/HashMap.test.ts	388	it	modifyAt - non-existing key	
-unported	packages/effect/test/HashMap.test.ts	394	it	modifyAt - remove via None	
-unported	packages/effect/test/HashMap.test.ts	401	it	modify	
-unported	packages/effect/test/HashMap.test.ts	410	it	reduce	
-unported	packages/effect/test/HashMap.test.ts	416	it	forEach visits each key and value	
+ported	packages/effect/test/HashMap.test.ts	378	it	modifyAt - existing key	hash_map_modify_and_modify_at
+ported	packages/effect/test/HashMap.test.ts	388	it	modifyAt - non-existing key	hash_map_modify_and_modify_at
+ported	packages/effect/test/HashMap.test.ts	394	it	modifyAt - remove via None	hash_map_modify_and_modify_at
+ported	packages/effect/test/HashMap.test.ts	401	it	modify	hash_map_modify_and_modify_at
+ported	packages/effect/test/HashMap.test.ts	410	it	reduce	hash_map_reduce_and_for_each
+ported	packages/effect/test/HashMap.test.ts	416	it	forEach visits each key and value	hash_map_reduce_and_for_each
 unported	packages/effect/test/HashMap.test.ts	427	it	mutate allows in-place modifications	
 unported	packages/effect/test/HashMap.test.ts	442	it	beginMutation creates distinct mutable instance	
 unported	packages/effect/test/HashMap.test.ts	459	it	mutations are isolated from original	

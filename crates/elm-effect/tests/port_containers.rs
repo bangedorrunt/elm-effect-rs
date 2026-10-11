@@ -100,6 +100,84 @@ fn hash_map_views_and_union() {
 }
 
 #[test]
+fn hash_map_modify_and_modify_at() {
+    // HashMap.test.ts :378/:388/:394/:401.
+    //
+    // modifyAt takes (key, Option<V> -> Option<V>): Some replaces, None
+    // removes an existing key and is a no-op on a missing one. `modify` is
+    // the special case that maps the present value.
+    //
+    // :378 modifyAt - existing key replaces the value.
+    let m = HashMap::make([("a".to_owned(), 1), ("b".to_owned(), 2)]);
+    let replaced = m.modify_at("a".to_owned(), |current| Some(current.unwrap_or(&0) + 10));
+    assert_eq!(replaced.get(&"a".to_owned()), Some(&11));
+    assert_eq!(replaced.get(&"b".to_owned()), Some(&2));
+    // The source is untouched, matching the pin's persistent map.
+    assert_eq!(m.get(&"a".to_owned()), Some(&1));
+
+    // :394 modifyAt - None removes an existing key.
+    let removed = m.modify_at("a".to_owned(), |_| None);
+    assert!(!removed.has(&"a".to_owned()));
+    assert_eq!(removed.size(), 1);
+
+    // :388 modifyAt - None on a non-existing key changes nothing.
+    let missing = m.modify_at("zzz".to_owned(), |_| None);
+    assert!(!missing.has(&"zzz".to_owned()));
+    assert_eq!(missing.size(), 2);
+    assert!(missing.has(&"a".to_owned()));
+
+    // :401 modify multiplies the value at an existing key.
+    let m = HashMap::make([("a".to_owned(), 1), ("b".to_owned(), 2)]);
+    let tripled = m.modify("a".to_owned(), |v| v * 3);
+    assert_eq!(tripled.get(&"a".to_owned()), Some(&3));
+    assert_eq!(tripled.get(&"b".to_owned()), Some(&2));
+}
+
+#[test]
+fn hash_map_reduce_and_for_each() {
+    // HashMap.test.ts :410 reduce and :416 forEach.
+    //
+    // reduce folds (acc, value, key); forEach visits every entry. The pin's
+    // forEach passes (value, key), so the collected pairs are sorted before
+    // comparing because HashMap's iteration order is not defined.
+    let m = HashMap::make([("a".to_owned(), 1), ("b".to_owned(), 2), ("c".to_owned(), 3)]);
+
+    let sum = m.reduce(0, |acc, value, _key| acc + value);
+    assert_eq!(sum, 6);
+
+    // :416 forEach visits each key and value, in the pin's (value, key) order.
+    let mut seen: Vec<(String, i32)> = Vec::new();
+    m.for_each(|value, key| seen.push((key.clone(), *value)));
+    seen.sort();
+    assert_eq!(
+        seen,
+        vec![
+            ("a".to_owned(), 1),
+            ("b".to_owned(), 2),
+            ("c".to_owned(), 3)
+        ]
+    );
+}
+
+#[test]
+fn hash_map_filter_map_keeps_some_entries() {
+    // HashMap.test.ts :320 filterMap. A filter success maps the value through,
+    // a failure drops the entry, which is the pin's Result.failVoid arm.
+    let m = HashMap::make([
+        ("a".to_owned(), 1),
+        ("b".to_owned(), 2),
+        ("c".to_owned(), 3),
+        ("d".to_owned(), 4),
+    ]);
+    let doubled = m.filter_map(|_key, value| (value % 2 == 0).then(|| value * 2));
+    assert_eq!(doubled.size(), 2);
+    assert_eq!(doubled.get(&"b".to_owned()), Some(&4));
+    assert_eq!(doubled.get(&"d".to_owned()), Some(&8));
+    assert!(!doubled.has(&"a".to_owned()));
+    assert!(!doubled.has(&"c".to_owned()));
+}
+
+#[test]
 fn hash_map_transforms_and_predicates() {
     let m = HashMap::make([("a".to_owned(), 1), ("b".to_owned(), 2)]);
     assert_eq!(m.map(|v| v * 10).get(&"a".to_owned()), Some(&10));
