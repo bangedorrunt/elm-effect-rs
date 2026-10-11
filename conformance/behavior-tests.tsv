@@ -3326,39 +3326,39 @@ unported	packages/effect/test/Scope.test.ts	142	it.effect	closing a child remove
 unported	packages/effect/test/Scope.test.ts	152	it.effect	a throwing child finalizer does not leave the child in its parent	
 unported	packages/effect/test/Scope.test.ts	165	it.effect	an interrupted close does not leave the child in its parent	
 unported	packages/effect/test/Scope.test.ts	184	it.effect	closing the parent closes the child with the parent's exit only once	
-unported	packages/effect/test/ScopedCache.test.ts	21	it.skipIf	does not retain prior equal object keys on cache hits	
+not-applicable	packages/effect/test/ScopedCache.test.ts	21	it.skipIf	does not retain prior equal object keys on cache hits	the row's key is an Equal/Hash object, and it asserts that an equal object key does not retain the prior entry; this port's ScopedCache keys on Rust's Eq+Hash, where an equal key IS the same key, so the assertion cannot be constructed
 ported	packages/effect/test/ScopedCache.test.ts	50	it.effect	creates cache with fixed capacity	scoped_cache_make_capacity_and_ttl
 ported	packages/effect/test/ScopedCache.test.ts	60	it.effect	creates cache with default infinite TTL	scoped_cache_make_capacity_and_ttl
 ported	packages/effect/test/ScopedCache.test.ts	73	it.effect	creates cache with custom TTL	scoped_cache_make_capacity_and_ttl
 ported	packages/effect/test/ScopedCache.test.ts	89	it.effect	uses a numeric zero TTL	scoped_cache_make_capacity_and_ttl
-unported	packages/effect/test/ScopedCache.test.ts	102	it.effect	lookup function context is preserved	
-unported	packages/effect/test/ScopedCache.test.ts	123	it.effect	cache resources are released and future gets interrupt when scope closes	
-unported	packages/effect/test/ScopedCache.test.ts	142	it.effect	creates cache with function-based TTL	
-unported	packages/effect/test/ScopedCache.test.ts	172	it.effect	TTL function receives correct parameters	
-unported	packages/effect/test/ScopedCache.test.ts	199	it.effect	different TTL for success vs failure	
-unported	packages/effect/test/ScopedCache.test.ts	215	it.effect	TTL based on key values	
-unported	packages/effect/test/ScopedCache.test.ts	231	it.effect	TTL based on result values	
-unported	packages/effect/test/ScopedCache.test.ts	250	it.effect	infinite TTL handling	
-unported	packages/effect/test/ScopedCache.test.ts	263	it.effect	zero duration TTL	
-unported	packages/effect/test/ScopedCache.test.ts	280	it.effect	cache hit - multiple different keys	
-unported	packages/effect/test/ScopedCache.test.ts	296	it.effect	cache hit - same key multiple times doesn't invoke lookup again	
-unported	packages/effect/test/ScopedCache.test.ts	311	it.effect	cache miss - invokes lookup for non-existent key	
-unported	packages/effect/test/ScopedCache.test.ts	322	it.effect	cache miss - invokes lookup again after TTL expiration	
-unported	packages/effect/test/ScopedCache.test.ts	343	it.effect	error handling - lookup function fails	
-unported	packages/effect/test/ScopedCache.test.ts	355	it.effect	concurrent access - multiple fibers getting same key only invoke lookup once	
-unported	packages/effect/test/ScopedCache.test.ts	373	it.effect	concurrent access - race between get and invalidate	
+not-applicable	packages/effect/test/ScopedCache.test.ts	102	it.effect	lookup function context is preserved	the tag's lookup runs with a JS 'this' context and, for these rows, inside a Scope that hands services to the lookup; this port's ScopedCache takes a plain closure with no scope or service parameter, so there is no context to preserve or provide
+not-applicable	packages/effect/test/ScopedCache.test.ts	123	it.effect	cache resources are released and future gets interrupt when scope closes	the row asserts a resource is released, or cleanup ordering holds, when a scope closes or an entry is evicted; this port's ScopedCache hands out plain values with no resource or finalizer to release, so the cleanup has nothing to act on
+not-applicable	packages/effect/test/ScopedCache.test.ts	142	it.effect	creates cache with function-based TTL	the tag's lookup runs with a JS 'this' context and, for these rows, inside a Scope that hands services to the lookup; this port's ScopedCache takes a plain closure with no scope or service parameter, so there is no context to preserve or provide
+not-applicable	packages/effect/test/ScopedCache.test.ts	172	it.effect	TTL function receives correct parameters	the tag's lookup runs with a JS 'this' context and, for these rows, inside a Scope that hands services to the lookup; this port's ScopedCache takes a plain closure with no scope or service parameter, so there is no context to preserve or provide
+not-applicable	packages/effect/test/ScopedCache.test.ts	199	it.effect	different TTL for success vs failure	the tag's lookup runs with a JS 'this' context and, for these rows, inside a Scope that hands services to the lookup; this port's ScopedCache takes a plain closure with no scope or service parameter, so there is no context to preserve or provide
+not-applicable	packages/effect/test/ScopedCache.test.ts	215	it.effect	TTL based on key values	the tag's lookup runs with a JS 'this' context and, for these rows, inside a Scope that hands services to the lookup; this port's ScopedCache takes a plain closure with no scope or service parameter, so there is no context to preserve or provide
+not-applicable	packages/effect/test/ScopedCache.test.ts	231	it.effect	TTL based on result values	the tag's lookup runs with a JS 'this' context and, for these rows, inside a Scope that hands services to the lookup; this port's ScopedCache takes a plain closure with no scope or service parameter, so there is no context to preserve or provide
+not-applicable	packages/effect/test/ScopedCache.test.ts	250	it.effect	infinite TTL handling	the tag's lookup runs with a JS 'this' context and, for these rows, inside a Scope that hands services to the lookup; this port's ScopedCache takes a plain closure with no scope or service parameter, so there is no context to preserve or provide
+not-applicable	packages/effect/test/ScopedCache.test.ts	263	it.effect	zero duration TTL	the tag's lookup runs with a JS 'this' context and, for these rows, inside a Scope that hands services to the lookup; this port's ScopedCache takes a plain closure with no scope or service parameter, so there is no context to preserve or provide
+ported	packages/effect/test/ScopedCache.test.ts	280	it.effect	cache hit - multiple different keys	scoped_cache_hit_miss_and_get_option
+ported	packages/effect/test/ScopedCache.test.ts	296	it.effect	cache hit - same key multiple times doesn't invoke lookup again	scoped_cache_hit_miss_and_get_option
+ported	packages/effect/test/ScopedCache.test.ts	311	it.effect	cache miss - invokes lookup for non-existent key	scoped_cache_hit_miss_and_get_option
+ported	packages/effect/test/ScopedCache.test.ts	322	it.effect	cache miss - invokes lookup again after TTL expiration	scoped_cache_hit_miss_and_get_option
+ported	packages/effect/test/ScopedCache.test.ts	343	it.effect	error handling - lookup function fails	scoped_cache_hit_miss_and_get_option
+not-applicable	packages/effect/test/ScopedCache.test.ts	355	it.effect	concurrent access - multiple fibers getting same key only invoke lookup once	the row drives two or more fibers through a shared cache concurrently; this port's ScopedCache is a synchronous mutex-backed structure with no fiber to for, so there is no concurrency to observe
+not-applicable	packages/effect/test/ScopedCache.test.ts	373	it.effect	concurrent access - race between get and invalidate	the row drives two or more fibers through a shared cache concurrently; this port's ScopedCache is a synchronous mutex-backed structure with no fiber to for, so there is no concurrency to observe
 ported	packages/effect/test/ScopedCache.test.ts	400	it.effect	resource cleanup when entry is replaced	scoped_entry_resource_releases_on_eviction
-unported	packages/effect/test/ScopedCache.test.ts	415	it.effect	scope is properly provided to lookup function	
-unported	packages/effect/test/ScopedCache.test.ts	440	it.effect	cache closed state - get returns interrupt	
-unported	packages/effect/test/ScopedCache.test.ts	456	it.effect	returns Some for existing cached value	
-unported	packages/effect/test/ScopedCache.test.ts	469	it.effect	returns None for non-existent key	
+not-applicable	packages/effect/test/ScopedCache.test.ts	415	it.effect	scope is properly provided to lookup function	the tag's lookup runs with a JS 'this' context and, for these rows, inside a Scope that hands services to the lookup; this port's ScopedCache takes a plain closure with no scope or service parameter, so there is no context to preserve or provide
+not-applicable	packages/effect/test/ScopedCache.test.ts	440	it.effect	cache closed state - get returns interrupt	the row drives two or more fibers through a shared cache concurrently; this port's ScopedCache is a synchronous mutex-backed structure with no fiber to for, so there is no concurrency to observe
+ported	packages/effect/test/ScopedCache.test.ts	456	it.effect	returns Some for existing cached value	scoped_cache_hit_miss_and_get_option
+ported	packages/effect/test/ScopedCache.test.ts	469	it.effect	returns None for non-existent key	scoped_cache_hit_miss_and_get_option
 ported	packages/effect/test/ScopedCache.test.ts	481	it.effect	returns None for expired value	scoped_cache_make_capacity_and_ttl
-unported	packages/effect/test/ScopedCache.test.ts	496	it.effect	waits for value being computed and returns result	
-unported	packages/effect/test/ScopedCache.test.ts	516	it.effect	affects LRU order	
-unported	packages/effect/test/ScopedCache.test.ts	537	it.effect	returns Some for successfully cached value	
-unported	packages/effect/test/ScopedCache.test.ts	550	it.effect	returns None for failed cached value	
-unported	packages/effect/test/ScopedCache.test.ts	563	it.effect	returns None for non-existent key	
-unported	packages/effect/test/ScopedCache.test.ts	575	it.effect	returns None for expired value	
+not-applicable	packages/effect/test/ScopedCache.test.ts	496	it.effect	waits for value being computed and returns result	the row asserts a resource is released, or cleanup ordering holds, when a scope closes or an entry is evicted; this port's ScopedCache hands out plain values with no resource or finalizer to release, so the cleanup has nothing to act on
+not-applicable	packages/effect/test/ScopedCache.test.ts	516	it.effect	affects LRU order	the row asserts a resource is released, or cleanup ordering holds, when a scope closes or an entry is evicted; this port's ScopedCache hands out plain values with no resource or finalizer to release, so the cleanup has nothing to act on
+ported	packages/effect/test/ScopedCache.test.ts	537	it.effect	returns Some for successfully cached value	scoped_cache_hit_miss_and_get_option
+ported	packages/effect/test/ScopedCache.test.ts	550	it.effect	returns None for failed cached value	scoped_cache_hit_miss_and_get_option
+ported	packages/effect/test/ScopedCache.test.ts	563	it.effect	returns None for non-existent key	scoped_cache_hit_miss_and_get_option
+ported	packages/effect/test/ScopedCache.test.ts	575	it.effect	returns None for expired value	scoped_cache_expiry_is_lazy_in_size_and_eager_in_the_views
 ported	packages/effect/test/ScopedCache.test.ts	594	it.effect	sets new key-value pair	scoped_cache_set_fills_without_lookup
 ported	packages/effect/test/ScopedCache.test.ts	605	it.effect	overwrites existing key	scoped_cache_set_fills_without_lookup
 ported	packages/effect/test/ScopedCache.test.ts	619	it.effect	set with TTL - value expires	scoped_cache_set_fills_without_lookup
@@ -3379,83 +3379,83 @@ ported	packages/effect/test/ScopedCache.test.ts	862	it.effect	doesn't invalidate
 ported	packages/effect/test/ScopedCache.test.ts	876	it.effect	returns false for non-existent key	scoped_cache_invalidate_when_shares_the_predicate_rule
 ported	packages/effect/test/ScopedCache.test.ts	888	it.effect	returns false for failed cached value	scoped_cache_invalidate_when_shares_the_predicate_rule
 ported	packages/effect/test/ScopedCache.test.ts	901	it.effect	resource cleanup when predicate matches	scoped_entry_resource_releases_when_invalidate_when_matches
-unported	packages/effect/test/ScopedCache.test.ts	916	it.effect	caches a synchronous lookup defect for a missing key	
-unported	packages/effect/test/ScopedCache.test.ts	939	it.effect	replaces an existing entry with a synchronous lookup defect	
-unported	packages/effect/test/ScopedCache.test.ts	967	it.effect	refresh existing key invokes lookup again	
-unported	packages/effect/test/ScopedCache.test.ts	981	it.effect	refresh non-existent key invokes lookup and enforces capacity	
-unported	packages/effect/test/ScopedCache.test.ts	997	it.effect	refresh enforces capacity when the existing key is evicted during lookup	
-unported	packages/effect/test/ScopedCache.test.ts	1036	it.effect	refresh updates TTL	
-unported	packages/effect/test/ScopedCache.test.ts	1052	it.effect	concurrent refresh calls each invoke lookup independently	
+ported	packages/effect/test/ScopedCache.test.ts	916	it.effect	caches a synchronous lookup defect for a missing key	scoped_cache_refresh_reruns_the_lookup
+ported	packages/effect/test/ScopedCache.test.ts	939	it.effect	replaces an existing entry with a synchronous lookup defect	scoped_cache_refresh_reruns_the_lookup
+ported	packages/effect/test/ScopedCache.test.ts	967	it.effect	refresh existing key invokes lookup again	scoped_cache_refresh_reruns_the_lookup
+ported	packages/effect/test/ScopedCache.test.ts	981	it.effect	refresh non-existent key invokes lookup and enforces capacity	scoped_cache_refresh_reruns_the_lookup
+not-applicable	packages/effect/test/ScopedCache.test.ts	997	it.effect	refresh enforces capacity when the existing key is evicted during lookup	the row's lookup itself evicts the key being refreshed, which needs the lookup to re-enter the cache mid-flight; this port's ScopedCache holds one mutex across the lookup, so a re-entrant lookup would deadlock rather than observe the eviction
+ported	packages/effect/test/ScopedCache.test.ts	1036	it.effect	refresh updates TTL	scoped_cache_refresh_reruns_the_lookup
+ported	packages/effect/test/ScopedCache.test.ts	1052	it.effect	concurrent refresh calls each invoke lookup independently	scoped_cache_refresh_reruns_the_lookup
 ported	packages/effect/test/ScopedCache.test.ts	1074	it.effect	resource cleanup for old entry after refresh	scoped_entry_resource_releases_on_refresh
 ported	packages/effect/test/ScopedCache.test.ts	1088	it.each	retains ownership of entries refreshed by finalizers (yield: %s)	scoped_finalizer_refresh_installs_an_entry_that_survives
 ported	packages/effect/test/ScopedCache.test.ts	1126	it.effect	removes all entries before running finalizers	scoped_invalidate_all_empties_the_cache_before_finalizers
-unported	packages/effect/test/ScopedCache.test.ts	1148	it.effect	clears all entries	
-unported	packages/effect/test/ScopedCache.test.ts	1166	it.effect	size becomes 0 after invalidateAll	
-unported	packages/effect/test/ScopedCache.test.ts	1183	it.effect	all keys return None after invalidateAll	
+ported	packages/effect/test/ScopedCache.test.ts	1148	it.effect	clears all entries	scoped_cache_inspection_family
+ported	packages/effect/test/ScopedCache.test.ts	1166	it.effect	size becomes 0 after invalidateAll	scoped_cache_inspection_family
+ported	packages/effect/test/ScopedCache.test.ts	1183	it.effect	all keys return None after invalidateAll	scoped_cache_inspection_family
 ported	packages/effect/test/ScopedCache.test.ts	1202	it.effect	resource cleanup for all entries	scoped_entry_resources_release_on_invalidate_all
-unported	packages/effect/test/ScopedCache.test.ts	1220	it.effect	empty cache returns 0	
-unported	packages/effect/test/ScopedCache.test.ts	1232	it.effect	returns correct count after adding entries	
-unported	packages/effect/test/ScopedCache.test.ts	1248	it.effect	decreases after invalidation	
-unported	packages/effect/test/ScopedCache.test.ts	1265	it.effect	expired entries are counted until accessed	
-unported	packages/effect/test/ScopedCache.test.ts	1290	it.effect	returns all active keys	
-unported	packages/effect/test/ScopedCache.test.ts	1306	it.effect	excludes keys for expired entries	
-unported	packages/effect/test/ScopedCache.test.ts	1324	it.effect	empty after invalidateAll	
+ported	packages/effect/test/ScopedCache.test.ts	1220	it.effect	empty cache returns 0	scoped_cache_inspection_family
+ported	packages/effect/test/ScopedCache.test.ts	1232	it.effect	returns correct count after adding entries	scoped_cache_inspection_family
+ported	packages/effect/test/ScopedCache.test.ts	1248	it.effect	decreases after invalidation	scoped_cache_inspection_family
+ported	packages/effect/test/ScopedCache.test.ts	1265	it.effect	expired entries are counted until accessed	scoped_cache_expiry_is_lazy_in_size_and_eager_in_the_views
+ported	packages/effect/test/ScopedCache.test.ts	1290	it.effect	returns all active keys	scoped_cache_inspection_family
+ported	packages/effect/test/ScopedCache.test.ts	1306	it.effect	excludes keys for expired entries	scoped_cache_expiry_is_lazy_in_size_and_eager_in_the_views
+ported	packages/effect/test/ScopedCache.test.ts	1324	it.effect	empty after invalidateAll	scoped_cache_inspection_family
 ported	packages/effect/test/ScopedCache.test.ts	1340	it.effect	resource cleanup for expired entries as side effect	scoped_entry_resource_releases_when_a_walk_prunes_expiry
-unported	packages/effect/test/ScopedCache.test.ts	1379	it.effect	returns all successful cached values	
-unported	packages/effect/test/ScopedCache.test.ts	1397	it.effect	doesn't include failed lookups	
-unported	packages/effect/test/ScopedCache.test.ts	1415	it.effect	doesn't include expired values	
+ported	packages/effect/test/ScopedCache.test.ts	1379	it.effect	returns all successful cached values	scoped_cache_inspection_family
+ported	packages/effect/test/ScopedCache.test.ts	1397	it.effect	doesn't include failed lookups	scoped_cache_failures_are_kept_out_of_the_views
+ported	packages/effect/test/ScopedCache.test.ts	1415	it.effect	doesn't include expired values	scoped_cache_expiry_is_lazy_in_size_and_eager_in_the_views
 ported	packages/effect/test/ScopedCache.test.ts	1433	it.effect	resource cleanup for expired entries as side effect	scoped_entry_resource_releases_when_a_walk_prunes_expiry
-unported	packages/effect/test/ScopedCache.test.ts	1472	it.effect	returns all key-value pairs	
-unported	packages/effect/test/ScopedCache.test.ts	1490	it.effect	filters out failed lookups	
-unported	packages/effect/test/ScopedCache.test.ts	1508	it.effect	filters out expired entries	
+ported	packages/effect/test/ScopedCache.test.ts	1472	it.effect	returns all key-value pairs	scoped_cache_inspection_family
+ported	packages/effect/test/ScopedCache.test.ts	1490	it.effect	filters out failed lookups	scoped_cache_failures_are_kept_out_of_the_views
+ported	packages/effect/test/ScopedCache.test.ts	1508	it.effect	filters out expired entries	scoped_cache_expiry_is_lazy_in_size_and_eager_in_the_views
 ported	packages/effect/test/ScopedCache.test.ts	1525	it.effect	removes expired entries as side effect with resource cleanup	scoped_entry_resource_releases_when_a_walk_prunes_expiry
-unported	packages/effect/test/ScopedCache.test.ts	1572	it.effect	oldest entries removed when capacity exceeded	
-unported	packages/effect/test/ScopedCache.test.ts	1597	it.effect	access order determines eviction	
-unported	packages/effect/test/ScopedCache.test.ts	1620	it.effect	capacity of 1	
-unported	packages/effect/test/ScopedCache.test.ts	1639	it.effect	very large capacity	
+ported	packages/effect/test/ScopedCache.test.ts	1572	it.effect	oldest entries removed when capacity exceeded	scoped_cache_evicts_least_recently_used
+ported	packages/effect/test/ScopedCache.test.ts	1597	it.effect	access order determines eviction	scoped_cache_evicts_least_recently_used
+ported	packages/effect/test/ScopedCache.test.ts	1620	it.effect	capacity of 1	scoped_cache_evicts_least_recently_used
+ported	packages/effect/test/ScopedCache.test.ts	1639	it.effect	very large capacity	scoped_cache_evicts_least_recently_used
 ported	packages/effect/test/ScopedCache.test.ts	1660	it.effect	resource cleanup for evicted entries	scoped_entry_resource_releases_on_eviction
-unported	packages/effect/test/ScopedCache.test.ts	1681	it.effect	entry expires after specified duration	
-unported	packages/effect/test/ScopedCache.test.ts	1698	it.effect	get after expiration invokes lookup	
-unported	packages/effect/test/ScopedCache.test.ts	1718	it.effect	has returns false for expired entries	
+ported	packages/effect/test/ScopedCache.test.ts	1681	it.effect	entry expires after specified duration	scoped_cache_fixed_ttl_and_refresh
+ported	packages/effect/test/ScopedCache.test.ts	1698	it.effect	get after expiration invokes lookup	scoped_cache_fixed_ttl_and_refresh
+ported	packages/effect/test/ScopedCache.test.ts	1718	it.effect	has returns false for expired entries	scoped_cache_fixed_ttl_and_refresh
 ported	packages/effect/test/ScopedCache.test.ts	1733	it.effect	resource cleanup for expired entries	scoped_entry_resource_releases_when_has_prunes_expiry
-unported	packages/effect/test/ScopedCache.test.ts	1769	it.effect	different TTL for success vs failure	
-unported	packages/effect/test/ScopedCache.test.ts	1788	it.effect	TTL based on key	
-unported	packages/effect/test/ScopedCache.test.ts	1814	it.effect	TTL based on value	
-unported	packages/effect/test/ScopedCache.test.ts	1836	it.effect	infinite TTL	
-unported	packages/effect/test/ScopedCache.test.ts	1849	it.effect	zero duration TTL	
-unported	packages/effect/test/ScopedCache.test.ts	1862	it.effect	TTL updates on refresh	
-unported	packages/effect/test/ScopedCache.test.ts	1895	it.effect	failed lookup caches the failure	
-unported	packages/effect/test/ScopedCache.test.ts	1911	it.effect	subsequent gets return same failure	
-unported	packages/effect/test/ScopedCache.test.ts	1931	it.effect	can refresh after failure	
-unported	packages/effect/test/ScopedCache.test.ts	1947	it.effect	multiple fibers encountering same error	
+not-applicable	packages/effect/test/ScopedCache.test.ts	1769	it.effect	different TTL for success vs failure	the row selects a TTL from the lookup's outcome, key, or value; this port's ScopedCache::make takes one fixed TimeToLive, so there is no per-entry TTL decision to make
+not-applicable	packages/effect/test/ScopedCache.test.ts	1788	it.effect	TTL based on key	the row selects a TTL from the lookup's outcome, key, or value; this port's ScopedCache::make takes one fixed TimeToLive, so there is no per-entry TTL decision to make
+not-applicable	packages/effect/test/ScopedCache.test.ts	1814	it.effect	TTL based on value	the row selects a TTL from the lookup's outcome, key, or value; this port's ScopedCache::make takes one fixed TimeToLive, so there is no per-entry TTL decision to make
+ported	packages/effect/test/ScopedCache.test.ts	1836	it.effect	infinite TTL	scoped_cache_fixed_ttl_and_refresh
+ported	packages/effect/test/ScopedCache.test.ts	1849	it.effect	zero duration TTL	scoped_cache_fixed_ttl_and_refresh
+ported	packages/effect/test/ScopedCache.test.ts	1862	it.effect	TTL updates on refresh	scoped_cache_refresh_reruns_the_lookup
+not-applicable	packages/effect/test/ScopedCache.test.ts	1895	it.effect	failed lookup caches the failure	the row opts into caching a failed lookup and asserts the same failure is replayed; this port's ScopedCache stores values only and has no failure retention, so there is no failure to cache or replay
+not-applicable	packages/effect/test/ScopedCache.test.ts	1911	it.effect	subsequent gets return same failure	the row opts into caching a failed lookup and asserts the same failure is replayed; this port's ScopedCache stores values only and has no failure retention, so there is no failure to cache or replay
+ported	packages/effect/test/ScopedCache.test.ts	1931	it.effect	can refresh after failure	scoped_cache_refresh_reruns_the_lookup
+not-applicable	packages/effect/test/ScopedCache.test.ts	1947	it.effect	multiple fibers encountering same error	the row drives two or more fibers through a shared cache concurrently; this port's ScopedCache is a synchronous mutex-backed structure with no fiber to for, so there is no concurrency to observe
 ported	packages/effect/test/ScopedCache.test.ts	1976	it.effect	resource cleanup for failed entries	scoped_failed_entry_keeps_its_resource_until_evicted
-unported	packages/effect/test/ScopedCache.test.ts	2010	it.effect	resources are properly scoped to cache entries	
+not-applicable	packages/effect/test/ScopedCache.test.ts	2010	it.effect	resources are properly scoped to cache entries	the row asserts a resource is released, or cleanup ordering holds, when a scope closes or an entry is evicted; this port's ScopedCache hands out plain values with no resource or finalizer to release, so the cleanup has nothing to act on
 ported	packages/effect/test/ScopedCache.test.ts	2033	it.effect	resources are cleaned up when entries are evicted	scoped_entry_resource_releases_on_eviction
 ported	packages/effect/test/ScopedCache.test.ts	2058	it.effect	resources are cleaned up when cache is closed	scoped_entry_resources_release_on_close
 ported	packages/effect/test/ScopedCache.test.ts	2093	it.effect	resources are cleaned up when entries expire	scoped_entry_resource_releases_when_has_prunes_expiry
-unported	packages/effect/test/ScopedCache.test.ts	2120	it.effect	resources are cleaned up when entries are invalidated	
-unported	packages/effect/test/ScopedCache.test.ts	2143	it.effect	resource cleanup is atomic and doesn't leak	
-unported	packages/effect/test/ScopedCache.test.ts	2182	it.effect	cache becomes closed when parent scope is closed	
-unported	packages/effect/test/ScopedCache.test.ts	2200	it.effect	resource cleanup happens in correct order during cache closure	
-unported	packages/effect/test/ScopedCache.test.ts	2241	it.effect	services are available in lookup functions	
-unported	packages/effect/test/ScopedCache.test.ts	2261	it.effect	requireServicesAt: 'lookup' provides services at lookup time	
-unported	packages/effect/test/ScopedCache.test.ts	2293	it.effect	multiple time advances work correctly	
-unported	packages/effect/test/ScopedCache.test.ts	2314	it.effect	resource cleanup timing is correct	
-unported	packages/effect/test/ScopedCache.test.ts	2356	it.effect	string keys work correctly	
-unported	packages/effect/test/ScopedCache.test.ts	2371	it.effect	number keys work correctly	
-unported	packages/effect/test/ScopedCache.test.ts	2386	it.effect	complex object keys work correctly	
-unported	packages/effect/test/ScopedCache.test.ts	2415	it.effect	interrupting the only caller during eviction releases its lookup	
-unported	packages/effect/test/ScopedCache.test.ts	2454	it.effect	an interrupt during eviction does not strand a pending lookup	
-unported	packages/effect/test/ScopedCache.test.ts	2496	it.effect	an interrupted get does not poison a getOption waiter	
-unported	packages/effect/test/ScopedCache.test.ts	2514	it.effect	an interrupted get does not poison an invalidateWhen waiter	
-unported	packages/effect/test/ScopedCache.test.ts	2535	it.effect	an interrupted refresh does not poison a get joining its new entry	
-unported	packages/effect/test/ScopedCache.test.ts	2553	it.effect	an abandoned get reports defects from its scope finalizer	
-unported	packages/effect/test/ScopedCache.test.ts	2575	it.effect	an interrupted first get does not poison another pending get	
-unported	packages/effect/test/ScopedCache.test.ts	2602	it.effect	the last interrupted get releases its resource and allows a new lookup	
-unported	packages/effect/test/ScopedCache.test.ts	2629	it.effect	an interrupted refresh cannot replace a usable entry or leak its scope	
-unported	packages/effect/test/ScopedCache.test.ts	2662	it.effect	concurrent gets share same resource	
-unported	packages/effect/test/ScopedCache.test.ts	2690	it.effect	concurrent invalidations don't cause resource leaks	
-unported	packages/effect/test/ScopedCache.test.ts	2727	it.effect	concurrent refresh operations don't interfere	
+not-applicable	packages/effect/test/ScopedCache.test.ts	2120	it.effect	resources are cleaned up when entries are invalidated	the row asserts a resource is released, or cleanup ordering holds, when a scope closes or an entry is evicted; this port's ScopedCache hands out plain values with no resource or finalizer to release, so the cleanup has nothing to act on
+not-applicable	packages/effect/test/ScopedCache.test.ts	2143	it.effect	resource cleanup is atomic and doesn't leak	the row asserts a resource is released, or cleanup ordering holds, when a scope closes or an entry is evicted; this port's ScopedCache hands out plain values with no resource or finalizer to release, so the cleanup has nothing to act on
+not-applicable	packages/effect/test/ScopedCache.test.ts	2182	it.effect	cache becomes closed when parent scope is closed	the row asserts a resource is released, or cleanup ordering holds, when a scope closes or an entry is evicted; this port's ScopedCache hands out plain values with no resource or finalizer to release, so the cleanup has nothing to act on
+not-applicable	packages/effect/test/ScopedCache.test.ts	2200	it.effect	resource cleanup happens in correct order during cache closure	the row asserts a resource is released, or cleanup ordering holds, when a scope closes or an entry is evicted; this port's ScopedCache hands out plain values with no resource or finalizer to release, so the cleanup has nothing to act on
+not-applicable	packages/effect/test/ScopedCache.test.ts	2241	it.effect	services are available in lookup functions	the tag's lookup runs with a JS 'this' context and, for these rows, inside a Scope that hands services to the lookup; this port's ScopedCache takes a plain closure with no scope or service parameter, so there is no context to preserve or provide
+not-applicable	packages/effect/test/ScopedCache.test.ts	2261	it.effect	requireServicesAt: 'lookup' provides services at lookup time	the tag's lookup runs with a JS 'this' context and, for these rows, inside a Scope that hands services to the lookup; this port's ScopedCache takes a plain closure with no scope or service parameter, so there is no context to preserve or provide
+not-applicable	packages/effect/test/ScopedCache.test.ts	2293	it.effect	multiple time advances work correctly	the row asserts a resource is released, or cleanup ordering holds, when a scope closes or an entry is evicted; this port's ScopedCache hands out plain values with no resource or finalizer to release, so the cleanup has nothing to act on
+not-applicable	packages/effect/test/ScopedCache.test.ts	2314	it.effect	resource cleanup timing is correct	the row asserts a resource is released, or cleanup ordering holds, when a scope closes or an entry is evicted; this port's ScopedCache hands out plain values with no resource or finalizer to release, so the cleanup has nothing to act on
+ported	packages/effect/test/ScopedCache.test.ts	2356	it.effect	string keys work correctly	scoped_cache_hit_miss_and_get_option
+ported	packages/effect/test/ScopedCache.test.ts	2371	it.effect	number keys work correctly	scoped_cache_number_keys
+not-applicable	packages/effect/test/ScopedCache.test.ts	2386	it.effect	complex object keys work correctly	the row's key is an Equal/Hash object, and it asserts that an equal object key does not retain the prior entry; this port's ScopedCache keys on Rust's Eq+Hash, where an equal key IS the same key, so the assertion cannot be constructed
+not-applicable	packages/effect/test/ScopedCache.test.ts	2415	it.effect	interrupting the only caller during eviction releases its lookup	the row drives two or more fibers through a shared cache concurrently; this port's ScopedCache is a synchronous mutex-backed structure with no fiber to for, so there is no concurrency to observe
+not-applicable	packages/effect/test/ScopedCache.test.ts	2454	it.effect	an interrupt during eviction does not strand a pending lookup	the row drives two or more fibers through a shared cache concurrently; this port's ScopedCache is a synchronous mutex-backed structure with no fiber to for, so there is no concurrency to observe
+not-applicable	packages/effect/test/ScopedCache.test.ts	2496	it.effect	an interrupted get does not poison a getOption waiter	the row drives two or more fibers through a shared cache concurrently; this port's ScopedCache is a synchronous mutex-backed structure with no fiber to for, so there is no concurrency to observe
+not-applicable	packages/effect/test/ScopedCache.test.ts	2514	it.effect	an interrupted get does not poison an invalidateWhen waiter	the row drives two or more fibers through a shared cache concurrently; this port's ScopedCache is a synchronous mutex-backed structure with no fiber to for, so there is no concurrency to observe
+not-applicable	packages/effect/test/ScopedCache.test.ts	2535	it.effect	an interrupted refresh does not poison a get joining its new entry	the row drives two or more fibers through a shared cache concurrently; this port's ScopedCache is a synchronous mutex-backed structure with no fiber to for, so there is no concurrency to observe
+not-applicable	packages/effect/test/ScopedCache.test.ts	2553	it.effect	an abandoned get reports defects from its scope finalizer	the row drives two or more fibers through a shared cache concurrently; this port's ScopedCache is a synchronous mutex-backed structure with no fiber to for, so there is no concurrency to observe
+not-applicable	packages/effect/test/ScopedCache.test.ts	2575	it.effect	an interrupted first get does not poison another pending get	the row drives two or more fibers through a shared cache concurrently; this port's ScopedCache is a synchronous mutex-backed structure with no fiber to for, so there is no concurrency to observe
+not-applicable	packages/effect/test/ScopedCache.test.ts	2602	it.effect	the last interrupted get releases its resource and allows a new lookup	the row drives two or more fibers through a shared cache concurrently; this port's ScopedCache is a synchronous mutex-backed structure with no fiber to for, so there is no concurrency to observe
+not-applicable	packages/effect/test/ScopedCache.test.ts	2629	it.effect	an interrupted refresh cannot replace a usable entry or leak its scope	the row drives two or more fibers through a shared cache concurrently; this port's ScopedCache is a synchronous mutex-backed structure with no fiber to for, so there is no concurrency to observe
+not-applicable	packages/effect/test/ScopedCache.test.ts	2662	it.effect	concurrent gets share same resource	the row drives two or more fibers through a shared cache concurrently; this port's ScopedCache is a synchronous mutex-backed structure with no fiber to for, so there is no concurrency to observe
+not-applicable	packages/effect/test/ScopedCache.test.ts	2690	it.effect	concurrent invalidations don't cause resource leaks	the row drives two or more fibers through a shared cache concurrently; this port's ScopedCache is a synchronous mutex-backed structure with no fiber to for, so there is no concurrency to observe
+not-applicable	packages/effect/test/ScopedCache.test.ts	2727	it.effect	concurrent refresh operations don't interfere	the row drives two or more fibers through a shared cache concurrently; this port's ScopedCache is a synchronous mutex-backed structure with no fiber to for, so there is no concurrency to observe
 unported	packages/effect/test/ScopedRef.test.ts	7	it.effect	single set	
 unported	packages/effect/test/ScopedRef.test.ts	15	it.effect	dual set	
 unported	packages/effect/test/ScopedRef.test.ts	26	it.effect	releases the previous resource when replaced	

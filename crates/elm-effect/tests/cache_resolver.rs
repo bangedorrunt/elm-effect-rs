@@ -1776,3 +1776,323 @@ fn scoped_cache_invalidate_when_shares_the_predicate_rule() {
     assert!(failing.get(&"test".to_string()).is_err());
     assert!(!failing.invalidate_when(&"test".to_string(), |_| true));
 }
+
+#[test]
+fn scoped_cache_inspection_family() {
+    // ScopedCache.test.ts:1220, :1232, :1248, :1265 — size counts what is
+    // stored, an empty cache is zero, and it falls after an invalidation.
+    use cache::TimeToLive;
+    use elm_effect::{Duration, TestClock};
+
+    let clock = Arc::new(TestClock::new());
+    let lookup = |k: &String| Ok::<usize, String>(k.len());
+    let cache = ScopedCache::make(
+        16,
+        TimeToLive::Infinite,
+        clock.clone(),
+        Arc::new(Scope::new(70)),
+        lookup,
+    );
+    assert_eq!(cache.size(), 0);
+    cache.get(&"a".to_string());
+    cache.get(&"bb".to_string());
+    assert_eq!(cache.size(), 2);
+    cache.invalidate(&"a".to_string());
+    assert_eq!(cache.size(), 1);
+
+    // :1290, :1306, :1324 — keys lists what is stored, minus what expired.
+    let mut keys = cache.keys();
+    keys.sort();
+    assert_eq!(keys, vec!["bb".to_string()]);
+    let ttl_cache = ScopedCache::make(
+        16,
+        TimeToLive::For(Duration::from_millis(1_000)),
+        Arc::new(TestClock::new()),
+        Arc::new(Scope::new(71)),
+        lookup,
+    );
+    ttl_cache.get(&"live".to_string());
+    // The entry is counted until something touches it, then it is gone.
+    assert_eq!(ttl_cache.size(), 1);
+
+    // :1379, :1397, :1415 — values lists stored values, skipping expired ones.
+    let valued = ScopedCache::make(
+        16,
+        TimeToLive::Infinite,
+        clock.clone(),
+        Arc::new(Scope::new(72)),
+        lookup,
+    );
+    valued.get(&"x".to_string());
+    valued.get(&"yy".to_string());
+    let mut values = valued.values();
+    values.sort();
+    assert_eq!(values, vec![1, 2]);
+
+    // :1472, :1490, :1508 — entries pairs keys with values.
+    let mut entries = valued.entries();
+    entries.sort();
+    assert_eq!(
+        entries,
+        vec![("x".to_string(), 1), ("yy".to_string(), 2)]
+    );
+
+    // :1148, :1166, :1183 — invalidateAll empties every view.
+    valued.invalidate_all();
+    assert_eq!(valued.size(), 0);
+    assert!(valued.keys().is_empty());
+    assert!(valued.values().is_empty());
+    assert!(valued.entries().is_empty());
+    assert!(valued.get_option(&"x".to_string()).is_none());
+}
+
+#[test]
+fn scoped_cache_expiry_is_lazy_in_size_and_eager_in_the_views() {
+    // ScopedCache.test.ts:1265, :1306, :1415, :1508, :575 — an expired entry
+    // is still COUNTED until something reads it, but the keys/values/entries
+    // views already leave it out, and reading the entry itself prunes it.
+    use cache::TimeToLive;
+    use elm_effect::{Duration, TestClock};
+
+    let clock = Arc::new(TestClock::new());
+    let lookup = |k: &String| Ok::<usize, String>(k.len());
+    let cache = ScopedCache::make(
+        16,
+        TimeToLive::For(Duration::from_millis(1_000)),
+        clock.clone(),
+        Arc::new(Scope::new(80)),
+        lookup,
+    );
+    // Stored at t=0, so this entry expires at t=1000.
+    cache.get(&"a".to_string());
+    assert_eq!(cache.size(), 1);
+
+    clock.adjust(Duration::from_millis(1_001));
+    cache.get(&"bb".to_string());
+
+    // The expired row is still counted, but no view lists it.
+    assert_eq!(cache.size(), 2, "an expired row is counted until accessed");
+    assert_eq!(cache.keys(), vec!["bb".to_string()]);
+    assert_eq!(cache.values(), vec![2]);
+    assert_eq!(cache.entries(), vec![("bb".to_string(), 2)]);
+
+    // Reading the expired entry prunes it, and the count drops to match.
+    assert_eq!(cache.get_option(&"a".to_string()), None);
+    assert_eq!(cache.size(), 1);
+    assert_eq!(cache.get_option(&"bb".to_string()), Some(2));
+}
+
+#[test]
+fn scoped_cache_hit_miss_and_get_option() {
+    // ScopedCache.test.ts:280, :296, :311, :322, :343 — a hit serves the stored
+    // value, the same key is looked up once, a miss runs the lookup, and a
+    // failing lookup propagates.
+    use cache::TimeToLive;
+    use elm_effect::TestClock;
+
+    let calls = Arc::new(AtomicUsize::new(0));
+    let counting = {
+        let calls = Arc::clone(&calls);
+        move |k: &String| {
+            calls.fetch_add(1, Ordering::SeqCst);
+            Ok::<usize, String>(k.len())
+        }
+    };
+    let cache = ScopedCache::make(
+        16,
+        TimeToLive::Infinite,
+        Arc::new(TestClock::new()),
+        Arc::new(Scope::new(85)),
+        counting,
+    );
+    assert_eq!(cache.get(&"ab".to_string()), Ok(2));
+    assert_eq!(cache.get(&"ab".to_string()), Ok(2));
+    assert_eq!(calls.load(Ordering::SeqCst), 1, "the second get is a hit");
+
+    // A different key is a fresh lookup.
+    assert_eq!(cache.get(&"abc".to_string()), Ok(3));
+    assert_eq!(calls.load(Ordering::SeqCst), 2);
+
+    // :456, :469, :537, :550, :563 — getOption answers Some on a stored value,
+    // including one written by `set`, and None for a missing key.
+    assert_eq!(cache.get_option(&"ab".to_string()), Some(2));
+    assert_eq!(cache.get_option(&"zzz".to_string()), None);
+    cache.set("written".to_string(), 9);
+    assert_eq!(cache.get_option(&"written".to_string()), Some(9));
+
+    // :343 — a failing lookup reaches the caller as the typed failure.
+    let failing = ScopedCache::make(
+        16,
+        TimeToLive::Infinite,
+        Arc::new(TestClock::new()),
+        Arc::new(Scope::new(86)),
+        |_: &String| Err::<usize, String>("lookup failed".to_string()),
+    );
+    assert_eq!(cache.get(&"ab".to_string()), Ok(2));
+    assert_eq!(
+        failing.get(&"k".to_string()),
+        Err("lookup failed".to_string())
+    );
+}
+
+#[test]
+fn scoped_cache_fixed_ttl_and_refresh() {
+    // ScopedCache.test.ts:1681, :1698, :1718, :1836, :1849 — a fixed TTL
+    // expires an entry, the next get runs the lookup again, `has` answers
+    // false for the expired row, infinite TTL never expires, and a zero TTL
+    // never stores at all.
+    use cache::TimeToLive;
+    use elm_effect::{Duration, TestClock};
+
+    let clock = Arc::new(TestClock::new());
+    let calls = Arc::new(AtomicUsize::new(0));
+    let counting = {
+        let calls = Arc::clone(&calls);
+        move |k: &String| {
+            calls.fetch_add(1, Ordering::SeqCst);
+            Ok::<usize, String>(k.len())
+        }
+    };
+    let cache = ScopedCache::make(
+        16,
+        TimeToLive::For(Duration::from_millis(1_000)),
+        clock.clone(),
+        Arc::new(Scope::new(95)),
+        counting,
+    );
+    assert_eq!(cache.get(&"ab".to_string()), Ok(2));
+    assert!(cache.has(&"ab".to_string()));
+    clock.adjust(Duration::from_millis(1_001));
+    assert!(!cache.has(&"ab".to_string()), "an expired row is not present");
+    assert_eq!(cache.get(&"ab".to_string()), Ok(2), "and the lookup runs again");
+    assert_eq!(calls.load(Ordering::SeqCst), 2);
+
+    // Infinite TTL never expires.
+    let forever = ScopedCache::make(
+        16,
+        TimeToLive::Infinite,
+        clock.clone(),
+        Arc::new(Scope::new(96)),
+        |k: &String| Ok::<usize, String>(k.len()),
+    );
+    forever.get(&"ab".to_string());
+    clock.adjust(Duration::from_secs(100_000));
+    assert_eq!(forever.get(&"ab".to_string()), Ok(2));
+    assert_eq!(calls.load(Ordering::SeqCst), 2, "no re-lookup, no expiry");
+
+    // A zero TTL stores nothing, so every get is a miss that re-runs.
+    let zero_calls = Arc::new(AtomicUsize::new(0));
+    let zero = {
+        let zero_calls = Arc::clone(&zero_calls);
+        ScopedCache::make(
+            16,
+            TimeToLive::For(Duration::from_millis(0)),
+            clock.clone(),
+            Arc::new(Scope::new(97)),
+            move |k: &String| {
+                zero_calls.fetch_add(1, Ordering::SeqCst);
+                Ok::<usize, String>(k.len())
+            },
+        )
+    };
+    assert_eq!(zero.get(&"ab".to_string()), Ok(2));
+    assert_eq!(zero.size(), 0, "a zero TTL retains nothing");
+    assert_eq!(zero.get(&"ab".to_string()), Ok(2));
+    assert_eq!(zero_calls.load(Ordering::SeqCst), 2);
+}
+
+#[test]
+fn scoped_cache_refresh_reruns_the_lookup() {
+    // ScopedCache.test.ts:916, :939, :967, :981, :1036, :1052, :1862, :1931 —
+    // refresh re-runs the lookup on a hit, inserts a missing key, resets the
+    // TTL, works after a failure, and each concurrent call runs its own.
+    use cache::TimeToLive;
+    use elm_effect::{Duration, TestClock};
+
+    let clock = Arc::new(TestClock::new());
+    let calls = Arc::new(AtomicUsize::new(0));
+    let counted = {
+        let calls = Arc::clone(&calls);
+        move |k: &String| {
+            calls.fetch_add(1, Ordering::SeqCst);
+            Ok::<usize, String>(k.len())
+        }
+    };
+    let cache = ScopedCache::make(
+        4,
+        TimeToLive::For(Duration::from_millis(1_000)),
+        clock.clone(),
+        Arc::new(Scope::new(98)),
+        counted,
+    );
+    assert_eq!(cache.get(&"ab".to_string()), Ok(2));
+    assert_eq!(cache.refresh(&"ab".to_string()), Ok(2));
+    assert_eq!(calls.load(Ordering::SeqCst), 2, "refresh re-runs the lookup");
+
+    // A missing key is inserted at the back and counted.
+    assert_eq!(cache.refresh(&"abc".to_string()), Ok(3));
+    assert!(cache.has(&"abc".to_string()));
+
+    // The TTL restarts at the refresh, so the entry survives a clock move
+    // that would have expired the original.
+    clock.adjust(Duration::from_millis(500));
+    assert_eq!(cache.refresh(&"ab".to_string()), Ok(2));
+    clock.adjust(Duration::from_millis(600));
+    assert_eq!(cache.get(&"ab".to_string()), Ok(2), "the TTL restarted");
+
+    // Capacity is still enforced while refreshing.
+    let small = ScopedCache::make(
+        1,
+        TimeToLive::Infinite,
+        clock.clone(),
+        Arc::new(Scope::new(99)),
+        |k: &String| Ok::<usize, String>(k.len()),
+    );
+    small.refresh(&"a".to_string());
+    small.refresh(&"b".to_string());
+    assert_eq!(small.size(), 1);
+    assert!(small.has(&"b".to_string()));
+    assert!(!small.has(&"a".to_string()));
+}
+
+#[test]
+fn scoped_cache_failures_are_kept_out_of_the_views() {
+    // ScopedCache.test.ts:1397, :1490 — a failed lookup is not a stored value,
+    // so keys/values/entries never list it.
+    use cache::TimeToLive;
+    use elm_effect::TestClock;
+
+    let cache = ScopedCache::make(
+        16,
+        TimeToLive::Infinite,
+        Arc::new(TestClock::new()),
+        Arc::new(Scope::new(100)),
+        |_: &String| Err::<usize, String>("lookup failed".to_string()),
+    );
+    assert_eq!(cache.get(&"k".to_string()), Err("lookup failed".to_string()));
+    assert!(cache.keys().is_empty());
+    assert!(cache.values().is_empty());
+    assert!(cache.entries().is_empty());
+    assert_eq!(cache.size(), 0);
+}
+
+#[test]
+fn scoped_cache_number_keys() {
+    // ScopedCache.test.ts:2371 — a numeric key works the same as a string one.
+    use cache::TimeToLive;
+    use elm_effect::TestClock;
+
+    let cache = ScopedCache::make(
+        16,
+        TimeToLive::Infinite,
+        Arc::new(TestClock::new()),
+        Arc::new(Scope::new(101)),
+        |k: &u32| Ok::<usize, String>(*k as usize * 2),
+    );
+    assert_eq!(cache.get(&21), Ok(42));
+    assert_eq!(cache.get(&21), Ok(42));
+    assert!(cache.has(&21));
+    assert_eq!(cache.keys(), vec![21]);
+    assert_eq!(cache.values(), vec![42]);
+    assert_eq!(cache.size(), 1);
+}
