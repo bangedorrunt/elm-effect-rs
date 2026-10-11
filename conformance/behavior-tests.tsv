@@ -1437,8 +1437,8 @@ unported	packages/effect/test/Effect.test.ts	3918	it.effect	should preserve nest
 unported	packages/effect/test/Effect.test.ts	3940	it.effect	should rerun when a read ref changed while the transaction was suspended	
 unported	packages/effect/test/Effect.test.ts	3969	it.effect	commits wake the waiters of refs they write, not refs they read	
 unported	packages/effect/test/Effect.test.ts	3996	it.effect	a write of -0 over 0 is published and wakes its waiters	
-unported	packages/effect/test/Effect.test.ts	4013	it.effect	should support pipeable arguments	
-unported	packages/effect/test/Effect.test.ts	4023	it.effect	should support self with pipeable arguments	
+ported	packages/effect/test/Effect.test.ts	4013	it.effect	should support pipeable arguments	effect_fn_appends_pipeable_args_to_the_result
+ported	packages/effect/test/Effect.test.ts	4023	it.effect	should support self with pipeable arguments	effect_fn_self_binding_uppercases_the_body_result
 unported	packages/effect/test/Effect.test.ts	4038	it	should proxy body length	
 unported	packages/effect/test/Effect.test.ts	4054	it.effect	should reuse the definition frame across calls	
 unported	packages/effect/test/Effect.test.ts	4086	it.effect	catches matching reason - handler succeeds	
@@ -3523,22 +3523,22 @@ not-applicable	packages/effect/test/StackTraceLimit.test.ts	32	it	degrades to a 
 ported	packages/effect/test/Stdio.test.ts	6	it.effect	layerTest defaults terminal state to false	stdio_fake_records_and_replays
 ported	packages/effect/test/Stdio.test.ts	13	it.effect	layerTest allows terminal state overrides	stdio_fake_terminal_overrides
 ported	packages/effect/test/Stream.test.ts	43	it.effect	with take	stream_callback_with_take_drains_offered_items
-unported	packages/effect/test/Stream.test.ts	59	it.effect	with cleanup	
+not-applicable	packages/effect/test/Stream.test.ts	59	it.effect	with cleanup	with cleanup asserts a finalizer registered inside the callback fires when the consuming fiber is interrupted; this port callback runs its registration eagerly and synchronously before the first pull, so there is no producer fiber to interrupt and no point at which the finalizer could be observed
 ported	packages/effect/test/Stream.test.ts	80	it.effect	signals the end of the stream	stream_callback_end_signals_an_empty_stream
 ported	packages/effect/test/Stream.test.ts	89	it.effect	handles errors	stream_callback_failure_reaches_the_typed_channel
 ported	packages/effect/test/Stream.test.ts	102	it.effect	handles defects	stream_callback_defect_is_a_defect_not_a_typed_failure
-unported	packages/effect/test/Stream.test.ts	114	it.effect	backpressure	
+not-applicable	packages/effect/test/Stream.test.ts	114	it.effect	backpressure	backpressure asserts a producer concurrently offering into a bounded mailbox blocks at the capacity while the consumer has not pulled, and unblocks by exactly one per pull; this port callback runs its registration eagerly, so a blocking offer would deadlock against no drain and the interleaving cannot be observed
 ported	packages/effect/test/Stream.test.ts	155	it.effect	mkArrayBuffer - concatenates Uint8Array chunks	mk_array_buffer_concatenates_uint8array_chunks
 ported	packages/effect/test/Stream.test.ts	165	it.effect	runForEachWhile continues across chunk boundaries	run_for_each_while_continues_across_chunks
 ported	packages/effect/test/Stream.test.ts	179	it.effect	runForEachWhile stops when predicate returns false	run_for_each_while_stops_on_false
-unported	packages/effect/test/Stream.test.ts	193	it.effect	toAsyncIterable - return interrupts an in-flight pull	
-unported	packages/effect/test/Stream.test.ts	222	it.effect	toAsyncIterable - return does not reject an unawaited in-flight next	
-unported	packages/effect/test/Stream.test.ts	245	it.effect	toAsyncIterable - early for await exit interrupts the producer	
-unported	packages/effect/test/Stream.test.ts	272	it.effect	toAsyncIterable - return is idempotent without an in-flight pull	
-unported	packages/effect/test/Stream.test.ts	285	it.effect	toAsyncIterable - natural completion closes the scope with a successful exit	
-unported	packages/effect/test/Stream.test.ts	307	it.effect	toAsyncIterable - stream failure is forwarded to the scope	
-unported	packages/effect/test/Stream.test.ts	337	it.effect	toAsyncIterable - throw forwards a failure exit and preserves its error	
-unported	packages/effect/test/Stream.test.ts	368	it.effect	toAsyncIterable - throw interrupts an in-flight pull	
+not-applicable	packages/effect/test/Stream.test.ts	193	it.effect	toAsyncIterable - return interrupts an in-flight pull	toAsyncIterable returns a JS async iterator whose return() must interrupt a pull already in flight; this port has no async-iterator protocol (no Symbol.asyncIterator, no next/return methods, no Future) and no toAsyncIterable constructor, so there is no in-flight pull for return() to interrupt
+not-applicable	packages/effect/test/Stream.test.ts	222	it.effect	toAsyncIterable - return does not reject an unawaited in-flight next	asserts return() does not reject a next() that was started but not awaited; that ordering between two JVM-free JS Promises has no analogue in a synchronous pull, and the port has neither toAsyncIterable nor an async-iterator protocol to express it
+not-applicable	packages/effect/test/Stream.test.ts	245	it.effect	toAsyncIterable - early for await exit interrupts the producer	relies on JS for await breaking out of the loop early, which interrupts the producer through the iterator protocol; this port has no for await and no async-iterator protocol, so there is no early-exit path to trigger the producer interrupt
+not-applicable	packages/effect/test/Stream.test.ts	272	it.effect	toAsyncIterable - return is idempotent without an in-flight pull	asserts return() is idempotent when nothing is in flight, i.e. that the second return() and a later next() all report done; without an async-iterator object holding that state there is no return() to be idempotent
+not-applicable	packages/effect/test/Stream.test.ts	285	it.effect	toAsyncIterable - natural completion closes the scope with a successful exit	natural completion of the JS iterator closes its scope with a successful exit; the port has no async-iterator whose exhaustion could close a scope, and its streams are drained synchronously with no scope attached to that exhaustion
+not-applicable	packages/effect/test/Stream.test.ts	307	it.effect	toAsyncIterable - stream failure is forwarded to the scope	a stream failure is forwarded to the scope the iterator holds so the finalizer observes a failure exit; forwarding a failure into an async-iterator scope has no target in this port, which has no iterator and no scope bound to one
+not-applicable	packages/effect/test/Stream.test.ts	337	it.effect	toAsyncIterable - throw forwards a failure exit and preserves its error	a throw inside the consumption forwards a failure exit and preserves the error value to the scope finalizer; the port has no throw-driven consumption path over a stream, since its pulls are synchronous calls
+not-applicable	packages/effect/test/Stream.test.ts	368	it.effect	toAsyncIterable - throw interrupts an in-flight pull	the same throw path must also interrupt a pull already in flight; with no in-flight pull and no async-iterator to throw into, neither half of the row can be constructed
 ported	packages/effect/test/Stream.test.ts	404	it.effect	range - min less than max	range_min_less_than_max
 ported	packages/effect/test/Stream.test.ts	410	it.effect	range - zero chunk size does not change the emitted range	range_zero_chunk_size
 ported	packages/effect/test/Stream.test.ts	420	it.effect	range - normalizes the chunk size without changing emitted values	range_normalizes_chunk_size
