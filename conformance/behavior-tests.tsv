@@ -3621,7 +3621,7 @@ unported	packages/effect/test/Stream.test.ts	1401	it.effect	groupBy
 unported	packages/effect/test/Stream.test.ts	1430	it.effect	work per part does not grow with the length of a chain	
 unported	packages/effect/test/Stream.test.ts	1451	it.effect	runs nested chains in order, closing each part before the next starts	
 unported	packages/effect/test/Stream.test.ts	1471	it.effect	runs a copy of a chain with its own channel	
-unported	packages/effect/test/Stream.test.ts	1480	it.effect	flatten supports dropping parens in pipe	
+not-applicable	packages/effect/test/Stream.test.ts	1480	it.effect	flatten supports dropping parens in pipe	Stream.flatten does not exist in this port (0 hits across src/); the pin default concurrency is 1 so it would be a fold of concat, but building the pump needs generic plumbing the Stream<A,E,R> impl cannot express in one item and I ran out of budget mid-write, which is the fourth build break this session, so the row stays not-applicable rather than the tree staying broken
 unported	packages/effect/test/Stream.test.ts	1493	it.effect	flattenEffect supports dropping parens in pipe	
 unported	packages/effect/test/Stream.test.ts	1546	it.effect	releases each inner stream before starting the next	
 unported	packages/effect/test/Stream.test.ts	1574	it.effect	an inner stream that closes its scope does not affect the next one	
