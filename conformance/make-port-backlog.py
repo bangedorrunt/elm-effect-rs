@@ -87,8 +87,8 @@ def crate_for(path: str, test2class: dict[str, str], rust_crate: dict[str, str])
         return "elm-effect"
     if cls in ("unstable-port", "experimental-port"):
         return "elm-effect-unstable"
-    if path in rust_crate:
-        return rust_crate[path]
+    if rust_crate.get(path):
+        return max(rust_crate[path], key=rust_crate[path].get)
     return "elm-effect"
 
 
@@ -117,9 +117,13 @@ def main() -> int:
             rows[f[1]][f[0]] += 1
             # A ported row's `rust` column names the test file, so the crate is
             # whatever crate that file lives in. Used only when the module row
-            # does not link the test at all.
-            if f[0] == "ported" and f[5]:
-                rust_crate[f[1]][f[5].split("/")[1] if f[5].startswith("crates/") else "?"] += 1
+            # does not link the test at all. The column's convention is a bare
+            # test function name (2940 of 2942 rows), which carries no path and
+            # therefore no crate; only a `crates/...` path does, so anything
+            # else is skipped rather than bucketed under a placeholder that
+            # would later win the max below.
+            if f[0] == "ported" and f[5].startswith("crates/"):
+                rust_crate[f[1]][f[5].split("/")[1]] += 1
 
     backlog = []
     for path, counts in rows.items():
