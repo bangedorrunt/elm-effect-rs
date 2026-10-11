@@ -673,6 +673,76 @@ fn expected_lines(joined: &str) -> Vec<String> {
 }
 
 // ---------------------------------------------------------------------------
+// rechunk property (Stream.test.ts 1718)
+// ---------------------------------------------------------------------------
+
+/// `grouped` from the pin's test file: split `arr` into consecutive groups of
+/// exactly `size`, with the final group holding the remainder.
+fn grouped_by<A: Clone>(arr: &[A], size: usize) -> Vec<Vec<A>> {
+    let mut out: Vec<Vec<A>> = Vec::new();
+    let mut i = 0;
+    while i < arr.len() {
+        let end = (i + size).min(arr.len());
+        out.push(arr[i..end].to_vec());
+        i = end;
+    }
+    out
+}
+
+#[test]
+fn rechunk_matches_a_grouped_flat_of_the_source_chunks() {
+    // Stream.test.ts :1718 (it.effect.prop). For arbitrary source chunks and a
+    // size in 1..=100, `rechunk(size)` over the flattened source equals
+    // `grouped(flat, size)`.
+    //
+    // The property is that the source's own chunk boundaries are irrelevant:
+    // re-chunking is a pure function of the concatenated elements and the
+    // target size. That is what distinguishes a correct carry from one that
+    // leaks upstream boundaries into the output.
+    //
+    // Reproduced deterministically with an xorshift LCG so a failure names the
+    // run and the literal chunks rather than depending on a property library's
+    // seed, which this port does not have.
+    let mut seed: u64 = 0x1234_5678_9abc_def0;
+    let mut next = move || {
+        seed ^= seed << 13;
+        seed ^= seed >> 7;
+        seed ^= seed << 17;
+        seed
+    };
+
+    for run in 0..200u32 {
+        // The pin's bounds: at least one chunk, size in 1..=100.
+        let chunk_count = 1 + (next() % 6) as usize;
+        let size = 1 + (next() % 100) as usize;
+        let chunks: Vec<Vec<i64>> = (0..chunk_count)
+            .map(|_| {
+                let len = (next() % 7) as usize;
+                (0..len).map(|_| (next() % 1_000) as i64).collect()
+            })
+            .filter(|c: &Vec<i64>| !c.is_empty())
+            .collect();
+
+        let flat: Vec<i64> = chunks.iter().flatten().copied().collect();
+        let expected = grouped_by(&flat, size);
+
+        // `rechunk` carries across pull boundaries, so the source chunks are
+        // fed one at a time rather than pre-flattened: build the source by
+        // concatenating one stream per chunk, so the upstream's own chunking
+        // is what the pin's `flattenArray` produces.
+        let mut stream: Stream<i64, Infallible, ()> = Stream::empty();
+        for chunk in &chunks {
+            stream = stream.concat(from_iter(chunk.clone().into_iter(), chunk.len()));
+        }
+        let actual = match stream.rechunk(size as f64).run_collect_chunks() {
+            Exit::Success(v) => v,
+            Exit::Failure(_) => panic!("rechunk must not fail"),
+        };
+        assert_eq!(actual, expected, "run {run}, size {size}");
+    }
+}
+
+// ---------------------------------------------------------------------------
 // mkArrayBuffer concatenates Uint8Array chunks (Stream.test.ts 155)
 // ---------------------------------------------------------------------------
 

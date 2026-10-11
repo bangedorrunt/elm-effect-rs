@@ -3632,7 +3632,7 @@ unported	packages/effect/test/Stream.test.ts	1679	it.effect	fails promptly and i
 unported	packages/effect/test/Stream.test.ts	1687	it.effect	fails when the mapping function throws (unordered: ${unordered})	
 unported	packages/effect/test/Stream.test.ts	1707	it.effect	interrupts a never-ending inner stream when the outer stream fails	
 unported	packages/effect/test/Stream.test.ts	1712	it.effect	fails promptly and interrupts a slow inner stream when the outer stream fails	
-unported	packages/effect/test/Stream.test.ts	1718	it.prop	rechunk	
+ported	packages/effect/test/Stream.test.ts	1718	it.prop	rechunk	rechunk_matches_a_grouped_flat_of_the_source_chunks
 ported	packages/effect/test/Stream.test.ts	1737	it.each	rechunk preserves a large source chunk with target $size	rechunk_preserves_a_large_source_chunk_with_target
 ported	packages/effect/test/Stream.test.ts	1753	it.effect	rechunk preserves large input split across source chunks	rechunk_preserves_large_input_split_across_source_chunks
 ported	packages/effect/test/Stream.test.ts	1765	it.effect	rechunk and grouped normalize their chunk size	rechunk_and_grouped_normalize_their_chunk_size
