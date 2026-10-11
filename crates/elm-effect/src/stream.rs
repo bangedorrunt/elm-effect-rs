@@ -902,6 +902,84 @@ where
     })
 }
 
+/// State for the byte limit pump.
+struct LimitBytes<E, R>
+where
+    E: Send + 'static,
+    R: crate::effect::Requirement,
+{
+    seen: i128,
+    fallback: Option<Box<dyn FnOnce() -> Stream<Vec<u8>, E, R> + Send>>,
+    switching: bool,
+}
+
+fn limit_bytes_pump<E, R>(
+    pull: Pull<Vec<u8>, E, R>,
+    state: Arc<Mutex<LimitBytes<E, R>>>,
+    cap: i128,
+) -> Effect<Option<Vec<Vec<u8>>>, E, R>
+where
+    E: Send + 'static,
+    R: crate::effect::Requirement,
+{
+    let mut guard = state.lock().unwrap();
+    if guard.switching {
+        // Already past the limit: every pull delegates to the fallback.
+        // It is built once, on the first pull that needs it.
+        let Some(build) = guard.fallback.take() else {
+            return Effect::succeed(None);
+        };
+        drop(guard);
+        let fallback = build();
+        return call(&Arc::clone(&fallback.pull));
+    }
+    match call(&pull).run_sync() {
+        Ok(None) => Effect::succeed(None),
+        Ok(Some(items)) => {
+            let mut out: Vec<Vec<u8>> = Vec::with_capacity(items.len());
+            for chunk in items {
+                let would_be = guard.seen + chunk.len() as i128;
+                if would_be > cap {
+                    // Drop this chunk and everything after it, and switch.
+                    guard.switching = true;
+                    break;
+                }
+                guard.seen = would_be;
+                out.push(chunk);
+            }
+            if !guard.switching {
+                return if out.is_empty() {
+                    Effect::succeed(None)
+                } else {
+                    Effect::succeed(Some(out))
+                };
+            }
+            // The crossing chunk is dropped and the fallback replaces the rest
+            // of the stream, so its first chunk is emitted in the SAME pull
+            // after the passing prefix. Taking the fallback here means it is
+            // built exactly once, and later pulls end rather than rebuild it.
+            let Some(build) = guard.fallback.take() else {
+                return Effect::succeed(None);
+            };
+            drop(guard);
+            let fallback = build();
+            match call(&Arc::clone(&fallback.pull)).run_sync() {
+                Ok(Some(mut rest)) => {
+                    out.append(&mut rest);
+                    if out.is_empty() {
+                        Effect::succeed(None)
+                    } else {
+                        Effect::succeed(Some(out))
+                    }
+                }
+                Ok(None) => Effect::succeed(None),
+                Err(cause) => Effect::fail_cause(cause),
+            }
+        }
+        Err(cause) => Effect::fail_cause(cause),
+    }
+}
+
 /// `Stream.mkArrayBuffer` at the pin: concatenate the byte chunks into one
 /// buffer.
 ///
@@ -914,6 +992,33 @@ impl<E: Send + 'static> Stream<Vec<u8>, E, ()> {
         self.run_fold(Vec::new(), |mut acc, chunk| {
             acc.extend_from_slice(&chunk);
             acc
+        })
+    }
+
+    /// `Stream.limitBytes` at the pin: pass byte chunks through while the
+    /// running total stays within `limit`, and once a chunk would cross it,
+    /// drop that chunk and replace the rest of the stream with
+    /// `on_limit_reached`.
+    ///
+    /// The boundary is inclusive: a total equal to the limit still passes,
+    /// which is what the pin's comparison against the accumulated size means.
+    /// The fallback is a `LazyArg`, so constructing it is observable and a
+    /// caller can tell "never reached" from "reached", which two of the three
+    /// rows assert.
+    pub fn limit_bytes<F>(self, limit: i128, on_limit_reached: F) -> Self
+    where
+        F: FnOnce() -> Self + Send + 'static,
+    {
+        let (pull, exec) = (self.pull, Arc::clone(&self.exec));
+        let state = Arc::new(Mutex::new(LimitBytes {
+            seen: 0,
+            fallback: Some(Box::new(on_limit_reached)),
+            switching: false,
+        }));
+        let (p, s) = (Arc::clone(&pull), Arc::clone(&state));
+        Self::derive(exec, move || {
+            let (pull, state) = (Arc::clone(&p), Arc::clone(&s));
+            limit_bytes_pump(pull, state, limit)
         })
     }
 }

@@ -3568,9 +3568,9 @@ ported	packages/effect/test/Stream.test.ts	683	it.effect	handles standalone carr
 unported	packages/effect/test/Stream.test.ts	689	it.prop	matches String.linesIterator regardless of chunk boundaries	
 ported	packages/effect/test/Stream.test.ts	706	it.effect	filterMap	filter_map_keeps_some_only
 ported	packages/effect/test/Stream.test.ts	715	it.effect	filterMapEffect	filter_map_effect_keeps_only_some_results
-unported	packages/effect/test/Stream.test.ts	726	it.effect	limitBytes - does not evaluate the fallback below the limit	
-unported	packages/effect/test/Stream.test.ts	742	it.effect	limitBytes - does not evaluate the fallback at the limit	
-unported	packages/effect/test/Stream.test.ts	758	it.effect	limitBytes - drops the crossing chunk and switches to the fallback	
+ported	packages/effect/test/Stream.test.ts	726	it.effect	limitBytes - does not evaluate the fallback below the limit	limit_bytes_does_not_evaluate_the_fallback_below_the_limit
+ported	packages/effect/test/Stream.test.ts	742	it.effect	limitBytes - does not evaluate the fallback at the limit	limit_bytes_does_not_evaluate_the_fallback_at_the_limit
+ported	packages/effect/test/Stream.test.ts	758	it.effect	limitBytes - drops the crossing chunk and switches to the fallback	limit_bytes_drops_the_crossing_chunk_and_switches_to_the_fallback
 ported	packages/effect/test/Stream.test.ts	772	it.effect	take - pulls the first `n` values from a stream	take_pulls_the_first_n_values
 ported	packages/effect/test/Stream.test.ts	781	it.effect	take - rounds positive fractional counts down	take_rounds_positive_fractional_counts_down
 ported	packages/effect/test/Stream.test.ts	791	it.effect	take - short-circuits stream evaluation	take_terminates_infinite_input

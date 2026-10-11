@@ -7,6 +7,13 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 
 use elm_effect::{Defect, Effect, Exit, Stream, from_iter, from_iterator_succeed};
 
+// `ByteSize` is reached by the pin's own `#[path]` include convention rather
+// than through the facade, which does not re-export it. `limit_bytes` takes a
+// `ByteSize` limit the same way the pin's does.
+#[path = "../src/data/byte_size.rs"]
+mod byte_size;
+use byte_size::ByteSize;
+
 #[test]
 fn run_fold_sums_chunks() {
     let stream: Stream<u32, String, ()> = from_iter(1u32..=100, 7);
@@ -467,6 +474,76 @@ fn from_iterator_succeed_normalizes_the_chunk_size() {
         })
         .collect();
     assert_eq!(got, expected);
+}
+
+// ---------------------------------------------------------------------------
+// limitBytes (Stream.test.ts 726, 742, 758)
+// ---------------------------------------------------------------------------
+
+#[test]
+fn limit_bytes_does_not_evaluate_the_fallback_below_the_limit() {
+    // limitBytes("5 B", fallback) over two 2-byte chunks: the running total is
+    // 4, at or below the limit, so both chunks pass and the fallback is never
+    // constructed. The laziness is the assertion, not just the result.
+    let evaluated = Arc::new(AtomicUsize::new(0));
+    let seen = Arc::clone(&evaluated);
+    let limit = ByteSize::from_input("5 B").expect("5 B parses").0;
+    let stream: Stream<Vec<u8>, Infallible, ()> =
+        from_iter(vec![vec![1u8, 2], vec![3u8, 4]].into_iter(), 2).limit_bytes(limit, move || {
+            seen.fetch_add(1, Ordering::SeqCst);
+            Stream::empty()
+        });
+    match stream.run_collect() {
+        Exit::Success(v) => assert_eq!(v, vec![vec![1u8, 2], vec![3u8, 4]]),
+        Exit::Failure(_) => panic!("below the limit must pass through"),
+    }
+    assert_eq!(
+        evaluated.load(Ordering::SeqCst),
+        0,
+        "the fallback must not be constructed below the limit"
+    );
+}
+
+#[test]
+fn limit_bytes_does_not_evaluate_the_fallback_at_the_limit() {
+    // limitBytes(ByteSize.bytes(4), fallback) over the same two 2-byte chunks:
+    // the total is exactly 4, which is the limit, and the pin's boundary is
+    // inclusive. The fallback is still never constructed.
+    let evaluated = Arc::new(AtomicUsize::new(0));
+    let seen = Arc::clone(&evaluated);
+    let limit = ByteSize::bytes(4).expect("4 bytes").0;
+    let stream: Stream<Vec<u8>, Infallible, ()> =
+        from_iter(vec![vec![1u8, 2], vec![3u8, 4]].into_iter(), 2).limit_bytes(limit, move || {
+            seen.fetch_add(1, Ordering::SeqCst);
+            Stream::empty()
+        });
+    match stream.run_collect() {
+        Exit::Success(v) => assert_eq!(v, vec![vec![1u8, 2], vec![3u8, 4]]),
+        Exit::Failure(_) => panic!("at the limit must pass through"),
+    }
+    assert_eq!(
+        evaluated.load(Ordering::SeqCst),
+        0,
+        "the fallback must not be constructed at the limit"
+    );
+}
+
+#[test]
+fn limit_bytes_drops_the_crossing_chunk_and_switches_to_the_fallback() {
+    // first [1,2] (total 2) passes; crossing [3,4,5,6] would take the total to
+    // 6 past a limit of 5, so it is dropped and the fallback replaces the rest
+    // of the stream. The chunk after the crossing one never appears.
+    let limit = ByteSize::bytes(5).expect("5 bytes").0;
+    let fallback = vec![8u8, 9];
+    let stream: Stream<Vec<u8>, Infallible, ()> =
+        from_iter(vec![vec![1u8, 2], vec![3u8, 4, 5, 6], vec![7u8]].into_iter(), 3).limit_bytes(
+            limit,
+            move || from_iter(vec![fallback.clone()].into_iter(), 2),
+        );
+    match stream.run_collect() {
+        Exit::Success(v) => assert_eq!(v, vec![vec![1u8, 2], vec![8u8, 9]]),
+        Exit::Failure(_) => panic!("the crossing chunk should be replaced, not failed"),
+    }
 }
 
 // ---------------------------------------------------------------------------
