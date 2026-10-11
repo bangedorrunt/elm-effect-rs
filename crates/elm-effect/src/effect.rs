@@ -216,6 +216,52 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
         }
     }
 
+    /// `Effect.filter` at the pin: keep the iterable's elements the
+    /// predicate accepts, in iteration order. Lazy like every description:
+    /// the predicate runs at interpretation, not at construction.
+    pub fn filter<I, P>(elements: I, mut predicate: P) -> Effect<Vec<A>, std::convert::Infallible>
+    where
+        I: IntoIterator<Item = A> + Send + 'static,
+        P: FnMut(&A) -> bool + Send + 'static,
+    {
+        Effect::sync(move || elements.into_iter().filter(|a| predicate(a)).collect())
+    }
+
+    /// `Effect.filterMap` at the pin: the pin's `Filter` shape, a `Result`
+    /// selector. `Ok` keeps the mapped value, `Err` drops the element.
+    pub fn filter_map<B, X, I, S>(
+        elements: I,
+        mut selector: S,
+    ) -> Effect<Vec<B>, std::convert::Infallible>
+    where
+        B: Send + 'static,
+        I: IntoIterator<Item = A> + Send + 'static,
+        S: FnMut(A) -> std::result::Result<B, X> + Send + 'static,
+    {
+        Effect::sync(move || {
+            elements
+                .into_iter()
+                .filter_map(|a| selector(a).ok())
+                .collect()
+        })
+    }
+
+    /// `Effect.firstSuccessOf` at the pin: try each effect in order, take
+    /// the first success, and fall through to the next on a clean typed
+    /// failure (defects and interrupts pass through, as in `catch`). All
+    /// effects failing leaves the last failure; an empty collection is a
+    /// defect, matching the pin's message.
+    pub fn first_success_of(effects: Vec<Self>) -> Self {
+        let mut rest = effects.into_iter().rev();
+        let Some(mut succeed_with) = rest.next() else {
+            return Effect::die(Defect::new("Received an empty collection of effects"));
+        };
+        for effect in rest {
+            succeed_with = effect.catch(move |_| succeed_with);
+        }
+        succeed_with
+    }
+
     /// `Effect.onError` at the pin: run `finalizer` only on a clean typed
     /// `Fail`, then re-raise that failure unchanged. Defects and interrupts
     /// pass through untouched (the same fire condition as [`catch`]).
@@ -297,6 +343,72 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
         )
     }
 
+    /// `Effect.onErrorIf` at the pin: run the finalizer only on a failure
+    /// whose cause passes `predicate`. Successes, and failures the
+    /// predicate declines, skip it; the outcome passes through unchanged.
+    pub fn on_error_if<P, F>(self, mut predicate: P, f: F) -> Self
+    where
+        P: FnMut(&Cause<E>) -> bool + Send + 'static,
+        F: FnOnce(&Cause<E>) + Send + 'static,
+    {
+        self.on_exit(move |exit| {
+            if let Exit::Failure(cause) = exit {
+                if predicate(cause) {
+                    f(cause);
+                }
+            }
+        })
+    }
+
+    /// `Effect.onErrorFilter` at the pin: the `Filter` shape over the
+    /// failure cause. `Ok(pass)` hands the pass value and the cause to the
+    /// finalizer; `Err` and success exits skip it.
+    pub fn on_error_filter<B, X, S, F>(self, selector: S, f: F) -> Self
+    where
+        B: Send + 'static,
+        S: FnOnce(&Cause<E>) -> std::result::Result<B, X> + Send + 'static,
+        F: FnOnce(B, &Cause<E>) + Send + 'static,
+    {
+        self.on_exit(move |exit| {
+            if let Exit::Failure(cause) = exit {
+                if let Ok(pass) = selector(cause) {
+                    f(pass, cause);
+                }
+            }
+        })
+    }
+
+    /// `Effect.onExitIf` at the pin: run the finalizer only when the exit
+    /// passes `predicate`. The exit itself decides, so a success exit can
+    /// carry its own finalizer.
+    pub fn on_exit_if<P, F>(self, mut predicate: P, f: F) -> Self
+    where
+        P: FnMut(&Exit<A, E>) -> bool + Send + 'static,
+        F: FnOnce(&Exit<A, E>) + Send + 'static,
+    {
+        self.on_exit(move |exit| {
+            if predicate(exit) {
+                f(exit);
+            }
+        })
+    }
+
+    /// `Effect.onExitFilter` at the pin: the `Filter` shape over the exit.
+    /// `Ok(pass)` hands the pass value and the original exit to the
+    /// finalizer; `Err` skips it.
+    pub fn on_exit_filter<B, X, S, F>(self, selector: S, f: F) -> Self
+    where
+        B: Send + 'static,
+        S: FnOnce(&Exit<A, E>) -> std::result::Result<B, X> + Send + 'static,
+        F: FnOnce(B, &Exit<A, E>) + Send + 'static,
+    {
+        self.on_exit(move |exit| {
+            if let Ok(pass) = selector(exit) {
+                f(pass, exit);
+            }
+        })
+    }
+
     /// Handle the typed error channel. Fires only on a clean single `Fail`;
     /// `Die`, `Interrupt`, and mixed causes pass through untouched.
     pub fn catch<F>(self, on_fail: F) -> Self
@@ -314,6 +426,23 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
                     on_fail(e)
                 }
                 _ => Effect::fail_with(cause),
+            }
+        })
+    }
+
+    /// `Effect.catchIf` at the pin: recover a clean typed failure only when
+    /// `predicate` accepts the error. A rejected error is re-raised, so the
+    /// combinator never recovers an error it did not name.
+    pub fn catch_if<P, F>(self, mut predicate: P, handler: F) -> Self
+    where
+        P: FnMut(&E) -> bool + Send + 'static,
+        F: FnOnce(E) -> Self + Send + 'static,
+    {
+        self.catch(move |e| {
+            if predicate(&e) {
+                handler(e)
+            } else {
+                Effect::fail(e)
             }
         })
     }
@@ -345,6 +474,70 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
         F: FnOnce(Cause<E>) -> Self + Send + 'static,
     {
         self.fold_e(Effect::succeed, on_cause)
+    }
+
+    /// `Effect.catchCauseIf` at the pin: recover from any failure whose
+    /// whole cause passes `predicate`. A declined cause is re-raised
+    /// unchanged, every reason preserved.
+    pub fn catch_cause_if<P, F>(self, mut predicate: P, handler: F) -> Self
+    where
+        P: FnMut(&Cause<E>) -> bool + Send + 'static,
+        F: FnOnce(Cause<E>) -> Self + Send + 'static,
+    {
+        self.catch_cause(move |cause| {
+            if predicate(&cause) {
+                handler(cause)
+            } else {
+                Effect::fail_cause(cause)
+            }
+        })
+    }
+
+    /// `Effect.catchCauseFilter` at the pin: the pin's `Filter` shape, a
+    /// `Result` selector over the cause. `Ok(pass)` routes the cause to the
+    /// handler; `Err` declines and re-raises the cause unchanged.
+    pub fn catch_cause_filter<B, X, S, H>(self, selector: S, handler: H) -> Self
+    where
+        B: Send + 'static,
+        S: FnOnce(&Cause<E>) -> std::result::Result<B, X> + Send + 'static,
+        H: FnOnce(B, Cause<E>) -> Self + Send + 'static,
+    {
+        self.catch_cause(move |cause| match selector(&cause) {
+            Ok(pass) => handler(pass, cause),
+            Err(_) => Effect::fail_cause(cause),
+        })
+    }
+
+    /// `Effect.tapCauseIf` at the pin: observe the cause of any failure the
+    /// predicate accepts, then re-raise it unchanged. A success never
+    /// presents a cause, so the observer stays out of the way.
+    pub fn tap_cause_if<P, F>(self, predicate: P, f: F) -> Self
+    where
+        P: FnMut(&Cause<E>) -> bool + Send + 'static,
+        F: FnOnce(&Cause<E>) + Send + 'static,
+    {
+        self.catch_cause_if(predicate, move |cause| {
+            f(&cause);
+            Effect::fail_cause(cause)
+        })
+    }
+
+    /// `Effect.tapCauseFilter` at the pin: the `Filter` shape over the
+    /// cause. The observer receives the selector's pass value and the
+    /// cause; a declined cause is re-raised without observation.
+    pub fn tap_cause_filter<B, X, S, F>(self, selector: S, f: F) -> Self
+    where
+        B: Send + 'static,
+        S: FnOnce(&Cause<E>) -> std::result::Result<B, X> + Send + 'static,
+        F: FnOnce(B, &Cause<E>) + Send + 'static,
+    {
+        self.catch_cause(move |cause| match selector(&cause) {
+            Ok(pass) => {
+                f(pass, &cause);
+                Effect::fail_cause(cause)
+            }
+            Err(_) => Effect::fail_cause(cause),
+        })
     }
 
     /// An effect that runs `thunk` when interpreted, not when built. The thunk

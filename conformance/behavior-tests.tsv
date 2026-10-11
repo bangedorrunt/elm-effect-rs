@@ -1396,36 +1396,36 @@ not-applicable	packages/effect/test/Effect.test.ts	3352	it.effect	concurrent: tr
 not-applicable	packages/effect/test/Effect.test.ts	3369	it.effect	concurrent: false	Effect.zip, Effect.zipWith and Effect.delay are absent from crates/elm-effect/src/effect.rs (21 pub fns), and forkChild exists only as the runtime method at fiber.rs:243, not the effect-last form
 not-applicable	packages/effect/test/Effect.test.ts	3387	it.effect	concurrent: true	Effect.zip, Effect.zipWith and Effect.delay are absent from crates/elm-effect/src/effect.rs (21 pub fns), and forkChild exists only as the runtime method at fiber.rs:243, not the effect-last form
 not-applicable	packages/effect/test/Effect.test.ts	3405	it.effect	concurrent: true interrupts the other side on failure	Effect.zip and Effect.zipWith are absent from crates/elm-effect/src/effect.rs (21 pub fns), as are Effect.never and Effect.onInterrupt, so the interrupt-the-other-side rows have no Rust combinator
-not-applicable	packages/effect/test/Effect.test.ts	3424	it.effect	first argument as success	Effect.catchCauseFilter is absent from crates/elm-effect/src/effect.rs (21 pub fns); the crate catch_cause_filter is stream.rs:1748 on Stream, and Effect.flip is absent too
-not-applicable	packages/effect/test/Effect.test.ts	3429	it.effect	first argument as failure and predicate return false	Effect.catchCauseFilter is absent from crates/elm-effect/src/effect.rs (21 pub fns); the crate catch_cause_filter is stream.rs:1748 on Stream, and Effect.flip is absent too
-not-applicable	packages/effect/test/Effect.test.ts	3436	it.effect	first argument as failure and predicate return true	Effect.catchCauseFilter, Effect.catchIf and Effect.flip are absent from crates/elm-effect/src/effect.rs (21 pub fns); the crate catch_if is channel.rs:161 on Channel, and catch_cause_filter is stream.rs:1748 on Stream
-not-applicable	packages/effect/test/Effect.test.ts	3450	it.effect	predicate match recovers	Effect.catchIf is absent from crates/elm-effect/src/effect.rs (21 pub fns); the crate catch_if is crates/elm-effect/src/channel.rs:161, a Channel combinator
-not-applicable	packages/effect/test/Effect.test.ts	3459	it.effect	predicate no match preserves error	Effect.catchCauseIf is absent from crates/elm-effect/src/effect.rs (21 pub fns), so a predicate-gated cause recovery has no Rust constructor
-not-applicable	packages/effect/test/Effect.test.ts	3473	it.effect	predicate match recovers	Effect.catchCauseIf is absent from crates/elm-effect/src/effect.rs (21 pub fns), so a predicate-gated cause recovery has no Rust constructor
-not-applicable	packages/effect/test/Effect.test.ts	3482	it.effect	predicate no match preserves error	Effect.catchCauseIf is absent from crates/elm-effect/src/effect.rs (21 pub fns), so a predicate-gated cause recovery has no Rust constructor
-not-applicable	packages/effect/test/Effect.test.ts	3496	it.effect	filter match taps	Effect.tapCauseFilter and Effect.tapCauseIf are absent from crates/elm-effect/src/effect.rs (21 pub fns), so a filter- or predicate-gated tap has no Rust constructor
-not-applicable	packages/effect/test/Effect.test.ts	3509	it.effect	filter no match skips tap	Effect.tapCauseFilter and Effect.tapCauseIf are absent from crates/elm-effect/src/effect.rs (21 pub fns), so a filter- or predicate-gated tap has no Rust constructor
-not-applicable	packages/effect/test/Effect.test.ts	3522	it.effect	predicate match taps	Effect.tapCauseFilter and Effect.tapCauseIf are absent from crates/elm-effect/src/effect.rs (21 pub fns), so a filter- or predicate-gated tap has no Rust constructor
-unported	packages/effect/test/Effect.test.ts	3535	it.effect	predicate no match skips tap	
-unported	packages/effect/test/Effect.test.ts	3548	it.effect	success skips tap	
-unported	packages/effect/test/Effect.test.ts	3562	it.effect	predicate match runs finalizer	
-unported	packages/effect/test/Effect.test.ts	3575	it.effect	predicate no match skips finalizer	
-unported	packages/effect/test/Effect.test.ts	3588	it.effect	filter match runs finalizer	
-unported	packages/effect/test/Effect.test.ts	3601	it.effect	success skips finalizer	
-unported	packages/effect/test/Effect.test.ts	3615	it.effect	predicate match on success runs finalizer	
-unported	packages/effect/test/Effect.test.ts	3631	it.effect	predicate no match on failure skips finalizer	
-unported	packages/effect/test/Effect.test.ts	3644	it.effect	predicate match on failure runs finalizer	
-unported	packages/effect/test/Effect.test.ts	3662	it.effect	filter match receives pass value and exit	
-unported	packages/effect/test/Effect.test.ts	3677	it.effect	predicate filters iterable	
-unported	packages/effect/test/Effect.test.ts	3685	it.effect	refinement narrows iterable	
-unported	packages/effect/test/Effect.test.ts	3693	it.effect	Filter.Filter overload maps pass values	
+ported	packages/effect/test/Effect.test.ts	3424	it.effect	first argument as success	catch_cause_filter_first_argument_as_success
+ported	packages/effect/test/Effect.test.ts	3429	it.effect	first argument as failure and predicate return false	catch_cause_filter_declined_cause_is_re_raised
+ported	packages/effect/test/Effect.test.ts	3436	it.effect	first argument as failure and predicate return true	catch_cause_filter_accepted_cause_recovers_through_the_handler
+ported	packages/effect/test/Effect.test.ts	3450	it.effect	predicate match recovers	catch_if_predicate_match_recovers
+ported	packages/effect/test/Effect.test.ts	3459	it.effect	predicate no match preserves error	catch_if_predicate_no_match_preserves_error
+ported	packages/effect/test/Effect.test.ts	3473	it.effect	predicate match recovers	catch_cause_if_predicate_match_recovers
+ported	packages/effect/test/Effect.test.ts	3482	it.effect	predicate no match preserves error	catch_cause_if_predicate_no_match_preserves_error
+ported	packages/effect/test/Effect.test.ts	3496	it.effect	filter match taps	tap_cause_filter_match_taps_and_re_raises_the_cause
+ported	packages/effect/test/Effect.test.ts	3509	it.effect	filter no match skips tap	tap_cause_filter_no_match_skips_the_tap
+ported	packages/effect/test/Effect.test.ts	3522	it.effect	predicate match taps	tap_cause_if_predicate_match_taps_the_cause
+ported	packages/effect/test/Effect.test.ts	3535	it.effect	predicate no match skips tap	tap_cause_if_predicate_no_match_skips_the_tap
+ported	packages/effect/test/Effect.test.ts	3548	it.effect	success skips tap	tap_cause_if_success_skips_the_tap
+ported	packages/effect/test/Effect.test.ts	3562	it.effect	predicate match runs finalizer	on_error_if_predicate_match_runs_the_finalizer
+ported	packages/effect/test/Effect.test.ts	3575	it.effect	predicate no match skips finalizer	on_error_if_predicate_no_match_skips_the_finalizer
+ported	packages/effect/test/Effect.test.ts	3588	it.effect	filter match runs finalizer	on_error_filter_match_runs_the_finalizer_with_the_pass_value
+ported	packages/effect/test/Effect.test.ts	3601	it.effect	success skips finalizer	on_error_if_success_skips_the_finalizer
+ported	packages/effect/test/Effect.test.ts	3615	it.effect	predicate match on success runs finalizer	on_exit_if_match_on_success_runs_the_finalizer
+ported	packages/effect/test/Effect.test.ts	3631	it.effect	predicate no match on failure skips finalizer	on_exit_if_no_match_on_failure_skips_the_finalizer
+ported	packages/effect/test/Effect.test.ts	3644	it.effect	predicate match on failure runs finalizer	on_exit_if_match_on_failure_runs_the_finalizer
+ported	packages/effect/test/Effect.test.ts	3662	it.effect	filter match receives pass value and exit	on_exit_filter_match_passes_the_value_and_the_exit
+ported	packages/effect/test/Effect.test.ts	3677	it.effect	predicate filters iterable	filter_keeps_the_elements_the_predicate_accepts
+ported	packages/effect/test/Effect.test.ts	3685	it.effect	refinement narrows iterable	filter_refinement_keeps_only_the_narrowed_elements
+ported	packages/effect/test/Effect.test.ts	3693	it.effect	Filter.Filter overload maps pass values	filter_map_keeps_the_mapped_pass_values
 ported	packages/effect/test/Effect.test.ts	3706	it.effect	first argument as success	catch_first_argument_as_success
-unported	packages/effect/test/Effect.test.ts	3711	it.effect	first argument as failure	
-unported	packages/effect/test/Effect.test.ts	3719	it.effect	returns the first success and does not run later effects	
-unported	packages/effect/test/Effect.test.ts	3738	it.effect	fails with the last failure when all effects fail	
-unported	packages/effect/test/Effect.test.ts	3749	it.effect	defects on an empty collection	
+ported	packages/effect/test/Effect.test.ts	3711	it.effect	first argument as failure	catch_first_argument_as_failure
+ported	packages/effect/test/Effect.test.ts	3719	it.effect	returns the first success and does not run later effects	first_success_of_returns_the_first_success_and_skips_later_effects
+ported	packages/effect/test/Effect.test.ts	3738	it.effect	fails with the last failure when all effects fail	first_success_of_fails_with_the_last_failure
+ported	packages/effect/test/Effect.test.ts	3749	it.effect	defects on an empty collection	first_success_of_defects_on_an_empty_collection
 ported	packages/effect/test/Effect.test.ts	3763	it.effect	first argument as success	catch_cause_first_argument_as_success
-unported	packages/effect/test/Effect.test.ts	3768	it.effect	first argument as failure	
+ported	packages/effect/test/Effect.test.ts	3768	it.effect	first argument as failure	catch_cause_first_argument_as_failure
 unported	packages/effect/test/Effect.test.ts	3779	it.effect	should create transaction boundaries when no transaction is active	
 unported	packages/effect/test/Effect.test.ts	3795	it.effect	should allow TxRef.modify outside an existing transaction	
 unported	packages/effect/test/Effect.test.ts	3806	it.effect	should roll back nested changes when the outer transaction fails	
