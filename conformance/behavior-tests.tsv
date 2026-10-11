@@ -1210,27 +1210,27 @@ ported	packages/effect/test/Effect.test.ts	463	it.effect	from a failure	from_res
 not-applicable	packages/effect/test/Effect.test.ts	472	it.effect	succeeds with the returned value in direct-thunk form	Effect.try is absent from crates/elm-effect/src/effect.rs (21 pub fns), so the direct-thunk success row has no Rust constructor
 not-applicable	packages/effect/test/Effect.test.ts	478	it.effect	maps thrown values to UnknownError in direct-thunk form	Effect.try is absent from crates/elm-effect/src/effect.rs (21 pub fns), so mapping a thrown value to UnknownError has no Rust constructor
 not-applicable	packages/effect/test/Effect.test.ts	487	it.effect	succeeds with the returned value	Effect.try is absent from crates/elm-effect/src/effect.rs (21 pub fns), so the resolved-value row has no Rust constructor
-unported	packages/effect/test/Effect.test.ts	501	it.effect	maps thrown values into typed failures	
-unported	packages/effect/test/Effect.test.ts	514	it.effect	turns a throwing catch mapper into a defect	
-unported	packages/effect/test/Effect.test.ts	531	it.effect	succeeds with the resolved value in direct-thunk form	
-unported	packages/effect/test/Effect.test.ts	537	it.effect	does not allocate AbortController for zero-argument thunks	
-unported	packages/effect/test/Effect.test.ts	570	it.effect	maps synchronous throws to UnknownError in direct-thunk form	
-unported	packages/effect/test/Effect.test.ts	579	it.effect	maps promise rejections to UnknownError in direct-thunk form	
-unported	packages/effect/test/Effect.test.ts	586	it.effect	succeeds with the resolved value in options form	
-unported	packages/effect/test/Effect.test.ts	600	it.effect	maps synchronous throws with catch in options form	
-unported	packages/effect/test/Effect.test.ts	613	it.effect	maps promise rejections with catch in options form	
-unported	packages/effect/test/Effect.test.ts	624	it.effect	turns a throwing catch mapper for a synchronous throw into a defect	
-unported	packages/effect/test/Effect.test.ts	639	it.effect	turns a throwing catch mapper for a promise rejection into a defect	
-unported	packages/effect/test/Effect.test.ts	652	it.effect	aborts the provided AbortSignal on interruption	
-unported	packages/effect/test/Effect.test.ts	665	it	gen	
-unported	packages/effect/test/Effect.test.ts	672	it	gen with context	
-unported	packages/effect/test/Effect.test.ts	679	it	iterator yields the effect once, then completes with the sent value	
+not-applicable	packages/effect/test/Effect.test.ts	501	it.effect	maps thrown values into typed failures	Effect.try is absent from crates/elm-effect/src/effect.rs (21 pub fns), so a throwing thunk cannot map into a typed failure
+not-applicable	packages/effect/test/Effect.test.ts	514	it.effect	turns a throwing catch mapper into a defect	Effect.try is absent from crates/elm-effect/src/effect.rs (21 pub fns), so a throwing thunk cannot map into a typed failure
+not-applicable	packages/effect/test/Effect.test.ts	531	it.effect	succeeds with the resolved value in direct-thunk form	Effect.tryPromise is absent from crates/elm-effect/src/effect.rs (21 pub fns) and a web AbortController has no Rust analog, so AbortController allocation cannot be observed
+not-applicable	packages/effect/test/Effect.test.ts	537	it.effect	does not allocate AbortController for zero-argument thunks	Effect.tryPromise is absent from crates/elm-effect/src/effect.rs (21 pub fns) and a web AbortController has no Rust analog, so AbortController allocation cannot be observed
+not-applicable	packages/effect/test/Effect.test.ts	570	it.effect	maps synchronous throws to UnknownError in direct-thunk form	Effect.try and Effect.tryPromise are both absent from crates/elm-effect/src/effect.rs (21 pub fns), so the thunk-to-UnknownError mapping rows have no Rust constructor
+not-applicable	packages/effect/test/Effect.test.ts	579	it.effect	maps promise rejections to UnknownError in direct-thunk form	Effect.try and Effect.tryPromise are both absent from crates/elm-effect/src/effect.rs (21 pub fns), so the thunk-to-UnknownError mapping rows have no Rust constructor
+not-applicable	packages/effect/test/Effect.test.ts	586	it.effect	succeeds with the resolved value in options form	Effect.tryPromise is absent from crates/elm-effect/src/effect.rs (21 pub fns) and a web AbortController has no Rust analog, so AbortController allocation cannot be observed
+not-applicable	packages/effect/test/Effect.test.ts	600	it.effect	maps synchronous throws with catch in options form	Effect.tryPromise is absent from crates/elm-effect/src/effect.rs (21 pub fns) and a web AbortController has no Rust analog, so AbortController allocation cannot be observed
+not-applicable	packages/effect/test/Effect.test.ts	613	it.effect	maps promise rejections with catch in options form	Effect.tryPromise is absent from crates/elm-effect/src/effect.rs (21 pub fns) and a web AbortController has no Rust analog, so AbortController allocation cannot be observed
+not-applicable	packages/effect/test/Effect.test.ts	624	it.effect	turns a throwing catch mapper for a synchronous throw into a defect	Effect.tryPromise is absent from crates/elm-effect/src/effect.rs (21 pub fns) and a web AbortController has no Rust analog, so AbortController allocation cannot be observed
+not-applicable	packages/effect/test/Effect.test.ts	639	it.effect	turns a throwing catch mapper for a promise rejection into a defect	Effect.tryPromise is absent from crates/elm-effect/src/effect.rs (21 pub fns) and a web AbortController has no Rust analog, so AbortController allocation cannot be observed
+not-applicable	packages/effect/test/Effect.test.ts	652	it.effect	aborts the provided AbortSignal on interruption	Effect.runPromise is absent from crates/elm-effect/src/effect.rs (21 pub fns) and AbortSignal has no Rust analog, so aborting the provided signal on interruption cannot be carried
+ported	packages/effect/test/Effect.test.ts	665	it	gen	gen_yields_the_value_and_returns_it
+ported	packages/effect/test/Effect.test.ts	672	it	gen with context	gen_with_self_binding_uses_the_bound_values
+not-applicable	packages/effect/test/Effect.test.ts	679	it	iterator yields the effect once, then completes with the sent value	effect[Symbol.iterator]() is the TS yieldable protocol; Rust's Effect has no iterator entry point, so the yield-once-then-complete behavior cannot be expressed
 ported	packages/effect/test/Effect.test.ts	691	it.effect	sequential	for_each_sequential_preserves_input_order
 ported	packages/effect/test/Effect.test.ts	697	it.effect	unbounded	for_each_unbounded_runs_every_item
 ported	packages/effect/test/Effect.test.ts	703	it.effect	bounded	for_each_bounded_respects_the_bound
-unported	packages/effect/test/Effect.test.ts	709	it.effect	sequential interrupt	
-unported	packages/effect/test/Effect.test.ts	724	it.effect	unbounded interrupt	
-unported	packages/effect/test/Effect.test.ts	739	it.effect	bounded interrupt	
+not-applicable	packages/effect/test/Effect.test.ts	709	it.effect	sequential interrupt	Effect.forEach and Effect.delay are absent from crates/elm-effect/src/effect.rs (21 pub fns, neither present) and the row drives a TestClock, so the interrupt scheduling cannot be carried
+not-applicable	packages/effect/test/Effect.test.ts	724	it.effect	unbounded interrupt	Effect.forEach and Effect.delay are absent from crates/elm-effect/src/effect.rs (21 pub fns, neither present) and the row drives a TestClock, so the interrupt scheduling cannot be carried
+not-applicable	packages/effect/test/Effect.test.ts	739	it.effect	bounded interrupt	Effect.forEach and Effect.delay are absent from crates/elm-effect/src/effect.rs (21 pub fns, neither present) and the row drives a TestClock, so the interrupt scheduling cannot be carried
 unported	packages/effect/test/Effect.test.ts	754	it.effect	preserves interruption when a child cleanup dies	
 unported	packages/effect/test/Effect.test.ts	772	it.effect	preserves a recorded sibling failure on external interruption	
 unported	packages/effect/test/Effect.test.ts	802	it.effect	unbounded fail	
