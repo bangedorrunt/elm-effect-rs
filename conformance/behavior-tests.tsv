@@ -3563,8 +3563,8 @@ ported	packages/effect/test/Stream.test.ts	624	it.effect	handles carriage return
 ported	packages/effect/test/Stream.test.ts	630	it.effect	emits a carriage-return-terminated line before pulling upstream again	split_lines_emits_a_carriage_return_terminated_line_before_pulling_upstream
 ported	packages/effect/test/Stream.test.ts	642	it.effect	emits the final line when the stream does not end with a newline	split_lines_emits_the_final_line_when_the_stream_does_not_end_with_a_newline
 ported	packages/effect/test/Stream.test.ts	648	it.effect	does not pull upstream again after flushing the final line	split_lines_handles_standalone_carriage_returns_across_chunk_boundaries
-ported	packages/effect/test/Stream.test.ts	677	it.effect	handles standalone carriage returns within a chunk	split_lines_handles_standalone_carriage_returns_across_chunk_boundaries
-unported	packages/effect/test/Stream.test.ts	683	it.effect	handles standalone carriage returns across chunk boundaries	
+ported	packages/effect/test/Stream.test.ts	677	it.effect	handles standalone carriage returns within a chunk	split_lines_emits_a_carriage_return_terminated_line_before_pulling_upstream
+ported	packages/effect/test/Stream.test.ts	683	it.effect	handles standalone carriage returns across chunk boundaries	split_lines_handles_standalone_carriage_returns_across_chunk_boundaries
 unported	packages/effect/test/Stream.test.ts	689	it.prop	matches String.linesIterator regardless of chunk boundaries	
 ported	packages/effect/test/Stream.test.ts	706	it.effect	filterMap	filter_map_keeps_some_only
 ported	packages/effect/test/Stream.test.ts	715	it.effect	filterMapEffect	filter_map_effect_keeps_only_some_results
