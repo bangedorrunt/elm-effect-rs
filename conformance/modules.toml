@@ -140,7 +140,7 @@ tests = []
 [[module]]
 path = "packages/effect/src/Context.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/Context.test.ts"]
@@ -164,7 +164,7 @@ tests = ["packages/effect/test/Crypto.test.ts"]
 [[module]]
 path = "packages/effect/src/Data.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/Data.test.ts"]
@@ -180,7 +180,7 @@ tests = ["packages/effect/test/DateTime.test.ts"]
 [[module]]
 path = "packages/effect/src/Deferred.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/Deferred.test.ts"]
@@ -692,7 +692,7 @@ tests = []
 [[module]]
 path = "packages/effect/src/Redacted.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/Redacted.test.ts"]
@@ -1796,7 +1796,7 @@ tests = ["packages/effect/test/encoding/SchemaBinary.test.ts"]
 [[module]]
 path = "packages/effect/src/encoding/Sse.ts"
 class = "unstable-port"
-status = "unmatched"
+status = "matched"
 tag = "unstable"
 reason = ""
 tests = ["packages/effect/test/encoding/Sse.test.ts"]
@@ -1852,7 +1852,7 @@ tests = ["packages/effect/test/eventlog/EventJournal.test.ts"]
 [[module]]
 path = "packages/effect/src/eventlog/EventLog.ts"
 class = "unstable-port"
-status = "unmatched"
+status = "matched"
 tag = "unstable"
 reason = ""
 tests = ["packages/effect/test/eventlog/EventLog.test.ts"]
@@ -2060,7 +2060,7 @@ tests = []
 [[module]]
 path = "packages/effect/src/http/Cookies.ts"
 class = "unstable-port"
-status = "unmatched"
+status = "matched"
 tag = "unstable"
 reason = ""
 tests = ["packages/effect/test/http/Cookies.test.ts"]
@@ -2092,7 +2092,7 @@ tests = []
 [[module]]
 path = "packages/effect/src/http/Headers.ts"
 class = "unstable-port"
-status = "unmatched"
+status = "matched"
 tag = "unstable"
 reason = ""
 tests = ["packages/effect/test/http/Headers.test.ts"]
@@ -2212,7 +2212,7 @@ tests = ["packages/effect/test/http/HttpServerRequest.test.ts"]
 [[module]]
 path = "packages/effect/src/http/HttpServerRespondable.ts"
 class = "unstable-port"
-status = "unmatched"
+status = "matched"
 tag = "unstable"
 reason = ""
 tests = ["packages/effect/test/http/HttpServerRespondable.test.ts"]
@@ -2308,7 +2308,7 @@ tests = ["packages/effect/test/http/Url.test.ts"]
 [[module]]
 path = "packages/effect/src/http/UrlParams.ts"
 class = "unstable-port"
-status = "unmatched"
+status = "matched"
 tag = "unstable"
 reason = ""
 tests = ["packages/effect/test/http/UrlParams.test.ts"]

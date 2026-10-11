@@ -465,3 +465,16 @@ fn format_simple_quotes_only_when_needed() {
     assert!(output.contains("annotation=\"value with spaces\""));
     assert!(!output.contains("message=\"\\\"hello world\""));
 }
+
+#[test]
+fn pipe_supports_extracting_the_protected_value() {
+    // Redacted.test.ts:17 — the tag's data-last pipe form; `value` is the
+    // extracting function, and it is the only way to read the bytes.
+    let inner = vec![1, 2, 3];
+    let redacted = Redacted::make(inner.clone());
+    // The port has no pipe operator; `Redacted::value(redacted)` is the same
+    // application the tag's `pipe` performs.
+    assert_eq!(Redacted::value(&redacted), &inner);
+    // And the Debug side still refuses to show the bytes.
+    assert!(!format!("{redacted:?}").contains('2'));
+}

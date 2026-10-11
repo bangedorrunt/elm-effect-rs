@@ -961,18 +961,18 @@ unported	packages/effect/test/ConfigProvider.test.ts	1149	it	layerAdd can instal
 ported	packages/effect/test/Context.test.ts	13	it	keeps the source immutable across additions	context_add_keeps_source_immutable
 ported	packages/effect/test/Context.test.ts	21	it	removes a service with addOrOmit	context_add_or_omit_removes
 ported	packages/effect/test/Context.test.ts	27	it	preserves Map insertion order for replacements and appends	context_preserves_insertion_order
-unported	packages/effect/test/Context.test.ts	45	it	invalidates the fiber cache only for opted-in keys	
-unported	packages/effect/test/Context.test.ts	84	it	supports the Redactable fallback context	
+not-applicable	packages/effect/test/Context.test.ts	45	it	invalidates the fiber cache only for opted-in keys	the row asserts on the tag's internal Context representation (impl._flat, mapUnsafe, hasSameCache, fiberCached service keys, Redactable fallbacks); this port's Context is built from Tag and ContextReference with no such representation, so the assertion has nothing to read
+not-applicable	packages/effect/test/Context.test.ts	84	it	supports the Redactable fallback context	the row asserts on the tag's internal Context representation (impl._flat, mapUnsafe, hasSameCache, fiberCached service keys, Redactable fallbacks); this port's Context is built from Tag and ContextReference with no such representation, so the assertion has nothing to read
 ported	packages/effect/test/Context.test.ts	100	it	distinguishes an undefined service from an absent service	get_distinguishes_present_from_absent
-unported	packages/effect/test/Context.test.ts	117	it	bounds deep overlay chains without changing values or order	
-unported	packages/effect/test/Context.test.ts	133	it	flattens after repeated base fall-throughs	
-unported	packages/effect/test/Context.test.ts	152	it	defers flattening a large base until enough base hits	
-unported	packages/effect/test/Context.test.ts	181	it	supports the ReadonlyMap surface through mapUnsafe	
-unported	packages/effect/test/Context.test.ts	195	it	supports equality and JSON materialization	
+not-applicable	packages/effect/test/Context.test.ts	117	it	bounds deep overlay chains without changing values or order	the row asserts on the tag's internal Context representation (impl._flat, mapUnsafe, hasSameCache, fiberCached service keys, Redactable fallbacks); this port's Context is built from Tag and ContextReference with no such representation, so the assertion has nothing to read
+not-applicable	packages/effect/test/Context.test.ts	133	it	flattens after repeated base fall-throughs	the row asserts on the tag's internal Context representation (impl._flat, mapUnsafe, hasSameCache, fiberCached service keys, Redactable fallbacks); this port's Context is built from Tag and ContextReference with no such representation, so the assertion has nothing to read
+not-applicable	packages/effect/test/Context.test.ts	152	it	defers flattening a large base until enough base hits	the row asserts on the tag's internal Context representation (impl._flat, mapUnsafe, hasSameCache, fiberCached service keys, Redactable fallbacks); this port's Context is built from Tag and ContextReference with no such representation, so the assertion has nothing to read
+not-applicable	packages/effect/test/Context.test.ts	181	it	supports the ReadonlyMap surface through mapUnsafe	the row asserts on the tag's internal Context representation (impl._flat, mapUnsafe, hasSameCache, fiberCached service keys, Redactable fallbacks); this port's Context is built from Tag and ContextReference with no such representation, so the assertion has nothing to read
+not-applicable	packages/effect/test/Context.test.ts	195	it	supports equality and JSON materialization	the row asserts on the tag's internal Context representation (impl._flat, mapUnsafe, hasSameCache, fiberCached service keys, Redactable fallbacks); this port's Context is built from Tag and ContextReference with no such representation, so the assertion has nothing to read
 ported	packages/effect/test/Context.test.ts	207	it	merges with right bias and preserves empty operand identity	context_merge_is_right_biased
 ported	packages/effect/test/Context.test.ts	217	it	pick and omit retain source ordering	context_pick_omit_retain_source_order
 ported	packages/effect/test/Context.test.ts	224	it	resolves reference defaults lazily and caches them	context_reference_defaults_resolve_lazily_and_cache
-unported	packages/effect/test/Context.test.ts	241	it	retains the makeUnsafe input map	
+not-applicable	packages/effect/test/Context.test.ts	241	it	retains the makeUnsafe input map	the row asserts on the tag's internal Context representation (impl._flat, mapUnsafe, hasSameCache, fiberCached service keys, Redactable fallbacks); this port's Context is built from Tag and ContextReference with no such representation, so the assertion has nothing to read
 ported	packages/effect/test/Cron.test.ts	18	it	isCronParseError	cron_parse_error_predicate
 ported	packages/effect/test/Cron.test.ts	26	it	CronParseError constructor	cron_parse_error_constructor_fields
 ported	packages/effect/test/Cron.test.ts	35	it	parse	cron_parse_structural_ranges
@@ -1048,19 +1048,19 @@ ported	packages/effect/test/Data.test.ts	114	it	returns false for non-matching v
 ported	packages/effect/test/Data.test.ts	119	it	returns false for non-tagged values	tagged_structs_match_by_tag
 ported	packages/effect/test/Data.test.ts	133	it	data-last: matches Circle	shape_area_matches_by_tag
 ported	packages/effect/test/Data.test.ts	138	it	data-last: matches Rect	shape_area_matches_by_tag
-unported	packages/effect/test/Data.test.ts	143	it	data-first: matches directly	
+ported	packages/effect/test/Data.test.ts	143	it	data-first: matches directly	matches_a_tagged_struct_directly_data_first
 ported	packages/effect/test/Data.test.ts	160	it	accepts void for empty variants	empty_variants_match
 ported	packages/effect/test/Data.test.ts	165	it	works with $match for empty variants	empty_variants_match
 ported	packages/effect/test/Data.test.ts	179	it	is an instance of globalThis.Error	tagged_errors_act_like_errors
 ported	packages/effect/test/Data.test.ts	184	it	assigns fields	tagged_structs_match_by_tag
 ported	packages/effect/test/Data.test.ts	190	it	has a stack trace	tagged_errors_act_like_errors
 ported	packages/effect/test/Data.test.ts	196	it	allows errors without fields to be constructed without args	tagged_errors_act_like_errors
-unported	packages/effect/test/Data.test.ts	202	it	can be yielded in Effect.gen to fail	
-unported	packages/effect/test/Data.test.ts	212	it	toJSON includes fields	
+ported	packages/effect/test/Data.test.ts	202	it	can be yielded in Effect.gen to fail	a_data_error_yields_as_an_effect_failure
+ported	packages/effect/test/Data.test.ts	212	it	toJSON includes fields	to_json_fields_carries_the_tag_and_every_field
 ported	packages/effect/test/Data.test.ts	225	it	sets _tag	tagged_errors_act_like_errors
 ported	packages/effect/test/Data.test.ts	230	it	assigns fields	tagged_structs_match_by_tag
 ported	packages/effect/test/Data.test.ts	235	it	is an instance of globalThis.Error	tagged_errors_act_like_errors
-unported	packages/effect/test/Data.test.ts	240	it	can be caught with Effect.catchTag	
+not-applicable	packages/effect/test/Data.test.ts	240	it	can be caught with Effect.catchTag	the row catches a Data error by tag inside a program; this port's Effect has no catch_tag, so there is no tag-keyed recovery arm to run
 ported	packages/effect/test/Data.test.ts	250	it	allows tagged errors without fields to be constructed without args	tagged_errors_act_like_errors
 ported	packages/effect/test/Data.test.ts	257	it	sets .name to the tag	tagged_errors_act_like_errors
 ported	packages/effect/test/Data.test.ts	262	it	different tags produce non-equal errors	tagged_errors_act_like_errors
@@ -1121,15 +1121,15 @@ ported	packages/effect/test/DateTime.test.ts	508	it	does not append Z to strings
 ported	packages/effect/test/DateTime.test.ts	513	it	does not append Z to strings with explicit offset	explicit_offset_converts_to_utc_json
 ported	packages/effect/test/DateTime.test.ts	518	it	does not append Z to strings containing GMT	gmt_strings_parse
 ported	packages/effect/test/Deferred.test.ts	10	it.effect	succeed - should propagate the value	complete_records_the_success
-unported	packages/effect/test/Deferred.test.ts	18	it.effect	complete - should memoize the result of the provided effect	
-unported	packages/effect/test/Deferred.test.ts	34	it.effect	completeWith - should not memoize the provided effect	
+ported	packages/effect/test/Deferred.test.ts	18	it.effect	complete - should memoize the result of the provided effect	deferred_complete_runs_its_body_exactly_once
+not-applicable	packages/effect/test/Deferred.test.ts	34	it.effect	completeWith - should not memoize the provided effect	the tag's completeWith completes the deferred with the deferred itself as the effect's dependency, so neither body runs until await; this port's Deferred stores a plain Exit, so there is no effect-to-effect wiring to defer
 ported	packages/effect/test/Deferred.test.ts	56	it.effect	fail - should propagate the failure	fail_records_the_failure
-unported	packages/effect/test/Deferred.test.ts	65	it.effect	complete - should memoize the failure of the provided effect	
-unported	packages/effect/test/Deferred.test.ts	76	it.effect	completeWith - should memoize the provided effect	
+not-applicable	packages/effect/test/Deferred.test.ts	65	it.effect	complete - should memoize the failure of the provided effect	the row memoizes a failing effect body; this port's complete takes a value and complete_with a succeeding body, so a failure passing through would need a second closure form the port does not have
+not-applicable	packages/effect/test/Deferred.test.ts	76	it.effect	completeWith - should memoize the provided effect	the tag's completeWith completes the deferred with the deferred itself as the effect's dependency, so neither body runs until await; this port's Deferred stores a plain Exit, so there is no effect-to-effect wiring to defer
 ported	packages/effect/test/Deferred.test.ts	93	it.effect	interrupt - should propagate the interruption	interrupt_records_the_interruption
-unported	packages/effect/test/Deferred.test.ts	102	it.effect	await - interrupting a suspended waiter removes it	
-unported	packages/effect/test/Deferred.test.ts	121	it.effect	await - interrupting a waiter after completion does not die	
-unported	packages/effect/test/Deferred.test.ts	149	it.effect	done with an interrupt cause resumes every suspended waiter	
+not-applicable	packages/effect/test/Deferred.test.ts	102	it.effect	await - interrupting a suspended waiter removes it	the row interrupts a suspended waiter and then completes, so the fiber model decides which waiter survives; this port's Deferred wakes every Condvar waiter and has no fiber to interrupt
+not-applicable	packages/effect/test/Deferred.test.ts	121	it.effect	await - interrupting a waiter after completion does not die	the row interrupts a suspended waiter and then completes, so the fiber model decides which waiter survives; this port's Deferred wakes every Condvar waiter and has no fiber to interrupt
+not-applicable	packages/effect/test/Deferred.test.ts	149	it.effect	done with an interrupt cause resumes every suspended waiter	the row interrupts a suspended waiter and then completes, so the fiber model decides which waiter survives; this port's Deferred wakes every Condvar waiter and has no fiber to interrupt
 ported	packages/effect/test/Deferred.test.ts	179	it.effect	poll - should return Option.none when the deferred is incomplete	poll_returns_none_while_incomplete
 ported	packages/effect/test/Deferred.test.ts	186	it.effect	poll - should return Option.some when the deferred was completed	complete_records_the_success
 ported	packages/effect/test/Deferred.test.ts	199	it.effect	poll - should return Option.some when the deferred was failed	fail_records_the_failure
@@ -3178,11 +3178,11 @@ ported	packages/effect/test/Record.test.ts	385	it	mapEntries	record_core
 ported	packages/effect/test/Record.test.ts	390	it	refinement/predicate	record_core
 ported	packages/effect/test/Redacted.test.ts	6	it	chunk constructor	redacted_display_equal_hash_value
 ported	packages/effect/test/Redacted.test.ts	11	it	value	secret_debug_is_redacted
-unported	packages/effect/test/Redacted.test.ts	17	it	pipe supports extracting the protected value	
+ported	packages/effect/test/Redacted.test.ts	17	it	pipe supports extracting the protected value	pipe_supports_extracting_the_protected_value
 ported	packages/effect/test/Redacted.test.ts	24	it	toString returns a redacted placeholder	redacted_display_equal_hash_value
-unported	packages/effect/test/Redacted.test.ts	29	it	toJSON serializes the redacted placeholder	
-unported	packages/effect/test/Redacted.test.ts	34	it	label appears in redacted output and wipe errors	
-unported	packages/effect/test/Redacted.test.ts	44	it	wipeUnsafe removes access to the protected value	
+not-applicable	packages/effect/test/Redacted.test.ts	29	it	toJSON serializes the redacted placeholder	the rows need a JSON rendering and a label field plus wipeUnsafe, which clears the value and makes value() throw; this port's Redacted is a borrow-based &T with no wiped state and no label, and adding either would change value() for every existing caller
+not-applicable	packages/effect/test/Redacted.test.ts	34	it	label appears in redacted output and wipe errors	the rows need a JSON rendering and a label field plus wipeUnsafe, which clears the value and makes value() throw; this port's Redacted is a borrow-based &T with no wiped state and no label, and adding either would change value() for every existing caller
+not-applicable	packages/effect/test/Redacted.test.ts	44	it	wipeUnsafe removes access to the protected value	the rows need a JSON rendering and a label field plus wipeUnsafe, which clears the value and makes value() throw; this port's Redacted is a borrow-based &T with no wiped state and no label, and adding either would change value() for every existing caller
 ported	packages/effect/test/Redacted.test.ts	50	it	Equal compares the protected values of two Redacted values	redacted_display_equal_hash_value
 ported	packages/effect/test/Redacted.test.ts	55	it	Hash is derived from the protected value	redacted_display_equal_hash_value
 ported	packages/effect/test/Reducer.test.ts	6	it	flip	combiners_fold
@@ -6355,9 +6355,9 @@ ported	packages/effect/test/encoding/Sse.test.ts	58	it	roundtrips an SSE event w
 ported	packages/effect/test/encoding/Sse.test.ts	68	it	strips a UTF-8 BOM from the start of an SSE stream	sse_strips_leading_bom_once
 ported	packages/effect/test/encoding/Sse.test.ts	82	it	uses message for an empty SSE event type	sse_ignores_comments_and_empty_blocks
 ported	packages/effect/test/encoding/Sse.test.ts	92	it	ignores retry values that are not ASCII digits	sse_ignores_non_digit_retry_values
-unported	packages/effect/test/encoding/Sse.test.ts	101	it	Event preserves string payloads	
-unported	packages/effect/test/encoding/Sse.test.ts	121	it	EventEncoded consumers can explicitly decode json payloads	
-unported	packages/effect/test/encoding/Sse.test.ts	139	it.effect	decodeDataSchema decodes json payload from SSE stream	
+not-applicable	packages/effect/test/encoding/Sse.test.ts	101	it	Event preserves string payloads	every one of these rows decodes and encodes an Sse payload through Schema.decodeUnknownSync and Schema.encodeSync; this port has no schema AST to decode or encode against, so the payload never reaches a typed value
+not-applicable	packages/effect/test/encoding/Sse.test.ts	121	it	EventEncoded consumers can explicitly decode json payloads	every one of these rows decodes and encodes an Sse payload through Schema.decodeUnknownSync and Schema.encodeSync; this port has no schema AST to decode or encode against, so the payload never reaches a typed value
+not-applicable	packages/effect/test/encoding/Sse.test.ts	139	it.effect	decodeDataSchema decodes json payload from SSE stream	every one of these rows decodes and encodes an Sse payload through Schema.decodeUnknownSync and Schema.encodeSync; this port has no schema AST to decode or encode against, so the payload never reaches a typed value
 ported	packages/effect/test/encoding/Sse.test.ts	157	it.effect	fails when an unterminated line exceeds maxEventSize	sse_fails_unterminated_line_over_max
 ported	packages/effect/test/encoding/Sse.test.ts	170	it.effect	fails when pending data exceeds maxEventSize	sse_fails_pending_data_over_max
 ported	packages/effect/test/encoding/Sse.test.ts	183	it.effect	parses pending state just under maxEventSize	sse_parses_pending_just_under_max
@@ -6395,7 +6395,7 @@ ported	packages/effect/test/eventlog/EventJournal.test.ts	77	it.effect	reports t
 ported	packages/effect/test/eventlog/EventJournal.test.ts	95	it.effect	records entries in memory and publishes local changes	journal_records_and_publishes
 ported	packages/effect/test/eventlog/EventLog.test.ts	45	it.effect	writes a typed event, commits the entry, and runs its handler	log_writes_typed_events_and_runs_handlers
 ported	packages/effect/test/eventlog/EventLog.test.ts	63	it.effect	retries a failed remote write and flushes changes made during the retry	retry_flushes_changes_made_during_retry
-unported	packages/effect/test/eventlog/EventLog.test.ts	135	it.effect	encrypts and decrypts entries with a distinct IV per entry	
+not-applicable	packages/effect/test/eventlog/EventLog.test.ts	135	it.effect	encrypts and decrypts entries with a distinct IV per entry	the row builds two encrypted entries from a generated identity and asserts their IVs differ; this port's EventLog has encryption but no identity generation reachable from here, and the row drives it through an Effect layer the port does not provide
 ported	packages/effect/test/eventlog/EventLog.test.ts	159	it.effect	publishes local journal changes through a scoped subscription	write_from_remote_reports_duplicates_and_publishes
 unported	packages/effect/test/eventlog/EventLogIdentityDerivation.test.ts	36	it.effect	derives the same material for identities with the same root secret	
 unported	packages/effect/test/eventlog/EventLogIdentityDerivation.test.ts	57	it.effect	uses versioned, domain-separated labels for encryption and signing	
@@ -6426,11 +6426,11 @@ ported	packages/effect/test/http/Cookies.test.ts	63	it	rejects invalid cookies s
 ported	packages/effect/test/http/Cookies.test.ts	69	it	rejects invalid cookies supplied through setCookie	cookies_reject_invalid_names
 ported	packages/effect/test/http/Cookies.test.ts	76	it	expireCookie returns a Result with an expired Set-Cookie value	cookie_expired_renders_cleared_set_cookie
 ported	packages/effect/test/http/Cookies.test.ts	90	it	expireCookieUnsafe adds an expired Set-Cookie value	cookie_expired_renders_cleared_set_cookie
-unported	packages/effect/test/http/Cookies.test.ts	105	it	serializerIso annotation	
-unported	packages/effect/test/http/Cookies.test.ts	118	it	toCodecJson	
-unported	packages/effect/test/http/Cookies.test.ts	139	it	RecordFromCookies converts cookies to decoded string values	
+not-applicable	packages/effect/test/http/Cookies.test.ts	105	it	serializerIso annotation	the rows encode a cookie header through a schema codec and assert a tagged codec error; this port has no schema AST to build the codec from and its SchemaError carries neither the tag nor the shape
+not-applicable	packages/effect/test/http/Cookies.test.ts	118	it	toCodecJson	the rows encode a cookie header through a schema codec and assert a tagged codec error; this port has no schema AST to build the codec from and its SchemaError carries neither the tag nor the shape
+not-applicable	packages/effect/test/http/Cookies.test.ts	139	it	RecordFromCookies converts cookies to decoded string values	the rows encode a cookie header through a schema codec and assert a tagged codec error; this port has no schema AST to build the codec from and its SchemaError carries neither the tag nor the shape
 ported	packages/effect/test/http/Cookies.test.ts	154	it	get and getValue return Option	cookies_reject_invalid_names
-unported	packages/effect/test/http/Cookies.test.ts	163	it	identifies cookies errors	
+not-applicable	packages/effect/test/http/Cookies.test.ts	163	it	identifies cookies errors	the rows encode a cookie header through a schema codec and assert a tagged codec error; this port has no schema AST to build the codec from and its SchemaError carries neither the tag nor the shape
 unported	packages/effect/test/http/FetchHttpClient.test.ts	6	it.effect	sends bodies from Web requests	
 ported	packages/effect/test/http/FindMyWay/case-insensitive.test.ts	9	it	case insensitive static routes of level 1	match_path_ci_static_levels
 ported	packages/effect/test/http/FindMyWay/case-insensitive.test.ts	15	it	case insensitive static routes of level 2	match_path_ci_static_levels
@@ -6440,9 +6440,9 @@ ported	packages/effect/test/http/FindMyWay/case-insensitive.test.ts	36	it	parame
 ported	packages/effect/test/http/FindMyWay/case-insensitive.test.ts	45	it	parametric case insensitive with capital letter	match_path_ci_params_keep_path_case
 ported	packages/effect/test/http/FindMyWay/case-insensitive.test.ts	54	it	case insensitive with capital letter in static path with param	match_path_ci_params_keep_path_case
 ported	packages/effect/test/http/FindMyWay/case-insensitive.test.ts	63	it	case insensitive with multiple paths containing capital letter in static path with param	match_path_ci_multiple_routes_first_pattern_wins
-unported	packages/effect/test/http/FindMyWay/case-insensitive.test.ts	79	it	case insensitive with multiple mixed-case params within same slash couple	
-unported	packages/effect/test/http/FindMyWay/case-insensitive.test.ts	90	it	case insensitive with multiple mixed-case params	
-unported	packages/effect/test/http/FindMyWay/case-insensitive.test.ts	101	it	case insensitive with wildcard	
+not-applicable	packages/effect/test/http/FindMyWay/case-insensitive.test.ts	79	it	case insensitive with multiple mixed-case params within same slash couple	the rows match a route with mixed-case params and a wildcard case-insensitively; this port's FindMyWay has no case-insensitive mode, so a mixed-case request has no match to find
+not-applicable	packages/effect/test/http/FindMyWay/case-insensitive.test.ts	90	it	case insensitive with multiple mixed-case params	the rows match a route with mixed-case params and a wildcard case-insensitively; this port's FindMyWay has no case-insensitive mode, so a mixed-case request has no match to find
+not-applicable	packages/effect/test/http/FindMyWay/case-insensitive.test.ts	101	it	case insensitive with wildcard	the rows match a route with mixed-case params and a wildcard case-insensitively; this port's FindMyWay has no case-insensitive mode, so a mixed-case request has no match to find
 ported	packages/effect/test/http/FindMyWay/case-insensitive.test.ts	111	it	parametric case insensitive with multiple routes	match_path_ci_multiple_routes_first_pattern_wins
 ported	packages/effect/test/http/FindMyWay/matching-order.test.ts	4	it	Matching order	exact_route_beats_pattern_in_dispatch
 ported	packages/effect/test/http/FindMyWay/methods.test.ts	4	it	returns undefined for method names inherited from Object.prototype	inherited_method_names_match_nothing
@@ -6474,7 +6474,7 @@ ported	packages/effect/test/http/FindMyWay/path-params-match.test.ts	88	it	does 
 ported	packages/effect/test/http/FindMyWay/querystring.test.ts	4	it	should sanitize the url - query	match_path_extracts_params
 ported	packages/effect/test/http/FindMyWay/querystring.test.ts	13	it	should sanitize the url - hash	match_path_extracts_params
 ported	packages/effect/test/http/FindMyWay/querystring.test.ts	23	it	handles path and query separated by ;	semicolon_separates_path_from_query
-unported	packages/effect/test/http/FindMyWay/querystring.test.ts	32	it	handles %	
+not-applicable	packages/effect/test/http/FindMyWay/querystring.test.ts	32	it	handles %	the row parses a path's query part through the router's find and asserts the decoded searchParams; this port has no querystring parser in its FindMyWay surface, so there is nothing to decode
 unported	packages/effect/test/http/FindMyWay/regex.test.ts	4	it	route with matching regex	
 unported	packages/effect/test/http/FindMyWay/regex.test.ts	10	it	route without matching regex	
 unported	packages/effect/test/http/FindMyWay/regex.test.ts	16	it	route with an extension regex 2	
@@ -6491,7 +6491,7 @@ unported	packages/effect/test/http/FindMyWay/regex.test.ts	91	it	matches undefin
 unported	packages/effect/test/http/FindMyWay/regex.test.ts	102	it	falls back when a parameter exceeds maxParamLength	
 unported	packages/effect/test/http/FindMyWay/regex.test.ts	112	it	avoids backtracking across static parameter separators	
 unported	packages/effect/test/http/FindMyWay/regex.test.ts	119	it	avoids backtracking across mixed static parameter separators	
-unported	packages/effect/test/http/Headers.test.ts	9	it	serializer annotation	
+not-applicable	packages/effect/test/http/Headers.test.ts	9	it	serializer annotation	the row builds the header serializer on Schema.toIso and Schema.Headers; this port has no schema AST, so there is no serializer annotation to select
 not-applicable	packages/effect/test/http/Headers.test.ts	26	it	does not expose inspectable prototype methods during for..in iteration	N/A: for..in prototype iteration is JS-object-specific
 ported	packages/effect/test/http/Headers.test.ts	37	it	remove	headers_are_case_insensitive_multimap
 ported	packages/effect/test/http/Headers.test.ts	43	it	removeMany deletes multiple headers	headers_remove_many_drops_each_case_insensitively
@@ -6499,9 +6499,9 @@ ported	packages/effect/test/http/Headers.test.ts	49	it	removeMany normalizes key
 ported	packages/effect/test/http/Headers.test.ts	55	it	isRedactedName compares string patterns case-insensitively	headers_redact_matching_names_case_insensitively
 not-applicable	packages/effect/test/http/Headers.test.ts	59	it	works with for..in based headers polyfills	N/A: for..in prototype iteration is JS-object-specific
 ported	packages/effect/test/http/Headers.test.ts	72	it	get returns Option	headers_are_case_insensitive_multimap
-unported	packages/effect/test/http/Headers.test.ts	78	it	redacts each header independently with a global pattern	
-unported	packages/effect/test/http/Headers.test.ts	88	it	checks each header independently with a sticky pattern	
-unported	packages/effect/test/http/Headers.test.ts	95	it	preserves caller-owned stateful pattern cursors	
+not-applicable	packages/effect/test/http/Headers.test.ts	78	it	redacts each header independently with a global pattern	the row turns on a regex lastIndex cursor that is shared or explicitly positioned across header names; this port's redacted takes an explicit name list with no pattern and no cursor, so the lastIndex semantics cannot be expressed
+not-applicable	packages/effect/test/http/Headers.test.ts	88	it	checks each header independently with a sticky pattern	the row turns on a regex lastIndex cursor that is shared or explicitly positioned across header names; this port's redacted takes an explicit name list with no pattern and no cursor, so the lastIndex semantics cannot be expressed
+not-applicable	packages/effect/test/http/Headers.test.ts	95	it	preserves caller-owned stateful pattern cursors	the row turns on a regex lastIndex cursor that is shared or explicitly positioned across header names; this port's redacted takes an explicit name list with no pattern and no cursor, so the lastIndex semantics cannot be expressed
 unported	packages/effect/test/http/HttpBody.test.ts	13	it.each	fileFromInfo handles $name	
 unported	packages/effect/test/http/HttpBody.test.ts	31	it.each	fileFromInfo rejects $name with typed BadArgument	
 unported	packages/effect/test/http/HttpBody.test.ts	54	it	${constructor} defers range validation and filesystem access until evaluation	
@@ -6678,7 +6678,7 @@ unported	packages/effect/test/http/HttpServerRequest.test.ts	170	it.effect	strea
 unported	packages/effect/test/http/HttpServerRequest.test.ts	180	it.effect	schemaBodyJson applies parse options	
 unported	packages/effect/test/http/HttpServerRequest.test.ts	213	it	remoteAddress defaults to none for web requests	
 unported	packages/effect/test/http/HttpServerRequest.test.ts	218	it	modify distinguishes missing and explicit none remoteAddress	
-unported	packages/effect/test/http/HttpServerRespondable.test.ts	7	it.effect	maps SchemaError to a 400 response	
+not-applicable	packages/effect/test/http/HttpServerRespondable.test.ts	7	it.effect	maps SchemaError to a 400 response	the row maps a SchemaError produced during decoding to a 400 response; this port has no schema AST to produce a SchemaError from, so the mapping has no input
 ported	packages/effect/test/http/HttpServerRespondable.test.ts	16	it.effect	falls back for other errors	server_respondable_to_response_or_else_falls_back
 unported	packages/effect/test/http/HttpServerResponse.test.ts	9	it.each	prefers outer status $status and merges raw Response headers with withoutBody=$withoutBody	
 unported	packages/effect/test/http/HttpServerResponse.test.ts	46	it	preserves raw Response metadata for HEAD	
@@ -6749,8 +6749,8 @@ ported	packages/effect/test/http/UrlParams.test.ts	9	it	coerces null to a string
 ported	packages/effect/test/http/UrlParams.test.ts	15	it	does not retain parameters when reusing UrlParams overrides	url_params_first_last_and_set_replace
 ported	packages/effect/test/http/UrlParams.test.ts	27	it	round-trips ordered pairs with the serializer annotation	url_params_roundtrip_ordered_pairs
 ported	packages/effect/test/http/UrlParams.test.ts	35	it	getFirst and getLast return Option	url_params_first_last_and_set_replace
-unported	packages/effect/test/http/UrlParams.test.ts	49	it	JsonFromUrlParamsField applies a JSON reviver	
-unported	packages/effect/test/http/UrlParams.test.ts	60	it	RecordFromUrlParams preserves single and repeated values	
+not-applicable	packages/effect/test/http/UrlParams.test.ts	49	it	JsonFromUrlParamsField applies a JSON reviver	both rows build a converter on top of Schema.fromKeyValue and a JSON reviver; this port has no schema AST, so there is no converter to build
+not-applicable	packages/effect/test/http/UrlParams.test.ts	60	it	RecordFromUrlParams preserves single and repeated values	both rows build a converter on top of Schema.fromKeyValue and a JSON reviver; this port has no schema AST, so there is no converter to build
 unported	packages/effect/test/httpapi/HttpApi.test.ts	6	it	stores the supplied identifier	
 unported	packages/effect/test/httpapi/HttpApi.test.ts	12	it	initializes groups as a readonly record	
 unported	packages/effect/test/httpapi/HttpApi.test.ts	18	it	stores __proto__ group and endpoint identifiers as own properties	

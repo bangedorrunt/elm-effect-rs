@@ -439,6 +439,20 @@ impl<A: Clone + Send, E: Clone + Send> Deferred<A, E> {
         self.complete_exit(Exit::Success(value))
     }
 
+    /// Run `f` to produce the value, but only while this deferred is still
+    /// empty (`Deferred.complete` with an effect). The body therefore runs
+    /// exactly once: a second call returns false without calling `f`, which is
+    /// the memoization the tag's row asserts.
+    pub fn complete_with(&self, f: impl FnOnce() -> A) -> bool {
+        let mut guard = self.inner.lock().unwrap();
+        if guard.is_some() {
+            return false;
+        }
+        *guard = Some(Exit::Success(f()));
+        self.ready.notify_all();
+        true
+    }
+
     /// Complete with any outcome, including a failure or an interrupt.
     pub fn complete_exit(&self, outcome: Exit<A, E>) -> bool {
         let mut guard = self.inner.lock().unwrap();
