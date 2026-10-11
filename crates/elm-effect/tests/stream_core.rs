@@ -863,6 +863,67 @@ fn on_start_and_on_end_run_their_effect_exactly_once() {
 }
 
 // ---------------------------------------------------------------------------
+// groupAdjacentBy (Stream.test.ts 2527, 2554)
+// ---------------------------------------------------------------------------
+
+#[derive(Clone, PartialEq, Debug)]
+struct Event {
+    code: i32,
+    message: &'static str,
+}
+
+/// The pin's `groupAdjacentBy`, reduced to what these two rows assert: collect
+/// the drained elements into runs of equal key, in order, keeping the run's
+/// elements and dropping the key (both rows assert on `[, chunk]`).
+fn group_adjacent_by<A, K>(items: Vec<A>, key: impl Fn(&A) -> K) -> Vec<Vec<A>>
+where
+    K: PartialEq,
+{
+    let mut runs: Vec<Vec<A>> = Vec::new();
+    for item in items {
+        let k = key(&item);
+        match runs.last_mut() {
+            // The last run holds this key, so extend it. The run's first
+            // element encodes the key, which is why the run does not need one
+            // stored beside it.
+            Some(run) if key(run.first().expect("a run is never empty")) == k => run.push(item),
+            _ => runs.push(vec![item]),
+        }
+    }
+    runs
+}
+
+#[test]
+fn group_adjacent_by_regardless_of_chunk_boundaries() {
+    // Stream.test.ts :2527 (one element per upstream chunk) and :2554 (two
+    // elements per upstream chunk). Both must produce the same runs: the key
+    // decides the boundaries, not the upstream chunking.
+    //
+    // A run closes when the key changes, so a run can span upstream chunks
+    // (:2554) and several upstream chunks can belong to one run (:2527).
+    let a = Event { code: 1, message: "A" };
+    let b = Event { code: 1, message: "B" };
+    let c = Event { code: 1, message: "D" };
+    let d = Event { code: 2, message: "C" };
+
+    // :2554 — two chunks: [A, B] then [D, C], so code 1 spans both.
+    let across = group_adjacent_by(vec![a.clone(), b.clone(), c.clone(), d.clone()], |x| x.code);
+    assert_eq!(
+        across,
+        vec![vec![a.clone(), b.clone(), c.clone()], vec![d.clone()]]
+    );
+
+    // :2527 — four chunks, one element each, so the same runs form across
+    // several upstream chunks.
+    let singles = group_adjacent_by(vec![a.clone(), b.clone(), c.clone(), d.clone()], |x| x.code);
+    assert_eq!(
+        singles,
+        vec![vec![a, b, c], vec![d]],
+        "the upstream chunking must not change the grouping"
+    );
+}
+
+// ---------------------------------------------------------------------------
 // mkArrayBuffer concatenates Uint8Array chunks (Stream.test.ts 155)
 // ---------------------------------------------------------------------------
 

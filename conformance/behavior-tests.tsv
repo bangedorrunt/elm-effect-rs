@@ -3668,8 +3668,8 @@ unported	packages/effect/test/Stream.test.ts	2462	it.effect	combined sync + asyn
 ported	packages/effect/test/Stream.test.ts	2475	it.effect	onStart	on_start_and_on_end_run_their_effect_exactly_once
 ported	packages/effect/test/Stream.test.ts	2487	it.effect	onEnd	on_start_and_on_end_run_their_effect_exactly_once
 unported	packages/effect/test/Stream.test.ts	2500	it.effect	one big chunk	
-unported	packages/effect/test/Stream.test.ts	2527	it.effect	several single element chunks	
-unported	packages/effect/test/Stream.test.ts	2554	it.effect	group across chunks	
+ported	packages/effect/test/Stream.test.ts	2527	it.effect	several single element chunks	group_adjacent_by_regardless_of_chunk_boundaries
+ported	packages/effect/test/Stream.test.ts	2554	it.effect	group across chunks	group_adjacent_by_regardless_of_chunk_boundaries
 unported	packages/effect/test/Stream.test.ts	2581	it.effect	does not grow the fiber continuation stack while upstream is idle	
 unported	packages/effect/test/Stream.test.ts	2606	it.effect	groupedWithin does not emit empty arrays when upstream is idle	
 unported	packages/effect/test/Stream.test.ts	2618	it.effect	groupedWithin normalizes the chunk size	
