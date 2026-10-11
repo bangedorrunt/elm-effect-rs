@@ -3522,11 +3522,11 @@ not-applicable	packages/effect/test/StackTraceLimit.test.ts	20	it	setStackTraceL
 not-applicable	packages/effect/test/StackTraceLimit.test.ts	32	it	degrades to a no-op without throwing	N/A: V8 Error.stackTraceLimit plumbing; no Rust analog
 ported	packages/effect/test/Stdio.test.ts	6	it.effect	layerTest defaults terminal state to false	stdio_fake_records_and_replays
 ported	packages/effect/test/Stdio.test.ts	13	it.effect	layerTest allows terminal state overrides	stdio_fake_terminal_overrides
-unported	packages/effect/test/Stream.test.ts	43	it.effect	with take	
+ported	packages/effect/test/Stream.test.ts	43	it.effect	with take	stream_callback_with_take_drains_offered_items
 unported	packages/effect/test/Stream.test.ts	59	it.effect	with cleanup	
-unported	packages/effect/test/Stream.test.ts	80	it.effect	signals the end of the stream	
-unported	packages/effect/test/Stream.test.ts	89	it.effect	handles errors	
-unported	packages/effect/test/Stream.test.ts	102	it.effect	handles defects	
+ported	packages/effect/test/Stream.test.ts	80	it.effect	signals the end of the stream	stream_callback_end_signals_an_empty_stream
+ported	packages/effect/test/Stream.test.ts	89	it.effect	handles errors	stream_callback_failure_reaches_the_typed_channel
+ported	packages/effect/test/Stream.test.ts	102	it.effect	handles defects	stream_callback_defect_is_a_defect_not_a_typed_failure
 unported	packages/effect/test/Stream.test.ts	114	it.effect	backpressure	
 ported	packages/effect/test/Stream.test.ts	155	it.effect	mkArrayBuffer - concatenates Uint8Array chunks	mk_array_buffer_concatenates_uint8array_chunks
 ported	packages/effect/test/Stream.test.ts	165	it.effect	runForEachWhile continues across chunk boundaries	run_for_each_while_continues_across_chunks

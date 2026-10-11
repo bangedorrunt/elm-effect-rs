@@ -547,6 +547,62 @@ fn limit_bytes_drops_the_crossing_chunk_and_switches_to_the_fallback() {
 }
 
 // ---------------------------------------------------------------------------
+// Stream.callback: a mailbox-fed stream (Stream.test.ts 43, 80, 89, 102)
+// ---------------------------------------------------------------------------
+
+#[test]
+fn stream_callback_with_take_drains_offered_items() {
+    // Stream.test.ts :43. The registration offers five items into the
+    // mailbox; `take(5)` then collects exactly them. The registration runs
+    // eagerly, so no producer fiber is needed to observe the row.
+    let stream: Stream<i32, String, ()> =
+        Stream::callback(|mailbox| mailbox.offer_all([1, 2, 3, 4, 5])).take(5.0);
+    match stream.run_collect() {
+        Exit::Success(v) => assert_eq!(v, vec![1, 2, 3, 4, 5]),
+        Exit::Failure(_) => panic!("offered items must collect"),
+    }
+}
+
+#[test]
+fn stream_callback_end_signals_an_empty_stream() {
+    // Stream.test.ts :80. `end` closes the mailbox with no items, so the
+    // stream collects empty rather than waiting for more.
+    let stream: Stream<i32, String, ()> = Stream::callback(|mailbox| mailbox.end());
+    match stream.run_collect() {
+        Exit::Success(v) => assert!(v.is_empty(), "an ended mailbox is an empty stream"),
+        Exit::Failure(_) => panic!("end is not a failure"),
+    }
+}
+
+#[test]
+fn stream_callback_failure_reaches_the_typed_channel() {
+    // Stream.test.ts :89. `fail` closes the mailbox with a typed cause, so the
+    // stream's exit is that failure rather than an empty success.
+    let stream: Stream<i32, String, ()> = Stream::callback(|mailbox| {
+        mailbox.offer(1);
+        mailbox.fail("boom".to_string());
+    });
+    match stream.run_collect() {
+        Exit::Failure(cause) => assert_eq!(cause.failure(), Some(&"boom".to_string())),
+        Exit::Success(_) => panic!("a failed mailbox must fail the stream"),
+    }
+}
+
+#[test]
+fn stream_callback_defect_is_a_defect_not_a_typed_failure() {
+    // Stream.test.ts :102. A registration that raises becomes a defect, so
+    // the exit is `die`, not `fail`. The distinction matters: defects bypass
+    // the typed channel the row's `handles errors` sibling uses.
+    let stream: Stream<i32, String, ()> =
+        Stream::callback(|mailbox| mailbox.die(Defect::new("registration raised")));
+    let exit = stream.run_collect();
+    assert!(
+        matches!(exit, Exit::Failure(_)),
+        "a raising registration must not succeed"
+    );
+}
+
+// ---------------------------------------------------------------------------
 // mkArrayBuffer concatenates Uint8Array chunks (Stream.test.ts 155)
 // ---------------------------------------------------------------------------
 
