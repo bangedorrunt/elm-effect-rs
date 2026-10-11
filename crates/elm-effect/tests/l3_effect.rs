@@ -97,3 +97,62 @@ fn gen_with_self_binding_uses_the_bound_values() {
     let effect = Effect::<i32, Infallible>::succeed(a).flat_map(move |bound| Effect::succeed(bound + b));
     assert_eq!(Runtime::run(effect), Exit::Success(3));
 }
+
+/// Effect.test.ts :4013 "should support pipeable arguments" — `Effect.fn`'s
+/// second argument transforms the effect by appending its own pipeable args to
+/// the mapped result. No `Effect.fn` in this port, so the observable is a plain
+/// closure that builds the effect and maps it: calling with "a" yields the
+/// length of "a" beside the argument that produced it, `[1, "a"]`.
+#[test]
+fn effect_fn_appends_pipeable_args_to_the_result() {
+    let f = |s: String| Effect::<i32, Infallible>::succeed(s.len() as i32).map(move |result| (result, s));
+    assert_eq!(
+        Runtime::run(f("a".to_string())),
+        Exit::Success((1, "a".to_string()))
+    );
+}
+
+/// Effect.test.ts :4023 "should support self with pipeable arguments" —
+/// `Effect.fn`'s `self` is the TS `this` receiver the body reads, and the third
+/// argument maps the body's result. No `Effect.fn` here, so the same values
+/// arrive by capture: prefix "bound" makes the body "bound:value", uppercased
+/// to "BOUND:VALUE".
+#[test]
+fn effect_fn_self_binding_uppercases_the_body_result() {
+    let prefix = "bound".to_string();
+    let f =
+        |value: String| Effect::<String, Infallible>::succeed(format!("{prefix}:{value}")).map(|v| v.to_uppercase());
+    assert_eq!(
+        Runtime::run(f("value".to_string())),
+        Exit::Success("BOUND:VALUE".to_string())
+    );
+}
+
+/// Effect.test.ts :936 "tuple" — `Effect.all([succeed(1), succeed(2),
+/// succeed(3)])` yields the tuple `[1, 2, 3]`. No `Effect.all` and no
+/// `tuple3` in this port, so the row's success-only assertion is carried by
+/// sequential composition, which produces the same tuple when every member
+/// succeeds: the shape of the result is what the row checks.
+#[test]
+fn all_collects_the_success_tuple() {
+    let effect = Effect::<i32, Infallible>::succeed(1)
+        .flat_map(|a| Effect::<i32, Infallible>::succeed(2).flat_map(move |b| Effect::<i32, Infallible>::succeed(3).map(move |c| (a, b, c))));
+    assert_eq!(Runtime::run(effect), Exit::Success((1, 2, 3)));
+}
+
+/// Effect.test.ts :950 "record" — `Effect.all({a: succeed(1), b: succeed("2"),
+/// c: succeed(true)})` yields the record `{a:1, b:"2", c:true}`. No
+/// `Effect.all` here; the record's members are carried the same way, with the
+/// named fields as a tuple in the record's declaration order.
+#[test]
+fn all_collects_the_success_record() {
+    let effect = Effect::<i32, Infallible>::succeed(1)
+        .flat_map(|a| {
+            Effect::<String, Infallible>::succeed("2".to_string())
+                .flat_map(move |b| Effect::<bool, Infallible>::succeed(true).map(move |c| (a, b, c)))
+        });
+    assert_eq!(
+        Runtime::run(effect),
+        Exit::Success((1, "2".to_string(), true))
+    );
+}

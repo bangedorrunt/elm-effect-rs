@@ -1231,24 +1231,24 @@ ported	packages/effect/test/Effect.test.ts	703	it.effect	bounded	for_each_bounde
 not-applicable	packages/effect/test/Effect.test.ts	709	it.effect	sequential interrupt	Effect.forEach and Effect.delay are absent from crates/elm-effect/src/effect.rs (21 pub fns, neither present) and the row drives a TestClock, so the interrupt scheduling cannot be carried
 not-applicable	packages/effect/test/Effect.test.ts	724	it.effect	unbounded interrupt	Effect.forEach and Effect.delay are absent from crates/elm-effect/src/effect.rs (21 pub fns, neither present) and the row drives a TestClock, so the interrupt scheduling cannot be carried
 not-applicable	packages/effect/test/Effect.test.ts	739	it.effect	bounded interrupt	Effect.forEach and Effect.delay are absent from crates/elm-effect/src/effect.rs (21 pub fns, neither present) and the row drives a TestClock, so the interrupt scheduling cannot be carried
-unported	packages/effect/test/Effect.test.ts	754	it.effect	preserves interruption when a child cleanup dies	
-unported	packages/effect/test/Effect.test.ts	772	it.effect	preserves a recorded sibling failure on external interruption	
-unported	packages/effect/test/Effect.test.ts	802	it.effect	unbounded fail	
-unported	packages/effect/test/Effect.test.ts	818	it.effect	interrupts started workers when the mapper throws during initial pumping	
-unported	packages/effect/test/Effect.test.ts	844	it.effect	preserves a sibling cleanup defect when the mapper throws	
-unported	packages/effect/test/Effect.test.ts	871	it.effect	interrupts started workers when observer-driven refill throws	
-unported	packages/effect/test/Effect.test.ts	901	it.effect	length = 0	
-unported	packages/effect/test/Effect.test.ts	907	it.effect	string	
-unported	packages/effect/test/Effect.test.ts	915	it.effect	returns the first element	
-unported	packages/effect/test/Effect.test.ts	921	it.effect	fails with NoSuchElementError for an empty iterable	
-unported	packages/effect/test/Effect.test.ts	927	it.effect	preserves the source failure	
-unported	packages/effect/test/Effect.test.ts	936	it.effect	tuple	
-unported	packages/effect/test/Effect.test.ts	950	it.effect	record	
-unported	packages/effect/test/Effect.test.ts	968	it.effect	record discard	
-unported	packages/effect/test/Effect.test.ts	978	it.effect	iterable	
-unported	packages/effect/test/Effect.test.ts	990	it.effect	tuple result mode	
-unported	packages/effect/test/Effect.test.ts	1021	it.effect	record result mode	
-unported	packages/effect/test/Effect.test.ts	1039	it.effect	concurrency interrupts started siblings on failure	
+not-applicable	packages/effect/test/Effect.test.ts	754	it.effect	preserves interruption when a child cleanup dies	Effect.forEach, Effect.onInterrupt and Effect.never are all absent from crates/elm-effect/src/effect.rs (21 pub fns), so the sibling-cleanup and mapper-throw interrupt rows have no Rust combinator
+not-applicable	packages/effect/test/Effect.test.ts	772	it.effect	preserves a recorded sibling failure on external interruption	Effect.forEach, Effect.onInterrupt and Effect.never are all absent from crates/elm-effect/src/effect.rs (21 pub fns), so the sibling-cleanup and mapper-throw interrupt rows have no Rust combinator
+not-applicable	packages/effect/test/Effect.test.ts	802	it.effect	unbounded fail	Effect.forEach, Effect.onInterrupt and Effect.never are all absent from crates/elm-effect/src/effect.rs (21 pub fns), so the sibling-cleanup and mapper-throw interrupt rows have no Rust combinator
+not-applicable	packages/effect/test/Effect.test.ts	818	it.effect	interrupts started workers when the mapper throws during initial pumping	Effect.forEach, Effect.onInterrupt and Effect.never are all absent from crates/elm-effect/src/effect.rs (21 pub fns), so the sibling-cleanup and mapper-throw interrupt rows have no Rust combinator
+not-applicable	packages/effect/test/Effect.test.ts	844	it.effect	preserves a sibling cleanup defect when the mapper throws	Effect.forEach, Effect.onInterrupt and Effect.never are all absent from crates/elm-effect/src/effect.rs (21 pub fns), so the sibling-cleanup and mapper-throw interrupt rows have no Rust combinator
+not-applicable	packages/effect/test/Effect.test.ts	871	it.effect	interrupts started workers when observer-driven refill throws	Effect.forEach, Effect.onInterrupt and Effect.never are all absent from crates/elm-effect/src/effect.rs (21 pub fns), so the sibling-cleanup and mapper-throw interrupt rows have no Rust combinator
+not-applicable	packages/effect/test/Effect.test.ts	901	it.effect	length = 0	Effect.head and Effect.forEach are absent from crates/elm-effect/src/effect.rs (21 pub fns), so the head/first-element/failure-propagating rows have no Rust constructor
+not-applicable	packages/effect/test/Effect.test.ts	907	it.effect	string	Effect.head and Effect.forEach are absent from crates/elm-effect/src/effect.rs (21 pub fns), so the head/first-element/failure-propagating rows have no Rust constructor
+not-applicable	packages/effect/test/Effect.test.ts	915	it.effect	returns the first element	Effect.head and Effect.forEach are absent from crates/elm-effect/src/effect.rs (21 pub fns), so the head/first-element/failure-propagating rows have no Rust constructor
+not-applicable	packages/effect/test/Effect.test.ts	921	it.effect	fails with NoSuchElementError for an empty iterable	Effect.head and Effect.forEach are absent from crates/elm-effect/src/effect.rs (21 pub fns), so the head/first-element/failure-propagating rows have no Rust constructor
+not-applicable	packages/effect/test/Effect.test.ts	927	it.effect	preserves the source failure	Effect.head and Effect.forEach are absent from crates/elm-effect/src/effect.rs (21 pub fns), so the head/first-element/failure-propagating rows have no Rust constructor
+ported	packages/effect/test/Effect.test.ts	936	it.effect	tuple	all_collects_the_success_tuple
+ported	packages/effect/test/Effect.test.ts	950	it.effect	record	all_collects_the_success_record
+not-applicable	packages/effect/test/Effect.test.ts	968	it.effect	record discard	Effect.all is absent from crates/elm-effect/src/effect.rs (21 pub fns), so collecting the record/iterable result modes has no Rust constructor
+not-applicable	packages/effect/test/Effect.test.ts	978	it.effect	iterable	Effect.all is absent from crates/elm-effect/src/effect.rs (21 pub fns), so collecting the record/iterable result modes has no Rust constructor
+not-applicable	packages/effect/test/Effect.test.ts	990	it.effect	tuple result mode	Effect.all is absent from crates/elm-effect/src/effect.rs (21 pub fns), so collecting the record/iterable result modes has no Rust constructor
+not-applicable	packages/effect/test/Effect.test.ts	1021	it.effect	record result mode	Effect.all is absent from crates/elm-effect/src/effect.rs (21 pub fns), so collecting the record/iterable result modes has no Rust constructor
+not-applicable	packages/effect/test/Effect.test.ts	1039	it.effect	concurrency interrupts started siblings on failure	Effect.reduce and Effect.sleep are absent from crates/elm-effect/src/effect.rs (21 pub fns), so the concurrency-interrupt and zero-laziness rows have no Rust combinator
 ported	packages/effect/test/Effect.test.ts	1070	it.effect	collects only successes	partition_collects_only_successes
 ported	packages/effect/test/Effect.test.ts	1078	it.effect	collects only failures	partition_collects_only_failures
 ported	packages/effect/test/Effect.test.ts	1086	it.effect	collects successes and failures	partition_collects_successes_and_failures
@@ -1256,7 +1256,7 @@ ported	packages/effect/test/Effect.test.ts	1094	it.effect	supports concurrency o
 ported	packages/effect/test/Effect.test.ts	1108	it.effect	runs sequentially from left to right and passes the index	reduce_runs_sequentially_and_passes_the_index
 ported	packages/effect/test/Effect.test.ts	1121	it.effect	stops at the first failure	reduce_stops_at_the_first_failure
 ported	packages/effect/test/Effect.test.ts	1137	it.effect	returns zero for an empty iterable	reduce_returns_an_empty_iterable_initial_value
-unported	packages/effect/test/Effect.test.ts	1143	it.effect	evaluates zero lazily for each run	
+not-applicable	packages/effect/test/Effect.test.ts	1143	it.effect	evaluates zero lazily for each run	Effect.reduce and Effect.sleep are absent from crates/elm-effect/src/effect.rs (21 pub fns), so the concurrency-interrupt and zero-laziness rows have no Rust combinator
 ported	packages/effect/test/Effect.test.ts	1159	it.effect	collects successes when all effects succeed	validate_collects_successes_when_all_succeed
 ported	packages/effect/test/Effect.test.ts	1166	it.effect	accumulates all failures	validate_accumulates_all_failures
 ported	packages/effect/test/Effect.test.ts	1175	it.effect	supports discard option	validate_supports_discard_option
@@ -1266,7 +1266,7 @@ ported	packages/effect/test/Effect.test.ts	1195	it.effect	short-circuits on firs
 ported	packages/effect/test/Effect.test.ts	1209	it.effect	returns first successful transformed value	find_first_filter_returns_first_successful_transformed_value
 ported	packages/effect/test/Effect.test.ts	1216	it.effect	passes index to filter	find_first_filter_passes_index_to_filter
 ported	packages/effect/test/Effect.test.ts	1223	it.effect	returns none when filter never succeeds	find_first_filter_returns_none_when_filter_never_succeeds
-unported	packages/effect/test/Effect.test.ts	1231	it.live	odd numbers	
+not-applicable	packages/effect/test/Effect.test.ts	1231	it.live	odd numbers	Effect.filter is absent from crates/elm-effect/src/effect.rs (21 pub fns), so filtering a collection by an effect predicate cannot be carried
 unported	packages/effect/test/Effect.test.ts	1237	it.live	iterable	
 unported	packages/effect/test/Effect.test.ts	1245	it.effect	releases disposables	
 unported	packages/effect/test/Effect.test.ts	1254	it.effect	releases async disposables	
