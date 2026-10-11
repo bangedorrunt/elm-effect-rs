@@ -1289,24 +1289,24 @@ not-applicable	packages/effect/test/Effect.test.ts	1520	it.effect	repeat/while -
 not-applicable	packages/effect/test/Effect.test.ts	1528	it.effect	repeat/times	SEMANTIC DIVERGENCE, not a missing API: schedule::repeat (crates/elm-effect/src/schedule.rs:238) runs the recipe once then consults the policy, so recurs(3) yields 4 executions, while the pin asserts 3; also Effect.repeat's {times} option has no Rust form
 not-applicable	packages/effect/test/Effect.test.ts	1539	it.effect	repeat/schedule - repeats according to the specified schedule	SEMANTIC DIVERGENCE, not a missing API: schedule::repeat (crates/elm-effect/src/schedule.rs:238) runs the recipe once then consults the policy, so recurs(3) yields 4 executions, while the pin asserts 3; also Effect.repeat's {times} option has no Rust form
 not-applicable	packages/effect/test/Effect.test.ts	1547	it.effect	repeat/schedule - with until	SEMANTIC DIVERGENCE, not a missing API: schedule::repeat (crates/elm-effect/src/schedule.rs:238) runs the recipe once then consults the policy, so recurs(3) yields 4 executions, while the pin asserts 3; also Effect.repeat's {times} option has no Rust form
-unported	packages/effect/test/Effect.test.ts	1559	it.effect	repeat/schedule - with while	
-unported	packages/effect/test/Effect.test.ts	1573	it.live	nothing on success	
-unported	packages/effect/test/Effect.test.ts	1582	it.effect	retry/until - retries until a condition is true	
-unported	packages/effect/test/Effect.test.ts	1598	it.effect	retry/until - retries until an effectful condition is true	
-unported	packages/effect/test/Effect.test.ts	1614	it.effect	retry/until - always evaluates at least once	
-unported	packages/effect/test/Effect.test.ts	1625	it.effect	retry/while - retries while a condition is true	
-unported	packages/effect/test/Effect.test.ts	1641	it.effect	retry/while - retries while an effectful condition is true	
-unported	packages/effect/test/Effect.test.ts	1657	it.effect	retry/while - always evaluates at least once	
-unported	packages/effect/test/Effect.test.ts	1668	it.effect	retry/schedule - retries according to the specified schedule	
-unported	packages/effect/test/Effect.test.ts	1679	it.effect	retry/schedule - with until	
-unported	packages/effect/test/Effect.test.ts	1693	it.effect	retry/schedule - until errors	
-unported	packages/effect/test/Effect.test.ts	1708	it.effect	retry/schedule - with while	
-unported	packages/effect/test/Effect.test.ts	1722	it.effect	retry/schedule - while errors	
-unported	packages/effect/test/Effect.test.ts	1737	it.effect	retry/schedule - CurrentMetadata	
-unported	packages/effect/test/Effect.test.ts	1795	it.effect	uses monotonic time when wall time moves backward	
-unported	packages/effect/test/Effect.test.ts	1813	it.live	${form}: factory and body follow cleanup and replay	
-unported	packages/effect/test/Effect.test.ts	1864	it.live	a ready source value is not confused with a zero-duration timeout	
-unported	packages/effect/test/Effect.test.ts	1878	it.live	slow fallback cannot let the original source win after timeout	
+not-applicable	packages/effect/test/Effect.test.ts	1559	it.effect	repeat/schedule - with while	Effect.repeat's {while}/{until} options have no Rust form; schedule::repeat (crates/elm-effect/src/schedule.rs:238) takes a policy only and runs one extra execution for recurs(n)
+not-applicable	packages/effect/test/Effect.test.ts	1573	it.live	nothing on success	Effect.tap is absent from crates/elm-effect/src/effect.rs (21 pub fns) and Effect.retry is absent as a method, so observing the retried failure has no Rust constructor
+not-applicable	packages/effect/test/Effect.test.ts	1582	it.effect	retry/until - retries until a condition is true	Effect.flip, Effect.failSync and Effect.tap are all absent from crates/elm-effect/src/effect.rs (21 pub fns), so the retry/until rows have no Rust constructor
+not-applicable	packages/effect/test/Effect.test.ts	1598	it.effect	retry/until - retries until an effectful condition is true	Effect.flip, Effect.failSync and Effect.tap are all absent from crates/elm-effect/src/effect.rs (21 pub fns), so the retry/until rows have no Rust constructor
+not-applicable	packages/effect/test/Effect.test.ts	1614	it.effect	retry/until - always evaluates at least once	Effect.flip, Effect.failSync and Effect.tap are all absent from crates/elm-effect/src/effect.rs (21 pub fns), so the retry/until rows have no Rust constructor
+not-applicable	packages/effect/test/Effect.test.ts	1625	it.effect	retry/while - retries while a condition is true	Effect.flip, Effect.failSync and Effect.tap are all absent from crates/elm-effect/src/effect.rs (21 pub fns), so the retry/while rows have no Rust constructor
+not-applicable	packages/effect/test/Effect.test.ts	1641	it.effect	retry/while - retries while an effectful condition is true	Effect.flip, Effect.failSync and Effect.tap are all absent from crates/elm-effect/src/effect.rs (21 pub fns), so the retry/while rows have no Rust constructor
+not-applicable	packages/effect/test/Effect.test.ts	1657	it.effect	retry/while - always evaluates at least once	Effect.flip, Effect.failSync and Effect.tap are all absent from crates/elm-effect/src/effect.rs (21 pub fns), so the retry/while rows have no Rust constructor
+not-applicable	packages/effect/test/Effect.test.ts	1668	it.effect	retry/schedule - retries according to the specified schedule	Effect.flip and Effect.failSync are absent from crates/elm-effect/src/effect.rs (21 pub fns) and Effect.retry exists only as the free schedule::retry (schedule.rs:238) over a factory, not the effect-last form the pin uses
+not-applicable	packages/effect/test/Effect.test.ts	1679	it.effect	retry/schedule - with until	Effect.flip and Effect.failSync are absent from crates/elm-effect/src/effect.rs (21 pub fns) and Effect.retry exists only as the free schedule::retry (schedule.rs:238) over a factory, not the effect-last form the pin uses
+not-applicable	packages/effect/test/Effect.test.ts	1693	it.effect	retry/schedule - until errors	Effect.flip and Effect.failSync are absent from crates/elm-effect/src/effect.rs (21 pub fns) and Effect.retry exists only as the free schedule::retry (schedule.rs:238) over a factory, not the effect-last form the pin uses
+not-applicable	packages/effect/test/Effect.test.ts	1708	it.effect	retry/schedule - with while	Effect.flip and Effect.failSync are absent from crates/elm-effect/src/effect.rs (21 pub fns) and Effect.retry exists only as the free schedule::retry (schedule.rs:238) over a factory, not the effect-last form the pin uses
+not-applicable	packages/effect/test/Effect.test.ts	1722	it.effect	retry/schedule - while errors	Effect.flip and Effect.failSync are absent from crates/elm-effect/src/effect.rs (21 pub fns) and Effect.retry exists only as the free schedule::retry (schedule.rs:238) over a factory, not the effect-last form the pin uses
+not-applicable	packages/effect/test/Effect.test.ts	1737	it.effect	retry/schedule - CurrentMetadata	Schedule.CurrentMetadata is absent from crates/elm-effect/src/schedule.rs and Effect.flip is absent from effect.rs (21 pub fns), so the metadata-collecting retry row has no Rust constructor
+not-applicable	packages/effect/test/Effect.test.ts	1795	it.effect	uses monotonic time when wall time moves backward	Effect.timed is absent from crates/elm-effect/src/effect.rs (21 pub fns), so measuring a run in wall time has no Rust constructor
+not-applicable	packages/effect/test/Effect.test.ts	1813	it.live	${form}: factory and body follow cleanup and replay	Effect.never is absent from crates/elm-effect/src/effect.rs (21 pub fns), so a factory whose body never completes cannot be carried
+not-applicable	packages/effect/test/Effect.test.ts	1864	it.live	a ready source value is not confused with a zero-duration timeout	Effect.timeoutOrElse and Effect.as are absent from crates/elm-effect/src/effect.rs (21 pub fns), so the slow-fallback timeout rows have no Rust constructor
+not-applicable	packages/effect/test/Effect.test.ts	1878	it.live	slow fallback cannot let the original source win after timeout	Effect.timeoutOrElse and Effect.as are absent from crates/elm-effect/src/effect.rs (21 pub fns), so the slow-fallback timeout rows have no Rust constructor
 unported	packages/effect/test/Effect.test.ts	1920	it.live	source and fallback inherit caller context	
 unported	packages/effect/test/Effect.test.ts	1972	it.live	external interruption stops a pending fallback	
 unported	packages/effect/test/Effect.test.ts	2004	it.live	timeout a long computation	
