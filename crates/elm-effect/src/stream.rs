@@ -902,6 +902,22 @@ where
     })
 }
 
+/// `Stream.mkArrayBuffer` at the pin: concatenate the byte chunks into one
+/// buffer.
+///
+/// The pin folds `mkUint8Array` and then projects `.buffer`; this port has no
+/// `ArrayBuffer` type, so the fold's accumulated bytes are the value. Declared
+/// on the byte-element stream so `A` is not generic here, and built from
+/// `run_fold`, which owns the same fold.
+impl<E: Send + 'static> Stream<Vec<u8>, E, ()> {
+    pub fn mk_array_buffer(self) -> Exit<Vec<u8>, E> {
+        self.run_fold(Vec::new(), |mut acc, chunk| {
+            acc.extend_from_slice(&chunk);
+            acc
+        })
+    }
+}
+
 /// `Stream.fromIteratorSucceed` at the pin: a stream from an iterator whose
 /// chunk size is a `number`, normalized by the same
 /// `Count.normalizeNonEmpty` law `rechunk` and `grouped` use (NaN and

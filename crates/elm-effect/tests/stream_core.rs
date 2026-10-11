@@ -470,6 +470,24 @@ fn from_iterator_succeed_normalizes_the_chunk_size() {
 }
 
 // ---------------------------------------------------------------------------
+// mkArrayBuffer concatenates Uint8Array chunks (Stream.test.ts 155)
+// ---------------------------------------------------------------------------
+
+#[test]
+fn mk_array_buffer_concatenates_uint8array_chunks() {
+    // Stream.make(Uint8Array[1,2], Uint8Array[3,4]).pipe(Stream.mkArrayBuffer)
+    // === Uint8Array[1,2,3,4]. The chunks are byte arrays, so "one value" is
+    // their concatenation, which is the pin's fold over `mkUint8Array` with
+    // its `.buffer` projection stripped away.
+    let stream: Stream<Vec<u8>, Infallible, ()> =
+        from_iter(vec![vec![1u8, 2], vec![3u8, 4]].into_iter(), 2);
+    match stream.mk_array_buffer() {
+        Exit::Success(bytes) => assert_eq!(bytes, vec![1u8, 2, 3, 4]),
+        Exit::Failure(_) => panic!("mkArrayBuffer must concatenate, not fail"),
+    }
+}
+
+// ---------------------------------------------------------------------------
 // decodeText across chunk boundaries (Stream.test.ts 578, 588)
 // ---------------------------------------------------------------------------
 
