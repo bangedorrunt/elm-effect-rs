@@ -1,9 +1,8 @@
 //! Gone/close fence: lifecycle, retention vs delete, snapshots.
-//! Loads `stream.rs` by path until lib.rs gains the mod line
-//! (CopperCoast-held for .46).
+//! `stream` is public on the crate (lib.rs wires it); the old `#[path]`
+//! include is gone.
 
-#[path = "../src/stream.rs"]
-mod stream;
+use elm_effect_journal::stream;
 
 use stream::{Gone, Read, Status, Stream};
 

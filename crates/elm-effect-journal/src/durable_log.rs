@@ -8,9 +8,18 @@
 //! see partial messages, and JSON mode keeps message boundaries. Producer
 //! identity travels all-or-none as `(producer_id, epoch, seq)`; a `seq` that
 //! is neither `last + 1` nor already accepted is rejected, while a replayed
-//! accepted `seq` returns its original offset without duplicating. Every
-//! JSON message carries the schema version; unknown versions are typed
-//! errors.
+//! accepted `seq` returns its original offset without duplicating. A
+//! producer's epoch only moves forward: an append whose epoch is below the
+//! producer's current epoch is fenced with [`AppendError::StaleEpoch`] and
+//! writes nothing, even when it replays a triple the log accepted before the
+//! epoch moved (fencing beats dedupe, as in [`EpochLog`](crate::epoch::EpochLog)).
+//! A higher epoch starts its sequence at 0. Epoch state never expires.
+//! Every JSON message carries the schema version; unknown versions are
+//! typed errors.
+//!
+//! The rules above are the trait's contract, not `MemLog`'s private
+//! behaviour: [`crate::laws`] checks them through `&dyn DurableLog`, so any
+//! implementation (toron's store-backed log included) runs the same checks.
 
 use std::collections::{HashMap, HashSet};
 use std::sync::Mutex;
@@ -59,6 +68,18 @@ pub enum AppendError {
     /// The offset was not minted by this log.
     #[error("unknown offset")]
     UnknownOffset,
+    /// The producer already appended under a higher epoch: this writer is a
+    /// stale incarnation (a zombie after a restart) and is fenced. Nothing
+    /// is written (Law L16, epoch part).
+    #[error("stale epoch for producer {producer}: sent {sent}, current {current}")]
+    StaleEpoch {
+        /// Producer that sent it.
+        producer: String,
+        /// Epoch sent.
+        sent: u64,
+        /// The producer's current epoch.
+        current: u64,
+    },
 }
 
 /// A durable log: atomic appends, validated reads.
@@ -86,6 +107,8 @@ struct MemInner {
     accepted: HashMap<(String, u64), HashSet<u64>>,
     /// Minted offset per accepted seq, for replay replies.
     offsets: HashMap<(String, u64, u64), String>,
+    /// Current (highest accepted) epoch per producer. Never expires.
+    current_epoch: HashMap<String, u64>,
     next: u64,
 }
 
@@ -155,6 +178,13 @@ impl DurableLog for MemLog {
             .map(|v| v.to_string())
             .unwrap_or_default();
         let mut inner = self.inner.lock().unwrap();
+        // Epoch fence first: a lower epoch is a stale incarnation, rejected
+        // before dedupe so a zombie cannot even read back an old offset.
+        if let Some(&current) = inner.current_epoch.get(&id)
+            && epoch < current
+        {
+            return Err(AppendError::StaleEpoch { producer: id, sent: epoch, current });
+        }
         let key = (id.clone(), epoch);
         let last = inner.last_seq.get(&key).copied();
         if let Some(offset) = inner
@@ -173,6 +203,7 @@ impl DurableLog for MemLog {
         let offset = Self::mint(inner.next);
         inner.next += 1;
         inner.last_seq.insert(key.clone(), seq);
+        inner.current_epoch.insert(id.clone(), epoch);
         inner.accepted.entry(key.clone()).or_default().insert(seq);
         inner
             .offsets

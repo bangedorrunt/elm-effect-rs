@@ -12,12 +12,6 @@
 //! builds no intent; [`park_intent`] builds the value before the wait. No
 //! effect-row write to `parked` happens here: `Parked` stays parseable and
 //! non-terminal in the registry vocabulary.
-// This file belongs to the parked port campaign: a test reaches it through
-// a `#[path]` include to port specific rows, so most of its surface is
-// unused by any one test target. Warnings about the unexercised remainder
-// describe the test's coverage, not a defect in the crate, so they are
-// allowed here rather than fixed one by one.
-#![allow(dead_code)]
 use std::collections::HashMap;
 
 /// Default ceiling: 86400 s (one day).
@@ -157,7 +151,7 @@ impl PendingStore {
 // A park is interruption, never a terminal return or a blind retry: it
 // resumes with the SAME re-drive key (`ResumeParked`), never `DispatchNew`.
 
-use elm_effect_journal::EffectState;
+use crate::EffectState;
 
 /// The journaled facts one dispatch decision needs (no I/O to build).
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -206,7 +200,7 @@ pub fn plan_attempt(current: Option<&EffectView>, cap: &ProviderCapability) -> D
     let Some(view) = current else {
         return DispatchPlan::DispatchNew;
     };
-    use elm_effect_journal::EffectState as S;
+    use crate::EffectState as S;
     match view.state {
         S::Parked => DispatchPlan::ResumeParked {
             attempt: view.attempt.max(1),
@@ -273,8 +267,8 @@ pub fn check_replay(prepared_digest: &str, redigest: &str) -> Result<(), ReplayM
 
 /// Terminal success, if the state has a default exit at all. `Unknown` (and
 /// every non-terminal state) has none: uncertainty is not an outcome.
-pub fn terminal_success(state: elm_effect_journal::EffectState) -> Option<bool> {
-    use elm_effect_journal::EffectState as S;
+pub fn terminal_success(state: crate::EffectState) -> Option<bool> {
+    use crate::EffectState as S;
     match state {
         S::Settled => Some(true),
         S::Failed => Some(false),
