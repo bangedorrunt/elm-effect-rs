@@ -2095,9 +2095,9 @@ ported	packages/effect/test/HashMap.test.ts	416	it	forEach visits each key and v
 unported	packages/effect/test/HashMap.test.ts	427	it	mutate allows in-place modifications	
 unported	packages/effect/test/HashMap.test.ts	442	it	beginMutation creates distinct mutable instance	
 unported	packages/effect/test/HashMap.test.ts	459	it	mutations are isolated from original	
-unported	packages/effect/test/HashMap.test.ts	480	it	Equal.equals	
-unported	packages/effect/test/HashMap.test.ts	489	it	Hash.hash	
-unported	packages/effect/test/HashMap.test.ts	512	it	should work with Equal objects as keys	
+ported	packages/effect/test/HashMap.test.ts	480	it	Equal.equals	hash_map_equal_and_hash_ignore_insertion_order
+ported	packages/effect/test/HashMap.test.ts	489	it	Hash.hash	hash_map_equal_and_hash_ignore_insertion_order
+ported	packages/effect/test/HashMap.test.ts	512	it	should work with Equal objects as keys	hash_map_works_with_equal_objects_as_keys
 unported	packages/effect/test/HashMap.test.ts	543	it	keeps entries addressable when bit 31 is present in indexed leaf insert	
 unported	packages/effect/test/HashMap.test.ts	556	it	keeps entries addressable when mergeLeaves sees bit 31	
 unported	packages/effect/test/HashMap.test.ts	572	it	keeps all inserted entries addressable across random bit-31-heavy shapes	

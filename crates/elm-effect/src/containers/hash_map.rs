@@ -15,7 +15,7 @@
 // allowed here rather than fixed one by one.
 #![allow(dead_code)]
 use std::collections::HashMap as StdMap;
-use std::hash::Hash;
+use std::hash::{Hash, Hasher};
 
 /// Persistent string-keyed-or-any-key map. Updates return new maps.
 #[derive(Clone, Debug, Default)]

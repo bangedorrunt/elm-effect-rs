@@ -24,6 +24,54 @@ mod trie;
 use hash_map::HashMap;
 use hash_ring::HashRing;
 use hash_set::HashSet;
+
+// `Equal` and `Hash` are reached by the pin's own `#[path]` include
+// convention, the same route `port_containers` already uses for the container
+// modules, so the test asserts the traits the library implements rather than a
+// name the facade happens to re-export.
+#[path = "../src/foundation.rs"]
+mod foundation;
+
+// Structural hash and equality for the map. These live beside the test rather
+// than inside `hash_map.rs` because that file is `#[path]`-included into
+// several test targets, so a `crate::foundation::` path inside it only resolves
+// in the targets that also include `foundation.rs`.
+impl<K, V> foundation::Hash for HashMap<K, V>
+where
+    K: std::hash::Hash + Eq,
+    V: std::hash::Hash,
+{
+    fn hash_value(&self) -> u32 {
+        // The per-entry hashes are combined commutatively (a wrapping sum)
+        // because a std HashMap does not iterate in a defined order: two maps
+        // holding the same entries can iterate differently depending on
+        // insertion history, so hashing the iteration sequence would make
+        // equal maps hash unequally.
+        use std::hash::Hasher as _;
+        let mut total: u32 = 0;
+        for (key, value) in self.entries() {
+            let mut entry = std::collections::hash_map::DefaultHasher::new();
+            std::hash::Hash::hash(key, &mut entry);
+            std::hash::Hash::hash(value, &mut entry);
+            total = total.wrapping_add(entry.finish() as u32);
+        }
+        total
+    }
+}
+
+impl<K, V> foundation::Equal for HashMap<K, V>
+where
+    K: std::hash::Hash + Eq,
+    V: std::hash::Hash + PartialEq,
+{
+    fn equal(&self, other: &Self) -> bool {
+        if self.size() != other.size() {
+            return false;
+        }
+        self.entries()
+            .all(|(key, value)| other.get(key) == Some(value))
+    }
+}
 use mutable_hash_map::MutableHashMap;
 use mutable_hash_set::MutableHashSet;
 use primary_key::{PrimaryKey, value};
@@ -243,6 +291,77 @@ fn hash_map_handles_hash_collisions() {
     assert!(m.has(&key1));
     assert!(!m.has(&key2));
     assert!(m.has(&key3));
+}
+
+#[test]
+fn hash_map_equal_and_hash_ignore_insertion_order() {
+    // HashMap.test.ts :480 Equal.equals and :489 Hash.hash. Two maps built in
+    // different orders are structurally equal, and their hashes match, so
+    // neither equality nor hashing may depend on insertion order.
+    use foundation::{Equal as _, Hash as _};
+
+    let forward = HashMap::make([("a".to_owned(), 1), ("b".to_owned(), 2)]);
+    let reversed = HashMap::make([("b".to_owned(), 2), ("a".to_owned(), 1)]);
+    let different = HashMap::make([("a".to_owned(), 1), ("b".to_owned(), 3)]);
+
+    assert!(forward.equal(&reversed), "insertion order must not matter");
+    assert!(!forward.equal(&different), "a different value is not equal");
+
+    // A hash has to combine the per-entry hashes commutatively: a std HashMap
+    // does not iterate in a defined order, so hashing the iteration sequence
+    // would make the two orders disagree even when they are equal.
+    assert_eq!(
+        forward.hash_value(),
+        reversed.hash_value(),
+        "equal maps must hash equally"
+    );
+    assert_ne!(
+        forward.hash_value(),
+        different.hash_value(),
+        "different maps should not normally collide"
+    );
+}
+
+#[test]
+fn hash_map_works_with_equal_objects_as_keys() {
+    // HashMap.test.ts :512. A key type whose equality and hash are structural
+    // makes two distinct instances the same key: the map is built with one
+    // instance and read with a different one holding the same data.
+    #[derive(Clone, Debug)]
+    struct Person {
+        name: String,
+        age: i32,
+    }
+    impl PartialEq for Person {
+        fn eq(&self, other: &Self) -> bool {
+            self.name == other.name && self.age == other.age
+        }
+    }
+    impl Eq for Person {}
+    impl std::hash::Hash for Person {
+        fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+            self.name.hash(state);
+            self.age.hash(state);
+        }
+    }
+
+    let alice = Person {
+        name: "Alice".to_owned(),
+        age: 25,
+    };
+    let alice_again = Person {
+        name: "Alice".to_owned(),
+        age: 25,
+    };
+    let bob = Person {
+        name: "Bob".to_owned(),
+        age: 30,
+    };
+
+    let map: HashMap<Person, &str> =
+        HashMap::make([(alice, "value1"), (bob.clone(), "value3")]);
+    assert_eq!(map.get(&alice_again), Some(&"value1"));
+    assert_eq!(map.get(&bob), Some(&"value3"));
 }
 
 #[test]
