@@ -3665,8 +3665,8 @@ unported	packages/effect/test/Stream.test.ts	2421	it.effect	sync
 unported	packages/effect/test/Stream.test.ts	2434	it.effect	async	
 unported	packages/effect/test/Stream.test.ts	2450	it.effect	combined async + sync	
 unported	packages/effect/test/Stream.test.ts	2462	it.effect	combined sync + async	
-unported	packages/effect/test/Stream.test.ts	2475	it.effect	onStart	
-unported	packages/effect/test/Stream.test.ts	2487	it.effect	onEnd	
+ported	packages/effect/test/Stream.test.ts	2475	it.effect	onStart	on_start_and_on_end_run_their_effect_exactly_once
+ported	packages/effect/test/Stream.test.ts	2487	it.effect	onEnd	on_start_and_on_end_run_their_effect_exactly_once
 unported	packages/effect/test/Stream.test.ts	2500	it.effect	one big chunk	
 unported	packages/effect/test/Stream.test.ts	2527	it.effect	several single element chunks	
 unported	packages/effect/test/Stream.test.ts	2554	it.effect	group across chunks	

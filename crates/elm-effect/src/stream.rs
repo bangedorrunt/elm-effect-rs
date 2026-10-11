@@ -355,6 +355,61 @@ impl<A: Send + 'static, E: Send + 'static, R: crate::effect::Requirement> Stream
         })
     }
 
+    /// `Stream.onStart` at the pin: run `f` once when collection begins, before
+    /// the upstream is pulled. The elements are untouched.
+    ///
+    /// The pin's signature widens the error channel (`E | E2`); this port takes
+    /// an infallible closure instead, which is exactly what the pin's rows
+    /// exercise (`Effect.sync`), and avoids the widening problem that blocked
+    /// `takeUntilEffect`. An effectful `onStart` would need that machinery.
+    ///
+    /// The `Option`-take is what makes it once-only: the pump is `FnMut`, so it
+    /// runs again on every pull, and `take` consumes `F` on the first call. A
+    /// later call finds the slot empty and delegates straight to the upstream,
+    /// which is the pin's semantics (the callback is not re-run).
+    pub fn on_start<F>(self, f: F) -> Self
+    where
+        F: FnOnce() + Send + 'static,
+    {
+        let (pull, exec) = (self.pull, Arc::clone(&self.exec));
+        let pending = Arc::new(Mutex::new(Some(f)));
+        Self::derive(exec, move || {
+            let (pull, pending) = (Arc::clone(&pull), Arc::clone(&pending));
+            if let Some(f) = pending.lock().unwrap().take() {
+                f();
+            }
+            call(&pull)
+        })
+    }
+
+    /// `Stream.onEnd` at the pin: run `f` once when the upstream is exhausted,
+    /// after its last chunk has been emitted.
+    ///
+    /// Same infallible-closure contract as [`Stream::on_start`], and for the
+    /// same reason: both pin rows use `Effect.sync`.
+    ///
+    /// `f` is consumed when the pull returns `None`, so the upstream ending is
+    /// what triggers it and a re-pull after the end does not re-run it.
+    pub fn on_end<F>(self, f: F) -> Self
+    where
+        F: FnOnce() + Send + 'static,
+    {
+        let (pull, exec) = (self.pull, Arc::clone(&self.exec));
+        let finished = Arc::new(Mutex::new(Some(f)));
+        Self::derive(exec, move || {
+            let (pull, finished) = (Arc::clone(&pull), Arc::clone(&finished));
+            call(&pull).map(move |chunk| {
+                if chunk.is_none() {
+                    // The upstream ended, so this is the last pull.
+                    if let Some(f) = finished.lock().unwrap().take() {
+                        f();
+                    }
+                }
+                chunk
+            })
+        })
+    }
+
     /// `Stream.grouped` at the pin: `chunks` over `rechunk(self, n)`, so each
     /// group is emitted as one element and the chunk-size normalization is
     /// shared with `rechunk`.

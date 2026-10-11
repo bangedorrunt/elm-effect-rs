@@ -817,6 +817,52 @@ fn part_with_log(
 }
 
 // ---------------------------------------------------------------------------
+// onStart / onEnd (Stream.test.ts 2475, 2487)
+// ---------------------------------------------------------------------------
+
+#[test]
+fn on_start_and_on_end_run_their_effect_exactly_once() {
+    // Stream.test.ts :2475 onStart and :2487 onEnd.
+    //
+    // Both assert exactly one run: onStart's effect fires once when collection
+    // begins, onEnd's exactly once when the stream is exhausted. The stream is
+    // `make(1,1)` for onStart and `make(1,2,3)` for onEnd, and neither changes
+    // the elements.
+    //
+    // The pin's `onStart`/`onEnd` widen the error channel to E | E2, but both
+    // rows use `Effect.sync`, whose E2 is `never`, so `E | never` is `E` and a
+    // closure with no error channel carries the row exactly.
+    let started = Arc::new(AtomicUsize::new(0));
+    let ended = Arc::new(AtomicUsize::new(0));
+
+    let stream: Stream<i64, Infallible, ()> =
+        from_iter(vec![1i64, 1].into_iter(), 2).on_start({
+            let started = Arc::clone(&started);
+            move || {
+                started.fetch_add(1, Ordering::SeqCst);
+            }
+        });
+    assert!(
+        matches!(stream.run_collect(), Exit::Success(v) if v == vec![1i64, 1]),
+        "onStart must not disturb the elements"
+    );
+    assert_eq!(started.load(Ordering::SeqCst), 1, "onStart runs exactly once");
+
+    let stream: Stream<i64, Infallible, ()> =
+        from_iter(vec![1i64, 2, 3].into_iter(), 3).on_end({
+            let ended = Arc::clone(&ended);
+            move || {
+                ended.fetch_add(1, Ordering::SeqCst);
+            }
+        });
+    assert!(
+        matches!(stream.run_collect(), Exit::Success(v) if v == vec![1i64, 2, 3]),
+        "onEnd must not disturb the elements"
+    );
+    assert_eq!(ended.load(Ordering::SeqCst), 1, "onEnd runs exactly once");
+}
+
+// ---------------------------------------------------------------------------
 // mkArrayBuffer concatenates Uint8Array chunks (Stream.test.ts 155)
 // ---------------------------------------------------------------------------
 
