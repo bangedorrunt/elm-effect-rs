@@ -4,7 +4,7 @@
 //! constructor and combinator is covered: if any of them ran work eagerly,
 //! its counter would be non-zero after the drop.
 
-use elm_effect::{Cause, Defect, Effect, Exit, Runtime};
+use elm_effect::{Cause, Defect, Effect, Exit, Reason, Runtime};
 use std::convert::Infallible;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -446,4 +446,298 @@ fn filter_runs_nothing_until_interpreted() {
         });
     drop(effect);
     assert_eq!(calls.load(std::sync::atomic::Ordering::SeqCst), 0);
+}
+
+// `catchReason`, `catchReasons`, and `unwrapReason` (Effect.test.ts
+// :4086-:4280). The pin discriminates nested tagged errors by `_tag`
+// strings on both the parent and its `reason`; this port's typed channel
+// is a Rust enum, so the same discrimination is an exhaustive match and
+// the recovery itself is the `catch` family. `Ai` is the pin's
+// `AiError`, `Nested` the union of its nested reasons, `Other` the
+// non-matching parent tag.
+#[derive(Debug, Clone, PartialEq)]
+enum Nested {
+    RateLimit(u64),
+    Quota(u64),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+enum Problem {
+    Ai(Nested),
+    Other(String),
+}
+
+/// `catchReason` on the matching nested reason: the handler sees the
+/// reason and recovers with its field.
+#[test]
+fn catch_reason_matches_nested_reason_and_handler_succeeds() {
+    let effect = Effect::<String, Problem>::fail(Problem::Ai(Nested::RateLimit(60))).catch(|e| {
+        match e {
+            Problem::Ai(Nested::RateLimit(retry)) => {
+                Effect::<String, Problem>::succeed(format!("retry: {retry}"))
+            }
+            other => Effect::fail(other),
+        }
+    });
+    assert_eq!(
+        Runtime::run(effect),
+        Exit::Success("retry: 60".to_string())
+    );
+}
+
+/// `catchReason`'s `orElse`: the parent tag matches but the nested reason
+/// does not, so the fallback handler runs.
+#[test]
+fn catch_reason_or_else_handles_the_second_reason_type() {
+    let effect = Effect::<String, Problem>::fail(Problem::Ai(Nested::Quota(100))).catch(|e| {
+        match e {
+            Problem::Ai(Nested::RateLimit(retry)) => {
+                Effect::<String, Problem>::succeed(format!("retry: {retry}"))
+            }
+            Problem::Ai(_) => Effect::succeed("quota".to_string()),
+            other => Effect::fail(other),
+        }
+    });
+    assert_eq!(Runtime::run(effect), Exit::Success("quota".to_string()));
+}
+
+/// `catchReason` when the handler itself fails: the handler's failure is
+/// the exit, the original cause is not preserved.
+#[test]
+fn catch_reason_handler_failure_becomes_the_exit() {
+    let effect = Effect::<(), Problem>::fail(Problem::Ai(Nested::RateLimit(60)))
+        .catch(|_| Effect::fail(Problem::Other("handled".to_string())));
+    match Runtime::run(effect) {
+        Exit::Failure(cause) => {
+            assert_eq!(cause.failure(), Some(&Problem::Other("handled".to_string())));
+        }
+        Exit::Success(_) => panic!("the handler's failure must be the exit"),
+    }
+}
+
+/// `catchReason` on a non-matching nested reason: the original error is
+/// re-raised, so the combinator never recovers an error it did not name.
+#[test]
+fn catch_reason_ignores_non_matching_reason() {
+    let effect = Effect::<(), Problem>::fail(Problem::Ai(Nested::Quota(100))).catch(|e| match e {
+        Problem::Ai(Nested::RateLimit(_)) => Effect::succeed(()),
+        other => Effect::fail(other),
+    });
+    match Runtime::run(effect) {
+        Exit::Failure(cause) => assert_eq!(
+            cause.failure(),
+            Some(&Problem::Ai(Nested::Quota(100)))
+        ),
+        Exit::Success(_) => panic!("a non-matching reason must not be recovered"),
+    }
+}
+
+/// `catchReason` with a scope: a failing finalizer's defect appends to the
+/// cause, and the combined cause passes through the non-recovering
+/// `catchReason` untouched (`catch` only fires on a clean single `Fail`).
+#[test]
+fn catch_reason_preserves_the_cause_for_a_non_matching_reason() {
+    let rt = Runtime::new();
+    let child = rt.fork_detach(|ctx| -> Exit<(), Problem> {
+        ctx.acquire_release(
+            Effect::<(), String>::succeed(()),
+            |()| Effect::<(), String>::die(Defect::new("finalizer failure")),
+        )
+        .expect("acquire succeeds");
+        ctx.spawn_effect(
+            Effect::<(), Problem>::fail(Problem::Ai(Nested::Quota(100))).catch(|e| match e {
+                Problem::Ai(Nested::RateLimit(_)) => Effect::succeed(()),
+                other => Effect::fail(other),
+            }),
+        )
+        .join()
+    });
+    match child.join() {
+        Exit::Failure(cause) => {
+            assert!(matches!(
+                cause.reasons.as_slice(),
+                [Reason::Fail(_), Reason::Die(_)]
+            ));
+            assert_eq!(
+                cause.failure(),
+                Some(&Problem::Ai(Nested::Quota(100)))
+            );
+            assert!(cause.defects()[0].message.contains("finalizer failure"));
+        }
+        Exit::Success(_) => panic!("the failing effect and its finalizer must stay a failure"),
+    }
+}
+
+/// `catchReason` on a non-matching parent tag: a failure of a different
+/// constructor passes through with its cause intact.
+#[test]
+fn catch_reason_ignores_non_matching_parent_tag() {
+    let effect = Effect::<(), Problem>::fail(Problem::Other("test".to_string())).catch(|e| match e {
+        Problem::Ai(Nested::RateLimit(_)) => Effect::succeed(()),
+        other => Effect::fail(other),
+    });
+    match Runtime::run(effect) {
+        Exit::Failure(cause) => {
+            assert_eq!(cause.failure(), Some(&Problem::Other("test".to_string())));
+        }
+        Exit::Success(_) => panic!("a non-matching parent tag must not be recovered"),
+    }
+}
+
+/// `catchReasons` with an object of handlers: the handler for the nested
+/// reason's tag runs.
+#[test]
+fn catch_reasons_object_handlers_select_by_nested_tag() {
+    let effect = Effect::<String, Problem>::fail(Problem::Ai(Nested::RateLimit(60))).catch(|e| {
+        match e {
+            Problem::Ai(Nested::RateLimit(retry)) => {
+                Effect::<String, Problem>::succeed(format!("rate: {retry}"))
+            }
+            Problem::Ai(Nested::Quota(limit)) => Effect::succeed(format!("quota: {limit}")),
+            other => Effect::fail(other),
+        }
+    });
+    assert_eq!(Runtime::run(effect), Exit::Success("rate: 60".to_string()));
+}
+
+/// `catchReasons`' `orElse`: a nested reason with no handler in the
+/// object falls back.
+#[test]
+fn catch_reasons_or_else_covers_unlisted_reasons() {
+    let effect = Effect::<String, Problem>::fail(Problem::Ai(Nested::RateLimit(60))).catch(|e| {
+        match e {
+            Problem::Ai(Nested::Quota(limit)) => Effect::<String, Problem>::succeed(format!("quota: {limit}")),
+            Problem::Ai(_) => Effect::succeed("orElse".to_string()),
+            other => Effect::fail(other),
+        }
+    });
+    assert_eq!(Runtime::run(effect), Exit::Success("orElse".to_string()));
+}
+
+/// `catchReasons` on the second reason type in the object.
+#[test]
+fn catch_reasons_catches_second_reason_type() {
+    let effect = Effect::<String, Problem>::fail(Problem::Ai(Nested::Quota(100))).catch(|e| {
+        match e {
+            Problem::Ai(Nested::RateLimit(retry)) => {
+                Effect::<String, Problem>::succeed(format!("rate: {retry}"))
+            }
+            Problem::Ai(Nested::Quota(limit)) => Effect::succeed(format!("quota: {limit}")),
+            other => Effect::fail(other),
+        }
+    });
+    assert_eq!(
+        Runtime::run(effect),
+        Exit::Success("quota: 100".to_string())
+    );
+}
+
+/// `catchReasons` with partial handlers: a nested reason the object does
+/// not name passes the original error through.
+#[test]
+fn catch_reasons_partial_handlers_pass_unhandled_through() {
+    let effect = Effect::<(), Problem>::fail(Problem::Ai(Nested::Quota(100))).catch(|e| match e {
+        Problem::Ai(Nested::RateLimit(_)) => Effect::succeed(()),
+        other => Effect::fail(other),
+    });
+    match Runtime::run(effect) {
+        Exit::Failure(cause) => assert_eq!(
+            cause.failure(),
+            Some(&Problem::Ai(Nested::Quota(100)))
+        ),
+        Exit::Success(_) => panic!("an unhandled reason must not be recovered"),
+    }
+}
+
+/// `catchReasons` with a scope: the failing finalizer's defect appends and
+/// the combined cause survives an unhandled reason.
+#[test]
+fn catch_reasons_preserves_the_cause_for_an_unhandled_reason() {
+    let rt = Runtime::new();
+    let child = rt.fork_detach(|ctx| -> Exit<(), Problem> {
+        ctx.acquire_release(
+            Effect::<(), String>::succeed(()),
+            |()| Effect::<(), String>::die(Defect::new("finalizer failure")),
+        )
+        .expect("acquire succeeds");
+        ctx.spawn_effect(
+            Effect::<(), Problem>::fail(Problem::Ai(Nested::Quota(100))).catch(|e| match e {
+                Problem::Ai(Nested::RateLimit(_)) => Effect::succeed(()),
+                other => Effect::fail(other),
+            }),
+        )
+        .join()
+    });
+    match child.join() {
+        Exit::Failure(cause) => {
+            assert!(matches!(
+                cause.reasons.as_slice(),
+                [Reason::Fail(_), Reason::Die(_)]
+            ));
+            assert_eq!(
+                cause.failure(),
+                Some(&Problem::Ai(Nested::Quota(100)))
+            );
+            assert!(cause.defects()[0].message.contains("finalizer failure"));
+        }
+        Exit::Success(_) => panic!("the failing effect and its finalizer must stay a failure"),
+    }
+}
+
+/// `unwrapReason` narrows the error channel to the union of nested reasons
+/// (the pin's `RateLimitError | QuotaExceededError | OtherError`), so the
+/// port renders the narrowed channel as its own enum and the unwrap
+/// itself as a channel transformation: `Ai(reason)` becomes the reason,
+/// everything else keeps its rendering. Defects and interrupts are not
+/// typed failures, so `map_err` leaves them untouched.
+#[derive(Debug, Clone, PartialEq)]
+enum Unwrapped {
+    RateLimit(u64),
+    Quota(u64),
+    Other(String),
+}
+
+fn unwrap(problem: Problem) -> Unwrapped {
+    match problem {
+        Problem::Ai(Nested::RateLimit(retry)) => Unwrapped::RateLimit(retry),
+        Problem::Ai(Nested::Quota(limit)) => Unwrapped::Quota(limit),
+        Problem::Other(message) => Unwrapped::Other(message),
+    }
+}
+
+/// `unwrapReason`: the nested reason replaces the parent in the error
+/// channel.
+#[test]
+fn unwrap_reason_extracts_reason_into_error_channel() {
+    let effect: Effect<(), Unwrapped> =
+        Effect::<(), Problem>::fail(Problem::Ai(Nested::RateLimit(60))).map_err(unwrap);
+    match Runtime::run(effect) {
+        Exit::Failure(cause) => assert_eq!(cause.failure(), Some(&Unwrapped::RateLimit(60))),
+        Exit::Success(_) => panic!("the unwrapped reason must fail with it"),
+    }
+}
+
+/// `unwrapReason` on the second reason type.
+#[test]
+fn unwrap_reason_extracts_second_reason_type() {
+    let effect: Effect<(), Unwrapped> =
+        Effect::<(), Problem>::fail(Problem::Ai(Nested::Quota(100))).map_err(unwrap);
+    match Runtime::run(effect) {
+        Exit::Failure(cause) => assert_eq!(cause.failure(), Some(&Unwrapped::Quota(100))),
+        Exit::Success(_) => panic!("the unwrapped reason must fail with it"),
+    }
+}
+
+/// `unwrapReason` preserves an error whose parent tag does not match: it
+/// stays in the channel, unchanged.
+#[test]
+fn unwrap_reason_preserves_other_errors() {
+    let effect: Effect<(), Unwrapped> =
+        Effect::<(), Problem>::fail(Problem::Other("test".to_string())).map_err(unwrap);
+    match Runtime::run(effect) {
+        Exit::Failure(cause) => {
+            assert_eq!(cause.failure(), Some(&Unwrapped::Other("test".to_string())));
+        }
+        Exit::Success(_) => panic!("a non-matching parent must pass through"),
+    }
 }

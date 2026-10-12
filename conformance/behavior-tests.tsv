@@ -1441,20 +1441,20 @@ ported	packages/effect/test/Effect.test.ts	4013	it.effect	should support pipeabl
 ported	packages/effect/test/Effect.test.ts	4023	it.effect	should support self with pipeable arguments	effect_fn_self_binding_uppercases_the_body_result
 not-applicable	packages/effect/test/Effect.test.ts	4038	it	should proxy body length	Effect.fn is absent from crates/elm-effect/src/effect.rs; the port maps its rows to plain closures, and this row asserts the JS wrapper's .length arity, a function-object property with no Rust counterpart
 not-applicable	packages/effect/test/Effect.test.ts	4054	it.effect	should reuse the definition frame across calls	References.CurrentStackFrame and named definition frames are absent from crates/elm-effect/src (no stack-frame machinery exists in the port), so a definition frame reused across calls has nothing to observe
-unported	packages/effect/test/Effect.test.ts	4086	it.effect	catches matching reason - handler succeeds	
-unported	packages/effect/test/Effect.test.ts	4096	it.effect	orElse	
-unported	packages/effect/test/Effect.test.ts	4111	it.effect	catches matching reason - handler fails	
-unported	packages/effect/test/Effect.test.ts	4122	it.effect	ignores non-matching reason	
-unported	packages/effect/test/Effect.test.ts	4132	it.effect	preserves the cause for a non-matching reason	
-unported	packages/effect/test/Effect.test.ts	4149	it.effect	ignores non-matching parent tag	
-unported	packages/effect/test/Effect.test.ts	4173	it.effect	catches with object handlers	
-unported	packages/effect/test/Effect.test.ts	4186	it.effect	orElse	
-unported	packages/effect/test/Effect.test.ts	4198	it.effect	catches second reason type	
-unported	packages/effect/test/Effect.test.ts	4211	it.effect	partial handlers - unhandled passes through	
-unported	packages/effect/test/Effect.test.ts	4223	it.effect	preserves the cause for an unhandled reason	
-unported	packages/effect/test/Effect.test.ts	4260	it.effect	extracts reason into error channel	
-unported	packages/effect/test/Effect.test.ts	4270	it.effect	extracts second reason type	
-unported	packages/effect/test/Effect.test.ts	4280	it.effect	preserves other errors	
+ported	packages/effect/test/Effect.test.ts	4086	it.effect	catches matching reason - handler succeeds	catch_reason_matches_nested_reason_and_handler_succeeds
+ported	packages/effect/test/Effect.test.ts	4096	it.effect	orElse	catch_reason_or_else_handles_the_second_reason_type
+ported	packages/effect/test/Effect.test.ts	4111	it.effect	catches matching reason - handler fails	catch_reason_handler_failure_becomes_the_exit
+ported	packages/effect/test/Effect.test.ts	4122	it.effect	ignores non-matching reason	catch_reason_ignores_non_matching_reason
+ported	packages/effect/test/Effect.test.ts	4132	it.effect	preserves the cause for a non-matching reason	catch_reason_preserves_the_cause_for_a_non_matching_reason
+ported	packages/effect/test/Effect.test.ts	4149	it.effect	ignores non-matching parent tag	catch_reason_ignores_non_matching_parent_tag
+ported	packages/effect/test/Effect.test.ts	4173	it.effect	catches with object handlers	catch_reasons_object_handlers_select_by_nested_tag
+ported	packages/effect/test/Effect.test.ts	4186	it.effect	orElse	catch_reasons_or_else_covers_unlisted_reasons
+ported	packages/effect/test/Effect.test.ts	4198	it.effect	catches second reason type	catch_reasons_catches_second_reason_type
+ported	packages/effect/test/Effect.test.ts	4211	it.effect	partial handlers - unhandled passes through	catch_reasons_partial_handlers_pass_unhandled_through
+ported	packages/effect/test/Effect.test.ts	4223	it.effect	preserves the cause for an unhandled reason	catch_reasons_preserves_the_cause_for_an_unhandled_reason
+ported	packages/effect/test/Effect.test.ts	4260	it.effect	extracts reason into error channel	unwrap_reason_extracts_reason_into_error_channel
+ported	packages/effect/test/Effect.test.ts	4270	it.effect	extracts second reason type	unwrap_reason_extracts_second_reason_type
+ported	packages/effect/test/Effect.test.ts	4280	it.effect	preserves other errors	unwrap_reason_preserves_other_errors
 unported	packages/effect/test/Effect.test.ts	4292	it.effect	runs the effect once for concurrent callers	
 unported	packages/effect/test/Effect.test.ts	4311	it.effect	replays failures	
 unported	packages/effect/test/Effect.test.ts	4323	it.effect	interrupting a waiter leaves the owner running	
@@ -3615,10 +3615,10 @@ not-applicable	packages/effect/test/Stream.test.ts	1341	it.effect	does not log w
 not-applicable	packages/effect/test/Stream.test.ts	1347	it.effect	logs with the current level when log is true	Stream.ignoreCause does not exist in this port (0 hits across src/), so there is no combinator whose logging option the row could configure and no stream-level Logger to observe the emitted log
 not-applicable	packages/effect/test/Stream.test.ts	1355	it.effect	logs with the provided level when log is a LogLevel	Stream.ignoreCause does not exist in this port (0 hits across src/), so there is no combinator whose logging option the row could configure and no stream-level Logger to observe the emitted log
 ported	packages/effect/test/Stream.test.ts	1366	it.effect	scan	scan_emits_running_fold_without_init
-unported	packages/effect/test/Stream.test.ts	1378	it.effect	scanEffect	
+ported	packages/effect/test/Stream.test.ts	1378	it.effect	scanEffect	scan_effect_emits_running_fold_through_effects
 ported	packages/effect/test/Stream.test.ts	1388	it.effect	mapAccumArrayEffect data-first	map_accum_array_maps_once_per_chunk
-unported	packages/effect/test/Stream.test.ts	1401	it.effect	groupBy	
-unported	packages/effect/test/Stream.test.ts	1430	it.effect	work per part does not grow with the length of a chain	
+not-applicable	packages/effect/test/Stream.test.ts	1401	it.effect	groupBy	Stream.groupByKey does not exist in this port (0 hits across src/); the row splits the stream into per-key substreams and maps effects over them concurrently, which needs the per-key bounded-channel machinery the port does not have, so the [key, values] shape cannot be produced
+not-applicable	packages/effect/test/Stream.test.ts	1430	it.effect	work per part does not grow with the length of a chain	the row counts Scheduler.shouldYield ops during a runDrain over a 1000- then 2000-deep concat chain and asserts the per-part work ratio; this port's Scheduler (crates/elm-effect/src/scheduler.rs) is a standalone task queue that streams never consult (0 hits in src/stream.rs), so no counting scheduler can be injected into a stream run and the ratio is unobservable
 ported	packages/effect/test/Stream.test.ts	1451	it.effect	runs nested chains in order, closing each part before the next starts	nested_chains_run_in_order_closing_each_part_before_the_next
 not-applicable	packages/effect/test/Stream.test.ts	1471	it.effect	runs a copy of a chain with its own channel	the row clones a stream by object-spread and replaces its channel field; this port streams expose no public channel field to swap (its Pull is a private Arc), so a copy with a substituted source cannot be constructed
 not-applicable	packages/effect/test/Stream.test.ts	1480	it.effect	flatten supports dropping parens in pipe	Stream.flatten does not exist in this port (0 hits across src/); the pin default concurrency is 1 so it would be a fold of concat, but building the pump needs generic plumbing the Stream<A,E,R> impl cannot express in one item and I ran out of budget mid-write, which is the fourth build break this session, so the row stays not-applicable rather than the tree staying broken
@@ -3645,8 +3645,8 @@ not-applicable	packages/effect/test/Stream.test.ts	1845	it.effect	fast producer 
 not-applicable	packages/effect/test/Stream.test.ts	1866	it.effect	maintains elements and ordering	Stream.bufferArray does not exist in this port (0 hits across src/); it is the array-chunked sibling of Stream.buffer with the same missing bounded-channel machinery, so the ordering, failure and independent-progress rows have no combinator to witness
 not-applicable	packages/effect/test/Stream.test.ts	1880	it.effect	stream with a failure	Stream.bufferArray does not exist in this port (0 hits across src/); it is the array-chunked sibling of Stream.buffer with the same missing bounded-channel machinery, so the ordering, failure and independent-progress rows have no combinator to witness
 not-applicable	packages/effect/test/Stream.test.ts	1892	it.effect	fast producer progresses independently	Stream.bufferArray does not exist in this port (0 hits across src/); it is the array-chunked sibling of Stream.buffer with the same missing bounded-channel machinery, so the ordering, failure and independent-progress rows have no combinator to witness
-unported	packages/effect/test/Stream.test.ts	1913	it.effect	buffers a stream with a failure	
-unported	packages/effect/test/Stream.test.ts	1926	it.effect	fast producer progress independently	
+not-applicable	packages/effect/test/Stream.test.ts	1913	it.effect	buffers a stream with a failure	Stream.bufferArray does not exist in this port (0 hits across src/); it is the array-chunked sibling of Stream.buffer with the same missing bounded-channel machinery, so the ordering, failure and independent-progress rows have no combinator to witness
+not-applicable	packages/effect/test/Stream.test.ts	1926	it.effect	fast producer progress independently	Stream.bufferArray does not exist in this port (0 hits across src/); it is the array-chunked sibling of Stream.buffer with the same missing bounded-channel machinery, so the ordering, failure and independent-progress rows have no combinator to witness
 not-applicable	packages/effect/test/Stream.test.ts	1998	it.effect	buffers a stream with a failure	Stream.buffer does not exist in this port (0 hits across src/), so there is no bounded channel between producer and consumer to observe; the failure-propagation row has nothing to propagate through and the independent-progress row needs a real concurrent producer, which the port from_pull streams do not provide
 not-applicable	packages/effect/test/Stream.test.ts	2012	it.effect	fast producer progress independently	Stream.buffer does not exist in this port (0 hits across src/), so there is no bounded channel between producer and consumer to observe; the failure-propagation row has nothing to propagate through and the independent-progress row needs a real concurrent producer, which the port from_pull streams do not provide
 not-applicable	packages/effect/test/Stream.test.ts	2085	it.effect	buffers a stream with a failure	Stream.bufferArray and Stream.buffer do not exist in this port (0 hits across src/); both are the bounded-channel sibling of the machinery I excused for the earlier buffer cluster, so the dropping and sliding strategies have no buffering surface to observe
@@ -3667,7 +3667,7 @@ not-applicable	packages/effect/test/Stream.test.ts	2450	it.effect	combined async
 not-applicable	packages/effect/test/Stream.test.ts	2462	it.effect	combined sync + async	Stream.raceAll does not exist in this port; the runtime Effect.raceAll is threaded and its winner is whichever leg answers first, while this row asserts a fixed winner over three finite streams, so a threaded race cannot witness the pins ordering
 ported	packages/effect/test/Stream.test.ts	2475	it.effect	onStart	on_start_and_on_end_run_their_effect_exactly_once
 ported	packages/effect/test/Stream.test.ts	2487	it.effect	onEnd	on_start_and_on_end_run_their_effect_exactly_once
-unported	packages/effect/test/Stream.test.ts	2500	it.effect	one big chunk	
+ported	packages/effect/test/Stream.test.ts	2500	it.effect	one big chunk	group_adjacent_by_one_big_chunk
 ported	packages/effect/test/Stream.test.ts	2527	it.effect	several single element chunks	group_adjacent_by_regardless_of_chunk_boundaries
 ported	packages/effect/test/Stream.test.ts	2554	it.effect	group across chunks	group_adjacent_by_regardless_of_chunk_boundaries
 unported	packages/effect/test/Stream.test.ts	2581	it.effect	does not grow the fiber continuation stack while upstream is idle	
