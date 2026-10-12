@@ -754,3 +754,175 @@ pub fn decode_bool_array(bytes: &[u8]) -> Result<Vec<bool>, BinaryError> {
     }
     Ok(out)
 }
+
+/// Where a frame header read stopped: either a terminator arrived, or the
+/// buffer needs more bytes before the length is known.
+enum HeaderRead {
+    Complete { header_len: usize, frame_len: u64 },
+    Wait,
+}
+
+/// Read one frame's length prefix. The first six groups fit in 42 bits, so
+/// they are read in `u64`; a wider length switches to `u128`, because a header
+/// past ten groups can never terminate and a terminated one above
+/// `MAX_SAFE_INTEGER` is an error rather than a length to round down.
+fn read_frame_header(bytes: &[u8]) -> Result<HeaderRead, BinaryError> {
+    let mut value: u64 = 0;
+    let mut scale: u64 = 1;
+    let mut header_len = None;
+    for (index, byte) in bytes[..bytes.len().min(6)].iter().enumerate() {
+        value += u64::from(byte & 0x7f) * scale;
+        if byte & 0x80 == 0 {
+            header_len = Some(index + 1);
+            break;
+        }
+        scale *= 128;
+    }
+    let Some(header_len) = header_len else {
+        if bytes.len() < 6 {
+            return Ok(HeaderRead::Wait);
+        }
+        let mut wide = u128::from(value);
+        for (index, byte) in bytes[6..].iter().take(4).enumerate() {
+            wide |= u128::from(byte & 0x7f) << ((index + 6) * 7);
+            if byte & 0x80 == 0 {
+                if wide > u128::from(MAX_SAFE_INTEGER) {
+                    return Err(BinaryError::new(format!("safe integer length, got {wide}")));
+                }
+                return Ok(HeaderRead::Complete {
+                    header_len: index + 7,
+                    frame_len: wide as u64,
+                });
+            }
+        }
+        if bytes.len() >= 10 {
+            return Err(BinaryError::new("uvarint, no terminator within ten groups"));
+        }
+        return Ok(HeaderRead::Wait);
+    };
+    Ok(HeaderRead::Complete {
+        header_len,
+        frame_len: value,
+    })
+}
+
+/// Stateful parser over a stream of concatenated number frames: the shape
+/// `SchemaBinary.parser(Schema.Number)` has. Frames are length-prefixed, so a
+/// chunk may cut anywhere; complete frames decode and a partial tail is kept
+/// until the feed that finishes it.
+pub struct NumberParser {
+    buffer: Vec<u8>,
+    spent: bool,
+    /// A failure found after values were already handed over. The reference
+    /// returns those values first and raises this on the next call, so a value
+    /// is neither lost nor silently swallowed.
+    stashed: Option<BinaryError>,
+    max_frame_size: Option<u64>,
+}
+
+impl NumberParser {
+    pub fn new() -> Self {
+        Self {
+            buffer: Vec::new(),
+            spent: false,
+            stashed: None,
+            max_frame_size: None,
+        }
+    }
+
+    /// Cap the announced frame length, which is what bounds how much a partial
+    /// frame can make the parser buffer.
+    pub fn with_max_frame_size(limit: u64) -> Self {
+        Self {
+            max_frame_size: Some(limit),
+            ..Self::new()
+        }
+    }
+
+    /// Feed one chunk; returns the values it completed, in stream order.
+    pub fn feed(&mut self, chunk: &[u8]) -> Result<Vec<f64>, BinaryError> {
+        if let Some(err) = self.stashed.take() {
+            return Err(err);
+        }
+        if self.spent {
+            return Err(BinaryError::new("parser is spent"));
+        }
+        self.buffer.extend_from_slice(chunk);
+        let mut out = Vec::new();
+        let mut pos = 0usize;
+        let mut failure = None;
+        loop {
+            let (header_len, frame_len) = match read_frame_header(&self.buffer[pos..]) {
+                Ok(HeaderRead::Wait) => break,
+                Ok(HeaderRead::Complete {
+                    header_len,
+                    frame_len,
+                }) => (header_len, frame_len),
+                Err(err) => {
+                    failure = Some(err);
+                    break;
+                }
+            };
+            if frame_len == 0 {
+                failure = Some(BinaryError::new("nonzero frame length"));
+                break;
+            }
+            if let Some(limit) = self.max_frame_size {
+                if frame_len > limit {
+                    failure = Some(BinaryError::new(format!(
+                        "frame within maxFrameSize, got {frame_len} over {limit}"
+                    )));
+                    break;
+                }
+            }
+            let span = header_len as u64 + frame_len;
+            if span > (self.buffer.len() - pos) as u64 {
+                break;
+            }
+            let end = pos + span as usize;
+            match decode_number_scalar(&self.buffer[pos..end]) {
+                Ok(value) => out.push(value),
+                Err(err) => {
+                    failure = Some(err);
+                    break;
+                }
+            }
+            pos = end;
+        }
+        self.buffer.drain(..pos);
+        match failure {
+            None => Ok(out),
+            Some(err) => {
+                self.spent = true;
+                if out.is_empty() {
+                    Err(err)
+                } else {
+                    self.stashed = Some(err);
+                    Ok(out)
+                }
+            }
+        }
+    }
+
+    /// Finish the stream. A partial frame left in the buffer is an error.
+    pub fn end(&mut self) -> Result<(), BinaryError> {
+        if let Some(err) = self.stashed.take() {
+            return Err(err);
+        }
+        if self.spent {
+            return Err(BinaryError::new("parser is spent"));
+        }
+        self.spent = true;
+        if self.buffer.is_empty() {
+            Ok(())
+        } else {
+            Err(BinaryError::new("complete value, trailing partial frame"))
+        }
+    }
+}
+
+impl Default for NumberParser {
+    fn default() -> Self {
+        Self::new()
+    }
+}

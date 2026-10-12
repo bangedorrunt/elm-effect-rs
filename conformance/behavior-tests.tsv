@@ -6179,7 +6179,7 @@ ported	packages/effect/test/encoding/SchemaBinary.test.ts	410	it	packs a uniform
 ported	packages/effect/test/encoding/SchemaBinary.test.ts	437	it	rejects non-number elements in uniform number arrays	binary_number_arrays_reject_non_numbers
 ported	packages/effect/test/encoding/SchemaBinary.test.ts	446	it	length-prefixes each number slot of a tuple	binary_tuples_split_prefixed_frames
 ported	packages/effect/test/encoding/SchemaBinary.test.ts	457	it	carries every form behind the union kind byte	binary_unions_carry_forms_behind_kind
-unported	packages/effect/test/encoding/SchemaBinary.test.ts	476	it	parses a stream whose numbers change width	
+ported	packages/effect/test/encoding/SchemaBinary.test.ts	476	it	parses a stream whose numbers change width	parser_streams_numbers_whose_width_changes
 ported	packages/effect/test/encoding/SchemaBinary.test.ts	487	it	emits a bare varint when the schema proves the value is an integer	binary_int_layout_emits_bare_varints
 ported	packages/effect/test/encoding/SchemaBinary.test.ts	509	it	rejects a non-integer that reaches the integer layout	binary_int_layout_rejects_non_integers
 ported	packages/effect/test/encoding/SchemaBinary.test.ts	517	it	rejects integer varints outside the safe-number range	binary_int_scalars_reject_unsafe_varints
@@ -6219,7 +6219,7 @@ unported	packages/effect/test/encoding/SchemaBinary.test.ts	966	it	reports the r
 unported	packages/effect/test/encoding/SchemaBinary.test.ts	978	it	runs rows in fingerprint mode with mask-declared shapes	
 unported	packages/effect/test/encoding/SchemaBinary.test.ts	988	it	declares fingerprint shapes whenever the present fields change	
 unported	packages/effect/test/encoding/SchemaBinary.test.ts	992	it	rejects a fingerprint shape mask with unknown bits	
-unported	packages/effect/test/encoding/SchemaBinary.test.ts	1006	it	accepts empty input and spends the parser after a successful end	
+ported	packages/effect/test/encoding/SchemaBinary.test.ts	1006	it	accepts empty input and spends the parser after a successful end	parser_accepts_empty_input_and_spends_after_end
 unported	packages/effect/test/encoding/SchemaBinary.test.ts	1013	it	parses concatenated frames split across chunks	
 unported	packages/effect/test/encoding/SchemaBinary.test.ts	1025	it	parses exact nested structs, arrays, and string records	
 unported	packages/effect/test/encoding/SchemaBinary.test.ts	1039	it	fails deeply nested recursive frames with SchemaError	
@@ -6227,7 +6227,7 @@ unported	packages/effect/test/encoding/SchemaBinary.test.ts	1049	it	keeps __prot
 unported	packages/effect/test/encoding/SchemaBinary.test.ts	1062	it	retains Schema predicates erased by the binary layout	
 unported	packages/effect/test/encoding/SchemaBinary.test.ts	1079	it	retains Schema parsing for numeric record keys	
 unported	packages/effect/test/encoding/SchemaBinary.test.ts	1092	it	retains transformations, checks, unions, declarations, and recursive validation	
-unported	packages/effect/test/encoding/SchemaBinary.test.ts	1138	it	retains partial frames across one-byte feeds	
+ported	packages/effect/test/encoding/SchemaBinary.test.ts	1138	it	retains partial frames across one-byte feeds	parser_retains_partial_frames_across_one_byte_feeds
 unported	packages/effect/test/encoding/SchemaBinary.test.ts	1147	it	waits for a fragmented multi-byte frame header	
 unported	packages/effect/test/encoding/SchemaBinary.test.ts	1157	it	uses the bigint header path for longer safe lengths	
 unported	packages/effect/test/encoding/SchemaBinary.test.ts	1168	it	keeps parser index-signature caching bounded with FIFO eviction	
@@ -6235,11 +6235,11 @@ unported	packages/effect/test/encoding/SchemaBinary.test.ts	1195	it	does not thr
 unported	packages/effect/test/encoding/SchemaBinary.test.ts	1229	it	isolates index-signature caches by parser options	
 unported	packages/effect/test/encoding/SchemaBinary.test.ts	1243	it	keeps nested SchemaBinary decodes independent from the outer reader	
 unported	packages/effect/test/encoding/SchemaBinary.test.ts	1254	it	returns a checked-out one-shot reader after an exceptional decode	
-unported	packages/effect/test/encoding/SchemaBinary.test.ts	1262	it	delivers completed values before reporting a later failure	
-unported	packages/effect/test/encoding/SchemaBinary.test.ts	1271	it	stashes a malformed complete frame after returning earlier values	
-unported	packages/effect/test/encoding/SchemaBinary.test.ts	1282	it	enforces maxFrameSize	
-unported	packages/effect/test/encoding/SchemaBinary.test.ts	1292	it	fails a ten-byte unterminated length immediately	
-unported	packages/effect/test/encoding/SchemaBinary.test.ts	1300	it	rejects a terminated header above the safe-integer bound	
+ported	packages/effect/test/encoding/SchemaBinary.test.ts	1262	it	delivers completed values before reporting a later failure	parser_delivers_completed_values_before_a_later_failure
+ported	packages/effect/test/encoding/SchemaBinary.test.ts	1271	it	stashes a malformed complete frame after returning earlier values	parser_stashes_a_malformed_frame_after_earlier_values
+ported	packages/effect/test/encoding/SchemaBinary.test.ts	1282	it	enforces maxFrameSize	parser_enforces_max_frame_size
+ported	packages/effect/test/encoding/SchemaBinary.test.ts	1292	it	fails a ten-byte unterminated length immediately	parser_fails_a_ten_byte_unterminated_length
+ported	packages/effect/test/encoding/SchemaBinary.test.ts	1300	it	rejects a terminated header above the safe-integer bound	parser_rejects_a_terminated_header_above_the_safe_integer_bound
 unported	packages/effect/test/encoding/SchemaBinary.test.ts	1308	it.effect	wraps feed and end in SchemaError effects	
 unported	packages/effect/test/encoding/SchemaBinary.test.ts	1316	it.effect	fails malformed feed and truncated end through the Effect surface	
 unported	packages/effect/test/encoding/SchemaBinary.test.ts	1330	it	round-trips bigint, Date, bytes, Option, and Result	

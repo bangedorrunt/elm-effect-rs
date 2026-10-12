@@ -4,9 +4,9 @@
 mod schema_binary;
 
 use schema_binary::{
-    UnionValue, decode_bool_array, decode_int_array, decode_int_scalar, decode_nested_number_array,
-    decode_number_array, decode_number_scalar, decode_string_array, decode_union,
-    encode_bool_array, encode_int_array, encode_int_scalar, encode_int_tuple,
+    NumberParser, UnionValue, decode_bool_array, decode_int_array, decode_int_scalar,
+    decode_nested_number_array, decode_number_array, decode_number_scalar, decode_string_array,
+    decode_union, encode_bool_array, encode_int_array, encode_int_scalar, encode_int_tuple,
     encode_nested_number_array, encode_number_array, encode_number_array_unknown,
     encode_number_scalar, encode_number_tuple, encode_string_array, encode_union, split_frames,
 };
@@ -405,4 +405,153 @@ fn binary_frames_reject_envelope_and_leftovers() {
     let doubled = [encode_number_scalar(1.0), encode_number_scalar(1.0)].concat();
     let err = decode_number_scalar(&doubled).expect_err("leftovers");
     assert!(err.message().contains("no leftover bytes"));
+}
+
+/// The pin's `sameNumber`: NaN equals NaN, and `-0` stays distinct from `0`.
+fn same_number(actual: f64, expected: f64) -> bool {
+    if expected.is_nan() {
+        return actual.is_nan();
+    }
+    actual.to_bits() == expected.to_bits()
+}
+
+#[test]
+fn parser_streams_numbers_whose_width_changes() {
+    // SchemaBinary.test.ts:476 — parser(Number) fed one byte at a time, over
+    // values that take the varint, decimal, and f64 forms in turn.
+    let values = [
+        0.0,
+        -0.0,
+        1.0,
+        -1.0,
+        63.0,
+        64.0,
+        1_000_000.0,
+        -1_000_000.0,
+        1.5,
+        f64::NAN,
+        9_007_199_254_740_991.0,
+    ];
+    let bytes: Vec<u8> = values.iter().flat_map(|v| encode_number_scalar(*v)).collect();
+    let mut parser = NumberParser::new();
+    let mut out = Vec::new();
+    for byte in &bytes {
+        out.extend(parser.feed(&[*byte]).expect("feed"));
+    }
+    parser.end().expect("end");
+    assert_eq!(out.len(), values.len(), "one value per frame");
+    for (index, value) in values.iter().enumerate() {
+        assert!(
+            same_number(out[index], *value),
+            "{index}: got {} want {value}",
+            out[index]
+        );
+    }
+}
+
+#[test]
+fn parser_retains_partial_frames_across_one_byte_feeds() {
+    // SchemaBinary.test.ts:1138 — 100 frames, one byte per feed, no value
+    // may be emitted twice or dropped at a frame boundary.
+    let expected: Vec<f64> = (0..100).map(|i| i as f64).collect();
+    let bytes: Vec<u8> = expected.iter().flat_map(|v| encode_number_scalar(*v)).collect();
+    let mut parser = NumberParser::new();
+    let mut values = Vec::new();
+    for byte in &bytes {
+        values.extend(parser.feed(&[*byte]).expect("feed"));
+    }
+    parser.end().expect("end");
+    assert_eq!(values, expected);
+}
+
+#[test]
+fn parser_accepts_empty_input_and_spends_after_end() {
+    // SchemaBinary.test.ts:1006 — an empty feed completes nothing, end on an
+    // empty buffer succeeds, and the second end is refused.
+    let mut parser = NumberParser::new();
+    assert_eq!(parser.feed(&[]).expect("empty feed"), Vec::<f64>::new());
+    parser.end().expect("empty end");
+    let err = parser.end().expect_err("end twice");
+    assert!(err.message().contains("parser is spent"), "{}", err.message());
+}
+
+#[test]
+fn parser_delivers_completed_values_before_a_later_failure() {
+    // SchemaBinary.test.ts:1262 — the frame that completed in this chunk is
+    // returned, and the truncated tail only surfaces at end.
+    let mut chunk = encode_number_scalar(1.0);
+    chunk.extend_from_slice(&encode_number_scalar(2.0)[..2]);
+    let mut parser = NumberParser::new();
+    assert_eq!(parser.feed(&chunk).expect("feed"), vec![1.0]);
+    let err = parser.end().expect_err("truncated tail");
+    assert!(err.message().contains("complete value"), "{}", err.message());
+    let err = parser.feed(&[]).expect_err("spent");
+    assert!(err.message().contains("parser is spent"), "{}", err.message());
+}
+
+#[test]
+fn parser_stashes_a_malformed_frame_after_earlier_values() {
+    // SchemaBinary.test.ts:1271 — a complete frame with a bad envelope byte is
+    // found after one good value. The value returns first; the failure is
+    // held and raised on the next call, not merged into this one.
+    let mut bad = encode_number_scalar(2.0);
+    bad[1] = 0x10;
+    let mut chunk = encode_number_scalar(1.0);
+    chunk.extend_from_slice(&bad);
+    let mut parser = NumberParser::new();
+    assert_eq!(parser.feed(&chunk).expect("feed"), vec![1.0]);
+    let err = parser.feed(&[]).expect_err("stashed failure");
+    assert!(
+        err.message().contains("version 2 envelope, flags 0"),
+        "{}",
+        err.message()
+    );
+    let err = parser.end().expect_err("spent");
+    assert!(err.message().contains("parser is spent"), "{}", err.message());
+}
+
+#[test]
+fn parser_enforces_max_frame_size() {
+    // SchemaBinary.test.ts:1282 — the cap is compared against the announced
+    // frame length, and a cap equal to it still accepts the frame.
+    let frame = encode_number_scalar(1_000_000.0);
+    let length = u64::from(frame[0]);
+    assert_eq!(length, 4, "tag plus a three-byte varint");
+    let mut over = NumberParser::with_max_frame_size(length - 1);
+    let err = over.feed(&frame).expect_err("over the cap");
+    assert!(
+        err.message().contains("frame within maxFrameSize"),
+        "{}",
+        err.message()
+    );
+    let mut exact = NumberParser::with_max_frame_size(length);
+    assert_eq!(exact.feed(&frame).expect("at the cap"), vec![1_000_000.0]);
+    exact.end().expect("end");
+}
+
+#[test]
+fn parser_fails_a_ten_byte_unterminated_length() {
+    // SchemaBinary.test.ts:1292 — ten continuation groups can never become a
+    // header, so the failure lands now instead of waiting for more bytes.
+    let mut parser = NumberParser::new();
+    let err = parser.feed(&[0x80; 10]).expect_err("unterminated length");
+    assert!(err.message().contains("uvarint"), "{}", err.message());
+}
+
+#[test]
+fn parser_rejects_a_terminated_header_above_the_safe_integer_bound() {
+    // SchemaBinary.test.ts:1300 — seven continuation groups then 0x10 encode
+    // 2^53, one past a safe frame length, and that is an error rather than a
+    // rounded-down wait for a body that cannot exist.
+    let mut parser = NumberParser::new();
+    let err = parser
+        .feed(&[0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x10])
+        .expect_err("unsafe length");
+    assert!(
+        err.message().contains("safe integer length"),
+        "{}",
+        err.message()
+    );
+    let err = parser.feed(&[]).expect_err("spent");
+    assert!(err.message().contains("parser is spent"), "{}", err.message());
 }
