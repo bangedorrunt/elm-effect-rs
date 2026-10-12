@@ -8673,17 +8673,17 @@ unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.
 unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	316	it	oneOf with siblings	
 ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	339	it	type only	json_schema_document_type_only_rows_carry_their_code_and_type
 ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	348	it	type only	json_schema_document_type_only_rows_carry_their_code_and_type
-unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	356	it	minLength	
-unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	368	it	maxLength	
+ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	356	it	minLength	json_schema_document_refinement_rows_carry_their_code_and_type
+ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	368	it	maxLength	json_schema_document_refinement_rows_carry_their_code_and_type
 unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	380	it	pattern with an explicit string type	
 unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	392	it	pattern only constrains strings	
-unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	404	it	type only	
-unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	417	it	minimum	
-unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	429	it	maximum	
-unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	441	it	exclusiveMinimum	
-unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	453	it	exclusiveMaximum	
-unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	465	it	multipleOf	
-unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	480	it	type only	
+ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	404	it	type only	json_schema_document_refinement_rows_carry_their_code_and_type
+ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	417	it	minimum	json_schema_document_refinement_rows_carry_their_code_and_type
+ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	429	it	maximum	json_schema_document_refinement_rows_carry_their_code_and_type
+ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	441	it	exclusiveMinimum	json_schema_document_refinement_rows_carry_their_code_and_type
+ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	453	it	exclusiveMaximum	json_schema_document_refinement_rows_carry_their_code_and_type
+ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	465	it	multipleOf	json_schema_document_refinement_rows_carry_their_code_and_type
+ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	480	it	type only	json_schema_document_refinement_rows_carry_their_code_and_type
 unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	488	it	minimum	
 unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	500	it	maximum	
 unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	512	it	exclusiveMinimum	

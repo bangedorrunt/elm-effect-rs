@@ -1343,3 +1343,76 @@ fn json_schema_document_type_only_rows_carry_their_code_and_type() {
         assert_eq!(schema.to_type(), ty, "type for {doc:?}");
     }
 }
+
+#[test]
+fn json_schema_document_refinement_rows_carry_their_code_and_type() {
+    // fromJsonSchemaDocument.test.ts's `checks` groups. These are the rows
+    // whose expected code AND type are both plain: a base schema, one or two
+    // refinements, and an `expected` annotation on each. The pin asserts on
+    // `SchemaRepresentation.toCodeDocument(...)`, which is the `code` plus the
+    // TypeScript-style `type`; both are checked here.
+    use elm_effect_schema::{Schema, Unknown};
+
+    let cases: Vec<(serde_json::Value, &str, &str)> = vec![
+        // :404 — a `number` is finite by default.
+        (
+            serde_json::json!({"type": "number"}),
+            r#"Schema.Number.check(Schema.isFinite().annotate({ "expected": "a finite number" }))"#,
+            "number",
+        ),
+        // :480 — an `integer` is an int.
+        (
+            serde_json::json!({"type": "integer"}),
+            r#"Schema.Number.check(Schema.isInt().annotate({ "expected": "an integer" }))"#,
+            "number",
+        ),
+        // :356 — minLength, in characters.
+        (
+            serde_json::json!({"type": "string", "minLength": 1}),
+            r#"Schema.String.check(Schema.isMinLength(1).annotate({ "expected": "a value with a length of at least 1" }))"#,
+            "string",
+        ),
+        // :368 — maxLength.
+        (
+            serde_json::json!({"type": "string", "maxLength": 1}),
+            r#"Schema.String.check(Schema.isMaxLength(1).annotate({ "expected": "a value with a length of at most 1" }))"#,
+            "string",
+        ),
+        // :417 — minimum, which stacks on finite.
+        (
+            serde_json::json!({"type": "number", "minimum": 1}),
+            r#"Schema.Number.check(Schema.isFinite().annotate({ "expected": "a finite number" })).check(Schema.isGreaterThanOrEqualTo(1).annotate({ "expected": "a value greater than or equal to 1" }))"#,
+            "number",
+        ),
+        // :429 — maximum.
+        (
+            serde_json::json!({"type": "number", "maximum": 1}),
+            r#"Schema.Number.check(Schema.isFinite().annotate({ "expected": "a finite number" })).check(Schema.isLessThanOrEqualTo(1).annotate({ "expected": "a value less than or equal to 1" }))"#,
+            "number",
+        ),
+        // :441 — exclusiveMinimum.
+        (
+            serde_json::json!({"type": "number", "exclusiveMinimum": 1}),
+            r#"Schema.Number.check(Schema.isFinite().annotate({ "expected": "a finite number" })).check(Schema.isGreaterThan(1).annotate({ "expected": "a value greater than 1" }))"#,
+            "number",
+        ),
+        // :453 — exclusiveMaximum.
+        (
+            serde_json::json!({"type": "number", "exclusiveMaximum": 1}),
+            r#"Schema.Number.check(Schema.isFinite().annotate({ "expected": "a finite number" })).check(Schema.isLessThan(1).annotate({ "expected": "a value less than 1" }))"#,
+            "number",
+        ),
+        // :465 — multipleOf.
+        (
+            serde_json::json!({"type": "number", "multipleOf": 1}),
+            r#"Schema.Number.check(Schema.isFinite().annotate({ "expected": "a finite number" })).check(Schema.isMultipleOf(1).annotate({ "expected": "a value that is a multiple of 1" }))"#,
+            "number",
+        ),
+    ];
+
+    for (doc, code, ty) in cases {
+        let schema = Schema::<Unknown>::from_json_schema(&doc).expect("imports");
+        assert_eq!(schema.to_code(), code, "code for {doc:?}");
+        assert_eq!(schema.to_type(), ty, "type for {doc:?}");
+    }
+}

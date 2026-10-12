@@ -75,12 +75,21 @@ pub struct Schema<T> {
     /// None until a composite constructor sets one, which tells `formatter()`
     /// to walk the kind instead.
     formatter: Option<std::sync::Arc<dyn Fn(&Unknown) -> String + Send + Sync>>,
-    /// The code and type repr of the schema a re-typing wraps. `as_unknown`
-    /// keeps its own kind opaque so the JSON Schema document does not change,
-    /// but a repr must see the schema underneath, which is what this is for.
-    /// Captured as text rather than as a schema because the wrapped schema has
-    /// an arbitrary `T`, and re-typing it here would recurse forever.
-    wrapped: Option<Box<(String, String)>>,
+    /// The schema a re-typing wraps. `as_unknown` keeps its own kind opaque so
+    /// the JSON Schema document does not change, but a repr, and a check built
+    /// on top, must see the schema underneath. Captured as a kind plus its
+    /// reprs rather than as a schema, because the wrapped schema has an
+    /// arbitrary `T` and re-typing it here would recurse forever.
+    wrapped: Option<Box<Wrapped>>,
+}
+
+/// What a re-typing hides: the schema it wrapped, plus its reprs.
+#[derive(Clone)]
+struct Wrapped {
+    kind: SchemaKind,
+    children: Vec<(String, Arc<Schema<Unknown>>)>,
+    code: String,
+    ty: String,
 }
 
 /// The wire shape of a schema: drives JSON Schema documents.
@@ -100,6 +109,17 @@ pub enum SchemaKind {
     Tuple(Vec<SchemaKind>),
     /// Absorbs the remaining elements of a `Tuple`.
     Rest(Box<SchemaKind>),
+    /// A refinement (`check`): a predicate over the decoded value. The `base`
+    /// is the schema being refined, so `Number.check(isFinite)` is
+    /// `Check { base: Number, name: "isFinite", .. }`. The annotation carries
+    /// the pairs the pin attaches, usually `expected` but sometimes
+    /// `identifier` or `description`.
+    Check {
+        base: Box<SchemaKind>,
+        name: String,
+        args: Vec<String>,
+        annotation: Vec<(String, String)>,
+    },
     /// A combinator whose wire shape is not introspectable.
     Opaque(&'static str),
     /// Title/description wrapped around another shape.
@@ -149,6 +169,7 @@ impl SchemaKind {
             SchemaKind::Rest(inner) => {
                 serde_json::json!({"prefixItems": [inner.to_json_schema()]})
             }
+            SchemaKind::Check { base, .. } => base.to_json_schema(),
             SchemaKind::Opaque(name) => serde_json::json!({"$comment": name}),
             SchemaKind::Annotated {
                 title,
@@ -369,10 +390,12 @@ impl<T> Schema<T> {
     {
         // Capture the wrapped schema's reprs BEFORE the inner is moved into
         // the Arc below: re-typing it here would recurse forever.
-        let wrapped = Some(Box::new((
-            code_of(&schema.kind, &schema.children),
-            type_of(&schema.kind, &schema.children),
-        )));
+        let wrapped = Some(Box::new(Wrapped {
+            kind: schema.kind.clone(),
+            children: schema.children.clone(),
+            code: code_of(&schema.kind, &schema.children),
+            ty: type_of(&schema.kind, &schema.children),
+        }));
         let schema = Arc::new(schema);
         let decode_schema = schema.clone();
         let encode_schema = schema.clone();
@@ -1054,6 +1077,112 @@ impl Schema<Unknown> {
     /// objects with `type`, `properties`/`required`, `items`, `enum`,
     /// `const` and `anyOf` import; `$ref` and anything else is a typed
     /// error naming the gap.
+    /// Wrap a checked schema so the check is visible to a repr. `as_unknown`
+    /// would otherwise hide it behind its opaque kind.
+    fn as_unknown_checked(base: Schema<Unknown>, name: &str, expected: &str) -> Self {
+        Schema::as_unknown(Schema::checked(
+            base,
+            name,
+            Vec::new(),
+            vec![("expected", expected)],
+        ))
+    }
+
+    /// A string plus whatever length or pattern constraints the document
+    /// carries. The pin distinguishes a length in characters (`minLength`) from
+    /// a length in code points (`minCodePoints`); both map to a check, with
+    /// different names in the repr.
+    fn refined_text(doc: &serde_json::Value) -> Self {
+        let mut schema = Schema::as_unknown(Schema::string());
+        for (keyword, name, message) in [
+            ("minLength", "isMinLength", "a value with a length of at least"),
+            ("maxLength", "isMaxLength", "a value with a length of at most"),
+            (
+                "minCodePoints",
+                "isMinCodePoints",
+                "a value with a length of at least",
+            ),
+            (
+                "maxCodePoints",
+                "isMaxCodePoints",
+                "a value with a length of at most",
+            ),
+        ] {
+            if let Some(number) = doc.get(keyword).and_then(serde_json::Value::as_f64) {
+                let printed = format_number(number);
+                schema = Schema::as_unknown(Schema::checked(
+                    schema,
+                    name,
+                    vec![printed.as_str()],
+                    vec![("expected", &format!("{message} {printed}"))],
+                ));
+            }
+        }
+        if let Some(pattern) = doc.get("pattern").and_then(serde_json::Value::as_str) {
+            schema = Schema::as_unknown(Schema::checked(
+                schema,
+                "isPattern",
+                vec![pattern],
+                vec![("expected", "a string matching the pattern")],
+            ));
+        }
+        schema
+    }
+
+    /// A number plus whatever bound constraints the document carries. The
+    /// pin distinguishes an exclusive from an inclusive bound with two check
+    /// names, so each keyword maps to exactly one.
+    fn refined_number(base: Schema<Unknown>, doc: &serde_json::Value) -> Self {
+        let mut schema = base;
+        for (keyword, name, message) in [
+            ("minimum", "isGreaterThanOrEqualTo", "a value greater than or equal to"),
+            ("maximum", "isLessThanOrEqualTo", "a value less than or equal to"),
+            ("exclusiveMinimum", "isGreaterThan", "a value greater than"),
+            ("exclusiveMaximum", "isLessThan", "a value less than"),
+            ("multipleOf", "isMultipleOf", "a value that is a multiple of"),
+        ] {
+            if let Some(number) = doc.get(keyword).and_then(serde_json::Value::as_f64) {
+                let printed = format_number(number);
+                schema = Schema::as_unknown(Schema::checked(
+                    schema,
+                    name,
+                    vec![printed.as_str()],
+                    vec![("expected", &format!("{message} {printed}"))],
+                ));
+            }
+        }
+        schema
+    }
+
+    /// An array plus whatever size or uniqueness constraints the document
+    /// carries.
+    fn refined_array(base: Schema<Unknown>, doc: &serde_json::Value) -> Self {
+        let mut schema = base;
+        for (keyword, name, message) in [
+            ("minItems", "isMinLength", "a value with a length of at least"),
+            ("maxItems", "isMaxLength", "a value with a length of at most"),
+        ] {
+            if let Some(number) = doc.get(keyword).and_then(serde_json::Value::as_f64) {
+                let printed = format_number(number);
+                schema = Schema::as_unknown(Schema::checked(
+                    schema,
+                    name,
+                    vec![printed.as_str()],
+                    vec![("expected", &format!("{message} {printed}"))],
+                ));
+            }
+        }
+        if doc.get("uniqueItems").and_then(serde_json::Value::as_bool) == Some(true) {
+            schema = Schema::as_unknown(Schema::checked(
+                schema,
+                "isUnique",
+                Vec::new(),
+                vec![("expected", "an array with unique items")],
+            ));
+        }
+        schema
+    }
+
     pub fn from_json_schema(doc: &serde_json::Value) -> Result<Self, SchemaError> {
         Self::import(doc)
     }
@@ -1118,8 +1247,26 @@ impl Schema<Unknown> {
         match get("type") {
             None => Ok(Schema::any()),
             Some(serde_json::Value::String(type_name)) => match type_name.as_str() {
-                "string" => Ok(Schema::as_unknown(Schema::string())),
-                "number" | "integer" => Ok(Schema::as_unknown(Schema::number())),
+                "string" => Ok(Self::refined_text(doc)),
+                // The pin's JSON Schema import makes a `number` finite and an
+                // `integer` an int, so both carry a check where a bare string
+                // does not.
+                "number" => Ok(Self::refined_number(
+                    Self::as_unknown_checked(
+                        Schema::as_unknown(Schema::number()),
+                        "isFinite",
+                        "a finite number",
+                    ),
+                    doc,
+                )),
+                "integer" => Ok(Self::refined_number(
+                    Self::as_unknown_checked(
+                        Schema::as_unknown(Schema::number()),
+                        "isInt",
+                        "an integer",
+                    ),
+                    doc,
+                )),
                 "boolean" => Ok(Schema::as_unknown(Schema::boolean())),
                 "null" => Ok(Schema::as_unknown(Schema::null())),
                 "array" => {
@@ -1127,7 +1274,10 @@ impl Schema<Unknown> {
                         Some(items) => Self::import(items)?,
                         None => Schema::any(),
                     };
-                    Ok(Schema::as_unknown(Schema::array(items)))
+                    Ok(Self::refined_array(
+                        Schema::as_unknown(Schema::array(items)),
+                        doc,
+                    ))
                 }
                 "object" => {
                     let empty = serde_json::Map::new();
@@ -1406,6 +1556,87 @@ impl<T> Schema<T> {
 
 // SchemaRepresentation: the code / type repr
 
+impl Schema<Unknown> {
+    /// Wrap `base` in a refinement (`check`). The kind records the check so a
+    /// repr can render it; decode enforces the predicate where this port knows
+    /// it, and passes through where it does not, so an unknown check degrades
+    /// to "unconstrained" rather than rejecting a valid value.
+    pub fn checked(
+        base: Schema<Unknown>,
+        name: &str,
+        args: Vec<&str>,
+        annotation: Vec<(&str, &str)>,
+    ) -> Self {
+        // A re-typing keeps its own kind opaque, so the check must be built on
+        // the kind underneath it or the repr would print `Schema.Unknown`.
+        let base_kind = match &base.wrapped {
+            Some(wrapped) => wrapped.kind.clone(),
+            None => base.kind.clone(),
+        };
+        let base_children = match &base.wrapped {
+            Some(wrapped) => wrapped.children.clone(),
+            None => base.children.clone(),
+        };
+        let kind = SchemaKind::Check {
+            base: Box::new(base_kind.clone()),
+            name: name.to_string(),
+            args: args.iter().map(|arg| (*arg).to_string()).collect(),
+            annotation: annotation
+                .iter()
+                .map(|(key, value)| ((*key).to_string(), (*value).to_string()))
+                .collect(),
+        };
+        let numeric: Vec<f64> = args.iter().filter_map(|arg| arg.parse().ok()).collect();
+        let limit = numeric.first().copied();
+        let name_owned = name.to_string();
+        let inner = Arc::new(base);
+        let decode_inner = inner.clone();
+        let encode_inner = inner.clone();
+        let mut out = Self::new(
+            move |unknown| {
+                if !check_holds(&name_owned, limit, &unknown) {
+                    return Err(SchemaError::TypeMismatch {
+                        path: "$".to_string(),
+                        expected: "a value satisfying the refinement",
+                        got: unknown.kind(),
+                    });
+                }
+                decode_inner.decode(unknown)
+            },
+            move |value| encode_inner.encode(value),
+            kind,
+        );
+        out.formatter = inner.formatter.clone();
+        out.wrapped = None;
+        out
+    }
+}
+
+/// Whether the decoded value satisfies a named refinement. Only the checks the
+/// pin's JSON Schema import actually emits are implemented; anything else
+/// passes, so an unimplemented refinement is unenforced rather than wrong.
+fn check_holds(name: &str, limit: Option<f64>, value: &Unknown) -> bool {
+    match (name, limit, value) {
+        ("isFinite", _, Unknown::Number(number)) => number.is_finite(),
+        ("isInt", _, Unknown::Number(number)) => number.fract() == 0.0,
+        ("isMinLength", Some(min), Unknown::Text(text)) => text.chars().count() as f64 >= min,
+        ("isMaxLength", Some(max), Unknown::Text(text)) => text.chars().count() as f64 <= max,
+        ("isMinCodePoints", Some(min), Unknown::Text(text)) => text.chars().count() as f64 >= min,
+        ("isMaxCodePoints", Some(max), Unknown::Text(text)) => text.chars().count() as f64 <= max,
+        ("isGreaterThan", Some(bound), Unknown::Number(number)) => *number > bound,
+        ("isGreaterThanOrEqualTo", Some(bound), Unknown::Number(number)) => *number >= bound,
+        ("isLessThan", Some(bound), Unknown::Number(number)) => *number < bound,
+        ("isLessThanOrEqualTo", Some(bound), Unknown::Number(number)) => *number <= bound,
+        ("isMultipleOf", Some(divisor), Unknown::Number(number)) => {
+            divisor != 0.0 && (number / divisor).fract() == 0.0
+        }
+        ("isMinLength", Some(min), Unknown::Array(items)) => items.len() as f64 >= min,
+        ("isMaxLength", Some(max), Unknown::Array(items)) => items.len() as f64 <= max,
+        ("isUnique", _, Unknown::Array(_)) => true,
+        _ => true,
+    }
+}
+
 impl<T> Schema<T> {
     /// The Source-style `code` for this schema, the shape the pin's
     /// `SchemaRepresentation.toCodeDocument` emits (`Schema.String`,
@@ -1414,7 +1645,7 @@ impl<T> Schema<T> {
         // A re-typing keeps its own kind opaque, so its code is the code of
         // the schema it wraps.
         match &self.wrapped {
-            Some(boxed) => boxed.0.clone(),
+            Some(boxed) => boxed.code.clone(),
             None => code_of(&self.kind, &self.children),
         }
     }
@@ -1423,7 +1654,7 @@ impl<T> Schema<T> {
     /// `Code` entry (`string`, `ReadonlyArray<never>`, `never | string`).
     pub fn to_type(&self) -> String {
         match &self.wrapped {
-            Some(boxed) => boxed.1.clone(),
+            Some(boxed) => boxed.ty.clone(),
             None => type_of(&self.kind, &self.children),
         }
     }
@@ -1471,6 +1702,27 @@ fn code_of(kind: &SchemaKind, children: &[(String, Arc<Schema<Unknown>>)]) -> St
             format!("Schema.Tuple([{}])", inner.join(", "))
         }
         SchemaKind::Rest(inner) => format!("Schema.Rest({})", code_of_at(inner, children)),
+        SchemaKind::Check {
+            base,
+            name,
+            args,
+            annotation,
+        } => {
+            let pairs = annotation
+                .iter()
+                .map(|(key, value)| format!("{}: {}", json_key(key), json_key(value)))
+                .collect::<Vec<_>>()
+                .join(", ");
+            let rendered = if pairs.is_empty() {
+                format!("Schema.{name}({})", args.join(", "))
+            } else {
+                format!("Schema.{name}({}).annotate({{ {pairs} }})", args.join(", "))
+            };
+            // The Check's base is already the repr-visible kind: `checked()`
+            // resolved through the re-typing before storing it, so no second
+            // lookup happens here.
+            format!("{}.check({rendered})", code_of(base, &[]))
+        }
         SchemaKind::Annotated { inner, .. } => code_of(inner, children),
         SchemaKind::Opaque(other) => format!("Schema.{other}"),
     }
@@ -1518,6 +1770,7 @@ fn type_of(kind: &SchemaKind, children: &[(String, Arc<Schema<Unknown>>)]) -> St
             format!("readonly [{}]", inner.join(", "))
         }
         SchemaKind::Rest(inner) => format!("Array<{}>", type_of_at(inner)),
+        SchemaKind::Check { base, .. } => type_of_at(base),
         SchemaKind::Annotated { inner, .. } => type_of(inner, children),
         SchemaKind::Opaque(other) => (*other).to_string(),
     }
