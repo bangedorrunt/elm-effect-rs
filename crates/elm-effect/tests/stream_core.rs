@@ -1820,6 +1820,537 @@ fn drop_while_filter_fold<A: Clone, E>(
 }
 
 // ---------------------------------------------------------------------------
+// Positional one-stream families: intersperse, interleave, peel, when,
+// sliding, split, zipWithNext/Previous (Stream.test.ts 4294-5539)
+// ---------------------------------------------------------------------------
+
+/// `Stream.intersperse`/`intersperseAffixes` at the pin: the separator sits
+/// between elements, and a lone element gets no separator. The affixes form
+/// brackets the whole output. Chunking never matters: the separator lands
+/// between elements wherever the chunk boundaries fall.
+fn intersperse_fold(items: Vec<String>, sep: &str) -> Vec<String> {
+    let mut out = Vec::with_capacity(items.len() * 2 - 1);
+    for (i, item) in items.into_iter().enumerate() {
+        if i > 0 {
+            out.push(sep.to_string());
+        }
+        out.push(item);
+    }
+    out
+}
+
+#[test]
+fn intersperse_and_intersperse_affixes_place_separators_between_elements() {
+    let four = || vec!["1".to_string(), "2".to_string(), "3".to_string(), "4".to_string()];
+    let one = || vec!["1".to_string()];
+
+    // :4294 — several values get a separator between each pair.
+    assert_eq!(
+        intersperse_fold(four(), "."),
+        vec!["1", ".", "2", ".", "3", ".", "4"]
+    );
+    // :4305 — the affixes bracket the whole interspersed output.
+    let mut affixed = vec!["[".to_string()];
+    affixed.extend(intersperse_fold(four(), "."));
+    affixed.push("]".to_string());
+    assert_eq!(
+        affixed,
+        vec!["[", "1", ".", "2", ".", "3", ".", "4", "]"]
+    );
+    // :4316 — a single value gets no separator.
+    assert_eq!(intersperse_fold(one(), "."), vec!["1"]);
+    // :4327 — a single value with affixes is start, value, end.
+    let mut single = vec!["[".to_string()];
+    single.extend(intersperse_fold(one(), "."));
+    single.push("]".to_string());
+    assert_eq!(single, vec!["[", "1", "]"]);
+
+    // :4338 — a repeat effect is still one element per position, so four
+    // values intersperse to three separators.
+    assert_eq!(
+        intersperse_fold(vec!["42".to_string(); 4], "."),
+        vec!["42", ".", "42", ".", "42", ".", "42"]
+    );
+    // :4350 — a repeating single-element CHUNK keeps one element per
+    // position, and the take(4) AFTER the intersperse cuts mid-pattern: two
+    // values and the separator between them.
+    let interspersed = intersperse_fold(vec!["42".to_string(); 4], ".");
+    assert_eq!(
+        interspersed.into_iter().take(4).collect::<Vec<_>>(),
+        vec!["42", ".", "42", "."]
+    );
+}
+
+/// `Stream.interleave` at the pin: pull one element from each side in turn,
+/// and keep pulling the side that still has elements after the other ends.
+fn interleave_fold(left: Vec<i64>, right: Vec<i64>) -> Vec<i64> {
+    let mut out = Vec::new();
+    let (mut l, mut r) = (left.into_iter(), right.into_iter());
+    loop {
+        match (l.next(), r.next()) {
+            (Some(a), Some(b)) => {
+                out.push(a);
+                out.push(b);
+            }
+            (Some(a), None) => {
+                out.push(a);
+                out.extend(l);
+                return out;
+            }
+            (None, Some(b)) => {
+                out.push(b);
+                out.extend(r);
+                return out;
+            }
+            (None, None) => return out,
+        }
+    }
+}
+
+/// `Stream.interleaveWith` at the pin: a boolean stream chooses the side each
+/// element comes from; a side with nothing left falls through to the other,
+/// and the stream ends when the booleans run out. This is the row's own
+/// reference implementation, verbatim in shape.
+fn interleave_with_fold(
+    bools: Vec<bool>,
+    left: Vec<i64>,
+    right: Vec<i64>,
+) -> Vec<i64> {
+    match bools.split_first() {
+        None => Vec::new(),
+        Some((true, rest)) => match left.split_first() {
+            Some((head, tail)) => {
+                let mut out = vec![*head];
+                out.extend(interleave_with_fold(rest.to_vec(), tail.to_vec(), right));
+                out
+            }
+            None => interleave_with_fold(rest.to_vec(), Vec::new(), right),
+        },
+        Some((false, rest)) => match right.split_first() {
+            Some((head, tail)) => {
+                let mut out = vec![*head];
+                out.extend(interleave_with_fold(rest.to_vec(), left, tail.to_vec()));
+                out
+            }
+            None => interleave_with_fold(rest.to_vec(), left, Vec::new()),
+        },
+    }
+}
+
+#[test]
+fn interleave_and_interleave_with_alternate_sides() {
+    // :4364 — alternate sides, then drain whichever side still has elements.
+    assert_eq!(
+        interleave_fold(vec![2, 3], vec![5, 6, 7]),
+        vec![2, 5, 3, 6, 7]
+    );
+
+    // :4376 — the booleans [true, true, false, true, false] pick from the
+    // left, left, right, left, right.
+    assert_eq!(
+        interleave_with_fold(
+            vec![true, true, false, true, false],
+            vec![1, 2, 3, 4, 5],
+            vec![4, 5, 6, 7, 8]
+        ),
+        vec![1, 2, 4, 3, 5]
+    );
+}
+
+/// `Stream.peel` at the pin, reduced to what the rows assert: the sink takes
+/// the first `n` elements as one array, and the rest stays a stream.
+fn peel_fold<A: Clone, E>(side: ZipSide<A, E>, n: usize) -> Result<(Vec<A>, Vec<A>), ZipFault<E>> {
+    let mut src = side;
+    let mut peeled = Vec::new();
+    let mut rest = Vec::new();
+    loop {
+        if src.leftover.is_empty() {
+            match src.pull() {
+                Pulled::Chunk => {}
+                Pulled::Ended => return Ok((peeled, rest)),
+                Pulled::Fault(fault) => return Err(fault),
+            }
+        }
+        while !src.leftover.is_empty() {
+            let head = src.leftover.remove(0);
+            if peeled.len() < n {
+                peeled.push(head);
+            } else {
+                rest.push(head);
+            }
+        }
+    }
+}
+
+#[test]
+fn peel_splits_the_first_n_elements_from_the_rest() {
+    // :4690 — take(3) peels [1, 2, 3] and leaves [4, 5, 6] as the rest,
+    // whatever the upstream chunking.
+    let (peeled, rest) = peel_fold(
+        ZipSide::clean(vec![vec![1i64, 2, 3], vec![4, 5, 6]]),
+        3,
+    )
+    .unwrap();
+    assert_eq!(peeled, vec![1, 2, 3]);
+    assert_eq!(rest, vec![4, 5, 6]);
+
+    // :4708 — a stream whose first element fails fails the peel.
+    let failing = peel_fold(
+        ZipSide::of(Vec::<Vec<i64>>::new(), ZipEnd::Fail("fail".to_string())),
+        3,
+    );
+    assert!(
+        matches!(failing, Err(ZipFault::Fail(ref e)) if e == "fail"),
+        "the peeled stream must fail when its source fails"
+    );
+}
+
+/// The outcome of `Stream.when`'s condition.
+enum WhenCondition {
+    Yes,
+    No,
+    Fail(String),
+    Die(String),
+}
+
+/// `Stream.when` at the pin: a false condition makes the stream empty, a
+/// failure or defect in the condition fails or dies the stream, and a true
+/// condition passes the stream through.
+fn when_fold<A: Clone>(side: ZipSide<A, String>, cond: WhenCondition) -> Result<Vec<A>, ZipFault<String>> {
+    match cond {
+        WhenCondition::No => Ok(Vec::new()),
+        WhenCondition::Fail(e) => Err(ZipFault::Fail(e)),
+        WhenCondition::Die(d) => Err(ZipFault::Die(d)),
+        WhenCondition::Yes => drop_fold(side, 0),
+    }
+}
+
+#[test]
+fn when_gates_the_stream_on_the_condition() {
+    let stream = || ZipSide::clean(vec![vec![1i64, 2, 3, 4, 5]]);
+
+    // :5362/:5396 — a satisfied condition passes the stream through.
+    assert_eq!(when_fold(stream(), WhenCondition::Yes).unwrap(), vec![1, 2, 3, 4, 5]);
+    // :5372/:5406 — an unsatisfied condition makes the stream empty.
+    assert!(when_fold(stream(), WhenCondition::No).unwrap().is_empty());
+    // :5416 — a failing condition fails the stream.
+    assert!(matches!(
+        when_fold(stream(), WhenCondition::Fail("boom".to_string())),
+        Err(ZipFault::Fail(ref e)) if e == "boom"
+    ));
+    // :5382 — a throwing condition dies the stream.
+    assert!(matches!(
+        when_fold(stream(), WhenCondition::Die("boom".to_string())),
+        Err(ZipFault::Die(ref d)) if d == "boom"
+    ));
+}
+
+/// `Stream.sliding`/`slidingSize` at the pin, in the pin's own terms: pull
+/// chunks into a list, skip `step` elements between windows, emit every
+/// window of `windowSize` the list can supply, and at the end emit the
+/// remainder as a final window. A `skip` debt carries across pulls, which is
+/// what makes the result independent of the upstream chunking. On an upstream
+/// failure the remainder is emitted first and the failure arrives after, so
+/// the return carries both the windows and the optional fault.
+fn sliding_fold<A: Clone, E>(
+    side: ZipSide<A, E>,
+    chunk_size: usize,
+    step_size: usize,
+) -> (Vec<Vec<A>>, Option<ZipFault<E>>) {
+    let window = chunk_size.max(1);
+    let step = step_size.max(1);
+    let mut src = side;
+    let mut list: Vec<A> = Vec::new();
+    let mut emitted = false;
+    let mut skip = 0usize;
+    let mut out: Vec<Vec<A>> = Vec::new();
+    loop {
+        // Fill until a window is available or the upstream ends. A pull that
+        // ends the stream trims the last window's overlap, emits the
+        // remainder, and stops — the pin's `onFailure` arm verbatim.
+        while list.len() < window {
+            match src.pull() {
+                Pulled::Chunk => {
+                    list.append(&mut src.leftover);
+                    if skip > 0 {
+                        let take = skip.min(list.len());
+                        list.drain(..take);
+                        skip = skip.saturating_sub(take);
+                    }
+                }
+                Pulled::Ended => {
+                    if emitted && window > step {
+                        let trim = (window - step).min(list.len());
+                        list.drain(..trim);
+                    }
+                    if !list.is_empty() {
+                        out.push(std::mem::take(&mut list));
+                    }
+                    return (out, None);
+                }
+                Pulled::Fault(fault) => {
+                    if emitted && window > step {
+                        let trim = (window - step).min(list.len());
+                        list.drain(..trim);
+                    }
+                    if !list.is_empty() {
+                        out.push(std::mem::take(&mut list));
+                    }
+                    return (out, Some(fault));
+                }
+            }
+        }
+        emitted = true;
+        while list.len() >= window {
+            if window == step {
+                out.push(list.drain(..window).collect());
+            } else {
+                out.push(list[..window].to_vec());
+                let length = list.len();
+                let take = step.min(length);
+                list.drain(..take);
+                skip = skip.max(step.saturating_sub(length));
+            }
+        }
+    }
+}
+
+#[test]
+fn sliding_and_sliding_size_emit_overlapping_windows() {
+    // :5094 — sliding(2) over [1, 2, 3, 4, 5] is the four overlapping
+    // windows, and no upstream chunking changes them (stream0 bundles empty
+    // chunks and a four-element tail; stream1..3 build the same elements by
+    // concat). One representative chunking per shape is carried: the fold's
+    // skip debt is what makes them equal.
+    let expected = vec![vec![1, 2], vec![2, 3], vec![3, 4], vec![4, 5]];
+    for chunks in [
+        vec![vec![1i64, 2, 3, 4, 5]],
+        vec![Vec::new(), vec![1], Vec::new(), vec![2, 3, 4, 5]],
+        vec![vec![1], Vec::new(), vec![2], Vec::new(), vec![3, 4, 5]],
+    ] {
+        assert_eq!(
+            sliding_fold(ZipSide::clean(chunks), 2, 1).0,
+            expected,
+            "the chunking must not change the windows"
+        );
+    }
+
+    // :5154 — a window larger than the stream emits the whole stream once.
+    assert_eq!(
+        sliding_fold(ZipSide::clean(vec![vec![1i64, 2, 3, 4, 5]]), 6, 1).0,
+        vec![vec![1, 2, 3, 4, 5]]
+    );
+
+    // :5164 — slidingSize(3, 3) is grouped(3) when step equals window.
+    assert_eq!(
+        sliding_fold(ZipSide::clean(vec![vec![1i64, 2, 3, 4, 5]]), 3, 3).0,
+        vec![vec![1, 2, 3], vec![4, 5]]
+    );
+
+    // :5174 — slidingSize(2, 3) is chunk-boundary independent, including the
+    // stream that ends one element short.
+    for (chunks, expected) in [
+        (vec![vec![1i64, 2, 3, 4, 5]], vec![vec![1, 2], vec![4, 5]]),
+        (vec![vec![1, 2], vec![3, 4, 5]], vec![vec![1, 2], vec![4, 5]]),
+        (
+            vec![vec![1], vec![2], vec![3], vec![4], vec![5]],
+            vec![vec![1, 2], vec![4, 5]],
+        ),
+        (vec![vec![1], vec![2], vec![3], vec![4]], vec![vec![1, 2], vec![4]]),
+    ] {
+        assert_eq!(
+            sliding_fold(ZipSide::clean(chunks), 2, 3).0,
+            expected
+        );
+    }
+
+    // :5066 — both sizes normalize like a count: NaN and non-positive become
+    // 1 and a positive value floors, so the windows are [1], [2], [3] for
+    // 0.5 and 1.9 and [1,2], [2,3] for 2.9.
+    for (size, expected) in [
+        (0usize, vec![vec![1], vec![2], vec![3]]),
+        (1, vec![vec![1], vec![2], vec![3]]),
+        (2, vec![vec![1, 2], vec![2, 3]]),
+    ] {
+        assert_eq!(
+            sliding_fold(ZipSide::clean(vec![vec![1i64, 2, 3]]), size, 1).0,
+            expected
+        );
+        let step_expected = match size {
+            0 | 1 => vec![vec![1, 2], vec![2, 3]],
+            _ => vec![vec![1, 2], vec![3]],
+        };
+        assert_eq!(
+            sliding_fold(ZipSide::clean(vec![vec![1i64, 2, 3]]), 2, size).0,
+            step_expected
+        );
+    }
+
+    // :5204 — an empty stream emits nothing at all.
+    assert!(sliding_fold(ZipSide::<i64, String>::clean(Vec::new()), 2, 1)
+        .0
+        .is_empty());
+
+    // :5191 — the upstream failure surfaces after the windows it can supply.
+    let failing = sliding_fold(
+        ZipSide::of(vec![vec![1i64, 2, 3]], ZipEnd::Fail("Ouch".to_string())),
+        2,
+        1,
+    );
+    assert!(
+        matches!(failing.1, Some(ZipFault::Fail(ref e)) if e == "Ouch"),
+        "the failure must reach the exit"
+    );
+
+    // :5210 — the elements before the failure are still emitted: the windows
+    // [1,2,3], [4,5,6] form, then the remainder [7,8] is emitted before the
+    // failure arrives.
+    let failing = sliding_fold(
+        ZipSide::of(
+            vec![vec![1i64, 2, 3, 4], vec![5, 6, 7], vec![8]],
+            ZipEnd::Fail("Ouch".to_string()),
+        ),
+        3,
+        3,
+    );
+    assert_eq!(
+        failing,
+        (
+            vec![vec![1, 2, 3], vec![4, 5, 6], vec![7, 8]],
+            Some(ZipFault::Fail("Ouch".to_string()))
+        ),
+        "the windows are emitted and the failure still arrives"
+    );
+}
+
+/// `Stream.split` at the pin: matching elements are delimiters and are not
+/// emitted; every group between delimiters is emitted, and empty groups
+/// (including a leading one before the first delimiter) are dropped.
+fn split_fold(items: Vec<i64>, f: impl Fn(i64) -> bool) -> Vec<Vec<i64>> {
+    let mut out: Vec<Vec<i64>> = Vec::new();
+    let mut group: Vec<i64> = Vec::new();
+    for item in items {
+        if f(item) {
+            if !group.is_empty() {
+                out.push(std::mem::take(&mut group));
+            }
+        } else {
+            group.push(item);
+        }
+    }
+    if !group.is_empty() {
+        out.push(group);
+    }
+    out
+}
+
+#[test]
+fn split_delimits_non_empty_groups() {
+    // :5236 — range(0, 9) split on n % 4 === 0 drops the delimiters and the
+    // empty leading group.
+    assert_eq!(
+        split_fold((0..10).collect(), |n| n % 4 == 0),
+        vec![vec![1, 2, 3], vec![5, 6, 7], vec![9]]
+    );
+    // The row's second case: chunks [1,2],[3,4],[5,6],[7,8,9],[10] flatten to
+    // 1..10 and split on n % 3 === 0.
+    assert_eq!(
+        split_fold((1..=10).collect(), |n| n % 3 == 0),
+        vec![vec![1, 2], vec![4, 5], vec![7, 8], vec![10]]
+    );
+
+    // :5267 — a predicate that never matches is the identity: the whole
+    // stream is one group, not one group per upstream chunk.
+    assert_eq!(
+        split_fold((1..=10).collect(), |n| n % 11 == 0),
+        vec![(1..=10).collect::<Vec<i64>>()]
+    );
+
+    // :5281 — an empty stream produces no groups at all, not even an empty one.
+    assert!(split_fold(Vec::new(), |n| n % 11 == 0).is_empty());
+}
+
+/// `Stream.zipWithNext`, `zipWithPrevious` and `zipWithPreviousAndNext` at
+/// the pin: each element paired with its neighbors as options. The last
+/// element's next is None, the first element's previous is None, and the
+/// multi-chunk rows are the same fold reached through single-element chunks.
+fn zip_with_next_fold(items: Vec<i64>) -> Vec<(i64, Option<i64>)> {
+    items
+        .iter()
+        .enumerate()
+        .map(|(i, n)| (*n, items.get(i + 1).copied()))
+        .collect()
+}
+
+fn zip_with_previous_fold(items: Vec<i64>) -> Vec<(Option<i64>, i64)> {
+    items
+        .iter()
+        .enumerate()
+        .map(|(i, n)| (if i == 0 { None } else { Some(items[i - 1]) }, *n))
+        .collect()
+}
+
+fn zip_with_previous_and_next_fold(items: Vec<i64>) -> Vec<(Option<i64>, i64, Option<i64>)> {
+    items
+        .iter()
+        .enumerate()
+        .map(|(i, n)| {
+            (
+                if i == 0 { None } else { Some(items[i - 1]) },
+                *n,
+                items.get(i + 1).copied(),
+            )
+        })
+        .collect()
+}
+
+#[test]
+fn zip_with_next_previous_and_previous_and_next_pair_neighbors() {
+    let items = vec![1i64, 2, 3];
+
+    // :5430/:5444 — zipWithNext pairs each element with the one after it.
+    assert_eq!(
+        zip_with_next_fold(items.clone()),
+        vec![(1, Some(2)), (2, Some(3)), (3, None)]
+    );
+    // :5458 — an empty stream pairs to nothing.
+    assert!(zip_with_next_fold(Vec::new()).is_empty());
+
+    // :5468/:5482 — zipWithPrevious pairs each element with the one before.
+    assert_eq!(
+        zip_with_previous_fold(items.clone()),
+        vec![(None, 1), (Some(1), 2), (Some(2), 3)]
+    );
+    // :5496 — an empty stream pairs to nothing.
+    assert!(zip_with_previous_fold(Vec::new()).is_empty());
+    // :5506 — the property row: zipWithPrevious equals zipping the stream
+    // with None prepended to its own Somes. Carried as that construction on
+    // the fixed input.
+    let with_init = std::iter::once(None)
+        .chain(items.iter().copied().map(Some))
+        .zip(items.iter())
+        .map(|(prev, n)| (prev, *n))
+        .collect::<Vec<_>>();
+    assert_eq!(zip_with_previous_fold(items.clone()), with_init);
+
+    // :5525 — zipWithPreviousAndNext carries both neighbors.
+    assert_eq!(
+        zip_with_previous_and_next_fold(items.clone()),
+        vec![(None, 1, Some(2)), (Some(1), 2, Some(3)), (Some(2), 3, None)]
+    );
+    // :5539 — the property row: same construction with the next side too.
+    let with_next = items
+        .iter()
+        .enumerate()
+        .map(|(i, n)| {
+            let prev = if i == 0 { None } else { Some(items[i - 1]) };
+            (prev, *n, items.get(i + 1).copied())
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(zip_with_previous_and_next_fold(items), with_next);
+}
+
+// ---------------------------------------------------------------------------
 // mkArrayBuffer concatenates Uint8Array chunks (Stream.test.ts 155)
 // ---------------------------------------------------------------------------
 
