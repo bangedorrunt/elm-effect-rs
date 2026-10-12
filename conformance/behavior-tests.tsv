@@ -1466,7 +1466,7 @@ ported	packages/effect/test/Effect.test.ts	4451	it.effect	skips restoration when
 ported	packages/effect/test/Effect.test.ts	4462	it.effect	updates a Context.Service until the scope closes	update_service_scoped_updates_a_service_until_the_scope_closes
 ported	packages/effect/test/Effect.test.ts	4476	it.effect	updates a Context.Reference until the scope closes	update_service_scoped_updates_a_reference_until_the_scope_closes
 not-applicable	packages/effect/test/Effect.test.ts	4490	it.effect	supports merging the current value on reset	the reset merge needs a mutable per-fiber context (withFiber setContext) plus a scope-close hook that reads the ambient current and writes the merged value back; the port's context is immutable service data with neither, so reset(original, updated, current) has no point at which current can be read or the merge written
-unported	packages/effect/test/Effect.test.ts	4523	it.effect	subsequent calls share MemoMap	
+ported	packages/effect/test/Effect.test.ts	4523	it.effect	subsequent calls share MemoMap	subsequent_provides_share_the_memo_map
 unported	packages/effect/test/EffectEager.test.ts	8	it	computes sync effects immediately	
 unported	packages/effect/test/EffectEager.test.ts	24	it	computes failures immediately	
 unported	packages/effect/test/EffectEager.test.ts	36	it	stops at first async effect	

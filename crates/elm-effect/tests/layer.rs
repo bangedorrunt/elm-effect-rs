@@ -111,6 +111,55 @@ fn provide_wires_and_hides() {
     assert!(matches!(exit, Exit::Success(41)));
 }
 
+#[test]
+fn subsequent_provides_share_the_memo_map() {
+    // Effect.test.ts:4523 — a `local` provide always builds the layer;
+    // every non-local provide of one handle shares that handle's memoized
+    // build, so the two non-local provides build between them once. The
+    // port's stand-in for `local: true` is a fresh handle, which shares
+    // no memo with the original, so the whole run builds twice.
+    use elm_effect::{Exit, Runtime};
+    use std::sync::atomic::AtomicUsize;
+
+    let counter = Arc::new(AtomicUsize::new(0));
+    let layer = Layer::<Db, std::convert::Infallible, ()>::from_factory({
+        let counter = Arc::clone(&counter);
+        move || {
+            counter.fetch_add(1, Ordering::SeqCst);
+            Effect::succeed(DbConn(42))
+        }
+    })
+    .expect("factory shape is fine");
+    let scope = Scope::new(80);
+
+    let local: Effect<u64, std::convert::Infallible, ()> = layer
+        .fresh()
+        .provide(use_service::<Db>().map(|db| db.0), &scope)
+        .expect("the local provide builds");
+    assert_eq!(Runtime::run(local), Exit::Success(42));
+    assert_eq!(counter.load(Ordering::SeqCst), 1);
+
+    let first: Effect<u64, std::convert::Infallible, ()> = layer
+        .provide(use_service::<Db>().map(|db| db.0), &scope)
+        .expect("wires");
+    assert_eq!(Runtime::run(first), Exit::Success(42));
+    assert_eq!(
+        counter.load(Ordering::SeqCst),
+        2,
+        "the first non-local provide builds"
+    );
+
+    let second: Effect<u64, std::convert::Infallible, ()> = layer
+        .provide(use_service::<Db>().map(|db| db.0), &scope)
+        .expect("wires");
+    assert_eq!(Runtime::run(second), Exit::Success(42));
+    assert_eq!(
+        counter.load(Ordering::SeqCst),
+        2,
+        "the second non-local provide shares the MemoMap"
+    );
+}
+
 struct StringConn(String);
 
 /// A tag distinct from the file's existing `Db` so there is no duplicate
