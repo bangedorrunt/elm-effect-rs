@@ -204,7 +204,7 @@ tests = ["packages/effect/test/Duration.test.ts"]
 [[module]]
 path = "packages/effect/src/Effect.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/Effect.test.ts"]
