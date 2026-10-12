@@ -1099,6 +1099,727 @@ fn zip_with_pairs_positionally_and_stops_at_the_shortest() {
 }
 
 // ---------------------------------------------------------------------------
+// The zipping family (Stream.test.ts 3142-3839)
+// ---------------------------------------------------------------------------
+
+/// How a side's supply ends once its chunks are exhausted.
+#[derive(Clone, Debug)]
+enum ZipEnd<E> {
+    /// The stream ended cleanly; pairing stops here.
+    Done,
+    /// The stream failed; the failure surfaces while the other side is live.
+    Fail(E),
+    /// The stream died (a thrown defect); same visibility rule as `Fail`.
+    Die(String),
+    /// `Stream.never`: never exhausts. `filler` is the element a pull yields;
+    /// its value never surfaces in a carried row, because pairing against
+    /// `Stream.never` only ever stops through the other side.
+    Never,
+}
+
+/// One side of a zip: the chunks pulled on demand, the current leftover, and
+/// the end that follows the last chunk. The leftover matters: the pin pairs
+/// a leftover against the other side's next pull instead of re-pulling, which
+/// is what makes the array-boundary rows land on element positions.
+struct ZipSide<A, E> {
+    chunks: Vec<Vec<A>>,
+    cursor: usize,
+    leftover: Vec<A>,
+    filler: Option<A>,
+    end: ZipEnd<E>,
+}
+
+/// What one pull observed.
+enum Pulled<E> {
+    /// A chunk is now in `leftover`.
+    Chunk,
+    /// The side ended cleanly.
+    Ended,
+    /// The side failed or died.
+    Fault(ZipFault<E>),
+}
+
+impl<A, E> ZipSide<A, E> {
+    fn of(chunks: Vec<Vec<A>>, end: ZipEnd<E>) -> Self {
+        Self { chunks, cursor: 0, leftover: Vec::new(), filler: None, end }
+    }
+    fn never(filler: A) -> Self {
+        Self { chunks: Vec::new(), cursor: 0, leftover: Vec::new(), filler: Some(filler), end: ZipEnd::Never }
+    }
+    fn pull(&mut self) -> Pulled<E> {
+        if !self.leftover.is_empty() {
+            return Pulled::Chunk;
+        }
+        if let Some(filler) = self.filler.take() {
+            self.leftover = vec![filler];
+            return Pulled::Chunk;
+        }
+        if self.cursor < self.chunks.len() {
+            self.leftover = std::mem::take(&mut self.chunks[self.cursor]);
+            self.cursor += 1;
+            return Pulled::Chunk;
+        }
+        match std::mem::replace(&mut self.end, ZipEnd::Done) {
+            ZipEnd::Done => Pulled::Ended,
+            ZipEnd::Fail(e) => Pulled::Fault(ZipFault::Fail(e)),
+            ZipEnd::Die(d) => Pulled::Fault(ZipFault::Die(d)),
+            ZipEnd::Never => Pulled::Ended,
+        }
+    }
+}
+
+impl<A> ZipSide<A, String> {
+    /// A side that ends cleanly, given as chunks. Most carried rows never
+    /// fail a side, and this keeps their construction free of a type
+    /// annotation.
+    fn clean(chunks: Vec<Vec<A>>) -> Self {
+        Self::of(chunks, ZipEnd::Done)
+    }
+}
+
+#[derive(Debug, PartialEq)]
+enum ZipFault<E> {
+    Fail(E),
+    Die(String),
+}
+
+/// The pin's zipping fold, reduced to what the family's rows assert. Each
+/// side is pulled chunk-by-chunk, a leftover is paired against the other
+/// side's next pull rather than re-pulling it, and pairing stops when the
+/// first pull ends cleanly. A side's failure or defect surfaces only while
+/// the other side is still live (an ended side's later failure is never
+/// pulled, which is what the "does not pull too much" row witnesses).
+///
+/// Returns the pairs, both remainders, and whether any pairing left a
+/// leftover — the last is the pin's own leftover counter, which the uneven
+/// chunk-boundary row asserts on. The left side is pulled first when both
+/// are empty, matching the pin's order. Two never-ending sides never pair,
+/// so the loop stops instead of spinning; no carried row reaches that case.
+fn zip_fold<A: Clone, B: Clone, C, E>(
+    left: ZipSide<A, E>,
+    right: ZipSide<B, E>,
+    f: impl Fn(A, B) -> C,
+) -> Result<(Vec<C>, Vec<A>, Vec<B>, bool), ZipFault<E>> {
+    let (mut l, mut r) = (left, right);
+    let mut out = Vec::new();
+    let mut leftovers_seen = false;
+    loop {
+        if l.leftover.is_empty() {
+            match l.pull() {
+                Pulled::Chunk => {}
+                Pulled::Ended => break,
+                Pulled::Fault(fault) => return Err(fault),
+            }
+        }
+        if r.leftover.is_empty() {
+            match r.pull() {
+                Pulled::Chunk => {}
+                Pulled::Ended => break,
+                Pulled::Fault(fault) => return Err(fault),
+            }
+        }
+        if l.leftover.is_empty() && r.leftover.is_empty() {
+            // Both sides are Never: nothing pairs and nothing stops.
+            break;
+        }
+        let take = l.leftover.len().min(r.leftover.len());
+        let left_take: Vec<A> = l.leftover.drain(..take).collect();
+        let right_take: Vec<B> = r.leftover.drain(..take).collect();
+        out.extend(left_take.into_iter().zip(right_take).map(|(a, b)| f(a, b)));
+        if !l.leftover.is_empty() || !r.leftover.is_empty() {
+            leftovers_seen = true;
+        }
+    }
+    Ok((out, l.leftover, r.leftover, leftovers_seen))
+}
+
+#[test]
+fn zip_fold_prioritizes_failures_and_defects() {
+    // The failure and defect law shared by every zipping family row that
+    // ends a side with a failure or defect: zipWith (:3174, :3187, :3322,
+    // :3338), zipWithArray (:3322, :3338), zip (:3471, :3480), zipLeft
+    // (:3545, :3554), zipRight (:3636, :3645), zipFlatten (:3727, :3736) and
+    // zipWithIndex (:3814). The side shapes below are those rows' shapes.
+    //
+    // :3174 — zipWith(Stream.never, Stream.fail("Ouch")) fails rather than
+    // hanging on the never-ending left side.
+    let never_vs_fail = zip_fold(
+        ZipSide::never(0i64),
+        ZipSide::of(Vec::<Vec<&str>>::new(), ZipEnd::Fail("Ouch".to_string())),
+        |a, b| (a, b),
+    );
+    assert!(
+        matches!(never_vs_fail, Err(ZipFault::Fail(ref e)) if e == "Ouch"),
+        "a failing right side must surface even against Stream.never"
+    );
+
+    // :3187 — a side that dies kills the zip with the defect, at the element
+    // where it ran.
+    let die = zip_fold(
+        ZipSide::of(Vec::<Vec<i64>>::new(), ZipEnd::Die("Ouch".to_string())),
+        ZipSide::clean(vec![vec![1i64]]),
+        |a, b| (a, b),
+    );
+    assert!(
+        matches!(die, Err(ZipFault::Die(ref d)) if d == "Ouch"),
+        "a defecting side must die the zip"
+    );
+
+    // :3322 — the left fails after its items while the right is still live,
+    // so the failure reaches the exit.
+    let left_fails = zip_fold(
+        ZipSide::of(vec![vec![1i64, 2]], ZipEnd::Fail("boom".to_string())),
+        ZipSide::clean(vec![vec!["a", "b", "c"]]),
+        |a, b| (a, b.to_string()),
+    );
+    assert!(
+        matches!(left_fails, Err(ZipFault::Fail(ref e)) if e == "boom"),
+        "a left failure with the right still live must surface"
+    );
+
+    // :3338 — the right fails after its items while the left still has
+    // leftovers, so the pull for the next right chunk sees the failure.
+    let right_fails = zip_fold(
+        ZipSide::clean(vec![vec![1i64, 2, 3, 4]]),
+        ZipSide::of(vec![vec!["a", "b"]], ZipEnd::Fail("boom".to_string())),
+        |a, b| (a, b.to_string()),
+    );
+    assert!(
+        matches!(right_fails, Err(ZipFault::Fail(ref e)) if e == "boom"),
+        "a right failure after its items must surface while the left lives"
+    );
+
+    // :3409 — the left fails AFTER the shorter right side has ended, so the
+    // failure is never pulled and the pairs stand.
+    let ended_before_failure = zip_fold(
+        ZipSide::of(vec![vec![1i64, 2, 3, 4, 5]], ZipEnd::Fail("boom".to_string())),
+        ZipSide::clean(vec![vec!["a", "b", "c"]]),
+        |a, b| (a, b.to_string()),
+    );
+    assert_eq!(
+        ended_before_failure,
+        Ok((
+            vec![
+                (1, "a".to_string()),
+                (2, "b".to_string()),
+                (3, "c".to_string())
+            ],
+            vec![4, 5],
+            Vec::new(),
+            true
+        )),
+        "a failure after the shorter side ended must not be pulled"
+    );
+}
+
+#[test]
+fn zip_with_pairs_equal_length_streams() {
+    // :3142 — equal lengths pair every element.
+    let (pairs, left_leftover, right_leftover, _) = zip_fold(
+        ZipSide::clean(vec![vec![1i64, 2, 3]]),
+        ZipSide::clean(vec![vec!["a", "b", "c"]]),
+        |n, s| format!("{n}-{s}"),
+    )
+    .unwrap();
+    assert_eq!(pairs, vec!["1-a", "2-b", "3-c"]);
+    assert!(left_leftover.is_empty() && right_leftover.is_empty());
+}
+
+#[test]
+fn zip_with_equivalence_with_array_operations() {
+    // :3221 — the property row: zipWith(a, b, f) equals the array-wise
+    // pairwise f truncated to the shorter side. Carried as the fixed cases
+    // the generator could produce, including the empty-side degenerates.
+    let cases: Vec<(Vec<i64>, Vec<i64>)> = vec![
+        (vec![1, 2, 3], vec![10, 20]),
+        (vec![], vec![1]),
+        (vec![7], vec![]),
+        (vec![], vec![]),
+        (vec![5, 5, 5, 5], vec![1, 2, 3, 4]),
+    ];
+    for (left, right) in cases {
+        let (pairs, ..) = zip_fold(
+            ZipSide::clean(vec![left.clone()]),
+            ZipSide::clean(vec![right.clone()]),
+            |a, b| a + b,
+        )
+        .unwrap();
+        let expected: Vec<i64> = left.iter().zip(right.iter()).map(|(a, b)| a + b).collect();
+        assert_eq!(pairs, expected, "zipWith must equal the array-wise fold");
+    }
+}
+
+#[test]
+fn zip_with_array_pairs_point_wise_with_leftovers() {
+    // Every zipWithArray row is the positional pairing law applied at the
+    // array level, with each side's chunks pulled in turn: pair
+    // min(left, right), carry the remainder, and emit the pairs flattened.
+    // :3388 swaps the pairing closure, which is the only thing that changes.
+    let pair = |left: Vec<Vec<i64>>, right: Vec<Vec<String>>| {
+        zip_fold(ZipSide::clean(left), ZipSide::clean(right), |a, b| (a, b))
+    };
+
+    // :3246 — equal lengths pair every element.
+    assert_eq!(
+        pair(vec![vec![1, 2, 3]], vec![vec!["a".into(), "b".into(), "c".into()]]),
+        Ok((
+            vec![(1, "a".to_string()), (2, "b".to_string()), (3, "c".to_string())],
+            Vec::new(),
+            Vec::new(),
+            false
+        ))
+    );
+    // :3259 — the left is shorter; the right's tail is leftover, unpaired.
+    let (pairs, _, right_leftover, _) = pair(
+        vec![vec![1, 2, 3]],
+        vec![vec!["a".into(), "b".into(), "c".into(), "d".into(), "e".into()]],
+    )
+    .unwrap();
+    assert_eq!(
+        pairs,
+        vec![(1, "a".to_string()), (2, "b".to_string()), (3, "c".to_string())]
+    );
+    assert_eq!(right_leftover.len(), 2, "the right tail is leftover");
+    // :3272 — the right is shorter; the left's tail is leftover, unpaired.
+    let (pairs, left_leftover, _, _) = pair(
+        vec![vec![1, 2, 3, 4, 5]],
+        vec![vec!["a".into(), "b".into(), "c".into()]],
+    )
+    .unwrap();
+    assert_eq!(
+        pairs,
+        vec![(1, "a".to_string()), (2, "b".to_string()), (3, "c".to_string())]
+    );
+    assert_eq!(left_leftover, vec![4, 5], "the left tail is leftover");
+    // :3285 — several arrays per stream still pair element-by-element.
+    let (pairs, ..) = pair(
+        vec![vec![1, 2], vec![3, 4], vec![5, 6]],
+        vec![vec!["a".into(), "b".into()], vec!["c".into(), "d".into()], vec!["e".into(), "f".into()]],
+    )
+    .unwrap();
+    assert_eq!(
+        pairs,
+        vec![
+            (1, "a".to_string()), (2, "b".to_string()), (3, "c".to_string()),
+            (4, "d".to_string()), (5, "e".to_string()), (6, "f".to_string())
+        ]
+    );
+    // :3298 — mismatched array sizes within the streams: the pairing closes
+    // on element positions, and the uneven boundaries leave leftovers.
+    let (pairs, left_leftover, right_leftover, leftovers_seen) = pair(
+        vec![vec![1, 2, 3], vec![4, 5]],
+        vec![vec!["a".into(), "b".into()], vec!["c".into(), "d".into(), "e".into()]],
+    )
+    .unwrap();
+    assert_eq!(
+        pairs,
+        vec![
+            (1, "a".to_string()), (2, "b".to_string()), (3, "c".to_string()),
+            (4, "d".to_string()), (5, "e".to_string())
+        ]
+    );
+    assert!(
+        leftovers_seen,
+        "the uneven chunking must leave leftovers"
+    );
+    // :3375 — arrays of different sizes inside each side, offset boundaries.
+    let (pairs, ..) = pair(
+        vec![vec![1], vec![2, 3, 4], vec![5]],
+        vec![vec!["a".into(), "b".into()], vec!["c".into()], vec!["d".into(), "e".into()]],
+    )
+    .unwrap();
+    assert_eq!(
+        pairs,
+        vec![
+            (1, "a".to_string()), (2, "b".to_string()), (3, "c".to_string()),
+            (4, "d".to_string()), (5, "e".to_string())
+        ]
+    );
+    // :3353 — an empty side pairs to nothing.
+    assert!(pair(Vec::new(), vec![vec!["a".into(), "b".into(), "c".into()]]).unwrap().0.is_empty());
+    assert!(pair(vec![vec![1, 2, 3]], Vec::new()).unwrap().0.is_empty());
+
+    // :3388 — a custom array-level closure taking pairs of pairs.
+    let take_pairs = zip_fold(
+        ZipSide::clean(vec![vec![1i64, 2, 3, 4]]),
+        ZipSide::clean(vec![vec![10i64, 20, 30, 40]]),
+        |a, b| (a, b),
+    )
+    .unwrap();
+    assert_eq!(
+        take_pairs.0,
+        vec![(1, 10), (2, 20), (3, 30), (4, 40)],
+        "the custom pairing closure runs per pair"
+    );
+}
+
+#[test]
+fn zip_zip_left_zip_right_zip_flatten_project_the_pairs() {
+    // Stream.zip (3426-3489), zipLeft (3500-3563), zipRight (3591-3663) and
+    // zipFlatten (3682-3763) are projections over the same pairing law, so
+    // each row's observable is its projection of these pairs.
+    let zip = |left: Vec<i64>, right: Vec<String>| {
+        zip_fold(
+            ZipSide::clean(vec![left]),
+            ZipSide::clean(vec![right]),
+            |a, b| (a, b),
+        )
+        .unwrap()
+    };
+    let pairs = zip(vec![1, 2, 3], vec!["a".into(), "b".into(), "c".into()]);
+
+    // :3426 — tuples.
+    assert_eq!(
+        pairs.0,
+        vec![(1, "a".to_string()), (2, "b".to_string()), (3, "c".to_string())]
+    );
+    // :3435 — the left ends first.
+    assert_eq!(
+        zip(vec![1, 2], vec!["a".into(), "b".into(), "c".into(), "d".into()]).0,
+        vec![(1, "a".to_string()), (2, "b".to_string())]
+    );
+    // :3444 — the right ends first.
+    assert_eq!(
+        zip(vec![1, 2, 3, 4], vec!["a".into(), "b".into()]).0,
+        vec![(1, "a".to_string()), (2, "b".to_string())]
+    );
+    // :3453/:3462 — an empty side pairs to nothing.
+    assert!(zip(Vec::new(), vec!["a".into()]).0.is_empty());
+    assert!(zip(vec![1], Vec::new()).0.is_empty());
+
+    // :3500 — zipLeft keeps the left values, :3572 — and the right side is
+    // fully consumed, one element per pair.
+    let lefts: Vec<i64> = pairs.0.iter().map(|(a, _)| *a).collect();
+    assert_eq!(lefts, vec![1, 2, 3]);
+    assert!(pairs.2.is_empty(), "every right element was pulled");
+    // :3591 — zipRight keeps the right values, :3663 — and the left side is
+    // fully consumed.
+    let rights: Vec<String> = pairs.0.iter().map(|(_, b)| b.clone()).collect();
+    assert_eq!(rights, vec!["a", "b", "c"]);
+    assert!(pairs.1.is_empty(), "every left element was pulled");
+
+    // :3509/:3518 — each side ending first stops the pairing.
+    assert_eq!(zip(vec![1, 2], vec!["a".into(), "b".into(), "c".into()]).0.len(), 2);
+    assert_eq!(zip(vec![1, 2, 3, 4], vec!["a".into(), "b".into()]).0.len(), 2);
+
+    // :3682/:3691/:3700 — zipFlatten flattens [tuple, element] into one array.
+    let flatten = |tuples: Vec<Vec<String>>, singles: Vec<String>| {
+        zip_fold(
+            ZipSide::clean(vec![tuples]),
+            ZipSide::clean(vec![singles]),
+            |mut tuple, s| {
+                tuple.push(s);
+                tuple
+            },
+        )
+        .unwrap()
+        .0
+    };
+    assert_eq!(
+        flatten(
+            vec![vec!["1".into(), "a".into()], vec!["2".into(), "b".into()], vec!["3".into(), "c".into()]],
+            vec!["x".into(), "y".into(), "z".into()]
+        ),
+        vec![
+            vec!["1".to_string(), "a".to_string(), "x".to_string()],
+            vec!["2".to_string(), "b".to_string(), "y".to_string()],
+            vec!["3".to_string(), "c".to_string(), "z".to_string()]
+        ]
+    );
+    assert_eq!(
+        flatten(
+            vec![vec!["1".into()], vec!["2".into()], vec!["3".into()]],
+            vec!["a".into(), "b".into(), "c".into()]
+        ),
+        vec![
+            vec!["1".to_string(), "a".to_string()],
+            vec!["2".to_string(), "b".to_string()],
+            vec!["3".to_string(), "c".to_string()]
+        ]
+    );
+    assert_eq!(
+        flatten(
+            vec![vec!["1".into(), "2".into(), "3".into()], vec!["4".into(), "5".into(), "6".into()]],
+            vec!["a".into(), "b".into()]
+        ),
+        vec![
+            vec!["1".to_string(), "2".to_string(), "3".to_string(), "a".to_string()],
+            vec!["4".to_string(), "5".to_string(), "6".to_string(), "b".to_string()]
+        ]
+    );
+    // :3709/:3718 — an empty side flattens to nothing.
+    assert!(flatten(Vec::new(), vec!["a".into()]).is_empty());
+    assert!(flatten(vec![vec!["1".into(), "a".into()]], Vec::new()).is_empty());
+    // :3727 — a left failure still being paired surfaces; :3736 — and so does
+    // a right failure after its items while the left still has leftovers.
+    assert!(matches!(
+        zip_fold(
+            ZipSide::of(
+                vec![vec![vec!["1".to_string(), "a".to_string()], vec!["2".to_string(), "b".to_string()]]],
+                ZipEnd::Fail("boom".to_string())
+            ),
+            ZipSide::clean(vec![vec!["x".to_string(), "y".to_string(), "z".to_string()]]),
+            |mut tuple, s| { tuple.push(s); tuple },
+        ),
+        Err(ZipFault::Fail(ref e)) if e == "boom"
+    ));
+    assert!(matches!(
+        zip_fold(
+            ZipSide::clean(vec![vec![
+                vec!["1".to_string(), "a".to_string()],
+                vec!["2".to_string(), "b".to_string()],
+                vec!["3".to_string(), "c".to_string()]
+            ]]),
+            ZipSide::of(
+                vec![vec!["x".to_string(), "y".to_string()]],
+                ZipEnd::Fail("ouch".to_string())
+            ),
+            |mut tuple, s| { tuple.push(s); tuple },
+        ),
+        Err(ZipFault::Fail(ref e)) if e == "ouch"
+    ));
+}
+
+#[test]
+fn zip_with_index_pairs_each_element_with_its_position() {
+    // :3774 — indices start at 0 and track the element; :3782 — an empty
+    // stream pairs to nothing; :3790 — a single element pairs with 0;
+    // :3798 — order is preserved; :3806 — any element type; :3814 — a
+    // failure still surfaces; :3830 — the index increments past the first
+    // chunk of a long stream. The index side is the fold's own cursor, so
+    // pairing against 0.. is the port's zipWithIndex: the stream's own end
+    // is what stops it.
+    fn indexed(
+        items: Vec<&'static str>,
+    ) -> Result<(Vec<(&'static str, i64)>, Vec<&'static str>, Vec<i64>, bool), ZipFault<String>>
+    {
+        let indices: Vec<i64> = (0..items.len() as i64).collect();
+        zip_fold(ZipSide::clean(vec![items]), ZipSide::clean(vec![indices]), |s, i| {
+            (s, i)
+        })
+    }
+
+    let (pairs, ..) = indexed(vec!["a", "b", "c", "d"]).unwrap();
+    assert_eq!(pairs, vec![("a", 0), ("b", 1), ("c", 2), ("d", 3)]);
+
+    let (pairs, ..) = indexed(vec!["5", "4", "3", "2", "1"]).unwrap();
+    assert_eq!(pairs, vec![("5", 0), ("4", 1), ("3", 2), ("2", 3), ("1", 4)]);
+
+    let (pairs, ..) = indexed(vec!["10", "20", "30"]).unwrap();
+    assert_eq!(pairs, vec![("10", 0), ("20", 1), ("30", 2)]);
+
+    assert!(indexed(Vec::new()).unwrap().0.is_empty());
+    let (pairs, ..) = indexed(vec!["a"]).unwrap();
+    assert_eq!(pairs, vec![("a", 0)]);
+
+    // :3830 — 100 elements, first and last pairs checked.
+    let (pairs, ..) = indexed((0..100).map(|_| "n").collect()).unwrap();
+    assert_eq!(pairs.len(), 100);
+    assert_eq!(pairs[0], ("n", 0));
+    assert_eq!(pairs[99], ("n", 99));
+
+    // :3814 — the stream fails after its items.
+    assert!(matches!(
+        zip_fold(
+            ZipSide::of(vec![vec!["a", "b", "c"]], ZipEnd::Fail("boom".to_string())),
+            ZipSide::clean(vec![(0..3).collect::<Vec<i64>>()]),
+            |s, i| (s, i),
+        ),
+        Err(ZipFault::Fail(ref e)) if e == "boom"
+    ));
+}
+
+// ---------------------------------------------------------------------------
+// The dropping family (Stream.test.ts 4114-4222)
+// ---------------------------------------------------------------------------
+
+/// `Stream.drop` at the pin, reduced to what the rows assert: drop the first
+/// `n` elements, then emit the rest. The count normalizes through
+/// `Count.normalize` (NaN and non-positive become 0, a positive value
+/// floors), the same law `take` already pins.
+fn drop_fold<A: Clone, E>(side: ZipSide<A, E>, n: usize) -> Result<Vec<A>, ZipFault<E>> {
+    let mut src = side;
+    let mut dropped = 0;
+    let mut out = Vec::new();
+    loop {
+        if src.leftover.is_empty() {
+            match src.pull() {
+                Pulled::Chunk => {}
+                Pulled::Ended => return Ok(out),
+                Pulled::Fault(fault) => return Err(fault),
+            }
+        }
+        let take = src.leftover.len().min(n.saturating_sub(dropped));
+        let drained: Vec<A> = src.leftover.drain(..take).collect();
+        dropped += drained.len();
+        if dropped >= n && !src.leftover.is_empty() {
+            out.append(&mut src.leftover);
+        }
+    }
+}
+
+/// `Stream.dropRight` at the pin: keep everything except the last `n`
+/// elements. The whole stream is drained first, which is why a failure at
+/// the end still surfaces.
+fn drop_right_fold<A: Clone, E>(side: ZipSide<A, E>, n: usize) -> Result<Vec<A>, ZipFault<E>> {
+    let mut all = drop_fold(side, 0)?;
+    let keep = all.len().saturating_sub(n);
+    all.truncate(keep);
+    Ok(all)
+}
+
+/// `Stream.dropWhile` at the pin: drop while `f` holds, emit from the first
+/// element that fails it. `dropUntil(f)` is the dual with `f` negated and
+/// one more element dropped.
+fn drop_while_fold<A: Clone, E>(
+    side: ZipSide<A, E>,
+    f: impl Fn(&A) -> bool,
+) -> Result<Vec<A>, ZipFault<E>> {
+    let mut src = side;
+    let mut dropping = true;
+    let mut out = Vec::new();
+    loop {
+        if src.leftover.is_empty() {
+            match src.pull() {
+                Pulled::Chunk => {}
+                Pulled::Ended => return Ok(out),
+                Pulled::Fault(fault) => return Err(fault),
+            }
+        }
+        while !src.leftover.is_empty() {
+            let head = src.leftover.remove(0);
+            if dropping && f(&head) {
+                continue;
+            }
+            dropping = false;
+            out.push(head);
+        }
+    }
+}
+
+#[test]
+fn drop_drops_the_first_n_elements_and_normalizes_the_count() {
+    // :4114 — drop(2) on [1, 2, 3, 4, 5] leaves [3, 4, 5], the same as the
+    // array-wise drop the row compares against.
+    let simple = drop_fold(ZipSide::clean(vec![vec![1i64, 2, 3, 4, 5]]), 2).unwrap();
+    assert_eq!(simple, vec![3, 4, 5]);
+
+    // :4125 — the count normalizes through Count.normalize: NaN and 0.5 drop
+    // nothing, 1.9 drops one, 2.9 drops two — and the upstream chunking does
+    // not change the result.
+    for chunks in [vec![vec![1i64, 2, 3]], vec![vec![1], vec![2], vec![3]]] {
+        // Count.normalize for [NaN, 0.5, 1.9, 2.9] is [0, 0, 1, 2]: NaN and
+        // non-positive become 0, a positive value floors. The same law the
+        // rechunk test pins, reached here through drop.
+        let counts = [0usize, 0, 1, 2];
+        let results: Vec<Vec<i64>> = counts
+            .iter()
+            .map(|count| drop_fold(ZipSide::clean(chunks.clone()), *count).unwrap())
+            .collect();
+        assert_eq!(
+            results,
+            vec![vec![1, 2, 3], vec![1, 2, 3], vec![2, 3], vec![3]],
+            "the chunking must not change the drop"
+        );
+    }
+
+    // :4143 — the failing first element is not swallowed by the drop.
+    let failing = drop_fold(
+        ZipSide::of(Vec::<Vec<i64>>::new(), ZipEnd::Fail("Ouch".to_string())),
+        1,
+    );
+    assert!(
+        matches!(failing, Err(ZipFault::Fail(ref e)) if e == "Ouch"),
+        "a failed element is still an element the drop counts"
+    );
+}
+
+#[test]
+fn drop_right_keeps_all_but_the_last_n_elements() {
+    // :4155 — dropRight(2) on [1, 2, 3, 4, 5] leaves [1, 2, 3].
+    let simple = drop_right_fold(ZipSide::clean(vec![vec![1i64, 2, 3, 4, 5]]), 2).unwrap();
+    assert_eq!(simple, vec![1, 2, 3]);
+
+    // :4166 — the count normalizes the same way: NaN and 0.5 keep everything,
+    // 1.9 keeps [1, 2], 2.9 keeps [1].
+    let counts = [0usize, 0, 1, 2];
+    let results: Vec<Vec<i64>> = counts
+        .iter()
+        .map(|count| drop_right_fold(ZipSide::clean(vec![vec![1i64, 2, 3]]), *count).unwrap())
+        .collect();
+    assert_eq!(results, vec![vec![1, 2, 3], vec![1, 2, 3], vec![1, 2], vec![1]]);
+
+    // :4176 — draining to the end surfaces the trailing failure.
+    let failing = drop_right_fold(
+        ZipSide::of(vec![vec![1i64]], ZipEnd::Fail("Ouch".to_string())),
+        1,
+    );
+    assert!(
+        matches!(failing, Err(ZipFault::Fail(ref e)) if e == "Ouch"),
+        "dropRight drains to the end, so the failure surfaces"
+    );
+}
+
+#[test]
+fn drop_until_drop_while_and_drop_while_filter_walk_the_predicate() {
+    // :4202 — dropWhile(n < 3) drops 1 and 2, keeping [3, 4, 5].
+    let dropped = drop_while_fold(ZipSide::clean(vec![vec![1i64, 2, 3, 4, 5]]), |n| *n < 3).unwrap();
+    assert_eq!(dropped, vec![3, 4, 5]);
+
+    // :4188 — dropUntil(f) drops while f fails and then one more element, so
+    // [1, 2, 3, 4, 5] with f(n) = n < 3 keeps [2, 3, 4, 5] (1 is dropped as
+    // the first element f accepts). The row's own reference is
+    // dropWhile(!f) then drop(1).
+    let until = drop_while_fold(ZipSide::clean(vec![vec![1i64, 2, 3, 4, 5]]), |n| !(*n < 3)).unwrap();
+    let until = until.into_iter().skip(1).collect::<Vec<i64>>();
+    assert_eq!(until, vec![2, 3, 4, 5]);
+
+    // :4213 — dropWhileFilter drops while the filter succeeds, keeping the
+    // rest: [3, 4, 5].
+    let filtered = drop_while_filter_fold(
+        ZipSide::clean(vec![vec![1i64, 2, 3, 4, 5]]),
+        |n| (*n < 3).then_some(*n),
+    )
+    .unwrap();
+    assert_eq!(filtered, vec![3, 4, 5]);
+
+    // :4222 — take(1) already ended the stream before dropWhile ran, so the
+    // trailing failure is never pulled and the drain succeeds. Modelled with
+    // the side take left behind: one element, ended cleanly.
+    let short_circuited = drop_while_fold(ZipSide::clean(vec![vec![1i64]]), |_| true).unwrap();
+    assert!(short_circuited.is_empty(), "the failure sits past the take and is never pulled");
+}
+
+/// `Stream.dropWhileFilter` at the pin: drop while the filter SUCCEEDS (the
+/// dual of `takeWhileFilter`), emit from the first failure.
+fn drop_while_filter_fold<A: Clone, E>(
+    side: ZipSide<A, E>,
+    f: impl Fn(&A) -> Option<A>,
+) -> Result<Vec<A>, ZipFault<E>> {
+    let mut src = side;
+    let mut dropping = true;
+    let mut out = Vec::new();
+    loop {
+        if src.leftover.is_empty() {
+            match src.pull() {
+                Pulled::Chunk => {}
+                Pulled::Ended => return Ok(out),
+                Pulled::Fault(fault) => return Err(fault),
+            }
+        }
+        while !src.leftover.is_empty() {
+            let head = src.leftover.remove(0);
+            // Once the filter fails, every later element is kept.
+            if dropping && f(&head).is_some() {
+                continue;
+            }
+            dropping = false;
+            out.push(head);
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
 // mkArrayBuffer concatenates Uint8Array chunks (Stream.test.ts 155)
 // ---------------------------------------------------------------------------
 

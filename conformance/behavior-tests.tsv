@@ -1462,10 +1462,10 @@ ported	packages/effect/test/Effect.test.ts	4345	it.effect	replays the owner's in
 ported	packages/effect/test/Effect.test.ts	4364	it.effect	selects ttl from each fresh exit without evaluating on cache hits	cached_with_ttl_selects_ttl_from_each_fresh_exit
 ported	packages/effect/test/Effect.test.ts	4392	it.effect	supports a piped callback that skips failures and caches successes	cached_with_ttl_skips_failures_and_caches_successes
 ported	packages/effect/test/Effect.test.ts	4412	it.effect	starts ttl from value creation	cached_with_ttl_starts_ttl_from_value_creation
-unported	packages/effect/test/Effect.test.ts	4451	it.effect	skips restoration when the provider expires before scope closure	
-unported	packages/effect/test/Effect.test.ts	4462	it.effect	updates a Context.Service until the scope closes	
-unported	packages/effect/test/Effect.test.ts	4476	it.effect	updates a Context.Reference until the scope closes	
-unported	packages/effect/test/Effect.test.ts	4490	it.effect	supports merging the current value on reset	
+ported	packages/effect/test/Effect.test.ts	4451	it.effect	skips restoration when the provider expires before scope closure	update_service_scoped_skips_restoration_when_the_provider_expires
+ported	packages/effect/test/Effect.test.ts	4462	it.effect	updates a Context.Service until the scope closes	update_service_scoped_updates_a_service_until_the_scope_closes
+ported	packages/effect/test/Effect.test.ts	4476	it.effect	updates a Context.Reference until the scope closes	update_service_scoped_updates_a_reference_until_the_scope_closes
+not-applicable	packages/effect/test/Effect.test.ts	4490	it.effect	supports merging the current value on reset	the reset merge needs a mutable per-fiber context (withFiber setContext) plus a scope-close hook that reads the ambient current and writes the merged value back; the port's context is immutable service data with neither, so reset(original, updated, current) has no point at which current can be read or the merge written
 unported	packages/effect/test/Effect.test.ts	4523	it.effect	subsequent calls share MemoMap	
 unported	packages/effect/test/EffectEager.test.ts	8	it	computes sync effects immediately	
 unported	packages/effect/test/EffectEager.test.ts	24	it	computes failures immediately	
@@ -3681,115 +3681,115 @@ not-applicable	packages/effect/test/Stream.test.ts	2703	it.effect	error propagat
 not-applicable	packages/effect/test/Stream.test.ts	2718	it.effect	error propagation #2	Stream.aggregateWithin does not exist in this port (0 hits across src/) and needs a Sink reduction combined with a Schedule, and this port has neither stream-level aggregation nor the sink/schedule machinery the pin folds over
 not-applicable	packages/effect/test/Stream.test.ts	2733	it.effect	interruption propagation #1	Stream.aggregateWithin does not exist in this port (0 hits across src/) and needs a Sink reduction combined with a Schedule, and this port has neither stream-level aggregation nor the sink/schedule machinery the pin folds over
 not-applicable	packages/effect/test/Stream.test.ts	2760	it.effect	interruption propagation #2	Stream.aggregateWithin does not exist in this port (0 hits across src/) and needs a Sink reduction combined with a Schedule, and this port has neither stream-level aggregation nor the sink/schedule machinery the pin folds over
-unported	packages/effect/test/Stream.test.ts	2803	it.effect	should drop earlier chunks within waitTime	
-unported	packages/effect/test/Stream.test.ts	2841	it.effect	should take latest chunk within waitTime	
-unported	packages/effect/test/Stream.test.ts	2864	it.effect	should work properly with parallelization	
-unported	packages/effect/test/Stream.test.ts	2887	it.effect	should handle empty chunks properly	
-unported	packages/effect/test/Stream.test.ts	2901	it.effect	should fail immediately	
-unported	packages/effect/test/Stream.test.ts	2912	it.effect	should work with empty streams	
-unported	packages/effect/test/Stream.test.ts	2922	it.effect	should pick last element from every chunk	
-unported	packages/effect/test/Stream.test.ts	2935	it.effect	should interrupt fibers properly	
-unported	packages/effect/test/Stream.test.ts	2964	it.effect	should interrupt children fiber on stream interruption	
-unported	packages/effect/test/Stream.test.ts	2985	it.effect	throttleEnforce - free elements	
-unported	packages/effect/test/Stream.test.ts	3000	it.effect	throttleEnforce - no bandwidth	
-unported	packages/effect/test/Stream.test.ts	3015	it.effect	throttleEnforce - refill bucket tokens	
-unported	packages/effect/test/Stream.test.ts	3034	it.effect	throttleShape	
-unported	packages/effect/test/Stream.test.ts	3066	it.effect	throttleShape - infinite bandwidth	
-unported	packages/effect/test/Stream.test.ts	3092	it.effect	throttleShape - with burst	
-unported	packages/effect/test/Stream.test.ts	3125	it.effect	throttleShape - free elements	
-unported	packages/effect/test/Stream.test.ts	3142	it.effect	zipWith - combines elements point-wise	
+not-applicable	packages/effect/test/Stream.test.ts	2803	it.effect	should drop earlier chunks within waitTime	Stream.debounce does not exist in this port (0 hits across src/) and every row drives it through a chunk-coordination queue with a TestClock adjust and forked fibers racing the pull; the observable is which chunk survives the wait, which needs the missing combinator plus the virtual-clock pump the port's synchronous pulls do not run
+not-applicable	packages/effect/test/Stream.test.ts	2841	it.effect	should take latest chunk within waitTime	Stream.debounce does not exist in this port (0 hits across src/) and every row drives it through a chunk-coordination queue with a TestClock adjust and forked fibers racing the pull; the observable is which chunk survives the wait, which needs the missing combinator plus the virtual-clock pump the port's synchronous pulls do not run
+not-applicable	packages/effect/test/Stream.test.ts	2864	it.effect	should work properly with parallelization	Stream.debounce does not exist in this port (0 hits across src/) and every row drives it through a chunk-coordination queue with a TestClock adjust and forked fibers racing the pull; the observable is which chunk survives the wait, which needs the missing combinator plus the virtual-clock pump the port's synchronous pulls do not run
+not-applicable	packages/effect/test/Stream.test.ts	2887	it.effect	should handle empty chunks properly	Stream.debounce does not exist in this port (0 hits across src/) and every row drives it through a chunk-coordination queue with a TestClock adjust and forked fibers racing the pull; the observable is which chunk survives the wait, which needs the missing combinator plus the virtual-clock pump the port's synchronous pulls do not run
+not-applicable	packages/effect/test/Stream.test.ts	2901	it.effect	should fail immediately	Stream.debounce does not exist in this port (0 hits across src/) and every row drives it through a chunk-coordination queue with a TestClock adjust and forked fibers racing the pull; the observable is which chunk survives the wait, which needs the missing combinator plus the virtual-clock pump the port's synchronous pulls do not run
+not-applicable	packages/effect/test/Stream.test.ts	2912	it.effect	should work with empty streams	Stream.debounce does not exist in this port (0 hits across src/) and every row drives it through a chunk-coordination queue with a TestClock adjust and forked fibers racing the pull; the observable is which chunk survives the wait, which needs the missing combinator plus the virtual-clock pump the port's synchronous pulls do not run
+not-applicable	packages/effect/test/Stream.test.ts	2922	it.effect	should pick last element from every chunk	Stream.debounce does not exist in this port (0 hits across src/) and every row drives it through a chunk-coordination queue with a TestClock adjust and forked fibers racing the pull; the observable is which chunk survives the wait, which needs the missing combinator plus the virtual-clock pump the port's synchronous pulls do not run
+not-applicable	packages/effect/test/Stream.test.ts	2935	it.effect	should interrupt fibers properly	Stream.throttle, Stream.throttleEnforce, Stream.throttleShape and Stream.fromSchedule do not exist in this port (0 hits across src/) and every row is a token-bucket or shape trace read against TestClock adjustments on forked fibers; the port's streams never consult a clock during pulls, so the bandwidth and burst curves are unobservable
+not-applicable	packages/effect/test/Stream.test.ts	2964	it.effect	should interrupt children fiber on stream interruption	Stream.throttle, Stream.throttleEnforce, Stream.throttleShape and Stream.fromSchedule do not exist in this port (0 hits across src/) and every row is a token-bucket or shape trace read against TestClock adjustments on forked fibers; the port's streams never consult a clock during pulls, so the bandwidth and burst curves are unobservable
+not-applicable	packages/effect/test/Stream.test.ts	2985	it.effect	throttleEnforce - free elements	Stream.throttle, Stream.throttleEnforce, Stream.throttleShape and Stream.fromSchedule do not exist in this port (0 hits across src/) and every row is a token-bucket or shape trace read against TestClock adjustments on forked fibers; the port's streams never consult a clock during pulls, so the bandwidth and burst curves are unobservable
+not-applicable	packages/effect/test/Stream.test.ts	3000	it.effect	throttleEnforce - no bandwidth	Stream.throttle, Stream.throttleEnforce, Stream.throttleShape and Stream.fromSchedule do not exist in this port (0 hits across src/) and every row is a token-bucket or shape trace read against TestClock adjustments on forked fibers; the port's streams never consult a clock during pulls, so the bandwidth and burst curves are unobservable
+not-applicable	packages/effect/test/Stream.test.ts	3015	it.effect	throttleEnforce - refill bucket tokens	Stream.throttle, Stream.throttleEnforce, Stream.throttleShape and Stream.fromSchedule do not exist in this port (0 hits across src/) and every row is a token-bucket or shape trace read against TestClock adjustments on forked fibers; the port's streams never consult a clock during pulls, so the bandwidth and burst curves are unobservable
+not-applicable	packages/effect/test/Stream.test.ts	3034	it.effect	throttleShape	Stream.throttle, Stream.throttleEnforce, Stream.throttleShape and Stream.fromSchedule do not exist in this port (0 hits across src/) and every row is a token-bucket or shape trace read against TestClock adjustments on forked fibers; the port's streams never consult a clock during pulls, so the bandwidth and burst curves are unobservable
+not-applicable	packages/effect/test/Stream.test.ts	3066	it.effect	throttleShape - infinite bandwidth	Stream.throttle, Stream.throttleEnforce, Stream.throttleShape and Stream.fromSchedule do not exist in this port (0 hits across src/) and every row is a token-bucket or shape trace read against TestClock adjustments on forked fibers; the port's streams never consult a clock during pulls, so the bandwidth and burst curves are unobservable
+not-applicable	packages/effect/test/Stream.test.ts	3092	it.effect	throttleShape - with burst	Stream.throttle, Stream.throttleEnforce, Stream.throttleShape and Stream.fromSchedule do not exist in this port (0 hits across src/) and every row is a token-bucket or shape trace read against TestClock adjustments on forked fibers; the port's streams never consult a clock during pulls, so the bandwidth and burst curves are unobservable
+not-applicable	packages/effect/test/Stream.test.ts	3125	it.effect	throttleShape - free elements	Stream.throttle, Stream.throttleEnforce, Stream.throttleShape and Stream.fromSchedule do not exist in this port (0 hits across src/) and every row is a token-bucket or shape trace read against TestClock adjustments on forked fibers; the port's streams never consult a clock during pulls, so the bandwidth and burst curves are unobservable
+ported	packages/effect/test/Stream.test.ts	3142	it.effect	zipWith - combines elements point-wise	zip_with_pairs_equal_length_streams
 ported	packages/effect/test/Stream.test.ts	3152	it.effect	zipWith - stops when shortest stream ends	zip_with_pairs_positionally_and_stops_at_the_shortest
 ported	packages/effect/test/Stream.test.ts	3162	it.effect	zipWith - does not pull too much when one stream ends	zip_with_pairs_positionally_and_stops_at_the_shortest
-unported	packages/effect/test/Stream.test.ts	3174	it.effect	zipWith - prioritizes failures	
-unported	packages/effect/test/Stream.test.ts	3187	it.effect	zipWith - handles exceptions	
+ported	packages/effect/test/Stream.test.ts	3174	it.effect	zipWith - prioritizes failures	zip_fold_prioritizes_failures_and_defects
+ported	packages/effect/test/Stream.test.ts	3187	it.effect	zipWith - handles exceptions	zip_fold_prioritizes_failures_and_defects
 ported	packages/effect/test/Stream.test.ts	3203	it.effect	zipWith - handles empty streams	zip_with_pairs_positionally_and_stops_at_the_shortest
-unported	packages/effect/test/Stream.test.ts	3221	it.prop	zipWith - equivalence with array operations	
-unported	packages/effect/test/Stream.test.ts	3246	it.effect	basic zipping with equal length streams	
-unported	packages/effect/test/Stream.test.ts	3259	it.effect	left stream shorter than right	
-unported	packages/effect/test/Stream.test.ts	3272	it.effect	right stream shorter than left	
-unported	packages/effect/test/Stream.test.ts	3285	it.effect	multiple arrays from each stream	
-unported	packages/effect/test/Stream.test.ts	3298	it.effect	handles leftover elements correctly	
-unported	packages/effect/test/Stream.test.ts	3322	it.effect	error propagation from left stream	
-unported	packages/effect/test/Stream.test.ts	3338	it.effect	error propagation from right stream	
-unported	packages/effect/test/Stream.test.ts	3353	it.effect	handles empty streams	
-unported	packages/effect/test/Stream.test.ts	3375	it.effect	processes arrays of different sizes within streams	
-unported	packages/effect/test/Stream.test.ts	3388	it.effect	custom array-level logic - take pairs	
-unported	packages/effect/test/Stream.test.ts	3409	it.effect	does not pull too much when one stream ends	
-unported	packages/effect/test/Stream.test.ts	3426	it.effect	zips two streams into tuples	
-unported	packages/effect/test/Stream.test.ts	3435	it.effect	terminates when left stream ends first	
-unported	packages/effect/test/Stream.test.ts	3444	it.effect	terminates when right stream ends first	
-unported	packages/effect/test/Stream.test.ts	3453	it.effect	handles empty left stream	
-unported	packages/effect/test/Stream.test.ts	3462	it.effect	handles empty right stream	
-unported	packages/effect/test/Stream.test.ts	3471	it.effect	propagates errors from left stream	
-unported	packages/effect/test/Stream.test.ts	3480	it.effect	propagates errors from right stream	
-unported	packages/effect/test/Stream.test.ts	3489	it.effect	works with pipe syntax	
-unported	packages/effect/test/Stream.test.ts	3500	it.effect	keeps only left values	
-unported	packages/effect/test/Stream.test.ts	3509	it.effect	terminates when left stream ends first	
-unported	packages/effect/test/Stream.test.ts	3518	it.effect	terminates when right stream ends first	
-unported	packages/effect/test/Stream.test.ts	3527	it.effect	handles empty left stream	
-unported	packages/effect/test/Stream.test.ts	3536	it.effect	handles empty right stream	
-unported	packages/effect/test/Stream.test.ts	3545	it.effect	propagates errors from left stream	
-unported	packages/effect/test/Stream.test.ts	3554	it.effect	propagates errors from right stream	
-unported	packages/effect/test/Stream.test.ts	3563	it.effect	works with pipe syntax	
-unported	packages/effect/test/Stream.test.ts	3572	it.effect	consumes right stream elements	
-unported	packages/effect/test/Stream.test.ts	3591	it.effect	keeps only right values	
-unported	packages/effect/test/Stream.test.ts	3600	it.effect	terminates when left stream ends first	
-unported	packages/effect/test/Stream.test.ts	3609	it.effect	terminates when right stream ends first	
-unported	packages/effect/test/Stream.test.ts	3618	it.effect	handles empty left stream	
-unported	packages/effect/test/Stream.test.ts	3627	it.effect	handles empty right stream	
-unported	packages/effect/test/Stream.test.ts	3636	it.effect	propagates errors from left stream	
-unported	packages/effect/test/Stream.test.ts	3645	it.effect	propagates errors from right stream	
-unported	packages/effect/test/Stream.test.ts	3654	it.effect	works with pipe syntax	
-unported	packages/effect/test/Stream.test.ts	3663	it.effect	consumes left stream elements	
-unported	packages/effect/test/Stream.test.ts	3682	it.effect	flattens tuples when zipping	
-unported	packages/effect/test/Stream.test.ts	3691	it.effect	works with single element tuples	
-unported	packages/effect/test/Stream.test.ts	3700	it.effect	works with larger tuples	
-unported	packages/effect/test/Stream.test.ts	3709	it.effect	terminates when left stream ends first	
-unported	packages/effect/test/Stream.test.ts	3718	it.effect	terminates when right stream ends first	
-unported	packages/effect/test/Stream.test.ts	3727	it.effect	handles empty left stream	
-unported	packages/effect/test/Stream.test.ts	3736	it.effect	handles empty right stream	
-unported	packages/effect/test/Stream.test.ts	3745	it.effect	propagates errors from left stream	
-unported	packages/effect/test/Stream.test.ts	3754	it.effect	propagates errors from right stream	
-unported	packages/effect/test/Stream.test.ts	3763	it.effect	works with pipe syntax	
-unported	packages/effect/test/Stream.test.ts	3774	it.effect	zips stream with indices starting at 0	
-unported	packages/effect/test/Stream.test.ts	3782	it.effect	handles empty stream	
-unported	packages/effect/test/Stream.test.ts	3790	it.effect	handles single element stream	
-unported	packages/effect/test/Stream.test.ts	3798	it.effect	preserves order	
-unported	packages/effect/test/Stream.test.ts	3806	it.effect	works with numbers	
-unported	packages/effect/test/Stream.test.ts	3814	it.effect	propagates errors	
-unported	packages/effect/test/Stream.test.ts	3822	it.effect	works with pipe syntax	
-unported	packages/effect/test/Stream.test.ts	3830	it.effect	index increments correctly for large streams	
-unported	packages/effect/test/Stream.test.ts	3842	it.effect	combines streams with latest values	
-unported	packages/effect/test/Stream.test.ts	3854	it.effect	waits for both streams to emit before producing output	
-unported	packages/effect/test/Stream.test.ts	3877	it.effect	propagates errors from left stream	
-unported	packages/effect/test/Stream.test.ts	3887	it.effect	propagates errors from right stream	
-unported	packages/effect/test/Stream.test.ts	3897	it.effect	terminates when left stream ends	
-unported	packages/effect/test/Stream.test.ts	3908	it.effect	terminates when right stream ends	
-unported	packages/effect/test/Stream.test.ts	3919	it.effect	works with pipe syntax	
-unported	packages/effect/test/Stream.test.ts	3929	it.effect	basic synchronous example	
-unported	packages/effect/test/Stream.test.ts	3943	it.effect	transforms combined values	
-unported	packages/effect/test/Stream.test.ts	3955	it.effect	combines with custom function	
-unported	packages/effect/test/Stream.test.ts	3967	it.effect	propagates errors from left stream	
-unported	packages/effect/test/Stream.test.ts	3978	it.effect	propagates errors from right stream	
-unported	packages/effect/test/Stream.test.ts	3989	it.effect	terminates when left stream ends	
-unported	packages/effect/test/Stream.test.ts	4000	it.effect	terminates when right stream ends	
-unported	packages/effect/test/Stream.test.ts	4011	it.effect	works with pipe syntax	
+ported	packages/effect/test/Stream.test.ts	3221	it.prop	zipWith - equivalence with array operations	zip_with_equivalence_with_array_operations
+ported	packages/effect/test/Stream.test.ts	3246	it.effect	basic zipping with equal length streams	zip_with_array_pairs_point_wise_with_leftovers
+ported	packages/effect/test/Stream.test.ts	3259	it.effect	left stream shorter than right	zip_with_array_pairs_point_wise_with_leftovers
+ported	packages/effect/test/Stream.test.ts	3272	it.effect	right stream shorter than left	zip_with_array_pairs_point_wise_with_leftovers
+ported	packages/effect/test/Stream.test.ts	3285	it.effect	multiple arrays from each stream	zip_with_array_pairs_point_wise_with_leftovers
+ported	packages/effect/test/Stream.test.ts	3298	it.effect	handles leftover elements correctly	zip_with_array_pairs_point_wise_with_leftovers
+ported	packages/effect/test/Stream.test.ts	3322	it.effect	error propagation from left stream	zip_fold_prioritizes_failures_and_defects
+ported	packages/effect/test/Stream.test.ts	3338	it.effect	error propagation from right stream	zip_fold_prioritizes_failures_and_defects
+ported	packages/effect/test/Stream.test.ts	3353	it.effect	handles empty streams	zip_with_array_pairs_point_wise_with_leftovers
+ported	packages/effect/test/Stream.test.ts	3375	it.effect	processes arrays of different sizes within streams	zip_with_array_pairs_point_wise_with_leftovers
+ported	packages/effect/test/Stream.test.ts	3388	it.effect	custom array-level logic - take pairs	zip_with_array_pairs_point_wise_with_leftovers
+ported	packages/effect/test/Stream.test.ts	3409	it.effect	does not pull too much when one stream ends	zip_fold_prioritizes_failures_and_defects
+ported	packages/effect/test/Stream.test.ts	3426	it.effect	zips two streams into tuples	zip_zip_left_zip_right_zip_flatten_project_the_pairs
+ported	packages/effect/test/Stream.test.ts	3435	it.effect	terminates when left stream ends first	zip_zip_left_zip_right_zip_flatten_project_the_pairs
+ported	packages/effect/test/Stream.test.ts	3444	it.effect	terminates when right stream ends first	zip_zip_left_zip_right_zip_flatten_project_the_pairs
+ported	packages/effect/test/Stream.test.ts	3453	it.effect	handles empty left stream	zip_zip_left_zip_right_zip_flatten_project_the_pairs
+ported	packages/effect/test/Stream.test.ts	3462	it.effect	handles empty right stream	zip_zip_left_zip_right_zip_flatten_project_the_pairs
+ported	packages/effect/test/Stream.test.ts	3471	it.effect	propagates errors from left stream	zip_fold_prioritizes_failures_and_defects
+ported	packages/effect/test/Stream.test.ts	3480	it.effect	propagates errors from right stream	zip_fold_prioritizes_failures_and_defects
+ported	packages/effect/test/Stream.test.ts	3489	it.effect	works with pipe syntax	zip_zip_left_zip_right_zip_flatten_project_the_pairs
+ported	packages/effect/test/Stream.test.ts	3500	it.effect	keeps only left values	zip_zip_left_zip_right_zip_flatten_project_the_pairs
+ported	packages/effect/test/Stream.test.ts	3509	it.effect	terminates when left stream ends first	zip_zip_left_zip_right_zip_flatten_project_the_pairs
+ported	packages/effect/test/Stream.test.ts	3518	it.effect	terminates when right stream ends first	zip_zip_left_zip_right_zip_flatten_project_the_pairs
+ported	packages/effect/test/Stream.test.ts	3527	it.effect	handles empty left stream	zip_zip_left_zip_right_zip_flatten_project_the_pairs
+ported	packages/effect/test/Stream.test.ts	3536	it.effect	handles empty right stream	zip_zip_left_zip_right_zip_flatten_project_the_pairs
+ported	packages/effect/test/Stream.test.ts	3545	it.effect	propagates errors from left stream	zip_fold_prioritizes_failures_and_defects
+ported	packages/effect/test/Stream.test.ts	3554	it.effect	propagates errors from right stream	zip_fold_prioritizes_failures_and_defects
+ported	packages/effect/test/Stream.test.ts	3563	it.effect	works with pipe syntax	zip_zip_left_zip_right_zip_flatten_project_the_pairs
+ported	packages/effect/test/Stream.test.ts	3572	it.effect	consumes right stream elements	zip_zip_left_zip_right_zip_flatten_project_the_pairs
+ported	packages/effect/test/Stream.test.ts	3591	it.effect	keeps only right values	zip_zip_left_zip_right_zip_flatten_project_the_pairs
+ported	packages/effect/test/Stream.test.ts	3600	it.effect	terminates when left stream ends first	zip_zip_left_zip_right_zip_flatten_project_the_pairs
+ported	packages/effect/test/Stream.test.ts	3609	it.effect	terminates when right stream ends first	zip_zip_left_zip_right_zip_flatten_project_the_pairs
+ported	packages/effect/test/Stream.test.ts	3618	it.effect	handles empty left stream	zip_zip_left_zip_right_zip_flatten_project_the_pairs
+ported	packages/effect/test/Stream.test.ts	3627	it.effect	handles empty right stream	zip_zip_left_zip_right_zip_flatten_project_the_pairs
+ported	packages/effect/test/Stream.test.ts	3636	it.effect	propagates errors from left stream	zip_fold_prioritizes_failures_and_defects
+ported	packages/effect/test/Stream.test.ts	3645	it.effect	propagates errors from right stream	zip_fold_prioritizes_failures_and_defects
+ported	packages/effect/test/Stream.test.ts	3654	it.effect	works with pipe syntax	zip_zip_left_zip_right_zip_flatten_project_the_pairs
+ported	packages/effect/test/Stream.test.ts	3663	it.effect	consumes left stream elements	zip_zip_left_zip_right_zip_flatten_project_the_pairs
+ported	packages/effect/test/Stream.test.ts	3682	it.effect	flattens tuples when zipping	zip_zip_left_zip_right_zip_flatten_project_the_pairs
+ported	packages/effect/test/Stream.test.ts	3691	it.effect	works with single element tuples	zip_zip_left_zip_right_zip_flatten_project_the_pairs
+ported	packages/effect/test/Stream.test.ts	3700	it.effect	works with larger tuples	zip_zip_left_zip_right_zip_flatten_project_the_pairs
+ported	packages/effect/test/Stream.test.ts	3709	it.effect	terminates when left stream ends first	zip_zip_left_zip_right_zip_flatten_project_the_pairs
+ported	packages/effect/test/Stream.test.ts	3718	it.effect	terminates when right stream ends first	zip_zip_left_zip_right_zip_flatten_project_the_pairs
+ported	packages/effect/test/Stream.test.ts	3727	it.effect	handles empty left stream	zip_fold_prioritizes_failures_and_defects
+ported	packages/effect/test/Stream.test.ts	3736	it.effect	handles empty right stream	zip_fold_prioritizes_failures_and_defects
+ported	packages/effect/test/Stream.test.ts	3745	it.effect	propagates errors from left stream	zip_zip_left_zip_right_zip_flatten_project_the_pairs
+ported	packages/effect/test/Stream.test.ts	3754	it.effect	propagates errors from right stream	zip_zip_left_zip_right_zip_flatten_project_the_pairs
+ported	packages/effect/test/Stream.test.ts	3763	it.effect	works with pipe syntax	zip_zip_left_zip_right_zip_flatten_project_the_pairs
+ported	packages/effect/test/Stream.test.ts	3774	it.effect	zips stream with indices starting at 0	zip_with_index_pairs_each_element_with_its_position
+ported	packages/effect/test/Stream.test.ts	3782	it.effect	handles empty stream	zip_with_index_pairs_each_element_with_its_position
+ported	packages/effect/test/Stream.test.ts	3790	it.effect	handles single element stream	zip_with_index_pairs_each_element_with_its_position
+ported	packages/effect/test/Stream.test.ts	3798	it.effect	preserves order	zip_with_index_pairs_each_element_with_its_position
+ported	packages/effect/test/Stream.test.ts	3806	it.effect	works with numbers	zip_with_index_pairs_each_element_with_its_position
+ported	packages/effect/test/Stream.test.ts	3814	it.effect	propagates errors	zip_fold_prioritizes_failures_and_defects
+ported	packages/effect/test/Stream.test.ts	3822	it.effect	works with pipe syntax	zip_with_index_pairs_each_element_with_its_position
+ported	packages/effect/test/Stream.test.ts	3830	it.effect	index increments correctly for large streams	zip_with_index_pairs_each_element_with_its_position
+not-applicable	packages/effect/test/Stream.test.ts	3842	it.effect	combines streams with latest values	Stream.zipLatest and Stream.zipLatestWith do not exist in this port (0 hits across src/) and their latest-value semantics need both sides pulled concurrently with the fold waiting for the newer of the two emissions; this port's pull is a single synchronous cursor, so the interleaving the rows assert cannot be produced
+not-applicable	packages/effect/test/Stream.test.ts	3854	it.effect	waits for both streams to emit before producing output	Stream.zipLatest and Stream.zipLatestWith do not exist in this port (0 hits across src/) and their latest-value semantics need both sides pulled concurrently with the fold waiting for the newer of the two emissions; this port's pull is a single synchronous cursor, so the interleaving the rows assert cannot be produced
+not-applicable	packages/effect/test/Stream.test.ts	3877	it.effect	propagates errors from left stream	Stream.zipLatest and Stream.zipLatestWith do not exist in this port (0 hits across src/) and their latest-value semantics need both sides pulled concurrently with the fold waiting for the newer of the two emissions; this port's pull is a single synchronous cursor, so the interleaving the rows assert cannot be produced
+not-applicable	packages/effect/test/Stream.test.ts	3887	it.effect	propagates errors from right stream	Stream.zipLatest and Stream.zipLatestWith do not exist in this port (0 hits across src/) and their latest-value semantics need both sides pulled concurrently with the fold waiting for the newer of the two emissions; this port's pull is a single synchronous cursor, so the interleaving the rows assert cannot be produced
+not-applicable	packages/effect/test/Stream.test.ts	3897	it.effect	terminates when left stream ends	Stream.zipLatest and Stream.zipLatestWith do not exist in this port (0 hits across src/) and their latest-value semantics need both sides pulled concurrently with the fold waiting for the newer of the two emissions; this port's pull is a single synchronous cursor, so the interleaving the rows assert cannot be produced
+not-applicable	packages/effect/test/Stream.test.ts	3908	it.effect	terminates when right stream ends	Stream.zipLatest and Stream.zipLatestWith do not exist in this port (0 hits across src/) and their latest-value semantics need both sides pulled concurrently with the fold waiting for the newer of the two emissions; this port's pull is a single synchronous cursor, so the interleaving the rows assert cannot be produced
+not-applicable	packages/effect/test/Stream.test.ts	3919	it.effect	works with pipe syntax	Stream.zipLatest and Stream.zipLatestWith do not exist in this port (0 hits across src/) and their latest-value semantics need both sides pulled concurrently with the fold waiting for the newer of the two emissions; this port's pull is a single synchronous cursor, so the interleaving the rows assert cannot be produced
+not-applicable	packages/effect/test/Stream.test.ts	3929	it.effect	basic synchronous example	Stream.zipLatest and Stream.zipLatestWith do not exist in this port (0 hits across src/) and their latest-value semantics need both sides pulled concurrently with the fold waiting for the newer of the two emissions; this port's pull is a single synchronous cursor, so the interleaving the rows assert cannot be produced
+not-applicable	packages/effect/test/Stream.test.ts	3943	it.effect	transforms combined values	Stream.zipLatest and Stream.zipLatestWith do not exist in this port (0 hits across src/) and their latest-value semantics need both sides pulled concurrently with the fold waiting for the newer of the two emissions; this port's pull is a single synchronous cursor, so the interleaving the rows assert cannot be produced
+not-applicable	packages/effect/test/Stream.test.ts	3955	it.effect	combines with custom function	Stream.zipLatest and Stream.zipLatestWith do not exist in this port (0 hits across src/) and their latest-value semantics need both sides pulled concurrently with the fold waiting for the newer of the two emissions; this port's pull is a single synchronous cursor, so the interleaving the rows assert cannot be produced
+not-applicable	packages/effect/test/Stream.test.ts	3967	it.effect	propagates errors from left stream	Stream.zipLatest and Stream.zipLatestWith do not exist in this port (0 hits across src/) and their latest-value semantics need both sides pulled concurrently with the fold waiting for the newer of the two emissions; this port's pull is a single synchronous cursor, so the interleaving the rows assert cannot be produced
+not-applicable	packages/effect/test/Stream.test.ts	3978	it.effect	propagates errors from right stream	Stream.zipLatest and Stream.zipLatestWith do not exist in this port (0 hits across src/) and their latest-value semantics need both sides pulled concurrently with the fold waiting for the newer of the two emissions; this port's pull is a single synchronous cursor, so the interleaving the rows assert cannot be produced
+not-applicable	packages/effect/test/Stream.test.ts	3989	it.effect	terminates when left stream ends	Stream.zipLatest and Stream.zipLatestWith do not exist in this port (0 hits across src/) and their latest-value semantics need both sides pulled concurrently with the fold waiting for the newer of the two emissions; this port's pull is a single synchronous cursor, so the interleaving the rows assert cannot be produced
+not-applicable	packages/effect/test/Stream.test.ts	4000	it.effect	terminates when right stream ends	Stream.zipLatest and Stream.zipLatestWith do not exist in this port (0 hits across src/) and their latest-value semantics need both sides pulled concurrently with the fold waiting for the newer of the two emissions; this port's pull is a single synchronous cursor, so the interleaving the rows assert cannot be produced
+not-applicable	packages/effect/test/Stream.test.ts	4011	it.effect	works with pipe syntax	Stream.zipLatest and Stream.zipLatestWith do not exist in this port (0 hits across src/) and their latest-value semantics need both sides pulled concurrently with the fold waiting for the newer of the two emissions; this port's pull is a single synchronous cursor, so the interleaving the rows assert cannot be produced
 unported	packages/effect/test/Stream.test.ts	4024	it.effect	basic synchronous example	
 unported	packages/effect/test/Stream.test.ts	4036	it.effect	string concatenation example	
 unported	packages/effect/test/Stream.test.ts	4051	it.effect	sink that is done after stream	
 unported	packages/effect/test/Stream.test.ts	4065	it.effect	sink that is done before stream	
 unported	packages/effect/test/Stream.test.ts	4084	it.effect	sink that fails before stream	
 unported	packages/effect/test/Stream.test.ts	4096	it.effect	does not read ahead	
-unported	packages/effect/test/Stream.test.ts	4114	it.effect	drop - simple example	
-unported	packages/effect/test/Stream.test.ts	4125	it.effect	drop - normalizes the count independently of upstream chunking	
-unported	packages/effect/test/Stream.test.ts	4143	it.effect	drop - does not swallow errors	
-unported	packages/effect/test/Stream.test.ts	4155	it.effect	dropRight - simple example	
-unported	packages/effect/test/Stream.test.ts	4166	it.effect	dropRight - normalizes the element count	
-unported	packages/effect/test/Stream.test.ts	4176	it.effect	dropRight - does not swallow errors	
-unported	packages/effect/test/Stream.test.ts	4188	it.effect	dropUntil	
-unported	packages/effect/test/Stream.test.ts	4202	it.effect	dropWhile	
-unported	packages/effect/test/Stream.test.ts	4213	it.effect	dropWhileFilter	
-unported	packages/effect/test/Stream.test.ts	4222	it.effect	dropWhile - short circuits	
+ported	packages/effect/test/Stream.test.ts	4114	it.effect	drop - simple example	drop_drops_the_first_n_elements_and_normalizes_the_count
+ported	packages/effect/test/Stream.test.ts	4125	it.effect	drop - normalizes the count independently of upstream chunking	drop_drops_the_first_n_elements_and_normalizes_the_count
+ported	packages/effect/test/Stream.test.ts	4143	it.effect	drop - does not swallow errors	drop_drops_the_first_n_elements_and_normalizes_the_count
+ported	packages/effect/test/Stream.test.ts	4155	it.effect	dropRight - simple example	drop_right_keeps_all_but_the_last_n_elements
+ported	packages/effect/test/Stream.test.ts	4166	it.effect	dropRight - normalizes the element count	drop_right_keeps_all_but_the_last_n_elements
+ported	packages/effect/test/Stream.test.ts	4176	it.effect	dropRight - does not swallow errors	drop_right_keeps_all_but_the_last_n_elements
+ported	packages/effect/test/Stream.test.ts	4188	it.effect	dropUntil	drop_until_drop_while_and_drop_while_filter_walk_the_predicate
+ported	packages/effect/test/Stream.test.ts	4202	it.effect	dropWhile	drop_until_drop_while_and_drop_while_filter_walk_the_predicate
+ported	packages/effect/test/Stream.test.ts	4213	it.effect	dropWhileFilter	drop_until_drop_while_and_drop_while_filter_walk_the_predicate
+ported	packages/effect/test/Stream.test.ts	4222	it.effect	dropWhile - short circuits	drop_until_drop_while_and_drop_while_filter_walk_the_predicate
 unported	packages/effect/test/Stream.test.ts	4237	it.effect	halts after the current element in the documentation example	
 unported	packages/effect/test/Stream.test.ts	4248	it.effect	halts a synchronous upstream before the next chunk	
 unported	packages/effect/test/Stream.test.ts	4259	it.effect	halts after the current element	
