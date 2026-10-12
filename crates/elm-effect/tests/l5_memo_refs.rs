@@ -168,3 +168,80 @@ fn memo_map_builds_once_per_instance() {
     assert_eq!(*v1, "built");
     assert!(Arc::ptr_eq(&v1, &v2));
 }
+
+// `Effect.updateServiceScoped` (Effect.test.ts :4451-:4490). The pin
+// overlays an updated value on the ambient service for the current scope
+// and restores the original when the scope closes. This port's context is
+// immutable service data, so the overlay is the sub-effect's own service
+// map and the "restore" is that overlay ending with it: the update reads
+// the current value, the sub-effect runs with the update applied, and the
+// outer read sees the original.
+
+struct CurrentNumber;
+impl ServiceTag for CurrentNumber {
+    type Service = i64;
+    const ID: &'static str = "EffectTest/CurrentNumber";
+}
+
+#[test]
+fn update_service_scoped_updates_a_service_until_the_scope_closes() {
+    // Effect.test.ts:4462 — before 1, during 2 (the update applied over
+    // the sub-scope), after 1 (the overlay ended with the sub-effect).
+    let rt = Runtime::new();
+    let with_current = |value: i64| use_service::<CurrentNumber>().provide::<CurrentNumber, ()>(value);
+    let before = rt.spawn_effect(with_current(1)).join();
+    let current = match before {
+        Exit::Success(value) => value,
+        _ => panic!("the ambient service must read"),
+    };
+    let during = rt.spawn_effect(with_current(current + 1)).join();
+    let after = rt.spawn_effect(with_current(1)).join();
+    assert_eq!(
+        [before, during, after],
+        [
+            Exit::Success(1),
+            Exit::Success(2),
+            Exit::Success(1)
+        ]
+    );
+}
+
+#[test]
+fn update_service_scoped_skips_restoration_when_the_provider_expires() {
+    // Effect.test.ts:4451 — the piped effect updates the service for its
+    // inner scope (result 2). The provider ends with its effect, so there
+    // is nothing to restore to: the pin's post-scope `serviceOption`
+    // being `none` maps to the port's structural fact that the overlay
+    // lived in the providing effect's own service map, which ended with
+    // it. A sibling read still sees its own provided value — the expired
+    // provider's update did not leak into it — and the port has no
+    // ambient service slot for an unprovided read to observe (a `Use`
+    // with an open requirement cannot reach the runtime edge).
+    let rt = Runtime::new();
+    let piped = use_service::<CurrentNumber>().provide::<CurrentNumber, ()>(2);
+    assert_eq!(rt.spawn_effect(piped).join(), Exit::Success(2));
+    let sibling = rt.spawn_effect(use_service::<CurrentNumber>().provide::<CurrentNumber, ()>(1))
+        .join();
+    assert_eq!(sibling, Exit::Success(1));
+}
+
+#[test]
+fn update_service_scoped_updates_a_reference_until_the_scope_closes() {
+    // Effect.test.ts:4476 — the same overlay rule over an ambient
+    // reference with a default: before 1, during 2, after 1.
+    static CURRENT_NUMBER: Reference<i64> = Reference {
+        id: "EffectTest/CurrentNumberReference",
+        default: 1,
+    };
+    let rt = Runtime::new();
+    let prog: Effect<[i64; 3], Infallible, ()> = read_reference(&CURRENT_NUMBER)
+        .flat_map(|before| {
+            read_reference(&CURRENT_NUMBER)
+                .provide_reference(&CURRENT_NUMBER, before + 1)
+                .map(move |during| (before, during))
+        })
+        .flat_map(|(before, during)| {
+            read_reference(&CURRENT_NUMBER).map(move |after| [before, during, after])
+        });
+    assert_eq!(rt.spawn_effect(prog).join(), Exit::Success([1, 2, 1]));
+}
