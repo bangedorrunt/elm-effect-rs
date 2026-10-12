@@ -81,7 +81,50 @@ def wave_for(n: int) -> int:
     return WAVES[-1][1]
 
 
-def crate_for(path: str, test2class: dict[str, str], rust_crate: dict[str, str]) -> str:
+def witness_crates(names: dict[str, list[str]]) -> dict[str, collections.Counter]:
+    """Crate votes per test path, from where its ported rows are witnessed.
+
+    A ported row's `rust` column names a test function (2940 of 2942 rows), so
+the crate is whichever crate defines that function. This is the strongest
+evidence of where a file's Rust surface lives, and the only signal that works
+when the module row links no test at all (class `port` then says
+"elm-effect" for rows whose witnesses all live in elm-effect-schema, and the
+fence passes no matter what the port does).
+    """
+    defers: dict[str, set[str]] = collections.defaultdict(set)
+    for root, dirs, files in os.walk("crates"):
+        if "/target" in root:
+            continue
+        for name in files:
+            if not name.endswith(".rs"):
+                continue
+            p = os.path.join(root, name)
+            try:
+                text = open(p, encoding="utf-8", errors="ignore").read()
+            except OSError:
+                continue
+            crate = p.split("/")[1]
+            for m in re.finditer(r"\bfn\s+([a-z_][a-z0-9_]*)\s*\(", text):
+                defers[m.group(1)].add(crate)
+    votes: dict[str, collections.Counter] = collections.defaultdict(collections.Counter)
+    for path, fns in names.items():
+        for fn in fns:
+            for crate in defers.get(fn, ()):
+                votes[path][crate] += 1
+    return votes
+
+
+def crate_for(
+    path: str,
+    test2class: dict[str, str],
+    rust_crate: dict[str, str],
+    witness_vote: dict[str, collections.Counter],
+) -> str:
+    # Witness first: a module row's class says what KIND of module it is, not
+    # which crate carries its port. elm-effect-schema's rows are class `port`,
+    # and fencing them against elm-effect runs tests that do not exist there.
+    if witness_vote.get(path):
+        return max(witness_vote[path], key=witness_vote[path].get)
     cls = test2class.get(path)
     if cls == "port":
         return "elm-effect"
@@ -107,6 +150,7 @@ def main() -> int:
 
     rows: dict[str, collections.Counter] = collections.defaultdict(collections.Counter)
     rust_crate: dict[str, str] = collections.defaultdict(collections.Counter)
+    witness_name: dict[str, list[str]] = collections.defaultdict(list)
     with open(LEDGER, encoding="utf-8") as handle:
         for line in handle:
             if line.startswith("#") or line.startswith("status\t"):
@@ -115,6 +159,8 @@ def main() -> int:
             if len(f) < 6 or f[0] not in OPEN + DONE:
                 continue
             rows[f[1]][f[0]] += 1
+            if f[0] == "ported" and f[5] and not f[5].startswith("crates/"):
+                witness_name[f[1]].append(f[5])
             # A ported row's `rust` column names the test file, so the crate is
             # whatever crate that file lives in. Used only when the module row
             # does not link the test at all. The column's convention is a bare
@@ -125,14 +171,13 @@ def main() -> int:
             if f[0] == "ported" and f[5].startswith("crates/"):
                 rust_crate[f[1]][f[5].split("/")[1]] += 1
 
+    witness_vote = witness_crates(witness_name)
     backlog = []
     for path, counts in rows.items():
         n = counts["unported"]
         if n == 0 or counts["ported"] == 0:
             continue
-        crate = crate_for(path, test2class, rust_crate)
-        if crate not in ("elm-effect", "elm-effect-unstable"):
-            crate = max(rust_crate[path], key=rust_crate[path].get) if rust_crate[path] else "elm-effect"
+        crate = crate_for(path, test2class, rust_crate, witness_vote)
         backlog.append((path, n, counts["ported"], sum(counts.values()), crate))
 
     backlog.sort(key=lambda item: (-item[1], item[0]))
@@ -192,5 +237,45 @@ def main() -> int:
     return 0
 
 
+def self_check() -> int:
+    """Pin crate inference against the cases that exposed the old bug.
+
+    Every expectation was measured on this tree: these files' ported rows are
+    witnessed in the named crate, while their module rows are classed `port`
+    (or link nothing), which is why the class-first rule fenced them against
+    elm-effect, where none of those tests exist.
+    """
+    names: dict[str, list[str]] = collections.defaultdict(list)
+    with open(LEDGER, encoding="utf-8") as handle:
+        for line in handle:
+            if line.startswith("#") or line.startswith("status\t"):
+                continue
+            f = line.rstrip("\n").split("\t")
+            if len(f) >= 6 and f[0] == "ported" and f[5] and not f[5].startswith("crates/"):
+                names[f[1]].append(f[5])
+    votes = witness_crates(names)
+    expected = {
+        "packages/effect/test/schema/Schema.test.ts": "elm-effect-schema",
+        "packages/effect/test/schema/SchemaParser.test.ts": "elm-effect-schema",
+        "packages/effect/test/schema/toCodec.test.ts": "elm-effect-schema",
+        "packages/effect/test/encoding/SchemaBinary.test.ts": "elm-effect-unstable",
+        "packages/effect/test/schema/Graph.test.ts": "elm-effect",
+    }
+    bad = 0
+    for path, want in expected.items():
+        got = crate_for(path, {}, {}, votes)
+        if got == want:
+            print(f"ok   {path} -> {got}")
+        else:
+            print(f"FAIL {path}: got {got}, want {want}")
+            bad += 1
+    if not votes:
+        print("FAIL no witness votes at all (wrong cwd, or ledger empty?)")
+        bad += 1
+    return 1 if bad else 0
+
+
 if __name__ == "__main__":
+    if "--self-check" in sys.argv:
+        sys.exit(self_check())
     sys.exit(main())
