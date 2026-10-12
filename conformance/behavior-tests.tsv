@@ -7155,11 +7155,11 @@ ported	packages/effect/test/persistence/PersistedQueueTest.ts	140	it.effect	idem
 ported	packages/effect/test/persistence/PersistedQueueTest.ts	159	it.effect	deduplicates custom ids independently in each queue	queue_dedupes_independently_per_queue
 ported	packages/effect/test/persistence/PersistedQueueTest.ts	175	it.effect	does not redeliver in-flight elements	queue_does_not_redeliver_in_flight_elements
 ported	packages/effect/test/persistence/PersistedQueueTest.ts	203	it.effect	stops delivering when maxAttempts is exhausted	queue_fail_redelivers_until_attempts_exhausted
-unported	packages/effect/test/persistence/PersistedQueueTest.ts	222	it.effect	dead-letters elements that fail to decode	
+ported	packages/effect/test/persistence/PersistedQueueTest.ts	222	it.effect	dead-letters elements that fail to decode	queue_dead_letters_elements_that_fail_to_decode
 ported	packages/effect/test/persistence/PersistedQueueTest.ts	248	it.effect	cleanup removes expired completed elements	queue_complete_records_once_and_prunes
-unported	packages/effect/test/persistence/PersistedQueueTest.ts	273	it.effect	cleanup removes failed elements only with failedTimeToLive	
-unported	packages/effect/test/persistence/PersistedQueueTest.ts	302	it.effect	cleanup keeps dedupe entries for unprocessed elements	
-unported	packages/effect/test/persistence/PersistedQueueTest.ts	325	it.effect	processes concurrent elements exactly once with retries	
+ported	packages/effect/test/persistence/PersistedQueueTest.ts	273	it.effect	cleanup removes failed elements only with failedTimeToLive	queue_cleanup_removes_failed_elements_only_with_failed_time_to_live
+ported	packages/effect/test/persistence/PersistedQueueTest.ts	302	it.effect	cleanup keeps dedupe entries for unprocessed elements	queue_cleanup_keeps_dedupe_entries_for_unprocessed_elements
+ported	packages/effect/test/persistence/PersistedQueueTest.ts	325	it.effect	processes concurrent elements exactly once with retries	queue_processes_elements_exactly_once_with_retries
 unported	packages/effect/test/persistence/RateLimiter.test.ts	10	it.effect	supports partially applied sleep	
 unported	packages/effect/test/persistence/RateLimiter.test.ts	26	it.effect	supports uncurried sleep	
 ported	packages/effect/test/persistence/RateLimiter.test.ts	42	it.effect	reports a full-window reset for an exact reservation	limiter_fixed_window_reset

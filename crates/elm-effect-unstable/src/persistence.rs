@@ -425,6 +425,9 @@ impl RateLimiter {
 pub struct PersistedQueue {
     attempts: HashMap<String, u64>,
     completed: VecDeque<(String, u64)>,
+    /// Dead-letter log: id plus the time the element was given up on. It is
+    /// the record that keeps an unprocessable id deduplicated.
+    failed: VecDeque<(String, u64)>,
     pending: VecDeque<QueuedItem>,
     in_flight: HashMap<String, QueuedItem>,
     max_attempts: u64,
@@ -509,9 +512,15 @@ impl PersistedQueue {
 
     /// Fail: redeliver while attempts remain, else dead-letter.
     /// Returns the redelivered item, or [`None`] when dead.
-    pub fn fail(&mut self, id: &str, max_attempts: u64) -> Option<QueuedItem> {
+    ///
+    /// Giving up writes a dead-letter record at `now_ms`. That record is the
+    /// reason an exhausted id stays deduplicated, so a re-offer cannot quietly
+    /// restart a poisoned element; [`Self::cleanup`] is the only way to drop
+    /// it, and only with a `failed_time_to_live`.
+    pub fn fail(&mut self, id: &str, max_attempts: u64, now_ms: u64) -> Option<QueuedItem> {
         let item = self.in_flight.remove(id)?;
         if item.attempts >= max_attempts {
+            self.failed.push_back((id.to_string(), now_ms));
             return None;
         }
         self.pending.push_back(item.clone());
@@ -531,6 +540,74 @@ impl PersistedQueue {
         let item = self.in_flight.remove(id)?;
         self.pending.push_back(item.clone());
         Some(item)
+    }
+
+    /// Take the next element whose payload `decode` accepts.
+    ///
+    /// A payload that cannot be decoded can never be processed, so it is
+    /// dead-lettered immediately and the next element is taken instead. One
+    /// poison element neither blocks the queue nor comes back for a retry.
+    pub fn take_decoded<T>(
+        &mut self,
+        mut decode: impl FnMut(&[u8]) -> Option<T>,
+        now_ms: u64,
+    ) -> Option<(T, QueuedItem)> {
+        loop {
+            let mut item = self.pending.pop_front()?;
+            match decode(&item.payload) {
+                Some(value) => {
+                    item.attempts = self.attempts.get(&item.id).copied().unwrap_or(0) + 1;
+                    self.attempts.insert(item.id.clone(), item.attempts);
+                    self.in_flight.insert(item.id.clone(), item.clone());
+                    return Some((value, item));
+                }
+                None => self.failed.push_back((item.id.clone(), now_ms)),
+            }
+        }
+    }
+
+    /// Dead-letter count (test introspection).
+    pub fn failed_len(&self) -> usize {
+        self.failed.len()
+    }
+
+    /// Prune completed elements older than `time_to_live_ms`, and dead-lettered
+    /// elements older than `failed_time_to_live_ms` -- the second only when it
+    /// is given, because a dead-letter record is the record that keeps its id
+    /// deduplicated and is kept by default.
+    ///
+    /// An element that was never processed is never pruned, and neither is its
+    /// dedupe entry. A dedupe entry is dropped only for an id whose completed
+    /// or dead-lettered record this call actually removed, so a re-offer of an
+    /// unprocessed element stays ignored instead of enqueuing a duplicate.
+    /// Returns the number of records pruned.
+    pub fn cleanup(
+        &mut self,
+        time_to_live_ms: u64,
+        failed_time_to_live_ms: Option<u64>,
+        now_ms: u64,
+    ) -> usize {
+        let mut pruned_ids: Vec<String> = Vec::new();
+        self.completed.retain(|(id, at)| {
+            let keep = now_ms.saturating_sub(*at) < time_to_live_ms;
+            if !keep {
+                pruned_ids.push(id.clone());
+            }
+            keep
+        });
+        if let Some(ttl) = failed_time_to_live_ms {
+            self.failed.retain(|(id, at)| {
+                let keep = now_ms.saturating_sub(*at) < ttl;
+                if !keep {
+                    pruned_ids.push(id.clone());
+                }
+                keep
+            });
+        }
+        for id in &pruned_ids {
+            self.dedupe.remove(id);
+        }
+        pruned_ids.len()
     }
 
     /// Pending depth (test introspection).
