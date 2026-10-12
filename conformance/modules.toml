@@ -116,7 +116,7 @@ tests = ["packages/effect/test/Combiner.test.ts"]
 [[module]]
 path = "packages/effect/src/Config.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/Config.test.ts"]

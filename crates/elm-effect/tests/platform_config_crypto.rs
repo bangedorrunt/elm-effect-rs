@@ -9,8 +9,8 @@ mod config_provider;
 #[path = "../src/crypto.rs"]
 mod crypto;
 
-use config::{Config, Value};
-use config_provider::Provider;
+use config::{Config, ConfigError, Value};
+use config_provider::{EnvProvider, Lookup, Provider};
 use crypto::{Crypto, DigestAlgorithm, SystemCrypto, TestCrypto};
 
 fn provider(pairs: &[(&str, &str)]) -> Provider {
@@ -1452,5 +1452,375 @@ fn config_literals_accepts_configured_number_alternatives() {
     assert!(
         !err.is_empty(),
         "the failure must name the path it failed at, not just `expected one of`"
+    );
+}
+
+// ---------------------------------------- Config.all absence semantics ---
+// Config.test.ts's absence/orElse rows (":968" through ":1517"). The pin
+// states most of them against both `Config.schema` and `Config.all`; the
+// port's config surface is descriptor-based, so these carry the
+// `Config.all` side of each claim.
+
+#[test]
+fn config_all_replaces_the_whole_group_when_a_required_child_stays_absent() {
+    // Config.test.ts:968.
+    let fallback = Value::Map(vec![
+        ("required".to_string(), Value::Str("fallback".to_string())),
+        ("defaulted".to_string(), Value::Int(0)),
+    ]);
+    let config = Config::record(vec![
+        ("required".to_string(), Config::string(named("required"))),
+        (
+            "defaulted".to_string(),
+            Config::integer(named("defaulted")).with_default(Value::Int(1)),
+        ),
+    ])
+    .with_default(fallback);
+
+    let empty = Provider::empty();
+    assert_eq!(
+        config.load(&empty),
+        Ok(Value::Map(vec![
+            ("required".to_string(), Value::Str("fallback".to_string())),
+            ("defaulted".to_string(), Value::Int(0)),
+        ]))
+    );
+    let with_required = provider(&[("required", "value")]);
+    assert_eq!(
+        config.load(&with_required),
+        Ok(Value::Map(vec![
+            ("required".to_string(), Value::Str("value".to_string())),
+            ("defaulted".to_string(), Value::Int(1)),
+        ]))
+    );
+    let only_defaulted = provider(&[("defaulted", "2")]);
+    assert_eq!(
+        config.load(&only_defaulted),
+        Ok(Value::Map(vec![
+            ("required".to_string(), Value::Str("fallback".to_string())),
+            ("defaulted".to_string(), Value::Int(0)),
+        ]))
+    );
+}
+
+#[test]
+fn config_all_recovers_missing_tuple_children_without_hiding_invalid_input() {
+    // Config.test.ts:990 — the pin's iterable `Config.all(new Set(...))`
+    // and the positional array share one shape; the port carries the
+    // positional form. Absence recovers through default/option; invalid
+    // input does not.
+    let config = Config::all(vec![Config::string(named("host")), Config::integer(named("port"))]);
+    let defaulted = config.clone().with_default(Value::Str("default".to_string()));
+    let optional = config.clone().option();
+    for pairs in [vec![], vec![("port", "80")], vec![("host", "localhost")]] {
+        let provider = provider(&pairs);
+        assert_eq!(defaulted.load(&provider), Ok(Value::Str("default".to_string())));
+        assert_eq!(optional.load(&provider), Ok(Value::None));
+    }
+
+    // A missing child still names its path when unwrapped.
+    let host_missing = config.load(&provider(&[("port", "80")])).unwrap_err();
+    assert_eq!(host_missing.len(), 1);
+    assert_eq!(host_missing[0], ConfigError::Missing { path: vec!["host".to_string()] });
+
+    // Invalid input survives both wrappers: recovery is absence-only.
+    let invalid = provider(&[("port", "invalid")]);
+    for err in [
+        defaulted.load(&invalid).unwrap_err(),
+        optional.load(&invalid).unwrap_err(),
+    ] {
+        assert_eq!(
+            err,
+            vec![ConfigError::Invalid {
+                path: vec!["port".to_string()],
+                got: "invalid".to_string(),
+                reason: "not an integer".to_string(),
+            }]
+        );
+    }
+}
+
+#[test]
+fn config_all_propagates_nested_group_absence_alongside_a_resolved_sibling() {
+    // Config.test.ts:1042.
+    let inner = Config::record(vec![
+        ("host".to_string(), Config::string(named("host"))),
+        ("port".to_string(), Config::integer(named("port"))),
+    ])
+    .nested("database");
+    let config = Config::record(vec![
+        ("name".to_string(), Config::string(named("name"))),
+        ("database".to_string(), inner),
+    ]);
+    let fallback = Value::Map(vec![
+        ("name".to_string(), Value::Str("default".to_string())),
+        (
+            "database".to_string(),
+            Value::Map(vec![
+                ("host".to_string(), Value::Str("localhost".to_string())),
+                ("port".to_string(), Value::Int(5432)),
+            ]),
+        ),
+    ]);
+    let partial = provider(&[("name", "app"), ("database.host", "db.internal")]);
+
+    assert_eq!(config.clone().with_default(fallback.clone()).load(&partial), Ok(fallback));
+    assert_eq!(config.clone().option().load(&partial), Ok(Value::None));
+
+    // Unwrapped, the missing child keeps its nested path.
+    let missing = config.load(&partial).unwrap_err();
+    assert_eq!(
+        missing,
+        vec![ConfigError::Missing { path: vec!["database".to_string(), "port".to_string()] }]
+    );
+}
+
+#[test]
+fn config_all_recovers_an_absent_sibling_after_or_else_handles_invalid_input() {
+    // Config.test.ts:1077.
+    let fallback = Value::Map(vec![
+        ("recovered".to_string(), Value::Int(0)),
+        ("required".to_string(), Value::Str("default".to_string())),
+    ]);
+    let config = Config::record(vec![
+        (
+            "recovered".to_string(),
+            Config::integer(named("recovered")).or_else(Config::succeed(Value::Int(1))),
+        ),
+        ("required".to_string(), Config::string(named("required"))),
+    ])
+    .with_default(fallback);
+
+    assert_eq!(
+        config.load(&provider(&[("recovered", "invalid")])),
+        Ok(Value::Map(vec![
+            ("recovered".to_string(), Value::Int(0)),
+            ("required".to_string(), Value::Str("default".to_string())),
+        ]))
+    );
+    assert_eq!(
+        config.load(&provider(&[("recovered", "invalid"), ("required", "value")])),
+        Ok(Value::Map(vec![
+            ("recovered".to_string(), Value::Int(1)),
+            ("required".to_string(), Value::Str("value".to_string())),
+        ]))
+    );
+}
+
+#[test]
+fn config_all_recovers_an_absent_sibling_after_or_else_handles_absence() {
+    // Config.test.ts:1095.
+    let fallback = Value::Map(vec![
+        ("recovered".to_string(), Value::Int(0)),
+        ("required".to_string(), Value::Str("default".to_string())),
+    ]);
+    let config = Config::record(vec![
+        (
+            "recovered".to_string(),
+            Config::integer(named("recovered")).or_else(Config::succeed(Value::Int(1))),
+        ),
+        ("required".to_string(), Config::string(named("required"))),
+    ])
+    .with_default(fallback);
+    assert_eq!(
+        config.load(&Provider::empty()),
+        Ok(Value::Map(vec![
+            ("recovered".to_string(), Value::Int(0)),
+            ("required".to_string(), Value::Str("default".to_string())),
+        ]))
+    );
+}
+
+#[test]
+fn config_or_else_absent_fallback_is_itself_absence() {
+    // Config.test.ts:1109 — the fallback also fails (absent), so the
+    // whole config reads as absent: default and option both recover.
+    let config = Config::integer(named("primary")).or_else(Config::string(named("fallback")));
+    let provider = provider(&[("primary", "invalid")]);
+    assert_eq!(
+        config.clone().with_default(Value::Str("default".to_string())).load(&provider),
+        Ok(Value::Str("default".to_string()))
+    );
+    assert_eq!(config.option().load(&provider), Ok(Value::None));
+}
+
+#[test]
+fn config_or_else_fallback_result_inside_the_nested_path() {
+    // Config.test.ts:1126.
+    let config = Config::integer(named("primary"))
+        .or_else(Config::integer(named("fallback")))
+        .nested("service");
+    assert_eq!(
+        config.load(&provider(&[("service.primary", "invalid"), ("service.fallback", "80")])),
+        Ok(Value::Int(80))
+    );
+    assert_eq!(
+        config
+            .clone()
+            .with_default(Value::Int(3000))
+            .load(&provider(&[("service.primary", "invalid"), ("fallback", "80")])),
+        Ok(Value::Int(3000))
+    );
+    let invalid = provider(&[("service.primary", "invalid"), ("service.fallback", "1.5")]);
+    for err in [
+        config.clone().with_default(Value::Int(3000)).load(&invalid).unwrap_err(),
+        config.option().load(&invalid).unwrap_err(),
+    ] {
+        assert_eq!(
+            err,
+            vec![ConfigError::Invalid {
+                path: vec!["service".to_string(), "fallback".to_string()],
+                got: "1.5".to_string(),
+                reason: "not an integer".to_string(),
+            }]
+        );
+    }
+}
+
+#[test]
+fn config_flat_map_lifts_absence_in_nested_composition() {
+    // Config.test.ts:408.
+    let flag = Config::integer(named("port")).flat_map(|_| Config::string(named("unused")).option());
+    let config = Config::record(vec![
+        ("flag".to_string(), flag),
+        ("required".to_string(), Config::string(named("required"))),
+    ])
+    .with_default(Value::Map(vec![
+        ("flag".to_string(), Value::None),
+        ("required".to_string(), Value::Str("default".to_string())),
+    ]));
+    assert_eq!(
+        config.load(&provider(&[("port", "80")])),
+        Ok(Value::Map(vec![
+            ("flag".to_string(), Value::None),
+            ("required".to_string(), Value::Str("default".to_string())),
+        ]))
+    );
+}
+
+#[test]
+fn config_normalizes_unavailable_scalar_representations_to_absence() {
+    // Config.test.ts:1265 — the pin's provider answers the leaf path with
+    // an empty record; the port's empty lookup is `None`, the same
+    // absence for a scalar read.
+    let present_but_empty = Provider::single(vec!["value".to_string()], None);
+    let config = Config::string(named("value"));
+    assert_eq!(
+        config.clone().with_default(Value::Str("default".to_string())).load(&present_but_empty),
+        Ok(Value::Str("default".to_string()))
+    );
+    assert_eq!(config.option().load(&present_but_empty), Ok(Value::None));
+}
+
+#[test]
+fn config_record_preserves_special_keys_as_data() {
+    // Config.test.ts:551 — `__proto__` and `constructor` are record keys,
+    // not prototype slots. The port's records are key vectors, so no
+    // prototype pollution exists by construction; the keys survive as
+    // data, which is the row's observable claim.
+    let config = Config::record(vec![
+        ("__proto__".to_string(), Config::succeed(Value::Str("value".to_string()))),
+        // The pin's `undefined` arm renders as the port's absent value.
+        ("constructor".to_string(), Config::succeed(Value::None)),
+    ]);
+    assert_eq!(
+        config.load(&Provider::empty()),
+        Ok(Value::Map(vec![
+            ("__proto__".to_string(), Value::Str("value".to_string())),
+            ("constructor".to_string(), Value::None),
+        ]))
+    );
+}
+
+#[test]
+fn config_nested_composes_a_constructor_path_with_a_prefix() {
+    // Config.test.ts:1355.
+    let config = Config::string(named("a")).nested("b");
+    assert_eq!(config.load(&provider(&[("b.a", "value")])), Ok(Value::Str("value".to_string())));
+    assert_eq!(
+        config.load(&Provider::empty()).unwrap_err(),
+        vec![ConfigError::Missing { path: vec!["b".to_string(), "a".to_string()] }]
+    );
+}
+
+#[test]
+fn config_nested_env_composes_a_constructor_path_with_a_prefix() {
+    // Config.test.ts:1424 — the env provider joins path segments with `_`.
+    let config = Config::string(named("a")).nested("b");
+    let env = EnvProvider::from_env_map([("b_a".to_string(), "value".to_string())]);
+    assert_eq!(config.load(&env), Ok(Value::Str("value".to_string())));
+    let empty = EnvProvider::from_env_map(Vec::<(String, String)>::new());
+    assert_eq!(
+        config.load(&empty).unwrap_err(),
+        vec![ConfigError::Missing { path: vec!["b".to_string(), "a".to_string()] }]
+    );
+}
+
+#[test]
+fn config_nested_provider_prefixes_do_not_leak_into_error_paths() {
+    // Config.test.ts:1475 — the provider prefix composes for lookup, but
+    // the error keeps the config's logical path.
+    let config = Config::string(named("host")).nested("database");
+    let env = EnvProvider::from_env_map([("app_database_host".to_string(), "localhost".to_string())]);
+    let scoped = env.nested(vec!["app".to_string()]);
+    assert_eq!(config.load(&scoped), Ok(Value::Str("localhost".to_string())));
+    let empty_env = EnvProvider::from_env_map(Vec::<(String, String)>::new());
+    let empty = empty_env.nested(vec!["app".to_string()]);
+    assert_eq!(
+        config.load(&empty).unwrap_err(),
+        vec![ConfigError::Missing { path: vec!["database".to_string(), "host".to_string()] }]
+    );
+}
+
+#[test]
+fn config_logical_error_paths_survive_provider_fallback() {
+    // Config.test.ts:1490 — a present-but-invalid value does not fall
+    // through; the failure keeps the logical path, not the provider's.
+    let first = EnvProvider::from_env_map([("app_port".to_string(), "abc".to_string())]);
+    let second = EnvProvider::from_env_map(Vec::<(String, String)>::new());
+    let fallback = first.or_else(&second);
+    let provider = fallback.nested(vec!["app".to_string()]);
+    assert_eq!(
+        Config::number(named("port")).load(&provider).unwrap_err(),
+        vec![ConfigError::Invalid {
+            path: vec!["port".to_string()],
+            got: "abc".to_string(),
+            reason: "not a number".to_string(),
+        }]
+    );
+}
+
+#[test]
+fn config_unwrap_recursively_combines_nested_records() {
+    // Config.test.ts:1517 — `Config.unwrap` over a nested record of
+    // configs; the port's `record` nests directly.
+    let config = Config::record(vec![(
+        "a".to_string(),
+        Config::record(vec![("b".to_string(), Config::string(named("b2")))]),
+    )]);
+    assert_eq!(
+        config.load(&provider(&[("b2", "value")])),
+        Ok(Value::Map(vec![(
+            "a".to_string(),
+            Value::Map(vec![("b".to_string(), Value::Str("value".to_string()))])
+        )]))
+    );
+}
+
+#[test]
+fn config_schema_string_loads_root_flat_and_nested_paths() {
+    // Config.test.ts:2465 — `Config.schema(Schema.String, path)` is the
+    // port's named string descriptor; the three arms are the root path
+    // (no name), a flat path, and a nested one.
+    let root = Provider::single(Vec::new(), Some("value".to_string()));
+    assert_eq!(Config::string(None).load(&root), Ok(Value::Str("value".to_string())));
+    assert_eq!(
+        Config::string(named("a")).load(&provider(&[("a", "value")])),
+        Ok(Value::Str("value".to_string()))
+    );
+    let nested = Config::string(named("b")).nested("a");
+    assert_eq!(
+        nested.load(&provider(&[("a.b", "value")])),
+        Ok(Value::Str("value".to_string()))
     );
 }
