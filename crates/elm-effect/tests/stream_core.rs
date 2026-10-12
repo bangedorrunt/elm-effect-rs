@@ -306,6 +306,47 @@ fn map_accum_array_maps_once_per_chunk() {
 }
 
 #[test]
+fn scan_effect_emits_running_fold_through_effects() {
+    // Stream.make(1, 2, 3, 4, 5).pipe(
+    //   Stream.scanEffect(() => 0, (acc, curr) => Effect.succeed(acc + curr)),
+    //   Stream.runCollect) === Array.scan([1,2,3,4,5], 0, (a, c) => a + c)
+    // The effectful step still threads one accumulator in order, and the
+    // initial value is never emitted, so only the running totals surface.
+    let stream: Stream<i64, String, ()> = from_iter(vec![1i64, 2, 3, 4, 5].into_iter(), 5)
+        .scan_effect(0i64, |acc, cur| Effect::succeed(acc + cur));
+    let exit = stream.run_collect();
+    assert!(matches!(exit, Exit::Success(ref v) if *v == vec![1i64, 3, 6, 10, 15]));
+}
+
+#[test]
+fn scan_effect_threads_state_across_chunk_boundaries() {
+    // The accumulator must survive the chunking, exactly like the pure scan:
+    // five single-element chunks fold to the same running totals.
+    let coarse: Exit<Vec<i64>, String> = from_iter(vec![1i64, 2, 3, 4, 5].into_iter(), 1)
+        .scan_effect(0i64, |acc, cur| Effect::succeed(acc + cur))
+        .run_collect();
+    assert!(matches!(coarse, Exit::Success(ref v) if *v == vec![1i64, 3, 6, 10, 15]));
+}
+
+#[test]
+fn scan_effect_failure_reaches_the_typed_channel() {
+    // The unhappy path the row does not assert: a step that fails fails the
+    // stream at that element, and the elements already folded stay collected.
+    let stream: Stream<i64, String, ()> = from_iter(vec![1i64, 2, 3].into_iter(), 3)
+        .scan_effect(0i64, |acc, cur| {
+            if cur == 2 {
+                Effect::fail("boom".to_string())
+            } else {
+                Effect::succeed(acc + cur)
+            }
+        });
+    match stream.run_collect() {
+        Exit::Failure(cause) => assert_eq!(cause.failure(), Some(&"boom".to_string())),
+        Exit::Success(_) => panic!("a failing scan step must fail the stream"),
+    }
+}
+
+#[test]
 fn map_accum_array_threads_state_across_chunks() {
     // Two chunks, state carried: [1,2] -> sum 3 emits values, [3,4] -> sum 7.
     let stream: Stream<i64, String, ()> = from_iter(vec![1i64, 2, 3, 4].into_iter(), 2)
@@ -442,6 +483,50 @@ fn rechunk_and_grouped_normalize_their_chunk_size() {
         })
         .collect();
     assert_eq!(grouped, expected);
+}
+
+// ---------------------------------------------------------------------------
+// groupedWithin with a schedule that never elapses (Stream.test.ts 2618, 2633)
+// ---------------------------------------------------------------------------
+
+#[test]
+fn grouped_within_never_elapsing_schedule_is_plain_grouped() {
+    // Stream.groupedWithin(size, "1 hour") (and "1 second" over a synchronous
+    // stream) is observably Stream.grouped(size): the schedule never fires,
+    // so a batch closes on size and the final partial batch flushes when the
+    // upstream ends. Reduced onto the port's `grouped`, which already
+    // normalizes the size through Count.normalizeNonEmpty.
+    //
+    // :2618 — the normalization table, for size in [NaN, 0.5, 1.9, 2.9].
+    let normalized: Vec<Vec<Vec<i64>>> = [f64::NAN, 0.5, 1.9, 2.9]
+        .iter()
+        .map(|n| {
+            let stream: Stream<Vec<i64>, Infallible, ()> =
+                from_iter(vec![1i64, 2, 3].into_iter(), 3).grouped(*n);
+            match stream.run_collect() {
+                Exit::Success(v) => v,
+                other => panic!("groupedWithin failed: {other:?}"),
+            }
+        })
+        .collect();
+    assert_eq!(
+        normalized,
+        vec![
+            vec![vec![1], vec![2], vec![3]],
+            vec![vec![1], vec![2], vec![3]],
+            vec![vec![1], vec![2], vec![3]],
+            vec![vec![1, 2], vec![3]],
+        ]
+    );
+
+    // :2633 — a full batch then a partial tail: the tail flushes on upstream
+    // end without waiting for the schedule.
+    let tail: Exit<Vec<Vec<i64>>, Infallible> =
+        from_iter(vec![1i64, 2, 3, 4, 5].into_iter(), 5).grouped(3.0).run_collect();
+    assert!(
+        matches!(tail, Exit::Success(ref v) if *v == vec![vec![1i64, 2, 3], vec![4, 5]]),
+        "the final partial batch must flush on upstream end"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -921,6 +1006,26 @@ fn group_adjacent_by_regardless_of_chunk_boundaries() {
         vec![vec![a, b, c], vec![d]],
         "the upstream chunking must not change the grouping"
     );
+}
+
+#[test]
+fn group_adjacent_by_one_big_chunk() {
+    // Stream.test.ts :2500 — the whole input arrives as ONE upstream chunk
+    // (Stream.fromIterable), so the pipeline must survive the big chunk and
+    // still close the run on the key change, not on the chunk boundary.
+    let (a, b, c, d) = (
+        Event { code: 1, message: "A" },
+        Event { code: 1, message: "B" },
+        Event { code: 1, message: "D" },
+        Event { code: 2, message: "C" },
+    );
+    let collected: Exit<Vec<Event>, Infallible> =
+        from_iter(vec![a.clone(), b.clone(), c.clone(), d.clone()].into_iter(), 64).run_collect();
+    let items = match collected {
+        Exit::Success(v) => v,
+        Exit::Failure(_) => panic!("a plain fromIterable must not fail"),
+    };
+    assert_eq!(group_adjacent_by(items, |x| x.code), vec![vec![a, b, c], vec![d]]);
 }
 
 // ---------------------------------------------------------------------------

@@ -238,6 +238,30 @@ impl<A: Send + 'static, E: Send + 'static, R: crate::effect::Requirement> Stream
         })
     }
 
+    /// `Stream.scanEffect` at the pin: the running fold with an effectful
+    /// step. The step reads and updates one accumulator, so it rides
+    /// `map_effect` with a bound of one: one child at a time is what keeps the
+    /// fold sequential, and the state lives in the closure rather than in a
+    /// second pull node.
+    pub fn scan_effect<S, F>(self, init: S, f: F) -> Stream<S, E, R>
+    where
+        S: Clone + Send + 'static,
+        F: Fn(S, A) -> Effect<S, E, R> + Send + Sync + 'static,
+    {
+        let (state, step) = (Arc::new(Mutex::new(init)), Arc::new(f));
+        self.map_effect(
+            move |a: A, _ctx: &crate::Ctx| {
+                let (state, step) = (Arc::clone(&state), Arc::clone(&step));
+                let acc = state.lock().unwrap().clone();
+                step(acc, a).map(move |next| {
+                    *state.lock().unwrap() = next.clone();
+                    next
+                })
+            },
+            1,
+        )
+    }
+
     /// `Stream.mapAccumArray` at the pin: thread state across chunks, emitting
     /// zero or more values per chunk. The mapping runs once per chunk.
     pub fn map_accum_array<S, B, F>(self, init: S, f: F) -> Stream<B, E, R>
@@ -1423,15 +1447,21 @@ where
             }
         }
         let mut results: Vec<Option<B>> = (0..total).map(|_| None).collect();
+        let mut spawned = bound;
         let mut finished = 0;
         let mut failure: Option<Cause<E>> = None;
-        while finished < total {
+        // Wait for the children that actually started. A failure stops the
+        // pending queue from starting (their results are discarded anyway), so
+        // waiting for `total` here would block forever on a recv that can
+        // never arrive.
+        while finished < spawned {
             match rx.recv().expect("a child always answers") {
                 ChildDone::Ok(index, b) => {
                     if failure.is_none() {
                         results[index] = Some(b);
                         if let Some((next, item)) = pending.next() {
                             spawn_child(&rt, &tx, &self.f, scope, &self.exec, batch, next, item);
+                            spawned += 1;
                         }
                     }
                     finished += 1;
