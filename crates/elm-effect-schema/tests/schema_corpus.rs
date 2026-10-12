@@ -1416,3 +1416,110 @@ fn json_schema_document_refinement_rows_carry_their_code_and_type() {
         assert_eq!(schema.to_type(), ty, "type for {doc:?}");
     }
 }
+
+#[test]
+fn json_schema_document_object_rows_carry_their_code_and_type() {
+    // fromJsonSchemaDocument.test.ts's object family. The pin's rule is a
+    // 2x2: named keys (or not) crossed with what `additionalProperties` says.
+    // Absent means open, `false` closes, a schema next to named keys is
+    // refused outright.
+    use elm_effect_schema::{Schema, Unknown};
+
+    let cases: Vec<(serde_json::Value, &str, &str)> = vec![
+        // :782 — no keys, open.
+        (
+            serde_json::json!({"type": "object"}),
+            r#"Schema.Record(Schema.String, Schema.Json.annotate({ "expected": "JSON value" }))"#,
+            r#"{ readonly [x: string]: Schema.Json }"#,
+        ),
+        // :794 — no keys, closed.
+        (
+            serde_json::json!({"type": "object", "additionalProperties": false}),
+            "Schema.Record(Schema.String, Schema.Never)",
+            "{ readonly [x: string]: never }",
+        ),
+        // :832 — no keys, a typed catch-all.
+        (
+            serde_json::json!({"type": "object", "additionalProperties": {"type": "boolean"}}),
+            "Schema.Record(Schema.String, Schema.Boolean)",
+            "{ readonly [x: string]: boolean }",
+        ),
+        // :844 — named keys, closed. `b` is not required, so it is an exact
+        // optional: the key may be absent but an explicit null still decodes.
+        (
+            serde_json::json!({
+                "type": "object",
+                "properties": {"a": {"type": "string"}, "b": {"type": "string"}},
+                "required": ["a"],
+                "additionalProperties": false
+            }),
+            r#"Schema.Struct({ "a": Schema.String, "b": Schema.optionalKey(Schema.String) })"#,
+            r#"{ readonly "a": string, readonly "b"?: string }"#,
+        ),
+    ];
+
+    for (doc, code, ty) in cases {
+        let schema = Schema::<Unknown>::from_json_schema(&doc).expect("imports");
+        assert_eq!(schema.to_code(), code, "code for {doc:?}");
+        assert_eq!(schema.to_type(), ty, "type for {doc:?}");
+    }
+
+    // :863 — a typed catch-all beside named keys is refused, not silently
+    // widened: an index signature also checks the keys the named fields claim.
+    let refused = Schema::<Unknown>::from_json_schema(&serde_json::json!({
+        "type": "object",
+        "properties": {"a": {"type": "string"}},
+        "required": ["a"],
+        "additionalProperties": {"type": "boolean"}
+    }));
+    assert!(refused.is_err(), "typed additionalProperties beside properties must refuse");
+
+    // The open form composes a struct with a record catch-all, which is the
+    // shape the pin's StructWithRest rows carry (:1199, :1221 and the
+    // additionalProperties ones). They need `$ref`/`id` to reach, so the rest is
+    // asserted here through the explicit open form instead.
+    let open = Schema::<Unknown>::from_json_schema(&serde_json::json!({
+        "type": "object",
+        "properties": {"a": {"type": "string"}},
+        "required": ["a"],
+        "additionalProperties": true
+    }))
+    .expect("imports the open form");
+    assert_eq!(
+        open.to_code(),
+        r#"Schema.StructWithRest(Schema.Struct({ "a": Schema.String }), [Schema.Record(Schema.String, Schema.Json.annotate({ "expected": "JSON value" }))])"#
+    );
+    assert_eq!(
+        open.to_type(),
+        r#"{ readonly "a": string } & { readonly [x: string]: Schema.Json }"#
+    );
+}
+
+#[test]
+fn json_schema_document_unconstrained_rows_carry_their_code_and_type() {
+    // fromJsonSchemaDocument.test.ts's "no keyword" family. Nothing constrains
+    // the value, so the pin imports it as any JSON value carrying the `expected`
+    // message, and every annotation keyword it recognises rides along after it.
+    use elm_effect_schema::{Schema, Unknown};
+
+    let cases: Vec<(serde_json::Value, &str, &str)> = vec![
+        // :3075 — an unknown keyword.
+        (
+            serde_json::json!({"custom": false}),
+            r#"Schema.Json.annotate({ "expected": "JSON value" })"#,
+            "Schema.Json",
+        ),
+        // :177 — an annotation keyword the pin keeps.
+        (
+            serde_json::json!({"format": "email"}),
+            r#"Schema.Json.annotate({ "expected": "JSON value", "format": "email" })"#,
+            "Schema.Json",
+        ),
+    ];
+
+    for (doc, code, ty) in cases {
+        let schema = Schema::<Unknown>::from_json_schema(&doc).expect("imports");
+        assert_eq!(schema.to_code(), code, "code for {doc:?}");
+        assert_eq!(schema.to_type(), ty, "type for {doc:?}");
+    }
+}
