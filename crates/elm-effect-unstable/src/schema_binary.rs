@@ -376,12 +376,46 @@ pub fn split_frames(bytes: &[u8]) -> Result<Vec<&[u8]>, BinaryError> {
     Ok(out)
 }
 
+/// Payload extent bounds: eight bytes is the f64 form, and a sign-magnitude
+/// varint never needs more than seven.
+const NUMBER_VARINT_MAX_BYTES: usize = 7;
+
+/// Parse the non-f64 scalar payload forms with the reference's vocabulary: a
+/// varint cut short is "Expected complete value", and anything else that is
+/// not exactly one in-range nonzero scale byte is "Expected decimal" (scale
+/// 0 is illegal here because the bare varint is that value's canonical form).
+fn decode_scalar_payload(payload: &[u8]) -> Result<f64, &'static str> {
+    let mut pos = 0;
+    let word = uvarint_decode(payload, &mut pos).ok_or("Expected complete value")?;
+    if pos == payload.len() {
+        return Ok(sign_magnitude_to_f64(word, 0));
+    }
+    if pos + 1 != payload.len() {
+        return Err("Expected decimal");
+    }
+    let scale = payload[pos];
+    if scale == 0 || scale > DECIMAL_SCALE_MAX as u8 {
+        return Err("Expected decimal");
+    }
+    // The mantissa word of a scalar decimal reuses the sign-magnitude form.
+    let negative = word & 1 == 1;
+    let magnitude = (word >> 1) as f64;
+    let value = magnitude / POW10[scale as usize];
+    Ok(if negative { -value } else { value })
+}
+
 /// Decode one scalar number: 8-byte payloads are f64, otherwise a
-/// varint with an optional trailing scale byte.
+/// varint with an optional trailing scale byte. The frame's own length
+/// bounds the payload, so `trailing bytes outside the frame` and `trailing
+/// bytes inside it` stay distinguishable.
 pub fn decode_number_scalar(bytes: &[u8]) -> Result<f64, BinaryError> {
     let fail = |message: &str| BinaryError::new(format!("{} [{}]", message, hex_preview(bytes)));
     let mut pos = 0;
-    let _length = uvarint_decode(bytes, &mut pos).ok_or_else(|| fail("truncated length"))?;
+    let length = uvarint_decode(bytes, &mut pos).ok_or_else(|| fail("truncated length"))? as usize;
+    let end = pos
+        .checked_add(length)
+        .filter(|end| *end <= bytes.len())
+        .ok_or_else(|| fail("truncated frame"))?;
     let tag = *bytes.get(pos).ok_or_else(|| fail("truncated tag"))?;
     pos += 1;
     if tag != ARRAY_TAG {
@@ -389,28 +423,20 @@ pub fn decode_number_scalar(bytes: &[u8]) -> Result<f64, BinaryError> {
             "expected {EXPECTED_ENVELOPE}, actual {tag:#04x}"
         )));
     }
-    if bytes.len() - pos == 8 {
+    let payload = &bytes[pos..end];
+    let value = if payload.len() == 8 {
         let mut word = [0u8; 8];
-        word.copy_from_slice(&bytes[pos..pos + 8]);
-        return Ok(f64::from_le_bytes(word));
-    }
-    let word = uvarint_decode(bytes, &mut pos).ok_or_else(|| fail("truncated scalar"))?;
-    if pos == bytes.len() {
-        return Ok(sign_magnitude_to_f64(word, 0));
-    }
-    if pos + 1 != bytes.len() {
+        word.copy_from_slice(payload);
+        f64::from_le_bytes(word)
+    } else if payload.is_empty() || payload.len() > NUMBER_VARINT_MAX_BYTES {
+        return Err(fail("Expected f64"));
+    } else {
+        decode_scalar_payload(payload).map_err(&fail)?
+    };
+    if end != bytes.len() {
         return Err(fail("no leftover bytes"));
     }
-    let scale = bytes[pos];
-    pos += 1;
-    if scale > DECIMAL_SCALE_MAX as u8 {
-        return Err(fail("bad scalar scale"));
-    }
-    // The mantissa word of a scalar decimal reuses the sign-magnitude form.
-    let negative = word & 1 == 1;
-    let magnitude = (word >> 1) as f64;
-    let value = magnitude / POW10[scale as usize];
-    Ok(if negative { -value } else { value })
+    Ok(value)
 }
 
 /// Encode strings as length-prefixed UTF-8 behind the array envelope.
@@ -515,7 +541,7 @@ fn decode_number_run(
         NUMBER_RUN_F64 => {
             let need = count.checked_mul(8).ok_or_else(|| fail("count overflow"))?;
             if bytes.len() - *pos < need as usize {
-                return Err(fail("truncated f64 run"));
+                return Err(fail("Expected f64"));
             }
             for _ in 0..count {
                 let mut word = [0u8; 8];
@@ -526,23 +552,25 @@ fn decode_number_run(
         }
         NUMBER_RUN_VARINT => {
             for _ in 0..count {
-                let word =
-                    uvarint_decode(bytes, &mut pos).ok_or_else(|| fail("truncated varint run"))?;
+                let word = uvarint_decode(bytes, &mut pos)
+                    .ok_or_else(|| fail("Expected complete value"))?;
                 out.push(sign_magnitude_to_f64(word, 0));
             }
         }
         NUMBER_RUN_DECIMAL => {
             for _ in 0..count {
-                let word =
-                    uvarint_decode(bytes, &mut pos).ok_or_else(|| fail("truncated decimal run"))?;
+                let word = uvarint_decode(bytes, &mut pos)
+                    .ok_or_else(|| fail("Expected complete value"))?;
                 let scale = (word % 16) as u32;
+                // Scale 0 is legal in a run: it is the integer form. Only a
+                // scale past the decimal cap is a malformed element.
                 if scale > DECIMAL_SCALE_MAX {
-                    return Err(fail("bad decimal scale"));
+                    return Err(fail("Expected decimal"));
                 }
                 out.push(sign_magnitude_to_f64(word / 16, scale));
             }
         }
-        _ => return Err(fail("unknown number-run mode")),
+        _ => return Err(fail("Expected f64")),
     }
     Ok(out)
 }

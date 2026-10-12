@@ -263,6 +263,55 @@ fn binary_unions_carry_forms_behind_kind() {
 }
 
 #[test]
+fn binary_number_payloads_report_reference_failures() {
+    // SchemaBinary.test.ts:526 — malformed number payloads report the
+    // reference's vocabulary: Expected f64, a complete value, Expected
+    // decimal. The frames below are the pin's own byte arrays.
+    // Nine payload bytes are neither the varint nor the f64 form.
+    let wide = [10u8, 0x20, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+    let err = decode_number_scalar(&wide).expect_err("wide payload");
+    assert!(err.message().contains("Expected f64"), "{}", err.message());
+    // A varint that never terminates inside its extent.
+    let truncated = [3u8, 0x20, 0x80, 0x80];
+    let err = decode_number_scalar(&truncated).expect_err("truncated varint");
+    assert!(
+        err.message().contains("complete value"),
+        "{}",
+        err.message()
+    );
+    // A decimal tail whose scale byte is zero, out of range, or followed by
+    // more bytes: scale 0 is illegal here because the varint form is the
+    // canonical encoding of that value.
+    for bytes in [
+        &[3u8, 0x20, 30, 0][..],
+        &[3u8, 0x20, 30, 9][..],
+        &[4u8, 0x20, 30, 1, 1][..],
+    ] {
+        let err = decode_number_scalar(bytes).expect_err("decimal tail");
+        assert!(
+            err.message().contains("Expected decimal"),
+            "{:?}: {}",
+            bytes,
+            err.message()
+        );
+    }
+    // An array run with an unknown mode byte.
+    let run = encode_number_array(&[1.0, 2.0, 3.0]);
+    let mut unknown = run.clone();
+    unknown[3] = 3;
+    let err = decode_number_array(&unknown).expect_err("unknown mode");
+    assert!(err.message().contains("Expected f64"), "{}", err.message());
+    // An array run cut one byte short.
+    let short = &run[..run.len() - 1];
+    let err = decode_number_array(short).expect_err("short run");
+    assert!(
+        err.message().contains("complete value"),
+        "{}",
+        err.message()
+    );
+}
+
+#[test]
 fn binary_frames_reject_envelope_and_leftovers() {
     // SchemaBinary.test.ts:239 - length-first frames with envelope checks.
     assert_eq!(encode_number_scalar(1.0), vec![2, 0x20, 0x02]);

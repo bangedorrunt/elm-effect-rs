@@ -6183,7 +6183,7 @@ unported	packages/effect/test/encoding/SchemaBinary.test.ts	476	it	parses a stre
 unported	packages/effect/test/encoding/SchemaBinary.test.ts	487	it	emits a bare varint when the schema proves the value is an integer	
 unported	packages/effect/test/encoding/SchemaBinary.test.ts	509	it	rejects a non-integer that reaches the integer layout	
 ported	packages/effect/test/encoding/SchemaBinary.test.ts	517	it	rejects integer varints outside the safe-number range	binary_int_scalars_reject_unsafe_varints
-unported	packages/effect/test/encoding/SchemaBinary.test.ts	526	it	rejects malformed number payloads	
+ported	packages/effect/test/encoding/SchemaBinary.test.ts	526	it	rejects malformed number payloads	binary_number_payloads_report_reference_failures
 unported	packages/effect/test/encoding/SchemaBinary.test.ts	554	it	skips unknown fields, accepts field reorder, and leaves missing optionals absent	
 unported	packages/effect/test/encoding/SchemaBinary.test.ts	565	it	orders extra keys by raw UTF-8 whatever the insertion order	
 unported	packages/effect/test/encoding/SchemaBinary.test.ts	581	it	keeps canonical key order when record shapes change within a frame	
