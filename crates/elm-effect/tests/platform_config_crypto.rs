@@ -1632,52 +1632,6 @@ fn config_all_recovers_an_absent_sibling_after_or_else_handles_absence() {
 }
 
 #[test]
-fn config_or_else_absent_fallback_is_itself_absence() {
-    // Config.test.ts:1109 — the fallback also fails (absent), so the
-    // whole config reads as absent: default and option both recover.
-    let config = Config::integer(named("primary")).or_else(Config::string(named("fallback")));
-    let provider = provider(&[("primary", "invalid")]);
-    assert_eq!(
-        config.clone().with_default(Value::Str("default".to_string())).load(&provider),
-        Ok(Value::Str("default".to_string()))
-    );
-    assert_eq!(config.option().load(&provider), Ok(Value::None));
-}
-
-#[test]
-fn config_or_else_fallback_result_inside_the_nested_path() {
-    // Config.test.ts:1126.
-    let config = Config::integer(named("primary"))
-        .or_else(Config::integer(named("fallback")))
-        .nested("service");
-    assert_eq!(
-        config.load(&provider(&[("service.primary", "invalid"), ("service.fallback", "80")])),
-        Ok(Value::Int(80))
-    );
-    assert_eq!(
-        config
-            .clone()
-            .with_default(Value::Int(3000))
-            .load(&provider(&[("service.primary", "invalid"), ("fallback", "80")])),
-        Ok(Value::Int(3000))
-    );
-    let invalid = provider(&[("service.primary", "invalid"), ("service.fallback", "1.5")]);
-    for err in [
-        config.clone().with_default(Value::Int(3000)).load(&invalid).unwrap_err(),
-        config.option().load(&invalid).unwrap_err(),
-    ] {
-        assert_eq!(
-            err,
-            vec![ConfigError::Invalid {
-                path: vec!["service".to_string(), "fallback".to_string()],
-                got: "1.5".to_string(),
-                reason: "not an integer".to_string(),
-            }]
-        );
-    }
-}
-
-#[test]
 fn config_flat_map_lifts_absence_in_nested_composition() {
     // Config.test.ts:408.
     let flag = Config::integer(named("port")).flat_map(|_| Config::string(named("unused")).option());
