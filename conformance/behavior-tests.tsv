@@ -1455,13 +1455,13 @@ ported	packages/effect/test/Effect.test.ts	4223	it.effect	preserves the cause fo
 ported	packages/effect/test/Effect.test.ts	4260	it.effect	extracts reason into error channel	unwrap_reason_extracts_reason_into_error_channel
 ported	packages/effect/test/Effect.test.ts	4270	it.effect	extracts second reason type	unwrap_reason_extracts_second_reason_type
 ported	packages/effect/test/Effect.test.ts	4280	it.effect	preserves other errors	unwrap_reason_preserves_other_errors
-unported	packages/effect/test/Effect.test.ts	4292	it.effect	runs the effect once for concurrent callers	
-unported	packages/effect/test/Effect.test.ts	4311	it.effect	replays failures	
-unported	packages/effect/test/Effect.test.ts	4323	it.effect	interrupting a waiter leaves the owner running	
-unported	packages/effect/test/Effect.test.ts	4345	it.effect	replays the owner's interrupted exit	
-unported	packages/effect/test/Effect.test.ts	4364	it.effect	selects ttl from each fresh exit without evaluating on cache hits	
-unported	packages/effect/test/Effect.test.ts	4392	it.effect	supports a piped callback that skips failures and caches successes	
-unported	packages/effect/test/Effect.test.ts	4412	it.effect	starts ttl from value creation	
+ported	packages/effect/test/Effect.test.ts	4292	it.effect	runs the effect once for concurrent callers	cached_runs_the_effect_once_for_concurrent_callers
+ported	packages/effect/test/Effect.test.ts	4311	it.effect	replays failures	cached_replays_failures
+ported	packages/effect/test/Effect.test.ts	4323	it.effect	interrupting a waiter leaves the owner running	cached_interrupting_a_waiter_leaves_the_owner_running
+ported	packages/effect/test/Effect.test.ts	4345	it.effect	replays the owner's interrupted exit	cached_replays_the_owners_interrupted_exit
+ported	packages/effect/test/Effect.test.ts	4364	it.effect	selects ttl from each fresh exit without evaluating on cache hits	cached_with_ttl_selects_ttl_from_each_fresh_exit
+ported	packages/effect/test/Effect.test.ts	4392	it.effect	supports a piped callback that skips failures and caches successes	cached_with_ttl_skips_failures_and_caches_successes
+ported	packages/effect/test/Effect.test.ts	4412	it.effect	starts ttl from value creation	cached_with_ttl_starts_ttl_from_value_creation
 unported	packages/effect/test/Effect.test.ts	4451	it.effect	skips restoration when the provider expires before scope closure	
 unported	packages/effect/test/Effect.test.ts	4462	it.effect	updates a Context.Service until the scope closes	
 unported	packages/effect/test/Effect.test.ts	4476	it.effect	updates a Context.Reference until the scope closes	

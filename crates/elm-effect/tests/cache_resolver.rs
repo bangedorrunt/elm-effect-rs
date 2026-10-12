@@ -9,7 +9,7 @@ use std::sync::{
 };
 
 use cache::{Cache, IdlePolicy, Pool, Request, RequestResolver, ScopedCache};
-use elm_effect::Scope;
+use elm_effect::{Exit, Runtime, Scope};
 
 #[test]
 fn single_flight_runs_lookup_once() {
@@ -2095,4 +2095,360 @@ fn scoped_cache_number_keys() {
     assert_eq!(cache.keys(), vec![21]);
     assert_eq!(cache.values(), vec![42]);
     assert_eq!(cache.size(), 1);
+}
+
+// `Effect.cached` / `Effect.cachedWithTTL` (Effect.test.ts :4292-:4412).
+// The pin memoizes an effect value: concurrent callers share one run and
+// every later caller replays the recorded exit. This port's descriptions
+// are sync-only and interruption is observed by polling, so the memoized
+// unit is the same `Body` a fiber runs and the memo itself is an
+// imperative handle: the caller that finds the memo empty becomes the
+// owner and runs the body inline; every other caller waits on the
+// recorded exit, dropping out with an interrupt when its own fiber is
+// interrupted (only an owner publishes, so an interrupted waiter never
+// poisons the memo).
+
+/// Run `cached.get` inside a throwaway fiber and take the exit.
+fn memoized<A, E>(cached: &Arc<cache::Cached<A, E>>) -> Exit<A, E>
+where
+    A: Clone + Send + 'static,
+    E: Clone + Send + 'static,
+{
+    let cached = Arc::clone(cached);
+    Runtime::new()
+        .fork_detach(move |ctx| cached.get(ctx))
+        .join()
+}
+
+#[test]
+fn cached_runs_the_effect_once_for_concurrent_callers() {
+    use elm_effect::{Deferred, Exit, Runtime};
+
+    let rt = Runtime::new();
+    let started = Arc::new(Deferred::<(), ()>::new());
+    let release = Arc::new(Deferred::<(), ()>::new());
+    let calls = Arc::new(AtomicUsize::new(0));
+    let cached = Arc::new(cache::Cached::new({
+        let started = Arc::clone(&started);
+        let release = Arc::clone(&release);
+        let calls = Arc::clone(&calls);
+        move |_ctx| {
+            calls.fetch_add(1, Ordering::SeqCst);
+            started.complete(());
+            while !release.is_done() {
+                std::thread::park_timeout(std::time::Duration::from_millis(1));
+            }
+            Exit::Success(1usize)
+        }
+    }));
+
+    let mut fibers = Vec::new();
+    for _ in 0..3 {
+        let cached = Arc::clone(&cached);
+        fibers.push(rt.fork_detach_with(
+            move |ctx| cached.get(ctx),
+            elm_effect::ForkOpts::immediate(),
+        ));
+    }
+    // The owner started; the other two are parked on its run.
+    started.wait();
+    assert_eq!(calls.load(Ordering::SeqCst), 1);
+
+    release.complete(());
+    let exits: Vec<Exit<usize, String>> = fibers.into_iter().map(|f| f.join()).collect();
+    assert_eq!(
+        exits,
+        vec![
+            Exit::Success(1),
+            Exit::Success(1),
+            Exit::Success(1)
+        ]
+    );
+    assert_eq!(calls.load(Ordering::SeqCst), 1);
+}
+
+#[test]
+fn cached_replays_failures() {
+    use elm_effect::{Cause, Exit};
+
+    let calls = Arc::new(AtomicUsize::new(0));
+    let cached = Arc::new(cache::Cached::new({
+        let calls = Arc::clone(&calls);
+        move |_ctx| {
+            calls.fetch_add(1, Ordering::SeqCst);
+            Exit::<usize, String>::Failure(Cause::fail("boom".to_string()))
+        }
+    }));
+
+    let failure = Exit::<usize, String>::Failure(Cause::fail("boom".to_string()));
+    assert_eq!(memoized(&cached), failure);
+    assert_eq!(memoized(&cached), failure);
+    assert_eq!(calls.load(Ordering::SeqCst), 1);
+}
+
+#[test]
+fn cached_interrupting_a_waiter_leaves_the_owner_running() {
+    use elm_effect::{Cause, Deferred, Exit, ForkOpts, Runtime};
+
+    let rt = Runtime::new();
+    let started = Arc::new(Deferred::<(), ()>::new());
+    let release = Arc::new(Deferred::<(), ()>::new());
+    let cached = Arc::new(cache::Cached::new({
+        let started = Arc::clone(&started);
+        let release = Arc::clone(&release);
+        move |ctx| {
+            started.complete(());
+            while !release.is_done() {
+                if ctx.is_interrupted() {
+                    return Exit::<usize, String>::Failure(Cause::interrupt(None));
+                }
+                std::thread::park_timeout(std::time::Duration::from_millis(1));
+            }
+            Exit::Success(42usize)
+        }
+    }));
+
+    let owner = {
+        let cached = Arc::clone(&cached);
+        rt.fork_detach_with(move |ctx| cached.get(ctx), ForkOpts::immediate())
+    };
+    started.wait();
+    let waiter = {
+        let cached = Arc::clone(&cached);
+        rt.fork_detach_with(move |ctx| cached.get(ctx), ForkOpts::immediate())
+    };
+
+    waiter.interrupt();
+    let waiter_exit = waiter.join();
+    assert!(
+        matches!(&waiter_exit, Exit::Failure(cause) if cause.is_interrupted()),
+        "the interrupted waiter ends interrupted: {waiter_exit:?}"
+    );
+
+    release.complete(());
+    assert_eq!(owner.join(), Exit::Success(42));
+    assert_eq!(memoized(&cached), Exit::Success(42));
+    rt.shutdown();
+}
+
+#[test]
+fn cached_replays_the_owners_interrupted_exit() {
+    use elm_effect::{Cause, Deferred, Exit, ForkOpts, Runtime};
+
+    let rt = Runtime::new();
+    let started = Arc::new(Deferred::<(), ()>::new());
+    let release = Arc::new(Deferred::<(), ()>::new());
+    let cached = Arc::new(cache::Cached::new({
+        let started = Arc::clone(&started);
+        let release = Arc::clone(&release);
+        move |ctx| {
+            started.complete(());
+            while !release.is_done() {
+                if ctx.is_interrupted() {
+                    return Exit::<usize, String>::Failure(Cause::interrupt(None));
+                }
+                std::thread::park_timeout(std::time::Duration::from_millis(1));
+            }
+            Exit::Success(42usize)
+        }
+    }));
+
+    let owner = {
+        let cached = Arc::clone(&cached);
+        rt.fork_detach_with(move |ctx| cached.get(ctx), ForkOpts::immediate())
+    };
+    started.wait();
+
+    // The owner's own body observes the interruption, so the exit the
+    // owner publishes is the interrupted one and every later caller
+    // replays it.
+    owner.interrupt();
+    let owner_exit = owner.join();
+    assert!(
+        matches!(&owner_exit, Exit::Failure(cause) if cause.is_interrupted()),
+        "the interrupted owner ends interrupted: {owner_exit:?}"
+    );
+    assert_eq!(memoized(&cached), owner_exit);
+    release.complete(());
+    rt.shutdown();
+}
+
+#[test]
+fn cached_with_ttl_selects_ttl_from_each_fresh_exit() {
+    use elm_effect::{Duration, Exit, TestClock};
+    use std::sync::Mutex;
+
+    let clock = Arc::new(TestClock::new());
+    let calls = Arc::new(AtomicUsize::new(0));
+    let seen: Arc<Mutex<Vec<Exit<usize, String>>>> = Arc::new(Mutex::new(Vec::new()));
+    let cached = Arc::new(
+        cache::Cached::new({
+            let calls = Arc::clone(&calls);
+            move |_ctx| {
+                let n = calls.fetch_add(1, Ordering::SeqCst) + 1;
+                Exit::Success(n)
+            }
+        })
+        .with_ttl(
+            {
+                let seen = Arc::clone(&seen);
+                move |exit: &Exit<usize, String>| {
+                    seen.lock().unwrap().push(exit.clone());
+                    match exit {
+                        Exit::Success(1) => Duration::from_secs(1),
+                        _ => Duration::from_secs(3),
+                    }
+                }
+            },
+            Arc::clone(&clock) as Arc<dyn elm_effect::ClockImpl>,
+        ),
+    );
+
+    assert_eq!(calls.load(Ordering::SeqCst), 0);
+    assert_eq!(*seen.lock().unwrap(), vec![]);
+    assert_eq!(memoized(&cached), Exit::Success(1));
+    clock.adjust(Duration::from_millis(999));
+    assert_eq!(memoized(&cached), Exit::Success(1));
+    assert_eq!(*seen.lock().unwrap(), vec![Exit::Success(1)]);
+
+    clock.adjust(Duration::from_millis(1));
+    assert_eq!(memoized(&cached), Exit::Success(2));
+    clock.adjust(Duration::from_secs(1));
+    assert_eq!(memoized(&cached), Exit::Success(2));
+    clock.adjust(Duration::from_secs(2));
+    assert_eq!(memoized(&cached), Exit::Success(3));
+    assert_eq!(
+        *seen.lock().unwrap(),
+        vec![Exit::Success(1), Exit::Success(2), Exit::Success(3)]
+    );
+}
+
+#[test]
+fn cached_with_ttl_skips_failures_and_caches_successes() {
+    use elm_effect::{Cause, Duration, Exit, TestClock};
+    use std::sync::Mutex;
+
+    let clock = Arc::new(TestClock::new());
+    let calls = Arc::new(AtomicUsize::new(0));
+    let seen: Arc<Mutex<Vec<Exit<usize, String>>>> = Arc::new(Mutex::new(Vec::new()));
+    let cached = Arc::new(
+        cache::Cached::new({
+            let calls = Arc::clone(&calls);
+            move |_ctx| {
+                let n = calls.fetch_add(1, Ordering::SeqCst) + 1;
+                if n == 1 {
+                    Exit::Failure(Cause::fail("boom".to_string()))
+                } else {
+                    Exit::Success(n)
+                }
+            }
+        })
+        .with_ttl(
+            {
+                let seen = Arc::clone(&seen);
+                move |exit: &Exit<usize, String>| {
+                    seen.lock().unwrap().push(exit.clone());
+                    if matches!(exit, Exit::Failure(_)) {
+                        Duration::ZERO
+                    } else {
+                        Duration::from_secs(1)
+                    }
+                }
+            },
+            Arc::clone(&clock) as Arc<dyn elm_effect::ClockImpl>,
+        ),
+    );
+
+    assert_eq!(
+        memoized(&cached),
+        Exit::<usize, String>::Failure(Cause::fail("boom".to_string()))
+    );
+    assert_eq!(memoized(&cached), Exit::Success(2));
+    assert_eq!(memoized(&cached), Exit::Success(2));
+    assert_eq!(
+        *seen.lock().unwrap(),
+        vec![
+            Exit::<usize, String>::Failure(Cause::fail("boom".to_string())),
+            Exit::Success(2)
+        ]
+    );
+
+    clock.adjust(Duration::from_secs(1));
+    assert_eq!(memoized(&cached), Exit::Success(3));
+    assert_eq!(
+        *seen.lock().unwrap(),
+        vec![
+            Exit::<usize, String>::Failure(Cause::fail("boom".to_string())),
+            Exit::Success(2),
+            Exit::Success(3)
+        ]
+    );
+}
+
+#[test]
+fn cached_with_ttl_starts_ttl_from_value_creation() {
+    use elm_effect::{Cause, ClockImpl, Duration, Exit, ForkOpts, Runtime, TestClock};
+
+    let rt = Runtime::new();
+    let clock = Arc::new(TestClock::new());
+    let calls = Arc::new(AtomicUsize::new(0));
+    let cached = Arc::new(
+        cache::Cached::new({
+            let calls = Arc::clone(&calls);
+            let clock = Arc::clone(&clock);
+            move |ctx| {
+                let clock = Arc::clone(&clock);
+                let interrupted = move || ctx.is_interrupted();
+                // The body sleeps before producing: the memo's TTL starts
+                // when the value lands, not when the caller asked.
+                if clock.sleep(Duration::from_secs(2), &interrupted)
+                    != elm_effect::SleepOutcome::Elapsed
+                {
+                    return Exit::<usize, String>::Failure(Cause::interrupt(None));
+                }
+                Exit::Success(calls.fetch_add(1, Ordering::SeqCst) + 1)
+            }
+        })
+        .with_ttl(
+            |_: &Exit<usize, String>| Duration::from_secs(1),
+            Arc::clone(&clock) as Arc<dyn elm_effect::ClockImpl>,
+        ),
+    );
+
+    let first = {
+        let cached = Arc::clone(&cached);
+        rt.fork_detach_with(move |ctx| cached.get(ctx), ForkOpts::immediate())
+    };
+    // Wait until the owner's sleep is scheduled: a TestClock adjust
+    // never wakes a sleeper registered after it (the port's stand-in for
+    // the pin's `Effect.yieldNow` before the adjust).
+    while clock.pending_sleepers() == 0 {
+        std::thread::park_timeout(std::time::Duration::from_millis(1));
+    }
+    // The owner sleeps for two virtual seconds, then the value lands and
+    // its one-second TTL starts.
+    clock.adjust(Duration::from_secs(2));
+    assert_eq!(first.join(), Exit::Success(1));
+
+    let second = {
+        let cached = Arc::clone(&cached);
+        rt.fork_detach_with(move |ctx| cached.get(ctx), ForkOpts::immediate())
+    };
+    // The pin's `Effect.yieldNow` before its adjust: the caller replays
+    // the recorded exit first (a replay needs no time, so it never parks
+    // on the clock), and only then does virtual time move. Were the TTL
+    // measured from the fiber's request rather than the value's creation,
+    // the entry would already be expired here and the run would sleep.
+    while !second.is_done() {
+        assert_eq!(
+            clock.pending_sleepers(),
+            0,
+            "the second run must replay, not re-run"
+        );
+        std::thread::park_timeout(std::time::Duration::from_millis(1));
+    }
+    clock.adjust(Duration::from_secs(2));
+    assert_eq!(second.join(), Exit::Success(1));
+    assert_eq!(calls.load(Ordering::SeqCst), 1);
+    rt.shutdown();
 }

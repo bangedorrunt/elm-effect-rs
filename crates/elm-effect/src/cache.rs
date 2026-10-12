@@ -1,4 +1,5 @@
-//! Cache single-flight, request batching, pools, and scoped caches.
+//! Cache single-flight, request batching, pools, scoped caches, and one
+//! memoized run.
 //!
 //! One [`Cache`] lookup runs once no matter how many callers miss together:
 //! the first caller for a key puts up a pending row and runs the lookup
@@ -1151,5 +1152,144 @@ where
     pub fn close(&self) {
         self.cache.clear();
         self.scope.close();
+    }
+}
+
+// One memoized run: `Effect.cached` / `Effect.cachedWithTTL`
+// (Effect.test.ts :4292-:4412). The pin memoizes an effect value —
+// concurrent callers share one run and every later caller replays the
+// recorded exit. This port's descriptions are sync-only and
+// interruption is observed by polling, so the memoized unit is the same
+// `Body` a fiber runs and the memo is an imperative handle beside it.
+//
+// The caller that finds the memo empty is the owner: it runs the body
+// inline and publishes the exit. Every other caller waits on the
+// recorded exit and replays it — success, failure, or the owner's own
+// interruption. A waiter whose fiber is interrupted gives up WITHOUT
+// publishing, so interrupting a waiter never poisons the owner's run or
+// later callers.
+//
+// With a TTL, the expiry is computed from the clock when the exit lands
+// — the value's creation, never the caller's request — and an expired
+// exit is a miss: the next caller claims and runs again. A zero TTL
+// skips the store, so an exit the ttl function declines to keep (the
+// pin's failing exits) is never replayed.
+
+/// What one `get` should do next.
+enum Next {
+    Replay,
+    Claim,
+    Wait,
+}
+
+/// The memo's state: nothing recorded, a run in flight, or an exit with
+/// its expiry (milliseconds on the configured clock; `None` is
+/// unbounded).
+enum MemoState<A, E> {
+    Empty,
+    Running,
+    Done {
+        exit: elm_effect::Exit<A, E>,
+        expires_at: Option<u64>,
+    },
+}
+
+pub struct Cached<A: Clone + Send + 'static, E: Clone + Send + 'static> {
+    body: Box<dyn Fn(&elm_effect::Ctx) -> elm_effect::Exit<A, E> + Send + Sync>,
+    state: Mutex<MemoState<A, E>>,
+    ready: Condvar,
+    ttl: Box<dyn Fn(&elm_effect::Exit<A, E>) -> elm_effect::Duration + Send + Sync>,
+    clock: Arc<dyn elm_effect::ClockImpl>,
+}
+
+impl<A: Clone + Send + 'static, E: Clone + Send + 'static> Cached<A, E> {
+    /// Memoize `body`. Without [`with_ttl`](Self::with_ttl) the recorded
+    /// exit never expires.
+    pub fn new(
+        body: impl Fn(&elm_effect::Ctx) -> elm_effect::Exit<A, E> + Send + Sync + 'static,
+    ) -> Self {
+        Self {
+            body: Box::new(body),
+            state: Mutex::new(MemoState::Empty),
+            ready: Condvar::new(),
+            ttl: Box::new(|_| elm_effect::Duration::from_millis(u64::MAX)),
+            clock: Arc::new(elm_effect::SystemClock),
+        }
+    }
+
+    /// Give recorded exits a lifetime selected per exit, measured on
+    /// `clock` from the moment the exit lands. A zero duration stores
+    /// nothing: the exit lands already expired, so a failure the ttl
+    /// function declines to keep is never replayed.
+    pub fn with_ttl(
+        mut self,
+        ttl: impl Fn(&elm_effect::Exit<A, E>) -> elm_effect::Duration + Send + Sync + 'static,
+        clock: Arc<dyn elm_effect::ClockImpl>,
+    ) -> Self {
+        self.ttl = Box::new(ttl);
+        self.clock = clock;
+        self
+    }
+
+    /// The memoized exit: claim and run when the memo is empty, wait for
+    /// the owner's exit while one is in flight, or replay the recorded
+    /// one. A waiter interrupted while the owner runs gives up with an
+    /// interrupt exit and records nothing.
+    pub fn get(&self, ctx: &elm_effect::Ctx) -> elm_effect::Exit<A, E> {
+        let mut guard = self.state.lock().unwrap();
+        loop {
+            let next = match &*guard {
+                MemoState::Done { expires_at, .. } => {
+                    let live = expires_at.map_or(true, |at| self.clock.now_millis() < at);
+                    if live {
+                        Next::Replay
+                    } else {
+                        *guard = MemoState::Empty;
+                        Next::Claim
+                    }
+                }
+                MemoState::Empty => Next::Claim,
+                MemoState::Running => {
+                    if ctx.is_interrupted() {
+                        return elm_effect::Exit::Failure(elm_effect::Cause::interrupt(None));
+                    }
+                    Next::Wait
+                }
+            };
+            match next {
+                Next::Replay => {
+                    let MemoState::Done { exit, .. } = &*guard else {
+                        unreachable!("replay only from a done state")
+                    };
+                    return exit.clone();
+                }
+                Next::Claim => {
+                    *guard = MemoState::Running;
+                    drop(guard);
+                    let exit = (self.body)(ctx);
+                    let expires_at = Some(
+                        self.clock
+                            .now_millis()
+                            .saturating_add((self.ttl)(&exit).as_millis() as u64),
+                    );
+                    let mut published = self.state.lock().unwrap();
+                    *published = MemoState::Done {
+                        exit: exit.clone(),
+                        expires_at,
+                    };
+                    self.ready.notify_all();
+                    return exit;
+                }
+                Next::Wait => {
+                    // Interruptible by polling in a 1ms quantum, the
+                    // port's interruptible-blocking precedent.
+                    let (next_guard, _) = self
+                        .ready
+                        .wait_timeout(guard, std::time::Duration::from_millis(1))
+                        .unwrap();
+                    guard = next_guard;
+                }
+            }
+        }
     }
 }
