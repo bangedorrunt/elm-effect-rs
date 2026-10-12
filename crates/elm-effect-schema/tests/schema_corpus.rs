@@ -987,8 +987,14 @@ fn revives_is_string_bigint() {
 #[test]
 fn parser_encode_string_roundtrip() {
     let schema = Schema::string();
-    assert_eq!(schema.encode(&"hi".to_string()), Unknown::Text("hi".to_string()));
-    assert_eq!(schema.decode(schema.encode(&"hi".to_string())).unwrap(), "hi".to_string());
+    assert_eq!(
+        schema.encode(&"hi".to_string()),
+        Unknown::Text("hi".to_string())
+    );
+    assert_eq!(
+        schema.decode(schema.encode(&"hi".to_string())).unwrap(),
+        "hi".to_string()
+    );
 }
 
 #[test]
@@ -1006,13 +1012,19 @@ fn parser_encode_boolean_and_null() {
 #[test]
 fn parser_encode_literal_rejects_other() {
     let schema = Schema::literal(Unknown::Text("a".to_string()));
-    assert_eq!(schema.encode(&Unknown::Text("a".to_string())), Unknown::Text("a".to_string()));
+    assert_eq!(
+        schema.encode(&Unknown::Text("a".to_string())),
+        Unknown::Text("a".to_string())
+    );
 }
 
 #[test]
 fn parser_encode_optional_some_and_none() {
     let schema = Schema::optional(Schema::string());
-    assert_eq!(schema.encode(&Some("x".to_string())), Unknown::Text("x".to_string()));
+    assert_eq!(
+        schema.encode(&Some("x".to_string())),
+        Unknown::Text("x".to_string())
+    );
     assert_eq!(schema.encode(&None), Unknown::Null);
 }
 
@@ -1046,9 +1058,10 @@ fn parser_encode_record_and_tuple() {
 #[test]
 fn parser_encode_struct_shape() {
     use elm_effect_schema::Field;
-    let schema = Schema::struct_shape(vec![
-        Field::required("name", Schema::as_unknown(Schema::string())),
-    ]);
+    let schema = Schema::struct_shape(vec![Field::required(
+        "name",
+        Schema::as_unknown(Schema::string()),
+    )]);
     let mut input = std::collections::BTreeMap::new();
     input.insert("name".to_string(), Unknown::Text("Al".to_string()));
     assert_eq!(schema.encode(&input), Unknown::Object(input));
@@ -1064,13 +1077,21 @@ fn parser_encode_convert_runs_encode_side() {
 #[test]
 fn parser_encode_json_stringifies() {
     let schema = Schema::string();
-    assert_eq!(schema.encode_json(&"a".to_string()).unwrap(), "\"a\"".to_string());
-    assert_eq!(Schema::number().encode_json(&1.0).unwrap(), "1.0".to_string());
+    assert_eq!(
+        schema.encode_json(&"a".to_string()).unwrap(),
+        "\"a\"".to_string()
+    );
+    assert_eq!(
+        Schema::number().encode_json(&1.0).unwrap(),
+        "1.0".to_string()
+    );
 }
 
 #[test]
 fn parser_decode_json_rejects_trailing_garbage() {
-    assert!(Schema::number().decode_json("1 ").is_err() || Schema::number().decode_json("1").is_ok());
+    assert!(
+        Schema::number().decode_json("1 ").is_err() || Schema::number().decode_json("1").is_ok()
+    );
     assert!(Schema::string().decode_json("\"unterminated").is_err());
 }
 
@@ -1085,9 +1106,10 @@ fn parser_decode_option_none_on_invalid() {
 #[test]
 fn parser_decode_option_struct_fields() {
     use elm_effect_schema::Field;
-    let schema = Schema::struct_shape(vec![
-        Field::required("n", Schema::as_unknown(Schema::number())),
-    ]);
+    let schema = Schema::struct_shape(vec![Field::required(
+        "n",
+        Schema::as_unknown(Schema::number()),
+    )]);
     let mut good = std::collections::BTreeMap::new();
     good.insert("n".to_string(), Unknown::Number(1.0));
     assert!(schema.decode(Unknown::Object(good)).ok().is_some());
@@ -1102,19 +1124,19 @@ fn codec_date_bare_struct_tuple_json() {
     const ISO: &str = "2021-01-01T00:00:00.000Z";
     const MILLIS: i64 = 1_609_459_200_000;
     let bare = date_schema();
-    assert_eq!(
-        bare.decode(Unknown::Text(ISO.to_string())).unwrap(),
-        MILLIS
+    assert_eq!(bare.decode(Unknown::Text(ISO.to_string())).unwrap(), MILLIS);
+    assert_eq!(bare.encode(&MILLIS), Unknown::Text(ISO.to_string()));
+    assert!(
+        bare.decode(Unknown::Text("not-a-date".to_string()))
+            .is_err()
     );
-    assert_eq!(
-        bare.encode(&MILLIS),
-        Unknown::Text(ISO.to_string())
-    );
-    assert!(bare.decode(Unknown::Text("not-a-date".to_string())).is_err());
     assert!(bare.decode(Unknown::Number(1.0)).is_err());
 
     use elm_effect_schema::Field;
-    let strukt = Schema::struct_shape(vec![Field::required("a", Schema::as_unknown(date_schema()))]);
+    let strukt = Schema::struct_shape(vec![Field::required(
+        "a",
+        Schema::as_unknown(date_schema()),
+    )]);
     let mut wire = std::collections::BTreeMap::new();
     wire.insert("a".to_string(), Unknown::Text(ISO.to_string()));
     assert_eq!(
@@ -1222,10 +1244,7 @@ fn formatter_template_literal_strings() {
 fn formatter_object_keyword_renders_shapes() {
     use std::collections::BTreeMap;
     let format = Schema::<BTreeMap<String, Unknown>>::object().formatter();
-    assert_eq!(
-        format(&Unknown::Object(BTreeMap::new())),
-        "{}"
-    );
+    assert_eq!(format(&Unknown::Object(BTreeMap::new())), "{}");
     let mut fields = BTreeMap::new();
     fields.insert("a".to_string(), Unknown::Number(1.0));
     assert_eq!(format(&Unknown::Object(fields)), "{\"a\":1}");
@@ -1375,7 +1394,7 @@ fn json_schema_document_refinement_rows_carry_their_code_and_type() {
         // :368 — maxLength.
         (
             serde_json::json!({"type": "string", "maxLength": 1}),
-            r#"Schema.String.check(Schema.isMaxLength(1).annotate({ "expected": "a value with a length of at most 1" }))"#,
+            r#"Schema.String.check(Schema.isMaxCodePoints(1).annotate({ "expected": "a string with at most 1 code points" }))"#,
             "string",
         ),
         // :417 — minimum, which stacks on finite.
@@ -1472,7 +1491,10 @@ fn json_schema_document_object_rows_carry_their_code_and_type() {
         "required": ["a"],
         "additionalProperties": {"type": "boolean"}
     }));
-    assert!(refused.is_err(), "typed additionalProperties beside properties must refuse");
+    assert!(
+        refused.is_err(),
+        "typed additionalProperties beside properties must refuse"
+    );
 
     // The open form composes a struct with a record catch-all, which is the
     // shape the pin's StructWithRest rows carry (:1199, :1221 and the
@@ -1619,12 +1641,20 @@ fn json_schema_document_prefix_items_rows_carry_their_code_and_type() {
         "maxItems": 1
     }))
     .expect("imports a closed tuple");
-    assert!(closed.decode(Unknown::Array(vec![Unknown::Text("a".into())])).is_ok());
+    assert!(
+        closed
+            .decode(Unknown::Array(vec![Unknown::Text("a".into())]))
+            .is_ok()
+    );
     assert!(closed.decode(Unknown::Array(Vec::new())).is_ok());
-    assert!(closed.decode(Unknown::Array(vec![
-        Unknown::Text("a".into()),
-        Unknown::Text("b".into()),
-    ])).is_err());
+    assert!(
+        closed
+            .decode(Unknown::Array(vec![
+                Unknown::Text("a".into()),
+                Unknown::Text("b".into()),
+            ]))
+            .is_err()
+    );
 
     let open = Schema::<Unknown>::from_json_schema(&serde_json::json!({
         "type": "array",
@@ -1632,11 +1662,139 @@ fn json_schema_document_prefix_items_rows_carry_their_code_and_type() {
         "items": {"type": "number"}
     }))
     .expect("imports an open tuple");
-    assert!(open.decode(Unknown::Array(vec![Unknown::Text("a".into())])).is_ok());
-    assert!(open
-        .decode(Unknown::Array(vec![
+    assert!(
+        open.decode(Unknown::Array(vec![Unknown::Text("a".into())]))
+            .is_ok()
+    );
+    assert!(
+        open.decode(Unknown::Array(vec![
             Unknown::Text("a".into()),
             Unknown::Number(1.0),
         ]))
-        .is_ok());
+        .is_ok()
+    );
+}
+
+#[test]
+fn json_schema_document_intersection_rows_carry_their_code_and_type() {
+    // fromJsonSchemaDocument.test.ts's allOf intersection families. A member's
+    // annotation rides the checks it contributed: the one check it left behind,
+    // the base when it left none (its only check was a duplicate), or a filter
+    // group when it left several. Each case below is a row from the file.
+    use elm_effect_schema::{Schema, Unknown};
+
+    let cases: Vec<(serde_json::Value, &str)> = vec![
+        // :1892 — a member contributing one check and no annotation.
+        (
+            serde_json::json!({"type": "string", "allOf": [{"minLength": 1}]}),
+            r#"Schema.String.check(Schema.isMinLength(1).annotate({ "expected": "a value with a length of at least 1" }))"#,
+        ),
+        // :1911 — the member's description rides its own check.
+        (
+            serde_json::json!({"type": "string", "allOf": [{"minLength": 1, "description": "b"}]}),
+            r#"Schema.String.check(Schema.isMinLength(1).annotate({ "expected": "a value with a length of at least 1", "description": "b" }))"#,
+        ),
+        // :1985 — the base already has a check, so the member's is appended.
+        (
+            serde_json::json!({"type": "string", "maxLength": 2, "allOf": [{"minLength": 1}]}),
+            r#"Schema.String.check(Schema.isMaxCodePoints(2).annotate({ "expected": "a string with at most 2 code points" })).check(Schema.isMinLength(1).annotate({ "expected": "a value with a length of at least 1" }))"#,
+        ),
+        // :2005 — the base's own annotation leads, before any check.
+        (
+            serde_json::json!({
+                "type": "string",
+                "description": "a",
+                "maxLength": 2,
+                "allOf": [{"minLength": 1}]
+            }),
+            r#"Schema.String.annotate({ "description": "a" }).check(Schema.isMaxCodePoints(2).annotate({ "expected": "a string with at most 2 code points" })).check(Schema.isMinLength(1).annotate({ "expected": "a value with a length of at least 1" }))"#,
+        ),
+        // :2179 — the member's only check duplicates the base's, so its
+        // annotation moves to the base instead.
+        (
+            serde_json::json!({"type": "number", "allOf": [{"type": "number", "description": "b"}]}),
+            r#"Schema.Number.annotate({ "description": "b" }).check(Schema.isFinite().annotate({ "expected": "a finite number" }))"#,
+        ),
+        // :2196 — an integer member stacks `isInt` on a number base.
+        (
+            serde_json::json!({"type": "number", "allOf": [{"type": "integer"}]}),
+            r#"Schema.Number.check(Schema.isFinite().annotate({ "expected": "a finite number" })).check(Schema.isInt().annotate({ "expected": "an integer" }))"#,
+        ),
+        // :2215 — two members, each keeping its own checks, with the duplicate
+        // `isInt` collapsed.
+        (
+            serde_json::json!({
+                "type": "number",
+                "allOf": [
+                    {"type": "integer", "minimum": 2},
+                    {"type": "integer", "maximum": 2}
+                ]
+            }),
+            r#"Schema.Number.check(Schema.isFinite().annotate({ "expected": "a finite number" })).check(Schema.isInt().annotate({ "expected": "an integer" })).check(Schema.isGreaterThanOrEqualTo(2).annotate({ "expected": "a value greater than or equal to 2" })).check(Schema.isLessThanOrEqualTo(2).annotate({ "expected": "a value less than or equal to 2" }))"#,
+        ),
+        // :1930 — the base's own annotation leads, and the member contributes no
+        // annotation of its own.
+        (
+            serde_json::json!({"type": "string", "description": "a", "allOf": [{"minLength": 1}]}),
+            r#"Schema.String.annotate({ "description": "a" }).check(Schema.isMinLength(1).annotate({ "expected": "a value with a length of at least 1" }))"#,
+        ),
+        // :1950 — a member with only a description: no check survives, so the
+        // annotation lands on the base.
+        (
+            serde_json::json!({"type": "string", "description": "a", "allOf": [{"description": "b"}]}),
+            r#"Schema.String.annotate({ "description": "b" })"#,
+        ),
+        // :2026 — a base annotation and a member annotation on the member's check.
+        (
+            serde_json::json!({
+                "type": "string",
+                "description": "a",
+                "maxLength": 2,
+                "allOf": [{"minLength": 1, "description": "b"}]
+            }),
+            r#"Schema.String.annotate({ "description": "a" }).check(Schema.isMaxCodePoints(2).annotate({ "expected": "a string with at most 2 code points" })).check(Schema.isMinLength(1).annotate({ "expected": "a value with a length of at least 1", "description": "b" }))"#,
+        ),
+        // :2047 — a member contributing two checks and no annotation stays a
+        // linear chain.
+        (
+            serde_json::json!({"type": "string", "allOf": [{"minLength": 1, "maxLength": 2}]}),
+            r#"Schema.String.check(Schema.isMinLength(1).annotate({ "expected": "a value with a length of at least 1" })).check(Schema.isMaxCodePoints(2).annotate({ "expected": "a string with at most 2 code points" }))"#,
+        ),
+        // :2066 — the same two checks WITH an annotation collapse into a filter
+        // group, which is the only place the pin uses one.
+        (
+            serde_json::json!({"type": "string", "allOf": [{"minLength": 1, "maxLength": 2, "description": "b"}]}),
+            r#"Schema.String.check(Schema.makeFilterGroup([Schema.isMinLength(1).annotate({ "expected": "a value with a length of at least 1" }), Schema.isMaxCodePoints(2).annotate({ "expected": "a string with at most 2 code points" })]).annotate({ "description": "b" }))"#,
+        ),
+        // :2085 — a nested allOf, where the inner description rides the inner
+        // check rather than the outer member.
+        (
+            serde_json::json!({
+                "type": "string",
+                "allOf": [{"minLength": 1, "allOf": [{"maxLength": 2, "description": "c"}]}]
+            }),
+            r#"Schema.String.check(Schema.isMinLength(1).annotate({ "expected": "a value with a length of at least 1" })).check(Schema.isMaxCodePoints(2).annotate({ "expected": "a string with at most 2 code points", "description": "c" }))"#,
+        ),
+        // :2235 — an integer base with a number member, so the order inverts.
+        (
+            serde_json::json!({"type": "integer", "allOf": [{"type": "number"}]}),
+            r#"Schema.Number.check(Schema.isInt().annotate({ "expected": "an integer" })).check(Schema.isFinite().annotate({ "expected": "a finite number" }))"#,
+        ),
+    ];
+
+    for (doc, code) in cases {
+        let schema = Schema::<Unknown>::from_json_schema(&doc).expect("imports");
+        assert_eq!(schema.to_code(), code, "code for {doc:?}");
+    }
+
+    // The checks survive the intersection as enforcement, not just as text: a
+    // value failing the member's check is refused by the intersection.
+    let schema = Schema::<Unknown>::from_json_schema(&serde_json::json!({
+        "type": "string",
+        "minLength": 2,
+        "allOf": [{"minLength": 3}]
+    }))
+    .expect("imports");
+    assert!(schema.decode(Unknown::Text("abc".to_string())).is_ok());
+    assert!(schema.decode(Unknown::Text("ab".to_string())).is_err());
 }

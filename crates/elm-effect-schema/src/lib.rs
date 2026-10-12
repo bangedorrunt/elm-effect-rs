@@ -92,6 +92,123 @@ struct Wrapped {
     ty: String,
 }
 
+/// One refinement in a chain: its name, its arguments, and the annotation pairs
+/// the pin attaches to it. `decompose` lowers a schema's `Check` chain into a
+/// list of these so an intersection can dedupe and reorder them, and `rebuild`
+/// raises the list back into a chain.
+#[derive(Debug, Clone, PartialEq)]
+struct Check {
+    name: String,
+    args: Vec<String>,
+    annotation: Vec<(String, String)>,
+}
+
+    /// Insert annotation pairs into a list, replacing by key rather than
+    /// appending. A document cannot carry the same key twice, and neither can an
+    /// intersection: the later value wins, in the earlier key's position.
+    fn merge_annotation(annotation: &mut Vec<(String, String)>, pairs: Vec<(String, String)>) {
+        for (key, value) in pairs {
+            match annotation.iter_mut().find(|(seen, _)| *seen == key) {
+                Some(slot) => slot.1 = value,
+                None => annotation.push((key, value)),
+            }
+        }
+    }
+
+    /// Render one check as the pin prints it inside a chain or a filter group.
+fn render_check(check: &Check) -> String {
+    let mut out = format!("Schema.{}({})", check.name, check.args.join(", "));
+    if !check.annotation.is_empty() {
+        let pairs = check
+            .annotation
+            .iter()
+            .map(|(key, value)| format!("{}: {}", json_key(key), json_key(value)))
+            .collect::<Vec<_>>()
+            .join(", ");
+        out = format!("{out}.annotate({{ {pairs} }})");
+    }
+    out
+}
+
+/// Split a kind into its base shape, the checks layered on top of it, and the
+/// annotation pairs riding the base. A `Check` nesting is read from the outside
+/// in, so the outermost check is the last one in the list, which is the order a
+/// repr prints them.
+fn decompose(kind: &SchemaKind) -> (SchemaKind, Vec<Check>, Vec<(String, String)>) {
+    match kind {
+        SchemaKind::Annotated { pairs, inner } => {
+            let (base, checks, mut annotation) = decompose(inner);
+            merge_annotation(&mut annotation, pairs.clone());
+            (base, checks, annotation)
+        }
+        SchemaKind::Check {
+            base,
+            name,
+            args,
+            annotation,
+        } => {
+            let (kind, mut checks, leading) = decompose(base);
+            checks.push(Check {
+                name: name.clone(),
+                args: args.clone(),
+                annotation: annotation.clone(),
+            });
+            (kind, checks, leading)
+        }
+        other => (other.clone(), Vec::new(), Vec::new()),
+    }
+}
+
+/// Raise a base kind, its checks and its leading annotations back into one kind.
+/// The decode of the result is the base's decode plus every check's predicate,
+/// so a rebuilt schema enforces what the schemas it was built from enforced.
+fn rebuild(
+    kind: SchemaKind,
+    checks: Vec<Check>,
+    annotation: Vec<(String, String)>,
+) -> Schema<Unknown> {
+    let mut out = new_kinded(kind);
+    if !annotation.is_empty() {
+        // The annotation rides the base, so a repr prints
+        // `String.annotate(..).check(..)` and not `String.check(..).annotate(..)`.
+        out = Schema::annotated_with(
+            out,
+            annotation
+                .into_iter()
+                .map(|(key, value)| (key, value))
+                .collect(),
+        );
+    }
+    for check in checks.iter() {
+        out = Schema::checked(
+            out,
+            &check.name,
+            check.args.iter().map(String::as_str).collect(),
+            check
+                .annotation
+                .iter()
+                .map(|(key, value)| (key.as_str(), value.as_str()))
+                .collect(),
+        );
+    }
+    out
+}
+
+/// A bare base kind with the decode that kind implies, for rebuilding a chain
+/// that `decompose` took apart. Only the kinds an import can produce are here.
+fn new_kinded(kind: SchemaKind) -> Schema<Unknown> {
+    match kind {
+        SchemaKind::String => Schema::as_unknown(Schema::string()),
+        SchemaKind::Number => Schema::as_unknown(Schema::number()),
+        SchemaKind::Boolean => Schema::as_unknown(Schema::boolean()),
+        other => Schema::as_unknown(Schema::new(
+            move |value| Ok(value),
+            |value| value.clone(),
+            other,
+        )),
+    }
+}
+
 /// The wire shape of a schema: drives JSON Schema documents.
 #[derive(Debug, Clone, PartialEq)]
 pub enum SchemaKind {
@@ -207,10 +324,7 @@ impl SchemaKind {
             SchemaKind::TupleWithRest(elements, rest) => {
                 let mut doc = serde_json::json!({"type": "array"});
                 doc["prefixItems"] = serde_json::Value::Array(
-                    elements
-                        .iter()
-                        .map(SchemaKind::to_json_schema)
-                        .collect(),
+                    elements.iter().map(SchemaKind::to_json_schema).collect(),
                 );
                 doc["items"] = rest.to_json_schema();
                 doc
@@ -319,8 +433,7 @@ impl Schema<StructValue> {
                 Ok(StructValue { fields: decoded })
             },
             move |value| {
-                let object: BTreeMap<String, Unknown> =
-                    value.fields.iter().cloned().collect();
+                let object: BTreeMap<String, Unknown> = value.fields.iter().cloned().collect();
                 Unknown::Object(object)
             },
             kind,
@@ -342,14 +455,12 @@ impl Schema<StructValue> {
                 .iter()
                 .map(|(name, field)| {
                     let item = map.get(name).cloned().unwrap_or(Unknown::Null);
-                    let key =
-                        serde_json::to_string(name).unwrap_or_else(|_| "\"\"".to_string());
+                    let key = serde_json::to_string(name).unwrap_or_else(|_| "\"\"".to_string());
                     format!("{key}: {}", field.formatter()(&item))
                 })
                 .collect();
             format!("{{ {} }}", inner.join(", "))
-        })
-        );
+        }));
         schema
     }
 }
@@ -408,11 +519,7 @@ impl<T> Schema<T> {
     /// Wrap a schema with a title and/or description (`annotation`
     /// shapes): the wire shape is unchanged; the JSON Schema document
     /// carries the metadata.
-    pub fn annotated(
-        schema: Schema<T>,
-        title: Option<&str>,
-        description: Option<&str>,
-    ) -> Schema<T>
+    pub fn annotated(schema: Schema<T>, title: Option<&str>, description: Option<&str>) -> Schema<T>
     where
         T: Send + Sync + 'static,
     {
@@ -428,10 +535,7 @@ impl<T> Schema<T> {
 
     /// Annotations under their own keys, for the ones that are not a doc field.
     /// The pin's `expected` on a JSON catch-all is the case that needs this.
-    pub fn annotated_with<S: Into<String>>(
-        schema: Schema<T>,
-        pairs: Vec<(S, S)>,
-    ) -> Schema<T>
+    pub fn annotated_with<S: Into<String>>(schema: Schema<T>, pairs: Vec<(S, S)>) -> Schema<T>
     where
         T: Send + Sync + 'static,
     {
@@ -448,7 +552,10 @@ impl<T> Schema<T> {
             kind,
             children: schema.children,
             formatter: schema.formatter.clone(),
-            wrapped: schema.wrapped.clone(),
+            // The wrapped reprs describe the schema underneath, so carrying them
+            // would make `to_code` answer for the unwrapped schema and drop the
+            // annotation from the repr.
+            wrapped: None,
         }
     }
 
@@ -894,8 +1001,7 @@ impl<T: Send + Sync + 'static> Schema<Vec<T>> {
                 })
                 .collect();
             format!("[{}]", inner.join(", "))
-        })
-        );
+        }));
         out
     }
 }
@@ -1095,10 +1201,7 @@ impl Schema<BTreeMap<String, Unknown>> {
                 other => mismatch("$", "object", &other),
             },
             |fields| Unknown::Object(fields.clone()),
-            SchemaKind::Record(
-                Box::new(SchemaKind::String),
-                Box::new(value_kind.clone()),
-            ),
+            SchemaKind::Record(Box::new(SchemaKind::String), Box::new(value_kind.clone())),
         );
         // A Record renders its entries spaced, the way the pin does, and each
         // entry renders through the value schema so a nested Record or Struct
@@ -1114,17 +1217,18 @@ impl Schema<BTreeMap<String, Unknown>> {
             let inner: Vec<String> = map
                 .iter()
                 .map(|(key, item)| {
-                    let key =
-                        serde_json::to_string(key).unwrap_or_else(|_| "\"\"".to_string());
-                    format!("{key}: {}", match &render {
-                        Some(r) => r(item),
-                        None => format_root(&value_kind, &[], item),
-                    })
+                    let key = serde_json::to_string(key).unwrap_or_else(|_| "\"\"".to_string());
+                    format!(
+                        "{key}: {}",
+                        match &render {
+                            Some(r) => r(item),
+                            None => format_root(&value_kind, &[], item),
+                        }
+                    )
                 })
                 .collect();
             format!("{{ {} }}", inner.join(", "))
-        })
-        );
+        }));
         out
     }
 
@@ -1164,15 +1268,25 @@ impl Schema<Unknown> {
     /// objects with `type`, `properties`/`required`, `items`, `enum`,
     /// `const` and `anyOf` import; `$ref` and anything else is a typed
     /// error naming the gap.
+    /// The schema-level annotations an imported document carries. `expected` is
+    /// not one of them: that is the open-object marker, written by
+    /// `annotated_json` and dropped again by an intersection.
+    fn document_annotations(doc: &serde_json::Value) -> Vec<(String, String)> {
+        ["title", "description", "format"]
+            .into_iter()
+            .filter_map(|key| {
+                doc.get(key)
+                    .and_then(serde_json::Value::as_str)
+                    .map(|value| (key.to_string(), value.to_string()))
+            })
+            .collect()
+    }
+
     /// Any JSON value annotated as open. The `expected` message always comes
     /// first, and the pin's other annotation keywords ride along after it.
     fn annotated_json(doc: &serde_json::Value) -> Schema<Unknown> {
         let mut pairs = vec![("expected".to_string(), "JSON value".to_string())];
-        for key in ["title", "description", "format"] {
-            if let Some(text) = doc.get(key).and_then(serde_json::Value::as_str) {
-                pairs.push((key.to_string(), text.to_string()));
-            }
-        }
+        pairs.extend(Self::document_annotations(doc));
         Schema::annotated_with(Schema::json(), pairs)
     }
 
@@ -1181,7 +1295,9 @@ impl Schema<Unknown> {
     /// whole object and as the rest of a struct, so it is named once rather
     /// than spelled at each use.
     fn json_catch_all() -> Schema<Unknown> {
-        Schema::as_unknown(Schema::record(Schema::annotated_json(&serde_json::json!({}))))
+        Schema::as_unknown(Schema::record(Schema::annotated_json(&serde_json::json!(
+            {}
+        ))))
     }
 
     /// Wrap a checked schema so the check is visible to a repr. `as_unknown`
@@ -1195,33 +1311,91 @@ impl Schema<Unknown> {
         ))
     }
 
+    /// Apply every refinement the document carries to a base that already has
+    /// one. A typed import runs this with its own base; a typeless one runs it
+    /// over the open JSON value, which is what an `allOf` member is.
+    /// The refinements are grouped by the keyword family they belong to, so a
+    /// document cannot pick up a string check and a number check at once.
+    fn refined_any(base: Schema<Unknown>, doc: &serde_json::Value) -> Self {
+        let string_keywords = [
+            "minLength",
+            "maxLength",
+            "minCodePoints",
+            "maxCodePoints",
+            "pattern",
+        ];
+        let number_keywords = [
+            "minimum",
+            "maximum",
+            "exclusiveMinimum",
+            "exclusiveMaximum",
+            "multipleOf",
+        ];
+        let array_keywords = ["minItems", "maxItems", "uniqueItems"];
+        if string_keywords
+            .iter()
+            .any(|keyword| doc.get(keyword).is_some())
+        {
+            Self::refined_text_on(base, doc)
+        } else if number_keywords
+            .iter()
+            .any(|keyword| doc.get(keyword).is_some())
+        {
+            Self::refined_number(base, doc)
+        } else if array_keywords
+            .iter()
+            .any(|keyword| doc.get(keyword).is_some())
+        {
+            Self::refined_array(base, doc)
+        } else {
+            base
+        }
+    }
+
     /// A string plus whatever length or pattern constraints the document
-    /// carries. The pin distinguishes a length in characters (`minLength`) from
-    /// a length in code points (`minCodePoints`); both map to a check, with
-    /// different names in the repr.
+    /// carries. `maxLength` is a length in code points in the pin's import, so    /// it renders as `isMaxCodePoints` even though `minLength` stays a length in
+    /// characters. That asymmetry is the pin's, and both messages name it.
     fn refined_text(doc: &serde_json::Value) -> Self {
-        let mut schema = Schema::as_unknown(Schema::string());
+        Self::refined_text_on(Schema::as_unknown(Schema::string()), doc)
+    }
+
+    /// The same as `refined_text`, for a base that already exists: an `allOf`
+    /// member's checks land on the base it is intersected with rather than on a
+    /// fresh string.
+    fn refined_text_on(base: Schema<Unknown>, doc: &serde_json::Value) -> Self {
+        let mut schema = base;
         for (keyword, name, message) in [
-            ("minLength", "isMinLength", "a value with a length of at least"),
-            ("maxLength", "isMaxLength", "a value with a length of at most"),
+            (
+                "minLength",
+                "isMinLength",
+                "a value with a length of at least {n}",
+            ),
+            (
+                "maxLength",
+                "isMaxCodePoints",
+                "a string with at most {n} code points",
+            ),
             (
                 "minCodePoints",
                 "isMinCodePoints",
-                "a value with a length of at least",
+                "a string with at least {n} code points",
             ),
             (
                 "maxCodePoints",
                 "isMaxCodePoints",
-                "a value with a length of at most",
+                "a string with at most {n} code points",
             ),
         ] {
             if let Some(number) = doc.get(keyword).and_then(serde_json::Value::as_f64) {
                 let printed = format_number(number);
+                // A code-point message names the count inline, so `{n}` is
+                // filled here rather than appended after the format.
+                let message = message.replace("{n}", &printed);
                 schema = Schema::as_unknown(Schema::checked(
                     schema,
                     name,
                     vec![printed.as_str()],
-                    vec![("expected", &format!("{message} {printed}"))],
+                    vec![("expected", &message)],
                 ));
             }
         }
@@ -1242,11 +1416,23 @@ impl Schema<Unknown> {
     fn refined_number(base: Schema<Unknown>, doc: &serde_json::Value) -> Self {
         let mut schema = base;
         for (keyword, name, message) in [
-            ("minimum", "isGreaterThanOrEqualTo", "a value greater than or equal to"),
-            ("maximum", "isLessThanOrEqualTo", "a value less than or equal to"),
+            (
+                "minimum",
+                "isGreaterThanOrEqualTo",
+                "a value greater than or equal to",
+            ),
+            (
+                "maximum",
+                "isLessThanOrEqualTo",
+                "a value less than or equal to",
+            ),
             ("exclusiveMinimum", "isGreaterThan", "a value greater than"),
             ("exclusiveMaximum", "isLessThan", "a value less than"),
-            ("multipleOf", "isMultipleOf", "a value that is a multiple of"),
+            (
+                "multipleOf",
+                "isMultipleOf",
+                "a value that is a multiple of",
+            ),
         ] {
             if let Some(number) = doc.get(keyword).and_then(serde_json::Value::as_f64) {
                 let printed = format_number(number);
@@ -1274,8 +1460,14 @@ impl Schema<Unknown> {
         prefix: &[serde_json::Value],
         doc: &serde_json::Value,
     ) -> Result<Self, SchemaError> {
-        let min = doc.get("minItems").and_then(serde_json::Value::as_u64).unwrap_or(0) as usize;
-        let max = doc.get("maxItems").and_then(serde_json::Value::as_u64).map(|v| v as usize);
+        let min = doc
+            .get("minItems")
+            .and_then(serde_json::Value::as_u64)
+            .unwrap_or(0) as usize;
+        let max = doc
+            .get("maxItems")
+            .and_then(serde_json::Value::as_u64)
+            .map(|v| v as usize);
         let closed_by_items = matches!(doc.get("items"), Some(serde_json::Value::Bool(false)));
 
         let mut elements = Vec::with_capacity(prefix.len());
@@ -1336,8 +1528,16 @@ impl Schema<Unknown> {
     fn refined_array(base: Schema<Unknown>, doc: &serde_json::Value) -> Self {
         let mut schema = base;
         for (keyword, name, message) in [
-            ("minItems", "isMinLength", "a value with a length of at least"),
-            ("maxItems", "isMaxLength", "a value with a length of at most"),
+            (
+                "minItems",
+                "isMinLength",
+                "a value with a length of at least",
+            ),
+            (
+                "maxItems",
+                "isMaxLength",
+                "a value with a length of at most",
+            ),
         ] {
             if let Some(number) = doc.get(keyword).and_then(serde_json::Value::as_f64) {
                 let printed = format_number(number);
@@ -1362,6 +1562,135 @@ impl Schema<Unknown> {
 
     pub fn from_json_schema(doc: &serde_json::Value) -> Result<Self, SchemaError> {
         Self::import(doc)
+    }
+
+    /// Intersect two imported schemas. Both are split into their base kind,
+    /// their checks and their leading annotations; the member's checks are then
+    /// appended to the base's, dropping any the base already has, and the
+    /// member's annotations ride along with the checks it contributed.
+    ///
+    /// A schema-level annotation on the member attaches to the group of checks
+    /// the member left behind: to the one check if it left exactly one, to the
+    /// base's own annotation if it left none (its only check was a duplicate),
+    /// and to a `makeFilterGroup` if it left several. That is the rule the pin's
+    /// own intersection rows assert, and it is why the same `description` lands
+    /// in three different places.
+    ///
+    /// A member that names no type is not a different base: it is a bare set of
+    /// checks constraining whatever it is intersected with, so the base's kind
+    /// stands and only the open-object marker drops from its annotations.
+    fn intersect(base: Schema<Unknown>, member: Schema<Unknown>) -> Result<Self, SchemaError> {
+        let (base_kind, mut checks, mut annotation) = decompose(&base.repr_kind());
+        let (member_kind, member_checks, member_annotation) = decompose(&member.repr_kind());
+        let member_annotation: Vec<(String, String)> = member_annotation
+            .into_iter()
+            .filter(|(key, value)| !(key == "expected" && value == "JSON value"))
+            .collect();
+        if member_kind != base_kind && member_kind != SchemaKind::Json {
+            // Two different named bases cannot intersect; the pin reports this
+            // as an empty union rather than picking one.
+            return Err(SchemaError::TypeMismatch {
+                path: "$.allOf".to_string(),
+                expected: "a member intersecting the same base",
+                got: "a member with a different base",
+            });
+        }
+        let surviving: Vec<Check> = member_checks
+            .into_iter()
+            .filter(|check| {
+                !checks
+                    .iter()
+                    .any(|seen| seen.name == check.name && seen.args == check.args)
+            })
+            .collect();
+        checks.extend(surviving.clone());
+        match surviving.len() {
+            // No surviving check of its own, so its annotation belongs to the
+            // base, which is where the pin puts it.
+            0 => merge_annotation(&mut annotation, member_annotation),
+            // Exactly one, so the annotation rides that check.
+            1 => {
+                let last = checks.last_mut().expect("one check was just pushed");
+                merge_annotation(&mut last.annotation, member_annotation);
+            }
+            // Several checks plus an annotation of the member's own is what the
+            // pin groups into a `makeFilterGroup`; several checks with no
+            // annotation stay a linear chain.
+            _ if !member_annotation.is_empty() => {
+                // The grouped checks come back OUT of the chain and stand as the
+                // filter group's arguments, so the group replaces them rather
+                // than following them. Their own annotations ride along inside
+                // each argument, which is what the pin prints.
+                let grouped: Vec<Check> = checks.split_off(checks.len() - surviving.len());
+                checks.push(Check {
+                    name: "makeFilterGroup".to_string(),
+                    args: vec![format!("[{}]", grouped.iter().map(render_check).collect::<Vec<_>>().join(", "))],
+                    annotation: member_annotation,
+                });
+            }
+            _ => {}
+        }
+        Ok(rebuild(base_kind, checks, annotation))
+    }
+
+    fn import_object(doc: &serde_json::Value) -> Result<Self, SchemaError> {
+        let get = |key: &str| doc.get(key);
+        let empty = serde_json::Map::new();
+        let properties = match get("properties") {
+            Some(serde_json::Value::Object(properties)) => properties,
+            _ => &empty,
+        };
+        let required: Vec<&str> = match get("required") {
+            Some(serde_json::Value::Array(names)) => {
+                names.iter().filter_map(|name| name.as_str()).collect()
+            }
+            _ => Vec::new(),
+        };
+        let mut fields = Vec::new();
+        for (name, property) in properties {
+            let schema = Self::import(property)?;
+            // A non-required property is an exact optional: the key
+            // may be absent, but an explicit null still decodes the
+            // inner schema. That is `optionalKey`, not `optional`.
+            let schema = if required.iter().any(|wanted| *wanted == name.as_str()) {
+                schema
+            } else {
+                Schema::optional_key_shape(schema)
+            };
+            fields.push((name.clone(), schema));
+        }
+        if fields.is_empty() {
+            // No named keys: the whole object is a record, and what
+            // `additionalProperties` says decides the value shape.
+            return Ok(match get("additionalProperties") {
+                // `false` closes it: the value shape is `never`.
+                Some(serde_json::Value::Bool(false)) => {
+                    Schema::as_unknown(Schema::record(Schema::never()))
+                }
+                // Absent or `true` opens it to any JSON value.
+                Some(serde_json::Value::Bool(true)) | None => Self::json_catch_all(),
+                // A typed catch-all on its own is a plain record.
+                Some(schema) => Schema::as_unknown(Schema::record(Self::import(schema)?)),
+            });
+        }
+        match get("additionalProperties") {
+            // `false` closes the object: nothing but the named keys.
+            Some(serde_json::Value::Bool(false)) => {
+                Ok(Schema::as_unknown(Schema::struct_of(fields)))
+            }
+            // A typed catch-all next to named keys is refused by the
+            // pin, because an index signature also checks the keys
+            // the named fields already claimed.
+            Some(serde_json::Value::Bool(true)) | None => {
+                let rest = Self::json_catch_all();
+                Ok(Schema::as_unknown(Schema::struct_with_rest(fields, rest)))
+            }
+            Some(_) => Err(SchemaError::TypeMismatch {
+                path: "$.additionalProperties".to_string(),
+                expected: "a boolean, with no other property schemas",
+                got: "a schema next to declared properties",
+            }),
+        }
     }
 
     fn import(doc: &serde_json::Value) -> Result<Self, SchemaError> {
@@ -1399,6 +1728,29 @@ impl Schema<Unknown> {
                 got: "an empty array",
             });
         }
+        // `allOf` intersects. Each member contributes its checks to the base's
+        // chain and its own annotations to the base, which is what the pin's
+        // intersection rows assert.
+        if let Some(all_of) = get("allOf") {
+            let serde_json::Value::Array(members) = all_of else {
+                return Err(SchemaError::TypeMismatch {
+                    path: "$.allOf".to_string(),
+                    expected: "an array",
+                    got: "a non-array",
+                });
+            };
+            // The surrounding keywords are themselves a member of the
+            // intersection, so they are imported first and then intersected.
+            let mut siblings = doc.clone();
+            if let Some(object) = siblings.as_object_mut() {
+                object.remove("allOf");
+            }
+            let mut base = Self::import(&siblings)?;
+            for member in members {
+                base = Self::intersect(base, Self::import(member)?)?;
+            }
+            return Ok(base);
+        }
         if let Some(any_of) = get("anyOf") {
             let serde_json::Value::Array(options) = any_of else {
                 return Err(SchemaError::TypeMismatch {
@@ -1424,120 +1776,96 @@ impl Schema<Unknown> {
         match get("type") {
             // Nothing constrains the value, so it is any JSON value annotated as
             // the open catch-all. The pin's `annotate` pairs ride along.
-            None => Ok(Self::annotated_json(doc)),
-            Some(serde_json::Value::String(type_name)) => match type_name.as_str() {
-                "string" => Ok(Self::refined_text(doc)),
-                // The pin's JSON Schema import makes a `number` finite and an
-                // `integer` an int, so both carry a check where a bare string
-                // does not.
-                "number" => Ok(Self::refined_number(
-                    Self::as_unknown_checked(
-                        Schema::as_unknown(Schema::number()),
-                        "isFinite",
-                        "a finite number",
-                    ),
-                    doc,
-                )),
-                "integer" => Ok(Self::refined_number(
-                    Self::as_unknown_checked(
-                        Schema::as_unknown(Schema::number()),
-                        "isInt",
-                        "an integer",
-                    ),
-                    doc,
-                )),
-                "boolean" => Ok(Schema::as_unknown(Schema::boolean())),
-                "null" => Ok(Schema::as_unknown(Schema::null())),
-                "array" => match get("prefixItems") {
-                    // `prefixItems` is a positional prefix, so it decodes to a
-                    // tuple rather than an array. Everything else about the
-                    // array comes from `minItems`, `maxItems` and `items`.
-                    Some(serde_json::Value::Array(prefix)) => {
-                        Self::tuple_from_prefix(prefix, doc)
-                    }
-                    _ => {
-                        let items = match get("items") {
-                            Some(items) => Self::import(items)?,
-                            None => Schema::any(),
-                        };
-                        Ok(Self::refined_array(
-                            Schema::as_unknown(Schema::array(items)),
+            None => {
+                // A document with no `type` still carries refinements, which is
+                // how an `allOf` member like `{ minLength: 1 }` is written: it
+                // constrains whatever it is intersected with rather than naming
+                // a base of its own. The base stays the open JSON value.
+                Ok(Self::refined_any(Self::annotated_json(doc), doc))
+            }
+            Some(serde_json::Value::String(type_name)) => {
+                Self::with_document_annotations(
+                    match type_name.as_str() {
+                        "string" => Ok(Self::refined_text(doc)),
+                        // The pin's JSON Schema import makes a `number` finite and an
+                        // `integer` an int, so both carry a check where a bare string
+                        // does not.
+                        "number" => Ok(Self::refined_number(
+                            Self::as_unknown_checked(
+                                Schema::as_unknown(Schema::number()),
+                                "isFinite",
+                                "a finite number",
+                            ),
                             doc,
-                        ))
-                    }
-                },
-                "object" => {
-                    let empty = serde_json::Map::new();
-                    let properties = match get("properties") {
-                        Some(serde_json::Value::Object(properties)) => properties,
-                        _ => &empty,
-                    };
-                    let required: Vec<&str> = match get("required") {
-                        Some(serde_json::Value::Array(names)) => {
-                            names.iter().filter_map(|name| name.as_str()).collect()
-                        }
-                        _ => Vec::new(),
-                    };
-                    let mut fields = Vec::new();
-                    for (name, property) in properties {
-                        let schema = Self::import(property)?;
-                        // A non-required property is an exact optional: the key
-                        // may be absent, but an explicit null still decodes the
-                        // inner schema. That is `optionalKey`, not `optional`.
-                        let schema = if required.iter().any(|wanted| *wanted == name.as_str()) {
-                            schema
-                        } else {
-                            Schema::optional_key_shape(schema)
-                        };
-                        fields.push((name.clone(), schema));
-                    }
-                    if fields.is_empty() {
-                        // No named keys: the whole object is a record, and what
-                        // `additionalProperties` says decides the value shape.
-                        return Ok(match get("additionalProperties") {
-                            // `false` closes it: the value shape is `never`.
-                            Some(serde_json::Value::Bool(false)) => {
-                                Schema::as_unknown(Schema::record(Schema::never()))
+                        )),
+                        "integer" => Ok(Self::refined_number(
+                            Self::as_unknown_checked(
+                                Schema::as_unknown(Schema::number()),
+                                "isInt",
+                                "an integer",
+                            ),
+                            doc,
+                        )),
+                        "boolean" => Ok(Schema::as_unknown(Schema::boolean())),
+                        "null" => Ok(Schema::as_unknown(Schema::null())),
+                        "array" => match get("prefixItems") {
+                            // `prefixItems` is a positional prefix, so it decodes to a
+                            // tuple rather than an array. Everything else about the
+                            // array comes from `minItems`, `maxItems` and `items`.
+                            Some(serde_json::Value::Array(prefix)) => {
+                                Self::tuple_from_prefix(prefix, doc)
                             }
-                            // Absent or `true` opens it to any JSON value.
-                            Some(serde_json::Value::Bool(true)) | None => {
-                                Self::json_catch_all()
+                            _ => {
+                                let items = match get("items") {
+                                    Some(items) => Self::import(items)?,
+                                    None => Schema::any(),
+                                };
+                                Ok(Self::refined_array(
+                                    Schema::as_unknown(Schema::array(items)),
+                                    doc,
+                                ))
                             }
-                            // A typed catch-all on its own is a plain record.
-                            Some(schema) => Schema::as_unknown(Schema::record(Self::import(schema)?)),
-                        });
-                    }
-                    match get("additionalProperties") {
-                        // `false` closes the object: nothing but the named keys.
-                        Some(serde_json::Value::Bool(false)) => {
-                            Ok(Schema::as_unknown(Schema::struct_of(fields)))
-                        }
-                        // A typed catch-all next to named keys is refused by the
-                        // pin, because an index signature also checks the keys
-                        // the named fields already claimed.
-                        Some(serde_json::Value::Bool(true)) | None => {
-                            let rest = Self::json_catch_all();
-                            Ok(Schema::as_unknown(Schema::struct_with_rest(fields, rest)))
-                        }
-                        Some(_) => Err(SchemaError::TypeMismatch {
-                            path: "$.additionalProperties".to_string(),
-                            expected: "a boolean, with no other property schemas",
-                            got: "a schema next to declared properties",
+                        },
+                        "object" => Self::import_object(doc),
+                        _ => Err(SchemaError::TypeMismatch {
+                            path: "$.type".to_string(),
+                            expected: "a known type name",
+                            got: "an unknown type name",
                         }),
-                    }
-                }
-                _ => Err(SchemaError::TypeMismatch {
-                    path: "$.type".to_string(),
-                    expected: "a known type name",
-                    got: "an unknown type name",
-                }),
-            },
+                    },
+                    doc,
+                )
+            }
             _ => Err(SchemaError::TypeMismatch {
                 path: "$.type".to_string(),
                 expected: "a type name",
                 got: "a non-string",
             }),
         }
+    }
+
+    /// Lift a document's own schema-level annotations onto an imported schema.
+    /// A typed base needs this as much as a bare one does, or a `description`
+    /// beside `type: "number"` is silently dropped and the intersection row
+    /// that expects it on the base cannot carry.
+    fn with_document_annotations(
+        result: Result<Self, SchemaError>,
+        doc: &serde_json::Value,
+    ) -> Result<Self, SchemaError> {
+        let pairs = Self::document_annotations(doc);
+        result.map(|schema| {
+            if pairs.is_empty() {
+                schema
+            } else {
+                // The annotation rides the BASE, not the whole chain, so a repr
+                // prints `String.annotate(..).check(..)` rather than
+                // `String.check(..).annotate(..)`. Decomposing and rebuilding is
+                // how it gets there, which is also what an intersection does.
+                let (kind, checks, mut annotation) = decompose(&schema.repr_kind());
+                merge_annotation(&mut annotation, pairs);
+                rebuild(kind, checks, annotation)
+            }
+        })
     }
 }
 
@@ -1693,9 +2021,7 @@ fn trim_int(number: f64) -> String {
 fn check_span(span: &TemplatePart, head: &str) -> Option<Unknown> {
     match *span {
         TemplatePart::AnyString => Some(Unknown::Text(head.to_string())),
-        TemplatePart::NonEmptyString => {
-            (!head.is_empty()).then(|| Unknown::Text(head.to_string()))
-        }
+        TemplatePart::NonEmptyString => (!head.is_empty()).then(|| Unknown::Text(head.to_string())),
         TemplatePart::Int => parse_int(head).map(Unknown::Number),
         TemplatePart::Anchor(_) => None,
     }
@@ -1719,11 +2045,15 @@ impl Schema<Vec<Unknown>> {
         let encode_parser = parser.clone();
         Self::new(
             move |unknown| match unknown {
-                Unknown::Text(input) => parser.parse(&input).ok_or_else(|| SchemaError::TypeMismatch {
-                    path: "$".to_string(),
-                    expected: "a string matching template literal parts",
-                    got: "no match",
-                }),
+                Unknown::Text(input) => {
+                    parser
+                        .parse(&input)
+                        .ok_or_else(|| SchemaError::TypeMismatch {
+                            path: "$".to_string(),
+                            expected: "a string matching template literal parts",
+                            got: "no match",
+                        })
+                }
                 other => mismatch("$", "string", &other),
             },
             move |captures| {
@@ -1784,11 +2114,7 @@ impl Schema<Unknown> {
     /// Any JSON value (`Json`). The wire shape is unconstrained, which is what
     /// makes it the catch-all for an open object's additional properties.
     pub fn json() -> Self {
-        Self::new(
-            Ok,
-            |value| value.clone(),
-            SchemaKind::Json,
-        )
+        Self::new(Ok, |value| value.clone(), SchemaKind::Json)
     }
 
     /// A struct field whose key may be absent (`optionalKey`). Decode delegates
@@ -1807,12 +2133,12 @@ impl Schema<Unknown> {
 
     /// A struct plus a catch-all shape (`StructWithRest`): the named fields and
     /// the shape absorbing every key they do not claim.
-    pub fn struct_with_rest(
-        fields: Vec<(String, Schema<Unknown>)>,
-        rest: Schema<Unknown>,
-    ) -> Self {
+    pub fn struct_with_rest(fields: Vec<(String, Schema<Unknown>)>, rest: Schema<Unknown>) -> Self {
         let kind = SchemaKind::StructWithRest(
-            fields.iter().map(|(name, field)| (name.clone(), field.repr_kind())).collect(),
+            fields
+                .iter()
+                .map(|(name, field)| (name.clone(), field.repr_kind()))
+                .collect(),
             Box::new(rest.repr_kind()),
         );
         let names: Vec<String> = fields.iter().map(|(name, _)| name.clone()).collect();
@@ -1824,8 +2150,10 @@ impl Schema<Unknown> {
             .filter(|(_, field)| !matches!(field.repr_kind(), SchemaKind::OptionalKey(_)))
             .map(|(name, _)| name.clone())
             .collect();
-        let decoders: Vec<(String, Arc<Schema<Unknown>>)> =
-            fields.into_iter().map(|(name, field)| (name, Arc::new(field))).collect();
+        let decoders: Vec<(String, Arc<Schema<Unknown>>)> = fields
+            .into_iter()
+            .map(|(name, field)| (name, Arc::new(field)))
+            .collect();
         let rest_decode = Arc::new(rest);
         Self::new(
             move |unknown| {
@@ -1847,7 +2175,8 @@ impl Schema<Unknown> {
                     match object.get(name) {
                         None => {}
                         Some(value) => {
-                            let decoded = field.decode(value.clone())
+                            let decoded = field
+                                .decode(value.clone())
                                 .map_err(|error| error.at(&format!("$.{name}")))?;
                             out.push((name.clone(), decoded));
                         }
@@ -1911,10 +2240,7 @@ impl Schema<Unknown> {
 
     /// Positional elements with a trailing catch-all (`TupleWithRest`): the
     /// leading positions and the shape absorbing the remaining elements.
-    pub fn tuple_with_rest(
-        elements: Vec<Schema<Unknown>>,
-        rest: Schema<Unknown>,
-    ) -> Self {
+    pub fn tuple_with_rest(elements: Vec<Schema<Unknown>>, rest: Schema<Unknown>) -> Self {
         let kind = SchemaKind::TupleWithRest(
             elements.iter().map(|element| element.repr_kind()).collect(),
             Box::new(rest.repr_kind()),
@@ -2088,7 +2414,9 @@ fn code_of(kind: &SchemaKind, children: &[(String, Arc<Schema<Unknown>>)]) -> St
         SchemaKind::Opaque("any") => "Schema.Any".to_string(),
         SchemaKind::Opaque("unknown") => "Schema.Unknown".to_string(),
         SchemaKind::Json => "Schema.Json".to_string(),
-        SchemaKind::OptionalKey(inner) => format!("Schema.optionalKey({})", code_of_at(inner, children)),
+        SchemaKind::OptionalKey(inner) => {
+            format!("Schema.optionalKey({})", code_of_at(inner, children))
+        }
         SchemaKind::Literal(value) => format!("Schema.Literal({})", value.to_json()),
         SchemaKind::StructWithRest(fields, rest) => {
             let inner: Vec<String> = fields
@@ -2109,10 +2437,7 @@ fn code_of(kind: &SchemaKind, children: &[(String, Arc<Schema<Unknown>>)]) -> St
             )
         }
         SchemaKind::TupleWithRest(elements, rest) => {
-            let inner: Vec<String> = elements
-                .iter()
-                .map(|e| code_of_at(e, children))
-                .collect();
+            let inner: Vec<String> = elements.iter().map(|e| code_of_at(e, children)).collect();
             format!(
                 "Schema.TupleWithRest(Schema.Tuple([{}]), [{}])",
                 inner.join(", "),
@@ -2166,10 +2491,7 @@ fn code_of(kind: &SchemaKind, children: &[(String, Arc<Schema<Unknown>>)]) -> St
             )
         }
         SchemaKind::Tuple(elements) => {
-            let inner: Vec<String> = elements
-                .iter()
-                .map(|e| code_of_at(e, children))
-                .collect();
+            let inner: Vec<String> = elements.iter().map(|e| code_of_at(e, children)).collect();
             format!("Schema.Tuple([{}])", inner.join(", "))
         }
         SchemaKind::Rest(inner) => format!("Schema.Rest({})", code_of_at(inner, children)),
@@ -2355,14 +2677,16 @@ fn format_root(
                 .iter()
                 .map(|(name, _)| {
                     let item = map.get(name).cloned().unwrap_or(Unknown::Null);
-                    let key =
-                        serde_json::to_string(name).unwrap_or_else(|_| "\"\"".to_string());
+                    let key = serde_json::to_string(name).unwrap_or_else(|_| "\"\"".to_string());
                     let (child_kind, child_children) = children
                         .iter()
                         .find(|(key, _)| key == name)
                         .map(|(_, schema)| (schema.kind.clone(), schema.children.clone()))
                         .unwrap_or_else(|| (SchemaKind::Object, Vec::new()));
-                    format!("{key}: {}", format_root(&child_kind, &child_children, &item))
+                    format!(
+                        "{key}: {}",
+                        format_root(&child_kind, &child_children, &item)
+                    )
                 })
                 .collect();
             format!("{{{}}}", inner.join(", "))
@@ -2372,8 +2696,7 @@ fn format_root(
                 let inner: Vec<String> = map
                     .iter()
                     .map(|(key, item)| {
-                        let key =
-                            serde_json::to_string(key).unwrap_or_else(|_| "\"\"".to_string());
+                        let key = serde_json::to_string(key).unwrap_or_else(|_| "\"\"".to_string());
                         format!("{key}: {}", format_root(value_kind, NO_CHILDREN, item))
                     })
                     .collect();
@@ -2404,8 +2727,10 @@ fn format_root(
         },
         SchemaKind::Array(item_kind) => match value {
             Unknown::Array(items) => {
-                let inner: Vec<String> =
-                    items.iter().map(|i| format_root(item_kind, NO_CHILDREN, i)).collect();
+                let inner: Vec<String> = items
+                    .iter()
+                    .map(|i| format_root(item_kind, NO_CHILDREN, i))
+                    .collect();
                 format!("[{}]", inner.join(", "))
             }
             other => format_value(other),
@@ -2457,8 +2782,7 @@ fn format_with(kind: &SchemaKind, value: &Unknown) -> String {
                 let inner: Vec<String> = map
                     .iter()
                     .map(|(key, item)| {
-                        let key =
-                            serde_json::to_string(key).unwrap_or_else(|_| "\"\"".to_string());
+                        let key = serde_json::to_string(key).unwrap_or_else(|_| "\"\"".to_string());
                         format!("{key}: {}", format_with(value_kind, item))
                     })
                     .collect();
@@ -2489,8 +2813,7 @@ fn format_with(kind: &SchemaKind, value: &Unknown) -> String {
         },
         SchemaKind::Array(item_kind) => match value {
             Unknown::Array(items) => {
-                let inner: Vec<String> =
-                    items.iter().map(|i| format_with(item_kind, i)).collect();
+                let inner: Vec<String> = items.iter().map(|i| format_with(item_kind, i)).collect();
                 format!("[{}]", inner.join(", "))
             }
             other => format_value(other),

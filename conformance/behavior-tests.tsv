@@ -8773,25 +8773,25 @@ unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.
 unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1863	it	filters enum members when the refinement precedes the enum	
 unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1870	it	filters enum members when the enum precedes the refinement	
 unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1878	it	no type	
-unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1892	it	& minLength	
-unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1911	it	& minLength + description	
-unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1930	it	description & minLength	
-unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1950	it	description & description	
-unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1965	it	description & minLength + description	
-unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1985	it	maxLength & minLength	
-unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	2005	it	description + maxLength & minLength	
-unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	2026	it	description + maxLength & minLength + description	
-unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	2047	it	& minLength + maxLength	
-unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	2066	it	& minLength + maxLength + description	
-unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	2085	it	& (minLength & maxLength + description)	
+ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1892	it	& minLength	json_schema_document_intersection_rows_carry_their_code_and_type
+ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1911	it	& minLength + description	json_schema_document_intersection_rows_carry_their_code_and_type
+ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1930	it	description & minLength	json_schema_document_intersection_rows_carry_their_code_and_type
+ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1950	it	description & description	json_schema_document_intersection_rows_carry_their_code_and_type
+ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1965	it	description & minLength + description	json_schema_document_intersection_rows_carry_their_code_and_type
+ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1985	it	maxLength & minLength	json_schema_document_intersection_rows_carry_their_code_and_type
+ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	2005	it	description + maxLength & minLength	json_schema_document_intersection_rows_carry_their_code_and_type
+ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	2026	it	description + maxLength & minLength + description	json_schema_document_intersection_rows_carry_their_code_and_type
+ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	2047	it	& minLength + maxLength	json_schema_document_intersection_rows_carry_their_code_and_type
+ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	2066	it	& minLength + maxLength + description	json_schema_document_intersection_rows_carry_their_code_and_type
+ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	2085	it	& (minLength & maxLength + description)	json_schema_document_intersection_rows_carry_their_code_and_type
 unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	2104	it	& (minLength + description & maxLength + description)	
 unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	2123	it	intersects with a single-member string enum	
 unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	2149	it	intersects with a multi-member string enum	
 unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	2163	it	& mixed enum	
-unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	2179	it	number & number preserves annotations after removing duplicate checks	
-unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	2196	it	number & integer	
-unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	2215	it	number & integer & integer	
-unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	2235	it	integer & number	
+ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	2179	it	number & number preserves annotations after removing duplicate checks	json_schema_document_intersection_rows_carry_their_code_and_type
+ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	2196	it	number & integer	json_schema_document_intersection_rows_carry_their_code_and_type
+ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	2215	it	number & integer & integer	json_schema_document_intersection_rows_carry_their_code_and_type
+ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	2235	it	integer & number	json_schema_document_intersection_rows_carry_their_code_and_type
 unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	2254	it	& (minimum + description & maximum + description)	
 unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	2273	it	continues intersecting after an annotated filter group	
 unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	2293	it	intersects with a single-member number enum	
