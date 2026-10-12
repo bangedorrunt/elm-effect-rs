@@ -263,3 +263,152 @@ fn revives_property_names() {
             .is_err()
     );
 }
+
+// ---------------------------------------------------------------------------
+// toFormatter.test.ts's Struct / Record rows. These were excused as
+// "SchemaKind has no Struct, Record, or recursive suspend variant, so a
+// nested-struct formatter cannot be built at all". That was true when written;
+// it is not true now, so they are carried here rather than left excused.
+// ---------------------------------------------------------------------------
+
+fn obj(pairs: &[(&str, Unknown)]) -> Unknown {
+    Unknown::Object(pairs.iter().map(|(k, v)| ((*k).to_string(), v.clone())).collect())
+}
+
+fn text(s: &str) -> Unknown {
+    Unknown::Text(s.to_string())
+}
+
+fn num(n: f64) -> Unknown {
+    Unknown::Number(n)
+}
+
+/// The pin's `Schema.String` etc. are `Schema<String>`, but `struct_` wants
+/// `Schema<Unknown>` fields, so every leaf passes through `as_unknown`.
+fn ustruct<const N: usize>(fields: [(&str, Schema<Unknown>); N]) -> Schema<Unknown> {
+    Schema::as_unknown(Schema::struct_(fields))
+}
+
+fn ustr() -> Schema<Unknown> {
+    Schema::as_unknown(Schema::string())
+}
+
+fn uarray(inner: Schema<Unknown>) -> Schema<Unknown> {
+    Schema::as_unknown(Schema::array(inner))
+}
+
+fn urecord(value: Schema<Unknown>) -> Schema<Unknown> {
+    Schema::as_unknown(Schema::record(value))
+}
+
+#[test]
+fn formatter_renders_declared_struct_fields_with_spaces() {
+    // toFormatter.test.ts:406 — self-referential through suspend, exactly as
+    // the pin builds it: `Rec = suspend(() => schema)` then a Struct holding
+    // an array of Rec.
+    let slot: std::sync::Arc<std::sync::Mutex<Option<Schema<Unknown>>>> =
+        std::sync::Arc::new(std::sync::Mutex::new(None));
+    let inner_slot = std::sync::Arc::clone(&slot);
+    // The turbofish breaks the inference cycle: the closure's return type is
+    // the very schema being built, so it cannot be inferred from the body.
+    let rec: Schema<Unknown> =
+        Schema::<Unknown>::suspend(move || inner_slot.lock().unwrap().as_ref().unwrap().clone());
+    let schema = ustruct([
+        ("a", ustr()),
+        ("as", uarray(Schema::as_unknown(rec))),
+    ]);
+    *slot.lock().unwrap() = Some(schema.clone());
+
+    let format = schema.formatter();
+    let value = obj(&[
+        ("a", text("a")),
+        (
+            "as",
+            Unknown::Array(vec![
+                obj(&[("a", text("b")), ("as", Unknown::Array(vec![]))]),
+                obj(&[("a", text("c")), ("as", Unknown::Array(vec![]))]),
+            ]),
+        ),
+    ]);
+    assert_eq!(
+        format(&value),
+        r#"{ "a": "a", "as": [{ "a": "b", "as": [] }, { "a": "c", "as": [] }] }"#
+    );
+}
+
+#[test]
+fn formatter_renders_an_empty_struct_without_spaces() {
+    // toFormatter.test.ts:279
+    let schema = ustruct([] as [(&str, Schema<Unknown>); 0]);
+    let format = schema.formatter();
+    assert_eq!(format(&obj(&[])), "{}");
+    assert_eq!(format(&num(1.0)), "1");
+    assert_eq!(format(&text("a")), r#""a""#);
+    assert_eq!(format(&Unknown::Bool(true)), "true");
+    assert_eq!(format(&Unknown::Bool(false)), "false");
+    assert_eq!(format(&obj(&[("a", num(1.0))])), r#"{"a":1}"#);
+    assert_eq!(
+        format(&Unknown::Array(vec![num(1.0), num(2.0), num(3.0)])),
+        "[1,2,3]"
+    );
+}
+
+#[test]
+fn formatter_renders_record_entries_with_spaces() {
+    // toFormatter.test.ts:419
+    let slot: std::sync::Arc<std::sync::Mutex<Option<Schema<Unknown>>>> =
+        std::sync::Arc::new(std::sync::Mutex::new(None));
+    let inner_slot = std::sync::Arc::clone(&slot);
+    // The turbofish breaks the inference cycle: the closure's return type is
+    // the very schema being built, so it cannot be inferred from the body.
+    let rec: Schema<Unknown> =
+        Schema::<Unknown>::suspend(move || inner_slot.lock().unwrap().as_ref().unwrap().clone());
+    let schema = urecord(Schema::as_unknown(rec));
+    *slot.lock().unwrap() = Some(schema.clone());
+
+    let format = schema.formatter();
+    let value = obj(&[("a", obj(&[("a", obj(&[("a", obj(&[]))]))]))]);
+    assert_eq!(format(&value), r#"{ "a": { "a": { "a": {} } } }"#);
+}
+
+#[test]
+fn formatter_renders_optional_field() {
+    // toFormatter.test.ts:426 — `Struct({ a: optional(Rec) })` renders the
+    // present field through the field's own schema.
+    let schema = ustruct([("a", ustr())]);
+    assert_eq!(
+        schema.formatter()(&obj(&[("a", text("a"))])),
+        r#"{ "a": "a" }"#
+    );
+}
+
+#[test]
+fn formatter_renders_array_of_structs() {
+    // toFormatter.test.ts:451 — an Array field renders each element through
+    // its schema, so a struct inside an array keeps the struct spacing.
+    let slot: std::sync::Arc<std::sync::Mutex<Option<Schema<Unknown>>>> =
+        std::sync::Arc::new(std::sync::Mutex::new(None));
+    let inner_slot = std::sync::Arc::clone(&slot);
+    // The turbofish breaks the inference cycle: the closure's return type is
+    // the very schema being built, so it cannot be inferred from the body.
+    let rec: Schema<Unknown> =
+        Schema::<Unknown>::suspend(move || inner_slot.lock().unwrap().as_ref().unwrap().clone());
+    let schema = ustruct([
+        ("a", ustr()),
+        ("b", uarray(Schema::as_unknown(rec))),
+    ]);
+    *slot.lock().unwrap() = Some(schema.clone());
+
+    let format = schema.formatter();
+    let value = obj(&[
+        ("a", text("a")),
+        (
+            "b",
+            Unknown::Array(vec![obj(&[("a", text("b")), ("b", Unknown::Array(vec![]))])]),
+        ),
+    ]);
+    assert_eq!(
+        format(&value),
+        r#"{ "a": "a", "b": [{ "a": "b", "b": [] }] }"#
+    );
+}

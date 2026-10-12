@@ -56,7 +56,7 @@ pub use metric::{
     Attributes, Counter, CounterState, Gauge, GaugeState, MetricRegistry, Series, SeriesState,
 };
 #[cfg(feature = "schema")]
-pub use elm_effect_schema::{Schema, SchemaError, Unknown};
+pub use elm_effect_schema::{Schema, SchemaError, StructValue, Unknown};
 #[cfg(feature = "tokio")]
 pub use executor::{BoxFuture, Executor, TokioExecutor};
 pub use exit::Exit;

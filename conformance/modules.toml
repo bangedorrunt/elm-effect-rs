@@ -900,7 +900,7 @@ tests = ["packages/effect/test/Stdio.test.ts"]
 [[module]]
 path = "packages/effect/src/Stream.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/Stream.test.ts"]

@@ -55,10 +55,24 @@ pub enum SchemaError {
 }
 
 /// A two-way codec between `Unknown` and `T`.
+///
+/// Clone because the pin's schemas are values you pass around, and because a
+/// self-referential schema (the `suspend` recursion every toFormatter Struct
+/// row uses) needs to hand out copies of itself from a closure.
+#[derive(Clone)]
 pub struct Schema<T> {
-    decode: Box<dyn Fn(Unknown) -> Result<T, SchemaError> + Send + Sync>,
-    encode: Box<dyn Fn(&T) -> Unknown + Send + Sync>,
+    decode: std::sync::Arc<dyn Fn(Unknown) -> Result<T, SchemaError> + Send + Sync>,
+    encode: std::sync::Arc<dyn Fn(&T) -> Unknown + Send + Sync>,
     kind: SchemaKind,
+    /// Named child schemas, so a formatter can recurse into them. Kinds alone
+    /// cannot carry this: the pin's `suspend` is lazily resolved at format
+    /// time, so a nested struct must be reachable as a schema, not as a shape.
+    /// Empty for every constructor that does not build a composite.
+    children: Vec<(String, std::sync::Arc<Schema<Unknown>>)>,
+    /// How to render a value of this schema. Each constructor sets this, so a
+    /// wrapper like `as_unknown` can simply delegate to the schema it wraps
+    /// instead of having to reconstruct the shape.
+    formatter: std::sync::Arc<dyn Fn(&Unknown) -> String + Send + Sync>,
 }
 
 /// The wire shape of a schema: drives JSON Schema documents.
@@ -70,6 +84,14 @@ pub enum SchemaKind {
     Object,
     Array(Box<SchemaKind>),
     Optional(Box<SchemaKind>),
+    /// Named fields in declaration order (`Struct`).
+    Struct(Vec<(String, SchemaKind)>),
+    /// A string-keyed mapping (`Record`): key shape then value shape.
+    Record(Box<SchemaKind>, Box<SchemaKind>),
+    /// Positional elements (`Tuple`).
+    Tuple(Vec<SchemaKind>),
+    /// Absorbs the remaining elements of a `Tuple`.
+    Rest(Box<SchemaKind>),
     /// A combinator whose wire shape is not introspectable.
     Opaque(&'static str),
     /// Title/description wrapped around another shape.
@@ -92,6 +114,32 @@ impl SchemaKind {
             }
             SchemaKind::Optional(inner) => {
                 serde_json::json!({"anyOf": [inner.to_json_schema(), {"type": "null"}]})
+            }
+            SchemaKind::Struct(fields) => {
+                let mut properties = serde_json::Map::new();
+                let mut required: Vec<serde_json::Value> = Vec::new();
+                for (name, kind) in fields {
+                    properties.insert(name.clone(), kind.to_json_schema());
+                    required.push(serde_json::Value::String(name.clone()));
+                }
+                serde_json::json!({
+                    "type": "object",
+                    "properties": serde_json::Value::Object(properties),
+                    "required": required,
+                })
+            }
+            SchemaKind::Record(key, value) => serde_json::json!({
+                "type": "object",
+                "additionalProperties": value.to_json_schema(),
+                "$comment": format!("key shape is {}", key.to_json_schema()),
+            }),
+            SchemaKind::Tuple(elements) => {
+                let items: Vec<serde_json::Value> =
+                    elements.iter().map(|k| k.to_json_schema()).collect();
+                serde_json::json!({"type": "array", "prefixItems": items, "items": false})
+            }
+            SchemaKind::Rest(inner) => {
+                serde_json::json!({"prefixItems": [inner.to_json_schema()]})
             }
             SchemaKind::Opaque(name) => serde_json::json!({"$comment": name}),
             SchemaKind::Annotated {
@@ -120,6 +168,121 @@ impl SchemaKind {
     }
 }
 
+/// A decoded struct: field names in declaration order, values still untyped.
+///
+/// The pin's `Schema.Struct` decodes to a plain object, so the port keeps the
+/// decoded form as an `Unknown` object rather than forcing a Rust struct. That
+/// is what lets one `struct_` call serve any field set, which is what the
+/// formatter rows need: they assert on the rendering, not on a Rust type.
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct StructValue {
+    fields: Vec<(String, Unknown)>,
+}
+
+impl StructValue {
+    /// A field's decoded value, or `None` when the name was never declared.
+    pub fn get(&self, name: &str) -> Option<&Unknown> {
+        self.fields
+            .iter()
+            .find(|(key, _)| key == name)
+            .map(|(_, value)| value)
+    }
+
+    /// The declared field names, in declaration order.
+    pub fn field_names(&self) -> Vec<&str> {
+        self.fields.iter().map(|(name, _)| name.as_str()).collect()
+    }
+
+    /// The decoded value back as an `Unknown` object.
+    pub fn to_unknown(&self) -> Unknown {
+        Unknown::Object(self.fields.iter().cloned().collect())
+    }
+}
+
+impl Schema<StructValue> {
+    /// A struct of `field -> value` schemas (`Schema.Struct`). Each field
+    /// decodes through its own schema; a missing or extra field is a
+    /// `TypeMismatch` naming the path. The field schemas are kept as
+    /// `children` so a formatter can recurse into them, which is what the
+    /// pin's nested `Struct` rows assert.
+    pub fn struct_<const N: usize>(fields: [(&str, Schema<Unknown>); N]) -> Self {
+        let schemas: Vec<(String, Arc<Schema<Unknown>>)> = fields
+            .into_iter()
+            .map(|(name, schema)| (name.to_string(), Arc::new(schema)))
+            .collect();
+        let expected: Vec<String> = schemas.iter().map(|(name, _)| name.clone()).collect();
+        let decode_fields = schemas.clone();
+        let kind = SchemaKind::Struct(
+            schemas
+                .iter()
+                .map(|(name, schema)| (name.clone(), schema.kind.clone()))
+                .collect(),
+        );
+        let mut schema = Self::new(
+            move |unknown| {
+                let object = match unknown {
+                    Unknown::Object(map) => map,
+                    other => return mismatch("$", "object", &other),
+                };
+                for name in &expected {
+                    if !object.contains_key(name) {
+                        return Err(SchemaError::TypeMismatch {
+                            path: format!("$.{name}"),
+                            expected: "a declared field",
+                            got: "absent",
+                        });
+                    }
+                }
+                let mut decoded = Vec::with_capacity(decode_fields.len());
+                for (name, field) in &decode_fields {
+                    let value = object.get(name).cloned().unwrap_or(Unknown::Null);
+                    match field.decode(value) {
+                        Ok(value) => decoded.push((name.clone(), value)),
+                        Err(error) => return Err(error),
+                    }
+                }
+                Ok(StructValue { fields: decoded })
+            },
+            move |value| {
+                let object: BTreeMap<String, Unknown> =
+                    value.fields.iter().cloned().collect();
+                Unknown::Object(object)
+            },
+            kind,
+        );
+        schema.children = schemas.clone();
+        let children = schemas;
+        schema.formatter = std::sync::Arc::new(move |value: &Unknown| {
+            // A Struct with NO declared fields falls back to the plain
+            // JSON-ish rendering, which is what the pin does: its "empty" row
+            // asserts `{"a":1}` and `[1,2,3]` unspaced. Only a Struct whose
+            // fields are declared takes the spaced path.
+            if children.is_empty() {
+                return format_value(value);
+            }
+            let Unknown::Object(map) = value else {
+                return format_value(value);
+            };
+            let inner: Vec<String> = children
+                .iter()
+                .map(|(name, field)| {
+                    let item = map.get(name).cloned().unwrap_or(Unknown::Null);
+                    let key =
+                        serde_json::to_string(name).unwrap_or_else(|_| "\"\"".to_string());
+                    format!("{key}: {}", (field.formatter)(&item))
+                })
+                .collect();
+            format!("{{ {} }}", inner.join(", "))
+        });
+        schema
+    }
+
+    /// One field's decoded value (`field` accessor after decode).
+    pub fn field<'a>(value: &'a StructValue, name: &str) -> Option<&'a Unknown> {
+        value.get(name)
+    }
+}
+
 impl<T> Schema<T> {
     pub(crate) fn new(
         decode: impl Fn(Unknown) -> Result<T, SchemaError> + Send + Sync + 'static,
@@ -127,9 +290,11 @@ impl<T> Schema<T> {
         kind: SchemaKind,
     ) -> Self {
         Self {
-            decode: Box::new(decode),
-            encode: Box::new(encode),
+            decode: std::sync::Arc::new(decode),
+            encode: std::sync::Arc::new(encode),
             kind,
+            children: Vec::new(),
+            formatter: std::sync::Arc::new(format_value),
         }
     }
 
@@ -184,6 +349,8 @@ impl<T> Schema<T> {
             decode: schema.decode,
             encode: schema.encode,
             kind,
+            children: schema.children,
+            formatter: schema.formatter.clone(),
         }
     }
 
@@ -197,7 +364,8 @@ impl<T> Schema<T> {
         let schema = Arc::new(schema);
         let decode_schema = schema.clone();
         let encode_schema = schema.clone();
-        Schema::new(
+        let render = schema.formatter.clone();
+        let mut out = Schema::new(
             move |unknown| {
                 decode_schema
                     .decode(unknown)
@@ -205,7 +373,13 @@ impl<T> Schema<T> {
             },
             |value| value.clone(),
             SchemaKind::Opaque("unknown"),
-        )
+        );
+        // A re-typing does not change the shape, so the wrapper renders
+        // exactly the way the schema it wraps does. Without this the nested
+        // Struct rows lose their spacing, because every field has to pass
+        // through as_unknown to share one Unknown type.
+        out.formatter = render;
+        out
     }
 
     /// Fill a missing input with a default before decoding
@@ -235,11 +409,19 @@ impl<T> Schema<T> {
         let factory = Arc::new(factory);
         let decode_factory = factory.clone();
         let encode_factory = factory.clone();
-        Schema::new(
+        let render_factory = factory.clone();
+        let mut out = Schema::new(
             move |unknown| decode_factory().decode(unknown),
             move |value| encode_factory().encode(value),
             SchemaKind::Opaque("suspend"),
-        )
+        );
+        // A suspend resolves lazily on every decode and every encode, so it
+        // must resolve lazily on every render too. Calling the factory per
+        // render is what makes a recursive schema terminate: the pin's
+        // mutually-suspended and self-referential rows are infinitely deep on
+        // the schema side and finite on the value side.
+        out.formatter = Arc::new(move |value| (render_factory().formatter)(value));
+        out
     }
 
     /// Check a decoded value with a predicate (`refinement` shape): a
@@ -543,7 +725,8 @@ impl<T: Send + Sync + 'static> Schema<Vec<T>> {
         let inner = Arc::new(inner);
         let decode_inner = inner.clone();
         let encode_inner = inner.clone();
-        Schema::new(
+        let render = inner.formatter.clone();
+        let mut out = Self::new(
             move |unknown| match unknown {
                 Unknown::Array(items) => items
                     .into_iter()
@@ -572,7 +755,18 @@ impl<T: Send + Sync + 'static> Schema<Vec<T>> {
                 )
             },
             kind,
-        )
+        );
+        // Each element renders through its own schema, so an array of Structs
+        // keeps the struct spacing the pin emits (`[{ "a": 1 }]`, not `[{"a":1}]`).
+        out.formatter = Arc::new(move |value: &Unknown| {
+            let Unknown::Array(items) = value else {
+                return format_value(value);
+            };
+            let inner: Vec<String> =
+                items.iter().map(|item| render(item)).collect();
+            format!("[{}]", inner.join(", "))
+        });
+        out
     }
 }
 
@@ -753,7 +947,8 @@ impl Schema<BTreeMap<String, Unknown>> {
     /// value schema; keys pass through. Empty objects decode fine.
     pub fn record(value: Schema<Unknown>) -> Self {
         let value = Arc::new(value);
-        Self::new(
+        let render = value.formatter.clone();
+        let mut out = Self::new(
             move |unknown| match unknown {
                 Unknown::Object(fields) => fields
                     .into_iter()
@@ -768,7 +963,29 @@ impl Schema<BTreeMap<String, Unknown>> {
             },
             |fields| Unknown::Object(fields.clone()),
             SchemaKind::Object,
-        )
+        );
+        // A Record renders its entries spaced, the way the pin does, and each
+        // entry renders through the value schema so a nested Record or Struct
+        // recurses with the same rule.
+        out.formatter = Arc::new(move |value: &Unknown| {
+            let Unknown::Object(map) = value else {
+                return format_value(value);
+            };
+            // An empty object renders bare, the same rule the Struct follows.
+            if map.is_empty() {
+                return "{}".to_string();
+            }
+            let inner: Vec<String> = map
+                .iter()
+                .map(|(key, item)| {
+                    let key =
+                        serde_json::to_string(key).unwrap_or_else(|_| "\"\"".to_string());
+                    format!("{key}: {}", render(item))
+                })
+                .collect();
+            format!("{{ {} }}", inner.join(", "))
+        });
+        out
     }
 
     /// A subset of fields (`pick` shape): only the named fields decode.
@@ -1129,6 +1346,22 @@ impl Schema<std::collections::BTreeMap<String, Unknown>> {
     }
 }
 
+impl<T> Schema<T> {
+    /// The value formatter for this schema (`Schema.toFormatter`).
+    ///
+    /// A Struct with declared fields renders each field as `"name": value`
+    /// joined by ", ", and the same rule applies to every NESTED Struct, which
+    /// is why this walks the schema tree rather than the value tree: the pin's
+    /// nested output is `{ "a": "a", "as": [{ "a": "b" }] }`, with the spacing
+    /// on the inner objects too. An EMPTY Struct has no declared fields, so it
+    /// falls through to the plain JSON-ish rendering, which is what the pin
+    /// does too (its "empty" row asserts `{"a":1}` unspaced).
+    pub fn formatter(&self) -> Box<dyn Fn(&Unknown) -> String + Send + Sync + 'static> {
+        let render = self.formatter.clone();
+        Box::new(move |value| render(value))
+    }
+}
+
 // Value formatting
 
 /// Render a value the way `toFormatter` does: JSON shapes with `never`
@@ -1160,6 +1393,88 @@ pub fn format_value(value: &Unknown) -> String {
     }
 }
 
+/// Render a value at a composite position, recursing through `children` where
+/// the owner is a Struct. `children` is empty for every other owner.
+fn format_root(
+    kind: &SchemaKind,
+    children: &[(String, Arc<Schema<Unknown>>)],
+    value: &Unknown,
+) -> String {
+    const NO_CHILDREN: &[(String, Arc<Schema<Unknown>>)] = &[];
+    match kind {
+        SchemaKind::Opaque("never") => "never".to_string(),
+        SchemaKind::Struct(fields) if !fields.is_empty() => {
+            let Unknown::Object(map) = value else {
+                return format_value(value);
+            };
+            let inner: Vec<String> = fields
+                .iter()
+                .map(|(name, _)| {
+                    let item = map.get(name).cloned().unwrap_or(Unknown::Null);
+                    let key =
+                        serde_json::to_string(name).unwrap_or_else(|_| "\"\"".to_string());
+                    let (child_kind, child_children) = children
+                        .iter()
+                        .find(|(key, _)| key == name)
+                        .map(|(_, schema)| (schema.kind.clone(), schema.children.clone()))
+                        .unwrap_or_else(|| (SchemaKind::Object, Vec::new()));
+                    format!("{key}: {}", format_root(&child_kind, &child_children, &item))
+                })
+                .collect();
+            format!("{{{}}}", inner.join(", "))
+        }
+        SchemaKind::Record(_, value_kind) => match value {
+            Unknown::Object(map) => {
+                let inner: Vec<String> = map
+                    .iter()
+                    .map(|(key, item)| {
+                        let key =
+                            serde_json::to_string(key).unwrap_or_else(|_| "\"\"".to_string());
+                        format!("{key}: {}", format_root(value_kind, NO_CHILDREN, item))
+                    })
+                    .collect();
+                format!("{{{}}}", inner.join(", "))
+            }
+            other => format_value(other),
+        },
+        SchemaKind::Tuple(elements) => match value {
+            Unknown::Array(items) => {
+                let mut inner: Vec<String> = Vec::new();
+                for (index, element_kind) in elements.iter().enumerate() {
+                    match element_kind {
+                        SchemaKind::Rest(rest) => {
+                            for item in items.iter().skip(index) {
+                                inner.push(format_root(rest, NO_CHILDREN, item));
+                            }
+                            break;
+                        }
+                        _ => match items.get(index) {
+                            Some(item) => inner.push(format_root(element_kind, NO_CHILDREN, item)),
+                            None => break,
+                        },
+                    }
+                }
+                format!("[{}]", inner.join(", "))
+            }
+            other => format_value(other),
+        },
+        SchemaKind::Array(item_kind) => match value {
+            Unknown::Array(items) => {
+                let inner: Vec<String> =
+                    items.iter().map(|i| format_root(item_kind, NO_CHILDREN, i)).collect();
+                format!("[{}]", inner.join(", "))
+            }
+            other => format_value(other),
+        },
+        SchemaKind::Optional(inner) => match value {
+            Unknown::Null => "null".to_string(),
+            other => format_root(inner, NO_CHILDREN, other),
+        },
+        SchemaKind::Annotated { inner, .. } => format_root(inner, children, value),
+        _ => format_value(value),
+    }
+}
+
 /// A JS-style number: integers print bare.
 fn format_number(number: f64) -> String {
     if number.fract() == 0.0 && number.abs() < 1e15 {
@@ -1169,13 +1484,78 @@ fn format_number(number: f64) -> String {
     }
 }
 
-impl<T> Schema<T> {
-    /// The value formatter for this schema: `never` schemas always print
-    /// `"never"`, everything else renders the value.
-    pub fn formatter(&self) -> Box<dyn Fn(&Unknown) -> String + Send + Sync + 'static> {
-        match &self.kind {
-            SchemaKind::Opaque("never") => Box::new(|_| "never".to_string()),
-            _ => Box::new(|value| format_value(value)),
+/// Render `value` through `kind`. A Struct with declared fields renders each
+/// field as `"name": value` joined by ", ", and the same rule applies to every
+/// nested Struct, which is why this walks the SCHEMA tree rather than the value
+/// tree: the pin's nested output is `{ "a": "a", "as": [{ "a": "b" }] }`, with
+/// the spacing on the inner objects too. An EMPTY Struct has no declared
+/// fields, so it falls through to the plain JSON-ish rendering, which is what
+/// the pin does too (its "empty" row asserts `{"a":1}` unspaced).
+fn format_with(kind: &SchemaKind, value: &Unknown) -> String {
+    match kind {
+        SchemaKind::Opaque("never") => "never".to_string(),
+        SchemaKind::Struct(fields) if !fields.is_empty() => {
+            let Unknown::Object(map) = value else {
+                return format_value(value);
+            };
+            let inner: Vec<String> = fields
+                .iter()
+                .map(|(name, field_kind)| {
+                    let item = map.get(name).cloned().unwrap_or(Unknown::Null);
+                    let key = serde_json::to_string(name).unwrap_or_else(|_| "\"\"".to_string());
+                    format!("{key}: {}", format_with(field_kind, &item))
+                })
+                .collect();
+            format!("{{{}}}", inner.join(", "))
         }
+        SchemaKind::Record(_, value_kind) => match value {
+            Unknown::Object(map) => {
+                let inner: Vec<String> = map
+                    .iter()
+                    .map(|(key, item)| {
+                        let key =
+                            serde_json::to_string(key).unwrap_or_else(|_| "\"\"".to_string());
+                        format!("{key}: {}", format_with(value_kind, item))
+                    })
+                    .collect();
+                format!("{{{}}}", inner.join(", "))
+            }
+            other => format_value(other),
+        },
+        SchemaKind::Tuple(elements) => match value {
+            Unknown::Array(items) => {
+                let mut inner: Vec<String> = Vec::new();
+                for (index, element_kind) in elements.iter().enumerate() {
+                    match element_kind {
+                        SchemaKind::Rest(inner_kind) => {
+                            for item in items.iter().skip(index) {
+                                inner.push(format_with(inner_kind, item));
+                            }
+                            break;
+                        }
+                        _ => match items.get(index) {
+                            Some(item) => inner.push(format_with(element_kind, item)),
+                            None => break,
+                        },
+                    }
+                }
+                format!("[{}]", inner.join(", "))
+            }
+            other => format_value(other),
+        },
+        SchemaKind::Array(item_kind) => match value {
+            Unknown::Array(items) => {
+                let inner: Vec<String> =
+                    items.iter().map(|i| format_with(item_kind, i)).collect();
+                format!("[{}]", inner.join(", "))
+            }
+            other => format_value(other),
+        },
+        SchemaKind::Optional(inner) => match value {
+            Unknown::Null => "null".to_string(),
+            other => format_with(inner, other),
+        },
+        SchemaKind::Annotated { inner, .. } => format_with(inner, value),
+        _ => format_value(value),
     }
 }
