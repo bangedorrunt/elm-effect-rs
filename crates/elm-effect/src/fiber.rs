@@ -174,6 +174,50 @@ impl FiberControl {
     }
 }
 
+/// The fiber running an effect, as [`Effect::with_fiber`] hands it over:
+/// identity plus the cooperative interrupt flag. Wider control (finalizers,
+/// spawning) stays on [`Ctx`], which a fiber body owns.
+///
+/// The pin's `fiber.context` has no counterpart here: services are immutable
+/// per run, never a mutable per-fiber map, so rows that read the running
+/// fiber's context stay unported.
+#[derive(Clone)]
+pub struct Fiber {
+    control: Arc<FiberControl>,
+}
+
+impl Fiber {
+    /// This fiber's id. Same value [`Ctx::id`] reports for the body.
+    pub fn id(&self) -> FiberId {
+        self.control.id
+    }
+
+    /// True once interruption was requested. Reads the same flag
+    /// [`Ctx::is_interrupted`] does.
+    pub fn is_interrupted(&self) -> bool {
+        self.control.is_interrupted()
+    }
+
+    /// Request interruption of this fiber. Non-blocking by construction: a
+    /// fiber cannot wait for its own finalizers. The supervisor observes the
+    /// flag at its next boundary, so a body that returns success after this
+    /// still ends interrupted.
+    pub fn interrupt(&self) {
+        self.control.request_interrupt();
+    }
+}
+
+/// The ambient "which fiber is running this effect" tag. Injected only at the
+/// spawn seams that run an effect on a fiber's behalf (`Ctx::spawn_effect`,
+/// `Runtime::spawn_effect`); `Effect::with_fiber` reads it and no run without
+/// a fiber carries one, so it is never user-providable.
+pub(crate) struct FiberTag;
+
+impl crate::ServiceTag for FiberTag {
+    type Service = Fiber;
+    const ID: &'static str = "elm-effect/fiber";
+}
+
 /// The context a fiber body runs with: interruption, finalizers, and
 /// child-spawning bound to this fiber as parent.
 pub struct Ctx {
@@ -189,6 +233,22 @@ impl Ctx {
     /// This fiber's id.
     pub fn id(&self) -> FiberId {
         self.control.id
+    }
+
+    /// This fiber as an effect running inside it sees it.
+    pub fn fiber(&self) -> Fiber {
+        Fiber {
+            control: Arc::clone(&self.control),
+        }
+    }
+
+    /// Ambient services for an effect this fiber runs on its own behalf:
+    /// carries the [`FiberTag`] entry `Effect::with_fiber` reads. Freshly
+    /// built per run, so the tag can never conflict with a provision.
+    pub(crate) fn services_with_fiber(&self) -> crate::service::Services {
+        let mut maps = crate::service::ServiceMaps::default();
+        maps.insert_tag(<FiberTag as crate::ServiceTag>::ID, Arc::new(self.fiber()));
+        Arc::new(maps)
     }
 
     /// The parent this fiber was forked from, if any.
@@ -299,16 +359,21 @@ impl Ctx {
     }
 
     /// Run a sync-only [`Effect`] as this fiber's child. Atomic with respect
-    /// to interruption in this wave.
+    /// to interruption in this wave. The child publishes itself under
+    /// [`FiberTag`] for the run, so `Effect::with_fiber` inside `effect`
+    /// reports the fiber actually executing it.
     pub fn spawn_effect<A, E>(&self, effect: Effect<A, E>) -> FiberHandle<A, E>
     where
         A: Send + 'static,
         E: Send + 'static,
     {
         self.fork_child(
-            move |_| match effect.run_sync() {
-                Ok(a) => Exit::Success(a),
-                Err(cause) => Exit::Failure(cause),
+            move |ctx| {
+                let ambient = ctx.services_with_fiber();
+                match effect.run_sync_with(&ambient) {
+                    Ok(a) => Exit::Success(a),
+                    Err(cause) => Exit::Failure(cause),
+                }
             },
             ForkOpts::deferred(),
         )

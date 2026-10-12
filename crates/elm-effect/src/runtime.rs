@@ -263,15 +263,20 @@ impl Runtime {
         self.fork_scoped(scope, body, opts)
     }
 
-    /// Run a sync-only [`Effect`] as a detached fiber.
+    /// Run a sync-only [`Effect`] as a detached fiber. The fiber publishes
+    /// itself under `FiberTag` for the run, so `Effect::with_fiber` inside
+    /// `effect` reports the fiber executing it.
     pub fn spawn_effect<A, E>(&self, effect: Effect<A, E>) -> FiberHandle<A, E>
     where
         A: Send + 'static,
         E: Send + 'static,
     {
-        self.fork_detach(move |_| match effect.run_sync() {
-            Ok(a) => Exit::Success(a),
-            Err(cause) => Exit::Failure(cause),
+        self.fork_detach(move |ctx| {
+            let ambient = ctx.services_with_fiber();
+            match effect.run_sync_with(&ambient) {
+                Ok(a) => Exit::Success(a),
+                Err(cause) => Exit::Failure(cause),
+            }
         })
     }
 

@@ -143,9 +143,25 @@ impl ServiceMaps {
 
     /// First conflicted tag id, if any.
     pub(crate) fn conflict(&self) -> Option<&'static str> {
+        self.conflicted_ids().into_iter().next()
+    }
+
+    /// Every tag id already found ambiguous.
+    pub(crate) fn conflicted_ids(&self) -> Vec<&'static str> {
         self.tags
             .iter()
-            .find_map(|(id, entry)| entry.conflict.then_some(*id))
+            .filter_map(|(id, entry)| entry.conflict.then_some(*id))
+            .collect()
+    }
+
+    /// Mark an existing tag entry ambiguous without touching its value. For
+    /// merges: `insert_tag` can only spot a conflict BETWEEN two sides, so a
+    /// conflict that lived inside one side has to be carried over or the
+    /// merged build quietly succeeds where the law says Die.
+    pub(crate) fn poison(&mut self, id: &'static str) {
+        if let Some(entry) = self.tags.get_mut(&id) {
+            entry.conflict = true;
+        }
     }
 
     /// Cloned tag value, if present (conflicts observed separately).
@@ -153,11 +169,14 @@ impl ServiceMaps {
         self.tags.get(id).map(|entry| Arc::clone(&entry.value))
     }
 
-    /// Every tag provision, for layer merges.
-    pub(crate) fn tag_list(&self) -> Vec<(&'static str, Arc<dyn Any + Send + Sync>)> {
+    /// Every tag provision, for layer merges. The conflict flag rides along:
+    /// a replay that takes only the value cannot rediscover a conflict that
+    /// lived inside this map, and a dropped conflict is a build that quietly
+    /// succeeds where the law says Die.
+    pub(crate) fn tag_list(&self) -> Vec<(&'static str, Arc<dyn Any + Send + Sync>, bool)> {
         self.tags
             .iter()
-            .map(|(id, entry)| (*id, Arc::clone(&entry.value)))
+            .map(|(id, entry)| (*id, Arc::clone(&entry.value), entry.conflict))
             .collect()
     }
 
@@ -181,9 +200,14 @@ pub(crate) fn merged_services(outer: &Services, own: &Services) -> Services {
     if own.tags.is_empty() && own.refs.is_empty() {
         return Arc::clone(outer);
     }
+    // `outer` arrives by clone, so its own conflict flags survive; `own`'s
+    // replay through `tag_list`, which carries them.
     let mut merged = (**outer).clone();
-    for (id, value) in own.tag_list() {
+    for (id, value, conflicted) in own.tag_list() {
         merged.insert_tag(id, value);
+        if conflicted {
+            merged.poison(id);
+        }
     }
     for (id, value) in own.refs.iter().map(|(k, v)| (*k, Arc::clone(v))) {
         merged.insert_ref(id, value);

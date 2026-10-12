@@ -294,8 +294,14 @@ impl<T: ServiceTag, E: Send + 'static> Layer<T, E, ()> {
     {
         let built = self.build(scope)?;
         let mut maps = (*effect.services).clone();
-        for (id, value) in built.values.tag_list() {
+        for (id, value, conflicted) in built.values.tag_list() {
             maps.insert_tag(id, value);
+            // A conflict inside the built services must not vanish into the
+            // effect's map: ambiguity is a property of the provision, and the
+            // law is that the run Dies rather than picking a winner.
+            if conflicted {
+                maps.poison(id);
+            }
         }
         Ok(Effect {
             step: effect.step,

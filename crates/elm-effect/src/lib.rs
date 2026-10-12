@@ -61,7 +61,7 @@ pub use elm_effect_schema::{Schema, SchemaError, StructValue, Unknown};
 pub use executor::{BoxFuture, Executor, TokioExecutor};
 pub use exit::Exit;
 #[cfg(feature = "tokio")]
-pub use fiber::{Ctx, FiberHandle, ForkOpts, Mask, StartMode};
+pub use fiber::{Ctx, Fiber, FiberHandle, ForkOpts, Mask, StartMode};
 pub use foundation::{
     Combiner, Differ, Equal, Equivalence, Filter, Hash, Matcher, Order, Predicate, Reducer, Tagged,
     absurd, array_equivalence, boolean_equivalence, boolean_order, combine_hash, combine_ordering,

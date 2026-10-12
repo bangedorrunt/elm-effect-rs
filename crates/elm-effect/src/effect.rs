@@ -145,6 +145,38 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> ErasedStep<A, E> for 
     }
 }
 
+/// Hands the fiber running this effect to the callback, then runs the effect
+/// the callback builds. The fiber comes from the ambient `FiberTag`; asking
+/// where no fiber exists is a defect, the port's fail-closed answer to
+/// missing context (`tx_retry` outside a transaction is the same shape).
+#[cfg(feature = "tokio")]
+struct WithFiber<A: Send + 'static, E: Send + 'static, R: Requirement, F> {
+    f: F,
+    marker: PhantomData<fn() -> (A, E, R)>,
+}
+
+#[cfg(feature = "tokio")]
+impl<A, E, R, F> ErasedStep<A, E> for WithFiber<A, E, R, F>
+where
+    A: Send + 'static,
+    E: Send + 'static,
+    R: Requirement,
+    F: FnOnce(&crate::fiber::Fiber) -> Effect<A, E, R> + Send + 'static,
+{
+    fn run_erased(self: Box<Self>, scope: &crate::service::Services) -> Result<A, Cause<E>> {
+        let Self { f, .. } = *self;
+        match scope.get_tag(<crate::fiber::FiberTag as crate::ServiceTag>::ID) {
+            Some(any) => match any.downcast_ref::<crate::fiber::Fiber>() {
+                Some(fiber) => f(fiber).run_sync_with(scope),
+                None => Err(Cause::die(Defect::new("fiber tag holds a non-fiber value"))),
+            },
+            None => Err(Cause::die(Defect::new(
+                "withFiber outside a fiber: run the effect through Ctx::spawn_effect or Runtime::spawn_effect",
+            ))),
+        }
+    }
+}
+
 /// Ambient-value reader: innermost override (if any) to a value. Total by
 /// construction: the default fills a missing entry.
 pub(crate) type RefFn<A> =
@@ -390,6 +422,34 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
             },
             env,
         )
+    }
+
+    /// `Effect.withFiber` at the pin: hand the fiber currently running this
+    /// effect to `f`, and run the effect `f` builds in the same environment.
+    /// The pin's callback receives the fiber object; here it receives a
+    /// [`Fiber`](crate::Fiber) handle (identity and the interrupt flag),
+    /// because this port keeps no mutable per-fiber context for the pin's
+    /// `fiber.context`.
+    ///
+    /// Where the fiber comes from: the spawn seams that run an effect on a
+    /// fiber's behalf, [`Ctx::spawn_effect`](crate::Ctx::spawn_effect) and
+    /// [`Runtime::spawn_effect`](crate::Runtime::spawn_effect). Outside those
+    /// (a bare `run_sync`, or `Runtime::run`, which executes on the calling
+    /// thread) there is no fiber, and asking is a defect rather than a
+    /// silent stand-in. Nested `with_fiber` sees the same fiber.
+    #[cfg(feature = "tokio")]
+    pub fn with_fiber<F>(f: F) -> Self
+    where
+        F: FnOnce(&crate::fiber::Fiber) -> Effect<A, E, R> + Send + 'static,
+    {
+        Effect {
+            step: Step::Suspend(Box::new(WithFiber {
+                f,
+                marker: PhantomData,
+            })),
+            services: crate::service::empty_services(),
+            marker: PhantomData,
+        }
     }
 
     /// `Effect.onExit` at the pin: observe the finished exit, then pass the
