@@ -60,7 +60,7 @@ tests = ["packages/effect/test/ByteSize.test.ts"]
 [[module]]
 path = "packages/effect/src/Cache.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/Cache.test.ts"]
@@ -2532,7 +2532,7 @@ tests = ["packages/effect/test/reactivity/AsyncResult.test.ts"]
 [[module]]
 path = "packages/effect/src/reactivity/Atom.ts"
 class = "unstable-port"
-status = "unmatched"
+status = "matched"
 tag = "unstable"
 reason = ""
 tests = ["packages/effect/test/reactivity/Atom.test.ts"]
