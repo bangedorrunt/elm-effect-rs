@@ -8692,12 +8692,12 @@ unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.
 ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	551	it	type only	json_schema_document_type_only_rows_carry_their_code_and_type
 unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	560	it	type only	
 unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	572	it	items	
-unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	584	it	prefixItems preserves maxItems below the prefix length	
-unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	602	it	prefixItems preserves maxItems above the prefix length	
-unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	620	it	prefixItems omits maxItems redundant with items: false	
-unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	634	it	prefixItems closes when maxItems equals the prefix length	
-unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	647	it	prefixItems marks elements required by minItems	
-unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	661	it	prefixItems & minItems	
+ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	584	it	prefixItems preserves maxItems below the prefix length	json_schema_document_prefix_items_rows_carry_their_code_and_type
+ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	602	it	prefixItems preserves maxItems above the prefix length	json_schema_document_prefix_items_rows_carry_their_code_and_type
+ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	620	it	prefixItems omits maxItems redundant with items: false	json_schema_document_prefix_items_rows_carry_their_code_and_type
+ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	634	it	prefixItems closes when maxItems equals the prefix length	json_schema_document_prefix_items_rows_carry_their_code_and_type
+ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	647	it	prefixItems marks elements required by minItems	json_schema_document_prefix_items_rows_carry_their_code_and_type
+ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	661	it	prefixItems & minItems	json_schema_document_prefix_items_rows_carry_their_code_and_type
 unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	681	it	minItems	
 unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	693	it	maxItems	
 unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	705	it	uniqueItems	

@@ -1523,3 +1523,120 @@ fn json_schema_document_unconstrained_rows_carry_their_code_and_type() {
         assert_eq!(schema.to_type(), ty, "type for {doc:?}");
     }
 }
+
+#[test]
+fn json_schema_document_prefix_items_rows_carry_their_code_and_type() {
+    // fromJsonSchemaDocument.test.ts's prefixItems family. `minItems` marks the
+    // leading positions required, `maxItems` decides whether any position is
+    // open, and `items` names the open element. Every combination below is a
+    // row from the file.
+    use elm_effect_schema::{Schema, Unknown};
+
+    let json_rest = r#"Schema.Json.annotate({ "expected": "JSON value" })"#;
+    let cases: Vec<(serde_json::Value, String, &str)> = vec![
+        // :584 — maxItems below the prefix length: the rest stays, and a
+        // max-length check rides along because the rest cannot hold every
+        // declared position the tuple otherwise would.
+        (
+            serde_json::json!({
+                "type": "array",
+                "prefixItems": [{"type": "string"}, {"type": "number"}],
+                "maxItems": 1
+            }),
+            format!(
+                r#"Schema.TupleWithRest(Schema.Tuple([Schema.optionalKey(Schema.String), Schema.optionalKey(Schema.Number.check(Schema.isFinite().annotate({{ "expected": "a finite number" }})))]), [{json_rest}]).check(Schema.isMaxLength(1).annotate({{ "expected": "a value with a length of at most 1" }}))"#
+            ),
+            r#"readonly [(string)?, (number)?, ...Array<Schema.Json>]"#,
+        ),
+        // :602 — maxItems above the prefix length: rest, no check.
+        (
+            serde_json::json!({
+                "type": "array",
+                "prefixItems": [{"type": "string"}],
+                "maxItems": 2
+            }),
+            format!(
+                r#"Schema.TupleWithRest(Schema.Tuple([Schema.optionalKey(Schema.String)]), [{json_rest}]).check(Schema.isMaxLength(2).annotate({{ "expected": "a value with a length of at most 2" }}))"#
+            ),
+            r#"readonly [(string)?, ...Array<Schema.Json>]"#,
+        ),
+        // :620 — `items: false` closes the tuple, so the rest is dropped.
+        (
+            serde_json::json!({
+                "type": "array",
+                "prefixItems": [{"type": "string"}],
+                "items": false,
+                "maxItems": 2
+            }),
+            "Schema.Tuple([Schema.optionalKey(Schema.String)])".to_string(),
+            "readonly [(string)?]",
+        ),
+        // :634 — maxItems equal to the prefix length also closes it.
+        (
+            serde_json::json!({
+                "type": "array",
+                "prefixItems": [{"type": "string"}],
+                "maxItems": 1
+            }),
+            "Schema.Tuple([Schema.optionalKey(Schema.String)])".to_string(),
+            "readonly [(string)?]",
+        ),
+        // :647 — minItems marks the leading position required.
+        (
+            serde_json::json!({
+                "type": "array",
+                "prefixItems": [{"type": "string"}],
+                "minItems": 1,
+                "maxItems": 1
+            }),
+            "Schema.Tuple([Schema.String])".to_string(),
+            "readonly [string]",
+        ),
+        // :661 — `items` names the open element.
+        (
+            serde_json::json!({
+                "type": "array",
+                "prefixItems": [{"type": "string"}],
+                "minItems": 1,
+                "items": {"type": "number"}
+            }),
+            r#"Schema.TupleWithRest(Schema.Tuple([Schema.String]), [Schema.Number.check(Schema.isFinite().annotate({ "expected": "a finite number" }))])"#.to_string(),
+            "readonly [string, ...Array<number>]",
+        ),
+    ];
+
+    for (doc, code, ty) in cases {
+        let schema = Schema::<Unknown>::from_json_schema(&doc).expect("imports");
+        assert_eq!(schema.to_code(), code, "code for {doc:?}");
+        assert_eq!(schema.to_type(), ty, "type for {doc:?}");
+    }
+
+    // A closed tuple holds its arity, and the rest form absorbs past the
+    // prefix: the two are different shapes, not the same shape written twice.
+    let closed = Schema::<Unknown>::from_json_schema(&serde_json::json!({
+        "type": "array",
+        "prefixItems": [{"type": "string"}],
+        "maxItems": 1
+    }))
+    .expect("imports a closed tuple");
+    assert!(closed.decode(Unknown::Array(vec![Unknown::Text("a".into())])).is_ok());
+    assert!(closed.decode(Unknown::Array(Vec::new())).is_ok());
+    assert!(closed.decode(Unknown::Array(vec![
+        Unknown::Text("a".into()),
+        Unknown::Text("b".into()),
+    ])).is_err());
+
+    let open = Schema::<Unknown>::from_json_schema(&serde_json::json!({
+        "type": "array",
+        "prefixItems": [{"type": "string"}],
+        "items": {"type": "number"}
+    }))
+    .expect("imports an open tuple");
+    assert!(open.decode(Unknown::Array(vec![Unknown::Text("a".into())])).is_ok());
+    assert!(open
+        .decode(Unknown::Array(vec![
+            Unknown::Text("a".into()),
+            Unknown::Number(1.0),
+        ]))
+        .is_ok());
+}

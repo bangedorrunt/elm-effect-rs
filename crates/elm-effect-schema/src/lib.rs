@@ -1261,6 +1261,76 @@ impl Schema<Unknown> {
         schema
     }
 
+    /// A positional prefix (`prefixItems`) as a tuple. The pin's rule is that
+    /// `minItems` marks the leading positions required, `maxItems` decides
+    /// whether any position is open, and `items` names the open element:
+    ///
+    /// - `maxItems` above the prefix length keeps a rest, but that rest can hold
+    ///   fewer elements than the prefix declares, so a max-length check rides
+    ///   along;
+    /// - `maxItems` equal to the prefix length, or `items: false`, closes the
+    ///   tuple and drops the rest entirely.
+    fn tuple_from_prefix(
+        prefix: &[serde_json::Value],
+        doc: &serde_json::Value,
+    ) -> Result<Self, SchemaError> {
+        let min = doc.get("minItems").and_then(serde_json::Value::as_u64).unwrap_or(0) as usize;
+        let max = doc.get("maxItems").and_then(serde_json::Value::as_u64).map(|v| v as usize);
+        let closed_by_items = matches!(doc.get("items"), Some(serde_json::Value::Bool(false)));
+
+        let mut elements = Vec::with_capacity(prefix.len());
+        for (index, element) in prefix.iter().enumerate() {
+            let schema = Self::import(element)?;
+            // A position below `minItems` must be present; the rest may be
+            // absent, which is exactly `optionalKey` against `Optional`.
+            elements.push(if index < min {
+                schema
+            } else {
+                Schema::optional_key_shape(schema)
+            });
+        }
+
+        // Open unless `maxItems` exactly equals the prefix length or `items`
+        // closed it. Any other `maxItems` keeps the rest and carries a
+        // max-length check, even a `maxItems` below the prefix length, because
+        // the tuple alone would allow every declared position.
+        let open = match max {
+            Some(max) => max != prefix.len() && !closed_by_items,
+            None => !closed_by_items,
+        };
+        if !open {
+            // Neither `refined_array` nor a check: `maxItems` was spent closing
+            // the tuple and `minItems` was spent marking the leading positions
+            // required, so both are already represented in the shape.
+            return Ok(Schema::as_unknown(Schema::tuple_of(elements)));
+        }
+        let rest = match doc.get("items") {
+            Some(serde_json::Value::Bool(_)) | None => {
+                Schema::annotated_with(Schema::json(), vec![("expected", "JSON value")])
+            }
+            Some(items) => Self::import(items)?,
+        };
+        let base = Schema::as_unknown(Schema::tuple_with_rest(elements, rest));
+        // A rest that cannot hold every declared position also needs the
+        // max-length check, because the tuple alone would allow them. The check
+        // is attached whenever `maxItems` is named at all.
+        let base = match max {
+            Some(max) => Schema::as_unknown(Schema::checked(
+                base,
+                "isMaxLength",
+                vec![format_number(max as f64).as_str()],
+                vec![(
+                    "expected",
+                    &format!("a value with a length of at most {max}"),
+                )],
+            )),
+            None => base,
+        };
+        // `refined_array` is deliberately not called here: it maps `maxItems` to
+        // the same max-length check, and the open form already attached it.
+        Ok(base)
+    }
+
     /// An array plus whatever size or uniqueness constraints the document
     /// carries.
     fn refined_array(base: Schema<Unknown>, doc: &serde_json::Value) -> Self {
@@ -1378,16 +1448,24 @@ impl Schema<Unknown> {
                 )),
                 "boolean" => Ok(Schema::as_unknown(Schema::boolean())),
                 "null" => Ok(Schema::as_unknown(Schema::null())),
-                "array" => {
-                    let items = match get("items") {
-                        Some(items) => Self::import(items)?,
-                        None => Schema::any(),
-                    };
-                    Ok(Self::refined_array(
-                        Schema::as_unknown(Schema::array(items)),
-                        doc,
-                    ))
-                }
+                "array" => match get("prefixItems") {
+                    // `prefixItems` is a positional prefix, so it decodes to a
+                    // tuple rather than an array. Everything else about the
+                    // array comes from `minItems`, `maxItems` and `items`.
+                    Some(serde_json::Value::Array(prefix)) => {
+                        Self::tuple_from_prefix(prefix, doc)
+                    }
+                    _ => {
+                        let items = match get("items") {
+                            Some(items) => Self::import(items)?,
+                            None => Schema::any(),
+                        };
+                        Ok(Self::refined_array(
+                            Schema::as_unknown(Schema::array(items)),
+                            doc,
+                        ))
+                    }
+                },
                 "object" => {
                     let empty = serde_json::Map::new();
                     let properties = match get("properties") {
@@ -1790,6 +1868,47 @@ impl Schema<Unknown> {
         )
     }
 
+    /// Fixed-length positional elements (`Tuple`), built from a list whose
+    /// length is only known once the document has been read.
+    pub fn tuple_of(elements: Vec<Schema<Unknown>>) -> Self {
+        let kinds: Vec<SchemaKind> = elements.iter().map(|e| e.repr_kind()).collect();
+        let required = kinds
+            .iter()
+            .take_while(|kind| !matches!(kind, SchemaKind::OptionalKey(_)))
+            .count();
+        let kind = SchemaKind::Tuple(kinds);
+        let decoders: Vec<Arc<Schema<Unknown>>> = elements.into_iter().map(Arc::new).collect();
+        let total = decoders.len();
+        Self::new(
+            move |unknown| {
+                let items = match unknown {
+                    Unknown::Array(items) => items,
+                    other => return mismatch("$", "array", &other),
+                };
+                // A position below the first optional one must be present, and
+                // none may appear past the last declared position.
+                if items.len() < required || items.len() > total {
+                    return mismatch("$", "a fixed-length array", &Unknown::Array(items));
+                }
+                let mut out = Vec::with_capacity(total);
+                for index in 0..total {
+                    match decoders.get(index) {
+                        Some(element) if index < items.len() => {
+                            out.push(element.decode(items[index].clone())?);
+                        }
+                        // An absent optional position decodes as null, which is
+                        // what `optionalKey` permits.
+                        Some(_) => out.push(Unknown::Null),
+                        None => out.push(Unknown::Null),
+                    }
+                }
+                Ok(Unknown::Array(out))
+            },
+            |value| value.clone(),
+            kind,
+        )
+    }
+
     /// Positional elements with a trailing catch-all (`TupleWithRest`): the
     /// leading positions and the shape absorbing the remaining elements.
     pub fn tuple_with_rest(
@@ -2154,7 +2273,12 @@ fn type_of(kind: &SchemaKind, children: &[(String, Arc<Schema<Unknown>>)]) -> St
         SchemaKind::TupleWithRest(elements, rest) => {
             let mut inner: Vec<String> = elements
                 .iter()
-                .map(|element| format!("({})?", type_of_at(element)))
+                .map(|element| match element {
+                    SchemaKind::OptionalKey(inner_key) => {
+                        format!("({})?", type_of_at(inner_key))
+                    }
+                    other => type_of_at(other),
+                })
                 .collect();
             inner.push(format!("...Array<{}>", type_of_at(rest)));
             format!("readonly [{}]", inner.join(", "))
