@@ -426,7 +426,9 @@ fn queue_interrupt_releases_the_element_to_the_next_taker() {
         "nothing else is pending while the element is in flight"
     );
 
-    let released = q.abandon(&held.id).expect("the interrupted hold is released");
+    let released = q
+        .abandon(&held.id)
+        .expect("the interrupted hold is released");
     assert_eq!(released.id, "a");
     assert_eq!(released.payload, b"42".to_vec());
 
@@ -435,5 +437,9 @@ fn queue_interrupt_releases_the_element_to_the_next_taker() {
     assert_eq!(next.payload, b"42".to_vec());
     assert_eq!(next.attempts, 2, "the interruption counts as an attempt");
     assert_eq!(q.pending_len(), 0);
-    assert_eq!(q.in_flight_len(), 1, "it is in flight again, not duplicated");
+    assert_eq!(
+        q.in_flight_len(),
+        1,
+        "it is in flight again, not duplicated"
+    );
 }

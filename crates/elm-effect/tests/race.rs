@@ -420,13 +420,10 @@ fn race_all_first_completes_on_the_first_completion_even_a_failure() {
                 // delay 100 then succeed: parks on the clock, which is never
                 // advanced, so it can only end by being interrupted.
                 body(move |ctx| {
-                    ctx.acquire_release(
-                        Effect::<(), String>::succeed(()),
-                        move |_| {
-                            released_win.fetch_add(1, Ordering::SeqCst);
-                            Effect::<(), String>::succeed(())
-                        },
-                    )
+                    ctx.acquire_release(Effect::<(), String>::succeed(()), move |_| {
+                        released_win.fetch_add(1, Ordering::SeqCst);
+                        Effect::<(), String>::succeed(())
+                    })
                     .expect("acquire cannot fail");
                     armed_win.store(true, Ordering::SeqCst);
                     clock_win.sleep(Duration::from_millis(100), &|| ctx.is_interrupted());
