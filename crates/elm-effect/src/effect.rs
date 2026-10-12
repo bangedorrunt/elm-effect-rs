@@ -6,7 +6,7 @@
 //! completion. The fiber/async executor (Phase 1, runtime bead) drives this
 //! same machine.
 
-use crate::{Cause, Defect, Exit, Reason};
+use crate::{Cause, Defect, Exit, Provide, Reason};
 use std::any::Any;
 use std::marker::PhantomData;
 use std::sync::Arc;
@@ -85,6 +85,62 @@ where
         match first.run_sync_with(&inner) {
             Ok(a) => on_success(a).run_sync_with(&inner),
             Err(cause) => on_failure(cause).run_sync_with(&inner),
+        }
+    }
+}
+
+/// Runs an inner effect under a scope minted for that run, then closes the
+/// scope. Every exit path closes: success, typed failure, defect, interrupt.
+#[cfg(feature = "tokio")]
+struct Scoped<A: Send + 'static, E: Send + 'static, R: Requirement> {
+    inner: Effect<A, E, R>,
+    env: crate::service::Services,
+}
+
+#[cfg(feature = "tokio")]
+impl<A: Send + 'static, E: Send + 'static, R: Requirement> ErasedStep<A, E> for Scoped<A, E, R> {
+    fn run_erased(self: Box<Self>, scope: &crate::service::Services) -> Result<A, Cause<E>> {
+        let Self { inner, env } = *self;
+        let outer = crate::service::merged_services(scope, &env);
+        // Minted per run, never shared: a description is a value, so running
+        // it twice must not let the first run's scope observe the second's.
+        let fresh = Arc::new(crate::Scope::new(crate::fiber::next_id().0));
+        let mut maps = (*outer).clone();
+        maps.replace_tag(
+            <crate::scope::ScopeTag as crate::ServiceTag>::ID,
+            Arc::new(Arc::clone(&fresh)),
+        );
+        let Effect { step, .. } = inner;
+        let body = Effect {
+            step,
+            // The run carries no requirements of its own: the merged map
+            // below is the whole environment, so nothing can be `Use`-read
+            // that the parent did not already provide.
+            services: crate::service::empty_services(),
+            marker: PhantomData::<R>,
+        };
+        let out = body.run_sync_with(&Arc::new(maps));
+        // Close after the run, on every path: the scope interrupts its
+        // members and runs finalizers LIFO, exactly once.
+        let spills = fresh.close();
+        match out {
+            Ok(value) => {
+                if spills.is_empty() {
+                    Ok(value)
+                } else {
+                    // A failed finalizer is a defect, never a typed failure:
+                    // it did not come from the body's own error channel.
+                    let mut spills = spills.into_iter();
+                    let mut cause = Cause::die(spills.next().expect("checked non-empty"));
+                    cause.reasons.extend(spills.map(Reason::Die));
+                    Err(cause)
+                }
+            }
+            Err(mut cause) => {
+                // Append, never replace: the body's own reason survives (L6).
+                cause.reasons.extend(spills.into_iter().map(Reason::Die));
+                Err(cause)
+            }
         }
     }
 }
@@ -301,6 +357,38 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
                     Effect::fail_with(cause)
                 }
             },
+        )
+    }
+
+    /// `Effect.scoped` at the pin: run `self` in a fresh [`Scope`], close that
+    /// scope when the run ends (success, typed failure, defect, or interrupt),
+    /// and strip the scope tag from the requirements. The body reaches the
+    /// fresh scope with `use_service::<ScopeTag>()`.
+    ///
+    /// Rust substitution for the pin's `Exclude<R, Scope>`: the tag is the
+    /// head of `R`, so the requirement tuple is ordered by provision, as
+    /// everywhere else in this crate.
+    ///
+    /// Two differences from the pin worth naming. The pin hands the exit to
+    /// the close so a finalizer can inspect it; [`Scope`] finalizers here are
+    /// exit-blind by construction. And interruption is cooperative here: the
+    /// pin's `scoped` closes on an interrupt delivered mid-body, while this
+    /// one closes as soon as the body's steps return the interrupt as a
+    /// cause. A fiber interrupted while its effect is in flight reaches
+    /// [`Ctx::add_finalizer`](crate::Ctx::add_finalizer) instead.
+    #[cfg(feature = "tokio")]
+    pub fn scoped<Rest>(self) -> Effect<A, E, Rest>
+    where
+        R: Provide<crate::scope::ScopeTag, Rest>,
+        Rest: Requirement,
+    {
+        let env = Arc::clone(&self.services);
+        Effect::suspend(
+            Scoped {
+                inner: self,
+                env: Arc::clone(&env),
+            },
+            env,
         )
     }
 

@@ -47,6 +47,18 @@ where
     }
 }
 
+/// The ambient scope service tag. `Effect::scoped` provides a fresh [`Scope`]
+/// under this tag for the body it wraps, so an effect body reaches its own
+/// scope with `use_service::<ScopeTag>()` instead of being handed one from
+/// outside. The tag is the `R` side of `scoped`: `Effect<A, E, ScopeTag>`
+/// becomes `Effect<A, E, ()>`.
+pub struct ScopeTag;
+
+impl crate::ServiceTag for ScopeTag {
+    type Service = Arc<Scope>;
+    const ID: &'static str = "elm-effect/scope";
+}
+
 /// A lifetime bound: closing interrupts member fibers, then runs finalizers
 /// last-in-first-out, exactly once. Late registrations run inline.
 pub struct Scope {

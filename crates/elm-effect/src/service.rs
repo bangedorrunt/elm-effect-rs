@@ -121,6 +121,21 @@ impl ServiceMaps {
         }
     }
 
+    /// Insert one tag provision as an override: replaces any existing value
+    /// and never poisons. For the ambient scope tag `Effect::scoped` mints,
+    /// a second distinct value is the intended layering (an inner scope
+    /// shadows an outer one for its own subtree), not the ambiguity
+    /// `insert_tag` rejects.
+    pub(crate) fn replace_tag(&mut self, id: &'static str, value: Arc<dyn Any + Send + Sync>) {
+        self.tags.insert(
+            id,
+            TagEntry {
+                value,
+                conflict: false,
+            },
+        );
+    }
+
     /// Insert one reference override. Replaces: innermost wins.
     pub(crate) fn insert_ref(&mut self, id: &'static str, value: Arc<dyn Any + Send + Sync>) {
         self.refs.insert(id, value);
@@ -373,5 +388,34 @@ where
         },
         services: empty_services(),
         marker: PhantomData,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn replace_tag_shadows_where_insert_tag_poisons() {
+        // The ambient scope tag needs innermost-wins. `insert_tag` poisons a
+        // tag carrying two distinct values, which is right for a service tag
+        // whose provision should be unique, and wrong for the scope: a build
+        // that already provisioned one (a layer build inserts every tag it
+        // built into the effect's map) must be shadowed, not poisoned.
+        let outer: Arc<dyn Any + Send + Sync> = Arc::new(1u64);
+        let inner: Arc<dyn Any + Send + Sync> = Arc::new(2u64);
+
+        let mut inserted = ServiceMaps::default();
+        inserted.insert_tag("test/tag", Arc::clone(&outer));
+        inserted.insert_tag("test/tag", Arc::clone(&inner));
+        assert_eq!(inserted.conflict(), Some("test/tag"));
+
+        let mut replaced = ServiceMaps::default();
+        replaced.insert_tag("test/tag", Arc::clone(&outer));
+        replaced.replace_tag("test/tag", Arc::clone(&inner));
+        assert_eq!(replaced.conflict(), None);
+        // Innermost wins: a `Use` node reads the newer value.
+        let read = replaced.get_tag("test/tag").expect("still provisioned");
+        assert_eq!(*read.downcast::<u64>().expect("u64"), 2);
     }
 }

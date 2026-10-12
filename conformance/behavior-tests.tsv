@@ -1181,7 +1181,7 @@ unported	packages/effect/test/Duration.test.ts	693	it	toWeeks
 unported	packages/effect/test/Duration.test.ts	699	it	ReducerSum	
 unported	packages/effect/test/Duration.test.ts	703	it	CombinerMax	
 unported	packages/effect/test/Duration.test.ts	707	it	CombinerMin	
-not-applicable	packages/effect/test/Effect.test.ts	79	it.effect	scoped closes its scope when interrupted after installing it	Effect.scoped and Effect.provideService are absent from crates/elm-effect/src/effect.rs (21 pub fns, neither present) and Effect.withFiber is absent too, so a scope closing on interrupt has no Rust combinator to carry it
+ported	packages/effect/test/Effect.test.ts	79	it.effect	scoped closes its scope when interrupted after installing it	scoped_closes_its_scope_when_interrupted_after_installing_it
 not-applicable	packages/effect/test/Effect.test.ts	124	it.effect	provideService restores the original context if interrupted before its body	Effect.provideService and Effect.withFiber are absent from crates/elm-effect/src/effect.rs (21 pub fns, neither present), so restoring the original context when interrupted before the body cannot be expressed
 not-applicable	packages/effect/test/Effect.test.ts	155	it.effect	 never strands a second caller when the owner yields before registering cleanup	Effect.cached and Effect.cachedInvalidateWithTTL are absent from crates/elm-effect/src/effect.rs (21 pub fns, neither present), so this cache-invalidation row has no Rust constructor
 not-applicable	packages/effect/test/Effect.test.ts	209	it	isEffect	Effect.isEffect is a TS runtime type guard with no Rust equivalent (is_effect is absent from the crate); whether a value is an Effect is a compile-time fact in Rust, not a runtime observable

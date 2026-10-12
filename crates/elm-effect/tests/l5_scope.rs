@@ -7,8 +7,8 @@
 //! shell edge. Laziness of descriptions (L1) is untouched: nothing here
 //! builds a deferred description.
 
-use elm_effect::{Cause, Effect, Exit, ForkOpts, Reason, Runtime, Scope};
-use std::sync::atomic::{AtomicBool, Ordering};
+use elm_effect::{Cause, Effect, Exit, ForkOpts, Reason, Runtime, Scope, ScopeTag};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Condvar, Mutex};
 use std::time::Duration;
 
@@ -221,6 +221,118 @@ fn acquire_into_closed_scope_releases_immediately() {
         [Reason::Interrupt { .. }]
     ));
     assert_eq!(*log.lock().unwrap(), vec!["res"]);
+}
+
+// ---------------------------------------------------------------------------
+// Effect.scoped at the pin (Effect.test.ts:79)
+// ---------------------------------------------------------------------------
+
+/// Which exit the scoped body ends on.
+#[derive(Clone, Copy)]
+enum BodyExit {
+    Succeed,
+    FailTyped,
+    Interrupt,
+}
+
+/// Install a finalizer on the ambient scope, then end the body the given way.
+/// Records the scope id it saw, so the caller can tell the minted scope from
+/// any other.
+fn install_finalizer_then(
+    exit: BodyExit,
+    finalized: Arc<AtomicUsize>,
+    seen: Arc<Mutex<Option<u64>>>,
+) -> Effect<(), String, ScopeTag> {
+    elm_effect::use_service::<ScopeTag>()
+        .map(move |scope| {
+            *seen.lock().unwrap() = Some(scope.id());
+            let counter = Arc::clone(&finalized);
+            scope.add_finalizer(move || {
+                counter.fetch_add(1, Ordering::SeqCst);
+            });
+        })
+        // Reading a service cannot fail, so the typed channel is widened once
+        // here to the body's own error type instead of a second door.
+        .map_err(|never| match never {})
+        .flat_map(move |()| match exit {
+            BodyExit::Succeed => Effect::<(), String, ScopeTag>::succeed(()),
+            BodyExit::FailTyped => Effect::<(), String, ScopeTag>::fail("body failed".to_string()),
+            BodyExit::Interrupt => Effect::<(), String, ScopeTag>::interrupt(),
+        })
+}
+
+#[test]
+fn scoped_closes_its_scope_when_interrupted_after_installing_it() {
+    // Effect.test.ts:79. A finalizer installed inside `scoped` runs exactly
+    // once when the run ends, on all three exits. Interruption is cooperative
+    // in this carrier, so the interrupted leg carries the interrupt back as
+    // the body's cause rather than being signalled mid-body.
+    for (exit, label) in [
+        (BodyExit::Succeed, "success"),
+        (BodyExit::FailTyped, "typed failure"),
+        (BodyExit::Interrupt, "interrupt"),
+    ] {
+        let finalized = Arc::new(AtomicUsize::new(0));
+        let seen = Arc::new(Mutex::new(None));
+        let program = Effect::scoped(install_finalizer_then(
+            exit,
+            Arc::clone(&finalized),
+            Arc::clone(&seen),
+        ));
+        let out = Runtime::run(program);
+
+        assert_eq!(
+            finalized.load(Ordering::SeqCst),
+            1,
+            "finalizer runs exactly once on {label}"
+        );
+        let scope_id = seen.lock().unwrap().expect("body saw the ambient scope");
+        match exit {
+            BodyExit::Succeed => assert!(matches!(out, Exit::Success(()))),
+            BodyExit::FailTyped => match out {
+                Exit::Failure(cause) => {
+                    assert_eq!(cause.failure(), Some(&"body failed".to_string()));
+                    assert!(cause.defects().is_empty(), "no finalizer defect appended");
+                }
+                Exit::Success(_) => panic!("a typed failure must propagate"),
+            },
+            BodyExit::Interrupt => match out {
+                Exit::Failure(cause) => {
+                    assert!(cause.is_interrupted(), "the interrupt survives (L6)");
+                    assert!(cause.failure().is_none(), "interruption is not a failure");
+                }
+                Exit::Success(_) => panic!("an interrupt must not succeed"),
+            },
+        }
+        // The scope the body saw is not a shared global: every run mints one.
+        assert_ne!(scope_id, 0, "minted ids come from the fiber id source");
+    }
+}
+
+#[test]
+fn scoped_mints_a_scope_per_run() {
+    // A description is a value: running the same one twice must not let the
+    // first run's scope observe the second's, and each run closes its own.
+    let finalized = Arc::new(AtomicUsize::new(0));
+    let run_once = || {
+        let id = Arc::new(Mutex::new(None));
+        let program = Effect::scoped(install_finalizer_then(
+            BodyExit::Succeed,
+            Arc::clone(&finalized),
+            Arc::clone(&id),
+        ));
+        let out = Runtime::run(program);
+        assert!(matches!(out, Exit::Success(())));
+        id.lock().unwrap().expect("body saw the ambient scope")
+    };
+    let first = run_once();
+    let second = run_once();
+    assert_eq!(
+        finalized.load(Ordering::SeqCst),
+        2,
+        "each run installs and runs its own finalizer"
+    );
+    assert_ne!(first, second, "the two runs got two scopes");
 }
 
 // ---------------------------------------------------------------------------
