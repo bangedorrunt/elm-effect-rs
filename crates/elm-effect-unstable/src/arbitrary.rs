@@ -166,17 +166,21 @@ pub fn number(min: f64, max: f64, exclusive_min: bool, exclusive_max: bool) -> G
         min <= max && !min.is_nan() && !max.is_nan(),
         "number bounds outside the valid range"
     );
-    let lo = if exclusive_min { min.next_up() } else { min }.max(f64::MIN);
-    let hi = if exclusive_max { max.next_down() } else { max }.min(f64::MAX);
+    let lo = if exclusive_min { min.next_up() } else { min };
+    let hi = if exclusive_max { max.next_down() } else { max };
     assert!(lo <= hi, "number bounds exclude every value");
     let open = !min.is_finite() || !max.is_finite();
     Gen::new(
         move |rng| {
+            // A singleton interval answers with its one value; the
+            // unbounded-side NaN wildcard stays out of it, so [v, v]
+            // is exact (Arbitrary.test.ts:1772). A zero interval
+            // answers with both signed zeros (:1758).
+            if lo == hi {
+                return if lo == 0.0 && rng.next_u64() & 1 == 1 { -0.0 } else { lo };
+            }
             if open && rng.next_u64() % 64 == 0 {
                 return f64::NAN;
-            }
-            if lo == hi {
-                return lo;
             }
             let t = (rng.next_u64() as f64) / (u64::MAX as f64);
             lo + (hi - lo) * t
