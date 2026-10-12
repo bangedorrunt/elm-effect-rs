@@ -112,10 +112,12 @@ fn is_varint_number(value: f64) -> bool {
 fn number_varint(value: f64, out: &mut Vec<u8>) {
     let negative = value < 0.0 || (value == 0.0 && (1.0 / value) < 0.0);
     let magnitude = if negative { -value } else { value };
-    uvarint(
-        (magnitude * 2.0 + if negative { 1.0 } else { 0.0 }) as u64,
-        out,
-    );
+    // Integer arithmetic on purpose: the integer layout packs magnitudes up to
+    // 2^53 - 1, where `magnitude * 2.0 + 1.0` has no f64 bit to land on and
+    // rounds to 2^54, which the decoder then reads as an out-of-range value.
+    // `magnitude as u64` is exact for any integral f64, and the reference does
+    // the same switch to bigint arithmetic above 2^52 - 1.
+    uvarint((magnitude as u64) * 2 + u64::from(negative), out);
 }
 
 /// Smallest scale 1..=8 making `value` an exact short-decimal mantissa, else 0.
@@ -153,6 +155,16 @@ fn sign_magnitude_to_f64(word: u64, scale: u32) -> f64 {
         magnitude / POW10[scale as usize]
     };
     if negative { -value } else { value }
+}
+
+/// One tag plus payload behind a length prefix: the shape a scalar frame and
+/// a fixed tuple share, since neither writes a count.
+fn tagged_frame(payload: &[u8]) -> Vec<u8> {
+    let mut out = Vec::new();
+    uvarint(1 + payload.len() as u64, &mut out);
+    out.push(ARRAY_TAG);
+    out.extend_from_slice(payload);
+    out
 }
 
 fn frame(tag: u8, count: u64, mode: Option<u8>, payload: &[u8]) -> Vec<u8> {
@@ -221,6 +233,112 @@ pub fn encode_number_array(values: &[f64]) -> Vec<u8> {
 /// Largest exactly-representable integer magnitude (2^53 - 1).
 const MAX_SAFE_INTEGER: u64 = 9_007_199_254_740_991;
 
+/// The guard the integer layout applies to every value it packs. The
+/// reference reaches this check even when the layout was chosen from another
+/// schema (`disableChecks`), so the encoder cannot assume its input is
+/// integral; `Number.isSafeInteger` is finiteness plus the 2^53 - 1 bound.
+fn int_element(value: f64, index: Option<usize>) -> Result<f64, BinaryError> {
+    if value.fract() != 0.0 || !value.is_finite() || value.abs() > MAX_SAFE_INTEGER as f64 {
+        let at = match index {
+            Some(index) => format!(" at [{index}]"),
+            None => String::new(),
+        };
+        return Err(BinaryError::new(format!(
+            "Expected an integer, got {value}{at}"
+        )));
+    }
+    Ok(value)
+}
+
+/// Encode one scalar in the integer layout: a bare sign-magnitude varint, no
+/// length prefix on the slot and no mode byte.
+pub fn encode_int_scalar(value: f64) -> Result<Vec<u8>, BinaryError> {
+    let value = int_element(value, None)?;
+    let mut payload = Vec::new();
+    number_varint(value, &mut payload);
+    Ok(tagged_frame(&payload))
+}
+
+/// Encode an integer array: the count, then bare varints. The schema proves
+/// the element layout, so no mode byte is written.
+pub fn encode_int_array(values: &[f64]) -> Result<Vec<u8>, BinaryError> {
+    let mut payload = Vec::new();
+    for (index, value) in values.iter().enumerate() {
+        number_varint(int_element(*value, Some(index))?, &mut payload);
+    }
+    Ok(frame(ARRAY_TAG, values.len() as u64, None, &payload))
+}
+
+/// Encode a fixed tuple of integers: inline slots and no count, since the
+/// slot count is in the schema.
+pub fn encode_int_tuple(values: &[f64]) -> Result<Vec<u8>, BinaryError> {
+    let mut payload = Vec::new();
+    for (index, value) in values.iter().enumerate() {
+        number_varint(int_element(*value, Some(index))?, &mut payload);
+    }
+    Ok(tagged_frame(&payload))
+}
+
+/// Encode a fixed tuple of numbers: each slot is a length-prefixed payload,
+/// so a wide f64 slot stays self-delimiting without a second tag.
+pub fn encode_number_tuple(values: &[f64]) -> Vec<u8> {
+    let mut payload = Vec::new();
+    for value in values {
+        let slot = number_scalar_payload(*value);
+        uvarint(slot.len() as u64, &mut payload);
+        payload.extend_from_slice(&slot);
+    }
+    tagged_frame(&payload)
+}
+
+/// Decode one integer array: count then bare varints, with the same
+/// safe-number bound the scalar decoder enforces.
+pub fn decode_int_array(bytes: &[u8]) -> Result<Vec<f64>, BinaryError> {
+    let fail = |message: &str| BinaryError::new(format!("{} [{}]", message, hex_preview(bytes)));
+    let mut pos = 0;
+    let _length = uvarint_decode(bytes, &mut pos).ok_or_else(|| fail("truncated length"))?;
+    let tag = *bytes.get(pos).ok_or_else(|| fail("truncated tag"))?;
+    pos += 1;
+    if tag != ARRAY_TAG {
+        return Err(fail(&format!(
+            "expected {EXPECTED_ENVELOPE}, actual {tag:#04x}"
+        )));
+    }
+    let count = uvarint_decode(bytes, &mut pos).ok_or_else(|| fail("truncated count"))?;
+    let mut out = Vec::new();
+    for _ in 0..count {
+        let word = uvarint_decode(bytes, &mut pos).ok_or_else(|| fail("Expected complete value"))?;
+        let negative = word & 1 == 1;
+        let magnitude = word >> 1;
+        if magnitude > MAX_SAFE_INTEGER {
+            return Err(fail("integer varint outside the safe-number range"));
+        }
+        let value = magnitude as f64;
+        out.push(if negative { -value } else { value });
+    }
+    if pos != bytes.len() {
+        return Err(fail("no leftover bytes"));
+    }
+    Ok(out)
+}
+
+/// Encode a uniform number array from the pin's untyped side: every element
+/// must be a number, and a failure names the index that was not.
+pub fn encode_number_array_unknown(values: &[serde_json::Value]) -> Result<Vec<u8>, BinaryError> {
+    let mut numbers = Vec::with_capacity(values.len());
+    for (index, value) in values.iter().enumerate() {
+        match value.as_f64() {
+            Some(number) => numbers.push(number),
+            None => {
+                return Err(BinaryError::new(format!(
+                    "Expected a number, got {value} at [{index}]"
+                )));
+            }
+        }
+    }
+    Ok(encode_number_array(&numbers))
+}
+
 /// Decode one scalar integer: bare sign-magnitude varint only, magnitudes
 /// past the safe range fail instead of rounding.
 pub fn decode_int_scalar(bytes: &[u8]) -> Result<f64, BinaryError> {
@@ -270,12 +388,7 @@ fn number_scalar_payload(value: f64) -> Vec<u8> {
 /// Encode one scalar number: bare sign-magnitude varint, mantissa
 /// varint plus scale byte for short decimals, or raw f64.
 pub fn encode_number_scalar(value: f64) -> Vec<u8> {
-    let payload = number_scalar_payload(value);
-    let mut out = Vec::new();
-    uvarint(1 + payload.len() as u64, &mut out);
-    out.push(ARRAY_TAG);
-    out.extend_from_slice(&payload);
-    out
+    tagged_frame(&number_scalar_payload(value))
 }
 
 /// Union value: the two forms row 457 covers.
@@ -303,11 +416,7 @@ pub fn encode_union(value: &UnionValue) -> Vec<u8> {
             payload.extend_from_slice(text.as_bytes());
         }
     }
-    let mut out = Vec::new();
-    uvarint(1 + payload.len() as u64, &mut out);
-    out.push(ARRAY_TAG);
-    out.extend_from_slice(&payload);
-    out
+    tagged_frame(&payload)
 }
 
 /// Decode one union member.

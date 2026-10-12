@@ -4,10 +4,11 @@
 mod schema_binary;
 
 use schema_binary::{
-    UnionValue, decode_bool_array, decode_int_scalar, decode_nested_number_array,
+    UnionValue, decode_bool_array, decode_int_array, decode_int_scalar, decode_nested_number_array,
     decode_number_array, decode_number_scalar, decode_string_array, decode_union,
-    encode_bool_array, encode_nested_number_array, encode_number_array, encode_number_scalar,
-    encode_string_array, encode_union, split_frames,
+    encode_bool_array, encode_int_array, encode_int_scalar, encode_int_tuple,
+    encode_nested_number_array, encode_number_array, encode_number_array_unknown,
+    encode_number_scalar, encode_number_tuple, encode_string_array, encode_union, split_frames,
 };
 
 #[test]
@@ -309,6 +310,84 @@ fn binary_number_payloads_report_reference_failures() {
         "{}",
         err.message()
     );
+}
+
+#[test]
+fn binary_number_arrays_reject_non_numbers() {
+    // SchemaBinary.test.ts:437 — a uniform number array validates every
+    // element and names the index that failed. The pin loops over "x",
+    // undefined, null, and 1n; serde_json carries no variant for undefined or
+    // BigInt, so those two inputs cannot be built here.
+    for value in [serde_json::json!("x"), serde_json::json!(null)] {
+        let values = vec![serde_json::json!(1), value, serde_json::json!(3)];
+        let err = encode_number_array_unknown(&values).expect_err("non-number element");
+        assert!(
+            err.message().contains("Expected a number"),
+            "{}",
+            err.message()
+        );
+        assert!(err.message().contains("at [1]"), "{}", err.message());
+    }
+    // The numbers themselves take the ordinary run path.
+    assert_eq!(
+        encode_number_array_unknown(&[serde_json::json!(1), serde_json::json!(2.5)])
+            .expect("numbers only"),
+        encode_number_array(&[1.0, 2.5])
+    );
+}
+
+#[test]
+fn binary_int_layout_emits_bare_varints() {
+    // SchemaBinary.test.ts:487 — a schema that proves the integer layout
+    // drops the mode byte on an array and the length prefix on a tuple slot.
+    assert_eq!(encode_int_scalar(1.0).expect("integer"), vec![2, 0x20, 2]);
+    assert_eq!(encode_int_array(&[1.0, 2.0, 3.0]).expect("integers").len(), 6);
+    assert_eq!(encode_number_array(&[1.0, 2.0, 3.0]).len(), 7);
+    assert_eq!(encode_int_tuple(&[1.0, 2.0]).expect("integers").len(), 4);
+    assert_eq!(encode_number_tuple(&[1.0, 2.0]).len(), 6);
+    assert_eq!(
+        encode_int_array(&[1.0, 2.0, 3.0]).expect("integers"),
+        vec![0x05, 0x20, 0x03, 0x02, 0x04, 0x06]
+    );
+    assert_eq!(
+        encode_int_tuple(&[1.0, 2.0]).expect("integers"),
+        vec![0x03, 0x20, 0x02, 0x04]
+    );
+    // Every safe integer keeps its bits through the scalar and array forms.
+    for value in [
+        0.0,
+        -0.0,
+        1.0,
+        -1.0,
+        281_474_976_710_656.0,
+        -281_474_976_710_656.0,
+        9_007_199_254_740_991.0,
+        -9_007_199_254_740_991.0,
+    ] {
+        let encoded = encode_int_scalar(value).expect("integer");
+        let back = decode_int_scalar(&encoded)
+            .unwrap_or_else(|err| panic!("scalar {value}: {err}"));
+        assert_eq!(back.to_bits(), value.to_bits(), "scalar {value}");
+        let array = encode_int_array(&[value]).expect("integer");
+        let back = decode_int_array(&array).expect("decodes");
+        assert_eq!(back[0].to_bits(), value.to_bits(), "array {value}");
+    }
+    assert_eq!(
+        decode_int_array(&encode_int_array(&[1.0, -2.0, 3.0]).expect("integers")).expect("decodes"),
+        vec![1.0, -2.0, 3.0]
+    );
+}
+
+#[test]
+fn binary_int_layout_rejects_non_integers() {
+    // SchemaBinary.test.ts:509 - disableChecks bypasses the layout selection,
+    // so the integer encoder itself has to refuse a non-integer.
+    let err = encode_int_scalar(1.5).expect_err("non-integer");
+    assert!(err.message().contains("an integer"), "{}", err.message());
+    let err = encode_int_array(&[1.0, 1.5]).expect_err("non-integer element");
+    assert!(err.message().contains("an integer"), "{}", err.message());
+    assert!(err.message().contains("at [1]"), "{}", err.message());
+    assert!(encode_int_tuple(&[1.0, 1.5]).is_err());
 }
 
 #[test]
