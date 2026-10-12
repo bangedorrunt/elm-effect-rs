@@ -408,3 +408,32 @@ fn queue_complete_records_once_and_prunes() {
         "inside the window: kept"
     );
 }
+
+#[test]
+fn queue_interrupt_releases_the_element_to_the_next_taker() {
+    // PersistedQueueTest.ts:57 "interrupt": a taker holds the element and is
+    // interrupted mid-processing, so it never acks. The element must return
+    // for a waiting taker rather than being lost, and the waiting taker must
+    // not be handed it while the first taker still holds it.
+    let mut q = PersistedQueue::new();
+    q.offer("a", b"42".to_vec());
+
+    let held = q.take().expect("the first taker holds the element");
+    assert_eq!(held.attempts, 1);
+    assert_eq!(
+        q.take(),
+        None,
+        "nothing else is pending while the element is in flight"
+    );
+
+    let released = q.abandon(&held.id).expect("the interrupted hold is released");
+    assert_eq!(released.id, "a");
+    assert_eq!(released.payload, b"42".to_vec());
+
+    let next = q.take().expect("the waiting taker receives it");
+    assert_eq!(next.id, "a");
+    assert_eq!(next.payload, b"42".to_vec());
+    assert_eq!(next.attempts, 2, "the interruption counts as an attempt");
+    assert_eq!(q.pending_len(), 0);
+    assert_eq!(q.in_flight_len(), 1, "it is in flight again, not duplicated");
+}

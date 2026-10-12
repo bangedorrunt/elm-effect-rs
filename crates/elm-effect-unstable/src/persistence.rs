@@ -518,6 +518,21 @@ impl PersistedQueue {
         Some(item)
     }
 
+    /// Interrupt: a consumer was interrupted while holding the element, so it
+    /// reaches no verdict and never acks. The element returns to `pending` for
+    /// the next taker instead of being lost.
+    ///
+    /// This is deliberately not [`Self::fail`]: an interrupted hold is not a
+    /// failure of the work, so it is not gated on `max_attempts` and cannot
+    /// dead-letter the element. The attempt counter still advances on the next
+    /// [`Self::take`], so a hot interrupt loop backs off under the retry
+    /// schedule rather than spinning.
+    pub fn abandon(&mut self, id: &str) -> Option<QueuedItem> {
+        let item = self.in_flight.remove(id)?;
+        self.pending.push_back(item.clone());
+        Some(item)
+    }
+
     /// Pending depth (test introspection).
     pub fn pending_len(&self) -> usize {
         self.pending.len()
