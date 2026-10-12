@@ -412,3 +412,32 @@ fn formatter_renders_array_of_structs() {
         r#"{ "a": "a", "b": [{ "a": "b", "b": [] }] }"#
     );
 }
+
+#[test]
+fn formatter_renders_two_array_fields_sharing_a_recursion() {
+    // toFormatter.test.ts:435 — two Array fields that share ONE suspend, so
+    // the same recursive schema is reached from both. A naive renderer would
+    // resolve the suspend once and cache the wrong shape on the second path.
+    let slot: std::sync::Arc<std::sync::Mutex<Option<Schema<Unknown>>>> =
+        std::sync::Arc::new(std::sync::Mutex::new(None));
+    let inner_slot = std::sync::Arc::clone(&slot);
+    let rec: Schema<Unknown> =
+        Schema::<Unknown>::suspend(move || inner_slot.lock().unwrap().as_ref().unwrap().clone());
+    let schema = ustruct([("a", uarray(rec.clone())), ("b", uarray(rec))]);
+    *slot.lock().unwrap() = Some(schema.clone());
+
+    let format = schema.formatter();
+    let leaf = || Unknown::Array(vec![]);
+    let inner = obj(&[("a", leaf()), ("b", leaf())]);
+    let value = obj(&[
+        ("a", Unknown::Array(vec![obj(&[
+            ("a", Unknown::Array(vec![inner.clone()])),
+            ("b", leaf()),
+        ])])),
+        ("b", Unknown::Array(vec![inner])),
+    ]);
+    assert_eq!(
+        format(&value),
+        r#"{ "a": [{ "a": [{ "a": [], "b": [] }], "b": [] }], "b": [{ "a": [], "b": [] }] }"#
+    );
+}

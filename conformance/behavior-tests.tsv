@@ -717,13 +717,13 @@ ported	packages/effect/test/Config.test.ts	349	it	lets the base config propagate
 ported	packages/effect/test/Config.test.ts	356	it	lets recover after the base config propagated parsing failure	config_recovers_after_base_parsing_failure
 ported	packages/effect/test/Config.test.ts	363	it	lets recover after the base config propagated key absence	config_recovers_after_base_key_absence
 ported	packages/effect/test/Config.test.ts	370	it	handles chains of multiple flatMaps and withDefaults	config_flat_map_chains
-unported	packages/effect/test/Config.test.ts	408	it	lifts absence in nested composition	
+ported	packages/effect/test/Config.test.ts	408	it	lifts absence in nested composition	config_flat_map_lifts_absence_in_nested_composition
 ported	packages/effect/test/Config.test.ts	423	it.effect	matches map when chained with succeed, including grouped defaults and options	config_map_chained_with_succeed
 ported	packages/effect/test/Config.test.ts	457	it.effect	preserves the outer prefix and composes prefixes in the selected config	config_nested_prefix_flows_through_flat_map
 ported	packages/effect/test/Config.test.ts	484	it.effect	defers user callbacks until the Config Effect is executed	config_defers_user_callbacks_until_load
 ported	packages/effect/test/Config.test.ts	525	it.effect	resolves empty groups without using a default	config_empty_groups_resolve_without_default
 unported	packages/effect/test/Config.test.ts	536	it.effect	preserves Result values as configuration data	
-unported	packages/effect/test/Config.test.ts	551	it.effect	preserves special record keys without changing the prototype	
+ported	packages/effect/test/Config.test.ts	551	it.effect	preserves special record keys without changing the prototype	config_record_preserves_special_keys_as_data
 ported	packages/effect/test/Config.test.ts	562	it	combines tuple inputs and preserves positions	config_all_combines_positionally
 ported	packages/effect/test/Config.test.ts	580	it	combines generic iterables in iteration order	config_all_combines_positionally
 ported	packages/effect/test/Config.test.ts	598	it	combines named fields and preserves their keys	config_record_combines_named
@@ -745,36 +745,36 @@ unported	packages/effect/test/Config.test.ts	877	it	distinguish an explicit empt
 unported	packages/effect/test/Config.test.ts	897	it	validates partial schema objects and recovers absent all children	
 unported	packages/effect/test/Config.test.ts	910	it.effect	recovers an absent child alongside a successfully decoded undefined	
 unported	packages/effect/test/Config.test.ts	930	it.effect	rejects invalid input alongside missing fields in either field order	
-unported	packages/effect/test/Config.test.ts	968	it.effect	replaces the whole group when a required child remains absent	
-unported	packages/effect/test/Config.test.ts	990	it.effect	recovers missing tuple and iterable children without hiding invalid input	
+ported	packages/effect/test/Config.test.ts	968	it.effect	replaces the whole group when a required child remains absent	config_all_replaces_the_whole_group_when_a_required_child_stays_absent
+ported	packages/effect/test/Config.test.ts	990	it.effect	recovers missing tuple and iterable children without hiding invalid input	config_all_recovers_missing_tuple_children_without_hiding_invalid_input
 unported	packages/effect/test/Config.test.ts	1021	it.effect	propagates source failures alongside absence in every group shape	
-unported	packages/effect/test/Config.test.ts	1042	it.effect	propagates nested group absence alongside a resolved sibling	
+ported	packages/effect/test/Config.test.ts	1042	it.effect	propagates nested group absence alongside a resolved sibling	config_all_propagates_nested_group_absence_alongside_a_resolved_sibling
 unported	packages/effect/test/Config.test.ts	1060	it.effect	treats mapped, effectfully mapped, and constant siblings alike	
-unported	packages/effect/test/Config.test.ts	1077	it.effect	recovers an absent sibling after orElse handles invalid input	
-unported	packages/effect/test/Config.test.ts	1095	it.effect	recovers an absent sibling after orElse handles absence	
-ported	packages/effect/test/Config.test.ts	1109	it.effect	lets defaults and option handle an absent orElse fallback	config_or_else_falls_back_then_defaults
-ported	packages/effect/test/Config.test.ts	1126	it.effect	uses the orElse fallback result within the nested path	config_or_else_fallback_inside_nested_path
+ported	packages/effect/test/Config.test.ts	1077	it.effect	recovers an absent sibling after orElse handles invalid input	config_all_recovers_an_absent_sibling_after_or_else_handles_invalid_input
+ported	packages/effect/test/Config.test.ts	1095	it.effect	recovers an absent sibling after orElse handles absence	config_all_recovers_an_absent_sibling_after_or_else_handles_absence
+ported	packages/effect/test/Config.test.ts	1109	it.effect	lets defaults and option handle an absent orElse fallback	config_or_else_absent_fallback_is_itself_absence
+ported	packages/effect/test/Config.test.ts	1126	it.effect	uses the orElse fallback result within the nested path	config_or_else_fallback_result_inside_the_nested_path
 unported	packages/effect/test/Config.test.ts	1154	it.effect	propagates an orElse fallback source error after recovering invalid input	
 unported	packages/effect/test/Config.test.ts	1173	it.effect	recovers an absent sibling after orElse handles mapEffect failure	
 unported	packages/effect/test/Config.test.ts	1193	it.effect	recovers an absent sibling after orElse handles a descendant source failure	
 unported	packages/effect/test/Config.test.ts	1218	it.effect	recovers an absent sibling after orElse handles a nested group failure	
 unported	packages/effect/test/Config.test.ts	1245	it.effect	recovers an absent sibling after orElse handles an initial source failure	
-unported	packages/effect/test/Config.test.ts	1265	it.effect	normalizes unavailable scalar representations to absence	
+ported	packages/effect/test/Config.test.ts	1265	it.effect	normalizes unavailable scalar representations to absence	config_normalizes_unavailable_scalar_representations_to_absence
 unported	packages/effect/test/Config.test.ts	1286	it.effect	treats incompatible container representations as absent	
 unported	packages/effect/test/Config.test.ts	1308	it.effect	propagates provider failures	
 unported	packages/effect/test/Config.test.ts	1321	it.effect	rejects present containers with incompatible shapes	
 ported	packages/effect/test/Config.test.ts	1339	it	prefixes a root config	config_nested_prefixes_root
-unported	packages/effect/test/Config.test.ts	1355	it	composes a constructor path with a prefix	
+ported	packages/effect/test/Config.test.ts	1355	it	composes a constructor path with a prefix	config_nested_composes_a_constructor_path_with_a_prefix
 ported	packages/effect/test/Config.test.ts	1371	it	composes multiple prefixes from outermost to innermost	config_nested_prefixes_compose_outside_in
 ported	packages/effect/test/Config.test.ts	1387	it	prefixes every child of an all product	config_all_prefixes_every_child
 ported	packages/effect/test/Config.test.ts	1408	it	prefixes a root config	config_nested_prefixes_root
-unported	packages/effect/test/Config.test.ts	1424	it	composes a constructor path with a prefix	
+ported	packages/effect/test/Config.test.ts	1424	it	composes a constructor path with a prefix	config_nested_env_composes_a_constructor_path_with_a_prefix
 ported	packages/effect/test/Config.test.ts	1440	it	composes multiple prefixes from outermost to innermost	config_nested_prefixes_compose_outside_in
 ported	packages/effect/test/Config.test.ts	1456	it	prefixes every child of an all product	config_all_prefixes_every_child
-unported	packages/effect/test/Config.test.ts	1475	it	composes Config and provider prefixes without leaking provider paths into errors	
-unported	packages/effect/test/Config.test.ts	1490	it	preserves logical error paths through provider fallback	
+ported	packages/effect/test/Config.test.ts	1475	it	composes Config and provider prefixes without leaking provider paths into errors	config_nested_provider_prefixes_do_not_leak_into_error_paths
+ported	packages/effect/test/Config.test.ts	1490	it	preserves logical error paths through provider fallback	config_logical_error_paths_survive_provider_fallback
 ported	packages/effect/test/Config.test.ts	1509	it	combines a plain record of configs	config_record_combines_named
-unported	packages/effect/test/Config.test.ts	1517	it	recursively combines nested records	
+ported	packages/effect/test/Config.test.ts	1517	it	recursively combines nested records	config_unwrap_recursively_combines_nested_records
 ported	packages/effect/test/Config.test.ts	1534	it	reports missing redacted input	config_secret_redacted_masked
 ported	packages/effect/test/Config.test.ts	1544	it	decodes supported boolean spellings	config_boolean_spellings
 unported	packages/effect/test/Config.test.ts	1577	it	decodes durations including infinities	
@@ -8671,8 +8671,8 @@ unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.
 unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	282	it	anyOf with siblings	
 unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	304	it	oneOf	
 unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	316	it	oneOf with siblings	
-unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	339	it	type only	
-unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	348	it	type only	
+ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	339	it	type only	json_schema_document_type_only_rows_carry_their_code_and_type
+ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	348	it	type only	json_schema_document_type_only_rows_carry_their_code_and_type
 unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	356	it	minLength	
 unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	368	it	maxLength	
 unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	380	it	pattern with an explicit string type	
@@ -8689,7 +8689,7 @@ unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.
 unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	512	it	exclusiveMinimum	
 unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	524	it	exclusiveMaximum	
 unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	536	it	multipleOf	
-unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	551	it	type only	
+ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	551	it	type only	json_schema_document_type_only_rows_carry_their_code_and_type
 unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	560	it	type only	
 unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	572	it	items	
 unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	584	it	prefixItems preserves maxItems below the prefix length	
@@ -9587,7 +9587,7 @@ ported	packages/effect/test/schema/toFormatter.test.ts	399	it	Array	formatter_su
 ported	packages/effect/test/schema/toFormatter.test.ts	406	it	Struct	formatter_renders_declared_struct_fields_with_spaces
 ported	packages/effect/test/schema/toFormatter.test.ts	419	it	Record	formatter_renders_record_entries_with_spaces
 ported	packages/effect/test/schema/toFormatter.test.ts	426	it	optional	formatter_renders_optional_field
-not-applicable	packages/effect/test/schema/toFormatter.test.ts	435	it	Array + Array	SchemaKind has no Struct, Record, or recursive suspend variant (only String, Number, Boolean, Object, Array, Optional, Opaque, Annotated), so a nested-struct formatter cannot be built at all; the whitespace difference in format_value is secondary and would not be enough on its own
+ported	packages/effect/test/schema/toFormatter.test.ts	435	it	Array + Array	formatter_renders_two_array_fields_sharing_a_recursion
 ported	packages/effect/test/schema/toFormatter.test.ts	451	it	optional + Array	formatter_renders_array_of_structs
 not-applicable	packages/effect/test/schema/toFormatter.test.ts	461	it	mutually suspended schemas	SchemaKind has no Struct, Record, or recursive suspend variant (only String, Number, Boolean, Object, Array, Optional, Opaque, Annotated), so a nested-struct formatter cannot be built at all; the whitespace difference in format_value is secondary and would not be enough on its own
 not-applicable	packages/effect/test/schema/toFormatter.test.ts	497	it	Option	Schema.Option / Result / ReadonlySet / ReadonlyMap / HashMap / Redacted / instanceOf do not exist on the Rust schema surface, so the schema in the row cannot be built

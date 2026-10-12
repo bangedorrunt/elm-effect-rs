@@ -1315,3 +1315,31 @@ fn formatter_suspended_array_renders_values() {
         "[\"a\"]"
     );
 }
+
+#[test]
+fn json_schema_document_type_only_rows_carry_their_code_and_type() {
+    // fromJsonSchemaDocument.test.ts:339, :348, :551 — the three `type only`
+    // rows whose expected code and type are both plain, so they carry without
+    // a refinement repr. The pin asserts on
+    // `SchemaRepresentation.toCodeDocument(...)`, which is the `code` plus the
+    // TypeScript-style `type`; both are checked here.
+    use elm_effect_schema::{Schema, Unknown};
+
+    for (doc, code, ty) in [
+        (serde_json::json!({"type": "null"}), "Schema.Null", "null"),
+        (
+            serde_json::json!({"type": "string"}),
+            "Schema.String",
+            "string",
+        ),
+        (
+            serde_json::json!({"type": "boolean"}),
+            "Schema.Boolean",
+            "boolean",
+        ),
+    ] {
+        let schema = Schema::<Unknown>::from_json_schema(&doc).expect("imports");
+        assert_eq!(schema.to_code(), code, "code for {doc:?}");
+        assert_eq!(schema.to_type(), ty, "type for {doc:?}");
+    }
+}

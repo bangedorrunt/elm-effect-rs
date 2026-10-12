@@ -72,7 +72,15 @@ pub struct Schema<T> {
     /// How to render a value of this schema. Each constructor sets this, so a
     /// wrapper like `as_unknown` can simply delegate to the schema it wraps
     /// instead of having to reconstruct the shape.
-    formatter: std::sync::Arc<dyn Fn(&Unknown) -> String + Send + Sync>,
+    /// None until a composite constructor sets one, which tells `formatter()`
+    /// to walk the kind instead.
+    formatter: Option<std::sync::Arc<dyn Fn(&Unknown) -> String + Send + Sync>>,
+    /// The code and type repr of the schema a re-typing wraps. `as_unknown`
+    /// keeps its own kind opaque so the JSON Schema document does not change,
+    /// but a repr must see the schema underneath, which is what this is for.
+    /// Captured as text rather than as a schema because the wrapped schema has
+    /// an arbitrary `T`, and re-typing it here would recurse forever.
+    wrapped: Option<Box<(String, String)>>,
 }
 
 /// The wire shape of a schema: drives JSON Schema documents.
@@ -252,7 +260,7 @@ impl Schema<StructValue> {
         );
         schema.children = schemas.clone();
         let children = schemas;
-        schema.formatter = std::sync::Arc::new(move |value: &Unknown| {
+        schema.formatter = Some(std::sync::Arc::new(move |value: &Unknown| {
             // A Struct with NO declared fields falls back to the plain
             // JSON-ish rendering, which is what the pin does: its "empty" row
             // asserts `{"a":1}` and `[1,2,3]` unspaced. Only a Struct whose
@@ -269,17 +277,13 @@ impl Schema<StructValue> {
                     let item = map.get(name).cloned().unwrap_or(Unknown::Null);
                     let key =
                         serde_json::to_string(name).unwrap_or_else(|_| "\"\"".to_string());
-                    format!("{key}: {}", (field.formatter)(&item))
+                    format!("{key}: {}", field.formatter()(&item))
                 })
                 .collect();
             format!("{{ {} }}", inner.join(", "))
-        });
+        })
+        );
         schema
-    }
-
-    /// One field's decoded value (`field` accessor after decode).
-    pub fn field<'a>(value: &'a StructValue, name: &str) -> Option<&'a Unknown> {
-        value.get(name)
     }
 }
 
@@ -294,7 +298,8 @@ impl<T> Schema<T> {
             encode: std::sync::Arc::new(encode),
             kind,
             children: Vec::new(),
-            formatter: std::sync::Arc::new(format_value),
+            formatter: None,
+            wrapped: None,
         }
     }
 
@@ -351,6 +356,7 @@ impl<T> Schema<T> {
             kind,
             children: schema.children,
             formatter: schema.formatter.clone(),
+            wrapped: schema.wrapped.clone(),
         }
     }
 
@@ -361,10 +367,18 @@ impl<T> Schema<T> {
     where
         T: Send + Sync + 'static,
     {
+        // Capture the wrapped schema's reprs BEFORE the inner is moved into
+        // the Arc below: re-typing it here would recurse forever.
+        let wrapped = Some(Box::new((
+            code_of(&schema.kind, &schema.children),
+            type_of(&schema.kind, &schema.children),
+        )));
         let schema = Arc::new(schema);
         let decode_schema = schema.clone();
         let encode_schema = schema.clone();
-        let render = schema.formatter.clone();
+        let inner_render = schema.formatter.clone();
+        let inner_kind = schema.kind.clone();
+        let inner_children = schema.children.clone();
         let mut out = Schema::new(
             move |unknown| {
                 decode_schema
@@ -374,11 +388,15 @@ impl<T> Schema<T> {
             |value| value.clone(),
             SchemaKind::Opaque("unknown"),
         );
-        // A re-typing does not change the shape, so the wrapper renders
-        // exactly the way the schema it wraps does. Without this the nested
-        // Struct rows lose their spacing, because every field has to pass
-        // through as_unknown to share one Unknown type.
-        out.formatter = render;
+        // A re-typing does not change the shape, so the wrapper renders exactly
+        // the way the schema it wraps does. Without this the nested Struct rows
+        // lose their spacing, because every field has to pass through
+        // as_unknown to share one Unknown type.
+        out.formatter = Some(Arc::new(move |value: &Unknown| match &inner_render {
+            Some(render) => render(value),
+            None => format_root(&inner_kind, &inner_children, value),
+        }));
+        out.wrapped = wrapped;
         out
     }
 
@@ -420,7 +438,7 @@ impl<T> Schema<T> {
         // render is what makes a recursive schema terminate: the pin's
         // mutually-suspended and self-referential rows are infinitely deep on
         // the schema side and finite on the value side.
-        out.formatter = Arc::new(move |value| (render_factory().formatter)(value));
+        out.formatter = Some(Arc::new(move |value| render_factory().formatter()(value)));
         out
     }
 
@@ -726,6 +744,7 @@ impl<T: Send + Sync + 'static> Schema<Vec<T>> {
         let decode_inner = inner.clone();
         let encode_inner = inner.clone();
         let render = inner.formatter.clone();
+        let inner_kind = inner.kind.clone();
         let mut out = Self::new(
             move |unknown| match unknown {
                 Unknown::Array(items) => items
@@ -758,14 +777,20 @@ impl<T: Send + Sync + 'static> Schema<Vec<T>> {
         );
         // Each element renders through its own schema, so an array of Structs
         // keeps the struct spacing the pin emits (`[{ "a": 1 }]`, not `[{"a":1}]`).
-        out.formatter = Arc::new(move |value: &Unknown| {
+        out.formatter = Some(Arc::new(move |value: &Unknown| {
             let Unknown::Array(items) = value else {
                 return format_value(value);
             };
-            let inner: Vec<String> =
-                items.iter().map(|item| render(item)).collect();
+            let inner: Vec<String> = items
+                .iter()
+                .map(|item| match &render {
+                    Some(r) => r(item),
+                    None => format_root(&inner_kind, &[], item),
+                })
+                .collect();
             format!("[{}]", inner.join(", "))
-        });
+        })
+        );
         out
     }
 }
@@ -948,6 +973,7 @@ impl Schema<BTreeMap<String, Unknown>> {
     pub fn record(value: Schema<Unknown>) -> Self {
         let value = Arc::new(value);
         let render = value.formatter.clone();
+        let value_kind = value.kind.clone();
         let mut out = Self::new(
             move |unknown| match unknown {
                 Unknown::Object(fields) => fields
@@ -967,7 +993,7 @@ impl Schema<BTreeMap<String, Unknown>> {
         // A Record renders its entries spaced, the way the pin does, and each
         // entry renders through the value schema so a nested Record or Struct
         // recurses with the same rule.
-        out.formatter = Arc::new(move |value: &Unknown| {
+        out.formatter = Some(Arc::new(move |value: &Unknown| {
             let Unknown::Object(map) = value else {
                 return format_value(value);
             };
@@ -980,11 +1006,15 @@ impl Schema<BTreeMap<String, Unknown>> {
                 .map(|(key, item)| {
                     let key =
                         serde_json::to_string(key).unwrap_or_else(|_| "\"\"".to_string());
-                    format!("{key}: {}", render(item))
+                    format!("{key}: {}", match &render {
+                        Some(r) => r(item),
+                        None => format_root(&value_kind, &[], item),
+                    })
                 })
                 .collect();
             format!("{{ {} }}", inner.join(", "))
-        });
+        })
+        );
         out
     }
 
@@ -1357,9 +1387,149 @@ impl<T> Schema<T> {
     /// falls through to the plain JSON-ish rendering, which is what the pin
     /// does too (its "empty" row asserts `{"a":1}` unspaced).
     pub fn formatter(&self) -> Box<dyn Fn(&Unknown) -> String + Send + Sync + 'static> {
-        let render = self.formatter.clone();
-        Box::new(move |value| render(value))
+        match &self.formatter {
+            // A composite constructor supplied its own renderer, because it has
+            // child schemas the kind alone cannot reach.
+            Some(render) => {
+                let render = render.clone();
+                Box::new(move |value| render(value))
+            }
+            // Everything else is described by its kind, so walk it.
+            None => {
+                let kind = self.kind.clone();
+                let children = self.children.clone();
+                Box::new(move |value| format_root(&kind, &children, value))
+            }
+        }
     }
+}
+
+// SchemaRepresentation: the code / type repr
+
+impl<T> Schema<T> {
+    /// The Source-style `code` for this schema, the shape the pin's
+    /// `SchemaRepresentation.toCodeDocument` emits (`Schema.String`,
+    /// `Schema.Array(Schema.Never)`, `Schema.Union([...])`).
+    pub fn to_code(&self) -> String {
+        // A re-typing keeps its own kind opaque, so its code is the code of
+        // the schema it wraps.
+        match &self.wrapped {
+            Some(boxed) => boxed.0.clone(),
+            None => code_of(&self.kind, &self.children),
+        }
+    }
+
+    /// The TypeScript-style `type` for this schema, the second half of a
+    /// `Code` entry (`string`, `ReadonlyArray<never>`, `never | string`).
+    pub fn to_type(&self) -> String {
+        match &self.wrapped {
+            Some(boxed) => boxed.1.clone(),
+            None => type_of(&self.kind, &self.children),
+        }
+    }
+}
+
+fn code_of(kind: &SchemaKind, children: &[(String, Arc<Schema<Unknown>>)]) -> String {
+    match kind {
+        SchemaKind::String => "Schema.String".to_string(),
+        SchemaKind::Number => "Schema.Number".to_string(),
+        SchemaKind::Boolean => "Schema.Boolean".to_string(),
+        SchemaKind::Object => "Schema.Object".to_string(),
+        SchemaKind::Opaque("never") => "Schema.Never".to_string(),
+        SchemaKind::Opaque("null") => "Schema.Null".to_string(),
+        SchemaKind::Opaque("any") => "Schema.Any".to_string(),
+        SchemaKind::Opaque("unknown") => "Schema.Unknown".to_string(),
+        SchemaKind::Opaque("literal") => "Schema.Literal".to_string(),
+        SchemaKind::Array(inner) => format!("Schema.Array({})", code_of_at(inner, children)),
+        SchemaKind::Optional(inner) => format!("Schema.optional({})", code_of_at(inner, children)),
+        SchemaKind::Struct(fields) if fields.is_empty() => "Schema.Struct({})".to_string(),
+        SchemaKind::Struct(fields) => {
+            let inner: Vec<String> = fields
+                .iter()
+                .map(|(name, field)| {
+                    let child = children
+                        .iter()
+                        .find(|(key, _)| key == name)
+                        .map(|(_, schema)| schema.to_code())
+                        .unwrap_or_else(|| code_of(field, &[]));
+                    format!("{}: {}", json_key(name), child)
+                })
+                .collect();
+            format!("Schema.Struct({{ {} }})", inner.join(", "))
+        }
+        SchemaKind::Record(_, value) => {
+            format!(
+                "Schema.Record(Schema.String, {})",
+                code_of_at(value, children)
+            )
+        }
+        SchemaKind::Tuple(elements) => {
+            let inner: Vec<String> = elements
+                .iter()
+                .map(|e| code_of_at(e, children))
+                .collect();
+            format!("Schema.Tuple([{}])", inner.join(", "))
+        }
+        SchemaKind::Rest(inner) => format!("Schema.Rest({})", code_of_at(inner, children)),
+        SchemaKind::Annotated { inner, .. } => code_of(inner, children),
+        SchemaKind::Opaque(other) => format!("Schema.{other}"),
+    }
+}
+
+/// A field with no child schema of its own still needs a code, so it is
+/// rendered from the kind alone.
+fn code_of_at(kind: &SchemaKind, children: &[(String, Arc<Schema<Unknown>>)]) -> String {
+    let _ = children;
+    code_of(kind, &[])
+}
+
+fn type_of(kind: &SchemaKind, children: &[(String, Arc<Schema<Unknown>>)]) -> String {
+    match kind {
+        SchemaKind::String => "string".to_string(),
+        SchemaKind::Number => "number".to_string(),
+        SchemaKind::Boolean => "boolean".to_string(),
+        SchemaKind::Object => "object".to_string(),
+        SchemaKind::Opaque("never") => "never".to_string(),
+        SchemaKind::Opaque("any") | SchemaKind::Opaque("unknown") => "unknown".to_string(),
+        SchemaKind::Array(inner) => format!("ReadonlyArray<{}>", type_of_at(inner)),
+        SchemaKind::Optional(inner) => {
+            format!("{{ readonly _?: {} }}", type_of_at(inner))
+        }
+        SchemaKind::Struct(fields) if fields.is_empty() => "{}".to_string(),
+        SchemaKind::Struct(fields) => {
+            let inner: Vec<String> = fields
+                .iter()
+                .map(|(name, field)| {
+                    let child = children
+                        .iter()
+                        .find(|(key, _)| key == name)
+                        .map(|(_, schema)| schema.to_type())
+                        .unwrap_or_else(|| type_of(field, &[]));
+                    format!("readonly {}: {}", json_key(name), child)
+                })
+                .collect();
+            format!("{{ {} }}", inner.join(", "))
+        }
+        SchemaKind::Record(_, value) => {
+            format!("{{ readonly [x: string]: {} }}", type_of_at(value))
+        }
+        SchemaKind::Tuple(elements) => {
+            let inner: Vec<String> = elements.iter().map(type_of_at).collect();
+            format!("readonly [{}]", inner.join(", "))
+        }
+        SchemaKind::Rest(inner) => format!("Array<{}>", type_of_at(inner)),
+        SchemaKind::Annotated { inner, .. } => type_of(inner, children),
+        SchemaKind::Opaque(other) => (*other).to_string(),
+    }
+}
+
+fn type_of_at(kind: &SchemaKind) -> String {
+    type_of(kind, &[])
+}
+
+/// A JSON key as the pin's repr quotes it.
+fn json_key(name: &str) -> String {
+    serde_json::to_string(name).unwrap_or_else(|_| "\"\"".to_string())
 }
 
 // Value formatting
