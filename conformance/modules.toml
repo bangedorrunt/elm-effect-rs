@@ -1788,7 +1788,7 @@ tests = ["packages/effect/test/encoding/Ndjson.test.ts"]
 [[module]]
 path = "packages/effect/src/encoding/SchemaBinary.ts"
 class = "unstable-port"
-status = "unmatched"
+status = "matched"
 tag = "unstable"
 reason = ""
 tests = ["packages/effect/test/encoding/SchemaBinary.test.ts"]
