@@ -314,3 +314,18 @@ fn is_between_excludes_both_bounds() {
     assert!(schema.decode(number(0.0)).is_err());
     assert!(schema.decode(number(4.0)).is_err());
 }
+
+/// Schema.test.ts:1306 `single check`: one refinement on a string accepts what
+/// satisfies it and refuses what does not. The pin writes
+/// `Schema.String.check(Schema.isMinLength(3))`; this port spells a check as
+/// its name plus arguments on `Schema::checked`, the same pair `checked_string`
+/// builds for every other refinement in this file.
+#[test]
+fn a_single_check_refuses_a_short_string() {
+    let schema = checked_string("isMinLength", vec!["3"]);
+    let long = Unknown::Text("abc".to_string());
+    let short = Unknown::Text("ab".to_string());
+
+    assert_eq!(schema.decode(long.clone()).unwrap(), long);
+    assert!(schema.decode(short).is_err());
+}
