@@ -122,6 +122,12 @@ pub struct Command {
     /// Hidden from help listings (`Command.unlisted`). It belongs to the
     /// command, so adding subcommands or shared flags does not clear it.
     pub unlisted: bool,
+    /// Other names that select this command (`Command.withAlias`). The first
+    /// name stays the one a path records.
+    pub aliases: Vec<String>,
+    /// The code that runs once this command's values are parsed. A command
+    /// without one is a group: selecting it hands the line to its children.
+    handler: Option<Handler>,
 }
 
 impl Command {
@@ -133,6 +139,8 @@ impl Command {
             args,
             subcommands: Vec::new(),
             unlisted: false,
+            aliases: Vec::new(),
+            handler: None,
         }
     }
 
@@ -144,6 +152,8 @@ impl Command {
             args: Vec::new(),
             subcommands,
             unlisted: false,
+            aliases: Vec::new(),
+            handler: None,
         }
     }
 
@@ -155,7 +165,9 @@ impl Command {
             return Err(CliError::Help(self.help_text()));
         }
         if let Some((first, rest)) = argv.split_first() {
-            if let Some(sub) = self.subcommands.iter().find(|c| &c.name == first) {
+            // A subcommand is selected by any of its names, so an alias
+            // routes the same way the canonical name does.
+            if let Some(sub) = self.subcommands.iter().find(|c| c.matches_name(first)) {
                 let (mut path, parsed) = sub.parse(rest)?;
                 path.insert(0, self.name.clone());
                 return Ok((path, parsed));
@@ -526,5 +538,83 @@ impl Command {
     pub fn with_shared_flags(mut self, args: Vec<Arg>) -> Self {
         self.args.extend(args);
         self
+    }
+}
+
+/// A command handler: the code that runs once the command's values are parsed.
+/// It is a boxed closure so a command tree stays clonable, and its `Debug`
+/// names the type rather than trying to print a function.
+#[derive(Clone)]
+pub struct Handler(std::sync::Arc<dyn Fn(&Parsed) + Send + Sync>);
+
+impl Handler {
+    /// Run this handler over the parsed values.
+    pub fn call(&self, parsed: &Parsed) {
+        (self.0)(parsed)
+    }
+}
+
+impl std::fmt::Debug for Handler {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("Handler")
+    }
+}
+
+/// What a run selected and did: the path from the root, the values parsed at
+/// the node it landed on, and whether that node's handler ran.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Run {
+    /// Command path from the root, in the commands' own names.
+    pub path: Vec<String>,
+    /// The values parsed at the selected node.
+    pub parsed: Parsed,
+    /// True when the selected node has a handler and it ran.
+    pub invoked: bool,
+}
+
+impl Command {
+    /// Attach a handler (`Command.make`'s third argument).
+    pub fn handler(mut self, handler: impl Fn(&Parsed) + Send + Sync + 'static) -> Self {
+        self.handler = Some(Handler(std::sync::Arc::new(handler)));
+        self
+    }
+
+    /// Another name that selects this command (`Command.withAlias`).
+    pub fn alias(mut self, alias: &str) -> Self {
+        self.aliases.push(alias.to_string());
+        self
+    }
+
+    /// Run this command tree over argv and invoke the selected node's handler.
+    ///
+    /// The dispatch is the existing `parse`: subcommand first, then this
+    /// node's own flags and positionals. A node without a handler is a group,
+    /// so selecting it with no subcommand present is a refusal rather than a
+    /// silently empty run.
+    pub fn run(&self, argv: &[String]) -> Result<Run, CliError> {
+        let (path, parsed) = self.parse(argv)?;
+        let node = path
+            .iter()
+            .skip(1)
+            .try_fold(self, |node, name| {
+                node.subcommands
+                    .iter()
+                    .find(|sub| &sub.name == name || sub.aliases.iter().any(|a| a == name))
+                    .ok_or_else(|| CliError::Unknown(name.clone()))
+            })?;
+        match &node.handler {
+            Some(handler) => {
+                handler.call(&parsed);
+                Ok(Run { path, parsed, invoked: true })
+            }
+            // A group reached without a subcommand has nothing to run, which
+            // is the same refusal an unknown subcommand gets.
+            None => Err(CliError::Unknown(self.name.clone())),
+        }
+    }
+
+    /// Whether this command is selected by `name`, its own or an alias.
+    pub fn matches_name(&self, name: &str) -> bool {
+        self.name == name || self.aliases.iter().any(|alias| alias == name)
     }
 }

@@ -5601,9 +5601,9 @@ unported	packages/effect/test/cli/Command.test.ts	892	it.effect	should render Us
 unported	packages/effect/test/cli/Command.test.ts	913	it.effect	should suppress automatic error rendering	
 unported	packages/effect/test/cli/Command.test.ts	929	it.effect	should still render help when automatic error rendering is disabled	
 ported	packages/effect/test/cli/Command.test.ts	955	it	preserves unlisted metadata when adding shared flags	unlisted_survives_adding_subcommands_and_shared_flags
-unported	packages/effect/test/cli/Command.test.ts	964	it.effect	should execute parent handler when no subcommand provided	
-unported	packages/effect/test/cli/Command.test.ts	975	it.effect	should execute subcommand when provided	
-unported	packages/effect/test/cli/Command.test.ts	991	it.effect	should execute subcommand when provided by alias	
+ported	packages/effect/test/cli/Command.test.ts	964	it.effect	should execute parent handler when no subcommand provided	the_parent_handler_runs_when_no_subcommand_is_given
+ported	packages/effect/test/cli/Command.test.ts	975	it.effect	should execute subcommand when provided	the_selected_subcommands_handler_runs_instead_of_the_parents
+ported	packages/effect/test/cli/Command.test.ts	991	it.effect	should execute subcommand when provided by alias	an_alias_selects_the_same_subcommand
 unported	packages/effect/test/cli/Command.test.ts	1006	it.effect	should accept grouped and ungrouped subcommands	
 unported	packages/effect/test/cli/Command.test.ts	1031	it.effect	should handle multiple subcommands correctly	
 unported	packages/effect/test/cli/Command.test.ts	1053	it.effect	should handle nested config structures in subcommands	

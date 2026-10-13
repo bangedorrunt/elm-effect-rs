@@ -12,6 +12,7 @@ use std::collections::BTreeMap;
 use elm_effect_unstable::cli_ai::{
     Arg, Command, WizardStep, flag_arg, merge_key_values, option_runs, wizard_argv, wizard_plan,
 };
+use elm_effect_unstable::cli_ai::Run;
 
 fn argv(words: &[&str]) -> Vec<String> {
     words.iter().map(|s| s.to_string()).collect()
@@ -1789,4 +1790,103 @@ fn unlisted_survives_adding_subcommands_and_shared_flags() {
     // distinction rather than a default both ways.
     let plain = Command::new("plain", "plain command", Vec::new()).with_subcommands(vec![]);
     assert!(!plain.unlisted);
+}
+
+// --- Command.test.ts: the run rows, where a selected node's handler is what
+// executes ---
+
+fn handler_log() -> std::sync::Arc<std::sync::Mutex<Vec<String>>> {
+    std::sync::Arc::new(std::sync::Mutex::new(Vec::new()))
+}
+
+/// Command.test.ts:964 — with no subcommand given, the parent's own handler is
+/// what executes, and it sees the parent's parsed values.
+#[test]
+fn the_parent_handler_runs_when_no_subcommand_is_given() {
+    let log = handler_log();
+    let seen = log.clone();
+    let root = Command::new(
+        "git",
+        "git command",
+        vec![Arg::Flag {
+            name: "verbose".to_string(),
+            help: "verbose".to_string(),
+        }],
+    )
+    .handler(move |parsed| {
+        seen.lock().expect("lock").push(format!("verbose={}", parsed.flag("verbose")));
+    });
+    let run = root.run(&["--verbose".to_string()]).expect("runs");
+    assert_eq!(run.path, vec!["git".to_string()]);
+    assert_eq!(*log.lock().expect("lock"), vec!["verbose=true".to_string()]);
+}
+
+/// Command.test.ts:975 — a subcommand given on the line selects ITS handler,
+/// and the parent's does not run at all.
+#[test]
+fn the_selected_subcommands_handler_runs_instead_of_the_parents() {
+    let log = handler_log();
+    let parent_log = log.clone();
+    let child_log = log.clone();
+    let root = Command::group(
+        "git",
+        "git command",
+        vec![Command::new(
+            "clone",
+            "clone command",
+            vec![
+                Arg::Positional {
+                    name: "repository".to_string(),
+                    help: "repository".to_string(),
+                },
+                Arg::Opt {
+                    name: "branch".to_string(),
+                    help: "branch".to_string(),
+                    required: false,
+                },
+            ],
+        )
+        .handler(move |parsed| {
+            child_log.lock().expect("lock").push(format!(
+                "clone {} {}",
+                parsed.positionals.first().cloned().unwrap_or_default(),
+                parsed.opt("branch").unwrap_or_default()
+            ));
+        })],
+    )
+    .handler(move |_| {
+        parent_log.lock().expect("lock").push("parent".to_string());
+    });
+    let run = root
+        .run(&[
+            "clone".to_string(),
+            "myrepo".to_string(),
+            "--branch".to_string(),
+            "develop".to_string(),
+        ])
+        .expect("runs");
+    assert_eq!(run.path, vec!["git".to_string(), "clone".to_string()]);
+    assert_eq!(
+        *log.lock().expect("lock"),
+        vec!["clone myrepo develop".to_string()],
+        "only the selected handler runs"
+    );
+}
+
+/// Command.test.ts:991 — an alias selects the same subcommand, and the
+/// alias's own name is not what the path records.
+#[test]
+fn an_alias_selects_the_same_subcommand() {
+    let log = handler_log();
+    let plan_log = log.clone();
+    let root = Command::group(
+        "tool",
+        "tool command",
+        vec![Command::new("plan", "plan command", Vec::new())
+            .alias("p")
+            .handler(move |_| plan_log.lock().expect("lock").push("plan".to_string()))],
+    );
+    let run = root.run(&["p".to_string()]).expect("the alias routes");
+    assert_eq!(run.path, vec!["tool".to_string(), "plan".to_string()]);
+    assert_eq!(*log.lock().expect("lock"), vec!["plan".to_string()]);
 }
