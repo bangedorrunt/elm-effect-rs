@@ -85,6 +85,24 @@ export"). And the file must be clean *during* the replay, so snapshot it out of
 `.beads/` first, `git checkout -- .beads/gates.jsonl` to let the rebase finish,
 then copy it back; `git rebase --autostash` re-applies it by itself.
 
+## The row number in the ledger is not the line number in the pin
+
+Every ledger row is `status  path  number  kind  title  rust`, and the tempting
+reading of `number` is "the line the pin's `it(` is on". It is not. For
+`test/schema/Schema.test.ts` the numbers run behind the pin's own `it(` lines by
+0 to 17 (measured: `it(` at 6236 is row 6235, at 6262 is 6260, at 6583 is 6590),
+because the generator anchors to something other than the `it(` call.
+
+So a flip addressed with the numbers you read out of the TypeScript fails, and
+it fails safely but confusingly: `flip-row.py` writes nothing and reports
+`no such behavior row` for each one, while `rows-port-remaining.py` lists the
+same rows happily because it prints the column it found.
+
+**Take the number from the ledger, not from the pin.** Print the rows in the
+describe block's neighbourhood (`awk -F'\t'` over the tsv, filter by path and a
+number range, sort) and match them to your tests by title; then cite the
+ledger's number in the test comment, so the comment and the flip agree.
+
 ## Principles
 
 - **boundary-discipline** — an excused row is a boundary claim about the port's
