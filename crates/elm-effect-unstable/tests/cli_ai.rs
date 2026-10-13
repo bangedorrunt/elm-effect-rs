@@ -2399,3 +2399,129 @@ fn a_negated_flags_literal_does_not_leak_into_subcommand_parsing() {
         .expect("the child routes on its own line");
     assert_eq!(run.path, vec!["tool".to_string(), "child".to_string()]);
 }
+
+/// Command.test.ts:409 — a handler runs with the config parsed from its own
+/// command's line: positionals in order, and each flag's value read from the
+/// spelling it was given in.
+#[test]
+fn a_handler_runs_with_the_config_parsed_from_its_own_line() {
+    let seen = handler_log();
+    let log = seen.clone();
+    let command = Command::new(
+        "copy",
+        "copy command",
+        vec![
+            Arg::Positional {
+                name: "source".to_string(),
+                help: "source".to_string(),
+                variadic: false,
+            },
+            Arg::Positional {
+                name: "destination".to_string(),
+                help: "destination".to_string(),
+                variadic: false,
+            },
+            Arg::Flag {
+                name: "recursive".to_string(),
+                help: "recursive".to_string(),
+            },
+            Arg::Flag {
+                name: "force".to_string(),
+                help: "force".to_string(),
+            },
+        ],
+    )
+    .handler(move |parsed| {
+        log.lock().expect("lock").push(format!(
+            "copy {} {} recursive={} force={}",
+            parsed.positionals.first().cloned().unwrap_or_default(),
+            parsed.positionals.get(1).cloned().unwrap_or_default(),
+            parsed.flag("recursive"),
+            parsed.flag("force")
+        ));
+    });
+    let run = command
+        .run(&[
+            "src.txt".to_string(),
+            "dest.txt".to_string(),
+            "--recursive".to_string(),
+            "--force".to_string(),
+        ])
+        .expect("the line parses and the handler runs");
+    assert_eq!(run.path, vec!["copy".to_string()]);
+    assert_eq!(
+        *seen.lock().expect("lock"),
+        vec!["copy src.txt dest.txt recursive=true force=true".to_string()]
+    );
+}
+
+/// Command.test.ts:431 — nested config: a subcommand reached through its parent
+/// takes the values addressed to IT, and the parent's own positionals are not
+/// consumed by the child.
+#[test]
+fn nested_config_reaches_the_subcommands_handler() {
+    let seen = handler_log();
+    let log = seen.clone();
+    let cli = Command::group("admin", "admin command", Vec::new())
+        .with_subcommands(vec![Command::group(
+        "users",
+        "users command",
+        vec![Command::new(
+            "create",
+            "create command",
+            vec![
+                Arg::Positional {
+                    name: "username".to_string(),
+                    help: "username".to_string(),
+                    variadic: false,
+                },
+                Arg::Positional {
+                    name: "email".to_string(),
+                    help: "email".to_string(),
+                    variadic: false,
+                },
+                Arg::Opt {
+                    name: "role".to_string(),
+                    help: "role".to_string(),
+                    required: false,
+                },
+                Arg::Flag {
+                    name: "notify".to_string(),
+                    help: "notify".to_string(),
+                },
+            ],
+        )
+        .handler(move |parsed| {
+            log.lock().expect("lock").push(format!(
+                "create {} {} role={} notify={}",
+                parsed.positionals.first().cloned().unwrap_or_default(),
+                parsed.positionals.get(1).cloned().unwrap_or_default(),
+                parsed.opt("role").unwrap_or_default(),
+                parsed.flag("notify")
+            ));
+        })],
+    )]);
+    let run = cli
+        .run(&[
+            "users".to_string(),
+            "create".to_string(),
+            "john_doe".to_string(),
+            "john@example.com".to_string(),
+            "--role".to_string(),
+            "admin".to_string(),
+            "--notify".to_string(),
+        ])
+        .expect("the nested line parses and the leaf's handler runs");
+    assert_eq!(
+        run.path,
+        vec![
+            "admin".to_string(),
+            "users".to_string(),
+            "create".to_string()
+        ]
+    );
+    assert_eq!(
+        *seen.lock().expect("lock"),
+        vec!["create john_doe john@example.com role=admin notify=true".to_string()]
+    );
+}

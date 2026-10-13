@@ -5578,8 +5578,8 @@ unported	packages/effect/test/cli/Command.test.ts	320	it.effect	should start wiz
 unported	packages/effect/test/cli/Command.test.ts	339	it.effect	should reject --completions without a shell	
 ported	packages/effect/test/cli/Command.test.ts	370	it.effect	should reject --${name} without a ${expected} value	a_valued_flag_without_its_value_is_refused_naming_the_flag
 unported	packages/effect/test/cli/Command.test.ts	388	it.effect	should render invalid choice values without doubling the Expected prefix	
-unported	packages/effect/test/cli/Command.test.ts	409	it.effect	should execute handler with parsed config	
-unported	packages/effect/test/cli/Command.test.ts	431	it.effect	should handle nested config in handler	
+ported	packages/effect/test/cli/Command.test.ts	409	it.effect	should execute handler with parsed config	a_handler_runs_with_the_config_parsed_from_its_own_line
+ported	packages/effect/test/cli/Command.test.ts	431	it.effect	should handle nested config in handler	nested_config_reaches_the_subcommands_handler
 unported	packages/effect/test/cli/Command.test.ts	447	it.effect	should work with effectful handlers	
 unported	packages/effect/test/cli/Command.test.ts	466	it.effect	should work with option aliases in handler	
 ported	packages/effect/test/cli/Command.test.ts	481	it.effect	should merge repeated key=value flags into a single record	repeated_key_value_flags_merge_into_one_record
