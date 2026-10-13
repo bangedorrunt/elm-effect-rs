@@ -214,3 +214,163 @@ fn ffs_tuples_union_by_shape() {
     );
     assert!(schema.decode(Unknown::Array(vec![Unknown::Null])).is_err());
 }
+
+// Schema.test.ts keyword rows: the scalar and keyword schemas the pin exposes,
+// plus the two struct-input rules they exercise.
+//
+// The ledger numbers below are the tsv's own row numbers, which run behind the
+// pin's `it(` lines, so they are what a reader should look up.
+
+#[test]
+fn literal_refuses_a_non_finite_number() {
+    // Schema.test.ts:219 — a numeric literal that is not finite is refused at
+    // construction with the value spelled the way JavaScript spells it.
+    let hook = std::panic::take_hook();
+    std::panic::set_hook(Box::new(|_| {}));
+    for (value, expected) in [
+        (f64::INFINITY, "A numeric literal must be finite, got Infinity"),
+        (f64::NEG_INFINITY, "A numeric literal must be finite, got -Infinity"),
+        (f64::NAN, "A numeric literal must be finite, got NaN"),
+    ] {
+        let caught = std::panic::catch_unwind(|| Schema::literal(Unknown::Number(value)));
+        let message = caught
+            .err()
+            .and_then(|payload| payload.downcast_ref::<String>().cloned())
+            .expect("a non-finite literal is refused");
+        assert_eq!(message, expected);
+    }
+    std::panic::set_hook(hook);
+    // A finite literal still builds.
+    assert_eq!(
+        Schema::literal(Unknown::Number(1.5)).decode(Unknown::Number(1.5)),
+        Ok(Unknown::Number(1.5))
+    );
+}
+
+#[test]
+fn literal_accepts_either_signed_zero_and_keeps_the_input_sign() {
+    // Schema.test.ts:277 — a zero literal admits both signed zeros, and the
+    // decoded and encoded values keep the sign the input carried.
+    for literal in [0.0_f64, -0.0_f64] {
+        let schema = Schema::literal(Unknown::Number(literal));
+        for input in [0.0_f64, -0.0_f64] {
+            let decoded = schema.decode(Unknown::Number(input)).expect("either zero");
+            let Unknown::Number(number) = decoded.clone() else {
+                panic!("a number decoded to {decoded:?}");
+            };
+            assert_eq!(number.is_sign_negative(), input.is_sign_negative(), "{literal} {input}");
+            let Unknown::Number(encoded) = schema.encode(&decoded) else {
+                panic!("a number encoded to something else");
+            };
+            assert_eq!(encoded.is_sign_negative(), input.is_sign_negative());
+        }
+    }
+}
+
+#[test]
+fn unknown_admits_every_value() {
+    // Schema.test.ts:362 — Unknown decodes and encodes any value unchanged.
+    let schema = Schema::unknown();
+    for value in [
+        Unknown::Text("a".to_string()),
+        Unknown::Number(1.0),
+        Unknown::Bool(false),
+        Unknown::Null,
+        Unknown::Array(vec![Unknown::Null]),
+        Unknown::Object(std::collections::BTreeMap::new()),
+    ] {
+        assert_eq!(schema.decode(value.clone()), Ok(value.clone()));
+        assert_eq!(schema.encode(&value), value);
+    }
+}
+
+#[test]
+fn string_for_literal_autocomplete_is_the_string_schema() {
+    // Schema.test.ts:408 — the autocomplete string has the string AST and the
+    // string behavior: text decodes, anything else does not.
+    let schema = Schema::string_for_literal_autocomplete();
+    assert_eq!(schema.json_schema(), Schema::string().json_schema());
+    assert_eq!(schema.decode(Unknown::Text("a".to_string())), Ok("a".to_string()));
+    for (refused, got) in [(Unknown::Null, "null"), (Unknown::Number(1.0), "number")] {
+        assert_eq!(
+            schema.decode(refused).unwrap_err().to_string(),
+            format!("expected string at $, got {got}")
+        );
+    }
+}
+
+#[test]
+fn union_of_autocomplete_string_and_literals_accepts_every_string() {
+    // Schema.test.ts:427 — a union of the autocomplete string with two literals
+    // admits every string, both literals included, and nothing else. The pin
+    // also reads `members[1].literals`; the port's union kind is opaque, so the
+    // acceptance is what carries.
+    let members = Schema::union(
+        Schema::literal(Unknown::Text("GET".to_string())),
+        Schema::literal(Unknown::Text("POST".to_string())),
+    );
+    let schema = Schema::union(
+        Schema::as_unknown(Schema::string_for_literal_autocomplete()),
+        members,
+    );
+    for accepted in ["GET", "POST", "PATCH"] {
+        assert_eq!(
+            schema.decode(Unknown::Text(accepted.to_string())),
+            Ok(Unknown::Text(accepted.to_string())),
+            "{accepted}"
+        );
+    }
+    for refused in [Unknown::Null, Unknown::Number(1.0)] {
+        assert!(schema.decode(refused).is_err());
+    }
+}
+
+#[test]
+fn void_yields_the_unit_value_for_any_input() {
+    // Schema.test.ts:537 — Void decodes anything at all and yields the value
+    // that has no content. The port encodes that as null, the stand-in for
+    // JavaScript's undefined.
+    let schema = Schema::void();
+    for input in [
+        Unknown::Null,
+        Unknown::Text("a".to_string()),
+        Unknown::Object(std::collections::BTreeMap::new()),
+    ] {
+        assert_eq!(schema.decode(input), Ok(()));
+    }
+    assert_eq!(schema.encode(&()), Unknown::Null);
+}
+
+#[test]
+fn object_keyword_admits_objects_and_arrays() {
+    // Schema.test.ts:565 — ObjectKeyword takes an object or an array and refuses
+    // a scalar.
+    let schema = Schema::object_keyword();
+    assert_eq!(
+        schema.decode(Unknown::Object(std::collections::BTreeMap::new())),
+        Ok(Unknown::Object(std::collections::BTreeMap::new()))
+    );
+    assert_eq!(schema.decode(Unknown::Array(Vec::new())), Ok(Unknown::Array(Vec::new())));
+    let error = schema.decode(Unknown::Text("1".to_string())).unwrap_err();
+    assert_eq!(error.to_string(), "expected object | array at $, got string");
+    assert_eq!(schema.encode(&Unknown::Null), Unknown::Null);
+}
+
+#[test]
+fn struct_decode_ignores_undeclared_keys() {
+    // Schema.test.ts:666 — decoding with undeclared keys dropped: the result
+    // holds the declared fields only, whatever else arrived. The pin's row also
+    // sends a symbol key, which has no counterpart in a string-keyed object.
+    use elm_effect_schema::Field;
+    let schema = Schema::struct_shape(vec![Field::required(
+        "a",
+        Schema::as_unknown(Schema::string()),
+    )]);
+    let mut input = std::collections::BTreeMap::new();
+    input.insert("a".to_string(), Unknown::Text("a".to_string()));
+    input.insert("b".to_string(), Unknown::Text("b".to_string()));
+    input.insert("c".to_string(), Unknown::Text("c".to_string()));
+    let mut expected = std::collections::BTreeMap::new();
+    expected.insert("a".to_string(), Unknown::Text("a".to_string()));
+    assert_eq!(schema.decode(Unknown::Object(input)), Ok(expected));
+}

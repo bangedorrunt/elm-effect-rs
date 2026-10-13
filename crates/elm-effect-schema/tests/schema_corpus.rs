@@ -761,7 +761,15 @@ fn suspend_builds_recursive_shapes() {
 }
 
 #[test]
-fn struct_excess_fields_pass_through() {
+fn struct_excess_fields_are_stripped_by_default() {
+    // This test used to assert the opposite. The pin's decoder default is
+    // `onExcessProperty: "ignore"` — "Closed objects normally strip excess
+    // properties by default; pass `onExcessProperty: \"error\"` to reject them"
+    // (SchemaRepresentation.ts:2968, and Schema.ts:15411 says the same of the
+    // decoder) — so a closed struct keeps its declared fields and drops the
+    // rest. `struct_with_rest` is the shape that absorbs the rest, and the row
+    // that caught this is Schema.test.ts:666, whose explicit
+    // `onExcessProperty: "ignore"` names the default.
     let schema = Schema::struct_shape(vec![Field::required(
         "a",
         Schema::as_unknown(Schema::string()),
@@ -773,7 +781,6 @@ fn struct_excess_fields_pass_through() {
     let decoded = schema.decode(input).unwrap();
     let mut expected = std::collections::BTreeMap::new();
     expected.insert("a".to_string(), Unknown::Text("x".into()));
-    expected.insert("extra".to_string(), Unknown::Number(1.0));
     assert_eq!(decoded, expected);
 }
 

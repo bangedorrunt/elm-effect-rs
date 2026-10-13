@@ -968,10 +968,35 @@ impl Schema<Unknown> {
         )
     }
 
+    /// Any object or array, and nothing else (`ObjectKeyword` shape). The pin
+    /// also accepts a function; the port's `Unknown` has no function value, so
+    /// the refusal names the two shapes it can hold.
+    pub fn object_keyword() -> Self {
+        Self::new(
+            |unknown| match unknown {
+                Unknown::Object(_) | Unknown::Array(_) => Ok(unknown),
+                other => mismatch("$", "object | array", &other),
+            },
+            |value| value.clone(),
+            SchemaKind::Opaque("objectKeyword"),
+        )
+    }
+
     /// One exact value (`Literal` shape): equality decides. The kind carries the
     /// value, because a repr prints `Schema.Literal("a")` and an opaque kind
     /// would print the bare constructor.
+    ///
+    /// A non-finite number is refused, as the pin throws for one: `NaN` and the
+    /// infinities compare false against themselves, so such a literal could
+    /// never match anything and would be a schema with no members.
     pub fn literal(expected: Unknown) -> Self {
+        if let Unknown::Number(number) = expected {
+            assert!(
+                number.is_finite(),
+                "A numeric literal must be finite, got {}",
+                js_number(number)
+            );
+        }
         let kind = SchemaKind::Literal(expected.clone());
         Self::new(
             move |unknown| {
@@ -1007,6 +1032,13 @@ impl Schema<Unknown> {
 }
 
 impl Schema<()> {
+    /// Anything at all decodes, yielding the unit value (`Void` shape). The port
+    /// stands `Unknown::Null` in for the pin's `undefined` on the way out, since
+    /// a value-less result is what it has to represent one.
+    pub fn void() -> Self {
+        Self::new(|_| Ok(()), |_| Unknown::Null, SchemaKind::Opaque("void"))
+    }
+
     /// Only null (`Null` shape).
     pub fn null() -> Self {
         Self::new(
@@ -1021,6 +1053,14 @@ impl Schema<()> {
 }
 
 impl Schema<String> {
+    /// A string whose type is open to literal autocomplete
+    /// (`StringForLiteralAutocomplete`). The runtime behavior is `String`'s and
+    /// the pin's AST is the string AST, so this is that schema under the name
+    /// the pin's surface gives it.
+    pub fn string_for_literal_autocomplete() -> Self {
+        Self::string()
+    }
+
     /// Any text.
     pub fn string() -> Self {
         Self::new(
@@ -1375,9 +1415,11 @@ impl Schema<BTreeMap<String, Unknown>> {
                             }
                         }
                     }
-                    for (key, value) in input {
-                        out.insert(key, value);
-                    }
+                    // Undeclared keys in `input` are dropped, which is the
+                    // pin's default `onExcessProperty: "ignore"`: closed objects
+                    // strip excess properties unless the call site asks
+                    // otherwise, and `struct_with_rest` is the shape that
+                    // absorbs them.
                     Ok(out)
                 }
                 other => mismatch("$", "object", &other),
@@ -2468,6 +2510,22 @@ impl TemplateParser {
                 }
             }
         }
+    }
+}
+
+/// A number spelled the way JavaScript writes it, so a refusal names the value
+/// the pin names: `Infinity`, `-Infinity` and `NaN` rather than Rust's `inf`.
+fn js_number(number: f64) -> String {
+    if number.is_nan() {
+        "NaN".to_string()
+    } else if number.is_infinite() {
+        if number.is_sign_negative() {
+            "-Infinity".to_string()
+        } else {
+            "Infinity".to_string()
+        }
+    } else {
+        number.to_string()
     }
 }
 

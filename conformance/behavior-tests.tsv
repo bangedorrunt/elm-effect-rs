@@ -7538,42 +7538,42 @@ unported	packages/effect/test/schema/Schema.test.ts	144	it	applies errors to nes
 unported	packages/effect/test/schema/Schema.test.ts	164	it	applies errors with encoding checks	
 unported	packages/effect/test/schema/Schema.test.ts	187	it	decoders can receive options when they are created	
 unported	packages/effect/test/schema/Schema.test.ts	202	it	encoders can receive options when they are created	
-unported	packages/effect/test/schema/Schema.test.ts	219	it	should throw an error if the literal is not a finite number	
+ported	packages/effect/test/schema/Schema.test.ts	219	it	should throw an error if the literal is not a finite number	literal_refuses_a_non_finite_number
 ported	packages/effect/test/schema/Schema.test.ts	237	it	should expose the literal	literal_exposes_its_value
 ported	packages/effect/test/schema/Schema.test.ts	243	it	a	cell_literal_a
 ported	packages/effect/test/schema/Schema.test.ts	260	it	1	cell_literal_1
-unported	packages/effect/test/schema/Schema.test.ts	277	it	accepts either signed zero and preserves the input sign	
+ported	packages/effect/test/schema/Schema.test.ts	277	it	accepts either signed zero and preserves the input sign	literal_accepts_either_signed_zero_and_keeps_the_input_sign
 unported	packages/effect/test/schema/Schema.test.ts	287	it	transform	
 ported	packages/effect/test/schema/Schema.test.ts	302	it	red, green, blue	cell_literal_union_red_green_blue
 unported	packages/effect/test/schema/Schema.test.ts	315	it	transform	
 ported	packages/effect/test/schema/Schema.test.ts	330	it	pick	pick_decodes_a_subset
 ported	packages/effect/test/schema/Schema.test.ts	337	it	Never	never_rejects_everything
 ported	packages/effect/test/schema/Schema.test.ts	351	it	Any	any_accepts_everything
-unported	packages/effect/test/schema/Schema.test.ts	362	it	Unknown	
+ported	packages/effect/test/schema/Schema.test.ts	362	it	Unknown	unknown_admits_every_value
 ported	packages/effect/test/schema/Schema.test.ts	373	it	Null	null_accepts_only_null
-unported	packages/effect/test/schema/Schema.test.ts	382	it	Undefined	
+not-applicable	packages/effect/test/schema/Schema.test.ts	382	it	Undefined	the row's value is JavaScript `undefined`; the port's Unknown holds null, booleans, numbers, text, arrays and objects, so both the success and the failure case are unrepresentable
 ported	packages/effect/test/schema/Schema.test.ts	391	it	String	cell_string
-unported	packages/effect/test/schema/Schema.test.ts	408	it	StringForLiteralAutocomplete	
-unported	packages/effect/test/schema/Schema.test.ts	427	it	StringForLiteralAutocomplete | Literals	
+ported	packages/effect/test/schema/Schema.test.ts	408	it	StringForLiteralAutocomplete	string_for_literal_autocomplete_is_the_string_schema
+ported	packages/effect/test/schema/Schema.test.ts	427	it	StringForLiteralAutocomplete | Literals	union_of_autocomplete_string_and_literals_accepts_every_string
 ported	packages/effect/test/schema/Schema.test.ts	452	it	Number	cell_number
 ported	packages/effect/test/schema/Schema.test.ts	469	it	Boolean	cell_boolean
-unported	packages/effect/test/schema/Schema.test.ts	489	it	Symbol	
-unported	packages/effect/test/schema/Schema.test.ts	506	it	UniqueSymbol	
-unported	packages/effect/test/schema/Schema.test.ts	520	it	BigInt	
-unported	packages/effect/test/schema/Schema.test.ts	537	it	Void	
-unported	packages/effect/test/schema/Schema.test.ts	565	it	ObjectKeyword	
+not-applicable	packages/effect/test/schema/Schema.test.ts	489	it	Symbol	the row's value is a JavaScript symbol; Unknown has no symbol kind, so neither the acceptance nor the refusal can be expressed
+not-applicable	packages/effect/test/schema/Schema.test.ts	506	it	UniqueSymbol	the row's value is a unique symbol (`Schema.UniqueSymbol`); Unknown has no symbol kind, so the identity the row asserts has no counterpart
+not-applicable	packages/effect/test/schema/Schema.test.ts	520	it	BigInt	the row's value is a JavaScript bigint; Unknown has no bigint kind (a template literal's Digits part carries bigint text, not a value)
+ported	packages/effect/test/schema/Schema.test.ts	537	it	Void	void_yields_the_unit_value_for_any_input
+ported	packages/effect/test/schema/Schema.test.ts	565	it	ObjectKeyword	object_keyword_admits_objects_and_arrays
 ported	packages/effect/test/schema/Schema.test.ts	585	it	optionalKey	optional_key_absent_is_exact
-unported	packages/effect/test/schema/Schema.test.ts	592	it	optionalKey & mutableKey	
-unported	packages/effect/test/schema/Schema.test.ts	598	it	optional	
-unported	packages/effect/test/schema/Schema.test.ts	606	it	mutableKey	
-unported	packages/effect/test/schema/Schema.test.ts	613	it	mutableKey & optionalKey	
-unported	packages/effect/test/schema/Schema.test.ts	619	it	readonlyKey	
-unported	packages/effect/test/schema/Schema.test.ts	625	it	allows duplicate property signatures in the low-level AST constructor	
+not-applicable	packages/effect/test/schema/Schema.test.ts	592	it	optionalKey & mutableKey	the row asserts a schema AST context carrying both isOptional and isMutable; the port models optionality on a struct field (`Field::optional_key`) and has no key mutability, so one of the two flags has no counterpart
+not-applicable	packages/effect/test/schema/Schema.test.ts	598	it	optional	the row asserts `optional` is idempotent and that `required` unwraps it; the port's `Schema::optional` is a typed wrapper (`Schema<Option<T>>`), so `optional(optional(x))` nests rather than flattening and there is no `required` to unwrap it
+not-applicable	packages/effect/test/schema/Schema.test.ts	606	it	mutableKey	the row asserts a mutableKey AST context; the port has no key mutability, so there is no flag to set
+not-applicable	packages/effect/test/schema/Schema.test.ts	613	it	mutableKey & optionalKey	the row asserts both isMutable and isOptional on one AST context; the port has no key mutability, so one of the two flags has no counterpart
+not-applicable	packages/effect/test/schema/Schema.test.ts	619	it	readonlyKey	the row asserts readonlyKey clears isMutable; the port has no key mutability, so there is no flag to clear
+not-applicable	packages/effect/test/schema/Schema.test.ts	625	it	allows duplicate property signatures in the low-level AST constructor	the row asserts the low-level AST keeps duplicate property signatures in declaration order; the port's shape holds its fields privately with no AST accessor, and a duplicate list is not decodable (the second signature for a key finds it already consumed), so the assertion has no counterpart
 unported	packages/effect/test/schema/Schema.test.ts	638	it	error	
-unported	packages/effect/test/schema/Schema.test.ts	666	it	ignore strips undeclared string and symbol properties	
-unported	packages/effect/test/schema/Schema.test.ts	680	it	error ignores non-enumerable undeclared own properties without reading them	
-unported	packages/effect/test/schema/Schema.test.ts	703	it	error validates non-enumerable declared string and symbol properties	
-unported	packages/effect/test/schema/Schema.test.ts	719	it	error accepts Error internals in an open record	
+ported	packages/effect/test/schema/Schema.test.ts	666	it	ignore strips undeclared string and symbol properties	struct_decode_ignores_undeclared_keys
+not-applicable	packages/effect/test/schema/Schema.test.ts	680	it	error ignores non-enumerable undeclared own properties without reading them	the row's subject is non-enumerable own properties and a getter that must not be read; a BTreeMap input has no property attributes and no getters
+not-applicable	packages/effect/test/schema/Schema.test.ts	703	it	error validates non-enumerable declared string and symbol properties	the row's subject is non-enumerable declared properties, including a symbol key, still being validated; the port's inputs have no enumerability and no symbol keys
+not-applicable	packages/effect/test/schema/Schema.test.ts	719	it	error accepts Error internals in an open record	the row's input is a JavaScript Error object whose non-enumerable internals must not surface as excess properties; the port's inputs are JSON-shaped values with no hidden internals
 unported	packages/effect/test/schema/Schema.test.ts	727	it	error encodes tagged errors carrying runtime internals	
 unported	packages/effect/test/schema/Schema.test.ts	735	it	should corectly handle __proto__	
 unported	packages/effect/test/schema/Schema.test.ts	750	it	a	
