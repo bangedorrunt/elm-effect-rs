@@ -225,7 +225,20 @@ impl Command {
         while i < argv.len() {
             let arg = &argv[i];
             if arg == "--" {
-                parsed.rest.extend(argv[i + 1..].iter().cloned());
+                let operands = &argv[i + 1..];
+                // Tokens after the dash are operands: no subcommand and no
+                // flag is read out of them. A variadic positional is the
+                // argument that takes many values, so it takes these; a node
+                // without one keeps them in `rest` for its caller.
+                let variadic = self
+                    .args
+                    .iter()
+                    .any(|a| matches!(a, Arg::Positional { variadic: true, .. }));
+                if variadic {
+                    parsed.positionals.extend(operands.iter().cloned());
+                } else {
+                    parsed.rest.extend(operands.iter().cloned());
+                }
                 break;
             }
             if arg == "--help" || arg == "-h" {

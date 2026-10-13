@@ -2169,3 +2169,79 @@ fn a_variadic_positional_keeps_order_across_interleaved_options() {
     assert!(parsed.flag("verbose"));
     assert_eq!(parsed.positionals, vec!["a.txt", "b.txt", "c.txt"]);
 }
+
+/// Command.test.ts:1500 — tokens after `--` are operands, so a subcommand name
+/// and what looks like a flag are both just values, and no subcommand runs.
+#[test]
+fn tokens_after_the_double_dash_are_operands_not_subcommands_or_flags() {
+    let log = handler_log();
+    let child_log = log.clone();
+    let root_log = log.clone();
+    let root = Command::group(
+        "tool",
+        "tool command",
+        vec![Command::new(
+            "child",
+            "child command",
+            vec![Arg::Opt {
+                name: "value".to_string(),
+                help: "value".to_string(),
+                required: false,
+            }],
+        )
+        .handler(move |_| child_log.lock().expect("lock").push("child".to_string()))],
+    )
+    .with_subcommand_groups(Vec::new());
+    let _ = root_log;
+    let argv = vec![
+        "--".to_string(),
+        "child".to_string(),
+        "--value".to_string(),
+        "x".to_string(),
+    ];
+    // The parent is a group with no handler of its own, so select the leaf by
+    // routing the same tokens through the child: the law under test is that the
+    // `--` makes them operands.
+    let (_, parsed) = root.parse(&argv).expect("parses");
+    assert_eq!(parsed.rest, vec!["child", "--value", "x"]);
+    assert!(
+        parsed.opts.is_empty() && parsed.positionals.is_empty(),
+        "nothing after the dash is a flag or a positional: {parsed:?}"
+    );
+    // A subcommand name before the dash still routes, so the dash is what made
+    // the difference above.
+    let (path, _) = root
+        .parse(&["child".to_string(), "--value".to_string(), "x".to_string()])
+        .expect("routes");
+    assert_eq!(path, vec!["tool".to_string(), "child".to_string()]);
+    assert!(log.lock().expect("lock").is_empty(), "no handler ran");
+}
+
+/// Command.test.ts:1528 — trailing operands reach the selected subcommand
+/// whole, in the order the line gave them.
+#[test]
+fn trailing_operands_reach_the_selected_subcommand() {
+    let root = Command::group(
+        "tool",
+        "tool command",
+        vec![Command::new(
+            "child",
+            "child command",
+            vec![Arg::Positional {
+                name: "value".to_string(),
+                help: "value".to_string(),
+                variadic: true,
+            }],
+        )],
+    );
+    let argv = vec![
+        "child".to_string(),
+        "--".to_string(),
+        "value".to_string(),
+        "--literal".to_string(),
+        "-x".to_string(),
+    ];
+    let (path, parsed) = root.parse(&argv).expect("parses");
+    assert_eq!(path, vec!["tool".to_string(), "child".to_string()]);
+    assert_eq!(parsed.positionals, vec!["value", "--literal", "-x"]);
+}
