@@ -7862,29 +7862,29 @@ unported	packages/effect/test/schema/Schema.test.ts	6091	it	fromFormData
 unported	packages/effect/test/schema/Schema.test.ts	6137	it	fromURLSearchParams	
 unported	packages/effect/test/schema/Schema.test.ts	6172	it	Trim	
 unported	packages/effect/test/schema/Schema.test.ts	6195	it	transformEffect	
-unported	packages/effect/test/schema/Schema.test.ts	6229	it	should expose the parts	
-unported	packages/effect/test/schema/Schema.test.ts	6235	it	NonEmptyString + String	
-unported	packages/effect/test/schema/Schema.test.ts	6243	it	rejects checks on Literal, TemplateLiteral, and Union parts	
-unported	packages/effect/test/schema/Schema.test.ts	6260	it	a	
-unported	packages/effect/test/schema/Schema.test.ts	6277	it	a b	
-unported	packages/effect/test/schema/Schema.test.ts	6290	it	[	
-unported	packages/effect/test/schema/Schema.test.ts	6303	it	a	
-unported	packages/effect/test/schema/Schema.test.ts	6321	it	a	
-unported	packages/effect/test/schema/Schema.test.ts	6358	it	a	
-unported	packages/effect/test/schema/Schema.test.ts	6389	it	string	
-unported	packages/effect/test/schema/Schema.test.ts	6403	it	\\n + string	
-unported	packages/effect/test/schema/Schema.test.ts	6416	it	a\\nb  + string	
-unported	packages/effect/test/schema/Schema.test.ts	6425	it	a	
-unported	packages/effect/test/schema/Schema.test.ts	6450	it	a	
-unported	packages/effect/test/schema/Schema.test.ts	6468	it	https://www.typescriptlang.org/docs/handbook/2/template-literal-types.html	
-unported	packages/effect/test/schema/Schema.test.ts	6486	it	string + 0	
-unported	packages/effect/test/schema/Schema.test.ts	6498	it	string + 1n	
-unported	packages/effect/test/schema/Schema.test.ts	6510	it	a	
-unported	packages/effect/test/schema/Schema.test.ts	6523	it	(string | 1) + (number | true)	
-unported	packages/effect/test/schema/Schema.test.ts	6540	it	`c${`a${string}b` | \	
-unported	packages/effect/test/schema/Schema.test.ts	6557	it	< + h + (1|2n) + >	
-unported	packages/effect/test/schema/Schema.test.ts	6570	it	a	
-unported	packages/effect/test/schema/Schema.test.ts	6590	it	a	
+ported	packages/effect/test/schema/Schema.test.ts	6229	it	should expose the parts	template_literal_exposes_its_parts
+ported	packages/effect/test/schema/Schema.test.ts	6235	it	NonEmptyString + String	template_literal_non_empty_string_part
+not-applicable	packages/effect/test/schema/Schema.test.ts	6243	it	rejects checks on Literal, TemplateLiteral, and Union parts	the row asserts a construction-time throw for a part that carries a check; TemplatePart is a closed enum with no checked variant, so the refusal is a type error and there is no runtime path to assert
+ported	packages/effect/test/schema/Schema.test.ts	6260	it	a	template_literal_single_anchor
+ported	packages/effect/test/schema/Schema.test.ts	6277	it	a b	template_literal_three_anchors
+ported	packages/effect/test/schema/Schema.test.ts	6290	it	[	template_literal_bracketed_string
+ported	packages/effect/test/schema/Schema.test.ts	6303	it	a	template_literal_anchor_then_string
+ported	packages/effect/test/schema/Schema.test.ts	6321	it	a	template_literal_number_part
+ported	packages/effect/test/schema/Schema.test.ts	6358	it	a	template_literal_digits_part
+ported	packages/effect/test/schema/Schema.test.ts	6389	it	string	template_literal_single_string_part
+ported	packages/effect/test/schema/Schema.test.ts	6403	it	\\n + string	template_literal_newline_then_string
+ported	packages/effect/test/schema/Schema.test.ts	6416	it	a\\nb  + string	template_literal_multiline_anchor_then_string
+ported	packages/effect/test/schema/Schema.test.ts	6425	it	a	template_literal_string_between_anchors
+ported	packages/effect/test/schema/Schema.test.ts	6450	it	a	template_literal_two_string_parts_around_an_anchor
+ported	packages/effect/test/schema/Schema.test.ts	6468	it	https://www.typescriptlang.org/docs/handbook/2/template-literal-types.html	template_literal_union_of_literals_part
+ported	packages/effect/test/schema/Schema.test.ts	6486	it	string + 0	template_literal_literal_zero_part
+ported	packages/effect/test/schema/Schema.test.ts	6498	it	string + 1n	template_literal_literal_bigint_part
+ported	packages/effect/test/schema/Schema.test.ts	6510	it	a	template_literal_literals_part
+ported	packages/effect/test/schema/Schema.test.ts	6523	it	(string | 1) + (number | true)	template_literal_union_parts
+ported	packages/effect/test/schema/Schema.test.ts	6540	it	`c${`a${string}b` | \	template_literal_nested_template_part
+ported	packages/effect/test/schema/Schema.test.ts	6557	it	< + h + (1|2n) + >	template_literal_nested_literals_part
+ported	packages/effect/test/schema/Schema.test.ts	6570	it	a	template_literal_anchor_then_non_empty_string
+not-applicable	packages/effect/test/schema/Schema.test.ts	6590	it	a	the row asserts a construction-time throw for a part that carries an encoding (FiniteFromString); TemplatePart has no transformation variant, so the refusal is a type error and there is no runtime path to assert
 unported	packages/effect/test/schema/Schema.test.ts	6599	it	should expose the parts	
 ported	packages/effect/test/schema/Schema.test.ts	6605	it	preserves greedy segmentation at repeated literal anchors	greedy_segmentation_at_repeated_anchors
 ported	packages/effect/test/schema/Schema.test.ts	6612	it	backtracks from an invalid literal anchor	backtracks_from_an_invalid_literal_anchor

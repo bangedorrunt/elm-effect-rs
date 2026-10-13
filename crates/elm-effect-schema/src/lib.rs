@@ -2356,8 +2356,20 @@ pub enum TemplatePart {
     NonEmptyString,
     /// A leading integer (`-`? digits).
     Int,
-    /// A literal anchor matched verbatim.
+    /// A number as the pin's `Number` part reads one out of text: a sign,
+    /// digits, an optional fraction and an optional exponent, so `a1`, `a+1`,
+    /// `a1.2` and `a1.5e-45` are all this part and `a` is not.
+    Number,
+    /// A bigint: an optional `-` and digits. `a+1` and `a1.2` are not this
+    /// part, which is what the pin's BigInt rows assert against them.
+    Digits,
+    /// A literal matched verbatim.
     Anchor(String),
+    /// Any one of these alternatives, tried in order: how a `Literals` part, a
+    /// union in a part, and a nested `TemplateLiteral` all arrive here. Each
+    /// alternative is a whole sequence of parts, so a nested template is one
+    /// alternative rather than a new kind of part.
+    OneOf(Vec<Vec<TemplatePart>>),
 }
 
 /// A template-literal parser: a sequence of spans and anchors matched
@@ -2378,6 +2390,19 @@ impl TemplateParser {
     pub fn parse(&self, input: &str) -> Option<Vec<Unknown>> {
         let mut captures = Vec::new();
         Self::match_parts(&self.parts, input, &mut captures).then_some(captures)
+    }
+
+    /// Whether the input matches the parts, keeping no captures. A
+    /// `TemplateLiteral` validates a string and hands the same string back, so
+    /// it needs this walk and none of its output.
+    pub fn matches(&self, input: &str) -> bool {
+        let mut captures = Vec::new();
+        Self::match_parts(&self.parts, input, &mut captures)
+    }
+
+    /// The parts this parser was built from (`TemplateLiteral.parts`).
+    pub fn parts(&self) -> &[TemplatePart] {
+        &self.parts
     }
 
     /// Render captures back to a string (encoding axis).
@@ -2414,7 +2439,10 @@ impl TemplateParser {
             }
             span => {
                 let min = match span {
-                    &TemplatePart::NonEmptyString | &TemplatePart::Int => 1,
+                    &TemplatePart::NonEmptyString
+                    | &TemplatePart::Int
+                    | &TemplatePart::Number
+                    | &TemplatePart::Digits => 1,
                     _ => 0,
                 };
                 let mut end = input.len();
@@ -2458,8 +2486,70 @@ fn check_span(span: &TemplatePart, head: &str) -> Option<Unknown> {
         TemplatePart::AnyString => Some(Unknown::Text(head.to_string())),
         TemplatePart::NonEmptyString => (!head.is_empty()).then(|| Unknown::Text(head.to_string())),
         TemplatePart::Int => parse_int(head).map(Unknown::Number),
+        TemplatePart::Number => parse_number(head).map(Unknown::Number),
+        TemplatePart::Digits => parse_digits(head).map(Unknown::Text),
+        // The span is already the whole candidate, so an alternative either
+        // matches it entirely or does not. Its capture is the text itself; the
+        // pin's parser rows are what say whether a literal part should capture
+        // its own value instead.
+        TemplatePart::OneOf(ref alternatives) => alternatives
+            .iter()
+            .any(|sequence| TemplateParser::match_parts(sequence, head, &mut Vec::new()))
+            .then(|| Unknown::Text(head.to_string())),
         TemplatePart::Anchor(_) => None,
     }
+}
+
+/// A number in the grammar the pin's `Number` part accepts: a sign, at least one
+/// digit, an optional fraction with at least one digit, and an optional
+/// exponent with at least one digit. Both cases of `e` count.
+fn parse_number(head: &str) -> Option<f64> {
+    let bytes = head.as_bytes();
+    let mut index = 0;
+    if matches!(bytes.first(), Some(b'+') | Some(b'-')) {
+        index += 1;
+    }
+    let integer_start = index;
+    while index < bytes.len() && bytes[index].is_ascii_digit() {
+        index += 1;
+    }
+    if index == integer_start {
+        return None;
+    }
+    if bytes.get(index) == Some(&b'.') {
+        index += 1;
+        let fraction_start = index;
+        while index < bytes.len() && bytes[index].is_ascii_digit() {
+            index += 1;
+        }
+        if index == fraction_start {
+            return None;
+        }
+    }
+    if matches!(bytes.get(index), Some(b'e') | Some(b'E')) {
+        index += 1;
+        if matches!(bytes.get(index), Some(b'+') | Some(b'-')) {
+            index += 1;
+        }
+        let exponent_start = index;
+        while index < bytes.len() && bytes[index].is_ascii_digit() {
+            index += 1;
+        }
+        if index == exponent_start {
+            return None;
+        }
+    }
+    if index != bytes.len() {
+        return None;
+    }
+    head.parse::<f64>().ok()
+}
+
+/// A bigint as text: an optional `-` and digits, and nothing else.
+fn parse_digits(head: &str) -> Option<String> {
+    let digits = head.strip_prefix('-').unwrap_or(head);
+    (!digits.is_empty() && digits.bytes().all(|byte| byte.is_ascii_digit()))
+        .then(|| head.to_string())
 }
 
 /// A leading integer: optional `-` plus digits, the longest valid prefix.
@@ -2470,6 +2560,37 @@ fn parse_int(head: &str) -> Option<f64> {
         return None;
     }
     head.parse::<f64>().ok()
+}
+
+impl Schema<String> {
+    /// A template literal (`Schema.TemplateLiteral`): a string schema that only
+    /// admits text matching every part, and hands the same text back. Distinct
+    /// from `template`, which is the pin's `TemplateLiteralParser` and yields
+    /// one capture per part.
+    pub fn template_literal(parts: Vec<TemplatePart>) -> Self {
+        let parser = TemplateParser::new(parts);
+        Self::new(
+            move |unknown| match unknown {
+                Unknown::Text(text) => {
+                    parser
+                        .matches(&text)
+                        .then_some(text)
+                        .ok_or_else(|| SchemaError::TypeMismatch {
+                            path: "$".to_string(),
+                            expected: "a string matching template literal parts",
+                            got: "no match",
+                        })
+                }
+                other => mismatch("$", "string", &other),
+            },
+            // Encoding is the identity on the text: the pin's TemplateLiteral
+            // carries no transformation, so there is nothing to render back.
+            // A text that would not decode cannot be built from a decode, and
+            // `encode` has no failure channel to report one.
+            move |value| Unknown::Text(value.clone()),
+            SchemaKind::Opaque("template-literal"),
+        )
+    }
 }
 
 impl Schema<Vec<Unknown>> {
