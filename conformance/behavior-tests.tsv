@@ -5582,8 +5582,8 @@ unported	packages/effect/test/cli/Command.test.ts	409	it.effect	should execute h
 unported	packages/effect/test/cli/Command.test.ts	431	it.effect	should handle nested config in handler	
 unported	packages/effect/test/cli/Command.test.ts	447	it.effect	should work with effectful handlers	
 unported	packages/effect/test/cli/Command.test.ts	466	it.effect	should work with option aliases in handler	
-unported	packages/effect/test/cli/Command.test.ts	481	it.effect	should merge repeated key=value flags into a single record	
-unported	packages/effect/test/cli/Command.test.ts	506	it.effect	should merge key=value flags even when interleaved with other options	
+ported	packages/effect/test/cli/Command.test.ts	481	it.effect	should merge repeated key=value flags into a single record	repeated_key_value_flags_merge_into_one_record
+ported	packages/effect/test/cli/Command.test.ts	506	it.effect	should merge key=value flags even when interleaved with other options	repeated_key_value_flags_merge_into_one_record
 unported	packages/effect/test/cli/Command.test.ts	542	it.effect	should expose setting global flags to command handlers	
 unported	packages/effect/test/cli/Command.test.ts	566	it.effect	should expose setting global flags with Flag.withDefault	
 unported	packages/effect/test/cli/Command.test.ts	590	it.effect	should configure built-in global flags per run	
@@ -5592,7 +5592,7 @@ unported	packages/effect/test/cli/Command.test.ts	653	it.effect	should reject ex
 unported	packages/effect/test/cli/Command.test.ts	679	it.effect	should expose setting global flags in Command.provide APIs	
 unported	packages/effect/test/cli/Command.test.ts	720	it.effect	should reject global flags that are out of scope for selected subcommand	
 unported	packages/effect/test/cli/Command.test.ts	759	it.effect	should show only path-active global flags in subcommand help	
-unported	packages/effect/test/cli/Command.test.ts	785	it.effect	should fail for malformed key=value flags	
+ported	packages/effect/test/cli/Command.test.ts	785	it.effect	should fail for malformed key=value flags	a_malformed_key_value_flag_is_refused_naming_the_value
 unported	packages/effect/test/cli/Command.test.ts	814	it.effect	should handle parsing errors from run	
 unported	packages/effect/test/cli/Command.test.ts	834	it.effect	should propagate handler errors from run	
 unported	packages/effect/test/cli/Command.test.ts	840	it.effect	should render and rethrow UserError handler failures without help	

@@ -8,7 +8,10 @@ use elm_effect_unstable::ai::{
 use elm_effect_unstable::cli::{CliApp, CliError, FlagDef, demo_app, parse};
 use elm_effect_unstable::cli_ai::CliError as WizardCliError;
 use elm_effect_unstable::cli::primitive;
-use elm_effect_unstable::cli_ai::{Arg, Command, WizardStep, flag_arg, wizard_argv, wizard_plan};
+use std::collections::BTreeMap;
+use elm_effect_unstable::cli_ai::{
+    Arg, Command, WizardStep, flag_arg, merge_key_values, option_runs, wizard_argv, wizard_plan,
+};
 
 fn argv(words: &[&str]) -> Vec<String> {
     words.iter().map(|s| s.to_string()).collect()
@@ -1696,5 +1699,66 @@ fn a_valued_flag_without_its_value_is_refused_naming_the_flag() {
         // The refusal is the missing value, not an unknown flag.
         assert!(matches!(error, WizardCliError::Missing(_)), "{name}: {printed}");
         let _ = expected;
+    }
+}
+
+/// Command.test.ts:481, :506 — a repeated key=value flag merges into ONE
+/// record, and the merge holds when other options are interleaved with the
+/// repetitions.
+#[test]
+fn repeated_key_value_flags_merge_into_one_record() {
+    let command = Command::new(
+        "env",
+        "env command",
+        vec![
+            Arg::Opt {
+                name: "env".to_string(),
+                help: "environment".to_string(),
+                required: false,
+            },
+            Arg::Opt {
+                name: "profile".to_string(),
+                help: "profile".to_string(),
+                required: false,
+            },
+            Arg::Flag {
+                name: "verbose".to_string(),
+                help: "verbose".to_string(),
+            },
+        ],
+    );
+    let argv = vec![
+        "--env".to_string(),
+        "foo=bar".to_string(),
+        "--profile".to_string(),
+        "dev".to_string(),
+        "--env".to_string(),
+        "cool=dude".to_string(),
+        "--verbose".to_string(),
+        "--env".to_string(),
+        "zip=zop".to_string(),
+    ];
+    let (_, parsed) = command.parse(&argv).expect("parses");
+    assert_eq!(parsed.opt("profile"), Some("dev"));
+    assert!(parsed.flag("verbose"));
+    let record = merge_key_values(&option_runs(&parsed, "env")).expect("each pair is well formed");
+    assert_eq!(
+        record,
+        BTreeMap::from([
+            ("foo".to_string(), "bar".to_string()),
+            ("cool".to_string(), "dude".to_string()),
+            ("zip".to_string(), "zop".to_string()),
+        ])
+    );
+}
+
+/// Command.test.ts:785 — a malformed key=value flag is refused naming the
+/// value, so no record is produced from it.
+#[test]
+fn a_malformed_key_value_flag_is_refused_naming_the_value() {
+    for bad in ["invalid", "=novalue", "nokey="] {
+        let error = merge_key_values(&[bad.to_string()]).expect_err("malformed");
+        assert!(error.contains("Invalid key=value format"), "{bad}: {error}");
+        assert!(error.contains(bad), "{bad}: {error}");
     }
 }

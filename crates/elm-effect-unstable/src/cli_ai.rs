@@ -467,3 +467,29 @@ pub fn wizard_plan(command: &Command) -> Vec<WizardStep> {
     }
     steps
 }
+
+/// Merge the repeated values of a key=value flag into one record.
+///
+/// Each value is `key=value` on its first `=`; a value with no `=` (or with an
+/// empty side) is refused naming it, which is what makes a malformed pair a
+/// failure rather than a silently skipped entry. Later values win on a
+/// repeated key, and the record comes back in key order.
+pub fn merge_key_values(values: &[String]) -> Result<BTreeMap<String, String>, String> {
+    let mut record = BTreeMap::new();
+    for value in values {
+        let (key, item) = crate::cli::primitive::parse_key_value(value)?;
+        record.insert(key, item);
+    }
+    Ok(record)
+}
+
+/// The values of a repeated option, in the order they were given.
+pub fn option_runs(parsed: &Parsed, name: &str) -> Vec<String> {
+    let mut out = Vec::new();
+    let mut index = 0;
+    while let Some(value) = parsed.opt_at(name, index) {
+        out.push(value.to_string());
+        index += 1;
+    }
+    out
+}
