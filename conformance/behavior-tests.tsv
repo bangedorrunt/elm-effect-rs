@@ -2866,7 +2866,7 @@ ported	packages/effect/test/Pathfinding.test.ts	40	it	should find paths using Be
 ported	packages/effect/test/Pathfinding.test.ts	53	it	should find paths using A* algorithm	astar_finds_cheapest_detour
 ported	packages/effect/test/Pool.test.ts	11	it.effect	preallocates pool items	pool_preallocates_idle_values
 unported	packages/effect/test/Pool.test.ts	35	it.effect	cleans up items when shut down	
-unported	packages/effect/test/Pool.test.ts	50	it.effect	defects don't prevent cleanup	
+ported	packages/effect/test/Pool.test.ts	50	it.effect	defects don't prevent cleanup	invalidate_drops_a_broken_item_without_returning_it
 ported	packages/effect/test/Pool.test.ts	65	it.effect	acquire one item	pool_releases_idle_extras
 unported	packages/effect/test/Pool.test.ts	78	it.effect	keeps failed background capacity until a borrower reaches it	
 ported	packages/effect/test/Pool.test.ts	116	it.live	blocks when item not available	pool_blocks_while_exhausted
@@ -2883,7 +2883,7 @@ unported	packages/effect/test/Pool.test.ts	338	it.effect	releasing a shared borr
 unported	packages/effect/test/Pool.test.ts	359	it.effect	overlapping reservations keep an item reserved until both close	
 unported	packages/effect/test/Pool.test.ts	385	it.effect	releasing a reservation wakes all available slots after borrowers return	
 unported	packages/effect/test/Pool.test.ts	410	it.effect	usage TTL reclaim skips reserved items	
-unported	packages/effect/test/Pool.test.ts	442	it.effect	reserve is a no-op with concurrency one	
+ported	packages/effect/test/Pool.test.ts	442	it.effect	reserve is a no-op with concurrency one	reserve_takes_the_item_out_of_circulation_permanently
 ported	packages/effect/test/Pool.test.ts	459	it.each	reservation cleanup does not revive removed items (shutdown: %s)	pool_reserve_removes_item_permanently
 unported	packages/effect/test/Pool.test.ts	499	it.effect	scale to zero	
 unported	packages/effect/test/Pool.test.ts	531	it.effect	max pool size creation strategy	
@@ -2893,7 +2893,7 @@ unported	packages/effect/test/Pool.test.ts	599	it.effect	get is interruptible
 unported	packages/effect/test/Pool.test.ts	614	it.effect	get is interruptible with dynamic size	
 unported	packages/effect/test/Pool.test.ts	625	it.effect	interrupts pending gets without leaking usage	
 unported	packages/effect/test/Pool.test.ts	642	it.effect	does not re-wake waiters registered during notification	
-unported	packages/effect/test/Pool.test.ts	662	it.effect	use borrows and returns an item	
+ported	packages/effect/test/Pool.test.ts	662	it.effect	use borrows and returns an item	acquire_reuses_an_idle_value_before_making_another
 unported	packages/effect/test/Pool.test.ts	686	it.effect	use releases the item on failure	
 unported	packages/effect/test/Pool.test.ts	694	it.effect	use releases the item on interruption	
 unported	packages/effect/test/Pool.test.ts	707	it.effect	an interrupted use returns its lease	
