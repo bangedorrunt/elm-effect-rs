@@ -5,9 +5,10 @@
 //! single-route dispatch, and 404 fallback; headers/cookies/etag ride the
 //! client side (already green there).
 //!
-//! Residuals: TLS, scoped-IPv6 guards, keep-alive pipelining, chunked
-//! request bodies, router middleware, and graceful drain.
+//! Residuals: TLS, keep-alive pipelining, chunked request bodies, router
+//! middleware, and graceful drain.
 
+use crate::net::{NetAddress, NetworkError};
 use elm_effect::{Cause, Reason};
 use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Write};
@@ -170,6 +171,25 @@ impl HttpServer {
         }
         Ok(out)
     }
+}
+
+/// The origin a test client prefixes requests with, mirroring
+/// `HttpServer.makeTestClient`: the address becomes a URL first, so a scoped
+/// IPv6 address is refused with the address as the error's input rather than
+/// formatted with its scope dropped, since the scope is what makes it
+/// reachable. An unspecified listener becomes IPv4 loopback, so the origin
+/// points at a host the test can reach.
+pub fn test_client_origin(address: &NetAddress) -> Result<String, NetworkError> {
+    let url = address.to_url("http")?;
+    Ok(match address {
+        NetAddress::Inet(socket) if socket.ip().is_unspecified() => match socket.port() {
+            80 => "http://127.0.0.1".to_owned(),
+            port => format!("http://127.0.0.1:{port}"),
+        },
+        // `to_url` keeps a default port out of the URL, so only the trailing
+        // slash separates it from the origin a client wants.
+        _ => url.trim_end_matches('/').to_owned(),
+    })
 }
 
 /// Match a route pattern against a request path.

@@ -6656,7 +6656,7 @@ unported	packages/effect/test/http/HttpRouter.test.ts	67	it.effect	nests a prefi
 unported	packages/effect/test/http/HttpRouter.test.ts	78	it.effect	nests a prefixRoute prefix beneath a prefixed parent router	
 ported	packages/effect/test/http/HttpServer.test.ts	9	it	accepts a canonical socket address	binds_loopback_and_serves_one_route
 ported	packages/effect/test/http/HttpServer.test.ts	19	it.effect	passes formatted server addresses to the callback	binds_loopback_and_serves_one_route
-unported	packages/effect/test/http/HttpServer.test.ts	55	it.effect	rejects scoped IPv6 test server addresses before dropping their scope	
+ported	packages/effect/test/http/HttpServer.test.ts	55	it.effect	rejects scoped IPv6 test server addresses before dropping their scope	test_client_refuses_a_scoped_ipv6_address_before_dropping_the_scope
 ported	packages/effect/test/http/HttpServer.test.ts	73	it.effect	uses IPv4 loopback for unspecified listeners and preserves explicit hosts	explicit_host_is_preserved
 ported	packages/effect/test/http/HttpServerError.test.ts	23	it	formats request reason messages	server_error_formats_request_reason_messages
 ported	packages/effect/test/http/HttpServerError.test.ts	35	it	formats response reason messages	server_error_formats_response_reason_messages

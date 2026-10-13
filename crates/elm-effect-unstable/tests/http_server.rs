@@ -4,8 +4,9 @@ use elm_effect::Cause;
 use elm_effect::Reason;
 use elm_effect_unstable::http_server::{
     HttpServer, HttpServerError, Response, ServerErrorReason, ServerRequest, ServerResponse,
-    cause_response_stripped, is_http_server_error, to_response_or_else,
+    cause_response_stripped, is_http_server_error, test_client_origin, to_response_or_else,
 };
+use elm_effect_unstable::net::{NetAddress, NetworkErrorInput};
 use std::io::{BufRead, BufReader, Write};
 use std::net::TcpStream;
 
@@ -604,6 +605,33 @@ fn server_respondable_to_response_or_else_falls_back() {
     // A response passes through untouched.
     let response = Response::empty(418);
     assert_eq!(to_response_or_else(&response, fallback), response);
+}
+
+#[test]
+fn test_client_refuses_a_scoped_ipv6_address_before_dropping_the_scope() {
+    // HttpServer.test.ts:55 — `makeTestClient` builds the request URL from the
+    // server address, so an address carrying a scope id fails there with the
+    // address as the error's input. Row :19 shows the formatter dropping a zero
+    // scope; this is the case where dropping it would leave the address
+    // unreachable, so it must not be formatted at all.
+    for input in ["[fe80::1%2]:3000", "[::%2]:3000"] {
+        let address = NetAddress::inet_address_from_string_unsafe(input);
+        let err = test_client_origin(&address).expect_err("a scoped address is refused");
+        assert_eq!(err.tag, "NetAddressError");
+        assert_eq!(err.input, NetworkErrorInput::Address(address));
+    }
+    // The scope id is the whole reason: the same address without it resolves.
+    let plain = NetAddress::inet_address_from_string_unsafe("[fe80::1]:3000");
+    assert_eq!(
+        test_client_origin(&plain).expect("unscoped address"),
+        "http://[fe80::1]:3000"
+    );
+    // An unspecified listener still becomes IPv4 loopback, as in the pin.
+    let unspecified = NetAddress::inet_address_from_string_unsafe("[::%0]:8080");
+    assert_eq!(
+        test_client_origin(&unspecified).expect("unspecified listener"),
+        "http://127.0.0.1:8080"
+    );
 }
 
 #[test]
