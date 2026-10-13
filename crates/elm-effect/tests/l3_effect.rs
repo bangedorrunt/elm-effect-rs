@@ -741,3 +741,33 @@ fn unwrap_reason_preserves_other_errors() {
         Exit::Success(_) => panic!("a non-matching parent must pass through"),
     }
 }
+
+/// `map_err` narrows the typed failure channel and nothing else. A defect is
+/// not a typed failure and neither is an interrupt, so both ride through
+/// `Cause::map` verbatim: this is the half of the static-interpreter seam
+/// (`provide_from` + `map_err`) that keeps the four outcomes apart, because
+/// an interpreter translates its program's `Err` without ever re-labelling
+/// the defect of a service that was never built.
+#[test]
+fn map_err_leaves_defects_and_interrupts_untouched() {
+    let defect = Defect::new("boom");
+    match Runtime::run(Effect::<(), Problem>::die(defect.clone()).map_err(unwrap)) {
+        Exit::Failure(cause) => {
+            assert_eq!(cause.failure(), None, "a defect is not a typed failure");
+            assert_eq!(cause.defects(), vec![&defect], "the defect survives verbatim");
+        }
+        other => panic!("a defect must stay a defect, got {other:?}"),
+    }
+    match Runtime::run(Effect::<(), Problem>::interrupt().map_err(unwrap)) {
+        Exit::Failure(cause) => {
+            assert_eq!(cause.failure(), None, "an interrupt is not a typed failure");
+            assert!(cause.defects().is_empty(), "an interrupt is not a defect");
+            assert!(
+                cause.reasons.iter().any(|reason| matches!(reason, Reason::Interrupt { .. })),
+                "the interrupt survives verbatim, got {:?}",
+                cause.reasons
+            );
+        }
+        other => panic!("an interrupt must stay an interrupt, got {other:?}"),
+    }
+}
