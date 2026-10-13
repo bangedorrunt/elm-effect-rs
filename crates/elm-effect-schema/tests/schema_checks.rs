@@ -5,10 +5,26 @@
 //! Encode-side rejections are not reproduced: this crate's `encode` is total,
 //! the same convention the declaration cells use.
 
-use elm_effect_schema::{Schema, Unknown};
+use std::collections::BTreeMap;
+
+use elm_effect_schema::{Field, Schema, Unknown};
 
 fn number(value: f64) -> Unknown {
     Unknown::Number(value)
+}
+
+fn obj(pairs: &[(&str, Unknown)]) -> Unknown {
+    Unknown::Object(
+        pairs
+            .iter()
+            .map(|(key, value)| (key.to_string(), value.clone()))
+            .collect(),
+    )
+}
+
+/// The pin's `Record(String, Finite)`: an open object of numbers.
+fn record_of_numbers() -> Schema<Unknown> {
+    Schema::as_unknown(Schema::record(Schema::as_unknown(Schema::number())))
 }
 
 /// The pin's `Schema.Int`: a number that is whole.
@@ -96,6 +112,105 @@ fn is_between_excludes_the_minimum() {
     assert_eq!(schema.decode(number(3.0)).unwrap(), number(3.0));
     assert!(schema.decode(number(0.0)).is_err());
     assert!(schema.decode(number(4.0)).is_err());
+}
+
+/// Schema.test.ts:1940 `isMinProperties`.
+#[test]
+fn is_min_properties_counts_entries() {
+    let schema = Schema::checked(record_of_numbers(), "isMinProperties", vec!["1"], vec![]);
+
+    assert!(
+        schema
+            .decode(obj(&[("a", number(1.0)), ("b", number(2.0))]))
+            .is_ok()
+    );
+    assert!(schema.decode(Unknown::Object(BTreeMap::new())).is_err());
+}
+
+/// Schema.test.ts:1952 `isMaxProperties`.
+#[test]
+fn is_max_properties_counts_entries() {
+    let schema = Schema::checked(record_of_numbers(), "isMaxProperties", vec!["2"], vec![]);
+
+    assert!(
+        schema
+            .decode(obj(&[("a", number(1.0)), ("b", number(2.0))]))
+            .is_ok()
+    );
+    assert!(
+        schema
+            .decode(obj(&[
+                ("a", number(1.0)),
+                ("b", number(2.0)),
+                ("c", number(3.0))
+            ]))
+            .is_err()
+    );
+}
+
+/// Schema.test.ts:2000 `isBetweenProperties`.
+#[test]
+fn is_between_properties_counts_entries() {
+    let schema = Schema::checked(
+        record_of_numbers(),
+        "isBetweenProperties",
+        vec!["2", "2"],
+        vec![],
+    );
+
+    assert!(
+        schema
+            .decode(obj(&[("a", number(1.0)), ("b", number(2.0))]))
+            .is_ok()
+    );
+    // The pin's second success case: its odd keys are ordinary string keys here.
+    assert!(
+        schema
+            .decode(obj(&[("__proto__", number(0.0)), ("", number(0.0))]))
+            .is_ok()
+    );
+    assert!(schema.decode(obj(&[("a", number(1.0))])).is_err());
+    assert!(
+        schema
+            .decode(obj(&[
+                ("a", number(1.0)),
+                ("b", number(2.0)),
+                ("c", number(3.0))
+            ]))
+            .is_err()
+    );
+}
+
+/// Schema.test.ts:2068 `UniqueArray`.
+#[test]
+fn unique_array_rejects_structural_duplicates() {
+    let item = Schema::as_unknown(Schema::struct_shape(vec![
+        Field::required("a", Schema::as_unknown(Schema::string())),
+        Field::required("b", Schema::as_unknown(Schema::string())),
+    ]));
+    let schema = Schema::checked(
+        Schema::as_unknown(Schema::array(item)),
+        "isUnique",
+        vec![],
+        vec![],
+    );
+
+    let row = |a: &str, b: &str| {
+        obj(&[
+            ("a", Unknown::Text(a.to_string())),
+            ("b", Unknown::Text(b.to_string())),
+        ])
+    };
+    assert!(
+        schema
+            .decode(Unknown::Array(vec![row("a", "b"), row("c", "d")]))
+            .is_ok()
+    );
+    assert!(
+        schema
+            .decode(Unknown::Array(vec![row("a", "b"), row("a", "b")]))
+            .is_err()
+    );
 }
 
 /// Schema.test.ts:1762 `excluded & excluded`.

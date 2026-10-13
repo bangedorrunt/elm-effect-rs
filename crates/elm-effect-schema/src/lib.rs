@@ -3124,10 +3124,17 @@ impl Schema<Unknown> {
         let encode_inner = inner.clone();
         let mut out = Self::new(
             move |unknown| {
-                let holds = if name_owned == "isBetween" {
-                    between_holds(&bounds, exclusive_minimum, exclusive_maximum, &unknown)
-                } else {
-                    check_holds(&name_owned, limit, &unknown)
+                let holds = match name_owned.as_str() {
+                    "isBetween" => {
+                        between_holds(&bounds, exclusive_minimum, exclusive_maximum, &unknown)
+                    }
+                    "isBetweenProperties" => between_properties_holds(
+                        &bounds,
+                        exclusive_minimum,
+                        exclusive_maximum,
+                        &unknown,
+                    ),
+                    _ => check_holds(&name_owned, limit, &unknown),
                 };
                 if !holds {
                     return Err(SchemaError::TypeMismatch {
@@ -3201,12 +3208,42 @@ fn check_holds_arg(name: &str, arg: Option<&str>, value: &Unknown) -> bool {
     check_holds(name, limit, value)
 }
 
-/// Whether a number satisfies `isBetween`: both bounds by default, each
-/// including its endpoint unless the check marks it exclusive. The two bounds
-/// ride the check's argument list in order, and exclusivity rides its
-/// annotation, which is where a check keeps the flags a repr would print.
-/// A value that is not a number is left to the base schema, like every other
-/// check here.
+/// Whether an amount sits between two bounds: each includes its endpoint
+/// unless the check marks it exclusive, and a missing bound leaves that side
+/// open.
+fn bounds_hold(
+    bounds: &[f64],
+    exclusive_minimum: bool,
+    exclusive_maximum: bool,
+    amount: f64,
+) -> bool {
+    if let Some(minimum) = bounds.first() {
+        let included = if exclusive_minimum {
+            amount > *minimum
+        } else {
+            amount >= *minimum
+        };
+        if !included {
+            return false;
+        }
+    }
+    if let Some(maximum) = bounds.get(1) {
+        let included = if exclusive_maximum {
+            amount < *maximum
+        } else {
+            amount <= *maximum
+        };
+        if !included {
+            return false;
+        }
+    }
+    true
+}
+
+/// Whether a number satisfies `isBetween`. The two bounds ride the check's
+/// argument list in order, and exclusivity rides its annotation, which is where
+/// a check keeps the flags a repr would print. A value that is not a number is
+/// left to the base schema, like every other check here.
 fn between_holds(
     bounds: &[f64],
     exclusive_minimum: bool,
@@ -3216,27 +3253,21 @@ fn between_holds(
     let Unknown::Number(number) = value else {
         return true;
     };
-    if let Some(minimum) = bounds.first() {
-        let included = if exclusive_minimum {
-            *number > *minimum
-        } else {
-            *number >= *minimum
-        };
-        if !included {
-            return false;
-        }
-    }
-    if let Some(maximum) = bounds.get(1) {
-        let included = if exclusive_maximum {
-            *number < *maximum
-        } else {
-            *number <= *maximum
-        };
-        if !included {
-            return false;
-        }
-    }
-    true
+    bounds_hold(bounds, exclusive_minimum, exclusive_maximum, *number)
+}
+
+/// Whether an object satisfies `isBetweenProperties`: the same bounds, over its
+/// entry count. A value that is not an object is left to the base schema.
+fn between_properties_holds(
+    bounds: &[f64],
+    exclusive_minimum: bool,
+    exclusive_maximum: bool,
+    value: &Unknown,
+) -> bool {
+    let Unknown::Object(map) = value else {
+        return true;
+    };
+    bounds_hold(bounds, exclusive_minimum, exclusive_maximum, map.len() as f64)
 }
 
 fn check_holds(name: &str, limit: Option<f64>, value: &Unknown) -> bool {
@@ -3264,7 +3295,14 @@ fn check_holds(name: &str, limit: Option<f64>, value: &Unknown) -> bool {
         }
         ("isMinLength", Some(min), Unknown::Array(items)) => items.len() as f64 >= min,
         ("isMaxLength", Some(max), Unknown::Array(items)) => items.len() as f64 <= max,
-        ("isUnique", _, Unknown::Array(_)) => true,
+        ("isMinProperties", Some(min), Unknown::Object(map)) => map.len() as f64 >= min,
+        ("isMaxProperties", Some(max), Unknown::Object(map)) => map.len() as f64 <= max,
+        // Structural equality: two entries are duplicates when their unknown
+        // values are equal, which for objects and arrays is deep equality.
+        ("isUnique", _, Unknown::Array(items)) => items
+            .iter()
+            .enumerate()
+            .all(|(index, item)| !items[..index].contains(item)),
         _ => true,
     }
 }

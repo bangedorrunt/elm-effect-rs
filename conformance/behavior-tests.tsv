@@ -7639,15 +7639,15 @@ not-applicable	packages/effect/test/schema/Schema.test.ts	1888	it	isGreaterThan	
 not-applicable	packages/effect/test/schema/Schema.test.ts	1900	it	isGreaterThanOrEqualTo	the row's value is a JavaScript BigInt (5n); the port's Unknown holds null, booleans, numbers, text, arrays and objects, so both the success and the failure case are unrepresentable
 not-applicable	packages/effect/test/schema/Schema.test.ts	1913	it	isLessThan	the row's value is a JavaScript BigInt (5n); the port's Unknown holds null, booleans, numbers, text, arrays and objects, so both the success and the failure case are unrepresentable
 not-applicable	packages/effect/test/schema/Schema.test.ts	1925	it	isLessThanOrEqualTo	the row's value is a JavaScript BigInt (5n); the port's Unknown holds null, booleans, numbers, text, arrays and objects, so both the success and the failure case are unrepresentable
-unported	packages/effect/test/schema/Schema.test.ts	1940	it	isMinProperties	
-unported	packages/effect/test/schema/Schema.test.ts	1952	it	isMaxProperties	
-unported	packages/effect/test/schema/Schema.test.ts	1968	it	isMinProperties with symbol keys	
-unported	packages/effect/test/schema/Schema.test.ts	1983	it	isMaxProperties with symbol keys	
-unported	packages/effect/test/schema/Schema.test.ts	2000	it	isBetweenProperties	
-unported	packages/effect/test/schema/Schema.test.ts	2017	it	isBetweenProperties with symbol keys	
+ported	packages/effect/test/schema/Schema.test.ts	1940	it	isMinProperties	is_min_properties_counts_entries
+ported	packages/effect/test/schema/Schema.test.ts	1952	it	isMaxProperties	is_max_properties_counts_entries
+not-applicable	packages/effect/test/schema/Schema.test.ts	1968	it	isMinProperties with symbol keys	the row's keys are JavaScript symbols; the port's Unknown object holds string keys only, so neither a count that includes a symbol key nor its failure is representable
+not-applicable	packages/effect/test/schema/Schema.test.ts	1983	it	isMaxProperties with symbol keys	the row's keys are JavaScript symbols; the port's Unknown object holds string keys only, so neither a count that includes a symbol key nor its failure is representable
+ported	packages/effect/test/schema/Schema.test.ts	2000	it	isBetweenProperties	is_between_properties_counts_entries
+not-applicable	packages/effect/test/schema/Schema.test.ts	2017	it	isBetweenProperties with symbol keys	the row's keys are JavaScript symbols; the port's Unknown object holds string keys only, so neither a count that includes a symbol key nor its failure is representable
 unported	packages/effect/test/schema/Schema.test.ts	2038	it	isPropertyNames	
 unported	packages/effect/test/schema/Schema.test.ts	2053	it	isPropertyNames with Never	
-unported	packages/effect/test/schema/Schema.test.ts	2068	it	UniqueArray	
+ported	packages/effect/test/schema/Schema.test.ts	2068	it	UniqueArray	unique_array_rejects_structural_duplicates
 unported	packages/effect/test/schema/Schema.test.ts	2085	it	Finite	
 unported	packages/effect/test/schema/Schema.test.ts	2094	it	NumberFromString	
 unported	packages/effect/test/schema/Schema.test.ts	2120	it	DateFromString	
