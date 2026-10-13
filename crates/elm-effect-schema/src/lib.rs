@@ -429,6 +429,22 @@ fn filter_by_checks(values: Vec<Unknown>, checks: &[Check]) -> Vec<Unknown> {
         .collect()
 }
 
+/// Whether an exact value fits a base kind. A base that names a type admits
+/// only values of that type, so an `enum` member of another type is dropped by
+/// the intersection rather than kept: `{ type: "boolean", allOf: [{ const: 1 }] }`
+/// is `never`, and a mixed enum under a string base keeps its strings.
+fn value_fits_kind(kind: &SchemaKind, value: &Unknown) -> bool {
+    match kind {
+        SchemaKind::String => matches!(value, Unknown::Text(_)),
+        SchemaKind::Number => matches!(value, Unknown::Number(_)),
+        SchemaKind::Boolean => matches!(value, Unknown::Bool(_)),
+        SchemaKind::Opaque("null") => matches!(value, Unknown::Null),
+        // A base with no type of its own (the open JSON value, a literal union,
+        // a struct) admits whatever the values are.
+        _ => true,
+    }
+}
+
 /// Raise a base kind, its checks and its leading annotations back into one kind.
 /// The decode of the result is the base's decode plus every check's predicate,
 /// so a rebuilt schema enforces what the schemas it was built from enforced.
@@ -2872,14 +2888,33 @@ impl Schema<Unknown> {
         // values that satisfy it. Either side may carry the values, so both are
         // tried. A side that names a different base has no compatible member.
         if let Some(values) = exact_values(&member_kind) {
-            let kept = filter_by_checks(values, &base_checks);
-            return Ok(literal_union(kept));
+            // The base's own type also decides: a value the base cannot hold is
+            // not a surviving value, which is what makes a mixed enum under a
+            // string base keep its strings alone.
+            let kept = filter_by_checks(values, &base_checks)
+                .into_iter()
+                .filter(|value| value_fits_kind(&base_kind, value))
+                .collect();
+            // The member's own annotation rides the values that survived it.
+            // The base's annotation went with the base kind the values
+            // replaced, which is why only the member's description survives.
+            let union = literal_union(kept);
+            return Ok(if member_annotation.is_empty() {
+                union
+            } else {
+                Schema::annotated_with(union, member_annotation)
+            });
         }
         // The other direction: the base holds the values and the member holds
         // the refinement. A member whose own base is `never` — an `anyOf` with no
         // compatible member — leaves nothing.
         if let Some(values) = exact_values(&base_kind) {
-            let kept = filter_by_checks(values, &member_checks);
+            // The refining member's own type decides too, by the same rule the
+            // other direction uses: a value it cannot hold does not survive.
+            let kept = filter_by_checks(values, &member_checks)
+                .into_iter()
+                .filter(|value| value_fits_kind(&member_kind, value))
+                .collect();
             return Ok(literal_union(kept));
         }
         // The base is the side that names a type, so an untyped one defers to
@@ -3300,6 +3335,53 @@ impl Schema<Unknown> {
                     },
                     doc,
                 )
+            }
+            // An array of type names is a union of the types it names, each
+            // carrying the document's own refinements, which is how
+            // `{ type: ["string", "null"] }` becomes a two-member union.
+            Some(serde_json::Value::Array(names)) => {
+                let mut members: Vec<Schema<Unknown>> = Vec::new();
+                for name in names {
+                    let Some(name) = name.as_str() else {
+                        return Err(SchemaError::TypeMismatch {
+                            path: "$.type".to_string(),
+                            expected: "a type name",
+                            got: "a non-string member",
+                        });
+                    };
+                    // Each member is the same document with its own type name,
+                    // so a refinement the document carries applies to every
+                    // member that can hold it. The document-level annotations
+                    // are not one of those: they ride the union rather than
+                    // each member, so they come out of the member's copy.
+                    let mut single = doc.clone();
+                    if let Some(object) = single.as_object_mut() {
+                        object.insert(
+                            "type".to_string(),
+                            serde_json::Value::String(name.to_string()),
+                        );
+                        for key in ["title", "description", "format"] {
+                            object.remove(key);
+                        }
+                    }
+                    members.push(Self::import(&single)?);
+                }
+                if members.is_empty() {
+                    return Err(SchemaError::TypeMismatch {
+                        path: "$.type".to_string(),
+                        expected: "at least one type name",
+                        got: "an empty array",
+                    });
+                }
+                // The annotation wraps rather than rebuilds, so the union's own
+                // decode survives it.
+                let pairs = Self::document_annotations(doc);
+                let union = Schema::union_with_mode(members, "anyOf");
+                Ok(if pairs.is_empty() {
+                    union
+                } else {
+                    Schema::annotated_with(union, pairs)
+                })
             }
             _ => Err(SchemaError::TypeMismatch {
                 path: "$.type".to_string(),

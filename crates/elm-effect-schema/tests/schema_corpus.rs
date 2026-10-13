@@ -2313,6 +2313,114 @@ fn json_schema_document_array_type_only_items_and_true_all_of_members() {
 }
 
 #[test]
+fn json_schema_document_imports_an_array_of_type_names_as_a_union() {
+    // fromJsonSchemaDocument.test.ts:1107 — an array of type names is a union
+    // of the types it names, and a document annotation rides the union rather
+    // than any one member.
+    use elm_effect_schema::{Schema, Unknown};
+
+    let plain = Schema::<Unknown>::from_json_schema(&serde_json::json!({
+        "type": ["string", "null"]
+    }))
+    .expect("imports");
+    assert_eq!(
+        plain.to_code(),
+        "Schema.Union([Schema.String, Schema.Null])"
+    );
+    assert_eq!(plain.to_type(), "string | null");
+    // The union still decodes both of its members, which is the part a union
+    // repr alone would not prove.
+    assert!(plain.decode(Unknown::Text("a".to_string())).is_ok());
+    assert!(plain.decode(Unknown::Null).is_ok());
+    assert!(plain.decode(Unknown::Number(1.0)).is_err());
+
+    let annotated = Schema::<Unknown>::from_json_schema(&serde_json::json!({
+        "type": ["string", "null"],
+        "description": "a"
+    }))
+    .expect("imports");
+    assert_eq!(
+        annotated.to_code(),
+        r#"Schema.Union([Schema.String, Schema.Null]).annotate({ "description": "a" })"#
+    );
+}
+
+#[test]
+fn json_schema_document_intersects_typed_bases_with_enums_and_literals() {
+    // fromJsonSchemaDocument.test.ts:2123, :2149, :2163, :2335, :2347, :2359 —
+    // a base that names a type meets an `enum` or a `const` by keeping the
+    // values that fit the base: a string base keeps its string members and
+    // drops a number one, a boolean base keeps booleans and refuses a number
+    // literal outright, and two boolean bases are one boolean. The member's
+    // own description rides the surviving literal.
+    use elm_effect_schema::{Schema, Unknown};
+
+    let cases: Vec<(serde_json::Value, &str)> = vec![
+        (
+            serde_json::json!({"type": "string", "allOf": [{"enum": ["a"]}]}),
+            r#"Schema.Literal("a")"#,
+        ),
+        (
+            serde_json::json!({
+                "type": "string",
+                "description": "a",
+                "allOf": [{"enum": ["a"], "description": "b"}]
+            }),
+            r#"Schema.Literal("a").annotate({ "description": "b" })"#,
+        ),
+        (
+            serde_json::json!({"type": "string", "allOf": [{"enum": ["a", "b"]}]}),
+            r#"Schema.Literals(["a", "b"])"#,
+        ),
+        (
+            serde_json::json!({"type": "string", "allOf": [{"enum": ["a", 1]}]}),
+            r#"Schema.Literal("a")"#,
+        ),
+        (
+            serde_json::json!({"type": "boolean", "allOf": [{"type": "boolean"}]}),
+            "Schema.Boolean",
+        ),
+        (
+            serde_json::json!({"type": "boolean", "allOf": [{"const": 1}]}),
+            "Schema.Never",
+        ),
+        (
+            serde_json::json!({"type": "boolean", "allOf": [{"enum": [true]}]}),
+            "Schema.Literal(true)",
+        ),
+        (
+            serde_json::json!({
+                "type": "boolean",
+                "description": "a",
+                "allOf": [{"enum": [true], "description": "b"}]
+            }),
+            r#"Schema.Literal(true).annotate({ "description": "b" })"#,
+        ),
+        (
+            serde_json::json!({"type": "number", "allOf": [{"enum": [1]}]}),
+            "Schema.Literal(1)",
+        ),
+        (
+            serde_json::json!({
+                "type": "number",
+                "description": "a",
+                "allOf": [{"enum": [1], "description": "b"}]
+            }),
+            r#"Schema.Literal(1).annotate({ "description": "b" })"#,
+        ),
+        (
+            serde_json::json!({"type": "number", "allOf": [{"enum": [1, 2]}]}),
+            "Schema.Literals([1, 2])",
+        ),
+    ];
+
+    for (doc, code) in cases {
+        let schema = Schema::<Unknown>::from_json_schema(&doc).expect("imports");
+        assert_eq!(schema.to_code(), code, "code for {doc:?}");
+    }
+}
+
+#[test]
 fn json_schema_document_literal_refinements_filter_through_both_orders() {
     // fromJsonSchemaDocument.test.ts:1827, :1831 — a refinement beside a
     // `const` filters that one value in either order, so the intersection is
