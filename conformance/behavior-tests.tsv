@@ -5594,7 +5594,7 @@ unported	packages/effect/test/cli/Command.test.ts	720	it.effect	should reject gl
 unported	packages/effect/test/cli/Command.test.ts	759	it.effect	should show only path-active global flags in subcommand help	
 ported	packages/effect/test/cli/Command.test.ts	785	it.effect	should fail for malformed key=value flags	a_malformed_key_value_flag_is_refused_naming_the_value
 unported	packages/effect/test/cli/Command.test.ts	814	it.effect	should handle parsing errors from run	
-unported	packages/effect/test/cli/Command.test.ts	834	it.effect	should propagate handler errors from run	
+ported	packages/effect/test/cli/Command.test.ts	834	it.effect	should propagate handler errors from run	a_handlers_failure_propagates_out_of_the_run
 unported	packages/effect/test/cli/Command.test.ts	840	it.effect	should render and rethrow UserError handler failures without help	
 unported	packages/effect/test/cli/Command.test.ts	858	it.effect	should render UserError handler failures with the installed formatter	
 unported	packages/effect/test/cli/Command.test.ts	892	it.effect	should render UserError argument failures with command help	

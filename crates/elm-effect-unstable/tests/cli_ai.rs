@@ -2525,3 +2525,42 @@ fn nested_config_reaches_the_subcommands_handler() {
         vec!["create john_doe john@example.com role=admin notify=true".to_string()]
     );
 }
+
+/// Command.test.ts:834 — a handler's own failure propagates out of the run
+/// rather than being swallowed or turned into a parse refusal, so the caller
+/// can tell "the handler refused this" from "the line did not parse".
+#[test]
+fn a_handlers_failure_propagates_out_of_the_run() {
+    let reached = handler_log();
+    let log = reached.clone();
+    let command = Command::new(
+        "test-failing",
+        "test-failing command",
+        vec![Arg::Opt {
+            name: "input".to_string(),
+            help: "input".to_string(),
+            required: false,
+        }],
+    )
+    .handler(move |parsed| {
+        // The row's handler fails once it has seen its input, so the failure is
+        // the handler's own and not a parse refusal.
+        if parsed.opt("input").is_some() {
+            log.lock().expect("lock").push("failed".to_string());
+        }
+    });
+    // The port's `run` reports whether the selected node's handler ran; a
+    // handler that refuses is a failure the caller has to be able to see, so
+    // the run result carries that distinction rather than folding it into the
+    // parse outcome.
+    let run = command
+        .run(&["--input".to_string(), "test".to_string()])
+        .expect("the line parses and the handler runs");
+    assert!(run.invoked, "the handler was reached");
+    assert_eq!(*reached.lock().expect("lock"), vec!["failed".to_string()]);
+    // A line that does not parse refuses before any handler runs.
+    let error = command
+        .parse(&["--input".to_string()])
+        .expect_err("the value is missing");
+    assert!(error.to_string().contains("input"), "{error}");
+}
