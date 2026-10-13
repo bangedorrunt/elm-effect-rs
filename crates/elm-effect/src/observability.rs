@@ -791,12 +791,17 @@ pub fn format_simple_record(
     parts.join(" ")
 }
 
+/// A record formatter: level, items, and annotations in, one line out.
+type RecordFormat = Arc<dyn Fn(LogLevel, &[LogItem], &LogAnnotations) -> String + Send + Sync>;
+/// Where a formatted line goes.
+type LineSink = Arc<dyn Fn(String) + Send + Sync>;
+
 /// A logger whose formatter and sink are both replaceable: the
 /// `Logger.formatJson.pipe(Logger.map(..))` shape, where the formatter writes
 /// the line and the sink decides what becomes of it.
 pub struct FormattedLogger {
-    format: Arc<dyn Fn(LogLevel, &[LogItem], &LogAnnotations) -> String + Send + Sync>,
-    sink: Arc<dyn Fn(String) + Send + Sync>,
+    format: RecordFormat,
+    sink: LineSink,
 }
 
 impl FormattedLogger {
