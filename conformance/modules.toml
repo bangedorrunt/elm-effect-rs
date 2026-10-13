@@ -412,7 +412,7 @@ tests = ["packages/effect/test/JsonSchema.test.ts"]
 [[module]]
 path = "packages/effect/src/Latch.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/Latch.test.ts"]

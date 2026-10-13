@@ -20,7 +20,7 @@ mod resource;
 #[path = "../src/stdlib/scoped_ref.rs"]
 mod scoped_ref;
 
-use latch::Latch;
+use latch::{Await, Latch, Waiter};
 use layer_map::LayerMap;
 use layer_ref::LayerRef;
 use rc_map::RcMap;
@@ -36,6 +36,18 @@ fn counter() -> Arc<AtomicUsize> {
 }
 
 // --- Latch ---
+//
+// The pin resumes a waiter through Effect's `Scheduler`: a `release` admits
+// the waiters parked at that moment into a pending queue, and a scheduler
+// tick resumes them. The module keeps that split (`run_pending` is the
+// tick) because four of the eight rows assert it.
+
+fn park(latch: &Latch) -> Waiter {
+    match latch.await_open(&|| false) {
+        Await::Waiting(waiter) => waiter,
+        other => panic!("expected a parked waiter, got {other:?}"),
+    }
+}
 
 #[test]
 fn latch_open_close_state() {
@@ -53,36 +65,130 @@ fn latch_open_close_state() {
 
 #[test]
 fn latch_waiter_wakes_on_open() {
-    let latch = Arc::new(Latch::new_closed());
-    let woken = counter();
-    let woken_body = woken.clone();
-    let moved = latch.clone();
-    let admitted = Arc::new(std::sync::atomic::AtomicBool::new(false));
-    let admitted_body = admitted.clone();
-    std::thread::spawn(move || {
-        if moved.await_open(&|| false) {
-            woken_body.fetch_add(1, Ordering::SeqCst);
-        }
-        admitted_body.store(true, Ordering::SeqCst);
-    });
-    std::thread::sleep(Duration::from_millis(50));
+    let latch = Latch::new_closed();
+    let waiter = park(&latch);
     assert!(latch.open());
-    let deadline = std::time::Instant::now() + Duration::from_secs(5);
-    while !admitted.load(Ordering::SeqCst) {
-        assert!(
-            std::time::Instant::now() < deadline,
-            "waiter never admitted"
-        );
-        std::thread::park_timeout(Duration::from_millis(1));
-    }
-    assert_eq!(woken.load(Ordering::SeqCst), 1);
+    assert_eq!(latch.run_pending(), vec![waiter]);
+    assert!(latch.is_open(), "open admits future waiters too");
 }
 
 #[test]
 fn latch_interrupted_waiter_leaves() {
     let latch = Latch::new_closed();
-    assert!(!latch.await_open(&|| true));
+    assert_eq!(latch.await_open(&|| true), Await::Interrupted);
     assert_eq!(latch.waiters(), 0);
+}
+
+#[test]
+fn latch_release_wakes_current_waiters_and_stays_closed() {
+    // Latch row "release wakes current waiters and keeps the latch closed":
+    // the waiter is parked (not resumed) until the release's resume runs,
+    // and the latch reads closed afterwards.
+    let latch = Latch::new_closed();
+    let waiter = park(&latch);
+    assert_eq!(latch.pending(), 0, "a parked waiter holds no resume");
+    assert!(latch.release(), "releasing a closed latch reports it");
+    assert_eq!(latch.pending(), 1, "the release queued the resume");
+    assert!(!latch.is_open(), "release does not open the latch");
+    assert_eq!(latch.run_pending(), vec![waiter]);
+}
+
+#[test]
+fn latch_open_close_does_not_resume_late_waiters() {
+    // Latch row "open then close does not resume waiters registered after
+    // close": the open admitted the waiter parked before it; the close makes
+    // the later one suspend again.
+    let latch = Latch::new_closed();
+    let before = park(&latch);
+    assert!(latch.open());
+    assert!(latch.close());
+    let _after = park(&latch);
+    assert_eq!(latch.run_pending(), vec![before]);
+    assert!(latch.run_pending().is_empty(), "late waiter got no resume");
+    assert_eq!(latch.waiters(), 1, "and it is still parked");
+}
+
+#[test]
+fn latch_release_while_a_flush_is_pending_covers_new_waiters() {
+    // Latch row "release while a flush is pending covers the new waiters":
+    // the second release adds its waiter to the flush already pending
+    // instead of queueing a second tick, and one tick resumes both.
+    let latch = Latch::new_closed();
+    let first = park(&latch);
+    assert!(latch.release());
+    assert_eq!(latch.pending(), 1);
+    let second = park(&latch);
+    assert!(latch.release());
+    assert_eq!(latch.pending(), 2, "same tick covers the second waiter");
+    assert_eq!(latch.run_pending(), vec![first, second]);
+    assert!(!latch.is_open());
+}
+
+#[test]
+fn latch_release_does_not_resume_waiters_registered_after_it() {
+    // Latch row "release does not resume waiters registered after the
+    // release": coverage is decided when release runs, not when the resume
+    // does.
+    let latch = Latch::new_closed();
+    let covered = park(&latch);
+    assert!(latch.release());
+    let _late = park(&latch);
+    assert_eq!(latch.run_pending(), vec![covered]);
+    assert!(latch.run_pending().is_empty(), "late waiter got no resume");
+    assert_eq!(latch.waiters(), 1);
+}
+
+#[test]
+fn latch_open_unsafe_does_not_resume_waiters_after_a_reentrant_close() {
+    // Latch row "openUnsafe does not resume waiters registered after a
+    // reentrant close": the release already covered the only parked waiter,
+    // so `openUnsafe` queues no second resume; the resumed waiter's
+    // continuation closes the latch again, and the waiter it parks then
+    // stays suspended.
+    let latch = Latch::new_closed();
+    let first = park(&latch);
+    assert!(latch.release());
+    assert!(latch.open_unsafe(), "openUnsafe flips the latch");
+    assert_eq!(latch.pending(), 1, "no second resume was queued");
+    assert_eq!(latch.run_pending(), vec![first]);
+    assert!(latch.close_unsafe(), "the resumed waiter closes it again");
+    let _second = park(&latch);
+    assert!(latch.run_pending().is_empty(), "no resume for the new waiter");
+    assert_eq!(latch.waiters(), 1);
+}
+
+#[test]
+fn latch_interrupting_a_waiter_removes_it_from_a_pending_flush() {
+    // Latch row "interrupting a waiter removes it from a pending flush":
+    // the queued resume finds an empty flush, so the waiter's body never
+    // runs and the latch stays closed.
+    let latch = Latch::new_closed();
+    let waiter = park(&latch);
+    assert!(latch.release());
+    assert_eq!(latch.pending(), 1);
+    assert!(latch.interrupt(waiter), "the waiter was parked");
+    assert!(latch.run_pending().is_empty(), "nothing was resumed");
+    assert_eq!(latch.waiters(), 0);
+    assert!(!latch.is_open());
+}
+
+#[test]
+fn latch_await_is_interruptible_and_cleans_up_interrupted_waiters() {
+    // Latch row "await is interruptible and cleans up interrupted waiters":
+    // an interrupted waiter leaves no resume behind, so a release with no
+    // waiters queues nothing; a later waiter gets a resume of its own.
+    let latch = Latch::new_closed();
+    let interrupted = park(&latch);
+    assert!(latch.interrupt(interrupted));
+    assert_eq!(latch.waiters(), 0);
+    assert!(latch.release());
+    assert_eq!(latch.pending(), 0, "no waiter, no queued resume");
+    assert!(latch.run_pending().is_empty());
+    let live = park(&latch);
+    assert!(latch.release());
+    assert_eq!(latch.pending(), 1);
+    assert_eq!(latch.run_pending(), vec![live]);
+    assert!(!latch.is_open());
 }
 
 // --- Resource ---
