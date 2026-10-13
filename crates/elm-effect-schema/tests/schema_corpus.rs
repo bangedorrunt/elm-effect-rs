@@ -1798,3 +1798,69 @@ fn json_schema_document_intersection_rows_carry_their_code_and_type() {
     assert!(schema.decode(Unknown::Text("abc".to_string())).is_ok());
     assert!(schema.decode(Unknown::Text("ab".to_string())).is_err());
 }
+
+#[test]
+fn json_schema_document_object_checks_carry_their_code_and_type() {
+    // fromJsonSchemaDocument.test.ts's object `checks` and `patternProperties`
+    // families. A bound on the entry count and a schema every key must satisfy
+    // both ride a record, which is the shape an open object already has; a
+    // pattern-keyed mapping is a record whose KEY is checked rather than passed
+    // through.
+    use elm_effect_schema::{Schema, Unknown};
+
+    let cases: Vec<(serde_json::Value, &str)> = vec![
+        // :1026 — a lower bound on the entry count.
+        (
+            serde_json::json!({"type": "object", "minProperties": 1}),
+            r#"Schema.Record(Schema.String, Schema.Json.annotate({ "expected": "JSON value" })).check(Schema.isMinProperties(1).annotate({ "expected": "a value with at least 1 entry" }))"#,
+        ),
+        // :1038 — an upper bound.
+        (
+            serde_json::json!({"type": "object", "maxProperties": 1}),
+            r#"Schema.Record(Schema.String, Schema.Json.annotate({ "expected": "JSON value" })).check(Schema.isMaxProperties(1).annotate({ "expected": "a value with at most 1 entry" }))"#,
+        ),
+        // :1052 — `propertyNames`: the key schema stands in the check's argument.
+        (
+            serde_json::json!({"type": "object", "propertyNames": {"pattern": "^[A-Z]"}}),
+            r#"Schema.Record(Schema.String, Schema.Json.annotate({ "expected": "JSON value" })).check(Schema.isPropertyNames(Schema.String.check(Schema.isPattern(new RegExp("^[A-Z]", "u")).annotate({ "expected": "a string matching the RegExp ^[A-Z]" }))).annotate({ "expected": "an object with property names matching the schema" }))"#,
+        ),
+        // :973 — a pattern-keyed mapping, where the value schema is `never`.
+        (
+            serde_json::json!({
+                "type": "object",
+                "patternProperties": {"^a": {"not": {}}},
+                "additionalProperties": false
+            }),
+            r#"Schema.Record(Schema.String.check(Schema.isPattern(new RegExp("^a", "u")).annotate({ "expected": "a string matching the RegExp ^a" })), Schema.Never)"#,
+        ),
+        // :988 — the same pattern with a string value schema.
+        (
+            serde_json::json!({
+                "type": "object",
+                "patternProperties": {"^a": {"type": "string"}},
+                "additionalProperties": false
+            }),
+            r#"Schema.Record(Schema.String.check(Schema.isPattern(new RegExp("^a", "u")).annotate({ "expected": "a string matching the RegExp ^a" })), Schema.String)"#,
+        ),
+        // :380 — the `pattern` keyword renders the same RegExp literal.
+        (
+            serde_json::json!({"type": "string", "pattern": "a*"}),
+            r#"Schema.String.check(Schema.isPattern(new RegExp("a*", "u")).annotate({ "expected": "a string matching the RegExp a*" }))"#,
+        ),
+    ];
+
+    for (doc, code) in cases {
+        let schema = Schema::<Unknown>::from_json_schema(&doc).expect("imports");
+        assert_eq!(schema.to_code(), code, "code for {doc:?}");
+    }
+
+    // Two patterns cannot become one key schema, so the pin refuses rather than
+    // silently keeping one.
+    assert!(
+        Schema::<Unknown>::from_json_schema(&serde_json::json!({
+            "type": "object",
+            "patternProperties": {"a*": {"type": "string"}, "b*": {"type": "number"}}
+        }))
+        .is_err()
+    );
+}

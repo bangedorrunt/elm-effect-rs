@@ -103,19 +103,30 @@ struct Check {
     annotation: Vec<(String, String)>,
 }
 
-    /// Insert annotation pairs into a list, replacing by key rather than
-    /// appending. A document cannot carry the same key twice, and neither can an
-    /// intersection: the later value wins, in the earlier key's position.
-    fn merge_annotation(annotation: &mut Vec<(String, String)>, pairs: Vec<(String, String)>) {
-        for (key, value) in pairs {
-            match annotation.iter_mut().find(|(seen, _)| *seen == key) {
-                Some(slot) => slot.1 = value,
-                None => annotation.push((key, value)),
-            }
+/// Insert annotation pairs into a list, replacing by key rather than
+/// appending. A document cannot carry the same key twice, and neither can an
+/// intersection: the later value wins, in the earlier key's position.
+fn merge_annotation(annotation: &mut Vec<(String, String)>, pairs: Vec<(String, String)>) {
+    for (key, value) in pairs {
+        match annotation.iter_mut().find(|(seen, _)| *seen == key) {
+            Some(slot) => slot.1 = value,
+            None => annotation.push((key, value)),
         }
     }
+}
 
-    /// Render one check as the pin prints it inside a chain or a filter group.
+/// A pattern as the JS RegExp literal the pin's repr prints. The bare pattern
+/// text is not what appears in a check's argument.
+fn regex_argument(pattern: &str) -> String {
+    format!("new RegExp({}, \"u\")", json_key(pattern))
+}
+
+/// The message a pattern check carries, naming the pattern it matches.
+fn regex_message(pattern: &str) -> String {
+    format!("a string matching the RegExp {pattern}")
+}
+
+/// Render one check as the pin prints it inside a chain or a filter group.
 fn render_check(check: &Check) -> String {
     let mut out = format!("Schema.{}({})", check.name, check.args.join(", "));
     if !check.annotation.is_empty() {
@@ -300,11 +311,15 @@ impl SchemaKind {
                 serde_json::json!({"anyOf": [inner.to_json_schema(), {"type": "null"}]})
             }
             SchemaKind::Struct(fields) => Self::struct_document(fields),
-            SchemaKind::Record(key, value) => serde_json::json!({
-                "type": "object",
-                "additionalProperties": value.to_json_schema(),
-                "$comment": format!("key shape is {}", key.to_json_schema()),
-            }),
+            SchemaKind::Record(key, value) => {
+                let mut doc = serde_json::json!({"type": "object"});
+                // A checked key is a `patternProperties` key, which is the only
+                // way a repr can say the key shape.
+                if !matches!(&**key, SchemaKind::String) {
+                    doc["patternProperties"] = key.to_json_schema();
+                }
+                doc
+            }
             SchemaKind::Tuple(elements) => {
                 let items: Vec<serde_json::Value> =
                     elements.iter().map(|k| k.to_json_schema()).collect();
@@ -605,6 +620,15 @@ impl<T> Schema<T> {
     /// keeps its own kind opaque on purpose, so a constructor that copies a
     /// child's kind (`record`, `checked`) must copy the one underneath or the
     /// repr prints `Schema.Unknown` for a perfectly visible child.
+    /// Swap a schema's kind, keeping the decode, encode, children and formatter.
+    /// Only for a kind that describes exactly the same wire shape, which is the
+    /// case for a record whose key is checked rather than passed through.
+    pub(crate) fn with_kind(mut self, kind: SchemaKind) -> Self {
+        self.kind = kind;
+        self.wrapped = None;
+        self
+    }
+
     pub(crate) fn repr_kind(&self) -> SchemaKind {
         match &self.wrapped {
             Some(wrapped) => wrapped.kind.clone(),
@@ -1179,6 +1203,14 @@ impl Schema<BTreeMap<String, Unknown>> {
         )
     }
 
+    /// A record shape whose keys are also checked (`patternProperties` shape).
+    /// The wire shape is the same as `record`, so the key schema lives in the
+    /// kind for a repr and is enforced by checking the key.
+    pub fn record2(key: Schema<Unknown>, value: Schema<Unknown>) -> Self {
+        let kind = SchemaKind::Record(Box::new(key.repr_kind()), Box::new(value.repr_kind()));
+        Self::record(value).with_kind(kind)
+    }
+
     /// A record shape (`Record` shape): every value decodes with the
     /// value schema; keys pass through. Empty objects decode fine.
     pub fn record(value: Schema<Unknown>) -> Self {
@@ -1403,11 +1435,92 @@ impl Schema<Unknown> {
             schema = Schema::as_unknown(Schema::checked(
                 schema,
                 "isPattern",
-                vec![pattern],
-                vec![("expected", "a string matching the pattern")],
+                vec![regex_argument(pattern).as_str()],
+                vec![("expected", regex_message(pattern).as_str())],
             ));
         }
         schema
+    }
+
+    /// A pattern-keyed mapping (`patternProperties`): every key is checked
+    /// against the pattern and every value decodes with the one pattern schema.
+    /// The pin refuses more than one pattern, because a record's key shape is a
+    /// single schema and two patterns would need an intersection it cannot spell.
+    fn patterned_record(doc: &serde_json::Value) -> Result<Self, SchemaError> {
+        let Some(serde_json::Value::Object(patterns)) = doc.get("patternProperties") else {
+            return Ok(Schema::as_unknown(Schema::record(Schema::json())));
+        };
+        let mut members = patterns.iter();
+        let Some((pattern, value)) = members.next() else {
+            return Ok(Schema::as_unknown(Schema::record(Schema::json())));
+        };
+        if members.next().is_some() {
+            return Err(SchemaError::TypeMismatch {
+                path: "$.patternProperties".to_string(),
+                expected: "at most one pattern",
+                got: "more than one pattern",
+            });
+        }
+        let key = Schema::as_unknown(Schema::checked(
+            Schema::as_unknown(Schema::string()),
+            "isPattern",
+            vec![regex_argument(pattern).as_str()],
+            vec![("expected", regex_message(pattern).as_str())],
+        ));
+        Ok(Schema::as_unknown(Schema::record2(
+            key,
+            Self::import(value)?,
+        )))
+    }
+
+    /// The object-level checks: a bound on the number of entries, and a schema
+    /// every key must satisfy. Both ride a record, which is the shape an open
+    /// object already has, so they are checks rather than a different base.
+    fn refined_object(base: Schema<Unknown>, doc: &serde_json::Value) -> Result<Self, SchemaError> {
+        let mut schema = base;
+        for (keyword, name, message) in [
+            ("minProperties", "isMinProperties", "a value with at least"),
+            ("maxProperties", "isMaxProperties", "a value with at most"),
+        ] {
+            if let Some(number) = doc.get(keyword).and_then(serde_json::Value::as_f64) {
+                let printed = format_number(number);
+                schema = Schema::as_unknown(Schema::checked(
+                    schema,
+                    name,
+                    vec![printed.as_str()],
+                    vec![("expected", &format!("{message} {printed} entry"))],
+                ));
+            }
+        }
+        if let Some(names) = doc.get("propertyNames") {
+            // The key schema stands in the check's argument slot, which is where
+            // a repr prints it: the check is over the object, but what it
+            // constrains is each key.
+            // A JSON object key is always a string, so a `propertyNames` value
+            // that names no type constrains a string. An untyped import would
+            // otherwise start from the open JSON value.
+            let inner = Self::import(names)?;
+            let (kind, checks, annotation) = decompose(&inner.repr_kind());
+            let inner = if kind == SchemaKind::Json {
+                let annotation: Vec<(String, String)> = annotation
+                    .into_iter()
+                    .filter(|(key, value)| !(key == "expected" && value == "JSON value"))
+                    .collect();
+                rebuild(SchemaKind::String, checks, annotation)
+            } else {
+                inner
+            };
+            schema = Schema::as_unknown(Schema::checked(
+                schema,
+                "isPropertyNames",
+                vec![inner.to_code().as_str()],
+                vec![(
+                    "expected",
+                    "an object with property names matching the schema",
+                )],
+            ));
+        }
+        Ok(schema)
     }
 
     /// A number plus whatever bound constraints the document carries. The
@@ -1624,7 +1737,14 @@ impl Schema<Unknown> {
                 let grouped: Vec<Check> = checks.split_off(checks.len() - surviving.len());
                 checks.push(Check {
                     name: "makeFilterGroup".to_string(),
-                    args: vec![format!("[{}]", grouped.iter().map(render_check).collect::<Vec<_>>().join(", "))],
+                    args: vec![format!(
+                        "[{}]",
+                        grouped
+                            .iter()
+                            .map(render_check)
+                            .collect::<Vec<_>>()
+                            .join(", ")
+                    )],
                     annotation: member_annotation,
                 });
             }
@@ -1660,6 +1780,13 @@ impl Schema<Unknown> {
             fields.push((name.clone(), schema));
         }
         if fields.is_empty() {
+            // A pattern-keyed mapping is a record of its own: the pattern
+            // becomes the key schema and the one pattern schema the value. It
+            // never reaches the named-keys path below, because a pattern key and
+            // a named key are different shapes.
+            if doc.get("patternProperties").is_some() {
+                return Self::patterned_record(doc);
+            }
             // No named keys: the whole object is a record, and what
             // `additionalProperties` says decides the value shape.
             return Ok(match get("additionalProperties") {
@@ -1671,7 +1798,8 @@ impl Schema<Unknown> {
                 Some(serde_json::Value::Bool(true)) | None => Self::json_catch_all(),
                 // A typed catch-all on its own is a plain record.
                 Some(schema) => Schema::as_unknown(Schema::record(Self::import(schema)?)),
-            });
+            })
+            .and_then(|base| Self::refined_object(base, doc));
         }
         match get("additionalProperties") {
             // `false` closes the object: nothing but the named keys.
@@ -1701,6 +1829,19 @@ impl Schema<Unknown> {
                 path: "$.$ref".to_string(),
                 expected: "an inlinable schema",
                 got: "a reference",
+            });
+        }
+        // `not: {}` is "everything but anything", which is nothing. Any other
+        // operand would need a complement the port cannot express, so it is
+        // refused rather than approximated.
+        if let Some(negated) = get("not") {
+            if negated.as_object().is_some_and(|object| object.is_empty()) {
+                return Ok(Schema::as_unknown(Schema::never()));
+            }
+            return Err(SchemaError::TypeMismatch {
+                path: "$.not".to_string(),
+                expected: "an empty schema",
+                got: "a complement of a non-empty schema",
             });
         }
         if let Some(constants) = get("const") {
@@ -2484,11 +2625,14 @@ fn code_of(kind: &SchemaKind, children: &[(String, Arc<Schema<Unknown>>)]) -> St
                 .collect();
             format!("Schema.Struct({{ {} }})", inner.join(", "))
         }
-        SchemaKind::Record(_, value) => {
-            format!(
-                "Schema.Record(Schema.String, {})",
-                code_of_at(value, children)
-            )
+        SchemaKind::Record(key, value) => {
+            // The key is only omitted when it is a plain string: a checked key
+            // (a `patternProperties` shape) is what the row is about.
+            let key = match &**key {
+                SchemaKind::String => "Schema.String".to_string(),
+                key => code_of_at(key, children),
+            };
+            format!("Schema.Record({key}, {})", code_of_at(value, children))
         }
         SchemaKind::Tuple(elements) => {
             let inner: Vec<String> = elements.iter().map(|e| code_of_at(e, children)).collect();
@@ -2562,8 +2706,12 @@ fn type_of(kind: &SchemaKind, children: &[(String, Arc<Schema<Unknown>>)]) -> St
                 .collect();
             format!("{{ {} }}", inner.join(", "))
         }
-        SchemaKind::Record(_, value) => {
-            format!("{{ readonly [x: string]: {} }}", type_of_at(value))
+        SchemaKind::Record(key, value) => {
+            let key = match &**key {
+                SchemaKind::String => "string".to_string(),
+                key => type_of_at(key),
+            };
+            format!("{{ readonly [x: {key}]: {} }}", type_of_at(value))
         }
         SchemaKind::Tuple(elements) => {
             let inner: Vec<String> = elements.iter().map(type_of_at).collect();

@@ -8675,7 +8675,7 @@ ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts
 ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	348	it	type only	json_schema_document_type_only_rows_carry_their_code_and_type
 ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	356	it	minLength	json_schema_document_refinement_rows_carry_their_code_and_type
 ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	368	it	maxLength	json_schema_document_refinement_rows_carry_their_code_and_type
-unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	380	it	pattern with an explicit string type	
+ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	380	it	pattern with an explicit string type	json_schema_document_object_checks_carry_their_code_and_type
 unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	392	it	pattern only constrains strings	
 ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	404	it	type only	json_schema_document_refinement_rows_carry_their_code_and_type
 ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	417	it	minimum	json_schema_document_refinement_rows_carry_their_code_and_type
@@ -8715,12 +8715,12 @@ unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.
 unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	888	it	explains the supported closed pattern form when properties are declared or required	
 unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	903	it	round-trips a closed Record with a patterned key	
 unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	937	it	imports a closed patterned Record through references	
-unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	973	it	keeps a closed pattern with Never values as an object schema	
-unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	988	it	matches finite patternProperties keys in Unicode mode	
+ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	973	it	keeps a closed pattern with Never values as an object schema	json_schema_document_object_checks_carry_their_code_and_type
+ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	988	it	matches finite patternProperties keys in Unicode mode	json_schema_document_object_checks_carry_their_code_and_type
 unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1010	it	rejects closed multiple pattern properties	
-unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1026	it	minProperties	
-unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1038	it	maxProperties	
-unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1052	it	pattern	
+ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1026	it	minProperties	json_schema_document_object_checks_carry_their_code_and_type
+ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1038	it	maxProperties	json_schema_document_object_checks_carry_their_code_and_type
+ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1052	it	pattern	json_schema_document_object_checks_carry_their_code_and_type
 unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1069	it	false	
 unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1086	it	allOf combines checks	
 unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1107	it	array of types	
