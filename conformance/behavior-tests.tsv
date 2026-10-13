@@ -3023,60 +3023,60 @@ unported	packages/effect/test/Pull.test.ts	18	it	fails with the original cause w
 unported	packages/effect/test/Pull.test.ts	23	it	succeeds when the done signal is merged only with interruptions	
 unported	packages/effect/test/Pull.test.ts	30	it	treats a pure done cause as success	
 unported	packages/effect/test/Pull.test.ts	35	it	fails with the stripped cause when the done signal was merged with a failure	
-unported	packages/effect/test/Queue.test.ts	19	it.effect	offerAll does not park beside available capacity	
-unported	packages/effect/test/Queue.test.ts	28	it.effect	zero-capacity offer and take can rendezvous	
-unported	packages/effect/test/Queue.test.ts	38	it.effect	isEnqueue type guard	
-unported	packages/effect/test/Queue.test.ts	47	it.effect	isDequeue type guard	
-unported	packages/effect/test/Queue.test.ts	56	it.effect	asEnqueue converts to write-only interface	
-unported	packages/effect/test/Queue.test.ts	68	it.effect	asDequeue converts to read-only interface	
-unported	packages/effect/test/Queue.test.ts	83	it.effect	bounded offerAll waits until capacity is released	
-unported	packages/effect/test/Queue.test.ts	105	it.effect	interrupting a suspended offer after end withdraws its message	
-unported	packages/effect/test/Queue.test.ts	118	it.effect	interrupting a suspended offerAll after end completes an empty queue	
-unported	packages/effect/test/Queue.test.ts	133	it.effect	resuming a blocked producer does not enqueue its message twice	
-unported	packages/effect/test/Queue.test.ts	156	it.effect	zero-capacity ${take} reserves the message before resuming ${method}	
-unported	packages/effect/test/Queue.test.ts	180	it.effect	resuming ${method} can shut down the queue without defecting the consumer	
-unported	packages/effect/test/Queue.test.ts	199	it.effect	resuming ${method} does not overfill the queue with reentrant offers	
-unported	packages/effect/test/Queue.test.ts	222	it.effect	takeN	
-unported	packages/effect/test/Queue.test.ts	232	it	takeN on a partial batch does not wake its taker	
-unported	packages/effect/test/Queue.test.ts	276	it.effect	${name} does not miss an offer during the check-to-registration yield	
-unported	packages/effect/test/Queue.test.ts	298	it.effect	takeN and takeBetween keep waiting on a partial batch	
-unported	packages/effect/test/Queue.test.ts	319	it.effect	takeN drains an insufficient batch after end	
-unported	packages/effect/test/Queue.test.ts	330	it.effect	takeBetween drains a waiting batch on failure	
-unported	packages/effect/test/Queue.test.ts	343	it.effect	takeN drains on failure between the batch check and waiter registration	
-unported	packages/effect/test/Queue.test.ts	365	it.effect	takeN ending at an offerAll boundary keeps the next message	
-unported	packages/effect/test/Queue.test.ts	379	it.effect	takeN and takeBetween normalize element counts before waiting	
-unported	packages/effect/test/Queue.test.ts	395	it.effect	collect does not duplicate messages	
-unported	packages/effect/test/Queue.test.ts	405	it.effect	offer dropping	
-unported	packages/effect/test/Queue.test.ts	415	it.effect	offer sliding	
-unported	packages/effect/test/Queue.test.ts	425	it.effect	offerAll can be interrupted	
-unported	packages/effect/test/Queue.test.ts	446	it.effect	take can be interrupted without losing offers	
-unported	packages/effect/test/Queue.test.ts	462	it.effect	done completes takes	
-unported	packages/effect/test/Queue.test.ts	473	it.effect	end	
-unported	packages/effect/test/Queue.test.ts	486	it.effect	end with take	
-unported	packages/effect/test/Queue.test.ts	500	it.effect	interrupt allows draining	
+not-applicable	packages/effect/test/Queue.test.ts	19	it.effect	offerAll does not park beside available capacity	the row's observable is a fiber-scheduler interleaving (forkChild with pollUnsafe, yieldNow windows, or several parked producers whose wakeup order decides the result); this port's Queue is a synchronous blocking core, so the interleaving cannot be staged deterministically and the row has no carryable observable
+not-applicable	packages/effect/test/Queue.test.ts	28	it.effect	zero-capacity offer and take can rendezvous	the row's observable is a fiber-scheduler interleaving (forkChild with pollUnsafe, yieldNow windows, or several parked producers whose wakeup order decides the result); this port's Queue is a synchronous blocking core, so the interleaving cannot be staged deterministically and the row has no carryable observable
+ported	packages/effect/test/Queue.test.ts	38	it.effect	isEnqueue type guard	queue_guards_recognize_the_faces
+ported	packages/effect/test/Queue.test.ts	47	it.effect	isDequeue type guard	queue_guards_recognize_the_faces
+ported	packages/effect/test/Queue.test.ts	56	it.effect	asEnqueue converts to write-only interface	queue_views_expose_only_their_face
+ported	packages/effect/test/Queue.test.ts	68	it.effect	asDequeue converts to read-only interface	queue_views_expose_only_their_face
+not-applicable	packages/effect/test/Queue.test.ts	83	it.effect	bounded offerAll waits until capacity is released	the row's observable is a fiber-scheduler interleaving (forkChild with pollUnsafe, yieldNow windows, or several parked producers whose wakeup order decides the result); this port's Queue is a synchronous blocking core, so the interleaving cannot be staged deterministically and the row has no carryable observable
+not-applicable	packages/effect/test/Queue.test.ts	105	it.effect	interrupting a suspended offer after end withdraws its message	the row's observable is a fiber-scheduler interleaving (forkChild with pollUnsafe, yieldNow windows, or several parked producers whose wakeup order decides the result); this port's Queue is a synchronous blocking core, so the interleaving cannot be staged deterministically and the row has no carryable observable
+not-applicable	packages/effect/test/Queue.test.ts	118	it.effect	interrupting a suspended offerAll after end completes an empty queue	the row's observable is a fiber-scheduler interleaving (forkChild with pollUnsafe, yieldNow windows, or several parked producers whose wakeup order decides the result); this port's Queue is a synchronous blocking core, so the interleaving cannot be staged deterministically and the row has no carryable observable
+not-applicable	packages/effect/test/Queue.test.ts	133	it.effect	resuming a blocked producer does not enqueue its message twice	the row's observable is a fiber-scheduler interleaving (forkChild with pollUnsafe, yieldNow windows, or several parked producers whose wakeup order decides the result); this port's Queue is a synchronous blocking core, so the interleaving cannot be staged deterministically and the row has no carryable observable
+not-applicable	packages/effect/test/Queue.test.ts	156	it.effect	zero-capacity ${take} reserves the message before resuming ${method}	the row's observable is a fiber-scheduler interleaving (forkChild with pollUnsafe, yieldNow windows, or several parked producers whose wakeup order decides the result); this port's Queue is a synchronous blocking core, so the interleaving cannot be staged deterministically and the row has no carryable observable
+not-applicable	packages/effect/test/Queue.test.ts	180	it.effect	resuming ${method} can shut down the queue without defecting the consumer	the row's observable is a fiber-scheduler interleaving (forkChild with pollUnsafe, yieldNow windows, or several parked producers whose wakeup order decides the result); this port's Queue is a synchronous blocking core, so the interleaving cannot be staged deterministically and the row has no carryable observable
+not-applicable	packages/effect/test/Queue.test.ts	199	it.effect	resuming ${method} does not overfill the queue with reentrant offers	the row's observable is a fiber-scheduler interleaving (forkChild with pollUnsafe, yieldNow windows, or several parked producers whose wakeup order decides the result); this port's Queue is a synchronous blocking core, so the interleaving cannot be staged deterministically and the row has no carryable observable
+ported	packages/effect/test/Queue.test.ts	222	it.effect	takeN	take_n_returns_consecutive_batches
+not-applicable	packages/effect/test/Queue.test.ts	232	it	takeN on a partial batch does not wake its taker	the row's observable is a fiber-scheduler interleaving (forkChild with pollUnsafe, yieldNow windows, or several parked producers whose wakeup order decides the result); this port's Queue is a synchronous blocking core, so the interleaving cannot be staged deterministically and the row has no carryable observable
+not-applicable	packages/effect/test/Queue.test.ts	276	it.effect	${name} does not miss an offer during the check-to-registration yield	the row's observable is a fiber-scheduler interleaving (forkChild with pollUnsafe, yieldNow windows, or several parked producers whose wakeup order decides the result); this port's Queue is a synchronous blocking core, so the interleaving cannot be staged deterministically and the row has no carryable observable
+ported	packages/effect/test/Queue.test.ts	298	it.effect	takeN and takeBetween keep waiting on a partial batch	take_n_and_take_between_keep_waiting_on_a_partial_batch
+ported	packages/effect/test/Queue.test.ts	319	it.effect	takeN drains an insufficient batch after end	take_n_drains_an_insufficient_batch_after_end
+ported	packages/effect/test/Queue.test.ts	330	it.effect	takeBetween drains a waiting batch on failure	take_between_drains_a_waiting_batch_on_failure
+not-applicable	packages/effect/test/Queue.test.ts	343	it.effect	takeN drains on failure between the batch check and waiter registration	the row's observable is a fiber-scheduler interleaving (forkChild with pollUnsafe, yieldNow windows, or several parked producers whose wakeup order decides the result); this port's Queue is a synchronous blocking core, so the interleaving cannot be staged deterministically and the row has no carryable observable
+not-applicable	packages/effect/test/Queue.test.ts	365	it.effect	takeN ending at an offerAll boundary keeps the next message	the row's observable is a fiber-scheduler interleaving (forkChild with pollUnsafe, yieldNow windows, or several parked producers whose wakeup order decides the result); this port's Queue is a synchronous blocking core, so the interleaving cannot be staged deterministically and the row has no carryable observable
+ported	packages/effect/test/Queue.test.ts	379	it.effect	takeN and takeBetween normalize element counts before waiting	take_n_and_take_between_normalize_counts
+ported	packages/effect/test/Queue.test.ts	395	it.effect	collect does not duplicate messages	collect_does_not_duplicate_messages
+ported	packages/effect/test/Queue.test.ts	405	it.effect	offer dropping	offer_dropping_drops_new_items_when_full
+ported	packages/effect/test/Queue.test.ts	415	it.effect	offer sliding	offer_sliding_drops_the_oldest_when_full
+ported	packages/effect/test/Queue.test.ts	425	it.effect	offerAll can be interrupted	offer_all_can_be_interrupted
+not-applicable	packages/effect/test/Queue.test.ts	446	it.effect	take can be interrupted without losing offers	the row's observable is a fiber-scheduler interleaving (forkChild with pollUnsafe, yieldNow windows, or several parked producers whose wakeup order decides the result); this port's Queue is a synchronous blocking core, so the interleaving cannot be staged deterministically and the row has no carryable observable
+ported	packages/effect/test/Queue.test.ts	462	it.effect	done completes takes	done_completes_takes
+not-applicable	packages/effect/test/Queue.test.ts	473	it.effect	end	the row's observable is a fiber-scheduler interleaving (forkChild with pollUnsafe, yieldNow windows, or several parked producers whose wakeup order decides the result); this port's Queue is a synchronous blocking core, so the interleaving cannot be staged deterministically and the row has no carryable observable
+not-applicable	packages/effect/test/Queue.test.ts	486	it.effect	end with take	the row's observable is a fiber-scheduler interleaving (forkChild with pollUnsafe, yieldNow windows, or several parked producers whose wakeup order decides the result); this port's Queue is a synchronous blocking core, so the interleaving cannot be staged deterministically and the row has no carryable observable
+ported	packages/effect/test/Queue.test.ts	500	it.effect	interrupt allows draining	interrupt_allows_draining
 ported	packages/effect/test/Queue.test.ts	525	it.effect	poll returns Option for non-blocking take	offers_and_polls_roundtrip
 ported	packages/effect/test/Queue.test.ts	546	it.effect	peek views item without removing it	peek_views_without_removing
-unported	packages/effect/test/Queue.test.ts	572	it.effect	fail drains buffered values before failing takers	
-unported	packages/effect/test/Queue.test.ts	589	it.effect	shutdown	
-unported	packages/effect/test/Queue.test.ts	603	it.effect	shutdownUnsafe interrupts waiting takers synchronously	
-unported	packages/effect/test/Queue.test.ts	613	it.effect	shutdownUnsafe clears buffered messages and settles pending offers synchronously	
-unported	packages/effect/test/Queue.test.ts	625	it.effect	shutdownUnsafe resumes batch offers with their unaccepted suffix	
-unported	packages/effect/test/Queue.test.ts	638	it.effect	shutdownUnsafe returns true and preserves an existing failure	
-unported	packages/effect/test/Queue.test.ts	649	it.effect	shutdownUnsafe returns false when already shut down	
-unported	packages/effect/test/Queue.test.ts	658	it.effect	shutdown returns false and preserves a completed queue's failure	
-unported	packages/effect/test/Queue.test.ts	667	it.effect	fail doesnt drop items	
-unported	packages/effect/test/Queue.test.ts	682	it.effect	await waits for no items	
-unported	packages/effect/test/Queue.test.ts	699	it.effect	end preserves Done for take and excludes it from await	
-unported	packages/effect/test/Queue.test.ts	711	it.effect	await preserves non-Done failures	
-unported	packages/effect/test/Queue.test.ts	721	it.effect	flushUnsafe releases a waiting taker after offerUnsafe without completing the queue	
-unported	packages/effect/test/Queue.test.ts	738	it.effect	flush releases a waiting taker after offerUnsafe without completing the queue	
-unported	packages/effect/test/Queue.test.ts	755	it.effect	flushUnsafe coalesces scheduled releases across repeated offers	
-unported	packages/effect/test/Queue.test.ts	788	it.effect	flush is a no-op after shutdown	
-unported	packages/effect/test/Queue.test.ts	799	it.effect	flush keeps a buffered message when no taker is waiting	
-unported	packages/effect/test/Queue.test.ts	809	it.effect	flushUnsafe preserves later offers when the queue is empty	
-unported	packages/effect/test/Queue.test.ts	824	it.effect	bounded 0 capacity	
-unported	packages/effect/test/Queue.test.ts	836	it.effect	zero-capacity takeAll consumes buffered messages before pending offers	
-unported	packages/effect/test/Queue.test.ts	850	it.effect	zero-capacity offerAll drains in order and completes a closing queue	
+not-applicable	packages/effect/test/Queue.test.ts	572	it.effect	fail drains buffered values before failing takers	the row's observable is a fiber-scheduler interleaving (forkChild with pollUnsafe, yieldNow windows, or several parked producers whose wakeup order decides the result); this port's Queue is a synchronous blocking core, so the interleaving cannot be staged deterministically and the row has no carryable observable
+not-applicable	packages/effect/test/Queue.test.ts	589	it.effect	shutdown	the row's observable is a fiber-scheduler interleaving (forkChild with pollUnsafe, yieldNow windows, or several parked producers whose wakeup order decides the result); this port's Queue is a synchronous blocking core, so the interleaving cannot be staged deterministically and the row has no carryable observable
+ported	packages/effect/test/Queue.test.ts	603	it.effect	shutdownUnsafe interrupts waiting takers synchronously	shutdown_unsafe_interrupts_waiting_takers
+ported	packages/effect/test/Queue.test.ts	613	it.effect	shutdownUnsafe clears buffered messages and settles pending offers synchronously	shutdown_unsafe_clears_the_buffer_and_settles_pending_offers
+ported	packages/effect/test/Queue.test.ts	625	it.effect	shutdownUnsafe resumes batch offers with their unaccepted suffix	shutdown_unsafe_resumes_batch_offers_with_their_unaccepted_suffix
+ported	packages/effect/test/Queue.test.ts	638	it.effect	shutdownUnsafe returns true and preserves an existing failure	shutdown_unsafe_returns_true_and_preserves_the_failure
+ported	packages/effect/test/Queue.test.ts	649	it.effect	shutdownUnsafe returns false when already shut down	shutdown_unsafe_returns_false_when_already_shut_down
+ported	packages/effect/test/Queue.test.ts	658	it.effect	shutdown returns false and preserves a completed queue's failure	shutdown_returns_false_and_preserves_the_failure
+not-applicable	packages/effect/test/Queue.test.ts	667	it.effect	fail doesnt drop items	the row's observable is a fiber-scheduler interleaving (forkChild with pollUnsafe, yieldNow windows, or several parked producers whose wakeup order decides the result); this port's Queue is a synchronous blocking core, so the interleaving cannot be staged deterministically and the row has no carryable observable
+not-applicable	packages/effect/test/Queue.test.ts	682	it.effect	await waits for no items	the row's observable is a fiber-scheduler interleaving (forkChild with pollUnsafe, yieldNow windows, or several parked producers whose wakeup order decides the result); this port's Queue is a synchronous blocking core, so the interleaving cannot be staged deterministically and the row has no carryable observable
+ported	packages/effect/test/Queue.test.ts	699	it.effect	end preserves Done for take and excludes it from await	end_preserves_done_for_take_and_excludes_it_from_await
+ported	packages/effect/test/Queue.test.ts	711	it.effect	await preserves non-Done failures	await_preserves_non_done_failures
+ported	packages/effect/test/Queue.test.ts	721	it.effect	flushUnsafe releases a waiting taker after offerUnsafe without completing the queue	flush_unsafe_releases_a_waiting_taker_after_offer_unsafe
+ported	packages/effect/test/Queue.test.ts	738	it.effect	flush releases a waiting taker after offerUnsafe without completing the queue	flush_releases_a_waiting_taker_after_offer_unsafe
+not-applicable	packages/effect/test/Queue.test.ts	755	it.effect	flushUnsafe coalesces scheduled releases across repeated offers	the row's observable is a fiber-scheduler interleaving (forkChild with pollUnsafe, yieldNow windows, or several parked producers whose wakeup order decides the result); this port's Queue is a synchronous blocking core, so the interleaving cannot be staged deterministically and the row has no carryable observable
+ported	packages/effect/test/Queue.test.ts	788	it.effect	flush is a no-op after shutdown	flush_is_a_no_op_after_shutdown
+ported	packages/effect/test/Queue.test.ts	799	it.effect	flush keeps a buffered message when no taker is waiting	flush_keeps_a_buffered_message_when_no_taker_is_waiting
+ported	packages/effect/test/Queue.test.ts	809	it.effect	flushUnsafe preserves later offers when the queue is empty	flush_unsafe_preserves_later_offers_when_the_queue_is_empty
+ported	packages/effect/test/Queue.test.ts	824	it.effect	bounded 0 capacity	bounded_zero_capacity_rendezvouses
+not-applicable	packages/effect/test/Queue.test.ts	836	it.effect	zero-capacity takeAll consumes buffered messages before pending offers	the row's observable is a fiber-scheduler interleaving (forkChild with pollUnsafe, yieldNow windows, or several parked producers whose wakeup order decides the result); this port's Queue is a synchronous blocking core, so the interleaving cannot be staged deterministically and the row has no carryable observable
+not-applicable	packages/effect/test/Queue.test.ts	850	it.effect	zero-capacity offerAll drains in order and completes a closing queue	the row's observable is a fiber-scheduler interleaving (forkChild with pollUnsafe, yieldNow windows, or several parked producers whose wakeup order decides the result); this port's Queue is a synchronous blocking core, so the interleaving cannot be staged deterministically and the row has no carryable observable
 unported	packages/effect/test/Random.test.ts	8	it.effect	generates a number between 0 inclusive and 1 exclusive	
 unported	packages/effect/test/Random.test.ts	18	it.effect	generates a boolean	
 unported	packages/effect/test/Random.test.ts	25	it.effect	is deterministic with the same seed	

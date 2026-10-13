@@ -92,5 +92,5 @@ pub use stm::{
     is_tx_subscription_ref,
 };
 pub use stream::{Stream, from_iter, from_iterator_succeed};
-pub use sync::{Deferred, MutableRef, PartitionedSemaphore, Queue, Ref, Semaphore, SubscriptionRef, SynchronizedRef};
+pub use sync::{Deferred, MutableRef, PartitionedSemaphore, Queue, QueueError, Ref, Semaphore, Strategy, SubscriptionRef, SynchronizedRef, is_dequeue, is_enqueue, is_queue};
 pub use time::{Clock, ClockImpl, Duration, SleepOutcome, SystemClock, TestClock};
