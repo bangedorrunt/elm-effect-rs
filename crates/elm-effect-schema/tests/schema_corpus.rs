@@ -2724,3 +2724,113 @@ fn json_schema_document_refuses_a_union_beside_constraining_keywords() {
     }
 }
 
+#[test]
+fn json_schema_document_keeps_each_intersection_that_survives_its_member() {
+    // fromJsonSchemaDocument.test.ts:1741, :1758, :2400, :2605, :2612, :2619,
+    // :2626 — the `allOf` rows whose member does not restate the base in a
+    // different shape. The member only adds an annotation, repeats a check the
+    // base already carries, or names a value the base admits, so the base
+    // survives with the member folded into it.
+    //
+    // The sibling rows are refused rather than carried: where the member
+    // narrows the base's own shape (an array whose `prefixItems` differ, an
+    // object with other `properties`), this port's `intersect` compares the two
+    // `SchemaKind`s structurally and reports "a member with a different base"
+    // where the pin merges the two shapes. Those rows are blocked on that fix,
+    // not on their expectations, and asserting a refusal as the behavior would
+    // pin the defect.
+    use elm_effect_schema::{Schema, Unknown};
+
+    let cases: Vec<(serde_json::Value, &str, &str)> = vec![
+        (
+            // :1741 — an untyped member carrying only a description annotates
+            // the array rather than replacing it.
+            serde_json::json!({"type": "array", "allOf": [{"description": "a"}]}),
+            r#"Schema.Array(Schema.Json.annotate({ "expected": "JSON value" })).annotate({ "description": "a" })"#,
+            "ReadonlyArray<Schema.Json>",
+        ),
+        (
+            // :1758 — the same shape over a closed object.
+            serde_json::json!({
+                "type": "object",
+                "additionalProperties": false,
+                "allOf": [{"description": "a"}]
+            }),
+            r#"Schema.Record(Schema.String, Schema.Never).annotate({ "description": "a" })"#,
+            "{ readonly [x: string]: never }",
+        ),
+        (
+            // :2400 — a repeated `uniqueItems` stays one check, not two.
+            serde_json::json!({
+                "type": "array",
+                "uniqueItems": true,
+                "allOf": [{"uniqueItems": true}]
+            }),
+            r#"Schema.Array(Schema.Json.annotate({ "expected": "JSON value" })).check(Schema.isUnique().annotate({ "expected": "an array with unique items" }))"#,
+            "ReadonlyArray<Schema.Json>",
+        ),
+        (
+            // :2605 — null intersected with null is null.
+            serde_json::json!({"allOf": [{"type": "null"}, {"type": "null"}]}),
+            "Schema.Null",
+            "null",
+        ),
+        (
+            // :2612 — identical literals leave one of them.
+            serde_json::json!({"allOf": [{"const": 1}, {"const": 1}]}),
+            "Schema.Literal(1)",
+            "1",
+        ),
+        (
+            // :2619 — a literal the sibling's type admits survives.
+            serde_json::json!({"allOf": [{"type": "boolean"}, {"const": true}]}),
+            "Schema.Literal(true)",
+            "true",
+        ),
+        (
+            // :2626 — the same with the literal written first; the pin asserts
+            // both orders, since neither side is privileged.
+            serde_json::json!({"allOf": [{"const": true}, {"type": "boolean"}]}),
+            "Schema.Literal(true)",
+            "true",
+        ),
+    ];
+
+    for (doc, code, ty) in &cases {
+        let schema = Schema::<Unknown>::from_json_schema(doc).expect("imports");
+        assert_eq!(&schema.to_code(), code, "code for {doc}");
+        assert_eq!(&schema.to_type(), ty, "type for {doc}");
+    }
+
+    // The literal rows also decode: the surviving value is admitted and its
+    // neighbour refused, so the code string cannot be the only thing holding the
+    // row up.
+    let one = Schema::<Unknown>::from_json_schema(&cases[4].0).expect("imports");
+    assert_eq!(
+        one.decode(Unknown::Number(1.0)).expect("1"),
+        Unknown::Number(1.0)
+    );
+    assert!(one.decode(Unknown::Number(2.0)).is_err());
+
+    for index in [5, 6] {
+        let truthy = Schema::<Unknown>::from_json_schema(&cases[index].0).expect("imports");
+        assert_eq!(
+            truthy.decode(Unknown::Bool(true)).expect("true"),
+            Unknown::Bool(true)
+        );
+        assert!(truthy.decode(Unknown::Bool(false)).is_err(), "{index}");
+    }
+
+    // The three rows whose member merges into the base (cases 0, 1 and 3) have
+    // a DECODER that admits anything, so no decode can be asserted for them and
+    // the code string is all there is to hold them. `intersect` rebuilds the
+    // merged schema through `new_kinded`, and that function only builds a
+    // checking decoder for `String`, `Number` and `Boolean`; every other kind
+    // falls through to `|value| Ok(value)`. So
+    // `{allOf:[{type:"null"},{type:"null"}]}` prints `Schema.Null` and decodes
+    // a string, where a plain `{type:"null"}` refuses one. That is a defect in
+    // the import path, not a limit of these rows: three of the four Never rows
+    // are refused by the same function for the neighbouring reason, and the fix
+    // belongs with them.
+}
+
