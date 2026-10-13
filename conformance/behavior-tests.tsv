@@ -859,15 +859,15 @@ not-applicable	packages/effect/test/Config.test.ts	2753	it	reports nested Int va
 not-applicable	packages/effect/test/Config.test.ts	2772	it	decodes nested URL values	the row decodes a Schema leaf/Struct/Tuple/Union from provider data through Config.schema; the port has no Config.schema constructor and its providers never build schema nodes
 ported	packages/effect/test/ConfigProvider.test.ts	40	it.effect	exposes lookup absence and input transformation as provider behavior	provider_map_input_prefixes_lookups
 ported	packages/effect/test/ConfigProvider.test.ts	56	it	creates a provider from a lookup function	provider_from_fn_reads_through_lookup
-unported	packages/effect/test/ConfigProvider.test.ts	69	it	preserves SourceError failures	
+ported	packages/effect/test/ConfigProvider.test.ts	69	it	preserves SourceError failures	provider_source_error_is_not_swallowed_by_or_else
 ported	packages/effect/test/ConfigProvider.test.ts	79	it	uses the fallback when the primary provider is missing the path	provider_fallback_and_nesting
-unported	packages/effect/test/ConfigProvider.test.ts	95	it	does not use the fallback after a SourceError	
+ported	packages/effect/test/ConfigProvider.test.ts	95	it	does not use the fallback after a SourceError	provider_source_error_is_not_swallowed_by_or_else
 ported	packages/effect/test/ConfigProvider.test.ts	103	it	does not evaluate the fallback after the primary provider finds a node	provider_fallback_skips_evaluation_after_hit
 ported	packages/effect/test/ConfigProvider.test.ts	113	it	preserves each operand's transformations	or_else_preserves_each_operands_transformations
 ported	packages/effect/test/ConfigProvider.test.ts	129	it	distributes mapInput over both operands	provider_map_distributes_over_fallback_operands
 ported	packages/effect/test/ConfigProvider.test.ts	149	it	distributes nested over both operands	provider_nested_distributes_over_fallback_operands
 ported	packages/effect/test/ConfigProvider.test.ts	165	it	uses the fallback when the primary value is an empty string	provider_empty_strings_are_missing_by_default
-unported	packages/effect/test/ConfigProvider.test.ts	176	it	does not merge a fallback container into an existing primary container	
+ported	packages/effect/test/ConfigProvider.test.ts	176	it	does not merge a fallback container into an existing primary container	or_else_does_not_merge_a_fallback_container_into_the_primary
 ported	packages/effect/test/ConfigProvider.test.ts	187	it	composes transformations in application order	provider_map_input_composes_in_application_order
 ported	packages/effect/test/ConfigProvider.test.ts	202	it	converts string path segments to config case	constant_case_converts_string_segments_to_config_case
 ported	packages/effect/test/ConfigProvider.test.ts	211	it	preserves numeric word groups	constant_case_preserves_numeric_word_groups
@@ -878,56 +878,56 @@ ported	packages/effect/test/ConfigProvider.test.ts	252	it	preserves order when c
 ported	packages/effect/test/ConfigProvider.test.ts	261	it	preserves order when constantCase is applied after nested	provider_env_chain_applies_nested_before_constant_case
 ported	packages/effect/test/ConfigProvider.test.ts	270	it	composes multiple prefixes as wrappers	provider_fallback_and_nesting
 ported	packages/effect/test/ConfigProvider.test.ts	279	it	allows a later mapInput to transform the prefixed path	provider_chain_maps_after_prefix
-unported	packages/effect/test/ConfigProvider.test.ts	292	it	reads defined values and skips undefined values	
+ported	packages/effect/test/ConfigProvider.test.ts	292	it	reads defined values and skips undefined values	env_record_skips_undefined_entries
 ported	packages/effect/test/ConfigProvider.test.ts	304	it	treats empty strings as missing by default	provider_empty_strings_are_missing_by_default
 ported	packages/effect/test/ConfigProvider.test.ts	308	it	preserves empty strings when requested	provider_preserves_empty_strings_when_requested
 ported	packages/effect/test/ConfigProvider.test.ts	319	it	env without an underscore	provider_env_basics_hit_miss_and_no_inheritance
 ported	packages/effect/test/ConfigProvider.test.ts	325	it	missing key returns None	provider_env_basics_hit_miss_and_no_inheritance
 ported	packages/effect/test/ConfigProvider.test.ts	331	it	does not read inherited environment properties	provider_env_basics_hit_miss_and_no_inheritance
-unported	packages/effect/test/ConfigProvider.test.ts	336	it	does not traverse inherited trie properties	
+ported	packages/effect/test/ConfigProvider.test.ts	336	it	does not traverse inherited trie properties	env_inherited_trie_properties_are_not_traversed
 ported	packages/effect/test/ConfigProvider.test.ts	346	it	treats empty string values as missing while preserving structure by default	provider_listings_keep_empty_valued_keys
 ported	packages/effect/test/ConfigProvider.test.ts	355	it	preserves empty strings when requested	provider_preserves_empty_strings_when_requested
 ported	packages/effect/test/ConfigProvider.test.ts	363	it	treats empty co-located record values as missing and preserves children	provider_empty_strings_are_missing_by_default
-unported	packages/effect/test/ConfigProvider.test.ts	371	it	preserves empty co-located record values when requested	
-unported	packages/effect/test/ConfigProvider.test.ts	379	it	treats empty co-located array values as missing and preserves children	
-unported	packages/effect/test/ConfigProvider.test.ts	387	it	preserves empty array children structurally while treating their values as missing	
+ported	packages/effect/test/ConfigProvider.test.ts	371	it	preserves empty co-located record values when requested	env_empty_co_located_values_read_missing_but_keep_children
+ported	packages/effect/test/ConfigProvider.test.ts	379	it	treats empty co-located array values as missing and preserves children	env_empty_co_located_values_read_missing_but_keep_children
+ported	packages/effect/test/ConfigProvider.test.ts	387	it	preserves empty array children structurally while treating their values as missing	env_empty_co_located_values_read_missing_but_keep_children
 ported	packages/effect/test/ConfigProvider.test.ts	396	it	direct lookup of a key containing underscores	provider_env_underscore_segments
 ported	packages/effect/test/ConfigProvider.test.ts	402	it	single underscore creates nesting	provider_env_underscore_segments
-unported	packages/effect/test/ConfigProvider.test.ts	410	it	prefix can be both a value and a container	
-unported	packages/effect/test/ConfigProvider.test.ts	419	it	multiple nested children under the same prefix	
-unported	packages/effect/test/ConfigProvider.test.ts	429	it	nested depth > 2 works	
-unported	packages/effect/test/ConfigProvider.test.ts	438	it	array: dense numeric children yield an Array node	
-unported	packages/effect/test/ConfigProvider.test.ts	447	it	array: non-dense numeric children still yield an Array node	
-unported	packages/effect/test/ConfigProvider.test.ts	458	it	array: parent can have a co-located value	
-unported	packages/effect/test/ConfigProvider.test.ts	467	it	mixed children (numeric + non-numeric) yields Record	
+ported	packages/effect/test/ConfigProvider.test.ts	410	it	prefix can be both a value and a container	env_map_trie_shape_is_node_and_value_at_once
+ported	packages/effect/test/ConfigProvider.test.ts	419	it	multiple nested children under the same prefix	env_map_trie_shape_is_node_and_value_at_once
+ported	packages/effect/test/ConfigProvider.test.ts	429	it	nested depth > 2 works	env_map_trie_shape_is_node_and_value_at_once
+ported	packages/effect/test/ConfigProvider.test.ts	438	it	array: dense numeric children yield an Array node	env_array_nodes_follow_the_pin_density_rules
+ported	packages/effect/test/ConfigProvider.test.ts	447	it	array: non-dense numeric children still yield an Array node	env_array_nodes_follow_the_pin_density_rules
+ported	packages/effect/test/ConfigProvider.test.ts	458	it	array: parent can have a co-located value	env_array_nodes_follow_the_pin_density_rules
+ported	packages/effect/test/ConfigProvider.test.ts	467	it	mixed children (numeric + non-numeric) yields Record	env_array_nodes_follow_the_pin_density_rules
 ported	packages/effect/test/ConfigProvider.test.ts	476	it	double underscore produces an empty segment (no special handling)	provider_env_underscore_segments
-unported	packages/effect/test/ConfigProvider.test.ts	486	it	empty segment node can be both a value and a container	
+ported	packages/effect/test/ConfigProvider.test.ts	486	it	empty segment node can be both a value and a container	env_map_trie_shape_is_node_and_value_at_once
 ported	packages/effect/test/ConfigProvider.test.ts	494	it	leading underscore creates an empty first segment	provider_env_underscore_segments
 ported	packages/effect/test/ConfigProvider.test.ts	504	it	trailing underscore creates an empty last segment	provider_env_underscore_segments
-unported	packages/effect/test/ConfigProvider.test.ts	513	it	cannot descend past a leaf (A exists, but A_B does not)	
-unported	packages/effect/test/ConfigProvider.test.ts	522	it	direct lookup and nested lookup both work for the same env var	
-unported	packages/effect/test/ConfigProvider.test.ts	531	it	prefix value is preserved when there are multiple nested children	
-unported	packages/effect/test/ConfigProvider.test.ts	540	it	intermediate node can be both a value and a container (A_B and A_B_C)	
-unported	packages/effect/test/ConfigProvider.test.ts	550	it	numeric index: string and number segments should resolve the same	
-unported	packages/effect/test/ConfigProvider.test.ts	558	it	array: leading-zero indices are not numeric, so it yields a Record	
-unported	packages/effect/test/ConfigProvider.test.ts	567	it	array: values outside the JavaScript array index range yield a Record	
+ported	packages/effect/test/ConfigProvider.test.ts	513	it	cannot descend past a leaf (A exists, but A_B does not)	env_leaf_never_invents_a_child
+ported	packages/effect/test/ConfigProvider.test.ts	522	it	direct lookup and nested lookup both work for the same env var	env_one_var_answers_direct_and_nested
+ported	packages/effect/test/ConfigProvider.test.ts	531	it	prefix value is preserved when there are multiple nested children	env_map_trie_shape_is_node_and_value_at_once
+ported	packages/effect/test/ConfigProvider.test.ts	540	it	intermediate node can be both a value and a container (A_B and A_B_C)	env_intermediate_is_value_and_container
+ported	packages/effect/test/ConfigProvider.test.ts	550	it	numeric index: string and number segments should resolve the same	env_numeric_segments_stay_exact_keys
+ported	packages/effect/test/ConfigProvider.test.ts	558	it	array: leading-zero indices are not numeric, so it yields a Record	env_numeric_segments_stay_exact_keys
+ported	packages/effect/test/ConfigProvider.test.ts	567	it	array: values outside the JavaScript array index range yield a Record	env_numeric_segments_stay_exact_keys
 ported	packages/effect/test/ConfigProvider.test.ts	575	it	root path exposes top-level keys	provider_env_root_keys_and_dotenv_structure
 ported	packages/effect/test/ConfigProvider.test.ts	584	it	underscore-only key creates empty segments	provider_env_underscore_segments
-unported	packages/effect/test/ConfigProvider.test.ts	594	it	array: non-integer indices do not yield an Array node	
-unported	packages/effect/test/ConfigProvider.test.ts	622	it	Root node	
-unported	packages/effect/test/ConfigProvider.test.ts	632	it	Exact leaf resolution	
+ported	packages/effect/test/ConfigProvider.test.ts	594	it	array: non-integer indices do not yield an Array node	env_numeric_segments_stay_exact_keys
+ported	packages/effect/test/ConfigProvider.test.ts	622	it	Root node	env_map_trie_shape_is_node_and_value_at_once
+ported	packages/effect/test/ConfigProvider.test.ts	632	it	Exact leaf resolution	from_unknown_nested_members_read_exactly
 ported	packages/effect/test/ConfigProvider.test.ts	640	it	treats empty string leaves as missing by default	provider_nested_empty_leaves_read_missing
 ported	packages/effect/test/ConfigProvider.test.ts	659	it	preserves empty string leaves when requested	provider_dotenv_preserves_empty_when_requested
-unported	packages/effect/test/ConfigProvider.test.ts	672	it	Object detection	
-unported	packages/effect/test/ConfigProvider.test.ts	677	it	Array detection	
+ported	packages/effect/test/ConfigProvider.test.ts	672	it	Object detection	from_unknown_nested_members_read_exactly
+ported	packages/effect/test/ConfigProvider.test.ts	677	it	Array detection	from_unknown_nested_members_read_exactly
 ported	packages/effect/test/ConfigProvider.test.ts	682	it	should return None on non-existing paths	provider_env_root_keys_and_dotenv_structure
-unported	packages/effect/test/ConfigProvider.test.ts	688	it	does not read inherited object properties	
-unported	packages/effect/test/ConfigProvider.test.ts	699	it	null values	
-unported	packages/effect/test/ConfigProvider.test.ts	703	it	number values	
-unported	packages/effect/test/ConfigProvider.test.ts	707	it	boolean values	
-unported	packages/effect/test/ConfigProvider.test.ts	711	it	bigint values	
-unported	packages/effect/test/ConfigProvider.test.ts	715	it	undefined values	
-unported	packages/effect/test/ConfigProvider.test.ts	719	it	unknown values	
+ported	packages/effect/test/ConfigProvider.test.ts	688	it	does not read inherited object properties	source_reads_only_its_own_members
+ported	packages/effect/test/ConfigProvider.test.ts	699	it	null values	from_unknown_scalars_and_collections_read_as_text
+ported	packages/effect/test/ConfigProvider.test.ts	703	it	number values	from_unknown_scalars_and_collections_read_as_text
+ported	packages/effect/test/ConfigProvider.test.ts	707	it	boolean values	from_unknown_scalars_and_collections_read_as_text
+ported	packages/effect/test/ConfigProvider.test.ts	711	it	bigint values	from_unknown_scalars_and_collections_read_as_text
+ported	packages/effect/test/ConfigProvider.test.ts	715	it	undefined values	from_unknown_scalars_and_collections_read_as_text
+ported	packages/effect/test/ConfigProvider.test.ts	719	it	unknown values	from_unknown_scalars_and_collections_read_as_text
 ported	packages/effect/test/ConfigProvider.test.ts	725	it	comments are ignored	provider_dotenv_parses_key_value_text
 ported	packages/effect/test/ConfigProvider.test.ts	734	it	export is allowed	provider_dotenv_parses_key_value_text
 ported	packages/effect/test/ConfigProvider.test.ts	742	it	supports single, double, and backtick quoted values	provider_dotenv_quotes_comments_and_underscores
@@ -935,9 +935,9 @@ ported	packages/effect/test/ConfigProvider.test.ts	753	it	removes inline comment
 ported	packages/effect/test/ConfigProvider.test.ts	759	it	objects are supported	provider_dotenv_quotes_comments_and_underscores
 ported	packages/effect/test/ConfigProvider.test.ts	770	it	treats empty string values as missing while preserving structure by default	provider_env_root_keys_and_dotenv_structure
 ported	packages/effect/test/ConfigProvider.test.ts	780	it	preserves empty strings when requested	provider_dotenv_preserves_empty_when_requested
-unported	packages/effect/test/ConfigProvider.test.ts	791	it	a node may be both leaf and object	
-unported	packages/effect/test/ConfigProvider.test.ts	803	it	a node may be both leaf and array	
-unported	packages/effect/test/ConfigProvider.test.ts	815	it	arrays are supported	
+ported	packages/effect/test/ConfigProvider.test.ts	791	it	a node may be both leaf and object	dotenv_node_is_both_leaf_and_collection
+ported	packages/effect/test/ConfigProvider.test.ts	803	it	a node may be both leaf and array	dotenv_node_is_both_leaf_and_collection
+ported	packages/effect/test/ConfigProvider.test.ts	815	it	arrays are supported	dotenv_supports_array_children
 ported	packages/effect/test/ConfigProvider.test.ts	826	it	expansion of environment variables is off by default	provider_dotenv_expansion_is_opt_in
 ported	packages/effect/test/ConfigProvider.test.ts	836	it	expansion of environment variables is supported	provider_dotenv_expansion_is_opt_in
 ported	packages/effect/test/ConfigProvider.test.ts	849	it	expands referenced values as literal data	provider_dotenv_expands_refs_keeps_literal_dollars
@@ -945,19 +945,19 @@ ported	packages/effect/test/ConfigProvider.test.ts	860	it	expansion defaults are
 ported	packages/effect/test/ConfigProvider.test.ts	876	it	does not expand missing inherited variables	provider_dotenv_expansion_defaults_and_missing
 ported	packages/effect/test/ConfigProvider.test.ts	885	it	should load configuration from .env file	provider_dotenv_parses_key_value_text
 ported	packages/effect/test/ConfigProvider.test.ts	900	it	should support `path` option to specify the path to the .env file	provider_dotenv_parses_key_value_text
-unported	packages/effect/test/ConfigProvider.test.ts	915	it	should support `expandVariables` option	
+ported	packages/effect/test/ConfigProvider.test.ts	915	it	should support `expandVariables` option	dotenv_expand_variables_option_reaches_the_parser
 ported	packages/effect/test/ConfigProvider.test.ts	929	it	should treat empty string values as missing while preserving structure by default	provider_env_root_keys_and_dotenv_structure
 ported	packages/effect/test/ConfigProvider.test.ts	942	it	should support `preserveEmptyStrings` option	provider_dotenv_preserve_empty_strings_option
 ported	packages/effect/test/ConfigProvider.test.ts	954	it	fails with the FileSystem error when the file cannot be read	provider_dotenv_file_reads_path_and_errors_missing
 ported	packages/effect/test/ConfigProvider.test.ts	993	it	reads trimmed file contents at root and nested paths	provider_dir_reads_trimmed_leaves
 ported	packages/effect/test/ConfigProvider.test.ts	1005	it	treats empty files as missing by default	provider_dir_reads_trimmed_leaves
 ported	packages/effect/test/ConfigProvider.test.ts	1026	it	preserves empty files when requested	provider_dir_reads_trimmed_leaves
-unported	packages/effect/test/ConfigProvider.test.ts	1046	it	reads directory entries as a record	
-unported	packages/effect/test/ConfigProvider.test.ts	1067	it	wraps non-NotFound failures in SourceError	
-unported	packages/effect/test/ConfigProvider.test.ts	1101	it	layer installs a provider	
-unported	packages/effect/test/ConfigProvider.test.ts	1111	it	layer accepts an Effect that produces a provider	
-unported	packages/effect/test/ConfigProvider.test.ts	1121	it	layerAdd adds an Effect-produced provider as fallback	
-unported	packages/effect/test/ConfigProvider.test.ts	1149	it	layerAdd can install the added provider as primary	
+ported	packages/effect/test/ConfigProvider.test.ts	1046	it	reads directory entries as a record	dir_entries_read_as_a_record_under_their_name
+ported	packages/effect/test/ConfigProvider.test.ts	1067	it	wraps non-NotFound failures in SourceError	provider_source_error_is_not_swallowed_by_or_else
+ported	packages/effect/test/ConfigProvider.test.ts	1101	it	layer installs a provider	provider_layers_compose_primary_and_added
+ported	packages/effect/test/ConfigProvider.test.ts	1111	it	layer accepts an Effect that produces a provider	provider_layers_compose_primary_and_added
+ported	packages/effect/test/ConfigProvider.test.ts	1121	it	layerAdd adds an Effect-produced provider as fallback	provider_layers_compose_primary_and_added
+ported	packages/effect/test/ConfigProvider.test.ts	1149	it	layerAdd can install the added provider as primary	provider_layers_compose_primary_and_added
 ported	packages/effect/test/Context.test.ts	13	it	keeps the source immutable across additions	context_add_keeps_source_immutable
 ported	packages/effect/test/Context.test.ts	21	it	removes a service with addOrOmit	context_add_or_omit_removes
 ported	packages/effect/test/Context.test.ts	27	it	preserves Map insertion order for replacements and appends	context_preserves_insertion_order

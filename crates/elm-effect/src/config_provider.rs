@@ -18,6 +18,14 @@ pub trait Lookup {
     /// unless the source preserves them).
     fn get(&self, path: &[String]) -> Option<String>;
 
+    /// Value at `path` with the failure channel a source can carry
+    /// (`SourceError`): `Ok(None)` is absence, `Err` is a source failure
+    /// that a fallback chain must propagate rather than skip. The default
+    /// is the infallible shape every value source has.
+    fn try_get(&self, path: &[String]) -> Result<Option<String>, String> {
+        Ok(self.get(path))
+    }
+
     /// Ordered transform pipeline over this source (pipe order: each
     /// step sees the previous step's path).
     fn chain(&self) -> Chain<'_>
@@ -282,6 +290,40 @@ impl Lookup for Fallback<'_> {
     fn get(&self, path: &[String]) -> Option<String> {
         self.first.get(path).or_else(|| self.second.get(path))
     }
+
+    fn try_get(&self, path: &[String]) -> Result<Option<String>, String> {
+        // Absence falls through; a FAILED source poisons the chain, so the
+        // fallback is never consulted — the pin's `SourceError` rule.
+        match self.first.try_get(path)? {
+            Some(hit) => Ok(Some(hit)),
+            None => self.second.try_get(path),
+        }
+    }
+}
+
+/// A source that fails every lookup with a `SourceError`-shaped message
+/// (`ConfigProvider.make(() => Effect.fail(...))`): the port's failure
+/// channel for providers, which `Fallback` propagates instead of skipping.
+pub struct Failing {
+    message: String,
+}
+
+impl Failing {
+    pub fn new(message: impl Into<String>) -> Self {
+        Self {
+            message: message.into(),
+        }
+    }
+}
+
+impl Lookup for Failing {
+    fn get(&self, _path: &[String]) -> Option<String> {
+        None
+    }
+
+    fn try_get(&self, _path: &[String]) -> Result<Option<String>, String> {
+        Err(self.message.clone())
+    }
 }
 
 /// Path-transformed view of a lookup source (`mapInput`): every lookup
@@ -424,6 +466,14 @@ impl EnvProvider {
         Self {
             values: pairs.into_iter().collect(),
             preserve_empty: false,
+        }
+    }
+
+    /// Build from pairs keeping empty values (`preserveEmptyStrings`).
+    pub fn from_env_map_preserving(pairs: impl IntoIterator<Item = (String, String)>) -> Self {
+        Self {
+            values: pairs.into_iter().collect(),
+            preserve_empty: true,
         }
     }
 
