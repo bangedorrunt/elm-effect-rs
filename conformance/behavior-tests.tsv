@@ -8688,9 +8688,9 @@ ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts
 unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	806	it	preserves closed empty objects through representation persistence and code generation	
 ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	832	it	additionalProperties	json_schema_document_object_rows_carry_their_code_and_type
 ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	844	it	properties	json_schema_document_object_rows_carry_their_code_and_type
-unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	863	it	properties & additionalProperties	
-unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	876	it	explains why typed additional properties cannot exclude patterned keys	
-unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	888	it	explains the supported closed pattern form when properties are declared or required	
+ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	863	it	properties & additionalProperties	json_schema_document_refuses_the_two_object_forms_it_cannot_spell
+ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	876	it	explains why typed additional properties cannot exclude patterned keys	json_schema_document_refuses_the_two_object_forms_it_cannot_spell
+ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	888	it	explains the supported closed pattern form when properties are declared or required	json_schema_document_refuses_the_two_object_forms_it_cannot_spell
 unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	903	it	round-trips a closed Record with a patterned key	
 unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	937	it	imports a closed patterned Record through references	
 ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	973	it	keeps a closed pattern with Never values as an object schema	json_schema_document_object_checks_carry_their_code_and_type

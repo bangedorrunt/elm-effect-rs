@@ -3044,6 +3044,30 @@ impl Schema<Unknown> {
             };
             fields.push((name.clone(), schema));
         }
+        // The two refusals the pin makes for an object that names a key domain
+        // it cannot spell. Both are index signatures over keys the named keys
+        // already claimed, which is why neither is approximated: a typed
+        // `additionalProperties` beside any other property schema, and a closed
+        // patterned object that also names properties.
+        let patterned = doc.get("patternProperties").is_some();
+        let names_properties = !properties.is_empty() || !required.is_empty();
+        match get("additionalProperties") {
+            Some(serde_json::Value::Bool(false)) if patterned && names_properties => {
+                return Err(SchemaError::TypeMismatch {
+                    path: "$.schema".to_string(),
+                    expected: "a closed patterned object with one pattern and no properties: Cannot import this closed patterned object: only one pattern without properties is supported",
+                    got: "a closed patterned object that also declares properties",
+                });
+            }
+            Some(additional) if !additional.is_boolean() && (names_properties || patterned) => {
+                return Err(SchemaError::TypeMismatch {
+                    path: "$.schema".to_string(),
+                    expected: "no typed additionalProperties beside other property schemas: Cannot combine typed \"additionalProperties\" with other property schemas: Effect index signatures also check excluded keys",
+                    got: "a typed additionalProperties beside declared keys",
+                });
+            }
+            _ => {}
+        }
         if fields.is_empty() {
             // A pattern-keyed mapping is a record of its own: the pattern
             // becomes the key schema and the one pattern schema the value. It

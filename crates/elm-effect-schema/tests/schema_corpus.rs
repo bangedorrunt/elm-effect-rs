@@ -2346,6 +2346,86 @@ fn json_schema_document_imports_an_array_of_type_names_as_a_union() {
 }
 
 #[test]
+fn json_schema_document_refuses_the_two_object_forms_it_cannot_spell() {
+    // fromJsonSchemaDocument.test.ts:863, :876, :888 — a typed
+    // `additionalProperties` beside any other property schema is refused,
+    // because an index signature also checks the keys the named fields or the
+    // pattern already claimed, and a closed patterned object that also names
+    // properties is refused for the same reason. Both name the reason.
+    use elm_effect_schema::{Schema, Unknown};
+
+    let typed = |extra: serde_json::Value| {
+        let mut doc = serde_json::json!({
+            "type": "object",
+            "additionalProperties": {"type": "boolean"}
+        });
+        if let (Some(target), serde_json::Value::Object(fields)) = (doc.as_object_mut(), extra) {
+            for (key, value) in fields {
+                target.insert(key, value);
+            }
+        }
+        doc
+    };
+    for doc in [
+        typed(serde_json::json!({"properties": {"a": {"type": "string"}}, "required": ["a"]})),
+        typed(serde_json::json!({"patternProperties": {"^a": {"type": "string"}}})),
+    ] {
+        let Err(error) = Schema::<Unknown>::from_json_schema(&doc) else {
+            panic!("a typed additionalProperties beside other keys must refuse: {doc:?}")
+        };
+        let printed = format!("{error}");
+        assert!(
+            printed.contains("Cannot combine typed \"additionalProperties\" with other property schemas"),
+            "{printed}"
+        );
+    }
+
+    // The closed pattern form is supported only with one pattern and no
+    // properties: a declared property or a required key both refuse it.
+    for extra in [
+        serde_json::json!({"properties": {"a": {"type": "number"}}}),
+        serde_json::json!({"required": ["a"]}),
+    ] {
+        let mut doc = serde_json::json!({
+            "type": "object",
+            "patternProperties": {"^a": {"type": "number"}},
+            "additionalProperties": false
+        });
+        if let (Some(target), serde_json::Value::Object(fields)) = (doc.as_object_mut(), extra) {
+            for (key, value) in fields {
+                target.insert(key, value);
+            }
+        }
+        let Err(error) = Schema::<Unknown>::from_json_schema(&doc) else {
+            panic!("a closed patterned object with properties must refuse: {doc:?}")
+        };
+        assert!(
+            format!("{error}")
+                .contains("only one pattern without properties is supported"),
+            "{error}"
+        );
+    }
+
+    // The form the pin DOES support still imports: one pattern, closed, no
+    // named properties. That is what makes the refusals above narrow rather
+    // than a blanket ban on patterned objects. What the closed key domain
+    // costs a decode is the excess-property family (:729, :903), which the
+    // port does not carry yet.
+    let supported = Schema::<Unknown>::from_json_schema(&serde_json::json!({
+        "type": "object",
+        "patternProperties": {"^a": {"type": "number"}},
+        "additionalProperties": false
+    }))
+    .expect("imports");
+    // The pattern becomes the key schema, which is the shape the port can
+    // spell: one record whose key is a pattern check and whose value is the
+    // one pattern schema.
+    assert!(supported.to_code().contains("isPattern"), "{}", supported.to_code());
+    let inside = std::collections::BTreeMap::from([("abc".to_string(), Unknown::Number(1.0))]);
+    assert!(supported.decode(Unknown::Object(inside)).is_ok());
+}
+
+#[test]
 fn json_schema_document_a_grouped_range_refinement_decides_both_ends() {
     // fromJsonSchemaDocument.test.ts:1855 — a member carrying a minimum and a
     // maximum groups into one refinement, and the value it lands on is decided
