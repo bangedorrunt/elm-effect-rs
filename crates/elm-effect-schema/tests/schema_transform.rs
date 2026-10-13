@@ -359,6 +359,56 @@ fn branded_empty_map_has_no_constraints() {
     assert_eq!(Unknown::Object(m.clone()), Unknown::Object(m));
 }
 
+/// Schema.test.ts:2485 (`decode` block): a decode-side transformation changes
+/// one direction only. The pin's `String.pipe(decode(compose(trim,
+/// toLowerCase)))` decodes `" A "` to `"a"` and leaves the encode side alone,
+/// because `composeTransformation` is still one-directional; the same value
+/// encodes back untouched.
+#[test]
+fn decode_only_transformation_leaves_encode_alone() {
+    let schema = Schema::<String>::convert(
+        Schema::string(),
+        |source: String| Ok(source.trim().to_lowercase()),
+        |value: &String| value.clone(),
+    );
+
+    assert_eq!(schema.decode(text(" A ")).unwrap(), "a");
+    assert_eq!(schema.encode(&" A ".to_string()), text(" A "));
+}
+
+/// Schema.test.ts:2634 (`encode` block): the mirror case. `flip()` moves the
+/// composition to the encode side, so decode passes the value through and
+/// encode is the one that trims and lowercases it.
+#[test]
+fn encode_only_transformation_leaves_decode_alone() {
+    let schema = Schema::<String>::convert(
+        Schema::string(),
+        |source: String| Ok(source),
+        |value: &String| value.trim().to_lowercase(),
+    );
+
+    assert_eq!(schema.decode(text(" A ")).unwrap(), " A ");
+    assert_eq!(schema.encode(&" A ".to_string()), text("a"));
+}
+
+/// Schema.test.ts:2403 and :2582 reduce to one behavior: `Trim` on either side
+/// of `FiniteFromString` — `Trim.pipe(decodeTo(FiniteFromString))` and
+/// `FiniteFromString.pipe(encodeTo(Trim))` — is indistinguishable from the
+/// finite number string itself, because it parses its source text trimmed and
+/// re-emits it canonically. `" 2 "` decodes to 2, a trimmed non-number is
+/// refused, and 2 encodes back to `"2"`.
+#[test]
+fn finite_from_string_trims_the_source_text() {
+    let schema = Schema::finite_from_string();
+
+    assert_eq!(schema.decode(text(" 2 ")).unwrap(), 2.0);
+    assert_eq!(schema.encode(&2.0), text("2"));
+    let error = schema
+        .decode(text(" a2 "))
+        .expect_err("a trimmed text that is not a number");
+    assert!(error.to_string().contains("a finite number"), "{error}");
+}
+
 #[test]
 fn double_text_number_flag_round_trips() {
     use elm_effect_schema::SchemaError;
