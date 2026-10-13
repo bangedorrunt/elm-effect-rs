@@ -194,7 +194,7 @@ fn post(
 
 #[test]
 fn match_path_ci_static_levels() {
-    use elm_effect_unstable::http_server::{match_path, match_path_ci};
+    use elm_effect_unstable::http_server::match_path_ci;
     assert_eq!(match_path_ci("/woo", "/WOO"), Some(vec![]));
     assert_eq!(match_path_ci("/foo/bar", "/FOO/BAR"), Some(vec![]));
     assert_eq!(
@@ -208,7 +208,7 @@ fn match_path_ci_static_levels() {
 
 #[test]
 fn match_path_ci_params_keep_path_case() {
-    use elm_effect_unstable::http_server::{match_path, match_path_ci};
+    use elm_effect_unstable::http_server::match_path_ci;
     assert_eq!(
         match_path_ci("/users/:id", "/USERS/AbC"),
         Some(vec![("id".to_string(), "AbC".to_string())]),
@@ -238,7 +238,7 @@ fn match_path_ci_multiple_routes_first_pattern_wins() {
 
 #[test]
 fn match_path_ci_strips_query_and_fragment() {
-    use elm_effect_unstable::http_server::{match_path, match_path_ci};
+    use elm_effect_unstable::http_server::match_path_ci;
     assert_eq!(
         match_path_ci("/Search/:q", "/SEARCH/Rust?lang=en#top"),
         Some(vec![("q".to_string(), "Rust".to_string())])
@@ -382,7 +382,7 @@ fn wildcard_segment_matches_anything() {
 
 #[test]
 fn multi_param_segments_split_on_separators() {
-    use elm_effect_unstable::http_server::{match_path_ci, match_path};
+    use elm_effect_unstable::http_server::match_path_ci;
     // Case-insensitive forms of FindMyWay's multi-param routes.
     assert_eq!(
         match_path_ci("/:a-:b", "/x-y"),
@@ -408,7 +408,7 @@ fn multi_param_segments_split_on_separators() {
 
 #[test]
 fn multi_param_segments_reject_mismatched_shapes() {
-    use elm_effect_unstable::http_server::{match_path, match_path_ci};
+    use elm_effect_unstable::http_server::match_path_ci;
     assert_eq!(match_path_ci("/:a-:b", "/nodelimiter"), None);
     assert_eq!(match_path_ci("/:a-:b", "/-"), None, "empty captures rejected");
     assert_eq!(match_path_ci("/:a-:b", "/x-y-extra"), None, "trailing text");
@@ -1186,5 +1186,82 @@ fn router_falls_back_to_a_wildcard_past_max_param_length() {
     assert_eq!(
         router.find("GET", "/users/bob").expect("parameter").handler,
         "parameter"
+    );
+}
+
+// FindMyWay's `caseSensitive: false` is its default. The pin lowercases the
+// static parts it builds nodes from and the path it walks, but slices captures
+// out of the request path as written, so a route matches in any case and still
+// reports the case the request used.
+
+#[test]
+fn router_case_insensitive_matches_static_parts_and_keeps_capture_case() {
+    // case-insensitive.test.ts:79 — two parameters split by a literal inside
+    // one segment fold case for the static parts and the separator, and each
+    // capture keeps the request's own case.
+    let mut router = Router::make();
+    assert!(router.on("GET", "/foo/:param1-:param2", true).is_ok());
+    let found = router.find("GET", "/FOO/My-bAR").expect("mixed case");
+    assert_eq!(
+        found.params,
+        vec![
+            ("param1".to_owned(), "My".to_owned()),
+            ("param2".to_owned(), "bAR".to_owned()),
+        ]
+    );
+}
+
+#[test]
+fn router_case_insensitive_matches_every_segment_and_keeps_capture_case() {
+    // case-insensitive.test.ts:90 — the same fold across segments, with one
+    // parameter per segment.
+    let mut router = Router::make();
+    assert!(router.on("GET", "/foo/:param1/:param2", true).is_ok());
+    let found = router.find("GET", "/FOO/My/bAR").expect("mixed case");
+    assert_eq!(
+        found.params,
+        vec![
+            ("param1".to_owned(), "My".to_owned()),
+            ("param2".to_owned(), "bAR".to_owned()),
+        ]
+    );
+}
+
+#[test]
+fn router_case_insensitive_wildcard_takes_the_rest_as_written() {
+    // case-insensitive.test.ts:101 — the wildcard's static head folds and the
+    // capture is the request's own text.
+    let mut router = Router::make();
+    assert!(router.on("GET", "/foo/*", true).is_ok());
+    let found = router.find("GET", "/FOO/bAR").expect("wildcard");
+    assert_eq!(found.params, vec![("*".to_owned(), "bAR".to_owned())]);
+}
+
+#[test]
+fn router_case_sensitive_config_keeps_case_significant() {
+    // The opt-in side of the flag: with `caseSensitive: true` a static part is
+    // its own route, so the two spellings coexist and each matches itself.
+    let mut router = Router::make_with(RouterConfig {
+        case_sensitive: true,
+        ..RouterConfig::default()
+    });
+    assert!(router.on("GET", "/foo", 1).is_ok());
+    assert!(router.on("GET", "/FOO", 2).is_ok());
+    assert_eq!(router.find("GET", "/foo").expect("lower").handler, 1);
+    assert_eq!(router.find("GET", "/FOO").expect("upper").handler, 2);
+}
+
+#[test]
+fn router_case_insensitive_key_collapses_spellings() {
+    // The duplicate check keys on the pin's lowercased pattern, so the two
+    // spellings are one route here, as `caseSensitive: false` makes them.
+    let mut router = Router::make();
+    assert!(router.on("GET", "/foo", 1).is_ok());
+    assert_eq!(
+        router.on("GET", "/FOO", 2),
+        Err(RouteError::Duplicate {
+            method: "GET".to_owned(),
+            pattern: "/foo".to_owned(),
+        })
     );
 }

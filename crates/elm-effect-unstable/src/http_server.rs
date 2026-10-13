@@ -318,8 +318,11 @@ fn match_path_with(
 // A whole trailing `*` segment is the pin's wildcard, and `maxParamLength`
 // bounds a capture so a wildcard sibling can take over.
 //
-// Not carried from the pin: the `caseSensitive: false` default (this port
-// matches case-sensitively), `::` and `%` escaping in static parts, a wildcard
+// `caseSensitive: false` is the pin's default and this port's too: static
+// parts compare ASCII-case-insensitively and the duplicate key is lowercased,
+// while a `:param` capture keeps the request path's own case.
+//
+// Not carried from the pin: `::` and `%` escaping in static parts, a wildcard
 // glued to text in its segment (`/foo*`), and the regex constructs `Regex`
 // names as unsupported.
 
@@ -333,17 +336,20 @@ pub struct RouterConfig {
     /// Longest a captured parameter may be (`maxParamLength`): a longer capture
     /// fails that route, which is how a wildcard sibling takes over.
     pub max_param_length: usize,
+    /// Compare static parts ASCII-case-insensitively (`caseSensitive`). The
+    /// pin defaults to `false`, so this port does too.
+    pub case_sensitive: bool,
 }
 
 impl Default for RouterConfig {
-    /// The pin's own defaults: both slash options on and a parameter capped at
-    /// 100 characters. Its `caseSensitive: false` is not carried, so this port
-    /// stays case-sensitive.
+    /// The pin's own defaults: both slash options on, a parameter capped at
+    /// 100 characters, and case-insensitive matching.
     fn default() -> Self {
         Self {
             ignore_duplicate_slashes: true,
             ignore_trailing_slash: true,
             max_param_length: 100,
+            case_sensitive: false,
         }
     }
 }
@@ -412,7 +418,8 @@ struct Group {
 #[derive(Clone, Debug)]
 struct Pattern<A> {
     method: String,
-    /// Normalized route key the duplicate check compares.
+    /// Normalized route key the duplicate check compares, lowercased when
+    /// matching is case-insensitive (the pin's `route.pattern`).
     key: String,
     segments: Vec<Vec<SegmentPart>>,
     /// The pin's `isRegex` for the node this pattern creates: a regex source or
@@ -427,7 +434,12 @@ struct Pattern<A> {
 }
 
 impl<A> Pattern<A> {
-    fn parse(method: &str, path: &str, handler: A) -> Result<Self, RouteError> {
+    fn parse(
+        method: &str,
+        path: &str,
+        handler: A,
+        case_sensitive: bool,
+    ) -> Result<Self, RouteError> {
         let mut key = String::new();
         let mut segments = Vec::new();
         let mut is_regex = false;
@@ -531,6 +543,13 @@ impl<A> Pattern<A> {
             }
             segments.push(parts);
         }
+        // The pin lowercases `route.pattern` before its duplicate check, so two
+        // routes differing only in case are one route here too.
+        let key = if case_sensitive {
+            key
+        } else {
+            key.to_ascii_lowercase()
+        };
         Ok(Self {
             method: method.to_owned(),
             key,
@@ -547,6 +566,7 @@ impl<A> Pattern<A> {
         &self,
         path_segments: &[&str],
         max_param_length: usize,
+        case_sensitive: bool,
     ) -> Option<Vec<(String, String)>> {
         let mut params = Vec::new();
         for (position, parts) in self.segments.iter().enumerate() {
@@ -562,6 +582,7 @@ impl<A> Pattern<A> {
                 parts,
                 path_segments.get(position)?,
                 max_param_length,
+                case_sensitive,
             )?);
         }
         if self.segments.len() != path_segments.len() {
@@ -707,13 +728,23 @@ fn match_parts(
     parts: &[SegmentPart],
     rest: &str,
     max_param_length: usize,
+    case_sensitive: bool,
 ) -> Option<Vec<(String, String)>> {
     let Some((first, tail)) = parts.split_first() else {
         return rest.is_empty().then(Vec::new);
     };
     match first {
         SegmentPart::Literal(text) => {
-            match_parts(tail, rest.strip_prefix(text.as_str())?, max_param_length)
+            let remainder = if case_sensitive {
+                rest.strip_prefix(text.as_str())
+            } else {
+                // `get` rather than a slice: an index that is not a character
+                // boundary is not a match either.
+                rest.get(..text.len())
+                    .filter(|head| head.eq_ignore_ascii_case(text))
+                    .map(|_| &rest[text.len()..])
+            };
+            match_parts(tail, remainder?, max_param_length, case_sensitive)
         }
         // Only `match_segments` places a wildcard, in the pattern's last segment.
         SegmentPart::Wildcard => None,
@@ -757,7 +788,9 @@ fn match_parts(
                 if end > max_param_length {
                     continue;
                 }
-                if let Some(mut params) = match_parts(tail, &rest[end..], max_param_length) {
+                if let Some(mut params) =
+                    match_parts(tail, &rest[end..], max_param_length, case_sensitive)
+                {
                     let mut out = vec![(name.clone(), rest[..end].to_owned())];
                     out.append(&mut params);
                     return Some(out);
@@ -1242,6 +1275,7 @@ impl<A: Clone> Router<A> {
                         method,
                         &normalize_slashes(&path, &self.config),
                         handler.clone(),
+                        self.config.case_sensitive,
                     )?);
                 }
             }
@@ -1249,6 +1283,7 @@ impl<A: Clone> Router<A> {
                 method,
                 &normalize_slashes(path, &self.config),
                 handler,
+                self.config.case_sensitive,
             )?),
         }
         // Both halves of an optional declaration are checked before either is
@@ -1273,7 +1308,10 @@ impl<A: Clone> Router<A> {
 
     /// Highest-priority route matching `method` and `path`, with its captures
     /// (`Router.find`). The query, fragment, and `;`-separated session id are
-    /// stripped before matching, as the pin's `safeDecodeURI` does.
+    /// stripped before matching, as the pin's `safeDecodeURI` does. Static
+    /// parts fold case when the config says so, but a capture keeps the case
+    /// the request itself used (the pin matches a lowercased path and slices
+    /// its captures out of `originPath`).
     pub fn find(&self, method: &str, path: &str) -> Option<Found<A>> {
         let path = path.split(['?', '#', ';']).next().unwrap_or(path);
         let path = normalize_slashes(path, &self.config);
@@ -1290,7 +1328,11 @@ impl<A: Clone> Router<A> {
         candidates.sort_by(|left, right| compare_routes(left, right));
         candidates.into_iter().find_map(|route| {
             route
-                .match_segments(&segments, self.config.max_param_length)
+                .match_segments(
+                    &segments,
+                    self.config.max_param_length,
+                    self.config.case_sensitive,
+                )
                 .map(|params| Found {
                     handler: route.handler.clone(),
                     params,
