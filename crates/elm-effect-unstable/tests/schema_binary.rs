@@ -4,12 +4,14 @@
 mod schema_binary;
 
 use schema_binary::{
-    NumberParser, UnionValue, decode_bool_array, decode_int_array, decode_int_scalar,
+    NumberParser, StringParser, UnionValue, decode_bool_array, decode_int_array, decode_int_scalar,
     decode_nested_number_array, decode_number_array, decode_number_scalar, decode_string_array,
-    decode_union, encode_bool_array, encode_int_array, encode_int_scalar, encode_int_tuple,
-    encode_nested_number_array, encode_number_array, encode_number_array_unknown,
-    encode_number_scalar, encode_number_tuple, encode_string_array, encode_union, split_frames,
+    decode_string_scalar, decode_union, encode_bool_array, encode_int_array, encode_int_scalar,
+    encode_int_tuple, encode_nested_number_array, encode_number_array, encode_number_array_unknown,
+    encode_number_scalar, encode_number_tuple, encode_string_array, encode_string_scalar,
+    encode_union, split_frames,
 };
+use elm_effect::{Exit, Runtime};
 
 #[test]
 fn binary_arrays_pack_fixed_elements() {
@@ -536,6 +538,124 @@ fn parser_fails_a_ten_byte_unterminated_length() {
     let mut parser = NumberParser::new();
     let err = parser.feed(&[0x80; 10]).expect_err("unterminated length");
     assert!(err.message().contains("uvarint"), "{}", err.message());
+}
+
+#[test]
+fn parser_splits_concatenated_frames_across_chunks() {
+    // SchemaBinary.test.ts:1013 — two frames in one chunk, split three bytes
+    // into the second: the tail of the first chunk is held, not dropped, and
+    // the head of the second frame arrives with it. The pin's schema is a
+    // struct; a string-scalar frame is the same length-first envelope.
+    let first = encode_string_scalar("first");
+    let second = encode_string_scalar("second");
+    let bytes = [first.clone(), second].concat();
+    let split = first.len() + 3;
+    let mut parser = StringParser::new();
+    assert_eq!(
+        parser.feed(&bytes[..split]).expect("first chunk"),
+        vec!["first".to_string()]
+    );
+    assert_eq!(
+        parser.feed(&bytes[split..]).expect("second chunk"),
+        vec!["second".to_string()]
+    );
+    parser.end().expect("end");
+    let err = parser.feed(&[]).expect_err("spent");
+    assert!(err.message().contains("parser is spent"), "{}", err.message());
+}
+
+#[test]
+fn parser_waits_for_a_fragmented_multi_byte_frame_header() {
+    // SchemaBinary.test.ts:1147 — a 300-byte value announces a two-byte
+    // length, and one byte of it is not a header yet.
+    let value = "x".repeat(300);
+    let bytes = encode_string_scalar(&value);
+    assert_eq!(bytes.len(), 303, "two header bytes, a tag, and 300 payload bytes");
+    let mut parser = StringParser::new();
+    assert_eq!(
+        parser.feed(&bytes[..1]).expect("header byte"),
+        Vec::<String>::new()
+    );
+    assert_eq!(
+        parser.feed(&bytes[1..]).expect("rest of the frame"),
+        vec![value]
+    );
+    parser.end().expect("end");
+}
+
+#[test]
+fn parser_reaches_the_wide_header_path_for_long_safe_lengths() {
+    // SchemaBinary.test.ts:1157 — canonical uvarint(MAX_SAFE_INTEGER) is seven
+    // continuation groups then 0x0F. It is a complete, in-range header, so the
+    // parser reaches the maxFrameSize check rather than waiting for a body no
+    // host could hold.
+    let mut parser = StringParser::with_max_frame_size(1);
+    assert_eq!(
+        parser.feed(&[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF]).expect("partial header"),
+        Vec::<String>::new()
+    );
+    let err = parser.feed(&[0x0F]).expect_err("over the cap");
+    assert!(
+        err.message().contains("frame within maxFrameSize"),
+        "{}",
+        err.message()
+    );
+    let err = parser.feed(&[]).expect_err("spent");
+    assert!(err.message().contains("parser is spent"), "{}", err.message());
+}
+
+#[test]
+fn decode_recovers_after_an_exceptional_frame() {
+    // SchemaBinary.test.ts:1254 — a decode that fails on malformed input checks
+    // its reader back in, so the next decode is not poisoned by it.
+    let err = decode_string_scalar(&[2, 0x20, 0xFF]).expect_err("invalid utf-8");
+    assert!(err.message().contains("utf-8"), "{}", err.message());
+    let after = decode_string_scalar(&encode_string_scalar("after failure"))
+        .expect("recovers after the failure");
+    assert_eq!(after, "after failure");
+}
+
+#[test]
+fn parser_feed_and_end_are_effects() {
+    // SchemaBinary.test.ts:1308 — feed and end are descriptions carrying the
+    // values or the error. The pin defers the work to interpretation; this
+    // port builds the description from the sync result, so the observable at
+    // the effect boundary is the same and the laziness is not.
+    let mut parser = NumberParser::new();
+    assert_eq!(
+        Runtime::run(parser.feed_effect(encode_number_scalar(1.0))),
+        Exit::Success(vec![1.0])
+    );
+    assert_eq!(Runtime::run(parser.end_effect()), Exit::Success(()));
+}
+
+#[test]
+fn parser_effect_surface_reports_malformed_feed_and_truncated_end() {
+    // SchemaBinary.test.ts:1316 — both failures reach the caller on the typed
+    // channel, not as a panic or a defect. The pin's malformed feed is a
+    // boolean frame and its truncated end is `[2, 0x20]`; a string frame whose
+    // payload is not UTF-8 is the analogue of the first.
+    let mut malformed = StringParser::new();
+    let cause = match Runtime::run(malformed.feed_effect(vec![2, 0x20, 0xFF])) {
+        Exit::Failure(cause) => cause,
+        Exit::Success(_) => panic!("malformed feed must fail"),
+    };
+    let error = cause.failure().expect("a typed failure, not a defect");
+    assert!(error.message().contains("utf-8"), "{}", error.message());
+
+    let mut truncated = StringParser::new();
+    assert_eq!(
+        Runtime::run(truncated.feed_effect(vec![2, 0x20])),
+        Exit::Success(Vec::<String>::new())
+    );
+    let cause = match Runtime::run(truncated.end_effect()) {
+        Exit::Failure(cause) => cause,
+        Exit::Success(_) => panic!("truncated end must fail"),
+    };
+    assert!(
+        cause.failure().is_some(),
+        "a typed failure, not a defect"
+    );
 }
 
 #[test]

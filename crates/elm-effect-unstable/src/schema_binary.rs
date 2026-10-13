@@ -4,6 +4,8 @@
 //! (raw f64, sign-magnitude varint, short decimal) and raw boolean bytes.
 //! Structs, rows, string interning, and fingerprint mode come later.
 
+use elm_effect::Effect;
+
 /// Decode failure for this module.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct BinaryError {
@@ -558,6 +560,36 @@ pub fn encode_string_array(values: &[&str]) -> Vec<u8> {
     frame(ARRAY_TAG, values.len() as u64, None, &payload)
 }
 
+/// Encode one scalar string: a length-first frame whose payload is raw UTF-8,
+/// the same shape the union's string kind writes.
+pub fn encode_string_scalar(value: &str) -> Vec<u8> {
+    tagged_frame(value.as_bytes())
+}
+
+/// Decode one scalar string. The frame's own length bounds the payload, so a
+/// partial frame is truncated rather than read short.
+pub fn decode_string_scalar(bytes: &[u8]) -> Result<String, BinaryError> {
+    let fail = |message: &str| BinaryError::new(format!("{} [{}]", message, hex_preview(bytes)));
+    let mut cursor = Cursor { input: bytes, pos: 0 };
+    let length = cursor.uvarint()? as usize;
+    let end = cursor
+        .pos
+        .checked_add(length)
+        .filter(|end| *end <= bytes.len())
+        .ok_or_else(|| fail("truncated frame"))?;
+    let tag = cursor.byte()?;
+    if tag != ARRAY_TAG {
+        return Err(fail(&format!(
+            "expected {EXPECTED_ENVELOPE}, actual {tag:#04x}"
+        )));
+    }
+    let text = std::str::from_utf8(&bytes[cursor.pos..end]).map_err(|_| fail("invalid utf-8"))?;
+    if end != bytes.len() {
+        return Err(fail("no leftover bytes"));
+    }
+    Ok(text.to_owned())
+}
+
 /// Decode one length-prefixed string run (no mode byte on the wire).
 pub fn decode_string_array(bytes: &[u8]) -> Result<Vec<String>, BinaryError> {
     let mut pos = 0;
@@ -806,41 +838,40 @@ fn read_frame_header(bytes: &[u8]) -> Result<HeaderRead, BinaryError> {
     })
 }
 
-/// Stateful parser over a stream of concatenated number frames: the shape
-/// `SchemaBinary.parser(Schema.Number)` has. Frames are length-prefixed, so a
-/// chunk may cut anywhere; complete frames decode and a partial tail is kept
-/// until the feed that finishes it.
-pub struct NumberParser {
+/// One length-prefixed frame stream, shared by every scalar parser: a partial
+/// tail kept across feeds, a one-shot lifetime, and the reference's rule that a
+/// failure found after values were already handed over is raised on the next
+/// call rather than merged into this one.
+struct FrameStream<T, D: Fn(&[u8]) -> Result<T, BinaryError>> {
     buffer: Vec<u8>,
     spent: bool,
-    /// A failure found after values were already handed over. The reference
-    /// returns those values first and raises this on the next call, so a value
-    /// is neither lost nor silently swallowed.
     stashed: Option<BinaryError>,
     max_frame_size: Option<u64>,
+    decode: D,
 }
 
-impl NumberParser {
-    pub fn new() -> Self {
+impl<T, D: Fn(&[u8]) -> Result<T, BinaryError>> FrameStream<T, D> {
+    fn new(decode: D) -> Self {
         Self {
             buffer: Vec::new(),
             spent: false,
             stashed: None,
             max_frame_size: None,
+            decode,
         }
     }
 
     /// Cap the announced frame length, which is what bounds how much a partial
     /// frame can make the parser buffer.
-    pub fn with_max_frame_size(limit: u64) -> Self {
+    fn with_max_frame_size(decode: D, limit: u64) -> Self {
         Self {
             max_frame_size: Some(limit),
-            ..Self::new()
+            ..Self::new(decode)
         }
     }
 
     /// Feed one chunk; returns the values it completed, in stream order.
-    pub fn feed(&mut self, chunk: &[u8]) -> Result<Vec<f64>, BinaryError> {
+    fn feed(&mut self, chunk: &[u8]) -> Result<Vec<T>, BinaryError> {
         if let Some(err) = self.stashed.take() {
             return Err(err);
         }
@@ -880,7 +911,7 @@ impl NumberParser {
                 break;
             }
             let end = pos + span as usize;
-            match decode_number_scalar(&self.buffer[pos..end]) {
+            match (self.decode)(&self.buffer[pos..end]) {
                 Ok(value) => out.push(value),
                 Err(err) => {
                     failure = Some(err);
@@ -905,7 +936,7 @@ impl NumberParser {
     }
 
     /// Finish the stream. A partial frame left in the buffer is an error.
-    pub fn end(&mut self) -> Result<(), BinaryError> {
+    fn end(&mut self) -> Result<(), BinaryError> {
         if let Some(err) = self.stashed.take() {
             return Err(err);
         }
@@ -921,7 +952,89 @@ impl NumberParser {
     }
 }
 
+/// Stateful parser over a stream of concatenated number frames: the shape
+/// `SchemaBinary.parser(Schema.Number)` has.
+pub struct NumberParser(FrameStream<f64, fn(&[u8]) -> Result<f64, BinaryError>>);
+
+impl NumberParser {
+    pub fn new() -> Self {
+        Self(FrameStream::new(decode_number_scalar))
+    }
+
+    /// Cap the announced frame length, which is what bounds how much a partial
+    /// frame can make the parser buffer.
+    pub fn with_max_frame_size(limit: u64) -> Self {
+        Self(FrameStream::with_max_frame_size(decode_number_scalar, limit))
+    }
+
+    /// Feed one chunk; returns the values it completed, in stream order.
+    pub fn feed(&mut self, chunk: &[u8]) -> Result<Vec<f64>, BinaryError> {
+        self.0.feed(chunk)
+    }
+
+    /// Finish the stream. A partial frame left in the buffer is an error.
+    pub fn end(&mut self) -> Result<(), BinaryError> {
+        self.0.end()
+    }
+
+    /// `feed` as an [`Effect`]: the values, or the same [`BinaryError`] on the
+    /// typed channel. The pin defers the work to interpretation; this port
+    /// builds the description from the sync result.
+    pub fn feed_effect(&mut self, chunk: Vec<u8>) -> Effect<Vec<f64>, BinaryError> {
+        Effect::from_result(self.feed(&chunk))
+    }
+
+    /// `end` as an [`Effect`].
+    pub fn end_effect(&mut self) -> Effect<(), BinaryError> {
+        Effect::from_result(self.end())
+    }
+}
+
 impl Default for NumberParser {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// Stateful parser over a stream of concatenated scalar strings: the shape
+/// `SchemaBinary.parser(Schema.String)` has. A frame's header is a varint, so a
+/// value wide enough to need a second header byte is held until that byte
+/// arrives.
+pub struct StringParser(FrameStream<String, fn(&[u8]) -> Result<String, BinaryError>>);
+
+impl StringParser {
+    pub fn new() -> Self {
+        Self(FrameStream::new(decode_string_scalar))
+    }
+
+    /// Cap the announced frame length, which is what bounds how much a partial
+    /// frame can make the parser buffer.
+    pub fn with_max_frame_size(limit: u64) -> Self {
+        Self(FrameStream::with_max_frame_size(decode_string_scalar, limit))
+    }
+
+    /// Feed one chunk; returns the values it completed, in stream order.
+    pub fn feed(&mut self, chunk: &[u8]) -> Result<Vec<String>, BinaryError> {
+        self.0.feed(chunk)
+    }
+
+    /// Finish the stream. A partial frame left in the buffer is an error.
+    pub fn end(&mut self) -> Result<(), BinaryError> {
+        self.0.end()
+    }
+
+    /// `feed` as an [`Effect`].
+    pub fn feed_effect(&mut self, chunk: Vec<u8>) -> Effect<Vec<String>, BinaryError> {
+        Effect::from_result(self.feed(&chunk))
+    }
+
+    /// `end` as an [`Effect`].
+    pub fn end_effect(&mut self) -> Effect<(), BinaryError> {
+        Effect::from_result(self.end())
+    }
+}
+
+impl Default for StringParser {
     fn default() -> Self {
         Self::new()
     }
