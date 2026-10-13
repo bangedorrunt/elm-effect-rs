@@ -2908,14 +2908,14 @@ unported	packages/effect/test/Pool.test.ts	899	it.effect	retries background fail
 unported	packages/effect/test/Pool.test.ts	939	it.effect	releases resources after shutdown while the pool remains reachable	
 unported	packages/effect/test/Pool.test.ts	972	it.effect	invalidating a busy item waits for its last lease and finalizes once	
 unported	packages/effect/test/Pool.test.ts	1006	it.effect	usage TTL preserves FIFO retirement and minimum size after ${removal} removal	
-unported	packages/effect/test/Predicate.test.ts	19	it	composes refinements to narrow through both checks	
-unported	packages/effect/test/Predicate.test.ts	27	it	composes a refinement with a predicate	
+ported	packages/effect/test/Predicate.test.ts	19	it	composes refinements to narrow through both checks	compose_narrows_through_both_checks
+ported	packages/effect/test/Predicate.test.ts	27	it	composes a refinement with a predicate	compose_with_a_plain_predicate_narrows_then_tests
 ported	packages/effect/test/Predicate.test.ts	38	it	maps input before applying the predicate (curried)	equivalence_and_predicate_basics
 ported	packages/effect/test/Predicate.test.ts	50	it	maps input before applying the predicate (uncurried)	equivalence_and_predicate_basics
-unported	packages/effect/test/Predicate.test.ts	61	it	returns true only when all element predicates succeed	
+ported	packages/effect/test/Predicate.test.ts	61	it	returns true only when all element predicates succeed	tuple_of_predicates_requires_every_element
 ported	packages/effect/test/Predicate.test.ts	70	it	stops checking after the first failing predicate	predicate_and_stops_at_first_failure
-unported	packages/effect/test/Predicate.test.ts	89	it	returns true only when all field predicates succeed	
-unported	packages/effect/test/Predicate.test.ts	98	it	ignores extra keys and stops at first failing field	
+ported	packages/effect/test/Predicate.test.ts	89	it	returns true only when all field predicates succeed	struct_of_predicates_ignores_extra_keys_and_stops_early
+ported	packages/effect/test/Predicate.test.ts	98	it	ignores extra keys and stops at first failing field	struct_of_predicates_ignores_extra_keys_and_stops_early
 ported	packages/effect/test/Predicate.test.ts	117	it	negates the underlying predicate	equivalence_and_predicate_basics
 ported	packages/effect/test/Predicate.test.ts	127	it	returns true when either predicate is true	equivalence_and_predicate_basics
 ported	packages/effect/test/Predicate.test.ts	137	it	returns true only when both predicates are true	predicate_and_truth_table
@@ -2928,42 +2928,42 @@ ported	packages/effect/test/Predicate.test.ts	192	it	returns true when all predi
 ported	packages/effect/test/Predicate.test.ts	200	it	returns true for empty collections	predicate_all_of_empty_list_is_true
 ported	packages/effect/test/Predicate.test.ts	208	it	returns true when any predicate passes	predicate_or_needs_any_and_not_flips
 ported	packages/effect/test/Predicate.test.ts	216	it	returns false for empty collections	predicate_any_of_empty_list_is_false
-unported	packages/effect/test/Predicate.test.ts	224	it	uses JavaScript truthiness	
-unported	packages/effect/test/Predicate.test.ts	237	it	detects Set instances	
-unported	packages/effect/test/Predicate.test.ts	247	it	detects Map instances	
-unported	packages/effect/test/Predicate.test.ts	256	it	detects string values	
-unported	packages/effect/test/Predicate.test.ts	264	it	detects number values	
-unported	packages/effect/test/Predicate.test.ts	272	it	detects boolean values	
-unported	packages/effect/test/Predicate.test.ts	280	it	detects bigint values	
-unported	packages/effect/test/Predicate.test.ts	287	it	detects symbol values	
-unported	packages/effect/test/Predicate.test.ts	294	it	accepts strings, numbers, and symbols	
-unported	packages/effect/test/Predicate.test.ts	304	it	detects callable values	
-unported	packages/effect/test/Predicate.test.ts	311	it	detects undefined	
-unported	packages/effect/test/Predicate.test.ts	319	it	filters out undefined	
-unported	packages/effect/test/Predicate.test.ts	327	it	detects null	
-unported	packages/effect/test/Predicate.test.ts	335	it	filters out null	
-unported	packages/effect/test/Predicate.test.ts	343	it	detects null and undefined	
-unported	packages/effect/test/Predicate.test.ts	352	it	filters out null and undefined	
-unported	packages/effect/test/Predicate.test.ts	361	it	always returns false	
-unported	packages/effect/test/Predicate.test.ts	370	it	always returns true	
-unported	packages/effect/test/Predicate.test.ts	379	it	accepts objects and arrays but not null	
-unported	packages/effect/test/Predicate.test.ts	388	it	accepts objects but not arrays or functions	
-unported	packages/effect/test/Predicate.test.ts	400	it	behaves like isObject	
-unported	packages/effect/test/Predicate.test.ts	411	it	accepts objects, arrays, and functions	
-unported	packages/effect/test/Predicate.test.ts	426	it	detects properties with string and symbol keys	
-unported	packages/effect/test/Predicate.test.ts	435	it	returns false when the key is missing or the value is not object-like	
-unported	packages/effect/test/Predicate.test.ts	451	it	matches objects with the expected _tag	
-unported	packages/effect/test/Predicate.test.ts	463	it	detects Error instances	
-unported	packages/effect/test/Predicate.test.ts	471	it	detects Uint8Array instances	
-unported	packages/effect/test/Predicate.test.ts	479	it	detects Date instances	
-unported	packages/effect/test/Predicate.test.ts	487	it	detects iterable values including strings	
-unported	packages/effect/test/Predicate.test.ts	499	it	detects promise-like values with then and catch	
-unported	packages/effect/test/Predicate.test.ts	510	it	detects thenables	
-unported	packages/effect/test/Predicate.test.ts	520	it	detects RegExp instances	
-unported	packages/effect/test/Predicate.test.ts	528	it	checks for exact length	
-unported	packages/effect/test/Predicate.test.ts	534	it	supports curried usage	
-unported	packages/effect/test/Predicate.test.ts	543	it	checks for minimum length	
-unported	packages/effect/test/Predicate.test.ts	549	it	supports curried usage	
+ported	packages/effect/test/Predicate.test.ts	224	it	uses JavaScript truthiness	is_truthy_uses_javascript_truthiness
+ported	packages/effect/test/Predicate.test.ts	237	it	detects Set instances	guards_detect_runtime_shapes
+ported	packages/effect/test/Predicate.test.ts	247	it	detects Map instances	guards_detect_runtime_shapes
+ported	packages/effect/test/Predicate.test.ts	256	it	detects string values	guards_detect_runtime_shapes
+ported	packages/effect/test/Predicate.test.ts	264	it	detects number values	guards_detect_runtime_shapes
+ported	packages/effect/test/Predicate.test.ts	272	it	detects boolean values	guards_detect_runtime_shapes
+ported	packages/effect/test/Predicate.test.ts	280	it	detects bigint values	guards_detect_runtime_shapes
+ported	packages/effect/test/Predicate.test.ts	287	it	detects symbol values	guards_detect_runtime_shapes
+ported	packages/effect/test/Predicate.test.ts	294	it	accepts strings, numbers, and symbols	guards_detect_runtime_shapes
+ported	packages/effect/test/Predicate.test.ts	304	it	detects callable values	guards_detect_runtime_shapes
+ported	packages/effect/test/Predicate.test.ts	311	it	detects undefined	guards_detect_runtime_shapes
+ported	packages/effect/test/Predicate.test.ts	319	it	filters out undefined	guards_detect_runtime_shapes
+ported	packages/effect/test/Predicate.test.ts	327	it	detects null	guards_detect_runtime_shapes
+ported	packages/effect/test/Predicate.test.ts	335	it	filters out null	guards_detect_runtime_shapes
+ported	packages/effect/test/Predicate.test.ts	343	it	detects null and undefined	guards_detect_runtime_shapes
+ported	packages/effect/test/Predicate.test.ts	352	it	filters out null and undefined	guards_detect_runtime_shapes
+ported	packages/effect/test/Predicate.test.ts	361	it	always returns false	guards_detect_runtime_shapes
+ported	packages/effect/test/Predicate.test.ts	370	it	always returns true	guards_detect_runtime_shapes
+ported	packages/effect/test/Predicate.test.ts	379	it	accepts objects and arrays but not null	guards_detect_runtime_shapes
+ported	packages/effect/test/Predicate.test.ts	388	it	accepts objects but not arrays or functions	guards_detect_runtime_shapes
+ported	packages/effect/test/Predicate.test.ts	400	it	behaves like isObject	guards_detect_runtime_shapes
+ported	packages/effect/test/Predicate.test.ts	411	it	accepts objects, arrays, and functions	guards_detect_runtime_shapes
+ported	packages/effect/test/Predicate.test.ts	426	it	detects properties with string and symbol keys	has_property_answers_string_and_symbol_keys
+ported	packages/effect/test/Predicate.test.ts	435	it	returns false when the key is missing or the value is not object-like	has_property_answers_string_and_symbol_keys
+ported	packages/effect/test/Predicate.test.ts	451	it	matches objects with the expected _tag	is_tagged_matches_the_tag_field
+ported	packages/effect/test/Predicate.test.ts	463	it	detects Error instances	guards_detect_runtime_shapes
+ported	packages/effect/test/Predicate.test.ts	471	it	detects Uint8Array instances	guards_detect_runtime_shapes
+ported	packages/effect/test/Predicate.test.ts	479	it	detects Date instances	guards_detect_runtime_shapes
+ported	packages/effect/test/Predicate.test.ts	487	it	detects iterable values including strings	guards_detect_runtime_shapes
+ported	packages/effect/test/Predicate.test.ts	499	it	detects promise-like values with then and catch	guards_detect_runtime_shapes
+ported	packages/effect/test/Predicate.test.ts	510	it	detects thenables	guards_detect_runtime_shapes
+ported	packages/effect/test/Predicate.test.ts	520	it	detects RegExp instances	guards_detect_runtime_shapes
+ported	packages/effect/test/Predicate.test.ts	528	it	checks for exact length	is_tuple_of_checks_exact_and_minimum_length
+ported	packages/effect/test/Predicate.test.ts	534	it	supports curried usage	is_tuple_of_checks_exact_and_minimum_length
+ported	packages/effect/test/Predicate.test.ts	543	it	checks for minimum length	is_tuple_of_checks_exact_and_minimum_length
+ported	packages/effect/test/Predicate.test.ts	549	it	supports curried usage	is_tuple_of_checks_exact_and_minimum_length
 ported	packages/effect/test/PubSub.test.ts	6	it.effect	isPubSub type guard	pubsub_type_guard
 ported	packages/effect/test/PubSub.test.ts	16	it.each	sliding capacity %s delivers each retained message once per subscriber (batch: ${batch})	pubsub_sliding_evicts_oldest
 ported	packages/effect/test/PubSub.test.ts	38	it.each	unsubscribing after a slide preserves the other subscriber's messages (capacity: %s)	pubsub_unsubscribe_then_publish

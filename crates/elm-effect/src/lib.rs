@@ -27,6 +27,7 @@ mod metric;
 mod optic;
 #[cfg(feature = "tokio")]
 mod policy;
+pub mod predicate;
 #[cfg(feature = "tokio")]
 mod runtime;
 mod schedule;

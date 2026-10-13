@@ -290,3 +290,263 @@ fn function_combinators() {
     assert_eq!(tupled(add)((1, 2)), 3);
     assert_eq!(untupled(|pair: (i32, i32)| pair.0 + pair.1)(1, 2), 3);
 }
+
+// ---------------------------------------------------------------------------
+// Predicate guards over the dynamic Value domain
+// (Predicate.test.ts :19-:549)
+// ---------------------------------------------------------------------------
+
+use elm_effect::predicate::{
+    has_property, is_tagged, is_tuple_of, is_tuple_of_at_least, Key, Value,
+};
+
+/// An object value from pairs, so the guard tests never name a record type:
+/// the pin's rows construct plain objects.
+fn obj(pairs: Vec<(&str, Value)>) -> Value {
+    Value::Object(
+        pairs
+            .into_iter()
+            .map(|(name, value)| (name.to_string(), value))
+            .collect(),
+    )
+}
+
+#[test]
+fn compose_narrows_through_both_checks() {
+    // :19 — compose(isString, isNonEmptyString): a value passes only when it
+    // is a string AND non-empty; null and "" fail.
+    let composed = Predicate::<Value>::make(|v: &Value| {
+        matches!(v, Value::String(s) if !s.is_empty())
+    });
+    assert!(composed.test(&Value::String("a".into())));
+    assert!(!composed.test(&Value::Null));
+    assert!(!composed.test(&Value::String(String::new())));
+}
+
+#[test]
+fn compose_with_a_plain_predicate_narrows_then_tests() {
+    // :27 — compose(isString, isLong): the second check runs on the narrowed
+    // value, so a non-string never reaches it.
+    fn is_long(s: &str) -> bool {
+        s.len() > 2
+    }
+    let composed = Predicate::<Value>::make(|v: &Value| {
+        matches!(v, Value::String(s) if is_long(s))
+    });
+    assert!(composed.test(&Value::String("abcd".into())));
+    assert!(!composed.test(&Value::String("a".into())));
+    assert!(!composed.test(&Value::Number(1.0)));
+}
+
+#[test]
+fn tuple_of_predicates_requires_every_element() {
+    // :61 — Predicate.Tuple([isPositive, isNegative]) over a pair.
+    let p = Predicate::<i64>::tuple(vec![
+        Predicate::make(|n: &i64| *n > 0),
+        Predicate::make(|n: &i64| *n < 0),
+    ]);
+    assert!(p.test(&vec![1, -1]));
+    assert!(!p.test(&vec![1, 1]));
+    assert!(!p.test(&vec![-1, -1]));
+    assert!(!p.test(&vec![-1, 1]));
+}
+
+#[test]
+fn struct_of_predicates_ignores_extra_keys_and_stops_early() {
+    // :89/:98 — every field must pass; extra keys are ignored; the first
+    // failing field stops the walk.
+    let calls = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
+    let counted_calls = std::sync::Arc::clone(&calls);
+    let counted = Predicate::<i64>::make(move |n: &i64| {
+        counted_calls.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        *n > 0
+    });
+    let p = Predicate::<i64>::struct_(vec![
+        ("a".to_string(), counted),
+        ("b".to_string(), Predicate::make(|n: &i64| *n < 0)),
+    ]);
+    let mut record: std::collections::BTreeMap<String, i64> = Default::default();
+    record.insert("a".to_string(), 1);
+    record.insert("b".to_string(), -1);
+    assert!(p.test(&record));
+    let mut record: std::collections::BTreeMap<String, i64> = Default::default();
+    record.insert("a".to_string(), -1);
+    record.insert("extra".to_string(), 7);
+    assert!(!p.test(&record));
+    assert_eq!(
+        calls.load(std::sync::atomic::Ordering::SeqCst),
+        2,
+        "the failing field stops the walk"
+    );
+}
+
+#[test]
+fn is_truthy_uses_javascript_truthiness() {
+    assert!(elm_effect::predicate::is_truthy(&Value::Bool(true)));
+    assert!(!elm_effect::predicate::is_truthy(&Value::Bool(false)));
+    assert!(elm_effect::predicate::is_truthy(&Value::String("a".into())));
+    assert!(!elm_effect::predicate::is_truthy(&Value::String(String::new())));
+    assert!(elm_effect::predicate::is_truthy(&Value::Number(1.0)));
+    assert!(!elm_effect::predicate::is_truthy(&Value::Number(0.0)));
+    assert!(elm_effect::predicate::is_truthy(&Value::BigInt(1)));
+    assert!(!elm_effect::predicate::is_truthy(&Value::BigInt(0)));
+}
+
+#[test]
+fn guards_detect_runtime_shapes() {
+    use elm_effect::predicate::*;
+    // :237/:247 — Set and Map instances, and only those.
+    assert!(is_set(&Value::Set(vec![Value::Number(1.0)])));
+    assert!(is_set(&Value::Set(Vec::new())));
+    assert!(!is_set(&obj(Vec::new())));
+    assert!(!is_set(&Value::Null));
+    assert!(!is_set(&Value::Undefined));
+    assert!(is_map(&Value::Map(Vec::new())));
+    assert!(!is_map(&obj(Vec::new())));
+    assert!(!is_map(&Value::Null));
+    assert!(!is_map(&Value::Undefined));
+
+    // :256/:264/:272/:280/:287 — the primitive tags, with NaN still a number
+    // and the boxed String not a string.
+    assert!(is_string(&Value::String("a".into())));
+    assert!(!is_string(&Value::Number(1.0)));
+    assert!(is_number(&Value::Number(2.0)));
+    assert!(is_number(&Value::Number(f64::NAN)));
+    assert!(!is_number(&Value::String("2".into())));
+    assert!(is_boolean(&Value::Bool(true)));
+    assert!(is_boolean(&Value::Bool(false)));
+    assert!(!is_boolean(&Value::String("true".into())));
+    assert!(is_bigint(&Value::BigInt(1)));
+    assert!(!is_bigint(&Value::Number(1.0)));
+    assert!(is_symbol(&Value::Symbol("a".into())));
+
+    // :294 — property keys are strings, numbers and symbols.
+    assert!(is_property_key(&Value::String("a".into())));
+    assert!(is_property_key(&Value::Number(1.0)));
+    assert!(is_property_key(&Value::Symbol("a".into())));
+    assert!(!is_property_key(&Value::Bool(true)));
+
+    // :304/:311/:319/:327/:335 — function, undefined and null.
+    assert!(is_function(&Value::Function));
+    assert!(!is_function(&obj(Vec::new())));
+    assert!(is_undefined(&Value::Undefined));
+    assert!(!is_undefined(&Value::Null));
+    assert!(!is_not_undefined(&Value::Undefined));
+    assert!(is_null(&Value::Null));
+    assert!(!is_null(&Value::Undefined));
+    assert!(!is_not_null(&Value::Null));
+
+    // :343/:352/:361/:370 — nullish, never, unknown.
+    assert!(is_nullish(&Value::Null) && is_nullish(&Value::Undefined));
+    assert!(!is_nullish(&obj(Vec::new())));
+    assert!(!is_nullish(&Value::Array(Vec::new())));
+    assert!(is_not_nullish(&obj(Vec::new())));
+    assert!(!is_not_nullish(&Value::Null) && !is_not_nullish(&Value::Undefined));
+    assert!(!is_never(&Value::Null) && !is_never(&obj(Vec::new())));
+    assert!(is_unknown(&Value::Null) && is_unknown(&Value::Undefined));
+
+    // :379/:388/:400/:411 — the object family.
+    assert!(is_object_or_array(&obj(Vec::new())));
+    assert!(is_object_or_array(&Value::Array(Vec::new())));
+    assert!(!is_object_or_array(&Value::Null));
+    assert!(!is_object_or_array(&Value::Function));
+    assert!(is_object(&obj(Vec::new())));
+    assert!(!is_object(&Value::Array(Vec::new())));
+    assert!(!is_object(&Value::Null) && !is_object(&Value::Undefined));
+    assert!(!is_object(&Value::Function));
+    assert!(is_readonly_object(&obj(Vec::new())));
+    assert!(!is_readonly_object(&Value::Array(Vec::new())));
+    assert!(is_object_keyword(&obj(Vec::new())));
+    assert!(is_object_keyword(&Value::Array(Vec::new())));
+    assert!(is_object_keyword(&Value::Function));
+    assert!(!is_object_keyword(&Value::Null) && !is_object_keyword(&Value::Undefined));
+    assert!(!is_object_keyword(&Value::Symbol("a".into())));
+
+    // :463/:471/:479/:520 — the instance guards.
+    assert!(is_error(&Value::Error("boom".into())));
+    assert!(!is_error(&Value::Null) && !is_error(&obj(Vec::new())));
+    assert!(is_uint8array(&Value::Uint8Array(Vec::new())));
+    assert!(!is_uint8array(&Value::Null) && !is_uint8array(&obj(Vec::new())));
+    assert!(is_date(&Value::Date(0)));
+    assert!(!is_date(&Value::Null) && !is_date(&obj(Vec::new())));
+    assert!(is_regexp(&Value::RegExp("a".into())));
+    assert!(!is_regexp(&Value::Null) && !is_regexp(&Value::String("a".into())));
+
+    // :487 — iterables are arrays, strings, sets and maps; nothing else.
+    assert!(is_iterable(&Value::Array(Vec::new())));
+    assert!(is_iterable(&Value::String(String::new())));
+    assert!(is_iterable(&Value::Set(Vec::new())));
+    assert!(is_iterable(&Value::Map(Vec::new())));
+    assert!(!is_iterable(&Value::Null));
+    assert!(!is_iterable(&obj(Vec::new())));
+
+    // :499/:510 — promise-like needs then; a promise needs then and catch.
+    let thenable = {
+        let mut o = Record::new();
+        o.insert("then".to_string(), Value::Function);
+        Value::Object(o)
+    };
+    let then_catch = {
+        let mut o = Record::new();
+        o.insert("then".to_string(), Value::Function);
+        o.insert("catch".to_string(), Value::Function);
+        Value::Object(o)
+    };
+    assert!(is_promise(&then_catch));
+    assert!(!is_promise(&thenable));
+    assert!(!is_promise(&obj(Vec::new())));
+    assert!(is_promise_like(&thenable));
+    assert!(is_promise_like(&Value::Promise));
+    assert!(!is_promise_like(&obj(Vec::new())));
+    assert!(!is_promise_like(&Value::Null));
+}
+
+#[test]
+fn has_property_answers_string_and_symbol_keys() {
+    // :426/:435 — a present key answers true in both forms (direct and
+    // curried); a missing key, a null/undefined/function value, and an
+    // absent symbol key answer false. The port models a symbol as its
+    // registry key, so a symbol-keyed property is a record entry under it.
+    let object = obj(vec![
+        ("a", Value::Number(1.0)),
+        ("k", Value::Number(2.0)),
+    ]);
+    assert!(has_property(&object, &Key::String("a".into())));
+    assert!(elm_effect::predicate::has_property_with(Key::String("a".into())).test(&object));
+    assert!(has_property(&object, &Key::Symbol("k".into())));
+    assert!(elm_effect::predicate::has_property_with(Key::Symbol("k".into())).test(&object));
+    assert!(!has_property(&obj(Vec::new()), &Key::String("a".into())));
+    assert!(!has_property(&Value::Null, &Key::String("a".into())));
+    assert!(!has_property(&Value::Undefined, &Key::String("a".into())));
+    assert!(!has_property(&Value::Function, &Key::String("a".into())));
+    assert!(!has_property(&obj(Vec::new()), &Key::Symbol("k".into())));
+}
+
+#[test]
+fn is_tagged_matches_the_tag_field() {
+    // :451 — only an object whose _tag equals the tag matches; both forms.
+    let tagged = obj(vec![("_tag", Value::String("a".into()))]);
+    assert!(!is_tagged(&Value::Number(1.0), "a"));
+    assert!(!is_tagged(&obj(Vec::new()), "a"));
+    assert!(!is_tagged(&tagged, "b"));
+    assert!(is_tagged(&tagged, "a"));
+    assert!(elm_effect::predicate::is_tagged_with("a").test(&tagged));
+}
+
+#[test]
+fn is_tuple_of_checks_exact_and_minimum_length() {
+    // :528/:534 — exact length, both forms.
+    let three = Value::Array(vec![Value::Number(1.0), Value::Number(2.0), Value::Number(3.0)]);
+    assert!(is_tuple_of(&three, 3));
+    assert!(!is_tuple_of(&three, 4));
+    assert!(!is_tuple_of(&three, 2));
+    assert!(elm_effect::predicate::is_tuple_of_with(2).test(&Value::Array(vec![Value::String("a".into()), Value::String("b".into())])));
+    assert!(!elm_effect::predicate::is_tuple_of_with(2).test(&Value::Array(vec![Value::String("a".into())])));
+
+    // :543/:549 — minimum length, both forms.
+    assert!(is_tuple_of_at_least(&three, 3));
+    assert!(is_tuple_of_at_least(&three, 2));
+    assert!(!is_tuple_of_at_least(&three, 4));
+    assert!(elm_effect::predicate::is_tuple_of_at_least_with(2).test(&Value::Array(vec![Value::String("a".into()), Value::String("b".into()), Value::String("c".into())])));
+    assert!(!elm_effect::predicate::is_tuple_of_at_least_with(2).test(&Value::Array(vec![Value::String("a".into())])));
+}
