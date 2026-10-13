@@ -124,7 +124,7 @@ tests = ["packages/effect/test/Config.test.ts"]
 [[module]]
 path = "packages/effect/src/ConfigProvider.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/ConfigProvider.test.ts"]
@@ -604,7 +604,7 @@ tests = []
 [[module]]
 path = "packages/effect/src/Pool.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/Pool.test.ts"]

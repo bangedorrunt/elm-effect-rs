@@ -3414,12 +3414,12 @@ ported	packages/effect/test/ScopedCache.test.ts	1597	it.effect	access order dete
 ported	packages/effect/test/ScopedCache.test.ts	1620	it.effect	capacity of 1	scoped_cache_evicts_least_recently_used
 ported	packages/effect/test/ScopedCache.test.ts	1639	it.effect	very large capacity	scoped_cache_evicts_least_recently_used
 ported	packages/effect/test/ScopedCache.test.ts	1660	it.effect	resource cleanup for evicted entries	scoped_entry_resource_releases_on_eviction
-ported	packages/effect/test/ScopedCache.test.ts	1681	it.effect	entported	packages/effect/test/ScopedCache.test.ts	1698	it.effect	get afteported	packages/effect/test/ScopedCache.test.ts	1698	it.effect	get after expiration invokes lookup	scoped_cache_fixed_ttl_and_refresh
+ported	packages/effect/test/ScopedCache.test.ts	1681	it.effect	entry expires after specified duration	scoped_cache_fixed_ttl_and_refresh
 ported	packages/effect/test/ScopedCache.test.ts	1718	it.effect	has returns false for expired entries	scoped_cache_fixed_ttl_and_refresh
 ported	packages/effect/test/ScopedCache.test.ts	1733	it.effect	resource cleanup for expired entries	scoped_entry_resource_releases_when_has_prunes_expiry
 not-applicable	packages/effect/test/ScopedCache.test.ts	1769	it.effect	different TTL for success vs failure	the row selects a TTL from the lookup's outcome, key, or value; this port's ScopedCache::make takes one fixed TimeToLive, so there is no per-entry TTL decision to make
 not-applicable	packages/effect/test/ScopedCache.test.ts	1788	it.effect	TTL based on key	the row selects a TTL from the lookup's outcome, key, or value; this port's ScopedCache::make takes one fixed TimeToLive, so there is no per-entry TTL decision to make
-not-applicable	packages/effect/test/ScopedCache.test.ts	1814	it.effect	TTL based on value	the row selects a TTL from the lookup's outcome, key, or value; this port's ScopedCache::make takes onported	packages/effect/test/ScopedCache.test.ts	1931	it.effect	canported	packages/effect/test/ScopedCache.test.ts	1836	it.effect	infinite TTL	scoped_cache_fixed_ttl_and_refresh
+not-applicable	packages/effect/test/ScopedCache.test.ts	1814	it.effect	TTL based on value	the row selects a TTL from the lookup's outcome, key, or value; this port's ScopedCache::make takes one fixed TimeToLive, so there is no per-entry TTL decision to make
 ported	packages/effect/test/ScopedCache.test.ts	1849	it.effect	zero duration TTL	scoped_cache_fixed_ttl_and_refresh
 ported	packages/effect/test/ScopedCache.test.ts	1862	it.effect	TTL updates on refresh	scoped_cache_refresh_reruns_the_lookup
 not-applicable	packages/effect/test/ScopedCache.test.ts	1895	it.effect	failed lookup caches the failure	the row opts into caching a failed lookup and asserts the same failure is replayed; this port's ScopedCache stores values only and has no failure retention, so there is no failure to cache or replay
@@ -3427,8 +3427,8 @@ not-applicable	packages/effect/test/ScopedCache.test.ts	1911	it.effect	subsequen
 ported	packages/effect/test/ScopedCache.test.ts	1931	it.effect	can refresh after failure	scoped_cache_refresh_reruns_the_lookup
 not-applicable	packages/effect/test/ScopedCache.test.ts	1947	it.effect	multiple fibers encountering same error	the row drives two or more fibers through a shared cache concurrently; this port's ScopedCache is a synchronous mutex-backed structure with no fiber to for, so there is no concurrency to observe
 ported	packages/effect/test/ScopedCache.test.ts	1976	it.effect	resource cleanup for failed entries	scoped_failed_entry_keeps_its_resource_until_evicted
-not-applicable	packages/effect/test/ScopedCache.test.ts	2010	it.effect	resources are properly scoped to cache entries	the row asserts a resource is released, or cported	packages/effect/test/ScopedCache.test.ts	2033	it.effect	resources are cleaned up when entries are evicted	scoped_entry_resource_releases_on_eviction
-ported	packages/effect/test/ScopedCacported	packages/effect/test/ScopedCache.test.ts	2033	it.effect	resources are cleaned up when entries are evicted	scoped_entry_resource_releases_on_eviction
+not-applicable	packages/effect/test/ScopedCache.test.ts	2010	it.effect	resources are properly scoped to cache entries	the row asserts a resource is released, or cleanup ordering holds, when a scope closes or an entry is evicted; this port's ScopedCache hands out plain values with no resource or finalizer to release, so the cleanup has nothing to act on
+ported	packages/effect/test/ScopedCache.test.ts	2033	it.effect	resources are cleaned up when entries are evicted	scoped_entry_resource_releases_on_eviction
 ported	packages/effect/test/ScopedCache.test.ts	2058	it.effect	resources are cleaned up when cache is closed	scoped_entry_resources_release_on_close
 ported	packages/effect/test/ScopedCache.test.ts	2093	it.effect	resources are cleaned up when entries expire	scoped_entry_resource_releases_when_has_prunes_expiry
 not-applicable	packages/effect/test/ScopedCache.test.ts	2120	it.effect	resources are cleaned up when entries are invalidated	the row asserts a resource is released, or cleanup ordering holds, when a scope closes or an entry is evicted; this port's ScopedCache hands out plain values with no resource or finalizer to release, so the cleanup has nothing to act on
@@ -4023,7 +4023,7 @@ ported	packages/effect/test/Struct.test.ts	91	it	renameKeys	struct_shapes
 ported	packages/effect/test/Struct.test.ts	101	it	evolveEntries transforms a selected key and value together	struct_shapes
 ported	packages/effect/test/Struct.test.ts	112	it	map	struct_shapes
 ported	packages/effect/test/Struct.test.ts	123	it	mapPick	struct_shapes
-ported	packages/effeported	packages/effect/test/Struct.test.ts	150	it	mapOmit	struct_shapesported	packages/effect/test/Struct.test.ts	150	it	mapOmit	struct_shapes
+ported	packages/effect/test/Struct.test.ts	150	it	mapOmit	struct_shapes
 ported	packages/effect/test/Struct.test.ts	167	it	mapOmit numeric properties	struct_shapes
 ported	packages/effect/test/Struct.test.ts	177	it	makeEquivalence compares structs by configured fields	struct_shapes
 ported	packages/effect/test/Struct.test.ts	188	it	default omitKeyWhen (never omit)	struct_shapes
@@ -4044,10 +4044,10 @@ not-applicable	packages/effect/test/Symbol.test.ts	11	it	returns true for global
 not-applicable	packages/effect/test/Symbol.test.ts	15	it	returns true for well-known primitive symbols	N/A: JS symbols have no Rust analog
 not-applicable	packages/effect/test/Symbol.test.ts	21	it	returns false for strings	N/A: JS symbols have no Rust analog
 not-applicable	packages/effect/test/Symbol.test.ts	26	it	returns false for numbers	N/A: JS symbols have no Rust analog
-not-applicable	packages/effect/test/Symbol.test.ts	31	it	not-applicable	packages/effect/test/Symbol.test.ts	41	it	returns false for objects and arrays	N/A: JS symbols have no Rust analog
-not-applicable	packages/effect/test/Symbol.test.ts	46	it	returnnot-applicable	packages/effect/test/Symbol.test.ts	41	it	returns false for objects and arrays	N/A: JS symbols have no Rust analog
+not-applicable	packages/effect/test/Symbol.test.ts	31	it	returns false for booleans	N/A: JS symbols have no Rust analog
+not-applicable	packages/effect/test/Symbol.test.ts	41	it	returns false for objects and arrays	N/A: JS symbols have no Rust analog
 not-applicable	packages/effect/test/Symbol.test.ts	46	it	returns false for functions	N/A: JS symbols have no Rust analog
-ported	packages/effect/test/Synchronizedported	packages/effect/test/SynchronizedRef.modifySomeEffect.test.ts	16	it.effect	preserves the value for Option.none	modify_ported	packages/effect/test/SynchronizedRef.modifySomeEffect.test.ts	16	it.effect	preserves the value for Option.none	modify_some_effect_none_preserves_value_with_fallback
+ported	packages/effect/test/SynchronizedRef.modifySomeEffect.test.ts	16	it.effect	preserves the value for Option.none	modify_some_effect_none_preserves_value_with_fallback
 ported	packages/effect/test/SynchronizedRef.test.ts	32	it.effect	get	synchronised_ref_get_returns_current
 ported	packages/effect/test/SynchronizedRef.test.ts	37	it.effect	getAndUpdateEffect - happy path	get_and_update_effect_returns_previous_and_stores_update
 ported	packages/effect/test/SynchronizedRef.test.ts	45	it.effect	getAndUpdateEffect - with failure	get_and_update_effect_with_failure_yields_the_failure
@@ -4940,7 +4940,7 @@ unported	packages/effect/test/ai/McpServer/McpConformance/ToolsTest.ts	226	it.ef
 unported	packages/effect/test/ai/McpServer/McpConformance/ToolsTest.ts	238	it.effect	MUST return multiple content items in order	
 unported	packages/effect/test/ai/McpServer/McpConformance/ToolsTest.ts	246	it.effect	MUST return tool execution failures with isError	
 unported	packages/effect/test/ai/McpServer/McpConformance/ToolsTest.ts	252	it.effect	MUST keep tool execution errors distinct from protocol errors	
-unported	packages/effect/test/ai/McpServer/McpConformance/ToolsTestunported	packages/effect/test/ai/McpServer/McpConformance/ToolsTest.ts	unported	packages/effect/test/ai/McpServer/McpConformance/ToolsTest.ts	289	it.skipIf	should return base64 audio content when an audio tool is called	
+unported	packages/effect/test/ai/McpServer/McpConformance/ToolsTest.ts	289	it.skipIf	should return base64 audio content when an audio tool is called	
 unported	packages/effect/test/ai/McpServer/McpConformance/ToolsTest.ts	305	it.effect	should advertise an object output schema when a tool declares one	
 unported	packages/effect/test/ai/McpServer/McpConformance/ToolsTest.ts	326	it.effect	should return a resource link when a resource-link tool is called	
 unported	packages/effect/test/ai/McpServer/McpConformance/ToolsTest.ts	337	it.effect	should return structured content when a structured tool is called	
@@ -4956,7 +4956,7 @@ unported	packages/effect/test/ai/McpServer/McpConformance/ToolsTest.ts	554	it.ef
 unported	packages/effect/test/ai/McpServer/McpConformance/ToolsTest.ts	653	it.effect	should return tools in the same order when the registered inventory has not changed	
 unported	packages/effect/test/ai/McpServer/McpConformance/ToolsTest.ts	676	it.layer	Mcp Conformance (${protocol.protocolVersion})	
 unported	packages/effect/test/ai/McpServer/McpConformance/ToolsTest.ts	678	it.effect	should reject malformed tool parameters without invoking a handler	
-unported	packages/effect/test/ai/McpServer/McpConformance/ToolsTest.ts	699	it.effect	should advertise tool list-change unported	punported	packages/effect/test/ai/McpServer/McpConformance/TransportsTest.ts	37	it.effect	MUST exchange compact UTF-8 newline-unported	packages/effect/test/ai/McpServer/McpConformance/unported	punported	packages/effect/test/ai/McpServer/McpConformance/TransportsTest.ts	37	it.effect	MUST exchange compact UTF-8 newline-unported	packages/effect/test/ai/McpServer/McpConformance/TransportsTest.ts	37	it.effect	MUST exchange compact UTF-8 newline-delimited JSON-RPC records	
+unported	packages/effect/test/ai/McpServer/McpConformance/ToolsTest.ts	699	it.effect	should advertise tool list-change notifications when supported	
 unported	packages/effect/test/ai/McpServer/McpConformance/TransportsTest.ts	58	it.effect	SCENARIO parses UTF-8 JSON-RPC records split across input chunks	
 unported	packages/effect/test/ai/McpServer/McpConformance/TransportsTest.ts	84	it.effect	SCENARIO processes consecutive stdio messages independently	
 unported	packages/effect/test/ai/McpServer/McpConformance/TransportsTest.ts	112	it.skipIf	MUST reject JSON-RPC batches over stdio	
@@ -5572,7 +5572,7 @@ unported	packages/effect/test/cli/Command.test.ts	168	it.effect	should parse neg
 unported	packages/effect/test/cli/Command.test.ts	182	it.effect	should run negative integer flag values with --wizard	
 unported	packages/effect/test/cli/Command.test.ts	211	it.effect	should round trip wizard flag value ${JSON.stringify(value)}	
 unported	packages/effect/test/cli/Command.test.ts	229	it.effect	should round trip mixed repeated wizard flag values	
-unported	packages/effect/test/cli/Command.test.ts	252	iunported	packages/effect/test/cli/Command.test.ts	282	it.effect	should unported	packages/effect/test/cli/Command.test.ts	282	it.effect	should print a message when wizard mode is cancelled	
+unported	packages/effect/test/cli/Command.test.ts	252	it.effect	should redact option-looking values in wizard command output	
 unported	packages/effect/test/cli/Command.test.ts	301	it.effect	should render boolean wizard values consistently	
 unported	packages/effect/test/cli/Command.test.ts	320	it.effect	should start wizard mode at a selected subcommand	
 unported	packages/effect/test/cli/Command.test.ts	339	it.effect	should reject --completions without a shell	
@@ -5596,11 +5596,11 @@ unported	packages/effect/test/cli/Command.test.ts	785	it.effect	should fail for 
 unported	packages/effect/test/cli/Command.test.ts	814	it.effect	should handle parsing errors from run	
 unported	packages/effect/test/cli/Command.test.ts	834	it.effect	should propagate handler errors from run	
 unported	packages/effect/test/cli/Command.test.ts	840	it.effect	should render and rethrow UserError handler failures without help	
-unported	packages/effect/test/cli/Command.test.ts	858	it.effect	should rendeunported	packages/effect/test/cli/Command.test.ts	892	it.effect	should render UserError argument failures with command help	
-unported	packages/effect/test/cli/Command.test.ts	913	it.effect	shouunported	packages/effect/test/cli/Command.test.ts	892	it.effect	should render UserError argument failures with command help	
+unported	packages/effect/test/cli/Command.test.ts	858	it.effect	should render UserError handler failures with the installed formatter	
+unported	packages/effect/test/cli/Command.test.ts	892	it.effect	should render UserError argument failures with command help	
 unported	packages/effect/test/cli/Command.test.ts	913	it.effect	should suppress automatic error rendering	
-unported	packages/effect/test/cli/Command.test.ts	929	it.effect	should still render help when automatic error renderinunported	packages/effect/test/cli/Command.test.ts	955	it	preserves unlisted metadata when adding shared flags	
-unported	packaunported	packages/effect/test/cli/Command.test.ts	955	it	preserves unlisted metadata when adding shared flags	
+unported	packages/effect/test/cli/Command.test.ts	929	it.effect	should still render help when automatic error rendering is disabled	
+unported	packages/effect/test/cli/Command.test.ts	955	it	preserves unlisted metadata when adding shared flags	
 unported	packages/effect/test/cli/Command.test.ts	964	it.effect	should execute parent handler when no subcommand provided	
 unported	packages/effect/test/cli/Command.test.ts	975	it.effect	should execute subcommand when provided	
 unported	packages/effect/test/cli/Command.test.ts	991	it.effect	should execute subcommand when provided by alias	
@@ -6494,7 +6494,7 @@ unported	packages/effect/test/http/HttpBody.test.ts	13	it.each	fileFromInfo hand
 unported	packages/effect/test/http/HttpBody.test.ts	31	it.each	fileFromInfo rejects $name with typed BadArgument	
 unported	packages/effect/test/http/HttpBody.test.ts	54	it	${constructor} defers range validation and filesystem access until evaluation	
 unported	packages/effect/test/http/HttpBody.test.ts	90	it	fileFromInfo preserves a small selected range and stream options	
-unported	packagesunported	packages/effect/test/http/HttpClient.test.ts	41	it.effect	applunported	packages/effect/test/http/HttpClient.test.ts	41	it.effect	applies JSON revivers to response schema decoders	
+unported	packages/effect/test/http/HttpClient.test.ts	41	it.effect	applies JSON revivers to response schema decoders	
 unported	packages/effect/test/http/HttpClient.test.ts	65	it.effect	forwards parse options to response schema decoders	
 unported	packages/effect/test/http/HttpClient.test.ts	90	it.effect	forwards parse options to response schema decoders without a body	
 unported	packages/effect/test/http/HttpClient.test.ts	115	it.effect	preserves a raw large integer through schemaBodyJson reviver context	
@@ -6518,8 +6518,8 @@ unported	packages/effect/test/http/HttpClient.test.ts	451	it.effect	updates limi
 unported	packages/effect/test/http/HttpClient.test.ts	495	it.effect	updates limits from custom response headers	
 unported	packages/effect/test/http/HttpClient.test.ts	541	it.effect	inspects remaining headers to infer updated limits	
 unported	packages/effect/test/http/HttpClient.test.ts	583	it.effect	inspects custom remaining and reset-after headers	
-unported	packages/effect/test/http/HttpClient.test.ts	629	it.effect	uses custom header overrides without falling back tounported	packages/effect/test/http/HttpClieunported	packages/effect/test/http/HttpClient.test.ts	743	it.effect	retries HttpClientError 429 failures through the limiter	
-unported	packages/effect/test/http/HttpClient.test.ts	783	it.effectunported	packages/effect/test/http/HttpClient.test.ts	743	it.effect	retries HttpClientError 429 failures through the limiter	
+unported	packages/effect/test/http/HttpClient.test.ts	629	it.effect	uses custom header overrides without falling back to built-in names	
+unported	packages/effect/test/http/HttpClient.test.ts	743	it.effect	retries HttpClientError 429 failures through the limiter	
 unported	packages/effect/test/http/HttpClient.test.ts	783	it.effect	bounds automatic 429 response retries	
 unported	packages/effect/test/http/HttpClient.test.ts	803	it.effect	bounds automatic HttpClientError 429 retries	
 unported	packages/effect/test/http/HttpClient.test.ts	828	it.effect	uses a custom Retry-After header	
@@ -7352,12 +7352,12 @@ not-applicable	packages/effect/test/reactivity/Atom.test.ts	1306	it	map with ini
 not-applicable	packages/effect/test/reactivity/Atom.test.ts	1326	it	idleTTL	the rows exercise the wider Atom surface — Atom.fn with idleTTL, batching with coalesced notifications, initialValues, writable and read/write combinators, labels, mount/unmount APIs — which sits above the lifecycle core this port carries (make, keepAlive, withEquality, map plus registry get/set/subscribe/disposal); each row needs its own named combinator on top of an async atom builder the port does not have
 not-applicable	packages/effect/test/reactivity/Atom.test.ts	1359	it	releases a stream-backed atom consumed through a derived atom after idleTTL	the rows exercise the wider Atom surface — Atom.fn with idleTTL, batching with coalesced notifications, initialValues, writable and read/write combinators, labels, mount/unmount APIs — which sits above the lifecycle core this port carries (make, keepAlive, withEquality, map plus registry get/set/subscribe/disposal); each row needs its own named combinator on top of an async atom builder the port does not have
 not-applicable	packages/effect/test/reactivity/Atom.test.ts	1388	it	idleTTL fn	the rows exercise the wider Atom surface — Atom.fn with idleTTL, batching with coalesced notifications, initialValues, writable and read/write combinators, labels, mount/unmount APIs — which sits above the lifecycle core this port carries (make, keepAlive, withEquality, map plus registry get/set/subscribe/disposal); each row needs its own named combinator on top of an async atom builder the port does not have
-not-applicable	packages/effect/test/reactivity/Atom.test.ts	1408	it	idleTTL fnSync	the rows exercise the wider Atom surface — Atom.fn with idleTTL, batching with coalesced notifications, initialValues, writable and read/write combinators, labels, mount/unmount APIs — which sits above the lifecycle core this port carries (make, keepAlive, withEquality, map plus registry get/set/subscribe/disposal); each row needs its own nnot-applicable	packages/effect/test/reactivity/Atom.test.ts	1428	it	fn	not-applicable	packages/effect/test/reactivity/Atom.test.ts	1428	it	fn	the rows exercise the wider Atom surface — Atom.fn with idleTTL, batching with coalesced notifications, initialValues, writable and read/write combinators, labels, mount/unmount APIs — which sits above the lifecycle core this port carries (make, keepAlive, withEquality, map plus registry get/set/subscribe/disposal); each row needs its own named combinator on top of an async atom builder the port does not have
+not-applicable	packages/effect/test/reactivity/Atom.test.ts	1408	it	idleTTL fnSync	the rows exercise the wider Atom surface — Atom.fn with idleTTL, batching with coalesced notifications, initialValues, writable and read/write combinators, labels, mount/unmount APIs — which sits above the lifecycle core this port carries (make, keepAlive, withEquality, map plus registry get/set/subscribe/disposal); each row needs its own named combinator on top of an async atom builder the port does not have
 not-applicable	packages/effect/test/reactivity/Atom.test.ts	1437	it	fn initial	the rows exercise the wider Atom surface — Atom.fn with idleTTL, batching with coalesced notifications, initialValues, writable and read/write combinators, labels, mount/unmount APIs — which sits above the lifecycle core this port carries (make, keepAlive, withEquality, map plus registry get/set/subscribe/disposal); each row needs its own named combinator on top of an async atom builder the port does not have
 not-applicable	packages/effect/test/reactivity/Atom.test.ts	1446	it	withFallback	the rows exercise the wider Atom surface — Atom.fn with idleTTL, batching with coalesced notifications, initialValues, writable and read/write combinators, labels, mount/unmount APIs — which sits above the lifecycle core this port carries (make, keepAlive, withEquality, map plus registry get/set/subscribe/disposal); each row needs its own named combinator on top of an async atom builder the port does not have
 not-applicable	packages/effect/test/reactivity/Atom.test.ts	1462	it	withFallback forwards writes to the primary atom	the rows exercise the wider Atom surface — Atom.fn with idleTTL, batching with coalesced notifications, initialValues, writable and read/write combinators, labels, mount/unmount APIs — which sits above the lifecycle core this port carries (make, keepAlive, withEquality, map plus registry get/set/subscribe/disposal); each row needs its own named combinator on top of an async atom builder the port does not have
 not-applicable	packages/effect/test/reactivity/Atom.test.ts	1476	it	failure with previousSuccess	the rows exercise the wider Atom surface — Atom.fn with idleTTL, batching with coalesced notifications, initialValues, writable and read/write combinators, labels, mount/unmount APIs — which sits above the lifecycle core this port carries (make, keepAlive, withEquality, map plus registry get/set/subscribe/disposal); each row needs its own named combinator on top of an async atom builder the port does not have
-not-applicable	packages/effect/test/reactivity/Atom.test.ts	1500	it	read non-object	the rows exercise the wider Atom surface — Atom.fn with idleTTL, batching with coalesced notifications, initialValues, writable and read/write combinators, labels, mount/unmount APIs — which sits above the lifecycle core this port carries (make, keepAlive, withEquality, map plus registrynot-applicable	packages/effect/test/reactivity/Atom.test.ts	1506	it	get.stream	the rows exercise the wider Atom surface — Anot-applicable	packages/effect/test/reactivity/Atom.test.ts	1506	it	get.stream	the rows exercise the wider Atom surface — Atom.fn with idleTTL, batching with coalesced notifications, initialValues, writable and read/write combinators, labels, mount/unmount APIs — which sits above the lifecycle corenot-applicable	packages/effect/test/reactivity/Atom.test.ts	1523	it	get.streamResult	the rows exercise the wider Atom surface — Atom.fn with idleTTL, batching with coalesced notifications, innot-applicable	packages/effect/test/reactivity/Atom.test.ts	1523	it	get.streamResult	the rows exercise the wider Atom surface — Atom.fn with idleTTL, batching with coalesced notifications, initialValues, writable and read/write combinators, labels, mount/unmount APIs — which sits above the lifecycle core this port carries (make, keepAlive, withEquality, map plus registry get/set/subscribe/disposal); each row needs its own named combinator on top of an async atom builder the port does not have
+not-applicable	packages/effect/test/reactivity/Atom.test.ts	1500	it	read non-object	the rows exercise the wider Atom surface — Atom.fn with idleTTL, batching with coalesced notifications, initialValues, writable and read/write combinators, labels, mount/unmount APIs — which sits above the lifecycle core this port carries (make, keepAlive, withEquality, map plus registry get/set/subscribe/disposal); each row needs its own named combinator on top of an async atom builder the port does not have
 not-applicable	packages/effect/test/reactivity/Atom.test.ts	1542	it	stream failure keeps previousSuccess	the rows exercise the wider Atom surface — Atom.fn with idleTTL, batching with coalesced notifications, initialValues, writable and read/write combinators, labels, mount/unmount APIs — which sits above the lifecycle core this port carries (make, keepAlive, withEquality, map plus registry get/set/subscribe/disposal); each row needs its own named combinator on top of an async atom builder the port does not have
 not-applicable	packages/effect/test/reactivity/Atom.test.ts	1557	it	stream empty produces NoSuchElementError	the rows exercise the wider Atom surface — Atom.fn with idleTTL, batching with coalesced notifications, initialValues, writable and read/write combinators, labels, mount/unmount APIs — which sits above the lifecycle core this port carries (make, keepAlive, withEquality, map plus registry get/set/subscribe/disposal); each row needs its own named combinator on top of an async atom builder the port does not have
 not-applicable	packages/effect/test/reactivity/Atom.test.ts	1575	it	Option is not an Effect	the rows exercise the wider Atom surface — Atom.fn with idleTTL, batching with coalesced notifications, initialValues, writable and read/write combinators, labels, mount/unmount APIs — which sits above the lifecycle core this port carries (make, keepAlive, withEquality, map plus registry get/set/subscribe/disposal); each row needs its own named combinator on top of an async atom builder the port does not have
@@ -8260,13 +8260,13 @@ unported	packages/effect/test/schema/SchemaCompilerRegression.test.ts	18	it	pres
 unported	packages/effect/test/schema/SchemaCompilerRegression.test.ts	31	it.effect	preserves missing and present undefined through eager and suspended transformations	
 unported	packages/effect/test/schema/SchemaCompilerRegression.test.ts	60	it.effect	continues encoding checkpoints after middleware recovery without replaying transformations	
 unported	packages/effect/test/schema/SchemaCompilerRegression.test.ts	108	it.effect	resolved parsers return Effects containing their actual output	
-unported	packages/effect/test/schema/SchemaCompilerRegression.test.ts	137	it.effect	retaiunported	packages/effect/test/schema/SchemaCompilerRegression.test.ts	1unported	packages/effect/test/schema/SchemaCompilerRegression.test.ts	162	it.effect	preserves unchanged fields before and after asynchronous transformations	
+unported	packages/effect/test/schema/SchemaCompilerRegression.test.ts	137	it.effect	retains public success values across subsequent and reentrant parser calls	
 unported	packages/effect/test/schema/SchemaCompilerRegression.test.ts	192	it	calls installed operations with options without inspecting extra function properties	
 unported	packages/effect/test/schema/SchemaCompilerRegression.test.ts	219	it	bounds inlining of shared subgraphs	
 unported	packages/effect/test/schema/SchemaCompilerRegression.test.ts	248	it	bounds generated composed parsers for wide objects	
 unported	packages/effect/test/schema/SchemaCompilerRegression.test.ts	260	it	applies generation limits to every occurrence of a reused schema	
-unported	packages/effect/test/schema/SchemaCompilerRegression.test.ts	278	it	does not generate code for schemas nesting a declaration or susunported	packages/effect/test/schema/SchemaCompilerRegression.test.ts	453	it	memoizes an absent optional operation	
-unported	packages/effect/test/schema/SchemaCompilerRegresunported	packages/effect/test/schema/SchemaCompilerRegression.test.ts	303	it	preserves repeated Union members when selecting generated decoders	
+unported	packages/effect/test/schema/SchemaCompilerRegression.test.ts	278	it	does not generate code for schemas nesting a declaration or suspension	
+unported	packages/effect/test/schema/SchemaCompilerRegression.test.ts	303	it	preserves repeated Union members when selecting generated decoders	
 unported	packages/effect/test/schema/SchemaCompilerRegression.test.ts	330	it	stops oneOf after its second successful candidate	
 unported	packages/effect/test/schema/SchemaCompilerRegression.test.ts	349	it.effect	accepts both zero signs and preserves the input across parser adapters	
 unported	packages/effect/test/schema/SchemaCompilerRegression.test.ts	399	it	retains the original encoding AST in local checks	
@@ -8278,7 +8278,7 @@ unported	packages/effect/test/schema/SchemaCompilerRegression.test.ts	492	it	doe
 unported	packages/effect/test/schema/SchemaCompilerRegression.test.ts	508	it	uses the interpreter after selective JIT generation fails	
 unported	packages/effect/test/schema/SchemaCompilerStartup.test.ts	6	it	allows late global activation without replacing a maker's interpreted entry	
 not-applicable	packages/effect/test/schema/SchemaGetter.test.ts	20	it.effect	forbiddenEncoding	the row needs a forbiddenEncoding getter and a stringifyJson getter that raise a tagged issue; this port's Getter offers new, read, map, compose and key, and its SchemaError carries neither the Forbidden tag nor that message
-not-applicable	packages/effect/test/schema/SchemaGetter.test.ts	29	it.effect	stringifyJson fails when JSON.stringify returns undefined	the row needs a forbiddenEncoding getter and a stringifyJson getter that raise a tagged issue; this ported	packages/effect/test/schported	packages/effect/test/schema/SchemaGetter.test.ts	42	it	map preserves the specialized execution mode	getter_map_threads_values
+not-applicable	packages/effect/test/schema/SchemaGetter.test.ts	29	it.effect	stringifyJson fails when JSON.stringify returns undefined	the row needs a forbiddenEncoding getter and a stringifyJson getter that raise a tagged issue; this port's Getter offers new, read, map, compose and key, and its SchemaError carries neither the Forbidden tag nor that message
 ported	packages/effect/test/schema/SchemaGetter.test.ts	67	it.effect	compose	getter_compose_chains
 ported	packages/effect/test/schema/SchemaGetter.test.ts	79	it	compose preserves the specialized execution mode	getter_compose_chains
 ported	packages/effect/test/schema/SchemaGetter.test.ts	98	it	dateTimeUtcFromInput	datetime_utc_from_inputs
@@ -9142,11 +9142,11 @@ unported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts
 unported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	1051	it	inlines callback metadata with pure check annotations	
 unported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	1066	it	keeps colliding annotations in a separate schema object	
 unported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	1081	it	keeps format annotations in a separate schema object	
-unported	packages/effect/test/schema/representation/toJsonSchunported	packages/effect/test/schema/representation/toJsonSchemaDocumenunported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	1109	it	keeps colliding propertyNames in separate schema objects	
+unported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	1109	it	keeps colliding propertyNames in separate schema objects	
 unported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	1128	it	keeps a reference separate from contextual annotations	
 unported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	1184	it	keeps ${name} in separate schema objects	
 unported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	1194	it	keeps a fragment containing a custom keyword intact	
-unported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	1207	it	keeps format scoped after absorunported	packages/efunported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	1220	it	inlines callback metadata after absorbing a number type	
+unported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	1207	it	keeps format scoped after absorbing a number type	
 unported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	1233	it	does not overwrite an annotation after absorbing a number type	
 unported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	1249	it	extracts nested number types without losing other allOf members	
 unported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	1302	it	never exposes compiler capabilities as extension annotations	
@@ -9156,10 +9156,10 @@ unported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts
 unported	packages/effect/test/schema/representation/toJsonSchemaMultiDocument.test.ts	31	it	deduplicates equivalent fallback definitions	
 unported	packages/effect/test/schema/representation/toJsonSchemaMultiDocument.test.ts	52	it	does not deduplicate different fallback definitions	
 unported	packages/effect/test/schema/representation/toJsonSchemaMultiDocument.test.ts	82	it	does not deduplicate explicit identifiers	
-unported	packages/effect/test/schemunported	packages/effect/test/schema/representation/toJsonSchemaMultiDocument.test.ts	144	it	escapes canonical fallback referunported	packages/effect/test/schema/representation/toJsonSchemaMultiDocument.test.ts	144	it	escapes canonical fallback references	
+unported	packages/effect/test/schema/representation/toJsonSchemaMultiDocument.test.ts	144	it	escapes canonical fallback references	
 unported	packages/effect/test/schema/representation/toJsonSchemaMultiDocument.test.ts	173	it	rewrites callback references to the canonical ${identifier} definition	
 unported	packages/effect/test/schema/representation/toJsonSchemaMultiDocument.test.ts	199	it	rewrites callback references with encoded leading separators	
-unported	packages/efunported	packages/effect/test/schema/representation/toJsonSchemaMultiDocument.test.ts	274	it	preserves an encoded pointer suffix when runported	packages/effect/test/schema/representation/toJsonSchemaMultiDocument.test.ts	241	it	distinguishes pointer separators from escaped slashes in ${separator} callback references	
+unported	packages/effect/test/schema/representation/toJsonSchemaMultiDocument.test.ts	241	it	distinguishes pointer separators from escaped slashes in ${separator} callback references	
 unported	packages/effect/test/schema/representation/toJsonSchemaMultiDocument.test.ts	274	it	preserves an encoded pointer suffix when rewriting a percent-named alias	
 unported	packages/effect/test/schema/representation/toJsonSchemaMultiDocument.test.ts	314	it	invokes each fallback callback once before deduplicating equivalent output	
 unported	packages/effect/test/schema/representation/toJsonSchemaMultiDocument.test.ts	350	it	reuses a compiled definition when extracting an index signature pattern	
@@ -9945,9 +9945,3 @@ unported	packages/effect/test/workflow/WorkflowEngine.test.ts	478	it.effect	laye
 unported	packages/effect/test/workflow/WorkflowEngine.test.ts	512	it.effect	layerMemory hides deposited interrupts from body finalizers	
 unported	packages/effect/test/workflow/WorkflowEngine.test.ts	546	it.effect	layerMemory exposes deposited interrupts to workflow finalizers	
 unported	packages/effect/test/workflow/WorkflowEngine.test.ts	583	it.effect	layerMemory preserves interruptUnsafe across a suspended replay	
-xposes deposited interrupts to workflow finalizers	
-unported	packages/effect/test/workflow/WorkflowEngine.test.ts	583	it.effect	layerMemory preserves interruptUnsafe across a suspended replay	
-spended replay	
-xposes deposited interrupts to workflow finalizers	
-unported	packages/effect/test/workflow/WorkflowEngine.test.ts	583	it.effect	layerMemory preserves interruptUnsafe across a suspended replay	
-	layerMemory preserves interruptUnsafe across a suspended replay	
