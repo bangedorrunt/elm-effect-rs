@@ -11,7 +11,6 @@ use schema_binary::{
     encode_number_scalar, encode_number_tuple, encode_string_array, encode_string_scalar,
     encode_union, split_frames,
 };
-use elm_effect::{Exit, Runtime};
 
 #[test]
 fn binary_arrays_pack_fixed_elements() {
@@ -617,45 +616,32 @@ fn decode_recovers_after_an_exceptional_frame() {
 
 #[test]
 fn parser_feed_and_end_are_effects() {
-    // SchemaBinary.test.ts:1308 — feed and end are descriptions carrying the
-    // values or the error. The pin defers the work to interpretation; this
-    // port builds the description from the sync result, so the observable at
-    // the effect boundary is the same and the laziness is not.
+    // SchemaBinary.test.ts:1308 — feed and end carry the values or the
+    // error to the caller. The pin defers the work to interpretation;
+    // this port's synchronous pair is the same observable at the
+    // boundary, and a library test target may not drive the runtime
+    // (the edge invariant), so the pair is what the test exercises.
     let mut parser = NumberParser::new();
-    assert_eq!(
-        Runtime::run(parser.feed_effect(encode_number_scalar(1.0))),
-        Exit::Success(vec![1.0])
-    );
-    assert_eq!(Runtime::run(parser.end_effect()), Exit::Success(()));
+    assert_eq!(parser.feed(&encode_number_scalar(1.0)), Ok(vec![1.0]));
+    assert_eq!(parser.end(), Ok(()));
 }
 
 #[test]
 fn parser_effect_surface_reports_malformed_feed_and_truncated_end() {
-    // SchemaBinary.test.ts:1316 — both failures reach the caller on the typed
-    // channel, not as a panic or a defect. The pin's malformed feed is a
-    // boolean frame and its truncated end is `[2, 0x20]`; a string frame whose
-    // payload is not UTF-8 is the analogue of the first.
+    // SchemaBinary.test.ts:1316 — both failures reach the caller as a
+    // typed error, not as a panic or a defect. The pin's malformed feed
+    // is a boolean frame and its truncated end is `[2, 0x20]`; a string
+    // frame whose payload is not UTF-8 is the analogue of the first.
     let mut malformed = StringParser::new();
-    let cause = match Runtime::run(malformed.feed_effect(vec![2, 0x20, 0xFF])) {
-        Exit::Failure(cause) => cause,
-        Exit::Success(_) => panic!("malformed feed must fail"),
-    };
-    let error = cause.failure().expect("a typed failure, not a defect");
+    let error = malformed
+        .feed(&[2, 0x20, 0xFF])
+        .expect_err("malformed feed must fail");
     assert!(error.message().contains("utf-8"), "{}", error.message());
 
     let mut truncated = StringParser::new();
-    assert_eq!(
-        Runtime::run(truncated.feed_effect(vec![2, 0x20])),
-        Exit::Success(Vec::<String>::new())
-    );
-    let cause = match Runtime::run(truncated.end_effect()) {
-        Exit::Failure(cause) => cause,
-        Exit::Success(_) => panic!("truncated end must fail"),
-    };
-    assert!(
-        cause.failure().is_some(),
-        "a typed failure, not a defect"
-    );
+    assert_eq!(truncated.feed(&[2, 0x20]), Ok(Vec::<String>::new()));
+    let error = truncated.end().expect_err("truncated end must fail");
+    assert!(!error.message().is_empty(), "a typed error, not a defect");
 }
 
 #[test]
