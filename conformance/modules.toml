@@ -284,7 +284,7 @@ tests = ["packages/effect/test/FiberMap.test.ts"]
 [[module]]
 path = "packages/effect/src/FiberSet.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/FiberSet.test.ts"]

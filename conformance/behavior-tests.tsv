@@ -1734,16 +1734,16 @@ unported	packages/effect/test/FiberMap.test.ts	221	it.effect	propagateInterrupti
 unported	packages/effect/test/FiberMap.test.ts	232	it.effect	propagateInterruption true	
 unported	packages/effect/test/FiberMap.test.ts	247	it.effect	awaitEmpty	
 unported	packages/effect/test/FiberMap.test.ts	262	it.effect	makeRuntimePromise	
-unported	packages/effect/test/FiberSet.test.ts	7	it.effect	run defers startup	
-unported	packages/effect/test/FiberSet.test.ts	23	it.effect	identifies FiberSet in JSON	
-unported	packages/effect/test/FiberSet.test.ts	29	it.effect	interrupts running fibers when the scope closes	
-unported	packages/effect/test/FiberSet.test.ts	50	it.effect	runtime	
+ported	packages/effect/test/FiberSet.test.ts	7	it.effect	run defers startup	set_run_defers_startup
+ported	packages/effect/test/FiberSet.test.ts	23	it.effect	identifies FiberSet in JSON	set_identifies_itself_in_json
+ported	packages/effect/test/FiberSet.test.ts	29	it.effect	interrupts running fibers when the scope closes	set_scope_close_interrupts_running_members
+ported	packages/effect/test/FiberSet.test.ts	50	it.effect	runtime	set_runtime_forks_into_the_set
 ported	packages/effect/test/FiberSet.test.ts	73	it.effect	runs fibers concurrently and awaitEmpty waits for completion	set_join_reports_first_failure
 ported	packages/effect/test/FiberSet.test.ts	83	it.effect	size	set_runs_and_joins
-unported	packages/effect/test/FiberSet.test.ts	94	it.effect	propagateInterruption false ignores external interruption	
-unported	packages/effect/test/FiberSet.test.ts	105	it.effect	propagateInterruption true fails join on external interruption	
+ported	packages/effect/test/FiberSet.test.ts	94	it.effect	propagateInterruption false ignores external interruption	set_propagation_false_ignores_external_interruption
+ported	packages/effect/test/FiberSet.test.ts	105	it.effect	propagateInterruption true fails join on external interruption	set_propagation_true_fails_join_on_external_interruption
 ported	packages/effect/test/FiberSet.test.ts	120	it.effect	awaitEmpty	set_await_empty_waits_for_in_flight_fibers
-unported	packages/effect/test/FiberSet.test.ts	135	it.effect	makeRuntimePromise	
+ported	packages/effect/test/FiberSet.test.ts	135	it.effect	makeRuntimePromise	set_make_runtime_promise_resolves_outside_an_effect
 ported	packages/effect/test/FiberSetRuntimePropagation.test.ts	6	it.effect	records external interruption when enabled	set_interrupt_all_records_external_interruption
 unported	packages/effect/test/FileSystem.test-utils.ts	21	it	readFile	
 unported	packages/effect/test/FileSystem.test-utils.ts	29	it	makeTempDirectory	
