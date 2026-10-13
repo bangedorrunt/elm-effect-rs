@@ -61,6 +61,30 @@ lost an import they call. One `.rs` line each, caught by the next `cargo test`.
 Patch a warning **at its line number**, never by matching the text it quotes,
 and do not truncate the list you are patching from.
 
+## The repair for that costs a sibling its rows
+
+Dropping the id means rewriting the follow-up commit, and a rebase that replays a
+`.beads/`-touching commit resets `.beads/gates.jsonl` in the working tree. Rows
+that were only ever uncommitted, another lane's among them, are gone from the
+file at that instant: measured here, six gate rows (ids 85-93, five of them
+other lanes' closes) vanished, and `git status` then reported the file clean, so
+nothing looks wrong. The replay refused to finish until the file was clean, and
+cleaning it is what completes the loss.
+
+The rows are recoverable, because `beads.db` is the source of truth and is
+untracked, and `br` snapshots the JSONL under `.beads/.br_history/`:
+
+```sh
+ls -t .beads/.br_history/gates.*.jsonl | head -1   # newest snapshot, 93 rows
+cp .beads/.br_history/gates.<ts>.jsonl .beads/gates.jsonl
+```
+
+Two traps on the way out. `br sync --flush-only` exports only *dirty* issues,
+so it will not rebuild a file the reset emptied (it answers "Nothing to
+export"). And the file must be clean *during* the replay, so snapshot it out of
+`.beads/` first, `git checkout -- .beads/gates.jsonl` to let the rebase finish,
+then copy it back; `git rebase --autostash` re-applies it by itself.
+
 ## Principles
 
 - **boundary-discipline** — an excused row is a boundary claim about the port's
