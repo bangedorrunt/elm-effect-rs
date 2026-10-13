@@ -7742,13 +7742,13 @@ unported	packages/effect/test/schema/Schema.test.ts	4246	it	Record(Number, Strin
 unported	packages/effect/test/schema/Schema.test.ts	4270	it	Record(Int, String)	
 unported	packages/effect/test/schema/Schema.test.ts	4289	it	Record(TemplateLiteral with checked part, Number) should use the part checks to select keys	
 unported	packages/effect/test/schema/Schema.test.ts	4302	it	a	
-unported	packages/effect/test/schema/Schema.test.ts	4322	it	empty	
-unported	packages/effect/test/schema/Schema.test.ts	4330	it	String	
-unported	packages/effect/test/schema/Schema.test.ts	4339	it	Void	
-unported	packages/effect/test/schema/Schema.test.ts	4352	it	Void | String	
-unported	packages/effect/test/schema/Schema.test.ts	4360	it	String | Number	
-unported	packages/effect/test/schema/Schema.test.ts	4375	it	String | Never	
-unported	packages/effect/test/schema/Schema.test.ts	4384	it	String & isMinLength(1) | number & isGreaterThan(0)	
+ported	packages/effect/test/schema/Schema.test.ts	4322	it	empty	union_with_no_members_admits_nothing
+ported	packages/effect/test/schema/Schema.test.ts	4330	it	String	union_of_one_member_decodes_as_that_member
+ported	packages/effect/test/schema/Schema.test.ts	4339	it	Void	union_of_void_admits_every_value
+ported	packages/effect/test/schema/Schema.test.ts	4352	it	Void | String	union_of_void_then_string_resolves_to_the_void_member
+ported	packages/effect/test/schema/Schema.test.ts	4360	it	String | Number	union_of_string_and_number_takes_each_members_values
+ported	packages/effect/test/schema/Schema.test.ts	4375	it	String | Never	union_of_string_and_never_is_the_other_member
+ported	packages/effect/test/schema/Schema.test.ts	4384	it	String & isMinLength(1) | number & isGreaterThan(0)	union_of_checked_members_decides_by_that_members_check
 ported	packages/effect/test/schema/Schema.test.ts	4404	it	oneOf	one_of_refuses_an_object_two_members_accept
 ported	packages/effect/test/schema/Schema.test.ts	4420	it	oneOf	one_of_refuses_an_object_carrying_both_sentinels
 ported	packages/effect/test/schema/Schema.test.ts	4434	it	oneOf	one_of_inside_a_struct_counts_the_nested_member_once
@@ -7784,7 +7784,7 @@ unported	packages/effect/test/schema/Schema.test.ts	5121	it	index signatures sho
 unported	packages/effect/test/schema/Schema.test.ts	5136	it	index signatures should not overwrite fixed properties after key decoding	
 unported	packages/effect/test/schema/Schema.test.ts	5150	it	NullOr(String)	
 unported	packages/effect/test/schema/Schema.test.ts	5166	it	UndefinedOr(String)	
-unported	packages/effect/test/schema/Schema.test.ts	5182	it	NullishOr(String)	
+ported	packages/effect/test/schema/Schema.test.ts	5182	it	NullishOr(String)	nullish_or_admits_the_absent_values_and_the_inner_schema
 unported	packages/effect/test/schema/Schema.test.ts	5197	it	PropertyKey	
 unported	packages/effect/test/schema/Schema.test.ts	5205	it	BooleanFromBit	
 unported	packages/effect/test/schema/Schema.test.ts	5213	it	Uint8Array	

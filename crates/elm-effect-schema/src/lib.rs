@@ -54,6 +54,18 @@ pub enum SchemaError {
         expected: &'static str,
         got: &'static str,
     },
+    /// The same refusal where the expected side is only known once the schema
+    /// exists: a union's member list, which no `&'static str` can hold. It
+    /// prints exactly like `TypeMismatch`, so a caller matching on the message
+    /// sees one shape; it exists as its own variant because the alternative is
+    /// handing every one of the forty static sites a `String` for the sake of
+    /// this one.
+    #[error("expected {expected} at {path}, got {got}")]
+    TypeMismatchDynamic {
+        path: String,
+        expected: String,
+        got: &'static str,
+    },
     /// A constructor default failed (`withConstructorDefault`): the default's
     /// own message, at the occurrence it was filling.
     #[error("{message} at {path}")]
@@ -1252,6 +1264,16 @@ impl SchemaError {
 
 fn mismatch<T>(path: &str, expected: &'static str, got: &Unknown) -> Result<T, SchemaError> {
     Err(SchemaError::TypeMismatch {
+        path: path.to_string(),
+        expected,
+        got: got.kind(),
+    })
+}
+
+/// The same refusal for a message that is built once the schema exists, so it
+/// cannot be a `&'static str`.
+fn mismatch_dynamic<T>(path: &str, expected: String, got: &Unknown) -> Result<T, SchemaError> {
+    Err(SchemaError::TypeMismatchDynamic {
         path: path.to_string(),
         expected,
         got: got.kind(),
@@ -4135,12 +4157,25 @@ impl Schema<Unknown> {
     /// `"oneOf"`; a `oneOf` accepts a value matching exactly one member, which
     /// is the only semantic difference, and the repr carries it.
     pub fn union_with_mode(members: Vec<Schema<Unknown>>, mode: &'static str) -> Self {
+        // A union with no members admits nothing at all, which is exactly what
+        // `never` is: both directions refuse rather than pretending a value
+        // could resolve to a member that does not exist.
+        if members.is_empty() {
+            return Schema::as_unknown(Schema::never());
+        }
         let kind = SchemaKind::Union {
             members: members.iter().map(|member| member.repr_kind()).collect(),
             mode,
         };
         let declared_members = Some(members.clone());
         let decoders: Vec<Arc<Schema<Unknown>>> = members.into_iter().map(Arc::new).collect();
+        // The refusal names the members by their type, which is what the pin
+        // prints for a union that resolved none: `Expected string | number`.
+        let expected: String = decoders
+            .iter()
+            .map(|member| member.to_type())
+            .collect::<Vec<_>>()
+            .join(" | ");
         // `oneOf` is a decode rule, not a repr detail: a value two members both
         // accept is refused rather than resolved to whichever came first. That
         // costs the early exit an `anyOf` keeps, which is the whole difference
@@ -4164,7 +4199,7 @@ impl Schema<Unknown> {
                 }
                 match decoded {
                     Some(value) => Ok(value),
-                    None => mismatch("$", "a matching member", &unknown),
+                    None => mismatch_dynamic("$", expected.clone(), &unknown),
                 }
             },
             |value| Ok(value.clone()),

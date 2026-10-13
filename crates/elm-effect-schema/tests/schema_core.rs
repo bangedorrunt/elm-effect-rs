@@ -374,3 +374,158 @@ fn struct_decode_ignores_undeclared_keys() {
     expected.insert("a".to_string(), Unknown::Text("a".to_string()));
     assert_eq!(schema.decode(Unknown::Object(input)), Ok(expected));
 }
+
+// --- Schema.test.ts: the union rows, whose law is which member a value
+// resolves to and what the whole union refuses ---
+
+/// Schema.test.ts:4322 — `Schema.Union([])`: a union with no members admits
+/// nothing, and the refusal names what there is nothing of.
+#[test]
+fn union_with_no_members_admits_nothing() {
+    let schema = Schema::union_with_mode(Vec::new(), "anyOf");
+    let error = schema.decode(Unknown::Null).expect_err("no member can match");
+    assert!(error.to_string().contains("never"), "{error}");
+}
+
+/// Schema.test.ts:4330 — `Schema.Union([Schema.String])`: a one-member union
+/// is that member, so the member's own refusal is what a non-member sees
+/// rather than a union-shaped one.
+#[test]
+fn union_of_one_member_decodes_as_that_member() {
+    let schema = Schema::union_with_mode(vec![Schema::as_unknown(Schema::string())], "anyOf");
+    assert_eq!(
+        schema.decode(Unknown::Text("a".to_string())).unwrap(),
+        Unknown::Text("a".to_string())
+    );
+    let error = schema
+        .decode(Unknown::Null)
+        .expect_err("null is not a string");
+    assert!(error.to_string().contains("string"), "{error}");
+}
+
+/// Schema.test.ts:4339 — `Schema.Union([Schema.Void])`: the void member
+/// admits every value and yields the absent one, so the union admits
+/// everything too.
+#[test]
+fn union_of_void_admits_every_value() {
+    let schema = Schema::union_with_mode(vec![Schema::as_unknown(Schema::void())], "anyOf");
+    for value in [
+        Unknown::Null,
+        Unknown::Bool(true),
+        Unknown::Number(1.0),
+        Unknown::Text("a".to_string()),
+        Unknown::Array(vec![]),
+        Unknown::Object(std::collections::BTreeMap::new()),
+    ] {
+        assert!(schema.decode(value).is_ok(), "void admits every value");
+    }
+}
+
+/// Schema.test.ts:4352 — `Schema.Union([Schema.Void, Schema.String])`: the
+/// void member comes first, so every value resolves to it rather than to the
+/// string member behind it.
+#[test]
+fn union_of_void_then_string_resolves_to_the_void_member() {
+    let schema = Schema::union_with_mode(
+        vec![Schema::as_unknown(Schema::void()), Schema::as_unknown(Schema::string())],
+        "anyOf",
+    );
+    let decoded = schema.decode(Unknown::Text("a".to_string())).unwrap();
+    assert_eq!(decoded, Unknown::Null, "the first member wins");
+}
+
+/// Schema.test.ts:4360 — `Schema.Union([Schema.String, Schema.Number])`: each
+/// member takes its own values, and the members are exposed in the order they
+/// were declared.
+#[test]
+fn union_of_string_and_number_takes_each_members_values() {
+    let schema = Schema::union_with_mode(
+        vec![Schema::as_unknown(Schema::string()), Schema::as_unknown(Schema::number())],
+        "anyOf",
+    );
+    let members = schema.members().expect("a union exposes its members");
+    assert_eq!(members.len(), 2);
+    assert_eq!(members[0].to_code(), "Schema.String");
+    assert_eq!(members[1].to_code(), "Schema.Number");
+    assert_eq!(
+        schema.decode(Unknown::Text("a".to_string())).unwrap(),
+        Unknown::Text("a".to_string())
+    );
+    assert_eq!(schema.decode(Unknown::Number(1.0)).unwrap(), Unknown::Number(1.0));
+    let error = schema.decode(Unknown::Null).expect_err("null is neither");
+    assert!(
+        error.to_string().contains("string | number"),
+        "{error}"
+    );
+}
+
+/// Schema.test.ts:4375 — `Schema.Union([Schema.String, Schema.Never])`: a
+/// never member contributes no values, so the union is the other member and
+/// the refusal still names both.
+#[test]
+fn union_of_string_and_never_is_the_other_member() {
+    let schema = Schema::union_with_mode(
+        vec![Schema::as_unknown(Schema::string()), Schema::as_unknown(Schema::never())],
+        "anyOf",
+    );
+    assert_eq!(
+        schema.decode(Unknown::Text("a".to_string())).unwrap(),
+        Unknown::Text("a".to_string())
+    );
+    assert!(schema.decode(Unknown::Null).is_err());
+}
+
+/// Schema.test.ts:4384 — a union of checked members: each member's own check
+/// decides its own values, so the member that matched is the one whose message
+/// a failing value sees.
+#[test]
+fn union_of_checked_members_decides_by_that_members_check() {
+    let non_empty = Schema::checked(
+        Schema::as_unknown(Schema::string()),
+        "isMinLength",
+        vec!["1"],
+        vec![("expected", "a value with a length of at least 1")],
+    );
+    let positive = Schema::checked(
+        Schema::as_unknown(Schema::number()),
+        "isGreaterThan",
+        vec!["0"],
+        vec![("expected", "a value greater than 0")],
+    );
+    let schema = Schema::union_with_mode(vec![non_empty, positive], "anyOf");
+    assert_eq!(
+        schema.decode(Unknown::Text("a".to_string())).unwrap(),
+        Unknown::Text("a".to_string())
+    );
+    assert_eq!(schema.decode(Unknown::Number(1.0)).unwrap(), Unknown::Number(1.0));
+    assert!(schema.decode(Unknown::Text(String::new())).is_err(), "an empty string is too short");
+    assert!(schema.decode(Unknown::Number(-1.0)).is_err(), "a negative number is too small");
+}
+
+/// Schema.test.ts:5182 — `Schema.NullishOr(String)`: null and the absent value
+/// both decode, and the inner schema still decides everything else. The port
+/// stands `Unknown::Null` in for the pin's `undefined`, so one wire value
+/// carries both of the row's absent cases.
+#[test]
+fn nullish_or_admits_the_absent_values_and_the_inner_schema() {
+    let inner = Schema::checked(
+        Schema::as_unknown(Schema::string()),
+        "isMinLength",
+        vec!["1"],
+        vec![("expected", "a value with a length of at least 1")],
+    );
+    let schema = Schema::union_with_mode(
+        vec![inner, Schema::as_unknown(Schema::null())],
+        "anyOf",
+    );
+    assert_eq!(
+        schema.decode(Unknown::Text("a".to_string())).unwrap(),
+        Unknown::Text("a".to_string())
+    );
+    assert!(schema.decode(Unknown::Null).is_ok(), "null is admitted");
+    assert!(
+        schema.decode(Unknown::Text(String::new())).is_err(),
+        "the inner check still decides a string"
+    );
+    assert!(schema.decode(Unknown::Number(1.0)).is_err(), "a number is neither");
+}
