@@ -278,6 +278,10 @@ struct Check {
     name: String,
     args: Vec<String>,
     annotation: Vec<(String, String)>,
+    /// The members of a `makeFilterGroup`, kept beside the rendered argument so
+    /// a decode evaluates them instead of reading them back out of the printed
+    /// repr. Empty for every ordinary check.
+    group: Vec<Check>,
 }
 
 /// Insert annotation pairs into a list, replacing by key rather than
@@ -381,6 +385,7 @@ fn decompose(kind: &SchemaKind) -> (SchemaKind, Vec<Check>, Vec<(String, String)
                 name: name.clone(),
                 args: args.clone(),
                 annotation: annotation.clone(),
+                group: Vec::new(),
             });
             (kind, checks, leading)
         }
@@ -466,16 +471,33 @@ fn rebuild(
         );
     }
     for check in checks.iter() {
-        out = Schema::checked(
-            out,
-            &check.name,
-            check.args.iter().map(String::as_str).collect(),
-            check
-                .annotation
-                .iter()
-                .map(|(key, value)| (key.as_str(), value.as_str()))
-                .collect(),
-        );
+        // A filter group carries its members beside the rendered argument, and
+        // they are what a decode enforces, so the group goes through the
+        // constructor that knows about them.
+        if check.group.is_empty() {
+            out = Schema::checked(
+                out,
+                &check.name,
+                check.args.iter().map(String::as_str).collect(),
+                check
+                    .annotation
+                    .iter()
+                    .map(|(key, value)| (key.as_str(), value.as_str()))
+                    .collect(),
+            );
+        } else {
+            out = Schema::checked_group(
+                out,
+                &check.name,
+                check.args.iter().map(String::as_str).collect(),
+                check
+                    .annotation
+                    .iter()
+                    .map(|(key, value)| (key.as_str(), value.as_str()))
+                    .collect(),
+                &check.group,
+            );
+        }
     }
     out
 }
@@ -2986,6 +3008,9 @@ impl Schema<Unknown> {
                             .join(", ")
                     )],
                     annotation: member_annotation,
+                    // The members travel with the group so a decode can enforce
+                    // them; the rendered argument above is what a repr prints.
+                    group: grouped,
                 });
             }
             _ => {}
@@ -4189,6 +4214,51 @@ impl Schema<Unknown> {
             },
             move |value| encode_inner.try_encode(value),
             kind,
+        );
+        out.formatter = inner.formatter.clone();
+        out.wrapped = None;
+        out
+    }
+
+    /// A `makeFilterGroup`: several refinements behind one annotation. The
+    /// rendered argument is what a repr prints, and the members are what a
+    /// decode enforces, so a grouped range decides both its ends rather than
+    /// passing everything the way a named check with no predicate would.
+    pub fn checked_group(
+        base: Schema<Unknown>,
+        name: &str,
+        args: Vec<&str>,
+        annotation: Vec<(&str, &str)>,
+        group: &[Check],
+    ) -> Self {
+        let members: Vec<(String, Option<String>)> = group
+            .iter()
+            .map(|member| {
+                (
+                    member.name.clone(),
+                    member.args.first().map(|arg| arg.to_string()),
+                )
+            })
+            .collect();
+        let annotated = Self::checked(base, name, args, annotation);
+        let inner = Arc::new(annotated);
+        let decode_inner = inner.clone();
+        let encode_inner = inner.clone();
+        let mut out = Self::new(
+            move |unknown| {
+                for (member_name, member_arg) in &members {
+                    if !check_holds_arg(member_name, member_arg.as_deref(), &unknown) {
+                        return Err(SchemaError::TypeMismatch {
+                            path: "$".to_string(),
+                            expected: "a value satisfying the refinement",
+                            got: unknown.kind(),
+                        });
+                    }
+                }
+                decode_inner.decode(unknown)
+            },
+            move |value| encode_inner.try_encode(value),
+            inner.repr_kind(),
         );
         out.formatter = inner.formatter.clone();
         out.wrapped = None;

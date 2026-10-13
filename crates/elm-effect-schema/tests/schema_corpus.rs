@@ -2346,6 +2346,91 @@ fn json_schema_document_imports_an_array_of_type_names_as_a_union() {
 }
 
 #[test]
+fn json_schema_document_a_grouped_range_refinement_decides_both_ends() {
+    // fromJsonSchemaDocument.test.ts:1855 — a member carrying a minimum and a
+    // maximum groups into one refinement, and the value it lands on is decided
+    // by the group as a whole: inside the range decodes, outside it does not.
+    use elm_effect_schema::{Schema, Unknown};
+
+    let schema = Schema::<Unknown>::from_json_schema(&serde_json::json!({
+        "type": "number",
+        "allOf": [{"minimum": 1, "maximum": 2, "description": "range"}]
+    }))
+    .expect("imports");
+    assert!(schema.decode(Unknown::Number(2.0)).is_ok());
+    assert!(schema.decode(Unknown::Number(1.0)).is_ok());
+    assert!(schema.decode(Unknown::Number(0.0)).is_err());
+    assert!(schema.decode(Unknown::Number(3.0)).is_err());
+}
+
+#[test]
+fn json_schema_document_filters_enum_members_in_either_order_and_keeps_a_typeless_member() {
+    // fromJsonSchemaDocument.test.ts:1863, :1870, :1878, :2104 — a refinement
+    // and an enum filter each other whichever side declares first, an `allOf`
+    // with a single typeless member is just that member, and a nested `allOf`
+    // inside a member groups its own checks the same way.
+    use elm_effect_schema::{Schema, Unknown};
+
+    for doc in [
+        serde_json::json!({"type": "string", "minLength": 2, "allOf": [{"enum": ["a", "ab"]}]}),
+        serde_json::json!({"enum": ["a", "ab"], "allOf": [{"type": "string", "minLength": 2}]}),
+    ] {
+        let schema = Schema::<Unknown>::from_json_schema(&doc).expect("imports");
+        assert_eq!(schema.to_code(), r#"Schema.Literal("ab")"#, "code for {doc:?}");
+    }
+
+    let typeless = Schema::<Unknown>::from_json_schema(&serde_json::json!({
+        "allOf": [{"type": "string"}]
+    }))
+    .expect("imports");
+    assert_eq!(typeless.to_code(), "Schema.String");
+
+    let nested = Schema::<Unknown>::from_json_schema(&serde_json::json!({
+        "type": "string",
+        "allOf": [{"minLength": 1, "description": "b", "allOf": [{"maxLength": 2, "description": "c"}]}]
+    }))
+    .expect("imports");
+    assert_eq!(
+        nested.to_code(),
+        r#"Schema.String.check(Schema.makeFilterGroup([Schema.isMinLength(1).annotate({ "expected": "a value with a length of at least 1" }), Schema.isMaxCodePoints(2).annotate({ "expected": "a string with at most 2 code points", "description": "c" })]).annotate({ "description": "b" }))"#
+    );
+}
+
+#[test]
+fn json_schema_document_groups_several_checks_behind_their_description() {
+    // fromJsonSchemaDocument.test.ts:2254, :2273 — a member that leaves several
+    // checks plus a description groups them into a `makeFilterGroup`, the
+    // description rides the group, and an intersection that follows appends
+    // its own check after the group rather than replacing it.
+    use elm_effect_schema::{Schema, Unknown};
+
+    let grouped = Schema::<Unknown>::from_json_schema(&serde_json::json!({
+        "type": "number",
+        "allOf": [
+            {"minimum": 1, "description": "b", "allOf": [{"maximum": 2, "description": "c"}]}
+        ]
+    }))
+    .expect("imports");
+    assert_eq!(
+        grouped.to_code(),
+        r#"Schema.Number.check(Schema.isFinite().annotate({ "expected": "a finite number" })).check(Schema.makeFilterGroup([Schema.isGreaterThanOrEqualTo(1).annotate({ "expected": "a value greater than or equal to 1" }), Schema.isLessThanOrEqualTo(2).annotate({ "expected": "a value less than or equal to 2", "description": "c" })]).annotate({ "description": "b" }))"#
+    );
+
+    let continued = Schema::<Unknown>::from_json_schema(&serde_json::json!({
+        "type": "number",
+        "allOf": [
+            {"minimum": 1, "maximum": 2, "description": "range"},
+            {"type": "integer"}
+        ]
+    }))
+    .expect("imports");
+    assert_eq!(
+        continued.to_code(),
+        r#"Schema.Number.check(Schema.isFinite().annotate({ "expected": "a finite number" })).check(Schema.makeFilterGroup([Schema.isGreaterThanOrEqualTo(1).annotate({ "expected": "a value greater than or equal to 1" }), Schema.isLessThanOrEqualTo(2).annotate({ "expected": "a value less than or equal to 2" })]).annotate({ "description": "range" })).check(Schema.isInt().annotate({ "expected": "an integer" }))"#
+    );
+}
+
+#[test]
 fn json_schema_document_intersects_typed_bases_with_enums_and_literals() {
     // fromJsonSchemaDocument.test.ts:2123, :2149, :2163, :2335, :2347, :2359 —
     // a base that names a type meets an `enum` or a `const` by keeping the

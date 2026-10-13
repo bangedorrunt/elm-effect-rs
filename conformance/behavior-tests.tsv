@@ -8747,10 +8747,10 @@ ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts
 ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1843	it	maximum	json_schema_document_literal_refinement_rows_carry_their_code_and_type
 ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1847	it	exclusiveMinimum	json_schema_document_literal_refinement_rows_carry_their_code_and_type
 ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1851	it	exclusiveMaximum	json_schema_document_literal_refinement_rows_carry_their_code_and_type
-unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1855	it	filter group	
-ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1863	it	filters enum members when the refinement precedes the enum	json_schema_document_literal_refinement_rows_carry_their_code_and_type
-ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1870	it	filters enum members when the enum precedes the refinement	json_schema_document_literal_refinement_rows_carry_their_code_and_type
-unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1878	it	no type	
+ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1855	it	filter group	json_schema_document_a_grouped_range_refinement_decides_both_ends
+ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1863	it	filters enum members when the refinement precedes the enum	json_schema_document_filters_enum_members_in_either_order_and_keeps_a_typeless_member
+ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1870	it	filters enum members when the enum precedes the refinement	json_schema_document_filters_enum_members_in_either_order_and_keeps_a_typeless_member
+ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1878	it	no type	json_schema_document_filters_enum_members_in_either_order_and_keeps_a_typeless_member
 ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1892	it	& minLength	json_schema_document_intersection_rows_carry_their_code_and_type
 ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1911	it	& minLength + description	json_schema_document_intersection_rows_carry_their_code_and_type
 ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1930	it	description & minLength	json_schema_document_intersection_rows_carry_their_code_and_type
@@ -8762,7 +8762,7 @@ ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts
 ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	2047	it	& minLength + maxLength	json_schema_document_intersection_rows_carry_their_code_and_type
 ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	2066	it	& minLength + maxLength + description	json_schema_document_intersection_rows_carry_their_code_and_type
 ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	2085	it	& (minLength & maxLength + description)	json_schema_document_intersection_rows_carry_their_code_and_type
-unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	2104	it	& (minLength + description & maxLength + description)	
+ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	2104	it	& (minLength + description & maxLength + description)	json_schema_document_filters_enum_members_in_either_order_and_keeps_a_typeless_member
 ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	2123	it	intersects with a single-member string enum	json_schema_document_intersects_typed_bases_with_enums_and_literals
 ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	2149	it	intersects with a multi-member string enum	json_schema_document_intersects_typed_bases_with_enums_and_literals
 ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	2163	it	& mixed enum	json_schema_document_intersects_typed_bases_with_enums_and_literals
@@ -8770,8 +8770,8 @@ ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts
 ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	2196	it	number & integer	json_schema_document_intersection_rows_carry_their_code_and_type
 ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	2215	it	number & integer & integer	json_schema_document_intersection_rows_carry_their_code_and_type
 ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	2235	it	integer & number	json_schema_document_intersection_rows_carry_their_code_and_type
-unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	2254	it	& (minimum + description & maximum + description)	
-unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	2273	it	continues intersecting after an annotated filter group	
+ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	2254	it	& (minimum + description & maximum + description)	json_schema_document_groups_several_checks_behind_their_description
+ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	2273	it	continues intersecting after an annotated filter group	json_schema_document_groups_several_checks_behind_their_description
 ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	2293	it	intersects with a single-member number enum	json_schema_document_intersects_typed_bases_with_enums_and_literals
 ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	2319	it	intersects with a multi-member number enum	json_schema_document_intersects_typed_bases_with_enums_and_literals
 ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	2335	it	boolean & boolean	json_schema_document_intersects_typed_bases_with_enums_and_literals
