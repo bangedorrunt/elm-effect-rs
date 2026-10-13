@@ -301,6 +301,348 @@ fn match_path_with(
     Some(params)
 }
 
+// -- FindMyWay router: pattern collisions and node priority ----------------
+//
+// `FindMyWay.ts` wraps a radix tree built from the pattern string; the key its
+// duplicate check compares is a *normalized* pattern, with parameter names and
+// regex sources erased and static parts kept. This slice carries that rule plus
+// the node ordering `find` relies on, as a flat table rather than a tree:
+// registration refuses a repeated key, and a match walks the method's routes in
+// priority order (regex nodes first, then the longest static ending) and takes
+// the first that fits.
+//
+// Not carried from the pin: `*` wildcards, the case-insensitive and
+// trailing-slash/duplicate-slash options, `::` and `%` escaping in static
+// parts, and real regex evaluation (a `(...)` source is compared as the literal
+// it holds, which is what every carried row uses).
+
+/// Why a route registration was refused (`Router.on`).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum RouteError {
+    /// Two routes under one method normalize to the same node path; the pin's
+    /// message is `Method 'GET' already declared for route '/foo/:'`, so the
+    /// key itself is carried as the payload.
+    Duplicate { method: String, pattern: String },
+    /// The pattern uses a feature this slice does not carry (`*` wildcards).
+    Unsupported { pattern: String },
+    /// A `(` in the pattern has no matching `)` (`Invalid regexp expression`).
+    Invalid { pattern: String },
+}
+
+/// A route match: the handler plus the captures in pattern order.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Found<A> {
+    /// The handler registered for the matched route.
+    pub handler: A,
+    /// Captured parameters, in the order they appear in the pattern.
+    pub params: Vec<(String, String)>,
+}
+
+/// One piece of a path segment: literal text, or a captured parameter.
+#[derive(Clone, Debug, PartialEq, Eq)]
+enum SegmentPart {
+    /// Literal text, matched byte for byte.
+    Literal(String),
+    /// A bare `:name` takes the rest of the segment, and an empty segment is no
+    /// match (the pin's plain parametric node).
+    Plain(String),
+    /// A parameter inside a multi-parameter segment (`:a-:b`, `:bar.png`,
+    /// `:bar(123)`): the pin compiles these to `(.*?)`, so the capture may be
+    /// empty.
+    Capture {
+        /// Parameter name.
+        name: String,
+        /// The `(...)` source, compared as a literal.
+        regex: Option<String>,
+    },
+}
+
+/// One `:name` inside a segment, with the static run that follows it.
+struct Group {
+    name: String,
+    regex: Option<String>,
+    trailing: String,
+}
+
+/// A registered route: the parsed pattern plus its precomputed ordering key.
+#[derive(Clone, Debug)]
+struct Pattern<A> {
+    method: String,
+    /// Normalized route key the duplicate check compares.
+    key: String,
+    segments: Vec<Vec<SegmentPart>>,
+    /// The pin's `isRegex` for the node this pattern creates: a regex source or
+    /// any static part after a parameter makes the node a regex node.
+    is_regex: bool,
+    /// Length of the pattern's trailing static ending (the pin's `staticSuffix`).
+    static_suffix_len: usize,
+    handler: A,
+}
+
+impl<A> Pattern<A> {
+    fn parse(method: &str, path: &str, handler: A) -> Result<Self, RouteError> {
+        let mut key = String::new();
+        let mut segments = Vec::new();
+        let mut is_regex = false;
+        let mut static_suffix_len = 0;
+        for (index, segment) in path.split('/').enumerate() {
+            if index > 0 {
+                key.push('/');
+            }
+            if segment.contains('*') {
+                return Err(RouteError::Unsupported {
+                    pattern: path.to_owned(),
+                });
+            }
+            if !segment.contains(':') {
+                key.push_str(segment);
+                segments.push(vec![SegmentPart::Literal(segment.to_owned())]);
+                continue;
+            }
+            let (head, groups) = parse_segment(segment).ok_or_else(|| RouteError::Invalid {
+                pattern: path.to_owned(),
+            })?;
+            let group_is_regex = groups
+                .iter()
+                .any(|group| group.regex.is_some() || !group.trailing.is_empty());
+            is_regex |= group_is_regex;
+            // The pin's node suffix is the trailing static part of the
+            // segment's last parameter group.
+            if let Some(last) = groups.last() {
+                static_suffix_len = last.trailing.len();
+            }
+
+            // Key shape: the pin keeps everything up to the first `:`, then
+            // writes `()` plus the static part of every group, or nothing at
+            // all for a bare parameter.
+            key.push_str(&head);
+            key.push(':');
+            if group_is_regex {
+                for group in &groups {
+                    key.push_str("()");
+                    key.push_str(&group.trailing);
+                }
+            }
+
+            let mut parts = Vec::new();
+            if !head.is_empty() {
+                parts.push(SegmentPart::Literal(head));
+            }
+            let last_group = groups.len().saturating_sub(1);
+            for (position, group) in groups.into_iter().enumerate() {
+                parts.push(match (&group.regex, position == last_group) {
+                    (Some(source), _) => SegmentPart::Capture {
+                        name: group.name,
+                        regex: Some(source.clone()),
+                    },
+                    (None, true) if group.trailing.is_empty() => SegmentPart::Plain(group.name),
+                    (None, _) => SegmentPart::Capture {
+                        name: group.name,
+                        regex: None,
+                    },
+                });
+                if !group.trailing.is_empty() {
+                    parts.push(SegmentPart::Literal(group.trailing));
+                }
+            }
+            segments.push(parts);
+        }
+        Ok(Self {
+            method: method.to_owned(),
+            key,
+            segments,
+            is_regex,
+            static_suffix_len,
+            handler,
+        })
+    }
+
+    /// Match this route against an already-split path.
+    fn match_segments(&self, path_segments: &[&str]) -> Option<Vec<(String, String)>> {
+        if self.segments.len() != path_segments.len() {
+            return None;
+        }
+        let mut params = Vec::new();
+        for (parts, segment) in self.segments.iter().zip(path_segments) {
+            params.extend(match_parts(parts, segment)?);
+        }
+        Some(params)
+    }
+}
+
+/// Split one segment into its head literal and parameter groups.
+fn parse_segment(segment: &str) -> Option<(String, Vec<Group>)> {
+    let bytes = segment.as_bytes();
+    let mut index = 0;
+    while index < bytes.len() && bytes[index] != b':' {
+        index += 1;
+    }
+    let head = segment[..index].to_owned();
+    let mut groups = Vec::new();
+    while index < bytes.len() {
+        index += 1; // the ':' that starts the group
+        let name_start = index;
+        // A parameter name ends at `(`, `-`, or `.` (end of segment included).
+        while index < bytes.len() && !matches!(bytes[index], b'(' | b'-' | b'.') {
+            index += 1;
+        }
+        let name = segment[name_start..index].to_owned();
+        let mut regex = None;
+        if index < bytes.len() && bytes[index] == b'(' {
+            let end = closing_paren(segment, index)?;
+            regex = Some(trim_anchors(&segment[index + 1..end]));
+            index = end + 1;
+        }
+        let trailing_start = index;
+        while index < bytes.len() && bytes[index] != b':' {
+            index += 1;
+        }
+        groups.push(Group {
+            name,
+            regex,
+            trailing: segment[trailing_start..index].to_owned(),
+        });
+    }
+    Some((head, groups))
+}
+
+/// Position of the `)` closing the `(` at `open`, honoring nesting and
+/// backslash escapes (`getClosingParenthensePosition`).
+fn closing_paren(segment: &str, open: usize) -> Option<usize> {
+    let bytes = segment.as_bytes();
+    let mut depth = 1usize;
+    let mut index = open;
+    while index + 1 < bytes.len() {
+        index += 1;
+        match bytes[index] {
+            // A trailing backslash escapes whatever follows, including `)`.
+            b'\\' => index += 1,
+            b')' => {
+                depth -= 1;
+                if depth == 0 {
+                    return Some(index);
+                }
+            }
+            b'(' => depth += 1,
+            _ => {}
+        }
+    }
+    None
+}
+
+/// Strip a leading `^` and a trailing `$` from a regex source
+/// (`trimRegExpStartAndEnd`), so an anchored source compares as the text it
+/// pins.
+fn trim_anchors(source: &str) -> String {
+    let mut text = source;
+    if let Some(rest) = text.strip_prefix('^') {
+        text = rest;
+    }
+    if let Some(rest) = text.strip_suffix('$') {
+        text = rest;
+    }
+    text.to_owned()
+}
+
+/// Match one segment's parts against one path segment, returning the captures
+/// in pattern order.
+fn match_parts(parts: &[SegmentPart], rest: &str) -> Option<Vec<(String, String)>> {
+    let Some((first, tail)) = parts.split_first() else {
+        return rest.is_empty().then(Vec::new);
+    };
+    match first {
+        SegmentPart::Literal(text) => match_parts(tail, rest.strip_prefix(text.as_str())?),
+        SegmentPart::Plain(name) => {
+            (!rest.is_empty()).then(|| vec![(name.clone(), rest.to_owned())])
+        }
+        SegmentPart::Capture { name, regex } => match regex {
+            // A source compared as the literal it holds: the capture is
+            // exactly that text, so one attempt is enough.
+            Some(source) => {
+                let remainder = rest.strip_prefix(source.as_str())?;
+                let mut params = vec![(name.clone(), source.clone())];
+                params.extend(match_parts(tail, remainder)?);
+                Some(params)
+            }
+            // Shortest capture first, which is the pin's non-greedy `(.*?)`.
+            None => {
+                for end in rest
+                    .char_indices()
+                    .map(|(index, _)| index)
+                    .chain([rest.len()])
+                {
+                    if let Some(mut params) = match_parts(tail, &rest[end..]) {
+                        let mut out = vec![(name.clone(), rest[..end].to_owned())];
+                        out.append(&mut params);
+                        return Some(out);
+                    }
+                }
+                None
+            }
+        },
+    }
+}
+
+/// A pattern router (`FindMyWay`): registers routes by method and pattern, and
+/// resolves a request path to the highest-priority match.
+#[derive(Clone, Debug)]
+pub struct Router<A> {
+    routes: Vec<Pattern<A>>,
+}
+
+impl<A: Clone> Router<A> {
+    /// An empty router.
+    pub fn make() -> Self {
+        Self { routes: Vec::new() }
+    }
+
+    /// Register one route (`Router.on`). The pin throws here; the refusal is a
+    /// value so the caller decides.
+    pub fn on(&mut self, method: &str, path: &str, handler: A) -> Result<(), RouteError> {
+        let pattern = Pattern::parse(method, path, handler)?;
+        if self
+            .routes
+            .iter()
+            .any(|route| route.method == pattern.method && route.key == pattern.key)
+        {
+            return Err(RouteError::Duplicate {
+                method: pattern.method,
+                pattern: pattern.key,
+            });
+        }
+        self.routes.push(pattern);
+        Ok(())
+    }
+
+    /// Highest-priority route matching `method` and `path`, with its captures
+    /// (`Router.find`). The query, fragment, and `;`-separated session id are
+    /// stripped before matching, as the pin's `safeDecodeURI` does.
+    pub fn find(&self, method: &str, path: &str) -> Option<Found<A>> {
+        let path = path.split(['?', '#', ';']).next().unwrap_or(path);
+        let segments: Vec<&str> = path.split('/').collect();
+        let mut candidates: Vec<&Pattern<A>> = self
+            .routes
+            .iter()
+            .filter(|route| route.method == method)
+            .collect();
+        // Regex nodes first, then the longest static ending; the sort is
+        // stable, so equally ranked routes keep registration order, which is
+        // where the pin's own comparator gives up too.
+        candidates.sort_by_key(|route| (!route.is_regex, usize::MAX - route.static_suffix_len));
+        candidates.into_iter().find_map(|route| {
+            route.match_segments(&segments).map(|params| Found {
+                handler: route.handler.clone(),
+                params,
+            })
+        })
+    }
+
+    /// Whether any route matches (`Router.has`).
+    pub fn has(&self, method: &str, path: &str) -> bool {
+        self.find(method, path).is_some()
+    }
+}
+
 fn handle_one(
     stream: TcpStream,
     routes: &Arc<Mutex<HashMap<Route, Response>>>,

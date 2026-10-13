@@ -3,8 +3,9 @@
 use elm_effect::Cause;
 use elm_effect::Reason;
 use elm_effect_unstable::http_server::{
-    HttpServer, HttpServerError, Response, ServerErrorReason, ServerRequest, ServerResponse,
-    cause_response_stripped, is_http_server_error, test_client_origin, to_response_or_else,
+    HttpServer, HttpServerError, Response, RouteError, Router, ServerErrorReason, ServerRequest,
+    ServerResponse, cause_response_stripped, is_http_server_error, test_client_origin,
+    to_response_or_else,
 };
 use elm_effect_unstable::net::{NetAddress, NetworkErrorInput};
 use std::io::{BufRead, BufReader, Write};
@@ -665,4 +666,171 @@ fn response_set_body_syncs_metadata_headers() {
         Some("application/octet-stream")
     );
     assert_eq!(bytes.header("content-length"), Some("2"));
+}
+
+// FindMyWay router: parameter collisions and node priority.
+//
+// The pin compiles a pattern into a radix tree and keys its duplicate check on
+// a normalized pattern. Handlers here are numbers (or the route's own name), so
+// every assertion names the route the pin's tree would have picked.
+
+#[test]
+fn router_regex_node_beats_plain_param() {
+    // params-collisions.test.ts:4 — a regex node outranks a plain parametric
+    // node at the same position.
+    let mut router = Router::make();
+    assert!(router.on("GET", "/foo/:bar", 1).is_ok());
+    assert!(router.on("GET", "/foo/:bar(123)", 2).is_ok());
+    assert_eq!(router.find("GET", "/foo/value").expect("plain").handler, 1);
+    let regex = router.find("GET", "/foo/123").expect("regex");
+    assert_eq!(regex.handler, 2);
+    assert_eq!(regex.params, vec![("bar".to_owned(), "123".to_owned())]);
+}
+
+#[test]
+fn router_static_suffix_beats_plain_param() {
+    // params-collisions.test.ts:14 — a node with a static ending outranks the
+    // plain node beside it, and captures the text before its own ending.
+    let mut router = Router::make();
+    assert!(router.on("GET", "/foo/:bar", 1).is_ok());
+    assert!(router.on("GET", "/foo/:bar.png", 2).is_ok());
+    assert_eq!(router.find("GET", "/foo/value").expect("plain").handler, 1);
+    let suffixed = router.find("GET", "/foo/value.png").expect("suffixed");
+    assert_eq!(suffixed.handler, 2);
+    assert_eq!(
+        suffixed.params,
+        vec![("bar".to_owned(), "value".to_owned())]
+    );
+}
+
+#[test]
+fn router_rejects_two_plain_param_nodes() {
+    // params-collisions.test.ts:24 — two plain parametric nodes erase to one
+    // node path, so the second registration is refused.
+    let mut router = Router::make();
+    assert!(router.on("GET", "/foo/:bar", 1).is_ok());
+    let error = router.on("GET", "/foo/:baz", 2).expect_err("collision");
+    assert_eq!(
+        error,
+        RouteError::Duplicate {
+            method: "GET".to_owned(),
+            pattern: "/foo/:".to_owned(),
+        }
+    );
+    // The first route survives and the refused one never matches.
+    assert_eq!(router.find("GET", "/foo/x").expect("plain").handler, 1);
+}
+
+#[test]
+fn router_rejects_two_regex_nodes() {
+    // params-collisions.test.ts:30 — the regex source is erased in the node
+    // path, so a second regex node at the same position is a collision too.
+    let mut router = Router::make();
+    assert!(router.on("GET", "/foo/:bar(123)", 1).is_ok());
+    assert!(router.on("GET", "/foo/:bar(456)", 2).is_err());
+    assert_eq!(router.find("GET", "/foo/123").expect("regex").handler, 1);
+}
+
+#[test]
+fn router_distinguishes_static_endings() {
+    // params-collisions.test.ts:36 — two static endings are different nodes;
+    // a third ending belongs to neither.
+    let mut router = Router::make();
+    assert!(router.on("GET", "/foo/:bar.png", 1).is_ok());
+    assert!(router.on("GET", "/foo/:bar.jpeg", 2).is_ok());
+    assert_eq!(router.find("GET", "/foo/value.png").expect("png").handler, 1);
+    assert_eq!(
+        router.find("GET", "/foo/value.jpeg").expect("jpeg").handler,
+        2
+    );
+    assert!(router.find("GET", "/foo/value.gif").is_none());
+}
+
+#[test]
+fn router_distinguishes_regex_static_endings() {
+    // params-collisions.test.ts:46 — a regex source with a static ending: the
+    // source still makes the node a regex node, the ending separates the two.
+    let mut router = Router::make();
+    assert!(router.on("GET", "/foo/:bar(123).png", 1).is_ok());
+    assert!(router.on("GET", "/foo/:bar(456).jpeg", 2).is_ok());
+    assert_eq!(router.find("GET", "/foo/123.png").expect("png").handler, 1);
+    let jpeg = router.find("GET", "/foo/456.jpeg").expect("jpeg");
+    assert_eq!(jpeg.handler, 2);
+    assert_eq!(jpeg.params, vec![("bar".to_owned(), "456".to_owned())]);
+    // The ending is required, so the bare source alone matches nothing.
+    assert!(router.find("GET", "/foo/123").is_none());
+}
+
+#[test]
+fn router_longer_static_suffix_wins() {
+    // params-collisions.test.ts:56 — registered short-first, the longer static
+    // suffix is tried first and steps aside when its own ending does not fit.
+    let mut router = Router::make();
+    assert!(router.on("GET", "/foo/:bar.png", 1).is_ok());
+    assert!(router.on("GET", "/foo/:bar.png.png", 2).is_ok());
+    assert_eq!(
+        router.find("GET", "/foo/value.png").expect("short").handler,
+        1
+    );
+    assert_eq!(
+        router.find("GET", "/foo/value.png.png").expect("long").handler,
+        2
+    );
+}
+
+#[test]
+fn router_longer_static_suffix_wins_any_order() {
+    // params-collisions.test.ts:66 — the same two nodes registered long-first:
+    // priority follows the suffix, not the registration order.
+    let mut router = Router::make();
+    assert!(router.on("GET", "/foo/:bar.png.png", 2).is_ok());
+    assert!(router.on("GET", "/foo/:bar.png", 1).is_ok());
+    assert_eq!(
+        router.find("GET", "/foo/value.png").expect("short").handler,
+        1
+    );
+    let long = router.find("GET", "/foo/value.png.png").expect("long");
+    assert_eq!(long.handler, 2);
+    assert_eq!(long.params, vec![("bar".to_owned(), "value".to_owned())]);
+}
+
+#[test]
+fn router_regex_and_static_ending_coexist() {
+    // params-collisions.test.ts:76 — a regex node and the longer node that
+    // extends it are two nodes; the longer one wins where its ending fits.
+    let mut router = Router::make();
+    assert!(router.on("GET", "/foo/:bar(123)", 1).is_ok());
+    assert!(router.on("GET", "/foo/:bar(123).jpeg", 2).is_ok());
+    assert_eq!(router.find("GET", "/foo/123").expect("bare").handler, 1);
+    assert_eq!(
+        router.find("GET", "/foo/123.jpeg").expect("suffixed").handler,
+        2
+    );
+}
+
+#[test]
+fn router_distinguishes_interior_static_parts() {
+    // params-collisions.test.ts:86 — routes whose static part sits between two
+    // parameters are distinct, and each captures both sides of its separator.
+    let mut router = Router::make();
+    assert!(router.on("GET", "/foo/:a-:b", "dash").is_ok());
+    assert!(router.on("GET", "/foo/:a.:b", "dot").is_ok());
+    let dash = router.find("GET", "/foo/x-y").expect("dash");
+    assert_eq!(dash.handler, "dash");
+    assert_eq!(
+        dash.params,
+        vec![
+            ("a".to_owned(), "x".to_owned()),
+            ("b".to_owned(), "y".to_owned())
+        ]
+    );
+    let dot = router.find("GET", "/foo/x.y").expect("dot");
+    assert_eq!(dot.handler, "dot");
+    assert_eq!(
+        dot.params,
+        vec![
+            ("a".to_owned(), "x".to_owned()),
+            ("b".to_owned(), "y".to_owned())
+        ]
+    );
 }

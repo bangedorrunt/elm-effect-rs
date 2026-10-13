@@ -6456,16 +6456,16 @@ unported	packages/effect/test/http/FindMyWay/optional-params.test.ts	53	it	Optio
 unported	packages/effect/test/http/FindMyWay/optional-params.test.ts	71	it	Optional Parameter with ignoreTrailingSlash = false	
 unported	packages/effect/test/http/FindMyWay/optional-params.test.ts	89	it	Optional Parameter with ignoreDuplicateSlashes = true	
 unported	packages/effect/test/http/FindMyWay/optional-params.test.ts	106	it	Optional Parameter with ignoreDuplicateSlashes = false	
-unported	packages/effect/test/http/FindMyWay/params-collisions.test.ts	4	it	should setup parametric and regexp node	
-unported	packages/effect/test/http/FindMyWay/params-collisions.test.ts	14	it	should setup parametric and multi-parametric node	
-unported	packages/effect/test/http/FindMyWay/params-collisions.test.ts	24	it	should throw when set upping two parametric nodes	
-unported	packages/effect/test/http/FindMyWay/params-collisions.test.ts	30	it	should throw when set upping two regexp nodes	
-unported	packages/effect/test/http/FindMyWay/params-collisions.test.ts	36	it	should set up two parametric nodes with static ending	
-unported	packages/effect/test/http/FindMyWay/params-collisions.test.ts	46	it	should set up two regexp nodes with static ending	
-unported	packages/effect/test/http/FindMyWay/params-collisions.test.ts	56	it	node with longer static suffix should have higher priority	
-unported	packages/effect/test/http/FindMyWay/params-collisions.test.ts	66	it	node with longer static suffix should have higher priority	
-unported	packages/effect/test/http/FindMyWay/params-collisions.test.ts	76	it	should set up regexp node and node with static ending	
-unported	packages/effect/test/http/FindMyWay/params-collisions.test.ts	86	it	distinguishes routes with different static parts between parameters	
+ported	packages/effect/test/http/FindMyWay/params-collisions.test.ts	4	it	should setup parametric and regexp node	router_regex_node_beats_plain_param
+ported	packages/effect/test/http/FindMyWay/params-collisions.test.ts	14	it	should setup parametric and multi-parametric node	router_static_suffix_beats_plain_param
+ported	packages/effect/test/http/FindMyWay/params-collisions.test.ts	24	it	should throw when set upping two parametric nodes	router_rejects_two_plain_param_nodes
+ported	packages/effect/test/http/FindMyWay/params-collisions.test.ts	30	it	should throw when set upping two regexp nodes	router_rejects_two_regex_nodes
+ported	packages/effect/test/http/FindMyWay/params-collisions.test.ts	36	it	should set up two parametric nodes with static ending	router_distinguishes_static_endings
+ported	packages/effect/test/http/FindMyWay/params-collisions.test.ts	46	it	should set up two regexp nodes with static ending	router_distinguishes_regex_static_endings
+ported	packages/effect/test/http/FindMyWay/params-collisions.test.ts	56	it	node with longer static suffix should have higher priority	router_longer_static_suffix_wins
+ported	packages/effect/test/http/FindMyWay/params-collisions.test.ts	66	it	node with longer static suffix should have higher priority	router_longer_static_suffix_wins_any_order
+ported	packages/effect/test/http/FindMyWay/params-collisions.test.ts	76	it	should set up regexp node and node with static ending	router_regex_and_static_ending_coexist
+ported	packages/effect/test/http/FindMyWay/params-collisions.test.ts	86	it	distinguishes routes with different static parts between parameters	router_distinguishes_interior_static_parts
 ported	packages/effect/test/http/FindMyWay/params-collisions.test.ts	96	it	preserves prototype-sensitive parameter names as own properties	param_maps_are_own_property_maps
 ported	packages/effect/test/http/FindMyWay/path-params-match.test.ts	4	it	path params match	api_path_params_extract
 ported	packages/effect/test/http/FindMyWay/path-params-match.test.ts	45	it	builds null-prototype params for static and parameterized routes	param_maps_are_own_property_maps
