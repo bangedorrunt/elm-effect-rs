@@ -2012,3 +2012,78 @@ fn several_subcommands_each_take_their_own_line() {
         ]
     );
 }
+
+/// Command.test.ts:1622 — a boolean flag given an explicit literal takes that
+/// literal's truth, so `--verbose false` and `--verbose 0` are false rather
+/// than true.
+#[test]
+fn a_boolean_flag_takes_an_explicit_literal_as_its_value() {
+    let command = Command::new(
+        "tool",
+        "tool command",
+        vec![Arg::Flag {
+            name: "verbose".to_string(),
+            help: "verbose".to_string(),
+        }],
+    );
+    for (argv, expected) in [
+        (vec!["--verbose", "false"], false),
+        (vec!["--verbose", "0"], false),
+        (vec!["--verbose", "true"], true),
+        (vec!["--verbose", "1"], true),
+    ] {
+        let (_, parsed) = command.parse(&argv.iter().map(|s| s.to_string()).collect::<Vec<_>>())
+            .expect("the literal is the flag's value");
+        assert_eq!(parsed.flag("verbose"), expected, "{argv:?}");
+        assert!(parsed.positionals.is_empty(), "the literal is not a positional: {argv:?}");
+    }
+    // A bare switch is still true, and a word that is not a literal is still an
+    // unknown positional rather than a silently swallowed value.
+    let (_, bare) = command.parse(&["--verbose".to_string()]).expect("a bare switch");
+    assert!(bare.flag("verbose"));
+    let error = command
+        .parse(&["--verbose".to_string(), "later".to_string()])
+        .expect_err("a non-literal word is not the flag's value");
+    assert!(error.to_string().contains("later"), "{error}");
+}
+
+/// Command.test.ts:1638 — a required boolean flag reads true from its bare
+/// switch and false from its canonical negation.
+#[test]
+fn a_boolean_flag_reads_true_from_the_switch_and_false_from_the_negation() {
+    let command = Command::new(
+        "tool",
+        "tool command",
+        vec![Arg::Flag {
+            name: "verbose".to_string(),
+            help: "verbose".to_string(),
+        }],
+    );
+    let (_, on) = command.parse(&["--verbose".to_string()]).expect("the switch");
+    assert!(on.flag("verbose"));
+    let (_, off) = command.parse(&["--no-verbose".to_string()]).expect("the negation");
+    assert!(!off.flag("verbose"));
+}
+
+/// Command.test.ts:1694 — the negated form is a switch, so a value beside it is
+/// refused rather than read: `--no-open false` and `--no-open=true` both mean
+/// two things at once.
+#[test]
+fn a_negated_flag_refuses_a_value_beside_it() {
+    let command = Command::new(
+        "tool",
+        "tool command",
+        vec![Arg::Flag {
+            name: "open".to_string(),
+            help: "open".to_string(),
+        }],
+    );
+    let error = command
+        .parse(&["--no-open=true".to_string()])
+        .expect_err("an inline value on the negation is refused");
+    assert!(error.to_string().contains("open"), "{error}");
+    let error = command
+        .parse(&["--no-open".to_string(), "false".to_string()])
+        .expect_err("a following value on the negation is refused");
+    assert!(error.to_string().contains('o'), "{error}");
+}

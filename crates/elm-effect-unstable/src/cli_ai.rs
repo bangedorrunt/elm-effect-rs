@@ -225,9 +225,18 @@ impl Command {
             if arg == "--help" || arg == "-h" {
                 return Err(CliError::Help(self.help_text()));
             }
-            if let Some(name) = arg.strip_prefix("--no-") {
-                if self.has_flag(name) {
-                    parsed.flags.insert(name.to_string(), false);
+            if let Some(negated) = arg.strip_prefix("--no-") {
+                // The negated form is a switch, not a valued flag: a value
+                // beside it reads as two things at once, so it is refused
+                // rather than silently ignored.
+                if let Some((_, value)) = negated.split_once('=') {
+                    return Err(CliError::Invalid {
+                        arg: arg.clone(),
+                        got: value.to_string(),
+                    });
+                }
+                if self.has_flag(negated) {
+                    parsed.flags.insert(negated.to_string(), false);
                     i += 1;
                     continue;
                 }
@@ -239,15 +248,36 @@ impl Command {
                     None => (rest, None),
                 };
                 if self.has_flag(name) {
-                    if inline.is_some() {
-                        return Err(CliError::Invalid {
-                            arg: name.to_string(),
-                            got: inline.unwrap_or_default().to_string(),
-                        });
+                    // An inline or following literal is the flag's value, so
+                    // `--verbose false` is false rather than true-with-a-
+                    // stray-word. A bare switch stays true.
+                    let literal = inline.or_else(|| {
+                        argv.get(i + 1).and_then(|next| {
+                            crate::cli::primitive::parse_bool(next).ok().map(|_| next.as_str())
+                        })
+                    });
+                    match literal {
+                        Some(text) => match crate::cli::primitive::parse_bool(text) {
+                            Ok(value) => {
+                                parsed.flags.insert(name.to_string(), value);
+                                // A following literal is consumed with the flag;
+                                // an inline one already rode on it.
+                                i += if inline.is_some() { 1 } else { 2 };
+                                continue;
+                            }
+                            Err(_) => {
+                                return Err(CliError::Invalid {
+                                    arg: name.to_string(),
+                                    got: text.to_string(),
+                                })
+                            }
+                        },
+                        None => {
+                            parsed.flags.insert(name.to_string(), true);
+                            i += 1;
+                            continue;
+                        }
                     }
-                    parsed.flags.insert(name.to_string(), true);
-                    i += 1;
-                    continue;
                 }
                 if self.has_opt(name) {
                     let value = match inline {
