@@ -3145,8 +3145,10 @@ impl Schema<Unknown> {
                 .collect(),
         };
         let numeric: Vec<f64> = args.iter().filter_map(|arg| arg.parse().ok()).collect();
-        let limit = numeric.first().copied();
         let bounds = numeric.clone();
+        // The first argument is kept in its printed form: some checks read it as
+        // text (a RegExp literal for `isPattern`), not as a number.
+        let first_arg = args.first().map(|arg| (*arg).to_string());
         let exclusive_minimum = annotation
             .iter()
             .any(|(key, value)| *key == "exclusiveMinimum" && *value == "true");
@@ -3169,7 +3171,7 @@ impl Schema<Unknown> {
                         exclusive_maximum,
                         &unknown,
                     ),
-                    _ => check_holds(&name_owned, limit, &unknown),
+                    _ => check_holds_arg(&name_owned, first_arg.as_deref(), &unknown),
                 };
                 if !holds {
                     return Err(SchemaError::TypeMismatch {

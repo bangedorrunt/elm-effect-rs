@@ -7611,8 +7611,8 @@ unported	packages/effect/test/schema/Schema.test.ts	1353	it	makeFilterGroup
 unported	packages/effect/test/schema/Schema.test.ts	1380	it	object-level checks are validated against the decoded value when encoding	
 ported	packages/effect/test/schema/Schema.test.ts	1393	it	suspended checks are not supported	suspend_preserves_inner_refinement
 ported	packages/effect/test/schema/Schema.test.ts	1405	it	refine	refine_rejects_failing_values
-unported	packages/effect/test/schema/Schema.test.ts	1427	it	isPattern	
-unported	packages/effect/test/schema/Schema.test.ts	1446	it	isPattern with stateful RegExp flags	
+ported	packages/effect/test/schema/Schema.test.ts	1427	it	isPattern	is_pattern_checks_the_string
+ported	packages/effect/test/schema/Schema.test.ts	1446	it	isPattern with stateful RegExp flags	is_pattern_is_stateless_across_decodes
 ported	packages/effect/test/schema/Schema.test.ts	1457	it	isStartingWith	refine_is_starting_with
 ported	packages/effect/test/schema/Schema.test.ts	1476	it	isEndingWith	refine_is_ending_with
 ported	packages/effect/test/schema/Schema.test.ts	1495	it	isLowercased	refine_is_lowercased
@@ -7620,10 +7620,10 @@ ported	packages/effect/test/schema/Schema.test.ts	1514	it	isUppercased	refine_is
 ported	packages/effect/test/schema/Schema.test.ts	1533	it	isCapitalized	refine_is_capitalized
 ported	packages/effect/test/schema/Schema.test.ts	1552	it	isUncapitalized	refine_is_uncapitalized
 ported	packages/effect/test/schema/Schema.test.ts	1571	it	isMinLength	refine_is_min_length
-unported	packages/effect/test/schema/Schema.test.ts	1592	it	isGreaterThan	
-unported	packages/effect/test/schema/Schema.test.ts	1611	it	isGreaterThanOrEqualTo	
-unported	packages/effect/test/schema/Schema.test.ts	1623	it	isLessThan	
-unported	packages/effect/test/schema/Schema.test.ts	1635	it	isLessThanOrEqualTo	
+ported	packages/effect/test/schema/Schema.test.ts	1592	it	isGreaterThan	is_greater_than_checks_the_bound
+ported	packages/effect/test/schema/Schema.test.ts	1611	it	isGreaterThanOrEqualTo	is_greater_than_or_equal_to_checks_the_bound
+ported	packages/effect/test/schema/Schema.test.ts	1623	it	isLessThan	is_less_than_checks_the_bound
+ported	packages/effect/test/schema/Schema.test.ts	1635	it	isLessThanOrEqualTo	is_less_than_or_equal_to_checks_the_bound
 ported	packages/effect/test/schema/Schema.test.ts	1647	it	isMultipleOf	refine_is_multiple_of
 ported	packages/effect/test/schema/Schema.test.ts	1659	it	isMultipleOf rejects nonzero subnormal remainders	is_multiple_of_rejects_subnormal_remainders
 ported	packages/effect/test/schema/Schema.test.ts	1665	it	isMultipleOf normalizes negative divisors	is_multiple_of_normalizes_negative_divisors

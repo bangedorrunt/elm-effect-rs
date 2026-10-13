@@ -114,6 +114,91 @@ fn is_between_excludes_the_minimum() {
     assert!(schema.decode(number(4.0)).is_err());
 }
 
+fn checked_string(name: &str, args: Vec<&str>) -> Schema<Unknown> {
+    Schema::checked(Schema::as_unknown(Schema::string()), name, args, vec![])
+}
+
+/// Schema.test.ts:1427 `isPattern`.
+#[test]
+fn is_pattern_checks_the_string() {
+    let schema = checked_string("isPattern", vec![r#"new RegExp("^a", "u")"#]);
+
+    assert_eq!(
+        schema.decode(Unknown::Text("a".to_string())).unwrap(),
+        Unknown::Text("a".to_string())
+    );
+    assert!(schema.decode(Unknown::Text("b".to_string())).is_err());
+    assert_eq!(schema.encode(&Unknown::Text("a".to_string())), Unknown::Text("a".to_string()));
+}
+
+/// Schema.test.ts:1446 `isPattern with stateful RegExp flags`. The pin's point
+/// is that a `g`/`y` flag must not make matching stateful: the same input
+/// matches again, and a mismatch still fails.
+#[test]
+fn is_pattern_is_stateless_across_decodes() {
+    let schema = checked_string("isPattern", vec![r#"new RegExp("^a", "u")"#]);
+
+    assert!(schema.decode(Unknown::Text("a".to_string())).is_ok());
+    assert!(schema.decode(Unknown::Text("a".to_string())).is_ok());
+    assert!(schema.decode(Unknown::Text("b".to_string())).is_err());
+}
+
+/// Schema.test.ts:1592 `isGreaterThan`.
+#[test]
+fn is_greater_than_checks_the_bound() {
+    let schema = Schema::checked(
+        Schema::as_unknown(Schema::number()),
+        "isGreaterThan",
+        vec!["1"],
+        vec![],
+    );
+
+    assert_eq!(schema.decode(number(2.0)).unwrap(), number(2.0));
+    assert!(schema.decode(number(1.0)).is_err());
+}
+
+/// Schema.test.ts:1611 `isGreaterThanOrEqualTo`.
+#[test]
+fn is_greater_than_or_equal_to_checks_the_bound() {
+    let schema = Schema::checked(
+        Schema::as_unknown(Schema::number()),
+        "isGreaterThanOrEqualTo",
+        vec!["1"],
+        vec![],
+    );
+
+    assert_eq!(schema.decode(number(1.0)).unwrap(), number(1.0));
+    assert!(schema.decode(number(0.0)).is_err());
+}
+
+/// Schema.test.ts:1623 `isLessThan`.
+#[test]
+fn is_less_than_checks_the_bound() {
+    let schema = Schema::checked(
+        Schema::as_unknown(Schema::number()),
+        "isLessThan",
+        vec!["1"],
+        vec![],
+    );
+
+    assert_eq!(schema.decode(number(0.0)).unwrap(), number(0.0));
+    assert!(schema.decode(number(1.0)).is_err());
+}
+
+/// Schema.test.ts:1635 `isLessThanOrEqualTo`.
+#[test]
+fn is_less_than_or_equal_to_checks_the_bound() {
+    let schema = Schema::checked(
+        Schema::as_unknown(Schema::number()),
+        "isLessThanOrEqualTo",
+        vec!["1"],
+        vec![],
+    );
+
+    assert_eq!(schema.decode(number(1.0)).unwrap(), number(1.0));
+    assert!(schema.decode(number(2.0)).is_err());
+}
+
 /// Schema.test.ts:1940 `isMinProperties`.
 #[test]
 fn is_min_properties_counts_entries() {
