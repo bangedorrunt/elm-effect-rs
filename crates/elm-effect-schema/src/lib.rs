@@ -108,6 +108,10 @@ pub struct Schema<T> {
     /// `{ encodingStrategy: "omit" }` on a decoding default: encoding leaves
     /// the key out, so a defaulted value does not travel back out.
     omit_on_encode: bool,
+    /// The declared fields of a struct shape, kept so a derivation
+    /// (`mapFields`/`encodeKeys`) rebuilds from the real field list instead of
+    /// guessing one from the wire shape. None for every other shape.
+    struct_fields: Option<Vec<Field>>,
 }
 
 /// The two spellings of a decoding default. `withDecodingDefault` takes a wire
@@ -731,12 +735,19 @@ impl<T> Schema<T> {
             constructor_default: None,
             decoding_default: None,
             omit_on_encode: false,
+            struct_fields: None,
         }
     }
 
     /// The JSON Schema document describing this schema's wire shape.
     pub fn json_schema(&self) -> serde_json::Value {
         self.kind.to_json_schema()
+    }
+
+    /// The declared fields of a struct shape, in declaration order, or `None`
+    /// for every other shape.
+    pub fn fields(&self) -> Option<&[Field]> {
+        self.struct_fields.as_deref()
     }
 
     /// Decode an unknown value, or a typed error naming the path.
@@ -845,6 +856,7 @@ impl<T> Schema<T> {
             // annotated schema must keep answering for them.
             decoding_default: schema.decoding_default.clone(),
             omit_on_encode: schema.omit_on_encode,
+            struct_fields: schema.struct_fields.clone(),
         }
     }
 
@@ -909,6 +921,9 @@ impl<T> Schema<T> {
         // the struct walk looks for it through the re-typing.
         out.decoding_default = inner_default;
         out.omit_on_encode = schema.omit_on_encode;
+        // A derivation needs the field list through the re-typing too, which is
+        // how every struct field is spelled.
+        out.struct_fields = schema.struct_fields.clone();
         out.construct = Some(Arc::new(move |unknown| {
             let built = construct_schema.construct(unknown)?;
             construct_schema.try_encode(&built)
@@ -1668,6 +1683,52 @@ impl Field {
         self
     }
 
+    /// The key this field reads.
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    /// How optional the key is on the decoding axis.
+    pub fn optionality(&self) -> Optionality {
+        self.optionality
+    }
+
+    /// The schema this field's value decodes with.
+    pub fn inner(&self) -> &Schema<Unknown> {
+        &self.schema
+    }
+
+    /// Swap the field's schema (`evolve`'s `(field) => ...`): the key and its
+    /// optionality stay, the codec changes.
+    pub fn with_schema(mut self, schema: Schema<Unknown>) -> Self {
+        self.schema = Arc::new(schema);
+        self
+    }
+
+    /// Rename the key (`evolveKeys`/`renameKeys`).
+    pub fn renamed(mut self, name: &str) -> Self {
+        self.name = name.to_string();
+        self
+    }
+
+    /// `Schema.optionalKey` over a field's schema: the key may be absent, while
+    /// an explicit null still decodes the value schema.
+    pub fn make_optional_key(mut self) -> Self {
+        self.optionality = Optionality::OptionalKey;
+        self
+    }
+
+    /// `Schema.optional`/`NullOr` over a field's schema: a null value decodes to
+    /// none. The key itself stays required, which is what tells this apart from
+    /// [`optional`](Field::optional).
+    pub fn make_nullable(self) -> Self {
+        let inner = (*self.schema).clone();
+        Self {
+            schema: Arc::new(Schema::as_unknown(Schema::optional(inner))),
+            ..self
+        }
+    }
+
     /// Make every field required (`required` over a struct shape).
     pub fn require_all(fields: Vec<Field>) -> Vec<Field> {
         fields.into_iter().map(Field::require).collect()
@@ -1687,6 +1748,76 @@ impl Field {
             omit_on_encode: true,
         }
     }
+}
+
+/// A transformer over a struct's field list, the shape `mapFields` takes. The
+/// pin spells each of these as its own helper (`Struct.evolve`,
+/// `Struct.map`, `Struct.mapPick`, ...); the port builds them all from these
+/// four, since each one is a different way to say "replace the field list".
+pub type FieldTransform = Box<dyn Fn(Vec<Field>) -> Vec<Field>>;
+
+/// `Struct.map(f)`: every field through `f`.
+pub fn field_map(f: impl Fn(Field) -> Field + Copy + 'static) -> FieldTransform {
+    Box::new(move |fields| fields.into_iter().map(f).collect())
+}
+
+/// `Struct.evolve`/`Struct.evolveKeys`/`Struct.renameKeys`/`Struct.rename`: the
+/// named fields through their own function, the rest untouched. A name with no
+/// field to match simply does nothing, which is what the pin does too.
+pub fn field_evolve(pairs: Vec<(&'static str, fn(Field) -> Field)>) -> FieldTransform {
+    Box::new(move |fields| {
+        fields
+            .into_iter()
+            .map(|field| match pairs.iter().find(|(name, _)| *name == field.name()) {
+                Some((_, transform)) => transform(field),
+                None => field,
+            })
+            .collect()
+    })
+}
+
+/// `Struct.evolveEntries`: every `(key, value)` pair through one function, so a
+/// transform can rename the key and change the codec at once.
+pub fn field_evolve_entries(f: impl Fn(Field) -> Field + Copy + 'static) -> FieldTransform {
+    field_map(f)
+}
+
+/// `Struct.mapPick`: only the named fields through `f`.
+pub fn field_map_pick(
+    names: Vec<&'static str>,
+    f: impl Fn(Field) -> Field + Copy + 'static,
+) -> FieldTransform {
+    Box::new(move |fields| {
+        fields
+            .into_iter()
+            .map(|field| {
+                if names.contains(&field.name()) {
+                    f(field)
+                } else {
+                    field
+                }
+            })
+            .collect()
+    })
+}
+
+/// `Struct.mapOmit`: every field except the named ones through `f`.
+pub fn field_map_omit(
+    names: Vec<&'static str>,
+    f: impl Fn(Field) -> Field + Copy + 'static,
+) -> FieldTransform {
+    Box::new(move |fields| {
+        fields
+            .into_iter()
+            .map(|field| {
+                if names.contains(&field.name()) {
+                    field
+                } else {
+                    f(field)
+                }
+            })
+            .collect()
+    })
 }
 
 /// One walk over a struct-shape input, shared by the decode path and the
@@ -1775,6 +1906,7 @@ impl Schema<BTreeMap<String, Unknown>> {
             .map(|field| field.name.clone())
             .collect();
         let decode_fields = fields.clone();
+        let declared_fields = Some(fields.clone());
         let construct_fields = fields;
         let mut schema = Self::new(
             move |unknown| walk_struct(&decode_fields, unknown, false),
@@ -1790,6 +1922,7 @@ impl Schema<BTreeMap<String, Unknown>> {
         schema.construct = Some(std::sync::Arc::new(move |unknown| {
             walk_struct(&construct_fields, unknown, true)
         }));
+        schema.struct_fields = declared_fields;
         schema
     }
 
@@ -1862,12 +1995,94 @@ impl Schema<BTreeMap<String, Unknown>> {
             .collect();
         Self::struct_shape(wanted)
     }
+
+    /// Derive a struct schema from this one's declared fields (`mapFields`):
+    /// the transformer receives the field list and returns the list the derived
+    /// shape should have. A schema that is not a struct shape has no field list
+    /// to map, so asking one is a mistake rather than a no-op.
+    pub fn map_fields(self, transform: impl Fn(Vec<Field>) -> Vec<Field>) -> Self {
+        let fields = self
+            .struct_fields
+            .clone()
+            .expect("mapFields needs a struct shape with declared fields");
+        Self::struct_shape(transform(fields))
+    }
+
+    /// Rename keys on the encoded side (`encodeKeys`): decoding accepts the
+    /// destination spelling and hands the field its source name, encoding does
+    /// the reverse. Two destinations that collide, or a destination that lands
+    /// on a field nobody is renaming, would make two fields share one wire key,
+    /// so both are refused where the mapping is built.
+    pub fn encode_keys(self, pairs: Vec<(&str, &str)>) -> Self {
+        let mut destinations: Vec<String> = Vec::new();
+        for (_, destination) in &pairs {
+            if destinations.iter().any(|seen| seen == destination) {
+                panic!("Duplicate encoded keys: {destination}");
+            }
+            destinations.push((*destination).to_string());
+        }
+        let sources: Vec<String> = pairs.iter().map(|(source, _)| (*source).to_string()).collect();
+        if let Some(fields) = self.struct_fields.as_ref() {
+            for (_, destination) in &pairs {
+                let collides = fields
+                    .iter()
+                    .any(|field| field.name == *destination && !sources.contains(&field.name));
+                if collides {
+                    panic!("Duplicate encoded keys: {destination}");
+                }
+            }
+        }
+        let inner = Arc::new(self);
+        let decode_inner = inner.clone();
+        let encode_inner = inner.clone();
+        let decode_pairs: Vec<(String, String)> = pairs
+            .iter()
+            .map(|(source, destination)| ((*source).to_string(), (*destination).to_string()))
+            .collect();
+        let encode_pairs = decode_pairs.clone();
+        let mut out = Self::new(
+            move |unknown| {
+                let renamed = rename_keys(unknown, &decode_pairs, false);
+                decode_inner.decode(renamed)
+            },
+            move |value| {
+                let encoded = encode_inner.try_encode(value)?;
+                Ok(rename_keys(encoded, &encode_pairs, true))
+            },
+            SchemaKind::Object,
+        );
+        out.struct_fields = inner.struct_fields.clone();
+        out
+    }
+}
+
+/// Move an object's keys between two spellings (`encodeKeys`):
+/// `to_destination` picks the direction. Anything that is not an object passes
+/// through, since the schema underneath is what refuses it.
+fn rename_keys(unknown: Unknown, pairs: &[(String, String)], to_destination: bool) -> Unknown {
+    let Unknown::Object(mut fields) = unknown else {
+        return unknown;
+    };
+    for (source, destination) in pairs {
+        let (from, to) = if to_destination {
+            (source, destination)
+        } else {
+            (destination, source)
+        };
+        if let Some(value) = fields.remove(from) {
+            fields.insert(to.clone(), value);
+        }
+    }
+    Unknown::Object(fields)
 }
 
 impl<T: Send + Sync + 'static> Schema<Option<T>> {
     /// `null` (or missing, by the caller's hand) decodes to `None`.
     pub fn optional(inner: Schema<T>) -> Schema<Option<T>> {
-        let kind = SchemaKind::Optional(Box::new(inner.kind.clone()));
+        // A value that arrived here through a re-typing carries an opaque kind
+        // of its own, so the Optional has to copy the kind underneath it or a
+        // repr prints `Schema.optional(Schema.Unknown)`.
+        let kind = SchemaKind::Optional(Box::new(inner.repr_kind()));
         let inner = Arc::new(inner);
         let decode_inner = inner.clone();
         let encode_inner = inner.clone();

@@ -8007,21 +8007,21 @@ unported	packages/effect/test/schema/Schema.test.ts	8746	it	Struct
 ported	packages/effect/test/schema/Schema.test.ts	8760	it	Tuple	tuple_checks_length_and_order
 unported	packages/effect/test/schema/Schema.test.ts	8777	it	non-transforming schema	
 unported	packages/effect/test/schema/Schema.test.ts	8784	it	transforming schema	
-unported	packages/effect/test/schema/Schema.test.ts	8793	it	evolve	
-unported	packages/effect/test/schema/Schema.test.ts	8805	it	evolveKeys	
-unported	packages/effect/test/schema/Schema.test.ts	8817	it	renameKeys	
-unported	packages/effect/test/schema/Schema.test.ts	8831	it	evolveEntries	
-ported	packages/effect/test/schema/Schema.test.ts	8843	it	optionalKey	optional_key_explicit_null_decodes_inner
-unported	packages/effect/test/schema/Schema.test.ts	8855	it	mapPick	
-unported	packages/effect/test/schema/Schema.test.ts	8867	it	mapOmit	
-unported	packages/effect/test/schema/Schema.test.ts	8879	it	optional	
-unported	packages/effect/test/schema/Schema.test.ts	8891	it	mutableKey	
-unported	packages/effect/test/schema/Schema.test.ts	8903	it	readonlyKey	
-unported	packages/effect/test/schema/Schema.test.ts	8915	it	mutable	
-unported	packages/effect/test/schema/Schema.test.ts	8927	it	NullOr	
-unported	packages/effect/test/schema/Schema.test.ts	8939	it	UndefinedOr	
-unported	packages/effect/test/schema/Schema.test.ts	8951	it	NullishOr	
-unported	packages/effect/test/schema/Schema.test.ts	8963	it	should work with flow	
+ported	packages/effect/test/schema/Schema.test.ts	8793	it	evolve	evolve_maps_a_named_field
+ported	packages/effect/test/schema/Schema.test.ts	8805	it	evolveKeys	evolve_keys_renames_a_named_field
+ported	packages/effect/test/schema/Schema.test.ts	8817	it	renameKeys	rename_keys_rewrites_two_of_three
+ported	packages/effect/test/schema/Schema.test.ts	8831	it	evolveEntries	evolve_entries_renames_and_rewraps
+ported	packages/effect/test/schema/Schema.test.ts	8843	it	optionalKey	optional_key_applies_to_every_field
+ported	packages/effect/test/schema/Schema.test.ts	8855	it	mapPick	map_pick_touches_the_named_field
+ported	packages/effect/test/schema/Schema.test.ts	8867	it	mapOmit	map_omit_skips_the_named_field
+ported	packages/effect/test/schema/Schema.test.ts	8879	it	optional	optional_wraps_every_field_schema
+not-applicable	packages/effect/test/schema/Schema.test.ts	8891	it	mutableKey	the row asserts a type-level marker on the field (Schema.mutableKey/readonlyKey/mutable); those wrappers carry no runtime behavior in the pin either, and this port has no mutable/readonly distinction to record, so there is nothing to observe
+not-applicable	packages/effect/test/schema/Schema.test.ts	8903	it	readonlyKey	the row asserts a type-level marker on the field (Schema.mutableKey/readonlyKey/mutable); those wrappers carry no runtime behavior in the pin either, and this port has no mutable/readonly distinction to record, so there is nothing to observe
+not-applicable	packages/effect/test/schema/Schema.test.ts	8915	it	mutable	the row asserts a type-level marker on the field (Schema.mutableKey/readonlyKey/mutable); those wrappers carry no runtime behavior in the pin either, and this port has no mutable/readonly distinction to record, so there is nothing to observe
+ported	packages/effect/test/schema/Schema.test.ts	8927	it	NullOr	null_or_wraps_every_field_schema
+ported	packages/effect/test/schema/Schema.test.ts	8939	it	UndefinedOr	undefined_or_wraps_every_field_schema
+ported	packages/effect/test/schema/Schema.test.ts	8951	it	NullishOr	nullish_or_wraps_every_field_schema
+not-applicable	packages/effect/test/schema/Schema.test.ts	8963	it	should work with flow	the composed result's expected field list is spelled with Schema.mutableKey, a marker with no runtime behavior, so the derived shape the pin compares has no counterpart here; the Struct.map(Schema.NullOr) half of the composition is carried by the NullOr row
 unported	packages/effect/test/schema/Schema.test.ts	8982	it	appendElement	
 unported	packages/effect/test/schema/Schema.test.ts	8988	it	appendElements	
 ported	packages/effect/test/schema/Schema.test.ts	8994	it	pick	pick_decodes_a_subset
@@ -8036,13 +8036,13 @@ unported	packages/effect/test/schema/Schema.test.ts	9061	it	appendElement
 unported	packages/effect/test/schema/Schema.test.ts	9067	it	evolve	
 unported	packages/effect/test/schema/Schema.test.ts	9083	it	Array	
 unported	packages/effect/test/schema/Schema.test.ts	9094	it	evolve	
-unported	packages/effect/test/schema/Schema.test.ts	9110	it	Struct	
-unported	packages/effect/test/schema/Schema.test.ts	9124	it	Class	
-unported	packages/effect/test/schema/Schema.test.ts	9139	it	supports symbol source keys	
-unported	packages/effect/test/schema/Schema.test.ts	9149	it	supports symbol destination keys	
-unported	packages/effect/test/schema/Schema.test.ts	9159	it	rejects duplicate destination keys	
-unported	packages/effect/test/schema/Schema.test.ts	9172	it	rejects destination keys that collide with unmapped fields	
-unported	packages/effect/test/schema/Schema.test.ts	9185	it	rejects canonical number and string destination key collisions	
+ported	packages/effect/test/schema/Schema.test.ts	9110	it	Struct	encode_keys_renames_on_both_sides
+not-applicable	packages/effect/test/schema/Schema.test.ts	9124	it	Class	the row derives from a Schema.Class instance; this port has no class builder, so there is no class schema to rename keys on
+not-applicable	packages/effect/test/schema/Schema.test.ts	9139	it	supports symbol source keys	the row's keys are Symbols; this port's objects are keyed by strings, so a symbol key has no counterpart (the string-key case is carried by the encodeKeys Struct row)
+not-applicable	packages/effect/test/schema/Schema.test.ts	9149	it	supports symbol destination keys	the row's keys are Symbols; this port's objects are keyed by strings, so a symbol key has no counterpart (the string-key case is carried by the encodeKeys Struct row)
+ported	packages/effect/test/schema/Schema.test.ts	9159	it	rejects duplicate destination keys	encode_keys_refuses_duplicate_destinations
+ported	packages/effect/test/schema/Schema.test.ts	9172	it	rejects destination keys that collide with unmapped fields	encode_keys_refuses_a_collision_with_an_unmapped_field
+not-applicable	packages/effect/test/schema/Schema.test.ts	9185	it	rejects canonical number and string destination key collisions	the row's point is JavaScript key canonicalization (1 and "1" are one key); this port's keys are strings already, so the canonicalization has nothing to do and the duplicate it reports is the plain duplicate destination the neighbouring row carries
 unported	packages/effect/test/schema/Schema.test.ts	9200	it	returns undefined	
 unported	packages/effect/test/schema/Schema.test.ts	9207	it	returns true	
 unported	packages/effect/test/schema/Schema.test.ts	9214	it	returns false	

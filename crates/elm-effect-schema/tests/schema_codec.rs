@@ -4,7 +4,7 @@
 //! codec is the two-way shape, so idempotence is `decode(encode(x)) == x`
 //! and `encode(decode(u)) == u`.
 
-use elm_effect_schema::{Field, Schema, Unknown};
+use elm_effect_schema::{Field, Schema, TemplateParser, TemplatePart, Unknown};
 use std::collections::BTreeMap;
 
 fn text(s: &str) -> Unknown {
@@ -350,4 +350,145 @@ fn codec_void_and_undefined_map_to_null() {
     assert_eq!(void.encode(&Unknown::Null), Unknown::Null);
     assert_eq!(void.decode(Unknown::Null).unwrap(), Unknown::Null);
     assert!(void.decode(Unknown::Text("a".to_string())).is_err());
+}
+
+// --- toCodec.test.ts: the literal, Never, and template-literal codec rows ---
+
+/// toCodec.test.ts:585 — `Schema.toCodecJson(Schema.Literal("a"))`: one value
+/// decodes and encodes back to itself, and nothing else decodes.
+#[test]
+fn codec_literal_string_round_trips() {
+    let schema = Schema::<Unknown>::literal(Unknown::Text("a".to_string()));
+    let wire = Unknown::Text("a".to_string());
+    let decoded = schema.decode(wire.clone()).unwrap();
+    assert_eq!(schema.encode(&decoded), wire);
+    assert!(schema.decode(Unknown::Text("b".to_string())).is_err());
+}
+
+/// toCodec.test.ts:596 — `Schema.toCodecJson(Schema.Literal(1))`.
+#[test]
+fn codec_literal_number_round_trips() {
+    let schema = Schema::<Unknown>::literal(Unknown::Number(1.0));
+    let wire = Unknown::Number(1.0);
+    let decoded = schema.decode(wire.clone()).unwrap();
+    assert_eq!(schema.encode(&decoded), wire);
+    assert!(schema.decode(Unknown::Number(2.0)).is_err());
+    assert!(schema.decode(Unknown::Text("1".to_string())).is_err());
+}
+
+/// toCodec.test.ts:607 — `Schema.toCodecJson(Schema.Literal(true))`.
+#[test]
+fn codec_literal_boolean_round_trips() {
+    let schema = Schema::<Unknown>::literal(Unknown::Bool(true));
+    let wire = Unknown::Bool(true);
+    let decoded = schema.decode(wire.clone()).unwrap();
+    assert_eq!(schema.encode(&decoded), wire);
+    assert!(schema.decode(Unknown::Bool(false)).is_err());
+}
+
+/// toCodec.test.ts:642 — `Schema.toCodecJson(Schema.TemplateLiteral([1n,
+/// Schema.String]))`: the codec is identity on a matching string. `1n` is a
+/// verbatim anchor and `Schema.String` is the span behind it.
+#[test]
+fn codec_template_literal_bigint_then_string_round_trips() {
+    let schema = TemplateParser::new(vec![
+        TemplatePart::Anchor("1".to_string()),
+        TemplatePart::AnyString,
+    ]);
+    let captures = schema.parse("1a").expect("matches");
+    assert_eq!(captures, vec![Unknown::Text("1".to_string()), Unknown::Text("a".to_string())]);
+    assert_eq!(schema.render(&captures).as_deref(), Some("1a"));
+    assert!(!schema.matches("2a"));
+}
+
+/// toCodec.test.ts:653 — `Schema.toCodecJson(Schema.TemplateLiteral(["a",
+/// Schema.BigInt]))`: the trailing span is a bigint, so `a1` matches and
+/// `a1.2` does not.
+#[test]
+fn codec_template_literal_string_then_bigint_round_trips() {
+    let schema = TemplateParser::new(vec![
+        TemplatePart::Anchor("a".to_string()),
+        TemplatePart::Digits,
+    ]);
+    let captures = schema.parse("a1").expect("matches");
+    assert_eq!(captures, vec![Unknown::Text("a".to_string()), Unknown::Text("1".to_string())]);
+    assert_eq!(schema.render(&captures).as_deref(), Some("a1"));
+    assert!(!schema.matches("a1.2"));
+    assert!(!schema.matches("b1"));
+}
+
+/// toCodec.test.ts:893 — `Schema.toCodecJson(Schema.Array(Schema.Date))`: each
+/// element travels as its ISO-8601 UTC text.
+#[test]
+fn codec_array_of_date_round_trips() {
+    use elm_effect_schema::transform::date_schema;
+    let schema = Schema::as_unknown(Schema::array(date_schema()));
+    let wire = Unknown::Array(vec![
+        Unknown::Text("2021-01-01T00:00:00.000Z".to_string()),
+        Unknown::Text("2021-01-02T00:00:00.000Z".to_string()),
+    ]);
+    let decoded = schema.decode(wire.clone()).unwrap();
+    assert_eq!(schema.encode(&decoded), wire);
+    assert!(schema
+        .decode(Unknown::Array(vec![Unknown::Text("nope".to_string())]))
+        .is_err());
+}
+
+/// toCodec.test.ts:905 — `Schema.toCodecJson(Schema.NullOr(Schema.String))`:
+/// the member and null both travel in each direction.
+#[test]
+fn codec_null_or_string_round_trips() {
+    let schema = Schema::union(
+        Schema::as_unknown(Schema::string()),
+        Schema::as_unknown(Schema::<()>::null()),
+    );
+    assert_eq!(
+        schema.decode(Unknown::Null).unwrap(),
+        Unknown::Null,
+        "null decodes to the null member"
+    );
+    assert_eq!(
+        schema.decode(Unknown::Text("a".to_string())).unwrap(),
+        Unknown::Text("a".to_string())
+    );
+    assert_eq!(schema.encode(&Unknown::Null), Unknown::Null);
+    assert_eq!(
+        schema.encode(&Unknown::Text("a".to_string())),
+        Unknown::Text("a".to_string())
+    );
+    assert!(schema.decode(Unknown::Number(1.0)).is_err());
+}
+
+/// toCodec.test.ts:918 — `Schema.toCodecJson(Schema.NullOr(Schema.Number))`.
+#[test]
+fn codec_null_or_number_round_trips() {
+    let schema = Schema::union(
+        Schema::as_unknown(Schema::number()),
+        Schema::as_unknown(Schema::<()>::null()),
+    );
+    assert_eq!(schema.decode(Unknown::Null).unwrap(), Unknown::Null);
+    assert_eq!(schema.decode(Unknown::Number(1.0)).unwrap(), Unknown::Number(1.0));
+    assert_eq!(schema.encode(&Unknown::Null), Unknown::Null);
+    assert_eq!(
+        schema.encode(&Unknown::Number(1.0)),
+        Unknown::Number(1.0)
+    );
+    assert!(schema.decode(Unknown::Text("a".to_string())).is_err());
+}
+
+/// toCodec.test.ts:931 — `Schema.toCodecJson(Schema.Array(Schema.NullOr(
+/// Schema.Number)))`: the nullable element inside the array.
+#[test]
+fn codec_array_of_null_or_number_round_trips() {
+    let nullable = Schema::union(
+        Schema::as_unknown(Schema::number()),
+        Schema::as_unknown(Schema::<()>::null()),
+    );
+    let schema = Schema::as_unknown(Schema::array(nullable));
+    let wire = Unknown::Array(vec![Unknown::Number(1.0), Unknown::Null]);
+    let decoded = schema.decode(wire.clone()).unwrap();
+    assert_eq!(schema.encode(&decoded), wire);
+    assert!(schema
+        .decode(Unknown::Array(vec![Unknown::Text("a".to_string())]))
+        .is_err());
 }
