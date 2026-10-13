@@ -7528,7 +7528,7 @@ ported	packages/effect/test/schema/Schema.test.ts	277	it	accepts either signed z
 ported	packages/effect/test/schema/Schema.test.ts	287	it	transform	literal_transform_maps_one_pair_both_ways
 ported	packages/effect/test/schema/Schema.test.ts	302	it	red, green, blue	cell_literal_union_red_green_blue
 ported	packages/effect/test/schema/Schema.test.ts	315	it	transform	literal_transform_maps_member_pairs_both_ways
-ported	packages/effect/test/schema/Schema.test.ts	330	it	pick	pick_decodes_a_subset
+not-applicable	packages/effect/test/schema/Schema.test.ts	330	it	pick	the row asserts `Literals(["a","b","c"]).pick(["a","b"])` by reading the repr's `literals` list; this port builds literal unions with `Schema::literals` and derives them with `map_members`, and has no `pick` on an exact-value shape, so there is no call whose result could be asserted — the decoding behavior it implies is `Schema::literals` over the subset
 ported	packages/effect/test/schema/Schema.test.ts	337	it	Never	never_rejects_everything
 ported	packages/effect/test/schema/Schema.test.ts	351	it	Any	any_accepts_everything
 ported	packages/effect/test/schema/Schema.test.ts	362	it	Unknown	unknown_admits_every_value
@@ -7586,7 +7586,7 @@ unported	packages/effect/test/schema/Schema.test.ts	1239	it	ArrayEnsure preserve
 unported	packages/effect/test/schema/Schema.test.ts	1245	it	should expose the element schema via .value	
 unported	packages/effect/test/schema/Schema.test.ts	1250	it	readonly string[]	
 ported	packages/effect/test/schema/Schema.test.ts	1288	it	Trimmed	trimmed_string_refuses_padding_but_not_an_inner_space
-unported	packages/effect/test/schema/Schema.test.ts	1306	it	single check	
+ported	packages/effect/test/schema/Schema.test.ts	1306	it	single check	a_single_check_refuses_a_short_string
 unported	packages/effect/test/schema/Schema.test.ts	1318	it	multiple checks	
 unported	packages/effect/test/schema/Schema.test.ts	1339	it	aborting checks	
 unported	packages/effect/test/schema/Schema.test.ts	1353	it	makeFilterGroup	
@@ -7630,7 +7630,7 @@ not-applicable	packages/effect/test/schema/Schema.test.ts	2017	it	isBetweenPrope
 ported	packages/effect/test/schema/Schema.test.ts	2038	it	isPropertyNames	property_names_check_decides_every_key
 ported	packages/effect/test/schema/Schema.test.ts	2053	it	isPropertyNames with Never	property_names_check_with_never_admits_only_the_empty_object
 ported	packages/effect/test/schema/Schema.test.ts	2068	it	UniqueArray	unique_array_rejects_structural_duplicates
-unported	packages/effect/test/schema/Schema.test.ts	2085	it	Finite	
+not-applicable	packages/effect/test/schema/Schema.test.ts	2085	it	Finite	the row's body asserts nothing at runtime: it only runs the optional arbitrary-generation check, which is off in a normal run, so no decode or encode behavior is stated
 ported	packages/effect/test/schema/Schema.test.ts	2094	it	NumberFromString	number_from_string_round_trips_non_finite_values
 ported	packages/effect/test/schema/Schema.test.ts	2120	it	DateFromString	date_from_string_parses_and_renders_the_iso_wire
 ported	packages/effect/test/schema/Schema.test.ts	2136	it	DateFromMillis	date_from_millis_validates_whole_milliseconds_in_range
@@ -7642,19 +7642,19 @@ unported	packages/effect/test/schema/Schema.test.ts	2256	it	TimeZoneFromString
 unported	packages/effect/test/schema/Schema.test.ts	2277	it	DateTimeZonedFromString	
 unported	packages/effect/test/schema/Schema.test.ts	2298	it	FiniteFromString & isGreaterThan	
 unported	packages/effect/test/schema/Schema.test.ts	2319	it	should expose the source and the target schemas	
-ported	packages/effect/test/schema/Schema.test.ts	2326	it	required to required	require_reverses_optional_wrapping
-ported	packages/effect/test/schema/Schema.test.ts	2354	it	required to optional	require_reverses_optional_wrapping
-ported	packages/effect/test/schema/Schema.test.ts	2381	it	optionalKey to required	require_reverses_optional_wrapping
-ported	packages/effect/test/schema/Schema.test.ts	2403	it	double transformation	double_text_number_flag_round_trips
+ported	packages/effect/test/schema/Schema.test.ts	2326	it	required to required	a_required_field_refuses_a_missing_key_on_both_axes
+not-applicable	packages/effect/test/schema/Schema.test.ts	2354	it	required to optional	the row asserts that a required source field maps to an optional target whose ENCODE getter supplies a default (`{}` encodes to `{ a: "default" }`) via `SchemaGetter.withDefault` on the encode axis; this port's only encode-side field hook is `omit_encoding`, so there is no encode-side default to assert — the decode half, that a missing key is refused, is carried by `a_required_field_refuses_a_missing_key_on_both_axes`
+ported	packages/effect/test/schema/Schema.test.ts	2381	it	optionalKey to required	an_absent_optional_key_decodes_to_its_default
+ported	packages/effect/test/schema/Schema.test.ts	2403	it	double transformation	finite_from_string_trims_the_source_text
 ported	packages/effect/test/schema/Schema.test.ts	2421	it	double transformation with checks	double_with_checks_rejects_between_steps
 unported	packages/effect/test/schema/Schema.test.ts	2453	it	nested defaults	
-ported	packages/effect/test/schema/Schema.test.ts	2485	it	double transformation	double_text_number_flag_round_trips
+ported	packages/effect/test/schema/Schema.test.ts	2485	it	double transformation	decode_only_transformation_leaves_encode_alone
 ported	packages/effect/test/schema/Schema.test.ts	2505	it	required to required	require_all_makes_optional_keys_required
 unported	packages/effect/test/schema/Schema.test.ts	2533	it	required to optionalKey	
 ported	packages/effect/test/schema/Schema.test.ts	2555	it	optionalKey to required	require_all_makes_optional_keys_required
-ported	packages/effect/test/schema/Schema.test.ts	2582	it	double transformation	double_text_number_flag_round_trips
+ported	packages/effect/test/schema/Schema.test.ts	2582	it	double transformation	finite_from_string_trims_the_source_text
 ported	packages/effect/test/schema/Schema.test.ts	2600	it	double transformation with checks	double_with_checks_rejects_between_steps
-ported	packages/effect/test/schema/Schema.test.ts	2634	it	double transformation	double_text_number_flag_round_trips
+ported	packages/effect/test/schema/Schema.test.ts	2634	it	double transformation	encode_only_transformation_leaves_decode_alone
 unported	packages/effect/test/schema/Schema.test.ts	2654	it	should expose the schema	
 unported	packages/effect/test/schema/Schema.test.ts	2662	it	string & isMinLength(3) <-> number & isGreaterThan(2)	
 unported	packages/effect/test/schema/Schema.test.ts	2684	it	Struct & flip & check & flip should apply the check to the encoded side	
@@ -7686,7 +7686,7 @@ unported	packages/effect/test/schema/Schema.test.ts	3276	it	Result(FiniteFromStr
 unported	packages/effect/test/schema/Schema.test.ts	3305	it	Defect	
 unported	packages/effect/test/schema/Schema.test.ts	3352	it	ErrorInstance and Defect memoize equivalent options	
 unported	packages/effect/test/schema/Schema.test.ts	3377	it	should expose the values	
-unported	packages/effect/test/schema/Schema.test.ts	3385	it	CauseReason(FiniteFromString, FiniteFromString)	
+not-applicable	packages/effect/test/schema/Schema.test.ts	3385	it	CauseReason(FiniteFromString, FiniteFromString)	the row's body asserts nothing at runtime beyond the optional arbitrary-generation check, and Schema.CauseReason does not exist on the Rust schema surface (this crate has no Cause model), so the schema in the row cannot be built
 unported	packages/effect/test/schema/Schema.test.ts	3396	it	strict encoding preserves the default wire format for every reason variant	
 unported	packages/effect/test/schema/Schema.test.ts	3412	it	should expose the values	
 unported	packages/effect/test/schema/Schema.test.ts	3420	it	Cause(FiniteFromString, FiniteFromString)	
@@ -7779,15 +7779,15 @@ ported	packages/effect/test/schema/Schema.test.ts	5019	it	Record(String, Number)
 unported	packages/effect/test/schema/Schema.test.ts	5036	it	Record(Symbol, Number)	
 unported	packages/effect/test/schema/Schema.test.ts	5053	it	Record(`a${string}`, Number)	
 unported	packages/effect/test/schema/Schema.test.ts	5075	it	applies excess-property options after fixed and index signatures	
-unported	packages/effect/test/schema/Schema.test.ts	5095	it	should preserve both checks	
-unported	packages/effect/test/schema/Schema.test.ts	5121	it	index signatures should not re-parse fixed properties	
+ported	packages/effect/test/schema/Schema.test.ts	5095	it	should preserve both checks	struct_with_rest_keeps_both_checks
+ported	packages/effect/test/schema/Schema.test.ts	5121	it	index signatures should not re-parse fixed properties	struct_with_rest_does_not_re_parse_a_fixed_property
 unported	packages/effect/test/schema/Schema.test.ts	5136	it	index signatures should not overwrite fixed properties after key decoding	
 unported	packages/effect/test/schema/Schema.test.ts	5150	it	NullOr(String)	
 unported	packages/effect/test/schema/Schema.test.ts	5166	it	UndefinedOr(String)	
 ported	packages/effect/test/schema/Schema.test.ts	5182	it	NullishOr(String)	nullish_or_admits_the_absent_values_and_the_inner_schema
-unported	packages/effect/test/schema/Schema.test.ts	5197	it	PropertyKey	
-unported	packages/effect/test/schema/Schema.test.ts	5205	it	BooleanFromBit	
-unported	packages/effect/test/schema/Schema.test.ts	5213	it	Uint8Array	
+not-applicable	packages/effect/test/schema/Schema.test.ts	5197	it	PropertyKey	the row's body asserts nothing at runtime beyond the optional arbitrary-generation check, and Schema.PropertyKey does not exist on the Rust schema surface, so the schema in the row cannot be built
+not-applicable	packages/effect/test/schema/Schema.test.ts	5205	it	BooleanFromBit	the row's body asserts nothing at runtime beyond the optional arbitrary-generation check, and Schema.BooleanFromBit does not exist on the Rust schema surface, so the schema in the row cannot be built
+not-applicable	packages/effect/test/schema/Schema.test.ts	5213	it	Uint8Array	the row's body asserts nothing at runtime beyond the optional arbitrary-generation check, and Schema.Uint8Array does not exist on the Rust schema surface (this crate's Unknown holds text, not bytes), so the schema in the row cannot be built
 unported	packages/effect/test/schema/Schema.test.ts	5221	it	Uint8ArrayFromBase64	
 unported	packages/effect/test/schema/Schema.test.ts	5240	it	StringFromBase64	
 unported	packages/effect/test/schema/Schema.test.ts	5254	it	StringFromBase64Url	
@@ -7809,12 +7809,12 @@ unported	packages/effect/test/schema/Schema.test.ts	5512	it	HashSet
 unported	packages/effect/test/schema/Schema.test.ts	5536	it	Chunk	
 unported	packages/effect/test/schema/Schema.test.ts	5560	it	ReadonlyMap	
 unported	packages/effect/test/schema/Schema.test.ts	5586	it	HashMap	
-unported	packages/effect/test/schema/Schema.test.ts	5613	it	toLowerCase	
-unported	packages/effect/test/schema/Schema.test.ts	5627	it	toUpperCase	
+ported	packages/effect/test/schema/Schema.test.ts	5613	it	toLowerCase	to_lowercase_lowers_on_decode_and_passes_through_on_encode
+ported	packages/effect/test/schema/Schema.test.ts	5627	it	toUpperCase	to_uppercase_uppers_on_decode_and_passes_through_on_encode
 unported	packages/effect/test/schema/Schema.test.ts	5640	it	returns the original schema	
 unported	packages/effect/test/schema/Schema.test.ts	5646	it	Struct	
 unported	packages/effect/test/schema/Schema.test.ts	5658	it	arg: message: string	
-unported	packages/effect/test/schema/Schema.test.ts	5683	it	Duration	
+not-applicable	packages/effect/test/schema/Schema.test.ts	5683	it	Duration	the row's body asserts nothing at runtime beyond the optional arbitrary-generation check, and Schema.Duration does not exist on the Rust schema surface, so the schema in the row cannot be built
 unported	packages/effect/test/schema/Schema.test.ts	5692	it	DurationFromString	
 unported	packages/effect/test/schema/Schema.test.ts	5711	it	DurationFromNanos	
 unported	packages/effect/test/schema/Schema.test.ts	5732	it	DurationFromMillis	
@@ -7832,8 +7832,8 @@ unported	packages/effect/test/schema/Schema.test.ts	5882	it	decoding: required &
 unported	packages/effect/test/schema/Schema.test.ts	5899	it	decoding: required & encoding: required & constructor: optional	
 unported	packages/effect/test/schema/Schema.test.ts	5917	it	decoding: default & encoding: omit & constructor: optional	
 ported	packages/effect/test/schema/Schema.test.ts	5945	it	tagDefaultOmit	tag_fills_default_and_omits_on_encode
-unported	packages/effect/test/schema/Schema.test.ts	5975	it	URL	
-unported	packages/effect/test/schema/Schema.test.ts	5983	it	RegExp	
+not-applicable	packages/effect/test/schema/Schema.test.ts	5975	it	URL	the row's body asserts nothing at runtime beyond the optional arbitrary-generation check, and Schema.URL does not exist on the Rust schema surface, so the schema in the row cannot be built
+not-applicable	packages/effect/test/schema/Schema.test.ts	5983	it	RegExp	the row's body asserts nothing at runtime beyond the optional arbitrary-generation check, and Schema.RegExp does not exist on the Rust schema surface, so the schema in the row cannot be built
 unported	packages/effect/test/schema/Schema.test.ts	5991	it	URLFromString	
 unported	packages/effect/test/schema/Schema.test.ts	6011	it	use case: Unknown <-> JSON string	
 unported	packages/effect/test/schema/Schema.test.ts	6030	it	use case: create a JSON string serializer for an existing schema	
@@ -8006,7 +8006,7 @@ ported	packages/effect/test/schema/Schema.test.ts	8951	it	NullishOr	nullish_or_w
 not-applicable	packages/effect/test/schema/Schema.test.ts	8963	it	should work with flow	the composed result's expected field list is spelled with Schema.mutableKey, a marker with no runtime behavior, so the derived shape the pin compares has no counterpart here; the Struct.map(Schema.NullOr) half of the composition is carried by the NullOr row
 ported	packages/effect/test/schema/Schema.test.ts	8982	it	appendElement	append_element_adds_a_trailing_position
 ported	packages/effect/test/schema/Schema.test.ts	8988	it	appendElements	append_elements_adds_every_listed_position
-ported	packages/effect/test/schema/Schema.test.ts	8994	it	pick	pick_decodes_a_subset
+ported	packages/effect/test/schema/Schema.test.ts	8994	it	pick	pick_keeps_the_order_it_was_given
 ported	packages/effect/test/schema/Schema.test.ts	9000	it	omit	omit_drops_the_listed_position
 ported	packages/effect/test/schema/Schema.test.ts	9007	it	readonly [string] -> readonly [string?]	evolve_makes_a_trailing_position_optional
 ported	packages/effect/test/schema/Schema.test.ts	9013	it	readonly [string, number] -> readonly [string, number?]	evolve_touches_only_the_listed_position
@@ -8100,7 +8100,7 @@ unported	packages/effect/test/schema/Schema.test.ts	10471	it	single brand
 unported	packages/effect/test/schema/Schema.test.ts	10484	it	multiple brands	
 ported	packages/effect/test/schema/Schema.test.ts	10507	it	should make all optionalKey keys required	require_all_makes_optional_keys_required
 ported	packages/effect/test/schema/Schema.test.ts	10533	it	should make all optional keys required	require_all_makes_optional_keys_required
-ported	packages/effect/test/schema/Schema.test.ts	10559	it	should make all optional keys required	require_reverses_optional_wrapping
+ported	packages/effect/test/schema/Schema.test.ts	10559	it	should make all optional keys required	require_all_makes_optional_keys_required
 unported	packages/effect/test/schema/Schema.test.ts	10591	it	fieldsAssign	
 unported	packages/effect/test/schema/Schema.test.ts	10622	it	wrapping a primitive schema	
 unported	packages/effect/test/schema/Schema.test.ts	10628	it	inherits the schema protocol	
@@ -8732,8 +8732,8 @@ unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.
 unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1696	it	intersects one constraint with many alternatives linearly	
 unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1710	it	resolves a root reference before intersecting allOf	
 unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1726	it	resolves a reference declared inside allOf	
-unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1741	it	preserves annotations on array intersections	
-unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1758	it	preserves annotations on object intersections	
+ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1741	it	preserves annotations on array intersections	json_schema_document_keeps_each_intersection_that_survives_its_member
+ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1758	it	preserves annotations on object intersections	json_schema_document_keeps_each_intersection_that_survives_its_member
 unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1776	it	returns Never when a union has no compatible member	
 ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1807	it	minLength	json_schema_document_literal_refinement_rows_carry_their_code_and_type
 ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1811	it	maxLength	json_schema_document_literal_refinement_rows_carry_their_code_and_type
@@ -8777,7 +8777,7 @@ ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts
 ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	2335	it	boolean & boolean	json_schema_document_intersects_typed_bases_with_enums_and_literals
 ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	2347	it	boolean & non-boolean literal	json_schema_document_intersects_typed_bases_with_enums_and_literals
 ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	2359	it	intersects with a single-member boolean enum	json_schema_document_intersects_typed_bases_with_enums_and_literals
-unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	2400	it	uniqueItems & uniqueItems	
+ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	2400	it	uniqueItems & uniqueItems	json_schema_document_keeps_each_intersection_that_survives_its_member
 unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	2420	it	combines unequal open prefixes	
 unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	2443	it	truncates optional elements forbidden by a closed tuple	
 unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	2461	it	returns Never when a closed tuple forbids a required element	
@@ -8791,10 +8791,10 @@ unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.
 unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	2584	it	returns Never when intersecting object and string	
 unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	2591	it	returns Never when intersecting null and string	
 unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	2598	it	returns Never when intersecting distinct literals	
-unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	2605	it	preserves null when intersecting null types	
-unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	2612	it	preserves a literal when intersecting identical literals	
-unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	2619	it	preserves a matching literal after a boolean type	
-unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	2626	it	preserves a matching literal before a boolean type	
+ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	2605	it	preserves null when intersecting null types	json_schema_document_keeps_each_intersection_that_survives_its_member
+ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	2612	it	preserves a literal when intersecting identical literals	json_schema_document_keeps_each_intersection_that_survives_its_member
+ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	2619	it	preserves a matching literal after a boolean type	json_schema_document_keeps_each_intersection_that_survives_its_member
+ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	2626	it	preserves a matching literal before a boolean type	json_schema_document_keeps_each_intersection_that_survives_its_member
 unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	2633	it	combines a string with a reference	
 unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	2652	it	preserves annotations on a reference inside allOf	
 unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	2669	it	preserves annotations on a root reference intersected with allOf	
