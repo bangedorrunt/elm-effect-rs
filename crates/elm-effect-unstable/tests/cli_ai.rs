@@ -2245,3 +2245,80 @@ fn trailing_operands_reach_the_selected_subcommand() {
     assert_eq!(path, vec!["tool".to_string(), "child".to_string()]);
     assert_eq!(parsed.positionals, vec!["value", "--literal", "-x"]);
 }
+
+/// Command.test.ts:1549 — trailing operands survive a nested subcommand walk:
+/// the leaf is what the dash's operands belong to, not the group above it.
+#[test]
+fn trailing_operands_pass_through_nested_subcommands() {
+    let cli = Command::group(
+        "tool",
+        "tool command",
+        vec![Command::group(
+            "group",
+            "group command",
+            vec![Command::new(
+                "child",
+                "child command",
+                vec![Arg::Positional {
+                    name: "value".to_string(),
+                    help: "value".to_string(),
+                    variadic: true,
+                }],
+            )],
+        )],
+    );
+    let argv = vec![
+        "group".to_string(),
+        "child".to_string(),
+        "--".to_string(),
+        "-literal".to_string(),
+    ];
+    let (path, parsed) = cli.parse(&argv).expect("parses");
+    assert_eq!(
+        path,
+        vec!["tool".to_string(), "group".to_string(), "child".to_string()]
+    );
+    assert_eq!(parsed.positionals, vec!["-literal"]);
+}
+
+/// Command.test.ts:1564 — an empty operand list after the dash is still a
+/// valid line, so a subcommand with no values to take runs.
+#[test]
+fn no_trailing_operands_after_the_dash_is_still_a_valid_line() {
+    let invoked = handler_log();
+    let log = invoked.clone();
+    let cli = Command::group(
+        "tool",
+        "tool command",
+        vec![Command::new("child", "child command", Vec::new()).handler(move |_| {
+            log.lock().expect("lock").push("child".to_string());
+        })],
+    );
+    let run = cli
+        .run(&["child".to_string(), "--".to_string()])
+        .expect("the dash with nothing after it is fine");
+    assert_eq!(run.path, vec!["tool".to_string(), "child".to_string()]);
+    assert_eq!(*invoked.lock().expect("lock"), vec!["child".to_string()]);
+}
+
+/// Command.test.ts:1579 — a leaf command keeps its own trailing operands, with
+/// the option-looking ones intact.
+#[test]
+fn a_leaf_command_keeps_its_own_trailing_operands() {
+    let command = Command::new(
+        "tool",
+        "tool command",
+        vec![Arg::Positional {
+            name: "values".to_string(),
+            help: "values".to_string(),
+            variadic: true,
+        }],
+    );
+    let argv = vec![
+        "--".to_string(),
+        "--literal".to_string(),
+        "-x".to_string(),
+    ];
+    let (_, parsed) = command.parse(&argv).expect("parses");
+    assert_eq!(parsed.positionals, vec!["--literal", "-x"]);
+}
