@@ -196,7 +196,7 @@ tests = []
 [[module]]
 path = "packages/effect/src/Duration.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/Duration.test.ts"]
@@ -308,7 +308,7 @@ tests = []
 [[module]]
 path = "packages/effect/src/Formatter.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/Formatter.test.ts"]

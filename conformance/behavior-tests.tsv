@@ -1772,72 +1772,72 @@ unported	packages/effect/test/FileSystem.test-utils.ts	507	it	should keep the cu
 unported	packages/effect/test/FileSystem.test-utils.ts	526	it	should update the current cursor if truncating affects it	
 unported	packages/effect/test/FileSystem.test-utils.ts	544	it	should read from the clamped cursor after truncating	
 ported	packages/effect/test/Formatter.test.ts	42	it	null	format_primitives_and_nesting
-unported	packages/effect/test/Formatter.test.ts	46	it	undefined	
+not-applicable	packages/effect/test/Formatter.test.ts	46	it	undefined	crates/elm-effect/src/json.rs:19 (pub enum Json) has no Undefined variant; JSON's null is the only nullish value
 ported	packages/effect/test/Formatter.test.ts	50	it	string	format_primitives_and_nesting
 ported	packages/effect/test/Formatter.test.ts	54	it	number	format_primitives_and_nesting
 ported	packages/effect/test/Formatter.test.ts	58	it	boolean	format_primitives_and_nesting
-unported	packages/effect/test/Formatter.test.ts	62	it	symbol	
-unported	packages/effect/test/Formatter.test.ts	66	it	bigint	
-unported	packages/effect/test/Formatter.test.ts	70	it	custom toString method	
-unported	packages/effect/test/Formatter.test.ts	74	it	handles throwing property getters	
-unported	packages/effect/test/Formatter.test.ts	85	it	handles hostile Proxies	
-unported	packages/effect/test/Formatter.test.ts	92	it	does not expose a value when redaction throws	
+not-applicable	packages/effect/test/Formatter.test.ts	62	it	symbol	crates/elm-effect/src/json.rs:19 (pub enum Json) has no symbol variant
+not-applicable	packages/effect/test/Formatter.test.ts	66	it	bigint	crates/elm-effect/src/json.rs:19 (pub enum Json) has no arbitrary-precision integer variant (crates/elm-effect/src/data/bigint.rs is a separate type, not a Json variant)
+not-applicable	packages/effect/test/Formatter.test.ts	70	it	custom toString method	crates/elm-effect/src/json.rs:19 (pub enum Json) carries no method hooks; a host object's toString / toJSON is a JS dispatch the model has no slot for
+not-applicable	packages/effect/test/Formatter.test.ts	74	it	handles throwing property getters	crates/elm-effect/src/json.rs:19 (pub enum Json) has no foreign-object variant, so a Proxy or a throwing getter cannot appear in the value being formatted
+not-applicable	packages/effect/test/Formatter.test.ts	85	it	handles hostile Proxies	crates/elm-effect/src/json.rs:19 (pub enum Json) has no foreign-object variant, so a Proxy or a throwing getter cannot appear in the value being formatted
+not-applicable	packages/effect/test/Formatter.test.ts	92	it	does not expose a value when redaction throws	the port has no redaction-report surface: crates/elm-effect-schema has no Redacted/redaction type, so there is nothing for a formatter to redact
 ported	packages/effect/test/Formatter.test.ts	103	it	array	format_primitives_and_nesting
-unported	packages/effect/test/Formatter.test.ts	107	it	circular array	
-unported	packages/effect/test/Formatter.test.ts	113	it	circular Map contents	
-unported	packages/effect/test/Formatter.test.ts	120	it	circular Set contents	
+not-applicable	packages/effect/test/Formatter.test.ts	107	it	circular array	crates/elm-effect/src/json.rs:19 (pub enum Json) is an acyclic tree — Obj and Arr OWN their children, so a value cannot refer back to itself and a cycle tracker has nothing to trace
+not-applicable	packages/effect/test/Formatter.test.ts	113	it	circular Map contents	crates/elm-effect/src/json.rs:19 (pub enum Json) is an acyclic tree — Obj and Arr OWN their children, so a value cannot refer back to itself and a cycle tracker has nothing to trace
+not-applicable	packages/effect/test/Formatter.test.ts	120	it	circular Set contents	crates/elm-effect/src/json.rs:19 (pub enum Json) is an acyclic tree — Obj and Arr OWN their children, so a value cannot refer back to itself and a cycle tracker has nothing to trace
 ported	packages/effect/test/Formatter.test.ts	127	it	object	format_primitives_and_nesting
-unported	packages/effect/test/Formatter.test.ts	134	it	circular object	
+not-applicable	packages/effect/test/Formatter.test.ts	134	it	circular object	crates/elm-effect/src/json.rs:19 (pub enum Json) is an acyclic tree — Obj and Arr OWN their children, so a value cannot refer back to itself and a cycle tracker has nothing to trace
 ported	packages/effect/test/Formatter.test.ts	140	it	preserves repeated non-circular references	format_primitives_and_nesting
-unported	packages/effect/test/Formatter.test.ts	145	it	object with null prototype	
-unported	packages/effect/test/Formatter.test.ts	150	it	function	
-unported	packages/effect/test/Formatter.test.ts	163	it	Error	
-unported	packages/effect/test/Formatter.test.ts	175	it	Date	
-unported	packages/effect/test/Formatter.test.ts	180	it	RegExp	
-unported	packages/effect/test/Formatter.test.ts	184	it	Set	
-unported	packages/effect/test/Formatter.test.ts	188	it	Map	
-unported	packages/effect/test/Formatter.test.ts	192	it	FormData	
-unported	packages/effect/test/Formatter.test.ts	198	it	Uint8Array	
-unported	packages/effect/test/Formatter.test.ts	203	it	Redacted	
-unported	packages/effect/test/Formatter.test.ts	207	it	Option	
-unported	packages/effect/test/Formatter.test.ts	218	it	Schema.Class	
-unported	packages/effect/test/Formatter.test.ts	225	it	Schema.Error	
-unported	packages/effect/test/Formatter.test.ts	232	it	Context.Service	
+not-applicable	packages/effect/test/Formatter.test.ts	145	it	object with null prototype	crates/elm-effect/src/json.rs:19 (pub enum Json) carries no method hooks; a host object's toString / toJSON is a JS dispatch the model has no slot for
+not-applicable	packages/effect/test/Formatter.test.ts	150	it	function	crates/elm-effect/src/json.rs:19 (pub enum Json) has no function variant; a value model cannot hold a closure
+not-applicable	packages/effect/test/Formatter.test.ts	163	it	Error	crates/elm-effect/src/json.rs:19 (pub enum Json) has no error variant; an Error's name, message and enumerable own properties are a JS object shape
+not-applicable	packages/effect/test/Formatter.test.ts	175	it	Date	crates/elm-effect/src/json.rs:19 (pub enum Json) has no date variant
+not-applicable	packages/effect/test/Formatter.test.ts	180	it	RegExp	crates/elm-effect/src/json.rs:19 (pub enum Json) has no regexp variant (crates/elm-effect/src/data/regexp.rs is a separate type)
+not-applicable	packages/effect/test/Formatter.test.ts	184	it	Set	crates/elm-effect/src/json.rs:19 (pub enum Json) has no set variant
+not-applicable	packages/effect/test/Formatter.test.ts	188	it	Map	crates/elm-effect/src/json.rs:19 (pub enum Json) has no map variant
+not-applicable	packages/effect/test/Formatter.test.ts	192	it	FormData	crates/elm-effect/src/json.rs:19 (pub enum Json) has no FormData variant; that is a browser platform type with no Rust analog
+not-applicable	packages/effect/test/Formatter.test.ts	198	it	Uint8Array	crates/elm-effect/src/json.rs:19 (pub enum Json) has no byte-array variant
+not-applicable	packages/effect/test/Formatter.test.ts	203	it	Redacted	the port has no redaction-report surface: crates/elm-effect-schema has no Redacted/redaction type, so there is nothing for a formatter to redact
+not-applicable	packages/effect/test/Formatter.test.ts	207	it	Option	crates/elm-effect/src/json.rs:19 (pub enum Json) has no Option variant; Some/None is a type-level distinction JSON cannot spell
+not-applicable	packages/effect/test/Formatter.test.ts	218	it	Schema.Class	crates/elm-effect/src/json.rs:19 (pub enum Json) has no class-instance variant; a Schema.Class instance carries methods and a prototype
+not-applicable	packages/effect/test/Formatter.test.ts	225	it	Schema.Error	crates/elm-effect/src/json.rs:19 (pub enum Json) has no error variant; a Schema.Error report is a typed object, not a JSON value
+not-applicable	packages/effect/test/Formatter.test.ts	232	it	Context.Service	crates/elm-effect/src/json.rs:19 (pub enum Json) has no service reference variant; that type lives in crates/elm-effect/src/context.rs and is not a Json
 ported	packages/effect/test/Formatter.test.ts	238	it	object	format_primitives_and_nesting
-unported	packages/effect/test/Formatter.test.ts	261	it	circular object	
-unported	packages/effect/test/Formatter.test.ts	273	it	object with null prototype	
-unported	packages/effect/test/Formatter.test.ts	282	it	should redact sensitive data	
-unported	packages/effect/test/Formatter.test.ts	287	it	redacts before specialized representations	
-unported	packages/effect/test/Formatter.test.ts	299	it	preserves formatting options for redacted representations	
-unported	packages/effect/test/Formatter.test.ts	316	it	tracks circular references through redacted representations	
+not-applicable	packages/effect/test/Formatter.test.ts	261	it	circular object	crates/elm-effect/src/json.rs:19 (pub enum Json) is an acyclic tree — Obj and Arr OWN their children, so a value cannot refer back to itself and a cycle tracker has nothing to trace
+not-applicable	packages/effect/test/Formatter.test.ts	273	it	object with null prototype	crates/elm-effect/src/json.rs:19 (pub enum Json) carries no method hooks; a host object's toString / toJSON is a JS dispatch the model has no slot for
+not-applicable	packages/effect/test/Formatter.test.ts	282	it	should redact sensitive data	the port has no redaction-report surface: crates/elm-effect-schema has no Redacted/redaction type, so there is nothing for a formatter to redact
+not-applicable	packages/effect/test/Formatter.test.ts	287	it	redacts before specialized representations	crates/elm-effect/src/json.rs:19 (pub enum Json) carries no method hooks; a host object's toString / toJSON is a JS dispatch the model has no slot for
+not-applicable	packages/effect/test/Formatter.test.ts	299	it	preserves formatting options for redacted representations	crates/elm-effect/src/json.rs:19 (pub enum Json) carries no method hooks; a host object's toString / toJSON is a JS dispatch the model has no slot for
+not-applicable	packages/effect/test/Formatter.test.ts	316	it	tracks circular references through redacted representations	crates/elm-effect/src/json.rs:19 (pub enum Json) is an acyclic tree — Obj and Arr OWN their children, so a value cannot refer back to itself and a cycle tracker has nothing to trace
 ported	packages/effect/test/Formatter.test.ts	326	it	returns valid JSON for undefined input	format_json_valid_output
-unported	packages/effect/test/Formatter.test.ts	330	it	should omit circular references	
+not-applicable	packages/effect/test/Formatter.test.ts	330	it	should omit circular references	crates/elm-effect/src/json.rs:19 (pub enum Json) is an acyclic tree — Obj and Arr OWN their children, so a value cannot refer back to itself and a cycle tracker has nothing to trace
 ported	packages/effect/test/Formatter.test.ts	336	it	preserves repeated non-circular references	format_primitives_and_nesting
-unported	packages/effect/test/Formatter.test.ts	341	it	should stringify BigInt values	
-unported	packages/effect/test/Formatter.test.ts	347	it	should serialize Error objects with name, message, and enumerable fields	
-unported	packages/effect/test/Formatter.test.ts	367	it	should keep structured serialization for Errors that define toJSON	
-unported	packages/effect/test/Formatter.test.ts	376	it	should redact sensitive data	
-unported	packages/effect/test/Formatter.test.ts	389	it	redacts before toJSON	
+not-applicable	packages/effect/test/Formatter.test.ts	341	it	should stringify BigInt values	crates/elm-effect/src/json.rs:19 (pub enum Json) has no arbitrary-precision integer variant (crates/elm-effect/src/data/bigint.rs is a separate type, not a Json variant)
+not-applicable	packages/effect/test/Formatter.test.ts	347	it	should serialize Error objects with name, message, and enumerable fields	crates/elm-effect/src/json.rs:19 (pub enum Json) has no error variant; an Error's name, message and enumerable own properties are a JS object shape
+not-applicable	packages/effect/test/Formatter.test.ts	367	it	should keep structured serialization for Errors that define toJSON	crates/elm-effect/src/json.rs:19 (pub enum Json) has no error variant; an Error's name, message and enumerable own properties are a JS object shape
+not-applicable	packages/effect/test/Formatter.test.ts	376	it	should redact sensitive data	the port has no redaction-report surface: crates/elm-effect-schema has no Redacted/redaction type, so there is nothing for a formatter to redact
+not-applicable	packages/effect/test/Formatter.test.ts	389	it	redacts before toJSON	crates/elm-effect/src/json.rs:19 (pub enum Json) carries no method hooks; a host object's toString / toJSON is a JS dispatch the model has no slot for
 ported	packages/effect/test/Formatter.test.ts	396	it	preserves plain objects as structured values	format_json_valid_output
-unported	packages/effect/test/Formatter.test.ts	405	it	should stringify BigInt values	
-unported	packages/effect/test/Formatter.test.ts	419	it	supports every value-bearing issue constructor	
-unported	packages/effect/test/Formatter.test.ts	447	it	reports input only when enabled	
-unported	packages/effect/test/Formatter.test.ts	472	it	distinguishes undefined input from missing input	
-unported	packages/effect/test/Formatter.test.ts	493	it	reports local inputs for structs	
-unported	packages/effect/test/Formatter.test.ts	518	it	reports filter input on parser-created issues	
-unported	packages/effect/test/Formatter.test.ts	533	it	allows user-provided transformations to report their input	
-unported	packages/effect/test/Formatter.test.ts	551	it	reports input from effectful checks	
-unported	packages/effect/test/Formatter.test.ts	567	it	does not infer input through a user-provided pointer	
-unported	packages/effect/test/Formatter.test.ts	583	it	reports input for union wrappers	
-unported	packages/effect/test/Formatter.test.ts	602	it	runtime reportInput overrides preset options and reaches nested schemas	
-unported	packages/effect/test/Formatter.test.ts	627	it.effect	distinguishes present undefined from absent input in forbidden	
-unported	packages/effect/test/Formatter.test.ts	642	it	formats reported inputs with the historical templates	
-unported	packages/effect/test/Formatter.test.ts	665	it	does not inherit input from wrappers	
-unported	packages/effect/test/Formatter.test.ts	688	it	uses expected annotations only for InvalidValue	
-unported	packages/effect/test/Formatter.test.ts	719	it	uses expected annotations in built-ins	
-unported	packages/effect/test/Formatter.test.ts	729	it	keeps Redacted input redacted	
-unported	packages/effect/test/Formatter.test.ts	742	it	preserves custom messages and hooks	
-unported	packages/effect/test/Formatter.test.ts	759	it	reports input in Standard Schema messages without adding an input field	
+not-applicable	packages/effect/test/Formatter.test.ts	405	it	should stringify BigInt values	crates/elm-effect/src/json.rs:19 (pub enum Json) has no arbitrary-precision integer variant (crates/elm-effect/src/data/bigint.rs is a separate type, not a Json variant)
+not-applicable	packages/effect/test/Formatter.test.ts	419	it	supports every value-bearing issue constructor	the port has no SchemaIssue surface: crates/elm-effect-schema has no issue-report type, and no SchemaIssue.{InvalidType,InvalidValue,Pointer,MissingKey} constructors or hasInput/formatIssue predicates for a formatter to render
+not-applicable	packages/effect/test/Formatter.test.ts	447	it	reports input only when enabled	the port has no SchemaIssue surface: crates/elm-effect-schema has no issue-report type, and no SchemaIssue.{InvalidType,InvalidValue,Pointer,MissingKey} constructors or hasInput/formatIssue predicates for a formatter to render
+not-applicable	packages/effect/test/Formatter.test.ts	472	it	distinguishes undefined input from missing input	the port has no SchemaIssue surface: crates/elm-effect-schema has no issue-report type, and no SchemaIssue.{InvalidType,InvalidValue,Pointer,MissingKey} constructors or hasInput/formatIssue predicates for a formatter to render
+not-applicable	packages/effect/test/Formatter.test.ts	493	it	reports local inputs for structs	the port has no SchemaIssue surface: crates/elm-effect-schema has no issue-report type, and no SchemaIssue.{InvalidType,InvalidValue,Pointer,MissingKey} constructors or hasInput/formatIssue predicates for a formatter to render
+not-applicable	packages/effect/test/Formatter.test.ts	518	it	reports filter input on parser-created issues	the port has no SchemaIssue surface: crates/elm-effect-schema has no issue-report type, and no SchemaIssue.{InvalidType,InvalidValue,Pointer,MissingKey} constructors or hasInput/formatIssue predicates for a formatter to render
+not-applicable	packages/effect/test/Formatter.test.ts	533	it	allows user-provided transformations to report their input	the port has no SchemaIssue surface: crates/elm-effect-schema has no issue-report type, and no SchemaIssue.{InvalidType,InvalidValue,Pointer,MissingKey} constructors or hasInput/formatIssue predicates for a formatter to render
+not-applicable	packages/effect/test/Formatter.test.ts	551	it	reports input from effectful checks	the port has no SchemaIssue surface: crates/elm-effect-schema has no issue-report type, and no SchemaIssue.{InvalidType,InvalidValue,Pointer,MissingKey} constructors or hasInput/formatIssue predicates for a formatter to render
+not-applicable	packages/effect/test/Formatter.test.ts	567	it	does not infer input through a user-provided pointer	the port has no SchemaIssue surface: crates/elm-effect-schema has no issue-report type, and no SchemaIssue.{InvalidType,InvalidValue,Pointer,MissingKey} constructors or hasInput/formatIssue predicates for a formatter to render
+not-applicable	packages/effect/test/Formatter.test.ts	583	it	reports input for union wrappers	the port has no SchemaIssue surface: crates/elm-effect-schema has no issue-report type, and no SchemaIssue.{InvalidType,InvalidValue,Pointer,MissingKey} constructors or hasInput/formatIssue predicates for a formatter to render
+not-applicable	packages/effect/test/Formatter.test.ts	602	it	runtime reportInput overrides preset options and reaches nested schemas	the port has no SchemaIssue surface: crates/elm-effect-schema has no issue-report type, so a parser has no issue for a reportInput option to override
+not-applicable	packages/effect/test/Formatter.test.ts	627	it.effect	distinguishes present undefined from absent input in forbidden	the port has no SchemaIssue surface: crates/elm-effect-schema has no issue-report type, and no SchemaIssue.{InvalidType,InvalidValue,Pointer,MissingKey} constructors or hasInput/formatIssue predicates for a formatter to render
+not-applicable	packages/effect/test/Formatter.test.ts	642	it	formats reported inputs with the historical templates	the port has no SchemaIssue surface: crates/elm-effect-schema has no issue-report type, and no SchemaIssue.{InvalidType,InvalidValue,Pointer,MissingKey} constructors or hasInput/formatIssue predicates for a formatter to render
+not-applicable	packages/effect/test/Formatter.test.ts	665	it	does not inherit input from wrappers	the port has no SchemaIssue surface: crates/elm-effect-schema has no issue-report type, and no SchemaIssue.{InvalidType,InvalidValue,Pointer,MissingKey} constructors or hasInput/formatIssue predicates for a formatter to render
+not-applicable	packages/effect/test/Formatter.test.ts	688	it	uses expected annotations only for InvalidValue	the port has no SchemaIssue surface: crates/elm-effect-schema has no issue-report type, and no SchemaIssue.{InvalidType,InvalidValue,Pointer,MissingKey} constructors or hasInput/formatIssue predicates for a formatter to render
+not-applicable	packages/effect/test/Formatter.test.ts	719	it	uses expected annotations in built-ins	the port has no SchemaIssue surface: crates/elm-effect-schema has no issue-report type, and no SchemaIssue.{InvalidType,InvalidValue,Pointer,MissingKey} constructors or hasInput/formatIssue predicates for a formatter to render
+not-applicable	packages/effect/test/Formatter.test.ts	729	it	keeps Redacted input redacted	the port has no SchemaIssue surface: crates/elm-effect-schema has no issue-report type, and no SchemaIssue.{InvalidType,InvalidValue,Pointer,MissingKey} constructors or hasInput/formatIssue predicates for a formatter to render
+not-applicable	packages/effect/test/Formatter.test.ts	742	it	preserves custom messages and hooks	the port has no SchemaIssue surface: crates/elm-effect-schema has no issue-report type, and no SchemaIssue.{InvalidType,InvalidValue,Pointer,MissingKey} constructors or hasInput/formatIssue predicates for a formatter to render
+not-applicable	packages/effect/test/Formatter.test.ts	759	it	reports input in Standard Schema messages without adding an input field	the port has no SchemaIssue surface: crates/elm-effect-schema has no issue-report type, and no SchemaIssue.{InvalidType,InvalidValue,Pointer,MissingKey} constructors or hasInput/formatIssue predicates for a formatter to render
 unported	packages/effect/test/Function.test.ts	7	it	arity 2 - data-first	
 unported	packages/effect/test/Function.test.ts	15	it	arity 2 - data-last	
 unported	packages/effect/test/Function.test.ts	23	it	arity 3 - data-first	
@@ -9295,13 +9295,13 @@ unported	packages/effect/test/schema/toCodec.test.ts	539	it	Symbol with a multil
 unported	packages/effect/test/schema/toCodec.test.ts	547	it	local UniqueSymbol	
 unported	packages/effect/test/schema/toCodec.test.ts	558	it	BigInt	
 unported	packages/effect/test/schema/toCodec.test.ts	569	it	PropertyKey	
-unported	packages/effect/test/schema/toCodec.test.ts	585	it	string	
-unported	packages/effect/test/schema/toCodec.test.ts	596	it	number	
-unported	packages/effect/test/schema/toCodec.test.ts	607	it	boolean	
+ported	packages/effect/test/schema/toCodec.test.ts	585	it	string	codec_literal_string_round_trips
+ported	packages/effect/test/schema/toCodec.test.ts	596	it	number	codec_literal_number_round_trips
+ported	packages/effect/test/schema/toCodec.test.ts	607	it	boolean	codec_literal_boolean_round_trips
 unported	packages/effect/test/schema/toCodec.test.ts	618	it	bigint	
 unported	packages/effect/test/schema/toCodec.test.ts	630	it	Literals	
-unported	packages/effect/test/schema/toCodec.test.ts	642	it	1n + string	
-unported	packages/effect/test/schema/toCodec.test.ts	653	it	a	
+ported	packages/effect/test/schema/toCodec.test.ts	642	it	1n + string	codec_template_literal_bigint_then_string_round_trips
+ported	packages/effect/test/schema/toCodec.test.ts	653	it	a	codec_template_literal_string_then_bigint_round_trips
 unported	packages/effect/test/schema/toCodec.test.ts	665	it	Enum	
 ported	packages/effect/test/schema/toCodec.test.ts	683	it	Date	codec_date_bare_struct_tuple_json
 ported	packages/effect/test/schema/toCodec.test.ts	696	it	UndefinedOr(Date)	codec_optional_date_json_shapes
@@ -9315,10 +9315,10 @@ ported	packages/effect/test/schema/toCodec.test.ts	821	it	UndefinedOr(Date)	code
 ported	packages/effect/test/schema/toCodec.test.ts	839	it	NullOr(Date)	codec_optional_date_json_shapes
 ported	packages/effect/test/schema/toCodec.test.ts	856	it	optionalKey(Date)	codec_optional_date_json_shapes
 ported	packages/effect/test/schema/toCodec.test.ts	873	it	optional(Date)	codec_optional_date_json_shapes
-unported	packages/effect/test/schema/toCodec.test.ts	893	it	Array(Date)	
-unported	packages/effect/test/schema/toCodec.test.ts	905	it	NullOr(String)	
-unported	packages/effect/test/schema/toCodec.test.ts	918	it	NullOr(Number)	
-unported	packages/effect/test/schema/toCodec.test.ts	931	it	Array(NullOr(Number))	
+ported	packages/effect/test/schema/toCodec.test.ts	893	it	Array(Date)	codec_array_of_date_round_trips
+ported	packages/effect/test/schema/toCodec.test.ts	905	it	NullOr(String)	codec_null_or_string_round_trips
+ported	packages/effect/test/schema/toCodec.test.ts	918	it	NullOr(Number)	codec_null_or_number_round_trips
+ported	packages/effect/test/schema/toCodec.test.ts	931	it	Array(NullOr(Number))	codec_array_of_null_or_number_round_trips
 unported	packages/effect/test/schema/toCodec.test.ts	942	it	Union(Schema.Date, Finite)	
 unported	packages/effect/test/schema/toCodec.test.ts	955	it	Suspend	
 unported	packages/effect/test/schema/toCodec.test.ts	995	it	Class	
