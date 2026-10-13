@@ -56,6 +56,22 @@ the phase-13 gate).
   fallback: a wider rule that claims a module turns the ledger greener without
   making the mapping true.
 
+## Resolved (2026-10-13)
+
+The owner took the middle option, narrowed to what the pin's paths can prove:
+the name and the import must agree. `inventory.sh` gains a third route, a test
+that sits in a directory named after a module it imports by that same path
+(`test/ai/McpServer/**` with `from "effect/ai/McpServer"`), which links 8 of the
+88. The other 80 are recorded in `conformance/unowned-tests.tsv` with the
+reason each fails the route, and `conformance/link-integrity.py` now fails when
+an open-row file is in neither set, when a listed file becomes linked, or when
+a listed file stops carrying open rows.
+
+Fact 2 above needs correcting: none of the 88 imports a literal `/src/` path,
+which is what that check grepped for, but every one names a module through a
+package subpath. Reading imports is evidence of what a test touches, never of
+which module it is about, which is why the route needs the name to agree.
+
 ## Related
 
 `2026-10-10-conformance-linking-and-loop-dispatch.md` covered the first round
