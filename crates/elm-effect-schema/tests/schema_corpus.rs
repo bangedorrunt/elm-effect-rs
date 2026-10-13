@@ -1911,5 +1911,457 @@ fn json_schema_document_property_names_rows_carry_their_code_and_type() {
     let never = Schema::<Unknown>::from_json_schema(&serde_json::json!(false)).expect("imports");
     assert_eq!(never.to_code(), "Schema.Never");
     let any = Schema::<Unknown>::from_json_schema(&serde_json::json!(true)).expect("imports");
-    assert_eq!(any.to_code(), r#"Schema.Json.annotate({ "expected": "JSON value" })"#);
+    assert_eq!(
+        any.to_code(),
+        r#"Schema.Json.annotate({ "expected": "JSON value" })"#
+    );
+}
+
+#[test]
+fn json_schema_document_string_checks_count_code_points_and_integers_stay_safe() {
+    // fromJsonSchemaDocument.test.ts:82 — the row's table drives `Schema.is`
+    // over the imported schema. Its law is the counting: `minLength` other
+    // than 1 and `maxLength` count code points, so a two-code-unit emoji is
+    // one code point and a base plus combining mark is two, while `integer`
+    // is a safe integer rather than any integral double.
+    use elm_effect_schema::{Schema, Unknown};
+
+    fn accepts(doc: &serde_json::Value, input: Unknown) -> bool {
+        Schema::<Unknown>::from_json_schema(doc)
+            .expect("imports")
+            .decode(input)
+            .is_ok()
+    }
+
+    let smiley = Unknown::Text("\u{1F600}".to_string());
+    let combining = Unknown::Text("e\u{0301}".to_string());
+    // Rust cannot hold an unpaired surrogate, so the pin's lone-surrogate
+    // inputs arrive as the lossy replacement character: one code point, which
+    // is the count the row's two expectations turn on.
+    let lone_surrogate = Unknown::Text(String::from_utf16_lossy(&[0xD800]));
+    let accent = Unknown::Text("\u{00E9}".to_string());
+    let empty = Unknown::Text(String::new());
+    let one = Unknown::Text("a".to_string());
+    for (doc, input, expected) in [
+        (
+            serde_json::json!({"type": "string", "minLength": 2}),
+            smiley.clone(),
+            false,
+        ),
+        (
+            serde_json::json!({"type": "string", "maxLength": 1}),
+            smiley.clone(),
+            true,
+        ),
+        (
+            serde_json::json!({"type": "string", "minLength": 1}),
+            smiley.clone(),
+            true,
+        ),
+        (
+            serde_json::json!({"type": "string", "minLength": 1}),
+            empty.clone(),
+            false,
+        ),
+        (
+            serde_json::json!({"type": "string", "maxLength": 0}),
+            empty.clone(),
+            true,
+        ),
+        (
+            serde_json::json!({"type": "string", "maxLength": 0}),
+            one.clone(),
+            false,
+        ),
+        (
+            serde_json::json!({"type": "string", "minLength": 2}),
+            accent.clone(),
+            false,
+        ),
+        (
+            serde_json::json!({"type": "string", "maxLength": 1}),
+            accent.clone(),
+            true,
+        ),
+        (
+            serde_json::json!({"type": "string", "minLength": 2}),
+            combining.clone(),
+            true,
+        ),
+        (
+            serde_json::json!({"type": "string", "maxLength": 1}),
+            combining.clone(),
+            false,
+        ),
+        (
+            serde_json::json!({"type": "string", "minLength": 2}),
+            lone_surrogate.clone(),
+            false,
+        ),
+        (
+            serde_json::json!({"type": "string", "maxLength": 1}),
+            lone_surrogate.clone(),
+            true,
+        ),
+        (
+            serde_json::json!({"type": "integer"}),
+            Unknown::Number(1e20),
+            false,
+        ),
+        (
+            serde_json::json!({"type": "integer"}),
+            Unknown::Number(1.0),
+            true,
+        ),
+        (
+            serde_json::json!({"type": "string", "pattern": "^.$"}),
+            smiley.clone(),
+            true,
+        ),
+    ] {
+        assert_eq!(
+            accepts(&doc, input),
+            expected,
+            "the row's table entry did not match for {doc:?}"
+        );
+    }
+}
+
+#[test]
+fn json_schema_document_string_refinements_filter_enum_members_and_patterns_match_a_code_point() {
+    // fromJsonSchemaDocument.test.ts:106 — an imported string refinement is
+    // applied to the exact values an `enum` or `const` names, in code points:
+    // the two-code-unit emoji drops out of a two-code-point enum and the
+    // one-code-point pattern accepts it.
+    use elm_effect_schema::{Schema, Unknown};
+
+    let min_length = Schema::<Unknown>::from_json_schema(&serde_json::json!({
+        "enum": ["\u{1F600}", "e\u{0301}"],
+        "minLength": 2
+    }))
+    .expect("imports");
+    assert!(
+        min_length
+            .decode(Unknown::Text("e\u{0301}".to_string()))
+            .is_ok()
+    );
+    assert!(
+        min_length
+            .decode(Unknown::Text("\u{1F600}".to_string()))
+            .is_err()
+    );
+
+    let pattern = Schema::<Unknown>::from_json_schema(&serde_json::json!({
+        "const": "\u{1F600}",
+        "pattern": "^.$"
+    }))
+    .expect("imports");
+    assert!(
+        pattern
+            .decode(Unknown::Text("\u{1F600}".to_string()))
+            .is_ok()
+    );
+}
+
+#[test]
+fn json_schema_document_refuses_a_pattern_outside_ecmascript_unicode_mode() {
+    // fromJsonSchemaDocument.test.ts:119 — a pattern ECMAScript Unicode mode
+    // rejects is a typed import failure naming the keyword's path, not an
+    // unenforced check the caller only discovers later.
+    use elm_effect_schema::{Schema, Unknown};
+
+    // `Schema` carries no `Debug`, so the refusal is matched rather than
+    // `expect_err`ed.
+    let Err(error) = Schema::<Unknown>::from_json_schema(&serde_json::json!({
+        "type": "string",
+        "pattern": "\\a"
+    })) else {
+        panic!("a pattern outside ECMAScript Unicode mode must refuse the import")
+    };
+    let printed = format!("{error}");
+    assert!(
+        printed.contains("Cannot import pattern using ECMAScript Unicode mode"),
+        "{printed}"
+    );
+    assert!(printed.contains("pattern"), "{printed}");
+}
+
+#[test]
+fn json_schema_document_min_length_imports_as_code_points_unless_it_is_one() {    // fromJsonSchemaDocument.test.ts:82 — the pin's rule for `minLength` is
+    // that 1 stays `isMinLength` (the non-empty case) and every other value
+    // becomes `isMinCodePoints`, so the code names which was chosen.
+    use elm_effect_schema::{Schema, Unknown};
+
+    for (doc, code) in [
+        (
+            serde_json::json!({"type": "string", "minLength": 1}),
+            r#"Schema.String.check(Schema.isMinLength(1).annotate({ "expected": "a value with a length of at least 1" }))"#,
+        ),
+        (
+            serde_json::json!({"type": "string", "minLength": 2}),
+            r#"Schema.String.check(Schema.isMinCodePoints(2).annotate({ "expected": "a string with at least 2 code points" }))"#,
+        ),
+        (
+            serde_json::json!({"type": "string", "minLength": 0}),
+            r#"Schema.String.check(Schema.isMinCodePoints(0).annotate({ "expected": "a string with at least 0 code points" }))"#,
+        ),
+    ] {
+        let schema = Schema::<Unknown>::from_json_schema(&doc).expect("imports");
+        assert_eq!(schema.to_code(), code, "code for {doc:?}");
+    }
+}
+
+#[test]
+fn json_schema_document_refuses_structured_const_and_enum_members() {    // fromJsonSchemaDocument.test.ts:220 and :1134 — a `const` or an `enum`
+    // member that is an object or an array has no literal form, so the import
+    // refuses it naming the keyword and the member's index. An `enum` beside a
+    // `const` is still checked, and its own index is the one reported.
+    use elm_effect_schema::{Schema, Unknown};
+
+    for doc in [
+        serde_json::json!({"const": {}}),
+        serde_json::json!({"const": []}),
+    ] {
+        let Err(error) = Schema::<Unknown>::from_json_schema(&doc) else {
+            panic!("a structured const must refuse the import: {doc:?}")
+        };
+        let printed = format!("{error}");
+        assert!(
+            printed.contains("only primitive values are supported in \"const\" and \"enum\""),
+            "{printed}"
+        );
+        assert!(printed.contains("$.const"), "{printed}");
+    }
+    for doc in [
+        serde_json::json!({"enum": ["a", {}]}),
+        serde_json::json!({"enum": ["a", []]}),
+        serde_json::json!({"enum": ["a", {"not": "data"}]}),
+    ] {
+        let Err(error) = Schema::<Unknown>::from_json_schema(&doc) else {
+            panic!("a structured enum member must refuse the import: {doc:?}")
+        };
+        let printed = format!("{error}");
+        assert!(
+            printed.contains("only primitive values are supported in \"const\" and \"enum\""),
+            "{printed}"
+        );
+        assert!(printed.contains("$.enum[1]"), "{printed}");
+    }
+    // The `const` is a primitive, so it is the `enum` member that refuses.
+    let Err(error) = Schema::<Unknown>::from_json_schema(&serde_json::json!({
+        "const": "a",
+        "enum": [{}]
+    })) else {
+        panic!("a structured enum member must refuse the import beside a const")
+    };
+    assert!(format!("{error}").contains("$.enum[0]"), "{error}");
+}
+
+#[test]
+fn json_schema_document_preserves_never_in_items_prefix_items_and_union_members() {
+    // fromJsonSchemaDocument.test.ts:58 — `not: {}` is `never`, and a `never`
+    // stays a `never` wherever the document puts it: an array's element, a
+    // prefix tuple's optional leading element, and a union member that itself
+    // admits nothing.
+    use elm_effect_schema::{Schema, Unknown};
+
+    let items = Schema::<Unknown>::from_json_schema(&serde_json::json!({
+        "type": "array",
+        "items": {"not": {}}
+    }))
+    .expect("imports");
+    assert_eq!(items.to_code(), "Schema.Array(Schema.Never)");
+    assert_eq!(items.to_type(), "ReadonlyArray<never>");
+
+    let prefix = Schema::<Unknown>::from_json_schema(&serde_json::json!({
+        "type": "array",
+        "prefixItems": [{"not": {}}]
+    }))
+    .expect("imports");
+    assert_eq!(
+        prefix.to_code(),
+        r#"Schema.TupleWithRest(Schema.Tuple([Schema.optionalKey(Schema.Never)]), [Schema.Json.annotate({ "expected": "JSON value" })])"#
+    );
+    assert_eq!(prefix.to_type(), "readonly [(never)?, ...Array<Schema.Json>]");
+
+    let any_of = Schema::<Unknown>::from_json_schema(&serde_json::json!({
+        "anyOf": [{"not": {}}, {"type": "string"}]
+    }))
+    .expect("imports");
+    assert_eq!(any_of.to_code(), "Schema.Union([Schema.Never, Schema.String])");
+    assert_eq!(any_of.to_type(), "never | string");
+
+    let one_of = Schema::<Unknown>::from_json_schema(&serde_json::json!({
+        "oneOf": [{"not": {}}, {"type": "string"}]
+    }))
+    .expect("imports");
+    assert_eq!(
+        one_of.to_code(),
+        r#"Schema.Union([Schema.Never, Schema.String], { mode: "oneOf" })"#
+    );
+}
+
+#[test]
+fn json_schema_document_keeps_annotation_only_documents_unconstrained() {    // fromJsonSchemaDocument.test.ts:177 — a document carrying only
+    // annotations constrains nothing, so the schema is the open JSON value
+    // with those annotations riding it, `expected` first.
+    use elm_effect_schema::{Schema, Unknown};
+
+    let schema = Schema::<Unknown>::from_json_schema(&serde_json::json!({"format": "email"}))
+        .expect("imports");
+    assert_eq!(
+        schema.to_code(),
+        r#"Schema.Json.annotate({ "expected": "JSON value", "format": "email" })"#
+    );
+    assert_eq!(schema.to_type(), "Schema.Json");
+}
+
+#[test]
+fn json_schema_document_integer_and_array_checks_carry_their_code_and_type() {
+    // fromJsonSchemaDocument.test.ts's `type: integer` and `type: array`
+    // `checks` groups: :488, :500, :512, :524, :536, :681, :693, :705, :717.
+    // An integer stacks `isInt` under the same bound checks a plain number
+    // takes, and an array's size and uniqueness checks are the length and
+    // uniqueness filters the pin names. `uniqueItems: false` adds nothing,
+    // which is the row that says so.
+    use elm_effect_schema::{Schema, Unknown};
+
+    let cases: Vec<(serde_json::Value, &str, &str)> = vec![
+        (
+            serde_json::json!({"type": "integer", "minimum": 1}),
+            r#"Schema.Number.check(Schema.isInt().annotate({ "expected": "an integer" })).check(Schema.isGreaterThanOrEqualTo(1).annotate({ "expected": "a value greater than or equal to 1" }))"#,
+            "number",
+        ),
+        (
+            serde_json::json!({"type": "integer", "maximum": 1}),
+            r#"Schema.Number.check(Schema.isInt().annotate({ "expected": "an integer" })).check(Schema.isLessThanOrEqualTo(1).annotate({ "expected": "a value less than or equal to 1" }))"#,
+            "number",
+        ),
+        (
+            serde_json::json!({"type": "integer", "exclusiveMinimum": 1}),
+            r#"Schema.Number.check(Schema.isInt().annotate({ "expected": "an integer" })).check(Schema.isGreaterThan(1).annotate({ "expected": "a value greater than 1" }))"#,
+            "number",
+        ),
+        (
+            serde_json::json!({"type": "integer", "exclusiveMaximum": 1}),
+            r#"Schema.Number.check(Schema.isInt().annotate({ "expected": "an integer" })).check(Schema.isLessThan(1).annotate({ "expected": "a value less than 1" }))"#,
+            "number",
+        ),
+        (
+            serde_json::json!({"type": "integer", "multipleOf": 1}),
+            r#"Schema.Number.check(Schema.isInt().annotate({ "expected": "an integer" })).check(Schema.isMultipleOf(1).annotate({ "expected": "a value that is a multiple of 1" }))"#,
+            "number",
+        ),
+        (
+            serde_json::json!({"type": "array", "minItems": 1}),
+            r#"Schema.Array(Schema.Json.annotate({ "expected": "JSON value" })).check(Schema.isMinLength(1).annotate({ "expected": "a value with a length of at least 1" }))"#,
+            "ReadonlyArray<Schema.Json>",
+        ),
+        (
+            serde_json::json!({"type": "array", "maxItems": 1}),
+            r#"Schema.Array(Schema.Json.annotate({ "expected": "JSON value" })).check(Schema.isMaxLength(1).annotate({ "expected": "a value with a length of at most 1" }))"#,
+            "ReadonlyArray<Schema.Json>",
+        ),
+        (
+            serde_json::json!({"type": "array", "uniqueItems": true}),
+            r#"Schema.Array(Schema.Json.annotate({ "expected": "JSON value" })).check(Schema.isUnique().annotate({ "expected": "an array with unique items" }))"#,
+            "ReadonlyArray<Schema.Json>",
+        ),
+        (
+            serde_json::json!({"type": "array", "uniqueItems": false}),
+            r#"Schema.Array(Schema.Json.annotate({ "expected": "JSON value" }))"#,
+            "ReadonlyArray<Schema.Json>",
+        ),
+    ];
+
+    for (doc, code, ty) in cases {
+        let schema = Schema::<Unknown>::from_json_schema(&doc).expect("imports");
+        assert_eq!(schema.to_code(), code, "code for {doc:?}");
+        assert_eq!(schema.to_type(), ty, "type for {doc:?}");
+    }
+}
+
+#[test]
+fn json_schema_document_round_trips_an_optional_never_property() {
+    // fromJsonSchemaDocument.test.ts:22 (#8137) — a struct field typed
+    // `optionalKey(Never)` survives the trip out to a JSON Schema document and
+    // back as an exact optional whose inner schema is still `never`, and the
+    // object stays open the way the document said.
+    use elm_effect_schema::{Field, Schema, Unknown};
+    use std::collections::BTreeMap;
+
+    let original = Schema::<BTreeMap<String, Unknown>>::struct_shape(vec![Field::optional_key(
+        "value",
+        Schema::as_unknown(Schema::never()),
+    )]);
+    let imported = Schema::<Unknown>::from_json_schema(&original.json_schema()).expect("imports");
+    assert_eq!(
+        imported.to_code(),
+        r#"Schema.StructWithRest(Schema.Struct({ "value": Schema.optionalKey(Schema.Never) }), [Schema.Record(Schema.String, Schema.Json.annotate({ "expected": "JSON value" }))])"#
+    );
+    // The field is an exact optional, so an absent key decodes and a present
+    // one still has to satisfy `never`.
+    assert!(imported
+        .decode(Unknown::Object(BTreeMap::new()))
+        .is_ok());
+}
+
+#[test]
+fn json_schema_document_builds_unions_from_any_of_and_one_of() {
+    // fromJsonSchemaDocument.test.ts:275, :304 — a bare `anyOf` is a union of
+    // its members and a bare `oneOf` is the same union carrying its mode, so
+    // the repr prints the options only for the mode that departs from the
+    // default.
+    use elm_effect_schema::{Schema, Unknown};
+
+    let any_of = Schema::<Unknown>::from_json_schema(&serde_json::json!({
+        "anyOf": [{"const": "a"}, {"enum": [1, 2]}]
+    }))
+    .expect("imports");
+    assert_eq!(
+        any_of.to_code(),
+        r#"Schema.Union([Schema.Literal("a"), Schema.Literals([1, 2])])"#
+    );
+    assert_eq!(any_of.to_type(), "\"a\" | 1 | 2");
+
+    let one_of = Schema::<Unknown>::from_json_schema(&serde_json::json!({
+        "oneOf": [{"const": "a"}, {"enum": [1, 2]}]
+    }))
+    .expect("imports");
+    assert_eq!(
+        one_of.to_code(),
+        r#"Schema.Union([Schema.Literal("a"), Schema.Literals([1, 2])], { mode: "oneOf" })"#
+    );
+}
+
+#[test]
+fn json_schema_document_refuses_a_union_beside_constraining_keywords() {
+    // fromJsonSchemaDocument.test.ts:282, :316 — the keywords around an
+    // `anyOf` or a `oneOf` intersect it, and the pin's rule distributes: each
+    // union lane is pruned against the sibling, so the `id` property the
+    // surrounding object requires lands in both members. The port carries no
+    // lane pruning yet, so it refuses the document rather than dropping the
+    // member's own constraints to produce a wrong schema.
+    use elm_effect_schema::{Schema, Unknown};
+
+    for keyword in ["anyOf", "oneOf"] {
+        let doc = serde_json::json!({
+            "type": "object",
+            "properties": {"id": {"type": "string"}},
+            "required": ["id"],
+            keyword: [
+                {"properties": {"a": {"type": "string"}}, "required": ["a"]},
+                {"properties": {"b": {"type": "number"}}, "required": ["b"]}
+            ]
+        });
+        let Err(error) = Schema::<Unknown>::from_json_schema(&doc) else {
+            panic!("a union beside constraining keywords must refuse the import: {keyword}")
+        };
+        let printed = format!("{error}");
+        assert!(
+            printed.contains("lane pruning this port does not carry"),
+            "{printed}"
+        );
+        assert!(printed.contains(&format!("$.{keyword}")), "{printed}");
+    }
 }

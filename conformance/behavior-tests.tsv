@@ -8627,34 +8627,34 @@ unported	packages/effect/test/schema/representation/fromJson.test.ts	416	it	does
 unported	packages/effect/test/schema/representation/fromJsonMultiDocument.test.ts	6	it	decodes every root in order	
 unported	packages/effect/test/schema/representation/fromJsonMultiDocument.test.ts	28	it	decodes shared references	
 unported	packages/effect/test/schema/representation/fromJsonMultiDocument.test.ts	42	it	rejects an empty roots array	
-unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	22	it	round-trips optional Never properties (#8137)	
-unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	33	it	imports not-empty schemas at the root and through references	
-unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	58	it	preserves Never in array items and union members	
-unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	82	it	imports string lengths by code point and integers as safe integers	
-unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	106	it	uses imported string semantics while intersecting primitive literals	
-unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	119	it	reports patterns unsupported in ECMAScript Unicode mode	
+ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	22	it	round-trips optional Never properties (#8137)	json_schema_document_round_trips_an_optional_never_property
+not-applicable	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	33	it	imports not-empty schemas at the root and through references	the row imports a not-empty schema at the root and again through a $ref naming a $defs entry, which the code document reports in its nonRecursives table; this port import refuses $ref outright and builds no references table
+ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	58	it	preserves Never in array items and union members	json_schema_document_preserves_never_in_items_prefix_items_and_union_members
+ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	82	it	imports string lengths by code point and integers as safe integers	json_schema_document_string_checks_count_code_points_and_integers_stay_safe
+ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	106	it	uses imported string semantics while intersecting primitive literals	json_schema_document_string_refinements_filter_enum_members_and_patterns_match_a_code_point
+ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	119	it	reports patterns unsupported in ECMAScript Unicode mode	json_schema_document_refuses_a_pattern_outside_ecmascript_unicode_mode
 ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	152	it	unconstrained schema	json_schema_unconstrained_imports_as_any
-unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	177	it	keeps annotation-only schemas unconstrained	
+ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	177	it	keeps annotation-only schemas unconstrained	json_schema_document_keeps_annotation_only_documents_unconstrained
 ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	184	it	string literal	json_schema_single_member_enum
 ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	195	it	const: literal (number)	json_schema_const_numbers_and_booleans
 ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	202	it	const: literal (boolean)	json_schema_const_numbers_and_booleans
 ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	209	it	null literal	json_schema_null_and_typed_imports
-unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	220	it	rejects structured values	
+ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	220	it	rejects structured values	json_schema_document_refuses_structured_const_and_enum_members
 ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	231	it	single string member	json_schema_single_member_enum
 ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	242	it	single enum (number)	json_schema_single_member_enums
 ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	249	it	single enum (boolean)	json_schema_single_member_enums
 ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	256	it	multiple literal members	json_schema_const_and_enum_import_as_literals
 ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	267	it	enum containing null	json_schema_document_literal_refinement_rows_carry_their_code_and_type
-unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	275	it	anyOf	
-unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	282	it	anyOf with siblings	
-unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	304	it	oneOf	
-unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	316	it	oneOf with siblings	
+ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	275	it	anyOf	json_schema_document_builds_unions_from_any_of_and_one_of
+not-applicable	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	282	it	anyOf with siblings	the row intersects the keywords around the union with the union itself, so the required id the surrounding object declares lands in both members; the port carries no union lane pruning, which is also what the allOf union family needs
+ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	304	it	oneOf	json_schema_document_builds_unions_from_any_of_and_one_of
+not-applicable	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	316	it	oneOf with siblings	the row intersects the keywords around the union with the union itself, so the required id the surrounding object declares lands in both members; the port carries no union lane pruning, which is also what the allOf union family needs
 ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	339	it	type only	json_schema_document_type_only_rows_carry_their_code_and_type
 ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	348	it	type only	json_schema_document_type_only_rows_carry_their_code_and_type
 ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	356	it	minLength	json_schema_document_refinement_rows_carry_their_code_and_type
 ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	368	it	maxLength	json_schema_document_refinement_rows_carry_their_code_and_type
 ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	380	it	pattern with an explicit string type	json_schema_document_object_checks_carry_their_code_and_type
-unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	392	it	pattern only constrains strings	
+not-applicable	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	392	it	pattern only constrains strings	the row imports a typeless document that carries a string keyword as a union of the six JSON value types with the pattern on the string lane alone; this port imports a typeless document as the annotated open JSON value, so there are no lanes to put the pattern on, and building the six-type union is what the typeless-keyword family needs
 ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	404	it	type only	json_schema_document_refinement_rows_carry_their_code_and_type
 ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	417	it	minimum	json_schema_document_refinement_rows_carry_their_code_and_type
 ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	429	it	maximum	json_schema_document_refinement_rows_carry_their_code_and_type
@@ -8662,11 +8662,11 @@ ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts
 ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	453	it	exclusiveMaximum	json_schema_document_refinement_rows_carry_their_code_and_type
 ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	465	it	multipleOf	json_schema_document_refinement_rows_carry_their_code_and_type
 ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	480	it	type only	json_schema_document_refinement_rows_carry_their_code_and_type
-unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	488	it	minimum	
-unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	500	it	maximum	
-unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	512	it	exclusiveMinimum	
-unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	524	it	exclusiveMaximum	
-unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	536	it	multipleOf	
+ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	488	it	minimum	json_schema_document_integer_and_array_checks_carry_their_code_and_type
+ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	500	it	maximum	json_schema_document_integer_and_array_checks_carry_their_code_and_type
+ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	512	it	exclusiveMinimum	json_schema_document_integer_and_array_checks_carry_their_code_and_type
+ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	524	it	exclusiveMaximum	json_schema_document_integer_and_array_checks_carry_their_code_and_type
+ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	536	it	multipleOf	json_schema_document_integer_and_array_checks_carry_their_code_and_type
 ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	551	it	type only	json_schema_document_type_only_rows_carry_their_code_and_type
 unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	560	it	type only	
 unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	572	it	items	
@@ -8676,10 +8676,10 @@ ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts
 ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	634	it	prefixItems closes when maxItems equals the prefix length	json_schema_document_prefix_items_rows_carry_their_code_and_type
 ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	647	it	prefixItems marks elements required by minItems	json_schema_document_prefix_items_rows_carry_their_code_and_type
 ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	661	it	prefixItems & minItems	json_schema_document_prefix_items_rows_carry_their_code_and_type
-unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	681	it	minItems	
-unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	693	it	maxItems	
-unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	705	it	uniqueItems	
-unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	717	it	does not require uniqueness when uniqueItems is false	
+ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	681	it	minItems	json_schema_document_integer_and_array_checks_carry_their_code_and_type
+ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	693	it	maxItems	json_schema_document_integer_and_array_checks_carry_their_code_and_type
+ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	705	it	uniqueItems	json_schema_document_integer_and_array_checks_carry_their_code_and_type
+ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	717	it	does not require uniqueness when uniqueItems is false	json_schema_document_integer_and_array_checks_carry_their_code_and_type
 unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	729	it	delegates excess properties of closed structs to ParseOptions	
 unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	748	it	preserves JSON-valued additional properties for every open form	
 unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	766	it	runs property checks after stripping excess properties	
@@ -8703,7 +8703,7 @@ ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts
 ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1086	it	allOf combines checks	json_schema_document_property_names_rows_carry_their_code_and_type
 unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1107	it	array of types	
 unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1127	it	ignores true schemas in allOf	
-unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1134	it	rejects structured enum members	
+ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1134	it	rejects structured enum members	json_schema_document_refuses_structured_const_and_enum_members
 unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1147	it	imports built-in JSON Schema annotations	
 unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1168	it	rejects local references inside nested resources	
 unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1199	it	keeps root ids and nested resources without references supported	

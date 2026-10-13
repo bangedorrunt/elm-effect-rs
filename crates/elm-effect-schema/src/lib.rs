@@ -561,8 +561,31 @@ impl SchemaKind {
         })
     }
 
-    fn to_json_schema(&self) -> serde_json::Value {
-        match self {
+    /// The document for a struct built from a runtime field list, whose fields
+    /// live beside the kind rather than inside it. An `optionalKey` field is a
+    /// property the `required` list leaves out, which is the only way a JSON
+    /// Schema document can say the key may be absent while an explicit null
+    /// still decodes.
+    fn struct_document_from_fields(fields: &[Field]) -> serde_json::Value {
+        let mut properties = serde_json::Map::new();
+        let mut required: Vec<serde_json::Value> = Vec::new();
+        for field in fields {
+            properties.insert(
+                field.name.clone(),
+                field.schema.repr_kind().to_json_schema(),
+            );
+            if field.optionality() == Optionality::Required {
+                required.push(serde_json::Value::String(field.name.clone()));
+            }
+        }
+        serde_json::json!({
+            "type": "object",
+            "properties": serde_json::Value::Object(properties),
+            "required": required,
+        })
+    }
+
+    fn to_json_schema(&self) -> serde_json::Value {        match self {
             SchemaKind::String => serde_json::json!({"type": "string"}),
             SchemaKind::Number => serde_json::json!({"type": "number"}),
             SchemaKind::Boolean => serde_json::json!({"type": "boolean"}),
@@ -612,6 +635,10 @@ impl SchemaKind {
                 serde_json::Value::Array(values.iter().map(Unknown::to_json).collect())
             }
             SchemaKind::Union { .. } => serde_json::json!({}),
+            // `never` is the one shape a JSON Schema document spells as a
+            // complement: `{ not: {} }` admits nothing, which is what makes
+            // an `optionalKey(Never)` field survive a document round trip.
+            SchemaKind::Opaque("never") => serde_json::json!({"not": {}}),
             SchemaKind::Opaque(name) => serde_json::json!({"$comment": name}),
             SchemaKind::Annotated { pairs, inner } => {
                 let mut doc = inner.to_json_schema();
@@ -771,6 +798,15 @@ impl<T> Schema<T> {
 
     /// The JSON Schema document describing this schema's wire shape.
     pub fn json_schema(&self) -> serde_json::Value {
+        // A struct built from a runtime field list carries `Object` as its kind
+        // and the fields beside it, so its document is written from the
+        // declared list: an `optionalKey` field is a property `required`
+        // leaves out, which is what makes the key absent-or-null.
+        if self.kind == SchemaKind::Object {
+            if let Some(fields) = &self.struct_fields {
+                return SchemaKind::struct_document_from_fields(fields);
+            }
+        }
         self.kind.to_json_schema()
     }
 
@@ -2436,8 +2472,9 @@ impl Schema<Unknown> {
     }
 
     /// A string plus whatever length or pattern constraints the document
-    /// carries. `maxLength` is a length in code points in the pin's import, so    /// it renders as `isMaxCodePoints` even though `minLength` stays a length in
-    /// characters. That asymmetry is the pin's, and both messages name it.
+    /// carries. `maxLength` is a length in code points in the pin's import, so
+    /// it renders as `isMaxCodePoints`; `minLength` is the one keyword whose
+    /// filter depends on its value, which is why it is spelled out below.
     fn refined_text(doc: &serde_json::Value) -> Self {
         Self::refined_text_on(Schema::as_unknown(Schema::string()), doc)
     }
@@ -2447,12 +2484,31 @@ impl Schema<Unknown> {
     /// fresh string.
     fn refined_text_on(base: Schema<Unknown>, doc: &serde_json::Value) -> Self {
         let mut schema = base;
+        // `minLength: 1` is the non-empty case the pin keeps as `isMinLength`,
+        // and every other value counts code points as `isMinCodePoints`, which
+        // is what makes a two-code-unit emoji one code point long. The two
+        // filters carry different messages, and each names its own unit.
+        if let Some(number) = doc.get("minLength").and_then(serde_json::Value::as_f64) {
+            let printed = format_number(number);
+            let (name, message) = if number == 1.0 {
+                (
+                    "isMinLength",
+                    format!("a value with a length of at least {printed}"),
+                )
+            } else {
+                (
+                    "isMinCodePoints",
+                    format!("a string with at least {printed} code points"),
+                )
+            };
+            schema = Schema::as_unknown(Schema::checked(
+                schema,
+                name,
+                vec![printed.as_str()],
+                vec![("expected", message.as_str())],
+            ));
+        }
         for (keyword, name, message) in [
-            (
-                "minLength",
-                "isMinLength",
-                "a value with a length of at least {n}",
-            ),
             (
                 "maxLength",
                 "isMaxCodePoints",
@@ -2745,6 +2801,44 @@ impl Schema<Unknown> {
         Self::import(doc)
     }
 
+    /// Only a primitive value can be named by `const` or `enum`: an object or
+    /// an array has no literal form, and the pin refuses it with the keyword's
+    /// path and the member's index rather than approximating one.
+    fn require_primitive(path: String, value: &serde_json::Value) -> Result<(), SchemaError> {
+        if matches!(
+            value,
+            serde_json::Value::Null
+                | serde_json::Value::Bool(_)
+                | serde_json::Value::Number(_)
+                | serde_json::Value::String(_)
+        ) {
+            return Ok(());
+        }
+        Err(SchemaError::TypeMismatch {
+            path,
+            expected: "a primitive value, because only primitive values are supported in \"const\" and \"enum\"",
+            got: "a structured value",
+        })
+    }
+
+    /// Keep only the exact values that satisfy the checks the document's other
+    /// keywords contribute. A `const` or an `enum` beside a refinement is that
+    /// refinement applied to each named value, which is exactly what an
+    /// intersection does to a literal union.
+    fn filter_exact_values(values: Vec<Unknown>, doc: &serde_json::Value) -> Vec<Unknown> {
+        if values.is_empty() {
+            return values;
+        }
+        let mut siblings = doc.clone();
+        if let Some(object) = siblings.as_object_mut() {
+            object.remove("const");
+            object.remove("enum");
+        }
+        let refinement = Self::refined_any(Self::annotated_json(&siblings), &siblings);
+        let (_, checks, _) = decompose(&refinement.repr_kind());
+        filter_by_checks(values, &checks)
+    }
+
     /// Intersect two imported schemas. Both are split into their base kind,
     /// their checks and their leading annotations; the member's checks are then
     /// appended to the base's, dropping any the base already has, and the
@@ -2934,6 +3028,21 @@ impl Schema<Unknown> {
 
     fn import(doc: &serde_json::Value) -> Result<Self, SchemaError> {
         let get = |key: &str| doc.get(key);
+        // A pattern the pin's own importer would refuse cannot be enforced
+        // here, so the import fails at the keyword rather than compiling a
+        // matcher that silently accepts or rejects the wrong values. An
+        // escape is one such pattern (the matcher interprets no escape class,
+        // and ECMAScript Unicode mode rejects an invalid identity escape) and
+        // an unterminated class is the other.
+        if let Some(pattern) = get("pattern").and_then(serde_json::Value::as_str) {
+            if pattern.contains('\\') || compile_pattern(pattern).is_none() {
+                return Err(SchemaError::TypeMismatch {
+                    path: "$.pattern".to_string(),
+                    expected: "a pattern ECMAScript Unicode mode accepts: Cannot import pattern using ECMAScript Unicode mode",
+                    got: "a pattern outside the supported subset",
+                });
+            }
+        }
         if let Some(r#ref) = get("$ref") {
             let _ = r#ref;
             return Err(SchemaError::TypeMismatch {
@@ -2978,9 +3087,27 @@ impl Schema<Unknown> {
                 got: "a complement of a non-empty schema",
             });
         }
+        // `enum` members are validated even beside a `const`, because the pin
+        // collects both keywords' checks and reports the first bad one it finds;
+        // the index in the path is the member's own.
+        if let Some(serde_json::Value::Array(members)) = get("enum") {
+            for (index, member) in members.iter().enumerate() {
+                Self::require_primitive(format!("$.enum[{index}]"), member)?;
+            }
+        }
         if let Some(constants) = get("const") {
+            Self::require_primitive("$.const".to_string(), constants)?;
+            let values = Self::filter_exact_values(vec![Unknown::from_json(constants.clone())], doc);
             return Self::with_document_annotations(
-                Ok(Schema::literal(Unknown::from_json(constants.clone()))),
+                values
+                    .into_iter()
+                    .next()
+                    .map(Schema::literal)
+                    .ok_or_else(|| SchemaError::TypeMismatch {
+                        path: "$.const".to_string(),
+                        expected: "a value the document's own refinements admit",
+                        got: "no value",
+                    }),
                 doc,
             );
         }
@@ -2992,7 +3119,14 @@ impl Schema<Unknown> {
                     got: "a non-array",
                 });
             };
+            // Only primitives can be named: an object or array member has no
+            // literal form, so the import refuses it with the member's index.
             let values: Vec<Unknown> = members.iter().cloned().map(Unknown::from_json).collect();
+            // The document's own refinements constrain the values it names:
+            // `{ enum: ["😀", "e\u{0301}"], minLength: 2 }` keeps the
+            // two-code-point member and drops the one-code-point emoji, which
+            // is the same filter an intersection applies to a literal union.
+            let values = Self::filter_exact_values(values, doc);
             // Plain scalars collapse to one `Literals`; an enum containing null
             // keeps the `Union`, because `null` is a schema and not a literal.
             if values.iter().all(|value| value != &Unknown::Null) {
@@ -3013,8 +3147,8 @@ impl Schema<Unknown> {
                 );
             }
             let mut union: Option<Schema<Unknown>> = None;
-            for member in members {
-                let literal = Schema::literal(Unknown::from_json(member.clone()));
+            for value in values {
+                let literal = Schema::literal(value);
                 union = Some(match union {
                     None => literal,
                     Some(accumulated) => Schema::union(accumulated, literal),
@@ -3029,26 +3163,57 @@ impl Schema<Unknown> {
                 doc,
             );
         }
-        if let Some(any_of) = get("anyOf") {
-            let serde_json::Value::Array(options) = any_of else {
-                return Err(SchemaError::TypeMismatch {
-                    path: "$.anyOf".to_string(),
-                    expected: "an array",
-                    got: "a non-array",
-                });
+        // `anyOf` and `oneOf` build a union, and the document's other keywords
+        // intersect it: a union meets a non-union by intersecting each member
+        // on its own, which is how `{ properties: { id }, anyOf: [{ a }, { b }] }`
+        // yields two structs that each carry `id`. `oneOf` is the same union
+        // with a mode, and the repr carries it.
+        for (keyword, mode) in [("anyOf", "anyOf"), ("oneOf", "oneOf")] {
+            let Some(serde_json::Value::Array(options)) = get(keyword) else {
+                continue;
             };
-            let mut union: Option<Schema<Unknown>> = None;
-            for option in options {
-                let schema = Self::import(option)?;
-                union = Some(match union {
-                    None => schema,
-                    Some(accumulated) => Schema::union(accumulated, schema),
+            let imported: Vec<Schema<Unknown>> = options
+                .iter()
+                .map(Self::import)
+                .collect::<Result<_, _>>()?;
+            if imported.is_empty() {
+                return Err(SchemaError::TypeMismatch {
+                    path: format!("$.{keyword}"),
+                    expected: "a non-empty array",
+                    got: "an empty array",
                 });
             }
-            return union.ok_or_else(|| SchemaError::TypeMismatch {
-                path: "$.anyOf".to_string(),
-                expected: "a non-empty array",
-                got: "an empty array",
+            let mut siblings = doc.clone();
+            if let Some(object) = siblings.as_object_mut() {
+                object.remove("anyOf");
+                object.remove("oneOf");
+            }
+            // An annotation-only sibling constrains nothing, so the union
+            // stands as the members imported it and the annotations ride the
+            // union itself. A sibling that DOES constrain needs each union
+            // lane pruned against it (`{ properties: { id }, anyOf: [{ a }, { b }] }`
+            // yields two structs that each carry `id`), and the port carries no
+            // lane pruning yet, so the import refuses rather than silently
+            // dropping the member's own constraints.
+            let annotated_only = siblings.as_object().is_some_and(|object| {
+                object
+                    .keys()
+                    .all(|key| ["title", "description", "format"].contains(&key.as_str()))
+            });
+            if !annotated_only {
+                return Err(SchemaError::TypeMismatch {
+                    path: format!("$.{keyword}"),
+                    expected: "a union with only annotations beside it, because intersecting a union with a sibling needs the lane pruning this port does not carry",
+                    got: "a union beside constraining keywords",
+                });
+            }
+            // `annotated_with` wraps rather than rebuilds, so a union's own
+            // decode survives its annotation, which `decompose` would not keep.
+            let pairs = Self::document_annotations(doc);
+            return Ok(if pairs.is_empty() {
+                Schema::union_with_mode(imported, mode)
+            } else {
+                Schema::annotated_with(Schema::union_with_mode(imported, mode), pairs)
             });
         }
         // A boolean schema is JSON Schema's shorthand: `false` admits nothing
@@ -3112,7 +3277,13 @@ impl Schema<Unknown> {
                             _ => {
                                 let items = match get("items") {
                                     Some(items) => Self::import(items)?,
-                                    None => Schema::any(),
+                                    // An array with no `items` constrains each
+                                    // element only to be a JSON value, which is
+                                    // the annotated open catch-all rather than
+                                    // the bare `Any`: the `expected` annotation
+                                    // is what an open form carries everywhere
+                                    // else in an import.
+                                    None => Self::annotated_json(&serde_json::json!({})),
                                 };
                                 Ok(Self::refined_array(
                                     Schema::as_unknown(Schema::array(items)),
@@ -4029,8 +4200,7 @@ fn bounds_hold(
     true
 }
 
-/// Whether a number satisfies `isBetween`. The two bounds ride the check's
-/// argument list in order, and exclusivity rides its annotation, which is where
+/// Whether a number satisfies `isBetween`. The two bounds ride the check's/// argument list in order, and exclusivity rides its annotation, which is where
 /// a check keeps the flags a repr would print. A value that is not a number is
 /// left to the base schema, like every other check here.
 fn between_holds(
@@ -4174,11 +4344,17 @@ fn code_of(kind: &SchemaKind, children: &[(String, Arc<Schema<Unknown>>)]) -> St
                 .iter()
                 .map(|member| code_of_at(member, children))
                 .collect();
-            format!(
-                "Schema.Union([{}], {{ mode: \"{}\" }})",
-                inner.join(", "),
-                mode
-            )
+            // `anyOf` is the union's own default, so the repr only prints the
+            // options for the mode that departs from it.
+            if *mode == "anyOf" {
+                format!("Schema.Union([{}])", inner.join(", "))
+            } else {
+                format!(
+                    "Schema.Union([{}], {{ mode: \"{}\" }})",
+                    inner.join(", "),
+                    mode
+                )
+            }
         }
         SchemaKind::Annotated { pairs, inner } => {
             if pairs.is_empty() {
