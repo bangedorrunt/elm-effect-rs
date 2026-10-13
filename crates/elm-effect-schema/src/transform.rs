@@ -75,6 +75,22 @@ impl<A, B> Transformation<A, B> {
     }
 }
 
+impl Transformation<String, String> {
+    /// `SchemaTransformation.toLowerCase`: decoding lowercases the text and
+    /// encoding is the pin's `SchemaGetter.passthrough()`. The pair is
+    /// deliberately not round-trippable: an uppercase input decodes lowered
+    /// and encodes back unchanged, so encoding never re-cases what it is
+    /// given.
+    pub fn to_lowercase() -> Self {
+        Transformation::new(|value: String| Ok(value.to_lowercase()), |value: String| Ok(value))
+    }
+
+    /// `SchemaTransformation.toUpperCase`, the mirror of [`Self::to_lowercase`].
+    pub fn to_uppercase() -> Self {
+        Transformation::new(|value: String| Ok(value.to_uppercase()), |value: String| Ok(value))
+    }
+}
+
 /// Structural tag check (`isTransformation`): real transformations carry
 /// the marker; arbitrary values do not.
 pub fn is_transformation<A, B>(t: &Transformation<A, B>) -> bool {

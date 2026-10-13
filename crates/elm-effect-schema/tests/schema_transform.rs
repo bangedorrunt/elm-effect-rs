@@ -537,3 +537,42 @@ fn double_failure_reports_first_failing_step() {
     let err = double.forward(Unknown::Null).unwrap_err().to_string();
     assert!(err.contains("text"), "wrong input shape fails fast: {err}");
 }
+
+// ------------- Schema.test.ts:5613 / :5627 "Transformations" ---
+
+/// The pin's `Schema.String.pipe(Schema.decodeTo(Schema.String, t))`, where
+/// `Schema::convert` is this port's `decodeTo`. A transformation carries both
+/// directions, so it is cloned into the two closures.
+fn case_schema(t: Transformation<String, String>) -> Schema<String> {
+    let encoded = std::sync::Arc::new(t);
+    let decoded = encoded.clone();
+    Schema::convert(
+        Schema::string(),
+        move |value: String| decoded.forward(value),
+        // `convert` takes a total encode, and a case transformation's encode
+        // direction is the pin's passthrough getter, so this cannot fail.
+        move |value: &String| {
+            encoded
+                .backward(value.clone())
+                .expect("the case transformations pass through on encode")
+        },
+    )
+}
+
+#[test]
+fn to_lowercase_lowers_on_decode_and_passes_through_on_encode() {
+    let lowered = case_schema(Transformation::to_lowercase());
+    assert_eq!(lowered.decode(text("A")).unwrap(), "a");
+    assert_eq!(lowered.decode(text("B")).unwrap(), "b");
+    // Encoding is passthrough, which is why the pair is not round-trippable:
+    // an uppercase value encodes back unchanged rather than re-cased.
+    assert_eq!(lowered.encode(&"A".to_string()), text("A"));
+}
+
+#[test]
+fn to_uppercase_uppers_on_decode_and_passes_through_on_encode() {
+    let uppered = case_schema(Transformation::to_uppercase());
+    assert_eq!(uppered.decode(text("a")).unwrap(), "A");
+    assert_eq!(uppered.decode(text("b")).unwrap(), "B");
+    assert_eq!(uppered.encode(&"a".to_string()), text("a"));
+}
