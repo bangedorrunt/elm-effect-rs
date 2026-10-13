@@ -246,10 +246,10 @@ where
     /// Build `key` if it is missing or expired, then hold one borrow on it.
     /// This is `contextEffect`; the borrow ends at [`release`](Self::release).
     pub fn context_effect(&mut self, key: &K) -> Option<V> {
-        if let Some(record) = &self.record {
-            if !record.contains_key(key) {
-                return None;
-            }
+        if let Some(record) = &self.record
+            && !record.contains_key(key)
+        {
+            return None;
         }
         let stale = match self.entries.get(key) {
             None => true,
@@ -322,10 +322,10 @@ where
     /// one and without holding a borrow. This is the row's "does not build
     /// missing entries and returns existing entries".
     pub fn context_effect_option(&mut self, key: &K) -> Option<V> {
-        if let Some(record) = &self.record {
-            if !record.contains_key(key) {
-                return None;
-            }
+        if let Some(record) = &self.record
+            && !record.contains_key(key)
+        {
+            return None;
         }
         let entry = self.entries.get(key)?;
         if self.is_expired(entry) {
