@@ -8728,7 +8728,7 @@ unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.
 unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1598	it	rejects intersections requiring a Cartesian product	
 unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1623	it	rejects distributions that duplicate a nested choice	
 unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1648	it	distributes across a nested reference without choices	
-unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1684	it	reports unsupported keywords after a false schema	
+ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1684	it	reports unsupported keywords after a false schema	json_schema_document_refuses_the_keywords_it_cannot_lower
 unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1696	it	intersects one constraint with many alternatives linearly	
 unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1710	it	resolves a root reference before intersecting allOf	
 unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1726	it	resolves a reference declared inside allOf	
@@ -8817,10 +8817,10 @@ unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.
 unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	2959	it	preserves a closed pattern scope when intersecting a finite object domain	
 unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	2980	it	add properties	
 unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	2995	it	add additionalProperties	
-unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	3012	it	not	
-unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	3035	it	keyword	
-unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	3046	it	if/${branch}	
-unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	3058	it	ignores inactive conditional and contains cardinality keywords	
+ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	3012	it	not	json_schema_document_refuses_the_keywords_it_cannot_lower
+ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	3035	it	keyword	json_schema_document_refuses_the_keywords_it_cannot_lower
+ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	3046	it	if/${branch}	json_schema_document_refuses_the_keywords_it_cannot_lower
+ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	3058	it	ignores inactive conditional and contains cardinality keywords	json_schema_document_refuses_the_keywords_it_cannot_lower
 ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	3075	it	ignores custom keywords	json_schema_document_unconstrained_rows_carry_their_code_and_type
 unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	3084	it	can reject previously exclusive branches when patterns are ignored	
 unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	3099	it	rejects patterns by default	

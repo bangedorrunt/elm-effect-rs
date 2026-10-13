@@ -457,6 +457,38 @@ fn is_optional_element(kind: &SchemaKind) -> bool {
 /// only values of that type, so an `enum` member of another type is dropped by
 /// the intersection rather than kept: `{ type: "boolean", allOf: [{ const: 1 }] }`
 /// is `never`, and a mixed enum under a string base keeps its strings.
+/// The JSON Schema keywords the port cannot lower, each with the pin's own
+/// sentence for refusing it. A keyword that is absent from this table is one the
+/// port either implements or safely ignores (`custom`, `minContains`), and the
+/// difference matters: refusing a keyword the pin ignores would break documents
+/// the pin accepts.
+const UNSUPPORTED_KEYWORDS: [(&str, &str); 6] = [
+    (
+        "$dynamicRef",
+        "a keyword with an equivalent constraint: Cannot import JSON Schema keyword \"$dynamicRef\": Effect has no equivalent constraint.",
+    ),
+    (
+        "contains",
+        "a keyword with an equivalent constraint: Cannot import JSON Schema keyword \"contains\": Effect has no equivalent constraint.",
+    ),
+    (
+        "dependentRequired",
+        "a keyword with an equivalent constraint: Cannot import JSON Schema keyword \"dependentRequired\": Effect has no equivalent constraint.",
+    ),
+    (
+        "dependentSchemas",
+        "a keyword with an equivalent constraint: Cannot import JSON Schema keyword \"dependentSchemas\": Effect has no equivalent constraint.",
+    ),
+    (
+        "unevaluatedItems",
+        "a keyword with an equivalent constraint: Cannot import JSON Schema keyword \"unevaluatedItems\": Effect has no equivalent constraint.",
+    ),
+    (
+        "unevaluatedProperties",
+        "a keyword with an equivalent constraint: Cannot import JSON Schema keyword \"unevaluatedProperties\": Effect has no equivalent constraint.",
+    ),
+];
+
 /// The JSON Schema type a kind names, which is what an intersection compares.
 ///
 /// Two kinds can name the same type and still differ in shape: a `Record` and a
@@ -3233,6 +3265,39 @@ impl Schema<Unknown> {
                 got: "a reference",
             });
         }
+        // A keyword the port cannot lower is refused by name, the way the pin
+        // refuses it. Dropping one instead imports a schema weaker than the
+        // document asks for, and the two are indistinguishable to whoever wrote
+        // the document: an `unevaluatedProperties: false` that was ignored reads
+        // exactly like one that is enforced.
+        for (keyword, expected) in UNSUPPORTED_KEYWORDS {
+            if get(keyword).is_some() {
+                return Err(SchemaError::TypeMismatch {
+                    path: format!("$.{keyword}"),
+                    expected,
+                    got: "a keyword this port cannot lower",
+                });
+            }
+        }
+        // `if`, `then` and `else` are only live when their value is something
+        // other than `false`: a `false` branch applies to nothing, and the pin's
+        // own row asserts the keyword is ignored there. `minContains` and
+        // `maxContains` are absent from the table above for the same reason -
+        // on their own they constrain nothing at all.
+        for keyword in ["if", "then", "else"] {
+            if get(keyword).is_some_and(|value| *value != serde_json::Value::Bool(false)) {
+                let expected = match keyword {
+                    "if" => "a keyword with an equivalent constraint: Cannot import JSON Schema keyword \"if\": Effect has no equivalent constraint.",
+                    "then" => "a keyword with an equivalent constraint: Cannot import JSON Schema keyword \"then\": Effect has no equivalent constraint.",
+                    _ => "a keyword with an equivalent constraint: Cannot import JSON Schema keyword \"else\": Effect has no equivalent constraint.",
+                };
+                return Err(SchemaError::TypeMismatch {
+                    path: format!("$.{keyword}"),
+                    expected,
+                    got: "a keyword this port cannot lower",
+                });
+            }
+        }
         // `allOf` intersects. Each member contributes its checks to the base's
         // chain and its own annotations to the base, which is what the pin's
         // intersection rows assert.
@@ -3265,7 +3330,7 @@ impl Schema<Unknown> {
             }
             return Err(SchemaError::TypeMismatch {
                 path: "$.not".to_string(),
-                expected: "an empty schema",
+                expected: "an empty schema, the only `not` this port can lower: Cannot import JSON Schema keyword \"not\": Effect has no equivalent constraint.",
                 got: "a complement of a non-empty schema",
             });
         }

@@ -2725,6 +2725,86 @@ fn json_schema_document_refuses_a_union_beside_constraining_keywords() {
 }
 
 #[test]
+fn json_schema_document_refuses_the_keywords_it_cannot_lower() {
+    // fromJsonSchemaDocument.test.ts:1684, :3012, :3035, :3046, :3058 — the pin
+    // refuses a keyword it cannot lower and names it, rather than importing a
+    // schema that enforces less than the document asks for. The distinction is
+    // not academic: an ignored `unevaluatedProperties: false` is
+    // indistinguishable from an enforced one to whoever wrote the document.
+    use elm_effect_schema::{Schema, Unknown};
+
+    let refusal = |doc: &serde_json::Value, keyword: &str| {
+        let Err(error) = Schema::<Unknown>::from_json_schema(doc) else {
+            panic!("{doc} must be refused: {keyword}")
+        };
+        let printed = format!("{error}");
+        assert!(
+            printed.contains(&format!(
+                "Cannot import JSON Schema keyword \"{keyword}\": Effect has no equivalent constraint."
+            )),
+            "{keyword}: {printed}"
+        );
+        assert!(printed.contains(&format!("$.{keyword}")), "{keyword}: {printed}");
+    };
+
+    // :3035 — one ledger row over six keywords, so all six have to be here.
+    for (keyword, value) in [
+        ("$dynamicRef", serde_json::json!("#node")),
+        ("contains", serde_json::json!({"type": "string"})),
+        ("dependentRequired", serde_json::json!({"a": ["b"]})),
+        ("dependentSchemas", serde_json::json!({"a": {"required": ["b"]}})),
+        ("unevaluatedItems", serde_json::json!(false)),
+        ("unevaluatedProperties", serde_json::json!(false)),
+    ] {
+        refusal(&serde_json::json!({keyword: value}), keyword);
+    }
+
+    // :3012 — `not` is lowered only when it is empty; the pin names the keyword.
+    refusal(
+        &serde_json::json!({
+            "type": "object",
+            "properties": {"value": {"not": {"type": "string"}}}
+        }),
+        "not",
+    );
+
+    // :3046 — both branches name `if`, which is the keyword that is live.
+    for branch in ["then", "else"] {
+        refusal(
+            &serde_json::json!({"if": {"type": "string"}, branch: false}),
+            "if",
+        );
+    }
+
+    // :1684 — an unsupported keyword is refused inside a member too, and the
+    // member is imported before the `false` sibling can make the intersection
+    // `never`. The pin's own path is ["schema"]["allOf"][1]["contains"]; this
+    // port reports the keyword it was importing when it stopped.
+    refusal(&serde_json::json!({"allOf": [false, {"contains": {}}]}), "contains");
+
+    // :3058 — the same keywords are IGNORED when they apply to nothing, which is
+    // the other half of the row: `false` for a conditional branch, and the two
+    // `contains` cardinalities on their own. Refusing these would break
+    // documents the pin accepts.
+    for (keyword, value) in [
+        ("if", serde_json::json!(false)),
+        ("then", serde_json::json!(false)),
+        ("else", serde_json::json!(false)),
+        ("minContains", serde_json::json!(1)),
+        ("maxContains", serde_json::json!(2)),
+    ] {
+        let schema = Schema::<Unknown>::from_json_schema(&serde_json::json!({keyword: value}))
+            .unwrap_or_else(|error| panic!("{keyword} must be ignored: {error}"));
+        assert_eq!(
+            schema.to_code(),
+            r#"Schema.Json.annotate({ "expected": "JSON value" })"#,
+            "{keyword}"
+        );
+        assert_eq!(schema.to_type(), "Schema.Json", "{keyword}");
+    }
+}
+
+#[test]
 fn json_schema_document_answers_never_when_the_members_share_no_value() {
     // fromJsonSchemaDocument.test.ts:2570, :2577, :2584, :2591, :2598 — an
     // intersection with no shared value is `never`. The pin answers that rather
