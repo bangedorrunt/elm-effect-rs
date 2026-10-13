@@ -4029,17 +4029,20 @@ impl Schema<Unknown> {
                 if items.len() < required || items.len() > total {
                     return mismatch("$", "a fixed-length array", &Unknown::Array(items));
                 }
-                let mut out = Vec::with_capacity(total);
-                for index in 0..total {
-                    match decoders.get(index) {
-                        Some(element) if index < items.len() => {
-                            out.push(element.decode(items[index].clone())?);
-                        }
-                        // An absent optional position decodes as null, which is
-                        // what `optionalKey` permits.
-                        Some(_) => out.push(Unknown::Null),
-                        None => out.push(Unknown::Null),
-                    }
+                let mut out = Vec::with_capacity(items.len());
+                for (index, element) in decoders.iter().enumerate() {
+                    // An absent position is absent: the decoded tuple is
+                    // shorter, which is what lets an optional element's absence
+                    // survive the round trip instead of hardening into a present
+                    // null the element schema itself would have refused. The
+                    // ordering rule guarantees the absent ones are all trailing.
+                    let Some(value) = items.get(index) else {
+                        break;
+                    };
+                    let decoded = element
+                        .decode(value.clone())
+                        .map_err(|error| error.at(&format!("$[{index}]")))?;
+                    out.push(decoded);
                 }
                 Ok(Unknown::Array(out))
             },

@@ -736,3 +736,69 @@ fn tuple_with_rest_refuses_a_required_element_after_an_optional_one() {
         ]))
         .is_ok());
 }
+
+// --- Schema.test.ts: the tuple element rows, where the element schema is
+// what decides each position and the empty case is the optional one ---
+
+/// Schema.test.ts:1058 — `Schema.Tuple([Schema.NonEmptyString])`: the element
+/// schema decides the position, and a failing element names the index it failed
+/// at while a non-array names the tuple's own shape.
+#[test]
+fn tuple_of_checked_elements_names_the_index_a_failing_element_failed_at() {
+    let element = Schema::checked(
+        Schema::as_unknown(Schema::string()),
+        "isMinLength",
+        vec!["1"],
+        vec![("expected", "a value with a length of at least 1")],
+    );
+    let schema = Schema::tuple_of(vec![element]);
+    assert!(schema
+        .decode(Unknown::Array(vec![Unknown::Text("a".to_string())]))
+        .is_ok());
+    let error = schema
+        .decode(Unknown::Array(vec![Unknown::Text(String::new())]))
+        .expect_err("an empty string is too short for the element");
+    // The port's check refusal names the refinement generically; what this row
+    // is about is the path, which is the element's own index.
+    let printed = error.to_string();
+    assert!(printed.contains("satisfying the refinement"), "{printed}");
+    assert!(printed.contains("$[0]"), "the index is named: {printed}");
+    let error = schema.decode(Unknown::Null).expect_err("null is not an array");
+    assert!(error.to_string().contains("array"), "{error}");
+}
+
+/// Schema.test.ts:1101 — `Schema.Tuple([String.pipe(optionalKey)])`: an
+/// optional element makes the empty tuple a value of its own, in both
+/// directions, rather than a length failure.
+#[test]
+fn tuple_with_an_optional_element_accepts_the_empty_tuple() {
+    let schema = Schema::tuple_of(vec![Schema::optional_key_shape(Schema::as_unknown(
+        Schema::string(),
+    ))]);
+    for wire in [
+        Unknown::Array(vec![Unknown::Text("a".to_string())]),
+        Unknown::Array(vec![]),
+    ] {
+        let decoded = schema.decode(wire.clone()).expect("both shapes decode");
+        assert_eq!(schema.encode(&decoded), wire, "and both encode back");
+    }
+}
+
+/// Schema.test.ts:1126 — `Schema.Array(Schema.String)`: the element schema
+/// decides every element, and the array itself accepts the empty case.
+#[test]
+fn array_of_strings_decides_each_element() {
+    let schema: Schema<Unknown> =
+        Schema::as_unknown(Schema::array(Schema::as_unknown(Schema::string())));
+    assert_eq!(
+        schema.decode(Unknown::Array(vec![Unknown::Text("a".to_string())])),
+        Ok(Unknown::Array(vec![Unknown::Text("a".to_string())]))
+    );
+    assert_eq!(schema.decode(Unknown::Array(vec![])), Ok(Unknown::Array(vec![])));
+    let error = schema
+        .decode(Unknown::Array(vec![Unknown::Number(1.0)]))
+        .expect_err("a non-string element is refused");
+    assert!(error.to_string().contains("string"), "{error}");
+    let error = schema.decode(Unknown::Null).expect_err("null is not an array");
+    assert!(error.to_string().contains("array"), "{error}");
+}

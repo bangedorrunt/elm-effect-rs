@@ -7572,10 +7572,10 @@ unported	packages/effect/test/schema/Schema.test.ts	1000	it	Struct
 unported	packages/effect/test/schema/Schema.test.ts	1013	it	Struct	
 ported	packages/effect/test/schema/Schema.test.ts	1027	it	A required element cannot follow an optional element	tuple_refuses_a_required_element_after_an_optional_one
 unported	packages/effect/test/schema/Schema.test.ts	1038	it	should fail on unexpected indexes	
-unported	packages/effect/test/schema/Schema.test.ts	1058	it	readonly [string]	
-unported	packages/effect/test/schema/Schema.test.ts	1101	it	readonly [string?]	
+ported	packages/effect/test/schema/Schema.test.ts	1058	it	readonly [string]	tuple_of_checked_elements_names_the_index_a_failing_element_failed_at
+ported	packages/effect/test/schema/Schema.test.ts	1101	it	readonly [string?]	tuple_with_an_optional_element_accepts_the_empty_tuple
 unported	packages/effect/test/schema/Schema.test.ts	1120	it	should expose the element schema via .value	
-unported	packages/effect/test/schema/Schema.test.ts	1126	it	readonly string[]	
+ported	packages/effect/test/schema/Schema.test.ts	1126	it	readonly string[]	array_of_strings_decides_each_element
 unported	packages/effect/test/schema/Schema.test.ts	1152	it	supports encodings on array elements	
 unported	packages/effect/test/schema/Schema.test.ts	1160	it	supports withDecodingDefaultType after mutable	
 unported	packages/effect/test/schema/Schema.test.ts	1175	it	does not support withDecodingDefaultType before mutable	
