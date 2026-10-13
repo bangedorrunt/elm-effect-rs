@@ -701,18 +701,22 @@ fn one_of_string_members() {
 
 #[test]
 fn decoding_default_fills_null() {
-    let schema = Schema::<f64>::with_decoding_default(Schema::number(), || 42.0);
+    // The default is wire-shaped, so it goes through the schema on the way in.
+    let schema = Schema::with_decoding_default(Schema::number(), || Ok(Unknown::Number(42.0)));
     assert_eq!(schema.decode(Unknown::Null).unwrap(), 42.0);
     assert_eq!(schema.decode(Unknown::Number(1.0)).unwrap(), 1.0);
     assert!(schema.decode(Unknown::Text("x".into())).is_err());
+
+    // The decoded spelling skips that step and is used as it is.
+    let typed = Schema::with_decoding_default_type(Schema::number(), || Ok(42.0));
+    assert_eq!(typed.decode(Unknown::Null).unwrap(), 42.0);
 }
 
 #[test]
 fn nested_decoding_defaults() {
-    let inner = Schema::as_unknown(Schema::<f64>::with_decoding_default(
-        Schema::number(),
-        || 7.0,
-    ));
+    let inner = Schema::as_unknown(Schema::with_decoding_default(Schema::number(), || {
+        Ok(Unknown::Number(7.0))
+    }));
     let schema = Schema::struct_shape(vec![Field::required("n", inner)]);
     let mut expected = std::collections::BTreeMap::new();
     expected.insert("n".to_string(), Unknown::Number(7.0));

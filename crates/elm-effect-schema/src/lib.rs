@@ -101,6 +101,33 @@ pub struct Schema<T> {
     /// defaults fill recursively.
     constructor_default:
         Option<std::sync::Arc<dyn Fn() -> Result<Unknown, SchemaError> + Send + Sync>>,
+    /// A decoding default (`withDecodingDefault`/`withDecodingDefaultType`):
+    /// what an absent input means. A missing key at a struct occurrence, and a
+    /// standalone null, decode to this instead of failing.
+    decoding_default: Option<SchemaDefault<T>>,
+    /// `{ encodingStrategy: "omit" }` on a decoding default: encoding leaves
+    /// the key out, so a defaulted value does not travel back out.
+    omit_on_encode: bool,
+}
+
+/// The two spellings of a decoding default. `withDecodingDefault` takes a wire
+/// value, which is decoded through the schema; `withDecodingDefaultType` takes
+/// one already decoded, used as it is. Both may fail, and a failure is a decode
+/// failure at the occurrence being filled.
+pub enum SchemaDefault<T> {
+    Wire(std::sync::Arc<dyn Fn() -> Result<Unknown, SchemaError> + Send + Sync>),
+    Decoded(std::sync::Arc<dyn Fn() -> Result<T, SchemaError> + Send + Sync>),
+}
+
+// Hand-written because a derive would demand `T: Clone` for a pair of `Arc`s
+// that are cloneable whatever `T` is.
+impl<T> Clone for SchemaDefault<T> {
+    fn clone(&self) -> Self {
+        match self {
+            SchemaDefault::Wire(produce) => SchemaDefault::Wire(produce.clone()),
+            SchemaDefault::Decoded(produce) => SchemaDefault::Decoded(produce.clone()),
+        }
+    }
 }
 
 /// What a re-typing hides: the schema it wrapped, plus its reprs.
@@ -702,6 +729,8 @@ impl<T> Schema<T> {
             wrapped: None,
             construct: None,
             constructor_default: None,
+            decoding_default: None,
+            omit_on_encode: false,
         }
     }
 
@@ -812,6 +841,10 @@ impl<T> Schema<T> {
             // would make `to_code` answer for the unwrapped schema and drop the
             // annotation from the repr.
             wrapped: None,
+            // A decoding default and its encoding strategy ride the codec, so an
+            // annotated schema must keep answering for them.
+            decoding_default: schema.decoding_default.clone(),
+            omit_on_encode: schema.omit_on_encode,
         }
     }
 
@@ -837,6 +870,19 @@ impl<T> Schema<T> {
         let inner_render = schema.formatter.clone();
         let inner_kind = schema.kind.clone();
         let inner_children = schema.children.clone();
+        let bridge = schema.clone();
+        // A decoding default survives the re-typing in the form this level
+        // speaks, which is the wire form: this wrapper's own decode is the
+        // inner encode, so a decoded default crosses over the same way.
+        let inner_default = schema.decoding_default.as_ref().map(|default| match default {
+            SchemaDefault::Wire(produce) => SchemaDefault::Wire(produce.clone()),
+            SchemaDefault::Decoded(produce) => {
+                let produce = produce.clone();
+                SchemaDefault::Wire(Arc::new(move || {
+                    produce().and_then(|value| bridge.try_encode(&value))
+                }))
+            }
+        });
         let mut out = Schema::new(
             move |unknown| {
                 decode_schema
@@ -859,6 +905,10 @@ impl<T> Schema<T> {
         // construction too: a field schema wrapped as `Unknown` is exactly
         // where `make` looks for a constructor default.
         out.constructor_default = schema.constructor_default.clone();
+        // The same for a decoding default: it is a property of the codec, and
+        // the struct walk looks for it through the re-typing.
+        out.decoding_default = inner_default;
+        out.omit_on_encode = schema.omit_on_encode;
         out.construct = Some(Arc::new(move |unknown| {
             let built = construct_schema.construct(unknown)?;
             construct_schema.try_encode(&built)
@@ -886,23 +936,23 @@ impl<T> Schema<T> {
         }
     }
 
-    /// Fill a missing input with a default before decoding
-    /// (`withDecodingDefault` shape): `None` input decodes the default
-    /// through the schema; encoding passes values through unchanged.
-    pub fn with_decoding_default<U: Clone + Send + Sync + 'static>(
-        schema: Schema<U>,
-        default: impl Fn() -> U + Send + Sync + 'static,
-    ) -> Schema<U> {
-        let schema = Arc::new(schema);
-        let decode_schema = schema.clone();
-        Schema::new(
-            move |unknown| match unknown {
-                Unknown::Null => Ok(default()),
-                value => decode_schema.decode(value),
-            },
-            move |value| schema.try_encode(value),
-            SchemaKind::Opaque("withDecodingDefault"),
-        )
+    /// `{ encodingStrategy: "omit" }`: encoding leaves out the key this schema
+    /// fills back in, so a decoding default does not travel outwards.
+    pub fn omit_encoding(mut self) -> Self {
+        self.omit_on_encode = true;
+        self
+    }
+
+    /// What an absent input decodes to: the default as given, wire values
+    /// through this schema, or the default's own failure rooted at `path`.
+    fn absent_value(&self, default: &SchemaDefault<T>, path: &str) -> Result<T, SchemaError> {
+        match default {
+            SchemaDefault::Wire(produce) => {
+                let wire = produce().map_err(|error| error.at(path))?;
+                self.decode(wire).map_err(|error| error.at(path))
+            }
+            SchemaDefault::Decoded(produce) => produce().map_err(|error| error.at(path)),
+        }
     }
 
     /// Add a constructor default (`withConstructorDefault`): the closure runs
@@ -1067,11 +1117,18 @@ impl Schema<Unknown> {
         Self::new(Ok,                |value| Ok(value.clone()), SchemaKind::Opaque("unknown"))
     }
 
-    /// No value decodes (`Never` shape): decode always fails.
+    /// No value decodes (`Never` shape): decode always fails. Nothing encodes
+    /// either, since a schema with no value has no wire value to hand back, so
+    /// the refusal travels on `try_encode` instead of coming back as the input.
     pub fn never() -> Self {
         Self::new(
             |unknown| mismatch("$", "never", &unknown),
-            |value| Ok(value.clone()),
+            |_| {
+                Err(SchemaError::EncodingFailed {
+                    path: "$".to_string(),
+                    expected: "no value: Never has none".to_string(),
+                })
+            },
             SchemaKind::Opaque("never"),
         )
     }
@@ -1117,6 +1174,48 @@ impl Schema<Unknown> {
             |value| Ok(value.clone()),
             kind,
         )
+    }
+
+    /// Fill an absent input with a default before decoding
+    /// (`withDecodingDefault`): the default is wire-shaped, so it is decoded
+    /// through this schema, and it may fail, which is a decode failure at the
+    /// place it was filling. Encoding passes values through unless
+    /// [`omit_encoding`] was asked for.
+    ///
+    /// [`omit_encoding`]: Schema::omit_encoding
+    pub fn with_decoding_default<U: Send + Sync + 'static>(
+        schema: Schema<U>,
+        default: impl Fn() -> Result<Unknown, SchemaError> + Send + Sync + 'static,
+    ) -> Schema<U> {
+        Self::with_default(schema, SchemaDefault::Wire(Arc::new(default)))
+    }
+
+    /// `withDecodingDefaultType`: the default is a value of the decoded type
+    /// already, so it is used as it is instead of being decoded again.
+    pub fn with_decoding_default_type<U: Send + Sync + 'static>(
+        schema: Schema<U>,
+        default: impl Fn() -> Result<U, SchemaError> + Send + Sync + 'static,
+    ) -> Schema<U> {
+        Self::with_default(schema, SchemaDefault::Decoded(Arc::new(default)))
+    }
+
+    fn with_default<U: Send + Sync + 'static>(
+        schema: Schema<U>,
+        default: SchemaDefault<U>,
+    ) -> Schema<U> {
+        let schema = Arc::new(schema);
+        let decode_schema = schema.clone();
+        let decode_default = default.clone();
+        let mut out = Schema::new(
+            move |unknown| match unknown {
+                Unknown::Null => decode_schema.absent_value(&decode_default, "$"),
+                value => decode_schema.decode(value),
+            },
+            move |value| schema.try_encode(value),
+            SchemaKind::Opaque("withDecodingDefault"),
+        );
+        out.decoding_default = Some(default);
+        out
     }
 
     /// A literal-to-literal map (`Literal.transform`, and the per-member form of
@@ -1468,7 +1567,10 @@ pub struct Field {
     name: String,
     schema: Arc<Schema<Unknown>>,
     optionality: Optionality,
-    default: Option<Unknown>,
+    /// A field-level default (`withDecodingDefaultKey`): a missing key fills it,
+    /// while an explicit null still goes through `schema` (which is what makes
+    /// the `Key` spelling exact rather than absorbing everything absent).
+    decoding_default: Option<SchemaDefault<Unknown>>,
     omit_on_encode: bool,
 }
 
@@ -1491,9 +1593,50 @@ impl Field {
             name: name.to_string(),
             schema: Arc::new(schema),
             optionality: Optionality::Required,
-            default: None,
+            decoding_default: None,
             omit_on_encode: false,
         }
+    }
+
+    /// A field whose missing key fills a wire-shaped default
+    /// (`withDecodingDefaultKey`): `default` is decoded through the field's
+    /// schema, so it is written the way the wire spells it. A key that is
+    /// present still decodes normally, null included.
+    pub fn decoding_default(
+        name: &str,
+        schema: Schema<Unknown>,
+        default: impl Fn() -> Result<Unknown, SchemaError> + Send + Sync + 'static,
+    ) -> Self {
+        Self {
+            name: name.to_string(),
+            schema: Arc::new(schema),
+            optionality: Optionality::Required,
+            decoding_default: Some(SchemaDefault::Wire(Arc::new(default))),
+            omit_on_encode: false,
+        }
+    }
+
+    /// The same, spelled with a value of the decoded type
+    /// (`withDecodingDefaultTypeKey`).
+    pub fn decoding_default_type(
+        name: &str,
+        schema: Schema<Unknown>,
+        default: impl Fn() -> Result<Unknown, SchemaError> + Send + Sync + 'static,
+    ) -> Self {
+        Self {
+            name: name.to_string(),
+            schema: Arc::new(schema),
+            optionality: Optionality::Required,
+            decoding_default: Some(SchemaDefault::Decoded(Arc::new(default))),
+            omit_on_encode: false,
+        }
+    }
+
+    /// `{ encodingStrategy: "omit" }` on a field default: encoding drops the
+    /// key even though the field is decoded.
+    pub fn omit_encoding(mut self) -> Self {
+        self.omit_on_encode = true;
+        self
     }
 
     /// An optional field: missing or null decodes without error.
@@ -1502,7 +1645,7 @@ impl Field {
             name: name.to_string(),
             schema: Arc::new(schema),
             optionality: Optionality::Optional,
-            default: None,
+            decoding_default: None,
             omit_on_encode: false,
         }
     }
@@ -1514,7 +1657,7 @@ impl Field {
             name: name.to_string(),
             schema: Arc::new(schema),
             optionality: Optionality::OptionalKey,
-            default: None,
+            decoding_default: None,
             omit_on_encode: false,
         }
     }
@@ -1531,13 +1674,16 @@ impl Field {
     }
 
     /// A tag field (`tag`/`tagDefaultOmit`): absent keys fill the default
-    /// on decode (and construction), and the key is omitted on encode.
+    /// on decode (and construction), and the key is omitted on encode. The
+    /// default is a literal, so decoding it through the field's own schema is
+    /// the identity, and it rides the same field-default path as the rest.
     pub fn tag(name: &str, value: Unknown) -> Self {
+        let literal = value.clone();
         Self {
             name: name.to_string(),
-            schema: Arc::new(Schema::literal(value.clone())),
+            schema: Arc::new(Schema::literal(value)),
             optionality: Optionality::Required,
-            default: Some(value),
+            decoding_default: Some(SchemaDefault::Wire(Arc::new(move || Ok(literal.clone())))),
             omit_on_encode: true,
         }
     }
@@ -1545,7 +1691,9 @@ impl Field {
 
 /// One walk over a struct-shape input, shared by the decode path and the
 /// construction path. The one difference: a missing field whose schema carries
-/// a constructor default fills on construction and stays absent on decode.
+/// a constructor default fills on construction and stays absent on decode,
+/// while a decoding default is the mirror image and fills on both (that is what
+/// makes it a default for the wire rather than for a constructed value).
 fn walk_struct(
     fields: &[Field],
     unknown: Unknown,
@@ -1571,11 +1719,18 @@ fn walk_struct(
                     .map_err(|error| error.at(&format!("$.{}", field.name)))?;
                 out.insert(field.name.clone(), built);
             }
-            None if field.default.is_some() => {
-                out.insert(
-                    field.name.clone(),
-                    field.default.clone().unwrap_or(Unknown::Null),
-                );
+            // A decoding default fills an absent key: the field's own
+            // (`withDecodingDefaultKey`) or the one the field's schema carries
+            // (`withDecodingDefault` at a struct occurrence).
+            None if field.decoding_default.is_some() || field.schema.decoding_default.is_some() => {
+                let default = field
+                    .decoding_default
+                    .as_ref()
+                    .or(field.schema.decoding_default.as_ref())
+                    .expect("checked just above");
+                let path = format!("$.{}", field.name);
+                let filled = field.schema.absent_value(default, &path)?;
+                out.insert(field.name.clone(), filled);
             }
             None if field.optionality != Optionality::Required => {}
             Some(Unknown::Null) if field.optionality == Optionality::Optional => {}
@@ -1616,7 +1771,7 @@ impl Schema<BTreeMap<String, Unknown>> {
     pub fn struct_shape(fields: Vec<Field>) -> Self {
         let omitted: Vec<String> = fields
             .iter()
-            .filter(|field| field.omit_on_encode)
+            .filter(|field| field.omit_on_encode || field.schema.omit_on_encode)
             .map(|field| field.name.clone())
             .collect();
         let decode_fields = fields.clone();
