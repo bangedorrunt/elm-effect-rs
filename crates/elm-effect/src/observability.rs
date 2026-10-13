@@ -370,7 +370,7 @@ impl ServiceTag for ErrorReporterTag {
 // References (explicit config, not fiber-locals)
 
 /// Current annotations attached to every log record.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct LogAnnotations(pub Vec<(String, String)>);
 
 /// Minimum level that passes.
@@ -524,4 +524,292 @@ pub fn format_simple(message: &str, annotations: &[(String, String)]) -> String 
             .map(|(key, value)| format_logfmt_field(key, value)),
     );
     parts.join(" ")
+}
+
+// Log records: one log call's items, and the four formatters over them
+
+/// One item of a log call. The pin's `Effect.log` takes any number of
+/// values, so a message is a sequence of items rather than one string.
+#[derive(Clone, Debug, PartialEq)]
+pub enum LogItem {
+    /// A string message.
+    Text(String),
+    /// An integer. The pin logs a BigInt as `123n`, which is what the
+    /// text formatters render; JSON carries it as the string `"123n"`.
+    BigInt(i128),
+    /// A structured value.
+    Object(Vec<(String, LogItem)>),
+    /// A plain error: JSON carries its name and message, not a bare string.
+    Error { name: String, message: String },
+    /// A cause: its rows in order, as text.
+    Cause(Vec<String>),
+}
+
+impl LogItem {
+    /// The text rendering: `123n` for integers, `{"value":123n}` for
+    /// objects (nested integers keep the same suffix).
+    pub fn text(&self) -> String {
+        match self {
+            LogItem::Text(text) => text.clone(),
+            LogItem::BigInt(value) => format!("{value}n"),
+            LogItem::Object(fields) => {
+                let inner: Vec<String> = fields
+                    .iter()
+                    .map(|(key, value)| format!("\"{key}\":{}", value.text()))
+                    .collect();
+                format!("{{{}}}", inner.join(","))
+            }
+            LogItem::Error { name, message } => format!("{name}: {message}"),
+            LogItem::Cause(rows) => rows.join(", "),
+        }
+    }
+
+    /// The JSON rendering: integers become the string `"123n"`, and an error
+    /// becomes its `{name, message}` pair.
+    pub fn json(&self) -> String {
+        match self {
+            LogItem::Text(text) => json_string(text),
+            LogItem::BigInt(value) => json_string(&format!("{value}n")),
+            LogItem::Object(fields) => {
+                let inner: Vec<String> = fields
+                    .iter()
+                    .map(|(key, value)| format!("{}:{}", json_string(key), value.json()))
+                    .collect();
+                format!("{{{}}}", inner.join(","))
+            }
+            LogItem::Error { name, message } => format!(
+                "{{\"name\":{},\"message\":{}}}",
+                json_string(name),
+                json_string(message)
+            ),
+            LogItem::Cause(rows) => {
+                let inner: Vec<String> = rows.iter().map(|row| json_string(row)).collect();
+                format!("[{}]", inner.join(","))
+            }
+        }
+    }
+}
+
+fn json_string(text: &str) -> String {
+    let escaped = text.replace('\\', "\\\\").replace('"', "\\\"");
+    format!("\"{escaped}\"")
+}
+
+/// The level's uppercase name, which is what every formatter prints and what
+/// the pin's JSON rows compare against.
+pub fn level_name(level: LogLevel) -> &'static str {
+    match level {
+        LogLevel::Trace => "TRACE",
+        LogLevel::Debug => "DEBUG",
+        LogLevel::Info => "INFO",
+        LogLevel::Warn => "WARN",
+        LogLevel::Error => "ERROR",
+        LogLevel::Fatal => "FATAL",
+        LogLevel::All => "ALL",
+        LogLevel::None => "NONE",
+    }
+}
+
+/// `formatStructured`: the items exactly as they were logged, for a sink that
+/// wants values rather than text.
+pub fn format_structured(items: &[LogItem]) -> Vec<LogItem> {
+    items.to_vec()
+}
+
+/// `formatJson`: `{"level":..,"message":[..]}`. The message is the item
+/// list, so its order is the caller's.
+pub fn format_json_record(level: LogLevel, items: &[LogItem]) -> String {
+    let inner: Vec<String> = items.iter().map(LogItem::json).collect();
+    format!(
+        "{{\"level\":{},\"message\":[{}]}}",
+        json_string(level_name(level)),
+        inner.join(",")
+    )
+}
+
+// The annotation methods the log-record rows need, on the type the module
+// already had: `annotateLogs` sets one key, `annotateLogsScoped` returns a
+// guard that carries the scoped set and restores the previous one.
+impl LogAnnotations {
+    /// The value behind `key`.
+    pub fn get(&self, key: &str) -> Option<&str> {
+        self.0
+            .iter()
+            .find(|(k, _)| k == key)
+            .map(|(_, value)| value.as_str())
+    }
+
+    /// The annotation pairs, in insertion order.
+    pub fn pairs(&self) -> &[(String, String)] {
+        &self.0
+    }
+
+    /// `annotateLogs`: set one key.
+    pub fn annotate(&self, key: &str, value: &str) -> Self {
+        let mut next = self.0.clone();
+        match next.iter_mut().find(|(k, _)| k == key) {
+            Some(slot) => slot.1 = value.to_owned(),
+            None => next.push((key.to_owned(), value.to_owned())),
+        }
+        Self(next)
+    }
+
+    /// `annotateLogsScoped`: the returned guard carries the scoped set, and
+    /// the set it replaced comes back when the guard drops. A `None` value is
+    /// the pin's `NaN`: it applies while scoped and is gone afterwards.
+    pub fn annotate_scoped(&self, key: &str, value: Option<&str>) -> ScopedAnnotations {
+        let applied = match value {
+            Some(value) => self.annotate(key, value),
+            None => self.annotate(key, "NaN"),
+        };
+        ScopedAnnotations {
+            current: applied,
+            previous: self.clone(),
+        }
+    }
+
+    /// One line's rendering: `{key: "value"}` for the default logger, and
+    /// `key=value` pairs for the logfmt formatters.
+    pub fn object_line(&self) -> String {
+        let inner: Vec<String> = self
+            .0
+            .iter()
+            .map(|(key, value)| format!("{key}: {value:?}"))
+            .collect();
+        format!("{{{}}}", inner.join(", "))
+    }
+}
+
+/// A scoped annotation set: [`now`](Self::now) while it is live, the previous
+/// set once it drops.
+pub struct ScopedAnnotations {
+    current: LogAnnotations,
+    previous: LogAnnotations,
+}
+
+impl ScopedAnnotations {
+    /// The annotations in force inside the scope.
+    pub fn now(&self) -> &LogAnnotations {
+        &self.current
+    }
+
+    /// The annotations that come back when the scope closes.
+    pub fn previous(&self) -> &LogAnnotations {
+        &self.previous
+    }
+}
+
+/// The default logger's lines: a header, then one line per message item with
+/// text items in the order they were logged, then the annotations line. A
+/// cause is rendered after the text items, which is the ordering the pin's
+/// row pins.
+pub fn default_log_lines(
+    level: LogLevel,
+    fiber_id: u64,
+    span: Option<(&str, u128)>,
+    items: &[LogItem],
+    annotations: &LogAnnotations,
+) -> Vec<String> {
+    let span_part = match span {
+        Some((name, millis)) => format!(" {name}={millis}ms:"),
+        None => ":".to_owned(),
+    };
+    let mut lines = vec![format!(
+        "[00:00:00.000] {} (#{fiber_id}){span_part}",
+        level_name(level)
+    )];
+    lines.extend(
+        items
+            .iter()
+            .filter(|item| matches!(item, LogItem::Text(_)))
+            .map(LogItem::text),
+    );
+    lines.extend(
+        items
+            .iter()
+            .filter(|item| !matches!(item, LogItem::Text(_)))
+            .map(LogItem::text),
+    );
+    if !annotations.pairs().is_empty() {
+        lines.push(annotations.object_line());
+    }
+    lines
+}
+
+/// One `message=` field per item: the pin's logfmt and simple formatters
+/// print each item of a call as its own field, quoted only when the logfmt
+/// rule says so.
+pub fn message_fields(items: &[LogItem]) -> String {
+    items
+        .iter()
+        .map(|item| format!("message={}", quote_logfmt_value(&item.text())))
+        .collect::<Vec<String>>()
+        .join(" ")
+}
+
+/// `formatLogFmt` over a whole record: level, fiber, one `message=` field per
+/// item, then the annotations.
+pub fn format_logfmt_record(
+    level: LogLevel,
+    fiber_id: u64,
+    items: &[LogItem],
+    annotations: &LogAnnotations,
+) -> String {
+    let mut parts = vec![
+        format!("level={}", level_name(level)),
+        format!("fiber=#{fiber_id}"),
+        message_fields(items),
+    ];
+    parts.extend(
+        annotations
+            .pairs()
+            .iter()
+            .map(|(key, value)| format_logfmt_field(key, value)),
+    );
+    parts.join(" ")
+}
+
+/// `formatSimple` over a whole record: the same fields as
+/// [`format_logfmt_record`], which is why the two agree on the message part.
+pub fn format_simple_record(
+    level: LogLevel,
+    fiber_id: u64,
+    items: &[LogItem],
+    annotations: &LogAnnotations,
+) -> String {
+    let mut parts = vec![
+        format!("level={}", level_name(level)),
+        format!("fiber=#{fiber_id}"),
+        message_fields(items),
+    ];
+    parts.extend(
+        annotations
+            .pairs()
+            .iter()
+            .map(|(key, value)| format_logfmt_field(key, value)),
+    );
+    parts.join(" ")
+}
+
+/// A logger whose formatter and sink are both replaceable: the
+/// `Logger.formatJson.pipe(Logger.map(..))` shape, where the formatter writes
+/// the line and the sink decides what becomes of it.
+pub struct FormattedLogger {
+    format: Arc<dyn Fn(LogLevel, &[LogItem], &LogAnnotations) -> String + Send + Sync>,
+    sink: Arc<dyn Fn(String) + Send + Sync>,
+}
+
+impl FormattedLogger {
+    /// Emit one record through the formatter and then the sink.
+    pub fn log(&self, level: LogLevel, items: &[LogItem], annotations: &LogAnnotations) {
+        (self.sink)((self.format)(level, items, annotations));
+    }
+
+    /// The `formatJson` + map shape: a JSON line into a collecting sink.
+    pub fn json_sink(sink: impl Fn(String) + Send + Sync + 'static) -> Self {
+        Self {
+            format: Arc::new(|level, items, _annotations| format_json_record(level, items)),
+            sink: Arc::new(sink),
+        }
+    }
 }

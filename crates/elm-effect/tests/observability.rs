@@ -466,6 +466,177 @@ fn format_simple_quotes_only_when_needed() {
     assert!(!output.contains("message=\"\\\"hello world\""));
 }
 
+// --- Logger records (Logger.test.ts rows) ---
+
+fn logger_items() -> Vec<observability::LogItem> {
+    use observability::LogItem;
+    vec![LogItem::BigInt(123), LogItem::Object(vec![("value".to_owned(), LogItem::BigInt(123))])]
+}
+
+// Logger.test.ts:11 — one call with a span and an annotation prints a header,
+// then the message items as their own lines, then the annotations.
+#[test]
+fn logger_should_output_logs() {
+    use observability::{LogAnnotations, LogItem, LogLevel, default_log_lines};
+    let annotations = LogAnnotations::default().annotate("key", "value");
+    let lines = default_log_lines(
+        LogLevel::Info,
+        1,
+        Some(("span", 0)),
+        &[LogItem::Text("info".to_owned()), LogItem::Text("message".to_owned())],
+        &annotations,
+    );
+
+    assert!(lines[0].contains("INFO"), "header level: {}", lines[0]);
+    assert!(lines[0].contains("(#1)"), "header fiber: {}", lines[0]);
+    assert!(lines[0].contains("span=0ms:"), "header span: {}", lines[0]);
+    assert_eq!(lines[1], "info");
+    assert_eq!(lines[2], "message");
+    assert_eq!(lines[3], "{key: \"value\"}");
+}
+
+// Logger.test.ts:29 — replacing the logger means the replaced sink is what
+// receives the formatted line, exactly once.
+#[test]
+fn logger_replace_logger() {
+    use observability::{FormattedLogger, LogAnnotations, LogItem, LogLevel};
+    let seen = std::sync::Arc::new(std::sync::Mutex::new(Vec::<String>::new()));
+    let collected = seen.clone();
+    let logger = FormattedLogger::json_sink(move |line| collected.lock().unwrap().push(line));
+
+    logger.log(
+        LogLevel::Info,
+        &[LogItem::Text("info".to_owned()), LogItem::Text("message".to_owned())],
+        &LogAnnotations::default(),
+    );
+    assert_eq!(seen.lock().unwrap().len(), 1, "the replacement sink ran once");
+    assert!(seen.lock().unwrap()[0].starts_with("{\"level\":\"INFO\""));
+}
+
+// Logger.test.ts:93 — a BigInt message renders `123n` in text and as the
+// string "123n" in JSON, and structured keeps the value itself.
+#[test]
+fn logger_formats_bigint_messages_consistently() {
+    use observability::{
+        LogAnnotations, LogLevel, format_json_record, format_logfmt_record, format_simple_record,
+        format_structured,
+    };
+    let items = logger_items();
+    let annotations = LogAnnotations::default();
+
+    // The pin's own line carries a timestamp prefix, so its assertion spells
+    // the level and fiber with a leading space; here the line starts there.
+    let simple = format_simple_record(LogLevel::Info, 1, &items, &annotations);
+    assert!(simple.starts_with("level=INFO fiber=#1 "), "got {simple}");
+    assert!(
+        simple.contains("message=123n message=\"{\\\"value\\\":123n}\""),
+        "got {simple}"
+    );
+
+    let logfmt = format_logfmt_record(LogLevel::Info, 1, &items, &annotations);
+    assert!(logfmt.starts_with("level=INFO fiber=#1 "), "got {logfmt}");
+    assert!(
+        logfmt.contains("message=123n message=\"{\\\"value\\\":123n}\""),
+        "got {logfmt}"
+    );
+
+    assert_eq!(format_structured(&items), items, "structured keeps the values");
+    assert_eq!(
+        format_json_record(LogLevel::Info, &items),
+        "{\"level\":\"INFO\",\"message\":[\"123n\",{\"value\":\"123n\"}]}"
+    );
+}
+
+// Logger.test.ts:118 — the JSON formatter carries a plain error's name and
+// message rather than a bare string.
+#[test]
+fn logger_format_json_includes_error_messages() {
+    use observability::{LogLevel, LogItem, format_json_record};
+    let json = format_json_record(
+        LogLevel::Error,
+        &[LogItem::Error {
+            name: "Error".to_owned(),
+            message: "boom".to_owned(),
+        }],
+    );
+    assert_eq!(
+        json,
+        "{\"level\":\"ERROR\",\"message\":[{\"name\":\"Error\",\"message\":\"boom\"}]}"
+    );
+}
+
+// Logger.test.ts:134 — a scoped annotation applies inside the scope and is
+// gone outside it.
+#[test]
+fn logger_annotate_logs_scoped_applies_only_while_scoped() {
+    use observability::LogAnnotations;
+    let base = LogAnnotations::default();
+    assert_eq!(base.get("requestId"), None);
+    {
+        let scoped = base.annotate_scoped("requestId", Some("req-123"));
+        assert_eq!(scoped.now().get("requestId"), Some("req-123"));
+        assert_eq!(scoped.previous().get("requestId"), None);
+    }
+    assert_eq!(base.get("requestId"), None, "outside the scope it is gone");
+}
+
+// Logger.test.ts:155 — the scope restores the annotations it replaced.
+#[test]
+fn logger_annotate_logs_scoped_restores_previous() {
+    use observability::LogAnnotations;
+    let outer = LogAnnotations::default().annotate("outer", "program");
+    assert_eq!(outer.get("outer"), Some("program"));
+    {
+        let scoped = outer.annotate_scoped("inner", Some("scope"));
+        assert_eq!(scoped.now().get("outer"), Some("program"));
+        assert_eq!(scoped.now().get("inner"), Some("scope"));
+        // The previous set is the one that comes back, unchanged.
+        assert_eq!(scoped.previous(), &outer);
+        assert_eq!(scoped.previous().get("inner"), None);
+    }
+    assert_eq!(outer.get("inner"), None, "the restored set has no inner key");
+}
+
+// Logger.test.ts:182 (the NaN it.each) — a NaN annotation applies while
+// scoped and the initial annotations come back afterwards, whether they were
+// empty or already carried the key.
+#[test]
+fn logger_annotate_logs_scoped_restores_nan_annotations() {
+    use observability::LogAnnotations;
+    for initial in [LogAnnotations::default(), LogAnnotations::default().annotate("measurement", "previous")] {
+        let scoped = initial.annotate_scoped("measurement", None);
+        assert_eq!(
+            scoped.now().get("measurement"),
+            Some("NaN"),
+            "NaN applies inside the scope"
+        );
+        assert_eq!(scoped.previous(), &initial, "the initial set comes back");
+    }
+}
+
+// Logger.test.ts:206 — the default logger keeps the message items in order
+// and renders a cause after them.
+#[test]
+fn logger_default_keeps_message_item_order_with_a_cause() {
+    use observability::{LogAnnotations, LogItem, LogLevel, default_log_lines};
+    let lines = default_log_lines(
+        LogLevel::Info,
+        7,
+        None,
+        &[
+            LogItem::Text("first".to_owned()),
+            LogItem::Cause(vec!["boom".to_owned()]),
+            LogItem::Text("second".to_owned()),
+        ],
+        &LogAnnotations::default(),
+    );
+
+    assert!(lines[0].contains("INFO") && lines[0].contains("(#7):"), "header: {}", lines[0]);
+    assert_eq!(lines[1], "first");
+    assert_eq!(lines[2], "second", "the text items keep their order");
+    assert!(lines[3].contains("boom"), "the cause follows them: {}", lines[3]);
+}
+
 #[test]
 fn pipe_supports_extracting_the_protected_value() {
     // Redacted.test.ts:17 — the tag's data-last pipe form; `value` is the
