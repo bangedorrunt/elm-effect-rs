@@ -93,4 +93,4 @@ pub use stm::{
 };
 pub use stream::{Stream, from_iter, from_iterator_succeed};
 pub use sync::{Deferred, MutableRef, PartitionedSemaphore, Queue, QueueError, Ref, Semaphore, Strategy, SubscriptionRef, SynchronizedRef, is_dequeue, is_enqueue, is_queue};
-pub use time::{Clock, ClockImpl, Duration, SleepOutcome, SystemClock, TestClock};
+pub use time::{Clock, ClockImpl, Duration, DurationJson, Parts, SleepOutcome, SystemClock, TestClock, is_duration};

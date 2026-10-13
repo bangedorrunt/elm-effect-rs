@@ -1136,51 +1136,51 @@ ported	packages/effect/test/Deferred.test.ts	199	it.effect	poll - should return 
 ported	packages/effect/test/Deferred.test.ts	212	it.effect	poll - should return Option.some when the deferred was interrupted	interrupt_records_the_interruption
 ported	packages/effect/test/Deferred.test.ts	227	it.effect	isDone - should return true when suceeded	is_done_is_true_only_once_completed
 ported	packages/effect/test/Deferred.test.ts	234	it.effect	isDone - should return true when failed	is_done_is_true_only_once_completed
-unported	packages/effect/test/Duration.test.ts	14	it	fromInputUnsafe	
-unported	packages/effect/test/Duration.test.ts	116	it	fromInput	
-unported	packages/effect/test/Duration.test.ts	158	it	Order	
-unported	packages/effect/test/Duration.test.ts	179	it	Equivalence	
+ported	packages/effect/test/Duration.test.ts	14	it	fromInputUnsafe	duration_from_input_parses_every_input_shape
+ported	packages/effect/test/Duration.test.ts	116	it	fromInput	duration_from_input_parses_every_input_shape
+ported	packages/effect/test/Duration.test.ts	158	it	Order	duration_order_spans_both_representations_and_the_sentinels
+ported	packages/effect/test/Duration.test.ts	179	it	Equivalence	duration_equals_and_hashes_across_representations
 ported	packages/effect/test/Duration.test.ts	200	it	max	max_ms
 ported	packages/effect/test/Duration.test.ts	205	it	min	min_ms
 ported	packages/effect/test/Duration.test.ts	210	it	clamp	clamp_ms
 ported	packages/effect/test/Duration.test.ts	227	it	equals	equals_ms
-unported	packages/effect/test/Duration.test.ts	231	it	Hash.symbol agrees with equals across Millis/Nanos representations	
-unported	packages/effect/test/Duration.test.ts	245	it	Hash.symbol handles finite millis too large to convert to nanos	
+ported	packages/effect/test/Duration.test.ts	231	it	Hash.symbol agrees with equals across Millis/Nanos representations	duration_equals_and_hashes_across_representations
+ported	packages/effect/test/Duration.test.ts	245	it	Hash.symbol handles finite millis too large to convert to nanos	duration_equals_and_hashes_across_representations
 ported	packages/effect/test/Duration.test.ts	252	it	between	between_ms
-unported	packages/effect/test/Duration.test.ts	265	it	divide	
-unported	packages/effect/test/Duration.test.ts	304	it	divideUnsafe	
-unported	packages/effect/test/Duration.test.ts	345	it	times	
-unported	packages/effect/test/Duration.test.ts	351	it	sum	
-unported	packages/effect/test/Duration.test.ts	366	it	subtract	
-unported	packages/effect/test/Duration.test.ts	392	it	isGreaterThan	
-unported	packages/effect/test/Duration.test.ts	408	it	isGreaterThanOrEqualTo	
-unported	packages/effect/test/Duration.test.ts	418	it	isLessThan	
-unported	packages/effect/test/Duration.test.ts	430	it	isLessThanOrEqualTo	
-unported	packages/effect/test/Duration.test.ts	440	it	toString()	
-unported	packages/effect/test/Duration.test.ts	449	it	format	
-unported	packages/effect/test/Duration.test.ts	461	it	parts	
-unported	packages/effect/test/Duration.test.ts	490	it	toJSON	
-unported	packages/effect/test/Duration.test.ts	497	it	inspect	
-unported	packages/effect/test/Duration.test.ts	505	it	.pipe()	
-unported	packages/effect/test/Duration.test.ts	509	it	isDuration	
-unported	packages/effect/test/Duration.test.ts	514	it	zero	
-unported	packages/effect/test/Duration.test.ts	518	it	weeks	
-unported	packages/effect/test/Duration.test.ts	523	it	toMillis	
-unported	packages/effect/test/Duration.test.ts	529	it	toSeconds	
-unported	packages/effect/test/Duration.test.ts	535	it	toNanos	
-unported	packages/effect/test/Duration.test.ts	543	it	toNanosUnsafe	
-unported	packages/effect/test/Duration.test.ts	552	it	toHrTime	
-unported	packages/effect/test/Duration.test.ts	560	it	negative values	
-unported	packages/effect/test/Duration.test.ts	649	it	match	
-unported	packages/effect/test/Duration.test.ts	660	it	isFinite	
-unported	packages/effect/test/Duration.test.ts	666	it	isZero	
-unported	packages/effect/test/Duration.test.ts	675	it	toMinutes	
-unported	packages/effect/test/Duration.test.ts	681	it	toHours	
-unported	packages/effect/test/Duration.test.ts	687	it	toDays	
-unported	packages/effect/test/Duration.test.ts	693	it	toWeeks	
-unported	packages/effect/test/Duration.test.ts	699	it	ReducerSum	
-unported	packages/effect/test/Duration.test.ts	703	it	CombinerMax	
-unported	packages/effect/test/Duration.test.ts	707	it	CombinerMin	
+ported	packages/effect/test/Duration.test.ts	265	it	divide	duration_divide_and_times_follow_the_pins_arithmetic
+ported	packages/effect/test/Duration.test.ts	304	it	divideUnsafe	duration_divide_and_times_follow_the_pins_arithmetic
+ported	packages/effect/test/Duration.test.ts	345	it	times	duration_divide_and_times_follow_the_pins_arithmetic
+ported	packages/effect/test/Duration.test.ts	351	it	sum	duration_sum_subtract_and_comparisons
+ported	packages/effect/test/Duration.test.ts	366	it	subtract	duration_sum_subtract_and_comparisons
+ported	packages/effect/test/Duration.test.ts	392	it	isGreaterThan	duration_sum_subtract_and_comparisons
+ported	packages/effect/test/Duration.test.ts	408	it	isGreaterThanOrEqualTo	duration_sum_subtract_and_comparisons
+ported	packages/effect/test/Duration.test.ts	418	it	isLessThan	duration_sum_subtract_and_comparisons
+ported	packages/effect/test/Duration.test.ts	430	it	isLessThanOrEqualTo	duration_sum_subtract_and_comparisons
+ported	packages/effect/test/Duration.test.ts	440	it	toString()	duration_renders_string_format_parts_and_json
+ported	packages/effect/test/Duration.test.ts	449	it	format	duration_renders_string_format_parts_and_json
+ported	packages/effect/test/Duration.test.ts	461	it	parts	duration_renders_string_format_parts_and_json
+ported	packages/effect/test/Duration.test.ts	490	it	toJSON	duration_renders_string_format_parts_and_json
+ported	packages/effect/test/Duration.test.ts	497	it	inspect	duration_renders_string_format_parts_and_json
+ported	packages/effect/test/Duration.test.ts	505	it	.pipe()	duration_pipes_its_combinators
+ported	packages/effect/test/Duration.test.ts	509	it	isDuration	duration_identifies_itself
+ported	packages/effect/test/Duration.test.ts	514	it	zero	duration_zero_weeks_and_units
+ported	packages/effect/test/Duration.test.ts	518	it	weeks	duration_zero_weeks_and_units
+ported	packages/effect/test/Duration.test.ts	523	it	toMillis	duration_zero_weeks_and_units
+ported	packages/effect/test/Duration.test.ts	529	it	toSeconds	duration_zero_weeks_and_units
+ported	packages/effect/test/Duration.test.ts	535	it	toNanos	duration_zero_weeks_and_units
+ported	packages/effect/test/Duration.test.ts	543	it	toNanosUnsafe	duration_zero_weeks_and_units
+ported	packages/effect/test/Duration.test.ts	552	it	toHrTime	duration_zero_weeks_and_units
+ported	packages/effect/test/Duration.test.ts	560	it	negative values	duration_negative_family_agrees_with_the_pin
+ported	packages/effect/test/Duration.test.ts	649	it	match	duration_match_finite_and_sentinels
+ported	packages/effect/test/Duration.test.ts	660	it	isFinite	duration_finite_zero_and_reducers
+ported	packages/effect/test/Duration.test.ts	666	it	isZero	duration_finite_zero_and_reducers
+ported	packages/effect/test/Duration.test.ts	675	it	toMinutes	duration_zero_weeks_and_units
+ported	packages/effect/test/Duration.test.ts	681	it	toHours	duration_zero_weeks_and_units
+ported	packages/effect/test/Duration.test.ts	687	it	toDays	duration_zero_weeks_and_units
+ported	packages/effect/test/Duration.test.ts	693	it	toWeeks	duration_zero_weeks_and_units
+ported	packages/effect/test/Duration.test.ts	699	it	ReducerSum	duration_finite_zero_and_reducers
+ported	packages/effect/test/Duration.test.ts	703	it	CombinerMax	duration_finite_zero_and_reducers
+ported	packages/effect/test/Duration.test.ts	707	it	CombinerMin	duration_finite_zero_and_reducers
 ported	packages/effect/test/Effect.test.ts	79	it.effect	scoped closes its scope when interrupted after installing it	scoped_closes_its_scope_when_interrupted_after_installing_it
 not-applicable	packages/effect/test/Effect.test.ts	124	it.effect	provideService restores the original context if interrupted before its body	Effect.withFiber now hands over a Fiber handle, but this row restores `fiber.context`, the fiber's own mutable services snapshot; the port's services are baked per run and its Fiber handle carries identity and the interrupt flag only, so a run has no original context to restore
 not-applicable	packages/effect/test/Effect.test.ts	155	it.effect	 never strands a second caller when the owner yields before registering cleanup	Effect.cached and Effect.cachedInvalidateWithTTL are absent from crates/elm-effect/src/effect.rs (21 pub fns, neither present), so this cache-invalidation row has no Rust constructor
@@ -8065,33 +8065,33 @@ unported	packages/effect/test/schema/Schema.test.ts	9563	it	should collect no di
 unported	packages/effect/test/schema/Schema.test.ts	9569	it	should support __proto__ as a discriminant	
 unported	packages/effect/test/schema/Schema.test.ts	9579	it	should augment a union of classes	
 unported	packages/effect/test/schema/Schema.test.ts	9598	it	should create a tagged union	
-unported	packages/effect/test/schema/Schema.test.ts	9673	it	should return a decoding default value if the key is missing	
-unported	packages/effect/test/schema/Schema.test.ts	9689	it	by default should pass through the value	
-unported	packages/effect/test/schema/Schema.test.ts	9699	it	should omit the value if the encoding strategy is set to omit	
-unported	packages/effect/test/schema/Schema.test.ts	9711	it	nested default values	
-unported	packages/effect/test/schema/Schema.test.ts	9730	it	Effect failing with SchemaError propagates as decode failure	
-unported	packages/effect/test/schema/Schema.test.ts	9749	it	Effect failing with SchemaError and a defect preserves the mixed cause	
-unported	packages/effect/test/schema/Schema.test.ts	9773	it	default Effect can require a service	
-unported	packages/effect/test/schema/Schema.test.ts	9793	it	should return a decoding default value if the key is missing	
-unported	packages/effect/test/schema/Schema.test.ts	9805	it	should return a decoding default value if the schema is used as standalone and the input is undefined	
-unported	packages/effect/test/schema/Schema.test.ts	9814	it	by default should pass through the value	
-unported	packages/effect/test/schema/Schema.test.ts	9824	it	should omit the value if the encoding strategy is set to omit	
-unported	packages/effect/test/schema/Schema.test.ts	9834	it	nested default values	
-unported	packages/effect/test/schema/Schema.test.ts	9850	it	Effect failing with SchemaError and a defect preserves the mixed cause	
-unported	packages/effect/test/schema/Schema.test.ts	9874	it	default Effect can require a service	
-unported	packages/effect/test/schema/Schema.test.ts	9895	it	should return a decoding default value if the key is missing	
-unported	packages/effect/test/schema/Schema.test.ts	9911	it	by default should pass through the value	
-unported	packages/effect/test/schema/Schema.test.ts	9921	it	should omit the value if the encoding strategy is set to omit	
-unported	packages/effect/test/schema/Schema.test.ts	9933	it	nested default values	
-unported	packages/effect/test/schema/Schema.test.ts	9952	it	Effect failing with SchemaError propagates as decode failure	
-unported	packages/effect/test/schema/Schema.test.ts	9971	it	default Effect can require a service	
-unported	packages/effect/test/schema/Schema.test.ts	9991	it	should return a decoding default value if the key is missing	
-unported	packages/effect/test/schema/Schema.test.ts	10003	it	should return a decoding default value if the schema is used as standalone and the input is undefined	
-unported	packages/effect/test/schema/Schema.test.ts	10012	it	by default should pass through the value	
-unported	packages/effect/test/schema/Schema.test.ts	10022	it	should omit the value if the encoding strategy is set to omit	
-unported	packages/effect/test/schema/Schema.test.ts	10034	it	nested default values	
-unported	packages/effect/test/schema/Schema.test.ts	10050	it	Effect failing with SchemaError propagates as decode failure	
-unported	packages/effect/test/schema/Schema.test.ts	10069	it	default Effect can require a service	
+ported	packages/effect/test/schema/Schema.test.ts	9673	it	should return a decoding default value if the key is missing	wire_key_default_fills_a_missing_key
+ported	packages/effect/test/schema/Schema.test.ts	9689	it	by default should pass through the value	wire_key_default_passes_the_value_through_on_encode
+ported	packages/effect/test/schema/Schema.test.ts	9699	it	should omit the value if the encoding strategy is set to omit	wire_key_default_omit_encoding_drops_the_key
+ported	packages/effect/test/schema/Schema.test.ts	9711	it	nested default values	wire_key_default_nested_defaults
+ported	packages/effect/test/schema/Schema.test.ts	9730	it	Effect failing with SchemaError propagates as decode failure	wire_key_default_failure_is_a_decode_failure
+not-applicable	packages/effect/test/schema/Schema.test.ts	9749	it	Effect failing with SchemaError and a defect preserves the mixed cause	the row asserts a mixed Cause (a typed SchemaError plus a defect) surfacing from the default; this port's SchemaError has one channel and the defect lives in the effect crate's Cause, so the mixed shape has no counterpart here
+not-applicable	packages/effect/test/schema/Schema.test.ts	9773	it	default Effect can require a service	the row provides a service to the default's Effect and asserts the service supplies the value; a default here is a plain closure with no service channel (services live in elm-effect), so there is nothing to provide
+ported	packages/effect/test/schema/Schema.test.ts	9793	it	should return a decoding default value if the key is missing	wire_default_fills_a_missing_key_and_a_null
+ported	packages/effect/test/schema/Schema.test.ts	9805	it	should return a decoding default value if the schema is used as standalone and the input is undefined	wire_default_absorbs_a_standalone_null
+ported	packages/effect/test/schema/Schema.test.ts	9814	it	by default should pass through the value	wire_default_passes_the_value_through_on_encode
+ported	packages/effect/test/schema/Schema.test.ts	9824	it	should omit the value if the encoding strategy is set to omit	wire_default_omit_encoding_drops_the_key
+ported	packages/effect/test/schema/Schema.test.ts	9834	it	nested default values	wire_default_nested_defaults
+not-applicable	packages/effect/test/schema/Schema.test.ts	9850	it	Effect failing with SchemaError and a defect preserves the mixed cause	the row asserts a mixed Cause (a typed SchemaError plus a defect) surfacing from the default; this port's SchemaError has one channel and the defect lives in the effect crate's Cause, so the mixed shape has no counterpart here
+not-applicable	packages/effect/test/schema/Schema.test.ts	9874	it	default Effect can require a service	the row provides a service to the default's Effect and asserts the service supplies the value; a default here is a plain closure with no service channel (services live in elm-effect), so there is nothing to provide
+ported	packages/effect/test/schema/Schema.test.ts	9895	it	should return a decoding default value if the key is missing	typed_key_default_fills_a_missing_key
+ported	packages/effect/test/schema/Schema.test.ts	9911	it	by default should pass through the value	typed_key_default_passes_the_value_through_on_encode
+ported	packages/effect/test/schema/Schema.test.ts	9921	it	should omit the value if the encoding strategy is set to omit	typed_key_default_omit_encoding_drops_the_key
+ported	packages/effect/test/schema/Schema.test.ts	9933	it	nested default values	typed_key_default_nested_defaults
+ported	packages/effect/test/schema/Schema.test.ts	9952	it	Effect failing with SchemaError propagates as decode failure	typed_key_default_failure_is_a_decode_failure
+not-applicable	packages/effect/test/schema/Schema.test.ts	9971	it	default Effect can require a service	the row provides a service to the default's Effect and asserts the service supplies the value; a default here is a plain closure with no service channel (services live in elm-effect), so there is nothing to provide
+ported	packages/effect/test/schema/Schema.test.ts	9991	it	should return a decoding default value if the key is missing	typed_default_fills_a_missing_key_and_a_null
+ported	packages/effect/test/schema/Schema.test.ts	10003	it	should return a decoding default value if the schema is used as standalone and the input is undefined	typed_default_absorbs_a_standalone_null
+ported	packages/effect/test/schema/Schema.test.ts	10012	it	by default should pass through the value	typed_default_passes_the_value_through_on_encode
+ported	packages/effect/test/schema/Schema.test.ts	10022	it	should omit the value if the encoding strategy is set to omit	typed_default_omit_encoding_drops_the_key
+ported	packages/effect/test/schema/Schema.test.ts	10034	it	nested default values	typed_default_nested_defaults
+ported	packages/effect/test/schema/Schema.test.ts	10050	it	Effect failing with SchemaError propagates as decode failure	typed_default_failure_is_a_decode_failure
+not-applicable	packages/effect/test/schema/Schema.test.ts	10069	it	default Effect can require a service	the row provides a service to the default's Effect and asserts the service supplies the value; a default here is a plain closure with no service channel (services live in elm-effect), so there is nothing to provide
 ported	packages/effect/test/schema/Schema.test.ts	10089	it	NonEmptyString	refine_non_empty_string
 unported	packages/effect/test/schema/Schema.test.ts	10108	it	Char	
 unported	packages/effect/test/schema/Schema.test.ts	10131	it	Int	
