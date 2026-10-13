@@ -67,6 +67,8 @@ pub enum Arg {
         name: String,
         /// Help text.
         help: String,
+        /// Takes every value it is given, in order, rather than exactly one.
+        variadic: bool,
     },
 }
 
@@ -197,8 +199,11 @@ impl Command {
                         "  --{name} <value>{}\n      {help}\n",
                         if *required { " (required)" } else { "" }
                     )),
-                    Arg::Positional { name, help } => {
-                        out.push_str(&format!("  <{name}>\n      {help}\n"))
+                    Arg::Positional { name, help, variadic } => {
+                        // A variadic operand names itself once in help, because
+                        // it is one argument that takes many values.
+                        let suffix = if *variadic { "..." } else { "" };
+                        out.push_str(&format!("  <{name}>{suffix}\n      {help}\n"))
                     }
                 }
             }
@@ -215,6 +220,7 @@ impl Command {
     fn parse_args(&self, argv: &[String]) -> Result<Parsed, CliError> {
         let mut parsed = Parsed::default();
         let mut positionals = self.args.iter().filter(|a| matches!(a, Arg::Positional { .. }));
+        let mut variadic = false;
         let mut i = 0;
         while i < argv.len() {
             let arg = &argv[i];
@@ -298,7 +304,19 @@ impl Command {
                 }
                 return Err(CliError::Unknown(arg.clone()));
             }
+            if variadic {
+                parsed.positionals.push(arg.clone());
+                i += 1;
+                continue;
+            }
             match positionals.next() {
+                // A variadic positional keeps taking values, so the iterator
+                // does not advance past it and the order across an interleaved
+                // option is the order the line gave.
+                Some(Arg::Positional { variadic: true, .. }) => {
+                    parsed.positionals.push(arg.clone());
+                    variadic = true;
+                }
                 Some(Arg::Positional { .. }) => parsed.positionals.push(arg.clone()),
                 _ => return Err(CliError::Unknown(arg.clone())),
             }

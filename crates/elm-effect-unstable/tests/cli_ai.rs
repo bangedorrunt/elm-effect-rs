@@ -1544,6 +1544,7 @@ fn negative_numbers_parse_as_flag_and_positional_values() {
             Arg::Positional {
                 name: "offset".to_string(),
                 help: "offset".to_string(),
+                variadic: false,
             },
         ],
     );
@@ -1621,6 +1622,7 @@ fn wizard_plan_asks_one_question_per_flag_then_per_positional() {
             Arg::Positional {
                 name: "count".to_string(),
                 help: "how many times".to_string(),
+                variadic: false,
             },
         ],
     );
@@ -1839,6 +1841,7 @@ fn the_selected_subcommands_handler_runs_instead_of_the_parents() {
                 Arg::Positional {
                     name: "repository".to_string(),
                     help: "repository".to_string(),
+                    variadic: false,
                 },
                 Arg::Opt {
                     name: "branch".to_string(),
@@ -1953,6 +1956,7 @@ fn several_subcommands_each_take_their_own_line() {
                 vec![Arg::Positional {
                     name: "repository".to_string(),
                     help: "repository".to_string(),
+                    variadic: false,
                 }],
             )
             .handler(move |parsed| {
@@ -1968,6 +1972,7 @@ fn several_subcommands_each_take_their_own_line() {
                     Arg::Positional {
                         name: "files".to_string(),
                         help: "files".to_string(),
+                        variadic: false,
                     },
                     Arg::Flag {
                         name: "update".to_string(),
@@ -2086,4 +2091,81 @@ fn a_negated_flag_refuses_a_value_beside_it() {
         .parse(&["--no-open".to_string(), "false".to_string()])
         .expect_err("a following value on the negation is refused");
     assert!(error.to_string().contains('o'), "{error}");
+}
+
+/// Command.test.ts:1746 — a required flag whose value is missing is refused
+/// naming the flag, and the command is not run.
+#[test]
+fn a_required_flag_value_that_is_missing_is_refused_naming_the_flag() {
+    let command = Command::new(
+        "tool",
+        "tool command",
+        vec![Arg::Opt {
+            name: "pkg".to_string(),
+            help: "package".to_string(),
+            required: true,
+        }],
+    );
+    let error = command.parse(&["--pkg".to_string()]).expect_err("no value");
+    let printed = error.to_string();
+    assert!(printed.contains("pkg"), "{printed}");
+    // A present value still parses, and so does an inline one.
+    for argv in [
+        vec!["--pkg".to_string(), "cowsay".to_string()],
+        vec!["--pkg=cowsay".to_string()],
+    ] {
+        let (_, parsed) = command.parse(&argv).expect("the value is present");
+        assert_eq!(parsed.opt("pkg"), Some("cowsay"));
+    }
+}
+
+/// Command.test.ts:1823 — a variadic positional keeps its order when options
+/// are interleaved with the values. A non-variadic one still takes exactly one,
+/// which is what keeps the marker honest.
+#[test]
+fn a_non_variadic_positional_takes_exactly_one_value() {
+    let command = Command::new(
+        "one",
+        "one command",
+        vec![Arg::Positional {
+            name: "file".to_string(),
+            help: "file".to_string(),
+            variadic: false,
+        }],
+    );
+    let (_, parsed) = command.parse(&["a.txt".to_string()]).expect("parses");
+    assert_eq!(parsed.positionals, vec!["a.txt".to_string()]);
+    let error = command
+        .parse(&["a.txt".to_string(), "b.txt".to_string()])
+        .expect_err("a second value is not this argument's");
+    assert!(error.to_string().contains("b.txt"), "{error}");
+}
+
+/// Command.test.ts:1823 —
+#[test]
+fn a_variadic_positional_keeps_order_across_interleaved_options() {
+    let command = Command::new(
+        "copy",
+        "copy command",
+        vec![
+            Arg::Flag {
+                name: "verbose".to_string(),
+                help: "verbose".to_string(),
+            },
+            Arg::Positional {
+                name: "file".to_string(),
+                help: "file".to_string(),
+                variadic: true,
+            },
+        ],
+    );
+    let argv = vec![
+        "a.txt".to_string(),
+        "--verbose".to_string(),
+        "b.txt".to_string(),
+        "c.txt".to_string(),
+    ];
+    let (_, parsed) = command.parse(&argv).expect("parses");
+    assert!(parsed.flag("verbose"));
+    assert_eq!(parsed.positionals, vec!["a.txt", "b.txt", "c.txt"]);
 }

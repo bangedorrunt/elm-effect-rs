@@ -5633,11 +5633,11 @@ unported	packages/effect/test/cli/Command.test.ts	1654	it.effect	should support 
 unported	packages/effect/test/cli/Command.test.ts	1675	it.effect	should prefer canonical negation over conflicting aliases	
 ported	packages/effect/test/cli/Command.test.ts	1694	it.effect	should reject explicit values for canonical negated flags	a_negated_flag_refuses_a_value_beside_it
 unported	packages/effect/test/cli/Command.test.ts	1716	it.effect	should not leak a negated flag literal into subcommand parsing	
-unported	packages/effect/test/cli/Command.test.ts	1746	it.effect	should fail when a required flag value is missing	
+ported	packages/effect/test/cli/Command.test.ts	1746	it.effect	should fail when a required flag value is missing	a_required_flag_value_that_is_missing_is_refused_naming_the_flag
 unported	packages/effect/test/cli/Command.test.ts	1767	it.effect	should parse combined short flags including one that expects a value	
 unported	packages/effect/test/cli/Command.test.ts	1787	it.effect	should honor -- while still applying parent flags	
 unported	packages/effect/test/cli/Command.test.ts	1808	it.effect	should report unknown flag even when subcommand is unknown	
-unported	packages/effect/test/cli/Command.test.ts	1823	it.effect	should keep variadic argument order when options are interleaved	
+ported	packages/effect/test/cli/Command.test.ts	1823	it.effect	should keep variadic argument order when options are interleaved	a_variadic_positional_keeps_order_across_interleaved_options
 unported	packages/effect/test/cli/Command.test.ts	1839	it.effect	should support options before, after, or between operands (relaxed POSIX Syntax Guideline No. 9)	
 unported	packages/effect/test/cli/Command.test.ts	1885	it.effect	should suggest similar subcommands for unknown subcommands	
 unported	packages/effect/test/cli/Command.test.ts	1901	it.effect	should suggest similar subcommands for nested unknown subcommands	
