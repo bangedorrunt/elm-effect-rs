@@ -5,9 +5,12 @@
 mod cluster;
 
 use cluster::{
-    MemoryRunnerStorage, ReplyRegistry, ResourceMap, RunnerHealth, ShardingConfig, StoredReply,
-    WaiterFault,
+    ClusterError, Delivery, MemoryRunnerStorage, PlainJsonCodec, ReplyRegistry, ResourceMap,
+    RunnerCodec, RunnerHealth, RunnerReply, RunnerRequest, RunnerTransport, Runners, ShardingConfig,
+    StoredReply, WaiterFault,
 };
+use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 #[test]
 fn sharding_config_defaults_and_validation() {
@@ -329,6 +332,204 @@ fn entity_stream_ended(registry: &ReplyRegistry, request_id: &str) -> bool {
         .replies_for(request_id)
         .iter()
         .any(|reply| matches!(reply, StoredReply::Exit { .. }))
+}
+
+// --- Runners.makeRpc (Runners.test.ts rows) ---
+
+/// The pin's `codecForJsonString`: every payload becomes a JSON string, so a
+/// round trip through it is visible in the wire text. Counts its calls,
+/// which is how the pin's row proves the codec ran.
+struct CountingCodec {
+    name: &'static str,
+    calls: Arc<AtomicUsize>,
+}
+
+impl CountingCodec {
+    fn new(name: &'static str) -> Self {
+        Self {
+            name,
+            calls: Arc::new(AtomicUsize::new(0)),
+        }
+    }
+
+    fn calls(&self) -> usize {
+        self.calls.load(Ordering::SeqCst)
+    }
+}
+
+impl RunnerCodec for CountingCodec {
+    fn name(&self) -> &str {
+        self.name
+    }
+
+    fn encode(&self, text: &str) -> String {
+        self.calls.fetch_add(1, Ordering::SeqCst);
+        // Rust's debug quoting is the JSON string form for these payloads.
+        format!("{text:?}")
+    }
+
+    fn decode(&self, text: &str) -> String {
+        self.calls.fetch_add(1, Ordering::SeqCst);
+        PlainJsonCodec.decode(text)
+    }
+}
+
+/// A transport that always answers the same way.
+struct StaticTransport {
+    outcome: Delivery,
+}
+
+impl RunnerTransport for StaticTransport {
+    fn send(&self, _request: &RunnerRequest) -> Delivery {
+        self.outcome.clone()
+    }
+
+    fn notify(&self, _request: &RunnerRequest) -> Delivery {
+        self.outcome.clone()
+    }
+}
+
+fn runners(codec: Box<dyn RunnerCodec>, outcome: Delivery) -> Runners {
+    Runners::new(codec, Box::new(StaticTransport { outcome }))
+}
+
+// Runners.test.ts:315 — `simulateRemoteSerialization` runs the payload
+// through the protocol codec (one encode, one decode), records that codec on
+// the message, and the receiver sees the decoded payload.
+#[test]
+fn runner_send_local_uses_the_protocol_codec() {
+    let codec = CountingCodec::new("codecFor");
+    let calls = Arc::clone(&codec.calls);
+    let runners = runners(Box::new(codec), Delivery::Delivered);
+    let mut request = RunnerRequest::new("0", "TestRpc", r#"{"id":1}"#, false);
+
+    let mut received = None;
+    runners
+        .send_local(&mut request, true, &mut |incoming| received = Some(incoming))
+        .expect("a local send does not fail");
+    let incoming = received.expect("the local send delivered");
+    assert_eq!(
+        incoming.payload, r#"{"id":1}"#,
+        "the payload survives the codec round trip"
+    );
+    assert_eq!(calls.load(Ordering::SeqCst), 2, "one encode and one decode");
+    assert_eq!(request.encoded_by.as_deref(), Some("codecFor"));
+
+    // A later encode with another codec re-encodes and re-records, which is
+    // the pin's `Message.serialize(message, codecForJson)` assertion.
+    let plain = PlainJsonCodec;
+    request.encode_with(&plain);
+    assert_eq!(request.encoded_by.as_deref(), Some("json"));
+}
+
+// Runners.test.ts:362 — a server-delivered defect is a delivery: the request
+// resolves with a failure exit instead of the send failing.
+#[test]
+fn runner_send_delivered_defect_resolves_the_request() {
+    let runners = runners(Box::new(PlainJsonCodec), Delivery::Defect("boom".to_owned()));
+    let mut request = RunnerRequest::new("1", "TestRpc", r#"{"id":1}"#, false);
+
+    let mut replies = Vec::new();
+    let result = runners.send(&mut request, &mut |reply| replies.push(reply));
+    assert!(result.is_ok(), "a delivered defect is not a transport failure");
+    assert_eq!(
+        replies,
+        vec![RunnerReply::WithExit {
+            request_id: "1".to_owned(),
+            failure: Some("boom".to_owned()),
+        }]
+    );
+}
+
+// Runners.test.ts:386 — an undelivered request is RunnerUnavailable.
+#[test]
+fn runner_send_transport_failure_maps_to_runner_unavailable() {
+    let runners = runners(
+        Box::new(PlainJsonCodec),
+        Delivery::TransportFailure("socket closed".to_owned()),
+    );
+    let mut request = RunnerRequest::new("1", "TestRpc", r#"{"id":1}"#, false);
+
+    match runners.send(&mut request, &mut |_| panic!("no reply for an undelivered request")) {
+        Err(ClusterError::RunnerUnavailable(message)) => {
+            assert!(message.contains("socket closed"), "got {message}")
+        }
+        Err(other) => panic!("expected RunnerUnavailable, got {}", other.message()),
+        Ok(()) => panic!("expected RunnerUnavailable"),
+    }
+}
+
+// Runners.test.ts:399 — a volatile notification whose transport failed is
+// RunnerUnavailable, because nothing would retry it.
+#[test]
+fn runner_notify_volatile_transport_failure_maps_to_runner_unavailable() {
+    let runners = runners(
+        Box::new(PlainJsonCodec),
+        Delivery::TransportFailure("socket closed".to_owned()),
+    );
+    let request = RunnerRequest::new("1", "TestRpc", r#"{"id":1}"#, false);
+
+    match runners.notify(&request) {
+        Err(ClusterError::RunnerUnavailable(message)) => {
+            assert!(message.contains("socket closed"), "got {message}")
+        }
+        Err(other) => panic!("expected RunnerUnavailable, got {}", other.message()),
+        Ok(()) => panic!("expected RunnerUnavailable"),
+    }
+}
+
+// Runners.test.ts:416 — a persisted notification is recovered from storage,
+// so its transport failure is ignored.
+#[test]
+fn runner_notify_persisted_transport_failure_is_ignored() {
+    let runners = runners(
+        Box::new(PlainJsonCodec),
+        Delivery::TransportFailure("socket closed".to_owned()),
+    );
+    let request = RunnerRequest::new("1", "TestRpcPersisted", r#"{"id":1}"#, true);
+
+    assert!(
+        runners.notify(&request).is_ok(),
+        "storage recovery owns a persisted notification"
+    );
+}
+
+// Runners.test.ts:429 — the same delivered defect on a persisted request
+// takes the storage-recovery path instead of resolving in place.
+#[test]
+fn runner_send_delivered_defect_on_persisted_request_maps_to_runner_unavailable() {
+    let runners = runners(Box::new(PlainJsonCodec), Delivery::Defect("boom".to_owned()));
+    let mut request = RunnerRequest::new("1", "TestRpcPersisted", r#"{"id":1}"#, true);
+
+    match runners.send(&mut request, &mut |_| panic!("a persisted defect resolves through storage")) {
+        Err(ClusterError::RunnerUnavailable(message)) => {
+            assert!(message.contains("boom"), "got {message}")
+        }
+        Err(other) => panic!("expected RunnerUnavailable, got {}", other.message()),
+        Ok(()) => panic!("expected RunnerUnavailable"),
+    }
+}
+
+// Runners.test.ts:442 — the outer runner payload is written by the protocol
+// codec and the entity payload rides the hole already encoded.
+#[test]
+fn runner_send_encodes_the_entity_payload_and_leaves_the_hole() {
+    let runners = runners(
+        Box::new(CountingCodec::new("codecForJsonString")),
+        Delivery::Defect("boom".to_owned()),
+    );
+    let request = RunnerRequest::new("2", "TestRpc", r#"{"id":1}"#, false);
+
+    let wire = runners.encode_request(&request);
+    assert!(
+        wire.starts_with('"') && wire.ends_with('"'),
+        "the outer payload is a JSON string: {wire}"
+    );
+    let envelope = PlainJsonCodec.decode(&wire);
+    assert!(
+        envelope.contains(r#""payload":"{\"id\":1}""#),
+        "the entity payload is carried, not re-encoded: {envelope}"
+    );
 }
 
 #[test]

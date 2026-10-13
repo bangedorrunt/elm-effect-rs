@@ -972,3 +972,232 @@ impl ReplyRegistry {
         }
     }
 }
+
+// ------------------------------------------------------------ Runners.ts ---
+
+/// The codec a runner's client protocol supplies: payload text to wire text
+/// and back. This is the pin's `RpcSerialization.CodecFor`, which the
+/// protocol hands to the runner so a simulated remote send can round-trip.
+pub trait RunnerCodec: Send + Sync {
+    /// The codec's identity, recorded on the message that used it.
+    fn name(&self) -> &str;
+    /// Encode one payload.
+    fn encode(&self, text: &str) -> String;
+    /// Decode one payload.
+    fn decode(&self, text: &str) -> String;
+}
+
+/// The identity codec: the wire text is the payload. Its name is what the
+/// pin's `Schema.toCodecJson` records on a message it encoded.
+pub struct PlainJsonCodec;
+
+impl PlainJsonCodec {
+    /// Unquote one JSON string. The runner's wire text is quoted with `{:?}`
+    /// where a codec encodes it as a JSON string, so decoding is that one
+    /// step and an unquoted input is returned unchanged.
+    pub fn unquote(text: &str) -> String {
+        let Some(inner) = text.strip_prefix('"').and_then(|t| t.strip_suffix('"')) else {
+            return text.to_owned();
+        };
+        let mut out = String::with_capacity(inner.len());
+        let mut chars = inner.chars();
+        while let Some(ch) = chars.next() {
+            if ch != '\\' {
+                out.push(ch);
+                continue;
+            }
+            match chars.next() {
+                Some('"') => out.push('"'),
+                Some('\\') => out.push('\\'),
+                Some(other) => out.push(other),
+                None => out.push('\\'),
+            }
+        }
+        out
+    }
+}
+
+impl RunnerCodec for PlainJsonCodec {
+    fn name(&self) -> &str {
+        "json"
+    }
+
+    fn encode(&self, text: &str) -> String {
+        text.to_owned()
+    }
+
+    fn decode(&self, text: &str) -> String {
+        Self::unquote(text)
+    }
+}
+
+/// One outgoing request.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct RunnerRequest {
+    /// The request id the reply must cite.
+    pub request_id: String,
+    /// The RPC tag.
+    pub tag: String,
+    /// The entity payload, as the entity's own codec wrote it.
+    pub payload: String,
+    /// Persisted requests take the storage-recovery path when they cannot be
+    /// answered in place.
+    pub persisted: bool,
+    /// The codec that last encoded this message: `Message.encodedCache`.
+    pub encoded_by: Option<String>,
+}
+
+impl RunnerRequest {
+    /// A request whose payload is already encoded by the entity's codec.
+    pub fn new(
+        request_id: impl Into<String>,
+        tag: impl Into<String>,
+        payload: impl Into<String>,
+        persisted: bool,
+    ) -> Self {
+        Self {
+            request_id: request_id.into(),
+            tag: tag.into(),
+            payload: payload.into(),
+            persisted,
+            encoded_by: None,
+        }
+    }
+
+    /// Encode this message with `codec` and record that codec. Recording is
+    /// the point: the pin reads it back off the message after serializing.
+    pub fn encode_with(&mut self, codec: &dyn RunnerCodec) -> String {
+        self.encoded_by = Some(codec.name().to_owned());
+        codec.encode(&self.payload)
+    }
+}
+
+/// What a transport did with one request.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Delivery {
+    /// The server answered, and the answer was a defect. Still a delivery: the
+    /// request resolves with a failure exit rather than a runner failure.
+    Defect(String),
+    /// The server answered normally.
+    Delivered,
+    /// The transport failed: nothing was delivered.
+    TransportFailure(String),
+}
+
+/// The transport a runner sends through.
+pub trait RunnerTransport: Send + Sync {
+    /// Deliver one request and report what came back.
+    fn send(&self, request: &RunnerRequest) -> Delivery;
+    /// Deliver one notification, whose answer nobody waits for.
+    fn notify(&self, request: &RunnerRequest) -> Delivery;
+}
+
+/// What the caller observes for one request.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum RunnerReply {
+    /// The request resolved with a failure exit carrying the server's defect.
+    WithExit {
+        /// The request this reply belongs to.
+        request_id: String,
+        /// The defect, when the exit failed.
+        failure: Option<String>,
+    },
+}
+
+/// The runner's envelope as text. The entity payload is already encoded, so
+/// it rides the hole as a JSON string and nothing re-encodes it.
+pub fn runner_envelope(request: &RunnerRequest) -> String {
+    fn escape(text: &str) -> String {
+        text.replace('\\', "\\\\").replace('"', "\\\"")
+    }
+    format!(
+        "{{\"request\":{{\"requestId\":\"{}\",\"tag\":\"{}\",\"payload\":\"{}\"}}}}",
+        request.request_id,
+        request.tag,
+        escape(&request.payload)
+    )
+}
+
+/// The runner's send surface, over a protocol codec and a transport. The
+/// failure rules are the pin's: a delivery resolves the request whatever the
+/// answer was, while an undelivered volatile send or notification is
+/// `RunnerUnavailable` and an undelivered persisted one belongs to storage
+/// recovery instead.
+pub struct Runners {
+    codec: Box<dyn RunnerCodec>,
+    transport: Box<dyn RunnerTransport>,
+}
+
+impl Runners {
+    /// A runner over one protocol codec and one transport.
+    pub fn new(codec: Box<dyn RunnerCodec>, transport: Box<dyn RunnerTransport>) -> Self {
+        Self { codec, transport }
+    }
+
+    /// The codec this runner encodes with.
+    pub fn codec_name(&self) -> &str {
+        self.codec.name()
+    }
+
+    /// The outer runner payload: the envelope, written by the protocol codec.
+    pub fn encode_request(&self, request: &RunnerRequest) -> String {
+        self.codec.encode(&runner_envelope(request))
+    }
+
+    /// Send a request, handing the answer to `respond`.
+    pub fn send(
+        &self,
+        request: &mut RunnerRequest,
+        respond: &mut dyn FnMut(RunnerReply),
+    ) -> Result<(), ClusterError> {
+        match self.transport.send(request) {
+            Delivery::TransportFailure(message) => Err(ClusterError::RunnerUnavailable(message)),
+            // A persisted request cannot resolve on this side: the storage
+            // that owns it has to see the failure and retry.
+            Delivery::Defect(defect) if request.persisted => {
+                Err(ClusterError::RunnerUnavailable(defect))
+            }
+            Delivery::Defect(defect) => {
+                respond(RunnerReply::WithExit {
+                    request_id: request.request_id.clone(),
+                    failure: Some(defect),
+                });
+                Ok(())
+            }
+            Delivery::Delivered => Ok(()),
+        }
+    }
+
+    /// Notify without waiting for an answer.
+    pub fn notify(&self, request: &RunnerRequest) -> Result<(), ClusterError> {
+        match self.transport.notify(request) {
+            // A volatile notification has no storage to recover it, so the
+            // failure is the caller's; a persisted one is storage's.
+            Delivery::TransportFailure(message) if !request.persisted => {
+                Err(ClusterError::RunnerUnavailable(message))
+            }
+            _ => Ok(()),
+        }
+    }
+
+    /// Hand a request to the local runtime, optionally simulating the remote
+    /// hop: the payload goes out through the protocol codec and comes back
+    /// through it, so the receiver sees what a remote one would.
+    pub fn send_local(
+        &self,
+        request: &mut RunnerRequest,
+        simulate_remote_serialization: bool,
+        received: &mut dyn FnMut(RunnerRequest),
+    ) -> Result<(), ClusterError> {
+        if simulate_remote_serialization {
+            let wire = request.encode_with(self.codec.as_ref());
+            let decoded = self.codec.decode(&wire);
+            let mut incoming = request.clone();
+            incoming.payload = decoded;
+            received(incoming);
+        } else {
+            received(request.clone());
+        }
+        Ok(())
+    }
+}

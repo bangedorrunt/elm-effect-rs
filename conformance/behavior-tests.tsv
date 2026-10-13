@@ -6060,13 +6060,13 @@ ported	packages/effect/test/cluster/Runners.test.ts	94	it.effect	preserves a lea
 ported	packages/effect/test/cluster/Runners.test.ts	120	it.effect	preserves a leading slash in WebSocket client paths	runner_endpoint_adds_missing_leading_slash
 ported	packages/effect/test/cluster/Runners.test.ts	179	it.effect	a reply that fails to serialize fails only its own request	failed_reply_serialization_isolates_one_request
 ported	packages/effect/test/cluster/Runners.test.ts	203	it.effect	a stream reply that fails to serialize ends the stream with the defect	stream_reply_ends_with_serialization_defect
-unported	packages/effect/test/cluster/Runners.test.ts	315	it.effect	uses the client protocol codec for simulated remote serialization	
-unported	packages/effect/test/cluster/Runners.test.ts	362	it.effect	a server-delivered defect resolves the request instead of RunnerUnavailable	
-unported	packages/effect/test/cluster/Runners.test.ts	386	it.effect	transport failures still map to RunnerUnavailable	
-unported	packages/effect/test/cluster/Runners.test.ts	399	it.effect	volatile notification transport failures map to RunnerUnavailable	
-unported	packages/effect/test/cluster/Runners.test.ts	416	it.effect	persisted notification transport failures are ignored	
-unported	packages/effect/test/cluster/Runners.test.ts	429	it.effect	a delivered defect for a persisted request maps to RunnerUnavailable for storage recovery	
-unported	packages/effect/test/cluster/Runners.test.ts	442	it.effect	encodes the entity payload with the protocol codec and leaves the hole untouched	
+ported	packages/effect/test/cluster/Runners.test.ts	315	it.effect	uses the client protocol codec for simulated remote serialization	runner_send_local_uses_the_protocol_codec
+ported	packages/effect/test/cluster/Runners.test.ts	362	it.effect	a server-delivered defect resolves the request instead of RunnerUnavailable	runner_send_delivered_defect_resolves_the_request
+ported	packages/effect/test/cluster/Runners.test.ts	386	it.effect	transport failures still map to RunnerUnavailable	runner_send_transport_failure_maps_to_runner_unavailable
+ported	packages/effect/test/cluster/Runners.test.ts	399	it.effect	volatile notification transport failures map to RunnerUnavailable	runner_notify_volatile_transport_failure_maps_to_runner_unavailable
+ported	packages/effect/test/cluster/Runners.test.ts	416	it.effect	persisted notification transport failures are ignored	runner_notify_persisted_transport_failure_is_ignored
+ported	packages/effect/test/cluster/Runners.test.ts	429	it.effect	a delivered defect for a persisted request maps to RunnerUnavailable for storage recovery	runner_send_delivered_defect_on_persisted_request_maps_to_runner_unavailable
+ported	packages/effect/test/cluster/Runners.test.ts	442	it.effect	encodes the entity payload with the protocol codec and leaves the hole untouched	runner_send_encodes_the_entity_payload_and_leaves_the_hole
 unported	packages/effect/test/cluster/Sharding.test.ts	60	it.effect	keeps the claim of an active request replayed after an entity defect	
 unported	packages/effect/test/cluster/Sharding.test.ts	153	it.effect	keeps the claim of an active uninterruptible request after restarting	
 unported	packages/effect/test/cluster/Sharding.test.ts	239	it.effect	keeps the claim of an active stream after an acknowledged chunk	
