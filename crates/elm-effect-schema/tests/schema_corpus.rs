@@ -2282,6 +2282,91 @@ fn json_schema_document_integer_and_array_checks_carry_their_code_and_type() {
 }
 
 #[test]
+fn json_schema_document_array_type_only_items_and_true_all_of_members() {
+    // fromJsonSchemaDocument.test.ts:560, :572, :1127 — a bare array constrains
+    // its elements to JSON values, `items` names the element schema, and a
+    // `true` member of an `allOf` constrains nothing so the intersection
+    // leaves the other member standing.
+    use elm_effect_schema::{Schema, Unknown};
+
+    for (doc, code, ty) in [
+        (
+            serde_json::json!({"type": "array"}),
+            r#"Schema.Array(Schema.Json.annotate({ "expected": "JSON value" }))"#,
+            "ReadonlyArray<Schema.Json>",
+        ),
+        (
+            serde_json::json!({"type": "array", "items": {"type": "string"}}),
+            "Schema.Array(Schema.String)",
+            "ReadonlyArray<string>",
+        ),
+        (
+            serde_json::json!({"allOf": [true, {"type": "string"}]}),
+            "Schema.String",
+            "string",
+        ),
+    ] {
+        let schema = Schema::<Unknown>::from_json_schema(&doc).expect("imports");
+        assert_eq!(schema.to_code(), code, "code for {doc:?}");
+        assert_eq!(schema.to_type(), ty, "type for {doc:?}");
+    }
+}
+
+#[test]
+fn json_schema_document_literal_refinements_filter_through_both_orders() {
+    // fromJsonSchemaDocument.test.ts:1827, :1831 — a refinement beside a
+    // `const` filters that one value in either order, so the intersection is
+    // the literal when it satisfies the refinement and `never` when it does
+    // not. The two rows are the precision cases: a divisor below the
+    // `toFixed` precision limit, and one with an operand far past it.
+    use elm_effect_schema::{Schema, Unknown};
+
+    for (doc, literal, kept) in [
+        (
+            serde_json::json!({"type": "number", "multipleOf": 1e-101}),
+            0.0,
+            true,
+        ),
+        (
+            serde_json::json!({"type": "number", "multipleOf": 1e-101}),
+            5e-102,
+            false,
+        ),
+        (
+            serde_json::json!({"type": "number", "multipleOf": 2}),
+            1e21,
+            true,
+        ),
+        (serde_json::json!({"type": "number", "multipleOf": 2}), 1.0, false),
+        // A subnormal divisor: the quotient is not exact, and plain float
+        // arithmetic would call this value a multiple of it.
+        (
+            serde_json::json!({"type": "number", "multipleOf": 1e-323}),
+            1.042e-321,
+            false,
+        ),
+        (serde_json::json!({"type": "number", "multipleOf": 1e-323}), 0.0, true),
+    ] {
+        for order in [
+            [doc.clone(), serde_json::json!({"const": literal})],
+            [serde_json::json!({"const": literal}), doc.clone()],
+        ] {
+            let schema = Schema::<Unknown>::from_json_schema(&serde_json::json!({"allOf": order}))
+                .expect("imports");
+            let code = schema.to_code();
+            // The literal survives, or the intersection is empty. Which number
+            // text a repr prints is the literal rendering's business, not this
+            // row's.
+            if kept {
+                assert!(code.starts_with("Schema.Literal("), "{code} for {order:?}");
+            } else {
+                assert_eq!(code, "Schema.Never", "code for {order:?}");
+            }
+        }
+    }
+}
+
+#[test]
 fn json_schema_document_round_trips_an_optional_never_property() {
     // fromJsonSchemaDocument.test.ts:22 (#8137) — a struct field typed
     // `optionalKey(Never)` survives the trip out to a JSON Schema document and
@@ -2365,3 +2450,4 @@ fn json_schema_document_refuses_a_union_beside_constraining_keywords() {
         assert!(printed.contains(&format!("$.{keyword}")), "{printed}");
     }
 }
+

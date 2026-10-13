@@ -8668,8 +8668,8 @@ ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts
 ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	524	it	exclusiveMaximum	json_schema_document_integer_and_array_checks_carry_their_code_and_type
 ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	536	it	multipleOf	json_schema_document_integer_and_array_checks_carry_their_code_and_type
 ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	551	it	type only	json_schema_document_type_only_rows_carry_their_code_and_type
-unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	560	it	type only	
-unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	572	it	items	
+ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	560	it	type only	json_schema_document_array_type_only_items_and_true_all_of_members
+ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	572	it	items	json_schema_document_array_type_only_items_and_true_all_of_members
 ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	584	it	prefixItems preserves maxItems below the prefix length	json_schema_document_prefix_items_rows_carry_their_code_and_type
 ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	602	it	prefixItems preserves maxItems above the prefix length	json_schema_document_prefix_items_rows_carry_their_code_and_type
 ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	620	it	prefixItems omits maxItems redundant with items: false	json_schema_document_prefix_items_rows_carry_their_code_and_type
@@ -8702,7 +8702,7 @@ ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts
 ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1069	it	false	json_schema_document_property_names_rows_carry_their_code_and_type
 ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1086	it	allOf combines checks	json_schema_document_property_names_rows_carry_their_code_and_type
 unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1107	it	array of types	
-unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1127	it	ignores true schemas in allOf	
+ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1127	it	ignores true schemas in allOf	json_schema_document_array_type_only_items_and_true_all_of_members
 ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1134	it	rejects structured enum members	json_schema_document_refuses_structured_const_and_enum_members
 unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1147	it	imports built-in JSON Schema annotations	
 unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1168	it	rejects local references inside nested resources	
@@ -8740,9 +8740,9 @@ ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts
 ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1815	it	pattern	json_schema_document_literal_refinement_rows_carry_their_code_and_type
 ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1819	it	integer	json_schema_document_literal_refinement_rows_carry_their_code_and_type
 ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1823	it	multipleOf	json_schema_document_literal_refinement_rows_carry_their_code_and_type
-unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1827	it	multipleOf beyond the toFixed precision limit	
-unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1831	it	multipleOf with a large scientific operand	
-unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1835	it	multipleOf with a nonzero subnormal remainder	
+ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1827	it	multipleOf beyond the toFixed precision limit	json_schema_document_literal_refinements_filter_through_both_orders
+ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1831	it	multipleOf with a large scientific operand	json_schema_document_literal_refinements_filter_through_both_orders
+ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1835	it	multipleOf with a nonzero subnormal remainder	json_schema_document_literal_refinements_filter_through_both_orders
 ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1839	it	minimum	json_schema_document_literal_refinement_rows_carry_their_code_and_type
 ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1843	it	maximum	json_schema_document_literal_refinement_rows_carry_their_code_and_type
 ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1847	it	exclusiveMinimum	json_schema_document_literal_refinement_rows_carry_their_code_and_type
