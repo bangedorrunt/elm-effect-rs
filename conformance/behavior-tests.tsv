@@ -8022,15 +8022,15 @@ ported	packages/effect/test/schema/Schema.test.ts	8927	it	NullOr	null_or_wraps_e
 ported	packages/effect/test/schema/Schema.test.ts	8939	it	UndefinedOr	undefined_or_wraps_every_field_schema
 ported	packages/effect/test/schema/Schema.test.ts	8951	it	NullishOr	nullish_or_wraps_every_field_schema
 not-applicable	packages/effect/test/schema/Schema.test.ts	8963	it	should work with flow	the composed result's expected field list is spelled with Schema.mutableKey, a marker with no runtime behavior, so the derived shape the pin compares has no counterpart here; the Struct.map(Schema.NullOr) half of the composition is carried by the NullOr row
-unported	packages/effect/test/schema/Schema.test.ts	8982	it	appendElement	
-unported	packages/effect/test/schema/Schema.test.ts	8988	it	appendElements	
+ported	packages/effect/test/schema/Schema.test.ts	8982	it	appendElement	append_element_adds_a_trailing_position
+ported	packages/effect/test/schema/Schema.test.ts	8988	it	appendElements	append_elements_adds_every_listed_position
 ported	packages/effect/test/schema/Schema.test.ts	8994	it	pick	pick_decodes_a_subset
-unported	packages/effect/test/schema/Schema.test.ts	9000	it	omit	
-unported	packages/effect/test/schema/Schema.test.ts	9007	it	readonly [string] -> readonly [string?]	
-unported	packages/effect/test/schema/Schema.test.ts	9013	it	readonly [string, number] -> readonly [string, number?]	
-unported	packages/effect/test/schema/Schema.test.ts	9023	it	partial index mapping	
-unported	packages/effect/test/schema/Schema.test.ts	9030	it	full index mapping	
-unported	packages/effect/test/schema/Schema.test.ts	9038	it	NullOr	
+ported	packages/effect/test/schema/Schema.test.ts	9000	it	omit	omit_drops_the_listed_position
+ported	packages/effect/test/schema/Schema.test.ts	9007	it	readonly [string] -> readonly [string?]	evolve_makes_a_trailing_position_optional
+ported	packages/effect/test/schema/Schema.test.ts	9013	it	readonly [string, number] -> readonly [string, number?]	evolve_touches_only_the_listed_position
+ported	packages/effect/test/schema/Schema.test.ts	9023	it	partial index mapping	rename_indices_rewrites_the_mapped_prefix
+ported	packages/effect/test/schema/Schema.test.ts	9030	it	full index mapping	rename_indices_permutes_every_position
+ported	packages/effect/test/schema/Schema.test.ts	9038	it	NullOr	null_or_wraps_every_element
 unported	packages/effect/test/schema/Schema.test.ts	9049	it	preserves Union options through public derivations	
 unported	packages/effect/test/schema/Schema.test.ts	9061	it	appendElement	
 unported	packages/effect/test/schema/Schema.test.ts	9067	it	evolve	

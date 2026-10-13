@@ -112,6 +112,9 @@ pub struct Schema<T> {
     /// (`mapFields`/`encodeKeys`) rebuilds from the real field list instead of
     /// guessing one from the wire shape. None for every other shape.
     struct_fields: Option<Vec<Field>>,
+    /// The declared positional elements of a tuple shape, for the same reason
+    /// (`mapElements`). None for every other shape.
+    tuple_elements: Option<Vec<Schema<Unknown>>>,
 }
 
 /// The two spellings of a decoding default. `withDecodingDefault` takes a wire
@@ -736,6 +739,7 @@ impl<T> Schema<T> {
             decoding_default: None,
             omit_on_encode: false,
             struct_fields: None,
+            tuple_elements: None,
         }
     }
 
@@ -748,6 +752,12 @@ impl<T> Schema<T> {
     /// for every other shape.
     pub fn fields(&self) -> Option<&[Field]> {
         self.struct_fields.as_deref()
+    }
+
+    /// The declared elements of a tuple shape, in position order, or `None` for
+    /// every other shape.
+    pub fn elements(&self) -> Option<&[Schema<Unknown>]> {
+        self.tuple_elements.as_deref()
     }
 
     /// Decode an unknown value, or a typed error naming the path.
@@ -857,6 +867,7 @@ impl<T> Schema<T> {
             decoding_default: schema.decoding_default.clone(),
             omit_on_encode: schema.omit_on_encode,
             struct_fields: schema.struct_fields.clone(),
+            tuple_elements: schema.tuple_elements.clone(),
         }
     }
 
@@ -924,6 +935,7 @@ impl<T> Schema<T> {
         // A derivation needs the field list through the re-typing too, which is
         // how every struct field is spelled.
         out.struct_fields = schema.struct_fields.clone();
+        out.tuple_elements = schema.tuple_elements.clone();
         out.construct = Some(Arc::new(move |unknown| {
             let built = construct_schema.construct(unknown)?;
             construct_schema.try_encode(&built)
@@ -1748,6 +1760,101 @@ impl Field {
             omit_on_encode: true,
         }
     }
+}
+
+/// A transformer over a tuple's element list, the shape `mapElements` takes.
+/// As with the field transformers, the pin spells each helper out and the port
+/// builds them from these.
+pub type ElementTransform = Box<dyn Fn(Vec<Schema<Unknown>>) -> Vec<Schema<Unknown>>>;
+
+/// `Tuple.map(f)`: every element through `f`.
+pub fn element_map(
+    f: impl Fn(Schema<Unknown>) -> Schema<Unknown> + Copy + 'static,
+) -> ElementTransform {
+    Box::new(move |elements| elements.into_iter().map(f).collect())
+}
+
+/// `Tuple.appendElement`.
+pub fn element_append(element: Schema<Unknown>) -> ElementTransform {
+    Box::new(move |mut elements| {
+        elements.push(element.clone());
+        elements
+    })
+}
+
+/// `Tuple.appendElements`.
+pub fn element_append_all(more: Vec<Schema<Unknown>>) -> ElementTransform {
+    Box::new(move |mut elements| {
+        elements.extend(more.clone());
+        elements
+    })
+}
+
+/// `Tuple.pick`: the listed positions, in the order given.
+pub fn element_pick(positions: Vec<usize>) -> ElementTransform {
+    Box::new(move |elements| {
+        positions
+            .iter()
+            .filter_map(|position| elements.get(*position).cloned())
+            .collect()
+    })
+}
+
+/// `Tuple.omit`: every position except the listed ones.
+pub fn element_omit(positions: Vec<usize>) -> ElementTransform {
+    Box::new(move |elements| {
+        elements
+            .into_iter()
+            .enumerate()
+            .filter(|(index, _)| !positions.contains(index))
+            .map(|(_, element)| element)
+            .collect()
+    })
+}
+
+/// `Tuple.evolve`: a function per position, `None` leaving that position alone.
+/// Wider than `Tuple.map` in the same way `Struct.evolve` is wider than
+/// `Struct.map`.
+pub fn element_evolve(
+    transforms: Vec<Option<fn(Schema<Unknown>) -> Schema<Unknown>>>,
+) -> ElementTransform {
+    Box::new(move |elements| {
+        elements
+            .into_iter()
+            .enumerate()
+            .map(|(index, element)| match transforms.get(index).copied().flatten() {
+                Some(transform) => transform(element),
+                None => element,
+            })
+            .collect()
+    })
+}
+
+/// `Tuple.renameIndices`: `order[new position]` names the old position that
+/// moves there; a position the list does not reach keeps its own index.
+pub fn element_rename_indices(order: Vec<usize>) -> ElementTransform {
+    Box::new(move |elements| {
+        (0..elements.len())
+            .map(|index| {
+                let source = order
+                    .get(index)
+                    .copied()
+                    .filter(|source| *source < elements.len())
+                    .unwrap_or(index);
+                elements[source].clone()
+            })
+            .collect()
+    })
+}
+
+/// `Tuple.map(Schema.optionalKey)`: every element's position may be absent.
+pub fn element_make_optional_key(element: Schema<Unknown>) -> Schema<Unknown> {
+    Schema::optional_key_shape(element)
+}
+
+/// `Tuple.map(Schema.NullOr)`: every element may be null.
+pub fn element_make_nullable(element: Schema<Unknown>) -> Schema<Unknown> {
+    Schema::as_unknown(Schema::optional(element))
 }
 
 /// A transformer over a struct's field list, the shape `mapFields` takes. The
@@ -3385,15 +3492,38 @@ impl Schema<Unknown> {
         )
     }
 
+    /// Derive a tuple schema from this one's elements (`mapElements`), the
+    /// positional twin of `mapFields`.
+    pub fn map_elements(
+        self,
+        transform: impl Fn(Vec<Schema<Unknown>>) -> Vec<Schema<Unknown>>,
+    ) -> Self {
+        let elements = self
+            .tuple_elements
+            .clone()
+            .expect("mapElements needs a tuple shape with declared elements");
+        Self::tuple_of(transform(elements))
+    }
+
     /// Fixed-length positional elements (`Tuple`), built from a list whose
-    /// length is only known once the document has been read.
+    /// length is only known once the document has been read. An optional
+    /// element cannot be followed by a required one: the values after it have no
+    /// position to occupy when it is absent, so the pin refuses such a tuple
+    /// while it is being built and so does this.
     pub fn tuple_of(elements: Vec<Schema<Unknown>>) -> Self {
         let kinds: Vec<SchemaKind> = elements.iter().map(|e| e.repr_kind()).collect();
         let required = kinds
             .iter()
             .take_while(|kind| !matches!(kind, SchemaKind::OptionalKey(_)))
             .count();
+        assert!(
+            kinds[required..]
+                .iter()
+                .all(|kind| matches!(kind, SchemaKind::OptionalKey(_))),
+            "A required element cannot follow an optional element. ts(1257)"
+        );
         let kind = SchemaKind::Tuple(kinds);
+        let declared_elements = Some(elements.clone());
         let decoders: Vec<Arc<Schema<Unknown>>> = elements.into_iter().map(Arc::new).collect();
         let total = decoders.len();
         let construct_decoders = decoders.clone();
@@ -3425,6 +3555,7 @@ impl Schema<Unknown> {
             |value| Ok(value.clone()),
             kind,
         );
+        schema.tuple_elements = declared_elements;
         // Construction fills an absent position whose element carries a
         // constructor default; decoding still answers null for an absent
         // optional position and refuses a missing required one.
