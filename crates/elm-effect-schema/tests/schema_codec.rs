@@ -7,6 +7,10 @@
 use elm_effect_schema::{Field, Schema, Unknown};
 use std::collections::BTreeMap;
 
+fn text(s: &str) -> Unknown {
+    Unknown::Text(s.to_string())
+}
+
 fn name_schema() -> Schema<BTreeMap<String, Unknown>> {
     Schema::struct_shape(vec![Field::required(
         "name",
@@ -164,6 +168,47 @@ fn codec_literal_accepts_only_its_value() {
     let decoded = schema.decode(Unknown::Text("a".to_string())).unwrap();
     assert_eq!(schema.encode(&decoded), Unknown::Text("a".to_string()));
     assert!(schema.decode(Unknown::Text("b".to_string())).is_err());
+}
+
+/// Schema.test.ts:287 `Literal.transform`: a one-pair map, so decoding the
+/// source literal yields the target and encoding does the reverse. The pin's
+/// expected text names the literal; this port's refusal carries the same list.
+#[test]
+fn literal_transform_maps_one_pair_both_ways() {
+    let schema = Schema::literal_transform(vec![(Unknown::Number(0.0), text("a"))]);
+
+    assert_eq!(schema.decode(Unknown::Number(0.0)).unwrap(), text("a"));
+    assert!(schema.decode(Unknown::Number(1.0)).is_err());
+
+    assert_eq!(schema.try_encode(&text("a")).unwrap(), Unknown::Number(0.0));
+    let refused = schema.try_encode(&text("b")).unwrap_err();
+    assert_eq!(
+        refused.to_string(),
+        "cannot encode at $: expected one of \"a\""
+    );
+}
+
+/// Schema.test.ts:315 `Literals.transform`: one pair per member, so each source
+/// literal maps to its own target and every other value is refused in both
+/// directions.
+#[test]
+fn literal_transform_maps_member_pairs_both_ways() {
+    let schema = Schema::literal_transform(vec![
+        (Unknown::Number(0.0), text("a")),
+        (Unknown::Number(1.0), text("b")),
+    ]);
+
+    assert_eq!(schema.decode(Unknown::Number(0.0)).unwrap(), text("a"));
+    assert_eq!(schema.decode(Unknown::Number(1.0)).unwrap(), text("b"));
+    assert!(schema.decode(Unknown::Number(2.0)).is_err());
+
+    assert_eq!(schema.try_encode(&text("a")).unwrap(), Unknown::Number(0.0));
+    assert_eq!(schema.try_encode(&text("b")).unwrap(), Unknown::Number(1.0));
+    let refused = schema.try_encode(&text("c")).unwrap_err();
+    assert_eq!(
+        refused.to_string(),
+        "cannot encode at $: expected one of \"a\" | \"b\""
+    );
 }
 
 #[test]

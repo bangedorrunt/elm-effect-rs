@@ -56,6 +56,12 @@ pub enum SchemaError {
     /// Invalid JSON bytes or JSON that is not UTF-8 text.
     #[error("invalid JSON at {path}: {message}")]
     InvalidJson { path: String, message: String },
+    /// A value this schema cannot represent on the wire: the pin's
+    /// encoding-side issue. `try_encode` returns it; the total `encode`
+    /// panics, so a caller that may hold such a value must use the fallible
+    /// one.
+    #[error("cannot encode at {path}: expected {expected}")]
+    EncodingFailed { path: String, expected: String },
 }
 
 /// A two-way codec between `Unknown` and `T`.
@@ -66,7 +72,7 @@ pub enum SchemaError {
 #[derive(Clone)]
 pub struct Schema<T> {
     decode: std::sync::Arc<dyn Fn(Unknown) -> Result<T, SchemaError> + Send + Sync>,
-    encode: std::sync::Arc<dyn Fn(&T) -> Unknown + Send + Sync>,
+    encode: std::sync::Arc<dyn Fn(&T) -> Result<Unknown, SchemaError> + Send + Sync>,
     kind: SchemaKind,
     /// Named child schemas, so a formatter can recurse into them. Kinds alone
     /// cannot carry this: the pin's `suspend` is lazily resolved at format
@@ -303,7 +309,7 @@ fn literal_union(values: Vec<Unknown>) -> Schema<Unknown> {
                         mismatch("$", "one of the literals", &unknown)
                     }
                 },
-                |value| value.clone(),
+                |value| Ok(value.clone()),
                 kind,
             ))
         }
@@ -408,7 +414,7 @@ fn new_kinded(kind: SchemaKind) -> Schema<Unknown> {
         SchemaKind::Boolean => Schema::as_unknown(Schema::boolean()),
         other => Schema::as_unknown(Schema::new(
             move |value| Ok(value),
-            |value| value.clone(),
+            |value| Ok(value.clone()),
             other,
         )),
     }
@@ -650,7 +656,7 @@ impl Schema<StructValue> {
             },
             move |value| {
                 let object: BTreeMap<String, Unknown> = value.fields.iter().cloned().collect();
-                Unknown::Object(object)
+                Ok(Unknown::Object(object))
             },
             kind,
         );
@@ -684,7 +690,7 @@ impl Schema<StructValue> {
 impl<T> Schema<T> {
     pub(crate) fn new(
         decode: impl Fn(Unknown) -> Result<T, SchemaError> + Send + Sync + 'static,
-        encode: impl Fn(&T) -> Unknown + Send + Sync + 'static,
+        encode: impl Fn(&T) -> Result<Unknown, SchemaError> + Send + Sync + 'static,
         kind: SchemaKind,
     ) -> Self {
         Self {
@@ -709,8 +715,22 @@ impl<T> Schema<T> {
         (self.decode)(unknown)
     }
 
-    /// Encode a typed value back to unknown (total: never fails).
+    /// Encode a typed value back to unknown. Total for a schema that cannot
+    /// refuse one, which is nearly all of them; the ones that can (a
+    /// literal-to-literal transform, a union of transformed members) report it
+    /// through [`try_encode`] and panic here rather than hand back a wire value
+    /// the schema does not describe.
+    ///
+    /// [`try_encode`]: Self::try_encode
     pub fn encode(&self, value: &T) -> Unknown {
+        match (self.encode)(value) {
+            Ok(unknown) => unknown,
+            Err(error) => panic!("encode refused the value: {error}; use try_encode to handle it"),
+        }
+    }
+
+    /// Encode, or the reason this schema cannot represent the value.
+    pub fn try_encode(&self, value: &T) -> Result<Unknown, SchemaError> {
         (self.encode)(value)
     }
 
@@ -740,7 +760,7 @@ impl<T> Schema<T> {
 
     /// Encode to canonical JSON text (total when decode is total).
     pub fn encode_json(&self, value: &T) -> Result<String, SchemaError> {
-        serde_json::to_string(&self.encode(value).to_json()).map_err(|error| {
+        serde_json::to_string(&self.try_encode(value)?.to_json()).map_err(|error| {
             SchemaError::InvalidJson {
                 path: "$".to_string(),
                 message: error.to_string(),
@@ -821,9 +841,9 @@ impl<T> Schema<T> {
             move |unknown| {
                 decode_schema
                     .decode(unknown)
-                    .map(|value| encode_schema.encode(&value))
+                    .and_then(|value| encode_schema.try_encode(&value))
             },
-            |value| value.clone(),
+            |value| Ok(value.clone()),
             SchemaKind::Opaque("unknown"),
         );
         // A re-typing does not change the shape, so the wrapper renders exactly
@@ -841,7 +861,7 @@ impl<T> Schema<T> {
         out.constructor_default = schema.constructor_default.clone();
         out.construct = Some(Arc::new(move |unknown| {
             let built = construct_schema.construct(unknown)?;
-            Ok(construct_schema.encode(&built))
+            construct_schema.try_encode(&built)
         }));
         out
     }
@@ -880,7 +900,7 @@ impl<T> Schema<T> {
                 Unknown::Null => Ok(default()),
                 value => decode_schema.decode(value),
             },
-            move |value| schema.encode(value),
+            move |value| schema.try_encode(value),
             SchemaKind::Opaque("withDecodingDefault"),
         )
     }
@@ -910,7 +930,7 @@ impl<T> Schema<T> {
         let render_factory = factory.clone();
         let mut out = Schema::new(
             move |unknown| decode_factory().decode(unknown),
-            move |value| encode_factory().encode(value),
+            move |value| encode_factory().try_encode(value),
             SchemaKind::Opaque("suspend"),
         );
         // A suspend resolves lazily on every decode and every encode, so it
@@ -948,7 +968,7 @@ impl<T> Schema<T> {
                     })
                 }
             },
-            move |value| encode_inner.encode(value),
+            move |value| encode_inner.try_encode(value),
             SchemaKind::Opaque("refinement"),
         )
     }
@@ -967,7 +987,7 @@ impl<T> Schema<T> {
         let encode_schema = schema.clone();
         Schema::new(
             move |unknown| decode_schema.decode(unknown).and_then(&decode),
-            move |value| encode_schema.encode(&encode(value)),
+            move |value| encode_schema.try_encode(&encode(value)),
             kind,
         )
     }
@@ -1039,19 +1059,19 @@ fn decode_finite_from_string(unknown: Unknown) -> Result<f64, SchemaError> {
 impl Schema<Unknown> {
     /// Any value at all (`Any` / `Unknown` shapes): decode always succeeds.
     pub fn any() -> Self {
-        Self::new(Ok, |value| value.clone(), SchemaKind::Opaque("any"))
+        Self::new(Ok,                |value| Ok(value.clone()), SchemaKind::Opaque("any"))
     }
 
     /// Anything decodes (`Unknown` shape): identity, like `any`.
     pub fn unknown() -> Self {
-        Self::new(Ok, |value| value.clone(), SchemaKind::Opaque("unknown"))
+        Self::new(Ok,                |value| Ok(value.clone()), SchemaKind::Opaque("unknown"))
     }
 
     /// No value decodes (`Never` shape): decode always fails.
     pub fn never() -> Self {
         Self::new(
             |unknown| mismatch("$", "never", &unknown),
-            |value| value.clone(),
+            |value| Ok(value.clone()),
             SchemaKind::Opaque("never"),
         )
     }
@@ -1065,7 +1085,7 @@ impl Schema<Unknown> {
                 Unknown::Object(_) | Unknown::Array(_) => Ok(unknown),
                 other => mismatch("$", "object | array", &other),
             },
-            |value| value.clone(),
+            |value| Ok(value.clone()),
             SchemaKind::Opaque("objectKeyword"),
         )
     }
@@ -1094,7 +1114,45 @@ impl Schema<Unknown> {
                     mismatch("$", "that literal", &unknown)
                 }
             },
-            |value| value.clone(),
+            |value| Ok(value.clone()),
+            kind,
+        )
+    }
+
+    /// A literal-to-literal map (`Literal.transform`, and the per-member form of
+    /// `Literals([..]).transform([..])`): decoding maps an input literal to its
+    /// output, encoding maps the output back to the input. Either direction
+    /// refuses a value outside the map, so this is one of the schemas whose
+    /// encode can fail, which is what [`try_encode`] is for.
+    ///
+    /// [`try_encode`]: Schema::try_encode
+    pub fn literal_transform(pairs: Vec<(Unknown, Unknown)>) -> Self {
+        assert!(!pairs.is_empty(), "a literal transform maps at least one pair");
+        let kind = match pairs.as_slice() {
+            [(from, _)] => SchemaKind::Literal(from.clone()),
+            _ => SchemaKind::Literals(pairs.iter().map(|(from, _)| from.clone()).collect()),
+        };
+        // A refusal names the values this schema does describe, the way the
+        // pin's `Expected "a" | "b"` does.
+        let targets = pairs
+            .iter()
+            .map(|(_, to)| format_value(to))
+            .collect::<Vec<_>>()
+            .join(" | ");
+        let decode_pairs = pairs.clone();
+        let encode_pairs = pairs;
+        Self::new(
+            move |unknown| match decode_pairs.iter().find(|(from, _)| *from == unknown) {
+                Some((_, to)) => Ok(to.clone()),
+                None => mismatch("$", "one of the source literals", &unknown),
+            },
+            move |value| match encode_pairs.iter().find(|(_, to)| to == value) {
+                Some((from, _)) => Ok(from.clone()),
+                None => Err(SchemaError::EncodingFailed {
+                    path: "$".to_string(),
+                    expected: format!("one of {targets}"),
+                }),
+            },
             kind,
         )
     }
@@ -1113,7 +1171,7 @@ impl Schema<Unknown> {
                 ok @ Ok(_) => ok,
                 Err(_) => decode_second.decode(unknown),
             },
-            move |value| encode_first.encode(value),
+            move |value| encode_first.try_encode(value),
             kind,
         )
     }
@@ -1124,7 +1182,7 @@ impl Schema<()> {
     /// stands `Unknown::Null` in for the pin's `undefined` on the way out, since
     /// a value-less result is what it has to represent one.
     pub fn void() -> Self {
-        Self::new(|_| Ok(()), |_| Unknown::Null, SchemaKind::Opaque("void"))
+        Self::new(|_| Ok(()), |_| Ok(Unknown::Null), SchemaKind::Opaque("void"))
     }
 
     /// Only null (`Null` shape).
@@ -1134,7 +1192,7 @@ impl Schema<()> {
                 Unknown::Null => Ok(()),
                 other => mismatch("$", "null", &other),
             },
-            |_| Unknown::Null,
+            |_| Ok(Unknown::Null),
             SchemaKind::Opaque("null"),
         )
     }
@@ -1156,7 +1214,7 @@ impl Schema<String> {
                 Unknown::Text(text) => Ok(text),
                 other => mismatch("$", "string", &other),
             },
-            |value| Unknown::Text(value.clone()),
+            |value| Ok(Unknown::Text(value.clone())),
             SchemaKind::String,
         )
     }
@@ -1170,7 +1228,7 @@ impl Schema<f64> {
                 Unknown::Number(number) => Ok(number),
                 other => mismatch("$", "number", &other),
             },
-            |value| Unknown::Number(*value),
+            |value| Ok(Unknown::Number(*value)),
             SchemaKind::Number,
         )
     }
@@ -1195,7 +1253,7 @@ impl Schema<f64> {
                 }),
                 other => mismatch("$", "a number string", &other),
             },
-            |value| Unknown::Text(js_number_text(*value)),
+            |value| Ok(Unknown::Text(js_number_text(*value))),
             SchemaKind::Opaque("numberFromString"),
         )
     }
@@ -1203,7 +1261,7 @@ impl Schema<f64> {
     pub fn finite_from_string() -> Self {
         let mut schema = Self::new(
             decode_finite_from_string,
-            |value| Unknown::Text(value.to_string()),
+            |value| Ok(Unknown::Text(value.to_string())),
             SchemaKind::Opaque("finiteFromString"),
         );
         // Construction takes a finite number as already constructed, which is
@@ -1226,7 +1284,7 @@ impl Schema<bool> {
                 Unknown::Bool(boolean) => Ok(boolean),
                 other => mismatch("$", "boolean", &other),
             },
-            |value| Unknown::Bool(*value),
+            |value| Ok(Unknown::Bool(*value)),
             SchemaKind::Boolean,
         )
     }
@@ -1240,7 +1298,7 @@ impl Schema<BTreeMap<String, Unknown>> {
                 Unknown::Object(fields) => Ok(fields),
                 other => mismatch("$", "object", &other),
             },
-            |fields| Unknown::Object(fields.clone()),
+            |fields| Ok(Unknown::Object(fields.clone())),
             SchemaKind::Object,
         )
     }
@@ -1275,8 +1333,8 @@ impl Schema<BTreeMap<String, Unknown>> {
             },
             move |value| {
                 let mut fields = BTreeMap::new();
-                fields.insert(encode_name.clone(), encode_inner.encode(value));
-                Unknown::Object(fields)
+                fields.insert(encode_name.clone(), encode_inner.try_encode(value)?);
+                Ok(Unknown::Object(fields))
             },
             SchemaKind::Opaque("field"),
         )
@@ -1299,11 +1357,11 @@ impl Schema<BTreeMap<String, Unknown>> {
                 other => mismatch("$", "object", &other),
             },
             move |value| match value {
-                None => Unknown::Object(BTreeMap::new()),
+                None => Ok(Unknown::Object(BTreeMap::new())),
                 Some(value) => {
                     let mut fields = BTreeMap::new();
-                    fields.insert(encode_name.clone(), encode_inner.encode(value));
-                    Unknown::Object(fields)
+                    fields.insert(encode_name.clone(), encode_inner.try_encode(value)?);
+                    Ok(Unknown::Object(fields))
                 }
             },
             SchemaKind::Opaque("optional field"),
@@ -1341,12 +1399,12 @@ impl<T: Send + Sync + 'static> Schema<Vec<T>> {
                 other => mismatch("$", "array", &other),
             },
             move |values: &Vec<T>| {
-                Unknown::Array(
+                Ok(Unknown::Array(
                     values
                         .iter()
-                        .map(|value| encode_inner.encode(value))
-                        .collect(),
-                )
+                        .map(|value| encode_inner.try_encode(value))
+                        .collect::<Result<Vec<_>, _>>()?,
+                ))
             },
             kind,
         );
@@ -1393,7 +1451,7 @@ impl<A: Send + Sync + 'static, B: Send + Sync + 'static> Schema<(A, B)> {
                 }
                 other => mismatch("$", "tuple", &other),
             },
-            move |(a, b)| Unknown::Array(vec![encode_first.encode(a), encode_second.encode(b)]),
+            move |(a, b)| Ok(Unknown::Array(vec![encode_first.try_encode(a)?, encode_second.try_encode(b)?])),
             SchemaKind::Opaque("tuple"),
         )
     }
@@ -1570,7 +1628,7 @@ impl Schema<BTreeMap<String, Unknown>> {
                 for name in &omitted {
                     filtered.remove(name);
                 }
-                Unknown::Object(filtered)
+                Ok(Unknown::Object(filtered))
             },
             SchemaKind::Object,
         );
@@ -1609,7 +1667,7 @@ impl Schema<BTreeMap<String, Unknown>> {
                     .collect::<Result<BTreeMap<_, _>, _>>(),
                 other => mismatch("$", "object", &other),
             },
-            |fields| Unknown::Object(fields.clone()),
+            |fields| Ok(Unknown::Object(fields.clone())),
             SchemaKind::Record(Box::new(SchemaKind::String), Box::new(value_kind.clone())),
         );
         // A Record renders its entries spaced, the way the pin does, and each
@@ -1664,8 +1722,8 @@ impl<T: Send + Sync + 'static> Schema<Option<T>> {
                 other => decode_inner.decode(other).map(Some),
             },
             move |value| match value {
-                None => Unknown::Null,
-                Some(value) => encode_inner.encode(value),
+                None => Ok(Unknown::Null),
+                Some(value) => encode_inner.try_encode(value),
             },
             kind,
         )
@@ -2332,7 +2390,7 @@ impl Schema<Unknown> {
                                 mismatch("$", "one of the literals", &unknown)
                             }
                         },
-                        |value| value.clone(),
+                        |value| Ok(value.clone()),
                         kind,
                     ))),
                     doc,
@@ -2790,7 +2848,7 @@ impl Schema<String> {
             // carries no transformation, so there is nothing to render back.
             // A text that would not decode cannot be built from a decode, and
             // `encode` has no failure channel to report one.
-            move |value| Unknown::Text(value.clone()),
+            move |value| Ok(Unknown::Text(value.clone())),
             SchemaKind::Opaque("template-literal"),
         )
     }
@@ -2816,10 +2874,10 @@ impl Schema<Vec<Unknown>> {
                 other => mismatch("$", "string", &other),
             },
             move |captures| {
-                encode_parser
+                Ok(encode_parser
                     .render(captures)
                     .map(Unknown::Text)
-                    .unwrap_or(Unknown::Null)
+                    .unwrap_or(Unknown::Null))
             },
             SchemaKind::Opaque("template"),
         )
@@ -2874,7 +2932,7 @@ impl Schema<Unknown> {
     /// Any JSON value (`Json`). The wire shape is unconstrained, which is what
     /// makes it the catch-all for an open object's additional properties.
     pub fn json() -> Self {
-        Self::new(Ok, |value| value.clone(), SchemaKind::Json)
+        Self::new(Ok,                |value| Ok(value.clone()), SchemaKind::Json)
     }
 
     /// A struct field whose key may be absent (`optionalKey`). Decode delegates
@@ -2952,7 +3010,7 @@ impl Schema<Unknown> {
                 }
                 Ok(Unknown::Object(out.into_iter().collect()))
             },
-            |value| value.clone(),
+            |value| Ok(value.clone()),
             kind,
         )
     }
@@ -2994,7 +3052,7 @@ impl Schema<Unknown> {
                 }
                 Ok(Unknown::Array(out))
             },
-            |value| value.clone(),
+            |value| Ok(value.clone()),
             kind,
         );
         // Construction fills an absent position whose element carries a
@@ -3084,7 +3142,7 @@ impl Schema<Unknown> {
                 }
                 Ok(Unknown::Array(out))
             },
-            |value| value.clone(),
+            |value| Ok(value.clone()),
             kind,
         )
     }
@@ -3115,7 +3173,7 @@ impl Schema<Unknown> {
                     None => mismatch("$", "a matching member", &unknown),
                 }
             },
-            |value| value.clone(),
+            |value| Ok(value.clone()),
             kind,
         )
     }
@@ -3182,7 +3240,7 @@ impl Schema<Unknown> {
                 }
                 decode_inner.decode(unknown)
             },
-            move |value| encode_inner.encode(value),
+            move |value| encode_inner.try_encode(value),
             kind,
         );
         out.formatter = inner.formatter.clone();
