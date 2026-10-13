@@ -93,6 +93,36 @@ fn a_required_field_refuses_a_missing_key_on_both_axes() {
     );
 }
 
+/// Schema.test.ts:2381 (`decodeTo`, "optionalKey to required"): the declared
+/// field is `optionalKey`, and a decode-side default is what fills the absent
+/// key, so `{}` decodes to `{ a: "default" }` while a present key passes
+/// through on both axes untouched.
+#[test]
+fn an_absent_optional_key_decodes_to_its_default() {
+    let schema = Schema::struct_shape(vec![Field::decoding_default(
+        "a",
+        str_schema(),
+        || Ok(Unknown::Text("default".to_string())),
+    )]);
+    let default = Unknown::Text("default".to_string());
+
+    let filled = schema.decode(obj(vec![])).expect("the absent key fills");
+    assert_eq!(filled.get("a"), Some(&default));
+
+    let present = Unknown::Text("a".to_string());
+    let decoded = schema
+        .decode(obj(vec![("a", present.clone())]))
+        .expect("a present key decodes through");
+    assert_eq!(decoded.get("a"), Some(&present));
+
+    let mut value: BTreeMap<String, Unknown> = BTreeMap::new();
+    value.insert("a".to_string(), present);
+    assert_eq!(
+        schema.try_encode(&value),
+        Ok(Unknown::Object(value.clone()))
+    );
+}
+
 #[test]
 fn require_all_makes_optional_keys_required() {
     let schema = Schema::struct_shape(Field::require_all(vec![
