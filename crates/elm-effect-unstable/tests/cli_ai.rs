@@ -1364,6 +1364,55 @@ fn command_routes_unknown_with_suggestions() {
 }
 
 #[test]
+fn primitive_file_constructors_preserve_text_json_and_schema_decoding() {
+    use elm_effect_unstable::cli::primitive;
+    // Primitive.test.ts:375 — FileText hands back the file's text verbatim,
+    // FileParse its JSON, and FileSchema the value a decoder makes of the
+    // document, with a decoder that cannot accept it reporting its own message.
+    // The pin injects a FileSystem noop layer; this port reads a real temporary
+    // file, so the carrier differs and the observables do not.
+    let path = std::env::temp_dir().join(format!(
+        "elm-effect-primitive-375-{}.json",
+        std::process::id()
+    ));
+    std::fs::write(&path, "{\"enabled\":true}").expect("write");
+    let text_path = path.to_str().expect("utf-8 path");
+
+    assert_eq!(
+        primitive::parse_file_text(text_path).expect("text"),
+        "{\"enabled\":true}"
+    );
+    assert_eq!(
+        primitive::parse_file_json(text_path).expect("json"),
+        serde_json::json!({ "enabled": true })
+    );
+    let enabled = primitive::parse_file_schema(text_path, |text| {
+        let value: serde_json::Value = serde_json::from_str(text).map_err(|e| e.to_string())?;
+        value
+            .get("enabled")
+            .and_then(|value| value.as_bool())
+            .ok_or_else(|| "Expected boolean".to_owned())
+    })
+    .expect("decodes");
+    assert!(enabled);
+
+    // The document is an object, so the string decoder is the one that fails
+    // and its message is what the caller sees.
+    let err = primitive::parse_file_schema(text_path, |text| {
+        let text: String = serde_json::from_str(text).map_err(|e| e.to_string())?;
+        Ok(text)
+    })
+    .expect_err("an object is not a string");
+    assert!(err.contains("string"), "{err}");
+
+    // A missing file fails before any decoder runs.
+    assert!(
+        primitive::parse_file_schema("/non/existent/config.json", |_| Ok("x".to_owned())).is_err()
+    );
+    std::fs::remove_file(&path).ok();
+}
+
+#[test]
 fn is_ai_error_answers_false_for_everything_that_is_not_one() {
     // AiError.test.ts:630 — a plain Error, the nullish values, and a struct
     // that only looks tagged are all rejected; only a real wrapper passes.

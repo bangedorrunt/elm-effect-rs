@@ -639,6 +639,18 @@ pub mod primitive {
         serde_json::from_str(&text).map_err(|e| e.to_string())
     }
 
+    /// Read a file and decode its text through a caller's decoder
+    /// (`Primitive.FileSchema` core): the decoder's own failure message is what
+    /// the caller sees, and a missing file fails before the decoder runs. The
+    /// pin carries the schema itself; the decoder is the port's seam for it.
+    pub fn parse_file_schema<A>(
+        path: &str,
+        decode: impl Fn(&str) -> Result<A, String>,
+    ) -> Result<A, String> {
+        let text = parse_file_text(path)?;
+        decode(&text)
+    }
+
     /// A calendar date-time in UTC with millis (`Primitive.Date` values).
     #[derive(Clone, Copy, Debug, PartialEq, Eq)]
     pub struct CliDate {

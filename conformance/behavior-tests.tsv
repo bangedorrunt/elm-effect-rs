@@ -5779,7 +5779,7 @@ ported	packages/effect/test/cli/Primitive.test.ts	99	it.effect	should parse vali
 ported	packages/effect/test/cli/Primitive.test.ts	108	it.effect	should fail for invalid values	primitive_value_parsers
 ported	packages/effect/test/cli/Primitive.test.ts	113	it.effect	should reject non-finite numbers and overflow	primitive_value_parsers
 ported	packages/effect/test/cli/Primitive.test.ts	121	it	should have correct _tag	primitive_value_parsers
-unported	packages/effect/test/cli/Primitive.test.ts	128	it.layer	should parse valid date values	
+ported	packages/effect/test/cli/Primitive.test.ts	128	it.layer	should parse valid date values	primitive_date_values
 ported	packages/effect/test/cli/Primitive.test.ts	129	it.effect	should parse valid date values	primitive_date_values
 ported	packages/effect/test/cli/Primitive.test.ts	155	it.effect	should fail for invalid values	primitive_date_values
 ported	packages/effect/test/cli/Primitive.test.ts	158	it	should have correct _tag	primitive_date_values
@@ -5790,25 +5790,25 @@ ported	packages/effect/test/cli/Primitive.test.ts	182	it	should have correct _ta
 ported	packages/effect/test/cli/Primitive.test.ts	189	it.layer	should parse string values	primitive_string_and_choice
 ported	packages/effect/test/cli/Primitive.test.ts	190	it.effect	should parse string values	primitive_string_and_choice
 ported	packages/effect/test/cli/Primitive.test.ts	199	it	should have correct _tag	primitive_string_and_choice
-unported	packages/effect/test/cli/Primitive.test.ts	212	it.layer	should parse valid choices	
+ported	packages/effect/test/cli/Primitive.test.ts	212	it.layer	should parse valid choices	primitive_string_and_choice
 ported	packages/effect/test/cli/Primitive.test.ts	213	it.effect	should parse valid choices	primitive_string_and_choice
 ported	packages/effect/test/cli/Primitive.test.ts	220	it.effect	should fail for invalid choices	primitive_string_and_choice
 ported	packages/effect/test/cli/Primitive.test.ts	231	it	should have correct _tag	primitive_string_and_choice
 ported	packages/effect/test/cli/Primitive.test.ts	241	it.effect	should work with different value types	primitive_string_and_choice
-unported	packages/effect/test/cli/Primitive.test.ts	251	it.layer	should resolve paths without requiring existence	
+ported	packages/effect/test/cli/Primitive.test.ts	251	it.layer	should resolve paths without requiring existence	primitive_path_resolution
 ported	packages/effect/test/cli/Primitive.test.ts	252	it.effect	should resolve paths without requiring existence	primitive_path_resolution
 ported	packages/effect/test/cli/Primitive.test.ts	265	it	should have correct _tag	primitive_path_resolution
 ported	packages/effect/test/cli/Primitive.test.ts	269	it.effect	should fail when a required file path does not exist	primitive_path_resolution
 ported	packages/effect/test/cli/Primitive.test.ts	294	it.effect	should fail when a required directory path does not exist	primitive_path_resolution
-unported	packages/effect/test/cli/Primitive.test.ts	322	it.layer	should parse and redact values	
+ported	packages/effect/test/cli/Primitive.test.ts	322	it.layer	should parse and redact values	primitive_redacted_hides_values
 ported	packages/effect/test/cli/Primitive.test.ts	323	it.effect	should parse and redact values	primitive_redacted_hides_values
 ported	packages/effect/test/cli/Primitive.test.ts	332	it	should have correct _tag	primitive_redacted_hides_values
 ported	packages/effect/test/cli/Primitive.test.ts	336	it.effect	should handle empty strings	primitive_redacted_hides_values
-unported	packages/effect/test/cli/Primitive.test.ts	345	it.layer	should preserve '=' in URL query parameters	
+ported	packages/effect/test/cli/Primitive.test.ts	345	it.layer	should preserve '=' in URL query parameters	primitive_key_value_pairs
 ported	packages/effect/test/cli/Primitive.test.ts	346	it.effect	should preserve '=' in URL query parameters	primitive_key_value_pairs
 ported	packages/effect/test/cli/Primitive.test.ts	356	it.effect	should preserve trailing '=' in padded values	primitive_key_value_pairs
 ported	packages/effect/test/cli/Primitive.test.ts	362	it.effect	should fail when the input is malformed	primitive_key_value_pairs
-unported	packages/effect/test/cli/Primitive.test.ts	375	it.effect	file constructors preserve text, parsed content, and schema decoding	
+ported	packages/effect/test/cli/Primitive.test.ts	375	it.effect	file constructors preserve text, parsed content, and schema decoding	primitive_file_constructors_preserve_text_json_and_schema_decoding
 ported	packages/effect/test/cli/Primitive.test.ts	394	it	Never has the matching primitive tag	primitive_never_rejects_all
 ported	packages/effect/test/cli/Primitive.test.ts	398	it.effect	Never remains an always-failing sentinel	primitive_never_rejects_all
 unported	packages/effect/test/cli/Prompt.test.ts	53	it.effect	renders two-digit years, teen ordinals, and noon meridiem correctly	
