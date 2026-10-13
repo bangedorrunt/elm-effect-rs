@@ -13,6 +13,7 @@ use elm_effect_unstable::cli_ai::{
     Arg, Command, WizardStep, flag_arg, merge_key_values, option_runs, wizard_argv, wizard_plan,
 };
 use elm_effect_unstable::cli_ai::Run;
+use std::sync::{Arc, Mutex};
 
 fn argv(words: &[&str]) -> Vec<String> {
     words.iter().map(|s| s.to_string()).collect()
@@ -1889,4 +1890,125 @@ fn an_alias_selects_the_same_subcommand() {
     let run = root.run(&["p".to_string()]).expect("the alias routes");
     assert_eq!(run.path, vec!["tool".to_string(), "plan".to_string()]);
     assert_eq!(*log.lock().expect("lock"), vec!["plan".to_string()]);
+}
+
+/// Command.test.ts:1006 — a command in a labelled group is selectable exactly
+/// as an ungrouped one is, and the group's label is metadata rather than a name
+/// that has to be typed.
+#[test]
+fn a_grouped_subcommand_is_selectable_like_an_ungrouped_one() {
+    let log = handler_log();
+    let mut grouped: Vec<(String, Vec<Command>)> = Vec::new();
+    let mut auth = Vec::new();
+    for name in ["login", "logout"] {
+        let entry_log = log.clone();
+        auth.push(Command::new(name, "a command", Vec::new()).handler(move |_| {
+            entry_log.lock().expect("lock").push(name.to_string());
+        }));
+    }
+    grouped.push(("Auth commands".to_string(), auth));
+    let status_log = log.clone();
+    grouped.push((
+        String::new(),
+        vec![Command::new("status", "a command", Vec::new()).handler(move |_| {
+            status_log.lock().expect("lock").push("status".to_string());
+        })],
+    ));
+    let cli = Command::group("tool", "tool command", Vec::new()).with_subcommand_groups(grouped);
+    assert_eq!(cli.subcommands.len(), 3, "every command is registered");
+    assert_eq!(
+        cli.subcommand_groups,
+        vec!["Auth commands".to_string()],
+        "the labelled group is recorded, the ungrouped one is not"
+    );
+
+    for name in ["login", "status"] {
+        let run = cli.run(&[name.to_string()]).expect("selects");
+        assert_eq!(run.path.last().map(String::as_str), Some(name));
+    }
+    // A name that is neither a command nor a label is still unknown.
+    assert!(cli.run(&["Auth commands".to_string()]).is_err(), "a label is not a selector");
+    assert_eq!(
+        *log.lock().expect("lock"),
+        vec!["login".to_string(), "status".to_string()],
+        "the two runs executed in order"
+    );
+}
+
+/// Command.test.ts:1031 — several subcommands, each reachable on its own line
+/// with its own values: one run does not disturb the next.
+#[test]
+fn several_subcommands_each_take_their_own_line() {
+    let log = handler_log();
+    let clone_log = log.clone();
+    let add_log = log.clone();
+    let status_log = log.clone();
+    let root = Command::group(
+        "git",
+        "git command",
+        vec![
+            Command::new(
+                "clone",
+                "clone command",
+                vec![Arg::Positional {
+                    name: "repository".to_string(),
+                    help: "repository".to_string(),
+                }],
+            )
+            .handler(move |parsed| {
+                clone_log.lock().expect("lock").push(format!(
+                    "clone {}",
+                    parsed.positionals.first().cloned().unwrap_or_default()
+                ));
+            }),
+            Command::new(
+                "add",
+                "add command",
+                vec![
+                    Arg::Positional {
+                        name: "files".to_string(),
+                        help: "files".to_string(),
+                    },
+                    Arg::Flag {
+                        name: "update".to_string(),
+                        help: "update".to_string(),
+                    },
+                ],
+            )
+            .handler(move |parsed| {
+                add_log.lock().expect("lock").push(format!(
+                    "add {} {}",
+                    parsed.positionals.first().cloned().unwrap_or_default(),
+                    parsed.flag("update")
+                ));
+            }),
+            Command::new(
+                "status",
+                "status command",
+                vec![Arg::Flag {
+                    name: "short".to_string(),
+                    help: "short".to_string(),
+                }],
+            )
+            .handler(move |parsed| {
+                status_log.lock().expect("lock").push(format!("status {}", parsed.flag("short")));
+            }),
+        ],
+    );
+    for argv in [
+        vec!["clone", "repo1"],
+        vec!["add", "file1", "--update"],
+        vec!["status", "--short"],
+    ] {
+        root.run(&argv.iter().map(|s| s.to_string()).collect::<Vec<_>>())
+            .expect("each line selects its own command");
+    }
+    assert_eq!(
+        *log.lock().expect("lock"),
+        vec![
+            "clone repo1".to_string(),
+            "add file1 true".to_string(),
+            "status true".to_string()
+        ]
+    );
 }

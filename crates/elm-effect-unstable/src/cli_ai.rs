@@ -125,6 +125,10 @@ pub struct Command {
     /// Other names that select this command (`Command.withAlias`). The first
     /// name stays the one a path records.
     pub aliases: Vec<String>,
+    /// The labels the subcommand groups were declared under, in declaration
+    /// order. A label is help metadata: it is never a selector, so a command in
+    /// a group is reached by its own name exactly as an ungrouped one is.
+    pub subcommand_groups: Vec<String>,
     /// The code that runs once this command's values are parsed. A command
     /// without one is a group: selecting it hands the line to its children.
     handler: Option<Handler>,
@@ -140,6 +144,7 @@ impl Command {
             subcommands: Vec::new(),
             unlisted: false,
             aliases: Vec::new(),
+            subcommand_groups: Vec::new(),
             handler: None,
         }
     }
@@ -153,6 +158,7 @@ impl Command {
             subcommands,
             unlisted: false,
             aliases: Vec::new(),
+            subcommand_groups: Vec::new(),
             handler: None,
         }
     }
@@ -616,5 +622,21 @@ impl Command {
     /// Whether this command is selected by `name`, its own or an alias.
     pub fn matches_name(&self, name: &str) -> bool {
         self.name == name || self.aliases.iter().any(|alias| alias == name)
+    }
+}
+
+impl Command {
+    /// Add subcommands that arrive in labelled groups (`withSubcommands`'s
+    /// group form). Every command in a group is registered as a subcommand, so
+    /// it is selected by its own name; the label rides along for help text and
+    /// is never a selector.
+    pub fn with_subcommand_groups(mut self, groups: Vec<(String, Vec<Command>)>) -> Self {
+        for (label, commands) in groups {
+            if !label.is_empty() {
+                self.subcommand_groups.push(label);
+            }
+            self.subcommands.extend(commands);
+        }
+        self
     }
 }
