@@ -386,6 +386,31 @@ fn codec_literal_boolean_round_trips() {
     assert!(schema.decode(Unknown::Bool(false)).is_err());
 }
 
+/// toCodec.test.ts:249 — `Schema.toCodecJson(Schema.Never)`: nothing decodes,
+/// and the encode direction cannot hand back a wire value either, so the
+/// refusal travels on the Result (`try_encode`) instead of panicking.
+/// Red witness: this assertion failed while `never`'s encode was still total
+/// over `Unknown`; the fix that gave encode a failure channel turned it green.
+#[test]
+fn codec_never_refuses_both_directions() {
+    let schema = Schema::<Unknown>::never();
+    for input in [
+        Unknown::Null,
+        Unknown::Bool(true),
+        Unknown::Number(1.0),
+        Unknown::Text("a".to_string()),
+        Unknown::Array(vec![Unknown::Number(1.0)]),
+        Unknown::Object(std::collections::BTreeMap::new()),
+    ] {
+        let error = schema.decode(input).expect_err("never decodes");
+        assert!(error.to_string().contains("never"), "{error}");
+    }
+    let error = schema
+        .try_encode(&Unknown::Null)
+        .expect_err("never has no value to encode");
+    assert!(error.to_string().contains("Never"), "{error}");
+}
+
 /// toCodec.test.ts:642 — `Schema.toCodecJson(Schema.TemplateLiteral([1n,
 /// Schema.String]))`: the codec is identity on a matching string. `1n` is a
 /// verbatim anchor and `Schema.String` is the span behind it.

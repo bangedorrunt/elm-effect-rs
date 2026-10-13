@@ -9273,7 +9273,7 @@ ported	packages/effect/test/schema/toCodec.test.ts	210	it	Tuple	codec_tuple_roun
 unported	packages/effect/test/schema/toCodec.test.ts	216	it	Array	
 unported	packages/effect/test/schema/toCodec.test.ts	222	it	Union	
 unported	packages/effect/test/schema/toCodec.test.ts	229	it	should apply the construction process to the provided link in the serializer annotation	
-unported	packages/effect/test/schema/toCodec.test.ts	249	it	Never	
+ported	packages/effect/test/schema/toCodec.test.ts	249	it	Never	codec_never_refuses_both_directions
 unported	packages/effect/test/schema/toCodec.test.ts	257	it	Any	
 ported	packages/effect/test/schema/toCodec.test.ts	268	it	Unknown	codec_unknown_round_trips_any_json
 ported	packages/effect/test/schema/toCodec.test.ts	291	it	ObjectKeyword	codec_object_keyword_takes_objects_only
