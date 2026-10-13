@@ -457,6 +457,24 @@ fn is_optional_element(kind: &SchemaKind) -> bool {
 /// only values of that type, so an `enum` member of another type is dropped by
 /// the intersection rather than kept: `{ type: "boolean", allOf: [{ const: 1 }] }`
 /// is `never`, and a mixed enum under a string base keeps its strings.
+/// The JSON Schema type a kind names, which is what an intersection compares.
+///
+/// Two kinds can name the same type and still differ in shape: a `Record` and a
+/// `Struct` are both objects, and a `Tuple` and an `Array` are both arrays. That
+/// is why an intersection cannot compare the kinds directly, and why the kinds
+/// that name no single type answer `None`.
+fn kind_type_name(kind: &SchemaKind) -> Option<&'static str> {
+    match kind {
+        SchemaKind::String => Some("string"),
+        SchemaKind::Number => Some("number"),
+        SchemaKind::Boolean => Some("boolean"),
+        SchemaKind::Object | SchemaKind::Struct(_) | SchemaKind::Record(..) => Some("object"),
+        SchemaKind::Array(_) | SchemaKind::Tuple(_) | SchemaKind::Rest(_) => Some("array"),
+        SchemaKind::Opaque("null") => Some("null"),
+        _ => None,
+    }
+}
+
 fn value_fits_kind(kind: &SchemaKind, value: &Unknown) -> bool {
     match kind {
         SchemaKind::String => matches!(value, Unknown::Text(_)),
@@ -2957,6 +2975,14 @@ impl Schema<Unknown> {
             .into_iter()
             .filter(|(key, value)| !(key == "expected" && value == "JSON value"))
             .collect();
+        // `never` swallows the intersection: nothing is both `never` and
+        // anything else. A `false` member reaches here as `never`, and the pin
+        // answers `Never` rather than refusing the document, which is also what
+        // makes `{ allOf: [false, { type: "string" }] }` hold nothing instead
+        // of failing to import.
+        if base_kind == SchemaKind::Opaque("never") || member_kind == SchemaKind::Opaque("never") {
+            return Ok(Schema::as_unknown(Schema::never()));
+        }
         // A refinement intersected with a finite set of exact values keeps the
         // values that satisfy it. Either side may carry the values, so both are
         // tried. A side that names a different base has no compatible member.
@@ -2964,9 +2990,18 @@ impl Schema<Unknown> {
             // The base's own type also decides: a value the base cannot hold is
             // not a surviving value, which is what makes a mixed enum under a
             // string base keep its strings alone.
-            let kept = filter_by_checks(values, &base_checks)
+            let kept: Vec<Unknown> = filter_by_checks(values, &base_checks)
                 .into_iter()
                 .filter(|value| value_fits_kind(&base_kind, value))
+                // A base that carries exact values of its own decides too: the
+                // intersection of two sets of values is the values in both, so
+                // `{ const: 1 }` beside `{ enum: [1, 2] }` keeps 1 alone and
+                // `{ const: 1 }` beside `{ const: 2 }` keeps nothing. Keeping
+                // only one side is what let 2 through a document that names 1.
+                .filter(|value| match exact_values(&base_kind) {
+                    Some(base_values) => base_values.contains(value),
+                    None => true,
+                })
                 .collect();
             // The member's own annotation rides the values that survived it.
             // The base's annotation went with the base kind the values
@@ -3013,13 +3048,25 @@ impl Schema<Unknown> {
                 )
             };
         if member_kind != base_kind && member_kind != SchemaKind::Json {
-            // Two different named bases cannot intersect; the pin reports this
-            // as an empty union rather than picking one.
-            return Err(SchemaError::TypeMismatch {
-                path: "$.allOf".to_string(),
-                expected: "a member intersecting the same base",
-                got: "a member with a different base",
-            });
+            match (kind_type_name(&base_kind), kind_type_name(&member_kind)) {
+                // Two different named types cannot both hold one value, so the
+                // intersection holds none. The pin answers `Never` here rather
+                // than refusing the document.
+                (Some(base_type), Some(member_type)) if base_type != member_type => {
+                    return Ok(Schema::as_unknown(Schema::never()));
+                }
+                // The same type in two different shapes is a merge this port
+                // does not carry: two `prefixItems` lists, two `properties`
+                // sets. Refusing names the gap; picking one side would admit
+                // values the other refuses.
+                _ => {
+                    return Err(SchemaError::TypeMismatch {
+                        path: "$.allOf".to_string(),
+                        expected: "a member intersecting the same base",
+                        got: "a member with a different base",
+                    });
+                }
+            }
         }
         let surviving: Vec<Check> = member_checks
             .into_iter()

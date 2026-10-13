@@ -8786,11 +8786,11 @@ unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.
 unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	2515	it	rejects a required literal that fails rest refinements	
 unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	2532	it	truncates an optional literal that fails rest refinements	
 unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	2547	it	preserves a literal that satisfies rest refinements	
-unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	2570	it	short-circuits false intersections to Never	
-unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	2577	it	returns Never when intersecting array and string	
-unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	2584	it	returns Never when intersecting object and string	
-unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	2591	it	returns Never when intersecting null and string	
-unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	2598	it	returns Never when intersecting distinct literals	
+ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	2570	it	short-circuits false intersections to Never	json_schema_document_answers_never_when_the_members_share_no_value
+ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	2577	it	returns Never when intersecting array and string	json_schema_document_answers_never_when_the_members_share_no_value
+ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	2584	it	returns Never when intersecting object and string	json_schema_document_answers_never_when_the_members_share_no_value
+ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	2591	it	returns Never when intersecting null and string	json_schema_document_answers_never_when_the_members_share_no_value
+ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	2598	it	returns Never when intersecting distinct literals	json_schema_document_answers_never_when_the_members_share_no_value
 ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	2605	it	preserves null when intersecting null types	json_schema_document_keeps_each_intersection_that_survives_its_member
 ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	2612	it	preserves a literal when intersecting identical literals	json_schema_document_keeps_each_intersection_that_survives_its_member
 ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	2619	it	preserves a matching literal after a boolean type	json_schema_document_keeps_each_intersection_that_survives_its_member

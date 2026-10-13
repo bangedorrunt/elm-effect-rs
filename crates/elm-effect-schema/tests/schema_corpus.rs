@@ -2725,6 +2725,65 @@ fn json_schema_document_refuses_a_union_beside_constraining_keywords() {
 }
 
 #[test]
+fn json_schema_document_answers_never_when_the_members_share_no_value() {
+    // fromJsonSchemaDocument.test.ts:2570, :2577, :2584, :2591, :2598 — an
+    // intersection with no shared value is `never`. The pin answers that rather
+    // than refusing the document, and all five shapes hold nothing at all: a
+    // `false` member, two different named types, and two different literals.
+    use elm_effect_schema::{Schema, Unknown};
+
+    for doc in [
+        serde_json::json!({"allOf": [false, {"type": "string"}]}),
+        serde_json::json!({"allOf": [{"type": "array"}, {"type": "string"}]}),
+        serde_json::json!({"allOf": [{"type": "object"}, {"type": "string"}]}),
+        serde_json::json!({"allOf": [{"type": "null"}, {"type": "string"}]}),
+        serde_json::json!({"allOf": [{"const": 1}, {"const": 2}]}),
+    ] {
+        let schema = Schema::<Unknown>::from_json_schema(&doc).expect("imports");
+        assert_eq!(schema.to_code(), "Schema.Never", "code for {doc}");
+        assert_eq!(schema.to_type(), "never", "type for {doc}");
+        // `never` holds no value, so the decoder refuses every shape the two
+        // members named between them. This is the assertion the code string
+        // cannot make on its own.
+        for value in [
+            Unknown::Null,
+            Unknown::Bool(true),
+            Unknown::Number(1.0),
+            Unknown::Text("x".to_string()),
+            Unknown::Array(Vec::new()),
+            Unknown::Object(std::collections::BTreeMap::new()),
+        ] {
+            assert!(
+                schema.decode(value.clone()).is_err(),
+                "{doc} admitted {value:?}"
+            );
+        }
+    }
+}
+
+#[test]
+fn json_schema_document_intersects_two_sets_of_exact_values() {
+    // Not a row on its own: the same code path as :2598, where the intersection
+    // of two exact-value sets must be their intersection. This port kept
+    // whichever side carried the values, so `{const:1}` beside `{enum:[1,2]}`
+    // admitted 2, which neither member allows. The rows above catch the empty
+    // case and this catches the non-empty one, which is the reason both are
+    // here.
+    use elm_effect_schema::{Schema, Unknown};
+
+    let schema = Schema::<Unknown>::from_json_schema(&serde_json::json!({
+        "allOf": [{"const": 1}, {"enum": [1, 2]}]
+    }))
+    .expect("imports");
+    assert_eq!(schema.to_code(), "Schema.Literal(1)");
+    assert_eq!(
+        schema.decode(Unknown::Number(1.0)).expect("1"),
+        Unknown::Number(1.0)
+    );
+    assert!(schema.decode(Unknown::Number(2.0)).is_err());
+}
+
+#[test]
 fn json_schema_document_keeps_each_intersection_that_survives_its_member() {
     // fromJsonSchemaDocument.test.ts:1741, :1758, :2400, :2605, :2612, :2619,
     // :2626 — the `allOf` rows whose member does not restate the base in a
