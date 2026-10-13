@@ -311,10 +311,23 @@ fn match_path_with(
 // priority order (regex nodes first, then the longest static ending) and takes
 // the first that fits.
 //
-// Not carried from the pin: `*` wildcards, the case-insensitive and
-// trailing-slash/duplicate-slash options, `::` and `%` escaping in static
-// parts, and real regex evaluation (a `(...)` source is compared as the literal
-// it holds, which is what every carried row uses).
+// A route ending in `:name?` declares two routes, the parameter present and
+// absent, exactly as the pin expands `OPTIONAL_PARAM_REGEXP` does.
+//
+// Not carried from the pin: `*` wildcards, the case-insensitive option,
+// `maxParamLength`, `::` and `%` escaping in static parts, and real regex
+// evaluation (a `(...)` source is compared as the literal it holds, which is
+// what every carried row uses).
+
+/// Router configuration (`Router.RouterConfig`). Both options default to false
+/// and apply to route patterns and request paths alike.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct RouterConfig {
+    /// Collapse a run of slashes into one (`/a//b` matches `/a/b`).
+    pub ignore_duplicate_slashes: bool,
+    /// Drop a trailing slash (`/a/` matches `/a`).
+    pub ignore_trailing_slash: bool,
+}
 
 /// Why a route registration was refused (`Router.on`).
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -323,6 +336,9 @@ pub enum RouteError {
     /// message is `Method 'GET' already declared for route '/foo/:'`, so the
     /// key itself is carried as the payload.
     Duplicate { method: String, pattern: String },
+    /// An optional parameter with something behind it (`Optional Parameter
+    /// needs to be the last parameter of the path`).
+    OptionalNotLast { pattern: String },
     /// The pattern uses a feature this slice does not carry (`*` wildcards).
     Unsupported { pattern: String },
     /// A `(` in the pattern has no matching `)` (`Invalid regexp expression`).
@@ -343,17 +359,19 @@ pub struct Found<A> {
 enum SegmentPart {
     /// Literal text, matched byte for byte.
     Literal(String),
-    /// A bare `:name` takes the rest of the segment, and an empty segment is no
-    /// match (the pin's plain parametric node).
-    Plain(String),
-    /// A parameter inside a multi-parameter segment (`:a-:b`, `:bar.png`,
-    /// `:bar(123)`): the pin compiles these to `(.*?)`, so the capture may be
-    /// empty.
+    /// A captured parameter. A capture may be empty: the pin slices the
+    /// segment out of the path with no length check, which is what makes an
+    /// optional parameter capture `""` at a trailing slash.
     Capture {
         /// Parameter name.
         name: String,
         /// The `(...)` source, compared as a literal.
         regex: Option<String>,
+        /// What this capture refuses to contain. The pin compiles the first
+        /// parameter of a segment to `(.*?)` and a later one to
+        /// `(sep|(?:(?!sep).)*)`, so the separator before it stays out of the
+        /// capture: `:p1-:p2` splits `foo-bar-baz` into `foo-bar` and `baz`.
+        separator: Option<String>,
     },
 }
 
@@ -428,20 +446,31 @@ impl<A> Pattern<A> {
             if !head.is_empty() {
                 parts.push(SegmentPart::Literal(head));
             }
-            let last_group = groups.len().saturating_sub(1);
-            for (position, group) in groups.into_iter().enumerate() {
-                parts.push(match (&group.regex, position == last_group) {
-                    (Some(source), _) => SegmentPart::Capture {
-                        name: group.name,
-                        regex: Some(source.clone()),
-                    },
-                    (None, true) if group.trailing.is_empty() => SegmentPart::Plain(group.name),
-                    (None, _) => SegmentPart::Capture {
-                        name: group.name,
-                        regex: None,
-                    },
+            // The pin's `isParamSafe` flag: a regex source resets it, the first
+            // plain parameter of a segment is lazy, and every later one is
+            // tempered by the static part just before it.
+            let mut safe = true;
+            let mut separator = String::new();
+            for group in groups {
+                let tempered = if group.regex.is_some() {
+                    safe = true;
+                    None
+                } else {
+                    let tempered = if safe {
+                        None
+                    } else {
+                        Some(separator.clone())
+                    };
+                    safe = false;
+                    tempered
+                };
+                parts.push(SegmentPart::Capture {
+                    name: group.name,
+                    regex: group.regex,
+                    separator: tempered,
                 });
                 if !group.trailing.is_empty() {
+                    separator = group.trailing.clone();
                     parts.push(SegmentPart::Literal(group.trailing));
                 }
             }
@@ -544,6 +573,32 @@ fn trim_anchors(source: &str) -> String {
     text.to_owned()
 }
 
+/// Whether a segment is pure literal text (the pin's static child node).
+fn is_static_segment(parts: &[SegmentPart]) -> bool {
+    !parts
+        .iter()
+        .any(|part| matches!(part, SegmentPart::Capture { .. }))
+}
+
+/// Route order for `find`: static segments first (the pin's walk tries a static
+/// child before descending into a parametric one), then regex nodes before
+/// plain parameters, then the longer static ending.
+fn compare_routes<A>(left: &Pattern<A>, right: &Pattern<A>) -> std::cmp::Ordering {
+    for (left_segment, right_segment) in left.segments.iter().zip(right.segments.iter()) {
+        let left_static = is_static_segment(left_segment);
+        let right_static = is_static_segment(right_segment);
+        if left_static != right_static {
+            return if left_static {
+                std::cmp::Ordering::Less
+            } else {
+                std::cmp::Ordering::Greater
+            };
+        }
+    }
+    (!left.is_regex, usize::MAX - left.static_suffix_len)
+        .cmp(&(!right.is_regex, usize::MAX - right.static_suffix_len))
+}
+
 /// Match one segment's parts against one path segment, returning the captures
 /// in pattern order.
 fn match_parts(parts: &[SegmentPart], rest: &str) -> Option<Vec<(String, String)>> {
@@ -552,65 +607,198 @@ fn match_parts(parts: &[SegmentPart], rest: &str) -> Option<Vec<(String, String)
     };
     match first {
         SegmentPart::Literal(text) => match_parts(tail, rest.strip_prefix(text.as_str())?),
-        SegmentPart::Plain(name) => {
-            (!rest.is_empty()).then(|| vec![(name.clone(), rest.to_owned())])
-        }
-        SegmentPart::Capture { name, regex } => match regex {
-            // A source compared as the literal it holds: the capture is
-            // exactly that text, so one attempt is enough.
-            Some(source) => {
+        SegmentPart::Capture {
+            name,
+            regex,
+            separator,
+        } => {
+            // A source compared as the literal it holds: the capture is exactly
+            // that text, so one attempt is enough.
+            if let Some(source) = regex {
                 let remainder = rest.strip_prefix(source.as_str())?;
                 let mut params = vec![(name.clone(), source.clone())];
                 params.extend(match_parts(tail, remainder)?);
-                Some(params)
+                return Some(params);
             }
-            // Shortest capture first, which is the pin's non-greedy `(.*?)`.
-            None => {
-                for end in rest
-                    .char_indices()
-                    .map(|(index, _)| index)
-                    .chain([rest.len()])
-                {
-                    if let Some(mut params) = match_parts(tail, &rest[end..]) {
-                        let mut out = vec![(name.clone(), rest[..end].to_owned())];
-                        out.append(&mut params);
-                        return Some(out);
+            let mut ends: Vec<usize> = Vec::new();
+            match separator {
+                // Lazy: shortest capture first, the pin's `(.*?)`.
+                None => ends.extend(
+                    rest.char_indices()
+                        .map(|(index, _)| index)
+                        .chain([rest.len()]),
+                ),
+                // Tempered: the separator itself, then the longest run free of
+                // it, giving a character back at a time.
+                Some(separator) => {
+                    if rest.starts_with(separator.as_str()) {
+                        ends.push(separator.len());
                     }
+                    let limit = rest.find(separator.as_str()).unwrap_or(rest.len());
+                    let mut boundaries: Vec<usize> = rest
+                        .char_indices()
+                        .map(|(index, _)| index)
+                        .take_while(|index| *index <= limit)
+                        .collect();
+                    if boundaries.last() != Some(&limit) {
+                        boundaries.push(limit);
+                    }
+                    ends.extend(boundaries.into_iter().rev());
                 }
-                None
             }
-        },
+            for end in ends {
+                if let Some(mut params) = match_parts(tail, &rest[end..]) {
+                    let mut out = vec![(name.clone(), rest[..end].to_owned())];
+                    out.append(&mut params);
+                    return Some(out);
+                }
+            }
+            None
+        }
     }
+}
+
+/// Split a path whose last parameter is optional (`:name?`) into the path with
+/// the parameter and the path without it (`OPTIONAL_PARAM_REGEXP` + the pin's
+/// two replacements).
+///
+/// The pin's regexp is `(\/:[^/()]*?)\?(\/?)`: the parameter begins at a `:`
+/// directly after a slash, never spans a slash or a parenthesis, and one slash
+/// after the `?` belongs to the shorter form. The match has to reach the end of
+/// the path, which is the pin's assertion.
+fn optional_split(path: &str) -> Result<Option<(String, String)>, ()> {
+    let bytes = path.as_bytes();
+    let mut index = 0;
+    while index + 1 < bytes.len() {
+        if bytes[index] != b'/' || bytes[index + 1] != b':' {
+            index += 1;
+            continue;
+        }
+        let mut cursor = index + 2;
+        let mut question = None;
+        while cursor < bytes.len() && !matches!(bytes[cursor], b'/' | b'(' | b')') {
+            if bytes[cursor] == b'?' {
+                question = Some(cursor);
+                break;
+            }
+            cursor += 1;
+        }
+        let Some(question) = question else {
+            index += 2;
+            continue;
+        };
+        let mut after = question + 1;
+        if bytes.get(after) == Some(&b'/') {
+            after += 1;
+        }
+        if after != bytes.len() {
+            return Err(());
+        }
+        let full = format!("{}{}", &path[..question], &path[question + 1..]);
+        // The shorter form keeps the slash that followed the `?` (group 2),
+        // and an empty result is the root, as the pin's `|| "/"` says.
+        let without = format!("{}{}", &path[..index], &path[question + 1..]);
+        let without = if without.is_empty() {
+            "/".to_owned()
+        } else {
+            without
+        };
+        return Ok(Some((full, without)));
+    }
+    Ok(None)
+}
+
+/// Apply the router's slash options to a route pattern or a request path
+/// (`removeDuplicateSlashes` then `trimLastSlash`, in the pin's order).
+fn normalize_slashes(path: &str, config: &RouterConfig) -> String {
+    let mut text = path.to_owned();
+    if config.ignore_duplicate_slashes && text.contains("//") {
+        let mut collapsed = String::with_capacity(text.len());
+        let mut previous_slash = false;
+        for character in text.chars() {
+            if character == '/' {
+                if previous_slash {
+                    continue;
+                }
+                previous_slash = true;
+            } else {
+                previous_slash = false;
+            }
+            collapsed.push(character);
+        }
+        text = collapsed;
+    }
+    if config.ignore_trailing_slash && text.len() > 1 && text.ends_with('/') {
+        text.pop();
+    }
+    text
 }
 
 /// A pattern router (`FindMyWay`): registers routes by method and pattern, and
 /// resolves a request path to the highest-priority match.
 #[derive(Clone, Debug)]
 pub struct Router<A> {
+    config: RouterConfig,
     routes: Vec<Pattern<A>>,
 }
 
 impl<A: Clone> Router<A> {
-    /// An empty router.
+    /// An empty router with both slash options off (`Router.make()`).
     pub fn make() -> Self {
-        Self { routes: Vec::new() }
+        Self::make_with(RouterConfig::default())
+    }
+
+    /// An empty router with explicit options (`Router.make(config)`).
+    pub fn make_with(config: RouterConfig) -> Self {
+        Self {
+            config,
+            routes: Vec::new(),
+        }
     }
 
     /// Register one route (`Router.on`). The pin throws here; the refusal is a
-    /// value so the caller decides.
+    /// value so the caller decides. A trailing `:name?` registers the path with
+    /// and without that parameter.
     pub fn on(&mut self, method: &str, path: &str, handler: A) -> Result<(), RouteError> {
-        let pattern = Pattern::parse(method, path, handler)?;
-        if self
-            .routes
-            .iter()
-            .any(|route| route.method == pattern.method && route.key == pattern.key)
-        {
-            return Err(RouteError::Duplicate {
-                method: pattern.method,
-                pattern: pattern.key,
-            });
+        let mut patterns = Vec::new();
+        match optional_split(path) {
+            Err(()) => {
+                return Err(RouteError::OptionalNotLast {
+                    pattern: path.to_owned(),
+                });
+            }
+            Ok(Some((full, without))) => {
+                for path in [full, without] {
+                    patterns.push(Pattern::parse(
+                        method,
+                        &normalize_slashes(&path, &self.config),
+                        handler.clone(),
+                    )?);
+                }
+            }
+            Ok(None) => patterns.push(Pattern::parse(
+                method,
+                &normalize_slashes(path, &self.config),
+                handler,
+            )?),
         }
-        self.routes.push(pattern);
+        // Both halves of an optional declaration are checked before either is
+        // registered, so a refused declaration leaves the router unchanged (the
+        // pin throws mid-way and keeps the first half).
+        for (index, pattern) in patterns.iter().enumerate() {
+            let clash = self
+                .routes
+                .iter()
+                .chain(patterns[..index].iter())
+                .any(|route| route.method == pattern.method && route.key == pattern.key);
+            if clash {
+                return Err(RouteError::Duplicate {
+                    method: pattern.method.clone(),
+                    pattern: pattern.key.clone(),
+                });
+            }
+        }
+        self.routes.extend(patterns);
         Ok(())
     }
 
@@ -619,16 +807,18 @@ impl<A: Clone> Router<A> {
     /// stripped before matching, as the pin's `safeDecodeURI` does.
     pub fn find(&self, method: &str, path: &str) -> Option<Found<A>> {
         let path = path.split(['?', '#', ';']).next().unwrap_or(path);
+        let path = normalize_slashes(path, &self.config);
         let segments: Vec<&str> = path.split('/').collect();
         let mut candidates: Vec<&Pattern<A>> = self
             .routes
             .iter()
             .filter(|route| route.method == method)
             .collect();
-        // Regex nodes first, then the longest static ending; the sort is
-        // stable, so equally ranked routes keep registration order, which is
-        // where the pin's own comparator gives up too.
-        candidates.sort_by_key(|route| (!route.is_regex, usize::MAX - route.static_suffix_len));
+        // Static segments first, then regex nodes, then the longest static
+        // ending; the sort is stable, so equally ranked routes keep
+        // registration order, which is where the pin's own comparator gives up
+        // too.
+        candidates.sort_by(|left, right| compare_routes(left, right));
         candidates.into_iter().find_map(|route| {
             route.match_segments(&segments).map(|params| Found {
                 handler: route.handler.clone(),

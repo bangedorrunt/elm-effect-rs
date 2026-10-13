@@ -6447,15 +6447,15 @@ ported	packages/effect/test/http/FindMyWay/case-insensitive.test.ts	111	it	param
 ported	packages/effect/test/http/FindMyWay/matching-order.test.ts	4	it	Matching order	exact_route_beats_pattern_in_dispatch
 ported	packages/effect/test/http/FindMyWay/methods.test.ts	4	it	returns undefined for method names inherited from Object.prototype	inherited_method_names_match_nothing
 ported	packages/effect/test/http/FindMyWay/methods.test.ts	11	it	registers QUERY with all	custom_query_method_dispatches
-unported	packages/effect/test/http/FindMyWay/optional-params.test.ts	4	it	Test route with optional parameter	
-unported	packages/effect/test/http/FindMyWay/optional-params.test.ts	18	it	Test for duplicate route with optional param	
-unported	packages/effect/test/http/FindMyWay/optional-params.test.ts	24	it	Test for param with ? not at the end	
-unported	packages/effect/test/http/FindMyWay/optional-params.test.ts	30	it	Multi parametric route with optional param	
-unported	packages/effect/test/http/FindMyWay/optional-params.test.ts	42	it	Optional parameter at root	
-unported	packages/effect/test/http/FindMyWay/optional-params.test.ts	53	it	Optional Parameter with ignoreTrailingSlash = true	
-unported	packages/effect/test/http/FindMyWay/optional-params.test.ts	71	it	Optional Parameter with ignoreTrailingSlash = false	
-unported	packages/effect/test/http/FindMyWay/optional-params.test.ts	89	it	Optional Parameter with ignoreDuplicateSlashes = true	
-unported	packages/effect/test/http/FindMyWay/optional-params.test.ts	106	it	Optional Parameter with ignoreDuplicateSlashes = false	
+ported	packages/effect/test/http/FindMyWay/optional-params.test.ts	4	it	Test route with optional parameter	router_optional_tail_is_absent_or_captured
+ported	packages/effect/test/http/FindMyWay/optional-params.test.ts	18	it	Test for duplicate route with optional param	router_optional_expansion_collides_with_the_bare_route
+ported	packages/effect/test/http/FindMyWay/optional-params.test.ts	24	it	Test for param with ? not at the end	router_rejects_optional_param_not_at_the_end
+ported	packages/effect/test/http/FindMyWay/optional-params.test.ts	30	it	Multi parametric route with optional param	router_optional_tail_on_multi_param_segment
+ported	packages/effect/test/http/FindMyWay/optional-params.test.ts	42	it	Optional parameter at root	router_optional_param_at_root
+ported	packages/effect/test/http/FindMyWay/optional-params.test.ts	53	it	Optional Parameter with ignoreTrailingSlash = true	router_ignore_trailing_slash_matches_both_forms
+ported	packages/effect/test/http/FindMyWay/optional-params.test.ts	71	it	Optional Parameter with ignoreTrailingSlash = false	router_trailing_slash_stays_significant_and_captures_empty
+ported	packages/effect/test/http/FindMyWay/optional-params.test.ts	89	it	Optional Parameter with ignoreDuplicateSlashes = true	router_ignore_duplicate_slashes_collapses_them
+ported	packages/effect/test/http/FindMyWay/optional-params.test.ts	106	it	Optional Parameter with ignoreDuplicateSlashes = false	router_duplicate_slashes_stay_significant_and_do_not_match
 ported	packages/effect/test/http/FindMyWay/params-collisions.test.ts	4	it	should setup parametric and regexp node	router_regex_node_beats_plain_param
 ported	packages/effect/test/http/FindMyWay/params-collisions.test.ts	14	it	should setup parametric and multi-parametric node	router_static_suffix_beats_plain_param
 ported	packages/effect/test/http/FindMyWay/params-collisions.test.ts	24	it	should throw when set upping two parametric nodes	router_rejects_two_plain_param_nodes

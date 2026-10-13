@@ -3,9 +3,9 @@
 use elm_effect::Cause;
 use elm_effect::Reason;
 use elm_effect_unstable::http_server::{
-    HttpServer, HttpServerError, Response, RouteError, Router, ServerErrorReason, ServerRequest,
-    ServerResponse, cause_response_stripped, is_http_server_error, test_client_origin,
-    to_response_or_else,
+    HttpServer, HttpServerError, Response, RouteError, Router, RouterConfig, ServerErrorReason,
+    ServerRequest, ServerResponse, cause_response_stripped, is_http_server_error,
+    test_client_origin, to_response_or_else,
 };
 use elm_effect_unstable::net::{NetAddress, NetworkErrorInput};
 use std::io::{BufRead, BufReader, Write};
@@ -833,4 +833,176 @@ fn router_distinguishes_interior_static_parts() {
             ("b".to_owned(), "y".to_owned())
         ]
     );
+}
+
+#[test]
+fn router_optional_tail_is_absent_or_captured() {
+    // optional-params.test.ts:4 — a trailing optional parameter registers the
+    // path twice, so the shorter request reaches the bare route and the longer
+    // one carries the capture.
+    let mut router = Router::make();
+    assert!(router.on("GET", "/a/:param/b/:optional?", true).is_ok());
+    assert_eq!(
+        router.find("GET", "/a/foo-bar/b").expect("bare").params,
+        vec![("param".to_owned(), "foo-bar".to_owned())]
+    );
+    assert_eq!(
+        router.find("GET", "/a/foo-bar/b/foo").expect("tail").params,
+        vec![
+            ("param".to_owned(), "foo-bar".to_owned()),
+            ("optional".to_owned(), "foo".to_owned())
+        ]
+    );
+}
+
+#[test]
+fn router_optional_expansion_collides_with_the_bare_route() {
+    // optional-params.test.ts:18 — `/foo/:bar?` already declares `/foo`, so
+    // registering that path again is a collision rather than a second route.
+    let mut router = Router::make();
+    assert!(router.on("GET", "/foo/:bar?", true).is_ok());
+    let error = router
+        .on("GET", "/foo", true)
+        .expect_err("the optional tail owns /foo");
+    assert_eq!(
+        error,
+        RouteError::Duplicate {
+            method: "GET".to_owned(),
+            pattern: "/foo".to_owned(),
+        }
+    );
+}
+
+#[test]
+fn router_rejects_optional_param_not_at_the_end() {
+    // optional-params.test.ts:24 — `:bar?` with a segment after it is refused
+    // (`Optional Parameter needs to be the last parameter of the path`), and
+    // the refused declaration leaves nothing behind.
+    let mut router = Router::make();
+    let error = router
+        .on("GET", "/foo/:bar?/baz", true)
+        .expect_err("optional must be last");
+    assert_eq!(
+        error,
+        RouteError::OptionalNotLast {
+            pattern: "/foo/:bar?/baz".to_owned(),
+        }
+    );
+    assert!(router.find("GET", "/foo/x/baz").is_none());
+}
+
+#[test]
+fn router_optional_tail_on_multi_param_segment() {
+    // optional-params.test.ts:30 — the optional flag sits on the last capture
+    // of a two-parameter segment: the full form splits at the last separator
+    // (the later capture refuses to swallow it) and the bare form is the route
+    // without the whole segment.
+    let mut router = Router::make();
+    assert!(router.on("GET", "/a/:p1-:p2?", true).is_ok());
+    assert_eq!(
+        router.find("GET", "/a/foo-bar-baz").expect("both").params,
+        vec![
+            ("p1".to_owned(), "foo-bar".to_owned()),
+            ("p2".to_owned(), "baz".to_owned())
+        ]
+    );
+    assert!(router.find("GET", "/a").expect("bare").params.is_empty());
+}
+
+#[test]
+fn router_optional_param_at_root() {
+    // optional-params.test.ts:42 — a root-level optional parameter registers
+    // `/` beside `/:optional`, so both requests match with no parameters in
+    // the first case.
+    let mut router = Router::make();
+    assert!(router.on("GET", "/:optional?", true).is_ok());
+    assert!(router.find("GET", "/").expect("root").params.is_empty());
+    assert_eq!(
+        router.find("GET", "/foo").expect("captured").params,
+        vec![("optional".to_owned(), "foo".to_owned())]
+    );
+}
+
+#[test]
+fn router_ignore_trailing_slash_matches_both_forms() {
+    // optional-params.test.ts:53 — with `ignoreTrailingSlash` the trailing
+    // slash is trimmed on both sides, so all four spellings reach the same
+    // route.
+    let mut router = Router::make_with(RouterConfig {
+        ignore_trailing_slash: true,
+        ignore_duplicate_slashes: false,
+    });
+    assert!(router.on("GET", "/test/hello/:optional?", true).is_ok());
+    for path in ["/test/hello/", "/test/hello"] {
+        assert!(router.find("GET", path).expect(path).params.is_empty(), "{path}");
+    }
+    for path in ["/test/hello/foo", "/test/hello/foo/"] {
+        assert_eq!(
+            router.find("GET", path).expect(path).params,
+            vec![("optional".to_owned(), "foo".to_owned())],
+            "{path}"
+        );
+    }
+}
+
+#[test]
+fn router_trailing_slash_stays_significant_and_captures_empty() {
+    // optional-params.test.ts:71 — with the option off the trailing slash is a
+    // segment of its own: an empty capture for the optional parameter, no
+    // match at all for a second trailing slash.
+    let mut router = Router::make_with(RouterConfig {
+        ignore_trailing_slash: false,
+        ignore_duplicate_slashes: false,
+    });
+    assert!(router.on("GET", "/test/hello/:optional?", true).is_ok());
+    assert_eq!(
+        router.find("GET", "/test/hello/").expect("empty capture").params,
+        vec![("optional".to_owned(), String::new())]
+    );
+    assert!(router.find("GET", "/test/hello").expect("bare").params.is_empty());
+    assert_eq!(
+        router.find("GET", "/test/hello/foo").expect("captured").params,
+        vec![("optional".to_owned(), "foo".to_owned())]
+    );
+    assert!(router.find("GET", "/test/hello/foo/").is_none());
+}
+
+#[test]
+fn router_ignore_duplicate_slashes_collapses_them() {
+    // optional-params.test.ts:89 — with `ignoreDuplicateSlashes` a repeated
+    // slash is collapsed on both sides.
+    let mut router = Router::make_with(RouterConfig {
+        ignore_duplicate_slashes: true,
+        ignore_trailing_slash: false,
+    });
+    assert!(router.on("GET", "/test/hello/:optional?", true).is_ok());
+    assert!(router.find("GET", "/test//hello").expect("collapsed").params.is_empty());
+    assert!(router.find("GET", "/test/hello").expect("bare").params.is_empty());
+    assert_eq!(
+        router.find("GET", "/test/hello/foo").expect("captured").params,
+        vec![("optional".to_owned(), "foo".to_owned())]
+    );
+    assert_eq!(
+        router.find("GET", "/test//hello//foo").expect("collapsed tail").params,
+        vec![("optional".to_owned(), "foo".to_owned())]
+    );
+}
+
+#[test]
+fn router_duplicate_slashes_stay_significant_and_do_not_match() {
+    // optional-params.test.ts:106 — with the option off an empty segment is a
+    // real segment, so a repeated slash gives the request one segment too many
+    // for either registered route.
+    let mut router = Router::make_with(RouterConfig {
+        ignore_duplicate_slashes: false,
+        ignore_trailing_slash: false,
+    });
+    assert!(router.on("GET", "/test/hello/:optional?", true).is_ok());
+    assert!(router.find("GET", "/test//hello").is_none());
+    assert!(router.find("GET", "/test/hello").expect("bare").params.is_empty());
+    assert_eq!(
+        router.find("GET", "/test/hello/foo").expect("captured").params,
+        vec![("optional".to_owned(), "foo".to_owned())]
+    );
+    assert!(router.find("GET", "/test//hello//foo").is_none());
 }
