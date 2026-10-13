@@ -255,11 +255,20 @@ pub enum SocketError {
     UpgradeUnsupported,
 }
 
+/// The reader's pull closure.
+type PullFn = Arc<dyn Fn() -> Pull + Send + Sync>;
+
+/// The reader's TLS upgrade hook.
+type UpgradeFn = Arc<dyn Fn() -> Result<(), SocketError> + Send + Sync>;
+
+/// The writer's write closure.
+type WriteFn = Arc<dyn Fn(&[u8]) -> Result<(), SocketError> + Send + Sync>;
+
 /// Reader half: one pull plus the TLS upgrade hook.
 #[derive(Clone)]
 pub struct Reader {
-    pull: Arc<dyn Fn() -> Pull + Send + Sync>,
-    upgrade: Arc<dyn Fn() -> Result<(), SocketError> + Send + Sync>,
+    pull: PullFn,
+    upgrade: UpgradeFn,
 }
 
 impl Reader {
@@ -294,7 +303,7 @@ impl std::fmt::Debug for Reader {
 /// Writer half.
 #[derive(Clone)]
 pub struct Writer {
-    write: Arc<dyn Fn(&[u8]) -> Result<(), SocketError> + Send + Sync>,
+    write: WriteFn,
 }
 
 impl Writer {
@@ -381,10 +390,6 @@ impl Channel {
         Ok(())
     }
 
-    /// Pull one batch from the socket's reader.
-    pub fn pull(&self) -> Result<Pull, SocketError> {
-        Ok(self.socket.acquire_reader()?.pull())
-    }
 }
 
 #[derive(Default)]
