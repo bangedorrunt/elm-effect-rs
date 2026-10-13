@@ -7767,11 +7767,11 @@ unported	packages/effect/test/schema/Schema.test.ts	4352	it	Void | String
 unported	packages/effect/test/schema/Schema.test.ts	4360	it	String | Number	
 unported	packages/effect/test/schema/Schema.test.ts	4375	it	String | Never	
 unported	packages/effect/test/schema/Schema.test.ts	4384	it	String & isMinLength(1) | number & isGreaterThan(0)	
-unported	packages/effect/test/schema/Schema.test.ts	4404	it	oneOf	
-unported	packages/effect/test/schema/Schema.test.ts	4420	it	oneOf	
-unported	packages/effect/test/schema/Schema.test.ts	4434	it	oneOf	
-unported	packages/effect/test/schema/Schema.test.ts	4460	it	oneOf	
-unported	packages/effect/test/schema/Schema.test.ts	4472	it	oneOf	
+ported	packages/effect/test/schema/Schema.test.ts	4404	it	oneOf	one_of_refuses_an_object_two_members_accept
+ported	packages/effect/test/schema/Schema.test.ts	4420	it	oneOf	one_of_refuses_an_object_carrying_both_sentinels
+ported	packages/effect/test/schema/Schema.test.ts	4434	it	oneOf	one_of_inside_a_struct_counts_the_nested_member_once
+ported	packages/effect/test/schema/Schema.test.ts	4460	it	oneOf	one_of_counts_the_same_member_twice
+ported	packages/effect/test/schema/Schema.test.ts	4472	it	oneOf	one_of_counts_the_same_literal_twice
 unported	packages/effect/test/schema/Schema.test.ts	4484	it	preserves member order after sentinel dispatch	
 unported	packages/effect/test/schema/Schema.test.ts	4504	it	preserves recovering members during runtime type dispatch	
 unported	packages/effect/test/schema/Schema.test.ts	4551	it	preserves recovering members during sentinel dispatch	

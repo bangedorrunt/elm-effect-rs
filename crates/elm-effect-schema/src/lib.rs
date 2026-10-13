@@ -3742,18 +3742,27 @@ impl Schema<Unknown> {
         };
         let declared_members = Some(members.clone());
         let decoders: Vec<Arc<Schema<Unknown>>> = members.into_iter().map(Arc::new).collect();
+        // `oneOf` is a decode rule, not a repr detail: a value two members both
+        // accept is refused rather than resolved to whichever came first. That
+        // costs the early exit an `anyOf` keeps, which is the whole difference
+        // between the two modes.
+        let one_of = mode == "oneOf";
         let mut schema = Self::new(
             move |unknown| {
                 let mut decoded = None;
+                let mut matches = 0usize;
                 for member in &decoders {
                     if let Ok(value) = member.decode(unknown.clone()) {
-                        decoded = Some(value);
-                        break;
+                        matches += 1;
+                        decoded.get_or_insert(value);
+                        if !one_of {
+                            break;
+                        }
                     }
                 }
-                // A `oneOf` matching twice is still a match for a decode, so the
-                // first wins. The one-of distinction lives in the repr, which is
-                // what the pin asserts.
+                if matches > 1 {
+                    return mismatch("$", "exactly one member to match", &unknown);
+                }
                 match decoded {
                     Some(value) => Ok(value),
                     None => mismatch("$", "a matching member", &unknown),
