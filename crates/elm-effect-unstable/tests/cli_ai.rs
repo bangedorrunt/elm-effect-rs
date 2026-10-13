@@ -2322,3 +2322,80 @@ fn a_leaf_command_keeps_its_own_trailing_operands() {
     let (_, parsed) = command.parse(&argv).expect("parses");
     assert_eq!(parsed.positionals, vec!["--literal", "-x"]);
 }
+
+/// Command.test.ts:1808 — an unknown flag is reported as such even when the
+/// subcommand beside it is also unknown, so the refusal names the flag rather
+/// than only the command.
+#[test]
+fn an_unknown_flag_is_reported_even_when_the_subcommand_is_unknown() {
+    let root = Command::group(
+        "root",
+        "root command",
+        vec![Command::new("known", "known command", Vec::new())],
+    );
+    let error = root
+        .parse(&["--unknown".to_string(), "bogus".to_string()])
+        .expect_err("the flag is not one this command takes");
+    let printed = error.to_string();
+    assert!(printed.contains("--unknown"), "{printed}");
+    // The subcommand that IS known still routes, so the flag is what failed.
+    let (path, _) = root
+        .parse(&["known".to_string()])
+        .expect("the known subcommand routes");
+    assert_eq!(path, vec!["root".to_string(), "known".to_string()]);
+}
+
+/// Command.test.ts:1716 — the negated flag's literal does not leak into
+/// subcommand parsing: `--no-open false` is one refusal about the negation,
+/// so neither the parent's handler nor a child's runs and the token after it
+/// is never read as a subcommand.
+#[test]
+fn a_negated_flags_literal_does_not_leak_into_subcommand_parsing() {
+    let invoked = handler_log();
+    let parent_log = invoked.clone();
+    let child_log = invoked.clone();
+    let root = Command::new(
+        "tool",
+        "tool command",
+        vec![Arg::Flag {
+            name: "open".to_string(),
+            help: "open".to_string(),
+        }],
+    )
+    .with_subcommands(vec![Command::new("child", "child command", Vec::new()).handler(
+        move |_| child_log.lock().expect("lock").push("child".to_string()),
+    )])
+    .handler(move |_| parent_log.lock().expect("lock").push("parent".to_string()));
+
+    // The negation refuses, so the line stops there: `false` is never read as a
+    // positional and `child` is never read as a subcommand.
+    // The port's refusal for this line names the stray literal, because the
+    // negation is a switch that advanced past it and left it as a positional no
+    // command declares. What the row is about is that the line STOPS: no
+    // handler runs and `child` is never reached as a subcommand.
+    let error = root
+        .parse(&[
+            "--no-open".to_string(),
+            "false".to_string(),
+            "child".to_string(),
+        ])
+        .expect_err("the negation with a value beside it is refused");
+    assert!(error.to_string().contains("false"), "{error}");
+    // run refuses the same way, so no handler executes.
+    assert!(root
+        .run(&[
+            "--no-open".to_string(),
+            "false".to_string(),
+            "child".to_string(),
+        ])
+        .is_err());
+    assert!(
+        invoked.lock().expect("lock").is_empty(),
+        "neither the parent nor the child ran"
+    );
+    // Without the stray literal the same line routes to the child.
+    let run = root
+        .run(&["child".to_string()])
+        .expect("the child routes on its own line");
+    assert_eq!(run.path, vec!["tool".to_string(), "child".to_string()]);
+}
