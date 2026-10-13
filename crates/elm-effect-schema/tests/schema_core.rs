@@ -378,6 +378,71 @@ fn struct_decode_ignores_undeclared_keys() {
 // --- Schema.test.ts: the union rows, whose law is which member a value
 // resolves to and what the whole union refuses ---
 
+/// Schema.test.ts:4053 — `Record(String.check(isPattern(/^a/)), Number)`: the
+/// key schema selects which entries the record describes, so an entry whose
+/// key fails it is dropped rather than failing the record, and an entry whose
+/// key passes still has its value decoded.
+#[test]
+fn record_with_a_checked_key_selects_its_entries() {
+    let key = Schema::checked(
+        Schema::as_unknown(Schema::string()),
+        "isPattern",
+        vec![r#"new RegExp("^a", "u")"#],
+        vec![("expected", "a string matching the RegExp ^a")],
+    );
+    let schema = Schema::record2(key, Schema::as_unknown(Schema::number()));
+
+    let input = std::collections::BTreeMap::from([
+        ("a".to_string(), Unknown::Number(1.0)),
+        ("ab".to_string(), Unknown::Number(2.0)),
+        ("b".to_string(), Unknown::Text("ignored".to_string())),
+    ]);
+    let decoded = schema.decode(Unknown::Object(input)).expect("decodes");
+    assert_eq!(
+        decoded,
+        std::collections::BTreeMap::from([
+            ("a".to_string(), Unknown::Number(1.0)),
+            ("ab".to_string(), Unknown::Number(2.0))
+        ]),
+        "the entry whose key fails the pattern is dropped"
+    );
+
+    let bad = std::collections::BTreeMap::from([
+        ("a".to_string(), Unknown::Text("bad".to_string())),
+        ("b".to_string(), Unknown::Number(1.0)),
+    ]);
+    let error = schema
+        .decode(Unknown::Object(bad))
+        .expect_err("a selected entry's value still decodes");
+    assert!(error.to_string().contains("number"), "{error}");
+    assert!(error.to_string().contains("$.a"), "{error}");
+}
+
+/// Schema.test.ts:4246 — `Record(Number, String)`: a numeric key schema
+/// admits the keys whose text is a number, so `{ "1": "a" }` decodes and
+/// `{ a: "b" }` describes no entry at all. The port's number-from-string is
+/// the key schema that spells this, because a wire key arrives as text.
+#[test]
+fn record_with_a_number_key_selects_numeric_keys() {
+    let schema = Schema::record2(
+        Schema::as_unknown(Schema::number_from_string()),
+        Schema::as_unknown(Schema::string()),
+    );
+    let input = std::collections::BTreeMap::from([("1".to_string(), Unknown::Text("a".to_string()))]);
+    let decoded = schema.decode(Unknown::Object(input)).expect("decodes");
+    assert_eq!(
+        decoded,
+        std::collections::BTreeMap::from([("1".to_string(), Unknown::Text("a".to_string()))]),
+        "the numeric key is selected"
+    );
+    let other = std::collections::BTreeMap::from([("a".to_string(), Unknown::Text("b".to_string()))]);
+    let decoded = schema.decode(Unknown::Object(other)).expect("decodes");
+    assert!(
+        decoded.is_empty(),
+        "a non-numeric key describes no entry: {decoded:?}"
+    );
+}
+
 /// Schema.test.ts:4322 — `Schema.Union([])`: a union with no members admits
 /// nothing, and the refusal names what there is nothing of.
 #[test]

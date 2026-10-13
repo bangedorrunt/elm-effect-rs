@@ -7725,7 +7725,7 @@ ported	packages/effect/test/schema/Schema.test.ts	3994	it	recursive values stay 
 unported	packages/effect/test/schema/Schema.test.ts	4009	it.effect	sequential parsing resumes without replaying entries	
 ported	packages/effect/test/schema/Schema.test.ts	4028	it	Record(String, optionalKey(Number)) should throw	index_signature_refuses_an_optional_key_value
 ported	packages/effect/test/schema/Schema.test.ts	4035	it	Record(String, optional(Number))	record_optional_values_accept_null_but_reject_wrong_type
-unported	packages/effect/test/schema/Schema.test.ts	4053	it	Record(String.check, Number) should use the key checks to select keys	
+ported	packages/effect/test/schema/Schema.test.ts	4053	it	Record(String.check, Number) should use the key checks to select keys	record_with_a_checked_key_selects_its_entries
 unported	packages/effect/test/schema/Schema.test.ts	4066	it	applies excess-property options to unmatched own keys	
 unported	packages/effect/test/schema/Schema.test.ts	4082	it	recognizes numeric declared keys with an index signature	
 unported	packages/effect/test/schema/Schema.test.ts	4091	it	Record(Symbol, Number)	
@@ -7738,7 +7738,7 @@ ported	packages/effect/test/schema/Schema.test.ts	4194	it	Record(Literals, Numbe
 ported	packages/effect/test/schema/Schema.test.ts	4212	it	Record(Literals, optionalKey(Number))	literal_key_record_with_optional_values_requires_no_key
 unported	packages/effect/test/schema/Schema.test.ts	4223	it	Record(Literals, mutableKey(Number))	
 unported	packages/effect/test/schema/Schema.test.ts	4231	it	Record(Literals, mutableKey(optionalKey(Number)))	
-unported	packages/effect/test/schema/Schema.test.ts	4246	it	Record(Number, String)	
+ported	packages/effect/test/schema/Schema.test.ts	4246	it	Record(Number, String)	record_with_a_number_key_selects_numeric_keys
 unported	packages/effect/test/schema/Schema.test.ts	4270	it	Record(Int, String)	
 unported	packages/effect/test/schema/Schema.test.ts	4289	it	Record(TemplateLiteral with checked part, Number) should use the part checks to select keys	
 unported	packages/effect/test/schema/Schema.test.ts	4302	it	a	

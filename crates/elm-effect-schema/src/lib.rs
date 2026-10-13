@@ -254,7 +254,7 @@ fn pattern_matches(pattern: &[Pattern], value: &str) -> bool {
             atom => {
                 if value.is_empty() {
                     // An unanchored end lets a shorter pattern match a longer
-                    // value, which is not the case here.
+                    // value, which is the case for a pattern with no `$`.
                     return pattern.len() == 1 && !anchored_end;
                 }
                 if !atom_matches(atom, value[0]) {
@@ -265,7 +265,7 @@ fn pattern_matches(pattern: &[Pattern], value: &str) -> bool {
         }
     }
     let value: Vec<char> = value.chars().collect();
-    walk(pattern, &value, true, true)
+    walk(pattern, &value, true, false)
 }
 
 fn atom_matches(atom: &Pattern, value: char) -> bool {
@@ -2246,7 +2246,7 @@ impl Schema<BTreeMap<String, Unknown>> {
             SchemaKind::OptionalKey(_) => Vec::new(),
             _ => exact_key_names(&key),
         };
-        Self::record_shape(value, required).with_kind(kind)
+        Self::record_shape(Some(key), value, required).with_kind(kind)
     }
 
     /// A record shape (`Record` shape) over an index signature: every value
@@ -2262,17 +2262,23 @@ impl Schema<BTreeMap<String, Unknown>> {
             !matches!(value.repr_kind(), SchemaKind::OptionalKey(_)),
             "Cannot use `Schema.optionalKey` with index signatures, use `Schema.optional` instead."
         );
-        Self::record_shape(value, Vec::new())
+        Self::record_shape(None, value, Vec::new())
     }
 
     /// The record walk both constructors share. `required_keys` is empty for an
     /// index signature and holds the exact-value key schema's names otherwise.
-    fn record_shape(value: Schema<Unknown>, required_keys: Vec<String>) -> Self {
+    fn record_shape(
+        key: Option<Schema<Unknown>>,
+        value: Schema<Unknown>,
+        required_keys: Vec<String>,
+    ) -> Self {
         let value = Arc::new(value);
         let render = value.formatter.clone();
         // A value that arrived here through a re-typing has an opaque kind of
         // its own, so the Record has to copy the kind underneath it.
         let value_kind = value.repr_kind();
+        let key = key.map(Arc::new);
+        let decode_key = key.clone();
         let mut out = Self::new(
             move |unknown| match unknown {
                 Unknown::Object(fields) => {
@@ -2285,20 +2291,36 @@ impl Schema<BTreeMap<String, Unknown>> {
                             });
                         }
                     }
-                    fields
-                        .into_iter()
-                        .map(|(key, item)| {
-                            value
-                                .decode(item)
-                                .map(|decoded| (key.clone(), decoded))
-                                .map_err(|error| error.at(&format!("$.{key}")))
-                        })
-                        .collect::<Result<BTreeMap<_, _>, _>>()
+                    let mut decoded = std::collections::BTreeMap::new();
+                    for (name, item) in fields {
+                        // A key the key schema refuses is an entry this record
+                        // does not describe, so it is dropped rather than
+                        // failing the whole record. That is what makes
+                        // `Record(String.check(isPattern(/^a/)), Number)`
+                        // select its keys instead of rejecting them.
+                        if let Some(key) = &decode_key {
+                            if key.decode(Unknown::Text(name.clone())).is_err() {
+                                continue;
+                            }
+                        }
+                        let item = value
+                            .decode(item)
+                            .map_err(|error| error.at(&format!("$.{name}")))?;
+                        decoded.insert(name, item);
+                    }
+                    Ok(decoded)
                 }
                 other => mismatch("$", "object", &other),
             },
             |fields| Ok(Unknown::Object(fields.clone())),
-            SchemaKind::Record(Box::new(SchemaKind::String), Box::new(value_kind.clone())),
+            SchemaKind::Record(
+                Box::new(
+                    key.as_ref()
+                        .map(|key| key.repr_kind())
+                        .unwrap_or(SchemaKind::String),
+                ),
+                Box::new(value_kind.clone()),
+            ),
         );
         // A Record renders its entries spaced, the way the pin does, and each
         // entry renders through the value schema so a nested Record or Struct
@@ -4312,7 +4334,7 @@ impl Schema<Unknown> {
     /// rendered argument is what a repr prints, and the members are what a
     /// decode enforces, so a grouped range decides both its ends rather than
     /// passing everything the way a named check with no predicate would.
-    pub fn checked_group(
+    pub(crate) fn checked_group(
         base: Schema<Unknown>,
         name: &str,
         args: Vec<&str>,
