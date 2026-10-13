@@ -7723,21 +7723,21 @@ unported	packages/effect/test/schema/Schema.test.ts	3670	it	should throw an erro
 unported	packages/effect/test/schema/Schema.test.ts	3690	it.effect	Struct	
 unported	packages/effect/test/schema/Schema.test.ts	3701	it.effect	Class	
 unported	packages/effect/test/schema/Schema.test.ts	3712	it.effect	should preserve mixed schema issue and defect causes	
-unported	packages/effect/test/schema/Schema.test.ts	3733	it	should not apply defaults when decoding / encoding	
-unported	packages/effect/test/schema/Schema.test.ts	3746	it	should apply constructor default when the field is not present	
+ported	packages/effect/test/schema/Schema.test.ts	3733	it	should not apply defaults when decoding / encoding	constructor_default_does_not_fill_on_decode_or_encode
+ported	packages/effect/test/schema/Schema.test.ts	3746	it	should apply constructor default when the field is not present	constructor_default_fills_an_absent_field_on_make
 unported	packages/effect/test/schema/Schema.test.ts	3757	it	should construct a Class field from a plain object	
-unported	packages/effect/test/schema/Schema.test.ts	3768	it	Struct	
+ported	packages/effect/test/schema/Schema.test.ts	3768	it	Struct	nested_constructor_defaults_fill_recursively
 unported	packages/effect/test/schema/Schema.test.ts	3782	it	Class	
 unported	packages/effect/test/schema/Schema.test.ts	3802	it	applies constructor default when disableChecks is true	
-unported	packages/effect/test/schema/Schema.test.ts	3811	it	Struct & Effect sync	
-unported	packages/effect/test/schema/Schema.test.ts	3822	it	Struct & Effect async	
-unported	packages/effect/test/schema/Schema.test.ts	3838	it	Effect failing with SchemaIssue propagates as parse failure	
-unported	packages/effect/test/schema/Schema.test.ts	3855	it	Effect failing via another schema's makeEffect propagates as parse failure	
+ported	packages/effect/test/schema/Schema.test.ts	3811	it	Struct & Effect sync	constructor_default_fills_an_absent_field_on_make
+ported	packages/effect/test/schema/Schema.test.ts	3822	it	Struct & Effect async	constructor_default_fills_an_absent_field_on_make
+ported	packages/effect/test/schema/Schema.test.ts	3838	it	Effect failing with SchemaIssue propagates as parse failure	constructor_default_failure_lands_on_the_field_path
+ported	packages/effect/test/schema/Schema.test.ts	3855	it	Effect failing via another schema's makeEffect propagates as parse failure	a_default_that_calls_another_failing_make_keeps_its_path
 unported	packages/effect/test/schema/Schema.test.ts	3875	it	Struct & Effect async & service	
-unported	packages/effect/test/schema/Schema.test.ts	3906	it	Tuple & Some	
-unported	packages/effect/test/schema/Schema.test.ts	3917	it	nested defaults (Struct)	
-unported	packages/effect/test/schema/Schema.test.ts	3933	it	inner defaults (Tuple)	
-unported	packages/effect/test/schema/Schema.test.ts	3948	it	nested defaults (Tuple)	
+ported	packages/effect/test/schema/Schema.test.ts	3906	it	Tuple & Some	tuple_constructor_default_fills_a_missing_slot
+ported	packages/effect/test/schema/Schema.test.ts	3917	it	nested defaults (Struct)	nested_tuple_struct_defaults_fill_recursively
+ported	packages/effect/test/schema/Schema.test.ts	3933	it	inner defaults (Tuple)	nested_tuple_defaults_fill_inner_slots
+ported	packages/effect/test/schema/Schema.test.ts	3948	it	nested defaults (Tuple)	a_defaulted_tuple_fills_its_own_missing_elements
 ported	packages/effect/test/schema/Schema.test.ts	3967	it	Record(String, Number)	record_string_number_decodes_every_value
 ported	packages/effect/test/schema/Schema.test.ts	3994	it	recursive values stay lazy	suspend_recursive_shape_decodes_nested
 unported	packages/effect/test/schema/Schema.test.ts	4009	it.effect	sequential parsing resumes without replaying entries	

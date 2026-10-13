@@ -49,6 +49,10 @@ pub enum SchemaError {
         expected: &'static str,
         got: &'static str,
     },
+    /// A constructor default failed (`withConstructorDefault`): the default's
+    /// own message, at the occurrence it was filling.
+    #[error("{message} at {path}")]
+    DefaultFailed { path: String, message: String },
     /// Invalid JSON bytes or JSON that is not UTF-8 text.
     #[error("invalid JSON at {path}: {message}")]
     InvalidJson { path: String, message: String },
@@ -81,6 +85,16 @@ pub struct Schema<T> {
     /// reprs rather than as a schema, because the wrapped schema has an
     /// arbitrary `T` and re-typing it here would recurse forever.
     wrapped: Option<Box<Wrapped>>,
+    /// The construction path (`make`): a composite that fills constructor
+    /// defaults sets this, because building a value is a different job from
+    /// decoding one. A schema without it constructs by decoding.
+    construct: Option<std::sync::Arc<dyn Fn(Unknown) -> Result<T, SchemaError> + Send + Sync>>,
+    /// A constructor default (`withConstructorDefault`): evaluated at a field
+    /// occurrence whose input is absent, on the construction path only. The
+    /// value it produces is constructed through this same schema, so nested
+    /// defaults fill recursively.
+    constructor_default:
+        Option<std::sync::Arc<dyn Fn() -> Result<Unknown, SchemaError> + Send + Sync>>,
 }
 
 /// What a re-typing hides: the schema it wrapped, plus its reprs.
@@ -680,6 +694,8 @@ impl<T> Schema<T> {
             children: Vec::new(),
             formatter: None,
             wrapped: None,
+            construct: None,
+            constructor_default: None,
         }
     }
 
@@ -696,6 +712,20 @@ impl<T> Schema<T> {
     /// Encode a typed value back to unknown (total: never fails).
     pub fn encode(&self, value: &T) -> Unknown {
         (self.encode)(value)
+    }
+
+    /// Build a value (`make`'s path): the same validation as [`decode`],
+    /// except that a composite fills its constructor defaults and constructs a
+    /// present nested composite recursively. A schema with no construction
+    /// kernel decodes unchanged, so this differs observably only where a
+    /// `withConstructorDefault` is involved.
+    ///
+    /// [`decode`]: Self::decode
+    pub fn construct(&self, unknown: Unknown) -> Result<T, SchemaError> {
+        match &self.construct {
+            Some(construct) => construct(unknown),
+            None => (self.decode)(unknown),
+        }
     }
 
     /// Decode JSON text through the unknown representation.
@@ -754,6 +784,10 @@ impl<T> Schema<T> {
             kind,
             children: schema.children,
             formatter: schema.formatter.clone(),
+            // An annotation rides the same codec, so a constructor default on
+            // the schema underneath still applies to construction.
+            construct: schema.construct.clone(),
+            constructor_default: schema.constructor_default.clone(),
             // The wrapped reprs describe the schema underneath, so carrying them
             // would make `to_code` answer for the unwrapped schema and drop the
             // annotation from the repr.
@@ -779,6 +813,7 @@ impl<T> Schema<T> {
         let schema = Arc::new(schema);
         let decode_schema = schema.clone();
         let encode_schema = schema.clone();
+        let construct_schema = schema.clone();
         let inner_render = schema.formatter.clone();
         let inner_kind = schema.kind.clone();
         let inner_children = schema.children.clone();
@@ -800,6 +835,14 @@ impl<T> Schema<T> {
             None => format_root(&inner_kind, &inner_children, value),
         }));
         out.wrapped = wrapped;
+        // The re-typing shares the inner codec, so it must share the inner
+        // construction too: a field schema wrapped as `Unknown` is exactly
+        // where `make` looks for a constructor default.
+        out.constructor_default = schema.constructor_default.clone();
+        out.construct = Some(Arc::new(move |unknown| {
+            let built = construct_schema.construct(unknown)?;
+            Ok(construct_schema.encode(&built))
+        }));
         out
     }
 
@@ -840,6 +883,20 @@ impl<T> Schema<T> {
             move |value| schema.encode(value),
             SchemaKind::Opaque("withDecodingDefault"),
         )
+    }
+
+    /// Add a constructor default (`withConstructorDefault`): the closure runs
+    /// when the value is absent at a field occurrence, a missing object key or
+    /// an array slot past the end, and only on the construction path
+    /// (`make`). Decoding and encoding ignore it. The produced value is then
+    /// constructed through this same schema, so a defaulted `Struct` fills its
+    /// own nested defaults before it is handed back.
+    pub fn with_constructor_default(
+        mut self,
+        default: impl Fn() -> Result<Unknown, SchemaError> + Send + Sync + 'static,
+    ) -> Self {
+        self.constructor_default = Some(std::sync::Arc::new(default));
+        self
     }
 
     /// A lazily-built schema for recursive shapes (`suspend` shape): the
@@ -919,22 +976,24 @@ impl<T> Schema<T> {
 impl SchemaError {
     /// Re-root an error path under a prefix (`$[0]` + `[1]` = `$[0][1]`).
     fn at(self, prefix: &str) -> Self {
+        let rooted = |path: String| match path.strip_prefix('$') {
+            Some(rest) => format!("{prefix}{rest}"),
+            None => format!("{prefix}{path}"),
+        };
         match self {
             SchemaError::TypeMismatch {
                 path,
                 expected,
                 got,
-            } => {
-                let path = match path.strip_prefix('$') {
-                    Some(rest) => format!("{prefix}{rest}"),
-                    None => format!("{prefix}{path}"),
-                };
-                SchemaError::TypeMismatch {
-                    path,
-                    expected,
-                    got,
-                }
-            }
+            } => SchemaError::TypeMismatch {
+                path: rooted(path),
+                expected,
+                got,
+            },
+            SchemaError::DefaultFailed { path, message } => SchemaError::DefaultFailed {
+                path: rooted(path),
+                message,
+            },
             other => other,
         }
     }
@@ -946,6 +1005,21 @@ fn mismatch<T>(path: &str, expected: &'static str, got: &Unknown) -> Result<T, S
         expected,
         got: got.kind(),
     })
+}
+
+/// The source-side read of `finite_from_string`: a text that parses to a finite
+/// number. Shared by decode and by the construction path's fallback.
+fn decode_finite_from_string(unknown: Unknown) -> Result<f64, SchemaError> {
+    match unknown {
+        Unknown::Text(ref text) => {
+            let trimmed = text.trim();
+            match trimmed.parse::<f64>() {
+                Ok(number) if number.is_finite() => Ok(number),
+                _ => mismatch("$", "a finite number string", &unknown),
+            }
+        }
+        other => mismatch("$", "a finite number string", &other),
+    }
 }
 
 impl Schema<Unknown> {
@@ -1092,20 +1166,20 @@ impl Schema<f64> {
     /// (`NaN`, infinities) inputs fail; encoding renders the number back
     /// to text.
     pub fn finite_from_string() -> Self {
-        Self::new(
-            |unknown| match unknown {
-                Unknown::Text(ref text) => {
-                    let trimmed = text.trim();
-                    match trimmed.parse::<f64>() {
-                        Ok(number) if number.is_finite() => Ok(number),
-                        _ => mismatch("$", "a finite number string", &unknown),
-                    }
-                }
-                other => mismatch("$", "a finite number string", &other),
-            },
+        let mut schema = Self::new(
+            decode_finite_from_string,
             |value| Unknown::Text(value.to_string()),
             SchemaKind::Opaque("finiteFromString"),
-        )
+        );
+        // Construction takes a finite number as already constructed, which is
+        // the pin's `descriptor.isConstructed(input)` shortcut and why `make`
+        // accepts `{ a: 1 }` for this field, and otherwise reads the source
+        // side: a string parses the same way decode parses it.
+        schema.construct = Some(std::sync::Arc::new(|unknown| match unknown {
+            Unknown::Number(number) if number.is_finite() => Ok(number),
+            other => decode_finite_from_string(other),
+        }));
+        schema
     }
 }
 
@@ -1296,6 +1370,7 @@ impl<A: Send + Sync + 'static, B: Send + Sync + 'static> Schema<(A, B)> {
 /// the key may be absent, but an explicit null still decodes the inner
 /// schema) and [`Optional`](Optionality::Optional) (absent or null both
 /// skip the inner schema).
+#[derive(Clone)]
 pub struct Field {
     name: String,
     schema: Arc<Schema<Unknown>>,
@@ -1375,55 +1450,86 @@ impl Field {
     }
 }
 
+/// One walk over a struct-shape input, shared by the decode path and the
+/// construction path. The one difference: a missing field whose schema carries
+/// a constructor default fills on construction and stays absent on decode.
+fn walk_struct(
+    fields: &[Field],
+    unknown: Unknown,
+    construct: bool,
+) -> Result<BTreeMap<String, Unknown>, SchemaError> {
+    let Unknown::Object(mut input) = unknown else {
+        return mismatch("$", "object", &unknown);
+    };
+    let mut out = BTreeMap::new();
+    for field in fields {
+        match input.remove(&field.name) {
+            None if construct && field.schema.constructor_default.is_some() => {
+                let default = field
+                    .schema
+                    .constructor_default
+                    .as_ref()
+                    .expect("checked just above");
+                let produced =
+                    default().map_err(|error| error.at(&format!("$.{}", field.name)))?;
+                let built = field
+                    .schema
+                    .construct(produced)
+                    .map_err(|error| error.at(&format!("$.{}", field.name)))?;
+                out.insert(field.name.clone(), built);
+            }
+            None if field.default.is_some() => {
+                out.insert(
+                    field.name.clone(),
+                    field.default.clone().unwrap_or(Unknown::Null),
+                );
+            }
+            None if field.optionality != Optionality::Required => {}
+            Some(Unknown::Null) if field.optionality == Optionality::Optional => {}
+            None => {
+                return Err(SchemaError::TypeMismatch {
+                    path: format!("$.{}", field.name),
+                    expected: "required field",
+                    got: "missing",
+                });
+            }
+            Some(value) => {
+                let step = if construct {
+                    field.schema.construct(value)
+                } else {
+                    field.schema.decode(value)
+                };
+                let decoded = step.map_err(|error| error.at(&format!("$.{}", field.name)))?;
+                out.insert(field.name.clone(), decoded);
+            }
+        }
+    }
+    // Undeclared keys in `input` are dropped, which is the pin's default
+    // `onExcessProperty: "ignore"`: closed objects strip excess properties
+    // unless the call site asks otherwise, and `struct_with_rest` is the shape
+    // that absorbs them.
+    Ok(out)
+}
+
 impl Schema<BTreeMap<String, Unknown>> {
     /// A struct shape (`Struct`/`pick`/`Partial` shapes): every required
     /// field must decode; optional fields may be missing or null. Extra
     /// input fields pass through untouched.
+    ///
+    /// The shape has two walks. `decode` reads data that is already there and
+    /// never fills a constructor default, which is the pin's rule that
+    /// `withConstructorDefault` applies to construction only. The construction
+    /// walk (`make`) fills an absent field whose schema carries one.
     pub fn struct_shape(fields: Vec<Field>) -> Self {
         let omitted: Vec<String> = fields
             .iter()
             .filter(|field| field.omit_on_encode)
             .map(|field| field.name.clone())
             .collect();
-        Self::new(
-            move |unknown| match unknown {
-                Unknown::Object(mut input) => {
-                    let mut out = BTreeMap::new();
-                    for field in &fields {
-                        match input.remove(&field.name) {
-                            None if field.default.is_some() => {
-                                out.insert(
-                                    field.name.clone(),
-                                    field.default.clone().unwrap_or(Unknown::Null),
-                                );
-                            }
-                            None if field.optionality != Optionality::Required => {}
-                            Some(Unknown::Null) if field.optionality == Optionality::Optional => {}
-                            None => {
-                                return Err(SchemaError::TypeMismatch {
-                                    path: format!("$.{}", field.name),
-                                    expected: "required field",
-                                    got: "missing",
-                                });
-                            }
-                            Some(value) => {
-                                let decoded = field
-                                    .schema
-                                    .decode(value)
-                                    .map_err(|error| error.at(&format!("$.{}", field.name)))?;
-                                out.insert(field.name.clone(), decoded);
-                            }
-                        }
-                    }
-                    // Undeclared keys in `input` are dropped, which is the
-                    // pin's default `onExcessProperty: "ignore"`: closed objects
-                    // strip excess properties unless the call site asks
-                    // otherwise, and `struct_with_rest` is the shape that
-                    // absorbs them.
-                    Ok(out)
-                }
-                other => mismatch("$", "object", &other),
-            },
+        let decode_fields = fields.clone();
+        let construct_fields = fields;
+        let mut schema = Self::new(
+            move |unknown| walk_struct(&decode_fields, unknown, false),
             move |output| {
                 let mut filtered = output.clone();
                 for name in &omitted {
@@ -1432,7 +1538,11 @@ impl Schema<BTreeMap<String, Unknown>> {
                 Unknown::Object(filtered)
             },
             SchemaKind::Object,
-        )
+        );
+        schema.construct = Some(std::sync::Arc::new(move |unknown| {
+            walk_struct(&construct_fields, unknown, true)
+        }));
+        schema
     }
 
     /// A record shape whose keys are also checked (`patternProperties` shape).
@@ -2684,13 +2794,14 @@ impl Schema<Vec<Unknown>> {
 // Construction
 
 impl Schema<std::collections::BTreeMap<String, Unknown>> {
-    /// Build a value (`make`): absent fields with defaults fill in. For
-    /// non-transformed shapes this is decode over an object input.
+    /// Build a value (`make`): construction, not decode. An absent field whose
+    /// schema carries a constructor default fills in, and a present nested
+    /// struct is constructed too, so nested defaults fill recursively.
     pub fn make(
         &self,
         input: std::collections::BTreeMap<String, Unknown>,
     ) -> Result<std::collections::BTreeMap<String, Unknown>, SchemaError> {
-        self.decode(Unknown::Object(input))
+        self.construct(Unknown::Object(input))
     }
 }
 
@@ -2822,7 +2933,8 @@ impl Schema<Unknown> {
         let kind = SchemaKind::Tuple(kinds);
         let decoders: Vec<Arc<Schema<Unknown>>> = elements.into_iter().map(Arc::new).collect();
         let total = decoders.len();
-        Self::new(
+        let construct_decoders = decoders.clone();
+        let mut schema = Self::new(
             move |unknown| {
                 let items = match unknown {
                     Unknown::Array(items) => items,
@@ -2849,7 +2961,61 @@ impl Schema<Unknown> {
             },
             |value| value.clone(),
             kind,
-        )
+        );
+        // Construction fills an absent position whose element carries a
+        // constructor default; decoding still answers null for an absent
+        // optional position and refuses a missing required one.
+        schema.construct = Some(Arc::new(move |unknown| {
+            let Unknown::Array(items) = unknown else {
+                return mismatch("$", "array", &unknown);
+            };
+            if items.len() > total {
+                return mismatch("$", "a fixed-length array", &Unknown::Array(items));
+            }
+            let mut out = Vec::with_capacity(total);
+            for (index, element) in construct_decoders.iter().enumerate() {
+                let path = format!("$[{index}]");
+                match items.get(index) {
+                    Some(value) => {
+                        out.push(
+                            element
+                                .construct(value.clone())
+                                .map_err(|error| error.at(&path))?,
+                        );
+                    }
+                    None if element.constructor_default.is_some() => {
+                        let default = element
+                            .constructor_default
+                            .as_ref()
+                            .expect("checked just above");
+                        let produced = default().map_err(|error| error.at(&path))?;
+                        out.push(
+                            element
+                                .construct(produced)
+                                .map_err(|error| error.at(&path))?,
+                        );
+                    }
+                    None if index >= required => out.push(Unknown::Null),
+                    None => {
+                        return Err(SchemaError::TypeMismatch {
+                            path,
+                            expected: "a required element",
+                            got: "missing",
+                        });
+                    }
+                }
+            }
+            Ok(Unknown::Array(out))
+        }));
+        schema
+    }
+
+    /// Build a tuple (`make`): an absent position whose element carries a
+    /// constructor default fills in; a missing required position still fails.
+    /// The decoded form of a tuple here is `Unknown`, so this is the value it
+    /// builds, exactly as `decode` returns it.
+    pub fn make(&self, input: Vec<Unknown>) -> Result<Unknown, SchemaError> {
+        self.construct(Unknown::Array(input))
     }
 
     /// Positional elements with a trailing catch-all (`TupleWithRest`): the
