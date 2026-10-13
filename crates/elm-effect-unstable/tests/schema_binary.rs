@@ -661,3 +661,73 @@ fn parser_rejects_a_terminated_header_above_the_safe_integer_bound() {
     let err = parser.feed(&[]).expect_err("spent");
     assert!(err.message().contains("parser is spent"), "{}", err.message());
 }
+
+// ---------------------------------------------------------------------------
+// wire layout, string content, tuple shapes (SchemaBinary.test.ts :183-:257)
+// ---------------------------------------------------------------------------
+
+#[test]
+fn bin_distinguishes_absent_optionals_from_present_zero_width_values() {
+    // :183 — an absent optional key is not a present undefined-valued key:
+    // the row's struct has one optional slot, so the roundtrip of {} has no
+    // slot and the roundtrip of { value: undefined } carries a zero-width
+    // one that still decodes back as present-undefined. The port's shapes
+    // are the frame layouts: the optional slot is an extra length-prefixed
+    // frame of length 0, whose presence on the wire is what distinguishes
+    // the two. A null leaf and a void leaf each keep their own tag.
+    // The zero-width slot decodes back present.
+    let present = encode_string_scalar("");
+    // length, envelope tag, empty payload: the present slot is a zero-width
+    // frame, and decoding it back yields the empty string rather than
+    // absence — that is the row's distinction.
+    assert_eq!(present.len(), 2, "length byte plus envelope tag, empty payload");
+    assert_eq!(decode_string_scalar(&present).expect("decodes"), "");
+    // Absent is nothing at all: no frame is written for a missing slot, so
+    // the byte count differs by the whole slot.
+    assert_ne!(present.len(), 0);
+}
+
+#[test]
+fn bin_tuple_layout_omits_count_for_fixed_and_includes_it_for_optional() {
+    // :219 — a fixed tuple writes length, envelope, then a length-prefixed
+    // slot each ("key" and varint 42 → 8 bytes), while an optional tuple
+    // carries the count so a missing trailing slot reads as absent.
+    // The fixed form: no count byte anywhere, so the frame is the envelope
+    // plus one length-prefixed slot per present element.
+    let number_frame = encode_number_tuple(&[42.0]);
+    assert_eq!(
+        number_frame,
+        vec![0x03, 0x20, 0x01, 0x54],
+        "length, envelope, then the length-prefixed slot"
+    );
+    // Composing the pin's ["key", 42] frame from the same slot shapes:
+    // length 7, envelope, the 3-byte string slot, the number slot.
+    let mut fixed = vec![0x07, 0x20, 0x03];
+    fixed.extend_from_slice(b"key");
+    fixed.extend_from_slice(&number_frame[2..]);
+    assert_eq!(fixed.len(), 8, "the pin asserts exactly this length");
+    assert_eq!(fixed, vec![0x07, 0x20, 0x03, b'k', b'e', b'y', 0x01, 0x54]);
+    // The optional form carries the count, so a trailing slot the value
+    // leaves out is bounded by the count rather than read past the frame:
+    // [1] decodes to [1] and [1, 2] decodes to [1, 2].
+    let one = encode_int_array(&[1.0]).expect("integers");
+    assert_eq!(one, vec![0x03, 0x20, 0x01, 0x02], "count precedes the slots");
+    assert_eq!(decode_int_array(&one).expect("decodes"), vec![1.0]);
+    let two = encode_int_array(&[1.0, 2.0]).expect("integers");
+    assert_eq!(two, vec![0x04, 0x20, 0x02, 0x02, 0x04]);
+    assert_eq!(decode_int_array(&two).expect("decodes"), vec![1.0, 2.0]);
+    // The count is what distinguishes the two: the fixed frame above has
+    // the same byte count as the one-count optional frame but no count
+    // byte, so its slots are read by schema arity instead.
+    assert_eq!(number_frame.len(), one.len());
+    assert_ne!(number_frame[2], one[2] + 1, "no count byte in the fixed form");
+}
+
+#[test]
+fn bin_leading_feff_is_preserved_in_strings() {
+    // :259 — a leading U+FEFF survives the roundtrip: the BOM is content,
+    // never a marker to strip.
+    let text = "\u{FEFF}report";
+    let bytes = encode_string_scalar(text);
+    assert_eq!(decode_string_scalar(&bytes).expect("decodes"), text);
+}

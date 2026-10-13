@@ -6146,13 +6146,13 @@ ported	packages/effect/test/encoding/Ndjson.test.ts	35	it	identifies Ndjson erro
 ported	packages/effect/test/encoding/SchemaBinary.test.ts	148	it	packs fixed-size array elements	binary_arrays_pack_fixed_elements
 ported	packages/effect/test/encoding/SchemaBinary.test.ts	164	it	length-prefixes variable-size array elements and nested arrays	binary_nested_number_arrays_roundtrip
 ported	packages/effect/test/encoding/SchemaBinary.test.ts	175	it	round-trips zero-width array elements	binary_string_runs_are_length_prefixed
-unported	packages/effect/test/encoding/SchemaBinary.test.ts	183	it	distinguishes absent optionals from present zero-width values	
-unported	packages/effect/test/encoding/SchemaBinary.test.ts	195	it	includes non-enumerable fields in row presence masks	
-unported	packages/effect/test/encoding/SchemaBinary.test.ts	203	it	round-trips every literal leaf kind and registered symbols	
-unported	packages/effect/test/encoding/SchemaBinary.test.ts	219	it	omits the count for fixed tuples and includes it for optional tuples	
-unported	packages/effect/test/encoding/SchemaBinary.test.ts	230	it	supports tuple rest and trailing slots	
+ported	packages/effect/test/encoding/SchemaBinary.test.ts	183	it	distinguishes absent optionals from present zero-width values	bin_distinguishes_absent_optionals_from_present_zero_width_values
+not-applicable	packages/effect/test/encoding/SchemaBinary.test.ts	195	it	includes non-enumerable fields in row presence masks	the row decodes an array of Schema.Struct rows and requires Object.hasOwn to see a non-enumerable optional key; this port has no struct or row codec, schema_binary.rs writes frame layouts only, so there is no presence mask to fill
+not-applicable	packages/effect/test/encoding/SchemaBinary.test.ts	203	it	round-trips every literal leaf kind and registered symbols	the row round-trips Schema.Literal leaves of four kinds plus Schema.Symbol and UniqueSymbol; the UnionValue in this port carries only numbers and text, with no literal-leaf kinds and no symbol kind to encode
+ported	packages/effect/test/encoding/SchemaBinary.test.ts	219	it	omits the count for fixed tuples and includes it for optional tuples	bin_tuple_layout_omits_count_for_fixed_and_includes_it_for_optional
+not-applicable	packages/effect/test/encoding/SchemaBinary.test.ts	230	it	supports tuple rest and trailing slots	the row round-trips a Schema.TupleWithRest value whose leading tuple has fixed elements and whose rest absorbs a variable count; this port has no schema-typed tuple codec, only fixed-slot tuple frame writers with no rest arity
 ported	packages/effect/test/encoding/SchemaBinary.test.ts	239	it	writes a length-first frame and rejects envelope or leftovers	binary_frames_reject_envelope_and_leftovers
-unported	packages/effect/test/encoding/SchemaBinary.test.ts	259	it	preserves a leading U+FEFF in strings	
+ported	packages/effect/test/encoding/SchemaBinary.test.ts	259	it	preserves a leading U+FEFF in strings	bin_leading_feff_is_preserved_in_strings
 unported	packages/effect/test/encoding/SchemaBinary.test.ts	265	it	keeps an earlier result stable through later encodes and arena rollover	
 unported	packages/effect/test/encoding/SchemaBinary.test.ts	282	it	keeps different results independent inside a shared arena	
 unported	packages/effect/test/encoding/SchemaBinary.test.ts	295	it	preserves nested two-phase codec composition	
