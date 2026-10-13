@@ -1356,7 +1356,7 @@ tests = ["packages/effect/test/cli/Param.test.ts"]
 [[module]]
 path = "packages/effect/src/cli/Primitive.ts"
 class = "unstable-port"
-status = "unmatched"
+status = "matched"
 tag = "unstable"
 reason = ""
 tests = ["packages/effect/test/cli/Primitive.test.ts"]
@@ -2188,7 +2188,7 @@ tests = ["packages/effect/test/http/HttpRouter.test.ts"]
 [[module]]
 path = "packages/effect/src/http/HttpServer.ts"
 class = "unstable-port"
-status = "unmatched"
+status = "matched"
 tag = "unstable"
 reason = ""
 tests = ["packages/effect/test/http/HttpServer.test.ts"]
