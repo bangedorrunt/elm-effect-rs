@@ -863,14 +863,14 @@ unported	packages/effect/test/ConfigProvider.test.ts	69	it	preserves SourceError
 ported	packages/effect/test/ConfigProvider.test.ts	79	it	uses the fallback when the primary provider is missing the path	provider_fallback_and_nesting
 unported	packages/effect/test/ConfigProvider.test.ts	95	it	does not use the fallback after a SourceError	
 ported	packages/effect/test/ConfigProvider.test.ts	103	it	does not evaluate the fallback after the primary provider finds a node	provider_fallback_skips_evaluation_after_hit
-unported	packages/effect/test/ConfigProvider.test.ts	113	it	preserves each operand's transformations	
+ported	packages/effect/test/ConfigProvider.test.ts	113	it	preserves each operand's transformations	or_else_preserves_each_operands_transformations
 ported	packages/effect/test/ConfigProvider.test.ts	129	it	distributes mapInput over both operands	provider_map_distributes_over_fallback_operands
 ported	packages/effect/test/ConfigProvider.test.ts	149	it	distributes nested over both operands	provider_nested_distributes_over_fallback_operands
 ported	packages/effect/test/ConfigProvider.test.ts	165	it	uses the fallback when the primary value is an empty string	provider_empty_strings_are_missing_by_default
 unported	packages/effect/test/ConfigProvider.test.ts	176	it	does not merge a fallback container into an existing primary container	
 ported	packages/effect/test/ConfigProvider.test.ts	187	it	composes transformations in application order	provider_map_input_composes_in_application_order
-ported	packages/effect/test/ConfigProvider.test.ts	202	it	converts string path segments to config case	provider_constant_case_converts_segments
-ported	packages/effect/test/ConfigProvider.test.ts	211	it	preserves numeric word groups	provider_constant_case_converts_segments
+ported	packages/effect/test/ConfigProvider.test.ts	202	it	converts string path segments to config case	constant_case_converts_string_segments_to_config_case
+ported	packages/effect/test/ConfigProvider.test.ts	211	it	preserves numeric word groups	constant_case_preserves_numeric_word_groups
 ported	packages/effect/test/ConfigProvider.test.ts	222	it	leaves numeric path segments unchanged	provider_constant_case_converts_segments
 ported	packages/effect/test/ConfigProvider.test.ts	232	it	adds a string prefix to the path	provider_nested_dotted_numeric_prefix
 ported	packages/effect/test/ConfigProvider.test.ts	241	it	adds a Path prefix with string and numeric segments	provider_nested_dotted_numeric_prefix
@@ -7528,12 +7528,12 @@ unported	packages/effect/test/schema/HMR.test.ts	19	it	isAST
 unported	packages/effect/test/schema/HMR.test.ts	32	it	isSchema	
 unported	packages/effect/test/schema/HMR.test.ts	44	it	isSchemaError	
 unported	packages/effect/test/schema/HMR.test.ts	57	it	Schema.Class	
-unported	packages/effect/test/schema/Schema.test.ts	59	it	keeps synchronous decode and encode effects eager	
+not-applicable	packages/effect/test/schema/Schema.test.ts	59	it	keeps synchronous decode and encode effects eager	the row asserts the JS adapter return shape (Exit.isExit on decodeUnknownEffect/encodeUnknownEffect, plus Cause.findErrorOption over a SchemaError); this port's decode/encode are direct synchronous Result calls with no adapter to hand an Exit back from, so the observable has no counterpart
 unported	packages/effect/test/schema/Schema.test.ts	83	it	isSchema	
 unported	packages/effect/test/schema/Schema.test.ts	94	it	toString	
 unported	packages/effect/test/schema/Schema.test.ts	102	it	extends Error and exposes the issue	
 unported	packages/effect/test/schema/Schema.test.ts	117	it	does not capture stack frames	
-unported	packages/effect/test/schema/Schema.test.ts	131	it	does not interpret custom parseOptions metadata	
+ported	packages/effect/test/schema/Schema.test.ts	131	it	does not interpret custom parseOptions metadata	custom_metadata_is_not_interpreted
 unported	packages/effect/test/schema/Schema.test.ts	144	it	applies errors to nested schemas without annotation overrides	
 unported	packages/effect/test/schema/Schema.test.ts	164	it	applies errors with encoding checks	
 unported	packages/effect/test/schema/Schema.test.ts	187	it	decoders can receive options when they are created	
@@ -7543,9 +7543,9 @@ ported	packages/effect/test/schema/Schema.test.ts	237	it	should expose the liter
 ported	packages/effect/test/schema/Schema.test.ts	243	it	a	cell_literal_a
 ported	packages/effect/test/schema/Schema.test.ts	260	it	1	cell_literal_1
 ported	packages/effect/test/schema/Schema.test.ts	277	it	accepts either signed zero and preserves the input sign	literal_accepts_either_signed_zero_and_keeps_the_input_sign
-unported	packages/effect/test/schema/Schema.test.ts	287	it	transform	
+ported	packages/effect/test/schema/Schema.test.ts	287	it	transform	literal_transform_maps_one_pair_both_ways
 ported	packages/effect/test/schema/Schema.test.ts	302	it	red, green, blue	cell_literal_union_red_green_blue
-unported	packages/effect/test/schema/Schema.test.ts	315	it	transform	
+ported	packages/effect/test/schema/Schema.test.ts	315	it	transform	literal_transform_maps_member_pairs_both_ways
 ported	packages/effect/test/schema/Schema.test.ts	330	it	pick	pick_decodes_a_subset
 ported	packages/effect/test/schema/Schema.test.ts	337	it	Never	never_rejects_everything
 ported	packages/effect/test/schema/Schema.test.ts	351	it	Any	any_accepts_everything
@@ -7575,7 +7575,7 @@ not-applicable	packages/effect/test/schema/Schema.test.ts	680	it	error ignores n
 not-applicable	packages/effect/test/schema/Schema.test.ts	703	it	error validates non-enumerable declared string and symbol properties	the row's subject is non-enumerable declared properties, including a symbol key, still being validated; the port's inputs have no enumerability and no symbol keys
 not-applicable	packages/effect/test/schema/Schema.test.ts	719	it	error accepts Error internals in an open record	the row's input is a JavaScript Error object whose non-enumerable internals must not surface as excess properties; the port's inputs are JSON-shaped values with no hidden internals
 unported	packages/effect/test/schema/Schema.test.ts	727	it	error encodes tagged errors carrying runtime internals	
-unported	packages/effect/test/schema/Schema.test.ts	735	it	should corectly handle __proto__	
+not-applicable	packages/effect/test/schema/Schema.test.ts	735	it	should corectly handle __proto__	the row's two inputs differ only by JavaScript prototype semantics: {["__proto__"]: "a"} is an own key while {__proto__: "a"} sets the literal's prototype, so one decodes and the other reports a missing key; a Rust map makes both spellings the same entry, so the second observable cannot exist
 unported	packages/effect/test/schema/Schema.test.ts	750	it	a	
 unported	packages/effect/test/schema/Schema.test.ts	790	it	a	
 unported	packages/effect/test/schema/Schema.test.ts	813	it	should use the identifier annotation as the expected message	
@@ -7713,7 +7713,7 @@ unported	packages/effect/test/schema/Schema.test.ts	3501	it	should expose the va
 unported	packages/effect/test/schema/Schema.test.ts	3511	it	Exit(FiniteFromString, String, Unknown)	
 unported	packages/effect/test/schema/Schema.test.ts	3538	it	Exit(FiniteFromString, String, Defect)	
 unported	packages/effect/test/schema/Schema.test.ts	3557	it	should work	
-unported	packages/effect/test/schema/Schema.test.ts	3601	it	preserves __proto__ as an own option	
+not-applicable	packages/effect/test/schema/Schema.test.ts	3601	it	preserves __proto__ as an own option	the row asserts Object.hasOwn(schema, "__proto__") on the options bag Schema.make merges into a schema; this port's schemas hold no options object, so there is no own-property surface to preserve
 unported	packages/effect/test/schema/Schema.test.ts	3612	it	preserves name and length as options	
 unported	packages/effect/test/schema/Schema.test.ts	3627	it	assigns options	
 unported	packages/effect/test/schema/Schema.test.ts	3640	it	should throw an error when the cause contains both a schema issue and a defect	
@@ -7849,7 +7849,7 @@ unported	packages/effect/test/schema/Schema.test.ts	5865	it	isBetweenBigDecimal
 unported	packages/effect/test/schema/Schema.test.ts	5882	it	decoding: required & encoding: required & constructor: required	
 unported	packages/effect/test/schema/Schema.test.ts	5899	it	decoding: required & encoding: required & constructor: optional	
 unported	packages/effect/test/schema/Schema.test.ts	5917	it	decoding: default & encoding: omit & constructor: optional	
-unported	packages/effect/test/schema/Schema.test.ts	5945	it	tagDefaultOmit	
+ported	packages/effect/test/schema/Schema.test.ts	5945	it	tagDefaultOmit	tag_fills_default_and_omits_on_encode
 unported	packages/effect/test/schema/Schema.test.ts	5975	it	URL	
 unported	packages/effect/test/schema/Schema.test.ts	5983	it	RegExp	
 unported	packages/effect/test/schema/Schema.test.ts	5991	it	URLFromString	
