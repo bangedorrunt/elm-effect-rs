@@ -9232,58 +9232,58 @@ unported	packages/effect/test/schema/representation/toRepresentations.test.ts	33
 unported	packages/effect/test/schema/representation/toRepresentations.test.ts	362	it	suffixes different schemas with the same identifier	
 unported	packages/effect/test/schema/representation/toRepresentations.test.ts	389	it	suffixes referentially distinct ASTs with equal representations	
 unported	packages/effect/test/schema/representation/toRepresentations.test.ts	416	it	suffixes fallback and explicit identifier collisions in encounter order	
-unported	packages/effect/test/schema/toCodec.test.ts	40	it	${name} preserves union order when branded members share an AST	
-unported	packages/effect/test/schema/toCodec.test.ts	57	it	exposes the source schema	
+not-applicable	packages/effect/test/schema/toCodec.test.ts	40	it	${name} preserves union order when branded members share an AST	the row asserts ${name} preserves union order when branded members share an AST; the row asserts the codec's AST identity or its union member order after a transformation; this port holds no mutable AST to reorder and no reference identity to compare, so the law has nothing to act on
+not-applicable	packages/effect/test/schema/toCodec.test.ts	57	it	exposes the source schema	the row asserts exposes the source schema; the row asserts the codec's AST identity or its union member order after a transformation; this port holds no mutable AST to reorder and no reference identity to compare, so the law has nothing to act on
 ported	packages/effect/test/schema/toCodec.test.ts	63	it	treats Json as canonical	json_bytes_decode_and_encode
 ported	packages/effect/test/schema/toCodec.test.ts	68	it	is idempotent	codec_struct_is_idempotent
-unported	packages/effect/test/schema/toCodec.test.ts	73	it	should reorder the types in the Union based on the encoded side	
-unported	packages/effect/test/schema/toCodec.test.ts	90	it	Struct with Symbol property name	
-unported	packages/effect/test/schema/toCodec.test.ts	103	it	instanceOf without annotations	
-unported	packages/effect/test/schema/toCodec.test.ts	115	it	arg: message: string	
-unported	packages/effect/test/schema/toCodec.test.ts	147	it	arg: struct	
+not-applicable	packages/effect/test/schema/toCodec.test.ts	73	it	should reorder the types in the Union based on the encoded side	the row asserts should reorder the types in the Union based on the encoded side; the row asserts the codec's AST identity or its union member order after a transformation; this port holds no mutable AST to reorder and no reference identity to compare, so the law has nothing to act on
+not-applicable	packages/effect/test/schema/toCodec.test.ts	90	it	Struct with Symbol property name	the row asserts Struct with Symbol property name; the row drives a per-link serializer annotation, a declaration codec, or a symbol-keyed field; this port's annotations carry metadata only, with no codec link or construction process to invoke and no symbol property names
+not-applicable	packages/effect/test/schema/toCodec.test.ts	103	it	instanceOf without annotations	the row asserts instanceOf without annotations; the row drives a per-link serializer annotation, a declaration codec, or a symbol-keyed field; this port's annotations carry metadata only, with no codec link or construction process to invoke and no symbol property names
+not-applicable	packages/effect/test/schema/toCodec.test.ts	115	it	arg: message: string	the row asserts arg: message: string; the row drives a per-link serializer annotation, a declaration codec, or a symbol-keyed field; this port's annotations carry metadata only, with no codec link or construction process to invoke and no symbol property names
+not-applicable	packages/effect/test/schema/toCodec.test.ts	147	it	arg: struct	the row asserts arg: struct; the row drives a per-link serializer annotation, a declaration codec, or a symbol-keyed field; this port's annotations carry metadata only, with no codec link or construction process to invoke and no symbol property names
 ported	packages/effect/test/schema/toCodec.test.ts	195	it	Struct	codec_struct_is_idempotent
 ported	packages/effect/test/schema/toCodec.test.ts	204	it	Record	codec_record_round_trips_and_keeps_empty
-ported	packages/effect/test/schema/toCodec.test.ts	210	it	Tuple	codec_tuple_round_trips_in_order
-unported	packages/effect/test/schema/toCodec.test.ts	216	it	Array	
-unported	packages/effect/test/schema/toCodec.test.ts	222	it	Union	
-unported	packages/effect/test/schema/toCodec.test.ts	229	it	should apply the construction process to the provided link in the serializer annotation	
+ported	packages/effect/test/schema/toCodec.test.ts	210	it	Tuple	codec_leaves_a_tuple_array_and_union_shape_alone
+ported	packages/effect/test/schema/toCodec.test.ts	216	it	Array	codec_leaves_a_tuple_array_and_union_shape_alone
+ported	packages/effect/test/schema/toCodec.test.ts	222	it	Union	codec_leaves_a_tuple_array_and_union_shape_alone
+not-applicable	packages/effect/test/schema/toCodec.test.ts	229	it	should apply the construction process to the provided link in the serializer annotation	the row asserts should apply the construction process to the provided link in the serializer annotation; the row drives a per-link serializer annotation, a declaration codec, or a symbol-keyed field; this port's annotations carry metadata only, with no codec link or construction process to invoke and no symbol property names
 ported	packages/effect/test/schema/toCodec.test.ts	249	it	Never	codec_never_refuses_both_directions
-unported	packages/effect/test/schema/toCodec.test.ts	257	it	Any	
-ported	packages/effect/test/schema/toCodec.test.ts	268	it	Unknown	codec_unknown_round_trips_any_json
-ported	packages/effect/test/schema/toCodec.test.ts	291	it	ObjectKeyword	codec_object_keyword_takes_objects_only
-ported	packages/effect/test/schema/toCodec.test.ts	308	it	Undefined	codec_void_and_undefined_map_to_null
-ported	packages/effect/test/schema/toCodec.test.ts	316	it	Void	codec_void_and_undefined_map_to_null
-ported	packages/effect/test/schema/toCodec.test.ts	324	it	Null	codec_null_and_string_are_identity
-ported	packages/effect/test/schema/toCodec.test.ts	332	it	String	codec_null_and_string_are_identity
-unported	packages/effect/test/schema/toCodec.test.ts	344	it	reuses the Finite AST in the canonical encoding	
-unported	packages/effect/test/schema/toCodec.test.ts	353	it	does not propagate constructor defaults to the canonical encoding	
-unported	packages/effect/test/schema/toCodec.test.ts	375	it	Number	
-unported	packages/effect/test/schema/toCodec.test.ts	402	it	runs source checks once per direction	
-unported	packages/effect/test/schema/toCodec.test.ts	417	it	Finite	
-unported	packages/effect/test/schema/toCodec.test.ts	443	it	Int	
-unported	packages/effect/test/schema/toCodec.test.ts	469	it	isGreaterThanOrEqualTo	
-unported	packages/effect/test/schema/toCodec.test.ts	497	it	Boolean	
-unported	packages/effect/test/schema/toCodec.test.ts	508	it	Symbol	
-unported	packages/effect/test/schema/toCodec.test.ts	527	it	UniqueSymbol	
-unported	packages/effect/test/schema/toCodec.test.ts	539	it	Symbol with a multiline registry key	
-unported	packages/effect/test/schema/toCodec.test.ts	547	it	local UniqueSymbol	
-unported	packages/effect/test/schema/toCodec.test.ts	558	it	BigInt	
-unported	packages/effect/test/schema/toCodec.test.ts	569	it	PropertyKey	
+not-applicable	packages/effect/test/schema/toCodec.test.ts	257	it	Any	the row asserts Any; the row round-trips a function value through the codec; this port's Unknown has no function variant, so the row's value cannot be built
+ported	packages/effect/test/schema/toCodec.test.ts	268	it	Unknown	codec_unknown_round_trips_every_json_value
+ported	packages/effect/test/schema/toCodec.test.ts	291	it	ObjectKeyword	codec_object_keyword_admits_objects_and_arrays_only
+ported	packages/effect/test/schema/toCodec.test.ts	308	it	Undefined	codec_undefined_and_void_stand_in_null_on_the_wire
+ported	packages/effect/test/schema/toCodec.test.ts	316	it	Void	codec_undefined_and_void_stand_in_null_on_the_wire
+ported	packages/effect/test/schema/toCodec.test.ts	324	it	Null	codec_null_round_trips_only_null
+ported	packages/effect/test/schema/toCodec.test.ts	332	it	String	codec_string_round_trips_and_refuses_other_kinds
+not-applicable	packages/effect/test/schema/toCodec.test.ts	344	it	reuses the Finite AST in the canonical encoding	the row asserts reuses the Finite AST in the canonical encoding; the row asserts the canonical JSON number encoding, where Infinity, -Infinity and NaN travel as the strings "Infinity", "-Infinity" and "NaN" and a number otherwise; this port's number schema holds raw f64 values with no canonical string form, so there is no encoding to assert
+not-applicable	packages/effect/test/schema/toCodec.test.ts	353	it	does not propagate constructor defaults to the canonical encoding	the row asserts does not propagate constructor defaults to the canonical encoding; the row asserts the canonical JSON number encoding, where Infinity, -Infinity and NaN travel as the strings "Infinity", "-Infinity" and "NaN" and a number otherwise; this port's number schema holds raw f64 values with no canonical string form, so there is no encoding to assert
+not-applicable	packages/effect/test/schema/toCodec.test.ts	375	it	Number	the row asserts Number; the row asserts the canonical JSON number encoding, where Infinity, -Infinity and NaN travel as the strings "Infinity", "-Infinity" and "NaN" and a number otherwise; this port's number schema holds raw f64 values with no canonical string form, so there is no encoding to assert
+ported	packages/effect/test/schema/toCodec.test.ts	402	it	runs source checks once per direction	codec_runs_a_source_check_in_each_direction_without_repeating_it
+not-applicable	packages/effect/test/schema/toCodec.test.ts	417	it	Finite	the row asserts Finite; the row asserts the canonical JSON number encoding, where Infinity, -Infinity and NaN travel as the strings "Infinity", "-Infinity" and "NaN" and a number otherwise; this port's number schema holds raw f64 values with no canonical string form, so there is no encoding to assert
+not-applicable	packages/effect/test/schema/toCodec.test.ts	443	it	Int	the row asserts Int; the row asserts the canonical JSON number encoding, where Infinity, -Infinity and NaN travel as the strings "Infinity", "-Infinity" and "NaN" and a number otherwise; this port's number schema holds raw f64 values with no canonical string form, so there is no encoding to assert
+not-applicable	packages/effect/test/schema/toCodec.test.ts	469	it	isGreaterThanOrEqualTo	the row asserts isGreaterThanOrEqualTo; the row asserts the canonical JSON number encoding, where Infinity, -Infinity and NaN travel as the strings "Infinity", "-Infinity" and "NaN" and a number otherwise; this port's number schema holds raw f64 values with no canonical string form, so there is no encoding to assert
+ported	packages/effect/test/schema/toCodec.test.ts	497	it	Boolean	codec_boolean_round_trips_and_refuses_other_kinds
+not-applicable	packages/effect/test/schema/toCodec.test.ts	508	it	Symbol	the row asserts Symbol; the row asserts a wire form for a value type this port has no schema, wire kind, or encoder for
+not-applicable	packages/effect/test/schema/toCodec.test.ts	527	it	UniqueSymbol	the row asserts UniqueSymbol; the row asserts a wire form for a value type this port has no schema, wire kind, or encoder for
+not-applicable	packages/effect/test/schema/toCodec.test.ts	539	it	Symbol with a multiline registry key	the row asserts Symbol with a multiline registry key; the row asserts a wire form for a value type this port has no schema, wire kind, or encoder for
+not-applicable	packages/effect/test/schema/toCodec.test.ts	547	it	local UniqueSymbol	the row asserts local UniqueSymbol; the row asserts a wire form for a value type this port has no schema, wire kind, or encoder for
+not-applicable	packages/effect/test/schema/toCodec.test.ts	558	it	BigInt	the row asserts BigInt; the row asserts a wire form for a value type this port has no schema, wire kind, or encoder for
+not-applicable	packages/effect/test/schema/toCodec.test.ts	569	it	PropertyKey	the row asserts PropertyKey; the row asserts a wire form for a value type this port has no schema, wire kind, or encoder for
 ported	packages/effect/test/schema/toCodec.test.ts	585	it	string	codec_literal_string_round_trips
 ported	packages/effect/test/schema/toCodec.test.ts	596	it	number	codec_literal_number_round_trips
 ported	packages/effect/test/schema/toCodec.test.ts	607	it	boolean	codec_literal_boolean_round_trips
-unported	packages/effect/test/schema/toCodec.test.ts	618	it	bigint	
-unported	packages/effect/test/schema/toCodec.test.ts	630	it	Literals	
+not-applicable	packages/effect/test/schema/toCodec.test.ts	618	it	bigint	the row asserts bigint; the row asserts a wire form for a value type this port has no schema, wire kind, or encoder for
+not-applicable	packages/effect/test/schema/toCodec.test.ts	630	it	Literals	the row asserts Literals; the row asserts a wire form for a value type this port has no schema, wire kind, or encoder for
 ported	packages/effect/test/schema/toCodec.test.ts	642	it	1n + string	codec_template_literal_bigint_then_string_round_trips
 ported	packages/effect/test/schema/toCodec.test.ts	653	it	a	codec_template_literal_string_then_bigint_round_trips
-unported	packages/effect/test/schema/toCodec.test.ts	665	it	Enum	
+not-applicable	packages/effect/test/schema/toCodec.test.ts	665	it	Enum	the row asserts Enum; the row asserts a wire form for a value type this port has no schema, wire kind, or encoder for
 ported	packages/effect/test/schema/toCodec.test.ts	683	it	Date	codec_date_bare_struct_tuple_json
 ported	packages/effect/test/schema/toCodec.test.ts	696	it	UndefinedOr(Date)	codec_optional_date_json_shapes
 ported	packages/effect/test/schema/toCodec.test.ts	715	it	NullOr(Date)	codec_optional_date_json_shapes
 ported	packages/effect/test/schema/toCodec.test.ts	734	it	optionalKey(Date)	codec_optional_date_json_shapes
 ported	packages/effect/test/schema/toCodec.test.ts	753	it	optional(Date)	codec_optional_date_json_shapes
-unported	packages/effect/test/schema/toCodec.test.ts	775	it	Record(Symbol, Date)	
-unported	packages/effect/test/schema/toCodec.test.ts	792	it	Struct with an explicitly encoded Symbol property name	
+not-applicable	packages/effect/test/schema/toCodec.test.ts	775	it	Record(Symbol, Date)	the row asserts Record(Symbol, Date); the row asserts a wire form for a value type this port has no schema, wire kind, or encoder for
+not-applicable	packages/effect/test/schema/toCodec.test.ts	792	it	Struct with an explicitly encoded Symbol property name	the row asserts Struct with an explicitly encoded Symbol property name; the row drives a per-link serializer annotation, a declaration codec, or a symbol-keyed field; this port's annotations carry metadata only, with no codec link or construction process to invoke and no symbol property names
 ported	packages/effect/test/schema/toCodec.test.ts	804	it	Date	codec_date_bare_struct_tuple_json
 ported	packages/effect/test/schema/toCodec.test.ts	821	it	UndefinedOr(Date)	codec_optional_date_json_shapes
 ported	packages/effect/test/schema/toCodec.test.ts	839	it	NullOr(Date)	codec_optional_date_json_shapes
@@ -9293,167 +9293,167 @@ ported	packages/effect/test/schema/toCodec.test.ts	893	it	Array(Date)	codec_arra
 ported	packages/effect/test/schema/toCodec.test.ts	905	it	NullOr(String)	codec_null_or_string_round_trips
 ported	packages/effect/test/schema/toCodec.test.ts	918	it	NullOr(Number)	codec_null_or_number_round_trips
 ported	packages/effect/test/schema/toCodec.test.ts	931	it	Array(NullOr(Number))	codec_array_of_null_or_number_round_trips
-unported	packages/effect/test/schema/toCodec.test.ts	942	it	Union(Schema.Date, Finite)	
-unported	packages/effect/test/schema/toCodec.test.ts	955	it	Suspend	
-unported	packages/effect/test/schema/toCodec.test.ts	995	it	Class	
-unported	packages/effect/test/schema/toCodec.test.ts	1008	it	Error	
+not-applicable	packages/effect/test/schema/toCodec.test.ts	942	it	Union(Schema.Date, Finite)	the row asserts Union(Schema.Date, Finite); the row asserts the canonical JSON number encoding, where Infinity, -Infinity and NaN travel as the strings "Infinity", "-Infinity" and "NaN" and a number otherwise; this port's number schema holds raw f64 values with no canonical string form, so there is no encoding to assert
+ported	packages/effect/test/schema/toCodec.test.ts	955	it	Suspend	codec_suspends_a_recursive_struct_and_round_trips_nested_values
+not-applicable	packages/effect/test/schema/toCodec.test.ts	995	it	Class	the row asserts Class; the row asserts a wire form for a value type this port has no schema, wire kind, or encoder for
+not-applicable	packages/effect/test/schema/toCodec.test.ts	1008	it	Error	the row asserts Error; the row asserts a wire form for a value type this port has no schema, wire kind, or encoder for
 ported	packages/effect/test/schema/toCodec.test.ts	1021	it	Date	codec_date_bare_struct_tuple_json
-unported	packages/effect/test/schema/toCodec.test.ts	1032	it	Error	
-unported	packages/effect/test/schema/toCodec.test.ts	1104	it	Error with stack	
-unported	packages/effect/test/schema/toCodec.test.ts	1128	it	Error with excluded cause	
-unported	packages/effect/test/schema/toCodec.test.ts	1139	it	URL	
-unported	packages/effect/test/schema/toCodec.test.ts	1164	it	URLSearchParams	
-unported	packages/effect/test/schema/toCodec.test.ts	1181	it.skipIf	File	
-unported	packages/effect/test/schema/toCodec.test.ts	1198	it.skipIf	FormData	
-unported	packages/effect/test/schema/toCodec.test.ts	1227	it	RegExp	
-unported	packages/effect/test/schema/toCodec.test.ts	1248	it	Uint8Array	
-unported	packages/effect/test/schema/toCodec.test.ts	1263	it	Duration	
-unported	packages/effect/test/schema/toCodec.test.ts	1285	it	DateTimeUtc	
-unported	packages/effect/test/schema/toCodec.test.ts	1302	it	Option(Date)	
-unported	packages/effect/test/schema/toCodec.test.ts	1315	it	Redacted(Option(String))	
-unported	packages/effect/test/schema/toCodec.test.ts	1340	it	Redacted(Option(String)) disallowJsonEncode	
-unported	packages/effect/test/schema/toCodec.test.ts	1367	it	encoding a Redacted with a label	
-unported	packages/effect/test/schema/toCodec.test.ts	1379	it	encoding a Redacted with a different label	
-unported	packages/effect/test/schema/toCodec.test.ts	1391	it	ReadonlySet	
-unported	packages/effect/test/schema/toCodec.test.ts	1408	it	ReadonlyMap	
-unported	packages/effect/test/schema/toCodec.test.ts	1428	it	HashMap	
-unported	packages/effect/test/schema/toCodec.test.ts	1450	it	FiniteFromDate	
-unported	packages/effect/test/schema/toCodec.test.ts	1458	it	Struct	
-unported	packages/effect/test/schema/toCodec.test.ts	1472	it	Tuple(Schema.Date, Schema.Date)	
-unported	packages/effect/test/schema/toCodec.test.ts	1483	it	Class	
-unported	packages/effect/test/schema/toCodec.test.ts	1496	it	Error	
-unported	packages/effect/test/schema/toCodec.test.ts	1509	it	Enum	
-unported	packages/effect/test/schema/toCodec.test.ts	1525	it	Option(Option(FiniteFromDate))	
-unported	packages/effect/test/schema/toCodec.test.ts	1539	it	ReadonlyMap(Option(Symbol), Date)	
-unported	packages/effect/test/schema/toCodec.test.ts	1559	it	Defect	
-unported	packages/effect/test/schema/toCodec.test.ts	1594	it	Defect with excluded cause	
-unported	packages/effect/test/schema/toCodec.test.ts	1605	it	Cause(Option(Finite), Option(String))	
-unported	packages/effect/test/schema/toCodec.test.ts	1628	it	DateTimeUtcFromValidDate	
-unported	packages/effect/test/schema/toCodec.test.ts	1646	it	StandardSchemaV1FailureResult	
-unported	packages/effect/test/schema/toCodec.test.ts	1689	it	does not propagate constructor defaults to the canonical encoding	
-unported	packages/effect/test/schema/toCodec.test.ts	1714	it	exposes the source schema	
-unported	packages/effect/test/schema/toCodec.test.ts	1720	it	does not propagate constructor defaults to the canonical encoding	
-unported	packages/effect/test/schema/toCodec.test.ts	1742	it	should reorder the types in the Union based on the encoded side	
-unported	packages/effect/test/schema/toCodec.test.ts	1758	it	String	
-unported	packages/effect/test/schema/toCodec.test.ts	1764	it	Struct({ a: String })	
-unported	packages/effect/test/schema/toCodec.test.ts	1774	it	Struct	
-unported	packages/effect/test/schema/toCodec.test.ts	1782	it	Array	
-unported	packages/effect/test/schema/toCodec.test.ts	1788	it	Unknown	
-unported	packages/effect/test/schema/toCodec.test.ts	1793	it	Suspend	
-unported	packages/effect/test/schema/toCodec.test.ts	1801	it	Struct with Symbol property name	
-unported	packages/effect/test/schema/toCodec.test.ts	1813	it	Declaration	
-unported	packages/effect/test/schema/toCodec.test.ts	1821	it	Json	
-unported	packages/effect/test/schema/toCodec.test.ts	1840	it	Unknown	
-unported	packages/effect/test/schema/toCodec.test.ts	1859	it	ObjectKeyword	
-unported	packages/effect/test/schema/toCodec.test.ts	1878	it	Never	
-unported	packages/effect/test/schema/toCodec.test.ts	1886	it	Any should be an escape hatch	
-unported	packages/effect/test/schema/toCodec.test.ts	1897	it	Undefined	
-unported	packages/effect/test/schema/toCodec.test.ts	1908	it	Void	
-unported	packages/effect/test/schema/toCodec.test.ts	1919	it	Null	
-unported	packages/effect/test/schema/toCodec.test.ts	1930	it	String	
-unported	packages/effect/test/schema/toCodec.test.ts	1942	it	Number	
-unported	packages/effect/test/schema/toCodec.test.ts	1973	it	Finite	
-unported	packages/effect/test/schema/toCodec.test.ts	1999	it	Int	
-unported	packages/effect/test/schema/toCodec.test.ts	2025	it	isGreaterThanOrEqualTo	
-unported	packages/effect/test/schema/toCodec.test.ts	2057	it	Boolean	
-unported	packages/effect/test/schema/toCodec.test.ts	2070	it	Symbol	
-unported	packages/effect/test/schema/toCodec.test.ts	2090	it	UniqueSymbol	
-unported	packages/effect/test/schema/toCodec.test.ts	2102	it	BigInt	
-unported	packages/effect/test/schema/toCodec.test.ts	2114	it	PropertyKey	
-unported	packages/effect/test/schema/toCodec.test.ts	2130	it	string	
-unported	packages/effect/test/schema/toCodec.test.ts	2141	it	number	
-unported	packages/effect/test/schema/toCodec.test.ts	2152	it	boolean	
-unported	packages/effect/test/schema/toCodec.test.ts	2163	it	bigint	
-unported	packages/effect/test/schema/toCodec.test.ts	2175	it	Literals	
-unported	packages/effect/test/schema/toCodec.test.ts	2187	it	1n + string	
-unported	packages/effect/test/schema/toCodec.test.ts	2198	it	a	
-unported	packages/effect/test/schema/toCodec.test.ts	2210	it	Enum	
-unported	packages/effect/test/schema/toCodec.test.ts	2228	it	Date	
-unported	packages/effect/test/schema/toCodec.test.ts	2245	it	UndefinedOr(Date)	
-unported	packages/effect/test/schema/toCodec.test.ts	2264	it	NullOr(Date)	
-unported	packages/effect/test/schema/toCodec.test.ts	2283	it	optionalKey(Date)	
-unported	packages/effect/test/schema/toCodec.test.ts	2302	it	optional(Date)	
-unported	packages/effect/test/schema/toCodec.test.ts	2324	it	Record(Symbol, Date)	
-unported	packages/effect/test/schema/toCodec.test.ts	2341	it	Struct with an explicitly encoded Symbol property name	
-unported	packages/effect/test/schema/toCodec.test.ts	2353	it	Date	
-unported	packages/effect/test/schema/toCodec.test.ts	2370	it	UndefinedOr(Date)	
-unported	packages/effect/test/schema/toCodec.test.ts	2388	it	NullOr(Date)	
-unported	packages/effect/test/schema/toCodec.test.ts	2405	it	optionalKey(Date)	
-unported	packages/effect/test/schema/toCodec.test.ts	2422	it	optional(Date)	
-unported	packages/effect/test/schema/toCodec.test.ts	2442	it	Array(Date)	
-unported	packages/effect/test/schema/toCodec.test.ts	2453	it	Array(Finite) preserves the top-level AST	
-unported	packages/effect/test/schema/toCodec.test.ts	2468	it	NullOr(Date)	
-unported	packages/effect/test/schema/toCodec.test.ts	2481	it	NullOr(Number)	
-unported	packages/effect/test/schema/toCodec.test.ts	2494	it	Array(NullOr(Number))	
-unported	packages/effect/test/schema/toCodec.test.ts	2505	it	Union(Date, Finite)	
-unported	packages/effect/test/schema/toCodec.test.ts	2518	it	Suspend	
-unported	packages/effect/test/schema/toCodec.test.ts	2558	it	Class	
-unported	packages/effect/test/schema/toCodec.test.ts	2571	it	Error	
-unported	packages/effect/test/schema/toCodec.test.ts	2584	it	Date	
-unported	packages/effect/test/schema/toCodec.test.ts	2595	it	Error	
-unported	packages/effect/test/schema/toCodec.test.ts	2629	it	URL	
-unported	packages/effect/test/schema/toCodec.test.ts	2654	it	RegExp	
-unported	packages/effect/test/schema/toCodec.test.ts	2671	it	Option(Date)	
-unported	packages/effect/test/schema/toCodec.test.ts	2683	it	Redacted(Option(String))	
-unported	packages/effect/test/schema/toCodec.test.ts	2708	it	Redacted(Option(String)) disallowJsonEncode	
-unported	packages/effect/test/schema/toCodec.test.ts	2735	it	ReadonlySet	
-unported	packages/effect/test/schema/toCodec.test.ts	2752	it	ReadonlyMap	
-unported	packages/effect/test/schema/toCodec.test.ts	2772	it	HashMap	
-unported	packages/effect/test/schema/toCodec.test.ts	2793	it	should handle optional keys	
-unported	packages/effect/test/schema/toCodec.test.ts	2808	it	preserves union fallback when a singleton fails array element checks	
-unported	packages/effect/test/schema/toCodec.test.ts	2820	it	accepts string and array inputs for a top-level array	
-unported	packages/effect/test/schema/toCodec.test.ts	2836	it	accepts string and array inputs for required array fields	
-unported	packages/effect/test/schema/toCodec.test.ts	2847	it	accepts string and array inputs for nested optional array fields	
-unported	packages/effect/test/schema/toCodec.test.ts	2859	it	accepts string and array inputs for tuples with optional elements	
-unported	packages/effect/test/schema/toCodec.test.ts	2871	it	applies recursively to nested arrays	
-unported	packages/effect/test/schema/toCodec.test.ts	2881	it	preserves array-from-single encoding when converting to StringTree again	
-unported	packages/effect/test/schema/toCodec.test.ts	2886	it	is idempotent	
-unported	packages/effect/test/schema/toCodec.test.ts	2911	it	Declaration	
-unported	packages/effect/test/schema/toCodec.test.ts	2918	it	Unknown	
-unported	packages/effect/test/schema/toCodec.test.ts	2922	it	ObjectKeyword	
-unported	packages/effect/test/schema/toCodec.test.ts	2927	it	should use the identifier as the root name	
-unported	packages/effect/test/schema/toCodec.test.ts	2933	it	should use the title as the root name	
-unported	packages/effect/test/schema/toCodec.test.ts	2938	it	should escape the text	
-unported	packages/effect/test/schema/toCodec.test.ts	2943	it	should escape the attributes	
-unported	packages/effect/test/schema/toCodec.test.ts	2952	it	Never	
-unported	packages/effect/test/schema/toCodec.test.ts	2956	it	Any	
-unported	packages/effect/test/schema/toCodec.test.ts	2968	it	Void	
-unported	packages/effect/test/schema/toCodec.test.ts	2972	it	Undefined	
-unported	packages/effect/test/schema/toCodec.test.ts	2976	it	Null	
-unported	packages/effect/test/schema/toCodec.test.ts	2980	it	Number	
-unported	packages/effect/test/schema/toCodec.test.ts	2989	it	Boolean	
-unported	packages/effect/test/schema/toCodec.test.ts	2994	it	BigInt	
-unported	packages/effect/test/schema/toCodec.test.ts	3000	it	Symbol	
-unported	packages/effect/test/schema/toCodec.test.ts	3005	it	TemplateLiteral	
-unported	packages/effect/test/schema/toCodec.test.ts	3010	it	Struct	
-unported	packages/effect/test/schema/toCodec.test.ts	3024	it	Array	
-unported	packages/effect/test/schema/toCodec.test.ts	3037	it	Array with custom item name	
-unported	packages/effect/test/schema/toCodec.test.ts	3051	it	Union	
-unported	packages/effect/test/schema/toCodec.test.ts	3056	it	Tuple	
-unported	packages/effect/test/schema/toCodec.test.ts	3069	it	Record	
-unported	packages/effect/test/schema/toCodec.test.ts	3081	it	NullOr	
-unported	packages/effect/test/schema/toCodec.test.ts	3086	it	TaggedUnion	
-unported	packages/effect/test/schema/toCodec.test.ts	3109	it	TaggedStruct	
-unported	packages/effect/test/schema/toCodec.test.ts	3125	it	Enum	
-unported	packages/effect/test/schema/toCodec.test.ts	3134	it	Literals	
-unported	packages/effect/test/schema/toCodec.test.ts	3142	it	Nested Structures	
-unported	packages/effect/test/schema/toCodec.test.ts	3166	it	Special Characters in Text	
-unported	packages/effect/test/schema/toCodec.test.ts	3177	it	Special Characters in Attributes	
-unported	packages/effect/test/schema/toCodec.test.ts	3195	it	XML Reserved Names	
-unported	packages/effect/test/schema/toCodec.test.ts	3213	it	Invalid XML Tag Names	
-unported	packages/effect/test/schema/toCodec.test.ts	3226	it	Empty String	
-unported	packages/effect/test/schema/toCodec.test.ts	3230	it	Whitespace Only String	
-unported	packages/effect/test/schema/toCodec.test.ts	3235	it	Unicode Characters	
-unported	packages/effect/test/schema/toCodec.test.ts	3241	it	XML Encoder Options - rootName	
-unported	packages/effect/test/schema/toCodec.test.ts	3248	it	XML Encoder Options - pretty: false	
-unported	packages/effect/test/schema/toCodec.test.ts	3261	it	XML Encoder Options - custom indent	
-unported	packages/effect/test/schema/toCodec.test.ts	3278	it	XML Encoder Options - sortKeys: false	
-unported	packages/effect/test/schema/toCodec.test.ts	3299	it	Circular Reference Detection	
-unported	packages/effect/test/schema/toCodec.test.ts	3312	it	Nested Arrays	
-unported	packages/effect/test/schema/toCodec.test.ts	3330	it	Record with Number Keys	
-unported	packages/effect/test/schema/toCodec.test.ts	3342	it	Record with Symbol Keys	
-unported	packages/effect/test/schema/toCodec.test.ts	3356	it	Tuple with Rest	
-unported	packages/effect/test/schema/toCodec.test.ts	3370	it	Suspend (Recursive Types)	
+not-applicable	packages/effect/test/schema/toCodec.test.ts	1032	it	Error	the row asserts Error; the row asserts a wire form for a value type this port has no schema, wire kind, or encoder for
+not-applicable	packages/effect/test/schema/toCodec.test.ts	1104	it	Error with stack	the row asserts Error with stack; the row asserts a wire form for a value type this port has no schema, wire kind, or encoder for
+not-applicable	packages/effect/test/schema/toCodec.test.ts	1128	it	Error with excluded cause	the row asserts Error with excluded cause; the row asserts a wire form for a value type this port has no schema, wire kind, or encoder for
+not-applicable	packages/effect/test/schema/toCodec.test.ts	1139	it	URL	the row asserts URL; the row asserts a wire form for a value type this port has no schema, wire kind, or encoder for
+not-applicable	packages/effect/test/schema/toCodec.test.ts	1164	it	URLSearchParams	the row asserts URLSearchParams; the row asserts a wire form for a value type this port has no schema, wire kind, or encoder for
+not-applicable	packages/effect/test/schema/toCodec.test.ts	1181	it.skipIf	File	the row asserts File; the row asserts a wire form for a value type this port has no schema, wire kind, or encoder for
+not-applicable	packages/effect/test/schema/toCodec.test.ts	1198	it.skipIf	FormData	the row asserts FormData; the row asserts a wire form for a value type this port has no schema, wire kind, or encoder for
+not-applicable	packages/effect/test/schema/toCodec.test.ts	1227	it	RegExp	the row asserts RegExp; the row asserts a wire form for a value type this port has no schema, wire kind, or encoder for
+not-applicable	packages/effect/test/schema/toCodec.test.ts	1248	it	Uint8Array	the row asserts Uint8Array; the row asserts a wire form for a value type this port has no schema, wire kind, or encoder for
+not-applicable	packages/effect/test/schema/toCodec.test.ts	1263	it	Duration	the row asserts Duration; the row asserts a wire form for a value type this port has no schema, wire kind, or encoder for
+not-applicable	packages/effect/test/schema/toCodec.test.ts	1285	it	DateTimeUtc	the row asserts DateTimeUtc; the row asserts a wire form for a value type this port has no schema, wire kind, or encoder for
+not-applicable	packages/effect/test/schema/toCodec.test.ts	1302	it	Option(Date)	the row asserts Option(Date); the row asserts a wire form for a value type this port has no schema, wire kind, or encoder for
+not-applicable	packages/effect/test/schema/toCodec.test.ts	1315	it	Redacted(Option(String))	the row asserts Redacted(Option(String)); the row asserts a wire form for a value type this port has no schema, wire kind, or encoder for
+not-applicable	packages/effect/test/schema/toCodec.test.ts	1340	it	Redacted(Option(String)) disallowJsonEncode	the row asserts Redacted(Option(String)) disallowJsonEncode; the row asserts a wire form for a value type this port has no schema, wire kind, or encoder for
+not-applicable	packages/effect/test/schema/toCodec.test.ts	1367	it	encoding a Redacted with a label	the row asserts encoding a Redacted with a label; the row asserts a wire form for a value type this port has no schema, wire kind, or encoder for
+not-applicable	packages/effect/test/schema/toCodec.test.ts	1379	it	encoding a Redacted with a different label	the row asserts encoding a Redacted with a different label; the row asserts a wire form for a value type this port has no schema, wire kind, or encoder for
+not-applicable	packages/effect/test/schema/toCodec.test.ts	1391	it	ReadonlySet	the row asserts ReadonlySet; the row asserts a wire form for a value type this port has no schema, wire kind, or encoder for
+not-applicable	packages/effect/test/schema/toCodec.test.ts	1408	it	ReadonlyMap	the row asserts ReadonlyMap; the row asserts a wire form for a value type this port has no schema, wire kind, or encoder for
+not-applicable	packages/effect/test/schema/toCodec.test.ts	1428	it	HashMap	the row asserts HashMap; the row asserts a wire form for a value type this port has no schema, wire kind, or encoder for
+not-applicable	packages/effect/test/schema/toCodec.test.ts	1450	it	FiniteFromDate	the row asserts FiniteFromDate; the row asserts the canonical JSON number encoding, where Infinity, -Infinity and NaN travel as the strings "Infinity", "-Infinity" and "NaN" and a number otherwise; this port's number schema holds raw f64 values with no canonical string form, so there is no encoding to assert
+not-applicable	packages/effect/test/schema/toCodec.test.ts	1458	it	Struct	the row asserts Struct; the row asserts a wire form for a value type this port has no schema, wire kind, or encoder for
+not-applicable	packages/effect/test/schema/toCodec.test.ts	1472	it	Tuple(Schema.Date, Schema.Date)	the row asserts Tuple(Schema.Date, Schema.Date); the row asserts a wire form for a value type this port has no schema, wire kind, or encoder for
+not-applicable	packages/effect/test/schema/toCodec.test.ts	1483	it	Class	the row asserts Class; the row asserts a wire form for a value type this port has no schema, wire kind, or encoder for
+not-applicable	packages/effect/test/schema/toCodec.test.ts	1496	it	Error	the row asserts Error; the row asserts a wire form for a value type this port has no schema, wire kind, or encoder for
+not-applicable	packages/effect/test/schema/toCodec.test.ts	1509	it	Enum	the row asserts Enum; the row asserts a wire form for a value type this port has no schema, wire kind, or encoder for
+not-applicable	packages/effect/test/schema/toCodec.test.ts	1525	it	Option(Option(FiniteFromDate))	the row asserts Option(Option(FiniteFromDate)); the row asserts the canonical JSON number encoding, where Infinity, -Infinity and NaN travel as the strings "Infinity", "-Infinity" and "NaN" and a number otherwise; this port's number schema holds raw f64 values with no canonical string form, so there is no encoding to assert
+not-applicable	packages/effect/test/schema/toCodec.test.ts	1539	it	ReadonlyMap(Option(Symbol), Date)	the row asserts ReadonlyMap(Option(Symbol), Date); the row asserts a wire form for a value type this port has no schema, wire kind, or encoder for
+not-applicable	packages/effect/test/schema/toCodec.test.ts	1559	it	Defect	the row asserts Defect; the row asserts a wire form for a value type this port has no schema, wire kind, or encoder for
+not-applicable	packages/effect/test/schema/toCodec.test.ts	1594	it	Defect with excluded cause	the row asserts Defect with excluded cause; the row asserts a wire form for a value type this port has no schema, wire kind, or encoder for
+not-applicable	packages/effect/test/schema/toCodec.test.ts	1605	it	Cause(Option(Finite), Option(String))	the row asserts Cause(Option(Finite), Option(String)); the row asserts a wire form for a value type this port has no schema, wire kind, or encoder for
+not-applicable	packages/effect/test/schema/toCodec.test.ts	1628	it	DateTimeUtcFromValidDate	the row asserts DateTimeUtcFromValidDate; the row asserts the canonical JSON number encoding, where Infinity, -Infinity and NaN travel as the strings "Infinity", "-Infinity" and "NaN" and a number otherwise; this port's number schema holds raw f64 values with no canonical string form, so there is no encoding to assert
+not-applicable	packages/effect/test/schema/toCodec.test.ts	1646	it	StandardSchemaV1FailureResult	the row asserts StandardSchemaV1FailureResult; the row asserts a wire form for a value type this port has no schema, wire kind, or encoder for
+not-applicable	packages/effect/test/schema/toCodec.test.ts	1689	it	does not propagate constructor defaults to the canonical encoding	the row asserts does not propagate constructor defaults to the canonical encoding; the row asserts the canonical JSON number encoding, where Infinity, -Infinity and NaN travel as the strings "Infinity", "-Infinity" and "NaN" and a number otherwise; this port's number schema holds raw f64 values with no canonical string form, so there is no encoding to assert
+not-applicable	packages/effect/test/schema/toCodec.test.ts	1714	it	exposes the source schema	the row asserts exposes the source schema; the row asserts the StringTree wire form, where a value is a string, an array of strings, or an object of strings; this port has no toCodecStringTree serializer, only the JSON-shaped codec, so there is no StringTree to produce or consume
+not-applicable	packages/effect/test/schema/toCodec.test.ts	1720	it	does not propagate constructor defaults to the canonical encoding	the row asserts does not propagate constructor defaults to the canonical encoding; the row asserts the StringTree wire form, where a value is a string, an array of strings, or an object of strings; this port has no toCodecStringTree serializer, only the JSON-shaped codec, so there is no StringTree to produce or consume
+not-applicable	packages/effect/test/schema/toCodec.test.ts	1742	it	should reorder the types in the Union based on the encoded side	the row asserts should reorder the types in the Union based on the encoded side; the row asserts the StringTree wire form, where a value is a string, an array of strings, or an object of strings; this port has no toCodecStringTree serializer, only the JSON-shaped codec, so there is no StringTree to produce or consume
+not-applicable	packages/effect/test/schema/toCodec.test.ts	1758	it	String	the row asserts String; the row asserts the StringTree wire form, where a value is a string, an array of strings, or an object of strings; this port has no toCodecStringTree serializer, only the JSON-shaped codec, so there is no StringTree to produce or consume
+not-applicable	packages/effect/test/schema/toCodec.test.ts	1764	it	Struct({ a: String })	the row asserts Struct({ a: String }); the row asserts the StringTree wire form, where a value is a string, an array of strings, or an object of strings; this port has no toCodecStringTree serializer, only the JSON-shaped codec, so there is no StringTree to produce or consume
+not-applicable	packages/effect/test/schema/toCodec.test.ts	1774	it	Struct	the row asserts Struct; the row asserts the StringTree wire form, where a value is a string, an array of strings, or an object of strings; this port has no toCodecStringTree serializer, only the JSON-shaped codec, so there is no StringTree to produce or consume
+not-applicable	packages/effect/test/schema/toCodec.test.ts	1782	it	Array	the row asserts Array; the row asserts the StringTree wire form, where a value is a string, an array of strings, or an object of strings; this port has no toCodecStringTree serializer, only the JSON-shaped codec, so there is no StringTree to produce or consume
+not-applicable	packages/effect/test/schema/toCodec.test.ts	1788	it	Unknown	the row asserts Unknown; the row asserts the StringTree wire form, where a value is a string, an array of strings, or an object of strings; this port has no toCodecStringTree serializer, only the JSON-shaped codec, so there is no StringTree to produce or consume
+not-applicable	packages/effect/test/schema/toCodec.test.ts	1793	it	Suspend	the row asserts Suspend; the row asserts the StringTree wire form, where a value is a string, an array of strings, or an object of strings; this port has no toCodecStringTree serializer, only the JSON-shaped codec, so there is no StringTree to produce or consume
+not-applicable	packages/effect/test/schema/toCodec.test.ts	1801	it	Struct with Symbol property name	the row asserts Struct with Symbol property name; the row asserts the StringTree wire form, where a value is a string, an array of strings, or an object of strings; this port has no toCodecStringTree serializer, only the JSON-shaped codec, so there is no StringTree to produce or consume
+not-applicable	packages/effect/test/schema/toCodec.test.ts	1813	it	Declaration	the row asserts Declaration; the row asserts the StringTree wire form, where a value is a string, an array of strings, or an object of strings; this port has no toCodecStringTree serializer, only the JSON-shaped codec, so there is no StringTree to produce or consume
+not-applicable	packages/effect/test/schema/toCodec.test.ts	1821	it	Json	the row asserts Json; the row asserts the StringTree wire form, where a value is a string, an array of strings, or an object of strings; this port has no toCodecStringTree serializer, only the JSON-shaped codec, so there is no StringTree to produce or consume
+not-applicable	packages/effect/test/schema/toCodec.test.ts	1840	it	Unknown	the row asserts Unknown; the row asserts the StringTree wire form, where a value is a string, an array of strings, or an object of strings; this port has no toCodecStringTree serializer, only the JSON-shaped codec, so there is no StringTree to produce or consume
+not-applicable	packages/effect/test/schema/toCodec.test.ts	1859	it	ObjectKeyword	the row asserts ObjectKeyword; the row asserts the StringTree wire form, where a value is a string, an array of strings, or an object of strings; this port has no toCodecStringTree serializer, only the JSON-shaped codec, so there is no StringTree to produce or consume
+not-applicable	packages/effect/test/schema/toCodec.test.ts	1878	it	Never	the row asserts Never; the row asserts the StringTree wire form, where a value is a string, an array of strings, or an object of strings; this port has no toCodecStringTree serializer, only the JSON-shaped codec, so there is no StringTree to produce or consume
+not-applicable	packages/effect/test/schema/toCodec.test.ts	1886	it	Any should be an escape hatch	the row asserts Any should be an escape hatch; the row asserts the StringTree wire form, where a value is a string, an array of strings, or an object of strings; this port has no toCodecStringTree serializer, only the JSON-shaped codec, so there is no StringTree to produce or consume
+not-applicable	packages/effect/test/schema/toCodec.test.ts	1897	it	Undefined	the row asserts Undefined; the row asserts the StringTree wire form, where a value is a string, an array of strings, or an object of strings; this port has no toCodecStringTree serializer, only the JSON-shaped codec, so there is no StringTree to produce or consume
+not-applicable	packages/effect/test/schema/toCodec.test.ts	1908	it	Void	the row asserts Void; the row asserts the StringTree wire form, where a value is a string, an array of strings, or an object of strings; this port has no toCodecStringTree serializer, only the JSON-shaped codec, so there is no StringTree to produce or consume
+not-applicable	packages/effect/test/schema/toCodec.test.ts	1919	it	Null	the row asserts Null; the row asserts the StringTree wire form, where a value is a string, an array of strings, or an object of strings; this port has no toCodecStringTree serializer, only the JSON-shaped codec, so there is no StringTree to produce or consume
+not-applicable	packages/effect/test/schema/toCodec.test.ts	1930	it	String	the row asserts String; the row asserts the StringTree wire form, where a value is a string, an array of strings, or an object of strings; this port has no toCodecStringTree serializer, only the JSON-shaped codec, so there is no StringTree to produce or consume
+not-applicable	packages/effect/test/schema/toCodec.test.ts	1942	it	Number	the row asserts Number; the row asserts the StringTree wire form, where a value is a string, an array of strings, or an object of strings; this port has no toCodecStringTree serializer, only the JSON-shaped codec, so there is no StringTree to produce or consume
+not-applicable	packages/effect/test/schema/toCodec.test.ts	1973	it	Finite	the row asserts Finite; the row asserts the StringTree wire form, where a value is a string, an array of strings, or an object of strings; this port has no toCodecStringTree serializer, only the JSON-shaped codec, so there is no StringTree to produce or consume
+not-applicable	packages/effect/test/schema/toCodec.test.ts	1999	it	Int	the row asserts Int; the row asserts the StringTree wire form, where a value is a string, an array of strings, or an object of strings; this port has no toCodecStringTree serializer, only the JSON-shaped codec, so there is no StringTree to produce or consume
+not-applicable	packages/effect/test/schema/toCodec.test.ts	2025	it	isGreaterThanOrEqualTo	the row asserts isGreaterThanOrEqualTo; the row asserts the StringTree wire form, where a value is a string, an array of strings, or an object of strings; this port has no toCodecStringTree serializer, only the JSON-shaped codec, so there is no StringTree to produce or consume
+not-applicable	packages/effect/test/schema/toCodec.test.ts	2057	it	Boolean	the row asserts Boolean; the row asserts the StringTree wire form, where a value is a string, an array of strings, or an object of strings; this port has no toCodecStringTree serializer, only the JSON-shaped codec, so there is no StringTree to produce or consume
+not-applicable	packages/effect/test/schema/toCodec.test.ts	2070	it	Symbol	the row asserts Symbol; the row asserts the StringTree wire form, where a value is a string, an array of strings, or an object of strings; this port has no toCodecStringTree serializer, only the JSON-shaped codec, so there is no StringTree to produce or consume
+not-applicable	packages/effect/test/schema/toCodec.test.ts	2090	it	UniqueSymbol	the row asserts UniqueSymbol; the row asserts the StringTree wire form, where a value is a string, an array of strings, or an object of strings; this port has no toCodecStringTree serializer, only the JSON-shaped codec, so there is no StringTree to produce or consume
+not-applicable	packages/effect/test/schema/toCodec.test.ts	2102	it	BigInt	the row asserts BigInt; the row asserts the StringTree wire form, where a value is a string, an array of strings, or an object of strings; this port has no toCodecStringTree serializer, only the JSON-shaped codec, so there is no StringTree to produce or consume
+not-applicable	packages/effect/test/schema/toCodec.test.ts	2114	it	PropertyKey	the row asserts PropertyKey; the row asserts the StringTree wire form, where a value is a string, an array of strings, or an object of strings; this port has no toCodecStringTree serializer, only the JSON-shaped codec, so there is no StringTree to produce or consume
+not-applicable	packages/effect/test/schema/toCodec.test.ts	2130	it	string	the row asserts string; the row asserts the StringTree wire form, where a value is a string, an array of strings, or an object of strings; this port has no toCodecStringTree serializer, only the JSON-shaped codec, so there is no StringTree to produce or consume
+not-applicable	packages/effect/test/schema/toCodec.test.ts	2141	it	number	the row asserts number; the row asserts the StringTree wire form, where a value is a string, an array of strings, or an object of strings; this port has no toCodecStringTree serializer, only the JSON-shaped codec, so there is no StringTree to produce or consume
+not-applicable	packages/effect/test/schema/toCodec.test.ts	2152	it	boolean	the row asserts boolean; the row asserts the StringTree wire form, where a value is a string, an array of strings, or an object of strings; this port has no toCodecStringTree serializer, only the JSON-shaped codec, so there is no StringTree to produce or consume
+not-applicable	packages/effect/test/schema/toCodec.test.ts	2163	it	bigint	the row asserts bigint; the row asserts the StringTree wire form, where a value is a string, an array of strings, or an object of strings; this port has no toCodecStringTree serializer, only the JSON-shaped codec, so there is no StringTree to produce or consume
+not-applicable	packages/effect/test/schema/toCodec.test.ts	2175	it	Literals	the row asserts Literals; the row asserts the StringTree wire form, where a value is a string, an array of strings, or an object of strings; this port has no toCodecStringTree serializer, only the JSON-shaped codec, so there is no StringTree to produce or consume
+not-applicable	packages/effect/test/schema/toCodec.test.ts	2187	it	1n + string	the row asserts 1n + string; the row asserts the StringTree wire form, where a value is a string, an array of strings, or an object of strings; this port has no toCodecStringTree serializer, only the JSON-shaped codec, so there is no StringTree to produce or consume
+not-applicable	packages/effect/test/schema/toCodec.test.ts	2198	it	a	the row asserts a; the row asserts the StringTree wire form, where a value is a string, an array of strings, or an object of strings; this port has no toCodecStringTree serializer, only the JSON-shaped codec, so there is no StringTree to produce or consume
+not-applicable	packages/effect/test/schema/toCodec.test.ts	2210	it	Enum	the row asserts Enum; the row asserts the StringTree wire form, where a value is a string, an array of strings, or an object of strings; this port has no toCodecStringTree serializer, only the JSON-shaped codec, so there is no StringTree to produce or consume
+not-applicable	packages/effect/test/schema/toCodec.test.ts	2228	it	Date	the row asserts Date; the row asserts the StringTree wire form, where a value is a string, an array of strings, or an object of strings; this port has no toCodecStringTree serializer, only the JSON-shaped codec, so there is no StringTree to produce or consume
+not-applicable	packages/effect/test/schema/toCodec.test.ts	2245	it	UndefinedOr(Date)	the row asserts UndefinedOr(Date); the row asserts the StringTree wire form, where a value is a string, an array of strings, or an object of strings; this port has no toCodecStringTree serializer, only the JSON-shaped codec, so there is no StringTree to produce or consume
+not-applicable	packages/effect/test/schema/toCodec.test.ts	2264	it	NullOr(Date)	the row asserts NullOr(Date); the row asserts the StringTree wire form, where a value is a string, an array of strings, or an object of strings; this port has no toCodecStringTree serializer, only the JSON-shaped codec, so there is no StringTree to produce or consume
+not-applicable	packages/effect/test/schema/toCodec.test.ts	2283	it	optionalKey(Date)	the row asserts optionalKey(Date); the row asserts the StringTree wire form, where a value is a string, an array of strings, or an object of strings; this port has no toCodecStringTree serializer, only the JSON-shaped codec, so there is no StringTree to produce or consume
+not-applicable	packages/effect/test/schema/toCodec.test.ts	2302	it	optional(Date)	the row asserts optional(Date); the row asserts the StringTree wire form, where a value is a string, an array of strings, or an object of strings; this port has no toCodecStringTree serializer, only the JSON-shaped codec, so there is no StringTree to produce or consume
+not-applicable	packages/effect/test/schema/toCodec.test.ts	2324	it	Record(Symbol, Date)	the row asserts Record(Symbol, Date); the row asserts the StringTree wire form, where a value is a string, an array of strings, or an object of strings; this port has no toCodecStringTree serializer, only the JSON-shaped codec, so there is no StringTree to produce or consume
+not-applicable	packages/effect/test/schema/toCodec.test.ts	2341	it	Struct with an explicitly encoded Symbol property name	the row asserts Struct with an explicitly encoded Symbol property name; the row asserts the StringTree wire form, where a value is a string, an array of strings, or an object of strings; this port has no toCodecStringTree serializer, only the JSON-shaped codec, so there is no StringTree to produce or consume
+not-applicable	packages/effect/test/schema/toCodec.test.ts	2353	it	Date	the row asserts Date; the row asserts the StringTree wire form, where a value is a string, an array of strings, or an object of strings; this port has no toCodecStringTree serializer, only the JSON-shaped codec, so there is no StringTree to produce or consume
+not-applicable	packages/effect/test/schema/toCodec.test.ts	2370	it	UndefinedOr(Date)	the row asserts UndefinedOr(Date); the row asserts the StringTree wire form, where a value is a string, an array of strings, or an object of strings; this port has no toCodecStringTree serializer, only the JSON-shaped codec, so there is no StringTree to produce or consume
+not-applicable	packages/effect/test/schema/toCodec.test.ts	2388	it	NullOr(Date)	the row asserts NullOr(Date); the row asserts the StringTree wire form, where a value is a string, an array of strings, or an object of strings; this port has no toCodecStringTree serializer, only the JSON-shaped codec, so there is no StringTree to produce or consume
+not-applicable	packages/effect/test/schema/toCodec.test.ts	2405	it	optionalKey(Date)	the row asserts optionalKey(Date); the row asserts the StringTree wire form, where a value is a string, an array of strings, or an object of strings; this port has no toCodecStringTree serializer, only the JSON-shaped codec, so there is no StringTree to produce or consume
+not-applicable	packages/effect/test/schema/toCodec.test.ts	2422	it	optional(Date)	the row asserts optional(Date); the row asserts the StringTree wire form, where a value is a string, an array of strings, or an object of strings; this port has no toCodecStringTree serializer, only the JSON-shaped codec, so there is no StringTree to produce or consume
+not-applicable	packages/effect/test/schema/toCodec.test.ts	2442	it	Array(Date)	the row asserts Array(Date); the row asserts the StringTree wire form, where a value is a string, an array of strings, or an object of strings; this port has no toCodecStringTree serializer, only the JSON-shaped codec, so there is no StringTree to produce or consume
+not-applicable	packages/effect/test/schema/toCodec.test.ts	2453	it	Array(Finite) preserves the top-level AST	the row asserts Array(Finite) preserves the top-level AST; the row asserts the StringTree wire form, where a value is a string, an array of strings, or an object of strings; this port has no toCodecStringTree serializer, only the JSON-shaped codec, so there is no StringTree to produce or consume
+not-applicable	packages/effect/test/schema/toCodec.test.ts	2468	it	NullOr(Date)	the row asserts NullOr(Date); the row asserts the StringTree wire form, where a value is a string, an array of strings, or an object of strings; this port has no toCodecStringTree serializer, only the JSON-shaped codec, so there is no StringTree to produce or consume
+not-applicable	packages/effect/test/schema/toCodec.test.ts	2481	it	NullOr(Number)	the row asserts NullOr(Number); the row asserts the StringTree wire form, where a value is a string, an array of strings, or an object of strings; this port has no toCodecStringTree serializer, only the JSON-shaped codec, so there is no StringTree to produce or consume
+not-applicable	packages/effect/test/schema/toCodec.test.ts	2494	it	Array(NullOr(Number))	the row asserts Array(NullOr(Number)); the row asserts the StringTree wire form, where a value is a string, an array of strings, or an object of strings; this port has no toCodecStringTree serializer, only the JSON-shaped codec, so there is no StringTree to produce or consume
+not-applicable	packages/effect/test/schema/toCodec.test.ts	2505	it	Union(Date, Finite)	the row asserts Union(Date, Finite); the row asserts the StringTree wire form, where a value is a string, an array of strings, or an object of strings; this port has no toCodecStringTree serializer, only the JSON-shaped codec, so there is no StringTree to produce or consume
+not-applicable	packages/effect/test/schema/toCodec.test.ts	2518	it	Suspend	the row asserts Suspend; the row asserts the StringTree wire form, where a value is a string, an array of strings, or an object of strings; this port has no toCodecStringTree serializer, only the JSON-shaped codec, so there is no StringTree to produce or consume
+not-applicable	packages/effect/test/schema/toCodec.test.ts	2558	it	Class	the row asserts Class; the row asserts the StringTree wire form, where a value is a string, an array of strings, or an object of strings; this port has no toCodecStringTree serializer, only the JSON-shaped codec, so there is no StringTree to produce or consume
+not-applicable	packages/effect/test/schema/toCodec.test.ts	2571	it	Error	the row asserts Error; the row asserts the StringTree wire form, where a value is a string, an array of strings, or an object of strings; this port has no toCodecStringTree serializer, only the JSON-shaped codec, so there is no StringTree to produce or consume
+not-applicable	packages/effect/test/schema/toCodec.test.ts	2584	it	Date	the row asserts Date; the row asserts the StringTree wire form, where a value is a string, an array of strings, or an object of strings; this port has no toCodecStringTree serializer, only the JSON-shaped codec, so there is no StringTree to produce or consume
+not-applicable	packages/effect/test/schema/toCodec.test.ts	2595	it	Error	the row asserts Error; the row asserts the StringTree wire form, where a value is a string, an array of strings, or an object of strings; this port has no toCodecStringTree serializer, only the JSON-shaped codec, so there is no StringTree to produce or consume
+not-applicable	packages/effect/test/schema/toCodec.test.ts	2629	it	URL	the row asserts URL; the row asserts the StringTree wire form, where a value is a string, an array of strings, or an object of strings; this port has no toCodecStringTree serializer, only the JSON-shaped codec, so there is no StringTree to produce or consume
+not-applicable	packages/effect/test/schema/toCodec.test.ts	2654	it	RegExp	the row asserts RegExp; the row asserts the StringTree wire form, where a value is a string, an array of strings, or an object of strings; this port has no toCodecStringTree serializer, only the JSON-shaped codec, so there is no StringTree to produce or consume
+not-applicable	packages/effect/test/schema/toCodec.test.ts	2671	it	Option(Date)	the row asserts Option(Date); the row asserts the StringTree wire form, where a value is a string, an array of strings, or an object of strings; this port has no toCodecStringTree serializer, only the JSON-shaped codec, so there is no StringTree to produce or consume
+not-applicable	packages/effect/test/schema/toCodec.test.ts	2683	it	Redacted(Option(String))	the row asserts Redacted(Option(String)); the row asserts the StringTree wire form, where a value is a string, an array of strings, or an object of strings; this port has no toCodecStringTree serializer, only the JSON-shaped codec, so there is no StringTree to produce or consume
+not-applicable	packages/effect/test/schema/toCodec.test.ts	2708	it	Redacted(Option(String)) disallowJsonEncode	the row asserts Redacted(Option(String)) disallowJsonEncode; the row asserts the StringTree wire form, where a value is a string, an array of strings, or an object of strings; this port has no toCodecStringTree serializer, only the JSON-shaped codec, so there is no StringTree to produce or consume
+not-applicable	packages/effect/test/schema/toCodec.test.ts	2735	it	ReadonlySet	the row asserts ReadonlySet; the row asserts the StringTree wire form, where a value is a string, an array of strings, or an object of strings; this port has no toCodecStringTree serializer, only the JSON-shaped codec, so there is no StringTree to produce or consume
+not-applicable	packages/effect/test/schema/toCodec.test.ts	2752	it	ReadonlyMap	the row asserts ReadonlyMap; the row asserts the StringTree wire form, where a value is a string, an array of strings, or an object of strings; this port has no toCodecStringTree serializer, only the JSON-shaped codec, so there is no StringTree to produce or consume
+not-applicable	packages/effect/test/schema/toCodec.test.ts	2772	it	HashMap	the row asserts HashMap; the row asserts the StringTree wire form, where a value is a string, an array of strings, or an object of strings; this port has no toCodecStringTree serializer, only the JSON-shaped codec, so there is no StringTree to produce or consume
+not-applicable	packages/effect/test/schema/toCodec.test.ts	2793	it	should handle optional keys	the row asserts should handle optional keys; the row asserts the StringTree wire form, where a value is a string, an array of strings, or an object of strings; this port has no toCodecStringTree serializer, only the JSON-shaped codec, so there is no StringTree to produce or consume
+not-applicable	packages/effect/test/schema/toCodec.test.ts	2808	it	preserves union fallback when a singleton fails array element checks	the row asserts preserves union fallback when a singleton fails array element checks; the row asserts the toCodecArrayFromSingle wire form, where one value or an array of values share a single codec; this port has no such codec
+not-applicable	packages/effect/test/schema/toCodec.test.ts	2820	it	accepts string and array inputs for a top-level array	the row asserts accepts string and array inputs for a top-level array; the row asserts the toCodecArrayFromSingle wire form, where one value or an array of values share a single codec; this port has no such codec
+not-applicable	packages/effect/test/schema/toCodec.test.ts	2836	it	accepts string and array inputs for required array fields	the row asserts accepts string and array inputs for required array fields; the row asserts the toCodecArrayFromSingle wire form, where one value or an array of values share a single codec; this port has no such codec
+not-applicable	packages/effect/test/schema/toCodec.test.ts	2847	it	accepts string and array inputs for nested optional array fields	the row asserts accepts string and array inputs for nested optional array fields; the row asserts the toCodecArrayFromSingle wire form, where one value or an array of values share a single codec; this port has no such codec
+not-applicable	packages/effect/test/schema/toCodec.test.ts	2859	it	accepts string and array inputs for tuples with optional elements	the row asserts accepts string and array inputs for tuples with optional elements; the row asserts the toCodecArrayFromSingle wire form, where one value or an array of values share a single codec; this port has no such codec
+not-applicable	packages/effect/test/schema/toCodec.test.ts	2871	it	applies recursively to nested arrays	the row asserts applies recursively to nested arrays; the row asserts the toCodecArrayFromSingle wire form, where one value or an array of values share a single codec; this port has no such codec
+not-applicable	packages/effect/test/schema/toCodec.test.ts	2881	it	preserves array-from-single encoding when converting to StringTree again	the row asserts preserves array-from-single encoding when converting to StringTree again; the row asserts the toCodecArrayFromSingle wire form, where one value or an array of values share a single codec; this port has no such codec
+not-applicable	packages/effect/test/schema/toCodec.test.ts	2886	it	is idempotent	the row asserts is idempotent; the row asserts the toCodecArrayFromSingle wire form, where one value or an array of values share a single codec; this port has no such codec
+not-applicable	packages/effect/test/schema/toCodec.test.ts	2911	it	Declaration	the row asserts Declaration; the row asserts the XML encoder's wire form; this port has no XML encoder
+not-applicable	packages/effect/test/schema/toCodec.test.ts	2918	it	Unknown	the row asserts Unknown; the row asserts the XML encoder's wire form; this port has no XML encoder
+not-applicable	packages/effect/test/schema/toCodec.test.ts	2922	it	ObjectKeyword	the row asserts ObjectKeyword; the row asserts the XML encoder's wire form; this port has no XML encoder
+not-applicable	packages/effect/test/schema/toCodec.test.ts	2927	it	should use the identifier as the root name	the row asserts should use the identifier as the root name; the row asserts the XML encoder's wire form; this port has no XML encoder
+not-applicable	packages/effect/test/schema/toCodec.test.ts	2933	it	should use the title as the root name	the row asserts should use the title as the root name; the row asserts the XML encoder's wire form; this port has no XML encoder
+not-applicable	packages/effect/test/schema/toCodec.test.ts	2938	it	should escape the text	the row asserts should escape the text; the row asserts the XML encoder's wire form; this port has no XML encoder
+not-applicable	packages/effect/test/schema/toCodec.test.ts	2943	it	should escape the attributes	the row asserts should escape the attributes; the row asserts the XML encoder's wire form; this port has no XML encoder
+not-applicable	packages/effect/test/schema/toCodec.test.ts	2952	it	Never	the row asserts Never; the row asserts the XML encoder's wire form; this port has no XML encoder
+not-applicable	packages/effect/test/schema/toCodec.test.ts	2956	it	Any	the row asserts Any; the row asserts the XML encoder's wire form; this port has no XML encoder
+not-applicable	packages/effect/test/schema/toCodec.test.ts	2968	it	Void	the row asserts Void; the row asserts the XML encoder's wire form; this port has no XML encoder
+not-applicable	packages/effect/test/schema/toCodec.test.ts	2972	it	Undefined	the row asserts Undefined; the row asserts the XML encoder's wire form; this port has no XML encoder
+not-applicable	packages/effect/test/schema/toCodec.test.ts	2976	it	Null	the row asserts Null; the row asserts the XML encoder's wire form; this port has no XML encoder
+not-applicable	packages/effect/test/schema/toCodec.test.ts	2980	it	Number	the row asserts Number; the row asserts the XML encoder's wire form; this port has no XML encoder
+not-applicable	packages/effect/test/schema/toCodec.test.ts	2989	it	Boolean	the row asserts Boolean; the row asserts the XML encoder's wire form; this port has no XML encoder
+not-applicable	packages/effect/test/schema/toCodec.test.ts	2994	it	BigInt	the row asserts BigInt; the row asserts the XML encoder's wire form; this port has no XML encoder
+not-applicable	packages/effect/test/schema/toCodec.test.ts	3000	it	Symbol	the row asserts Symbol; the row asserts the XML encoder's wire form; this port has no XML encoder
+not-applicable	packages/effect/test/schema/toCodec.test.ts	3005	it	TemplateLiteral	the row asserts TemplateLiteral; the row asserts the XML encoder's wire form; this port has no XML encoder
+not-applicable	packages/effect/test/schema/toCodec.test.ts	3010	it	Struct	the row asserts Struct; the row asserts the XML encoder's wire form; this port has no XML encoder
+not-applicable	packages/effect/test/schema/toCodec.test.ts	3024	it	Array	the row asserts Array; the row asserts the XML encoder's wire form; this port has no XML encoder
+not-applicable	packages/effect/test/schema/toCodec.test.ts	3037	it	Array with custom item name	the row asserts Array with custom item name; the row asserts the XML encoder's wire form; this port has no XML encoder
+not-applicable	packages/effect/test/schema/toCodec.test.ts	3051	it	Union	the row asserts Union; the row asserts the XML encoder's wire form; this port has no XML encoder
+not-applicable	packages/effect/test/schema/toCodec.test.ts	3056	it	Tuple	the row asserts Tuple; the row asserts the XML encoder's wire form; this port has no XML encoder
+not-applicable	packages/effect/test/schema/toCodec.test.ts	3069	it	Record	the row asserts Record; the row asserts the XML encoder's wire form; this port has no XML encoder
+not-applicable	packages/effect/test/schema/toCodec.test.ts	3081	it	NullOr	the row asserts NullOr; the row asserts the XML encoder's wire form; this port has no XML encoder
+not-applicable	packages/effect/test/schema/toCodec.test.ts	3086	it	TaggedUnion	the row asserts TaggedUnion; the row asserts the XML encoder's wire form; this port has no XML encoder
+not-applicable	packages/effect/test/schema/toCodec.test.ts	3109	it	TaggedStruct	the row asserts TaggedStruct; the row asserts the XML encoder's wire form; this port has no XML encoder
+not-applicable	packages/effect/test/schema/toCodec.test.ts	3125	it	Enum	the row asserts Enum; the row asserts the XML encoder's wire form; this port has no XML encoder
+not-applicable	packages/effect/test/schema/toCodec.test.ts	3134	it	Literals	the row asserts Literals; the row asserts the XML encoder's wire form; this port has no XML encoder
+not-applicable	packages/effect/test/schema/toCodec.test.ts	3142	it	Nested Structures	the row asserts Nested Structures; the row asserts the XML encoder's wire form; this port has no XML encoder
+not-applicable	packages/effect/test/schema/toCodec.test.ts	3166	it	Special Characters in Text	the row asserts Special Characters in Text; the row asserts the XML encoder's wire form; this port has no XML encoder
+not-applicable	packages/effect/test/schema/toCodec.test.ts	3177	it	Special Characters in Attributes	the row asserts Special Characters in Attributes; the row asserts the XML encoder's wire form; this port has no XML encoder
+not-applicable	packages/effect/test/schema/toCodec.test.ts	3195	it	XML Reserved Names	the row asserts XML Reserved Names; the row asserts the XML encoder's wire form; this port has no XML encoder
+not-applicable	packages/effect/test/schema/toCodec.test.ts	3213	it	Invalid XML Tag Names	the row asserts Invalid XML Tag Names; the row asserts the XML encoder's wire form; this port has no XML encoder
+not-applicable	packages/effect/test/schema/toCodec.test.ts	3226	it	Empty String	the row asserts Empty String; the row asserts the XML encoder's wire form; this port has no XML encoder
+not-applicable	packages/effect/test/schema/toCodec.test.ts	3230	it	Whitespace Only String	the row asserts Whitespace Only String; the row asserts the XML encoder's wire form; this port has no XML encoder
+not-applicable	packages/effect/test/schema/toCodec.test.ts	3235	it	Unicode Characters	the row asserts Unicode Characters; the row asserts the XML encoder's wire form; this port has no XML encoder
+not-applicable	packages/effect/test/schema/toCodec.test.ts	3241	it	XML Encoder Options - rootName	the row asserts XML Encoder Options - rootName; the row asserts the XML encoder's wire form; this port has no XML encoder
+not-applicable	packages/effect/test/schema/toCodec.test.ts	3248	it	XML Encoder Options - pretty: false	the row asserts XML Encoder Options - pretty: false; the row asserts the XML encoder's wire form; this port has no XML encoder
+not-applicable	packages/effect/test/schema/toCodec.test.ts	3261	it	XML Encoder Options - custom indent	the row asserts XML Encoder Options - custom indent; the row asserts the XML encoder's wire form; this port has no XML encoder
+not-applicable	packages/effect/test/schema/toCodec.test.ts	3278	it	XML Encoder Options - sortKeys: false	the row asserts XML Encoder Options - sortKeys: false; the row asserts the XML encoder's wire form; this port has no XML encoder
+not-applicable	packages/effect/test/schema/toCodec.test.ts	3299	it	Circular Reference Detection	the row asserts Circular Reference Detection; the row asserts the XML encoder's wire form; this port has no XML encoder
+not-applicable	packages/effect/test/schema/toCodec.test.ts	3312	it	Nested Arrays	the row asserts Nested Arrays; the row asserts the XML encoder's wire form; this port has no XML encoder
+not-applicable	packages/effect/test/schema/toCodec.test.ts	3330	it	Record with Number Keys	the row asserts Record with Number Keys; the row asserts the XML encoder's wire form; this port has no XML encoder
+not-applicable	packages/effect/test/schema/toCodec.test.ts	3342	it	Record with Symbol Keys	the row asserts Record with Symbol Keys; the row asserts the XML encoder's wire form; this port has no XML encoder
+not-applicable	packages/effect/test/schema/toCodec.test.ts	3356	it	Tuple with Rest	the row asserts Tuple with Rest; the row asserts the XML encoder's wire form; this port has no XML encoder
+not-applicable	packages/effect/test/schema/toCodec.test.ts	3370	it	Suspend (Recursive Types)	the row asserts Suspend (Recursive Types); the row asserts the XML encoder's wire form; this port has no XML encoder
 unported	packages/effect/test/schema/toDifferJsonPatch.test.ts	61	it	patch returns the same reference if nothing changed (no-op patch)	
 unported	packages/effect/test/schema/toDifferJsonPatch.test.ts	69	it	root replace returns the provided reference (no clone)	
 unported	packages/effect/test/schema/toDifferJsonPatch.test.ts	79	it	immutability: patch does not mutate the input	

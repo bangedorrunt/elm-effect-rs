@@ -4210,6 +4210,11 @@ impl Schema<Unknown> {
             .iter()
             .any(|(key, value)| *key == "exclusiveMaximum" && *value == "true");
         let name_owned = name.to_string();
+        // The encode closure needs the same three inputs the decode one uses,
+        // so they are cloned rather than moved.
+        let encode_name = name_owned.clone();
+        let encode_bounds = bounds.clone();
+        let encode_first_arg = first_arg.clone();
         let inner = Arc::new(base);
         let decode_inner = inner.clone();
         let encode_inner = inner.clone();
@@ -4236,7 +4241,31 @@ impl Schema<Unknown> {
                 }
                 decode_inner.decode(unknown)
             },
-            move |value| encode_inner.try_encode(value),
+            // The check is the source schema's, so it decides the encode side
+            // too: a value that fails it has no wire form rather than one that
+            // silently violates the refinement on the way out.
+            move |value| {
+                let holds = match encode_name.as_str() {
+                    "isBetween" => {
+                        between_holds(&encode_bounds, exclusive_minimum, exclusive_maximum, value)
+                    }
+                    "isBetweenProperties" => between_properties_holds(
+                        &encode_bounds,
+                        exclusive_minimum,
+                        exclusive_maximum,
+                        value,
+                    ),
+                    _ => check_holds_arg(&encode_name, encode_first_arg.as_deref(), value),
+                };
+                if !holds {
+                    return Err(SchemaError::TypeMismatch {
+                        path: "$".to_string(),
+                        expected: "a value satisfying the refinement",
+                        got: value.kind(),
+                    });
+                }
+                encode_inner.try_encode(value)
+            },
             kind,
         );
         out.formatter = inner.formatter.clone();
