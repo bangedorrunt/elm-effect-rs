@@ -8032,10 +8032,10 @@ ported	packages/effect/test/schema/Schema.test.ts	9023	it	partial index mapping	
 ported	packages/effect/test/schema/Schema.test.ts	9030	it	full index mapping	rename_indices_permutes_every_position
 ported	packages/effect/test/schema/Schema.test.ts	9038	it	NullOr	null_or_wraps_every_element
 unported	packages/effect/test/schema/Schema.test.ts	9049	it	preserves Union options through public derivations	
-unported	packages/effect/test/schema/Schema.test.ts	9061	it	appendElement	
-unported	packages/effect/test/schema/Schema.test.ts	9067	it	evolve	
-unported	packages/effect/test/schema/Schema.test.ts	9083	it	Array	
-unported	packages/effect/test/schema/Schema.test.ts	9094	it	evolve	
+ported	packages/effect/test/schema/Schema.test.ts	9061	it	appendElement	union_map_members_appends_a_member
+ported	packages/effect/test/schema/Schema.test.ts	9067	it	evolve	union_map_members_evolves_two_members
+ported	packages/effect/test/schema/Schema.test.ts	9083	it	Array	union_map_members_maps_every_member
+ported	packages/effect/test/schema/Schema.test.ts	9094	it	evolve	literals_map_members_becomes_a_union_of_the_transformed_members
 ported	packages/effect/test/schema/Schema.test.ts	9110	it	Struct	encode_keys_renames_on_both_sides
 not-applicable	packages/effect/test/schema/Schema.test.ts	9124	it	Class	the row derives from a Schema.Class instance; this port has no class builder, so there is no class schema to rename keys on
 not-applicable	packages/effect/test/schema/Schema.test.ts	9139	it	supports symbol source keys	the row's keys are Symbols; this port's objects are keyed by strings, so a symbol key has no counterpart (the string-key case is carried by the encodeKeys Struct row)

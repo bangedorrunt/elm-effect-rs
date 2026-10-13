@@ -115,6 +115,10 @@ pub struct Schema<T> {
     /// The declared positional elements of a tuple shape, for the same reason
     /// (`mapElements`). None for every other shape.
     tuple_elements: Option<Vec<Schema<Unknown>>>,
+    /// The declared members of a union shape, for the same reason
+    /// (`mapMembers`). None for every other shape, and for a union built by
+    /// `union`, which tries two shapes without keeping the list.
+    union_members: Option<Vec<Schema<Unknown>>>,
 }
 
 /// The two spellings of a decoding default. `withDecodingDefault` takes a wire
@@ -740,6 +744,7 @@ impl<T> Schema<T> {
             omit_on_encode: false,
             struct_fields: None,
             tuple_elements: None,
+            union_members: None,
         }
     }
 
@@ -758,6 +763,33 @@ impl<T> Schema<T> {
     /// every other shape.
     pub fn elements(&self) -> Option<&[Schema<Unknown>]> {
         self.tuple_elements.as_deref()
+    }
+
+    /// The exact value a `Literal` shape admits, or `None` for every other
+    /// shape. A derivation that rebuilds a member list needs it: the member it
+    /// receives is the `Literal`, and the value is not in the wire shape.
+    pub fn literal_value(&self) -> Option<&Unknown> {
+        match &self.kind {
+            SchemaKind::Literal(value) => Some(value),
+            _ => None,
+        }
+    }
+
+    /// The declared members of a union shape (`Union.members`). An exact-value
+    /// shape (`Literals`) answers one `Literal` member per value, which is how
+    /// the pin builds its list. `None` for every other shape.
+    pub fn members(&self) -> Option<Vec<Schema<Unknown>>> {
+        match &self.kind {
+            SchemaKind::Union { .. } => self.union_members.clone(),
+            SchemaKind::Literals(values) => Some(
+                values
+                    .iter()
+                    .cloned()
+                    .map(Schema::<Unknown>::literal)
+                    .collect(),
+            ),
+            _ => None,
+        }
     }
 
     /// Decode an unknown value, or a typed error naming the path.
@@ -868,6 +900,7 @@ impl<T> Schema<T> {
             omit_on_encode: schema.omit_on_encode,
             struct_fields: schema.struct_fields.clone(),
             tuple_elements: schema.tuple_elements.clone(),
+            union_members: schema.union_members.clone(),
         }
     }
 
@@ -879,19 +912,24 @@ impl<T> Schema<T> {
         T: Send + Sync + 'static,
     {
         // Capture the wrapped schema's reprs BEFORE the inner is moved into
-        // the Arc below: re-typing it here would recurse forever.
+        // the Arc below: re-typing it here would recurse forever. The reprs go
+        // through `repr_kind`/`to_code`/`to_type` rather than the raw fields, so
+        // re-typing an already re-typed schema keeps the shape underneath
+        // instead of recording the `Opaque("unknown")` marker as its shape. A
+        // nested `Array` of a re-typed child renders `Schema.Array(Schema.Unknown)`
+        // otherwise.
         let wrapped = Some(Box::new(Wrapped {
-            kind: schema.kind.clone(),
+            kind: schema.repr_kind(),
             children: schema.children.clone(),
-            code: code_of(&schema.kind, &schema.children),
-            ty: type_of(&schema.kind, &schema.children),
+            code: schema.to_code(),
+            ty: schema.to_type(),
         }));
         let schema = Arc::new(schema);
         let decode_schema = schema.clone();
         let encode_schema = schema.clone();
         let construct_schema = schema.clone();
         let inner_render = schema.formatter.clone();
-        let inner_kind = schema.kind.clone();
+        let inner_kind = schema.repr_kind();
         let inner_children = schema.children.clone();
         let bridge = schema.clone();
         // A decoding default survives the re-typing in the form this level
@@ -936,6 +974,7 @@ impl<T> Schema<T> {
         // how every struct field is spelled.
         out.struct_fields = schema.struct_fields.clone();
         out.tuple_elements = schema.tuple_elements.clone();
+        out.union_members = schema.union_members.clone();
         out.construct = Some(Arc::new(move |unknown| {
             let built = construct_schema.construct(unknown)?;
             construct_schema.try_encode(&built)
@@ -1058,7 +1097,7 @@ impl<T> Schema<T> {
         D: Fn(A) -> Result<T, SchemaError> + Send + Sync + 'static,
         E: Fn(&T) -> A + Send + Sync + 'static,
     {
-        let kind = schema.kind.clone();
+        let kind = schema.repr_kind();
         let schema = Arc::new(schema);
         let decode_schema = schema.clone();
         let encode_schema = schema.clone();
@@ -1498,12 +1537,15 @@ impl Schema<BTreeMap<String, Unknown>> {
 impl<T: Send + Sync + 'static> Schema<Vec<T>> {
     /// Homogeneous arrays: every element decoded, failures name `[i]`.
     pub fn array(inner: Schema<T>) -> Schema<Vec<T>> {
-        let kind = SchemaKind::Array(Box::new(inner.kind.clone()));
+        // The child's shape, not its raw kind: a re-typed child keeps its shape
+        // in `wrapped`, so reading `kind` here would render the element as
+        // `Schema.Unknown`.
+        let kind = SchemaKind::Array(Box::new(inner.repr_kind()));
         let inner = Arc::new(inner);
         let decode_inner = inner.clone();
         let encode_inner = inner.clone();
         let render = inner.formatter.clone();
-        let inner_kind = inner.kind.clone();
+        let inner_kind = inner.repr_kind();
         let mut out = Self::new(
             move |unknown| match unknown {
                 Unknown::Array(items) => items
@@ -3395,7 +3437,7 @@ impl<T> Schema<T> {
             }
             // Everything else is described by its kind, so walk it.
             None => {
-                let kind = self.kind.clone();
+                let kind = self.repr_kind();
                 let children = self.children.clone();
                 Box::new(move |value| format_root(&kind, &children, value))
             }
@@ -3648,6 +3690,48 @@ impl Schema<Unknown> {
         )
     }
 
+    /// Derive a union from this one's members (`mapMembers`), the member-list
+    /// twin of `mapFields` and `mapElements`. A union keeps its mode, which is
+    /// the only thing distinguishing `anyOf` from `oneOf`; an exact-value shape
+    /// becomes a plain union of the transformed members, which is what the
+    /// pin's `Literals.mapMembers` does.
+    pub fn map_members(
+        self,
+        transform: impl Fn(Vec<Schema<Unknown>>) -> Vec<Schema<Unknown>>,
+    ) -> Self {
+        let mode = match &self.kind {
+            SchemaKind::Union { mode, .. } => *mode,
+            _ => "anyOf",
+        };
+        let members = self
+            .members()
+            .expect("mapMembers needs a union or an exact-value shape");
+        Self::union_with_mode(transform(members), mode)
+    }
+
+    /// The exact-value shape (`Schema.Literals`): one `Literal` member per
+    /// value. Kept as a shape of its own rather than folded to a single
+    /// `Literal` the way the JSON Schema importer folds a one-value `enum`,
+    /// because the member list is what a derivation reads.
+    pub fn literals(values: Vec<Unknown>) -> Self {
+        assert!(
+            !values.is_empty(),
+            "a literals shape holds at least one value"
+        );
+        let kind = SchemaKind::Literals(values.clone());
+        Self::new(
+            move |unknown| {
+                if values.iter().any(|value| *value == unknown) {
+                    Ok(unknown)
+                } else {
+                    mismatch("$", "one of the literals", &unknown)
+                }
+            },
+            |value| Ok(value.clone()),
+            kind,
+        )
+    }
+
     /// A union of two or more shapes (`Union`). `mode` is `"anyOf"` or
     /// `"oneOf"`; a `oneOf` accepts a value matching exactly one member, which
     /// is the only semantic difference, and the repr carries it.
@@ -3656,8 +3740,9 @@ impl Schema<Unknown> {
             members: members.iter().map(|member| member.repr_kind()).collect(),
             mode,
         };
+        let declared_members = Some(members.clone());
         let decoders: Vec<Arc<Schema<Unknown>>> = members.into_iter().map(Arc::new).collect();
-        Self::new(
+        let mut schema = Self::new(
             move |unknown| {
                 let mut decoded = None;
                 for member in &decoders {
@@ -3676,7 +3761,9 @@ impl Schema<Unknown> {
             },
             |value| Ok(value.clone()),
             kind,
-        )
+        );
+        schema.union_members = declared_members;
+        schema
     }
 }
 
@@ -4220,7 +4307,7 @@ fn format_root(
                     let (child_kind, child_children) = children
                         .iter()
                         .find(|(key, _)| key == name)
-                        .map(|(_, schema)| (schema.kind.clone(), schema.children.clone()))
+                        .map(|(_, schema)| (schema.repr_kind(), schema.children.clone()))
                         .unwrap_or_else(|| (SchemaKind::Object, Vec::new()));
                     format!(
                         "{key}: {}",
