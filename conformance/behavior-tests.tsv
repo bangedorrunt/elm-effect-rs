@@ -8479,16 +8479,16 @@ unported	packages/effect/test/schema/TemplateLiteral.test.ts	133	it.effect	prese
 unported	packages/effect/test/schema/TemplateLiteral.test.ts	157	it.effect	keeps greedy segmentation without requiring tuple round-trips	
 unported	packages/effect/test/schema/TemplateLiteral.test.ts	165	it.effect	uses separate decoding and encoding services	
 ported	packages/effect/test/schema/VariantSchema.test.ts	6	it	FieldOnly and FieldExcept select fields from key arrays	variant_field_selection
-unported	packages/effect/test/schema/VariantSchema.test.ts	22	it	Class preserves class and variant schema behavior	
+ported	packages/effect/test/schema/VariantSchema.test.ts	22	it	Class preserves class and variant schema behavior	variant_class_preserves_class_and_variant_behavior
 ported	packages/effect/test/schema/VariantSchema.test.ts	41	it	includes plain variant structs in the default union	variant_default_never_collides
-unported	packages/effect/test/schema/VariantSchema.test.ts	52	it	omits undefined fields accepted by VariantSchema.Struct	
-unported	packages/effect/test/schema/VariantSchema.test.ts	59	it	omits undefined fields selected by VariantSchema.Field	
+ported	packages/effect/test/schema/VariantSchema.test.ts	52	it	omits undefined fields accepted by VariantSchema.Struct	variant_struct_omits_undefined_fields
+ported	packages/effect/test/schema/VariantSchema.test.ts	59	it	omits undefined fields selected by VariantSchema.Field	variant_field_omits_undefined_selection
 ported	packages/effect/test/schema/VariantSchema.test.ts	66	it	does not collide the __default variant with the default-schema cache entry	variant_default_never_collides
 ported	packages/effect/test/schema/VariantSchema.test.ts	87	it	preserves classes when extracting the default variant	variant_default_never_collides
-unported	packages/effect/test/schema/VariantSchema.test.ts	97	it	FieldOption preserves omitted variants	
+ported	packages/effect/test/schema/VariantSchema.test.ts	97	it	FieldOption preserves omitted variants	model_field_option_preserves_omitted_variants
 ported	packages/effect/test/schema/VariantSchema.test.ts	102	it	FieldOnly includes fields only in listed variants	variant_field_selection
-unported	packages/effect/test/schema/VariantSchema.test.ts	111	it	BooleanSqlite encodes database bits and JSON booleans across variants	
-unported	packages/effect/test/schema/VariantSchema.test.ts	129	it.effect	Overrideable defaults are constructor-only and accept explicit overrides	
+ported	packages/effect/test/schema/VariantSchema.test.ts	111	it	BooleanSqlite encodes database bits and JSON booleans across variants	model_boolean_sqlite_encodes_bits_and_booleans
+ported	packages/effect/test/schema/VariantSchema.test.ts	129	it.effect	Overrideable defaults are constructor-only and accept explicit overrides	model_overrideable_defaults_are_constructor_only
 unported	packages/effect/test/schema/jsonSchemaRoundTrip.test.ts	105	it	applies type-specific keywords only to matching instances	
 unported	packages/effect/test/schema/jsonSchemaRoundTrip.test.ts	124	it	preserves Unicode string lengths and patterns	
 unported	packages/effect/test/schema/jsonSchemaRoundTrip.test.ts	136	it	conjoins enum with its sibling constraints	

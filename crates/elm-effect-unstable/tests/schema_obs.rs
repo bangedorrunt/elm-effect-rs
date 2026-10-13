@@ -7,7 +7,14 @@ mod schema_obs;
 use schema_obs::{
     Aot, Attribute, Exporter, Jit, Metric, MetricPoint, Prometheus, Resource, VariantSchema, varint,
 };
+use schema_obs::variant_structs::{FieldSpec, Leaf, Record, Value, Variants, overridden};
 use std::collections::BTreeMap;
+
+fn value_map(pairs: &[(&str, Value)]) -> Record {
+    pairs.iter().map(|(k, v)| (k.to_string(), v.clone())).collect()
+}
+
+const NOW_MILLIS: i64 = 1_700_000_000_000;
 
 // ---------------------------------------------------------------- variants ---
 
@@ -46,6 +53,108 @@ fn variant_projection_drops_rest() {
     let out = v.project("Rect", &fields);
     assert_eq!(out.len(), 1);
     assert_eq!(out.get("width"), Some(&"3".to_string()));
+}
+
+// ------------------------------------------- variant structs (VariantSchema) ---
+
+#[test]
+fn variant_class_preserves_class_and_variant_behavior() {
+    let test = Variants::make(&["a", "b"], "a");
+    let user = test.class(
+        "User",
+        &[
+            ("id", test.field_only(&["a"], Leaf::Num).into()),
+            ("name", FieldSpec::plain(Leaf::Str)),
+        ],
+    );
+    let alice = value_map(&[("id", Value::Num(1.0)), ("name", Value::Str("Alice".into()))]);
+    // The constructor and the class' own decoder agree (`User.make` and
+    // `Schema.decodeSync(User)` at the pin).
+    assert_eq!(user.field_names(), vec!["id", "name"]);
+    assert_eq!(user.make(&[("id", Value::Num(1.0)), ("name", Value::Str("Alice".into()))], NOW_MILLIS), Ok(alice.clone()));
+    assert_eq!(user.decode_default(&alice), Ok(alice));
+    // `User.b` keeps only the fields variant `b` declares.
+    assert_eq!(
+        user.decode_variant("b", &value_map(&[("name", Value::Str("Alice".into()))])),
+        Ok(value_map(&[("name", Value::Str("Alice".into()))]))
+    );
+}
+
+#[test]
+fn variant_struct_omits_undefined_fields() {
+    let test = Variants::make(&["a"], "a");
+    let structure = test.structure(&[
+        ("value", FieldSpec::plain(Leaf::Str)),
+        ("skipped", FieldSpec::plain(Leaf::Undefined)),
+    ]);
+    assert_eq!(test.extract(&structure, "a").field_names(), vec!["value"]);
+}
+
+#[test]
+fn variant_field_omits_undefined_selection() {
+    let test = Variants::make(&["a"], "a");
+    let structure = test.structure(&[
+        ("value", FieldSpec::plain(Leaf::Str)),
+        ("skipped", test.field(&[("a", Leaf::Undefined)]).into()),
+    ]);
+    assert_eq!(test.extract(&structure, "a").field_names(), vec!["value"]);
+}
+
+#[test]
+fn model_field_option_preserves_omitted_variants() {
+    let model = Variants::model();
+    let option = model.field_option(&model.field(&[("select", Leaf::Str), ("json", Leaf::Undefined)]));
+    // `json: undefined` stays undefined, the database variant becomes
+    // nullable, and variants the field never listed stay omitted.
+    assert_eq!(option.schema("json"), Some(&Leaf::Undefined));
+    assert_eq!(option.schema("select"), Some(&Leaf::OptionFromNullOr(Box::new(Leaf::Str))));
+    assert_eq!(option.schema("insert"), None);
+}
+
+#[test]
+fn model_boolean_sqlite_encodes_bits_and_booleans() {
+    let model = Variants::model();
+    let user = model.structure(&[("active", model.boolean_sqlite().into())]);
+    let select = model.extract(&user, "select");
+    assert_eq!(
+        select.encode(&value_map(&[("active", Value::Bool(true))])),
+        Ok(value_map(&[("active", Value::Num(1.0))]))
+    );
+    assert_eq!(
+        select.decode(&value_map(&[("active", Value::Num(0.0))])),
+        Ok(value_map(&[("active", Value::Bool(false))]))
+    );
+    let json = model.extract(&user, "json");
+    assert_eq!(
+        json.encode(&value_map(&[("active", Value::Bool(true))])),
+        Ok(value_map(&[("active", Value::Bool(true))]))
+    );
+    assert_eq!(
+        json.decode(&value_map(&[("active", Value::Bool(false))])),
+        Ok(value_map(&[("active", Value::Bool(false))]))
+    );
+}
+
+#[test]
+fn model_overrideable_defaults_are_constructor_only() {
+    let model = Variants::model();
+    let user = model.structure(&[("createdAt", model.date_time_insert_from_number().into())]);
+    let insert = model.extract(&user, "insert");
+    // The constructor fills an absent value with `now` (`DateTime.now`).
+    assert_eq!(
+        insert.make(&[], NOW_MILLIS),
+        Ok(value_map(&[("createdAt", Value::DateTime(NOW_MILLIS))]))
+    );
+    // An explicit `Override` is accepted at the encode edge.
+    let encoded = insert.encode(&value_map(&[(
+        "createdAt",
+        overridden(Value::DateTime(NOW_MILLIS)),
+    )]));
+    assert!(encoded.is_ok(), "{encoded:?}");
+    // The constructor default is not a decode default: the encoded form must
+    // carry the field, and the failure names it.
+    let error = insert.decode(&value_map(&[])).expect_err("decode needs the field");
+    assert!(error.contains("createdAt"), "{error}");
 }
 
 // ---------------------------------------------------------------- compilers ---
