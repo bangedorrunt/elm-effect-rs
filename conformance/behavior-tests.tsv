@@ -7585,7 +7585,7 @@ unported	packages/effect/test/schema/Schema.test.ts	1232	it	ArrayEnsure roundtri
 unported	packages/effect/test/schema/Schema.test.ts	1239	it	ArrayEnsure preserves outer-array encoding	
 unported	packages/effect/test/schema/Schema.test.ts	1245	it	should expose the element schema via .value	
 unported	packages/effect/test/schema/Schema.test.ts	1250	it	readonly string[]	
-unported	packages/effect/test/schema/Schema.test.ts	1288	it	Trimmed	
+ported	packages/effect/test/schema/Schema.test.ts	1288	it	Trimmed	trimmed_string_refuses_padding_but_not_an_inner_space
 unported	packages/effect/test/schema/Schema.test.ts	1306	it	single check	
 unported	packages/effect/test/schema/Schema.test.ts	1318	it	multiple checks	
 unported	packages/effect/test/schema/Schema.test.ts	1339	it	aborting checks	

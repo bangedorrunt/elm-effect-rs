@@ -4,6 +4,10 @@
 use elm_effect_schema::{Field, Schema, SchemaError, Unknown};
 use std::collections::BTreeMap;
 
+fn text(s: &str) -> Unknown {
+    Unknown::Text(s.to_string())
+}
+
 #[test]
 fn string_round_trips() {
     let schema = Schema::string();
@@ -988,4 +992,32 @@ fn struct_with_rest_refuses_a_fixed_key_the_rest_also_names() {
         .expect_err("the rest's value schema still decides each key");
     assert!(error.to_string().contains("number"), "{error}");
     assert!(error.to_string().contains("z"), "{error}");
+}
+
+// --- Schema.test.ts: the string checks, where the predicate is the law ---
+
+/// Schema.test.ts:1288 — `Schema.Trimmed`: a trimmed string is a string with
+/// no leading or trailing whitespace, so the middle of the word is fine and the
+/// padding around it is refused.
+#[test]
+fn trimmed_string_refuses_padding_but_not_an_inner_space() {
+    let schema = Schema::checked(
+        Schema::as_unknown(Schema::string()),
+        "isTrimmed",
+        Vec::new(),
+        vec![("expected", "a string with no leading or trailing whitespace")],
+    );
+    assert!(schema.decode(text("a")).is_ok(), "a bare word is trimmed");
+    assert!(schema.decode(text("a b")).is_ok(), "an inner space is fine");
+    for padded in [" a ", "a ", " a", "\ta", "a\n"] {
+        let error = schema
+            .decode(text(padded))
+            .expect_err("padding is refused");
+        assert!(
+            error.to_string().contains("satisfying the refinement"),
+            "{padded:?}: {error}"
+        );
+    }
+    // A non-string is the string schema's refusal, not the check's.
+    assert!(schema.decode(Unknown::Number(1.0)).is_err());
 }

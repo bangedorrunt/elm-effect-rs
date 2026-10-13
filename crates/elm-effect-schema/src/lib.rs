@@ -4595,6 +4595,11 @@ fn check_holds(name: &str, limit: Option<f64>, value: &Unknown) -> bool {
         ("isInt", _, Unknown::Number(number)) => {
             number.fract() == 0.0 && number.abs() <= MAX_SAFE_INTEGER
         }
+        // A trimmed string carries no padding on either end. The check names
+        // no bound, so it is matched on the value alone.
+        ("isTrimmed", None, Unknown::Text(text)) => {
+            text.trim().chars().count() == text.chars().count()
+        }
         ("isMinLength", Some(min), Unknown::Text(text)) => text.chars().count() as f64 >= min,
         ("isMaxLength", Some(max), Unknown::Text(text)) => text.chars().count() as f64 <= max,
         ("isMinCodePoints", Some(min), Unknown::Text(text)) => text.chars().count() as f64 >= min,
