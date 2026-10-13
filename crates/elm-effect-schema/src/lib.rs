@@ -446,6 +446,13 @@ fn filter_by_checks(values: Vec<Unknown>, checks: &[Check]) -> Vec<Unknown> {
         .collect()
 }
 
+/// Whether a tuple element is optional, which the pin spells two ways: an
+/// `optionalKey` position may be absent, and an `optional` position may be
+/// absent or null. Both make the positions after them a required-after-optional.
+fn is_optional_element(kind: &SchemaKind) -> bool {
+    matches!(kind, SchemaKind::OptionalKey(_) | SchemaKind::Optional(_))
+}
+
 /// Whether an exact value fits a base kind. A base that names a type admits
 /// only values of that type, so an `enum` member of another type is dropped by
 /// the intersection rather than kept: `{ type: "boolean", allOf: [{ const: 1 }] }`
@@ -3997,14 +4004,13 @@ impl Schema<Unknown> {
     /// while it is being built and so does this.
     pub fn tuple_of(elements: Vec<Schema<Unknown>>) -> Self {
         let kinds: Vec<SchemaKind> = elements.iter().map(|e| e.repr_kind()).collect();
-        let required = kinds
-            .iter()
-            .take_while(|kind| !matches!(kind, SchemaKind::OptionalKey(_)))
-            .count();
+        // "Optional" has two spellings in the pin: an `optionalKey` position
+        // may be absent, and an `optional` position may be absent or null.
+        // Either one makes every position after it a required-after-optional,
+        // so the rule counts both.
+        let required = kinds.iter().take_while(|kind| !is_optional_element(kind)).count();
         assert!(
-            kinds[required..]
-                .iter()
-                .all(|kind| matches!(kind, SchemaKind::OptionalKey(_))),
+            kinds[required..].iter().all(is_optional_element),
             "A required element cannot follow an optional element. ts(1257)"
         );
         let kind = SchemaKind::Tuple(kinds);
@@ -4100,6 +4106,15 @@ impl Schema<Unknown> {
     /// Positional elements with a trailing catch-all (`TupleWithRest`): the
     /// leading positions and the shape absorbing the remaining elements.
     pub fn tuple_with_rest(elements: Vec<Schema<Unknown>>, rest: Schema<Unknown>) -> Self {
+        // The leading positions are still positional, so the same rule applies
+        // to them: no required element may follow an optional one, in either
+        // spelling of optional.
+        let kinds: Vec<SchemaKind> = elements.iter().map(|e| e.repr_kind()).collect();
+        let required = kinds.iter().take_while(|kind| !is_optional_element(kind)).count();
+        assert!(
+            kinds[required..].iter().all(is_optional_element),
+            "A required element cannot follow an optional element. ts(1257)"
+        );
         let kind = SchemaKind::TupleWithRest(
             elements.iter().map(|element| element.repr_kind()).collect(),
             Box::new(rest.repr_kind()),

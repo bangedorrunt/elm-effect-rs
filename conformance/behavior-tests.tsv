@@ -7570,7 +7570,7 @@ unported	packages/effect/test/schema/Schema.test.ts	963	it	overlapping fields
 unported	packages/effect/test/schema/Schema.test.ts	980	it	Struct & check & unsafePreserveChecks: true	
 unported	packages/effect/test/schema/Schema.test.ts	1000	it	Struct	
 unported	packages/effect/test/schema/Schema.test.ts	1013	it	Struct	
-unported	packages/effect/test/schema/Schema.test.ts	1027	it	A required element cannot follow an optional element	
+ported	packages/effect/test/schema/Schema.test.ts	1027	it	A required element cannot follow an optional element	tuple_refuses_a_required_element_after_an_optional_one
 unported	packages/effect/test/schema/Schema.test.ts	1038	it	should fail on unexpected indexes	
 unported	packages/effect/test/schema/Schema.test.ts	1058	it	readonly [string]	
 unported	packages/effect/test/schema/Schema.test.ts	1101	it	readonly [string?]	
@@ -7768,7 +7768,7 @@ unported	packages/effect/test/schema/Schema.test.ts	4793	it	string | struct
 unported	packages/effect/test/schema/Schema.test.ts	4807	it	string | tuple	
 unported	packages/effect/test/schema/Schema.test.ts	4821	it	tagged struct union	
 unported	packages/effect/test/schema/Schema.test.ts	4845	it	tagged tuple union	
-unported	packages/effect/test/schema/Schema.test.ts	4872	it	A required element cannot follow an optional element	
+ported	packages/effect/test/schema/Schema.test.ts	4872	it	A required element cannot follow an optional element	tuple_with_rest_refuses_a_required_element_after_an_optional_one
 unported	packages/effect/test/schema/Schema.test.ts	4891	it	An optional element cannot follow a rest element	
 ported	packages/effect/test/schema/Schema.test.ts	4910	it	[FiniteFromString, String] + [Boolean, String]	ffs_tuples_union_by_shape
 ported	packages/effect/test/schema/Schema.test.ts	4947	it	[FiniteFromString, String] + [Boolean, String, Number]	ffs_tuples_union_by_shape

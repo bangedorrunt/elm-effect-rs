@@ -651,3 +651,88 @@ fn nullish_or_admits_the_absent_values_and_the_inner_schema() {
     );
     assert!(schema.decode(Unknown::Number(1.0)).is_err(), "a number is neither");
 }
+
+// --- Schema.test.ts: the tuple element-ordering rule ---
+
+/// Schema.test.ts:1027 — a required element cannot follow an optional one, in
+/// either spelling of "optional": `optionalKey` keeps the position
+/// absent-or-present and `optional` also accepts an explicit null, and neither
+/// can be followed by a required element. The refusal is at construction, so
+/// the panic is caught the way the literal row catches its own.
+#[test]
+fn tuple_refuses_a_required_element_after_an_optional_one() {
+    let hook = std::panic::take_hook();
+    std::panic::set_hook(Box::new(|_| {}));
+    for optional in [
+        Schema::optional_key_shape(Schema::as_unknown(Schema::string())),
+        Schema::as_unknown(Schema::optional(Schema::as_unknown(Schema::string()))),
+    ] {
+        let caught = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            Schema::tuple_of(vec![optional, Schema::as_unknown(Schema::string())])
+        }));
+        // `assert!` with a plain literal panics with a `&'static str` payload
+        // and a formatted one with a `String`, so both are read.
+        let message = caught
+            .err()
+            .and_then(|payload| {
+                payload
+                    .downcast_ref::<String>()
+                    .cloned()
+                    .or_else(|| payload.downcast_ref::<&str>().map(|text| text.to_string()))
+            })
+            .expect("the tuple is refused at construction");
+        assert_eq!(message, "A required element cannot follow an optional element. ts(1257)");
+    }
+    std::panic::set_hook(hook);
+    // The order the rule permits still builds and decodes.
+    let ordered = Schema::tuple_of(vec![
+        Schema::as_unknown(Schema::string()),
+        Schema::optional_key_shape(Schema::as_unknown(Schema::boolean())),
+    ]);
+    assert!(ordered
+        .decode(Unknown::Array(vec![Unknown::Text("a".to_string())]))
+        .is_ok());
+}
+
+/// Schema.test.ts:4872 — the same rule over a tuple that carries a rest: the
+/// leading positions are still positional, so a required one may not follow an
+/// optional one there either. The port's `tuple_with_rest` takes one rest
+/// schema where the pin takes a list of trailing elements, so the rule is
+/// checked over the leading positions, which is the part both signatures can
+/// express.
+#[test]
+fn tuple_with_rest_refuses_a_required_element_after_an_optional_one() {
+    let hook = std::panic::take_hook();
+    std::panic::set_hook(Box::new(|_| {}));
+    let caught = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        Schema::tuple_with_rest(
+            vec![
+                Schema::optional_key_shape(Schema::as_unknown(Schema::string())),
+                Schema::as_unknown(Schema::boolean()),
+            ],
+            Schema::as_unknown(Schema::number()),
+        )
+    }));
+    let message = caught
+        .err()
+        .and_then(|payload| {
+            payload
+                .downcast_ref::<String>()
+                .cloned()
+                .or_else(|| payload.downcast_ref::<&str>().map(|text| text.to_string()))
+        })
+        .expect("the tuple is refused at construction");
+    assert_eq!(message, "A required element cannot follow an optional element. ts(1257)");
+    std::panic::set_hook(hook);
+    // The permitted order still builds and decodes.
+    let ordered = Schema::tuple_with_rest(
+        vec![Schema::as_unknown(Schema::string())],
+        Schema::as_unknown(Schema::number()),
+    );
+    assert!(ordered
+        .decode(Unknown::Array(vec![
+            Unknown::Text("a".to_string()),
+            Unknown::Number(1.0),
+        ]))
+        .is_ok());
+}
