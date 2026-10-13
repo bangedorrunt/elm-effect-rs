@@ -264,6 +264,13 @@ fn render_check(check: &Check) -> String {
     out
 }
 
+/// Whether a base carries no named type, which is the open JSON value. A
+/// keyword-only member (an `allOf` member with `propertyNames` but no `type`)
+/// needs the object checks applied to it.
+fn base_kind_is_open(schema: &Schema<Unknown>) -> bool {
+    matches!(schema.repr_kind(), SchemaKind::Json)
+}
+
 /// Build the schema for a filtered set of exact values: none is `Never`, one is
 /// a `Literal`, several are a `Literals`.
 fn literal_union(values: Vec<Unknown>) -> Schema<Unknown> {
@@ -1682,7 +1689,24 @@ impl Schema<Unknown> {
             // A JSON object key is always a string, so a `propertyNames` value
             // that names no type constrains a string. An untyped import would
             // otherwise start from the open JSON value.
-            let inner = Self::import(names)?;
+            // A key is a string, and the pin measures one in CODE POINTS, so a
+            // `minLength` beside `propertyNames` is a code-point length. The
+            // document is rewritten before importing rather than special-cased
+            // afterwards, so the check's own message names the right unit.
+            let names = match names {
+                serde_json::Value::Object(map) => {
+                    let mut map = map.clone();
+                    if let Some(value) = map.remove("minLength") {
+                        map.insert("minCodePoints".to_string(), value);
+                    }
+                    if let Some(value) = map.remove("maxLength") {
+                        map.insert("maxCodePoints".to_string(), value);
+                    }
+                    serde_json::Value::Object(map)
+                }
+                other => other.clone(),
+            };
+            let inner = Self::import(&names)?;
             let (kind, checks, annotation) = decompose(&inner.repr_kind());
             let inner = if kind == SchemaKind::Json {
                 let annotation: Vec<(String, String)> = annotation
@@ -1876,26 +1900,24 @@ impl Schema<Unknown> {
     /// checks constraining whatever it is intersected with, so the base's kind
     /// stands and only the open-object marker drops from its annotations.
     fn intersect(base: Schema<Unknown>, member: Schema<Unknown>) -> Result<Self, SchemaError> {
-        let (base_kind, mut checks, mut annotation) = decompose(&base.repr_kind());
+        // A base that names no type is not a base at all: it is the open JSON
+        // value, so whichever side names a type supplies the base, and its checks
+        // and annotations come with it. This is the shape
+        // `{ allOf: [{ type: "string", ... }] }` has, because the surrounding
+        // keywords are empty once `allOf` is removed. Swapping only the kinds
+        // would leave the open value's own annotation behind, which printed a
+        // duplicate `"expected": "JSON value"` on the base.
+        let (base_kind, base_checks, base_annotation) = decompose(&base.repr_kind());
         let (member_kind, member_checks, member_annotation) = decompose(&member.repr_kind());
         let member_annotation: Vec<(String, String)> = member_annotation
             .into_iter()
             .filter(|(key, value)| !(key == "expected" && value == "JSON value"))
             .collect();
-        // A base that names no type is not a base at all: it is the open JSON
-        // value, so whichever member names a type supplies the base. This is the
-        // shape `{ allOf: [{ type: "string", ... }] }` has, because the
-        // surrounding keywords are empty once `allOf` is removed.
-        let (base_kind, member_kind, member_checks) = if base_kind == SchemaKind::Json {
-            (member_kind, base_kind, member_checks)
-        } else {
-            (base_kind, member_kind, member_checks)
-        };
         // A refinement intersected with a finite set of exact values keeps the
         // values that satisfy it. Either side may carry the values, so both are
         // tried. A side that names a different base has no compatible member.
         if let Some(values) = exact_values(&member_kind) {
-            let kept = filter_by_checks(values, &checks);
+            let kept = filter_by_checks(values, &base_checks);
             return Ok(literal_union(kept));
         }
         // The other direction: the base holds the values and the member holds
@@ -1905,6 +1927,28 @@ impl Schema<Unknown> {
             let kept = filter_by_checks(values, &member_checks);
             return Ok(literal_union(kept));
         }
+        // The base is the side that names a type, so an untyped one defers to
+        // whichever member has one. `decompose` strips the annotation first,
+        // which is why this looks at the decomposed kind and not the raw one:
+        // the open value arrives wrapped in `Annotated`.
+        let (base_kind, mut checks, mut annotation, member_kind, member_checks) =
+            if base_kind == SchemaKind::Json && member_kind != SchemaKind::Json {
+                (
+                    member_kind,
+                    member_checks,
+                    member_annotation.clone(),
+                    SchemaKind::Json,
+                    base_checks,
+                )
+            } else {
+                (
+                    base_kind,
+                    base_checks,
+                    base_annotation,
+                    member_kind,
+                    member_checks,
+                )
+            };
         if member_kind != base_kind && member_kind != SchemaKind::Json {
             // Two different named bases cannot intersect; the pin reports this
             // as an empty union rather than picking one.
@@ -2146,6 +2190,15 @@ impl Schema<Unknown> {
                 got: "an empty array",
             });
         }
+        // A boolean schema is JSON Schema's shorthand: `false` admits nothing
+        // and `true` admits anything.
+        match doc {
+            serde_json::Value::Bool(false) => return Ok(Schema::as_unknown(Schema::never())),
+            serde_json::Value::Bool(true) => {
+                return Ok(Self::annotated_json(&serde_json::json!({})));
+            }
+            _ => {}
+        }
         match get("type") {
             // Nothing constrains the value, so it is any JSON value annotated as
             // the open catch-all. The pin's `annotate` pairs ride along.
@@ -2154,7 +2207,14 @@ impl Schema<Unknown> {
                 // how an `allOf` member like `{ minLength: 1 }` is written: it
                 // constrains whatever it is intersected with rather than naming
                 // a base of its own. The base stays the open JSON value.
-                Ok(Self::refined_any(Self::annotated_json(doc), doc))
+                // An object keyword with no type still constrains an object, so
+                // the object-level checks run here too: an `allOf` member
+                // carrying only `propertyNames` is exactly that shape.
+                let base = Self::refined_any(Self::annotated_json(doc), doc);
+                if base_kind_is_open(&base) {
+                    return Self::refined_object(base, doc);
+                }
+                Ok(base)
             }
             Some(serde_json::Value::String(type_name)) => {
                 Self::with_document_annotations(

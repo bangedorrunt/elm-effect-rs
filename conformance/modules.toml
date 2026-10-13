@@ -452,7 +452,7 @@ tests = ["packages/effect/test/LogLevel.test.ts"]
 [[module]]
 path = "packages/effect/src/Logger.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/Logger.test.ts"]

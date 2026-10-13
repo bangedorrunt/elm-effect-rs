@@ -2507,16 +2507,16 @@ unported	packages/effect/test/LayerRef.test.ts	80	it.effect	preload acquires the
 unported	packages/effect/test/LayerRef.test.ts	102	it.effect	Service exposes layer, get, contextEffect, and invalidate	
 ported	packages/effect/test/LogLevel.test.ts	8	it.effect	uses Info as the default minimum log level	loglevel_defaults_to_info
 ported	packages/effect/test/LogLevel.test.ts	15	it.effect	supports All and None sentinel thresholds	loglevel_all_and_none_are_sentinels
-unported	packages/effect/test/Logger.test.ts	11	it.effect	should output logs	
-unported	packages/effect/test/Logger.test.ts	29	it.effect	replace loggers	
+ported	packages/effect/test/Logger.test.ts	11	it.effect	should output logs	logger_should_output_logs
+ported	packages/effect/test/Logger.test.ts	29	it.effect	replace loggers	logger_replace_logger
 ported	packages/effect/test/Logger.test.ts	43	it.effect	formatLogFmt does not double quote string messages or annotations	format_logfmt_quotes_only_when_needed
 ported	packages/effect/test/Logger.test.ts	71	it.effect	formatSimple does not double quote string messages or annotations	format_simple_quotes_only_when_needed
-unported	packages/effect/test/Logger.test.ts	93	it.effect	formats BigInt messages consistently	
-unported	packages/effect/test/Logger.test.ts	118	it.effect	formatJson includes the message of plain Errors	
-unported	packages/effect/test/Logger.test.ts	134	it.effect	annotateLogsScoped applies annotations only while scoped	
-unported	packages/effect/test/Logger.test.ts	155	it.effect	annotateLogsScoped restores previous annotations	
-unported	packages/effect/test/Logger.test.ts	182	it.effect	measurement	
-unported	packages/effect/test/Logger.test.ts	206	it.effect	default logger preserves message item order when logging a cause	
+ported	packages/effect/test/Logger.test.ts	93	it.effect	formats BigInt messages consistently	logger_formats_bigint_messages_consistently
+ported	packages/effect/test/Logger.test.ts	118	it.effect	formatJson includes the message of plain Errors	logger_format_json_includes_error_messages
+ported	packages/effect/test/Logger.test.ts	134	it.effect	annotateLogsScoped applies annotations only while scoped	logger_annotate_logs_scoped_applies_only_while_scoped
+ported	packages/effect/test/Logger.test.ts	155	it.effect	annotateLogsScoped restores previous annotations	logger_annotate_logs_scoped_restores_previous
+ported	packages/effect/test/Logger.test.ts	182	it.effect	measurement	logger_annotate_logs_scoped_restores_nan_annotations
+ported	packages/effect/test/Logger.test.ts	206	it.effect	default logger preserves message item order when logging a cause	logger_default_keeps_message_item_order_with_a_cause
 unported	packages/effect/test/ManagedRuntime.test.ts	6	test	memoizes the layer build	
 unported	packages/effect/test/ManagedRuntime.test.ts	18	test	provides context	
 unported	packages/effect/test/ManagedRuntime.test.ts	27	test	allows sharing a MemoMap	
@@ -8721,8 +8721,8 @@ unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.
 ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1026	it	minProperties	json_schema_document_object_checks_carry_their_code_and_type
 ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1038	it	maxProperties	json_schema_document_object_checks_carry_their_code_and_type
 ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1052	it	pattern	json_schema_document_object_checks_carry_their_code_and_type
-unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1069	it	false	
-unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1086	it	allOf combines checks	
+ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1069	it	false	json_schema_document_property_names_rows_carry_their_code_and_type
+ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1086	it	allOf combines checks	json_schema_document_property_names_rows_carry_their_code_and_type
 unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1107	it	array of types	
 unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1127	it	ignores true schemas in allOf	
 unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1134	it	rejects structured enum members	

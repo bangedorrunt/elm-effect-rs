@@ -1864,3 +1864,41 @@ fn json_schema_document_object_checks_carry_their_code_and_type() {
         .is_err()
     );
 }
+
+#[test]
+fn json_schema_document_property_names_rows_carry_their_code_and_type() {
+    // fromJsonSchemaDocument.test.ts's `propertyNames` family. `false` as the key
+    // schema is `Never`, and two members each carrying a `propertyNames` check
+    // stack their checks rather than one replacing the other.
+    use elm_effect_schema::{Schema, Unknown};
+
+    let cases: Vec<(serde_json::Value, &str)> = vec![
+        // :1069 — a key schema admitting no key.
+        (
+            serde_json::json!({"type": "object", "propertyNames": false}),
+            r#"Schema.Record(Schema.String, Schema.Json.annotate({ "expected": "JSON value" })).check(Schema.isPropertyNames(Schema.Never).annotate({ "expected": "an object with property names matching the schema" }))"#,
+        ),
+        // :1086 — two members, each contributing its own `isPropertyNames`.
+        (
+            serde_json::json!({
+                "allOf": [
+                    {"type": "object", "propertyNames": {"pattern": "^[A-Z]"}},
+                    {"type": "object", "propertyNames": {"minLength": 2}}
+                ]
+            }),
+            r#"Schema.Record(Schema.String, Schema.Json.annotate({ "expected": "JSON value" })).check(Schema.isPropertyNames(Schema.String.check(Schema.isPattern(new RegExp("^[A-Z]", "u")).annotate({ "expected": "a string matching the RegExp ^[A-Z]" }))).annotate({ "expected": "an object with property names matching the schema" })).check(Schema.isPropertyNames(Schema.String.check(Schema.isMinCodePoints(2).annotate({ "expected": "a string with at least 2 code points" }))).annotate({ "expected": "an object with property names matching the schema" }))"#,
+        ),
+    ];
+
+    for (doc, code) in cases {
+        let schema = Schema::<Unknown>::from_json_schema(&doc).expect("imports");
+        assert_eq!(schema.to_code(), code, "code for {doc:?}");
+    }
+
+    // A boolean schema is JSON Schema's shorthand, so it is decided at import
+    // rather than by a special case at each use.
+    let never = Schema::<Unknown>::from_json_schema(&serde_json::json!(false)).expect("imports");
+    assert_eq!(never.to_code(), "Schema.Never");
+    let any = Schema::<Unknown>::from_json_schema(&serde_json::json!(true)).expect("imports");
+    assert_eq!(any.to_code(), r#"Schema.Json.annotate({ "expected": "JSON value" })"#);
+}
