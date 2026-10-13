@@ -1052,25 +1052,45 @@ impl<T> Schema<T> {
     }
 
     /// A lazily-built schema for recursive shapes (`suspend` shape): the
-    /// factory runs once per decode/encode call.
+    /// factory resolves once, on the first call that needs it.
     pub fn suspend<U: Clone + Send + Sync + 'static>(
         factory: impl Fn() -> Schema<U> + Send + Sync + 'static,
     ) -> Schema<U> {
+        // The pin's `Suspend` memoizes its thunk on the first call
+        // (SchemaAST.ts:3863), and its rows count the factory's calls rather
+        // than trusting them: a union whose winner short-circuits never
+        // resolves the member at all, and two decodes that both reach it
+        // resolve it exactly once. Resolving per call diverges on the second
+        // count, and would rebuild the whole recursive subtree per value node.
+        let resolved: Arc<std::sync::OnceLock<Schema<U>>> = Arc::new(std::sync::OnceLock::new());
         let factory = Arc::new(factory);
-        let decode_factory = factory.clone();
-        let encode_factory = factory.clone();
-        let render_factory = factory.clone();
+        let decode_resolved = Arc::clone(&resolved);
+        let decode_factory = Arc::clone(&factory);
+        let encode_resolved = Arc::clone(&resolved);
+        let encode_factory = Arc::clone(&factory);
+        let render_resolved = Arc::clone(&resolved);
+        let render_factory = Arc::clone(&factory);
         let mut out = Schema::new(
-            move |unknown| decode_factory().decode(unknown),
-            move |value| encode_factory().try_encode(value),
+            move |unknown| {
+                decode_resolved
+                    .get_or_init(|| decode_factory())
+                    .decode(unknown)
+            },
+            move |value| {
+                encode_resolved
+                    .get_or_init(|| encode_factory())
+                    .try_encode(value)
+            },
             SchemaKind::Opaque("suspend"),
         );
-        // A suspend resolves lazily on every decode and every encode, so it
-        // must resolve lazily on every render too. Calling the factory per
-        // render is what makes a recursive schema terminate: the pin's
-        // mutually-suspended and self-referential rows are infinitely deep on
-        // the schema side and finite on the value side.
-        out.formatter = Some(Arc::new(move |value| render_factory().formatter()(value)));
+        // Rendering resolves on the same cell, so a recursive shape terminates
+        // on the value's depth: the resolved schema is reached again through
+        // its own formatter, never through a second factory call.
+        out.formatter = Some(Arc::new(move |value| {
+            render_resolved
+                .get_or_init(|| render_factory())
+                .formatter()(value)
+        }));
         out
     }
 

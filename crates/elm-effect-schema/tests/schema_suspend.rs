@@ -76,6 +76,67 @@ fn union_skips_suspended_loser_after_success() {
         schema.decode(Unknown::Text("hit".to_string())),
         Ok(Unknown::Text("hit".to_string()))
     );
+    assert_eq!(
+        schema.try_encode(&Unknown::Text("hit".to_string())),
+        Ok(Unknown::Text("hit".to_string()))
+    );
+}
+
+// 4586, second half: the pin counts the factory's calls, and the count only
+// comes out right if a suspend resolves once. Its third leg pins the same
+// count for the `oneOf` mode, where an ambiguous value does force the member
+// (exactly one member must match, so the winner cannot short-circuit).
+#[test]
+fn suspend_resolves_once_across_calls_that_reach_it() {
+    let evaluations = Arc::new(AtomicUsize::new(0));
+    let probe = Arc::clone(&evaluations);
+    let suspended: Schema<Unknown> = Schema::<Unknown>::suspend(move || {
+        probe.fetch_add(1, Ordering::SeqCst);
+        Schema::as_unknown(Schema::string())
+    });
+    let any_of = Schema::union(Schema::literal(Unknown::Text("a".to_string())), suspended);
+
+    assert_eq!(
+        any_of.decode(Unknown::Text("b".to_string())),
+        Ok(Unknown::Text("b".to_string()))
+    );
+    assert_eq!(evaluations.load(Ordering::SeqCst), 1, "first reach resolves");
+    assert_eq!(
+        any_of.decode(Unknown::Text("c".to_string())),
+        Ok(Unknown::Text("c".to_string()))
+    );
+    assert_eq!(
+        evaluations.load(Ordering::SeqCst),
+        1,
+        "the pin resolves the thunk once (SchemaAST.ts:3863), not per decode"
+    );
+}
+
+#[test]
+fn one_of_forces_a_suspended_member_once() {
+    let evaluations = Arc::new(AtomicUsize::new(0));
+    let probe = Arc::clone(&evaluations);
+    let suspended: Schema<Unknown> = Schema::<Unknown>::suspend(move || {
+        probe.fetch_add(1, Ordering::SeqCst);
+        Schema::as_unknown(Schema::string())
+    });
+    let one_of = Schema::<Unknown>::union_with_mode(
+        vec![Schema::literal(Unknown::Text("a".to_string())), suspended],
+        "oneOf",
+    );
+
+    assert_eq!(
+        one_of
+            .decode(Unknown::Text("a".to_string()))
+            .expect_err("two members accept \"a\"")
+            .to_string(),
+        "expected exactly one member to match at $, got string"
+    );
+    assert_eq!(
+        evaluations.load(Ordering::SeqCst),
+        1,
+        "exactly-one-member counting forces the member, but only once"
+    );
 }
 
 // 1393: suspending a schema keeps its inner checks — they still reject.
