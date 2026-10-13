@@ -352,6 +352,34 @@ pub fn date_schema() -> Schema<i64> {
     )
 }
 
+/// `Schema.DateFromMillis`: epoch millis in and out. A Date is a whole number
+/// of milliseconds inside the JS range (±8_640_000_000_000_000), so both are
+/// enforced on the way in.
+pub fn date_from_millis_schema() -> Schema<i64> {
+    const DATE_LIMIT: f64 = 8_640_000_000_000_000.0;
+    Schema::convert(
+        Schema::number(),
+        |millis: f64| {
+            if millis.fract() != 0.0 {
+                return Err(SchemaError::TypeMismatch {
+                    path: "$".to_string(),
+                    expected: "an integer",
+                    got: "a fractional millisecond",
+                });
+            }
+            if !(-DATE_LIMIT..=DATE_LIMIT).contains(&millis) {
+                return Err(SchemaError::TypeMismatch {
+                    path: "$".to_string(),
+                    expected: "a valid Date",
+                    got: "an out-of-range instant",
+                });
+            }
+            Ok(millis as i64)
+        },
+        |millis: &i64| *millis as f64,
+    )
+}
+
 fn parse_instant_millis(s: &str) -> Option<i64> {
     let mut t = s.trim().to_string();
     // RFC-2822 `Tue, 27 Jan 2026 17:14:06 GMT`.

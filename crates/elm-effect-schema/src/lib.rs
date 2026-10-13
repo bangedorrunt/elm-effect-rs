@@ -1007,6 +1007,20 @@ fn mismatch<T>(path: &str, expected: &'static str, got: &Unknown) -> Result<T, S
     })
 }
 
+/// The JavaScript `String(number)` spelling, which is the wire form of
+/// `NumberFromString`: the non-finite values have names there.
+fn js_number_text(value: f64) -> String {
+    if value.is_nan() {
+        "NaN".to_string()
+    } else if value == f64::INFINITY {
+        "Infinity".to_string()
+    } else if value == f64::NEG_INFINITY {
+        "-Infinity".to_string()
+    } else {
+        format!("{value}")
+    }
+}
+
 /// The source-side read of `finite_from_string`: a text that parses to a finite
 /// number. Shared by decode and by the construction path's fallback.
 fn decode_finite_from_string(unknown: Unknown) -> Result<f64, SchemaError> {
@@ -1165,6 +1179,27 @@ impl Schema<f64> {
     /// decodes to `1.5`. Non-text, blank, unparseable, and non-finite
     /// (`NaN`, infinities) inputs fail; encoding renders the number back
     /// to text.
+    /// A number built from a string (`NumberFromString`): the JS `Number()`
+    /// spelling is the wire form, so `NaN`, `Infinity`, `+Infinity` and
+    /// `-Infinity` are values here rather than refusals, unlike
+    /// [`finite_from_string`](Self::finite_from_string).
+    pub fn number_from_string() -> Self {
+        Self::new(
+            |unknown| match unknown {
+                Unknown::Text(ref text) => text.trim().parse::<f64>().map_err(|_| {
+                    SchemaError::TypeMismatch {
+                        path: "$".to_string(),
+                        expected: "a number string",
+                        got: "unparseable",
+                    }
+                }),
+                other => mismatch("$", "a number string", &other),
+            },
+            |value| Unknown::Text(js_number_text(*value)),
+            SchemaKind::Opaque("numberFromString"),
+        )
+    }
+
     pub fn finite_from_string() -> Self {
         let mut schema = Self::new(
             decode_finite_from_string,

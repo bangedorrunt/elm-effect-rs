@@ -7649,11 +7649,11 @@ unported	packages/effect/test/schema/Schema.test.ts	2038	it	isPropertyNames
 unported	packages/effect/test/schema/Schema.test.ts	2053	it	isPropertyNames with Never	
 ported	packages/effect/test/schema/Schema.test.ts	2068	it	UniqueArray	unique_array_rejects_structural_duplicates
 unported	packages/effect/test/schema/Schema.test.ts	2085	it	Finite	
-unported	packages/effect/test/schema/Schema.test.ts	2094	it	NumberFromString	
-unported	packages/effect/test/schema/Schema.test.ts	2120	it	DateFromString	
-unported	packages/effect/test/schema/Schema.test.ts	2136	it	DateFromMillis	
-unported	packages/effect/test/schema/Schema.test.ts	2159	it	FiniteFromString	
-unported	packages/effect/test/schema/Schema.test.ts	2198	it	BigIntFromString	
+ported	packages/effect/test/schema/Schema.test.ts	2094	it	NumberFromString	number_from_string_round_trips_non_finite_values
+ported	packages/effect/test/schema/Schema.test.ts	2120	it	DateFromString	date_from_string_parses_and_renders_the_iso_wire
+ported	packages/effect/test/schema/Schema.test.ts	2136	it	DateFromMillis	date_from_millis_validates_whole_milliseconds_in_range
+ported	packages/effect/test/schema/Schema.test.ts	2159	it	FiniteFromString	finite_from_string_dedicated_decode_and_encode_table
+not-applicable	packages/effect/test/schema/Schema.test.ts	2198	it	BigIntFromString	the row's value is a JavaScript BigInt; the port's Unknown holds null, booleans, numbers, text, arrays and objects, so both the success and the failure case are unrepresentable
 unported	packages/effect/test/schema/Schema.test.ts	2216	it	BigDecimalFromString	
 unported	packages/effect/test/schema/Schema.test.ts	2237	it	TimeZoneNamedFromString	
 unported	packages/effect/test/schema/Schema.test.ts	2256	it	TimeZoneFromString	
