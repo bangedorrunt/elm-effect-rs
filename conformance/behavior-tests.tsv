@@ -8057,7 +8057,7 @@ unported	packages/effect/test/schema/Schema.test.ts	9330	it	single-element array
 unported	packages/effect/test/schema/Schema.test.ts	9343	it	multi-element array groups into a Composite	
 unported	packages/effect/test/schema/Schema.test.ts	9361	it	array mixing string, Issue, and { path, issue }	
 unported	packages/effect/test/schema/Schema.test.ts	9383	it	Struct	
-ported	packages/effect/test/schema/Schema.test.ts	9401	it	Union	union_tries_first_then_second
+unported	packages/effect/test/schema/Schema.test.ts	9401	it	Union	
 unported	packages/effect/test/schema/Schema.test.ts	9433	it	should augment a union of structs	
 unported	packages/effect/test/schema/Schema.test.ts	9530	it	should support multiple tags	
 unported	packages/effect/test/schema/Schema.test.ts	9541	it	should throw on duplicate discriminants	
