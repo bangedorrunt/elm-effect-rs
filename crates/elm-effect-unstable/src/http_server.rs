@@ -314,19 +314,38 @@ fn match_path_with(
 // A route ending in `:name?` declares two routes, the parameter present and
 // absent, exactly as the pin expands `OPTIONAL_PARAM_REGEXP` does.
 //
-// Not carried from the pin: `*` wildcards, the case-insensitive option,
-// `maxParamLength`, `::` and `%` escaping in static parts, and real regex
-// evaluation (a `(...)` source is compared as the literal it holds, which is
-// what every carried row uses).
+// A `(...)` source is a real regex over its segment, compiled by `Regex` below.
+// A whole trailing `*` segment is the pin's wildcard, and `maxParamLength`
+// bounds a capture so a wildcard sibling can take over.
+//
+// Not carried from the pin: the `caseSensitive: false` default (this port
+// matches case-sensitively), `::` and `%` escaping in static parts, a wildcard
+// glued to text in its segment (`/foo*`), and the regex constructs `Regex`
+// names as unsupported.
 
-/// Router configuration (`Router.RouterConfig`). Both options default to false
-/// and apply to route patterns and request paths alike.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+/// Router configuration (`Router.RouterConfig`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct RouterConfig {
     /// Collapse a run of slashes into one (`/a//b` matches `/a/b`).
     pub ignore_duplicate_slashes: bool,
     /// Drop a trailing slash (`/a/` matches `/a`).
     pub ignore_trailing_slash: bool,
+    /// Longest a captured parameter may be (`maxParamLength`): a longer capture
+    /// fails that route, which is how a wildcard sibling takes over.
+    pub max_param_length: usize,
+}
+
+impl Default for RouterConfig {
+    /// The pin's own defaults: both slash options on and a parameter capped at
+    /// 100 characters. Its `caseSensitive: false` is not carried, so this port
+    /// stays case-sensitive.
+    fn default() -> Self {
+        Self {
+            ignore_duplicate_slashes: true,
+            ignore_trailing_slash: true,
+            max_param_length: 100,
+        }
+    }
 }
 
 /// Why a route registration was refused (`Router.on`).
@@ -339,9 +358,14 @@ pub enum RouteError {
     /// An optional parameter with something behind it (`Optional Parameter
     /// needs to be the last parameter of the path`).
     OptionalNotLast { pattern: String },
-    /// The pattern uses a feature this slice does not carry (`*` wildcards).
+    /// A wildcard that is not the pattern's last segment (`Wildcard must be
+    /// the last character in the route`).
+    WildcardNotLast { pattern: String },
+    /// The pattern uses a feature this slice does not carry: a wildcard glued
+    /// to text in its segment, or a regex construct `Regex` refuses.
     Unsupported { pattern: String },
-    /// A `(` in the pattern has no matching `)` (`Invalid regexp expression`).
+    /// A `(` in the pattern has no matching `)`, or a regex source that does
+    /// not parse (`Invalid regexp expression`).
     Invalid { pattern: String },
 }
 
@@ -355,7 +379,7 @@ pub struct Found<A> {
 }
 
 /// One piece of a path segment: literal text, or a captured parameter.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug)]
 enum SegmentPart {
     /// Literal text, matched byte for byte.
     Literal(String),
@@ -365,14 +389,16 @@ enum SegmentPart {
     Capture {
         /// Parameter name.
         name: String,
-        /// The `(...)` source, compared as a literal.
-        regex: Option<String>,
+        /// The compiled `(...)` source, when the parameter has one.
+        regex: Option<Regex>,
         /// What this capture refuses to contain. The pin compiles the first
         /// parameter of a segment to `(.*?)` and a later one to
         /// `(sep|(?:(?!sep).)*)`, so the separator before it stays out of the
         /// capture: `:p1-:p2` splits `foo-bar-baz` into `foo-bar` and `baz`.
         separator: Option<String>,
     },
+    /// A whole `*` segment: it takes the rest of the path, slashes included.
+    Wildcard,
 }
 
 /// One `:name` inside a segment, with the static run that follows it.
@@ -392,6 +418,9 @@ struct Pattern<A> {
     /// The pin's `isRegex` for the node this pattern creates: a regex source or
     /// any static part after a parameter makes the node a regex node.
     is_regex: bool,
+    /// Whether the pattern ends in a wildcard segment, which the pin's walk
+    /// tries after every parametric child.
+    wildcard: bool,
     /// Length of the pattern's trailing static ending (the pin's `staticSuffix`).
     static_suffix_len: usize,
     handler: A,
@@ -402,12 +431,27 @@ impl<A> Pattern<A> {
         let mut key = String::new();
         let mut segments = Vec::new();
         let mut is_regex = false;
+        let mut wildcard = false;
         let mut static_suffix_len = 0;
+        let total = path.split('/').count();
         for (index, segment) in path.split('/').enumerate() {
             if index > 0 {
                 key.push('/');
             }
-            if segment.contains('*') {
+            // A wildcard is a whole segment, and only the last one: a `*`
+            // inside a parameter's source is that source's quantifier.
+            if segment == "*" {
+                if index + 1 != total {
+                    return Err(RouteError::WildcardNotLast {
+                        pattern: path.to_owned(),
+                    });
+                }
+                key.push('*');
+                wildcard = true;
+                segments.push(vec![SegmentPart::Wildcard]);
+                continue;
+            }
+            if has_bare_wildcard(segment) {
                 return Err(RouteError::Unsupported {
                     pattern: path.to_owned(),
                 });
@@ -452,6 +496,17 @@ impl<A> Pattern<A> {
             let mut safe = true;
             let mut separator = String::new();
             for group in groups {
+                let compiled = match group.regex.as_deref() {
+                    Some(source) => Some(Regex::compile(source).map_err(|error| match error {
+                        RegexError::Malformed => RouteError::Invalid {
+                            pattern: path.to_owned(),
+                        },
+                        RegexError::Unsupported => RouteError::Unsupported {
+                            pattern: path.to_owned(),
+                        },
+                    })?),
+                    None => None,
+                };
                 let tempered = if group.regex.is_some() {
                     safe = true;
                     None
@@ -466,7 +521,7 @@ impl<A> Pattern<A> {
                 };
                 parts.push(SegmentPart::Capture {
                     name: group.name,
-                    regex: group.regex,
+                    regex: compiled,
                     separator: tempered,
                 });
                 if !group.trailing.is_empty() {
@@ -481,19 +536,36 @@ impl<A> Pattern<A> {
             key,
             segments,
             is_regex,
+            wildcard,
             static_suffix_len,
             handler,
         })
     }
 
     /// Match this route against an already-split path.
-    fn match_segments(&self, path_segments: &[&str]) -> Option<Vec<(String, String)>> {
+    fn match_segments(
+        &self,
+        path_segments: &[&str],
+        max_param_length: usize,
+    ) -> Option<Vec<(String, String)>> {
+        let mut params = Vec::new();
+        for (position, parts) in self.segments.iter().enumerate() {
+            // A trailing wildcard takes the rest of the path, slashes included,
+            // and needs a segment to start at (the pin reaches it only after
+            // the slash that precedes it).
+            if parts.len() == 1 && matches!(parts[0], SegmentPart::Wildcard) {
+                path_segments.get(position)?;
+                params.push(("*".to_owned(), path_segments[position..].join("/")));
+                return Some(params);
+            }
+            params.extend(match_parts(
+                parts,
+                path_segments.get(position)?,
+                max_param_length,
+            )?);
+        }
         if self.segments.len() != path_segments.len() {
             return None;
-        }
-        let mut params = Vec::new();
-        for (parts, segment) in self.segments.iter().zip(path_segments) {
-            params.extend(match_parts(parts, segment)?);
         }
         Some(params)
     }
@@ -575,9 +647,28 @@ fn trim_anchors(source: &str) -> String {
 
 /// Whether a segment is pure literal text (the pin's static child node).
 fn is_static_segment(parts: &[SegmentPart]) -> bool {
-    !parts
+    parts
         .iter()
-        .any(|part| matches!(part, SegmentPart::Capture { .. }))
+        .all(|part| matches!(part, SegmentPart::Literal(_)))
+}
+
+/// Whether a segment carries a `*` outside a parameter's regex source (only the
+/// whole-segment wildcard is carried).
+fn has_bare_wildcard(segment: &str) -> bool {
+    let bytes = segment.as_bytes();
+    let mut index = 0;
+    while index < bytes.len() {
+        match bytes[index] {
+            b'\\' => index += 2,
+            b'(' => match closing_paren(segment, index) {
+                Some(end) => index = end + 1,
+                None => return false,
+            },
+            b'*' => return true,
+            _ => index += 1,
+        }
+    }
+    false
 }
 
 /// Route order for `find`: static segments first (the pin's walk tries a static
@@ -595,59 +686,78 @@ fn compare_routes<A>(left: &Pattern<A>, right: &Pattern<A>) -> std::cmp::Orderin
             };
         }
     }
-    (!left.is_regex, usize::MAX - left.static_suffix_len)
-        .cmp(&(!right.is_regex, usize::MAX - right.static_suffix_len))
+    // A wildcard is the last child the pin's walk tries, after every
+    // parametric one.
+    (
+        !left.is_regex,
+        usize::MAX - left.static_suffix_len,
+        left.wildcard,
+    )
+        .cmp(&(
+            !right.is_regex,
+            usize::MAX - right.static_suffix_len,
+            right.wildcard,
+        ))
 }
 
 /// Match one segment's parts against one path segment, returning the captures
-/// in pattern order.
-fn match_parts(parts: &[SegmentPart], rest: &str) -> Option<Vec<(String, String)>> {
+/// in pattern order. A capture longer than `max_param_length` fails the route,
+/// as the pin's `maxParamLength` does.
+fn match_parts(
+    parts: &[SegmentPart],
+    rest: &str,
+    max_param_length: usize,
+) -> Option<Vec<(String, String)>> {
     let Some((first, tail)) = parts.split_first() else {
         return rest.is_empty().then(Vec::new);
     };
     match first {
-        SegmentPart::Literal(text) => match_parts(tail, rest.strip_prefix(text.as_str())?),
+        SegmentPart::Literal(text) => {
+            match_parts(tail, rest.strip_prefix(text.as_str())?, max_param_length)
+        }
+        // Only `match_segments` places a wildcard, in the pattern's last segment.
+        SegmentPart::Wildcard => None,
         SegmentPart::Capture {
             name,
             regex,
             separator,
         } => {
-            // A source compared as the literal it holds: the capture is exactly
-            // that text, so one attempt is enough.
-            if let Some(source) = regex {
-                let remainder = rest.strip_prefix(source.as_str())?;
-                let mut params = vec![(name.clone(), source.clone())];
-                params.extend(match_parts(tail, remainder)?);
-                return Some(params);
-            }
             let mut ends: Vec<usize> = Vec::new();
-            match separator {
-                // Lazy: shortest capture first, the pin's `(.*?)`.
-                None => ends.extend(
-                    rest.char_indices()
-                        .map(|(index, _)| index)
-                        .chain([rest.len()]),
-                ),
-                // Tempered: the separator itself, then the longest run free of
-                // it, giving a character back at a time.
-                Some(separator) => {
-                    if rest.starts_with(separator.as_str()) {
-                        ends.push(separator.len());
+            match regex {
+                // The source is a real regex: every length it can match from
+                // here, in the engine's own order (a greedy repeat first).
+                Some(source) => ends.extend(source.ends(rest, 0)),
+                None => match separator {
+                    // Lazy: shortest capture first, the pin's `(.*?)`.
+                    None => ends.extend(
+                        rest.char_indices()
+                            .map(|(index, _)| index)
+                            .chain([rest.len()]),
+                    ),
+                    // Tempered: the separator itself, then the longest run free
+                    // of it, giving a character back at a time.
+                    Some(separator) => {
+                        if rest.starts_with(separator.as_str()) {
+                            ends.push(separator.len());
+                        }
+                        let limit = rest.find(separator.as_str()).unwrap_or(rest.len());
+                        let mut boundaries: Vec<usize> = rest
+                            .char_indices()
+                            .map(|(index, _)| index)
+                            .take_while(|index| *index <= limit)
+                            .collect();
+                        if boundaries.last() != Some(&limit) {
+                            boundaries.push(limit);
+                        }
+                        ends.extend(boundaries.into_iter().rev());
                     }
-                    let limit = rest.find(separator.as_str()).unwrap_or(rest.len());
-                    let mut boundaries: Vec<usize> = rest
-                        .char_indices()
-                        .map(|(index, _)| index)
-                        .take_while(|index| *index <= limit)
-                        .collect();
-                    if boundaries.last() != Some(&limit) {
-                        boundaries.push(limit);
-                    }
-                    ends.extend(boundaries.into_iter().rev());
-                }
+                },
             }
             for end in ends {
-                if let Some(mut params) = match_parts(tail, &rest[end..]) {
+                if end > max_param_length {
+                    continue;
+                }
+                if let Some(mut params) = match_parts(tail, &rest[end..], max_param_length) {
                     let mut out = vec![(name.clone(), rest[..end].to_owned())];
                     out.append(&mut params);
                     return Some(out);
@@ -732,6 +842,365 @@ fn normalize_slashes(path: &str, config: &RouterConfig) -> String {
         text.pop();
     }
     text
+}
+
+// -- Route-parameter regex sources ----------------------------------------
+//
+// The pin hands each `(...)` source to `new RegExp("^" + source + "$")` and
+// reads the text the source matched. This is the subset a route pattern needs:
+// literals, `.`, the class escapes (`\d \D \w \W \s \S`), escaped punctuation,
+// groups, alternation, the `* + ?` quantifiers, `^`/`$`, and the `(?= )` /
+// `(?! )` lookaheads. A construct outside it is refused when the route is
+// registered (`[`, `{`, a backreference, a lookbehind), never read as a
+// literal, so a pattern this port cannot honor is a loud error and not a route
+// that quietly matches the wrong paths.
+//
+// ponytail: backtracking with no memoization, so a source like `(a*)*` can
+// explore deeply. Route patterns are written by the app rather than the
+// request, and the carried rows stay linear; a memoized scan is the upgrade
+// path if a hostile pattern ever matters.
+
+/// A compiled route-parameter source.
+#[derive(Clone, Debug)]
+struct Regex {
+    /// Top-level alternatives, in source order.
+    alternatives: Vec<Vec<Piece>>,
+}
+
+/// Why a source could not be compiled.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum RegexError {
+    /// The source is malformed: an unclosed group, or a quantifier with
+    /// nothing to repeat.
+    Malformed,
+    /// The source uses a construct this slice does not carry.
+    Unsupported,
+}
+
+/// One unit of a compiled source.
+#[derive(Clone, Debug)]
+enum Piece {
+    /// One character, matched exactly.
+    Char(char),
+    /// `.`: any character but a line break, which no request path holds.
+    Any,
+    /// A class from `\d`, `\D`, `\w`, `\W`, `\s`, or `\S`.
+    Class(Class),
+    /// A `(...)` group, matching what its alternatives match.
+    Group(Box<Regex>),
+    /// A `(?= )` or `(?! )` lookahead: zero width.
+    Look {
+        ahead: Box<Regex>,
+        negative: bool,
+    },
+    /// `^` and `$` inside a source.
+    AnchorStart,
+    AnchorEnd,
+    /// A quantified piece.
+    Repeat {
+        piece: Box<Piece>,
+        min: usize,
+        max: Option<usize>,
+        greedy: bool,
+    },
+}
+
+/// The character classes a route pattern can name (`\d` and friends).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Class {
+    Digit,
+    NotDigit,
+    Word,
+    NotWord,
+    Space,
+    NotSpace,
+}
+
+impl Class {
+    /// Whether `character` is in the class. `\w` follows JavaScript's ASCII
+    /// word rule rather than Rust's Unicode one.
+    fn matches(self, character: char) -> bool {
+        let digit = character.is_ascii_digit();
+        let word = character.is_ascii_alphanumeric() || character == '_';
+        let space = character.is_whitespace();
+        match self {
+            Class::Digit => digit,
+            Class::NotDigit => !digit,
+            Class::Word => word,
+            Class::NotWord => !word,
+            Class::Space => space,
+            Class::NotSpace => !space,
+        }
+    }
+}
+
+impl Regex {
+    /// Compile one `(...)` source: the text between the pin's parentheses,
+    /// with its edge anchors already trimmed.
+    fn compile(source: &str) -> Result<Self, RegexError> {
+        let mut cursor = Source {
+            chars: source.chars().collect(),
+            at: 0,
+        };
+        let compiled = cursor.alternatives()?;
+        if cursor.at != cursor.chars.len() {
+            // A `)` with no `(` before it.
+            return Err(RegexError::Malformed);
+        }
+        Ok(compiled)
+    }
+
+    /// The end of every match this source can make in `text` from `start`, in
+    /// the engine's preference order: a greedy repeat offers its longest first.
+    fn ends(&self, text: &str, start: usize) -> Vec<usize> {
+        let mut out = Vec::new();
+        for alternative in &self.alternatives {
+            out.extend(match_sequence(alternative, text, start));
+        }
+        out
+    }
+}
+
+/// A cursor over one source's characters.
+struct Source {
+    chars: Vec<char>,
+    at: usize,
+}
+
+impl Source {
+    fn peek(&self) -> Option<char> {
+        self.chars.get(self.at).copied()
+    }
+
+    fn alternatives(&mut self) -> Result<Regex, RegexError> {
+        let mut out = vec![self.sequence()?];
+        while self.peek() == Some('|') {
+            self.at += 1;
+            out.push(self.sequence()?);
+        }
+        Ok(Regex { alternatives: out })
+    }
+
+    fn sequence(&mut self) -> Result<Vec<Piece>, RegexError> {
+        let mut out = Vec::new();
+        loop {
+            match self.peek() {
+                None | Some('|') | Some(')') => return Ok(out),
+                _ => out.push(self.piece()?),
+            }
+        }
+    }
+
+    fn piece(&mut self) -> Result<Piece, RegexError> {
+        let atom = self.atom()?;
+        let (min, max) = match self.peek() {
+            Some('*') => {
+                self.at += 1;
+                (0, None)
+            }
+            Some('+') => {
+                self.at += 1;
+                (1, None)
+            }
+            Some('?') => {
+                self.at += 1;
+                (0, Some(1))
+            }
+            _ => return Ok(atom),
+        };
+        // A trailing `?` makes the quantifier lazy, and a lazy repeat offers
+        // its shortest match first.
+        let greedy = if self.peek() == Some('?') {
+            self.at += 1;
+            false
+        } else {
+            true
+        };
+        Ok(Piece::Repeat {
+            piece: Box::new(atom),
+            min,
+            max,
+            greedy,
+        })
+    }
+
+    fn atom(&mut self) -> Result<Piece, RegexError> {
+        let character = self.peek().ok_or(RegexError::Malformed)?;
+        self.at += 1;
+        Ok(match character {
+            '.' => Piece::Any,
+            '^' => Piece::AnchorStart,
+            '$' => Piece::AnchorEnd,
+            '(' => {
+                let mut negative = false;
+                let mut look = false;
+                if self.peek() == Some('?') {
+                    self.at += 1;
+                    match self.peek() {
+                        Some('=') => look = true,
+                        Some('!') => {
+                            look = true;
+                            negative = true;
+                        }
+                        // `(?:` is the plain sequence; flags, group names, and
+                        // lookbehind are not carried.
+                        Some(':') => {}
+                        _ => return Err(RegexError::Unsupported),
+                    }
+                    self.at += 1;
+                }
+                let inner = self.alternatives()?;
+                if self.peek() != Some(')') {
+                    return Err(RegexError::Malformed);
+                }
+                self.at += 1;
+                if look {
+                    Piece::Look {
+                        ahead: Box::new(inner),
+                        negative,
+                    }
+                } else {
+                    Piece::Group(Box::new(inner))
+                }
+            }
+            ')' => return Err(RegexError::Malformed),
+            '\\' => self.escape()?,
+            // A character class and a repetition count are outside the carried
+            // subset, as is a quantifier with nothing to repeat.
+            '[' | '{' => return Err(RegexError::Unsupported),
+            '*' | '+' | '?' => return Err(RegexError::Malformed),
+            other => Piece::Char(other),
+        })
+    }
+
+    fn escape(&mut self) -> Result<Piece, RegexError> {
+        let character = self.peek().ok_or(RegexError::Malformed)?;
+        self.at += 1;
+        Ok(match character {
+            'd' => Piece::Class(Class::Digit),
+            'D' => Piece::Class(Class::NotDigit),
+            'w' => Piece::Class(Class::Word),
+            'W' => Piece::Class(Class::NotWord),
+            's' => Piece::Class(Class::Space),
+            'S' => Piece::Class(Class::NotSpace),
+            'n' => Piece::Char('\n'),
+            'r' => Piece::Char('\r'),
+            't' => Piece::Char('\t'),
+            // A backreference, a word boundary, a unicode escape, or a property
+            // escape: all outside the carried subset.
+            '0'..='9' | 'b' | 'B' | 'u' | 'x' | 'p' | 'P' | 'k' => {
+                return Err(RegexError::Unsupported);
+            }
+            // Anything else is the literal character (`\.`, `\-`, `\/`).
+            other => Piece::Char(other),
+        })
+    }
+}
+
+/// The ends a sequence of pieces can reach from `start`, in preference order.
+fn match_sequence(pieces: &[Piece], text: &str, start: usize) -> Vec<usize> {
+    match pieces.split_first() {
+        None => vec![start],
+        Some((first, rest)) => {
+            let mut out = Vec::new();
+            for end in match_piece(first, text, start) {
+                out.extend(match_sequence(rest, text, end));
+            }
+            out
+        }
+    }
+}
+
+/// The ends one piece can reach from `start`, in preference order.
+fn match_piece(piece: &Piece, text: &str, start: usize) -> Vec<usize> {
+    let next = text[start..].chars().next();
+    match piece {
+        Piece::Char(expected) => match next {
+            Some(found) if found == *expected => vec![start + found.len_utf8()],
+            _ => Vec::new(),
+        },
+        Piece::Any => match next {
+            Some(found) if found != '\n' && found != '\r' => vec![start + found.len_utf8()],
+            _ => Vec::new(),
+        },
+        Piece::Class(class) => match next {
+            Some(found) if class.matches(found) => vec![start + found.len_utf8()],
+            _ => Vec::new(),
+        },
+        Piece::Group(inner) => inner.ends(text, start),
+        Piece::Look { ahead, negative } => {
+            let matched = !ahead.ends(text, start).is_empty();
+            if matched == *negative {
+                Vec::new()
+            } else {
+                vec![start]
+            }
+        }
+        Piece::AnchorStart => {
+            if start == 0 {
+                vec![start]
+            } else {
+                Vec::new()
+            }
+        }
+        Piece::AnchorEnd => {
+            if start == text.len() {
+                vec![start]
+            } else {
+                Vec::new()
+            }
+        }
+        Piece::Repeat {
+            piece,
+            min,
+            max,
+            greedy,
+        } => repeat_ends(piece, text, start, *min, *max, *greedy),
+    }
+}
+
+/// The ends a quantified piece can reach from `start`. A piece that matches
+/// nothing cannot extend the frontier, which is what keeps an unbounded repeat
+/// terminating.
+fn repeat_ends(
+    piece: &Piece,
+    text: &str,
+    start: usize,
+    min: usize,
+    max: Option<usize>,
+    greedy: bool,
+) -> Vec<usize> {
+    let mut ends: Vec<usize> = Vec::new();
+    let mut frontier = vec![start];
+    let mut repeats = 0usize;
+    loop {
+        if repeats >= min {
+            ends.extend(frontier.iter().copied());
+        }
+        if Some(repeats) == max {
+            break;
+        }
+        let mut next: Vec<usize> = Vec::new();
+        for position in &frontier {
+            for end in match_piece(piece, text, *position) {
+                if end > *position && !next.contains(&end) {
+                    next.push(end);
+                }
+            }
+        }
+        if next.is_empty() {
+            break;
+        }
+        next.sort_unstable();
+        frontier = next;
+        repeats += 1;
+    }
+    ends.sort_unstable();
+    ends.dedup();
+    if greedy {
+        ends.reverse();
+    }
+    ends
 }
 
 /// A pattern router (`FindMyWay`): registers routes by method and pattern, and
@@ -820,10 +1289,12 @@ impl<A: Clone> Router<A> {
         // too.
         candidates.sort_by(|left, right| compare_routes(left, right));
         candidates.into_iter().find_map(|route| {
-            route.match_segments(&segments).map(|params| Found {
-                handler: route.handler.clone(),
-                params,
-            })
+            route
+                .match_segments(&segments, self.config.max_param_length)
+                .map(|params| Found {
+                    handler: route.handler.clone(),
+                    params,
+                })
         })
     }
 

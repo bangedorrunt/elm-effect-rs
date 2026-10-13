@@ -6475,22 +6475,22 @@ ported	packages/effect/test/http/FindMyWay/querystring.test.ts	4	it	should sanit
 ported	packages/effect/test/http/FindMyWay/querystring.test.ts	13	it	should sanitize the url - hash	match_path_extracts_params
 ported	packages/effect/test/http/FindMyWay/querystring.test.ts	23	it	handles path and query separated by ;	semicolon_separates_path_from_query
 not-applicable	packages/effect/test/http/FindMyWay/querystring.test.ts	32	it	handles %	the row parses a path's query part through the router's find and asserts the decoded searchParams; this port has no querystring parser in its FindMyWay surface, so there is nothing to decode
-unported	packages/effect/test/http/FindMyWay/regex.test.ts	4	it	route with matching regex	
-unported	packages/effect/test/http/FindMyWay/regex.test.ts	10	it	route without matching regex	
-unported	packages/effect/test/http/FindMyWay/regex.test.ts	16	it	route with an extension regex 2	
-unported	packages/effect/test/http/FindMyWay/regex.test.ts	26	it	nested route with matching regex	
-unported	packages/effect/test/http/FindMyWay/regex.test.ts	32	it	mixed nested route with matching regex	
-unported	packages/effect/test/http/FindMyWay/regex.test.ts	41	it	mixed nested route with double matching regex	
-unported	packages/effect/test/http/FindMyWay/regex.test.ts	50	it	mixed nested route without double matching regex	
-unported	packages/effect/test/http/FindMyWay/regex.test.ts	56	it	route with an extension regex	
-unported	packages/effect/test/http/FindMyWay/regex.test.ts	62	it	route with an extension regex - no match	
+ported	packages/effect/test/http/FindMyWay/regex.test.ts	4	it	route with matching regex	router_regex_param_matches_within_its_source
+ported	packages/effect/test/http/FindMyWay/regex.test.ts	10	it	route without matching regex	router_regex_param_rejects_a_non_match
+ported	packages/effect/test/http/FindMyWay/regex.test.ts	16	it	route with an extension regex 2	router_class_regexes_split_two_routes
+ported	packages/effect/test/http/FindMyWay/regex.test.ts	26	it	nested route with matching regex	router_regex_param_in_a_nested_route
+ported	packages/effect/test/http/FindMyWay/regex.test.ts	32	it	mixed nested route with matching regex	router_nested_regex_and_plain_params_capture_in_order
+ported	packages/effect/test/http/FindMyWay/regex.test.ts	41	it	mixed nested route with double matching regex	router_two_regex_params_capture
+ported	packages/effect/test/http/FindMyWay/regex.test.ts	50	it	mixed nested route without double matching regex	router_regex_params_reject_a_non_match_segment
+ported	packages/effect/test/http/FindMyWay/regex.test.ts	56	it	route with an extension regex	router_regex_before_a_static_ending
+ported	packages/effect/test/http/FindMyWay/regex.test.ts	62	it	route with an extension regex - no match	router_regex_before_a_static_ending_rejects_non_digits
 ported	packages/effect/test/http/FindMyWay/regex.test.ts	68	it	safe decodeURIComponent	decode_component_rejects_truncated_escapes
 ported	packages/effect/test/http/FindMyWay/regex.test.ts	74	it	rejects truncated percent encodings	decode_component_rejects_truncated_escapes
-unported	packages/effect/test/http/FindMyWay/regex.test.ts	82	it	does not match an empty segment against a non-empty regex	
-unported	packages/effect/test/http/FindMyWay/regex.test.ts	91	it	matches undefined regex captures as empty strings	
-unported	packages/effect/test/http/FindMyWay/regex.test.ts	102	it	falls back when a parameter exceeds maxParamLength	
-unported	packages/effect/test/http/FindMyWay/regex.test.ts	112	it	avoids backtracking across static parameter separators	
-unported	packages/effect/test/http/FindMyWay/regex.test.ts	119	it	avoids backtracking across mixed static parameter separators	
+ported	packages/effect/test/http/FindMyWay/regex.test.ts	82	it	does not match an empty segment against a non-empty regex	router_regex_param_rejects_an_empty_segment
+ported	packages/effect/test/http/FindMyWay/regex.test.ts	91	it	matches undefined regex captures as empty strings	router_regex_param_captures_an_empty_match
+ported	packages/effect/test/http/FindMyWay/regex.test.ts	102	it	falls back when a parameter exceeds maxParamLength	router_falls_back_to_a_wildcard_past_max_param_length
+ported	packages/effect/test/http/FindMyWay/regex.test.ts	112	it	avoids backtracking across static parameter separators	router_tempered_capture_does_not_backtrack_over_a_separator_run
+ported	packages/effect/test/http/FindMyWay/regex.test.ts	119	it	avoids backtracking across mixed static parameter separators	router_tempered_capture_does_not_backtrack_over_mixed_separators
 not-applicable	packages/effect/test/http/Headers.test.ts	9	it	serializer annotation	the row builds the header serializer on Schema.toIso and Schema.Headers; this port has no schema AST, so there is no serializer annotation to select
 not-applicable	packages/effect/test/http/Headers.test.ts	26	it	does not expose inspectable prototype methods during for..in iteration	N/A: for..in prototype iteration is JS-object-specific
 ported	packages/effect/test/http/Headers.test.ts	37	it	remove	headers_are_case_insensitive_multimap
