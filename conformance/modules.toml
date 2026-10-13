@@ -1068,7 +1068,7 @@ tests = ["packages/effect/test/TxSemaphore.test.ts"]
 [[module]]
 path = "packages/effect/src/TxSubscriptionRef.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/TxSubscriptionRef.test.ts"]

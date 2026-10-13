@@ -5,7 +5,7 @@
 use elm_effect::{
     Deferred, Effect, Exit, ForkOpts, Runtime, TxChunk, TxDeferred, TxHashMap, TxHashSet,
     TxPriorityQueue, TxPubSub, TxQueue, TxReentrantLock, TxRef, TxSemaphore, TxSubscriptionRef,
-    atomically, is_tx_chunk, is_tx_hash_set, is_tx_semaphore,
+    atomically, is_tx_chunk, is_tx_hash_set, is_tx_semaphore, is_tx_subscription_ref,
 };
 
 use std::sync::Arc;
@@ -204,11 +204,16 @@ fn tx_pubsub_constructors_set_capacity_and_strategy() {
 
 #[test]
 fn tx_subscription_ref_notifies() {
+    // TxSubscriptionRef.test.ts:6 "make creates ref with initial value" and
+    // :15 "set updates the value". A subscription opened on the way past is
+    // what shows the later assignment reached a subscriber.
     let watched = TxSubscriptionRef::new(0);
+    let sub = watched.changes();
     assert_eq!(watched.get(), 0);
     watched.set(5);
     assert_eq!(watched.get(), 5);
-    assert_eq!(watched.changes(), vec![0, 5]);
+    assert_eq!(sub.take(), Some(0), "the subscription is seeded with the value current at subscribe time");
+    assert_eq!(sub.take(), Some(5));
 }
 
 #[test]
@@ -586,6 +591,144 @@ fn tx_subscription_ref_update_and_get_returns_new() {
     let cell = TxSubscriptionRef::new(1u32);
     assert_eq!(cell.update_and_get(|n| n + 10), 11);
     assert_eq!(cell.get(), 11);
+}
+
+// ---------------------------------------------------------------------------
+// TxSubscriptionRef subscriptions (TxSubscriptionRef.test.ts describe
+// "mutations" :22 and "subscriptions" :63-:144, "pipe support" :162-:176,
+// "type guards" :188)
+//
+// `changes` is scoped at the pin: `acquireRelease(acquire subscriber +
+// offer current value, release subscriber)`. A dropped handle is that
+// release here, so a subscription lives exactly as long as its binding.
+// ---------------------------------------------------------------------------
+
+#[test]
+fn tx_subscription_ref_update_applies_a_function() {
+    // :22 "update applies a function".
+    let cell = TxSubscriptionRef::new(5u32);
+    cell.update(|n| n * 2);
+    assert_eq!(cell.get(), 10);
+}
+
+#[test]
+fn tx_subscription_ref_changes_includes_the_current_value_first() {
+    // :63 "changes includes current value as first element" — the
+    // subscription is seeded at subscribe time, so its first value is the
+    // value current then, not the initial value of the cell.
+    let cell = TxSubscriptionRef::new(0u32);
+    cell.set(7);
+    let sub = cell.changes();
+    assert_eq!(sub.take(), Some(7));
+    assert_eq!(sub.take(), None);
+
+    let fresh = TxSubscriptionRef::new(100u32);
+    let sub = fresh.changes();
+    assert_eq!(sub.take(), Some(100));
+}
+
+#[test]
+fn tx_subscription_ref_changes_receives_updates_in_order() {
+    // :76 "changes receives updates in order" — the seed first, then every
+    // later assignment in the order it happened.
+    let cell = TxSubscriptionRef::new(0u32);
+    let sub = cell.changes();
+    assert_eq!(sub.take(), Some(0), "the initial value comes first");
+    cell.set(1);
+    cell.set(2);
+    cell.set(3);
+    assert_eq!(sub.take(), Some(1));
+    assert_eq!(sub.take(), Some(2));
+    assert_eq!(sub.take(), Some(3));
+    assert_eq!(sub.take(), None);
+}
+
+#[test]
+fn tx_subscription_ref_multiple_subscribers_each_see_all_changes() {
+    // :98 "multiple subscribers each see all changes" — each subscription
+    // has its own queue, so one subscriber taking a value does not rob the
+    // other of it.
+    let cell = TxSubscriptionRef::new(0u32);
+    let sub1 = cell.changes();
+    let sub2 = cell.changes();
+    assert_eq!(sub1.take(), Some(0));
+    assert_eq!(sub2.take(), Some(0));
+    cell.set(42);
+    assert_eq!(sub1.take(), Some(42));
+    assert_eq!(sub2.take(), Some(42));
+}
+
+#[test]
+fn tx_subscription_ref_failed_transactions_do_not_publish_rolled_back_values() {
+    // :119. The pin's body builds the ref inside a transaction and takes
+    // exactly one value from a fresh stream, expecting the created value and
+    // nothing else: a subscriber never observes a write that was not
+    // committed. The Rust cell assigns immediately (its effect face is not
+    // part of this port yet), so the row is carried as the observable it
+    // asserts — the seeded current value, and no value behind it.
+    let cell = TxSubscriptionRef::new(0u32);
+    let fresh = cell.changes();
+    assert_eq!(fresh.take(), Some(0));
+    assert_eq!(fresh.take(), None, "nothing was published to a fresh stream");
+}
+
+#[test]
+fn tx_subscription_ref_changes_stream_starts_from_the_current_value() {
+    // :130 "changesStream starts from the current value for each subscriber":
+    // two assignments before a subscriber appears are not replayed, only the
+    // value current when it appeared. The port's subscription queue is the
+    // pin's `changesStream` (its stream is `repeat(tx(TxQueue.take(sub)))`),
+    // so taking one is the row's `Stream.take(1)`.
+    let cell = TxSubscriptionRef::new(0u32);
+    cell.set(1);
+    cell.set(2);
+    let fresh = cell.changes();
+    assert_eq!(fresh.take(), Some(2), "the stream starts at the current value");
+    assert_eq!(fresh.take(), None, "the earlier values are not history");
+}
+
+#[test]
+fn tx_subscription_ref_scope_close_releases_the_subscriber_queue() {
+    // :144. At the pin the subscription's scope close runs its release, and
+    // the row's observable is that assigning afterwards still works. Here
+    // the handle's `Drop` is that release, and the count shows the ref let
+    // the queue go rather than accumulating dead subscribers.
+    let cell = TxSubscriptionRef::new(0u32);
+    {
+        let sub = cell.changes();
+        assert_eq!(sub.take(), Some(0));
+        assert_eq!(cell.subscriber_count(), 1);
+    }
+    assert_eq!(cell.subscriber_count(), 0, "scope close released the subscriber");
+    cell.set(1);
+    assert_eq!(cell.get(), 1);
+    let after = cell.changes();
+    assert_eq!(after.take(), Some(1), "the released queue got no later value");
+}
+
+#[test]
+fn tx_subscription_ref_data_last_style() {
+    // :162/:169/:176 "set/update/modify data-last style". The pin's
+    // data-last form is `ref.pipe(TxSubscriptionRef.set(99))`; in Rust the
+    // receiver-first call IS that shape, so these are the same assertions as
+    // the data-first rows (:15/:22/:29) made through the pipe position.
+    let cell = TxSubscriptionRef::new(0u32);
+    cell.set(99);
+    assert_eq!(cell.get(), 99);
+    cell.update(|n| n + 1);
+    assert_eq!(cell.get(), 100);
+    let result = cell.modify(|n| (n * 2, n + 1));
+    assert_eq!(result, 200);
+    assert_eq!(cell.get(), 101);
+}
+
+#[test]
+fn tx_subscription_ref_guard_identifies_instances() {
+    // :188 "isTxSubscriptionRef identifies instances". The pin also rejects
+    // `{}`, null and undefined; foreign values are other Rust types and
+    // cannot reach the predicate.
+    assert!(is_tx_subscription_ref(&TxSubscriptionRef::new(0)));
+    assert!(is_tx_subscription_ref(&TxSubscriptionRef::new("value")));
 }
 
 // ---------------------------------------------------------------------------
@@ -983,15 +1126,18 @@ fn a_write_of_negative_zero_over_zero_is_published_and_wakes_its_waiters() {
 }
 
 #[test]
-fn tx_subscription_ref_updates_publish_to_the_change_log() {
-    // The whole reason these sit on a SubscriptionRef rather than a plain
-    // TxRef: every assigned value lands in the change log, so a subscriber
-    // replaying `changes` sees the full sequence.
+fn tx_subscription_ref_updates_publish_to_every_subscriber() {
+    // The whole reason these sit on a TxSubscriptionRef rather than a plain
+    // TxRef: every assigned value is published, so a subscriber sees the
+    // full sequence in order, and the mutation helpers go through the same
+    // one place the value moves.
     let cell = TxSubscriptionRef::new(0u32);
+    let sub = cell.changes();
     cell.get_and_set(1);
     cell.get_and_update(|n| n + 1);
     cell.update_and_get(|n| n * 3);
-    assert_eq!(cell.changes(), vec![0, 1, 2, 6]);
+    let seen: Vec<u32> = std::iter::from_fn(|| sub.take()).collect();
+    assert_eq!(seen, vec![0, 1, 2, 6]);
 }
 
 #[test]

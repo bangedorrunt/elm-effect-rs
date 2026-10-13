@@ -4478,21 +4478,21 @@ not-applicable	packages/effect/test/TxSemaphore.test.ts	238	it.effect	withPermit
 ported	packages/effect/test/TxSemaphore.test.ts	271	it.effect	operations are atomic within transactions	tx_semaphore_ops_stay_atomic_in_transactions
 ported	packages/effect/test/TxSubscriptionRef.test.ts	6	it.effect	make creates ref with initial value	tx_subscription_ref_notifies
 ported	packages/effect/test/TxSubscriptionRef.test.ts	15	it.effect	set updates the value	tx_subscription_ref_notifies
-unported	packages/effect/test/TxSubscriptionRef.test.ts	22	it.effect	update applies a function	
+ported	packages/effect/test/TxSubscriptionRef.test.ts	22	it.effect	update applies a function	tx_subscription_ref_update_applies_a_function
 ported	packages/effect/test/TxSubscriptionRef.test.ts	29	it.effect	modify returns a value and updates	tx_subscription_ref_modify_returns_value_and_updates
 ported	packages/effect/test/TxSubscriptionRef.test.ts	37	it.effect	getAndSet returns old value and sets new	tx_subscription_ref_get_and_set_returns_old_value
 ported	packages/effect/test/TxSubscriptionRef.test.ts	45	it.effect	getAndUpdate returns old value and applies function	tx_subscription_ref_get_and_update_returns_old_and_applies
 ported	packages/effect/test/TxSubscriptionRef.test.ts	53	it.effect	updateAndGet applies function and returns new value	tx_subscription_ref_update_and_get_returns_new
-unported	packages/effect/test/TxSubscriptionRef.test.ts	63	it.effect	changes includes current value as first element	
-unported	packages/effect/test/TxSubscriptionRef.test.ts	76	it.effect	changes receives updates in order	
-unported	packages/effect/test/TxSubscriptionRef.test.ts	98	it.effect	multiple subscribers each see all changes	
-unported	packages/effect/test/TxSubscriptionRef.test.ts	119	it.effect	failed transactions do not publish rolled back values	
-unported	packages/effect/test/TxSubscriptionRef.test.ts	130	it.effect	changesStream starts from the current value for each subscriber	
-unported	packages/effect/test/TxSubscriptionRef.test.ts	144	it.effect	scope close releases the subscriber queue	
-unported	packages/effect/test/TxSubscriptionRef.test.ts	162	it.effect	set data-last style	
-unported	packages/effect/test/TxSubscriptionRef.test.ts	169	it.effect	update data-last style	
-unported	packages/effect/test/TxSubscriptionRef.test.ts	176	it.effect	modify data-last style	
-unported	packages/effect/test/TxSubscriptionRef.test.ts	188	it.effect	isTxSubscriptionRef identifies instances	
+ported	packages/effect/test/TxSubscriptionRef.test.ts	63	it.effect	changes includes current value as first element	tx_subscription_ref_changes_includes_the_current_value_first
+ported	packages/effect/test/TxSubscriptionRef.test.ts	76	it.effect	changes receives updates in order	tx_subscription_ref_changes_receives_updates_in_order
+ported	packages/effect/test/TxSubscriptionRef.test.ts	98	it.effect	multiple subscribers each see all changes	tx_subscription_ref_multiple_subscribers_each_see_all_changes
+ported	packages/effect/test/TxSubscriptionRef.test.ts	119	it.effect	failed transactions do not publish rolled back values	tx_subscription_ref_failed_transactions_do_not_publish_rolled_back_values
+ported	packages/effect/test/TxSubscriptionRef.test.ts	130	it.effect	changesStream starts from the current value for each subscriber	tx_subscription_ref_changes_stream_starts_from_the_current_value
+ported	packages/effect/test/TxSubscriptionRef.test.ts	144	it.effect	scope close releases the subscriber queue	tx_subscription_ref_scope_close_releases_the_subscriber_queue
+ported	packages/effect/test/TxSubscriptionRef.test.ts	162	it.effect	set data-last style	tx_subscription_ref_data_last_style
+ported	packages/effect/test/TxSubscriptionRef.test.ts	169	it.effect	update data-last style	tx_subscription_ref_data_last_style
+ported	packages/effect/test/TxSubscriptionRef.test.ts	176	it.effect	modify data-last style	tx_subscription_ref_data_last_style
+ported	packages/effect/test/TxSubscriptionRef.test.ts	188	it.effect	isTxSubscriptionRef identifies instances	tx_subscription_ref_guard_identifies_instances
 ported	packages/effect/test/UndefinedOr.test.ts	6	it	map	undefined_or_behaves_as_option
 ported	packages/effect/test/UndefinedOr.test.ts	14	it	match	undefined_or_match_reducer
 ported	packages/effect/test/UndefinedOr.test.ts	19	it	getOrThrowWith	undefined_or_behaves_as_option

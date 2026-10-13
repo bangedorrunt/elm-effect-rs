@@ -32,6 +32,9 @@ thread_local! {
 /// never share a comparison.
 static NEXT_TX_ID: AtomicU64 = AtomicU64::new(1);
 
+/// Ids for `TxSubscriptionRef` subscriptions, on the same terms.
+static NEXT_SUB_ID: AtomicU64 = AtomicU64::new(1);
+
 /// Run `body` as one atomic, isolated transaction.
 pub fn atomically<R>(body: impl FnOnce() -> R) -> R {
     if IN_TX.with(|flag| flag.get()) {
@@ -1648,19 +1651,70 @@ impl<T> TxPubSub<T> {
     }
 }
 
-/// A transactional cell remembering every assigned value: subscribers
-/// replay the full history including the initial value.
+/// One live subscription's queue, shared between the ref (which offers into
+/// it) and the handle (which takes from it and deregisters it).
+type SubscriberQueue<T> = Arc<TxQueue<T>>;
+
+/// The ref's live subscriptions, keyed by the id each handle deregisters
+/// with. Shared with every handle so a release can remove its own entry
+/// without a back-reference to the ref it came from.
+type SubscriberRegistry<T> = Arc<Mutex<Vec<(u64, SubscriberQueue<T>)>>>;
+
+/// One live subscription to a [`TxSubscriptionRef`]: its own queue, seeded
+/// with the value current when it subscribed, then every later assigned
+/// value in order. Dropping the handle is the pin's scope close (the
+/// `release` of its `acquireRelease`); the ref forgets the queue and stops
+/// offering to it.
+pub struct TxChangeSubscription<T> {
+    id: u64,
+    queue: SubscriberQueue<T>,
+    registry: SubscriberRegistry<T>,
+}
+
+impl<T> TxChangeSubscription<T> {
+    /// The next value for this subscription, without blocking.
+    pub fn take(&self) -> Option<T> {
+        self.queue.take()
+    }
+
+    /// Detach now (`TxPubSub.releaseSubscriber` at the pin). Idempotent, and
+    /// what `Drop` does, so an explicit call is only for releasing early.
+    pub fn release(&self) {
+        self.detach();
+    }
+
+    fn detach(&self) {
+        self.registry.lock().unwrap().retain(|(id, _)| *id != self.id);
+    }
+}
+
+impl<T> Drop for TxChangeSubscription<T> {
+    /// Scope close: the pin's subscription is scoped, so leaving the scope
+    /// releases the subscriber queue. Without this a dropped handle would
+    /// stay in the ref's list forever and grow with every subscriber.
+    fn drop(&mut self) {
+        self.detach();
+    }
+}
+
+/// A transactional cell publishing every assigned value to its live
+/// subscriptions (`TxSubscriptionRef`): [`changes`](Self::changes) opens a
+/// subscription that first yields the current value, then each later
+/// assigned value in order. A subscriber only ever sees values assigned
+/// after it subscribed, plus the current value it was seeded with.
 pub struct TxSubscriptionRef<T> {
     current: Mutex<T>,
-    history: Mutex<Vec<T>>,
+    /// Live subscriptions by id, each with its own queue. A released
+    /// subscriber is removed, so the write path never touches a dead queue.
+    subscribers: SubscriberRegistry<T>,
 }
 
 impl<T: Clone> TxSubscriptionRef<T> {
-    /// A cell holding `initial` with one history entry.
+    /// A cell holding `initial` with no subscribers.
     pub fn new(initial: T) -> Self {
         Self {
-            current: Mutex::new(initial.clone()),
-            history: Mutex::new(vec![initial]),
+            current: Mutex::new(initial),
+            subscribers: Arc::new(Mutex::new(Vec::new())),
         }
     }
 
@@ -1669,21 +1723,49 @@ impl<T: Clone> TxSubscriptionRef<T> {
         tx_read(&self.current)
     }
 
-    /// Assign and record.
+    /// Assign and publish to every live subscriber.
     pub fn set(&self, value: T) {
         atomically(|| {
             *self.current.lock().unwrap() = value.clone();
-            self.history.lock().unwrap().push(value);
+            self.publish(value);
         });
     }
 
-    /// Every assigned value, oldest first.
-    pub fn changes(&self) -> Vec<T> {
-        atomically(|| self.history.lock().unwrap().clone())
+    /// Offer `value` to every live subscription.
+    fn publish(&self, value: T) {
+        for (_, queue) in self.subscribers.lock().unwrap().iter() {
+            queue.offer(value.clone());
+        }
+    }
+
+    /// `TxSubscriptionRef.changes`: a scoped subscription whose first
+    /// [`take`](TxChangeSubscription::take) is the current value, then every
+    /// later assigned value in order.
+    ///
+    /// The pin acquires a pubsub subscriber and offers the current value into
+    /// it, because a subscriber sees only values published after it
+    /// subscribed; this is that, with one owner for the queue.
+    pub fn changes(&self) -> TxChangeSubscription<T> {
+        let id = NEXT_SUB_ID.fetch_add(1, Ordering::SeqCst);
+        let queue = Arc::new(TxQueue::unbounded());
+        atomically(|| {
+            queue.offer(self.current.lock().unwrap().clone());
+            self.subscribers.lock().unwrap().push((id, Arc::clone(&queue)));
+        });
+        TxChangeSubscription {
+            id,
+            queue,
+            registry: Arc::clone(&self.subscribers),
+        }
+    }
+
+    /// Live subscriptions; a released or dropped one is already gone.
+    pub fn subscriber_count(&self) -> usize {
+        self.subscribers.lock().unwrap().len()
     }
 
     /// `TxSubscriptionRef.modify`: derive a result AND a successor value in
-    /// one step, storing the successor and recording it. Returns the derived
+    /// one step, storing the successor and publishing it. Returns the derived
     /// result.
     ///
     /// The other read-then-write forms are derived from this exactly as the
@@ -1692,6 +1774,11 @@ impl<T: Clone> TxSubscriptionRef<T> {
         let (result, next) = f(tx_read(&self.current));
         self.set(next);
         result
+    }
+
+    /// `TxSubscriptionRef.update`: derive the successor and publish it.
+    pub fn update(&self, f: impl FnOnce(T) -> T) {
+        self.modify(|current| ((), f(current)));
     }
 
     /// `TxSubscriptionRef.getAndSet`: store `value`, return the PREVIOUS.
@@ -1713,4 +1800,11 @@ impl<T: Clone> TxSubscriptionRef<T> {
         self.set(next.clone());
         next
     }
+}
+
+/// Always true for `TxSubscriptionRef` (the type already narrows; mirrors
+/// `isTxSubscriptionRef`). Foreign values are different types and cannot
+/// reach this predicate.
+pub fn is_tx_subscription_ref<T>(_: &TxSubscriptionRef<T>) -> bool {
+    true
 }
