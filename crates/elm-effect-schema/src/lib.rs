@@ -92,6 +92,120 @@ struct Wrapped {
     ty: String,
 }
 
+/// The subset of ECMAScript regex syntax the pin's JSON Schema patterns use, and
+/// nothing more. A pattern outside the subset is unenforced rather than
+/// approximate: the pin itself reports two of them as unsupported, and guessing
+/// at a translation would silently accept or reject the wrong values.
+///
+/// Supported: literals, `.`, `^`, `$`, `*`, `+`, `[...]` with ranges of
+/// characters, and `|` is deliberately absent because no pin pattern uses it.
+#[derive(Debug, Clone)]
+enum Pattern {
+    /// One literal character.
+    Char(char),
+    /// Any character.
+    Any,
+    /// A character class, negated or not.
+    Class {
+        negated: bool,
+        ranges: Vec<(char, char)>,
+    },
+}
+
+/// Compile a pattern, or say what about it is outside the supported subset.
+fn compile_pattern(source: &str) -> Option<Vec<Pattern>> {
+    let mut out = Vec::new();
+    let mut chars = source.chars().peekable();
+    while let Some(current) = chars.next() {
+        let atom = match current {
+            '.' => Pattern::Any,
+            '^' | '$' => Pattern::Char(current),
+            '[' => {
+                let negated = chars.peek() == Some(&'^');
+                if negated {
+                    chars.next();
+                }
+                let mut ranges = Vec::new();
+                loop {
+                    let Some(start) = chars.next() else {
+                        return None;
+                    };
+                    if start == ']' {
+                        break;
+                    }
+                    let end = match chars.peek() {
+                        Some(&'-') => {
+                            chars.next();
+                            match chars.next() {
+                                Some(end) if end != ']' => end,
+                                // A trailing `-` before `]` is a literal dash.
+                                _ => start,
+                            }
+                        }
+                        _ => start,
+                    };
+                    ranges.push((start, end));
+                }
+                Pattern::Class { negated, ranges }
+            }
+            other => Pattern::Char(other),
+        };
+        // `*` and `+` attach to the atom they follow.
+        match chars.peek() {
+            Some('*') | Some('+') => {
+                chars.next();
+                // A repetition is stored as the atom repeated; a matcher walks it
+                // greedily, which is all these patterns need.
+                out.push(atom.clone());
+                out.push(atom);
+            }
+            _ => out.push(atom),
+        }
+    }
+    Some(out)
+}
+
+/// Whether a value satisfies a compiled pattern. Anchors match at the ends, and
+/// every other atom is matched greedily and in order, which is correct for the
+/// anchored, single-alternation patterns this subset compiles.
+fn pattern_matches(pattern: &[Pattern], value: &str) -> bool {
+    fn walk(pattern: &[Pattern], value: &[char], anchored_start: bool, anchored_end: bool) -> bool {
+        if pattern.is_empty() {
+            return value.is_empty() || !anchored_end;
+        }
+        match &pattern[0] {
+            Pattern::Char('^') if anchored_start => walk(&pattern[1..], value, false, anchored_end),
+            Pattern::Char('$') if anchored_end => pattern.len() == 1 && value.is_empty(),
+            atom => {
+                if value.is_empty() {
+                    // An unanchored end lets a shorter pattern match a longer
+                    // value, which is not the case here.
+                    return pattern.len() == 1 && !anchored_end;
+                }
+                if !atom_matches(atom, value[0]) {
+                    return false;
+                }
+                walk(&pattern[1..], &value[1..], anchored_start, anchored_end)
+            }
+        }
+    }
+    let value: Vec<char> = value.chars().collect();
+    walk(pattern, &value, true, true)
+}
+
+fn atom_matches(atom: &Pattern, value: char) -> bool {
+    match atom {
+        Pattern::Char(expected) => *expected == value,
+        Pattern::Any => true,
+        Pattern::Class { negated, ranges } => {
+            let in_class = ranges
+                .iter()
+                .any(|(start, end)| value >= *start && value <= *end);
+            in_class != *negated
+        }
+    }
+}
+
 /// One refinement in a chain: its name, its arguments, and the annotation pairs
 /// the pin attaches to it. `decompose` lowers a schema's `Check` chain into a
 /// list of these so an intersection can dedupe and reorder them, and `rebuild`
@@ -112,6 +226,15 @@ fn merge_annotation(annotation: &mut Vec<(String, String)>, pairs: Vec<(String, 
             Some(slot) => slot.1 = value,
             None => annotation.push((key, value)),
         }
+    }
+}
+
+/// One exact value as the pin's repr prints it: a JSON scalar, with a whole
+/// number keeping no `.0`, because that is what JavaScript prints.
+fn render_value(value: &Unknown) -> String {
+    match value {
+        Unknown::Number(number) => format_number(*number),
+        other => other.to_json().to_string(),
     }
 }
 
@@ -141,6 +264,31 @@ fn render_check(check: &Check) -> String {
     out
 }
 
+/// Build the schema for a filtered set of exact values: none is `Never`, one is
+/// a `Literal`, several are a `Literals`.
+fn literal_union(values: Vec<Unknown>) -> Schema<Unknown> {
+    match values.len() {
+        0 => Schema::as_unknown(Schema::never()),
+        1 => Schema::as_unknown(Schema::literal(
+            values.into_iter().next().expect("one value"),
+        )),
+        _ => {
+            let kind = SchemaKind::Literals(values.clone());
+            Schema::as_unknown(Schema::new(
+                move |unknown| {
+                    if values.iter().any(|value| *value == unknown) {
+                        Ok(unknown)
+                    } else {
+                        mismatch("$", "one of the literals", &unknown)
+                    }
+                },
+                |value| value.clone(),
+                kind,
+            ))
+        }
+    }
+}
+
 /// Split a kind into its base shape, the checks layered on top of it, and the
 /// annotation pairs riding the base. A `Check` nesting is read from the outside
 /// in, so the outermost check is the last one in the list, which is the order a
@@ -168,6 +316,31 @@ fn decompose(kind: &SchemaKind) -> (SchemaKind, Vec<Check>, Vec<(String, String)
         }
         other => (other.clone(), Vec::new(), Vec::new()),
     }
+}
+
+/// The exact values a kind admits, when it admits finitely many. A single
+/// `Literal` admits one; a `Literals` admits its list; anything else admits
+/// none, which is what makes an intersection with a refinement a filter.
+fn exact_values(kind: &SchemaKind) -> Option<Vec<Unknown>> {
+    match kind {
+        SchemaKind::Literal(value) => Some(vec![value.clone()]),
+        SchemaKind::Literals(values) => Some(values.clone()),
+        _ => None,
+    }
+}
+
+/// Keep only the values that satisfy every check. This is the whole of a
+/// literal refinement: `allOf: [{ enum: ["a", "ab"] }]` next to a `minLength: 2`
+/// keeps `"ab"` and drops `"a"`.
+fn filter_by_checks(values: Vec<Unknown>, checks: &[Check]) -> Vec<Unknown> {
+    values
+        .into_iter()
+        .filter(|value| {
+            checks.iter().all(|check| {
+                check_holds_arg(&check.name, check.args.first().map(String::as_str), value)
+            })
+        })
+        .collect()
 }
 
 /// Raise a base kind, its checks and its leading annotations back into one kind.
@@ -262,6 +435,10 @@ pub enum SchemaKind {
     StructWithRest(Vec<(String, SchemaKind)>, Box<SchemaKind>),
     /// Positional elements with a trailing catch-all (`TupleWithRest`).
     TupleWithRest(Vec<SchemaKind>, Box<SchemaKind>),
+    /// Several exact values (`Literals`), which is what an enum of plain
+    /// scalars imports to. An enum containing null is a `Union` instead, because
+    /// `null` is a schema of its own and not a literal.
+    Literals(Vec<Unknown>),
     /// A single exact value (`Literal`).
     Literal(Unknown),
     /// A union of two or more shapes (`Union`). `mode` is either `"anyOf"` or
@@ -311,7 +488,7 @@ impl SchemaKind {
                 serde_json::json!({"anyOf": [inner.to_json_schema(), {"type": "null"}]})
             }
             SchemaKind::Struct(fields) => Self::struct_document(fields),
-            SchemaKind::Record(key, value) => {
+            SchemaKind::Record(key, _value) => {
                 let mut doc = serde_json::json!({"type": "object"});
                 // A checked key is a `patternProperties` key, which is the only
                 // way a repr can say the key shape.
@@ -345,6 +522,9 @@ impl SchemaKind {
                 doc
             }
             SchemaKind::Literal(value) => value.to_json(),
+            SchemaKind::Literals(values) => {
+                serde_json::Value::Array(values.iter().map(Unknown::to_json).collect())
+            }
             SchemaKind::Union { .. } => serde_json::json!({}),
             SchemaKind::Opaque(name) => serde_json::json!({"$comment": name}),
             SchemaKind::Annotated { pairs, inner } => {
@@ -781,8 +961,11 @@ impl Schema<Unknown> {
         )
     }
 
-    /// One exact value (`Literal` shape): equality decides.
+    /// One exact value (`Literal` shape): equality decides. The kind carries the
+    /// value, because a repr prints `Schema.Literal("a")` and an opaque kind
+    /// would print the bare constructor.
     pub fn literal(expected: Unknown) -> Self {
+        let kind = SchemaKind::Literal(expected.clone());
         Self::new(
             move |unknown| {
                 if unknown == expected {
@@ -792,7 +975,7 @@ impl Schema<Unknown> {
                 }
             },
             |value| value.clone(),
-            SchemaKind::Opaque("literal"),
+            kind,
         )
     }
 
@@ -1699,6 +1882,29 @@ impl Schema<Unknown> {
             .into_iter()
             .filter(|(key, value)| !(key == "expected" && value == "JSON value"))
             .collect();
+        // A base that names no type is not a base at all: it is the open JSON
+        // value, so whichever member names a type supplies the base. This is the
+        // shape `{ allOf: [{ type: "string", ... }] }` has, because the
+        // surrounding keywords are empty once `allOf` is removed.
+        let (base_kind, member_kind, member_checks) = if base_kind == SchemaKind::Json {
+            (member_kind, base_kind, member_checks)
+        } else {
+            (base_kind, member_kind, member_checks)
+        };
+        // A refinement intersected with a finite set of exact values keeps the
+        // values that satisfy it. Either side may carry the values, so both are
+        // tried. A side that names a different base has no compatible member.
+        if let Some(values) = exact_values(&member_kind) {
+            let kept = filter_by_checks(values, &checks);
+            return Ok(literal_union(kept));
+        }
+        // The other direction: the base holds the values and the member holds
+        // the refinement. A member whose own base is `never` — an `anyOf` with no
+        // compatible member — leaves nothing.
+        if let Some(values) = exact_values(&base_kind) {
+            let kept = filter_by_checks(values, &member_checks);
+            return Ok(literal_union(kept));
+        }
         if member_kind != base_kind && member_kind != SchemaKind::Json {
             // Two different named bases cannot intersect; the pin reports this
             // as an empty union rather than picking one.
@@ -1831,44 +2037,6 @@ impl Schema<Unknown> {
                 got: "a reference",
             });
         }
-        // `not: {}` is "everything but anything", which is nothing. Any other
-        // operand would need a complement the port cannot express, so it is
-        // refused rather than approximated.
-        if let Some(negated) = get("not") {
-            if negated.as_object().is_some_and(|object| object.is_empty()) {
-                return Ok(Schema::as_unknown(Schema::never()));
-            }
-            return Err(SchemaError::TypeMismatch {
-                path: "$.not".to_string(),
-                expected: "an empty schema",
-                got: "a complement of a non-empty schema",
-            });
-        }
-        if let Some(constants) = get("const") {
-            return Ok(Schema::literal(Unknown::from_json(constants.clone())));
-        }
-        if let Some(options) = get("enum") {
-            let serde_json::Value::Array(members) = options else {
-                return Err(SchemaError::TypeMismatch {
-                    path: "$.enum".to_string(),
-                    expected: "an array",
-                    got: "a non-array",
-                });
-            };
-            let mut union: Option<Schema<Unknown>> = None;
-            for member in members {
-                let literal = Schema::literal(Unknown::from_json(member.clone()));
-                union = Some(match union {
-                    None => literal,
-                    Some(accumulated) => Schema::union(accumulated, literal),
-                });
-            }
-            return union.ok_or_else(|| SchemaError::TypeMismatch {
-                path: "$.enum".to_string(),
-                expected: "a non-empty array",
-                got: "an empty array",
-            });
-        }
         // `allOf` intersects. Each member contributes its checks to the base's
         // chain and its own annotations to the base, which is what the pin's
         // intersection rows assert.
@@ -1891,6 +2059,70 @@ impl Schema<Unknown> {
                 base = Self::intersect(base, Self::import(member)?)?;
             }
             return Ok(base);
+        }
+        // `not: {}` is "everything but anything", which is nothing. Any other
+        // operand would need a complement the port cannot express, so it is
+        // refused rather than approximated.
+        if let Some(negated) = get("not") {
+            if negated.as_object().is_some_and(|object| object.is_empty()) {
+                return Ok(Schema::as_unknown(Schema::never()));
+            }
+            return Err(SchemaError::TypeMismatch {
+                path: "$.not".to_string(),
+                expected: "an empty schema",
+                got: "a complement of a non-empty schema",
+            });
+        }
+        if let Some(constants) = get("const") {
+            return Self::with_document_annotations(
+                Ok(Schema::literal(Unknown::from_json(constants.clone()))),
+                doc,
+            );
+        }
+        if let Some(options) = get("enum") {
+            let serde_json::Value::Array(members) = options else {
+                return Err(SchemaError::TypeMismatch {
+                    path: "$.enum".to_string(),
+                    expected: "an array",
+                    got: "a non-array",
+                });
+            };
+            let values: Vec<Unknown> = members.iter().cloned().map(Unknown::from_json).collect();
+            // Plain scalars collapse to one `Literals`; an enum containing null
+            // keeps the `Union`, because `null` is a schema and not a literal.
+            if values.iter().all(|value| value != &Unknown::Null) {
+                let kind = SchemaKind::Literals(values.clone());
+                return Self::with_document_annotations(
+                    Ok(Schema::as_unknown(Schema::new(
+                        move |unknown| {
+                            if values.iter().any(|value| *value == unknown) {
+                                Ok(unknown)
+                            } else {
+                                mismatch("$", "one of the literals", &unknown)
+                            }
+                        },
+                        |value| value.clone(),
+                        kind,
+                    ))),
+                    doc,
+                );
+            }
+            let mut union: Option<Schema<Unknown>> = None;
+            for member in members {
+                let literal = Schema::literal(Unknown::from_json(member.clone()));
+                union = Some(match union {
+                    None => literal,
+                    Some(accumulated) => Schema::union(accumulated, literal),
+                });
+            }
+            return Self::with_document_annotations(
+                union.ok_or_else(|| SchemaError::TypeMismatch {
+                    path: "$.enum".to_string(),
+                    expected: "a non-empty array",
+                    got: "an empty array",
+                }),
+                doc,
+            );
         }
         if let Some(any_of) = get("anyOf") {
             let serde_json::Value::Array(options) = any_of else {
@@ -2011,7 +2243,8 @@ impl Schema<Unknown> {
 }
 
 impl Unknown {
-    fn from_json(value: serde_json::Value) -> Self {
+    /// Build an `Unknown` from a JSON value.
+    pub fn from_json(value: serde_json::Value) -> Self {
         match value {
             serde_json::Value::Null => Unknown::Null,
             serde_json::Value::Bool(boolean) => Unknown::Bool(boolean),
@@ -2029,7 +2262,8 @@ impl Unknown {
         }
     }
 
-    fn to_json(&self) -> serde_json::Value {
+    /// This value back as a JSON value.
+    pub fn to_json(&self) -> serde_json::Value {
         match self {
             Unknown::Null => serde_json::Value::Null,
             Unknown::Bool(boolean) => serde_json::Value::Bool(*boolean),
@@ -2496,9 +2730,60 @@ impl Schema<Unknown> {
     }
 }
 
+/// Decimal places a plain decimal number shows, which is the precision JS's
+/// `Number.prototype.toString` would print. A value JS prints in exponent
+/// notation reports zero, and the pin names the rows where that matters.
+fn decimal_places(value: f64) -> u32 {
+    let text = format!("{value}");
+    match text.split_once('.') {
+        Some((_, fraction)) => fraction.chars().take_while(|c| c.is_ascii_digit()).count() as u32,
+        None => 0,
+    }
+}
+
+/// Round to `places` decimal places, the way JS's `toFixed` does. A precision
+/// past f64's range has no scale to divide by, so the value is returned as it
+/// stands: the pin names rows at 1e-323, where the operands are already exactly
+/// representable or not at all, and rounding there would only produce NaN.
+fn round_to(value: f64, places: u32) -> f64 {
+    let scale = 10f64.powi(places as i32);
+    if !scale.is_finite() {
+        return value;
+    }
+    (value * scale).round() / scale
+}
+
 /// Whether the decoded value satisfies a named refinement. Only the checks the
 /// pin's JSON Schema import actually emits are implemented; anything else
 /// passes, so an unimplemented refinement is unenforced rather than wrong.
+fn check_holds_arg(name: &str, arg: Option<&str>, value: &Unknown) -> bool {
+    // `isPattern`'s argument is the JS RegExp literal the pin's repr prints, so
+    // the pattern has to be read back out of it rather than matched as written.
+    if name == "isPattern" {
+        let Some(inner) = arg.and_then(|arg| {
+            arg.strip_prefix("new RegExp(")
+                .and_then(|rest| rest.strip_suffix(", \"u\")"))
+                .or_else(|| {
+                    arg.strip_prefix("new RegExp(")
+                        .and_then(|r| r.strip_suffix(')'))
+                })
+        }) else {
+            return true;
+        };
+        let pattern = inner.trim_matches('"');
+        return match compile_pattern(pattern) {
+            Some(compiled) => match value {
+                Unknown::Text(text) => pattern_matches(&compiled, text),
+                _ => false,
+            },
+            // Outside the supported subset, so unenforced rather than guessed.
+            None => true,
+        };
+    }
+    let limit = arg.and_then(|arg| arg.parse::<f64>().ok());
+    check_holds(name, limit, value)
+}
+
 fn check_holds(name: &str, limit: Option<f64>, value: &Unknown) -> bool {
     match (name, limit, value) {
         ("isFinite", _, Unknown::Number(number)) => number.is_finite(),
@@ -2511,8 +2796,16 @@ fn check_holds(name: &str, limit: Option<f64>, value: &Unknown) -> bool {
         ("isGreaterThanOrEqualTo", Some(bound), Unknown::Number(number)) => *number >= bound,
         ("isLessThan", Some(bound), Unknown::Number(number)) => *number < bound,
         ("isLessThanOrEqualTo", Some(bound), Unknown::Number(number)) => *number <= bound,
+        // A plain quotient leaves float dust: 0.3 / 0.1 is 2.9999999999999996,
+        // so its remainder is not zero and a plain check would reject a value the
+        // pin accepts. The pin rounds the quotient first and compares at the
+        // operands' longer decimal precision, which is what this does.
         ("isMultipleOf", Some(divisor), Unknown::Number(number)) => {
-            divisor != 0.0 && (number / divisor).fract() == 0.0
+            divisor != 0.0 && {
+                let precision = decimal_places(divisor).max(decimal_places(*number));
+                let remainder = *number - (*number / divisor).round() * divisor;
+                round_to(remainder, precision) == 0.0
+            }
         }
         ("isMinLength", Some(min), Unknown::Array(items)) => items.len() as f64 >= min,
         ("isMaxLength", Some(max), Unknown::Array(items)) => items.len() as f64 <= max,
@@ -2558,7 +2851,11 @@ fn code_of(kind: &SchemaKind, children: &[(String, Arc<Schema<Unknown>>)]) -> St
         SchemaKind::OptionalKey(inner) => {
             format!("Schema.optionalKey({})", code_of_at(inner, children))
         }
-        SchemaKind::Literal(value) => format!("Schema.Literal({})", value.to_json()),
+        SchemaKind::Literal(value) => format!("Schema.Literal({})", render_value(value)),
+        SchemaKind::Literals(values) => {
+            let inner: Vec<String> = values.iter().map(render_value).collect();
+            format!("Schema.Literals([{}])", inner.join(", "))
+        }
         SchemaKind::StructWithRest(fields, rest) => {
             let inner: Vec<String> = fields
                 .iter()
@@ -2756,7 +3053,12 @@ fn type_of(kind: &SchemaKind, children: &[(String, Arc<Schema<Unknown>>)]) -> St
         SchemaKind::Check { base, .. } => type_of_at(base),
         SchemaKind::Json => "Schema.Json".to_string(),
         SchemaKind::OptionalKey(inner) => format!("({})?", type_of_at(inner)),
-        SchemaKind::Literal(value) => value.to_json().to_string(),
+        SchemaKind::Literals(values) => values
+            .iter()
+            .map(render_value)
+            .collect::<Vec<_>>()
+            .join(" | "),
+        SchemaKind::Literal(value) => render_value(value),
         SchemaKind::Union { members, .. } => members
             .iter()
             .map(|member| type_of_at(member))
@@ -2896,8 +3198,29 @@ fn format_root(
 fn format_number(number: f64) -> String {
     if number.fract() == 0.0 && number.abs() < 1e15 {
         format!("{}", number as i64)
+    } else if number.abs() >= 1e21 || (number != 0.0 && number.abs() < 1e-6) {
+        // JavaScript prints these in exponent form: `1e+21`, `5e-102`. Rust's
+        // `{}` prints the full digits, which is what made `1e21` print as
+        // `1000000000000000000000`.
+        exponent_number(number)
     } else {
         format!("{number}")
+    }
+}
+
+/// A number in JavaScript's exponent form: a signed exponent, and no trailing
+/// `.0` on the mantissa.
+fn exponent_number(number: f64) -> String {
+    let text = format!("{number:e}");
+    match text.split_once('e') {
+        Some((mantissa, exponent)) => {
+            let mantissa = mantissa.trim_end_matches(".0");
+            match exponent.strip_prefix('-') {
+                Some(digits) => format!("{mantissa}e-{digits}"),
+                None => format!("{mantissa}e+{exponent}"),
+            }
+        }
+        None => text,
     }
 }
 
