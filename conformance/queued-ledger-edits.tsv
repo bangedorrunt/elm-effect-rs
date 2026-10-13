@@ -1,0 +1,43 @@
+# Ledger edits that are carried but not yet landed.
+#
+# Every row here has a committed witness and is waiting only on
+# conformance/behavior-tests.tsv, which is under a sibling lane's exclusive
+# lease. Apply the whole queue with
+#
+#     python3 conformance/flip-row.py --from-queue conformance/queued-ledger-edits.tsv
+#
+# Do not add a row here without the witness already in the tree: this file is a
+# staging area, and flip-row.py refuses a `ported` row with an empty rust
+# column, so a queue entry is a claim that the test exists.
+#
+# path	line	status	rust
+packages/effect/test/schema/Schema.test.ts	330	not-applicable	the row asserts `Literals(["a","b","c"]).pick(["a","b"])` by reading the repr's `literals` list; this port builds literal unions with `Schema::literals` and derives them with `map_members`, and has no `pick` on an exact-value shape, so there is no call whose result could be asserted — the decoding behavior it implies is `Schema::literals` over the subset
+packages/effect/test/schema/Schema.test.ts	1306	ported	a_single_check_refuses_a_short_string
+packages/effect/test/schema/Schema.test.ts	2085	not-applicable	the row's body asserts nothing at runtime: it only runs the optional arbitrary-generation check, which is off in a normal run, so no decode or encode behavior is stated
+packages/effect/test/schema/Schema.test.ts	2326	ported	a_required_field_refuses_a_missing_key_on_both_axes
+packages/effect/test/schema/Schema.test.ts	2354	not-applicable	the row asserts that a required source field maps to an optional target whose ENCODE getter supplies a default (`{}` encodes to `{ a: "default" }`) via `SchemaGetter.withDefault` on the encode axis; this port's only encode-side field hook is `omit_encoding`, so there is no encode-side default to assert — the decode half, that a missing key is refused, is carried by `a_required_field_refuses_a_missing_key_on_both_axes`
+packages/effect/test/schema/Schema.test.ts	2381	ported	an_absent_optional_key_decodes_to_its_default
+packages/effect/test/schema/Schema.test.ts	2403	ported	finite_from_string_trims_the_source_text
+packages/effect/test/schema/Schema.test.ts	2485	ported	decode_only_transformation_leaves_encode_alone
+packages/effect/test/schema/Schema.test.ts	2582	ported	finite_from_string_trims_the_source_text
+packages/effect/test/schema/Schema.test.ts	2634	ported	encode_only_transformation_leaves_decode_alone
+packages/effect/test/schema/Schema.test.ts	3385	not-applicable	the row's body asserts nothing at runtime beyond the optional arbitrary-generation check, and Schema.CauseReason does not exist on the Rust schema surface (this crate has no Cause model), so the schema in the row cannot be built
+packages/effect/test/schema/Schema.test.ts	5095	ported	struct_with_rest_keeps_both_checks
+packages/effect/test/schema/Schema.test.ts	5121	ported	struct_with_rest_does_not_re_parse_a_fixed_property
+packages/effect/test/schema/Schema.test.ts	5197	not-applicable	the row's body asserts nothing at runtime beyond the optional arbitrary-generation check, and Schema.PropertyKey does not exist on the Rust schema surface, so the schema in the row cannot be built
+packages/effect/test/schema/Schema.test.ts	5205	not-applicable	the row's body asserts nothing at runtime beyond the optional arbitrary-generation check, and Schema.BooleanFromBit does not exist on the Rust schema surface, so the schema in the row cannot be built
+packages/effect/test/schema/Schema.test.ts	5213	not-applicable	the row's body asserts nothing at runtime beyond the optional arbitrary-generation check, and Schema.Uint8Array does not exist on the Rust schema surface (this crate's Unknown holds text, not bytes), so the schema in the row cannot be built
+packages/effect/test/schema/Schema.test.ts	5613	ported	to_lowercase_lowers_on_decode_and_passes_through_on_encode
+packages/effect/test/schema/Schema.test.ts	5627	ported	to_uppercase_uppers_on_decode_and_passes_through_on_encode
+packages/effect/test/schema/Schema.test.ts	5683	not-applicable	the row's body asserts nothing at runtime beyond the optional arbitrary-generation check, and Schema.Duration does not exist on the Rust schema surface, so the schema in the row cannot be built
+packages/effect/test/schema/Schema.test.ts	5975	not-applicable	the row's body asserts nothing at runtime beyond the optional arbitrary-generation check, and Schema.URL does not exist on the Rust schema surface, so the schema in the row cannot be built
+packages/effect/test/schema/Schema.test.ts	5983	not-applicable	the row's body asserts nothing at runtime beyond the optional arbitrary-generation check, and Schema.RegExp does not exist on the Rust schema surface, so the schema in the row cannot be built
+packages/effect/test/schema/Schema.test.ts	8994	ported	pick_keeps_the_order_it_was_given
+packages/effect/test/schema/Schema.test.ts	10559	ported	require_all_makes_optional_keys_required
+packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1741	ported	json_schema_document_keeps_each_intersection_that_survives_its_member
+packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1758	ported	json_schema_document_keeps_each_intersection_that_survives_its_member
+packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	2400	ported	json_schema_document_keeps_each_intersection_that_survives_its_member
+packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	2605	ported	json_schema_document_keeps_each_intersection_that_survives_its_member
+packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	2612	ported	json_schema_document_keeps_each_intersection_that_survives_its_member
+packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	2619	ported	json_schema_document_keeps_each_intersection_that_survives_its_member
+packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	2626	ported	json_schema_document_keeps_each_intersection_that_survives_its_member
