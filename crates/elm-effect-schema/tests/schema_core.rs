@@ -1,7 +1,8 @@
 //! Schema core fence: decode unknown into typed values, encode back.
 //! Derives from packages/effect/test/schema/ rows (core shapes only).
 
-use elm_effect_schema::{Schema, SchemaError, Unknown};
+use elm_effect_schema::{Field, Schema, SchemaError, Unknown};
+use std::collections::BTreeMap;
 
 #[test]
 fn string_round_trips() {
@@ -801,4 +802,190 @@ fn array_of_strings_decides_each_element() {
     assert!(error.to_string().contains("string"), "{error}");
     let error = schema.decode(Unknown::Null).expect_err("null is not an array");
     assert!(error.to_string().contains("array"), "{error}");
+}
+
+// --- Schema.test.ts: the mapFields rows, where a field list is transformed
+// and the struct that comes out decides its own keys ---
+
+fn one_field_struct() -> Schema<BTreeMap<String, Unknown>> {
+    Schema::struct_shape(vec![Field::required(
+        "a",
+        Schema::as_unknown(Schema::string()),
+    )])
+}
+
+fn two_field_struct() -> Schema<BTreeMap<String, Unknown>> {
+    Schema::struct_shape(vec![
+        Field::required("a", Schema::as_unknown(Schema::string())),
+        Field::required("b", Schema::as_unknown(Schema::string())),
+    ])
+}
+
+/// Schema.test.ts:942 — `from.mapFields(Struct.assign({ b: String }))`: the
+/// assigned field joins the declared ones, so the struct that comes out
+/// requires both and names each missing one.
+#[test]
+fn map_fields_assign_joins_the_declared_fields() {
+    let schema = one_field_struct().map_fields(|mut fields| {
+        fields.push(Field::required(
+            "b",
+            Schema::as_unknown(Schema::string()),
+        ));
+        fields
+    });
+    let ok = BTreeMap::from([
+        ("a".to_string(), Unknown::Text("a".to_string())),
+        ("b".to_string(), Unknown::Text("b".to_string())),
+    ]);
+    assert_eq!(
+        schema.decode(Unknown::Object(ok)).unwrap().keys().cloned().collect::<Vec<_>>(),
+        vec!["a".to_string(), "b".to_string()]
+    );
+    for (wire, missing) in [
+        (
+            BTreeMap::from([("b".to_string(), Unknown::Text("b".to_string()))]),
+            "a",
+        ),
+        (
+            BTreeMap::from([("a".to_string(), Unknown::Text("a".to_string()))]),
+            "b",
+        ),
+    ] {
+        let error = schema
+            .decode(Unknown::Object(wire))
+            .expect_err("each assigned field is required");
+        assert!(error.to_string().contains(missing), "{error}");
+    }
+}
+
+/// Schema.test.ts:963 — overlapping fields: an assigned field that repeats a
+/// declared name replaces it, so the value decodes with the NEW schema rather
+/// than the declared one.
+#[test]
+fn map_fields_assign_replaces_an_overlapping_field() {
+    let schema = two_field_struct().map_fields(|mut fields| {
+        for field in &mut fields {
+            if field.name() == "b" {
+                *field = Field::required("b", Schema::as_unknown(Schema::number()));
+            }
+        }
+        fields
+    });
+    let ok = BTreeMap::from([
+        ("a".to_string(), Unknown::Text("a".to_string())),
+        ("b".to_string(), Unknown::Number(1.0)),
+    ]);
+    assert!(schema.decode(Unknown::Object(ok)).is_ok());
+    let bad = BTreeMap::from([
+        ("a".to_string(), Unknown::Text("a".to_string())),
+        ("b".to_string(), Unknown::Text("b".to_string())),
+    ]);
+    let error = schema
+        .decode(Unknown::Object(bad))
+        .expect_err("the replaced field decodes as a number now");
+    assert!(error.to_string().contains("number"), "{error}");
+    assert!(error.to_string().contains("b"), "{error}");
+}
+
+/// Schema.test.ts:1000 — `mapFields(Struct.pick(["a"]))`: a picked field list
+/// is the whole struct, so the field that was dropped is no longer required.
+#[test]
+fn map_fields_pick_keeps_only_the_named_fields() {
+    let schema = Schema::pick(two_field_struct().fields().unwrap().to_vec(), &["a"]);
+    let ok = BTreeMap::from([("a".to_string(), Unknown::Text("a".to_string()))]);
+    assert!(schema.decode(Unknown::Object(ok)).is_ok());
+    let bad = BTreeMap::from([
+        ("a".to_string(), Unknown::Text("a".to_string())),
+        ("b".to_string(), Unknown::Text("b".to_string())),
+    ]);
+    assert!(schema.decode(Unknown::Object(bad)).is_ok(), "b is not a declared key now");
+}
+
+/// Schema.test.ts:1013 — `mapFields(Struct.omit(["b"]))`: the omitted field is
+/// dropped from the struct rather than made optional.
+#[test]
+fn map_fields_omit_drops_the_named_field() {
+    let kept: Vec<Field> = two_field_struct()
+        .fields()
+        .unwrap()
+        .iter()
+        .filter(|field| field.name() != "b")
+        .cloned()
+        .collect();
+    let schema = Schema::struct_shape(kept);
+    let ok = BTreeMap::from([("a".to_string(), Unknown::Text("a".to_string()))]);
+    assert!(schema.decode(Unknown::Object(ok)).is_ok());
+    let bad = BTreeMap::from([
+        ("b".to_string(), Unknown::Text("b".to_string())),
+        ("a".to_string(), Unknown::Text("a".to_string())),
+    ]);
+    assert!(schema.decode(Unknown::Object(bad)).is_ok(), "b is not declared");
+}
+
+// --- Schema.test.ts: the StructWithRest rows, where a fixed key and a key the
+// rest names are one identifier ---
+
+/// Schema.test.ts:4997 — a `StructWithRest` whose rest names the same key as a
+/// fixed property is a duplicate identifier: the key would be claimed twice, so
+/// the shape is refused at construction rather than silently deciding one
+/// lookup wins.
+#[test]
+fn struct_with_rest_refuses_a_fixed_key_the_rest_also_names() {
+    let rest = Schema::record2(
+        Schema::as_unknown(Schema::literals(vec![
+            Unknown::Text("a".to_string()),
+            Unknown::Text("b".to_string()),
+        ])),
+        Schema::as_unknown(Schema::number()),
+    );
+    let hook = std::panic::take_hook();
+    std::panic::set_hook(Box::new(|_| {}));
+    let caught = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        Schema::struct_with_rest(
+            vec![("a".to_string(), Schema::as_unknown(Schema::number()))],
+            Schema::as_unknown(rest),
+        )
+    }));
+    let message = caught
+        .err()
+        .and_then(|payload| {
+            payload
+                .downcast_ref::<String>()
+                .cloned()
+                .or_else(|| payload.downcast_ref::<&str>().map(|text| text.to_string()))
+        })
+        .expect("the duplicate is refused at construction");
+    assert_eq!(message, "Duplicate identifier: \"a\". ts(2300)");
+    std::panic::set_hook(hook);
+    // A rest that names no key the fixed properties claim still builds.
+    let plain: Schema<Unknown> = Schema::as_unknown(Schema::record(Schema::as_unknown(
+        Schema::number(),
+    )));
+    let schema = Schema::struct_with_rest(
+        vec![("a".to_string(), Schema::as_unknown(Schema::number()))],
+        plain,
+    );
+    let decoded = schema
+        .decode(Unknown::Object(BTreeMap::from([
+            ("a".to_string(), Unknown::Number(1.0)),
+            ("z".to_string(), Unknown::Number(2.0)),
+        ])))
+        .expect("the fixed key and the rest's key both decode");
+    assert_eq!(
+        decoded,
+        Unknown::Object(BTreeMap::from([
+            ("a".to_string(), Unknown::Number(1.0)),
+            ("z".to_string(), Unknown::Number(2.0)),
+        ]))
+    );
+    // A value the rest's value schema refuses is refused at that key.
+    let bad = BTreeMap::from([
+        ("a".to_string(), Unknown::Number(1.0)),
+        ("z".to_string(), Unknown::Text(String::new())),
+    ]);
+    let error = schema
+        .decode(Unknown::Object(bad))
+        .expect_err("the rest's value schema still decides each key");
+    assert!(error.to_string().contains("number"), "{error}");
+    assert!(error.to_string().contains("z"), "{error}");
 }

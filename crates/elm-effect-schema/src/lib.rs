@@ -3921,6 +3921,26 @@ impl Schema<Unknown> {
     /// A struct plus a catch-all shape (`StructWithRest`): the named fields and
     /// the shape absorbing every key they do not claim.
     pub fn struct_with_rest(fields: Vec<(String, Schema<Unknown>)>, rest: Schema<Unknown>) -> Self {
+        // A key the rest's key schema names is an identifier the rest owns, so
+        // a fixed property of the same name would claim it twice. The pin
+        // refuses that at construction; here the same guard stops the two
+        // lookups from silently deciding between themselves. Only an
+        // exact-value key schema names any key, which is what `exact_values`
+        // reports.
+        if let SchemaKind::Record(key, _) = rest.repr_kind() {
+            for name in exact_values(&key)
+                .into_iter()
+                .flatten()
+                .filter_map(|value| match value {
+                    Unknown::Text(name) => Some(name),
+                    _ => None,
+                })
+            {
+                if fields.iter().any(|(field_name, _)| *field_name == name) {
+                    panic!("Duplicate identifier: \"{name}\". ts(2300)");
+                }
+            }
+        }
         let kind = SchemaKind::StructWithRest(
             fields
                 .iter()
@@ -3969,13 +3989,32 @@ impl Schema<Unknown> {
                         }
                     }
                 }
-                // Keys the named fields do not claim go to the catch-all.
-                for (key, value) in &object {
-                    if names.iter().any(|name| name == key) {
-                        continue;
+                // The keys the named fields do not claim are the catch-all's
+                // to describe. Two rest shapes arrive here, and both are the
+                // pin's: a record-shaped one (what the pin's rest list holds)
+                // describes the sub-object those keys form, so it decodes that
+                // object as a whole rather than one value at a time, which is
+                // what makes an object-level check on the rest decide. A
+                // value-shaped one describes each value on its own.
+                let leftovers: std::collections::BTreeMap<String, Unknown> = object
+                    .into_iter()
+                    .filter(|(key, _)| !names.iter().any(|name| name == key))
+                    .collect();
+                if matches!(rest_decode.repr_kind(), SchemaKind::Record(..)) {
+                    match rest_decode.decode(Unknown::Object(leftovers))? {
+                        Unknown::Object(entries) => out.extend(entries),
+                        other => {
+                            return Err(SchemaError::TypeMismatch {
+                                path: "$".to_string(),
+                                expected: "an object-shaped catch-all",
+                                got: other.kind(),
+                            })
+                        }
                     }
-                    let decoded = rest_decode.decode(value.clone())?;
-                    out.push((key.clone(), decoded));
+                } else {
+                    for (key, value) in leftovers {
+                        out.push((key.clone(), rest_decode.decode(value)?));
+                    }
                 }
                 Ok(Unknown::Object(out.into_iter().collect()))
             },
