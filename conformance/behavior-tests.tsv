@@ -9861,14 +9861,14 @@ unported	packages/effect/test/schema/v3-v4.test.ts	89	it	nullable
 unported	packages/effect/test/schema/v3-v4.test.ts	126	it	nullable & exact	
 unported	packages/effect/test/schema/v3-v4.test.ts	166	it	nullable & default	
 unported	packages/effect/test/schema/v3-v4.test.ts	204	it	nullable & default & exact	
-unported	packages/effect/test/socket/Socket.test.ts	86	it.effect	exposes TLS upgrade on the acquired reader	
+ported	packages/effect/test/socket/Socket.test.ts	86	it.effect	exposes TLS upgrade on the acquired reader	socket_exposes_tls_upgrade_on_the_acquired_reader
 ported	packages/effect/test/socket/Socket.test.ts	96	it.effect	readerBytes maps pulls to bytes	socket_readers_map_pulls
 ported	packages/effect/test/socket/Socket.test.ts	106	it.effect	readerString maps pulls to strings	socket_readers_map_pulls
-unported	packages/effect/test/socket/Socket.test.ts	118	it.effect	removes the open listener when the socket closes while connecting	
+ported	packages/effect/test/socket/Socket.test.ts	118	it.effect	removes the open listener when the socket closes while connecting	socket_removes_the_open_listener_when_closing_while_connecting
 ported	packages/effect/test/socket/Socket.test.ts	135	it.effect	pauses at the highWaterMark and resumes after draining	socket_pauses_at_high_water_mark
-unported	packages/effect/test/socket/Socket.test.ts	155	it.effect	counts text frames toward the highWaterMark by UTF-8 byte length	
-unported	packages/effect/test/socket/Socket.test.ts	168	it.effect	uses the default highWaterMark for pausable sockets	
-unported	packages/effect/test/socket/Socket.test.ts	184	it.effect	reports a write failure while a pull is suspended	
+ported	packages/effect/test/socket/Socket.test.ts	155	it.effect	counts text frames toward the highWaterMark by UTF-8 byte length	socket_counts_text_frames_by_utf8_length
+ported	packages/effect/test/socket/Socket.test.ts	168	it.effect	uses the default highWaterMark for pausable sockets	socket_uses_the_default_high_water_mark
+ported	packages/effect/test/socket/Socket.test.ts	184	it.effect	reports a write failure while a pull is suspended	socket_reports_a_write_failure_while_a_pull_is_suspended
 ported	packages/effect/test/sql/SqlClient.test.ts	123	it.effect	propagates a failed begin as a typed error without rolling back	failed_begin_never_rolls_back
 ported	packages/effect/test/sql/SqlClient.test.ts	138	it.effect	rolls back when the wrapped effect fails after a successful begin	rollback_restores_on_effect_failure
 ported	packages/effect/test/sql/SqlClient.test.ts	148	it.effect	propagates a failed savepoint as a typed error without rolling back	failed_savepoint_never_rolls_back

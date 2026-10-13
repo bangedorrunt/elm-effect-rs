@@ -612,7 +612,7 @@ tests = ["packages/effect/test/Pool.test.ts"]
 [[module]]
 path = "packages/effect/src/Predicate.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/Predicate.test.ts"]
@@ -2772,7 +2772,7 @@ tests = []
 [[module]]
 path = "packages/effect/src/socket/Socket.ts"
 class = "unstable-port"
-status = "unmatched"
+status = "matched"
 tag = "unstable"
 reason = ""
 tests = ["packages/effect/test/socket/Socket.test.ts"]
