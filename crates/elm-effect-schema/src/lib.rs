@@ -9,6 +9,11 @@ use std::sync::Arc;
 
 use thiserror::Error;
 
+/// The largest integer a double holds exactly, and the bound every
+/// integer-valued check in the port measures against: the pin's
+/// `Number.isSafeInteger` bound. Every safe integer is exactly representable.
+const MAX_SAFE_INTEGER: f64 = 9007199254740991.0;
+
 pub mod transform;
 
 pub mod tagged;
@@ -2090,12 +2095,32 @@ impl Schema<BTreeMap<String, Unknown>> {
             .filter(|field| field.omit_on_encode || field.schema.omit_on_encode)
             .map(|field| field.name.clone())
             .collect();
+        // Presence is a property of the declared field, so the ENCODE side
+        // enforces it too: the pin encodes `Struct({ a: String })` from `{}`
+        // and fails with `Missing key at ["a"]`. A field the wire drops anyway
+        // (`omit`) is not asked for, because its key is not part of what this
+        // schema describes on the way out.
+        let required: Vec<String> = fields
+            .iter()
+            .filter(|field| field.optionality() == Optionality::Required)
+            .filter(|field| !omitted.iter().any(|name| *name == field.name))
+            .map(|field| field.name.clone())
+            .collect();
         let decode_fields = fields.clone();
         let declared_fields = Some(fields.clone());
         let construct_fields = fields;
         let mut schema = Self::new(
             move |unknown| walk_struct(&decode_fields, unknown, false),
             move |output| {
+                for name in &required {
+                    if !output.contains_key(name) {
+                        return Err(SchemaError::TypeMismatch {
+                            path: format!("$.{name}"),
+                            expected: "required field",
+                            got: "missing",
+                        });
+                    }
+                }
                 let mut filtered = output.clone();
                 for name in &omitted {
                     filtered.remove(name);
@@ -4037,7 +4062,12 @@ fn between_properties_holds(
 fn check_holds(name: &str, limit: Option<f64>, value: &Unknown) -> bool {
     match (name, limit, value) {
         ("isFinite", _, Unknown::Number(number)) => number.is_finite(),
-        ("isInt", _, Unknown::Number(number)) => number.fract() == 0.0,
+        // A `type: integer` import is a safe integer, not any integral
+        // double: the pin's filter is `Number.isSafeInteger`, so 1e20 is an
+        // integer-valued double the schema still refuses.
+        ("isInt", _, Unknown::Number(number)) => {
+            number.fract() == 0.0 && number.abs() <= MAX_SAFE_INTEGER
+        }
         ("isMinLength", Some(min), Unknown::Text(text)) => text.chars().count() as f64 >= min,
         ("isMaxLength", Some(max), Unknown::Text(text)) => text.chars().count() as f64 <= max,
         ("isMinCodePoints", Some(min), Unknown::Text(text)) => text.chars().count() as f64 >= min,

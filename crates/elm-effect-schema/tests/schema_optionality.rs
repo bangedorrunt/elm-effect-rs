@@ -58,6 +58,41 @@ fn require_reverses_optional_wrapping() {
     }
 }
 
+/// Schema.test.ts:2326 (`decodeTo`, "required to required"): a field declared
+/// required on the source side is required on both axes, and the pin asserts
+/// the encode one explicitly — `await encoding.fail({}, Missing key at ["a"])`.
+/// A value that lacks the key is not something this schema describes, so it is
+/// refused rather than passed through.
+#[test]
+fn a_required_field_refuses_a_missing_key_on_both_axes() {
+    let schema = Schema::struct_shape(vec![Field::required("a", str_schema())]);
+
+    let decode_error = schema
+        .decode(obj(vec![]))
+        .expect_err("a required key that is absent");
+    assert_eq!(
+        decode_error.to_string(),
+        "expected required field at $.a, got missing"
+    );
+
+    let absent: BTreeMap<String, Unknown> = BTreeMap::new();
+    let encode_error = schema
+        .try_encode(&absent)
+        .expect_err("a required key that is absent on the encode side too");
+    assert_eq!(
+        encode_error.to_string(),
+        decode_error.to_string(),
+        "the encode side refuses it the same way the decode side does"
+    );
+
+    let mut present: BTreeMap<String, Unknown> = BTreeMap::new();
+    present.insert("a".to_string(), Unknown::Text("a".to_string()));
+    assert_eq!(
+        schema.try_encode(&present),
+        Ok(Unknown::Object(present.clone()))
+    );
+}
+
 #[test]
 fn require_all_makes_optional_keys_required() {
     let schema = Schema::struct_shape(Field::require_all(vec![
