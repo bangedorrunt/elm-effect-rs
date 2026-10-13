@@ -2493,14 +2493,14 @@ unported	packages/effect/test/Layer.test.ts	660	it.effect	forked memo maps reuse
 unported	packages/effect/test/Layer.test.ts	687	it.effect	withSpan forwards captureStackTrace to the layer stack frame	
 unported	packages/effect/test/Layer.test.ts	717	it.effect	withSpan supports data-first usage and runs the onEnd finalizer	
 unported	packages/effect/test/Layer.test.ts	740	it.effect	withParentSpan supports data-last usage with external spans	
-unported	packages/effect/test/LayerMap.test.ts	19	it.effect	contextEffectOption does not build missing entries and returns existing entries	
-unported	packages/effect/test/LayerMap.test.ts	40	it.effect	Service contextEffectOption does not build missing entries and returns existing entries	
+ported	packages/effect/test/LayerMap.test.ts	19	it.effect	contextEffectOption does not build missing entries and returns existing entries	layer_map_option_does_not_build_missing_entries
+ported	packages/effect/test/LayerMap.test.ts	40	it.effect	Service contextEffectOption does not build missing entries and returns existing entries	layer_map_service_option_does_not_build_missing_entries
 ported	packages/effect/test/LayerMap.test.ts	63	it.effect	make does not preload with the default idle TTL	layer_map_does_not_preload_with_default_idle_ttl
-unported	packages/effect/test/LayerMap.test.ts	75	it.effect	make preloads only keys with non-zero idle TTL	
-unported	packages/effect/test/LayerMap.test.ts	99	it.effect	make fails construction when a non-zero TTL preload fails	
-unported	packages/effect/test/LayerMap.test.ts	108	it.effect	make supports dynamic idleTimeToLive	
-unported	packages/effect/test/LayerMap.test.ts	129	it.effect	fromRecord supports dynamic idleTimeToLive	
-unported	packages/effect/test/LayerMap.test.ts	159	it.effect	Service supports dynamic idleTimeToLive	
+ported	packages/effect/test/LayerMap.test.ts	75	it.effect	make preloads only keys with non-zero idle TTL	layer_map_preloads_only_keys_with_non_zero_idle_ttl
+ported	packages/effect/test/LayerMap.test.ts	99	it.effect	make fails construction when a non-zero TTL preload fails	layer_map_make_fails_when_a_preload_fails
+ported	packages/effect/test/LayerMap.test.ts	108	it.effect	make supports dynamic idleTimeToLive	layer_map_supports_dynamic_idle_ttl
+ported	packages/effect/test/LayerMap.test.ts	129	it.effect	fromRecord supports dynamic idleTimeToLive	layer_map_from_record_supports_dynamic_idle_ttl
+ported	packages/effect/test/LayerMap.test.ts	159	it.effect	Service supports dynamic idleTimeToLive	layer_map_service_supports_dynamic_idle_ttl
 unported	packages/effect/test/LayerRef.test.ts	25	it.effect	make lazily acquires and releases resources	
 unported	packages/effect/test/LayerRef.test.ts	49	it.effect	invalidate releases an idle resource and acquires a fresh one	
 unported	packages/effect/test/LayerRef.test.ts	80	it.effect	preload acquires the resource when the LayerRef is created	

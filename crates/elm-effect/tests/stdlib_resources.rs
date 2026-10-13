@@ -21,7 +21,7 @@ mod resource;
 mod scoped_ref;
 
 use latch::{Await, Latch, Waiter};
-use layer_map::LayerMap;
+use layer_map::{IdlePolicy, IdlePolicyFn, LayerMap, LayerMapService};
 use layer_ref::LayerRef;
 use rc_map::RcMap;
 use rc_ref::RcRef;
@@ -521,4 +521,266 @@ fn layer_map_preloads_listed_keys_eagerly() {
     // A second get does not rebuild: preloaded entries are memoized.
     assert_eq!(map.get(&"a".to_string()), Some("a".to_string()));
     assert_eq!(built.lock().unwrap().clone(), vec!["a", "b"]);
+}
+
+// --- LayerMap idle policy (LayerMap.test.ts rows) ---
+
+/// The rows' acquire/release bookkeeping: which keys were built and which
+/// were released, in order.
+#[derive(Clone, Default)]
+struct MapLogs {
+    acquired: Arc<std::sync::Mutex<Vec<String>>>,
+    released: Arc<std::sync::Mutex<Vec<String>>>,
+}
+
+impl MapLogs {
+    fn acquired(&self) -> Vec<String> {
+        self.acquired.lock().unwrap().clone()
+    }
+
+    fn released(&self) -> Vec<String> {
+        self.released.lock().unwrap().clone()
+    }
+
+    /// A constructor that records the key it built, over a value that is the
+    /// key text (so a release names the same key).
+    fn build(&self) -> impl Fn(&String) -> Result<String, String> + Send + Sync + 'static {
+        let acquired = self.acquired.clone();
+        move |key: &String| {
+            acquired.lock().unwrap().push(key.clone());
+            Ok(key.clone())
+        }
+    }
+
+    fn release(&self) -> impl Fn(&String) + Send + Sync + 'static {
+        let released = self.released.clone();
+        move |value: &String| released.lock().unwrap().push(value.clone())
+    }
+}
+
+fn key(text: &str) -> String {
+    text.to_owned()
+}
+
+// LayerMap.test.ts:19 — `contextEffectOption` answers from the cache and
+// never builds, including from a scope that only borrows.
+#[test]
+fn layer_map_option_does_not_build_missing_entries() {
+    let logs = MapLogs::default();
+    let mut map = LayerMap::try_make_idle(
+        logs.build(),
+        logs.release(),
+        Vec::new(),
+        Some(Box::new(|_: &String| IdlePolicy::Never)),
+    )
+    .expect("nothing is preloaded, so nothing can fail");
+
+    assert_eq!(map.context_effect_option(&key("key")), None);
+    assert!(logs.acquired().is_empty(), "an option read builds nothing");
+
+    // The owner scope builds and holds; the borrower only reads.
+    assert_eq!(map.context_effect(&key("key")), Some(key("key")));
+    assert_eq!(map.context_effect_option(&key("key")), Some(key("key")));
+    assert_eq!(logs.acquired(), ["key"], "the entry is built once");
+}
+
+// LayerMap.test.ts:40 — the same rule through `LayerMap.Service`.
+#[test]
+fn layer_map_service_option_does_not_build_missing_entries() {
+    let logs = MapLogs::default();
+    let service = LayerMapService::install(
+        "LayerMapTest/ContextEffectOption",
+        logs.build(),
+        logs.release(),
+        Vec::new(),
+        Some(Box::new(|_: &String| IdlePolicy::Never)),
+    )
+    .expect("nothing is preloaded");
+
+    assert_eq!(service.context_effect_option(&key("key")), None);
+    assert!(logs.acquired().is_empty(), "an option read builds nothing");
+
+    assert_eq!(service.context_effect(&key("key")), Some(key("key")));
+    assert_eq!(service.context_effect_option(&key("key")), Some(key("key")));
+    assert_eq!(logs.acquired(), ["key"], "the entry is built once");
+    assert_eq!(service.name(), "LayerMapTest/ContextEffectOption");
+}
+
+// LayerMap.test.ts:75 — preload skips a zero-TTL key, a finite TTL releases
+// its key when the idle window closes, and an infinite one never does.
+#[test]
+fn layer_map_preloads_only_keys_with_non_zero_idle_ttl() {
+    let logs = MapLogs::default();
+    let mut map = LayerMap::try_make_idle(
+        logs.build(),
+        logs.release(),
+        vec![key("zero"), key("finite"), key("infinite")],
+        Some(Box::new(|key: &String| match key.as_str() {
+            "zero" => IdlePolicy::Keep,
+            "finite" => IdlePolicy::Finite(Duration::from_millis(1000)),
+            _ => IdlePolicy::Never,
+        })),
+    )
+    .expect("the preloads succeed");
+
+    assert_eq!(logs.acquired(), ["finite", "infinite"]);
+    assert!(logs.released().is_empty());
+
+    // A scoped read reuses the preloaded entry instead of rebuilding.
+    assert_eq!(map.scoped(&key("finite")), Some(key("finite")));
+    assert_eq!(logs.acquired(), ["finite", "infinite"]);
+
+    map.advance(Duration::from_millis(999));
+    assert!(logs.released().is_empty(), "999ms is inside the window");
+    map.advance(Duration::from_millis(1));
+    assert_eq!(logs.released(), ["finite"], "the window closed at 1000ms");
+
+    assert_eq!(map.scoped(&key("infinite")), Some(key("infinite")));
+    assert_eq!(
+        logs.acquired(),
+        ["finite", "infinite"],
+        "the infinite entry is still cached"
+    );
+    assert_eq!(logs.released(), ["finite"]);
+}
+
+// LayerMap.test.ts:99 — a preload that fails fails construction.
+#[test]
+fn layer_map_make_fails_when_a_preload_fails() {
+    let failure = LayerMap::try_make_idle(
+        |key: &String| Err::<String, String>(key.clone()),
+        |_: &String| {},
+        vec![key("broken")],
+        Some(Box::new(|_: &String| IdlePolicy::Finite(Duration::from_millis(1000)))),
+    );
+    assert_eq!(failure.err(), Some(key("broken")));
+
+    // The zero-TTL key in the same position is skipped, so it cannot fail
+    // the build: that is the difference the policy makes.
+    let skipped = LayerMap::try_make_idle(
+        |key: &String| Err::<String, String>(key.clone()),
+        |_: &String| {},
+        vec![key("broken")],
+        Some(Box::new(|_: &String| IdlePolicy::Keep)),
+    );
+    assert!(skipped.is_ok(), "a skipped preload cannot fail construction");
+}
+
+// LayerMap.test.ts:108 — a per-key TTL function: each key expires on its own
+// window rather than one map-wide TTL.
+#[test]
+fn layer_map_supports_dynamic_idle_ttl() {
+    let logs = MapLogs::default();
+    let mut map = LayerMap::try_make_idle(
+        logs.build(),
+        logs.release(),
+        Vec::new(),
+        Some(Box::new(|key: &String| {
+            if key.starts_with("short:") {
+                IdlePolicy::Finite(Duration::from_millis(500))
+            } else {
+                IdlePolicy::Finite(Duration::from_millis(2000))
+            }
+        })),
+    )
+    .expect("nothing is preloaded");
+
+    assert_eq!(map.scoped(&key("short:a")), Some(key("short:a")));
+    assert_eq!(map.scoped(&key("long:b")), Some(key("long:b")));
+    assert_eq!(logs.acquired(), ["short:a", "long:b"]);
+    assert!(logs.released().is_empty());
+
+    map.advance(Duration::from_millis(500));
+    assert_eq!(logs.released(), ["short:a"]);
+
+    map.advance(Duration::from_millis(1500));
+    assert_eq!(logs.released(), ["short:a", "long:b"]);
+}
+
+// LayerMap.test.ts:129 — `fromRecord` keeps the same per-key TTL rule over a
+// fixed set of layers.
+#[test]
+fn layer_map_from_record_supports_dynamic_idle_ttl() {
+    let logs = MapLogs::default();
+    let ctor = |name: &str| {
+        let logs = logs.clone();
+        let name = name.to_owned();
+        Box::new(move || {
+            logs.acquired.lock().unwrap().push(name.clone());
+            name.clone()
+        }) as Box<dyn Fn() -> String + Send + Sync>
+    };
+    let mut map = LayerMap::from_record(
+        vec![(key("short"), ctor("short")), (key("long"), ctor("long"))],
+        logs.release(),
+        Some(Box::new(|key: &String| {
+            if key == "short" {
+                IdlePolicy::Finite(Duration::from_millis(500))
+            } else {
+                IdlePolicy::Finite(Duration::from_millis(2000))
+            }
+        })),
+    );
+
+    assert_eq!(map.scoped(&key("short")), Some(key("short")));
+    assert_eq!(map.scoped(&key("long")), Some(key("long")));
+    assert_eq!(logs.acquired(), ["short", "long"]);
+    assert!(logs.released().is_empty());
+
+    map.advance(Duration::from_millis(500));
+    assert_eq!(logs.released(), ["short"]);
+
+    map.advance(Duration::from_millis(1500));
+    assert_eq!(logs.released(), ["short", "long"]);
+
+    // A key the record does not carry is not this map's to build.
+    assert_eq!(map.context_effect(&key("other")), None);
+    assert_eq!(logs.acquired(), ["short", "long"]);
+}
+
+// LayerMap.test.ts:159 — both service forms carry the dynamic TTL rule.
+#[test]
+fn layer_map_service_supports_dynamic_idle_ttl() {
+    let logs = MapLogs::default();
+    let short_window = || {
+        Some(Box::new(|key: &String| {
+            if key.starts_with("short:") || key == "short" {
+                IdlePolicy::Finite(Duration::from_millis(500))
+            } else {
+                IdlePolicy::Finite(Duration::from_millis(2000))
+            }
+        }) as IdlePolicyFn<String>)
+    };
+
+    let lookup = LayerMapService::install(
+        "LayerMapTest/LookupMap",
+        logs.build(),
+        logs.release(),
+        Vec::new(),
+        short_window(),
+    )
+    .expect("nothing is preloaded");
+    let record_ctor = |name: &str| {
+        let logs = logs.clone();
+        let name = name.to_owned();
+        Box::new(move || {
+            logs.acquired.lock().unwrap().push(name.clone());
+            name.clone()
+        }) as Box<dyn Fn() -> String + Send + Sync>
+    };
+    let record = LayerMapService::install_record(
+        "LayerMapTest/RecordMap",
+        vec![(key("short"), record_ctor("short"))],
+        logs.release(),
+        short_window(),
+    );
+
+    assert_eq!(lookup.scoped(&key("short:a")), Some(key("short:a")));
+    assert_eq!(record.scoped(&key("short")), Some(key("short")));
+    assert_eq!(logs.acquired(), ["short:a", "short"]);
+    assert!(logs.released().is_empty());
+
+    lookup.advance(Duration::from_millis(500));
+    record.advance(Duration::from_millis(500));
+    assert_eq!(logs.released(), ["short:a", "short"]);
 }

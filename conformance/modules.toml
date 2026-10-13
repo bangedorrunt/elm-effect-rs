@@ -428,7 +428,7 @@ tests = ["packages/effect/test/Layer.test.ts"]
 [[module]]
 path = "packages/effect/src/LayerMap.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/LayerMap.test.ts"]
