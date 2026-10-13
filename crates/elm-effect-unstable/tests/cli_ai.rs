@@ -5,7 +5,10 @@ use elm_effect_unstable::ai::{
     AiError, AiReason, FakeModel, GeneratedText, LanguageModel, ModelError, is_ai_error,
     object_has_keys,
 };
-use elm_effect_unstable::cli::{CliError, demo_app, parse};
+use elm_effect_unstable::cli::{CliApp, CliError, FlagDef, demo_app, parse};
+use elm_effect_unstable::cli_ai::CliError as WizardCliError;
+use elm_effect_unstable::cli::primitive;
+use elm_effect_unstable::cli_ai::{Arg, Command, WizardStep, flag_arg, wizard_argv, wizard_plan};
 
 fn argv(words: &[&str]) -> Vec<String> {
     words.iter().map(|s| s.to_string()).collect()
@@ -1426,4 +1429,272 @@ fn is_ai_error_answers_false_for_everything_that_is_not_one() {
     // :621 — the wrapper itself is the one value that passes.
     let real = AiError::new(AiReason::Unknown).with_context("Test", "test");
     assert!(is_ai_error(Some(&real)));
+}
+
+// --- Command.test.ts: the wizard's argv, where a value that looks like a flag
+// travels inline so the parser reads it as this flag's value ---
+
+/// Command.test.ts:211 — `should round trip wizard flag value ${value}`: a
+/// value that begins with a dash is emitted inline (`--value=-v`) because a
+/// separate one would be read as a flag, and a bare `-`, an empty value and a
+/// plain word travel as their own argument.
+#[test]
+fn wizard_flag_values_round_trip_through_the_parser() {
+    for (value, expected) in [
+        ("-v", vec!["--value=-v"]),
+        ("--verbose", vec!["--value=--verbose"]),
+        ("--", vec!["--value=--"]),
+        ("--mode=x=y", vec!["--value=--mode=x=y"]),
+        ("plain", vec!["--value", "plain"]),
+        ("", vec!["--value", ""]),
+        ("-", vec!["--value", "-"]),
+    ] {
+        assert_eq!(
+            flag_arg("value", value),
+            expected,
+            "the argv for {value:?}"
+        );
+    }
+
+    // The other half of the row: those argv pairs parse back to the same
+    // value, which is what makes the round trip a round trip.
+    let command = Command::new(
+        "demo",
+        "demo command",
+        vec![Arg::Opt {
+            name: "value".to_string(),
+            help: "the value".to_string(),
+            required: false,
+        }],
+    );
+    for (value, _) in [
+        ("-v", 0),
+        ("--verbose", 0),
+        ("--", 0),
+        ("--mode=x=y", 0),
+        ("plain", 0),
+        ("", 0),
+        ("-", 0),
+    ] {
+        let args = flag_arg("value", value);
+        let (_, parsed) = command.parse(&args).expect("the wizard argv parses");
+        assert_eq!(parsed.opt("value"), Some(value), "{value:?}");
+    }
+}
+
+/// Command.test.ts:229 — a repeated flag takes several values, and the
+/// inline-or-separate rule decides each one on its own.
+#[test]
+fn wizard_repeated_flag_values_keep_their_own_shape() {
+    let values = ["-v", "plain", "--name=x", ""];
+    let expected = [
+        "--value=-v",
+        "--value",
+        "plain",
+        "--value=--name=x",
+        "--value",
+        "",
+    ];
+    let argv: Vec<String> = values.iter().flat_map(|v| flag_arg("value", v)).collect();
+    assert_eq!(argv, expected);
+    // And the whole list parses back as the four values, in order.
+    let command = Command::new(
+        "demo",
+        "demo command",
+        vec![Arg::Opt {
+            name: "value".to_string(),
+            help: "the value".to_string(),
+            required: false,
+        }],
+    );
+    let (_, parsed) = command.parse(&argv).expect("the repeated argv parses");
+    let mut collected = Vec::new();
+    let mut i = 0;
+    while let Some(value) = parsed.opt_at("value", i) {
+        collected.push(value.to_string());
+        i += 1;
+    }
+    assert_eq!(collected, values.to_vec());
+}
+
+/// Command.test.ts:168 — a negative number is a value, not a flag: `--lat
+/// -40.41` takes the number as the flag's value and a bare `-2` as a
+/// positional, and the typed parses accept both.
+#[test]
+fn negative_numbers_parse_as_flag_and_positional_values() {
+    let command = Command::new(
+        "geo",
+        "geo command",
+        vec![
+            Arg::Opt {
+                name: "lat".to_string(),
+                help: "latitude".to_string(),
+                required: false,
+            },
+            Arg::Opt {
+                name: "lon".to_string(),
+                help: "longitude".to_string(),
+                required: false,
+            },
+            Arg::Positional {
+                name: "offset".to_string(),
+                help: "offset".to_string(),
+            },
+        ],
+    );
+    let argv = vec![
+        "--lat".to_string(),
+        "-40.41".to_string(),
+        "--lon".to_string(),
+        "-3.70".to_string(),
+        "-2".to_string(),
+    ];
+    let (_, parsed) = command.parse(&argv).expect("the negative numbers parse");
+    assert_eq!(parsed.opt("lat"), Some("-40.41"));
+    assert_eq!(parsed.opt("lon"), Some("-3.70"));
+    assert_eq!(parsed.positionals, vec!["-2".to_string()]);
+    // The typed parses are what the handler receives.
+    assert_eq!(primitive::parse_finite("-40.41"), Ok(-40.41));
+    assert_eq!(primitive::parse_int("-2"), Ok(-2));
+}
+
+/// Command.test.ts:168 (the clap-backed parser) — `--lat -40.41` reads the
+/// negative number as the flag's value rather than as an unknown option.
+#[test]
+fn clap_backed_parse_reads_a_hyphen_value_as_the_flags_value() {
+    let app = CliApp {
+        name: "geo",
+        version: "0.1.0",
+        about: "geo",
+        flags: vec![
+            FlagDef {
+                name: "lat",
+                short: None,
+                about: "latitude",
+                takes_value: true,
+                default: None,
+            },
+            FlagDef {
+                name: "lon",
+                short: None,
+                about: "longitude",
+                takes_value: true,
+                default: None,
+            },
+        ],
+        commands: Vec::new(),
+    };
+    let request = parse(
+        &app,
+        &[
+            "geo".to_string(),
+            "--lat".to_string(),
+            "-40.41".to_string(),
+            "--lon".to_string(),
+            "-3.70".to_string(),
+        ],
+    )
+    .expect("a hyphen value is the flag's value");
+    assert_eq!(request.flags.get("lat").map(String::as_str), Some("-40.41"));
+    assert_eq!(request.flags.get("lon").map(String::as_str), Some("-3.70"));
+}
+
+/// Command.test.ts:119 — `Command.wizard(target)` invoked from a handler: the
+/// wizard asks one question per declared flag and then one per positional, in
+/// declaration order, and the answers become the argv it hands back.
+#[test]
+fn wizard_plan_asks_one_question_per_flag_then_per_positional() {
+    let target = Command::new(
+        "greet",
+        "greet command",
+        vec![
+            Arg::Opt {
+                name: "name".to_string(),
+                help: "who to greet".to_string(),
+                required: true,
+            },
+            Arg::Positional {
+                name: "count".to_string(),
+                help: "how many times".to_string(),
+            },
+        ],
+    );
+    assert_eq!(wizard_plan(&target), vec![
+        WizardStep::Flag { name: "name".to_string(), value: String::new() },
+        WizardStep::Positional { name: "count".to_string(), value: String::new() },
+    ]);
+    // The row's answers, in the order the questions were asked.
+    let mut steps = wizard_plan(&target);
+    for (step, answer) in steps.iter_mut().zip(["Alice", "2"]) {
+        step.answer(answer);
+    }
+    assert_eq!(
+        wizard_argv(&target, &steps),
+        vec![
+            "greet".to_string(),
+            "--name".to_string(),
+            "Alice".to_string(),
+            "2".to_string(),
+        ]
+    );
+}
+
+/// Command.test.ts:182 — a negative integer flag value travels inline, so
+/// `--offset=-2` is what the wizard emits and what the parser reads back.
+#[test]
+fn wizard_emits_a_negative_integer_flag_value_inline() {
+    let command = Command::new(
+        "demo",
+        "demo command",
+        vec![Arg::Opt {
+            name: "offset".to_string(),
+            help: "offset".to_string(),
+            required: false,
+        }],
+    );
+    let steps = vec![WizardStep::Flag {
+        name: "offset".to_string(),
+        value: "-2".to_string(),
+    }];
+    assert_eq!(
+        wizard_argv(&command, &steps),
+        vec!["demo".to_string(), "--offset=-2".to_string()]
+    );
+    // The handler side: the argv parses back to the negative integer.
+    let argv = wizard_argv(&command, &steps);
+    let (_, parsed) = command.parse(&argv[1..]).expect("the argv parses");
+    assert_eq!(parsed.opt("offset"), Some("-2"));
+    assert_eq!(primitive::parse_int("-2"), Ok(-2));
+}
+
+/// Command.test.ts:370 — a flag that takes a value, given without one, is
+/// refused naming the flag, so the handler is never reached. The port's
+/// refusal names the flag and carries no value, which is the law the four
+/// rows of the table assert.
+#[test]
+fn a_valued_flag_without_its_value_is_refused_naming_the_flag() {
+    for (name, expected) in [
+        ("name", "string"),
+        ("count", "integer"),
+        ("config", "path"),
+        ("env", "key=value"),
+    ] {
+        let command = Command::new(
+            "demo",
+            "demo command",
+            vec![Arg::Opt {
+                name: name.to_string(),
+                help: "a value".to_string(),
+                required: false,
+            }],
+        );
+        let error = command
+            .parse(&[format!("--{name}")])
+            .expect_err("the flag was given no value");
+        let printed = error.to_string();
+        assert!(printed.contains(name), "{name}: {printed}");
+        // The refusal is the missing value, not an unknown flag.
+        assert!(matches!(error, WizardCliError::Missing(_)), "{name}: {printed}");
+        let _ = expected;
+    }
 }

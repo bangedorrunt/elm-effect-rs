@@ -16,6 +16,8 @@ pub mod cli;
 
 pub mod ai;
 
+pub mod cli_ai;
+
 #[cfg(feature = "schema_obs")]
 pub mod schema_obs;
 

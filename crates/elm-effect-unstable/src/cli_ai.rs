@@ -75,8 +75,11 @@ pub enum Arg {
 pub struct Parsed {
     /// Flags present.
     pub flags: BTreeMap<String, bool>,
-    /// Option values.
+    /// Option values, last one per name.
     pub opts: BTreeMap<String, String>,
+    /// Every value an option was given, in the order they appeared. A
+    /// repeated flag has several; an ordinary one has the single value.
+    pub opts_runs: BTreeMap<String, Vec<String>>,
     /// Positional values.
     pub positionals: Vec<String>,
     /// Everything after `--`.
@@ -92,6 +95,16 @@ impl Parsed {
     /// Option value.
     pub fn opt(&self, name: &str) -> Option<&str> {
         self.opts.get(name).map(String::as_str)
+    }
+
+    /// The `index`-th value of an option that was given more than once. The
+    /// single-value map keeps the last one for a caller that wants one value;
+    /// this reads the whole run, which is what a repeated flag needs.
+    pub fn opt_at(&self, name: &str, index: usize) -> Option<&str> {
+        self.opts_runs
+            .get(name)
+            .and_then(|values| values.get(index))
+            .map(String::as_str)
     }
 }
 
@@ -211,6 +224,11 @@ impl Command {
                             argv.get(i).cloned().ok_or_else(|| CliError::Missing(name.to_string()))?
                         }
                     };
+                    parsed
+                        .opts_runs
+                        .entry(name.to_string())
+                        .or_default()
+                        .push(value.clone());
                     parsed.opts.insert(name.to_string(), value);
                     i += 1;
                     continue;
@@ -365,4 +383,87 @@ impl LanguageModel for FakeModel {
     fn stream_text(&self, messages: &[ChatMessage]) -> Result<Vec<String>, ModelError> {
         Ok(vec![self.generate_text(messages)?])
     }
+}
+
+/// One flag's contribution to an argv list.
+///
+/// A value that begins with a dash is emitted INLINE (`--value=-v`) because a
+/// separate one would be read as a flag or an option-looking operand rather
+/// than as this flag's value. A bare `-` is not one of those, so it travels on
+/// its own, as do an empty value and a plain word.
+pub fn flag_arg(name: &str, value: &str) -> Vec<String> {
+    if value.starts_with('-') && value.len() > 1 {
+        vec![format!("--{name}={value}")]
+    } else {
+        vec!["--".to_string() + name, value.to_string()]
+    }
+}
+
+/// The argv a wizard produces for a command's named choices.
+///
+/// `steps` walks the command's arguments in the order they were declared:
+/// `Flag(name)` asks for one value of that flag, and `Positional(name)` asks
+/// for one value of that positional. Each answer becomes the argv the flag-arg
+/// rule spells for it, and the command's own name leads the list.
+pub fn wizard_argv(command: &Command, steps: &[WizardStep]) -> Vec<String> {
+    let mut argv = vec![command.name.clone()];
+    for step in steps {
+        match step {
+            WizardStep::Flag { name, value } => argv.extend(flag_arg(name, value)),
+            WizardStep::Positional { value, .. } => argv.push(value.clone()),
+        }
+    }
+    argv
+}
+
+/// One question the wizard asks, and the answer it was given.
+#[derive(Clone, Debug, PartialEq)]
+pub enum WizardStep {
+    /// A flag value, named by the flag it answers.
+    Flag {
+        /// Flag name.
+        name: String,
+        /// The value that was entered.
+        value: String,
+    },
+    /// A positional value.
+    Positional {
+        /// Display name.
+        name: String,
+        /// The value that was entered.
+        value: String,
+    },
+}
+
+impl WizardStep {
+    /// Record the answer this step was given.
+    pub fn answer(&mut self, text: &str) {
+        match self {
+            Self::Flag { value, .. } | Self::Positional { value, .. } => {
+                value.clear();
+                value.push_str(text);
+            }
+        }
+    }
+}
+
+/// The questions a command's wizard asks, in declaration order: one per valued
+/// flag, then one per positional. A boolean switch is not a question, because
+/// the wizard renders it rather than asking for it.
+pub fn wizard_plan(command: &Command) -> Vec<WizardStep> {
+    let mut steps = Vec::new();
+    for arg in &command.args {
+        match arg {
+            Arg::Opt { name, .. } => steps.push(WizardStep::Flag {
+                name: name.clone(),
+                value: String::new(),
+            }),
+            Arg::Positional { name, .. } => steps.push(WizardStep::Positional {
+                name: name.clone(),
+                value: String::new(),
+            }),
+            Arg::Flag { .. } => {}
+        }
+    }
+    steps
 }

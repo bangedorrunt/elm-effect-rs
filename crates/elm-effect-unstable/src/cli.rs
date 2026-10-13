@@ -241,6 +241,10 @@ fn flag_arg(def: &FlagDef) -> Arg {
         if let Some(default) = &def.default {
             arg = arg.default_value(*default);
         }
+        // A value that begins with a dash is still a value. Without this,
+        // `--lat -40.41` reads the number as an unknown option rather than as
+        // this flag's value, which is the whole of the negative-number row.
+        arg = arg.allow_hyphen_values(true);
     } else {
         arg = arg.action(ArgAction::SetTrue);
     }
