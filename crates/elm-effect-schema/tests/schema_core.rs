@@ -378,6 +378,63 @@ fn struct_decode_ignores_undeclared_keys() {
 // --- Schema.test.ts: the union rows, whose law is which member a value
 // resolves to and what the whole union refuses ---
 
+/// Schema.test.ts:2038 — `Record(String, Finite).check(isPropertyNames(String
+/// .check(isPattern(/^[A-Z]/))))`: a property-names check decides every key of
+/// the object it is attached to, so a key that fails the key schema fails the
+/// whole record and names itself.
+#[test]
+fn property_names_check_decides_every_key() {
+    let key = Schema::checked(
+        Schema::as_unknown(Schema::string()),
+        "isPattern",
+        vec![r#"new RegExp("^[A-Z]", "u")"#],
+        vec![("expected", "a string matching the RegExp ^[A-Z]")],
+    );
+    let record: Schema<Unknown> = Schema::as_unknown(Schema::record(Schema::as_unknown(
+        Schema::number(),
+    )));
+    let schema = Schema::checked_property_names(
+        record,
+        key,
+        vec![("expected", "an object with property names matching the schema")],
+    );
+
+    let ok = std::collections::BTreeMap::from([("Ab".to_string(), Unknown::Number(1.0))]);
+    assert!(schema.decode(Unknown::Object(ok)).is_ok(), "a matching key decodes");
+
+    let bad = std::collections::BTreeMap::from([("ab".to_string(), Unknown::Number(1.0))]);
+    let error = schema
+        .decode(Unknown::Object(bad))
+        .expect_err("a key outside the pattern is refused");
+    let printed = error.to_string();
+    assert!(printed.contains("ab"), "the failing key is named: {printed}");
+}
+
+/// Schema.test.ts:2053 — `isPropertyNames(Schema.Never)`: a key schema that
+/// admits no key makes the empty object the only admissible one.
+#[test]
+fn property_names_check_with_never_admits_only_the_empty_object() {
+    let record: Schema<Unknown> = Schema::as_unknown(Schema::record(Schema::as_unknown(
+        Schema::number(),
+    )));
+    let schema = Schema::checked_property_names(
+        record,
+        Schema::as_unknown(Schema::never()),
+        vec![("expected", "an object with property names matching the schema")],
+    );
+    assert!(schema
+        .decode(Unknown::Object(std::collections::BTreeMap::new()))
+        .is_ok());
+    let error = schema
+        .decode(Unknown::Object(std::collections::BTreeMap::from([(
+            "a".to_string(),
+            Unknown::Number(1.0),
+        )])))
+        .expect_err("a never key schema admits no key");
+    assert!(error.to_string().contains("never"), "{error}");
+    assert!(error.to_string().contains("a"), "{error}");
+}
+
 /// Schema.test.ts:4053 — `Record(String.check(isPattern(/^a/)), Number)`: the
 /// key schema selects which entries the record describes, so an entry whose
 /// key fails it is dropped rather than failing the record, and an entry whose

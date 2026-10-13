@@ -7627,8 +7627,8 @@ not-applicable	packages/effect/test/schema/Schema.test.ts	1968	it	isMinPropertie
 not-applicable	packages/effect/test/schema/Schema.test.ts	1983	it	isMaxProperties with symbol keys	the row's keys are JavaScript symbols; the port's Unknown object holds string keys only, so neither a count that includes a symbol key nor its failure is representable
 ported	packages/effect/test/schema/Schema.test.ts	2000	it	isBetweenProperties	is_between_properties_counts_entries
 not-applicable	packages/effect/test/schema/Schema.test.ts	2017	it	isBetweenProperties with symbol keys	the row's keys are JavaScript symbols; the port's Unknown object holds string keys only, so neither a count that includes a symbol key nor its failure is representable
-unported	packages/effect/test/schema/Schema.test.ts	2038	it	isPropertyNames	
-unported	packages/effect/test/schema/Schema.test.ts	2053	it	isPropertyNames with Never	
+ported	packages/effect/test/schema/Schema.test.ts	2038	it	isPropertyNames	property_names_check_decides_every_key
+ported	packages/effect/test/schema/Schema.test.ts	2053	it	isPropertyNames with Never	property_names_check_with_never_admits_only_the_empty_object
 ported	packages/effect/test/schema/Schema.test.ts	2068	it	UniqueArray	unique_array_rejects_structural_duplicates
 unported	packages/effect/test/schema/Schema.test.ts	2085	it	Finite	
 ported	packages/effect/test/schema/Schema.test.ts	2094	it	NumberFromString	number_from_string_round_trips_non_finite_values

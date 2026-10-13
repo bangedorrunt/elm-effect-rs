@@ -4374,6 +4374,44 @@ impl Schema<Unknown> {
         out.wrapped = None;
         out
     }
+
+    /// An `isPropertyNames` check: the record's keys are the thing being
+    /// refined, so the key schema travels with the check and every key of the
+    /// decoded object is decided by it. Rendering the key schema into the
+    /// argument is what a repr prints; carrying the schema itself is what a
+    /// decode needs, which is why this is its own constructor rather than a
+    /// `checked` call with a rendered argument.
+    pub fn checked_property_names(
+        base: Schema<Unknown>,
+        key: Schema<Unknown>,
+        annotation: Vec<(&str, &str)>,
+    ) -> Self {
+        let rendered = key.to_code();
+        let annotated =
+            Self::checked(base, "isPropertyNames", vec![rendered.as_str()], annotation);
+        let key = Arc::new(key);
+        let decode_key = key.clone();
+        let inner = Arc::new(annotated);
+        let decode_inner = inner.clone();
+        let encode_inner = inner.clone();
+        let mut out = Self::new(
+            move |unknown| {
+                if let Unknown::Object(fields) = &unknown {
+                    for name in fields.keys() {
+                        if let Err(error) = decode_key.decode(Unknown::Text(name.clone())) {
+                            return Err(error.at(&format!("$.{name}")));
+                        }
+                    }
+                }
+                decode_inner.decode(unknown)
+            },
+            move |value| encode_inner.try_encode(value),
+            inner.repr_kind(),
+        );
+        out.formatter = inner.formatter.clone();
+        out.wrapped = None;
+        out
+    }
 }
 
 /// Decimal places a plain decimal number shows, which is the precision JS's
