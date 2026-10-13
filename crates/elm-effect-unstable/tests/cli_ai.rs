@@ -1762,3 +1762,31 @@ fn a_malformed_key_value_flag_is_refused_naming_the_value() {
         assert!(error.contains(bad), "{bad}: {error}");
     }
 }
+
+/// Command.test.ts:955, :964 — a command marked unlisted stays unlisted when
+/// subcommands or shared flags are added, because the metadata belongs to the
+/// command rather than to the shape it had when it was set.
+#[test]
+fn unlisted_survives_adding_subcommands_and_shared_flags() {
+    let internal = Command::new("internal", "internal command", Vec::new()).unlisted();
+    assert!(internal.unlisted, "the marker is set");
+
+    let with_children = internal.clone().with_subcommands(vec![Command::new(
+        "child",
+        "child command",
+        Vec::new(),
+    )]);
+    assert!(with_children.unlisted, "survives adding subcommands");
+    assert_eq!(with_children.subcommands.len(), 1);
+
+    let with_shared = internal.with_shared_flags(vec![Arg::Flag {
+        name: "verbose".to_string(),
+        help: "verbose".to_string(),
+    }]);
+    assert!(with_shared.unlisted, "survives adding shared flags");
+
+    // A command that was never marked stays listed, so the flag is a real
+    // distinction rather than a default both ways.
+    let plain = Command::new("plain", "plain command", Vec::new()).with_subcommands(vec![]);
+    assert!(!plain.unlisted);
+}

@@ -5600,7 +5600,7 @@ unported	packages/effect/test/cli/Command.test.ts	858	it.effect	should render Us
 unported	packages/effect/test/cli/Command.test.ts	892	it.effect	should render UserError argument failures with command help	
 unported	packages/effect/test/cli/Command.test.ts	913	it.effect	should suppress automatic error rendering	
 unported	packages/effect/test/cli/Command.test.ts	929	it.effect	should still render help when automatic error rendering is disabled	
-unported	packages/effect/test/cli/Command.test.ts	955	it	preserves unlisted metadata when adding shared flags	
+ported	packages/effect/test/cli/Command.test.ts	955	it	preserves unlisted metadata when adding shared flags	unlisted_survives_adding_subcommands_and_shared_flags
 unported	packages/effect/test/cli/Command.test.ts	964	it.effect	should execute parent handler when no subcommand provided	
 unported	packages/effect/test/cli/Command.test.ts	975	it.effect	should execute subcommand when provided	
 unported	packages/effect/test/cli/Command.test.ts	991	it.effect	should execute subcommand when provided by alias	

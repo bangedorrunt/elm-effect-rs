@@ -119,17 +119,32 @@ pub struct Command {
     pub args: Vec<Arg>,
     /// Subcommands.
     pub subcommands: Vec<Command>,
+    /// Hidden from help listings (`Command.unlisted`). It belongs to the
+    /// command, so adding subcommands or shared flags does not clear it.
+    pub unlisted: bool,
 }
 
 impl Command {
     /// Leaf command.
     pub fn new(name: &str, help: &str, args: Vec<Arg>) -> Self {
-        Self { name: name.to_string(), help: help.to_string(), args, subcommands: Vec::new() }
+        Self {
+            name: name.to_string(),
+            help: help.to_string(),
+            args,
+            subcommands: Vec::new(),
+            unlisted: false,
+        }
     }
 
     /// Command with subcommands.
     pub fn group(name: &str, help: &str, subcommands: Vec<Command>) -> Self {
-        Self { name: name.to_string(), help: help.to_string(), args: Vec::new(), subcommands }
+        Self {
+            name: name.to_string(),
+            help: help.to_string(),
+            args: Vec::new(),
+            subcommands,
+            unlisted: false,
+        }
     }
 
     /// Parse argv (without the binary name): subcommand dispatch first,
@@ -492,4 +507,24 @@ pub fn option_runs(parsed: &Parsed, name: &str) -> Vec<String> {
         index += 1;
     }
     out
+}
+
+impl Command {
+    /// Hide this command from help listings (`Command.unlisted`).
+    pub fn unlisted(mut self) -> Self {
+        self.unlisted = true;
+        self
+    }
+
+    /// Attach subcommands, keeping the command's own metadata.
+    pub fn with_subcommands(mut self, subcommands: Vec<Command>) -> Self {
+        self.subcommands.extend(subcommands);
+        self
+    }
+
+    /// Add shared flags, keeping the command's own metadata.
+    pub fn with_shared_flags(mut self, args: Vec<Arg>) -> Self {
+        self.args.extend(args);
+        self
+    }
 }
