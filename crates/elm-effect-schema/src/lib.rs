@@ -3111,13 +3111,25 @@ impl Schema<Unknown> {
         };
         let numeric: Vec<f64> = args.iter().filter_map(|arg| arg.parse().ok()).collect();
         let limit = numeric.first().copied();
+        let bounds = numeric.clone();
+        let exclusive_minimum = annotation
+            .iter()
+            .any(|(key, value)| *key == "exclusiveMinimum" && *value == "true");
+        let exclusive_maximum = annotation
+            .iter()
+            .any(|(key, value)| *key == "exclusiveMaximum" && *value == "true");
         let name_owned = name.to_string();
         let inner = Arc::new(base);
         let decode_inner = inner.clone();
         let encode_inner = inner.clone();
         let mut out = Self::new(
             move |unknown| {
-                if !check_holds(&name_owned, limit, &unknown) {
+                let holds = if name_owned == "isBetween" {
+                    between_holds(&bounds, exclusive_minimum, exclusive_maximum, &unknown)
+                } else {
+                    check_holds(&name_owned, limit, &unknown)
+                };
+                if !holds {
                     return Err(SchemaError::TypeMismatch {
                         path: "$".to_string(),
                         expected: "a value satisfying the refinement",
@@ -3187,6 +3199,44 @@ fn check_holds_arg(name: &str, arg: Option<&str>, value: &Unknown) -> bool {
     }
     let limit = arg.and_then(|arg| arg.parse::<f64>().ok());
     check_holds(name, limit, value)
+}
+
+/// Whether a number satisfies `isBetween`: both bounds by default, each
+/// including its endpoint unless the check marks it exclusive. The two bounds
+/// ride the check's argument list in order, and exclusivity rides its
+/// annotation, which is where a check keeps the flags a repr would print.
+/// A value that is not a number is left to the base schema, like every other
+/// check here.
+fn between_holds(
+    bounds: &[f64],
+    exclusive_minimum: bool,
+    exclusive_maximum: bool,
+    value: &Unknown,
+) -> bool {
+    let Unknown::Number(number) = value else {
+        return true;
+    };
+    if let Some(minimum) = bounds.first() {
+        let included = if exclusive_minimum {
+            *number > *minimum
+        } else {
+            *number >= *minimum
+        };
+        if !included {
+            return false;
+        }
+    }
+    if let Some(maximum) = bounds.get(1) {
+        let included = if exclusive_maximum {
+            *number < *maximum
+        } else {
+            *number <= *maximum
+        };
+        if !included {
+            return false;
+        }
+    }
+    true
 }
 
 fn check_holds(name: &str, limit: Option<f64>, value: &Unknown) -> bool {

@@ -7625,20 +7625,20 @@ unported	packages/effect/test/schema/Schema.test.ts	1611	it	isGreaterThanOrEqual
 unported	packages/effect/test/schema/Schema.test.ts	1623	it	isLessThan	
 unported	packages/effect/test/schema/Schema.test.ts	1635	it	isLessThanOrEqualTo	
 ported	packages/effect/test/schema/Schema.test.ts	1647	it	isMultipleOf	refine_is_multiple_of
-unported	packages/effect/test/schema/Schema.test.ts	1659	it	isMultipleOf rejects nonzero subnormal remainders	
-unported	packages/effect/test/schema/Schema.test.ts	1665	it	isMultipleOf normalizes negative divisors	
+ported	packages/effect/test/schema/Schema.test.ts	1659	it	isMultipleOf rejects nonzero subnormal remainders	is_multiple_of_rejects_subnormal_remainders
+ported	packages/effect/test/schema/Schema.test.ts	1665	it	isMultipleOf normalizes negative divisors	is_multiple_of_normalizes_negative_divisors
 unported	packages/effect/test/schema/Schema.test.ts	1677	it	isMultipleOf rejects invalid divisors	
-unported	packages/effect/test/schema/Schema.test.ts	1687	it	included & included	
-unported	packages/effect/test/schema/Schema.test.ts	1712	it	included & excluded	
-unported	packages/effect/test/schema/Schema.test.ts	1737	it	excluded & included	
-unported	packages/effect/test/schema/Schema.test.ts	1762	it	excluded & excluded	
+ported	packages/effect/test/schema/Schema.test.ts	1687	it	included & included	is_between_includes_both_bounds
+ported	packages/effect/test/schema/Schema.test.ts	1712	it	included & excluded	is_between_excludes_the_maximum
+ported	packages/effect/test/schema/Schema.test.ts	1737	it	excluded & included	is_between_excludes_the_minimum
+ported	packages/effect/test/schema/Schema.test.ts	1762	it	excluded & excluded	is_between_excludes_both_bounds
 ported	packages/effect/test/schema/Schema.test.ts	1792	it	isInt	refine_is_int
 ported	packages/effect/test/schema/Schema.test.ts	1823	it	isInt32	refine_is_int32
 ported	packages/effect/test/schema/Schema.test.ts	1874	it	isBetween	refine_is_between
-unported	packages/effect/test/schema/Schema.test.ts	1888	it	isGreaterThan	
-unported	packages/effect/test/schema/Schema.test.ts	1900	it	isGreaterThanOrEqualTo	
-unported	packages/effect/test/schema/Schema.test.ts	1913	it	isLessThan	
-unported	packages/effect/test/schema/Schema.test.ts	1925	it	isLessThanOrEqualTo	
+not-applicable	packages/effect/test/schema/Schema.test.ts	1888	it	isGreaterThan	the row's value is a JavaScript BigInt (5n); the port's Unknown holds null, booleans, numbers, text, arrays and objects, so both the success and the failure case are unrepresentable
+not-applicable	packages/effect/test/schema/Schema.test.ts	1900	it	isGreaterThanOrEqualTo	the row's value is a JavaScript BigInt (5n); the port's Unknown holds null, booleans, numbers, text, arrays and objects, so both the success and the failure case are unrepresentable
+not-applicable	packages/effect/test/schema/Schema.test.ts	1913	it	isLessThan	the row's value is a JavaScript BigInt (5n); the port's Unknown holds null, booleans, numbers, text, arrays and objects, so both the success and the failure case are unrepresentable
+not-applicable	packages/effect/test/schema/Schema.test.ts	1925	it	isLessThanOrEqualTo	the row's value is a JavaScript BigInt (5n); the port's Unknown holds null, booleans, numbers, text, arrays and objects, so both the success and the failure case are unrepresentable
 unported	packages/effect/test/schema/Schema.test.ts	1940	it	isMinProperties	
 unported	packages/effect/test/schema/Schema.test.ts	1952	it	isMaxProperties	
 unported	packages/effect/test/schema/Schema.test.ts	1968	it	isMinProperties with symbol keys	
