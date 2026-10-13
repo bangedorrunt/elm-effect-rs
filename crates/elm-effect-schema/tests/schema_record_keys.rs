@@ -156,3 +156,113 @@ fn pattern_key_record_requires_no_key() {
     assert!(schema.decode(obj(vec![])).is_ok());
     assert!(schema.decode(obj(vec![("anything", number(1.0))])).is_ok());
 }
+
+// --------------- StructWithRest (Schema.test.ts:4997-5136) ---------------
+
+use elm_effect_schema::transform::Transformation;
+
+/// A refusal's text, for a schema over the whole object. The file's `refusal`
+/// helper is typed to the record shape; this one keeps the object shape.
+fn refusal_of(schema: &Schema<Unknown>, value: Unknown) -> String {
+    schema
+        .decode(value)
+        .expect_err("the value is refused")
+        .to_string()
+}
+
+/// The pin's `Schema.String.pipe(Schema.decodeTo(Schema.String, t))` over this
+/// port's `Schema::convert`: decode runs the transformation, encode is the
+/// transformation's own encode direction.
+fn transformed(t: Transformation<String, String>) -> Schema<Unknown> {
+    let encoded = std::sync::Arc::new(t);
+    let decoded = encoded.clone();
+    Schema::as_unknown(Schema::convert(
+        Schema::string(),
+        move |value: String| decoded.forward(value),
+        move |value: &String| {
+            encoded
+                .backward(value.clone())
+                .expect("a one-way text transformation passes through on encode")
+        },
+    ))
+}
+
+/// Schema.test.ts:5121 `index signatures should not re-parse fixed properties`.
+/// The fixed property decodes with its own schema and the catch-all must not
+/// run over it a second time. The pin's trim cannot show the difference (trim
+/// is idempotent), so the second half marks the text instead: a second pass
+/// would mark it twice.
+#[test]
+fn struct_with_rest_does_not_re_parse_a_fixed_property() {
+    let trimmed = Schema::struct_with_rest(
+        vec![("a".to_string(), transformed(Transformation::trim()))],
+        transformed(Transformation::trim()),
+    );
+    assert_eq!(
+        trimmed
+            .decode(obj(vec![("a", text("  x  ")), ("b", text("y"))]))
+            .unwrap(),
+        obj(vec![("a", text("x")), ("b", text("y"))])
+    );
+
+    // One pass over each key, so both values carry exactly one mark.
+    let marked = Schema::struct_with_rest(
+        vec![("a".to_string(), transformed(marked_once()))],
+        transformed(marked_once()),
+    );
+    let decoded = marked
+        .decode(obj(vec![("a", text("x")), ("b", text("y"))]))
+        .unwrap();
+    assert_eq!(decoded, obj(vec![("a", text("x!")), ("b", text("y!"))]));
+
+    // The pin's encode half: encoding leaves the decoded object as it stands.
+    assert_eq!(
+        marked.encode(&obj(vec![("a", text("x!")), ("b", text("y!"))])),
+        obj(vec![("a", text("x!")), ("b", text("y!"))])
+    );
+}
+
+/// One mark per pass, so a value that went through the transformation twice is
+/// distinguishable from one that went through once.
+fn marked_once() -> Transformation<String, String> {
+    Transformation::new(
+        |value: String| Ok(format!("{value}!")),
+        |value: String| Ok(value),
+    )
+}
+
+/// Schema.test.ts:5095 `should preserve both checks`: a check on the fixed part
+/// and a check on the index signature are both kept and both enforced. The pin
+/// spells them on the Struct and the Record; this port's `struct_with_rest`
+/// takes the fixed fields plus one per-value shape for the catch-all, so the
+/// same two checks sit on the field and on the rest value. Each refusal names
+/// its own check, so a dropped check shows up as the wrong name or a pass.
+#[test]
+fn struct_with_rest_keeps_both_checks() {
+    let positive = number_schema().refine("agt(0)", |value: &Unknown| {
+        matches!(value, Unknown::Number(number) if *number > 0.0)
+    });
+    let above_one = number_schema().refine("bgt(1)", |value: &Unknown| {
+        matches!(value, Unknown::Number(number) if *number > 1.0)
+    });
+    let schema = Schema::struct_with_rest(vec![("a".to_string(), positive)], above_one);
+
+    assert_eq!(
+        schema.decode(obj(vec![("a", number(1.0))])).unwrap(),
+        obj(vec![("a", number(1.0))])
+    );
+    assert_eq!(
+        schema
+            .decode(obj(vec![("a", number(1.0)), ("b", number(2.0))]))
+            .unwrap(),
+        obj(vec![("a", number(1.0)), ("b", number(2.0))])
+    );
+    assert!(
+        refusal_of(&schema, obj(vec![("a", number(0.0))])).contains("agt(0)"),
+        "the fixed field's check is the one that refuses"
+    );
+    assert!(
+        refusal_of(&schema, obj(vec![("a", number(1.0)), ("b", number(1.0))])).contains("bgt(1)"),
+        "the catch-all's check is the one that refuses"
+    );
+}

@@ -89,6 +89,13 @@ impl Transformation<String, String> {
     pub fn to_uppercase() -> Self {
         Transformation::new(|value: String| Ok(value.to_uppercase()), |value: String| Ok(value))
     }
+
+    /// `SchemaTransformation.trim`: decoding strips leading and trailing
+    /// whitespace and encoding is passthrough, the same one-way shape as the
+    /// case transformations. Interior whitespace is left alone.
+    pub fn trim() -> Self {
+        Transformation::new(|value: String| Ok(value.trim().to_string()), |value: String| Ok(value))
+    }
 }
 
 /// Structural tag check (`isTransformation`): real transformations carry
