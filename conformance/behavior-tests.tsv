@@ -7741,7 +7741,7 @@ ported	packages/effect/test/schema/Schema.test.ts	3948	it	nested defaults (Tuple
 ported	packages/effect/test/schema/Schema.test.ts	3967	it	Record(String, Number)	record_string_number_decodes_every_value
 ported	packages/effect/test/schema/Schema.test.ts	3994	it	recursive values stay lazy	suspend_recursive_shape_decodes_nested
 unported	packages/effect/test/schema/Schema.test.ts	4009	it.effect	sequential parsing resumes without replaying entries	
-unported	packages/effect/test/schema/Schema.test.ts	4028	it	Record(String, optionalKey(Number)) should throw	
+ported	packages/effect/test/schema/Schema.test.ts	4028	it	Record(String, optionalKey(Number)) should throw	index_signature_refuses_an_optional_key_value
 ported	packages/effect/test/schema/Schema.test.ts	4035	it	Record(String, optional(Number))	record_optional_values_accept_null_but_reject_wrong_type
 unported	packages/effect/test/schema/Schema.test.ts	4053	it	Record(String.check, Number) should use the key checks to select keys	
 unported	packages/effect/test/schema/Schema.test.ts	4066	it	applies excess-property options to unmatched own keys	
@@ -7751,9 +7751,9 @@ unported	packages/effect/test/schema/Schema.test.ts	4119	it	index signatures sel
 unported	packages/effect/test/schema/Schema.test.ts	4141	it	Record(Symbol.check, Number) should use the key checks to select keys	
 unported	packages/effect/test/schema/Schema.test.ts	4159	it	Record(SnakeToCamel, NumberFromString)	
 unported	packages/effect/test/schema/Schema.test.ts	4174	it	UniqueSymbol	
-unported	packages/effect/test/schema/Schema.test.ts	4189	it	deduplicates repeated literal keys	
-ported	packages/effect/test/schema/Schema.test.ts	4194	it	Record(Literals, Number)	record_string_number_decodes_every_value
-unported	packages/effect/test/schema/Schema.test.ts	4212	it	Record(Literals, optionalKey(Number))	
+ported	packages/effect/test/schema/Schema.test.ts	4189	it	deduplicates repeated literal keys	literal_key_record_counts_a_repeated_key_once
+ported	packages/effect/test/schema/Schema.test.ts	4194	it	Record(Literals, Number)	literal_key_record_requires_every_declared_key
+ported	packages/effect/test/schema/Schema.test.ts	4212	it	Record(Literals, optionalKey(Number))	literal_key_record_with_optional_values_requires_no_key
 unported	packages/effect/test/schema/Schema.test.ts	4223	it	Record(Literals, mutableKey(Number))	
 unported	packages/effect/test/schema/Schema.test.ts	4231	it	Record(Literals, mutableKey(optionalKey(Number)))	
 unported	packages/effect/test/schema/Schema.test.ts	4246	it	Record(Number, String)	

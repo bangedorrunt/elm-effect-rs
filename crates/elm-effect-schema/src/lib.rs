@@ -383,6 +383,22 @@ fn decompose(kind: &SchemaKind) -> (SchemaKind, Vec<Check>, Vec<(String, String)
     }
 }
 
+/// The key names an exact-value key schema admits (`Record(Literals([...]))`),
+/// deduped and in the order they were declared. A key schema that fixes no
+/// values of its own (`String`, a checked pattern) names no keys: there is
+/// nothing to require of an object under it.
+fn exact_key_names(key: &Schema<Unknown>) -> Vec<String> {
+    let mut names: Vec<String> = Vec::new();
+    for value in exact_values(&key.repr_kind()).unwrap_or_default() {
+        if let Unknown::Text(name) = value {
+            if !names.contains(&name) {
+                names.push(name);
+            }
+        }
+    }
+    names
+}
+
 /// The exact values a kind admits, when it admits finitely many. A single
 /// `Literal` admits one; a `Literals` admits its list; anything else admits
 /// none, which is what makes an intersection with a refinement a filter.
@@ -2080,12 +2096,37 @@ impl Schema<BTreeMap<String, Unknown>> {
     /// kind for a repr and is enforced by checking the key.
     pub fn record2(key: Schema<Unknown>, value: Schema<Unknown>) -> Self {
         let kind = SchemaKind::Record(Box::new(key.repr_kind()), Box::new(value.repr_kind()));
-        Self::record(value).with_kind(kind)
+        // An exact-value key schema (`Record(Literals([...]), ...)`) names a
+        // fixed set of keys, and the pin requires every one of them. An
+        // `optionalKey` value is how the pin spells "this key may be absent",
+        // so with one there is nothing to require; a pattern key
+        // (`patternProperties`) admits no fixed set in the first place.
+        let required = match value.repr_kind() {
+            SchemaKind::OptionalKey(_) => Vec::new(),
+            _ => exact_key_names(&key),
+        };
+        Self::record_shape(value, required).with_kind(kind)
     }
 
-    /// A record shape (`Record` shape): every value decodes with the
-    /// value schema; keys pass through. Empty objects decode fine.
+    /// A record shape (`Record` shape) over an index signature: every value
+    /// decodes with the value schema; keys pass through. Empty objects decode
+    /// fine.
+    ///
+    /// An `optionalKey` value is refused here rather than silently accepted:
+    /// under an index signature there is no key to be absent, so the pin
+    /// refuses to build the shape at all. `Schema::optional` is the spelling
+    /// that means "this value may be absent".
     pub fn record(value: Schema<Unknown>) -> Self {
+        assert!(
+            !matches!(value.repr_kind(), SchemaKind::OptionalKey(_)),
+            "Cannot use `Schema.optionalKey` with index signatures, use `Schema.optional` instead."
+        );
+        Self::record_shape(value, Vec::new())
+    }
+
+    /// The record walk both constructors share. `required_keys` is empty for an
+    /// index signature and holds the exact-value key schema's names otherwise.
+    fn record_shape(value: Schema<Unknown>, required_keys: Vec<String>) -> Self {
         let value = Arc::new(value);
         let render = value.formatter.clone();
         // A value that arrived here through a re-typing has an opaque kind of
@@ -2093,15 +2134,26 @@ impl Schema<BTreeMap<String, Unknown>> {
         let value_kind = value.repr_kind();
         let mut out = Self::new(
             move |unknown| match unknown {
-                Unknown::Object(fields) => fields
-                    .into_iter()
-                    .map(|(key, item)| {
-                        value
-                            .decode(item)
-                            .map(|decoded| (key.clone(), decoded))
-                            .map_err(|error| error.at(&format!("$.{key}")))
-                    })
-                    .collect::<Result<BTreeMap<_, _>, _>>(),
+                Unknown::Object(fields) => {
+                    for name in &required_keys {
+                        if !fields.contains_key(name) {
+                            return Err(SchemaError::TypeMismatch {
+                                path: format!("$.{name}"),
+                                expected: "a declared key",
+                                got: "missing",
+                            });
+                        }
+                    }
+                    fields
+                        .into_iter()
+                        .map(|(key, item)| {
+                            value
+                                .decode(item)
+                                .map(|decoded| (key.clone(), decoded))
+                                .map_err(|error| error.at(&format!("$.{key}")))
+                        })
+                        .collect::<Result<BTreeMap<_, _>, _>>()
+                }
                 other => mismatch("$", "object", &other),
             },
             |fields| Ok(Unknown::Object(fields.clone())),
