@@ -308,3 +308,136 @@ fn entity_clients_close_activations_on_demand() {
     assert!(activations.iter().all(|scope| scope.is_closed()));
     clients.close();
 }
+
+// --- Entity server (Entity.test.ts rows) ---
+
+fn entity_values(registry: &ReplyRegistry, request_id: &str) -> Vec<i64> {
+    registry
+        .replies_for(request_id)
+        .into_iter()
+        .filter_map(|reply| match reply {
+            StoredReply::Chunk { payload, .. } => Some(i64::from_le_bytes(
+                payload.try_into().expect("a chunk carries one i64"),
+            )),
+            _ => None,
+        })
+        .collect()
+}
+
+fn entity_stream_ended(registry: &ReplyRegistry, request_id: &str) -> bool {
+    registry
+        .replies_for(request_id)
+        .iter()
+        .any(|reply| matches!(reply, StoredReply::Exit { .. }))
+}
+
+#[test]
+fn entity_server_does_not_freeze_the_client_context() {
+    // Entity.test.ts:98 — a service provided on the acquiring fiber stays
+    // with the client; the entity server observes none of it.
+    use cluster::{EntityClient, EntityServer};
+    let client = EntityClient::acquire("1").with_service("CallerId", "A");
+    let server = EntityServer::new("1", None);
+
+    assert_eq!(client.service("CallerId"), Some("A"), "the client holds it");
+    assert_eq!(server.service("CallerId"), None, "the server does not");
+}
+
+#[test]
+fn entity_fatal_defects_isolate_per_flag() {
+    // Entity.test.ts:110, an it.each over [true, false, omitted]: the bad
+    // request always dies with the original defect, and the good request
+    // survives only while fatal defects are disabled.
+    use cluster::{EntityServer, HandlerOutcome, ReplyOutcome};
+    for (flag, good_survives) in [(Some(true), true), (Some(false), false), (None, false)] {
+        let mut server = EntityServer::new("one", flag);
+        assert_eq!(
+            server.run(HandlerOutcome::Defect("fixture defect".to_string())),
+            ReplyOutcome::Defect("fixture defect".to_string()),
+            "bad request, disableFatalDefects = {flag:?}"
+        );
+        let good = server.run(HandlerOutcome::Success(42));
+        if good_survives {
+            assert_eq!(good, ReplyOutcome::Success(42), "flag {flag:?}");
+        } else {
+            assert_eq!(
+                good,
+                ReplyOutcome::Defect("fixture defect".to_string()),
+                "the original defect reaches the next request, flag {flag:?}"
+            );
+        }
+    }
+}
+
+#[test]
+fn entity_typed_failures_stay_request_local() {
+    // Entity.test.ts:121, the same it.each: a typed failure never poisons
+    // the entity, so the next request succeeds under every label.
+    use cluster::{EntityServer, HandlerOutcome, ReplyOutcome};
+    for flag in [Some(true), Some(false), None] {
+        let mut server = EntityServer::new("one", flag);
+        assert_eq!(
+            server.run(HandlerOutcome::TypedFailure("typed failure".to_string())),
+            ReplyOutcome::TypedFailure("typed failure".to_string()),
+            "flag {flag:?}"
+        );
+        assert_eq!(
+            server.run(HandlerOutcome::Success(42)),
+            ReplyOutcome::Success(42),
+            "flag {flag:?}"
+        );
+    }
+}
+
+#[test]
+fn entity_fatal_defects_do_not_cross_entity_ids() {
+    // Entity.test.ts:129 — the fatal state belongs to one entity id; the
+    // neighbouring entity keeps answering.
+    use cluster::{EntityServer, HandlerOutcome, ReplyOutcome};
+    let mut bad = EntityServer::new("bad", Some(false));
+    let mut good = EntityServer::new("good", Some(false));
+
+    assert_eq!(
+        bad.run(HandlerOutcome::Defect("fixture defect".to_string())),
+        ReplyOutcome::Defect("fixture defect".to_string())
+    );
+    assert_eq!(
+        good.run(HandlerOutcome::Success(42)),
+        ReplyOutcome::Success(42)
+    );
+}
+
+#[test]
+fn entity_stream_reply_answers_with_a_stream() {
+    // Entity.test.ts:138 — `replier.succeed(req, Stream.make(1, 2, 3))`
+    // reaches the client as three chunks and an end.
+    let mut registry = ReplyRegistry::new();
+    registry.succeed_stream("req", &[1, 2, 3]);
+
+    assert_eq!(entity_values(&registry, "req"), vec![1, 2, 3]);
+    assert!(entity_stream_ended(&registry, "req"));
+}
+
+#[test]
+fn entity_queue_reply_answers_with_a_dequeue() {
+    // Entity.test.ts:159 — a dequeue offered 1, 2, 3 and then ended; an
+    // un-ended dequeue leaves the stream open.
+    use cluster::ReplyQueue;
+    let mut queue = ReplyQueue::new();
+    for value in [1, 2, 3] {
+        queue.offer(value);
+    }
+    queue.end();
+    let mut registry = ReplyRegistry::new();
+    registry.succeed_queue("req", &queue);
+
+    assert_eq!(entity_values(&registry, "req"), vec![1, 2, 3]);
+    assert!(entity_stream_ended(&registry, "req"));
+
+    let mut pending = ReplyQueue::new();
+    pending.offer(1);
+    let mut open = ReplyRegistry::new();
+    open.succeed_queue("req", &pending);
+    assert_eq!(entity_values(&open, "req"), vec![1]);
+    assert!(!entity_stream_ended(&open, "req"));
+}

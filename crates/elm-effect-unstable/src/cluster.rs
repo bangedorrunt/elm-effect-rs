@@ -766,3 +766,209 @@ impl Drop for EntityClients {
         self.close();
     }
 }
+
+// ------------------------------------------------------------- Entity.ts ---
+
+/// What one request's handler did (the pin's exit shapes).
+#[derive(Clone, Debug, PartialEq)]
+pub enum HandlerOutcome {
+    /// Succeeded with a value.
+    Success(i64),
+    /// Failed with a typed error: request-local by definition.
+    TypedFailure(String),
+    /// Died with a defect: fatal unless the entity disables fatal defects.
+    Defect(String),
+}
+
+/// What the client observed for one request.
+#[derive(Clone, Debug, PartialEq)]
+pub enum ReplyOutcome {
+    /// Succeeded with a value.
+    Success(i64),
+    /// The typed failure the handler reported.
+    TypedFailure(String),
+    /// The defect that ended the request, which is the entity's original
+    /// defect once it is poisoned.
+    Defect(String),
+}
+
+/// One entity's server: its own services plus the fatal-defect state the
+/// pin keeps per entity address.
+///
+/// `disable_fatal_defects` mirrors the pin's option: `Some(true)` isolates
+/// defects per request, while `Some(false)` and `None` let a defect poison
+/// the entity, so every later request answers with that same original
+/// defect.
+pub struct EntityServer {
+    entity_id: String,
+    disable_fatal_defects: bool,
+    services: HashMap<String, String>,
+    fatal: Option<String>,
+}
+
+impl EntityServer {
+    /// A server for one entity, with the pin's `disableFatalDefects`.
+    pub fn new(entity_id: impl Into<String>, disable_fatal_defects: Option<bool>) -> Self {
+        Self {
+            entity_id: entity_id.into(),
+            disable_fatal_defects: disable_fatal_defects.unwrap_or(false),
+            services: HashMap::new(),
+            fatal: None,
+        }
+    }
+
+    /// This entity's id.
+    pub fn entity_id(&self) -> &str {
+        &self.entity_id
+    }
+
+    /// Provide a service to the server itself. Only services provided here
+    /// are visible to handlers; a client's acquisition-time context never
+    /// travels, which is the `makeTestClient` context-bleed regression.
+    pub fn provide(&mut self, key: impl Into<String>, value: impl Into<String>) {
+        self.services.insert(key.into(), value.into());
+    }
+
+    /// The server's own view of a service.
+    pub fn service(&self, key: &str) -> Option<&str> {
+        self.services.get(key).map(String::as_str)
+    }
+
+    /// The defect that poisoned this entity, if any.
+    pub fn fatal_defect(&self) -> Option<&str> {
+        self.fatal.as_deref()
+    }
+
+    /// Run one request.
+    pub fn run(&mut self, outcome: HandlerOutcome) -> ReplyOutcome {
+        if let Some(fatal) = &self.fatal {
+            // A poisoned entity answers every later request with the
+            // original defect, whatever its own handler would have done.
+            return ReplyOutcome::Defect(fatal.clone());
+        }
+        match outcome {
+            HandlerOutcome::Success(value) => ReplyOutcome::Success(value),
+            HandlerOutcome::TypedFailure(error) => ReplyOutcome::TypedFailure(error),
+            HandlerOutcome::Defect(defect) => {
+                if !self.disable_fatal_defects {
+                    self.fatal = Some(defect.clone());
+                }
+                ReplyOutcome::Defect(defect)
+            }
+        }
+    }
+}
+
+/// The client side of `Entity.makeTestClient`: a context captured at
+/// acquisition that the entity server never observes.
+#[derive(Clone, Debug)]
+pub struct EntityClient {
+    entity_id: String,
+    services: HashMap<String, String>,
+}
+
+impl EntityClient {
+    /// Acquire the client for one entity.
+    pub fn acquire(entity_id: impl Into<String>) -> Self {
+        Self {
+            entity_id: entity_id.into(),
+            services: HashMap::new(),
+        }
+    }
+
+    /// Add a service to the acquiring fiber's context.
+    pub fn with_service(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
+        self.services.insert(key.into(), value.into());
+        self
+    }
+
+    /// The client's own view of a service.
+    pub fn service(&self, key: &str) -> Option<&str> {
+        self.services.get(key).map(String::as_str)
+    }
+
+    /// The entity this client talks to.
+    pub fn entity_id(&self) -> &str {
+        &self.entity_id
+    }
+}
+
+/// The dequeue half of [`ReplyRegistry::succeed_queue`]: values offered
+/// until `end`, which is also the stream's end.
+#[derive(Clone, Debug, Default)]
+pub struct ReplyQueue {
+    offered: Vec<i64>,
+    ended: bool,
+}
+
+impl ReplyQueue {
+    /// An open, empty dequeue.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Offer one value.
+    pub fn offer(&mut self, value: i64) {
+        self.offered.push(value);
+    }
+
+    /// End the dequeue: the stream completes after what was offered.
+    pub fn end(&mut self) {
+        self.ended = true;
+    }
+
+    /// `true` once [`Self::end`] ran.
+    pub fn is_ended(&self) -> bool {
+        self.ended
+    }
+
+    /// Values offered so far.
+    pub fn offered(&self) -> &[i64] {
+        &self.offered
+    }
+}
+
+impl ReplyRegistry {
+    /// Answer a streaming RPC with a finite stream (`replier.succeed(req,
+    /// Stream.make(...))`): one chunk per element, then the exit.
+    pub fn succeed_stream(&mut self, request_id: &str, values: &[i64]) {
+        for value in values {
+            self.store(
+                request_id,
+                StoredReply::Chunk {
+                    payload: value.to_le_bytes().to_vec(),
+                    acked: false,
+                },
+            );
+        }
+        self.store(
+            request_id,
+            StoredReply::Exit {
+                payload: Vec::new(),
+            },
+        );
+    }
+
+    /// Answer a streaming RPC with a dequeue: the values offered so far,
+    /// and the exit only once the dequeue ended. An un-ended dequeue stays
+    /// open, which is what the pin's client keeps waiting on.
+    pub fn succeed_queue(&mut self, request_id: &str, queue: &ReplyQueue) {
+        for value in queue.offered() {
+            self.store(
+                request_id,
+                StoredReply::Chunk {
+                    payload: value.to_le_bytes().to_vec(),
+                    acked: false,
+                },
+            );
+        }
+        if queue.is_ended() {
+            self.store(
+                request_id,
+                StoredReply::Exit {
+                    payload: Vec::new(),
+                },
+            );
+        }
+    }
+}

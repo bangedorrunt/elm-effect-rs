@@ -6012,12 +6012,12 @@ unported	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	1797	it.effe
 unported	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	1811	it.effect	can serialize workflow defects	
 ported	packages/effect/test/cluster/Entity.test.ts	64	it.effect	provides an activation scope per entity and closes it with the client	entity_activation_scope_per_entity_closes_with_client
 ported	packages/effect/test/cluster/Entity.test.ts	90	it.effect	creates an in-memory client for an entity layer	entity_clients_close_activations_on_demand
-unported	packages/effect/test/cluster/Entity.test.ts	98	it.effect	does not freeze the acquiring fiber's context into the entity server	
-unported	packages/effect/test/cluster/Entity.test.ts	110	it.live	isolates defects when disableFatalDefects is ${label}	
-unported	packages/effect/test/cluster/Entity.test.ts	121	it.live	keeps typed failures request-local when disableFatalDefects is ${label}	
-unported	packages/effect/test/cluster/Entity.test.ts	129	it.live	does not send fatal defects across entity IDs	
-unported	packages/effect/test/cluster/Entity.test.ts	138	it.effect	replies to a streaming RPC with a Stream	
-unported	packages/effect/test/cluster/Entity.test.ts	159	it.effect	replies to a streaming RPC with a Dequeue	
+ported	packages/effect/test/cluster/Entity.test.ts	98	it.effect	does not freeze the acquiring fiber's context into the entity server	entity_server_does_not_freeze_the_client_context
+ported	packages/effect/test/cluster/Entity.test.ts	110	it.live	isolates defects when disableFatalDefects is ${label}	entity_fatal_defects_isolate_per_flag
+ported	packages/effect/test/cluster/Entity.test.ts	121	it.live	keeps typed failures request-local when disableFatalDefects is ${label}	entity_typed_failures_stay_request_local
+ported	packages/effect/test/cluster/Entity.test.ts	129	it.live	does not send fatal defects across entity IDs	entity_fatal_defects_do_not_cross_entity_ids
+ported	packages/effect/test/cluster/Entity.test.ts	138	it.effect	replies to a streaming RPC with a Stream	entity_stream_reply_answers_with_a_stream
+ported	packages/effect/test/cluster/Entity.test.ts	159	it.effect	replies to a streaming RPC with a Dequeue	entity_queue_reply_answers_with_a_dequeue
 unported	packages/effect/test/cluster/EntityProxy.test.ts	7	it	constructs the original RPC payload	
 unported	packages/effect/test/cluster/Envelope.test.ts	21	it	leaves the already-encoded payload untouched under the JSON codec	
 unported	packages/effect/test/cluster/Envelope.test.ts	30	it	carries a non-JSON payload through the hole	
