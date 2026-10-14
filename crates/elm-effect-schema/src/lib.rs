@@ -20,7 +20,10 @@ pub mod tagged;
 
 pub mod class;
 
+pub mod filters;
+
 pub use class::{ClassMeta, ClassValue, ExcessProperty};
+pub use filters::{FilterIssue, FilterOutcome, FilterSpec};
 pub use tagged::{Tagged, TaggedError, catch_tag};
 
 /// An untyped value: the decode source and encode target.
@@ -82,6 +85,24 @@ pub enum SchemaError {
     /// one.
     #[error("cannot encode at {path}: expected {expected}")]
     EncodingFailed { path: String, expected: String },
+    /// A refinement answered rather than passed (`makeFilter`): the filter's own
+    /// message, at the path the filter pointed at.
+    #[error("{message} at {path}")]
+    FilterFailed { path: String, message: String },
+    /// More than one issue at once, which is what a decode that collects every
+    /// issue reports. It prints one member per line, the shape the pin's
+    /// composite has.
+    #[error("{}", composite_message(.issues))]
+    Composite { issues: Vec<SchemaError> },
+}
+
+/// A composite's members, one message per line.
+fn composite_message(issues: &[SchemaError]) -> String {
+    issues
+        .iter()
+        .map(ToString::to_string)
+        .collect::<Vec<String>>()
+        .join("\n")
 }
 
 /// A two-way codec between `Unknown` and `T`.

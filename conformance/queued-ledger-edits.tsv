@@ -115,3 +115,25 @@ packages/effect/test/schema/Schema.test.ts	6725	ported	parser_union_with_a_neste
 packages/effect/test/schema/Schema.test.ts	6746	ported	parser_union_with_a_nested_checked_int_part
 packages/effect/test/schema/Schema.test.ts	6770	ported	parser_nested_template_literal_part_captures_text
 packages/effect/test/schema/Schema.test.ts	6783	ported	parser_nested_parser_part_captures_a_list
+
+# Batch 9, thirteen rows from elm-effect-rs-port-schema-a2c (staged, awaiting the
+# lease): the Schema.makeFilter describe at :9199-:9398, all of it. Witnesses in
+# crates/elm-effect-schema/tests/schema_filters.rs (14 tests, green). New surface
+# in crates/elm-effect-schema/src/filters.rs: FilterOutcome (pass, bare false,
+# one issue, an array), FilterIssue (a message at a relative path), FilterSpec
+# (predicate, annotations, abort) and Schema::filtered, plus two SchemaError
+# variants (FilterFailed, Composite) so an "all issues" decode can report a
+# filter's own message at the path it pointed at.
+packages/effect/test/schema/Schema.test.ts	9200	ported	filter_returning_undefined_passes
+packages/effect/test/schema/Schema.test.ts	9207	ported	filter_returning_true_passes
+packages/effect/test/schema/Schema.test.ts	9214	ported	filter_returning_false_names_the_filter
+packages/effect/test/schema/Schema.test.ts	9224	ported	filter_returning_a_string_reports_it
+packages/effect/test/schema/Schema.test.ts	9235	ported	filters_returning_issues_collect_in_order
+packages/effect/test/schema/Schema.test.ts	9252	ported	an_aborting_filter_stops_the_chain
+packages/effect/test/schema/Schema.test.ts	9270	ported	a_filter_object_points_at_a_path
+packages/effect/test/schema/Schema.test.ts	9289	ported	an_aborting_path_filter_stops_the_chain
+packages/effect/test/schema/Schema.test.ts	9304	ported	a_filter_issue_carries_its_own_message
+packages/effect/test/schema/Schema.test.ts	9323	ported	an_empty_array_result_passes
+packages/effect/test/schema/Schema.test.ts	9330	ported	a_single_element_array_collapses
+packages/effect/test/schema/Schema.test.ts	9343	ported	a_multi_element_array_composites
+packages/effect/test/schema/Schema.test.ts	9361	ported	an_array_mixing_kinds_composites_in_order
