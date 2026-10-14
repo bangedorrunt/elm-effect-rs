@@ -3464,3 +3464,58 @@ fn a_parent_local_flag_is_refused_on_subcommand_paths() {
     );
     assert!(chat_log.lock().expect("lock").is_empty(), "refused line never runs");
 }
+
+/// Command.test.ts:1107 — a shared parent's context (its flags) reach the
+/// selected subcommand's handler in the merged parsed.
+#[test]
+fn a_shared_parent_context_reaches_a_subcommand() {
+    let log = handler_log();
+    let seen = log.clone();
+    let root = Command::group(
+        "parent",
+        "parent command",
+        vec![Command::new(
+            "child",
+            "child command",
+            vec![Arg::Opt {
+                name: "action".to_string(),
+                help: "action".to_string(),
+                required: false,
+            }],
+        )
+        .handler(move |parsed| {
+            seen.lock().expect("lock").push(format!(
+                "child: parent.verbose={}, parent.config={}, action={}",
+                parsed.flag("verbose"),
+                parsed.opt("config").unwrap_or_default(),
+                parsed.opt("action").unwrap_or_default()
+            ));
+        })],
+    )
+    .with_shared_flags(vec![
+        Arg::Flag {
+            name: "verbose".to_string(),
+            help: "verbose".to_string(),
+        },
+        Arg::Opt {
+            name: "config".to_string(),
+            help: "config".to_string(),
+            required: false,
+        },
+    ]);
+
+    root.run(&[
+        "--verbose".to_string(),
+        "--config".to_string(),
+        "prod.json".to_string(),
+        "child".to_string(),
+        "--action".to_string(),
+        "deploy".to_string(),
+    ])
+    .expect("shared parent context rides into the child");
+
+    assert_eq!(
+        *log.lock().expect("lock"),
+        vec!["child: parent.verbose=true, parent.config=prod.json, action=deploy".to_string()]
+    );
+}
