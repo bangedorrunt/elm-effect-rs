@@ -1044,7 +1044,7 @@ tests = ["packages/effect/test/TxQueue.test.ts"]
 [[module]]
 path = "packages/effect/src/TxReentrantLock.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/TxReentrantLock.test.ts"]
