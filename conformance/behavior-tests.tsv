@@ -8717,7 +8717,7 @@ unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.
 unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	937	it	imports a closed patterned Record through references	
 ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	973	it	keeps a closed pattern with Never values as an object schema	json_schema_document_object_checks_carry_their_code_and_type
 ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	988	it	matches finite patternProperties keys in Unicode mode	json_schema_document_object_checks_carry_their_code_and_type
-unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1010	it	rejects closed multiple pattern properties	
+ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1010	it	rejects closed multiple pattern properties	json_schema_document_refusal_rows_name_their_specific_cause
 ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1026	it	minProperties	json_schema_document_object_checks_carry_their_code_and_type
 ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1038	it	maxProperties	json_schema_document_object_checks_carry_their_code_and_type
 ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1052	it	pattern	json_schema_document_object_checks_carry_their_code_and_type
@@ -8731,7 +8731,7 @@ ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts
 unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1199	it	keeps root ids and nested resources without references supported	
 unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1221	it	determines resource scope from onEnter results	
 unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1256	it	rejects references in a reachable definition with its own id	
-unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1274	it	rejects a reference below a definition instead of resolving its final token	
+ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1274	it	rejects a reference below a definition instead of resolving its final token	json_schema_document_refusal_rows_name_their_specific_cause
 ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1298	it	rejects an empty reference	json_schema_document_ref_rows_carry_their_code_and_type
 ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1305	it	rejects an external reference instead of aliasing a local definition	json_schema_document_ref_rows_carry_their_code_and_type
 ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1318	it	reports the full reference when a direct definition is missing	json_schema_document_ref_rows_carry_their_code_and_type
@@ -8830,12 +8830,12 @@ unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.
 unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	2805	it	keeps object keyword scopes through references	
 unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	2817	it	applies a sibling additionalProperties schema to fixed properties	
 unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	2836	it	lowers open patterns over a finite object domain	
-unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	2852	it	rejects open pattern scopes	
-unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	2872	it	rejects open patterns with fixed properties	
+ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	2852	it	rejects open pattern scopes	json_schema_document_refusal_rows_name_their_specific_cause
+ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	2872	it	rejects open patterns with fixed properties	json_schema_document_refusal_rows_name_their_specific_cause
 unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	2884	it	rejects nested open pattern scopes with their source paths	
 unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	2900	it	lowers an initially open pattern over a finite object domain	
 unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	2918	it	lowers a referenced open pattern over a finite object domain	
-unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	2940	it	rejects object scopes that require pattern complements	
+ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	2940	it	rejects object scopes that require pattern complements	json_schema_document_refusal_rows_name_their_specific_cause
 unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	2959	it	preserves a closed pattern scope when intersecting a finite object domain	
 unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	2980	it	add properties	
 unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	2995	it	add additionalProperties	

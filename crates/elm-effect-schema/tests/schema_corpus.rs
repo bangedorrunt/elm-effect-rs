@@ -3102,3 +3102,99 @@ fn json_schema_document_builtin_annotation_rows_carry_their_code_and_type() {
     );
     assert_eq!(schema.to_type(), "string");
 }
+
+#[test]
+fn json_schema_document_refuses_closed_multiple_patterns() {
+    // :1010 — two patterns over one closed object. A record's key shape is a
+    // single schema, so two patterns would need an intersection the repr cannot
+    // spell, and the pin refuses rather than keeping one.
+    use elm_effect_schema::{Schema, Unknown};
+
+    let refused = Schema::<Unknown>::from_json_schema(&serde_json::json!({
+        "type": "object",
+        "patternProperties": {"a*": {"type": "string"}, "b*": {"type": "number"}},
+        "additionalProperties": false
+    }));
+    let message = refused
+        .err()
+        .map(|error| error.to_string())
+        .unwrap_or_else(|| panic!("two closed patterns must refuse"));
+    assert!(
+        message.contains("at most one pattern"),
+        "the refusal must name the one-pattern rule, got: {message}"
+    );
+
+    // One pattern over the same closed object still imports, which is what makes
+    // the refusal about the second pattern rather than about patterns at all.
+    let one = Schema::<Unknown>::from_json_schema(&serde_json::json!({
+        "type": "object",
+        "patternProperties": {"a*": {"type": "string"}},
+        "additionalProperties": false
+    }))
+    .expect("one closed pattern imports");
+    assert_eq!(
+        one.to_code(),
+        r#"Schema.Record(Schema.String.check(Schema.isPattern(new RegExp("a*", "u")).annotate({ "expected": "a string matching the RegExp a*" })), Schema.String)"#
+    );
+}
+
+#[test]
+fn json_schema_document_refusal_rows_name_their_specific_cause() {
+    // The remaining refusal rows in this file, grouped by the rule each breaks.
+    // Each asserts the message names that rule, not merely that the import failed.
+    use elm_effect_schema::{Schema, Unknown};
+
+    let refuse = |doc: serde_json::Value| {
+        Schema::<Unknown>::from_json_schema(&doc)
+            .err()
+            .map(|error| error.to_string())
+            .unwrap_or_else(|| panic!("{doc:?} must refuse"))
+    };
+
+    // :1274 — a reference that walks INTO a definition rather than naming one.
+    let deep = refuse(serde_json::json!({
+        "type": "object",
+        "properties": {"copy": {"$ref": "#/$defs/outer/properties/inner"}},
+        "required": ["copy"],
+        "additionalProperties": false
+    }));
+    assert!(
+        deep.contains("walks into a definition"),
+        "got: {deep}"
+    );
+
+    // :2852 — an open pattern scope: unmatched keys cannot be typed.
+    let open_pattern = refuse(serde_json::json!({
+        "type": "object",
+        "patternProperties": {"^a": {"type": "number"}}
+    }));
+    assert!(
+        open_pattern.contains("open") && open_pattern.contains("value shape"),
+        "got: {open_pattern}"
+    );
+
+    // :2872 — the same rule with fixed properties declared too.
+    let open_with_properties = refuse(serde_json::json!({
+        "type": "object",
+        "properties": {"a": {"type": "string"}},
+        "required": ["a"],
+        "patternProperties": {"^a": {"type": "number"}}
+    }));
+    assert!(
+        open_with_properties.contains("open") && open_with_properties.contains("value shape"),
+        "got: {open_with_properties}"
+    );
+
+    // :2940 — the one-pattern rule, reached through an allOf member.
+    let one_pattern_in_all_of = refuse(serde_json::json!({
+        "allOf": [{
+            "type": "object",
+            "patternProperties": {"^a": {"type": "string"}, "^b": {"type": "number"}},
+            "additionalProperties": false
+        }]
+    }));
+    assert!(
+        one_pattern_in_all_of.contains("at most one pattern"),
+        "got: {one_pattern_in_all_of}"
+    );
+}

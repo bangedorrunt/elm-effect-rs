@@ -3424,6 +3424,18 @@ impl Schema<Unknown> {
 /// site would otherwise have to carry it, and the root is the only document that
 /// can name one: JSON Schema scopes `$defs` to the root, so a nested document's
 /// own `$defs` is a different scope and the pin refuses it.
+    /// A pattern scope is OPEN when its catch-all is absent, `true`, or an
+    /// empty schema — all three mean "anything goes", which is what leaves an
+    /// unmatched key with no value shape. A non-empty schema is typed, and is
+    /// refused by a different rule rather than this one.
+fn is_open_pattern_scope(doc: &serde_json::Value) -> bool {
+    match doc.get("additionalProperties") {
+        None | Some(serde_json::Value::Bool(true)) => true,
+        Some(serde_json::Value::Object(fields)) => fields.is_empty(),
+        _ => false,
+    }
+    }
+
 /// Resolve `$ref` against the root definitions, or refuse it the way the pin
 /// does. The four refusals are distinct, because they are distinct mistakes: an
 /// empty reference, one that is not `#/$defs/Name`, a name the root does not
@@ -3450,6 +3462,17 @@ fn resolve_ref(reference: &str) -> Result<serde_json::Value, SchemaError> {
             got: "a reference with no name",
         });
     }
+    // A definition reference names ONE segment. A pointer that keeps walking,
+    // like `#/$defs/outer/properties/inner`, is the wrong shape rather than a
+    // missing definition, and the pin says so: the escape for a literal slash in
+    // a name is `~1`, which arrives here as `~1` and never as `/`.
+    if pointer.contains('/') {
+        return Err(SchemaError::TypeMismatch {
+            path: "$ref".to_string(),
+            expected: "a \"#/$defs/Name\" reference",
+            got: "a reference that walks into a definition",
+        });
+    }
     // `~1` and `~0` are the JSON Pointer escapes for `/` and `~`, applied in
     // that order, so a definition may be named with either character.
     let name = pointer.replace("~1", "/").replace("~0", "~");
@@ -3472,6 +3495,22 @@ fn resolve_ref(reference: &str) -> Result<serde_json::Value, SchemaError> {
 impl Schema<Unknown> {
     fn import_object(doc: &serde_json::Value) -> Result<Self, SchemaError> {
         let get = |key: &str| doc.get(key);
+        // An OPEN pattern scope cannot be imported whichever other keywords are
+        // present: a key that matches no pattern has no value shape to land on,
+        // and the pin refuses rather than guessing. `additionalProperties: false`
+        // is what closes it, and the rule is checked before the named-keys path so
+        // a document carrying both properties and an open pattern refuses too.
+        // Open means absent, `true`, or an empty schema. A TYPED one is a
+        // different refusal — "cannot combine typed additionalProperties with
+        // other property schemas" — and this check must not shadow it, which is
+        // why `is_open_pattern_scope` is exact about which shapes count as open.
+        if doc.get("patternProperties").is_some() && is_open_pattern_scope(doc) {
+            return Err(SchemaError::TypeMismatch {
+                path: "$.patternProperties".to_string(),
+                expected: "a closed pattern scope (\"additionalProperties\": false)",
+                got: "an open one, whose unmatched keys have no value shape",
+            });
+        }
         let empty = serde_json::Map::new();
         let properties = match get("properties") {
             Some(serde_json::Value::Object(properties)) => properties,
