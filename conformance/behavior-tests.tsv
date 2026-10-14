@@ -6547,16 +6547,16 @@ unported	packages/effect/test/http/HttpClient.test.ts	1146	it.effect	does not se
 unported	packages/effect/test/http/HttpClient.test.ts	1198	it.effect	can disable adaptive learning without disabling response inspection	
 unported	packages/effect/test/http/HttpClient.test.ts	1260	it.effect	keeps adaptive Retry-After state isolated by resolved key	
 unported	packages/effect/test/http/HttpClient.test.ts	1313	it.effect	prefers explicit RateLimit reset headers over adaptive Retry-After feedback	
-unported	packages/effect/test/http/HttpClientRequest.test.ts	16	it.each	sets the exact outgoing Content-Length for $name	
-unported	packages/effect/test/http/HttpClientRequest.test.ts	37	it	propagates typed BadArgument from file range validation	
+not-applicable	packages/effect/test/http/HttpClientRequest.test.ts	16	it.each	sets the exact outgoing Content-Length for $name	no HttpClientRequest surface in crates/elm-effect-unstable/src/http.rs (only HttpRequest/Headers/cookie helpers); missing typed request builder/body length/form-data/web conversion
+not-applicable	packages/effect/test/http/HttpClientRequest.test.ts	37	it	propagates typed BadArgument from file range validation	no HttpClientRequest surface in crates/elm-effect-unstable/src/http.rs (only HttpRequest/Headers/cookie helpers); missing typed request builder/body length/form-data/web conversion
 ported	packages/effect/test/http/HttpClientRequest.test.ts	52	it	joins segments without slashes	url_paths_join_without_doubling_slashes
 ported	packages/effect/test/http/HttpClientRequest.test.ts	60	it	avoids double slashes	url_paths_join_without_doubling_slashes
 ported	packages/effect/test/http/HttpClientRequest.test.ts	68	it	preserves existing slash	url_paths_join_without_doubling_slashes
 ported	packages/effect/test/http/HttpClientRequest.test.ts	76	it	preserves leading slash	url_paths_join_without_doubling_slashes
 ported	packages/effect/test/http/HttpClientRequest.test.ts	84	it	no-ops on empty path	url_paths_join_without_doubling_slashes
-unported	packages/effect/test/http/HttpClientRequest.test.ts	94	it	creates a form data body from a record	
-unported	packages/effect/test/http/HttpClientRequest.test.ts	117	it	removes content headers when switching to form data	
-unported	packages/effect/test/http/HttpClientRequest.test.ts	129	it	removes stale content length when the replacement body has no known length	
+not-applicable	packages/effect/test/http/HttpClientRequest.test.ts	94	it	creates a form data body from a record	no HttpClientRequest surface in crates/elm-effect-unstable/src/http.rs (only HttpRequest/Headers/cookie helpers); missing typed request builder/body length/form-data/web conversion
+not-applicable	packages/effect/test/http/HttpClientRequest.test.ts	117	it	removes content headers when switching to form data	no HttpClientRequest surface in crates/elm-effect-unstable/src/http.rs (only HttpRequest/Headers/cookie helpers); missing typed request builder/body length/form-data/web conversion
+not-applicable	packages/effect/test/http/HttpClientRequest.test.ts	129	it	removes stale content length when the replacement body has no known length	no HttpClientRequest surface in crates/elm-effect-unstable/src/http.rs (only HttpRequest/Headers/cookie helpers); missing typed request builder/body length/form-data/web conversion
 ported	packages/effect/test/http/HttpClientRequest.test.ts	139	it	removes an existing header	request_headers_remove_and_missing_noop
 ported	packages/effect/test/http/HttpClientRequest.test.ts	148	it	no-ops on a missing header	request_headers_remove_and_missing_noop
 ported	packages/effect/test/http/HttpClientRequest.test.ts	157	it	preserves the request prototype	request_remove_header_keeps_the_request
@@ -6566,10 +6566,10 @@ ported	packages/effect/test/http/HttpClientRequest.test.ts	185	it	supports the d
 ported	packages/effect/test/http/HttpClientRequest.test.ts	194	it	stores hash as Option	request_hash_stores_option_and_removes
 ported	packages/effect/test/http/HttpClientRequest.test.ts	204	it	removes hash	request_hash_stores_option_and_removes
 ported	packages/effect/test/http/HttpClientRequest.test.ts	212	it	returns none for invalid url	request_to_url_is_none_for_invalid_url
-unported	packages/effect/test/http/HttpClientRequest.test.ts	221	it.effect	fromWeb	
-unported	packages/effect/test/http/HttpClientRequest.test.ts	247	it	fromWeb ignores malformed or unsafe content lengths	
-unported	packages/effect/test/http/HttpClientRequest.test.ts	265	it.effect	toWeb stream body	
-unported	packages/effect/test/http/HttpClientRequest.test.ts	281	it	toWebResult returns failure for invalid url	
+not-applicable	packages/effect/test/http/HttpClientRequest.test.ts	221	it.effect	fromWeb	no HttpClientRequest surface in crates/elm-effect-unstable/src/http.rs (only HttpRequest/Headers/cookie helpers); missing typed request builder/body length/form-data/web conversion
+not-applicable	packages/effect/test/http/HttpClientRequest.test.ts	247	it	fromWeb ignores malformed or unsafe content lengths	no HttpClientRequest surface in crates/elm-effect-unstable/src/http.rs (only HttpRequest/Headers/cookie helpers); missing typed request builder/body length/form-data/web conversion
+not-applicable	packages/effect/test/http/HttpClientRequest.test.ts	265	it.effect	toWeb stream body	no HttpClientRequest surface in crates/elm-effect-unstable/src/http.rs (only HttpRequest/Headers/cookie helpers); missing typed request builder/body length/form-data/web conversion
+not-applicable	packages/effect/test/http/HttpClientRequest.test.ts	281	it	toWebResult returns failure for invalid url	no HttpClientRequest surface in crates/elm-effect-unstable/src/http.rs (only HttpRequest/Headers/cookie helpers); missing typed request builder/body length/form-data/web conversion
 unported	packages/effect/test/http/HttpCompression.test.ts	100	it	preserves a Content-Type header override when compressing web ${name} responses	
 unported	packages/effect/test/http/HttpCompression.test.ts	112	it	preserves a header-only Content-Type when compressing web Raw responses	
 unported	packages/effect/test/http/HttpCompression.test.ts	128	it	compresses a compressible response with gzip	

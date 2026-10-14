@@ -2124,7 +2124,7 @@ tests = []
 [[module]]
 path = "packages/effect/src/http/HttpClientRequest.ts"
 class = "unstable-port"
-status = "unmatched"
+status = "matched"
 tag = "unstable"
 reason = ""
 tests = ["packages/effect/test/http/HttpClientRequest.test.ts"]
