@@ -316,7 +316,7 @@ tests = ["packages/effect/test/Formatter.test.ts"]
 [[module]]
 path = "packages/effect/src/Function.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/Function.test.ts"]
@@ -1028,7 +1028,7 @@ tests = ["packages/effect/test/TxPriorityQueue.test.ts"]
 [[module]]
 path = "packages/effect/src/TxPubSub.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/TxPubSub.test.ts"]
