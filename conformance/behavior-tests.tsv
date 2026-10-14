@@ -3201,35 +3201,35 @@ ported	packages/effect/test/Ref.test.ts	134	it.effect	updateSomeAndGet - twice	u
 ported	packages/effect/test/Ref.test.ts	152	it.effect	modify returns a result while storing the new value	modify_returns_a_result_while_storing_the_new_value
 ported	packages/effect/test/Ref.test.ts	160	it.effect	modifySome - once	modify_some_once
 ported	packages/effect/test/Ref.test.ts	170	it.effect	modifySome returns a result while applying matching transitions	modify_some_returns_a_result_while_applying_matching_transitions
-unported	packages/effect/test/Request.test.ts	137	it	preserves __proto__ as an own constructor property	
-unported	packages/effect/test/Request.test.ts	150	it	copies enumerable symbol properties in Class	
-unported	packages/effect/test/Request.test.ts	157	it	compares StructuralProto values when hashes collide	
+not-applicable	packages/effect/test/Request.test.ts	137	it	preserves __proto__ as an own constructor property	no Request prototype/copy semantics in crates/elm-effect (Request module absent)
+not-applicable	packages/effect/test/Request.test.ts	150	it	copies enumerable symbol properties in Class	no Request prototype/copy semantics in crates/elm-effect (Request module absent)
+not-applicable	packages/effect/test/Request.test.ts	157	it	compares StructuralProto values when hashes collide	no Request prototype/copy semantics in crates/elm-effect (Request module absent)
 ported	packages/effect/test/Request.test.ts	167	it.effect	requests are executed correctly	batching_makes_one_downstream_call
-unported	packages/effect/test/Request.test.ts	180	it.effect	requests with dual syntax are executed correctly	
-unported	packages/effect/test/Request.test.ts	192	it.effect	requests are executed correctly with fromEffectTagged	
-unported	packages/effect/test/Request.test.ts	204	it.effect	fromEffectTagged preserves typed errors	
-unported	packages/effect/test/Request.test.ts	214	it.effect	fromEffectTagged preserves defects	
-unported	packages/effect/test/Request.test.ts	233	it.effect	fromEffectTagged preserves interrupts	
-unported	packages/effect/test/Request.test.ts	243	it.each	fromEffectTagged resolves requests from $name results	
-unported	packages/effect/test/Request.test.ts	267	it.effect	requests don't break interruption	
-unported	packages/effect/test/Request.test.ts	288	it.effect	requests work with uninterruptible	
-unported	packages/effect/test/Request.test.ts	309	it.effect	grouped requests can be interrupted before execution	
-unported	packages/effect/test/Request.test.ts	338	it.effect	cached	
-unported	packages/effect/test/Request.test.ts	363	it.effect	withCache removes cancelled entries from a surviving batch	
-unported	packages/effect/test/Request.test.ts	397	it.effect	first	
-unported	packages/effect/test/Request.test.ts	427	it.effect	withCache still caches completed failures	
-unported	packages/effect/test/Request.test.ts	446	it.effect	withCache does not cache interrupted resolver results	
-unported	packages/effect/test/Request.test.ts	463	it.effect	withCache cancellation does not evict a replacement entry	
-unported	packages/effect/test/Request.test.ts	500	it.effect	withCache allows an equal retry from the cancelled delay's finalizer	
-unported	packages/effect/test/Request.test.ts	548	it.effect	withCache preserves the race winner when the losing resolver is interrupted	
-unported	packages/effect/test/Request.test.ts	585	it.effect	withCache accepts refreshed results from stale-while-revalidate	
-unported	packages/effect/test/Request.test.ts	610	it.effect	persisted propagates failures to unfinished requests	
-unported	packages/effect/test/Request.test.ts	635	it.effect	persisted stores synchronous resolver failures	
-unported	packages/effect/test/Request.test.ts	654	it.effect	batching preserves individual & identical requests	
-unported	packages/effect/test/Request.test.ts	669	it.effect	grouped requests + batchN	
-unported	packages/effect/test/Request.test.ts	697	it.effect	batchN normalizes the maximum batch size	
-unported	packages/effect/test/Request.test.ts	727	it.effect	batch fibers use request services for runAll	
-unported	packages/effect/test/Request.test.ts	745	it.effect	batch fibers use request services for delay effects	
+not-applicable	packages/effect/test/Request.test.ts	180	it.effect	requests with dual syntax are executed correctly	no Request/RequestResolver module or resolver cache/interruption/batching API in crates/elm-effect/src (Request surface absent)
+not-applicable	packages/effect/test/Request.test.ts	192	it.effect	requests are executed correctly with fromEffectTagged	no Request/RequestResolver module or resolver cache/interruption/batching API in crates/elm-effect/src (Request surface absent)
+not-applicable	packages/effect/test/Request.test.ts	204	it.effect	fromEffectTagged preserves typed errors	no Request/RequestResolver module or resolver cache/interruption/batching API in crates/elm-effect/src (Request surface absent)
+not-applicable	packages/effect/test/Request.test.ts	214	it.effect	fromEffectTagged preserves defects	no Request/RequestResolver module or resolver cache/interruption/batching API in crates/elm-effect/src (Request surface absent)
+not-applicable	packages/effect/test/Request.test.ts	233	it.effect	fromEffectTagged preserves interrupts	no Request/RequestResolver module or resolver cache/interruption/batching API in crates/elm-effect/src (Request surface absent)
+not-applicable	packages/effect/test/Request.test.ts	243	it.each	fromEffectTagged resolves requests from $name results	no Request/RequestResolver module or resolver cache/interruption/batching API in crates/elm-effect/src (Request surface absent)
+not-applicable	packages/effect/test/Request.test.ts	267	it.effect	requests don't break interruption	no Request/RequestResolver module or resolver cache/interruption/batching API in crates/elm-effect/src (Request surface absent)
+not-applicable	packages/effect/test/Request.test.ts	288	it.effect	requests work with uninterruptible	no Request/RequestResolver module or resolver cache/interruption/batching API in crates/elm-effect/src (Request surface absent)
+not-applicable	packages/effect/test/Request.test.ts	309	it.effect	grouped requests can be interrupted before execution	no Request/RequestResolver module or resolver cache/interruption/batching API in crates/elm-effect/src (Request surface absent)
+not-applicable	packages/effect/test/Request.test.ts	338	it.effect	cached	no Request/RequestResolver module or resolver cache/interruption/batching API in crates/elm-effect/src (Request surface absent)
+not-applicable	packages/effect/test/Request.test.ts	363	it.effect	withCache removes cancelled entries from a surviving batch	no Request/RequestResolver module or resolver cache/interruption/batching API in crates/elm-effect/src (Request surface absent)
+not-applicable	packages/effect/test/Request.test.ts	397	it.effect	first	no Request/RequestResolver module or resolver cache/interruption/batching API in crates/elm-effect/src (Request surface absent)
+not-applicable	packages/effect/test/Request.test.ts	427	it.effect	withCache still caches completed failures	no Request/RequestResolver module or resolver cache/interruption/batching API in crates/elm-effect/src (Request surface absent)
+not-applicable	packages/effect/test/Request.test.ts	446	it.effect	withCache does not cache interrupted resolver results	no Request/RequestResolver module or resolver cache/interruption/batching API in crates/elm-effect/src (Request surface absent)
+not-applicable	packages/effect/test/Request.test.ts	463	it.effect	withCache cancellation does not evict a replacement entry	no Request/RequestResolver module or resolver cache/interruption/batching API in crates/elm-effect/src (Request surface absent)
+not-applicable	packages/effect/test/Request.test.ts	500	it.effect	withCache allows an equal retry from the cancelled delay's finalizer	no Request/RequestResolver module or resolver cache/interruption/batching API in crates/elm-effect/src (Request surface absent)
+not-applicable	packages/effect/test/Request.test.ts	548	it.effect	withCache preserves the race winner when the losing resolver is interrupted	no Request/RequestResolver module or resolver cache/interruption/batching API in crates/elm-effect/src (Request surface absent)
+not-applicable	packages/effect/test/Request.test.ts	585	it.effect	withCache accepts refreshed results from stale-while-revalidate	no Request/RequestResolver module or resolver cache/interruption/batching API in crates/elm-effect/src (Request surface absent)
+not-applicable	packages/effect/test/Request.test.ts	610	it.effect	persisted propagates failures to unfinished requests	no Request/RequestResolver module or resolver cache/interruption/batching API in crates/elm-effect/src (Request surface absent)
+not-applicable	packages/effect/test/Request.test.ts	635	it.effect	persisted stores synchronous resolver failures	no Request/RequestResolver module or resolver cache/interruption/batching API in crates/elm-effect/src (Request surface absent)
+not-applicable	packages/effect/test/Request.test.ts	654	it.effect	batching preserves individual & identical requests	no Request/RequestResolver module or resolver cache/interruption/batching API in crates/elm-effect/src (Request surface absent)
+not-applicable	packages/effect/test/Request.test.ts	669	it.effect	grouped requests + batchN	no Request/RequestResolver module or resolver cache/interruption/batching API in crates/elm-effect/src (Request surface absent)
+not-applicable	packages/effect/test/Request.test.ts	697	it.effect	batchN normalizes the maximum batch size	no Request/RequestResolver module or resolver cache/interruption/batching API in crates/elm-effect/src (Request surface absent)
+not-applicable	packages/effect/test/Request.test.ts	727	it.effect	batch fibers use request services for runAll	no Request/RequestResolver module or resolver cache/interruption/batching API in crates/elm-effect/src (Request surface absent)
+not-applicable	packages/effect/test/Request.test.ts	745	it.effect	batch fibers use request services for delay effects	no Request/RequestResolver module or resolver cache/interruption/batching API in crates/elm-effect/src (Request surface absent)
 ported	packages/effect/test/Resource.test.ts	11	it.effect	isResource	resource_guard_identifies_resources
 ported	packages/effect/test/Resource.test.ts	18	it.effect	manual refresh updates the cached value	resource_manual_refresh_updates_the_cached_value
 ported	packages/effect/test/Resource.test.ts	32	it.effect	manual refresh releases the previous scoped acquisition	resource_refresh_releases_before_it_acquires

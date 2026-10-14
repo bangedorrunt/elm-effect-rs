@@ -732,7 +732,7 @@ tests = []
 [[module]]
 path = "packages/effect/src/Request.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/Request.test.ts"]
