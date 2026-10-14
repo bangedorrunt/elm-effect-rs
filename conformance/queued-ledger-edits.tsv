@@ -24,3 +24,14 @@
 # is the batch.
 #
 # path	line	status	rust
+# Batch 2, seven rows from elm-effect-rs-port-managedruntime-oupl. Witnesses live in
+# crates/elm-effect/tests/managed_runtime.rs (7 tests, all green). Queue staged
+# because BoldKite holds the ledger lease for elm-effect-rs-sgze and did not answer
+# a request-release; apply with --from-queue when the lease frees.
+packages/effect/test/ManagedRuntime.test.ts	6	ported	memoizes_the_layer_build
+packages/effect/test/ManagedRuntime.test.ts	18	ported	provides_context
+packages/effect/test/ManagedRuntime.test.ts	27	ported	allows_sharing_a_memo
+packages/effect/test/ManagedRuntime.test.ts	50	ported	supports_dispose_releasing_the_layer
+packages/effect/test/ManagedRuntime.test.ts	65	ported	fibers_are_interrupted_on_dispose
+packages/effect/test/ManagedRuntime.test.ts	75	ported	dispose_finishes_request_cleanup_before_releasing_the_layer
+packages/effect/test/ManagedRuntime.test.ts	127	ported	dispose_completes_sequential_layer_finalizers_when_interrupted

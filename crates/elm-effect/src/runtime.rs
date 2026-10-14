@@ -356,23 +356,22 @@ pub struct ManagedRuntime {
     /// locally-created build scope released every resource a layer acquired
     /// the instant `make` returned, before the runtime ran its first effect.
     /// Holding it here runs them when the runtime drops, which is after
-    /// `Runtime::shutdown` has interrupted every live fiber.
+    /// `dispose` has interrupted every live fiber.
     ///
-    /// Never read, deliberately: the field exists for its `Drop`. Today a
-    /// layer constructor is a pure `Effect` with no scope access
-    /// (`Layer::from_factory`), so nothing can register a finalizer on it —
-    /// which is exactly why this is the cheapest place to put the ownership
-    /// before a scoped constructor form makes it load-bearing.
-    // `#[allow]` on the field, not the struct: the value is read by
-    // its own `Drop`, which is the entire reason it is here.
-    #[allow(dead_code)]
-    build_scope: Option<crate::Scope>,
+    /// A scoped layer constructor (`Layer::from_scoped_factory`) registers its
+    /// release here, so a pool or connection a layer acquires is freed on
+    /// `dispose`, not at the end of the build.
+    build_scope: Option<Arc<crate::Scope>>,
+    /// The memo this runtime's layer built into, when built from a layer.
+    /// [`memo`](ManagedRuntime::memo) hands it out so a second runtime can
+    /// reuse the first's services (the pin's shared `MemoMap`).
+    memo: Option<crate::LayerMemo>,
 }
 
 impl ManagedRuntime {
     /// Build with default pool knobs and no provided services.
     pub fn new() -> Self {
-        Self { runtime: Runtime::new(), services: None, build_scope: None }
+        Self { runtime: Runtime::new(), services: None, build_scope: None, memo: None }
     }
 
     /// Build from a layer: the layer's services are constructed eagerly
@@ -396,18 +395,68 @@ impl ManagedRuntime {
     ) -> Result<Self, Cause<E>> {
         // `build` is only available on a fully-satisfied layer (no remaining
         // requirements), which is exactly what a runtime entry point takes.
-        let scope = crate::Scope::new(0);
+        let scope = Arc::new(crate::Scope::new(0));
         let services = layer.build(&scope)?;
         Ok(Self {
             runtime: Runtime::new(),
             services: Some(services),
             build_scope: Some(scope),
+            memo: Some(layer.memo()),
         })
     }
 
     /// The services this runtime was built with, if any.
     pub fn context(&self) -> Option<&crate::BuiltServices> {
         self.services.as_ref()
+    }
+
+    /// The build memo this runtime's layer used, if it was built from one.
+    /// Pass it to [`Layer::with_memo`] to share the build with another
+    /// runtime: the pin's `{ memoMap: other.memoMap }`.
+    pub fn memo(&self) -> Option<crate::LayerMemo> {
+        self.memo.clone()
+    }
+
+    /// Interrupt live fibers and wait for their finalizers, then release the
+    /// layer's resources by closing the build scope. That order is the point:
+    /// a request fiber's cleanup runs before the layer's `close`, which is
+    /// what the pin's dispose rows observe. Idempotent.
+    pub fn dispose(&self) {
+        self.runtime.shutdown();
+        if let Some(scope) = &self.build_scope {
+            let _ = scope.close();
+        }
+    }
+
+    /// Fork `effect` as a fiber bound to this runtime, so [`dispose`] or
+    /// `shutdown` interrupts it before the build scope closes. The fiber runs
+    /// with the runtime's built services ambient, so `use_service` resolves
+    /// without an explicit `provide_from`.
+    pub fn run_fork<A, E>(&self, effect: Effect<A, E, ()>) -> FiberHandle<A, E>
+    where
+        A: Send + 'static,
+        E: Send + 'static,
+    {
+        let env = match &self.services {
+            Some(built) => built.env(),
+            None => crate::service::empty_services(),
+        };
+        // Immediate start, like the pin's `runFork`: the fiber is running
+        // before `run_fork` returns, so a caller can wait on a signal it
+        // raises without draining a deferred latch.
+        self.runtime.fork_detach_with(
+            move |ctx| {
+                // Merge so the fiber tag (which `Effect::never` and
+                // `Effect::with_fiber` read) sits alongside the layer's
+                // services.
+                let ambient = crate::service::merged_services(&ctx.services_with_fiber(), &env);
+                match effect.run_sync_with(&ambient) {
+                    Ok(a) => Exit::Success(a),
+                    Err(cause) => Exit::Failure(cause),
+                }
+            },
+            ForkOpts::immediate(),
+        )
     }
 
     /// Borrow the managed runtime.
@@ -418,17 +467,43 @@ impl ManagedRuntime {
     /// The edge for a non-effect caller (a CLI handler, a test, a host
     /// loop): run `effect` to an [`Exit`]. Delegates to
     /// [`Runtime::run`]; it lives here so library crates never name it (L3).
-    pub fn run<A, E>(&self, effect: Effect<A, E>) -> Exit<A, E>
+    ///
+    /// When this runtime was built from a layer, the layer's services are
+    /// ambient, so a `use_service` in `effect` resolves without an explicit
+    /// `provide_from`. That is the pin's `runtime.runPromise(tag)`. A runtime
+    /// from [`new`](ManagedRuntime::new) has no services and runs exactly as
+    /// before.
+    pub fn run<A, E, R>(&self, effect: Effect<A, E, R>) -> Exit<A, E>
     where
         A: Send + 'static,
         E: Send + 'static,
+        R: crate::Requirement,
     {
-        Runtime::run(effect)
+        let env = match &self.services {
+            Some(built) => built.env(),
+            None => crate::service::empty_services(),
+        };
+        match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            effect.run_sync_with(&env)
+        })) {
+            Ok(Ok(a)) => Exit::Success(a),
+            Ok(Err(cause)) => Exit::Failure(cause),
+            Err(payload) => Exit::Failure(Cause::die(edge_defect(payload))),
+        }
     }
 
-    /// Interrupt live fibers and wait for finalizers. Idempotent.
+    /// Interrupt live fibers and wait for finalizers, then release the
+    /// layer's resources. Idempotent.
     pub fn shutdown(&self) {
-        self.runtime.shutdown();
+        self.dispose();
+    }
+}
+
+impl Drop for ManagedRuntime {
+    /// Dispose on drop, like the pin's `await using`. `dispose` is
+    /// idempotent, so an explicit call before the drop changes nothing.
+    fn drop(&mut self) {
+        self.dispose();
     }
 }
 
@@ -749,4 +824,31 @@ fn race_all_impl<A: Send + 'static, E: Send + 'static>(
         handle.join();
     }
     winner
+}
+
+/// `Effect.never` at the pin: an effect that never completes and can only end
+/// by interruption. A fiber that must stay alive until its scope closes (the
+/// `ManagedRuntime` dispose rows) is the caller.
+///
+/// Lives here rather than beside the other constructors so the change stays
+/// inside one module's lease; an inherent impl may sit in any module of the
+/// defining crate. Interruption is cooperative like everywhere else: this
+/// parks in a short poll loop and ends interrupted once the fiber's flag is
+/// set. Without the poll a body parked on a condvar would never observe the
+/// flag, and `shutdown` (which waits for its fibers) would hang.
+#[cfg(feature = "tokio")]
+impl<A: Send + 'static, E: Send + 'static> Effect<A, E, ()> {
+    pub fn never() -> Self {
+        Effect::with_fiber(|fiber| {
+            let fiber = fiber.clone();
+            Effect::sync(move || {
+                // ponytail: 1ms park; a condvar notified by request_interrupt
+                // would remove the poll, but that touches FiberControl.
+                while !fiber.is_interrupted() {
+                    std::thread::park_timeout(std::time::Duration::from_millis(1));
+                }
+            })
+            .flat_map(|()| Effect::<A, E, ()>::interrupt())
+        })
+    }
 }

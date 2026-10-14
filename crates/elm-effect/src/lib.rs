@@ -71,7 +71,7 @@ pub use foundation::{
     string_equivalence, string_order, tagged, tuple_equivalence, tupled, untupled,
 };
 #[cfg(feature = "tokio")]
-pub use layer::{BuiltServices, Cycle, Layer, RequirementIds};
+pub use layer::{BuiltServices, Cycle, Layer, LayerMemo, RequirementIds};
 pub use optic::{
     Iso, Lens, OpticError, Optional, Prism, Traversal, at_map, at_vec, at_vec_exact, failure, none,
     some, success,
