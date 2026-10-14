@@ -3354,3 +3354,113 @@ fn a_shared_flag_parses_beside_the_nodes_own_flag() {
         vec!["root: workspace=docs, model=gpt-4o".to_string()]
     );
 }
+
+/// Command.test.ts:1203 — a child may declare a flag with the same name as one
+/// of its parent's locals, and the child's own declaration is the one that
+/// answers: the run carries `--model` once, on the far side of the subcommand,
+/// and the node that declares it reads its value rather than the parent's.
+#[test]
+fn a_child_flag_shadows_a_parent_local_of_the_same_name() {
+    let log = handler_log();
+    let seen = log.clone();
+    let chat = Command::new(
+        "chat",
+        "chat command",
+        vec![Arg::Opt {
+            name: "model".to_string(),
+            help: "model".to_string(),
+            required: false,
+        }],
+    )
+    .handler(move |parsed| {
+        seen.lock().expect("lock").push(format!(
+            "chat: workspace={}, model={}",
+            parsed.opt("workspace").unwrap_or_default(),
+            parsed.opt("model").unwrap_or_default()
+        ));
+    });
+    let root = Command::new(
+        "tool",
+        "tool command",
+        vec![Arg::Opt {
+            name: "model".to_string(),
+            help: "model".to_string(),
+            required: false,
+        }],
+    )
+    .with_shared_flags(vec![Arg::Opt {
+        name: "workspace".to_string(),
+        help: "workspace".to_string(),
+        required: false,
+    }])
+    .with_subcommands(vec![chat]);
+
+    root.run(&[
+        "--workspace".to_string(),
+        "docs".to_string(),
+        "chat".to_string(),
+        "--model".to_string(),
+        "gpt-4o-mini".to_string(),
+    ])
+    .expect("the child's own model is the one in scope");
+
+    assert_eq!(
+        *log.lock().expect("lock"),
+        vec!["chat: workspace=docs, model=gpt-4o-mini".to_string()]
+    );
+}
+
+/// Command.test.ts:1231 — a parent's local flag stays local: `--model` given on
+/// the global side, ahead of a subcommand, is refused, because only shared
+/// flags ride on both sides.
+#[test]
+fn a_parent_local_flag_is_refused_on_subcommand_paths() {
+    let chat_log = handler_log();
+    let chat_seen = chat_log.clone();
+
+    let root = Command::new(
+        "tool",
+        "tool command",
+        vec![Arg::Opt {
+            name: "model".to_string(),
+            help: "model".to_string(),
+            required: false,
+        }],
+    )
+    .with_shared_flags(vec![Arg::Opt {
+        name: "workspace".to_string(),
+        help: "workspace".to_string(),
+        required: false,
+    }]);
+
+    let chat = Command::new(
+        "chat",
+        "chat command",
+        vec![Arg::Opt {
+            name: "topic".to_string(),
+            help: "topic".to_string(),
+            required: false,
+        }],
+    )
+    .handler(move |_| chat_seen.lock().expect("lock").push("chat".to_string()));
+
+    let root = root.with_subcommands(vec![chat]);
+
+    let error = root
+        .run(&[
+            "--workspace".to_string(),
+            "docs".to_string(),
+            "--model".to_string(),
+            "gpt-4o".to_string(),
+            "chat".to_string(),
+            "--topic".to_string(),
+            "bugs".to_string(),
+        ])
+        .expect_err("--model local is not in scope on the subcommand path");
+    let printed = error.to_string();
+    assert!(
+        printed.contains("--model"),
+        "the refusal names the flag, got: {printed}"
+    );
+    assert!(chat_log.lock().expect("lock").is_empty(), "refused line never runs");
+}

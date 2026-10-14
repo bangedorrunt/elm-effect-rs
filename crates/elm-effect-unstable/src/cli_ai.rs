@@ -138,8 +138,12 @@ pub struct Command {
     pub name: String,
     /// Help text.
     pub help: String,
-    /// Arguments.
+    /// Arguments this node declares for itself.
     pub args: Vec<Arg>,
+    /// Args shared with every subcommand (`withSharedFlags`). Kept apart
+    /// from `args` because a shared arg is in scope on both sides of a
+    /// subcommand while a local one is not.
+    shared_args: Vec<Arg>,
     /// Subcommands.
     pub subcommands: Vec<Command>,
     /// Hidden from help listings (`Command.unlisted`). It belongs to the
@@ -164,6 +168,7 @@ impl Command {
             name: name.to_string(),
             help: help.to_string(),
             args,
+            shared_args: Vec::new(),
             subcommands: Vec::new(),
             unlisted: false,
             aliases: Vec::new(),
@@ -178,6 +183,7 @@ impl Command {
             name: name.to_string(),
             help: help.to_string(),
             args: Vec::new(),
+            shared_args: Vec::new(),
             subcommands,
             unlisted: false,
             aliases: Vec::new(),
@@ -213,7 +219,7 @@ impl Command {
             // routes the same way the canonical name does.
             if let Some(sub) = self.subcommands.iter().find(|c| c.matches_name(first)) {
                 let mut chain: Vec<&Arg> = inherited;
-                chain.extend(self.args.iter());
+                chain.extend(self.shared_args.iter());
                 let (mut path, parsed) = sub.parse_inherited(chain, rest)?;
                 path.insert(0, self.name.clone());
                 return Ok((path, parsed));
@@ -223,7 +229,7 @@ impl Command {
             }
         }
         if self.subcommands.is_empty() {
-            return Ok((vec![self.name.clone()], self.parse_args(argv, &inherited)?));
+            return Ok((vec![self.name.clone()], self.parse_args(argv, &inherited, true)?));
         }
         // A node that carries subcommands and declares its own flags reads a
         // global flag ahead of the subcommand, and the value it collected
@@ -234,8 +240,10 @@ impl Command {
     /// Whether this node declares a valued option under `name`. The leading
     /// scan needs it to know the next token is that option's value rather
     /// than the subcommand.
-    fn has_valued_opt(&self, name: &str, inherited: &[&Arg]) -> bool {
-        self.declares_valued(name, inherited)
+    fn has_valued_opt(&self, name: &str, declared: &[&Arg]) -> bool {
+        declared
+            .iter()
+            .any(|a| matches!(a, Arg::Opt { name: n, .. } if n == name))
     }
 
     /// Read this node's own flags off the front of `argv`, then hand what is
@@ -250,6 +258,35 @@ impl Command {
         argv: &[String],
         inherited: &[&Arg],
     ) -> Result<(Vec<String>, Parsed), CliError> {
+        // A parent's local flag is out of scope on the subcommand path: if a
+        // line both names a subcommand and a local flag ahead of it, refuse the
+        // flag rather than letting it fall through into `unknown argument`.
+        // Only consider subcommands that occur before an explicit `--` separator,
+        // since anything after the dash is operands and cannot select.
+        let dash_idx = argv.iter().position(|t| t == "--").unwrap_or(argv.len());
+        let sub_idx = (0..dash_idx).find(|i| self.subcommands.iter().any(|c| c.matches_name(&argv[*i])));
+        if let Some(sub_idx) = sub_idx {
+            for token in &argv[..sub_idx] {
+                if !token.starts_with('-') {
+                    continue;
+                }
+                let name = token.trim_start_matches("--");
+                let name = name.split('=').next().unwrap_or(name);
+                let is_local = self.args.iter().any(|a| {
+                    matches!(a, Arg::Flag { name: n, .. } | Arg::Opt { name: n, .. } if *n == name)
+                });
+                let is_shared_or_inherited = self
+                    .shared_args
+                    .iter()
+                    .chain(inherited.iter().map(|a| *a))
+                    .any(|a| {
+                        matches!(a, Arg::Flag { name: n, .. } | Arg::Opt { name: n, .. } if *n == name)
+                    });
+                if is_local && !is_shared_or_inherited {
+                    return Err(CliError::Unknown(token.clone()));
+                }
+            }
+        }
         let mut leading: Vec<String> = Vec::new();
         let mut i = 0;
         while i < argv.len() {
@@ -261,10 +298,34 @@ impl Command {
             }
             if let Some(sub) = self.subcommands.iter().find(|c| c.matches_name(token)) {
                 let mut chain: Vec<&Arg> = inherited.to_vec();
-                chain.extend(self.args.iter());
+                chain.extend(self.shared_args.iter());
+                // A parent's local flag cannot ride on the subcommand path:
+                // if one was given before the subcommand, refuse it by name.
+                for token in &leading {
+                    let name = token
+                        .trim_start_matches("--")
+                        .split('=')
+                        .next()
+                        .unwrap_or("")
+                        .to_string();
+                    let is_local = self
+                        .args
+                        .iter()
+                        .any(|a| matches!(a, Arg::Flag { name: n, .. } | Arg::Opt { name: n, .. } if *n == name));
+                    let shared_or_inherited = self
+                        .shared_args
+                        .iter()
+                        .chain(inherited.iter().map(|a| *a))
+                        .any(|a| matches!(a, Arg::Flag { name: n, .. } | Arg::Opt { name: n, .. } if *n == name));
+                    if is_local && !shared_or_inherited {
+                        return Err(CliError::Unknown(token.clone()));
+                    }
+                }
                 let (mut path, parsed) = sub.parse_inherited(chain, &argv[i + 1..])?;
                 path.insert(0, self.name.clone());
-                let mut head = self.parse_args(&leading, inherited)?;
+                let mut head_scope: Vec<&Arg> = self.shared_args.iter().collect();
+                head_scope.extend(inherited.iter().copied());
+                let mut head = self.parse_args(&leading, &head_scope, false)?;
                 head.absorb(parsed);
                 return Ok((path, head));
             }
@@ -280,22 +341,34 @@ impl Command {
                 Some((n, v)) => (n, Some(v)),
                 None => (name, None),
             };
-            if inline.is_none() && self.has_valued_opt(name, inherited) && i + 1 < argv.len() {
+            let mut scan_scope: Vec<&Arg> = self.shared_args.iter().collect();
+            scan_scope.extend(inherited.iter().copied());
+            if inline.is_none() && self.has_valued_opt(name, &scan_scope) && i + 1 < argv.len() {
                 i += 1;
                 leading.push(argv[i].clone());
             }
             i += 1;
         }
         // No subcommand was selected, so the whole line is this node's own.
-        Ok((vec![self.name.clone()], self.parse_args(argv, inherited)?))
+        if self.subcommands.is_empty() {
+            // own + shared declared at this node, plus anything inherited
+            let mut declared = self.args.iter().chain(self.shared_args.iter())
+                .collect::<Vec<&Arg>>();
+            declared.extend(inherited.iter().copied());
+            return Ok((vec![self.name.clone()], self.parse_args(argv, &declared, true)?));
+        }
+        let mut declared: Vec<&Arg> = self.args.iter().chain(self.shared_args.iter())
+            .collect();
+        declared.extend(inherited.iter().copied());
+        Ok((vec![self.name.clone()], self.parse_args(argv, &declared, true)?))
     }
 
     /// Render help text.
     pub fn help_text(&self) -> String {
         let mut out = format!("{} - {}\n", self.name, self.help);
-        if !self.args.is_empty() {
+        if !self.args.is_empty() || !self.shared_args.is_empty() {
             out.push_str("Arguments:\n");
-            for arg in &self.args {
+            for arg in self.args.iter().chain(self.shared_args.iter()) {
                 match arg {
                     Arg::Flag { name, help } => out.push_str(&format!("  --{name}\n      {help}\n")),
                     Arg::Opt { name, help, required } => out.push_str(&format!(
@@ -320,7 +393,11 @@ impl Command {
         out
     }
 
-    fn parse_args(&self, argv: &[String], inherited: &[&Arg]) -> Result<Parsed, CliError> {
+    fn parse_args(&self, argv: &[String], extra: &[&Arg], include_local: bool) -> Result<Parsed, CliError> {
+        let mut declared: Vec<&Arg> = Vec::new();
+        if include_local { declared.extend(self.args.iter()); }
+        declared.extend(self.shared_args.iter());
+        declared.extend(extra.iter().copied());
         let mut parsed = Parsed::default();
         let mut positionals = self.args.iter().filter(|a| matches!(a, Arg::Positional { .. }));
         let mut variadic = false;
@@ -357,7 +434,7 @@ impl Command {
                         got: value.to_string(),
                     });
                 }
-                if self.has_flag(negated, inherited) {
+                if self.has_flag(negated, &declared) {
                     parsed.flags.insert(negated.to_string(), false);
                     i += 1;
                     continue;
@@ -369,7 +446,7 @@ impl Command {
                     Some((n, v)) => (n, Some(v)),
                     None => (rest, None),
                 };
-                if self.has_flag(name, inherited) {
+                if self.has_flag(name, &declared) {
                     // An inline or following literal is the flag's value, so
                     // `--verbose false` is false rather than true-with-a-
                     // stray-word. A bare switch stays true.
@@ -401,7 +478,7 @@ impl Command {
                         }
                     }
                 }
-                if self.has_opt(name, inherited) {
+                if self.has_opt(name, &declared) {
                     let value = match inline {
                         Some(v) => v.to_string(),
                         None => {
@@ -448,31 +525,19 @@ impl Command {
         Ok(parsed)
     }
 
-    /// Whether `name` is a flag this node or an ancestor it inherits from
-    /// declares.
-    fn has_flag(&self, name: &str, inherited: &[&Arg]) -> bool {
-        self.args
+    /// Whether `name` is a flag declared in `declared` (already merged with
+    /// this node's own locals/shared plus extras by the caller).
+    fn has_flag(&self, name: &str, declared: &[&Arg]) -> bool {
+        declared
             .iter()
             .any(|a| matches!(a, Arg::Flag { name: n, .. } if n == name))
-            || inherited
-                .iter()
-                .any(|a| matches!(a, Arg::Flag { name: n, .. } if n == name))
     }
 
-    /// Whether this node or an ancestor it inherits from declares a valued
-    /// option under `name`.
-    fn has_opt(&self, name: &str, inherited: &[&Arg]) -> bool {
-        self.declares_valued(name, inherited)
-    }
-
-    /// The opt half of "is this name declared", shared with the leading scan.
-    fn declares_valued(&self, name: &str, inherited: &[&Arg]) -> bool {
-        self.args
+    /// Whether a valued option under `name` is declared in `declared`.
+    fn has_opt(&self, name: &str, declared: &[&Arg]) -> bool {
+        declared
             .iter()
             .any(|a| matches!(a, Arg::Opt { name: n, .. } if n == name))
-            || inherited
-                .iter()
-                .any(|a| matches!(a, Arg::Opt { name: n, .. } if n == name))
     }
 }
 
@@ -725,7 +790,7 @@ impl Command {
 
     /// Add shared flags, keeping the command's own metadata.
     pub fn with_shared_flags(mut self, args: Vec<Arg>) -> Self {
-        self.args.extend(args);
+        self.shared_args.extend(args);
         self
     }
 }
