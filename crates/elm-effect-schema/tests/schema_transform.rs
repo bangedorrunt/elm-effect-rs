@@ -668,3 +668,137 @@ fn to_uppercase_uppers_on_decode_and_passes_through_on_encode() {
     assert_eq!(uppered.decode(text("b")).unwrap(), "B");
     assert_eq!(uppered.encode(&"a".to_string()), text("a"));
 }
+
+/// The pin's `Schema.String.pipe(Schema.decodeTo(Schema.String, t))` for the
+/// `StringFrom*` family: both directions are wired, because these transforms
+/// round-trip (unlike the case ones).
+fn string_wire_schema(t: Transformation<String, String>) -> Schema<String> {
+    let decoded = std::sync::Arc::new(t);
+    let encoded = decoded.clone();
+    Schema::convert(
+        Schema::string(),
+        move |value: String| decoded.forward(value),
+        move |value: &String| {
+            encoded
+                .backward(value.clone())
+                .expect("an encoder writes any string")
+        },
+    )
+}
+
+/// Schema.test.ts:5240 (`StringFromBase64`): Base64 text on the wire, the
+/// UTF-8 text it carries as the value, and the refusals are the malformations
+/// the pin names \u2014 a length that is not a group of four, the URL-safe
+/// alphabet, and leading padding.
+#[test]
+fn string_from_base64_round_trips_and_refuses_malformed_text() {
+    let schema = string_wire_schema(Transformation::string_from_base64());
+    assert_eq!(schema.decode(text("Zm9vYmFy")).unwrap(), "foobar");
+    for bad in ["Zm9vY", "Zm9vYmF-", "=Zm9vYmF"] {
+        let err = schema.decode(text(bad)).unwrap_err().to_string();
+        assert!(
+            err.contains("a valid Base64 string"),
+            "{bad:?} must be refused by name, got: {err}"
+        );
+    }
+    assert_eq!(schema.encode(&"foobar".to_string()), text("Zm9vYmFy"));
+}
+
+/// :5254 (`StringFromBase64Url`): the URL-safe alphabet, no padding on the way
+/// out, and the standard alphabet's `+` and `/` are now the malformed input.
+#[test]
+fn string_from_base64_url_uses_the_url_alphabet() {
+    let schema = string_wire_schema(Transformation::string_from_base64_url());
+    assert_eq!(schema.decode(text("Zm9vYmFy")).unwrap(), "foobar");
+    assert_eq!(schema.decode(text("Pj8-ZD_Dnw")).unwrap(), ">?>d?\u{df}");
+    let err = schema
+        .decode(text("Pj8/ZD+Dnw"))
+        .unwrap_err()
+        .to_string();
+    assert!(err.contains("a valid Base64Url string"), "got: {err}");
+    assert_eq!(schema.encode(&"foobar".to_string()), text("Zm9vYmFy"));
+    assert_eq!(
+        schema.encode(&">?>d?\u{df}".to_string()),
+        text("Pj8-ZD_Dnw")
+    );
+}
+
+/// :5269 (`StringFromHex`): hexadecimal text on the wire. An odd count of
+/// digits is refused (`"0"`), as is a non-digit whether it is text (`zd4aa`)
+/// or a control character.
+#[test]
+fn string_from_hex_round_trips_and_refuses_malformed_text() {
+    let schema = string_wire_schema(Transformation::string_from_hex());
+    assert_eq!(schema.decode(text("67")).unwrap(), "g");
+    for bad in ["0", "zd4aa", "0\u{1}"] {
+        let err = schema.decode(text(bad)).unwrap_err().to_string();
+        assert!(
+            err.contains("a valid hexadecimal string"),
+            "{bad:?} must be refused by name, got: {err}"
+        );
+    }
+    assert_eq!(schema.encode(&"g".to_string()), text("67"));
+    assert_eq!(
+        schema.decode(text("0001020304050607")).unwrap(),
+        "\u{0}\u{1}\u{2}\u{3}\u{4}\u{5}\u{6}\u{7}"
+    );
+}
+
+/// :5283 (`StringFromUriComponent`): percent-encoded text on the wire. The
+/// decoded side is UTF-8, so a multi-byte escape decodes to its characters,
+/// and a truncated or non-hex escape (`%ZZ`) is the refusal.
+#[test]
+fn string_from_uri_component_round_trips_and_refuses_malformed_text() {
+    let schema = string_wire_schema(Transformation::string_from_uri_component());
+    assert_eq!(schema.decode(text("%7B%22a%22%3A1%7D")).unwrap(), "{\"a\":1}");
+    assert_eq!(schema.decode(text("%D1%88%D0%B5%D0%BB%D0%BB%D1%8B")).unwrap(), "шеллы");
+    assert_eq!(schema.decode(text("hello%20world")).unwrap(), "hello world");
+    assert_eq!(schema.decode(text("hello")).unwrap(), "hello");
+    let err = schema.decode(text("%ZZ")).unwrap_err().to_string();
+    assert!(err.contains("a valid URI component"), "got: {err}");
+    assert_eq!(schema.encode(&"{\"a\":1}".to_string()), text("%7B%22a%22%3A1%7D"));
+    assert_eq!(
+        schema.encode(&"hello world".to_string()),
+        text("hello%20world")
+    );
+}
+
+/// Schema.test.ts:5396 (`DateTimeUtcFromString`): the wire is the canonical UTC
+/// string and the value is the instant. The pin's value is a `DateTime`, which
+/// this port has no `Unknown` variant for, so the port's instant is epoch
+/// millis (`transform::date_schema`) and the assertions are the row's own
+/// decode/encode/refusal set.
+#[test]
+fn datetime_utc_from_string_decodes_the_canonical_wire_string() {
+    let schema = elm_effect_schema::transform::date_schema();
+    assert_eq!(
+        schema.decode(text("2021-01-01T00:00:00.000Z")).unwrap(),
+        1_609_459_200_000
+    );
+    assert_eq!(
+        schema.encode(&1_609_459_200_000),
+        text("2021-01-01T00:00:00.000Z")
+    );
+    assert!(
+        schema.decode(text("invalid")).is_err(),
+        "an unparseable instant is refused"
+    );
+    assert!(schema.decode(Unknown::Null).is_err(), "null is not a string");
+}
+
+/// :5413 (`DateTimeUtcFromMillis`): the wire is the millisecond number and the
+/// value is the same instant, so the port's `date_from_millis_schema` is this
+/// codec with millis standing in for the pin's `DateTime`.
+#[test]
+fn datetime_utc_from_millis_decodes_a_millisecond_number() {
+    let schema = elm_effect_schema::transform::date_from_millis_schema();
+    assert_eq!(
+        schema.decode(Unknown::Number(1_609_459_200_000.0)).unwrap(),
+        1_609_459_200_000
+    );
+    assert_eq!(
+        schema.encode(&1_609_459_200_000),
+        Unknown::Number(1_609_459_200_000.0)
+    );
+    assert!(schema.decode(Unknown::Null).is_err(), "null is not a number");
+}

@@ -78,3 +78,31 @@ packages/effect/test/schema/Schema.test.ts	10453	ported	annotating_a_branded_sch
 packages/effect/test/schema/Schema.test.ts	10460	ported	a_nominal_brand_decodes_the_schema_and_refuses_other_types
 packages/effect/test/schema/Schema.test.ts	10471	ported	a_single_brand_enforces_the_constructors_check
 packages/effect/test/schema/Schema.test.ts	10484	ported	two_brands_run_both_checks
+# Batch 6, twenty-one rows from elm-effect-rs-port-schema-a2c: the top-level
+# constructor rows at :5216-:5586. Six are carried (the four StringFrom*
+# transforms, whose witnesses are in tests/schema_transform.rs and whose
+# implementations are in src/transform.rs; plus the two DateTimeUtc rows whose
+# wire side is a string or a number the port already has). Fifteen are
+# excused because the row's wire value is a JS/Effect value type with no
+# Unknown variant, each named in its own reason rather than as one block.
+packages/effect/test/schema/Schema.test.ts	5240	ported	string_from_base64_round_trips_and_refuses_malformed_text
+packages/effect/test/schema/Schema.test.ts	5254	ported	string_from_base64_url_uses_the_url_alphabet
+packages/effect/test/schema/Schema.test.ts	5269	ported	string_from_hex_round_trips_and_refuses_malformed_text
+packages/effect/test/schema/Schema.test.ts	5283	ported	string_from_uri_component_round_trips_and_refuses_malformed_text
+packages/effect/test/schema/Schema.test.ts	5396	ported	datetime_utc_from_string_decodes_the_canonical_wire_string
+packages/effect/test/schema/Schema.test.ts	5413	ported	datetime_utc_from_millis_decodes_a_millisecond_number
+packages/effect/test/schema/Schema.test.ts	5221	not-applicable	the row's wire value is a Uint8Array and so is its decoded value; this port's Unknown has no byte-array variant (Text/Number/Bool/Null/Array/Object), so neither side can be constructed. The string half of the same codec is carried at :5240
+packages/effect/test/schema/Schema.test.ts	5299	not-applicable	the row's wire value is a Uint8Array and so is its decoded value; this port's Unknown has no byte-array variant, so neither side can be constructed. The string half of the same codec is carried at :5254
+packages/effect/test/schema/Schema.test.ts	5319	not-applicable	the row's wire value is a Uint8Array and so is its decoded value; this port's Unknown has no byte-array variant, so neither side can be constructed. The string half of the same codec is carried at :5269
+packages/effect/test/schema/Schema.test.ts	5346	not-applicable	the row's wire value is a JS Date instance and so is its decoded value; this port's Unknown has no Date variant, and its instant travels as epoch millis over an ISO string (transform::date_schema, carried at :5396), so the row's inputs (a Date, its NaN form, 0) cannot be constructed
+packages/effect/test/schema/Schema.test.ts	5365	not-applicable	the row's wire value and its decoded value are both DateTime instances; this port's instant is epoch millis and has no DateTime variant, so the input cannot be constructed. The string-wire half is carried at :5396 and the number-wire half at :5413
+packages/effect/test/schema/Schema.test.ts	5380	not-applicable	the row's wire value is a JS Date instance, decoded to a DateTime; this port's Unknown has no Date variant (its instant travels as an ISO string or epoch millis), so the row's inputs cannot be constructed
+packages/effect/test/schema/Schema.test.ts	5429	not-applicable	the row's wire value and its decoded value are DateTime zone objects (zoneMakeOffset); this port has no time-zone value type at all, only instants as epoch millis, so neither side can be constructed
+packages/effect/test/schema/Schema.test.ts	5444	not-applicable	the row's wire value and its decoded value are named DateTime zone objects (zoneMakeNamedUnsafe); this port has no time-zone value type at all, so neither side can be constructed
+packages/effect/test/schema/Schema.test.ts	5459	not-applicable	the row's value is a DateTime TimeZone, offset or named; this port has no time-zone value type at all, so the input cannot be constructed
+packages/effect/test/schema/Schema.test.ts	5476	not-applicable	the row's value is a zoned DateTime (an instant plus a zone); this port's instant is epoch millis and it has no zone type, so the input cannot be constructed
+packages/effect/test/schema/Schema.test.ts	5491	not-applicable	the row's wire value is a JS Set and its decoded value one too; this port's Unknown has no set variant, so the row's Set inputs and Set equality cannot be built
+packages/effect/test/schema/Schema.test.ts	5512	not-applicable	the row's wire value is an Effect HashSet and its decoded value one too; this port's schema crate has no HashSet type (Unknown holds Array), so HashSet.make inputs and equality cannot be built
+packages/effect/test/schema/Schema.test.ts	5536	not-applicable	the row's wire value is an Effect Chunk and its decoded value one too; this port's schema crate has no Chunk type (Unknown holds Array), so the row's Chunk.make inputs and Chunk equality cannot be built
+packages/effect/test/schema/Schema.test.ts	5560	not-applicable	the row's wire value is a JS Map and its decoded value one too; this port's Unknown has no map variant, so the row's Map inputs and Map equality cannot be built
+packages/effect/test/schema/Schema.test.ts	5586	not-applicable	the row's wire value is an Effect HashMap and its decoded value one too; this port's schema crate has no HashMap type (Unknown holds Object), so HashMap.make inputs and equality cannot be built
