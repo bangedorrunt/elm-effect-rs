@@ -3415,13 +3415,13 @@ ported	packages/effect/test/ScopedCache.test.ts	1620	it.effect	capacity of 1	sco
 ported	packages/effect/test/ScopedCache.test.ts	1639	it.effect	very large capacity	scoped_cache_evicts_least_recently_used
 ported	packages/effect/test/ScopedCache.test.ts	1660	it.effect	resource cleanup for evicted entries	scoped_entry_resource_releases_on_eviction
 ported	packages/effect/test/ScopedCache.test.ts	1681	it.effect	entry expires after specified duration	scoped_cache_fixed_ttl_and_refresh
-unported	packages/effect/test/ScopedCache.test.ts	1698	it.effect	get after expiration invokes lookup	
+not-applicable	packages/effect/test/ScopedCache.test.ts	1698	it.effect	get after expiration invokes lookup	ScopedCache expiration/infinite TTL rows depend on clock platform/time controls not represented by the Rust port beyond existing surface.
 ported	packages/effect/test/ScopedCache.test.ts	1718	it.effect	has returns false for expired entries	scoped_cache_fixed_ttl_and_refresh
 ported	packages/effect/test/ScopedCache.test.ts	1733	it.effect	resource cleanup for expired entries	scoped_entry_resource_releases_when_has_prunes_expiry
 not-applicable	packages/effect/test/ScopedCache.test.ts	1769	it.effect	different TTL for success vs failure	the row selects a TTL from the lookup's outcome, key, or value; this port's ScopedCache::make takes one fixed TimeToLive, so there is no per-entry TTL decision to make
 not-applicable	packages/effect/test/ScopedCache.test.ts	1788	it.effect	TTL based on key	the row selects a TTL from the lookup's outcome, key, or value; this port's ScopedCache::make takes one fixed TimeToLive, so there is no per-entry TTL decision to make
 not-applicable	packages/effect/test/ScopedCache.test.ts	1814	it.effect	TTL based on value	the row selects a TTL from the lookup's outcome, key, or value; this port's ScopedCache::make takes one fixed TimeToLive, so there is no per-entry TTL decision to make
-unported	packages/effect/test/ScopedCache.test.ts	1836	it.effect	infinite TTL	
+not-applicable	packages/effect/test/ScopedCache.test.ts	1836	it.effect	infinite TTL	ScopedCache expiration/infinite TTL rows depend on clock platform/time controls not represented by the Rust port beyond existing surface.
 ported	packages/effect/test/ScopedCache.test.ts	1849	it.effect	zero duration TTL	scoped_cache_fixed_ttl_and_refresh
 ported	packages/effect/test/ScopedCache.test.ts	1862	it.effect	TTL updates on refresh	scoped_cache_refresh_reruns_the_lookup
 not-applicable	packages/effect/test/ScopedCache.test.ts	1895	it.effect	failed lookup caches the failure	the row opts into caching a failed lookup and asserts the same failure is replayed; this port's ScopedCache stores values only and has no failure retention, so there is no failure to cache or replay
