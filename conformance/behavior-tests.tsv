@@ -5581,7 +5581,7 @@ unported	packages/effect/test/cli/Command.test.ts	388	it.effect	should render in
 ported	packages/effect/test/cli/Command.test.ts	409	it.effect	should execute handler with parsed config	a_handler_runs_with_the_config_parsed_from_its_own_line
 ported	packages/effect/test/cli/Command.test.ts	431	it.effect	should handle nested config in handler	nested_config_reaches_the_subcommands_handler
 unported	packages/effect/test/cli/Command.test.ts	447	it.effect	should work with effectful handlers	
-unported	packages/effect/test/cli/Command.test.ts	466	it.effect	should work with option aliases in handler	
+ported	packages/effect/test/cli/Command.test.ts	466	it.effect	should work with option aliases in handler	a_short_alias_selects_the_same_option_value
 ported	packages/effect/test/cli/Command.test.ts	481	it.effect	should merge repeated key=value flags into a single record	repeated_key_value_flags_merge_into_one_record
 ported	packages/effect/test/cli/Command.test.ts	506	it.effect	should merge key=value flags even when interleaved with other options	repeated_key_value_flags_merge_into_one_record
 unported	packages/effect/test/cli/Command.test.ts	542	it.effect	should expose setting global flags to command handlers	

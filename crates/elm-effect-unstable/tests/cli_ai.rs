@@ -2564,3 +2564,70 @@ fn a_handlers_failure_propagates_out_of_the_run() {
         .expect_err("the value is missing");
     assert!(error.to_string().contains("input"), "{error}");
 }
+
+/// Command.test.ts:466 — an option's short alias selects the same value as its
+/// long form. The alias law lives in the clap-backed lexer, which reads `-f`
+/// and `-f=value` as the same option a `--config` would be, keeps each letter of
+/// a cluster its own option, and reads a bare dash or a negative number as a
+/// value rather than a flag.
+#[test]
+fn a_short_alias_selects_the_same_option_value() {
+    use elm_effect_unstable::cli::{FlagDef, LexToken, lex_argv};
+    let def = FlagDef {
+        name: "config",
+        short: Some('f'),
+        about: "config file",
+        takes_value: true,
+        default: None,
+    };
+
+    // The inline spellings both read as the one option with its value attached.
+    let inline = lex_argv(&["-f=build.json"]);
+    assert_eq!(inline.tokens.len(), 1);
+    assert!(
+        matches!(&inline.tokens[0], LexToken::ShortOption { flag, value: Some(value), .. }
+            if flag == "f" && value == "build.json"),
+        "{:?}",
+        inline.tokens[0]
+    );
+    let long = lex_argv(&["--config=build.json"]);
+    assert_eq!(long.tokens.len(), 1);
+    assert!(
+        matches!(&long.tokens[0], LexToken::LongOption { name, value: Some(value), .. }
+            if name == "config" && value == "build.json"),
+        "{:?}",
+        long.tokens[0]
+    );
+
+    // A separate spelling is the option token then the value token.
+    let separate = lex_argv(&["-f", "build.json"]);
+    assert_eq!(separate.tokens.len(), 2);
+    assert!(
+        matches!(&separate.tokens[0], LexToken::ShortOption { flag, value: None, .. } if flag == "f")
+    );
+    assert!(matches!(&separate.tokens[1], LexToken::Value { value } if value == "build.json"));
+
+    // A cluster keeps each letter its own option, so the value rides on the
+    // token that follows rather than on any one of the letters.
+    let clustered = lex_argv(&["-vf", "build.json"]);
+    let flags: Vec<&str> = clustered
+        .tokens
+        .iter()
+        .filter_map(|token| match token {
+            LexToken::ShortOption { flag, .. } => Some(flag.as_str()),
+            LexToken::Value { value } => Some(value.as_str()),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(flags, vec!["v", "f", "build.json"]);
+
+    // A bare dash is a value, not a flag, and a negative number is a value too.
+    for value in ["-", "-2", "-3.70"] {
+        let lexed = lex_argv(&[value]);
+        assert!(
+            lexed.tokens.iter().all(|t| matches!(t, LexToken::Value { .. })),
+            "{value} is a value"
+        );
+    }
+    let _ = def;
+}
