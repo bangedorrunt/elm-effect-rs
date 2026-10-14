@@ -711,10 +711,7 @@ fn string_from_base64_url_uses_the_url_alphabet() {
     let schema = string_wire_schema(Transformation::string_from_base64_url());
     assert_eq!(schema.decode(text("Zm9vYmFy")).unwrap(), "foobar");
     assert_eq!(schema.decode(text("Pj8-ZD_Dnw")).unwrap(), ">?>d?\u{df}");
-    let err = schema
-        .decode(text("Pj8/ZD+Dnw"))
-        .unwrap_err()
-        .to_string();
+    let err = schema.decode(text("Pj8/ZD+Dnw")).unwrap_err().to_string();
     assert!(err.contains("a valid Base64Url string"), "got: {err}");
     assert_eq!(schema.encode(&"foobar".to_string()), text("Zm9vYmFy"));
     assert_eq!(
@@ -750,13 +747,24 @@ fn string_from_hex_round_trips_and_refuses_malformed_text() {
 #[test]
 fn string_from_uri_component_round_trips_and_refuses_malformed_text() {
     let schema = string_wire_schema(Transformation::string_from_uri_component());
-    assert_eq!(schema.decode(text("%7B%22a%22%3A1%7D")).unwrap(), "{\"a\":1}");
-    assert_eq!(schema.decode(text("%D1%88%D0%B5%D0%BB%D0%BB%D1%8B")).unwrap(), "шеллы");
+    assert_eq!(
+        schema.decode(text("%7B%22a%22%3A1%7D")).unwrap(),
+        "{\"a\":1}"
+    );
+    assert_eq!(
+        schema
+            .decode(text("%D1%88%D0%B5%D0%BB%D0%BB%D1%8B"))
+            .unwrap(),
+        "шеллы"
+    );
     assert_eq!(schema.decode(text("hello%20world")).unwrap(), "hello world");
     assert_eq!(schema.decode(text("hello")).unwrap(), "hello");
     let err = schema.decode(text("%ZZ")).unwrap_err().to_string();
     assert!(err.contains("a valid URI component"), "got: {err}");
-    assert_eq!(schema.encode(&"{\"a\":1}".to_string()), text("%7B%22a%22%3A1%7D"));
+    assert_eq!(
+        schema.encode(&"{\"a\":1}".to_string()),
+        text("%7B%22a%22%3A1%7D")
+    );
     assert_eq!(
         schema.encode(&"hello world".to_string()),
         text("hello%20world")
@@ -783,7 +791,10 @@ fn datetime_utc_from_string_decodes_the_canonical_wire_string() {
         schema.decode(text("invalid")).is_err(),
         "an unparseable instant is refused"
     );
-    assert!(schema.decode(Unknown::Null).is_err(), "null is not a string");
+    assert!(
+        schema.decode(Unknown::Null).is_err(),
+        "null is not a string"
+    );
 }
 
 /// :5413 (`DateTimeUtcFromMillis`): the wire is the millisecond number and the
@@ -800,5 +811,8 @@ fn datetime_utc_from_millis_decodes_a_millisecond_number() {
         schema.encode(&1_609_459_200_000),
         Unknown::Number(1_609_459_200_000.0)
     );
-    assert!(schema.decode(Unknown::Null).is_err(), "null is not a number");
+    assert!(
+        schema.decode(Unknown::Null).is_err(),
+        "null is not a number"
+    );
 }
