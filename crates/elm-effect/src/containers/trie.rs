@@ -215,15 +215,37 @@ impl<V> Trie<V> {
         self.entries().into_iter().map(|(_, v)| v).collect()
     }
 
-    /// Entries whose key starts with `prefix`.
-    pub fn keys_with_prefix(&self, prefix: &str) -> Vec<String> {
+    /// Entries whose key starts with `prefix`, in byte order.
+    pub fn entries_with_prefix(&self, prefix: &str) -> Vec<(String, &V)> {
         match self.walk(prefix) {
             None => Vec::new(),
             Some(node) => {
                 let mut out = Vec::new();
                 Self::collect(node, &mut prefix.as_bytes().to_vec(), &mut out);
-                out.into_iter().map(|(k, _)| k).collect()
+                out
             }
         }
+    }
+
+    /// Keys whose key starts with `prefix`, in byte order.
+    pub fn keys_with_prefix(&self, prefix: &str) -> Vec<String> {
+        self.entries_with_prefix(prefix)
+            .into_iter()
+            .map(|(k, _)| k)
+            .collect()
+    }
+
+    /// Values whose key starts with `prefix`, in key byte order.
+    pub fn values_with_prefix(&self, prefix: &str) -> Vec<&V> {
+        self.entries_with_prefix(prefix)
+            .into_iter()
+            .map(|(_, v)| v)
+            .collect()
+    }
+
+    /// Value for `key`, panicking when the key is missing.
+    pub fn get_unsafe(&self, key: &str) -> &V {
+        self.get(key)
+            .unwrap_or_else(|| panic!("Trie.getUnsafe: no entry for key {key:?}"))
     }
 }

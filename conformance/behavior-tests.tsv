@@ -4109,34 +4109,34 @@ unported	packages/effect/test/Trie.test.ts	11	it	equality rejects tries with dif
 unported	packages/effect/test/Trie.test.ts	23	it	toString renders entries in iteration order	
 unported	packages/effect/test/Trie.test.ts	36	it	toJSON renders tagged entries	
 unported	packages/effect/test/Trie.test.ts	46	it	inspect renders the JSON representation	
-unported	packages/effect/test/Trie.test.ts	62	it	iterates no entries for an empty trie	
-unported	packages/effect/test/Trie.test.ts	69	it	insert returns new tries and orders entries by key	
-unported	packages/effect/test/Trie.test.ts	84	it	insert replaces a key without mutating or growing the original	
-unported	packages/effect/test/Trie.test.ts	95	it	fromIterable preserves an empty iterable	
+ported	packages/effect/test/Trie.test.ts	62	it	iterates no entries for an empty trie	trie_empty_iterates_nothing_and_insert_orders_by_key
+ported	packages/effect/test/Trie.test.ts	69	it	insert returns new tries and orders entries by key	trie_empty_iterates_nothing_and_insert_orders_by_key
+ported	packages/effect/test/Trie.test.ts	84	it	insert replaces a key without mutating or growing the original	trie_insert_replaces_without_mutating_or_growing
+ported	packages/effect/test/Trie.test.ts	95	it	fromIterable preserves an empty iterable	trie_from_iterable_keeps_every_shape_and_orders_by_key
 ported	packages/effect/test/Trie.test.ts	101	it	make builds a trie from entry pairs	trie_make_insert_get
 ported	packages/effect/test/Trie.test.ts	107	it	fromIterable builds the same trie as make	trie_make_insert_get
-unported	packages/effect/test/Trie.test.ts	114	it	fromIterable orders entries by key	
-unported	packages/effect/test/Trie.test.ts	120	it	fromIterable preserves already sorted entries	
-unported	packages/effect/test/Trie.test.ts	126	it	fromIterable accepts a single entry	
-unported	packages/effect/test/Trie.test.ts	132	it	fromIterable orders keys when one key is a prefix	
+ported	packages/effect/test/Trie.test.ts	114	it	fromIterable orders entries by key	trie_from_iterable_keeps_every_shape_and_orders_by_key
+ported	packages/effect/test/Trie.test.ts	120	it	fromIterable preserves already sorted entries	trie_from_iterable_keeps_every_shape_and_orders_by_key
+ported	packages/effect/test/Trie.test.ts	126	it	fromIterable accepts a single entry	trie_from_iterable_keeps_every_shape_and_orders_by_key
+ported	packages/effect/test/Trie.test.ts	132	it	fromIterable orders keys when one key is a prefix	trie_from_iterable_keeps_every_shape_and_orders_by_key
 ported	packages/effect/test/Trie.test.ts	138	it	size counts stored keys	trie_make_insert_get
 ported	packages/effect/test/Trie.test.ts	147	it	isEmpty distinguishes empty and populated tries	trie_make_insert_get
 ported	packages/effect/test/Trie.test.ts	154	it	get returns Some only for exact keys	trie_make_insert_get
-unported	packages/effect/test/Trie.test.ts	171	it	stores undefined values	
-unported	packages/effect/test/Trie.test.ts	179	it	get distinguishes complete keys from prefixes	
+ported	packages/effect/test/Trie.test.ts	171	it	stores undefined values	trie_keeps_option_payloads_and_reads_only_complete_keys
+ported	packages/effect/test/Trie.test.ts	179	it	get distinguishes complete keys from prefixes	trie_keeps_option_payloads_and_reads_only_complete_keys
 ported	packages/effect/test/Trie.test.ts	192	it	has returns true only for exact keys	trie_make_insert_get
-unported	packages/effect/test/Trie.test.ts	209	it	getUnsafe returns the value or throws when the key is missing	
+ported	packages/effect/test/Trie.test.ts	209	it	getUnsafe returns the value or throws when the key is missing	trie_get_unsafe_returns_or_panics
 ported	packages/effect/test/Trie.test.ts	217	it	remove deletes a key without mutating the original trie	trie_remove_persists_and_prefix
 ported	packages/effect/test/Trie.test.ts	237	it	remove preserves a valued prefix	trie_remove_persists_and_prefix
-unported	packages/effect/test/Trie.test.ts	243	it	keys returns keys in sorted order	
-unported	packages/effect/test/Trie.test.ts	254	it	keys orders nested prefixes alphabetically	
-unported	packages/effect/test/Trie.test.ts	291	it	values follow key iteration order	
-unported	packages/effect/test/Trie.test.ts	302	it	entries iterates key-value pairs in sorted order	
-unported	packages/effect/test/Trie.test.ts	312	it	toEntries returns a sorted entry array	
-unported	packages/effect/test/Trie.test.ts	322	it	keysWithPrefix returns matching keys in sorted order	
-unported	packages/effect/test/Trie.test.ts	338	it	valuesWithPrefix returns matching values in key order	
-unported	packages/effect/test/Trie.test.ts	351	it	entriesWithPrefix returns matching entries in key order	
-unported	packages/effect/test/Trie.test.ts	364	it	toEntriesWithPrefix returns matching entries as an array	
+ported	packages/effect/test/Trie.test.ts	243	it	keys returns keys in sorted order	trie_keys_values_and_entries_come_out_in_key_order
+ported	packages/effect/test/Trie.test.ts	254	it	keys orders nested prefixes alphabetically	trie_keys_values_and_entries_come_out_in_key_order
+ported	packages/effect/test/Trie.test.ts	291	it	values follow key iteration order	trie_keys_values_and_entries_come_out_in_key_order
+ported	packages/effect/test/Trie.test.ts	302	it	entries iterates key-value pairs in sorted order	trie_keys_values_and_entries_come_out_in_key_order
+ported	packages/effect/test/Trie.test.ts	312	it	toEntries returns a sorted entry array	trie_keys_values_and_entries_come_out_in_key_order
+ported	packages/effect/test/Trie.test.ts	322	it	keysWithPrefix returns matching keys in sorted order	trie_prefix_readers_return_keys_values_and_entries
+ported	packages/effect/test/Trie.test.ts	338	it	valuesWithPrefix returns matching values in key order	trie_prefix_readers_return_keys_values_and_entries
+ported	packages/effect/test/Trie.test.ts	351	it	entriesWithPrefix returns matching entries in key order	trie_prefix_readers_return_keys_values_and_entries
+ported	packages/effect/test/Trie.test.ts	364	it	toEntriesWithPrefix returns matching entries as an array	trie_prefix_readers_return_keys_values_and_entries
 ported	packages/effect/test/Trie.test.ts	376	it	longestPrefixOf returns the longest stored key that prefixes the input	trie_modify_many_and_longest_prefix
 ported	packages/effect/test/Trie.test.ts	389	it	longestPrefixOf ignores valued sibling nodes that do not match the input	trie_modify_many_and_longest_prefix
 unported	packages/effect/test/Trie.test.ts	399	it	map transforms values and can use keys	

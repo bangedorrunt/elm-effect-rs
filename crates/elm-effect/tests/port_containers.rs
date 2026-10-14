@@ -984,6 +984,187 @@ fn trie_modify_many_and_longest_prefix() {
     assert_eq!(prefixed.longest_prefix_of("q"), None);
 }
 
+/// The pin's `Array.from(trie)`: entries as owned pairs, in iteration order.
+fn trie_i32(entries: &[(&str, i32)]) -> Vec<(String, i32)> {
+    entries.iter().map(|(k, v)| ((*k).to_owned(), *v)).collect()
+}
+
+fn trie_pairs(trie: &Trie<i32>) -> Vec<(String, i32)> {
+    trie.entries().into_iter().map(|(k, v)| (k, *v)).collect()
+}
+
+#[test]
+fn trie_empty_iterates_nothing_and_insert_orders_by_key() {
+    // :62 - an empty trie iterates no entries.
+    let empty = Trie::<String>::empty();
+    assert_eq!(empty.size(), 0);
+    assert!(empty.entries().is_empty());
+
+    // :69 - every insert returns a new trie, and entries come out in key
+    // order rather than insertion order: "mid" is stored last and reads third.
+    let t1 = Trie::empty().insert("call", 0);
+    let t2 = t1.insert("me", 1);
+    let t3 = t2.insert("mind", 2);
+    let t4 = t3.insert("mid", 3);
+    assert_eq!(trie_pairs(&t1), trie_i32(&[("call", 0)]));
+    assert_eq!(trie_pairs(&t2), trie_i32(&[("call", 0), ("me", 1)]));
+    assert_eq!(
+        trie_pairs(&t3),
+        trie_i32(&[("call", 0), ("me", 1), ("mind", 2)])
+    );
+    assert_eq!(
+        trie_pairs(&t4),
+        trie_i32(&[("call", 0), ("me", 1), ("mid", 3), ("mind", 2)])
+    );
+}
+
+#[test]
+fn trie_insert_replaces_without_mutating_or_growing() {
+    // :84 - replacing a key leaves the source trie alone and keeps the size.
+    let before = Trie::make([("a".to_owned(), 1)]);
+    let after = before.insert("a", 2);
+    assert_eq!(trie_pairs(&before), trie_i32(&[("a", 1)]));
+    assert_eq!(before.size(), 1);
+    assert_eq!(trie_pairs(&after), trie_i32(&[("a", 2)]));
+    assert_eq!(after.size(), 1);
+}
+
+#[test]
+fn trie_from_iterable_keeps_every_shape_and_orders_by_key() {
+    // :95 - an empty iterable stays empty.
+    let none: Vec<(String, i32)> = Vec::new();
+    assert_eq!(trie_pairs(&Trie::from_iter(none)), Vec::new());
+
+    // :114 - fromIterable orders by key, not by input order.
+    let shuffled = Trie::from_iter([
+        ("call".to_owned(), 0),
+        ("me".to_owned(), 1),
+        ("mind".to_owned(), 2),
+        ("mid".to_owned(), 3),
+    ]);
+    assert_eq!(
+        trie_pairs(&shuffled),
+        trie_i32(&[("call", 0), ("me", 1), ("mid", 3), ("mind", 2)])
+    );
+
+    // :120 - an already sorted iterable comes back unchanged.
+    let sorted = Trie::from_iter([("a".to_owned(), 0), ("b".to_owned(), 1)]);
+    assert_eq!(trie_pairs(&sorted), trie_i32(&[("a", 0), ("b", 1)]));
+
+    // :126 - a single entry.
+    let single = Trie::from_iter([("a".to_owned(), 0)]);
+    assert_eq!(trie_pairs(&single), trie_i32(&[("a", 0)]));
+
+    // :132 - a key that prefixes another sorts before it.
+    let prefixed = Trie::from_iter([("shells".to_owned(), 0), ("she".to_owned(), 1)]);
+    assert_eq!(trie_pairs(&prefixed), trie_i32(&[("she", 1), ("shells", 0)]));
+}
+
+#[test]
+fn trie_keeps_option_payloads_and_reads_only_complete_keys() {
+    // :171 - a stored payload with no value inside it is still an entry.
+    let trie = Trie::make([("a".to_owned(), None::<i32>)]);
+    assert_eq!(trie.size(), 1);
+    assert_eq!(trie.get("a"), Some(&None));
+    assert_eq!(trie.entries().len(), 1);
+
+    // :179 - a prefix of a stored key is not a stored key.
+    let prefixed = Trie::empty().insert("shells", 0).insert("sells", 1).insert("she", 2);
+    assert_eq!(prefixed.get("sell"), None);
+    assert_eq!(prefixed.get("sells"), Some(&1));
+    assert_eq!(prefixed.get("shell"), None);
+    assert_eq!(prefixed.get("she"), Some(&2));
+}
+
+#[test]
+fn trie_get_unsafe_returns_or_panics() {
+    // :209 - getUnsafe hands back the value, and refuses a key it does not
+    // have with a tagged message rather than a silent default.
+    let trie = Trie::empty().insert("call", 0).insert("me", 1);
+    assert_eq!(*trie.get_unsafe("call"), 0);
+    assert_eq!(*trie.get_unsafe("me"), 1);
+    let absent = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| trie.get_unsafe("mae")));
+    let message = absent.expect_err("a missing key is refused");
+    let message = message
+        .downcast_ref::<String>()
+        .cloned()
+        .or_else(|| message.downcast_ref::<&str>().map(|s| s.to_string()))
+        .unwrap_or_default();
+    assert!(message.contains("Trie.getUnsafe"), "{message}");
+}
+
+#[test]
+fn trie_keys_values_and_entries_come_out_in_key_order() {
+    // :243 - keys are sorted, not insertion ordered.
+    let trie = Trie::empty().insert("cab", 0).insert("abc", 1).insert("bca", 2);
+    assert_eq!(trie.keys(), ["abc", "bca", "cab"]);
+
+    // :254 - a valued node sorts with its own extensions: "a" before "ab",
+    // "ca" before "cac", and every branch of a level before the next.
+    let nested = Trie::from_iter(
+        [
+            "abc", "bac", "b", "ca", "cac", "c", "abb", "ba", "a", "bca", "cab", "dca", "ab",
+            "adc",
+        ]
+        .map(|k| (k.to_owned(), 0)),
+    );
+    assert_eq!(
+        nested.keys(),
+        [
+            "a", "ab", "abb", "abc", "adc", "b", "ba", "bac", "bca", "c", "ca", "cab", "cac",
+            "dca"
+        ]
+    );
+
+    // :291 - values follow that same key order.
+    let values = Trie::empty().insert("call", 0).insert("me", 1).insert("and", 2);
+    let ordered: Vec<i32> = values.values().into_iter().copied().collect();
+    assert_eq!(ordered, [2, 0, 1]);
+
+    // :302 / :312 - entries, and the materialized `toEntries` form of them,
+    // are that same order as pairs.
+    let pairs = Trie::empty().insert("call", 0).insert("me", 1);
+    assert_eq!(trie_pairs(&pairs), trie_i32(&[("call", 0), ("me", 1)]));
+}
+
+#[test]
+fn trie_prefix_readers_return_keys_values_and_entries() {
+    // :322 - keysWithPrefix hands back every matching key, sorted.
+    let wide = Trie::empty()
+        .insert("she", 0)
+        .insert("shells", 1)
+        .insert("sea", 2)
+        .insert("sells", 3)
+        .insert("by", 4)
+        .insert("the", 5)
+        .insert("sea", 6)
+        .insert("shore", 7);
+    assert_eq!(wide.keys_with_prefix("she"), ["she", "shells"]);
+
+    let narrow = Trie::empty()
+        .insert("shells", 0)
+        .insert("sells", 1)
+        .insert("sea", 2)
+        .insert("she", 3);
+
+    // :338 - valuesWithPrefix pairs those keys with their values.
+    let values: Vec<i32> = narrow
+        .values_with_prefix("she")
+        .into_iter()
+        .copied()
+        .collect();
+    assert_eq!(values, [3, 0]);
+
+    // :351 / :364 - entriesWithPrefix carries both, and is the array form.
+    let entries: Vec<(String, i32)> = narrow
+        .entries_with_prefix("she")
+        .into_iter()
+        .map(|(k, v)| (k, *v))
+        .collect();
+    assert_eq!(entries, trie_i32(&[("she", 3), ("shells", 0)]));
+    assert!(narrow.entries_with_prefix("zzz").is_empty());
+}
+
 #[test]
 fn hash_map_unsafe_and_flat_map() {
     // HashMap.test.ts:111 - getUnsafe returns existing values.
