@@ -359,6 +359,95 @@ fn branded_empty_map_has_no_constraints() {
     assert_eq!(Unknown::Object(m.clone()), Unknown::Object(m));
 }
 
+/// Schema.test.ts:10439 (`Check > brand > single brand`): the pin builds the
+/// branded schema over the SAME ast (`make(schema.ast, { schema, identifier })`),
+/// so branding changes no shape and no codec, only the identifier.
+#[test]
+fn a_brand_leaves_the_shape_alone_and_names_the_identifier() {
+    let shape = Schema::string().json_schema();
+    let b = Branded::new("Positive", Schema::string(), |s: &String| !s.is_empty());
+    assert_eq!(b.brand(), "Positive");
+    assert_eq!(b.identifier(), "Positive");
+    assert_eq!(b.schema().json_schema(), shape, "branding changes no shape");
+    assert_eq!(b.decode(text("a")).unwrap(), "a");
+}
+
+/// :10446 (`double brand`): the later brand is the identifier, and the earlier
+/// one stays reachable where the pin reaches it, `schema.schema.identifier`.
+#[test]
+fn a_second_brand_keeps_the_first_reachable() {
+    let b = Branded::new("Positive", Schema::string(), |_: &String| true)
+        .from_brand("Int", |s: &String| s.parse::<f64>().is_ok());
+    assert_eq!(b.identifier(), "Int");
+    assert_eq!(b.inner_brand(), Some("Positive"));
+    assert!(b.decode(text("3")).is_ok());
+    assert!(
+        b.decode(text("no")).is_err(),
+        "the second brand's check holds"
+    );
+}
+
+/// :10453 (`override the default identifier`): `annotate({ identifier })` over
+/// a branded schema is what the annotations carry, and what a refusal names.
+#[test]
+fn annotating_a_branded_schema_overrides_the_identifier() {
+    let b =
+        Branded::new("Positive", Schema::number(), |n: &f64| *n > 0.0).annotate_identifier("MyInt");
+    assert_eq!(
+        b.annotations(),
+        vec![("identifier".to_string(), "MyInt".to_string())]
+    );
+    assert_eq!(b.identifier(), "MyInt");
+    let refusal = b.decode(Unknown::Number(-1.0)).unwrap_err().to_string();
+    assert!(
+        refusal.contains("MyInt"),
+        "the override renames the refusal, got: {refusal}"
+    );
+}
+
+/// :10460 (`brand > fromBrand > nominal`): a nominal brand carries no check of
+/// its own, so the schema's own codec is the whole refusal.
+#[test]
+fn a_nominal_brand_decodes_the_schema_and_refuses_other_types() {
+    let b = Branded::nominal("a", Schema::string());
+    assert_eq!(b.decode(text("a")).unwrap(), "a");
+    assert!(b.decode(Unknown::Number(1.0)).is_err());
+    assert_eq!(b.schema().json_schema(), Schema::string().json_schema());
+}
+
+/// :10471 (`single brand`): a brand constructor's check rides the brand.
+#[test]
+fn a_single_brand_enforces_the_constructors_check() {
+    let b = Branded::new("Int", Schema::number(), |n: &f64| n.fract() == 0.0);
+    assert_eq!(b.decode(Unknown::Number(1.0)).unwrap(), 1.0);
+    assert!(
+        b.decode(text("a")).is_err(),
+        "the schema still refuses the wrong type"
+    );
+    assert!(
+        b.decode(Unknown::Number(1.2)).is_err(),
+        "the check refuses a non-integer"
+    );
+}
+
+/// :10484 (`multiple brands`): two brands compose, so both checks hold. The
+/// pin applies `Int` then `Positive` and refuses 1.2 and -1 separately, which
+/// only a composed check can do.
+#[test]
+fn two_brands_run_both_checks() {
+    let b = Branded::nominal("Int", Schema::number())
+        .from_brand("Int", |n: &f64| n.fract() == 0.0)
+        .from_brand("Positive", |n: &f64| *n > 0.0);
+    assert_eq!(b.decode(Unknown::Number(1.0)).unwrap(), 1.0);
+    assert!(b.decode(text("a")).is_err());
+    assert!(b.decode(Unknown::Number(1.2)).is_err());
+    assert!(
+        b.decode(Unknown::Number(-1.0)).is_err(),
+        "the first brand's check still holds"
+    );
+    assert_eq!(b.inner_brand(), Some("Int"));
+}
+
 /// Schema.test.ts:2485 (`decode` block): a decode-side transformation changes
 /// one direction only. The pin's `String.pipe(decode(compose(trim,
 /// toLowerCase)))` decodes `" A "` to `"a"` and leaves the encode side alone,
@@ -496,7 +585,10 @@ fn double_with_checks_rejects_between_steps() {
     let checked = parse.pipe(positive);
     assert_eq!(checked.forward(text("3")).unwrap(), Unknown::Number(3.0));
     let err = checked.forward(text("-1")).unwrap_err().to_string();
-    assert!(err.contains("positive"), "second-step check names itself: {err}");
+    assert!(
+        err.contains("positive"),
+        "second-step check names itself: {err}"
+    );
 }
 
 #[test]

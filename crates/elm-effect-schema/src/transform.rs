@@ -82,19 +82,28 @@ impl Transformation<String, String> {
     /// and encodes back unchanged, so encoding never re-cases what it is
     /// given.
     pub fn to_lowercase() -> Self {
-        Transformation::new(|value: String| Ok(value.to_lowercase()), |value: String| Ok(value))
+        Transformation::new(
+            |value: String| Ok(value.to_lowercase()),
+            |value: String| Ok(value),
+        )
     }
 
     /// `SchemaTransformation.toUpperCase`, the mirror of [`Self::to_lowercase`].
     pub fn to_uppercase() -> Self {
-        Transformation::new(|value: String| Ok(value.to_uppercase()), |value: String| Ok(value))
+        Transformation::new(
+            |value: String| Ok(value.to_uppercase()),
+            |value: String| Ok(value),
+        )
     }
 
     /// `SchemaTransformation.trim`: decoding strips leading and trailing
     /// whitespace and encoding is passthrough, the same one-way shape as the
     /// case transformations. Interior whitespace is left alone.
     pub fn trim() -> Self {
-        Transformation::new(|value: String| Ok(value.trim().to_string()), |value: String| Ok(value))
+        Transformation::new(
+            |value: String| Ok(value.trim().to_string()),
+            |value: String| Ok(value),
+        )
     }
 }
 
@@ -683,13 +692,29 @@ impl<T> ChannelSchema<T> {
 }
 
 /// A named refinement on a schema (`brand`).
+///
+/// The pin's `brand(id)(schema)` builds a NEW schema object over the SAME AST:
+/// `make(schema.ast, { schema, identifier: id })`. So branding changes no shape
+/// and no codec, only the name a refusal reports and the nominal type. The
+/// brands applied before this one are kept, because `fromBrand` composes: two
+/// brands on one schema run both checks, and the previous identifier stays
+/// reachable the way the pin reaches it through `.schema.identifier`.
 pub struct Branded<T> {
     brand: &'static str,
+    /// The brands this one was applied on top of, outermost last. A single
+    /// brand has none.
+    previous_brands: Vec<&'static str>,
+    /// `annotate({ identifier })` on a branded schema: the override is what an
+    /// identifier lookup answers with, and the brand's own name is what it
+    /// replaced.
+    identifier_override: Option<&'static str>,
     schema: Schema<T>,
     check: Box<dyn Fn(&T) -> bool + Send + Sync>,
 }
 
-impl<T> Branded<T> {
+// `from_brand` boxes a composed check, so the value type has to be able to
+// live inside one: every use is a schema over an owned value anyway.
+impl<T: 'static> Branded<T> {
     /// Attach a brand name plus its check.
     pub fn new(
         brand: &'static str,
@@ -698,17 +723,77 @@ impl<T> Branded<T> {
     ) -> Self {
         Self {
             brand,
+            previous_brands: Vec::new(),
+            identifier_override: None,
             schema,
             check: Box::new(check),
         }
     }
 
-    /// Brand name.
+    /// `Brand.nominal`: a brand with no refinement of its own. It still decodes
+    /// by the schema's own codec, which is the whole of what the pin's nominal
+    /// brand asks for.
+    pub fn nominal(brand: &'static str, schema: Schema<T>) -> Self {
+        Self::new(brand, schema, |_| true)
+    }
+
+    /// `fromBrand`: attach one brand of a brand constructor, composing with the
+    /// brands already applied. Both checks must hold afterwards, and the
+    /// previous identifier stays reachable through [`inner_brand`].
+    ///
+    /// [`inner_brand`]: Self::inner_brand
+    pub fn from_brand(
+        mut self,
+        brand: &'static str,
+        check: impl Fn(&T) -> bool + Send + Sync + 'static,
+    ) -> Self {
+        let previous_check = std::mem::replace(&mut self.check, Box::new(|_| true));
+        self.previous_brands.push(self.brand);
+        self.brand = brand;
+        let added = check;
+        self.check = Box::new(move |value| previous_check(value) && added(value));
+        self
+    }
+
+    /// `annotate({ identifier })` over a branded schema: the override replaces
+    /// the brand's own name in every identifier lookup.
+    pub fn annotate_identifier(mut self, identifier: &'static str) -> Self {
+        self.identifier_override = Some(identifier);
+        self
+    }
+
+    /// Brand name. The pin spells this `identifier`.
     pub fn brand(&self) -> &'static str {
         self.brand
     }
 
-    /// Decode then check the refinement.
+    /// The identifier lookups answer with: the annotation override when there
+    /// is one, the brand's own name otherwise.
+    pub fn identifier(&self) -> &'static str {
+        self.identifier_override.unwrap_or(self.brand)
+    }
+
+    /// The identifier of the brand underneath, which is what the pin reads as
+    /// `schema.schema.identifier` after a second brand.
+    pub fn inner_brand(&self) -> Option<&'static str> {
+        self.previous_brands.last().copied()
+    }
+
+    /// The annotation pairs a repr shows for this schema. The pin's override
+    /// lands in `ast.annotations`, so that is what it deep-equals.
+    pub fn annotations(&self) -> Vec<(String, String)> {
+        self.identifier_override
+            .map(|identifier| vec![("identifier".to_string(), identifier.to_string())])
+            .unwrap_or_default()
+    }
+
+    /// The schema underneath, which branding leaves untouched.
+    pub fn schema(&self) -> &Schema<T> {
+        &self.schema
+    }
+
+    /// Decode then check the refinement. A refusal names the identifier, so an
+    /// override renames the failure too.
     pub fn decode(&self, input: Unknown) -> Result<T, SchemaError> {
         let value = self.schema.decode(input)?;
         if (self.check)(&value) {
@@ -716,7 +801,7 @@ impl<T> Branded<T> {
         } else {
             Err(SchemaError::TypeMismatch {
                 path: String::new(),
-                expected: self.brand,
+                expected: self.identifier(),
                 got: "unbranded",
             })
         }

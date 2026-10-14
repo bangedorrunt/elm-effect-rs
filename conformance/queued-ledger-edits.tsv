@@ -68,3 +68,13 @@ packages/effect/test/schema/Schema.test.ts	10717	ported	resolve_annotations_retu
 packages/effect/test/schema/Schema.test.ts	10722	ported	resolve_annotations_returns_the_last_checks_annotations
 packages/effect/test/schema/Schema.test.ts	10731	ported	resolve_annotations_key_is_none_without_key_annotations
 packages/effect/test/schema/Schema.test.ts	10735	ported	resolve_annotations_key_returns_the_key_annotations
+# Batch 5, six rows from elm-effect-rs-port-schema-a2c: the brand and
+# fromBrand describes. Witnesses in
+# crates/elm-effect-schema/tests/schema_transform.rs (green).
+# Queued: BoldKite still holds the ledger lease for elm-effect-rs-sgze.
+packages/effect/test/schema/Schema.test.ts	10439	ported	a_brand_leaves_the_shape_alone_and_names_the_identifier
+packages/effect/test/schema/Schema.test.ts	10446	ported	a_second_brand_keeps_the_first_reachable
+packages/effect/test/schema/Schema.test.ts	10453	ported	annotating_a_branded_schema_overrides_the_identifier
+packages/effect/test/schema/Schema.test.ts	10460	ported	a_nominal_brand_decodes_the_schema_and_refuses_other_types
+packages/effect/test/schema/Schema.test.ts	10471	ported	a_single_brand_enforces_the_constructors_check
+packages/effect/test/schema/Schema.test.ts	10484	ported	two_brands_run_both_checks
