@@ -59,3 +59,12 @@ packages/effect/test/TxPriorityQueue.test.ts	182	ported	retain_if_keeps_only_mat
 packages/effect/test/TxPriorityQueue.test.ts	192	ported	is_tx_priority_queue_narrows_the_type
 packages/effect/test/TxPriorityQueue.test.ts	203	ported	concurrent_offer_and_take
 packages/effect/test/TxPriorityQueue.test.ts	220	ported	reverse_order_is_max_first
+# Batch 4, five rows from elm-effect-rs-port-schema-a2c: the
+# resolveAnnotations / resolveAnnotationsKey getters. Witnesses in
+# crates/elm-effect-schema/tests/schema_annotations.rs (8 tests, green).
+# Queued: BoldKite still holds the ledger lease for elm-effect-rs-sgze.
+packages/effect/test/schema/Schema.test.ts	10713	ported	resolve_annotations_is_none_for_a_schema_without_annotations
+packages/effect/test/schema/Schema.test.ts	10717	ported	resolve_annotations_returns_the_base_annotations
+packages/effect/test/schema/Schema.test.ts	10722	ported	resolve_annotations_returns_the_last_checks_annotations
+packages/effect/test/schema/Schema.test.ts	10731	ported	resolve_annotations_key_is_none_without_key_annotations
+packages/effect/test/schema/Schema.test.ts	10735	ported	resolve_annotations_key_returns_the_key_annotations

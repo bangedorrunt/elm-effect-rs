@@ -136,6 +136,10 @@ pub struct Schema<T> {
     /// (`mapMembers`). None for every other shape, and for a union built by
     /// `union`, which tries two shapes without keeping the list.
     union_members: Option<Vec<Schema<Unknown>>>,
+    /// Key-level annotations (`annotateKey`). The pin keeps these in the AST's
+    /// `context` slot rather than on the node, so a schema has two annotation
+    /// slots and only one of them is read by `resolve_annotations`.
+    key_annotations: Vec<(String, String)>,
 }
 
 /// The two spellings of a decoding default. `withDecodingDefault` takes a wire
@@ -900,6 +904,59 @@ impl<T> Schema<T> {
             struct_fields: None,
             tuple_elements: None,
             union_members: None,
+            key_annotations: Vec::new(),
+        }
+    }
+
+    /// `annotateKey`: key-level annotations, read back by
+    /// [`resolve_annotations_key`]. They ride the codec untouched, so a struct
+    /// using this schema as a field keeps them at the occurrence.
+    ///
+    /// [`resolve_annotations_key`]: Self::resolve_annotations_key
+    pub fn annotate_key<S: Into<String>>(schema: Schema<T>, pairs: Vec<(S, S)>) -> Schema<T> {
+        let mut out = schema;
+        out.key_annotations = pairs
+            .into_iter()
+            .map(|(key, value)| (key.into(), value.into()))
+            .collect();
+        out
+    }
+
+    /// `resolveAnnotationsKey`: this node's key annotations, or `None` when it
+    /// carries none. The pin reads `ast.context?.annotations`, so the lookup
+    /// does not walk into a base or a check.
+    pub fn resolve_annotations_key(&self) -> Option<Vec<(String, String)>> {
+        (!self.key_annotations.is_empty()).then(|| self.key_annotations.clone())
+    }
+
+    /// `resolveAnnotations`: a schema that has checks answers with the LAST
+    /// check's annotations, and every other schema answers with its own. A
+    /// check that carries none leaves the answer `None` rather than falling
+    /// back to the base, which is the pin's rule and the reason an annotated
+    /// base under an unannotated check resolves to nothing.
+    pub fn resolve_annotations(&self) -> Option<Vec<(String, String)>> {
+        let mut node = self.repr_kind();
+        let mut own: Option<Vec<(String, String)>> = None;
+        loop {
+            match node {
+                // An annotation is not a check, so the walk keeps going: only
+                // a check stops it.
+                SchemaKind::Annotated { pairs, inner } => {
+                    if own.is_none() && !pairs.is_empty() {
+                        own = Some(pairs);
+                    }
+                    node = *inner;
+                }
+                // The outermost check is the last one applied.
+                SchemaKind::Check { annotation, .. } => {
+                    return if annotation.is_empty() {
+                        None
+                    } else {
+                        Some(annotation)
+                    };
+                }
+                _ => return own,
+            }
         }
     }
 
@@ -1065,6 +1122,9 @@ impl<T> Schema<T> {
             struct_fields: schema.struct_fields.clone(),
             tuple_elements: schema.tuple_elements.clone(),
             union_members: schema.union_members.clone(),
+            // An annotation wraps the codec, so the key annotations underneath
+            // must survive the wrapping or a field occurrence would lose them.
+            key_annotations: schema.key_annotations.clone(),
         }
     }
 
@@ -1134,6 +1194,9 @@ impl<T> Schema<T> {
         // the struct walk looks for it through the re-typing.
         out.decoding_default = inner_default;
         out.omit_on_encode = schema.omit_on_encode;
+        // A key annotation is read at the occurrence the schema is used at, and
+        // every struct field goes through this re-typing.
+        out.key_annotations = schema.key_annotations.clone();
         // A derivation needs the field list through the re-typing too, which is
         // how every struct field is spelled.
         out.struct_fields = schema.struct_fields.clone();
