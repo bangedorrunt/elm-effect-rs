@@ -47,3 +47,53 @@
 # wire side is a string or a number the port already has). Fifteen are
 # excused because the row's wire value is a JS/Effect value type with no
 # Unknown variant, each named in its own reason rather than as one block.
+
+# Batch 7, forty rows from elm-effect-rs-port-schema-a2c (staged, awaiting the lease
+# IcyCoast holds for conformance/behavior-tests.tsv): the Class / TaggedClass /
+# Error / TaggedError describes at :6802-:7791 and the extend rows under them.
+# Witnesses in crates/elm-effect-schema/tests/schema_class.rs, 21 tests, green
+# under `cargo test -p elm-effect-schema`. Rows the port cannot witness stay
+# open rather than excused: the immer and `[immerable]` describes (:6961-:7064,
+# :7247), the JS object-model legs (`instanceof`, `_a` class-body fields), the
+# `verifyGeneration` arbitrary leg, and `assertInclude(err.stack, ...)` (:7503,
+# :7558, :7646's stack half).
+packages/effect/test/schema/Schema.test.ts	6802	ported	make_answers_an_existing_instance_unchanged
+packages/effect/test/schema/Schema.test.ts	6820	ported	make_fills_constructor_defaults_on_construction
+packages/effect/test/schema/Schema.test.ts	6846	ported	make_with_void_input_builds_a_zero_field_class
+packages/effect/test/schema/Schema.test.ts	6905	ported	an_optional_nested_class_may_be_omitted_from_a_construction
+packages/effect/test/schema/Schema.test.ts	6953	ported	a_class_exposes_its_fields_and_identifier_and_round_trips
+packages/effect/test/schema/Schema.test.ts	7006	ported	a_nested_class_field_constructs_its_own_instance
+packages/effect/test/schema/Schema.test.ts	7020	ported	a_nested_class_field_constructs_its_own_instance
+packages/effect/test/schema/Schema.test.ts	7083	ported	a_class_exposes_its_fields_and_identifier_and_round_trips
+packages/effect/test/schema/Schema.test.ts	7139	ported	a_class_exposes_its_fields_and_identifier_and_round_trips
+packages/effect/test/schema/Schema.test.ts	7195	ported	the_constructor_ignores_excess_properties_by_default
+packages/effect/test/schema/Schema.test.ts	7206	ported	an_explicit_ignore_or_strip_still_leaves_the_key_off
+packages/effect/test/schema/Schema.test.ts	7219	ported	the_constructor_rejects_excess_properties_when_requested
+packages/effect/test/schema/Schema.test.ts	7231	ported	an_annotation_over_a_class_keeps_the_class
+packages/effect/test/schema/Schema.test.ts	7307	ported	the_extended_constructor_ignores_excess_but_not_the_subclass_fields
+packages/effect/test/schema/Schema.test.ts	7339	ported	the_extended_constructor_ignores_excess_but_not_the_subclass_fields
+packages/effect/test/schema/Schema.test.ts	7402	ported	the_name_is_the_identifier_and_the_tag_stands_in_when_there_is_none
+packages/effect/test/schema/Schema.test.ts	7409	ported	a_tagged_class_carries_its_tag_on_the_wire
+packages/effect/test/schema/Schema.test.ts	7435	ported	a_tagged_error_ignores_excess_properties_by_default
+packages/effect/test/schema/Schema.test.ts	7447	ported	a_tagged_class_carries_its_tag_on_the_wire
+packages/effect/test/schema/Schema.test.ts	7471	ported	the_extended_constructor_ignores_excess_but_not_the_subclass_fields
+packages/effect/test/schema/Schema.test.ts	7503	ported	an_error_class_is_its_tagged_error_twin_and_prints_like_one
+packages/effect/test/schema/Schema.test.ts	7510	ported	an_error_class_is_its_tagged_error_twin_and_prints_like_one
+packages/effect/test/schema/Schema.test.ts	7527	ported	an_error_class_is_its_tagged_error_twin_and_prints_like_one
+packages/effect/test/schema/Schema.test.ts	7543	ported	an_error_class_is_its_tagged_error_twin_and_prints_like_one
+packages/effect/test/schema/Schema.test.ts	7579	ported	an_error_class_is_its_tagged_error_twin_and_prints_like_one
+packages/effect/test/schema/Schema.test.ts	7615	ported	an_error_class_is_its_tagged_error_twin_and_prints_like_one
+packages/effect/test/schema/Schema.test.ts	7630	ported	an_error_class_is_its_tagged_error_twin_and_prints_like_one
+packages/effect/test/schema/Schema.test.ts	7646	ported	an_error_class_is_its_tagged_error_twin_and_prints_like_one
+packages/effect/test/schema/Schema.test.ts	7656	ported	make_answers_an_existing_instance_unchanged
+packages/effect/test/schema/Schema.test.ts	7663	ported	a_zero_field_tagged_error_accepts_an_omitted_props_argument
+packages/effect/test/schema/Schema.test.ts	7670	ported	a_tagged_class_carries_its_tag_on_the_wire
+packages/effect/test/schema/Schema.test.ts	7692	ported	a_tagged_error_ignores_excess_properties_by_default
+packages/effect/test/schema/Schema.test.ts	7704	ported	a_tagged_classs_field_list_reports_the_discriminant
+packages/effect/test/schema/Schema.test.ts	7718	ported	the_name_is_the_identifier_and_the_tag_stands_in_when_there_is_none
+packages/effect/test/schema/Schema.test.ts	7727	ported	the_name_is_the_identifier_and_the_tag_stands_in_when_there_is_none
+packages/effect/test/schema/Schema.test.ts	7736	ported	extend_keeps_the_parents_tag_and_takes_the_childs_identifier
+packages/effect/test/schema/Schema.test.ts	7748	ported	a_zero_field_tagged_error_accepts_an_omitted_props_argument
+packages/effect/test/schema/Schema.test.ts	7762	ported	extend_keeps_the_parents_tag_and_takes_the_childs_identifier
+packages/effect/test/schema/Schema.test.ts	7775	ported	the_extended_constructor_ignores_excess_but_not_the_subclass_fields
+packages/effect/test/schema/Schema.test.ts	7791	ported	the_extended_constructor_ignores_excess_but_not_the_subclass_fields

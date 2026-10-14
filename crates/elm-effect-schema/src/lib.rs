@@ -18,6 +18,9 @@ pub mod transform;
 
 pub mod tagged;
 
+pub mod class;
+
+pub use class::{ClassMeta, ClassValue, ExcessProperty};
 pub use tagged::{Tagged, TaggedError, catch_tag};
 
 /// An untyped value: the decode source and encode target.
@@ -140,6 +143,10 @@ pub struct Schema<T> {
     /// `context` slot rather than on the node, so a schema has two annotation
     /// slots and only one of them is read by `resolve_annotations`.
     key_annotations: Vec<(String, String)>,
+    /// The class this schema describes (`Schema.Class` and its relatives), when
+    /// it is one: the struct-shaped codec plus the identity, discriminant and
+    /// constructor policy a class adds. None for every other schema.
+    class_meta: Option<Box<crate::class::ClassMeta>>,
 }
 
 /// The two spellings of a decoding default. `withDecodingDefault` takes a wire
@@ -909,7 +916,26 @@ impl<T> Schema<T> {
             tuple_elements: None,
             union_members: None,
             key_annotations: Vec::new(),
+            class_meta: None,
         }
+    }
+
+    /// Attach the class identity a `Class`-family schema carries. Crate-private:
+    /// `crate::class` is the only place a class schema is assembled.
+    pub(crate) fn with_class_meta(mut self, meta: crate::class::ClassMeta) -> Self {
+        self.class_meta = Some(Box::new(meta));
+        self
+    }
+
+    /// The construction kernel, for the class builder: a class constructs
+    /// through its source struct so constructor defaults fill, and the class's
+    /// own wrapper runs the discriminant and excess policies first.
+    pub(crate) fn with_construct(
+        mut self,
+        construct: Arc<dyn Fn(Unknown) -> Result<T, SchemaError> + Send + Sync>,
+    ) -> Self {
+        self.construct = Some(construct);
+        self
     }
 
     /// `annotateKey`: key-level annotations, read back by
@@ -1129,6 +1155,9 @@ impl<T> Schema<T> {
             // An annotation wraps the codec, so the key annotations underneath
             // must survive the wrapping or a field occurrence would lose them.
             key_annotations: schema.key_annotations.clone(),
+            // An annotation over a class schema keeps the class: the pin's
+            // `A.annotate({})` is still a schema with fields and a `make`.
+            class_meta: schema.class_meta.clone(),
         }
     }
 
@@ -1204,6 +1233,10 @@ impl<T> Schema<T> {
         // A key annotation is read at the occurrence the schema is used at, and
         // every struct field goes through this re-typing.
         out.key_annotations = schema.key_annotations.clone();
+        // A class field is used through the re-typing too, so the class's
+        // identity has to survive it or a nested class field would not
+        // recognize an instance.
+        out.class_meta = schema.class_meta.clone();
         // A derivation needs the field list through the re-typing too, which is
         // how every struct field is spelled.
         out.struct_fields = schema.struct_fields.clone();
