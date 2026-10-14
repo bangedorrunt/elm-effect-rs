@@ -2220,7 +2220,7 @@ tests = ["packages/effect/test/http/HttpServerRespondable.test.ts"]
 [[module]]
 path = "packages/effect/src/http/HttpServerResponse.ts"
 class = "unstable-port"
-status = "unmatched"
+status = "matched"
 tag = "unstable"
 reason = ""
 tests = ["packages/effect/test/http/HttpServerResponse.test.ts"]
@@ -2988,7 +2988,7 @@ tests = ["packages/effect/test/workflow/Workflow.test.ts"]
 [[module]]
 path = "packages/effect/src/workflow/WorkflowEngine.ts"
 class = "unstable-port"
-status = "unmatched"
+status = "matched"
 tag = "unstable"
 reason = ""
 tests = ["packages/effect/test/workflow/WorkflowEngine.test.ts"]
