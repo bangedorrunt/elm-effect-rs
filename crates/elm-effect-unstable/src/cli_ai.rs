@@ -89,6 +89,27 @@ pub struct Parsed {
 }
 
 impl Parsed {
+    /// Fold a selected node's own values over the globals collected ahead of
+    /// it. The node's entry wins on a shared name (`local overrides
+    /// global`); a global the node never re-states survives untouched.
+    fn absorb(&mut self, node: Parsed) {
+        for (name, value) in node.flags {
+            self.flags.insert(name, value);
+        }
+        for (name, value) in node.opts {
+            self.opts.insert(name, value);
+        }
+        for (name, value) in node.opts_runs {
+            self.opts_runs.insert(name, value);
+        }
+        if !node.positionals.is_empty() {
+            self.positionals = node.positionals;
+        }
+        if !node.rest.is_empty() {
+            self.rest = node.rest;
+        }
+    }
+
     /// Flag value (absent means false).
     pub fn flag(&self, name: &str) -> bool {
         self.flags.get(name).copied().unwrap_or(false)
@@ -184,6 +205,70 @@ impl Command {
                 return Err(CliError::Unknown(first.clone()));
             }
         }
+        if self.subcommands.is_empty() {
+            return Ok((vec![self.name.clone()], self.parse_args(argv)?));
+        }
+        // A node that carries subcommands and declares its own flags reads a
+        // global flag ahead of the subcommand, and the value it collected
+        // rides into the selected node's values.
+        self.parse_globals_then_subcommand(argv)
+    }
+
+    /// Whether this node declares a valued option under `name`. The leading
+    /// scan needs it to know the next token is that option's value rather
+    /// than the subcommand.
+    fn has_valued_opt(&self, name: &str) -> bool {
+        self.args
+            .iter()
+            .any(|a| matches!(a, Arg::Opt { name: n, .. } if n == name))
+    }
+
+    /// Read this node's own flags off the front of `argv`, then hand what is
+    /// left to the subcommand they preceded.
+    ///
+    /// A global flag is read where it appears rather than only after the
+    /// subcommand, so `--region us-east-1 deploy` selects `deploy` with the
+    /// region already collected. The selected node's own values win on a
+    /// shared name, which is the `local overrides global` rule.
+    fn parse_globals_then_subcommand(
+        &self,
+        argv: &[String],
+    ) -> Result<(Vec<String>, Parsed), CliError> {
+        let mut leading: Vec<String> = Vec::new();
+        let mut i = 0;
+        while i < argv.len() {
+            let token = &argv[i];
+            // Everything after the dash is operands, so no subcommand is read
+            // out of them. `parse_args` owns that rule already.
+            if token == "--" {
+                break;
+            }
+            if let Some(sub) = self.subcommands.iter().find(|c| c.matches_name(token)) {
+                let (mut path, parsed) = sub.parse(&argv[i + 1..])?;
+                path.insert(0, self.name.clone());
+                let mut head = self.parse_args(&leading)?;
+                head.absorb(parsed);
+                return Ok((path, head));
+            }
+            // A token that is neither a flag nor this node's subcommand ends
+            // the scan, and `parse_args` reports it: an unknown flag is named
+            // as itself rather than blamed on the word that follows it.
+            if !token.starts_with('-') {
+                break;
+            }
+            leading.push(token.clone());
+            let name = token.strip_prefix("--").unwrap_or(token);
+            let (_, inline) = match name.split_once('=') {
+                Some((n, v)) => (n, Some(v)),
+                None => (name, None),
+            };
+            if inline.is_none() && self.has_valued_opt(name) && i + 1 < argv.len() {
+                i += 1;
+                leading.push(argv[i].clone());
+            }
+            i += 1;
+        }
+        // No subcommand was selected, so the whole line is this node's own.
         Ok((vec![self.name.clone()], self.parse_args(argv)?))
     }
 

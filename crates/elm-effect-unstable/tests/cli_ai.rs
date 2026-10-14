@@ -3162,3 +3162,49 @@ fn a_parse_failure_from_a_run_is_a_refusal_not_a_success() {
         .expect("the known subcommand routes");
     assert_eq!(run.path, vec!["root".to_string(), "known".to_string()]);
 }
+
+// --- Command.test.ts: a global flag is read where it appears, ahead of the
+// subcommand it was written before, and the value reaches the handler at the
+// node that was selected.
+
+/// Command.test.ts:542 — `Command.withGlobalFlags([Region])` over
+/// `Flag.String("region").pipe(Flag.optional)`: the handler reads the region
+/// the run carried, and `null` when the line carried none.
+#[test]
+fn a_global_flag_reaches_the_handler_that_declares_it() {
+    let deploy = Command::new("deploy", "deploy command", vec![]).handler(|parsed| {
+        REGION_SEEN.with(|seen| seen.borrow_mut().push(parsed.opt("region").map(str::to_string)));
+    });
+    let root = Command::group("root", "root command", vec![deploy]).with_shared_flags(vec![
+        Arg::Opt {
+            name: "region".to_string(),
+            help: "region".to_string(),
+            required: false,
+        },
+    ]);
+
+    let seen = region_seen();
+    let run = root
+        .run(&[
+            "--region".to_string(),
+            "us-east-1".to_string(),
+            "deploy".to_string(),
+        ])
+        .expect("a global flag ahead of the subcommand is in scope");
+    assert!(run.invoked, "the selected node's handler ran");
+    assert_eq!(seen(), vec![Some("us-east-1".to_string())]);
+
+    // No flag on the line: the same handler reads an absent region, which is
+    // the port's `Option.none()` — never a default the run was not given.
+    root.run(&["deploy".to_string()]).expect("no region is fine");
+    assert_eq!(seen(), vec![Some("us-east-1".to_string()), None]);
+}
+
+thread_local! {
+    static REGION_SEEN: std::cell::RefCell<Vec<Option<String>>> = const { std::cell::RefCell::new(Vec::new()) };
+}
+
+fn region_seen() -> impl Fn() -> Vec<Option<String>> {
+    REGION_SEEN.with(|seen| seen.borrow_mut().clear());
+    || REGION_SEEN.with(|seen| seen.borrow().clone())
+}

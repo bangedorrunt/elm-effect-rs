@@ -5594,7 +5594,7 @@ ported	packages/effect/test/cli/Command.test.ts	447	it.effect	should work with e
 ported	packages/effect/test/cli/Command.test.ts	466	it.effect	should work with option aliases in handler	a_short_alias_selects_the_same_option_value
 ported	packages/effect/test/cli/Command.test.ts	481	it.effect	should merge repeated key=value flags into a single record	repeated_key_value_flags_merge_into_one_record
 ported	packages/effect/test/cli/Command.test.ts	506	it.effect	should merge key=value flags even when interleaved with other options	repeated_key_value_flags_merge_into_one_record
-unported	packages/effect/test/cli/Command.test.ts	542	it.effect	should expose setting global flags to command handlers	
+ported	packages/effect/test/cli/Command.test.ts	542	it.effect	should expose setting global flags to command handlers	a_global_flag_reaches_the_handler_that_declares_it
 unported	packages/effect/test/cli/Command.test.ts	566	it.effect	should expose setting global flags with Flag.withDefault	
 unported	packages/effect/test/cli/Command.test.ts	590	it.effect	should configure built-in global flags per run	
 unported	packages/effect/test/cli/Command.test.ts	616	it.effect	should support mixed action and setting global flags	
