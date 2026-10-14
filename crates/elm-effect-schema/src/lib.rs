@@ -315,8 +315,16 @@ fn atom_matches(atom: &Pattern, value: char) -> bool {
     }
 }
 
-static ROOT_DEFS: std::sync::Mutex<Option<serde_json::Map<String, serde_json::Value>>> =
-    std::sync::Mutex::new(None);
+thread_local! {
+    /// Per-THREAD, not per-process, and that is the whole point: two imports
+    /// running at once must not swap each other's definitions. A process-global
+    /// slot passed a single-threaded run and failed roughly one run in three
+    /// under `cargo test`, because the test harness runs tests on several
+    /// threads and one thread's `from_json_schema` overwrote another's `$defs`
+    /// mid-import.
+    static ROOT_DEFS: std::cell::RefCell<Option<serde_json::Map<String, serde_json::Value>>> =
+        const { std::cell::RefCell::new(None) };
+}
 
 /// Marks an annotation value that prints as raw JSON rather than as a string.
 /// The pin's `contentSchema` carries an object, so `annotate({ "contentSchema":
@@ -3196,7 +3204,7 @@ impl Schema<Unknown> {
             .or_else(|| doc.get("definitions"))
             .and_then(serde_json::Value::as_object)
             .cloned();
-        *ROOT_DEFS.lock().unwrap() = defs;
+        ROOT_DEFS.with(|slot| *slot.borrow_mut() = defs);
         Self::import(doc)
     }
 
@@ -3445,12 +3453,13 @@ fn resolve_ref(reference: &str) -> Result<serde_json::Value, SchemaError> {
     // `~1` and `~0` are the JSON Pointer escapes for `/` and `~`, applied in
     // that order, so a definition may be named with either character.
     let name = pointer.replace("~1", "/").replace("~0", "~");
-    let defs = ROOT_DEFS.lock().unwrap();
-    let found = defs
-        .as_ref()
-        .and_then(|defs| defs.get(&name))
-        .cloned()
-        .ok_or_else(|| SchemaError::TypeMismatchDynamic {
+    let found = ROOT_DEFS.with(|slot| {
+        slot.borrow()
+            .as_ref()
+            .and_then(|defs| defs.get(&name))
+            .cloned()
+    })
+    .ok_or_else(|| SchemaError::TypeMismatchDynamic {
             path: "$ref".to_string(),
             // The dynamic half is the part that names which definition was
             // wanted, which is the whole point of the message.
