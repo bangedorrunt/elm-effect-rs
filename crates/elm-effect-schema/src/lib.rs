@@ -466,6 +466,19 @@ fn literal_union(values: Vec<Unknown>) -> Schema<Unknown> {
 /// in, so the outermost check is the last one in the list, which is the order a
 /// repr prints them.
 fn decompose(kind: &SchemaKind) -> (SchemaKind, Vec<Check>, Vec<(String, String)>) {
+    if let SchemaKind::Reference(name) = kind {
+        let resolved = ROOT_DEFS.with(|slot| {
+            slot.borrow()
+                .as_ref()
+                .and_then(|defs| defs.get(name))
+                .cloned()
+        });
+        if let Some(def_doc) = resolved {
+            if let Ok(imported) = Schema::<Unknown>::import(&def_doc) {
+                return decompose(&imported.repr_kind());
+            }
+        }
+    }
     match kind {
         SchemaKind::Annotated { pairs, inner } => {
             let (base, checks, mut annotation) = decompose(inner);
@@ -3701,7 +3714,7 @@ impl Schema<Unknown> {
                 .into_iter()
                 .filter_map(|keyword| get(keyword).map(|value| (keyword, value)))
                 .collect::<Vec<_>>();
-            if annotations.is_empty() {
+            if annotations.is_empty() && get("allOf").is_none() {
                 return Ok(Schema::as_unknown(Schema::reference(&sanitized, resolved)));
             }
             // Siblings of a reference render through a `suspend`, which is how
@@ -3711,10 +3724,12 @@ impl Schema<Unknown> {
                 .into_iter()
                 .map(|(keyword, value)| (keyword.to_string(), annotation_text(value)))
                 .collect::<Vec<_>>();
-            return Ok(Schema::as_unknown(Schema::annotated_with(
-                Schema::as_unknown(Schema::reference(&sanitized, resolved)),
-                pairs,
-            )));
+            if get("allOf").is_none() {
+                return Ok(Schema::as_unknown(Schema::annotated_with(
+                    Schema::as_unknown(Schema::reference(&sanitized, resolved)),
+                    pairs,
+                )));
+            };
         }
         // A keyword the port cannot lower is refused by name, the way the pin
         // refuses it. Dropping one instead imports a schema weaker than the
