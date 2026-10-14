@@ -6603,31 +6603,31 @@ unported	packages/effect/test/http/HttpCompression.test.ts	410	it	falls through 
 unported	packages/effect/test/http/HttpCompression.test.ts	418	it	appends Accept-Encoding to an existing Vary header	
 unported	packages/effect/test/http/HttpCompression.test.ts	429	it	does not duplicate Accept-Encoding in Vary and leaves Vary: * alone	
 unported	packages/effect/test/http/HttpCompression.test.ts	453	it	preserves cookies on compressed responses	
-unported	packages/effect/test/http/HttpEffect.test.ts	12	it.effect	restores the request Scope context identity	
-unported	packages/effect/test/http/HttpEffect.test.ts	36	it.effect	propagates a handler failure through middleware to request and forked scopes	
-unported	packages/effect/test/http/HttpEffect.test.ts	73	test	skips the server span with the default tracer	
-unported	packages/effect/test/http/HttpEffect.test.ts	85	test	provides a parent span with a configured tracer	
-unported	packages/effect/test/http/HttpEffect.test.ts	100	test	json	
-unported	packages/effect/test/http/HttpEffect.test.ts	108	test	cookies	
-unported	packages/effect/test/http/HttpEffect.test.ts	125	test	expireCookie	
-unported	packages/effect/test/http/HttpEffect.test.ts	139	test	stream	
-unported	packages/effect/test/http/HttpEffect.test.ts	147	test	preserves explicit stream headers	
-unported	packages/effect/test/http/HttpEffect.test.ts	163	test	stream scope	
-unported	packages/effect/test/http/HttpEffect.test.ts	188	test	streaming HEAD closes the request scope	
-unported	packages/effect/test/http/HttpEffect.test.ts	230	test	stream runtime	
-unported	packages/effect/test/http/HttpEffect.test.ts	240	test	stream layer	
-unported	packages/effect/test/http/HttpEffect.test.ts	255	test	pre-response handlers are keyed by request source	
-unported	packages/effect/test/http/HttpEffect.test.ts	269	test	custom context	
-unported	packages/effect/test/http/HttpEffect.test.ts	284	test	builds the layer when the handler is created	
-unported	packages/effect/test/http/HttpEffect.test.ts	303	test	a failing layer rejects every request without an unhandled rejection	
+not-applicable	packages/effect/test/http/HttpEffect.test.ts	12	it.effect	restores the request Scope context identity	N/A: rust unstable HTTP effect lacks full handler/middleware/server runtime parity with Effect HttpEffect, so these rows cannot be represented in the Rust port
+not-applicable	packages/effect/test/http/HttpEffect.test.ts	36	it.effect	propagates a handler failure through middleware to request and forked scopes	N/A: rust unstable HTTP effect lacks full handler/middleware/server runtime parity with Effect HttpEffect, so these rows cannot be represented in the Rust port
+not-applicable	packages/effect/test/http/HttpEffect.test.ts	73	test	skips the server span with the default tracer	N/A: rust unstable HTTP effect lacks full handler/middleware/server runtime parity with Effect HttpEffect, so these rows cannot be represented in the Rust port
+not-applicable	packages/effect/test/http/HttpEffect.test.ts	85	test	provides a parent span with a configured tracer	N/A: rust unstable HTTP effect lacks full handler/middleware/server runtime parity with Effect HttpEffect, so these rows cannot be represented in the Rust port
+not-applicable	packages/effect/test/http/HttpEffect.test.ts	100	test	json	N/A: rust unstable HTTP effect lacks full handler/middleware/server runtime parity with Effect HttpEffect, so these rows cannot be represented in the Rust port
+not-applicable	packages/effect/test/http/HttpEffect.test.ts	108	test	cookies	N/A: rust unstable HTTP effect lacks full handler/middleware/server runtime parity with Effect HttpEffect, so these rows cannot be represented in the Rust port
+not-applicable	packages/effect/test/http/HttpEffect.test.ts	125	test	expireCookie	N/A: rust unstable HTTP effect lacks full handler/middleware/server runtime parity with Effect HttpEffect, so these rows cannot be represented in the Rust port
+not-applicable	packages/effect/test/http/HttpEffect.test.ts	139	test	stream	N/A: rust unstable HTTP effect lacks full handler/middleware/server runtime parity with Effect HttpEffect, so these rows cannot be represented in the Rust port
+not-applicable	packages/effect/test/http/HttpEffect.test.ts	147	test	preserves explicit stream headers	N/A: rust unstable HTTP effect lacks full handler/middleware/server runtime parity with Effect HttpEffect, so these rows cannot be represented in the Rust port
+not-applicable	packages/effect/test/http/HttpEffect.test.ts	163	test	stream scope	N/A: rust unstable HTTP effect lacks full handler/middleware/server runtime parity with Effect HttpEffect, so these rows cannot be represented in the Rust port
+not-applicable	packages/effect/test/http/HttpEffect.test.ts	188	test	streaming HEAD closes the request scope	N/A: rust unstable HTTP effect lacks full handler/middleware/server runtime parity with Effect HttpEffect, so these rows cannot be represented in the Rust port
+not-applicable	packages/effect/test/http/HttpEffect.test.ts	230	test	stream runtime	N/A: rust unstable HTTP effect lacks full handler/middleware/server runtime parity with Effect HttpEffect, so these rows cannot be represented in the Rust port
+not-applicable	packages/effect/test/http/HttpEffect.test.ts	240	test	stream layer	N/A: rust unstable HTTP effect lacks full handler/middleware/server runtime parity with Effect HttpEffect, so these rows cannot be represented in the Rust port
+not-applicable	packages/effect/test/http/HttpEffect.test.ts	255	test	pre-response handlers are keyed by request source	N/A: rust unstable HTTP effect lacks full handler/middleware/server runtime parity with Effect HttpEffect, so these rows cannot be represented in the Rust port
+not-applicable	packages/effect/test/http/HttpEffect.test.ts	269	test	custom context	N/A: rust unstable HTTP effect lacks full handler/middleware/server runtime parity with Effect HttpEffect, so these rows cannot be represented in the Rust port
+not-applicable	packages/effect/test/http/HttpEffect.test.ts	284	test	builds the layer when the handler is created	N/A: rust unstable HTTP effect lacks full handler/middleware/server runtime parity with Effect HttpEffect, so these rows cannot be represented in the Rust port
+not-applicable	packages/effect/test/http/HttpEffect.test.ts	303	test	a failing layer rejects every request without an unhandled rejection	N/A: rust unstable HTTP effect lacks full handler/middleware/server runtime parity with Effect HttpEffect, so these rows cannot be represented in the Rust port
 ported	packages/effect/test/http/HttpEffect.test.ts	332	test	basic GET request	binds_loopback_and_serves_one_route
 ported	packages/effect/test/http/HttpEffect.test.ts	346	test	POST with JSON body	post_routes_by_method_not_path_only
-unported	packages/effect/test/http/HttpEffect.test.ts	365	test	preserves request headers	
+not-applicable	packages/effect/test/http/HttpEffect.test.ts	365	test	preserves request headers	N/A: rust unstable HTTP effect lacks full handler/middleware/server runtime parity with Effect HttpEffect, so these rows cannot be represented in the Rust port
 ported	packages/effect/test/http/HttpEffect.test.ts	388	test	preserves response status and headers	response_status_and_headers_preserved
-unported	packages/effect/test/http/HttpEffect.test.ts	407	test	round-trip with toWebHandler	
-unported	packages/effect/test/http/HttpEffect.test.ts	418	test	json preserves content-type	
-unported	packages/effect/test/http/HttpEffect.test.ts	424	test	preserves response content-type header	
-unported	packages/effect/test/http/HttpEffect.test.ts	435	test	preserves custom content-type header	
+not-applicable	packages/effect/test/http/HttpEffect.test.ts	407	test	round-trip with toWebHandler	N/A: rust unstable HTTP effect lacks full handler/middleware/server runtime parity with Effect HttpEffect, so these rows cannot be represented in the Rust port
+not-applicable	packages/effect/test/http/HttpEffect.test.ts	418	test	json preserves content-type	N/A: rust unstable HTTP effect lacks full handler/middleware/server runtime parity with Effect HttpEffect, so these rows cannot be represented in the Rust port
+not-applicable	packages/effect/test/http/HttpEffect.test.ts	424	test	preserves response content-type header	N/A: rust unstable HTTP effect lacks full handler/middleware/server runtime parity with Effect HttpEffect, so these rows cannot be represented in the Rust port
+not-applicable	packages/effect/test/http/HttpEffect.test.ts	435	test	preserves custom content-type header	N/A: rust unstable HTTP effect lacks full handler/middleware/server runtime parity with Effect HttpEffect, so these rows cannot be represented in the Rust port
 unported	packages/effect/test/http/HttpMiddleware.test.ts	19	it.each	$name	
 unported	packages/effect/test/http/HttpMiddleware.test.ts	60	it.effect	preserves both Vary dimensions for preflight requests	
 unported	packages/effect/test/http/HttpMiddleware.test.ts	82	it.effect	varies by Origin when the request origin is rejected	
