@@ -2442,10 +2442,10 @@ unported	packages/effect/test/JsonSchema.test.ts	2714	it	suffixes a sanitized ke
 unported	packages/effect/test/JsonSchema.test.ts	2748	it	allocates suffixes deterministically and skips occupied keys	
 unported	packages/effect/test/JsonSchema.test.ts	2804	it	reserves sanitized bases before allocating suffixes	
 unported	packages/effect/test/JsonSchema.test.ts	2842	it	rewrites nested definition refs without changing other refs	
-unported	packages/effect/test/JsonSchema.test.ts	2916	it	${name} does not mutate its input	
-unported	packages/effect/test/JsonSchema.test.ts	2927	it	${name} does not mutate its input	
-unported	packages/effect/test/JsonSchema.test.ts	2939	it	toMultiDocumentOpenApi3_1 does not mutate its input	
-unported	packages/effect/test/JsonSchema.test.ts	2952	it	preserves a Draft-07 schema and definitions through canonical form	
+ported	packages/effect/test/JsonSchema.test.ts	2916	it	${name} does not mutate its input	from_schema_conversions_do_not_mutate_their_input
+ported	packages/effect/test/JsonSchema.test.ts	2927	it	${name} does not mutate its input	lowering_does_not_mutate_its_input
+ported	packages/effect/test/JsonSchema.test.ts	2939	it	toMultiDocumentOpenApi3_1 does not mutate its input	to_multi_document_open_api3_1_does_not_mutate_its_input
+ported	packages/effect/test/JsonSchema.test.ts	2952	it	preserves a Draft-07 schema and definitions through canonical form	a_draft07_schema_round_trips_through_canonical_form
 ported	packages/effect/test/Latch.test.ts	6	it.effect	release wakes current waiters and keeps the latch closed	latch_release_wakes_current_waiters_and_stays_closed
 ported	packages/effect/test/Latch.test.ts	23	it.effect	isOpen reflects the state of the latch	latch_is_open_tracks_open_and_close
 ported	packages/effect/test/Latch.test.ts	35	it.effect	open then close does not resume waiters registered after close	latch_open_close_does_not_resume_late_waiters

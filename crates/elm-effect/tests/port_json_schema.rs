@@ -2479,3 +2479,175 @@ fn draft07_target_preserves_malformed_values() {
         ])
     );
 }
+
+// ---------------------------------------------------------------------------
+// JsonSchema.test.ts:2916-2952 input immutability + round trip
+// ---------------------------------------------------------------------------
+
+/// Each conversion takes its input by shared reference, so the input cannot
+/// change; the assertion is that the value is byte-equal afterwards, which is
+/// what catches an implementation that clones lazily or writes through.
+#[test]
+fn from_schema_conversions_do_not_mutate_their_input() {
+    let draft07_input = obj(&[
+        ("type", text("array")),
+        ("items", arr(&[obj(&[("type", text("string"))])])),
+        ("additionalItems", flag(false)),
+        (
+            "definitions",
+            obj(&[("Value", obj(&[("type", text("string"))]))]),
+        ),
+    ]);
+    let canonical_input = obj(&[
+        ("type", text("object")),
+        (
+            "properties",
+            obj(&[("value", obj(&[("type", text("string"))]))]),
+        ),
+    ]);
+    let openapi30_input = obj(&[
+        ("type", text("array")),
+        ("items", obj(&[("type", text("string"))])),
+        ("nullable", flag(true)),
+    ]);
+
+    for input in [&draft07_input, &canonical_input, &openapi30_input] {
+        let before = input.clone();
+        let _ = json_schema::from_schema_draft07(input);
+        assert_eq!(*input, before, "from_schema_draft07 wrote to its input");
+
+        let before = input.clone();
+        let _ = json_schema::from_schema_draft2020_12(input);
+        assert_eq!(
+            *input, before,
+            "from_schema_draft2020_12 wrote to its input"
+        );
+
+        let before = input.clone();
+        let _ = json_schema::from_schema_openapi3_1(input);
+        assert_eq!(*input, before, "from_schema_openapi3_1 wrote to its input");
+
+        let before = input.clone();
+        let _ = json_schema::from_schema_openapi3_0(input);
+        assert_eq!(*input, before, "from_schema_openapi3_0 wrote to its input");
+    }
+}
+
+#[test]
+fn lowering_does_not_mutate_its_input() {
+    let document = canonical_document(
+        obj(&[
+            ("type", text("object")),
+            (
+                "properties",
+                obj(&[("value", obj(&[("type", text("string"))]))]),
+            ),
+        ]),
+        defs(&[("Value", obj(&[("type", text("string"))]))]),
+    );
+    let before = document.clone();
+
+    let _ = json_schema::to_document_draft07(&document);
+    assert_eq!(document, before, "to_document_draft07 wrote to its input");
+
+    let _ = json_schema::to_document_draft04(&document);
+    assert_eq!(document, before, "to_document_draft04 wrote to its input");
+}
+
+#[test]
+fn to_multi_document_open_api3_1_does_not_mutate_its_input() {
+    let multi = json_schema::MultiDocument {
+        dialect: json_schema::Dialect::Draft2020_12,
+        schemas: vec![obj(&[
+            ("type", text("object")),
+            (
+                "properties",
+                obj(&[("value", obj(&[("type", text("string"))]))]),
+            ),
+        ])],
+        definitions: defs(&[("Value", obj(&[("type", text("string"))]))]),
+    };
+    let before = multi.clone();
+
+    let _ = json_schema::to_multi_document_open_api3_1(&multi);
+    assert_eq!(
+        multi, before,
+        "to_multi_document_open_api3_1 wrote to its input"
+    );
+}
+
+/// A draft-07 document survives a lift and a lowering: the tuple spelling comes
+/// back, the annotations come back, and the reference is re-pointed at
+/// `definitions` on the way out.
+#[test]
+fn a_draft07_schema_round_trips_through_canonical_form() {
+    let document = json_schema::from_schema_draft07(&obj(&[
+        ("type", text("object")),
+        ("readOnly", flag(true)),
+        ("writeOnly", flag(true)),
+        ("not", obj(&[("required", arr(&[text("forbidden")]))])),
+        (
+            "properties",
+            obj(&[
+                ("name", obj(&[("type", text("string"))])),
+                (
+                    "items",
+                    obj(&[
+                        ("type", text("array")),
+                        (
+                            "items",
+                            arr(&[
+                                obj(&[("type", text("string"))]),
+                                obj(&[("type", text("number"))]),
+                            ]),
+                        ),
+                        ("additionalItems", obj(&[("type", text("boolean"))])),
+                    ]),
+                ),
+                ("ref", obj(&[("$ref", text("#/definitions/MyType"))])),
+            ]),
+        ),
+        (
+            "definitions",
+            obj(&[("MyType", obj(&[("type", text("string"))]))]),
+        ),
+    ]))
+    .expect("draft-07 lifts");
+
+    let back = json_schema::to_document_draft07(&document).expect("2020-12 lowers");
+
+    assert_eq!(
+        back.schema,
+        obj(&[
+            ("type", text("object")),
+            ("readOnly", flag(true)),
+            ("writeOnly", flag(true)),
+            ("not", obj(&[("required", arr(&[text("forbidden")]))])),
+            (
+                "properties",
+                obj(&[
+                    ("name", obj(&[("type", text("string"))])),
+                    (
+                        "items",
+                        obj(&[
+                            ("type", text("array")),
+                            (
+                                "items",
+                                arr(&[
+                                    obj(&[("type", text("string"))]),
+                                    obj(&[("type", text("number"))]),
+                                ]),
+                            ),
+                            ("additionalItems", obj(&[("type", text("boolean"))])),
+                        ]),
+                    ),
+                    ("ref", obj(&[("$ref", text("#/definitions/MyType"))]),),
+                ]),
+            ),
+        ])
+    );
+    assert_eq!(
+        back.definitions,
+        defs(&[("MyType", obj(&[("type", text("string"))]))])
+    );
+}
