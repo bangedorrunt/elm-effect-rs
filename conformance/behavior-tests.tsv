@@ -2385,26 +2385,26 @@ ported	packages/effect/test/JsonSchema.test.ts	1239	it	rejects examples because 
 ported	packages/effect/test/JsonSchema.test.ts	1246	it	rejects Draft 2020-12 keywords that are not supported by OpenAPI 3.0	openapi30_refuses_draft2020_12_keywords
 ported	packages/effect/test/JsonSchema.test.ts	1253	it	does not traverse opaque OpenAPI values	openapi30_does_not_traverse_opaque_values
 ported	packages/effect/test/JsonSchema.test.ts	1283	it	nullable	openapi30_nullable_cases
-unported	packages/effect/test/JsonSchema.test.ts	1380	it	rewrites the canonical meta-schema URI with an empty fragment	
-unported	packages/effect/test/JsonSchema.test.ts	1391	it	omits the canonical meta-schema URI from embedded resources	
-unported	packages/effect/test/JsonSchema.test.ts	1410	it	rejects custom dialects in embedded resources	
-unported	packages/effect/test/JsonSchema.test.ts	1428	it	lowers canonical keywords and preserves opaque custom keywords	
-unported	packages/effect/test/JsonSchema.test.ts	1466	it	moves nested $defs to definitions and relocates local JSON Pointer refs	
-unported	packages/effect/test/JsonSchema.test.ts	1490	it	relocates fragment refs when emitting nested schema resources	
-unported	packages/effect/test/JsonSchema.test.ts	1542	it	converts contentSchema bodies and references	
-unported	packages/effect/test/JsonSchema.test.ts	1562	it	rejects canonical constraints that Draft-07 cannot represent	
-unported	packages/effect/test/JsonSchema.test.ts	1581	it	preserves Schema.Never	
-unported	packages/effect/test/JsonSchema.test.ts	1590	it	omits an empty required array	
-unported	packages/effect/test/JsonSchema.test.ts	1600	it	preserves every supported annotation and validation keyword	
-unported	packages/effect/test/JsonSchema.test.ts	1647	it	preserves validation semantics	
-unported	packages/effect/test/JsonSchema.test.ts	1672	it	rewrites $defs refs to Draft-07 definitions refs	
-unported	packages/effect/test/JsonSchema.test.ts	1714	it	rewrites refs only in schema positions	
-unported	packages/effect/test/JsonSchema.test.ts	1741	it	preserves constraints next to refs and existing allOf	
-unported	packages/effect/test/JsonSchema.test.ts	1768	it	keeps existing allOf locations stable when wrapping ref siblings	
-unported	packages/effect/test/JsonSchema.test.ts	1788	it	converts prefixItems to a Draft-07 items tuple	
-unported	packages/effect/test/JsonSchema.test.ts	1816	it	preserves a single items schema as items	
-unported	packages/effect/test/JsonSchema.test.ts	1836	it	preserves custom properties in Draft-07 output	
-unported	packages/effect/test/JsonSchema.test.ts	1856	it	preserves malformed values for recognized keywords	
+ported	packages/effect/test/JsonSchema.test.ts	1380	it	rewrites the canonical meta-schema URI with an empty fragment	draft07_target_rewrites_the_canonical_meta_schema_uri
+ported	packages/effect/test/JsonSchema.test.ts	1391	it	omits the canonical meta-schema URI from embedded resources	draft07_target_omits_the_canonical_uri_from_embedded_resources
+ported	packages/effect/test/JsonSchema.test.ts	1410	it	rejects custom dialects in embedded resources	draft07_target_rejects_custom_dialects_in_embedded_resources
+ported	packages/effect/test/JsonSchema.test.ts	1428	it	lowers canonical keywords and preserves opaque custom keywords	draft07_target_lowers_dependencies_and_keeps_opaque_custom_keywords
+ported	packages/effect/test/JsonSchema.test.ts	1466	it	moves nested $defs to definitions and relocates local JSON Pointer refs	draft07_target_moves_nested_defs_and_relocates_local_refs
+ported	packages/effect/test/JsonSchema.test.ts	1490	it	relocates fragment refs when emitting nested schema resources	nested_resource_fragment_refs_relocate_when_emitting
+ported	packages/effect/test/JsonSchema.test.ts	1542	it	converts contentSchema bodies and references	content_schema_bodies_and_references_convert
+ported	packages/effect/test/JsonSchema.test.ts	1562	it	rejects canonical constraints that Draft-07 cannot represent	draft07_target_rejects_canonical_constraints_it_cannot_represent
+ported	packages/effect/test/JsonSchema.test.ts	1581	it	preserves Schema.Never	draft07_target_preserves_schema_never
+ported	packages/effect/test/JsonSchema.test.ts	1590	it	omits an empty required array	draft07_target_omits_an_empty_required_array
+ported	packages/effect/test/JsonSchema.test.ts	1600	it	preserves every supported annotation and validation keyword	draft07_target_preserves_annotations_and_validation_keywords
+ported	packages/effect/test/JsonSchema.test.ts	1647	it	preserves validation semantics	draft07_target_lowers_validation_shapes
+ported	packages/effect/test/JsonSchema.test.ts	1672	it	rewrites $defs refs to Draft-07 definitions refs	draft07_target_rewrites_defs_refs_to_definitions_refs
+ported	packages/effect/test/JsonSchema.test.ts	1714	it	rewrites refs only in schema positions	draft07_target_rewrites_refs_only_in_schema_positions
+ported	packages/effect/test/JsonSchema.test.ts	1741	it	preserves constraints next to refs and existing allOf	draft07_target_preserves_constraints_next_to_refs_and_existing_all_of
+ported	packages/effect/test/JsonSchema.test.ts	1768	it	keeps existing allOf locations stable when wrapping ref siblings	draft07_target_keeps_all_of_locations_stable_when_wrapping_a_ref
+ported	packages/effect/test/JsonSchema.test.ts	1788	it	converts prefixItems to a Draft-07 items tuple	draft07_target_converts_prefix_items_to_an_items_tuple
+ported	packages/effect/test/JsonSchema.test.ts	1816	it	preserves a single items schema as items	draft07_target_preserves_a_single_items_schema
+ported	packages/effect/test/JsonSchema.test.ts	1836	it	preserves custom properties in Draft-07 output	draft07_target_preserves_custom_properties
+ported	packages/effect/test/JsonSchema.test.ts	1856	it	preserves malformed values for recognized keywords	draft07_target_preserves_malformed_values
 unported	packages/effect/test/JsonSchema.test.ts	1884	it	rewrites the canonical meta-schema URI with an empty fragment	
 unported	packages/effect/test/JsonSchema.test.ts	1895	it	omits the canonical meta-schema URI from embedded resources	
 unported	packages/effect/test/JsonSchema.test.ts	1914	it	rejects custom dialects in embedded resources	

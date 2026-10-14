@@ -1705,3 +1705,777 @@ fn additional_items_is_ignored_when_items_is_not_a_tuple() {
         ])
     );
 }
+
+// ---------------------------------------------------------------------------
+// JsonSchema.test.ts:1380-1856 toDocumentDraft07
+// ---------------------------------------------------------------------------
+
+/// The canonical document a lowering starts from.
+fn canonical_document(schema: Json, definitions: BTreeMap<String, Json>) -> json_schema::Document {
+    json_schema::Document {
+        dialect: json_schema::Dialect::Draft2020_12,
+        schema,
+        definitions,
+    }
+}
+
+#[test]
+fn draft07_target_rewrites_the_canonical_meta_schema_uri() {
+    let schema = obj(&[(
+        "$schema",
+        text(&format!("{}#", json_schema::META_SCHEMA_URI_DRAFT_2020_12)),
+    )]);
+
+    let document = json_schema::to_document_draft07(&canonical_document(schema, BTreeMap::new()))
+        .expect("2020-12 lowers to draft-07");
+
+    assert_eq!(
+        document.schema,
+        obj(&[("$schema", text(json_schema::META_SCHEMA_URI_DRAFT_07))])
+    );
+}
+
+/// Only the document root may declare a dialect, so the canonical URI on an
+/// embedded resource is dropped rather than carried into a dialect it does not
+/// belong to.
+#[test]
+fn draft07_target_omits_the_canonical_uri_from_embedded_resources() {
+    let embedded = obj(&[
+        ("$id", text("embedded.json")),
+        ("$schema", text(json_schema::META_SCHEMA_URI_DRAFT_2020_12)),
+        ("type", text("string")),
+    ]);
+
+    let document = json_schema::to_document_draft07(&canonical_document(
+        obj(&[]),
+        defs(&[("Embedded", embedded)]),
+    ))
+    .expect("2020-12 lowers to draft-07");
+
+    assert_eq!(
+        document.definitions.get("Embedded"),
+        Some(&obj(&[
+            ("$id", text("embedded.json")),
+            ("type", text("string"))
+        ]))
+    );
+}
+
+#[test]
+fn draft07_target_rejects_custom_dialects_in_embedded_resources() {
+    let embedded = obj(&[
+        ("$id", text("embedded.json")),
+        ("$schema", text("https://example.com/dialect")),
+        ("type", text("string")),
+    ]);
+
+    let message = failure_message(json_schema::to_document_draft07(&canonical_document(
+        obj(&[]),
+        defs(&[("Embedded", embedded)]),
+    )));
+
+    assert!(message.starts_with("Cannot convert JSON Schema keyword \"$schema\" to Draft-07"));
+}
+
+/// The two dependency keywords become the one draft-07 keyword: a key with a
+/// list keeps the list, a key with a schema keeps the schema, and a key with
+/// both becomes an `allOf` of the schema and the requirement.
+#[test]
+fn draft07_target_lowers_dependencies_and_keeps_opaque_custom_keywords() {
+    let custom = obj(&[("$ref", text("#/$defs/Literal"))]);
+    let const_full = obj(&[("const", text("full"))]);
+    let kind_const = obj(&[("kind", const_full)]);
+    let if_schema = obj(&[("properties", kind_const.clone())]);
+    let required_value = obj(&[("required", arr(&[text("value")]))]);
+    let else_schema = obj(&[("not", required_value.clone())]);
+    let min_properties = obj(&[("minProperties", num(1.0))]);
+    let label_required = obj(&[("required", arr(&[text("label")]))]);
+
+    let schema = obj(&[
+        ("if", if_schema.clone()),
+        ("then", required_value.clone()),
+        ("else", else_schema.clone()),
+        ("contains", obj(&[("type", text("number"))])),
+        (
+            "dependentRequired",
+            obj(&[
+                ("enabled", arr(&[text("value")])),
+                ("kind", arr(&[text("label")])),
+            ]),
+        ),
+        (
+            "dependentSchemas",
+            obj(&[
+                ("kind", min_properties.clone()),
+                ("mode", required_value.clone()),
+            ]),
+        ),
+        ("x-custom", custom.clone()),
+    ]);
+
+    let document = json_schema::to_document_draft07(&canonical_document(schema, BTreeMap::new()))
+        .expect("2020-12 lowers to draft-07");
+
+    let kind_combined = obj(&[("allOf", arr(&[min_properties, label_required]))]);
+    assert_eq!(
+        document.schema,
+        obj(&[
+            ("if", if_schema),
+            ("then", required_value.clone()),
+            ("else", else_schema),
+            ("contains", obj(&[("type", text("number"))])),
+            (
+                "dependencies",
+                obj(&[
+                    ("enabled", arr(&[text("value")])),
+                    ("kind", kind_combined),
+                    ("mode", required_value),
+                ]),
+            ),
+            ("x-custom", custom),
+        ])
+    );
+}
+
+#[test]
+fn draft07_target_moves_nested_defs_and_relocates_local_refs() {
+    let nested = obj(&[
+        ("$defs", obj(&[("Value", obj(&[("type", text("string"))]))])),
+        ("$ref", text("#/properties/nested/$defs/Value")),
+    ]);
+    let schema = obj(&[("properties", obj(&[("nested", nested)]))]);
+
+    let document = json_schema::to_document_draft07(&canonical_document(schema, BTreeMap::new()))
+        .expect("2020-12 lowers to draft-07");
+
+    assert_eq!(
+        document.schema,
+        obj(&[(
+            "properties",
+            obj(&[(
+                "nested",
+                obj(&[
+                    (
+                        "definitions",
+                        obj(&[("Value", obj(&[("type", text("string"))]))]),
+                    ),
+                    (
+                        "allOf",
+                        arr(&[obj(&[(
+                            "$ref",
+                            text("#/properties/nested/definitions/Value"),
+                        )])]),
+                    ),
+                ]),
+            )]),
+        )])
+    );
+}
+
+/// One input, both lowerings. A reference that names another resource keeps
+/// its URI and has only the fragment rewritten; a reference to a resource this
+/// document does not hold is left alone, because there is nothing to relocate
+/// it to.
+#[test]
+fn nested_resource_fragment_refs_relocate_when_emitting() {
+    let input = canonical_document(
+        obj(&[(
+            "allOf",
+            arr(&[
+                obj(&[("$ref", text("nested.json#/$defs/Value"))]),
+                obj(&[("$ref", text("external.json#/$defs/Value"))]),
+            ]),
+        )]),
+        defs(&[(
+            "Nested",
+            obj(&[
+                ("$id", text("nested.json")),
+                ("$defs", obj(&[("Value", obj(&[("type", text("string"))]))])),
+                ("allOf", arr(&[obj(&[("$ref", text("#/$defs/Value"))])])),
+            ]),
+        )]),
+    );
+
+    let draft07 = json_schema::to_document_draft07(&input).expect("lowers to draft-07");
+    assert_eq!(
+        document_json(&draft07),
+        obj(&[
+            ("dialect", text("draft-07")),
+            (
+                "schema",
+                obj(&[(
+                    "allOf",
+                    arr(&[
+                        obj(&[("$ref", text("nested.json#/definitions/Value"))]),
+                        obj(&[("$ref", text("external.json#/$defs/Value"))]),
+                    ]),
+                )]),
+            ),
+            (
+                "definitions",
+                obj(&[(
+                    "Nested",
+                    obj(&[
+                        ("$id", text("nested.json")),
+                        (
+                            "definitions",
+                            obj(&[("Value", obj(&[("type", text("string"))]))]),
+                        ),
+                        (
+                            "allOf",
+                            arr(&[obj(&[("$ref", text("#/definitions/Value"))])]),
+                        ),
+                    ]),
+                )]),
+            ),
+        ])
+    );
+
+    let draft04 = json_schema::to_document_draft04(&input).expect("lowers to draft-04");
+    assert_eq!(
+        document_json(&draft04),
+        obj(&[
+            ("dialect", text("draft-04")),
+            (
+                "schema",
+                obj(&[(
+                    "allOf",
+                    arr(&[
+                        obj(&[("$ref", text("nested.json#/definitions/Value"))]),
+                        obj(&[("$ref", text("external.json#/$defs/Value"))]),
+                    ]),
+                )]),
+            ),
+            (
+                "definitions",
+                obj(&[(
+                    "Nested",
+                    obj(&[
+                        ("id", text("nested.json")),
+                        (
+                            "definitions",
+                            obj(&[("Value", obj(&[("type", text("string"))]))]),
+                        ),
+                        (
+                            "allOf",
+                            arr(&[obj(&[("$ref", text("#/definitions/Value"))])]),
+                        ),
+                    ]),
+                )]),
+            ),
+        ])
+    );
+}
+
+/// `contentSchema` is a schema position in both targets, so its `$defs` moves
+/// and the pointer into it follows; draft-04 additionally has to spell `const`
+/// as a one-value `enum`.
+#[test]
+fn content_schema_bodies_and_references_convert() {
+    let const_value = obj(&[("const", text("value"))]);
+    let value_definition = obj(&[("Value", const_value)]);
+    let defs_body = obj(&[("$defs", value_definition)]);
+
+    let input = canonical_document(
+        obj(&[
+            ("contentSchema", defs_body),
+            (
+                "allOf",
+                arr(&[obj(&[("$ref", text("#/contentSchema/$defs/Value"))])]),
+            ),
+        ]),
+        BTreeMap::new(),
+    );
+
+    let draft07 = json_schema::to_document_draft07(&input).expect("lowers to draft-07");
+    assert_eq!(
+        draft07.schema,
+        obj(&[
+            (
+                "contentSchema",
+                obj(&[(
+                    "definitions",
+                    obj(&[("Value", obj(&[("const", text("value"))]))]),
+                )]),
+            ),
+            (
+                "allOf",
+                arr(&[obj(&[("$ref", text("#/contentSchema/definitions/Value"),)])]),
+            ),
+        ])
+    );
+
+    let draft04 = json_schema::to_document_draft04(&input).expect("lowers to draft-04");
+    assert_eq!(
+        draft04.schema,
+        obj(&[
+            (
+                "contentSchema",
+                obj(&[(
+                    "definitions",
+                    obj(&[("Value", obj(&[("enum", arr(&[text("value")]))]),)]),
+                )]),
+            ),
+            (
+                "allOf",
+                arr(&[obj(&[("$ref", text("#/contentSchema/definitions/Value"),)])]),
+            ),
+        ])
+    );
+}
+
+#[test]
+fn draft07_target_rejects_canonical_constraints_it_cannot_represent() {
+    let contains_two = obj(&[
+        ("contains", obj(&[("type", text("string"))])),
+        ("minContains", num(2.0)),
+    ]);
+    let contains_max = obj(&[
+        ("contains", obj(&[("type", text("string"))])),
+        ("maxContains", num(3.0)),
+    ]);
+    let cases = vec![
+        contains_two,
+        contains_max,
+        obj(&[("unevaluatedProperties", flag(false))]),
+        obj(&[("unevaluatedItems", flag(false))]),
+        obj(&[("$dynamicRef", text("#node"))]),
+        obj(&[(
+            "$vocabulary",
+            obj(&[("https://example.com/vocabulary", flag(true))]),
+        )]),
+        obj(&[("dependencies", obj(&[("value", arr(&[text("other")]))]))]),
+    ];
+
+    for schema in cases {
+        let message = failure_message(json_schema::to_document_draft07(&canonical_document(
+            schema,
+            BTreeMap::new(),
+        )));
+        assert!(
+            message.starts_with("Cannot convert JSON Schema keyword")
+                && message.contains("to Draft-07"),
+            "unexpected message: {message}"
+        );
+    }
+}
+
+/// The pin builds the input with `Schema.toJsonSchemaDocument(Schema.Never)`,
+/// which this port does not have; the canonical document that step produces is
+/// written out literally, and the lowering is what is witnessed.
+#[test]
+fn draft07_target_preserves_schema_never() {
+    let document = json_schema::to_document_draft07(&canonical_document(
+        obj(&[("not", obj(&[]))]),
+        BTreeMap::new(),
+    ))
+    .expect("lowers to draft-07");
+
+    assert_eq!(
+        document_json(&document),
+        obj(&[
+            ("dialect", text("draft-07")),
+            ("schema", obj(&[("not", obj(&[]))])),
+            ("definitions", Json::Obj(BTreeMap::new())),
+        ])
+    );
+}
+
+#[test]
+fn draft07_target_omits_an_empty_required_array() {
+    let document = json_schema::to_document_draft07(&canonical_document(
+        obj(&[("type", text("object")), ("required", arr(&[]))]),
+        BTreeMap::new(),
+    ))
+    .expect("lowers to draft-07");
+
+    assert_eq!(document.schema, obj(&[("type", text("object"))]));
+}
+
+/// Every keyword both dialects share survives the lowering unchanged.
+#[test]
+fn draft07_target_preserves_annotations_and_validation_keywords() {
+    let schema = obj(&[
+        ("type", text("object")),
+        ("required", arr(&[text("value")])),
+        ("enum", arr(&[text("a"), text("b")])),
+        ("const", text("a")),
+        ("title", text("title")),
+        ("description", text("description")),
+        ("default", text("a")),
+        ("examples", arr(&[text("a")])),
+        ("format", text("custom")),
+        ("readOnly", flag(true)),
+        ("writeOnly", flag(true)),
+        ("pattern", text("^a$")),
+        ("minimum", num(0.0)),
+        ("maximum", num(10.0)),
+        ("exclusiveMinimum", num(0.0)),
+        ("exclusiveMaximum", num(10.0)),
+        ("minLength", num(1.0)),
+        ("maxLength", num(10.0)),
+        ("minItems", num(1.0)),
+        ("maxItems", num(10.0)),
+        ("minProperties", num(1.0)),
+        ("maxProperties", num(10.0)),
+        ("multipleOf", num(2.0)),
+        ("uniqueItems", flag(true)),
+        (
+            "properties",
+            obj(&[("value", obj(&[("type", text("string"))]))]),
+        ),
+        (
+            "patternProperties",
+            obj(&[("^x-", obj(&[("type", text("string"))]))]),
+        ),
+        ("not", obj(&[("type", text("null"))])),
+        ("additionalProperties", flag(false)),
+        ("propertyNames", obj(&[("minLength", num(1.0))])),
+        ("allOf", arr(&[obj(&[("type", text("object"))])])),
+        ("anyOf", arr(&[obj(&[("type", text("string"))])])),
+        ("oneOf", arr(&[obj(&[("type", text("number"))])])),
+        ("items", obj(&[("type", text("string"))])),
+    ]);
+
+    let document =
+        json_schema::to_document_draft07(&canonical_document(schema.clone(), BTreeMap::new()))
+            .expect("lowers to draft-07");
+    assert_eq!(document.schema, schema);
+}
+
+/// The pin also compiles this document with `ajv` and checks four values
+/// against it. Without a validator, the document is the witness.
+#[test]
+fn draft07_target_lowers_validation_shapes() {
+    let schema = obj(&[
+        ("type", text("object")),
+        (
+            "properties",
+            obj(&[
+                ("mode", obj(&[("const", text("on"))])),
+                (
+                    "value",
+                    obj(&[("type", text("number")), ("exclusiveMinimum", num(0.0))]),
+                ),
+                (
+                    "tuple",
+                    obj(&[
+                        ("type", text("array")),
+                        ("prefixItems", arr(&[obj(&[("type", text("string"))])])),
+                        ("items", flag(false)),
+                    ]),
+                ),
+            ]),
+        ),
+        (
+            "required",
+            arr(&[text("mode"), text("value"), text("tuple")]),
+        ),
+        ("additionalProperties", flag(false)),
+    ]);
+
+    let document = json_schema::to_document_draft07(&canonical_document(schema, BTreeMap::new()))
+        .expect("lowers to draft-07");
+
+    let properties = obj(&[
+        ("mode", obj(&[("const", text("on"))])),
+        (
+            "value",
+            obj(&[("type", text("number")), ("exclusiveMinimum", num(0.0))]),
+        ),
+        (
+            "tuple",
+            obj(&[
+                ("type", text("array")),
+                ("items", arr(&[obj(&[("type", text("string"))])])),
+                ("additionalItems", flag(false)),
+            ]),
+        ),
+    ]);
+    assert_eq!(
+        document.schema,
+        obj(&[
+            ("type", text("object")),
+            ("properties", properties),
+            (
+                "required",
+                arr(&[text("mode"), text("value"), text("tuple")])
+            ),
+            ("additionalProperties", flag(false)),
+        ])
+    );
+}
+
+#[test]
+fn draft07_target_rewrites_defs_refs_to_definitions_refs() {
+    let input = canonical_document(
+        obj(&[
+            ("type", text("object")),
+            (
+                "properties",
+                obj(&[
+                    ("a", obj(&[("$ref", text("#/$defs/A"))])),
+                    ("b", obj(&[("$ref", text("#/$defs/B"))])),
+                ]),
+            ),
+        ]),
+        defs(&[
+            (
+                "A",
+                obj(&[("type", text("string")), ("$ref", text("#/$defs/B"))]),
+            ),
+            ("B", obj(&[("type", text("number"))])),
+        ]),
+    );
+
+    let document = json_schema::to_document_draft07(&input).expect("lowers to draft-07");
+    assert_eq!(
+        document_json(&document),
+        obj(&[
+            ("dialect", text("draft-07")),
+            (
+                "schema",
+                obj(&[
+                    ("type", text("object")),
+                    (
+                        "properties",
+                        obj(&[
+                            ("a", obj(&[("$ref", text("#/definitions/A"))])),
+                            ("b", obj(&[("$ref", text("#/definitions/B"))])),
+                        ]),
+                    ),
+                ]),
+            ),
+            (
+                "definitions",
+                obj(&[
+                    (
+                        "A",
+                        obj(&[
+                            ("type", text("string")),
+                            ("allOf", arr(&[obj(&[("$ref", text("#/definitions/B"))])]),),
+                        ]),
+                    ),
+                    ("B", obj(&[("type", text("number"))])),
+                ]),
+            ),
+        ])
+    );
+}
+
+#[test]
+fn draft07_target_rewrites_refs_only_in_schema_positions() {
+    let literal = obj(&[("$ref", text("#/$defs/Literal"))]);
+    let input = canonical_document(
+        obj(&[
+            (
+                "properties",
+                obj(&[("value", obj(&[("$ref", text("#/$defs/Value"))]))]),
+            ),
+            ("const", literal.clone()),
+            ("enum", arr(&[literal.clone()])),
+            ("default", literal.clone()),
+            ("examples", arr(&[literal.clone()])),
+        ]),
+        defs(&[("Value", obj(&[("type", text("string"))]))]),
+    );
+
+    let document = json_schema::to_document_draft07(&input).expect("lowers to draft-07");
+    assert_eq!(
+        document_json(&document),
+        obj(&[
+            ("dialect", text("draft-07")),
+            (
+                "schema",
+                obj(&[
+                    (
+                        "properties",
+                        obj(&[("value", obj(&[("$ref", text("#/definitions/Value"))]))]),
+                    ),
+                    ("const", literal.clone()),
+                    ("enum", arr(&[literal.clone()])),
+                    ("default", literal.clone()),
+                    ("examples", arr(&[literal.clone()])),
+                ]),
+            ),
+            (
+                "definitions",
+                obj(&[("Value", obj(&[("type", text("string"))]))]),
+            ),
+        ])
+    );
+}
+
+/// A `$ref` cannot sit beside other keywords in draft-07, so it joins the
+/// existing `allOf` last, keeping the constraints around it and the locations
+/// of members already there.
+#[test]
+fn draft07_target_preserves_constraints_next_to_refs_and_existing_all_of() {
+    let document = json_schema::to_document_draft07(&canonical_document(
+        obj(&[
+            ("$ref", text("#/$defs/S")),
+            ("minLength", num(3.0)),
+            ("allOf", arr(&[obj(&[("maxLength", num(5.0))])])),
+        ]),
+        defs(&[("S", obj(&[("type", text("string"))]))]),
+    ))
+    .expect("lowers to draft-07");
+
+    assert_eq!(
+        document.schema,
+        obj(&[
+            ("minLength", num(3.0)),
+            (
+                "allOf",
+                arr(&[
+                    obj(&[("maxLength", num(5.0))]),
+                    obj(&[("$ref", text("#/definitions/S"))]),
+                ]),
+            ),
+        ])
+    );
+}
+
+#[test]
+fn draft07_target_keeps_all_of_locations_stable_when_wrapping_a_ref() {
+    let document = json_schema::to_document_draft07(&canonical_document(
+        obj(&[
+            ("$ref", text("#/$defs/Base")),
+            ("allOf", arr(&[obj(&[("type", text("string"))])])),
+            (
+                "properties",
+                obj(&[("copy", obj(&[("$ref", text("#/allOf/0"))]))]),
+            ),
+        ]),
+        defs(&[("Base", obj(&[("type", text("object"))]))]),
+    ))
+    .expect("lowers to draft-07");
+
+    assert_eq!(
+        document.schema,
+        obj(&[
+            (
+                "allOf",
+                arr(&[
+                    obj(&[("type", text("string"))]),
+                    obj(&[("$ref", text("#/definitions/Base"))]),
+                ]),
+            ),
+            (
+                "properties",
+                obj(&[("copy", obj(&[("$ref", text("#/allOf/0"))]))]),
+            ),
+        ])
+    );
+}
+
+#[test]
+fn draft07_target_converts_prefix_items_to_an_items_tuple() {
+    let document = json_schema::to_document_draft07(&canonical_document(
+        obj(&[
+            ("type", text("array")),
+            (
+                "prefixItems",
+                arr(&[
+                    obj(&[("type", text("string"))]),
+                    obj(&[("type", text("number"))]),
+                ]),
+            ),
+            ("items", obj(&[("type", text("boolean"))])),
+        ]),
+        BTreeMap::new(),
+    ))
+    .expect("lowers to draft-07");
+
+    assert_eq!(
+        document_json(&document),
+        obj(&[
+            ("dialect", text("draft-07")),
+            (
+                "schema",
+                obj(&[
+                    ("type", text("array")),
+                    (
+                        "items",
+                        arr(&[
+                            obj(&[("type", text("string"))]),
+                            obj(&[("type", text("number"))]),
+                        ]),
+                    ),
+                    ("additionalItems", obj(&[("type", text("boolean"))])),
+                ]),
+            ),
+            ("definitions", Json::Obj(BTreeMap::new())),
+        ])
+    );
+}
+
+#[test]
+fn draft07_target_preserves_a_single_items_schema() {
+    let document = json_schema::to_document_draft07(&canonical_document(
+        obj(&[
+            ("type", text("array")),
+            ("items", obj(&[("type", text("string"))])),
+        ]),
+        BTreeMap::new(),
+    ))
+    .expect("lowers to draft-07");
+
+    assert_eq!(
+        document.schema,
+        obj(&[
+            ("type", text("array")),
+            ("items", obj(&[("type", text("string"))])),
+        ])
+    );
+}
+
+#[test]
+fn draft07_target_preserves_custom_properties() {
+    let document = json_schema::to_document_draft07(&canonical_document(
+        obj(&[("type", text("string")), ("x-custom", text("value"))]),
+        BTreeMap::new(),
+    ))
+    .expect("lowers to draft-07");
+
+    assert_eq!(
+        document.schema,
+        obj(&[("type", text("string")), ("x-custom", text("value"))])
+    );
+}
+
+/// `prefixItems` holding a string is malformed, and draft-07's `items` is the
+/// slot it would have gone into, so the malformed value lands there rather
+/// than being dropped.
+#[test]
+fn draft07_target_preserves_malformed_values() {
+    let document = json_schema::to_document_draft07(&canonical_document(
+        obj(&[
+            ("$ref", num(1.0)),
+            ("properties", text("invalid")),
+            ("not", arr(&[flag(false), obj(&[("type", text("string"))])])),
+            ("allOf", text("invalid")),
+            ("prefixItems", text("invalid")),
+        ]),
+        BTreeMap::new(),
+    ))
+    .expect("lowers to draft-07");
+
+    assert_eq!(
+        document_json(&document),
+        obj(&[
+            ("dialect", text("draft-07")),
+            (
+                "schema",
+                obj(&[
+                    ("$ref", num(1.0)),
+                    ("properties", text("invalid")),
+                    ("not", arr(&[flag(false), obj(&[("type", text("string"))])])),
+                    ("allOf", text("invalid")),
+                    ("items", text("invalid")),
+                ]),
+            ),
+            ("definitions", Json::Obj(BTreeMap::new())),
+        ])
+    );
+}
