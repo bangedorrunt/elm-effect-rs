@@ -137,3 +137,26 @@ packages/effect/test/schema/Schema.test.ts	9323	ported	an_empty_array_result_pas
 packages/effect/test/schema/Schema.test.ts	9330	ported	a_single_element_array_collapses
 packages/effect/test/schema/Schema.test.ts	9343	ported	a_multi_element_array_composites
 packages/effect/test/schema/Schema.test.ts	9361	ported	an_array_mixing_kinds_composites_in_order
+
+# Batch 10, eight rows from elm-effect-rs-port-schema-a2c (staged, awaiting the
+# lease): Char, Int, Natural, the four case schemas and the version-specific
+# isUUID row, Schema.test.ts:10108-10361. Witnesses in
+# crates/elm-effect-schema/tests/schema_refinements.rs (8 tests, green); the
+# surface is crates/elm-effect-schema/src/refinements.rs. A case schema decodes
+# through the transformation and encodes through the check, so decoding
+# normalizes and encoding insists the value was already normalized, which is what
+# all four case rows assert.
+#
+# Three rows right beside these stay open on purpose: :10319 isStringBigInt,
+# :10328 isStringSymbol and :10348 isUUID assert
+# `resolveAnnotations(schema)?.representation` as a structured {id, payload}
+# object, and this port has no representation annotation yet. Claiming them
+# would be claiming a shape that is not there.
+packages/effect/test/schema/Schema.test.ts	10108	ported	char_admits_exactly_one_character
+packages/effect/test/schema/Schema.test.ts	10131	ported	int_is_an_integer_and_refuses_the_non_integers
+packages/effect/test/schema/Schema.test.ts	10166	ported	natural_is_a_non_negative_integer
+packages/effect/test/schema/Schema.test.ts	10194	ported	capitalize_normalizes_on_decode_and_insists_on_encode
+packages/effect/test/schema/Schema.test.ts	10218	ported	uncapitalize_normalizes_on_decode_and_insists_on_encode
+packages/effect/test/schema/Schema.test.ts	10242	ported	lowercase_normalizes_on_decode_and_insists_on_encode
+packages/effect/test/schema/Schema.test.ts	10266	ported	uppercase_normalizes_on_decode_and_insists_on_encode
+packages/effect/test/schema/Schema.test.ts	10361	ported	a_versioned_uuid_check_refuses_the_nil_and_max_uuids

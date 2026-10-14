@@ -22,6 +22,8 @@ pub mod class;
 
 pub mod filters;
 
+pub mod refinements;
+
 pub use class::{ClassMeta, ClassValue, ExcessProperty};
 pub use filters::{FilterIssue, FilterOutcome, FilterSpec};
 pub use tagged::{Tagged, TaggedError, catch_tag};
