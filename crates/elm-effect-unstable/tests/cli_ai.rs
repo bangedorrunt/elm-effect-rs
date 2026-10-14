@@ -2631,3 +2631,83 @@ fn a_short_alias_selects_the_same_option_value() {
     }
     let _ = def;
 }
+
+/// Command.test.ts:1087 — the parent's own handler runs with its options when
+/// the line carries no subcommand, so a group that also has a handler is not
+/// forced to route to a child just because it has children.
+#[test]
+fn the_parent_handler_runs_with_its_options_when_no_subcommand_is_given() {
+    let seen = handler_log();
+    let log = seen.clone();
+    let root = Command::new(
+        "git",
+        "git command",
+        vec![Arg::Flag {
+            name: "verbose".to_string(),
+            help: "verbose".to_string(),
+        }],
+    )
+    .with_subcommands(vec![Command::new(
+        "clone",
+        "clone command",
+        vec![Arg::Positional {
+            name: "repository".to_string(),
+            help: "repository".to_string(),
+            variadic: false,
+        }],
+    )])
+    .handler(move |parsed| {
+        log.lock().expect("lock").push(format!("git verbose={}", parsed.flag("verbose")));
+    });
+    // No subcommand on the line: the parent's handler runs with its own flag.
+    let run = root
+        .run(&["--verbose".to_string()])
+        .expect("the parent's handler runs");
+    assert_eq!(run.path, vec!["git".to_string()]);
+    assert_eq!(*seen.lock().expect("lock"), vec!["git verbose=true".to_string()]);
+    // With a subcommand the child takes it, which is what makes the case above
+    // about the ABSENCE of a subcommand rather than about the presence of one.
+    // Give the child its own handler so the contrast is handler-to-handler.
+    let seen = handler_log();
+    let parent_log = seen.clone();
+    let child_log = seen.clone();
+    let routed = Command::new(
+        "git",
+        "git command",
+        vec![Arg::Flag {
+            name: "verbose".to_string(),
+            help: "verbose".to_string(),
+        }],
+    )
+    .with_subcommands(vec![Command::new(
+        "clone",
+        "clone command",
+        vec![Arg::Positional {
+            name: "repository".to_string(),
+            help: "repository".to_string(),
+            variadic: false,
+        }],
+    )
+    .handler(move |_| {
+        child_log.lock().expect("lock").push("clone".to_string());
+    })])
+    .handler(move |parsed| {
+        parent_log
+            .lock()
+            .expect("lock")
+            .push(format!("git verbose={}", parsed.flag("verbose")));
+    });
+    let run = routed
+        .run(&["clone".to_string(), "repo".to_string()])
+        .expect("the child's handler runs instead");
+    assert_eq!(run.path, vec!["git".to_string(), "clone".to_string()]);
+    let run = routed
+        .run(&["--verbose".to_string()])
+        .expect("the parent's handler runs with no subcommand");
+    assert_eq!(run.path, vec!["git".to_string()]);
+    assert_eq!(
+        *seen.lock().expect("lock"),
+        vec!["clone".to_string(), "git verbose=true".to_string()],
+        "the child took its line and the parent took its own"
+    );
+}

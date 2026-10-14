@@ -5607,7 +5607,7 @@ ported	packages/effect/test/cli/Command.test.ts	991	it.effect	should execute sub
 ported	packages/effect/test/cli/Command.test.ts	1006	it.effect	should accept grouped and ungrouped subcommands	a_grouped_subcommand_is_selectable_like_an_ungrouped_one
 ported	packages/effect/test/cli/Command.test.ts	1031	it.effect	should handle multiple subcommands correctly	several_subcommands_each_take_their_own_line
 unported	packages/effect/test/cli/Command.test.ts	1053	it.effect	should handle nested config structures in subcommands	
-unported	packages/effect/test/cli/Command.test.ts	1087	it.effect	should execute parent handler with options when no subcommand provided	
+ported	packages/effect/test/cli/Command.test.ts	1087	it.effect	should execute parent handler with options when no subcommand provided	the_parent_handler_runs_with_its_options_when_no_subcommand_is_given
 unported	packages/effect/test/cli/Command.test.ts	1101	it.effect	should propagate subcommand errors	
 unported	packages/effect/test/cli/Command.test.ts	1107	it.effect	should provide shared parent context to subcommands	
 unported	packages/effect/test/cli/Command.test.ts	1149	it.effect	should accept shared parent flags before or after a subcommand (npm-style)	
