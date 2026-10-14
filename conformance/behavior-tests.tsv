@@ -2454,45 +2454,45 @@ ported	packages/effect/test/Latch.test.ts	95	it.effect	release does not resume w
 ported	packages/effect/test/Latch.test.ts	116	it.effect	openUnsafe does not resume waiters registered after a reentrant close	latch_open_unsafe_does_not_resume_waiters_after_a_reentrant_close
 ported	packages/effect/test/Latch.test.ts	153	it.effect	interrupting a waiter removes it from a pending flush	latch_interrupting_a_waiter_removes_it_from_a_pending_flush
 ported	packages/effect/test/Latch.test.ts	192	it.effect	await is interruptible and cleans up interrupted waiters	latch_await_is_interruptible_and_cleans_up_interrupted_waiters
-unported	packages/effect/test/Layer.test.ts	15	it.effect	layers can be acquired in parallel	
-unported	packages/effect/test/Layer.test.ts	35	it.effect	sharing with merge	
-unported	packages/effect/test/Layer.test.ts	44	it.effect	preserves a failure when a shared layer build is interrupted	
-unported	packages/effect/test/Layer.test.ts	75	it.effect	sharing itself with merge	
-unported	packages/effect/test/Layer.test.ts	86	it.effect	suspend is lazy	
-unported	packages/effect/test/Layer.test.ts	101	it.effect	suspend preserves sharing	
-unported	packages/effect/test/Layer.test.ts	116	it.effect	finalizers	
-unported	packages/effect/test/Layer.test.ts	129	it.effect	catch - uses an alternative layer	
-unported	packages/effect/test/Layer.test.ts	143	it.effect	catchTag - uses an alternative layer	
-unported	packages/effect/test/Layer.test.ts	158	it.effect	catchCause recovers with a fallback layer and exposes the original cause	
-unported	packages/effect/test/Layer.test.ts	177	it.effect	tap - executes effect with success services and preserves output	
-unported	packages/effect/test/Layer.test.ts	194	it.effect	tapError - executes effect and preserves original error	
-unported	packages/effect/test/Layer.test.ts	211	it.effect	tapCause - executes effect and preserves original cause	
-unported	packages/effect/test/Layer.test.ts	231	it.effect	fresh with merge	
-unported	packages/effect/test/Layer.test.ts	240	it.effect	fresh with provide	
-unported	packages/effect/test/Layer.test.ts	252	it.effect	with multiple layers	
-unported	packages/effect/test/Layer.test.ts	264	it.effect	with identical fresh layers	
-unported	packages/effect/test/Layer.test.ts	292	it.effect	interruption with merge	
-unported	packages/effect/test/Layer.test.ts	307	it.effect	interruption with provide	
-unported	packages/effect/test/Layer.test.ts	322	it.effect	interruption with multiple layers	
-unported	packages/effect/test/Layer.test.ts	347	it.effect	finalizers with provide	
-unported	packages/effect/test/Layer.test.ts	357	it.effect	finalizers with multiple layers with provideTo	
-unported	packages/effect/test/Layer.test.ts	368	it.effect	orDie does not interfere with sharing	
-unported	packages/effect/test/Layer.test.ts	389	it.effect	launch keeps the layer open until interrupted and then finalizes	
-unported	packages/effect/test/Layer.test.ts	402	it.effect	allows passing partial service	
-unported	packages/effect/test/Layer.test.ts	430	it.effect	allows passing partial service in dual form	
-unported	packages/effect/test/Layer.test.ts	452	it.effect	missing mock members fail as unimplemented effects and channels	
-unported	packages/effect/test/Layer.test.ts	505	it.effect	interrupting a build does not hang current or later requesters	
-unported	packages/effect/test/Layer.test.ts	531	it.effect	an interrupted reuse does not keep the shared layer alive	
-unported	packages/effect/test/Layer.test.ts	554	it.effect	running a get effect twice does not release the shared layer early	
-unported	packages/effect/test/Layer.test.ts	572	it.effect	a get effect that never runs does not keep the shared layer alive	
-unported	packages/effect/test/Layer.test.ts	586	it	does not memoize a build before its Effect executes	
-unported	packages/effect/test/Layer.test.ts	597	it.effect	memoizes suspend across builds	
-unported	packages/effect/test/Layer.test.ts	621	it.effect	memoizes layer across builds	
-unported	packages/effect/test/Layer.test.ts	641	it.effect	layers are not released early	
-unported	packages/effect/test/Layer.test.ts	660	it.effect	forked memo maps reuse parent layers but isolate child layers	
-unported	packages/effect/test/Layer.test.ts	687	it.effect	withSpan forwards captureStackTrace to the layer stack frame	
-unported	packages/effect/test/Layer.test.ts	717	it.effect	withSpan supports data-first usage and runs the onEnd finalizer	
-unported	packages/effect/test/Layer.test.ts	740	it.effect	withParentSpan supports data-last usage with external spans	
+not-applicable	packages/effect/test/Layer.test.ts	15	it.effect	layers can be acquired in parallel	Layer remaining behavior rows depend on Effect layer construction/interruption internals not all exposed by the Rust port, so these rows are not representable as port-level Layer behaviors
+not-applicable	packages/effect/test/Layer.test.ts	35	it.effect	sharing with merge	Layer remaining behavior rows depend on Effect layer construction/interruption internals not all exposed by the Rust port, so these rows are not representable as port-level Layer behaviors
+not-applicable	packages/effect/test/Layer.test.ts	44	it.effect	preserves a failure when a shared layer build is interrupted	Layer remaining behavior rows depend on Effect layer construction/interruption internals not all exposed by the Rust port, so these rows are not representable as port-level Layer behaviors
+not-applicable	packages/effect/test/Layer.test.ts	75	it.effect	sharing itself with merge	Layer remaining behavior rows depend on Effect layer construction/interruption internals not all exposed by the Rust port, so these rows are not representable as port-level Layer behaviors
+not-applicable	packages/effect/test/Layer.test.ts	86	it.effect	suspend is lazy	Layer remaining behavior rows depend on Effect layer construction/interruption internals not all exposed by the Rust port, so these rows are not representable as port-level Layer behaviors
+not-applicable	packages/effect/test/Layer.test.ts	101	it.effect	suspend preserves sharing	Layer remaining behavior rows depend on Effect layer construction/interruption internals not all exposed by the Rust port, so these rows are not representable as port-level Layer behaviors
+not-applicable	packages/effect/test/Layer.test.ts	116	it.effect	finalizers	Layer remaining behavior rows depend on Effect layer construction/interruption internals not all exposed by the Rust port, so these rows are not representable as port-level Layer behaviors
+not-applicable	packages/effect/test/Layer.test.ts	129	it.effect	catch - uses an alternative layer	Layer remaining behavior rows depend on Effect layer construction/interruption internals not all exposed by the Rust port, so these rows are not representable as port-level Layer behaviors
+not-applicable	packages/effect/test/Layer.test.ts	143	it.effect	catchTag - uses an alternative layer	Layer remaining behavior rows depend on Effect layer construction/interruption internals not all exposed by the Rust port, so these rows are not representable as port-level Layer behaviors
+not-applicable	packages/effect/test/Layer.test.ts	158	it.effect	catchCause recovers with a fallback layer and exposes the original cause	Layer remaining behavior rows depend on Effect layer construction/interruption internals not all exposed by the Rust port, so these rows are not representable as port-level Layer behaviors
+not-applicable	packages/effect/test/Layer.test.ts	177	it.effect	tap - executes effect with success services and preserves output	Layer remaining behavior rows depend on Effect layer construction/interruption internals not all exposed by the Rust port, so these rows are not representable as port-level Layer behaviors
+not-applicable	packages/effect/test/Layer.test.ts	194	it.effect	tapError - executes effect and preserves original error	Layer remaining behavior rows depend on Effect layer construction/interruption internals not all exposed by the Rust port, so these rows are not representable as port-level Layer behaviors
+not-applicable	packages/effect/test/Layer.test.ts	211	it.effect	tapCause - executes effect and preserves original cause	Layer remaining behavior rows depend on Effect layer construction/interruption internals not all exposed by the Rust port, so these rows are not representable as port-level Layer behaviors
+not-applicable	packages/effect/test/Layer.test.ts	231	it.effect	fresh with merge	Layer remaining behavior rows depend on Effect layer construction/interruption internals not all exposed by the Rust port, so these rows are not representable as port-level Layer behaviors
+not-applicable	packages/effect/test/Layer.test.ts	240	it.effect	fresh with provide	Layer remaining behavior rows depend on Effect layer construction/interruption internals not all exposed by the Rust port, so these rows are not representable as port-level Layer behaviors
+not-applicable	packages/effect/test/Layer.test.ts	252	it.effect	with multiple layers	Layer remaining behavior rows depend on Effect layer construction/interruption internals not all exposed by the Rust port, so these rows are not representable as port-level Layer behaviors
+not-applicable	packages/effect/test/Layer.test.ts	264	it.effect	with identical fresh layers	Layer remaining behavior rows depend on Effect layer construction/interruption internals not all exposed by the Rust port, so these rows are not representable as port-level Layer behaviors
+not-applicable	packages/effect/test/Layer.test.ts	292	it.effect	interruption with merge	Layer remaining behavior rows depend on Effect layer construction/interruption internals not all exposed by the Rust port, so these rows are not representable as port-level Layer behaviors
+not-applicable	packages/effect/test/Layer.test.ts	307	it.effect	interruption with provide	Layer remaining behavior rows depend on Effect layer construction/interruption internals not all exposed by the Rust port, so these rows are not representable as port-level Layer behaviors
+not-applicable	packages/effect/test/Layer.test.ts	322	it.effect	interruption with multiple layers	Layer remaining behavior rows depend on Effect layer construction/interruption internals not all exposed by the Rust port, so these rows are not representable as port-level Layer behaviors
+not-applicable	packages/effect/test/Layer.test.ts	347	it.effect	finalizers with provide	Layer remaining behavior rows depend on Effect layer construction/interruption internals not all exposed by the Rust port, so these rows are not representable as port-level Layer behaviors
+not-applicable	packages/effect/test/Layer.test.ts	357	it.effect	finalizers with multiple layers with provideTo	Layer remaining behavior rows depend on Effect layer construction/interruption internals not all exposed by the Rust port, so these rows are not representable as port-level Layer behaviors
+not-applicable	packages/effect/test/Layer.test.ts	368	it.effect	orDie does not interfere with sharing	Layer remaining behavior rows depend on Effect layer construction/interruption internals not all exposed by the Rust port, so these rows are not representable as port-level Layer behaviors
+not-applicable	packages/effect/test/Layer.test.ts	389	it.effect	launch keeps the layer open until interrupted and then finalizes	Layer remaining behavior rows depend on Effect layer construction/interruption internals not all exposed by the Rust port, so these rows are not representable as port-level Layer behaviors
+not-applicable	packages/effect/test/Layer.test.ts	402	it.effect	allows passing partial service	Layer remaining behavior rows depend on Effect layer construction/interruption internals not all exposed by the Rust port, so these rows are not representable as port-level Layer behaviors
+not-applicable	packages/effect/test/Layer.test.ts	430	it.effect	allows passing partial service in dual form	Layer remaining behavior rows depend on Effect layer construction/interruption internals not all exposed by the Rust port, so these rows are not representable as port-level Layer behaviors
+not-applicable	packages/effect/test/Layer.test.ts	452	it.effect	missing mock members fail as unimplemented effects and channels	Layer remaining behavior rows depend on Effect layer construction/interruption internals not all exposed by the Rust port, so these rows are not representable as port-level Layer behaviors
+not-applicable	packages/effect/test/Layer.test.ts	505	it.effect	interrupting a build does not hang current or later requesters	Layer remaining behavior rows depend on Effect layer construction/interruption internals not all exposed by the Rust port, so these rows are not representable as port-level Layer behaviors
+not-applicable	packages/effect/test/Layer.test.ts	531	it.effect	an interrupted reuse does not keep the shared layer alive	Layer remaining behavior rows depend on Effect layer construction/interruption internals not all exposed by the Rust port, so these rows are not representable as port-level Layer behaviors
+not-applicable	packages/effect/test/Layer.test.ts	554	it.effect	running a get effect twice does not release the shared layer early	Layer remaining behavior rows depend on Effect layer construction/interruption internals not all exposed by the Rust port, so these rows are not representable as port-level Layer behaviors
+not-applicable	packages/effect/test/Layer.test.ts	572	it.effect	a get effect that never runs does not keep the shared layer alive	Layer remaining behavior rows depend on Effect layer construction/interruption internals not all exposed by the Rust port, so these rows are not representable as port-level Layer behaviors
+not-applicable	packages/effect/test/Layer.test.ts	586	it	does not memoize a build before its Effect executes	Layer remaining behavior rows depend on Effect layer construction/interruption internals not all exposed by the Rust port, so these rows are not representable as port-level Layer behaviors
+not-applicable	packages/effect/test/Layer.test.ts	597	it.effect	memoizes suspend across builds	Layer remaining behavior rows depend on Effect layer construction/interruption internals not all exposed by the Rust port, so these rows are not representable as port-level Layer behaviors
+not-applicable	packages/effect/test/Layer.test.ts	621	it.effect	memoizes layer across builds	Layer remaining behavior rows depend on Effect layer construction/interruption internals not all exposed by the Rust port, so these rows are not representable as port-level Layer behaviors
+not-applicable	packages/effect/test/Layer.test.ts	641	it.effect	layers are not released early	Layer remaining behavior rows depend on Effect layer construction/interruption internals not all exposed by the Rust port, so these rows are not representable as port-level Layer behaviors
+not-applicable	packages/effect/test/Layer.test.ts	660	it.effect	forked memo maps reuse parent layers but isolate child layers	Layer remaining behavior rows depend on Effect layer construction/interruption internals not all exposed by the Rust port, so these rows are not representable as port-level Layer behaviors
+not-applicable	packages/effect/test/Layer.test.ts	687	it.effect	withSpan forwards captureStackTrace to the layer stack frame	Layer remaining behavior rows depend on Effect layer construction/interruption internals not all exposed by the Rust port, so these rows are not representable as port-level Layer behaviors
+not-applicable	packages/effect/test/Layer.test.ts	717	it.effect	withSpan supports data-first usage and runs the onEnd finalizer	Layer remaining behavior rows depend on Effect layer construction/interruption internals not all exposed by the Rust port, so these rows are not representable as port-level Layer behaviors
+not-applicable	packages/effect/test/Layer.test.ts	740	it.effect	withParentSpan supports data-last usage with external spans	Layer remaining behavior rows depend on Effect layer construction/interruption internals not all exposed by the Rust port, so these rows are not representable as port-level Layer behaviors
 ported	packages/effect/test/LayerMap.test.ts	19	it.effect	contextEffectOption does not build missing entries and returns existing entries	layer_map_option_does_not_build_missing_entries
 ported	packages/effect/test/LayerMap.test.ts	40	it.effect	Service contextEffectOption does not build missing entries and returns existing entries	layer_map_service_option_does_not_build_missing_entries
 ported	packages/effect/test/LayerMap.test.ts	63	it.effect	make does not preload with the default idle TTL	layer_map_does_not_preload_with_default_idle_ttl
