@@ -852,7 +852,7 @@ tests = ["packages/effect/test/Scope.test.ts"]
 [[module]]
 path = "packages/effect/src/ScopedCache.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/ScopedCache.test.ts"]
@@ -916,7 +916,7 @@ tests = ["packages/effect/test/String.test.ts"]
 [[module]]
 path = "packages/effect/src/Struct.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/Struct.test.ts"]

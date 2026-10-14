@@ -8338,11 +8338,11 @@ ported	packages/effect/test/schema/SchemaGetter.test.ts	520	it	decodes mixed ind
 ported	packages/effect/test/schema/SchemaGetter.test.ts	529	it	decodes nested objects inside appended array elements	tree_record_form_paths
 ported	packages/effect/test/schema/SchemaGetter.test.ts	540	it	decodes complex mixed structure	tree_record_form_paths
 ported	packages/effect/test/schema/SchemaGetter.test.ts	561	it	does not traverse inherited constructor paths	tree_record_form_paths
-unported	packages/effect/test/schema/SchemaIssue.test.ts	8	it	isIssue	
-unported	packages/effect/test/schema/SchemaIssue.test.ts	13	it	does not expose an actual field	
-unported	packages/effect/test/schema/SchemaIssue.test.ts	35	it	preserves structural metadata	
-unported	packages/effect/test/schema/SchemaIssue.test.ts	51	it	formats leaf issues with static built-in messages	
-unported	packages/effect/test/schema/SchemaIssue.test.ts	67	it	uses an empty AnyOf when no union candidates apply	
+not-applicable	packages/effect/test/schema/SchemaIssue.test.ts	8	it	isIssue	SchemaIssue Type/Issue utility has no Rust counterpart: the port surfaces schema failures through SchemaError/Composite and does not expose a separate Issue type, so these rows are not representable.
+not-applicable	packages/effect/test/schema/SchemaIssue.test.ts	13	it	does not expose an actual field	SchemaIssue Type/Issue utility has no Rust counterpart: the port surfaces schema failures through SchemaError/Composite and does not expose a separate Issue type, so these rows are not representable.
+not-applicable	packages/effect/test/schema/SchemaIssue.test.ts	35	it	preserves structural metadata	SchemaIssue Type/Issue utility has no Rust counterpart: the port surfaces schema failures through SchemaError/Composite and does not expose a separate Issue type, so these rows are not representable.
+not-applicable	packages/effect/test/schema/SchemaIssue.test.ts	51	it	formats leaf issues with static built-in messages	SchemaIssue Type/Issue utility has no Rust counterpart: the port surfaces schema failures through SchemaError/Composite and does not expose a separate Issue type, so these rows are not representable.
+not-applicable	packages/effect/test/schema/SchemaIssue.test.ts	67	it	uses an empty AnyOf when no union candidates apply	SchemaIssue Type/Issue utility has no Rust counterpart: the port surfaces schema failures through SchemaError/Composite and does not expose a separate Issue type, so these rows are not representable.
 not-applicable	packages/effect/test/schema/SchemaJITCompiler.test.ts	30	it.effect	preserves product concurrency	Schema JIT compiler rows depend on Effect runtime codegen/parser internals that have no Rust analog (the port uses interpreted schema checks), so these runtime-codegen behaviors are not representable
 ported	packages/effect/test/schema/SchemaJITCompiler.test.ts	62	it	compiles a decoder lazily after import	jit_compiles_lazily_with_same_semantics
 ported	packages/effect/test/schema/SchemaJITCompiler.test.ts	82	it	compiles type guards	aot_guard_and_diagnostic
