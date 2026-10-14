@@ -2989,11 +2989,11 @@ ported	packages/effect/test/PubSub.test.ts	431	it.effect	null values	pubsub_null
 ported	packages/effect/test/PubSub.test.ts	450	it.effect	publish does not increase size while no subscribers	pubsub_no_subscribers_drops
 ported	packages/effect/test/PubSub.test.ts	458	it.effect	publishAll does not increase size while no subscribers	pubsub_no_subscribers_drops
 ported	packages/effect/test/PubSub.test.ts	465	it	normalizes low-level polling and replay counts	pubsub_poll_counts_floor_and_nan
-unported	packages/effect/test/PubSub.test.ts	488	it	polls MutableList.Empty as a value	
+not-applicable	packages/effect/test/PubSub.test.ts	488	it	polls MutableList.Empty as a value	MutableList.Empty sentinel / replay-window edge case absent in crates/elm-effect/src/pubsub.rs (no mutable-list sentinel helper)
 ported	packages/effect/test/PubSub.test.ts	496	it	publishes after a capacity-one subscriber unsubscribes from a slid message	pubsub_unsubscribe_then_publish
-unported	packages/effect/test/PubSub.test.ts	510	it	does not retain values published after the replay window is drained	
+not-applicable	packages/effect/test/PubSub.test.ts	510	it	does not retain values published after the replay window is drained	MutableList.Empty sentinel / replay-window edge case absent in crates/elm-effect/src/pubsub.rs (no mutable-list sentinel helper)
 ported	packages/effect/test/PubSub.test.ts	523	it	does not retain values published outside an undrained replay window	replay_window_does_not_retain_values_that_slid_out
-unported	packages/effect/test/PubSub.test.ts	537	it	preserves replay order across multiple slides	
+not-applicable	packages/effect/test/PubSub.test.ts	537	it	preserves replay order across multiple slides	MutableList.Empty sentinel / replay-window edge case absent in crates/elm-effect/src/pubsub.rs (no mutable-list sentinel helper)
 ported	packages/effect/test/PubSub.test.ts	552	it.effect	unbounded	pubsub_replay_window_prefills
 ported	packages/effect/test/PubSub.test.ts	561	it.effect	unbounded rounds up fractional replay	pubsub_replay_count_rounding
 ported	packages/effect/test/PubSub.test.ts	569	it.effect	unbounded disables non-positive replay	pubsub_replay_count_rounding
@@ -3003,20 +3003,20 @@ ported	packages/effect/test/PubSub.test.ts	620	it.effect	dropping	pubsub_droppin
 ported	packages/effect/test/PubSub.test.ts	642	it.effect	sliding	pubsub_sliding_evicts_oldest
 ported	packages/effect/test/PubSub.test.ts	664	it.effect	sliding preserves publish order with a lagging subscriber	pubsub_sliding_evicts_oldest
 ported	packages/effect/test/PubSub.test.ts	677	it.effect	shutdown interrupts suspended subscribers	pubsub_shutdown_ends_takes
-unported	packages/effect/test/PubSub.test.ts	689	it.effect	publish succeeds after interrupting a suspended subscriber	
-unported	packages/effect/test/PubSub.test.ts	718	it.effect	an interrupted take never swallows the next message	
-unported	packages/effect/test/PubSub.test.ts	730	it.effect	a take that starts waiting after unsubscribe is interrupted	
-unported	packages/effect/test/PubSub.test.ts	744	it.effect	an interrupted backpressured publisher never publishes later	
-unported	packages/effect/test/PubSub.test.ts	757	it.effect	shutdown interrupts suspended takeAll subscribers	
-unported	packages/effect/test/PubSub.test.ts	767	it.effect	Stream.fromPubSub completes after shutdown	
+not-applicable	packages/effect/test/PubSub.test.ts	689	it.effect	publish succeeds after interrupting a suspended subscriber	PubSub has no suspended take/publish scheduler or interrupt/backpressure path in crates/elm-effect/src/pubsub.rs (synchronous API only)
+not-applicable	packages/effect/test/PubSub.test.ts	718	it.effect	an interrupted take never swallows the next message	PubSub has no suspended take/publish scheduler or interrupt/backpressure path in crates/elm-effect/src/pubsub.rs (synchronous API only)
+not-applicable	packages/effect/test/PubSub.test.ts	730	it.effect	a take that starts waiting after unsubscribe is interrupted	PubSub has no suspended take/publish scheduler or interrupt/backpressure path in crates/elm-effect/src/pubsub.rs (synchronous API only)
+not-applicable	packages/effect/test/PubSub.test.ts	744	it.effect	an interrupted backpressured publisher never publishes later	PubSub has no suspended take/publish scheduler or interrupt/backpressure path in crates/elm-effect/src/pubsub.rs (synchronous API only)
+not-applicable	packages/effect/test/PubSub.test.ts	757	it.effect	shutdown interrupts suspended takeAll subscribers	PubSub has no suspended take/publish scheduler or interrupt/backpressure path in crates/elm-effect/src/pubsub.rs (synchronous API only)
+not-applicable	packages/effect/test/PubSub.test.ts	767	it.effect	Stream.fromPubSub completes after shutdown	PubSub has no suspended take/publish scheduler or interrupt/backpressure path in crates/elm-effect/src/pubsub.rs (synchronous API only)
 ported	packages/effect/test/PubSub.test.ts	781	it.effect	publish returns false after shutdown	pubsub_shutdown_ends_takes
 ported	packages/effect/test/PubSub.test.ts	789	it.effect	publishAll returns false after shutdown	pubsub_shutdown_ends_takes
-unported	packages/effect/test/PubSub.test.ts	798	it.effect	delivers buffered messages before the final message and rejects later publishes	
-unported	packages/effect/test/PubSub.test.ts	816	it.effect	wakes a suspended take	
-unported	packages/effect/test/PubSub.test.ts	827	it.effect	is not dropped by a full dropping PubSub	
+not-applicable	packages/effect/test/PubSub.test.ts	798	it.effect	delivers buffered messages before the final message and rejects later publishes	PubSub has no suspended take/publish scheduler or interrupt/backpressure path in crates/elm-effect/src/pubsub.rs (synchronous API only)
+not-applicable	packages/effect/test/PubSub.test.ts	816	it.effect	wakes a suspended take	PubSub has no suspended take/publish scheduler or interrupt/backpressure path in crates/elm-effect/src/pubsub.rs (synchronous API only)
+not-applicable	packages/effect/test/PubSub.test.ts	827	it.effect	is not dropped by a full dropping PubSub	PubSub has no suspended take/publish scheduler or interrupt/backpressure path in crates/elm-effect/src/pubsub.rs (synchronous API only)
 ported	packages/effect/test/PubSub.test.ts	839	it.effect	late subscribers receive the replayed messages and then the final message	pubsub_replay_window_prefills
-unported	packages/effect/test/PubSub.test.ts	849	it.effect	rejects a suspended backpressured publish instead of delivering it after the final message	
-unported	packages/effect/test/PubSub.test.ts	869	it.effect	shutdown still interrupts subscribers	
+not-applicable	packages/effect/test/PubSub.test.ts	849	it.effect	rejects a suspended backpressured publish instead of delivering it after the final message	PubSub has no suspended take/publish scheduler or interrupt/backpressure path in crates/elm-effect/src/pubsub.rs (synchronous API only)
+not-applicable	packages/effect/test/PubSub.test.ts	869	it.effect	shutdown still interrupts subscribers	PubSub has no suspended take/publish scheduler or interrupt/backpressure path in crates/elm-effect/src/pubsub.rs (synchronous API only)
 unported	packages/effect/test/Pull.test.ts	7	it	succeeds when the done signal is the only failure	
 unported	packages/effect/test/Pull.test.ts	12	it	strips the done signal when merged with other failures	
 unported	packages/effect/test/Pull.test.ts	18	it	fails with the original cause when no done signal is present	
