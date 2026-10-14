@@ -5621,7 +5621,7 @@ unported	packages/effect/test/cli/Command.test.ts	1396	it.effect	should merge st
 unported	packages/effect/test/cli/Command.test.ts	1425	it.effect	should work with Command.provide when shared flags are present	
 unported	packages/effect/test/cli/Command.test.ts	1457	it.effect	should reject shared/child flag collisions when withSharedFlags is applied after withSubcommands	
 unported	packages/effect/test/cli/Command.test.ts	1473	it.effect	should require withSharedFlags before withSubcommands for subcommand access	
-ported	packages/effect/test/cli/Command.test.ts	1500	it.effect	should treat tokens after -- as operands (no subcommand or flags)	tokens_after_the_double_dash_are_operands_not_subcommands_or_flags
+ported	packages/effect/test/cli/Command.test.ts	1500	it.effect	should treat tokens after -- as operands (no subcommand or flags)	tokens_after_the_dash_are_not_read_as_a_subcommand
 ported	packages/effect/test/cli/Command.test.ts	1528	it.effect	should pass trailing operands to the selected subcommand	trailing_operands_reach_the_selected_subcommand
 ported	packages/effect/test/cli/Command.test.ts	1549	it.effect	should pass trailing operands through nested subcommands	trailing_operands_pass_through_nested_subcommands
 ported	packages/effect/test/cli/Command.test.ts	1564	it.effect	should allow no trailing operands after -- for a subcommand	no_trailing_operands_after_the_dash_is_still_a_valid_line
@@ -5635,7 +5635,7 @@ ported	packages/effect/test/cli/Command.test.ts	1694	it.effect	should reject exp
 ported	packages/effect/test/cli/Command.test.ts	1716	it.effect	should not leak a negated flag literal into subcommand parsing	a_negated_flags_literal_does_not_leak_into_subcommand_parsing
 ported	packages/effect/test/cli/Command.test.ts	1746	it.effect	should fail when a required flag value is missing	a_required_flag_value_that_is_missing_is_refused_naming_the_flag
 unported	packages/effect/test/cli/Command.test.ts	1767	it.effect	should parse combined short flags including one that expects a value	
-unported	packages/effect/test/cli/Command.test.ts	1787	it.effect	should honor -- while still applying parent flags	
+ported	packages/effect/test/cli/Command.test.ts	1787	it.effect	should honor -- while still applying parent flags	the_dash_is_honoured_while_the_flags_in_front_of_it_apply
 ported	packages/effect/test/cli/Command.test.ts	1808	it.effect	should report unknown flag even when subcommand is unknown	an_unknown_flag_is_reported_even_when_the_subcommand_is_unknown
 ported	packages/effect/test/cli/Command.test.ts	1823	it.effect	should keep variadic argument order when options are interleaved	a_variadic_positional_keeps_order_across_interleaved_options
 unported	packages/effect/test/cli/Command.test.ts	1839	it.effect	should support options before, after, or between operands (relaxed POSIX Syntax Guideline No. 9)	

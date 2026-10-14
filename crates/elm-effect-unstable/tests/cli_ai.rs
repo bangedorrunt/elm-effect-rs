@@ -2754,3 +2754,95 @@ fn an_optional_boolean_flag_has_three_states_not_two() {
         "absent, on and off are three distinct states"
     );
 }
+
+/// Command.test.ts:1500 — tokens after `--` are operands full stop: a
+/// subcommand name and an option-looking word are both just values, and no
+/// subcommand's handler runs. The port's `--` already puts them in `rest` at a
+/// node with no variadic positional; this witness adds the half that matters,
+/// which is that they are not read as a subcommand on the way.
+#[test]
+fn tokens_after_the_dash_are_not_read_as_a_subcommand() {
+    let invoked = handler_log();
+    let log = invoked.clone();
+    let root = Command::group(
+        "tool",
+        "tool command",
+        vec![Command::new(
+            "child",
+            "child command",
+            vec![Arg::Opt {
+                name: "value".to_string(),
+                help: "value".to_string(),
+                required: false,
+            }],
+        )
+        .handler(move |_| log.lock().expect("lock").push("child".to_string()))],
+    );
+    // `child` and `--value x` all sit behind the dash, so they are operands of
+    // the root and the child is never selected.
+    let argv = vec![
+        "--".to_string(),
+        "child".to_string(),
+        "--value".to_string(),
+        "x".to_string(),
+    ];
+    let (path, parsed) = root.parse(&argv).expect("the line parses");
+    assert_eq!(path, vec!["tool".to_string()], "no subcommand was selected");
+    assert_eq!(parsed.rest, vec!["child", "--value", "x"]);
+    assert!(
+        parsed.opts.is_empty() && parsed.positionals.is_empty(),
+        "nothing behind the dash is a flag or a positional: {parsed:?}"
+    );
+    assert!(
+        invoked.lock().expect("lock").is_empty(),
+        "no handler ran, because no subcommand was selected"
+    );
+}
+
+/// Command.test.ts:1787 — `--` is honoured while the flags in front of it still
+/// apply. A flag before the dash is the node's own; the tokens after it are
+/// operands that no subcommand claims, so `child` behind the dash is a value
+/// rather than a selection.
+#[test]
+fn the_dash_is_honoured_while_the_flags_in_front_of_it_apply() {
+    let root = Command::new(
+        "tool",
+        "tool command",
+        vec![
+            Arg::Flag {
+                name: "global".to_string(),
+                help: "global".to_string(),
+            },
+            Arg::Positional {
+                name: "rest".to_string(),
+                help: "rest".to_string(),
+                variadic: true,
+            },
+        ],
+    )
+    .with_subcommands(vec![Command::new(
+        "child",
+        "child command",
+        vec![Arg::Opt {
+            name: "value".to_string(),
+            help: "value".to_string(),
+            required: false,
+        }],
+    )]);
+    let (path, parsed) = root
+        .parse(&[
+            "--global".to_string(),
+            "--".to_string(),
+            "child".to_string(),
+            "--value".to_string(),
+            "x".to_string(),
+        ])
+        .expect("the line parses");
+    assert_eq!(path, vec!["tool".to_string()], "child is an operand, not a selection");
+    assert!(parsed.flag("global"), "the flag in front of the dash applies");
+    assert_eq!(
+        parsed.positionals,
+        vec!["child", "--value", "x"],
+        "the operands reach the variadic positional"
+    );
+}
