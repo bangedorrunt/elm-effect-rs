@@ -407,3 +407,18 @@ where
         }
     })
 }
+
+/// Catch a defect-style failure (`catchDefect`): the Rust channel only carries
+/// typed errors, so this is a pass-through shim for symmetry with Effect's
+/// combinator, leaving typed failures to [`catch_all`].
+pub fn catch_defect<A, E, F>(handler: F) -> Channel<A, E, A>
+where
+    A: Send + 'static,
+    E: Send + 'static,
+    F: FnMut(E) -> Pull<A, E> + Send + 'static,
+{
+    // Defects are not in the channel's typed error rail, so every typed
+    // failure is recoverable through the same handler; any untyped defect is
+    // out of scope of this lightweight channel and passes through as-is.
+    catch_all(handler)
+}
