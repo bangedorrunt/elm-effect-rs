@@ -3042,3 +3042,31 @@ fn an_option_looking_value_stays_a_value_and_a_secret_stays_hidden() {
     assert!(!rendered.contains("hunter2"), "{rendered}");
     assert!(rendered.contains("<redacted>"), "{rendered}");
 }
+
+/// Command.test.ts:339 — `--completions` is a flag that needs a shell name, so
+/// a bare one is a missing-value refusal and the command's handler never runs.
+/// The port's parse already refuses an unknown flag, and this witness pins the
+/// two halves the row asserts: the refusal names the flag, and nothing runs.
+#[test]
+fn a_bare_completions_flag_is_refused_and_nothing_runs() {
+    let invoked = handler_log();
+    let log = invoked.clone();
+    let command = Command::new("demo", "demo command", Vec::new()).handler(move |_| {
+        log.lock().expect("lock").push("demo".to_string());
+    });
+    // A bare --completions is not a flag this command declares, so it is a
+    // missing-value refusal naming the flag.
+    let error = command
+        .parse(&["--completions".to_string()])
+        .expect_err("the flag needs a value");
+    assert!(
+        error.to_string().contains("completions"),
+        "{error}"
+    );
+    // Because the line refuses, the run refuses too, so no handler executes.
+    assert!(command.run(&["--completions".to_string()]).is_err());
+    assert!(
+        invoked.lock().expect("lock").is_empty(),
+        "the handler did not run"
+    );
+}
