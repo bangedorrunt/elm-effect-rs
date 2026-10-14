@@ -958,6 +958,17 @@ pub fn is_tx_hash_set<T>(_: &TxHashSet<T>) -> bool {
     true
 }
 
+/// Always true for `TxHashMap` (the type already narrows; mirrors
+/// `isTxHashMap`). The pin's negative cases are foreign values
+/// (`{}`, `null`, `42`), which are different types and cannot reach
+/// this predicate.
+pub fn is_tx_hash_map<K, V>(_: &TxHashMap<K, V>) -> bool
+where
+    K: Eq + Hash,
+{
+    true
+}
+
 /// Always true for `TxDeferred` (the type already narrows; mirrors
 /// `isTxDeferred`). Foreign values are different types and cannot
 /// reach this predicate.
@@ -1345,6 +1356,305 @@ impl<K: Eq + Hash, V> TxHashMap<K, V> {
     /// Drop every entry.
     pub fn clear(&self) {
         atomically(|| self.inner.lock().unwrap().clear())
+    }
+
+    /// Replace the value at `key` with what `update` returns, handing back the
+    /// value that was displaced. A key that is not there is left alone: the
+    /// function is never called and nothing is inserted (`modify`).
+    pub fn modify(&self, key: &K, update: impl FnOnce(&V) -> V) -> Option<V>
+    where
+        K: Clone,
+        V: Clone,
+    {
+        atomically(|| {
+            let mut inner = self.inner.lock().unwrap();
+            let current = inner.get(key)?.clone();
+            let next = update(&current);
+            inner.insert(key.clone(), next)
+        })
+    }
+
+    /// Insert or remove `key` according to what `update` answers, which is
+    /// handed the value already there if any: `Some` stores it, `None` removes
+    /// it (`modifyAt`).
+    pub fn modify_at(&self, key: K, update: impl FnOnce(Option<&V>) -> Option<V>)
+    where
+        K: Clone,
+        V: Clone,
+    {
+        atomically(|| {
+            let mut inner = self.inner.lock().unwrap();
+            let current = inner.get(&key).cloned();
+            match update(current.as_ref()) {
+                Some(value) => {
+                    inner.insert(key, value);
+                }
+                None => {
+                    inner.remove(&key);
+                }
+            }
+        })
+    }
+
+    /// Merge another map's entries in, its value winning for a shared key
+    /// (`union`).
+    pub fn union(&self, other: &HashMap<K, V>)
+    where
+        K: Clone,
+        V: Clone,
+    {
+        atomically(|| {
+            let mut inner = self.inner.lock().unwrap();
+            for (key, value) in other {
+                inner.insert(key.clone(), value.clone());
+            }
+        })
+    }
+
+    /// Drop every named key (`removeMany`).
+    pub fn remove_many(&self, keys: impl IntoIterator<Item = K>)
+    where
+        K: Eq + Hash,
+    {
+        atomically(|| {
+            let mut inner = self.inner.lock().unwrap();
+            for key in keys {
+                inner.remove(&key);
+            }
+        })
+    }
+
+    /// Insert every pair, a later pair winning for a shared key (`setMany`).
+    pub fn set_many(&self, entries: impl IntoIterator<Item = (K, V)>) {
+        atomically(|| {
+            let mut inner = self.inner.lock().unwrap();
+            for (key, value) in entries {
+                inner.insert(key, value);
+            }
+        })
+    }
+
+    /// The entries as they stand, copied (`snapshot`). A later write lands on
+    /// the map and not on the copy.
+    pub fn snapshot(&self) -> HashMap<K, V>
+    where
+        K: Clone,
+        V: Clone,
+    {
+        atomically(|| self.inner.lock().unwrap().clone())
+    }
+
+    /// Every key (`keys`). Order is the map's own, so a caller that needs a
+    /// stable order sorts.
+    pub fn keys(&self) -> Vec<K>
+    where
+        K: Clone,
+    {
+        atomically(|| self.inner.lock().unwrap().keys().cloned().collect())
+    }
+
+    /// Every value (`values`).
+    pub fn values(&self) -> Vec<V>
+    where
+        V: Clone,
+    {
+        atomically(|| self.inner.lock().unwrap().values().cloned().collect())
+    }
+
+    /// Every pair (`entries`).
+    pub fn entries(&self) -> Vec<(K, V)>
+    where
+        K: Clone,
+        V: Clone,
+    {
+        atomically(|| {
+            self.inner
+                .lock()
+                .unwrap()
+                .iter()
+                .map(|(key, value)| (key.clone(), value.clone()))
+                .collect()
+        })
+    }
+
+    /// The same pairs as `entries` (`toEntries`).
+    pub fn to_entries(&self) -> Vec<(K, V)>
+    where
+        K: Clone,
+        V: Clone,
+    {
+        self.entries()
+    }
+
+    /// The same values as `values` (`toValues`).
+    pub fn to_values(&self) -> Vec<V>
+    where
+        V: Clone,
+    {
+        self.values()
+    }
+
+    /// Replace every value with what `transform` returns, keeping the keys
+    /// (`map`).
+    pub fn map<W>(&self, mut transform: impl FnMut(&V, &K) -> W) -> TxHashMap<K, W>
+    where
+        K: Clone,
+    {
+        atomically(|| {
+            self.inner
+                .lock()
+                .unwrap()
+                .iter()
+                .map(|(key, value)| (key.clone(), transform(value, key)))
+                .collect()
+        })
+    }
+
+    /// Keep the entries whose value satisfies `predicate` (`filter`).
+    pub fn filter(&self, predicate: impl FnMut(&V, &K) -> bool) -> TxHashMap<K, V>
+    where
+        K: Clone,
+        V: Clone,
+    {
+        let mut predicate = predicate;
+        atomically(|| {
+            self.inner
+                .lock()
+                .unwrap()
+                .iter()
+                .filter(|(key, value)| predicate(value, key))
+                .map(|(key, value)| (key.clone(), value.clone()))
+                .collect()
+        })
+    }
+
+    /// Fold over every value, in the map's own order (`reduce`).
+    pub fn reduce<A>(&self, initial: A, mut fold: impl FnMut(A, &V, &K) -> A) -> A
+    where
+        K: Clone,
+    {
+        atomically(|| {
+            let inner = self.inner.lock().unwrap();
+            let mut acc = initial;
+            for (key, value) in inner.iter() {
+                acc = fold(acc, value, key);
+            }
+            acc
+        })
+    }
+
+    /// Keep and transform in one step: `None` drops the entry (`filterMap`).
+    pub fn filter_map<W>(&self, mut transform: impl FnMut(&V, &K) -> Option<W>) -> TxHashMap<K, W>
+    where
+        K: Clone,
+    {
+        atomically(|| {
+            self.inner
+                .lock()
+                .unwrap()
+                .iter()
+                .filter_map(|(key, value)| {
+                    transform(value, key).map(|next| (key.clone(), next))
+                })
+                .collect()
+        })
+    }
+
+    /// Whether any entry's value satisfies `predicate` (`hasBy`).
+    pub fn has_by(&self, predicate: impl Fn(&V, &K) -> bool) -> bool {
+        atomically(|| {
+            self.inner
+                .lock()
+                .unwrap()
+                .iter()
+                .any(|(key, value)| predicate(value, key))
+        })
+    }
+
+    /// Whether every entry's value satisfies `predicate` (`every`).
+    pub fn every(&self, predicate: impl Fn(&V, &K) -> bool) -> bool {
+        atomically(|| {
+            self.inner
+                .lock()
+                .unwrap()
+                .iter()
+                .all(|(key, value)| predicate(value, key))
+        })
+    }
+
+    /// Whether any entry's value satisfies `predicate` (`some`).
+    pub fn some(&self, predicate: impl Fn(&V, &K) -> bool) -> bool {
+        self.has_by(predicate)
+    }
+
+    /// The first entry whose value satisfies `predicate`, in the map's own
+    /// order (`findFirst`).
+    pub fn find_first(&self, predicate: impl Fn(&V, &K) -> bool) -> Option<(K, V)>
+    where
+        K: Clone,
+        V: Clone,
+    {
+        atomically(|| {
+            self.inner
+                .lock()
+                .unwrap()
+                .iter()
+                .find(|(key, value)| predicate(value, key))
+                .map(|(key, value)| (key.clone(), value.clone()))
+        })
+    }
+
+    /// Run `visit` once per entry (`forEach`).
+    pub fn for_each(&self, mut visit: impl FnMut(&V, &K)) {
+        atomically(|| {
+            for (key, value) in self.inner.lock().unwrap().iter() {
+                visit(value, key);
+            }
+        })
+    }
+
+    /// Replace every value with the map `transform` builds for it and merge
+    /// the results (`flatMap`).
+    pub fn flat_map<K2, W>(
+        &self,
+        mut transform: impl FnMut(&V, &K) -> HashMap<K2, W>,
+    ) -> TxHashMap<K2, W>
+    where
+        K2: Eq + Hash,
+        W: Clone,
+    {
+        let mut out = TxHashMap::new();
+        atomically(|| {
+            let mut visit = |key: &K, value: &V| {
+                for (other_key, other_value) in transform(value, key) {
+                    out.insert(other_key, other_value);
+                }
+            };
+            for (key, value) in self.inner.lock().unwrap().iter() {
+                visit(key, value);
+            }
+        });
+        out
+    }
+
+    /// Keep the `Some` values and drop the rest (`compact`). The value type
+    /// has to be an `Option` for that to say anything, so it is bounded here
+    /// rather than at every call.
+    pub fn compact<W: Clone>(&self) -> TxHashMap<K, W>
+    where
+        K: Clone,
+        V: Clone + Into<Option<W>>,
+    {
+        atomically(|| {
+            self.inner
+                .lock()
+                .unwrap()
+                .iter()
+                .filter_map(|(key, value)| {
+                    value.clone().into().map(|inner| (key.clone(), inner))
+                })
+                .collect()
+        })
     }
 }
 
