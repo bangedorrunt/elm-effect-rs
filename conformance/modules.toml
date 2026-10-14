@@ -820,7 +820,7 @@ tests = ["packages/effect/test/schema/SchemaIssue.test.ts"]
 [[module]]
 path = "packages/effect/src/SchemaParser.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/schema/SchemaParser.test.ts"]
