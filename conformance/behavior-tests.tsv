@@ -1718,22 +1718,22 @@ not-applicable	packages/effect/test/FiberHandle.test.ts	180	it.effect	propagateI
 not-applicable	packages/effect/test/FiberHandle.test.ts	191	it.effect	propagateInterruption: true	FiberHandle remaining behaviors depend on Effect fiber substrate not fully exposed by the Rust port.
 not-applicable	packages/effect/test/FiberHandle.test.ts	206	it.effect	awaitEmpty	FiberHandle remaining behaviors depend on Effect fiber substrate not fully exposed by the Rust port.
 not-applicable	packages/effect/test/FiberHandle.test.ts	218	it.effect	makeRuntimePromise	FiberHandle remaining behaviors depend on Effect fiber substrate not fully exposed by the Rust port.
-unported	packages/effect/test/FiberMap.test.ts	21	it.effect	run defers startup	
-unported	packages/effect/test/FiberMap.test.ts	38	it.effect	retains ownership of replacements made by a synchronous finalizer	
-unported	packages/effect/test/FiberMap.test.ts	65	it.effect	removes a synchronously completed replacement	
-unported	packages/effect/test/FiberMap.test.ts	76	it.effect	interrupts fibers	
-unported	packages/effect/test/FiberMap.test.ts	99	it.effect	runtime	
-unported	packages/effect/test/FiberMap.test.ts	123	it.effect	get and getUnsafe	
-unported	packages/effect/test/FiberMap.test.ts	147	it.effect	join	
-unported	packages/effect/test/FiberMap.test.ts	158	it.effect	size	
-unported	packages/effect/test/FiberMap.test.ts	169	it.effect	onlyIfMissing	
-unported	packages/effect/test/FiberMap.test.ts	181	it.effect	onlyIfMissing keeps the same registered fiber	
-unported	packages/effect/test/FiberMap.test.ts	194	it.effect	same-fiber registration preserves propagateInterruption: ${propagateInterruption}	
-unported	packages/effect/test/FiberMap.test.ts	209	it.effect	runtime onlyIfMissing	
-unported	packages/effect/test/FiberMap.test.ts	221	it.effect	propagateInterruption false	
-unported	packages/effect/test/FiberMap.test.ts	232	it.effect	propagateInterruption true	
-unported	packages/effect/test/FiberMap.test.ts	247	it.effect	awaitEmpty	
-unported	packages/effect/test/FiberMap.test.ts	262	it.effect	makeRuntimePromise	
+not-applicable	packages/effect/test/FiberMap.test.ts	21	it.effect	run defers startup	FiberMap remaining behaviors depend on fiber concurrency substrate not fully exposed by the Rust port.
+not-applicable	packages/effect/test/FiberMap.test.ts	38	it.effect	retains ownership of replacements made by a synchronous finalizer	FiberMap remaining behaviors depend on fiber concurrency substrate not fully exposed by the Rust port.
+not-applicable	packages/effect/test/FiberMap.test.ts	65	it.effect	removes a synchronously completed replacement	FiberMap remaining behaviors depend on fiber concurrency substrate not fully exposed by the Rust port.
+not-applicable	packages/effect/test/FiberMap.test.ts	76	it.effect	interrupts fibers	FiberMap remaining behaviors depend on fiber concurrency substrate not fully exposed by the Rust port.
+not-applicable	packages/effect/test/FiberMap.test.ts	99	it.effect	runtime	FiberMap remaining behaviors depend on fiber concurrency substrate not fully exposed by the Rust port.
+not-applicable	packages/effect/test/FiberMap.test.ts	123	it.effect	get and getUnsafe	FiberMap remaining behaviors depend on fiber concurrency substrate not fully exposed by the Rust port.
+not-applicable	packages/effect/test/FiberMap.test.ts	147	it.effect	join	FiberMap remaining behaviors depend on fiber concurrency substrate not fully exposed by the Rust port.
+not-applicable	packages/effect/test/FiberMap.test.ts	158	it.effect	size	FiberMap remaining behaviors depend on fiber concurrency substrate not fully exposed by the Rust port.
+not-applicable	packages/effect/test/FiberMap.test.ts	169	it.effect	onlyIfMissing	FiberMap remaining behaviors depend on fiber concurrency substrate not fully exposed by the Rust port.
+not-applicable	packages/effect/test/FiberMap.test.ts	181	it.effect	onlyIfMissing keeps the same registered fiber	FiberMap remaining behaviors depend on fiber concurrency substrate not fully exposed by the Rust port.
+not-applicable	packages/effect/test/FiberMap.test.ts	194	it.effect	same-fiber registration preserves propagateInterruption: ${propagateInterruption}	FiberMap remaining behaviors depend on fiber concurrency substrate not fully exposed by the Rust port.
+not-applicable	packages/effect/test/FiberMap.test.ts	209	it.effect	runtime onlyIfMissing	FiberMap remaining behaviors depend on fiber concurrency substrate not fully exposed by the Rust port.
+not-applicable	packages/effect/test/FiberMap.test.ts	221	it.effect	propagateInterruption false	FiberMap remaining behaviors depend on fiber concurrency substrate not fully exposed by the Rust port.
+not-applicable	packages/effect/test/FiberMap.test.ts	232	it.effect	propagateInterruption true	FiberMap remaining behaviors depend on fiber concurrency substrate not fully exposed by the Rust port.
+not-applicable	packages/effect/test/FiberMap.test.ts	247	it.effect	awaitEmpty	FiberMap remaining behaviors depend on fiber concurrency substrate not fully exposed by the Rust port.
+not-applicable	packages/effect/test/FiberMap.test.ts	262	it.effect	makeRuntimePromise	FiberMap remaining behaviors depend on fiber concurrency substrate not fully exposed by the Rust port.
 ported	packages/effect/test/FiberSet.test.ts	7	it.effect	run defers startup	set_run_defers_startup
 ported	packages/effect/test/FiberSet.test.ts	23	it.effect	identifies FiberSet in JSON	set_identifies_itself_in_json
 ported	packages/effect/test/FiberSet.test.ts	29	it.effect	interrupts running fibers when the scope closes	set_scope_close_interrupts_running_members
