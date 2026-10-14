@@ -8741,9 +8741,9 @@ ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts
 ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1376	it	should create a Reference and a definition	json_schema_document_reference_rows_keep_the_reference_a_reference
 ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1397	it	should preserve an annotated $ref as a stable suspend	json_schema_document_reference_rows_keep_the_reference_a_reference
 ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1419	it	does not combine annotation siblings with a $ref	json_schema_document_reference_rows_keep_the_reference_a_reference
-unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1442	it	should preserve a $ref refined only by annotations as a stable suspend	
-unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1466	it	recursive schema	
-unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1508	it	preserves annotations on a recursive $ref	
+ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1442	it	should preserve a $ref refined only by annotations as a stable suspend	json_schema_document_reference_variance_rows
+ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1466	it	recursive schema	json_schema_document_reference_variance_rows
+ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1508	it	preserves annotations on a recursive $ref	json_schema_document_reference_variance_rows
 unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1542	it	combines assertion siblings with a $ref	
 unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1560	it	rejects assertion siblings on a recursive $ref	
 unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1585	it	prunes disjoint lanes before intersecting unions	
