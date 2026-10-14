@@ -2333,7 +2333,7 @@ ported	packages/effect/test/JsonSchema.test.ts	91	it	replaces non-ascii characte
 ported	packages/effect/test/JsonSchema.test.ts	98	it	is idempotent	sanitize_is_idempotent
 ported	packages/effect/test/JsonSchema.test.ts	118	it	rewrites the Draft-07 meta-schema URI without an empty fragment	draft07_rewrites_the_meta_schema_uri_without_an_empty_fragment
 ported	packages/effect/test/JsonSchema.test.ts	125	it	preserves all Draft-07 semantics and opaque custom keywords	draft07_preserves_semantics_and_opaque_custom_keywords
-unported	packages/effect/test/JsonSchema.test.ts	156	it	preserves Draft-07 validation semantics in the canonical dialect	
+ported	packages/effect/test/JsonSchema.test.ts	156	it	preserves Draft-07 validation semantics in the canonical dialect	draft07_preserves_semantics_and_opaque_custom_keywords
 ported	packages/effect/test/JsonSchema.test.ts	192	it	converts Draft-07 plain-name identifiers to canonical anchors	draft07_converts_plain_name_identifiers_to_anchors
 ported	packages/effect/test/JsonSchema.test.ts	205	it	converts canonical anchors without schema identifiers	canonical_anchors_become_legacy_plain_name_identifiers
 ported	packages/effect/test/JsonSchema.test.ts	220	it	rejects canonical anchors combined with schema identifiers	an_anchor_beside_a_schema_identifier_is_refused
@@ -2427,21 +2427,21 @@ ported	packages/effect/test/JsonSchema.test.ts	2345	it	preserves allOf, not, and
 ported	packages/effect/test/JsonSchema.test.ts	2360	it	preserves newer annotations as Draft-04 extensions	draft04_preserves_newer_annotations_as_extensions
 ported	packages/effect/test/JsonSchema.test.ts	2373	it	preserves constraints next to refs	draft04_preserves_constraints_next_to_refs
 ported	packages/effect/test/JsonSchema.test.ts	2392	it	preserves validation semantics for converted constraints	draft04_preserves_validation_semantics_for_converted_constraints
-unported	packages/effect/test/JsonSchema.test.ts	2417	it	converts documents generated from Effect schemas	
-unported	packages/effect/test/JsonSchema.test.ts	2445	it	rejects opaque keywords that OpenAPI 3.1 would activate	
-unported	packages/effect/test/JsonSchema.test.ts	2461	it	does not inspect opaque values for OpenAPI 3.1 keyword collisions	
-unported	packages/effect/test/JsonSchema.test.ts	2473	it	rewrites `$defs` references to `components/schemas`	
-unported	packages/effect/test/JsonSchema.test.ts	2519	it	rewrites refs only in schema positions	
-unported	packages/effect/test/JsonSchema.test.ts	2546	it	sanitizes component schema keys and rewritten refs together	
-unported	packages/effect/test/JsonSchema.test.ts	2580	it	unescapes a definition key before sanitizing its ref	
-unported	packages/effect/test/JsonSchema.test.ts	2598	it	decodes a definition key before sanitizing its ref	
-unported	packages/effect/test/JsonSchema.test.ts	2626	it	does not rewrite local refs inside embedded schema resources	
-unported	packages/effect/test/JsonSchema.test.ts	2676	it	does not rewrite local refs inside root schema resources	
-unported	packages/effect/test/JsonSchema.test.ts	2700	it	rejects shared definition refs from root schema resources	
-unported	packages/effect/test/JsonSchema.test.ts	2714	it	suffixes a sanitized key that collides with a valid key	
-unported	packages/effect/test/JsonSchema.test.ts	2748	it	allocates suffixes deterministically and skips occupied keys	
-unported	packages/effect/test/JsonSchema.test.ts	2804	it	reserves sanitized bases before allocating suffixes	
-unported	packages/effect/test/JsonSchema.test.ts	2842	it	rewrites nested definition refs without changing other refs	
+not-applicable	packages/effect/test/JsonSchema.test.ts	2417	it	converts documents generated from Effect schemas	the row feeds JsonSchema.toDocumentDraft04 the document that Schema.toJsonSchemaDocument produces for a struct of literals, checked finite, tuple and a shared sub-schema, then compiles the result and asserts which values validate; this port has no Schema.toJsonSchemaDocument to pair with to_document_draft04, so the document the row starts from cannot be built here
+ported	packages/effect/test/JsonSchema.test.ts	2445	it	rejects opaque keywords that OpenAPI 3.1 would activate	multi_rejects_opaque_keywords_open_api3_1_would_activate
+ported	packages/effect/test/JsonSchema.test.ts	2461	it	does not inspect opaque values for OpenAPI 3.1 keyword collisions	multi_does_not_inspect_opaque_values_for_keyword_collisions
+ported	packages/effect/test/JsonSchema.test.ts	2473	it	rewrites `$defs` references to `components/schemas`	multi_rewrites_defs_refs_to_component_refs
+ported	packages/effect/test/JsonSchema.test.ts	2519	it	rewrites refs only in schema positions	multi_rewrites_refs_only_in_schema_positions
+ported	packages/effect/test/JsonSchema.test.ts	2546	it	sanitizes component schema keys and rewritten refs together	multi_sanitizes_component_keys_and_rewritten_refs_together
+ported	packages/effect/test/JsonSchema.test.ts	2580	it	unescapes a definition key before sanitizing its ref	multi_unescapes_a_definition_key_before_sanitizing_its_ref
+ported	packages/effect/test/JsonSchema.test.ts	2598	it	decodes a definition key before sanitizing its ref	multi_decodes_a_definition_key_before_sanitizing_its_ref
+ported	packages/effect/test/JsonSchema.test.ts	2626	it	does not rewrite local refs inside embedded schema resources	multi_does_not_rewrite_local_refs_inside_embedded_schema_resources
+ported	packages/effect/test/JsonSchema.test.ts	2676	it	does not rewrite local refs inside root schema resources	multi_does_not_rewrite_local_refs_inside_root_schema_resources
+ported	packages/effect/test/JsonSchema.test.ts	2700	it	rejects shared definition refs from root schema resources	multi_rejects_shared_definition_refs_from_root_schema_resources
+ported	packages/effect/test/JsonSchema.test.ts	2714	it	suffixes a sanitized key that collides with a valid key	multi_suffixes_a_sanitized_key_that_collides_with_a_valid_key
+ported	packages/effect/test/JsonSchema.test.ts	2748	it	allocates suffixes deterministically and skips occupied keys	multi_allocates_suffixes_deterministically_and_skips_occupied_keys
+ported	packages/effect/test/JsonSchema.test.ts	2804	it	reserves sanitized bases before allocating suffixes	multi_reserves_sanitized_bases_before_allocating_suffixes
+ported	packages/effect/test/JsonSchema.test.ts	2842	it	rewrites nested definition refs without changing other refs	multi_rewrites_nested_definition_refs_without_changing_other_refs
 ported	packages/effect/test/JsonSchema.test.ts	2916	it	${name} does not mutate its input	from_schema_conversions_do_not_mutate_their_input
 ported	packages/effect/test/JsonSchema.test.ts	2927	it	${name} does not mutate its input	lowering_does_not_mutate_its_input
 ported	packages/effect/test/JsonSchema.test.ts	2939	it	toMultiDocumentOpenApi3_1 does not mutate its input	to_multi_document_open_api3_1_does_not_mutate_its_input
@@ -8735,12 +8735,12 @@ ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts
 ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1298	it	rejects an empty reference	json_schema_document_ref_rows_carry_their_code_and_type
 ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1305	it	rejects an external reference instead of aliasing a local definition	json_schema_document_ref_rows_carry_their_code_and_type
 ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1318	it	reports the full reference when a direct definition is missing	json_schema_document_ref_rows_carry_their_code_and_type
-ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1325	it	unescapes a direct definition reference	json_schema_document_ref_rows_carry_their_code_and_type
-ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1344	it	decodes a direct definition reference	json_schema_document_ref_rows_carry_their_code_and_type
-ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1360	it	resolves a direct reference to an empty definition key	json_schema_document_ref_rows_carry_their_code_and_type
-unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1376	it	should create a Reference and a definition	
-unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1397	it	should preserve an annotated $ref as a stable suspend	
-unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1419	it	does not combine annotation siblings with a $ref	
+ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1325	it	unescapes a direct definition reference	json_schema_document_reference_rows_keep_the_reference_a_reference
+ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1344	it	decodes a direct definition reference	json_schema_document_reference_rows_keep_the_reference_a_reference
+ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1360	it	resolves a direct reference to an empty definition key	json_schema_document_reference_rows_keep_the_reference_a_reference
+ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1376	it	should create a Reference and a definition	json_schema_document_reference_rows_keep_the_reference_a_reference
+ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1397	it	should preserve an annotated $ref as a stable suspend	json_schema_document_reference_rows_keep_the_reference_a_reference
+ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1419	it	does not combine annotation siblings with a $ref	json_schema_document_reference_rows_keep_the_reference_a_reference
 unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1442	it	should preserve a $ref refined only by annotations as a stable suspend	
 unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1466	it	recursive schema	
 unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1508	it	preserves annotations on a recursive $ref	
