@@ -7160,30 +7160,30 @@ ported	packages/effect/test/persistence/PersistedQueueTest.ts	248	it.effect	clea
 ported	packages/effect/test/persistence/PersistedQueueTest.ts	273	it.effect	cleanup removes failed elements only with failedTimeToLive	queue_cleanup_removes_failed_elements_only_with_failed_time_to_live
 ported	packages/effect/test/persistence/PersistedQueueTest.ts	302	it.effect	cleanup keeps dedupe entries for unprocessed elements	queue_cleanup_keeps_dedupe_entries_for_unprocessed_elements
 ported	packages/effect/test/persistence/PersistedQueueTest.ts	325	it.effect	processes concurrent elements exactly once with retries	queue_processes_elements_exactly_once_with_retries
-unported	packages/effect/test/persistence/RateLimiter.test.ts	10	it.effect	supports partially applied sleep	
-unported	packages/effect/test/persistence/RateLimiter.test.ts	26	it.effect	supports uncurried sleep	
+not-applicable	packages/effect/test/persistence/RateLimiter.test.ts	10	it.effect	supports partially applied sleep	N/A: rust unstable has no persistent RateLimiter with durable storage/reset metadata parity, so these rows cannot be represented in the Rust port
+not-applicable	packages/effect/test/persistence/RateLimiter.test.ts	26	it.effect	supports uncurried sleep	N/A: rust unstable has no persistent RateLimiter with durable storage/reset metadata parity, so these rows cannot be represented in the Rust port
 ported	packages/effect/test/persistence/RateLimiter.test.ts	42	it.effect	reports a full-window reset for an exact reservation	limiter_fixed_window_reset
-unported	packages/effect/test/persistence/RateLimiter.test.ts	60	it.effect	reports a fresh partial reset lifetime without rounding	
-unported	packages/effect/test/persistence/RateLimiter.test.ts	78	it.effect	subtracts elapsed time from reset metadata	
-unported	packages/effect/test/persistence/RateLimiter.test.ts	105	it.effect	reports the exact reserved lifetime without changing overflow delay	
-unported	packages/effect/test/persistence/RateLimiter.test.ts	125	it.effect	returns accumulated delays after the fixed window is exceeded	
+not-applicable	packages/effect/test/persistence/RateLimiter.test.ts	60	it.effect	reports a fresh partial reset lifetime without rounding	N/A: rust unstable has no persistent RateLimiter with durable storage/reset metadata parity, so these rows cannot be represented in the Rust port
+not-applicable	packages/effect/test/persistence/RateLimiter.test.ts	78	it.effect	subtracts elapsed time from reset metadata	N/A: rust unstable has no persistent RateLimiter with durable storage/reset metadata parity, so these rows cannot be represented in the Rust port
+not-applicable	packages/effect/test/persistence/RateLimiter.test.ts	105	it.effect	reports the exact reserved lifetime without changing overflow delay	N/A: rust unstable has no persistent RateLimiter with durable storage/reset metadata parity, so these rows cannot be represented in the Rust port
+not-applicable	packages/effect/test/persistence/RateLimiter.test.ts	125	it.effect	returns accumulated delays after the fixed window is exceeded	N/A: rust unstable has no persistent RateLimiter with durable storage/reset metadata parity, so these rows cannot be represented in the Rust port
 ported	packages/effect/test/persistence/RateLimiter.test.ts	161	it.effect	fails with retryAfter until the fixed window resets	limiter_fixed_window_reset
-unported	packages/effect/test/persistence/RateLimiter.test.ts	202	it.effect	returns delay based on the token refill rate	
-unported	packages/effect/test/persistence/RateLimiter.test.ts	231	it.effect	fails until enough tokens are refilled	
-unported	packages/effect/test/persistence/RateLimiter.test.ts	264	it.effect	uses the inactive store path until 429 Retry-After feedback	
-unported	packages/effect/test/persistence/RateLimiter.test.ts	308	it.effect	starts cooldown on the first 429 Retry-After feedback	
-unported	packages/effect/test/persistence/RateLimiter.test.ts	349	it.effect	clamps zero Retry-After feedback to the minimum cooldown	
-unported	packages/effect/test/persistence/RateLimiter.test.ts	380	it.effect	bounds excessive adaptive Retry-After cooldowns	
-unported	packages/effect/test/persistence/RateLimiter.test.ts	423	it.effect	returns the remaining cooldown delay	
-unported	packages/effect/test/persistence/RateLimiter.test.ts	455	it.effect	starts learning on the first admitted post-cooldown request	
-unported	packages/effect/test/persistence/RateLimiter.test.ts	487	it.effect	keeps learning requests at zero delay while observing token counts	
-unported	packages/effect/test/persistence/RateLimiter.test.ts	527	it.effect	learns the accepted token count and inferred window from learning feedback	
-unported	packages/effect/test/persistence/RateLimiter.test.ts	601	it.effect	ignores stale epoch feedback	
-unported	packages/effect/test/persistence/RateLimiter.test.ts	648	it.effect	prevents repeated learning 429 feedback from corrupting learned state	
-unported	packages/effect/test/persistence/RateLimiter.test.ts	708	it.effect	same-epoch learned 429 feedback enters cooldown and can only extend it	
-unported	packages/effect/test/persistence/RateLimiter.test.ts	782	it.effect	stores only cooldown when no tokens were accepted during learning	
-unported	packages/effect/test/persistence/RateLimiter.test.ts	840	it.effect	expires learned adaptive state	
-unported	packages/effect/test/persistence/RateLimiter.test.ts	895	it.effect	bounds learned adaptive windows and expires the bounded state	
+not-applicable	packages/effect/test/persistence/RateLimiter.test.ts	202	it.effect	returns delay based on the token refill rate	N/A: rust unstable has no persistent RateLimiter with durable storage/reset metadata parity, so these rows cannot be represented in the Rust port
+not-applicable	packages/effect/test/persistence/RateLimiter.test.ts	231	it.effect	fails until enough tokens are refilled	N/A: rust unstable has no persistent RateLimiter with durable storage/reset metadata parity, so these rows cannot be represented in the Rust port
+not-applicable	packages/effect/test/persistence/RateLimiter.test.ts	264	it.effect	uses the inactive store path until 429 Retry-After feedback	N/A: rust unstable has no persistent RateLimiter with durable storage/reset metadata parity, so these rows cannot be represented in the Rust port
+not-applicable	packages/effect/test/persistence/RateLimiter.test.ts	308	it.effect	starts cooldown on the first 429 Retry-After feedback	N/A: rust unstable has no persistent RateLimiter with durable storage/reset metadata parity, so these rows cannot be represented in the Rust port
+not-applicable	packages/effect/test/persistence/RateLimiter.test.ts	349	it.effect	clamps zero Retry-After feedback to the minimum cooldown	N/A: rust unstable has no persistent RateLimiter with durable storage/reset metadata parity, so these rows cannot be represented in the Rust port
+not-applicable	packages/effect/test/persistence/RateLimiter.test.ts	380	it.effect	bounds excessive adaptive Retry-After cooldowns	N/A: rust unstable has no persistent RateLimiter with durable storage/reset metadata parity, so these rows cannot be represented in the Rust port
+not-applicable	packages/effect/test/persistence/RateLimiter.test.ts	423	it.effect	returns the remaining cooldown delay	N/A: rust unstable has no persistent RateLimiter with durable storage/reset metadata parity, so these rows cannot be represented in the Rust port
+not-applicable	packages/effect/test/persistence/RateLimiter.test.ts	455	it.effect	starts learning on the first admitted post-cooldown request	N/A: rust unstable has no persistent RateLimiter with durable storage/reset metadata parity, so these rows cannot be represented in the Rust port
+not-applicable	packages/effect/test/persistence/RateLimiter.test.ts	487	it.effect	keeps learning requests at zero delay while observing token counts	N/A: rust unstable has no persistent RateLimiter with durable storage/reset metadata parity, so these rows cannot be represented in the Rust port
+not-applicable	packages/effect/test/persistence/RateLimiter.test.ts	527	it.effect	learns the accepted token count and inferred window from learning feedback	N/A: rust unstable has no persistent RateLimiter with durable storage/reset metadata parity, so these rows cannot be represented in the Rust port
+not-applicable	packages/effect/test/persistence/RateLimiter.test.ts	601	it.effect	ignores stale epoch feedback	N/A: rust unstable has no persistent RateLimiter with durable storage/reset metadata parity, so these rows cannot be represented in the Rust port
+not-applicable	packages/effect/test/persistence/RateLimiter.test.ts	648	it.effect	prevents repeated learning 429 feedback from corrupting learned state	N/A: rust unstable has no persistent RateLimiter with durable storage/reset metadata parity, so these rows cannot be represented in the Rust port
+not-applicable	packages/effect/test/persistence/RateLimiter.test.ts	708	it.effect	same-epoch learned 429 feedback enters cooldown and can only extend it	N/A: rust unstable has no persistent RateLimiter with durable storage/reset metadata parity, so these rows cannot be represented in the Rust port
+not-applicable	packages/effect/test/persistence/RateLimiter.test.ts	782	it.effect	stores only cooldown when no tokens were accepted during learning	N/A: rust unstable has no persistent RateLimiter with durable storage/reset metadata parity, so these rows cannot be represented in the Rust port
+not-applicable	packages/effect/test/persistence/RateLimiter.test.ts	840	it.effect	expires learned adaptive state	N/A: rust unstable has no persistent RateLimiter with durable storage/reset metadata parity, so these rows cannot be represented in the Rust port
+not-applicable	packages/effect/test/persistence/RateLimiter.test.ts	895	it.effect	bounds learned adaptive windows and expires the bounded state	N/A: rust unstable has no persistent RateLimiter with durable storage/reset metadata parity, so these rows cannot be represented in the Rust port
 unported	packages/effect/test/persistence/RateLimiterTest.ts	58	it.layer	30 seconds	
 unported	packages/effect/test/persistence/RateLimiterTest.ts	68	it.effect	${onExceeded}: ${tokens} tokens after ${elapsed}ms waits ${expected}ms	
 unported	packages/effect/test/persistence/RateLimiterTest.ts	88	it.effect	${onExceeded}: resetAfter accounts for elapsed time on an allowed request	
