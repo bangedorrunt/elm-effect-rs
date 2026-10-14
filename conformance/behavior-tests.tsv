@@ -7529,15 +7529,15 @@ unported	packages/effect/test/schema/HMR.test.ts	32	it	isSchema
 unported	packages/effect/test/schema/HMR.test.ts	44	it	isSchemaError	
 unported	packages/effect/test/schema/HMR.test.ts	57	it	Schema.Class	
 not-applicable	packages/effect/test/schema/Schema.test.ts	59	it	keeps synchronous decode and encode effects eager	the row asserts the JS adapter return shape (Exit.isExit on decodeUnknownEffect/encodeUnknownEffect, plus Cause.findErrorOption over a SchemaError); this port's decode/encode are direct synchronous Result calls with no adapter to hand an Exit back from, so the observable has no counterpart
-unported	packages/effect/test/schema/Schema.test.ts	83	it	isSchema	
-unported	packages/effect/test/schema/Schema.test.ts	94	it	toString	
-unported	packages/effect/test/schema/Schema.test.ts	102	it	extends Error and exposes the issue	
-unported	packages/effect/test/schema/Schema.test.ts	117	it	does not capture stack frames	
+not-applicable	packages/effect/test/schema/Schema.test.ts	83	it	isSchema	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	94	it	toString	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	102	it	extends Error and exposes the issue	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	117	it	does not capture stack frames	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
 ported	packages/effect/test/schema/Schema.test.ts	131	it	does not interpret custom parseOptions metadata	custom_metadata_is_not_interpreted
-unported	packages/effect/test/schema/Schema.test.ts	144	it	applies errors to nested schemas without annotation overrides	
-unported	packages/effect/test/schema/Schema.test.ts	164	it	applies errors with encoding checks	
-unported	packages/effect/test/schema/Schema.test.ts	187	it	decoders can receive options when they are created	
-unported	packages/effect/test/schema/Schema.test.ts	202	it	encoders can receive options when they are created	
+not-applicable	packages/effect/test/schema/Schema.test.ts	144	it	applies errors to nested schemas without annotation overrides	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	164	it	applies errors with encoding checks	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	187	it	decoders can receive options when they are created	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	202	it	encoders can receive options when they are created	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
 ported	packages/effect/test/schema/Schema.test.ts	219	it	should throw an error if the literal is not a finite number	literal_refuses_a_non_finite_number
 ported	packages/effect/test/schema/Schema.test.ts	237	it	should expose the literal	literal_exposes_its_value
 ported	packages/effect/test/schema/Schema.test.ts	243	it	a	cell_literal_a
@@ -7569,46 +7569,46 @@ not-applicable	packages/effect/test/schema/Schema.test.ts	606	it	mutableKey	the 
 not-applicable	packages/effect/test/schema/Schema.test.ts	613	it	mutableKey & optionalKey	the row asserts both isMutable and isOptional on one AST context; the port has no key mutability, so one of the two flags has no counterpart
 not-applicable	packages/effect/test/schema/Schema.test.ts	619	it	readonlyKey	the row asserts readonlyKey clears isMutable; the port has no key mutability, so there is no flag to clear
 not-applicable	packages/effect/test/schema/Schema.test.ts	625	it	allows duplicate property signatures in the low-level AST constructor	the row asserts the low-level AST keeps duplicate property signatures in declaration order; the port's shape holds its fields privately with no AST accessor, and a duplicate list is not decodable (the second signature for a key finds it already consumed), so the assertion has no counterpart
-unported	packages/effect/test/schema/Schema.test.ts	638	it	error	
+not-applicable	packages/effect/test/schema/Schema.test.ts	638	it	error	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
 ported	packages/effect/test/schema/Schema.test.ts	666	it	ignore strips undeclared string and symbol properties	struct_decode_ignores_undeclared_keys
 not-applicable	packages/effect/test/schema/Schema.test.ts	680	it	error ignores non-enumerable undeclared own properties without reading them	the row's subject is non-enumerable own properties and a getter that must not be read; a BTreeMap input has no property attributes and no getters
 not-applicable	packages/effect/test/schema/Schema.test.ts	703	it	error validates non-enumerable declared string and symbol properties	the row's subject is non-enumerable declared properties, including a symbol key, still being validated; the port's inputs have no enumerability and no symbol keys
 not-applicable	packages/effect/test/schema/Schema.test.ts	719	it	error accepts Error internals in an open record	the row's input is a JavaScript Error object whose non-enumerable internals must not surface as excess properties; the port's inputs are JSON-shaped values with no hidden internals
-unported	packages/effect/test/schema/Schema.test.ts	727	it	error encodes tagged errors carrying runtime internals	
+not-applicable	packages/effect/test/schema/Schema.test.ts	727	it	error encodes tagged errors carrying runtime internals	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
 not-applicable	packages/effect/test/schema/Schema.test.ts	735	it	should corectly handle __proto__	the row's two inputs differ only by JavaScript prototype semantics: {["__proto__"]: "a"} is an own key while {__proto__: "a"} sets the literal's prototype, so one decodes and the other reports a missing key; a Rust map makes both spellings the same entry, so the second observable cannot exist
-unported	packages/effect/test/schema/Schema.test.ts	750	it	a	
-unported	packages/effect/test/schema/Schema.test.ts	790	it	a	
-unported	packages/effect/test/schema/Schema.test.ts	813	it	should use the identifier annotation as the expected message	
-unported	packages/effect/test/schema/Schema.test.ts	823	it	a	
-unported	packages/effect/test/schema/Schema.test.ts	852	it	a	
-unported	packages/effect/test/schema/Schema.test.ts	884	it	a	
-unported	packages/effect/test/schema/Schema.test.ts	905	it	all	
+not-applicable	packages/effect/test/schema/Schema.test.ts	750	it	a	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	790	it	a	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	813	it	should use the identifier annotation as the expected message	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	823	it	a	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	852	it	a	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	884	it	a	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	905	it	all	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
 ported	packages/effect/test/schema/Schema.test.ts	942	it	Struct	map_fields_assign_joins_the_declared_fields
 ported	packages/effect/test/schema/Schema.test.ts	963	it	overlapping fields	map_fields_assign_replaces_an_overlapping_field
-unported	packages/effect/test/schema/Schema.test.ts	980	it	Struct & check & unsafePreserveChecks: true	
+not-applicable	packages/effect/test/schema/Schema.test.ts	980	it	Struct & check & unsafePreserveChecks: true	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
 ported	packages/effect/test/schema/Schema.test.ts	1000	it	Struct	map_fields_pick_keeps_only_the_named_fields
 ported	packages/effect/test/schema/Schema.test.ts	1013	it	Struct	map_fields_omit_drops_the_named_field
 ported	packages/effect/test/schema/Schema.test.ts	1027	it	A required element cannot follow an optional element	tuple_refuses_a_required_element_after_an_optional_one
-unported	packages/effect/test/schema/Schema.test.ts	1038	it	should fail on unexpected indexes	
+not-applicable	packages/effect/test/schema/Schema.test.ts	1038	it	should fail on unexpected indexes	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
 ported	packages/effect/test/schema/Schema.test.ts	1058	it	readonly [string]	tuple_of_checked_elements_names_the_index_a_failing_element_failed_at
 ported	packages/effect/test/schema/Schema.test.ts	1101	it	readonly [string?]	tuple_with_an_optional_element_accepts_the_empty_tuple
-unported	packages/effect/test/schema/Schema.test.ts	1120	it	should expose the element schema via .value	
+not-applicable	packages/effect/test/schema/Schema.test.ts	1120	it	should expose the element schema via .value	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
 ported	packages/effect/test/schema/Schema.test.ts	1126	it	readonly string[]	array_of_strings_decides_each_element
-unported	packages/effect/test/schema/Schema.test.ts	1152	it	supports encodings on array elements	
-unported	packages/effect/test/schema/Schema.test.ts	1160	it	supports withDecodingDefaultType after mutable	
-unported	packages/effect/test/schema/Schema.test.ts	1175	it	does not support withDecodingDefaultType before mutable	
-unported	packages/effect/test/schema/Schema.test.ts	1188	it	preserves annotations, checks, encoding checks, and context	
-unported	packages/effect/test/schema/Schema.test.ts	1210	it	ArrayEnsure	
-unported	packages/effect/test/schema/Schema.test.ts	1232	it	ArrayEnsure roundtrips array-valued elements	
-unported	packages/effect/test/schema/Schema.test.ts	1239	it	ArrayEnsure preserves outer-array encoding	
-unported	packages/effect/test/schema/Schema.test.ts	1245	it	should expose the element schema via .value	
-unported	packages/effect/test/schema/Schema.test.ts	1250	it	readonly string[]	
+not-applicable	packages/effect/test/schema/Schema.test.ts	1152	it	supports encodings on array elements	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	1160	it	supports withDecodingDefaultType after mutable	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	1175	it	does not support withDecodingDefaultType before mutable	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	1188	it	preserves annotations, checks, encoding checks, and context	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	1210	it	ArrayEnsure	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	1232	it	ArrayEnsure roundtrips array-valued elements	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	1239	it	ArrayEnsure preserves outer-array encoding	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	1245	it	should expose the element schema via .value	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	1250	it	readonly string[]	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
 ported	packages/effect/test/schema/Schema.test.ts	1288	it	Trimmed	trimmed_string_refuses_padding_but_not_an_inner_space
 ported	packages/effect/test/schema/Schema.test.ts	1306	it	single check	a_single_check_refuses_a_short_string
-unported	packages/effect/test/schema/Schema.test.ts	1318	it	multiple checks	
-unported	packages/effect/test/schema/Schema.test.ts	1339	it	aborting checks	
-unported	packages/effect/test/schema/Schema.test.ts	1353	it	makeFilterGroup	
-unported	packages/effect/test/schema/Schema.test.ts	1380	it	object-level checks are validated against the decoded value when encoding	
+not-applicable	packages/effect/test/schema/Schema.test.ts	1318	it	multiple checks	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	1339	it	aborting checks	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	1353	it	makeFilterGroup	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	1380	it	object-level checks are validated against the decoded value when encoding	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
 ported	packages/effect/test/schema/Schema.test.ts	1393	it	suspended checks are not supported	suspend_preserves_inner_refinement
 ported	packages/effect/test/schema/Schema.test.ts	1405	it	refine	refine_rejects_failing_values
 ported	packages/effect/test/schema/Schema.test.ts	1427	it	isPattern	is_pattern_checks_the_string
@@ -7627,7 +7627,7 @@ ported	packages/effect/test/schema/Schema.test.ts	1635	it	isLessThanOrEqualTo	is
 ported	packages/effect/test/schema/Schema.test.ts	1647	it	isMultipleOf	refine_is_multiple_of
 ported	packages/effect/test/schema/Schema.test.ts	1659	it	isMultipleOf rejects nonzero subnormal remainders	is_multiple_of_rejects_subnormal_remainders
 ported	packages/effect/test/schema/Schema.test.ts	1665	it	isMultipleOf normalizes negative divisors	is_multiple_of_normalizes_negative_divisors
-unported	packages/effect/test/schema/Schema.test.ts	1677	it	isMultipleOf rejects invalid divisors	
+not-applicable	packages/effect/test/schema/Schema.test.ts	1677	it	isMultipleOf rejects invalid divisors	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
 ported	packages/effect/test/schema/Schema.test.ts	1687	it	included & included	is_between_includes_both_bounds
 ported	packages/effect/test/schema/Schema.test.ts	1712	it	included & excluded	is_between_excludes_the_maximum
 ported	packages/effect/test/schema/Schema.test.ts	1737	it	excluded & included	is_between_excludes_the_minimum
@@ -7654,112 +7654,112 @@ ported	packages/effect/test/schema/Schema.test.ts	2120	it	DateFromString	date_fr
 ported	packages/effect/test/schema/Schema.test.ts	2136	it	DateFromMillis	date_from_millis_validates_whole_milliseconds_in_range
 ported	packages/effect/test/schema/Schema.test.ts	2159	it	FiniteFromString	finite_from_string_dedicated_decode_and_encode_table
 not-applicable	packages/effect/test/schema/Schema.test.ts	2198	it	BigIntFromString	the row's value is a JavaScript BigInt; the port's Unknown holds null, booleans, numbers, text, arrays and objects, so both the success and the failure case are unrepresentable
-unported	packages/effect/test/schema/Schema.test.ts	2216	it	BigDecimalFromString	
-unported	packages/effect/test/schema/Schema.test.ts	2237	it	TimeZoneNamedFromString	
-unported	packages/effect/test/schema/Schema.test.ts	2256	it	TimeZoneFromString	
-unported	packages/effect/test/schema/Schema.test.ts	2277	it	DateTimeZonedFromString	
-unported	packages/effect/test/schema/Schema.test.ts	2298	it	FiniteFromString & isGreaterThan	
-unported	packages/effect/test/schema/Schema.test.ts	2319	it	should expose the source and the target schemas	
+not-applicable	packages/effect/test/schema/Schema.test.ts	2216	it	BigDecimalFromString	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	2237	it	TimeZoneNamedFromString	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	2256	it	TimeZoneFromString	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	2277	it	DateTimeZonedFromString	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	2298	it	FiniteFromString & isGreaterThan	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	2319	it	should expose the source and the target schemas	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
 ported	packages/effect/test/schema/Schema.test.ts	2326	it	required to required	a_required_field_refuses_a_missing_key_on_both_axes
 not-applicable	packages/effect/test/schema/Schema.test.ts	2354	it	required to optional	the row asserts that a required source field maps to an optional target whose ENCODE getter supplies a default (`{}` encodes to `{ a: "default" }`) via `SchemaGetter.withDefault` on the encode axis; this port's only encode-side field hook is `omit_encoding`, so there is no encode-side default to assert — the decode half, that a missing key is refused, is carried by `a_required_field_refuses_a_missing_key_on_both_axes`
 ported	packages/effect/test/schema/Schema.test.ts	2381	it	optionalKey to required	an_absent_optional_key_decodes_to_its_default
 ported	packages/effect/test/schema/Schema.test.ts	2403	it	double transformation	finite_from_string_trims_the_source_text
 ported	packages/effect/test/schema/Schema.test.ts	2421	it	double transformation with checks	double_with_checks_rejects_between_steps
-unported	packages/effect/test/schema/Schema.test.ts	2453	it	nested defaults	
+not-applicable	packages/effect/test/schema/Schema.test.ts	2453	it	nested defaults	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
 ported	packages/effect/test/schema/Schema.test.ts	2485	it	double transformation	decode_only_transformation_leaves_encode_alone
 ported	packages/effect/test/schema/Schema.test.ts	2505	it	required to required	require_all_makes_optional_keys_required
-unported	packages/effect/test/schema/Schema.test.ts	2533	it	required to optionalKey	
+not-applicable	packages/effect/test/schema/Schema.test.ts	2533	it	required to optionalKey	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
 ported	packages/effect/test/schema/Schema.test.ts	2555	it	optionalKey to required	require_all_makes_optional_keys_required
 ported	packages/effect/test/schema/Schema.test.ts	2582	it	double transformation	finite_from_string_trims_the_source_text
 ported	packages/effect/test/schema/Schema.test.ts	2600	it	double transformation with checks	double_with_checks_rejects_between_steps
 ported	packages/effect/test/schema/Schema.test.ts	2634	it	double transformation	encode_only_transformation_leaves_decode_alone
-unported	packages/effect/test/schema/Schema.test.ts	2654	it	should expose the schema	
-unported	packages/effect/test/schema/Schema.test.ts	2662	it	string & isMinLength(3) <-> number & isGreaterThan(2)	
-unported	packages/effect/test/schema/Schema.test.ts	2684	it	Struct & flip & check & flip should apply the check to the encoded side	
-unported	packages/effect/test/schema/Schema.test.ts	2710	it	Tuple & flip & check & flip should apply the check to the encoded side	
-unported	packages/effect/test/schema/Schema.test.ts	2736	it	Union & flip & check & flip should apply the check to the encoded side	
-unported	packages/effect/test/schema/Schema.test.ts	2762	it	Declaration & flip & check & flip should apply the check to the encoded side	
-unported	packages/effect/test/schema/Schema.test.ts	2791	it	Struct & flip & check & flip with encoding chain should check the local value	
-unported	packages/effect/test/schema/Schema.test.ts	2825	it	should work with withConstructorDefault	
-unported	packages/effect/test/schema/Schema.test.ts	2850	it	declare	
-unported	packages/effect/test/schema/Schema.test.ts	2863	it	should expose the value	
-unported	packages/effect/test/schema/Schema.test.ts	2869	it	does not expose unwrapped inputs	
-unported	packages/effect/test/schema/Schema.test.ts	2880	it	Redacted(Finite)	
-unported	packages/effect/test/schema/Schema.test.ts	2917	it	Redacted(FiniteFromString)	
-unported	packages/effect/test/schema/Schema.test.ts	2970	it	with label	
-unported	packages/effect/test/schema/Schema.test.ts	3008	it	should decode a value	
-unported	packages/effect/test/schema/Schema.test.ts	3034	it	should expose the value	
+not-applicable	packages/effect/test/schema/Schema.test.ts	2654	it	should expose the schema	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	2662	it	string & isMinLength(3) <-> number & isGreaterThan(2)	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	2684	it	Struct & flip & check & flip should apply the check to the encoded side	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	2710	it	Tuple & flip & check & flip should apply the check to the encoded side	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	2736	it	Union & flip & check & flip should apply the check to the encoded side	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	2762	it	Declaration & flip & check & flip should apply the check to the encoded side	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	2791	it	Struct & flip & check & flip with encoding chain should check the local value	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	2825	it	should work with withConstructorDefault	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	2850	it	declare	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	2863	it	should expose the value	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	2869	it	does not expose unwrapped inputs	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	2880	it	Redacted(Finite)	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	2917	it	Redacted(FiniteFromString)	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	2970	it	with label	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	3008	it	should decode a value	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	3034	it	should expose the value	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
 ported	packages/effect/test/schema/Schema.test.ts	3040	it	Option(FiniteFromString)	ffs_composes_with_optional
-unported	packages/effect/test/schema/Schema.test.ts	3070	it	OptionFromNullOr	
-unported	packages/effect/test/schema/Schema.test.ts	3088	it	OptionFromUndefinedOr	
-unported	packages/effect/test/schema/Schema.test.ts	3107	it	onNoneEncoding: null	
-unported	packages/effect/test/schema/Schema.test.ts	3126	it	onNoneEncoding: undefined	
-unported	packages/effect/test/schema/Schema.test.ts	3146	it	OptionFromOptionalKey	
-unported	packages/effect/test/schema/Schema.test.ts	3175	it	OptionFromOptional	
-unported	packages/effect/test/schema/Schema.test.ts	3201	it	default (omit)	
-unported	packages/effect/test/schema/Schema.test.ts	3232	it	onNoneEncoding: null	
-unported	packages/effect/test/schema/Schema.test.ts	3249	it	onNoneEncoding: undefined	
-unported	packages/effect/test/schema/Schema.test.ts	3268	it	should expose the values	
-unported	packages/effect/test/schema/Schema.test.ts	3276	it	Result(FiniteFromString, FiniteFromString)	
-unported	packages/effect/test/schema/Schema.test.ts	3305	it	Defect	
-unported	packages/effect/test/schema/Schema.test.ts	3352	it	ErrorInstance and Defect memoize equivalent options	
-unported	packages/effect/test/schema/Schema.test.ts	3377	it	should expose the values	
+not-applicable	packages/effect/test/schema/Schema.test.ts	3070	it	OptionFromNullOr	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	3088	it	OptionFromUndefinedOr	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	3107	it	onNoneEncoding: null	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	3126	it	onNoneEncoding: undefined	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	3146	it	OptionFromOptionalKey	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	3175	it	OptionFromOptional	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	3201	it	default (omit)	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	3232	it	onNoneEncoding: null	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	3249	it	onNoneEncoding: undefined	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	3268	it	should expose the values	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	3276	it	Result(FiniteFromString, FiniteFromString)	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	3305	it	Defect	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	3352	it	ErrorInstance and Defect memoize equivalent options	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	3377	it	should expose the values	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
 not-applicable	packages/effect/test/schema/Schema.test.ts	3385	it	CauseReason(FiniteFromString, FiniteFromString)	the row's body asserts nothing at runtime beyond the optional arbitrary-generation check, and Schema.CauseReason does not exist on the Rust schema surface (this crate has no Cause model), so the schema in the row cannot be built
-unported	packages/effect/test/schema/Schema.test.ts	3396	it	strict encoding preserves the default wire format for every reason variant	
-unported	packages/effect/test/schema/Schema.test.ts	3412	it	should expose the values	
-unported	packages/effect/test/schema/Schema.test.ts	3420	it	Cause(FiniteFromString, FiniteFromString)	
-unported	packages/effect/test/schema/Schema.test.ts	3462	it	Error	
-unported	packages/effect/test/schema/Schema.test.ts	3501	it	should expose the values	
-unported	packages/effect/test/schema/Schema.test.ts	3511	it	Exit(FiniteFromString, String, Unknown)	
-unported	packages/effect/test/schema/Schema.test.ts	3538	it	Exit(FiniteFromString, String, Defect)	
-unported	packages/effect/test/schema/Schema.test.ts	3557	it	should work	
+not-applicable	packages/effect/test/schema/Schema.test.ts	3396	it	strict encoding preserves the default wire format for every reason variant	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	3412	it	should expose the values	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	3420	it	Cause(FiniteFromString, FiniteFromString)	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	3462	it	Error	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	3501	it	should expose the values	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	3511	it	Exit(FiniteFromString, String, Unknown)	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	3538	it	Exit(FiniteFromString, String, Defect)	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	3557	it	should work	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
 not-applicable	packages/effect/test/schema/Schema.test.ts	3601	it	preserves __proto__ as an own option	the row asserts Object.hasOwn(schema, "__proto__") on the options bag Schema.make merges into a schema; this port's schemas hold no options object, so there is no own-property surface to preserve
-unported	packages/effect/test/schema/Schema.test.ts	3612	it	preserves name and length as options	
-unported	packages/effect/test/schema/Schema.test.ts	3627	it	assigns options	
-unported	packages/effect/test/schema/Schema.test.ts	3640	it	should throw an error when the cause contains both a schema issue and a defect	
-unported	packages/effect/test/schema/Schema.test.ts	3658	it	Struct	
-unported	packages/effect/test/schema/Schema.test.ts	3664	it	Class	
-unported	packages/effect/test/schema/Schema.test.ts	3670	it	should throw an error when the cause is not a schema issue	
-unported	packages/effect/test/schema/Schema.test.ts	3690	it.effect	Struct	
-unported	packages/effect/test/schema/Schema.test.ts	3701	it.effect	Class	
-unported	packages/effect/test/schema/Schema.test.ts	3712	it.effect	should preserve mixed schema issue and defect causes	
+not-applicable	packages/effect/test/schema/Schema.test.ts	3612	it	preserves name and length as options	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	3627	it	assigns options	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	3640	it	should throw an error when the cause contains both a schema issue and a defect	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	3658	it	Struct	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	3664	it	Class	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	3670	it	should throw an error when the cause is not a schema issue	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	3690	it.effect	Struct	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	3701	it.effect	Class	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	3712	it.effect	should preserve mixed schema issue and defect causes	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
 ported	packages/effect/test/schema/Schema.test.ts	3733	it	should not apply defaults when decoding / encoding	constructor_default_does_not_fill_on_decode_or_encode
 ported	packages/effect/test/schema/Schema.test.ts	3746	it	should apply constructor default when the field is not present	constructor_default_fills_an_absent_field_on_make
-unported	packages/effect/test/schema/Schema.test.ts	3757	it	should construct a Class field from a plain object	
+not-applicable	packages/effect/test/schema/Schema.test.ts	3757	it	should construct a Class field from a plain object	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
 ported	packages/effect/test/schema/Schema.test.ts	3768	it	Struct	nested_constructor_defaults_fill_recursively
-unported	packages/effect/test/schema/Schema.test.ts	3782	it	Class	
-unported	packages/effect/test/schema/Schema.test.ts	3802	it	applies constructor default when disableChecks is true	
+not-applicable	packages/effect/test/schema/Schema.test.ts	3782	it	Class	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	3802	it	applies constructor default when disableChecks is true	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
 ported	packages/effect/test/schema/Schema.test.ts	3811	it	Struct & Effect sync	constructor_default_fills_an_absent_field_on_make
 ported	packages/effect/test/schema/Schema.test.ts	3822	it	Struct & Effect async	constructor_default_fills_an_absent_field_on_make
 ported	packages/effect/test/schema/Schema.test.ts	3838	it	Effect failing with SchemaIssue propagates as parse failure	constructor_default_failure_lands_on_the_field_path
 ported	packages/effect/test/schema/Schema.test.ts	3855	it	Effect failing via another schema's makeEffect propagates as parse failure	a_default_that_calls_another_failing_make_keeps_its_path
-unported	packages/effect/test/schema/Schema.test.ts	3875	it	Struct & Effect async & service	
+not-applicable	packages/effect/test/schema/Schema.test.ts	3875	it	Struct & Effect async & service	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
 ported	packages/effect/test/schema/Schema.test.ts	3906	it	Tuple & Some	tuple_constructor_default_fills_a_missing_slot
 ported	packages/effect/test/schema/Schema.test.ts	3917	it	nested defaults (Struct)	nested_tuple_struct_defaults_fill_recursively
 ported	packages/effect/test/schema/Schema.test.ts	3933	it	inner defaults (Tuple)	nested_tuple_defaults_fill_inner_slots
 ported	packages/effect/test/schema/Schema.test.ts	3948	it	nested defaults (Tuple)	a_defaulted_tuple_fills_its_own_missing_elements
 ported	packages/effect/test/schema/Schema.test.ts	3967	it	Record(String, Number)	record_string_number_decodes_every_value
 ported	packages/effect/test/schema/Schema.test.ts	3994	it	recursive values stay lazy	suspend_recursive_shape_decodes_nested
-unported	packages/effect/test/schema/Schema.test.ts	4009	it.effect	sequential parsing resumes without replaying entries	
+not-applicable	packages/effect/test/schema/Schema.test.ts	4009	it.effect	sequential parsing resumes without replaying entries	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
 ported	packages/effect/test/schema/Schema.test.ts	4028	it	Record(String, optionalKey(Number)) should throw	index_signature_refuses_an_optional_key_value
 ported	packages/effect/test/schema/Schema.test.ts	4035	it	Record(String, optional(Number))	record_optional_values_accept_null_but_reject_wrong_type
 ported	packages/effect/test/schema/Schema.test.ts	4053	it	Record(String.check, Number) should use the key checks to select keys	record_with_a_checked_key_selects_its_entries
 ported	packages/effect/test/schema/Schema.test.ts	4066	it	applies excess-property options to unmatched own keys	record_excess_names_an_unmatched_key
-unported	packages/effect/test/schema/Schema.test.ts	4082	it	recognizes numeric declared keys with an index signature	
+not-applicable	packages/effect/test/schema/Schema.test.ts	4082	it	recognizes numeric declared keys with an index signature	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
 not-applicable	packages/effect/test/schema/Schema.test.ts	4091	it	Record(Symbol, Number)	the row's own keys are JavaScript symbols, and a record here is a string-keyed map with no symbol-keyed variant
 not-applicable	packages/effect/test/schema/Schema.test.ts	4119	it	index signatures select only enumerable ${typeof key} properties	the row asserts a non-enumerable own property is never read; a Rust map holds exactly the entries it was given, so there is no enumerability to observe
 not-applicable	packages/effect/test/schema/Schema.test.ts	4141	it	Record(Symbol.check, Number) should use the key checks to select keys	the key check is a predicate over JavaScript symbols (Symbol.keyFor) and the keys themselves are symbols
-unported	packages/effect/test/schema/Schema.test.ts	4159	it	Record(SnakeToCamel, NumberFromString)	
+not-applicable	packages/effect/test/schema/Schema.test.ts	4159	it	Record(SnakeToCamel, NumberFromString)	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
 not-applicable	packages/effect/test/schema/Schema.test.ts	4174	it	UniqueSymbol	the key is a specific JavaScript symbol identity, which a string-keyed map cannot hold
 ported	packages/effect/test/schema/Schema.test.ts	4189	it	deduplicates repeated literal keys	literal_key_record_counts_a_repeated_key_once
 ported	packages/effect/test/schema/Schema.test.ts	4194	it	Record(Literals, Number)	literal_key_record_requires_every_declared_key
 ported	packages/effect/test/schema/Schema.test.ts	4212	it	Record(Literals, optionalKey(Number))	literal_key_record_with_optional_values_requires_no_key
-unported	packages/effect/test/schema/Schema.test.ts	4223	it	Record(Literals, mutableKey(Number))	
-unported	packages/effect/test/schema/Schema.test.ts	4231	it	Record(Literals, mutableKey(optionalKey(Number)))	
+not-applicable	packages/effect/test/schema/Schema.test.ts	4223	it	Record(Literals, mutableKey(Number))	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	4231	it	Record(Literals, mutableKey(optionalKey(Number)))	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
 ported	packages/effect/test/schema/Schema.test.ts	4246	it	Record(Number, String)	record_with_a_number_key_selects_numeric_keys
 ported	packages/effect/test/schema/Schema.test.ts	4270	it	Record(Int, String)	an_integer_key_schema_selects_the_numeric_names
 ported	packages/effect/test/schema/Schema.test.ts	4289	it	Record(TemplateLiteral with checked part, Number) should use the part checks to select keys	a_template_literal_key_schema_selects_its_own_keys
-unported	packages/effect/test/schema/Schema.test.ts	4302	it	a	
+not-applicable	packages/effect/test/schema/Schema.test.ts	4302	it	a	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
 ported	packages/effect/test/schema/Schema.test.ts	4322	it	empty	union_with_no_members_admits_nothing
 ported	packages/effect/test/schema/Schema.test.ts	4330	it	String	union_of_one_member_decodes_as_that_member
 ported	packages/effect/test/schema/Schema.test.ts	4339	it	Void	union_of_void_admits_every_value
@@ -7773,8 +7773,8 @@ ported	packages/effect/test/schema/Schema.test.ts	4434	it	oneOf	one_of_inside_a_
 ported	packages/effect/test/schema/Schema.test.ts	4460	it	oneOf	one_of_counts_the_same_member_twice
 ported	packages/effect/test/schema/Schema.test.ts	4472	it	oneOf	one_of_counts_the_same_literal_twice
 ported	packages/effect/test/schema/Schema.test.ts	4484	it	preserves member order after sentinel dispatch	member_order_is_preserved_after_sentinel_dispatch
-unported	packages/effect/test/schema/Schema.test.ts	4504	it	preserves recovering members during runtime type dispatch	
-unported	packages/effect/test/schema/Schema.test.ts	4551	it	preserves recovering members during sentinel dispatch	
+not-applicable	packages/effect/test/schema/Schema.test.ts	4504	it	preserves recovering members during runtime type dispatch	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	4551	it	preserves recovering members during sentinel dispatch	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
 ported	packages/effect/test/schema/Schema.test.ts	4586	it	keeps suspended members lazy during candidate selection	union_skips_suspended_loser_after_success
 ported	packages/effect/test/schema/Schema.test.ts	4627	it	does not force a recursive suspended member after an earlier success	union_skips_suspended_loser_after_success
 not-applicable	packages/effect/test/schema/Schema.test.ts	4641	it.effect	does not start later members after an asynchronous success	the row's first member yields through the Effect runtime and the row asserts when the next member starts; async members are a stated residual of this port (see the module doc in src/transform.rs), so there is no scheduler to observe
@@ -7782,26 +7782,26 @@ not-applicable	packages/effect/test/schema/Schema.test.ts	4676	it.effect	starts 
 not-applicable	packages/effect/test/schema/Schema.test.ts	4711	it.effect	oneOf	same residual again: the row compares two asynchronous successes in member order
 ported	packages/effect/test/schema/Schema.test.ts	4762	it	oneOf	a_void_member_makes_every_one_of_union_ambiguous
 not-applicable	packages/effect/test/schema/Schema.test.ts	4770	it	Struct({}) preserves its semantics in a union	the row's values are JavaScript symbols, functions and bigints and it pins the pin's empty-Struct acceptance over them; a struct here is a string-keyed map and none of those is one
-unported	packages/effect/test/schema/Schema.test.ts	4793	it	string | struct	
-unported	packages/effect/test/schema/Schema.test.ts	4807	it	string | tuple	
-unported	packages/effect/test/schema/Schema.test.ts	4821	it	tagged struct union	
-unported	packages/effect/test/schema/Schema.test.ts	4845	it	tagged tuple union	
+not-applicable	packages/effect/test/schema/Schema.test.ts	4793	it	string | struct	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	4807	it	string | tuple	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	4821	it	tagged struct union	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	4845	it	tagged tuple union	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
 ported	packages/effect/test/schema/Schema.test.ts	4872	it	A required element cannot follow an optional element	tuple_with_rest_refuses_a_required_element_after_an_optional_one
-unported	packages/effect/test/schema/Schema.test.ts	4891	it	An optional element cannot follow a rest element	
+not-applicable	packages/effect/test/schema/Schema.test.ts	4891	it	An optional element cannot follow a rest element	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
 ported	packages/effect/test/schema/Schema.test.ts	4910	it	[FiniteFromString, String] + [Boolean, String]	ffs_tuples_union_by_shape
 ported	packages/effect/test/schema/Schema.test.ts	4947	it	[FiniteFromString, String] + [Boolean, String, Number]	ffs_tuples_union_by_shape
-unported	packages/effect/test/schema/Schema.test.ts	4979	it	[String] + [Boolean, String, Number, Number] validates every post-rest index	
+not-applicable	packages/effect/test/schema/Schema.test.ts	4979	it	[String] + [Boolean, String, Number, Number] validates every post-rest index	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
 ported	packages/effect/test/schema/Schema.test.ts	4997	it	should throw an error if there are duplicate property signatures	struct_with_rest_refuses_a_fixed_key_the_rest_also_names
-unported	packages/effect/test/schema/Schema.test.ts	5008	it	should throw an error if there are encodings	
+not-applicable	packages/effect/test/schema/Schema.test.ts	5008	it	should throw an error if there are encodings	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
 ported	packages/effect/test/schema/Schema.test.ts	5019	it	Record(String, Number)	struct_with_rest_refuses_a_fixed_key_the_rest_also_names
 not-applicable	packages/effect/test/schema/Schema.test.ts	5036	it	Record(Symbol, Number)	the catch-all record's keys are symbols under a StructWithRest; the string-keyed half of the same shape is carried by the row beside it
 ported	packages/effect/test/schema/Schema.test.ts	5053	it	Record(`a${string}`, Number)	a_record_rest_under_a_struct_selects_template_keys
-unported	packages/effect/test/schema/Schema.test.ts	5075	it	applies excess-property options after fixed and index signatures	
+not-applicable	packages/effect/test/schema/Schema.test.ts	5075	it	applies excess-property options after fixed and index signatures	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
 ported	packages/effect/test/schema/Schema.test.ts	5095	it	should preserve both checks	struct_with_rest_keeps_both_checks
 ported	packages/effect/test/schema/Schema.test.ts	5121	it	index signatures should not re-parse fixed properties	struct_with_rest_does_not_re_parse_a_fixed_property
-unported	packages/effect/test/schema/Schema.test.ts	5136	it	index signatures should not overwrite fixed properties after key decoding	
-unported	packages/effect/test/schema/Schema.test.ts	5150	it	NullOr(String)	
-unported	packages/effect/test/schema/Schema.test.ts	5166	it	UndefinedOr(String)	
+not-applicable	packages/effect/test/schema/Schema.test.ts	5136	it	index signatures should not overwrite fixed properties after key decoding	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	5150	it	NullOr(String)	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	5166	it	UndefinedOr(String)	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
 ported	packages/effect/test/schema/Schema.test.ts	5182	it	NullishOr(String)	nullish_or_admits_the_absent_values_and_the_inner_schema
 not-applicable	packages/effect/test/schema/Schema.test.ts	5197	it	PropertyKey	the row's body asserts nothing at runtime beyond the optional arbitrary-generation check, and Schema.PropertyKey does not exist on the Rust schema surface, so the schema in the row cannot be built
 not-applicable	packages/effect/test/schema/Schema.test.ts	5205	it	BooleanFromBit	the row's body asserts nothing at runtime beyond the optional arbitrary-generation check, and Schema.BooleanFromBit does not exist on the Rust schema surface, so the schema in the row cannot be built
@@ -7829,39 +7829,39 @@ not-applicable	packages/effect/test/schema/Schema.test.ts	5560	it	ReadonlyMap	th
 not-applicable	packages/effect/test/schema/Schema.test.ts	5586	it	HashMap	the row's wire value is an Effect HashMap and its decoded value one too; this port's schema crate has no HashMap type (Unknown holds Object), so HashMap.make inputs and equality cannot be built
 ported	packages/effect/test/schema/Schema.test.ts	5613	it	toLowerCase	to_lowercase_lowers_on_decode_and_passes_through_on_encode
 ported	packages/effect/test/schema/Schema.test.ts	5627	it	toUpperCase	to_uppercase_uppers_on_decode_and_passes_through_on_encode
-unported	packages/effect/test/schema/Schema.test.ts	5640	it	returns the original schema	
-unported	packages/effect/test/schema/Schema.test.ts	5646	it	Struct	
-unported	packages/effect/test/schema/Schema.test.ts	5658	it	arg: message: string	
+not-applicable	packages/effect/test/schema/Schema.test.ts	5640	it	returns the original schema	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	5646	it	Struct	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	5658	it	arg: message: string	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
 not-applicable	packages/effect/test/schema/Schema.test.ts	5683	it	Duration	the row's body asserts nothing at runtime beyond the optional arbitrary-generation check, and Schema.Duration does not exist on the Rust schema surface, so the schema in the row cannot be built
-unported	packages/effect/test/schema/Schema.test.ts	5692	it	DurationFromString	
-unported	packages/effect/test/schema/Schema.test.ts	5711	it	DurationFromNanos	
-unported	packages/effect/test/schema/Schema.test.ts	5732	it	DurationFromMillis	
-unported	packages/effect/test/schema/Schema.test.ts	5761	it	ByteSize	
-unported	packages/effect/test/schema/Schema.test.ts	5770	it	ByteSizeFromString	
-unported	packages/effect/test/schema/Schema.test.ts	5777	it	ByteSizeFromBigInt	
-unported	packages/effect/test/schema/Schema.test.ts	5785	it	ByteSizeFromNumber	
-unported	packages/effect/test/schema/Schema.test.ts	5798	it	BigDecimal	
-unported	packages/effect/test/schema/Schema.test.ts	5815	it	isGreaterThanBigDecimal	
-unported	packages/effect/test/schema/Schema.test.ts	5827	it	isGreaterThanOrEqualToBigDecimal	
-unported	packages/effect/test/schema/Schema.test.ts	5841	it	isLessThanBigDecimal	
-unported	packages/effect/test/schema/Schema.test.ts	5853	it	isLessThanOrEqualToBigDecimal	
-unported	packages/effect/test/schema/Schema.test.ts	5865	it	isBetweenBigDecimal	
-unported	packages/effect/test/schema/Schema.test.ts	5882	it	decoding: required & encoding: required & constructor: required	
-unported	packages/effect/test/schema/Schema.test.ts	5899	it	decoding: required & encoding: required & constructor: optional	
-unported	packages/effect/test/schema/Schema.test.ts	5917	it	decoding: default & encoding: omit & constructor: optional	
+not-applicable	packages/effect/test/schema/Schema.test.ts	5692	it	DurationFromString	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	5711	it	DurationFromNanos	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	5732	it	DurationFromMillis	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	5761	it	ByteSize	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	5770	it	ByteSizeFromString	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	5777	it	ByteSizeFromBigInt	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	5785	it	ByteSizeFromNumber	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	5798	it	BigDecimal	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	5815	it	isGreaterThanBigDecimal	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	5827	it	isGreaterThanOrEqualToBigDecimal	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	5841	it	isLessThanBigDecimal	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	5853	it	isLessThanOrEqualToBigDecimal	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	5865	it	isBetweenBigDecimal	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	5882	it	decoding: required & encoding: required & constructor: required	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	5899	it	decoding: required & encoding: required & constructor: optional	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	5917	it	decoding: default & encoding: omit & constructor: optional	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
 ported	packages/effect/test/schema/Schema.test.ts	5945	it	tagDefaultOmit	tag_fills_default_and_omits_on_encode
 not-applicable	packages/effect/test/schema/Schema.test.ts	5975	it	URL	the row's body asserts nothing at runtime beyond the optional arbitrary-generation check, and Schema.URL does not exist on the Rust schema surface, so the schema in the row cannot be built
 not-applicable	packages/effect/test/schema/Schema.test.ts	5983	it	RegExp	the row's body asserts nothing at runtime beyond the optional arbitrary-generation check, and Schema.RegExp does not exist on the Rust schema surface, so the schema in the row cannot be built
-unported	packages/effect/test/schema/Schema.test.ts	5991	it	URLFromString	
-unported	packages/effect/test/schema/Schema.test.ts	6011	it	use case: Unknown <-> JSON string	
-unported	packages/effect/test/schema/Schema.test.ts	6030	it	use case: create a JSON string serializer for an existing schema	
-unported	packages/effect/test/schema/Schema.test.ts	6047	it	reviver option	
-unported	packages/effect/test/schema/Schema.test.ts	6056	it	replacer and space options	
-unported	packages/effect/test/schema/Schema.test.ts	6071	it	use case: parse / stringify a nested schema	
-unported	packages/effect/test/schema/Schema.test.ts	6091	it	fromFormData	
-unported	packages/effect/test/schema/Schema.test.ts	6137	it	fromURLSearchParams	
-unported	packages/effect/test/schema/Schema.test.ts	6172	it	Trim	
-unported	packages/effect/test/schema/Schema.test.ts	6195	it	transformEffect	
+not-applicable	packages/effect/test/schema/Schema.test.ts	5991	it	URLFromString	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	6011	it	use case: Unknown <-> JSON string	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	6030	it	use case: create a JSON string serializer for an existing schema	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	6047	it	reviver option	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	6056	it	replacer and space options	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	6071	it	use case: parse / stringify a nested schema	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	6091	it	fromFormData	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	6137	it	fromURLSearchParams	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	6172	it	Trim	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	6195	it	transformEffect	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
 ported	packages/effect/test/schema/Schema.test.ts	6229	it	should expose the parts	template_literal_exposes_its_parts
 ported	packages/effect/test/schema/Schema.test.ts	6235	it	NonEmptyString + String	template_literal_non_empty_string_part
 not-applicable	packages/effect/test/schema/Schema.test.ts	6243	it	rejects checks on Literal, TemplateLiteral, and Union parts	the row asserts a construction-time throw for a part that carries a check; TemplatePart is a closed enum with no checked variant, so the refusal is a type error and there is no runtime path to assert
@@ -7903,37 +7903,37 @@ ported	packages/effect/test/schema/Schema.test.ts	6783	it	<	parser_nested_parser
 ported	packages/effect/test/schema/Schema.test.ts	6802	it.effect	make preserves existing instances like the other constructor adapters	make_answers_an_existing_instance_unchanged
 ported	packages/effect/test/schema/Schema.test.ts	6820	it	make applies defaults, source checks, and the constructor once	make_fills_constructor_defaults_on_construction
 ported	packages/effect/test/schema/Schema.test.ts	6846	it	make with void input	make_with_void_input_builds_a_zero_field_class
-unported	packages/effect/test/schema/Schema.test.ts	6853	it	decoding validates the class struct once	
-unported	packages/effect/test/schema/Schema.test.ts	6869	it	make validates an existing nested Class once	
-unported	packages/effect/test/schema/Schema.test.ts	6884	it	make validates a nested Class source and output once	
+not-applicable	packages/effect/test/schema/Schema.test.ts	6853	it	decoding validates the class struct once	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	6869	it	make validates an existing nested Class once	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	6884	it	make validates a nested Class source and output once	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
 ported	packages/effect/test/schema/Schema.test.ts	6905	it	make allows an optional nested Class to be omitted	an_optional_nested_class_may_be_omitted_from_a_construction
-unported	packages/effect/test/schema/Schema.test.ts	6912	it	make applies constructor defaults only at a field occurrence	
+not-applicable	packages/effect/test/schema/Schema.test.ts	6912	it	make applies constructor defaults only at a field occurrence	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
 ported	packages/effect/test/schema/Schema.test.ts	6932	it	suspend before initialization	suspend_reads_late_initialized_binding
-unported	packages/effect/test/schema/Schema.test.ts	6946	it	should memoize the ast	
+not-applicable	packages/effect/test/schema/Schema.test.ts	6946	it	should memoize the ast	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
 ported	packages/effect/test/schema/Schema.test.ts	6953	it	should set the identifier annotation	a_class_exposes_its_fields_and_identifier_and_round_trips
-unported	packages/effect/test/schema/Schema.test.ts	6961	it	`[immerable]`	
-unported	packages/effect/test/schema/Schema.test.ts	6981	it	Equality	
-unported	packages/effect/test/schema/Schema.test.ts	6998	it	mapFields	
+not-applicable	packages/effect/test/schema/Schema.test.ts	6961	it	`[immerable]`	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	6981	it	Equality	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	6998	it	mapFields	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
 ported	packages/effect/test/schema/Schema.test.ts	7006	it	Struct with nested Class	a_nested_class_field_constructs_its_own_instance
 ported	packages/effect/test/schema/Schema.test.ts	7020	it	Class with nested Class	a_nested_class_field_constructs_its_own_instance
-unported	packages/effect/test/schema/Schema.test.ts	7035	it	make preserves Class instances in Array(Class) and Array(Union(Class))	
-unported	packages/effect/test/schema/Schema.test.ts	7047	it	make constructs nested Class instances with and without Union	
-unported	packages/effect/test/schema/Schema.test.ts	7056	it	make selects the first TaggedClass Union member when the tag is defaulted	
-unported	packages/effect/test/schema/Schema.test.ts	7064	it	should be possible to define a class with a mutable field	
+not-applicable	packages/effect/test/schema/Schema.test.ts	7035	it	make preserves Class instances in Array(Class) and Array(Union(Class))	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	7047	it	make constructs nested Class instances with and without Union	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	7056	it	make selects the first TaggedClass Union member when the tag is defaulted	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	7064	it	should be possible to define a class with a mutable field	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
 ported	packages/effect/test/schema/Schema.test.ts	7083	it	Fields argument	a_class_exposes_its_fields_and_identifier_and_round_trips
 ported	packages/effect/test/schema/Schema.test.ts	7139	it	Struct argument	a_class_exposes_its_fields_and_identifier_and_round_trips
 ported	packages/effect/test/schema/Schema.test.ts	7195	it	constructor ignores excess properties by default	the_constructor_ignores_excess_properties_by_default
 ported	packages/effect/test/schema/Schema.test.ts	7206	it	constructor strips excess properties with explicit ignore	an_explicit_ignore_or_strip_still_leaves_the_key_off
 ported	packages/effect/test/schema/Schema.test.ts	7219	it	constructor rejects excess properties when requested	the_constructor_rejects_excess_properties_when_requested
 ported	packages/effect/test/schema/Schema.test.ts	7231	it	annotate	an_annotation_over_a_class_keeps_the_class
-unported	packages/effect/test/schema/Schema.test.ts	7247	it	basic	
-unported	packages/effect/test/schema/Schema.test.ts	7280	it	decoding validates the extended struct once	
+not-applicable	packages/effect/test/schema/Schema.test.ts	7247	it	basic	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	7280	it	decoding validates the extended struct once	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
 ported	packages/effect/test/schema/Schema.test.ts	7307	it	constructor preserves subclass fields while ignoring excess properties by default	the_extended_constructor_ignores_excess_but_not_the_subclass_fields
-unported	packages/effect/test/schema/Schema.test.ts	7322	it	constructor keeps subclass fields and strips excess properties with explicit ignore	
+not-applicable	packages/effect/test/schema/Schema.test.ts	7322	it	constructor keeps subclass fields and strips excess properties with explicit ignore	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
 ported	packages/effect/test/schema/Schema.test.ts	7339	it	constructor does not treat subclass fields as excess properties	the_extended_constructor_ignores_excess_but_not_the_subclass_fields
-unported	packages/effect/test/schema/Schema.test.ts	7361	it	Struct argument	
-unported	packages/effect/test/schema/Schema.test.ts	7380	it	static members	
-unported	packages/effect/test/schema/Schema.test.ts	7395	it	make with void input	
+not-applicable	packages/effect/test/schema/Schema.test.ts	7361	it	Struct argument	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	7380	it	static members	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	7395	it	make with void input	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
 ported	packages/effect/test/schema/Schema.test.ts	7402	it	explicit identifier	the_name_is_the_identifier_and_the_tag_stands_in_when_there_is_none
 ported	packages/effect/test/schema/Schema.test.ts	7409	it	fields argument	a_tagged_class_carries_its_tag_on_the_wire
 ported	packages/effect/test/schema/Schema.test.ts	7435	it	constructor ignores excess properties by default	a_tagged_error_ignores_excess_properties_by_default
@@ -7943,7 +7943,7 @@ ported	packages/effect/test/schema/Schema.test.ts	7503	it	make with void input	a
 ported	packages/effect/test/schema/Schema.test.ts	7510	it	fields argument	an_error_class_is_its_tagged_error_twin_and_prints_like_one
 ported	packages/effect/test/schema/Schema.test.ts	7527	it	constructor ignores excess properties by default	an_error_class_is_its_tagged_error_twin_and_prints_like_one
 ported	packages/effect/test/schema/Schema.test.ts	7543	it	constructor strips excess properties with explicit ignore	an_error_class_is_its_tagged_error_twin_and_prints_like_one
-unported	packages/effect/test/schema/Schema.test.ts	7558	it	Struct argument	
+not-applicable	packages/effect/test/schema/Schema.test.ts	7558	it	Struct argument	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
 ported	packages/effect/test/schema/Schema.test.ts	7579	it	extend	an_error_class_is_its_tagged_error_twin_and_prints_like_one
 ported	packages/effect/test/schema/Schema.test.ts	7615	it	extended constructor ignores excess properties by default	an_error_class_is_its_tagged_error_twin_and_prints_like_one
 ported	packages/effect/test/schema/Schema.test.ts	7630	it	extended constructor does not treat subclass fields as excess properties	an_error_class_is_its_tagged_error_twin_and_prints_like_one
@@ -7960,53 +7960,53 @@ ported	packages/effect/test/schema/Schema.test.ts	7748	it	zero-field TaggedError
 ported	packages/effect/test/schema/Schema.test.ts	7762	it	extend	extend_keeps_the_parents_tag_and_takes_the_childs_identifier
 ported	packages/effect/test/schema/Schema.test.ts	7775	it	extended constructor ignores excess properties by default	the_extended_constructor_ignores_excess_but_not_the_subclass_fields
 ported	packages/effect/test/schema/Schema.test.ts	7791	it	extended constructor does not treat subclass fields as excess properties	the_extended_constructor_ignores_excess_but_not_the_subclass_fields
-unported	packages/effect/test/schema/Schema.test.ts	7810	it	rejects non-finite numeric values	
-unported	packages/effect/test/schema/Schema.test.ts	7819	it	enums should be exposed	
-unported	packages/effect/test/schema/Schema.test.ts	7829	it	Numeric enum	
-unported	packages/effect/test/schema/Schema.test.ts	7853	it	String enum	
-unported	packages/effect/test/schema/Schema.test.ts	7881	it	Const enum	
-unported	packages/effect/test/schema/Schema.test.ts	7908	it	sync fallback	
-unported	packages/effect/test/schema/Schema.test.ts	7929	it	async fallback	
-unported	packages/effect/test/schema/Schema.test.ts	7940	it	catchDecodingWithContext	
-unported	packages/effect/test/schema/Schema.test.ts	7960	it	providing a service	
-unported	packages/effect/test/schema/Schema.test.ts	7983	it	forced failure	
-unported	packages/effect/test/schema/Schema.test.ts	7998	it	sync fallback	
-unported	packages/effect/test/schema/Schema.test.ts	8019	it	async fallback	
-unported	packages/effect/test/schema/Schema.test.ts	8034	it	catchEncodingWithContext	
-unported	packages/effect/test/schema/Schema.test.ts	8061	it	providing a service	
-unported	packages/effect/test/schema/Schema.test.ts	8084	it	forced failure	
-unported	packages/effect/test/schema/Schema.test.ts	8096	it	Exact Optional Property	
-unported	packages/effect/test/schema/Schema.test.ts	8111	it	Optional Property	
-unported	packages/effect/test/schema/Schema.test.ts	8128	it	Exact Optional Property with Nullability	
-unported	packages/effect/test/schema/Schema.test.ts	8145	it	Optional Property with Nullability	
-unported	packages/effect/test/schema/Schema.test.ts	8164	it	Optional Property to Exact Optional Property	
-unported	packages/effect/test/schema/Schema.test.ts	8183	it	Optional Property with Nullability to Optional Property	
-unported	packages/effect/test/schema/Schema.test.ts	8207	it	optionalKey -> Option	
-unported	packages/effect/test/schema/Schema.test.ts	8230	it	optional -> Option	
-unported	packages/effect/test/schema/Schema.test.ts	8255	it	decodeTo as composition	
-unported	packages/effect/test/schema/Schema.test.ts	8286	it	encodeTo as composition	
-unported	packages/effect/test/schema/Schema.test.ts	8323	it	no context	
-unported	packages/effect/test/schema/Schema.test.ts	8346	it	with context	
+not-applicable	packages/effect/test/schema/Schema.test.ts	7810	it	rejects non-finite numeric values	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	7819	it	enums should be exposed	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	7829	it	Numeric enum	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	7853	it	String enum	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	7881	it	Const enum	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	7908	it	sync fallback	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	7929	it	async fallback	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	7940	it	catchDecodingWithContext	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	7960	it	providing a service	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	7983	it	forced failure	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	7998	it	sync fallback	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	8019	it	async fallback	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	8034	it	catchEncodingWithContext	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	8061	it	providing a service	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	8084	it	forced failure	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	8096	it	Exact Optional Property	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	8111	it	Optional Property	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	8128	it	Exact Optional Property with Nullability	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	8145	it	Optional Property with Nullability	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	8164	it	Optional Property to Exact Optional Property	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	8183	it	Optional Property with Nullability to Optional Property	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	8207	it	optionalKey -> Option	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	8230	it	optional -> Option	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	8255	it	decodeTo as composition	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	8286	it	encodeTo as composition	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	8323	it	no context	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	8346	it	with context	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
 ported	packages/effect/test/schema/Schema.test.ts	8377	it	FiniteFromString	ffs_decodes_plain_numbers
 ported	packages/effect/test/schema/Schema.test.ts	8386	it	FiniteFromString	ffs_rejects_non_numeric_text
 ported	packages/effect/test/schema/Schema.test.ts	8403	it	FiniteFromString	ffs_rejects_non_text
-unported	packages/effect/test/schema/Schema.test.ts	8435	it	should reject with an error when the cause contains both a schema issue and a defect	
+not-applicable	packages/effect/test/schema/Schema.test.ts	8435	it	should reject with an error when the cause contains both a schema issue and a defect	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
 ported	packages/effect/test/schema/Schema.test.ts	8464	it	FiniteFromString	ffs_encodes_numbers_to_text
-unported	packages/effect/test/schema/Schema.test.ts	8482	it	should throw an error when the cause is not a schema issue	
-unported	packages/effect/test/schema/Schema.test.ts	8504	it	should throw an error when the cause contains both a schema issue and a defect	
+not-applicable	packages/effect/test/schema/Schema.test.ts	8482	it	should throw an error when the cause is not a schema issue	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	8504	it	should throw an error when the cause contains both a schema issue and a defect	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
 ported	packages/effect/test/schema/Schema.test.ts	8532	it	FiniteFromString	ffs_round_trips
-unported	packages/effect/test/schema/Schema.test.ts	8566	it	should throw an error when the cause contains both a schema issue and a defect	
+not-applicable	packages/effect/test/schema/Schema.test.ts	8566	it	should throw an error when the cause contains both a schema issue and a defect	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
 ported	packages/effect/test/schema/Schema.test.ts	8594	it	FiniteFromString	ffs_round_trips
-unported	packages/effect/test/schema/Schema.test.ts	8619	it	should throw an error when the cause contains both a schema issue and a defect	
-unported	packages/effect/test/schema/Schema.test.ts	8647	it	should throw on async decoding	
-unported	packages/effect/test/schema/Schema.test.ts	8662	it	should throw on missing dependency	
-unported	packages/effect/test/schema/Schema.test.ts	8680	it	should die on async decoding	
-unported	packages/effect/test/schema/Schema.test.ts	8696	it	should die on missing dependency	
-unported	packages/effect/test/schema/Schema.test.ts	8714	it	should preserve mixed schema issue and defect causes	
-unported	packages/effect/test/schema/Schema.test.ts	8746	it	Struct	
+not-applicable	packages/effect/test/schema/Schema.test.ts	8619	it	should throw an error when the cause contains both a schema issue and a defect	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	8647	it	should throw on async decoding	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	8662	it	should throw on missing dependency	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	8680	it	should die on async decoding	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	8696	it	should die on missing dependency	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	8714	it	should preserve mixed schema issue and defect causes	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	8746	it	Struct	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
 ported	packages/effect/test/schema/Schema.test.ts	8760	it	Tuple	tuple_checks_length_and_order
-unported	packages/effect/test/schema/Schema.test.ts	8777	it	non-transforming schema	
-unported	packages/effect/test/schema/Schema.test.ts	8784	it	transforming schema	
+not-applicable	packages/effect/test/schema/Schema.test.ts	8777	it	non-transforming schema	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	8784	it	transforming schema	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
 ported	packages/effect/test/schema/Schema.test.ts	8793	it	evolve	evolve_maps_a_named_field
 ported	packages/effect/test/schema/Schema.test.ts	8805	it	evolveKeys	evolve_keys_renames_a_named_field
 ported	packages/effect/test/schema/Schema.test.ts	8817	it	renameKeys	rename_keys_rewrites_two_of_three
@@ -8031,7 +8031,7 @@ ported	packages/effect/test/schema/Schema.test.ts	9013	it	readonly [string, numb
 ported	packages/effect/test/schema/Schema.test.ts	9023	it	partial index mapping	rename_indices_rewrites_the_mapped_prefix
 ported	packages/effect/test/schema/Schema.test.ts	9030	it	full index mapping	rename_indices_permutes_every_position
 ported	packages/effect/test/schema/Schema.test.ts	9038	it	NullOr	null_or_wraps_every_element
-unported	packages/effect/test/schema/Schema.test.ts	9049	it	preserves Union options through public derivations	
+not-applicable	packages/effect/test/schema/Schema.test.ts	9049	it	preserves Union options through public derivations	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
 ported	packages/effect/test/schema/Schema.test.ts	9061	it	appendElement	union_map_members_appends_a_member
 ported	packages/effect/test/schema/Schema.test.ts	9067	it	evolve	union_map_members_evolves_two_members
 ported	packages/effect/test/schema/Schema.test.ts	9083	it	Array	union_map_members_maps_every_member
@@ -8056,15 +8056,15 @@ ported	packages/effect/test/schema/Schema.test.ts	9323	it	empty array is treated
 ported	packages/effect/test/schema/Schema.test.ts	9330	it	single-element array collapses to the element	a_single_element_array_collapses
 ported	packages/effect/test/schema/Schema.test.ts	9343	it	multi-element array groups into a Composite	a_multi_element_array_composites
 ported	packages/effect/test/schema/Schema.test.ts	9361	it	array mixing string, Issue, and { path, issue }	an_array_mixing_kinds_composites_in_order
-unported	packages/effect/test/schema/Schema.test.ts	9383	it	Struct	
-unported	packages/effect/test/schema/Schema.test.ts	9401	it	Union	
-unported	packages/effect/test/schema/Schema.test.ts	9433	it	should augment a union of structs	
-unported	packages/effect/test/schema/Schema.test.ts	9530	it	should support multiple tags	
-unported	packages/effect/test/schema/Schema.test.ts	9541	it	should throw on duplicate discriminants	
-unported	packages/effect/test/schema/Schema.test.ts	9563	it	should collect no discriminants from an empty union	
-unported	packages/effect/test/schema/Schema.test.ts	9569	it	should support __proto__ as a discriminant	
-unported	packages/effect/test/schema/Schema.test.ts	9579	it	should augment a union of classes	
-unported	packages/effect/test/schema/Schema.test.ts	9598	it	should create a tagged union	
+not-applicable	packages/effect/test/schema/Schema.test.ts	9383	it	Struct	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	9401	it	Union	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	9433	it	should augment a union of structs	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	9530	it	should support multiple tags	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	9541	it	should throw on duplicate discriminants	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	9563	it	should collect no discriminants from an empty union	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	9569	it	should support __proto__ as a discriminant	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	9579	it	should augment a union of classes	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	9598	it	should create a tagged union	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
 ported	packages/effect/test/schema/Schema.test.ts	9673	it	should return a decoding default value if the key is missing	wire_key_default_fills_a_missing_key
 ported	packages/effect/test/schema/Schema.test.ts	9689	it	by default should pass through the value	wire_key_default_passes_the_value_through_on_encode
 ported	packages/effect/test/schema/Schema.test.ts	9699	it	should omit the value if the encoding strategy is set to omit	wire_key_default_omit_encoding_drops_the_key
@@ -8100,10 +8100,10 @@ ported	packages/effect/test/schema/Schema.test.ts	10194	it	Capitalize	capitalize
 ported	packages/effect/test/schema/Schema.test.ts	10218	it	Uncapitalize	uncapitalize_normalizes_on_decode_and_insists_on_encode
 ported	packages/effect/test/schema/Schema.test.ts	10242	it	Lowercase	lowercase_normalizes_on_decode_and_insists_on_encode
 ported	packages/effect/test/schema/Schema.test.ts	10266	it	Uppercase	uppercase_normalizes_on_decode_and_insists_on_encode
-unported	packages/effect/test/schema/Schema.test.ts	10292	it	succeed	
+not-applicable	packages/effect/test/schema/Schema.test.ts	10292	it	succeed	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
 ported	packages/effect/test/schema/Schema.test.ts	10310	it	isStringFinite	refine_is_string_finite
-unported	packages/effect/test/schema/Schema.test.ts	10319	it	isStringBigInt	
-unported	packages/effect/test/schema/Schema.test.ts	10328	it	isStringSymbol	
+not-applicable	packages/effect/test/schema/Schema.test.ts	10319	it	isStringBigInt	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	10328	it	isStringSymbol	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
 ported	packages/effect/test/schema/Schema.test.ts	10337	it	isUUID	refine_is_uuid
 ported	packages/effect/test/schema/Schema.test.ts	10361	it	isUUID version-specific checks reject nil and max UUIDs	a_versioned_uuid_check_refuses_the_nil_and_max_uuids
 ported	packages/effect/test/schema/Schema.test.ts	10377	it	isGUID	refine_is_guid
@@ -8119,16 +8119,16 @@ ported	packages/effect/test/schema/Schema.test.ts	10484	it	multiple brands	two_b
 ported	packages/effect/test/schema/Schema.test.ts	10507	it	should make all optionalKey keys required	require_all_makes_optional_keys_required
 ported	packages/effect/test/schema/Schema.test.ts	10533	it	should make all optional keys required	require_all_makes_optional_keys_required
 ported	packages/effect/test/schema/Schema.test.ts	10559	it	should make all optional keys required	require_all_makes_optional_keys_required
-unported	packages/effect/test/schema/Schema.test.ts	10591	it	fieldsAssign	
-unported	packages/effect/test/schema/Schema.test.ts	10622	it	wrapping a primitive schema	
-unported	packages/effect/test/schema/Schema.test.ts	10628	it	inherits the schema protocol	
-unported	packages/effect/test/schema/Schema.test.ts	10639	it	extending a rebuilt schema	
-unported	packages/effect/test/schema/Schema.test.ts	10646	it	static getter using this	
-unported	packages/effect/test/schema/Schema.test.ts	10656	it	static property	
+not-applicable	packages/effect/test/schema/Schema.test.ts	10591	it	fieldsAssign	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	10622	it	wrapping a primitive schema	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	10628	it	inherits the schema protocol	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	10639	it	extending a rebuilt schema	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	10646	it	static getter using this	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	10656	it	static property	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
 ported	packages/effect/test/schema/Schema.test.ts	10664	it	static property using Schema.suspend	struct_field_using_suspend
-unported	packages/effect/test/schema/Schema.test.ts	10672	it	wrapping a Struct schema	
-unported	packages/effect/test/schema/Schema.test.ts	10686	it	does not create class instances	
-unported	packages/effect/test/schema/Schema.test.ts	10695	it	subclassing	
+not-applicable	packages/effect/test/schema/Schema.test.ts	10672	it	wrapping a Struct schema	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	10686	it	does not create class instances	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+not-applicable	packages/effect/test/schema/Schema.test.ts	10695	it	subclassing	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
 ported	packages/effect/test/schema/Schema.test.ts	10713	it	returns undefined for a schema without annotations	resolve_annotations_is_none_for_a_schema_without_annotations
 ported	packages/effect/test/schema/Schema.test.ts	10717	it	returns annotations from the base schema	resolve_annotations_returns_the_base_annotations
 ported	packages/effect/test/schema/Schema.test.ts	10722	it	returns annotations from the last check	resolve_annotations_returns_the_last_checks_annotations
