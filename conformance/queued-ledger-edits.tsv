@@ -183,3 +183,22 @@ packages/effect/test/schema/Schema.test.ts	4119	not-applicable	the row asserts a
 packages/effect/test/schema/Schema.test.ts	4141	not-applicable	the key check is a predicate over JavaScript symbols (Symbol.keyFor) and the keys themselves are symbols
 packages/effect/test/schema/Schema.test.ts	4174	not-applicable	the key is a specific JavaScript symbol identity, which a string-keyed map cannot hold
 packages/effect/test/schema/Schema.test.ts	5036	not-applicable	the catch-all record's keys are symbols under a StructWithRest; the string-keyed half of the same shape is carried by the row beside it
+
+# Batch 12, two carried rows and four excused, from
+# elm-effect-rs-port-schema-a2c (staged, awaiting the lease): the Union
+# describe's dispatch rows that this port can actually witness. Witnesses in
+# crates/elm-effect-schema/tests/schema_union.rs (2 tests, green, no source
+# change: member order and the `oneOf` count were already the port's behaviour).
+#
+# Six rows beside them stay open, each naming what it needs:
+# :4504 and :4551 are unions with a RECOVERING member (`catchDecoding` /
+# `catchEncoding`), which this port does not have; :4793 and :4807 need
+# sentinel-based member exclusion with the union's own message; :4821 and :4845
+# need sentinel dispatch that reports the selected member's own error
+# (`Missing key at ["a"]`) rather than the union-level one.
+packages/effect/test/schema/Schema.test.ts	4484	ported	member_order_is_preserved_after_sentinel_dispatch
+packages/effect/test/schema/Schema.test.ts	4762	ported	a_void_member_makes_every_one_of_union_ambiguous
+packages/effect/test/schema/Schema.test.ts	4641	not-applicable	the row's first member yields through the Effect runtime and the row asserts when the next member starts; async members are a stated residual of this port (see the module doc in src/transform.rs), so there is no scheduler to observe
+packages/effect/test/schema/Schema.test.ts	4676	not-applicable	same residual: the member's decode suspends on a Deferred, which the port has no fibre to wait on
+packages/effect/test/schema/Schema.test.ts	4711	not-applicable	same residual again: the row compares two asynchronous successes in member order
+packages/effect/test/schema/Schema.test.ts	4770	not-applicable	the row's values are JavaScript symbols, functions and bigints and it pins the pin's empty-Struct acceptance over them; a struct here is a string-keyed map and none of those is one
