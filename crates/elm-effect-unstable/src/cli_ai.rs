@@ -190,6 +190,21 @@ impl Command {
     /// then flags/options/positionals. `--help` anywhere returns the
     /// help text as [`CliError::Help`].
     pub fn parse(&self, argv: &[String]) -> Result<(Vec<String>, Parsed), CliError> {
+        self.parse_inherited(Vec::new(), argv)
+    }
+
+    /// Parse with the shared args this node inherits from its ancestors.
+    ///
+    /// A parent's shared flag is a flag on both sides of the subcommand it was
+    /// written beside, so the chain carries down the path that was selected and
+    /// the selected node accepts an ancestor's shared arg as declared.
+    /// Positionals are never inherited: an operand belongs to the node that
+    /// names it.
+    fn parse_inherited(
+        &self,
+        inherited: Vec<&Arg>,
+        argv: &[String],
+    ) -> Result<(Vec<String>, Parsed), CliError> {
         if argv.iter().any(|a| a == "--help" || a == "-h") {
             return Err(CliError::Help(self.help_text()));
         }
@@ -197,7 +212,9 @@ impl Command {
             // A subcommand is selected by any of its names, so an alias
             // routes the same way the canonical name does.
             if let Some(sub) = self.subcommands.iter().find(|c| c.matches_name(first)) {
-                let (mut path, parsed) = sub.parse(rest)?;
+                let mut chain: Vec<&Arg> = inherited;
+                chain.extend(self.args.iter());
+                let (mut path, parsed) = sub.parse_inherited(chain, rest)?;
                 path.insert(0, self.name.clone());
                 return Ok((path, parsed));
             }
@@ -206,21 +223,19 @@ impl Command {
             }
         }
         if self.subcommands.is_empty() {
-            return Ok((vec![self.name.clone()], self.parse_args(argv)?));
+            return Ok((vec![self.name.clone()], self.parse_args(argv, &inherited)?));
         }
         // A node that carries subcommands and declares its own flags reads a
         // global flag ahead of the subcommand, and the value it collected
         // rides into the selected node's values.
-        self.parse_globals_then_subcommand(argv)
+        self.parse_globals_then_subcommand(argv, &inherited)
     }
 
     /// Whether this node declares a valued option under `name`. The leading
     /// scan needs it to know the next token is that option's value rather
     /// than the subcommand.
-    fn has_valued_opt(&self, name: &str) -> bool {
-        self.args
-            .iter()
-            .any(|a| matches!(a, Arg::Opt { name: n, .. } if n == name))
+    fn has_valued_opt(&self, name: &str, inherited: &[&Arg]) -> bool {
+        self.declares_valued(name, inherited)
     }
 
     /// Read this node's own flags off the front of `argv`, then hand what is
@@ -233,6 +248,7 @@ impl Command {
     fn parse_globals_then_subcommand(
         &self,
         argv: &[String],
+        inherited: &[&Arg],
     ) -> Result<(Vec<String>, Parsed), CliError> {
         let mut leading: Vec<String> = Vec::new();
         let mut i = 0;
@@ -244,9 +260,11 @@ impl Command {
                 break;
             }
             if let Some(sub) = self.subcommands.iter().find(|c| c.matches_name(token)) {
-                let (mut path, parsed) = sub.parse(&argv[i + 1..])?;
+                let mut chain: Vec<&Arg> = inherited.to_vec();
+                chain.extend(self.args.iter());
+                let (mut path, parsed) = sub.parse_inherited(chain, &argv[i + 1..])?;
                 path.insert(0, self.name.clone());
-                let mut head = self.parse_args(&leading)?;
+                let mut head = self.parse_args(&leading, inherited)?;
                 head.absorb(parsed);
                 return Ok((path, head));
             }
@@ -262,14 +280,14 @@ impl Command {
                 Some((n, v)) => (n, Some(v)),
                 None => (name, None),
             };
-            if inline.is_none() && self.has_valued_opt(name) && i + 1 < argv.len() {
+            if inline.is_none() && self.has_valued_opt(name, inherited) && i + 1 < argv.len() {
                 i += 1;
                 leading.push(argv[i].clone());
             }
             i += 1;
         }
         // No subcommand was selected, so the whole line is this node's own.
-        Ok((vec![self.name.clone()], self.parse_args(argv)?))
+        Ok((vec![self.name.clone()], self.parse_args(argv, inherited)?))
     }
 
     /// Render help text.
@@ -302,7 +320,7 @@ impl Command {
         out
     }
 
-    fn parse_args(&self, argv: &[String]) -> Result<Parsed, CliError> {
+    fn parse_args(&self, argv: &[String], inherited: &[&Arg]) -> Result<Parsed, CliError> {
         let mut parsed = Parsed::default();
         let mut positionals = self.args.iter().filter(|a| matches!(a, Arg::Positional { .. }));
         let mut variadic = false;
@@ -339,7 +357,7 @@ impl Command {
                         got: value.to_string(),
                     });
                 }
-                if self.has_flag(negated) {
+                if self.has_flag(negated, inherited) {
                     parsed.flags.insert(negated.to_string(), false);
                     i += 1;
                     continue;
@@ -351,7 +369,7 @@ impl Command {
                     Some((n, v)) => (n, Some(v)),
                     None => (rest, None),
                 };
-                if self.has_flag(name) {
+                if self.has_flag(name, inherited) {
                     // An inline or following literal is the flag's value, so
                     // `--verbose false` is false rather than true-with-a-
                     // stray-word. A bare switch stays true.
@@ -383,7 +401,7 @@ impl Command {
                         }
                     }
                 }
-                if self.has_opt(name) {
+                if self.has_opt(name, inherited) {
                     let value = match inline {
                         Some(v) => v.to_string(),
                         None => {
@@ -430,12 +448,31 @@ impl Command {
         Ok(parsed)
     }
 
-    fn has_flag(&self, name: &str) -> bool {
-        self.args.iter().any(|a| matches!(a, Arg::Flag { name: n, .. } if n == name))
+    /// Whether `name` is a flag this node or an ancestor it inherits from
+    /// declares.
+    fn has_flag(&self, name: &str, inherited: &[&Arg]) -> bool {
+        self.args
+            .iter()
+            .any(|a| matches!(a, Arg::Flag { name: n, .. } if n == name))
+            || inherited
+                .iter()
+                .any(|a| matches!(a, Arg::Flag { name: n, .. } if n == name))
     }
 
-    fn has_opt(&self, name: &str) -> bool {
-        self.args.iter().any(|a| matches!(a, Arg::Opt { name: n, .. } if n == name))
+    /// Whether this node or an ancestor it inherits from declares a valued
+    /// option under `name`.
+    fn has_opt(&self, name: &str, inherited: &[&Arg]) -> bool {
+        self.declares_valued(name, inherited)
+    }
+
+    /// The opt half of "is this name declared", shared with the leading scan.
+    fn declares_valued(&self, name: &str, inherited: &[&Arg]) -> bool {
+        self.args
+            .iter()
+            .any(|a| matches!(a, Arg::Opt { name: n, .. } if n == name))
+            || inherited
+                .iter()
+                .any(|a| matches!(a, Arg::Opt { name: n, .. } if n == name))
     }
 }
 

@@ -3251,3 +3251,106 @@ fn a_global_flag_is_refused_on_the_subcommand_that_does_not_declare_it() {
         "a refused line never reaches its handler"
     );
 }
+
+/// Command.test.ts:1149 — a parent's shared flag is a flag on both sides of
+/// the subcommand it was written beside, so npm-style lines work whether the
+/// global came before or after the subcommand, and the handler at the selected
+/// node reads both.
+#[test]
+fn a_shared_parent_flag_is_accepted_before_and_after_the_subcommand() {
+    let log = handler_log();
+    let seen = log.clone();
+    let install = Command::new(
+        "install",
+        "install command",
+        vec![Arg::Opt {
+            name: "pkg".to_string(),
+            help: "pkg".to_string(),
+            required: false,
+        }],
+    )
+    .handler(move |parsed| {
+        seen.lock().expect("lock").push(format!(
+            "install: global={}, pkg={}",
+            parsed.flag("global"),
+            parsed.opt("pkg").unwrap_or_default()
+        ));
+    });
+    let root = Command::group("npm", "npm command", vec![install]).with_shared_flags(vec![
+        Arg::Flag {
+            name: "global".to_string(),
+            help: "global".to_string(),
+        },
+    ]);
+
+    // The global ahead of the subcommand: the leading scan reads it and the
+    // value rides into the selected node.
+    root.run(&[
+        "--global".to_string(),
+        "install".to_string(),
+        "--pkg".to_string(),
+        "cowsay".to_string(),
+    ])
+    .expect("a global before the subcommand is in scope");
+
+    // The global after it: the same flag, on the far side of the subcommand,
+    // must still be declared rather than refused as unknown.
+    root.run(&[
+        "install".to_string(),
+        "--pkg".to_string(),
+        "cowsay".to_string(),
+        "--global".to_string(),
+    ])
+    .expect("a global after the subcommand is in scope too");
+
+    assert_eq!(
+        *log.lock().expect("lock"),
+        vec![
+            "install: global=true, pkg=cowsay".to_string(),
+            "install: global=true, pkg=cowsay".to_string()
+        ],
+        "both orders reach the handler with the same values"
+    );
+}
+
+/// Command.test.ts:1180 — a node's own flag and a shared flag added on top of
+/// it are both declared, so a line that carries both parses both.
+#[test]
+fn a_shared_flag_parses_beside_the_nodes_own_flag() {
+    let log = handler_log();
+    let seen = log.clone();
+    let root = Command::new(
+        "tool",
+        "tool command",
+        vec![Arg::Opt {
+            name: "workspace".to_string(),
+            help: "workspace".to_string(),
+            required: false,
+        }],
+    )
+    .with_shared_flags(vec![Arg::Opt {
+        name: "model".to_string(),
+        help: "model".to_string(),
+        required: false,
+    }])
+    .handler(move |parsed| {
+        seen.lock().expect("lock").push(format!(
+            "root: workspace={}, model={}",
+            parsed.opt("workspace").unwrap_or_default(),
+            parsed.opt("model").unwrap_or_default()
+        ));
+    });
+
+    root.run(&[
+        "--workspace".to_string(),
+        "docs".to_string(),
+        "--model".to_string(),
+        "gpt-4o".to_string(),
+    ])
+    .expect("both flags are declared");
+
+    assert_eq!(
+        *log.lock().expect("lock"),
+        vec!["root: workspace=docs, model=gpt-4o".to_string()]
+    );
+}
