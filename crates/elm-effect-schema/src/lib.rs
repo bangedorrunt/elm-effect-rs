@@ -3690,18 +3690,19 @@ impl Schema<Unknown> {
             // data, not a bad shape.
             let resolved = resolve_ref(r#ref)?;
             let name = ref_name(r#ref)?;
-            let _ = resolved;
             // A definition name is not always a legal identifier: `A/B~C` becomes
             // `A_B_C` in a repr, while the definition itself keeps the raw name
             // as its `identifier`. Both are needed, so the sanitised form is what
-            // a `Reference` carries and the raw one what the identifier says.
+            // a `Reference` carries and the raw one what the identifier says. The
+            // definition itself is carried too, so decoding does not depend on a
+            // global thread-local that a later import can overwrite.
             let sanitized = sanitize_definition_name(&name);
             let annotations = ["title", "description", "identifier", "format"]
                 .into_iter()
                 .filter_map(|keyword| get(keyword).map(|value| (keyword, value)))
                 .collect::<Vec<_>>();
             if annotations.is_empty() {
-                return Ok(Schema::as_unknown(Schema::reference(&sanitized)));
+                return Ok(Schema::as_unknown(Schema::reference(&sanitized, resolved)));
             }
             // Siblings of a reference render through a `suspend`, which is how
             // the pin names the codec's type parameter while keeping the
@@ -3711,7 +3712,7 @@ impl Schema<Unknown> {
                 .map(|(keyword, value)| (keyword.to_string(), annotation_text(value)))
                 .collect::<Vec<_>>();
             return Ok(Schema::as_unknown(Schema::annotated_with(
-                Schema::as_unknown(Schema::reference(&sanitized)),
+                Schema::as_unknown(Schema::reference(&sanitized, resolved)),
                 pairs,
             )));
         }
@@ -4611,16 +4612,11 @@ impl Schema<Unknown> {
     /// A named reference to a root definition. The decode is the referenced
     /// definition's decode, resolved once at construction: a reference is a
     /// name, but it still has to decode what it names.
-    pub fn reference(name: &str) -> Self {
+    pub fn reference(name: &str, definition: serde_json::Value) -> Self {
         let n = name.to_string();
+        let definition = definition.clone();
         let decode = move |unknown: Unknown| {
-            let defs = ROOT_DEFS.with(|slot| slot.borrow().clone());
-            let named = defs
-                .as_ref()
-                .and_then(|defs| defs.get(&n))
-                .cloned()
-                .unwrap_or(serde_json::Value::Null);
-            match Self::import(&named) {
+            match Self::import(&definition) {
                 Ok(inner) => inner.decode(unknown),
                 Err(_) => Ok(unknown),
             }
