@@ -8726,7 +8726,7 @@ ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts
 ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1107	it	array of types	json_schema_document_imports_an_array_of_type_names_as_a_union
 ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1127	it	ignores true schemas in allOf	json_schema_document_array_type_only_items_and_true_all_of_members
 ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1134	it	rejects structured enum members	json_schema_document_refuses_structured_const_and_enum_members
-unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1147	it	imports built-in JSON Schema annotations	
+ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1147	it	imports built-in JSON Schema annotations	json_schema_document_builtin_annotation_rows_carry_their_code_and_type
 ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1168	it	rejects local references inside nested resources	json_schema_document_ref_rows_carry_their_code_and_type
 unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1199	it	keeps root ids and nested resources without references supported	
 unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1221	it	determines resource scope from onEnter results	
