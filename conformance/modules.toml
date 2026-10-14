@@ -2108,7 +2108,7 @@ tests = ["packages/effect/test/http/HttpBody.test.ts"]
 [[module]]
 path = "packages/effect/src/http/HttpClient.ts"
 class = "unstable-port"
-status = "unmatched"
+status = "matched"
 tag = "unstable"
 reason = ""
 tests = ["packages/effect/test/http/HttpClient.test.ts"]
