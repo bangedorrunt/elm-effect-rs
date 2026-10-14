@@ -804,7 +804,7 @@ tests = ["packages/effect/test/schema/SchemaAST.test.ts"]
 [[module]]
 path = "packages/effect/src/SchemaGetter.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/schema/SchemaGetter.test.ts"]

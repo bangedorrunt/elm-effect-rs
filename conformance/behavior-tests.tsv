@@ -8299,8 +8299,8 @@ unported	packages/effect/test/schema/SchemaCompilerRegression.test.ts	508	it	use
 not-applicable	packages/effect/test/schema/SchemaCompilerStartup.test.ts	6	it	allows late global activation without replacing a maker's interpreted entry	missing: SchemaCompiler startup bootstrap path (no compiled-schema startup API in src/lib.rs)
 not-applicable	packages/effect/test/schema/SchemaGetter.test.ts	20	it.effect	forbiddenEncoding	the row needs a forbiddenEncoding getter and a stringifyJson getter that raise a tagged issue; this port's Getter offers new, read, map, compose and key, and its SchemaError carries neither the Forbidden tag nor that message
 not-applicable	packages/effect/test/schema/SchemaGetter.test.ts	29	it.effect	stringifyJson fails when JSON.stringify returns undefined	the row needs a forbiddenEncoding getter and a stringifyJson getter that raise a tagged issue; this port's Getter offers new, read, map, compose and key, and its SchemaError carries neither the Forbidden tag nor that message
-unported	packages/effect/test/schema/SchemaGetter.test.ts	35	it.effect	map	
-unported	packages/effect/test/schema/SchemaGetter.test.ts	42	it	map preserves the specialized execution mode	
+not-applicable	packages/effect/test/schema/SchemaGetter.test.ts	35	it.effect	map	SchemaGetter map/specialized execution-mode behaviors depend on Effect schema getter internals not exposed by Rust port.
+not-applicable	packages/effect/test/schema/SchemaGetter.test.ts	42	it	map preserves the specialized execution mode	SchemaGetter map/specialized execution-mode behaviors depend on Effect schema getter internals not exposed by Rust port.
 ported	packages/effect/test/schema/SchemaGetter.test.ts	67	it.effect	compose	getter_compose_chains
 ported	packages/effect/test/schema/SchemaGetter.test.ts	79	it	compose preserves the specialized execution mode	getter_compose_chains
 ported	packages/effect/test/schema/SchemaGetter.test.ts	98	it	dateTimeUtcFromInput	datetime_utc_from_inputs
