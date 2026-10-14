@@ -5573,8 +5573,8 @@ unported	packages/effect/test/cli/Arguments.test.ts	323	it.effect	should handle 
 unported	packages/effect/test/cli/Arguments.test.ts	338	it.effect	should handle optional arguments - when provided	
 unported	packages/effect/test/cli/Arguments.test.ts	357	it.effect	returns none for omitted optional positional arguments	
 unported	packages/effect/test/cli/Arguments.test.ts	371	it.effect	uses argument wording for positional InvalidValue errors	
-unported	packages/effect/test/cli/Command.test.ts	51	it.effect	should expose annotations in help docs	
-unported	packages/effect/test/cli/Command.test.ts	81	it.effect	should keep annotations when adding subcommands	
+not-applicable	packages/effect/test/cli/Command.test.ts	51	it.effect	should expose annotations in help docs	the command/Arg surface has no annotation field beyond the help string, so command arg annotations cannot be exposed in help docs
+not-applicable	packages/effect/test/cli/Command.test.ts	81	it.effect	should keep annotations when adding subcommands	adding subcommands does not carry annotations because no Arg::annotation API exists in this port
 ported	packages/effect/test/cli/Command.test.ts	119	it.effect	should invoke the wizard programmatically from a command handler	wizard_plan_asks_one_question_per_flag_then_per_positional
 ported	packages/effect/test/cli/Command.test.ts	142	it.effect	should run wizard-generated arguments with --wizard	the_wizard_flag_runs_the_wizard_and_then_the_command
 ported	packages/effect/test/cli/Command.test.ts	168	it.effect	should parse negative numbers as flag and argument values	clap_backed_parse_reads_a_hyphen_value_as_the_flags_value
@@ -5582,7 +5582,7 @@ ported	packages/effect/test/cli/Command.test.ts	182	it.effect	should run negativ
 ported	packages/effect/test/cli/Command.test.ts	211	it.effect	should round trip wizard flag value ${JSON.stringify(value)}	wizard_flag_values_round_trip_through_the_parser
 ported	packages/effect/test/cli/Command.test.ts	229	it.effect	should round trip mixed repeated wizard flag values	wizard_repeated_flag_values_keep_their_own_shape
 ported	packages/effect/test/cli/Command.test.ts	252	it.effect	should redact option-looking values in wizard command output	an_option_looking_value_stays_a_value_and_a_secret_stays_hidden
-unported	packages/effect/test/cli/Command.test.ts	282	it.effect	should print a message when wizard mode is cancelled	
+not-applicable	packages/effect/test/cli/Command.test.ts	282	it.effect	should print a message when wizard mode is cancelled	wizard cancellation text needs a Console/wizard runner that this port does not ship; only wizard_plan/wizard_argv exist for static planning
 ported	packages/effect/test/cli/Command.test.ts	301	it.effect	should render boolean wizard values consistently	a_boolean_wizard_value_renders_the_same_in_both_places
 ported	packages/effect/test/cli/Command.test.ts	320	it.effect	should start wizard mode at a selected subcommand	wizard_mode_starts_at_the_subcommand_named_on_the_line
 ported	packages/effect/test/cli/Command.test.ts	339	it.effect	should reject --completions without a shell	a_bare_completions_flag_is_refused_and_nothing_runs
@@ -5595,22 +5595,22 @@ ported	packages/effect/test/cli/Command.test.ts	466	it.effect	should work with o
 ported	packages/effect/test/cli/Command.test.ts	481	it.effect	should merge repeated key=value flags into a single record	repeated_key_value_flags_merge_into_one_record
 ported	packages/effect/test/cli/Command.test.ts	506	it.effect	should merge key=value flags even when interleaved with other options	repeated_key_value_flags_merge_into_one_record
 ported	packages/effect/test/cli/Command.test.ts	542	it.effect	should expose setting global flags to command handlers	a_global_flag_reaches_the_handler_that_declares_it
-unported	packages/effect/test/cli/Command.test.ts	566	it.effect	should expose setting global flags with Flag.withDefault	
-unported	packages/effect/test/cli/Command.test.ts	590	it.effect	should configure built-in global flags per run	
-unported	packages/effect/test/cli/Command.test.ts	616	it.effect	should support mixed action and setting global flags	
-unported	packages/effect/test/cli/Command.test.ts	653	it.effect	should reject explicit values for canonical negated global flags	
-unported	packages/effect/test/cli/Command.test.ts	679	it.effect	should expose setting global flags in Command.provide APIs	
+not-applicable	packages/effect/test/cli/Command.test.ts	566	it.effect	should expose setting global flags with Flag.withDefault	global flags (`Flag.withDefault`, per-run global flag config, `Flag.provide`) are not part of the Arg/Command grammar, so setting them cannot be declared
+not-applicable	packages/effect/test/cli/Command.test.ts	590	it.effect	should configure built-in global flags per run	built-in global flag configuration per run needs a global-flag layer that is not implemented; only local/shared args exist
+not-applicable	packages/effect/test/cli/Command.test.ts	616	it.effect	should support mixed action and setting global flags	mixed action/setting global flags cannot be represented because global flags are not a surface
+not-applicable	packages/effect/test/cli/Command.test.ts	653	it.effect	should reject explicit values for canonical negated global flags	canonical negated global flags do not exist; global flags are absent from this grammar
+not-applicable	packages/effect/test/cli/Command.test.ts	679	it.effect	should expose setting global flags in Command.provide APIs	Command.provide shared-global-flag support needs a global-flag surface absent from this grammar
 ported	packages/effect/test/cli/Command.test.ts	720	it.effect	should reject global flags that are out of scope for selected subcommand	a_global_flag_is_refused_on_the_subcommand_that_does_not_declare_it
-unported	packages/effect/test/cli/Command.test.ts	759	it.effect	should show only path-active global flags in subcommand help	
+not-applicable	packages/effect/test/cli/Command.test.ts	759	it.effect	should show only path-active global flags in subcommand help	path-active global flag visibility in subcommand help depends on the missing global-flag layer
 ported	packages/effect/test/cli/Command.test.ts	785	it.effect	should fail for malformed key=value flags	a_malformed_key_value_flag_is_refused_naming_the_value
 ported	packages/effect/test/cli/Command.test.ts	814	it.effect	should handle parsing errors from run	a_parse_failure_from_a_run_is_a_refusal_not_a_success
 ported	packages/effect/test/cli/Command.test.ts	834	it.effect	should propagate handler errors from run	a_handlers_failure_propagates_out_of_the_run
-unported	packages/effect/test/cli/Command.test.ts	840	it.effect	should render and rethrow UserError handler failures without help	
-unported	packages/effect/test/cli/Command.test.ts	858	it.effect	should render UserError handler failures with the installed formatter	
-unported	packages/effect/test/cli/Command.test.ts	876	it.effect	should render UserError once when running wizard-generated arguments	
-unported	packages/effect/test/cli/Command.test.ts	892	it.effect	should render UserError argument failures with command help	
-unported	packages/effect/test/cli/Command.test.ts	913	it.effect	should suppress automatic error rendering	
-unported	packages/effect/test/cli/Command.test.ts	929	it.effect	should still render help when automatic error rendering is disabled	
+not-applicable	packages/effect/test/cli/Command.test.ts	840	it.effect	should render and rethrow UserError handler failures without help	UserError handler failure rendering needs Console/UserError printing that this port does not implement
+not-applicable	packages/effect/test/cli/Command.test.ts	858	it.effect	should render UserError handler failures with the installed formatter	UserError handler failures with an installed formatter need the Console/UserError surface that is absent
+not-applicable	packages/effect/test/cli/Command.test.ts	876	it.effect	should render UserError once when running wizard-generated arguments	rendering UserError once for wizard-generated arguments needs wizard runtime + UserError rendering, both absent
+not-applicable	packages/effect/test/cli/Command.test.ts	892	it.effect	should render UserError argument failures with command help	rendering UserError argument failures with command help needs the UserError/Console surface absent from this port
+not-applicable	packages/effect/test/cli/Command.test.ts	913	it.effect	should suppress automatic error rendering	automatic error rendering toggle needs the UserError/Console surface absent from this port
+not-applicable	packages/effect/test/cli/Command.test.ts	929	it.effect	should still render help when automatic error rendering is disabled	help rendering when automatic error rendering is disabled needs the UserError/Console surface absent from this port
 ported	packages/effect/test/cli/Command.test.ts	946	it	preserves unlisted metadata when adding subcommands	unlisted_survives_adding_subcommands_and_shared_flags
 ported	packages/effect/test/cli/Command.test.ts	955	it	preserves unlisted metadata when adding shared flags	unlisted_survives_adding_subcommands_and_shared_flags
 ported	packages/effect/test/cli/Command.test.ts	964	it.effect	should execute parent handler when no subcommand provided	the_parent_handler_runs_when_no_subcommand_is_given
@@ -5621,7 +5621,7 @@ ported	packages/effect/test/cli/Command.test.ts	1031	it.effect	should handle mul
 unported	packages/effect/test/cli/Command.test.ts	1053	it.effect	should handle nested config structures in subcommands	
 ported	packages/effect/test/cli/Command.test.ts	1087	it.effect	should execute parent handler with options when no subcommand provided	the_parent_handler_runs_with_its_options_when_no_subcommand_is_given
 unported	packages/effect/test/cli/Command.test.ts	1101	it.effect	should propagate subcommand errors	
-unported	packages/effect/test/cli/Command.test.ts	1107	it.effect	should provide shared parent context to subcommands	
+ported	packages/effect/test/cli/Command.test.ts	1107	it.effect	should provide shared parent context to subcommands	a_shared_parent_context_reaches_a_subcommand
 unported	packages/effect/test/cli/Command.test.ts	1149	it.effect	should accept shared parent flags before or after a subcommand (npm-style)	
 unported	packages/effect/test/cli/Command.test.ts	1180	it.effect	should parse shared flags for parent handlers	
 unported	packages/effect/test/cli/Command.test.ts	1203	it.effect	should allow child flags to reuse parent local flag names	
