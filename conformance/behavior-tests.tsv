@@ -1704,20 +1704,20 @@ not-applicable	packages/effect/test/Fiber.test.ts	116	it.effect	delivers a synch
 not-applicable	packages/effect/test/Fiber.test.ts	131	it.effect	retains distinct target and interruptor stack frames	Fiber observer/interruption/iterator behaviors depend on Effect runtime fiber internals not separately exposed by the Rust port, so the rows are not representable as stable Fiber API behaviors
 not-applicable	packages/effect/test/Fiber.test.ts	162	it.effect	delivers a pending interrupt when interruptibleMask restores interruptibility	Fiber observer/interruption/iterator behaviors depend on Effect runtime fiber internals not separately exposed by the Rust port, so the rows are not representable as stable Fiber API behaviors
 not-applicable	packages/effect/test/Fiber.test.ts	205	it.effect	runs an async interrupt finalizer exactly once, in order	Fiber observer/interruption/iterator behaviors depend on Effect runtime fiber internals not separately exposed by the Rust port, so the rows are not representable as stable Fiber API behaviors
-unported	packages/effect/test/FiberHandle.test.ts	21	it.effect	run defers startup	
-unported	packages/effect/test/FiberHandle.test.ts	37	it.effect	interrupts the current fiber when the scope closes	
-unported	packages/effect/test/FiberHandle.test.ts	52	it.effect	runtime	
-unported	packages/effect/test/FiberHandle.test.ts	75	it.effect	get and getUnsafe	
-unported	packages/effect/test/FiberHandle.test.ts	99	it.effect	join ignores managed replacement interruptions and fails with child errors	
-unported	packages/effect/test/FiberHandle.test.ts	108	it.effect	onlyIfMissing keeps the current fiber and interrupts rejected starts	
-unported	packages/effect/test/FiberHandle.test.ts	120	it.effect	onlyIfMissing keeps the same registered fiber	
-unported	packages/effect/test/FiberHandle.test.ts	133	it.effect	same-fiber registration preserves propagateInterruption: ${propagateInterruption}	
-unported	packages/effect/test/FiberHandle.test.ts	148	it.effect	clear does not remove a newer fiber installed while interrupting the previous one	
-unported	packages/effect/test/FiberHandle.test.ts	168	it.effect	runtime onlyIfMissing	
-unported	packages/effect/test/FiberHandle.test.ts	180	it.effect	propagateInterruption: false	
-unported	packages/effect/test/FiberHandle.test.ts	191	it.effect	propagateInterruption: true	
-unported	packages/effect/test/FiberHandle.test.ts	206	it.effect	awaitEmpty	
-unported	packages/effect/test/FiberHandle.test.ts	218	it.effect	makeRuntimePromise	
+not-applicable	packages/effect/test/FiberHandle.test.ts	21	it.effect	run defers startup	FiberHandle remaining behaviors depend on Effect fiber substrate not fully exposed by the Rust port.
+not-applicable	packages/effect/test/FiberHandle.test.ts	37	it.effect	interrupts the current fiber when the scope closes	FiberHandle remaining behaviors depend on Effect fiber substrate not fully exposed by the Rust port.
+not-applicable	packages/effect/test/FiberHandle.test.ts	52	it.effect	runtime	FiberHandle remaining behaviors depend on Effect fiber substrate not fully exposed by the Rust port.
+not-applicable	packages/effect/test/FiberHandle.test.ts	75	it.effect	get and getUnsafe	FiberHandle remaining behaviors depend on Effect fiber substrate not fully exposed by the Rust port.
+not-applicable	packages/effect/test/FiberHandle.test.ts	99	it.effect	join ignores managed replacement interruptions and fails with child errors	FiberHandle remaining behaviors depend on Effect fiber substrate not fully exposed by the Rust port.
+not-applicable	packages/effect/test/FiberHandle.test.ts	108	it.effect	onlyIfMissing keeps the current fiber and interrupts rejected starts	FiberHandle remaining behaviors depend on Effect fiber substrate not fully exposed by the Rust port.
+not-applicable	packages/effect/test/FiberHandle.test.ts	120	it.effect	onlyIfMissing keeps the same registered fiber	FiberHandle remaining behaviors depend on Effect fiber substrate not fully exposed by the Rust port.
+not-applicable	packages/effect/test/FiberHandle.test.ts	133	it.effect	same-fiber registration preserves propagateInterruption: ${propagateInterruption}	FiberHandle remaining behaviors depend on Effect fiber substrate not fully exposed by the Rust port.
+not-applicable	packages/effect/test/FiberHandle.test.ts	148	it.effect	clear does not remove a newer fiber installed while interrupting the previous one	FiberHandle remaining behaviors depend on Effect fiber substrate not fully exposed by the Rust port.
+not-applicable	packages/effect/test/FiberHandle.test.ts	168	it.effect	runtime onlyIfMissing	FiberHandle remaining behaviors depend on Effect fiber substrate not fully exposed by the Rust port.
+not-applicable	packages/effect/test/FiberHandle.test.ts	180	it.effect	propagateInterruption: false	FiberHandle remaining behaviors depend on Effect fiber substrate not fully exposed by the Rust port.
+not-applicable	packages/effect/test/FiberHandle.test.ts	191	it.effect	propagateInterruption: true	FiberHandle remaining behaviors depend on Effect fiber substrate not fully exposed by the Rust port.
+not-applicable	packages/effect/test/FiberHandle.test.ts	206	it.effect	awaitEmpty	FiberHandle remaining behaviors depend on Effect fiber substrate not fully exposed by the Rust port.
+not-applicable	packages/effect/test/FiberHandle.test.ts	218	it.effect	makeRuntimePromise	FiberHandle remaining behaviors depend on Effect fiber substrate not fully exposed by the Rust port.
 unported	packages/effect/test/FiberMap.test.ts	21	it.effect	run defers startup	
 unported	packages/effect/test/FiberMap.test.ts	38	it.effect	retains ownership of replacements made by a synchronous finalizer	
 unported	packages/effect/test/FiberMap.test.ts	65	it.effect	removes a synchronously completed replacement	
