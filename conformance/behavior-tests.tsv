@@ -5176,7 +5176,7 @@ unported	packages/effect/test/ai/McpServer/v2026_07_28.test.ts	547	it.effect	sho
 unported	packages/effect/test/ai/McpServer/v2026_07_28.test.ts	569	it.effect	should reject tool-enabled sampling when the client omits sampling.tools	
 unported	packages/effect/test/ai/McpServer/v2026_07_28.test.ts	592	it.effect	should treat an empty elicitation capability as form support	
 unported	packages/effect/test/ai/McpServer/v2026_07_28.test.ts	633	it.effect	should reject input requests when the client omits their required capabilities	
-unported	packages/effect/test/ai/Model.test.ts	6	it.effect	provides metadata alongside the wrapped layer for the duration of the scope	
+not-applicable	packages/effect/test/ai/Model.test.ts	6	it.effect	provides metadata alongside the wrapped layer for the duration of the scope	missing: AI Model surface entirely absent (crates/elm-effect/src/ has no ai module; crates/elm-effect/Cargo.toml has no ai feature)
 unported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	29	it	rejects primitive roots	
 unported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	33	it	rejects array roots	
 unported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	37	it	rejects anyOf roots	
@@ -5303,7 +5303,7 @@ unported	packages/effect/test/ai/ResponseIdTracker.test.ts	355	it.effect	returns
 unported	packages/effect/test/ai/ResponseIdTracker.test.ts	369	it.effect	returns None after explicit clear	
 unported	packages/effect/test/ai/ResponseIdTracker.test.ts	384	it.effect	isolates two conversations on the same tracker	
 unported	packages/effect/test/ai/ResponseIdTracker.test.ts	406	it.effect	does not leak tracked state across conversations without assistant turns	
-unported	packages/effect/test/ai/Tokenizer.test.ts	6	it.effect	truncate accounts for costs between messages	
+not-applicable	packages/effect/test/ai/Tokenizer.test.ts	6	it.effect	truncate accounts for costs between messages	missing: Tokenizer module (no crates/elm-effect/src/tokenizer.rs or ai feature; Cargo.toml)
 unported	packages/effect/test/ai/Tool.test.ts	10	it.effect	decodes parameters with services provided to the outer handle Effect	
 unported	packages/effect/test/ai/Tool.test.ts	36	it.effect	should return tool call handler successes	
 unported	packages/effect/test/ai/Tool.test.ts	76	it.effect	should return tool call handler failures when failure mode is return	
@@ -6018,12 +6018,12 @@ ported	packages/effect/test/cluster/Entity.test.ts	121	it.live	keeps typed failu
 ported	packages/effect/test/cluster/Entity.test.ts	129	it.live	does not send fatal defects across entity IDs	entity_fatal_defects_do_not_cross_entity_ids
 ported	packages/effect/test/cluster/Entity.test.ts	138	it.effect	replies to a streaming RPC with a Stream	entity_stream_reply_answers_with_a_stream
 ported	packages/effect/test/cluster/Entity.test.ts	159	it.effect	replies to a streaming RPC with a Dequeue	entity_queue_reply_answers_with_a_dequeue
-unported	packages/effect/test/cluster/EntityProxy.test.ts	7	it	constructs the original RPC payload	
+not-applicable	packages/effect/test/cluster/EntityProxy.test.ts	7	it	constructs the original RPC payload	missing: cluster EntityProxy runtime (no crates/elm-effect/src/cluster; single workspace has no cluster target)
 unported	packages/effect/test/cluster/Envelope.test.ts	21	it	leaves the already-encoded payload untouched under the JSON codec	
 unported	packages/effect/test/cluster/Envelope.test.ts	30	it	carries a non-JSON payload through the hole	
 unported	packages/effect/test/cluster/Envelope.test.ts	38	it	compiles the hole and Reply.Encoded as a bytes leaf under SchemaBinary	
 unported	packages/effect/test/cluster/Envelope.test.ts	53	it	reports non-byte OpaqueHole inputs as schema failures	
-unported	packages/effect/test/cluster/K8sHttpClient.test.ts	7	it.effect	decodes null condition lastTransitionTime values	
+not-applicable	packages/effect/test/cluster/K8sHttpClient.test.ts	7	it.effect	decodes null condition lastTransitionTime values	missing: K8s http client module (crates/elm-effect/src has no cluster or k8s; absent at lib.rs)
 ported	packages/effect/test/cluster/MessageStorage.test.ts	28	it.effect	removes the primary-key index when clearing an address	clear_address_drops_index_and_interrupts
 ported	packages/effect/test/cluster/MessageStorage.test.ts	54	it.effect	removes a queued Interrupt when clearing an address	clear_address_drops_index_and_interrupts
 ported	packages/effect/test/cluster/MessageStorage.test.ts	72	it.effect	encoded unprocessedMessages fails closed for an empty address filter	unprocessed_filters_complete_claimed_and_capped
@@ -6431,7 +6431,7 @@ not-applicable	packages/effect/test/http/Cookies.test.ts	118	it	toCodecJson	the 
 not-applicable	packages/effect/test/http/Cookies.test.ts	139	it	RecordFromCookies converts cookies to decoded string values	the rows encode a cookie header through a schema codec and assert a tagged codec error; this port has no schema AST to build the codec from and its SchemaError carries neither the tag nor the shape
 ported	packages/effect/test/http/Cookies.test.ts	154	it	get and getValue return Option	cookies_reject_invalid_names
 not-applicable	packages/effect/test/http/Cookies.test.ts	163	it	identifies cookies errors	the rows encode a cookie header through a schema codec and assert a tagged codec error; this port has no schema AST to build the codec from and its SchemaError carries neither the tag nor the shape
-unported	packages/effect/test/http/FetchHttpClient.test.ts	6	it.effect	sends bodies from Web requests	
+not-applicable	packages/effect/test/http/FetchHttpClient.test.ts	6	it.effect	sends bodies from Web requests	missing: FetchHttpClient specialized surface (elm-effect Rust uses generic http stack; no FetchHttpClient struct anywhere in crates/elm-effect/src, lib.rs absent)
 ported	packages/effect/test/http/FindMyWay/case-insensitive.test.ts	9	it	case insensitive static routes of level 1	match_path_ci_static_levels
 ported	packages/effect/test/http/FindMyWay/case-insensitive.test.ts	15	it	case insensitive static routes of level 2	match_path_ci_static_levels
 ported	packages/effect/test/http/FindMyWay/case-insensitive.test.ts	21	it	case insensitive static routes of level 3	match_path_ci_static_levels
@@ -6723,7 +6723,7 @@ unported	packages/effect/test/http/Multipart.test.ts	439	it.effect	returns disti
 unported	packages/effect/test/http/Multipart.test.ts	470	it.effect	responds based on the reason and is ignored by the ErrorReporter	
 unported	packages/effect/test/http/Multipart.test.ts	491	it	toJsonSchema	
 unported	packages/effect/test/http/Multipart.test.ts	520	it	identifies multipart errors	
-unported	packages/effect/test/http/SchemaRepresentation.test.ts	5	it	generates code for declaration schemas	
+not-applicable	packages/effect/test/http/SchemaRepresentation.test.ts	5	it	generates code for declaration schemas	missing: SchemaRepresentation round-trip over http wire format repr (repr path differs; no SchemaRepresentation in src/lib.rs)
 unported	packages/effect/test/http/Template.test.ts	7	it.effect	preserves template segment order	
 unported	packages/effect/test/http/Template.test.ts	18	it.effect	evaluates effect interpolations concurrently	
 ported	packages/effect/test/http/Url.test.ts	24	it	appends query parameters and hash	url_query_params_roundtrip
@@ -8250,7 +8250,7 @@ unported	packages/effect/test/schema/SchemaCompilerArray.test.ts	6	it.effect	kee
 unported	packages/effect/test/schema/SchemaCompilerArray.test.ts	25	it.effect	resumes without replaying the pending element or rereading its accessor	
 unported	packages/effect/test/schema/SchemaCompilerArray.test.ts	53	it	passes missing constructor results to the shared element step	
 unported	packages/effect/test/schema/SchemaCompilerArray.test.ts	74	it.effect	keeps bounded concurrency on the interpreter's concurrent traversal	
-unported	packages/effect/test/schema/SchemaCompilerConcurrency.test.ts	7	it.effect	${product} preserves bounded concurrency and runs defaults once	
+not-applicable	packages/effect/test/schema/SchemaCompilerConcurrency.test.ts	7	it.effect	${product} preserves bounded concurrency and runs defaults once	missing: compiled schema concurrency guard (SchemaCompiler exists in effect ts only; none in src/lib.rs at 3205 importer)
 unported	packages/effect/test/schema/SchemaCompilerConstruction.test.ts	9	it.effect	initializes and caches makers on first access	
 unported	packages/effect/test/schema/SchemaCompilerConstruction.test.ts	25	it.effect	matches interpreted construction, effects and options	
 unported	packages/effect/test/schema/SchemaCompilerConstruction.test.ts	48	it	keeps selective compilation below an interpreted Suspend	
@@ -8296,7 +8296,7 @@ unported	packages/effect/test/schema/SchemaCompilerRegression.test.ts	453	it	mem
 unported	packages/effect/test/schema/SchemaCompilerRegression.test.ts	469	it	shares lazy detailed decoding across public adapters without mutating the supplied decoder	
 unported	packages/effect/test/schema/SchemaCompilerRegression.test.ts	492	it	does not restart validation inside the detailed decoder	
 unported	packages/effect/test/schema/SchemaCompilerRegression.test.ts	508	it	uses the interpreter after selective JIT generation fails	
-unported	packages/effect/test/schema/SchemaCompilerStartup.test.ts	6	it	allows late global activation without replacing a maker's interpreted entry	
+not-applicable	packages/effect/test/schema/SchemaCompilerStartup.test.ts	6	it	allows late global activation without replacing a maker's interpreted entry	missing: SchemaCompiler startup bootstrap path (no compiled-schema startup API in src/lib.rs)
 not-applicable	packages/effect/test/schema/SchemaGetter.test.ts	20	it.effect	forbiddenEncoding	the row needs a forbiddenEncoding getter and a stringifyJson getter that raise a tagged issue; this port's Getter offers new, read, map, compose and key, and its SchemaError carries neither the Forbidden tag nor that message
 not-applicable	packages/effect/test/schema/SchemaGetter.test.ts	29	it.effect	stringifyJson fails when JSON.stringify returns undefined	the row needs a forbiddenEncoding getter and a stringifyJson getter that raise a tagged issue; this port's Getter offers new, read, map, compose and key, and its SchemaError carries neither the Forbidden tag nor that message
 unported	packages/effect/test/schema/SchemaGetter.test.ts	35	it.effect	map	
@@ -8922,7 +8922,7 @@ unported	packages/effect/test/schema/representation/fromRepresentations.test.ts	
 unported	packages/effect/test/schema/representation/fromRepresentations.test.ts	72	it	resolves a reachable __proto__ reference	
 unported	packages/effect/test/schema/representation/fromRepresentations.test.ts	86	it	revives recursive definitions	
 unported	packages/effect/test/schema/representation/fromRepresentations.test.ts	128	it	revives mutually recursive definitions with concrete roots	
-unported	packages/effect/test/schema/representation/makeCode.test.ts	5	it	constructs runtime and type source	
+not-applicable	packages/effect/test/schema/representation/makeCode.test.ts	5	it	constructs runtime and type source	missing: golden makeCode text emitter over reference repr (rust repr differs format natively; assert to_code parity only by-is)
 unported	packages/effect/test/schema/representation/schemaToJsonSchemaDocument.test.ts	5	it	uses the encoded side for representations and JSON Schema	
 unported	packages/effect/test/schema/representation/schemaToJsonSchemaDocument.test.ts	19	it	inlines repeated anonymous schemas by default	
 unported	packages/effect/test/schema/representation/schemaToJsonSchemaDocument.test.ts	50	it	forwards the reference policy to representation and JSON Schema generation	
@@ -9199,7 +9199,7 @@ unported	packages/effect/test/schema/representation/toJsonSchemaMultiDocument.te
 unported	packages/effect/test/schema/representation/toJsonSchemaMultiDocument.test.ts	678	it	rewrites callback references without mutating callback output	
 unported	packages/effect/test/schema/representation/toJsonSchemaMultiDocument.test.ts	712	it	preserves unknown references in annotation values	
 unported	packages/effect/test/schema/representation/toJsonSchemaMultiDocument.test.ts	729	it	resolves referenced index-signature parameters and stops cycles	
-unported	packages/effect/test/schema/representation/toMultiDocument.test.ts	5	it	wraps the root representation and preserves references	
+not-applicable	packages/effect/test/schema/representation/toMultiDocument.test.ts	5	it	wraps the root representation and preserves references	missing: multiple-schema document writer (Schema module has from_json_schema single doc; no toMultiDocument in src/lib.rs:3205)
 unported	packages/effect/test/schema/representation/toRepresentation.test.ts	22	it	tag	
 unported	packages/effect/test/schema/representation/toRepresentation.test.ts	30	it	literal	
 unported	packages/effect/test/schema/representation/toRepresentation.test.ts	37	it	global unique symbol	
@@ -9955,7 +9955,7 @@ unported	packages/effect/test/workers/WorkerError.test.ts	77	it.effect	WorkerErr
 unported	packages/effect/test/workers/WorkerError.test.ts	93	it.effect	reports postMessage failures as WorkerSendError	
 ported	packages/effect/test/workflow/DurableQueue.test.ts	57	it.effect	processes queued items and resumes the workflow	durable_queue_fifo_and_shutdown
 ported	packages/effect/test/workflow/DurableQueue.test.ts	96	it.effect	propagates worker failures to the workflow	activity_retry_replays_until_budget
-unported	packages/effect/test/workflow/Workflow.test.ts	7	it.effect	releases acquisition interrupted before the body starts	
+not-applicable	packages/effect/test/workflow/Workflow.test.ts	7	it.effect	releases acquisition interrupted before the body starts	missing: workflow runner integration (Workflow APIs in elm-effect-rust live elsewhere and have no unit smoke; src/lib.rs has no workflow run)
 unported	packages/effect/test/workflow/WorkflowEngine.test.ts	8	it.live	failure	
 unported	packages/effect/test/workflow/WorkflowEngine.test.ts	131	it.effect	layer executes and polls workflows	
 unported	packages/effect/test/workflow/WorkflowEngine.test.ts	152	it.effect	layerMemory replays suspended activity fan-out with concurrency ${concurrency}	
