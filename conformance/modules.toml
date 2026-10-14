@@ -804,7 +804,7 @@ tests = ["packages/effect/test/schema/SchemaAST.test.ts"]
 [[module]]
 path = "packages/effect/src/SchemaGetter.ts"
 class = "port"
-status = "matched"
+status = "unmatched"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/schema/SchemaGetter.test.ts"]
@@ -852,7 +852,7 @@ tests = ["packages/effect/test/Scope.test.ts"]
 [[module]]
 path = "packages/effect/src/ScopedCache.ts"
 class = "port"
-status = "matched"
+status = "unmatched"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/ScopedCache.test.ts"]
@@ -916,7 +916,7 @@ tests = ["packages/effect/test/String.test.ts"]
 [[module]]
 path = "packages/effect/src/Struct.ts"
 class = "port"
-status = "matched"
+status = "unmatched"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/Struct.test.ts"]
@@ -2532,7 +2532,7 @@ tests = ["packages/effect/test/reactivity/AsyncResult.test.ts"]
 [[module]]
 path = "packages/effect/src/reactivity/Atom.ts"
 class = "unstable-port"
-status = "matched"
+status = "unmatched"
 tag = "unstable"
 reason = ""
 tests = ["packages/effect/test/reactivity/Atom.test.ts"]
