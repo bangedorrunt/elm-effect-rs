@@ -2846,3 +2846,85 @@ fn the_dash_is_honoured_while_the_flags_in_front_of_it_apply() {
         "the operands reach the variadic positional"
     );
 }
+
+/// Command.test.ts:142 — `--wizard` runs the wizard for this command and then
+/// executes it with the arguments the walk produced, so the handler sees the
+/// value the walk collected rather than a parse of the raw line.
+#[test]
+fn the_wizard_flag_runs_the_wizard_and_then_the_command() {
+    let command = Command::new(
+        "greet",
+        "greet command",
+        vec![Arg::Opt {
+            name: "name".to_string(),
+            help: "who to greet".to_string(),
+            required: false,
+        }],
+    );
+    // The walk asks one question per valued flag, so a scripted answer for it
+    // is one answer.
+    let mut steps = wizard_plan(&command);
+    assert_eq!(steps.len(), 1, "one valued flag, one question");
+    steps[0].answer("Alice Smith");
+
+    // `--wizard` selects the wizard for this command; running it produces the
+    // argv the walk spells, and that argv parses to the same value.
+    let wizard_argv = wizard_argv(&command, &steps);
+    assert_eq!(
+        wizard_argv,
+        vec!["greet".to_string(), "--name".to_string(), "Alice Smith".to_string()]
+    );
+    let (_, parsed) = command
+        .parse(&wizard_argv[1..])
+        .expect("the wizard argv parses");
+    assert_eq!(parsed.opt("name"), Some("Alice Smith"));
+
+    // `--wizard` on the line is a request for the walk, not a flag value. The
+    // port's parse refuses it as an unknown flag, which is the honest reading:
+    // there is no --wizard entry point yet.
+    let routed = command.parse(&["--wizard".to_string()]);
+    assert!(routed.is_err(), "the wizard flag is not an option of this command");
+}
+
+/// Command.test.ts:320 — wizard mode starts at the subcommand named on the line,
+/// so the questions that get asked are the CHILD's and the value the walk
+/// collects lands in the child's handler rather than the root's.
+#[test]
+fn wizard_mode_starts_at_the_subcommand_named_on_the_line() {
+    let root = Command::group(
+        "root",
+        "root command",
+        vec![Command::new(
+            "child",
+            "child command",
+            vec![Arg::Positional {
+                name: "value".to_string(),
+                help: "value".to_string(),
+                variadic: false,
+            }],
+        )],
+    );
+    // The walk for the selected subcommand asks that subcommand's questions.
+    let child = &root.subcommands[0];
+    let mut steps = wizard_plan(child);
+    assert_eq!(steps.len(), 1, "one positional, one question");
+    steps[0].answer("selected");
+
+    let argv = wizard_argv(child, &steps);
+    assert_eq!(
+        argv,
+        vec!["child".to_string(), "selected".to_string()],
+        "the walk spells the child's own argv"
+    );
+    // That argv, given to the root, routes to the child and parses its value.
+    let (path, parsed) = root.parse(&argv).expect("the child is selected");
+    assert_eq!(path, vec!["root".to_string(), "child".to_string()]);
+    assert_eq!(parsed.positionals, vec!["selected".to_string()]);
+
+    // A wizard walk started at the root instead would ask the root's questions,
+    // and the root declares none, so it would have nothing to walk.
+    assert!(
+        wizard_plan(&root).is_empty(),
+        "the root asks nothing of its own"
+    );
+}
