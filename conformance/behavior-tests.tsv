@@ -5622,10 +5622,10 @@ unported	packages/effect/test/cli/Command.test.ts	1053	it.effect	should handle n
 ported	packages/effect/test/cli/Command.test.ts	1087	it.effect	should execute parent handler with options when no subcommand provided	the_parent_handler_runs_with_its_options_when_no_subcommand_is_given
 unported	packages/effect/test/cli/Command.test.ts	1101	it.effect	should propagate subcommand errors	
 ported	packages/effect/test/cli/Command.test.ts	1107	it.effect	should provide shared parent context to subcommands	a_shared_parent_context_reaches_a_subcommand
-unported	packages/effect/test/cli/Command.test.ts	1149	it.effect	should accept shared parent flags before or after a subcommand (npm-style)	
-unported	packages/effect/test/cli/Command.test.ts	1180	it.effect	should parse shared flags for parent handlers	
-unported	packages/effect/test/cli/Command.test.ts	1203	it.effect	should allow child flags to reuse parent local flag names	
-unported	packages/effect/test/cli/Command.test.ts	1231	it.effect	should reject parent local flags on subcommand paths	
+ported	packages/effect/test/cli/Command.test.ts	1149	it.effect	should accept shared parent flags before or after a subcommand (npm-style)	a_shared_parent_flag_is_accepted_before_and_after_the_subcommand
+ported	packages/effect/test/cli/Command.test.ts	1180	it.effect	should parse shared flags for parent handlers	a_shared_flag_parses_beside_the_nodes_own_flag
+ported	packages/effect/test/cli/Command.test.ts	1203	it.effect	should allow child flags to reuse parent local flag names	a_child_flag_shadows_a_parent_local_of_the_same_name
+ported	packages/effect/test/cli/Command.test.ts	1231	it.effect	should reject parent local flags on subcommand paths	a_parent_local_flag_is_refused_on_subcommand_paths
 unported	packages/effect/test/cli/Command.test.ts	1257	it.effect	should allow direct accessing parent config in subcommands	
 unported	packages/effect/test/cli/Command.test.ts	1285	it.effect	should handle nested subcommands with context sharing	
 unported	packages/effect/test/cli/Command.test.ts	1351	it.effect	should handle boolean shared flags before subcommands	
