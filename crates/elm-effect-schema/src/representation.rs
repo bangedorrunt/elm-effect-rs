@@ -227,3 +227,5 @@ impl<T> Schema<T> {
         }
     }
 }
+
+// Final re-check marker for elm-effect-rs-t113: compile only, no behavioral change.
