@@ -1767,7 +1767,7 @@ fn a_malformed_key_value_flag_is_refused_naming_the_value() {
     }
 }
 
-/// Command.test.ts:955, :964 — a command marked unlisted stays unlisted when
+/// Command.test.ts:946, :955, :964 — a command marked unlisted stays unlisted when
 /// subcommands or shared flags are added, because the metadata belongs to the
 /// command rather than to the shape it had when it was set.
 #[test]
@@ -3207,4 +3207,47 @@ thread_local! {
 fn region_seen() -> impl Fn() -> Vec<Option<String>> {
     REGION_SEEN.with(|seen| seen.borrow_mut().clear());
     || REGION_SEEN.with(|seen| seen.borrow().clone())
+}
+
+/// Command.test.ts:720 — a global flag is in scope on the branch that
+/// declares it, so asking for `--region` on a sibling subcommand is refused:
+/// the line names the flag, and neither branch's handler runs.
+#[test]
+fn a_global_flag_is_refused_on_the_subcommand_that_does_not_declare_it() {
+    let deploy_log = handler_log();
+    let deploy_seen = deploy_log.clone();
+    let db_log = handler_log();
+    let db_seen = db_log.clone();
+
+    let deploy = Command::new("deploy", "deploy command", Vec::new())
+        .with_shared_flags(vec![Arg::Opt {
+            name: "region".to_string(),
+            help: "region".to_string(),
+            required: false,
+        }])
+        .handler(move |_| deploy_seen.lock().expect("lock").push("deploy".to_string()));
+    let db = Command::new("db", "db command", Vec::new())
+        .handler(move |_| db_seen.lock().expect("lock").push("db".to_string()));
+    let root = Command::group("app", "app command", vec![deploy, db]);
+
+    let error = root
+        .run(&[
+            "db".to_string(),
+            "--region".to_string(),
+            "eu-west-1".to_string(),
+        ])
+        .expect_err("--region is not in scope on db");
+    let printed = error.to_string();
+    assert!(
+        printed.contains("--region"),
+        "the refusal names the flag, got: {printed}"
+    );
+    assert!(
+        deploy_log.lock().expect("lock").is_empty(),
+        "the branch that does declare it is not selected"
+    );
+    assert!(
+        db_log.lock().expect("lock").is_empty(),
+        "a refused line never reaches its handler"
+    );
 }
