@@ -21,6 +21,7 @@ pub mod tagged;
 pub mod class;
 
 pub mod filters;
+pub mod representation;
 
 pub mod refinements;
 
