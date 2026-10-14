@@ -1004,7 +1004,7 @@ tests = ["packages/effect/test/TxDeferred.test.ts"]
 [[module]]
 path = "packages/effect/src/TxHashMap.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/TxHashMap.test.ts"]

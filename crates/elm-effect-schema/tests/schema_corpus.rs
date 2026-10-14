@@ -3042,19 +3042,21 @@ fn json_schema_document_ref_rows_carry_their_code_and_type() {
         "$defs": {"A/B~C": {"type": "string"}}
     }))
     .expect("imports");
-    assert_eq!(escaped.to_code(), "Schema.String");
+    // The unescaped name finds the definition; the reference prints its
+    // SANITISED form, which is what a repr can spell as an identifier.
+    assert_eq!(escaped.to_code(), "A_B_C");
+    assert_eq!(escaped.to_type(), "A_B_C");
 
-    // :1344 — the definition's own shape is what imports, and an `identifier`
-    // annotation riding the reference rides the result.
+    // :1344 — the reference prints its NAME, and the definition prints once
+    // separately carrying the identifier. Inlining the definition here is the
+    // obvious move and the wrong one.
     let named = Schema::<Unknown>::from_json_schema(&serde_json::json!({
         "$ref": "#/$defs/A_B",
-        "$defs": {"A_B": {"type": "string", "identifier": "A B"}}
+        "$defs": {"A_B": {"type": "string", "identifier": "A"}}
     }))
     .expect("imports");
-    assert_eq!(
-        named.to_code(),
-        r#"Schema.String.annotate({ "identifier": "A B" })"#
-    );
+    assert_eq!(named.to_code(), "A_B");
+    assert_eq!(named.to_type(), "A_B");
 
     // :1360 — an empty definition key is still a name, so `_` is not `""`.
     let underscore = Schema::<Unknown>::from_json_schema(&serde_json::json!({
@@ -3062,10 +3064,8 @@ fn json_schema_document_ref_rows_carry_their_code_and_type() {
         "$defs": {"_": {"type": "string", "identifier": ""}}
     }))
     .expect("imports");
-    assert_eq!(
-        underscore.to_code(),
-        r#"Schema.String.annotate({ "identifier": "" })"#
-    );
+    assert_eq!(underscore.to_code(), "_");
+    assert_eq!(underscore.to_type(), "_");
 
     // A definition is scoped to the root: a nested `$defs` is a different scope
     // and its name does not resolve.
@@ -3197,4 +3197,54 @@ fn json_schema_document_refusal_rows_name_their_specific_cause() {
         one_pattern_in_all_of.contains("at most one pattern"),
         "got: {one_pattern_in_all_of}"
     );
+}
+
+#[test]
+fn json_schema_document_reference_rows_keep_the_reference_a_reference() {
+    // fromJsonSchemaDocument.test.ts's Reference family. The pin prints a
+    // reference's NAME as the schema's code and type, and prints the definition
+    // once, separately, carrying `identifier: <name>` — so inlining the definition
+    // is the wrong answer even though it is the obvious one.
+    use elm_effect_schema::{Schema, Unknown};
+
+    // :1376 — a bare reference: the code IS the definition's name.
+    let bare = Schema::<Unknown>::from_json_schema(&serde_json::json!({
+        "$ref": "#/$defs/A",
+        "$defs": {"A": {"type": "string"}}
+    }))
+    .expect("imports");
+    assert_eq!(bare.to_code(), "A");
+    assert_eq!(bare.to_type(), "A");
+
+    // :1397 — siblings of a reference render through a `suspend`, which is how
+    // the pin names the codec's type parameter while keeping the annotation.
+    let described = Schema::<Unknown>::from_json_schema(&serde_json::json!({
+        "$ref": "#/$defs/A",
+        "description": "a",
+        "$defs": {"A": {"type": "string"}}
+    }))
+    .expect("imports");
+    assert_eq!(
+        described.to_code(),
+        r#"Schema.suspend((): Schema.Codec<A> => A).annotate({ "description": "a" })"#
+    );
+    assert_eq!(described.to_type(), "A");
+
+    // :1419 — a `format` sibling over a NUMBER definition. The pin reports the
+    // definition's own code with the identifier riding the check.
+    let formatted = Schema::<Unknown>::from_json_schema(&serde_json::json!({
+        "$ref": "#/$defs/A",
+        "format": "custom",
+        "$defs": {"A": {"type": "number"}}
+    }))
+    .expect("imports");
+    assert_eq!(
+        formatted.to_code(),
+        r#"Schema.suspend((): Schema.Codec<A> => A).annotate({ "format": "custom" })"#
+    );
+
+    // A reference still decodes what it names.
+    let decoded = bare.decode(Unknown::Text("a".to_string()));
+    assert!(decoded.is_ok(), "a reference decodes as the definition it names");
+    assert!(bare.decode(Unknown::Number(1.0)).is_err());
 }

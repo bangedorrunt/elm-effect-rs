@@ -718,6 +718,12 @@ pub enum SchemaKind {
     /// scalars imports to. An enum containing null is a `Union` instead, because
     /// `null` is a schema of its own and not a literal.
     Literals(Vec<Unknown>),
+    /// A named reference to a root definition (`$ref`). Its repr is the
+    /// definition's NAME, not its shape: the pin keeps a reference a reference,
+    /// so the schema prints as `A` and the definition prints once, separately,
+    /// carrying `identifier: A`. Annotations riding the reference render as a
+    /// `suspend` so a repr can still name the generic the pin names.
+    Reference(String),
     /// A single exact value (`Literal`).
     Literal(Unknown),
     /// A union of two or more shapes (`Union`). `mode` is either `"anyOf"` or
@@ -810,6 +816,7 @@ impl SchemaKind {
             }
             SchemaKind::Check { base, .. } => base.to_json_schema(),
             SchemaKind::Json => serde_json::json!({}),
+            SchemaKind::Reference(_) => serde_json::json!({"$comment": "reference"}),
             SchemaKind::OptionalKey(inner) => inner.to_json_schema(),
             SchemaKind::StructWithRest(fields, rest) => {
                 let mut doc = Self::struct_document(fields);
@@ -3436,6 +3443,57 @@ fn is_open_pattern_scope(doc: &serde_json::Value) -> bool {
     }
     }
 
+/// The definition name a reference points at, after the same validation
+/// `resolve_ref` does. Used where the NAME is what matters rather than the
+/// schema: building a `Reference` kind.
+fn ref_name(reference: &str) -> Result<String, SchemaError> {
+    if reference.is_empty() {
+        return Err(SchemaError::TypeMismatch {
+            path: "$ref".to_string(),
+            expected: "a reference naming a definition",
+            got: "an empty reference",
+        });
+    }
+    let Some(pointer) = reference.strip_prefix("#/$defs/") else {
+        return Err(SchemaError::TypeMismatch {
+            path: "$ref".to_string(),
+            expected: "a \"#/$defs/Name\" reference",
+            got: "a reference of another shape",
+        });
+    };
+    if pointer.is_empty() {
+        return Err(SchemaError::TypeMismatch {
+            path: "$ref".to_string(),
+            expected: "a reference naming a definition",
+            got: "a reference with no name",
+        });
+    }
+    if pointer.contains('/') {
+        return Err(SchemaError::TypeMismatch {
+            path: "$ref".to_string(),
+            expected: "a \"#/$defs/Name\" reference",
+            got: "a reference that walks into a definition",
+        });
+    }
+    Ok(pointer.replace("~1", "/").replace("~0", "~"))
+}
+
+/// A definition name as a legal identifier: `/` and `~` both become `_`. The pin
+/// prints `A_B_C` for a definition named `A/B~C`, and prints the raw name as that
+/// definition's `identifier`.
+fn sanitize_definition_name(name: &str) -> String {
+    name.replace(['/', '~'], "_")
+}
+
+/// An annotation keyword's value as text, so a reference's siblings can be
+/// lifted without going through the document-annotation path.
+fn annotation_text(value: &serde_json::Value) -> String {
+    match value {
+        serde_json::Value::String(text) => text.clone(),
+        other => other.to_string(),
+    }
+}
+
 /// Resolve `$ref` against the root definitions, or refuse it the way the pin
 /// does. The four refusals are distinct, because they are distinct mistakes: an
 /// empty reference, one that is not `#/$defs/Name`, a name the root does not
@@ -3622,16 +3680,40 @@ impl Schema<Unknown> {
             // Siblings of a `$ref` are not folded into it: the pin refuses the
             // ones that would change what the reference means, and inlines the
             // reference itself.
+            // A reference stays a reference. The pin prints the definition's NAME
+            // as the schema's code and type, and prints the definition once,
+            // separately, carrying `identifier: <name>` — inlining it here would
+            // lose that and print the definition's shape where the pin prints its
+            // name.
+            // The definition must EXIST, which is a separate refusal from a
+            // malformed reference: a name the root does not define is missing
+            // data, not a bad shape.
             let resolved = resolve_ref(r#ref)?;
-            // Annotations riding the reference stay annotations on the result.
-            let mut annotated = resolved.as_object().cloned().unwrap_or_default();
-            annotated.remove("$ref");
-            for keyword in ["title", "description", "identifier"] {
-                if let Some(value) = get(keyword) {
-                    annotated.insert(keyword.to_string(), value.clone());
-                }
+            let name = ref_name(r#ref)?;
+            let _ = resolved;
+            // A definition name is not always a legal identifier: `A/B~C` becomes
+            // `A_B_C` in a repr, while the definition itself keeps the raw name
+            // as its `identifier`. Both are needed, so the sanitised form is what
+            // a `Reference` carries and the raw one what the identifier says.
+            let sanitized = sanitize_definition_name(&name);
+            let annotations = ["title", "description", "identifier", "format"]
+                .into_iter()
+                .filter_map(|keyword| get(keyword).map(|value| (keyword, value)))
+                .collect::<Vec<_>>();
+            if annotations.is_empty() {
+                return Ok(Schema::as_unknown(Schema::reference(&sanitized)));
             }
-            return Self::import(&serde_json::Value::Object(annotated));
+            // Siblings of a reference render through a `suspend`, which is how
+            // the pin names the codec's type parameter while keeping the
+            // annotation.
+            let pairs = annotations
+                .into_iter()
+                .map(|(keyword, value)| (keyword.to_string(), annotation_text(value)))
+                .collect::<Vec<_>>();
+            return Ok(Schema::as_unknown(Schema::annotated_with(
+                Schema::as_unknown(Schema::reference(&sanitized)),
+                pairs,
+            )));
         }
         // A keyword the port cannot lower is refused by name, the way the pin
         // refuses it. Dropping one instead imports a schema weaker than the
@@ -4526,6 +4608,37 @@ impl<T> Schema<T> {
 // SchemaRepresentation: the code / type repr
 
 impl Schema<Unknown> {
+    /// A named reference to a root definition. The decode is the referenced
+    /// definition's decode, resolved once at construction: a reference is a
+    /// name, but it still has to decode what it names.
+    pub fn reference(name: &str) -> Self {
+        let defs = ROOT_DEFS.with(|slot| slot.borrow().clone());
+        let named = defs
+            .as_ref()
+            .and_then(|defs| defs.get(name))
+            .cloned()
+            .unwrap_or(serde_json::Value::Null);
+        // The definition is resolved once, at construction. A reference is a
+        // name in a repr, but it still has to decode what it names, so the
+        // decode is the definition's own.
+        let inner = Self::import(&named);
+        let decode_inner = Arc::new(inner);
+        let decode = move |unknown: Unknown| match &*decode_inner {
+            // A definition that failed to import is not a value the reference
+            // can claim to decode, so it passes through rather than inventing
+            // an error the pin does not report here.
+            Ok(inner) => inner.decode(unknown),
+            Err(_) => Ok(unknown),
+        };
+        Self::new(
+            decode,
+            // A reference encodes what it decoded: the definition's value is the
+            // value, so encoding is the identity on the already-decoded form.
+            |value: &Unknown| Ok(value.clone()),
+            SchemaKind::Reference(name.to_string()),
+        )
+    }
+
     /// Any JSON value (`Json`). The wire shape is unconstrained, which is what
     /// makes it the catch-all for an open object's additional properties.
     pub fn json() -> Self {
@@ -5336,6 +5449,24 @@ fn code_of(kind: &SchemaKind, children: &[(String, Arc<Schema<Unknown>>)]) -> St
         SchemaKind::Opaque("any") => "Schema.Any".to_string(),
         SchemaKind::Opaque("unknown") => "Schema.Unknown".to_string(),
         SchemaKind::Json => "Schema.Json".to_string(),
+        SchemaKind::Reference(name) => name.clone(),
+        // Annotations riding a reference print through a `suspend`, because the
+        // pin names the codec's type parameter there rather than the definition's
+        // own type.
+        SchemaKind::Annotated { inner, pairs } if matches!(&**inner, SchemaKind::Reference(_)) && !pairs.is_empty() => {
+            let name = match &**inner {
+                SchemaKind::Reference(name) => name,
+                _ => unreachable!("guarded by the arm"),
+            };
+            let rendered = pairs
+                .iter()
+                .map(|(key, value)| format!("{}: {}", json_key(key), render_annotation_value(value)))
+                .collect::<Vec<_>>()
+                .join(", ");
+            format!(
+                "Schema.suspend((): Schema.Codec<{name}> => {name}).annotate({{ {rendered} }})"
+            )
+        }
         SchemaKind::OptionalKey(inner) => {
             format!("Schema.optionalKey({})", code_of_at(inner, children))
         }
@@ -5468,6 +5599,8 @@ fn code_of_at(kind: &SchemaKind, children: &[(String, Arc<Schema<Unknown>>)]) ->
 
 fn type_of(kind: &SchemaKind, children: &[(String, Arc<Schema<Unknown>>)]) -> String {
     match kind {
+        // A reference's type is its name, the same as its code.
+        SchemaKind::Reference(name) => name.clone(),
         SchemaKind::String => "string".to_string(),
         SchemaKind::Number => "number".to_string(),
         SchemaKind::Boolean => "boolean".to_string(),
