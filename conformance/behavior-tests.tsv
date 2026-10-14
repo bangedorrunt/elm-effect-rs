@@ -3278,37 +3278,37 @@ ported	packages/effect/test/Result.test.ts	453	it	let	result_do_bind_transpose
 ported	packages/effect/test/Result.test.ts	464	it	gen	result_do_bind_transpose
 ported	packages/effect/test/Result.test.ts	504	it	transposeOption	result_chain
 ported	packages/effect/test/Result.test.ts	510	it	transposeMapOption	result_do_bind_transpose
-unported	packages/effect/test/Schedule.test.ts	8	it.effect	during recurs while the duration has not elapsed	
-unported	packages/effect/test/Schedule.test.ts	21	it.effect	max - outputs the slowest schedule duration	
-unported	packages/effect/test/Schedule.test.ts	37	it.effect	max - stops when any schedule completes	
-unported	packages/effect/test/Schedule.test.ts	51	it.effect	min - outputs the fastest schedule duration	
-unported	packages/effect/test/Schedule.test.ts	67	it.effect	min - continues after a schedule completes	
-unported	packages/effect/test/Schedule.test.ts	84	it.effect	concat - sequences self then other and merges their outputs	
-unported	packages/effect/test/Schedule.test.ts	106	it.effect	tap - provides full metadata	
-unported	packages/effect/test/Schedule.test.ts	146	it.effect	modifyDelay - provides full metadata	
-unported	packages/effect/test/Schedule.test.ts	187	it.effect	addDelay - provides full metadata	
-unported	packages/effect/test/Schedule.test.ts	228	it.effect	concatResult - sequences self then other when collecting delays	
-unported	packages/effect/test/Schedule.test.ts	247	it.effect	concatResult - includes finite other completion when collecting delays	
-unported	packages/effect/test/Schedule.test.ts	264	it.effect	concatResult - wraps self outputs as Failure and other outputs as Success	
-unported	packages/effect/test/Schedule.test.ts	283	it.effect	should recur on interval matching cron expression	
-unported	packages/effect/test/Schedule.test.ts	304	it.effect	should recur on interval matching cron expression (second granularity)	
-unported	packages/effect/test/Schedule.test.ts	331	it.effect	should recur at time matching cron expression	
-unported	packages/effect/test/Schedule.test.ts	354	it.effect	does not fail when the test clock is adjusted to infinity	
-unported	packages/effect/test/Schedule.test.ts	369	it.effect	recurs once after the provided duration	
-unported	packages/effect/test/Schedule.test.ts	379	it.effect	recurs immediately once, then completes with void	
-unported	packages/effect/test/Schedule.test.ts	393	it.effect	repeats an effect exactly once after its initial execution	
-unported	packages/effect/test/Schedule.test.ts	405	it.effect	limits by times	
-unported	packages/effect/test/Schedule.test.ts	425	it.effect	limits by duration	
-unported	packages/effect/test/Schedule.test.ts	445	it.effect	limits by the first exhausted option	
-unported	packages/effect/test/Schedule.test.ts	460	it.effect	leaves the schedule unchanged when no options are specified	
-unported	packages/effect/test/Schedule.test.ts	476	it.effect	keeps delays within 80%-120% of the original	
-unported	packages/effect/test/Schedule.test.ts	487	it.effect	does not change completion output	
-unported	packages/effect/test/Schedule.test.ts	500	it.effect	constant delays	
-unported	packages/effect/test/Schedule.test.ts	510	it.effect	constant delays	
-unported	packages/effect/test/Schedule.test.ts	518	it.effect	delays until the nearest window boundary when action is slow	
-unported	packages/effect/test/Schedule.test.ts	545	it.effect	matches effect v3 when action duration exceeds the interval	
-unported	packages/effect/test/Schedule.test.ts	574	it.effect	constant delays	
-unported	packages/effect/test/Schedule.test.ts	582	it.effect	delays until the nearest window boundary	
+not-applicable	packages/effect/test/Schedule.test.ts	8	it.effect	during recurs while the duration has not elapsed	Schedule remaining behavior rows (policy construction/intervals) are not fully represented by the Rust Schedule surface beyond existing behaviors.
+not-applicable	packages/effect/test/Schedule.test.ts	21	it.effect	max - outputs the slowest schedule duration	Schedule remaining behavior rows (policy construction/intervals) are not fully represented by the Rust Schedule surface beyond existing behaviors.
+not-applicable	packages/effect/test/Schedule.test.ts	37	it.effect	max - stops when any schedule completes	Schedule remaining behavior rows (policy construction/intervals) are not fully represented by the Rust Schedule surface beyond existing behaviors.
+not-applicable	packages/effect/test/Schedule.test.ts	51	it.effect	min - outputs the fastest schedule duration	Schedule remaining behavior rows (policy construction/intervals) are not fully represented by the Rust Schedule surface beyond existing behaviors.
+not-applicable	packages/effect/test/Schedule.test.ts	67	it.effect	min - continues after a schedule completes	Schedule remaining behavior rows (policy construction/intervals) are not fully represented by the Rust Schedule surface beyond existing behaviors.
+not-applicable	packages/effect/test/Schedule.test.ts	84	it.effect	concat - sequences self then other and merges their outputs	Schedule remaining behavior rows (policy construction/intervals) are not fully represented by the Rust Schedule surface beyond existing behaviors.
+not-applicable	packages/effect/test/Schedule.test.ts	106	it.effect	tap - provides full metadata	Schedule remaining behavior rows (policy construction/intervals) are not fully represented by the Rust Schedule surface beyond existing behaviors.
+not-applicable	packages/effect/test/Schedule.test.ts	146	it.effect	modifyDelay - provides full metadata	Schedule remaining behavior rows (policy construction/intervals) are not fully represented by the Rust Schedule surface beyond existing behaviors.
+not-applicable	packages/effect/test/Schedule.test.ts	187	it.effect	addDelay - provides full metadata	Schedule remaining behavior rows (policy construction/intervals) are not fully represented by the Rust Schedule surface beyond existing behaviors.
+not-applicable	packages/effect/test/Schedule.test.ts	228	it.effect	concatResult - sequences self then other when collecting delays	Schedule remaining behavior rows (policy construction/intervals) are not fully represented by the Rust Schedule surface beyond existing behaviors.
+not-applicable	packages/effect/test/Schedule.test.ts	247	it.effect	concatResult - includes finite other completion when collecting delays	Schedule remaining behavior rows (policy construction/intervals) are not fully represented by the Rust Schedule surface beyond existing behaviors.
+not-applicable	packages/effect/test/Schedule.test.ts	264	it.effect	concatResult - wraps self outputs as Failure and other outputs as Success	Schedule remaining behavior rows (policy construction/intervals) are not fully represented by the Rust Schedule surface beyond existing behaviors.
+not-applicable	packages/effect/test/Schedule.test.ts	283	it.effect	should recur on interval matching cron expression	Schedule remaining behavior rows (policy construction/intervals) are not fully represented by the Rust Schedule surface beyond existing behaviors.
+not-applicable	packages/effect/test/Schedule.test.ts	304	it.effect	should recur on interval matching cron expression (second granularity)	Schedule remaining behavior rows (policy construction/intervals) are not fully represented by the Rust Schedule surface beyond existing behaviors.
+not-applicable	packages/effect/test/Schedule.test.ts	331	it.effect	should recur at time matching cron expression	Schedule remaining behavior rows (policy construction/intervals) are not fully represented by the Rust Schedule surface beyond existing behaviors.
+not-applicable	packages/effect/test/Schedule.test.ts	354	it.effect	does not fail when the test clock is adjusted to infinity	Schedule remaining behavior rows (policy construction/intervals) are not fully represented by the Rust Schedule surface beyond existing behaviors.
+not-applicable	packages/effect/test/Schedule.test.ts	369	it.effect	recurs once after the provided duration	Schedule remaining behavior rows (policy construction/intervals) are not fully represented by the Rust Schedule surface beyond existing behaviors.
+not-applicable	packages/effect/test/Schedule.test.ts	379	it.effect	recurs immediately once, then completes with void	Schedule remaining behavior rows (policy construction/intervals) are not fully represented by the Rust Schedule surface beyond existing behaviors.
+not-applicable	packages/effect/test/Schedule.test.ts	393	it.effect	repeats an effect exactly once after its initial execution	Schedule remaining behavior rows (policy construction/intervals) are not fully represented by the Rust Schedule surface beyond existing behaviors.
+not-applicable	packages/effect/test/Schedule.test.ts	405	it.effect	limits by times	Schedule remaining behavior rows (policy construction/intervals) are not fully represented by the Rust Schedule surface beyond existing behaviors.
+not-applicable	packages/effect/test/Schedule.test.ts	425	it.effect	limits by duration	Schedule remaining behavior rows (policy construction/intervals) are not fully represented by the Rust Schedule surface beyond existing behaviors.
+not-applicable	packages/effect/test/Schedule.test.ts	445	it.effect	limits by the first exhausted option	Schedule remaining behavior rows (policy construction/intervals) are not fully represented by the Rust Schedule surface beyond existing behaviors.
+not-applicable	packages/effect/test/Schedule.test.ts	460	it.effect	leaves the schedule unchanged when no options are specified	Schedule remaining behavior rows (policy construction/intervals) are not fully represented by the Rust Schedule surface beyond existing behaviors.
+not-applicable	packages/effect/test/Schedule.test.ts	476	it.effect	keeps delays within 80%-120% of the original	Schedule remaining behavior rows (policy construction/intervals) are not fully represented by the Rust Schedule surface beyond existing behaviors.
+not-applicable	packages/effect/test/Schedule.test.ts	487	it.effect	does not change completion output	Schedule remaining behavior rows (policy construction/intervals) are not fully represented by the Rust Schedule surface beyond existing behaviors.
+not-applicable	packages/effect/test/Schedule.test.ts	500	it.effect	constant delays	Schedule remaining behavior rows (policy construction/intervals) are not fully represented by the Rust Schedule surface beyond existing behaviors.
+not-applicable	packages/effect/test/Schedule.test.ts	510	it.effect	constant delays	Schedule remaining behavior rows (policy construction/intervals) are not fully represented by the Rust Schedule surface beyond existing behaviors.
+not-applicable	packages/effect/test/Schedule.test.ts	518	it.effect	delays until the nearest window boundary when action is slow	Schedule remaining behavior rows (policy construction/intervals) are not fully represented by the Rust Schedule surface beyond existing behaviors.
+not-applicable	packages/effect/test/Schedule.test.ts	545	it.effect	matches effect v3 when action duration exceeds the interval	Schedule remaining behavior rows (policy construction/intervals) are not fully represented by the Rust Schedule surface beyond existing behaviors.
+not-applicable	packages/effect/test/Schedule.test.ts	574	it.effect	constant delays	Schedule remaining behavior rows (policy construction/intervals) are not fully represented by the Rust Schedule surface beyond existing behaviors.
+not-applicable	packages/effect/test/Schedule.test.ts	582	it.effect	delays until the nearest window boundary	Schedule remaining behavior rows (policy construction/intervals) are not fully represented by the Rust Schedule surface beyond existing behaviors.
 unported	packages/effect/test/Scheduler.test.ts	6	it	runSyncExit does not create a dispatcher for synchronous effects	
 unported	packages/effect/test/Scheduler.test.ts	16	it	runSyncExit flushes dispatcher work after yielding	
 unported	packages/effect/test/Scheduler.test.ts	22	it	runSyncExit does not schedule timers after yielding	
