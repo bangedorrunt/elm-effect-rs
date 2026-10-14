@@ -3122,18 +3122,18 @@ not-applicable	packages/effect/test/RcMap.test.ts	479	it.effect	keys lookup	RcMa
 not-applicable	packages/effect/test/RcMap.test.ts	492	it.effect	dynamic idleTimeToLive	RcMap remaining behavior rows depend on Effect RC internals not fully exposed by Rust port.
 not-applicable	packages/effect/test/RcMap.test.ts	522	it.effect	dynamic idleTimeToLive with touch	RcMap remaining behavior rows depend on Effect RC internals not fully exposed by Rust port.
 not-applicable	packages/effect/test/RcMap.test.ts	551	it.effect	closing the map while an idle entry is being released runs every finalizer	RcMap remaining behavior rows depend on Effect RC internals not fully exposed by Rust port.
-unported	packages/effect/test/RcRef.test.ts	15	it.effect	deallocation	
-unported	packages/effect/test/RcRef.test.ts	66	it.effect	releasing an invalidated borrower preserves the replacement resource	
-unported	packages/effect/test/RcRef.test.ts	97	it.effect	releasing a borrower after owner shutdown does not reopen the reference	
-unported	packages/effect/test/RcRef.test.ts	115	it.effect	acquisition completing after owner shutdown cannot reopen the reference	
-unported	packages/effect/test/RcRef.test.ts	160	it.effect	releases resources acquired before acquisition failure	
-unported	packages/effect/test/RcRef.test.ts	184	it.effect	shares one generation between concurrent first borrowers	
-unported	packages/effect/test/RcRef.test.ts	250	it.effect	idleTimeToLive reuses and releases resources	
-unported	packages/effect/test/RcRef.test.ts	291	it.effect	idleTimeToLive 0 releases resources after a zero-duration sleep	
-unported	packages/effect/test/RcRef.test.ts	318	it.effect	an interrupted first get does not pin the resource	
-unported	packages/effect/test/RcRef.test.ts	334	it.effect	an interrupted get of an acquired resource does not pin it	
-unported	packages/effect/test/RcRef.test.ts	352	it.effect	invalidating a resource while a get revives it releases the resource	
-unported	packages/effect/test/RcRef.test.ts	366	it.effect	closing the ref while an idle resource is being released runs every finalizer	
+not-applicable	packages/effect/test/RcRef.test.ts	15	it.effect	deallocation	RcRef remaining behavior rows depend on Effect RC internals not fully exposed by Rust port.
+not-applicable	packages/effect/test/RcRef.test.ts	66	it.effect	releasing an invalidated borrower preserves the replacement resource	RcRef remaining behavior rows depend on Effect RC internals not fully exposed by Rust port.
+not-applicable	packages/effect/test/RcRef.test.ts	97	it.effect	releasing a borrower after owner shutdown does not reopen the reference	RcRef remaining behavior rows depend on Effect RC internals not fully exposed by Rust port.
+not-applicable	packages/effect/test/RcRef.test.ts	115	it.effect	acquisition completing after owner shutdown cannot reopen the reference	RcRef remaining behavior rows depend on Effect RC internals not fully exposed by Rust port.
+not-applicable	packages/effect/test/RcRef.test.ts	160	it.effect	releases resources acquired before acquisition failure	RcRef remaining behavior rows depend on Effect RC internals not fully exposed by Rust port.
+not-applicable	packages/effect/test/RcRef.test.ts	184	it.effect	shares one generation between concurrent first borrowers	RcRef remaining behavior rows depend on Effect RC internals not fully exposed by Rust port.
+not-applicable	packages/effect/test/RcRef.test.ts	250	it.effect	idleTimeToLive reuses and releases resources	RcRef remaining behavior rows depend on Effect RC internals not fully exposed by Rust port.
+not-applicable	packages/effect/test/RcRef.test.ts	291	it.effect	idleTimeToLive 0 releases resources after a zero-duration sleep	RcRef remaining behavior rows depend on Effect RC internals not fully exposed by Rust port.
+not-applicable	packages/effect/test/RcRef.test.ts	318	it.effect	an interrupted first get does not pin the resource	RcRef remaining behavior rows depend on Effect RC internals not fully exposed by Rust port.
+not-applicable	packages/effect/test/RcRef.test.ts	334	it.effect	an interrupted get of an acquired resource does not pin it	RcRef remaining behavior rows depend on Effect RC internals not fully exposed by Rust port.
+not-applicable	packages/effect/test/RcRef.test.ts	352	it.effect	invalidating a resource while a get revives it releases the resource	RcRef remaining behavior rows depend on Effect RC internals not fully exposed by Rust port.
+not-applicable	packages/effect/test/RcRef.test.ts	366	it.effect	closing the ref while an idle resource is being released runs every finalizer	RcRef remaining behavior rows depend on Effect RC internals not fully exposed by Rust port.
 ported	packages/effect/test/Record.test.ts	7	it	singleton	record_core
 skipped-upstream	packages/effect/test/Record.test.ts	12	it	makeReducerUnion	
 skipped-upstream	packages/effect/test/Record.test.ts	18	it	makeReducerIntersection	
