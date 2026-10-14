@@ -460,7 +460,7 @@ tests = ["packages/effect/test/Logger.test.ts"]
 [[module]]
 path = "packages/effect/src/ManagedRuntime.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/ManagedRuntime.test.ts"]
@@ -1020,7 +1020,7 @@ tests = ["packages/effect/test/TxHashSet.test.ts"]
 [[module]]
 path = "packages/effect/src/TxPriorityQueue.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/TxPriorityQueue.test.ts"]

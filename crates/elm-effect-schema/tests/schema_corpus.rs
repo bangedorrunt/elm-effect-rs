@@ -2087,7 +2087,8 @@ fn json_schema_document_refuses_a_pattern_outside_ecmascript_unicode_mode() {
 }
 
 #[test]
-fn json_schema_document_min_length_imports_as_code_points_unless_it_is_one() {    // fromJsonSchemaDocument.test.ts:82 — the pin's rule for `minLength` is
+fn json_schema_document_min_length_imports_as_code_points_unless_it_is_one() {
+    // fromJsonSchemaDocument.test.ts:82 — the pin's rule for `minLength` is
     // that 1 stays `isMinLength` (the non-empty case) and every other value
     // becomes `isMinCodePoints`, so the code names which was chosen.
     use elm_effect_schema::{Schema, Unknown};
@@ -2112,7 +2113,8 @@ fn json_schema_document_min_length_imports_as_code_points_unless_it_is_one() {  
 }
 
 #[test]
-fn json_schema_document_refuses_structured_const_and_enum_members() {    // fromJsonSchemaDocument.test.ts:220 and :1134 — a `const` or an `enum`
+fn json_schema_document_refuses_structured_const_and_enum_members() {
+    // fromJsonSchemaDocument.test.ts:220 and :1134 — a `const` or an `enum`
     // member that is an object or an array has no literal form, so the import
     // refuses it naming the keyword and the member's index. An `enum` beside a
     // `const` is still checked, and its own index is the one reported.
@@ -2182,13 +2184,19 @@ fn json_schema_document_preserves_never_in_items_prefix_items_and_union_members(
         prefix.to_code(),
         r#"Schema.TupleWithRest(Schema.Tuple([Schema.optionalKey(Schema.Never)]), [Schema.Json.annotate({ "expected": "JSON value" })])"#
     );
-    assert_eq!(prefix.to_type(), "readonly [(never)?, ...Array<Schema.Json>]");
+    assert_eq!(
+        prefix.to_type(),
+        "readonly [(never)?, ...Array<Schema.Json>]"
+    );
 
     let any_of = Schema::<Unknown>::from_json_schema(&serde_json::json!({
         "anyOf": [{"not": {}}, {"type": "string"}]
     }))
     .expect("imports");
-    assert_eq!(any_of.to_code(), "Schema.Union([Schema.Never, Schema.String])");
+    assert_eq!(
+        any_of.to_code(),
+        "Schema.Union([Schema.Never, Schema.String])"
+    );
     assert_eq!(any_of.to_type(), "never | string");
 
     let one_of = Schema::<Unknown>::from_json_schema(&serde_json::json!({
@@ -2202,7 +2210,8 @@ fn json_schema_document_preserves_never_in_items_prefix_items_and_union_members(
 }
 
 #[test]
-fn json_schema_document_keeps_annotation_only_documents_unconstrained() {    // fromJsonSchemaDocument.test.ts:177 — a document carrying only
+fn json_schema_document_keeps_annotation_only_documents_unconstrained() {
+    // fromJsonSchemaDocument.test.ts:177 — a document carrying only
     // annotations constrains nothing, so the schema is the open JSON value
     // with those annotations riding it, `expected` first.
     use elm_effect_schema::{Schema, Unknown};
@@ -2375,7 +2384,9 @@ fn json_schema_document_refuses_the_two_object_forms_it_cannot_spell() {
         };
         let printed = format!("{error}");
         assert!(
-            printed.contains("Cannot combine typed \"additionalProperties\" with other property schemas"),
+            printed.contains(
+                "Cannot combine typed \"additionalProperties\" with other property schemas"
+            ),
             "{printed}"
         );
     }
@@ -2400,8 +2411,7 @@ fn json_schema_document_refuses_the_two_object_forms_it_cannot_spell() {
             panic!("a closed patterned object with properties must refuse: {doc:?}")
         };
         assert!(
-            format!("{error}")
-                .contains("only one pattern without properties is supported"),
+            format!("{error}").contains("only one pattern without properties is supported"),
             "{error}"
         );
     }
@@ -2420,7 +2430,11 @@ fn json_schema_document_refuses_the_two_object_forms_it_cannot_spell() {
     // The pattern becomes the key schema, which is the shape the port can
     // spell: one record whose key is a pattern check and whose value is the
     // one pattern schema.
-    assert!(supported.to_code().contains("isPattern"), "{}", supported.to_code());
+    assert!(
+        supported.to_code().contains("isPattern"),
+        "{}",
+        supported.to_code()
+    );
     let inside = std::collections::BTreeMap::from([("abc".to_string(), Unknown::Number(1.0))]);
     assert!(supported.decode(Unknown::Object(inside)).is_ok());
 }
@@ -2456,7 +2470,11 @@ fn json_schema_document_filters_enum_members_in_either_order_and_keeps_a_typeles
         serde_json::json!({"enum": ["a", "ab"], "allOf": [{"type": "string", "minLength": 2}]}),
     ] {
         let schema = Schema::<Unknown>::from_json_schema(&doc).expect("imports");
-        assert_eq!(schema.to_code(), r#"Schema.Literal("ab")"#, "code for {doc:?}");
+        assert_eq!(
+            schema.to_code(),
+            r#"Schema.Literal("ab")"#,
+            "code for {doc:?}"
+        );
     }
 
     let typeless = Schema::<Unknown>::from_json_schema(&serde_json::json!({
@@ -2610,7 +2628,11 @@ fn json_schema_document_literal_refinements_filter_through_both_orders() {
             1e21,
             true,
         ),
-        (serde_json::json!({"type": "number", "multipleOf": 2}), 1.0, false),
+        (
+            serde_json::json!({"type": "number", "multipleOf": 2}),
+            1.0,
+            false,
+        ),
         // A subnormal divisor: the quotient is not exact, and plain float
         // arithmetic would call this value a multiple of it.
         (
@@ -2618,7 +2640,11 @@ fn json_schema_document_literal_refinements_filter_through_both_orders() {
             1.042e-321,
             false,
         ),
-        (serde_json::json!({"type": "number", "multipleOf": 1e-323}), 0.0, true),
+        (
+            serde_json::json!({"type": "number", "multipleOf": 1e-323}),
+            0.0,
+            true,
+        ),
     ] {
         for order in [
             [doc.clone(), serde_json::json!({"const": literal})],
@@ -2659,9 +2685,7 @@ fn json_schema_document_round_trips_an_optional_never_property() {
     );
     // The field is an exact optional, so an absent key decodes and a present
     // one still has to satisfy `never`.
-    assert!(imported
-        .decode(Unknown::Object(BTreeMap::new()))
-        .is_ok());
+    assert!(imported.decode(Unknown::Object(BTreeMap::new())).is_ok());
 }
 
 #[test]
@@ -2744,7 +2768,10 @@ fn json_schema_document_refuses_the_keywords_it_cannot_lower() {
             )),
             "{keyword}: {printed}"
         );
-        assert!(printed.contains(&format!("$.{keyword}")), "{keyword}: {printed}");
+        assert!(
+            printed.contains(&format!("$.{keyword}")),
+            "{keyword}: {printed}"
+        );
     };
 
     // :3035 — one ledger row over six keywords, so all six have to be here.
@@ -2752,7 +2779,10 @@ fn json_schema_document_refuses_the_keywords_it_cannot_lower() {
         ("$dynamicRef", serde_json::json!("#node")),
         ("contains", serde_json::json!({"type": "string"})),
         ("dependentRequired", serde_json::json!({"a": ["b"]})),
-        ("dependentSchemas", serde_json::json!({"a": {"required": ["b"]}})),
+        (
+            "dependentSchemas",
+            serde_json::json!({"a": {"required": ["b"]}}),
+        ),
         ("unevaluatedItems", serde_json::json!(false)),
         ("unevaluatedProperties", serde_json::json!(false)),
     ] {
@@ -2780,7 +2810,10 @@ fn json_schema_document_refuses_the_keywords_it_cannot_lower() {
     // member is imported before the `false` sibling can make the intersection
     // `never`. The pin's own path is ["schema"]["allOf"][1]["contains"]; this
     // port reports the keyword it was importing when it stopped.
-    refusal(&serde_json::json!({"allOf": [false, {"contains": {}}]}), "contains");
+    refusal(
+        &serde_json::json!({"allOf": [false, {"contains": {}}]}),
+        "contains",
+    );
 
     // :3058 — the same keywords are IGNORED when they apply to nothing, which is
     // the other half of the row: `false` for a conditional branch, and the two
@@ -2973,3 +3006,77 @@ fn json_schema_document_keeps_each_intersection_that_survives_its_member() {
     // belongs with them.
 }
 
+#[test]
+fn json_schema_document_ref_rows_carry_their_code_and_type() {
+    // fromJsonSchemaDocument.test.ts's `$ref` family. A reference is resolved
+    // against the ROOT's `$defs`, refused when it names nothing, and its JSON
+    // Pointer escapes are undone. Each case is one whole row.
+    use elm_effect_schema::{Schema, Unknown};
+
+    let refused = |doc: serde_json::Value| {
+        Schema::<Unknown>::from_json_schema(&doc)
+            .err()
+            .map(|error| error.to_string())
+            .unwrap_or_else(|| panic!("{doc:?} must refuse"))
+    };
+
+    // :1298 — an empty reference names nothing.
+    let empty = refused(serde_json::json!({"$ref": ""}));
+    assert!(empty.contains("empty reference"), "got: {empty}");
+
+    // :1305 — an external reference is not a local definition.
+    let external = refused(serde_json::json!({
+        "$ref": "https://example.com/schema#/$defs/A",
+        "$defs": {"A": {"type": "number"}}
+    }));
+    assert!(external.contains("another shape"), "got: {external}");
+
+    // :1318 — a name the root does not define, naming which one was wanted.
+    let missing = refused(serde_json::json!({"$ref": "#/$defs/Missing"}));
+    assert!(missing.contains("Missing"), "got: {missing}");
+
+    // :1325 — `~1` and `~0` are the JSON Pointer escapes for `/` and `~`, so a
+    // definition may be named with either.
+    let escaped = Schema::<Unknown>::from_json_schema(&serde_json::json!({
+        "$ref": "#/$defs/A~1B~0C",
+        "$defs": {"A/B~C": {"type": "string"}}
+    }))
+    .expect("imports");
+    assert_eq!(escaped.to_code(), "Schema.String");
+
+    // :1344 — the definition's own shape is what imports, and an `identifier`
+    // annotation riding the reference rides the result.
+    let named = Schema::<Unknown>::from_json_schema(&serde_json::json!({
+        "$ref": "#/$defs/A_B",
+        "$defs": {"A_B": {"type": "string", "identifier": "A B"}}
+    }))
+    .expect("imports");
+    assert_eq!(
+        named.to_code(),
+        r#"Schema.String.annotate({ "identifier": "A B" })"#
+    );
+
+    // :1360 — an empty definition key is still a name, so `_` is not `""`.
+    let underscore = Schema::<Unknown>::from_json_schema(&serde_json::json!({
+        "$ref": "#/$defs/_",
+        "$defs": {"_": {"type": "string", "identifier": ""}}
+    }))
+    .expect("imports");
+    assert_eq!(
+        underscore.to_code(),
+        r#"Schema.String.annotate({ "identifier": "" })"#
+    );
+
+    // A definition is scoped to the root: a nested `$defs` is a different scope
+    // and its name does not resolve.
+    let scoped = refused(serde_json::json!({
+        "$defs": {"Root": {"type": "string"}},
+        "type": "object",
+        "properties": {
+            "child": {"$defs": {"Nested": {"type": "number"}}, "$ref": "#/$defs/Nested"}
+        },
+        "required": ["child"],
+        "additionalProperties": false
+    }));
+    assert!(scoped.contains("Nested"), "got: {scoped}");
+}

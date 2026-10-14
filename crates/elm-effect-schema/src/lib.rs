@@ -285,6 +285,9 @@ fn atom_matches(atom: &Pattern, value: char) -> bool {
     }
 }
 
+static ROOT_DEFS: std::sync::Mutex<Option<serde_json::Map<String, serde_json::Value>>> =
+    std::sync::Mutex::new(None);
+
 /// One refinement in a chain: its name, its arguments, and the annotation pairs
 /// the pin attaches to it. `decompose` lowers a schema's `Check` chain into a
 /// list of these so an intersection can dedupe and reorder them, and `rebuild`
@@ -696,7 +699,8 @@ impl SchemaKind {
         })
     }
 
-    fn to_json_schema(&self) -> serde_json::Value {        match self {
+    fn to_json_schema(&self) -> serde_json::Value {
+        match self {
             SchemaKind::String => serde_json::json!({"type": "string"}),
             SchemaKind::Number => serde_json::json!({"type": "number"}),
             SchemaKind::Boolean => serde_json::json!({"type": "boolean"}),
@@ -1159,15 +1163,18 @@ impl<T> Schema<T> {
         // A decoding default survives the re-typing in the form this level
         // speaks, which is the wire form: this wrapper's own decode is the
         // inner encode, so a decoded default crosses over the same way.
-        let inner_default = schema.decoding_default.as_ref().map(|default| match default {
-            SchemaDefault::Wire(produce) => SchemaDefault::Wire(produce.clone()),
-            SchemaDefault::Decoded(produce) => {
-                let produce = produce.clone();
-                SchemaDefault::Wire(Arc::new(move || {
-                    produce().and_then(|value| bridge.try_encode(&value))
-                }))
-            }
-        });
+        let inner_default = schema
+            .decoding_default
+            .as_ref()
+            .map(|default| match default {
+                SchemaDefault::Wire(produce) => SchemaDefault::Wire(produce.clone()),
+                SchemaDefault::Decoded(produce) => {
+                    let produce = produce.clone();
+                    SchemaDefault::Wire(Arc::new(move || {
+                        produce().and_then(|value| bridge.try_encode(&value))
+                    }))
+                }
+            });
         let mut out = Schema::new(
             move |unknown| {
                 decode_schema
@@ -1298,9 +1305,7 @@ impl<T> Schema<T> {
         // on the value's depth: the resolved schema is reached again through
         // its own formatter, never through a second factory call.
         out.formatter = Some(Arc::new(move |value| {
-            render_resolved
-                .get_or_init(|| render_factory())
-                .formatter()(value)
+            render_resolved.get_or_init(|| render_factory()).formatter()(value)
         }));
         out
     }
@@ -1432,12 +1437,12 @@ fn decode_finite_from_string(unknown: Unknown) -> Result<f64, SchemaError> {
 impl Schema<Unknown> {
     /// Any value at all (`Any` / `Unknown` shapes): decode always succeeds.
     pub fn any() -> Self {
-        Self::new(Ok,                |value| Ok(value.clone()), SchemaKind::Opaque("any"))
+        Self::new(Ok, |value| Ok(value.clone()), SchemaKind::Opaque("any"))
     }
 
     /// Anything decodes (`Unknown` shape): identity, like `any`.
     pub fn unknown() -> Self {
-        Self::new(Ok,                |value| Ok(value.clone()), SchemaKind::Opaque("unknown"))
+        Self::new(Ok, |value| Ok(value.clone()), SchemaKind::Opaque("unknown"))
     }
 
     /// No value decodes (`Never` shape): decode always fails. Nothing encodes
@@ -1549,7 +1554,10 @@ impl Schema<Unknown> {
     ///
     /// [`try_encode`]: Schema::try_encode
     pub fn literal_transform(pairs: Vec<(Unknown, Unknown)>) -> Self {
-        assert!(!pairs.is_empty(), "a literal transform maps at least one pair");
+        assert!(
+            !pairs.is_empty(),
+            "a literal transform maps at least one pair"
+        );
         let kind = match pairs.as_slice() {
             [(from, _)] => SchemaKind::Literal(from.clone()),
             _ => SchemaKind::Literals(pairs.iter().map(|(from, _)| from.clone()).collect()),
@@ -1604,7 +1612,11 @@ impl Schema<()> {
     /// stands `Unknown::Null` in for the pin's `undefined` on the way out, since
     /// a value-less result is what it has to represent one.
     pub fn void() -> Self {
-        Self::new(|_| Ok(()), |_| Ok(Unknown::Null), SchemaKind::Opaque("void"))
+        Self::new(
+            |_| Ok(()),
+            |_| Ok(Unknown::Null),
+            SchemaKind::Opaque("void"),
+        )
     }
 
     /// Only null (`Null` shape).
@@ -1666,13 +1678,15 @@ impl Schema<f64> {
     pub fn number_from_string() -> Self {
         Self::new(
             |unknown| match unknown {
-                Unknown::Text(ref text) => text.trim().parse::<f64>().map_err(|_| {
-                    SchemaError::TypeMismatch {
-                        path: "$".to_string(),
-                        expected: "a number string",
-                        got: "unparseable",
-                    }
-                }),
+                Unknown::Text(ref text) => {
+                    text.trim()
+                        .parse::<f64>()
+                        .map_err(|_| SchemaError::TypeMismatch {
+                            path: "$".to_string(),
+                            expected: "a number string",
+                            got: "unparseable",
+                        })
+                }
                 other => mismatch("$", "a number string", &other),
             },
             |value| Ok(Unknown::Text(js_number_text(*value))),
@@ -1876,7 +1890,12 @@ impl<A: Send + Sync + 'static, B: Send + Sync + 'static> Schema<(A, B)> {
                 }
                 other => mismatch("$", "tuple", &other),
             },
-            move |(a, b)| Ok(Unknown::Array(vec![encode_first.try_encode(a)?, encode_second.try_encode(b)?])),
+            move |(a, b)| {
+                Ok(Unknown::Array(vec![
+                    encode_first.try_encode(a)?,
+                    encode_second.try_encode(b)?,
+                ]))
+            },
             SchemaKind::Opaque("tuple"),
         )
     }
@@ -2121,10 +2140,12 @@ pub fn element_evolve(
         elements
             .into_iter()
             .enumerate()
-            .map(|(index, element)| match transforms.get(index).copied().flatten() {
-                Some(transform) => transform(element),
-                None => element,
-            })
+            .map(
+                |(index, element)| match transforms.get(index).copied().flatten() {
+                    Some(transform) => transform(element),
+                    None => element,
+                },
+            )
             .collect()
     })
 }
@@ -2174,10 +2195,12 @@ pub fn field_evolve(pairs: Vec<(&'static str, fn(Field) -> Field)>) -> FieldTran
     Box::new(move |fields| {
         fields
             .into_iter()
-            .map(|field| match pairs.iter().find(|(name, _)| *name == field.name()) {
-                Some((_, transform)) => transform(field),
-                None => field,
-            })
+            .map(
+                |field| match pairs.iter().find(|(name, _)| *name == field.name()) {
+                    Some((_, transform)) => transform(field),
+                    None => field,
+                },
+            )
             .collect()
     })
 }
@@ -2248,8 +2271,7 @@ fn walk_struct(
                     .constructor_default
                     .as_ref()
                     .expect("checked just above");
-                let produced =
-                    default().map_err(|error| error.at(&format!("$.{}", field.name)))?;
+                let produced = default().map_err(|error| error.at(&format!("$.{}", field.name)))?;
                 let built = field
                     .schema
                     .construct(produced)
@@ -2505,7 +2527,10 @@ impl Schema<BTreeMap<String, Unknown>> {
             }
             destinations.push((*destination).to_string());
         }
-        let sources: Vec<String> = pairs.iter().map(|(source, _)| (*source).to_string()).collect();
+        let sources: Vec<String> = pairs
+            .iter()
+            .map(|(source, _)| (*source).to_string())
+            .collect();
         if let Some(fields) = self.struct_fields.as_ref() {
             for (_, destination) in &pairs {
                 let collides = fields
@@ -2593,7 +2618,10 @@ impl Schema<Unknown> {
     /// not one of them: that is the open-object marker, written by
     /// `annotated_json` and dropped again by an intersection.
     fn document_annotations(doc: &serde_json::Value) -> Vec<(String, String)> {
-        ["title", "description", "format"]
+        // `identifier` rides with the doc fields because that is where the pin
+        // puts it: a `$defs` entry carries one and the repr prints it as an
+        // annotation on the schema.
+        ["title", "description", "identifier", "format"]
             .into_iter()
             .filter_map(|key| {
                 doc.get(key)
@@ -3000,6 +3028,15 @@ impl Schema<Unknown> {
     }
 
     pub fn from_json_schema(doc: &serde_json::Value) -> Result<Self, SchemaError> {
+        // `$defs` is scoped to the root, so it is captured once here rather than
+        // discovered at each use. A document with none still resets it, so a
+        // second import does not read the first one's definitions.
+        let defs = doc
+            .get("$defs")
+            .or_else(|| doc.get("definitions"))
+            .and_then(serde_json::Value::as_object)
+            .cloned();
+        *ROOT_DEFS.lock().unwrap() = defs;
         Self::import(doc)
     }
 
@@ -3210,7 +3247,60 @@ impl Schema<Unknown> {
         }
         Ok(rebuild(base_kind, checks, annotation))
     }
+}
 
+/// The root document's `$defs`, set once by `from_json_schema` and read by the
+/// `$ref` branch anywhere below it.
+///
+/// A thread-local rather than a parameter because every recursive `import` call
+/// site would otherwise have to carry it, and the root is the only document that
+/// can name one: JSON Schema scopes `$defs` to the root, so a nested document's
+/// own `$defs` is a different scope and the pin refuses it.
+/// Resolve `$ref` against the root definitions, or refuse it the way the pin
+/// does. The four refusals are distinct, because they are distinct mistakes: an
+/// empty reference, one that is not `#/$defs/Name`, a name the root does not
+/// define, and a scope nested somewhere other than the root.
+fn resolve_ref(reference: &str) -> Result<serde_json::Value, SchemaError> {
+    if reference.is_empty() {
+        return Err(SchemaError::TypeMismatch {
+            path: "$ref".to_string(),
+            expected: "a reference naming a definition",
+            got: "an empty reference",
+        });
+    }
+    let Some(pointer) = reference.strip_prefix("#/$defs/") else {
+        return Err(SchemaError::TypeMismatch {
+            path: "$ref".to_string(),
+            expected: "a \"#/$defs/Name\" reference",
+            got: "a reference of another shape",
+        });
+    };
+    if pointer.is_empty() {
+        return Err(SchemaError::TypeMismatch {
+            path: "$ref".to_string(),
+            expected: "a reference naming a definition",
+            got: "a reference with no name",
+        });
+    }
+    // `~1` and `~0` are the JSON Pointer escapes for `/` and `~`, applied in
+    // that order, so a definition may be named with either character.
+    let name = pointer.replace("~1", "/").replace("~0", "~");
+    let defs = ROOT_DEFS.lock().unwrap();
+    let found = defs
+        .as_ref()
+        .and_then(|defs| defs.get(&name))
+        .cloned()
+        .ok_or_else(|| SchemaError::TypeMismatchDynamic {
+            path: "$ref".to_string(),
+            // The dynamic half is the part that names which definition was
+            // wanted, which is the whole point of the message.
+            expected: format!("a definition named {name:?} for $ref {reference:?}"),
+            got: "a definition the root does not define",
+        })?;
+    Ok(found)
+}
+
+impl Schema<Unknown> {
     fn import_object(doc: &serde_json::Value) -> Result<Self, SchemaError> {
         let get = |key: &str| doc.get(key);
         let empty = serde_json::Map::new();
@@ -3320,13 +3410,20 @@ impl Schema<Unknown> {
                 });
             }
         }
-        if let Some(r#ref) = get("$ref") {
-            let _ = r#ref;
-            return Err(SchemaError::TypeMismatch {
-                path: "$.$ref".to_string(),
-                expected: "an inlinable schema",
-                got: "a reference",
-            });
+        if let Some(serde_json::Value::String(r#ref)) = get("$ref") {
+            // Siblings of a `$ref` are not folded into it: the pin refuses the
+            // ones that would change what the reference means, and inlines the
+            // reference itself.
+            let resolved = resolve_ref(r#ref)?;
+            // Annotations riding the reference stay annotations on the result.
+            let mut annotated = resolved.as_object().cloned().unwrap_or_default();
+            annotated.remove("$ref");
+            for keyword in ["title", "description", "identifier"] {
+                if let Some(value) = get(keyword) {
+                    annotated.insert(keyword.to_string(), value.clone());
+                }
+            }
+            return Self::import(&serde_json::Value::Object(annotated));
         }
         // A keyword the port cannot lower is refused by name, the way the pin
         // refuses it. Dropping one instead imports a schema weaker than the
@@ -3350,9 +3447,15 @@ impl Schema<Unknown> {
         for keyword in ["if", "then", "else"] {
             if get(keyword).is_some_and(|value| *value != serde_json::Value::Bool(false)) {
                 let expected = match keyword {
-                    "if" => "a keyword with an equivalent constraint: Cannot import JSON Schema keyword \"if\": Effect has no equivalent constraint.",
-                    "then" => "a keyword with an equivalent constraint: Cannot import JSON Schema keyword \"then\": Effect has no equivalent constraint.",
-                    _ => "a keyword with an equivalent constraint: Cannot import JSON Schema keyword \"else\": Effect has no equivalent constraint.",
+                    "if" => {
+                        "a keyword with an equivalent constraint: Cannot import JSON Schema keyword \"if\": Effect has no equivalent constraint."
+                    }
+                    "then" => {
+                        "a keyword with an equivalent constraint: Cannot import JSON Schema keyword \"then\": Effect has no equivalent constraint."
+                    }
+                    _ => {
+                        "a keyword with an equivalent constraint: Cannot import JSON Schema keyword \"else\": Effect has no equivalent constraint."
+                    }
                 };
                 return Err(SchemaError::TypeMismatch {
                     path: format!("$.{keyword}"),
@@ -3407,7 +3510,8 @@ impl Schema<Unknown> {
         }
         if let Some(constants) = get("const") {
             Self::require_primitive("$.const".to_string(), constants)?;
-            let values = Self::filter_exact_values(vec![Unknown::from_json(constants.clone())], doc);
+            let values =
+                Self::filter_exact_values(vec![Unknown::from_json(constants.clone())], doc);
             return Self::with_document_annotations(
                 values
                     .into_iter()
@@ -3482,10 +3586,8 @@ impl Schema<Unknown> {
             let Some(serde_json::Value::Array(options)) = get(keyword) else {
                 continue;
             };
-            let imported: Vec<Schema<Unknown>> = options
-                .iter()
-                .map(Self::import)
-                .collect::<Result<_, _>>()?;
+            let imported: Vec<Schema<Unknown>> =
+                options.iter().map(Self::import).collect::<Result<_, _>>()?;
             if imported.is_empty() {
                 return Err(SchemaError::TypeMismatch {
                     path: format!("$.{keyword}"),
@@ -4076,7 +4178,7 @@ impl Schema<Unknown> {
     /// Any JSON value (`Json`). The wire shape is unconstrained, which is what
     /// makes it the catch-all for an open object's additional properties.
     pub fn json() -> Self {
-        Self::new(Ok,                |value| Ok(value.clone()), SchemaKind::Json)
+        Self::new(Ok, |value| Ok(value.clone()), SchemaKind::Json)
     }
 
     /// A struct field whose key may be absent (`optionalKey`). Decode delegates
@@ -4183,7 +4285,7 @@ impl Schema<Unknown> {
                                 path: "$".to_string(),
                                 expected: "an object-shaped catch-all",
                                 got: other.kind(),
-                            })
+                            });
                         }
                     }
                 } else {
@@ -4222,7 +4324,10 @@ impl Schema<Unknown> {
         // may be absent, and an `optional` position may be absent or null.
         // Either one makes every position after it a required-after-optional,
         // so the rule counts both.
-        let required = kinds.iter().take_while(|kind| !is_optional_element(kind)).count();
+        let required = kinds
+            .iter()
+            .take_while(|kind| !is_optional_element(kind))
+            .count();
         assert!(
             kinds[required..].iter().all(is_optional_element),
             "A required element cannot follow an optional element. ts(1257)"
@@ -4327,7 +4432,10 @@ impl Schema<Unknown> {
         // to them: no required element may follow an optional one, in either
         // spelling of optional.
         let kinds: Vec<SchemaKind> = elements.iter().map(|e| e.repr_kind()).collect();
-        let required = kinds.iter().take_while(|kind| !is_optional_element(kind)).count();
+        let required = kinds
+            .iter()
+            .take_while(|kind| !is_optional_element(kind))
+            .count();
         assert!(
             kinds[required..].iter().all(is_optional_element),
             "A required element cannot follow an optional element. ts(1257)"
@@ -4619,8 +4727,7 @@ impl Schema<Unknown> {
         annotation: Vec<(&str, &str)>,
     ) -> Self {
         let rendered = key.to_code();
-        let annotated =
-            Self::checked(base, "isPropertyNames", vec![rendered.as_str()], annotation);
+        let annotated = Self::checked(base, "isPropertyNames", vec![rendered.as_str()], annotation);
         let key = Arc::new(key);
         let decode_key = key.clone();
         let inner = Arc::new(annotated);
@@ -4758,7 +4865,12 @@ fn between_properties_holds(
     let Unknown::Object(map) = value else {
         return true;
     };
-    bounds_hold(bounds, exclusive_minimum, exclusive_maximum, map.len() as f64)
+    bounds_hold(
+        bounds,
+        exclusive_minimum,
+        exclusive_maximum,
+        map.len() as f64,
+    )
 }
 
 fn check_holds(name: &str, limit: Option<f64>, value: &Unknown) -> bool {

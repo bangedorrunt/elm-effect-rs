@@ -2517,14 +2517,14 @@ ported	packages/effect/test/Logger.test.ts	134	it.effect	annotateLogsScoped appl
 ported	packages/effect/test/Logger.test.ts	155	it.effect	annotateLogsScoped restores previous annotations	logger_annotate_logs_scoped_restores_previous
 ported	packages/effect/test/Logger.test.ts	182	it.effect	measurement	logger_annotate_logs_scoped_restores_nan_annotations
 ported	packages/effect/test/Logger.test.ts	206	it.effect	default logger preserves message item order when logging a cause	logger_default_keeps_message_item_order_with_a_cause
-unported	packages/effect/test/ManagedRuntime.test.ts	6	test	memoizes the layer build	
-unported	packages/effect/test/ManagedRuntime.test.ts	18	test	provides context	
-unported	packages/effect/test/ManagedRuntime.test.ts	27	test	allows sharing a MemoMap	
+ported	packages/effect/test/ManagedRuntime.test.ts	6	test	memoizes the layer build	memoizes_the_layer_build
+ported	packages/effect/test/ManagedRuntime.test.ts	18	test	provides context	provides_context
+ported	packages/effect/test/ManagedRuntime.test.ts	27	test	allows sharing a MemoMap	allows_sharing_a_memo
 ported	packages/effect/test/ManagedRuntime.test.ts	41	it	can be built synchronously	managed_runtime_make_exposes_built_services
-unported	packages/effect/test/ManagedRuntime.test.ts	50	test	supports await using	
-unported	packages/effect/test/ManagedRuntime.test.ts	65	it	fibers are interrupted on dispose	
-unported	packages/effect/test/ManagedRuntime.test.ts	75	it	finishes request cleanup before releasing layer resources with ${method}	
-unported	packages/effect/test/ManagedRuntime.test.ts	127	it	completes sequential layer finalizers when disposeEffect is interrupted	
+ported	packages/effect/test/ManagedRuntime.test.ts	50	test	supports await using	supports_dispose_releasing_the_layer
+ported	packages/effect/test/ManagedRuntime.test.ts	65	it	fibers are interrupted on dispose	fibers_are_interrupted_on_dispose
+ported	packages/effect/test/ManagedRuntime.test.ts	75	it	finishes request cleanup before releasing layer resources with ${method}	dispose_finishes_request_cleanup_before_releasing_the_layer
+ported	packages/effect/test/ManagedRuntime.test.ts	127	it	completes sequential layer finalizers when disposeEffect is interrupted	dispose_completes_sequential_layer_finalizers_when_interrupted
 ported	packages/effect/test/Match.test.ts	6	it	fn keeps the selector arguments	match_fn_keeps_selector_arguments
 ported	packages/effect/test/Match.test.ts	27	it	fn can match a projected value	tagged_structs_match_by_tag
 ported	packages/effect/test/Match.test.ts	38	it	tag matches an exact _tag and falls through for null	tagged_structs_match_by_tag
@@ -3415,11 +3415,13 @@ ported	packages/effect/test/ScopedCache.test.ts	1620	it.effect	capacity of 1	sco
 ported	packages/effect/test/ScopedCache.test.ts	1639	it.effect	very large capacity	scoped_cache_evicts_least_recently_used
 ported	packages/effect/test/ScopedCache.test.ts	1660	it.effect	resource cleanup for evicted entries	scoped_entry_resource_releases_on_eviction
 ported	packages/effect/test/ScopedCache.test.ts	1681	it.effect	entry expires after specified duration	scoped_cache_fixed_ttl_and_refresh
+unported	packages/effect/test/ScopedCache.test.ts	1698	it.effect	get after expiration invokes lookup	
 ported	packages/effect/test/ScopedCache.test.ts	1718	it.effect	has returns false for expired entries	scoped_cache_fixed_ttl_and_refresh
 ported	packages/effect/test/ScopedCache.test.ts	1733	it.effect	resource cleanup for expired entries	scoped_entry_resource_releases_when_has_prunes_expiry
 not-applicable	packages/effect/test/ScopedCache.test.ts	1769	it.effect	different TTL for success vs failure	the row selects a TTL from the lookup's outcome, key, or value; this port's ScopedCache::make takes one fixed TimeToLive, so there is no per-entry TTL decision to make
 not-applicable	packages/effect/test/ScopedCache.test.ts	1788	it.effect	TTL based on key	the row selects a TTL from the lookup's outcome, key, or value; this port's ScopedCache::make takes one fixed TimeToLive, so there is no per-entry TTL decision to make
 not-applicable	packages/effect/test/ScopedCache.test.ts	1814	it.effect	TTL based on value	the row selects a TTL from the lookup's outcome, key, or value; this port's ScopedCache::make takes one fixed TimeToLive, so there is no per-entry TTL decision to make
+unported	packages/effect/test/ScopedCache.test.ts	1836	it.effect	infinite TTL	
 ported	packages/effect/test/ScopedCache.test.ts	1849	it.effect	zero duration TTL	scoped_cache_fixed_ttl_and_refresh
 ported	packages/effect/test/ScopedCache.test.ts	1862	it.effect	TTL updates on refresh	scoped_cache_refresh_reruns_the_lookup
 not-applicable	packages/effect/test/ScopedCache.test.ts	1895	it.effect	failed lookup caches the failure	the row opts into caching a failed lookup and asserts the same failure is replayed; this port's ScopedCache stores values only and has no failure retention, so there is no failure to cache or replay
@@ -4023,6 +4025,7 @@ ported	packages/effect/test/Struct.test.ts	91	it	renameKeys	struct_shapes
 ported	packages/effect/test/Struct.test.ts	101	it	evolveEntries transforms a selected key and value together	struct_shapes
 ported	packages/effect/test/Struct.test.ts	112	it	map	struct_shapes
 ported	packages/effect/test/Struct.test.ts	123	it	mapPick	struct_shapes
+unported	packages/effect/test/Struct.test.ts	140	it	mapPick numeric properties	
 ported	packages/effect/test/Struct.test.ts	150	it	mapOmit	struct_shapes
 ported	packages/effect/test/Struct.test.ts	167	it	mapOmit numeric properties	struct_shapes
 ported	packages/effect/test/Struct.test.ts	177	it	makeEquivalence compares structs by configured fields	struct_shapes
@@ -4045,8 +4048,10 @@ not-applicable	packages/effect/test/Symbol.test.ts	15	it	returns true for well-k
 not-applicable	packages/effect/test/Symbol.test.ts	21	it	returns false for strings	N/A: JS symbols have no Rust analog
 not-applicable	packages/effect/test/Symbol.test.ts	26	it	returns false for numbers	N/A: JS symbols have no Rust analog
 not-applicable	packages/effect/test/Symbol.test.ts	31	it	returns false for booleans	N/A: JS symbols have no Rust analog
+unported	packages/effect/test/Symbol.test.ts	36	it	returns false for null and undefined	
 not-applicable	packages/effect/test/Symbol.test.ts	41	it	returns false for objects and arrays	N/A: JS symbols have no Rust analog
 not-applicable	packages/effect/test/Symbol.test.ts	46	it	returns false for functions	N/A: JS symbols have no Rust analog
+unported	packages/effect/test/SynchronizedRef.modifySomeEffect.test.ts	5	it.effect	supports callback-only currying	
 ported	packages/effect/test/SynchronizedRef.modifySomeEffect.test.ts	16	it.effect	preserves the value for Option.none	modify_some_effect_none_preserves_value_with_fallback
 ported	packages/effect/test/SynchronizedRef.test.ts	32	it.effect	get	synchronised_ref_get_returns_current
 ported	packages/effect/test/SynchronizedRef.test.ts	37	it.effect	getAndUpdateEffect - happy path	get_and_update_effect_returns_previous_and_stores_update
@@ -4283,28 +4288,28 @@ ported	packages/effect/test/TxHashSet.test.ts	396	it.effect	functional operation
 ported	packages/effect/test/TxHashSet.test.ts	412	it.effect	handles empty set operations correctly	union_intersection_difference
 ported	packages/effect/test/TxHashSet.test.ts	431	it.effect	handles single element sets	is_subset_is_reflexive_and_ordering_sensitive
 ported	packages/effect/test/TxPriorityQueue.test.ts	6	it.effect	empty creates an empty queue	tx_priority_queue_orders
-unported	packages/effect/test/TxPriorityQueue.test.ts	14	it.effect	fromIterable creates a sorted queue	
-unported	packages/effect/test/TxPriorityQueue.test.ts	21	it.effect	fromIterable supports the curried call	
-unported	packages/effect/test/TxPriorityQueue.test.ts	28	it.effect	make creates from variadic args	
+ported	packages/effect/test/TxPriorityQueue.test.ts	14	it.effect	fromIterable creates a sorted queue	from_iterable_creates_a_sorted_queue
+ported	packages/effect/test/TxPriorityQueue.test.ts	21	it.effect	fromIterable supports the curried call	from_iterable_supports_the_curried_call
+ported	packages/effect/test/TxPriorityQueue.test.ts	28	it.effect	make creates from variadic args	make_creates_from_the_values
 ported	packages/effect/test/TxPriorityQueue.test.ts	37	it.effect	size returns number of elements	tx_priority_queue_orders
-unported	packages/effect/test/TxPriorityQueue.test.ts	43	it.effect	isEmpty/isNonEmpty	
-unported	packages/effect/test/TxPriorityQueue.test.ts	53	it.effect	peek returns smallest without removing	
-unported	packages/effect/test/TxPriorityQueue.test.ts	61	it.effect	peekOption returns None when empty	
-unported	packages/effect/test/TxPriorityQueue.test.ts	68	it.effect	peekOption returns Some when non-empty	
-unported	packages/effect/test/TxPriorityQueue.test.ts	80	it.effect	offer + take returns elements in priority order	
-unported	packages/effect/test/TxPriorityQueue.test.ts	91	it.effect	duplicate priorities are all returned	
-unported	packages/effect/test/TxPriorityQueue.test.ts	98	it.effect	take on empty retries until offer	
-unported	packages/effect/test/TxPriorityQueue.test.ts	107	it.effect	takeOption returns None when empty	
-unported	packages/effect/test/TxPriorityQueue.test.ts	114	it.effect	takeUpTo returns min(n, size) elements in order	
-unported	packages/effect/test/TxPriorityQueue.test.ts	122	it.effect	takeUpTo with n > size returns all	
-unported	packages/effect/test/TxPriorityQueue.test.ts	130	it.effect	offerAll inserts multiple elements	
-unported	packages/effect/test/TxPriorityQueue.test.ts	138	it.effect	offerAll does not compare every queued element for one new value	
-unported	packages/effect/test/TxPriorityQueue.test.ts	156	it.effect	offerAll avoids repeated full-range searches for an interleaved batch	
-unported	packages/effect/test/TxPriorityQueue.test.ts	174	it.effect	removeIf removes matching elements	
-unported	packages/effect/test/TxPriorityQueue.test.ts	182	it.effect	retainIf keeps only matching elements	
-unported	packages/effect/test/TxPriorityQueue.test.ts	192	it.effect	isTxPriorityQueue	
-unported	packages/effect/test/TxPriorityQueue.test.ts	203	it.effect	concurrent offer and take	
-unported	packages/effect/test/TxPriorityQueue.test.ts	220	it.effect	reverse order (max-first)	
+ported	packages/effect/test/TxPriorityQueue.test.ts	43	it.effect	isEmpty/isNonEmpty	is_empty_and_is_non_empty
+ported	packages/effect/test/TxPriorityQueue.test.ts	53	it.effect	peek returns smallest without removing	peek_returns_the_smallest_without_removing
+ported	packages/effect/test/TxPriorityQueue.test.ts	61	it.effect	peekOption returns None when empty	peek_option_is_none_when_empty
+ported	packages/effect/test/TxPriorityQueue.test.ts	68	it.effect	peekOption returns Some when non-empty	peek_option_is_some_when_non_empty
+ported	packages/effect/test/TxPriorityQueue.test.ts	80	it.effect	offer + take returns elements in priority order	offer_and_take_return_elements_in_priority_order
+ported	packages/effect/test/TxPriorityQueue.test.ts	91	it.effect	duplicate priorities are all returned	duplicate_priorities_are_all_returned
+ported	packages/effect/test/TxPriorityQueue.test.ts	98	it.effect	take on empty retries until offer	take_on_empty_waits_until_offer
+ported	packages/effect/test/TxPriorityQueue.test.ts	107	it.effect	takeOption returns None when empty	take_option_is_none_when_empty
+ported	packages/effect/test/TxPriorityQueue.test.ts	114	it.effect	takeUpTo returns min(n, size) elements in order	take_up_to_returns_at_most_n_in_order
+ported	packages/effect/test/TxPriorityQueue.test.ts	122	it.effect	takeUpTo with n > size returns all	take_up_to_past_the_size_returns_all
+ported	packages/effect/test/TxPriorityQueue.test.ts	130	it.effect	offerAll inserts multiple elements	offer_all_inserts_multiple_elements
+ported	packages/effect/test/TxPriorityQueue.test.ts	138	it.effect	offerAll does not compare every queued element for one new value	offer_all_does_not_compare_every_queued_element
+ported	packages/effect/test/TxPriorityQueue.test.ts	156	it.effect	offerAll avoids repeated full-range searches for an interleaved batch	offer_all_avoids_repeated_full_range_searches
+ported	packages/effect/test/TxPriorityQueue.test.ts	174	it.effect	removeIf removes matching elements	remove_if_removes_matching_elements
+ported	packages/effect/test/TxPriorityQueue.test.ts	182	it.effect	retainIf keeps only matching elements	retain_if_keeps_only_matching_elements
+ported	packages/effect/test/TxPriorityQueue.test.ts	192	it.effect	isTxPriorityQueue	is_tx_priority_queue_narrows_the_type
+ported	packages/effect/test/TxPriorityQueue.test.ts	203	it.effect	concurrent offer and take	concurrent_offer_and_take
+ported	packages/effect/test/TxPriorityQueue.test.ts	220	it.effect	reverse order (max-first)	reverse_order_is_max_first
 ported	packages/effect/test/TxPubSub.test.ts	6	it.effect	bounded creates pubsub with specified capacity	tx_pubsub_broadcasts
 ported	packages/effect/test/TxPubSub.test.ts	13	it.effect	unbounded creates pubsub with unlimited capacity	tx_pubsub_constructors_set_capacity_and_strategy
 ported	packages/effect/test/TxPubSub.test.ts	19	it.effect	dropping creates pubsub with dropping strategy	tx_pubsub_constructors_set_capacity_and_strategy
@@ -4940,6 +4945,7 @@ unported	packages/effect/test/ai/McpServer/McpConformance/ToolsTest.ts	226	it.ef
 unported	packages/effect/test/ai/McpServer/McpConformance/ToolsTest.ts	238	it.effect	MUST return multiple content items in order	
 unported	packages/effect/test/ai/McpServer/McpConformance/ToolsTest.ts	246	it.effect	MUST return tool execution failures with isError	
 unported	packages/effect/test/ai/McpServer/McpConformance/ToolsTest.ts	252	it.effect	MUST keep tool execution errors distinct from protocol errors	
+unported	packages/effect/test/ai/McpServer/McpConformance/ToolsTest.ts	271	it.effect	SHOULD not expose defects or internal error details	
 unported	packages/effect/test/ai/McpServer/McpConformance/ToolsTest.ts	289	it.skipIf	should return base64 audio content when an audio tool is called	
 unported	packages/effect/test/ai/McpServer/McpConformance/ToolsTest.ts	305	it.effect	should advertise an object output schema when a tool declares one	
 unported	packages/effect/test/ai/McpServer/McpConformance/ToolsTest.ts	326	it.effect	should return a resource link when a resource-link tool is called	
@@ -4957,6 +4963,9 @@ unported	packages/effect/test/ai/McpServer/McpConformance/ToolsTest.ts	653	it.ef
 unported	packages/effect/test/ai/McpServer/McpConformance/ToolsTest.ts	676	it.layer	Mcp Conformance (${protocol.protocolVersion})	
 unported	packages/effect/test/ai/McpServer/McpConformance/ToolsTest.ts	678	it.effect	should reject malformed tool parameters without invoking a handler	
 unported	packages/effect/test/ai/McpServer/McpConformance/ToolsTest.ts	699	it.effect	should advertise tool list-change notifications when supported	
+unported	packages/effect/test/ai/McpServer/McpConformance/ToolsTest.ts	706	it.effect	should send a tool list-change notification when the advertised list changes	
+unported	packages/effect/test/ai/McpServer/McpConformance/TransportsTest.ts	31	it.layer	Mcp Conformance (${protocol.protocolVersion})	
+unported	packages/effect/test/ai/McpServer/McpConformance/TransportsTest.ts	37	it.effect	MUST exchange compact UTF-8 newline-delimited JSON-RPC records	
 unported	packages/effect/test/ai/McpServer/McpConformance/TransportsTest.ts	58	it.effect	SCENARIO parses UTF-8 JSON-RPC records split across input chunks	
 unported	packages/effect/test/ai/McpServer/McpConformance/TransportsTest.ts	84	it.effect	SCENARIO processes consecutive stdio messages independently	
 unported	packages/effect/test/ai/McpServer/McpConformance/TransportsTest.ts	112	it.skipIf	MUST reject JSON-RPC batches over stdio	
@@ -5573,6 +5582,7 @@ ported	packages/effect/test/cli/Command.test.ts	182	it.effect	should run negativ
 ported	packages/effect/test/cli/Command.test.ts	211	it.effect	should round trip wizard flag value ${JSON.stringify(value)}	wizard_flag_values_round_trip_through_the_parser
 ported	packages/effect/test/cli/Command.test.ts	229	it.effect	should round trip mixed repeated wizard flag values	wizard_repeated_flag_values_keep_their_own_shape
 ported	packages/effect/test/cli/Command.test.ts	252	it.effect	should redact option-looking values in wizard command output	an_option_looking_value_stays_a_value_and_a_secret_stays_hidden
+unported	packages/effect/test/cli/Command.test.ts	282	it.effect	should print a message when wizard mode is cancelled	
 ported	packages/effect/test/cli/Command.test.ts	301	it.effect	should render boolean wizard values consistently	a_boolean_wizard_value_renders_the_same_in_both_places
 ported	packages/effect/test/cli/Command.test.ts	320	it.effect	should start wizard mode at a selected subcommand	wizard_mode_starts_at_the_subcommand_named_on_the_line
 ported	packages/effect/test/cli/Command.test.ts	339	it.effect	should reject --completions without a shell	a_bare_completions_flag_is_refused_and_nothing_runs
@@ -5597,9 +5607,11 @@ unported	packages/effect/test/cli/Command.test.ts	814	it.effect	should handle pa
 ported	packages/effect/test/cli/Command.test.ts	834	it.effect	should propagate handler errors from run	a_handlers_failure_propagates_out_of_the_run
 unported	packages/effect/test/cli/Command.test.ts	840	it.effect	should render and rethrow UserError handler failures without help	
 unported	packages/effect/test/cli/Command.test.ts	858	it.effect	should render UserError handler failures with the installed formatter	
+unported	packages/effect/test/cli/Command.test.ts	876	it.effect	should render UserError once when running wizard-generated arguments	
 unported	packages/effect/test/cli/Command.test.ts	892	it.effect	should render UserError argument failures with command help	
 unported	packages/effect/test/cli/Command.test.ts	913	it.effect	should suppress automatic error rendering	
 unported	packages/effect/test/cli/Command.test.ts	929	it.effect	should still render help when automatic error rendering is disabled	
+unported	packages/effect/test/cli/Command.test.ts	946	it	preserves unlisted metadata when adding subcommands	
 ported	packages/effect/test/cli/Command.test.ts	955	it	preserves unlisted metadata when adding shared flags	unlisted_survives_adding_subcommands_and_shared_flags
 ported	packages/effect/test/cli/Command.test.ts	964	it.effect	should execute parent handler when no subcommand provided	the_parent_handler_runs_when_no_subcommand_is_given
 ported	packages/effect/test/cli/Command.test.ts	975	it.effect	should execute subcommand when provided	the_selected_subcommands_handler_runs_instead_of_the_parents
@@ -6494,6 +6506,7 @@ unported	packages/effect/test/http/HttpBody.test.ts	13	it.each	fileFromInfo hand
 unported	packages/effect/test/http/HttpBody.test.ts	31	it.each	fileFromInfo rejects $name with typed BadArgument	
 unported	packages/effect/test/http/HttpBody.test.ts	54	it	${constructor} defers range validation and filesystem access until evaluation	
 unported	packages/effect/test/http/HttpBody.test.ts	90	it	fileFromInfo preserves a small selected range and stream options	
+unported	packages/effect/test/http/HttpBody.test.ts	112	it	identifies HTTP body errors	
 unported	packages/effect/test/http/HttpClient.test.ts	41	it.effect	applies JSON revivers to response schema decoders	
 unported	packages/effect/test/http/HttpClient.test.ts	65	it.effect	forwards parse options to response schema decoders	
 unported	packages/effect/test/http/HttpClient.test.ts	90	it.effect	forwards parse options to response schema decoders without a body	
@@ -6519,6 +6532,8 @@ unported	packages/effect/test/http/HttpClient.test.ts	495	it.effect	updates limi
 unported	packages/effect/test/http/HttpClient.test.ts	541	it.effect	inspects remaining headers to infer updated limits	
 unported	packages/effect/test/http/HttpClient.test.ts	583	it.effect	inspects custom remaining and reset-after headers	
 unported	packages/effect/test/http/HttpClient.test.ts	629	it.effect	uses custom header overrides without falling back to built-in names	
+unported	packages/effect/test/http/HttpClient.test.ts	667	it.effect	can disable response header inspection	
+unported	packages/effect/test/http/HttpClient.test.ts	704	it.effect	retries 429 responses through the limiter	
 unported	packages/effect/test/http/HttpClient.test.ts	743	it.effect	retries HttpClientError 429 failures through the limiter	
 unported	packages/effect/test/http/HttpClient.test.ts	783	it.effect	bounds automatic 429 response retries	
 unported	packages/effect/test/http/HttpClient.test.ts	803	it.effect	bounds automatic HttpClientError 429 retries	
@@ -7353,11 +7368,14 @@ not-applicable	packages/effect/test/reactivity/Atom.test.ts	1326	it	idleTTL	the 
 not-applicable	packages/effect/test/reactivity/Atom.test.ts	1359	it	releases a stream-backed atom consumed through a derived atom after idleTTL	the rows exercise the wider Atom surface — Atom.fn with idleTTL, batching with coalesced notifications, initialValues, writable and read/write combinators, labels, mount/unmount APIs — which sits above the lifecycle core this port carries (make, keepAlive, withEquality, map plus registry get/set/subscribe/disposal); each row needs its own named combinator on top of an async atom builder the port does not have
 not-applicable	packages/effect/test/reactivity/Atom.test.ts	1388	it	idleTTL fn	the rows exercise the wider Atom surface — Atom.fn with idleTTL, batching with coalesced notifications, initialValues, writable and read/write combinators, labels, mount/unmount APIs — which sits above the lifecycle core this port carries (make, keepAlive, withEquality, map plus registry get/set/subscribe/disposal); each row needs its own named combinator on top of an async atom builder the port does not have
 not-applicable	packages/effect/test/reactivity/Atom.test.ts	1408	it	idleTTL fnSync	the rows exercise the wider Atom surface — Atom.fn with idleTTL, batching with coalesced notifications, initialValues, writable and read/write combinators, labels, mount/unmount APIs — which sits above the lifecycle core this port carries (make, keepAlive, withEquality, map plus registry get/set/subscribe/disposal); each row needs its own named combinator on top of an async atom builder the port does not have
+unported	packages/effect/test/reactivity/Atom.test.ts	1428	it	fn	
 not-applicable	packages/effect/test/reactivity/Atom.test.ts	1437	it	fn initial	the rows exercise the wider Atom surface — Atom.fn with idleTTL, batching with coalesced notifications, initialValues, writable and read/write combinators, labels, mount/unmount APIs — which sits above the lifecycle core this port carries (make, keepAlive, withEquality, map plus registry get/set/subscribe/disposal); each row needs its own named combinator on top of an async atom builder the port does not have
 not-applicable	packages/effect/test/reactivity/Atom.test.ts	1446	it	withFallback	the rows exercise the wider Atom surface — Atom.fn with idleTTL, batching with coalesced notifications, initialValues, writable and read/write combinators, labels, mount/unmount APIs — which sits above the lifecycle core this port carries (make, keepAlive, withEquality, map plus registry get/set/subscribe/disposal); each row needs its own named combinator on top of an async atom builder the port does not have
 not-applicable	packages/effect/test/reactivity/Atom.test.ts	1462	it	withFallback forwards writes to the primary atom	the rows exercise the wider Atom surface — Atom.fn with idleTTL, batching with coalesced notifications, initialValues, writable and read/write combinators, labels, mount/unmount APIs — which sits above the lifecycle core this port carries (make, keepAlive, withEquality, map plus registry get/set/subscribe/disposal); each row needs its own named combinator on top of an async atom builder the port does not have
 not-applicable	packages/effect/test/reactivity/Atom.test.ts	1476	it	failure with previousSuccess	the rows exercise the wider Atom surface — Atom.fn with idleTTL, batching with coalesced notifications, initialValues, writable and read/write combinators, labels, mount/unmount APIs — which sits above the lifecycle core this port carries (make, keepAlive, withEquality, map plus registry get/set/subscribe/disposal); each row needs its own named combinator on top of an async atom builder the port does not have
 not-applicable	packages/effect/test/reactivity/Atom.test.ts	1500	it	read non-object	the rows exercise the wider Atom surface — Atom.fn with idleTTL, batching with coalesced notifications, initialValues, writable and read/write combinators, labels, mount/unmount APIs — which sits above the lifecycle core this port carries (make, keepAlive, withEquality, map plus registry get/set/subscribe/disposal); each row needs its own named combinator on top of an async atom builder the port does not have
+unported	packages/effect/test/reactivity/Atom.test.ts	1506	it	get.stream	
+unported	packages/effect/test/reactivity/Atom.test.ts	1523	it	get.streamResult	
 not-applicable	packages/effect/test/reactivity/Atom.test.ts	1542	it	stream failure keeps previousSuccess	the rows exercise the wider Atom surface — Atom.fn with idleTTL, batching with coalesced notifications, initialValues, writable and read/write combinators, labels, mount/unmount APIs — which sits above the lifecycle core this port carries (make, keepAlive, withEquality, map plus registry get/set/subscribe/disposal); each row needs its own named combinator on top of an async atom builder the port does not have
 not-applicable	packages/effect/test/reactivity/Atom.test.ts	1557	it	stream empty produces NoSuchElementError	the rows exercise the wider Atom surface — Atom.fn with idleTTL, batching with coalesced notifications, initialValues, writable and read/write combinators, labels, mount/unmount APIs — which sits above the lifecycle core this port carries (make, keepAlive, withEquality, map plus registry get/set/subscribe/disposal); each row needs its own named combinator on top of an async atom builder the port does not have
 not-applicable	packages/effect/test/reactivity/Atom.test.ts	1575	it	Option is not an Effect	the rows exercise the wider Atom surface — Atom.fn with idleTTL, batching with coalesced notifications, initialValues, writable and read/write combinators, labels, mount/unmount APIs — which sits above the lifecycle core this port carries (make, keepAlive, withEquality, map plus registry get/set/subscribe/disposal); each row needs its own named combinator on top of an async atom builder the port does not have
@@ -7788,27 +7806,27 @@ ported	packages/effect/test/schema/Schema.test.ts	5182	it	NullishOr(String)	null
 not-applicable	packages/effect/test/schema/Schema.test.ts	5197	it	PropertyKey	the row's body asserts nothing at runtime beyond the optional arbitrary-generation check, and Schema.PropertyKey does not exist on the Rust schema surface, so the schema in the row cannot be built
 not-applicable	packages/effect/test/schema/Schema.test.ts	5205	it	BooleanFromBit	the row's body asserts nothing at runtime beyond the optional arbitrary-generation check, and Schema.BooleanFromBit does not exist on the Rust schema surface, so the schema in the row cannot be built
 not-applicable	packages/effect/test/schema/Schema.test.ts	5213	it	Uint8Array	the row's body asserts nothing at runtime beyond the optional arbitrary-generation check, and Schema.Uint8Array does not exist on the Rust schema surface (this crate's Unknown holds text, not bytes), so the schema in the row cannot be built
-unported	packages/effect/test/schema/Schema.test.ts	5221	it	Uint8ArrayFromBase64	
-unported	packages/effect/test/schema/Schema.test.ts	5240	it	StringFromBase64	
-unported	packages/effect/test/schema/Schema.test.ts	5254	it	StringFromBase64Url	
-unported	packages/effect/test/schema/Schema.test.ts	5269	it	StringFromHex	
-unported	packages/effect/test/schema/Schema.test.ts	5283	it	StringFromUriComponent	
-unported	packages/effect/test/schema/Schema.test.ts	5299	it	Uint8ArrayFromBase64Url	
-unported	packages/effect/test/schema/Schema.test.ts	5319	it	Uint8ArrayFromHex	
-unported	packages/effect/test/schema/Schema.test.ts	5346	it	Date	
-unported	packages/effect/test/schema/Schema.test.ts	5365	it	DateTimeUtc	
-unported	packages/effect/test/schema/Schema.test.ts	5380	it	DateTimeUtcFromValidDate	
-unported	packages/effect/test/schema/Schema.test.ts	5396	it	DateTimeUtcFromString	
-unported	packages/effect/test/schema/Schema.test.ts	5413	it	DateTimeUtcFromMillis	
-unported	packages/effect/test/schema/Schema.test.ts	5429	it	TimeZoneOffset	
-unported	packages/effect/test/schema/Schema.test.ts	5444	it	TimeZoneNamed	
-unported	packages/effect/test/schema/Schema.test.ts	5459	it	TimeZone	
-unported	packages/effect/test/schema/Schema.test.ts	5476	it	DateTimeZoned	
-unported	packages/effect/test/schema/Schema.test.ts	5491	it	ReadonlySet	
-unported	packages/effect/test/schema/Schema.test.ts	5512	it	HashSet	
-unported	packages/effect/test/schema/Schema.test.ts	5536	it	Chunk	
-unported	packages/effect/test/schema/Schema.test.ts	5560	it	ReadonlyMap	
-unported	packages/effect/test/schema/Schema.test.ts	5586	it	HashMap	
+not-applicable	packages/effect/test/schema/Schema.test.ts	5221	it	Uint8ArrayFromBase64	the row's wire value is a Uint8Array and so is its decoded value; this port's Unknown has no byte-array variant (Text/Number/Bool/Null/Array/Object), so neither side can be constructed. The string half of the same codec is carried at :5240
+ported	packages/effect/test/schema/Schema.test.ts	5240	it	StringFromBase64	string_from_base64_round_trips_and_refuses_malformed_text
+ported	packages/effect/test/schema/Schema.test.ts	5254	it	StringFromBase64Url	string_from_base64_url_uses_the_url_alphabet
+ported	packages/effect/test/schema/Schema.test.ts	5269	it	StringFromHex	string_from_hex_round_trips_and_refuses_malformed_text
+ported	packages/effect/test/schema/Schema.test.ts	5283	it	StringFromUriComponent	string_from_uri_component_round_trips_and_refuses_malformed_text
+not-applicable	packages/effect/test/schema/Schema.test.ts	5299	it	Uint8ArrayFromBase64Url	the row's wire value is a Uint8Array and so is its decoded value; this port's Unknown has no byte-array variant, so neither side can be constructed. The string half of the same codec is carried at :5254
+not-applicable	packages/effect/test/schema/Schema.test.ts	5319	it	Uint8ArrayFromHex	the row's wire value is a Uint8Array and so is its decoded value; this port's Unknown has no byte-array variant, so neither side can be constructed. The string half of the same codec is carried at :5269
+not-applicable	packages/effect/test/schema/Schema.test.ts	5346	it	Date	the row's wire value is a JS Date instance and so is its decoded value; this port's Unknown has no Date variant, and its instant travels as epoch millis over an ISO string (transform::date_schema, carried at :5396), so the row's inputs (a Date, its NaN form, 0) cannot be constructed
+not-applicable	packages/effect/test/schema/Schema.test.ts	5365	it	DateTimeUtc	the row's wire value and its decoded value are both DateTime instances; this port's instant is epoch millis and has no DateTime variant, so the input cannot be constructed. The string-wire half is carried at :5396 and the number-wire half at :5413
+not-applicable	packages/effect/test/schema/Schema.test.ts	5380	it	DateTimeUtcFromValidDate	the row's wire value is a JS Date instance, decoded to a DateTime; this port's Unknown has no Date variant (its instant travels as an ISO string or epoch millis), so the row's inputs cannot be constructed
+ported	packages/effect/test/schema/Schema.test.ts	5396	it	DateTimeUtcFromString	datetime_utc_from_string_decodes_the_canonical_wire_string
+ported	packages/effect/test/schema/Schema.test.ts	5413	it	DateTimeUtcFromMillis	datetime_utc_from_millis_decodes_a_millisecond_number
+not-applicable	packages/effect/test/schema/Schema.test.ts	5429	it	TimeZoneOffset	the row's wire value and its decoded value are DateTime zone objects (zoneMakeOffset); this port has no time-zone value type at all, only instants as epoch millis, so neither side can be constructed
+not-applicable	packages/effect/test/schema/Schema.test.ts	5444	it	TimeZoneNamed	the row's wire value and its decoded value are named DateTime zone objects (zoneMakeNamedUnsafe); this port has no time-zone value type at all, so neither side can be constructed
+not-applicable	packages/effect/test/schema/Schema.test.ts	5459	it	TimeZone	the row's value is a DateTime TimeZone, offset or named; this port has no time-zone value type at all, so the input cannot be constructed
+not-applicable	packages/effect/test/schema/Schema.test.ts	5476	it	DateTimeZoned	the row's value is a zoned DateTime (an instant plus a zone); this port's instant is epoch millis and it has no zone type, so the input cannot be constructed
+not-applicable	packages/effect/test/schema/Schema.test.ts	5491	it	ReadonlySet	the row's wire value is a JS Set and its decoded value one too; this port's Unknown has no set variant, so the row's Set inputs and Set equality cannot be built
+not-applicable	packages/effect/test/schema/Schema.test.ts	5512	it	HashSet	the row's wire value is an Effect HashSet and its decoded value one too; this port's schema crate has no HashSet type (Unknown holds Array), so HashSet.make inputs and equality cannot be built
+not-applicable	packages/effect/test/schema/Schema.test.ts	5536	it	Chunk	the row's wire value is an Effect Chunk and its decoded value one too; this port's schema crate has no Chunk type (Unknown holds Array), so the row's Chunk.make inputs and Chunk equality cannot be built
+not-applicable	packages/effect/test/schema/Schema.test.ts	5560	it	ReadonlyMap	the row's wire value is a JS Map and its decoded value one too; this port's Unknown has no map variant, so the row's Map inputs and Map equality cannot be built
+not-applicable	packages/effect/test/schema/Schema.test.ts	5586	it	HashMap	the row's wire value is an Effect HashMap and its decoded value one too; this port's schema crate has no HashMap type (Unknown holds Object), so HashMap.make inputs and equality cannot be built
 ported	packages/effect/test/schema/Schema.test.ts	5613	it	toLowerCase	to_lowercase_lowers_on_decode_and_passes_through_on_encode
 ported	packages/effect/test/schema/Schema.test.ts	5627	it	toUpperCase	to_uppercase_uppers_on_decode_and_passes_through_on_encode
 unported	packages/effect/test/schema/Schema.test.ts	5640	it	returns the original schema	
@@ -8092,12 +8110,12 @@ ported	packages/effect/test/schema/Schema.test.ts	10377	it	isGUID	refine_is_guid
 ported	packages/effect/test/schema/Schema.test.ts	10399	it	isULID	refine_is_ulid
 ported	packages/effect/test/schema/Schema.test.ts	10420	it	isBase64	refine_is_base64
 ported	packages/effect/test/schema/Schema.test.ts	10429	it	isBase64Url	refine_is_base64url
-unported	packages/effect/test/schema/Schema.test.ts	10439	it	single brand	
-unported	packages/effect/test/schema/Schema.test.ts	10446	it	double brand	
-unported	packages/effect/test/schema/Schema.test.ts	10453	it	override the default identifier	
-unported	packages/effect/test/schema/Schema.test.ts	10460	it	nominal	
-unported	packages/effect/test/schema/Schema.test.ts	10471	it	single brand	
-unported	packages/effect/test/schema/Schema.test.ts	10484	it	multiple brands	
+ported	packages/effect/test/schema/Schema.test.ts	10439	it	single brand	a_brand_leaves_the_shape_alone_and_names_the_identifier
+ported	packages/effect/test/schema/Schema.test.ts	10446	it	double brand	a_second_brand_keeps_the_first_reachable
+ported	packages/effect/test/schema/Schema.test.ts	10453	it	override the default identifier	annotating_a_branded_schema_overrides_the_identifier
+ported	packages/effect/test/schema/Schema.test.ts	10460	it	nominal	a_nominal_brand_decodes_the_schema_and_refuses_other_types
+ported	packages/effect/test/schema/Schema.test.ts	10471	it	single brand	a_single_brand_enforces_the_constructors_check
+ported	packages/effect/test/schema/Schema.test.ts	10484	it	multiple brands	two_brands_run_both_checks
 ported	packages/effect/test/schema/Schema.test.ts	10507	it	should make all optionalKey keys required	require_all_makes_optional_keys_required
 ported	packages/effect/test/schema/Schema.test.ts	10533	it	should make all optional keys required	require_all_makes_optional_keys_required
 ported	packages/effect/test/schema/Schema.test.ts	10559	it	should make all optional keys required	require_all_makes_optional_keys_required
@@ -8111,11 +8129,11 @@ ported	packages/effect/test/schema/Schema.test.ts	10664	it	static property using
 unported	packages/effect/test/schema/Schema.test.ts	10672	it	wrapping a Struct schema	
 unported	packages/effect/test/schema/Schema.test.ts	10686	it	does not create class instances	
 unported	packages/effect/test/schema/Schema.test.ts	10695	it	subclassing	
-unported	packages/effect/test/schema/Schema.test.ts	10713	it	returns undefined for a schema without annotations	
-unported	packages/effect/test/schema/Schema.test.ts	10717	it	returns annotations from the base schema	
-unported	packages/effect/test/schema/Schema.test.ts	10722	it	returns annotations from the last check	
-unported	packages/effect/test/schema/Schema.test.ts	10731	it	returns undefined for a schema without key annotations	
-unported	packages/effect/test/schema/Schema.test.ts	10735	it	returns key annotations	
+ported	packages/effect/test/schema/Schema.test.ts	10713	it	returns undefined for a schema without annotations	resolve_annotations_is_none_for_a_schema_without_annotations
+ported	packages/effect/test/schema/Schema.test.ts	10717	it	returns annotations from the base schema	resolve_annotations_returns_the_base_annotations
+ported	packages/effect/test/schema/Schema.test.ts	10722	it	returns annotations from the last check	resolve_annotations_returns_the_last_checks_annotations
+ported	packages/effect/test/schema/Schema.test.ts	10731	it	returns undefined for a schema without key annotations	resolve_annotations_key_is_none_without_key_annotations
+ported	packages/effect/test/schema/Schema.test.ts	10735	it	returns key annotations	resolve_annotations_key_returns_the_key_annotations
 unported	packages/effect/test/schema/SchemaAOTCompiler.test.ts	13	it	emits deterministic modules without installing a decoder	
 unported	packages/effect/test/schema/SchemaAOTCompiler.test.ts	32	it	emits only the requested operation family	
 unported	packages/effect/test/schema/SchemaAOTCompiler.test.ts	48	it	allows a target without requested operations	
@@ -8261,11 +8279,13 @@ unported	packages/effect/test/schema/SchemaCompilerRegression.test.ts	31	it.effe
 unported	packages/effect/test/schema/SchemaCompilerRegression.test.ts	60	it.effect	continues encoding checkpoints after middleware recovery without replaying transformations	
 unported	packages/effect/test/schema/SchemaCompilerRegression.test.ts	108	it.effect	resolved parsers return Effects containing their actual output	
 unported	packages/effect/test/schema/SchemaCompilerRegression.test.ts	137	it.effect	retains public success values across subsequent and reentrant parser calls	
+unported	packages/effect/test/schema/SchemaCompilerRegression.test.ts	162	it.effect	preserves unchanged fields before and after asynchronous transformations	
 unported	packages/effect/test/schema/SchemaCompilerRegression.test.ts	192	it	calls installed operations with options without inspecting extra function properties	
 unported	packages/effect/test/schema/SchemaCompilerRegression.test.ts	219	it	bounds inlining of shared subgraphs	
 unported	packages/effect/test/schema/SchemaCompilerRegression.test.ts	248	it	bounds generated composed parsers for wide objects	
 unported	packages/effect/test/schema/SchemaCompilerRegression.test.ts	260	it	applies generation limits to every occurrence of a reused schema	
 unported	packages/effect/test/schema/SchemaCompilerRegression.test.ts	278	it	does not generate code for schemas nesting a declaration or suspension	
+unported	packages/effect/test/schema/SchemaCompilerRegression.test.ts	285	it	does not reanalyse a nested schema that cannot be generated for each enclosing schema	
 unported	packages/effect/test/schema/SchemaCompilerRegression.test.ts	303	it	preserves repeated Union members when selecting generated decoders	
 unported	packages/effect/test/schema/SchemaCompilerRegression.test.ts	330	it	stops oneOf after its second successful candidate	
 unported	packages/effect/test/schema/SchemaCompilerRegression.test.ts	349	it.effect	accepts both zero signs and preserves the input across parser adapters	
@@ -8279,6 +8299,8 @@ unported	packages/effect/test/schema/SchemaCompilerRegression.test.ts	508	it	use
 unported	packages/effect/test/schema/SchemaCompilerStartup.test.ts	6	it	allows late global activation without replacing a maker's interpreted entry	
 not-applicable	packages/effect/test/schema/SchemaGetter.test.ts	20	it.effect	forbiddenEncoding	the row needs a forbiddenEncoding getter and a stringifyJson getter that raise a tagged issue; this port's Getter offers new, read, map, compose and key, and its SchemaError carries neither the Forbidden tag nor that message
 not-applicable	packages/effect/test/schema/SchemaGetter.test.ts	29	it.effect	stringifyJson fails when JSON.stringify returns undefined	the row needs a forbiddenEncoding getter and a stringifyJson getter that raise a tagged issue; this port's Getter offers new, read, map, compose and key, and its SchemaError carries neither the Forbidden tag nor that message
+unported	packages/effect/test/schema/SchemaGetter.test.ts	35	it.effect	map	
+unported	packages/effect/test/schema/SchemaGetter.test.ts	42	it	map preserves the specialized execution mode	
 ported	packages/effect/test/schema/SchemaGetter.test.ts	67	it.effect	compose	getter_compose_chains
 ported	packages/effect/test/schema/SchemaGetter.test.ts	79	it	compose preserves the specialized execution mode	getter_compose_chains
 ported	packages/effect/test/schema/SchemaGetter.test.ts	98	it	dateTimeUtcFromInput	datetime_utc_from_inputs
@@ -8705,17 +8727,17 @@ ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts
 ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1127	it	ignores true schemas in allOf	json_schema_document_array_type_only_items_and_true_all_of_members
 ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1134	it	rejects structured enum members	json_schema_document_refuses_structured_const_and_enum_members
 unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1147	it	imports built-in JSON Schema annotations	
-unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1168	it	rejects local references inside nested resources	
+ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1168	it	rejects local references inside nested resources	json_schema_document_ref_rows_carry_their_code_and_type
 unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1199	it	keeps root ids and nested resources without references supported	
 unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1221	it	determines resource scope from onEnter results	
 unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1256	it	rejects references in a reachable definition with its own id	
 unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1274	it	rejects a reference below a definition instead of resolving its final token	
-unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1298	it	rejects an empty reference	
-unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1305	it	rejects an external reference instead of aliasing a local definition	
-unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1318	it	reports the full reference when a direct definition is missing	
-unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1325	it	unescapes a direct definition reference	
-unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1344	it	decodes a direct definition reference	
-unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1360	it	resolves a direct reference to an empty definition key	
+ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1298	it	rejects an empty reference	json_schema_document_ref_rows_carry_their_code_and_type
+ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1305	it	rejects an external reference instead of aliasing a local definition	json_schema_document_ref_rows_carry_their_code_and_type
+ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1318	it	reports the full reference when a direct definition is missing	json_schema_document_ref_rows_carry_their_code_and_type
+ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1325	it	unescapes a direct definition reference	json_schema_document_ref_rows_carry_their_code_and_type
+ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1344	it	decodes a direct definition reference	json_schema_document_ref_rows_carry_their_code_and_type
+ported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1360	it	resolves a direct reference to an empty definition key	json_schema_document_ref_rows_carry_their_code_and_type
 unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1376	it	should create a Reference and a definition	
 unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1397	it	should preserve an annotated $ref as a stable suspend	
 unported	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	1419	it	does not combine annotation siblings with a $ref	
@@ -9142,11 +9164,13 @@ unported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts
 unported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	1051	it	inlines callback metadata with pure check annotations	
 unported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	1066	it	keeps colliding annotations in a separate schema object	
 unported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	1081	it	keeps format annotations in a separate schema object	
+unported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	1094	it	inlines propertyNames without a collision	
 unported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	1109	it	keeps colliding propertyNames in separate schema objects	
 unported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	1128	it	keeps a reference separate from contextual annotations	
 unported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	1184	it	keeps ${name} in separate schema objects	
 unported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	1194	it	keeps a fragment containing a custom keyword intact	
 unported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	1207	it	keeps format scoped after absorbing a number type	
+unported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	1220	it	inlines callback metadata after absorbing a number type	
 unported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	1233	it	does not overwrite an annotation after absorbing a number type	
 unported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	1249	it	extracts nested number types without losing other allOf members	
 unported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	1302	it	never exposes compiler capabilities as extension annotations	
@@ -9156,9 +9180,11 @@ unported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts
 unported	packages/effect/test/schema/representation/toJsonSchemaMultiDocument.test.ts	31	it	deduplicates equivalent fallback definitions	
 unported	packages/effect/test/schema/representation/toJsonSchemaMultiDocument.test.ts	52	it	does not deduplicate different fallback definitions	
 unported	packages/effect/test/schema/representation/toJsonSchemaMultiDocument.test.ts	82	it	does not deduplicate explicit identifiers	
+unported	packages/effect/test/schema/representation/toJsonSchemaMultiDocument.test.ts	99	it	deduplicates fallback definitions after linking their dependencies	
 unported	packages/effect/test/schema/representation/toJsonSchemaMultiDocument.test.ts	144	it	escapes canonical fallback references	
 unported	packages/effect/test/schema/representation/toJsonSchemaMultiDocument.test.ts	173	it	rewrites callback references to the canonical ${identifier} definition	
 unported	packages/effect/test/schema/representation/toJsonSchemaMultiDocument.test.ts	199	it	rewrites callback references with encoded leading separators	
+unported	packages/effect/test/schema/representation/toJsonSchemaMultiDocument.test.ts	226	it	rejects malformed callback reference ${JSON.stringify($ref)}	
 unported	packages/effect/test/schema/representation/toJsonSchemaMultiDocument.test.ts	241	it	distinguishes pointer separators from escaped slashes in ${separator} callback references	
 unported	packages/effect/test/schema/representation/toJsonSchemaMultiDocument.test.ts	274	it	preserves an encoded pointer suffix when rewriting a percent-named alias	
 unported	packages/effect/test/schema/representation/toJsonSchemaMultiDocument.test.ts	314	it	invokes each fallback callback once before deduplicating equivalent output	
