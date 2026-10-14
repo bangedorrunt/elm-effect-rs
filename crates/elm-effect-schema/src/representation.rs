@@ -169,7 +169,11 @@ impl SchemaKind {
     }
 }
 
-impl Schema<Unknown> {
+impl<T> Schema<T> {
+    pub fn kind(&self) -> crate::SchemaKind {
+        self.repr_kind()
+    }
+
     pub fn representation(&self) -> SchemaRepresentation {
         SchemaRepresentation::from_kind(&self.repr_kind())
     }
@@ -199,5 +203,27 @@ impl<T> Schema<T> {
             on_before(value);
             base(value)
         })
+    }
+}
+
+impl<T> Schema<T> {
+    /// Alias of [`Schema::formatter()`] with an optional `onBefore` hook: when
+    /// a hook is supplied it runs on the value before the formatter renders it,
+    /// matching the pin's `toFormatter({ onBefore })`.
+    pub fn to_formatter<F>(
+        &self,
+        on_before: Option<F>,
+    ) -> Box<dyn Fn(&Unknown) -> String + Send + Sync + 'static>
+    where
+        F: Fn(&Unknown) + Send + Sync + 'static,
+    {
+        let base = self.formatter();
+        match on_before {
+            Some(hook) => Box::new(move |value| {
+                hook(value);
+                base(value)
+            }),
+            None => base,
+        }
     }
 }

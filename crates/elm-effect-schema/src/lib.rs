@@ -21,6 +21,8 @@ pub mod tagged;
 pub mod class;
 
 pub mod filters;
+pub mod built_in_revivers;
+pub use built_in_revivers::*;
 pub mod representation;
 
 pub mod refinements;
