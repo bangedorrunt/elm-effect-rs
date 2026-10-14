@@ -1166,6 +1166,75 @@ fn trie_prefix_readers_return_keys_values_and_entries() {
 }
 
 #[test]
+fn trie_map_filter_filter_map_and_compact() {
+    let trie = Trie::empty()
+        .insert("shells", 0)
+        .insert("sells", 1)
+        .insert("she", 2);
+
+    // :399 - map transforms values, and the key-aware form is handed the key.
+    let by_value = trie.map(|v| v + 1);
+    assert_eq!(
+        trie_pairs(&by_value),
+        trie_i32(&[("sells", 2), ("she", 3), ("shells", 1)])
+    );
+    let by_key = trie.map_with_key(|_, k| k.len() as i32);
+    assert_eq!(
+        trie_pairs(&by_key),
+        trie_i32(&[("sells", 5), ("she", 3), ("shells", 6)])
+    );
+
+    // :422 - filter keeps entries by value, or by key.
+    assert_eq!(trie_pairs(&trie.filter(|_, v| *v > 1)), trie_i32(&[("she", 2)]));
+    assert_eq!(
+        trie_pairs(&trie.filter(|k, _| k.len() > 3)),
+        trie_i32(&[("sells", 1), ("shells", 0)])
+    );
+
+    // :442 - filterMap keeps the successes, by value or by key.
+    assert_eq!(
+        trie_pairs(&trie.filter_map(|_, v| (*v > 1).then_some(*v))),
+        trie_i32(&[("she", 2)])
+    );
+    assert_eq!(
+        trie_pairs(&trie.filter_map(|k, v| (k.len() > 3).then_some(*v))),
+        trie_i32(&[("sells", 1), ("shells", 0)])
+    );
+
+    // :465 - compact drops the empty payloads and unwraps the rest.
+    let options = Trie::empty()
+        .insert("shells", Some(0))
+        .insert("sells", None::<i32>)
+        .insert("she", Some(2));
+    assert_eq!(
+        trie_pairs(&options.compact()),
+        trie_i32(&[("she", 2), ("shells", 0)])
+    );
+}
+
+#[test]
+fn trie_reduce_and_for_each_visit_in_key_order() {
+    let trie = Trie::empty()
+        .insert("shells", 0)
+        .insert("sells", 1)
+        .insert("she", 2);
+
+    // :524 - reduce folds left to right in key order, and its fold is handed
+    // the key: the concatenation spells sells, she, shells.
+    assert_eq!(trie.reduce(0, |acc, v, _| acc + v), 3);
+    assert_eq!(trie.reduce(10, |acc, v, _| acc + v), 13);
+    assert_eq!(
+        trie.reduce(String::new(), |acc, _, k| acc + k),
+        "sellssheshells"
+    );
+
+    // :551 - forEach visits the same order, value then key.
+    let mut total = 0;
+    trie.for_each(|v, k| total += v + k.len() as i32);
+    assert_eq!(total, 17);
+}
+
+#[test]
 fn hash_map_unsafe_and_flat_map() {
     // HashMap.test.ts:111 - getUnsafe returns existing values.
     let m = HashMap::make([("a".to_owned(), 1), ("b".to_owned(), 2)]);

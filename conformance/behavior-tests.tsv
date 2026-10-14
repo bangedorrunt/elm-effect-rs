@@ -4139,15 +4139,15 @@ ported	packages/effect/test/Trie.test.ts	351	it	entriesWithPrefix returns matchi
 ported	packages/effect/test/Trie.test.ts	364	it	toEntriesWithPrefix returns matching entries as an array	trie_prefix_readers_return_keys_values_and_entries
 ported	packages/effect/test/Trie.test.ts	376	it	longestPrefixOf returns the longest stored key that prefixes the input	trie_modify_many_and_longest_prefix
 ported	packages/effect/test/Trie.test.ts	389	it	longestPrefixOf ignores valued sibling nodes that do not match the input	trie_modify_many_and_longest_prefix
-unported	packages/effect/test/Trie.test.ts	399	it	map transforms values and can use keys	
-unported	packages/effect/test/Trie.test.ts	422	it	filter keeps entries by value or key	
-unported	packages/effect/test/Trie.test.ts	442	it	filterMap keeps Result successes and can use keys	
-unported	packages/effect/test/Trie.test.ts	465	it	compact keeps Some values	
+ported	packages/effect/test/Trie.test.ts	399	it	map transforms values and can use keys	trie_map_filter_filter_map_and_compact
+ported	packages/effect/test/Trie.test.ts	422	it	filter keeps entries by value or key	trie_map_filter_filter_map_and_compact
+ported	packages/effect/test/Trie.test.ts	442	it	filterMap keeps Result successes and can use keys	trie_map_filter_filter_map_and_compact
+ported	packages/effect/test/Trie.test.ts	465	it	compact keeps Some values	trie_map_filter_filter_map_and_compact
 ported	packages/effect/test/Trie.test.ts	480	it	modify updates an existing key and ignores a missing key	trie_modify_many_and_longest_prefix
 ported	packages/effect/test/Trie.test.ts	491	it	removeMany deletes all matching keys	trie_modify_many_and_longest_prefix
 ported	packages/effect/test/Trie.test.ts	504	it	insertMany inserts all entries	trie_modify_many_and_longest_prefix
-unported	packages/effect/test/Trie.test.ts	524	it	reduce visits entries in key order	
-unported	packages/effect/test/Trie.test.ts	551	it	forEach	
+ported	packages/effect/test/Trie.test.ts	524	it	reduce visits entries in key order	trie_reduce_and_for_each_visit_in_key_order
+ported	packages/effect/test/Trie.test.ts	551	it	forEach	trie_reduce_and_for_each_visit_in_key_order
 unported	packages/effect/test/Trie.test.ts	566	it	Equal compares tries by entries	
 ported	packages/effect/test/Tuple.test.ts	9	it	make creates a tuple from ordered values	tuple_shapes
 ported	packages/effect/test/Tuple.test.ts	13	it	get	tuple_shapes

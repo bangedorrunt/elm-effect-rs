@@ -248,4 +248,68 @@ impl<V> Trie<V> {
         self.get(key)
             .unwrap_or_else(|| panic!("Trie.getUnsafe: no entry for key {key:?}"))
     }
+
+    /// New trie with each value mapped.
+    pub fn map<W>(&self, f: impl Fn(&V) -> W) -> Trie<W> {
+        Trie::from_iter(self.entries().into_iter().map(|(k, v)| (k, f(v))))
+    }
+
+    /// New trie with each value mapped, with the key in hand.
+    ///
+    /// The pin's callback is variadic (value, or value and key). A Rust closure
+    /// has one signature, so the key-aware shape is its own method rather than
+    /// an optional argument.
+    pub fn map_with_key<W>(&self, f: impl Fn(&V, &str) -> W) -> Trie<W> {
+        Trie::from_iter(self.entries().into_iter().map(|(k, v)| {
+            let mapped = f(v, &k);
+            (k, mapped)
+        }))
+    }
+
+    /// New trie keeping the entries that satisfy `f`.
+    pub fn filter(&self, f: impl Fn(&str, &V) -> bool) -> Self
+    where
+        V: Clone,
+    {
+        Trie::from_iter(
+            self.entries()
+                .into_iter()
+                .filter(|(k, v)| f(k, *v))
+                .map(|(k, v)| (k, v.clone())),
+        )
+    }
+
+    /// New trie keeping the entries `f` maps to `Some`.
+    pub fn filter_map<W>(&self, f: impl Fn(&str, &V) -> Option<W>) -> Trie<W> {
+        Trie::from_iter(
+            self.entries()
+                .into_iter()
+                .filter_map(|(k, v)| f(&k, v).map(|w| (k, w))),
+        )
+    }
+
+    /// Fold every entry in key order.
+    pub fn reduce<Z>(&self, zero: Z, f: impl Fn(Z, &V, &str) -> Z) -> Z {
+        self.entries()
+            .into_iter()
+            .fold(zero, |acc, (k, v)| f(acc, v, &k))
+    }
+
+    /// Visit every entry in key order.
+    pub fn for_each(&self, mut f: impl FnMut(&V, &str)) {
+        for (k, v) in self.entries() {
+            f(v, &k);
+        }
+    }
+}
+
+impl<A: Clone> Trie<Option<A>> {
+    /// Drop entries holding `None`, unwrapping the rest.
+    pub fn compact(&self) -> Trie<A> {
+        Trie::from_iter(
+            self.entries()
+                .into_iter()
+                .filter_map(|(k, v)| v.as_ref().map(|a| (k, a.clone()))),
+        )
+    }
 }
