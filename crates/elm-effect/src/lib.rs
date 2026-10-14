@@ -88,8 +88,8 @@ pub use service::{Cons, MemoMap, Provide, Reference, ServiceTag, read_reference,
 pub use stm::{
     TxChangeSubscription, TxChunk, TxDeferred, TxDequeue, TxEnqueue, TxHashMap, TxHashSet,
     TxPriorityQueue, TxPubSub, TxQueue, TxReentrantLock, TxRef, TxSemaphore, TxSubscriptionRef,
-    atomically, is_tx_chunk, is_tx_deferred, is_tx_hash_set, is_tx_semaphore,
-    is_tx_subscription_ref,
+    atomically, is_tx_chunk, is_tx_deferred, is_tx_hash_set, is_tx_priority_queue,
+    is_tx_semaphore, is_tx_subscription_ref,
 };
 pub use stream::{Stream, from_iter, from_iterator_succeed};
 pub use sync::{Deferred, MutableRef, PartitionedSemaphore, Queue, QueueError, Ref, Semaphore, Strategy, SubscriptionRef, SynchronizedRef, is_dequeue, is_enqueue, is_queue};

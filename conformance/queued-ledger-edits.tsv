@@ -35,3 +35,27 @@ packages/effect/test/ManagedRuntime.test.ts	50	ported	supports_dispose_releasing
 packages/effect/test/ManagedRuntime.test.ts	65	ported	fibers_are_interrupted_on_dispose
 packages/effect/test/ManagedRuntime.test.ts	75	ported	dispose_finishes_request_cleanup_before_releasing_the_layer
 packages/effect/test/ManagedRuntime.test.ts	127	ported	dispose_completes_sequential_layer_finalizers_when_interrupted
+# Batch 3, twenty-one rows from elm-effect-rs-port-txpriorityqueue-69y4. Witnesses in
+# crates/elm-effect/tests/tx_priority_queue.rs (21 tests, green under --features stm).
+# Queued: BoldKite still holds the ledger lease for elm-effect-rs-sgze.
+packages/effect/test/TxPriorityQueue.test.ts	14	ported	from_iterable_creates_a_sorted_queue
+packages/effect/test/TxPriorityQueue.test.ts	21	ported	from_iterable_supports_the_curried_call
+packages/effect/test/TxPriorityQueue.test.ts	28	ported	make_creates_from_the_values
+packages/effect/test/TxPriorityQueue.test.ts	43	ported	is_empty_and_is_non_empty
+packages/effect/test/TxPriorityQueue.test.ts	53	ported	peek_returns_the_smallest_without_removing
+packages/effect/test/TxPriorityQueue.test.ts	61	ported	peek_option_is_none_when_empty
+packages/effect/test/TxPriorityQueue.test.ts	68	ported	peek_option_is_some_when_non_empty
+packages/effect/test/TxPriorityQueue.test.ts	80	ported	offer_and_take_return_elements_in_priority_order
+packages/effect/test/TxPriorityQueue.test.ts	91	ported	duplicate_priorities_are_all_returned
+packages/effect/test/TxPriorityQueue.test.ts	98	ported	take_on_empty_waits_until_offer
+packages/effect/test/TxPriorityQueue.test.ts	107	ported	take_option_is_none_when_empty
+packages/effect/test/TxPriorityQueue.test.ts	114	ported	take_up_to_returns_at_most_n_in_order
+packages/effect/test/TxPriorityQueue.test.ts	122	ported	take_up_to_past_the_size_returns_all
+packages/effect/test/TxPriorityQueue.test.ts	130	ported	offer_all_inserts_multiple_elements
+packages/effect/test/TxPriorityQueue.test.ts	138	ported	offer_all_does_not_compare_every_queued_element
+packages/effect/test/TxPriorityQueue.test.ts	156	ported	offer_all_avoids_repeated_full_range_searches
+packages/effect/test/TxPriorityQueue.test.ts	174	ported	remove_if_removes_matching_elements
+packages/effect/test/TxPriorityQueue.test.ts	182	ported	retain_if_keeps_only_matching_elements
+packages/effect/test/TxPriorityQueue.test.ts	192	ported	is_tx_priority_queue_narrows_the_type
+packages/effect/test/TxPriorityQueue.test.ts	203	ported	concurrent_offer_and_take
+packages/effect/test/TxPriorityQueue.test.ts	220	ported	reverse_order_is_max_first

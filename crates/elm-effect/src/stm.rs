@@ -14,10 +14,10 @@
 //! needs live beside the staged views.
 
 use std::cell::Cell;
-use std::collections::{BinaryHeap, HashMap, HashSet, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::hash::Hash;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use std::sync::{Arc, Mutex, MutexGuard};
+use std::sync::{Arc, Condvar, Mutex, MutexGuard};
 
 use crate::service::{Reference, read_reference};
 use crate::{Deferred, Effect};
@@ -1538,44 +1538,219 @@ impl<T: Eq + Hash> Default for TxHashSet<T> {
     }
 }
 
-/// A transactional max-heap priority queue.
-pub struct TxPriorityQueue<T> {
-    inner: Mutex<BinaryHeap<T>>,
+/// Merge `values` (already ascending under `ord`) into `arr` (ascending).
+///
+/// The pin's `mergeSorted`: each value's insert point is found by galloping
+/// forward from the previous one and then bisecting the bracketed range, so a
+/// batch that interleaves with the queue costs a few comparisons per value
+/// instead of a full search each. Existing elements stay ahead of equal
+/// incoming ones, and incoming ties keep their input order.
+///
+/// `arr` is drained through `Option` slots rather than cloned, so the merge
+/// needs no `Clone` bound on `T`.
+fn merge_sorted<T>(arr: Vec<T>, values: Vec<T>, ord: &crate::foundation::Order<T>) -> Vec<T> {
+    let mut slots: Vec<Option<T>> = arr.into_iter().map(Some).collect();
+    let len = slots.len();
+    let mut out: Vec<T> = Vec::with_capacity(len + values.len());
+    let mut i = 0usize;
+    for value in values {
+        let mut lo = i;
+        let mut hi = i;
+        let mut step = 1usize;
+        while hi < len
+            && ord.compare(slots[hi].as_ref().expect("live slot"), &value)
+                != std::cmp::Ordering::Greater
+        {
+            lo = hi + 1;
+            hi = hi.saturating_add(step);
+            step = step.saturating_mul(2);
+        }
+        if hi > len {
+            hi = len;
+        }
+        while lo < hi {
+            let mid = (lo + hi) / 2;
+            if ord.compare(slots[mid].as_ref().expect("live slot"), &value)
+                != std::cmp::Ordering::Greater
+            {
+                lo = mid + 1;
+            } else {
+                hi = mid;
+            }
+        }
+        while i < lo {
+            out.push(slots[i].take().expect("live slot"));
+            i += 1;
+        }
+        out.push(value);
+    }
+    while i < len {
+        out.push(slots[i].take().expect("live slot"));
+        i += 1;
+    }
+    out
 }
 
-impl<T: Ord> TxPriorityQueue<T> {
-    /// An empty queue.
-    pub fn new() -> Self {
+/// A transactional priority queue: elements held ascending under the
+/// [`Order`](crate::Order) supplied at construction, so `take` yields the
+/// smallest and a custom order can make it max-first.
+///
+/// `take` blocks while the queue is empty. The pin's `take` is a transaction
+/// that calls `Effect.txRetry`, so its observable behavior is "wait until an
+/// offer commits"; a condvar is this port's stand-in, and it is the reason
+/// this type does **not** route through the global [`atomically`] lock: a
+/// blocking wait must not hold the STM lock other transactions need.
+pub struct TxPriorityQueue<T> {
+    inner: Mutex<Vec<T>>,
+    ord: crate::foundation::Order<T>,
+    ready: Condvar,
+}
+
+impl<T: Send + 'static> TxPriorityQueue<T> {
+    /// An empty queue under `ord`.
+    pub fn empty(ord: crate::foundation::Order<T>) -> Self {
         Self {
-            inner: Mutex::new(BinaryHeap::new()),
+            inner: Mutex::new(Vec::new()),
+            ord,
+            ready: Condvar::new(),
         }
     }
 
-    /// Push one element.
-    pub fn push(&self, value: T) {
-        tx_cell(&self.inner, |heap| heap.push(value));
+    /// A queue from an iterable, sorted under `ord`.
+    pub fn from_iterable(ord: crate::foundation::Order<T>, items: Vec<T>) -> Self {
+        let mut sorted = items;
+        sorted.sort_by(|a, b| ord.compare(a, b));
+        Self {
+            inner: Mutex::new(sorted),
+            ord,
+            ready: Condvar::new(),
+        }
     }
 
-    /// Pop the maximum, if any.
-    pub fn pop(&self) -> Option<T> {
-        atomically(|| self.inner.lock().unwrap().pop())
+    /// The curried form: `from_iterable(ord)` then the iterable. The pin's
+    /// `fromIterable(Order.Number)([3, 1, 2])`.
+    pub fn from_iterable_curried(
+        ord: crate::foundation::Order<T>,
+    ) -> impl FnOnce(Vec<T>) -> Self {
+        move |items| Self::from_iterable(ord, items)
+    }
+
+    /// The pin's `make(Order.Number)(5, 3, 1, 4, 2)`: same as
+    /// [`from_iterable`](Self::from_iterable) with the values in hand.
+    pub fn make(ord: crate::foundation::Order<T>, items: Vec<T>) -> Self {
+        Self::from_iterable(ord, items)
+    }
+
+    /// The ordering this queue keeps.
+    pub fn ord(&self) -> &crate::foundation::Order<T> {
+        &self.ord
     }
 
     /// The element count.
-    pub fn len(&self) -> usize {
-        atomically(|| self.inner.lock().unwrap().len())
+    pub fn size(&self) -> usize {
+        self.inner.lock().unwrap().len()
     }
 
     /// Whether no elements are stored.
     pub fn is_empty(&self) -> bool {
-        self.len() == 0
+        self.size() == 0
+    }
+
+    /// Whether at least one element waits.
+    pub fn is_non_empty(&self) -> bool {
+        !self.is_empty()
+    }
+
+    /// Insert one element in sorted position.
+    pub fn offer(&self, value: T) {
+        let mut guard = self.inner.lock().unwrap();
+        let arr = std::mem::take(&mut *guard);
+        *guard = merge_sorted(arr, vec![value], &self.ord);
+        drop(guard);
+        self.ready.notify_all();
+    }
+
+    /// Insert every element of `values`, merging the batch as a whole.
+    pub fn offer_all(&self, values: Vec<T>) {
+        let mut sorted = values;
+        sorted.sort_by(|a, b| self.ord.compare(a, b));
+        let mut guard = self.inner.lock().unwrap();
+        let arr = std::mem::take(&mut *guard);
+        *guard = merge_sorted(arr, sorted, &self.ord);
+        drop(guard);
+        self.ready.notify_all();
+    }
+
+    /// Take the smallest element, waiting while the queue is empty (the pin's
+    /// `take`, which retries the transaction).
+    pub fn take(&self) -> T {
+        let mut guard = self.inner.lock().unwrap();
+        while guard.is_empty() {
+            guard = self.ready.wait(guard).unwrap();
+        }
+        guard.remove(0)
+    }
+
+    /// Take the smallest element without waiting (`takeOption`).
+    pub fn take_option(&self) -> Option<T> {
+        let mut guard = self.inner.lock().unwrap();
+        if guard.is_empty() {
+            return None;
+        }
+        Some(guard.remove(0))
+    }
+
+    /// Take every element in priority order (`takeAll`).
+    pub fn take_all(&self) -> Vec<T> {
+        std::mem::take(&mut *self.inner.lock().unwrap())
+    }
+
+    /// Take up to `n` elements in priority order (`takeUpTo`).
+    pub fn take_up_to(&self, n: usize) -> Vec<T> {
+        let mut guard = self.inner.lock().unwrap();
+        let take = n.min(guard.len());
+        guard.drain(..take).collect()
+    }
+
+    /// Drop every element the predicate matches (`removeIf`).
+    pub fn remove_if(&self, predicate: impl Fn(&T) -> bool) {
+        self.inner.lock().unwrap().retain(|value| !predicate(value));
+    }
+
+    /// Keep only the elements the predicate matches (`retainIf`).
+    pub fn retain_if(&self, predicate: impl Fn(&T) -> bool) {
+        self.inner.lock().unwrap().retain(|value| predicate(value));
     }
 }
 
-impl<T: Ord> Default for TxPriorityQueue<T> {
-    fn default() -> Self {
-        Self::new()
+/// The reading operations need a value out of the queue without consuming it.
+impl<T: Send + 'static + Clone> TxPriorityQueue<T> {
+    /// Observe the smallest element without removing it, waiting while the
+    /// queue is empty (the pin's `peek`, which retries the transaction).
+    pub fn peek(&self) -> T {
+        let mut guard = self.inner.lock().unwrap();
+        while guard.is_empty() {
+            guard = self.ready.wait(guard).unwrap();
+        }
+        guard[0].clone()
     }
+
+    /// Observe the smallest element without removing it, `None` when empty.
+    pub fn peek_option(&self) -> Option<T> {
+        self.inner.lock().unwrap().first().cloned()
+    }
+
+    /// Every element in priority order, without removing any.
+    pub fn to_array(&self) -> Vec<T> {
+        self.inner.lock().unwrap().clone()
+    }
+}
+
+/// Always true for `TxPriorityQueue` (the type already narrows; mirrors
+/// `isTxPriorityQueue`, like `is_number` mirrors `isNumber`). Foreign values
+/// are different types and cannot reach this predicate.
+pub fn is_tx_priority_queue<T>(_: &TxPriorityQueue<T>) -> bool {
+    true
 }
 
 /// A transactional broadcast bus: every published value is retained for

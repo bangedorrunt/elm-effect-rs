@@ -3,7 +3,7 @@
 //! atomic, isolated multi-op blocks; blocking-retry is a residual).
 
 use elm_effect::{
-    Deferred, Effect, Exit, ForkOpts, Runtime, TxChunk, TxDeferred, TxHashMap, TxHashSet,
+    Deferred, Effect, Exit, ForkOpts, Order, Runtime, TxChunk, TxDeferred, TxHashMap, TxHashSet,
     TxPriorityQueue, TxPubSub, TxQueue, TxReentrantLock, TxRef, TxSemaphore, TxSubscriptionRef,
     atomically, is_tx_chunk, is_tx_hash_set, is_tx_semaphore, is_tx_subscription_ref,
 };
@@ -162,13 +162,18 @@ fn tx_hash_set_make_remove_clear_size_flags() {
 
 #[test]
 fn tx_priority_queue_orders() {
-    let pq = TxPriorityQueue::new();
-    pq.push(3);
-    pq.push(1);
-    pq.push(2);
-    assert_eq!(pq.pop(), Some(3));
-    assert_eq!(pq.pop(), Some(2));
-    assert_eq!(pq.len(), 1);
+    // TxPriorityQueue.test.ts:6 "empty creates an empty queue" and :37 "size
+    // returns number of elements", the two rows this file already carried.
+    let pq = TxPriorityQueue::empty(Order::make(|a: &i32, b: &i32| a.cmp(b)));
+    assert!(pq.is_empty());
+    assert_eq!(pq.size(), 0);
+    pq.offer(3);
+    pq.offer(1);
+    pq.offer(2);
+    assert_eq!(pq.size(), 3);
+    assert_eq!(pq.take(), 1);
+    assert_eq!(pq.take(), 2);
+    assert_eq!(pq.size(), 1);
 }
 
 #[test]

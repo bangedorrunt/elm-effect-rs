@@ -34,6 +34,10 @@ required-features = ["schema"]
 name = "tx_hash_set_algebra"
 required-features = ["stm"]
 
+[[test]]
+name = "tx_priority_queue"
+required-features = ["stm"]
+
 [dependencies]
 elm-effect-schema = { path = "../elm-effect-schema", optional = true }
 thiserror = "1"
