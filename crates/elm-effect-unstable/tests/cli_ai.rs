@@ -2711,3 +2711,46 @@ fn the_parent_handler_runs_with_its_options_when_no_subcommand_is_given() {
         "the child took its line and the parent took its own"
     );
 }
+
+/// Command.test.ts:1654 — an optional boolean flag has three states, not two:
+/// absent is "no answer", and the switch and its negation are the two answers.
+/// A two-valued flag cannot tell those apart, which is the whole row.
+#[test]
+fn an_optional_boolean_flag_has_three_states_not_two() {
+    let seen = handler_log();
+    let log = seen.clone();
+    let command = Command::new(
+        "tool",
+        "tool command",
+        vec![Arg::Flag {
+            name: "open".to_string(),
+            help: "open".to_string(),
+        }],
+    )
+    .handler(move |parsed| {
+        // The port's `flags` map is two-valued, so the witness reads the three
+        // cases through the run itself: a line with neither spelling has no
+        // entry at all, which is the third state a plain bool cannot hold.
+        log.lock().expect("lock").push(match parsed.flags.get("open") {
+            None => "none".to_string(),
+            Some(true) => "some-true".to_string(),
+            Some(false) => "some-false".to_string(),
+        });
+    });
+    for argv in [
+        vec![],
+        vec!["--open".to_string()],
+        vec!["--no-open".to_string()],
+    ] {
+        command.run(&argv).expect("each line runs");
+    }
+    assert_eq!(
+        *seen.lock().expect("lock"),
+        vec![
+            "none".to_string(),
+            "some-true".to_string(),
+            "some-false".to_string()
+        ],
+        "absent, on and off are three distinct states"
+    );
+}

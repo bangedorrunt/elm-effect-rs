@@ -5629,7 +5629,7 @@ ported	packages/effect/test/cli/Command.test.ts	1579	it.effect	should preserve t
 unported	packages/effect/test/cli/Command.test.ts	1592	it.effect	should preserve inherited flags around a subcommand with trailing operands	
 ported	packages/effect/test/cli/Command.test.ts	1622	it.effect	should coerce boolean flags to false when given falsey literals	a_boolean_flag_takes_an_explicit_literal_as_its_value
 ported	packages/effect/test/cli/Command.test.ts	1638	it.effect	should parse required boolean flags when explicitly enabled or disabled	a_boolean_flag_reads_true_from_the_switch_and_false_from_the_negation
-unported	packages/effect/test/cli/Command.test.ts	1654	it.effect	should support optional boolean flags and --no-<flag> negation	
+ported	packages/effect/test/cli/Command.test.ts	1654	it.effect	should support optional boolean flags and --no-<flag> negation	an_optional_boolean_flag_has_three_states_not_two
 unported	packages/effect/test/cli/Command.test.ts	1675	it.effect	should prefer canonical negation over conflicting aliases	
 ported	packages/effect/test/cli/Command.test.ts	1694	it.effect	should reject explicit values for canonical negated flags	a_negated_flag_refuses_a_value_beside_it
 ported	packages/effect/test/cli/Command.test.ts	1716	it.effect	should not leak a negated flag literal into subcommand parsing	a_negated_flags_literal_does_not_leak_into_subcommand_parsing
