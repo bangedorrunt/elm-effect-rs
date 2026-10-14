@@ -2333,7 +2333,7 @@ ported	packages/effect/test/JsonSchema.test.ts	91	it	replaces non-ascii characte
 ported	packages/effect/test/JsonSchema.test.ts	98	it	is idempotent	sanitize_is_idempotent
 ported	packages/effect/test/JsonSchema.test.ts	118	it	rewrites the Draft-07 meta-schema URI without an empty fragment	draft07_rewrites_the_meta_schema_uri_without_an_empty_fragment
 ported	packages/effect/test/JsonSchema.test.ts	125	it	preserves all Draft-07 semantics and opaque custom keywords	draft07_preserves_semantics_and_opaque_custom_keywords
-ported	packages/effect/test/JsonSchema.test.ts	156	it	preserves Draft-07 validation semantics in the canonical dialect	draft07_preserves_semantics_and_opaque_custom_keywords
+ported	packages/effect/test/JsonSchema.test.ts	156	it	preserves Draft-07 validation semantics in the canonical dialect	draft07_preserves_validation_semantics_in_the_canonical_dialect
 ported	packages/effect/test/JsonSchema.test.ts	192	it	converts Draft-07 plain-name identifiers to canonical anchors	draft07_converts_plain_name_identifiers_to_anchors
 ported	packages/effect/test/JsonSchema.test.ts	205	it	converts canonical anchors without schema identifiers	canonical_anchors_become_legacy_plain_name_identifiers
 ported	packages/effect/test/JsonSchema.test.ts	220	it	rejects canonical anchors combined with schema identifiers	an_anchor_beside_a_schema_identifier_is_refused
