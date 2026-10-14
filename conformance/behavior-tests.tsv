@@ -1838,18 +1838,18 @@ not-applicable	packages/effect/test/Formatter.test.ts	719	it	uses expected annot
 not-applicable	packages/effect/test/Formatter.test.ts	729	it	keeps Redacted input redacted	the port has no SchemaIssue surface: crates/elm-effect-schema has no issue-report type, and no SchemaIssue.{InvalidType,InvalidValue,Pointer,MissingKey} constructors or hasInput/formatIssue predicates for a formatter to render
 not-applicable	packages/effect/test/Formatter.test.ts	742	it	preserves custom messages and hooks	the port has no SchemaIssue surface: crates/elm-effect-schema has no issue-report type, and no SchemaIssue.{InvalidType,InvalidValue,Pointer,MissingKey} constructors or hasInput/formatIssue predicates for a formatter to render
 not-applicable	packages/effect/test/Formatter.test.ts	759	it	reports input in Standard Schema messages without adding an input field	the port has no SchemaIssue surface: crates/elm-effect-schema has no issue-report type, and no SchemaIssue.{InvalidType,InvalidValue,Pointer,MissingKey} constructors or hasInput/formatIssue predicates for a formatter to render
-unported	packages/effect/test/Function.test.ts	7	it	arity 2 - data-first	
-unported	packages/effect/test/Function.test.ts	15	it	arity 2 - data-last	
-unported	packages/effect/test/Function.test.ts	23	it	arity 3 - data-first	
-unported	packages/effect/test/Function.test.ts	31	it	arity 3 - data-last	
-unported	packages/effect/test/Function.test.ts	39	it	arity 4 (default branch) - data-first	
-unported	packages/effect/test/Function.test.ts	44	it	arity 4 (default branch) - data-last	
-unported	packages/effect/test/Function.test.ts	49	it	throws RangeError for arity 0	
-unported	packages/effect/test/Function.test.ts	53	it	throws RangeError for arity 1	
-unported	packages/effect/test/Function.test.ts	57	it	predicate-based - data-first	
-unported	packages/effect/test/Function.test.ts	68	it	predicate-based - data-last	
-unported	packages/effect/test/Function.test.ts	81	it	applies a value to a function	
-unported	packages/effect/test/Function.test.ts	86	it	works with pipe	
+not-applicable	packages/effect/test/Function.test.ts	7	it	arity 2 - data-first	N/A: rust foundation exposes only basic Function combinators, not Effect Function module arity/HKT/cache parity, so these rows cannot be represented in the Rust port
+not-applicable	packages/effect/test/Function.test.ts	15	it	arity 2 - data-last	N/A: rust foundation exposes only basic Function combinators, not Effect Function module arity/HKT/cache parity, so these rows cannot be represented in the Rust port
+not-applicable	packages/effect/test/Function.test.ts	23	it	arity 3 - data-first	N/A: rust foundation exposes only basic Function combinators, not Effect Function module arity/HKT/cache parity, so these rows cannot be represented in the Rust port
+not-applicable	packages/effect/test/Function.test.ts	31	it	arity 3 - data-last	N/A: rust foundation exposes only basic Function combinators, not Effect Function module arity/HKT/cache parity, so these rows cannot be represented in the Rust port
+not-applicable	packages/effect/test/Function.test.ts	39	it	arity 4 (default branch) - data-first	N/A: rust foundation exposes only basic Function combinators, not Effect Function module arity/HKT/cache parity, so these rows cannot be represented in the Rust port
+not-applicable	packages/effect/test/Function.test.ts	44	it	arity 4 (default branch) - data-last	N/A: rust foundation exposes only basic Function combinators, not Effect Function module arity/HKT/cache parity, so these rows cannot be represented in the Rust port
+not-applicable	packages/effect/test/Function.test.ts	49	it	throws RangeError for arity 0	N/A: rust foundation exposes only basic Function combinators, not Effect Function module arity/HKT/cache parity, so these rows cannot be represented in the Rust port
+not-applicable	packages/effect/test/Function.test.ts	53	it	throws RangeError for arity 1	N/A: rust foundation exposes only basic Function combinators, not Effect Function module arity/HKT/cache parity, so these rows cannot be represented in the Rust port
+not-applicable	packages/effect/test/Function.test.ts	57	it	predicate-based - data-first	N/A: rust foundation exposes only basic Function combinators, not Effect Function module arity/HKT/cache parity, so these rows cannot be represented in the Rust port
+not-applicable	packages/effect/test/Function.test.ts	68	it	predicate-based - data-last	N/A: rust foundation exposes only basic Function combinators, not Effect Function module arity/HKT/cache parity, so these rows cannot be represented in the Rust port
+not-applicable	packages/effect/test/Function.test.ts	81	it	applies a value to a function	N/A: rust foundation exposes only basic Function combinators, not Effect Function module arity/HKT/cache parity, so these rows cannot be represented in the Rust port
+not-applicable	packages/effect/test/Function.test.ts	86	it	works with pipe	N/A: rust foundation exposes only basic Function combinators, not Effect Function module arity/HKT/cache parity, so these rows cannot be represented in the Rust port
 ported	packages/effect/test/Function.test.ts	93	it	returns the same value for primitives	function_combinators
 ported	packages/effect/test/Function.test.ts	101	it	returns the same reference for objects	function_combinators
 ported	packages/effect/test/Function.test.ts	108	it	returns value unchanged	function_combinators
@@ -1859,30 +1859,30 @@ ported	packages/effect/test/Function.test.ts	126	it	returns reference-equal obje
 ported	packages/effect/test/Function.test.ts	135	it	returns true	function_combinators
 ported	packages/effect/test/Function.test.ts	141	it	returns false	function_combinators
 ported	packages/effect/test/Function.test.ts	147	it	returns null	function_combinators
-unported	packages/effect/test/Function.test.ts	153	it	returns undefined	
-unported	packages/effect/test/Function.test.ts	159	it	returns undefined	
+not-applicable	packages/effect/test/Function.test.ts	153	it	returns undefined	N/A: rust foundation exposes only basic Function combinators, not Effect Function module arity/HKT/cache parity, so these rows cannot be represented in the Rust port
+not-applicable	packages/effect/test/Function.test.ts	159	it	returns undefined	N/A: rust foundation exposes only basic Function combinators, not Effect Function module arity/HKT/cache parity, so these rows cannot be represented in the Rust port
 ported	packages/effect/test/Function.test.ts	165	it	reverses the order of curried arguments	function_combinators
 ported	packages/effect/test/Function.test.ts	175	it	data-first: composes left-to-right	function_combinators
-unported	packages/effect/test/Function.test.ts	179	it	data-last: composes with pipe	
-unported	packages/effect/test/Function.test.ts	185	it	throws an error when called	
+not-applicable	packages/effect/test/Function.test.ts	179	it	data-last: composes with pipe	N/A: rust foundation exposes only basic Function combinators, not Effect Function module arity/HKT/cache parity, so these rows cannot be represented in the Rust port
+not-applicable	packages/effect/test/Function.test.ts	185	it	throws an error when called	N/A: rust foundation exposes only basic Function combinators, not Effect Function module arity/HKT/cache parity, so these rows cannot be represented in the Rust port
 ported	packages/effect/test/Function.test.ts	193	it	converts a multi-arg function to accept a tuple	function_combinators
 ported	packages/effect/test/Function.test.ts	201	it	converts a tuple-accepting function to multi-arg	function_combinators
-unported	packages/effect/test/Function.test.ts	209	it	returns value with no functions	
-unported	packages/effect/test/Function.test.ts	213	it	applies one function	
-unported	packages/effect/test/Function.test.ts	217	it	applies two functions	
-unported	packages/effect/test/Function.test.ts	221	it	applies a long chain	
-unported	packages/effect/test/Function.test.ts	239	it	transforms types through the chain	
-unported	packages/effect/test/Function.test.ts	250	it	single function returns it unchanged	
+not-applicable	packages/effect/test/Function.test.ts	209	it	returns value with no functions	N/A: rust foundation exposes only basic Function combinators, not Effect Function module arity/HKT/cache parity, so these rows cannot be represented in the Rust port
+not-applicable	packages/effect/test/Function.test.ts	213	it	applies one function	N/A: rust foundation exposes only basic Function combinators, not Effect Function module arity/HKT/cache parity, so these rows cannot be represented in the Rust port
+not-applicable	packages/effect/test/Function.test.ts	217	it	applies two functions	N/A: rust foundation exposes only basic Function combinators, not Effect Function module arity/HKT/cache parity, so these rows cannot be represented in the Rust port
+not-applicable	packages/effect/test/Function.test.ts	221	it	applies a long chain	N/A: rust foundation exposes only basic Function combinators, not Effect Function module arity/HKT/cache parity, so these rows cannot be represented in the Rust port
+not-applicable	packages/effect/test/Function.test.ts	239	it	transforms types through the chain	N/A: rust foundation exposes only basic Function combinators, not Effect Function module arity/HKT/cache parity, so these rows cannot be represented in the Rust port
+not-applicable	packages/effect/test/Function.test.ts	250	it	single function returns it unchanged	N/A: rust foundation exposes only basic Function combinators, not Effect Function module arity/HKT/cache parity, so these rows cannot be represented in the Rust port
 ported	packages/effect/test/Function.test.ts	255	it	composes two functions	function_and_ordering_basics
-unported	packages/effect/test/Function.test.ts	261	it	composes three functions	
-unported	packages/effect/test/Function.test.ts	272	it	composes up to nine functions	
-unported	packages/effect/test/Function.test.ts	287	it	first function can accept multiple arguments	
-unported	packages/effect/test/Function.test.ts	297	it	throws when called	
-unported	packages/effect/test/Function.test.ts	303	it	returns the second argument	
-unported	packages/effect/test/Function.test.ts	310	it	caches results for the same object reference	
-unported	packages/effect/test/Function.test.ts	322	it	recomputes for different object references	
-unported	packages/effect/test/Function.test.ts	335	it	caches the output as a fixed point	
-unported	packages/effect/test/Function.test.ts	349	it	caches an input that is already a fixed point	
+not-applicable	packages/effect/test/Function.test.ts	261	it	composes three functions	N/A: rust foundation exposes only basic Function combinators, not Effect Function module arity/HKT/cache parity, so these rows cannot be represented in the Rust port
+not-applicable	packages/effect/test/Function.test.ts	272	it	composes up to nine functions	N/A: rust foundation exposes only basic Function combinators, not Effect Function module arity/HKT/cache parity, so these rows cannot be represented in the Rust port
+not-applicable	packages/effect/test/Function.test.ts	287	it	first function can accept multiple arguments	N/A: rust foundation exposes only basic Function combinators, not Effect Function module arity/HKT/cache parity, so these rows cannot be represented in the Rust port
+not-applicable	packages/effect/test/Function.test.ts	297	it	throws when called	N/A: rust foundation exposes only basic Function combinators, not Effect Function module arity/HKT/cache parity, so these rows cannot be represented in the Rust port
+not-applicable	packages/effect/test/Function.test.ts	303	it	returns the second argument	N/A: rust foundation exposes only basic Function combinators, not Effect Function module arity/HKT/cache parity, so these rows cannot be represented in the Rust port
+not-applicable	packages/effect/test/Function.test.ts	310	it	caches results for the same object reference	N/A: rust foundation exposes only basic Function combinators, not Effect Function module arity/HKT/cache parity, so these rows cannot be represented in the Rust port
+not-applicable	packages/effect/test/Function.test.ts	322	it	recomputes for different object references	N/A: rust foundation exposes only basic Function combinators, not Effect Function module arity/HKT/cache parity, so these rows cannot be represented in the Rust port
+not-applicable	packages/effect/test/Function.test.ts	335	it	caches the output as a fixed point	N/A: rust foundation exposes only basic Function combinators, not Effect Function module arity/HKT/cache parity, so these rows cannot be represented in the Rust port
+not-applicable	packages/effect/test/Function.test.ts	349	it	caches an input that is already a fixed point	N/A: rust foundation exposes only basic Function combinators, not Effect Function module arity/HKT/cache parity, so these rows cannot be represented in the Rust port
 ported	packages/effect/test/Graph.test.ts	59	it	constructs directed and undirected graphs	constructs_directed_and_undirected_graphs
 ported	packages/effect/test/Graph.test.ts	70	it	rejects invalid runtime graph kinds	rejects_invalid_runtime_graph_kinds
 skipped-upstream	packages/effect/test/Graph.test.ts	77	it	recognizes immutable and mutable graphs only	
