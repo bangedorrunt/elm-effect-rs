@@ -5676,33 +5676,33 @@ not-applicable	packages/effect/test/cli/Command.test.ts	2308	it.effect	should in
 not-applicable	packages/effect/test/cli/Command.test.ts	2337	it.effect	should render flag choices in formatted help output	help-doc/version/completion/suggestion metadata surface absent in cli_ai (no HelpDoc/version/completion/similar-suggestion API)
 ported	packages/effect/test/cli/Errors.test.ts	28	it	uses the UnknownSubcommand class name as its runtime tag	cli_error_taxonomy_tags
 ported	packages/effect/test/cli/Errors.test.ts	38	it.effect	fails with MissingOption when a required flag is absent	options_parser_missing_and_unknown
-unported	packages/effect/test/cli/Errors.test.ts	50	it	throws DuplicateOption when shared parent and child flags reuse a name	
-unported	packages/effect/test/cli/Errors.test.ts	73	it	allows parent local flags to reuse child flag names	
+not-applicable	packages/effect/test/cli/Errors.test.ts	50	it	throws DuplicateOption when shared parent and child flags reuse a name	N/A: rust unstable-cli lacks shared-flag construction (duplicate-option detection) and CliOutput error formatting; errors render via Display only, so these rows cannot be represented as Rust tests
+not-applicable	packages/effect/test/cli/Errors.test.ts	73	it	allows parent local flags to reuse child flag names	N/A: rust unstable-cli lacks shared-flag construction (duplicate-option detection) and CliOutput error formatting; errors render via Display only, so these rows cannot be represented as Rust tests
 ported	packages/effect/test/cli/Errors.test.ts	89	it.effect	accumulates multiple UnrecognizedOption errors	options_parser_missing_and_unknown
 ported	packages/effect/test/cli/Errors.test.ts	106	it.effect	accumulates UnknownSubcommand error with suggestions	command_routes_unknown_with_suggestions
 ported	packages/effect/test/cli/Errors.test.ts	127	it.effect	fails with UnexpectedArgument when a bounded variadic leaves operands	positionals_sequence_and_bounds
 ported	packages/effect/test/cli/Errors.test.ts	143	it.effect	allows a bounded variadic to leave an operand for a following argument	positionals_sequence_and_bounds
 ported	packages/effect/test/cli/Errors.test.ts	162	it.effect	fails with UnexpectedArgument when a fixed argument leaves operands	positionals_sequence_and_bounds
-unported	packages/effect/test/cli/Errors.test.ts	180	it	escapes control characters in an unrecognized flag	
-unported	packages/effect/test/cli/Errors.test.ts	193	it	escapes control characters in an unknown subcommand with colors enabled	
-unported	packages/effect/test/cli/Errors.test.ts	206	it	escapes control characters in an invalid argument value without colors	
-unported	packages/effect/test/cli/Errors.test.ts	221	it	preserves multi-line suggestion blocks	
-unported	packages/effect/test/cli/Errors.test.ts	252	it	preserves line feeds and tabs in error messages	
-unported	packages/effect/test/cli/Errors.test.ts	267	it	formats single error with ERROR header	
-unported	packages/effect/test/cli/Errors.test.ts	277	it	formats multiple errors with ERRORS header	
-unported	packages/effect/test/cli/Errors.test.ts	291	it	returns empty string for empty array	
+not-applicable	packages/effect/test/cli/Errors.test.ts	180	it	escapes control characters in an unrecognized flag	N/A: rust unstable-cli lacks shared-flag construction (duplicate-option detection) and CliOutput error formatting; errors render via Display only, so these rows cannot be represented as Rust tests
+not-applicable	packages/effect/test/cli/Errors.test.ts	193	it	escapes control characters in an unknown subcommand with colors enabled	N/A: rust unstable-cli lacks shared-flag construction (duplicate-option detection) and CliOutput error formatting; errors render via Display only, so these rows cannot be represented as Rust tests
+not-applicable	packages/effect/test/cli/Errors.test.ts	206	it	escapes control characters in an invalid argument value without colors	N/A: rust unstable-cli lacks shared-flag construction (duplicate-option detection) and CliOutput error formatting; errors render via Display only, so these rows cannot be represented as Rust tests
+not-applicable	packages/effect/test/cli/Errors.test.ts	221	it	preserves multi-line suggestion blocks	N/A: rust unstable-cli lacks shared-flag construction (duplicate-option detection) and CliOutput error formatting; errors render via Display only, so these rows cannot be represented as Rust tests
+not-applicable	packages/effect/test/cli/Errors.test.ts	252	it	preserves line feeds and tabs in error messages	N/A: rust unstable-cli lacks shared-flag construction (duplicate-option detection) and CliOutput error formatting; errors render via Display only, so these rows cannot be represented as Rust tests
+not-applicable	packages/effect/test/cli/Errors.test.ts	267	it	formats single error with ERROR header	N/A: rust unstable-cli lacks shared-flag construction (duplicate-option detection) and CliOutput error formatting; errors render via Display only, so these rows cannot be represented as Rust tests
+not-applicable	packages/effect/test/cli/Errors.test.ts	277	it	formats multiple errors with ERRORS header	N/A: rust unstable-cli lacks shared-flag construction (duplicate-option detection) and CliOutput error formatting; errors render via Display only, so these rows cannot be represented as Rust tests
+not-applicable	packages/effect/test/cli/Errors.test.ts	291	it	returns empty string for empty array	N/A: rust unstable-cli lacks shared-flag construction (duplicate-option detection) and CliOutput error formatting; errors render via Display only, so these rows cannot be represented as Rust tests
 ported	packages/effect/test/cli/Errors.test.ts	299	it	prefers the user-facing message over the cause	user_error_message_fallback_chain
 ported	packages/effect/test/cli/Errors.test.ts	308	it	uses an Error cause message as the fallback	user_error_message_fallback_chain
 ported	packages/effect/test/cli/Errors.test.ts	316	it	uses a string cause as the fallback	user_error_message_fallback_chain
 ported	packages/effect/test/cli/Errors.test.ts	322	it	uses a generic fallback for causes without a message	user_error_message_fallback_chain
 ported	packages/effect/test/cli/Errors.test.ts	328	it	falls back past empty user-facing and cause messages	user_error_message_fallback_chain
 ported	packages/effect/test/cli/Errors.test.ts	339	it	allows runtime reporting before the CLI runner renders it	user_error_message_fallback_chain
-unported	packages/effect/test/cli/Errors.test.ts	345	it	escapes control characters in the user-facing message	
-unported	packages/effect/test/cli/Errors.test.ts	358	it	formats the resolved fallback message with other CLI errors	
-unported	packages/effect/test/cli/Errors.test.ts	367	it	labels a bare expected description	
-unported	packages/effect/test/cli/Errors.test.ts	381	it	does not double the prefix for an Expected sentence	
-unported	packages/effect/test/cli/Errors.test.ts	407	it	does not double the prefix for a missing flag value	
-unported	packages/effect/test/cli/Errors.test.ts	423	it	formats one or more unexpected positional arguments	
+not-applicable	packages/effect/test/cli/Errors.test.ts	345	it	escapes control characters in the user-facing message	N/A: rust unstable-cli lacks shared-flag construction (duplicate-option detection) and CliOutput error formatting; errors render via Display only, so these rows cannot be represented as Rust tests
+not-applicable	packages/effect/test/cli/Errors.test.ts	358	it	formats the resolved fallback message with other CLI errors	N/A: rust unstable-cli lacks shared-flag construction (duplicate-option detection) and CliOutput error formatting; errors render via Display only, so these rows cannot be represented as Rust tests
+not-applicable	packages/effect/test/cli/Errors.test.ts	367	it	labels a bare expected description	N/A: rust unstable-cli lacks shared-flag construction (duplicate-option detection) and CliOutput error formatting; errors render via Display only, so these rows cannot be represented as Rust tests
+not-applicable	packages/effect/test/cli/Errors.test.ts	381	it	does not double the prefix for an Expected sentence	N/A: rust unstable-cli lacks shared-flag construction (duplicate-option detection) and CliOutput error formatting; errors render via Display only, so these rows cannot be represented as Rust tests
+not-applicable	packages/effect/test/cli/Errors.test.ts	407	it	does not double the prefix for a missing flag value	N/A: rust unstable-cli lacks shared-flag construction (duplicate-option detection) and CliOutput error formatting; errors render via Display only, so these rows cannot be represented as Rust tests
+not-applicable	packages/effect/test/cli/Errors.test.ts	423	it	formats one or more unexpected positional arguments	N/A: rust unstable-cli lacks shared-flag construction (duplicate-option detection) and CliOutput error formatting; errors render via Display only, so these rows cannot be represented as Rust tests
 unported	packages/effect/test/cli/Help.test.ts	42	it	marks omittable flags as not required in structured help	
 unported	packages/effect/test/cli/Help.test.ts	53	it	marks omittable arguments as not required in structured help	
 unported	packages/effect/test/cli/Help.test.ts	74	it.effect	renders root command help	
