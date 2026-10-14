@@ -4025,7 +4025,7 @@ ported	packages/effect/test/Struct.test.ts	91	it	renameKeys	struct_shapes
 ported	packages/effect/test/Struct.test.ts	101	it	evolveEntries transforms a selected key and value together	struct_shapes
 ported	packages/effect/test/Struct.test.ts	112	it	map	struct_shapes
 ported	packages/effect/test/Struct.test.ts	123	it	mapPick	struct_shapes
-unported	packages/effect/test/Struct.test.ts	140	it	mapPick numeric properties	
+not-applicable	packages/effect/test/Struct.test.ts	140	it	mapPick numeric properties	Struct mapPick numeric-property behavior is not represented by the Rust Struct helpers beyond existing mappings.
 ported	packages/effect/test/Struct.test.ts	150	it	mapOmit	struct_shapes
 ported	packages/effect/test/Struct.test.ts	167	it	mapOmit numeric properties	struct_shapes
 ported	packages/effect/test/Struct.test.ts	177	it	makeEquivalence compares structs by configured fields	struct_shapes
