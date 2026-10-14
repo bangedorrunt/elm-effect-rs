@@ -5572,8 +5572,8 @@ ported	packages/effect/test/cli/Command.test.ts	168	it.effect	should parse negat
 ported	packages/effect/test/cli/Command.test.ts	182	it.effect	should run negative integer flag values with --wizard	wizard_emits_a_negative_integer_flag_value_inline
 ported	packages/effect/test/cli/Command.test.ts	211	it.effect	should round trip wizard flag value ${JSON.stringify(value)}	wizard_flag_values_round_trip_through_the_parser
 ported	packages/effect/test/cli/Command.test.ts	229	it.effect	should round trip mixed repeated wizard flag values	wizard_repeated_flag_values_keep_their_own_shape
-unported	packages/effect/test/cli/Command.test.ts	252	it.effect	should redact option-looking values in wizard command output	
-unported	packages/effect/test/cli/Command.test.ts	301	it.effect	should render boolean wizard values consistently	
+ported	packages/effect/test/cli/Command.test.ts	252	it.effect	should redact option-looking values in wizard command output	an_option_looking_value_stays_a_value_and_a_secret_stays_hidden
+ported	packages/effect/test/cli/Command.test.ts	301	it.effect	should render boolean wizard values consistently	a_boolean_wizard_value_renders_the_same_in_both_places
 ported	packages/effect/test/cli/Command.test.ts	320	it.effect	should start wizard mode at a selected subcommand	wizard_mode_starts_at_the_subcommand_named_on_the_line
 unported	packages/effect/test/cli/Command.test.ts	339	it.effect	should reject --completions without a shell	
 ported	packages/effect/test/cli/Command.test.ts	370	it.effect	should reject --${name} without a ${expected} value	a_valued_flag_without_its_value_is_refused_naming_the_flag

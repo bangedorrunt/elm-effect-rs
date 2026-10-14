@@ -2949,3 +2949,96 @@ fn an_invalid_choice_value_names_the_value_and_the_choices_once() {
     // A valid choice still selects.
     assert_eq!(primitive::parse_choice("medium", &choices), Ok(2));
 }
+
+/// Command.test.ts:301 — a boolean wizard value renders the same way wherever
+/// it appears: the switch's own label names the flag, and the assembled line
+/// spells the value beside it. The port renders the flag's name and its parsed
+/// value, and this witness pins that they are the same value in both places
+/// rather than two different spellings of "on".
+#[test]
+fn a_boolean_wizard_value_renders_the_same_in_both_places() {
+    let command = Command::new(
+        "deploy",
+        "deploy command",
+        vec![Arg::Flag {
+            name: "dry-run".to_string(),
+            help: "dry run".to_string(),
+        }],
+    );
+    // A boolean switch is not a question the walk asks, so its wizard rendering
+    // is the switch itself plus the derived value.
+    assert!(
+        wizard_plan(&command).is_empty(),
+        "a boolean switch is rendered, not asked"
+    );
+    // The label the pin prints names the flag in its long form.
+    let help = command.help_text();
+    assert!(help.contains("--dry-run"), "{help}");
+    // The parsed value is a single bool, which is what keeps the rendering and
+    // the handler reading the same thing.
+    let (_, parsed) = command
+        .parse(&["--dry-run".to_string()])
+        .expect("the switch parses");
+    assert!(parsed.flag("dry-run"));
+    let (_, off) = Command::new(
+        "deploy",
+        "deploy command",
+        vec![Arg::Flag {
+            name: "dry-run".to_string(),
+            help: "dry run".to_string(),
+        }],
+    )
+    .parse(&[])
+    .expect("an empty line parses");
+    assert!(!off.flag("dry-run"), "absent is false, not a separate state");
+}
+
+/// Command.test.ts:252 — an option-looking value stays the value it is rather
+/// than becoming a flag, and a secret keeps rendering as its placeholder rather
+/// than its bytes. The two halves are independent: the first is the argv
+/// emitter's inline rule, the second is the redacted wrapper's own Display.
+#[test]
+fn an_option_looking_value_stays_a_value_and_a_secret_stays_hidden() {
+    // The argv half: a value that begins with a dash travels inline, so the
+    // parser reads it as this flag's value and not as a flag of its own.
+    let argv = flag_arg("password", "-hunter2-secret");
+    assert_eq!(argv, vec!["--password=-hunter2-secret"]);
+    let command = Command::new(
+        "login",
+        "login command",
+        vec![
+            Arg::Opt {
+                name: "password".to_string(),
+                help: "password".to_string(),
+                required: false,
+            },
+            Arg::Positional {
+                name: "account".to_string(),
+                help: "account".to_string(),
+                variadic: false,
+            },
+        ],
+    );
+    let (_, parsed) = command.parse(&argv).expect("the inline value parses");
+    assert_eq!(parsed.opt("password"), Some("-hunter2-secret"));
+    // A separate spelling reads the same value, so the two spellings agree.
+    let (_, separate) = command
+        .parse(&[
+            "--password".to_string(),
+            "-hunter2-secret".to_string(),
+            "alice".to_string(),
+        ])
+        .expect("the separate value parses");
+    assert_eq!(separate.opt("password"), Some("-hunter2-secret"));
+    assert_eq!(separate.positionals, vec!["alice".to_string()]);
+
+    // The redaction half: the secret's own rendering is the placeholder.
+    let secret = elm_effect_unstable::cli::primitive::parse_redacted("-hunter2-secret");
+    assert_eq!(secret.value(), "-hunter2-secret", "the bytes are still readable");
+    assert_eq!(format!("{secret}"), "<redacted>", "but they never render");
+    assert_eq!(format!("{secret:?}"), "<redacted>");
+    // So a line that renders the parsed value shows the placeholder.
+    let rendered = format!("--password={secret}");
+    assert!(!rendered.contains("hunter2"), "{rendered}");
+    assert!(rendered.contains("<redacted>"), "{rendered}");
+}
