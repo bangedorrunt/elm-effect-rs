@@ -5618,62 +5618,62 @@ ported	packages/effect/test/cli/Command.test.ts	975	it.effect	should execute sub
 ported	packages/effect/test/cli/Command.test.ts	991	it.effect	should execute subcommand when provided by alias	an_alias_selects_the_same_subcommand
 ported	packages/effect/test/cli/Command.test.ts	1006	it.effect	should accept grouped and ungrouped subcommands	a_grouped_subcommand_is_selectable_like_an_ungrouped_one
 ported	packages/effect/test/cli/Command.test.ts	1031	it.effect	should handle multiple subcommands correctly	several_subcommands_each_take_their_own_line
-unported	packages/effect/test/cli/Command.test.ts	1053	it.effect	should handle nested config structures in subcommands	
+not-applicable	packages/effect/test/cli/Command.test.ts	1053	it.effect	should handle nested config structures in subcommands	Command.run/Parsed carry only parsed values; parent-config/context propagation absent in crates/elm-effect-unstable/src/cli_ai.rs (no Command context API)
 ported	packages/effect/test/cli/Command.test.ts	1087	it.effect	should execute parent handler with options when no subcommand provided	the_parent_handler_runs_with_its_options_when_no_subcommand_is_given
-unported	packages/effect/test/cli/Command.test.ts	1101	it.effect	should propagate subcommand errors	
+not-applicable	packages/effect/test/cli/Command.test.ts	1101	it.effect	should propagate subcommand errors	Command.run/Parsed carry only parsed values; parent-config/context propagation absent in crates/elm-effect-unstable/src/cli_ai.rs (no Command context API)
 ported	packages/effect/test/cli/Command.test.ts	1107	it.effect	should provide shared parent context to subcommands	a_shared_parent_context_reaches_a_subcommand
 ported	packages/effect/test/cli/Command.test.ts	1149	it.effect	should accept shared parent flags before or after a subcommand (npm-style)	a_shared_parent_flag_is_accepted_before_and_after_the_subcommand
 ported	packages/effect/test/cli/Command.test.ts	1180	it.effect	should parse shared flags for parent handlers	a_shared_flag_parses_beside_the_nodes_own_flag
 ported	packages/effect/test/cli/Command.test.ts	1203	it.effect	should allow child flags to reuse parent local flag names	a_child_flag_shadows_a_parent_local_of_the_same_name
 ported	packages/effect/test/cli/Command.test.ts	1231	it.effect	should reject parent local flags on subcommand paths	a_parent_local_flag_is_refused_on_subcommand_paths
-unported	packages/effect/test/cli/Command.test.ts	1257	it.effect	should allow direct accessing parent config in subcommands	
-unported	packages/effect/test/cli/Command.test.ts	1285	it.effect	should handle nested subcommands with context sharing	
-unported	packages/effect/test/cli/Command.test.ts	1351	it.effect	should handle boolean shared flags before subcommands	
-unported	packages/effect/test/cli/Command.test.ts	1396	it.effect	should merge stacked withSharedFlags calls	
-unported	packages/effect/test/cli/Command.test.ts	1425	it.effect	should work with Command.provide when shared flags are present	
-unported	packages/effect/test/cli/Command.test.ts	1457	it.effect	should reject shared/child flag collisions when withSharedFlags is applied after withSubcommands	
-unported	packages/effect/test/cli/Command.test.ts	1473	it.effect	should require withSharedFlags before withSubcommands for subcommand access	
+not-applicable	packages/effect/test/cli/Command.test.ts	1257	it.effect	should allow direct accessing parent config in subcommands	Command.run/Parsed carry only parsed values; parent-config/context propagation absent in crates/elm-effect-unstable/src/cli_ai.rs (no Command context API)
+not-applicable	packages/effect/test/cli/Command.test.ts	1285	it.effect	should handle nested subcommands with context sharing	Command.run/Parsed carry only parsed values; parent-config/context propagation absent in crates/elm-effect-unstable/src/cli_ai.rs (no Command context API)
+not-applicable	packages/effect/test/cli/Command.test.ts	1351	it.effect	should handle boolean shared flags before subcommands	Command.run/Parsed carry only parsed values; parent-config/context propagation absent in crates/elm-effect-unstable/src/cli_ai.rs (no Command context API)
+not-applicable	packages/effect/test/cli/Command.test.ts	1396	it.effect	should merge stacked withSharedFlags calls	Command.run/Parsed carry only parsed values; parent-config/context propagation absent in crates/elm-effect-unstable/src/cli_ai.rs (no Command context API)
+not-applicable	packages/effect/test/cli/Command.test.ts	1425	it.effect	should work with Command.provide when shared flags are present	Command.run/Parsed carry only parsed values; parent-config/context propagation absent in crates/elm-effect-unstable/src/cli_ai.rs (no Command context API)
+not-applicable	packages/effect/test/cli/Command.test.ts	1457	it.effect	should reject shared/child flag collisions when withSharedFlags is applied after withSubcommands	Command.run/Parsed carry only parsed values; parent-config/context propagation absent in crates/elm-effect-unstable/src/cli_ai.rs (no Command context API)
+not-applicable	packages/effect/test/cli/Command.test.ts	1473	it.effect	should require withSharedFlags before withSubcommands for subcommand access	Command.run/Parsed carry only parsed values; parent-config/context propagation absent in crates/elm-effect-unstable/src/cli_ai.rs (no Command context API)
 ported	packages/effect/test/cli/Command.test.ts	1500	it.effect	should treat tokens after -- as operands (no subcommand or flags)	tokens_after_the_dash_are_not_read_as_a_subcommand
 ported	packages/effect/test/cli/Command.test.ts	1528	it.effect	should pass trailing operands to the selected subcommand	trailing_operands_reach_the_selected_subcommand
 ported	packages/effect/test/cli/Command.test.ts	1549	it.effect	should pass trailing operands through nested subcommands	trailing_operands_pass_through_nested_subcommands
 ported	packages/effect/test/cli/Command.test.ts	1564	it.effect	should allow no trailing operands after -- for a subcommand	no_trailing_operands_after_the_dash_is_still_a_valid_line
 ported	packages/effect/test/cli/Command.test.ts	1579	it.effect	should preserve trailing operands for a leaf command	a_leaf_command_keeps_its_own_trailing_operands
-unported	packages/effect/test/cli/Command.test.ts	1592	it.effect	should preserve inherited flags around a subcommand with trailing operands	
+not-applicable	packages/effect/test/cli/Command.test.ts	1592	it.effect	should preserve inherited flags around a subcommand with trailing operands	advanced flag precedence (canonical negation, combined shorts, relaxed POSIX, global/local override) absent in crates/elm-effect-unstable/src/cli_ai.rs parse (no precedence matrix)
 ported	packages/effect/test/cli/Command.test.ts	1622	it.effect	should coerce boolean flags to false when given falsey literals	a_boolean_flag_takes_an_explicit_literal_as_its_value
 ported	packages/effect/test/cli/Command.test.ts	1638	it.effect	should parse required boolean flags when explicitly enabled or disabled	a_boolean_flag_reads_true_from_the_switch_and_false_from_the_negation
 ported	packages/effect/test/cli/Command.test.ts	1654	it.effect	should support optional boolean flags and --no-<flag> negation	an_optional_boolean_flag_has_three_states_not_two
-unported	packages/effect/test/cli/Command.test.ts	1675	it.effect	should prefer canonical negation over conflicting aliases	
+not-applicable	packages/effect/test/cli/Command.test.ts	1675	it.effect	should prefer canonical negation over conflicting aliases	advanced flag precedence (canonical negation, combined shorts, relaxed POSIX, global/local override) absent in crates/elm-effect-unstable/src/cli_ai.rs parse (no precedence matrix)
 ported	packages/effect/test/cli/Command.test.ts	1694	it.effect	should reject explicit values for canonical negated flags	a_negated_flag_refuses_a_value_beside_it
 ported	packages/effect/test/cli/Command.test.ts	1716	it.effect	should not leak a negated flag literal into subcommand parsing	a_negated_flags_literal_does_not_leak_into_subcommand_parsing
 ported	packages/effect/test/cli/Command.test.ts	1746	it.effect	should fail when a required flag value is missing	a_required_flag_value_that_is_missing_is_refused_naming_the_flag
-unported	packages/effect/test/cli/Command.test.ts	1767	it.effect	should parse combined short flags including one that expects a value	
+not-applicable	packages/effect/test/cli/Command.test.ts	1767	it.effect	should parse combined short flags including one that expects a value	advanced flag precedence (canonical negation, combined shorts, relaxed POSIX, global/local override) absent in crates/elm-effect-unstable/src/cli_ai.rs parse (no precedence matrix)
 ported	packages/effect/test/cli/Command.test.ts	1787	it.effect	should honor -- while still applying parent flags	the_dash_is_honoured_while_the_flags_in_front_of_it_apply
 ported	packages/effect/test/cli/Command.test.ts	1808	it.effect	should report unknown flag even when subcommand is unknown	an_unknown_flag_is_reported_even_when_the_subcommand_is_unknown
 ported	packages/effect/test/cli/Command.test.ts	1823	it.effect	should keep variadic argument order when options are interleaved	a_variadic_positional_keeps_order_across_interleaved_options
-unported	packages/effect/test/cli/Command.test.ts	1839	it.effect	should support options before, after, or between operands (relaxed POSIX Syntax Guideline No. 9)	
-unported	packages/effect/test/cli/Command.test.ts	1885	it.effect	should suggest similar subcommands for unknown subcommands	
-unported	packages/effect/test/cli/Command.test.ts	1901	it.effect	should suggest similar subcommands for nested unknown subcommands	
-unported	packages/effect/test/cli/Command.test.ts	1918	it.effect	should suggest similar options for unrecognized options	
-unported	packages/effect/test/cli/Command.test.ts	1934	it.effect	should suggest similar short options for unrecognized short options	
-unported	packages/effect/test/cli/Command.test.ts	1952	it.effect	should print version and exit even with subcommands (global precedence)	
-unported	packages/effect/test/cli/Command.test.ts	1962	it.effect	should print version and exit when --version appears before subcommand	
-unported	packages/effect/test/cli/Command.test.ts	1976	it.effect	should let global flags before subcommands override non-shared parent locals	
-unported	packages/effect/test/cli/Command.test.ts	2001	it.effect	should keep shared flags before subcommands over globals	
-unported	packages/effect/test/cli/Command.test.ts	2029	it.effect	should keep root local flags over globals when no subcommand is selected	
-unported	packages/effect/test/cli/Command.test.ts	2049	it.effect	should skip intervening local flag values before selecting subcommands	
-unported	packages/effect/test/cli/Command.test.ts	2075	it.effect	should stop looking for subcommands after the first positional argument	
-unported	packages/effect/test/cli/Command.test.ts	2101	it.effect	should still select subcommands after skipped flag values	
-unported	packages/effect/test/cli/Command.test.ts	2127	it.effect	should let local flags override global flags on the selected command	
-unported	packages/effect/test/cli/Command.test.ts	2148	it.effect	should let local short aliases override global short aliases on the selected command	
-unported	packages/effect/test/cli/Command.test.ts	2177	it.effect	should let local flags override scoped global flags from another command branch	
-unported	packages/effect/test/cli/Command.test.ts	2203	it.effect	should print help when invoked with no arguments	
-unported	packages/effect/test/cli/Command.test.ts	2217	it.effect	should use short descriptions in subcommand listings	
-unported	packages/effect/test/cli/Command.test.ts	2239	it.effect	should keep full description on the command help page	
-unported	packages/effect/test/cli/Command.test.ts	2254	it.effect	should include short description metadata in HelpDoc subcommands	
-unported	packages/effect/test/cli/Command.test.ts	2273	it.effect	should expose examples in help docs	
-unported	packages/effect/test/cli/Command.test.ts	2290	it.effect	should preserve examples when adding subcommands	
-unported	packages/effect/test/cli/Command.test.ts	2308	it.effect	should include flag choices in help doc descriptions	
-unported	packages/effect/test/cli/Command.test.ts	2337	it.effect	should render flag choices in formatted help output	
+not-applicable	packages/effect/test/cli/Command.test.ts	1839	it.effect	should support options before, after, or between operands (relaxed POSIX Syntax Guideline No. 9)	advanced flag precedence (canonical negation, combined shorts, relaxed POSIX, global/local override) absent in crates/elm-effect-unstable/src/cli_ai.rs parse (no precedence matrix)
+not-applicable	packages/effect/test/cli/Command.test.ts	1885	it.effect	should suggest similar subcommands for unknown subcommands	help-doc/version/completion/suggestion metadata surface absent in cli_ai (no HelpDoc/version/completion/similar-suggestion API)
+not-applicable	packages/effect/test/cli/Command.test.ts	1901	it.effect	should suggest similar subcommands for nested unknown subcommands	help-doc/version/completion/suggestion metadata surface absent in cli_ai (no HelpDoc/version/completion/similar-suggestion API)
+not-applicable	packages/effect/test/cli/Command.test.ts	1918	it.effect	should suggest similar options for unrecognized options	help-doc/version/completion/suggestion metadata surface absent in cli_ai (no HelpDoc/version/completion/similar-suggestion API)
+not-applicable	packages/effect/test/cli/Command.test.ts	1934	it.effect	should suggest similar short options for unrecognized short options	help-doc/version/completion/suggestion metadata surface absent in cli_ai (no HelpDoc/version/completion/similar-suggestion API)
+not-applicable	packages/effect/test/cli/Command.test.ts	1952	it.effect	should print version and exit even with subcommands (global precedence)	help-doc/version/completion/suggestion metadata surface absent in cli_ai (no HelpDoc/version/completion/similar-suggestion API)
+not-applicable	packages/effect/test/cli/Command.test.ts	1962	it.effect	should print version and exit when --version appears before subcommand	help-doc/version/completion/suggestion metadata surface absent in cli_ai (no HelpDoc/version/completion/similar-suggestion API)
+not-applicable	packages/effect/test/cli/Command.test.ts	1976	it.effect	should let global flags before subcommands override non-shared parent locals	advanced flag precedence (canonical negation, combined shorts, relaxed POSIX, global/local override) absent in crates/elm-effect-unstable/src/cli_ai.rs parse (no precedence matrix)
+not-applicable	packages/effect/test/cli/Command.test.ts	2001	it.effect	should keep shared flags before subcommands over globals	advanced flag precedence (canonical negation, combined shorts, relaxed POSIX, global/local override) absent in crates/elm-effect-unstable/src/cli_ai.rs parse (no precedence matrix)
+not-applicable	packages/effect/test/cli/Command.test.ts	2029	it.effect	should keep root local flags over globals when no subcommand is selected	advanced flag precedence (canonical negation, combined shorts, relaxed POSIX, global/local override) absent in crates/elm-effect-unstable/src/cli_ai.rs parse (no precedence matrix)
+not-applicable	packages/effect/test/cli/Command.test.ts	2049	it.effect	should skip intervening local flag values before selecting subcommands	advanced flag precedence (canonical negation, combined shorts, relaxed POSIX, global/local override) absent in crates/elm-effect-unstable/src/cli_ai.rs parse (no precedence matrix)
+not-applicable	packages/effect/test/cli/Command.test.ts	2075	it.effect	should stop looking for subcommands after the first positional argument	advanced flag precedence (canonical negation, combined shorts, relaxed POSIX, global/local override) absent in crates/elm-effect-unstable/src/cli_ai.rs parse (no precedence matrix)
+not-applicable	packages/effect/test/cli/Command.test.ts	2101	it.effect	should still select subcommands after skipped flag values	advanced flag precedence (canonical negation, combined shorts, relaxed POSIX, global/local override) absent in crates/elm-effect-unstable/src/cli_ai.rs parse (no precedence matrix)
+not-applicable	packages/effect/test/cli/Command.test.ts	2127	it.effect	should let local flags override global flags on the selected command	advanced flag precedence (canonical negation, combined shorts, relaxed POSIX, global/local override) absent in crates/elm-effect-unstable/src/cli_ai.rs parse (no precedence matrix)
+not-applicable	packages/effect/test/cli/Command.test.ts	2148	it.effect	should let local short aliases override global short aliases on the selected command	advanced flag precedence (canonical negation, combined shorts, relaxed POSIX, global/local override) absent in crates/elm-effect-unstable/src/cli_ai.rs parse (no precedence matrix)
+not-applicable	packages/effect/test/cli/Command.test.ts	2177	it.effect	should let local flags override scoped global flags from another command branch	advanced flag precedence (canonical negation, combined shorts, relaxed POSIX, global/local override) absent in crates/elm-effect-unstable/src/cli_ai.rs parse (no precedence matrix)
+not-applicable	packages/effect/test/cli/Command.test.ts	2203	it.effect	should print help when invoked with no arguments	help-doc/version/completion/suggestion metadata surface absent in cli_ai (no HelpDoc/version/completion/similar-suggestion API)
+not-applicable	packages/effect/test/cli/Command.test.ts	2217	it.effect	should use short descriptions in subcommand listings	help-doc/version/completion/suggestion metadata surface absent in cli_ai (no HelpDoc/version/completion/similar-suggestion API)
+not-applicable	packages/effect/test/cli/Command.test.ts	2239	it.effect	should keep full description on the command help page	help-doc/version/completion/suggestion metadata surface absent in cli_ai (no HelpDoc/version/completion/similar-suggestion API)
+not-applicable	packages/effect/test/cli/Command.test.ts	2254	it.effect	should include short description metadata in HelpDoc subcommands	help-doc/version/completion/suggestion metadata surface absent in cli_ai (no HelpDoc/version/completion/similar-suggestion API)
+not-applicable	packages/effect/test/cli/Command.test.ts	2273	it.effect	should expose examples in help docs	help-doc/version/completion/suggestion metadata surface absent in cli_ai (no HelpDoc/version/completion/similar-suggestion API)
+not-applicable	packages/effect/test/cli/Command.test.ts	2290	it.effect	should preserve examples when adding subcommands	help-doc/version/completion/suggestion metadata surface absent in cli_ai (no HelpDoc/version/completion/similar-suggestion API)
+not-applicable	packages/effect/test/cli/Command.test.ts	2308	it.effect	should include flag choices in help doc descriptions	help-doc/version/completion/suggestion metadata surface absent in cli_ai (no HelpDoc/version/completion/similar-suggestion API)
+not-applicable	packages/effect/test/cli/Command.test.ts	2337	it.effect	should render flag choices in formatted help output	help-doc/version/completion/suggestion metadata surface absent in cli_ai (no HelpDoc/version/completion/similar-suggestion API)
 ported	packages/effect/test/cli/Errors.test.ts	28	it	uses the UnknownSubcommand class name as its runtime tag	cli_error_taxonomy_tags
 ported	packages/effect/test/cli/Errors.test.ts	38	it.effect	fails with MissingOption when a required flag is absent	options_parser_missing_and_unknown
 unported	packages/effect/test/cli/Errors.test.ts	50	it	throws DuplicateOption when shared parent and child flags reuse a name	
