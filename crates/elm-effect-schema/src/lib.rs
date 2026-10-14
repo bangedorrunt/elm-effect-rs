@@ -4612,28 +4612,21 @@ impl Schema<Unknown> {
     /// definition's decode, resolved once at construction: a reference is a
     /// name, but it still has to decode what it names.
     pub fn reference(name: &str) -> Self {
-        let defs = ROOT_DEFS.with(|slot| slot.borrow().clone());
-        let named = defs
-            .as_ref()
-            .and_then(|defs| defs.get(name))
-            .cloned()
-            .unwrap_or(serde_json::Value::Null);
-        // The definition is resolved once, at construction. A reference is a
-        // name in a repr, but it still has to decode what it names, so the
-        // decode is the definition's own.
-        let inner = Self::import(&named);
-        let decode_inner = Arc::new(inner);
-        let decode = move |unknown: Unknown| match &*decode_inner {
-            // A definition that failed to import is not a value the reference
-            // can claim to decode, so it passes through rather than inventing
-            // an error the pin does not report here.
-            Ok(inner) => inner.decode(unknown),
-            Err(_) => Ok(unknown),
+        let n = name.to_string();
+        let decode = move |unknown: Unknown| {
+            let defs = ROOT_DEFS.with(|slot| slot.borrow().clone());
+            let named = defs
+                .as_ref()
+                .and_then(|defs| defs.get(&n))
+                .cloned()
+                .unwrap_or(serde_json::Value::Null);
+            match Self::import(&named) {
+                Ok(inner) => inner.decode(unknown),
+                Err(_) => Ok(unknown),
+            }
         };
         Self::new(
             decode,
-            // A reference encodes what it decoded: the definition's value is the
-            // value, so encoding is the identity on the already-decoded form.
             |value: &Unknown| Ok(value.clone()),
             SchemaKind::Reference(name.to_string()),
         )

@@ -3248,3 +3248,29 @@ fn json_schema_document_reference_rows_keep_the_reference_a_reference() {
     assert!(decoded.is_ok(), "a reference decodes as the definition it names");
     assert!(bare.decode(Unknown::Number(1.0)).is_err());
 }
+
+#[test]
+fn json_schema_document_reference_variance_rows() {
+    use elm_effect_schema::{Schema, Unknown};
+    use serde_json::json;
+    // :1442 — a ref plus an annotation under allOf renders as a suspend,
+    // which is how the pin names the codec's type parameter while keeping it.
+    let v = Schema::<Unknown>::from_json_schema(&json!({
+        "allOf": [{"$ref":"#/$defs/A"},{"description":"a"}],
+        "$defs": {"A": {"type":"string"}}
+    }))
+    .expect("imports");
+    assert_eq!(v.to_code(), r#"Schema.suspend((): Schema.Codec<A> => A).annotate({ "description": "a" })"#);
+    // :1466 and :1508 — recursive schema imports without blowing the stack
+    // and keeps the root a reference to its own definition.
+    for (name, src) in [
+        ("A",
+         json!({"$ref":"#/$defs/A","$defs":{"A":{"type":"object","properties":{"name":{"type":"string"},"children":{"type":"array","items":{"$ref":"#/$defs/A"}}},"required":["name","children"],"additionalProperties":false}}})),
+        ("Node",
+         json!({"$ref":"#/$defs/Node","$defs":{"Node":{"type":"object","properties":{"child":{"$ref":"#/$defs/Node","description":"recursive child"}},"required":["child"],"additionalProperties":false}}})),
+    ] {
+        let s = Schema::<Unknown>::from_json_schema(&src).expect("imports");
+        assert_eq!(s.to_code(), name);
+        assert_eq!(s.to_type(), name);
+    }
+}
