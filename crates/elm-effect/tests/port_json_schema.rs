@@ -10,7 +10,9 @@
 //!   emitted document is *valid* and *equivalent* to the source dialect. This
 //!   port has no JSON Schema validator, so those rows witness the document
 //!   shape only and say so in the test that carries them; the validation leg
-//!   stays unported.
+//!   stays unported. A row whose only assertion is such an outcome, and whose
+//!   document uses no keyword the draft-04 reader below cannot read, is
+//!   witnessed through that reader instead of being excused.
 //! - Rows that assert a JavaScript value type with no `Json` variant (symbols,
 //!   functions, bigints) cannot be witnessed at all and stay unported.
 
@@ -3688,4 +3690,676 @@ fn draft04_preserves_validation_semantics_for_converted_constraints() {
         ("tuple", arr(&[text("a"), text("b")])),
     ]);
     assert!(!accepts(&document, &document.schema, &extra_tuple_member));
+}
+
+// ---------------------------------------------------------------------------
+// JsonSchema.test.ts:2445-2842 toMultiDocumentOpenApi3_1
+// ---------------------------------------------------------------------------
+
+fn canonical_multi_document(
+    schemas: Vec<Json>,
+    definitions: BTreeMap<String, Json>,
+) -> json_schema::MultiDocument {
+    json_schema::MultiDocument {
+        dialect: json_schema::Dialect::Draft2020_12,
+        schemas,
+        definitions,
+    }
+}
+
+/// The pin's `deepStrictEqual(result, { dialect, schemas, definitions })`.
+fn multi_document_json(document: &json_schema::MultiDocument) -> Json {
+    obj(&[
+        ("dialect", text(document.dialect.as_str())),
+        ("schemas", Json::Arr(document.schemas.clone())),
+        ("definitions", Json::Obj(document.definitions.clone())),
+    ])
+}
+
+fn multi_failure(
+    result: Result<json_schema::MultiDocument, json_schema::ConversionError>,
+) -> String {
+    result.expect_err("the conversion is refused").0
+}
+
+#[test]
+fn multi_rewrites_defs_refs_to_component_refs() {
+    let document = canonical_multi_document(
+        vec![obj(&[
+            ("type", text("object")),
+            (
+                "properties",
+                obj(&[
+                    ("a", obj(&[("$ref", text("#/$defs/A"))])),
+                    ("b", obj(&[("$ref", text("#/$defs/B"))])),
+                ]),
+            ),
+        ])],
+        defs(&[
+            (
+                "A",
+                obj(&[("type", text("string")), ("$ref", text("#/$defs/B"))]),
+            ),
+            ("B", obj(&[("type", text("number"))])),
+        ]),
+    );
+
+    let converted = json_schema::to_multi_document_open_api3_1(&document)
+        .expect("2020-12 lowers to openapi 3.1");
+
+    // The shared pool becomes `components/schemas`, and a reference inside the
+    // pool is rewritten too.
+    assert_eq!(
+        multi_document_json(&converted),
+        obj(&[
+            ("dialect", text("openapi-3.1")),
+            (
+                "schemas",
+                arr(&[obj(&[
+                    ("type", text("object")),
+                    (
+                        "properties",
+                        obj(&[
+                            ("a", obj(&[("$ref", text("#/components/schemas/A"))])),
+                            ("b", obj(&[("$ref", text("#/components/schemas/B"))])),
+                        ]),
+                    ),
+                ])]),
+            ),
+            (
+                "definitions",
+                obj(&[
+                    (
+                        "A",
+                        obj(&[
+                            ("type", text("string")),
+                            ("$ref", text("#/components/schemas/B")),
+                        ]),
+                    ),
+                    ("B", obj(&[("type", text("number"))])),
+                ]),
+            ),
+        ])
+    );
+}
+
+#[test]
+fn multi_rejects_opaque_keywords_open_api3_1_would_activate() {
+    let refused = [
+        (vec![obj(&[("example", text("value"))])], BTreeMap::new()),
+        (
+            vec![obj(&[(
+                "properties",
+                obj(&[("value", obj(&[("discriminator", obj(&[]))]))]),
+            )])],
+            BTreeMap::new(),
+        ),
+        (vec![obj(&[])], defs(&[("Value", obj(&[("xml", obj(&[]))]))])),
+        (vec![obj(&[("externalDocs", obj(&[]))])], BTreeMap::new()),
+    ];
+
+    for (schemas, definitions) in refused {
+        let document = canonical_multi_document(schemas, definitions);
+        let message = multi_failure(json_schema::to_multi_document_open_api3_1(&document));
+        assert!(
+            message.starts_with("Cannot convert JSON Schema keyword \"")
+                && message.contains("to OpenAPI 3.1"),
+            "{message}"
+        );
+    }
+}
+
+#[test]
+fn multi_does_not_inspect_opaque_values_for_keyword_collisions() {
+    // The same four keywords, but as *data* under `const`, where OpenAPI 3.1
+    // activates nothing.
+    let literal = obj(&[
+        ("example", text("value")),
+        ("discriminator", obj(&[])),
+        ("xml", obj(&[])),
+        ("externalDocs", obj(&[])),
+    ]);
+    let document = canonical_multi_document(
+        vec![obj(&[("const", literal.clone())])],
+        BTreeMap::new(),
+    );
+
+    let converted = json_schema::to_multi_document_open_api3_1(&document)
+        .expect("2020-12 lowers to openapi 3.1");
+
+    assert_eq!(converted.schemas, vec![obj(&[("const", literal)])]);
+}
+
+#[test]
+fn multi_rewrites_refs_only_in_schema_positions() {
+    let literal = obj(&[("$ref", text("#/$defs/Literal"))]);
+    let document = canonical_multi_document(
+        vec![obj(&[
+            (
+                "properties",
+                obj(&[("value", obj(&[("$ref", text("#/$defs/Value"))]))]),
+            ),
+            ("const", literal.clone()),
+            ("enum", arr(&[literal.clone()])),
+            ("default", literal.clone()),
+            ("examples", arr(&[literal.clone()])),
+        ])],
+        defs(&[("Value", obj(&[("type", text("string"))]))]),
+    );
+
+    let converted = json_schema::to_multi_document_open_api3_1(&document)
+        .expect("2020-12 lowers to openapi 3.1");
+
+    assert_eq!(
+        multi_document_json(&converted),
+        obj(&[
+            ("dialect", text("openapi-3.1")),
+            (
+                "schemas",
+                arr(&[obj(&[
+                    (
+                        "properties",
+                        obj(&[(
+                            "value",
+                            obj(&[("$ref", text("#/components/schemas/Value"))]),
+                        )]),
+                    ),
+                    ("const", literal.clone()),
+                    ("enum", arr(&[literal.clone()])),
+                    ("default", literal.clone()),
+                    ("examples", arr(&[literal])),
+                ])]),
+            ),
+            (
+                "definitions",
+                obj(&[("Value", obj(&[("type", text("string"))]))]),
+            ),
+        ])
+    );
+}
+
+#[test]
+fn multi_sanitizes_component_keys_and_rewritten_refs_together() {
+    let document = canonical_multi_document(
+        vec![obj(&[
+            ("type", text("object")),
+            (
+                "properties",
+                obj(&[("A.B", obj(&[("$ref", text("#/$defs/A$B"))]))]),
+            ),
+        ])],
+        defs(&[
+            ("A$B", obj(&[("$ref", text("#/$defs/B$C"))])),
+            ("B$C", obj(&[("type", text("string"))])),
+        ]),
+    );
+
+    let converted = json_schema::to_multi_document_open_api3_1(&document)
+        .expect("2020-12 lowers to openapi 3.1");
+
+    // The property name is not a component key, so it keeps its dot; the
+    // definition keys and every reference to them move together.
+    assert_eq!(
+        multi_document_json(&converted),
+        obj(&[
+            ("dialect", text("openapi-3.1")),
+            (
+                "schemas",
+                arr(&[obj(&[
+                    ("type", text("object")),
+                    (
+                        "properties",
+                        obj(&[(
+                            "A.B",
+                            obj(&[("$ref", text("#/components/schemas/A_B"))]),
+                        )]),
+                    ),
+                ])]),
+            ),
+            (
+                "definitions",
+                obj(&[
+                    (
+                        "A_B",
+                        obj(&[("$ref", text("#/components/schemas/B_C"))]),
+                    ),
+                    ("B_C", obj(&[("type", text("string"))])),
+                ]),
+            ),
+        ])
+    );
+}
+
+#[test]
+fn multi_unescapes_a_definition_key_before_sanitizing_its_ref() {
+    // `~1` is an escaped `/` in a JSON Pointer, so the reference names the key
+    // `A/B`, which sanitizes to `A_B`.
+    let document = canonical_multi_document(
+        vec![obj(&[("$ref", text("#/$defs/A~1B"))])],
+        defs(&[("A/B", obj(&[("type", text("string"))]))]),
+    );
+
+    let converted = json_schema::to_multi_document_open_api3_1(&document)
+        .expect("2020-12 lowers to openapi 3.1");
+
+    assert_eq!(
+        multi_document_json(&converted),
+        obj(&[
+            ("dialect", text("openapi-3.1")),
+            (
+                "schemas",
+                arr(&[obj(&[("$ref", text("#/components/schemas/A_B"))])]),
+            ),
+            (
+                "definitions",
+                obj(&[("A_B", obj(&[("type", text("string"))]))]),
+            ),
+        ])
+    );
+}
+
+#[test]
+fn multi_decodes_a_definition_key_before_sanitizing_its_ref() {
+    let document = canonical_multi_document(
+        vec![obj(&[(
+            "allOf",
+            arr(&[
+                obj(&[("$ref", text("#/$defs/A%20B"))]),
+                obj(&[("$dynamicRef", text("#/$defs/A%20B"))]),
+            ]),
+        )])],
+        defs(&[("A B", obj(&[("type", text("string"))]))]),
+    );
+
+    let converted = json_schema::to_multi_document_open_api3_1(&document)
+        .expect("2020-12 lowers to openapi 3.1");
+
+    // Percent-decoding happens before sanitizing, so the space becomes an
+    // underscore and `$dynamicRef` is rewritten beside `$ref`.
+    assert_eq!(
+        multi_document_json(&converted),
+        obj(&[
+            ("dialect", text("openapi-3.1")),
+            (
+                "schemas",
+                arr(&[obj(&[(
+                    "allOf",
+                    arr(&[
+                        obj(&[("$ref", text("#/components/schemas/A_B"))]),
+                        obj(&[("$dynamicRef", text("#/components/schemas/A_B"))]),
+                    ]),
+                )])]),
+            ),
+            (
+                "definitions",
+                obj(&[("A_B", obj(&[("type", text("string"))]))]),
+            ),
+        ])
+    );
+}
+
+/// The `$defs` an embedded resource declares belong to that resource, so a
+/// pointer that reaches them must not be sent to the shared pool.
+fn embedded_resource_document() -> json_schema::MultiDocument {
+    canonical_multi_document(
+        vec![obj(&[(
+            "allOf",
+            arr(&[
+                obj(&[("$dynamicRef", text("#/$defs/Embedded"))]),
+                obj(&[
+                    ("$id", text("inline.json")),
+                    (
+                        "$defs",
+                        obj(&[("Inner", obj(&[("type", text("string"))]))]),
+                    ),
+                    ("$dynamicRef", text("#/$defs/Inner")),
+                ]),
+            ]),
+        )])],
+        defs(&[(
+            "Embedded",
+            obj(&[
+                ("$id", text("embedded.json")),
+                (
+                    "$defs",
+                    obj(&[("Inner", obj(&[("type", text("number"))]))]),
+                ),
+                (
+                    "allOf",
+                    arr(&[
+                        obj(&[("$ref", text("#/$defs/Inner"))]),
+                        obj(&[("$dynamicRef", text("#/$defs/Inner"))]),
+                    ]),
+                ),
+            ]),
+        )]),
+    )
+}
+
+#[test]
+fn multi_does_not_rewrite_local_refs_inside_embedded_schema_resources() {
+    let converted = json_schema::to_multi_document_open_api3_1(&embedded_resource_document())
+        .expect("2020-12 lowers to openapi 3.1");
+
+    assert_eq!(
+        multi_document_json(&converted),
+        obj(&[
+            ("dialect", text("openapi-3.1")),
+            (
+                "schemas",
+                arr(&[obj(&[(
+                    "allOf",
+                    arr(&[
+                        obj(&[("$dynamicRef", text("#/components/schemas/Embedded"))]),
+                        obj(&[
+                            ("$id", text("inline.json")),
+                            (
+                                "$defs",
+                                obj(&[("Inner", obj(&[("type", text("string"))]))]),
+                            ),
+                            ("$dynamicRef", text("#/$defs/Inner")),
+                        ]),
+                    ]),
+                )])]),
+            ),
+            (
+                "definitions",
+                obj(&[(
+                    "Embedded",
+                    obj(&[
+                        ("$id", text("embedded.json")),
+                        (
+                            "$defs",
+                            obj(&[("Inner", obj(&[("type", text("number"))]))]),
+                        ),
+                        (
+                            "allOf",
+                            arr(&[
+                                obj(&[("$ref", text("#/$defs/Inner"))]),
+                                obj(&[("$dynamicRef", text("#/$defs/Inner"))]),
+                            ]),
+                        ),
+                    ]),
+                )]),
+            ),
+        ])
+    );
+}
+
+#[test]
+fn multi_does_not_rewrite_local_refs_inside_root_schema_resources() {
+    let schema = obj(&[
+        ("$id", text("inline.json")),
+        (
+            "$defs",
+            obj(&[("Inner", obj(&[("type", text("string"))]))]),
+        ),
+        (
+            "allOf",
+            arr(&[
+                obj(&[("$ref", text("#/$defs/Inner"))]),
+                obj(&[("$dynamicRef", text("#/$defs/Inner"))]),
+            ]),
+        ),
+    ]);
+
+    let converted = json_schema::to_multi_document_open_api3_1(&canonical_multi_document(
+        vec![schema.clone()],
+        BTreeMap::new(),
+    ))
+    .expect("2020-12 lowers to openapi 3.1");
+
+    assert_eq!(
+        multi_document_json(&converted),
+        obj(&[
+            ("dialect", text("openapi-3.1")),
+            ("schemas", arr(&[schema])),
+            ("definitions", obj(&[])),
+        ])
+    );
+}
+
+#[test]
+fn multi_rejects_shared_definition_refs_from_root_schema_resources() {
+    for keyword in ["$ref", "$dynamicRef"] {
+        let schema = obj(&[
+            ("$id", text("inline.json")),
+            (keyword, text("#/$defs/Value")),
+        ]);
+        let document = canonical_multi_document(
+            vec![schema],
+            defs(&[("Value", obj(&[("type", text("string"))]))]),
+        );
+
+        let message = multi_failure(json_schema::to_multi_document_open_api3_1(&document));
+
+        assert!(
+            message.starts_with(&format!(
+                "Cannot convert JSON Schema keyword \"{keyword}\" to OpenAPI 3.1"
+            )),
+            "{message}"
+        );
+    }
+}
+
+#[test]
+fn multi_suffixes_a_sanitized_key_that_collides_with_a_valid_key() {
+    let document = canonical_multi_document(
+        vec![obj(&[(
+            "allOf",
+            arr(&[
+                obj(&[("$ref", text("#/$defs/A_B"))]),
+                obj(&[("$ref", text("#/$defs/A~1B"))]),
+            ]),
+        )])],
+        defs(&[
+            ("A_B", obj(&[("type", text("string"))])),
+            ("A/B", obj(&[("type", text("number"))])),
+        ]),
+    );
+
+    let converted = json_schema::to_multi_document_open_api3_1(&document)
+        .expect("2020-12 lowers to openapi 3.1");
+
+    // `A_B` is already taken by a key that never needed sanitizing, so the
+    // sanitized `A/B` takes the first free suffix.
+    assert_eq!(
+        multi_document_json(&converted),
+        obj(&[
+            ("dialect", text("openapi-3.1")),
+            (
+                "schemas",
+                arr(&[obj(&[(
+                    "allOf",
+                    arr(&[
+                        obj(&[("$ref", text("#/components/schemas/A_B"))]),
+                        obj(&[("$ref", text("#/components/schemas/A_B_1"))]),
+                    ]),
+                )])]),
+            ),
+            (
+                "definitions",
+                obj(&[
+                    ("A_B", obj(&[("type", text("string"))])),
+                    ("A_B_1", obj(&[("type", text("number"))])),
+                ]),
+            ),
+        ])
+    );
+}
+
+#[test]
+fn multi_allocates_suffixes_deterministically_and_skips_occupied_keys() {
+    let incoming = arr(&[
+        obj(&[("$ref", text("#/$defs/A_B"))]),
+        obj(&[("$ref", text("#/$defs/A_B_1"))]),
+        obj(&[("$ref", text("#/$defs/A~1B"))]),
+        obj(&[("$ref", text("#/$defs/A?B"))]),
+    ]);
+    // `A_B` and `A_B_1` are keys that never needed sanitizing, so the two
+    // invalid keys take the suffixes after them.
+    let expected_refs = arr(&[
+        obj(&[("$ref", text("#/components/schemas/A_B"))]),
+        obj(&[("$ref", text("#/components/schemas/A_B_1"))]),
+        obj(&[("$ref", text("#/components/schemas/A_B_2"))]),
+        obj(&[("$ref", text("#/components/schemas/A_B_3"))]),
+    ]);
+    let expected = obj(&[
+        ("dialect", text("openapi-3.1")),
+        (
+            "schemas",
+            arr(&[obj(&[("allOf", expected_refs.clone())])]),
+        ),
+        (
+            "definitions",
+            obj(&[
+                ("A_B", obj(&[("type", text("string"))])),
+                ("A_B_1", obj(&[("type", text("boolean"))])),
+                ("A_B_2", obj(&[("type", text("number"))])),
+                ("A_B_3", obj(&[("type", text("null"))])),
+            ]),
+        ),
+    ]);
+
+    // The pin builds the same key set in two orders; the port's definitions
+    // map is sorted, so both calls arrive identical and the assertion is that
+    // the allocation depends on the key set alone.
+    let orders = [
+        defs(&[
+            ("A?B", obj(&[("type", text("null"))])),
+            ("A_B_1", obj(&[("type", text("boolean"))])),
+            ("A/B", obj(&[("type", text("number"))])),
+            ("A_B", obj(&[("type", text("string"))])),
+        ]),
+        defs(&[
+            ("A_B", obj(&[("type", text("string"))])),
+            ("A/B", obj(&[("type", text("number"))])),
+            ("A_B_1", obj(&[("type", text("boolean"))])),
+            ("A?B", obj(&[("type", text("null"))])),
+        ]),
+    ];
+
+    for definitions in orders {
+        let document = canonical_multi_document(vec![obj(&[("allOf", incoming.clone())])], definitions);
+        let converted = json_schema::to_multi_document_open_api3_1(&document)
+            .expect("2020-12 lowers to openapi 3.1");
+        assert_eq!(multi_document_json(&converted), expected);
+    }
+}
+
+#[test]
+fn multi_reserves_sanitized_bases_before_allocating_suffixes() {
+    let document = canonical_multi_document(
+        vec![obj(&[(
+            "allOf",
+            arr(&[
+                obj(&[("$ref", text("#/$defs/A~1B"))]),
+                obj(&[("$ref", text("#/$defs/A?B"))]),
+                obj(&[("$ref", text("#/$defs/A?B?1"))]),
+            ]),
+        )])],
+        defs(&[
+            ("A/B", obj(&[("type", text("number"))])),
+            ("A?B", obj(&[("type", text("string"))])),
+            ("A?B?1", obj(&[("type", text("boolean"))])),
+        ]),
+    );
+
+    let converted = json_schema::to_multi_document_open_api3_1(&document)
+        .expect("2020-12 lowers to openapi 3.1");
+
+    // Every key sanitizes to a base of `A_B`, so the pass that hands out
+    // untouched bases runs before the one that appends suffixes; `A?B?1`
+    // claims `A_B_1` on its own base, leaving `A?B` the `A_B_2` suffix.
+    assert_eq!(
+        multi_document_json(&converted),
+        obj(&[
+            ("dialect", text("openapi-3.1")),
+            (
+                "schemas",
+                arr(&[obj(&[(
+                    "allOf",
+                    arr(&[
+                        obj(&[("$ref", text("#/components/schemas/A_B"))]),
+                        obj(&[("$ref", text("#/components/schemas/A_B_2"))]),
+                        obj(&[("$ref", text("#/components/schemas/A_B_1"))]),
+                    ]),
+                )])]),
+            ),
+            (
+                "definitions",
+                obj(&[
+                    ("A_B", obj(&[("type", text("number"))])),
+                    ("A_B_2", obj(&[("type", text("string"))])),
+                    ("A_B_1", obj(&[("type", text("boolean"))])),
+                ]),
+            ),
+        ])
+    );
+}
+
+#[test]
+fn multi_rewrites_nested_definition_refs_without_changing_other_refs() {
+    let document = canonical_multi_document(
+        vec![obj(&[(
+            "allOf",
+            arr(&[
+                obj(&[("$ref", text("#/$defs/A~1B/properties/value"))]),
+                obj(&[("$ref", text("https://example.com/schema#/$defs/A~1B"))]),
+                obj(&[("$ref", text("#/other/A~1B"))]),
+            ]),
+        )])],
+        defs(&[(
+            "A/B",
+            obj(&[
+                ("type", text("object")),
+                (
+                    "properties",
+                    obj(&[("value", obj(&[("type", text("string"))]))]),
+                ),
+            ]),
+        )]),
+    );
+
+    let converted = json_schema::to_multi_document_open_api3_1(&document)
+        .expect("2020-12 lowers to openapi 3.1");
+
+    // Only a pointer into the pool's own `$defs` moves; an absolute URI and a
+    // pointer into another keyword stay exactly as written.
+    assert_eq!(
+        multi_document_json(&converted),
+        obj(&[
+            ("dialect", text("openapi-3.1")),
+            (
+                "schemas",
+                arr(&[obj(&[(
+                    "allOf",
+                    arr(&[
+                        obj(&[(
+                            "$ref",
+                            text("#/components/schemas/A_B/properties/value"),
+                        )]),
+                        obj(&[(
+                            "$ref",
+                            text("https://example.com/schema#/$defs/A~1B"),
+                        )]),
+                        obj(&[("$ref", text("#/other/A~1B"))]),
+                    ]),
+                )])]),
+            ),
+            (
+                "definitions",
+                obj(&[(
+                    "A_B",
+                    obj(&[
+                        ("type", text("object")),
+                        (
+                            "properties",
+                            obj(&[("value", obj(&[("type", text("string"))]))]),
+                        ),
+                    ]),
+                )]),
+            ),
+        ])
+    );
 }

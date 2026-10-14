@@ -108,3 +108,19 @@
 # sentinel-based member exclusion with the union's own message; :4821 and :4845
 # need sentinel dispatch that reports the selected member's own error
 # (`Missing key at ["a"]`) rather than the union-level one.
+# elm-effect-rs-port-jsonschema-dialects-8wm0: carried and witnessed, waiting for the
+# behavior-tests.tsv lease (BoldKite holds it for elm-effect-rs-port-txhashmap-ujl).
+packages/effect/test/JsonSchema.test.ts	2445	ported	multi_rejects_opaque_keywords_open_api3_1_would_activate
+packages/effect/test/JsonSchema.test.ts	2461	ported	multi_does_not_inspect_opaque_values_for_keyword_collisions
+packages/effect/test/JsonSchema.test.ts	2473	ported	multi_rewrites_defs_refs_to_component_refs
+packages/effect/test/JsonSchema.test.ts	2519	ported	multi_rewrites_refs_only_in_schema_positions
+packages/effect/test/JsonSchema.test.ts	2546	ported	multi_sanitizes_component_keys_and_rewritten_refs_together
+packages/effect/test/JsonSchema.test.ts	2580	ported	multi_unescapes_a_definition_key_before_sanitizing_its_ref
+packages/effect/test/JsonSchema.test.ts	2598	ported	multi_decodes_a_definition_key_before_sanitizing_its_ref
+packages/effect/test/JsonSchema.test.ts	2626	ported	multi_does_not_rewrite_local_refs_inside_embedded_schema_resources
+packages/effect/test/JsonSchema.test.ts	2676	ported	multi_does_not_rewrite_local_refs_inside_root_schema_resources
+packages/effect/test/JsonSchema.test.ts	2700	ported	multi_rejects_shared_definition_refs_from_root_schema_resources
+packages/effect/test/JsonSchema.test.ts	2714	ported	multi_suffixes_a_sanitized_key_that_collides_with_a_valid_key
+packages/effect/test/JsonSchema.test.ts	2748	ported	multi_allocates_suffixes_deterministically_and_skips_occupied_keys
+packages/effect/test/JsonSchema.test.ts	2804	ported	multi_reserves_sanitized_bases_before_allocating_suffixes
+packages/effect/test/JsonSchema.test.ts	2842	ported	multi_rewrites_nested_definition_refs_without_changing_other_refs
