@@ -1348,7 +1348,7 @@ tests = []
 [[module]]
 path = "packages/effect/src/cli/Param.ts"
 class = "unstable-port"
-status = "unmatched"
+status = "matched"
 tag = "unstable"
 reason = ""
 tests = ["packages/effect/test/cli/Param.test.ts"]
@@ -2500,7 +2500,7 @@ tests = []
 [[module]]
 path = "packages/effect/src/process/ChildProcess.ts"
 class = "unstable-port"
-status = "unmatched"
+status = "matched"
 tag = "unstable"
 reason = ""
 tests = ["packages/effect/test/process/ChildProcess.test.ts"]
