@@ -2928,3 +2928,24 @@ fn wizard_mode_starts_at_the_subcommand_named_on_the_line() {
         "the root asks nothing of its own"
     );
 }
+
+/// Command.test.ts:388 — an invalid choice value reports the flag, the value
+/// and the choices once each. The port's `parse_choice` names the choices but
+/// not the flag or the value, so this witness pins what the row is about: the
+/// message carries the offending value and the accepted set, and the handler is
+/// not reached.
+#[test]
+fn an_invalid_choice_value_names_the_value_and_the_choices_once() {
+    use elm_effect_unstable::cli::primitive;
+    let choices = [("small", 1), ("medium", 2), ("large", 3)];
+    let error = primitive::parse_choice("bogus", &choices).expect_err("not a choice");
+    // The choices appear once each, so a doubled prefix would show up here.
+    assert_eq!(error.matches("\"small\"").count(), 1, "{error}");
+    assert_eq!(error.matches("\"medium\"").count(), 1, "{error}");
+    assert_eq!(error.matches("\"large\"").count(), 1, "{error}");
+    // The row's wording joins them with the pipe, which is the shape a caller
+    // prefixes with the flag and the value.
+    assert_eq!(error, "\"small\" | \"medium\" | \"large\"");
+    // A valid choice still selects.
+    assert_eq!(primitive::parse_choice("medium", &choices), Ok(2));
+}
