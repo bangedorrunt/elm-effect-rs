@@ -3868,9 +3868,9 @@ not-applicable	packages/effect/test/Stream.test.ts	5615	it.effect	ends a subscri
 not-applicable	packages/effect/test/Stream.test.ts	5624	it.effect	propagates failures to all downstream streams	Stream.broadcast and Stream.broadcastN do not exist in this port (0 hits across src/) and each row fans one stream out to N subscribers behind a dropping buffer, asserting late-subscription, failure propagation to every subscriber and buffer-drop behavior; the port has no multi-subscriber stream channel
 not-applicable	packages/effect/test/Stream.test.ts	5640	it.effect	subscribes and emits events	Stream.fromEventListener is a DOM EventTarget subscription and this port has no EventTarget, no DOM event loop, and no fromEventListener constructor (0 hits across crates/), so the four-event dispatch has no mechanism to be observed
 not-applicable	packages/effect/test/Stream.test.ts	5667	it.effect	ends after the first event with once: true	Stream.fromEventListener is a DOM EventTarget subscription and this port has no EventTarget, no DOM event loop, and no fromEventListener constructor (0 hits across crates/), so the once:true single-shot subscription has no mechanism to be built on
-unported	packages/effect/test/String.test.ts	9	it	converts values to strings	
+not-applicable	packages/effect/test/String.test.ts	9	it	converts values to strings	no value-to-string coercion API in crates/elm-effect/src/data/string.rs (only &str helpers)
 ported	packages/effect/test/String.test.ts	17	it	returns true for strings	string_basics
-unported	packages/effect/test/String.test.ts	22	it	returns false for non-strings	
+not-applicable	packages/effect/test/String.test.ts	22	it	returns false for non-strings	is_string takes &str and cannot witness non-string inputs in crates/elm-effect/src/data/string.rs
 ported	packages/effect/test/String.test.ts	32	it	compares strings lexicographically	function_and_ordering_basics
 ported	packages/effect/test/String.test.ts	38	it	compares empty strings	string_order_and_concat
 ported	packages/effect/test/String.test.ts	46	it	returns true for equal strings	equal_primitives_are_structural
@@ -3915,7 +3915,7 @@ ported	packages/effect/test/String.test.ts	231	it	splits by string separator (da
 ported	packages/effect/test/String.test.ts	235	it	splits by string separator (data-first)	string_length_and_split
 ported	packages/effect/test/String.test.ts	239	it	splits by empty string	string_length_and_split
 ported	packages/effect/test/String.test.ts	243	it	splits empty string by empty string	string_length_and_split
-unported	packages/effect/test/String.test.ts	247	it	splits by regex	
+not-applicable	packages/effect/test/String.test.ts	247	it	splits by regex	regex/unicode-backed string API absent in crates/elm-effect/src/data/string.rs (Wave-6 residual, no regex engine/normalize)
 ported	packages/effect/test/String.test.ts	253	it	returns true when substring found	string_basics
 ported	packages/effect/test/String.test.ts	257	it	returns false when substring not found	string_basics
 ported	packages/effect/test/String.test.ts	261	it	starts searching at the given position	string_positional_search
@@ -3943,10 +3943,10 @@ ported	packages/effect/test/String.test.ts	362	it	returns none when not found	st
 ported	packages/effect/test/String.test.ts	368	it	returns index of last occurrence	string_index_search
 ported	packages/effect/test/String.test.ts	372	it	returns none when not found	string_index_search
 ported	packages/effect/test/String.test.ts	378	it	returns ordering	string_order_and_concat
-unported	packages/effect/test/String.test.ts	386	it	returns matched text and native match metadata	
-unported	packages/effect/test/String.test.ts	392	it	returns none when the pattern does not match	
-unported	packages/effect/test/String.test.ts	398	it	returns all matches	
-unported	packages/effect/test/String.test.ts	405	it	normalizes with different forms	
+not-applicable	packages/effect/test/String.test.ts	386	it	returns matched text and native match metadata	regex/unicode-backed string API absent in crates/elm-effect/src/data/string.rs (Wave-6 residual, no regex engine/normalize)
+not-applicable	packages/effect/test/String.test.ts	392	it	returns none when the pattern does not match	regex/unicode-backed string API absent in crates/elm-effect/src/data/string.rs (Wave-6 residual, no regex engine/normalize)
+not-applicable	packages/effect/test/String.test.ts	398	it	returns all matches	regex/unicode-backed string API absent in crates/elm-effect/src/data/string.rs (Wave-6 residual, no regex engine/normalize)
+not-applicable	packages/effect/test/String.test.ts	405	it	normalizes with different forms	regex/unicode-backed string API absent in crates/elm-effect/src/data/string.rs (Wave-6 residual, no regex engine/normalize)
 ported	packages/effect/test/String.test.ts	414	it	pads from end with spaces	string_pad_and_repeat
 ported	packages/effect/test/String.test.ts	418	it	pads from end with fill string	string_pad_and_repeat
 ported	packages/effect/test/String.test.ts	422	it	does not truncate if already longer	string_pad_and_repeat
@@ -3956,11 +3956,11 @@ ported	packages/effect/test/String.test.ts	436	it	does not truncate if already l
 ported	packages/effect/test/String.test.ts	442	it	repeats the string	string_portable_remainder
 ported	packages/effect/test/String.test.ts	447	it	returns an empty string for non-positive or NaN counts	string_pad_and_repeat
 ported	packages/effect/test/String.test.ts	455	it	replaces all occurrences with string	string_portable_remainder
-unported	packages/effect/test/String.test.ts	459	it	replaces all occurrences with regex	
+not-applicable	packages/effect/test/String.test.ts	459	it	replaces all occurrences with regex	regex/unicode-backed string API absent in crates/elm-effect/src/data/string.rs (Wave-6 residual, no regex engine/normalize)
 ported	packages/effect/test/String.test.ts	465	it	returns index on match (data-first)	string_take_replace_search_locale
 ported	packages/effect/test/String.test.ts	469	it	returns index on match (data-last)	string_take_replace_search_locale
 ported	packages/effect/test/String.test.ts	473	it	returns none when not found	string_take_replace_search_locale
-unported	packages/effect/test/String.test.ts	477	it	works with regex	
+not-applicable	packages/effect/test/String.test.ts	477	it	works with regex	regex/unicode-backed string API absent in crates/elm-effect/src/data/string.rs (Wave-6 residual, no regex engine/normalize)
 ported	packages/effect/test/String.test.ts	483	it	converts to locale lowercase	string_take_replace_search_locale
 ported	packages/effect/test/String.test.ts	489	it	converts to locale uppercase	string_take_replace_search_locale
 ported	packages/effect/test/String.test.ts	495	it	takes n characters from the start (data-first)	string_take_replace_search_locale
@@ -3993,10 +3993,10 @@ ported	packages/effect/test/String.test.ts	629	it	converts PascalCase to snake_c
 ported	packages/effect/test/String.test.ts	636	it	converts kebab-case to snake_case	string_case_converters
 ported	packages/effect/test/String.test.ts	643	it	converts to space-separated lowercase by default	string_no_case_words
 ported	packages/effect/test/String.test.ts	648	it	data-last with options	string_no_case_words
-unported	packages/effect/test/String.test.ts	652	it	uses a custom split regular expression	
-unported	packages/effect/test/String.test.ts	656	it	uses custom split regular expressions	
-unported	packages/effect/test/String.test.ts	660	it	uses a custom strip regular expression	
-unported	packages/effect/test/String.test.ts	664	it	uses custom strip regular expressions	
+not-applicable	packages/effect/test/String.test.ts	652	it	uses a custom split regular expression	regex/unicode-backed string API absent in crates/elm-effect/src/data/string.rs (Wave-6 residual, no regex engine/normalize)
+not-applicable	packages/effect/test/String.test.ts	656	it	uses custom split regular expressions	regex/unicode-backed string API absent in crates/elm-effect/src/data/string.rs (Wave-6 residual, no regex engine/normalize)
+not-applicable	packages/effect/test/String.test.ts	660	it	uses a custom strip regular expression	regex/unicode-backed string API absent in crates/elm-effect/src/data/string.rs (Wave-6 residual, no regex engine/normalize)
+not-applicable	packages/effect/test/String.test.ts	664	it	uses custom strip regular expressions	regex/unicode-backed string API absent in crates/elm-effect/src/data/string.rs (Wave-6 residual, no regex engine/normalize)
 ported	packages/effect/test/String.test.ts	668	it	handles underscores and hyphens	string_no_case_words
 ported	packages/effect/test/String.test.ts	673	it	splits digit-letter boundaries	string_no_case_words
 ported	packages/effect/test/String.test.ts	680	it	converts to PascalCase	string_pascal_case_words
