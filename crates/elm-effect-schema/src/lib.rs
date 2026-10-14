@@ -466,19 +466,6 @@ fn literal_union(values: Vec<Unknown>) -> Schema<Unknown> {
 /// in, so the outermost check is the last one in the list, which is the order a
 /// repr prints them.
 fn decompose(kind: &SchemaKind) -> (SchemaKind, Vec<Check>, Vec<(String, String)>) {
-    if let SchemaKind::Reference(name) = kind {
-        let resolved = ROOT_DEFS.with(|slot| {
-            slot.borrow()
-                .as_ref()
-                .and_then(|defs| defs.get(name))
-                .cloned()
-        });
-        if let Some(def_doc) = resolved {
-            if let Ok(imported) = Schema::<Unknown>::import(&def_doc) {
-                return decompose(&imported.repr_kind());
-            }
-        }
-    }
     match kind {
         SchemaKind::Annotated { pairs, inner } => {
             let (base, checks, mut annotation) = decompose(inner);
@@ -3289,6 +3276,31 @@ impl Schema<Unknown> {
         // keywords are empty once `allOf` is removed. Swapping only the kinds
         // would leave the open value's own annotation behind, which printed a
         // duplicate `"expected": "JSON value"` on the base.
+        // A refinement intersected with a reference must deref it, but only
+        // when the refinement carries checks: an annotating member still wants
+        // the reference preserved (see :1442). When member_checks is empty, the
+        // base keeps its Reference shape, and annotations propagate naturally.
+        let (member_kind_tmp, member_checks_tmp, _member_annotation_tmp) =
+            decompose(&member.repr_kind());
+        let _ = member_kind_tmp;
+        let base = if !member_checks_tmp.is_empty() && matches!(base.repr_kind(), SchemaKind::Reference(name)) {
+
+            // The closure capture needs `name` moved out:
+            let name = match base.repr_kind() {
+                SchemaKind::Reference(n) => n.clone(),
+                _ => unreachable!("guarded above"),
+            };
+            ROOT_DEFS.with(|slot| {
+                slot.borrow()
+                    .as_ref()
+                    .and_then(|defs| defs.get(&name))
+                    .cloned()
+            })
+            .and_then(|def_doc| Schema::<Unknown>::import(&def_doc).ok())
+            .unwrap_or(base)
+        } else {
+            base
+        };
         let (base_kind, base_checks, base_annotation) = decompose(&base.repr_kind());
         let (member_kind, member_checks, member_annotation) = decompose(&member.repr_kind());
         let member_annotation: Vec<(String, String)> = member_annotation
@@ -3717,6 +3729,7 @@ impl Schema<Unknown> {
             if annotations.is_empty() && get("allOf").is_none() {
                 return Ok(Schema::as_unknown(Schema::reference(&sanitized, resolved)));
             }
+            // allOf override: stop talking and hand off to the allOf visitor.
             // Siblings of a reference render through a `suspend`, which is how
             // the pin names the codec's type parameter while keeping the
             // annotation.
@@ -3729,7 +3742,7 @@ impl Schema<Unknown> {
                     Schema::as_unknown(Schema::reference(&sanitized, resolved)),
                     pairs,
                 )));
-            };
+            }
         }
         // A keyword the port cannot lower is refused by name, the way the pin
         // refuses it. Dropping one instead imports a schema weaker than the
