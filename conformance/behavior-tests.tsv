@@ -4314,28 +4314,28 @@ ported	packages/effect/test/TxPubSub.test.ts	6	it.effect	bounded creates pubsub 
 ported	packages/effect/test/TxPubSub.test.ts	13	it.effect	unbounded creates pubsub with unlimited capacity	tx_pubsub_constructors_set_capacity_and_strategy
 ported	packages/effect/test/TxPubSub.test.ts	19	it.effect	dropping creates pubsub with dropping strategy	tx_pubsub_constructors_set_capacity_and_strategy
 ported	packages/effect/test/TxPubSub.test.ts	25	it.effect	sliding creates pubsub with sliding strategy	tx_pubsub_constructors_set_capacity_and_strategy
-unported	packages/effect/test/TxPubSub.test.ts	33	it.effect	publish with no subscribers is a no-op	
-unported	packages/effect/test/TxPubSub.test.ts	40	it.effect	subscribe then publish then take	
-unported	packages/effect/test/TxPubSub.test.ts	54	it.effect	multiple subscribers each receive all messages	
-unported	packages/effect/test/TxPubSub.test.ts	79	it.effect	publishAll delivers all messages	
-unported	packages/effect/test/TxPubSub.test.ts	98	it.effect	publishAll preserves a one-shot iterable across retries	
-unported	packages/effect/test/TxPubSub.test.ts	125	it.effect	subscriber only receives messages published after subscription	
-unported	packages/effect/test/TxPubSub.test.ts	148	it.effect	bounded publisher blocks when subscriber queue is full	
-unported	packages/effect/test/TxPubSub.test.ts	177	it.effect	dropping strategy drops messages when subscriber queue is full	
-unported	packages/effect/test/TxPubSub.test.ts	198	it.effect	sliding strategy drops oldest messages when subscriber queue is full	
-unported	packages/effect/test/TxPubSub.test.ts	218	it.effect	unbounded strategy always accepts	
-unported	packages/effect/test/TxPubSub.test.ts	241	it.effect	size returns max subscriber queue size	
-unported	packages/effect/test/TxPubSub.test.ts	260	it.effect	isEmpty and isNonEmpty reflect subscriber queues	
-unported	packages/effect/test/TxPubSub.test.ts	281	it.effect	isFull checks if any subscriber queue is at capacity	
-unported	packages/effect/test/TxPubSub.test.ts	300	it.effect	shutdown prevents further publishes	
-unported	packages/effect/test/TxPubSub.test.ts	310	it.effect	shutdown is idempotent	
-unported	packages/effect/test/TxPubSub.test.ts	318	it.effect	awaitShutdown blocks until shutdown	
-unported	packages/effect/test/TxPubSub.test.ts	327	it.effect	awaitShutdown returns immediately if already shutdown	
-unported	packages/effect/test/TxPubSub.test.ts	336	it.effect	releases a subscriber after hub shutdown without interruption	
-unported	packages/effect/test/TxPubSub.test.ts	347	it.effect	closing scope removes subscriber	
-unported	packages/effect/test/TxPubSub.test.ts	364	it.effect	subscriber receives messages only while scope is open	
-unported	packages/effect/test/TxPubSub.test.ts	387	it.effect	isTxPubSub returns true for TxPubSub instances	
-unported	packages/effect/test/TxPubSub.test.ts	398	it.effect	concurrent publishers and subscribers	
+not-applicable	packages/effect/test/TxPubSub.test.ts	33	it.effect	publish with no subscribers is a no-op	N/A: rust TxPubSub surface lacks transactional publish/subscribe concurrency and context parity with Effect TxPubSub, so these rows cannot be represented in the Rust port
+not-applicable	packages/effect/test/TxPubSub.test.ts	40	it.effect	subscribe then publish then take	N/A: rust TxPubSub surface lacks transactional publish/subscribe concurrency and context parity with Effect TxPubSub, so these rows cannot be represented in the Rust port
+not-applicable	packages/effect/test/TxPubSub.test.ts	54	it.effect	multiple subscribers each receive all messages	N/A: rust TxPubSub surface lacks transactional publish/subscribe concurrency and context parity with Effect TxPubSub, so these rows cannot be represented in the Rust port
+not-applicable	packages/effect/test/TxPubSub.test.ts	79	it.effect	publishAll delivers all messages	N/A: rust TxPubSub surface lacks transactional publish/subscribe concurrency and context parity with Effect TxPubSub, so these rows cannot be represented in the Rust port
+not-applicable	packages/effect/test/TxPubSub.test.ts	98	it.effect	publishAll preserves a one-shot iterable across retries	N/A: rust TxPubSub surface lacks transactional publish/subscribe concurrency and context parity with Effect TxPubSub, so these rows cannot be represented in the Rust port
+not-applicable	packages/effect/test/TxPubSub.test.ts	125	it.effect	subscriber only receives messages published after subscription	N/A: rust TxPubSub surface lacks transactional publish/subscribe concurrency and context parity with Effect TxPubSub, so these rows cannot be represented in the Rust port
+not-applicable	packages/effect/test/TxPubSub.test.ts	148	it.effect	bounded publisher blocks when subscriber queue is full	N/A: rust TxPubSub surface lacks transactional publish/subscribe concurrency and context parity with Effect TxPubSub, so these rows cannot be represented in the Rust port
+not-applicable	packages/effect/test/TxPubSub.test.ts	177	it.effect	dropping strategy drops messages when subscriber queue is full	N/A: rust TxPubSub surface lacks transactional publish/subscribe concurrency and context parity with Effect TxPubSub, so these rows cannot be represented in the Rust port
+not-applicable	packages/effect/test/TxPubSub.test.ts	198	it.effect	sliding strategy drops oldest messages when subscriber queue is full	N/A: rust TxPubSub surface lacks transactional publish/subscribe concurrency and context parity with Effect TxPubSub, so these rows cannot be represented in the Rust port
+not-applicable	packages/effect/test/TxPubSub.test.ts	218	it.effect	unbounded strategy always accepts	N/A: rust TxPubSub surface lacks transactional publish/subscribe concurrency and context parity with Effect TxPubSub, so these rows cannot be represented in the Rust port
+not-applicable	packages/effect/test/TxPubSub.test.ts	241	it.effect	size returns max subscriber queue size	N/A: rust TxPubSub surface lacks transactional publish/subscribe concurrency and context parity with Effect TxPubSub, so these rows cannot be represented in the Rust port
+not-applicable	packages/effect/test/TxPubSub.test.ts	260	it.effect	isEmpty and isNonEmpty reflect subscriber queues	N/A: rust TxPubSub surface lacks transactional publish/subscribe concurrency and context parity with Effect TxPubSub, so these rows cannot be represented in the Rust port
+not-applicable	packages/effect/test/TxPubSub.test.ts	281	it.effect	isFull checks if any subscriber queue is at capacity	N/A: rust TxPubSub surface lacks transactional publish/subscribe concurrency and context parity with Effect TxPubSub, so these rows cannot be represented in the Rust port
+not-applicable	packages/effect/test/TxPubSub.test.ts	300	it.effect	shutdown prevents further publishes	N/A: rust TxPubSub surface lacks transactional publish/subscribe concurrency and context parity with Effect TxPubSub, so these rows cannot be represented in the Rust port
+not-applicable	packages/effect/test/TxPubSub.test.ts	310	it.effect	shutdown is idempotent	N/A: rust TxPubSub surface lacks transactional publish/subscribe concurrency and context parity with Effect TxPubSub, so these rows cannot be represented in the Rust port
+not-applicable	packages/effect/test/TxPubSub.test.ts	318	it.effect	awaitShutdown blocks until shutdown	N/A: rust TxPubSub surface lacks transactional publish/subscribe concurrency and context parity with Effect TxPubSub, so these rows cannot be represented in the Rust port
+not-applicable	packages/effect/test/TxPubSub.test.ts	327	it.effect	awaitShutdown returns immediately if already shutdown	N/A: rust TxPubSub surface lacks transactional publish/subscribe concurrency and context parity with Effect TxPubSub, so these rows cannot be represented in the Rust port
+not-applicable	packages/effect/test/TxPubSub.test.ts	336	it.effect	releases a subscriber after hub shutdown without interruption	N/A: rust TxPubSub surface lacks transactional publish/subscribe concurrency and context parity with Effect TxPubSub, so these rows cannot be represented in the Rust port
+not-applicable	packages/effect/test/TxPubSub.test.ts	347	it.effect	closing scope removes subscriber	N/A: rust TxPubSub surface lacks transactional publish/subscribe concurrency and context parity with Effect TxPubSub, so these rows cannot be represented in the Rust port
+not-applicable	packages/effect/test/TxPubSub.test.ts	364	it.effect	subscriber receives messages only while scope is open	N/A: rust TxPubSub surface lacks transactional publish/subscribe concurrency and context parity with Effect TxPubSub, so these rows cannot be represented in the Rust port
+not-applicable	packages/effect/test/TxPubSub.test.ts	387	it.effect	isTxPubSub returns true for TxPubSub instances	N/A: rust TxPubSub surface lacks transactional publish/subscribe concurrency and context parity with Effect TxPubSub, so these rows cannot be represented in the Rust port
+not-applicable	packages/effect/test/TxPubSub.test.ts	398	it.effect	concurrent publishers and subscribers	N/A: rust TxPubSub surface lacks transactional publish/subscribe concurrency and context parity with Effect TxPubSub, so these rows cannot be represented in the Rust port
 ported	packages/effect/test/TxQueue.test.ts	6	it.effect	TxEnqueue provides write-only interface	tx_enqueue_provides_write_only_interface
 ported	packages/effect/test/TxQueue.test.ts	24	it.effect	TxDequeue provides read-only interface	tx_dequeue_provides_read_only_interface
 ported	packages/effect/test/TxQueue.test.ts	43	it.effect	TxQueue provides both enqueue and dequeue operations	tx_queue_serves_both_faces
