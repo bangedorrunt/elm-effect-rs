@@ -1,4 +1,15 @@
 //! `Channel.ts` port: pull-to-pull transforms, the stream conversation's
+//!
+//! Residual `qcj6`: the remaining Effect Channel free functions
+//! (`succeed`, `fail`, `empty`, `never`, `from_effect`, `from_iterable`,
+//! `from_readable_stream`, `from_transform_stream`, `repeat`, `forever`,
+//! `mk_uint8_array`, `filter_map_effect` already ported, `switch_map`,
+//! `interrupt_when`, and an interruptible `map_effect`) are Effect
+//! **source** channels in the pin; this crate's `Channel` is only a
+//! pull-to-pull transform, so those combinators belong to `Pull`/`Effect`
+//! (already covered by `pull_constructors`/Effect rows) or need runtime
+//! substrate (on_interrupt, ReadableStream) that is absent. They remain
+//! `not-applicable` with stated causes in behavior-tests.tsv.
 //! middle. A channel maps each take and passes `End`/`Fail` through, so
 //! termination and failure need no special handling downstream.
 
