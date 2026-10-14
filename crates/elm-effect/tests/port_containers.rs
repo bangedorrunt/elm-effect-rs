@@ -1235,6 +1235,36 @@ fn trie_reduce_and_for_each_visit_in_key_order() {
 }
 
 #[test]
+fn trie_renders_entries_in_iteration_order() {
+    let trie = Trie::empty().insert("a", 0).insert("b", 1);
+
+    // :23 - toString is the class rendering, in key order.
+    assert_eq!(trie.to_string(), "Trie([[\"a\",0],[\"b\",1]])");
+    assert_eq!(format!("{trie:?}"), trie.to_string());
+
+    // :36 - toJSON is the tagged object.
+    assert_eq!(trie.json_shape(), "{\"_id\":\"Trie\",\"values\":[[\"a\",0],[\"b\",1]]}");
+}
+
+#[test]
+fn trie_equality_is_by_entries() {
+    // :566 - two tries with the same entries are equal, including empty ones.
+    assert_eq!(Trie::<i32>::empty(), Trie::empty());
+    assert_eq!(
+        Trie::make([("call".to_owned(), 0), ("me".to_owned(), 1)]),
+        Trie::make([("call".to_owned(), 0), ("me".to_owned(), 1)])
+    );
+
+    // Either half of an entry can differ, and the size is checked before the
+    // entries are walked, which is the part of :11 this port can build.
+    assert_ne!(
+        Trie::make([("call".to_owned(), 0)]),
+        Trie::make([("call".to_owned(), 1)])
+    );
+    assert_ne!(Trie::<i32>::empty(), Trie::make([("a".to_owned(), 1)]));
+}
+
+#[test]
 fn hash_map_unsafe_and_flat_map() {
     // HashMap.test.ts:111 - getUnsafe returns existing values.
     let m = HashMap::make([("a".to_owned(), 1), ("b".to_owned(), 2)]);

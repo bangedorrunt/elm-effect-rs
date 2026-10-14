@@ -18,7 +18,13 @@ struct Node<V> {
 }
 
 /// Persistent string-keyed prefix tree.
-#[derive(Clone, Debug)]
+///
+/// `Display` and `Debug` are written by hand rather than derived: the pin
+/// renders the trie as `Trie([["a",0],["b",1]])`, and the derived `Debug`
+/// would print the node tree instead. `Debug` follows
+/// [`MutableHashMap`](super::mutable_hash_map::MutableHashMap), which reads its
+/// own `inspect` row as the same rendering as `toString`.
+#[derive(Clone)]
 pub struct Trie<V> {
     root: Node<V>,
     len: usize,
@@ -311,5 +317,49 @@ impl<A: Clone> Trie<Option<A>> {
                 .into_iter()
                 .filter_map(|(k, v)| v.as_ref().map(|a| (k, a.clone()))),
         )
+    }
+}
+
+/// `[[key,value],...]` in key order, as the pin renders entries.
+fn rendered_entries<V: std::fmt::Debug>(trie: &Trie<V>) -> Vec<String> {
+    trie.entries()
+        .into_iter()
+        .map(|(key, value)| format!("[{key:?},{value:?}]"))
+        .collect()
+}
+
+impl<V: std::fmt::Debug> Trie<V> {
+    /// `toJSON` shape: `{"_id":"Trie","values":[["a",0]]}`.
+    pub fn json_shape(&self) -> String {
+        format!(
+            "{{\"_id\":\"Trie\",\"values\":[{}]}}",
+            rendered_entries(self).join(",")
+        )
+    }
+}
+
+impl<V: std::fmt::Debug> std::fmt::Display for Trie<V> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Trie([{}])", rendered_entries(self).join(","))
+    }
+}
+
+impl<V: std::fmt::Debug> std::fmt::Debug for Trie<V> {
+    /// The pin's `inspect` shape: the class rendering, not the node tree.
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Trie([{}])", rendered_entries(self).join(","))
+    }
+}
+
+impl<V: PartialEq> PartialEq for Trie<V> {
+    /// Equality is by entries. The size is checked first, so two tries that
+    /// hold different numbers of keys are never equal.
+    fn eq(&self, other: &Self) -> bool {
+        if self.len != other.len {
+            return false;
+        }
+        self.entries()
+            .into_iter()
+            .all(|(key, value)| other.get(&key) == Some(value))
     }
 }
