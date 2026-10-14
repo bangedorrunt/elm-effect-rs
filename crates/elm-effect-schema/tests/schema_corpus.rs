@@ -3080,3 +3080,25 @@ fn json_schema_document_ref_rows_carry_their_code_and_type() {
     }));
     assert!(scoped.contains("Nested"), "got: {scoped}");
 }
+
+#[test]
+fn json_schema_document_builtin_annotation_rows_carry_their_code_and_type() {
+    // :1147 — the built-in JSON Schema annotations all ride the schema, in the
+    // order the pin prints them. `contentSchema` is the one that is not a
+    // string, so it is lifted as its raw JSON rather than as text.
+    use elm_effect_schema::{Schema, Unknown};
+
+    let schema = Schema::<Unknown>::from_json_schema(&serde_json::json!({
+        "type": "string",
+        "format": "email",
+        "contentEncoding": "base64",
+        "contentMediaType": "application/json",
+        "contentSchema": {"type": "number"}
+    }))
+    .expect("imports");
+    assert_eq!(
+        schema.to_code(),
+        r#"Schema.String.annotate({ "format": "email", "contentEncoding": "base64", "contentMediaType": "application/json", "contentSchema": { "type": "number" } })"#
+    );
+    assert_eq!(schema.to_type(), "string");
+}

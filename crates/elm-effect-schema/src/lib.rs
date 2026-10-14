@@ -316,6 +316,13 @@ fn atom_matches(atom: &Pattern, value: char) -> bool {
 static ROOT_DEFS: std::sync::Mutex<Option<serde_json::Map<String, serde_json::Value>>> =
     std::sync::Mutex::new(None);
 
+/// Marks an annotation value that prints as raw JSON rather than as a string.
+/// The pin's `contentSchema` carries an object, so `annotate({ "contentSchema":
+/// { "type": "number" } })` is the repr, not a quoted string. The marker is a
+/// control character no annotation value could contain, so a legitimate value is
+/// never mistaken for it.
+const RAW_ANNOTATION: char = '\u{1}';
+
 /// One refinement in a chain: its name, its arguments, and the annotation pairs
 /// the pin attaches to it. `decompose` lowers a schema's `Check` chain into a
 /// list of these so an intersection can dedupe and reorder them, and `rebuild`
@@ -364,13 +371,47 @@ fn regex_message(pattern: &str) -> String {
 }
 
 /// Render one check as the pin prints it inside a chain or a filter group.
+/// A JSON value the way the pin's repr prints one inside an annotation: objects
+/// and arrays carry a space after each comma and around their braces. Compact
+/// JSON would read `{"type":"number"}`, and the pin's row asserts the spaced form.
+fn spaced_json(value: &serde_json::Value) -> String {
+    match value {
+        serde_json::Value::Object(fields) => {
+            let inner: Vec<String> = fields
+                .iter()
+                .map(|(key, value)| format!("{}: {}", json_key(key), spaced_json(value)))
+                .collect();
+            format!("{{ {} }}", inner.join(", "))
+        }
+        serde_json::Value::Array(items) => {
+            let inner: Vec<String> = items.iter().map(spaced_json).collect();
+            format!("[{}]", inner.join(", "))
+        }
+        other => other.to_string(),
+    }
+}
+
+/// An annotation value as the pin's repr prints it: raw JSON when marked, a
+/// quoted string otherwise.
+fn render_annotation_value(value: &str) -> String {
+    match value.strip_prefix(RAW_ANNOTATION) {
+        Some(raw) => match serde_json::from_str(raw) {
+            Ok(parsed) => spaced_json(&parsed),
+            // A value that is not JSON after all falls back to the string the
+            // caller stored, so a malformed annotation cannot panic a repr.
+            Err(_) => json_key(raw),
+        },
+        None => json_key(value),
+    }
+}
+
 fn render_check(check: &Check) -> String {
     let mut out = format!("Schema.{}({})", check.name, check.args.join(", "));
     if !check.annotation.is_empty() {
         let pairs = check
             .annotation
             .iter()
-            .map(|(key, value)| format!("{}: {}", json_key(key), json_key(value)))
+            .map(|(key, value)| format!("{}: {}", json_key(key), render_annotation_value(value)))
             .collect::<Vec<_>>()
             .join(", ");
         out = format!("{out}.annotate({{ {pairs} }})");
@@ -2675,14 +2716,32 @@ impl Schema<Unknown> {
         // `identifier` rides with the doc fields because that is where the pin
         // puts it: a `$defs` entry carries one and the repr prints it as an
         // annotation on the schema.
-        ["title", "description", "identifier", "format"]
-            .into_iter()
-            .filter_map(|key| {
-                doc.get(key)
-                    .and_then(serde_json::Value::as_str)
-                    .map(|value| (key.to_string(), value.to_string()))
+        // The built-in JSON Schema annotations. `contentSchema` is the one that
+        // is not a string, so it is lifted as its raw JSON rather than as text.
+        [
+            "title",
+            "description",
+            "identifier",
+            "format",
+            "contentEncoding",
+            "contentMediaType",
+            "contentSchema",
+        ]
+        .into_iter()
+        .filter_map(|key| {
+            doc.get(key).map(|value| {
+                // A string annotation lifts its text; anything else lifts its
+                // JSON, which is what `contentSchema`'s object needs.
+                let text = match value {
+                    serde_json::Value::String(text) => text.clone(),
+                    // Anything else is JSON the repr must print as JSON, so
+                    // it carries the marker rather than being quoted.
+                    other => format!("{RAW_ANNOTATION}{}", other),
+                };
+                (key.to_string(), text)
             })
-            .collect()
+        })
+        .collect()
     }
 
     /// Any JSON value annotated as open. The `expected` message always comes
@@ -5208,7 +5267,9 @@ fn code_of(kind: &SchemaKind, children: &[(String, Arc<Schema<Unknown>>)]) -> St
             } else {
                 let rendered = pairs
                     .iter()
-                    .map(|(key, value)| format!("{}: {}", json_key(key), json_key(value)))
+                    .map(|(key, value)| {
+                        format!("{}: {}", json_key(key), render_annotation_value(value))
+                    })
                     .collect::<Vec<_>>()
                     .join(", ");
                 format!("{}.annotate({{ {} }})", code_of(inner, children), rendered)
@@ -5253,7 +5314,9 @@ fn code_of(kind: &SchemaKind, children: &[(String, Arc<Schema<Unknown>>)]) -> St
         } => {
             let pairs = annotation
                 .iter()
-                .map(|(key, value)| format!("{}: {}", json_key(key), json_key(value)))
+                .map(|(key, value)| {
+                    format!("{}: {}", json_key(key), render_annotation_value(value))
+                })
                 .collect::<Vec<_>>()
                 .join(", ");
             let rendered = if pairs.is_empty() {
