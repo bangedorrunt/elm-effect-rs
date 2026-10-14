@@ -972,7 +972,7 @@ tests = ["packages/effect/test/Tracer.test.ts"]
 [[module]]
 path = "packages/effect/src/Trie.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/Trie.test.ts"]
