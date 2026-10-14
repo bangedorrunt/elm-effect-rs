@@ -5590,7 +5590,7 @@ ported	packages/effect/test/cli/Command.test.ts	370	it.effect	should reject --${
 ported	packages/effect/test/cli/Command.test.ts	388	it.effect	should render invalid choice values without doubling the Expected prefix	an_invalid_choice_value_names_the_value_and_the_choices_once
 ported	packages/effect/test/cli/Command.test.ts	409	it.effect	should execute handler with parsed config	a_handler_runs_with_the_config_parsed_from_its_own_line
 ported	packages/effect/test/cli/Command.test.ts	431	it.effect	should handle nested config in handler	nested_config_reaches_the_subcommands_handler
-unported	packages/effect/test/cli/Command.test.ts	447	it.effect	should work with effectful handlers	
+ported	packages/effect/test/cli/Command.test.ts	447	it.effect	should work with effectful handlers	an_effectful_handler_sees_variadic_values_and_interleaved_flags
 ported	packages/effect/test/cli/Command.test.ts	466	it.effect	should work with option aliases in handler	a_short_alias_selects_the_same_option_value
 ported	packages/effect/test/cli/Command.test.ts	481	it.effect	should merge repeated key=value flags into a single record	repeated_key_value_flags_merge_into_one_record
 ported	packages/effect/test/cli/Command.test.ts	506	it.effect	should merge key=value flags even when interleaved with other options	repeated_key_value_flags_merge_into_one_record
@@ -5603,7 +5603,7 @@ unported	packages/effect/test/cli/Command.test.ts	679	it.effect	should expose se
 unported	packages/effect/test/cli/Command.test.ts	720	it.effect	should reject global flags that are out of scope for selected subcommand	
 unported	packages/effect/test/cli/Command.test.ts	759	it.effect	should show only path-active global flags in subcommand help	
 ported	packages/effect/test/cli/Command.test.ts	785	it.effect	should fail for malformed key=value flags	a_malformed_key_value_flag_is_refused_naming_the_value
-unported	packages/effect/test/cli/Command.test.ts	814	it.effect	should handle parsing errors from run	
+ported	packages/effect/test/cli/Command.test.ts	814	it.effect	should handle parsing errors from run	a_parse_failure_from_a_run_is_a_refusal_not_a_success
 ported	packages/effect/test/cli/Command.test.ts	834	it.effect	should propagate handler errors from run	a_handlers_failure_propagates_out_of_the_run
 unported	packages/effect/test/cli/Command.test.ts	840	it.effect	should render and rethrow UserError handler failures without help	
 unported	packages/effect/test/cli/Command.test.ts	858	it.effect	should render UserError handler failures with the installed formatter	

@@ -3070,3 +3070,95 @@ fn a_bare_completions_flag_is_refused_and_nothing_runs() {
         "the handler did not run"
     );
 }
+
+/// Command.test.ts:447 — a variadic positional takes every value it is given
+/// while the flags interleaved with them still read as flags, so a handler sees
+/// the files in line order and each switch's own truth.
+#[test]
+fn an_effectful_handler_sees_variadic_values_and_interleaved_flags() {
+    let seen = handler_log();
+    let log = seen.clone();
+    let command = Command::new(
+        "remove",
+        "remove command",
+        vec![
+            Arg::Flag {
+                name: "recursive".to_string(),
+                help: "recursive".to_string(),
+            },
+            Arg::Flag {
+                name: "force".to_string(),
+                help: "force".to_string(),
+            },
+            Arg::Flag {
+                name: "verbose".to_string(),
+                help: "verbose".to_string(),
+            },
+            Arg::Positional {
+                name: "file".to_string(),
+                help: "file".to_string(),
+                variadic: true,
+            },
+        ],
+    )
+    .handler(move |parsed| {
+        log.lock().expect("lock").push(format!(
+            "remove {} recursive={} force={} verbose={}",
+            parsed.positionals.join(","),
+            parsed.flag("recursive"),
+            parsed.flag("force"),
+            parsed.flag("verbose")
+        ));
+    });
+    let run = command
+        .run(&[
+            "file1.txt".to_string(),
+            "file2.txt".to_string(),
+            "dir/".to_string(),
+            "--recursive".to_string(),
+            "--force".to_string(),
+            "--verbose".to_string(),
+        ])
+        .expect("the line parses and the handler runs");
+    assert_eq!(run.path, vec!["remove".to_string()]);
+    assert_eq!(
+        *seen.lock().expect("lock"),
+        vec!["remove file1.txt,file2.txt,dir/ recursive=true force=true verbose=true".to_string()]
+    );
+}
+
+/// Command.test.ts:814 — a parse failure from a run is a refusal, not a silent
+/// success: an unknown subcommand is reported and the line's handler is not
+/// reached.
+#[test]
+fn a_parse_failure_from_a_run_is_a_refusal_not_a_success() {
+    let invoked = handler_log();
+    let log = invoked.clone();
+    let root = Command::group(
+        "root",
+        "root command",
+        vec![Command::new("known", "known command", Vec::new()).handler(move |_| {
+            log.lock().expect("lock").push("known".to_string());
+        })],
+    );
+    // An unknown subcommand refuses, and the refusal names what was not known.
+    let error = root
+        .parse(&["invalid-command".to_string()])
+        .expect_err("the subcommand is not one this command takes");
+    assert!(
+        error.to_string().contains("invalid-command"),
+        "{error}"
+    );
+    // The run refuses the same way, so no handler executes.
+    assert!(root.run(&["invalid-command".to_string()]).is_err());
+    assert!(
+        invoked.lock().expect("lock").is_empty(),
+        "no handler ran for a line that did not parse"
+    );
+    // The known subcommand still routes, which is what makes the refusal about
+    // the unknown name rather than about the tree.
+    let run = root
+        .run(&["known".to_string()])
+        .expect("the known subcommand routes");
+    assert_eq!(run.path, vec!["root".to_string(), "known".to_string()]);
+}
