@@ -31,15 +31,12 @@
 # a request-release; landed once the lease was free.
 # Batch 3, twenty-one rows from elm-effect-rs-port-txpriorityqueue-69y4 (landed). Witnesses in
 # crates/elm-effect/tests/tx_priority_queue.rs (21 tests, green under --features stm).
-
 # Batch 4, five rows from elm-effect-rs-port-schema-a2c (landed): the
 # resolveAnnotations / resolveAnnotationsKey getters. Witnesses in
 # crates/elm-effect-schema/tests/schema_annotations.rs (8 tests, green).
-
 # Batch 5, six rows from elm-effect-rs-port-schema-a2c (landed): the brand and
 # fromBrand describes. Witnesses in
 # crates/elm-effect-schema/tests/schema_transform.rs (green).
-
 # Batch 6, twenty-one rows from elm-effect-rs-port-schema-a2c (landed): the top-level
 # constructor rows at :5216-:5586. Six are carried (the four StringFrom*
 # transforms, whose witnesses are in tests/schema_transform.rs and whose
@@ -47,7 +44,6 @@
 # wire side is a string or a number the port already has). Fifteen are
 # excused because the row's wire value is a JS/Effect value type with no
 # Unknown variant, each named in its own reason rather than as one block.
-
 # Batch 7, forty rows from elm-effect-rs-port-schema-a2c (staged, awaiting the lease
 # IcyCoast holds for conformance/behavior-tests.tsv): the Class / TaggedClass /
 # Error / TaggedError describes at :6802-:7791 and the extend rows under them.
@@ -57,47 +53,6 @@
 # :7247), the JS object-model legs (`instanceof`, `_a` class-body fields), the
 # `verifyGeneration` arbitrary leg, and `assertInclude(err.stack, ...)` (:7503,
 # :7558, :7646's stack half).
-packages/effect/test/schema/Schema.test.ts	6802	ported	make_answers_an_existing_instance_unchanged
-packages/effect/test/schema/Schema.test.ts	6820	ported	make_fills_constructor_defaults_on_construction
-packages/effect/test/schema/Schema.test.ts	6846	ported	make_with_void_input_builds_a_zero_field_class
-packages/effect/test/schema/Schema.test.ts	6905	ported	an_optional_nested_class_may_be_omitted_from_a_construction
-packages/effect/test/schema/Schema.test.ts	6953	ported	a_class_exposes_its_fields_and_identifier_and_round_trips
-packages/effect/test/schema/Schema.test.ts	7006	ported	a_nested_class_field_constructs_its_own_instance
-packages/effect/test/schema/Schema.test.ts	7020	ported	a_nested_class_field_constructs_its_own_instance
-packages/effect/test/schema/Schema.test.ts	7083	ported	a_class_exposes_its_fields_and_identifier_and_round_trips
-packages/effect/test/schema/Schema.test.ts	7139	ported	a_class_exposes_its_fields_and_identifier_and_round_trips
-packages/effect/test/schema/Schema.test.ts	7195	ported	the_constructor_ignores_excess_properties_by_default
-packages/effect/test/schema/Schema.test.ts	7206	ported	an_explicit_ignore_or_strip_still_leaves_the_key_off
-packages/effect/test/schema/Schema.test.ts	7219	ported	the_constructor_rejects_excess_properties_when_requested
-packages/effect/test/schema/Schema.test.ts	7231	ported	an_annotation_over_a_class_keeps_the_class
-packages/effect/test/schema/Schema.test.ts	7307	ported	the_extended_constructor_ignores_excess_but_not_the_subclass_fields
-packages/effect/test/schema/Schema.test.ts	7339	ported	the_extended_constructor_ignores_excess_but_not_the_subclass_fields
-packages/effect/test/schema/Schema.test.ts	7402	ported	the_name_is_the_identifier_and_the_tag_stands_in_when_there_is_none
-packages/effect/test/schema/Schema.test.ts	7409	ported	a_tagged_class_carries_its_tag_on_the_wire
-packages/effect/test/schema/Schema.test.ts	7435	ported	a_tagged_error_ignores_excess_properties_by_default
-packages/effect/test/schema/Schema.test.ts	7447	ported	a_tagged_class_carries_its_tag_on_the_wire
-packages/effect/test/schema/Schema.test.ts	7471	ported	the_extended_constructor_ignores_excess_but_not_the_subclass_fields
-packages/effect/test/schema/Schema.test.ts	7503	ported	an_error_class_is_its_tagged_error_twin_and_prints_like_one
-packages/effect/test/schema/Schema.test.ts	7510	ported	an_error_class_is_its_tagged_error_twin_and_prints_like_one
-packages/effect/test/schema/Schema.test.ts	7527	ported	an_error_class_is_its_tagged_error_twin_and_prints_like_one
-packages/effect/test/schema/Schema.test.ts	7543	ported	an_error_class_is_its_tagged_error_twin_and_prints_like_one
-packages/effect/test/schema/Schema.test.ts	7579	ported	an_error_class_is_its_tagged_error_twin_and_prints_like_one
-packages/effect/test/schema/Schema.test.ts	7615	ported	an_error_class_is_its_tagged_error_twin_and_prints_like_one
-packages/effect/test/schema/Schema.test.ts	7630	ported	an_error_class_is_its_tagged_error_twin_and_prints_like_one
-packages/effect/test/schema/Schema.test.ts	7646	ported	an_error_class_is_its_tagged_error_twin_and_prints_like_one
-packages/effect/test/schema/Schema.test.ts	7656	ported	make_answers_an_existing_instance_unchanged
-packages/effect/test/schema/Schema.test.ts	7663	ported	a_zero_field_tagged_error_accepts_an_omitted_props_argument
-packages/effect/test/schema/Schema.test.ts	7670	ported	a_tagged_class_carries_its_tag_on_the_wire
-packages/effect/test/schema/Schema.test.ts	7692	ported	a_tagged_error_ignores_excess_properties_by_default
-packages/effect/test/schema/Schema.test.ts	7704	ported	a_tagged_classs_field_list_reports_the_discriminant
-packages/effect/test/schema/Schema.test.ts	7718	ported	the_name_is_the_identifier_and_the_tag_stands_in_when_there_is_none
-packages/effect/test/schema/Schema.test.ts	7727	ported	the_name_is_the_identifier_and_the_tag_stands_in_when_there_is_none
-packages/effect/test/schema/Schema.test.ts	7736	ported	extend_keeps_the_parents_tag_and_takes_the_childs_identifier
-packages/effect/test/schema/Schema.test.ts	7748	ported	a_zero_field_tagged_error_accepts_an_omitted_props_argument
-packages/effect/test/schema/Schema.test.ts	7762	ported	extend_keeps_the_parents_tag_and_takes_the_childs_identifier
-packages/effect/test/schema/Schema.test.ts	7775	ported	the_extended_constructor_ignores_excess_but_not_the_subclass_fields
-packages/effect/test/schema/Schema.test.ts	7791	ported	the_extended_constructor_ignores_excess_but_not_the_subclass_fields
-
 # Batch 8, nine rows from elm-effect-rs-port-schema-a2c (staged, awaiting the
 # lease): the TemplateLiteralParser describe at :6599-:6783, all of it. Witnesses
 # in crates/elm-effect-schema/tests/schema_template.rs (37 tests, green). Four of
@@ -106,16 +61,6 @@ packages/effect/test/schema/Schema.test.ts	7791	ported	the_extended_constructor_
 # the text it matched), and the parser's encode runs each capture back through
 # its part, so the pin's "Expected an integer at [0]" and "length of at least 1
 # at [2]" refusals are ported rather than dropped.
-packages/effect/test/schema/Schema.test.ts	6599	ported	template_parser_exposes_its_parts
-packages/effect/test/schema/Schema.test.ts	6667	ported	parser_int_then_anchor
-packages/effect/test/schema/Schema.test.ts	6687	ported	parser_int_part_then_string_leaves_the_fraction
-packages/effect/test/schema/Schema.test.ts	6695	ported	parser_number_then_anchor_then_non_empty_string
-packages/effect/test/schema/Schema.test.ts	6717	ported	parser_anchor_then_literals_part
-packages/effect/test/schema/Schema.test.ts	6725	ported	parser_union_with_a_nested_parser_part
-packages/effect/test/schema/Schema.test.ts	6746	ported	parser_union_with_a_nested_checked_int_part
-packages/effect/test/schema/Schema.test.ts	6770	ported	parser_nested_template_literal_part_captures_text
-packages/effect/test/schema/Schema.test.ts	6783	ported	parser_nested_parser_part_captures_a_list
-
 # Batch 9, thirteen rows from elm-effect-rs-port-schema-a2c (staged, awaiting the
 # lease): the Schema.makeFilter describe at :9199-:9398, all of it. Witnesses in
 # crates/elm-effect-schema/tests/schema_filters.rs (14 tests, green). New surface
@@ -124,20 +69,6 @@ packages/effect/test/schema/Schema.test.ts	6783	ported	parser_nested_parser_part
 # (predicate, annotations, abort) and Schema::filtered, plus two SchemaError
 # variants (FilterFailed, Composite) so an "all issues" decode can report a
 # filter's own message at the path it pointed at.
-packages/effect/test/schema/Schema.test.ts	9200	ported	filter_returning_undefined_passes
-packages/effect/test/schema/Schema.test.ts	9207	ported	filter_returning_true_passes
-packages/effect/test/schema/Schema.test.ts	9214	ported	filter_returning_false_names_the_filter
-packages/effect/test/schema/Schema.test.ts	9224	ported	filter_returning_a_string_reports_it
-packages/effect/test/schema/Schema.test.ts	9235	ported	filters_returning_issues_collect_in_order
-packages/effect/test/schema/Schema.test.ts	9252	ported	an_aborting_filter_stops_the_chain
-packages/effect/test/schema/Schema.test.ts	9270	ported	a_filter_object_points_at_a_path
-packages/effect/test/schema/Schema.test.ts	9289	ported	an_aborting_path_filter_stops_the_chain
-packages/effect/test/schema/Schema.test.ts	9304	ported	a_filter_issue_carries_its_own_message
-packages/effect/test/schema/Schema.test.ts	9323	ported	an_empty_array_result_passes
-packages/effect/test/schema/Schema.test.ts	9330	ported	a_single_element_array_collapses
-packages/effect/test/schema/Schema.test.ts	9343	ported	a_multi_element_array_composites
-packages/effect/test/schema/Schema.test.ts	9361	ported	an_array_mixing_kinds_composites_in_order
-
 # Batch 10, eight rows from elm-effect-rs-port-schema-a2c (staged, awaiting the
 # lease): Char, Int, Natural, the four case schemas and the version-specific
 # isUUID row, Schema.test.ts:10108-10361. Witnesses in
@@ -152,17 +83,8 @@ packages/effect/test/schema/Schema.test.ts	9361	ported	an_array_mixing_kinds_com
 # `resolveAnnotations(schema)?.representation` as a structured {id, payload}
 # object, and this port has no representation annotation yet. Claiming them
 # would be claiming a shape that is not there.
-packages/effect/test/schema/Schema.test.ts	10108	ported	char_admits_exactly_one_character
-packages/effect/test/schema/Schema.test.ts	10131	ported	int_is_an_integer_and_refuses_the_non_integers
-packages/effect/test/schema/Schema.test.ts	10166	ported	natural_is_a_non_negative_integer
-packages/effect/test/schema/Schema.test.ts	10194	ported	capitalize_normalizes_on_decode_and_insists_on_encode
-packages/effect/test/schema/Schema.test.ts	10218	ported	uncapitalize_normalizes_on_decode_and_insists_on_encode
-packages/effect/test/schema/Schema.test.ts	10242	ported	lowercase_normalizes_on_decode_and_insists_on_encode
-packages/effect/test/schema/Schema.test.ts	10266	ported	uppercase_normalizes_on_decode_and_insists_on_encode
-packages/effect/test/schema/Schema.test.ts	10361	ported	a_versioned_uuid_check_refuses_the_nil_and_max_uuids
-
 # Batch 11, four carried rows and five excused, all from
-# elm-effect-rs-port-schema-a2c (staged, awaiting the lease): the Record
+# elm-effect-rs-port-schema-a2c (landed): the Record
 # describe's key-schema rows. Witnesses in
 # crates/elm-effect-schema/tests/schema_records.rs (4 tests, green). The port
 # grew a per-record excess policy (`Schema::record2_excess`) and a numeric
@@ -174,18 +96,8 @@ packages/effect/test/schema/Schema.test.ts	10361	ported	a_versioned_uuid_check_r
 # last-key-wins order that a sorted map does not preserve; :4082 puts a symbol in
 # the key union; :4223 and :4231 are the `mutableKey` spelling, which has no
 # analogue here though the decode they assert holds.
-packages/effect/test/schema/Schema.test.ts	4066	ported	record_excess_names_an_unmatched_key
-packages/effect/test/schema/Schema.test.ts	4270	ported	an_integer_key_schema_selects_the_numeric_names
-packages/effect/test/schema/Schema.test.ts	4289	ported	a_template_literal_key_schema_selects_its_own_keys
-packages/effect/test/schema/Schema.test.ts	5053	ported	a_record_rest_under_a_struct_selects_template_keys
-packages/effect/test/schema/Schema.test.ts	4091	not-applicable	the row's own keys are JavaScript symbols, and a record here is a string-keyed map with no symbol-keyed variant
-packages/effect/test/schema/Schema.test.ts	4119	not-applicable	the row asserts a non-enumerable own property is never read; a Rust map holds exactly the entries it was given, so there is no enumerability to observe
-packages/effect/test/schema/Schema.test.ts	4141	not-applicable	the key check is a predicate over JavaScript symbols (Symbol.keyFor) and the keys themselves are symbols
-packages/effect/test/schema/Schema.test.ts	4174	not-applicable	the key is a specific JavaScript symbol identity, which a string-keyed map cannot hold
-packages/effect/test/schema/Schema.test.ts	5036	not-applicable	the catch-all record's keys are symbols under a StructWithRest; the string-keyed half of the same shape is carried by the row beside it
-
 # Batch 12, two carried rows and four excused, from
-# elm-effect-rs-port-schema-a2c (staged, awaiting the lease): the Union
+# elm-effect-rs-port-schema-a2c (landed): the Union
 # describe's dispatch rows that this port can actually witness. Witnesses in
 # crates/elm-effect-schema/tests/schema_union.rs (2 tests, green, no source
 # change: member order and the `oneOf` count were already the port's behaviour).
@@ -196,9 +108,3 @@ packages/effect/test/schema/Schema.test.ts	5036	not-applicable	the catch-all rec
 # sentinel-based member exclusion with the union's own message; :4821 and :4845
 # need sentinel dispatch that reports the selected member's own error
 # (`Missing key at ["a"]`) rather than the union-level one.
-packages/effect/test/schema/Schema.test.ts	4484	ported	member_order_is_preserved_after_sentinel_dispatch
-packages/effect/test/schema/Schema.test.ts	4762	ported	a_void_member_makes_every_one_of_union_ambiguous
-packages/effect/test/schema/Schema.test.ts	4641	not-applicable	the row's first member yields through the Effect runtime and the row asserts when the next member starts; async members are a stated residual of this port (see the module doc in src/transform.rs), so there is no scheduler to observe
-packages/effect/test/schema/Schema.test.ts	4676	not-applicable	same residual: the member's decode suspends on a Deferred, which the port has no fibre to wait on
-packages/effect/test/schema/Schema.test.ts	4711	not-applicable	same residual again: the row compares two asynchronous successes in member order
-packages/effect/test/schema/Schema.test.ts	4770	not-applicable	the row's values are JavaScript symbols, functions and bigints and it pins the pin's empty-Struct acceptance over them; a struct here is a string-keyed map and none of those is one

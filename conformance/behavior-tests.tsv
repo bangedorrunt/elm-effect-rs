@@ -7744,21 +7744,21 @@ unported	packages/effect/test/schema/Schema.test.ts	4009	it.effect	sequential pa
 ported	packages/effect/test/schema/Schema.test.ts	4028	it	Record(String, optionalKey(Number)) should throw	index_signature_refuses_an_optional_key_value
 ported	packages/effect/test/schema/Schema.test.ts	4035	it	Record(String, optional(Number))	record_optional_values_accept_null_but_reject_wrong_type
 ported	packages/effect/test/schema/Schema.test.ts	4053	it	Record(String.check, Number) should use the key checks to select keys	record_with_a_checked_key_selects_its_entries
-unported	packages/effect/test/schema/Schema.test.ts	4066	it	applies excess-property options to unmatched own keys	
+ported	packages/effect/test/schema/Schema.test.ts	4066	it	applies excess-property options to unmatched own keys	record_excess_names_an_unmatched_key
 unported	packages/effect/test/schema/Schema.test.ts	4082	it	recognizes numeric declared keys with an index signature	
-unported	packages/effect/test/schema/Schema.test.ts	4091	it	Record(Symbol, Number)	
-unported	packages/effect/test/schema/Schema.test.ts	4119	it	index signatures select only enumerable ${typeof key} properties	
-unported	packages/effect/test/schema/Schema.test.ts	4141	it	Record(Symbol.check, Number) should use the key checks to select keys	
+not-applicable	packages/effect/test/schema/Schema.test.ts	4091	it	Record(Symbol, Number)	the row's own keys are JavaScript symbols, and a record here is a string-keyed map with no symbol-keyed variant
+not-applicable	packages/effect/test/schema/Schema.test.ts	4119	it	index signatures select only enumerable ${typeof key} properties	the row asserts a non-enumerable own property is never read; a Rust map holds exactly the entries it was given, so there is no enumerability to observe
+not-applicable	packages/effect/test/schema/Schema.test.ts	4141	it	Record(Symbol.check, Number) should use the key checks to select keys	the key check is a predicate over JavaScript symbols (Symbol.keyFor) and the keys themselves are symbols
 unported	packages/effect/test/schema/Schema.test.ts	4159	it	Record(SnakeToCamel, NumberFromString)	
-unported	packages/effect/test/schema/Schema.test.ts	4174	it	UniqueSymbol	
+not-applicable	packages/effect/test/schema/Schema.test.ts	4174	it	UniqueSymbol	the key is a specific JavaScript symbol identity, which a string-keyed map cannot hold
 ported	packages/effect/test/schema/Schema.test.ts	4189	it	deduplicates repeated literal keys	literal_key_record_counts_a_repeated_key_once
 ported	packages/effect/test/schema/Schema.test.ts	4194	it	Record(Literals, Number)	literal_key_record_requires_every_declared_key
 ported	packages/effect/test/schema/Schema.test.ts	4212	it	Record(Literals, optionalKey(Number))	literal_key_record_with_optional_values_requires_no_key
 unported	packages/effect/test/schema/Schema.test.ts	4223	it	Record(Literals, mutableKey(Number))	
 unported	packages/effect/test/schema/Schema.test.ts	4231	it	Record(Literals, mutableKey(optionalKey(Number)))	
 ported	packages/effect/test/schema/Schema.test.ts	4246	it	Record(Number, String)	record_with_a_number_key_selects_numeric_keys
-unported	packages/effect/test/schema/Schema.test.ts	4270	it	Record(Int, String)	
-unported	packages/effect/test/schema/Schema.test.ts	4289	it	Record(TemplateLiteral with checked part, Number) should use the part checks to select keys	
+ported	packages/effect/test/schema/Schema.test.ts	4270	it	Record(Int, String)	an_integer_key_schema_selects_the_numeric_names
+ported	packages/effect/test/schema/Schema.test.ts	4289	it	Record(TemplateLiteral with checked part, Number) should use the part checks to select keys	a_template_literal_key_schema_selects_its_own_keys
 unported	packages/effect/test/schema/Schema.test.ts	4302	it	a	
 ported	packages/effect/test/schema/Schema.test.ts	4322	it	empty	union_with_no_members_admits_nothing
 ported	packages/effect/test/schema/Schema.test.ts	4330	it	String	union_of_one_member_decodes_as_that_member
@@ -7772,16 +7772,16 @@ ported	packages/effect/test/schema/Schema.test.ts	4420	it	oneOf	one_of_refuses_a
 ported	packages/effect/test/schema/Schema.test.ts	4434	it	oneOf	one_of_inside_a_struct_counts_the_nested_member_once
 ported	packages/effect/test/schema/Schema.test.ts	4460	it	oneOf	one_of_counts_the_same_member_twice
 ported	packages/effect/test/schema/Schema.test.ts	4472	it	oneOf	one_of_counts_the_same_literal_twice
-unported	packages/effect/test/schema/Schema.test.ts	4484	it	preserves member order after sentinel dispatch	
+ported	packages/effect/test/schema/Schema.test.ts	4484	it	preserves member order after sentinel dispatch	member_order_is_preserved_after_sentinel_dispatch
 unported	packages/effect/test/schema/Schema.test.ts	4504	it	preserves recovering members during runtime type dispatch	
 unported	packages/effect/test/schema/Schema.test.ts	4551	it	preserves recovering members during sentinel dispatch	
 ported	packages/effect/test/schema/Schema.test.ts	4586	it	keeps suspended members lazy during candidate selection	union_skips_suspended_loser_after_success
 ported	packages/effect/test/schema/Schema.test.ts	4627	it	does not force a recursive suspended member after an earlier success	union_skips_suspended_loser_after_success
-unported	packages/effect/test/schema/Schema.test.ts	4641	it.effect	does not start later members after an asynchronous success	
-unported	packages/effect/test/schema/Schema.test.ts	4676	it.effect	starts the next member only after an asynchronous failure	
-unported	packages/effect/test/schema/Schema.test.ts	4711	it.effect	oneOf	
-unported	packages/effect/test/schema/Schema.test.ts	4762	it	oneOf	
-unported	packages/effect/test/schema/Schema.test.ts	4770	it	Struct({}) preserves its semantics in a union	
+not-applicable	packages/effect/test/schema/Schema.test.ts	4641	it.effect	does not start later members after an asynchronous success	the row's first member yields through the Effect runtime and the row asserts when the next member starts; async members are a stated residual of this port (see the module doc in src/transform.rs), so there is no scheduler to observe
+not-applicable	packages/effect/test/schema/Schema.test.ts	4676	it.effect	starts the next member only after an asynchronous failure	same residual: the member's decode suspends on a Deferred, which the port has no fibre to wait on
+not-applicable	packages/effect/test/schema/Schema.test.ts	4711	it.effect	oneOf	same residual again: the row compares two asynchronous successes in member order
+ported	packages/effect/test/schema/Schema.test.ts	4762	it	oneOf	a_void_member_makes_every_one_of_union_ambiguous
+not-applicable	packages/effect/test/schema/Schema.test.ts	4770	it	Struct({}) preserves its semantics in a union	the row's values are JavaScript symbols, functions and bigints and it pins the pin's empty-Struct acceptance over them; a struct here is a string-keyed map and none of those is one
 unported	packages/effect/test/schema/Schema.test.ts	4793	it	string | struct	
 unported	packages/effect/test/schema/Schema.test.ts	4807	it	string | tuple	
 unported	packages/effect/test/schema/Schema.test.ts	4821	it	tagged struct union	
@@ -7794,8 +7794,8 @@ unported	packages/effect/test/schema/Schema.test.ts	4979	it	[String] + [Boolean,
 ported	packages/effect/test/schema/Schema.test.ts	4997	it	should throw an error if there are duplicate property signatures	struct_with_rest_refuses_a_fixed_key_the_rest_also_names
 unported	packages/effect/test/schema/Schema.test.ts	5008	it	should throw an error if there are encodings	
 ported	packages/effect/test/schema/Schema.test.ts	5019	it	Record(String, Number)	struct_with_rest_refuses_a_fixed_key_the_rest_also_names
-unported	packages/effect/test/schema/Schema.test.ts	5036	it	Record(Symbol, Number)	
-unported	packages/effect/test/schema/Schema.test.ts	5053	it	Record(`a${string}`, Number)	
+not-applicable	packages/effect/test/schema/Schema.test.ts	5036	it	Record(Symbol, Number)	the catch-all record's keys are symbols under a StructWithRest; the string-keyed half of the same shape is carried by the row beside it
+ported	packages/effect/test/schema/Schema.test.ts	5053	it	Record(`a${string}`, Number)	a_record_rest_under_a_struct_selects_template_keys
 unported	packages/effect/test/schema/Schema.test.ts	5075	it	applies excess-property options after fixed and index signatures	
 ported	packages/effect/test/schema/Schema.test.ts	5095	it	should preserve both checks	struct_with_rest_keeps_both_checks
 ported	packages/effect/test/schema/Schema.test.ts	5121	it	index signatures should not re-parse fixed properties	struct_with_rest_does_not_re_parse_a_fixed_property
@@ -7885,81 +7885,81 @@ ported	packages/effect/test/schema/Schema.test.ts	6540	it	`c${`a${string}b` | \	
 ported	packages/effect/test/schema/Schema.test.ts	6557	it	< + h + (1|2n) + >	template_literal_nested_literals_part
 ported	packages/effect/test/schema/Schema.test.ts	6570	it	a	template_literal_anchor_then_non_empty_string
 not-applicable	packages/effect/test/schema/Schema.test.ts	6590	it	a	the row asserts a construction-time throw for a part that carries an encoding (FiniteFromString); TemplatePart has no transformation variant, so the refusal is a type error and there is no runtime path to assert
-unported	packages/effect/test/schema/Schema.test.ts	6599	it	should expose the parts	
+ported	packages/effect/test/schema/Schema.test.ts	6599	it	should expose the parts	template_parser_exposes_its_parts
 ported	packages/effect/test/schema/Schema.test.ts	6605	it	preserves greedy segmentation at repeated literal anchors	greedy_segmentation_at_repeated_anchors
 ported	packages/effect/test/schema/Schema.test.ts	6612	it	backtracks from an invalid literal anchor	backtracks_from_an_invalid_literal_anchor
 ported	packages/effect/test/schema/Schema.test.ts	6619	it	backtracks across an empty literal anchor	backtracks_across_an_empty_literal_anchor
 ported	packages/effect/test/schema/Schema.test.ts	6626	it	NonEmptyString + String	adjacent_spans_split_greedily
 ported	packages/effect/test/schema/Schema.test.ts	6634	it	a	single_anchor_matches_whole
 ported	packages/effect/test/schema/Schema.test.ts	6654	it	a b	anchors_with_spaces_roundtrip
-unported	packages/effect/test/schema/Schema.test.ts	6667	it	a	
-unported	packages/effect/test/schema/Schema.test.ts	6687	it	Int + String	
-unported	packages/effect/test/schema/Schema.test.ts	6695	it	a	
-unported	packages/effect/test/schema/Schema.test.ts	6717	it	h	
-unported	packages/effect/test/schema/Schema.test.ts	6725	it	c	
-unported	packages/effect/test/schema/Schema.test.ts	6746	it	c	
-unported	packages/effect/test/schema/Schema.test.ts	6770	it	<	
-unported	packages/effect/test/schema/Schema.test.ts	6783	it	<	
-unported	packages/effect/test/schema/Schema.test.ts	6802	it.effect	make preserves existing instances like the other constructor adapters	
-unported	packages/effect/test/schema/Schema.test.ts	6820	it	make applies defaults, source checks, and the constructor once	
-unported	packages/effect/test/schema/Schema.test.ts	6846	it	make with void input	
+ported	packages/effect/test/schema/Schema.test.ts	6667	it	a	parser_int_then_anchor
+ported	packages/effect/test/schema/Schema.test.ts	6687	it	Int + String	parser_int_part_then_string_leaves_the_fraction
+ported	packages/effect/test/schema/Schema.test.ts	6695	it	a	parser_number_then_anchor_then_non_empty_string
+ported	packages/effect/test/schema/Schema.test.ts	6717	it	h	parser_anchor_then_literals_part
+ported	packages/effect/test/schema/Schema.test.ts	6725	it	c	parser_union_with_a_nested_parser_part
+ported	packages/effect/test/schema/Schema.test.ts	6746	it	c	parser_union_with_a_nested_checked_int_part
+ported	packages/effect/test/schema/Schema.test.ts	6770	it	<	parser_nested_template_literal_part_captures_text
+ported	packages/effect/test/schema/Schema.test.ts	6783	it	<	parser_nested_parser_part_captures_a_list
+ported	packages/effect/test/schema/Schema.test.ts	6802	it.effect	make preserves existing instances like the other constructor adapters	make_answers_an_existing_instance_unchanged
+ported	packages/effect/test/schema/Schema.test.ts	6820	it	make applies defaults, source checks, and the constructor once	make_fills_constructor_defaults_on_construction
+ported	packages/effect/test/schema/Schema.test.ts	6846	it	make with void input	make_with_void_input_builds_a_zero_field_class
 unported	packages/effect/test/schema/Schema.test.ts	6853	it	decoding validates the class struct once	
 unported	packages/effect/test/schema/Schema.test.ts	6869	it	make validates an existing nested Class once	
 unported	packages/effect/test/schema/Schema.test.ts	6884	it	make validates a nested Class source and output once	
-unported	packages/effect/test/schema/Schema.test.ts	6905	it	make allows an optional nested Class to be omitted	
+ported	packages/effect/test/schema/Schema.test.ts	6905	it	make allows an optional nested Class to be omitted	an_optional_nested_class_may_be_omitted_from_a_construction
 unported	packages/effect/test/schema/Schema.test.ts	6912	it	make applies constructor defaults only at a field occurrence	
 ported	packages/effect/test/schema/Schema.test.ts	6932	it	suspend before initialization	suspend_reads_late_initialized_binding
 unported	packages/effect/test/schema/Schema.test.ts	6946	it	should memoize the ast	
-unported	packages/effect/test/schema/Schema.test.ts	6953	it	should set the identifier annotation	
+ported	packages/effect/test/schema/Schema.test.ts	6953	it	should set the identifier annotation	a_class_exposes_its_fields_and_identifier_and_round_trips
 unported	packages/effect/test/schema/Schema.test.ts	6961	it	`[immerable]`	
 unported	packages/effect/test/schema/Schema.test.ts	6981	it	Equality	
 unported	packages/effect/test/schema/Schema.test.ts	6998	it	mapFields	
-unported	packages/effect/test/schema/Schema.test.ts	7006	it	Struct with nested Class	
-unported	packages/effect/test/schema/Schema.test.ts	7020	it	Class with nested Class	
+ported	packages/effect/test/schema/Schema.test.ts	7006	it	Struct with nested Class	a_nested_class_field_constructs_its_own_instance
+ported	packages/effect/test/schema/Schema.test.ts	7020	it	Class with nested Class	a_nested_class_field_constructs_its_own_instance
 unported	packages/effect/test/schema/Schema.test.ts	7035	it	make preserves Class instances in Array(Class) and Array(Union(Class))	
 unported	packages/effect/test/schema/Schema.test.ts	7047	it	make constructs nested Class instances with and without Union	
 unported	packages/effect/test/schema/Schema.test.ts	7056	it	make selects the first TaggedClass Union member when the tag is defaulted	
 unported	packages/effect/test/schema/Schema.test.ts	7064	it	should be possible to define a class with a mutable field	
-unported	packages/effect/test/schema/Schema.test.ts	7083	it	Fields argument	
-unported	packages/effect/test/schema/Schema.test.ts	7139	it	Struct argument	
-unported	packages/effect/test/schema/Schema.test.ts	7195	it	constructor ignores excess properties by default	
-unported	packages/effect/test/schema/Schema.test.ts	7206	it	constructor strips excess properties with explicit ignore	
-unported	packages/effect/test/schema/Schema.test.ts	7219	it	constructor rejects excess properties when requested	
-unported	packages/effect/test/schema/Schema.test.ts	7231	it	annotate	
+ported	packages/effect/test/schema/Schema.test.ts	7083	it	Fields argument	a_class_exposes_its_fields_and_identifier_and_round_trips
+ported	packages/effect/test/schema/Schema.test.ts	7139	it	Struct argument	a_class_exposes_its_fields_and_identifier_and_round_trips
+ported	packages/effect/test/schema/Schema.test.ts	7195	it	constructor ignores excess properties by default	the_constructor_ignores_excess_properties_by_default
+ported	packages/effect/test/schema/Schema.test.ts	7206	it	constructor strips excess properties with explicit ignore	an_explicit_ignore_or_strip_still_leaves_the_key_off
+ported	packages/effect/test/schema/Schema.test.ts	7219	it	constructor rejects excess properties when requested	the_constructor_rejects_excess_properties_when_requested
+ported	packages/effect/test/schema/Schema.test.ts	7231	it	annotate	an_annotation_over_a_class_keeps_the_class
 unported	packages/effect/test/schema/Schema.test.ts	7247	it	basic	
 unported	packages/effect/test/schema/Schema.test.ts	7280	it	decoding validates the extended struct once	
-unported	packages/effect/test/schema/Schema.test.ts	7307	it	constructor preserves subclass fields while ignoring excess properties by default	
+ported	packages/effect/test/schema/Schema.test.ts	7307	it	constructor preserves subclass fields while ignoring excess properties by default	the_extended_constructor_ignores_excess_but_not_the_subclass_fields
 unported	packages/effect/test/schema/Schema.test.ts	7322	it	constructor keeps subclass fields and strips excess properties with explicit ignore	
-unported	packages/effect/test/schema/Schema.test.ts	7339	it	constructor does not treat subclass fields as excess properties	
+ported	packages/effect/test/schema/Schema.test.ts	7339	it	constructor does not treat subclass fields as excess properties	the_extended_constructor_ignores_excess_but_not_the_subclass_fields
 unported	packages/effect/test/schema/Schema.test.ts	7361	it	Struct argument	
 unported	packages/effect/test/schema/Schema.test.ts	7380	it	static members	
 unported	packages/effect/test/schema/Schema.test.ts	7395	it	make with void input	
-unported	packages/effect/test/schema/Schema.test.ts	7402	it	explicit identifier	
-unported	packages/effect/test/schema/Schema.test.ts	7409	it	fields argument	
-unported	packages/effect/test/schema/Schema.test.ts	7435	it	constructor ignores excess properties by default	
-unported	packages/effect/test/schema/Schema.test.ts	7447	it	Struct argument	
-unported	packages/effect/test/schema/Schema.test.ts	7471	it	extended constructor does not treat subclass fields as excess properties	
-unported	packages/effect/test/schema/Schema.test.ts	7503	it	make with void input	
-unported	packages/effect/test/schema/Schema.test.ts	7510	it	fields argument	
-unported	packages/effect/test/schema/Schema.test.ts	7527	it	constructor ignores excess properties by default	
-unported	packages/effect/test/schema/Schema.test.ts	7543	it	constructor strips excess properties with explicit ignore	
+ported	packages/effect/test/schema/Schema.test.ts	7402	it	explicit identifier	the_name_is_the_identifier_and_the_tag_stands_in_when_there_is_none
+ported	packages/effect/test/schema/Schema.test.ts	7409	it	fields argument	a_tagged_class_carries_its_tag_on_the_wire
+ported	packages/effect/test/schema/Schema.test.ts	7435	it	constructor ignores excess properties by default	a_tagged_error_ignores_excess_properties_by_default
+ported	packages/effect/test/schema/Schema.test.ts	7447	it	Struct argument	a_tagged_class_carries_its_tag_on_the_wire
+ported	packages/effect/test/schema/Schema.test.ts	7471	it	extended constructor does not treat subclass fields as excess properties	the_extended_constructor_ignores_excess_but_not_the_subclass_fields
+ported	packages/effect/test/schema/Schema.test.ts	7503	it	make with void input	an_error_class_is_its_tagged_error_twin_and_prints_like_one
+ported	packages/effect/test/schema/Schema.test.ts	7510	it	fields argument	an_error_class_is_its_tagged_error_twin_and_prints_like_one
+ported	packages/effect/test/schema/Schema.test.ts	7527	it	constructor ignores excess properties by default	an_error_class_is_its_tagged_error_twin_and_prints_like_one
+ported	packages/effect/test/schema/Schema.test.ts	7543	it	constructor strips excess properties with explicit ignore	an_error_class_is_its_tagged_error_twin_and_prints_like_one
 unported	packages/effect/test/schema/Schema.test.ts	7558	it	Struct argument	
-unported	packages/effect/test/schema/Schema.test.ts	7579	it	extend	
-unported	packages/effect/test/schema/Schema.test.ts	7615	it	extended constructor ignores excess properties by default	
-unported	packages/effect/test/schema/Schema.test.ts	7630	it	extended constructor does not treat subclass fields as excess properties	
-unported	packages/effect/test/schema/Schema.test.ts	7646	it	`toString` to match native `Error` output format	
-unported	packages/effect/test/schema/Schema.test.ts	7656	it	make preserves existing instances	
-unported	packages/effect/test/schema/Schema.test.ts	7663	it	make with void input	
-unported	packages/effect/test/schema/Schema.test.ts	7670	it	fields argument	
-unported	packages/effect/test/schema/Schema.test.ts	7692	it	constructor ignores excess properties by default	
-unported	packages/effect/test/schema/Schema.test.ts	7704	it	Struct argument	
-unported	packages/effect/test/schema/Schema.test.ts	7718	it	name matches tag	
-unported	packages/effect/test/schema/Schema.test.ts	7727	it	name matches identifier	
-unported	packages/effect/test/schema/Schema.test.ts	7736	it	name matches identifier after extend	
-unported	packages/effect/test/schema/Schema.test.ts	7748	it	zero-field TaggedError allows omitting props argument	
-unported	packages/effect/test/schema/Schema.test.ts	7762	it	extend	
-unported	packages/effect/test/schema/Schema.test.ts	7775	it	extended constructor ignores excess properties by default	
-unported	packages/effect/test/schema/Schema.test.ts	7791	it	extended constructor does not treat subclass fields as excess properties	
+ported	packages/effect/test/schema/Schema.test.ts	7579	it	extend	an_error_class_is_its_tagged_error_twin_and_prints_like_one
+ported	packages/effect/test/schema/Schema.test.ts	7615	it	extended constructor ignores excess properties by default	an_error_class_is_its_tagged_error_twin_and_prints_like_one
+ported	packages/effect/test/schema/Schema.test.ts	7630	it	extended constructor does not treat subclass fields as excess properties	an_error_class_is_its_tagged_error_twin_and_prints_like_one
+ported	packages/effect/test/schema/Schema.test.ts	7646	it	`toString` to match native `Error` output format	an_error_class_is_its_tagged_error_twin_and_prints_like_one
+ported	packages/effect/test/schema/Schema.test.ts	7656	it	make preserves existing instances	make_answers_an_existing_instance_unchanged
+ported	packages/effect/test/schema/Schema.test.ts	7663	it	make with void input	a_zero_field_tagged_error_accepts_an_omitted_props_argument
+ported	packages/effect/test/schema/Schema.test.ts	7670	it	fields argument	a_tagged_class_carries_its_tag_on_the_wire
+ported	packages/effect/test/schema/Schema.test.ts	7692	it	constructor ignores excess properties by default	a_tagged_error_ignores_excess_properties_by_default
+ported	packages/effect/test/schema/Schema.test.ts	7704	it	Struct argument	a_tagged_classs_field_list_reports_the_discriminant
+ported	packages/effect/test/schema/Schema.test.ts	7718	it	name matches tag	the_name_is_the_identifier_and_the_tag_stands_in_when_there_is_none
+ported	packages/effect/test/schema/Schema.test.ts	7727	it	name matches identifier	the_name_is_the_identifier_and_the_tag_stands_in_when_there_is_none
+ported	packages/effect/test/schema/Schema.test.ts	7736	it	name matches identifier after extend	extend_keeps_the_parents_tag_and_takes_the_childs_identifier
+ported	packages/effect/test/schema/Schema.test.ts	7748	it	zero-field TaggedError allows omitting props argument	a_zero_field_tagged_error_accepts_an_omitted_props_argument
+ported	packages/effect/test/schema/Schema.test.ts	7762	it	extend	extend_keeps_the_parents_tag_and_takes_the_childs_identifier
+ported	packages/effect/test/schema/Schema.test.ts	7775	it	extended constructor ignores excess properties by default	the_extended_constructor_ignores_excess_but_not_the_subclass_fields
+ported	packages/effect/test/schema/Schema.test.ts	7791	it	extended constructor does not treat subclass fields as excess properties	the_extended_constructor_ignores_excess_but_not_the_subclass_fields
 unported	packages/effect/test/schema/Schema.test.ts	7810	it	rejects non-finite numeric values	
 unported	packages/effect/test/schema/Schema.test.ts	7819	it	enums should be exposed	
 unported	packages/effect/test/schema/Schema.test.ts	7829	it	Numeric enum	
@@ -8043,19 +8043,19 @@ not-applicable	packages/effect/test/schema/Schema.test.ts	9149	it	supports symbo
 ported	packages/effect/test/schema/Schema.test.ts	9159	it	rejects duplicate destination keys	encode_keys_refuses_duplicate_destinations
 ported	packages/effect/test/schema/Schema.test.ts	9172	it	rejects destination keys that collide with unmapped fields	encode_keys_refuses_a_collision_with_an_unmapped_field
 not-applicable	packages/effect/test/schema/Schema.test.ts	9185	it	rejects canonical number and string destination key collisions	the row's point is JavaScript key canonicalization (1 and "1" are one key); this port's keys are strings already, so the canonicalization has nothing to do and the duplicate it reports is the plain duplicate destination the neighbouring row carries
-unported	packages/effect/test/schema/Schema.test.ts	9200	it	returns undefined	
-unported	packages/effect/test/schema/Schema.test.ts	9207	it	returns true	
-unported	packages/effect/test/schema/Schema.test.ts	9214	it	returns false	
-unported	packages/effect/test/schema/Schema.test.ts	9224	it	returns string	
-unported	packages/effect/test/schema/Schema.test.ts	9235	it	abort: false	
-unported	packages/effect/test/schema/Schema.test.ts	9252	it	abort: true	
-unported	packages/effect/test/schema/Schema.test.ts	9270	it	abort: false	
-unported	packages/effect/test/schema/Schema.test.ts	9289	it	abort: true	
-unported	packages/effect/test/schema/Schema.test.ts	9304	it	issue: Issue	
-unported	packages/effect/test/schema/Schema.test.ts	9323	it	empty array is treated as success	
-unported	packages/effect/test/schema/Schema.test.ts	9330	it	single-element array collapses to the element	
-unported	packages/effect/test/schema/Schema.test.ts	9343	it	multi-element array groups into a Composite	
-unported	packages/effect/test/schema/Schema.test.ts	9361	it	array mixing string, Issue, and { path, issue }	
+ported	packages/effect/test/schema/Schema.test.ts	9200	it	returns undefined	filter_returning_undefined_passes
+ported	packages/effect/test/schema/Schema.test.ts	9207	it	returns true	filter_returning_true_passes
+ported	packages/effect/test/schema/Schema.test.ts	9214	it	returns false	filter_returning_false_names_the_filter
+ported	packages/effect/test/schema/Schema.test.ts	9224	it	returns string	filter_returning_a_string_reports_it
+ported	packages/effect/test/schema/Schema.test.ts	9235	it	abort: false	filters_returning_issues_collect_in_order
+ported	packages/effect/test/schema/Schema.test.ts	9252	it	abort: true	an_aborting_filter_stops_the_chain
+ported	packages/effect/test/schema/Schema.test.ts	9270	it	abort: false	a_filter_object_points_at_a_path
+ported	packages/effect/test/schema/Schema.test.ts	9289	it	abort: true	an_aborting_path_filter_stops_the_chain
+ported	packages/effect/test/schema/Schema.test.ts	9304	it	issue: Issue	a_filter_issue_carries_its_own_message
+ported	packages/effect/test/schema/Schema.test.ts	9323	it	empty array is treated as success	an_empty_array_result_passes
+ported	packages/effect/test/schema/Schema.test.ts	9330	it	single-element array collapses to the element	a_single_element_array_collapses
+ported	packages/effect/test/schema/Schema.test.ts	9343	it	multi-element array groups into a Composite	a_multi_element_array_composites
+ported	packages/effect/test/schema/Schema.test.ts	9361	it	array mixing string, Issue, and { path, issue }	an_array_mixing_kinds_composites_in_order
 unported	packages/effect/test/schema/Schema.test.ts	9383	it	Struct	
 unported	packages/effect/test/schema/Schema.test.ts	9401	it	Union	
 unported	packages/effect/test/schema/Schema.test.ts	9433	it	should augment a union of structs	
@@ -8093,19 +8093,19 @@ ported	packages/effect/test/schema/Schema.test.ts	10034	it	nested default values
 ported	packages/effect/test/schema/Schema.test.ts	10050	it	Effect failing with SchemaError propagates as decode failure	typed_default_failure_is_a_decode_failure
 not-applicable	packages/effect/test/schema/Schema.test.ts	10069	it	default Effect can require a service	the row provides a service to the default's Effect and asserts the service supplies the value; a default here is a plain closure with no service channel (services live in elm-effect), so there is nothing to provide
 ported	packages/effect/test/schema/Schema.test.ts	10089	it	NonEmptyString	refine_non_empty_string
-unported	packages/effect/test/schema/Schema.test.ts	10108	it	Char	
-unported	packages/effect/test/schema/Schema.test.ts	10131	it	Int	
-unported	packages/effect/test/schema/Schema.test.ts	10166	it	Natural	
-unported	packages/effect/test/schema/Schema.test.ts	10194	it	Capitalize	
-unported	packages/effect/test/schema/Schema.test.ts	10218	it	Uncapitalize	
-unported	packages/effect/test/schema/Schema.test.ts	10242	it	Lowercase	
-unported	packages/effect/test/schema/Schema.test.ts	10266	it	Uppercase	
+ported	packages/effect/test/schema/Schema.test.ts	10108	it	Char	char_admits_exactly_one_character
+ported	packages/effect/test/schema/Schema.test.ts	10131	it	Int	int_is_an_integer_and_refuses_the_non_integers
+ported	packages/effect/test/schema/Schema.test.ts	10166	it	Natural	natural_is_a_non_negative_integer
+ported	packages/effect/test/schema/Schema.test.ts	10194	it	Capitalize	capitalize_normalizes_on_decode_and_insists_on_encode
+ported	packages/effect/test/schema/Schema.test.ts	10218	it	Uncapitalize	uncapitalize_normalizes_on_decode_and_insists_on_encode
+ported	packages/effect/test/schema/Schema.test.ts	10242	it	Lowercase	lowercase_normalizes_on_decode_and_insists_on_encode
+ported	packages/effect/test/schema/Schema.test.ts	10266	it	Uppercase	uppercase_normalizes_on_decode_and_insists_on_encode
 unported	packages/effect/test/schema/Schema.test.ts	10292	it	succeed	
 ported	packages/effect/test/schema/Schema.test.ts	10310	it	isStringFinite	refine_is_string_finite
 unported	packages/effect/test/schema/Schema.test.ts	10319	it	isStringBigInt	
 unported	packages/effect/test/schema/Schema.test.ts	10328	it	isStringSymbol	
 ported	packages/effect/test/schema/Schema.test.ts	10337	it	isUUID	refine_is_uuid
-unported	packages/effect/test/schema/Schema.test.ts	10361	it	isUUID version-specific checks reject nil and max UUIDs	
+ported	packages/effect/test/schema/Schema.test.ts	10361	it	isUUID version-specific checks reject nil and max UUIDs	a_versioned_uuid_check_refuses_the_nil_and_max_uuids
 ported	packages/effect/test/schema/Schema.test.ts	10377	it	isGUID	refine_is_guid
 ported	packages/effect/test/schema/Schema.test.ts	10399	it	isULID	refine_is_ulid
 ported	packages/effect/test/schema/Schema.test.ts	10420	it	isBase64	refine_is_base64
