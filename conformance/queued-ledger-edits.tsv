@@ -110,6 +110,15 @@
 # (`Missing key at ["a"]`) rather than the union-level one.
 # elm-effect-rs-port-jsonschema-dialects-8wm0: carried and witnessed, waiting for the
 # behavior-tests.tsv lease (BoldKite holds it for elm-effect-rs-port-txhashmap-ujl).
+# Batch 13, one more row from elm-effect-rs-port-jsonschema-dialects-8wm0 (queued).
+# :156 asserts an ajv equivalence, so the witness reads BOTH the Draft-07 source
+# and the lowered canonical document back through the test-local `accepts`
+# reader in port_json_schema.rs, which grew `const`, `dependencies` /
+# `dependentRequired` / `dependentSchemas`, `contains` and `if`/`then`/`else` to
+# read the pair. The source side of the six-case table is checked against the
+# verdicts Draft-07's own rules give those instances, so the canonical side is a
+# real comparison rather than one reader agreeing with itself.
+packages/effect/test/JsonSchema.test.ts	156	ported	draft07_preserves_validation_semantics_in_the_canonical_dialect
 packages/effect/test/JsonSchema.test.ts	2445	ported	multi_rejects_opaque_keywords_open_api3_1_would_activate
 packages/effect/test/JsonSchema.test.ts	2461	ported	multi_does_not_inspect_opaque_values_for_keyword_collisions
 packages/effect/test/JsonSchema.test.ts	2473	ported	multi_rewrites_defs_refs_to_component_refs

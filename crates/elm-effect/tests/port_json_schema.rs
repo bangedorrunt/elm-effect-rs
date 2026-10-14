@@ -2655,6 +2655,146 @@ fn a_draft07_schema_round_trips_through_canonical_form() {
 }
 
 // ---------------------------------------------------------------------------
+// JsonSchema.test.ts:156 fromSchemaDraft07 validation semantics
+// ---------------------------------------------------------------------------
+
+/// The pin's `makeCanonicalSchema`: the lowered document as a standalone schema,
+/// which is the shape it hands the 2020-12 validator.
+fn canonical_schema(document: &json_schema::Document) -> Json {
+    let Json::Obj(mut map) = document.schema.clone() else {
+        panic!("a document root is an object");
+    };
+    map.insert(
+        "$schema".to_string(),
+        text(json_schema::META_SCHEMA_URI_DRAFT_2020_12),
+    );
+    if !document.definitions.is_empty() {
+        map.insert("$defs".to_string(), Json::Obj(document.definitions.clone()));
+    }
+    Json::Obj(map)
+}
+
+/// The pin proves this row by compiling the Draft-07 source and the lowered
+/// canonical schema and asserting two validators agree on six instances. This
+/// port has no validator, so both sides go through [`accepts`]: the source side
+/// is checked against the verdicts Draft-07's own rules give those six, which is
+/// what stops the canonical side from being one reader agreeing with itself.
+#[test]
+fn draft07_preserves_validation_semantics_in_the_canonical_dialect() {
+    let source = obj(&[
+        ("type", text("object")),
+        (
+            "properties",
+            obj(&[
+                (
+                    "kind",
+                    obj(&[("enum", arr(&[text("full"), text("compact")]))]),
+                ),
+                ("value", obj(&[("type", text("string"))])),
+                ("extra", flag(true)),
+                (
+                    "values",
+                    obj(&[
+                        ("type", text("array")),
+                        ("contains", obj(&[("type", text("number"))])),
+                    ]),
+                ),
+            ]),
+        ),
+        ("required", arr(&[text("kind"), text("values")])),
+        ("dependencies", obj(&[("value", arr(&[text("extra")]))])),
+        (
+            "if",
+            obj(&[(
+                "properties",
+                obj(&[("kind", obj(&[("const", text("full"))]))]),
+            )]),
+        ),
+        ("then", obj(&[("required", arr(&[text("value")]))])),
+        (
+            "else",
+            obj(&[("not", obj(&[("required", arr(&[text("value")]))]))]),
+        ),
+    ]);
+
+    let document = json_schema::from_schema_draft07(&source).expect("draft-07 lifts");
+    let canonical = canonical_schema(&document);
+
+    // The one keyword the canonical dialect spells differently is lowered, and
+    // the shared ones are left in place for the reader below to find.
+    assert!(!mentions(&canonical, "dependencies"), "{:?}", canonical);
+    assert!(mentions(&canonical, "dependentRequired"), "{:?}", canonical);
+    assert!(mentions(&canonical, "if"), "{:?}", canonical);
+    assert!(mentions(&canonical, "contains"), "{:?}", canonical);
+
+    let cases = [
+        // The dependencies step is satisfied, and `then` needs its value.
+        (
+            obj(&[
+                ("kind", text("full")),
+                ("value", text("ok")),
+                ("extra", flag(true)),
+                ("values", arr(&[num(1.0)])),
+            ]),
+            true,
+        ),
+        // `then` holds: full mode without a value is refused.
+        (
+            obj(&[("kind", text("full")), ("values", arr(&[num(1.0)]))]),
+            false,
+        ),
+        // The same instance with no `extra` fails the dependency.
+        (
+            obj(&[
+                ("kind", text("full")),
+                ("value", text("missing dependency")),
+                ("values", arr(&[num(1.0)])),
+            ]),
+            false,
+        ),
+        // `else` holds: no value in compact mode.
+        (
+            obj(&[("kind", text("compact")), ("values", arr(&[num(1.0)]))]),
+            true,
+        ),
+        (
+            obj(&[
+                ("kind", text("compact")),
+                ("value", text("forbidden")),
+                ("extra", flag(true)),
+                ("values", arr(&[num(1.0)])),
+            ]),
+            false,
+        ),
+        // Nothing in the array is a number, so `contains` refuses.
+        (
+            obj(&[
+                ("kind", text("full")),
+                ("value", text("ok")),
+                ("extra", flag(true)),
+                ("values", arr(&[text("no")])),
+            ]),
+            false,
+        ),
+    ];
+
+    for (value, expected) in cases {
+        assert_eq!(
+            accepts(&document, &source, &value),
+            expected,
+            "draft-07 source on {:?}",
+            value
+        );
+        assert_eq!(
+            accepts(&document, &canonical, &value),
+            expected,
+            "canonical form on {:?}",
+            value
+        );
+    }
+}
+
+// ---------------------------------------------------------------------------
 // JsonSchema.test.ts:1884-2417 toDocumentDraft04
 // ---------------------------------------------------------------------------
 
@@ -2664,15 +2804,15 @@ fn not_any() -> Json {
     obj(&[("not", obj(&[]))])
 }
 
-/// A draft-04 reader for the rows whose only assertion in the pin is an `ajv`
-/// outcome. Those rows exist to prove the lowering keeps meaning, and this port
-/// has no validator, so the document the lowering emitted is read back through
-/// the keywords it actually uses. A reader this small is enough because both
-/// `contains` and `if`/`then`/`else` arrive here already rewritten to
-/// `anyOf`/`allOf`/`not`/`items`.
+/// A reader for the rows whose only assertion in the pin is an `ajv` outcome.
+/// Those rows exist to prove a conversion keeps meaning, and this port has no
+/// validator, so a document is read back through the keywords it actually uses.
+/// For the draft-04 rows a reader this small is enough because `contains` and
+/// `if`/`then`/`else` arrive already rewritten to `anyOf`/`allOf`/`not`/`items`;
+/// the draft-07 lift at :156 keeps them, so they are read here too.
 ///
-/// ponytail: no `oneOf`, no `patternProperties`, no `$ref` outside
-/// `/definitions/`; add each when a ported row needs it.
+/// ponytail: no `oneOf`, no `patternProperties`, no `minContains`/`maxContains`,
+/// no `$ref` outside `/definitions/`; add each when a ported row needs it.
 fn accepts(document: &json_schema::Document, schema: &Json, instance: &Json) -> bool {
     let map = match schema {
         Json::Obj(map) => map,
@@ -2741,6 +2881,44 @@ fn accepts(document: &json_schema::Document, schema: &Json, instance: &Json) -> 
         }
     }
 
+    if let Some(expected) = map.get("const") {
+        if instance != expected {
+            return false;
+        }
+    }
+
+    // Draft-07 `dependencies` carries both meanings in one keyword: a list of
+    // names that must then be present, or a schema the instance must still
+    // satisfy. The canonical dialect splits them, so both spellings are read.
+    if let (Json::Obj(values), Some(Json::Obj(dependencies))) = (instance, map.get("dependencies"))
+    {
+        for (key, rule) in dependencies {
+            if values.contains_key(key) && !dependency_holds(document, rule, values, instance) {
+                return false;
+            }
+        }
+    }
+
+    if let (Json::Obj(values), Some(Json::Obj(required_by))) =
+        (instance, map.get("dependentRequired"))
+    {
+        for (key, names) in required_by {
+            if values.contains_key(key) && !dependency_holds(document, names, values, instance) {
+                return false;
+            }
+        }
+    }
+
+    if let (Json::Obj(values), Some(Json::Obj(schemas))) =
+        (instance, map.get("dependentSchemas"))
+    {
+        for (key, subschema) in schemas {
+            if values.contains_key(key) && !accepts(document, subschema, instance) {
+                return false;
+            }
+        }
+    }
+
     if let (Json::Num(value), Some(Json::Num(minimum))) = (instance, map.get("minimum")) {
         let exclusive = matches!(map.get("exclusiveMinimum"), Some(Json::Bool(true)));
         if value < minimum || (exclusive && value == minimum) {
@@ -2799,6 +2977,25 @@ fn accepts(document: &json_schema::Document, schema: &Json, instance: &Json) -> 
         }
     }
 
+    if let (Json::Arr(items), Some(subschema)) = (instance, map.get("contains")) {
+        if !items.iter().any(|item| accepts(document, subschema, item)) {
+            return false;
+        }
+    }
+
+    if let Some(condition) = map.get("if") {
+        let branch = if accepts(document, condition, instance) {
+            map.get("then")
+        } else {
+            map.get("else")
+        };
+        if let Some(branch) = branch {
+            if !accepts(document, branch, instance) {
+                return false;
+            }
+        }
+    }
+
     for keyword in ["allOf", "anyOf"] {
         if let Some(Json::Arr(branches)) = map.get(keyword) {
             let satisfied = if keyword == "allOf" {
@@ -2823,6 +3020,23 @@ fn accepts(document: &json_schema::Document, schema: &Json, instance: &Json) -> 
     }
 
     true
+}
+
+/// A dependency rule is either a list of property names that must then be
+/// present, or a schema the whole instance must then still satisfy.
+fn dependency_holds(
+    document: &json_schema::Document,
+    rule: &Json,
+    values: &BTreeMap<String, Json>,
+    instance: &Json,
+) -> bool {
+    match rule {
+        Json::Arr(names) => names.iter().all(|name| match name {
+            Json::Str(name) => values.contains_key(name),
+            _ => true,
+        }),
+        _ => accepts(document, rule, instance),
+    }
 }
 
 /// Does any position of this document still spell `keyword`?
