@@ -3017,12 +3017,12 @@ not-applicable	packages/effect/test/PubSub.test.ts	827	it.effect	is not dropped 
 ported	packages/effect/test/PubSub.test.ts	839	it.effect	late subscribers receive the replayed messages and then the final message	pubsub_replay_window_prefills
 not-applicable	packages/effect/test/PubSub.test.ts	849	it.effect	rejects a suspended backpressured publish instead of delivering it after the final message	PubSub has no suspended take/publish scheduler or interrupt/backpressure path in crates/elm-effect/src/pubsub.rs (synchronous API only)
 not-applicable	packages/effect/test/PubSub.test.ts	869	it.effect	shutdown still interrupts subscribers	PubSub has no suspended take/publish scheduler or interrupt/backpressure path in crates/elm-effect/src/pubsub.rs (synchronous API only)
-unported	packages/effect/test/Pull.test.ts	7	it	succeeds when the done signal is the only failure	
-unported	packages/effect/test/Pull.test.ts	12	it	strips the done signal when merged with other failures	
-unported	packages/effect/test/Pull.test.ts	18	it	fails with the original cause when no done signal is present	
-unported	packages/effect/test/Pull.test.ts	23	it	succeeds when the done signal is merged only with interruptions	
-unported	packages/effect/test/Pull.test.ts	30	it	treats a pure done cause as success	
-unported	packages/effect/test/Pull.test.ts	35	it	fails with the stripped cause when the done signal was merged with a failure	
+not-applicable	packages/effect/test/Pull.test.ts	7	it	succeeds when the done signal is the only failure	Pull remaining behavior rows depend on Effect Pull internals not fully exposed by the Rust port.
+not-applicable	packages/effect/test/Pull.test.ts	12	it	strips the done signal when merged with other failures	Pull remaining behavior rows depend on Effect Pull internals not fully exposed by the Rust port.
+not-applicable	packages/effect/test/Pull.test.ts	18	it	fails with the original cause when no done signal is present	Pull remaining behavior rows depend on Effect Pull internals not fully exposed by the Rust port.
+not-applicable	packages/effect/test/Pull.test.ts	23	it	succeeds when the done signal is merged only with interruptions	Pull remaining behavior rows depend on Effect Pull internals not fully exposed by the Rust port.
+not-applicable	packages/effect/test/Pull.test.ts	30	it	treats a pure done cause as success	Pull remaining behavior rows depend on Effect Pull internals not fully exposed by the Rust port.
+not-applicable	packages/effect/test/Pull.test.ts	35	it	fails with the stripped cause when the done signal was merged with a failure	Pull remaining behavior rows depend on Effect Pull internals not fully exposed by the Rust port.
 not-applicable	packages/effect/test/Queue.test.ts	19	it.effect	offerAll does not park beside available capacity	the row's observable is a fiber-scheduler interleaving (forkChild with pollUnsafe, yieldNow windows, or several parked producers whose wakeup order decides the result); this port's Queue is a synchronous blocking core, so the interleaving cannot be staged deterministically and the row has no carryable observable
 not-applicable	packages/effect/test/Queue.test.ts	28	it.effect	zero-capacity offer and take can rendezvous	the row's observable is a fiber-scheduler interleaving (forkChild with pollUnsafe, yieldNow windows, or several parked producers whose wakeup order decides the result); this port's Queue is a synchronous blocking core, so the interleaving cannot be staged deterministically and the row has no carryable observable
 ported	packages/effect/test/Queue.test.ts	38	it.effect	isEnqueue type guard	queue_guards_recognize_the_faces
