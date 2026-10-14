@@ -2475,6 +2475,19 @@ impl Schema<BTreeMap<String, Unknown>> {
     /// The wire shape is the same as `record`, so the key schema lives in the
     /// kind for a repr and is enforced by checking the key.
     pub fn record2(key: Schema<Unknown>, value: Schema<Unknown>) -> Self {
+        Self::record2_excess(key, value, ExcessProperty::Ignore)
+    }
+
+    /// [`record2`](Self::record2) with an explicit answer for a key the key
+    /// schema refuses: `Ignore` and `Strip` both drop it, because a Record has
+    /// no source map to leave it in, and `Reject` names it as an excess
+    /// property on either side. That is what the pin's `onExcessProperty`
+    /// option decides at the call site.
+    pub fn record2_excess(
+        key: Schema<Unknown>,
+        value: Schema<Unknown>,
+        policy: ExcessProperty,
+    ) -> Self {
         let kind = SchemaKind::Record(Box::new(key.repr_kind()), Box::new(value.repr_kind()));
         // An exact-value key schema (`Record(Literals([...]), ...)`) names a
         // fixed set of keys, and the pin requires every one of them. An
@@ -2485,7 +2498,7 @@ impl Schema<BTreeMap<String, Unknown>> {
             SchemaKind::OptionalKey(_) => Vec::new(),
             _ => exact_key_names(&key),
         };
-        Self::record_shape(Some(key), value, required).with_kind(kind)
+        Self::record_shape(Some(key), value, required, policy).with_kind(kind)
     }
 
     /// A record shape (`Record` shape) over an index signature: every value
@@ -2501,7 +2514,7 @@ impl Schema<BTreeMap<String, Unknown>> {
             !matches!(value.repr_kind(), SchemaKind::OptionalKey(_)),
             "Cannot use `Schema.optionalKey` with index signatures, use `Schema.optional` instead."
         );
-        Self::record_shape(None, value, Vec::new())
+        Self::record_shape(None, value, Vec::new(), ExcessProperty::Ignore)
     }
 
     /// The record walk both constructors share. `required_keys` is empty for an
@@ -2510,14 +2523,29 @@ impl Schema<BTreeMap<String, Unknown>> {
         key: Option<Schema<Unknown>>,
         value: Schema<Unknown>,
         required_keys: Vec<String>,
+        policy: ExcessProperty,
     ) -> Self {
         let value = Arc::new(value);
         let render = value.formatter.clone();
+        // The key schema decides both directions: a key it refuses is an entry
+        // the record does not describe, so the policy is what says whether that
+        // entry is dropped or named.
+        fn excess_entry(policy: ExcessProperty, name: &str) -> Result<bool, SchemaError> {
+            match policy {
+                ExcessProperty::Reject => Err(SchemaError::TypeMismatch {
+                    path: format!("$.{name}"),
+                    expected: "no excess property",
+                    got: "excess",
+                }),
+                _ => Ok(false),
+            }
+        }
         // A value that arrived here through a re-typing has an opaque kind of
         // its own, so the Record has to copy the kind underneath it.
         let value_kind = value.repr_kind();
         let key = key.map(Arc::new);
         let decode_key = key.clone();
+        let encode_key = key.clone();
         let mut out = Self::new(
             move |unknown| match unknown {
                 Unknown::Object(fields) => {
@@ -2533,14 +2561,15 @@ impl Schema<BTreeMap<String, Unknown>> {
                     let mut decoded = std::collections::BTreeMap::new();
                     for (name, item) in fields {
                         // A key the key schema refuses is an entry this record
-                        // does not describe, so it is dropped rather than
-                        // failing the whole record. That is what makes
+                        // does not describe, so by default it is dropped rather
+                        // than failing the whole record. That is what makes
                         // `Record(String.check(isPattern(/^a/)), Number)`
                         // select its keys instead of rejecting them.
-                        if let Some(key) = &decode_key {
-                            if key.decode(Unknown::Text(name.clone())).is_err() {
-                                continue;
-                            }
+                        if let Some(key) = &decode_key
+                            && !key_names_entry(key, &name)
+                        {
+                            excess_entry(policy, &name)?;
+                            continue;
                         }
                         let item = value
                             .decode(item)
@@ -2551,7 +2580,23 @@ impl Schema<BTreeMap<String, Unknown>> {
                 }
                 other => mismatch("$", "object", &other),
             },
-            |fields| Ok(Unknown::Object(fields.clone())),
+            // Encoding walks the same key rule, so a map carrying a key the
+            // key schema does not describe is dropped or named on the way out
+            // exactly as it is on the way in.
+            move |fields: &std::collections::BTreeMap<String, Unknown>| {
+                if let Some(key) = &encode_key {
+                    let mut encoded = std::collections::BTreeMap::new();
+                    for (name, item) in fields {
+                        if !key_names_entry(key, name) {
+                            excess_entry(policy, name)?;
+                            continue;
+                        }
+                        encoded.insert(name.clone(), item.clone());
+                    }
+                    return Ok(Unknown::Object(encoded));
+                }
+                Ok(Unknown::Object(fields.clone()))
+            },
             SchemaKind::Record(
                 Box::new(
                     key.as_ref()
@@ -5095,6 +5140,37 @@ fn bounds_hold(
         }
     }
     true
+}
+
+/// Whether the key schema describes a wire key. A key arrives as text, so a
+/// number key schema (`Record(Int, ...)`) is also offered the JS number reading
+/// of the name: `"2.2"`, `"Infinity"` and `"NaN"` are all names a number key
+/// schema can consider, and the ones it refuses are unmatched like any other.
+fn key_names_entry(key: &Schema<Unknown>, name: &str) -> bool {
+    if key.decode(Unknown::Text(name.to_string())).is_ok() {
+        return true;
+    }
+    match key_number(name) {
+        Some(number) => key.decode(Unknown::Number(number)).is_ok(),
+        None => false,
+    }
+}
+
+/// The number a property name spells, the way JavaScript's `Number(name)` reads
+/// one: the two infinities and `NaN` have their own spellings, an empty name is
+/// zero, and anything else has to parse as a number outright.
+fn key_number(name: &str) -> Option<f64> {
+    match name {
+        "Infinity" | "+Infinity" => Some(f64::INFINITY),
+        "-Infinity" => Some(f64::NEG_INFINITY),
+        "NaN" => Some(f64::NAN),
+        "" => Some(0.0),
+        _ => name
+            .trim()
+            .parse::<f64>()
+            .ok()
+            .filter(|_| !name.trim().is_empty()),
+    }
 }
 
 /// Whether a number satisfies `isBetween`. The two bounds ride the check's/// argument list in order, and exclusivity rides its annotation, which is where

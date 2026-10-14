@@ -160,3 +160,26 @@ packages/effect/test/schema/Schema.test.ts	10218	ported	uncapitalize_normalizes_
 packages/effect/test/schema/Schema.test.ts	10242	ported	lowercase_normalizes_on_decode_and_insists_on_encode
 packages/effect/test/schema/Schema.test.ts	10266	ported	uppercase_normalizes_on_decode_and_insists_on_encode
 packages/effect/test/schema/Schema.test.ts	10361	ported	a_versioned_uuid_check_refuses_the_nil_and_max_uuids
+
+# Batch 11, four carried rows and five excused, all from
+# elm-effect-rs-port-schema-a2c (staged, awaiting the lease): the Record
+# describe's key-schema rows. Witnesses in
+# crates/elm-effect-schema/tests/schema_records.rs (4 tests, green). The port
+# grew a per-record excess policy (`Schema::record2_excess`) and a numeric
+# reading of a wire key, so `Record(Int, ...)` selects the names that spell a
+# number while `"1.1"`, `"Infinity"` and `"NaN"` are unmatched keys.
+#
+# Four rows beside them stay open rather than excused, each for its own reason:
+# :4159 `Record(SnakeToCamel, NumberFromString)` needs key renaming and a
+# last-key-wins order that a sorted map does not preserve; :4082 puts a symbol in
+# the key union; :4223 and :4231 are the `mutableKey` spelling, which has no
+# analogue here though the decode they assert holds.
+packages/effect/test/schema/Schema.test.ts	4066	ported	record_excess_names_an_unmatched_key
+packages/effect/test/schema/Schema.test.ts	4270	ported	an_integer_key_schema_selects_the_numeric_names
+packages/effect/test/schema/Schema.test.ts	4289	ported	a_template_literal_key_schema_selects_its_own_keys
+packages/effect/test/schema/Schema.test.ts	5053	ported	a_record_rest_under_a_struct_selects_template_keys
+packages/effect/test/schema/Schema.test.ts	4091	not-applicable	the row's own keys are JavaScript symbols, and a record here is a string-keyed map with no symbol-keyed variant
+packages/effect/test/schema/Schema.test.ts	4119	not-applicable	the row asserts a non-enumerable own property is never read; a Rust map holds exactly the entries it was given, so there is no enumerability to observe
+packages/effect/test/schema/Schema.test.ts	4141	not-applicable	the key check is a predicate over JavaScript symbols (Symbol.keyFor) and the keys themselves are symbols
+packages/effect/test/schema/Schema.test.ts	4174	not-applicable	the key is a specific JavaScript symbol identity, which a string-keyed map cannot hold
+packages/effect/test/schema/Schema.test.ts	5036	not-applicable	the catch-all record's keys are symbols under a StructWithRest; the string-keyed half of the same shape is carried by the row beside it
