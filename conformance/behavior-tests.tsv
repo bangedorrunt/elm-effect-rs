@@ -2324,67 +2324,67 @@ ported	packages/effect/test/JsonPointer.test.ts	372	it	unescapeToken(escapeToken
 ported	packages/effect/test/JsonPointer.test.ts	392	it	unescapeToken(escapeToken(token)) === token for unicode	escape_unescape_roundtrip
 ported	packages/effect/test/JsonPointer.test.ts	408	it	unescapeToken(escapeToken(token)) === token for complex sequences	escape_unescape_roundtrip
 ported	packages/effect/test/JsonPointer.test.ts	424	it	handles multiple round-trips	escape_unescape_roundtrip
-unported	packages/effect/test/JsonSchema.test.ts	43	it	exports the URI for every supported dialect	
-unported	packages/effect/test/JsonSchema.test.ts	53	it	returns '_' for empty input	
-unported	packages/effect/test/JsonSchema.test.ts	57	it	returns input when already valid	
-unported	packages/effect/test/JsonSchema.test.ts	65	it	replaces invalid characters with '_'	
-unported	packages/effect/test/JsonSchema.test.ts	85	it	preserves length when only replacements are needed	
-unported	packages/effect/test/JsonSchema.test.ts	91	it	replaces non-ascii characters with '_'	
-unported	packages/effect/test/JsonSchema.test.ts	98	it	is idempotent	
-unported	packages/effect/test/JsonSchema.test.ts	118	it	rewrites the Draft-07 meta-schema URI without an empty fragment	
-unported	packages/effect/test/JsonSchema.test.ts	125	it	preserves all Draft-07 semantics and opaque custom keywords	
+ported	packages/effect/test/JsonSchema.test.ts	43	it	exports the URI for every supported dialect	meta_schema_uris_are_exported
+ported	packages/effect/test/JsonSchema.test.ts	53	it	returns '_' for empty input	sanitize_returns_underscore_for_empty_input
+ported	packages/effect/test/JsonSchema.test.ts	57	it	returns input when already valid	sanitize_returns_input_when_already_valid
+ported	packages/effect/test/JsonSchema.test.ts	65	it	replaces invalid characters with '_'	sanitize_replaces_invalid_characters_with_underscore
+ported	packages/effect/test/JsonSchema.test.ts	85	it	preserves length when only replacements are needed	sanitize_preserves_length_when_only_replacing
+ported	packages/effect/test/JsonSchema.test.ts	91	it	replaces non-ascii characters with '_'	sanitize_replaces_non_ascii_characters
+ported	packages/effect/test/JsonSchema.test.ts	98	it	is idempotent	sanitize_is_idempotent
+ported	packages/effect/test/JsonSchema.test.ts	118	it	rewrites the Draft-07 meta-schema URI without an empty fragment	draft07_rewrites_the_meta_schema_uri_without_an_empty_fragment
+ported	packages/effect/test/JsonSchema.test.ts	125	it	preserves all Draft-07 semantics and opaque custom keywords	draft07_preserves_semantics_and_opaque_custom_keywords
 unported	packages/effect/test/JsonSchema.test.ts	156	it	preserves Draft-07 validation semantics in the canonical dialect	
-unported	packages/effect/test/JsonSchema.test.ts	192	it	converts Draft-07 plain-name identifiers to canonical anchors	
-unported	packages/effect/test/JsonSchema.test.ts	205	it	converts canonical anchors without schema identifiers	
-unported	packages/effect/test/JsonSchema.test.ts	220	it	rejects canonical anchors combined with schema identifiers	
-unported	packages/effect/test/JsonSchema.test.ts	239	it	rejects canonical anchors that cannot become legacy plain-name identifiers	
-unported	packages/effect/test/JsonSchema.test.ts	256	it	rejects Draft-07 identifiers with fragments that cannot become anchors	
-unported	packages/effect/test/JsonSchema.test.ts	263	it	rejects Draft-07 custom keywords that would become active in the canonical dialect	
-unported	packages/effect/test/JsonSchema.test.ts	279	it	preserves not	
-unported	packages/effect/test/JsonSchema.test.ts	289	it	normalizes a schema without definitions to the canonical document shape	
-unported	packages/effect/test/JsonSchema.test.ts	303	it	extracts root definitions and rewrites Draft-07 refs to $defs refs	
-unported	packages/effect/test/JsonSchema.test.ts	349	it	ignores $id next to Draft-07 refs when tracking resources	
-unported	packages/effect/test/JsonSchema.test.ts	363	it	converts Draft-07 tuple items to prefixItems	
-unported	packages/effect/test/JsonSchema.test.ts	387	it	relocates refs into converted tuple items and schema dependencies	
-unported	packages/effect/test/JsonSchema.test.ts	411	it	preserves a single items schema as items	
-unported	packages/effect/test/JsonSchema.test.ts	427	it	preserves annotations	
-unported	packages/effect/test/JsonSchema.test.ts	455	it	preserves string constraints	
-unported	packages/effect/test/JsonSchema.test.ts	475	it	preserves number constraints	
-unported	packages/effect/test/JsonSchema.test.ts	499	it	preserves array constraints	
-unported	packages/effect/test/JsonSchema.test.ts	521	it	preserves object constraints	
-unported	packages/effect/test/JsonSchema.test.ts	559	it	preserves enum, const, allOf, anyOf, and oneOf	
-unported	packages/effect/test/JsonSchema.test.ts	599	it	moves nested definitions to $defs and relocates local JSON Pointer refs	
-unported	packages/effect/test/JsonSchema.test.ts	633	it	relocates fragment refs relative to nested schema resources	
-unported	packages/effect/test/JsonSchema.test.ts	655	it	relocates URI refs to nested schema resources	
-unported	packages/effect/test/JsonSchema.test.ts	686	it	relocates JSON Pointer URI fragments	
-unported	packages/effect/test/JsonSchema.test.ts	731	it	preserves custom properties in Draft-07 input	
-unported	packages/effect/test/JsonSchema.test.ts	747	it	preserves malformed values for recognized keywords	
-unported	packages/effect/test/JsonSchema.test.ts	782	it	ignores additionalItems when items is not a tuple	
-unported	packages/effect/test/JsonSchema.test.ts	798	it	normalizes a schema without $defs to the canonical document shape	
-unported	packages/effect/test/JsonSchema.test.ts	812	it	extracts root $defs without rewriting Draft-2020-12 refs	
-unported	packages/effect/test/JsonSchema.test.ts	851	it	preserves nested definitions and local JSON Pointer refs	
-unported	packages/effect/test/JsonSchema.test.ts	885	it	keeps non-standard properties for Draft-2020-12 input	
-unported	packages/effect/test/JsonSchema.test.ts	903	it	normalizes the OpenAPI 3.1 base dialect URI	
-unported	packages/effect/test/JsonSchema.test.ts	910	it	preserves non-string refs and malformed schema maps	
-unported	packages/effect/test/JsonSchema.test.ts	924	it	rewrites OpenAPI component schema refs to $defs refs	
-unported	packages/effect/test/JsonSchema.test.ts	948	it	rewrites percent-encoded OpenAPI component refs	
-unported	packages/effect/test/JsonSchema.test.ts	959	it	normalizes singular examples throughout OpenAPI 3.1 schemas	
-unported	packages/effect/test/JsonSchema.test.ts	980	it	merges singular and array examples in OpenAPI 3.1 schemas	
-unported	packages/effect/test/JsonSchema.test.ts	987	it	rewrites refs only in schema positions	
-unported	packages/effect/test/JsonSchema.test.ts	1010	it	rewrites refs throughout Draft 2020-12 subschemas	
-unported	packages/effect/test/JsonSchema.test.ts	1061	it	does not rewrite refs inside root schema resources	
-unported	packages/effect/test/JsonSchema.test.ts	1077	it	extracts root $defs after rewriting OpenAPI component refs	
-unported	packages/effect/test/JsonSchema.test.ts	1110	it	preserves nested definitions and local JSON Pointer refs	
-unported	packages/effect/test/JsonSchema.test.ts	1144	it	keeps non-standard properties for OpenAPI 3.1 input	
-unported	packages/effect/test/JsonSchema.test.ts	1174	it	rewrites OpenAPI 3.0 component schema refs to $defs refs	
-unported	packages/effect/test/JsonSchema.test.ts	1196	it	rewrites percent-encoded OpenAPI 3.0 component refs	
-unported	packages/effect/test/JsonSchema.test.ts	1207	it	preserves definitions as an opaque OpenAPI 3.0 extension	
-unported	packages/effect/test/JsonSchema.test.ts	1216	it	normalizes singular OpenAPI 3.0 example to a draft examples array	
-unported	packages/effect/test/JsonSchema.test.ts	1232	it	preserves the OpenAPI 3.0 deprecated annotation	
-unported	packages/effect/test/JsonSchema.test.ts	1239	it	rejects examples because it is not active in OpenAPI 3.0	
-unported	packages/effect/test/JsonSchema.test.ts	1246	it	rejects Draft 2020-12 keywords that are not supported by OpenAPI 3.0	
-unported	packages/effect/test/JsonSchema.test.ts	1253	it	does not traverse opaque OpenAPI values	
-unported	packages/effect/test/JsonSchema.test.ts	1283	it	nullable	
+ported	packages/effect/test/JsonSchema.test.ts	192	it	converts Draft-07 plain-name identifiers to canonical anchors	draft07_converts_plain_name_identifiers_to_anchors
+ported	packages/effect/test/JsonSchema.test.ts	205	it	converts canonical anchors without schema identifiers	canonical_anchors_become_legacy_plain_name_identifiers
+ported	packages/effect/test/JsonSchema.test.ts	220	it	rejects canonical anchors combined with schema identifiers	an_anchor_beside_a_schema_identifier_is_refused
+ported	packages/effect/test/JsonSchema.test.ts	239	it	rejects canonical anchors that cannot become legacy plain-name identifiers	an_anchor_that_is_not_a_legacy_identifier_is_refused
+ported	packages/effect/test/JsonSchema.test.ts	256	it	rejects Draft-07 identifiers with fragments that cannot become anchors	a_draft07_identifier_fragment_that_is_not_an_anchor_is_refused
+ported	packages/effect/test/JsonSchema.test.ts	263	it	rejects Draft-07 custom keywords that would become active in the canonical dialect	draft07_keywords_that_would_activate_in_the_canonical_dialect_are_refused
+ported	packages/effect/test/JsonSchema.test.ts	279	it	preserves not	draft07_preserves_not
+ported	packages/effect/test/JsonSchema.test.ts	289	it	normalizes a schema without definitions to the canonical document shape	a_schema_without_definitions_normalizes_to_the_canonical_shape
+ported	packages/effect/test/JsonSchema.test.ts	303	it	extracts root definitions and rewrites Draft-07 refs to $defs refs	draft07_root_definitions_are_extracted_and_refs_rewritten
+ported	packages/effect/test/JsonSchema.test.ts	349	it	ignores $id next to Draft-07 refs when tracking resources	an_id_beside_a_draft07_ref_is_ignored_when_tracking_resources
+ported	packages/effect/test/JsonSchema.test.ts	363	it	converts Draft-07 tuple items to prefixItems	draft07_tuple_items_become_prefix_items
+ported	packages/effect/test/JsonSchema.test.ts	387	it	relocates refs into converted tuple items and schema dependencies	refs_into_converted_tuple_items_and_schema_dependencies_are_relocated
+ported	packages/effect/test/JsonSchema.test.ts	411	it	preserves a single items schema as items	a_single_items_schema_stays_items
+ported	packages/effect/test/JsonSchema.test.ts	427	it	preserves annotations	draft07_preserves_annotations
+ported	packages/effect/test/JsonSchema.test.ts	455	it	preserves string constraints	draft07_preserves_string_constraints
+ported	packages/effect/test/JsonSchema.test.ts	475	it	preserves number constraints	draft07_preserves_number_constraints
+ported	packages/effect/test/JsonSchema.test.ts	499	it	preserves array constraints	draft07_preserves_array_constraints
+ported	packages/effect/test/JsonSchema.test.ts	521	it	preserves object constraints	draft07_preserves_object_constraints
+ported	packages/effect/test/JsonSchema.test.ts	559	it	preserves enum, const, allOf, anyOf, and oneOf	draft07_preserves_enum_const_and_the_combinators
+ported	packages/effect/test/JsonSchema.test.ts	599	it	moves nested definitions to $defs and relocates local JSON Pointer refs	draft07_nested_definitions_move_and_local_refs_follow
+ported	packages/effect/test/JsonSchema.test.ts	633	it	relocates fragment refs relative to nested schema resources	fragment_refs_relocate_relative_to_a_nested_resource
+ported	packages/effect/test/JsonSchema.test.ts	655	it	relocates URI refs to nested schema resources	uri_refs_relocate_to_a_nested_resource
+ported	packages/effect/test/JsonSchema.test.ts	686	it	relocates JSON Pointer URI fragments	json_pointer_uri_fragments_relocate
+ported	packages/effect/test/JsonSchema.test.ts	731	it	preserves custom properties in Draft-07 input	draft07_preserves_custom_properties
+ported	packages/effect/test/JsonSchema.test.ts	747	it	preserves malformed values for recognized keywords	draft07_preserves_malformed_values_for_recognized_keywords
+ported	packages/effect/test/JsonSchema.test.ts	782	it	ignores additionalItems when items is not a tuple	additional_items_is_ignored_when_items_is_not_a_tuple
+ported	packages/effect/test/JsonSchema.test.ts	798	it	normalizes a schema without $defs to the canonical document shape	draft2020_12_returns_the_canonical_document_shape
+ported	packages/effect/test/JsonSchema.test.ts	812	it	extracts root $defs without rewriting Draft-2020-12 refs	draft2020_12_extracts_definitions_and_leaves_refs_alone
+ported	packages/effect/test/JsonSchema.test.ts	851	it	preserves nested definitions and local JSON Pointer refs	draft2020_12_preserves_nested_definitions_and_local_refs
+ported	packages/effect/test/JsonSchema.test.ts	885	it	keeps non-standard properties for Draft-2020-12 input	draft2020_12_keeps_non_standard_properties
+ported	packages/effect/test/JsonSchema.test.ts	903	it	normalizes the OpenAPI 3.1 base dialect URI	openapi31_normalizes_the_base_dialect_uri
+ported	packages/effect/test/JsonSchema.test.ts	910	it	preserves non-string refs and malformed schema maps	openapi31_preserves_non_string_refs_and_malformed_schema_maps
+ported	packages/effect/test/JsonSchema.test.ts	924	it	rewrites OpenAPI component schema refs to $defs refs	openapi31_rewrites_component_refs_to_defs
+ported	packages/effect/test/JsonSchema.test.ts	948	it	rewrites percent-encoded OpenAPI component refs	openapi31_rewrites_percent_encoded_component_refs
+ported	packages/effect/test/JsonSchema.test.ts	959	it	normalizes singular examples throughout OpenAPI 3.1 schemas	openapi31_normalizes_singular_examples_throughout
+ported	packages/effect/test/JsonSchema.test.ts	980	it	merges singular and array examples in OpenAPI 3.1 schemas	openapi31_merges_singular_and_array_examples
+ported	packages/effect/test/JsonSchema.test.ts	987	it	rewrites refs only in schema positions	openapi31_rewrites_refs_only_in_schema_positions
+ported	packages/effect/test/JsonSchema.test.ts	1010	it	rewrites refs throughout Draft 2020-12 subschemas	openapi31_rewrites_refs_throughout_draft2020_12_subschemas
+ported	packages/effect/test/JsonSchema.test.ts	1061	it	does not rewrite refs inside root schema resources	openapi31_does_not_rewrite_refs_inside_a_root_resource
+ported	packages/effect/test/JsonSchema.test.ts	1077	it	extracts root $defs after rewriting OpenAPI component refs	openapi31_extracts_root_defs_after_rewriting_component_refs
+ported	packages/effect/test/JsonSchema.test.ts	1110	it	preserves nested definitions and local JSON Pointer refs	openapi31_preserves_nested_definitions_and_local_refs
+ported	packages/effect/test/JsonSchema.test.ts	1144	it	keeps non-standard properties for OpenAPI 3.1 input	openapi31_keeps_non_standard_properties
+ported	packages/effect/test/JsonSchema.test.ts	1174	it	rewrites OpenAPI 3.0 component schema refs to $defs refs	openapi30_rewrites_component_refs_to_defs
+ported	packages/effect/test/JsonSchema.test.ts	1196	it	rewrites percent-encoded OpenAPI 3.0 component refs	openapi30_rewrites_percent_encoded_component_refs
+ported	packages/effect/test/JsonSchema.test.ts	1207	it	preserves definitions as an opaque OpenAPI 3.0 extension	openapi30_preserves_definitions_as_an_opaque_extension
+ported	packages/effect/test/JsonSchema.test.ts	1216	it	normalizes singular OpenAPI 3.0 example to a draft examples array	openapi30_normalizes_a_singular_example
+ported	packages/effect/test/JsonSchema.test.ts	1232	it	preserves the OpenAPI 3.0 deprecated annotation	openapi30_preserves_the_deprecated_annotation
+ported	packages/effect/test/JsonSchema.test.ts	1239	it	rejects examples because it is not active in OpenAPI 3.0	openapi30_refuses_examples
+ported	packages/effect/test/JsonSchema.test.ts	1246	it	rejects Draft 2020-12 keywords that are not supported by OpenAPI 3.0	openapi30_refuses_draft2020_12_keywords
+ported	packages/effect/test/JsonSchema.test.ts	1253	it	does not traverse opaque OpenAPI values	openapi30_does_not_traverse_opaque_values
+ported	packages/effect/test/JsonSchema.test.ts	1283	it	nullable	openapi30_nullable_cases
 unported	packages/effect/test/JsonSchema.test.ts	1380	it	rewrites the canonical meta-schema URI with an empty fragment	
 unported	packages/effect/test/JsonSchema.test.ts	1391	it	omits the canonical meta-schema URI from embedded resources	
 unported	packages/effect/test/JsonSchema.test.ts	1410	it	rejects custom dialects in embedded resources	
