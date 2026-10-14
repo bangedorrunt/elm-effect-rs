@@ -124,6 +124,33 @@ where
     })
 }
 
+/// Map each item with a fallible, filtering function (`filterMapEffect` shape):
+/// an `Err` ends the pull with that failure; `Ok(None)` drops the item;
+/// `Ok(Some(b))` keeps it. Runs synchronously like [`map_effect`].
+pub fn filter_map_effect<A, E, B, F>(mut f: F) -> Channel<A, E, B>
+where
+    A: Send + 'static,
+    E: Send + 'static,
+    B: Send + 'static,
+    F: FnMut(A) -> Result<Option<B>, E> + Send + 'static,
+{
+    Channel::from_fn(move |take| match take {
+        Take::Items(items) => {
+            let mut out = Vec::with_capacity(items.len());
+            for a in items {
+                match f(a) {
+                    Ok(Some(b)) => out.push(b),
+                    Ok(None) => {}
+                    Err(e) => return vec![Take::Fail(e)],
+                }
+            }
+            vec![Take::Items(out)]
+        }
+        Take::End => vec![Take::End],
+        Take::Fail(e) => vec![Take::Fail(e)],
+    })
+}
+
 /// Concatenate per-item sub-pulls (`flatMap` shapes): each item maps to a
 /// `Pull` that is driven to completion, takes concatenated in order. An
 /// inner `Fail` fails the whole output; inner leftovers cannot occur
