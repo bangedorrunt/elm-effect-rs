@@ -97,3 +97,21 @@ packages/effect/test/schema/Schema.test.ts	7748	ported	a_zero_field_tagged_error
 packages/effect/test/schema/Schema.test.ts	7762	ported	extend_keeps_the_parents_tag_and_takes_the_childs_identifier
 packages/effect/test/schema/Schema.test.ts	7775	ported	the_extended_constructor_ignores_excess_but_not_the_subclass_fields
 packages/effect/test/schema/Schema.test.ts	7791	ported	the_extended_constructor_ignores_excess_but_not_the_subclass_fields
+
+# Batch 8, nine rows from elm-effect-rs-port-schema-a2c (staged, awaiting the
+# lease): the TemplateLiteralParser describe at :6599-:6783, all of it. Witnesses
+# in crates/elm-effect-schema/tests/schema_template.rs (37 tests, green). Four of
+# the nine needed real port work: a part now captures by its own kind (a literals
+# part captures the value, a nested parser its list, a nested template literal
+# the text it matched), and the parser's encode runs each capture back through
+# its part, so the pin's "Expected an integer at [0]" and "length of at least 1
+# at [2]" refusals are ported rather than dropped.
+packages/effect/test/schema/Schema.test.ts	6599	ported	template_parser_exposes_its_parts
+packages/effect/test/schema/Schema.test.ts	6667	ported	parser_int_then_anchor
+packages/effect/test/schema/Schema.test.ts	6687	ported	parser_int_part_then_string_leaves_the_fraction
+packages/effect/test/schema/Schema.test.ts	6695	ported	parser_number_then_anchor_then_non_empty_string
+packages/effect/test/schema/Schema.test.ts	6717	ported	parser_anchor_then_literals_part
+packages/effect/test/schema/Schema.test.ts	6725	ported	parser_union_with_a_nested_parser_part
+packages/effect/test/schema/Schema.test.ts	6746	ported	parser_union_with_a_nested_checked_int_part
+packages/effect/test/schema/Schema.test.ts	6770	ported	parser_nested_template_literal_part_captures_text
+packages/effect/test/schema/Schema.test.ts	6783	ported	parser_nested_parser_part_captures_a_list

@@ -225,7 +225,11 @@ fn build(meta: ClassMeta) -> Schema<ClassValue> {
             None => unknown,
         };
         let input = apply_excess(input, &decode_declared, excess)?;
-        class_value(&decode_identifier, decode_tag.clone(), decode_source.decode(input)?)
+        class_value(
+            &decode_identifier,
+            decode_tag.clone(),
+            decode_source.decode(input)?,
+        )
     };
     let encode = move |value: &ClassValue| {
         // Encoding is instance-directed: a value built by another class is not

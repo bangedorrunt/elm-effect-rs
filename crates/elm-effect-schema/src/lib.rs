@@ -3871,8 +3871,9 @@ impl Unknown {
 // Template literals
 
 /// One part of a template-literal parser: a span (string-like capture) or a
-/// literal anchor that must match verbatim.
-#[derive(Clone, Debug, PartialEq, Eq)]
+/// literal anchor that must match verbatim. Not `Eq`: a literals part holds the
+/// values it matches, and a number has no total equality.
+#[derive(Clone, Debug, PartialEq)]
 pub enum TemplatePart {
     /// Any string, possibly empty.
     AnyString,
@@ -3889,17 +3890,26 @@ pub enum TemplatePart {
     Digits,
     /// A literal matched verbatim.
     Anchor(String),
-    /// Any one of these alternatives, tried in order: how a `Literals` part, a
-    /// union in a part, and a nested `TemplateLiteral` all arrive here. Each
-    /// alternative is a whole sequence of parts, so a nested template is one
-    /// alternative rather than a new kind of part.
+    /// A set of literal values (`Literals([1, 2, 3])`): the part matches the
+    /// text each value spells and captures the value itself, so the capture is
+    /// the number `1` rather than the text `"1"`.
+    Literals(Vec<Unknown>),
+    /// A nested `TemplateLiteralParser` part: the whole head is one nested
+    /// capture list, which is how the parser form nests.
+    NestedParser(Box<TemplateParser>),
+    /// Any one of these alternatives, tried in order: how a union in a part, and
+    /// a nested `TemplateLiteral`, both arrive here. Each alternative is a whole
+    /// sequence of parts. The capture follows the winner: a one-part
+    /// alternative is that part and keeps its own capture, while a longer
+    /// sequence is a nested template literal, whose value is the text it
+    /// matched.
     OneOf(Vec<Vec<TemplatePart>>),
 }
 
 /// A template-literal parser: a sequence of spans and anchors matched
 /// greedily with backtracking. Decoding yields one capture per part (anchors
 /// echo themselves); encoding concatenates the captures back.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct TemplateParser {
     parts: Vec<TemplatePart>,
 }
@@ -3936,13 +3946,19 @@ impl TemplateParser {
         }
         let mut out = String::new();
         for capture in captures {
-            match capture {
-                Unknown::Text(text) => out.push_str(text),
-                Unknown::Number(number) => out.push_str(&trim_int(*number)),
-                _ => return None,
-            }
+            render_capture(capture, &mut out)?;
         }
         Some(out)
+    }
+
+    /// Render captures back to a string, checking each one against the part it
+    /// fills. The pin's parser encodes every capture through its own part
+    /// schema, so a fraction in an integer part and an empty string in a
+    /// non-empty part are refusals, and the path names the part's index.
+    pub fn render_checked(&self, captures: &[Unknown]) -> Result<String, SchemaError> {
+        let mut out = String::new();
+        check_captures(&self.parts, captures, "", &mut out)?;
+        Ok(out)
     }
 
     fn match_parts(parts: &[TemplatePart], input: &str, captures: &mut Vec<Unknown>) -> bool {
@@ -4020,7 +4036,130 @@ fn trim_int(number: f64) -> String {
     }
 }
 
-/// Check one span candidate, returning its capture.
+/// Write one capture as its text. A nested parser's capture is the list of its
+/// own captures, so it renders as their concatenation.
+fn render_capture(capture: &Unknown, out: &mut String) -> Option<()> {
+    match capture {
+        Unknown::Text(text) => out.push_str(text),
+        Unknown::Number(number) => out.push_str(&trim_int(*number)),
+        Unknown::Bool(boolean) => out.push_str(if *boolean { "true" } else { "false" }),
+        Unknown::Array(items) => {
+            for item in items {
+                render_capture(item, out)?;
+            }
+        }
+        _ => return None,
+    }
+    Some(())
+}
+
+/// The text one literal value spells, which is what a literals part matches on.
+/// Distinct from `render_value`, which is the pin's repr printer.
+fn literal_text(value: &Unknown) -> Option<String> {
+    let mut out = String::new();
+    render_capture(value, &mut out)?;
+    Some(out)
+}
+
+/// Check one capture list against its parts, appending the text each capture
+/// renders to. The pin's paths are part indexes: `[0]` at the top, and a nested
+/// parser's own path hangs off its part's index.
+fn check_captures(
+    parts: &[TemplatePart],
+    captures: &[Unknown],
+    path: &str,
+    out: &mut String,
+) -> Result<(), SchemaError> {
+    if parts.len() != captures.len() {
+        return Err(SchemaError::EncodingFailed {
+            path: path.to_string(),
+            expected: "one capture per part".to_string(),
+        });
+    }
+    for (index, (part, capture)) in parts.iter().zip(captures).enumerate() {
+        let part_path = format!("{path}[{index}]");
+        check_capture(part, capture, &part_path, out)?;
+    }
+    Ok(())
+}
+
+/// Check and render one capture against the part it fills.
+fn check_capture(
+    part: &TemplatePart,
+    capture: &Unknown,
+    path: &str,
+    out: &mut String,
+) -> Result<(), SchemaError> {
+    let refuse = |expected: &str| SchemaError::EncodingFailed {
+        path: path.to_string(),
+        expected: expected.to_string(),
+    };
+    match *part {
+        TemplatePart::Anchor(ref anchor) => match capture {
+            Unknown::Text(text) if text == anchor => out.push_str(text),
+            _ => return Err(refuse("the literal part itself")),
+        },
+        TemplatePart::AnyString => match capture {
+            Unknown::Text(text) => out.push_str(text),
+            _ => return Err(refuse("a string")),
+        },
+        TemplatePart::NonEmptyString => match capture {
+            Unknown::Text(text) if !text.is_empty() => out.push_str(text),
+            _ => return Err(refuse("a value with a length of at least 1")),
+        },
+        TemplatePart::Int => match capture {
+            Unknown::Number(number) if number.fract() == 0.0 => out.push_str(&trim_int(*number)),
+            _ => return Err(refuse("an integer")),
+        },
+        TemplatePart::Number => match capture {
+            Unknown::Number(number) => out.push_str(&trim_int(*number)),
+            _ => return Err(refuse("a number")),
+        },
+        TemplatePart::Digits => match capture {
+            Unknown::Text(text) if parse_digits(text).is_some() => out.push_str(text),
+            _ => return Err(refuse("a bigint")),
+        },
+        TemplatePart::Literals(ref values) => {
+            let Some(value) = values.iter().find(|value| *value == capture) else {
+                return Err(refuse("one of the literal values"));
+            };
+            out.push_str(&literal_text(value).ok_or_else(|| refuse("a literal value"))?);
+        }
+        TemplatePart::NestedParser(ref parser) => match capture {
+            Unknown::Array(items) => check_captures(&parser.parts, items, path, out)?,
+            _ => return Err(refuse("a list of captures")),
+        },
+        TemplatePart::OneOf(ref alternatives) => {
+            let mut rendered = None;
+            for alternative in alternatives {
+                // One part is that part; a longer sequence is the pin's nested
+                // `TemplateLiteral`, a string schema whose value is the text it
+                // matched, so the text has to match the whole sequence.
+                if alternative.len() == 1 {
+                    let mut candidate = String::new();
+                    if check_capture(&alternative[0], capture, path, &mut candidate).is_ok() {
+                        rendered = Some(candidate);
+                        break;
+                    }
+                } else if let Unknown::Text(text) = capture {
+                    if TemplateParser::match_parts(alternative, text, &mut Vec::new()) {
+                        rendered = Some(text.clone());
+                        break;
+                    }
+                }
+            }
+            match rendered {
+                Some(text) => out.push_str(&text),
+                None => return Err(refuse("one of the part's alternatives")),
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Check one span candidate, returning its capture. The capture follows the
+/// part's own kind rather than the shape of the text: a literals part captures
+/// the value it matched, and a nested parser captures its own list.
 fn check_span(span: &TemplatePart, head: &str) -> Option<Unknown> {
     match *span {
         TemplatePart::AnyString => Some(Unknown::Text(head.to_string())),
@@ -4028,14 +4167,23 @@ fn check_span(span: &TemplatePart, head: &str) -> Option<Unknown> {
         TemplatePart::Int => parse_int(head).map(Unknown::Number),
         TemplatePart::Number => parse_number(head).map(Unknown::Number),
         TemplatePart::Digits => parse_digits(head).map(Unknown::Text),
-        // The span is already the whole candidate, so an alternative either
-        // matches it entirely or does not. Its capture is the text itself; the
-        // pin's parser rows are what say whether a literal part should capture
-        // its own value instead.
-        TemplatePart::OneOf(ref alternatives) => alternatives
+        TemplatePart::Literals(ref values) => values
             .iter()
-            .any(|sequence| TemplateParser::match_parts(sequence, head, &mut Vec::new()))
-            .then(|| Unknown::Text(head.to_string())),
+            .find(|value| literal_text(value).as_deref() == Some(head))
+            .cloned(),
+        // The span is already the whole candidate, so the nested parser either
+        // matches it entirely or does not.
+        TemplatePart::NestedParser(ref parser) => parser.parse(head).map(Unknown::Array),
+        TemplatePart::OneOf(ref alternatives) => alternatives.iter().find_map(|alternative| {
+            let mut captures = Vec::new();
+            if !TemplateParser::match_parts(alternative, head, &mut captures) {
+                return None;
+            }
+            match captures.len() {
+                1 => captures.pop(),
+                _ => Some(Unknown::Text(head.to_string())),
+            }
+        }),
         TemplatePart::Anchor(_) => None,
     }
 }
@@ -4152,12 +4300,7 @@ impl Schema<Vec<Unknown>> {
                 }
                 other => mismatch("$", "string", &other),
             },
-            move |captures| {
-                Ok(encode_parser
-                    .render(captures)
-                    .map(Unknown::Text)
-                    .unwrap_or(Unknown::Null))
-            },
+            move |captures| Ok(Unknown::Text(encode_parser.render_checked(captures)?)),
             SchemaKind::Opaque("template"),
         )
     }

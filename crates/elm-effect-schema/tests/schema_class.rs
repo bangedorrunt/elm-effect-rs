@@ -10,7 +10,9 @@ use std::collections::BTreeMap;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-use elm_effect_schema::class::{ExcessProperty, class, error, error_named, tagged_class, tagged_error};
+use elm_effect_schema::class::{
+    ExcessProperty, class, error, error_named, tagged_class, tagged_error,
+};
 use elm_effect_schema::{Field, Schema, Unknown};
 
 fn text(value: &str) -> Unknown {
@@ -84,7 +86,9 @@ fn make_answers_an_existing_instance_unchanged() {
     // the value was built under, and another class's value is not this class's
     // to answer for.
     let schema = tagged_error("E", "E", vec![("id", number_field())]);
-    let built = schema.make(object(vec![("_tag", text("E")), ("id", number(1.0))])).unwrap();
+    let built = schema
+        .make(object(vec![("_tag", text("E")), ("id", number(1.0))]))
+        .unwrap();
     let again = schema.make_instance(&built).unwrap();
     assert_eq!(again, built);
     let other = tagged_error("F", "F", vec![("id", number_field())]);
@@ -119,7 +123,11 @@ fn an_explicit_ignore_or_strip_still_leaves_the_key_off() {
             .with_excess(policy)
             .make(object(vec![("a", text("a")), ("extra", text("extra"))]))
             .unwrap();
-        assert_eq!(instance.get("extra"), None, "{policy:?} keeps no excess key");
+        assert_eq!(
+            instance.get("extra"),
+            None,
+            "{policy:?} keeps no excess key"
+        );
     }
 }
 
@@ -131,7 +139,10 @@ fn the_constructor_rejects_excess_properties_when_requested() {
         .make(object(vec![("a", text("a")), ("extra", text("extra"))]))
         .unwrap_err()
         .to_string();
-    assert!(refusal.contains("extra"), "the excess key is named: {refusal}");
+    assert!(
+        refusal.contains("extra"),
+        "the excess key is named: {refusal}"
+    );
     assert!(schema.make(object(vec![("a", text("a"))])).is_ok());
 }
 
@@ -155,7 +166,10 @@ fn a_class_exposes_its_fields_and_identifier_and_round_trips() {
 
     let decoded = schema.decode(object(vec![("a", text("a"))])).unwrap();
     assert_eq!(decoded.get("a"), Some(&text("a")));
-    assert!(schema.decode(Unknown::Null).is_err(), "null is not an object");
+    assert!(
+        schema.decode(Unknown::Null).is_err(),
+        "null is not an object"
+    );
     let wrong_field = schema
         .decode(object(vec![("a", number(1.0))]))
         .unwrap_err()
@@ -269,7 +283,11 @@ fn a_tagged_classs_field_list_reports_the_discriminant() {
 fn the_name_is_the_identifier_and_the_tag_stands_in_when_there_is_none() {
     // :7718 "name matches tag": `TaggedError<E>()("TaggedErrorName", ...)` takes
     // its identifier from the tag.
-    let same = tagged_error("TaggedErrorName", "TaggedErrorName", vec![("id", number_field())]);
+    let same = tagged_error(
+        "TaggedErrorName",
+        "TaggedErrorName",
+        vec![("id", number_field())],
+    );
     assert_eq!(same.class_identifier(), Some("TaggedErrorName"));
     assert_eq!(same.class_tag(), Some("TaggedErrorName"));
 
@@ -333,9 +351,7 @@ fn extend_keeps_the_parents_tag_and_takes_the_childs_identifier() {
     // child's identifier is what a name lookup answers with (:7736 "name matches
     // identifier after extend").
     let parent = tagged_error("A", "A", vec![("a", string_field())]);
-    let child = parent
-        .clone()
-        .extend("B", vec![("b", number_field())]);
+    let child = parent.clone().extend("B", vec![("b", number_field())]);
     assert_eq!(child.class_identifier(), Some("B"));
     assert_eq!(child.class_tag(), Some("A"), "the tag stays the parent's");
     assert_eq!(child.class_fields(), vec!["_tag", "a", "b"]);
@@ -435,10 +451,7 @@ fn an_error_class_is_its_tagged_error_twin_and_prints_like_one() {
         .with_excess(ExcessProperty::Reject);
     assert_eq!(child.class_tag(), Some("E"));
     let extended = child
-        .make(object(vec![
-            ("message", text("m")),
-            ("code", number(1.0)),
-        ]))
+        .make(object(vec![("message", text("m")), ("code", number(1.0))]))
         .unwrap();
     assert_eq!(extended.get("code"), Some(&number(1.0)));
     assert_eq!(extended.to_string(), "F: m");
@@ -448,8 +461,7 @@ fn an_error_class_is_its_tagged_error_twin_and_prints_like_one() {
 fn an_untagged_class_extends_without_introducing_a_discriminant() {
     // The plain `Class` half of the extend rows: no `_tag` anywhere, and the
     // child's field list is the parent's plus its own.
-    let child = class("A", vec![("a", string_field())])
-        .extend("B", vec![("b", number_field())]);
+    let child = class("A", vec![("a", string_field())]).extend("B", vec![("b", number_field())]);
     assert_eq!(child.class_tag(), None);
     assert_eq!(child.class_fields(), vec!["a", "b"]);
     let built = child
