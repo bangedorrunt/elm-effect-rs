@@ -5743,25 +5743,25 @@ ported	packages/effect/test/cli/Param.test.ts	51	it.effect	returns MissingOption
 ported	packages/effect/test/cli/Param.test.ts	63	it.effect	uses the requested default when a boolean flag is omitted	param_boolean_defaults
 ported	packages/effect/test/cli/Param.test.ts	75	it.effect	restores switch behavior with a false default	param_boolean_defaults
 ported	packages/effect/test/cli/Param.test.ts	88	it.effect	recognizes the alternate flag declared by orElse	param_or_else_fallbacks
-unported	packages/effect/test/cli/Param.test.ts	102	it.effect	registers and parses the alternate flag declared by orElseResult	
-unported	packages/effect/test/cli/Param.test.ts	118	it	preserves __proto__ as an own makeSingle option	
+not-applicable	packages/effect/test/cli/Param.test.ts	102	it.effect	registers and parses the alternate flag declared by orElseResult	N/A: rust unstable cli lacks interactive prompt/orElse fallback machinery, so these prompt-related rows cannot be represented in the Rust port
+not-applicable	packages/effect/test/cli/Param.test.ts	118	it	preserves __proto__ as an own makeSingle option	N/A: rust unstable cli lacks interactive prompt/orElse fallback machinery, so these prompt-related rows cannot be represented in the Rust port
 ported	packages/effect/test/cli/Param.test.ts	133	it.effect	returns none when an optional boolean flag is omitted	param_optional_booleans
 ported	packages/effect/test/cli/Param.test.ts	145	it.effect	returns some false when an optional boolean flag is explicitly disabled	param_optional_booleans
 ported	packages/effect/test/cli/Param.test.ts	157	it.effect	supports alternative flags	param_or_else_fallbacks
 ported	packages/effect/test/cli/Param.test.ts	170	it.effect	uses the default when a required variadic argument is omitted	positional_defaults_and_supplied_beats_config
-unported	packages/effect/test/cli/Param.test.ts	183	it.effect	prompts for missing flag values and preserves remaining args	
-unported	packages/effect/test/cli/Param.test.ts	200	it.effect	does not prompt when flag value is provided	
-unported	packages/effect/test/cli/Param.test.ts	213	it.effect	prompts for missing arguments	
-unported	packages/effect/test/cli/Param.test.ts	230	it.effect	builds flag fallback prompts from effects lazily	
-unported	packages/effect/test/cli/Param.test.ts	260	it.effect	builds argument fallback prompts from effects lazily	
-unported	packages/effect/test/cli/Param.test.ts	291	it.effect	propagates errors from effectful fallback prompt creation	
-unported	packages/effect/test/cli/Param.test.ts	310	it.effect	prefers defaults over fallback prompts	
-unported	packages/effect/test/cli/Param.test.ts	326	it.effect	does not prompt for invalid flag values	
-unported	packages/effect/test/cli/Param.test.ts	341	it.effect	does not prompt for invalid argument values	
-unported	packages/effect/test/cli/Param.test.ts	356	it.effect	prompts for missing boolean flags	
-unported	packages/effect/test/cli/Param.test.ts	371	it.effect	uses an explicitly disabled boolean before prompting	
-unported	packages/effect/test/cli/Param.test.ts	384	it.effect	returns MissingOption when prompt is cancelled	
-unported	packages/effect/test/cli/Param.test.ts	401	it.effect	returns MissingArgument when argument prompt is cancelled	
+not-applicable	packages/effect/test/cli/Param.test.ts	183	it.effect	prompts for missing flag values and preserves remaining args	N/A: rust unstable cli lacks interactive prompt/orElse fallback machinery, so these prompt-related rows cannot be represented in the Rust port
+not-applicable	packages/effect/test/cli/Param.test.ts	200	it.effect	does not prompt when flag value is provided	N/A: rust unstable cli lacks interactive prompt/orElse fallback machinery, so these prompt-related rows cannot be represented in the Rust port
+not-applicable	packages/effect/test/cli/Param.test.ts	213	it.effect	prompts for missing arguments	N/A: rust unstable cli lacks interactive prompt/orElse fallback machinery, so these prompt-related rows cannot be represented in the Rust port
+not-applicable	packages/effect/test/cli/Param.test.ts	230	it.effect	builds flag fallback prompts from effects lazily	N/A: rust unstable cli lacks interactive prompt/orElse fallback machinery, so these prompt-related rows cannot be represented in the Rust port
+not-applicable	packages/effect/test/cli/Param.test.ts	260	it.effect	builds argument fallback prompts from effects lazily	N/A: rust unstable cli lacks interactive prompt/orElse fallback machinery, so these prompt-related rows cannot be represented in the Rust port
+not-applicable	packages/effect/test/cli/Param.test.ts	291	it.effect	propagates errors from effectful fallback prompt creation	N/A: rust unstable cli lacks interactive prompt/orElse fallback machinery, so these prompt-related rows cannot be represented in the Rust port
+not-applicable	packages/effect/test/cli/Param.test.ts	310	it.effect	prefers defaults over fallback prompts	N/A: rust unstable cli lacks interactive prompt/orElse fallback machinery, so these prompt-related rows cannot be represented in the Rust port
+not-applicable	packages/effect/test/cli/Param.test.ts	326	it.effect	does not prompt for invalid flag values	N/A: rust unstable cli lacks interactive prompt/orElse fallback machinery, so these prompt-related rows cannot be represented in the Rust port
+not-applicable	packages/effect/test/cli/Param.test.ts	341	it.effect	does not prompt for invalid argument values	N/A: rust unstable cli lacks interactive prompt/orElse fallback machinery, so these prompt-related rows cannot be represented in the Rust port
+not-applicable	packages/effect/test/cli/Param.test.ts	356	it.effect	prompts for missing boolean flags	N/A: rust unstable cli lacks interactive prompt/orElse fallback machinery, so these prompt-related rows cannot be represented in the Rust port
+not-applicable	packages/effect/test/cli/Param.test.ts	371	it.effect	uses an explicitly disabled boolean before prompting	N/A: rust unstable cli lacks interactive prompt/orElse fallback machinery, so these prompt-related rows cannot be represented in the Rust port
+not-applicable	packages/effect/test/cli/Param.test.ts	384	it.effect	returns MissingOption when prompt is cancelled	N/A: rust unstable cli lacks interactive prompt/orElse fallback machinery, so these prompt-related rows cannot be represented in the Rust port
+not-applicable	packages/effect/test/cli/Param.test.ts	401	it.effect	returns MissingArgument when argument prompt is cancelled	N/A: rust unstable cli lacks interactive prompt/orElse fallback machinery, so these prompt-related rows cannot be represented in the Rust port
 ported	packages/effect/test/cli/Param.test.ts	420	it.effect	uses ConfigProvider when a boolean flag is missing	param_config_fallback_chain
 ported	packages/effect/test/cli/Param.test.ts	444	it.effect	uses an explicitly disabled boolean before reading config fallbacks	positional_defaults_and_supplied_beats_config
 ported	packages/effect/test/cli/Param.test.ts	468	it.effect	uses ConfigProvider when a flag is missing	param_config_fallback_chain
