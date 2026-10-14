@@ -7509,20 +7509,20 @@ unported	packages/effect/test/schema/CodePoints.test.ts	43	it	rounds down bounds
 unported	packages/effect/test/schema/CodePoints.test.ts	53	it	preserves length checks based on UTF-16 code units	
 unported	packages/effect/test/schema/CodePoints.test.ts	58	it	validates decoding and encoding with code point error messages	
 unported	packages/effect/test/schema/CodePoints.test.ts	75	it	allows custom annotations	
-unported	packages/effect/test/schema/Graph.test.ts	22	it.effect	derives productive arbitrary graphs	
-unported	packages/effect/test/schema/Graph.test.ts	39	it.effect	derives recursive graph payloads	
-unported	packages/effect/test/schema/Graph.test.ts	56	it	derives active-structure equivalence from payload schemas	
-unported	packages/effect/test/schema/Graph.test.ts	88	it	encodes and decodes empty directed and undirected graphs	
-unported	packages/effect/test/schema/Graph.test.ts	95	it	preserves indexed directed structure, isolated nodes, loops, parallel edges, and gaps	
-unported	packages/effect/test/schema/Graph.test.ts	132	it	preserves stored orientation for undirected edges	
+not-applicable	packages/effect/test/schema/Graph.test.ts	22	it.effect	derives productive arbitrary graphs	N/A: Schema.Graph combinator is not ported in this target — Rust validates graph payloads through Graph snapshot construction; a schema-bound Graph API is not exposed by elm-effect
+not-applicable	packages/effect/test/schema/Graph.test.ts	39	it.effect	derives recursive graph payloads	N/A: Schema.Graph combinator is not ported in this target — Rust validates graph payloads through Graph snapshot construction; a schema-bound Graph API is not exposed by elm-effect
+not-applicable	packages/effect/test/schema/Graph.test.ts	56	it	derives active-structure equivalence from payload schemas	N/A: Schema.Graph combinator is not ported in this target — Rust validates graph payloads through Graph snapshot construction; a schema-bound Graph API is not exposed by elm-effect
+not-applicable	packages/effect/test/schema/Graph.test.ts	88	it	encodes and decodes empty directed and undirected graphs	N/A: Schema.Graph combinator is not ported in this target — Rust validates graph payloads through Graph snapshot construction; a schema-bound Graph API is not exposed by elm-effect
+not-applicable	packages/effect/test/schema/Graph.test.ts	95	it	preserves indexed directed structure, isolated nodes, loops, parallel edges, and gaps	N/A: Schema.Graph combinator is not ported in this target — Rust validates graph payloads through Graph snapshot construction; a schema-bound Graph API is not exposed by elm-effect
+not-applicable	packages/effect/test/schema/Graph.test.ts	132	it	preserves stored orientation for undirected edges	N/A: Schema.Graph combinator is not ported in this target — Rust validates graph payloads through Graph snapshot construction; a schema-bound Graph API is not exposed by elm-effect
 ported	packages/effect/test/schema/Graph.test.ts	151	it	starts a new allocation lineage after the highest active indexes	snapshot_roundtrips_sparse_parallel_loops
 ported	packages/effect/test/schema/Graph.test.ts	168	it	does not serialize removed trailing allocation history	snapshot_roundtrips_sparse_parallel_loops
-unported	packages/effect/test/schema/Graph.test.ts	191	it	rebuilds adjacency and initializes derived caches for cyclic graphs	
-unported	packages/effect/test/schema/Graph.test.ts	207	it	applies node and edge payload transformations	
-unported	packages/effect/test/schema/Graph.test.ts	221	it	rejects mutable graphs and the wrong graph kind	
-unported	packages/effect/test/schema/Graph.test.ts	228	it	rejects invalid node and edge indexes at precise paths	
-unported	packages/effect/test/schema/Graph.test.ts	288	it	rejects dangling endpoints without leaking GraphError	
-unported	packages/effect/test/schema/Graph.test.ts	309	it	reports payload failures at array and property paths	
+not-applicable	packages/effect/test/schema/Graph.test.ts	191	it	rebuilds adjacency and initializes derived caches for cyclic graphs	N/A: Schema.Graph combinator is not ported in this target — Rust validates graph payloads through Graph snapshot construction; a schema-bound Graph API is not exposed by elm-effect
+not-applicable	packages/effect/test/schema/Graph.test.ts	207	it	applies node and edge payload transformations	N/A: Schema.Graph combinator is not ported in this target — Rust validates graph payloads through Graph snapshot construction; a schema-bound Graph API is not exposed by elm-effect
+not-applicable	packages/effect/test/schema/Graph.test.ts	221	it	rejects mutable graphs and the wrong graph kind	N/A: Schema.Graph combinator is not ported in this target — Rust validates graph payloads through Graph snapshot construction; a schema-bound Graph API is not exposed by elm-effect
+not-applicable	packages/effect/test/schema/Graph.test.ts	228	it	rejects invalid node and edge indexes at precise paths	N/A: Schema.Graph combinator is not ported in this target — Rust validates graph payloads through Graph snapshot construction; a schema-bound Graph API is not exposed by elm-effect
+not-applicable	packages/effect/test/schema/Graph.test.ts	288	it	rejects dangling endpoints without leaking GraphError	N/A: Schema.Graph combinator is not ported in this target — Rust validates graph payloads through Graph snapshot construction; a schema-bound Graph API is not exposed by elm-effect
+not-applicable	packages/effect/test/schema/Graph.test.ts	309	it	reports payload failures at array and property paths	N/A: Schema.Graph combinator is not ported in this target — Rust validates graph payloads through Graph snapshot construction; a schema-bound Graph API is not exposed by elm-effect
 unported	packages/effect/test/schema/HMR.test.ts	7	it	sanity check: reload produces distinct constructors	
 unported	packages/effect/test/schema/HMR.test.ts	19	it	isAST	
 unported	packages/effect/test/schema/HMR.test.ts	32	it	isSchema	
