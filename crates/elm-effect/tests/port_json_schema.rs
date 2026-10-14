@@ -2651,3 +2651,1041 @@ fn a_draft07_schema_round_trips_through_canonical_form() {
         defs(&[("MyType", obj(&[("type", text("string"))]))])
     );
 }
+
+// ---------------------------------------------------------------------------
+// JsonSchema.test.ts:1884-2417 toDocumentDraft04
+// ---------------------------------------------------------------------------
+
+/// Draft-04 has no two-valued schema: a `false` in a schema position becomes
+/// the schema that rejects everything.
+fn not_any() -> Json {
+    obj(&[("not", obj(&[]))])
+}
+
+/// A draft-04 reader for the rows whose only assertion in the pin is an `ajv`
+/// outcome. Those rows exist to prove the lowering keeps meaning, and this port
+/// has no validator, so the document the lowering emitted is read back through
+/// the keywords it actually uses. A reader this small is enough because both
+/// `contains` and `if`/`then`/`else` arrive here already rewritten to
+/// `anyOf`/`allOf`/`not`/`items`.
+///
+/// ponytail: no `oneOf`, no `patternProperties`, no `$ref` outside
+/// `/definitions/`; add each when a ported row needs it.
+fn accepts(document: &json_schema::Document, schema: &Json, instance: &Json) -> bool {
+    let map = match schema {
+        Json::Obj(map) => map,
+        Json::Bool(true) => return true,
+        Json::Bool(false) => return false,
+        _ => return true,
+    };
+
+    if let Some(Json::Str(target)) = map.get("$ref") {
+        let name = target
+            .strip_prefix("#/definitions/")
+            .expect("only definitions refs reach this reader");
+        let resolved = document
+            .definitions
+            .get(name)
+            .expect("the ref names a definition of this document");
+        if !accepts(document, resolved, instance) {
+            return false;
+        }
+    }
+
+    if let Some(expected) = map.get("type") {
+        let matches_type = |name: &str| match (name, instance) {
+            ("object", Json::Obj(_)) | ("array", Json::Arr(_)) | ("string", Json::Str(_)) => true,
+            ("number", Json::Num(_)) => true,
+            ("integer", Json::Num(value)) => value.fract() == 0.0,
+            ("boolean", Json::Bool(_)) | ("null", Json::Null) => true,
+            _ => false,
+        };
+        let satisfied = match expected {
+            Json::Str(name) => matches_type(name),
+            Json::Arr(names) => names.iter().any(|candidate| match candidate {
+                Json::Str(name) => matches_type(name),
+                _ => false,
+            }),
+            _ => true,
+        };
+        if !satisfied {
+            return false;
+        }
+    }
+
+    if let (Some(Json::Obj(fields)), Json::Obj(values)) = (map.get("properties"), instance) {
+        for (key, subschema) in fields {
+            if let Some(value) = values.get(key) {
+                if !accepts(document, subschema, value) {
+                    return false;
+                }
+            }
+        }
+    }
+
+    if let (Json::Obj(values), Some(Json::Arr(required))) = (instance, map.get("required")) {
+        for name in required {
+            if let Json::Str(name) = name {
+                if !values.contains_key(name) {
+                    return false;
+                }
+            }
+        }
+    }
+
+    if let Some(Json::Arr(allowed)) = map.get("enum") {
+        if !allowed.contains(instance) {
+            return false;
+        }
+    }
+
+    if let (Json::Num(value), Some(Json::Num(minimum))) = (instance, map.get("minimum")) {
+        let exclusive = matches!(map.get("exclusiveMinimum"), Some(Json::Bool(true)));
+        if value < minimum || (exclusive && value == minimum) {
+            return false;
+        }
+    }
+    if let (Json::Num(value), Some(Json::Num(maximum))) = (instance, map.get("maximum")) {
+        let exclusive = matches!(map.get("exclusiveMaximum"), Some(Json::Bool(true)));
+        if value > maximum || (exclusive && value == maximum) {
+            return false;
+        }
+    }
+    if let (Json::Num(value), Some(Json::Num(minimum))) = (instance, map.get("exclusiveMinimum")) {
+        if value <= minimum {
+            return false;
+        }
+    }
+    if let (Json::Num(value), Some(Json::Num(maximum))) = (instance, map.get("exclusiveMaximum")) {
+        if value >= maximum {
+            return false;
+        }
+    }
+    if let (Json::Str(value), Some(Json::Num(minimum))) = (instance, map.get("minLength")) {
+        if (value.chars().count() as f64) < *minimum {
+            return false;
+        }
+    }
+
+    if let (Json::Arr(items), Some(subschema)) = (instance, map.get("items")) {
+        match subschema {
+            Json::Arr(tuple) => {
+                for (index, entry) in items.iter().enumerate() {
+                    match tuple.get(index) {
+                        Some(subschema) => {
+                            if !accepts(document, subschema, entry) {
+                                return false;
+                            }
+                        }
+                        None => {
+                            if let Some(rest) = map.get("additionalItems") {
+                                if !accepts(document, rest, entry) {
+                                    return false;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            _ => {
+                for entry in items {
+                    if !accepts(document, subschema, entry) {
+                        return false;
+                    }
+                }
+            }
+        }
+    }
+
+    for keyword in ["allOf", "anyOf"] {
+        if let Some(Json::Arr(branches)) = map.get(keyword) {
+            let satisfied = if keyword == "allOf" {
+                branches
+                    .iter()
+                    .all(|branch| accepts(document, branch, instance))
+            } else {
+                branches
+                    .iter()
+                    .any(|branch| accepts(document, branch, instance))
+            };
+            if !satisfied {
+                return false;
+            }
+        }
+    }
+
+    if let Some(negated) = map.get("not") {
+        if accepts(document, negated, instance) {
+            return false;
+        }
+    }
+
+    true
+}
+
+/// Does any position of this document still spell `keyword`?
+fn mentions(schema: &Json, keyword: &str) -> bool {
+    match schema {
+        Json::Obj(map) => {
+            map.contains_key(keyword) || map.values().any(|value| mentions(value, keyword))
+        }
+        Json::Arr(items) => items.iter().any(|item| mentions(item, keyword)),
+        _ => false,
+    }
+}
+
+#[test]
+fn draft04_rewrites_the_canonical_meta_schema_uri_with_an_empty_fragment() {
+    let schema = obj(&[(
+        "$schema",
+        text(&format!("{}#", json_schema::META_SCHEMA_URI_DRAFT_2020_12)),
+    )]);
+
+    let document = json_schema::to_document_draft04(&canonical_document(schema, BTreeMap::new()))
+        .expect("2020-12 lowers to draft-04");
+
+    assert_eq!(
+        document.schema,
+        obj(&[("$schema", text(json_schema::META_SCHEMA_URI_DRAFT_04))])
+    );
+}
+
+#[test]
+fn draft04_omits_the_canonical_meta_schema_uri_from_embedded_resources() {
+    let document = canonical_document(
+        obj(&[]),
+        defs(&[(
+            "Embedded",
+            obj(&[
+                ("$id", text("embedded.json")),
+                ("$schema", text(json_schema::META_SCHEMA_URI_DRAFT_2020_12)),
+                ("type", text("string")),
+            ]),
+        )]),
+    );
+
+    let lowered = json_schema::to_document_draft04(&document).expect("2020-12 lowers");
+
+    // The canonical URI becomes the legacy `id`, because draft-04 spells a
+    // resource identifier that way and only the root may declare a dialect.
+    assert_eq!(
+        lowered.definitions.get("Embedded"),
+        Some(&obj(&[
+            ("id", text("embedded.json")),
+            ("type", text("string")),
+        ]))
+    );
+}
+
+#[test]
+fn draft04_rejects_custom_dialects_in_embedded_resources() {
+    let document = canonical_document(
+        obj(&[]),
+        defs(&[(
+            "Embedded",
+            obj(&[
+                ("$id", text("embedded.json")),
+                ("$schema", text("https://example.com/dialect")),
+                ("type", text("string")),
+            ]),
+        )]),
+    );
+
+    let message = failure_message(json_schema::to_document_draft04(&document));
+
+    assert!(
+        message.starts_with("Cannot convert JSON Schema keyword \"$schema\" to Draft-04"),
+        "{message}"
+    );
+}
+
+#[test]
+fn draft04_lowers_dependencies_and_keeps_opaque_custom_keywords() {
+    let schema = obj(&[
+        (
+            "dependentRequired",
+            obj(&[("enabled", arr(&[text("value")]))]),
+        ),
+        (
+            "dependentSchemas",
+            obj(&[("mode", obj(&[("required", arr(&[text("value")]))]))]),
+        ),
+        ("x-custom", obj(&[("value", flag(true))])),
+    ]);
+
+    let document = json_schema::to_document_draft04(&canonical_document(schema, BTreeMap::new()))
+        .expect("2020-12 lowers to draft-04");
+
+    // A key that only requires others stays a list; one that carries a schema
+    // stays a schema. Custom keywords ride through untouched.
+    assert_eq!(
+        document.schema,
+        obj(&[
+            (
+                "dependencies",
+                obj(&[
+                    ("enabled", arr(&[text("value")])),
+                    ("mode", obj(&[("required", arr(&[text("value")]))])),
+                ]),
+            ),
+            ("x-custom", obj(&[("value", flag(true))])),
+        ])
+    );
+}
+
+#[test]
+fn draft04_rewrites_defs_refs_to_definitions_refs() {
+    let document = canonical_document(
+        obj(&[
+            ("type", text("object")),
+            (
+                "properties",
+                obj(&[("value", obj(&[("$ref", text("#/$defs/Value"))]))]),
+            ),
+        ]),
+        defs(&[("Value", obj(&[("type", text("string"))]))]),
+    );
+
+    let lowered = json_schema::to_document_draft04(&document).expect("2020-12 lowers");
+
+    assert_eq!(
+        document_json(&lowered),
+        obj(&[
+            ("dialect", text("draft-04")),
+            (
+                "schema",
+                obj(&[
+                    ("type", text("object")),
+                    (
+                        "properties",
+                        obj(&[("value", obj(&[("$ref", text("#/definitions/Value"))]))]),
+                    ),
+                ]),
+            ),
+            (
+                "definitions",
+                obj(&[("Value", obj(&[("type", text("string"))]))]),
+            ),
+        ])
+    );
+}
+
+#[test]
+fn draft04_preserves_supported_keywords_and_newer_annotations_as_extensions() {
+    let schema = obj(&[
+        ("type", text("object")),
+        ("required", arr(&[text("value")])),
+        ("enum", arr(&[text("a"), text("b")])),
+        ("title", text("title")),
+        ("description", text("description")),
+        ("default", text("a")),
+        ("format", text("custom")),
+        ("pattern", text("^a$")),
+        ("minimum", num(0.0)),
+        ("maximum", num(10.0)),
+        ("minLength", num(1.0)),
+        ("maxLength", num(10.0)),
+        ("minItems", num(1.0)),
+        ("maxItems", num(10.0)),
+        ("minProperties", num(1.0)),
+        ("maxProperties", num(10.0)),
+        ("multipleOf", num(2.0)),
+        ("uniqueItems", flag(true)),
+        (
+            "properties",
+            obj(&[("value", obj(&[("type", text("string"))]))]),
+        ),
+        (
+            "patternProperties",
+            obj(&[("^x-", obj(&[("type", text("string"))]))]),
+        ),
+        ("not", obj(&[("type", text("null"))])),
+        ("additionalProperties", flag(false)),
+        ("allOf", arr(&[obj(&[("type", text("object"))])])),
+        ("anyOf", arr(&[obj(&[("type", text("string"))])])),
+        ("oneOf", arr(&[obj(&[("type", text("number"))])])),
+        ("items", obj(&[("type", text("string"))])),
+        ("examples", arr(&[text("a")])),
+        ("readOnly", flag(true)),
+        ("writeOnly", flag(true)),
+    ]);
+
+    let document = json_schema::to_document_draft04(&canonical_document(schema, BTreeMap::new()))
+        .expect("2020-12 lowers to draft-04");
+
+    // Everything the target dialect knows survives verbatim; only the `false`
+    // in a schema position is respelled.
+    assert_eq!(
+        document.schema,
+        obj(&[
+            ("type", text("object")),
+            ("required", arr(&[text("value")])),
+            ("enum", arr(&[text("a"), text("b")])),
+            ("title", text("title")),
+            ("description", text("description")),
+            ("default", text("a")),
+            ("format", text("custom")),
+            ("pattern", text("^a$")),
+            ("minimum", num(0.0)),
+            ("maximum", num(10.0)),
+            ("minLength", num(1.0)),
+            ("maxLength", num(10.0)),
+            ("minItems", num(1.0)),
+            ("maxItems", num(10.0)),
+            ("minProperties", num(1.0)),
+            ("maxProperties", num(10.0)),
+            ("multipleOf", num(2.0)),
+            ("uniqueItems", flag(true)),
+            (
+                "properties",
+                obj(&[("value", obj(&[("type", text("string"))]))]),
+            ),
+            (
+                "patternProperties",
+                obj(&[("^x-", obj(&[("type", text("string"))]))]),
+            ),
+            ("not", obj(&[("type", text("null"))])),
+            ("additionalProperties", not_any()),
+            ("allOf", arr(&[obj(&[("type", text("object"))])])),
+            ("anyOf", arr(&[obj(&[("type", text("string"))])])),
+            ("oneOf", arr(&[obj(&[("type", text("number"))])])),
+            ("items", obj(&[("type", text("string"))])),
+            ("examples", arr(&[text("a")])),
+            ("readOnly", flag(true)),
+            ("writeOnly", flag(true)),
+        ])
+    );
+}
+
+#[test]
+fn draft04_rejects_validation_keywords_it_cannot_represent() {
+    let refused = [
+        obj(&[("propertyNames", obj(&[("minLength", num(1.0))]))]),
+        obj(&[
+            ("contains", obj(&[("type", text("string"))])),
+            ("minContains", num(0.0)),
+        ]),
+        obj(&[
+            ("contains", obj(&[("type", text("string"))])),
+            ("minContains", num(2.0)),
+        ]),
+        obj(&[
+            ("if", obj(&[("$id", text("condition"))])),
+            ("then", obj(&[])),
+            ("else", obj(&[])),
+        ]),
+        obj(&[("unevaluatedProperties", flag(false))]),
+        obj(&[("$dynamicRef", text("#node"))]),
+        obj(&[(
+            "$vocabulary",
+            obj(&[("https://example.com/vocabulary", flag(true))]),
+        )]),
+        obj(&[("id", text("legacy-id"))]),
+    ];
+
+    for schema in refused {
+        let document = canonical_document(schema.clone(), BTreeMap::new());
+        let message = failure_message(json_schema::to_document_draft04(&document));
+        assert!(
+            message.starts_with("Cannot convert JSON Schema keyword \"")
+                && message.contains("to Draft-04"),
+            "{schema:?} => {message}"
+        );
+    }
+}
+
+#[test]
+fn draft04_converts_inactive_conditional_schema_bodies() {
+    // A conditional body is a schema position even when its keyword is inert,
+    // so its `$defs` moves and the pointer into it follows.
+    for key in ["if", "then", "else"] {
+        let schema = obj(&[
+            (
+                key,
+                obj(&[(
+                    "$defs",
+                    obj(&[("Value", obj(&[("const", text("value"))]))]),
+                )]),
+            ),
+            (
+                "allOf",
+                arr(&[obj(&[("$ref", text(&format!("#/{key}/$defs/Value")))])]),
+            ),
+        ]);
+
+        let document =
+            json_schema::to_document_draft04(&canonical_document(schema, BTreeMap::new()))
+                .expect("2020-12 lowers to draft-04");
+
+        assert_eq!(
+            document.schema,
+            obj(&[
+                (
+                    key,
+                    obj(&[(
+                        "definitions",
+                        obj(&[("Value", obj(&[("enum", arr(&[text("value")]))]))]),
+                    )]),
+                ),
+                (
+                    "allOf",
+                    arr(&[obj(&[(
+                        "$ref",
+                        text(&format!("#/{key}/definitions/Value")),
+                    )])]),
+                ),
+            ]),
+            "{key}"
+        );
+    }
+}
+
+#[test]
+fn draft04_lowers_conditionals_and_contains_while_preserving_semantics() {
+    let schema = obj(&[
+        ("type", text("object")),
+        (
+            "properties",
+            obj(&[
+                (
+                    "mode",
+                    obj(&[("enum", arr(&[text("full"), text("compact")]))]),
+                ),
+                ("value", obj(&[("type", text("string"))])),
+                (
+                    "values",
+                    obj(&[("contains", obj(&[("type", text("number"))]))]),
+                ),
+            ]),
+        ),
+        ("required", arr(&[text("mode"), text("values")])),
+        (
+            "if",
+            obj(&[(
+                "properties",
+                obj(&[("mode", obj(&[("const", text("full"))]))]),
+            )]),
+        ),
+        ("then", obj(&[("required", arr(&[text("value")]))])),
+        (
+            "else",
+            obj(&[("not", obj(&[("required", arr(&[text("value")]))]))]),
+        ),
+    ]);
+
+    let document = json_schema::to_document_draft04(&canonical_document(schema, BTreeMap::new()))
+        .expect("2020-12 lowers to draft-04");
+
+    assert!(!mentions(&document.schema, "if"), "{:?}", document.schema);
+    assert!(
+        !mentions(&document.schema, "contains"),
+        "{:?}",
+        document.schema
+    );
+    assert!(!mentions(&document.schema, "const"), "{:?}", document.schema);
+
+    let full_with_value = obj(&[
+        ("mode", text("full")),
+        ("value", text("ok")),
+        ("values", arr(&[num(1.0)])),
+    ]);
+    assert!(accepts(&document, &document.schema, &full_with_value));
+
+    // `then` holds: the full mode needs a value.
+    let full_without_value = obj(&[("mode", text("full")), ("values", arr(&[num(1.0)]))]);
+    assert!(!accepts(&document, &document.schema, &full_without_value));
+
+    let compact = obj(&[("mode", text("compact")), ("values", arr(&[num(1.0)]))]);
+    assert!(accepts(&document, &document.schema, &compact));
+
+    // `else` holds: the compact mode must not carry one.
+    let compact_with_value = obj(&[
+        ("mode", text("compact")),
+        ("value", text("unexpected")),
+        ("values", arr(&[num(1.0)])),
+    ]);
+    assert!(!accepts(&document, &document.schema, &compact_with_value));
+
+    let no_contained_number = obj(&[
+        ("mode", text("full")),
+        ("value", text("ok")),
+        ("values", arr(&[text("no")])),
+    ]);
+    assert!(!accepts(&document, &document.schema, &no_contained_number));
+
+    // `contains` says nothing about a non-array, and the rewrite keeps that.
+    let scalar_values = obj(&[
+        ("mode", text("full")),
+        ("value", text("ok")),
+        ("values", num(1.0)),
+    ]);
+    assert!(accepts(&document, &document.schema, &scalar_values));
+}
+
+#[test]
+fn draft04_omits_an_empty_required_array() {
+    let schema = obj(&[("type", text("object")), ("required", arr(&[]))]);
+
+    let document = json_schema::to_document_draft04(&canonical_document(schema, BTreeMap::new()))
+        .expect("2020-12 lowers to draft-04");
+
+    // Draft-04's meta-schema will not accept an empty `required`.
+    assert_eq!(document.schema, obj(&[("type", text("object"))]));
+}
+
+#[test]
+fn draft04_omits_empty_dependent_required_arrays() {
+    let empty = canonical_document(
+        obj(&[(
+            "dependentRequired",
+            obj(&[("value", arr(&[]))]),
+        )]),
+        BTreeMap::new(),
+    );
+    assert_eq!(
+        json_schema::to_document_draft04(&empty)
+            .expect("2020-12 lowers to draft-04")
+            .schema,
+        obj(&[])
+    );
+
+    // With a schema dependency on the same key, the empty list drops and the
+    // schema survives alone.
+    let combined = canonical_document(
+        obj(&[
+            ("dependentRequired", obj(&[("value", arr(&[]))])),
+            (
+                "dependentSchemas",
+                obj(&[("value", obj(&[("type", text("string"))]))]),
+            ),
+        ]),
+        BTreeMap::new(),
+    );
+    assert_eq!(
+        json_schema::to_document_draft04(&combined)
+            .expect("2020-12 lowers to draft-04")
+            .schema,
+        obj(&[(
+            "dependencies",
+            obj(&[("value", obj(&[("type", text("string"))]))]),
+        )])
+    );
+}
+
+#[test]
+fn draft04_converts_const_to_enum() {
+    let with_enum = canonical_document(
+        obj(&[
+            ("enum", arr(&[text("a"), text("b")])),
+            ("const", text("b")),
+            ("allOf", arr(&[obj(&[("type", text("string"))])])),
+        ]),
+        BTreeMap::new(),
+    );
+    // Beside an existing `enum` the constraint cannot be merged, so it keeps
+    // its meaning as another `allOf` member.
+    assert_eq!(
+        json_schema::to_document_draft04(&with_enum)
+            .expect("2020-12 lowers to draft-04")
+            .schema,
+        obj(&[
+            ("enum", arr(&[text("a"), text("b")])),
+            (
+                "allOf",
+                arr(&[
+                    obj(&[("type", text("string"))]),
+                    obj(&[("enum", arr(&[text("b")]))]),
+                ]),
+            ),
+        ])
+    );
+
+    let only_const = canonical_document(obj(&[("const", text("a"))]), BTreeMap::new());
+    assert_eq!(
+        json_schema::to_document_draft04(&only_const)
+            .expect("2020-12 lowers to draft-04")
+            .schema,
+        obj(&[("enum", arr(&[text("a")]))])
+    );
+
+    let enum_and_const = canonical_document(
+        obj(&[
+            ("enum", arr(&[text("a"), text("b")])),
+            ("const", text("b")),
+        ]),
+        BTreeMap::new(),
+    );
+    assert_eq!(
+        json_schema::to_document_draft04(&enum_and_const)
+            .expect("2020-12 lowers to draft-04")
+            .schema,
+        obj(&[
+            ("enum", arr(&[text("a"), text("b")])),
+            ("allOf", arr(&[obj(&[("enum", arr(&[text("b")]))])])),
+        ])
+    );
+}
+
+#[test]
+fn draft04_preserves_refs_in_literal_values() {
+    // A `$ref` inside a literal is data, not a reference, so it must not move
+    // with the definitions it looks like it points at.
+    let literal = obj(&[("$ref", text("#/$defs/Literal"))]);
+
+    let only_const = canonical_document(obj(&[("const", literal.clone())]), BTreeMap::new());
+    assert_eq!(
+        json_schema::to_document_draft04(&only_const)
+            .expect("2020-12 lowers to draft-04")
+            .schema,
+        obj(&[("enum", arr(&[literal.clone()]))])
+    );
+
+    let enum_and_default = canonical_document(
+        obj(&[
+            ("enum", arr(&[literal.clone()])),
+            ("default", literal.clone()),
+        ]),
+        BTreeMap::new(),
+    );
+    assert_eq!(
+        json_schema::to_document_draft04(&enum_and_default)
+            .expect("2020-12 lowers to draft-04")
+            .schema,
+        obj(&[
+            ("enum", arr(&[literal.clone()])),
+            ("default", literal),
+        ])
+    );
+}
+
+#[test]
+fn draft04_converts_numeric_exclusive_bounds_to_boolean_exclusivity() {
+    let cases = [
+        (
+            obj(&[("minimum", num(1.0))]),
+            obj(&[("minimum", num(1.0))]),
+        ),
+        (
+            obj(&[("exclusiveMinimum", num(1.0))]),
+            obj(&[("minimum", num(1.0)), ("exclusiveMinimum", flag(true))]),
+        ),
+        (
+            obj(&[("minimum", num(2.0)), ("exclusiveMinimum", num(1.0))]),
+            obj(&[("minimum", num(2.0))]),
+        ),
+        (
+            obj(&[("minimum", num(1.0)), ("exclusiveMinimum", num(1.0))]),
+            obj(&[("minimum", num(1.0)), ("exclusiveMinimum", flag(true))]),
+        ),
+        (
+            obj(&[("minimum", num(1.0)), ("exclusiveMinimum", num(2.0))]),
+            obj(&[("minimum", num(2.0)), ("exclusiveMinimum", flag(true))]),
+        ),
+        (
+            obj(&[("maximum", num(2.0))]),
+            obj(&[("maximum", num(2.0))]),
+        ),
+        (
+            obj(&[("exclusiveMaximum", num(2.0))]),
+            obj(&[("maximum", num(2.0)), ("exclusiveMaximum", flag(true))]),
+        ),
+        (
+            obj(&[("maximum", num(1.0)), ("exclusiveMaximum", num(2.0))]),
+            obj(&[("maximum", num(1.0))]),
+        ),
+        (
+            obj(&[("maximum", num(2.0)), ("exclusiveMaximum", num(2.0))]),
+            obj(&[("maximum", num(2.0)), ("exclusiveMaximum", flag(true))]),
+        ),
+        (
+            obj(&[("maximum", num(2.0)), ("exclusiveMaximum", num(1.0))]),
+            obj(&[("maximum", num(1.0)), ("exclusiveMaximum", flag(true))]),
+        ),
+    ];
+
+    for (schema, expected) in cases {
+        let document = canonical_document(schema.clone(), BTreeMap::new());
+        assert_eq!(
+            json_schema::to_document_draft04(&document)
+                .expect("2020-12 lowers to draft-04")
+                .schema,
+            expected,
+            "{schema:?}"
+        );
+    }
+}
+
+#[test]
+fn draft04_converts_boolean_schemas_only_in_schema_positions() {
+    let document = canonical_document(
+        obj(&[
+            ("type", text("object")),
+            (
+                "properties",
+                obj(&[
+                    ("allowed", flag(true)),
+                    ("denied", flag(false)),
+                    ("nested", obj(&[("not", flag(false))])),
+                ]),
+            ),
+            ("additionalProperties", flag(false)),
+            ("allOf", arr(&[flag(true)])),
+            ("anyOf", arr(&[flag(false)])),
+        ]),
+        BTreeMap::new(),
+    );
+
+    assert_eq!(
+        json_schema::to_document_draft04(&document)
+            .expect("2020-12 lowers to draft-04")
+            .schema,
+        obj(&[
+            ("type", text("object")),
+            (
+                "properties",
+                obj(&[
+                    ("allowed", obj(&[])),
+                    ("denied", not_any()),
+                    ("nested", obj(&[("not", not_any())])),
+                ]),
+            ),
+            ("additionalProperties", not_any()),
+            ("allOf", arr(&[obj(&[])])),
+            ("anyOf", arr(&[not_any()])),
+        ])
+    );
+}
+
+#[test]
+fn draft04_converts_tuple_members_and_the_trailing_boolean_schema() {
+    let tuple = canonical_document(
+        obj(&[
+            ("type", text("array")),
+            ("prefixItems", arr(&[flag(true), flag(false)])),
+            ("items", flag(false)),
+        ]),
+        BTreeMap::new(),
+    );
+    assert_eq!(
+        json_schema::to_document_draft04(&tuple)
+            .expect("2020-12 lowers to draft-04")
+            .schema,
+        obj(&[
+            ("type", text("array")),
+            ("items", arr(&[obj(&[]), not_any()])),
+            ("additionalItems", not_any()),
+        ])
+    );
+
+    let single = canonical_document(
+        obj(&[("type", text("array")), ("items", flag(false))]),
+        BTreeMap::new(),
+    );
+    assert_eq!(
+        json_schema::to_document_draft04(&single)
+            .expect("2020-12 lowers to draft-04")
+            .schema,
+        obj(&[("type", text("array")), ("items", not_any())])
+    );
+}
+
+#[test]
+fn draft04_converts_schemas_in_additional_properties_and_additional_items() {
+    let document = canonical_document(
+        obj(&[
+            ("type", text("object")),
+            ("additionalProperties", obj(&[("const", text("value"))])),
+            (
+                "properties",
+                obj(&[(
+                    "tuple",
+                    obj(&[
+                        ("type", text("array")),
+                        ("prefixItems", arr(&[obj(&[("type", text("string"))])])),
+                        ("items", obj(&[("const", text("rest"))])),
+                    ]),
+                )]),
+            ),
+        ]),
+        BTreeMap::new(),
+    );
+
+    assert_eq!(
+        json_schema::to_document_draft04(&document)
+            .expect("2020-12 lowers to draft-04")
+            .schema,
+        obj(&[
+            ("type", text("object")),
+            (
+                "additionalProperties",
+                obj(&[("enum", arr(&[text("value")]))]),
+            ),
+            (
+                "properties",
+                obj(&[(
+                    "tuple",
+                    obj(&[
+                        ("type", text("array")),
+                        ("items", arr(&[obj(&[("type", text("string"))])])),
+                        ("additionalItems", obj(&[("enum", arr(&[text("rest")]))])),
+                    ]),
+                )]),
+            ),
+        ])
+    );
+}
+
+#[test]
+fn draft04_preserves_malformed_values_for_recognized_keywords() {
+    let malformed = obj(&[
+        ("properties", text("invalid")),
+        ("not", arr(&[num(1.0)])),
+        ("allOf", text("invalid")),
+    ]);
+
+    let document = json_schema::to_document_draft04(&canonical_document(
+        malformed.clone(),
+        BTreeMap::new(),
+    ))
+    .expect("2020-12 lowers to draft-04");
+
+    // A value the keyword does not accept is another document's problem; the
+    // lowering carries it rather than inventing a schema.
+    assert_eq!(document.schema, malformed);
+}
+
+#[test]
+fn draft04_preserves_all_of_not_and_null() {
+    let schema = obj(&[(
+        "anyOf",
+        arr(&[
+            obj(&[("type", text("null"))]),
+            obj(&[(
+                "allOf",
+                arr(&[obj(&[("not", obj(&[("type", text("string"))]))])]),
+            )]),
+        ]),
+    )]);
+
+    let document =
+        json_schema::to_document_draft04(&canonical_document(schema.clone(), BTreeMap::new()))
+            .expect("2020-12 lowers to draft-04");
+
+    assert_eq!(document.schema, schema);
+}
+
+#[test]
+fn draft04_preserves_newer_annotations_as_extensions() {
+    let schema = obj(&[
+        ("type", text("object")),
+        ("examples", arr(&[obj(&[("value", num(1.0))])])),
+    ]);
+
+    let document =
+        json_schema::to_document_draft04(&canonical_document(schema.clone(), BTreeMap::new()))
+            .expect("2020-12 lowers to draft-04");
+
+    assert_eq!(document.schema, schema);
+}
+
+#[test]
+fn draft04_preserves_constraints_next_to_refs() {
+    let document = canonical_document(
+        obj(&[("$ref", text("#/$defs/S")), ("minLength", num(3.0))]),
+        defs(&[("S", obj(&[("type", text("string"))]))]),
+    );
+
+    let lowered = json_schema::to_document_draft04(&document).expect("2020-12 lowers");
+
+    // Draft-04 ignores sibling keywords beside `$ref`, so the reference has to
+    // move into an `allOf` member for the constraint to keep its meaning.
+    assert_eq!(
+        document_json(&lowered),
+        obj(&[
+            ("dialect", text("draft-04")),
+            (
+                "schema",
+                obj(&[
+                    ("allOf", arr(&[obj(&[("$ref", text("#/definitions/S"))])])),
+                    ("minLength", num(3.0)),
+                ]),
+            ),
+            (
+                "definitions",
+                obj(&[("S", obj(&[("type", text("string"))]))]),
+            ),
+        ])
+    );
+
+    let lowered_schema = lowered.schema.clone();
+    assert!(accepts(&lowered, &lowered_schema, &text("abc")));
+    assert!(!accepts(&lowered, &lowered_schema, &text("a")));
+}
+
+#[test]
+fn draft04_preserves_validation_semantics_for_converted_constraints() {
+    let schema = obj(&[
+        ("type", text("object")),
+        (
+            "properties",
+            obj(&[
+                ("mode", obj(&[("const", text("on"))])),
+                (
+                    "value",
+                    obj(&[
+                        ("type", text("number")),
+                        ("exclusiveMinimum", num(0.0)),
+                        ("exclusiveMaximum", num(2.0)),
+                    ]),
+                ),
+                (
+                    "tuple",
+                    obj(&[
+                        ("type", text("array")),
+                        ("prefixItems", arr(&[obj(&[("type", text("string"))])])),
+                        ("items", flag(false)),
+                    ]),
+                ),
+            ]),
+        ),
+        (
+            "required",
+            arr(&[text("mode"), text("value"), text("tuple")]),
+        ),
+        ("additionalProperties", flag(false)),
+    ]);
+
+    let document = json_schema::to_document_draft04(&canonical_document(schema, BTreeMap::new()))
+        .expect("2020-12 lowers to draft-04");
+
+    assert!(!mentions(&document.schema, "const"), "{:?}", document.schema);
+
+    let valid = obj(&[
+        ("mode", text("on")),
+        ("value", num(1.0)),
+        ("tuple", arr(&[text("a")])),
+    ]);
+    assert!(accepts(&document, &document.schema, &valid));
+
+    let wrong_mode = obj(&[
+        ("mode", text("off")),
+        ("value", num(1.0)),
+        ("tuple", arr(&[text("a")])),
+    ]);
+    assert!(!accepts(&document, &document.schema, &wrong_mode));
+
+    // The exclusive bound survives as a boolean beside the inclusive one.
+    let zero_value = obj(&[
+        ("mode", text("on")),
+        ("value", num(0.0)),
+        ("tuple", arr(&[text("a")])),
+    ]);
+    assert!(!accepts(&document, &document.schema, &zero_value));
+
+    let extra_tuple_member = obj(&[
+        ("mode", text("on")),
+        ("value", num(1.0)),
+        ("tuple", arr(&[text("a"), text("b")])),
+    ]);
+    assert!(!accepts(&document, &document.schema, &extra_tuple_member));
+}

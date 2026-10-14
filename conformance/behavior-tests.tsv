@@ -2405,28 +2405,28 @@ ported	packages/effect/test/JsonSchema.test.ts	1788	it	converts prefixItems to a
 ported	packages/effect/test/JsonSchema.test.ts	1816	it	preserves a single items schema as items	draft07_target_preserves_a_single_items_schema
 ported	packages/effect/test/JsonSchema.test.ts	1836	it	preserves custom properties in Draft-07 output	draft07_target_preserves_custom_properties
 ported	packages/effect/test/JsonSchema.test.ts	1856	it	preserves malformed values for recognized keywords	draft07_target_preserves_malformed_values
-unported	packages/effect/test/JsonSchema.test.ts	1884	it	rewrites the canonical meta-schema URI with an empty fragment	
-unported	packages/effect/test/JsonSchema.test.ts	1895	it	omits the canonical meta-schema URI from embedded resources	
-unported	packages/effect/test/JsonSchema.test.ts	1914	it	rejects custom dialects in embedded resources	
-unported	packages/effect/test/JsonSchema.test.ts	1932	it	lowers canonical dependencies directly and preserves custom keywords	
-unported	packages/effect/test/JsonSchema.test.ts	1952	it	rewrites $defs refs to Draft-04 definitions refs	
-unported	packages/effect/test/JsonSchema.test.ts	1980	it	preserves every supported Draft-04 keyword and newer annotations as extensions	
-unported	packages/effect/test/JsonSchema.test.ts	2054	it	rejects validation keywords that Draft-04 cannot represent	
-unported	packages/effect/test/JsonSchema.test.ts	2079	it	converts inactive conditional schema bodies	
-unported	packages/effect/test/JsonSchema.test.ts	2097	it	lowers conditionals and contains while preserving validation semantics	
-unported	packages/effect/test/JsonSchema.test.ts	2127	it	omits an empty required array	
-unported	packages/effect/test/JsonSchema.test.ts	2138	it	omits empty dependentRequired arrays	
-unported	packages/effect/test/JsonSchema.test.ts	2159	it	converts const to enum	
-unported	packages/effect/test/JsonSchema.test.ts	2194	it	preserves refs in literal values	
-unported	packages/effect/test/JsonSchema.test.ts	2215	it	converts numeric exclusive bounds to Draft-04 boolean exclusivity	
-unported	packages/effect/test/JsonSchema.test.ts	2240	it	converts boolean schemas only in schema positions	
-unported	packages/effect/test/JsonSchema.test.ts	2270	it	converts tuple members and their trailing boolean schema	
-unported	packages/effect/test/JsonSchema.test.ts	2297	it	converts schemas in additionalProperties and additionalItems	
-unported	packages/effect/test/JsonSchema.test.ts	2327	it	preserves malformed values for recognized keywords	
-unported	packages/effect/test/JsonSchema.test.ts	2345	it	preserves allOf, not, and null	
-unported	packages/effect/test/JsonSchema.test.ts	2360	it	preserves newer annotations as Draft-04 extensions	
-unported	packages/effect/test/JsonSchema.test.ts	2373	it	preserves constraints next to refs	
-unported	packages/effect/test/JsonSchema.test.ts	2392	it	preserves validation semantics for converted constraints	
+ported	packages/effect/test/JsonSchema.test.ts	1884	it	rewrites the canonical meta-schema URI with an empty fragment	draft04_rewrites_the_canonical_meta_schema_uri_with_an_empty_fragment
+ported	packages/effect/test/JsonSchema.test.ts	1895	it	omits the canonical meta-schema URI from embedded resources	draft04_omits_the_canonical_meta_schema_uri_from_embedded_resources
+ported	packages/effect/test/JsonSchema.test.ts	1914	it	rejects custom dialects in embedded resources	draft04_rejects_custom_dialects_in_embedded_resources
+ported	packages/effect/test/JsonSchema.test.ts	1932	it	lowers canonical dependencies directly and preserves custom keywords	draft04_lowers_dependencies_and_keeps_opaque_custom_keywords
+ported	packages/effect/test/JsonSchema.test.ts	1952	it	rewrites $defs refs to Draft-04 definitions refs	draft04_rewrites_defs_refs_to_definitions_refs
+ported	packages/effect/test/JsonSchema.test.ts	1980	it	preserves every supported Draft-04 keyword and newer annotations as extensions	draft04_preserves_supported_keywords_and_newer_annotations_as_extensions
+ported	packages/effect/test/JsonSchema.test.ts	2054	it	rejects validation keywords that Draft-04 cannot represent	draft04_rejects_validation_keywords_it_cannot_represent
+ported	packages/effect/test/JsonSchema.test.ts	2079	it	converts inactive conditional schema bodies	draft04_converts_inactive_conditional_schema_bodies
+ported	packages/effect/test/JsonSchema.test.ts	2097	it	lowers conditionals and contains while preserving validation semantics	draft04_lowers_conditionals_and_contains_while_preserving_semantics
+ported	packages/effect/test/JsonSchema.test.ts	2127	it	omits an empty required array	draft04_omits_an_empty_required_array
+ported	packages/effect/test/JsonSchema.test.ts	2138	it	omits empty dependentRequired arrays	draft04_omits_empty_dependent_required_arrays
+ported	packages/effect/test/JsonSchema.test.ts	2159	it	converts const to enum	draft04_converts_const_to_enum
+ported	packages/effect/test/JsonSchema.test.ts	2194	it	preserves refs in literal values	draft04_preserves_refs_in_literal_values
+ported	packages/effect/test/JsonSchema.test.ts	2215	it	converts numeric exclusive bounds to Draft-04 boolean exclusivity	draft04_converts_numeric_exclusive_bounds_to_boolean_exclusivity
+ported	packages/effect/test/JsonSchema.test.ts	2240	it	converts boolean schemas only in schema positions	draft04_converts_boolean_schemas_only_in_schema_positions
+ported	packages/effect/test/JsonSchema.test.ts	2270	it	converts tuple members and their trailing boolean schema	draft04_converts_tuple_members_and_the_trailing_boolean_schema
+ported	packages/effect/test/JsonSchema.test.ts	2297	it	converts schemas in additionalProperties and additionalItems	draft04_converts_schemas_in_additional_properties_and_additional_items
+ported	packages/effect/test/JsonSchema.test.ts	2327	it	preserves malformed values for recognized keywords	draft04_preserves_malformed_values_for_recognized_keywords
+ported	packages/effect/test/JsonSchema.test.ts	2345	it	preserves allOf, not, and null	draft04_preserves_all_of_not_and_null
+ported	packages/effect/test/JsonSchema.test.ts	2360	it	preserves newer annotations as Draft-04 extensions	draft04_preserves_newer_annotations_as_extensions
+ported	packages/effect/test/JsonSchema.test.ts	2373	it	preserves constraints next to refs	draft04_preserves_constraints_next_to_refs
+ported	packages/effect/test/JsonSchema.test.ts	2392	it	preserves validation semantics for converted constraints	draft04_preserves_validation_semantics_for_converted_constraints
 unported	packages/effect/test/JsonSchema.test.ts	2417	it	converts documents generated from Effect schemas	
 unported	packages/effect/test/JsonSchema.test.ts	2445	it	rejects opaque keywords that OpenAPI 3.1 would activate	
 unported	packages/effect/test/JsonSchema.test.ts	2461	it	does not inspect opaque values for OpenAPI 3.1 keyword collisions	
