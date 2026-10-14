@@ -4,7 +4,7 @@
 //! constructor and combinator is covered: if any of them ran work eagerly,
 //! its counter would be non-zero after the drop.
 
-use elm_effect::{Cause, Defect, Effect, Exit, Reason, Runtime};
+use elm_effect::{Cause, Defect, Effect, Exit, Layer, ManagedRuntime, Reason, Runtime, ServiceTag, use_service};
 use std::convert::Infallible;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -769,5 +769,93 @@ fn map_err_leaves_defects_and_interrupts_untouched() {
             );
         }
         other => panic!("an interrupt must stay an interrupt, got {other:?}"),
+    }
+}
+
+/// A tag for the seam tests: `use_service` needs one, and so does the
+/// runtime whose layer builds it.
+struct Seam;
+struct Greeting(String);
+
+impl Clone for Greeting {
+    fn clone(&self) -> Self {
+        Self(self.0.clone())
+    }
+}
+
+impl ServiceTag for Seam {
+    type Service = Greeting;
+    const ID: &'static str = "test/seam";
+}
+
+/// The other half of the wrong-runtime case: a layer that built a DIFFERENT
+/// tag, so a program asking for `Seam` is asking for nothing.
+struct Sibling;
+struct Count(u32);
+
+impl Clone for Count {
+    fn clone(&self) -> Self {
+        Self(self.0)
+    }
+}
+
+impl ServiceTag for Sibling {
+    type Service = Count;
+    const ID: &'static str = "test/sibling";
+}
+
+/// What a program declares as its `Err`. A service read is `Infallible`, so
+/// the widening has to reach for an unreachable match rather than a value:
+/// the point is that a real declared channel accepts it at all.
+fn unreachable(never: Infallible) -> String {
+    match never {}
+}
+
+/// The widening the seam is for. A static interpreter's program declares an
+/// `Err` channel, while `use_service` is `Infallible`, and the two do not
+/// unify: `map_err` is the only door between them. This is that composition
+/// over a service the runtime actually built.
+#[test]
+fn use_service_joins_a_declared_error_channel_through_map_err() {
+    let layer = Layer::<Seam, Infallible, ()>::from_value(Greeting("from-layer".to_string()));
+    let runtime = ManagedRuntime::make(&layer).expect("layer builds");
+    let services = runtime.context().expect("built services");
+    let program: Effect<String, String, ()> = use_service::<Seam>()
+        .map(|greeting| greeting.0)
+        .provide_from(services)
+        .map_err(unreachable);
+    match Runtime::run(program) {
+        Exit::Success(message) => assert_eq!(message, "from-layer"),
+        other => panic!("a built service must reach the widened channel, got {other:?}"),
+    }
+}
+
+/// The fail-closed half of the same composition. A runtime booted for
+/// `Sibling` must not fill a program's declared `Err` in with the defect of
+/// a service it never built: `Cause::map` leaves the `Die` verbatim, so
+/// `ProgramError` stays empty and the missing tag names itself.
+#[test]
+fn a_service_the_runtime_never_built_stays_a_defect_through_map_err() {
+    let layer = Layer::<Sibling, Infallible, ()>::from_value(Count(1));
+    let runtime = ManagedRuntime::make(&layer).expect("layer builds");
+    let services = runtime.context().expect("built services");
+    let program: Effect<String, String, ()> = use_service::<Seam>()
+        .map(|greeting| greeting.0)
+        .provide_from(services)
+        .map_err(unreachable);
+    match Runtime::run(program) {
+        Exit::Failure(cause) => {
+            assert_eq!(
+                cause.failure(),
+                None,
+                "a missing service is a defect, not a typed failure"
+            );
+            let rendered = format!("{cause:?}");
+            assert!(
+                rendered.contains("missing service: test/seam"),
+                "the missing tag must name itself, got: {rendered}"
+            );
+        }
+        other => panic!("a missing tag must stay a failure, got {other:?}"),
     }
 }
