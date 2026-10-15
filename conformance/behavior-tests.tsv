@@ -7438,9 +7438,9 @@ unported	packages/effect/test/reactivity/AtomHttpApi.test.ts	75	it.effect	dispat
 unported	packages/effect/test/reactivity/AtomHttpApi.test.ts	107	it.effect	query creates a serializable atom with reactivity and retention that encodes the request	
 unported	packages/effect/test/reactivity/AtomHttpApi.test.ts	211	it.effect	returns generated SSE stream failures from queries	
 not-applicable	packages/effect/test/reactivity/AtomRpc.test.ts	57	it	includes client middleware errors in atom failure types	N/A: compile-time type-only assertion (expectTypeOf on Atom.Failure); a Rust type relationship is a compile fact, not a runtime observable
-unported	packages/effect/test/reactivity/AtomRpc.test.ts	75	it.effect	query creates a serializable atom with reactivity and retention	
-unported	packages/effect/test/reactivity/AtomRpc.test.ts	158	it.effect	dehydrates the rest of the registry when client middleware fails	
-unported	packages/effect/test/reactivity/AtomRpc.test.ts	188	it.effect	settles promise dehydration when client middleware later fails	
+not-applicable	packages/effect/test/reactivity/AtomRpc.test.ts	75	it.effect	query creates a serializable atom with reactivity and retention	AtomRpc.Service relies on an RPC protocol client, layer wiring, and hydration transport that the Rust Atom runtime does not implement; the query atom cannot be constructed without that transport
+not-applicable	packages/effect/test/reactivity/AtomRpc.test.ts	158	it.effect	dehydrates the rest of the registry when client middleware fails	AtomRpc.Service relies on an RPC protocol client, layer wiring, and hydration transport that the Rust Atom runtime does not implement; the query atom cannot be constructed without that transport
+not-applicable	packages/effect/test/reactivity/AtomRpc.test.ts	188	it.effect	settles promise dehydration when client middleware later fails	AtomRpc.Service relies on an RPC protocol client, layer wiring, and hydration transport that the Rust Atom runtime does not implement; the query atom cannot be constructed without that transport
 ported	packages/effect/test/rpc/Rpc.test.ts	16	it.effect	can implement a single handler	router_single_handler
 ported	packages/effect/test/rpc/Rpc.test.ts	36	it	exitSchema uses custom defect schema	router_single_handler
 ported	packages/effect/test/rpc/Rpc.test.ts	56	it	JSON-encoded interrupt exits use null for a missing fiberId	interrupt_without_fiber_encodes_null_fiber_id
