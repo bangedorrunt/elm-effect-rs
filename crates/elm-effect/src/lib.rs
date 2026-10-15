@@ -12,6 +12,7 @@
 //! - Phase 1 has zero `unsafe`.
 
 pub mod cause;
+#[cfg(feature = "tokio")]
 mod concurrency;
 mod context;
 mod effect;
@@ -36,9 +37,10 @@ mod scope;
 mod service;
 #[cfg(feature = "stm")]
 mod stm;
-mod stream;
 #[cfg(feature = "tokio")]
+mod stream;
 mod supervisor;
+pub use supervisor::{catch_panic, catch_panic_message};
 mod sync;
 mod time;
 
@@ -47,6 +49,7 @@ pub use cause::{
     is_timeout_error, is_unknown_error, Cause, CauseError, Defect, Done, FiberId, Reason, Squash,
     is_die_reason, is_fail_reason, is_interrupt_reason, is_done,
 };
+#[cfg(feature = "tokio")]
 pub use concurrency::{
     Body, Concurrency, all, find_first, find_first_filter, for_each, partition, partition_items,
     reduce, validate, validate_discard, validate_discard_items, validate_items,
@@ -91,6 +94,7 @@ pub use stm::{
     atomically, is_tx_chunk, is_tx_deferred, is_tx_hash_map, is_tx_hash_set, is_tx_priority_queue,
     is_tx_semaphore, is_tx_subscription_ref,
 };
+#[cfg(feature = "tokio")]
 pub use stream::{Stream, from_iter, from_iterator_succeed};
 pub use sync::{Deferred, MutableRef, PartitionedSemaphore, Queue, QueueError, Ref, Semaphore, Strategy, SubscriptionRef, SynchronizedRef, is_dequeue, is_enqueue, is_queue};
 pub use time::{Clock, ClockImpl, Duration, DurationJson, Parts, SleepOutcome, SystemClock, TestClock, is_duration};

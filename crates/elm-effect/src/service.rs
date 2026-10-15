@@ -285,6 +285,7 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
     /// impossible through the type-level API, which is why the `ambiguous
     /// tag` branch you can still hit through a layer merge has no public
     /// witness here.)
+    #[cfg(feature = "tokio")]
     pub fn provide_from<T, Rest>(
         self,
         services: &crate::BuiltServices,
