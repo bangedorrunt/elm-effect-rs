@@ -1510,13 +1510,13 @@ unported	packages/effect/test/EffectEager.test.ts	638	it	handles cause informati
 unported	packages/effect/test/EffectEager.test.ts	658	it.effect	preserves effect execution behavior for non-eager paths	
 ported	packages/effect/test/EffectKeepAlive.test.ts	4	it	makeRunMain keeps process alive until completion	keepalive_child_completes_slow_effect
 ported	packages/effect/test/EffectKeepAlive.test.ts	41	it	makeRunMain when setInterval is blocked	blocked_interval_does_not_hold_exit
-unported	packages/effect/test/Effectable.test.ts	19	it.effect	evaluates asEffect	
-unported	packages/effect/test/Effectable.test.ts	25	it.effect	propagates failures	
-unported	packages/effect/test/Effectable.test.ts	36	it.effect	uses provided services	
+not-applicable	packages/effect/test/Effectable.test.ts	19	it.effect	evaluates asEffect	native class per ADR-0002: Effectable is a TypeScript-only HKT/unify polyfill; Rust traits and newtypes cover the same capability, so the row's TS semantics have no Rust witness
+not-applicable	packages/effect/test/Effectable.test.ts	25	it.effect	propagates failures	native class per ADR-0002: Effectable is a TypeScript-only HKT/unify polyfill; Rust traits and newtypes cover the same capability, so the row's TS semantics have no Rust witness
+not-applicable	packages/effect/test/Effectable.test.ts	36	it.effect	uses provided services	native class per ADR-0002: Effectable is a TypeScript-only HKT/unify polyfill; Rust traits and newtypes cover the same capability, so the row's TS semantics have no Rust witness
 not-applicable	packages/effect/test/Effectable.test.ts	49	it	shadows base prototype methods without modifying them	N/A: JS prototype-chain surgery has no Rust analog
 not-applicable	packages/effect/test/Effectable.test.ts	71	it	inserts the Effect prototype between the subclass and original class	N/A: JS prototype-chain surgery has no Rust analog
 not-applicable	packages/effect/test/Effectable.test.ts	83	it	preserves the original constructor and instance members	N/A: JS prototype-chain surgery has no Rust analog
-unported	packages/effect/test/Effectable.test.ts	92	it	makes instances behave as Effects	
+not-applicable	packages/effect/test/Effectable.test.ts	92	it	makes instances behave as Effects	native class per ADR-0002: Effectable is a TypeScript-only HKT/unify polyfill; Rust traits and newtypes cover the same capability, so the row's TS semantics have no Rust witness
 not-applicable	packages/effect/test/Effectable.test.ts	98	it	does not modify the original class prototype	N/A: JS prototype-chain surgery has no Rust analog
 not-applicable	packages/effect/test/Equal.test.ts	21	it	does not cache an equality found through a provisional circular pair	the row drives a cyclic or self-referential value graph and compares by bisimilarity; this port's values are owned trees with no cycle, and Rust's deriving types cannot express one, so the assertion cannot be constructed
 not-applicable	packages/effect/test/Equal.test.ts	69	it	does not let an earlier comparison change a later result	the row drives a cyclic or self-referential value graph and compares by bisimilarity; this port's values are owned trees with no cycle, and Rust's deriving types cannot express one, so the assertion cannot be constructed
