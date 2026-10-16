@@ -3512,10 +3512,10 @@ ported	packages/effect/test/Sink.test.ts	317	it.effect	preserves leftovers when 
 ported	packages/effect/test/Sink.test.ts	327	it.effect	flatMap - empty input	channel_flat_map_concatenates
 ported	packages/effect/test/Sink.test.ts	334	it.effect	flatMap - non-empty input	channel_flat_map_concatenates
 ported	packages/effect/test/Sink.test.ts	341	it.effect	flatMap - with leftovers	sink_flat_map_preserves_leftovers
-unported	packages/effect/test/StackCapture.test.ts	33	it	Effect.fn skips definition capture at limit zero	
-unported	packages/effect/test/StackCapture.test.ts	38	it	Effect.fn skips invocation capture at limit zero	
-unported	packages/effect/test/StackCapture.test.ts	44	it	default spans skip capture at limit zero	
-unported	packages/effect/test/StackCapture.test.ts	49	it	explicit span capture works at limit zero	
+not-applicable	packages/effect/test/StackCapture.test.ts	33	it	Effect.fn skips definition capture at limit zero	N/A: Rust has no Effect runtime stack-capture surface for span/Effect.fn stack depth
+not-applicable	packages/effect/test/StackCapture.test.ts	38	it	Effect.fn skips invocation capture at limit zero	N/A: Rust has no Effect runtime stack-capture surface for span/Effect.fn stack depth
+not-applicable	packages/effect/test/StackCapture.test.ts	44	it	default spans skip capture at limit zero	N/A: Rust has no Effect runtime stack-capture surface for span/Effect.fn stack depth
+not-applicable	packages/effect/test/StackCapture.test.ts	49	it	explicit span capture works at limit zero	N/A: Rust has no Effect runtime stack-capture surface for span/Effect.fn stack depth
 not-applicable	packages/effect/test/StackTraceLimit.test.ts	9	it	isStackTraceLimitWritable returns true	N/A: V8 Error.stackTraceLimit plumbing; no Rust analog
 not-applicable	packages/effect/test/StackTraceLimit.test.ts	13	it	getStackTraceLimit reflects the current value	N/A: V8 Error.stackTraceLimit plumbing; no Rust analog
 not-applicable	packages/effect/test/StackTraceLimit.test.ts	20	it	setStackTraceLimit updates and restores the limit	N/A: V8 Error.stackTraceLimit plumbing; no Rust analog
