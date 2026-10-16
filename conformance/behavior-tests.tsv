@@ -4048,7 +4048,7 @@ not-applicable	packages/effect/test/Symbol.test.ts	15	it	returns true for well-k
 not-applicable	packages/effect/test/Symbol.test.ts	21	it	returns false for strings	N/A: JS symbols have no Rust analog
 not-applicable	packages/effect/test/Symbol.test.ts	26	it	returns false for numbers	N/A: JS symbols have no Rust analog
 not-applicable	packages/effect/test/Symbol.test.ts	31	it	returns false for booleans	N/A: JS symbols have no Rust analog
-not-applicable	packages/effect/test/Symbol.test.ts	36	it	returns false for null and undefined	Rust has no JS Symbol type or unknown-value guard surface; effect/Symbol.isSymbol is a JS primitive type guard with no Rust counterpart
+not-applicable	packages/effect/test/Symbol.test.ts	36	it	returns false for null and undefined	JS Symbol is a VM primitive with no Rust analog; null and undefined are not symbol values, so isSymbol returns false trivially, and no Rust symbol type exists to test against
 not-applicable	packages/effect/test/Symbol.test.ts	41	it	returns false for objects and arrays	N/A: JS symbols have no Rust analog
 not-applicable	packages/effect/test/Symbol.test.ts	46	it	returns false for functions	N/A: JS symbols have no Rust analog
 not-applicable	packages/effect/test/SynchronizedRef.modifySomeEffect.test.ts	5	it.effect	supports callback-only currying	callback-only currying is a TS dual()-arity surface shape; Rust modify_some_effect is positional and requires its fallback value at the call site, so the bare-callback curried form is not representable
