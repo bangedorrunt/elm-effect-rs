@@ -2638,19 +2638,19 @@ ported	packages/effect/test/MutableList.test.ts	164	it	filter keeps matching val
 skipped-upstream	packages/effect/test/MutableList.test.ts	174	it	filter passes list indices to the predicate across offsets and buckets	
 ported	packages/effect/test/MutableList.test.ts	188	it	filter restores the empty list state when no values match	mutable_list_core
 ported	packages/effect/test/MutableList.test.ts	200	it	remove deletes all strictly equal values and updates length	mutable_list_core
-unported	packages/effect/test/Newtype.test.ts	12	it	returns the underlying carrier value	
-unported	packages/effect/test/Newtype.test.ts	17	it	is an identity function at runtime	
-unported	packages/effect/test/Newtype.test.ts	25	it	set wraps and get unwraps roundtrip	
-unported	packages/effect/test/Newtype.test.ts	30	it	preserves the value through wrap/unwrap	
-unported	packages/effect/test/Newtype.test.ts	39	it	returns true for equal values	
-unported	packages/effect/test/Newtype.test.ts	43	it	returns false for different values	
-unported	packages/effect/test/Newtype.test.ts	51	it	orders a lower carrier number before a higher one	
-unported	packages/effect/test/Newtype.test.ts	55	it	orders a higher carrier number after a lower one	
-unported	packages/effect/test/Newtype.test.ts	59	it	treats equal carrier numbers as equivalent	
-unported	packages/effect/test/Newtype.test.ts	67	it	combines two newtype values	
-unported	packages/effect/test/Newtype.test.ts	76	it	reduces a collection of newtype values	
-unported	packages/effect/test/Newtype.test.ts	81	it	uses the lifted initial value for an empty collection	
-unported	packages/effect/test/Newtype.test.ts	86	it	combines two newtype values using the carrier reducer	
+not-applicable	packages/effect/test/Newtype.test.ts	12	it	returns the underlying carrier value	Rust encodes newtypes as zero-cost compile-time wrappers (struct newtype/phantom types); there is no runtime Newtype module exposing value/makeIso/makeEquivalence, so this carrier-runtime behavior has no Rust analog
+not-applicable	packages/effect/test/Newtype.test.ts	17	it	is an identity function at runtime	Rust encodes newtypes as zero-cost compile-time wrappers (struct newtype/phantom types); there is no runtime Newtype module exposing value/makeIso/makeEquivalence, so this carrier-runtime behavior has no Rust analog
+not-applicable	packages/effect/test/Newtype.test.ts	25	it	set wraps and get unwraps roundtrip	Rust encodes newtypes as zero-cost compile-time wrappers (struct newtype/phantom types); there is no runtime Newtype module exposing value/makeIso/makeEquivalence, so this carrier-runtime behavior has no Rust analog
+not-applicable	packages/effect/test/Newtype.test.ts	30	it	preserves the value through wrap/unwrap	Rust encodes newtypes as zero-cost compile-time wrappers (struct newtype/phantom types); there is no runtime Newtype module exposing value/makeIso/makeEquivalence, so this carrier-runtime behavior has no Rust analog
+not-applicable	packages/effect/test/Newtype.test.ts	39	it	returns true for equal values	Rust encodes newtypes as zero-cost compile-time wrappers (struct newtype/phantom types); there is no runtime Newtype module exposing value/makeIso/makeEquivalence, so this carrier-runtime behavior has no Rust analog
+not-applicable	packages/effect/test/Newtype.test.ts	43	it	returns false for different values	Rust encodes newtypes as zero-cost compile-time wrappers (struct newtype/phantom types); there is no runtime Newtype module exposing value/makeIso/makeEquivalence, so this carrier-runtime behavior has no Rust analog
+not-applicable	packages/effect/test/Newtype.test.ts	51	it	orders a lower carrier number before a higher one	Rust encodes newtypes as zero-cost compile-time wrappers (struct newtype/phantom types); there is no runtime Newtype module exposing value/makeIso/makeEquivalence, so this carrier-runtime behavior has no Rust analog
+not-applicable	packages/effect/test/Newtype.test.ts	55	it	orders a higher carrier number after a lower one	Rust encodes newtypes as zero-cost compile-time wrappers (struct newtype/phantom types); there is no runtime Newtype module exposing value/makeIso/makeEquivalence, so this carrier-runtime behavior has no Rust analog
+not-applicable	packages/effect/test/Newtype.test.ts	59	it	treats equal carrier numbers as equivalent	Rust encodes newtypes as zero-cost compile-time wrappers (struct newtype/phantom types); there is no runtime Newtype module exposing value/makeIso/makeEquivalence, so this carrier-runtime behavior has no Rust analog
+not-applicable	packages/effect/test/Newtype.test.ts	67	it	combines two newtype values	Rust encodes newtypes as zero-cost compile-time wrappers (struct newtype/phantom types); there is no runtime Newtype module exposing value/makeIso/makeEquivalence, so this carrier-runtime behavior has no Rust analog
+not-applicable	packages/effect/test/Newtype.test.ts	76	it	reduces a collection of newtype values	Rust encodes newtypes as zero-cost compile-time wrappers (struct newtype/phantom types); there is no runtime Newtype module exposing value/makeIso/makeEquivalence, so this carrier-runtime behavior has no Rust analog
+not-applicable	packages/effect/test/Newtype.test.ts	81	it	uses the lifted initial value for an empty collection	Rust encodes newtypes as zero-cost compile-time wrappers (struct newtype/phantom types); there is no runtime Newtype module exposing value/makeIso/makeEquivalence, so this carrier-runtime behavior has no Rust analog
+not-applicable	packages/effect/test/Newtype.test.ts	86	it	combines two newtype values using the carrier reducer	Rust encodes newtypes as zero-cost compile-time wrappers (struct newtype/phantom types); there is no runtime Newtype module exposing value/makeIso/makeEquivalence, so this carrier-runtime behavior has no Rust analog
 not-applicable	packages/effect/test/Number.test.ts	24	it	re-exports the global Number constructor	N/A: re-export identity with the JS global has no Rust analog
 not-applicable	packages/effect/test/Number.test.ts	28	it	coerces values with Number semantics	the tag's Number() coerces a boxed string, a boolean and null under JS rules in one call; this port's parse takes a &str and Rust's types forbid the boolean and null inputs, so only the string half is expressible and the row asserts all four
 ported	packages/effect/test/Number.test.ts	37	it	returns true for numbers, including NaN and infinities	number_parse
