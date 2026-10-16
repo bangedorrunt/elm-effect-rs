@@ -96334,7 +96334,7 @@ not-applicable	packages/effect/test/cluster/EntityProxy.test.ts	7	it	constructs 
 
 
 
-unported	packages/effect/test/cluster/Envelope.test.ts	21	it	leaves the already-encoded payload untouched under the JSON codec	
+not-applicable	packages/effect/test/cluster/Envelope.test.ts	21	it	leaves the already-encoded payload untouched under the JSON codec	Rust elm-effect-unstable cluster.rs has no envelope payload codec or hole/SchemaBinary compilation support, so this row cannot be witnessed in Rust
 
 
 
@@ -96350,7 +96350,7 @@ unported	packages/effect/test/cluster/Envelope.test.ts	21	it	leaves the already-
 
 
 
-unported	packages/effect/test/cluster/Envelope.test.ts	30	it	carries a non-JSON payload through the hole	
+not-applicable	packages/effect/test/cluster/Envelope.test.ts	30	it	carries a non-JSON payload through the hole	Rust elm-effect-unstable cluster.rs has no envelope payload codec or hole/SchemaBinary compilation support, so this row cannot be witnessed in Rust
 
 
 
@@ -96366,7 +96366,7 @@ unported	packages/effect/test/cluster/Envelope.test.ts	30	it	carries a non-JSON 
 
 
 
-unported	packages/effect/test/cluster/Envelope.test.ts	38	it	compiles the hole and Reply.Encoded as a bytes leaf under SchemaBinary	
+not-applicable	packages/effect/test/cluster/Envelope.test.ts	38	it	compiles the hole and Reply.Encoded as a bytes leaf under SchemaBinary	Rust elm-effect-unstable cluster.rs has no envelope payload codec or hole/SchemaBinary compilation support, so this row cannot be witnessed in Rust
 
 
 
@@ -96382,7 +96382,7 @@ unported	packages/effect/test/cluster/Envelope.test.ts	38	it	compiles the hole a
 
 
 
-unported	packages/effect/test/cluster/Envelope.test.ts	53	it	reports non-byte OpaqueHole inputs as schema failures	
+not-applicable	packages/effect/test/cluster/Envelope.test.ts	53	it	reports non-byte OpaqueHole inputs as schema failures	Rust elm-effect-unstable cluster.rs has no envelope payload codec or hole/SchemaBinary compilation support, so this row cannot be witnessed in Rust
 
 
 
