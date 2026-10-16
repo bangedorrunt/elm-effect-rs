@@ -699,3 +699,23 @@ fn parser_nested_parser_part_captures_a_list() {
         text("<h2>")
     );
 }
+
+/// TemplateLiteral.test.ts :157 — greedy segmentation needs no tuple
+/// round-trip: encode concatenates the captures (so a capture that already
+/// holds a colon survives) and decode re-splits greedily.
+#[test]
+fn parser_keeps_greedy_segmentation_without_tuple_roundtrips() {
+    let schema = Schema::template(vec![
+        TemplatePart::AnyString,
+        anchor(":"),
+        TemplatePart::AnyString,
+    ]);
+    assert_eq!(
+        schema.encode(&vec![text("a"), text(":"), text("b:c")]),
+        text("a:b:c")
+    );
+    assert_eq!(
+        schema.decode(text("a:b:c")),
+        Ok(vec![text("a:b"), text(":"), text("c")])
+    );
+}

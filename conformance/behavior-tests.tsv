@@ -8466,18 +8466,18 @@ not-applicable	packages/effect/test/schema/SchemaParser.test.ts	1176	it	should p
 ported	packages/effect/test/schema/SchemaTransformation.test.ts	6	it	isTransformation	is_transformation_tags_structures
 ported	packages/effect/test/schema/SchemaTransformation.test.ts	11	it	pipe	pipe_composes_both_directions
 ported	packages/effect/test/schema/SchemaTransformation.test.ts	22	it	makeTransformation preserves an existing transformation	transformation_made_from_pair_preserves_steps
-unported	packages/effect/test/schema/TemplateLiteral.test.ts	5	it	does not expand shared subtemplates during construction	
-unported	packages/effect/test/schema/TemplateLiteral.test.ts	20	it	rejects codecs at construction, including transformations between equal types	
-unported	packages/effect/test/schema/TemplateLiteral.test.ts	39	it	rejects codecs inside nested unions	
-unported	packages/effect/test/schema/TemplateLiteral.test.ts	50	it	rejects a transformed nested template	
-unported	packages/effect/test/schema/TemplateLiteral.test.ts	60	it.effect	supports branded parts, checks, and explicit projections	
-unported	packages/effect/test/schema/TemplateLiteral.test.ts	79	it.effect	transforms a template into a tuple and encodes transformed parts	
-unported	packages/effect/test/schema/TemplateLiteral.test.ts	91	it.effect	preserves decoded checks and supports decode-only parts	
-unported	packages/effect/test/schema/TemplateLiteral.test.ts	106	it.effect	preserves string coercion for transformed numeric parts	
-unported	packages/effect/test/schema/TemplateLiteral.test.ts	114	it.effect	enforces oneOf after decoding overlapping encoded members	
-unported	packages/effect/test/schema/TemplateLiteral.test.ts	133	it.effect	preserves shared unions when normalizing encoded parts	
-unported	packages/effect/test/schema/TemplateLiteral.test.ts	157	it.effect	keeps greedy segmentation without requiring tuple round-trips	
-unported	packages/effect/test/schema/TemplateLiteral.test.ts	165	it.effect	uses separate decoding and encoding services	
+not-applicable	packages/effect/test/schema/TemplateLiteral.test.ts	5	it	does not expand shared subtemplates during construction	a JS Proxy counting `encoding` property reads during construction has no Rust analog
+not-applicable	packages/effect/test/schema/TemplateLiteral.test.ts	20	it	rejects codecs at construction, including transformations between equal types	Rust `Schema::template` takes `TemplatePart`, a closed enum with no encoding-carrying variant, so a part cannot carry an encoding to reject at construction
+not-applicable	packages/effect/test/schema/TemplateLiteral.test.ts	39	it	rejects codecs inside nested unions	`TemplatePart` has no encoding-carrying variant, so a codec inside a nested union has nothing to be rejected from
+not-applicable	packages/effect/test/schema/TemplateLiteral.test.ts	50	it	rejects a transformed nested template	a transformed nested template cannot be a `TemplatePart`, so there is no encoding to reject
+not-applicable	packages/effect/test/schema/TemplateLiteral.test.ts	60	it.effect	supports branded parts, checks, and explicit projections	needs codec-carrying template parts (a `toEncoded` projection and brands on parts) that `TemplatePart` does not carry
+not-applicable	packages/effect/test/schema/TemplateLiteral.test.ts	79	it.effect	transforms a template into a tuple and encodes transformed parts	needs a codec part (BooleanFromBit) whose decode yields `true`/`false` inside a template; `TemplatePart` carries no codec
+not-applicable	packages/effect/test/schema/TemplateLiteral.test.ts	91	it.effect	preserves decoded checks and supports decode-only parts	decode-only part with a forbidden encoding (`decodeTo` plus `SchemaGetter.forbiddenEncoding`); `TemplatePart` carries no codec or getter
+not-applicable	packages/effect/test/schema/TemplateLiteral.test.ts	106	it.effect	preserves string coercion for transformed numeric parts	needs a transformed numeric part (FiniteFromString) with string-coercion decoding; `TemplatePart` carries no codec
+not-applicable	packages/effect/test/schema/TemplateLiteral.test.ts	114	it.effect	enforces oneOf after decoding overlapping encoded members	needs `oneOf` over codec-decoded members (String decoded to a literal); `TemplatePart::OneOf` alternatives are part lists, not codecs
+not-applicable	packages/effect/test/schema/TemplateLiteral.test.ts	133	it.effect	preserves shared unions when normalizing encoded parts	AST pointer identity of shared union parts (`parts[0] === parts[2]`); the Rust port has no JS object identity to assert
+ported	packages/effect/test/schema/TemplateLiteral.test.ts	157	it.effect	keeps greedy segmentation without requiring tuple round-trips	crates/elm-effect-schema/tests/schema_template.rs::parser_keeps_greedy_segmentation_without_tuple_roundtrips
+not-applicable	packages/effect/test/schema/TemplateLiteral.test.ts	165	it.effect	uses separate decoding and encoding services	separate decode and encode Effect services (`provideService`); the port has no Effect service environment in the template parser
 ported	packages/effect/test/schema/VariantSchema.test.ts	6	it	FieldOnly and FieldExcept select fields from key arrays	variant_field_selection
 ported	packages/effect/test/schema/VariantSchema.test.ts	22	it	Class preserves class and variant schema behavior	variant_class_preserves_class_and_variant_behavior
 ported	packages/effect/test/schema/VariantSchema.test.ts	41	it	includes plain variant structs in the default union	variant_default_never_collides
