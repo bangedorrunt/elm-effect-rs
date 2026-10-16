@@ -7055,8 +7055,8 @@ ported	packages/effect/test/net/NetAddress.test.ts	742	it	round trips numeric IP
 ported	packages/effect/test/net/NetAddress.test.ts	753	it	keeps Unix paths opaque	unix_paths_stay_opaque
 not-applicable	packages/effect/test/net/NetAddress.test.ts	761	it	decodes and canonically encodes schemas	the row decodes and canonically encodes a schema wrapper; elm-effect-unstable/src/net.rs documents that schema codecs are not modeled there, so there is no codec to carry the round trip
 not-applicable	packages/effect/test/net/NetAddress.test.ts	778	it	validates branded address schemas on decode and encode	the row decodes and canonically encodes a schema wrapper; elm-effect-unstable/src/net.rs documents that schema codecs are not modeled there, so there is no codec to carry the round trip
-unported	packages/effect/test/observability/OtlpConfig.test.ts	8	it.effect	configures exporters from OTEL environment variables	
-unported	packages/effect/test/observability/OtlpConfig.test.ts	49	it.effect	does not install exporters when OTEL_SDK_DISABLED is true	
+not-applicable	packages/effect/test/observability/OtlpConfig.test.ts	8	it.effect	configures exporters from OTEL environment variables	OLTP config: Rust elm-effect has no reader for OTEL_EXPORTER_OTLP_* environment variables and no config layer that maps them to exporters
+not-applicable	packages/effect/test/observability/OtlpConfig.test.ts	49	it.effect	does not install exporters when OTEL_SDK_DISABLED is true	OLTP config: Rust elm-effect has no OTEL_SDK_DISABLED gate controlling exporter installation
 ported	packages/effect/test/observability/OtlpEnvHeaders.test.ts	5	it.effect	decodes percent-encoded OTLP header values	otlp_env_headers_decode
 unported	packages/effect/test/observability/OtlpExporter.test.ts	110	it.effect	allows an in-flight timer export to finish during shutdown	
 unported	packages/effect/test/observability/OtlpExporter.test.ts	131	it.effect	waits for each periodic export before starting the next interval	
@@ -7141,8 +7141,8 @@ ported	packages/effect/test/persistence/KeyValueStoreTest.ts	38	it.effect	string
 ported	packages/effect/test/persistence/KeyValueStoreTest.ts	50	it.effect	utf8 string values	kv_utf8_string_values_roundtrip
 ported	packages/effect/test/persistence/KeyValueStoreTest.ts	62	it.effect	remove	kv_remove_clear
 ported	packages/effect/test/persistence/KeyValueStoreTest.ts	74	it.effect	clear	kv_remove_clear
-unported	packages/effect/test/persistence/PersistedCacheTest.ts	31	it.effect	smoke test	
-unported	packages/effect/test/persistence/PersistedCacheTest.ts	76	it.effect	requireServicesAt: 'lookup' requires lookup services at get-time	
+not-applicable	packages/effect/test/persistence/PersistedCacheTest.ts	31	it.effect	smoke test	Rust PersistedCache is a sync KeyValueStore cache (get_or_compute + invalidate, integer TTL); it lacks Effectful compute, services-at-get-time (requireServicesAt), and store setMany/getMany, so the smoke-test sequence and requireServicesAt row have no Rust witness
+not-applicable	packages/effect/test/persistence/PersistedCacheTest.ts	76	it.effect	requireServicesAt: 'lookup' requires lookup services at get-time	Rust PersistedCache is a sync KeyValueStore cache (get_or_compute + invalidate, integer TTL); it lacks Effectful compute, services-at-get-time (requireServicesAt), and store setMany/getMany, so the smoke-test sequence and requireServicesAt row have no Rust witness
 ported	packages/effect/test/persistence/PersistedQueue.test.ts	13	it.layer	PersistedQueue.retrySchedule	queue_retry_grows_with_attempts
 ported	packages/effect/test/persistence/PersistedQueue.test.ts	16	it.effect	derives growing delays from the persisted attempt count	queue_retry_grows_with_attempts
 ported	packages/effect/test/persistence/PersistedQueue.test.ts	52	it.layer	PersistedQueue.layerCleanup	queue_cleanup_prunes
