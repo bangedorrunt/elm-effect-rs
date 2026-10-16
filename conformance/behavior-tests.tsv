@@ -5353,8 +5353,8 @@ unported	packages/effect/test/ai/Tool.test.ts	1480	it	can be set to true
 unported	packages/effect/test/ai/Tool.test.ts	1485	it	can be set to false	
 unported	packages/effect/test/ai/Tool.test.ts	1490	it	works with dynamic tools	
 unported	packages/effect/test/ai/Tool.test.ts	1497	it	works with provider-defined tools	
-unported	packages/effect/test/ai/ToolRepresentation.test.ts	6	it	projects the encoded side before JSON Schema generation	
-unported	packages/effect/test/ai/ToolRepresentation.test.ts	10	it	uses custom JSON Schema compiler annotations for schema parameters	
+not-applicable	packages/effect/test/ai/ToolRepresentation.test.ts	6	it	projects the encoded side before JSON Schema generation	Rust elm-effect-unstable ai.rs has no Tool.getJsonSchema/getJsonSchemaFromSchema projection or Schema compiler toJsonSchema annotation hooks, so neither JSON-schema row can be witnessed
+not-applicable	packages/effect/test/ai/ToolRepresentation.test.ts	10	it	uses custom JSON Schema compiler annotations for schema parameters	Rust elm-effect-unstable ai.rs has no Tool.getJsonSchema/getJsonSchemaFromSchema projection or Schema compiler toJsonSchema annotation hooks, so neither JSON-schema row can be witnessed
 not-applicable	packages/effect/test/arbitrary/Arbitrary.array.test.ts	7	it.effect	reduces custom command sequences to Reset followed by Stop	Arbitrary array shrinking/check property rows depend on fast-check-style arbitrary combinators and registry not implemented in the port; the narrowing/shrinking behaviors are platform-substrate concerns here
 not-applicable	packages/effect/test/arbitrary/Arbitrary.array.test.ts	45	it.effect	retries a previously passing element shrink after deletion (${name})	Arbitrary array shrinking/check property rows depend on fast-check-style arbitrary combinators and registry not implemented in the port; the narrowing/shrinking behaviors are platform-substrate concerns here
 not-applicable	packages/effect/test/arbitrary/Arbitrary.array.test.ts	71	it.effect	removes a middle block when no single deletion fails (${name})	Arbitrary array shrinking/check property rows depend on fast-check-style arbitrary combinators and registry not implemented in the port; the narrowing/shrinking behaviors are platform-substrate concerns here
@@ -7503,12 +7503,12 @@ unported	packages/effect/test/rpc/RpcServer.test.ts	242	it.effect	uses the confi
 unported	packages/effect/test/rpc/RpcServer.test.ts	250	it.effect	allows unbounded framed HTTP response buffering	
 unported	packages/effect/test/rpc/RpcServer.test.ts	257	it.effect	keeps non-framed HTTP responses unbounded	
 unported	packages/effect/test/rpc/RpcServer.test.ts	293	it.effect	closes a socket when the serialization buffer limit is exceeded	
-unported	packages/effect/test/schema/CodePoints.test.ts	21	it	counts code points at inclusive minimum and maximum boundaries	
-unported	packages/effect/test/schema/CodePoints.test.ts	34	it	checks inclusive ranges and rejects inverted ranges	
-unported	packages/effect/test/schema/CodePoints.test.ts	43	it	rounds down bounds and clamps negative bounds to zero	
-unported	packages/effect/test/schema/CodePoints.test.ts	53	it	preserves length checks based on UTF-16 code units	
-unported	packages/effect/test/schema/CodePoints.test.ts	58	it	validates decoding and encoding with code point error messages	
-unported	packages/effect/test/schema/CodePoints.test.ts	75	it	allows custom annotations	
+ported	packages/effect/test/schema/CodePoints.test.ts	21	it	counts code points at inclusive minimum and maximum boundaries	crates/elm-effect-schema/tests/code_points.rs
+ported	packages/effect/test/schema/CodePoints.test.ts	34	it	checks inclusive ranges and rejects inverted ranges	crates/elm-effect-schema/tests/code_points.rs
+ported	packages/effect/test/schema/CodePoints.test.ts	43	it	rounds down bounds and clamps negative bounds to zero	crates/elm-effect-schema/tests/code_points.rs
+not-applicable	packages/effect/test/schema/CodePoints.test.ts	53	it	preserves length checks based on UTF-16 code units	N/A: Rust String measures UTF-8 chars, not JS UTF-16 code units
+ported	packages/effect/test/schema/CodePoints.test.ts	58	it	validates decoding and encoding with code point error messages	crates/elm-effect-schema/tests/code_points.rs
+ported	packages/effect/test/schema/CodePoints.test.ts	75	it	allows custom annotations	crates/elm-effect-schema/tests/code_points.rs
 not-applicable	packages/effect/test/schema/Graph.test.ts	22	it.effect	derives productive arbitrary graphs	N/A: Schema.Graph combinator is not ported in this target — Rust validates graph payloads through Graph snapshot construction; a schema-bound Graph API is not exposed by elm-effect
 not-applicable	packages/effect/test/schema/Graph.test.ts	39	it.effect	derives recursive graph payloads	N/A: Schema.Graph combinator is not ported in this target — Rust validates graph payloads through Graph snapshot construction; a schema-bound Graph API is not exposed by elm-effect
 not-applicable	packages/effect/test/schema/Graph.test.ts	56	it	derives active-structure equivalence from payload schemas	N/A: Schema.Graph combinator is not ported in this target — Rust validates graph payloads through Graph snapshot construction; a schema-bound Graph API is not exposed by elm-effect
