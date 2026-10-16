@@ -26902,11 +26902,11 @@ not-applicable	packages/effect/test/http/SchemaRepresentation.test.ts	5	it	gener
 
 
 
-unported	packages/effect/test/http/Template.test.ts	7	it.effect	preserves template segment order	
+not-applicable	packages/effect/test/http/Template.test.ts	7	it.effect	preserves template segment order	Rust elm-effect-unstable has no http::Template tagged-template interpolation module or concurrent interpolation scheduler to witness either row
 
 
 
-unported	packages/effect/test/http/Template.test.ts	18	it.effect	evaluates effect interpolations concurrently	
+not-applicable	packages/effect/test/http/Template.test.ts	18	it.effect	evaluates effect interpolations concurrently	Rust elm-effect-unstable has no http::Template tagged-template interpolation module or concurrent interpolation scheduler to witness either row
 
 
 
