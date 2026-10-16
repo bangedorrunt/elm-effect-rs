@@ -233790,7 +233790,7 @@ unported	packages/effect/test/process/ChildProcessSpawnerTest.ts	1163	it.effect	
 
 
 
-unported	packages/effect/test/reactivity/AsyncResult.test.ts	6	it	waiting dispatches with optional options	
+not-applicable	packages/effect/test/reactivity/AsyncResult.test.ts	6	it	waiting dispatches with optional options	Rust elm-effect-unstable has no AsyncResult type, resulting/onDefect handling, or exhaustive computation witness, so none of these rows can be ported
 
 
 
@@ -233822,7 +233822,7 @@ unported	packages/effect/test/reactivity/AsyncResult.test.ts	6	it	waiting dispat
 
 
 
-unported	packages/effect/test/reactivity/AsyncResult.test.ts	16	it	onDefect handles defects	
+not-applicable	packages/effect/test/reactivity/AsyncResult.test.ts	16	it	onDefect handles defects	Rust elm-effect-unstable has no AsyncResult type, resulting/onDefect handling, or exhaustive computation witness, so none of these rows can be ported
 
 
 
@@ -233854,7 +233854,7 @@ unported	packages/effect/test/reactivity/AsyncResult.test.ts	16	it	onDefect hand
 
 
 
-unported	packages/effect/test/reactivity/AsyncResult.test.ts	27	it	onDefect does not handle typed errors	
+not-applicable	packages/effect/test/reactivity/AsyncResult.test.ts	27	it	onDefect does not handle typed errors	Rust elm-effect-unstable has no AsyncResult type, resulting/onDefect handling, or exhaustive computation witness, so none of these rows can be ported
 
 
 
@@ -233886,7 +233886,7 @@ unported	packages/effect/test/reactivity/AsyncResult.test.ts	27	it	onDefect does
 
 
 
-unported	packages/effect/test/reactivity/AsyncResult.test.ts	35	it	exhaustive returns output when typed errors are handled	
+not-applicable	packages/effect/test/reactivity/AsyncResult.test.ts	35	it	exhaustive returns output when typed errors are handled	Rust elm-effect-unstable has no AsyncResult type, resulting/onDefect handling, or exhaustive computation witness, so none of these rows can be ported
 
 
 
