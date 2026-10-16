@@ -5102,6 +5102,16 @@ impl Schema<Unknown> {
         let mut out = Self::new(
             move |unknown| {
                 let holds = match name_owned.as_str() {
+                    "isBetweenCodePoints" => {
+                        let bmin = bounds.first().copied().unwrap_or(0.0).floor().max(0.0);
+                        let bmax = bounds.get(1).copied().unwrap_or(0.0).floor().max(0.0);
+                        if let Unknown::Text(text) = &unknown {
+                            let count = text.chars().count() as f64;
+                            count >= bmin && count <= bmax
+                        } else {
+                            true
+                        }
+                    }
                     "isBetween" => {
                         between_holds(&bounds, exclusive_minimum, exclusive_maximum, &unknown)
                     }
@@ -5127,6 +5137,16 @@ impl Schema<Unknown> {
             // silently violates the refinement on the way out.
             move |value| {
                 let holds = match encode_name.as_str() {
+                    "isBetweenCodePoints" => {
+                        let bmin = encode_bounds.first().copied().unwrap_or(0.0).floor().max(0.0);
+                        let bmax = encode_bounds.get(1).copied().unwrap_or(0.0).floor().max(0.0);
+                        if let Unknown::Text(text) = value {
+                            let count = text.chars().count() as f64;
+                            count >= bmin && count <= bmax
+                        } else {
+                            true
+                        }
+                    }
                     "isBetween" => {
                         between_holds(&encode_bounds, exclusive_minimum, exclusive_maximum, value)
                     }
@@ -5404,8 +5424,15 @@ fn check_holds(name: &str, limit: Option<f64>, value: &Unknown) -> bool {
         }
         ("isMinLength", Some(min), Unknown::Text(text)) => text.chars().count() as f64 >= min,
         ("isMaxLength", Some(max), Unknown::Text(text)) => text.chars().count() as f64 <= max,
-        ("isMinCodePoints", Some(min), Unknown::Text(text)) => text.chars().count() as f64 >= min,
-        ("isMaxCodePoints", Some(max), Unknown::Text(text)) => text.chars().count() as f64 <= max,
+        ("isMinCodePoints", Some(min), Unknown::Text(text)) => {
+            // TS normalizes the bound: floor then clamp to zero.
+            let bound = min.floor().max(0.0);
+            text.chars().count() as f64 >= bound
+        }
+        ("isMaxCodePoints", Some(max), Unknown::Text(text)) => {
+            let bound = max.floor().max(0.0);
+            text.chars().count() as f64 <= bound
+        }
         ("isGreaterThan", Some(bound), Unknown::Number(number)) => *number > bound,
         ("isGreaterThanOrEqualTo", Some(bound), Unknown::Number(number)) => *number >= bound,
         ("isLessThan", Some(bound), Unknown::Number(number)) => *number < bound,
