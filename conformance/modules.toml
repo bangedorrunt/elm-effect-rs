@@ -2876,7 +2876,7 @@ tests = []
 [[module]]
 path = "packages/effect/src/testing/TestClock.ts"
 class = "port"
-status = "unmatched"
+status = "matched"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/TestClock.test.ts"]
