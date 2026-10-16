@@ -53582,7 +53582,7 @@ ported	packages/effect/test/http/HttpServerResponse.test.ts	276	it	synchronizes 
 
 
 
-unported	packages/effect/test/http/HttpStaticServer.test.ts	28	it.effect	preserves the JavaScript MIME type through toWebHandler	
+not-applicable	packages/effect/test/http/HttpStaticServer.test.ts	28	it.effect	preserves the JavaScript MIME type through toWebHandler	Rust elm-effect-unstable http_server is a route matcher only; it has no HTTP static file server with MIME type negotiation or Range handling to witness this row
 
 
 
@@ -53590,7 +53590,7 @@ unported	packages/effect/test/http/HttpStaticServer.test.ts	28	it.effect	preserv
 
 
 
-unported	packages/effect/test/http/HttpStaticServer.test.ts	54	it.effect	ignores Range on HEAD requests	
+not-applicable	packages/effect/test/http/HttpStaticServer.test.ts	54	it.effect	ignores Range on HEAD requests	Rust elm-effect-unstable http_server is a route matcher only; it has no HTTP static file server with MIME type negotiation or Range handling to witness this row
 
 
 
@@ -53598,7 +53598,7 @@ unported	packages/effect/test/http/HttpStaticServer.test.ts	54	it.effect	ignores
 
 
 
-unported	packages/effect/test/http/HttpStaticServer.test.ts	107	it.effect	preserves ${range} and the exact total for ${url}	
+not-applicable	packages/effect/test/http/HttpStaticServer.test.ts	107	it.effect	preserves ${range} and the exact total for ${url}	Rust elm-effect-unstable http_server is a route matcher only; it has no HTTP static file server with MIME type negotiation or Range handling to witness this row
 
 
 
@@ -53606,7 +53606,7 @@ unported	packages/effect/test/http/HttpStaticServer.test.ts	107	it.effect	preser
 
 
 
-unported	packages/effect/test/http/HttpStaticServer.test.ts	125	it.effect	preserves the exact total in a 416 response	
+not-applicable	packages/effect/test/http/HttpStaticServer.test.ts	125	it.effect	preserves the exact total in a 416 response	Rust elm-effect-unstable http_server is a route matcher only; it has no HTTP static file server with MIME type negotiation or Range handling to witness this row
 
 
 
