@@ -6938,43 +6938,43 @@ ported	packages/effect/test/httpapi/HttpApiSecurity.test.ts	49	it.effect	accepts
 ported	packages/effect/test/httpapi/HttpApiSecurity.test.ts	56	it.effect	rejects mismatched and malformed HTTP schemes	rejects_mismatched_and_malformed_schemes
 ported	packages/effect/test/httpapi/HttpApiSecurity.test.ts	65	it.effect	decodes Basic credentials using the first colon separator	decodes_basic_at_first_colon
 ported	packages/effect/test/httpapi/HttpApiSecurity.test.ts	74	it.effect	rejects Basic credentials from a different scheme	rejects_basic_from_other_schemes_empty
-unported	packages/effect/test/httpapi/OpenApi.test.ts	73	it	preserves literal action suffixes in path templates	
-unported	packages/effect/test/httpapi/OpenApi.test.ts	89	it	keeps action paths literal when no parameter schema is declared	
-unported	packages/effect/test/httpapi/OpenApi.test.ts	99	it	preserves parameter schemas when an endpoint transform reorders parameters	
-unported	packages/effect/test/httpapi/OpenApi.test.ts	117	it	derives parameter names, optionality, and schemas from the encoded object representation	
-unported	packages/effect/test/httpapi/OpenApi.test.ts	155	it	does not apply JSON codecs to parameters when codecs are disabled	
-unported	packages/effect/test/httpapi/OpenApi.test.ts	178	it	returns fresh spec instances when using the cache	
-unported	packages/effect/test/httpapi/OpenApi.test.ts	205	it	preserves JSON.rawJSON values when cloning cached specs	
-unported	packages/effect/test/httpapi/OpenApi.test.ts	221	it	isolates the cached spec from external override mutations	
-unported	packages/effect/test/httpapi/OpenApi.test.ts	233	it	preserves every declared payload content type for normalized equivalents	
-unported	packages/effect/test/httpapi/OpenApi.test.ts	267	it	preserves GET and QUERY schemas on the same path	
-unported	packages/effect/test/httpapi/OpenApi.test.ts	292	it	emits buffered and stream successes with the same status	
-unported	packages/effect/test/httpapi/OpenApi.test.ts	326	it	emits the encoded schema of text bodies	
-unported	packages/effect/test/httpapi/OpenApi.test.ts	374	it	keeps opaque text bodies as strings	
-unported	packages/effect/test/httpapi/OpenApi.test.ts	393	it	constrains referenced opaque text bodies without changing shared JSON schemas	
-unported	packages/effect/test/httpapi/OpenApi.test.ts	424	it	uses encoding-specific codecs for text, JSON, and form bodies	
-unported	packages/effect/test/httpapi/OpenApi.test.ts	474	it	emits encoded success response headers	
-unported	packages/effect/test/httpapi/OpenApi.test.ts	501	it	marks response headers optional from their encoded object representation	
-unported	packages/effect/test/httpapi/OpenApi.test.ts	525	it	emits encoded error response headers	
-unported	packages/effect/test/httpapi/OpenApi.test.ts	556	it	emits encodeToWithHeaders wire schemas according to codec mode	
-unported	packages/effect/test/httpapi/OpenApi.test.ts	596	it	emits headers for an error wrapped in WithHeaders	
-unported	packages/effect/test/httpapi/OpenApi.test.ts	621	it	collapses a middleware error that repeats an endpoint error	
-unported	packages/effect/test/httpapi/OpenApi.test.ts	643	it	collapses a repeated middleware error when the endpoint disables codecs	
-unported	packages/effect/test/httpapi/OpenApi.test.ts	668	it	resolves one shared middleware error per endpoint codec mode	
-unported	packages/effect/test/httpapi/OpenApi.test.ts	697	it	emits an anyOf for a middleware error that differs from the endpoint error	
-unported	packages/effect/test/httpapi/OpenApi.test.ts	725	it	emits an anyOf for two different endpoint errors sharing a status	
-unported	packages/effect/test/httpapi/OpenApi.test.ts	749	it	documents a middleware error for a status the endpoint does not declare	
-unported	packages/effect/test/httpapi/OpenApi.test.ts	780	it	emits stream response headers	
-unported	packages/effect/test/httpapi/OpenApi.test.ts	804	it	rejects duplicate method and path pairs	
-unported	packages/effect/test/httpapi/OpenApi.test.ts	815	it	rejects equivalent templated method and path pairs	
-unported	packages/effect/test/httpapi/OpenApi.test.ts	826	it	rejects duplicate operation identifiers	
-unported	packages/effect/test/httpapi/OpenApi.test.ts	837	it	allows operations without identifiers	
-unported	packages/effect/test/httpapi/OpenApi.test.ts	860	it	rejects incompatible security schemes with the same name	
-unported	packages/effect/test/httpapi/OpenApi.test.ts	866	it	deduplicates equivalent security schemes with the same name	
-unported	packages/effect/test/httpapi/OpenApi.test.ts	878	it	deduplicates API key header names case-insensitively	
-unported	packages/effect/test/httpapi/OpenApi.test.ts	890	it	deduplicates HTTP security schemes case-insensitively	
-unported	packages/effect/test/httpapi/OpenApi.test.ts	901	it	stores __proto__ security scheme names as own properties	
-unported	packages/effect/test/httpapi/OpenApi.test.ts	921	it	rejects incompatible __proto__ security schemes	
+ported	packages/effect/test/httpapi/OpenApi.test.ts	73	it	preserves literal action suffixes in path templates	preserves_literal_action_suffixes_in_path_templates
+ported	packages/effect/test/httpapi/OpenApi.test.ts	89	it	keeps action paths literal when no parameter schema is declared	keeps_action_paths_literal_when_no_parameter_schema_is_declared
+ported	packages/effect/test/httpapi/OpenApi.test.ts	99	it	preserves parameter schemas when an endpoint transform reorders parameters	preserves_parameter_schemas_when_a_transform_reorders_them
+not-applicable	packages/effect/test/httpapi/OpenApi.test.ts	117	it	derives parameter names, optionality, and schemas from the encoded object representation	encoded-side optionality projection; absent
+not-applicable	packages/effect/test/httpapi/OpenApi.test.ts	155	it	does not apply JSON codecs to parameters when codecs are disabled	codec modes; absent
+ported	packages/effect/test/httpapi/OpenApi.test.ts	178	it	returns fresh spec instances when using the cache	returns_fresh_spec_instances_without_a_cache
+not-applicable	packages/effect/test/httpapi/OpenApi.test.ts	205	it	preserves JSON.rawJSON values when cloning cached specs	rawJSON identity machinery; absent
+not-applicable	packages/effect/test/httpapi/OpenApi.test.ts	221	it	isolates the cached spec from external override mutations	override annotations; absent
+ported	packages/effect/test/httpapi/OpenApi.test.ts	233	it	preserves every declared payload content type for normalized equivalents	preserves_every_declared_payload_content_type
+ported	packages/effect/test/httpapi/OpenApi.test.ts	267	it	preserves GET and QUERY schemas on the same path	preserves_get_and_query_schemas_on_the_same_path
+not-applicable	packages/effect/test/httpapi/OpenApi.test.ts	292	it	emits buffered and stream successes with the same status	SSE bodies; no SSE transport
+not-applicable	packages/effect/test/httpapi/OpenApi.test.ts	326	it	emits the encoded schema of text bodies	decodeTo/encodeTo codecs; absent
+not-applicable	packages/effect/test/httpapi/OpenApi.test.ts	374	it	keeps opaque text bodies as strings	asText codec hook; absent
+not-applicable	packages/effect/test/httpapi/OpenApi.test.ts	393	it	constrains referenced opaque text bodies without changing shared JSON schemas	codec hooks; absent
+not-applicable	packages/effect/test/httpapi/OpenApi.test.ts	424	it	uses encoding-specific codecs for text, JSON, and form bodies	codec hooks; absent
+not-applicable	packages/effect/test/httpapi/OpenApi.test.ts	474	it	emits encoded success response headers	WithHeaders wire schemas; absent
+not-applicable	packages/effect/test/httpapi/OpenApi.test.ts	501	it	marks response headers optional from their encoded object representation	WithHeaders wire schemas; absent
+not-applicable	packages/effect/test/httpapi/OpenApi.test.ts	525	it	emits encoded error response headers	encodeToWithHeaders; absent
+not-applicable	packages/effect/test/httpapi/OpenApi.test.ts	556	it	emits encodeToWithHeaders wire schemas according to codec mode	codec modes; absent
+not-applicable	packages/effect/test/httpapi/OpenApi.test.ts	596	it	emits headers for an error wrapped in WithHeaders	WithHeaders wire schemas; absent
+not-applicable	packages/effect/test/httpapi/OpenApi.test.ts	621	it	collapses a middleware error that repeats an endpoint error	middleware error sets; absent
+not-applicable	packages/effect/test/httpapi/OpenApi.test.ts	643	it	collapses a repeated middleware error when the endpoint disables codecs	middleware error sets; absent
+not-applicable	packages/effect/test/httpapi/OpenApi.test.ts	668	it	resolves one shared middleware error per endpoint codec mode	middleware error sets; absent
+not-applicable	packages/effect/test/httpapi/OpenApi.test.ts	697	it	emits an anyOf for a middleware error that differs from the endpoint error	middleware error sets; absent
+ported	packages/effect/test/httpapi/OpenApi.test.ts	725	it	emits an anyOf for two different endpoint errors sharing a status	emits_an_anyof_for_two_different_endpoint_errors_sharing_a_status
+not-applicable	packages/effect/test/httpapi/OpenApi.test.ts	749	it	documents a middleware error for a status the endpoint does not declare	middleware error sets; absent
+not-applicable	packages/effect/test/httpapi/OpenApi.test.ts	780	it	emits stream response headers	WithHeaders wire schemas; absent
+ported	packages/effect/test/httpapi/OpenApi.test.ts	804	it	rejects duplicate method and path pairs	rejects_duplicate_method_and_path_pairs
+ported	packages/effect/test/httpapi/OpenApi.test.ts	815	it	rejects equivalent templated method and path pairs	rejects_equivalent_templated_method_and_path_pairs
+ported	packages/effect/test/httpapi/OpenApi.test.ts	826	it	rejects duplicate operation identifiers	rejects_duplicate_operation_identifiers
+ported	packages/effect/test/httpapi/OpenApi.test.ts	837	it	allows operations without identifiers	allows_operations_without_identifiers
+ported	packages/effect/test/httpapi/OpenApi.test.ts	860	it	rejects incompatible security schemes with the same name	rejects_incompatible_security_schemes_with_the_same_name
+ported	packages/effect/test/httpapi/OpenApi.test.ts	866	it	deduplicates equivalent security schemes with the same name	deduplicates_equivalent_security_schemes_with_the_same_name
+ported	packages/effect/test/httpapi/OpenApi.test.ts	878	it	deduplicates API key header names case-insensitively	deduplicates_api_key_header_names_case_insensitively
+ported	packages/effect/test/httpapi/OpenApi.test.ts	890	it	deduplicates HTTP security schemes case-insensitively	deduplicates_http_security_schemes_case_insensitively
+ported	packages/effect/test/httpapi/OpenApi.test.ts	901	it	stores __proto__ security scheme names as own properties	stores_proto_security_scheme_names_as_own_properties
+ported	packages/effect/test/httpapi/OpenApi.test.ts	921	it	rejects incompatible __proto__ security schemes	rejects_incompatible_proto_security_schemes
 unported	packages/effect/test/httpapi/OpenApiRepresentation.test.ts	6	it	uses canonical JSON codecs for additional declaration schemas	
 unported	packages/effect/test/httpapi/OpenApiRepresentation.test.ts	16	it	applies the reference policy without removing additional schema components	
 unported	packages/effect/test/httpapi/OpenApiRepresentation.test.ts	34	it	uses canonical JSON codecs for response declaration schemas	
