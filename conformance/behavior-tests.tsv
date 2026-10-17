@@ -10352,35 +10352,64 @@ ported	packages/effect/test/sql/Statement.test.ts	40	it	renumbers a cached retur
 not-applicable	packages/effect/test/sql/Statement.test.ts	62	it.effect	reads propagation overrides when executing existing statements and streams	requires Tracer spans/SpanPropagationEnabled: crate has no span infrastructure
 not-applicable	packages/effect/test/sql/Statement.test.ts	81	it.effect	parents acquisition, execution, and pulls without adding stack frames	requires CurrentStackFrame acquisition spans: crate has no span infrastructure
 not-applicable	packages/effect/test/sql/Statement.test.ts	98	it.effect	skips propagation when tracing is disabled	requires tracing propagation toggle: crate has no span infrastructure
-unported	packages/effect/test/testing/TestSchema.test.ts	26	it	compares string and symbol fields by AST	
-unported	packages/effect/test/testing/TestSchema.test.ts	35	it	rejects missing or structurally different symbol fields	
-unported	packages/effect/test/testing/TestSchema.test.ts	50	it	preserves symbol identity even with equal descriptions	
-unported	packages/effect/test/testing/TestSchema.test.ts	58	it	preserves own __proto__ and constructor fields	
-unported	packages/effect/test/testing/TestSchema.test.ts	68	it	uses the Struct own-key contract for non-enumerable fields	
-unported	packages/effect/test/testing/TestSchema.test.ts	85	it	decoding	
-unported	packages/effect/test/testing/TestSchema.test.ts	94	it	decoding.provide	
-unported	packages/effect/test/testing/TestSchema.test.ts	119	it	encoding	
-unported	packages/effect/test/testing/TestSchema.test.ts	127	it	encoding.provide	
-unported	packages/effect/test/testing/TestSchema.test.ts	152	it	verifyRoundTrip	
-unported	packages/effect/test/testing/TestSchema.test.ts	158	it	verifyRoundTrip reports a shrunk input and replay	
-unported	packages/effect/test/testing/TestSchema.test.ts	178	it	verifyGeneration bounds residual discards	
-unported	packages/effect/test/testing/TestSchema.test.ts	190	it.effect	defers parsing and reruns it on every execution	
-unported	packages/effect/test/testing/TestSchema.test.ts	208	it.effect	preserves explicit undefined and reports mismatches as defects	
-unported	packages/effect/test/testing/TestSchema.test.ts	242	it	preserves Promise assertion errors and explicit undefined	
-unported	packages/effect/test/testing/TestSchema.test.ts	256	it.effect	forwards parsing options	
-unported	packages/effect/test/testing/TestSchema.test.ts	266	it.effect	preserves thrown schema defects in success and failure assertions	
-unported	packages/effect/test/testing/TestSchema.test.ts	282	it.effect	asserts decoded and encoded transformations	
-unported	packages/effect/test/testing/TestSchema.test.ts	291	it.effect	make uses constructor defaults from the test environment and honors disableChecks	
-unported	packages/effect/test/testing/TestSchema.test.ts	307	it.effect	${method} preserves validation failures and defective finalizers	
-unported	packages/effect/test/testing/TestSchema.test.ts	346	it.effect	${method} preserves interruption alongside annotated validation failures	
-unported	packages/effect/test/testing/TestSchema.test.ts	382	it.effect	round trips preserve mixed causes from ${method}	
-unported	packages/effect/test/testing/TestSchema.test.ts	404	it.effect	${method} inherits layer services and supports provide	
-unported	packages/effect/test/testing/TestSchema.test.ts	423	it.effect	${method} reads the test clock	
-unported	packages/effect/test/testing/TestSchema.test.ts	437	it.effect	make preserves mixed causes from constructor defaults	
-unported	packages/effect/test/testing/TestSchema.test.ts	462	it.effect	${method} propagates interruption and runs finalizers	
-unported	packages/effect/test/testing/TestSchema.test.ts	488	it.effect	round trips use both decoding and encoding services lazily	
-unported	packages/effect/test/testing/TestSchema.test.ts	513	it.effect	round-trip assertion defects report shrunk inputs and replay	
-unported	packages/effect/test/testing/TestSchema.test.ts	532	it.effect	round trips preserve schema defects	
+not-applicable	packages/effect/test/testing/TestSchema.test.ts	26	it	compares string and symbol fields by AST	needs JS symbol-keyed fields and AST property-signature reflection; Rust has no symbols
+
+not-applicable	packages/effect/test/testing/TestSchema.test.ts	35	it	rejects missing or structurally different symbol fields	needs JS symbol-keyed fields and AST property-signature reflection; Rust has no symbols
+
+not-applicable	packages/effect/test/testing/TestSchema.test.ts	50	it	preserves symbol identity even with equal descriptions	needs JS symbol-keyed fields and AST property-signature reflection; Rust has no symbols
+
+not-applicable	packages/effect/test/testing/TestSchema.test.ts	58	it	preserves own __proto__ and constructor fields	needs JS symbol-keyed fields and AST property-signature reflection; Rust has no symbols
+
+not-applicable	packages/effect/test/testing/TestSchema.test.ts	68	it	uses the Struct own-key contract for non-enumerable fields	needs JS symbol-keyed fields and AST property-signature reflection; Rust has no symbols
+
+not-applicable	packages/effect/test/testing/TestSchema.test.ts	85	it	decoding	needs TestSchema.Asserts decoding/encoding assertion service; only bare decode exists
+
+not-applicable	packages/effect/test/testing/TestSchema.test.ts	94	it	decoding.provide	needs Effect service/layer injection (Context, provide, services); no service system in this port
+
+not-applicable	packages/effect/test/testing/TestSchema.test.ts	119	it	encoding	needs TestSchema.Asserts decoding/encoding assertion service; only bare decode exists
+
+not-applicable	packages/effect/test/testing/TestSchema.test.ts	127	it	encoding.provide	needs Effect service/layer injection (Context, provide, services); no service system in this port
+
+not-applicable	packages/effect/test/testing/TestSchema.test.ts	152	it	verifyRoundTrip	needs verifyRoundTrip with shrinking, replay and residual bounds; no TestSchema service harness
+
+not-applicable	packages/effect/test/testing/TestSchema.test.ts	158	it	verifyRoundTrip reports a shrunk input and replay	needs verifyRoundTrip with shrinking, replay and residual bounds; no TestSchema service harness
+
+not-applicable	packages/effect/test/testing/TestSchema.test.ts	178	it	verifyGeneration bounds residual discards	needs verifyRoundTrip with shrinking, replay and residual bounds; no TestSchema service harness
+
+not-applicable	packages/effect/test/testing/TestSchema.test.ts	190	it.effect	defers parsing and reruns it on every execution	needs TestSchema.Asserts decoding/encoding assertion service; only bare decode exists
+
+not-applicable	packages/effect/test/testing/TestSchema.test.ts	208	it.effect	preserves explicit undefined and reports mismatches as defects	needs TestSchema.Asserts decoding/encoding assertion service; only bare decode exists
+
+not-applicable	packages/effect/test/testing/TestSchema.test.ts	242	it	preserves Promise assertion errors and explicit undefined	needs TestSchema.Asserts decoding/encoding assertion service; only bare decode exists
+
+not-applicable	packages/effect/test/testing/TestSchema.test.ts	256	it.effect	forwards parsing options	needs Effect service/layer injection (Context, provide, services); no service system in this port
+
+not-applicable	packages/effect/test/testing/TestSchema.test.ts	266	it.effect	preserves thrown schema defects in success and failure assertions	needs Effect service/layer injection (Context, provide, services); no service system in this port
+
+not-applicable	packages/effect/test/testing/TestSchema.test.ts	282	it.effect	asserts decoded and encoded transformations	needs Effect service/layer injection (Context, provide, services); no service system in this port
+
+not-applicable	packages/effect/test/testing/TestSchema.test.ts	291	it.effect	make uses constructor defaults from the test environment and honors disableChecks	needs Effect service/layer injection (Context, provide, services); no service system in this port
+
+not-applicable	packages/effect/test/testing/TestSchema.test.ts	307	it.effect	${method} preserves validation failures and defective finalizers	needs fiber interruption/finalizers/mixed-cause propagation; no fiber runtime
+
+not-applicable	packages/effect/test/testing/TestSchema.test.ts	346	it.effect	${method} preserves interruption alongside annotated validation failures	needs fiber interruption/finalizers/mixed-cause propagation; no fiber runtime
+
+not-applicable	packages/effect/test/testing/TestSchema.test.ts	382	it.effect	round trips preserve mixed causes from ${method}	needs fiber interruption/finalizers/mixed-cause propagation; no fiber runtime
+
+not-applicable	packages/effect/test/testing/TestSchema.test.ts	404	it.effect	${method} inherits layer services and supports provide	needs Effect service/layer injection (Context, provide, services); no service system in this port
+
+not-applicable	packages/effect/test/testing/TestSchema.test.ts	423	it.effect	${method} reads the test clock	needs TestClock-integrated test services; services do not exist here
+
+not-applicable	packages/effect/test/testing/TestSchema.test.ts	437	it.effect	make preserves mixed causes from constructor defaults	needs Effect service/layer injection (Context, provide, services); no service system in this port
+
+not-applicable	packages/effect/test/testing/TestSchema.test.ts	462	it.effect	${method} propagates interruption and runs finalizers	needs fiber interruption/finalizers/mixed-cause propagation; no fiber runtime
+
+not-applicable	packages/effect/test/testing/TestSchema.test.ts	488	it.effect	round trips use both decoding and encoding services lazily	needs Effect service/layer injection (Context, provide, services); no service system in this port
+
+not-applicable	packages/effect/test/testing/TestSchema.test.ts	513	it.effect	round-trip assertion defects report shrunk inputs and replay	needs verifyRoundTrip with shrinking, replay and residual bounds; no TestSchema service harness
+
+not-applicable	packages/effect/test/testing/TestSchema.test.ts	532	it.effect	round trips preserve schema defects	needs TestSchema.Asserts decoding/encoding assertion service; only bare decode exists
+
 ported	packages/effect/test/workers/Worker.test.ts	30	it.effect	run fails when the worker exits before the ready message	run_fails_when_worker_exits_before_ready
 ported	packages/effect/test/workers/Worker.test.ts	40	it.effect	run fails when the worker exits while waiting for ready	run_fails_when_worker_exits_while_waiting_for_ready
 ported	packages/effect/test/workers/Worker.test.ts	58	it.effect	run is interruptible while waiting for ready	run_is_interruptible_while_waiting_for_ready
