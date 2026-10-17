@@ -10,8 +10,9 @@
 use elm_effect_schema::{Schema, Unknown};
 use elm_effect_unstable::openapi::{
     ApiEndpoint, Method, OpenApiError, ParamIn, Parameter, ResponseEntry, SecurityScheme,
-    SpecBuilder, template_path,
+    SpecBuilder, SpecCache, template_path,
 };
+use std::cell::Cell;
 
 fn string() -> Schema<Unknown> {
     Schema::as_unknown(Schema::string())
@@ -486,4 +487,207 @@ fn templates_action_suffixes_but_leaves_plain_colons_alone() {
     assert_eq!(template_path("/operations/:id:wait"), "/operations/{id}:wait");
     assert_eq!(template_path("/offers:resolve"), "/offers:resolve");
     assert_eq!(template_path("/users/:id"), "/users/{id}");
+}
+
+// OpenApiRepresentation.test.ts rows. The port has no `Schema.Date`
+// constructor with a canonical codec, so declaration schemas ride on
+// identified strings here: the compiler maps the `date` opaque kind to
+// `{"type": "string"}` the same way, and every assertion below holds on the
+// assembly (alias pairs, inlining, shared components), not on the codec.
+
+fn declared(name: &str) -> Schema<Unknown> {
+    Schema::as_unknown(Schema::annotated_with(
+        Schema::string(),
+        vec![("identifier", name)],
+    ))
+}
+
+fn success_of(schema: Schema<Unknown>) -> ApiEndpoint {
+    let mut endpoint = ApiEndpoint::new("date", Method::Get, "/date");
+    endpoint.success.push(json_response(schema));
+    endpoint
+}
+
+#[test]
+fn uses_canonical_json_codecs_for_additional_declaration_schemas() {
+    // OpenApiRepresentation.test.ts:6 — an additional declaration aliases its
+    // `Encoded` form.
+    let spec = SpecBuilder::new("Api")
+        .additional_schema(declared("AdditionalDate"))
+        .build()
+        .unwrap();
+    assert_eq!(
+        spec["components"]["schemas"],
+        serde_json::json!({
+            "AdditionalDate": {"$ref": "#/components/schemas/AdditionalDateEncoded"},
+            "AdditionalDateEncoded": {"type": "string"}
+        })
+    );
+}
+
+#[test]
+fn applies_the_reference_policy_without_removing_additional_components() {
+    // OpenApiRepresentation.test.ts:16 — the policy inlines the definition at
+    // every use, but the additional component itself stays.
+    let spec = SpecBuilder::new("Api")
+        .additional_schema(declared("AdditionalDate"))
+        .endpoint(success_of(declared("AdditionalDate")))
+        .reference_policy(|_| false)
+        .build()
+        .unwrap();
+    assert_eq!(
+        spec["components"]["schemas"],
+        serde_json::json!({"AdditionalDate": {"type": "string"}})
+    );
+    assert_eq!(
+        spec["paths"]["/date"]["get"]["responses"]["200"]["content"]["application/json"]["schema"],
+        serde_json::json!({"type": "string"})
+    );
+}
+
+#[test]
+fn uses_canonical_json_codecs_for_response_declaration_schemas() {
+    // OpenApiRepresentation.test.ts:34 — a declaration response compiles to
+    // its wire shape.
+    let spec = SpecBuilder::new("Api")
+        .endpoint(success_of(Schema::as_unknown(Schema::string())))
+        .build()
+        .unwrap();
+    assert_eq!(
+        spec["paths"]["/date"]["get"]["responses"]["200"]["content"]["application/json"]["schema"],
+        serde_json::json!({"type": "string"})
+    );
+}
+
+#[test]
+fn projects_request_and_response_schemas_to_the_encoded_side() {
+    // OpenApiRepresentation.test.ts:86 — `FiniteFromString` wires as a string.
+    // (The compiler spells this opaque kind on the encoded side already.)
+    let wire = Schema::as_unknown(Schema::finite_from_string());
+    let mut endpoint = ApiEndpoint::new("create", Method::Post, "/create");
+    endpoint.payloads.push(("application/json".to_owned(), wire.clone()));
+    endpoint.success.push(json_response(wire));
+    let spec = SpecBuilder::new("Api").endpoint(endpoint).build().unwrap();
+    assert_eq!(
+        spec["paths"]["/create"]["post"]["requestBody"]["content"]["application/json"]["schema"],
+        serde_json::json!({"type": "string"})
+    );
+    assert_eq!(
+        spec["paths"]["/create"]["post"]["responses"]["200"]["content"]["application/json"]["schema"],
+        serde_json::json!({"type": "string"})
+    );
+}
+
+#[test]
+fn shares_definitions_and_returns_cached_copies_by_api_identity() {
+    // OpenApiRepresentation.test.ts:131 — one shared definition, and every
+    // build returns owned values, so two builds compare equal but mutate
+    // independently.
+    let shared = Schema::as_unknown(Schema::annotated_with(
+        Schema::struct_of(vec![(
+            "value".to_owned(),
+            Schema::as_unknown(Schema::finite_from_string()),
+        )]),
+        vec![("identifier", "Shared")],
+    ));
+    let mut endpoint = ApiEndpoint::new("shared", Method::Post, "/shared");
+    endpoint.payloads.push((
+        "application/json".to_owned(),
+        Schema::as_unknown(Schema::struct_of(vec![
+            ("first".to_owned(), shared.clone()),
+            ("second".to_owned(), shared.clone()),
+        ])),
+    ));
+    endpoint.success.push(json_response(shared));
+    let builder = SpecBuilder::new("Api").endpoint(endpoint);
+    let first = builder.build().unwrap();
+    let second = builder.build().unwrap();
+    assert_eq!(first, second);
+    assert_eq!(
+        first["components"]["schemas"]["Shared"],
+        serde_json::json!({
+            "type": "object",
+            "properties": {"value": {"type": "string"}},
+            "required": ["value"],
+            "additionalProperties": false,
+        })
+    );
+    let mut owned = first.clone();
+    owned["info"]["title"] = serde_json::json!("mutated");
+    assert_eq!(second["info"]["title"], serde_json::json!("Api"));
+}
+
+#[test]
+fn retains_referenced_parameter_schemas_without_the_parameter_container() {
+    // OpenApiRepresentation.test.ts:155 — the query struct decomposes into
+    // parameters; the `Query` container never emits itself.
+    let filter = Schema::as_unknown(Schema::annotated_with(
+        Schema::struct_of(vec![("value".to_owned(), string())]),
+        vec![("identifier", "Filter")],
+    ));
+    let query = Schema::as_unknown(Schema::annotated_with(
+        Schema::struct_of(vec![("filter".to_owned(), filter)]),
+        vec![("identifier", "Query")],
+    ));
+    let mut endpoint = ApiEndpoint::new("list", Method::Get, "/list");
+    endpoint.query_structs.push(query);
+    let spec = SpecBuilder::new("Api").endpoint(endpoint).build().unwrap();
+    assert_eq!(
+        spec["paths"]["/list"]["get"]["parameters"],
+        serde_json::json!([
+            {"name": "filter", "in": "query", "required": true,
+             "schema": {"$ref": "#/components/schemas/Filter"}}
+        ])
+    );
+    let schemas = spec["components"]["schemas"].as_object().unwrap();
+    assert_eq!(
+        schemas.keys().collect::<Vec<_>>(),
+        vec!["Filter"]
+    );
+    assert_eq!(
+        schemas["Filter"],
+        serde_json::json!({
+            "type": "object",
+            "properties": {"value": {"type": "string"}},
+            "required": ["value"],
+            "additionalProperties": false,
+        })
+    );
+}
+
+#[test]
+fn caches_generated_specs_by_api_and_options_identity() {
+    // OpenApiRepresentation.test.ts:179 — one build per (api, options) key; a
+    // repeated key clones the stored document instead of rebuilding.
+    fn build_spec() -> serde_json::Value {
+        let mut endpoint = ApiEndpoint::new("value", Method::Get, "/value");
+        endpoint.success.push(ResponseEntry {
+            status: None,
+            content_type: "application/json".to_owned(),
+            schema: Schema::as_unknown(Schema::struct_of(vec![(
+                "value".to_owned(),
+                Schema::as_unknown(Schema::string()),
+            )])),
+        });
+        SpecBuilder::new("Api").endpoint(endpoint).build().unwrap()
+    }
+    let cache = SpecCache::new();
+    let calls = Cell::new(0);
+    let first = cache.spec("Api", 1, || {
+        calls.set(calls.get() + 1);
+        build_spec()
+    });
+    assert!(calls.get() > 0);
+    let calls_after_first = calls.get();
+    let second = cache.spec("Api", 1, || {
+        calls.set(calls.get() + 1);
+        build_spec()
+    });
+    assert_eq!(calls.get(), calls_after_first);
+    assert_eq!(first, second);
+    cache.spec("Api", 2, || {
+        calls.set(calls.get() + 1);
+        build_spec()
+    });
+    assert!(calls.get() > calls_after_first);
 }

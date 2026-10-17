@@ -1,23 +1,30 @@
 //! Minimal OpenAPI 3.1 assembly: path templates, operation registry, security schemes.
 //!
-//! Ports the document-shape half of `packages/effect/test/httpapi/OpenApi.test.ts`:
-//! `:param` templates with literal `:action` suffixes, duplicate
-//! method+path / operationId rejection, equivalent security-scheme dedup, and
-//! GET+QUERY merging onto one path item. Schemas arrive as
-//! `elm_effect_schema` values and compile through `json_schema` (identifiers
-//! hoist once into `components.schemas`, shared across every endpoint).
+//! Ports the document-shape half of `packages/effect/test/httpapi/OpenApi.test.ts`
+//! plus the representation-consumer half of
+//! `packages/effect/test/httpapi/OpenApiRepresentation.test.ts`: `:param`
+//! templates with literal `:action` suffixes, duplicate method+path /
+//! operationId rejection, equivalent security-scheme dedup, GET+QUERY merging,
+//! additional declaration schemas (with the `Encoded` alias pair), a reference
+//! policy for inlining, query structs decomposed into parameters without
+//! emitting the container, and a spec cache keyed by API and options identity.
+//! Schemas arrive as `elm_effect_schema` values and compile through
+//! `json_schema` (identifiers hoist once into `components.schemas`, shared
+//! across every endpoint).
 //!
 //! Out of scope (their rows stay excused with reasons): encoded-side
-//! projection beyond what the compiler spells, codec modes, middleware error
-//! sets, header wire schemas (`WithHeaders`/`encodeToWithHeaders`), stream and
-//! text/form bodies, spec caching, `rawJSON` identity, and override
-//! annotations. None of that machinery exists yet; every assertion here holds
-//! on the routing/registry layer.
+//! projection beyond what the compiler spells (`fromJsonString`, SSE event
+//! envelopes), custom compiler callbacks (`toJsonSchema`), codec modes,
+//! middleware error sets, header wire schemas
+//! (`WithHeaders`/`encodeToWithHeaders`), stream and text/form bodies, and
+//! `rawJSON`/override identity. None of that machinery exists yet; every
+//! assertion here holds on the routing/registry layer.
 
 use elm_effect_schema::json_schema::{CompileOptions, OnExcessProperty, compile_multi_with_options};
 use elm_effect_schema::{Schema, Unknown};
 use std::collections::BTreeMap;
 use std::fmt;
+use std::sync::Mutex;
 
 /// A templated path: `:name` segments become `{name}`; a segment that does not
 /// start with `:` (like `offers:resolve`) and the `:action` tail after a param
@@ -242,6 +249,9 @@ pub struct ApiEndpoint {
     pub security: Vec<(String, SecurityScheme)>,
     /// Operation transform, applied to the assembled operation object.
     pub transform: Option<fn(serde_json::Value) -> serde_json::Value>,
+    /// Query structs decomposed into parameters: each must compile to an
+    /// object (or a `$ref` to one); the container itself is never emitted.
+    pub query_structs: Vec<Schema<Unknown>>,
 }
 
 impl ApiEndpoint {
@@ -258,6 +268,7 @@ impl ApiEndpoint {
             error: Vec::new(),
             security: Vec::new(),
             transform: None,
+            query_structs: Vec::new(),
         }
     }
 }
@@ -309,6 +320,8 @@ pub struct SpecBuilder {
     version: String,
     endpoints: Vec<ApiEndpoint>,
     compile_options: CompileOptions,
+    additional_schemas: Vec<Schema<Unknown>>,
+    reference_policy: Option<fn(&str) -> bool>,
 }
 
 impl SpecBuilder {
@@ -324,6 +337,8 @@ impl SpecBuilder {
                 generate_descriptions: false,
                 include_annotation_key: None,
             },
+            additional_schemas: Vec::new(),
+            reference_policy: None,
         }
     }
 
@@ -337,6 +352,26 @@ impl SpecBuilder {
     pub fn compile_options(mut self, options: CompileOptions) -> Self {
         self.compile_options = options;
         self
+    }
+
+    /// One more additional declaration schema: it lands in
+    /// `components.schemas` even when no endpoint uses it.
+    pub fn additional_schema(mut self, schema: Schema<Unknown>) -> Self {
+        self.additional_schemas.push(schema);
+        self
+    }
+
+    /// Whether the definition for `identifier` stays a `$ref` (true) or is
+    /// inlined at every use (false). Absent, every definition is referenced.
+    pub fn reference_policy(mut self, policy: fn(&str) -> bool) -> Self {
+        self.reference_policy = Some(policy);
+        self
+    }
+
+    /// Whether the definition for `identifier` stays referenced under the
+    /// current policy (absent policy keeps every reference).
+    fn keeps_reference(&self, identifier: &str) -> bool {
+        self.reference_policy.is_none_or(|policy| policy(identifier))
     }
 
     /// The assembled document: `openapi`, `info`, `paths`, and `components`.
@@ -353,7 +388,8 @@ impl SpecBuilder {
             }
         }
         // One shared definition map: an identifier used by several endpoints is
-        // emitted once and referenced everywhere.
+        // emitted once and referenced everywhere. Query structs and additional
+        // schemas join the same compilation so shared identifiers stay shared.
         let roots: Vec<Schema<Unknown>> = self
             .endpoints
             .iter()
@@ -370,25 +406,89 @@ impl SpecBuilder {
                             .map(|entry| entry.schema.clone()),
                     )
                     .chain(endpoint.error.iter().map(|entry| entry.schema.clone()))
+                    .chain(endpoint.query_structs.iter().cloned())
             })
+            .chain(self.additional_schemas.iter().cloned())
             .collect();
-        let compiled =
-            compile_multi_with_options(&roots, &self.compile_options);
+        let compiled = compile_multi_with_options(&roots, &self.compile_options);
         let mut docs = compiled.schemas.into_iter();
+        let mut definitions = compiled.definitions;
+        // Additional declaration schemas become components, never route
+        // documents. An identified declaration aliases its `Encoded` form (the
+        // canonical JSON codec definition), exactly like the pin; an inlined
+        // identifier lands under its own name instead.
+        let mut additional_components: BTreeMap<String, serde_json::Value> =
+            BTreeMap::new();
+        let mut additional_docs = Vec::new();
+        for _ in 0..self.additional_schemas.len() {
+            additional_docs.push(docs.next_back());
+        }
+        additional_docs.reverse();
+        for doc in additional_docs.into_iter().flatten() {
+            if let Some(id) = ref_target(&doc) {
+                if self.keeps_reference(&id) {
+                    if let Some(definition) = definitions.remove(&id) {
+                        additional_components.insert(
+                            id.clone(),
+                            serde_json::json!({
+                                "$ref": format!("#/components/schemas/{id}Encoded")
+                            }),
+                        );
+                        additional_components.insert(format!("{id}Encoded"), definition);
+                    }
+                } else if let Some(definition) = definitions.get(&id) {
+                    // Inlined identifiers keep their definition in place so the
+                    // inline pass below rewrites every use; the component is a
+                    // copy of the same document.
+                    additional_components.insert(id, definition.clone());
+                }
+            }
+            // An unidentified declaration has no component key; nothing to emit.
+        }
         let mut operations: Vec<serde_json::Value> = Vec::new();
+        // Query structs decompose into parameters: each property becomes one
+        // query parameter, and a `$ref` container never emits itself.
+        let mut endpoint_query_params: Vec<Vec<serde_json::Value>> = Vec::new();
         for endpoint in &self.endpoints {
             let mut take = |n: usize| docs.by_ref().take(n).collect::<Vec<_>>();
             let param_docs = take(endpoint.parameters.len());
             let payload_docs = take(endpoint.payloads.len());
             let success_docs = take(endpoint.success.len());
             let error_docs = take(endpoint.error.len());
+            let query_docs = take(endpoint.query_structs.len());
+            let mut extra_params = Vec::new();
+            for query_doc in &query_docs {
+                extra_params.extend(query_parameters(query_doc, &mut definitions));
+            }
+            endpoint_query_params.push(extra_params);
             operations.push(operation_document(
                 endpoint,
                 &param_docs,
                 &payload_docs,
                 &success_docs,
                 &error_docs,
+                &endpoint_query_params[endpoint_query_params.len() - 1],
             ));
+        }
+        // The reference policy inlines definitions: every `$ref` to an inlined
+        // identifier becomes the definition, in operations and in the
+        // definitions that remain. Components keep every definition the
+        // compilation hoisted.
+        if let Some(policy) = self.reference_policy {
+            let inline: Vec<(String, serde_json::Value)> = definitions
+                .iter()
+                .filter(|(id, _)| !policy(id))
+                .map(|(id, definition)| (id.clone(), definition.clone()))
+                .collect();
+            for (id, definition) in &inline {
+                let target = format!("#/$defs/{id}");
+                for operation in &mut operations {
+                    inline_refs(operation, &target, definition);
+                }
+                for remaining in definitions.values_mut() {
+                    inline_refs(remaining, &target, definition);
+                }
+            }
         }
         let mut paths: BTreeMap<String, serde_json::Value> = BTreeMap::new();
         let mut seen_operations = std::collections::HashSet::new();
@@ -422,13 +522,14 @@ impl SpecBuilder {
             }
         }
         let mut components = serde_json::json!({});
-        if !compiled.definitions.is_empty() {
-            components["schemas"] = serde_json::Value::Object(
-                compiled
-                    .definitions
-                    .into_iter()
-                    .collect::<serde_json::Map<_, _>>(),
-            );
+        let mut schemas: serde_json::Map<String, serde_json::Value> = definitions
+            .into_iter()
+            .collect::<serde_json::Map<_, _>>();
+        for (name, component) in additional_components {
+            schemas.insert(name, component);
+        }
+        if !schemas.is_empty() {
+            components["schemas"] = serde_json::Value::Object(schemas);
         }
         let mut schemes: Vec<(String, SecurityScheme)> = Vec::new();
         for endpoint in &self.endpoints {
@@ -479,6 +580,7 @@ fn operation_document(
     payload_docs: &[serde_json::Value],
     success_docs: &[serde_json::Value],
     error_docs: &[serde_json::Value],
+    query_params: &[serde_json::Value],
 ) -> serde_json::Value {
     let mut operation = serde_json::Map::new();
     if let Some(id) = &endpoint.operation_id {
@@ -487,7 +589,7 @@ fn operation_document(
             serde_json::Value::String(id.clone()),
         );
     }
-    let parameters = endpoint
+    let mut parameters = endpoint
         .parameters
         .iter()
         .zip(param_docs)
@@ -500,6 +602,7 @@ fn operation_document(
             })
         })
         .collect::<Vec<_>>();
+    parameters.extend(query_params.iter().cloned());
     operation.insert("parameters".to_owned(), serde_json::Value::Array(parameters));
     if !endpoint.payloads.is_empty() {
         let content = endpoint
@@ -566,4 +669,118 @@ fn operation_document(
         serde_json::Value::Object(responses),
     );
     serde_json::Value::Object(operation)
+}
+
+/// The definition identifier a document references, when the whole document is
+/// exactly one `$ref` to a hoisted definition.
+fn ref_target(doc: &serde_json::Value) -> Option<String> {
+    let reference = doc.as_object().and_then(|map| {
+        (map.len() == 1)
+            .then(|| map.get("$ref"))
+            .flatten()
+            .and_then(|reference| reference.as_str())
+    })?;
+    reference
+        .strip_prefix("#/$defs/")
+        .map(str::to_owned)
+}
+
+/// One query parameter per property of a query-struct document: the container
+/// (a `$ref` target or an inline object) never emits itself.
+fn query_parameters(
+    doc: &serde_json::Value,
+    definitions: &mut serde_json::Map<String, serde_json::Value>,
+) -> Vec<serde_json::Value> {
+    let container = ref_target(doc)
+        .and_then(|id| definitions.remove(&id))
+        .or_else(|| Some(doc.clone()));
+    let Some(container) = container else {
+        return Vec::new();
+    };
+    let Some(properties) = container
+        .get("properties")
+        .and_then(|properties| properties.as_object())
+    else {
+        return Vec::new();
+    };
+    let required = container
+        .get("required")
+        .and_then(|required| required.as_array())
+        .map(|required| {
+            required
+                .iter()
+                .filter_map(|name| name.as_str())
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+    properties
+        .iter()
+        .map(|(name, schema)| {
+            serde_json::json!({
+                "name": name,
+                "in": "query",
+                "required": required.iter().any(|held| held == name),
+                "schema": schema,
+            })
+        })
+        .collect()
+}
+
+/// Replace every `$ref` to `target` with `replacement`. Children resolve
+/// before their parent, and an inserted copy is never revisited, so a
+/// self-referential definition terminates instead of unfolding forever.
+fn inline_refs(
+    value: &mut serde_json::Value,
+    target: &str,
+    replacement: &serde_json::Value,
+) {
+    match value {
+        serde_json::Value::Array(items) => {
+            for item in items {
+                inline_refs(item, target, replacement);
+            }
+        }
+        serde_json::Value::Object(map) => {
+            for (_, member) in map.iter_mut() {
+                inline_refs(member, target, replacement);
+            }
+            if map.len() == 1
+                && map.get("$ref").and_then(|reference| reference.as_str()) == Some(target)
+            {
+                *value = replacement.clone();
+            }
+        }
+        _ => {}
+    }
+}
+
+/// A spec cache keyed by API and options identity: one build per key, a fresh
+/// clone on every hit, so mutating a returned document never poisons the cache.
+#[derive(Debug, Default)]
+pub struct SpecCache {
+    entries: Mutex<BTreeMap<(String, u64), serde_json::Value>>,
+}
+
+impl SpecCache {
+    /// An empty cache.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// The cached document for (`api`, `options`): `build` runs only on a
+    /// miss, and every hit clones the stored document.
+    pub fn spec(
+        &self,
+        api: &str,
+        options: u64,
+        build: impl FnOnce() -> serde_json::Value,
+    ) -> serde_json::Value {
+        let mut entries = self.entries.lock().expect("spec cache");
+        if let Some(cached) = entries.get(&(api.to_owned(), options)) {
+            return cached.clone();
+        }
+        let spec = build();
+        entries.insert((api.to_owned(), options), spec.clone());
+        spec
+    }
 }
