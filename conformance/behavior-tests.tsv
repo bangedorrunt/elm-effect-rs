@@ -5582,21 +5582,36 @@ not-applicable	packages/effect/test/arbitrary/Arbitrary.test.ts	4093	it.effect	d
 not-applicable	packages/effect/test/arbitrary/Arbitrary.test.ts	4104	it.effect	does not turn interruption into a property result	the row exercises the shrinking machinery the carried harness does not implement: boundary-aware shrinks toward the failing value, failure-class accounting against maxShrinks, rejected-candidate counting, lazy structural shrink materialization, interruptible shrinking, or typed-error/defect property results
 ported	packages/effect/test/cli/Ansi.test.ts	4	it	emits a standard CSI horizontal absolute sequence	ansi_cursor_sequences
 ported	packages/effect/test/cli/Ansi.test.ts	8	it	emits a standard CSI cursor-position sequence	ansi_cursor_sequences
-unported	packages/effect/test/cli/Arguments.test.ts	52	it.effect	should parse all argument types correctly	
-unported	packages/effect/test/cli/Arguments.test.ts	92	it.effect	should handle file mustExist validation	
-unported	packages/effect/test/cli/Arguments.test.ts	132	it.effect	should fail with invalid arguments	
-unported	packages/effect/test/cli/Arguments.test.ts	163	it.effect	should handle variadic arguments	
-unported	packages/effect/test/cli/Arguments.test.ts	184	it.effect	should handle choiceWithValue	
-unported	packages/effect/test/cli/Arguments.test.ts	204	it.effect	should handle filter combinator - valid	
-unported	packages/effect/test/cli/Arguments.test.ts	222	it.effect	should handle filter combinator - invalid	
-unported	packages/effect/test/cli/Arguments.test.ts	240	it.effect	should handle filterMap combinator - valid	
-unported	packages/effect/test/cli/Arguments.test.ts	258	it.effect	should handle filterMap combinator - invalid	
-unported	packages/effect/test/cli/Arguments.test.ts	276	it.effect	should handle orElse combinator	
-unported	packages/effect/test/cli/Arguments.test.ts	299	it.effect	should handle orElseResult combinator	
-unported	packages/effect/test/cli/Arguments.test.ts	323	it.effect	should handle withMetavar combinator	
-unported	packages/effect/test/cli/Arguments.test.ts	338	it.effect	should handle optional arguments - when provided	
-unported	packages/effect/test/cli/Arguments.test.ts	357	it.effect	returns none for omitted optional positional arguments	
-unported	packages/effect/test/cli/Arguments.test.ts	371	it.effect	uses argument wording for positional InvalidValue errors	
+ported	packages/effect/test/cli/Arguments.test.ts	52	it.effect	should parse all argument types correctly	parses_all_argument_types_correctly
+
+ported	packages/effect/test/cli/Arguments.test.ts	92	it.effect	should handle file mustExist validation	file_must_exist_validation
+
+ported	packages/effect/test/cli/Arguments.test.ts	132	it.effect	should fail with invalid arguments	fails_with_invalid_arguments
+
+ported	packages/effect/test/cli/Arguments.test.ts	163	it.effect	should handle variadic arguments	handles_variadic_arguments
+
+ported	packages/effect/test/cli/Arguments.test.ts	184	it.effect	should handle choiceWithValue	handles_choice_with_value
+
+ported	packages/effect/test/cli/Arguments.test.ts	204	it.effect	should handle filter combinator - valid	handles_filter_combinator_valid
+
+ported	packages/effect/test/cli/Arguments.test.ts	222	it.effect	should handle filter combinator - invalid	handles_filter_combinator_invalid
+
+ported	packages/effect/test/cli/Arguments.test.ts	240	it.effect	should handle filterMap combinator - valid	handles_filter_map_combinator_valid
+
+ported	packages/effect/test/cli/Arguments.test.ts	258	it.effect	should handle filterMap combinator - invalid	handles_filter_map_combinator_invalid
+
+ported	packages/effect/test/cli/Arguments.test.ts	276	it.effect	should handle orElse combinator	handles_or_else_combinator
+
+ported	packages/effect/test/cli/Arguments.test.ts	299	it.effect	should handle orElseResult combinator	handles_or_else_result_combinator
+
+ported	packages/effect/test/cli/Arguments.test.ts	323	it.effect	should handle withMetavar combinator	handles_with_metavar_combinator
+
+ported	packages/effect/test/cli/Arguments.test.ts	338	it.effect	should handle optional arguments - when provided	handles_optional_argument_when_provided
+
+ported	packages/effect/test/cli/Arguments.test.ts	357	it.effect	returns none for omitted optional positional arguments	returns_none_for_omitted_optional_positional
+
+ported	packages/effect/test/cli/Arguments.test.ts	371	it.effect	uses argument wording for positional InvalidValue errors	uses_argument_wording_for_positional_invalid_value
+
 not-applicable	packages/effect/test/cli/Command.test.ts	51	it.effect	should expose annotations in help docs	the command/Arg surface has no annotation field beyond the help string, so command arg annotations cannot be exposed in help docs
 not-applicable	packages/effect/test/cli/Command.test.ts	81	it.effect	should keep annotations when adding subcommands	adding subcommands does not carry annotations because no Arg::annotation API exists in this port
 ported	packages/effect/test/cli/Command.test.ts	119	it.effect	should invoke the wizard programmatically from a command handler	wizard_plan_asks_one_question_per_flag_then_per_positional
