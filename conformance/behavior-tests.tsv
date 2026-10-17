@@ -5234,21 +5234,36 @@ unported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	716	it	Record wi
 unported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	760	it	Record(String, Finite) + description	
 unported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	780	it	Record(String, Finite) + isMinProperties	
 unported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	807	it	Record(String, Finite) + isMinProperties + description	
-unported	packages/effect/test/ai/OpenAiStructuredOutputRepresentation.test.ts	15	it	projects the encoded side before JSON Schema generation	
-unported	packages/effect/test/ai/OpenAiStructuredOutputRepresentation.test.ts	19	it	keeps supported custom JSON Schema filters with a description	
-unported	packages/effect/test/ai/OpenAiStructuredOutputRepresentation.test.ts	36	it	drops unsupported custom JSON Schema filters with a description	
-unported	packages/effect/test/ai/OpenAiStructuredOutputRepresentation.test.ts	58	it	keeps supported custom JSON Schema filters without a description	
-unported	packages/effect/test/ai/OpenAiStructuredOutputRepresentation.test.ts	73	it	drops unsupported custom JSON Schema filters without a description	
-unported	packages/effect/test/ai/OpenAiStructuredOutputRepresentation.test.ts	87	it	invokes custom JSON Schema callbacks only with compiler inputs	
-unported	packages/effect/test/ai/OpenAiStructuredOutputRepresentation.test.ts	111	it	compiles custom callbacks after structural transformations	
-unported	packages/effect/test/ai/OpenAiStructuredOutputRepresentation.test.ts	133	it	keeps property names that match unsupported keywords	
-unported	packages/effect/test/ai/OpenAiStructuredOutputRepresentation.test.ts	150	it	drops patternProperties returned by custom callbacks	
-unported	packages/effect/test/ai/OpenAiStructuredOutputRepresentation.test.ts	171	it	does not merge structural constraints from allOf	
-unported	packages/effect/test/ai/OpenAiStructuredOutputRepresentation.test.ts	193	it	keeps the original codec on the unchanged fast path	
-unported	packages/effect/test/ai/OpenAiStructuredOutputRepresentation.test.ts	198	it	keeps declaration fallback validation in the codec	
-unported	packages/effect/test/ai/OpenAiStructuredOutputRepresentation.test.ts	210	it	merges repeated lower bounds conservatively	
-unported	packages/effect/test/ai/OpenAiStructuredOutputRepresentation.test.ts	225	it	merges repeated array bounds conservatively	
-unported	packages/effect/test/ai/OpenAiStructuredOutputRepresentation.test.ts	238	it	transports only sound record size bounds to entry arrays	
+ported	packages/effect/test/ai/OpenAiStructuredOutputRepresentation.test.ts	15	it	projects the encoded side before JSON Schema generation	projects_the_encoded_side_before_json_schema_generation
+
+ported	packages/effect/test/ai/OpenAiStructuredOutputRepresentation.test.ts	19	it	keeps supported custom JSON Schema filters with a description	keeps_supported_pattern_with_a_description
+
+ported	packages/effect/test/ai/OpenAiStructuredOutputRepresentation.test.ts	36	it	drops unsupported custom JSON Schema filters with a description	drops_unsupported_min_length_but_keeps_description_and_validation
+
+ported	packages/effect/test/ai/OpenAiStructuredOutputRepresentation.test.ts	58	it	keeps supported custom JSON Schema filters without a description	keeps_supported_pattern_without_a_description
+
+ported	packages/effect/test/ai/OpenAiStructuredOutputRepresentation.test.ts	73	it	drops unsupported custom JSON Schema filters without a description	drops_unsupported_min_length_without_a_description
+
+not-applicable	packages/effect/test/ai/OpenAiStructuredOutputRepresentation.test.ts	87	it	invokes custom JSON Schema callbacks only with compiler inputs	needs custom toJsonSchema callback protocol; no callback machinery
+
+not-applicable	packages/effect/test/ai/OpenAiStructuredOutputRepresentation.test.ts	111	it	compiles custom callbacks after structural transformations	needs callback-after-structural-lowering; no callback machinery
+
+ported	packages/effect/test/ai/OpenAiStructuredOutputRepresentation.test.ts	133	it	keeps property names that match unsupported keywords	keeps_property_names_that_match_unsupported_keywords
+
+ported	packages/effect/test/ai/OpenAiStructuredOutputRepresentation.test.ts	150	it	drops patternProperties returned by custom callbacks	drops_pattern_properties_returned_by_custom_callbacks
+
+ported	packages/effect/test/ai/OpenAiStructuredOutputRepresentation.test.ts	171	it	does not merge structural constraints from allOf	does_not_merge_structural_constraints_from_all_of
+
+ported	packages/effect/test/ai/OpenAiStructuredOutputRepresentation.test.ts	193	it	keeps the original codec on the unchanged fast path	leaves_an_already_strict_document_unchanged
+
+ported	packages/effect/test/ai/OpenAiStructuredOutputRepresentation.test.ts	198	it	keeps declaration fallback validation in the codec	keeps_declaration_fallback_validation_in_the_codec
+
+ported	packages/effect/test/ai/OpenAiStructuredOutputRepresentation.test.ts	210	it	merges repeated lower bounds conservatively	merges_repeated_lower_bounds_conservatively
+
+ported	packages/effect/test/ai/OpenAiStructuredOutputRepresentation.test.ts	225	it	merges repeated array bounds conservatively	merges_repeated_array_bounds_conservatively
+
+not-applicable	packages/effect/test/ai/OpenAiStructuredOutputRepresentation.test.ts	238	it	transports only sound record size bounds to entry arrays	needs Record-to-entry-array size-bound transport; no such lowering
+
 unported	packages/effect/test/ai/Prompt.test.ts	7	it	preserves text parts during serialization	
 unported	packages/effect/test/ai/Prompt.test.ts	30	it	exports schemas for all parts and message-specific parts	
 unported	packages/effect/test/ai/Prompt.test.ts	81	it	preserves file-only responses as assistant messages	
