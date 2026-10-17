@@ -9200,47 +9200,47 @@ not-applicable	packages/effect/test/schema/representation/toJsonSchemaMultiDocum
 not-applicable	packages/effect/test/schema/representation/toJsonSchemaMultiDocument.test.ts	712	it	preserves unknown references in annotation values	needs unknown references in annotation values
 not-applicable	packages/effect/test/schema/representation/toJsonSchemaMultiDocument.test.ts	729	it	resolves referenced index-signature parameters and stops cycles	needs referenced index-signature params with cycle stops
 not-applicable	packages/effect/test/schema/representation/toMultiDocument.test.ts	5	it	wraps the root representation and preserves references	missing: multiple-schema document writer (Schema module has from_json_schema single doc; no toMultiDocument in src/lib.rs:3205)
-unported	packages/effect/test/schema/representation/toRepresentation.test.ts	22	it	tag	
-unported	packages/effect/test/schema/representation/toRepresentation.test.ts	30	it	literal	
-unported	packages/effect/test/schema/representation/toRepresentation.test.ts	37	it	global unique symbol	
-unported	packages/effect/test/schema/representation/toRepresentation.test.ts	45	it	enum	
-unported	packages/effect/test/schema/representation/toRepresentation.test.ts	59	it	template literal	
-unported	packages/effect/test/schema/representation/toRepresentation.test.ts	77	it	tuple elements and rest	
-unported	packages/effect/test/schema/representation/toRepresentation.test.ts	97	it	object properties and index signatures	
-unported	packages/effect/test/schema/representation/toRepresentation.test.ts	140	it	union member order	
-unported	packages/effect/test/schema/representation/toRepresentation.test.ts	154	it	preserves supplied Union options and omits absent options	
-unported	packages/effect/test/schema/representation/toRepresentation.test.ts	172	it	uses the encoded side of a transformation	
-unported	packages/effect/test/schema/representation/toRepresentation.test.ts	183	it	uses a type-side identifier as a fallback for the encoded representation	
-unported	packages/effect/test/schema/representation/toRepresentation.test.ts	201	it	prefers an explicit encoded-side identifier over a type-side identifier	
-unported	packages/effect/test/schema/representation/toRepresentation.test.ts	222	it	overrides an encoded-side fallback with the type-side identifier	
-unported	packages/effect/test/schema/representation/toRepresentation.test.ts	243	it	uses the type side when the caller projects it	
-unported	packages/effect/test/schema/representation/toRepresentation.test.ts	255	it	omits brands	
-unported	packages/effect/test/schema/representation/toRepresentation.test.ts	265	it	preserves declaration code callbacks	
-unported	packages/effect/test/schema/representation/toRepresentation.test.ts	292	it	converts declaration type parameters	
-unported	packages/effect/test/schema/representation/toRepresentation.test.ts	302	it	preserves custom filter callbacks, dependencies and aborted state	
-unported	packages/effect/test/schema/representation/toRepresentation.test.ts	339	it	preserves filters without persistence metadata	
-unported	packages/effect/test/schema/representation/toRepresentation.test.ts	355	it	preserves a filter without annotations	
-unported	packages/effect/test/schema/representation/toRepresentation.test.ts	367	it	preserves filter groups	
-unported	packages/effect/test/schema/representation/toRepresentation.test.ts	388	it	converts representation dependencies of built-in filters	
-unported	packages/effect/test/schema/representation/toRepresentation.test.ts	424	it	extracts shared representation dependencies of filters	
-unported	packages/effect/test/schema/representation/toRepresentation.test.ts	447	it	converts checks on arrays	
-unported	packages/effect/test/schema/representation/toRepresentation.test.ts	461	it	converts checks on objects	
-unported	packages/effect/test/schema/representation/toRepresentation.test.ts	477	it	preserves fromJsonString annotations	
-unported	packages/effect/test/schema/representation/toRepresentation.test.ts	494	it	preserves tuple element annotations	
-unported	packages/effect/test/schema/representation/toRepresentation.test.ts	513	it	preserves property annotations	
-unported	packages/effect/test/schema/representation/toRepresentation.test.ts	538	it	extracts only candidates with identifiers by default	
-unported	packages/effect/test/schema/representation/toRepresentation.test.ts	555	it	allows a policy to inline an explicitly identified schema	
-unported	packages/effect/test/schema/representation/toRepresentation.test.ts	571	it	forces a synthetic reference when a policy inlines a recursive schema	
-unported	packages/effect/test/schema/representation/toRepresentation.test.ts	588	it	extracts a named schema into references	
-unported	packages/effect/test/schema/representation/toRepresentation.test.ts	603	it	supports __proto__ as an identifier	
-unported	packages/effect/test/schema/representation/toRepresentation.test.ts	615	it	converts a non-recursive suspend	
-unported	packages/effect/test/schema/representation/toRepresentation.test.ts	626	it	uses an outer identifier for a recursive schema	
-unported	packages/effect/test/schema/representation/toRepresentation.test.ts	657	it	suffixes duplicate identifiers on recursive schemas	
-unported	packages/effect/test/schema/representation/toRepresentation.test.ts	721	it	does not resolve an identifier below a check	
-unported	packages/effect/test/schema/representation/toRepresentation.test.ts	736	it	uses a fallback identifier for encoded representations	
-unported	packages/effect/test/schema/representation/toRepresentation.test.ts	751	it	prefers an identifier over a fallback identifier	
-unported	packages/effect/test/schema/representation/toRepresentation.test.ts	759	it	reuses a Class identifier across repeated type-side occurrences	
-unported	packages/effect/test/schema/representation/toRepresentation.test.ts	775	it	extracts anonymous recursion into references	
+ported	packages/effect/test/schema/representation/toRepresentation.test.ts	22	it	tag	converts_keywords  [9/12 keywords; Undefined/BigInt/Symbol absent from domain]
+ported	packages/effect/test/schema/representation/toRepresentation.test.ts	30	it	literal	converts_literal
+not-applicable	packages/effect/test/schema/representation/toRepresentation.test.ts	37	it	global unique symbol	no Undefined constructor
+not-applicable	packages/effect/test/schema/representation/toRepresentation.test.ts	45	it	enum	no BigInt constructor
+not-applicable	packages/effect/test/schema/representation/toRepresentation.test.ts	59	it	template literal	no Symbol constructor
+ported	packages/effect/test/schema/representation/toRepresentation.test.ts	77	it	tuple elements and rest	converts_tuple_elements_and_rest
+ported	packages/effect/test/schema/representation/toRepresentation.test.ts	97	it	object properties and index signatures	converts_object_properties_and_index_signatures  [string-keyed rest; symbol/bigint rest inexpressible]
+ported	packages/effect/test/schema/representation/toRepresentation.test.ts	140	it	union member order	converts_union_members_in_order  [String+Number members; BigInt member inexpressible]
+ported	packages/effect/test/schema/representation/toRepresentation.test.ts	154	it	preserves supplied Union options and omits absent options	preserves_union_options_and_omits_absent_options
+not-applicable	packages/effect/test/schema/representation/toRepresentation.test.ts	172	it	uses the encoded side of a transformation	no encoded side (encodeTo)
+not-applicable	packages/effect/test/schema/representation/toRepresentation.test.ts	183	it	uses a type-side identifier as a fallback for the encoded representation	no encoded side
+not-applicable	packages/effect/test/schema/representation/toRepresentation.test.ts	201	it	prefers an explicit encoded-side identifier over a type-side identifier	no encoded side
+not-applicable	packages/effect/test/schema/representation/toRepresentation.test.ts	222	it	overrides an encoded-side fallback with the type-side identifier	no encoded side
+not-applicable	packages/effect/test/schema/representation/toRepresentation.test.ts	243	it	uses the type side when the caller projects it	no encoded side
+not-applicable	packages/effect/test/schema/representation/toRepresentation.test.ts	255	it	omits brands	no brand machinery
+not-applicable	packages/effect/test/schema/representation/toRepresentation.test.ts	265	it	preserves declaration code callbacks	custom callbacks absent
+not-applicable	packages/effect/test/schema/representation/toRepresentation.test.ts	292	it	converts declaration type parameters	custom callbacks absent
+not-applicable	packages/effect/test/schema/representation/toRepresentation.test.ts	302	it	preserves custom filter callbacks, dependencies and aborted state	no group constructor
+ported	packages/effect/test/schema/representation/toRepresentation.test.ts	339	it	preserves filters without persistence metadata	converts_filters_without_persistence_metadata
+ported	packages/effect/test/schema/representation/toRepresentation.test.ts	355	it	preserves a filter without annotations	converts_a_filter_without_annotations
+not-applicable	packages/effect/test/schema/representation/toRepresentation.test.ts	367	it	preserves filter groups	custom callbacks absent
+not-applicable	packages/effect/test/schema/representation/toRepresentation.test.ts	388	it	converts representation dependencies of built-in filters	closure-only dependency introspection absent
+not-applicable	packages/effect/test/schema/representation/toRepresentation.test.ts	424	it	extracts shared representation dependencies of filters	closure-only policy introspection absent
+ported	packages/effect/test/schema/representation/toRepresentation.test.ts	447	it	converts checks on arrays	converts_checks_on_arrays
+ported	packages/effect/test/schema/representation/toRepresentation.test.ts	461	it	converts checks on objects	converts_checks_on_objects
+not-applicable	packages/effect/test/schema/representation/toRepresentation.test.ts	477	it	preserves fromJsonString annotations	no fromJsonString machinery
+ported	packages/effect/test/schema/representation/toRepresentation.test.ts	494	it	preserves tuple element annotations	converts_tuple_element_annotations
+ported	packages/effect/test/schema/representation/toRepresentation.test.ts	513	it	preserves property annotations	converts_property_annotations
+ported	packages/effect/test/schema/representation/toRepresentation.test.ts	538	it	extracts only candidates with identifiers by default	extracts_only_candidates_with_identifiers_by_default
+not-applicable	packages/effect/test/schema/representation/toRepresentation.test.ts	555	it	allows a policy to inline an explicitly identified schema	no reference-policy plumbing
+not-applicable	packages/effect/test/schema/representation/toRepresentation.test.ts	571	it	forces a synthetic reference when a policy inlines a recursive schema	no reference-policy plumbing
+ported	packages/effect/test/schema/representation/toRepresentation.test.ts	588	it	extracts a named schema into references	extracts_a_named_schema_into_references
+ported	packages/effect/test/schema/representation/toRepresentation.test.ts	603	it	supports __proto__ as an identifier	supports_proto_as_an_identifier
+not-applicable	packages/effect/test/schema/representation/toRepresentation.test.ts	615	it	converts a non-recursive suspend	no suspend introspection
+ported	packages/effect/test/schema/representation/toRepresentation.test.ts	626	it	uses an outer identifier for a recursive schema	uses_an_outer_identifier_for_a_recursive_schema
+ported	packages/effect/test/schema/representation/toRepresentation.test.ts	657	it	suffixes duplicate identifiers on recursive schemas	suffixes_duplicate_identifiers_on_recursive_schemas
+ported	packages/effect/test/schema/representation/toRepresentation.test.ts	721	it	does not resolve an identifier below a check	does_not_resolve_an_identifier_below_a_check
+ported	packages/effect/test/schema/representation/toRepresentation.test.ts	736	it	uses a fallback identifier for encoded representations	uses_a_fallback_identifier_for_encoded_representations
+ported	packages/effect/test/schema/representation/toRepresentation.test.ts	751	it	prefers an identifier over a fallback identifier	prefers_an_identifier_over_a_fallback_identifier
+not-applicable	packages/effect/test/schema/representation/toRepresentation.test.ts	759	it	reuses a Class identifier across repeated type-side occurrences	Class+toType machinery absent
+not-applicable	packages/effect/test/schema/representation/toRepresentation.test.ts	775	it	extracts anonymous recursion into references	no suspend introspection
 unported	packages/effect/test/schema/representation/toRepresentations.test.ts	6	it	preserves root order	
 unported	packages/effect/test/schema/representation/toRepresentations.test.ts	23	it	shares a named reference between roots	
 unported	packages/effect/test/schema/representation/toRepresentations.test.ts	42	it	shares a fallback reference across contextual copies of the same encoded AST	
