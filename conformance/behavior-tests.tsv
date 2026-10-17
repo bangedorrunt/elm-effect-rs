@@ -4849,14 +4849,14 @@ not-applicable	packages/effect/test/ai/McpServer/McpConformance/LoggingTest.ts	4
 not-applicable	packages/effect/test/ai/McpServer/McpConformance/LoggingTest.ts	486	it.effect	should apply every specified log level to the request that declares it	needs request-scoped level application
 not-applicable	packages/effect/test/ai/McpServer/McpConformance/LoggingTest.ts	497	it.effect	should reject a request when its request-scoped log level is unknown	needs request-scoped level rejection
 unported	packages/effect/test/ai/McpServer/McpConformance/LoggingTest.ts	506	it.effect	should preserve the level, logger, and JSON data when decoding a log notification	
-unported	packages/effect/test/ai/McpServer/McpConformance/MultiRoundTripTest.ts	41	it.layer	Mcp Conformance (${protocol.protocolVersion})	
-unported	packages/effect/test/ai/McpServer/McpConformance/MultiRoundTripTest.ts	47	it.effect	should require context capability when sampling requests include server context	
-unported	packages/effect/test/ai/McpServer/McpConformance/MultiRoundTripTest.ts	107	it.effect	should return input_required and then complete when prompts/get is retried with client input	
-unported	packages/effect/test/ai/McpServer/McpConformance/MultiRoundTripTest.ts	170	it.effect	should reject prompt input requests when the client omits their required capabilities	
-unported	packages/effect/test/ai/McpServer/McpConformance/MultiRoundTripTest.ts	191	it.effect	should return supported keyed input requests and resume when matching responses are supplied	
-unported	packages/effect/test/ai/McpServer/McpConformance/MultiRoundTripTest.ts	267	it.effect	should return a retry state without requesting client input	
-unported	packages/effect/test/ai/McpServer/McpConformance/MultiRoundTripTest.ts	291	it.effect	should remain input-required when continuation keys or request state do not match	
-unported	packages/effect/test/ai/McpServer/McpConformance/MultiRoundTripTest.ts	325	it.effect	should reject a continuation when its input responses or request state are malformed	
+not-applicable	packages/effect/test/ai/McpServer/McpConformance/MultiRoundTripTest.ts	41	it.layer	Mcp Conformance (${protocol.protocolVersion})	suite harness declaration, not a behavior assertion
+not-applicable	packages/effect/test/ai/McpServer/McpConformance/MultiRoundTripTest.ts	47	it.effect	should require context capability when sampling requests include server context	needs multi-round client interaction harness; none exists
+not-applicable	packages/effect/test/ai/McpServer/McpConformance/MultiRoundTripTest.ts	107	it.effect	should return input_required and then complete when prompts/get is retried with client input	needs multi-round client interaction harness; none exists
+not-applicable	packages/effect/test/ai/McpServer/McpConformance/MultiRoundTripTest.ts	170	it.effect	should reject prompt input requests when the client omits their required capabilities	needs multi-round client interaction harness; none exists
+not-applicable	packages/effect/test/ai/McpServer/McpConformance/MultiRoundTripTest.ts	191	it.effect	should return supported keyed input requests and resume when matching responses are supplied	needs multi-round client interaction harness; none exists
+not-applicable	packages/effect/test/ai/McpServer/McpConformance/MultiRoundTripTest.ts	267	it.effect	should return a retry state without requesting client input	needs multi-round client interaction harness; none exists
+not-applicable	packages/effect/test/ai/McpServer/McpConformance/MultiRoundTripTest.ts	291	it.effect	should remain input-required when continuation keys or request state do not match	needs multi-round client interaction harness; none exists
+not-applicable	packages/effect/test/ai/McpServer/McpConformance/MultiRoundTripTest.ts	325	it.effect	should reject a continuation when its input responses or request state are malformed	needs multi-round client interaction harness; none exists
 not-applicable	packages/effect/test/ai/McpServer/McpConformance/PromptsTest.ts	38	it.layer	Mcp Conformance (${protocol.protocolVersion})	harness
 ported	packages/effect/test/ai/McpServer/McpConformance/PromptsTest.ts	42	it.effect	MUST advertise prompts when prompts are registered	advertises_when_registered_and_not_when_empty
 ported	packages/effect/test/ai/McpServer/McpConformance/PromptsTest.ts	50	it.effect	MUST NOT advertise prompts when prompts are not supported	advertises_when_registered_and_not_when_empty
@@ -4896,12 +4896,12 @@ not-applicable	packages/effect/test/ai/McpServer/McpConformance/ResourcesTest.ts
 ported	packages/effect/test/ai/McpServer/McpConformance/ResourcesTest.ts	319	it.effect	should deliver a resource update with its URI when the resource is subscribed	subscription_lifecycle_routes_only_subscribed_uris
 ported	packages/effect/test/ai/McpServer/McpConformance/ResourcesTest.ts	344	it.effect	should deliver updates only for subscribed resource URIs	subscription_lifecycle_routes_only_subscribed_uris
 ported	packages/effect/test/ai/McpServer/McpConformance/ResourcesTest.ts	360	it.effect	should stop delivering updates after a resource is unsubscribed	subscription_lifecycle_routes_only_subscribed_uris
-unported	packages/effect/test/ai/McpServer/McpConformance/RootsTest.ts	11	it.layer	Mcp Conformance (${protocol.protocolVersion})	
-unported	packages/effect/test/ai/McpServer/McpConformance/RootsTest.ts	15	it.effect	MUST send roots requests when the client advertises roots	
-unported	packages/effect/test/ai/McpServer/McpConformance/RootsTest.ts	30	it.effect	MUST accept roots requests when the client advertises list changes	
-unported	packages/effect/test/ai/McpServer/McpConformance/RootsTest.ts	47	it.effect	MUST accept roots with file URIs and preserve optional names	
-unported	packages/effect/test/ai/McpServer/McpConformance/RootsTest.ts	74	it.effect	MAY accept an empty roots list	
-unported	packages/effect/test/ai/McpServer/McpConformance/RootsTest.ts	89	it.effect	MUST surface client errors returned by roots/list	
+not-applicable	packages/effect/test/ai/McpServer/McpConformance/RootsTest.ts	11	it.layer	Mcp Conformance (${protocol.protocolVersion})	suite harness declaration, not a behavior assertion
+not-applicable	packages/effect/test/ai/McpServer/McpConformance/RootsTest.ts	15	it.effect	MUST send roots requests when the client advertises roots	needs bidirectional client harness for server-initiated roots/list; none exists
+not-applicable	packages/effect/test/ai/McpServer/McpConformance/RootsTest.ts	30	it.effect	MUST accept roots requests when the client advertises list changes	needs bidirectional client harness for server-initiated roots/list; none exists
+not-applicable	packages/effect/test/ai/McpServer/McpConformance/RootsTest.ts	47	it.effect	MUST accept roots with file URIs and preserve optional names	needs bidirectional client harness for server-initiated roots/list; none exists
+not-applicable	packages/effect/test/ai/McpServer/McpConformance/RootsTest.ts	74	it.effect	MAY accept an empty roots list	needs bidirectional client harness for server-initiated roots/list; none exists
+not-applicable	packages/effect/test/ai/McpServer/McpConformance/RootsTest.ts	89	it.effect	MUST surface client errors returned by roots/list	needs bidirectional client harness for server-initiated roots/list; none exists
 not-applicable	packages/effect/test/ai/McpServer/McpConformance/SamplingTest.ts	72	it.layer	Mcp Conformance (${protocol.protocolVersion})	harness
 ported	packages/effect/test/ai/McpServer/McpConformance/SamplingTest.ts	77	it.effect	MUST send sampling requests when the client advertises sampling	echoes_canned_response_preserving_order
 not-applicable	packages/effect/test/ai/McpServer/McpConformance/SamplingTest.ts	92	it.skipIf	SHOULD reject context-enabled requests before sending without sampling.context	needs context-enablement gating
@@ -4939,9 +4939,9 @@ ported	packages/effect/test/ai/McpServer/McpConformance/ToolsTest.ts	108	it.effe
 not-applicable	packages/effect/test/ai/McpServer/McpConformance/ToolsTest.ts	129	it.effect	should list shared tools and gate modern-only tools by era	needs era gating for modern-only tools; no era machinery
 ported	packages/effect/test/ai/McpServer/McpConformance/ToolsTest.ts	154	it.effect	MUST call a registered tool with valid arguments	calls_with_valid_arguments
 ported	packages/effect/test/ai/McpServer/McpConformance/ToolsTest.ts	176	it.effect	MUST reject an unknown tool name with a protocol error	rejects_unknown_tool_as_protocol_error
-unported	packages/effect/test/ai/McpServer/McpConformance/ToolsTest.ts	197	it.effect	SCHEMA returns text content	
-unported	packages/effect/test/ai/McpServer/McpConformance/ToolsTest.ts	217	it.effect	SCHEMA returns image content	
-unported	packages/effect/test/ai/McpServer/McpConformance/ToolsTest.ts	226	it.effect	SCHEMA returns embedded resources	
+ported	packages/effect/test/ai/McpServer/McpConformance/ToolsTest.ts	197	it.effect	SCHEMA returns text content	keeps_multiple_content_items_in_order
+ported	packages/effect/test/ai/McpServer/McpConformance/ToolsTest.ts	217	it.effect	SCHEMA returns image content	keeps_multiple_content_items_in_order
+ported	packages/effect/test/ai/McpServer/McpConformance/ToolsTest.ts	226	it.effect	SCHEMA returns embedded resources	keeps_multiple_content_items_in_order
 ported	packages/effect/test/ai/McpServer/McpConformance/ToolsTest.ts	238	it.effect	MUST return multiple content items in order	keeps_multiple_content_items_in_order
 ported	packages/effect/test/ai/McpServer/McpConformance/ToolsTest.ts	246	it.effect	MUST return tool execution failures with isError	returns_handler_failures_with_is_error_not_protocol
 ported	packages/effect/test/ai/McpServer/McpConformance/ToolsTest.ts	252	it.effect	MUST keep tool execution errors distinct from protocol errors	returns_handler_failures_with_is_error_not_protocol
@@ -5143,7 +5143,7 @@ unported	packages/effect/test/ai/McpServer/ProtocolAdapters.test.ts	1968	it	shou
 unported	packages/effect/test/ai/McpServer/ProtocolAdapters.test.ts	1977	it.effect	should list and invoke the latest tool when a name is registered twice	
 not-applicable	packages/effect/test/ai/McpServer/v2024_11_05.test.ts	35	it.layer	Mcp Conformance (${protocol.protocolVersion})	suite harness declaration, not a behavior assertion
 ported	packages/effect/test/ai/McpServer/v2024_11_05.test.ts	38	it.effect	MUST NOT advertise completions	features_server_does_not_advertise_completions
-unported	packages/effect/test/ai/McpServer/v2025_03_26.test.ts	39	it.layer	Mcp Conformance (${protocol.protocolVersion})	
+not-applicable	packages/effect/test/ai/McpServer/v2025_03_26.test.ts	39	it.layer	Mcp Conformance (${protocol.protocolVersion})	suite harness declaration, not a behavior assertion
 unported	packages/effect/test/ai/McpServer/v2025_03_26.test.ts	41	it.effect	MUST accept operational JSON-RPC batches over stdio	
 unported	packages/effect/test/ai/McpServer/v2025_03_26.test.ts	66	it.effect	SERVER rejects initialize as part of a JSON-RPC batch	
 unported	packages/effect/test/ai/McpServer/v2025_03_26.test.ts	75	it.effect	MUST reject an empty JSON-RPC batch	
@@ -5152,30 +5152,30 @@ unported	packages/effect/test/ai/McpServer/v2025_03_26.test.ts	111	it.effect	MUS
 unported	packages/effect/test/ai/McpServer/v2025_03_26.test.ts	126	it.effect	MUST operate without the later protocol-version header	
 not-applicable	packages/effect/test/ai/McpServer/v2025_11_25.test.ts	40	it.layer	Mcp Conformance (${protocol.protocolVersion})	suite harness declaration, not a behavior assertion
 ported	packages/effect/test/ai/McpServer/v2025_11_25.test.ts	42	it.effect	does not expose experimental Tasks without an extension	features_server_does_not_expose_experimental_tasks
-unported	packages/effect/test/ai/McpServer/v2026_07_28.test.ts	76	it.layer	Mcp Conformance (${protocol.protocolVersion})	
-unported	packages/effect/test/ai/McpServer/v2026_07_28.test.ts	80	it.effect	should discover the server when no initialization or session exists	
-unported	packages/effect/test/ai/McpServer/v2026_07_28.test.ts	93	it.effect	should advertise supported extension settings when discovering a server with legacy configuration	
-unported	packages/effect/test/ai/McpServer/v2026_07_28.test.ts	117	it.effect	should serve independent requests when no discovery or session exists	
-unported	packages/effect/test/ai/McpServer/v2026_07_28.test.ts	131	it.effect	should return method not found when the removed initialize method is requested	
-unported	packages/effect/test/ai/McpServer/v2026_07_28.test.ts	141	it.effect	should accept cancellation notifications without request metadata	
-unported	packages/effect/test/ai/McpServer/v2026_07_28.test.ts	158	it.effect	should return HeaderMismatch when a July-only request omits headers and metadata	
-unported	packages/effect/test/ai/McpServer/v2026_07_28.test.ts	185	it.effect	should validate nested mirrored parameters before executing a tool	
-unported	packages/effect/test/ai/McpServer/v2026_07_28.test.ts	215	it.effect	should exchange self-contained newline-delimited requests over stdio	
-unported	packages/effect/test/ai/McpServer/v2026_07_28.test.ts	242	it.effect	should accept every required routing name when the header matches the request	
-unported	packages/effect/test/ai/McpServer/v2026_07_28.test.ts	265	it.effect	should treat an unmatched Base64 wrapper as a literal when routing a request	
-unported	packages/effect/test/ai/McpServer/v2026_07_28.test.ts	277	it.effect	should reject routing headers when they are missing, malformed, or mismatched	
-unported	packages/effect/test/ai/McpServer/v2026_07_28.test.ts	305	it.effect	should reject an unsupported request version with the supported versions	
-unported	packages/effect/test/ai/McpServer/v2026_07_28.test.ts	333	it.effect	should return method not found when a request uses an unknown or removed method	
-unported	packages/effect/test/ai/McpServer/v2026_07_28.test.ts	357	it.effect	should return InvalidParams when required request metadata is missing	
-unported	packages/effect/test/ai/McpServer/v2026_07_28.test.ts	389	it.effect	should accept a request when optional client identity is omitted	
-unported	packages/effect/test/ai/McpServer/v2026_07_28.test.ts	406	it.effect	should preserve caller metadata alongside authoritative protocol facts	
-unported	packages/effect/test/ai/McpServer/v2026_07_28.test.ts	442	it.effect	should include the requested URI when a resource is not found	
-unported	packages/effect/test/ai/McpServer/v2026_07_28.test.ts	458	it.effect	should attach modern result and cache metadata to every cacheable operation	
-unported	packages/effect/test/ai/McpServer/v2026_07_28.test.ts	503	it.effect	should attach a complete result type and server identity to every non-cacheable operation	
-unported	packages/effect/test/ai/McpServer/v2026_07_28.test.ts	547	it.effect	should return InvalidParams when a resumed tool rejects its requestState	
-unported	packages/effect/test/ai/McpServer/v2026_07_28.test.ts	569	it.effect	should reject tool-enabled sampling when the client omits sampling.tools	
-unported	packages/effect/test/ai/McpServer/v2026_07_28.test.ts	592	it.effect	should treat an empty elicitation capability as form support	
-unported	packages/effect/test/ai/McpServer/v2026_07_28.test.ts	633	it.effect	should reject input requests when the client omits their required capabilities	
+not-applicable	packages/effect/test/ai/McpServer/v2026_07_28.test.ts	76	it.layer	Mcp Conformance (${protocol.protocolVersion})	suite harness declaration, not a behavior assertion
+not-applicable	packages/effect/test/ai/McpServer/v2026_07_28.test.ts	80	it.effect	should discover the server when no initialization or session exists	needs HTTP discovery/session/header machinery; no HTTP layer exists
+not-applicable	packages/effect/test/ai/McpServer/v2026_07_28.test.ts	93	it.effect	should advertise supported extension settings when discovering a server with legacy configuration	needs HTTP discovery/session/header machinery; no HTTP layer exists
+not-applicable	packages/effect/test/ai/McpServer/v2026_07_28.test.ts	117	it.effect	should serve independent requests when no discovery or session exists	needs HTTP discovery/session/header machinery; no HTTP layer exists
+not-applicable	packages/effect/test/ai/McpServer/v2026_07_28.test.ts	131	it.effect	should return method not found when the removed initialize method is requested	needs HTTP discovery/session/header machinery; no HTTP layer exists
+not-applicable	packages/effect/test/ai/McpServer/v2026_07_28.test.ts	141	it.effect	should accept cancellation notifications without request metadata	needs HTTP discovery/session/header machinery; no HTTP layer exists
+not-applicable	packages/effect/test/ai/McpServer/v2026_07_28.test.ts	158	it.effect	should return HeaderMismatch when a July-only request omits headers and metadata	needs HTTP discovery/session/header machinery; no HTTP layer exists
+not-applicable	packages/effect/test/ai/McpServer/v2026_07_28.test.ts	185	it.effect	should validate nested mirrored parameters before executing a tool	needs HTTP discovery/session/header machinery; no HTTP layer exists
+not-applicable	packages/effect/test/ai/McpServer/v2026_07_28.test.ts	215	it.effect	should exchange self-contained newline-delimited requests over stdio	needs HTTP discovery/session/header machinery; no HTTP layer exists
+not-applicable	packages/effect/test/ai/McpServer/v2026_07_28.test.ts	242	it.effect	should accept every required routing name when the header matches the request	needs HTTP discovery/session/header machinery; no HTTP layer exists
+not-applicable	packages/effect/test/ai/McpServer/v2026_07_28.test.ts	265	it.effect	should treat an unmatched Base64 wrapper as a literal when routing a request	needs HTTP discovery/session/header machinery; no HTTP layer exists
+not-applicable	packages/effect/test/ai/McpServer/v2026_07_28.test.ts	277	it.effect	should reject routing headers when they are missing, malformed, or mismatched	needs HTTP discovery/session/header machinery; no HTTP layer exists
+not-applicable	packages/effect/test/ai/McpServer/v2026_07_28.test.ts	305	it.effect	should reject an unsupported request version with the supported versions	needs HTTP discovery/session/header machinery; no HTTP layer exists
+not-applicable	packages/effect/test/ai/McpServer/v2026_07_28.test.ts	333	it.effect	should return method not found when a request uses an unknown or removed method	needs HTTP discovery/session/header machinery; no HTTP layer exists
+not-applicable	packages/effect/test/ai/McpServer/v2026_07_28.test.ts	357	it.effect	should return InvalidParams when required request metadata is missing	needs HTTP discovery/session/header machinery; no HTTP layer exists
+not-applicable	packages/effect/test/ai/McpServer/v2026_07_28.test.ts	389	it.effect	should accept a request when optional client identity is omitted	needs HTTP discovery/session/header machinery; no HTTP layer exists
+not-applicable	packages/effect/test/ai/McpServer/v2026_07_28.test.ts	406	it.effect	should preserve caller metadata alongside authoritative protocol facts	needs HTTP discovery/session/header machinery; no HTTP layer exists
+not-applicable	packages/effect/test/ai/McpServer/v2026_07_28.test.ts	442	it.effect	should include the requested URI when a resource is not found	needs HTTP discovery/session/header machinery; no HTTP layer exists
+not-applicable	packages/effect/test/ai/McpServer/v2026_07_28.test.ts	458	it.effect	should attach modern result and cache metadata to every cacheable operation	needs HTTP discovery/session/header machinery; no HTTP layer exists
+not-applicable	packages/effect/test/ai/McpServer/v2026_07_28.test.ts	503	it.effect	should attach a complete result type and server identity to every non-cacheable operation	needs HTTP discovery/session/header machinery; no HTTP layer exists
+not-applicable	packages/effect/test/ai/McpServer/v2026_07_28.test.ts	547	it.effect	should return InvalidParams when a resumed tool rejects its requestState	needs HTTP discovery/session/header machinery; no HTTP layer exists
+not-applicable	packages/effect/test/ai/McpServer/v2026_07_28.test.ts	569	it.effect	should reject tool-enabled sampling when the client omits sampling.tools	needs HTTP discovery/session/header machinery; no HTTP layer exists
+not-applicable	packages/effect/test/ai/McpServer/v2026_07_28.test.ts	592	it.effect	should treat an empty elicitation capability as form support	needs HTTP discovery/session/header machinery; no HTTP layer exists
+not-applicable	packages/effect/test/ai/McpServer/v2026_07_28.test.ts	633	it.effect	should reject input requests when the client omits their required capabilities	needs HTTP discovery/session/header machinery; no HTTP layer exists
 not-applicable	packages/effect/test/ai/Model.test.ts	6	it.effect	provides metadata alongside the wrapped layer for the duration of the scope	missing: AI Model surface entirely absent (crates/elm-effect/src/ has no ai module; crates/elm-effect/Cargo.toml has no ai feature)
 ported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	29	it	rejects primitive roots	rejects_primitive_roots
 ported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	33	it	rejects array roots	rejects_array_roots
