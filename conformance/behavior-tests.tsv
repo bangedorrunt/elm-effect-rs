@@ -5279,30 +5279,54 @@ ported	packages/effect/test/ai/Response.test.ts	202	it.effect	decodes response m
 ported	packages/effect/test/ai/Response.test.ts	213	it.effect	round trips response metadata with undefined optional fields through JSON	round_trips_response_metadata_with_undefined_optional_fields_through_json
 ported	packages/effect/test/ai/Response.test.ts	233	it.effect	round trips HTTP request details with an undefined hash through JSON	round_trips_http_request_details_with_an_undefined_hash_through_json
 ported	packages/effect/test/ai/Response.test.ts	261	it.effect	round trips a finish part with undefined optional fields through JSON	round_trips_a_finish_part_with_undefined_optional_fields_through_json
-unported	packages/effect/test/ai/ResponseIdTracker.test.ts	49	it.effect	returns None for a fresh tracker	
-unported	packages/effect/test/ai/ResponseIdTracker.test.ts	59	it.effect	prepares only the new user message after a tracked first turn	
-unported	packages/effect/test/ai/ResponseIdTracker.test.ts	72	it.effect	shares tracker state through its Context service layer	
-unported	packages/effect/test/ai/ResponseIdTracker.test.ts	88	it.effect	keeps latest response id when markParts is called twice	
-unported	packages/effect/test/ai/ResponseIdTracker.test.ts	102	it.effect	returns None after clear	
-unported	packages/effect/test/ai/ResponseIdTracker.test.ts	116	it.effect	recovers after clear with new marks	
-unported	packages/effect/test/ai/ResponseIdTracker.test.ts	132	it.effect	remains usable after concurrent markParts and clear	
-unported	packages/effect/test/ai/ResponseIdTracker.test.ts	168	it.effect	returns None for first turn with system and user messages	
-unported	packages/effect/test/ai/ResponseIdTracker.test.ts	179	it.effect	returns None when tracked prompt has no assistant message	
-unported	packages/effect/test/ai/ResponseIdTracker.test.ts	191	it.effect	returns incremental user follow-up after assistant	
-unported	packages/effect/test/ai/ResponseIdTracker.test.ts	205	it.effect	returns incremental tool results after assistant tool call	
-unported	packages/effect/test/ai/ResponseIdTracker.test.ts	219	it.effect	returns incremental tool results plus user message in multi-step flow	
-unported	packages/effect/test/ai/ResponseIdTracker.test.ts	234	it.effect	returns None when no new messages follow assistant	
-unported	packages/effect/test/ai/ResponseIdTracker.test.ts	247	it.effect	returns None in multi-turn prompt with no messages after last assistant	
-unported	packages/effect/test/ai/ResponseIdTracker.test.ts	262	it.effect	returns None for empty prompt	
-unported	packages/effect/test/ai/ResponseIdTracker.test.ts	271	it.effect	returns None when system prompt object changes	
-unported	packages/effect/test/ai/ResponseIdTracker.test.ts	286	it.effect	returns None when user message object changes	
-unported	packages/effect/test/ai/ResponseIdTracker.test.ts	301	it.effect	returns None when multiple prefix messages diverge	
-unported	packages/effect/test/ai/ResponseIdTracker.test.ts	317	it.effect	clears stale state after divergence and recovers when the new prefix is re-marked	
-unported	packages/effect/test/ai/ResponseIdTracker.test.ts	336	it.effect	supports full lifecycle across two turns	
-unported	packages/effect/test/ai/ResponseIdTracker.test.ts	355	it.effect	returns None for structurally-equal but identity-different prefix message	
-unported	packages/effect/test/ai/ResponseIdTracker.test.ts	369	it.effect	returns None after explicit clear	
-unported	packages/effect/test/ai/ResponseIdTracker.test.ts	384	it.effect	isolates two conversations on the same tracker	
-unported	packages/effect/test/ai/ResponseIdTracker.test.ts	406	it.effect	does not leak tracked state across conversations without assistant turns	
+ported	packages/effect/test/ai/ResponseIdTracker.test.ts	49	it.effect	returns None for a fresh tracker	returns_none_for_a_fresh_tracker
+
+ported	packages/effect/test/ai/ResponseIdTracker.test.ts	59	it.effect	prepares only the new user message after a tracked first turn	prepares_only_the_new_user_message_after_a_tracked_first_turn
+
+ported	packages/effect/test/ai/ResponseIdTracker.test.ts	72	it.effect	shares tracker state through its Context service layer	shares_tracker_state_through_one_instance
+
+ported	packages/effect/test/ai/ResponseIdTracker.test.ts	88	it.effect	keeps latest response id when markParts is called twice	keeps_latest_response_id_when_mark_parts_is_called_twice
+
+ported	packages/effect/test/ai/ResponseIdTracker.test.ts	102	it.effect	returns None after clear	returns_none_after_clear
+
+ported	packages/effect/test/ai/ResponseIdTracker.test.ts	116	it.effect	recovers after clear with new marks	recovers_after_clear_with_new_marks
+
+ported	packages/effect/test/ai/ResponseIdTracker.test.ts	132	it.effect	remains usable after concurrent markParts and clear	remains_usable_after_concurrent_mark_parts_and_clear
+
+ported	packages/effect/test/ai/ResponseIdTracker.test.ts	168	it.effect	returns None for first turn with system and user messages	returns_none_for_first_turn_with_system_and_user_messages
+
+ported	packages/effect/test/ai/ResponseIdTracker.test.ts	179	it.effect	returns None when tracked prompt has no assistant message	returns_none_when_tracked_prompt_has_no_assistant_message
+
+ported	packages/effect/test/ai/ResponseIdTracker.test.ts	191	it.effect	returns incremental user follow-up after assistant	returns_incremental_user_follow_up_after_assistant
+
+ported	packages/effect/test/ai/ResponseIdTracker.test.ts	205	it.effect	returns incremental tool results after assistant tool call	returns_incremental_tool_results_after_assistant_tool_call
+
+ported	packages/effect/test/ai/ResponseIdTracker.test.ts	219	it.effect	returns incremental tool results plus user message in multi-step flow	returns_incremental_tool_results_plus_user_message_in_multi_step_flow
+
+ported	packages/effect/test/ai/ResponseIdTracker.test.ts	234	it.effect	returns None when no new messages follow assistant	returns_none_when_no_new_messages_follow_assistant
+
+ported	packages/effect/test/ai/ResponseIdTracker.test.ts	247	it.effect	returns None in multi-turn prompt with no messages after last assistant	returns_none_in_multi_turn_prompt_with_no_messages_after_last_assistant
+
+ported	packages/effect/test/ai/ResponseIdTracker.test.ts	262	it.effect	returns None for empty prompt	returns_none_for_empty_prompt
+
+ported	packages/effect/test/ai/ResponseIdTracker.test.ts	271	it.effect	returns None when system prompt object changes	returns_none_when_system_prompt_object_changes
+
+ported	packages/effect/test/ai/ResponseIdTracker.test.ts	286	it.effect	returns None when user message object changes	returns_none_when_user_message_object_changes
+
+ported	packages/effect/test/ai/ResponseIdTracker.test.ts	301	it.effect	returns None when multiple prefix messages diverge	returns_none_when_multiple_prefix_messages_diverge
+
+ported	packages/effect/test/ai/ResponseIdTracker.test.ts	317	it.effect	clears stale state after divergence and recovers when the new prefix is re-marked	clears_stale_state_after_divergence_and_recovers_when_the_new_prefix_is_re_marked
+
+ported	packages/effect/test/ai/ResponseIdTracker.test.ts	336	it.effect	supports full lifecycle across two turns	supports_full_lifecycle_across_two_turns
+
+ported	packages/effect/test/ai/ResponseIdTracker.test.ts	355	it.effect	returns None for structurally-equal but identity-different prefix message	returns_none_for_structurally_equal_but_identity_different_prefix_message
+
+ported	packages/effect/test/ai/ResponseIdTracker.test.ts	369	it.effect	returns None after explicit clear	returns_none_after_explicit_clear
+
+ported	packages/effect/test/ai/ResponseIdTracker.test.ts	384	it.effect	isolates two conversations on the same tracker	isolates_two_conversations_on_the_same_tracker
+
+ported	packages/effect/test/ai/ResponseIdTracker.test.ts	406	it.effect	does not leak tracked state across conversations without assistant turns	does_not_leak_tracked_state_across_conversations_without_assistant_turns
+
 not-applicable	packages/effect/test/ai/Tokenizer.test.ts	6	it.effect	truncate accounts for costs between messages	missing: Tokenizer module (no crates/elm-effect/src/tokenizer.rs or ai feature; Cargo.toml)
 unported	packages/effect/test/ai/Tool.test.ts	10	it.effect	decodes parameters with services provided to the outer handle Effect	
 unported	packages/effect/test/ai/Tool.test.ts	36	it.effect	should return tool call handler successes	
