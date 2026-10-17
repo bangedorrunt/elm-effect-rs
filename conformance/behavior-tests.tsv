@@ -9946,12 +9946,12 @@ unported	packages/effect/test/workers/Worker.test.ts	30	it.effect	run fails when
 unported	packages/effect/test/workers/Worker.test.ts	40	it.effect	run fails when the worker exits while waiting for ready	
 unported	packages/effect/test/workers/Worker.test.ts	58	it.effect	run is interruptible while waiting for ready	
 unported	packages/effect/test/workers/Worker.test.ts	73	it.effect	run still fails on worker exit after ready	
-unported	packages/effect/test/workers/WorkerError.test.ts	16	it	delegates message from reason	
-unported	packages/effect/test/workers/WorkerError.test.ts	27	it	WorkerError delegates message and cause from reason	
-unported	packages/effect/test/workers/WorkerError.test.ts	40	it	matches wrapper only	
-unported	packages/effect/test/workers/WorkerError.test.ts	55	it.effect	WorkerSpawnError roundtrip	
-unported	packages/effect/test/workers/WorkerError.test.ts	66	it.effect	WorkerErrorReason union roundtrip	
-unported	packages/effect/test/workers/WorkerError.test.ts	77	it.effect	WorkerError roundtrip	
+ported	packages/effect/test/workers/WorkerError.test.ts	16	it	delegates message from reason	delegates_message_from_reason
+ported	packages/effect/test/workers/WorkerError.test.ts	27	it	WorkerError delegates message and cause from reason	worker_error_delegates_message_and_cause_from_reason
+ported	packages/effect/test/workers/WorkerError.test.ts	40	it	matches wrapper only	matches_wrapper_only
+ported	packages/effect/test/workers/WorkerError.test.ts	55	it.effect	WorkerSpawnError roundtrip	worker_spawn_error_roundtrip
+ported	packages/effect/test/workers/WorkerError.test.ts	66	it.effect	WorkerErrorReason union roundtrip	worker_error_reason_union_roundtrip
+ported	packages/effect/test/workers/WorkerError.test.ts	77	it.effect	WorkerError roundtrip	worker_error_roundtrip
 unported	packages/effect/test/workers/WorkerError.test.ts	93	it.effect	reports postMessage failures as WorkerSendError	
 ported	packages/effect/test/workflow/DurableQueue.test.ts	57	it.effect	processes queued items and resumes the workflow	durable_queue_fifo_and_shutdown
 ported	packages/effect/test/workflow/DurableQueue.test.ts	96	it.effect	propagates worker failures to the workflow	activity_retry_replays_until_budget

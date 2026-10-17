@@ -605,11 +605,16 @@ fn sse_ignores_non_digit_retry_values() {
 
 #[test]
 fn worker_errors_carry_kind_and_message() {
-    let e = elm_effect_unstable::workers::WorkerError::Spawn("no binary".into());
+    let e = elm_effect_unstable::workers::WorkerError::new(
+        elm_effect_unstable::workers::WorkerErrorReason::spawn("no binary"),
+    );
     assert!(e.is_spawn() && !e.is_send() && !e.is_receive());
     assert_eq!(e.message(), "no binary");
     assert_eq!(e.to_string(), "WorkerError(spawn): no binary");
-    assert!(elm_effect_unstable::workers::WorkerError::Receive("eof".into()).is_receive());
+    assert!(elm_effect_unstable::workers::WorkerError::new(
+        elm_effect_unstable::workers::WorkerErrorReason::receive("eof"),
+    )
+    .is_receive());
 }
 
 #[test]
