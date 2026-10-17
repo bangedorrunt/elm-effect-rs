@@ -249,6 +249,31 @@ pub fn may_settle(current_token: Option<&str>, presented: &str) -> bool {
     }
 }
 
+/// Claim fence (pure): true only when the row is non-terminal, the
+/// presented generation is current, and no live lease under another
+/// owner blocks the steal. Same-owner renew and expired-lease reclaim
+/// pass; a live lease under another owner and any terminal row refuse.
+pub fn may_claim(
+    state: EffectState,
+    current_owner: Option<&str>,
+    current_deadline: Option<i64>,
+    owner: &str,
+    now_ms: i64,
+    expected_generation: u64,
+    current_generation: u64,
+) -> bool {
+    if state.is_terminal() {
+        return false;
+    }
+    if expected_generation != current_generation {
+        return false;
+    }
+    match (current_owner, current_deadline) {
+        (Some(current), Some(deadline)) if current != owner && deadline > now_ms => false,
+        _ => true,
+    }
+}
+
 /// Replay guard: a digest mismatch is a typed error and mints no second
 /// effect key (the caller simply does not proceed).
 #[derive(Debug, Clone, PartialEq, Eq)]
