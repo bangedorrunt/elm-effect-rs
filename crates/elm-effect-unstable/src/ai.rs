@@ -622,7 +622,9 @@ pub struct ApprovalTracker {
 impl ApprovalTracker {
     /// Empty tracker: no approval has completed yet.
     pub fn new() -> Self {
-        Self { completed: std::sync::Mutex::new(std::collections::HashSet::new()) }
+        Self {
+            completed: std::sync::Mutex::new(std::collections::HashSet::new()),
+        }
     }
 
     /// Run `execute` only when `approval_id` never completed; true when it ran.
@@ -1261,11 +1263,7 @@ impl EmbeddingModel {
         let (results, usage) = (self.embed_many)(&owned)?;
         if results.len() != owned.len() {
             return Err(AiError::new(AiReason::InvalidOutput {
-                details: format!(
-                    "expected {} embeddings, got {}",
-                    owned.len(),
-                    results.len()
-                ),
+                details: format!("expected {} embeddings, got {}", owned.len(), results.len()),
             }));
         }
         Ok(EmbedManyResponse {
@@ -1362,7 +1360,11 @@ impl PartialEq for TrackMessage {
 
 impl TrackMessage {
     fn fresh(role: TrackRole, parts: Vec<TrackPart>) -> Self {
-        Self { uid: next_track_uid(), role, parts }
+        Self {
+            uid: next_track_uid(),
+            role,
+            parts,
+        }
     }
 
     /// System text message.
@@ -1407,7 +1409,10 @@ impl TrackMessage {
     pub fn tool_approval_response(approval_id: &str, approved: bool) -> Self {
         Self::fresh(
             TrackRole::Tool,
-            vec![TrackPart::ApprovalResponse { approval_id: approval_id.to_owned(), approved }],
+            vec![TrackPart::ApprovalResponse {
+                approval_id: approval_id.to_owned(),
+                approved,
+            }],
         )
     }
 
@@ -1435,7 +1440,9 @@ pub struct ResponseIdTracker {
 impl ResponseIdTracker {
     /// Empty tracker.
     pub fn new() -> Self {
-        Self { seen: Mutex::new(HashMap::new()) }
+        Self {
+            seen: Mutex::new(HashMap::new()),
+        }
     }
 
     /// Drop all tracked state (session drop recovery).
@@ -1459,7 +1466,9 @@ impl ResponseIdTracker {
             seen.clear();
             return None;
         }
-        let last_assistant = prompt.iter().rposition(|m| m.role == TrackRole::Assistant)?;
+        let last_assistant = prompt
+            .iter()
+            .rposition(|m| m.role == TrackRole::Assistant)?;
         if last_assistant == 0 && prompt.len() <= 1 {
             seen.clear();
             return None;
@@ -1530,7 +1539,11 @@ impl TrackerModel {
     /// Script `ids` in call order.
     pub fn new(ids: Vec<&str>) -> Self {
         Self {
-            ids: ids.into_iter().map(str::to_owned).collect::<VecDeque<_>>().into(),
+            ids: ids
+                .into_iter()
+                .map(str::to_owned)
+                .collect::<VecDeque<_>>()
+                .into(),
             calls: Mutex::new(Vec::new()),
         }
     }
@@ -1558,11 +1571,14 @@ impl TrackerModel {
             .map(|(id, suffix)| (Some(id), Some(suffix)))
             .unwrap_or((None, None));
         let response_id = self.next_id();
-        self.calls.lock().expect("tracker model").push(ProviderCall {
-            prompt: prompt.clone(),
-            previous_response_id,
-            incremental_prompt,
-        });
+        self.calls
+            .lock()
+            .expect("tracker model")
+            .push(ProviderCall {
+                prompt: prompt.clone(),
+                previous_response_id,
+                incremental_prompt,
+            });
         if let Some(t) = tracker {
             t.mark_messages(&prompt, &response_id);
         }
@@ -1603,11 +1619,14 @@ impl TrackerModel {
             .map(|(id, suffix)| (Some(id), Some(suffix)))
             .unwrap_or((None, None));
         let response_id = self.next_id();
-        self.calls.lock().expect("tracker model").push(ProviderCall {
-            prompt: prompt.clone(),
-            previous_response_id,
-            incremental_prompt,
-        });
+        self.calls
+            .lock()
+            .expect("tracker model")
+            .push(ProviderCall {
+                prompt: prompt.clone(),
+                previous_response_id,
+                incremental_prompt,
+            });
         if let Some(t) = tracker {
             t.mark_messages(&prompt, &response_id);
         }
@@ -1626,11 +1645,14 @@ impl TrackerModel {
             .and_then(|t| t.prepare(&prompt))
             .map(|(id, suffix)| (Some(id), Some(suffix)))
             .unwrap_or((None, None));
-        self.calls.lock().expect("tracker model").push(ProviderCall {
-            prompt,
-            previous_response_id,
-            incremental_prompt,
-        });
+        self.calls
+            .lock()
+            .expect("tracker model")
+            .push(ProviderCall {
+                prompt,
+                previous_response_id,
+                incremental_prompt,
+            });
         vec![TrackChunk::Finish]
     }
 
@@ -1646,7 +1668,11 @@ impl TrackerModel {
         let mut approved_ids: Vec<String> = Vec::new();
         for message in &prompt {
             for part in &message.parts {
-                if let TrackPart::ApprovalRequest { approval_id, tool_call_id } = part {
+                if let TrackPart::ApprovalRequest {
+                    approval_id,
+                    tool_call_id,
+                } = part
+                {
                     let approved = prompt.iter().flat_map(|m| &m.parts).any(|p| {
                         matches!(
                             p,
@@ -1718,7 +1744,11 @@ impl TrackerModel {
             }
         }
         for (tool_call_id, name) in &approved_calls {
-            stripped.push(TrackMessage::tool_result(tool_call_id, name, "approved-result"));
+            stripped.push(TrackMessage::tool_result(
+                tool_call_id,
+                name,
+                "approved-result",
+            ));
         }
         self.record(tracker, stripped)
     }
@@ -1793,7 +1823,11 @@ impl ToolResultPart {
             self.encoded_result.is_number()
         };
         if !ok {
-            let want = if branch_is_failure { "string" } else { "number" };
+            let want = if branch_is_failure {
+                "string"
+            } else {
+                "number"
+            };
             return Err(format!("Expected {want}\n  at [\"encodedResult\"]"));
         }
         Ok(self.to_json())
@@ -1869,15 +1903,24 @@ impl ResponseMetadataPart {
     /// Encode, omitting undefined fields and defaulting `metadata` to `{}`.
     pub fn to_json(&self) -> serde_json::Value {
         let mut out = serde_json::Map::new();
-        out.insert("type".to_owned(), serde_json::Value::from("response-metadata"));
+        out.insert(
+            "type".to_owned(),
+            serde_json::Value::from("response-metadata"),
+        );
         if let Some(id) = &self.id {
             out.insert("id".to_owned(), serde_json::Value::from(id.clone()));
         }
         if let Some(model_id) = &self.model_id {
-            out.insert("modelId".to_owned(), serde_json::Value::from(model_id.clone()));
+            out.insert(
+                "modelId".to_owned(),
+                serde_json::Value::from(model_id.clone()),
+            );
         }
         if let Some(timestamp) = &self.timestamp {
-            out.insert("timestamp".to_owned(), serde_json::Value::from(timestamp.clone()));
+            out.insert(
+                "timestamp".to_owned(),
+                serde_json::Value::from(timestamp.clone()),
+            );
         }
         if let Some(request) = &self.request {
             out.insert("request".to_owned(), request.clone());
@@ -1892,8 +1935,14 @@ impl ResponseMetadataPart {
             return None;
         }
         Some(Self {
-            id: value.get("id").and_then(|id| id.as_str()).map(str::to_owned),
-            model_id: value.get("modelId").and_then(|id| id.as_str()).map(str::to_owned),
+            id: value
+                .get("id")
+                .and_then(|id| id.as_str())
+                .map(str::to_owned),
+            model_id: value
+                .get("modelId")
+                .and_then(|id| id.as_str())
+                .map(str::to_owned),
             timestamp: value
                 .get("timestamp")
                 .and_then(|timestamp| timestamp.as_str())
@@ -1922,7 +1971,10 @@ impl HttpRequestDetails {
     /// Encode, omitting the hash when it is undefined.
     pub fn to_json(&self) -> serde_json::Value {
         let mut out = serde_json::Map::new();
-        out.insert("method".to_owned(), serde_json::Value::from(self.method.clone()));
+        out.insert(
+            "method".to_owned(),
+            serde_json::Value::from(self.method.clone()),
+        );
         out.insert("url".to_owned(), serde_json::Value::from(self.url.clone()));
         out.insert(
             "urlParams".to_owned(),
@@ -1955,7 +2007,10 @@ impl HttpRequestDetails {
             method: value.get("method")?.as_str()?.to_owned(),
             url: value.get("url")?.as_str()?.to_owned(),
             url_params,
-            hash: value.get("hash").and_then(|hash| hash.as_str()).map(str::to_owned),
+            hash: value
+                .get("hash")
+                .and_then(|hash| hash.as_str())
+                .map(str::to_owned),
             headers: value
                 .get("headers")?
                 .as_object()?
@@ -1992,7 +2047,10 @@ impl ResponseUsage {
                 .filter_map(|(key, value)| value.clone().map(|value| ((*key).to_owned(), value)))
                 .collect()
         };
-        Self { input_tokens: keep(input), output_tokens: keep(output) }
+        Self {
+            input_tokens: keep(input),
+            output_tokens: keep(output),
+        }
     }
 }
 
@@ -2010,14 +2068,21 @@ pub struct FinishPart {
 impl FinishPart {
     /// Build from a reason, usage, and optional response.
     pub fn new(reason: &str, usage: ResponseUsage, response: Option<serde_json::Value>) -> Self {
-        Self { reason: reason.to_owned(), usage, response }
+        Self {
+            reason: reason.to_owned(),
+            usage,
+            response,
+        }
     }
 
     /// Encode, omitting an undefined response and defaulting `metadata` to `{}`.
     pub fn to_json(&self) -> serde_json::Value {
         let mut out = serde_json::Map::new();
         out.insert("type".to_owned(), serde_json::Value::from("finish"));
-        out.insert("reason".to_owned(), serde_json::Value::from(self.reason.clone()));
+        out.insert(
+            "reason".to_owned(),
+            serde_json::Value::from(self.reason.clone()),
+        );
         out.insert(
             "usage".to_owned(),
             serde_json::json!({
@@ -2047,18 +2112,15 @@ impl FinishPart {
         }
         let usage = value.get("usage")?;
         let keep = |key: &str| {
-            usage
-                .get(key)?
-                .as_object()
-                .map(|leaves| {
-                    leaves
-                        .iter()
-                        .filter_map(|(leaf, val)| {
-                            (!matches!(val, serde_json::Value::Null))
-                                .then(|| (leaf.clone(), val.clone()))
-                        })
-                        .collect()
-                })
+            usage.get(key)?.as_object().map(|leaves| {
+                leaves
+                    .iter()
+                    .filter_map(|(leaf, val)| {
+                        (!matches!(val, serde_json::Value::Null))
+                            .then(|| (leaf.clone(), val.clone()))
+                    })
+                    .collect()
+            })
         };
         Some(Self {
             reason: value.get("reason")?.as_str()?.to_owned(),
@@ -2110,7 +2172,15 @@ const OPENAI_NORMALIZABLE_ALLOF_KEYWORDS: &[&str] =
 
 /// `format` values OpenAI structured output accepts.
 const OPENAI_SUPPORTED_FORMATS: &[&str] = &[
-    "date-time", "time", "date", "duration", "email", "hostname", "ipv4", "ipv6", "uuid",
+    "date-time",
+    "time",
+    "date",
+    "duration",
+    "email",
+    "hostname",
+    "ipv4",
+    "ipv6",
+    "uuid",
 ];
 
 /// Whether `key` applies to `doc_type`: type-gated keywords (`pattern` on a
@@ -2140,10 +2210,7 @@ fn openai_append_description(out: &mut serde_json::Map<String, serde_json::Value
         Some(current) => format!("{current} and {text}"),
         None => text.to_owned(),
     };
-    out.insert(
-        "description".to_owned(),
-        serde_json::Value::String(joined),
-    );
+    out.insert("description".to_owned(), serde_json::Value::String(joined));
 }
 
 /// Keep the tighter lower bound; ties prefer the exclusive form.
@@ -2160,27 +2227,19 @@ fn openai_merge_lower_bound(
     };
     let minimum = out.get("minimum").and_then(|v| v.as_f64());
     let exclusive = out.get("exclusiveMinimum").and_then(|v| v.as_f64());
-    let mut current = minimum.map(|v| {
-        (
-            false,
-            v,
-            out.get("minimum").expect("minimum").clone(),
-        )
-    });
+    let mut current = minimum.map(|v| (false, v, out.get("minimum").expect("minimum").clone()));
     if let Some(v) = exclusive
         && current.as_ref().is_none_or(|(_, c, _)| v >= *c)
     {
         current = Some((
             true,
             v,
-            out.get("exclusiveMinimum").expect("exclusiveMinimum").clone(),
+            out.get("exclusiveMinimum")
+                .expect("exclusiveMinimum")
+                .clone(),
         ));
     }
-    let candidate = (
-        key == "exclusiveMinimum",
-        candidate_value,
-        value.clone(),
-    );
+    let candidate = (key == "exclusiveMinimum", candidate_value, value.clone());
     if current.as_ref().is_none_or(|(exclusive, c, _)| {
         candidate.1 > *c || (candidate.1 == *c && candidate.0 && !exclusive)
     }) {
@@ -2190,7 +2249,12 @@ fn openai_merge_lower_bound(
     out.remove("minimum");
     out.remove("exclusiveMinimum");
     out.insert(
-        if exclusive { "exclusiveMinimum" } else { "minimum" }.to_owned(),
+        if exclusive {
+            "exclusiveMinimum"
+        } else {
+            "minimum"
+        }
+        .to_owned(),
         winner,
     );
 }
@@ -2209,27 +2273,19 @@ fn openai_merge_upper_bound(
     };
     let maximum = out.get("maximum").and_then(|v| v.as_f64());
     let exclusive = out.get("exclusiveMaximum").and_then(|v| v.as_f64());
-    let mut current = maximum.map(|v| {
-        (
-            false,
-            v,
-            out.get("maximum").expect("maximum").clone(),
-        )
-    });
+    let mut current = maximum.map(|v| (false, v, out.get("maximum").expect("maximum").clone()));
     if let Some(v) = exclusive
         && current.as_ref().is_none_or(|(_, c, _)| v <= *c)
     {
         current = Some((
             true,
             v,
-            out.get("exclusiveMaximum").expect("exclusiveMaximum").clone(),
+            out.get("exclusiveMaximum")
+                .expect("exclusiveMaximum")
+                .clone(),
         ));
     }
-    let candidate = (
-        key == "exclusiveMaximum",
-        candidate_value,
-        value.clone(),
-    );
+    let candidate = (key == "exclusiveMaximum", candidate_value, value.clone());
     if current.as_ref().is_none_or(|(exclusive, c, _)| {
         candidate.1 < *c || (candidate.1 == *c && candidate.0 && !exclusive)
     }) {
@@ -2239,7 +2295,12 @@ fn openai_merge_upper_bound(
     out.remove("maximum");
     out.remove("exclusiveMaximum");
     out.insert(
-        if exclusive { "exclusiveMaximum" } else { "maximum" }.to_owned(),
+        if exclusive {
+            "exclusiveMaximum"
+        } else {
+            "maximum"
+        }
+        .to_owned(),
         winner,
     );
 }
@@ -2479,4 +2540,486 @@ pub fn rewrite_openai_schema(doc: &serde_json::Value) -> serde_json::Value {
         );
     }
     serde_json::Value::Object(out)
+}
+
+// --- Decision port (`ai/Decision.ts` + `ai/DecisionModel.ts` at the pin) ---
+//
+// Only the decision algebra is representable here. The `Schema` half (input
+// codecs, `FiniteFromString`, `toCodecJson`, encoding services,
+// `Model.make` provider metadata) has no counterpart in this crate: the
+// caller encodes its input to JSON (fallibly via [`decide_encoded`]) and the
+// provider sees that JSON as `state`. `decide` answers every decision in one
+// provider call and validates each answer; failures are `AiError`s.
+
+/// Classification decision: one label out of `criteria` (label, description).
+#[derive(Clone, Debug, PartialEq)]
+pub struct ClassifyDecision {
+    /// What the decision is about.
+    pub instructions: String,
+    /// Labels with their descriptions.
+    pub criteria: Vec<(String, String)>,
+}
+
+/// Rating decision: an ordered scale, lowest level first.
+#[derive(Clone, Debug, PartialEq)]
+pub struct RateDecision {
+    /// What the decision is about.
+    pub instructions: String,
+    /// Levels from lowest to highest.
+    pub criteria: Vec<String>,
+}
+
+/// Probability decision with optional outcome descriptions (`false`, `true`).
+#[derive(Clone, Debug, PartialEq)]
+pub struct ProbabilityDecision {
+    /// What the decision is about.
+    pub instructions: String,
+    /// Outcome descriptions, when supplied.
+    pub criteria: Option<(String, String)>,
+}
+
+/// Union of every decision kind.
+#[derive(Clone, Debug, PartialEq)]
+pub enum Decision {
+    /// Unordered label choice.
+    Classify(ClassifyDecision),
+    /// Ordered scale placement.
+    Rate(RateDecision),
+    /// Likelihood of a statement.
+    Probability(ProbabilityDecision),
+}
+
+impl Decision {
+    /// Decision kind tag (`"Classify"`, `"Rate"`, `"Probability"`).
+    pub fn tag(&self) -> &'static str {
+        match self {
+            Self::Classify(_) => "Classify",
+            Self::Rate(_) => "Rate",
+            Self::Probability(_) => "Probability",
+        }
+    }
+
+    /// What the decision is about.
+    pub fn instructions(&self) -> &str {
+        match self {
+            Self::Classify(decision) => &decision.instructions,
+            Self::Rate(decision) => &decision.instructions,
+            Self::Probability(decision) => &decision.instructions,
+        }
+    }
+
+    /// Classification over at least two labels; fewer is an error.
+    pub fn classify(instructions: &str, criteria: &[(&str, &str)]) -> Result<Self, String> {
+        if criteria.len() < 2 {
+            return Err("Decision.classify: criteria must contain at least two labels".to_owned());
+        }
+        Ok(Self::Classify(ClassifyDecision {
+            instructions: instructions.to_owned(),
+            criteria: criteria
+                .iter()
+                .map(|(label, description)| ((*label).to_owned(), (*description).to_owned()))
+                .collect(),
+        }))
+    }
+
+    /// Rating over at least two distinct levels; fewer or duplicates error.
+    pub fn rate(instructions: &str, criteria: &[&str]) -> Result<Self, String> {
+        if criteria.len() < 2 {
+            return Err("Decision.rate: criteria must contain at least two levels".to_owned());
+        }
+        let mut distinct = criteria.to_vec();
+        distinct.sort_unstable();
+        distinct.dedup();
+        if distinct.len() != criteria.len() {
+            return Err("Decision.rate: criteria must contain distinct levels".to_owned());
+        }
+        Ok(Self::Rate(RateDecision {
+            instructions: instructions.to_owned(),
+            criteria: criteria.iter().map(|level| (*level).to_owned()).collect(),
+        }))
+    }
+
+    /// Probability with optional outcome descriptions; `None` is no criteria.
+    pub fn probability(instructions: &str, criteria: Option<(&str, &str)>) -> Self {
+        Self::Probability(ProbabilityDecision {
+            instructions: instructions.to_owned(),
+            criteria: criteria.map(|(no, yes)| (no.to_owned(), yes.to_owned())),
+        })
+    }
+}
+
+/// Input decisions answered together in one provider call, in order.
+#[derive(Clone, Debug, PartialEq)]
+pub struct DecisionDefinition {
+    /// Named decisions; empty is an error.
+    pub decisions: Vec<(String, Decision)>,
+}
+
+impl DecisionDefinition {
+    /// Build from named decisions; empty is an error.
+    pub fn new(decisions: Vec<(String, Decision)>) -> Result<Self, String> {
+        if decisions.is_empty() {
+            return Err("Decision.make: decisions must not be empty".to_owned());
+        }
+        Ok(Self { decisions })
+    }
+}
+
+/// Provider answer for a classify decision.
+#[derive(Clone, Debug, PartialEq)]
+pub enum ProviderAnswer {
+    /// Provider-chosen label plus its distribution and optional confidence.
+    Classify {
+        /// Chosen label; kept even when it is not the argmax.
+        label: String,
+        /// Probability per label.
+        probabilities: HashMap<String, f64>,
+        /// Provider-defined measure in `[0, 1]`, when reported.
+        confidence: Option<f64>,
+    },
+    /// Rating plus its distribution and optional confidence. The core derives
+    /// the label from the highest probability (first criteria entry on ties),
+    /// so this answer carries no label.
+    Rate {
+        /// Position on the scale, within `[0, criteria.len() - 1]`.
+        rating: f64,
+        /// Probability per level.
+        probabilities: HashMap<String, f64>,
+        /// Provider-defined measure in `[0, 1]`, when reported.
+        confidence: Option<f64>,
+    },
+    /// Probability of `true`.
+    Probability {
+        /// Likelihood in `[0, 1]`.
+        probability: f64,
+    },
+}
+
+impl ProviderAnswer {
+    /// Answer kind tag, matching the decision tag it answers.
+    pub fn tag(&self) -> &'static str {
+        match self {
+            Self::Classify { .. } => "Classify",
+            Self::Rate { .. } => "Rate",
+            Self::Probability { .. } => "Probability",
+        }
+    }
+}
+
+/// Validated answer to a classify decision.
+#[derive(Clone, Debug, PartialEq)]
+pub struct ClassifyAnswer {
+    /// Provider-chosen label.
+    pub label: String,
+    /// Validated probability per label.
+    pub probabilities: HashMap<String, f64>,
+    /// Validated confidence, when the provider reported one.
+    pub confidence: Option<f64>,
+}
+
+/// Validated answer to a rate decision.
+#[derive(Clone, Debug, PartialEq)]
+pub struct RateAnswer {
+    /// Provider rating, echoed back.
+    pub rating: f64,
+    /// Level with the highest probability (first criteria entry on ties).
+    pub label: String,
+    /// Validated probability per level.
+    pub probabilities: HashMap<String, f64>,
+    /// Validated confidence, when the provider reported one.
+    pub confidence: Option<f64>,
+}
+
+/// Validated answer to a probability decision.
+#[derive(Clone, Debug, PartialEq)]
+pub struct ProbabilityAnswer {
+    /// Validated likelihood.
+    pub probability: f64,
+}
+
+/// Validated answer to a single decision.
+#[derive(Clone, Debug, PartialEq)]
+pub enum DecisionAnswer {
+    /// Classification answer.
+    Classify(ClassifyAnswer),
+    /// Rating answer.
+    Rate(RateAnswer),
+    /// Probability answer.
+    Probability(ProbabilityAnswer),
+}
+
+/// Token usage reported by the provider; `None` is the tag's `undefined`.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct DecisionUsage {
+    /// Input tokens billed, when reported.
+    pub input_tokens: Option<f64>,
+    /// Output tokens billed, when reported.
+    pub output_tokens: Option<f64>,
+}
+
+impl DecisionUsage {
+    /// Encode to the wire shape, omitting undefined counts.
+    pub fn to_json(&self) -> serde_json::Value {
+        let mut out = serde_json::Map::new();
+        if let Some(tokens) = self.input_tokens {
+            out.insert("inputTokens".to_owned(), serde_json::Value::from(tokens));
+        }
+        if let Some(tokens) = self.output_tokens {
+            out.insert("outputTokens".to_owned(), serde_json::Value::from(tokens));
+        }
+        serde_json::Value::Object(out)
+    }
+
+    /// Decode from the wire shape; missing or null counts are `None`.
+    pub fn from_json(value: &serde_json::Value) -> Option<Self> {
+        let count = |key: &str| match value.get(key) {
+            None | Some(serde_json::Value::Null) => Some(None),
+            Some(tokens) => tokens.as_f64().map(Some),
+        };
+        Some(Self {
+            input_tokens: count("inputTokens")?,
+            output_tokens: count("outputTokens")?,
+        })
+    }
+}
+
+/// Provider input: the JSON-encoded input plus every decision in one call.
+#[derive(Debug)]
+pub struct ProviderOptions<'a> {
+    /// Encoded input.
+    pub state: serde_json::Value,
+    /// Every decision the provider must answer.
+    pub decisions: &'a [(String, Decision)],
+}
+
+/// Provider response: one answer per decision plus usage.
+#[derive(Clone, Debug, PartialEq)]
+pub struct DecisionProviderResponse {
+    /// Answers keyed like the requested decisions.
+    pub answers: HashMap<String, ProviderAnswer>,
+    /// Usage the provider reported.
+    pub usage: DecisionUsage,
+}
+
+/// Answers for every decision in a definition plus usage metadata.
+#[derive(Clone, Debug, PartialEq)]
+pub struct DecideResponse {
+    /// Validated answers keyed by decision name.
+    pub answers: HashMap<String, DecisionAnswer>,
+    /// Usage the provider reported.
+    pub usage: DecisionUsage,
+}
+
+/// Distributions must sum to 1 within this drift; larger drift fails.
+const DECISION_SUM_TOLERANCE: f64 = 1e-6;
+
+fn decision_invalid_output(description: String) -> AiError {
+    AiError::new(AiReason::InvalidOutput {
+        details: description,
+    })
+    .with_context("DecisionModel", "decide")
+}
+
+fn is_unit_interval(value: f64) -> bool {
+    value.is_finite() && value >= 0.0 && value <= 1.0
+}
+
+fn validate_confidence(key: &str, confidence: Option<f64>) -> Result<Option<f64>, AiError> {
+    match confidence {
+        None => Ok(None),
+        Some(value) if is_unit_interval(value) => Ok(Some(value)),
+        Some(_) => Err(decision_invalid_output(format!(
+            "Provider returned confidence outside [0, 1] for decision \"{key}\""
+        ))),
+    }
+}
+
+fn validate_distribution(
+    key: &str,
+    labels: &[String],
+    probabilities: &HashMap<String, f64>,
+) -> Result<HashMap<String, f64>, AiError> {
+    let mut validated = HashMap::new();
+    let mut total = 0.0;
+    for label in labels {
+        match probabilities.get(label) {
+            Some(value) if is_unit_interval(*value) => {
+                validated.insert(label.clone(), *value);
+                total += *value;
+            }
+            _ => {
+                return Err(decision_invalid_output(format!(
+                    "Provider returned no probability for label \"{label}\" of decision \"{key}\""
+                )));
+            }
+        }
+    }
+    if total == 0.0 || (total - 1.0).abs() > DECISION_SUM_TOLERANCE {
+        return Err(decision_invalid_output(format!(
+            "Provider returned probabilities that do not sum to 1 for decision \"{key}\""
+        )));
+    }
+    Ok(validated)
+}
+
+fn validate_answer(
+    key: &str,
+    decision: &Decision,
+    answer: &ProviderAnswer,
+) -> Result<DecisionAnswer, AiError> {
+    if answer.tag() != decision.tag() {
+        return Err(decision_invalid_output(format!(
+            "Provider returned a \"{}\" answer for decision \"{key}\", expected \"{}\"",
+            answer.tag(),
+            decision.tag()
+        )));
+    }
+    match (decision, answer) {
+        (
+            Decision::Classify(decision),
+            ProviderAnswer::Classify {
+                label,
+                probabilities,
+                confidence,
+            },
+        ) => {
+            let labels: Vec<String> = decision
+                .criteria
+                .iter()
+                .map(|(label, _)| label.clone())
+                .collect();
+            if !labels.contains(label) {
+                return Err(decision_invalid_output(format!(
+                    "Provider returned an unknown label for decision \"{key}\""
+                )));
+            }
+            Ok(DecisionAnswer::Classify(ClassifyAnswer {
+                label: label.clone(),
+                probabilities: validate_distribution(key, &labels, probabilities)?,
+                confidence: validate_confidence(key, *confidence)?,
+            }))
+        }
+        (
+            Decision::Rate(decision),
+            ProviderAnswer::Rate {
+                rating,
+                probabilities,
+                confidence,
+            },
+        ) => {
+            let top = decision.criteria.len() as f64 - 1.0;
+            if !rating.is_finite() || *rating < 0.0 || *rating > top {
+                return Err(decision_invalid_output(format!(
+                    "Provider returned a rating outside [0, {top}] for decision \"{key}\""
+                )));
+            }
+            let probabilities = validate_distribution(key, &decision.criteria, probabilities)?;
+            let mut label = decision.criteria[0].clone();
+            for level in &decision.criteria[1..] {
+                if probabilities[level] > probabilities[&label] {
+                    label = level.clone();
+                }
+            }
+            Ok(DecisionAnswer::Rate(RateAnswer {
+                rating: *rating,
+                label,
+                probabilities,
+                confidence: validate_confidence(key, *confidence)?,
+            }))
+        }
+        (Decision::Probability(_), ProviderAnswer::Probability { probability }) => {
+            if !is_unit_interval(*probability) {
+                return Err(decision_invalid_output(format!(
+                    "Provider returned a probability outside [0, 1] for decision \"{key}\""
+                )));
+            }
+            Ok(DecisionAnswer::Probability(ProbabilityAnswer {
+                probability: *probability,
+            }))
+        }
+        _ => Err(decision_invalid_output(format!(
+            "Provider returned a \"{}\" answer for decision \"{key}\", expected \"{}\"",
+            answer.tag(),
+            decision.tag()
+        ))),
+    }
+}
+
+/// Decision operations over a definition: encodes nothing itself (the caller
+/// supplies JSON `state`), calls the provider once, and validates answers.
+pub struct DecisionModel {
+    decide_fn:
+        Box<dyn Fn(ProviderOptions<'_>) -> Result<DecisionProviderResponse, AiError> + Send + Sync>,
+}
+
+impl DecisionModel {
+    /// Build from a provider `decide` function.
+    pub fn new(
+        decide: impl Fn(ProviderOptions<'_>) -> Result<DecisionProviderResponse, AiError>
+        + Send
+        + Sync
+        + 'static,
+    ) -> Self {
+        Self {
+            decide_fn: Box::new(decide),
+        }
+    }
+
+    /// Answer a definition for JSON `state`: one provider call, then per
+    /// decision validation. Missing answers and invalid answers fail with
+    /// `InvalidOutputError`.
+    pub fn decide(
+        &self,
+        definition: &DecisionDefinition,
+        state: serde_json::Value,
+    ) -> Result<DecideResponse, AiError> {
+        let response = (self.decide_fn)(ProviderOptions {
+            state,
+            decisions: &definition.decisions,
+        })?;
+        let mut answers = HashMap::new();
+        for (key, decision) in &definition.decisions {
+            match response.answers.get(key) {
+                None => {
+                    return Err(decision_invalid_output(format!(
+                        "Provider returned no answer for decision \"{key}\""
+                    )));
+                }
+                Some(answer) => {
+                    answers.insert(key.clone(), validate_answer(key, decision, answer)?);
+                }
+            }
+        }
+        Ok(DecideResponse {
+            answers,
+            usage: response.usage,
+        })
+    }
+}
+
+/// Answer a decision definition through a model (the method's free-function
+/// form; both answer identically).
+pub fn decide(
+    model: &DecisionModel,
+    definition: &DecisionDefinition,
+    state: serde_json::Value,
+) -> Result<DecideResponse, AiError> {
+    model.decide(definition, state)
+}
+
+/// Answer a definition from a raw input through a fallible encoder.
+/// Encoding failures become `InvalidUserInputError` before the provider runs.
+pub fn decide_encoded<Input>(
+    model: &DecisionModel,
+    definition: &DecisionDefinition,
+    input: &Input,
+    encode: impl Fn(&Input) -> Result<serde_json::Value, String>,
+) -> Result<DecideResponse, AiError> {
+    match encode(input) {
+        Ok(state) => model.decide(definition, state),
+        Err(message) => Err(
+            AiError::new(AiReason::InvalidUserInput { details: message })
+                .with_context("DecisionModel", "decide"),
+        ),
+    }
 }
