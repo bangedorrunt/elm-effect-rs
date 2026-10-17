@@ -4688,14 +4688,14 @@ unported	packages/effect/test/ai/DecisionModel.test.ts	690	it.effect	accepts
 unported	packages/effect/test/ai/DecisionModel.test.ts	718	it.effect	rate rejects rating ${rating}	
 unported	packages/effect/test/ai/DecisionModel.test.ts	728	it.effect	rate accepts rating ${rating}	
 unported	packages/effect/test/ai/DecisionModel.test.ts	738	it.effect	extra provider keys never leak into answers	
-unported	packages/effect/test/ai/EmbeddingModel.test.ts	19	it.effect	round trips usage with undefined input tokens through JSON	
-unported	packages/effect/test/ai/EmbeddingModel.test.ts	31	it.effect	embed returns a vector	
-unported	packages/effect/test/ai/EmbeddingModel.test.ts	55	it.effect	embedMany returns ordered vectors with usage	
-unported	packages/effect/test/ai/EmbeddingModel.test.ts	81	it.effect	concurrent embed calls are batched into one provider embedMany call	
-unported	packages/effect/test/ai/EmbeddingModel.test.ts	113	it.effect	provider AiError propagates through embed	
-unported	packages/effect/test/ai/EmbeddingModel.test.ts	134	it.effect	embed fails with InvalidOutputError when provider misses results	
-unported	packages/effect/test/ai/EmbeddingModel.test.ts	156	it.effect	embedMany fails with InvalidOutputError when provider misses results	
-unported	packages/effect/test/ai/EmbeddingModel.test.ts	178	it.effect	embedMany([]) bypasses provider	
+ported	packages/effect/test/ai/EmbeddingModel.test.ts	19	it.effect	round trips usage with undefined input tokens through JSON	round_trips_usage_with_undefined_input_tokens_through_json
+ported	packages/effect/test/ai/EmbeddingModel.test.ts	31	it.effect	embed returns a vector	embed_returns_a_vector
+ported	packages/effect/test/ai/EmbeddingModel.test.ts	55	it.effect	embedMany returns ordered vectors with usage	embed_many_returns_ordered_vectors_with_usage
+not-applicable	packages/effect/test/ai/EmbeddingModel.test.ts	81	it.effect	concurrent embed calls are batched into one provider embedMany call	needs implicit cross-fiber request batching (concurrent embeds coalesce into one provider call); sync provider-fn model runs one provider call per embed, explicit batching is embed_many
+ported	packages/effect/test/ai/EmbeddingModel.test.ts	113	it.effect	provider AiError propagates through embed	provider_ai_error_propagates_through_embed
+ported	packages/effect/test/ai/EmbeddingModel.test.ts	134	it.effect	embed fails with InvalidOutputError when provider misses results	embed_fails_with_invalid_output_when_provider_misses_results
+ported	packages/effect/test/ai/EmbeddingModel.test.ts	156	it.effect	embedMany fails with InvalidOutputError when provider misses results	embed_many_fails_with_invalid_output_when_provider_misses_results
+ported	packages/effect/test/ai/EmbeddingModel.test.ts	178	it.effect	embedMany([]) bypasses provider	embed_many_empty_bypasses_provider
 unported	packages/effect/test/ai/LanguageModel.test.ts	73	it.effect	does not resolve tool calls after an incomplete finish	
 unported	packages/effect/test/ai/LanguageModel.test.ts	117	it.effect	validates the complete response before resolving tool calls	
 unported	packages/effect/test/ai/LanguageModel.test.ts	150	it.effect	fails cleanly for a tool call with a missing params field	

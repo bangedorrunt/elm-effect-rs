@@ -1148,7 +1148,7 @@ tests = ["packages/effect/test/ai/DecisionModel.test.ts"]
 [[module]]
 path = "packages/effect/src/ai/EmbeddingModel.ts"
 class = "unstable-port"
-status = "unmatched"
+status = "matched"
 tag = "unstable"
 reason = ""
 tests = ["packages/effect/test/ai/EmbeddingModel.test.ts"]
