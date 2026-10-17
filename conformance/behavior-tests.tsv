@@ -6221,49 +6221,92 @@ ported	packages/effect/test/cli/completions/descriptor.test.ts	219	it	extracts c
 ported	packages/effect/test/cli/completions/descriptor.test.ts	231	it	extracts file/directory arguments	extracts_file_directory_arguments
 ported	packages/effect/test/cli/completions/descriptor.test.ts	244	it	extracts multiple subcommands	extracts_multiple_subcommands
 ported	packages/effect/test/cli/completions/descriptor.test.ts	258	it	prefers short descriptions for subcommand listings	prefers_short_descriptions_for_subcommand_listings
-unported	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	43	it.effect	retries a deferred wake after a transient run reset failure	
-unported	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	93	it.effect	keeps a completed reply when an older concurrent wake resets it	
-unported	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	163	it.effect	admits a required completion after an unrelated completion with mailbox capacity ${entityMailboxCapacity}	
-unported	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	248	it.effect	retains a handover completion before its deferred reply is persisted	
-unported	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	296	it.effect	completes before deferred persistence across ${lifecycle}	
-unported	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	442	it.effect	executes, resumes, deduplicates, and polls a suspended workflow	
-unported	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	513	it.effect	interrupts a suspended workflow and runs compensation	
-unported	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	584	it.effect	Workflow.withCompensation runs compensation when the workflow fails	
-unported	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	609	it.effect	Activity.raceAll returns the first activity and interrupts losers	
-unported	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	629	it.effect	Activity.raceAll ignores a failure when another activity can succeed	
-unported	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	640	it.effect	Activity.raceAll replays the first durable activity	
-unported	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	668	it.effect	DurableDeferred.raceAll lets a deferred win while another branch is active	
-unported	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	688	it.effect	DurableDeferred.raceAll lets an active branch win while the deferred stays pending	
-unported	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	705	it.effect	DurableDeferred.raceAll replays the run when a losing deferred completes late	
-unported	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	739	it.effect	DurableDeferred.raceAll wakes the active run by replaying it	
-unported	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	763	it.effect	DurableDeferred.raceAll wakes a branch wrapped in DurableDeferred.into	
-unported	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	783	it.effect	DurableDeferred.raceAll does not preempt for deferreds awaited inside activity bodies	
-unported	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	805	it.effect	DurableDeferred.raceAll lets a bare durable clock branch win while another branch is active	
-unported	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	825	it.effect	DurableDeferred.raceAll runs a branch's transformations on a deferred wake	
-unported	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	845	it.effect	DurableDeferred.raceAll wakes a branch that ran an activity before its await	
-unported	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	870	it.effect	DurableDeferred.raceAll re-runs a multi-await branch once per completion	
-unported	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	907	it.effect	DurableDeferred resumes a discarded execution when completion precedes the suspension commit	
-unported	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	980	it.effect	DurableDeferred.raceAll delivers a completion that lands while a suspension commits	
-unported	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	1014	it.effect	DurableDeferred.raceAll suspends when every branch is pending and resumes with the winner	
-unported	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	1045	it.effect	nested workflows	
-unported	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	1075	it.effect	bounds a durable clock notification when its workflow is absent after restart	
-unported	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	1134	it.effect	DurableClock.sleep preserves an explicit ${id} zero threshold	
-unported	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	1137	it.effect	parallel child workflows inside an activity suspend the parent durably	
-unported	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	1181	it.effect	bounded child concurrency progresses across suspended activity replays	
-unported	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	1237	it.effect	resumes when children complete during activity cleanup	
-unported	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	1301	it.effect	coalesces parked child wakeups while parent cleanup is pending	
-unported	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	1409	it.effect	resumes a fresh entity from a legacy envelope with queued replay ${queuedReplay}	
-unported	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	1490	it.effect	a parent stays suspended past the activity interrupt retry budget	
-unported	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	1530	it.effect	parallel child workflows in the workflow body all dispatch before suspending	
-unported	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	1564	it.effect	routes fractional millisecond durable clock wakeups to the workflow shard group	
-unported	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	1592	it.effect	routes durable deferred completions to the workflow shard group after a partial client is cached	
-unported	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	1630	it.effect	warns for conflicting definitions and stays silent for the same definition	
-unported	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	1672	it.effect	does not fail when duplicate workflow payload shapes cannot be rendered	
-unported	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	1701	it.effect	propagates trace context to persisted workflow requests	
-unported	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	1744	it.effect	routes activities to the workflow shard group after a partial client is cached	
-unported	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	1779	it.effect	SuspendOnFailure	
-unported	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	1797	it.effect	catchCause activity	
-unported	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	1811	it.effect	can serialize workflow defects	
+not-applicable	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	43	it.effect	retries a deferred wake after a transient run reset failure	needs fiber wake plus clearReplies hook; no fiber runtime
+
+not-applicable	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	93	it.effect	keeps a completed reply when an older concurrent wake resets it	needs fiber wake plus clearReplies hook; no fiber runtime
+
+not-applicable	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	163	it.effect	admits a required completion after an unrelated completion with mailbox capacity ${entityMailboxCapacity}	needs entity mailbox plus saveReply gate; none exists
+
+not-applicable	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	248	it.effect	retains a handover completion before its deferred reply is persisted	needs entity mailbox plus saveReply gate; none exists
+
+not-applicable	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	296	it.effect	completes before deferred persistence across ${lifecycle}	needs entity mailbox plus saveReply gate; none exists
+
+not-applicable	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	442	it.effect	executes, resumes, deduplicates, and polls a suspended workflow	needs Fiber plus TestClock workflow suspension; no fiber runtime
+
+not-applicable	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	513	it.effect	interrupts a suspended workflow and runs compensation	needs Fiber plus TestClock workflow suspension; no fiber runtime
+
+not-applicable	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	584	it.effect	Workflow.withCompensation runs compensation when the workflow fails	needs Fiber plus TestClock workflow suspension; no fiber runtime
+
+not-applicable	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	609	it.effect	Activity.raceAll returns the first activity and interrupts losers	needs race supervision plus durable replay; no fiber runtime
+
+not-applicable	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	629	it.effect	Activity.raceAll ignores a failure when another activity can succeed	needs race supervision plus durable replay; no fiber runtime
+
+not-applicable	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	640	it.effect	Activity.raceAll replays the first durable activity	needs race supervision plus durable replay; no fiber runtime
+
+not-applicable	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	668	it.effect	DurableDeferred.raceAll lets a deferred win while another branch is active	needs race supervision plus durable replay; no fiber runtime
+
+not-applicable	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	688	it.effect	DurableDeferred.raceAll lets an active branch win while the deferred stays pending	needs race supervision plus durable replay; no fiber runtime
+
+not-applicable	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	705	it.effect	DurableDeferred.raceAll replays the run when a losing deferred completes late	needs race supervision plus durable replay; no fiber runtime
+
+not-applicable	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	739	it.effect	DurableDeferred.raceAll wakes the active run by replaying it	needs race supervision plus durable replay; no fiber runtime
+
+not-applicable	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	763	it.effect	DurableDeferred.raceAll wakes a branch wrapped in DurableDeferred.into	needs race supervision plus durable replay; no fiber runtime
+
+not-applicable	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	783	it.effect	DurableDeferred.raceAll does not preempt for deferreds awaited inside activity bodies	needs race supervision plus durable replay; no fiber runtime
+
+not-applicable	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	805	it.effect	DurableDeferred.raceAll lets a bare durable clock branch win while another branch is active	needs DurableClock plus shard router; neither exists
+
+not-applicable	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	825	it.effect	DurableDeferred.raceAll runs a branch's transformations on a deferred wake	needs race supervision plus durable replay; no fiber runtime
+
+not-applicable	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	845	it.effect	DurableDeferred.raceAll wakes a branch that ran an activity before its await	needs race supervision plus durable replay; no fiber runtime
+
+not-applicable	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	870	it.effect	DurableDeferred.raceAll re-runs a multi-await branch once per completion	needs race supervision plus durable replay; no fiber runtime
+
+not-applicable	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	907	it.effect	DurableDeferred resumes a discarded execution when completion precedes the suspension commit	needs the cluster workflow engine runtime (fibers, mailboxes, storage, replay, clock); only sync data types exist
+
+not-applicable	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	980	it.effect	DurableDeferred.raceAll delivers a completion that lands while a suspension commits	needs race supervision plus durable replay; no fiber runtime
+
+not-applicable	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	1014	it.effect	DurableDeferred.raceAll suspends when every branch is pending and resumes with the winner	needs race supervision plus durable replay; no fiber runtime
+
+not-applicable	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	1045	it.effect	nested workflows	needs the cluster workflow engine runtime (fibers, mailboxes, storage, replay, clock); only sync data types exist
+
+not-applicable	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	1075	it.effect	bounds a durable clock notification when its workflow is absent after restart	needs DurableClock plus shard router; neither exists
+
+not-applicable	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	1134	it.effect	DurableClock.sleep preserves an explicit ${id} zero threshold	needs DurableClock plus shard router; neither exists
+
+not-applicable	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	1137	it.effect	parallel child workflows inside an activity suspend the parent durably	needs child-workflow dispatch plus parent suspend; no workflow runtime
+
+not-applicable	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	1181	it.effect	bounded child concurrency progresses across suspended activity replays	needs Fiber plus TestClock workflow suspension; no fiber runtime
+
+not-applicable	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	1237	it.effect	resumes when children complete during activity cleanup	needs the cluster workflow engine runtime (fibers, mailboxes, storage, replay, clock); only sync data types exist
+
+not-applicable	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	1301	it.effect	coalesces parked child wakeups while parent cleanup is pending	needs the cluster workflow engine runtime (fibers, mailboxes, storage, replay, clock); only sync data types exist
+
+not-applicable	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	1409	it.effect	resumes a fresh entity from a legacy envelope with queued replay ${queuedReplay}	needs envelope versioning plus replay journal; neither exists
+
+not-applicable	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	1490	it.effect	a parent stays suspended past the activity interrupt retry budget	needs Fiber plus TestClock workflow suspension; no fiber runtime
+
+not-applicable	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	1530	it.effect	parallel child workflows in the workflow body all dispatch before suspending	needs child-workflow dispatch plus parent suspend; no workflow runtime
+
+not-applicable	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	1564	it.effect	routes fractional millisecond durable clock wakeups to the workflow shard group	needs DurableClock plus shard router; neither exists
+
+not-applicable	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	1592	it.effect	routes durable deferred completions to the workflow shard group after a partial client is cached	needs the cluster workflow engine runtime (fibers, mailboxes, storage, replay, clock); only sync data types exist
+
+not-applicable	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	1630	it.effect	warns for conflicting definitions and stays silent for the same definition	needs the cluster workflow engine runtime (fibers, mailboxes, storage, replay, clock); only sync data types exist
+
+not-applicable	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	1672	it.effect	does not fail when duplicate workflow payload shapes cannot be rendered	needs the cluster workflow engine runtime (fibers, mailboxes, storage, replay, clock); only sync data types exist
+
+not-applicable	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	1701	it.effect	propagates trace context to persisted workflow requests	needs Tracer plus envelope trace fields absent from StoredRequest
+
+not-applicable	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	1744	it.effect	routes activities to the workflow shard group after a partial client is cached	needs the cluster workflow engine runtime (fibers, mailboxes, storage, replay, clock); only sync data types exist
+
+not-applicable	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	1779	it.effect	SuspendOnFailure	needs Fiber plus TestClock workflow suspension; no fiber runtime
+
+not-applicable	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	1797	it.effect	catchCause activity	needs the cluster workflow engine runtime (fibers, mailboxes, storage, replay, clock); only sync data types exist
+
+not-applicable	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	1811	it.effect	can serialize workflow defects	needs the cluster workflow engine runtime (fibers, mailboxes, storage, replay, clock); only sync data types exist
+
 ported	packages/effect/test/cluster/Entity.test.ts	64	it.effect	provides an activation scope per entity and closes it with the client	entity_activation_scope_per_entity_closes_with_client
 ported	packages/effect/test/cluster/Entity.test.ts	90	it.effect	creates an in-memory client for an entity layer	entity_clients_close_activations_on_demand
 ported	packages/effect/test/cluster/Entity.test.ts	98	it.effect	does not freeze the acquiring fiber's context into the entity server	entity_server_does_not_freeze_the_client_context
