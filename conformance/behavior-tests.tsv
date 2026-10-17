@@ -6494,11 +6494,16 @@ ported	packages/effect/test/eventlog/EventLogSessionAuth.test.ts	66	it.effect	re
 ported	packages/effect/test/eventlog/EventLogSessionAuth.test.ts	88	it.effect	rejects malformed signature length	eventlog_session_auth
 ported	packages/effect/test/eventlog/EventLogSessionAuth.test.ts	102	it.effect	rejects malformed signing public key length	eventlog_session_auth
 ported	packages/effect/test/eventlog/EventLogSessionAuth.test.ts	114	it.effect	rejects invalid canonical payload bytes	eventlog_session_auth
-unported	packages/effect/test/eventlog/SqlEventLogServerUnencryptedStorageTest.ts	48	it.layer	30 seconds	
-unported	packages/effect/test/eventlog/SqlEventLogServerUnencryptedStorageTest.ts	52	it.effect	persists remote id across storage instances	
-unported	packages/effect/test/eventlog/SqlEventLogServerUnencryptedStorageTest.ts	64	it.effect	replays backlog and then streams live changes without startup duplication	
-unported	packages/effect/test/eventlog/SqlEventLogServerUnencryptedStorageTest.ts	96	it.effect	handles the changes startup race without losing or duplicating rows	
-unported	packages/effect/test/eventlog/SqlEventLogServerUnencryptedStorageTest.ts	136	it.effect	isolates reads and streams between stores	
+not-applicable	packages/effect/test/eventlog/SqlEventLogServerUnencryptedStorageTest.ts	48	it.layer	30 seconds	needs SqlClient layer + Reactivity layer harness; no DI layers or SQL driver in this port
+
+not-applicable	packages/effect/test/eventlog/SqlEventLogServerUnencryptedStorageTest.ts	52	it.effect	persists remote id across storage instances	needs shared remote-id table across makeStorage instances; no SQL storage backend
+
+not-applicable	packages/effect/test/eventlog/SqlEventLogServerUnencryptedStorageTest.ts	64	it.effect	replays backlog and then streams live changes without startup duplication	needs changes replay-then-live stream without duplication; no SQL backend or stream runtime
+
+not-applicable	packages/effect/test/eventlog/SqlEventLogServerUnencryptedStorageTest.ts	96	it.effect	handles the changes startup race without losing or duplicating rows	needs SQL-backed changes race handling; no SQL backend
+
+not-applicable	packages/effect/test/eventlog/SqlEventLogServerUnencryptedStorageTest.ts	136	it.effect	isolates reads and streams between stores	needs per-store SQL table isolation; no SQL backend
+
 ported	packages/effect/test/http/Cookies.test.ts	11	it	rejects cookie attribute delimiters in names, domains, and paths	cookies_reject_invalid_names
 ported	packages/effect/test/http/Cookies.test.ts	26	it	accepts RFC 6265 token names and legitimate domains and paths	cookies_reject_invalid_names
 ported	packages/effect/test/http/Cookies.test.ts	44	it	ignores invalid cookie names	cookies_reject_invalid_names
