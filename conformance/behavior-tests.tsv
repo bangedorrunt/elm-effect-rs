@@ -5141,8 +5141,8 @@ unported	packages/effect/test/ai/McpServer/ProtocolAdapters.test.ts	1944	it.effe
 unported	packages/effect/test/ai/McpServer/ProtocolAdapters.test.ts	1955	it.effect	should reject invalid structured content at the protocol serialization boundary	
 unported	packages/effect/test/ai/McpServer/ProtocolAdapters.test.ts	1968	it	should reject a tool schema when inputSchema is not an object	
 unported	packages/effect/test/ai/McpServer/ProtocolAdapters.test.ts	1977	it.effect	should list and invoke the latest tool when a name is registered twice	
-unported	packages/effect/test/ai/McpServer/v2024_11_05.test.ts	35	it.layer	Mcp Conformance (${protocol.protocolVersion})	
-unported	packages/effect/test/ai/McpServer/v2024_11_05.test.ts	38	it.effect	MUST NOT advertise completions	
+not-applicable	packages/effect/test/ai/McpServer/v2024_11_05.test.ts	35	it.layer	Mcp Conformance (${protocol.protocolVersion})	suite harness declaration, not a behavior assertion
+ported	packages/effect/test/ai/McpServer/v2024_11_05.test.ts	38	it.effect	MUST NOT advertise completions	features_server_does_not_advertise_completions
 unported	packages/effect/test/ai/McpServer/v2025_03_26.test.ts	39	it.layer	Mcp Conformance (${protocol.protocolVersion})	
 unported	packages/effect/test/ai/McpServer/v2025_03_26.test.ts	41	it.effect	MUST accept operational JSON-RPC batches over stdio	
 unported	packages/effect/test/ai/McpServer/v2025_03_26.test.ts	66	it.effect	SERVER rejects initialize as part of a JSON-RPC batch	
@@ -5150,8 +5150,8 @@ unported	packages/effect/test/ai/McpServer/v2025_03_26.test.ts	75	it.effect	MUST
 unported	packages/effect/test/ai/McpServer/v2025_03_26.test.ts	85	it.effect	MUST accept an operational mixed batch and correlate responses by id	
 unported	packages/effect/test/ai/McpServer/v2025_03_26.test.ts	111	it.effect	MUST return 202 with no body for an accepted notification-only batch	
 unported	packages/effect/test/ai/McpServer/v2025_03_26.test.ts	126	it.effect	MUST operate without the later protocol-version header	
-unported	packages/effect/test/ai/McpServer/v2025_11_25.test.ts	40	it.layer	Mcp Conformance (${protocol.protocolVersion})	
-unported	packages/effect/test/ai/McpServer/v2025_11_25.test.ts	42	it.effect	does not expose experimental Tasks without an extension	
+not-applicable	packages/effect/test/ai/McpServer/v2025_11_25.test.ts	40	it.layer	Mcp Conformance (${protocol.protocolVersion})	suite harness declaration, not a behavior assertion
+ported	packages/effect/test/ai/McpServer/v2025_11_25.test.ts	42	it.effect	does not expose experimental Tasks without an extension	features_server_does_not_expose_experimental_tasks
 unported	packages/effect/test/ai/McpServer/v2026_07_28.test.ts	76	it.layer	Mcp Conformance (${protocol.protocolVersion})	
 unported	packages/effect/test/ai/McpServer/v2026_07_28.test.ts	80	it.effect	should discover the server when no initialization or session exists	
 unported	packages/effect/test/ai/McpServer/v2026_07_28.test.ts	93	it.effect	should advertise supported extension settings when discovering a server with legacy configuration	
