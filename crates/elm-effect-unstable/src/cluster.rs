@@ -456,6 +456,13 @@ impl ShardingConfig {
         Ok(self)
     }
 
+    /// The effective storage read batch: programmatic sizes below one
+    /// normalize to one (`Math.max(1, ...)` at the storage read site), so a
+    /// zero batch still drains instead of stalling.
+    pub fn effective_storage_batch(&self) -> usize {
+        self.storage_batch.max(1)
+    }
+
     /// The listen address, if a host is configured.
     pub fn listen_address(&self) -> Option<String> {
         let host = self.listen_host.as_ref()?;

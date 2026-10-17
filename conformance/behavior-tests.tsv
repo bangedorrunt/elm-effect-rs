@@ -6534,67 +6534,128 @@ ported	packages/effect/test/cluster/Runners.test.ts	399	it.effect	volatile notif
 ported	packages/effect/test/cluster/Runners.test.ts	416	it.effect	persisted notification transport failures are ignored	runner_notify_persisted_transport_failure_is_ignored
 ported	packages/effect/test/cluster/Runners.test.ts	429	it.effect	a delivered defect for a persisted request maps to RunnerUnavailable for storage recovery	runner_send_delivered_defect_on_persisted_request_maps_to_runner_unavailable
 ported	packages/effect/test/cluster/Runners.test.ts	442	it.effect	encodes the entity payload with the protocol codec and leaves the hole untouched	runner_send_encodes_the_entity_payload_and_leaves_the_hole
-unported	packages/effect/test/cluster/Sharding.test.ts	60	it.effect	keeps the claim of an active request replayed after an entity defect	
-unported	packages/effect/test/cluster/Sharding.test.ts	153	it.effect	keeps the claim of an active uninterruptible request after restarting	
-unported	packages/effect/test/cluster/Sharding.test.ts	239	it.effect	keeps the claim of an active stream after an acknowledged chunk	
-unported	packages/effect/test/cluster/Sharding.test.ts	297	it.effect	releases capped addresses even when targeted claim release fails	
-unported	packages/effect/test/cluster/Sharding.test.ts	365	it.effect	redelivers a request reset while an asynchronous storage read is pending	
-unported	packages/effect/test/cluster/Sharding.test.ts	425	it.effect	redelivers a remote reset published before active-request cleanup	
-unported	packages/effect/test/cluster/Sharding.test.ts	523	it.effect	delivers volatile requests directly to the entity	
-unported	packages/effect/test/cluster/Sharding.test.ts	532	it.effect	does not freeze the first caller's context into the entity server	
-unported	packages/effect/test/cluster/Sharding.test.ts	548	it.effect	uses services provided when registering an entity	
-unported	packages/effect/test/cluster/Sharding.test.ts	564	it.effect	persists durable requests until the entity replies	
-unported	packages/effect/test/cluster/Sharding.test.ts	576	it.live	defects instead of hanging when persisted failures contain non-JSON Error values	
-unported	packages/effect/test/cluster/Sharding.test.ts	592	it.effect	routes durable interrupts through storage	
-unported	packages/effect/test/cluster/Sharding.test.ts	610	it.effect	interrupts aren't sent for durable messages on shutdown	
-unported	packages/effect/test/cluster/Sharding.test.ts	630	it.live	shutdown completes when a finalizing entity sends an outgoing message (persisted=${persisted}, preemptiveShutdown=${preemptiveShutdown})	
-unported	packages/effect/test/cluster/Sharding.test.ts	711	it.live	shutdown completes when a finalizing entity awaits a reply from an unroutable entity (persisted=${persisted})	
-unported	packages/effect/test/cluster/Sharding.test.ts	801	it.live	fails a stream when its chunk acknowledgement is abandoned during shutdown	
-unported	packages/effect/test/cluster/Sharding.test.ts	887	it.effect	interrupts are sent for volatile messages on shutdown	
-unported	packages/effect/test/cluster/Sharding.test.ts	936	it.effect	malformed message in storage	
-unported	packages/effect/test/cluster/Sharding.test.ts	975	it.effect	fails volatile requests immediately when the mailbox is full	
-unported	packages/effect/test/cluster/Sharding.test.ts	987	it.effect	durable messages are retried when mailbox is full	
-unported	packages/effect/test/cluster/Sharding.test.ts	1037	it.effect	interrupt for future request works while mailbox is full	
-unported	packages/effect/test/cluster/Sharding.test.ts	1064	it.effect	delivers durable streams and acknowledges each chunk	
-unported	packages/effect/test/cluster/Sharding.test.ts	1084	it.effect	durable stream while mailbox is full	
-unported	packages/effect/test/cluster/Sharding.test.ts	1145	it.effect	durable messages are retried on restart	
-unported	packages/effect/test/cluster/Sharding.test.ts	1204	it.effect	holds durable messages while entity layers are still building	
-unported	packages/effect/test/cluster/Sharding.test.ts	1269	it.effect	defects durable messages when no entity ever registers	
-unported	packages/effect/test/cluster/Sharding.test.ts	1330	it.effect	bounds local sends while entity registration is missing	
-unported	packages/effect/test/cluster/Sharding.test.ts	1350	it.effect	recomputes the missing entity deadline when registration starts	
-unported	packages/effect/test/cluster/Sharding.test.ts	1381	it.effect	keeps a shared registration latch when one waiter is interrupted	
-unported	packages/effect/test/cluster/Sharding.test.ts	1406	it.effect	bounds client interruption while entity registration is missing	
-unported	packages/effect/test/cluster/Sharding.test.ts	1431	it.effect	durable streams are resumed on restart	
-unported	packages/effect/test/cluster/Sharding.test.ts	1491	it.effect	client discard stores durable requests without waiting for replies	
-unported	packages/effect/test/cluster/Sharding.test.ts	1504	it.effect	client discard returns while the durable request keeps processing	
-unported	packages/effect/test/cluster/Sharding.test.ts	1518	it.effect	client discard returns while the volatile request keeps processing	
-unported	packages/effect/test/cluster/Sharding.test.ts	1532	it.effect	client volatile discard retries a failed delivery	
-unported	packages/effect/test/cluster/Sharding.test.ts	1585	it.effect	defects when a durable request has no MessageStorage	
-unported	packages/effect/test/cluster/Sharding.test.ts	1598	it.effect	reprocesses a completed volatile request id without MessageStorage	
-unported	packages/effect/test/cluster/Sharding.test.ts	1642	it.effect	restarts the entity layer after a handler defect	
-unported	packages/effect/test/cluster/Sharding.test.ts	1654	it.effect	replays in-flight requests when restarting after a defect	
-unported	packages/effect/test/cluster/Sharding.test.ts	1674	it.effect	WithTransaction is propagated to the entity handler	
-unported	packages/effect/test/cluster/Sharding.test.ts	1738	it.effect	swallows persisted interrupts from an idle-reaped nested proxy call	
-unported	packages/effect/test/cluster/Sharding.test.ts	1758	it.effect	swallows persisted interrupts when the caller's shard is released	
-unported	packages/effect/test/cluster/Sharding.test.ts	1809	it.effect	treats node shutdown interrupts as transient via isShutdown	
-unported	packages/effect/test/cluster/Sharding.test.ts	1826	it.effect	forwards replayed storage interrupts that have no local provenance	
-unported	packages/effect/test/cluster/Sharding.test.ts	1857	it.effect	forwards interrupts from an external same-node caller	
-unported	packages/effect/test/cluster/Sharding.test.ts	1874	it.effect	forwards interrupts from an external same-node caller during entity teardown	
-unported	packages/effect/test/cluster/Sharding.test.ts	1901	it.effect	returns registry size to baseline after entity reap storms	
-unported	packages/effect/test/cluster/Sharding.test.ts	1936	it.effect	bounds resident entities to maxResidentEntities	
-unported	packages/effect/test/cluster/Sharding.test.ts	1962	it.effect	volatile sends to new entities fail with MailboxFull at the cap	
-unported	packages/effect/test/cluster/Sharding.test.ts	1984	it.effect	keeps delivering to resident entities at the cap	
-unported	packages/effect/test/cluster/Sharding.test.ts	2016	it.effect	drains a full batch without waiting for the poll interval	
-unported	packages/effect/test/cluster/Sharding.test.ts	2031	it.effect	advances past in-flight memory requests when reading bounded batches	
-unported	packages/effect/test/cluster/Sharding.test.ts	2045	it.effect	keeps full-sized storage reads when approaching the entity cap	
-unported	packages/effect/test/cluster/Sharding.test.ts	2077	it.effect	normalizes programmatic batch sizes below one	
-unported	packages/effect/test/cluster/Sharding.test.ts	2091	it.effect	does not busy-poll storage at the cap	
-unported	packages/effect/test/cluster/Sharding.test.ts	2114	it.effect	unbounded maxResidentEntities does not limit spawning	
-unported	packages/effect/test/cluster/Sharding.test.ts	2128	it.effect	interrupts entities and reacquires shards after lock storage recovers	
-unported	packages/effect/test/cluster/Sharding.test.ts	2223	it.effect	reacquires shards when the liveness probe succeeds while lock refresh is hung	
-unported	packages/effect/test/cluster/Sharding.test.ts	2279	it.effect	keeps the graceful timeout for normal shard reassignment	
-unported	packages/effect/test/cluster/Sharding.test.ts	2354	it.effect	does not wait for entity construction before a forced shard release	
-unported	packages/effect/test/cluster/Sharding.test.ts	2422	it.effect	does not acquire shards while a forced release is pending	
+not-applicable	packages/effect/test/cluster/Sharding.test.ts	60	it.effect	keeps the claim of an active request replayed after an entity defect	needs durable storage driver with replay plus restart machinery; none exists
+
+not-applicable	packages/effect/test/cluster/Sharding.test.ts	153	it.effect	keeps the claim of an active uninterruptible request after restarting	needs durable storage driver with replay plus restart machinery; none exists
+
+not-applicable	packages/effect/test/cluster/Sharding.test.ts	239	it.effect	keeps the claim of an active stream after an acknowledged chunk	needs streaming with acknowledgement plus TestClock; no Stream runtime
+
+not-applicable	packages/effect/test/cluster/Sharding.test.ts	297	it.effect	releases capped addresses even when targeted claim release fails	needs entity residency tracking and reaping; none exists
+
+not-applicable	packages/effect/test/cluster/Sharding.test.ts	365	it.effect	redelivers a request reset while an asynchronous storage read is pending	needs durable storage driver with replay plus restart machinery; none exists
+
+not-applicable	packages/effect/test/cluster/Sharding.test.ts	425	it.effect	redelivers a remote reset published before active-request cleanup	needs the sharded-entity runtime (entities, mailboxes, storage, fibers); only sync data types exist
+
+not-applicable	packages/effect/test/cluster/Sharding.test.ts	523	it.effect	delivers volatile requests directly to the entity	needs volatile dispatch through entity mailboxes; none exists
+
+not-applicable	packages/effect/test/cluster/Sharding.test.ts	532	it.effect	does not freeze the first caller's context into the entity server	needs the sharded-entity runtime (entities, mailboxes, storage, fibers); only sync data types exist
+
+not-applicable	packages/effect/test/cluster/Sharding.test.ts	548	it.effect	uses services provided when registering an entity	needs the sharded-entity runtime (entities, mailboxes, storage, fibers); only sync data types exist
+
+not-applicable	packages/effect/test/cluster/Sharding.test.ts	564	it.effect	persists durable requests until the entity replies	needs durable storage driver with replay plus restart machinery; none exists
+
+not-applicable	packages/effect/test/cluster/Sharding.test.ts	576	it.live	defects instead of hanging when persisted failures contain non-JSON Error values	needs durable storage driver with replay plus restart machinery; none exists
+
+not-applicable	packages/effect/test/cluster/Sharding.test.ts	592	it.effect	routes durable interrupts through storage	needs durable storage driver with replay plus restart machinery; none exists
+
+not-applicable	packages/effect/test/cluster/Sharding.test.ts	610	it.effect	interrupts aren't sent for durable messages on shutdown	needs fiber interrupts routed through the entity runtime; no fibers here
+
+not-applicable	packages/effect/test/cluster/Sharding.test.ts	630	it.live	shutdown completes when a finalizing entity sends an outgoing message (persisted=${persisted}, preemptiveShutdown=${preemptiveShutdown})	needs durable storage driver with replay plus restart machinery; none exists
+
+not-applicable	packages/effect/test/cluster/Sharding.test.ts	711	it.live	shutdown completes when a finalizing entity awaits a reply from an unroutable entity (persisted=${persisted})	needs durable storage driver with replay plus restart machinery; none exists
+
+not-applicable	packages/effect/test/cluster/Sharding.test.ts	801	it.live	fails a stream when its chunk acknowledgement is abandoned during shutdown	needs streaming with acknowledgement plus TestClock; no Stream runtime
+
+not-applicable	packages/effect/test/cluster/Sharding.test.ts	887	it.effect	interrupts are sent for volatile messages on shutdown	needs fiber interrupts routed through the entity runtime; no fibers here
+
+not-applicable	packages/effect/test/cluster/Sharding.test.ts	936	it.effect	malformed message in storage	needs durable storage driver with replay plus restart machinery; none exists
+
+not-applicable	packages/effect/test/cluster/Sharding.test.ts	975	it.effect	fails volatile requests immediately when the mailbox is full	needs entity mailbox with capacity and retry; none exists
+
+not-applicable	packages/effect/test/cluster/Sharding.test.ts	987	it.effect	durable messages are retried when mailbox is full	needs entity mailbox with capacity and retry; none exists
+
+not-applicable	packages/effect/test/cluster/Sharding.test.ts	1037	it.effect	interrupt for future request works while mailbox is full	needs entity mailbox with capacity and retry; none exists
+
+not-applicable	packages/effect/test/cluster/Sharding.test.ts	1064	it.effect	delivers durable streams and acknowledges each chunk	needs streaming with acknowledgement plus TestClock; no Stream runtime
+
+not-applicable	packages/effect/test/cluster/Sharding.test.ts	1084	it.effect	durable stream while mailbox is full	needs entity mailbox with capacity and retry; none exists
+
+not-applicable	packages/effect/test/cluster/Sharding.test.ts	1145	it.effect	durable messages are retried on restart	needs durable storage driver with replay plus restart machinery; none exists
+
+not-applicable	packages/effect/test/cluster/Sharding.test.ts	1204	it.effect	holds durable messages while entity layers are still building	needs the sharded-entity runtime (entities, mailboxes, storage, fibers); only sync data types exist
+
+not-applicable	packages/effect/test/cluster/Sharding.test.ts	1269	it.effect	defects durable messages when no entity ever registers	needs defect propagation through the entity runtime; none exists
+
+not-applicable	packages/effect/test/cluster/Sharding.test.ts	1330	it.effect	bounds local sends while entity registration is missing	needs entity registration and proxy routing; none exists
+
+not-applicable	packages/effect/test/cluster/Sharding.test.ts	1350	it.effect	recomputes the missing entity deadline when registration starts	needs entity registration and proxy routing; none exists
+
+not-applicable	packages/effect/test/cluster/Sharding.test.ts	1381	it.effect	keeps a shared registration latch when one waiter is interrupted	needs fiber interrupts routed through the entity runtime; no fibers here
+
+not-applicable	packages/effect/test/cluster/Sharding.test.ts	1406	it.effect	bounds client interruption while entity registration is missing	needs fiber interrupts routed through the entity runtime; no fibers here
+
+not-applicable	packages/effect/test/cluster/Sharding.test.ts	1431	it.effect	durable streams are resumed on restart	needs durable storage driver with replay plus restart machinery; none exists
+
+not-applicable	packages/effect/test/cluster/Sharding.test.ts	1491	it.effect	client discard stores durable requests without waiting for replies	needs client-discard semantics with durable processing; no runtime
+
+not-applicable	packages/effect/test/cluster/Sharding.test.ts	1504	it.effect	client discard returns while the durable request keeps processing	needs client-discard semantics with durable processing; no runtime
+
+not-applicable	packages/effect/test/cluster/Sharding.test.ts	1518	it.effect	client discard returns while the volatile request keeps processing	needs volatile dispatch through entity mailboxes; none exists
+
+not-applicable	packages/effect/test/cluster/Sharding.test.ts	1532	it.effect	client volatile discard retries a failed delivery	needs volatile dispatch through entity mailboxes; none exists
+
+not-applicable	packages/effect/test/cluster/Sharding.test.ts	1585	it.effect	defects when a durable request has no MessageStorage	needs durable storage driver with replay plus restart machinery; none exists
+
+not-applicable	packages/effect/test/cluster/Sharding.test.ts	1598	it.effect	reprocesses a completed volatile request id without MessageStorage	needs durable storage driver with replay plus restart machinery; none exists
+
+not-applicable	packages/effect/test/cluster/Sharding.test.ts	1642	it.effect	restarts the entity layer after a handler defect	needs durable storage driver with replay plus restart machinery; none exists
+
+not-applicable	packages/effect/test/cluster/Sharding.test.ts	1654	it.effect	replays in-flight requests when restarting after a defect	needs durable storage driver with replay plus restart machinery; none exists
+
+not-applicable	packages/effect/test/cluster/Sharding.test.ts	1674	it.effect	WithTransaction is propagated to the entity handler	needs transaction propagation into handlers; none exists
+
+not-applicable	packages/effect/test/cluster/Sharding.test.ts	1738	it.effect	swallows persisted interrupts from an idle-reaped nested proxy call	needs durable storage driver with replay plus restart machinery; none exists
+
+not-applicable	packages/effect/test/cluster/Sharding.test.ts	1758	it.effect	swallows persisted interrupts when the caller's shard is released	needs durable storage driver with replay plus restart machinery; none exists
+
+not-applicable	packages/effect/test/cluster/Sharding.test.ts	1809	it.effect	treats node shutdown interrupts as transient via isShutdown	needs fiber interrupts routed through the entity runtime; no fibers here
+
+not-applicable	packages/effect/test/cluster/Sharding.test.ts	1826	it.effect	forwards replayed storage interrupts that have no local provenance	needs durable storage driver with replay plus restart machinery; none exists
+
+not-applicable	packages/effect/test/cluster/Sharding.test.ts	1857	it.effect	forwards interrupts from an external same-node caller	needs fiber interrupts routed through the entity runtime; no fibers here
+
+not-applicable	packages/effect/test/cluster/Sharding.test.ts	1874	it.effect	forwards interrupts from an external same-node caller during entity teardown	needs fiber interrupts routed through the entity runtime; no fibers here
+
+not-applicable	packages/effect/test/cluster/Sharding.test.ts	1901	it.effect	returns registry size to baseline after entity reap storms	needs entity residency tracking and reaping; none exists
+
+not-applicable	packages/effect/test/cluster/Sharding.test.ts	1936	it.effect	bounds resident entities to maxResidentEntities	needs entity residency tracking and reaping; none exists
+
+not-applicable	packages/effect/test/cluster/Sharding.test.ts	1962	it.effect	volatile sends to new entities fail with MailboxFull at the cap	needs entity mailbox with capacity and retry; none exists
+
+not-applicable	packages/effect/test/cluster/Sharding.test.ts	1984	it.effect	keeps delivering to resident entities at the cap	needs entity residency tracking and reaping; none exists
+
+not-applicable	packages/effect/test/cluster/Sharding.test.ts	2016	it.effect	drains a full batch without waiting for the poll interval	needs bounded storage reads with poll loop; none exists
+
+not-applicable	packages/effect/test/cluster/Sharding.test.ts	2031	it.effect	advances past in-flight memory requests when reading bounded batches	needs bounded storage reads with poll loop; none exists
+
+not-applicable	packages/effect/test/cluster/Sharding.test.ts	2045	it.effect	keeps full-sized storage reads when approaching the entity cap	needs durable storage driver with replay plus restart machinery; none exists
+
+ported	packages/effect/test/cluster/Sharding.test.ts	2077	it.effect	normalizes programmatic batch sizes below one	storage_batch_below_one_normalizes_to_one
+
+not-applicable	packages/effect/test/cluster/Sharding.test.ts	2091	it.effect	does not busy-poll storage at the cap	needs durable storage driver with replay plus restart machinery; none exists
+
+not-applicable	packages/effect/test/cluster/Sharding.test.ts	2114	it.effect	unbounded maxResidentEntities does not limit spawning	needs entity residency tracking and reaping; none exists
+
+not-applicable	packages/effect/test/cluster/Sharding.test.ts	2128	it.effect	interrupts entities and reacquires shards after lock storage recovers	needs durable storage driver with replay plus restart machinery; none exists
+
+not-applicable	packages/effect/test/cluster/Sharding.test.ts	2223	it.effect	reacquires shards when the liveness probe succeeds while lock refresh is hung	needs shard lock storage plus liveness probes; none exists
+
+not-applicable	packages/effect/test/cluster/Sharding.test.ts	2279	it.effect	keeps the graceful timeout for normal shard reassignment	needs shard lock storage plus liveness probes; none exists
+
+not-applicable	packages/effect/test/cluster/Sharding.test.ts	2354	it.effect	does not wait for entity construction before a forced shard release	needs shard lock storage plus liveness probes; none exists
+
+not-applicable	packages/effect/test/cluster/Sharding.test.ts	2422	it.effect	does not acquire shards while a forced release is pending	needs shard lock storage plus liveness probes; none exists
+
 ported	packages/effect/test/cluster/ShardingConfig.test.ts	6	it.effect	bounds runner residency and storage reads by default	sharding_config_defaults_and_validation
 ported	packages/effect/test/cluster/ShardingConfig.test.ts	33	it.effect	omits the optional listen address when its host is absent	sharding_config_listen_address_needs_host
 ported	packages/effect/test/cluster/ShardingConfig.test.ts	61	it.effect	rejects non-positive residency and batch limits	sharding_config_defaults_and_validation

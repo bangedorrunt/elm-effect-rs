@@ -33,8 +33,16 @@ fn sharding_config_defaults_and_validation() {
 }
 
 #[test]
-fn sharding_config_listen_address_needs_host() {
-    let no_host = ShardingConfig {
+fn storage_batch_below_one_normalizes_to_one() {
+    // Sharding.test.ts:2077 — programmatic batch sizes below one still drain.
+    let zero = ShardingConfig { storage_batch: 0, ..ShardingConfig::defaults() };
+    assert_eq!(zero.effective_storage_batch(), 1);
+    let sized = ShardingConfig { storage_batch: 25, ..ShardingConfig::defaults() };
+    assert_eq!(sized.effective_storage_batch(), 25);
+}
+
+#[test]
+fn sharding_config_listen_address_needs_host() {    let no_host = ShardingConfig {
         listen_host: None,
         listen_port: Some(8080),
         ..ShardingConfig::defaults()
