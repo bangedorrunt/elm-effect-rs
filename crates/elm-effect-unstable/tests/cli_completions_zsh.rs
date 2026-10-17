@@ -9,7 +9,7 @@
 mod completions_fixtures;
 
 use completions_fixtures::{
-    choices, optionaldir, paths, server, simple, tricky, zsh_goldens,
+    choices, comprehensive, optionaldir, paths, server, simple, tricky, zsh_goldens,
 };
 use elm_effect_unstable::cli_completions::zsh;
 
@@ -210,4 +210,29 @@ fn uses_disable_description_for_boolean_negation() {
     // :540
     let script = zsh::generate("greet", &simple());
     assert!(script.contains("--no-loud[Disable loud]"));
+}
+
+#[test]
+fn generates_valid_zsh_script_for_comprehensive_cli() {
+    // :854
+    let script = zsh::generate("mycli", &comprehensive());
+    // Same assertion set as the pin's ComprehensiveCli integration row.
+    for expected in [
+        "#compdef mycli",
+        "_arguments",
+        "_describe",
+        "_mycli()",
+        "--debug",
+        "Enable debug logging",
+        "--quiet",
+        "_mycli_admin()",
+        "_mycli_copy()",
+        "_mycli_build()",
+        "_mycli_git()",
+        "_mycli_admin_users()",
+        "_mycli_git_clone()",
+        "_files",
+    ] {
+        assert!(script.contains(expected), "zsh script missing {expected:?}");
+    }
 }

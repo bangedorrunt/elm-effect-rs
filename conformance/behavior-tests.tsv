@@ -5944,9 +5944,9 @@ ported	packages/effect/test/cli/completions/completions.test.ts	772	it	does not 
 ported	packages/effect/test/cli/completions/completions.test.ts	790	it	dispatches to bash generator	dispatches_to_bash_generator
 ported	packages/effect/test/cli/completions/completions.test.ts	796	it	dispatches to zsh generator	dispatches_to_zsh_generator
 ported	packages/effect/test/cli/completions/completions.test.ts	802	it	dispatches to fish generator	dispatches_to_fish_generator
-unported	packages/effect/test/cli/completions/completions.test.ts	814	it	generates valid bash script for ComprehensiveCli	
-unported	packages/effect/test/cli/completions/completions.test.ts	854	it	generates valid zsh script for ComprehensiveCli	
-unported	packages/effect/test/cli/completions/completions.test.ts	885	it	generates valid fish script for ComprehensiveCli	
+ported	packages/effect/test/cli/completions/completions.test.ts	814	it	generates valid bash script for ComprehensiveCli	generates_valid_bash_script_for_comprehensive_cli
+ported	packages/effect/test/cli/completions/completions.test.ts	854	it	generates valid zsh script for ComprehensiveCli	generates_valid_zsh_script_for_comprehensive_cli
+ported	packages/effect/test/cli/completions/completions.test.ts	885	it	generates valid fish script for ComprehensiveCli	generates_valid_fish_script_for_comprehensive_cli
 ported	packages/effect/test/cli/completions/descriptor.test.ts	8	it	extracts command name and description	extracts_command_name_and_description
 ported	packages/effect/test/cli/completions/descriptor.test.ts	17	it	extracts string flags with aliases	extracts_string_flags_with_aliases
 ported	packages/effect/test/cli/completions/descriptor.test.ts	32	it	extracts boolean flags	extracts_boolean_flags

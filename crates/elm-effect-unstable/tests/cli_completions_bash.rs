@@ -9,7 +9,7 @@
 mod completions_fixtures;
 
 use completions_fixtures::{
-    bash_goldens, choices, nested, noop, paths, server, simple, tool, tricky,
+    bash_goldens, choices, comprehensive, nested, noop, paths, server, simple, tool, tricky,
 };
 use elm_effect_unstable::cli_completions::bash;
 
@@ -263,4 +263,38 @@ fn includes_inline_init_completion_fallback() {
     assert!(script.contains("if [[ \"$_line\" == [[:blank:]]* ]]; then"));
     assert!(script.contains("((_i == COMP_CWORD)) && cword=$_j"));
     assert!(script.contains("cur=\"${words[cword]}\""));
+}
+
+#[test]
+fn generates_valid_bash_script_for_comprehensive_cli() {
+    // :814
+    let script = bash::generate("mycli", &comprehensive());
+    // Same assertion set as the pin's ComprehensiveCli integration row.
+    for expected in [
+        "_mycli()",
+        "complete -F _mycli mycli",
+        "--debug",
+        "-d",
+        "--quiet",
+        "-q",
+        "--config",
+        "--no-debug",
+        "--no-quiet",
+        "_mycli_admin()",
+        "_mycli_copy()",
+        "_mycli_build()",
+        "_mycli_git()",
+        "_mycli_admin_users()",
+        "_mycli_admin_config()",
+        "_mycli_git_clone()",
+        "_mycli_git_add()",
+        "_mycli_git_status()",
+        "_mycli_admin_users_list()",
+        "_mycli_admin_users_create()",
+        "_mycli_admin_config_set()",
+        "_mycli_admin_config_get()",
+        "compgen -f",
+    ] {
+        assert!(script.contains(expected), "bash script missing {expected:?}");
+    }
 }

@@ -242,6 +242,12 @@ pub fn bash_goldens() -> Vec<Golden> {
         ),
         ("nested", "top", nested, include_str!("../fixtures/completions/bash/nested.bash")),
         ("noop", "noop", noop, include_str!("../fixtures/completions/bash/noop.bash")),
+        (
+            "comprehensive",
+            "mycli",
+            comprehensive,
+            include_str!("../fixtures/completions/bash/comprehensive.bash"),
+        ),
     ]
 }
 
@@ -262,6 +268,12 @@ pub fn zsh_goldens() -> Vec<Golden> {
         ),
         ("nested", "top", nested, include_str!("../fixtures/completions/zsh/nested.zsh")),
         ("noop", "noop", noop, include_str!("../fixtures/completions/zsh/noop.zsh")),
+        (
+            "comprehensive",
+            "mycli",
+            comprehensive,
+            include_str!("../fixtures/completions/zsh/comprehensive.zsh"),
+        ),
     ]
 }
 
@@ -316,6 +328,237 @@ pub fn backslash_desc() -> CommandDescriptor {
     }
 }
 
+/// The pin's `test/cli/fixtures/ComprehensiveCli.ts`, transcribed whole.
+///
+/// Commands built with `Command.withSharedFlags` carry those flags twice, as
+/// the pin does: once in `flags` (parsed here) and once in `context_flags`
+/// (inherited by children).
+pub fn comprehensive() -> CommandDescriptor {
+    let sudo = ParamDef::flag("sudo", ParamType::Boolean)
+        .with_description("Run with elevated privileges");
+
+    let users_list = DescriptorCommand::new("list")
+        .with_description("List all users in the system")
+        .with_flags(vec![
+            ParamDef::flag("format", ParamType::String)
+                .with_description("Output format (json, table, csv)"),
+            ParamDef::flag("active", ParamType::Boolean)
+                .with_description("Show only active users"),
+            ParamDef::flag("verbose", ParamType::Boolean)
+                .with_alias("v")
+                .with_description("Show detailed information"),
+        ]);
+    let users_create = DescriptorCommand::new("create")
+        .with_description("Create a new user account")
+        .with_flags(vec![
+            ParamDef::flag("role", ParamType::String)
+                .with_description("User role (admin, user, guest)"),
+            ParamDef::flag("notify", ParamType::Boolean)
+                .with_alias("n")
+                .with_description("Send notification email"),
+        ])
+        .with_arguments(vec![
+            ParamDef::argument("username", ParamType::String)
+                .with_description("Username for the new user"),
+            ParamDef::argument("email", ParamType::String)
+                .with_description("Email address (optional)")
+                .optional(),
+        ]);
+    let users = DescriptorCommand::new("users")
+        .with_description("User management commands")
+        .with_subcommands(vec![users_list, users_create]);
+
+    let profile = ParamDef::flag("profile", ParamType::String)
+        .with_alias("p")
+        .with_description("Configuration profile to use");
+    let config_set = DescriptorCommand::new("set")
+        .with_description("Set configuration values")
+        .with_flags(vec![ParamDef::flag("config-file", ParamType::Path(PathKind::File))
+            .with_alias("f")
+            .with_description("Write to specific config file")])
+        .with_arguments(vec![ParamDef::argument("key=value", ParamType::String)
+            .with_description("Configuration key-value pairs")
+            .variadic()]);
+    let config_get = DescriptorCommand::new("get")
+        .with_description("Get configuration value")
+        .with_flags(vec![ParamDef::flag("source", ParamType::String)
+            .with_description("Configuration source (local, global, system)")])
+        .with_arguments(vec![
+            ParamDef::argument("key", ParamType::String)
+                .with_description("Configuration key to retrieve"),
+        ]);
+    let config = DescriptorCommand::new("config")
+        .with_description("Manage application configuration")
+        .with_flags(vec![profile.clone()])
+        .with_context_flags(vec![profile])
+        .with_subcommands(vec![config_set, config_get]);
+
+    let admin = DescriptorCommand::new("admin")
+        .with_description("Administrative commands")
+        .with_flags(vec![sudo.clone()])
+        .with_context_flags(vec![sudo])
+        .with_subcommands(vec![users, config]);
+
+    let copy = DescriptorCommand::new("copy")
+        .with_description("Copy files or directories")
+        .with_flags(vec![
+            ParamDef::flag("recursive", ParamType::Boolean)
+                .with_alias("r")
+                .with_description("Copy directories recursively"),
+            ParamDef::flag("force", ParamType::Boolean)
+                .with_alias("f")
+                .with_description("Overwrite existing files"),
+            ParamDef::flag("buffer-size", ParamType::Int)
+                .with_description("Buffer size in KB"),
+        ])
+        .with_arguments(vec![
+            ParamDef::argument("source", ParamType::Path(PathKind::File))
+                .with_description("Source file or directory"),
+            ParamDef::argument("destination", ParamType::Path(PathKind::File))
+                .with_description("Destination path"),
+        ]);
+
+    let move_ = DescriptorCommand::new("move")
+        .with_description("Move or rename files")
+        .with_flags(vec![ParamDef::flag("interactive", ParamType::Boolean)
+            .with_alias("i")
+            .with_description("Prompt before overwrite")])
+        .with_arguments(vec![ParamDef::argument("paths", ParamType::String)
+            .with_description("Source path(s) and destination")
+            .variadic()]);
+
+    let remove = DescriptorCommand::new("remove")
+        .with_description("Remove files or directories")
+        .with_flags(vec![
+            ParamDef::flag("recursive", ParamType::Boolean)
+                .with_alias("r")
+                .with_description("Remove directories and contents"),
+            ParamDef::flag("force", ParamType::Boolean)
+                .with_alias("f")
+                .with_description("Force removal without prompts"),
+            ParamDef::flag("verbose", ParamType::Boolean)
+                .with_alias("v")
+                .with_description("Explain what is being done"),
+        ])
+        .with_arguments(vec![ParamDef::argument("files", ParamType::String)
+            .with_description("Files to remove")
+            .variadic()]);
+
+    let build = DescriptorCommand::new("build")
+        .with_description("Build the project")
+        .with_flags(vec![
+            ParamDef::flag("output", ParamType::String)
+                .with_alias("o")
+                .with_description("Output directory"),
+            ParamDef::flag("verbose", ParamType::Boolean)
+                .with_alias("v")
+                .with_description("Enable verbose output"),
+            ParamDef::flag("config-file", ParamType::String)
+                .with_alias("f")
+                .with_description("Configuration file path"),
+        ]);
+
+    let git_clone = DescriptorCommand::new("clone")
+        .with_description("Clone a repository")
+        .with_flags(vec![ParamDef::flag("branch", ParamType::String)
+            .with_description("Branch to clone")])
+        .with_arguments(vec![
+            ParamDef::argument("repository", ParamType::String)
+                .with_description("Repository URL or path"),
+        ]);
+    let git_add = DescriptorCommand::new("add")
+        .with_description("Add files to staging")
+        .with_flags(vec![ParamDef::flag("update", ParamType::Boolean)
+            .with_description("Update tracked files")])
+        .with_arguments(vec![
+            ParamDef::argument("files", ParamType::String).with_description("Files to add"),
+        ]);
+    let git_status = DescriptorCommand::new("status")
+        .with_description("Show repository status")
+        .with_flags(vec![ParamDef::flag("short", ParamType::Boolean)
+            .with_description("Show short format")]);
+    let git_verbose = ParamDef::flag("verbose", ParamType::Boolean)
+        .with_description("Enable verbose output");
+    let git = DescriptorCommand::new("git")
+        .with_description("Git version control")
+        .with_flags(vec![git_verbose.clone()])
+        .with_context_flags(vec![git_verbose])
+        .with_subcommands(vec![git_clone, git_add, git_status]);
+
+    let test_required = DescriptorCommand::new("test-required")
+        .with_description("Test command with required option")
+        .with_flags(vec![ParamDef::flag("required", ParamType::String)
+            .with_description("A required option for testing")]);
+    let test_failing = DescriptorCommand::new("test-failing")
+        .with_description("Test command that always fails")
+        .with_flags(vec![ParamDef::flag("input", ParamType::String)
+            .with_description("Input that will cause handler to fail")]);
+
+    let deploy = DescriptorCommand::new("deploy")
+        .with_description("Deploy a service")
+        .with_flags(vec![
+            ParamDef::flag("db-host", ParamType::String).with_description("Database host"),
+            ParamDef::flag("db-port", ParamType::Int).with_description("Database port"),
+            ParamDef::flag("dry-run", ParamType::Boolean).with_description("Perform a dry run"),
+        ])
+        .with_arguments(vec![
+            ParamDef::argument("service", ParamType::String).with_description("Service to deploy"),
+            ParamDef::argument("environment", ParamType::String)
+                .with_description("Target environment"),
+        ]);
+
+    let app_env = ParamDef::flag("env", ParamType::String).with_description("Environment setting");
+    let app = DescriptorCommand::new("app")
+        .with_description("Application management")
+        .with_flags(vec![app_env.clone()])
+        .with_context_flags(vec![app_env])
+        .with_subcommands(vec![deploy.clone()]);
+
+    let service_name = ParamDef::flag("name", ParamType::String).with_description("Service name");
+    let service = DescriptorCommand::new("service")
+        .with_description("Service management")
+        .with_flags(vec![service_name.clone()])
+        .with_context_flags(vec![service_name])
+        .with_subcommands(vec![deploy]);
+    let nested_env = ParamDef::flag("env", ParamType::String).with_description("Environment setting");
+    let app_with_service = DescriptorCommand::new("app-nested")
+        .with_description("Application with nested services")
+        .with_flags(vec![nested_env.clone()])
+        .with_context_flags(vec![nested_env])
+        .with_subcommands(vec![service]);
+
+    let global = vec![
+        ParamDef::flag("debug", ParamType::Boolean)
+            .with_alias("d")
+            .with_description("Enable debug logging"),
+        ParamDef::flag("config", ParamType::Path(PathKind::File))
+            .with_alias("c")
+            .with_description("Path to configuration file"),
+        ParamDef::flag("quiet", ParamType::Boolean)
+            .with_alias("q")
+            .with_description("Suppress non-error output"),
+    ];
+    from_command(
+        &DescriptorCommand::new("mycli")
+            .with_description("A comprehensive CLI tool demonstrating all features")
+            .with_flags(global.clone())
+            .with_context_flags(global)
+            .with_subcommands(vec![
+                admin,
+                copy,
+                move_,
+                remove,
+                build,
+                git,
+                test_required,
+                test_failing,
+                app,
+                app_with_service,
+            ]),
+        &[],
+    )
+}
+
 /// Fish goldens, generated by the pin's `fish.ts`.
 pub fn fish_goldens() -> Vec<Golden> {
     vec![
@@ -333,6 +576,12 @@ pub fn fish_goldens() -> Vec<Golden> {
         ),
         ("nested", "top", nested, include_str!("../fixtures/completions/fish/nested.fish")),
         ("noop", "noop", noop, include_str!("../fixtures/completions/fish/noop.fish")),
+        (
+            "comprehensive",
+            "mycli",
+            comprehensive,
+            include_str!("../fixtures/completions/fish/comprehensive.fish"),
+        ),
         ("scoped", "tool", scoped, include_str!("../fixtures/completions/fish/scoped.fish")),
         (
             "backslash_desc",

@@ -9,7 +9,8 @@
 mod completions_fixtures;
 
 use completions_fixtures::{
-    backslash_desc, choices, fish_goldens, nested, noop, paths, scoped, server, simple, tricky,
+    backslash_desc, choices, comprehensive, fish_goldens, nested, noop, paths, scoped, server,
+    simple, tricky,
 };
 use elm_effect_unstable::cli_completions::fish;
 
@@ -280,4 +281,31 @@ fn does_not_suppress_file_completion_for_commands_with_path_arguments() {
         !bare_suppression,
         "commands with path arguments should not suppress file completion"
     );
+}
+
+#[test]
+fn generates_valid_fish_script_for_comprehensive_cli() {
+    // :885
+    let script = fish::generate("mycli", &comprehensive());
+    // Same assertion set as the pin's ComprehensiveCli integration row.
+    for expected in [
+        "complete -c mycli",
+        "-a 'admin'",
+        "-a 'copy'",
+        "-a 'build'",
+        "-a 'git'",
+        "-l debug",
+        "-s d",
+        "-l quiet",
+        "-s q",
+        "-l no-debug",
+        "-l no-quiet",
+        "-d 'Administrative commands'",
+        "-d 'Build the project'",
+        "__fish_use_subcommand",
+        "__fish_seen_subcommand_from admin",
+        "__fish_seen_subcommand_from git",
+    ] {
+        assert!(script.contains(expected), "fish script missing {expected:?}");
+    }
 }
