@@ -8489,28 +8489,28 @@ ported	packages/effect/test/schema/VariantSchema.test.ts	97	it	FieldOption prese
 ported	packages/effect/test/schema/VariantSchema.test.ts	102	it	FieldOnly includes fields only in listed variants	variant_field_selection
 ported	packages/effect/test/schema/VariantSchema.test.ts	111	it	BooleanSqlite encodes database bits and JSON booleans across variants	model_boolean_sqlite_encodes_bits_and_booleans
 ported	packages/effect/test/schema/VariantSchema.test.ts	129	it.effect	Overrideable defaults are constructor-only and accept explicit overrides	model_overrideable_defaults_are_constructor_only
-unported	packages/effect/test/schema/jsonSchemaRoundTrip.test.ts	105	it	applies type-specific keywords only to matching instances	
-unported	packages/effect/test/schema/jsonSchemaRoundTrip.test.ts	124	it	preserves Unicode string lengths and patterns	
-unported	packages/effect/test/schema/jsonSchemaRoundTrip.test.ts	136	it	conjoins enum with its sibling constraints	
-unported	packages/effect/test/schema/jsonSchemaRoundTrip.test.ts	143	it	conjoins const with its sibling constraints	
-unported	packages/effect/test/schema/jsonSchemaRoundTrip.test.ts	150	it	intersects finite enums as sets	
-unported	packages/effect/test/schema/jsonSchemaRoundTrip.test.ts	157	it	preserves oneOf branch multiplicity	
-unported	packages/effect/test/schema/jsonSchemaRoundTrip.test.ts	164	it	preserves minItems after prefixItems	
-unported	packages/effect/test/schema/jsonSchemaRoundTrip.test.ts	176	it	intersects one constraint with multiple alternatives linearly	
-unported	packages/effect/test/schema/jsonSchemaRoundTrip.test.ts	193	it	preserves empty closed objects	
-unported	packages/effect/test/schema/jsonSchemaRoundTrip.test.ts	200	it	applies additionalProperties to required-only names	
-unported	packages/effect/test/schema/jsonSchemaRoundTrip.test.ts	207	it	applies an additionalProperties schema to required-only names	
-unported	packages/effect/test/schema/jsonSchemaRoundTrip.test.ts	214	it	preserves closed object scopes	
-unported	packages/effect/test/schema/jsonSchemaRoundTrip.test.ts	225	it	preserves sibling additionalProperties schemas	
-unported	packages/effect/test/schema/jsonSchemaRoundTrip.test.ts	236	it	preserves closed patternProperties	
-unported	packages/effect/test/schema/jsonSchemaRoundTrip.test.ts	249	it	preserves structs	
-unported	packages/effect/test/schema/jsonSchemaRoundTrip.test.ts	256	it	preserves string indexes	
-unported	packages/effect/test/schema/jsonSchemaRoundTrip.test.ts	263	it	imports the loose default export of approximate pattern records	
-unported	packages/effect/test/schema/jsonSchemaRoundTrip.test.ts	277	it	handles conjunctive key patterns permissively	
-unported	packages/effect/test/schema/jsonSchemaRoundTrip.test.ts	317	it	uses permissive value alternatives with strict conjunctive indexes	
-unported	packages/effect/test/schema/jsonSchemaRoundTrip.test.ts	371	it	imports the loose export of approximate pattern and string indexes	
-unported	packages/effect/test/schema/jsonSchemaRoundTrip.test.ts	382	it	preserves multiple string indexes	
-unported	packages/effect/test/schema/jsonSchemaRoundTrip.test.ts	392	it	applies string indexes to explicit properties	
+not-applicable	packages/effect/test/schema/jsonSchemaRoundTrip.test.ts	105	it	applies type-specific keywords only to matching instances	needs typeless-keyword docs; checks on the open base have no type to key the keyword off
+not-applicable	packages/effect/test/schema/jsonSchemaRoundTrip.test.ts	124	it	preserves Unicode string lengths and patterns	needs typeless-keyword docs; checks on the open base have no type
+not-applicable	packages/effect/test/schema/jsonSchemaRoundTrip.test.ts	136	it	conjoins enum with its sibling constraints	needs enum-with-siblings conjunction; no conjunction machinery
+not-applicable	packages/effect/test/schema/jsonSchemaRoundTrip.test.ts	143	it	conjoins const with its sibling constraints	needs const-with-siblings conjunction
+not-applicable	packages/effect/test/schema/jsonSchemaRoundTrip.test.ts	150	it	intersects finite enums as sets	needs finite-enum set intersection
+not-applicable	packages/effect/test/schema/jsonSchemaRoundTrip.test.ts	157	it	preserves oneOf branch multiplicity	needs oneOf branch multiplicity through an import roundtrip with duplicate branches
+not-applicable	packages/effect/test/schema/jsonSchemaRoundTrip.test.ts	164	it	preserves minItems after prefixItems	needs prefixItems import roundtrip with decode samples
+not-applicable	packages/effect/test/schema/jsonSchemaRoundTrip.test.ts	176	it	intersects one constraint with multiple alternatives linearly	needs one-constraint-to-many-alternatives intersection
+not-applicable	packages/effect/test/schema/jsonSchemaRoundTrip.test.ts	193	it	preserves empty closed objects	needs empty-closed-object import roundtrip
+not-applicable	packages/effect/test/schema/jsonSchemaRoundTrip.test.ts	200	it	applies additionalProperties to required-only names	needs additionalProperties import on required-only names
+not-applicable	packages/effect/test/schema/jsonSchemaRoundTrip.test.ts	207	it	applies an additionalProperties schema to required-only names	needs additionalProperties-schema import
+not-applicable	packages/effect/test/schema/jsonSchemaRoundTrip.test.ts	214	it	preserves closed object scopes	needs closed object scope import
+not-applicable	packages/effect/test/schema/jsonSchemaRoundTrip.test.ts	225	it	preserves sibling additionalProperties schemas	needs sibling additionalProperties import
+not-applicable	packages/effect/test/schema/jsonSchemaRoundTrip.test.ts	236	it	preserves closed patternProperties	needs closed patternProperties import
+not-applicable	packages/effect/test/schema/jsonSchemaRoundTrip.test.ts	249	it	preserves structs	needs struct import roundtrip with decode samples
+not-applicable	packages/effect/test/schema/jsonSchemaRoundTrip.test.ts	256	it	preserves string indexes	needs string-index import
+not-applicable	packages/effect/test/schema/jsonSchemaRoundTrip.test.ts	263	it	imports the loose default export of approximate pattern records	needs loose approximate pattern-record import
+not-applicable	packages/effect/test/schema/jsonSchemaRoundTrip.test.ts	277	it	handles conjunctive key patterns permissively	needs conjunctive key-pattern import
+not-applicable	packages/effect/test/schema/jsonSchemaRoundTrip.test.ts	317	it	uses permissive value alternatives with strict conjunctive indexes	needs permissive value alternatives with strict indexes
+not-applicable	packages/effect/test/schema/jsonSchemaRoundTrip.test.ts	371	it	imports the loose export of approximate pattern and string indexes	needs loose pattern+string-index import
+not-applicable	packages/effect/test/schema/jsonSchemaRoundTrip.test.ts	382	it	preserves multiple string indexes	needs multiple string-index import
+not-applicable	packages/effect/test/schema/jsonSchemaRoundTrip.test.ts	392	it	applies string indexes to explicit properties	needs string-index-on-explicit-props import
 ported	packages/effect/test/schema/representation/builtInRevivers.test.ts	81	it	revives isStringFinite	revives_predicate_numbers
 ported	packages/effect/test/schema/representation/builtInRevivers.test.ts	92	it	revives isStringBigInt	revives_string_bigint
 ported	packages/effect/test/schema/representation/builtInRevivers.test.ts	103	it	revives isStringSymbol	revives_predicate_strings
@@ -8853,20 +8853,20 @@ not-applicable	packages/effect/test/schema/representation/fromJsonSchemaDocument
 not-applicable	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	3195	it	strips annotation keys via onEnter	missing: pattern-property predicate + onEnter annotation filter (no onEnter handling at all; crates/elm-effect-schema/src/lib.rs:3205)
 not-applicable	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	3220	it	filters annotations by predicate via onEnter	missing: pattern-property predicate + onEnter annotation filter (no onEnter handling at all; crates/elm-effect-schema/src/lib.rs:3205)
 not-applicable	packages/effect/test/schema/representation/fromJsonSchemaDocument.test.ts	3248	it	default preserves all annotations	missing: pattern-property predicate + onEnter annotation filter (no onEnter handling at all; crates/elm-effect-schema/src/lib.rs:3205)
-unported	packages/effect/test/schema/representation/fromJsonSchemaMultiDocument.test.ts	29	it	rejects open pattern scopes in roots and shared definitions	
-unported	packages/effect/test/schema/representation/fromJsonSchemaMultiDocument.test.ts	51	it	imports closed patterned Records through shared definitions	
-unported	packages/effect/test/schema/representation/fromJsonSchemaMultiDocument.test.ts	76	it	imports Never through shared definitions	
-unported	packages/effect/test/schema/representation/fromJsonSchemaMultiDocument.test.ts	102	it	keeps resource scope separate for each root	
-unported	packages/effect/test/schema/representation/fromJsonSchemaMultiDocument.test.ts	125	it	rejects a reference in a nested resource with its multi-root path	
-unported	packages/effect/test/schema/representation/fromJsonSchemaMultiDocument.test.ts	140	it	propagates the pattern policy through reachable definitions	
-unported	packages/effect/test/schema/representation/fromJsonSchemaMultiDocument.test.ts	169	it	preserves an onEnter exception by identity	
-unported	packages/effect/test/schema/representation/fromJsonSchemaMultiDocument.test.ts	190	it	preserves contentSchema as an annotation without traversing it	
-unported	packages/effect/test/schema/representation/fromJsonSchemaMultiDocument.test.ts	216	it	does not import unreachable definitions	
-unported	packages/effect/test/schema/representation/fromJsonSchemaMultiDocument.test.ts	233	it	preserves root order and shares definitions	
-unported	packages/effect/test/schema/representation/fromJsonSchemaMultiDocument.test.ts	266	it	resolves alias chains when combining a reference	
-unported	packages/effect/test/schema/representation/fromJsonSchemaMultiDocument.test.ts	291	it	tracks recursive definitions independently	
-unported	packages/effect/test/schema/representation/fromJsonSchemaMultiDocument.test.ts	312	it	throws when a reference that must be resolved is missing	
-unported	packages/effect/test/schema/representation/fromJsonSchemaMultiDocument.test.ts	324	it	throws when resolving a circular alias chain	
+not-applicable	packages/effect/test/schema/representation/fromJsonSchemaMultiDocument.test.ts	29	it	rejects open pattern scopes in roots and shared definitions	needs open-pattern scope rejection; open patterns refused by design
+not-applicable	packages/effect/test/schema/representation/fromJsonSchemaMultiDocument.test.ts	51	it	imports closed patterned Records through shared definitions	needs closed patterned Record import through shared definitions
+not-applicable	packages/effect/test/schema/representation/fromJsonSchemaMultiDocument.test.ts	76	it	imports Never through shared definitions	needs Never import through shared definitions
+not-applicable	packages/effect/test/schema/representation/fromJsonSchemaMultiDocument.test.ts	102	it	keeps resource scope separate for each root	needs per-root resource-scope separation
+not-applicable	packages/effect/test/schema/representation/fromJsonSchemaMultiDocument.test.ts	125	it	rejects a reference in a nested resource with its multi-root path	needs nested-resource reference rejection with multi-root path
+not-applicable	packages/effect/test/schema/representation/fromJsonSchemaMultiDocument.test.ts	140	it	propagates the pattern policy through reachable definitions	needs pattern-policy propagation through reachable definitions
+not-applicable	packages/effect/test/schema/representation/fromJsonSchemaMultiDocument.test.ts	169	it	preserves an onEnter exception by identity	needs onEnter exception identity preservation
+not-applicable	packages/effect/test/schema/representation/fromJsonSchemaMultiDocument.test.ts	190	it	preserves contentSchema as an annotation without traversing it	needs contentSchema-as-annotation without traversal
+not-applicable	packages/effect/test/schema/representation/fromJsonSchemaMultiDocument.test.ts	216	it	does not import unreachable definitions	needs unreachable-definition filtering
+not-applicable	packages/effect/test/schema/representation/fromJsonSchemaMultiDocument.test.ts	233	it	preserves root order and shares definitions	needs root-order plus shared-definition multi-root import
+not-applicable	packages/effect/test/schema/representation/fromJsonSchemaMultiDocument.test.ts	266	it	resolves alias chains when combining a reference	needs alias-chain resolution on reference combine
+not-applicable	packages/effect/test/schema/representation/fromJsonSchemaMultiDocument.test.ts	291	it	tracks recursive definitions independently	needs independent recursive-definition tracking
+not-applicable	packages/effect/test/schema/representation/fromJsonSchemaMultiDocument.test.ts	312	it	throws when a reference that must be resolved is missing	needs missing-reference throw with resolution context
+not-applicable	packages/effect/test/schema/representation/fromJsonSchemaMultiDocument.test.ts	324	it	throws when resolving a circular alias chain	needs circular-alias-chain detection
 unported	packages/effect/test/schema/representation/fromRepresentation.test.ts	58	it	revives Null	
 unported	packages/effect/test/schema/representation/fromRepresentation.test.ts	62	it	revives Undefined	
 unported	packages/effect/test/schema/representation/fromRepresentation.test.ts	66	it	revives Void	
@@ -9322,28 +9322,28 @@ unported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts
 unported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	1333	it	captures exceptions from JSON Schema callbacks	
 unported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	1356	it	supports __proto__ as a reference	
 unported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	1372	it	reports missing references with their document path	
-unported	packages/effect/test/schema/representation/toJsonSchemaMultiDocument.test.ts	31	it	deduplicates equivalent fallback definitions	
-unported	packages/effect/test/schema/representation/toJsonSchemaMultiDocument.test.ts	52	it	does not deduplicate different fallback definitions	
-unported	packages/effect/test/schema/representation/toJsonSchemaMultiDocument.test.ts	82	it	does not deduplicate explicit identifiers	
-unported	packages/effect/test/schema/representation/toJsonSchemaMultiDocument.test.ts	99	it	deduplicates fallback definitions after linking their dependencies	
-unported	packages/effect/test/schema/representation/toJsonSchemaMultiDocument.test.ts	144	it	escapes canonical fallback references	
-unported	packages/effect/test/schema/representation/toJsonSchemaMultiDocument.test.ts	173	it	rewrites callback references to the canonical ${identifier} definition	
-unported	packages/effect/test/schema/representation/toJsonSchemaMultiDocument.test.ts	199	it	rewrites callback references with encoded leading separators	
-unported	packages/effect/test/schema/representation/toJsonSchemaMultiDocument.test.ts	226	it	rejects malformed callback reference ${JSON.stringify($ref)}	
-unported	packages/effect/test/schema/representation/toJsonSchemaMultiDocument.test.ts	241	it	distinguishes pointer separators from escaped slashes in ${separator} callback references	
-unported	packages/effect/test/schema/representation/toJsonSchemaMultiDocument.test.ts	274	it	preserves an encoded pointer suffix when rewriting a percent-named alias	
-unported	packages/effect/test/schema/representation/toJsonSchemaMultiDocument.test.ts	314	it	invokes each fallback callback once before deduplicating equivalent output	
-unported	packages/effect/test/schema/representation/toJsonSchemaMultiDocument.test.ts	350	it	reuses a compiled definition when extracting an index signature pattern	
-unported	packages/effect/test/schema/representation/toJsonSchemaMultiDocument.test.ts	376	it	deduplicates fallback definitions that share a recursive dependency	
-unported	packages/effect/test/schema/representation/toJsonSchemaMultiDocument.test.ts	425	it	does not deduplicate fallback definitions with distinct recursive dependencies	
-unported	packages/effect/test/schema/representation/toJsonSchemaMultiDocument.test.ts	496	it	preserves root order and shared named definitions	
-unported	packages/effect/test/schema/representation/toJsonSchemaMultiDocument.test.ts	529	it	emits standard annotations and oneOf unions	
-unported	packages/effect/test/schema/representation/toJsonSchemaMultiDocument.test.ts	564	it	resolves oneOf exactness through recursive references	
-unported	packages/effect/test/schema/representation/toJsonSchemaMultiDocument.test.ts	611	it	uses group overrides without visiting children and otherwise falls back to allOf	
-unported	packages/effect/test/schema/representation/toJsonSchemaMultiDocument.test.ts	658	it	preserves unknown references returned by callbacks	
-unported	packages/effect/test/schema/representation/toJsonSchemaMultiDocument.test.ts	678	it	rewrites callback references without mutating callback output	
-unported	packages/effect/test/schema/representation/toJsonSchemaMultiDocument.test.ts	712	it	preserves unknown references in annotation values	
-unported	packages/effect/test/schema/representation/toJsonSchemaMultiDocument.test.ts	729	it	resolves referenced index-signature parameters and stops cycles	
+not-applicable	packages/effect/test/schema/representation/toJsonSchemaMultiDocument.test.ts	31	it	deduplicates equivalent fallback definitions	needs fallback-definition dedup machinery
+not-applicable	packages/effect/test/schema/representation/toJsonSchemaMultiDocument.test.ts	52	it	does not deduplicate different fallback definitions	needs fallback-definition comparison
+not-applicable	packages/effect/test/schema/representation/toJsonSchemaMultiDocument.test.ts	82	it	does not deduplicate explicit identifiers	needs explicit-identifier dedup
+not-applicable	packages/effect/test/schema/representation/toJsonSchemaMultiDocument.test.ts	99	it	deduplicates fallback definitions after linking their dependencies	needs dependency-linked fallback dedup
+not-applicable	packages/effect/test/schema/representation/toJsonSchemaMultiDocument.test.ts	144	it	escapes canonical fallback references	needs canonical fallback reference escaping
+not-applicable	packages/effect/test/schema/representation/toJsonSchemaMultiDocument.test.ts	173	it	rewrites callback references to the canonical ${identifier} definition	needs callback-reference rewriting to canonical identifiers
+not-applicable	packages/effect/test/schema/representation/toJsonSchemaMultiDocument.test.ts	199	it	rewrites callback references with encoded leading separators	needs encoded-separator callback rewriting
+not-applicable	packages/effect/test/schema/representation/toJsonSchemaMultiDocument.test.ts	226	it	rejects malformed callback reference ${JSON.stringify($ref)}	needs malformed callback rejection
+not-applicable	packages/effect/test/schema/representation/toJsonSchemaMultiDocument.test.ts	241	it	distinguishes pointer separators from escaped slashes in ${separator} callback references	needs pointer-separator distinction
+not-applicable	packages/effect/test/schema/representation/toJsonSchemaMultiDocument.test.ts	274	it	preserves an encoded pointer suffix when rewriting a percent-named alias	needs encoded pointer-suffix preservation
+not-applicable	packages/effect/test/schema/representation/toJsonSchemaMultiDocument.test.ts	314	it	invokes each fallback callback once before deduplicating equivalent output	needs once-only callback invocation before dedup
+not-applicable	packages/effect/test/schema/representation/toJsonSchemaMultiDocument.test.ts	350	it	reuses a compiled definition when extracting an index signature pattern	needs compiled-definition reuse for index signatures
+not-applicable	packages/effect/test/schema/representation/toJsonSchemaMultiDocument.test.ts	376	it	deduplicates fallback definitions that share a recursive dependency	needs recursive-dependency fallback dedup
+not-applicable	packages/effect/test/schema/representation/toJsonSchemaMultiDocument.test.ts	425	it	does not deduplicate fallback definitions with distinct recursive dependencies	needs distinct-recursion fallback handling
+not-applicable	packages/effect/test/schema/representation/toJsonSchemaMultiDocument.test.ts	496	it	preserves root order and shared named definitions	needs root-order plus shared-named-definition multi-doc pipeline
+not-applicable	packages/effect/test/schema/representation/toJsonSchemaMultiDocument.test.ts	529	it	emits standard annotations and oneOf unions	needs standard annotations and oneOf unions in multi-doc pipeline
+not-applicable	packages/effect/test/schema/representation/toJsonSchemaMultiDocument.test.ts	564	it	resolves oneOf exactness through recursive references	needs oneOf exactness through recursive references
+not-applicable	packages/effect/test/schema/representation/toJsonSchemaMultiDocument.test.ts	611	it	uses group overrides without visiting children and otherwise falls back to allOf	needs group overrides without child visiting
+not-applicable	packages/effect/test/schema/representation/toJsonSchemaMultiDocument.test.ts	658	it	preserves unknown references returned by callbacks	needs unknown callback-returned references
+not-applicable	packages/effect/test/schema/representation/toJsonSchemaMultiDocument.test.ts	678	it	rewrites callback references without mutating callback output	needs callback-reference rewriting without mutating outputs
+not-applicable	packages/effect/test/schema/representation/toJsonSchemaMultiDocument.test.ts	712	it	preserves unknown references in annotation values	needs unknown references in annotation values
+not-applicable	packages/effect/test/schema/representation/toJsonSchemaMultiDocument.test.ts	729	it	resolves referenced index-signature parameters and stops cycles	needs referenced index-signature params with cycle stops
 not-applicable	packages/effect/test/schema/representation/toMultiDocument.test.ts	5	it	wraps the root representation and preserves references	missing: multiple-schema document writer (Schema module has from_json_schema single doc; no toMultiDocument in src/lib.rs:3205)
 unported	packages/effect/test/schema/representation/toRepresentation.test.ts	22	it	tag	
 unported	packages/effect/test/schema/representation/toRepresentation.test.ts	30	it	literal	
