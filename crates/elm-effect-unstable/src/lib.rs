@@ -36,6 +36,7 @@ pub mod net;
 pub mod http_docs;
 pub mod http_endpoint;
 pub mod http_server;
+pub mod openapi;
 
 pub mod process;
 

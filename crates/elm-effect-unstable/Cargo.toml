@@ -16,6 +16,7 @@ http = ["dep:ureq"]
 
 [dependencies]
 elm-effect = { path = "../elm-effect" }
+elm-effect-schema = { path = "../elm-effect-schema" }
 opentelemetry = { version = "0.28", optional = true }
 opentelemetry_sdk = { version = "0.28", optional = true, features = ["testing"] }
 ureq = { version = "2", optional = true, default-features = false, features = ["tls"] }
@@ -28,4 +29,3 @@ ed25519-dalek = { version = "3", features = ["pkcs8"] }
 base64 = { version = "0.23" }
 
 [dev-dependencies]
-elm-effect-schema = { path = "../elm-effect-schema" }
