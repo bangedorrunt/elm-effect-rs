@@ -8915,13 +8915,13 @@ unported	packages/effect/test/schema/representation/fromRepresentation.test.ts	4
 unported	packages/effect/test/schema/representation/fromRepresentation.test.ts	483	it	requires a representation identity on a Filter	
 unported	packages/effect/test/schema/representation/fromRepresentation.test.ts	498	it	requires a representation identity on a Declaration	
 unported	packages/effect/test/schema/representation/fromRepresentation.test.ts	513	it	reports an invalid reference	
-unported	packages/effect/test/schema/representation/fromRepresentations.test.ts	9	it	preserves root order	
-unported	packages/effect/test/schema/representation/fromRepresentations.test.ts	24	it	does not revive unreachable references	
-unported	packages/effect/test/schema/representation/fromRepresentations.test.ts	40	it	normalizes aliases while preserving the outer reference	
-unported	packages/effect/test/schema/representation/fromRepresentations.test.ts	57	it	shares a resolved reference between roots	
-unported	packages/effect/test/schema/representation/fromRepresentations.test.ts	72	it	resolves a reachable __proto__ reference	
-unported	packages/effect/test/schema/representation/fromRepresentations.test.ts	86	it	revives recursive definitions	
-unported	packages/effect/test/schema/representation/fromRepresentations.test.ts	128	it	revives mutually recursive definitions with concrete roots	
+ported	packages/effect/test/schema/representation/fromRepresentations.test.ts	9	it	preserves root order	preserves_root_order
+ported	packages/effect/test/schema/representation/fromRepresentations.test.ts	24	it	does not revive unreachable references	does_not_revive_unreachable_references
+ported	packages/effect/test/schema/representation/fromRepresentations.test.ts	40	it	normalizes aliases while preserving the outer reference	normalizes_aliases_while_preserving_the_outer_reference
+ported	packages/effect/test/schema/representation/fromRepresentations.test.ts	57	it	shares a resolved reference between roots	shares_a_resolved_reference_between_roots
+ported	packages/effect/test/schema/representation/fromRepresentations.test.ts	72	it	resolves a reachable __proto__ reference	resolves_a_reachable_proto_reference
+ported	packages/effect/test/schema/representation/fromRepresentations.test.ts	86	it	revives recursive definitions	revives_recursive_definitions
+ported	packages/effect/test/schema/representation/fromRepresentations.test.ts	128	it	revives mutually recursive definitions with concrete roots	revives_mutually_recursive_definitions_with_concrete_roots
 not-applicable	packages/effect/test/schema/representation/makeCode.test.ts	5	it	constructs runtime and type source	missing: golden makeCode text emitter over reference repr (rust repr differs format natively; assert to_code parity only by-is)
 unported	packages/effect/test/schema/representation/schemaToJsonSchemaDocument.test.ts	5	it	uses the encoded side for representations and JSON Schema	
 unported	packages/effect/test/schema/representation/schemaToJsonSchemaDocument.test.ts	19	it	inlines repeated anonymous schemas by default	
