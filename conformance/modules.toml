@@ -1172,7 +1172,7 @@ tests = ["packages/effect/test/ai/LanguageModel.test.ts"]
 [[module]]
 path = "packages/effect/src/ai/McpProtocol.ts"
 class = "unstable-port"
-status = "unmatched"
+status = "matched"
 tag = "unstable"
 reason = ""
 tests = ["packages/effect/test/ai/McpServer/McpProtocol.test.ts"]

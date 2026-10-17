@@ -5165,15 +5165,24 @@ unported	packages/effect/test/ai/McpServer/McpConformance/UtilitiesTest.ts	316	i
 unported	packages/effect/test/ai/McpServer/McpConformance/UtilitiesTest.ts	347	it.effect	should cancel only the owning request when HTTP sessions reuse a request ID	
 unported	packages/effect/test/ai/McpServer/McpConformance/UtilitiesTest.ts	407	it.effect	should close without a reply when a tool is cancelled before emitting HTTP output	
 unported	packages/effect/test/ai/McpServer/McpConformance/UtilitiesTest.ts	446	it.effect	should omit cancelled replies and preserve remaining results when cancellation affects ${cancelled} of the batch requests	
-unported	packages/effect/test/ai/McpServer/McpProtocol.test.ts	81	it.effect	should reject an empty declaration when runtime input bypasses the non-empty type	
-unported	packages/effect/test/ai/McpServer/McpProtocol.test.ts	91	it.effect	should reject duplicate versions when distinct adapters declare the same version	
-unported	packages/effect/test/ai/McpServer/McpProtocol.test.ts	102	it.effect	should select the matching adapter when the offered version is declared	
-unported	packages/effect/test/ai/McpServer/McpProtocol.test.ts	112	it.effect	should select the first declared adapter when the offered version is unsupported	
-unported	packages/effect/test/ai/McpServer/McpProtocol.test.ts	121	it.effect	should preserve declaration order when the source array mutates after registry creation	
-unported	packages/effect/test/ai/McpServer/McpProtocol.test.ts	137	it.effect	should route to only the selected namespace when protocol schemas are incompatible	
-unported	packages/effect/test/ai/McpServer/McpProtocol.test.ts	175	it	accepts resource links in prompt messages	
-unported	packages/effect/test/ai/McpServer/McpProtocol.test.ts	188	it	does not expose future annotations or named extension capabilities	
-unported	packages/effect/test/ai/McpServer/McpProtocol.test.ts	204	it	should preserve tagged unsupported errors without requiring the local class prototype	
+ported	packages/effect/test/ai/McpServer/McpProtocol.test.ts	81	it.effect	should reject an empty declaration when runtime input bypasses the non-empty type	rejects_an_empty_declaration
+
+ported	packages/effect/test/ai/McpServer/McpProtocol.test.ts	91	it.effect	should reject duplicate versions when distinct adapters declare the same version	rejects_duplicate_versions
+
+ported	packages/effect/test/ai/McpServer/McpProtocol.test.ts	102	it.effect	should select the matching adapter when the offered version is declared	selects_the_matching_adapter_when_declared
+
+ported	packages/effect/test/ai/McpServer/McpProtocol.test.ts	112	it.effect	should select the first declared adapter when the offered version is unsupported	selects_the_first_adapter_when_unsupported
+
+ported	packages/effect/test/ai/McpServer/McpProtocol.test.ts	121	it.effect	should preserve declaration order when the source array mutates after registry creation	preserves_declaration_order_when_the_source_mutates
+
+ported	packages/effect/test/ai/McpServer/McpProtocol.test.ts	137	it.effect	should route to only the selected namespace when protocol schemas are incompatible	routes_to_only_the_selected_namespace
+
+ported	packages/effect/test/ai/McpServer/McpProtocol.test.ts	175	it	accepts resource links in prompt messages	accepts_resource_links_in_prompt_messages
+
+ported	packages/effect/test/ai/McpServer/McpProtocol.test.ts	188	it	does not expose future annotations or named extension capabilities	does_not_expose_future_annotations_or_named_extension_capabilities
+
+ported	packages/effect/test/ai/McpServer/McpProtocol.test.ts	204	it	should preserve tagged unsupported errors without requiring the local class prototype	preserves_tagged_unsupported_errors_without_a_local_class
+
 unported	packages/effect/test/ai/McpServer/McpServer.test.ts	263	it.effect	answers stdio pings throughout initialization with ${protocols.map((p) => p.protocolVersion)}	
 unported	packages/effect/test/ai/McpServer/McpServer.test.ts	294	it.effect	does not route explicitly stateless pings to a stateful adapter	
 unported	packages/effect/test/ai/McpServer/McpServer.test.ts	304	it.effect	should return from completion notification when the target client is absent	

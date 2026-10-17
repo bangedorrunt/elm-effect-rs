@@ -43,6 +43,7 @@ pub mod workers;
 
 pub mod mcp_schema;
 pub mod prompt;
+pub mod mcp_protocol;
 pub mod reactivity;
 
 pub mod devtools;
