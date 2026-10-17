@@ -21,6 +21,11 @@ use crate::scope::Scope;
 use crate::supervisor;
 use crate::{Cause, Defect, Effect, Exit, FiberId};
 
+/// Upper bound for a clean [`Runtime::shutdown`]: live fibers that ignore
+/// interrupts past this point are named and detached, never waited on
+/// forever. Use [`Runtime::shutdown_with_deadline`] for a shorter bound.
+pub const SHUTDOWN_DEADLINE: crate::Duration = crate::Duration::from_millis(30_000);
+
 /// Cloneable spawn entry: what [`Ctx`] needs to fork without owning the runtime.
 pub(crate) type Driver = Arc<Shared>;
 
@@ -152,30 +157,41 @@ impl Shared {
     }
 
     pub(crate) fn shutdown(&self) {
+        let _ = self.shutdown_with_deadline(SHUTDOWN_DEADLINE);
+    }
+
+    /// Interrupt every live fiber and wait for finalizers up to `timeout`.
+    /// Fibers still alive past the deadline are named and detached — their
+    /// threads run on, but the caller is free — instead of hanging forever.
+    /// A body that never observes interruption is unkillable by construction.
+    pub(crate) fn shutdown_with_deadline(&self, timeout: crate::Duration) -> Vec<FiberId> {
         if self.down.swap(true, Ordering::SeqCst) {
-            return;
+            return Vec::new();
         }
         self.drain_pending();
         self.root.close();
-        let live: Vec<Arc<FiberControl>> = self.live.lock().unwrap().values().cloned().collect();
-        for control in live {
-            control.request_interrupt();
-        }
+        let deadline =
+            std::time::Instant::now() + std::time::Duration::from_millis(timeout.as_millis());
         // Interrupt stragglers that forked during shutdown: keep sweeping
-        // until no fiber is active.
+        // until no fiber is active, or the deadline passes.
         loop {
             // Deferred fibers forked mid-shutdown must still start to end.
             self.drain_pending();
-            let live: Vec<Arc<FiberControl>> =
-                self.live.lock().unwrap().values().cloned().collect();
-            for control in live {
+            let live: Vec<Arc<FiberControl>> = self.live.lock().unwrap().values().cloned().collect();
+            for control in &live {
                 control.request_interrupt();
             }
             let mut active = self.active.0.lock().unwrap();
             if *active == 0 {
-                break;
+                return Vec::new();
             }
-            active = self.active.1.wait(active).unwrap();
+            if std::time::Instant::now() >= deadline {
+                let stragglers: Vec<FiberId> = live.iter().map(|c| c.id).collect();
+                return stragglers;
+            }
+            let remaining = deadline.saturating_duration_since(std::time::Instant::now());
+            let (guard, _) = self.active.1.wait_timeout(active, remaining).unwrap();
+            active = guard;
         }
     }
 }
@@ -282,9 +298,19 @@ impl Runtime {
     }
 
     /// Interrupt every live fiber and wait until all finalizers finished.
-    /// Idempotent; also runs on `drop`.
-    pub fn shutdown(&self) {
-        self.shared.shutdown();
+    /// Bounded by [`SHUTDOWN_DEADLINE`]: fibers still alive past it are
+    /// named in the returned list and detached instead of hanging the caller.
+    /// Idempotent; also runs on `drop` (which discards the list).
+    pub fn shutdown(&self) -> Vec<FiberId> {
+        self.shared.shutdown_with_deadline(SHUTDOWN_DEADLINE)
+    }
+
+    /// Like [`shutdown`](Runtime::shutdown) with a caller-supplied bound.
+    /// Returns the ids of fibers still alive past the deadline (empty means
+    /// every finalizer finished). Name, don't hang: an unkillable body shows
+    /// up here instead of blocking the caller forever.
+    pub fn shutdown_with_deadline(&self, timeout: crate::Duration) -> Vec<FiberId> {
+        self.shared.shutdown_with_deadline(timeout)
     }
 
     /// The edge: run `effect` to an [`Exit`]. The only place outside tests

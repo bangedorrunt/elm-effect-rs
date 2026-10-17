@@ -51,8 +51,9 @@ pub use cause::{
 };
 #[cfg(feature = "tokio")]
 pub use concurrency::{
-    Body, Concurrency, all, find_first, find_first_filter, for_each, partition, partition_items,
-    reduce, validate, validate_discard, validate_discard_items, validate_items,
+    BOUNDED_RECV_TIMEOUT, Body, Concurrency, all, all_with_deadline, find_first,
+    find_first_filter, for_each, partition, partition_items, partition_with_deadline, reduce,
+    validate, validate_discard, validate_discard_items, validate_items,
 };
 pub use context::{Context, ContextReference, Tag};
 pub use effect::{Effect, Requirement};
@@ -82,7 +83,9 @@ pub use optic::{
 #[cfg(feature = "tokio")]
 pub use policy::{BreakerConfig, Bulkhead, RateLimiter, Remote, RemoteError, RemotePolicy, hedge};
 #[cfg(feature = "tokio")]
-pub use runtime::{ManagedRuntime, Runtime, race, race_all, race_all_first, race_first, timeout};
+pub use runtime::{
+    ManagedRuntime, Runtime, SHUTDOWN_DEADLINE, race, race_all, race_all_first, race_first, timeout,
+};
 pub use schedule::{Random, RandomTag, Schedule, repeat, retry};
 #[cfg(feature = "tokio")]
 pub use scope::{Scope, ScopeTag};
