@@ -1840,3 +1840,162 @@ fn request_path(url: &str) -> &str {
         path
     }
 }
+
+/// JavaScript's `Number.MAX_SAFE_INTEGER`: the largest `content-length` the
+/// pin keeps (`"9007199254740992"` is already unsafe and dropped).
+const MAX_SAFE_CONTENT_LENGTH: u64 = 9_007_199_254_740_991;
+
+/// Parsed server-side request head: the `HttpServerRequest.fromWeb` /
+/// `toClientRequest` / `fromClientRequest` kernel that needs no live server
+/// or web runtime (method, URL pieces, headers, buffered body, remote
+/// address). A buffered body is re-readable by every accessor, which is what
+/// the pin's shared concurrent stream accessors observe; stream sharing and
+/// schema decoding stay on the Effect side.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ServerRequestHead {
+    /// The request verb (`"POST"`, …).
+    pub method: String,
+    /// The full request URL, the pin's `source`/`originalUrl`.
+    pub original_url: String,
+    /// Request headers.
+    pub headers: Vec<(String, String)>,
+    /// Buffered body bytes; empty means no body (the pin's `Empty` tag).
+    pub body: Vec<u8>,
+    /// Remote address; web requests default to none.
+    pub remote_address: Option<String>,
+}
+
+impl ServerRequestHead {
+    /// A head with no headers, no body, and no remote address.
+    pub fn new(method: &str, url: &str) -> Self {
+        Self {
+            method: method.to_owned(),
+            original_url: url.to_owned(),
+            headers: Vec::new(),
+            body: Vec::new(),
+            remote_address: None,
+        }
+    }
+
+    /// First header value for `name` (case-insensitive), if present.
+    pub fn header(&self, name: &str) -> Option<&str> {
+        self.headers
+            .iter()
+            .find(|(n, _)| n.eq_ignore_ascii_case(name))
+            .map(|(_, v)| v.as_str())
+    }
+
+    /// The client URL: scheme, authority, and path, without query or
+    /// fragment (`toClientRequest` moves those onto `urlParams`/`hash`).
+    pub fn client_url(&self) -> &str {
+        let without_fragment = self
+            .original_url
+            .split('#')
+            .next()
+            .unwrap_or(&self.original_url);
+        without_fragment.split('?').next().unwrap_or(without_fragment)
+    }
+
+    /// The server URL: path plus query plus fragment
+    /// (`"/items?existing=1&page=1#top"`); `/` when absent.
+    pub fn server_url(&self) -> &str {
+        let after_authority = match self.original_url.split_once("://") {
+            Some((_, rest)) => rest.split_at(rest.find('/').unwrap_or(rest.len())).1,
+            None => self.original_url.as_str(),
+        };
+        if after_authority.is_empty() {
+            "/"
+        } else {
+            after_authority
+        }
+    }
+
+    /// The fragment without `#`, if the URL carries one.
+    pub fn fragment(&self) -> Option<&str> {
+        self.original_url.split_once('#').map(|(_, hash)| hash)
+    }
+
+    /// Query pairs in order, duplicates kept (`urlParams`); raw, without
+    /// percent-decoding (that rides the router's `decode_component`).
+    pub fn query_params(&self) -> Vec<(String, String)> {
+        let without_fragment = self.original_url.split('#').next().unwrap_or(&self.original_url);
+        let query = match without_fragment.split_once('?') {
+            Some((_, query)) => query,
+            None => return Vec::new(),
+        };
+        query
+            .split('&')
+            .filter(|pair| !pair.is_empty())
+            .map(|pair| match pair.split_once('=') {
+                Some((name, value)) => (name.to_owned(), value.to_owned()),
+                None => (pair.to_owned(), String::new()),
+            })
+            .collect()
+    }
+
+    /// Cookies parsed from every `Cookie` header (`name=value` pairs split
+    /// on `;`), in order.
+    pub fn cookies(&self) -> Vec<(String, String)> {
+        self.headers
+            .iter()
+            .filter(|(name, _)| name.eq_ignore_ascii_case("cookie"))
+            .flat_map(|(_, value)| value.split(';'))
+            .filter_map(|pair| {
+                let (name, value) = pair.split_once('=')?;
+                Some((name.trim().to_owned(), value.trim().to_owned()))
+            })
+            .collect()
+    }
+
+    /// First cookie value for `name`, if present.
+    pub fn cookie(&self, name: &str) -> Option<&str> {
+        self.headers
+            .iter()
+            .filter(|(header, _)| header.eq_ignore_ascii_case("cookie"))
+            .flat_map(|(_, value)| value.split(';'))
+            .filter_map(|pair| {
+                let (key, value) = pair.split_once('=')?;
+                (key.trim() == name).then_some(value.trim())
+            })
+            .next()
+    }
+
+    /// True when there is no body (the pin's `Empty` tag).
+    pub fn is_empty_body(&self) -> bool {
+        self.body.is_empty()
+    }
+
+    /// The `content-length` when it is well-formed: non-empty ASCII digits
+    /// within the safe-integer range. Malformed or unsafe values
+    /// (`"2junk"`, `"1.5"`, `"1e3"`, past `MAX_SAFE_INTEGER`) yield none
+    /// while the body itself stays buffered.
+    pub fn sanitized_content_length(&self) -> Option<u64> {
+        let raw = self.header("content-length")?;
+        if raw.is_empty() || !raw.bytes().all(|byte| byte.is_ascii_digit()) {
+            return None;
+        }
+        let length: u64 = raw.parse().ok()?;
+        (length <= MAX_SAFE_CONTENT_LENGTH).then_some(length)
+    }
+
+    /// The body as text.
+    pub fn text_body(&self) -> Result<String, String> {
+        String::from_utf8(self.body.clone()).map_err(|error| error.to_string())
+    }
+
+    /// The body parsed as JSON.
+    pub fn json_body(&self) -> Result<serde_json::Value, String> {
+        serde_json::from_slice(&self.body).map_err(|error| error.to_string())
+    }
+
+    /// Set the remote address (`modify` with an explicit value).
+    pub fn set_remote_address(&mut self, address: &str) {
+        self.remote_address = Some(address.to_owned());
+    }
+
+    /// Clear the remote address (`modify` with an explicit none); doing
+    /// nothing keeps it.
+    pub fn clear_remote_address(&mut self) {
+        self.remote_address = None;
+    }
+}
