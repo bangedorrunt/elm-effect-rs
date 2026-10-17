@@ -5877,27 +5877,27 @@ unported	packages/effect/test/cli/Prompt.test.ts	1249	it.effect	keeps the previo
 unported	packages/effect/test/cli/Prompt.test.ts	1306	it.effect	receive handles events from external dequeue	
 unported	packages/effect/test/cli/Prompt.test.ts	1348	it.effect	falls back to process when no events are pending	
 unported	packages/effect/test/cli/Prompt.test.ts	1380	it.effect	Input variant exposes the input field with UserInput	
-unported	packages/effect/test/cli/completions/completions.test.ts	141	it	completes the active positional argument instead of always using the first	
-unported	packages/effect/test/cli/completions/completions.test.ts	187	it	generates completion function for root command	
-unported	packages/effect/test/cli/completions/completions.test.ts	195	it	includes subcommand names in word list	
-unported	packages/effect/test/cli/completions/completions.test.ts	202	it	does not dispatch subcommands from flag values	
-unported	packages/effect/test/cli/completions/completions.test.ts	219	it	includes long flag names with -- prefix	
-unported	packages/effect/test/cli/completions/completions.test.ts	226	it	includes short flag aliases	
-unported	packages/effect/test/cli/completions/completions.test.ts	232	it	generates --no-<flag> for boolean flags	
-unported	packages/effect/test/cli/completions/completions.test.ts	238	it	uses compgen -f for file-type flags	
-unported	packages/effect/test/cli/completions/completions.test.ts	244	it	uses compgen -d for directory-type flags	
-unported	packages/effect/test/cli/completions/completions.test.ts	250	it	inlines choice values for choice flags	
-unported	packages/effect/test/cli/completions/completions.test.ts	256	it	quotes choice values instead of exposing them to compgen -W re-expansion	
-unported	packages/effect/test/cli/completions/completions.test.ts	265	it	splits words on whitespace only, so a value holding a word-break character stays one word	
-unported	packages/effect/test/cli/completions/completions.test.ts	270	it	emits the choice helper	
-unported	packages/effect/test/cli/completions/completions.test.ts	320	it	generates separate functions for nested subcommands	
-unported	packages/effect/test/cli/completions/completions.test.ts	329	it	handles commands with no subcommands	
-unported	packages/effect/test/cli/completions/completions.test.ts	336	it	generates deeply nested functions	
-unported	packages/effect/test/cli/completions/completions.test.ts	344	it	wraps script in begin/end markers	
-unported	packages/effect/test/cli/completions/completions.test.ts	351	it	groups flag aliases for used-flag filtering	
-unported	packages/effect/test/cli/completions/completions.test.ts	362	it	does not generate flag groups for commands with no flags	
-unported	packages/effect/test/cli/completions/completions.test.ts	369	it	uses no bash 4 syntax, so the script runs on the bash macOS ships	
-unported	packages/effect/test/cli/completions/completions.test.ts	375	it	includes inline _init_completion fallback	
+ported	packages/effect/test/cli/completions/completions.test.ts	141	it	completes the active positional argument instead of always using the first	completes_the_active_positional_argument_instead_of_always_using_the_first
+ported	packages/effect/test/cli/completions/completions.test.ts	187	it	generates completion function for root command	generates_completion_function_for_root_command
+ported	packages/effect/test/cli/completions/completions.test.ts	195	it	includes subcommand names in word list	includes_subcommand_names_in_word_list
+ported	packages/effect/test/cli/completions/completions.test.ts	202	it	does not dispatch subcommands from flag values	does_not_dispatch_subcommands_from_flag_values
+ported	packages/effect/test/cli/completions/completions.test.ts	219	it	includes long flag names with -- prefix	includes_long_flag_names_with_double_dash_prefix
+ported	packages/effect/test/cli/completions/completions.test.ts	226	it	includes short flag aliases	includes_short_flag_aliases
+ported	packages/effect/test/cli/completions/completions.test.ts	232	it	generates --no-<flag> for boolean flags	generates_no_dash_form_for_boolean_flags
+ported	packages/effect/test/cli/completions/completions.test.ts	238	it	uses compgen -f for file-type flags	uses_compgen_f_for_file_type_flags
+ported	packages/effect/test/cli/completions/completions.test.ts	244	it	uses compgen -d for directory-type flags	uses_compgen_d_for_directory_type_flags
+ported	packages/effect/test/cli/completions/completions.test.ts	250	it	inlines choice values for choice flags	inlines_choice_values_for_choice_flags
+ported	packages/effect/test/cli/completions/completions.test.ts	256	it	quotes choice values instead of exposing them to compgen -W re-expansion	quotes_choice_values_instead_of_exposing_them_to_compgen_re_expansion
+ported	packages/effect/test/cli/completions/completions.test.ts	265	it	splits words on whitespace only, so a value holding a word-break character stays one word	splits_words_on_whitespace_only_so_a_value_holding_a_word_break_character_stays_one_word
+ported	packages/effect/test/cli/completions/completions.test.ts	270	it	emits the choice helper	emits_the_choice_helper
+ported	packages/effect/test/cli/completions/completions.test.ts	320	it	generates separate functions for nested subcommands	generates_separate_functions_for_nested_subcommands
+ported	packages/effect/test/cli/completions/completions.test.ts	329	it	handles commands with no subcommands	handles_commands_with_no_subcommands
+ported	packages/effect/test/cli/completions/completions.test.ts	336	it	generates deeply nested functions	generates_deeply_nested_functions
+ported	packages/effect/test/cli/completions/completions.test.ts	344	it	wraps script in begin/end markers	wraps_script_in_begin_end_markers
+ported	packages/effect/test/cli/completions/completions.test.ts	351	it	groups flag aliases for used-flag filtering	groups_flag_aliases_for_used_flag_filtering
+ported	packages/effect/test/cli/completions/completions.test.ts	362	it	does not generate flag groups for commands with no flags	does_not_generate_flag_groups_for_commands_with_no_flags
+ported	packages/effect/test/cli/completions/completions.test.ts	369	it	uses no bash 4 syntax, so the script runs on the bash macOS ships	uses_no_bash_4_syntax_so_the_script_runs_on_the_bash_macos_ships
+ported	packages/effect/test/cli/completions/completions.test.ts	375	it	includes inline _init_completion fallback	includes_inline_init_completion_fallback
 unported	packages/effect/test/cli/completions/completions.test.ts	391	it	generates _arguments specs for flags	
 unported	packages/effect/test/cli/completions/completions.test.ts	399	it	includes flag descriptions in specs	
 unported	packages/effect/test/cli/completions/completions.test.ts	406	it	includes subcommand descriptions with _describe	
