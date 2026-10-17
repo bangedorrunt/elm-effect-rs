@@ -6649,11 +6649,11 @@ ported	packages/effect/test/http/HttpPlatform.test.ts	74	it.effect	honors Web fi
 ported	packages/effect/test/http/HttpPlatform.test.ts	98	it.effect	fileWebResponse ${name}	file_web_response_variants
 ported	packages/effect/test/http/HttpPlatform.test.ts	120	it.effect	honors Web file chunk size	honors_web_file_chunk_size
 ported	packages/effect/test/http/HttpPlatform.test.ts	135	it.effect	keeps the source chunking by default	keeps_source_chunking_by_default
-unported	packages/effect/test/http/HttpRouter.test.ts	25	it	normalizes the prefix stored by prefixRoute	
-unported	packages/effect/test/http/HttpRouter.test.ts	34	it	handles prefixed routes with toWebHandler	
-unported	packages/effect/test/http/HttpRouter.test.ts	57	it.effect	preserves the local URL for the ${prefix} prefix	
-unported	packages/effect/test/http/HttpRouter.test.ts	67	it.effect	nests a prefixed sub-router beneath a prefixed parent router	
-unported	packages/effect/test/http/HttpRouter.test.ts	78	it.effect	nests a prefixRoute prefix beneath a prefixed parent router	
+ported	packages/effect/test/http/HttpRouter.test.ts	25	it	normalizes the prefix stored by prefixRoute	normalizes_the_prefix_stored_by_prefix_route
+ported	packages/effect/test/http/HttpRouter.test.ts	34	it	handles prefixed routes with toWebHandler	handles_prefixed_routes
+ported	packages/effect/test/http/HttpRouter.test.ts	57	it.effect	preserves the local URL for the ${prefix} prefix	preserves_the_local_url_for_each_prefix
+ported	packages/effect/test/http/HttpRouter.test.ts	67	it.effect	nests a prefixed sub-router beneath a prefixed parent router	nests_a_prefixed_sub_router_beneath_a_prefixed_parent
+ported	packages/effect/test/http/HttpRouter.test.ts	78	it.effect	nests a prefixRoute prefix beneath a prefixed parent router	nests_a_prefix_route_prefix_beneath_a_prefixed_parent
 ported	packages/effect/test/http/HttpServer.test.ts	9	it	accepts a canonical socket address	binds_loopback_and_serves_one_route
 ported	packages/effect/test/http/HttpServer.test.ts	19	it.effect	passes formatted server addresses to the callback	binds_loopback_and_serves_one_route
 ported	packages/effect/test/http/HttpServer.test.ts	55	it.effect	rejects scoped IPv6 test server addresses before dropping their scope	test_client_refuses_a_scoped_ipv6_address_before_dropping_the_scope

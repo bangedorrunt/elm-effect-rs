@@ -1346,6 +1346,124 @@ impl<A: Clone> Router<A> {
     }
 }
 
+/// Normalize a router prefix: leading slash ensured, trailing slashes
+/// stripped, root `/` folds to empty (no prefix).
+pub fn normalize_prefix(prefix: &str) -> String {
+    let mut out = String::from(prefix);
+    if !out.starts_with('/') {
+        out.insert(0, '/');
+    }
+    while out.len() > 1 && out.ends_with('/') {
+        out.pop();
+    }
+    if out == "/" {
+        out.clear();
+    }
+    out
+}
+
+/// One route with its prefix attached (`HttpRouter.prefixRoute`).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct PrefixedRoute {
+    /// Uppercase method (`"GET"`).
+    pub method: String,
+    /// Local path (`"/users"`).
+    pub path: String,
+    /// Normalized prefix (`"/api"`), if any.
+    pub prefix: Option<String>,
+}
+
+/// Attach `prefix` to one route (`HttpRouter.prefixRoute`).
+pub fn prefix_route(method: &str, path: &str, prefix: &str) -> PrefixedRoute {
+    PrefixedRoute {
+        method: method.to_owned(),
+        path: path.to_owned(),
+        prefix: Some(normalize_prefix(prefix)),
+    }
+}
+
+/// A prefix-scoped router: routes registered under a scope dispatch on the
+/// full path but handlers see the prefix-stripped local URL (`HttpRouter`
+/// with `prefixed`, `addAll`, and nested `prefixRoute` mounts).
+pub struct PrefixRouter {
+    scope: String,
+    routes: Vec<PrefixedRouteEntry>,
+}
+
+struct PrefixedRouteEntry {
+    method: String,
+    prefix: String,
+    path: String,
+    handler: fn(&str) -> Response,
+}
+
+impl PrefixRouter {
+    /// An empty router with no scope.
+    pub fn new() -> Self {
+        Self { scope: String::new(), routes: Vec::new() }
+    }
+
+    /// A view registering under `prefix` (nesting concatenates scopes).
+    pub fn prefixed(mut self, prefix: &str) -> Self {
+        self.scope = normalize_prefix(prefix);
+        self
+    }
+
+    /// Register `path` under this router's scope.
+    pub fn add(&mut self, method: &str, path: &str, handler: fn(&str) -> Response) {
+        self.routes.push(PrefixedRouteEntry {
+            method: method.to_owned(),
+            prefix: self.scope.clone(),
+            path: path.to_owned(),
+            handler,
+        });
+    }
+
+    /// Register `path` under an explicit extra `prefix` beneath this scope.
+    pub fn add_prefixed(
+        &mut self,
+        method: &str,
+        path: &str,
+        prefix: &str,
+        handler: fn(&str) -> Response,
+    ) {
+        let prefix = format!("{}{}", self.scope, normalize_prefix(prefix));
+        self.routes.push(PrefixedRouteEntry {
+            method: method.to_owned(),
+            prefix,
+            path: path.to_owned(),
+            handler,
+        });
+    }
+
+    /// Mount a child router: its entries keep their local paths and gain the
+    /// parent scope ahead of their own prefix.
+    pub fn mount(&mut self, child: PrefixRouter) {
+        for entry in child.routes {
+            let prefix = format!("{}{}", self.scope, entry.prefix);
+            self.routes.push(PrefixedRouteEntry { prefix, ..entry });
+        }
+    }
+
+    /// Dispatch `method` + full `path`: the first entry whose prefix + path
+    /// matches wins, and the handler receives the prefix-stripped local URL.
+    pub fn dispatch(&self, method: &str, path: &str) -> Option<Response> {
+        self.routes.iter().find_map(|entry| {
+            if entry.method != method {
+                return None;
+            }
+            let full = format!("{}{}", entry.prefix, entry.path);
+            (full == path).then(|| (entry.handler)(&entry.path))
+        })
+    }
+}
+
+impl Default for PrefixRouter {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 fn handle_one(
     stream: TcpStream,
     routes: &Arc<Mutex<HashMap<Route, Response>>>,
