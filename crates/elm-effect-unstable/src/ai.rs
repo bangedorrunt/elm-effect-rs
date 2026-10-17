@@ -1277,3 +1277,449 @@ impl EmbeddingModel {
         })
     }
 }
+
+// --- ResponseIdTracker port (ai/ResponseIdTracker.ts at the pin): incremental prompts ---
+
+use std::sync::atomic::{AtomicU64, Ordering};
+
+static TRACK_UID: AtomicU64 = AtomicU64::new(1);
+
+fn next_track_uid() -> u64 {
+    TRACK_UID.fetch_add(1, Ordering::Relaxed)
+}
+
+/// Role of a tracked prompt message.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum TrackRole {
+    /// System instruction.
+    System,
+    /// End-user message.
+    User,
+    /// Assistant message.
+    Assistant,
+    /// Tool result message.
+    Tool,
+}
+
+/// One part of a tracked prompt message.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum TrackPart {
+    /// Plain text.
+    Text(String),
+    /// Tool call awaiting execution.
+    ToolCall {
+        /// Call id.
+        id: String,
+        /// Tool name.
+        name: String,
+        /// Raw params.
+        params: String,
+    },
+    /// Approval request attached to an assistant tool call.
+    ApprovalRequest {
+        /// Approval id.
+        approval_id: String,
+        /// Owning tool call id.
+        tool_call_id: String,
+    },
+    /// Approval decision attached to a tool message.
+    ApprovalResponse {
+        /// Approval id.
+        approval_id: String,
+        /// Whether the call was approved.
+        approved: bool,
+    },
+    /// Executed tool result.
+    ToolResult {
+        /// Call id.
+        id: String,
+        /// Tool name.
+        name: String,
+        /// Result text.
+        result: String,
+    },
+}
+
+/// One prompt message with a stable identity. Cloning preserves the uid, so
+/// spreading a previously sent prompt (as the TS tests do) keeps the tracker's
+/// object-identity mapping intact. Equality ignores the uid: two messages with
+/// the same role and parts are the same content even when minted separately.
+#[derive(Clone, Debug, Eq)]
+pub struct TrackMessage {
+    /// Stable identity minted at construction.
+    pub uid: u64,
+    /// Who sent it.
+    pub role: TrackRole,
+    /// Message parts.
+    pub parts: Vec<TrackPart>,
+}
+
+impl PartialEq for TrackMessage {
+    fn eq(&self, other: &Self) -> bool {
+        self.role == other.role && self.parts == other.parts
+    }
+}
+
+impl TrackMessage {
+    fn fresh(role: TrackRole, parts: Vec<TrackPart>) -> Self {
+        Self { uid: next_track_uid(), role, parts }
+    }
+
+    /// System text message.
+    pub fn system(text: &str) -> Self {
+        Self::fresh(TrackRole::System, vec![TrackPart::Text(text.to_owned())])
+    }
+
+    /// User text message.
+    pub fn user(text: &str) -> Self {
+        Self::fresh(TrackRole::User, vec![TrackPart::Text(text.to_owned())])
+    }
+
+    /// Assistant text message.
+    pub fn assistant(text: &str) -> Self {
+        Self::fresh(TrackRole::Assistant, vec![TrackPart::Text(text.to_owned())])
+    }
+
+    /// Assistant message carrying a tool call plus its approval request.
+    pub fn assistant_tool_call_with_approval(
+        tool_call_id: &str,
+        tool_name: &str,
+        params: &str,
+        approval_id: &str,
+    ) -> Self {
+        Self::fresh(
+            TrackRole::Assistant,
+            vec![
+                TrackPart::ToolCall {
+                    id: tool_call_id.to_owned(),
+                    name: tool_name.to_owned(),
+                    params: params.to_owned(),
+                },
+                TrackPart::ApprovalRequest {
+                    approval_id: approval_id.to_owned(),
+                    tool_call_id: tool_call_id.to_owned(),
+                },
+            ],
+        )
+    }
+
+    /// Tool message carrying an approval decision.
+    pub fn tool_approval_response(approval_id: &str, approved: bool) -> Self {
+        Self::fresh(
+            TrackRole::Tool,
+            vec![TrackPart::ApprovalResponse { approval_id: approval_id.to_owned(), approved }],
+        )
+    }
+
+    /// Tool message carrying an executed result.
+    pub fn tool_result(tool_call_id: &str, tool_name: &str, result: &str) -> Self {
+        Self::fresh(
+            TrackRole::Tool,
+            vec![TrackPart::ToolResult {
+                id: tool_call_id.to_owned(),
+                name: tool_name.to_owned(),
+                result: result.to_owned(),
+            }],
+        )
+    }
+}
+
+/// Tracks which prompt messages produced each provider response id, so a later
+/// turn can send `previousResponseId` plus only the messages after the latest
+/// assistant turn. Mirrors `ResponseIdTracker.make`: prefix must be fully
+/// recognized, otherwise state clears and the caller sends the full prompt.
+pub struct ResponseIdTracker {
+    seen: Mutex<HashMap<u64, String>>,
+}
+
+impl ResponseIdTracker {
+    /// Empty tracker.
+    pub fn new() -> Self {
+        Self { seen: Mutex::new(HashMap::new()) }
+    }
+
+    /// Drop all tracked state (session drop recovery).
+    pub fn clear(&self) {
+        self.seen.lock().expect("tracker").clear();
+    }
+
+    /// Record that `prompt` produced `response_id`.
+    pub fn mark_messages(&self, prompt: &[TrackMessage], response_id: &str) {
+        let mut seen = self.seen.lock().expect("tracker");
+        for message in prompt {
+            seen.insert(message.uid, response_id.to_owned());
+        }
+    }
+
+    /// Incremental fragment when the prompt extends tracked history.
+    pub fn prepare(&self, prompt: &[TrackMessage]) -> Option<(String, Vec<TrackMessage>)> {
+        let mut seen = self.seen.lock().expect("tracker");
+        let any_tracked = prompt.iter().any(|m| seen.contains_key(&m.uid));
+        if !any_tracked {
+            seen.clear();
+            return None;
+        }
+        let last_assistant = prompt.iter().rposition(|m| m.role == TrackRole::Assistant)?;
+        if last_assistant == 0 && prompt.len() <= 1 {
+            seen.clear();
+            return None;
+        }
+        let mut response_id: Option<String> = None;
+        for message in &prompt[..last_assistant] {
+            match seen.get(&message.uid) {
+                Some(id) => response_id = Some(id.clone()),
+                None => {
+                    seen.clear();
+                    return None;
+                }
+            }
+        }
+        let response_id = response_id?;
+        let suffix = prompt[last_assistant + 1..].to_vec();
+        if suffix.is_empty() {
+            seen.clear();
+            return None;
+        }
+        Some((response_id, suffix))
+    }
+}
+
+impl Default for ResponseIdTracker {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// Provider call as seen by the fake: the sent prompt plus incremental fields.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ProviderCall {
+    /// Prompt sent to the provider (stripped when approvals resolve).
+    pub prompt: Vec<TrackMessage>,
+    /// Prior response id, when the turn continued tracked history.
+    pub previous_response_id: Option<String>,
+    /// Messages after the latest assistant turn, when tracking applied.
+    pub incremental_prompt: Option<Vec<TrackMessage>>,
+}
+
+/// Chunk of a scripted text/stream response.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum TrackChunk {
+    /// Provider response id.
+    Meta(String),
+    /// Text payload.
+    Text(String),
+    /// Stop reason marker.
+    Finish,
+}
+
+impl TrackChunk {
+    /// Whether this chunk is the stop marker.
+    pub fn is_finish(&self) -> bool {
+        matches!(self, Self::Finish)
+    }
+}
+
+/// Scripted model recording [`ProviderCall`]s and returning queued response
+/// ids with text/finish chunks. The queue order is the response-id order.
+pub struct TrackerModel {
+    ids: Mutex<VecDeque<String>>,
+    calls: Mutex<Vec<ProviderCall>>,
+}
+
+impl TrackerModel {
+    /// Script `ids` in call order.
+    pub fn new(ids: Vec<&str>) -> Self {
+        Self {
+            ids: ids.into_iter().map(str::to_owned).collect::<VecDeque<_>>().into(),
+            calls: Mutex::new(Vec::new()),
+        }
+    }
+
+    /// Prompts recorded so far.
+    pub fn calls(&self) -> Vec<ProviderCall> {
+        self.calls.lock().expect("tracker model").clone()
+    }
+
+    fn next_id(&self) -> String {
+        self.ids
+            .lock()
+            .expect("tracker model")
+            .pop_front()
+            .unwrap_or_else(|| "resp_fallback".to_owned())
+    }
+
+    fn record(
+        &self,
+        tracker: Option<&ResponseIdTracker>,
+        prompt: Vec<TrackMessage>,
+    ) -> Vec<TrackChunk> {
+        let (previous_response_id, incremental_prompt) = tracker
+            .and_then(|t| t.prepare(&prompt))
+            .map(|(id, suffix)| (Some(id), Some(suffix)))
+            .unwrap_or((None, None));
+        let response_id = self.next_id();
+        self.calls.lock().expect("tracker model").push(ProviderCall {
+            prompt: prompt.clone(),
+            previous_response_id,
+            incremental_prompt,
+        });
+        if let Some(t) = tracker {
+            t.mark_messages(&prompt, &response_id);
+        }
+        vec![
+            TrackChunk::Meta(response_id.clone()),
+            TrackChunk::Text(format!("assistant-{response_id}")),
+            TrackChunk::Finish,
+        ]
+    }
+
+    /// Text turn with optional tracker (object turns share this path).
+    pub fn generate_text(
+        &self,
+        tracker: Option<&ResponseIdTracker>,
+        prompt: Vec<TrackMessage>,
+    ) -> Vec<TrackChunk> {
+        self.record(tracker, prompt)
+    }
+
+    /// Object turn: same tracking, schema shape is plain text here.
+    pub fn generate_object(
+        &self,
+        tracker: Option<&ResponseIdTracker>,
+        prompt: Vec<TrackMessage>,
+        _schema: &str,
+    ) -> Vec<TrackChunk> {
+        self.record(tracker, prompt)
+    }
+
+    /// Streamed turn: records like text, returns metadata plus finish.
+    pub fn stream_text(
+        &self,
+        tracker: Option<&ResponseIdTracker>,
+        prompt: Vec<TrackMessage>,
+    ) -> Vec<TrackChunk> {
+        let (previous_response_id, incremental_prompt) = tracker
+            .and_then(|t| t.prepare(&prompt))
+            .map(|(id, suffix)| (Some(id), Some(suffix)))
+            .unwrap_or((None, None));
+        let response_id = self.next_id();
+        self.calls.lock().expect("tracker model").push(ProviderCall {
+            prompt: prompt.clone(),
+            previous_response_id,
+            incremental_prompt,
+        });
+        if let Some(t) = tracker {
+            t.mark_messages(&prompt, &response_id);
+        }
+        vec![TrackChunk::Meta(response_id), TrackChunk::Finish]
+    }
+
+    /// Streamed turn with a toolkit present: no tool calls return, so the
+    /// stream still ends in a finish part.
+    pub fn stream_text_with_toolkit(
+        &self,
+        tracker: Option<&ResponseIdTracker>,
+        prompt: Vec<TrackMessage>,
+        _has_toolkit: bool,
+    ) -> Vec<TrackChunk> {
+        let (previous_response_id, incremental_prompt) = tracker
+            .and_then(|t| t.prepare(&prompt))
+            .map(|(id, suffix)| (Some(id), Some(suffix)))
+            .unwrap_or((None, None));
+        self.calls.lock().expect("tracker model").push(ProviderCall {
+            prompt,
+            previous_response_id,
+            incremental_prompt,
+        });
+        vec![TrackChunk::Finish]
+    }
+
+    /// Text turn with one pre-resolved approval: executes the approved
+    /// `ApprovalTool` once, appends its result, strips approval artifacts,
+    /// then tracks the stripped prompt.
+    pub fn generate_text_with_approval(
+        &self,
+        tracker: Option<&ResponseIdTracker>,
+        prompt: Vec<TrackMessage>,
+    ) -> Vec<TrackChunk> {
+        let mut approved_calls: Vec<(String, String)> = Vec::new();
+        let mut approved_ids: Vec<String> = Vec::new();
+        for message in &prompt {
+            for part in &message.parts {
+                if let TrackPart::ApprovalRequest { approval_id, tool_call_id } = part {
+                    let approved = prompt.iter().flat_map(|m| &m.parts).any(|p| {
+                        matches!(
+                            p,
+                            TrackPart::ApprovalResponse { approval_id: id, approved: true }
+                            if id == approval_id
+                        )
+                    });
+                    if approved {
+                        let name = prompt
+                            .iter()
+                            .flat_map(|m| &m.parts)
+                            .find_map(|p| match p {
+                                TrackPart::ToolCall { id, name, .. } if id == tool_call_id => {
+                                    Some(name.clone())
+                                }
+                                _ => None,
+                            })
+                            .unwrap_or_default();
+                        approved_calls.push((tool_call_id.clone(), name));
+                        approved_ids.push(approval_id.clone());
+                    }
+                }
+            }
+        }
+        let mut stripped: Vec<TrackMessage> = Vec::new();
+        for message in &prompt {
+            match message.role {
+                TrackRole::Assistant => {
+                    let kept: Vec<TrackPart> = message
+                        .parts
+                        .iter()
+                        .filter(|p| match p {
+                            TrackPart::ApprovalRequest { approval_id, .. } => {
+                                !approved_ids.contains(approval_id)
+                            }
+                            _ => true,
+                        })
+                        .cloned()
+                        .collect();
+                    if !kept.is_empty() {
+                        stripped.push(TrackMessage {
+                            uid: message.uid,
+                            role: message.role.clone(),
+                            parts: kept,
+                        });
+                    }
+                }
+                TrackRole::Tool => {
+                    let kept: Vec<TrackPart> = message
+                        .parts
+                        .iter()
+                        .filter(|p| match p {
+                            TrackPart::ApprovalResponse { approval_id, .. } => {
+                                !approved_ids.contains(approval_id)
+                            }
+                            _ => true,
+                        })
+                        .cloned()
+                        .collect();
+                    if !kept.is_empty() {
+                        stripped.push(TrackMessage {
+                            uid: message.uid,
+                            role: message.role.clone(),
+                            parts: kept,
+                        });
+                    }
+                }
+                _ => stripped.push(message.clone()),
+            }
+        }
+        for (tool_call_id, name) in &approved_calls {
+            stripped.push(TrackMessage::tool_result(tool_call_id, name, "approved-result"));
+        }
+        self.record(tracker, stripped)
+    }
+}
