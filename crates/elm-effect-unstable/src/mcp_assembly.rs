@@ -8,6 +8,13 @@
 
 use serde_json::{Map, Value};
 use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
+
+// Reuse the shared single-flight cell (RequestResolver plane) — do not
+// rebuild dedupe here. `cache.rs` is the SoT for batching + single-flight.
+#[path = "../../elm-effect/src/cache.rs"]
+mod cache_reuse;
+use cache_reuse::Request;
 
 use crate::mcp_handlers::{
     Logger, PromptRegistry, PromptResult, ResourceContent, ResourceStore, RpcNotification,
@@ -88,6 +95,11 @@ pub struct McpServer {
     report_errors: bool,
     reported: Vec<String>,
     server_info: ServerInfo,
+    /// Completed tool dispatches keyed by request identity
+    /// (`client_id:request_id:tool:args`). Single-flight via
+    /// [`Request`]: the first caller for a key runs the handler, resends
+    /// replay the stored outcome without re-running it.
+    completed: Mutex<HashMap<String, Arc<Request<ToolResult, AssemblyError>>>>,
 }
 
 impl McpServer {
@@ -112,6 +124,7 @@ impl McpServer {
             report_errors,
             reported: Vec::new(),
             server_info,
+            completed: Mutex::new(HashMap::new()),
         }
     }
 
@@ -271,6 +284,42 @@ impl McpServer {
         })
     }
 
+    /// Idempotent tool dispatch keyed by JSON-RPC request identity: the first
+    /// caller for `request_id` runs the handler, a resend with the same id
+    /// replays the stored outcome without re-running it. Different args are a
+    /// different key (no false hit).
+    pub fn call_tool_with_id(
+        &self,
+        ctx: &RequestContext,
+        request_id: &str,
+        name: &str,
+        args: Option<&Value>,
+    ) -> Result<ToolResult, AssemblyError> {
+        let empty = Value::Object(Map::new());
+        let args_ref = args.unwrap_or(&empty);
+        let key = format!(
+            "{}:{}:{}:{}",
+            ctx.client_id, request_id, name, args_ref
+        );
+        let (cell, owner) = {
+            let mut done = self.completed.lock().unwrap();
+            if let Some(cell) = done.get(&key) {
+                (Arc::clone(cell), false)
+            } else {
+                let cell = Arc::new(Request::new());
+                done.insert(key.clone(), Arc::clone(&cell));
+                (cell, true)
+            }
+        };
+        if !owner {
+            // Resend: replay without re-running the handler (single-flight).
+            return cell.wait();
+        }
+        let outcome = self.call_tool(ctx, name, Some(args_ref));
+        cell.complete(outcome.clone());
+        outcome
+    }
+
     /// Read a resource: unknown URIs are invalid-params errors.
     pub fn find_resource(
         &self,
@@ -350,5 +399,31 @@ impl McpServer {
     /// Tool description, for capability listing rows.
     pub fn ctx_tool_description(&self, name: &str) -> Option<&str> {
         self.ctx_tools.get(name).map(|tool| tool.description.as_str())
+    }
+}
+
+#[cfg(test)]
+mod idempotency_tests {
+    use super::*;
+    use crate::mcp_server::ServerInfo;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    #[test]
+    fn same_id_resend_runs_handler_once() {
+        let mut s = McpServer::new(ServerInfo::test());
+        let runs = Arc::new(AtomicUsize::new(0));
+        let body = Arc::clone(&runs);
+        s.tools_mut().register("once", "o", serde_json::json!({"type": "object"}), move |_| {
+            body.fetch_add(1, Ordering::SeqCst);
+            Ok(vec![content_text("done")])
+        });
+        let ctx = s.context(7, "c");
+        let first = s.call_tool_with_id(&ctx, "req-1", "once", None).unwrap();
+        let second = s.call_tool_with_id(&ctx, "req-1", "once", None).unwrap();
+        assert_eq!(runs.load(Ordering::SeqCst), 1, "resend must not re-run");
+        assert_eq!(first.content, second.content);
+        // A fresh id runs again.
+        s.call_tool_with_id(&ctx, "req-2", "once", None).unwrap();
+        assert_eq!(runs.load(Ordering::SeqCst), 2);
     }
 }
