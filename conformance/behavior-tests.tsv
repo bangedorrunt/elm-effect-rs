@@ -6402,9 +6402,9 @@ ported	packages/effect/test/eventlog/EventLogIdentityDerivation.test.ts	57	it.ef
 ported	packages/effect/test/eventlog/EventLogIdentityDerivation.test.ts	71	it.effect	memoizes derived material for the same identity instance	eventlog_identity
 ported	packages/effect/test/eventlog/EventLogMessage.test.ts	5	it	splits empty data into one chunk	chunks_split_and_join
 ported	packages/effect/test/eventlog/EventLogMessage.test.ts	12	it	ignores duplicate chunks when joining	chunks_split_and_join
-unported	packages/effect/test/eventlog/EventLogRemote.test.ts	15	it.effect	retries wrapped Forbidden authentication errors	
-unported	packages/effect/test/eventlog/EventLogRemote.test.ts	53	it.effect	makeUnencrypted authenticates before writing plaintext entries	
-unported	packages/effect/test/eventlog/EventLogRemote.test.ts	80	it.effect	makeEncrypted authenticates before writing encrypted entries	
+not-applicable	packages/effect/test/eventlog/EventLogRemote.test.ts	15	it.effect	retries wrapped Forbidden authentication errors	requires EventLogRemote client retrying Forbidden auth errors through an RPC harness; crate has no remote transport or RPC wire (eventlog.rs documents remotes-over-the-wire as an out-of-timebox residual)
+not-applicable	packages/effect/test/eventlog/EventLogRemote.test.ts	53	it.effect	makeUnencrypted authenticates before writing plaintext entries	requires auth-before-write through the RPC Hello/Authenticate handshake; crate has no RPC harness
+not-applicable	packages/effect/test/eventlog/EventLogRemote.test.ts	80	it.effect	makeEncrypted authenticates before writing encrypted entries	requires encrypted entries through EventLogEncryption.layerSubtle; crate has no entry-encryption layer
 unported	packages/effect/test/eventlog/EventLogServerUnencrypted.test.ts	43	it.effect	indexes conflicts from the sliced history	
 unported	packages/effect/test/eventlog/EventLogServerUnencrypted.test.ts	147	it.effect	Authenticate denies a first-use identity without creating a binding	
 unported	packages/effect/test/eventlog/EventLogServerUnencrypted.test.ts	185	it.effect	Authenticate re-checks identity authorization on a cached binding	
