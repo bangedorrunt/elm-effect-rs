@@ -92,7 +92,8 @@ fn wire_equal(first: &Unknown, second: &Unknown) -> bool {
         (Unknown::Object(a), Unknown::Object(b)) => {
             a.len() == b.len()
                 && a.keys().eq(b.keys())
-                && a.iter().all(|(k, v)| b.get(k).is_some_and(|w| wire_equal(v, w)))
+                && a.iter()
+                    .all(|(k, v)| b.get(k).is_some_and(|w| wire_equal(v, w)))
         }
         _ => first == second,
     }
@@ -156,7 +157,10 @@ fn diff_at(old: &Unknown, new: &Unknown, path: String, ops: &mut JsonPatch) {
                 let child = format!("{path}/{}", escape(key));
                 match (a.get(key), b.get(key)) {
                     (Some(x), Some(y)) => diff_at(x, y, child, ops),
-                    (None, Some(v)) => ops.push(PatchOp::Add { path: child, value: v.clone() }),
+                    (None, Some(v)) => ops.push(PatchOp::Add {
+                        path: child,
+                        value: v.clone(),
+                    }),
                     (Some(_), None) => ops.push(PatchOp::Remove { path: child }),
                     (None, None) => {}
                 }
@@ -168,13 +172,21 @@ fn diff_at(old: &Unknown, new: &Unknown, path: String, ops: &mut JsonPatch) {
                 diff_at(x, y, format!("{path}/{i}"), ops);
             }
             for (i, v) in b.iter().enumerate().skip(a.len()) {
-                ops.push(PatchOp::Add { path: format!("{path}/{i}"), value: v.clone() });
+                ops.push(PatchOp::Add {
+                    path: format!("{path}/{i}"),
+                    value: v.clone(),
+                });
             }
             for i in (b.len()..a.len()).rev() {
-                ops.push(PatchOp::Remove { path: format!("{path}/{i}") });
+                ops.push(PatchOp::Remove {
+                    path: format!("{path}/{i}"),
+                });
             }
         }
-        _ => ops.push(PatchOp::Replace { path, value: new.clone() }),
+        _ => ops.push(PatchOp::Replace {
+            path,
+            value: new.clone(),
+        }),
     }
 }
 
@@ -191,7 +203,9 @@ pub fn apply(doc: &Unknown, patch: &[PatchOp]) -> Result<Unknown, PatchError> {
 
 fn apply_one(doc: &Unknown, op: &PatchOp) -> Result<Unknown, PatchError> {
     let path = match op {
-        PatchOp::Add { path, .. } | PatchOp::Remove { path } | PatchOp::Replace { path, .. } => path,
+        PatchOp::Add { path, .. } | PatchOp::Remove { path } | PatchOp::Replace { path, .. } => {
+            path
+        }
     };
     let tokens = parse(path).ok_or_else(|| PatchError::BadPath(path.clone()))?;
     if tokens.is_empty() {
@@ -305,14 +319,17 @@ impl<T: Clone> Differ<T> {
         &self.schema
     }
 
-    /// The patch turning `old` into `new` on the wire.
-    pub fn diff(&self, old: &T, new: &T) -> JsonPatch {
-        diff(&self.schema.encode(old), &self.schema.encode(new))
+    /// The patch turning `old` into `new` on the wire, or the reason either
+    /// side is unrepresentable.
+    pub fn diff(&self, old: &T, new: &T) -> Result<JsonPatch, DifferError> {
+        let old_wire = self.schema.try_encode(old).map_err(DifferError::Schema)?;
+        let new_wire = self.schema.try_encode(new).map_err(DifferError::Schema)?;
+        Ok(diff(&old_wire, &new_wire))
     }
 
     /// Apply `patch` to `old` and decode the result.
     pub fn patch(&self, old: &T, patch: &[PatchOp]) -> Result<T, DifferError> {
-        let wired = self.schema.encode(old);
+        let wired = self.schema.try_encode(old).map_err(DifferError::Schema)?;
         let patched = apply(&wired, patch).map_err(DifferError::Patch)?;
         self.schema.decode(patched).map_err(DifferError::Schema)
     }

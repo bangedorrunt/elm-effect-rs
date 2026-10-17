@@ -58,9 +58,10 @@ fn typed_key(name: &str) -> Field {
 fn wire_schema(name: &str) -> Field {
     Field::required(
         name,
-        Schema::as_unknown(Schema::with_decoding_default(Schema::finite_from_string(), || {
-            Ok(text("1"))
-        })),
+        Schema::as_unknown(Schema::with_decoding_default(
+            Schema::finite_from_string(),
+            || Ok(text("1")),
+        )),
     )
 }
 
@@ -82,7 +83,10 @@ fn typed_schema(name: &str) -> Field {
 fn wire_key_default_fills_a_missing_key() {
     let schema = struct_of(vec![wire_key("a")]);
 
-    assert_eq!(schema.decode(obj(vec![])).unwrap(), map(vec![("a", text("1"))]));
+    assert_eq!(
+        schema.decode(obj(vec![])).unwrap(),
+        map(vec![("a", text("1"))])
+    );
     assert_eq!(
         schema.decode(obj(vec![("a", text("2"))])).unwrap(),
         map(vec![("a", text("2"))])
@@ -98,7 +102,7 @@ fn wire_key_default_passes_the_value_through_on_encode() {
     let schema = struct_of(vec![wire_key("a")]);
 
     assert_eq!(
-        schema.encode(&map(vec![("a", text("1"))])),
+        schema.try_encode(&map(vec![("a", text("1"))])).unwrap(),
         obj(vec![("a", text("1"))])
     );
 }
@@ -110,7 +114,7 @@ fn wire_key_default_omit_encoding_drops_the_key() {
     let schema = struct_of(vec![wire_key("a").omit_encoding()]);
 
     assert_eq!(
-        schema.encode(&map(vec![("a", text("1"))])),
+        schema.try_encode(&map(vec![("a", text("1"))])).unwrap(),
         Unknown::Object(BTreeMap::new())
     );
 }
@@ -126,7 +130,10 @@ fn wire_key_default_nested_defaults() {
 
     let filled = map(vec![("a", obj(vec![("b", text("1"))]))]);
     assert_eq!(schema.decode(obj(vec![])).unwrap(), filled);
-    assert_eq!(schema.decode(obj(vec![("a", obj(vec![]))])).unwrap(), filled);
+    assert_eq!(
+        schema.decode(obj(vec![("a", obj(vec![]))])).unwrap(),
+        filled
+    );
     assert_eq!(
         schema
             .decode(obj(vec![("a", obj(vec![("b", text("2"))]))]))
@@ -168,7 +175,10 @@ fn wire_key_default_failure_is_a_decode_failure() {
 fn wire_default_fills_a_missing_key_and_a_null() {
     let schema = struct_of(vec![wire_schema("a")]);
 
-    assert_eq!(schema.decode(obj(vec![])).unwrap(), map(vec![("a", text("1"))]));
+    assert_eq!(
+        schema.decode(obj(vec![])).unwrap(),
+        map(vec![("a", text("1"))])
+    );
     assert_eq!(
         schema.decode(obj(vec![("a", Unknown::Null)])).unwrap(),
         map(vec![("a", text("1"))])
@@ -196,7 +206,7 @@ fn wire_default_passes_the_value_through_on_encode() {
     let schema = struct_of(vec![wire_schema("a")]);
 
     assert_eq!(
-        schema.encode(&map(vec![("a", text("1"))])),
+        schema.try_encode(&map(vec![("a", text("1"))])).unwrap(),
         obj(vec![("a", text("1"))])
     );
 }
@@ -215,7 +225,7 @@ fn wire_default_omit_encoding_drops_the_key() {
     )]);
 
     assert_eq!(
-        schema.encode(&map(vec![("a", text("1"))])),
+        schema.try_encode(&map(vec![("a", text("1"))])).unwrap(),
         Unknown::Object(BTreeMap::new())
     );
 }
@@ -234,7 +244,10 @@ fn wire_default_nested_defaults() {
 
     let filled = map(vec![("a", obj(vec![("b", text("1"))]))]);
     assert_eq!(schema.decode(obj(vec![])).unwrap(), filled);
-    assert_eq!(schema.decode(obj(vec![("a", obj(vec![]))])).unwrap(), filled);
+    assert_eq!(
+        schema.decode(obj(vec![("a", obj(vec![]))])).unwrap(),
+        filled
+    );
     assert_eq!(
         schema.decode(obj(vec![("a", Unknown::Null)])).unwrap(),
         filled
@@ -261,7 +274,10 @@ fn wire_default_nested_defaults() {
 fn typed_key_default_fills_a_missing_key() {
     let schema = struct_of(vec![typed_key("a")]);
 
-    assert_eq!(schema.decode(obj(vec![])).unwrap(), map(vec![("a", text("1"))]));
+    assert_eq!(
+        schema.decode(obj(vec![])).unwrap(),
+        map(vec![("a", text("1"))])
+    );
     assert_eq!(
         schema.decode(obj(vec![("a", text("2"))])).unwrap(),
         map(vec![("a", text("2"))])
@@ -275,7 +291,7 @@ fn typed_key_default_passes_the_value_through_on_encode() {
     let schema = struct_of(vec![typed_key("a")]);
 
     assert_eq!(
-        schema.encode(&map(vec![("a", text("1"))])),
+        schema.try_encode(&map(vec![("a", text("1"))])).unwrap(),
         obj(vec![("a", text("1"))])
     );
 }
@@ -287,7 +303,7 @@ fn typed_key_default_omit_encoding_drops_the_key() {
     let schema = struct_of(vec![typed_key("a").omit_encoding()]);
 
     assert_eq!(
-        schema.encode(&map(vec![("a", text("1"))])),
+        schema.try_encode(&map(vec![("a", text("1"))])).unwrap(),
         Unknown::Object(BTreeMap::new())
     );
 }
@@ -303,7 +319,10 @@ fn typed_key_default_nested_defaults() {
 
     let filled = map(vec![("a", obj(vec![("b", text("1"))]))]);
     assert_eq!(schema.decode(obj(vec![])).unwrap(), filled);
-    assert_eq!(schema.decode(obj(vec![("a", obj(vec![]))])).unwrap(), filled);
+    assert_eq!(
+        schema.decode(obj(vec![("a", obj(vec![]))])).unwrap(),
+        filled
+    );
     assert_eq!(
         schema
             .decode(obj(vec![("a", obj(vec![("b", text("2"))]))]))
@@ -345,7 +364,10 @@ fn typed_key_default_failure_is_a_decode_failure() {
 fn typed_default_fills_a_missing_key_and_a_null() {
     let schema = struct_of(vec![typed_schema("a")]);
 
-    assert_eq!(schema.decode(obj(vec![])).unwrap(), map(vec![("a", text("1"))]));
+    assert_eq!(
+        schema.decode(obj(vec![])).unwrap(),
+        map(vec![("a", text("1"))])
+    );
     assert_eq!(
         schema.decode(obj(vec![("a", Unknown::Null)])).unwrap(),
         map(vec![("a", text("1"))])
@@ -372,7 +394,7 @@ fn typed_default_passes_the_value_through_on_encode() {
     let schema = struct_of(vec![typed_schema("a")]);
 
     assert_eq!(
-        schema.encode(&map(vec![("a", text("1"))])),
+        schema.try_encode(&map(vec![("a", text("1"))])).unwrap(),
         obj(vec![("a", text("1"))])
     );
 }
@@ -390,7 +412,7 @@ fn typed_default_omit_encoding_drops_the_key() {
     )]);
 
     assert_eq!(
-        schema.encode(&map(vec![("a", text("1"))])),
+        schema.try_encode(&map(vec![("a", text("1"))])).unwrap(),
         Unknown::Object(BTreeMap::new())
     );
 }
@@ -408,7 +430,10 @@ fn typed_default_nested_defaults() {
 
     let filled = map(vec![("a", obj(vec![("b", text("1"))]))]);
     assert_eq!(schema.decode(obj(vec![])).unwrap(), filled);
-    assert_eq!(schema.decode(obj(vec![("a", obj(vec![]))])).unwrap(), filled);
+    assert_eq!(
+        schema.decode(obj(vec![("a", obj(vec![]))])).unwrap(),
+        filled
+    );
     assert_eq!(
         schema.decode(obj(vec![("a", Unknown::Null)])).unwrap(),
         filled

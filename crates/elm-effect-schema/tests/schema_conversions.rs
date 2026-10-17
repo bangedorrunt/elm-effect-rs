@@ -25,10 +25,10 @@ fn number_from_string_round_trips_non_finite_values() {
     assert_eq!(schema.decode(text("+Infinity")).unwrap(), f64::INFINITY);
     assert_eq!(schema.decode(text("-Infinity")).unwrap(), f64::NEG_INFINITY);
 
-    assert_eq!(schema.encode(&1.0), text("1"));
-    assert_eq!(schema.encode(&f64::NAN), text("NaN"));
-    assert_eq!(schema.encode(&f64::INFINITY), text("Infinity"));
-    assert_eq!(schema.encode(&f64::NEG_INFINITY), text("-Infinity"));
+    assert_eq!(schema.try_encode(&1.0).unwrap(), text("1"));
+    assert_eq!(schema.try_encode(&f64::NAN).unwrap(), text("NaN"));
+    assert_eq!(schema.try_encode(&f64::INFINITY).unwrap(), text("Infinity"));
+    assert_eq!(schema.try_encode(&f64::NEG_INFINITY).unwrap(), text("-Infinity"));
 }
 
 /// Schema.test.ts:2120 `DateFromString`.
@@ -39,7 +39,7 @@ fn date_from_string_parses_and_renders_the_iso_wire() {
 
     assert_eq!(schema.decode(text(ISO)).unwrap(), 1_609_459_200_000);
     assert!(schema.decode(text("invalid")).is_err());
-    assert_eq!(schema.encode(&1_609_459_200_000), text(ISO));
+    assert_eq!(schema.try_encode(&1_609_459_200_000).unwrap(), text(ISO));
 }
 
 /// Schema.test.ts:2136 `DateFromMillis`.
@@ -58,7 +58,7 @@ fn date_from_millis_validates_whole_milliseconds_in_range() {
             .decode(Unknown::Number(8_640_000_000_000_001.0))
             .is_err()
     );
-    assert_eq!(schema.encode(&0), Unknown::Number(0.0));
+    assert_eq!(schema.try_encode(&0).unwrap(), Unknown::Number(0.0));
 }
 
 /// Schema.test.ts:2159 `FiniteFromString`.
@@ -74,5 +74,5 @@ fn finite_from_string_dedicated_decode_and_encode_table() {
             "{spelling:?} must not decode"
         );
     }
-    assert_eq!(schema.encode(&1.0), text("1"));
+    assert_eq!(schema.try_encode(&1.0).unwrap(), text("1"));
 }

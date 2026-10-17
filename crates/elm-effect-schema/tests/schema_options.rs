@@ -66,13 +66,20 @@ fn proto_key_is_ordinary_data() {
         Schema::as_unknown(Schema::string()),
     )]);
     let out: BTreeMap<String, Unknown> = schema
-        .decode(obj(vec![("__proto__", Unknown::Text("polluted".to_string()))]))
+        .decode(obj(vec![(
+            "__proto__",
+            Unknown::Text("polluted".to_string()),
+        )]))
         .unwrap();
     assert_eq!(
         out.get("__proto__"),
         Some(&Unknown::Text("polluted".to_string()))
     );
-    assert!(schema.decode(obj(vec![("other", Unknown::Text("a".to_string()))])).is_err());
+    assert!(
+        schema
+            .decode(obj(vec![("other", Unknown::Text("a".to_string()))]))
+            .is_err()
+    );
 }
 
 /// Schema.test.ts:5945 `tagDefaultOmit`.
@@ -106,9 +113,9 @@ fn tag_fills_default_and_omits_on_encode() {
             .is_err()
     );
     // encoding omits it, and leaves the payload field.
-    let encoded = schema.encode(&decoded);
+    let encoded = schema.try_encode(&decoded).unwrap();
     assert!(matches!(encoded, Unknown::Object(ref m) if !m.contains_key("_tag")));
     assert!(matches!(encoded, Unknown::Object(ref m) if m.contains_key("a")));
-    let encoded_made = schema.encode(&made);
+    let encoded_made = schema.try_encode(&made).unwrap();
     assert!(matches!(encoded_made, Unknown::Object(ref m) if !m.contains_key("_tag")));
 }

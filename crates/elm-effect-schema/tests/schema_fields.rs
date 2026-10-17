@@ -86,8 +86,8 @@ fn two_field_struct() -> Schema<BTreeMap<String, Unknown>> {
 /// Schema.test.ts:8793 `evolve`: one named field through one function.
 #[test]
 fn evolve_maps_a_named_field() {
-    let schema = two_field_struct()
-        .map_fields(field_evolve(vec![("a", |field| field.make_optional_key())]));
+    let schema =
+        two_field_struct().map_fields(field_evolve(vec![("a", |field| field.make_optional_key())]));
 
     assert_eq!(
         fields_of(&schema),
@@ -285,7 +285,7 @@ fn encode_keys_renames_on_both_sides() {
         map(vec![("a", text("1")), ("b", text("2"))])
     );
     assert_eq!(
-        schema.encode(&map(vec![("a", text("1")), ("b", text("2"))])),
+        schema.try_encode(&map(vec![("a", text("1")), ("b", text("2"))])).unwrap(),
         obj(vec![("c", text("1")), ("b", text("2"))])
     );
 }

@@ -300,7 +300,7 @@ fn parser_decode_fields_rejects_non_objects() {
 #[test]
 fn parser_encode_round_trip() {
     let s = Schema::string();
-    assert_eq!(Parser::encode(&s, &"hi".to_string()), text("hi"));
+    assert_eq!(s.try_encode(&"hi".to_string()).unwrap(), text("hi"));
 }
 
 #[test]
@@ -338,7 +338,7 @@ fn channel_chunks_round_trip() {
         c.decode_chunk(vec![text("a"), Unknown::Bool(true)])
             .is_err()
     );
-    let back = c.encode_chunk(&["a".to_string()]);
+    let back = c.try_encode_chunk(&["a".to_string()]).unwrap();
     assert_eq!(back, vec![text("a")]);
 }
 
@@ -350,7 +350,7 @@ fn branded_checks_refinement() {
     assert_eq!(b.brand(), "NonEmpty");
     assert_eq!(b.decode(text("x")).unwrap(), "x");
     assert!(b.decode(text("")).is_err());
-    assert_eq!(b.encode(&"x".to_string()), text("x"));
+    assert_eq!(b.try_encode(&"x".to_string()).unwrap(), text("x"));
 }
 
 #[test]
@@ -462,7 +462,7 @@ fn decode_only_transformation_leaves_encode_alone() {
     );
 
     assert_eq!(schema.decode(text(" A ")).unwrap(), "a");
-    assert_eq!(schema.encode(&" A ".to_string()), text(" A "));
+    assert_eq!(schema.try_encode(&" A ".to_string()).unwrap(), text(" A "));
 }
 
 /// Schema.test.ts:2634 (`encode` block): the mirror case. `flip()` moves the
@@ -477,7 +477,7 @@ fn encode_only_transformation_leaves_decode_alone() {
     );
 
     assert_eq!(schema.decode(text(" A ")).unwrap(), " A ");
-    assert_eq!(schema.encode(&" A ".to_string()), text("a"));
+    assert_eq!(schema.try_encode(&" A ".to_string()).unwrap(), text("a"));
 }
 
 /// Schema.test.ts:2403 and :2582 reduce to one behavior: `Trim` on either side
@@ -491,7 +491,7 @@ fn finite_from_string_trims_the_source_text() {
     let schema = Schema::finite_from_string();
 
     assert_eq!(schema.decode(text(" 2 ")).unwrap(), 2.0);
-    assert_eq!(schema.encode(&2.0), text("2"));
+    assert_eq!(schema.try_encode(&2.0).unwrap(), text("2"));
     let error = schema
         .decode(text(" a2 "))
         .expect_err("a trimmed text that is not a number");
@@ -658,7 +658,7 @@ fn to_lowercase_lowers_on_decode_and_passes_through_on_encode() {
     assert_eq!(lowered.decode(text("B")).unwrap(), "b");
     // Encoding is passthrough, which is why the pair is not round-trippable:
     // an uppercase value encodes back unchanged rather than re-cased.
-    assert_eq!(lowered.encode(&"A".to_string()), text("A"));
+    assert_eq!(lowered.try_encode(&"A".to_string()).unwrap(), text("A"));
 }
 
 #[test]
@@ -666,7 +666,7 @@ fn to_uppercase_uppers_on_decode_and_passes_through_on_encode() {
     let uppered = case_schema(Transformation::to_uppercase());
     assert_eq!(uppered.decode(text("a")).unwrap(), "A");
     assert_eq!(uppered.decode(text("b")).unwrap(), "B");
-    assert_eq!(uppered.encode(&"a".to_string()), text("a"));
+    assert_eq!(uppered.try_encode(&"a".to_string()).unwrap(), text("a"));
 }
 
 /// The pin's `Schema.String.pipe(Schema.decodeTo(Schema.String, t))` for the
@@ -701,7 +701,7 @@ fn string_from_base64_round_trips_and_refuses_malformed_text() {
             "{bad:?} must be refused by name, got: {err}"
         );
     }
-    assert_eq!(schema.encode(&"foobar".to_string()), text("Zm9vYmFy"));
+    assert_eq!(schema.try_encode(&"foobar".to_string()).unwrap(), text("Zm9vYmFy"));
 }
 
 /// :5254 (`StringFromBase64Url`): the URL-safe alphabet, no padding on the way
@@ -713,9 +713,9 @@ fn string_from_base64_url_uses_the_url_alphabet() {
     assert_eq!(schema.decode(text("Pj8-ZD_Dnw")).unwrap(), ">?>d?\u{df}");
     let err = schema.decode(text("Pj8/ZD+Dnw")).unwrap_err().to_string();
     assert!(err.contains("a valid Base64Url string"), "got: {err}");
-    assert_eq!(schema.encode(&"foobar".to_string()), text("Zm9vYmFy"));
+    assert_eq!(schema.try_encode(&"foobar".to_string()).unwrap(), text("Zm9vYmFy"));
     assert_eq!(
-        schema.encode(&">?>d?\u{df}".to_string()),
+        schema.try_encode(&">?>d?\u{df}".to_string()).unwrap(),
         text("Pj8-ZD_Dnw")
     );
 }
@@ -734,7 +734,7 @@ fn string_from_hex_round_trips_and_refuses_malformed_text() {
             "{bad:?} must be refused by name, got: {err}"
         );
     }
-    assert_eq!(schema.encode(&"g".to_string()), text("67"));
+    assert_eq!(schema.try_encode(&"g".to_string()).unwrap(), text("67"));
     assert_eq!(
         schema.decode(text("0001020304050607")).unwrap(),
         "\u{0}\u{1}\u{2}\u{3}\u{4}\u{5}\u{6}\u{7}"
@@ -762,11 +762,11 @@ fn string_from_uri_component_round_trips_and_refuses_malformed_text() {
     let err = schema.decode(text("%ZZ")).unwrap_err().to_string();
     assert!(err.contains("a valid URI component"), "got: {err}");
     assert_eq!(
-        schema.encode(&"{\"a\":1}".to_string()),
+        schema.try_encode(&"{\"a\":1}".to_string()).unwrap(),
         text("%7B%22a%22%3A1%7D")
     );
     assert_eq!(
-        schema.encode(&"hello world".to_string()),
+        schema.try_encode(&"hello world".to_string()).unwrap(),
         text("hello%20world")
     );
 }
@@ -784,7 +784,7 @@ fn datetime_utc_from_string_decodes_the_canonical_wire_string() {
         1_609_459_200_000
     );
     assert_eq!(
-        schema.encode(&1_609_459_200_000),
+        schema.try_encode(&1_609_459_200_000).unwrap(),
         text("2021-01-01T00:00:00.000Z")
     );
     assert!(
@@ -808,7 +808,7 @@ fn datetime_utc_from_millis_decodes_a_millisecond_number() {
         1_609_459_200_000
     );
     assert_eq!(
-        schema.encode(&1_609_459_200_000),
+        schema.try_encode(&1_609_459_200_000).unwrap(),
         Unknown::Number(1_609_459_200_000.0)
     );
     assert!(

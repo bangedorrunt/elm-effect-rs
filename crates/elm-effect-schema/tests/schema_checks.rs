@@ -29,7 +29,12 @@ fn record_of_numbers() -> Schema<Unknown> {
 
 /// The pin's `Schema.Int`: a number that is whole.
 fn int_base() -> Schema<Unknown> {
-    Schema::checked(Schema::as_unknown(Schema::number()), "isInt", vec![], vec![])
+    Schema::checked(
+        Schema::as_unknown(Schema::number()),
+        "isInt",
+        vec![],
+        vec![],
+    )
 }
 
 fn multiple_of(divisor: &str) -> Schema<Unknown> {
@@ -49,10 +54,7 @@ fn is_multiple_of_rejects_subnormal_remainders() {
     // 1.042e-321 / 1e-323 is 104.2: a remainder, not a multiple.
     assert!(schema.decode(number(1.042e-321)).is_err());
     // The control: twice the divisor is a multiple.
-    assert_eq!(
-        schema.decode(number(2e-323)).unwrap(),
-        number(2e-323)
-    );
+    assert_eq!(schema.decode(number(2e-323)).unwrap(), number(2e-323));
 }
 
 /// Schema.test.ts:1665 `isMultipleOf normalizes negative divisors`.
@@ -67,12 +69,7 @@ fn is_multiple_of_normalizes_negative_divisors() {
 /// Schema.test.ts:1687 `included & included`.
 #[test]
 fn is_between_includes_both_bounds() {
-    let schema = Schema::checked(
-        int_base(),
-        "isBetween",
-        vec!["1", "3"],
-        vec![],
-    );
+    let schema = Schema::checked(int_base(), "isBetween", vec!["1", "3"], vec![]);
 
     assert_eq!(schema.decode(number(1.0)).unwrap(), number(1.0));
     assert_eq!(schema.decode(number(3.0)).unwrap(), number(3.0));
@@ -128,7 +125,10 @@ fn is_pattern_checks_the_string() {
         Unknown::Text("a".to_string())
     );
     assert!(schema.decode(Unknown::Text("b".to_string())).is_err());
-    assert_eq!(schema.encode(&Unknown::Text("a".to_string())), Unknown::Text("a".to_string()));
+    assert_eq!(
+        schema.try_encode(&Unknown::Text("a".to_string())).unwrap(),
+        Unknown::Text("a".to_string())
+    );
 }
 
 /// Schema.test.ts:1446 `isPattern with stateful RegExp flags`. The pin's point

@@ -13,7 +13,7 @@ fn string_round_trips() {
     let schema = Schema::string();
     let value = schema.decode(Unknown::Text("hi".to_string())).unwrap();
     assert_eq!(value, "hi");
-    assert_eq!(schema.encode(&value), Unknown::Text("hi".to_string()));
+    assert_eq!(schema.try_encode(&value).unwrap(), Unknown::Text("hi".to_string()));
 }
 
 #[test]
@@ -21,14 +21,14 @@ fn number_round_trips() {
     let schema = Schema::number();
     let value = schema.decode(Unknown::Number(2.5)).unwrap();
     assert_eq!(value, 2.5);
-    assert_eq!(schema.encode(&value), Unknown::Number(2.5));
+    assert_eq!(schema.try_encode(&value).unwrap(), Unknown::Number(2.5));
 }
 
 #[test]
 fn boolean_round_trips() {
     let schema = Schema::boolean();
     assert!(schema.decode(Unknown::Bool(true)).unwrap());
-    assert_eq!(schema.encode(&true), Unknown::Bool(true));
+    assert_eq!(schema.try_encode(&true).unwrap(), Unknown::Bool(true));
 }
 
 #[test]
@@ -75,7 +75,7 @@ fn optional_accepts_missing_and_null() {
         schema.decode(Unknown::Text("x".to_string())).unwrap(),
         Some("x".to_string())
     );
-    assert_eq!(schema.encode(&None), Unknown::Null);
+    assert_eq!(schema.try_encode(&None).unwrap(), Unknown::Null);
 }
 
 #[test]
@@ -104,7 +104,7 @@ fn structs_decode_fieldwise() {
     input.insert("y".to_string(), Unknown::Number(2.0));
     let point = schema.decode(Unknown::Object(input)).unwrap();
     assert_eq!(point, Point { x: 1.0, y: 2.0 });
-    let Unknown::Object(back) = schema.encode(&point) else {
+    let Unknown::Object(back) = schema.try_encode(&point).unwrap() else {
         panic!("struct encodes to an object");
     };
     assert_eq!(back["x"], Unknown::Number(1.0));
@@ -146,7 +146,16 @@ fn ffs_decodes_plain_numbers() {
 #[test]
 fn ffs_rejects_non_numeric_text() {
     let schema = Schema::finite_from_string();
-    for text in ["", "   ", "abc", "12px", "NaN", "Infinity", "-Infinity", "0x10"] {
+    for text in [
+        "",
+        "   ",
+        "abc",
+        "12px",
+        "NaN",
+        "Infinity",
+        "-Infinity",
+        "0x10",
+    ] {
         assert!(
             schema.decode(Unknown::Text(text.to_string())).is_err(),
             "{text:?} must not decode"
@@ -165,7 +174,7 @@ fn ffs_rejects_non_text() {
 #[test]
 fn ffs_encodes_numbers_to_text() {
     let schema = Schema::finite_from_string();
-    assert_eq!(schema.encode(&1.5), Unknown::Text("1.5".to_string()));
+    assert_eq!(schema.try_encode(&1.5).unwrap(), Unknown::Text("1.5".to_string()));
 }
 
 #[test]
@@ -173,7 +182,7 @@ fn ffs_round_trips() {
     let schema = Schema::finite_from_string();
     let value = schema.decode(Unknown::Text("42".to_string())).unwrap();
     assert_eq!(value, 42.0);
-    assert_eq!(schema.encode(&value), Unknown::Text("42".to_string()));
+    assert_eq!(schema.try_encode(&value).unwrap(), Unknown::Text("42".to_string()));
 }
 
 #[test]
@@ -233,8 +242,14 @@ fn literal_refuses_a_non_finite_number() {
     let hook = std::panic::take_hook();
     std::panic::set_hook(Box::new(|_| {}));
     for (value, expected) in [
-        (f64::INFINITY, "A numeric literal must be finite, got Infinity"),
-        (f64::NEG_INFINITY, "A numeric literal must be finite, got -Infinity"),
+        (
+            f64::INFINITY,
+            "A numeric literal must be finite, got Infinity",
+        ),
+        (
+            f64::NEG_INFINITY,
+            "A numeric literal must be finite, got -Infinity",
+        ),
         (f64::NAN, "A numeric literal must be finite, got NaN"),
     ] {
         let caught = std::panic::catch_unwind(|| Schema::literal(Unknown::Number(value)));
@@ -263,8 +278,12 @@ fn literal_accepts_either_signed_zero_and_keeps_the_input_sign() {
             let Unknown::Number(number) = decoded.clone() else {
                 panic!("a number decoded to {decoded:?}");
             };
-            assert_eq!(number.is_sign_negative(), input.is_sign_negative(), "{literal} {input}");
-            let Unknown::Number(encoded) = schema.encode(&decoded) else {
+            assert_eq!(
+                number.is_sign_negative(),
+                input.is_sign_negative(),
+                "{literal} {input}"
+            );
+            let Unknown::Number(encoded) = schema.try_encode(&decoded).unwrap() else {
                 panic!("a number encoded to something else");
             };
             assert_eq!(encoded.is_sign_negative(), input.is_sign_negative());
@@ -285,7 +304,7 @@ fn unknown_admits_every_value() {
         Unknown::Object(std::collections::BTreeMap::new()),
     ] {
         assert_eq!(schema.decode(value.clone()), Ok(value.clone()));
-        assert_eq!(schema.encode(&value), value);
+        assert_eq!(schema.try_encode(&value).unwrap(), value);
     }
 }
 
@@ -295,7 +314,10 @@ fn string_for_literal_autocomplete_is_the_string_schema() {
     // string behavior: text decodes, anything else does not.
     let schema = Schema::string_for_literal_autocomplete();
     assert_eq!(schema.json_schema(), Schema::string().json_schema());
-    assert_eq!(schema.decode(Unknown::Text("a".to_string())), Ok("a".to_string()));
+    assert_eq!(
+        schema.decode(Unknown::Text("a".to_string())),
+        Ok("a".to_string())
+    );
     for (refused, got) in [(Unknown::Null, "null"), (Unknown::Number(1.0), "number")] {
         assert_eq!(
             schema.decode(refused).unwrap_err().to_string(),
@@ -343,7 +365,7 @@ fn void_yields_the_unit_value_for_any_input() {
     ] {
         assert_eq!(schema.decode(input), Ok(()));
     }
-    assert_eq!(schema.encode(&()), Unknown::Null);
+    assert_eq!(schema.try_encode(&()).unwrap(), Unknown::Null);
 }
 
 #[test]
@@ -355,10 +377,16 @@ fn object_keyword_admits_objects_and_arrays() {
         schema.decode(Unknown::Object(std::collections::BTreeMap::new())),
         Ok(Unknown::Object(std::collections::BTreeMap::new()))
     );
-    assert_eq!(schema.decode(Unknown::Array(Vec::new())), Ok(Unknown::Array(Vec::new())));
+    assert_eq!(
+        schema.decode(Unknown::Array(Vec::new())),
+        Ok(Unknown::Array(Vec::new()))
+    );
     let error = schema.decode(Unknown::Text("1".to_string())).unwrap_err();
-    assert_eq!(error.to_string(), "expected object | array at $, got string");
-    assert_eq!(schema.encode(&Unknown::Null), Unknown::Null);
+    assert_eq!(
+        error.to_string(),
+        "expected object | array at $, got string"
+    );
+    assert_eq!(schema.try_encode(&Unknown::Null).unwrap(), Unknown::Null);
 }
 
 #[test]
@@ -395,41 +423,53 @@ fn property_names_check_decides_every_key() {
         vec![r#"new RegExp("^[A-Z]", "u")"#],
         vec![("expected", "a string matching the RegExp ^[A-Z]")],
     );
-    let record: Schema<Unknown> = Schema::as_unknown(Schema::record(Schema::as_unknown(
-        Schema::number(),
-    )));
+    let record: Schema<Unknown> =
+        Schema::as_unknown(Schema::record(Schema::as_unknown(Schema::number())));
     let schema = Schema::checked_property_names(
         record,
         key,
-        vec![("expected", "an object with property names matching the schema")],
+        vec![(
+            "expected",
+            "an object with property names matching the schema",
+        )],
     );
 
     let ok = std::collections::BTreeMap::from([("Ab".to_string(), Unknown::Number(1.0))]);
-    assert!(schema.decode(Unknown::Object(ok)).is_ok(), "a matching key decodes");
+    assert!(
+        schema.decode(Unknown::Object(ok)).is_ok(),
+        "a matching key decodes"
+    );
 
     let bad = std::collections::BTreeMap::from([("ab".to_string(), Unknown::Number(1.0))]);
     let error = schema
         .decode(Unknown::Object(bad))
         .expect_err("a key outside the pattern is refused");
     let printed = error.to_string();
-    assert!(printed.contains("ab"), "the failing key is named: {printed}");
+    assert!(
+        printed.contains("ab"),
+        "the failing key is named: {printed}"
+    );
 }
 
 /// Schema.test.ts:2053 — `isPropertyNames(Schema.Never)`: a key schema that
 /// admits no key makes the empty object the only admissible one.
 #[test]
 fn property_names_check_with_never_admits_only_the_empty_object() {
-    let record: Schema<Unknown> = Schema::as_unknown(Schema::record(Schema::as_unknown(
-        Schema::number(),
-    )));
+    let record: Schema<Unknown> =
+        Schema::as_unknown(Schema::record(Schema::as_unknown(Schema::number())));
     let schema = Schema::checked_property_names(
         record,
         Schema::as_unknown(Schema::never()),
-        vec![("expected", "an object with property names matching the schema")],
+        vec![(
+            "expected",
+            "an object with property names matching the schema",
+        )],
     );
-    assert!(schema
-        .decode(Unknown::Object(std::collections::BTreeMap::new()))
-        .is_ok());
+    assert!(
+        schema
+            .decode(Unknown::Object(std::collections::BTreeMap::new()))
+            .is_ok()
+    );
     let error = schema
         .decode(Unknown::Object(std::collections::BTreeMap::from([(
             "a".to_string(),
@@ -490,14 +530,16 @@ fn record_with_a_number_key_selects_numeric_keys() {
         Schema::as_unknown(Schema::number_from_string()),
         Schema::as_unknown(Schema::string()),
     );
-    let input = std::collections::BTreeMap::from([("1".to_string(), Unknown::Text("a".to_string()))]);
+    let input =
+        std::collections::BTreeMap::from([("1".to_string(), Unknown::Text("a".to_string()))]);
     let decoded = schema.decode(Unknown::Object(input)).expect("decodes");
     assert_eq!(
         decoded,
         std::collections::BTreeMap::from([("1".to_string(), Unknown::Text("a".to_string()))]),
         "the numeric key is selected"
     );
-    let other = std::collections::BTreeMap::from([("a".to_string(), Unknown::Text("b".to_string()))]);
+    let other =
+        std::collections::BTreeMap::from([("a".to_string(), Unknown::Text("b".to_string()))]);
     let decoded = schema.decode(Unknown::Object(other)).expect("decodes");
     assert!(
         decoded.is_empty(),
@@ -510,7 +552,9 @@ fn record_with_a_number_key_selects_numeric_keys() {
 #[test]
 fn union_with_no_members_admits_nothing() {
     let schema = Schema::union_with_mode(Vec::new(), "anyOf");
-    let error = schema.decode(Unknown::Null).expect_err("no member can match");
+    let error = schema
+        .decode(Unknown::Null)
+        .expect_err("no member can match");
     assert!(error.to_string().contains("never"), "{error}");
 }
 
@@ -554,7 +598,10 @@ fn union_of_void_admits_every_value() {
 #[test]
 fn union_of_void_then_string_resolves_to_the_void_member() {
     let schema = Schema::union_with_mode(
-        vec![Schema::as_unknown(Schema::void()), Schema::as_unknown(Schema::string())],
+        vec![
+            Schema::as_unknown(Schema::void()),
+            Schema::as_unknown(Schema::string()),
+        ],
         "anyOf",
     );
     let decoded = schema.decode(Unknown::Text("a".to_string())).unwrap();
@@ -567,7 +614,10 @@ fn union_of_void_then_string_resolves_to_the_void_member() {
 #[test]
 fn union_of_string_and_number_takes_each_members_values() {
     let schema = Schema::union_with_mode(
-        vec![Schema::as_unknown(Schema::string()), Schema::as_unknown(Schema::number())],
+        vec![
+            Schema::as_unknown(Schema::string()),
+            Schema::as_unknown(Schema::number()),
+        ],
         "anyOf",
     );
     let members = schema.members().expect("a union exposes its members");
@@ -578,12 +628,12 @@ fn union_of_string_and_number_takes_each_members_values() {
         schema.decode(Unknown::Text("a".to_string())).unwrap(),
         Unknown::Text("a".to_string())
     );
-    assert_eq!(schema.decode(Unknown::Number(1.0)).unwrap(), Unknown::Number(1.0));
-    let error = schema.decode(Unknown::Null).expect_err("null is neither");
-    assert!(
-        error.to_string().contains("string | number"),
-        "{error}"
+    assert_eq!(
+        schema.decode(Unknown::Number(1.0)).unwrap(),
+        Unknown::Number(1.0)
     );
+    let error = schema.decode(Unknown::Null).expect_err("null is neither");
+    assert!(error.to_string().contains("string | number"), "{error}");
 }
 
 /// Schema.test.ts:4375 — `Schema.Union([Schema.String, Schema.Never])`: a
@@ -592,7 +642,10 @@ fn union_of_string_and_number_takes_each_members_values() {
 #[test]
 fn union_of_string_and_never_is_the_other_member() {
     let schema = Schema::union_with_mode(
-        vec![Schema::as_unknown(Schema::string()), Schema::as_unknown(Schema::never())],
+        vec![
+            Schema::as_unknown(Schema::string()),
+            Schema::as_unknown(Schema::never()),
+        ],
         "anyOf",
     );
     assert_eq!(
@@ -624,9 +677,18 @@ fn union_of_checked_members_decides_by_that_members_check() {
         schema.decode(Unknown::Text("a".to_string())).unwrap(),
         Unknown::Text("a".to_string())
     );
-    assert_eq!(schema.decode(Unknown::Number(1.0)).unwrap(), Unknown::Number(1.0));
-    assert!(schema.decode(Unknown::Text(String::new())).is_err(), "an empty string is too short");
-    assert!(schema.decode(Unknown::Number(-1.0)).is_err(), "a negative number is too small");
+    assert_eq!(
+        schema.decode(Unknown::Number(1.0)).unwrap(),
+        Unknown::Number(1.0)
+    );
+    assert!(
+        schema.decode(Unknown::Text(String::new())).is_err(),
+        "an empty string is too short"
+    );
+    assert!(
+        schema.decode(Unknown::Number(-1.0)).is_err(),
+        "a negative number is too small"
+    );
 }
 
 /// Schema.test.ts:5182 — `Schema.NullishOr(String)`: null and the absent value
@@ -641,10 +703,7 @@ fn nullish_or_admits_the_absent_values_and_the_inner_schema() {
         vec!["1"],
         vec![("expected", "a value with a length of at least 1")],
     );
-    let schema = Schema::union_with_mode(
-        vec![inner, Schema::as_unknown(Schema::null())],
-        "anyOf",
-    );
+    let schema = Schema::union_with_mode(vec![inner, Schema::as_unknown(Schema::null())], "anyOf");
     assert_eq!(
         schema.decode(Unknown::Text("a".to_string())).unwrap(),
         Unknown::Text("a".to_string())
@@ -654,7 +713,10 @@ fn nullish_or_admits_the_absent_values_and_the_inner_schema() {
         schema.decode(Unknown::Text(String::new())).is_err(),
         "the inner check still decides a string"
     );
-    assert!(schema.decode(Unknown::Number(1.0)).is_err(), "a number is neither");
+    assert!(
+        schema.decode(Unknown::Number(1.0)).is_err(),
+        "a number is neither"
+    );
 }
 
 // --- Schema.test.ts: the tuple element-ordering rule ---
@@ -686,7 +748,10 @@ fn tuple_refuses_a_required_element_after_an_optional_one() {
                     .or_else(|| payload.downcast_ref::<&str>().map(|text| text.to_string()))
             })
             .expect("the tuple is refused at construction");
-        assert_eq!(message, "A required element cannot follow an optional element. ts(1257)");
+        assert_eq!(
+            message,
+            "A required element cannot follow an optional element. ts(1257)"
+        );
     }
     std::panic::set_hook(hook);
     // The order the rule permits still builds and decodes.
@@ -694,9 +759,11 @@ fn tuple_refuses_a_required_element_after_an_optional_one() {
         Schema::as_unknown(Schema::string()),
         Schema::optional_key_shape(Schema::as_unknown(Schema::boolean())),
     ]);
-    assert!(ordered
-        .decode(Unknown::Array(vec![Unknown::Text("a".to_string())]))
-        .is_ok());
+    assert!(
+        ordered
+            .decode(Unknown::Array(vec![Unknown::Text("a".to_string())]))
+            .is_ok()
+    );
 }
 
 /// Schema.test.ts:4872 — the same rule over a tuple that carries a rest: the
@@ -727,19 +794,24 @@ fn tuple_with_rest_refuses_a_required_element_after_an_optional_one() {
                 .or_else(|| payload.downcast_ref::<&str>().map(|text| text.to_string()))
         })
         .expect("the tuple is refused at construction");
-    assert_eq!(message, "A required element cannot follow an optional element. ts(1257)");
+    assert_eq!(
+        message,
+        "A required element cannot follow an optional element. ts(1257)"
+    );
     std::panic::set_hook(hook);
     // The permitted order still builds and decodes.
     let ordered = Schema::tuple_with_rest(
         vec![Schema::as_unknown(Schema::string())],
         Schema::as_unknown(Schema::number()),
     );
-    assert!(ordered
-        .decode(Unknown::Array(vec![
-            Unknown::Text("a".to_string()),
-            Unknown::Number(1.0),
-        ]))
-        .is_ok());
+    assert!(
+        ordered
+            .decode(Unknown::Array(vec![
+                Unknown::Text("a".to_string()),
+                Unknown::Number(1.0),
+            ]))
+            .is_ok()
+    );
 }
 
 // --- Schema.test.ts: the tuple element rows, where the element schema is
@@ -757,9 +829,11 @@ fn tuple_of_checked_elements_names_the_index_a_failing_element_failed_at() {
         vec![("expected", "a value with a length of at least 1")],
     );
     let schema = Schema::tuple_of(vec![element]);
-    assert!(schema
-        .decode(Unknown::Array(vec![Unknown::Text("a".to_string())]))
-        .is_ok());
+    assert!(
+        schema
+            .decode(Unknown::Array(vec![Unknown::Text("a".to_string())]))
+            .is_ok()
+    );
     let error = schema
         .decode(Unknown::Array(vec![Unknown::Text(String::new())]))
         .expect_err("an empty string is too short for the element");
@@ -768,7 +842,9 @@ fn tuple_of_checked_elements_names_the_index_a_failing_element_failed_at() {
     let printed = error.to_string();
     assert!(printed.contains("satisfying the refinement"), "{printed}");
     assert!(printed.contains("$[0]"), "the index is named: {printed}");
-    let error = schema.decode(Unknown::Null).expect_err("null is not an array");
+    let error = schema
+        .decode(Unknown::Null)
+        .expect_err("null is not an array");
     assert!(error.to_string().contains("array"), "{error}");
 }
 
@@ -785,7 +861,7 @@ fn tuple_with_an_optional_element_accepts_the_empty_tuple() {
         Unknown::Array(vec![]),
     ] {
         let decoded = schema.decode(wire.clone()).expect("both shapes decode");
-        assert_eq!(schema.encode(&decoded), wire, "and both encode back");
+        assert_eq!(schema.try_encode(&decoded).unwrap(), wire, "and both encode back");
     }
 }
 
@@ -799,12 +875,17 @@ fn array_of_strings_decides_each_element() {
         schema.decode(Unknown::Array(vec![Unknown::Text("a".to_string())])),
         Ok(Unknown::Array(vec![Unknown::Text("a".to_string())]))
     );
-    assert_eq!(schema.decode(Unknown::Array(vec![])), Ok(Unknown::Array(vec![])));
+    assert_eq!(
+        schema.decode(Unknown::Array(vec![])),
+        Ok(Unknown::Array(vec![]))
+    );
     let error = schema
         .decode(Unknown::Array(vec![Unknown::Number(1.0)]))
         .expect_err("a non-string element is refused");
     assert!(error.to_string().contains("string"), "{error}");
-    let error = schema.decode(Unknown::Null).expect_err("null is not an array");
+    let error = schema
+        .decode(Unknown::Null)
+        .expect_err("null is not an array");
     assert!(error.to_string().contains("array"), "{error}");
 }
 
@@ -831,10 +912,7 @@ fn two_field_struct() -> Schema<BTreeMap<String, Unknown>> {
 #[test]
 fn map_fields_assign_joins_the_declared_fields() {
     let schema = one_field_struct().map_fields(|mut fields| {
-        fields.push(Field::required(
-            "b",
-            Schema::as_unknown(Schema::string()),
-        ));
+        fields.push(Field::required("b", Schema::as_unknown(Schema::string())));
         fields
     });
     let ok = BTreeMap::from([
@@ -842,7 +920,12 @@ fn map_fields_assign_joins_the_declared_fields() {
         ("b".to_string(), Unknown::Text("b".to_string())),
     ]);
     assert_eq!(
-        schema.decode(Unknown::Object(ok)).unwrap().keys().cloned().collect::<Vec<_>>(),
+        schema
+            .decode(Unknown::Object(ok))
+            .unwrap()
+            .keys()
+            .cloned()
+            .collect::<Vec<_>>(),
         vec!["a".to_string(), "b".to_string()]
     );
     for (wire, missing) in [
@@ -902,7 +985,10 @@ fn map_fields_pick_keeps_only_the_named_fields() {
         ("a".to_string(), Unknown::Text("a".to_string())),
         ("b".to_string(), Unknown::Text("b".to_string())),
     ]);
-    assert!(schema.decode(Unknown::Object(bad)).is_ok(), "b is not a declared key now");
+    assert!(
+        schema.decode(Unknown::Object(bad)).is_ok(),
+        "b is not a declared key now"
+    );
 }
 
 /// Schema.test.ts:1013 — `mapFields(Struct.omit(["b"]))`: the omitted field is
@@ -923,7 +1009,10 @@ fn map_fields_omit_drops_the_named_field() {
         ("b".to_string(), Unknown::Text("b".to_string())),
         ("a".to_string(), Unknown::Text("a".to_string())),
     ]);
-    assert!(schema.decode(Unknown::Object(bad)).is_ok(), "b is not declared");
+    assert!(
+        schema.decode(Unknown::Object(bad)).is_ok(),
+        "b is not declared"
+    );
 }
 
 // --- Schema.test.ts: the StructWithRest rows, where a fixed key and a key the
@@ -962,9 +1051,8 @@ fn struct_with_rest_refuses_a_fixed_key_the_rest_also_names() {
     assert_eq!(message, "Duplicate identifier: \"a\". ts(2300)");
     std::panic::set_hook(hook);
     // A rest that names no key the fixed properties claim still builds.
-    let plain: Schema<Unknown> = Schema::as_unknown(Schema::record(Schema::as_unknown(
-        Schema::number(),
-    )));
+    let plain: Schema<Unknown> =
+        Schema::as_unknown(Schema::record(Schema::as_unknown(Schema::number())));
     let schema = Schema::struct_with_rest(
         vec![("a".to_string(), Schema::as_unknown(Schema::number()))],
         plain,
@@ -1005,14 +1093,15 @@ fn trimmed_string_refuses_padding_but_not_an_inner_space() {
         Schema::as_unknown(Schema::string()),
         "isTrimmed",
         Vec::new(),
-        vec![("expected", "a string with no leading or trailing whitespace")],
+        vec![(
+            "expected",
+            "a string with no leading or trailing whitespace",
+        )],
     );
     assert!(schema.decode(text("a")).is_ok(), "a bare word is trimmed");
     assert!(schema.decode(text("a b")).is_ok(), "an inner space is fine");
     for padded in [" a ", "a ", " a", "\ta", "a\n"] {
-        let error = schema
-            .decode(text(padded))
-            .expect_err("padding is refused");
+        let error = schema.decode(text(padded)).expect_err("padding is refused");
         assert!(
             error.to_string().contains("satisfying the refinement"),
             "{padded:?}: {error}"

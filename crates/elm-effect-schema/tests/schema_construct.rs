@@ -52,7 +52,7 @@ fn constructor_default_does_not_fill_on_decode_or_encode() {
         schema.decode(Unknown::Object(BTreeMap::new())).unwrap(),
         map(&[])
     );
-    assert_eq!(schema.encode(&map(&[])), obj(&[]));
+    assert_eq!(schema.try_encode(&map(&[])).unwrap(), obj(&[]));
 }
 
 /// Schema.test.ts:3746 `should apply constructor default when the field is not
@@ -130,12 +130,14 @@ fn a_default_that_calls_another_failing_make_keeps_its_path() {
     let field = Arc::clone(&inner);
     let schema = Schema::struct_shape(vec![Field::required(
         "a",
-        Schema::as_unknown(Schema::finite_from_string().with_constructor_default(move || {
-            // The pin's default is `Inner.makeEffect({ n: -1 }).pipe(map((s) => s.n))`,
-            // so the inner make's failure is the default's failure.
-            let built = field.make(map(&[("n", number(-1.0))]))?;
-            Ok(built.get("n").cloned().unwrap_or(Unknown::Null))
-        })),
+        Schema::as_unknown(
+            Schema::finite_from_string().with_constructor_default(move || {
+                // The pin's default is `Inner.makeEffect({ n: -1 }).pipe(map((s) => s.n))`,
+                // so the inner make's failure is the default's failure.
+                let built = field.make(map(&[("n", number(-1.0))]))?;
+                Ok(built.get("n").cloned().unwrap_or(Unknown::Null))
+            }),
+        ),
     )]);
 
     assert!(schema.make(map(&[("a", number(1.0))])).is_ok());

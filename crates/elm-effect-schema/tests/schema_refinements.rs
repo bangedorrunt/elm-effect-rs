@@ -22,7 +22,7 @@ fn char_admits_exactly_one_character() {
         message(&schema, text("ab")),
         "expected a value with a length of 1 at $, got string"
     );
-    assert_eq!(schema.encode(&"a".to_string()), text("a"));
+    assert_eq!(schema.try_encode(&"a".to_string()).unwrap(), text("a"));
     assert_eq!(
         schema
             .try_encode(&"ab".to_string())
@@ -48,7 +48,7 @@ fn int_is_an_integer_and_refuses_the_non_integers() {
             "{refused}"
         );
     }
-    assert_eq!(schema.encode(&1.0), Unknown::Number(1.0));
+    assert_eq!(schema.try_encode(&1.0).unwrap(), Unknown::Number(1.0));
     assert_eq!(
         schema.try_encode(&1.1).unwrap_err().to_string(),
         "expected an integer at $, got number"
@@ -82,7 +82,7 @@ fn natural_is_a_non_negative_integer() {
         schema.decode(Unknown::Number(1.1)).unwrap_err().to_string(),
         "expected an integer at $, got number"
     );
-    assert_eq!(schema.encode(&0.0), Unknown::Number(0.0));
+    assert_eq!(schema.try_encode(&0.0).unwrap(), Unknown::Number(0.0));
     assert_eq!(
         schema.try_encode(&-1.0).unwrap_err().to_string(),
         "expected a value greater than or equal to 0 at $, got number"
@@ -93,7 +93,7 @@ fn natural_is_a_non_negative_integer() {
 /// the value was already normalized. Each row names its own sentence.
 fn case_row(schema: Schema<String>, from: &str, to: &str, sentence: &str) {
     assert_eq!(schema.decode(text(from)), Ok(to.to_string()));
-    assert_eq!(schema.encode(&to.to_string()), text(to));
+    assert_eq!(schema.try_encode(&to.to_string()).unwrap(), text(to));
     assert_eq!(
         schema
             .try_encode(&from.to_string())

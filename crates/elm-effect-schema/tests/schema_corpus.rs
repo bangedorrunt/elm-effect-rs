@@ -743,7 +743,7 @@ fn double_transformation_roundtrip() {
     let doubled: Schema<f64> =
         Schema::convert(Schema::number(), |n: f64| Ok(n * 2.0), |n: &f64| n / 2.0);
     assert_eq!(doubled.decode(Unknown::Number(2.0)).unwrap(), 4.0);
-    assert_eq!(doubled.encode(&4.0), Unknown::Number(2.0));
+    assert_eq!(doubled.try_encode(&4.0).unwrap(), Unknown::Number(2.0));
 }
 
 #[test]
@@ -999,11 +999,11 @@ fn revives_is_string_bigint() {
 fn parser_encode_string_roundtrip() {
     let schema = Schema::string();
     assert_eq!(
-        schema.encode(&"hi".to_string()),
+        schema.try_encode(&"hi".to_string()).unwrap(),
         Unknown::Text("hi".to_string())
     );
     assert_eq!(
-        schema.decode(schema.encode(&"hi".to_string())).unwrap(),
+        schema.decode(schema.try_encode(&"hi".to_string()).unwrap()).unwrap(),
         "hi".to_string()
     );
 }
@@ -1011,20 +1011,20 @@ fn parser_encode_string_roundtrip() {
 #[test]
 fn parser_encode_number_roundtrip() {
     let schema = Schema::number();
-    assert_eq!(schema.encode(&2.5), Unknown::Number(2.5));
+    assert_eq!(schema.try_encode(&2.5).unwrap(), Unknown::Number(2.5));
 }
 
 #[test]
 fn parser_encode_boolean_and_null() {
-    assert_eq!(Schema::boolean().encode(&true), Unknown::Bool(true));
-    assert_eq!(Schema::null().encode(&()), Unknown::Null);
+    assert_eq!(Schema::boolean().try_encode(&true).unwrap(), Unknown::Bool(true));
+    assert_eq!(Schema::null().try_encode(&()).unwrap(), Unknown::Null);
 }
 
 #[test]
 fn parser_encode_literal_rejects_other() {
     let schema = Schema::literal(Unknown::Text("a".to_string()));
     assert_eq!(
-        schema.encode(&Unknown::Text("a".to_string())),
+        schema.try_encode(&Unknown::Text("a".to_string())).unwrap(),
         Unknown::Text("a".to_string())
     );
 }
@@ -1033,24 +1033,24 @@ fn parser_encode_literal_rejects_other() {
 fn parser_encode_optional_some_and_none() {
     let schema = Schema::optional(Schema::string());
     assert_eq!(
-        schema.encode(&Some("x".to_string())),
+        schema.try_encode(&Some("x".to_string())).unwrap(),
         Unknown::Text("x".to_string())
     );
-    assert_eq!(schema.encode(&None), Unknown::Null);
+    assert_eq!(schema.try_encode(&None).unwrap(), Unknown::Null);
 }
 
 #[test]
 fn parser_encode_array_and_union() {
     let schema = Schema::array(Schema::string());
     assert_eq!(
-        schema.encode(&vec!["a".to_string()]),
+        schema.try_encode(&vec!["a".to_string()]).unwrap(),
         Unknown::Array(vec![Unknown::Text("a".to_string())])
     );
     let schema = Schema::union(
         Schema::as_unknown(Schema::string()),
         Schema::as_unknown(Schema::number()),
     );
-    assert_eq!(schema.encode(&Unknown::Number(1.0)), Unknown::Number(1.0));
+    assert_eq!(schema.try_encode(&Unknown::Number(1.0)).unwrap(), Unknown::Number(1.0));
 }
 
 #[test]
@@ -1058,10 +1058,10 @@ fn parser_encode_record_and_tuple() {
     let schema = Schema::record(Schema::as_unknown(Schema::number()));
     let mut map = std::collections::BTreeMap::new();
     map.insert("k".to_string(), Unknown::Number(3.0));
-    assert_eq!(schema.encode(&map), Unknown::Object(map));
+    assert_eq!(schema.try_encode(&map).unwrap(), Unknown::Object(map));
     let schema = Schema::tuple2(Schema::string(), Schema::number());
     assert_eq!(
-        schema.encode(&("a".to_string(), 1.0)),
+        schema.try_encode(&("a".to_string(), 1.0)).unwrap(),
         Unknown::Array(vec![Unknown::Text("a".to_string()), Unknown::Number(1.0)])
     );
 }
@@ -1075,14 +1075,14 @@ fn parser_encode_struct_shape() {
     )]);
     let mut input = std::collections::BTreeMap::new();
     input.insert("name".to_string(), Unknown::Text("Al".to_string()));
-    assert_eq!(schema.encode(&input), Unknown::Object(input));
+    assert_eq!(schema.try_encode(&input).unwrap(), Unknown::Object(input));
 }
 
 #[test]
 fn parser_encode_convert_runs_encode_side() {
     let doubled: Schema<f64> =
         Schema::convert(Schema::number(), |n: f64| Ok(n * 2.0), |n: &f64| n / 2.0);
-    assert_eq!(doubled.encode(&4.0), Unknown::Number(2.0));
+    assert_eq!(doubled.try_encode(&4.0).unwrap(), Unknown::Number(2.0));
 }
 
 #[test]
@@ -1136,7 +1136,7 @@ fn codec_date_bare_struct_tuple_json() {
     const MILLIS: i64 = 1_609_459_200_000;
     let bare = date_schema();
     assert_eq!(bare.decode(Unknown::Text(ISO.to_string())).unwrap(), MILLIS);
-    assert_eq!(bare.encode(&MILLIS), Unknown::Text(ISO.to_string()));
+    assert_eq!(bare.try_encode(&MILLIS).unwrap(), Unknown::Text(ISO.to_string()));
     assert!(
         bare.decode(Unknown::Text("not-a-date".to_string()))
             .is_err()
@@ -1154,13 +1154,13 @@ fn codec_date_bare_struct_tuple_json() {
         strukt.decode(Unknown::Object(wire.clone())).unwrap()["a"],
         Unknown::Text(ISO.to_string())
     );
-    assert_eq!(strukt.encode(&wire), Unknown::Object(wire));
+    assert_eq!(strukt.try_encode(&wire).unwrap(), Unknown::Object(wire));
 
     // Single-element tuples have no Rust constructor (tuple2 is the
     // smallest); two dates still prove the element codec threads tuples.
     let pair = Schema::tuple2(date_schema(), Schema::string());
     assert_eq!(
-        pair.encode(&(MILLIS, "x".to_string())),
+        pair.try_encode(&(MILLIS, "x".to_string())).unwrap(),
         Unknown::Array(vec![
             Unknown::Text(ISO.to_string()),
             Unknown::Text("x".to_string())
@@ -3158,10 +3158,7 @@ fn json_schema_document_refusal_rows_name_their_specific_cause() {
         "required": ["copy"],
         "additionalProperties": false
     }));
-    assert!(
-        deep.contains("walks into a definition"),
-        "got: {deep}"
-    );
+    assert!(deep.contains("walks into a definition"), "got: {deep}");
 
     // :2852 — an open pattern scope: unmatched keys cannot be typed.
     let open_pattern = refuse(serde_json::json!({
@@ -3245,7 +3242,10 @@ fn json_schema_document_reference_rows_keep_the_reference_a_reference() {
 
     // A reference still decodes what it names.
     let decoded = bare.decode(Unknown::Text("a".to_string()));
-    assert!(decoded.is_ok(), "a reference decodes as the definition it names");
+    assert!(
+        decoded.is_ok(),
+        "a reference decodes as the definition it names"
+    );
     assert!(bare.decode(Unknown::Number(1.0)).is_err());
 }
 
@@ -3260,14 +3260,21 @@ fn json_schema_document_reference_variance_rows() {
         "$defs": {"A": {"type":"string"}}
     }))
     .expect("imports");
-    assert_eq!(v.to_code(), r#"Schema.suspend((): Schema.Codec<A> => A).annotate({ "description": "a" })"#);
+    assert_eq!(
+        v.to_code(),
+        r#"Schema.suspend((): Schema.Codec<A> => A).annotate({ "description": "a" })"#
+    );
     // :1466 and :1508 — recursive schema imports without blowing the stack
     // and keeps the root a reference to its own definition.
     for (name, src) in [
-        ("A",
-         json!({"$ref":"#/$defs/A","$defs":{"A":{"type":"object","properties":{"name":{"type":"string"},"children":{"type":"array","items":{"$ref":"#/$defs/A"}}},"required":["name","children"],"additionalProperties":false}}})),
-        ("Node",
-         json!({"$ref":"#/$defs/Node","$defs":{"Node":{"type":"object","properties":{"child":{"$ref":"#/$defs/Node","description":"recursive child"}},"required":["child"],"additionalProperties":false}}})),
+        (
+            "A",
+            json!({"$ref":"#/$defs/A","$defs":{"A":{"type":"object","properties":{"name":{"type":"string"},"children":{"type":"array","items":{"$ref":"#/$defs/A"}}},"required":["name","children"],"additionalProperties":false}}}),
+        ),
+        (
+            "Node",
+            json!({"$ref":"#/$defs/Node","$defs":{"Node":{"type":"object","properties":{"child":{"$ref":"#/$defs/Node","description":"recursive child"}},"required":["child"],"additionalProperties":false}}}),
+        ),
     ] {
         let s = Schema::<Unknown>::from_json_schema(&src).expect("imports");
         assert_eq!(s.to_code(), name);

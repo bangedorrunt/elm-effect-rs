@@ -174,8 +174,7 @@ fn utf8(bytes: Vec<u8>) -> Option<String> {
 
 const BASE64_STANDARD: &[u8; 64] =
     b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-const BASE64_URL: &[u8; 64] =
-    b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+const BASE64_URL: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
 
 fn base64_alphabet(url: bool) -> &'static [u8; 64] {
     if url { BASE64_URL } else { BASE64_STANDARD }
@@ -220,11 +219,7 @@ fn base64_decode(text: &str, url: bool) -> Option<Vec<u8>> {
     // emits is unpadded, so a remainder of 2 or 3 is legal and only 1 is not:
     // one character carries six bits, which is no byte.
     let remainder = bytes.len() % 4;
-    if if url {
-        remainder == 1
-    } else {
-        remainder != 0
-    } {
+    if if url { remainder == 1 } else { remainder != 0 } {
         return None;
     }
     let padding = bytes.iter().rev().take_while(|b| **b == b'=').count();
@@ -845,9 +840,12 @@ impl Parser {
         for (name, schema) in fields {
             match obj.get(*name) {
                 Some(value) => match schema.decode(value.clone()) {
-                    Ok(v) => {
-                        out.insert(name.to_string(), schema.encode(&v));
-                    }
+                    Ok(v) => match schema.try_encode(&v) {
+                        Ok(wire) => {
+                            out.insert(name.to_string(), wire);
+                        }
+                        Err(e) => errors.push(e),
+                    },
                     Err(e) => errors.push(e),
                 },
                 None => errors.push(SchemaError::TypeMismatch {
@@ -867,11 +865,6 @@ impl Parser {
     /// Type-side check: true when the input decodes (`is`).
     pub fn is<T>(schema: &Schema<T>, input: &Unknown) -> bool {
         schema.decode(input.clone()).is_ok()
-    }
-
-    /// Encode back (`encodeSync`).
-    pub fn encode<T>(schema: &Schema<T>, value: &T) -> Unknown {
-        schema.encode(value)
     }
 
     /// JSON entry points.
@@ -917,9 +910,9 @@ impl<T> ChannelSchema<T> {
         chunk.into_iter().map(|u| self.inner.decode(u)).collect()
     }
 
-    /// Encode every chunk.
-    pub fn encode_chunk(&self, chunk: &[T]) -> Vec<Unknown> {
-        chunk.iter().map(|v| self.inner.encode(v)).collect()
+    /// Encode every chunk, or the first refusal.
+    pub fn try_encode_chunk(&self, chunk: &[T]) -> Result<Vec<Unknown>, SchemaError> {
+        chunk.iter().map(|v| self.inner.try_encode(v)).collect()
     }
 }
 
@@ -1039,8 +1032,8 @@ impl<T: 'static> Branded<T> {
         }
     }
 
-    /// Encode back.
-    pub fn encode(&self, value: &T) -> Unknown {
-        self.schema.encode(value)
+    /// Encode back, or the reason this value is unrepresentable.
+    pub fn try_encode(&self, value: &T) -> Result<Unknown, SchemaError> {
+        self.schema.try_encode(value)
     }
 }

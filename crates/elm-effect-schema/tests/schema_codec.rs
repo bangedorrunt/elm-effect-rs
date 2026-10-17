@@ -29,8 +29,8 @@ fn codec_struct_is_idempotent() {
     let schema = name_schema();
     let wire = wire_name("ada");
     let decoded = schema.decode(wire.clone()).unwrap();
-    assert_eq!(schema.encode(&decoded), wire);
-    assert_eq!(schema.decode(schema.encode(&decoded)).unwrap(), decoded);
+    assert_eq!(schema.try_encode(&decoded).unwrap(), wire);
+    assert_eq!(schema.decode(schema.try_encode(&decoded).unwrap()).unwrap(), decoded);
 }
 
 #[test]
@@ -40,9 +40,9 @@ fn codec_record_round_trips_and_keeps_empty() {
     fields.insert("a".to_string(), Unknown::Text("1".to_string()));
     let wire = Unknown::Object(fields);
     let decoded = schema.decode(wire.clone()).unwrap();
-    assert_eq!(schema.encode(&decoded), wire);
+    assert_eq!(schema.try_encode(&decoded).unwrap(), wire);
     let empty = schema.decode(Unknown::Object(BTreeMap::new())).unwrap();
-    assert_eq!(schema.encode(&empty), Unknown::Object(BTreeMap::new()));
+    assert_eq!(schema.try_encode(&empty).unwrap(), Unknown::Object(BTreeMap::new()));
 }
 
 #[test]
@@ -51,7 +51,7 @@ fn codec_tuple_round_trips_in_order() {
     let wire = Unknown::Array(vec![Unknown::Text("x".to_string()), Unknown::Number(2.0)]);
     let decoded = schema.decode(wire.clone()).unwrap();
     assert_eq!(decoded, ("x".to_string(), 2.0));
-    assert_eq!(schema.encode(&decoded), wire);
+    assert_eq!(schema.try_encode(&decoded).unwrap(), wire);
 }
 
 #[test]
@@ -89,7 +89,7 @@ fn codec_union_falls_back_to_second_member() {
         Unknown::Number(3.0)
     );
     assert_eq!(
-        schema.encode(&Unknown::Text("s".to_string())),
+        schema.try_encode(&Unknown::Text("s".to_string())).unwrap(),
         Unknown::Text("s".to_string())
     );
 }
@@ -128,25 +128,48 @@ fn codec_scalars_round_trip() {
         .decode(Unknown::Text("s".to_string()))
         .unwrap();
     assert_eq!(
-        Schema::string().encode(&text),
+        Schema::string().try_encode(&text).unwrap(),
         Unknown::Text("s".to_string())
     );
     let number = Schema::number().decode(Unknown::Number(1.5)).unwrap();
-    assert_eq!(Schema::number().encode(&number), Unknown::Number(1.5));
+    assert_eq!(Schema::number().try_encode(&number).unwrap(), Unknown::Number(1.5));
     let flag = Schema::boolean().decode(Unknown::Bool(true)).unwrap();
-    assert_eq!(Schema::boolean().encode(&flag), Unknown::Bool(true));
+    assert_eq!(Schema::boolean().try_encode(&flag).unwrap(), Unknown::Bool(true));
 }
 
 #[test]
 fn codec_null_round_trips_and_never_rejects() {
     Schema::null().decode(Unknown::Null).unwrap();
-    assert_eq!(Schema::null().encode(&()), Unknown::Null);
+    assert_eq!(Schema::null().try_encode(&()).unwrap(), Unknown::Null);
     assert!(Schema::never().decode(Unknown::Null).is_err());
     assert!(
         Schema::never()
             .decode(Unknown::Text("x".to_string()))
             .is_err()
     );
+}
+
+#[test]
+fn unrepresentable_encode_returns_err() {
+    // Honesty: no panic channel, the refusal travels as `EncodingFailed`.
+    let err = Schema::never()
+        .try_encode(&Unknown::Null)
+        .expect_err("Never encodes nothing");
+    assert!(matches!(
+        err,
+        elm_effect_schema::SchemaError::EncodingFailed { .. }
+    ));
+    let mapped = Schema::literal_transform(vec![(
+        Unknown::Text("a".to_string()),
+        Unknown::Text("A".to_string()),
+    )]);
+    let err = mapped
+        .try_encode(&Unknown::Text("B".to_string()))
+        .expect_err("an unmapped output is unrepresentable");
+    assert!(matches!(
+        err,
+        elm_effect_schema::SchemaError::EncodingFailed { .. }
+    ));
 }
 
 #[test]
@@ -158,7 +181,7 @@ fn codec_any_accepts_everything() {
         Unknown::Text("u".to_string()),
     ] {
         let decoded = Schema::any().decode(wire.clone()).unwrap();
-        assert_eq!(Schema::any().encode(&decoded), wire);
+        assert_eq!(Schema::any().try_encode(&decoded).unwrap(), wire);
     }
 }
 
@@ -166,7 +189,7 @@ fn codec_any_accepts_everything() {
 fn codec_literal_accepts_only_its_value() {
     let schema = Schema::literal(Unknown::Text("a".to_string()));
     let decoded = schema.decode(Unknown::Text("a".to_string())).unwrap();
-    assert_eq!(schema.encode(&decoded), Unknown::Text("a".to_string()));
+    assert_eq!(schema.try_encode(&decoded).unwrap(), Unknown::Text("a".to_string()));
     assert!(schema.decode(Unknown::Text("b".to_string())).is_err());
 }
 
@@ -220,7 +243,7 @@ fn codec_union_of_literals_covers_enum() {
     for member in ["a", "b"] {
         let wire = Unknown::Text(member.to_string());
         let decoded = schema.decode(wire.clone()).unwrap();
-        assert_eq!(schema.encode(&decoded), wire);
+        assert_eq!(schema.try_encode(&decoded).unwrap(), wire);
     }
     assert!(schema.decode(Unknown::Text("z".to_string())).is_err());
 }
@@ -230,7 +253,7 @@ fn codec_array_of_literals_covers_enum() {
     let schema = Schema::array(Schema::literal(Unknown::Text("a".to_string())));
     let wire = Unknown::Array(vec![Unknown::Text("a".to_string())]);
     let decoded = schema.decode(wire.clone()).unwrap();
-    assert_eq!(schema.encode(&decoded), wire);
+    assert_eq!(schema.try_encode(&decoded).unwrap(), wire);
     let bad = Unknown::Array(vec![Unknown::Text("z".to_string())]);
     assert!(schema.decode(bad).is_err());
 }
@@ -249,10 +272,10 @@ fn codec_optional_date_json_shapes() {
     assert_eq!(nullable.decode(Unknown::Null).unwrap(), None);
     assert!(nullable.decode(Unknown::Number(1.0)).is_err());
     assert_eq!(
-        nullable.encode(&Some(MILLIS)),
+        nullable.try_encode(&Some(MILLIS)).unwrap(),
         Unknown::Text(ISO.to_string())
     );
-    assert_eq!(nullable.encode(&None), Unknown::Null);
+    assert_eq!(nullable.try_encode(&None).unwrap(), Unknown::Null);
     // Struct NullOr/UndefinedOr/optional(Date): present, null, absent.
     let strukt = Schema::struct_shape(vec![Field::optional(
         "a",
@@ -264,27 +287,33 @@ fn codec_optional_date_json_shapes() {
         strukt.decode(Unknown::Object(present.clone())).unwrap()["a"],
         Unknown::Text(ISO.to_string())
     );
-    assert_eq!(strukt.encode(&present), Unknown::Object(present));
+    assert_eq!(strukt.try_encode(&present).unwrap(), Unknown::Object(present));
     let mut nullish = BTreeMap::new();
     nullish.insert("a".to_string(), Unknown::Null);
     // Explicit null normalizes to absent (TS decodes it to undefined).
-    assert!(!strukt
-        .decode(Unknown::Object(nullish))
-        .unwrap()
-        .contains_key("a"));
-    assert!(!strukt
-        .decode(Unknown::Object(BTreeMap::new()))
-        .unwrap()
-        .contains_key("a"));
+    assert!(
+        !strukt
+            .decode(Unknown::Object(nullish))
+            .unwrap()
+            .contains_key("a")
+    );
+    assert!(
+        !strukt
+            .decode(Unknown::Object(BTreeMap::new()))
+            .unwrap()
+            .contains_key("a")
+    );
     // Struct optionalKey(Date): absent ok, explicit null decodes inner.
     let keyed = Schema::struct_shape(vec![Field::optional_key(
         "a",
         Schema::as_unknown(Schema::optional(date_schema())),
     )]);
-    assert!(!keyed
-        .decode(Unknown::Object(BTreeMap::new()))
-        .unwrap()
-        .contains_key("a"));
+    assert!(
+        !keyed
+            .decode(Unknown::Object(BTreeMap::new()))
+            .unwrap()
+            .contains_key("a")
+    );
     let mut null_wire = BTreeMap::new();
     null_wire.insert("a".to_string(), Unknown::Null);
     assert_eq!(
@@ -304,7 +333,7 @@ fn codec_unknown_round_trips_any_json() {
         Unknown::Object([("a".to_string(), Unknown::Text("a".to_string()))].into()),
         Unknown::Array(vec![Unknown::Text("a".to_string()), Unknown::Number(1.0)]),
     ] {
-        let encoded = schema.encode(&value);
+        let encoded = schema.try_encode(&value).unwrap();
         assert_eq!(encoded, value);
         assert_eq!(schema.decode(value.clone()).unwrap(), value);
     }
@@ -319,7 +348,7 @@ fn codec_object_keyword_takes_objects_only() {
         schema.decode(Unknown::Object(fields.clone())).unwrap(),
         fields
     );
-    assert_eq!(schema.encode(&fields), Unknown::Object(fields));
+    assert_eq!(schema.try_encode(&fields).unwrap(), Unknown::Object(fields));
     assert!(schema.decode(Unknown::Array(vec![])).is_err());
     assert!(schema.decode(Unknown::Null).is_err());
 }
@@ -336,7 +365,7 @@ fn codec_null_and_string_are_identity() {
         "a".to_string()
     );
     assert_eq!(
-        string.encode(&"a".to_string()),
+        string.try_encode(&"a".to_string()).unwrap(),
         Unknown::Text("a".to_string())
     );
     assert!(string.decode(Unknown::Number(1.0)).is_err());
@@ -347,7 +376,7 @@ fn codec_void_and_undefined_map_to_null() {
     // TS Void/Undefined hold no data and travel as JSON null; the Rust
     // wire representation is the same literal.
     let void = Schema::<Unknown>::literal(Unknown::Null);
-    assert_eq!(void.encode(&Unknown::Null), Unknown::Null);
+    assert_eq!(void.try_encode(&Unknown::Null).unwrap(), Unknown::Null);
     assert_eq!(void.decode(Unknown::Null).unwrap(), Unknown::Null);
     assert!(void.decode(Unknown::Text("a".to_string())).is_err());
 }
@@ -361,7 +390,7 @@ fn codec_literal_string_round_trips() {
     let schema = Schema::<Unknown>::literal(Unknown::Text("a".to_string()));
     let wire = Unknown::Text("a".to_string());
     let decoded = schema.decode(wire.clone()).unwrap();
-    assert_eq!(schema.encode(&decoded), wire);
+    assert_eq!(schema.try_encode(&decoded).unwrap(), wire);
     assert!(schema.decode(Unknown::Text("b".to_string())).is_err());
 }
 
@@ -371,7 +400,7 @@ fn codec_literal_number_round_trips() {
     let schema = Schema::<Unknown>::literal(Unknown::Number(1.0));
     let wire = Unknown::Number(1.0);
     let decoded = schema.decode(wire.clone()).unwrap();
-    assert_eq!(schema.encode(&decoded), wire);
+    assert_eq!(schema.try_encode(&decoded).unwrap(), wire);
     assert!(schema.decode(Unknown::Number(2.0)).is_err());
     assert!(schema.decode(Unknown::Text("1".to_string())).is_err());
 }
@@ -382,7 +411,7 @@ fn codec_literal_boolean_round_trips() {
     let schema = Schema::<Unknown>::literal(Unknown::Bool(true));
     let wire = Unknown::Bool(true);
     let decoded = schema.decode(wire.clone()).unwrap();
-    assert_eq!(schema.encode(&decoded), wire);
+    assert_eq!(schema.try_encode(&decoded).unwrap(), wire);
     assert!(schema.decode(Unknown::Bool(false)).is_err());
 }
 
@@ -421,7 +450,13 @@ fn codec_template_literal_bigint_then_string_round_trips() {
         TemplatePart::AnyString,
     ]);
     let captures = schema.parse("1a").expect("matches");
-    assert_eq!(captures, vec![Unknown::Text("1".to_string()), Unknown::Text("a".to_string())]);
+    assert_eq!(
+        captures,
+        vec![
+            Unknown::Text("1".to_string()),
+            Unknown::Text("a".to_string())
+        ]
+    );
     assert_eq!(schema.render(&captures).as_deref(), Some("1a"));
     assert!(!schema.matches("2a"));
 }
@@ -436,7 +471,13 @@ fn codec_template_literal_string_then_bigint_round_trips() {
         TemplatePart::Digits,
     ]);
     let captures = schema.parse("a1").expect("matches");
-    assert_eq!(captures, vec![Unknown::Text("a".to_string()), Unknown::Text("1".to_string())]);
+    assert_eq!(
+        captures,
+        vec![
+            Unknown::Text("a".to_string()),
+            Unknown::Text("1".to_string())
+        ]
+    );
     assert_eq!(schema.render(&captures).as_deref(), Some("a1"));
     assert!(!schema.matches("a1.2"));
     assert!(!schema.matches("b1"));
@@ -453,10 +494,12 @@ fn codec_array_of_date_round_trips() {
         Unknown::Text("2021-01-02T00:00:00.000Z".to_string()),
     ]);
     let decoded = schema.decode(wire.clone()).unwrap();
-    assert_eq!(schema.encode(&decoded), wire);
-    assert!(schema
-        .decode(Unknown::Array(vec![Unknown::Text("nope".to_string())]))
-        .is_err());
+    assert_eq!(schema.try_encode(&decoded).unwrap(), wire);
+    assert!(
+        schema
+            .decode(Unknown::Array(vec![Unknown::Text("nope".to_string())]))
+            .is_err()
+    );
 }
 
 /// toCodec.test.ts:905 — `Schema.toCodecJson(Schema.NullOr(Schema.String))`:
@@ -476,9 +519,9 @@ fn codec_null_or_string_round_trips() {
         schema.decode(Unknown::Text("a".to_string())).unwrap(),
         Unknown::Text("a".to_string())
     );
-    assert_eq!(schema.encode(&Unknown::Null), Unknown::Null);
+    assert_eq!(schema.try_encode(&Unknown::Null).unwrap(), Unknown::Null);
     assert_eq!(
-        schema.encode(&Unknown::Text("a".to_string())),
+        schema.try_encode(&Unknown::Text("a".to_string())).unwrap(),
         Unknown::Text("a".to_string())
     );
     assert!(schema.decode(Unknown::Number(1.0)).is_err());
@@ -492,12 +535,12 @@ fn codec_null_or_number_round_trips() {
         Schema::as_unknown(Schema::<()>::null()),
     );
     assert_eq!(schema.decode(Unknown::Null).unwrap(), Unknown::Null);
-    assert_eq!(schema.decode(Unknown::Number(1.0)).unwrap(), Unknown::Number(1.0));
-    assert_eq!(schema.encode(&Unknown::Null), Unknown::Null);
     assert_eq!(
-        schema.encode(&Unknown::Number(1.0)),
+        schema.decode(Unknown::Number(1.0)).unwrap(),
         Unknown::Number(1.0)
     );
+    assert_eq!(schema.try_encode(&Unknown::Null).unwrap(), Unknown::Null);
+    assert_eq!(schema.try_encode(&Unknown::Number(1.0)).unwrap(), Unknown::Number(1.0));
     assert!(schema.decode(Unknown::Text("a".to_string())).is_err());
 }
 
@@ -512,10 +555,12 @@ fn codec_array_of_null_or_number_round_trips() {
     let schema = Schema::as_unknown(Schema::array(nullable));
     let wire = Unknown::Array(vec![Unknown::Number(1.0), Unknown::Null]);
     let decoded = schema.decode(wire.clone()).unwrap();
-    assert_eq!(schema.encode(&decoded), wire);
-    assert!(schema
-        .decode(Unknown::Array(vec![Unknown::Text("a".to_string())]))
-        .is_err());
+    assert_eq!(schema.try_encode(&decoded).unwrap(), wire);
+    assert!(
+        schema
+            .decode(Unknown::Array(vec![Unknown::Text("a".to_string())]))
+            .is_err()
+    );
 }
 
 /// toCodec.test.ts:210, :216, :222 — "should return the same reference if
@@ -528,16 +573,20 @@ fn codec_leaves_a_tuple_array_and_union_shape_alone() {
         Schema::as_unknown(Schema::string()),
         Schema::as_unknown(Schema::boolean()),
     ]);
-    assert_eq!(tuple.to_code(), "Schema.Tuple([Schema.String, Schema.Boolean])");
+    assert_eq!(
+        tuple.to_code(),
+        "Schema.Tuple([Schema.String, Schema.Boolean])"
+    );
     let wire = Unknown::Array(vec![text("a"), Unknown::Bool(true)]);
     let decoded = tuple.decode(wire.clone()).expect("a tuple decodes");
-    assert_eq!(tuple.encode(&decoded), wire);
+    assert_eq!(tuple.try_encode(&decoded).unwrap(), wire);
 
-    let array: Schema<Unknown> = Schema::as_unknown(Schema::array(Schema::as_unknown(Schema::string())));
+    let array: Schema<Unknown> =
+        Schema::as_unknown(Schema::array(Schema::as_unknown(Schema::string())));
     assert_eq!(array.to_code(), "Schema.Array(Schema.String)");
     let wire = Unknown::Array(vec![text("a")]);
     let decoded = array.decode(wire.clone()).expect("an array decodes");
-    assert_eq!(array.encode(&decoded), wire);
+    assert_eq!(array.try_encode(&decoded).unwrap(), wire);
 
     let union = Schema::union_with_mode(
         vec![
@@ -546,10 +595,16 @@ fn codec_leaves_a_tuple_array_and_union_shape_alone() {
         ],
         "anyOf",
     );
-    assert_eq!(union.to_code(), "Schema.Union([Schema.String, Schema.Boolean])");
-    assert_eq!(union.encode(&union.decode(text("a")).expect("text")), text("a"));
     assert_eq!(
-        union.encode(&union.decode(Unknown::Bool(false)).expect("bool")),
+        union.to_code(),
+        "Schema.Union([Schema.String, Schema.Boolean])"
+    );
+    assert_eq!(
+        union.try_encode(&union.decode(text("a")).expect("text")).unwrap(),
+        text("a")
+    );
+    assert_eq!(
+        union.try_encode(&union.decode(Unknown::Bool(false)).expect("bool")).unwrap(),
         Unknown::Bool(false)
     );
 }
@@ -626,7 +681,7 @@ fn codec_suspends_a_recursive_struct_and_round_trips_nested_values() {
 
     for value in [leaf(), nested.clone()] {
         let decoded = schema.decode(value.clone()).expect("a category decodes");
-        assert_eq!(schema.encode(&decoded), value);
+        assert_eq!(schema.try_encode(&decoded).unwrap(), value);
     }
     // The checked field decides each node: a non-positive `a` is refused
     // wherever it appears, including inside the suspended array.
@@ -634,8 +689,13 @@ fn codec_suspends_a_recursive_struct_and_round_trips_nested_values() {
         ("a".to_string(), Unknown::Number(0.0)),
         ("categories".to_string(), Unknown::Array(vec![])),
     ]));
-    let error = schema.decode(bad).expect_err("a non-positive field is refused");
-    assert!(error.to_string().contains("satisfying the refinement"), "{error}");
+    let error = schema
+        .decode(bad)
+        .expect_err("a non-positive field is refused");
+    assert!(
+        error.to_string().contains("satisfying the refinement"),
+        "{error}"
+    );
     let bad_nested = Unknown::Object(BTreeMap::from([
         ("a".to_string(), Unknown::Number(1.0)),
         (
@@ -646,7 +706,10 @@ fn codec_suspends_a_recursive_struct_and_round_trips_nested_values() {
             ]))]),
         ),
     ]));
-    assert!(schema.decode(bad_nested).is_err(), "the check reaches the nested node");
+    assert!(
+        schema.decode(bad_nested).is_err(),
+        "the check reaches the nested node"
+    );
 }
 
 // --- toCodec.test.ts: the plain JSON codec rows, where the wire form is the
@@ -672,7 +735,7 @@ fn codec_unknown_round_trips_every_json_value() {
     ];
     for value in values {
         let decoded = schema.decode(value.clone()).expect("a JSON value decodes");
-        assert_eq!(schema.encode(&decoded), value);
+        assert_eq!(schema.try_encode(&decoded).unwrap(), value);
     }
 }
 
@@ -687,7 +750,12 @@ fn codec_object_keyword_admits_objects_and_arrays_only() {
     ] {
         assert!(schema.decode(value.clone()).is_ok(), "{value:?}");
     }
-    for value in [text("a"), Unknown::Number(1.0), Unknown::Bool(true), Unknown::Null] {
+    for value in [
+        text("a"),
+        Unknown::Number(1.0),
+        Unknown::Bool(true),
+        Unknown::Null,
+    ] {
         let error = schema.decode(value).expect_err("a scalar is refused");
         assert!(error.to_string().contains("object"), "{error}");
     }
@@ -700,7 +768,7 @@ fn codec_object_keyword_admits_objects_and_arrays_only() {
 fn codec_undefined_and_void_stand_in_null_on_the_wire() {
     let undefined = Schema::<()>::void();
     assert_eq!(undefined.decode(Unknown::Null).unwrap(), ());
-    assert_eq!(undefined.encode(&()), Unknown::Null);
+    assert_eq!(undefined.try_encode(&()).unwrap(), Unknown::Null);
 }
 
 /// toCodec.test.ts:324 — `Schema.toCodecJson(Schema.Null)`: null is the only
@@ -709,7 +777,7 @@ fn codec_undefined_and_void_stand_in_null_on_the_wire() {
 fn codec_null_round_trips_only_null() {
     let schema = Schema::null();
     assert_eq!(schema.decode(Unknown::Null).unwrap(), ());
-    assert_eq!(schema.encode(&()), Unknown::Null);
+    assert_eq!(schema.try_encode(&()).unwrap(), Unknown::Null);
     assert!(schema.decode(Unknown::Number(1.0)).is_err());
     assert!(schema.decode(text("a")).is_err());
 }
@@ -720,7 +788,7 @@ fn codec_null_round_trips_only_null() {
 fn codec_string_round_trips_and_refuses_other_kinds() {
     let schema = Schema::string();
     assert_eq!(schema.decode(text("a")).unwrap(), "a");
-    assert_eq!(schema.encode(&"a".to_string()), text("a"));
+    assert_eq!(schema.try_encode(&"a".to_string()).unwrap(), text("a"));
     for value in [Unknown::Number(1.0), Unknown::Bool(true), Unknown::Null] {
         let error = schema.decode(value).expect_err("a non-string is refused");
         assert!(error.to_string().contains("string"), "{error}");
@@ -733,7 +801,7 @@ fn codec_string_round_trips_and_refuses_other_kinds() {
 fn codec_boolean_round_trips_and_refuses_other_kinds() {
     let schema = Schema::boolean();
     assert!(schema.decode(Unknown::Bool(true)).unwrap());
-    assert_eq!(schema.encode(&true), Unknown::Bool(true));
+    assert_eq!(schema.try_encode(&true).unwrap(), Unknown::Bool(true));
     assert!(!schema.decode(Unknown::Bool(false)).unwrap());
     for value in [Unknown::Number(1.0), text("true"), Unknown::Null] {
         let error = schema.decode(value).expect_err("a non-boolean is refused");

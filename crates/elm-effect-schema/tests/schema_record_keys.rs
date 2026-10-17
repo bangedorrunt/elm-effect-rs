@@ -217,7 +217,7 @@ fn struct_with_rest_does_not_re_parse_a_fixed_property() {
 
     // The pin's encode half: encoding leaves the decoded object as it stands.
     assert_eq!(
-        marked.encode(&obj(vec![("a", text("x!")), ("b", text("y!"))])),
+        marked.try_encode(&obj(vec![("a", text("x!")), ("b", text("y!"))])).unwrap(),
         obj(vec![("a", text("x!")), ("b", text("y!"))])
     );
 }
@@ -239,12 +239,14 @@ fn marked_once() -> Transformation<String, String> {
 /// its own check, so a dropped check shows up as the wrong name or a pass.
 #[test]
 fn struct_with_rest_keeps_both_checks() {
-    let positive = number_schema().refine("agt(0)", |value: &Unknown| {
-        matches!(value, Unknown::Number(number) if *number > 0.0)
-    });
-    let above_one = number_schema().refine("bgt(1)", |value: &Unknown| {
-        matches!(value, Unknown::Number(number) if *number > 1.0)
-    });
+    let positive = number_schema().refine(
+        "agt(0)",
+        |value: &Unknown| matches!(value, Unknown::Number(number) if *number > 0.0),
+    );
+    let above_one = number_schema().refine(
+        "bgt(1)",
+        |value: &Unknown| matches!(value, Unknown::Number(number) if *number > 1.0),
+    );
     let schema = Schema::struct_with_rest(vec![("a".to_string(), positive)], above_one);
 
     assert_eq!(

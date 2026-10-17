@@ -23,8 +23,14 @@ fn schema_types_are_reachable_from_elm_effect() {
 #[test]
 fn reexported_schema_round_trips() {
     let schema = Schema::string();
-    assert_eq!(schema.decode(Unknown::Text("hi".to_string())), Ok("hi".to_string()));
-    assert_eq!(schema.encode(&"hi".to_string()), Unknown::Text("hi".to_string()));
+    assert_eq!(
+        schema.decode(Unknown::Text("hi".to_string())),
+        Ok("hi".to_string())
+    );
+    assert_eq!(
+        schema.try_encode(&"hi".to_string()).unwrap(),
+        Unknown::Text("hi".to_string())
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -43,9 +49,10 @@ fn revives_is_guid() {
     let schema = Schema::string().refine("a GUID", |s: &String| {
         let parts: Vec<&str> = s.split('-').collect();
         parts.len() == 5
-            && parts.iter().zip([8usize, 4, 4, 4, 12]).all(|(p, want)| {
-                p.len() == want && p.chars().all(|c| c.is_ascii_hexdigit())
-            })
+            && parts
+                .iter()
+                .zip([8usize, 4, 4, 4, 12])
+                .all(|(p, want)| p.len() == want && p.chars().all(|c| c.is_ascii_hexdigit()))
     });
     assert!(
         schema
@@ -97,7 +104,10 @@ fn revives_greater_than_bigint() {
     let schema = Schema::string().refine("a bigint above 10", |s: &String| {
         s.parse::<i128>().is_ok_and(|n| n > 10)
     });
-    assert_eq!(schema.decode(Unknown::Text("11".to_string())).unwrap(), "11");
+    assert_eq!(
+        schema.decode(Unknown::Text("11".to_string())).unwrap(),
+        "11"
+    );
     assert!(schema.decode(Unknown::Text("10".to_string())).is_err());
 }
 
@@ -108,7 +118,10 @@ fn revives_greater_than_or_equal_to_bigint() {
     let schema = Schema::string().refine("a bigint of at least 10", |s: &String| {
         s.parse::<i128>().is_ok_and(|n| n >= 10)
     });
-    assert_eq!(schema.decode(Unknown::Text("10".to_string())).unwrap(), "10");
+    assert_eq!(
+        schema.decode(Unknown::Text("10".to_string())).unwrap(),
+        "10"
+    );
     assert!(schema.decode(Unknown::Text("9".to_string())).is_err());
 }
 
@@ -128,7 +141,10 @@ fn revives_less_than_or_equal_to_bigint() {
     let schema = Schema::string().refine("a bigint of at most 10", |s: &String| {
         s.parse::<i128>().is_ok_and(|n| n <= 10)
     });
-    assert_eq!(schema.decode(Unknown::Text("10".to_string())).unwrap(), "10");
+    assert_eq!(
+        schema.decode(Unknown::Text("10".to_string())).unwrap(),
+        "10"
+    );
     assert!(schema.decode(Unknown::Text("11".to_string())).is_err());
 }
 
@@ -141,7 +157,10 @@ fn revives_between_bigint() {
         s.parse::<i128>().is_ok_and(|n| (-10..10).contains(&n))
     });
     assert_eq!(schema.decode(Unknown::Text("0".to_string())).unwrap(), "0");
-    assert_eq!(schema.decode(Unknown::Text("-10".to_string())).unwrap(), "-10");
+    assert_eq!(
+        schema.decode(Unknown::Text("-10".to_string())).unwrap(),
+        "-10"
+    );
     assert!(schema.decode(Unknown::Text("10".to_string())).is_err());
 }
 
@@ -213,7 +232,10 @@ fn revives_is_unique_key() {
         Unknown::Array(vec![Unknown::Text("a".to_string()), Unknown::Number(1.0)]),
         Unknown::Array(vec![Unknown::Text("a".to_string()), Unknown::Number(2.0)]),
     ]);
-    assert!(schema.decode(ok.clone()).is_ok(), "repeated values are fine: {ok:?}");
+    assert!(
+        schema.decode(ok.clone()).is_ok(),
+        "repeated values are fine: {ok:?}"
+    );
     assert!(schema.decode(dup).is_err(), "a repeated key is not");
 }
 
@@ -272,7 +294,12 @@ fn revives_property_names() {
 // ---------------------------------------------------------------------------
 
 fn obj(pairs: &[(&str, Unknown)]) -> Unknown {
-    Unknown::Object(pairs.iter().map(|(k, v)| ((*k).to_string(), v.clone())).collect())
+    Unknown::Object(
+        pairs
+            .iter()
+            .map(|(k, v)| ((*k).to_string(), v.clone()))
+            .collect(),
+    )
 }
 
 fn text(s: &str) -> Unknown {
@@ -313,10 +340,7 @@ fn formatter_renders_declared_struct_fields_with_spaces() {
     // the very schema being built, so it cannot be inferred from the body.
     let rec: Schema<Unknown> =
         Schema::<Unknown>::suspend(move || inner_slot.lock().unwrap().as_ref().unwrap().clone());
-    let schema = ustruct([
-        ("a", ustr()),
-        ("as", uarray(Schema::as_unknown(rec))),
-    ]);
+    let schema = ustruct([("a", ustr()), ("as", uarray(Schema::as_unknown(rec)))]);
     *slot.lock().unwrap() = Some(schema.clone());
 
     let format = schema.formatter();
@@ -393,10 +417,7 @@ fn formatter_renders_array_of_structs() {
     // the very schema being built, so it cannot be inferred from the body.
     let rec: Schema<Unknown> =
         Schema::<Unknown>::suspend(move || inner_slot.lock().unwrap().as_ref().unwrap().clone());
-    let schema = ustruct([
-        ("a", ustr()),
-        ("b", uarray(Schema::as_unknown(rec))),
-    ]);
+    let schema = ustruct([("a", ustr()), ("b", uarray(Schema::as_unknown(rec)))]);
     *slot.lock().unwrap() = Some(schema.clone());
 
     let format = schema.formatter();
@@ -404,7 +425,10 @@ fn formatter_renders_array_of_structs() {
         ("a", text("a")),
         (
             "b",
-            Unknown::Array(vec![obj(&[("a", text("b")), ("b", Unknown::Array(vec![]))])]),
+            Unknown::Array(vec![obj(&[
+                ("a", text("b")),
+                ("b", Unknown::Array(vec![])),
+            ])]),
         ),
     ]);
     assert_eq!(
@@ -430,10 +454,13 @@ fn formatter_renders_two_array_fields_sharing_a_recursion() {
     let leaf = || Unknown::Array(vec![]);
     let inner = obj(&[("a", leaf()), ("b", leaf())]);
     let value = obj(&[
-        ("a", Unknown::Array(vec![obj(&[
-            ("a", Unknown::Array(vec![inner.clone()])),
-            ("b", leaf()),
-        ])])),
+        (
+            "a",
+            Unknown::Array(vec![obj(&[
+                ("a", Unknown::Array(vec![inner.clone()])),
+                ("b", leaf()),
+            ])]),
+        ),
         ("b", Unknown::Array(vec![inner])),
     ]);
     assert_eq!(

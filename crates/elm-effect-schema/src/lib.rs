@@ -1605,20 +1605,6 @@ impl<T> Schema<T> {
         (self.decode)(unknown)
     }
 
-    /// Encode a typed value back to unknown. Total for a schema that cannot
-    /// refuse one, which is nearly all of them; the ones that can (a
-    /// literal-to-literal transform, a union of transformed members) report it
-    /// through [`try_encode`] and panic here rather than hand back a wire value
-    /// the schema does not describe.
-    ///
-    /// [`try_encode`]: Self::try_encode
-    pub fn encode(&self, value: &T) -> Unknown {
-        match (self.encode)(value) {
-            Ok(unknown) => unknown,
-            Err(error) => panic!("encode refused the value: {error}; use try_encode to handle it"),
-        }
-    }
-
     /// Encode, or the reason this schema cannot represent the value.
     pub fn try_encode(&self, value: &T) -> Result<Unknown, SchemaError> {
         (self.encode)(value)
@@ -1636,8 +1622,10 @@ impl<T> Schema<T> {
                 for (name, field) in &self.children {
                     match map.get(name) {
                         Some(value) => {
-                            if let Err(error) = field.decode(value.clone()) {
-                                issues.push(repath_under(error, &format!("$.{name}")));
+                            if let Err(errors) = field.decode_collect(value.clone()) {
+                                for error in errors {
+                                    issues.push(repath_under(error, &format!("$.{name}")));
+                                }
                             }
                         }
                         None => issues.push(SchemaError::TypeMismatch {
@@ -1645,6 +1633,50 @@ impl<T> Schema<T> {
                             expected: "a declared field",
                             got: "absent",
                         }),
+                    }
+                }
+                if !issues.is_empty() {
+                    return Err(issues);
+                }
+            }
+        } else if let Some(fields) = &self.struct_fields {
+            if let Unknown::Object(map) = &input {
+                let mut issues = Vec::new();
+                for field in fields {
+                    match map.get(&field.name) {
+                        None
+                            if field.decoding_default.is_some()
+                                || field.schema.decoding_default.is_some() =>
+                        {
+                            let default = field
+                                .decoding_default
+                                .as_ref()
+                                .or(field.schema.decoding_default.as_ref())
+                                .expect("checked just above");
+                            let path = format!("$.{}", field.name);
+                            if let Err(error) = field.schema.absent_value(default, &path) {
+                                issues.push(error);
+                            }
+                        }
+                        None if field.optionality != Optionality::Required => {}
+                        Some(Unknown::Null) if field.optionality == Optionality::Optional => {}
+                        None => issues.push(SchemaError::TypeMismatch {
+                            path: format!("$.{}", field.name),
+                            expected: "required field",
+                            got: "missing",
+                        }),
+                        Some(value) => {
+                            if let Err(errors) =
+                                field.schema.decode_collect(value.clone())
+                            {
+                                for error in errors {
+                                    issues.push(repath_under(
+                                        error,
+                                        &format!("$.{}", field.name),
+                                    ));
+                                }
+                            }
+                        }
                     }
                 }
                 if !issues.is_empty() {
@@ -1829,6 +1861,10 @@ impl<T> Schema<T> {
         // identity has to survive it or a nested class field would not
         // recognize an instance.
         out.class_meta = schema.class_meta.clone();
+        // A nested struct must stay reachable for accumulating validation:
+        // `decode_collect` recurses through `children`, and every struct
+        // field passes through this re-typing.
+        out.children = schema.children.clone();
         // A derivation needs the field list through the re-typing too, which is
         // how every struct field is spelled.
         out.struct_fields = schema.struct_fields.clone();

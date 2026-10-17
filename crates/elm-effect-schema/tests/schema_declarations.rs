@@ -10,26 +10,32 @@ fn lit(text: &str) -> Schema<Unknown> {
 #[test]
 fn cell_literal_a() {
     let schema = lit("a");
-    assert_eq!(schema.decode(Unknown::Text("a".to_string())), Ok(Unknown::Text("a".to_string())));
+    assert_eq!(
+        schema.decode(Unknown::Text("a".to_string())),
+        Ok(Unknown::Text("a".to_string()))
+    );
     assert!(schema.decode(Unknown::Null).is_err());
     assert!(schema.decode(Unknown::Number(1.0)).is_err());
-    assert_eq!(schema.encode(&Unknown::Text("a".to_string())), Unknown::Text("a".to_string()));
+    assert_eq!(
+        schema.try_encode(&Unknown::Text("a".to_string())).unwrap(),
+        Unknown::Text("a".to_string())
+    );
 }
 
 #[test]
 fn cell_literal_1() {
     let schema = Schema::literal(Unknown::Number(1.0));
-    assert_eq!(schema.decode(Unknown::Number(1.0)), Ok(Unknown::Number(1.0)));
+    assert_eq!(
+        schema.decode(Unknown::Number(1.0)),
+        Ok(Unknown::Number(1.0))
+    );
     assert!(schema.decode(Unknown::Null).is_err());
     assert!(schema.decode(Unknown::Text("1".to_string())).is_err());
 }
 
 #[test]
 fn cell_literal_union_red_green_blue() {
-    let schema = Schema::union(
-        Schema::union(lit("red"), lit("green")),
-        lit("blue"),
-    );
+    let schema = Schema::union(Schema::union(lit("red"), lit("green")), lit("blue"));
     for color in ["red", "green", "blue"] {
         assert_eq!(
             schema.decode(Unknown::Text(color.to_string())),
@@ -53,7 +59,10 @@ fn cell_string() {
 #[test]
 fn cell_number() {
     let schema = Schema::as_unknown(Schema::number());
-    assert_eq!(schema.decode(Unknown::Number(1.0)), Ok(Unknown::Number(1.0)));
+    assert_eq!(
+        schema.decode(Unknown::Number(1.0)),
+        Ok(Unknown::Number(1.0))
+    );
     assert!(schema.decode(Unknown::Null).is_err());
     assert!(schema.decode(Unknown::Text("1".to_string())).is_err());
 }

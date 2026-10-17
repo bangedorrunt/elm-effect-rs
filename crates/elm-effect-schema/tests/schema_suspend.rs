@@ -8,7 +8,12 @@ use std::sync::{Arc, Mutex};
 use elm_effect_schema::{Field, Schema, Unknown};
 
 fn obj(pairs: &[(&str, Unknown)]) -> Unknown {
-    Unknown::Object(pairs.iter().map(|(k, v)| (k.to_string(), v.clone())).collect())
+    Unknown::Object(
+        pairs
+            .iter()
+            .map(|(k, v)| (k.to_string(), v.clone()))
+            .collect(),
+    )
 }
 
 // 3994 + 6932: the factory does not run until the first decode/encode call.
@@ -20,7 +25,11 @@ fn suspend_stays_lazy_until_decode() {
         probe.fetch_add(1, Ordering::SeqCst);
         Schema::unknown()
     });
-    assert_eq!(calls.load(Ordering::SeqCst), 0, "factory runs before any call");
+    assert_eq!(
+        calls.load(Ordering::SeqCst),
+        0,
+        "factory runs before any call"
+    );
     assert_eq!(schema.decode(Unknown::Null), Ok(Unknown::Null));
     assert_eq!(calls.load(Ordering::SeqCst), 1);
 }
@@ -45,7 +54,10 @@ fn suspend_reads_late_initialized_binding() {
 fn node_schema() -> Schema<BTreeMap<String, Unknown>> {
     Schema::struct_shape(vec![
         Field::required("value", Schema::as_unknown(Schema::string())),
-        Field::optional("next", Schema::<Unknown>::suspend(|| Schema::as_unknown(node_schema()))),
+        Field::optional(
+            "next",
+            Schema::<Unknown>::suspend(|| Schema::as_unknown(node_schema())),
+        ),
     ])
 }
 
@@ -55,14 +67,19 @@ fn suspend_recursive_shape_decodes_nested() {
     let schema = Schema::as_unknown(node_schema());
     let nested = obj(&[
         ("value", Unknown::Text("a".to_string())),
-        (
-            "next",
-            obj(&[("value", Unknown::Text("b".to_string()))]),
-        ),
+        ("next", obj(&[("value", Unknown::Text("b".to_string()))])),
     ]);
     let decoded = schema.decode(nested.clone()).expect("nested node decodes");
-    assert_eq!(schema.encode(&decoded), nested, "recursive roundtrip is exact");
-    assert!(schema.decode(obj(&[("value", Unknown::Number(1.0))])).is_err());
+    assert_eq!(
+        schema.try_encode(&decoded).unwrap(),
+        nested,
+        "recursive roundtrip is exact"
+    );
+    assert!(
+        schema
+            .decode(obj(&[("value", Unknown::Number(1.0))]))
+            .is_err()
+    );
 }
 
 // 4586 + 4627: candidate selection never forces a suspended loser after a win.
@@ -100,7 +117,11 @@ fn suspend_resolves_once_across_calls_that_reach_it() {
         any_of.decode(Unknown::Text("b".to_string())),
         Ok(Unknown::Text("b".to_string()))
     );
-    assert_eq!(evaluations.load(Ordering::SeqCst), 1, "first reach resolves");
+    assert_eq!(
+        evaluations.load(Ordering::SeqCst),
+        1,
+        "first reach resolves"
+    );
     assert_eq!(
         any_of.decode(Unknown::Text("c".to_string())),
         Ok(Unknown::Text("c".to_string()))
@@ -143,9 +164,10 @@ fn one_of_forces_a_suspended_member_once() {
 #[test]
 fn suspend_preserves_inner_refinement() {
     let schema = Schema::<Unknown>::suspend(|| {
-        Schema::as_unknown(Schema::string()).refine("non-empty", |unknown| {
-            !matches!(unknown, Unknown::Text(text) if text.is_empty())
-        })
+        Schema::as_unknown(Schema::string()).refine(
+            "non-empty",
+            |unknown| !matches!(unknown, Unknown::Text(text) if text.is_empty()),
+        )
     });
     assert_eq!(
         schema.decode(Unknown::Text("ok".to_string())),
@@ -169,6 +191,8 @@ fn struct_field_using_suspend() {
         ("name", Unknown::Text("p".to_string())),
         ("child", Unknown::Text("c".to_string())),
     ]);
-    let decoded = schema.decode(input.clone()).expect("suspended field decodes");
-    assert_eq!(schema.encode(&decoded), input);
+    let decoded = schema
+        .decode(input.clone())
+        .expect("suspended field decodes");
+    assert_eq!(schema.try_encode(&decoded).unwrap(), input);
 }
