@@ -39,6 +39,7 @@ pub mod process;
 pub mod workers;
 
 pub mod reactivity;
+pub mod mcp_schema;
 
 pub mod devtools;
 

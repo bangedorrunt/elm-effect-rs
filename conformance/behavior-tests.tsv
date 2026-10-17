@@ -4759,10 +4759,10 @@ unported	packages/effect/test/ai/LanguageModelTrackerLifecycle.test.ts	170	it.ef
 unported	packages/effect/test/ai/LanguageModelTrackerLifecycle.test.ts	223	it.effect	emits finish parts in streamText when toolkit is provided and no tool calls are returned	
 unported	packages/effect/test/ai/LanguageModelTrackerLifecycle.test.ts	244	it.effect	keeps incremental provider fields undefined when tracker is omitted	
 unported	packages/effect/test/ai/LanguageModelTrackerLifecycle.test.ts	314	it.effect	prepares after approval pre-resolution using stripped prompt	
-unported	packages/effect/test/ai/McpSchema.test.ts	6	it	should preserve custom metadata when a request is decoded and encoded	
-unported	packages/effect/test/ai/McpSchema.test.ts	19	it	allows create-message metadata to be omitted	
-unported	packages/effect/test/ai/McpSchema.test.ts	23	it	requires create-message metadata to be an object	
-unported	packages/effect/test/ai/McpSchema.test.ts	29	it	should preserve every November elicitation enum form when decoding a form request	
+ported	packages/effect/test/ai/McpSchema.test.ts	6	it	should preserve custom metadata when a request is decoded and encoded	preserves_custom_metadata_when_a_request_is_decoded_and_encoded
+ported	packages/effect/test/ai/McpSchema.test.ts	19	it	allows create-message metadata to be omitted	allows_create_message_metadata_to_be_omitted
+ported	packages/effect/test/ai/McpSchema.test.ts	23	it	requires create-message metadata to be an object	requires_create_message_metadata_to_be_an_object
+ported	packages/effect/test/ai/McpSchema.test.ts	29	it	should preserve every November elicitation enum form when decoding a form request	preserves_every_november_elicitation_enum_form
 unported	packages/effect/test/ai/McpServer/McpConformance/BaseProtocolTest.ts	20	it.layer	Mcp Conformance (${protocol.protocolVersion})	
 unported	packages/effect/test/ai/McpServer/McpConformance/BaseProtocolTest.ts	23	it.effect	should preserve additional result metadata fields when decoding a result	
 unported	packages/effect/test/ai/McpServer/McpConformance/BaseProtocolTest.ts	49	it.layer	Mcp Conformance (${protocol.protocolVersion})	
