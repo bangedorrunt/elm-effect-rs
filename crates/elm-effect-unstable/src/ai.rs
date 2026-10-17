@@ -2444,6 +2444,20 @@ fn openai_normalize_all_of(
     out
 }
 
+/// Check an already-built JSON Schema document against the OpenAI root
+/// invariant: the root must have `type: "object"` and must not use `anyOf`
+/// (a union root). Anything else fails with the pin's message, which names
+/// the function and both halves of the invariant.
+pub fn validate_openai_root(doc: &serde_json::Value) -> Result<(), String> {
+    const MESSAGE: &str = "OpenAiStructuredOutput: Root JSON Schema must have type \"object\" and must not use \"anyOf\"";
+    let is_object = doc.get("type").and_then(|kind| kind.as_str()) == Some("object");
+    if is_object && doc.get("anyOf").is_none() {
+        Ok(())
+    } else {
+        Err(MESSAGE.to_owned())
+    }
+}
+
 /// Rewrite a JSON Schema document to the OpenAI structured-output subset.
 /// Child schemas rewrite bottom-up first (property *values*, never names),
 /// then `allOf` normalizes, then unsupported keywords drop.
@@ -3022,4 +3036,100 @@ pub fn decide_encoded<Input>(
                 .with_context("DecisionModel", "decide"),
         ),
     }
+}
+
+// --- LanguageModel tool-call resolution lifecycle (`ai/LanguageModel.ts` at the pin) ---
+//
+// The sync surface cannot run fibers, latches, or TestClock-delayed handlers,
+// so the port covers the gating contract: non-`"stop"` finish reasons never
+// start handlers and synthesize an `execution-interrupted` failure, missing
+// params fail `InvalidOutput` before handlers run, and resolved approval
+// artifacts strip before the tracker sees the prompt.
+
+/// Whether `reason` truncates tool execution (`"stop"` is the only complete finish).
+pub fn is_incomplete_finish(reason: &str) -> bool {
+    reason != "stop"
+}
+
+/// Synthesize the `execution-interrupted` failure result for `reason`.
+pub fn interrupted_result_json(reason: &str) -> serde_json::Value {
+    serde_json::json!({
+        "type": "execution-interrupted",
+        "reason": format!(
+            "Tool call execution was interrupted because the response finished with reason \"{reason}\""
+        ),
+    })
+}
+
+/// Build the `execution-denied` failure result for a denied approval.
+pub fn denial_result_json(reason: &str) -> serde_json::Value {
+    serde_json::json!({
+        "type": "execution-denied",
+        "reason": reason,
+    })
+}
+
+/// Require a params payload: `None` (the tag's missing field) is `InvalidOutputError`.
+pub fn validate_tool_params_present(params: Option<&str>) -> Result<(), AiError> {
+    match params {
+        Some(_) => Ok(()),
+        None => Err(AiError::new(AiReason::InvalidOutput {
+            details: "missing tool call params".to_owned(),
+        })),
+    }
+}
+
+/// Strip approval artifacts whose ids resolved, preserving unresolved requests
+/// and every tool call/result. Assistant/tool messages left empty are dropped.
+pub fn strip_resolved_approvals(
+    prompt: &[TrackMessage],
+    resolved_ids: &[String],
+) -> Vec<TrackMessage> {
+    let mut stripped: Vec<TrackMessage> = Vec::new();
+    for message in prompt {
+        match message.role {
+            TrackRole::Assistant => {
+                let kept: Vec<TrackPart> = message
+                    .parts
+                    .iter()
+                    .filter(|p| match p {
+                        TrackPart::ApprovalRequest { approval_id, .. } => {
+                            !resolved_ids.contains(approval_id)
+                        }
+                        _ => true,
+                    })
+                    .cloned()
+                    .collect();
+                if !kept.is_empty() {
+                    stripped.push(TrackMessage {
+                        uid: message.uid,
+                        role: message.role.clone(),
+                        parts: kept,
+                    });
+                }
+            }
+            TrackRole::Tool => {
+                let kept: Vec<TrackPart> = message
+                    .parts
+                    .iter()
+                    .filter(|p| match p {
+                        TrackPart::ApprovalResponse { approval_id, .. } => {
+                            !resolved_ids.contains(approval_id)
+                        }
+                        _ => true,
+                    })
+                    .cloned()
+                    .collect();
+                if !kept.is_empty() {
+                    stripped.push(TrackMessage {
+                        uid: message.uid,
+                        role: message.role.clone(),
+                        parts: kept,
+                    });
+                }
+            }
+            _ => stripped.push(message.clone()),
+        }
+    }
+    stripped
 }
