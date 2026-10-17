@@ -7060,29 +7060,52 @@ ported	packages/effect/test/httpapi/HttpApiEndpoint.test.ts	406	it	preserves wra
 ported	packages/effect/test/httpapi/HttpApiEndpoint.test.ts	417	it	validates a wrapped stream like a bare stream	validates_a_wrapped_stream_like_a_bare_stream
 ported	packages/effect/test/httpapi/HttpApiEndpoint.test.ts	433	it	rejects wrapped and bare streams at distinct statuses	rejects_wrapped_and_bare_streams_at_distinct_statuses
 not-applicable	packages/effect/test/httpapi/HttpApiEndpoint.test.ts	464	it	keeps WithHeaders in the error set with codec-transformed parts	requires Schema codecs transforming error header parts; no schema codec engine
-unported	packages/effect/test/httpapi/HttpApiSchema.test.ts	21	it	stores default metadata	
-unported	packages/effect/test/httpapi/HttpApiSchema.test.ts	49	it	stores custom content type	
-unported	packages/effect/test/httpapi/HttpApiSchema.test.ts	64	it	defaults the stream error schema to Never	
-unported	packages/effect/test/httpapi/HttpApiSchema.test.ts	74	it	creates an event schema from a JSON data schema	
-unported	packages/effect/test/httpapi/HttpApiSchema.test.ts	94	it	stores default metadata	
-unported	packages/effect/test/httpapi/HttpApiSchema.test.ts	109	it	stores custom content type	
-unported	packages/effect/test/httpapi/HttpApiSchema.test.ts	119	it	stores the inner schema and headers schema	
-unported	packages/effect/test/httpapi/HttpApiSchema.test.ts	129	it	does not identify other schemas as WithHeaders	
-unported	packages/effect/test/httpapi/HttpApiSchema.test.ts	134	it	supports a fields shorthand for headers	
-unported	packages/effect/test/httpapi/HttpApiSchema.test.ts	143	it	rejects nested WithHeaders schemas	
-unported	packages/effect/test/httpapi/HttpApiSchema.test.ts	152	it	accepts only branded values when decoding	
-unported	packages/effect/test/httpapi/HttpApiSchema.test.ts	160	it	keeps the wrapper intact through annotate	
-unported	packages/effect/test/httpapi/HttpApiSchema.test.ts	169	it	resolves the status from the wrapper first, falling through to the inner schema	
-unported	packages/effect/test/httpapi/HttpApiSchema.test.ts	189	it	resolves the response encoding from the wrapper first, falling through to the inner schema	
-unported	packages/effect/test/httpapi/HttpApiSchema.test.ts	210	it	constructs a branded response value	
-unported	packages/effect/test/httpapi/HttpApiSchema.test.ts	236	it	encodes to a body and headers pair	
-unported	packages/effect/test/httpapi/HttpApiSchema.test.ts	243	it	decodes a pair back to the source type	
-unported	packages/effect/test/httpapi/HttpApiSchema.test.ts	250	it	resolves the status from the body schema	
-unported	packages/effect/test/httpapi/HttpApiSchema.test.ts	254	it	resolves the response encoding from the body schema	
-unported	packages/effect/test/httpapi/HttpApiSchema.test.ts	268	it	defaults the response encoding to Json	
-unported	packages/effect/test/httpapi/HttpApiSchema.test.ts	272	it	uses the body defaults instead of source response metadata	
-unported	packages/effect/test/httpapi/HttpApiSchema.test.ts	295	it	does not identify buffered schemas as stream schemas	
-unported	packages/effect/test/httpapi/HttpApiSchema.test.ts	301	it	accepts status literals	
+ported	packages/effect/test/httpapi/HttpApiSchema.test.ts	21	it	stores default metadata	stream_sse_stores_default_metadata
+
+ported	packages/effect/test/httpapi/HttpApiSchema.test.ts	49	it	stores custom content type	stream_sse_stores_custom_content_type
+
+ported	packages/effect/test/httpapi/HttpApiSchema.test.ts	64	it	defaults the stream error schema to Never	stream_sse_defaults_error_to_never
+
+ported	packages/effect/test/httpapi/HttpApiSchema.test.ts	74	it	creates an event schema from a JSON data schema	stream_sse_creates_event_schema_from_json_data
+
+ported	packages/effect/test/httpapi/HttpApiSchema.test.ts	94	it	stores default metadata	stream_uint8array_stores_default_metadata
+
+ported	packages/effect/test/httpapi/HttpApiSchema.test.ts	109	it	stores custom content type	stream_uint8array_stores_custom_content_type
+
+ported	packages/effect/test/httpapi/HttpApiSchema.test.ts	119	it	stores the inner schema and headers schema	with_headers_stores_inner_and_headers
+
+ported	packages/effect/test/httpapi/HttpApiSchema.test.ts	129	it	does not identify other schemas as WithHeaders	does_not_identify_other_schemas_as_with_headers
+
+ported	packages/effect/test/httpapi/HttpApiSchema.test.ts	134	it	supports a fields shorthand for headers	with_headers_supports_fields_shorthand
+
+ported	packages/effect/test/httpapi/HttpApiSchema.test.ts	143	it	rejects nested WithHeaders schemas	with_headers_rejects_nested_wrappers
+
+ported	packages/effect/test/httpapi/HttpApiSchema.test.ts	152	it	accepts only branded values when decoding	with_headers_accepts_only_branded_values
+
+ported	packages/effect/test/httpapi/HttpApiSchema.test.ts	160	it	keeps the wrapper intact through annotate	with_headers_keeps_wrapper_intact_through_annotate
+
+ported	packages/effect/test/httpapi/HttpApiSchema.test.ts	169	it	resolves the status from the wrapper first, falling through to the inner schema	with_headers_resolves_status_wrapper_first
+
+ported	packages/effect/test/httpapi/HttpApiSchema.test.ts	189	it	resolves the response encoding from the wrapper first, falling through to the inner schema	with_headers_resolves_encoding_wrapper_first
+
+ported	packages/effect/test/httpapi/HttpApiSchema.test.ts	210	it	constructs a branded response value	with_headers_value_constructs_branded_response
+
+ported	packages/effect/test/httpapi/HttpApiSchema.test.ts	236	it	encodes to a body and headers pair	encode_to_with_headers_encodes_body_and_headers_pair
+
+ported	packages/effect/test/httpapi/HttpApiSchema.test.ts	243	it	decodes a pair back to the source type	encode_to_with_headers_decodes_pair_back
+
+ported	packages/effect/test/httpapi/HttpApiSchema.test.ts	250	it	resolves the status from the body schema	encode_to_with_headers_resolves_status_from_body
+
+ported	packages/effect/test/httpapi/HttpApiSchema.test.ts	254	it	resolves the response encoding from the body schema	encode_to_with_headers_resolves_encoding_from_body
+
+ported	packages/effect/test/httpapi/HttpApiSchema.test.ts	268	it	defaults the response encoding to Json	encode_to_with_headers_defaults_encoding_to_json
+
+ported	packages/effect/test/httpapi/HttpApiSchema.test.ts	272	it	uses the body defaults instead of source response metadata	encode_to_with_headers_uses_body_defaults_not_source_metadata
+
+ported	packages/effect/test/httpapi/HttpApiSchema.test.ts	295	it	does not identify buffered schemas as stream schemas	does_not_identify_buffered_as_stream
+
+ported	packages/effect/test/httpapi/HttpApiSchema.test.ts	301	it	accepts status literals	status_accepts_literals
+
 ported	packages/effect/test/httpapi/HttpApiSecurity.test.ts	18	it.effect	decodes a bearer token without a leading space	decodes_bearer_token_trimmed
 ported	packages/effect/test/httpapi/HttpApiSecurity.test.ts	35	it.effect	decodes a custom http scheme without a leading space	decodes_custom_scheme_trimmed
 ported	packages/effect/test/httpapi/HttpApiSecurity.test.ts	42	it.effect	matches HTTP schemes case-insensitively	matches_schemes_case_insensitively
