@@ -9113,70 +9113,70 @@ not-applicable	packages/effect/test/schema/representation/toJson.test.ts	572	it	
 ported	packages/effect/test/schema/representation/toJson.test.ts	591	it	encodes fromJsonString annotations	encodes_from_json_string_annotations
 not-applicable	packages/effect/test/schema/representation/toJsonMultiDocument.test.ts	5	it	encodes every root in order	N/A: Rust SchemaRepresentation has no toJsonMultiDocument serializer (multi-root ordered/refs) at crates/elm-effect-schema/src/representation.rs
 not-applicable	packages/effect/test/schema/representation/toJsonMultiDocument.test.ts	22	it	encodes shared references once	N/A: Rust SchemaRepresentation has no toJsonMultiDocument serializer (multi-root ordered/refs) at crates/elm-effect-schema/src/representation.rs
-unported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	52	it	preserves the definition named ${key}	
-unported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	101	it	local UniqueSymbol	
-unported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	106	it	local UniqueSymbol	
-unported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	113	it	compiles Suspend	
-unported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	124	it	compiles a bigint Literal	
-unported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	138	it	compiles a string Literal	
-unported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	152	it	compiles an empty Enum	
-unported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	156	it	compiles an Enum	
-unported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	175	it	rejects non-finite numeric Enum values	
-unported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	190	it	compiles a TemplateLiteral	
-unported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	206	it	compiles an empty Objects node as any non-null JSON value	
-unported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	218	it	compiles optional tuple elements	
-unported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	243	it	rejects multiple tuple rest elements	
-unported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	256	it	rejects a symbol object property	
-unported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	274	it	compiles a Never index-signature value as false	
-unported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	286	it	removes an unconstrained index-signature value	
-unported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	300	it	compacts a union of same-type literals	
-unported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	315	it	does not compact a union of mixed-type literals	
-unported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	334	it	emits every supported standard annotation	
-unported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	360	it	uses a check fragment when the base JSON Schema is empty	
-unported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	374	it	appends a check to an existing allOf	
-unported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	391	it	lets a check refine number to integer	
-unported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	405	it	compiles a callback-free FilterGroup without ordinary annotations	
-unported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	424	it	compiles tuple element annotations	
-unported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	445	it	omits minItems when every tuple element is optional	
-unported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	461	it	compiles a constrained tuple rest	
-unported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	473	it	compiles property annotations	
-unported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	495	it	compiles a single-member Union without compacting it	
-unported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	507	it	falls back from oneOf to anyOf when a branch is approximate	
-unported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	531	it	propagates approximation through nested representations	
-unported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	557	it	resolves an approximate oneOf copied by contextual annotations	
-unported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	594	it	keeps oneOf when every branch is exact	
-unported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	606	it	rejects an unsupported index-signature parameter	
-unported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	619	it	compiles an empty union as Never	
-unported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	629	it	removes items when an empty tuple has an open rest	
-unported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	646	it	passes the type produced by isInt to following check callbacks	
-unported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	665	it	omits isPattern flags that JSON Schema cannot represent	
-unported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	676	it	treats an empty override as authoritative and ignores a leaf without a callback	
-unported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	708	it	compiles representation.schemas before invoking a callback	
-unported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	738	it	propagates approximation from representation.schemas	
-unported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	774	it	approximates declarations	
-unported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	791	it	compiles every member of a union index-signature parameter	
-unported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	820	it	does not extract a partial pattern from boolean applicator members	
-unported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	849	it	does not use an approximate pattern as an index selector	
-unported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	902	it	keeps an exact key selector when its value is approximate	
-unported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	941	it	compiles all supported template-literal parts and rejects other nodes	
-unported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	1011	it	keeps colliding keywords in separate schema objects	
-unported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	1025	it	inlines pure annotations on a check	
-unported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	1051	it	inlines callback metadata with pure check annotations	
-unported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	1066	it	keeps colliding annotations in a separate schema object	
-unported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	1081	it	keeps format annotations in a separate schema object	
-unported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	1094	it	inlines propertyNames without a collision	
-unported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	1109	it	keeps colliding propertyNames in separate schema objects	
-unported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	1128	it	keeps a reference separate from contextual annotations	
-unported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	1184	it	keeps ${name} in separate schema objects	
-unported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	1194	it	keeps a fragment containing a custom keyword intact	
-unported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	1207	it	keeps format scoped after absorbing a number type	
-unported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	1220	it	inlines callback metadata after absorbing a number type	
-unported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	1233	it	does not overwrite an annotation after absorbing a number type	
-unported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	1249	it	extracts nested number types without losing other allOf members	
-unported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	1302	it	never exposes compiler capabilities as extension annotations	
-unported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	1333	it	captures exceptions from JSON Schema callbacks	
-unported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	1356	it	supports __proto__ as a reference	
-unported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	1372	it	reports missing references with their document path	
+not-applicable	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	52	it	preserves the definition named ${key}	round trip needs percent-decoding import + Reference bodies; dangling $ref otherwise
+ported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	101	it	local UniqueSymbol	compiles_a_global_unique_symbol
+ported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	106	it	local UniqueSymbol	compiles_a_local_unique_symbol
+ported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	113	it	compiles Suspend	compiles_suspend
+ported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	124	it	compiles a bigint Literal	compiles_a_bigint_literal
+ported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	138	it	compiles a string Literal	compiles_a_string_literal
+ported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	152	it	compiles an empty Enum	compiles_an_empty_enum
+ported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	156	it	compiles an Enum	compiles_an_enum
+ported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	175	it	rejects non-finite numeric Enum values	rejects_non_finite_numeric_enum_values
+ported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	190	it	compiles a TemplateLiteral	compiles_a_template_literal
+ported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	206	it	compiles an empty Objects node as any non-null JSON value	compiles_an_empty_objects_node
+ported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	218	it	compiles optional tuple elements	compiles_optional_tuple_elements
+ported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	243	it	rejects multiple tuple rest elements	rejects_multiple_tuple_rest_elements
+ported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	256	it	rejects a symbol object property	rejects_a_symbol_object_property
+ported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	274	it	compiles a Never index-signature value as false	compiles_a_never_index_signature_value_as_false
+ported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	286	it	removes an unconstrained index-signature value	removes_an_unconstrained_index_signature_value
+ported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	300	it	compacts a union of same-type literals	compacts_a_union_of_same_type_literals
+ported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	315	it	does not compact a union of mixed-type literals	does_not_compact_a_union_of_mixed_type_literals
+ported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	334	it	emits every supported standard annotation	emits_every_supported_standard_annotation
+ported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	360	it	uses a check fragment when the base JSON Schema is empty	uses_a_check_fragment_when_the_base_is_empty
+ported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	374	it	appends a check to an existing allOf	appends_a_check_to_an_existing_all_of
+ported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	391	it	lets a check refine number to integer	lets_a_check_refine_number_to_integer
+ported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	405	it	compiles a callback-free FilterGroup without ordinary annotations	compiles_a_callback_free_filter_group
+ported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	424	it	compiles tuple element annotations	compiles_tuple_element_annotations
+ported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	445	it	omits minItems when every tuple element is optional	omits_min_items_when_every_tuple_element_is_optional
+ported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	461	it	compiles a constrained tuple rest	compiles_a_constrained_tuple_rest
+ported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	473	it	compiles property annotations	compiles_property_annotations
+ported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	495	it	compiles a single-member Union without compacting it	compiles_a_single_member_union_without_compacting_it
+ported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	507	it	falls back from oneOf to anyOf when a branch is approximate	falls_back_from_one_of_to_any_of_when_a_branch_is_approximate
+ported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	531	it	propagates approximation through nested representations	propagates_approximation_through_nested_representations
+ported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	557	it	resolves an approximate oneOf copied by contextual annotations	resolves_an_approximate_one_of_copied_by_contextual_annotations
+ported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	594	it	keeps oneOf when every branch is exact	keeps_one_of_when_every_branch_is_exact
+ported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	606	it	rejects an unsupported index-signature parameter	rejects_an_unsupported_index_signature_parameter
+ported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	619	it	compiles an empty union as Never	compiles_an_empty_union_as_never
+ported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	629	it	removes items when an empty tuple has an open rest	removes_items_when_an_empty_tuple_has_an_open_rest
+ported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	646	it	passes the type produced by isInt to following check callbacks	passes_the_type_produced_by_is_int_to_following_check_callbacks
+ported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	665	it	omits isPattern flags that JSON Schema cannot represent	omits_is_pattern_flags_that_json_schema_cannot_represent
+ported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	676	it	treats an empty override as authoritative and ignores a leaf without a callback	treats_an_empty_override_as_authoritative
+ported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	708	it	compiles representation.schemas before invoking a callback	compiles_representation_schemas_before_invoking_a_callback
+ported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	738	it	propagates approximation from representation.schemas	propagates_approximation_from_representation_schemas
+ported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	774	it	approximates declarations	approximates_declarations
+ported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	791	it	compiles every member of a union index-signature parameter	compiles_every_member_of_a_union_index_signature_parameter
+ported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	820	it	does not extract a partial pattern from boolean applicator members	does_not_extract_a_partial_pattern_from_boolean_applicator_members
+ported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	849	it	does not use an approximate pattern as an index selector	does_not_use_an_approximate_pattern_as_an_index_selector
+ported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	902	it	keeps an exact key selector when its value is approximate	keeps_an_exact_key_selector_when_its_value_is_approximate
+ported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	941	it	compiles all supported template-literal parts and rejects other nodes	compiles_all_supported_template_literal_parts_and_rejects_other_nodes
+ported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	1011	it	keeps colliding keywords in separate schema objects	keeps_colliding_keywords_in_separate_schema_objects
+ported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	1025	it	inlines pure annotations on a check	inlines_pure_annotations_on_a_check
+ported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	1051	it	inlines callback metadata with pure check annotations	inlines_callback_metadata_with_pure_check_annotations
+ported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	1066	it	keeps colliding annotations in a separate schema object	keeps_colliding_annotations_in_a_separate_schema_object
+ported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	1081	it	keeps format annotations in a separate schema object	keeps_format_annotations_in_a_separate_schema_object
+ported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	1094	it	inlines propertyNames without a collision	inlines_property_names_without_a_collision
+ported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	1109	it	keeps colliding propertyNames in separate schema objects	keeps_colliding_property_names_in_separate_schema_objects
+ported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	1128	it	keeps a reference separate from contextual annotations	keeps_a_reference_separate_from_contextual_annotations
+ported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	1184	it	keeps ${name} in separate schema objects	keeps_coupled_keywords_in_separate_schema_objects
+ported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	1194	it	keeps a fragment containing a custom keyword intact	keeps_a_fragment_containing_a_custom_keyword_intact
+ported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	1207	it	keeps format scoped after absorbing a number type	keeps_format_scoped_after_absorbing_a_number_type
+ported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	1220	it	inlines callback metadata after absorbing a number type	inlines_callback_metadata_after_absorbing_a_number_type
+ported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	1233	it	does not overwrite an annotation after absorbing a number type	does_not_overwrite_an_annotation_after_absorbing_a_number_type
+ported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	1249	it	extracts nested number types without losing other allOf members	extracts_nested_number_types_without_losing_other_all_of_members
+ported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	1302	it	never exposes compiler capabilities as extension annotations	never_exposes_compiler_capabilities_as_extension_annotations  [function-valued x-invalid inexpressible; all key-based exclusions asserted]
+ported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	1333	it	captures exceptions from JSON Schema callbacks	captures_exceptions_from_json_schema_callbacks
+ported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	1356	it	supports __proto__ as a reference	supports_proto_as_a_reference
+ported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	1372	it	reports missing references with their document path	reports_missing_references_with_their_document_path
 not-applicable	packages/effect/test/schema/representation/toJsonSchemaMultiDocument.test.ts	31	it	deduplicates equivalent fallback definitions	needs fallback-definition dedup machinery
 not-applicable	packages/effect/test/schema/representation/toJsonSchemaMultiDocument.test.ts	52	it	does not deduplicate different fallback definitions	needs fallback-definition comparison
 not-applicable	packages/effect/test/schema/representation/toJsonSchemaMultiDocument.test.ts	82	it	does not deduplicate explicit identifiers	needs explicit-identifier dedup
