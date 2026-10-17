@@ -1421,3 +1421,963 @@ pub mod log_level {
             .collect()
     }
 }
+
+/// Structured help (`HelpDoc`) and its plain-text formatter (`cli/CliOutput`
+/// + `cli/HelpDoc` at the pin, colors off).
+///
+/// The existing [`CliCommand`] tree drives clap parsing; this module is the
+/// parallel help surface the `Help.test.ts` rows pin: a `HelpDoc` value per
+/// command (flags with required markers, hidden/unlisted filtering, aliases,
+/// groups, examples) rendered by [`format_help`] with the same column
+/// alignment (CJK width 2, zero-width marks 0).
+pub mod help {
+    /// One flag as declared on a command (input to [`HelpNode`)).
+    #[derive(Clone, Debug, PartialEq, Eq)]
+    pub struct HelpFlagDecl {
+        /// Long name, no dashes.
+        pub name: String,
+        /// Raw aliases (`withAlias`); formatted with `-`/`--` on render.
+        pub aliases: Vec<String>,
+        /// Value shape (`string`, `boolean`, `integer`, `file`, or a metavar
+        /// like `<bash|zsh|fish|sh>`).
+        pub type_name: String,
+        /// Help text.
+        pub description: Option<String>,
+        /// Choice keys appended as `(choices: a, b)` (mirrors `Flag.Literals`).
+        pub choice_keys: Vec<String>,
+        /// Omission fails (mirrors `required`: non-boolean without
+        /// `optional`/`withDefault`).
+        pub required: bool,
+        /// Hidden flags still parse but never render (`withHidden`).
+        pub hidden: bool,
+    }
+
+    impl HelpFlagDecl {
+        /// A required text flag (`Flag.String`).
+        pub fn string(name: &str) -> Self {
+            Self {
+                name: name.to_owned(),
+                aliases: Vec::new(),
+                type_name: "string".to_owned(),
+                description: None,
+                choice_keys: Vec::new(),
+                required: true,
+                hidden: false,
+            }
+        }
+
+        /// A switch (`Flag.Boolean`): never required.
+        pub fn boolean(name: &str) -> Self {
+            Self {
+                required: false,
+                type_name: "boolean".to_owned(),
+                ..Self::string(name)
+            }
+        }
+
+        /// An integer flag (`Flag.Int`).
+        pub fn integer(name: &str) -> Self {
+            Self {
+                type_name: "integer".to_owned(),
+                ..Self::string(name)
+            }
+        }
+
+        /// A path flag (`Flag.File`, `Flag.Path`, file readers).
+        pub fn file(name: &str) -> Self {
+            Self {
+                type_name: "file".to_owned(),
+                ..Self::string(name)
+            }
+        }
+
+        /// One of a fixed set (`Flag.Literals` without metavar).
+        pub fn choice(name: &str, keys: &[&str]) -> Self {
+            Self {
+                choice_keys: keys.iter().map(|key| key.to_string()).collect(),
+                ..Self::string(name)
+            }
+        }
+
+        /// Swap the displayed type (`withMetavar`).
+        pub fn with_metavar(mut self, metavar: &str) -> Self {
+            self.type_name = metavar.to_owned();
+            self
+        }
+
+        /// Add a raw alias (`withAlias`).
+        pub fn with_alias(mut self, alias: &str) -> Self {
+            self.aliases.push(alias.to_owned());
+            self
+        }
+
+        /// Attach help text (`withDescription`).
+        pub fn with_description(mut self, text: &str) -> Self {
+            self.description = Some(text.to_owned());
+            self
+        }
+
+        /// Allow absence (`optional`).
+        pub fn optional(mut self) -> Self {
+            self.required = false;
+            self
+        }
+
+        /// Fall back when absent (`withDefault` implies optional metadata).
+        pub fn with_default(mut self) -> Self {
+            self.required = false;
+            self
+        }
+
+        /// Parse but never render (`withHidden`).
+        pub fn hidden(mut self) -> Self {
+            self.hidden = true;
+            self
+        }
+    }
+
+    /// One positional argument as declared on a command.
+    #[derive(Clone, Debug, PartialEq, Eq)]
+    pub struct HelpArgDecl {
+        /// Argument name.
+        pub name: String,
+        /// Value shape (`string`, `file`, ...).
+        pub type_name: String,
+        /// Help text.
+        pub description: Option<String>,
+        /// Omission fails (mirrors `required`: not optional, and a variadic
+        /// needs `min >= 1`).
+        pub required: bool,
+        /// Consumes the rest (`variadic`).
+        pub variadic: bool,
+    }
+
+    impl HelpArgDecl {
+        /// A required text argument (`Argument.String`).
+        pub fn string(name: &str) -> Self {
+            Self {
+                name: name.to_owned(),
+                type_name: "string".to_owned(),
+                description: None,
+                required: true,
+                variadic: false,
+            }
+        }
+
+        /// A file argument (`Argument.File`).
+        pub fn file(name: &str) -> Self {
+            Self {
+                type_name: "file".to_owned(),
+                ..Self::string(name)
+            }
+        }
+
+        /// Attach help text (`withDescription`).
+        pub fn with_description(mut self, text: &str) -> Self {
+            self.description = Some(text.to_owned());
+            self
+        }
+
+        /// Allow absence (`optional`).
+        pub fn optional(mut self) -> Self {
+            self.required = false;
+            self
+        }
+
+        /// Fall back when absent (`withDefault` implies optional metadata).
+        pub fn with_default(mut self) -> Self {
+            self.required = false;
+            self
+        }
+
+        /// Consume the rest with no minimum (`variadic()`): not required.
+        pub fn variadic(mut self) -> Self {
+            self.variadic = true;
+            self.required = false;
+            self
+        }
+
+        /// Consume the rest with a minimum (`variadic({ min })`).
+        pub fn variadic_min(mut self, min: usize) -> Self {
+            self.variadic = true;
+            self.required = min > 0;
+            self
+        }
+    }
+
+    /// One command node (`Command.make` plus its combinators).
+    #[derive(Clone, Debug, Default, PartialEq, Eq)]
+    pub struct HelpNode {
+        /// Command name.
+        pub name: String,
+        /// Long description.
+        pub description: String,
+        /// One-line listing override (`shortDescription` wins in listings).
+        pub short_description: Option<String>,
+        /// Second name (`withAlias`).
+        pub alias: Option<String>,
+        /// Absent from help but still parses (`unlisted`).
+        pub unlisted: bool,
+        /// Flags declared here (own shared flags merged in, like the pin).
+        pub local_flags: Vec<HelpFlagDecl>,
+        /// Flags shared with children (`withSharedFlags` context).
+        pub shared_flags: Vec<HelpFlagDecl>,
+        /// Positionals in declaration order.
+        pub args: Vec<HelpArgDecl>,
+        /// Child commands, grouped.
+        pub groups: Vec<HelpGroup>,
+        /// Usage examples.
+        pub examples: Vec<HelpExample>,
+    }
+
+    /// One subcommand group (`{ group, commands }` or a bare command).
+    #[derive(Clone, Debug, Default, PartialEq, Eq)]
+    pub struct HelpGroup {
+        /// Group heading; `None` renders under `SUBCOMMANDS`.
+        pub group: Option<String>,
+        /// Commands in this group.
+        pub commands: Vec<HelpNode>,
+    }
+
+    /// One usage example.
+    #[derive(Clone, Debug, PartialEq, Eq)]
+    pub struct HelpExample {
+        /// Invocation line.
+        pub command: String,
+        /// Explanation rendered as a `#` comment above the line.
+        pub description: Option<String>,
+    }
+
+    impl HelpNode {
+        /// A command with no flags or arguments (`Command.make`).
+        pub fn new(name: &str) -> Self {
+            Self {
+                name: name.to_owned(),
+                ..Self::default()
+            }
+        }
+
+        /// Set the long description (`withDescription`).
+        pub fn with_description(mut self, text: &str) -> Self {
+            self.description = text.to_owned();
+            self
+        }
+
+        /// Add a second name (`withAlias`).
+        pub fn with_alias(mut self, alias: &str) -> Self {
+            self.alias = Some(alias.to_owned());
+            self
+        }
+
+        /// Keep out of help while still parsing (`unlisted`).
+        pub fn unlisted(mut self) -> Self {
+            self.unlisted = true;
+            self
+        }
+
+        /// Add flags (`Command.make`'s second argument).
+        pub fn with_flags(mut self, flags: Vec<HelpFlagDecl>) -> Self {
+            self.local_flags.extend(flags);
+            self
+        }
+
+        /// Share flags with children: merged into the local set too, exactly
+        /// like the pin's `withSharedFlags`.
+        pub fn with_shared_flags(mut self, flags: Vec<HelpFlagDecl>) -> Self {
+            self.local_flags.extend(flags.clone());
+            self.shared_flags.extend(flags);
+            self
+        }
+
+        /// Add positionals.
+        pub fn with_args(mut self, args: Vec<HelpArgDecl>) -> Self {
+            self.args.extend(args);
+            self
+        }
+
+        /// Add children under the default heading (`withSubcommands`).
+        pub fn with_subcommands(mut self, commands: Vec<HelpNode>) -> Self {
+            self.groups.push(HelpGroup {
+                group: None,
+                commands,
+            });
+            self
+        }
+
+        /// Add children in explicit groups (ungrouped entries allowed).
+        pub fn with_groups(mut self, groups: Vec<HelpGroup>) -> Self {
+            self.groups.extend(groups);
+            self
+        }
+
+        /// Add usage examples (`withExamples`).
+        pub fn with_examples(mut self, examples: Vec<HelpExample>) -> Self {
+            self.examples.extend(examples);
+            self
+        }
+
+        /// Find a flag by name or alias, hidden ones included: hidden flags
+        /// still parse on the command line.
+        pub fn find_flag(&self, name: &str) -> Option<&HelpFlagDecl> {
+            self.local_flags
+                .iter()
+                .chain(self.shared_flags.iter())
+                .find(|flag| flag.name == name || flag.aliases.iter().any(|a| a == name))
+        }
+
+        /// Find a child by name or alias, unlisted ones included: unlisted
+        /// subcommands still parse on the command line.
+        pub fn find_subcommand(&self, name: &str) -> Option<&HelpNode> {
+            self.groups.iter().flat_map(|group| &group.commands).find(|child| {
+                child.name == name || child.alias.as_deref() == Some(name)
+            })
+        }
+
+        /// Visible child names (names plus aliases, unlisted excluded): the
+        /// only candidates unknown-subcommand suggestions may reveal.
+        pub fn visible_subcommand_names(&self) -> Vec<&str> {
+            let mut names = Vec::new();
+            for child in self.groups.iter().flat_map(|group| &group.commands) {
+                if child.unlisted {
+                    continue;
+                }
+                names.push(child.name.as_str());
+                if let Some(alias) = &child.alias {
+                    names.push(alias.as_str());
+                }
+            }
+            names
+        }
+
+        /// Visible flag names (hidden excluded): the only candidates
+        /// unrecognized-flag suggestions may reveal.
+        pub fn visible_flag_names(&self) -> Vec<&str> {
+            self.local_flags
+                .iter()
+                .filter(|flag| !flag.hidden)
+                .map(|flag| flag.name.as_str())
+                .collect()
+        }
+
+        /// Resolve a child by exact name, suggesting only visible names on a
+        /// miss (unlisted names never leak through suggestions).
+        pub fn resolve_subcommand(&self, name: &str) -> Result<&HelpNode, UnknownSubcommand> {
+            match self.find_subcommand(name) {
+                Some(child) => Ok(child),
+                None => Err(UnknownSubcommand {
+                    subcommand: name.to_owned(),
+                    suggestions: super::suggest(name, &self.visible_subcommand_names()),
+                }),
+            }
+        }
+
+        /// Structured help for this node at `command_path`
+        /// (`buildHelpDoc`): hidden flags and unlisted subcommands are
+        /// omitted, and an all-unlisted tree reads as a leaf command.
+        pub fn doc(&self, command_path: &[String]) -> HelpDoc {
+            let args: Vec<ArgDoc> = self
+                .args
+                .iter()
+                .map(|arg| ArgDoc {
+                    name: arg.name.clone(),
+                    type_name: arg.type_name.clone(),
+                    description: arg.description.clone(),
+                    required: arg.required,
+                    variadic: arg.variadic,
+                })
+                .collect();
+
+            let mut usage = if command_path.is_empty() {
+                self.name.clone()
+            } else {
+                command_path.join(" ")
+            };
+            let has_visible = self
+                .groups
+                .iter()
+                .any(|group| group.commands.iter().any(|child| !child.unlisted));
+            if has_visible {
+                usage += " <subcommand>";
+            }
+            usage += " [flags]";
+            for arg in &args {
+                let shape = if arg.variadic {
+                    format!("<{}...>", arg.name)
+                } else {
+                    format!("<{}>", arg.name)
+                };
+                usage += " ";
+                usage += &if arg.required {
+                    shape
+                } else {
+                    format!("[{shape}]")
+                };
+            }
+
+            let flags: Vec<FlagDoc> = self
+                .local_flags
+                .iter()
+                .filter(|flag| !flag.hidden)
+                .map(to_flag_doc)
+                .collect();
+
+            let mut subcommands = Vec::new();
+            for group in &self.groups {
+                let visible: Vec<SubcommandDoc> = group
+                    .commands
+                    .iter()
+                    .filter(|child| !child.unlisted)
+                    .map(|child| SubcommandDoc {
+                        name: child.name.clone(),
+                        alias: child.alias.clone(),
+                        short_description: child.short_description.clone(),
+                        description: child.description.clone(),
+                    })
+                    .collect();
+                if visible.is_empty() {
+                    continue;
+                }
+                subcommands.push(SubcommandGroupDoc {
+                    group: group.group.clone(),
+                    commands: visible,
+                });
+            }
+
+            HelpDoc {
+                description: self.description.clone(),
+                usage,
+                flags,
+                global_flags: Vec::new(),
+                args,
+                subcommands,
+                examples: self
+                    .examples
+                    .iter()
+                    .map(|example| ExampleDoc {
+                        command: example.command.clone(),
+                        description: example.description.clone(),
+                    })
+                    .collect(),
+            }
+        }
+    }
+
+    /// A rendered flag (`HelpDoc.FlagDoc`).
+    #[derive(Clone, Debug, PartialEq, Eq)]
+    pub struct FlagDoc {
+        /// Long name, no dashes.
+        pub name: String,
+        /// Formatted aliases (`-v`, `--format`).
+        pub aliases: Vec<String>,
+        /// Value shape or metavar.
+        pub type_name: String,
+        /// Help text with any `(choices: ...)` suffix.
+        pub description: Option<String>,
+        /// Whether omission fails.
+        pub required: bool,
+    }
+
+    /// A rendered positional (`HelpDoc.ArgDoc`).
+    #[derive(Clone, Debug, PartialEq, Eq)]
+    pub struct ArgDoc {
+        /// Argument name.
+        pub name: String,
+        /// Value shape.
+        pub type_name: String,
+        /// Help text.
+        pub description: Option<String>,
+        /// Whether omission fails.
+        pub required: bool,
+        /// Whether it consumes the rest.
+        pub variadic: bool,
+    }
+
+    /// A rendered subcommand (`HelpDoc.SubcommandDoc`).
+    #[derive(Clone, Debug, PartialEq, Eq)]
+    pub struct SubcommandDoc {
+        /// Command name.
+        pub name: String,
+        /// Second name, when set.
+        pub alias: Option<String>,
+        /// One-line override, when set.
+        pub short_description: Option<String>,
+        /// Brief description.
+        pub description: String,
+    }
+
+    /// A rendered subcommand group (`HelpDoc.SubcommandGroupDoc`).
+    #[derive(Clone, Debug, PartialEq, Eq)]
+    pub struct SubcommandGroupDoc {
+        /// Heading; `None` renders under `SUBCOMMANDS`.
+        pub group: Option<String>,
+        /// Commands in this group.
+        pub commands: Vec<SubcommandDoc>,
+    }
+
+    /// A rendered example (`HelpDoc.ExampleDoc`).
+    #[derive(Clone, Debug, PartialEq, Eq)]
+    pub struct ExampleDoc {
+        /// Invocation line.
+        pub command: String,
+        /// Explanation, when set.
+        pub description: Option<String>,
+    }
+
+    /// Structured help for one command path (`HelpDoc`).
+    #[derive(Clone, Debug, Default, PartialEq, Eq)]
+    pub struct HelpDoc {
+        /// Brief description of the command.
+        pub description: String,
+        /// Usage line (`mycli copy [flags] <source>`).
+        pub usage: String,
+        /// Shared ancestor flags first, then local ones.
+        pub flags: Vec<FlagDoc>,
+        /// Built-in global flags for the path.
+        pub global_flags: Vec<FlagDoc>,
+        /// Positionals in declaration order.
+        pub args: Vec<ArgDoc>,
+        /// Visible subcommands, grouped.
+        pub subcommands: Vec<SubcommandGroupDoc>,
+        /// Usage examples.
+        pub examples: Vec<ExampleDoc>,
+    }
+
+    /// A miss resolving a subcommand (suggestions carry visible names only).
+    #[derive(Clone, Debug, PartialEq, Eq)]
+    pub struct UnknownSubcommand {
+        /// Subcommand as typed.
+        pub subcommand: String,
+        /// Visible names with a similar spelling.
+        pub suggestions: Vec<String>,
+    }
+
+    /// Format one declared flag for display (`toFlagDoc`): aliases gain
+    /// `-`/`--`, choice keys append `(choices: ...)`, booleans are never
+    /// required.
+    fn to_flag_doc(flag: &HelpFlagDecl) -> FlagDoc {
+        let aliases = flag
+            .aliases
+            .iter()
+            .map(|alias| {
+                if alias.chars().count() == 1 {
+                    format!("-{alias}")
+                } else {
+                    format!("--{alias}")
+                }
+            })
+            .collect();
+        let description = match (flag.description.clone(), flag.choice_keys.as_slice()) {
+            (_, []) => flag.description.clone(),
+            (None, keys) => Some(format!("(choices: {})", keys.join(", "))),
+            (Some(text), keys) => Some(format!("{text} (choices: {})", keys.join(", "))),
+        };
+        FlagDoc {
+            name: flag.name.clone(),
+            aliases,
+            type_name: flag.type_name.clone(),
+            description,
+            required: flag.required,
+        }
+    }
+
+    /// Built-in global flags for the path (`--help`, `--version`,
+    /// `--wizard`, `--completions`, `--log-level`).
+    pub fn builtin_global_flags() -> Vec<FlagDoc> {
+        vec![
+            FlagDoc {
+                name: "help".to_owned(),
+                aliases: vec!["-h".to_owned()],
+                type_name: "boolean".to_owned(),
+                description: Some("Show help information".to_owned()),
+                required: false,
+            },
+            FlagDoc {
+                name: "version".to_owned(),
+                aliases: vec!["-v".to_owned()],
+                type_name: "boolean".to_owned(),
+                description: Some("Show version information".to_owned()),
+                required: false,
+            },
+            FlagDoc {
+                name: "wizard".to_owned(),
+                aliases: Vec::new(),
+                type_name: "boolean".to_owned(),
+                description: Some("Start wizard mode for a command".to_owned()),
+                required: false,
+            },
+            FlagDoc {
+                name: "completions".to_owned(),
+                aliases: Vec::new(),
+                type_name: "<bash|zsh|fish|sh>".to_owned(),
+                description: Some(
+                    "Print shell completion script (choices: bash, zsh, fish, sh)".to_owned(),
+                ),
+                required: false,
+            },
+            FlagDoc {
+                name: "log-level".to_owned(),
+                aliases: Vec::new(),
+                type_name: "<all|trace|debug|info|warn|warning|error|fatal|none>".to_owned(),
+                description: Some(
+                    "Sets the minimum log level (choices: all, trace, debug, info, warn, warning, error, fatal, none)"
+                        .to_owned(),
+                ),
+                required: false,
+            },
+        ]
+    }
+
+    /// Structured help for `path` under `root` (`getHelpForCommandPath`):
+    /// the current node's doc plus inherited shared ancestor flags (deduped
+    /// by name, hidden excluded) prepended to the local flags, with the
+    /// built-in global flags attached. `None` when the path misses.
+    pub fn help_for_path(root: &HelpNode, path: &[&str]) -> Option<HelpDoc> {
+        let mut lineage: Vec<&HelpNode> = vec![root];
+        for part in &path[1..] {
+            let current = lineage[lineage.len() - 1];
+            match current.find_subcommand(part) {
+                Some(child) => lineage.push(child),
+                None => return None,
+            }
+        }
+        let owned: Vec<String> = path.iter().map(|part| part.to_string()).collect();
+        let current = lineage[lineage.len() - 1];
+        let base = current.doc(&owned);
+
+        let mut seen: Vec<&str> = base.flags.iter().map(|flag| flag.name.as_str()).collect();
+        let mut shared = Vec::new();
+        for ancestor in &lineage[..lineage.len() - 1] {
+            for flag in &ancestor.shared_flags {
+                if flag.hidden || seen.contains(&flag.name.as_str()) {
+                    continue;
+                }
+                seen.push(&flag.name);
+                shared.push(to_flag_doc(flag));
+            }
+        }
+
+        Some(HelpDoc {
+            flags: shared.into_iter().chain(base.flags).collect(),
+            global_flags: builtin_global_flags(),
+            ..base
+        })
+    }
+
+    /// Terminal display width of a string, mirroring the pin's
+    /// `visualLength`: grapheme clusters count 2 when full-width or emoji
+    /// presentation, 0 when only zero-width marks, else 1.
+    ///
+    /// Segmentation is a narrow UAX-29 subset (base + combining marks +
+    /// ZWJ joins); Indic spacing marks and regional-indicator pairs keep
+    /// their plain width instead of the pin's exact shaping.
+    pub fn visual_width(text: &str) -> usize {
+        let mut width = 0;
+        let mut cluster: Vec<char> = Vec::new();
+        let mut join_next = false;
+        let flush = |cluster: &[char], width: &mut usize| {
+            *width += grapheme_width(cluster);
+        };
+        for ch in text.chars() {
+            if cluster.is_empty() {
+                cluster.push(ch);
+                join_next = ch == '\u{200d}';
+            } else if is_extend(ch) || ch == '\u{200d}' || join_next {
+                cluster.push(ch);
+                join_next = ch == '\u{200d}';
+            } else {
+                flush(&cluster, &mut width);
+                cluster.clear();
+                cluster.push(ch);
+                join_next = ch == '\u{200d}';
+            }
+        }
+        if !cluster.is_empty() {
+            flush(&cluster, &mut width);
+        }
+        width
+    }
+
+    /// Width of one grapheme cluster: strip zero-width marks, then 2 for
+    /// emoji presentation or full-width, else 1.
+    fn grapheme_width(cluster: &[char]) -> usize {
+        let visible: Vec<char> = cluster.iter().copied().filter(|ch| !is_zero_width(*ch)).collect();
+        if visible.is_empty() {
+            return 0;
+        }
+        if visible.contains(&'\u{fe0f}') || visible.iter().any(|ch| is_emoji_presentation(*ch)) {
+            return 2;
+        }
+        if is_full_width(visible[0] as u32) {
+            return 2;
+        }
+        1
+    }
+
+    /// Combining and enclosing marks that join the base grapheme.
+    fn is_extend(ch: char) -> bool {
+        let cp = ch as u32;
+        matches!(
+            cp,
+            0x0300..=0x036f
+                | 0x1ab0..=0x1aff
+                | 0x1dc0..=0x1dff
+                | 0x20d0..=0x20ff
+                | 0xfe00..=0xfe0f
+                | 0xfe20..=0xfe2f
+                | 0xe0100..=0xe01ef
+        )
+    }
+
+    /// Zero-width code points (the pin's `\p{Mark}\p{Control}` plus the
+    /// default-ignorable format controls, narrowed to the ranges the help
+    /// rows exercise).
+    fn is_zero_width(ch: char) -> bool {
+        let cp = ch as u32;
+        if matches!(cp, 0x0000..=0x001f | 0x007f..=0x009f) {
+            return true;
+        }
+        if is_extend(ch) {
+            return true;
+        }
+        matches!(
+            cp,
+            0x00ad
+                | 0x034f
+                | 0x061c
+                | 0x115f..=0x1160
+                | 0x17b4..=0x17b5
+                | 0x180b..=0x180f
+                | 0x200b..=0x200f
+                | 0x202a..=0x202e
+                | 0x2060..=0x206f
+                | 0x3164
+                | 0xfeff
+                | 0xffa0
+                | 0x1bca0..=0x1bca3
+                | 0x1d173..=0x1d17a
+                | 0xe0000..=0xe0fff
+        )
+    }
+
+    /// Full-width code points, copied from the pin's ranges.
+    fn is_full_width(cp: u32) -> bool {
+        if cp < 0x1100 {
+            return false;
+        }
+        matches!(
+            cp,
+            0x1100..=0x115f
+                | 0x2329..=0x232a
+                | 0x2e80..=0x303e
+                | 0x3040..=0xa4cf
+                | 0xac00..=0xd7a3
+                | 0xf900..=0xfaff
+                | 0xfe10..=0xfe19
+                | 0xfe30..=0xfe6f
+                | 0xff00..=0xff60
+                | 0xffe0..=0xffe6
+                | 0x1b000..=0x1b2ff
+                | 0x1f200..=0x1f251
+                | 0x20000..=0x3fffd
+        )
+    }
+
+    /// Code points with emoji presentation (astral pictographs wholesale,
+    /// plus the text-default symbols that present as emoji).
+    fn is_emoji_presentation(ch: char) -> bool {
+        let cp = ch as u32;
+        if matches!(cp, 0x1f000..=0x1faff) {
+            return true;
+        }
+        matches!(
+            cp,
+            0x231a..=0x231b
+                | 0x23e9..=0x23ec
+                | 0x23f0
+                | 0x23f3
+                | 0x25fd..=0x25fe
+                | 0x2614..=0x2615
+                | 0x2648..=0x2653
+                | 0x267f
+                | 0x2693
+                | 0x26a1
+                | 0x26aa..=0x26ab
+                | 0x26bd..=0x26be
+                | 0x26c4..=0x26c5
+                | 0x26ce
+                | 0x26d4
+                | 0x26ea
+                | 0x26f2..=0x26f3
+                | 0x26f5
+                | 0x26fa
+                | 0x26fd
+                | 0x2705
+                | 0x270a..=0x270b
+                | 0x2728
+                | 0x274c
+                | 0x274e
+                | 0x2753..=0x2755
+                | 0x2757
+                | 0x2795..=0x2797
+                | 0x27b0
+                | 0x27bf
+                | 0x2b1b..=0x2b1c
+                | 0x2b50
+                | 0x2b55
+        )
+    }
+
+    /// Pad `text` with spaces to terminal `width` (mirrors `pad`).
+    fn pad_to(text: &str, width: usize) -> String {
+        let padding = width.saturating_sub(visual_width(text));
+        format!("{text}{}", " ".repeat(padding))
+    }
+
+    /// Aligned two-column table (mirrors `renderTable`): the description
+    /// column sits at the widest left cell plus four, capped at `width_cap`.
+    fn render_table(rows: &[(String, String)], width_cap: Option<usize>) -> String {
+        let widest = rows.iter().map(|(left, _)| visual_width(left)).max().unwrap_or(0);
+        let column = match width_cap {
+            Some(cap) => widest.saturating_add(4).min(cap),
+            None => widest.saturating_add(4),
+        };
+        rows.iter()
+            .map(|(left, right)| {
+                let target = column.max(visual_width(left).saturating_add(1));
+                format!("  {}{right}", pad_to(left, target))
+            })
+            .collect::<Vec<_>>()
+            .join("\n")
+    }
+
+    fn flag_left(flag: &FlagDoc) -> String {
+        let mut names = vec![format!("--{}", flag.name)];
+        names.extend(flag.aliases.iter().cloned());
+        let names = names.join(", ");
+        if flag.type_name == "boolean" {
+            names
+        } else {
+            format!("{names} {}", flag.type_name)
+        }
+    }
+
+    /// Render a `HelpDoc` as plain text (the pin's `formatHelpDocImpl` with
+    /// colors off).
+    pub fn format_help(doc: &HelpDoc) -> String {
+        let mut sections: Vec<String> = Vec::new();
+        if !doc.description.is_empty() {
+            sections.push("DESCRIPTION".to_owned());
+            sections.push(format!("  {}", doc.description));
+            sections.push(String::new());
+        }
+        sections.push("USAGE".to_owned());
+        sections.push(format!("  {}", doc.usage));
+        sections.push(String::new());
+        if !doc.args.is_empty() {
+            sections.push("ARGUMENTS".to_owned());
+            let rows: Vec<(String, String)> = doc
+                .args
+                .iter()
+                .map(|arg| {
+                    let name = if arg.variadic {
+                        format!("{}...", arg.name)
+                    } else {
+                        arg.name.clone()
+                    };
+                    let left = format!("{name} {}", arg.type_name);
+                    let text = arg.description.clone().unwrap_or_default();
+                    let right = if arg.required {
+                        text
+                    } else {
+                        format!("{text} (optional)")
+                    };
+                    (left, right)
+                })
+                .collect();
+            sections.push(render_table(&rows, Some(25)));
+            sections.push(String::new());
+        }
+        if !doc.flags.is_empty() {
+            sections.push("FLAGS".to_owned());
+            let rows: Vec<(String, String)> = doc
+                .flags
+                .iter()
+                .map(|flag| {
+                    (flag_left(flag), flag.description.clone().unwrap_or_default())
+                })
+                .collect();
+            sections.push(render_table(&rows, None));
+            sections.push(String::new());
+        }
+        if !doc.global_flags.is_empty() {
+            sections.push("GLOBAL FLAGS".to_owned());
+            let rows: Vec<(String, String)> = doc
+                .global_flags
+                .iter()
+                .map(|flag| {
+                    (flag_left(flag), flag.description.clone().unwrap_or_default())
+                })
+                .collect();
+            sections.push(render_table(&rows, None));
+            sections.push(String::new());
+        }
+        if !doc.subcommands.is_empty() {
+            let ungrouped = doc.subcommands.iter().find(|group| group.group.is_none());
+            if let Some(group) = ungrouped {
+                sections.push("SUBCOMMANDS".to_owned());
+                sections.push(render_subcommands(&group.commands));
+                if doc.subcommands.len() > 1 {
+                    sections.push(String::new());
+                }
+            }
+            for group in doc.subcommands.iter().filter(|group| group.group.is_some()) {
+                sections.push(format!("{}:", group.group.clone().unwrap_or_default()));
+                sections.push(render_subcommands(&group.commands));
+                sections.push(String::new());
+            }
+        }
+        if !doc.examples.is_empty() {
+            sections.push("EXAMPLES".to_owned());
+            let mut first = true;
+            let mut previous_had_description = false;
+            for example in &doc.examples {
+                if example.description.is_some() {
+                    if !first {
+                        sections.push(String::new());
+                    }
+                    sections.push(format!("  # {}", example.description.clone().unwrap_or_default()));
+                } else if previous_had_description {
+                    sections.push(String::new());
+                }
+                sections.push(format!("  {}", example.command));
+                first = false;
+                previous_had_description = example.description.is_some();
+            }
+            sections.push(String::new());
+        }
+        if sections.last().is_some_and(|last| last.is_empty()) {
+            sections.pop();
+        }
+        sections.join("\n")
+    }
+
+    /// Render one subcommand listing (mirrors the pin's `SUBCOMMANDS` table,
+    /// width cap 20, alias as `name, alias`, short description first).
+    fn render_subcommands(commands: &[SubcommandDoc]) -> String {
+        let rows: Vec<(String, String)> = commands
+            .iter()
+            .map(|sub| {
+                let left = match &sub.alias {
+                    Some(alias) => format!("{}, {alias}", sub.name),
+                    None => sub.name.clone(),
+                };
+                let right = sub
+                    .short_description
+                    .clone()
+                    .unwrap_or_else(|| sub.description.clone());
+                (left, right)
+            })
+            .collect();
+        render_table(&rows, Some(20))
+    }
+}
