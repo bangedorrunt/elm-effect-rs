@@ -1964,7 +1964,7 @@ tests = ["packages/effect/test/httpapi/HttpApiBuilder.test.ts"]
 [[module]]
 path = "packages/effect/src/http-api/HttpApiClient.ts"
 class = "unstable-port"
-status = "unmatched"
+status = "matched"
 tag = "unstable"
 reason = ""
 tests = ["packages/effect/test/httpapi/HttpApiClient.test.ts"]

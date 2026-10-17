@@ -7238,53 +7238,53 @@ unported	packages/effect/test/httpapi/HttpApiBuilder.test.ts	1717	it.effect	exec
 unported	packages/effect/test/httpapi/HttpApiBuilder.test.ts	1754	it.effect	does not try another security scheme after the handler fails	
 unported	packages/effect/test/httpapi/HttpApiBuilder.test.ts	1811	it.layer	HttpApiBuilder middleware error responses	
 unported	packages/effect/test/httpapi/HttpApiBuilder.test.ts	1812	it.effect	encodes a middleware error through the response codec	
-unported	packages/effect/test/httpapi/HttpApiClient.test.ts	19	it.effect	strict events-mode decoding omits an absent event ID	
-unported	packages/effect/test/httpapi/HttpApiClient.test.ts	33	it.effect	strict SSE decoding accepts valid user data and framework event metadata	
-unported	packages/effect/test/httpapi/HttpApiClient.test.ts	53	it.effect	strict SSE decoding preserves reserved failure causes	
-unported	packages/effect/test/httpapi/HttpApiClient.test.ts	81	it.effect	strict SSE decoding rejects excess properties in user event data	
-unported	packages/effect/test/httpapi/HttpApiClient.test.ts	108	it.effect	client payload encoding collects all issues	
-unported	packages/effect/test/httpapi/HttpApiClient.test.ts	132	it.effect	client response decoding collects all issues	
-unported	packages/effect/test/httpapi/HttpApiClient.test.ts	151	it	urlBuilder uses group options over API options	
-unported	packages/effect/test/httpapi/HttpApiClient.test.ts	166	it.effect	API slot annotations replace endpoint ParseOptions for request codecs	
-unported	packages/effect/test/httpapi/HttpApiClient.test.ts	213	it.effect	buffered responses decode headers, success and error bodies with their own slots	
-unported	packages/effect/test/httpapi/HttpApiClient.test.ts	249	it.effect	streamed WithHeaders responses decode headers and events with their own slots	
-unported	packages/effect/test/httpapi/HttpApiClient.test.ts	286	it.effect	encodeToWithHeaders decodes header transformations with HeadersParseOptions	
-unported	packages/effect/test/httpapi/HttpApiClient.test.ts	316	it.effect	encodeToWithHeaders validates the mapped response value	
-unported	packages/effect/test/httpapi/HttpApiClient.test.ts	352	it	urlBuilder preserves the undeclared action suffix	
-unported	packages/effect/test/httpapi/HttpApiClient.test.ts	358	it.effect	make sends the request with the literal action suffix	
-unported	packages/effect/test/httpapi/HttpApiClient.test.ts	378	it.effect	decodes StreamSse events incrementally	
-unported	packages/effect/test/httpapi/HttpApiClient.test.ts	398	it.effect	keeps per-call SSE decode options isolated	
-unported	packages/effect/test/httpapi/HttpApiClient.test.ts	418	it.effect	keeps StreamSse parser state isolated between responses	
-unported	packages/effect/test/httpapi/HttpApiClient.test.ts	437	it.effect	decodes StreamSse reserved failure events as full causes	
-unported	packages/effect/test/httpapi/HttpApiClient.test.ts	464	it.effect	emits StreamSse reserved names with non-Cause data as user events	
-unported	packages/effect/test/httpapi/HttpApiClient.test.ts	487	it.effect	returns StreamUint8Array response bytes incrementally	
-unported	packages/effect/test/httpapi/HttpApiClient.test.ts	501	it.effect	decodes WithHeaders StreamUint8Array bodies and headers	
-unported	packages/effect/test/httpapi/HttpApiClient.test.ts	530	it.effect	decodes WithHeaders StreamSse bodies and headers	
-unported	packages/effect/test/httpapi/HttpApiClient.test.ts	565	it.effect	fails invalid WithHeaders stream headers before returning the body	
-unported	packages/effect/test/httpapi/HttpApiClient.test.ts	595	it.effect	forwards SSE options through mixed WithHeaders content-type selection	
-unported	packages/effect/test/httpapi/HttpApiClient.test.ts	643	it.effect	decodes StreamSse successes at the annotated status	
-unported	packages/effect/test/httpapi/HttpApiClient.test.ts	657	it.effect	decodes StreamUint8Array successes at the annotated status	
-unported	packages/effect/test/httpapi/HttpApiClient.test.ts	669	it.effect	decodes non-success responses through endpoint error schemas before returning a stream	
-unported	packages/effect/test/httpapi/HttpApiClient.test.ts	685	it.effect	preserves response-only raw response stream access	
-unported	packages/effect/test/httpapi/HttpApiClient.test.ts	705	it.effect	selects a buffered response by content type when a stream uses the same status	
-unported	packages/effect/test/httpapi/HttpApiClient.test.ts	721	it.effect	selects a stream response by content type when buffered success uses the same status	
-unported	packages/effect/test/httpapi/HttpApiClient.test.ts	749	it.effect	selects schemas by normalized content type regardless of declaration order	
-unported	packages/effect/test/httpapi/HttpApiClient.test.ts	772	it.effect	reports unsupported error response content types	
-unported	packages/effect/test/httpapi/HttpApiClient.test.ts	802	it.effect	decodes no-content errors without a content-type header	
-unported	packages/effect/test/httpapi/HttpApiClient.test.ts	810	it.effect	groups schemas by normalized declared content type	
-unported	packages/effect/test/httpapi/HttpApiClient.test.ts	824	it.effect	decodes form-urlencoded responses	
-unported	packages/effect/test/httpapi/HttpApiClient.test.ts	849	it.effect	fails response decoding when a declared header is invalid	
-unported	packages/effect/test/httpapi/HttpApiClient.test.ts	908	it	builds urls using endpoint schemas	
-unported	packages/effect/test/httpapi/HttpApiClient.test.ts	927	it	preserves a base URL pathname	
-unported	packages/effect/test/httpapi/HttpApiClient.test.ts	935	it	encodes path parameters	
-unported	packages/effect/test/httpapi/HttpApiClient.test.ts	963	it	omits missing optional path parameters	
-unported	packages/effect/test/httpapi/HttpApiClient.test.ts	989	it	returns relative urls when baseUrl is omitted	
-unported	packages/effect/test/httpapi/HttpApiClient.test.ts	995	it	supports top-level endpoints	
-unported	packages/effect/test/httpapi/HttpApiClient.test.ts	1012	it	stores __proto__ identifiers as own properties	
-unported	packages/effect/test/httpapi/HttpApiClient.test.ts	1026	it.effect	stores __proto__ client identifiers as own properties	
-unported	packages/effect/test/httpapi/HttpApiClient.test.ts	1047	it.effect	applies transformClient to endpoint clients exactly once	
-unported	packages/effect/test/httpapi/HttpApiClient.test.ts	1077	it.effect	encodes path parameters when executing requests	
-unported	packages/effect/test/httpapi/HttpApiClient.test.ts	1111	it.effect	omits optional path parameters when executing requests	
+not-applicable	packages/effect/test/httpapi/HttpApiClient.test.ts	19	it.effect	strict events-mode decoding omits an absent event ID	strict events-mode decoding needs Schema compiler plus Sse wire decoder
+not-applicable	packages/effect/test/httpapi/HttpApiClient.test.ts	33	it.effect	strict SSE decoding accepts valid user data and framework event metadata	strict SSE user-data decoding needs Schema compiler plus Sse wire decoder
+not-applicable	packages/effect/test/httpapi/HttpApiClient.test.ts	53	it.effect	strict SSE decoding preserves reserved failure causes	reserved failure Cause decode needs Schema compiler plus Sse wire decoder
+not-applicable	packages/effect/test/httpapi/HttpApiClient.test.ts	81	it.effect	strict SSE decoding rejects excess properties in user event data	excess-property SSE rejection needs Schema compiler plus Sse wire decoder
+not-applicable	packages/effect/test/httpapi/HttpApiClient.test.ts	108	it.effect	client payload encoding collects all issues	payload errors-all collection needs Schema codec layer
+not-applicable	packages/effect/test/httpapi/HttpApiClient.test.ts	132	it.effect	client response decoding collects all issues	response errors-all collection needs Schema codec layer
+not-applicable	packages/effect/test/httpapi/HttpApiClient.test.ts	151	it	urlBuilder uses group options over API options	group-over-API ParseOptions precedence needs Schema validation at urlBuilder time
+not-applicable	packages/effect/test/httpapi/HttpApiClient.test.ts	166	it.effect	API slot annotations replace endpoint ParseOptions for request codecs	per-slot request-codec ParseOptions need Schema codec layer
+not-applicable	packages/effect/test/httpapi/HttpApiClient.test.ts	213	it.effect	buffered responses decode headers, success and error bodies with their own slots	buffered header/success/error slot decoding needs Schema codec layer
+not-applicable	packages/effect/test/httpapi/HttpApiClient.test.ts	249	it.effect	streamed WithHeaders responses decode headers and events with their own slots	WithHeaders StreamSse slot decoding needs Stream runtime plus header codecs
+not-applicable	packages/effect/test/httpapi/HttpApiClient.test.ts	286	it.effect	encodeToWithHeaders decodes header transformations with HeadersParseOptions	encodeToWithHeaders header-transform decoding needs Schema codec layer
+not-applicable	packages/effect/test/httpapi/HttpApiClient.test.ts	316	it.effect	encodeToWithHeaders validates the mapped response value	encodeToWithHeaders mapped-value validation needs Schema codec layer
+ported	packages/effect/test/httpapi/HttpApiClient.test.ts	352	it	urlBuilder preserves the undeclared action suffix	url_builder_preserves_the_undeclared_action_suffix
+ported	packages/effect/test/httpapi/HttpApiClient.test.ts	358	it.effect	make sends the request with the literal action suffix	make_sends_the_request_with_the_literal_action_suffix
+not-applicable	packages/effect/test/httpapi/HttpApiClient.test.ts	378	it.effect	decodes StreamSse events incrementally	incremental StreamSse decode needs Stream runtime plus Sse wire decoder
+not-applicable	packages/effect/test/httpapi/HttpApiClient.test.ts	398	it.effect	keeps per-call SSE decode options isolated	per-call SSE option isolation needs Stream runtime plus Sse wire decoder
+not-applicable	packages/effect/test/httpapi/HttpApiClient.test.ts	418	it.effect	keeps StreamSse parser state isolated between responses	StreamSse parser-state isolation needs Stream runtime plus Sse wire decoder
+not-applicable	packages/effect/test/httpapi/HttpApiClient.test.ts	437	it.effect	decodes StreamSse reserved failure events as full causes	reserved failure Cause stream decode needs Stream runtime plus Sse wire decoder
+not-applicable	packages/effect/test/httpapi/HttpApiClient.test.ts	464	it.effect	emits StreamSse reserved names with non-Cause data as user events	non-Cause reserved event names need Stream runtime plus Sse wire decoder
+not-applicable	packages/effect/test/httpapi/HttpApiClient.test.ts	487	it.effect	returns StreamUint8Array response bytes incrementally	incremental StreamUint8Array bytes need Stream runtime
+not-applicable	packages/effect/test/httpapi/HttpApiClient.test.ts	501	it.effect	decodes WithHeaders StreamUint8Array bodies and headers	WithHeaders StreamUint8Array body plus headers need Stream runtime plus header codecs
+not-applicable	packages/effect/test/httpapi/HttpApiClient.test.ts	530	it.effect	decodes WithHeaders StreamSse bodies and headers	WithHeaders StreamSse body plus headers need Stream runtime plus header codecs
+not-applicable	packages/effect/test/httpapi/HttpApiClient.test.ts	565	it.effect	fails invalid WithHeaders stream headers before returning the body	invalid WithHeaders stream headers need Stream runtime plus header codecs
+not-applicable	packages/effect/test/httpapi/HttpApiClient.test.ts	595	it.effect	forwards SSE options through mixed WithHeaders content-type selection	SSE options through mixed WithHeaders selection need Stream runtime plus Sse wire decoder
+not-applicable	packages/effect/test/httpapi/HttpApiClient.test.ts	643	it.effect	decodes StreamSse successes at the annotated status	annotated-status StreamSse success needs Stream runtime
+not-applicable	packages/effect/test/httpapi/HttpApiClient.test.ts	657	it.effect	decodes StreamUint8Array successes at the annotated status	annotated-status StreamUint8Array success needs Stream runtime
+not-applicable	packages/effect/test/httpapi/HttpApiClient.test.ts	669	it.effect	decodes non-success responses through endpoint error schemas before returning a stream	error-schema decode before stream needs Stream runtime plus Schema codecs
+not-applicable	packages/effect/test/httpapi/HttpApiClient.test.ts	685	it.effect	preserves response-only raw response stream access	response-only raw stream access needs Stream runtime
+not-applicable	packages/effect/test/httpapi/HttpApiClient.test.ts	705	it.effect	selects a buffered response by content type when a stream uses the same status	buffered selection at streamed status needs response codecs plus Stream runtime
+not-applicable	packages/effect/test/httpapi/HttpApiClient.test.ts	721	it.effect	selects a stream response by content type when buffered success uses the same status	stream selection at buffered status needs response codecs plus Stream runtime
+not-applicable	packages/effect/test/httpapi/HttpApiClient.test.ts	749	it.effect	selects schemas by normalized content type regardless of declaration order	normalized content-type error selection needs error Schema codecs plus client dispatch
+not-applicable	packages/effect/test/httpapi/HttpApiClient.test.ts	772	it.effect	reports unsupported error response content types	unsupported error content type needs error codecs plus HttpClientError machinery
+not-applicable	packages/effect/test/httpapi/HttpApiClient.test.ts	802	it.effect	decodes no-content errors without a content-type header	no-content error without content-type needs error Schema codecs
+not-applicable	packages/effect/test/httpapi/HttpApiClient.test.ts	810	it.effect	groups schemas by normalized declared content type	normalized declared content-type error groups need error Schema codecs
+not-applicable	packages/effect/test/httpapi/HttpApiClient.test.ts	824	it.effect	decodes form-urlencoded responses	form-urlencoded response decode needs Schema codec layer
+not-applicable	packages/effect/test/httpapi/HttpApiClient.test.ts	849	it.effect	fails response decoding when a declared header is invalid	invalid declared header failure needs Schema codec layer
+ported	packages/effect/test/httpapi/HttpApiClient.test.ts	908	it	builds urls using endpoint schemas	builds_urls_using_endpoint_schemas
+ported	packages/effect/test/httpapi/HttpApiClient.test.ts	927	it	preserves a base URL pathname	preserves_a_base_url_pathname
+ported	packages/effect/test/httpapi/HttpApiClient.test.ts	935	it	encodes path parameters	encodes_path_parameters
+ported	packages/effect/test/httpapi/HttpApiClient.test.ts	963	it	omits missing optional path parameters	omits_missing_optional_path_parameters
+ported	packages/effect/test/httpapi/HttpApiClient.test.ts	989	it	returns relative urls when baseUrl is omitted	returns_relative_urls_when_base_url_is_omitted
+ported	packages/effect/test/httpapi/HttpApiClient.test.ts	995	it	supports top-level endpoints	supports_top_level_endpoints
+ported	packages/effect/test/httpapi/HttpApiClient.test.ts	1012	it	stores __proto__ identifiers as own properties	stores_proto_identifiers_as_own_properties
+ported	packages/effect/test/httpapi/HttpApiClient.test.ts	1026	it.effect	stores __proto__ client identifiers as own properties	stores_proto_client_identifiers_as_own_properties
+not-applicable	packages/effect/test/httpapi/HttpApiClient.test.ts	1047	it.effect	applies transformClient to endpoint clients exactly once	transformClient exactly-once needs client middleware chain
+ported	packages/effect/test/httpapi/HttpApiClient.test.ts	1077	it.effect	encodes path parameters when executing requests	encodes_path_parameters_when_executing_requests
+ported	packages/effect/test/httpapi/HttpApiClient.test.ts	1111	it.effect	omits optional path parameters when executing requests	omits_optional_path_parameters_when_executing_requests
 ported	packages/effect/test/httpapi/HttpApiDocumentation.test.ts	14	it.effect	defers and memoizes successful openapiPath responses	defers_and_memoizes_successful_openapi_path_responses
 
 ported	packages/effect/test/httpapi/HttpApiDocumentation.test.ts	59	it.effect	retries openapiPath generation after a defect	retries_openapi_path_generation_after_a_defect
