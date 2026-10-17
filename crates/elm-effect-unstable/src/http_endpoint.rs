@@ -12,7 +12,12 @@ pub const RESERVED_STREAM_FAILURE_EVENT: &str = "effect/http-api/stream/failure"
 
 /// Normalize a content type for map keys and comparisons: lowercase, parameters stripped.
 pub fn normalize_content_type(content_type: &str) -> String {
-    content_type.split(';').next().unwrap_or("").trim().to_ascii_lowercase()
+    content_type
+        .split(';')
+        .next()
+        .unwrap_or("")
+        .trim()
+        .to_ascii_lowercase()
 }
 
 /// Payload encoding kinds (`asJson` / `asText` / form / multipart).
@@ -40,7 +45,10 @@ pub struct PayloadEncoding {
 impl PayloadEncoding {
     /// A payload encoding with this declared content type and kind.
     pub fn new(content_type: &str, kind: PayloadKind) -> Self {
-        Self { declared_content_type: content_type.to_owned(), kind }
+        Self {
+            declared_content_type: content_type.to_owned(),
+            kind,
+        }
     }
 
     /// Map key: normalized content type.
@@ -76,12 +84,16 @@ pub enum ResponseBody {
 impl ResponseBody {
     /// Buffered JSON response.
     pub fn json() -> Self {
-        Self::Buffered { content_type: "application/json".to_owned() }
+        Self::Buffered {
+            content_type: "application/json".to_owned(),
+        }
     }
 
     /// Buffered response with this content type.
     pub fn buffered(content_type: &str) -> Self {
-        Self::Buffered { content_type: content_type.to_owned() }
+        Self::Buffered {
+            content_type: content_type.to_owned(),
+        }
     }
 
     /// SSE with the default `text/event-stream` content type.
@@ -129,34 +141,53 @@ pub struct ResponseSpec {
 impl ResponseSpec {
     /// Buffered response with an optional status override.
     pub fn buffered(status: Option<u16>, content_type: &str) -> Self {
-        Self { status, body: ResponseBody::buffered(content_type), with_headers: false }
+        Self {
+            status,
+            body: ResponseBody::buffered(content_type),
+            with_headers: false,
+        }
     }
 
     /// SSE response with an optional status override and failure event.
-    pub fn sse(status: Option<u16>, content_type: Option<&str>, failure_event: Option<&str>) -> Self {
+    pub fn sse(
+        status: Option<u16>,
+        content_type: Option<&str>,
+        failure_event: Option<&str>,
+    ) -> Self {
         Self {
             status,
-            body: ResponseBody::sse(
-                content_type.unwrap_or("text/event-stream"),
-                failure_event,
-            ),
+            body: ResponseBody::sse(content_type.unwrap_or("text/event-stream"), failure_event),
             with_headers: false,
         }
     }
 
     /// Raw-bytes response with an optional status override.
     pub fn bytes(status: Option<u16>, content_type: &str) -> Self {
-        Self { status, body: ResponseBody::Bytes { content_type: content_type.to_owned() }, with_headers: false }
+        Self {
+            status,
+            body: ResponseBody::Bytes {
+                content_type: content_type.to_owned(),
+            },
+            with_headers: false,
+        }
     }
 
     /// Empty response with an optional status override (defaults to 204).
     pub fn no_content(status: Option<u16>) -> Self {
-        Self { status, body: ResponseBody::NoContent, with_headers: false }
+        Self {
+            status,
+            body: ResponseBody::NoContent,
+            with_headers: false,
+        }
     }
 
     /// Wrap this response with headers, with an optional status override.
     pub fn with_headers(inner: ResponseSpec, status: Option<u16>) -> Self {
-        Self { status: status.or(inner.status), body: inner.body, with_headers: true }
+        Self {
+            status: status.or(inner.status),
+            body: inner.body,
+            with_headers: true,
+        }
     }
 
     /// The inner body (the wrapper is a flag, so this is the stored body).
@@ -179,6 +210,8 @@ pub enum EndpointMethod {
     Post,
     /// HEAD.
     Head,
+    /// QUERY (safe method carrying a request body).
+    Query,
 }
 
 /// A validated endpoint: identifier, method, path, payloads, and response sets.
@@ -231,9 +264,16 @@ impl Endpoint {
         Self::builder(identifier, EndpointMethod::Head, path)
     }
 
+    /// A QUERY endpoint builder (a request body on a safe retrieval method).
+    pub fn query(identifier: &str, path: &str) -> EndpointBuilder {
+        Self::builder(identifier, EndpointMethod::Query, path)
+    }
+
     /// Payload entry for a normalized content-type key, if any.
     pub fn payload_entry(&self, normalized_content_type: &str) -> Option<&PayloadEncoding> {
-        self.payload.iter().find(|entry| entry.key() == normalized_content_type)
+        self.payload
+            .iter()
+            .find(|entry| entry.key() == normalized_content_type)
     }
 
     /// Whether the success set holds this body with this headers flag.
@@ -333,12 +373,17 @@ impl EndpointBuilder {
     }
 }
 
-fn validate_success(responses: &[ResponseSpec], method: EndpointMethod) -> Result<Vec<ResponseSpec>, String> {
+fn validate_success(
+    responses: &[ResponseSpec],
+    method: EndpointMethod,
+) -> Result<Vec<ResponseSpec>, String> {
     let mut has_stream = false;
     let mut statuses: std::collections::HashMap<u16, StatusEntry> =
         std::collections::HashMap::new();
     for response in responses {
-        let status = response.status.unwrap_or(default_success_status(&response.body));
+        let status = response
+            .status
+            .unwrap_or(default_success_status(&response.body));
         if response.body.is_stream() {
             validate_stream(&response.body, method)?;
             if has_stream {
@@ -351,9 +396,7 @@ fn validate_success(responses: &[ResponseSpec], method: EndpointMethod) -> Resul
                     "Cannot combine no-content and streaming success responses for status: {status}"
                 ));
             }
-            let content_type = normalize_content_type(
-                response.body.content_type().unwrap_or(""),
-            );
+            let content_type = normalize_content_type(response.body.content_type().unwrap_or(""));
             if entry.buffered_content_types.contains(&content_type) {
                 return Err(format!(
                     "Cannot combine buffered and streaming success responses for status {status} and content-type: {}",
@@ -371,9 +414,8 @@ fn validate_success(responses: &[ResponseSpec], method: EndpointMethod) -> Resul
                         "Cannot combine no-content and streaming success responses for status: {status}"
                     ));
                 }
-                let content_type = normalize_content_type(
-                    response.body.content_type().unwrap_or(""),
-                );
+                let content_type =
+                    normalize_content_type(response.body.content_type().unwrap_or(""));
                 if entry.stream_content_types.contains(&content_type) {
                     return Err(format!(
                         "Cannot combine buffered and streaming success responses for status {status} and content-type: {}",
@@ -393,7 +435,11 @@ fn validate_success(responses: &[ResponseSpec], method: EndpointMethod) -> Resul
     Ok(responses
         .iter()
         .map(|response| ResponseSpec {
-            status: Some(response.status.unwrap_or(default_success_status(&response.body))),
+            status: Some(
+                response
+                    .status
+                    .unwrap_or(default_success_status(&response.body)),
+            ),
             body: response.body.clone(),
             with_headers: response.with_headers,
         })
@@ -410,7 +456,11 @@ fn validate_error(responses: &[ResponseSpec]) -> Result<Vec<ResponseSpec>, Strin
     Ok(responses
         .iter()
         .map(|response| ResponseSpec {
-            status: Some(response.status.unwrap_or(default_error_status(&response.body))),
+            status: Some(
+                response
+                    .status
+                    .unwrap_or(default_error_status(&response.body)),
+            ),
             body: response.body.clone(),
             with_headers: response.with_headers,
         })
@@ -426,28 +476,26 @@ struct StatusEntry {
 }
 
 fn default_success_status(body: &ResponseBody) -> u16 {
-    if body.is_no_content() {
-        204
-    } else {
-        200
-    }
+    if body.is_no_content() { 204 } else { 200 }
 }
 
 fn default_error_status(body: &ResponseBody) -> u16 {
-    if body.is_no_content() {
-        204
-    } else {
-        500
-    }
+    if body.is_no_content() { 204 } else { 500 }
 }
 
 fn validate_stream(body: &ResponseBody, method: EndpointMethod) -> Result<(), String> {
     if method == EndpointMethod::Head {
         return Err("HEAD endpoints cannot declare streaming success responses".to_owned());
     }
-    if let ResponseBody::Sse { failure_event: Some(event), .. } = body {
+    if let ResponseBody::Sse {
+        failure_event: Some(event),
+        ..
+    } = body
+    {
         if event == RESERVED_STREAM_FAILURE_EVENT {
-            return Err(format!("SSE event name is reserved: {RESERVED_STREAM_FAILURE_EVENT}"));
+            return Err(format!(
+                "SSE event name is reserved: {RESERVED_STREAM_FAILURE_EVENT}"
+            ));
         }
     }
     Ok(())
@@ -457,7 +505,9 @@ fn validate_exclusivity(responses: &[ResponseSpec], default_status: u16) -> Resu
     let mut statuses: std::collections::HashMap<u16, ExclusivityEntry> =
         std::collections::HashMap::new();
     for response in responses {
-        let status = response.status.unwrap_or(default_status_for(response, default_status));
+        let status = response
+            .status
+            .unwrap_or(default_status_for(response, default_status));
         let content_type = response
             .body
             .content_type()

@@ -80,8 +80,7 @@ impl Response {
     /// Set a header, replacing any existing entry case-insensitively
     /// (explicit headers override body-derived ones).
     pub fn set_header(&mut self, name: &str, value: &str) {
-        self.headers
-            .retain(|(n, _)| !n.eq_ignore_ascii_case(name));
+        self.headers.retain(|(n, _)| !n.eq_ignore_ascii_case(name));
         self.headers.push((name.to_owned(), value.to_owned()));
     }
 
@@ -99,12 +98,12 @@ impl Response {
     /// have no representation here — use `set_header` directly for those.
     pub fn set_body(&mut self, body: &[u8], content_type: Option<&str>) {
         self.headers.retain(|(n, _)| {
-            !n.eq_ignore_ascii_case("content-length")
-                && !n.eq_ignore_ascii_case("content-type")
+            !n.eq_ignore_ascii_case("content-length") && !n.eq_ignore_ascii_case("content-type")
         });
         self.body = body.to_vec();
         if let Some(ct) = content_type {
-            self.headers.push(("content-type".to_owned(), ct.to_owned()));
+            self.headers
+                .push(("content-type".to_owned(), ct.to_owned()));
         }
         if !body.is_empty() {
             self.headers
@@ -193,8 +192,11 @@ pub fn test_client_origin(address: &NetAddress) -> Result<String, NetworkError> 
 }
 
 /// Match a route pattern against a request path.
-/// `:name` segments capture one non-empty segment; a query string or
-/// fragment is stripped before matching. Returns captures in order.
+/// `:name` segments capture one non-empty segment; `:name` followed by
+/// literal text (an action suffix such as the `:wait` in
+/// `/operations/:id:wait`) captures the head and matches the tail
+/// literally. A query string or fragment is stripped before matching.
+/// Returns captures in order.
 pub fn match_path(pattern: &str, path: &str) -> Option<Vec<(String, String)>> {
     match_path_with(pattern, path, true)
 }
@@ -273,8 +275,7 @@ fn match_path_with(
                     let matches = if case_sensitive {
                         rest.starts_with(part)
                     } else {
-                        rest.len() >= part.len()
-                            && rest[..part.len()].eq_ignore_ascii_case(part)
+                        rest.len() >= part.len() && rest[..part.len()].eq_ignore_ascii_case(part)
                     };
                     if !matches {
                         return None;
@@ -286,6 +287,35 @@ fn match_path_with(
                 return None;
             }
             continue;
+        }
+        if let Some(after) = pattern_seg.strip_prefix(':') {
+            let name_len = after
+                .find(|c: char| !(c.is_ascii_alphanumeric() || c == '_'))
+                .unwrap_or(after.len());
+            let (name, suffix) = after.split_at(name_len);
+            // ponytail: one leading `:name` plus one literal tail; a `?`
+            // optional marker keeps the old whole-segment binding.
+            if !name.is_empty() && !suffix.is_empty() && !suffix.starts_with('?') {
+                // `get` (not slicing): a suffix boundary inside a char is a miss, not a panic.
+                let tail = path_seg.get(path_seg.len().saturating_sub(suffix.len())..);
+                let Some(tail) = tail.filter(|tail| tail.len() == suffix.len()) else {
+                    return None;
+                };
+                let suffix_ok = if case_sensitive {
+                    tail == suffix
+                } else {
+                    tail.eq_ignore_ascii_case(suffix)
+                };
+                if !suffix_ok {
+                    return None;
+                }
+                let head = &path_seg[..path_seg.len() - tail.len()];
+                if head.is_empty() {
+                    return None;
+                }
+                params.push((name.to_string(), head.to_string()));
+                continue;
+            }
         }
         if let Some(name) = pattern_seg.strip_prefix(':') {
             if path_seg.is_empty() {
@@ -523,11 +553,7 @@ impl<A> Pattern<A> {
                     safe = true;
                     None
                 } else {
-                    let tempered = if safe {
-                        None
-                    } else {
-                        Some(separator.clone())
-                    };
+                    let tempered = if safe { None } else { Some(separator.clone()) };
                     safe = false;
                     tempered
                 };
@@ -1400,7 +1426,10 @@ struct PrefixedRouteEntry {
 impl PrefixRouter {
     /// An empty router with no scope.
     pub fn new() -> Self {
-        Self { scope: String::new(), routes: Vec::new() }
+        Self {
+            scope: String::new(),
+            routes: Vec::new(),
+        }
     }
 
     /// A view registering under `prefix` (nesting concatenates scopes).
@@ -1578,11 +1607,7 @@ fn url_path(url: &str) -> &str {
         Some(i) => &path[..i],
         None => path,
     };
-    if path.is_empty() {
-        "/"
-    } else {
-        path
-    }
+    if path.is_empty() { "/" } else { path }
 }
 
 impl ServerErrorReason {
@@ -1615,7 +1640,8 @@ impl ServerErrorReason {
             } => {
                 let head = format!(
                     "ResponseError ({} {} {})",
-                    response.status, request.method,
+                    response.status,
+                    request.method,
                     url_path(&request.url)
                 );
                 match description {
@@ -1756,12 +1782,16 @@ pub struct CorsOptions {
 impl CorsOptions {
     /// Allow exactly these origins.
     pub fn allow_origins(origins: impl IntoIterator<Item = impl Into<String>>) -> Self {
-        Self { allowed_origins: Some(origins.into_iter().map(Into::into).collect()) }
+        Self {
+            allowed_origins: Some(origins.into_iter().map(Into::into).collect()),
+        }
     }
 
     /// Allow every origin (`*`).
     pub fn allow_all() -> Self {
-        Self { allowed_origins: None }
+        Self {
+            allowed_origins: None,
+        }
     }
 }
 
@@ -1791,13 +1821,23 @@ pub fn apply_cors(
         return (Some("*".to_owned()), response_vary.map(str::to_owned));
     }
     let allowed = request.origin.as_ref().is_some_and(|origin| {
-        options.allowed_origins.as_ref().is_some_and(|list| list.iter().any(|item| item == origin))
+        options
+            .allowed_origins
+            .as_ref()
+            .is_some_and(|list| list.iter().any(|item| item == origin))
     });
-    let allow_origin = if allowed { request.origin.clone() } else { None };
+    let allow_origin = if allowed {
+        request.origin.clone()
+    } else {
+        None
+    };
     let mut vary = response_vary.map(str::to_owned);
     vary = Some(ensure_vary_dimension(vary.as_deref(), "Origin"));
     if request.is_preflight {
-        vary = Some(ensure_vary_dimension(vary.as_deref(), "Access-Control-Request-Headers"));
+        vary = Some(ensure_vary_dimension(
+            vary.as_deref(),
+            "Access-Control-Request-Headers",
+        ));
     }
     (allow_origin, vary)
 }
@@ -1808,7 +1848,10 @@ fn ensure_vary_dimension(vary: Option<&str>, dimension: &str) -> String {
         None | Some("") => dimension.to_owned(),
         Some("*") => "*".to_owned(),
         Some(current) => {
-            if current.split(',').any(|member| member.trim().eq_ignore_ascii_case(dimension)) {
+            if current
+                .split(',')
+                .any(|member| member.trim().eq_ignore_ascii_case(dimension))
+            {
                 current.to_owned()
             } else {
                 format!("{current}, {dimension}")
@@ -1833,12 +1876,11 @@ fn request_path(url: &str) -> &str {
         Some((_, rest)) => rest.split_at(rest.find('/').unwrap_or(rest.len())).1,
         None => url,
     };
-    let path = after_authority.split(['?', '#']).next().unwrap_or(after_authority);
-    if path.is_empty() {
-        "/"
-    } else {
-        path
-    }
+    let path = after_authority
+        .split(['?', '#'])
+        .next()
+        .unwrap_or(after_authority);
+    if path.is_empty() { "/" } else { path }
 }
 
 /// JavaScript's `Number.MAX_SAFE_INTEGER`: the largest `content-length` the
@@ -1893,7 +1935,10 @@ impl ServerRequestHead {
             .split('#')
             .next()
             .unwrap_or(&self.original_url);
-        without_fragment.split('?').next().unwrap_or(without_fragment)
+        without_fragment
+            .split('?')
+            .next()
+            .unwrap_or(without_fragment)
     }
 
     /// The server URL: path plus query plus fragment
@@ -1918,7 +1963,11 @@ impl ServerRequestHead {
     /// Query pairs in order, duplicates kept (`urlParams`); raw, without
     /// percent-decoding (that rides the router's `decode_component`).
     pub fn query_params(&self) -> Vec<(String, String)> {
-        let without_fragment = self.original_url.split('#').next().unwrap_or(&self.original_url);
+        let without_fragment = self
+            .original_url
+            .split('#')
+            .next()
+            .unwrap_or(&self.original_url);
         let query = match without_fragment.split_once('?') {
             Some((_, query)) => query,
             None => return Vec::new(),
