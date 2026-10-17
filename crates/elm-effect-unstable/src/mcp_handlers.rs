@@ -127,6 +127,13 @@ pub struct RpcNotification {
     pub id: Option<RpcId>,
 }
 
+impl RpcNotification {
+    /// Build a server-to-client notification (id is always `None`).
+    pub fn new(method: &str, params: Value) -> Self {
+        Self { method: method.to_owned(), params, id: None }
+    }
+}
+
 // ── Content helpers ─────────────────────────────────────────────────────────
 
 /// A `text` content block.
