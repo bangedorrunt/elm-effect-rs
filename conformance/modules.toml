@@ -1124,7 +1124,7 @@ tests = ["packages/effect/test/ai/AnthropicStructuredOutput.test.ts"]
 [[module]]
 path = "packages/effect/src/ai/Chat.ts"
 class = "unstable-port"
-status = "unmatched"
+status = "matched"
 tag = "unstable"
 reason = ""
 tests = ["packages/effect/test/ai/Chat.test.ts"]

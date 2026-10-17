@@ -612,6 +612,36 @@ impl Default for ChatStore {
     }
 }
 
+/// Approval-gated once-runner: an approved tool executes the first time its
+/// approval resolves and never replays on later turns (`needsApproval`
+/// tools in `ai/Chat.ts`: the completed approval is terminal).
+pub struct ApprovalTracker {
+    completed: std::sync::Mutex<std::collections::HashSet<String>>,
+}
+
+impl ApprovalTracker {
+    /// Empty tracker: no approval has completed yet.
+    pub fn new() -> Self {
+        Self { completed: std::sync::Mutex::new(std::collections::HashSet::new()) }
+    }
+
+    /// Run `execute` only when `approval_id` never completed; true when it ran.
+    pub fn run_once(&self, approval_id: &str, execute: impl FnOnce()) -> bool {
+        let mut completed = self.completed.lock().expect("approval tracker");
+        if !completed.insert(approval_id.to_owned()) {
+            return false;
+        }
+        execute();
+        true
+    }
+}
+
+impl Default for ApprovalTracker {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 // --- Tool port (ai/Tool.ts at the pin): named handlers, failure modes ---
 
 /// How handler failures surface.
@@ -1128,5 +1158,122 @@ impl AiError {
             error = error.with_description(description);
         }
         Some(error)
+    }
+}
+
+// --- EmbeddingModel port (ai/EmbeddingModel.ts at the pin) ---
+
+/// Token usage for an embedding call. `None` is the tag's `undefined`.
+#[derive(Clone, Debug, PartialEq)]
+pub struct EmbeddingUsage {
+    /// Input tokens billed, when the provider reports them.
+    pub input_tokens: Option<u64>,
+}
+
+impl EmbeddingUsage {
+    /// Encode to the wire shape, omitting undefined input tokens.
+    pub fn to_json(&self) -> serde_json::Value {
+        match self.input_tokens {
+            Some(tokens) => serde_json::json!({ "inputTokens": tokens }),
+            None => serde_json::json!({}),
+        }
+    }
+
+    /// Decode from the wire shape; missing or null input tokens is `None`.
+    pub fn from_json(value: &serde_json::Value) -> Option<Self> {
+        match value.get("inputTokens") {
+            None | Some(serde_json::Value::Null) => Some(Self { input_tokens: None }),
+            Some(tokens) => Some(Self {
+                input_tokens: Some(tokens.as_u64()?),
+            }),
+        }
+    }
+}
+
+/// One embedding vector.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Embedding {
+    /// The vector.
+    pub vector: Vec<f64>,
+}
+
+/// Single-input embed response.
+#[derive(Clone, Debug, PartialEq)]
+pub struct EmbedResponse {
+    /// The vector.
+    pub vector: Vec<f64>,
+    /// Usage reported by the provider.
+    pub usage: EmbeddingUsage,
+}
+
+/// Multi-input embed response.
+#[derive(Clone, Debug, PartialEq)]
+pub struct EmbedManyResponse {
+    /// One embedding per input, in order.
+    pub embeddings: Vec<Embedding>,
+    /// Usage reported by the provider.
+    pub usage: EmbeddingUsage,
+}
+
+/// Provider response: one vector per input plus usage.
+pub type ProviderResponse = (Vec<Vec<f64>>, EmbeddingUsage);
+
+/// Embedding model: `embed`/`embedMany` over a provider `embedMany`.
+pub struct EmbeddingModel {
+    embed_many: Box<dyn Fn(&[String]) -> Result<ProviderResponse, AiError> + Send + Sync>,
+}
+
+impl EmbeddingModel {
+    /// Build from a provider `embedMany` function.
+    pub fn new(
+        embed_many: impl Fn(&[String]) -> Result<ProviderResponse, AiError> + Send + Sync + 'static,
+    ) -> Self {
+        Self {
+            embed_many: Box::new(embed_many),
+        }
+    }
+
+    /// Embed one input. Fails with `InvalidOutputError` unless the provider
+    /// returns exactly one vector.
+    pub fn embed(&self, input: &str) -> Result<EmbedResponse, AiError> {
+        let (results, usage) = (self.embed_many)(&[input.to_owned()])?;
+        if results.len() != 1 {
+            return Err(AiError::new(AiReason::InvalidOutput {
+                details: format!("expected 1 embedding, got {}", results.len()),
+            }));
+        }
+        Ok(EmbedResponse {
+            vector: results.into_iter().next().unwrap_or_default(),
+            usage,
+        })
+    }
+
+    /// Embed many inputs in order. Empty input bypasses the provider.
+    /// Fails with `InvalidOutputError` on a result/input length mismatch.
+    pub fn embed_many(&self, inputs: &[&str]) -> Result<EmbedManyResponse, AiError> {
+        if inputs.is_empty() {
+            return Ok(EmbedManyResponse {
+                embeddings: Vec::new(),
+                usage: EmbeddingUsage { input_tokens: None },
+            });
+        }
+        let owned: Vec<String> = inputs.iter().map(|input| (*input).to_owned()).collect();
+        let (results, usage) = (self.embed_many)(&owned)?;
+        if results.len() != owned.len() {
+            return Err(AiError::new(AiReason::InvalidOutput {
+                details: format!(
+                    "expected {} embeddings, got {}",
+                    owned.len(),
+                    results.len()
+                ),
+            }));
+        }
+        Ok(EmbedManyResponse {
+            embeddings: results
+                .into_iter()
+                .map(|vector| Embedding { vector })
+                .collect(),
+            usage,
+        })
     }
 }

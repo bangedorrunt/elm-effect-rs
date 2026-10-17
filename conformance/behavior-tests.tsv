@@ -4644,11 +4644,11 @@ not-applicable	packages/effect/test/ai/AnthropicStructuredOutputRepresentation.t
 not-applicable	packages/effect/test/ai/AnthropicStructuredOutputRepresentation.test.ts	102	it	compiles custom callbacks after structural transformations	Rust elm-effect-unstable ai.rs has no Anthropic structured output representation transform and no Schema JSON compiler callback hooks, so the projection/compiler rows cannot be witnessed
 not-applicable	packages/effect/test/ai/AnthropicStructuredOutputRepresentation.test.ts	127	it	keeps property names that match unsupported keywords	Rust elm-effect-unstable ai.rs has no Anthropic structured output representation transform and no Schema JSON compiler callback hooks, so the projection/compiler rows cannot be witnessed
 not-applicable	packages/effect/test/ai/AnthropicStructuredOutputRepresentation.test.ts	144	it	keeps the original codec on the unchanged fast path	Rust elm-effect-unstable ai.rs has no Anthropic structured output representation transform and no Schema JSON compiler callback hooks, so the projection/compiler rows cannot be witnessed
-unported	packages/effect/test/ai/Chat.test.ts	19	it.effect	does not replay a completed approved tool	
-unported	packages/effect/test/ai/Chat.test.ts	56	it.effect	should persist chat history to the backing persistence store	
-unported	packages/effect/test/ai/Chat.test.ts	92	it.effect	should respect the specified time to live	
-unported	packages/effect/test/ai/Chat.test.ts	135	it.effect	should prefer the message identifier of the most recent assistant message	
-unported	packages/effect/test/ai/Chat.test.ts	175	it.effect	should raise an error when retrieving a chat that does not exist	
+ported	packages/effect/test/ai/Chat.test.ts	19	it.effect	does not replay a completed approved tool	does_not_replay_a_completed_approved_tool
+ported	packages/effect/test/ai/Chat.test.ts	56	it.effect	should persist chat history to the backing persistence store	persists_chat_history_to_the_backing_store
+ported	packages/effect/test/ai/Chat.test.ts	92	it.effect	should respect the specified time to live	respects_the_specified_time_to_live
+ported	packages/effect/test/ai/Chat.test.ts	135	it.effect	should prefer the message identifier of the most recent assistant message	prefers_the_message_identifier_of_the_most_recent_assistant_message
+ported	packages/effect/test/ai/Chat.test.ts	175	it.effect	should raise an error when retrieving a chat that does not exist	raises_an_error_when_retrieving_a_chat_that_does_not_exist
 unported	packages/effect/test/ai/DecisionModel.test.ts	93	it	make keeps the input schema and decisions	
 unported	packages/effect/test/ai/DecisionModel.test.ts	101	it	constructors keep instructions and criteria	
 unported	packages/effect/test/ai/DecisionModel.test.ts	115	it	probability accepts omitted criteria	
