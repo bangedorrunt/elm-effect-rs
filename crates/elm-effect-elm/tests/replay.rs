@@ -10,7 +10,7 @@ struct Model {
     count: i64,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 enum Msg {
     Tick,
     Add(i64),

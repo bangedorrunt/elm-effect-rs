@@ -1197,7 +1197,7 @@ fn tx_queue_drain_family() {
     // :306, :414 — take_n honours its count, and zero takes nothing.
     assert!(queue.offer_all([1, 2, 3, 4]).is_empty());
     assert_eq!(queue.take_n(2), vec![1, 2]);
-    assert_eq!(queue.take_n(0), vec![]);
+    assert_eq!(queue.take_n(0), Vec::<i32>::new());
     assert_eq!(queue.take_n(9), vec![3, 4], "more than held drains all");
 
     // :572 — peek leaves the item in place.
@@ -1207,13 +1207,13 @@ fn tx_queue_drain_family() {
     assert_eq!(queue.size(), 1);
 
     // :457, :477, :543 — take_between waits for the minimum.
-    let bounded = TxQueue::bounded(10);
+    let bounded: TxQueue<i32> = TxQueue::bounded(10);
     assert!(bounded.offer_all([1, 2, 3]).is_empty());
-    assert_eq!(bounded.take_between(5, 8), vec![], "fewer than min waits");
+    assert_eq!(bounded.take_between(5, 8), Vec::<i32>::new(), "fewer than min waits");
     assert_eq!(bounded.take_between(2, 8), vec![1, 2, 3]);
-    assert_eq!(bounded.take_between(0, 0), vec![]);
+    assert_eq!(bounded.take_between(0, 0), Vec::<i32>::new());
     // :492 — an inverted range takes nothing rather than everything.
-    assert_eq!(bounded.take_between(4, 1), vec![]);
+    assert_eq!(bounded.take_between(4, 1), Vec::<i32>::new());
 }
 
 #[test]
@@ -1234,7 +1234,7 @@ fn tx_queue_clear_leaves_state_alone() {
 
     // :669 — clearing an empty queue returns empty.
     let empty: TxQueue<i32> = TxQueue::bounded(10);
-    assert_eq!(empty.clear(), vec![]);
+    assert_eq!(empty.clear(), Vec::<i32>::new());
 
     // :683 — clearing a halted, drained queue also returns empty and stays done.
     let ended: TxQueue<i32> = TxQueue::bounded(10);
@@ -1242,7 +1242,7 @@ fn tx_queue_clear_leaves_state_alone() {
     assert!(ended.end());
     assert_eq!(ended.take_all(), vec![1, 2, 3]);
     assert!(!ended.is_open());
-    assert_eq!(ended.clear(), vec![]);
+    assert_eq!(ended.clear(), Vec::<i32>::new());
     assert!(!ended.is_open());
 }
 
@@ -1347,9 +1347,9 @@ fn tx_queue_closing_and_full_behavior() {
     assert!(!halted.offer(2));
     assert_eq!(halted.poll(), None);
     assert_eq!(halted.take(), None);
-    assert_eq!(halted.take_all(), vec![]);
-    assert_eq!(halted.take_n(3), vec![]);
-    assert_eq!(halted.clear(), vec![]);
+    assert_eq!(halted.take_all(), Vec::<i32>::new());
+    assert_eq!(halted.take_n(3), Vec::<i32>::new());
+    assert_eq!(halted.clear(), Vec::<i32>::new());
     assert_eq!(halted.size(), 0);
     assert!(halted.is_shutdown());
 }

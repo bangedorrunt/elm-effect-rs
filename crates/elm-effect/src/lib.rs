@@ -22,6 +22,7 @@ mod exit;
 #[cfg(feature = "tokio")]
 mod fiber;
 mod foundation;
+pub mod filesystem;
 #[cfg(feature = "tokio")]
 mod layer;
 mod metric;
@@ -40,7 +41,6 @@ mod stm;
 #[cfg(feature = "tokio")]
 mod stream;
 mod supervisor;
-pub use supervisor::{catch_panic, catch_panic_message};
 mod sync;
 mod time;
 

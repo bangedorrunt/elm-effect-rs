@@ -428,7 +428,7 @@ impl Duration {
             (DurationValue::Nanos(a), DurationValue::Nanos(b)) => a.cmp(b),
             // Mixed: the pin converts the millis side to exact nanos. When
             // that overflows i128, compare in millis space instead.
-            (a, b) => match (self.exact_nanos(), other.exact_nanos()) {
+            (_, _) => match (self.exact_nanos(), other.exact_nanos()) {
                 (Some(a), Some(b)) => a.cmp(&b),
                 _ => self
                     .to_millis()

@@ -162,11 +162,20 @@ pub enum Failure<E> {
     /// a fold that needs the text can render it itself.
     Fail(E),
     /// A defect: a panic or a broken invariant. Never a typed error value.
-    Defect(Defect),
+    Defect(#[serde(with = "DefectDef")] Defect),
     /// Interruption: not a failure, not a defect.
     Interrupted,
     /// The durable log rejected the append, so the command never ran.
     NotAppended(AppendError),
+}
+
+/// Serde mirror of the core `Defect`, which carries no serde derive. The
+/// fields are public, so the mirror round-trips exactly.
+#[derive(Serialize, Deserialize)]
+#[serde(remote = "Defect")]
+struct DefectDef {
+    message: String,
+    backtrace: String,
 }
 
 impl<E> Failure<E> {

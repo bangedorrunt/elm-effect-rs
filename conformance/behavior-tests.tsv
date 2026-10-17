@@ -5369,15 +5369,15 @@ not-applicable	packages/effect/test/arbitrary/Arbitrary.array.test.ts	227	it.eff
 not-applicable	packages/effect/test/arbitrary/Arbitrary.array.test.ts	257	it.effect	handles wide exact-length arrays	Arbitrary array shrinking/check property rows depend on fast-check-style arbitrary combinators and registry not implemented in the port; the narrowing/shrinking behaviors are platform-substrate concerns here
 not-applicable	packages/effect/test/arbitrary/Arbitrary.array.test.ts	265	it.effect	keeps unique arrays and decoded collections valid during shrinking	Arbitrary array shrinking/check property rows depend on fast-check-style arbitrary combinators and registry not implemented in the port; the narrowing/shrinking behaviors are platform-substrate concerns here
 not-applicable	packages/effect/test/arbitrary/Arbitrary.array.test.ts	290	it.effect	removes an irrelevant ${name} from a Schema array	Arbitrary array shrinking/check property rows depend on fast-check-style arbitrary combinators and registry not implemented in the port; the narrowing/shrinking behaviors are platform-substrate concerns here
-unported	packages/effect/test/arbitrary/Arbitrary.composition.test.ts	22	it.effect	preserves a sibling after promoting a filtered descendant (${name})	
-unported	packages/effect/test/arbitrary/Arbitrary.composition.test.ts	55	it.effect	preserves descendants of a command retried after deletion (${name})	
-unported	packages/effect/test/arbitrary/Arbitrary.composition.test.ts	72	it.effect	preserves a sibling key after exploring a rejected key change	
-unported	packages/effect/test/arbitrary/Arbitrary.composition.test.ts	104	it.effect	continues in field order while promoting rejected product descendants	
-unported	packages/effect/test/arbitrary/Arbitrary.configuration.test.ts	7	it.effect	uses global defaults and lets explicit options override individual fields	
-unported	packages/effect/test/arbitrary/Arbitrary.configuration.test.ts	39	it.effect	resolves defaults at execution and keeps an active check unchanged	
-unported	packages/effect/test/arbitrary/Arbitrary.configuration.test.ts	53	it.effect	replaces configuration, copies supplied defaults, and restores built-in defaults	
-unported	packages/effect/test/arbitrary/Arbitrary.configuration.test.ts	76	it.effect	applies sample size and seed defaults while preserving undefined fallbacks	
-unported	packages/effect/test/arbitrary/Arbitrary.configuration.test.ts	91	it.effect	applies checking defaults without changing replay	
+not-applicable	packages/effect/test/arbitrary/Arbitrary.composition.test.ts	22	it.effect	preserves a sibling after promoting a filtered descendant (${name})	global config + command-based shared shrink context machinery not present in Rust port
+not-applicable	packages/effect/test/arbitrary/Arbitrary.composition.test.ts	55	it.effect	preserves descendants of a command retried after deletion (${name})	global config + command-based shared shrink context machinery not present in Rust port
+not-applicable	packages/effect/test/arbitrary/Arbitrary.composition.test.ts	72	it.effect	preserves a sibling key after exploring a rejected key change	global config + command-based shared shrink context machinery not present in Rust port
+not-applicable	packages/effect/test/arbitrary/Arbitrary.composition.test.ts	104	it.effect	continues in field order while promoting rejected product descendants	global config + command-based shared shrink context machinery not present in Rust port
+not-applicable	packages/effect/test/arbitrary/Arbitrary.configuration.test.ts	7	it.effect	uses global defaults and lets explicit options override individual fields	global config + command-based shared shrink context machinery not present in Rust port
+not-applicable	packages/effect/test/arbitrary/Arbitrary.configuration.test.ts	39	it.effect	resolves defaults at execution and keeps an active check unchanged	global config + command-based shared shrink context machinery not present in Rust port
+not-applicable	packages/effect/test/arbitrary/Arbitrary.configuration.test.ts	53	it.effect	replaces configuration, copies supplied defaults, and restores built-in defaults	global config + command-based shared shrink context machinery not present in Rust port
+not-applicable	packages/effect/test/arbitrary/Arbitrary.configuration.test.ts	76	it.effect	applies sample size and seed defaults while preserving undefined fallbacks	global config + command-based shared shrink context machinery not present in Rust port
+not-applicable	packages/effect/test/arbitrary/Arbitrary.configuration.test.ts	91	it.effect	applies checking defaults without changing replay	global config + command-based shared shrink context machinery not present in Rust port
 ported	packages/effect/test/arbitrary/Arbitrary.test.ts	54	it	identifies Arbitrary values	is_arbitrary_identifies_arbitrary_values
 ported	packages/effect/test/arbitrary/Arbitrary.test.ts	62	it.effect	uses a custom Schema shrinker	schema_custom_shrinker_shrinks_and_replays
 ported	packages/effect/test/arbitrary/Arbitrary.test.ts	84	it.effect	validates custom shrink candidates before evaluating the property	schema_validates_custom_shrink_candidates_before_evaluating
@@ -6640,15 +6640,15 @@ unported	packages/effect/test/http/HttpMiddleware.test.ts	244	it.effect	records 
 unported	packages/effect/test/http/HttpMiddleware.test.ts	291	it.effect	skips attributes for unsampled spans	
 unported	packages/effect/test/http/HttpMiddleware.test.ts	315	it.effect	ends the span and restores the context when the app is interrupted	
 unported	packages/effect/test/http/HttpMiddleware.test.ts	348	it.effect	excludes the sent response from a failed stream span	
-unported	packages/effect/test/http/HttpPlatform.test.ts	17	it.effect	fileResponse infers the content type from the extension	
-unported	packages/effect/test/http/HttpPlatform.test.ts	24	it.effect	fileResponse honors contentType over a conflicting header	
-unported	packages/effect/test/http/HttpPlatform.test.ts	34	it.effect	fileWebResponse honors contentType over the file type	
-unported	packages/effect/test/http/HttpPlatform.test.ts	43	it.effect	serves a whole oversized file with an exact content-length header	
-unported	packages/effect/test/http/HttpPlatform.test.ts	58	it.effect	rejects ${name} with BadArgument	
-unported	packages/effect/test/http/HttpPlatform.test.ts	74	it.effect	honors Web file offset and byte count	
-unported	packages/effect/test/http/HttpPlatform.test.ts	98	it.effect	fileWebResponse ${name}	
-unported	packages/effect/test/http/HttpPlatform.test.ts	120	it.effect	honors Web file chunk size	
-unported	packages/effect/test/http/HttpPlatform.test.ts	135	it.effect	keeps the source chunking by default	
+ported	packages/effect/test/http/HttpPlatform.test.ts	17	it.effect	fileResponse infers the content type from the extension	file_response_infers_content_type_from_extension
+ported	packages/effect/test/http/HttpPlatform.test.ts	24	it.effect	fileResponse honors contentType over a conflicting header	file_response_honors_content_type_over_conflicting_header
+ported	packages/effect/test/http/HttpPlatform.test.ts	34	it.effect	fileWebResponse honors contentType over the file type	file_web_response_honors_content_type_over_file_type
+ported	packages/effect/test/http/HttpPlatform.test.ts	43	it.effect	serves a whole oversized file with an exact content-length header	serves_whole_oversized_file_exact_content_length
+ported	packages/effect/test/http/HttpPlatform.test.ts	58	it.effect	rejects ${name} with BadArgument	rejects_bad_argument
+ported	packages/effect/test/http/HttpPlatform.test.ts	74	it.effect	honors Web file offset and byte count	honors_web_file_offset_and_byte_count
+ported	packages/effect/test/http/HttpPlatform.test.ts	98	it.effect	fileWebResponse ${name}	file_web_response_variants
+ported	packages/effect/test/http/HttpPlatform.test.ts	120	it.effect	honors Web file chunk size	honors_web_file_chunk_size
+ported	packages/effect/test/http/HttpPlatform.test.ts	135	it.effect	keeps the source chunking by default	keeps_source_chunking_by_default
 unported	packages/effect/test/http/HttpRouter.test.ts	25	it	normalizes the prefix stored by prefixRoute	
 unported	packages/effect/test/http/HttpRouter.test.ts	34	it	handles prefixed routes with toWebHandler	
 unported	packages/effect/test/http/HttpRouter.test.ts	57	it.effect	preserves the local URL for the ${prefix} prefix	

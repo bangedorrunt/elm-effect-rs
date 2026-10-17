@@ -18,6 +18,7 @@ fn app(boot: &Boot) -> Loop<Counter, Run> {
         Arc::new(MemLog::new()),
         Producer::new("test"),
     )
+    .expect("boot")
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -25,7 +26,7 @@ struct Model {
     count: i64,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 enum Msg {
     Tick,
     Add(i64),
@@ -100,16 +101,16 @@ fn fold_updates_model() {
     let mut app = app(&Boot::parse(vec!["start=5".to_string()]));
     assert_eq!(app.model().count, 5);
     // Time enters as a message.
-    app.send(Msg::Tick);
+    app.send(Msg::Tick).expect("append");
     assert_eq!(app.model().count, 6);
-    app.send(Msg::Add(4));
+    app.send(Msg::Add(4)).expect("append");
     assert_eq!(app.model().count, 10);
 }
 
 #[test]
 fn durable_intents_recorded_ephemeral_not() {
     let mut app = app(&Boot::default());
-    app.send(Msg::Tick);
+    app.send(Msg::Tick).expect("append");
     let keys: Vec<&str> = app.intents().iter().map(|r| r.key.as_str()).collect();
     assert_eq!(keys, vec!["count"]);
     let body = &app.intents()[0].body;
@@ -120,7 +121,7 @@ fn durable_intents_recorded_ephemeral_not() {
 fn interpret_feedback_runs_commands() {
     // Persist interprets to Add(0): model moves only by the Tick fold.
     let mut app = app(&Boot::default());
-    app.send(Msg::Tick);
+    app.send(Msg::Tick).expect("append");
     assert_eq!(app.model().count, 1);
     assert_eq!(app.intents().len(), 1);
 }

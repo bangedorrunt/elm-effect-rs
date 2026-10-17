@@ -27,7 +27,7 @@ struct CModel {
     provider_runs: usize,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 enum CMsg {
     Add(i64),
     Explode(String),
@@ -119,14 +119,35 @@ impl Interpret<Counter> for Run {
     }
 }
 
+/// A log that refuses only durable intents. Messages still append, so a test
+/// can fail the command path alone. A producer seq gap cannot do this: the
+/// message and the intent share one seq counter, so the message fails first.
+struct RefuseIntents(MemLog);
+
+impl DurableLog for RefuseIntents {
+    fn append_json(&self, envelope: &str) -> Result<Offset, AppendError> {
+        if envelope.contains("\"kind\":\"intent\"") {
+            return Err(AppendError::Storage("injected: intent refused".to_string()));
+        }
+        self.0.append_json(envelope)
+    }
+    fn read_from(&self, from: &Offset) -> Result<Vec<(Offset, String)>, AppendError> {
+        self.0.read_from(from)
+    }
+    fn compact_before(&self, before: &Offset) -> Result<usize, AppendError> {
+        self.0.compact_before(before)
+    }
+}
+
 fn boot_app(log: Arc<dyn DurableLog>, producer: Producer) -> Loop<Counter, Run> {
     Loop::<Counter, Run>::boot(&Boot::default(), ManagedRuntime::new(), log, producer)
+    .expect("boot")
 }
 
 #[test]
 fn failing_command_becomes_a_message_and_later_update_sees_it() {
     let mut app = boot_app(Arc::new(MemLog::new()), Producer::new("test"));
-    app.send(CMsg::Explode("boom".to_string()));
+    app.send(CMsg::Explode("boom".to_string())).expect("append");
     assert_eq!(app.model().failures.len(), 1, "failure reached the fold");
     // Match the kind and the typed value structurally, not by grepping a
     // rendered string: the fold sees the interpreter's error by value.
@@ -135,7 +156,7 @@ fn failing_command_becomes_a_message_and_later_update_sees_it() {
         other => panic!("expected a typed failure, got {other:?}"),
     }
     // A later fold sees the failure recorded by the earlier one.
-    app.send(CMsg::Report);
+    app.send(CMsg::Report).expect("append");
     assert_eq!(app.model().reported.len(), 1);
     assert!(matches!(app.model().reported[0], Failure::Fail(_)));
 }
@@ -143,7 +164,7 @@ fn failing_command_becomes_a_message_and_later_update_sees_it() {
 #[test]
 fn defect_becomes_a_message_too() {
     let mut app = boot_app(Arc::new(MemLog::new()), Producer::new("test"));
-    app.send(CMsg::Defect);
+    app.send(CMsg::Defect).expect("append");
     assert_eq!(app.model().failures.len(), 1, "defect reached the fold");
     match &app.model().failures[0] {
         Failure::Defect(defect) => assert_eq!(defect.message, "kaboom"),
@@ -154,14 +175,14 @@ fn defect_becomes_a_message_too() {
 #[test]
 fn interrupt_becomes_a_message_and_is_not_swallowed_by_a_handler() {
     let mut app = boot_app(Arc::new(MemLog::new()), Producer::new("test"));
-    app.send(CMsg::Interrupt);
+    app.send(CMsg::Interrupt).expect("append");
     assert_eq!(app.model().failures.len(), 1, "interrupt reached the fold");
     // L2: an interrupt is its own kind. A program matching Fail here must
     // not accidentally take it, and a failure handler must not swallow it.
     assert_eq!(app.model().failures[0], Failure::Interrupted);
     // An empty cause is neither a failure nor an interrupt: reading it as
     // one would hide whichever reason the cause actually lost.
-    app.send(CMsg::Empty);
+    app.send(CMsg::Empty).expect("append");
     assert_eq!(
         app.model().failures[1],
         Failure::Defect(Defect::new("empty cause"))
@@ -172,11 +193,13 @@ fn interrupt_becomes_a_message_and_is_not_swallowed_by_a_handler() {
 fn durable_command_appends_through_the_log_before_running() {
     let log: Arc<dyn DurableLog> = Arc::new(MemLog::new());
     let mut app = boot_app(Arc::clone(&log), Producer::new("test"));
-    app.send(CMsg::Add(3));
+    app.send(CMsg::Add(3)).expect("append");
     // The intent is in the log, not only the in-memory vec.
     let entries = log.read_from(&Offset::Start).unwrap();
-    assert_eq!(entries.len(), 1);
-    assert!(entries[0].1.contains("\"count\""), "payload carries the intent key");
+    // The log also holds the message and the outcome, so find the intent row.
+    let intents: Vec<_> = entries.iter().filter(|(_, body)| body.contains("\"kind\":\"intent\"")).collect();
+    assert_eq!(intents.len(), 1, "exactly one durable intent");
+    assert!(intents[0].1.contains("\"count\""), "payload carries the intent key");
     assert_eq!(app.intents().len(), 1);
     // The provider ran, and the fold counted it. No process global.
     assert_eq!(app.model().provider_runs, 1);
@@ -184,22 +207,26 @@ fn durable_command_appends_through_the_log_before_running() {
 
 #[test]
 fn append_failure_skips_the_provider() {
-    let log: Arc<dyn DurableLog> = Arc::new(MemLog::new());
-    // seq 3 on an empty log is a gap: the append fails, the durable
-    // command must not run.
-    let producer = Producer { producer_id: "test".to_string(), epoch: 0, seq: 3 };
-    let mut app = boot_app(Arc::clone(&log), producer);
-    app.send(CMsg::Add(3));
+    let log: Arc<dyn DurableLog> = Arc::new(RefuseIntents(MemLog::new()));
+    // The intent append is refused, so the durable command must not run.
+    let mut app = boot_app(Arc::clone(&log), Producer::new("test"));
+    app.send(CMsg::Add(3)).expect("append");
     // The fold counted zero provider runs, so the provider did not run.
     assert_eq!(app.model().provider_runs, 0, "provider must not run");
     assert!(app.intents().is_empty());
-    assert!(log.read_from(&Offset::Start).unwrap().is_empty());
+    assert!(
+        log.read_from(&Offset::Start)
+            .unwrap()
+            .iter()
+            .all(|(_, body)| !body.contains("\"kind\":\"intent\"")),
+        "no intent row reached the log"
+    );
     // The fold still learns the command was dropped: a rejection is a
     // reported outcome carrying the log's typed error, not a silent skip.
     let reported = &app.model().failures;
     match reported.last() {
         Some(Failure::NotAppended(error)) => {
-            assert!(matches!(error, AppendError::SeqGap { .. }), "{error:?}")
+            assert!(matches!(error, AppendError::Storage(_)), "{error:?}")
         }
         other => panic!("expected NotAppended, got {other:?}"),
     }
@@ -211,9 +238,9 @@ fn subscriber_reads_model_after_later_sends() {
     // with the provider tests: no lock, no static, parallel threads safe.
     let mut app = boot_app(Arc::new(MemLog::new()), Producer::new("test"));
     let sub = app.subscriber();
-    app.send(CMsg::Add(1));
+    app.send(CMsg::Add(1)).expect("append");
     assert_eq!(sub.read().count, 1, "handle taken before the send sees it");
-    app.send(CMsg::Add(4));
+    app.send(CMsg::Add(4)).expect("append");
     assert_eq!(sub.read().count, 5, "handle sees every later fold");
 }
 
@@ -235,7 +262,7 @@ impl Cmd for WCmd {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 enum WMsg {
     Start,
     Done(u32),
@@ -300,6 +327,7 @@ fn boot_windowed(bound: usize) -> Loop<Windowed, WinRun> {
         Arc::new(MemLog::new()),
         Producer::new("test"),
     )
+    .expect("boot")
     .with_bound(bound)
 }
 
@@ -312,7 +340,7 @@ fn windows_finish_before_the_next_starts() {
     let _guard = WINDOW_LOCK.lock().unwrap();
     ORDER.lock().unwrap().clear();
     let mut app = boot_windowed(1);
-    app.send(WMsg::Start);
+    app.send(WMsg::Start).expect("append");
     let order: Vec<String> = std::mem::take(&mut *ORDER.lock().unwrap());
     // bound 1: each command runs, folds, and cascades before the next runs.
     assert_eq!(order, interleaved("run", 9));
@@ -329,8 +357,9 @@ fn default_bound_is_eight() {
         ManagedRuntime::new(),
         Arc::new(MemLog::new()),
         Producer::new("test"),
-    );
-    app.send(WMsg::Start);
+    )
+    .expect("boot");
+    app.send(WMsg::Start).expect("append");
     let order: Vec<String> = std::mem::take(&mut *ORDER.lock().unwrap());
     let mut expected: Vec<String> = (1..=8).map(|i| format!("run{i}")).collect();
     expected.extend((1..=8).map(|i| format!("next{i}")));
@@ -352,7 +381,7 @@ impl Cmd for SCmd {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 enum SMsg {
     /// Emits the window. A message, so the bound is already set when the
     /// window runs (boot's init window runs at the default bound before
@@ -430,6 +459,7 @@ fn boot_overlapping(bound: usize) -> (Loop<Overlapping, SlowRun>, std::time::Ins
         Arc::new(MemLog::new()),
         Producer::new("test"),
     )
+    .expect("boot")
     .with_bound(bound);
     (app, started)
 }
@@ -438,7 +468,7 @@ fn boot_overlapping(bound: usize) -> (Loop<Overlapping, SlowRun>, std::time::Ins
 fn a_window_overlaps_its_commands_and_keeps_their_order() {
     let (mut app, _started) = boot_overlapping(8);
     let started = std::time::Instant::now();
-    app.send(SMsg::Launch);
+    app.send(SMsg::Launch).expect("append");
     let elapsed = started.elapsed();
     // 4 x 50ms: overlapped the window costs about one wait (~50ms),
     // sequenced about four (~200ms). 120ms sits in the empty middle, so a
@@ -455,7 +485,7 @@ fn a_window_overlaps_its_commands_and_keeps_their_order() {
 fn a_sequential_window_costs_the_sum_of_its_commands() {
     let (mut app, _started) = boot_overlapping(1);
     let started = std::time::Instant::now();
-    app.send(SMsg::Launch);
+    app.send(SMsg::Launch).expect("append");
     let elapsed = started.elapsed();
     assert!(
         elapsed >= std::time::Duration::from_millis(150),
@@ -479,7 +509,7 @@ impl Cmd for PCmd {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 enum PMsg {
     /// Emits three panicking providers in one window.
     Went,
@@ -551,7 +581,7 @@ impl Cmd for BCmd {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 enum BMsg {
     Went,
     SawDefect,
@@ -612,8 +642,9 @@ fn a_panic_in_interpret_is_not_swallowed_as_a_provider_outcome() {
         ManagedRuntime::new(),
         Arc::new(MemLog::new()),
         Producer::new("test"),
-    );
-    app.send(BMsg::Went);
+    )
+    .expect("boot");
+    app.send(BMsg::Went).expect("append");
 }
 
 #[test]
@@ -623,8 +654,9 @@ fn a_panicking_provider_in_a_window_becomes_a_defect_not_a_crash() {
         ManagedRuntime::new(),
         Arc::new(MemLog::new()),
         Producer::new("test"),
-    );
-    app.send(PMsg::Went);
+    )
+    .expect("boot");
+    app.send(PMsg::Went).expect("append");
     // Each of the three panicked, and the loop folded three defects
     // instead of dying on the first `join`.
     assert_eq!(app.model().defects, 3);
@@ -656,7 +688,7 @@ struct LedgerModel {
     seen: Vec<String>,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 enum LedgerMsg {
     Read,
     ReadBack(String),
@@ -737,6 +769,7 @@ fn boot_ledger(runtime: ManagedRuntime) -> Loop<LedgerReader, LedgerReader> {
         Arc::new(MemLog::new()),
         Producer::new("test"),
     )
+    .expect("boot")
 }
 
 #[test]
@@ -746,7 +779,7 @@ fn a_services_runtime_reaches_a_static_interpreter() {
     });
     let mut app = boot_ledger(ManagedRuntime::make(&layer).expect("layer builds"));
 
-    app.send(LedgerMsg::Read);
+    app.send(LedgerMsg::Read).expect("append");
 
     assert_eq!(
         app.model().seen,
@@ -762,7 +795,7 @@ fn a_loop_without_services_refuses_loudly_instead_of_defaulting() {
     // and every other command in the window still reports.
     let mut app = boot_ledger(ManagedRuntime::new());
 
-    app.send(LedgerMsg::Read);
+    app.send(LedgerMsg::Read).expect("append");
 
     assert_eq!(app.model().seen.len(), 1, "the defect reached the fold");
     assert!(
