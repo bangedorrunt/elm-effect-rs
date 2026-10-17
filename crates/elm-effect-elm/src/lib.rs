@@ -181,7 +181,12 @@ struct DefectDef {
 impl<E> Failure<E> {
     /// Classify one cause with `squash`'s priority — fail, then defect,
     /// then interrupt — so one exit yields one message. Takes the cause by
-    /// value because the typed failure is handed over unrendered.
+    /// value because the typed failure is handed over unrendered. First
+    /// failure wins, matching Effect's `failureOption`; sibling reasons of
+    /// the same kind are not preserved (the fold carries one message, like
+    /// the pin). An empty cause means the runtime lost the failure: that is
+    /// a bug, reported loudly as a defect rather than guessed at, and
+    /// pinned by the empty-cause test.
     pub fn of_cause(cause: Cause<E>) -> Self {
         let mut defect = None;
         let mut interrupted = false;

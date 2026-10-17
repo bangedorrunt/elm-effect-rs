@@ -115,6 +115,12 @@ impl<E> Cause<E> {
 
     /// A cause with no reasons. There is no `Empty` variant to confuse with
     /// "failed with nothing".
+    ///
+    /// This is an accumulator seed only (parallel folds collect siblings
+    /// into it): it must never reach the fold as a completed failure, and
+    /// no producer emits it on a failure path. [`Failure::of_cause`] treats
+    /// an empty cause as a bug in the runtime's bookkeeping and reports it
+    /// loudly instead of guessing.
     pub fn empty() -> Self {
         Self {
             reasons: Vec::new(),
