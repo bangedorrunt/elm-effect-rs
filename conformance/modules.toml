@@ -2860,7 +2860,7 @@ tests = []
 [[module]]
 path = "packages/effect/src/sql/Statement.ts"
 class = "unstable-port"
-status = "unmatched"
+status = "matched"
 tag = "unstable"
 reason = "no prepared-statement surface yet"
 tests = ["packages/effect/test/sql/Statement.test.ts"]

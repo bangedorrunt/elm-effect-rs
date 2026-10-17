@@ -9907,12 +9907,12 @@ ported	packages/effect/test/sql/SqlSchema.test.ts	115	it.effect	fails when the f
 ported	packages/effect/test/sql/SqlSchema.test.ts	129	it.effect	returns Option.some when a row exists	schema_find_one_and_option
 ported	packages/effect/test/sql/SqlSchema.test.ts	144	it.effect	returns Option.none when no rows are returned	schema_find_one_and_option
 ported	packages/effect/test/sql/SqlSchema.test.ts	156	it.effect	fails when the first row cannot be decoded	schema_find_one_and_option
-unported	packages/effect/test/sql/Statement.test.ts	9	it	defaultTransforms ignores inherited properties	
-unported	packages/effect/test/sql/Statement.test.ts	22	it	compiles one fragment independently for each compiler	
-unported	packages/effect/test/sql/Statement.test.ts	40	it	renumbers a cached returning fragment	
-unported	packages/effect/test/sql/Statement.test.ts	62	it.effect	reads propagation overrides when executing existing statements and streams	
-unported	packages/effect/test/sql/Statement.test.ts	81	it.effect	parents acquisition, execution, and pulls without adding stack frames	
-unported	packages/effect/test/sql/Statement.test.ts	98	it.effect	skips propagation when tracing is disabled	
+ported	packages/effect/test/sql/Statement.test.ts	9	it	defaultTransforms ignores inherited properties	statement_transforms_rename_only_present_keys
+ported	packages/effect/test/sql/Statement.test.ts	22	it	compiles one fragment independently for each compiler	statement_compilers_render_placeholders_per_dialect
+ported	packages/effect/test/sql/Statement.test.ts	40	it	renumbers a cached returning fragment	statement_embedded_fragment_renumbers_placeholders
+not-applicable	packages/effect/test/sql/Statement.test.ts	62	it.effect	reads propagation overrides when executing existing statements and streams	requires Tracer spans/SpanPropagationEnabled: crate has no span infrastructure
+not-applicable	packages/effect/test/sql/Statement.test.ts	81	it.effect	parents acquisition, execution, and pulls without adding stack frames	requires CurrentStackFrame acquisition spans: crate has no span infrastructure
+not-applicable	packages/effect/test/sql/Statement.test.ts	98	it.effect	skips propagation when tracing is disabled	requires tracing propagation toggle: crate has no span infrastructure
 unported	packages/effect/test/testing/TestSchema.test.ts	26	it	compares string and symbol fields by AST	
 unported	packages/effect/test/testing/TestSchema.test.ts	35	it	rejects missing or structurally different symbol fields	
 unported	packages/effect/test/testing/TestSchema.test.ts	50	it	preserves symbol identity even with equal descriptions	
