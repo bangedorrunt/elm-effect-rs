@@ -1140,7 +1140,7 @@ tests = []
 [[module]]
 path = "packages/effect/src/ai/DecisionModel.ts"
 class = "unstable-port"
-status = "unmatched"
+status = "matched"
 tag = "unstable"
 reason = ""
 tests = ["packages/effect/test/ai/DecisionModel.test.ts"]

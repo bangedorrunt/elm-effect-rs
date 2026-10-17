@@ -4649,45 +4649,84 @@ ported	packages/effect/test/ai/Chat.test.ts	56	it.effect	should persist chat his
 ported	packages/effect/test/ai/Chat.test.ts	92	it.effect	should respect the specified time to live	respects_the_specified_time_to_live
 ported	packages/effect/test/ai/Chat.test.ts	135	it.effect	should prefer the message identifier of the most recent assistant message	prefers_the_message_identifier_of_the_most_recent_assistant_message
 ported	packages/effect/test/ai/Chat.test.ts	175	it.effect	should raise an error when retrieving a chat that does not exist	raises_an_error_when_retrieving_a_chat_that_does_not_exist
-unported	packages/effect/test/ai/DecisionModel.test.ts	93	it	make keeps the input schema and decisions	
-unported	packages/effect/test/ai/DecisionModel.test.ts	101	it	constructors keep instructions and criteria	
-unported	packages/effect/test/ai/DecisionModel.test.ts	115	it	probability accepts omitted criteria	
-unported	packages/effect/test/ai/DecisionModel.test.ts	123	it	probability preserves explicit criteria, including empty descriptions	
-unported	packages/effect/test/ai/DecisionModel.test.ts	131	it	make fails on empty decisions	
-unported	packages/effect/test/ai/DecisionModel.test.ts	135	it	rate fails with fewer than two criteria	
-unported	packages/effect/test/ai/DecisionModel.test.ts	141	it.effect	probability without criteria reaches the provider and returns an answer	
-unported	packages/effect/test/ai/DecisionModel.test.ts	170	it.effect	preserves the own enumerable rate probability 	
-unported	packages/effect/test/ai/DecisionModel.test.ts	197	it.effect	preserves the own enumerable answer key 	
-unported	packages/effect/test/ai/DecisionModel.test.ts	219	it.effect	preserves the own enumerable classification probability 	
-unported	packages/effect/test/ai/DecisionModel.test.ts	247	it.effect	round trips usage with undefined tokens through JSON	
-unported	packages/effect/test/ai/DecisionModel.test.ts	259	it.effect	decide returns answers keyed by decision with usage	
-unported	packages/effect/test/ai/DecisionModel.test.ts	284	it.effect	classify and rate retain distributions when the provider omits confidence	
-unported	packages/effect/test/ai/DecisionModel.test.ts	316	it.effect	the service exposes the same decide operation	
-unported	packages/effect/test/ai/DecisionModel.test.ts	327	it.effect	the provider receives the encoded input as state and every decision in one call	
-unported	packages/effect/test/ai/DecisionModel.test.ts	349	it.effect	a string input is passed to the provider as a string state	
-unported	packages/effect/test/ai/DecisionModel.test.ts	386	it.effect	derives JSON codecs for nested input before calling the provider	
-unported	packages/effect/test/ai/DecisionModel.test.ts	415	it.effect	JSON encoding distinguishes absent optional fields from explicit undefined	
-unported	packages/effect/test/ai/DecisionModel.test.ts	433	it.effect	JSON codec encoding failures become InvalidUserInputError before the provider runs	
-unported	packages/effect/test/ai/DecisionModel.test.ts	452	it.effect	input encoding services are resolved from the environment	
-unported	packages/effect/test/ai/DecisionModel.test.ts	484	it.effect	input encoding failures surface as AiError	
-unported	packages/effect/test/ai/DecisionModel.test.ts	512	it.effect	provider AiError propagates through decide	
-unported	packages/effect/test/ai/DecisionModel.test.ts	528	it.effect	decide fails with InvalidOutputError when an answer is missing	
-unported	packages/effect/test/ai/DecisionModel.test.ts	540	it.effect	decide fails with InvalidOutputError when a classify label is not a criteria key	
-unported	packages/effect/test/ai/DecisionModel.test.ts	552	it.effect	decide fails with InvalidOutputError when a classify distribution is incomplete	
-unported	packages/effect/test/ai/DecisionModel.test.ts	564	it.effect	decide fails with InvalidOutputError when a rate distribution is incomplete	
-unported	packages/effect/test/ai/DecisionModel.test.ts	576	it.effect	decide fails with InvalidOutputError when a probability is outside [0, 1]	
-unported	packages/effect/test/ai/DecisionModel.test.ts	588	it.effect	Model.make wraps a DecisionModel layer with provider metadata	
-unported	packages/effect/test/ai/DecisionModel.test.ts	604	it	classify rejects ${Object.keys(criteria).length} labels	
-unported	packages/effect/test/ai/DecisionModel.test.ts	609	it	rate rejects duplicate levels	
-unported	packages/effect/test/ai/DecisionModel.test.ts	613	it.effect	rate derives the argmax label without a provider label	
-unported	packages/effect/test/ai/DecisionModel.test.ts	632	it.effect	rate ${name}	
-unported	packages/effect/test/ai/DecisionModel.test.ts	644	it.effect	classify retains the provider label even when it is not the argmax	
-unported	packages/effect/test/ai/DecisionModel.test.ts	655	it.effect	${key} rejects confidence ${confidence}	
-unported	packages/effect/test/ai/DecisionModel.test.ts	665	it.effect	${key} accepts confidence boundary ${confidence}	
-unported	packages/effect/test/ai/DecisionModel.test.ts	690	it.effect	accepts	
-unported	packages/effect/test/ai/DecisionModel.test.ts	718	it.effect	rate rejects rating ${rating}	
-unported	packages/effect/test/ai/DecisionModel.test.ts	728	it.effect	rate accepts rating ${rating}	
-unported	packages/effect/test/ai/DecisionModel.test.ts	738	it.effect	extra provider keys never leak into answers	
+ported	packages/effect/test/ai/DecisionModel.test.ts	93	it	make keeps the input schema and decisions	make_keeps_the_input_schema_and_decisions
+
+ported	packages/effect/test/ai/DecisionModel.test.ts	101	it	constructors keep instructions and criteria	constructors_keep_instructions_and_criteria
+
+ported	packages/effect/test/ai/DecisionModel.test.ts	115	it	probability accepts omitted criteria	probability_accepts_omitted_criteria
+
+ported	packages/effect/test/ai/DecisionModel.test.ts	123	it	probability preserves explicit criteria, including empty descriptions	probability_preserves_explicit_criteria_including_empty_descriptions
+
+ported	packages/effect/test/ai/DecisionModel.test.ts	131	it	make fails on empty decisions	make_fails_on_empty_decisions
+
+ported	packages/effect/test/ai/DecisionModel.test.ts	135	it	rate fails with fewer than two criteria	rate_fails_with_fewer_than_two_criteria
+
+ported	packages/effect/test/ai/DecisionModel.test.ts	141	it.effect	probability without criteria reaches the provider and returns an answer	probability_without_criteria_reaches_the_provider_and_returns_an_answer
+
+ported	packages/effect/test/ai/DecisionModel.test.ts	170	it.effect	preserves the own enumerable rate probability 	preserves_weird_rate_probability_keys
+
+ported	packages/effect/test/ai/DecisionModel.test.ts	197	it.effect	preserves the own enumerable answer key 	preserves_weird_answer_keys
+
+ported	packages/effect/test/ai/DecisionModel.test.ts	219	it.effect	preserves the own enumerable classification probability 	preserves_weird_classification_probability_keys
+
+ported	packages/effect/test/ai/DecisionModel.test.ts	247	it.effect	round trips usage with undefined tokens through JSON	round_trips_usage_with_undefined_tokens_through_json
+
+ported	packages/effect/test/ai/DecisionModel.test.ts	259	it.effect	decide returns answers keyed by decision with usage	decide_returns_answers_keyed_by_decision_with_usage
+
+ported	packages/effect/test/ai/DecisionModel.test.ts	284	it.effect	classify and rate retain distributions when the provider omits confidence	classify_and_rate_retain_distributions_when_the_provider_omits_confidence
+
+ported	packages/effect/test/ai/DecisionModel.test.ts	316	it.effect	the service exposes the same decide operation	the_service_exposes_the_same_decide_operation
+
+ported	packages/effect/test/ai/DecisionModel.test.ts	327	it.effect	the provider receives the encoded input as state and every decision in one call	the_provider_receives_the_encoded_input_as_state_and_every_decision_in_one_call
+
+ported	packages/effect/test/ai/DecisionModel.test.ts	349	it.effect	a string input is passed to the provider as a string state	a_string_input_is_passed_to_the_provider_as_a_string_state
+
+ported	packages/effect/test/ai/DecisionModel.test.ts	386	it.effect	derives JSON codecs for nested input before calling the provider	derives_json_codecs_for_nested_input_before_calling_the_provider
+
+ported	packages/effect/test/ai/DecisionModel.test.ts	415	it.effect	JSON encoding distinguishes absent optional fields from explicit undefined	json_encoding_distinguishes_absent_optional_fields_from_explicit_undefined
+
+ported	packages/effect/test/ai/DecisionModel.test.ts	433	it.effect	JSON codec encoding failures become InvalidUserInputError before the provider runs	json_codec_encoding_failures_become_invalid_user_input_error_before_the_provider_runs
+
+not-applicable	packages/effect/test/ai/DecisionModel.test.ts	452	it.effect	input encoding services are resolved from the environment	needs Effect service/env injection for codecs; surface takes caller-encoded JSON
+
+ported	packages/effect/test/ai/DecisionModel.test.ts	484	it.effect	input encoding failures surface as AiError	input_encoding_failures_surface_as_ai_error
+
+ported	packages/effect/test/ai/DecisionModel.test.ts	512	it.effect	provider AiError propagates through decide	provider_ai_error_propagates_through_decide
+
+ported	packages/effect/test/ai/DecisionModel.test.ts	528	it.effect	decide fails with InvalidOutputError when an answer is missing	decide_fails_with_invalid_output_error_when_an_answer_is_missing
+
+ported	packages/effect/test/ai/DecisionModel.test.ts	540	it.effect	decide fails with InvalidOutputError when a classify label is not a criteria key	decide_fails_with_invalid_output_error_when_a_classify_label_is_not_a_criteria_key
+
+ported	packages/effect/test/ai/DecisionModel.test.ts	552	it.effect	decide fails with InvalidOutputError when a classify distribution is incomplete	decide_fails_with_invalid_output_error_when_a_classify_distribution_is_incomplete
+
+ported	packages/effect/test/ai/DecisionModel.test.ts	564	it.effect	decide fails with InvalidOutputError when a rate distribution is incomplete	decide_fails_with_invalid_output_error_when_a_rate_distribution_is_incomplete
+
+ported	packages/effect/test/ai/DecisionModel.test.ts	576	it.effect	decide fails with InvalidOutputError when a probability is outside [0, 1]	decide_fails_with_invalid_output_error_when_a_probability_is_outside_zero_to_one
+
+not-applicable	packages/effect/test/ai/DecisionModel.test.ts	588	it.effect	Model.make wraps a DecisionModel layer with provider metadata	needs Model.make with provider-metadata service; no such service in this crate
+
+ported	packages/effect/test/ai/DecisionModel.test.ts	604	it	classify rejects ${Object.keys(criteria).length} labels	classify_rejects_zero_or_one_labels
+
+ported	packages/effect/test/ai/DecisionModel.test.ts	609	it	rate rejects duplicate levels	rate_rejects_duplicate_levels
+
+ported	packages/effect/test/ai/DecisionModel.test.ts	613	it.effect	rate derives the argmax label without a provider label	rate_derives_the_argmax_label_without_a_provider_label
+
+ported	packages/effect/test/ai/DecisionModel.test.ts	632	it.effect	rate ${name}	rate_breaks_ties_in_criteria_order
+
+ported	packages/effect/test/ai/DecisionModel.test.ts	644	it.effect	classify retains the provider label even when it is not the argmax	classify_retains_the_provider_label_even_when_it_is_not_the_argmax
+
+ported	packages/effect/test/ai/DecisionModel.test.ts	655	it.effect	${key} rejects confidence ${confidence}	classify_and_rate_reject_confidence_outside_zero_to_one
+
+ported	packages/effect/test/ai/DecisionModel.test.ts	665	it.effect	${key} accepts confidence boundary ${confidence}	classify_and_rate_accept_confidence_boundaries
+
+ported	packages/effect/test/ai/DecisionModel.test.ts	690	it.effect	accepts	distributions_must_sum_to_one_within_tolerance
+
+ported	packages/effect/test/ai/DecisionModel.test.ts	718	it.effect	rate rejects rating ${rating}	rate_rejects_ratings_outside_its_scale
+
+ported	packages/effect/test/ai/DecisionModel.test.ts	728	it.effect	rate accepts rating ${rating}	rate_accepts_ratings_on_its_scale
+
+ported	packages/effect/test/ai/DecisionModel.test.ts	738	it.effect	extra provider keys never leak into answers	extra_provider_keys_never_leak_into_answers
+
 ported	packages/effect/test/ai/EmbeddingModel.test.ts	19	it.effect	round trips usage with undefined input tokens through JSON	round_trips_usage_with_undefined_input_tokens_through_json
 ported	packages/effect/test/ai/EmbeddingModel.test.ts	31	it.effect	embed returns a vector	embed_returns_a_vector
 ported	packages/effect/test/ai/EmbeddingModel.test.ts	55	it.effect	embedMany returns ordered vectors with usage	embed_many_returns_ordered_vectors_with_usage
