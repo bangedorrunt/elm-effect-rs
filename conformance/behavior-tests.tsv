@@ -6706,23 +6706,40 @@ ported	packages/effect/test/http/Mime.test.ts	15	it	looks up standard MIME types
 ported	packages/effect/test/http/Mime.test.ts	22	it	returns none for unknown and missing extensions	returns_none_for_unknown_and_missing_extensions
 ported	packages/effect/test/http/Mime.test.ts	27	it	handles extensions case-insensitively	handles_extensions_case_insensitively
 ported	packages/effect/test/http/Mime.test.ts	32	it	exposes reverse lookups at the module level	exposes_reverse_lookups
-unported	packages/effect/test/http/Multipart.test.ts	8	it.effect	schemaJson applies a JSON reviver	
-unported	packages/effect/test/http/Multipart.test.ts	17	it.effect	parses fields and streams file content as stream parts	
-unported	packages/effect/test/http/Multipart.test.ts	56	it.effect	collects file content across pulls and a split trailing boundary	
-unported	packages/effect/test/http/Multipart.test.ts	84	it.live	emits a field buffered while reading a file without pulling more input	
-unported	packages/effect/test/http/Multipart.test.ts	122	it.effect	parses non-Latin-1 filenames	
-unported	packages/effect/test/http/Multipart.test.ts	146	it.effect	fails when a limit is exceeded even if the whole body arrives in one chunk	
-unported	packages/effect/test/http/Multipart.test.ts	168	it.effect	propagates FileTooLarge after a file exceeds the limit mid-stream	
-unported	packages/effect/test/http/Multipart.test.ts	204	it.effect	propagates BodyTooLarge after the total size limit is exceeded mid-file	
-unported	packages/effect/test/http/Multipart.test.ts	250	it.live	propagates upstream failure while consuming an active file	
-unported	packages/effect/test/http/Multipart.test.ts	272	it.live	preserves upstream failure when collecting an active file with contentEffect	
-unported	packages/effect/test/http/Multipart.test.ts	289	it.live	preserves the upstream error cause when persisting an active file	
-unported	packages/effect/test/http/Multipart.test.ts	318	it.effect	propagates Parse when the body ends mid-file	
-unported	packages/effect/test/http/Multipart.test.ts	405	it	handles the final boundary delimiter split between the trailing hyphens	
-unported	packages/effect/test/http/Multipart.test.ts	439	it.effect	returns distinct persisted file paths as non-stream parts	
-unported	packages/effect/test/http/Multipart.test.ts	470	it.effect	responds based on the reason and is ignored by the ErrorReporter	
-unported	packages/effect/test/http/Multipart.test.ts	491	it	toJsonSchema	
-unported	packages/effect/test/http/Multipart.test.ts	520	it	identifies multipart errors	
+ported	packages/effect/test/http/Multipart.test.ts	8	it.effect	schemaJson applies a JSON reviver	schema_json_applies_reviver
+
+ported	packages/effect/test/http/Multipart.test.ts	17	it.effect	parses fields and streams file content as stream parts	parses_fields_and_file_content
+
+ported	packages/effect/test/http/Multipart.test.ts	56	it.effect	collects file content across pulls and a split trailing boundary	collects_file_across_split_trailing_boundary
+
+not-applicable	packages/effect/test/http/Multipart.test.ts	84	it.live	emits a field buffered while reading a file without pulling more input	needs backpressure (field emitted without pulling more input); no Stream/Channel runtime
+
+ported	packages/effect/test/http/Multipart.test.ts	122	it.effect	parses non-Latin-1 filenames	parses_non_latin1_filenames
+
+ported	packages/effect/test/http/Multipart.test.ts	146	it.effect	fails when a limit is exceeded even if the whole body arrives in one chunk	fails_when_part_limit_exceeded_in_one_chunk
+
+ported	packages/effect/test/http/Multipart.test.ts	168	it.effect	propagates FileTooLarge after a file exceeds the limit mid-stream	propagates_file_too_large_mid_stream
+
+ported	packages/effect/test/http/Multipart.test.ts	204	it.effect	propagates BodyTooLarge after the total size limit is exceeded mid-file	propagates_body_too_large_mid_file
+
+not-applicable	packages/effect/test/http/Multipart.test.ts	250	it.live	propagates upstream failure while consuming an active file	needs upstream-failure propagation while consuming an active file; no Stream runtime
+
+not-applicable	packages/effect/test/http/Multipart.test.ts	272	it.live	preserves upstream failure when collecting an active file with contentEffect	needs upstream-failure preservation on collect; no Stream runtime
+
+not-applicable	packages/effect/test/http/Multipart.test.ts	289	it.live	preserves the upstream error cause when persisting an active file	needs upstream error-cause preservation on persist; no Stream runtime
+
+ported	packages/effect/test/http/Multipart.test.ts	318	it.effect	propagates Parse when the body ends mid-file	propagates_parse_when_body_ends_mid_file
+
+ported	packages/effect/test/http/Multipart.test.ts	405	it	handles the final boundary delimiter split between the trailing hyphens	handles_final_boundary_split_between_trailing_hyphens
+
+ported	packages/effect/test/http/Multipart.test.ts	439	it.effect	returns distinct persisted file paths as non-stream parts	returns_distinct_persisted_file_paths
+
+ported	packages/effect/test/http/Multipart.test.ts	470	it.effect	responds based on the reason and is ignored by the ErrorReporter	responds_by_reason_and_ignores_reporter
+
+ported	packages/effect/test/http/Multipart.test.ts	491	it	toJsonSchema	persisted_file_json_schema_shape
+
+ported	packages/effect/test/http/Multipart.test.ts	520	it	identifies multipart errors	identifies_multipart_errors
+
 not-applicable	packages/effect/test/http/SchemaRepresentation.test.ts	5	it	generates code for declaration schemas	missing: SchemaRepresentation round-trip over http wire format repr (repr path differs; no SchemaRepresentation in src/lib.rs)
 not-applicable	packages/effect/test/http/Template.test.ts	7	it.effect	preserves template segment order	Rust elm-effect-unstable has no http::Template tagged-template interpolation module or concurrent interpolation scheduler to witness either row
 not-applicable	packages/effect/test/http/Template.test.ts	18	it.effect	evaluates effect interpolations concurrently	Rust elm-effect-unstable has no http::Template tagged-template interpolation module or concurrent interpolation scheduler to witness either row
