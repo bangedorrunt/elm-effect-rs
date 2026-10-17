@@ -104,7 +104,8 @@ fn resource_store() -> ResourceStore {
 #[test]
 fn resource_list_preserves_uri_name_description_and_mime() {
     // ResourcesTest:69 — list keeps URI, name, description, and MIME type.
-    let listed = resource_store().list();
+    let store = resource_store();
+    let listed = store.list();
     assert_eq!(listed.len(), 1);
     assert_eq!(listed[0].uri, "file:///a.txt");
     assert_eq!(listed[0].name, "notes");
