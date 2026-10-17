@@ -271,6 +271,93 @@ impl EventLog {
     }
 }
 
+/// One entry as conflict indexing sees it: the pin's `toConflicts` compares
+/// `createdAtMillis`, then entry identity, then `(event, primaryKey)`.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ConflictEntry {
+    /// Entry identity (`idString`); a resend under a fresh sequence is still
+    /// the same entry.
+    pub id: String,
+    /// Creation time in milliseconds.
+    pub created_at_millis: u64,
+    /// Event name.
+    pub event: String,
+    /// Primary key within the event.
+    pub primary_key: String,
+}
+
+/// Index conflicts for one incoming entry against the stored history, mirroring
+/// the pin's `toConflicts`: entries older than the incoming one are skipped, an
+/// entry with the same id marks a duplicate without stopping the scan, and the
+/// first entry at or after the incoming time slices the history — conflicts
+/// are the sliced entries sharing the incoming `(event, primaryKey)`.
+/// Returns `(duplicate, conflicts, new_history)`.
+pub fn to_conflicts(
+    history: &[ConflictEntry],
+    origin: &ConflictEntry,
+) -> (bool, Vec<ConflictEntry>, Vec<ConflictEntry>) {
+    let mut duplicate = false;
+    for (index, entry) in history.iter().enumerate() {
+        if entry.created_at_millis < origin.created_at_millis {
+            continue;
+        }
+        if entry.id == origin.id {
+            duplicate = true;
+            continue;
+        }
+        let sliced = history[index..].to_vec();
+        let conflicts = sliced
+            .iter()
+            .filter(|scanned| scanned.event == origin.event && scanned.primary_key == origin.primary_key)
+            .cloned()
+            .collect();
+        return (duplicate, conflicts, sliced);
+    }
+    (duplicate, Vec::new(), Vec::new())
+}
+
+/// Authenticate ordering for the unencrypted server (`EventLogServer.layerRpcHandlers`
+/// as wired by `EventLogServerUnencrypted`): `authorizeIdentity` runs before
+/// the session-auth binding lookup, on every call. A denial therefore creates
+/// no binding, and a cached binding is still re-checked. Signature verification
+/// itself lives in [`crate::eventlog_session_auth`]; this is the ordering
+/// around it.
+#[derive(Default)]
+pub struct UnencryptedServerAuth {
+    bindings: HashMap<(String, Vec<u8>), Vec<u8>>,
+    binding_lookups: usize,
+}
+
+impl UnencryptedServerAuth {
+    /// Empty server auth state: no bindings, no lookups.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Storage binding lookups so far; a cache hit performs none.
+    pub fn binding_lookups(&self) -> usize {
+        self.binding_lookups
+    }
+}
+
+/// Run one `EventLog.Authenticate`: deny first (no binding is touched), then
+/// get-or-create the `(public_key, signing_public_key)` binding. The `Err`
+/// value is the protocol code (`"Forbidden"` for a denied identity).
+pub fn unencrypted_server_authenticate(
+    server: &mut UnencryptedServerAuth,
+    public_key: &str,
+    signing_public_key: &[u8],
+    authorize: impl Fn(&str) -> Result<(), String>,
+) -> Result<(), String> {
+    authorize(public_key)?;
+    let key = (public_key.to_owned(), signing_public_key.to_vec());
+    if !server.bindings.contains_key(&key) {
+        server.binding_lookups += 1;
+        server.bindings.insert(key, Vec::new());
+    }
+    Ok(())
+}
+
 /// Split bytes into `chunk_size` pieces; empty data splits into one chunk.
 pub fn split_data(data: &[u8], chunk_size: usize) -> Vec<Vec<u8>> {
     let chunk_size = chunk_size.max(1);
