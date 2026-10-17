@@ -732,10 +732,217 @@ pub fn to_standard_json_schema_v1<T>(schema: Schema<T>) -> StandardJsonSchemaV1<
     StandardJsonSchemaV1 { schema }
 }
 
-/// Compose both standards (`toStandardSchemaV1(toStandardJSONSchemaV1(..))`):
-/// the JSON Schema documents survive unchanged, so this is the identity.
-pub fn to_standard_schema_v1<T>(wrapped: StandardJsonSchemaV1<T>) -> StandardJsonSchemaV1<T> {
-    wrapped
+/// Something a Standard Schema V1 adapter can validate: a plain schema, or a
+/// JSON-Schema-documented one (the pin composes both standards).
+pub trait IntoV1Schema<T> {
+    /// The schema validation runs against.
+    fn into_v1_schema(self) -> Schema<T>;
+}
+
+impl<T> IntoV1Schema<T> for Schema<T> {
+    fn into_v1_schema(self) -> Schema<T> {
+        self
+    }
+}
+
+impl<T> IntoV1Schema<T> for StandardJsonSchemaV1<T> {
+    fn into_v1_schema(self) -> Schema<T> {
+        self.schema
+    }
+}
+
+/// Which issues `validate` returns: every issue, or only the first.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum V1Errors {
+    /// Collect every issue (the default).
+    #[default]
+    All,
+    /// Stop at the first issue.
+    First,
+}
+
+/// One path segment of a Standard Schema V1 issue.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum PathSegment {
+    /// An object key.
+    Key(String),
+    /// An array index.
+    Index(usize),
+}
+
+/// One Standard Schema V1 issue: a message plus a path.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct V1Issue {
+    /// Human-readable failure message.
+    pub message: String,
+    /// Path to the failing value.
+    pub path: Vec<PathSegment>,
+}
+
+/// Standard Schema V1 validation outcome: a value or a list of issues.
+#[derive(Debug, Clone, PartialEq)]
+pub enum V1Result<T> {
+    /// Validation succeeded.
+    Value(T),
+    /// Validation failed.
+    Issues(Vec<V1Issue>),
+}
+
+/// A schema adapted to Standard Schema V1 (`toStandardSchemaV1`): `validate`
+/// answers `{ value }` or `{ issues }`, with per-issue messages and paths.
+/// Async schemas, missing-dependency effects, and `message` annotation routing
+/// need engine machinery this crate does not have; those rows stay excused.
+pub struct StandardSchemaV1<T> {
+    schema: Schema<T>,
+    errors: V1Errors,
+}
+
+/// Adapt a schema (or a JSON-Schema-documented one) to Standard Schema V1.
+pub fn to_standard_schema_v1<T, S: IntoV1Schema<T>>(inner: S) -> StandardSchemaV1<T> {
+    StandardSchemaV1 { schema: inner.into_v1_schema(), errors: V1Errors::All }
+}
+
+impl<T> StandardSchemaV1<T> {
+    /// Only return the first issue (`parseOptions: { errors: "first" }`).
+    pub fn with_errors(mut self, errors: V1Errors) -> Self {
+        self.errors = errors;
+        self
+    }
+
+    /// Validate `input`, answering a value or issues with messages and paths.
+    pub fn validate(&self, input: Unknown) -> V1Result<T> {
+        match self.schema.decode_collect(input) {
+            Ok(value) => V1Result::Value(value),
+            Err(errors) => {
+                let mut issues = Vec::new();
+                for error in errors {
+                    flatten_issue(&error, &mut issues);
+                    if self.errors == V1Errors::First {
+                        break;
+                    }
+                }
+                V1Result::Issues(issues.into_iter().map(|error| v1_issue(&error)).collect())
+            }
+        }
+    }
+
+    /// The input JSON Schema document for `target` (survives composition).
+    pub fn input(&self, target: StandardJsonSchemaTarget) -> serde_json::Value
+    where
+        T: Send + Sync + 'static,
+    {
+        self.schema.standard_json_schema_input(target)
+    }
+
+    /// The output JSON Schema document for `target` (survives composition).
+    pub fn output(&self, target: StandardJsonSchemaTarget) -> serde_json::Value
+    where
+        T: Send + Sync + 'static,
+    {
+        self.schema.standard_json_schema_output(target)
+    }
+}
+
+/// Re-root an error path under `prefix` for every variant (`at` only covers
+/// `TypeMismatch`/`DefaultFailed`; the collect walk needs all of them).
+fn repath_under(error: SchemaError, prefix: &str) -> SchemaError {
+    let join = |path: String| match path.strip_prefix('$') {
+        Some(rest) => format!("{prefix}{rest}"),
+        None => format!("{prefix}{path}"),
+    };
+    match error {
+        SchemaError::TypeMismatch { path, expected, got } => {
+            SchemaError::TypeMismatch { path: join(path), expected, got }
+        }
+        SchemaError::TypeMismatchDynamic { path, expected, got } => {
+            SchemaError::TypeMismatchDynamic { path: join(path), expected, got }
+        }
+        SchemaError::DefaultFailed { path, message } => {
+            SchemaError::DefaultFailed { path: join(path), message }
+        }
+        SchemaError::InvalidJson { path, message } => {
+            SchemaError::InvalidJson { path: join(path), message }
+        }
+        SchemaError::EncodingFailed { path, expected } => {
+            SchemaError::EncodingFailed { path: join(path), expected }
+        }
+        SchemaError::FilterFailed { path, message } => {
+            SchemaError::FilterFailed { path: join(path), message }
+        }
+        SchemaError::Composite { issues } => SchemaError::Composite {
+            issues: issues.into_iter().map(|issue| repath_under(issue, prefix)).collect(),
+        },
+    }
+}
+
+/// A composite's members, in order; every other error is already one issue.
+fn flatten_issue(error: &SchemaError, out: &mut Vec<SchemaError>) {
+    match error {
+        SchemaError::Composite { issues } => {
+            for issue in issues {
+                flatten_issue(issue, out);
+            }
+        }
+        _ => out.push(error.clone()),
+    }
+}
+
+/// A `SchemaError` as a Standard Schema issue: the pin's message with a
+/// leading `Expected ` unless it already reads like a sentence.
+fn v1_issue(error: &SchemaError) -> V1Issue {
+    let message = match error {
+        SchemaError::TypeMismatch { expected, .. } => sentence(expected),
+        SchemaError::TypeMismatchDynamic { expected, .. } => sentence(expected),
+        SchemaError::FilterFailed { message, .. }
+        | SchemaError::DefaultFailed { message, .. }
+        | SchemaError::InvalidJson { message, .. } => sentence(message),
+        SchemaError::EncodingFailed { expected, .. } => sentence(&format!("cannot encode {expected}")),
+        SchemaError::Composite { .. } => unreachable!("flattened before mapping"),
+    };
+    V1Issue { message, path: parse_v1_path(&error_path(error)) }
+}
+
+/// `Expected X` unless the message already starts uppercase.
+fn sentence(message: &str) -> String {
+    match message.chars().next() {
+        Some(first) if first.is_ascii_lowercase() => format!("Expected {message}"),
+        _ => message.to_owned(),
+    }
+}
+
+/// The path a `SchemaError` carries (`$`, `$.a`, `$[0]` shapes).
+fn error_path(error: &SchemaError) -> String {
+    match error {
+        SchemaError::TypeMismatch { path, .. }
+        | SchemaError::TypeMismatchDynamic { path, .. }
+        | SchemaError::DefaultFailed { path, .. }
+        | SchemaError::InvalidJson { path, .. }
+        | SchemaError::EncodingFailed { path, .. }
+        | SchemaError::FilterFailed { path, .. } => path.clone(),
+        SchemaError::Composite { .. } => unreachable!("flattened before mapping"),
+    }
+}
+
+/// Split `$`, `$.a.b`, `$[0]`, `$.a[1].b` into segments.
+fn parse_v1_path(path: &str) -> Vec<PathSegment> {
+    let mut out = Vec::new();
+    let mut rest = path.strip_prefix('$').unwrap_or(path);
+    while !rest.is_empty() {
+        if let Some(tail) = rest.strip_prefix('.') {
+            let end = tail.find(['.', '[']).unwrap_or(tail.len());
+            out.push(PathSegment::Key(tail[..end].to_owned()));
+            rest = &tail[end..];
+        } else if let Some(tail) = rest.strip_prefix('[') {
+            let end = tail.find(']').unwrap_or(tail.len());
+            if let Ok(index) = tail[..end].parse::<usize>() {
+                out.push(PathSegment::Index(index));
+            }
+            rest = tail.get(end + 1..).unwrap_or("");
+        } else {
+            break;
+        }
+    }
+    out
 }
 
 impl<T> StandardJsonSchemaV1<T> {
@@ -1371,6 +1578,37 @@ impl<T> Schema<T> {
     /// Encode, or the reason this schema cannot represent the value.
     pub fn try_encode(&self, value: &T) -> Result<Unknown, SchemaError> {
         (self.encode)(value)
+    }
+
+    /// Decode collecting every issue: struct-shaped schemas with named
+    /// children accumulate one issue per failing field (missing keys refuse
+    /// like the pin's own missing-key check); everything else yields at most
+    /// one. `decode` stays fail-fast; only the Standard Schema adapter uses
+    /// this path, mirroring `decode` with all errors.
+    pub fn decode_collect(&self, input: Unknown) -> Result<T, Vec<SchemaError>> {
+        if !self.children.is_empty() {
+            if let Unknown::Object(map) = &input {
+                let mut issues = Vec::new();
+                for (name, field) in &self.children {
+                    match map.get(name) {
+                        Some(value) => {
+                            if let Err(error) = field.decode(value.clone()) {
+                                issues.push(repath_under(error, &format!("$.{name}")));
+                            }
+                        }
+                        None => issues.push(SchemaError::TypeMismatch {
+                            path: format!("$.{name}"),
+                            expected: "a declared field",
+                            got: "absent",
+                        }),
+                    }
+                }
+                if !issues.is_empty() {
+                    return Err(issues);
+                }
+            }
+        }
+        self.decode(input).map_err(|error| vec![error])
     }
 
     /// Build a value (`make`'s path): the same validation as [`decode`],

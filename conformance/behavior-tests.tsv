@@ -10048,28 +10048,50 @@ ported	packages/effect/test/schema/toStandardJSONSchemaV1.test.ts	62	it	a schema
 ported	packages/effect/test/schema/toStandardJSONSchemaV1.test.ts	84	it	should return the input JSON Schema	standard_json_schema_draft07_input
 ported	packages/effect/test/schema/toStandardJSONSchemaV1.test.ts	95	it	should return the output JSON Schema	standard_json_schema_draft07_output
 ported	packages/effect/test/schema/toStandardJSONSchemaV1.test.ts	106	it	a schema with identifier	standard_json_schema_draft07_identifier
-unported	packages/effect/test/schema/toStandardSchemaV1.test.ts	105	it	should return a Standard Schema V1 schema	
-unported	packages/effect/test/schema/toStandardSchemaV1.test.ts	111	it	should support both standards	
-unported	packages/effect/test/schema/toStandardSchemaV1.test.ts	117	it	sync decoding	
-unported	packages/effect/test/schema/toStandardSchemaV1.test.ts	135	it	async decoding	
-unported	packages/effect/test/schema/toStandardSchemaV1.test.ts	156	it	sync decoding should throw	
-unported	packages/effect/test/schema/toStandardSchemaV1.test.ts	176	it	async decoding should report a missing dependency	
-unported	packages/effect/test/schema/toStandardSchemaV1.test.ts	198	it	by default should return all issues	
-unported	packages/effect/test/schema/toStandardSchemaV1.test.ts	235	it	with parseOptions: { errors: 'first' } should return only the first issue	
-unported	packages/effect/test/schema/toStandardSchemaV1.test.ts	251	it	String & annotation	
-unported	packages/effect/test/schema/toStandardSchemaV1.test.ts	262	it	String & annotation & isNonEmpty	
-unported	packages/effect/test/schema/toStandardSchemaV1.test.ts	273	it	String & isNonEmpty & annotation	
-unported	packages/effect/test/schema/toStandardSchemaV1.test.ts	290	it	String & isNonEmpty(annotation)	
-unported	packages/effect/test/schema/toStandardSchemaV1.test.ts	307	it	String & annotation & isNonEmpty & annotation	
-unported	packages/effect/test/schema/toStandardSchemaV1.test.ts	326	it	String & annotation & isNonEmpty(annotation)	
-unported	packages/effect/test/schema/toStandardSchemaV1.test.ts	345	it	String & annotation & isNonEmpty(annotation) & isMaxLength(annotation)	
-unported	packages/effect/test/schema/toStandardSchemaV1.test.ts	372	it	messageMissingKey	
-unported	packages/effect/test/schema/toStandardSchemaV1.test.ts	385	it	messageUnexpectedKey	
-unported	packages/effect/test/schema/toStandardSchemaV1.test.ts	402	it	messageMissingKey	
-unported	packages/effect/test/schema/toStandardSchemaV1.test.ts	415	it	messageUnexpectedKey	
-unported	packages/effect/test/schema/toStandardSchemaV1.test.ts	432	it	Literals	
-unported	packages/effect/test/schema/toStandardSchemaV1.test.ts	452	it	String	
-unported	packages/effect/test/schema/toStandardSchemaV1.test.ts	465	it	NonEmptyString	
+ported	packages/effect/test/schema/toStandardSchemaV1.test.ts	105	it	should return a Standard Schema V1 schema	returns_a_standard_schema_v1_schema
+
+ported	packages/effect/test/schema/toStandardSchemaV1.test.ts	111	it	should support both standards	supports_both_standards
+
+ported	packages/effect/test/schema/toStandardSchemaV1.test.ts	117	it	sync decoding	sync_decoding_reports_message_and_path
+
+not-applicable	packages/effect/test/schema/toStandardSchemaV1.test.ts	135	it	async decoding	needs async schema decoding; crate decode is sync
+
+not-applicable	packages/effect/test/schema/toStandardSchemaV1.test.ts	156	it	sync decoding should throw	needs Effect service resolution for missing dependencies; no services in this crate
+
+not-applicable	packages/effect/test/schema/toStandardSchemaV1.test.ts	176	it	async decoding should report a missing dependency	needs Effect service resolution for missing dependencies; no services in this crate
+
+ported	packages/effect/test/schema/toStandardSchemaV1.test.ts	198	it	by default should return all issues	by_default_returns_all_issues
+
+ported	packages/effect/test/schema/toStandardSchemaV1.test.ts	235	it	with parseOptions: { errors: 'first' } should return only the first issue	with_first_errors_returns_only_the_first_issue
+
+not-applicable	packages/effect/test/schema/toStandardSchemaV1.test.ts	251	it	String & annotation	needs message-annotation routing in decode; annotations ride along but do not affect errors
+
+not-applicable	packages/effect/test/schema/toStandardSchemaV1.test.ts	262	it	String & annotation & isNonEmpty	needs message-annotation routing in decode
+
+not-applicable	packages/effect/test/schema/toStandardSchemaV1.test.ts	273	it	String & isNonEmpty & annotation	needs message-annotation routing in decode
+
+not-applicable	packages/effect/test/schema/toStandardSchemaV1.test.ts	290	it	String & isNonEmpty(annotation)	needs message-annotation routing in decode
+
+not-applicable	packages/effect/test/schema/toStandardSchemaV1.test.ts	307	it	String & annotation & isNonEmpty & annotation	needs message-annotation routing in decode
+
+not-applicable	packages/effect/test/schema/toStandardSchemaV1.test.ts	326	it	String & annotation & isNonEmpty(annotation)	needs message-annotation routing in decode
+
+not-applicable	packages/effect/test/schema/toStandardSchemaV1.test.ts	345	it	String & annotation & isNonEmpty(annotation) & isMaxLength(annotation)	needs message-annotation routing in decode
+
+not-applicable	packages/effect/test/schema/toStandardSchemaV1.test.ts	372	it	messageMissingKey	needs messageMissingKey key-annotation error routing; no such routing
+
+not-applicable	packages/effect/test/schema/toStandardSchemaV1.test.ts	385	it	messageUnexpectedKey	needs messageUnexpectedKey key-annotation error routing; no such routing
+
+not-applicable	packages/effect/test/schema/toStandardSchemaV1.test.ts	402	it	messageMissingKey	needs messageMissingKey key-annotation error routing; no such routing
+
+not-applicable	packages/effect/test/schema/toStandardSchemaV1.test.ts	415	it	messageUnexpectedKey	needs messageUnexpectedKey key-annotation error routing; no such routing
+
+not-applicable	packages/effect/test/schema/toStandardSchemaV1.test.ts	432	it	Literals	needs message-annotation routing for Literals; annotations do not affect errors
+
+ported	packages/effect/test/schema/toStandardSchemaV1.test.ts	452	it	String	leaf_hook_string_reports_the_type_message
+
+ported	packages/effect/test/schema/toStandardSchemaV1.test.ts	465	it	NonEmptyString	leaf_hook_non_empty_string_reports_the_check_message
+
 not-applicable	packages/effect/test/schema/v3-v4.test.ts	7	it	default	N/A: Rust Schema lacks Schema.decodeTo/SchemaGetter.withDefault and optional/exact migration semantics
 not-applicable	packages/effect/test/schema/v3-v4.test.ts	46	it	default & exact	N/A: Rust Schema lacks Schema.decodeTo/SchemaGetter.withDefault and optional/exact migration semantics
 not-applicable	packages/effect/test/schema/v3-v4.test.ts	89	it	nullable	N/A: Rust Schema lacks Schema.decodeTo/SchemaGetter.withDefault and optional/exact migration semantics
