@@ -203,8 +203,13 @@ impl std::fmt::Display for CliError {
             Self::UnexpectedArgument { arguments } => {
                 write!(f, "unexpected arguments: {}", arguments.join(" "))
             }
-            Self::InvalidValue { option, value, .. } => {
-                write!(f, "invalid value for {option}: {value}")
+            Self::InvalidValue {
+                option,
+                value,
+                kind,
+                ..
+            } => {
+                write!(f, "invalid value for {kind} {option}: {value}")
             }
             Self::UnknownSubcommand { subcommand, .. } => {
                 write!(f, "unknown subcommand: {subcommand}")
