@@ -34,6 +34,7 @@ pub mod mime;
 
 pub mod http_server;
 pub mod http_endpoint;
+pub mod http_docs;
 
 pub mod process;
 
