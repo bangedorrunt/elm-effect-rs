@@ -1,7 +1,7 @@
 //! Phase-1 schema→JSON-Schema compiler core (epic schema-compiler-openapi).
 //! RED test: `json_schema` module does not exist yet.
 
-use elm_effect_schema::json_schema::compile;
+use elm_effect_schema::json_schema::{compile, compile_multi};
 use elm_effect_schema::{Schema, Unknown};
 
 fn checked(base: Schema<Unknown>, name: &str, args: Vec<&str>) -> Schema<Unknown> {
@@ -134,6 +134,21 @@ fn hoists_identifier_annotations_into_defs() {
             "maxItems": 2,
             "$defs": {"Name": {"type": "string"}}
         })
+    );
+}
+
+#[test]
+fn shares_definitions_across_roots() {
+    let named = Schema::annotated_with(string(), vec![("identifier", "Shared")]);
+    let doc = compile_multi(&[named.clone(), named]);
+    assert_eq!(doc.schemas.len(), 2);
+    assert_eq!(
+        doc.schemas[0],
+        serde_json::json!({"$ref": "#/$defs/Shared"})
+    );
+    assert_eq!(
+        doc.definitions.get("Shared"),
+        Some(&serde_json::json!({"type": "string"}))
     );
 }
 

@@ -14,6 +14,16 @@
 
 use super::{Schema, SchemaKind, Unknown, kind_type_name};
 
+/// Several roots compiled against one definition map: shared identifiers are
+/// emitted once and every use is a `$ref`.
+#[derive(Debug, Clone, PartialEq)]
+pub struct MultiDocument {
+    /// One compiled schema per root, in input order.
+    pub schemas: Vec<serde_json::Value>,
+    /// Definitions hoisted from identifier annotations, shared by all roots.
+    pub definitions: serde_json::Map<String, serde_json::Value>,
+}
+
 /// Compile several roots against one shared definition map. Phase 2: the
 /// multi-document orchestration the harness owns; the core stays
 /// single-document until then.
@@ -35,6 +45,20 @@ pub fn compile(schema: &Schema<Unknown>) -> serde_json::Value {
         // no identifiers, so this arm is unreachable through `compile_kind`;
         // it keeps the definitions rather than dropping them.
         other => serde_json::json!({"allOf": [other], "$defs": defs}),
+    }
+}
+
+/// Compile several roots against one shared definition map: an identifier
+/// used by more than one root is emitted once and referenced everywhere.
+pub fn compile_multi(roots: &[Schema<Unknown>]) -> MultiDocument {
+    let mut definitions = serde_json::Map::new();
+    let schemas = roots
+        .iter()
+        .map(|root| compile_kind(&root.kind(), &mut definitions))
+        .collect();
+    MultiDocument {
+        schemas,
+        definitions,
     }
 }
 
