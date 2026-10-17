@@ -2070,3 +2070,413 @@ impl FinishPart {
         })
     }
 }
+
+// --- OpenAI structured-output rewrite port (`ai/OpenAiStructuredOutput.ts` at the pin) ---
+//
+// Only the JSON Schema rewrite layer (`rewriteOpenAI` over `normalizeAllOf`)
+// is representable here: the codec-transform half (encoded-side lowering,
+// custom `toJsonSchema` filter callbacks, Record-to-entry-array lowering)
+// lives in schema-compiler machinery this crate does not have. The rewrite
+// takes an already-built JSON Schema document and returns its OpenAI strict
+// subset: unsupported keywords dropped (`minLength`, `patternProperties`,
+// `allOf` structural merges), repeated bounds merged conservatively, property
+// names kept verbatim.
+
+/// Keywords OpenAI structured output accepts.
+const OPENAI_SUPPORTED_KEYWORDS: &[&str] = &[
+    "$ref",
+    "type",
+    "title",
+    "description",
+    "enum",
+    "anyOf",
+    "properties",
+    "required",
+    "additionalProperties",
+    "items",
+    "pattern",
+    "multipleOf",
+    "minimum",
+    "exclusiveMinimum",
+    "maximum",
+    "exclusiveMaximum",
+    "minItems",
+    "maxItems",
+];
+
+/// `allOf` member keywords that merge when unambiguous.
+const OPENAI_NORMALIZABLE_ALLOF_KEYWORDS: &[&str] =
+    &["$ref", "title", "enum", "anyOf", "format", "multipleOf"];
+
+/// `format` values OpenAI structured output accepts.
+const OPENAI_SUPPORTED_FORMATS: &[&str] = &[
+    "date-time", "time", "date", "duration", "email", "hostname", "ipv4", "ipv6", "uuid",
+];
+
+/// Whether `key` applies to `doc_type`: type-gated keywords (`pattern` on a
+/// string, bounds on a number, lengths on an array, ...). An absent or
+/// non-string type gates nothing.
+fn openai_keyword_supports_type(key: &str, doc_type: &serde_json::Value) -> bool {
+    let Some(kind) = doc_type.as_str() else {
+        return true;
+    };
+    match key {
+        "pattern" | "format" => kind == "string",
+        "multipleOf" | "minimum" | "exclusiveMinimum" | "maximum" | "exclusiveMaximum" => {
+            kind == "number" || kind == "integer"
+        }
+        "items" | "minItems" | "maxItems" => kind == "array",
+        "properties" | "patternProperties" | "required" | "additionalProperties" => {
+            kind == "object"
+        }
+        _ => true,
+    }
+}
+
+/// Append to `description`, joining with `" and "` without duplicating.
+fn openai_append_description(out: &mut serde_json::Map<String, serde_json::Value>, text: &str) {
+    let joined = match out.get("description").and_then(|d| d.as_str()) {
+        Some(current) if current.split(" and ").any(|part| part == text) => current.to_owned(),
+        Some(current) => format!("{current} and {text}"),
+        None => text.to_owned(),
+    };
+    out.insert(
+        "description".to_owned(),
+        serde_json::Value::String(joined),
+    );
+}
+
+/// Keep the tighter lower bound; ties prefer the exclusive form.
+fn openai_merge_lower_bound(
+    out: &mut serde_json::Map<String, serde_json::Value>,
+    key: &str,
+    value: &serde_json::Value,
+) {
+    let Some(candidate_value) = value.as_f64() else {
+        if !out.contains_key(key) {
+            out.insert(key.to_owned(), value.clone());
+        }
+        return;
+    };
+    let minimum = out.get("minimum").and_then(|v| v.as_f64());
+    let exclusive = out.get("exclusiveMinimum").and_then(|v| v.as_f64());
+    let mut current = minimum.map(|v| {
+        (
+            false,
+            v,
+            out.get("minimum").expect("minimum").clone(),
+        )
+    });
+    if let Some(v) = exclusive
+        && current.as_ref().is_none_or(|(_, c, _)| v >= *c)
+    {
+        current = Some((
+            true,
+            v,
+            out.get("exclusiveMinimum").expect("exclusiveMinimum").clone(),
+        ));
+    }
+    let candidate = (
+        key == "exclusiveMinimum",
+        candidate_value,
+        value.clone(),
+    );
+    if current.as_ref().is_none_or(|(exclusive, c, _)| {
+        candidate.1 > *c || (candidate.1 == *c && candidate.0 && !exclusive)
+    }) {
+        current = Some(candidate);
+    }
+    let (exclusive, _, winner) = current.expect("lower bound");
+    out.remove("minimum");
+    out.remove("exclusiveMinimum");
+    out.insert(
+        if exclusive { "exclusiveMinimum" } else { "minimum" }.to_owned(),
+        winner,
+    );
+}
+
+/// Keep the tighter upper bound; ties prefer the exclusive form.
+fn openai_merge_upper_bound(
+    out: &mut serde_json::Map<String, serde_json::Value>,
+    key: &str,
+    value: &serde_json::Value,
+) {
+    let Some(candidate_value) = value.as_f64() else {
+        if !out.contains_key(key) {
+            out.insert(key.to_owned(), value.clone());
+        }
+        return;
+    };
+    let maximum = out.get("maximum").and_then(|v| v.as_f64());
+    let exclusive = out.get("exclusiveMaximum").and_then(|v| v.as_f64());
+    let mut current = maximum.map(|v| {
+        (
+            false,
+            v,
+            out.get("maximum").expect("maximum").clone(),
+        )
+    });
+    if let Some(v) = exclusive
+        && current.as_ref().is_none_or(|(_, c, _)| v <= *c)
+    {
+        current = Some((
+            true,
+            v,
+            out.get("exclusiveMaximum").expect("exclusiveMaximum").clone(),
+        ));
+    }
+    let candidate = (
+        key == "exclusiveMaximum",
+        candidate_value,
+        value.clone(),
+    );
+    if current.as_ref().is_none_or(|(exclusive, c, _)| {
+        candidate.1 < *c || (candidate.1 == *c && candidate.0 && !exclusive)
+    }) {
+        current = Some(candidate);
+    }
+    let (exclusive, _, winner) = current.expect("upper bound");
+    out.remove("maximum");
+    out.remove("exclusiveMaximum");
+    out.insert(
+        if exclusive { "exclusiveMaximum" } else { "maximum" }.to_owned(),
+        winner,
+    );
+}
+
+/// Keep the largest `minItems`.
+fn openai_merge_minimum(
+    out: &mut serde_json::Map<String, serde_json::Value>,
+    key: &str,
+    value: &serde_json::Value,
+) {
+    let (Some(candidate), current) = (value.as_f64(), out.get(key).and_then(|v| v.as_f64())) else {
+        return;
+    };
+    if current.is_none_or(|c| candidate > c) {
+        out.insert(key.to_owned(), value.clone());
+    }
+}
+
+/// Keep the smallest `maxItems`.
+fn openai_merge_maximum(
+    out: &mut serde_json::Map<String, serde_json::Value>,
+    key: &str,
+    value: &serde_json::Value,
+) {
+    let (Some(candidate), current) = (value.as_f64(), out.get(key).and_then(|v| v.as_f64())) else {
+        return;
+    };
+    if current.is_none_or(|c| candidate < c) {
+        out.insert(key.to_owned(), value.clone());
+    }
+}
+
+/// Fold one `allOf` member keyword into the merged document.
+fn openai_merge_all_of_keyword(
+    out: &mut serde_json::Map<String, serde_json::Value>,
+    key: &str,
+    value: &serde_json::Value,
+    patterns: &mut Vec<String>,
+    base_keys: &std::collections::HashSet<String>,
+    member_keys: &mut std::collections::HashSet<String>,
+    ambiguous_keys: &mut std::collections::HashSet<String>,
+) {
+    match key {
+        "description" => {
+            if let Some(text) = value.as_str() {
+                openai_append_description(out, text);
+            }
+        }
+        "pattern" => {
+            if let Some(text) = value.as_str() {
+                patterns.push(text.to_owned());
+            }
+        }
+        "minimum" | "exclusiveMinimum" => openai_merge_lower_bound(out, key, value),
+        "maximum" | "exclusiveMaximum" => openai_merge_upper_bound(out, key, value),
+        "minItems" => openai_merge_minimum(out, key, value),
+        "maxItems" => openai_merge_maximum(out, key, value),
+        _ => {
+            if !OPENAI_NORMALIZABLE_ALLOF_KEYWORDS.contains(&key)
+                || base_keys.contains(key)
+                || ambiguous_keys.contains(key)
+            {
+                return;
+            }
+            if !member_keys.contains(key) {
+                out.insert(key.to_owned(), value.clone());
+                member_keys.insert(key.to_owned());
+            } else if out.get(key) != Some(value) {
+                out.remove(key);
+                member_keys.remove(key);
+                ambiguous_keys.insert(key.to_owned());
+            }
+        }
+    }
+}
+
+/// Consume `allOf`: descriptions append, patterns combine, bounds merge
+/// conservatively, and structural keywords (`properties`, `required`, ...)
+/// are dropped rather than merged with a different meaning.
+fn openai_normalize_all_of(
+    doc: &serde_json::Map<String, serde_json::Value>,
+) -> serde_json::Map<String, serde_json::Value> {
+    let Some(members) = doc.get("allOf").and_then(|v| v.as_array()) else {
+        return doc.clone();
+    };
+    let mut out = serde_json::Map::new();
+    let mut patterns: Vec<String> = Vec::new();
+    let mut base_keys = std::collections::HashSet::new();
+    for (key, value) in doc {
+        if key == "allOf" {
+            continue;
+        }
+        base_keys.insert(key.clone());
+        if key == "pattern" {
+            if let Some(text) = value.as_str() {
+                patterns.push(text.to_owned());
+            }
+        } else {
+            out.insert(key.clone(), value.clone());
+        }
+    }
+    let mut member_keys = std::collections::HashSet::new();
+    let mut ambiguous_keys = std::collections::HashSet::new();
+    for member in members {
+        let Some(member) = member.as_object() else {
+            continue;
+        };
+        for (key, value) in member {
+            openai_merge_all_of_keyword(
+                &mut out,
+                key,
+                value,
+                &mut patterns,
+                &base_keys,
+                &mut member_keys,
+                &mut ambiguous_keys,
+            );
+        }
+    }
+    let mut unique: Vec<String> = Vec::new();
+    for pattern in patterns {
+        if !unique.contains(&pattern) {
+            unique.push(pattern);
+        }
+    }
+    if unique.len() == 1 {
+        out.insert(
+            "pattern".to_owned(),
+            serde_json::Value::String(unique.into_iter().next().expect("pattern")),
+        );
+    } else if unique.len() > 1 {
+        let combined: String = unique
+            .iter()
+            .map(|source| format!("(?=[\\s\\S]*?(?:{source}))"))
+            .collect();
+        out.insert(
+            "pattern".to_owned(),
+            serde_json::Value::String(format!("^{combined}")),
+        );
+    }
+    out
+}
+
+/// Rewrite a JSON Schema document to the OpenAI structured-output subset.
+/// Child schemas rewrite bottom-up first (property *values*, never names),
+/// then `allOf` normalizes, then unsupported keywords drop.
+pub fn rewrite_openai_schema(doc: &serde_json::Value) -> serde_json::Value {
+    let Some(node) = doc.as_object() else {
+        return doc.clone();
+    };
+    let mut walked = serde_json::Map::new();
+    for (key, value) in node {
+        let rewritten = match key.as_str() {
+            "properties" | "patternProperties" => match value.as_object() {
+                Some(entries) => serde_json::Value::Object(
+                    entries
+                        .iter()
+                        .map(|(name, property)| {
+                            let rewritten = if property.is_object() {
+                                rewrite_openai_schema(property)
+                            } else {
+                                property.clone()
+                            };
+                            (name.clone(), rewritten)
+                        })
+                        .collect(),
+                ),
+                None => value.clone(),
+            },
+            "additionalProperties" | "items" | "propertyNames" => {
+                if value.is_object() {
+                    rewrite_openai_schema(value)
+                } else {
+                    value.clone()
+                }
+            }
+            "prefixItems" | "allOf" | "anyOf" | "oneOf" => match value.as_array() {
+                Some(members) => serde_json::Value::Array(
+                    members
+                        .iter()
+                        .map(|member| {
+                            if member.is_object() {
+                                rewrite_openai_schema(member)
+                            } else {
+                                member.clone()
+                            }
+                        })
+                        .collect(),
+                ),
+                None => value.clone(),
+            },
+            _ => value.clone(),
+        };
+        walked.insert(key.clone(), rewritten);
+    }
+    let normalized = openai_normalize_all_of(&walked);
+    let doc_type = normalized
+        .get("type")
+        .cloned()
+        .unwrap_or(serde_json::Value::Null);
+    let mut out = serde_json::Map::new();
+    let mut unsupported_format: Option<String> = None;
+    for (key, value) in &normalized {
+        if key == "format" {
+            let supported = value
+                .as_str()
+                .is_some_and(|format| OPENAI_SUPPORTED_FORMATS.contains(&format))
+                && openai_keyword_supports_type(key, &doc_type);
+            if supported {
+                out.insert(key.clone(), value.clone());
+            } else if let Some(format) = value.as_str() {
+                unsupported_format = Some(format.to_owned());
+            }
+            continue;
+        }
+        if !OPENAI_SUPPORTED_KEYWORDS.contains(&key.as_str()) {
+            continue;
+        }
+        if !openai_keyword_supports_type(key, &doc_type) {
+            continue;
+        }
+        if key == "additionalProperties" && value != &serde_json::Value::Bool(false) {
+            continue;
+        }
+        out.insert(key.clone(), value.clone());
+    }
+    if let Some(format) = unsupported_format {
+        openai_append_description(&mut out, &format!("a value with a format of {format}"));
+    }
+    if out.get("type") == Some(&serde_json::Value::String("object".to_owned()))
+        && !out.contains_key("properties")
+        && out.get("additionalProperties") == Some(&serde_json::Value::Bool(false))
+    {
+        out.insert(
+            "properties".to_owned(),
+            serde_json::Value::Object(serde_json::Map::new()),
+        );
+    }
+    serde_json::Value::Object(out)
+}
