@@ -12,8 +12,21 @@ pub enum ProcessError {
     MissingEnv(String),
     /// Spawning the child failed.
     Spawn(String),
+    /// The OS refused to run the program (no execute bit, protected file).
+    /// Kept apart from [`ProcessError::Spawn`] so callers can tell "could not
+    /// run it" from "it is not there".
+    PermissionDenied(String),
     /// The child exited with a non-zero status.
     NonZeroExit(i32),
+}
+
+/// Classify a start failure: permission problems get their own variant.
+fn spawn_error(error: std::io::Error) -> ProcessError {
+    if error.kind() == std::io::ErrorKind::PermissionDenied {
+        ProcessError::PermissionDenied(error.to_string())
+    } else {
+        ProcessError::Spawn(error.to_string())
+    }
 }
 
 impl std::fmt::Display for ProcessError {
@@ -21,6 +34,7 @@ impl std::fmt::Display for ProcessError {
         match self {
             ProcessError::MissingEnv(name) => write!(f, "missing env var: {name}"),
             ProcessError::Spawn(message) => write!(f, "spawn failed: {message}"),
+            ProcessError::PermissionDenied(message) => write!(f, "permission denied: {message}"),
             ProcessError::NonZeroExit(code) => write!(f, "exit code: {code}"),
         }
     }
@@ -69,6 +83,11 @@ impl CommandOutput {
     pub fn stdout_text(&self) -> String {
         String::from_utf8_lossy(&self.stdout).into_owned()
     }
+
+    /// Stderr as UTF-8 text, lossy on invalid sequences.
+    pub fn stderr_text(&self) -> String {
+        String::from_utf8_lossy(&self.stderr).into_owned()
+    }
 }
 
 /// Run `program` with `args`, capturing both streams.
@@ -76,7 +95,7 @@ pub fn run(program: &str, args: &[&str]) -> Result<CommandOutput, ProcessError> 
     let output = std::process::Command::new(program)
         .args(args)
         .output()
-        .map_err(|error| ProcessError::Spawn(error.to_string()))?;
+        .map_err(spawn_error)?;
     Ok(CommandOutput {
         code: output.status.code(),
         stdout: output.stdout,
@@ -212,7 +231,7 @@ impl CommandSpec {
         command
             .spawn()
             .map(|child| ChildHandle { child: Some(child) })
-            .map_err(|e| ProcessError::Spawn(e.to_string()))
+            .map_err(spawn_error)
     }
 }
 
@@ -301,7 +320,7 @@ impl Pipeline {
             }
             let mut child = command
                 .spawn()
-                .map_err(|e| ProcessError::Spawn(e.to_string()))?;
+                .map_err(spawn_error)?;
             if !last {
                 previous = child.stdout.take();
             } else {
