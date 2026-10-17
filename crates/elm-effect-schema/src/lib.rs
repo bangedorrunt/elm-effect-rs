@@ -22,11 +22,12 @@ pub mod tagged;
 
 pub mod class;
 
-pub mod filters;
 pub mod built_in_revivers;
+pub mod filters;
 pub use built_in_revivers::*;
 pub mod json_schema;
 pub mod representation;
+pub mod representation_doc;
 
 pub mod refinements;
 
@@ -800,7 +801,10 @@ pub struct StandardSchemaV1<T> {
 
 /// Adapt a schema (or a JSON-Schema-documented one) to Standard Schema V1.
 pub fn to_standard_schema_v1<T, S: IntoV1Schema<T>>(inner: S) -> StandardSchemaV1<T> {
-    StandardSchemaV1 { schema: inner.into_v1_schema(), errors: V1Errors::All }
+    StandardSchemaV1 {
+        schema: inner.into_v1_schema(),
+        errors: V1Errors::All,
+    }
 }
 
 impl<T> StandardSchemaV1<T> {
@@ -852,26 +856,45 @@ fn repath_under(error: SchemaError, prefix: &str) -> SchemaError {
         None => format!("{prefix}{path}"),
     };
     match error {
-        SchemaError::TypeMismatch { path, expected, got } => {
-            SchemaError::TypeMismatch { path: join(path), expected, got }
-        }
-        SchemaError::TypeMismatchDynamic { path, expected, got } => {
-            SchemaError::TypeMismatchDynamic { path: join(path), expected, got }
-        }
-        SchemaError::DefaultFailed { path, message } => {
-            SchemaError::DefaultFailed { path: join(path), message }
-        }
-        SchemaError::InvalidJson { path, message } => {
-            SchemaError::InvalidJson { path: join(path), message }
-        }
-        SchemaError::EncodingFailed { path, expected } => {
-            SchemaError::EncodingFailed { path: join(path), expected }
-        }
-        SchemaError::FilterFailed { path, message } => {
-            SchemaError::FilterFailed { path: join(path), message }
-        }
+        SchemaError::TypeMismatch {
+            path,
+            expected,
+            got,
+        } => SchemaError::TypeMismatch {
+            path: join(path),
+            expected,
+            got,
+        },
+        SchemaError::TypeMismatchDynamic {
+            path,
+            expected,
+            got,
+        } => SchemaError::TypeMismatchDynamic {
+            path: join(path),
+            expected,
+            got,
+        },
+        SchemaError::DefaultFailed { path, message } => SchemaError::DefaultFailed {
+            path: join(path),
+            message,
+        },
+        SchemaError::InvalidJson { path, message } => SchemaError::InvalidJson {
+            path: join(path),
+            message,
+        },
+        SchemaError::EncodingFailed { path, expected } => SchemaError::EncodingFailed {
+            path: join(path),
+            expected,
+        },
+        SchemaError::FilterFailed { path, message } => SchemaError::FilterFailed {
+            path: join(path),
+            message,
+        },
         SchemaError::Composite { issues } => SchemaError::Composite {
-            issues: issues.into_iter().map(|issue| repath_under(issue, prefix)).collect(),
+            issues: issues
+                .into_iter()
+                .map(|issue| repath_under(issue, prefix))
+                .collect(),
         },
     }
 }
@@ -897,10 +920,15 @@ fn v1_issue(error: &SchemaError) -> V1Issue {
         SchemaError::FilterFailed { message, .. }
         | SchemaError::DefaultFailed { message, .. }
         | SchemaError::InvalidJson { message, .. } => sentence(message),
-        SchemaError::EncodingFailed { expected, .. } => sentence(&format!("cannot encode {expected}")),
+        SchemaError::EncodingFailed { expected, .. } => {
+            sentence(&format!("cannot encode {expected}"))
+        }
         SchemaError::Composite { .. } => unreachable!("flattened before mapping"),
     };
-    V1Issue { message, path: parse_v1_path(&error_path(error)) }
+    V1Issue {
+        message,
+        path: parse_v1_path(&error_path(error)),
+    }
 }
 
 /// `Expected X` unless the message already starts uppercase.
@@ -1032,7 +1060,8 @@ fn standard_doc_for_kind(
                 .map(|element| standard_doc_for_kind(element, side, target, defs))
                 .collect();
             let count = items.len();
-            let mut doc = serde_json::json!({"type": "array", "minItems": count, "maxItems": count});
+            let mut doc =
+                serde_json::json!({"type": "array", "minItems": count, "maxItems": count});
             doc[match target {
                 StandardJsonSchemaTarget::Draft2020_12 => "prefixItems",
                 StandardJsonSchemaTarget::Draft07 => "items",
@@ -1403,9 +1432,9 @@ impl<T> Schema<T> {
             Some(relation) => relation.clone(),
             None => {
                 let encode = self.encode.clone();
-                Arc::new(move |a: &T, b: &T| {
-                    matches!((encode(a), encode(b)), (Ok(x), Ok(y)) if x == y)
-                })
+                Arc::new(
+                    move |a: &T, b: &T| matches!((encode(a), encode(b)), (Ok(x), Ok(y)) if x == y),
+                )
             }
         }
     }
@@ -3765,21 +3794,23 @@ impl Schema<Unknown> {
         let (member_kind_tmp, member_checks_tmp, _member_annotation_tmp) =
             decompose(&member.repr_kind());
         let _ = member_kind_tmp;
-        let base = if !member_checks_tmp.is_empty() && matches!(base.repr_kind(), SchemaKind::Reference(name)) {
-
+        let base = if !member_checks_tmp.is_empty()
+            && matches!(base.repr_kind(), SchemaKind::Reference(name))
+        {
             // The closure capture needs `name` moved out:
             let name = match base.repr_kind() {
                 SchemaKind::Reference(n) => n.clone(),
                 _ => unreachable!("guarded above"),
             };
-            ROOT_DEFS.with(|slot| {
-                slot.borrow()
-                    .as_ref()
-                    .and_then(|defs| defs.get(&name))
-                    .cloned()
-            })
-            .and_then(|def_doc| Schema::<Unknown>::import(&def_doc).ok())
-            .unwrap_or(base)
+            ROOT_DEFS
+                .with(|slot| {
+                    slot.borrow()
+                        .as_ref()
+                        .and_then(|defs| defs.get(&name))
+                        .cloned()
+                })
+                .and_then(|def_doc| Schema::<Unknown>::import(&def_doc).ok())
+                .unwrap_or(base)
         } else {
             base
         };
@@ -3938,17 +3969,17 @@ impl Schema<Unknown> {
 /// site would otherwise have to carry it, and the root is the only document that
 /// can name one: JSON Schema scopes `$defs` to the root, so a nested document's
 /// own `$defs` is a different scope and the pin refuses it.
-    /// A pattern scope is OPEN when its catch-all is absent, `true`, or an
-    /// empty schema — all three mean "anything goes", which is what leaves an
-    /// unmatched key with no value shape. A non-empty schema is typed, and is
-    /// refused by a different rule rather than this one.
+/// A pattern scope is OPEN when its catch-all is absent, `true`, or an
+/// empty schema — all three mean "anything goes", which is what leaves an
+/// unmatched key with no value shape. A non-empty schema is typed, and is
+/// refused by a different rule rather than this one.
 fn is_open_pattern_scope(doc: &serde_json::Value) -> bool {
     match doc.get("additionalProperties") {
         None | Some(serde_json::Value::Bool(true)) => true,
         Some(serde_json::Value::Object(fields)) => fields.is_empty(),
         _ => false,
     }
-    }
+}
 
 /// The definition name a reference points at, after the same validation
 /// `resolve_ref` does. Used where the NAME is what matters rather than the
@@ -4041,13 +4072,14 @@ fn resolve_ref(reference: &str) -> Result<serde_json::Value, SchemaError> {
     // `~1` and `~0` are the JSON Pointer escapes for `/` and `~`, applied in
     // that order, so a definition may be named with either character.
     let name = pointer.replace("~1", "/").replace("~0", "~");
-    let found = ROOT_DEFS.with(|slot| {
-        slot.borrow()
-            .as_ref()
-            .and_then(|defs| defs.get(&name))
-            .cloned()
-    })
-    .ok_or_else(|| SchemaError::TypeMismatchDynamic {
+    let found = ROOT_DEFS
+        .with(|slot| {
+            slot.borrow()
+                .as_ref()
+                .and_then(|defs| defs.get(&name))
+                .cloned()
+        })
+        .ok_or_else(|| SchemaError::TypeMismatchDynamic {
             path: "$ref".to_string(),
             // The dynamic half is the part that names which definition was
             // wanted, which is the whole point of the message.
@@ -5125,11 +5157,9 @@ impl Schema<Unknown> {
     pub fn reference(name: &str, definition: serde_json::Value) -> Self {
         let n = name.to_string();
         let definition = definition.clone();
-        let decode = move |unknown: Unknown| {
-            match Self::import(&definition) {
-                Ok(inner) => inner.decode(unknown),
-                Err(_) => Ok(unknown),
-            }
+        let decode = move |unknown: Unknown| match Self::import(&definition) {
+            Ok(inner) => inner.decode(unknown),
+            Err(_) => Ok(unknown),
         };
         Self::new(
             decode,
@@ -5634,8 +5664,18 @@ impl Schema<Unknown> {
             move |value| {
                 let holds = match encode_name.as_str() {
                     "isBetweenCodePoints" => {
-                        let bmin = encode_bounds.first().copied().unwrap_or(0.0).floor().max(0.0);
-                        let bmax = encode_bounds.get(1).copied().unwrap_or(0.0).floor().max(0.0);
+                        let bmin = encode_bounds
+                            .first()
+                            .copied()
+                            .unwrap_or(0.0)
+                            .floor()
+                            .max(0.0);
+                        let bmax = encode_bounds
+                            .get(1)
+                            .copied()
+                            .unwrap_or(0.0)
+                            .floor()
+                            .max(0.0);
                         if let Unknown::Text(text) = value {
                             let count = text.chars().count() as f64;
                             count >= bmin && count <= bmax
@@ -5779,6 +5819,10 @@ fn round_to(value: f64, places: u32) -> f64 {
 /// Whether the decoded value satisfies a named refinement. Only the checks the
 /// pin's JSON Schema import actually emits are implemented; anything else
 /// passes, so an unimplemented refinement is unenforced rather than wrong.
+pub(crate) fn check_holds_named(name: &str, arg: Option<&str>, value: &Unknown) -> bool {
+    check_holds_arg(name, arg, value)
+}
+
 fn check_holds_arg(name: &str, arg: Option<&str>, value: &Unknown) -> bool {
     // `isPattern`'s argument is the JS RegExp literal the pin's repr prints, so
     // the pattern has to be read back out of it rather than matched as written.
@@ -5996,19 +6040,21 @@ fn code_of(kind: &SchemaKind, children: &[(String, Arc<Schema<Unknown>>)]) -> St
         // Annotations riding a reference print through a `suspend`, because the
         // pin names the codec's type parameter there rather than the definition's
         // own type.
-        SchemaKind::Annotated { inner, pairs } if matches!(&**inner, SchemaKind::Reference(_)) && !pairs.is_empty() => {
+        SchemaKind::Annotated { inner, pairs }
+            if matches!(&**inner, SchemaKind::Reference(_)) && !pairs.is_empty() =>
+        {
             let name = match &**inner {
                 SchemaKind::Reference(name) => name,
                 _ => unreachable!("guarded by the arm"),
             };
             let rendered = pairs
                 .iter()
-                .map(|(key, value)| format!("{}: {}", json_key(key), render_annotation_value(value)))
+                .map(|(key, value)| {
+                    format!("{}: {}", json_key(key), render_annotation_value(value))
+                })
                 .collect::<Vec<_>>()
                 .join(", ");
-            format!(
-                "Schema.suspend((): Schema.Codec<{name}> => {name}).annotate({{ {rendered} }})"
-            )
+            format!("Schema.suspend((): Schema.Codec<{name}> => {name}).annotate({{ {rendered} }})")
         }
         SchemaKind::OptionalKey(inner) => {
             format!("Schema.optionalKey({})", code_of_at(inner, children))
