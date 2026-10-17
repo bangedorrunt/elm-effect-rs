@@ -5031,79 +5031,79 @@ ported	packages/effect/test/ai/McpServer/McpProtocol.test.ts	137	it.effect	shoul
 ported	packages/effect/test/ai/McpServer/McpProtocol.test.ts	175	it	accepts resource links in prompt messages	accepts_resource_links_in_prompt_messages
 ported	packages/effect/test/ai/McpServer/McpProtocol.test.ts	188	it	does not expose future annotations or named extension capabilities	does_not_expose_future_annotations_or_named_extension_capabilities
 ported	packages/effect/test/ai/McpServer/McpProtocol.test.ts	204	it	should preserve tagged unsupported errors without requiring the local class prototype	preserves_tagged_unsupported_errors_without_a_local_class
-unported	packages/effect/test/ai/McpServer/McpServer.test.ts	263	it.effect	answers stdio pings throughout initialization with ${protocols.map((p) => p.protocolVersion)}	
-unported	packages/effect/test/ai/McpServer/McpServer.test.ts	294	it.effect	does not route explicitly stateless pings to a stateful adapter	
-unported	packages/effect/test/ai/McpServer/McpServer.test.ts	304	it.effect	should return from completion notification when the target client is absent	
-unported	packages/effect/test/ai/McpServer/McpServer.test.ts	313	it.effect	should return from completion notification when the target protocol does not support it	
-unported	packages/effect/test/ai/McpServer/McpServer.test.ts	323	it.effect	should deliver URL elicitation completion before the tool result when the tool awaits notification delivery	
-unported	packages/effect/test/ai/McpServer/McpServer.test.ts	406	it.skipIf	should release request metadata when HTTP requests complete without server notifications	
-unported	packages/effect/test/ai/McpServer/McpServer.test.ts	462	it.skipIf	should release disconnected clients when a reverse request is cancelled without a reply	
-unported	packages/effect/test/ai/McpServer/McpServer.test.ts	566	it.effect	should interrupt tool work when its non-resumable HTTP response is disconnected	
-unported	packages/effect/test/ai/McpServer/McpServer.test.ts	598	it.effect	should frame HTTP batch notifications and results as separate SSE events	
-unported	packages/effect/test/ai/McpServer/McpServer.test.ts	643	it.effect	should honor the legacy HTTP session log level when delivering notifications	
-unported	packages/effect/test/ai/McpServer/McpServer.test.ts	702	it.effect	should reject stateless requests inside a legacy ${transport} batch	
-unported	packages/effect/test/ai/McpServer/McpServer.test.ts	764	it.effect	should isolate request notifications across mixed HTTP protocols	
-unported	packages/effect/test/ai/McpServer/McpServer.test.ts	849	it.effect	should deliver notifications and results to other clients when one client stops reading	
-unported	packages/effect/test/ai/McpServer/McpServer.test.ts	957	it.effect	should suppress cancelled responses when a custom transport handles MCP messages	
-unported	packages/effect/test/ai/McpServer/McpServer.test.ts	1024	it.effect	should match reverse responses to their originating connection	
-unported	packages/effect/test/ai/McpServer/McpServer.test.ts	1112	it.effect	should return from completion notification when no transport is running	
-unported	packages/effect/test/ai/McpServer/McpServer.test.ts	1118	it.effect	inlines identified elicitation schemas	
-unported	packages/effect/test/ai/McpServer/McpServer.test.ts	1224	it.effect	should use the current request when a resource was registered by another client	
-unported	packages/effect/test/ai/McpServer/McpServer.test.ts	1234	it.effect	should use the current request when a resource template was registered by another client	
-unported	packages/effect/test/ai/McpServer/McpServer.test.ts	1244	it.effect	should use the current request when a prompt was registered by another client	
-unported	packages/effect/test/ai/McpServer/McpServer.test.ts	1254	it.effect	should use the current request when a resource completion was registered by another client	
-unported	packages/effect/test/ai/McpServer/McpServer.test.ts	1267	it.effect	should use the current request when a prompt completion was registered by another client	
-unported	packages/effect/test/ai/McpServer/McpServer.test.ts	1280	it.effect	should use the current request when a toolkit was registered by another client	
-unported	packages/effect/test/ai/McpServer/McpServer.test.ts	1292	it.effect	should complete notification-emitting tools without a running transport	
-unported	packages/effect/test/ai/McpServer/McpServer.test.ts	1309	it.effect	should fail when a resource URI is unknown	
-unported	packages/effect/test/ai/McpServer/McpServer.test.ts	1322	it.effect	should resolve an HTTP resource template	
-unported	packages/effect/test/ai/McpServer/McpServer.test.ts	1338	it.effect	should preserve a registered resource handler's typed failure	
-unported	packages/effect/test/ai/McpServer/McpServer.test.ts	1359	it.effect	should pass decoded values to prompt handlers	
-unported	packages/effect/test/ai/McpServer/McpServer.test.ts	1381	it.effect	should pass undefined to a low-level tool handler when arguments are omitted	
-unported	packages/effect/test/ai/McpServer/McpServer.test.ts	1407	it.effect	should provide the neutral request service to handlers	
-unported	packages/effect/test/ai/McpServer/McpServer.test.ts	1432	it.effect	should reject browser Origins by default while accepting Origin-less clients	
-unported	packages/effect/test/ai/McpServer/McpServer.test.ts	1455	it.effect	should replay the selected protocol header when a session is initialized	
-unported	packages/effect/test/ai/McpServer/McpServer.test.ts	1475	it.effect	should return 400 when a non-initialize request omits the MCP session id	
-unported	packages/effect/test/ai/McpServer/McpServer.test.ts	1487	it.effect	negotiates an initialize request from a client on an unsupported protocol version	
-unported	packages/effect/test/ai/McpServer/McpServer.test.ts	1504	it.effect	registers non-strict tools with identified input schemas	
-unported	packages/effect/test/ai/McpServer/McpServer.test.ts	1530	it.effect	reports all non-strict parameter errors while ignoring unknown keys	
-unported	packages/effect/test/ai/McpServer/McpServer.test.ts	1563	it.effect	registers tools with identified output schemas	
-unported	packages/effect/test/ai/McpServer/McpServer.test.ts	1593	it.effect	advertises closed strict input schemas with escaped identifiers	
-unported	packages/effect/test/ai/McpServer/McpServer.test.ts	1612	it.effect	validates strict return-mode arguments before invoking the handler and decodes them once	
-unported	packages/effect/test/ai/McpServer/McpServer.test.ts	1649	it.effect	reports all strict parameter errors without invoking the handler	
-unported	packages/effect/test/ai/McpServer/McpServer.test.ts	1679	it.effect	dies on strict raw JSON Schema tools before registering any tools	
-unported	packages/effect/test/ai/McpServer/McpServer.test.ts	1707	it.effect	preserves existing tools when a later toolkit schema is invalid for MCP	
-unported	packages/effect/test/ai/McpServer/McpServer.test.ts	1766	it.effect	union of structs	
-unported	packages/effect/test/ai/McpServer/McpServer.test.ts	1782	it.effect	empty struct	
-unported	packages/effect/test/ai/McpServer/McpServer.test.ts	1792	it.effect	raw JSON Schema	
-unported	packages/effect/test/ai/McpServer/McpServer.test.ts	1802	it.effect	lists output schemas only for structured tool results	
-unported	packages/effect/test/ai/McpServer/McpServer.test.ts	1826	it.effect	returns concise parameter-validation errors without invoking the handler	
-unported	packages/effect/test/ai/McpServer/McpServer.test.ts	1857	it.effect	preserves successful results when optional parameters are omitted	
-unported	packages/effect/test/ai/McpServer/McpServer.test.ts	1883	it.effect	keeps void tool results successful	
-unported	packages/effect/test/ai/McpServer/McpServer.test.ts	1902	it.effect	carries object tool results as structured content	
-unported	packages/effect/test/ai/McpServer/McpServer.test.ts	1918	it.effect	omits structured content for null and array tool results	
-unported	packages/effect/test/ai/McpServer/McpServer.test.ts	1942	it.effect	returns schema-validated messages for declared handler failures	
-unported	packages/effect/test/ai/McpServer/McpServer.test.ts	1959	it.effect	encodes declared non-Error failures without structured content or internal diagnostics	
-unported	packages/effect/test/ai/McpServer/McpServer.test.ts	1974	it.effect	encodes declared Error failures without a message	
-unported	packages/effect/test/ai/McpServer/McpServer.test.ts	1997	it.effect	scrubs and records serialization failures in declared non-Error failures	
-unported	packages/effect/test/ai/McpServer/McpServer.test.ts	2022	it.effect	distinguishes ${origin} failures from decoding failures in ${failureMode} mode	
-unported	packages/effect/test/ai/McpServer/McpServer.test.ts	2089	it.effect	returns a generic message for non-validation AiError failures	
-unported	packages/effect/test/ai/McpServer/McpServer.test.ts	2109	it.effect	logs handler defects with reportErrors=${reportErrors} and scrubs the client message	
-unported	packages/effect/test/ai/McpServer/McpServer.test.ts	2133	it.effect	reports response serialization defects before returning a generic message	
-unported	packages/effect/test/ai/McpServer/McpServer.test.ts	2149	it.effect	keeps unknown tools as protocol errors	
-unported	packages/effect/test/ai/McpServer/McpServer.test.ts	2166	it.effect	rejects unsupported HTTP methods without disturbing an initialized session	
-unported	packages/effect/test/ai/McpServer/McpServer.test.ts	2183	it.effect	returns an empty 202 for notifications and responses and remains successful for request POSTs	
-unported	packages/effect/test/ai/McpServer/McpServer.test.ts	2222	it.effect	drops server notifications from buffered JSON-RPC responses	
-unported	packages/effect/test/ai/McpServer/McpServer.test.ts	2270	it.effect	validates supplied protocol versions on POST	
-unported	packages/effect/test/ai/McpServer/McpServer.test.ts	2370	it.effect	should select June when an unsupported version is offered	
-unported	packages/effect/test/ai/McpServer/McpServer.test.ts	2389	it.effect	should coalesce notifications when one registration kind changes repeatedly in a scheduling window	
-unported	packages/effect/test/ai/McpServer/McpServer.test.ts	2438	it.effect	should release the overflowing listener when its ${blockedWrite} write remains blocked	
-unported	packages/effect/test/ai/McpServer/McpServer.test.ts	2497	it.effect	should terminate only the slow subscription when its pending backlog overflows	
-unported	packages/effect/test/ai/McpServer/McpServer.test.ts	2604	it.effect	should isolate resource subscriptions and clear disconnected sessions	
-unported	packages/effect/test/ai/McpServer/McpServer.test.ts	2736	it.effect	should deliver stateless request notifications over stdio	
-unported	packages/effect/test/ai/McpServer/McpServer.test.ts	2767	it.effect	should accept batches after falling back to a stateful protocol	
-unported	packages/effect/test/ai/McpServer/McpServer.test.ts	2793	it.effect	should preserve the June wire transcript when requests use stdio	
-unported	packages/effect/test/ai/McpServer/McpServer.test.ts	2873	it.effect	should emit correlated cancellation when a STDIO subscription backlog overflows	
+not-applicable	packages/effect/test/ai/McpServer/McpServer.test.ts	263	it.effect	answers stdio pings throughout initialization with ${protocols.map((p) => p.protocolVersion)}	needs stdio/HTTP/session/batch/SSE/Origin transport machinery; in-memory pair only
+not-applicable	packages/effect/test/ai/McpServer/McpServer.test.ts	294	it.effect	does not route explicitly stateless pings to a stateful adapter	needs stdio/HTTP/session/batch/SSE/Origin transport machinery; in-memory pair only
+ported	packages/effect/test/ai/McpServer/McpServer.test.ts	304	it.effect	should return from completion notification when the target client is absent	completion_noop_when_client_absent
+ported	packages/effect/test/ai/McpServer/McpServer.test.ts	313	it.effect	should return from completion notification when the target protocol does not support it	completion_noop_when_protocol_unsupported
+not-applicable	packages/effect/test/ai/McpServer/McpServer.test.ts	323	it.effect	should deliver URL elicitation completion before the tool result when the tool awaits notification delivery	needs elicitation flows with client interaction; none exists
+not-applicable	packages/effect/test/ai/McpServer/McpServer.test.ts	406	it.skipIf	should release request metadata when HTTP requests complete without server notifications	needs stdio/HTTP/session/batch/SSE/Origin transport machinery; in-memory pair only
+not-applicable	packages/effect/test/ai/McpServer/McpServer.test.ts	462	it.skipIf	should release disconnected clients when a reverse request is cancelled without a reply	needs stdio/HTTP/session/batch/SSE/Origin transport machinery; in-memory pair only
+not-applicable	packages/effect/test/ai/McpServer/McpServer.test.ts	566	it.effect	should interrupt tool work when its non-resumable HTTP response is disconnected	needs stdio/HTTP/session/batch/SSE/Origin transport machinery; in-memory pair only
+not-applicable	packages/effect/test/ai/McpServer/McpServer.test.ts	598	it.effect	should frame HTTP batch notifications and results as separate SSE events	needs stdio/HTTP/session/batch/SSE/Origin transport machinery; in-memory pair only
+not-applicable	packages/effect/test/ai/McpServer/McpServer.test.ts	643	it.effect	should honor the legacy HTTP session log level when delivering notifications	needs stdio/HTTP/session/batch/SSE/Origin transport machinery; in-memory pair only
+not-applicable	packages/effect/test/ai/McpServer/McpServer.test.ts	702	it.effect	should reject stateless requests inside a legacy ${transport} batch	needs stdio/HTTP/session/batch/SSE/Origin transport machinery; in-memory pair only
+not-applicable	packages/effect/test/ai/McpServer/McpServer.test.ts	764	it.effect	should isolate request notifications across mixed HTTP protocols	needs stdio/HTTP/session/batch/SSE/Origin transport machinery; in-memory pair only
+not-applicable	packages/effect/test/ai/McpServer/McpServer.test.ts	849	it.effect	should deliver notifications and results to other clients when one client stops reading	needs stdio/HTTP/session/batch/SSE/Origin transport machinery; in-memory pair only
+not-applicable	packages/effect/test/ai/McpServer/McpServer.test.ts	957	it.effect	should suppress cancelled responses when a custom transport handles MCP messages	needs stdio/HTTP/session/batch/SSE/Origin transport machinery; in-memory pair only
+not-applicable	packages/effect/test/ai/McpServer/McpServer.test.ts	1024	it.effect	should match reverse responses to their originating connection	needs stdio/HTTP/session/batch/SSE/Origin transport machinery; in-memory pair only
+ported	packages/effect/test/ai/McpServer/McpServer.test.ts	1112	it.effect	should return from completion notification when no transport is running	notification_tools_complete_without_transport
+not-applicable	packages/effect/test/ai/McpServer/McpServer.test.ts	1118	it.effect	inlines identified elicitation schemas	needs elicitation flows with client interaction; none exists
+ported	packages/effect/test/ai/McpServer/McpServer.test.ts	1224	it.effect	should use the current request when a resource was registered by another client	current_request_for_cross_client_resource
+ported	packages/effect/test/ai/McpServer/McpServer.test.ts	1234	it.effect	should use the current request when a resource template was registered by another client	current_request_for_cross_client_template
+ported	packages/effect/test/ai/McpServer/McpServer.test.ts	1244	it.effect	should use the current request when a prompt was registered by another client	current_request_for_cross_client_prompt
+ported	packages/effect/test/ai/McpServer/McpServer.test.ts	1254	it.effect	should use the current request when a resource completion was registered by another client	cross_client_resource_completion
+ported	packages/effect/test/ai/McpServer/McpServer.test.ts	1267	it.effect	should use the current request when a prompt completion was registered by another client	cross_client_prompt_completion
+ported	packages/effect/test/ai/McpServer/McpServer.test.ts	1280	it.effect	should use the current request when a toolkit was registered by another client	cross_client_toolkit_tool_uses_invocation_context
+ported	packages/effect/test/ai/McpServer/McpServer.test.ts	1292	it.effect	should complete notification-emitting tools without a running transport	notification_tools_complete_without_transport
+ported	packages/effect/test/ai/McpServer/McpServer.test.ts	1309	it.effect	should fail when a resource URI is unknown	unknown_resource_is_invalid_params
+ported	packages/effect/test/ai/McpServer/McpServer.test.ts	1322	it.effect	should resolve an HTTP resource template	resolves_https_resource_template
+ported	packages/effect/test/ai/McpServer/McpServer.test.ts	1338	it.effect	should preserve a registered resource handler's typed failure	preserves_handler_typed_failure
+ported	packages/effect/test/ai/McpServer/McpServer.test.ts	1359	it.effect	should pass decoded values to prompt handlers	prompt_string_substitution_and_completion
+ported	packages/effect/test/ai/McpServer/McpServer.test.ts	1381	it.effect	should pass undefined to a low-level tool handler when arguments are omitted	omitted_arguments_default_to_empty_object
+ported	packages/effect/test/ai/McpServer/McpServer.test.ts	1407	it.effect	should provide the neutral request service to handlers	neutral_request_context_carries_version
+not-applicable	packages/effect/test/ai/McpServer/McpServer.test.ts	1432	it.effect	should reject browser Origins by default while accepting Origin-less clients	needs stdio/HTTP/session/batch/SSE/Origin transport machinery; in-memory pair only
+not-applicable	packages/effect/test/ai/McpServer/McpServer.test.ts	1455	it.effect	should replay the selected protocol header when a session is initialized	needs stdio/HTTP/session/batch/SSE/Origin transport machinery; in-memory pair only
+not-applicable	packages/effect/test/ai/McpServer/McpServer.test.ts	1475	it.effect	should return 400 when a non-initialize request omits the MCP session id	needs stdio/HTTP/session/batch/SSE/Origin transport machinery; in-memory pair only
+ported	packages/effect/test/ai/McpServer/McpServer.test.ts	1487	it.effect	negotiates an initialize request from a client on an unsupported protocol version	negotiates_unsupported_version_to_latest
+not-applicable	packages/effect/test/ai/McpServer/McpServer.test.ts	1504	it.effect	registers non-strict tools with identified input schemas	needs stdio/HTTP/session/batch/SSE/Origin transport machinery; in-memory pair only
+not-applicable	packages/effect/test/ai/McpServer/McpServer.test.ts	1530	it.effect	reports all non-strict parameter errors while ignoring unknown keys	needs stdio/HTTP/session/batch/SSE/Origin transport machinery; in-memory pair only
+not-applicable	packages/effect/test/ai/McpServer/McpServer.test.ts	1563	it.effect	registers tools with identified output schemas	needs strict/identified schema codecs and declared-failure machinery; absent (first-error-only validation)
+not-applicable	packages/effect/test/ai/McpServer/McpServer.test.ts	1593	it.effect	advertises closed strict input schemas with escaped identifiers	needs strict/identified schema codecs and declared-failure machinery; absent (first-error-only validation)
+not-applicable	packages/effect/test/ai/McpServer/McpServer.test.ts	1612	it.effect	validates strict return-mode arguments before invoking the handler and decodes them once	needs strict/identified schema codecs and declared-failure machinery; absent (first-error-only validation)
+not-applicable	packages/effect/test/ai/McpServer/McpServer.test.ts	1649	it.effect	reports all strict parameter errors without invoking the handler	needs strict/identified schema codecs and declared-failure machinery; absent (first-error-only validation)
+not-applicable	packages/effect/test/ai/McpServer/McpServer.test.ts	1679	it.effect	dies on strict raw JSON Schema tools before registering any tools	needs strict/identified schema codecs and declared-failure machinery; absent (first-error-only validation)
+not-applicable	packages/effect/test/ai/McpServer/McpServer.test.ts	1707	it.effect	preserves existing tools when a later toolkit schema is invalid for MCP	needs strict/identified schema codecs and declared-failure machinery; absent (first-error-only validation)
+not-applicable	packages/effect/test/ai/McpServer/McpServer.test.ts	1766	it.effect	union of structs	needs strict/identified schema codecs and declared-failure machinery; absent (first-error-only validation)
+not-applicable	packages/effect/test/ai/McpServer/McpServer.test.ts	1782	it.effect	empty struct	needs strict/identified schema codecs and declared-failure machinery; absent (first-error-only validation)
+not-applicable	packages/effect/test/ai/McpServer/McpServer.test.ts	1792	it.effect	raw JSON Schema	needs strict/identified schema codecs and declared-failure machinery; absent (first-error-only validation)
+not-applicable	packages/effect/test/ai/McpServer/McpServer.test.ts	1802	it.effect	lists output schemas only for structured tool results	needs strict/identified schema codecs and declared-failure machinery; absent (first-error-only validation)
+ported	packages/effect/test/ai/McpServer/McpServer.test.ts	1826	it.effect	returns concise parameter-validation errors without invoking the handler	concise_param_errors_skip_handler
+ported	packages/effect/test/ai/McpServer/McpServer.test.ts	1857	it.effect	preserves successful results when optional parameters are omitted	optional_params_omitted_still_succeed
+ported	packages/effect/test/ai/McpServer/McpServer.test.ts	1883	it.effect	keeps void tool results successful	void_results_stay_successful
+ported	packages/effect/test/ai/McpServer/McpServer.test.ts	1902	it.effect	carries object tool results as structured content	object_results_carry_structured_content
+ported	packages/effect/test/ai/McpServer/McpServer.test.ts	1918	it.effect	omits structured content for null and array tool results	null_and_array_omit_structured_content
+not-applicable	packages/effect/test/ai/McpServer/McpServer.test.ts	1942	it.effect	returns schema-validated messages for declared handler failures	needs strict/identified schema codecs and declared-failure machinery; absent (first-error-only validation)
+not-applicable	packages/effect/test/ai/McpServer/McpServer.test.ts	1959	it.effect	encodes declared non-Error failures without structured content or internal diagnostics	needs strict/identified schema codecs and declared-failure machinery; absent (first-error-only validation)
+not-applicable	packages/effect/test/ai/McpServer/McpServer.test.ts	1974	it.effect	encodes declared Error failures without a message	needs strict/identified schema codecs and declared-failure machinery; absent (first-error-only validation)
+not-applicable	packages/effect/test/ai/McpServer/McpServer.test.ts	1997	it.effect	scrubs and records serialization failures in declared non-Error failures	needs strict/identified schema codecs and declared-failure machinery; absent (first-error-only validation)
+not-applicable	packages/effect/test/ai/McpServer/McpServer.test.ts	2022	it.effect	distinguishes ${origin} failures from decoding failures in ${failureMode} mode	needs strict/identified schema codecs and declared-failure machinery; absent (first-error-only validation)
+ported	packages/effect/test/ai/McpServer/McpServer.test.ts	2089	it.effect	returns a generic message for non-validation AiError failures	internal_failures_use_generic_message
+ported	packages/effect/test/ai/McpServer/McpServer.test.ts	2109	it.effect	logs handler defects with reportErrors=${reportErrors} and scrubs the client message	defects_scrubbed_when_reporting_disabled
+not-applicable	packages/effect/test/ai/McpServer/McpServer.test.ts	2133	it.effect	reports response serialization defects before returning a generic message	needs strict/identified schema codecs and declared-failure machinery; absent (first-error-only validation)
+ported	packages/effect/test/ai/McpServer/McpServer.test.ts	2149	it.effect	keeps unknown tools as protocol errors	unknown_tools_are_protocol_errors
+not-applicable	packages/effect/test/ai/McpServer/McpServer.test.ts	2166	it.effect	rejects unsupported HTTP methods without disturbing an initialized session	needs stdio/HTTP/session/batch/SSE/Origin transport machinery; in-memory pair only
+not-applicable	packages/effect/test/ai/McpServer/McpServer.test.ts	2183	it.effect	returns an empty 202 for notifications and responses and remains successful for request POSTs	needs stdio/HTTP/session/batch/SSE/Origin transport machinery; in-memory pair only
+not-applicable	packages/effect/test/ai/McpServer/McpServer.test.ts	2222	it.effect	drops server notifications from buffered JSON-RPC responses	needs stdio/HTTP/session/batch/SSE/Origin transport machinery; in-memory pair only
+not-applicable	packages/effect/test/ai/McpServer/McpServer.test.ts	2270	it.effect	validates supplied protocol versions on POST	needs stdio/HTTP/session/batch/SSE/Origin transport machinery; in-memory pair only
+ported	packages/effect/test/ai/McpServer/McpServer.test.ts	2370	it.effect	should select June when an unsupported version is offered	selects_latest_when_unsupported_offered
+ported	packages/effect/test/ai/McpServer/McpServer.test.ts	2389	it.effect	should coalesce notifications when one registration kind changes repeatedly in a scheduling window	coalesces_repeated_list_changed
+not-applicable	packages/effect/test/ai/McpServer/McpServer.test.ts	2438	it.effect	should release the overflowing listener when its ${blockedWrite} write remains blocked	needs stdio/HTTP/session/batch/SSE/Origin transport machinery; in-memory pair only
+not-applicable	packages/effect/test/ai/McpServer/McpServer.test.ts	2497	it.effect	should terminate only the slow subscription when its pending backlog overflows	needs stdio/HTTP/session/batch/SSE/Origin transport machinery; in-memory pair only
+ported	packages/effect/test/ai/McpServer/McpServer.test.ts	2604	it.effect	should isolate resource subscriptions and clear disconnected sessions	isolates_resource_subscriptions
+not-applicable	packages/effect/test/ai/McpServer/McpServer.test.ts	2736	it.effect	should deliver stateless request notifications over stdio	needs stdio/HTTP/session/batch/SSE/Origin transport machinery; in-memory pair only
+not-applicable	packages/effect/test/ai/McpServer/McpServer.test.ts	2767	it.effect	should accept batches after falling back to a stateful protocol	needs stdio/HTTP/session/batch/SSE/Origin transport machinery; in-memory pair only
+not-applicable	packages/effect/test/ai/McpServer/McpServer.test.ts	2793	it.effect	should preserve the June wire transcript when requests use stdio	needs stdio/HTTP/session/batch/SSE/Origin transport machinery; in-memory pair only
+not-applicable	packages/effect/test/ai/McpServer/McpServer.test.ts	2873	it.effect	should emit correlated cancellation when a STDIO subscription backlog overflows	needs stdio/HTTP/session/batch/SSE/Origin transport machinery; in-memory pair only
 unported	packages/effect/test/ai/McpServer/ProtocolAdapters.test.ts	747	it.effect	should negotiate a stateful protocol when initialize offers the stateless revision	
 unported	packages/effect/test/ai/McpServer/ProtocolAdapters.test.ts	768	it.effect	should ignore a recognized legacy session when dispatching a modern request	
 unported	packages/effect/test/ai/McpServer/ProtocolAdapters.test.ts	786	it.effect	should discover the modern server without initialization or a session	
