@@ -159,6 +159,9 @@ pub struct SqlClient {
     tables: std::cell::RefCell<std::collections::BTreeMap<String, Vec<Vec<String>>>>,
     savepoints_held: std::cell::RefCell<usize>,
     strict_savepoints: bool,
+    /// True once a rollback failed: tables may be half-mutated and the state
+    /// is unknown. Set, never cleared (a new client is the recovery).
+    unknown: std::cell::Cell<bool>,
 }
 
 impl SqlClient {
@@ -168,6 +171,7 @@ impl SqlClient {
             tables: Default::default(),
             savepoints_held: std::cell::RefCell::new(0),
             strict_savepoints: true,
+            unknown: std::cell::Cell::new(false),
         }
     }
 
@@ -201,6 +205,12 @@ impl SqlClient {
         }
     }
 
+    /// True once a rollback failed: the tables may be half-mutated and must
+    /// be treated as unknown. A new client is the recovery.
+    pub fn is_state_unknown(&self) -> bool {
+        self.unknown.get()
+    }
+
     /// Run inside a transaction. The begin result is decided up front: a
     /// failed begin never runs the body and never rolls back. Body
     /// failures restore the pre-transaction tables.
@@ -223,7 +233,8 @@ impl SqlClient {
     /// Run inside a savepoint. Success releases (count drops to zero in
     /// strict mode); otherwise the hold stays visible. A failing `faults`
     /// release errors out (the outer transaction then rolls back); a failing
-    /// rollback skips the release and reports the rollback error.
+    /// rollback preserves the original error and marks the state unknown
+    /// (tables may be half-mutated) instead of returning a synthetic generic.
     pub fn savepoint<R>(
         &self,
         _name: &str,
@@ -250,7 +261,11 @@ impl SqlClient {
             }
             Err(error) => {
                 if faults.fail_rollback {
-                    return Err(SqlError::new(SqlReason::Unknown, false, "rollback failed"));
+                    // The rollback itself failed: the original error is the
+                    // truth, the tables are half-mutated, and the state is
+                    // unknown. Never synthesize a generic that hides it.
+                    self.unknown.set(true);
+                    return Err(error);
                 }
                 *self.tables.borrow_mut() = snapshot;
                 Err(error)
@@ -408,10 +423,7 @@ pub mod statement {
 
     /// Build transforms that rename object keys with `rename`, recursing
     /// into nested row arrays only when `nested` is set.
-    pub fn default_transforms(
-        rename: &dyn Fn(&str) -> String,
-        nested: bool,
-    ) -> Transforms<'_> {
+    pub fn default_transforms(rename: &dyn Fn(&str) -> String, nested: bool) -> Transforms<'_> {
         Transforms { rename, nested }
     }
 
@@ -419,9 +431,7 @@ pub mod statement {
         /// Rename the keys of one row object.
         pub fn object(&self, row: serde_json::Value) -> serde_json::Value {
             match row {
-                serde_json::Value::Object(map) => {
-                    serde_json::Value::Object(self.rename_map(&map))
-                }
+                serde_json::Value::Object(map) => serde_json::Value::Object(self.rename_map(&map)),
                 other => other,
             }
         }
@@ -430,9 +440,7 @@ pub mod statement {
         pub fn array(&self, rows: Vec<serde_json::Value>) -> Vec<serde_json::Value> {
             rows.into_iter()
                 .map(|row| match row {
-                    serde_json::Value::Array(items) => {
-                        serde_json::Value::Array(self.array(items))
-                    }
+                    serde_json::Value::Array(items) => serde_json::Value::Array(self.array(items)),
                     serde_json::Value::Object(map) => {
                         serde_json::Value::Object(self.rename_map(&map))
                     }
@@ -467,9 +475,7 @@ pub mod statement {
                         serde_json::Value::Array(items)
                     }
                 }
-                serde_json::Value::Object(map) => {
-                    serde_json::Value::Object(self.rename_map(&map))
-                }
+                serde_json::Value::Object(map) => serde_json::Value::Object(self.rename_map(&map)),
                 other => other,
             }
         }
@@ -704,5 +710,27 @@ impl SqlError {
                 .and_then(|r| r.as_bool())
                 .unwrap_or(false),
         })
+    }
+}
+
+#[cfg(test)]
+mod rollback_tests {
+    use super::*;
+
+    #[test]
+    fn rollback_failure_preserves_original_and_marks_unknown() {
+        let db = SqlClient::fake().with_savepoints(false);
+        let faults = Faults {
+            fail_release: false,
+            fail_rollback: true,
+        };
+        let out = db.savepoint("sp1", Ok(()), &faults, || {
+            db.insert("t", vec!["x".to_string()]);
+            Err::<u32, SqlError>(SqlError::new(SqlReason::Unknown, true, "boom"))
+        });
+        let err = out.unwrap_err();
+        assert_eq!(err.message, "boom", "original error preserved, not synthetic");
+        assert!(db.is_state_unknown(), "half-mutated tables flagged unknown");
+        assert_eq!(db.savepoint_count(), 1);
     }
 }

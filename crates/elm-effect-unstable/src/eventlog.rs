@@ -168,6 +168,10 @@ pub struct EventLog {
     /// `(remote, entry_id)` pairs already imported, so a resend is a
     /// duplicate rather than a second local entry.
     seen_remote_ids: HashSet<(String, String)>,
+    /// Idempotency keys for retried remote writes: one key commits once, so
+    /// a retry after an ambiguous failure replays the stored entry instead
+    /// of recording a fresh seq.
+    retry_keys: HashMap<String, u64>,
 }
 
 impl EventLog {
@@ -178,6 +182,7 @@ impl EventLog {
             group,
             remote_seqs: HashMap::new(),
             seen_remote_ids: HashSet::new(),
+            retry_keys: HashMap::new(),
         }
     }
 
@@ -233,7 +238,8 @@ impl EventLog {
             let key = (remote.to_owned(), entry.entry_id.clone());
             let last = self.remote_seqs.get(remote).copied().unwrap_or(0);
             if entry.remote_sequence > last {
-                self.remote_seqs.insert(remote.to_owned(), entry.remote_sequence);
+                self.remote_seqs
+                    .insert(remote.to_owned(), entry.remote_sequence);
             }
             if self.seen_remote_ids.contains(&key) {
                 write.duplicates.push(entry);
@@ -264,6 +270,35 @@ impl EventLog {
         for _ in 0..max_attempts.max(1) {
             match attempt() {
                 Ok(event) => return Ok(self.journal.record(event)),
+                Err(e) => last_err = e,
+            }
+        }
+        Err(last_err)
+    }
+
+    /// Idempotent retry under one idempotency key: the first success for `key`
+    /// commits once; a later call with the same key (retry after an ambiguous
+    /// failure where the remote may have applied it) replays the stored entry
+    /// instead of recording a fresh seq.
+    pub fn retry_remote_write_with_key(
+        &mut self,
+        key: &str,
+        max_attempts: usize,
+        mut attempt: impl FnMut() -> Result<Event, String>,
+    ) -> Result<Entry, String> {
+        if let Some(seq) = self.retry_keys.get(key).copied()
+            && let Some(entry) = self.journal.entries().iter().find(|e| e.seq == seq).cloned()
+        {
+            return Ok(entry);
+        }
+        let mut last_err = "attempts exhausted".to_owned();
+        for _ in 0..max_attempts.max(1) {
+            match attempt() {
+                Ok(event) => {
+                    let entry = self.journal.record(event);
+                    self.retry_keys.insert(key.to_owned(), entry.seq);
+                    return Ok(entry);
+                }
                 Err(e) => last_err = e,
             }
         }
@@ -308,7 +343,9 @@ pub fn to_conflicts(
         let sliced = history[index..].to_vec();
         let conflicts = sliced
             .iter()
-            .filter(|scanned| scanned.event == origin.event && scanned.primary_key == origin.primary_key)
+            .filter(|scanned| {
+                scanned.event == origin.event && scanned.primary_key == origin.primary_key
+            })
             .cloned()
             .collect();
         return (duplicate, conflicts, sliced);
@@ -377,4 +414,39 @@ pub fn join_chunks(chunks: &[Vec<u8>]) -> Vec<u8> {
         }
     }
     out
+}
+
+#[cfg(test)]
+mod retry_identity_tests {
+    use super::*;
+
+    #[test]
+    fn retry_after_ambiguous_failure_yields_one_entry() {
+        let mut log = EventLog::new(EventGroup::new());
+        let mut calls = 0;
+        // First attempt: ambiguous failure (remote may have applied it).
+        // Second: success under the SAME idempotency key.
+        let first = log
+            .retry_remote_write_with_key("op-1", 3, || {
+                calls += 1;
+                if calls == 1 {
+                    Err("timeout (ambiguous)".to_owned())
+                } else {
+                    Ok(Event::new("e", vec![7]))
+                }
+            })
+            .unwrap();
+        assert_eq!(log.entries().len(), 1);
+        // A resent retry with the same key must not record a fresh seq.
+        let mut reruns = 0;
+        let second = log
+            .retry_remote_write_with_key("op-1", 3, || {
+                reruns += 1;
+                Ok(Event::new("e", vec![7]))
+            })
+            .unwrap();
+        assert_eq!(first.seq, second.seq);
+        assert_eq!(log.entries().len(), 1, "retry must not duplicate");
+        assert_eq!(reruns, 0, "stored outcome replays without re-running");
+    }
 }

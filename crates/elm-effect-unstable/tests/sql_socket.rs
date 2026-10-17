@@ -9,8 +9,11 @@ use socket::{
     EventKind, Pull, Reader, Socket, SocketError, WebSocketEvent, WebSocketLike, WebSocketListener,
     Writer, socket_pair,
 };
-use sql::{Faults, SqlClient, SqlError, SqlReason, classify_sqlite_error, is_sql_error, is_sql_error_reason};
 use sql::statement::{Compiler, fragment, identifier, literal, nested, parameter};
+use sql::{
+    Faults, SqlClient, SqlError, SqlReason, classify_sqlite_error, is_sql_error,
+    is_sql_error_reason,
+};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, AtomicU8, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
@@ -63,10 +66,7 @@ fn sql_error_wrap_delegates_and_guards() {
     for (reason, retryable) in [
         (SqlReason::ConnectionLost, true),
         (SqlReason::SyntaxError, false),
-        (
-            SqlReason::UniqueViolation { constraint: None },
-            false,
-        ),
+        (SqlReason::UniqueViolation { constraint: None }, false),
         (SqlReason::ConstraintError { detail: None }, false),
         (SqlReason::ForeignKeyViolation, false),
         (SqlReason::EmptyResult, false),
@@ -158,10 +158,7 @@ fn statement_transforms_rename_only_present_keys() {
         nested_t.array(vec![serde_json::json!([row.clone()])]),
         vec![serde_json::json!([{"OWN": 2}])]
     );
-    assert_eq!(
-        flat.array(vec![row]),
-        vec![serde_json::json!({"OWN": 2})]
-    );
+    assert_eq!(flat.array(vec![row]), vec![serde_json::json!({"OWN": 2})]);
 }
 
 #[test]
@@ -204,7 +201,8 @@ fn statement_embedded_fragment_renumbers_placeholders() {
     assert_eq!(
         pg.compile(&outer),
         (
-            "INSERT INTO people (\"name\") VALUES ($1) RETURNING $2 AS label, $3 AS extra".to_string(),
+            "INSERT INTO people (\"name\") VALUES ($1) RETURNING $2 AS label, $3 AS extra"
+                .to_string(),
             vec![
                 serde_json::json!("Ada"),
                 serde_json::json!("label"),
@@ -500,11 +498,9 @@ fn skipped_release_when_rollback_fails() {
         db.insert("t", vec!["x".to_string()]);
         Err::<u32, SqlError>(SqlError::new(SqlReason::Unknown, true, "boom"))
     });
-    assert_eq!(
-        out.map_err(|e| e.message),
-        Err("rollback failed".to_string())
-    );
+    assert_eq!(out.map_err(|e| e.message), Err("boom".to_string()));
     assert_eq!(db.savepoint_count(), 1);
+    assert!(db.is_state_unknown());
 }
 
 #[test]
@@ -565,11 +561,8 @@ impl TestWebSocket {
         let entries: Vec<(WebSocketListener, bool)> = {
             let mut listeners = self.listeners.lock().unwrap();
             let entries = listeners.remove(&kind).unwrap_or_default();
-            let keep: Vec<(WebSocketListener, bool)> = entries
-                .iter()
-                .filter(|(_, once)| !*once)
-                .cloned()
-                .collect();
+            let keep: Vec<(WebSocketListener, bool)> =
+                entries.iter().filter(|(_, once)| !*once).cloned().collect();
             if !keep.is_empty() {
                 listeners.insert(kind, keep);
             }
@@ -581,7 +574,11 @@ impl TestWebSocket {
     }
 
     fn listener_count(&self, kind: EventKind) -> usize {
-        self.listeners.lock().unwrap().get(&kind).map_or(0, Vec::len)
+        self.listeners
+            .lock()
+            .unwrap()
+            .get(&kind)
+            .map_or(0, Vec::len)
     }
 
     fn pause_count(&self) -> usize {
@@ -646,7 +643,9 @@ fn socket_exposes_tls_upgrade_on_the_acquired_reader() {
         Writer::new(|_| Ok(())),
     );
 
-    let reader = socket.acquire_reader().expect("a plain socket hands out its reader");
+    let reader = socket
+        .acquire_reader()
+        .expect("a plain socket hands out its reader");
     reader.upgrade().expect("the stub upgrade succeeds");
 
     assert!(upgraded.load(Ordering::SeqCst));
@@ -693,7 +692,10 @@ fn socket_counts_text_frames_by_utf8_length() {
 
     assert_eq!(ws.pause_count(), 1);
     let reader = socket.acquire_reader().expect("an open socket");
-    assert_eq!(reader.pull(), Pull::Chunks(vec!["\u{20ac}".as_bytes().to_vec()]));
+    assert_eq!(
+        reader.pull(),
+        Pull::Chunks(vec!["\u{20ac}".as_bytes().to_vec()])
+    );
 }
 
 #[test]
