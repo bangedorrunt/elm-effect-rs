@@ -5363,55 +5363,104 @@ ported	packages/effect/test/ai/ResponseIdTracker.test.ts	384	it.effect	isolates 
 ported	packages/effect/test/ai/ResponseIdTracker.test.ts	406	it.effect	does not leak tracked state across conversations without assistant turns	does_not_leak_tracked_state_across_conversations_without_assistant_turns
 
 not-applicable	packages/effect/test/ai/Tokenizer.test.ts	6	it.effect	truncate accounts for costs between messages	missing: Tokenizer module (no crates/elm-effect/src/tokenizer.rs or ai feature; Cargo.toml)
-unported	packages/effect/test/ai/Tool.test.ts	10	it.effect	decodes parameters with services provided to the outer handle Effect	
-unported	packages/effect/test/ai/Tool.test.ts	36	it.effect	should return tool call handler successes	
-unported	packages/effect/test/ai/Tool.test.ts	76	it.effect	should return tool call handler failures when failure mode is return	
-unported	packages/effect/test/ai/Tool.test.ts	116	it.effect	should encode returned failures with the failure schema	
-unported	packages/effect/test/ai/Tool.test.ts	131	it.effect	should fail the extracted return-mode stream on invalid result encoding	
-unported	packages/effect/test/ai/Tool.test.ts	149	it.effect	should return tool call handler failures with failure mode return using OpenAI transformer	
-unported	packages/effect/test/ai/Tool.test.ts	189	it.effect	should raise an error on tool call handler failures when failure mode is error	
-unported	packages/effect/test/ai/Tool.test.ts	220	it.effect	should return a failed tool result when tool call parameters are invalid and failure mode is return	
-unported	packages/effect/test/ai/Tool.test.ts	277	it.effect	should return a failed tool result when tool call parameters contain NaN and failure mode is return	
-unported	packages/effect/test/ai/Tool.test.ts	311	it.effect	should raise an error when tool call parameters are invalid and failure mode is error	
-unported	packages/effect/test/ai/Tool.test.ts	351	it.effect	should return AiError when user returns an AiErrorReason when failure mode is return	
-unported	packages/effect/test/ai/Tool.test.ts	400	it.effect	should raise an AiError when user returns an AiErrorReason when failure mode is error	
-unported	packages/effect/test/ai/Tool.test.ts	439	it.effect	should not have preliminary results when generateText is used	
-unported	packages/effect/test/ai/Tool.test.ts	489	it.effect	should have preliminary results when streamText is used	
-unported	packages/effect/test/ai/Tool.test.ts	548	it.effect	should handle multiple preliminary results in sequence	
-unported	packages/effect/test/ai/Tool.test.ts	599	it.effect	should handle preliminary results for long-running tools	
-unported	packages/effect/test/ai/Tool.test.ts	659	it.effect	should emit preliminary results before failure when handler fails	
-unported	packages/effect/test/ai/Tool.test.ts	710	it.effect	should interleave results from concurrent tools with preliminary results	
-unported	packages/effect/test/ai/Tool.test.ts	792	it.effect	should return tool call successes from the model	
-unported	packages/effect/test/ai/Tool.test.ts	840	it.effect	should return tool call failures from the model	
-unported	packages/effect/test/ai/Tool.test.ts	888	it.effect	should return tool call handler successes	
-unported	packages/effect/test/ai/Tool.test.ts	935	it.effect	should return tool call handler failures when failure mode is return	
-unported	packages/effect/test/ai/Tool.test.ts	983	it.effect	should raise an error on tool call handler failures when failure mode is error	
-unported	packages/effect/test/ai/Tool.test.ts	1021	it.effect	should return a failed tool result when tool call parameters are invalid and failure mode is return	
-unported	packages/effect/test/ai/Tool.test.ts	1087	it	preserves the provider-defined tool identity	
-unported	packages/effect/test/ai/Tool.test.ts	1095	it	preserves the provider-defined tool id	
-unported	packages/effect/test/ai/Tool.test.ts	1102	it	getStrictMode returns undefined without throwing	
-unported	packages/effect/test/ai/Tool.test.ts	1107	it	annotate preserves the provider-defined tool identity	
-unported	packages/effect/test/ai/Tool.test.ts	1215	it	sets a static approval requirement without mutating the original tool	
-unported	packages/effect/test/ai/Tool.test.ts	1223	it	sets a dynamic approval requirement	
-unported	packages/effect/test/ai/Tool.test.ts	1232	it	preserves dynamic tool identity	
-unported	packages/effect/test/ai/Tool.test.ts	1243	it	setParameters replaces a raw JSON Schema	
-unported	packages/effect/test/ai/Tool.test.ts	1256	it.effect	returns true for dynamic tools with Effect Schema	
-unported	packages/effect/test/ai/Tool.test.ts	1264	it.effect	returns true for dynamic tools with JSON Schema	
-unported	packages/effect/test/ai/Tool.test.ts	1272	it.effect	returns false for user-defined tools	
-unported	packages/effect/test/ai/Tool.test.ts	1280	it.effect	returns false for provider-defined tools	
-unported	packages/effect/test/ai/Tool.test.ts	1290	it.effect	returns false for non-tool values	
-unported	packages/effect/test/ai/Tool.test.ts	1300	it.effect	Tool.make EmptyParams produces same output as omitting parameters	
-unported	packages/effect/test/ai/Tool.test.ts	1312	it.effect	derives JSON Schema from Effect Schema parameters	
-unported	packages/effect/test/ai/Tool.test.ts	1329	it.effect	returns JSON Schema directly when provided as parameters	
-unported	packages/effect/test/ai/Tool.test.ts	1347	it.effect	preserves complex JSON Schema features like $ref and oneOf	
-unported	packages/effect/test/ai/Tool.test.ts	1368	it.effect	decodes parameters with Effect Schema before calling handler	
-unported	packages/effect/test/ai/Tool.test.ts	1402	it.effect	passes parameters through as unknown with JSON Schema	
-unported	packages/effect/test/ai/Tool.test.ts	1440	it.effect	encodes success result using success schema	
-unported	packages/effect/test/ai/Tool.test.ts	1475	it	defaults to undefined	
-unported	packages/effect/test/ai/Tool.test.ts	1480	it	can be set to true	
-unported	packages/effect/test/ai/Tool.test.ts	1485	it	can be set to false	
-unported	packages/effect/test/ai/Tool.test.ts	1490	it	works with dynamic tools	
-unported	packages/effect/test/ai/Tool.test.ts	1497	it	works with provider-defined tools	
+not-applicable	packages/effect/test/ai/Tool.test.ts	10	it.effect	decodes parameters with services provided to the outer handle Effect	needs Context service injection into Schema decode plus Toolkit.handle streams
+
+ported	packages/effect/test/ai/Tool.test.ts	36	it.effect	should return tool call handler successes	returns_tool_call_handler_successes
+
+ported	packages/effect/test/ai/Tool.test.ts	76	it.effect	should return tool call handler failures when failure mode is return	returns_tool_call_handler_failures_when_failure_mode_is_return
+
+ported	packages/effect/test/ai/Tool.test.ts	116	it.effect	should encode returned failures with the failure schema	encodes_returned_failures_with_the_failure_schema
+
+ported	packages/effect/test/ai/Tool.test.ts	131	it.effect	should fail the extracted return-mode stream on invalid result encoding	fails_the_return_mode_stream_on_invalid_result_encoding
+
+ported	packages/effect/test/ai/Tool.test.ts	149	it.effect	should return tool call handler failures with failure mode return using OpenAI transformer	returns_handler_failures_in_return_mode_regardless_of_transformer
+
+ported	packages/effect/test/ai/Tool.test.ts	189	it.effect	should raise an error on tool call handler failures when failure mode is error	raises_an_error_on_handler_failures_when_failure_mode_is_error
+
+ported	packages/effect/test/ai/Tool.test.ts	220	it.effect	should return a failed tool result when tool call parameters are invalid and failure mode is return	returns_a_failed_tool_result_when_parameters_are_invalid_and_mode_is_return
+
+ported	packages/effect/test/ai/Tool.test.ts	277	it.effect	should return a failed tool result when tool call parameters contain NaN and failure mode is return	returns_a_failed_tool_result_when_parameters_contain_nan_and_mode_is_return
+
+ported	packages/effect/test/ai/Tool.test.ts	311	it.effect	should raise an error when tool call parameters are invalid and failure mode is error	raises_an_error_when_parameters_are_invalid_and_mode_is_error
+
+ported	packages/effect/test/ai/Tool.test.ts	351	it.effect	should return AiError when user returns an AiErrorReason when failure mode is return	returns_ai_error_when_handler_returns_an_ai_error_reason_and_mode_is_return
+
+ported	packages/effect/test/ai/Tool.test.ts	400	it.effect	should raise an AiError when user returns an AiErrorReason when failure mode is error	raises_an_ai_error_when_handler_returns_an_ai_error_reason_and_mode_is_error
+
+not-applicable	packages/effect/test/ai/Tool.test.ts	439	it.effect	should not have preliminary results when generateText is used	needs preliminary-result streaming with Fiber/Latch/TestClock concurrency
+
+not-applicable	packages/effect/test/ai/Tool.test.ts	489	it.effect	should have preliminary results when streamText is used	needs preliminary-result streaming with Fiber/Latch/TestClock concurrency
+
+not-applicable	packages/effect/test/ai/Tool.test.ts	548	it.effect	should handle multiple preliminary results in sequence	needs preliminary-result streaming with Fiber/Latch/TestClock concurrency
+
+not-applicable	packages/effect/test/ai/Tool.test.ts	599	it.effect	should handle preliminary results for long-running tools	needs preliminary-result streaming with Fiber/Latch/TestClock concurrency
+
+not-applicable	packages/effect/test/ai/Tool.test.ts	659	it.effect	should emit preliminary results before failure when handler fails	needs preliminary-result streaming with Fiber/Latch/TestClock concurrency
+
+not-applicable	packages/effect/test/ai/Tool.test.ts	710	it.effect	should interleave results from concurrent tools with preliminary results	needs preliminary-result streaming with Fiber/Latch/TestClock concurrency
+
+ported	packages/effect/test/ai/Tool.test.ts	792	it.effect	should return tool call successes from the model	returns_tool_call_successes_from_the_model
+
+ported	packages/effect/test/ai/Tool.test.ts	840	it.effect	should return tool call failures from the model	returns_tool_call_failures_from_the_model
+
+ported	packages/effect/test/ai/Tool.test.ts	888	it.effect	should return tool call handler successes	returns_provider_defined_handler_successes
+
+ported	packages/effect/test/ai/Tool.test.ts	935	it.effect	should return tool call handler failures when failure mode is return	returns_provider_defined_handler_failures_when_mode_is_return
+
+ported	packages/effect/test/ai/Tool.test.ts	983	it.effect	should raise an error on tool call handler failures when failure mode is error	raises_on_provider_defined_handler_failures_when_mode_is_error
+
+ported	packages/effect/test/ai/Tool.test.ts	1021	it.effect	should return a failed tool result when tool call parameters are invalid and failure mode is return	returns_a_failed_provider_tool_result_when_parameters_are_invalid
+
+not-applicable	packages/effect/test/ai/Tool.test.ts	1087	it	preserves the provider-defined tool identity	needs provider-defined tool types with addDependency/id
+
+not-applicable	packages/effect/test/ai/Tool.test.ts	1095	it	preserves the provider-defined tool id	needs provider-defined tool types with addDependency/id
+
+not-applicable	packages/effect/test/ai/Tool.test.ts	1102	it	getStrictMode returns undefined without throwing	needs Strict annotations; none in this port
+
+not-applicable	packages/effect/test/ai/Tool.test.ts	1107	it	annotate preserves the provider-defined tool identity	needs Strict annotations; none in this port
+
+not-applicable	packages/effect/test/ai/Tool.test.ts	1215	it	sets a static approval requirement without mutating the original tool	needs needsApproval tool machinery
+
+not-applicable	packages/effect/test/ai/Tool.test.ts	1223	it	sets a dynamic approval requirement	needs needsApproval tool machinery
+
+not-applicable	packages/effect/test/ai/Tool.test.ts	1232	it	preserves dynamic tool identity	needs dynamic tool identity machinery
+
+not-applicable	packages/effect/test/ai/Tool.test.ts	1243	it	setParameters replaces a raw JSON Schema	needs dynamic tools plus Schema-to-JSON-Schema derivation plus Toolkit/LanguageModel harness
+
+not-applicable	packages/effect/test/ai/Tool.test.ts	1256	it.effect	returns true for dynamic tools with Effect Schema	needs dynamic tools plus Schema-to-JSON-Schema derivation plus Toolkit/LanguageModel harness
+
+not-applicable	packages/effect/test/ai/Tool.test.ts	1264	it.effect	returns true for dynamic tools with JSON Schema	needs dynamic tools plus Schema-to-JSON-Schema derivation plus Toolkit/LanguageModel harness
+
+not-applicable	packages/effect/test/ai/Tool.test.ts	1272	it.effect	returns false for user-defined tools	needs dynamic tools plus Schema-to-JSON-Schema derivation plus Toolkit/LanguageModel harness
+
+not-applicable	packages/effect/test/ai/Tool.test.ts	1280	it.effect	returns false for provider-defined tools	needs dynamic tools plus Schema-to-JSON-Schema derivation plus Toolkit/LanguageModel harness
+
+not-applicable	packages/effect/test/ai/Tool.test.ts	1290	it.effect	returns false for non-tool values	needs dynamic tools plus Schema-to-JSON-Schema derivation plus Toolkit/LanguageModel harness
+
+not-applicable	packages/effect/test/ai/Tool.test.ts	1300	it.effect	Tool.make EmptyParams produces same output as omitting parameters	needs dynamic tools plus Schema-to-JSON-Schema derivation plus Toolkit/LanguageModel harness
+
+not-applicable	packages/effect/test/ai/Tool.test.ts	1312	it.effect	derives JSON Schema from Effect Schema parameters	needs dynamic tools plus Schema-to-JSON-Schema derivation plus Toolkit/LanguageModel harness
+
+not-applicable	packages/effect/test/ai/Tool.test.ts	1329	it.effect	returns JSON Schema directly when provided as parameters	needs dynamic tools plus Schema-to-JSON-Schema derivation plus Toolkit/LanguageModel harness
+
+not-applicable	packages/effect/test/ai/Tool.test.ts	1347	it.effect	preserves complex JSON Schema features like $ref and oneOf	needs dynamic tools plus Schema-to-JSON-Schema derivation plus Toolkit/LanguageModel harness
+
+not-applicable	packages/effect/test/ai/Tool.test.ts	1368	it.effect	decodes parameters with Effect Schema before calling handler	needs dynamic tools plus Schema-to-JSON-Schema derivation plus Toolkit/LanguageModel harness
+
+not-applicable	packages/effect/test/ai/Tool.test.ts	1402	it.effect	passes parameters through as unknown with JSON Schema	needs dynamic tools plus Schema-to-JSON-Schema derivation plus Toolkit/LanguageModel harness
+
+not-applicable	packages/effect/test/ai/Tool.test.ts	1440	it.effect	encodes success result using success schema	needs dynamic tools plus Schema-to-JSON-Schema derivation plus Toolkit/LanguageModel harness
+
+not-applicable	packages/effect/test/ai/Tool.test.ts	1475	it	defaults to undefined	needs Strict annotations; none in this port
+
+not-applicable	packages/effect/test/ai/Tool.test.ts	1480	it	can be set to true	needs Strict annotations; none in this port
+
+not-applicable	packages/effect/test/ai/Tool.test.ts	1485	it	can be set to false	needs Strict annotations; none in this port
+
+not-applicable	packages/effect/test/ai/Tool.test.ts	1490	it	works with dynamic tools	needs Strict annotations; none in this port
+
+not-applicable	packages/effect/test/ai/Tool.test.ts	1497	it	works with provider-defined tools	needs Strict annotations; none in this port
+
 not-applicable	packages/effect/test/ai/ToolRepresentation.test.ts	6	it	projects the encoded side before JSON Schema generation	Rust elm-effect-unstable ai.rs has no Tool.getJsonSchema/getJsonSchemaFromSchema projection or Schema compiler toJsonSchema annotation hooks, so neither JSON-schema row can be witnessed
 not-applicable	packages/effect/test/ai/ToolRepresentation.test.ts	10	it	uses custom JSON Schema compiler annotations for schema parameters	Rust elm-effect-unstable ai.rs has no Tool.getJsonSchema/getJsonSchemaFromSchema projection or Schema compiler toJsonSchema annotation hooks, so neither JSON-schema row can be witnessed
 not-applicable	packages/effect/test/arbitrary/Arbitrary.array.test.ts	7	it.effect	reduces custom command sequences to Reset followed by Stop	Arbitrary array shrinking/check property rows depend on fast-check-style arbitrary combinators and registry not implemented in the port; the narrowing/shrinking behaviors are platform-substrate concerns here
