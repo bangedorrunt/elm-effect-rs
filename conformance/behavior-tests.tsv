@@ -4587,103 +4587,54 @@ ported	packages/effect/test/ai/AiError.test.ts	815	it.effect	StructuredOutputErr
 ported	packages/effect/test/ai/AiError.test.ts	828	it.effect	UnsupportedSchemaError roundtrip	ai_reasons_roundtrip_json
 ported	packages/effect/test/ai/AiError.test.ts	839	it.effect	AiErrorReason union with tool errors roundtrip	ai_reasons_roundtrip_json
 ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	17	it	encodes Undefined as null	null_stays_null
-
 ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	21	it	encodes a bigint Literal as a string	bigint_literal_stays_a_string_enum
-
 ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	26	it	encodes post-rest elements as object properties	keeps_tuple_objects_verbatim
-
 not-applicable	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	45	it	non-string property signature name	needs property-name validation; none exists
-
 not-applicable	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	53	it	non-recursive Suspend	needs Suspend resolution; none exists
-
 not-applicable	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	57	it	rejects recursive Suspend	needs hasReferenceCycle detection; none exists
-
 ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	70	it	Null	null_stays_null
-
 ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	77	it	String	keeps_scalar_shapes
-
 ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	87	it	String + supported format	keeps_supported_string_formats_including_uri
-
 ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	94	it	String + unsupported format	drops_unsupported_format_into_description
-
 ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	101	it	String + isMinLength	drops_string_length_bounds_but_keeps_description
-
 ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	108	it	String + isMinLength + isMaxLength	drops_string_length_bounds_but_keeps_description
-
 ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	115	it	String + startsWith	keeps_a_compatible_pattern
-
 ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	123	it	String + startsWith + endsWith	keeps_all_of_instead_of_merging_it
-
 ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	134	it	String + pattern	keeps_a_compatible_pattern
-
 ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	142	it	String + pattern + description	keeps_a_compatible_pattern
-
 ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	152	it	Number	keeps_literals_and_the_number_fallback
-
 ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	162	it	Finite	keeps_scalar_shapes
-
 not-applicable	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	172	it	Finite + string format	needs format-to-description codec transform; codec half missing
-
 ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	179	it	Finite + unsupported format	drops_unsupported_format_into_description
-
 ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	186	it	Finite + isGreaterThan	drops_numeric_bounds_but_keeps_description
-
 ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	193	it	Finite + isGreaterThan + isLessThan	drops_numeric_bounds_but_keeps_description
-
 ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	202	it	Int	keeps_scalar_shapes
-
 not-applicable	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	212	it	Int + string format	needs format-to-description codec transform; codec half missing
-
 ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	219	it	Int + unsupported format	drops_unsupported_format_into_description
-
 ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	226	it	Int + isGreaterThan	drops_numeric_bounds_but_keeps_description
-
 ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	233	it	Int + isGreaterThan + isLessThan	drops_numeric_bounds_but_keeps_description
-
 ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	243	it	Literal(string)	keeps_literals_and_the_number_fallback
-
 ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	250	it	Literal(number)	keeps_literals_and_the_number_fallback
-
 ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	257	it	Literal(boolean)	keeps_literals_and_the_number_fallback
-
 ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	266	it	oneOf	keeps_unions_as_any_of
-
 ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	275	it	Union(NonEmptyString, Int)	keeps_unions_as_any_of
-
 ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	286	it	Array(String)	keeps_arrays
-
 ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	298	it	Array(String) + isMinLength	drops_array_bounds_but_keeps_description
-
 ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	306	it	Array(String) + isMinLength + isMaxLength	drops_array_bounds_but_keeps_description
-
 ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	316	it	Tuple([])	keeps_false_items_for_empty_tuples
-
 ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	323	it	Tuple([String, Finite])	keeps_tuple_objects_verbatim
-
 ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	347	it	Tuple([String, Finite]) + description	keeps_tuple_objects_verbatim
-
 ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	362	it	Tuple([String, Finite?])	keeps_tuple_objects_verbatim
-
 ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	395	it	TupleWithRest([String, Finite], Boolean)	keeps_tuple_objects_verbatim
-
 ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	428	it	required properties	keeps_struct_shapes_including_nullable_optionals
-
 ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	439	it	optional properties	keeps_struct_shapes_including_nullable_optionals
-
 ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	474	it	Class	keeps_definitions_by_rewriting_their_values
-
 ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	500	it	EmptyParams	keeps_empty_params_without_adding_properties
-
 ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	511	it	Record(String, Finite)	keeps_record_entry_arrays
-
 ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	538	it	Record with properties and an index signature	keeps_record_entry_arrays
-
 ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	580	it	Record(String, Finite) + description	keeps_record_entry_arrays
-
 ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	600	it	Record(String, Finite) + isMinProperties	keeps_record_entry_arrays
-
 ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	625	it	Record(String, Finite) + isMinProperties + description	keeps_record_entry_arrays
-
 not-applicable	packages/effect/test/ai/AnthropicStructuredOutputRepresentation.test.ts	7	it	projects the encoded side before JSON Schema generation	Rust elm-effect-unstable ai.rs has no Anthropic structured output representation transform and no Schema JSON compiler callback hooks, so the projection/compiler rows cannot be witnessed
 not-applicable	packages/effect/test/ai/AnthropicStructuredOutputRepresentation.test.ts	11	it	keeps supported custom JSON Schema filters with a description	Rust elm-effect-unstable ai.rs has no Anthropic structured output representation transform and no Schema JSON compiler callback hooks, so the projection/compiler rows cannot be witnessed
 not-applicable	packages/effect/test/ai/AnthropicStructuredOutputRepresentation.test.ts	28	it	drops unsupported custom JSON Schema filters with a description	Rust elm-effect-unstable ai.rs has no Anthropic structured output representation transform and no Schema JSON compiler callback hooks, so the projection/compiler rows cannot be witnessed
@@ -4699,83 +4650,44 @@ ported	packages/effect/test/ai/Chat.test.ts	92	it.effect	should respect the spec
 ported	packages/effect/test/ai/Chat.test.ts	135	it.effect	should prefer the message identifier of the most recent assistant message	prefers_the_message_identifier_of_the_most_recent_assistant_message
 ported	packages/effect/test/ai/Chat.test.ts	175	it.effect	should raise an error when retrieving a chat that does not exist	raises_an_error_when_retrieving_a_chat_that_does_not_exist
 ported	packages/effect/test/ai/DecisionModel.test.ts	93	it	make keeps the input schema and decisions	make_keeps_the_input_schema_and_decisions
-
 ported	packages/effect/test/ai/DecisionModel.test.ts	101	it	constructors keep instructions and criteria	constructors_keep_instructions_and_criteria
-
 ported	packages/effect/test/ai/DecisionModel.test.ts	115	it	probability accepts omitted criteria	probability_accepts_omitted_criteria
-
 ported	packages/effect/test/ai/DecisionModel.test.ts	123	it	probability preserves explicit criteria, including empty descriptions	probability_preserves_explicit_criteria_including_empty_descriptions
-
 ported	packages/effect/test/ai/DecisionModel.test.ts	131	it	make fails on empty decisions	make_fails_on_empty_decisions
-
 ported	packages/effect/test/ai/DecisionModel.test.ts	135	it	rate fails with fewer than two criteria	rate_fails_with_fewer_than_two_criteria
-
 ported	packages/effect/test/ai/DecisionModel.test.ts	141	it.effect	probability without criteria reaches the provider and returns an answer	probability_without_criteria_reaches_the_provider_and_returns_an_answer
-
 ported	packages/effect/test/ai/DecisionModel.test.ts	170	it.effect	preserves the own enumerable rate probability 	preserves_weird_rate_probability_keys
-
 ported	packages/effect/test/ai/DecisionModel.test.ts	197	it.effect	preserves the own enumerable answer key 	preserves_weird_answer_keys
-
 ported	packages/effect/test/ai/DecisionModel.test.ts	219	it.effect	preserves the own enumerable classification probability 	preserves_weird_classification_probability_keys
-
 ported	packages/effect/test/ai/DecisionModel.test.ts	247	it.effect	round trips usage with undefined tokens through JSON	round_trips_usage_with_undefined_tokens_through_json
-
 ported	packages/effect/test/ai/DecisionModel.test.ts	259	it.effect	decide returns answers keyed by decision with usage	decide_returns_answers_keyed_by_decision_with_usage
-
 ported	packages/effect/test/ai/DecisionModel.test.ts	284	it.effect	classify and rate retain distributions when the provider omits confidence	classify_and_rate_retain_distributions_when_the_provider_omits_confidence
-
 ported	packages/effect/test/ai/DecisionModel.test.ts	316	it.effect	the service exposes the same decide operation	the_service_exposes_the_same_decide_operation
-
 ported	packages/effect/test/ai/DecisionModel.test.ts	327	it.effect	the provider receives the encoded input as state and every decision in one call	the_provider_receives_the_encoded_input_as_state_and_every_decision_in_one_call
-
 ported	packages/effect/test/ai/DecisionModel.test.ts	349	it.effect	a string input is passed to the provider as a string state	a_string_input_is_passed_to_the_provider_as_a_string_state
-
 ported	packages/effect/test/ai/DecisionModel.test.ts	386	it.effect	derives JSON codecs for nested input before calling the provider	derives_json_codecs_for_nested_input_before_calling_the_provider
-
 ported	packages/effect/test/ai/DecisionModel.test.ts	415	it.effect	JSON encoding distinguishes absent optional fields from explicit undefined	json_encoding_distinguishes_absent_optional_fields_from_explicit_undefined
-
 ported	packages/effect/test/ai/DecisionModel.test.ts	433	it.effect	JSON codec encoding failures become InvalidUserInputError before the provider runs	json_codec_encoding_failures_become_invalid_user_input_error_before_the_provider_runs
-
 not-applicable	packages/effect/test/ai/DecisionModel.test.ts	452	it.effect	input encoding services are resolved from the environment	needs Effect service/env injection for codecs; surface takes caller-encoded JSON
-
 ported	packages/effect/test/ai/DecisionModel.test.ts	484	it.effect	input encoding failures surface as AiError	input_encoding_failures_surface_as_ai_error
-
 ported	packages/effect/test/ai/DecisionModel.test.ts	512	it.effect	provider AiError propagates through decide	provider_ai_error_propagates_through_decide
-
 ported	packages/effect/test/ai/DecisionModel.test.ts	528	it.effect	decide fails with InvalidOutputError when an answer is missing	decide_fails_with_invalid_output_error_when_an_answer_is_missing
-
 ported	packages/effect/test/ai/DecisionModel.test.ts	540	it.effect	decide fails with InvalidOutputError when a classify label is not a criteria key	decide_fails_with_invalid_output_error_when_a_classify_label_is_not_a_criteria_key
-
 ported	packages/effect/test/ai/DecisionModel.test.ts	552	it.effect	decide fails with InvalidOutputError when a classify distribution is incomplete	decide_fails_with_invalid_output_error_when_a_classify_distribution_is_incomplete
-
 ported	packages/effect/test/ai/DecisionModel.test.ts	564	it.effect	decide fails with InvalidOutputError when a rate distribution is incomplete	decide_fails_with_invalid_output_error_when_a_rate_distribution_is_incomplete
-
 ported	packages/effect/test/ai/DecisionModel.test.ts	576	it.effect	decide fails with InvalidOutputError when a probability is outside [0, 1]	decide_fails_with_invalid_output_error_when_a_probability_is_outside_zero_to_one
-
 not-applicable	packages/effect/test/ai/DecisionModel.test.ts	588	it.effect	Model.make wraps a DecisionModel layer with provider metadata	needs Model.make with provider-metadata service; no such service in this crate
-
 ported	packages/effect/test/ai/DecisionModel.test.ts	604	it	classify rejects ${Object.keys(criteria).length} labels	classify_rejects_zero_or_one_labels
-
 ported	packages/effect/test/ai/DecisionModel.test.ts	609	it	rate rejects duplicate levels	rate_rejects_duplicate_levels
-
 ported	packages/effect/test/ai/DecisionModel.test.ts	613	it.effect	rate derives the argmax label without a provider label	rate_derives_the_argmax_label_without_a_provider_label
-
 ported	packages/effect/test/ai/DecisionModel.test.ts	632	it.effect	rate ${name}	rate_breaks_ties_in_criteria_order
-
 ported	packages/effect/test/ai/DecisionModel.test.ts	644	it.effect	classify retains the provider label even when it is not the argmax	classify_retains_the_provider_label_even_when_it_is_not_the_argmax
-
 ported	packages/effect/test/ai/DecisionModel.test.ts	655	it.effect	${key} rejects confidence ${confidence}	classify_and_rate_reject_confidence_outside_zero_to_one
-
 ported	packages/effect/test/ai/DecisionModel.test.ts	665	it.effect	${key} accepts confidence boundary ${confidence}	classify_and_rate_accept_confidence_boundaries
-
 ported	packages/effect/test/ai/DecisionModel.test.ts	690	it.effect	accepts	distributions_must_sum_to_one_within_tolerance
-
 ported	packages/effect/test/ai/DecisionModel.test.ts	718	it.effect	rate rejects rating ${rating}	rate_rejects_ratings_outside_its_scale
-
 ported	packages/effect/test/ai/DecisionModel.test.ts	728	it.effect	rate accepts rating ${rating}	rate_accepts_ratings_on_its_scale
-
 ported	packages/effect/test/ai/DecisionModel.test.ts	738	it.effect	extra provider keys never leak into answers	extra_provider_keys_never_leak_into_answers
-
 ported	packages/effect/test/ai/EmbeddingModel.test.ts	19	it.effect	round trips usage with undefined input tokens through JSON	round_trips_usage_with_undefined_input_tokens_through_json
 ported	packages/effect/test/ai/EmbeddingModel.test.ts	31	it.effect	embed returns a vector	embed_returns_a_vector
 ported	packages/effect/test/ai/EmbeddingModel.test.ts	55	it.effect	embedMany returns ordered vectors with usage	embed_many_returns_ordered_vectors_with_usage
@@ -4785,115 +4697,60 @@ ported	packages/effect/test/ai/EmbeddingModel.test.ts	134	it.effect	embed fails 
 ported	packages/effect/test/ai/EmbeddingModel.test.ts	156	it.effect	embedMany fails with InvalidOutputError when provider misses results	embed_many_fails_with_invalid_output_when_provider_misses_results
 ported	packages/effect/test/ai/EmbeddingModel.test.ts	178	it.effect	embedMany([]) bypasses provider	embed_many_empty_bypasses_provider
 ported	packages/effect/test/ai/LanguageModel.test.ts	73	it.effect	does not resolve tool calls after an incomplete finish	validates_complete_response_before_resolving_tool_calls
-
 ported	packages/effect/test/ai/LanguageModel.test.ts	117	it.effect	validates the complete response before resolving tool calls	fails_cleanly_for_tool_call_with_missing_params_field
-
 ported	packages/effect/test/ai/LanguageModel.test.ts	150	it.effect	fails cleanly for a tool call with a missing params field	validates_encoded_tool_parameters_when_resolution_disabled_generate_text
-
 ported	packages/effect/test/ai/LanguageModel.test.ts	178	it.effect	validates encoded tool parameters when tool call resolution is disabled	preserves_encoded_tool_parameters_when_resolution_disabled_generate_text
-
 ported	packages/effect/test/ai/LanguageModel.test.ts	200	it.effect	preserves encoded tool parameters when tool call resolution is disabled	preserves_encoded_tool_parameters_when_resolution_enabled_generate_text
-
 ported	packages/effect/test/ai/LanguageModel.test.ts	229	it.effect	preserves encoded tool parameters when tool call resolution is enabled	validates_provider_executed_tool_call_parameters_generate_text
-
 ported	packages/effect/test/ai/LanguageModel.test.ts	254	it.effect	validates provider-executed tool call parameters	accepts_provider_executed_tool_calls_with_valid_parameters
-
 ported	packages/effect/test/ai/LanguageModel.test.ts	288	it.effect	accepts provider-executed tool calls with valid parameters	does_not_start_handlers_when_incomplete_finish_arrives_in_same_chunk
-
 not-applicable	packages/effect/test/ai/LanguageModel.test.ts	324	it.effect	interrupts in-flight tool handlers on an incomplete finish	needs in-flight interrupt of tool handlers; no fiber runtime
-
 ported	packages/effect/test/ai/LanguageModel.test.ts	388	it.effect	does not start tool handlers when an incomplete finish arrives in the same chunk	does_not_start_handlers_when_incomplete_finish_arrives_in_next_chunk
-
 ported	packages/effect/test/ai/LanguageModel.test.ts	431	it.effect	does not start tool handlers when an incomplete finish arrives in the next chunk	keeps_results_of_handlers_completed_before_incomplete_finish
-
 ported	packages/effect/test/ai/LanguageModel.test.ts	477	it.effect	keeps results of handlers that completed before an incomplete finish	does_not_synthesize_results_for_calls_awaiting_approval_on_incomplete_finish
-
 ported	packages/effect/test/ai/LanguageModel.test.ts	533	it.effect	does not synthesize results for tool calls awaiting approval on an incomplete finish	validates_encoded_tool_parameters_when_resolution_disabled_stream
-
 ported	packages/effect/test/ai/LanguageModel.test.ts	585	it.effect	validates encoded tool parameters when tool call resolution is disabled	preserves_encoded_tool_parameters_when_resolution_disabled_stream
-
 ported	packages/effect/test/ai/LanguageModel.test.ts	608	it.effect	preserves encoded tool parameters when tool call resolution is disabled	preserves_encoded_tool_parameters_when_resolution_enabled_stream
-
 ported	packages/effect/test/ai/LanguageModel.test.ts	637	it.effect	preserves encoded tool parameters when tool call resolution is enabled	validates_provider_executed_tool_call_parameters_stream
-
 ported	packages/effect/test/ai/LanguageModel.test.ts	665	it.effect	validates provider-executed tool call parameters	executes_tool_handlers_once_stream_moves_past_tool_call
-
 ported	packages/effect/test/ai/LanguageModel.test.ts	701	it.effect	executes tool handlers once the stream moves past the tool call	does_not_execute_handlers_when_response_content_malformed_stream
-
 not-applicable	packages/effect/test/ai/LanguageModel.test.ts	754	it.effect	interrupts in-flight tool handlers when the provider stream fails	needs in-flight interrupt of tool handlers; no fiber runtime
-
 ported	packages/effect/test/ai/LanguageModel.test.ts	805	it.effect	does not execute tool handlers when response content is malformed	emits_failed_tool_result_and_keeps_streaming_when_params_invalid_return_mode
-
 ported	packages/effect/test/ai/LanguageModel.test.ts	841	it.effect	emits a failed tool result and keeps streaming when tool params are invalid and failure mode is return	fails_stream_when_tool_params_invalid_and_failure_mode_is_error
-
 ported	packages/effect/test/ai/LanguageModel.test.ts	880	it.effect	fails the stream when tool params are invalid and failure mode is error	emits_finish_after_resolved_tool_results
-
 ported	packages/effect/test/ai/LanguageModel.test.ts	915	it.effect	emits finish after resolved tool results	includes_full_generated_text_in_structured_output_error
-
 not-applicable	packages/effect/test/ai/LanguageModel.test.ts	961	it.effect	runs tool handlers sequentially with concurrency: 1	needs concurrency/overlap machinery with TestClock; none exists
-
 not-applicable	packages/effect/test/ai/LanguageModel.test.ts	1022	it.effect	allows tool handler overlap up to a bounded concurrency	needs concurrency/overlap machinery with TestClock; none exists
-
 not-applicable	packages/effect/test/ai/LanguageModel.test.ts	1085	it.effect	provides tool call IDs to concurrent identical tool handlers	needs concurrency/overlap machinery with TestClock; none exists
-
 not-applicable	packages/effect/test/ai/LanguageModel.test.ts	1137	it.effect	bounds needsApproval evaluation with the tool handler concurrency	needs concurrency/overlap machinery with TestClock; none exists
-
 ported	packages/effect/test/ai/LanguageModel.test.ts	1200	it.effect	includes full generated text in StructuredOutputError	initialize_incremental_fields_as_undefined_in_generate_text
-
 not-applicable	packages/effect/test/ai/LanguageModel.test.ts	1221	it	resolves the canonical top-level $ref for class schemas in defaultCodecTransformer	needs Schema class with $ref derivation; no schema compiler here
-
 ported	packages/effect/test/ai/LanguageModel.test.ts	1254	it.effect	initialize incremental fields as undefined in generateText	initialize_incremental_fields_as_undefined_in_generate_object
-
 ported	packages/effect/test/ai/LanguageModel.test.ts	1274	it.effect	initialize incremental fields as undefined in generateObject	initialize_incremental_fields_as_undefined_in_stream_text
-
 ported	packages/effect/test/ai/LanguageModel.test.ts	1301	it.effect	initialize incremental fields as undefined in streamText	falls_back_to_full_prompt_in_generate_text_when_incremental_request_fails
-
 ported	packages/effect/test/ai/LanguageModel.test.ts	1322	it.effect	falls back to full prompt in generateText when incremental request fails	falls_back_to_full_prompt_in_stream_text_when_incremental_request_fails
-
 ported	packages/effect/test/ai/LanguageModel.test.ts	1379	it.effect	falls back to full prompt in streamText when incremental request fails	does_not_retry_incremental_stream_after_emitting_tool_call
-
 ported	packages/effect/test/ai/LanguageModel.test.ts	1437	it.effect	does not retry an incremental stream after emitting a tool call	uses_tracker_prepare_and_mark_in_generate_text_without_toolkit
-
 ported	packages/effect/test/ai/LanguageModel.test.ts	1489	it.effect	uses tracker prepareUnsafe and markParts in generateText without toolkit	uses_tracker_prepare_and_mark_in_generate_text_with_empty_toolkit
-
 ported	packages/effect/test/ai/LanguageModel.test.ts	1548	it.effect	uses tracker prepareUnsafe and markParts in generateText with empty toolkit	calls_tracker_prepare_after_stripping_resolved_approvals_in_toolkit_flow
-
 ported	packages/effect/test/ai/LanguageModel.test.ts	1598	it.effect	calls tracker.prepareUnsafe after stripping resolved approvals in toolkit flow	uses_tracker_prepare_and_mark_in_stream_text_without_toolkit
-
 ported	packages/effect/test/ai/LanguageModel.test.ts	1686	it.effect	uses tracker prepareUnsafe and markParts in streamText without toolkit	uses_tracker_prepare_and_mark_in_stream_text_with_empty_toolkit
-
 ported	packages/effect/test/ai/LanguageModel.test.ts	1746	it.effect	uses tracker prepareUnsafe and markParts in streamText with empty toolkit	calls_tracker_prepare_after_stripping_resolved_approvals_in_stream_toolkit_flow
-
 ported	packages/effect/test/ai/LanguageModel.test.ts	1807	it.effect	calls tracker.prepareUnsafe after stripping resolved approvals in streamText toolkit flow	uses_tracker_prepare_and_mark_when_tool_call_resolution_disabled
-
 ported	packages/effect/test/ai/LanguageModel.test.ts	1896	it.effect	uses tracker prepareUnsafe and markParts when disableToolCallResolution is true	emits_tool_approval_request_when_tool_has_needs_approval
-
 ported	packages/effect/test/ai/LanguageModel.test.ts	2005	it.effect	emits tool-approval-request when tool has needsApproval: true	pre_resolves_approved_tool_calls_before_calling_llm
-
 ported	packages/effect/test/ai/LanguageModel.test.ts	2054	it.effect	pre-resolves approved tool calls before calling LLM	pre_resolves_denied_tool_calls_with_execution_denied
-
 ported	packages/effect/test/ai/LanguageModel.test.ts	2114	it.effect	pre-resolves denied tool calls with execution-denied before calling LLM	strips_approved_approval_artifacts_from_prompt_stream_text
-
 ported	packages/effect/test/ai/LanguageModel.test.ts	2177	it.effect	strips approved approval artifacts from prompt sent to provider (streamText)	strips_denied_approval_artifacts_from_prompt
-
 ported	packages/effect/test/ai/LanguageModel.test.ts	2241	it.effect	strips denied approval artifacts from prompt sent to provider	strips_only_resolved_approvals_preserves_unrelated_parts
-
 ported	packages/effect/test/ai/LanguageModel.test.ts	2312	it.effect	strips only resolved approvals, preserves unrelated parts	strips_approval_artifacts_via_generate_text_path
-
 ported	packages/effect/test/ai/LanguageModel.test.ts	2390	it.effect	strips approval artifacts via generateText path	dynamic_needs_approval_returns_true_when_condition_met
-
 ported	packages/effect/test/ai/LanguageModel.test.ts	2448	it.effect	dynamic needsApproval returns true when condition met	dynamic_needs_approval_returns_false_when_condition_not_met
-
 ported	packages/effect/test/ai/LanguageModel.test.ts	2484	it.effect	dynamic needsApproval returns false when condition not met	tool_without_needs_approval_executes_normally
-
 ported	packages/effect/test/ai/LanguageModel.test.ts	2520	it.effect	tool without needsApproval executes normally	strips_previous_round_approval_artifacts_stream_text_without_new_pending
-
 ported	packages/effect/test/ai/LanguageModel.test.ts	2565	it.effect	strips previous-round approval artifacts even when no new pending approvals (streamText)	strips_previous_round_approval_artifacts_generate_text_without_new_pending
-
 ported	packages/effect/test/ai/LanguageModel.test.ts	2647	it.effect	strips previous-round approval artifacts even when no new pending approvals (generateText)	stream_text_emits_pre_resolved_tool_results_as_stream_parts
-
 ported	packages/effect/test/ai/LanguageModel.test.ts	2712	it.effect	streamText emits pre-resolved tool results as stream parts	stream_text_emits_pre_resolved_tool_results_as_stream_parts
-
 not-applicable	packages/effect/test/ai/LanguageModelRepresentation.test.ts	6	it	projects the encoded side before JSON Schema generation	Rust elm-effect-unstable ai.rs has no LanguageModel representation transform or custom JSON Schema compiler callback hooks
 not-applicable	packages/effect/test/ai/LanguageModelRepresentation.test.ts	10	it	uses custom JSON Schema compiler annotations in the default transformer	Rust elm-effect-unstable ai.rs has no LanguageModel representation transform or custom JSON Schema compiler callback hooks
 ported	packages/effect/test/ai/LanguageModelTrackerLifecycle.test.ts	48	it.effect	tracks generateText across turns and recovers after session drop	tracks_generate_text_across_turns_and_recovers_after_session_drop
@@ -5166,23 +5023,14 @@ unported	packages/effect/test/ai/McpServer/McpConformance/UtilitiesTest.ts	347	i
 unported	packages/effect/test/ai/McpServer/McpConformance/UtilitiesTest.ts	407	it.effect	should close without a reply when a tool is cancelled before emitting HTTP output	
 unported	packages/effect/test/ai/McpServer/McpConformance/UtilitiesTest.ts	446	it.effect	should omit cancelled replies and preserve remaining results when cancellation affects ${cancelled} of the batch requests	
 ported	packages/effect/test/ai/McpServer/McpProtocol.test.ts	81	it.effect	should reject an empty declaration when runtime input bypasses the non-empty type	rejects_an_empty_declaration
-
 ported	packages/effect/test/ai/McpServer/McpProtocol.test.ts	91	it.effect	should reject duplicate versions when distinct adapters declare the same version	rejects_duplicate_versions
-
 ported	packages/effect/test/ai/McpServer/McpProtocol.test.ts	102	it.effect	should select the matching adapter when the offered version is declared	selects_the_matching_adapter_when_declared
-
 ported	packages/effect/test/ai/McpServer/McpProtocol.test.ts	112	it.effect	should select the first declared adapter when the offered version is unsupported	selects_the_first_adapter_when_unsupported
-
 ported	packages/effect/test/ai/McpServer/McpProtocol.test.ts	121	it.effect	should preserve declaration order when the source array mutates after registry creation	preserves_declaration_order_when_the_source_mutates
-
 ported	packages/effect/test/ai/McpServer/McpProtocol.test.ts	137	it.effect	should route to only the selected namespace when protocol schemas are incompatible	routes_to_only_the_selected_namespace
-
 ported	packages/effect/test/ai/McpServer/McpProtocol.test.ts	175	it	accepts resource links in prompt messages	accepts_resource_links_in_prompt_messages
-
 ported	packages/effect/test/ai/McpServer/McpProtocol.test.ts	188	it	does not expose future annotations or named extension capabilities	does_not_expose_future_annotations_or_named_extension_capabilities
-
 ported	packages/effect/test/ai/McpServer/McpProtocol.test.ts	204	it	should preserve tagged unsupported errors without requiring the local class prototype	preserves_tagged_unsupported_errors_without_a_local_class
-
 unported	packages/effect/test/ai/McpServer/McpServer.test.ts	263	it.effect	answers stdio pings throughout initialization with ${protocols.map((p) => p.protocolVersion)}	
 unported	packages/effect/test/ai/McpServer/McpServer.test.ts	294	it.effect	does not route explicitly stateless pings to a stateful adapter	
 unported	packages/effect/test/ai/McpServer/McpServer.test.ts	304	it.effect	should return from completion notification when the target client is absent	
@@ -5330,189 +5178,97 @@ unported	packages/effect/test/ai/McpServer/v2026_07_28.test.ts	592	it.effect	sho
 unported	packages/effect/test/ai/McpServer/v2026_07_28.test.ts	633	it.effect	should reject input requests when the client omits their required capabilities	
 not-applicable	packages/effect/test/ai/Model.test.ts	6	it.effect	provides metadata alongside the wrapped layer for the duration of the scope	missing: AI Model surface entirely absent (crates/elm-effect/src/ has no ai module; crates/elm-effect/Cargo.toml has no ai feature)
 ported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	29	it	rejects primitive roots	rejects_primitive_roots
-
 ported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	33	it	rejects array roots	rejects_array_roots
-
 ported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	37	it	rejects anyOf roots	rejects_anyof_roots
-
 ported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	47	it	rejects unconstrained roots	rejects_unconstrained_roots
-
 ported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	54	it	encodes Undefined as null	keeps_null_and_undefined_shapes
-
 ported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	58	it	encodes a bigint Literal as a string	keeps_bigint_literal_shape
-
 not-applicable	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	63	it	encodes post-rest elements as object properties	needs codec-transform lowering or schema-compiler machinery absent from this port
-
 not-applicable	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	84	it	non-string property signature name	needs codec-transform lowering or schema-compiler machinery absent from this port
-
 not-applicable	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	94	it	no-transformation recursive schema	needs codec-transform lowering or schema-compiler machinery absent from this port
-
 not-applicable	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	139	it	transformation recursive schema	needs codec-transform lowering or schema-compiler machinery absent from this port
-
 ported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	201	it	Null	keeps_null_and_undefined_shapes
-
 ported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	208	it	String	keeps_string_shapes
-
 ported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	218	it	String + supported format	keeps_string_shapes
-
 ported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	225	it	String + unsupported format	moves_unsupported_string_format_to_description
-
 ported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	232	it	String + isMinLength	drops_string_length_bounds_but_keeps_description
-
 ported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	239	it	String + isMinLength + isMaxLength	drops_string_length_bounds_but_keeps_description
-
 ported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	246	it	String + startsWith	keeps_string_shapes
-
 ported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	254	it	String + startsWith + endsWith	merges_combined_string_patterns
-
 ported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	262	it	String + pattern	keeps_string_shapes
-
 ported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	272	it	Number	keeps_number_union_shape
-
 ported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	282	it	Finite	keeps_finite_shapes
-
 ported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	292	it	Finite + string format	moves_unsupported_number_format_to_description
-
 ported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	299	it	Finite + unsupported format	moves_unsupported_number_format_to_description
-
 ported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	306	it	Finite + isGreaterThan	keeps_finite_shapes
-
 ported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	314	it	Finite + isGreaterThanOrEqualTo	keeps_finite_shapes
-
 ported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	322	it	Finite + isLessThan	keeps_finite_shapes
-
 ported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	330	it	Finite + isLessThanOrEqualTo	keeps_finite_shapes
-
 ported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	338	it	Finite + isBetween	keeps_finite_shapes
-
 ported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	347	it	Finite + isMultipleOf	keeps_finite_shapes
-
 ported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	355	it	Finite + isGreaterThan + isLessThan	keeps_finite_shapes
-
 ported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	366	it	Int	keeps_int_shapes
-
 ported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	376	it	Int + string format	moves_unsupported_int_format_to_description
-
 ported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	383	it	Int + unsupported format	moves_unsupported_int_format_to_description
-
 ported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	390	it	Int + isGreaterThan	keeps_int_shapes
-
 ported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	398	it	Int + isGreaterThan + isLessThan	keeps_int_shapes
-
 ported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	410	it	Literal(string)	keeps_literal_shapes
-
 ported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	417	it	Literal(number)	keeps_literal_shapes
-
 ported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	424	it	Literal(boolean)	keeps_literal_shapes
-
 ported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	433	it	oneOf	keeps_union_shapes
-
 ported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	442	it	Union(NonEmptyString, Int)	keeps_union_shapes
-
 ported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	453	it	Array(String)	keeps_array_shapes
-
 ported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	465	it	Array(String) + isMinLength	keeps_array_shapes
-
 ported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	474	it	Array(String) + isMinLength + isMaxLength	keeps_array_shapes
-
 ported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	486	it	Tuple([])	keeps_empty_tuple_shape
-
 not-applicable	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	493	it	Tuple([String, Finite])	needs codec-transform lowering or schema-compiler machinery absent from this port
-
 not-applicable	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	517	it	Tuple([String, Finite]) + description	needs codec-transform lowering or schema-compiler machinery absent from this port
-
 not-applicable	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	532	it	Tuple([String, Finite?])	needs codec-transform lowering or schema-compiler machinery absent from this port
-
 not-applicable	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	565	it	TupleWithRest([String, Finite], Boolean)	needs codec-transform lowering or schema-compiler machinery absent from this port
-
 not-applicable	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	598	it	required properties	needs codec-transform lowering or schema-compiler machinery absent from this port
-
 not-applicable	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	609	it	optional properties	needs codec-transform lowering or schema-compiler machinery absent from this port
-
 not-applicable	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	644	it	Class	needs codec-transform lowering or schema-compiler machinery absent from this port
-
 not-applicable	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	670	it	EmptyParams	needs codec-transform lowering or schema-compiler machinery absent from this port
-
 not-applicable	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	683	it	Record(String, Finite)	needs codec-transform lowering or schema-compiler machinery absent from this port
-
 not-applicable	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	716	it	Record with properties and an index signature	needs codec-transform lowering or schema-compiler machinery absent from this port
-
 not-applicable	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	760	it	Record(String, Finite) + description	needs codec-transform lowering or schema-compiler machinery absent from this port
-
 not-applicable	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	780	it	Record(String, Finite) + isMinProperties	needs codec-transform lowering or schema-compiler machinery absent from this port
-
 not-applicable	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	807	it	Record(String, Finite) + isMinProperties + description	needs codec-transform lowering or schema-compiler machinery absent from this port
-
 ported	packages/effect/test/ai/OpenAiStructuredOutputRepresentation.test.ts	15	it	projects the encoded side before JSON Schema generation	projects_the_encoded_side_before_json_schema_generation
-
 ported	packages/effect/test/ai/OpenAiStructuredOutputRepresentation.test.ts	19	it	keeps supported custom JSON Schema filters with a description	keeps_supported_pattern_with_a_description
-
 ported	packages/effect/test/ai/OpenAiStructuredOutputRepresentation.test.ts	36	it	drops unsupported custom JSON Schema filters with a description	drops_unsupported_min_length_but_keeps_description_and_validation
-
 ported	packages/effect/test/ai/OpenAiStructuredOutputRepresentation.test.ts	58	it	keeps supported custom JSON Schema filters without a description	keeps_supported_pattern_without_a_description
-
 ported	packages/effect/test/ai/OpenAiStructuredOutputRepresentation.test.ts	73	it	drops unsupported custom JSON Schema filters without a description	drops_unsupported_min_length_without_a_description
-
 not-applicable	packages/effect/test/ai/OpenAiStructuredOutputRepresentation.test.ts	87	it	invokes custom JSON Schema callbacks only with compiler inputs	needs custom toJsonSchema callback protocol; no callback machinery
-
 not-applicable	packages/effect/test/ai/OpenAiStructuredOutputRepresentation.test.ts	111	it	compiles custom callbacks after structural transformations	needs callback-after-structural-lowering; no callback machinery
-
 ported	packages/effect/test/ai/OpenAiStructuredOutputRepresentation.test.ts	133	it	keeps property names that match unsupported keywords	keeps_property_names_that_match_unsupported_keywords
-
 ported	packages/effect/test/ai/OpenAiStructuredOutputRepresentation.test.ts	150	it	drops patternProperties returned by custom callbacks	drops_pattern_properties_returned_by_custom_callbacks
-
 ported	packages/effect/test/ai/OpenAiStructuredOutputRepresentation.test.ts	171	it	does not merge structural constraints from allOf	does_not_merge_structural_constraints_from_all_of
-
 ported	packages/effect/test/ai/OpenAiStructuredOutputRepresentation.test.ts	193	it	keeps the original codec on the unchanged fast path	leaves_an_already_strict_document_unchanged
-
 ported	packages/effect/test/ai/OpenAiStructuredOutputRepresentation.test.ts	198	it	keeps declaration fallback validation in the codec	keeps_declaration_fallback_validation_in_the_codec
-
 ported	packages/effect/test/ai/OpenAiStructuredOutputRepresentation.test.ts	210	it	merges repeated lower bounds conservatively	merges_repeated_lower_bounds_conservatively
-
 ported	packages/effect/test/ai/OpenAiStructuredOutputRepresentation.test.ts	225	it	merges repeated array bounds conservatively	merges_repeated_array_bounds_conservatively
-
 not-applicable	packages/effect/test/ai/OpenAiStructuredOutputRepresentation.test.ts	238	it	transports only sound record size bounds to entry arrays	needs Record-to-entry-array size-bound transport; no such lowering
-
 ported	packages/effect/test/ai/Prompt.test.ts	7	it	preserves text parts during serialization	preserves_text_parts_during_serialization
-
 ported	packages/effect/test/ai/Prompt.test.ts	30	it	exports schemas for all parts and message-specific parts	exports_schemas_for_all_parts_and_message_specific_parts
-
 ported	packages/effect/test/ai/Prompt.test.ts	81	it	preserves file-only responses as assistant messages	preserves_file_only_responses_as_assistant_messages
-
 ported	packages/effect/test/ai/Prompt.test.ts	102	it	folds streamed text and reasoning deltas into an assistant message	folds_streamed_text_and_reasoning_deltas_into_an_assistant_message
-
 ported	packages/effect/test/ai/Prompt.test.ts	128	it	preserves metadata on non-streaming response parts	preserves_metadata_on_non_streaming_response_parts
-
 ported	packages/effect/test/ai/Prompt.test.ts	197	it	accumulates metadata across streamed text and reasoning parts	accumulates_metadata_across_streamed_text_and_reasoning_parts
-
 ported	packages/effect/test/ai/Prompt.test.ts	267	it	places tool calls in assistant messages and tool results in tool messages	places_tool_calls_in_assistant_messages_and_tool_results_in_tool_messages
-
 ported	packages/effect/test/ai/Prompt.test.ts	303	it	places provider-executed tool results in the assistant message	places_provider_executed_tool_results_in_the_assistant_message
-
 ported	packages/effect/test/ai/Prompt.test.ts	356	it	should handle out-of-order tool results (result before call in stream)	handles_out_of_order_tool_results
-
 ported	packages/effect/test/ai/Prompt.test.ts	418	it	keeps only the final non-preliminary tool result	keeps_only_the_final_non_preliminary_tool_result
-
 ported	packages/effect/test/ai/Prompt.test.ts	470	it	should sequentially combine the content of two Prompts	sequentially_combines_the_content_of_two_prompts
-
 ported	packages/effect/test/ai/Prompt.test.ts	499	it	returns Prompt.empty when both inputs have no messages	returns_empty_when_both_inputs_have_no_messages
-
 ported	packages/effect/test/ai/Prompt.test.ts	504	it	accepts raw message input when the left prompt is empty	accepts_raw_message_input_when_the_left_prompt_is_empty
-
 ported	packages/effect/test/ai/Prompt.test.ts	523	it	returns the original prompt when the input has no messages	returns_the_original_prompt_when_the_input_has_no_messages
-
 ported	packages/effect/test/ai/Prompt.test.ts	539	it	appends text to the leading system message	appends_text_to_the_leading_system_message
-
 ported	packages/effect/test/ai/Prompt.test.ts	555	it	creates a leading system message if none exists	creates_a_leading_system_message_when_appending_with_none_present
-
 ported	packages/effect/test/ai/Prompt.test.ts	570	it	creates a system message for an empty prompt	creates_a_system_message_when_appending_to_an_empty_prompt
-
 ported	packages/effect/test/ai/Prompt.test.ts	583	it	prepends text to the leading system message	prepends_text_to_the_leading_system_message
-
 ported	packages/effect/test/ai/Prompt.test.ts	605	it	creates a leading system message if none exists	creates_a_leading_system_message_when_prepending_with_none_present
-
 ported	packages/effect/test/ai/Prompt.test.ts	623	it	creates a system message for an empty prompt	creates_a_system_message_when_prepending_to_an_empty_prompt
-
 ported	packages/effect/test/ai/Response.test.ts	22	it.effect	preserves user failure fields with the ${name} schema	preserves_user_failure_fields_for_struct_unknown_and_record_schemas
 ported	packages/effect/test/ai/Response.test.ts	64	it.effect	round trips a returned AiError through Toolkit and AllParts JSON with an unknown failure schema	round_trips_a_returned_ai_error_through_toolkit_and_all_parts_json
 ported	packages/effect/test/ai/Response.test.ts	128	it.effect	round trips ${result.type} through AllParts JSON	round_trips_provider_defined_execution_failures_through_all_parts_json
@@ -5524,152 +5280,79 @@ ported	packages/effect/test/ai/Response.test.ts	213	it.effect	round trips respon
 ported	packages/effect/test/ai/Response.test.ts	233	it.effect	round trips HTTP request details with an undefined hash through JSON	round_trips_http_request_details_with_an_undefined_hash_through_json
 ported	packages/effect/test/ai/Response.test.ts	261	it.effect	round trips a finish part with undefined optional fields through JSON	round_trips_a_finish_part_with_undefined_optional_fields_through_json
 ported	packages/effect/test/ai/ResponseIdTracker.test.ts	49	it.effect	returns None for a fresh tracker	returns_none_for_a_fresh_tracker
-
 ported	packages/effect/test/ai/ResponseIdTracker.test.ts	59	it.effect	prepares only the new user message after a tracked first turn	prepares_only_the_new_user_message_after_a_tracked_first_turn
-
 ported	packages/effect/test/ai/ResponseIdTracker.test.ts	72	it.effect	shares tracker state through its Context service layer	shares_tracker_state_through_one_instance
-
 ported	packages/effect/test/ai/ResponseIdTracker.test.ts	88	it.effect	keeps latest response id when markParts is called twice	keeps_latest_response_id_when_mark_parts_is_called_twice
-
 ported	packages/effect/test/ai/ResponseIdTracker.test.ts	102	it.effect	returns None after clear	returns_none_after_clear
-
 ported	packages/effect/test/ai/ResponseIdTracker.test.ts	116	it.effect	recovers after clear with new marks	recovers_after_clear_with_new_marks
-
 ported	packages/effect/test/ai/ResponseIdTracker.test.ts	132	it.effect	remains usable after concurrent markParts and clear	remains_usable_after_concurrent_mark_parts_and_clear
-
 ported	packages/effect/test/ai/ResponseIdTracker.test.ts	168	it.effect	returns None for first turn with system and user messages	returns_none_for_first_turn_with_system_and_user_messages
-
 ported	packages/effect/test/ai/ResponseIdTracker.test.ts	179	it.effect	returns None when tracked prompt has no assistant message	returns_none_when_tracked_prompt_has_no_assistant_message
-
 ported	packages/effect/test/ai/ResponseIdTracker.test.ts	191	it.effect	returns incremental user follow-up after assistant	returns_incremental_user_follow_up_after_assistant
-
 ported	packages/effect/test/ai/ResponseIdTracker.test.ts	205	it.effect	returns incremental tool results after assistant tool call	returns_incremental_tool_results_after_assistant_tool_call
-
 ported	packages/effect/test/ai/ResponseIdTracker.test.ts	219	it.effect	returns incremental tool results plus user message in multi-step flow	returns_incremental_tool_results_plus_user_message_in_multi_step_flow
-
 ported	packages/effect/test/ai/ResponseIdTracker.test.ts	234	it.effect	returns None when no new messages follow assistant	returns_none_when_no_new_messages_follow_assistant
-
 ported	packages/effect/test/ai/ResponseIdTracker.test.ts	247	it.effect	returns None in multi-turn prompt with no messages after last assistant	returns_none_in_multi_turn_prompt_with_no_messages_after_last_assistant
-
 ported	packages/effect/test/ai/ResponseIdTracker.test.ts	262	it.effect	returns None for empty prompt	returns_none_for_empty_prompt
-
 ported	packages/effect/test/ai/ResponseIdTracker.test.ts	271	it.effect	returns None when system prompt object changes	returns_none_when_system_prompt_object_changes
-
 ported	packages/effect/test/ai/ResponseIdTracker.test.ts	286	it.effect	returns None when user message object changes	returns_none_when_user_message_object_changes
-
 ported	packages/effect/test/ai/ResponseIdTracker.test.ts	301	it.effect	returns None when multiple prefix messages diverge	returns_none_when_multiple_prefix_messages_diverge
-
 ported	packages/effect/test/ai/ResponseIdTracker.test.ts	317	it.effect	clears stale state after divergence and recovers when the new prefix is re-marked	clears_stale_state_after_divergence_and_recovers_when_the_new_prefix_is_re_marked
-
 ported	packages/effect/test/ai/ResponseIdTracker.test.ts	336	it.effect	supports full lifecycle across two turns	supports_full_lifecycle_across_two_turns
-
 ported	packages/effect/test/ai/ResponseIdTracker.test.ts	355	it.effect	returns None for structurally-equal but identity-different prefix message	returns_none_for_structurally_equal_but_identity_different_prefix_message
-
 ported	packages/effect/test/ai/ResponseIdTracker.test.ts	369	it.effect	returns None after explicit clear	returns_none_after_explicit_clear
-
 ported	packages/effect/test/ai/ResponseIdTracker.test.ts	384	it.effect	isolates two conversations on the same tracker	isolates_two_conversations_on_the_same_tracker
-
 ported	packages/effect/test/ai/ResponseIdTracker.test.ts	406	it.effect	does not leak tracked state across conversations without assistant turns	does_not_leak_tracked_state_across_conversations_without_assistant_turns
-
 not-applicable	packages/effect/test/ai/Tokenizer.test.ts	6	it.effect	truncate accounts for costs between messages	missing: Tokenizer module (no crates/elm-effect/src/tokenizer.rs or ai feature; Cargo.toml)
 not-applicable	packages/effect/test/ai/Tool.test.ts	10	it.effect	decodes parameters with services provided to the outer handle Effect	needs Context service injection into Schema decode plus Toolkit.handle streams
-
 ported	packages/effect/test/ai/Tool.test.ts	36	it.effect	should return tool call handler successes	returns_tool_call_handler_successes
-
 ported	packages/effect/test/ai/Tool.test.ts	76	it.effect	should return tool call handler failures when failure mode is return	returns_tool_call_handler_failures_when_failure_mode_is_return
-
 ported	packages/effect/test/ai/Tool.test.ts	116	it.effect	should encode returned failures with the failure schema	encodes_returned_failures_with_the_failure_schema
-
 ported	packages/effect/test/ai/Tool.test.ts	131	it.effect	should fail the extracted return-mode stream on invalid result encoding	fails_the_return_mode_stream_on_invalid_result_encoding
-
 ported	packages/effect/test/ai/Tool.test.ts	149	it.effect	should return tool call handler failures with failure mode return using OpenAI transformer	returns_handler_failures_in_return_mode_regardless_of_transformer
-
 ported	packages/effect/test/ai/Tool.test.ts	189	it.effect	should raise an error on tool call handler failures when failure mode is error	raises_an_error_on_handler_failures_when_failure_mode_is_error
-
 ported	packages/effect/test/ai/Tool.test.ts	220	it.effect	should return a failed tool result when tool call parameters are invalid and failure mode is return	returns_a_failed_tool_result_when_parameters_are_invalid_and_mode_is_return
-
 ported	packages/effect/test/ai/Tool.test.ts	277	it.effect	should return a failed tool result when tool call parameters contain NaN and failure mode is return	returns_a_failed_tool_result_when_parameters_contain_nan_and_mode_is_return
-
 ported	packages/effect/test/ai/Tool.test.ts	311	it.effect	should raise an error when tool call parameters are invalid and failure mode is error	raises_an_error_when_parameters_are_invalid_and_mode_is_error
-
 ported	packages/effect/test/ai/Tool.test.ts	351	it.effect	should return AiError when user returns an AiErrorReason when failure mode is return	returns_ai_error_when_handler_returns_an_ai_error_reason_and_mode_is_return
-
 ported	packages/effect/test/ai/Tool.test.ts	400	it.effect	should raise an AiError when user returns an AiErrorReason when failure mode is error	raises_an_ai_error_when_handler_returns_an_ai_error_reason_and_mode_is_error
-
 not-applicable	packages/effect/test/ai/Tool.test.ts	439	it.effect	should not have preliminary results when generateText is used	needs preliminary-result streaming with Fiber/Latch/TestClock concurrency
-
 not-applicable	packages/effect/test/ai/Tool.test.ts	489	it.effect	should have preliminary results when streamText is used	needs preliminary-result streaming with Fiber/Latch/TestClock concurrency
-
 not-applicable	packages/effect/test/ai/Tool.test.ts	548	it.effect	should handle multiple preliminary results in sequence	needs preliminary-result streaming with Fiber/Latch/TestClock concurrency
-
 not-applicable	packages/effect/test/ai/Tool.test.ts	599	it.effect	should handle preliminary results for long-running tools	needs preliminary-result streaming with Fiber/Latch/TestClock concurrency
-
 not-applicable	packages/effect/test/ai/Tool.test.ts	659	it.effect	should emit preliminary results before failure when handler fails	needs preliminary-result streaming with Fiber/Latch/TestClock concurrency
-
 not-applicable	packages/effect/test/ai/Tool.test.ts	710	it.effect	should interleave results from concurrent tools with preliminary results	needs preliminary-result streaming with Fiber/Latch/TestClock concurrency
-
 ported	packages/effect/test/ai/Tool.test.ts	792	it.effect	should return tool call successes from the model	returns_tool_call_successes_from_the_model
-
 ported	packages/effect/test/ai/Tool.test.ts	840	it.effect	should return tool call failures from the model	returns_tool_call_failures_from_the_model
-
 ported	packages/effect/test/ai/Tool.test.ts	888	it.effect	should return tool call handler successes	returns_provider_defined_handler_successes
-
 ported	packages/effect/test/ai/Tool.test.ts	935	it.effect	should return tool call handler failures when failure mode is return	returns_provider_defined_handler_failures_when_mode_is_return
-
 ported	packages/effect/test/ai/Tool.test.ts	983	it.effect	should raise an error on tool call handler failures when failure mode is error	raises_on_provider_defined_handler_failures_when_mode_is_error
-
 ported	packages/effect/test/ai/Tool.test.ts	1021	it.effect	should return a failed tool result when tool call parameters are invalid and failure mode is return	returns_a_failed_provider_tool_result_when_parameters_are_invalid
-
 not-applicable	packages/effect/test/ai/Tool.test.ts	1087	it	preserves the provider-defined tool identity	needs provider-defined tool types with addDependency/id
-
 not-applicable	packages/effect/test/ai/Tool.test.ts	1095	it	preserves the provider-defined tool id	needs provider-defined tool types with addDependency/id
-
 not-applicable	packages/effect/test/ai/Tool.test.ts	1102	it	getStrictMode returns undefined without throwing	needs Strict annotations; none in this port
-
 not-applicable	packages/effect/test/ai/Tool.test.ts	1107	it	annotate preserves the provider-defined tool identity	needs Strict annotations; none in this port
-
 not-applicable	packages/effect/test/ai/Tool.test.ts	1215	it	sets a static approval requirement without mutating the original tool	needs needsApproval tool machinery
-
 not-applicable	packages/effect/test/ai/Tool.test.ts	1223	it	sets a dynamic approval requirement	needs needsApproval tool machinery
-
 not-applicable	packages/effect/test/ai/Tool.test.ts	1232	it	preserves dynamic tool identity	needs dynamic tool identity machinery
-
 not-applicable	packages/effect/test/ai/Tool.test.ts	1243	it	setParameters replaces a raw JSON Schema	needs dynamic tools plus Schema-to-JSON-Schema derivation plus Toolkit/LanguageModel harness
-
 not-applicable	packages/effect/test/ai/Tool.test.ts	1256	it.effect	returns true for dynamic tools with Effect Schema	needs dynamic tools plus Schema-to-JSON-Schema derivation plus Toolkit/LanguageModel harness
-
 not-applicable	packages/effect/test/ai/Tool.test.ts	1264	it.effect	returns true for dynamic tools with JSON Schema	needs dynamic tools plus Schema-to-JSON-Schema derivation plus Toolkit/LanguageModel harness
-
 not-applicable	packages/effect/test/ai/Tool.test.ts	1272	it.effect	returns false for user-defined tools	needs dynamic tools plus Schema-to-JSON-Schema derivation plus Toolkit/LanguageModel harness
-
 not-applicable	packages/effect/test/ai/Tool.test.ts	1280	it.effect	returns false for provider-defined tools	needs dynamic tools plus Schema-to-JSON-Schema derivation plus Toolkit/LanguageModel harness
-
 not-applicable	packages/effect/test/ai/Tool.test.ts	1290	it.effect	returns false for non-tool values	needs dynamic tools plus Schema-to-JSON-Schema derivation plus Toolkit/LanguageModel harness
-
 not-applicable	packages/effect/test/ai/Tool.test.ts	1300	it.effect	Tool.make EmptyParams produces same output as omitting parameters	needs dynamic tools plus Schema-to-JSON-Schema derivation plus Toolkit/LanguageModel harness
-
 not-applicable	packages/effect/test/ai/Tool.test.ts	1312	it.effect	derives JSON Schema from Effect Schema parameters	needs dynamic tools plus Schema-to-JSON-Schema derivation plus Toolkit/LanguageModel harness
-
 not-applicable	packages/effect/test/ai/Tool.test.ts	1329	it.effect	returns JSON Schema directly when provided as parameters	needs dynamic tools plus Schema-to-JSON-Schema derivation plus Toolkit/LanguageModel harness
-
 not-applicable	packages/effect/test/ai/Tool.test.ts	1347	it.effect	preserves complex JSON Schema features like $ref and oneOf	needs dynamic tools plus Schema-to-JSON-Schema derivation plus Toolkit/LanguageModel harness
-
 not-applicable	packages/effect/test/ai/Tool.test.ts	1368	it.effect	decodes parameters with Effect Schema before calling handler	needs dynamic tools plus Schema-to-JSON-Schema derivation plus Toolkit/LanguageModel harness
-
 not-applicable	packages/effect/test/ai/Tool.test.ts	1402	it.effect	passes parameters through as unknown with JSON Schema	needs dynamic tools plus Schema-to-JSON-Schema derivation plus Toolkit/LanguageModel harness
-
 not-applicable	packages/effect/test/ai/Tool.test.ts	1440	it.effect	encodes success result using success schema	needs dynamic tools plus Schema-to-JSON-Schema derivation plus Toolkit/LanguageModel harness
-
 not-applicable	packages/effect/test/ai/Tool.test.ts	1475	it	defaults to undefined	needs Strict annotations; none in this port
-
 not-applicable	packages/effect/test/ai/Tool.test.ts	1480	it	can be set to true	needs Strict annotations; none in this port
-
 not-applicable	packages/effect/test/ai/Tool.test.ts	1485	it	can be set to false	needs Strict annotations; none in this port
-
 not-applicable	packages/effect/test/ai/Tool.test.ts	1490	it	works with dynamic tools	needs Strict annotations; none in this port
-
 not-applicable	packages/effect/test/ai/Tool.test.ts	1497	it	works with provider-defined tools	needs Strict annotations; none in this port
-
 not-applicable	packages/effect/test/ai/ToolRepresentation.test.ts	6	it	projects the encoded side before JSON Schema generation	Rust elm-effect-unstable ai.rs has no Tool.getJsonSchema/getJsonSchemaFromSchema projection or Schema compiler toJsonSchema annotation hooks, so neither JSON-schema row can be witnessed
 not-applicable	packages/effect/test/ai/ToolRepresentation.test.ts	10	it	uses custom JSON Schema compiler annotations for schema parameters	Rust elm-effect-unstable ai.rs has no Tool.getJsonSchema/getJsonSchemaFromSchema projection or Schema compiler toJsonSchema annotation hooks, so neither JSON-schema row can be witnessed
 not-applicable	packages/effect/test/arbitrary/Arbitrary.array.test.ts	7	it.effect	reduces custom command sequences to Reset followed by Stop	Arbitrary array shrinking/check property rows depend on fast-check-style arbitrary combinators and registry not implemented in the port; the narrowing/shrinking behaviors are platform-substrate concerns here
@@ -5876,35 +5559,20 @@ not-applicable	packages/effect/test/arbitrary/Arbitrary.test.ts	4104	it.effect	d
 ported	packages/effect/test/cli/Ansi.test.ts	4	it	emits a standard CSI horizontal absolute sequence	ansi_cursor_sequences
 ported	packages/effect/test/cli/Ansi.test.ts	8	it	emits a standard CSI cursor-position sequence	ansi_cursor_sequences
 ported	packages/effect/test/cli/Arguments.test.ts	52	it.effect	should parse all argument types correctly	parses_all_argument_types_correctly
-
 ported	packages/effect/test/cli/Arguments.test.ts	92	it.effect	should handle file mustExist validation	file_must_exist_validation
-
 ported	packages/effect/test/cli/Arguments.test.ts	132	it.effect	should fail with invalid arguments	fails_with_invalid_arguments
-
 ported	packages/effect/test/cli/Arguments.test.ts	163	it.effect	should handle variadic arguments	handles_variadic_arguments
-
 ported	packages/effect/test/cli/Arguments.test.ts	184	it.effect	should handle choiceWithValue	handles_choice_with_value
-
 ported	packages/effect/test/cli/Arguments.test.ts	204	it.effect	should handle filter combinator - valid	handles_filter_combinator_valid
-
 ported	packages/effect/test/cli/Arguments.test.ts	222	it.effect	should handle filter combinator - invalid	handles_filter_combinator_invalid
-
 ported	packages/effect/test/cli/Arguments.test.ts	240	it.effect	should handle filterMap combinator - valid	handles_filter_map_combinator_valid
-
 ported	packages/effect/test/cli/Arguments.test.ts	258	it.effect	should handle filterMap combinator - invalid	handles_filter_map_combinator_invalid
-
 ported	packages/effect/test/cli/Arguments.test.ts	276	it.effect	should handle orElse combinator	handles_or_else_combinator
-
 ported	packages/effect/test/cli/Arguments.test.ts	299	it.effect	should handle orElseResult combinator	handles_or_else_result_combinator
-
 ported	packages/effect/test/cli/Arguments.test.ts	323	it.effect	should handle withMetavar combinator	handles_with_metavar_combinator
-
 ported	packages/effect/test/cli/Arguments.test.ts	338	it.effect	should handle optional arguments - when provided	handles_optional_argument_when_provided
-
 ported	packages/effect/test/cli/Arguments.test.ts	357	it.effect	returns none for omitted optional positional arguments	returns_none_for_omitted_optional_positional
-
 ported	packages/effect/test/cli/Arguments.test.ts	371	it.effect	uses argument wording for positional InvalidValue errors	uses_argument_wording_for_positional_invalid_value
-
 not-applicable	packages/effect/test/cli/Command.test.ts	51	it.effect	should expose annotations in help docs	the command/Arg surface has no annotation field beyond the help string, so command arg annotations cannot be exposed in help docs
 not-applicable	packages/effect/test/cli/Command.test.ts	81	it.effect	should keep annotations when adding subcommands	adding subcommands does not carry annotations because no Arg::annotation API exists in this port
 ported	packages/effect/test/cli/Command.test.ts	119	it.effect	should invoke the wizard programmatically from a command handler	wizard_plan_asks_one_question_per_flag_then_per_positional
@@ -6036,57 +5704,31 @@ not-applicable	packages/effect/test/cli/Errors.test.ts	381	it	does not double th
 not-applicable	packages/effect/test/cli/Errors.test.ts	407	it	does not double the prefix for a missing flag value	N/A: rust unstable-cli lacks shared-flag construction (duplicate-option detection) and CliOutput error formatting; errors render via Display only, so these rows cannot be represented as Rust tests
 not-applicable	packages/effect/test/cli/Errors.test.ts	423	it	formats one or more unexpected positional arguments	N/A: rust unstable-cli lacks shared-flag construction (duplicate-option detection) and CliOutput error formatting; errors render via Display only, so these rows cannot be represented as Rust tests
 ported	packages/effect/test/cli/Help.test.ts	42	it	marks omittable flags as not required in structured help	omittable_flags_are_not_required_in_structured_help
-
 ported	packages/effect/test/cli/Help.test.ts	53	it	marks omittable arguments as not required in structured help	omittable_arguments_are_not_required_in_structured_help
-
 ported	packages/effect/test/cli/Help.test.ts	74	it.effect	renders root command help	renders_root_command_help
-
 ported	packages/effect/test/cli/Help.test.ts	111	it.effect	aligns flag descriptions when flag names are long	aligns_flag_descriptions_when_flag_names_are_long
-
 ported	packages/effect/test/cli/Help.test.ts	133	it.effect	aligns flag descriptions when flag names contain wide graphemes	aligns_flag_descriptions_with_wide_graphemes
-
 ported	packages/effect/test/cli/Help.test.ts	150	it.effect	aligns flag descriptions when flag names contain zero-width code points	aligns_flag_descriptions_with_zero_width_code_points
-
 ported	packages/effect/test/cli/Help.test.ts	167	it.effect	separates long subcommand and argument names from their descriptions	separates_long_subcommand_and_argument_names
-
 ported	packages/effect/test/cli/Help.test.ts	190	it.effect	hides flags marked with withHidden from help output	hides_flags_marked_hidden_from_help_output
-
 ported	packages/effect/test/cli/Help.test.ts	209	it.effect	hidden flag still parses on the command line	hidden_flag_still_parses_on_the_command_line
-
 ported	packages/effect/test/cli/Help.test.ts	225	it.effect	hidden flag name does not leak through unrecognized-flag suggestions	hidden_flag_name_does_not_leak_through_suggestions
-
 ported	packages/effect/test/cli/Help.test.ts	241	it.effect	hides unlisted subcommands from help output	hides_unlisted_subcommands_from_help_output
-
 ported	packages/effect/test/cli/Help.test.ts	263	it.effect	unlisted subcommand still parses on the command line	unlisted_subcommand_still_parses_on_the_command_line
-
 ported	packages/effect/test/cli/Help.test.ts	284	it.effect	unlisted subcommand name does not leak through unknown-subcommand suggestions	unlisted_subcommand_name_does_not_leak_through_suggestions
-
 ported	packages/effect/test/cli/Help.test.ts	301	it.effect	subcommand group with only unlisted commands disappears entirely	subcommand_group_with_only_unlisted_commands_disappears_entirely
-
 ported	packages/effect/test/cli/Help.test.ts	316	it.effect	renders command examples	renders_command_examples
-
 ported	packages/effect/test/cli/Help.test.ts	362	it.effect	renders file command positional arguments	renders_file_command_positional_arguments
-
 ported	packages/effect/test/cli/Help.test.ts	394	it.effect	renders variadic arguments	renders_variadic_arguments
-
 ported	packages/effect/test/cli/Help.test.ts	425	it.effect	renders deeply nested subcommand help	renders_deeply_nested_subcommand_help
-
 ported	packages/effect/test/cli/Help.test.ts	454	it.effect	renders mixed required and optional positional arguments	renders_mixed_required_and_optional_positional_arguments
-
 ported	packages/effect/test/cli/Help.test.ts	486	it.effect	renders intermediate subcommand shared flags and children	renders_intermediate_subcommand_shared_flags_and_children
-
 ported	packages/effect/test/cli/Help.test.ts	517	it.effect	renders variadic arguments with a minimum count	renders_variadic_arguments_with_a_minimum_count
-
 ported	packages/effect/test/cli/Help.test.ts	548	it.effect	shared flags are visible in subcommand help while local flags stay local	shared_flags_visible_in_subcommand_help_while_local_flags_stay_local
-
 ported	packages/effect/test/cli/Help.test.ts	578	it.effect	includes inherited shared flags in subcommand completions	includes_inherited_shared_flags_in_subcommand_completions
-
 ported	packages/effect/test/cli/Help.test.ts	600	it.effect	renders grouped subcommands	renders_grouped_subcommands
-
 ported	packages/effect/test/cli/Help.test.ts	665	it.effect	renders subcommand aliases in listings	renders_subcommand_aliases_in_listings
-
 ported	packages/effect/test/cli/Help.test.ts	695	it.effect	keeps subcommand flags in aliased completion contexts	keeps_subcommand_flags_in_aliased_completion_contexts
-
 ported	packages/effect/test/cli/Lexer.test.ts	5	it	preserves every equals sign in a long option's inline value	lexer_tokenizes_argv
 ported	packages/effect/test/cli/Lexer.test.ts	16	it	lexes negative numbers as values	lexer_tokenizes_argv
 ported	packages/effect/test/cli/Lexer.test.ts	28	it	still lexes short options that are not negative numbers	lexer_tokenizes_argv
@@ -6170,137 +5812,71 @@ ported	packages/effect/test/cli/Primitive.test.ts	375	it.effect	file constructor
 ported	packages/effect/test/cli/Primitive.test.ts	394	it	Never has the matching primitive tag	primitive_never_rejects_all
 ported	packages/effect/test/cli/Primitive.test.ts	398	it.effect	Never remains an always-failing sentinel	primitive_never_rejects_all
 ported	packages/effect/test/cli/Prompt.test.ts	53	it.effect	renders two-digit years, teen ordinals, and noon meridiem correctly	date_renders_two_digit_year_teen_ordinal_and_noon_meridiem date_ordinal_indicators
-
 ported	packages/effect/test/cli/Prompt.test.ts	67	it.effect	starts a fresh typed buffer when Tab advances to the next field	date_tab_starts_a_fresh_typed_buffer
-
 ported	packages/effect/test/cli/Prompt.test.ts	80	it.effect	starts a fresh typed buffer when Tab wraps to the first field	date_tab_wrap_starts_a_fresh_typed_buffer
-
 ported	packages/effect/test/cli/Prompt.test.ts	94	it.effect	accumulates multiple digits while staying in the same field	date_field_accumulates_digits
-
 ported	packages/effect/test/cli/Prompt.test.ts	105	it.effect	starts a fresh typed buffer when Tab wraps a single editable field	date_single_field_tab_clears
-
 not-applicable	packages/effect/test/cli/Prompt.test.ts	120	it.effect	supports an empty record	needs Prompt.all composition over effects; no Effect composition runtime here
-
 not-applicable	packages/effect/test/cli/Prompt.test.ts	126	it.effect	supports a non-array iterable	needs Prompt.all composition over effects
-
 ported	packages/effect/test/cli/Prompt.test.ts	134	it.effect	submits the default value	int_submits_the_default_value
-
 ported	packages/effect/test/cli/Prompt.test.ts	144	it.effect	starts from the default value so it can be edited	int_starts_from_default_so_it_can_be_edited
-
 ported	packages/effect/test/cli/Prompt.test.ts	155	it.effect	clears the default value on ctrl-u	int_clears_the_default_on_ctrl_u
-
 ported	packages/effect/test/cli/Prompt.test.ts	169	it.effect	preserves a leading zero in the fractional part	number_preserves_a_leading_zero_in_the_fractional_part
-
 ported	packages/effect/test/cli/Prompt.test.ts	179	it.effect	renders appended input without literal parsed	number_renders_appended_input_as_typed
-
 ported	packages/effect/test/cli/Prompt.test.ts	197	it.effect	clears the current input on ctrl-u	number_clears_the_current_input_on_ctrl_u
-
 ported	packages/effect/test/cli/Prompt.test.ts	212	it.effect	renders the default prompt theme	string_renders_the_default_prompt_theme
-
 ported	packages/effect/test/cli/Prompt.test.ts	222	it.effect	renders the prompt theme from context	string_renders_the_prompt_theme_from_context
-
 ported	packages/effect/test/cli/Prompt.test.ts	243	it.effect	renders theme colors from context with per-prompt overrides	string_renders_theme_colors_with_per_prompt_overrides
-
 ported	packages/effect/test/cli/Prompt.test.ts	271	it.effect	renders validation errors with the theme error color	string_renders_validation_errors_with_the_theme_error_color
-
 ported	packages/effect/test/cli/Prompt.test.ts	291	it.effect	omits spacing for empty theme symbols	string_omits_spacing_for_empty_theme_symbols
-
 ported	packages/effect/test/cli/Prompt.test.ts	304	it.effect	starts from the default value so it can be edited	string_starts_from_default_so_it_can_be_edited
-
 ported	packages/effect/test/cli/Prompt.test.ts	318	it.effect	clears the current input on ctrl-u	string_clears_the_current_input_on_ctrl_u
-
 ported	packages/effect/test/cli/Prompt.test.ts	334	it.effect	moves the cursor to the beginning on ctrl-a	string_moves_the_cursor_to_the_beginning_on_ctrl_a
-
 ported	packages/effect/test/cli/Prompt.test.ts	350	it.effect	moves the cursor to the end on ctrl-e	string_moves_the_cursor_to_the_end_on_ctrl_e
-
 ported	packages/effect/test/cli/Prompt.test.ts	367	it.effect	does not insert characters for unsupported ctrl key combinations	string_ignores_unsupported_ctrl_combinations
-
 ported	packages/effect/test/cli/Prompt.test.ts	382	it.effect	does not render or submit the cleared default value	string_does_not_submit_the_cleared_default_value
-
 ported	packages/effect/test/cli/Prompt.test.ts	405	it.effect	renders only the choice list when message is omitted	select_renders_only_the_choice_list_when_message_is_omitted
-
 ported	packages/effect/test/cli/Prompt.test.ts	428	it.effect	keeps the header when message is empty	select_keeps_the_header_when_message_is_empty
-
 not-applicable	packages/effect/test/cli/Prompt.test.ts	438	it.effect	renders a per-prompt theme across redraws	needs per-prompt theme across live redraw frames; no live-frame harness
-
 ported	packages/effect/test/cli/Prompt.test.ts	462	it.effect	renders selection colors from the prompt theme	select_renders_selection_colors_from_the_prompt_theme
-
 ported	packages/effect/test/cli/Prompt.test.ts	484	it.effect	keeps title and description separated when the theme separator is empty	select_keeps_title_and_description_separated_when_separator_is_empty
-
 ported	packages/effect/test/cli/Prompt.test.ts	505	it.effect	aligns choices when paging arrows have different widths	select_aligns_choices_when_paging_arrows_have_different_widths
-
 ported	packages/effect/test/cli/Prompt.test.ts	529	it.effect	renders the password mask from the prompt theme	password_renders_the_mask_from_the_prompt_theme
-
 ported	packages/effect/test/cli/Prompt.test.ts	543	it.effect	keeps cursor movement aligned with a multi-character password mask	password_keeps_cursor_movement_aligned_with_multi_char_mask
-
 ported	packages/effect/test/cli/Prompt.test.ts	558	it.effect	starts from the default value so it can be edited	password_starts_from_default_so_it_can_be_edited
-
 ported	packages/effect/test/cli/Prompt.test.ts	572	it.effect	does not submit the cleared default value	password_does_not_submit_the_cleared_default_value
-
 ported	packages/effect/test/cli/Prompt.test.ts	588	it.effect	renders the separator from the prompt theme	toggle_renders_the_separator_from_the_prompt_theme
-
 ported	packages/effect/test/cli/Prompt.test.ts	602	it.effect	keeps labels separated when the theme separator is empty	toggle_keeps_labels_separated_when_separator_is_empty
-
 ported	packages/effect/test/cli/Prompt.test.ts	618	it.effect	filters choices as you type	autocomplete_filters_choices_as_you_type
-
 ported	packages/effect/test/cli/Prompt.test.ts	644	it.effect	removes the last character on backspace	autocomplete_backspace_widens_the_filter
-
 ported	packages/effect/test/cli/Prompt.test.ts	673	it.effect	clears the filter input on ctrl-u	autocomplete_clears_the_filter_input_on_ctrl_u
-
 ported	packages/effect/test/cli/Prompt.test.ts	702	it.effect	renders empty message and beeps on submit with no matches	autocomplete_submit_with_no_matches_is_a_beep
-
 ported	packages/effect/test/cli/Prompt.test.ts	729	it.effect	beeps when submitting a disabled choice	autocomplete_beeps_when_submitting_a_disabled_choice
-
 ported	packages/effect/test/cli/Prompt.test.ts	750	it.effect	renders empty message with no choices	autocomplete_empty_choice_list_never_submits
-
 ported	packages/effect/test/cli/Prompt.test.ts	767	it.effect	keeps `j` and `k` in the filter query instead of moving the cursor	autocomplete_keeps_j_and_k_in_the_filter_query
-
 ported	packages/effect/test/cli/Prompt.test.ts	793	it.effect	filters a query that merely contains a `k`	autocomplete_filters_a_query_that_merely_contains_k
-
 ported	packages/effect/test/cli/Prompt.test.ts	819	it.effect	moves the cursor with ctrl-n and ctrl-p	autocomplete_moves_the_cursor_with_ctrl_n_and_ctrl_p
-
 ported	packages/effect/test/cli/Prompt.test.ts	839	it.effect	moves the cursor up with ctrl-k	autocomplete_moves_the_cursor_up_with_ctrl_k
-
 ported	packages/effect/test/cli/Prompt.test.ts	881	it.effect	starts from the default value so it can be submitted	file_starts_from_the_default_value_so_it_can_be_submitted
-
 ported	packages/effect/test/cli/Prompt.test.ts	894	it.effect	filters files as you type	file_filters_files_as_you_type
-
 ported	packages/effect/test/cli/Prompt.test.ts	917	it.effect	removes the last character on backspace	file_backspace_widens_the_filter
-
 ported	packages/effect/test/cli/Prompt.test.ts	957	it.effect	keeps `j` in the filter query instead of moving the cursor	file_keeps_j_in_the_filter_query
-
 ported	packages/effect/test/cli/Prompt.test.ts	979	it.effect	keeps `k` in the filter query instead of moving the cursor	file_keeps_k_in_the_filter_query
-
 ported	packages/effect/test/cli/Prompt.test.ts	1001	it.effect	moves the cursor with ctrl-n and ctrl-p	file_moves_the_cursor_with_ctrl_n_and_ctrl_p
-
 ported	packages/effect/test/cli/Prompt.test.ts	1017	it.effect	moves the cursor up with ctrl-k	file_moves_the_cursor_up_with_ctrl_k
-
 ported	packages/effect/test/cli/Prompt.test.ts	1035	it.effect	renders only the choice list when message is omitted	multiselect_renders_only_the_choice_list_when_message_is_omitted
-
 ported	packages/effect/test/cli/Prompt.test.ts	1059	it.effect	clears validation errors without a message	multiselect_min_validation_names_the_required_count
-
 ported	packages/effect/test/cli/Prompt.test.ts	1086	it.effect	renders paging and checkbox symbols from the prompt theme	multiselect_renders_paging_and_checkbox_symbols_from_the_theme
-
 ported	packages/effect/test/cli/Prompt.test.ts	1114	it.effect	aligns choices when checkbox symbols have different widths	multiselect_aligns_choices_when_checkbox_symbols_have_different_widths
-
 ported	packages/effect/test/cli/Prompt.test.ts	1137	it.effect	does not allow a disabled multi-select choice to be selected	multiselect_does_not_select_a_disabled_choice
-
 ported	packages/effect/test/cli/Prompt.test.ts	1155	it.effect	does not select disabled choices when selecting all	multiselect_select_all_skips_disabled_choices
-
 ported	packages/effect/test/cli/Prompt.test.ts	1174	it.effect	does not select disabled choices when inverting the selection	multiselect_invert_skips_disabled_choices
-
 ported	packages/effect/test/cli/Prompt.test.ts	1192	it.effect	ignores disabled preselected choices when validating and submitting	multiselect_validation_ignores_disabled_preselected_choices
-
 not-applicable	packages/effect/test/cli/Prompt.test.ts	1214	it.effect	underlines the active label	needs underlined active label on a live frame; no live-frame harness
-
 not-applicable	packages/effect/test/cli/Prompt.test.ts	1249	it.effect	keeps the previous frame visible while rendering ${transition}	needs previous-frame visibility across transitions; no live-frame harness
-
 not-applicable	packages/effect/test/cli/Prompt.test.ts	1306	it.effect	receive handles events from external dequeue	needs external-dequeue event rendezvous; no fiber queue here
-
 not-applicable	packages/effect/test/cli/Prompt.test.ts	1348	it.effect	falls back to process when no events are pending	needs process fallback when no events pending; no process/fiber runtime here
-
 not-applicable	packages/effect/test/cli/Prompt.test.ts	1380	it.effect	Input variant exposes the input field with UserInput	needs UserInput keypress plumbing from a live terminal; no TTY harness
-
 ported	packages/effect/test/cli/completions/completions.test.ts	141	it	completes the active positional argument instead of always using the first	completes_the_active_positional_argument_instead_of_always_using_the_first
 ported	packages/effect/test/cli/completions/completions.test.ts	187	it	generates completion function for root command	generates_completion_function_for_root_command
 ported	packages/effect/test/cli/completions/completions.test.ts	195	it	includes subcommand names in word list	includes_subcommand_names_in_word_list
@@ -6392,91 +5968,48 @@ ported	packages/effect/test/cli/completions/descriptor.test.ts	231	it	extracts f
 ported	packages/effect/test/cli/completions/descriptor.test.ts	244	it	extracts multiple subcommands	extracts_multiple_subcommands
 ported	packages/effect/test/cli/completions/descriptor.test.ts	258	it	prefers short descriptions for subcommand listings	prefers_short_descriptions_for_subcommand_listings
 not-applicable	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	43	it.effect	retries a deferred wake after a transient run reset failure	needs fiber wake plus clearReplies hook; no fiber runtime
-
 not-applicable	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	93	it.effect	keeps a completed reply when an older concurrent wake resets it	needs fiber wake plus clearReplies hook; no fiber runtime
-
 not-applicable	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	163	it.effect	admits a required completion after an unrelated completion with mailbox capacity ${entityMailboxCapacity}	needs entity mailbox plus saveReply gate; none exists
-
 not-applicable	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	248	it.effect	retains a handover completion before its deferred reply is persisted	needs entity mailbox plus saveReply gate; none exists
-
 not-applicable	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	296	it.effect	completes before deferred persistence across ${lifecycle}	needs entity mailbox plus saveReply gate; none exists
-
 not-applicable	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	442	it.effect	executes, resumes, deduplicates, and polls a suspended workflow	needs Fiber plus TestClock workflow suspension; no fiber runtime
-
 not-applicable	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	513	it.effect	interrupts a suspended workflow and runs compensation	needs Fiber plus TestClock workflow suspension; no fiber runtime
-
 not-applicable	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	584	it.effect	Workflow.withCompensation runs compensation when the workflow fails	needs Fiber plus TestClock workflow suspension; no fiber runtime
-
 not-applicable	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	609	it.effect	Activity.raceAll returns the first activity and interrupts losers	needs race supervision plus durable replay; no fiber runtime
-
 not-applicable	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	629	it.effect	Activity.raceAll ignores a failure when another activity can succeed	needs race supervision plus durable replay; no fiber runtime
-
 not-applicable	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	640	it.effect	Activity.raceAll replays the first durable activity	needs race supervision plus durable replay; no fiber runtime
-
 not-applicable	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	668	it.effect	DurableDeferred.raceAll lets a deferred win while another branch is active	needs race supervision plus durable replay; no fiber runtime
-
 not-applicable	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	688	it.effect	DurableDeferred.raceAll lets an active branch win while the deferred stays pending	needs race supervision plus durable replay; no fiber runtime
-
 not-applicable	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	705	it.effect	DurableDeferred.raceAll replays the run when a losing deferred completes late	needs race supervision plus durable replay; no fiber runtime
-
 not-applicable	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	739	it.effect	DurableDeferred.raceAll wakes the active run by replaying it	needs race supervision plus durable replay; no fiber runtime
-
 not-applicable	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	763	it.effect	DurableDeferred.raceAll wakes a branch wrapped in DurableDeferred.into	needs race supervision plus durable replay; no fiber runtime
-
 not-applicable	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	783	it.effect	DurableDeferred.raceAll does not preempt for deferreds awaited inside activity bodies	needs race supervision plus durable replay; no fiber runtime
-
 not-applicable	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	805	it.effect	DurableDeferred.raceAll lets a bare durable clock branch win while another branch is active	needs DurableClock plus shard router; neither exists
-
 not-applicable	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	825	it.effect	DurableDeferred.raceAll runs a branch's transformations on a deferred wake	needs race supervision plus durable replay; no fiber runtime
-
 not-applicable	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	845	it.effect	DurableDeferred.raceAll wakes a branch that ran an activity before its await	needs race supervision plus durable replay; no fiber runtime
-
 not-applicable	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	870	it.effect	DurableDeferred.raceAll re-runs a multi-await branch once per completion	needs race supervision plus durable replay; no fiber runtime
-
 not-applicable	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	907	it.effect	DurableDeferred resumes a discarded execution when completion precedes the suspension commit	needs the cluster workflow engine runtime (fibers, mailboxes, storage, replay, clock); only sync data types exist
-
 not-applicable	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	980	it.effect	DurableDeferred.raceAll delivers a completion that lands while a suspension commits	needs race supervision plus durable replay; no fiber runtime
-
 not-applicable	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	1014	it.effect	DurableDeferred.raceAll suspends when every branch is pending and resumes with the winner	needs race supervision plus durable replay; no fiber runtime
-
 not-applicable	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	1045	it.effect	nested workflows	needs the cluster workflow engine runtime (fibers, mailboxes, storage, replay, clock); only sync data types exist
-
 not-applicable	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	1075	it.effect	bounds a durable clock notification when its workflow is absent after restart	needs DurableClock plus shard router; neither exists
-
 not-applicable	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	1134	it.effect	DurableClock.sleep preserves an explicit ${id} zero threshold	needs DurableClock plus shard router; neither exists
-
 not-applicable	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	1137	it.effect	parallel child workflows inside an activity suspend the parent durably	needs child-workflow dispatch plus parent suspend; no workflow runtime
-
 not-applicable	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	1181	it.effect	bounded child concurrency progresses across suspended activity replays	needs Fiber plus TestClock workflow suspension; no fiber runtime
-
 not-applicable	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	1237	it.effect	resumes when children complete during activity cleanup	needs the cluster workflow engine runtime (fibers, mailboxes, storage, replay, clock); only sync data types exist
-
 not-applicable	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	1301	it.effect	coalesces parked child wakeups while parent cleanup is pending	needs the cluster workflow engine runtime (fibers, mailboxes, storage, replay, clock); only sync data types exist
-
 not-applicable	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	1409	it.effect	resumes a fresh entity from a legacy envelope with queued replay ${queuedReplay}	needs envelope versioning plus replay journal; neither exists
-
 not-applicable	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	1490	it.effect	a parent stays suspended past the activity interrupt retry budget	needs Fiber plus TestClock workflow suspension; no fiber runtime
-
 not-applicable	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	1530	it.effect	parallel child workflows in the workflow body all dispatch before suspending	needs child-workflow dispatch plus parent suspend; no workflow runtime
-
 not-applicable	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	1564	it.effect	routes fractional millisecond durable clock wakeups to the workflow shard group	needs DurableClock plus shard router; neither exists
-
 not-applicable	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	1592	it.effect	routes durable deferred completions to the workflow shard group after a partial client is cached	needs the cluster workflow engine runtime (fibers, mailboxes, storage, replay, clock); only sync data types exist
-
 not-applicable	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	1630	it.effect	warns for conflicting definitions and stays silent for the same definition	needs the cluster workflow engine runtime (fibers, mailboxes, storage, replay, clock); only sync data types exist
-
 not-applicable	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	1672	it.effect	does not fail when duplicate workflow payload shapes cannot be rendered	needs the cluster workflow engine runtime (fibers, mailboxes, storage, replay, clock); only sync data types exist
-
 not-applicable	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	1701	it.effect	propagates trace context to persisted workflow requests	needs Tracer plus envelope trace fields absent from StoredRequest
-
 not-applicable	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	1744	it.effect	routes activities to the workflow shard group after a partial client is cached	needs the cluster workflow engine runtime (fibers, mailboxes, storage, replay, clock); only sync data types exist
-
 not-applicable	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	1779	it.effect	SuspendOnFailure	needs Fiber plus TestClock workflow suspension; no fiber runtime
-
 not-applicable	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	1797	it.effect	catchCause activity	needs the cluster workflow engine runtime (fibers, mailboxes, storage, replay, clock); only sync data types exist
-
 not-applicable	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	1811	it.effect	can serialize workflow defects	needs the cluster workflow engine runtime (fibers, mailboxes, storage, replay, clock); only sync data types exist
-
 ported	packages/effect/test/cluster/Entity.test.ts	64	it.effect	provides an activation scope per entity and closes it with the client	entity_activation_scope_per_entity_closes_with_client
 ported	packages/effect/test/cluster/Entity.test.ts	90	it.effect	creates an in-memory client for an entity layer	entity_clients_close_activations_on_demand
 ported	packages/effect/test/cluster/Entity.test.ts	98	it.effect	does not freeze the acquiring fiber's context into the entity server	entity_server_does_not_freeze_the_client_context
@@ -6535,127 +6068,66 @@ ported	packages/effect/test/cluster/Runners.test.ts	416	it.effect	persisted noti
 ported	packages/effect/test/cluster/Runners.test.ts	429	it.effect	a delivered defect for a persisted request maps to RunnerUnavailable for storage recovery	runner_send_delivered_defect_on_persisted_request_maps_to_runner_unavailable
 ported	packages/effect/test/cluster/Runners.test.ts	442	it.effect	encodes the entity payload with the protocol codec and leaves the hole untouched	runner_send_encodes_the_entity_payload_and_leaves_the_hole
 not-applicable	packages/effect/test/cluster/Sharding.test.ts	60	it.effect	keeps the claim of an active request replayed after an entity defect	needs durable storage driver with replay plus restart machinery; none exists
-
 not-applicable	packages/effect/test/cluster/Sharding.test.ts	153	it.effect	keeps the claim of an active uninterruptible request after restarting	needs durable storage driver with replay plus restart machinery; none exists
-
 not-applicable	packages/effect/test/cluster/Sharding.test.ts	239	it.effect	keeps the claim of an active stream after an acknowledged chunk	needs streaming with acknowledgement plus TestClock; no Stream runtime
-
 not-applicable	packages/effect/test/cluster/Sharding.test.ts	297	it.effect	releases capped addresses even when targeted claim release fails	needs entity residency tracking and reaping; none exists
-
 not-applicable	packages/effect/test/cluster/Sharding.test.ts	365	it.effect	redelivers a request reset while an asynchronous storage read is pending	needs durable storage driver with replay plus restart machinery; none exists
-
 not-applicable	packages/effect/test/cluster/Sharding.test.ts	425	it.effect	redelivers a remote reset published before active-request cleanup	needs the sharded-entity runtime (entities, mailboxes, storage, fibers); only sync data types exist
-
 not-applicable	packages/effect/test/cluster/Sharding.test.ts	523	it.effect	delivers volatile requests directly to the entity	needs volatile dispatch through entity mailboxes; none exists
-
 not-applicable	packages/effect/test/cluster/Sharding.test.ts	532	it.effect	does not freeze the first caller's context into the entity server	needs the sharded-entity runtime (entities, mailboxes, storage, fibers); only sync data types exist
-
 not-applicable	packages/effect/test/cluster/Sharding.test.ts	548	it.effect	uses services provided when registering an entity	needs the sharded-entity runtime (entities, mailboxes, storage, fibers); only sync data types exist
-
 not-applicable	packages/effect/test/cluster/Sharding.test.ts	564	it.effect	persists durable requests until the entity replies	needs durable storage driver with replay plus restart machinery; none exists
-
 not-applicable	packages/effect/test/cluster/Sharding.test.ts	576	it.live	defects instead of hanging when persisted failures contain non-JSON Error values	needs durable storage driver with replay plus restart machinery; none exists
-
 not-applicable	packages/effect/test/cluster/Sharding.test.ts	592	it.effect	routes durable interrupts through storage	needs durable storage driver with replay plus restart machinery; none exists
-
 not-applicable	packages/effect/test/cluster/Sharding.test.ts	610	it.effect	interrupts aren't sent for durable messages on shutdown	needs fiber interrupts routed through the entity runtime; no fibers here
-
 not-applicable	packages/effect/test/cluster/Sharding.test.ts	630	it.live	shutdown completes when a finalizing entity sends an outgoing message (persisted=${persisted}, preemptiveShutdown=${preemptiveShutdown})	needs durable storage driver with replay plus restart machinery; none exists
-
 not-applicable	packages/effect/test/cluster/Sharding.test.ts	711	it.live	shutdown completes when a finalizing entity awaits a reply from an unroutable entity (persisted=${persisted})	needs durable storage driver with replay plus restart machinery; none exists
-
 not-applicable	packages/effect/test/cluster/Sharding.test.ts	801	it.live	fails a stream when its chunk acknowledgement is abandoned during shutdown	needs streaming with acknowledgement plus TestClock; no Stream runtime
-
 not-applicable	packages/effect/test/cluster/Sharding.test.ts	887	it.effect	interrupts are sent for volatile messages on shutdown	needs fiber interrupts routed through the entity runtime; no fibers here
-
 not-applicable	packages/effect/test/cluster/Sharding.test.ts	936	it.effect	malformed message in storage	needs durable storage driver with replay plus restart machinery; none exists
-
 not-applicable	packages/effect/test/cluster/Sharding.test.ts	975	it.effect	fails volatile requests immediately when the mailbox is full	needs entity mailbox with capacity and retry; none exists
-
 not-applicable	packages/effect/test/cluster/Sharding.test.ts	987	it.effect	durable messages are retried when mailbox is full	needs entity mailbox with capacity and retry; none exists
-
 not-applicable	packages/effect/test/cluster/Sharding.test.ts	1037	it.effect	interrupt for future request works while mailbox is full	needs entity mailbox with capacity and retry; none exists
-
 not-applicable	packages/effect/test/cluster/Sharding.test.ts	1064	it.effect	delivers durable streams and acknowledges each chunk	needs streaming with acknowledgement plus TestClock; no Stream runtime
-
 not-applicable	packages/effect/test/cluster/Sharding.test.ts	1084	it.effect	durable stream while mailbox is full	needs entity mailbox with capacity and retry; none exists
-
 not-applicable	packages/effect/test/cluster/Sharding.test.ts	1145	it.effect	durable messages are retried on restart	needs durable storage driver with replay plus restart machinery; none exists
-
 not-applicable	packages/effect/test/cluster/Sharding.test.ts	1204	it.effect	holds durable messages while entity layers are still building	needs the sharded-entity runtime (entities, mailboxes, storage, fibers); only sync data types exist
-
 not-applicable	packages/effect/test/cluster/Sharding.test.ts	1269	it.effect	defects durable messages when no entity ever registers	needs defect propagation through the entity runtime; none exists
-
 not-applicable	packages/effect/test/cluster/Sharding.test.ts	1330	it.effect	bounds local sends while entity registration is missing	needs entity registration and proxy routing; none exists
-
 not-applicable	packages/effect/test/cluster/Sharding.test.ts	1350	it.effect	recomputes the missing entity deadline when registration starts	needs entity registration and proxy routing; none exists
-
 not-applicable	packages/effect/test/cluster/Sharding.test.ts	1381	it.effect	keeps a shared registration latch when one waiter is interrupted	needs fiber interrupts routed through the entity runtime; no fibers here
-
 not-applicable	packages/effect/test/cluster/Sharding.test.ts	1406	it.effect	bounds client interruption while entity registration is missing	needs fiber interrupts routed through the entity runtime; no fibers here
-
 not-applicable	packages/effect/test/cluster/Sharding.test.ts	1431	it.effect	durable streams are resumed on restart	needs durable storage driver with replay plus restart machinery; none exists
-
 not-applicable	packages/effect/test/cluster/Sharding.test.ts	1491	it.effect	client discard stores durable requests without waiting for replies	needs client-discard semantics with durable processing; no runtime
-
 not-applicable	packages/effect/test/cluster/Sharding.test.ts	1504	it.effect	client discard returns while the durable request keeps processing	needs client-discard semantics with durable processing; no runtime
-
 not-applicable	packages/effect/test/cluster/Sharding.test.ts	1518	it.effect	client discard returns while the volatile request keeps processing	needs volatile dispatch through entity mailboxes; none exists
-
 not-applicable	packages/effect/test/cluster/Sharding.test.ts	1532	it.effect	client volatile discard retries a failed delivery	needs volatile dispatch through entity mailboxes; none exists
-
 not-applicable	packages/effect/test/cluster/Sharding.test.ts	1585	it.effect	defects when a durable request has no MessageStorage	needs durable storage driver with replay plus restart machinery; none exists
-
 not-applicable	packages/effect/test/cluster/Sharding.test.ts	1598	it.effect	reprocesses a completed volatile request id without MessageStorage	needs durable storage driver with replay plus restart machinery; none exists
-
 not-applicable	packages/effect/test/cluster/Sharding.test.ts	1642	it.effect	restarts the entity layer after a handler defect	needs durable storage driver with replay plus restart machinery; none exists
-
 not-applicable	packages/effect/test/cluster/Sharding.test.ts	1654	it.effect	replays in-flight requests when restarting after a defect	needs durable storage driver with replay plus restart machinery; none exists
-
 not-applicable	packages/effect/test/cluster/Sharding.test.ts	1674	it.effect	WithTransaction is propagated to the entity handler	needs transaction propagation into handlers; none exists
-
 not-applicable	packages/effect/test/cluster/Sharding.test.ts	1738	it.effect	swallows persisted interrupts from an idle-reaped nested proxy call	needs durable storage driver with replay plus restart machinery; none exists
-
 not-applicable	packages/effect/test/cluster/Sharding.test.ts	1758	it.effect	swallows persisted interrupts when the caller's shard is released	needs durable storage driver with replay plus restart machinery; none exists
-
 not-applicable	packages/effect/test/cluster/Sharding.test.ts	1809	it.effect	treats node shutdown interrupts as transient via isShutdown	needs fiber interrupts routed through the entity runtime; no fibers here
-
 not-applicable	packages/effect/test/cluster/Sharding.test.ts	1826	it.effect	forwards replayed storage interrupts that have no local provenance	needs durable storage driver with replay plus restart machinery; none exists
-
 not-applicable	packages/effect/test/cluster/Sharding.test.ts	1857	it.effect	forwards interrupts from an external same-node caller	needs fiber interrupts routed through the entity runtime; no fibers here
-
 not-applicable	packages/effect/test/cluster/Sharding.test.ts	1874	it.effect	forwards interrupts from an external same-node caller during entity teardown	needs fiber interrupts routed through the entity runtime; no fibers here
-
 not-applicable	packages/effect/test/cluster/Sharding.test.ts	1901	it.effect	returns registry size to baseline after entity reap storms	needs entity residency tracking and reaping; none exists
-
 not-applicable	packages/effect/test/cluster/Sharding.test.ts	1936	it.effect	bounds resident entities to maxResidentEntities	needs entity residency tracking and reaping; none exists
-
 not-applicable	packages/effect/test/cluster/Sharding.test.ts	1962	it.effect	volatile sends to new entities fail with MailboxFull at the cap	needs entity mailbox with capacity and retry; none exists
-
 not-applicable	packages/effect/test/cluster/Sharding.test.ts	1984	it.effect	keeps delivering to resident entities at the cap	needs entity residency tracking and reaping; none exists
-
 not-applicable	packages/effect/test/cluster/Sharding.test.ts	2016	it.effect	drains a full batch without waiting for the poll interval	needs bounded storage reads with poll loop; none exists
-
 not-applicable	packages/effect/test/cluster/Sharding.test.ts	2031	it.effect	advances past in-flight memory requests when reading bounded batches	needs bounded storage reads with poll loop; none exists
-
 not-applicable	packages/effect/test/cluster/Sharding.test.ts	2045	it.effect	keeps full-sized storage reads when approaching the entity cap	needs durable storage driver with replay plus restart machinery; none exists
-
 ported	packages/effect/test/cluster/Sharding.test.ts	2077	it.effect	normalizes programmatic batch sizes below one	storage_batch_below_one_normalizes_to_one
-
 not-applicable	packages/effect/test/cluster/Sharding.test.ts	2091	it.effect	does not busy-poll storage at the cap	needs durable storage driver with replay plus restart machinery; none exists
-
 not-applicable	packages/effect/test/cluster/Sharding.test.ts	2114	it.effect	unbounded maxResidentEntities does not limit spawning	needs entity residency tracking and reaping; none exists
-
 not-applicable	packages/effect/test/cluster/Sharding.test.ts	2128	it.effect	interrupts entities and reacquires shards after lock storage recovers	needs durable storage driver with replay plus restart machinery; none exists
-
 not-applicable	packages/effect/test/cluster/Sharding.test.ts	2223	it.effect	reacquires shards when the liveness probe succeeds while lock refresh is hung	needs shard lock storage plus liveness probes; none exists
-
 not-applicable	packages/effect/test/cluster/Sharding.test.ts	2279	it.effect	keeps the graceful timeout for normal shard reassignment	needs shard lock storage plus liveness probes; none exists
-
 not-applicable	packages/effect/test/cluster/Sharding.test.ts	2354	it.effect	does not wait for entity construction before a forced shard release	needs shard lock storage plus liveness probes; none exists
-
 not-applicable	packages/effect/test/cluster/Sharding.test.ts	2422	it.effect	does not acquire shards while a forced release is pending	needs shard lock storage plus liveness probes; none exists
-
 ported	packages/effect/test/cluster/ShardingConfig.test.ts	6	it.effect	bounds runner residency and storage reads by default	sharding_config_defaults_and_validation
 ported	packages/effect/test/cluster/ShardingConfig.test.ts	33	it.effect	omits the optional listen address when its host is absent	sharding_config_listen_address_needs_host
 ported	packages/effect/test/cluster/ShardingConfig.test.ts	61	it.effect	rejects non-positive residency and batch limits	sharding_config_defaults_and_validation
@@ -6943,15 +6415,10 @@ ported	packages/effect/test/eventlog/EventLogSessionAuth.test.ts	88	it.effect	re
 ported	packages/effect/test/eventlog/EventLogSessionAuth.test.ts	102	it.effect	rejects malformed signing public key length	eventlog_session_auth
 ported	packages/effect/test/eventlog/EventLogSessionAuth.test.ts	114	it.effect	rejects invalid canonical payload bytes	eventlog_session_auth
 not-applicable	packages/effect/test/eventlog/SqlEventLogServerUnencryptedStorageTest.ts	48	it.layer	30 seconds	needs SqlClient layer + Reactivity layer harness; no DI layers or SQL driver in this port
-
 not-applicable	packages/effect/test/eventlog/SqlEventLogServerUnencryptedStorageTest.ts	52	it.effect	persists remote id across storage instances	needs shared remote-id table across makeStorage instances; no SQL storage backend
-
 not-applicable	packages/effect/test/eventlog/SqlEventLogServerUnencryptedStorageTest.ts	64	it.effect	replays backlog and then streams live changes without startup duplication	needs changes replay-then-live stream without duplication; no SQL backend or stream runtime
-
 not-applicable	packages/effect/test/eventlog/SqlEventLogServerUnencryptedStorageTest.ts	96	it.effect	handles the changes startup race without losing or duplicating rows	needs SQL-backed changes race handling; no SQL backend
-
 not-applicable	packages/effect/test/eventlog/SqlEventLogServerUnencryptedStorageTest.ts	136	it.effect	isolates reads and streams between stores	needs per-store SQL table isolation; no SQL backend
-
 ported	packages/effect/test/http/Cookies.test.ts	11	it	rejects cookie attribute delimiters in names, domains, and paths	cookies_reject_invalid_names
 ported	packages/effect/test/http/Cookies.test.ts	26	it	accepts RFC 6265 token names and legitimate domains and paths	cookies_reject_invalid_names
 ported	packages/effect/test/http/Cookies.test.ts	44	it	ignores invalid cookie names	cookies_reject_invalid_names
@@ -7104,71 +6571,38 @@ not-applicable	packages/effect/test/http/HttpClientRequest.test.ts	247	it	fromWe
 not-applicable	packages/effect/test/http/HttpClientRequest.test.ts	265	it.effect	toWeb stream body	no HttpClientRequest surface in crates/elm-effect-unstable/src/http.rs (only HttpRequest/Headers/cookie helpers); missing typed request builder/body length/form-data/web conversion
 not-applicable	packages/effect/test/http/HttpClientRequest.test.ts	281	it	toWebResult returns failure for invalid url	no HttpClientRequest surface in crates/elm-effect-unstable/src/http.rs (only HttpRequest/Headers/cookie helpers); missing typed request builder/body length/form-data/web conversion
 ported	packages/effect/test/http/HttpCompression.test.ts	100	it	preserves a Content-Type header override when compressing web ${name} responses	preserves_content_type_override_when_compressing_stream_response preserves_content_type_override_when_compressing_bytes_response preserves_content_type_override_when_compressing_raw_response
-
 ported	packages/effect/test/http/HttpCompression.test.ts	112	it	preserves a header-only Content-Type when compressing web Raw responses	preserves_header_only_content_type_for_raw_responses
-
 ported	packages/effect/test/http/HttpCompression.test.ts	128	it	compresses a compressible response with gzip	compresses_a_compressible_response_with_gzip
-
 ported	packages/effect/test/http/HttpCompression.test.ts	138	it	compresses with deflate when requested	compresses_with_deflate_when_requested
-
 ported	packages/effect/test/http/HttpCompression.test.ts	145	it	server preference order picks br over gzip when supported	server_preference_order_picks_br_over_gzip_when_supported
-
 ported	packages/effect/test/http/HttpCompression.test.ts	153	it	client q-values decide acceptability only, server order decides ranking	client_q_values_decide_acceptability_only_server_order_ranks
-
 ported	packages/effect/test/http/HttpCompression.test.ts	161	it	q=0 makes a coding unacceptable	q_zero_makes_a_coding_unacceptable
-
 ported	packages/effect/test/http/HttpCompression.test.ts	168	it	falls through server order past q=0 codings	falls_through_server_order_past_q_zero_codings
-
 ported	packages/effect/test/http/HttpCompression.test.ts	173	it	wildcard matches unlisted codings	wildcard_matches_unlisted_codings
-
 ported	packages/effect/test/http/HttpCompression.test.ts	178	it	wildcard with q=0 disables unlisted codings	wildcard_with_q_zero_disables_unlisted_codings
-
 ported	packages/effect/test/http/HttpCompression.test.ts	185	it	sends identity with 200 when nothing is acceptable, never 406	sends_identity_with_200_when_nothing_is_acceptable
-
 ported	packages/effect/test/http/HttpCompression.test.ts	193	it	treats a malformed Accept-Encoding as absent	treats_a_malformed_accept_encoding_as_absent
-
 ported	packages/effect/test/http/HttpCompression.test.ts	199	it	treats an out-of-range q-value as absent	treats_an_out_of_range_q_value_as_absent
-
 ported	packages/effect/test/http/HttpCompression.test.ts	205	it	does not compress without an Accept-Encoding header	does_not_compress_without_an_accept_encoding_header
-
 ported	packages/effect/test/http/HttpCompression.test.ts	212	it	skips bodies below minSize but still sets Vary	skips_bodies_below_min_size_but_still_sets_vary
-
 ported	packages/effect/test/http/HttpCompression.test.ts	221	it	respects a custom minSize	respects_a_custom_min_size
-
 ported	packages/effect/test/http/HttpCompression.test.ts	227	it	ignores malformed content lengths when checking minSize	ignores_malformed_content_lengths_when_checking_min_size
-
 ported	packages/effect/test/http/HttpCompression.test.ts	240	it	skips non-compressible content types without Vary	skips_non_compressible_content_types_without_vary
-
 ported	packages/effect/test/http/HttpCompression.test.ts	249	it	supports a custom compressible predicate	supports_a_custom_compressible_predicate
-
 ported	packages/effect/test/http/HttpCompression.test.ts	260	it	leaves already-encoded responses untouched	leaves_already_encoded_responses_untouched
-
 ported	packages/effect/test/http/HttpCompression.test.ts	273	it	does not stamp headers when a Raw body cannot be transformed	does_not_stamp_headers_when_a_raw_body_cannot_be_transformed
-
 ported	packages/effect/test/http/HttpCompression.test.ts	287	it	strips a Content-Encoding: identity opt-out before sending	strips_a_content_encoding_identity_opt_out_before_sending
-
 ported	packages/effect/test/http/HttpCompression.test.ts	299	it	honors Cache-Control: no-transform	honors_cache_control_no_transform
-
 ported	packages/effect/test/http/HttpCompression.test.ts	311	it	leaves 204, 304, and 206 responses untouched	leaves_204_304_and_206_responses_untouched
-
 ported	packages/effect/test/http/HttpCompression.test.ts	333	it	mirrors GET headers for HEAD requests without a body	mirrors_get_headers_for_head_requests_without_a_body
-
 not-applicable	packages/effect/test/http/HttpCompression.test.ts	340	it	compresses unknown-length streams incrementally	needs async Stream runtime with latch-gated interleaving for incremental backpressure; no Stream runtime
-
 ported	packages/effect/test/http/HttpCompression.test.ts	377	it	weakens a strong ETag on compressed responses	weakens_a_strong_etag_on_compressed_responses
-
 ported	packages/effect/test/http/HttpCompression.test.ts	388	it	leaves a weak ETag unchanged on compressed responses	leaves_a_weak_etag_unchanged_on_compressed_responses
-
 ported	packages/effect/test/http/HttpCompression.test.ts	399	it	leaves the ETag of skipped responses unchanged	leaves_the_etag_of_skipped_responses_unchanged
-
 ported	packages/effect/test/http/HttpCompression.test.ts	410	it	falls through to a supported algorithm when the preferred one is unavailable	falls_through_to_a_supported_algorithm_when_the_preferred_is_unavailable
-
 ported	packages/effect/test/http/HttpCompression.test.ts	418	it	appends Accept-Encoding to an existing Vary header	appends_accept_encoding_to_an_existing_vary_header
-
 ported	packages/effect/test/http/HttpCompression.test.ts	429	it	does not duplicate Accept-Encoding in Vary and leaves Vary: * alone	does_not_duplicate_accept_encoding_in_vary_and_leaves_vary_star_alone
-
 ported	packages/effect/test/http/HttpCompression.test.ts	453	it	preserves cookies on compressed responses	preserves_cookies_on_compressed_responses
-
 not-applicable	packages/effect/test/http/HttpEffect.test.ts	12	it.effect	restores the request Scope context identity	N/A: rust unstable HTTP effect lacks full handler/middleware/server runtime parity with Effect HttpEffect, so these rows cannot be represented in the Rust port
 not-applicable	packages/effect/test/http/HttpEffect.test.ts	36	it.effect	propagates a handler failure through middleware to request and forked scopes	N/A: rust unstable HTTP effect lacks full handler/middleware/server runtime parity with Effect HttpEffect, so these rows cannot be represented in the Rust port
 not-applicable	packages/effect/test/http/HttpEffect.test.ts	73	test	skips the server span with the default tracer	N/A: rust unstable HTTP effect lacks full handler/middleware/server runtime parity with Effect HttpEffect, so these rows cannot be represented in the Rust port
@@ -7233,29 +6667,17 @@ ported	packages/effect/test/http/HttpServerError.test.ts	93	it	matches wrapper o
 ported	packages/effect/test/http/HttpServerError.test.ts	107	it	returns none cause for response defects	server_error_cause_response_stripped
 ported	packages/effect/test/http/HttpServerError.test.ts	114	it	returns some cause for non-response failures	server_error_cause_response_stripped
 not-applicable	packages/effect/test/http/HttpServerRequest.test.ts	8	it.effect	preserves FormData through client-server-client conversion	needs FormData through client-server-client conversion; no multipart codec or web runtime
-
 ported	packages/effect/test/http/HttpServerRequest.test.ts	32	it	toClientRequest	to_client_request_maps_method_url_headers_and_params
-
 ported	packages/effect/test/http/HttpServerRequest.test.ts	68	it	toClientRequest ignores malformed or unsafe content lengths	to_client_request_ignores_malformed_or_unsafe_content_lengths
-
 ported	packages/effect/test/http/HttpServerRequest.test.ts	88	it	toClientRequest keeps empty bodies empty	to_client_request_keeps_empty_bodies_empty
-
 ported	packages/effect/test/http/HttpServerRequest.test.ts	106	it.effect	fromClientRequest preserves request metadata and shares concurrent stream body accessors	from_client_request_preserves_metadata_and_shares_body_accessors
-
 not-applicable	packages/effect/test/http/HttpServerRequest.test.ts	128	it.effect	fromClientRequest exposes FormData bodies as multipart parts	needs FormData bodies as multipart parts; no multipart codec
-
 not-applicable	packages/effect/test/http/HttpServerRequest.test.ts	156	it.effect	reads a raw BodyInit after conversion from a client request	needs raw BodyInit web type; none exists
-
 not-applicable	packages/effect/test/http/HttpServerRequest.test.ts	163	it.effect	reads raw BodyInit bytes after conversion from a client request	needs raw BodyInit bytes; no web types
-
 not-applicable	packages/effect/test/http/HttpServerRequest.test.ts	170	it.effect	streams a raw URLSearchParams after conversion from a client request	needs URLSearchParams streaming; no web types
-
 not-applicable	packages/effect/test/http/HttpServerRequest.test.ts	180	it.effect	schemaBodyJson applies parse options	needs schemaBodyJson with schema wiring; would add elm-effect-schema dep for one row
-
 ported	packages/effect/test/http/HttpServerRequest.test.ts	213	it	remoteAddress defaults to none for web requests	remote_address_defaults_to_none_for_web_requests
-
 ported	packages/effect/test/http/HttpServerRequest.test.ts	218	it	modify distinguishes missing and explicit none remoteAddress	modify_distinguishes_missing_and_explicit_none_remote_address
-
 not-applicable	packages/effect/test/http/HttpServerRespondable.test.ts	7	it.effect	maps SchemaError to a 400 response	the row maps a SchemaError produced during decoding to a 400 response; this port has no schema AST to produce a SchemaError from, so the mapping has no input
 ported	packages/effect/test/http/HttpServerRespondable.test.ts	16	it.effect	falls back for other errors	server_respondable_to_response_or_else_falls_back
 not-applicable	packages/effect/test/http/HttpServerResponse.test.ts	9	it.each	prefers outer status $status and merges raw Response headers with withoutBody=$withoutBody	Effect raw Web Response interop (outer status/header merge/withoutBody/body omission): port Response in crates/elm-effect-unstable/src/http_server.rs has no web_sys/Web Response counterface and no withoutBody representation, so raw Response metadata merging is not representable
@@ -7285,39 +6707,22 @@ ported	packages/effect/test/http/Mime.test.ts	22	it	returns none for unknown and
 ported	packages/effect/test/http/Mime.test.ts	27	it	handles extensions case-insensitively	handles_extensions_case_insensitively
 ported	packages/effect/test/http/Mime.test.ts	32	it	exposes reverse lookups at the module level	exposes_reverse_lookups
 ported	packages/effect/test/http/Multipart.test.ts	8	it.effect	schemaJson applies a JSON reviver	schema_json_applies_reviver
-
 ported	packages/effect/test/http/Multipart.test.ts	17	it.effect	parses fields and streams file content as stream parts	parses_fields_and_file_content
-
 ported	packages/effect/test/http/Multipart.test.ts	56	it.effect	collects file content across pulls and a split trailing boundary	collects_file_across_split_trailing_boundary
-
 not-applicable	packages/effect/test/http/Multipart.test.ts	84	it.live	emits a field buffered while reading a file without pulling more input	needs backpressure (field emitted without pulling more input); no Stream/Channel runtime
-
 ported	packages/effect/test/http/Multipart.test.ts	122	it.effect	parses non-Latin-1 filenames	parses_non_latin1_filenames
-
 ported	packages/effect/test/http/Multipart.test.ts	146	it.effect	fails when a limit is exceeded even if the whole body arrives in one chunk	fails_when_part_limit_exceeded_in_one_chunk
-
 ported	packages/effect/test/http/Multipart.test.ts	168	it.effect	propagates FileTooLarge after a file exceeds the limit mid-stream	propagates_file_too_large_mid_stream
-
 ported	packages/effect/test/http/Multipart.test.ts	204	it.effect	propagates BodyTooLarge after the total size limit is exceeded mid-file	propagates_body_too_large_mid_file
-
 not-applicable	packages/effect/test/http/Multipart.test.ts	250	it.live	propagates upstream failure while consuming an active file	needs upstream-failure propagation while consuming an active file; no Stream runtime
-
 not-applicable	packages/effect/test/http/Multipart.test.ts	272	it.live	preserves upstream failure when collecting an active file with contentEffect	needs upstream-failure preservation on collect; no Stream runtime
-
 not-applicable	packages/effect/test/http/Multipart.test.ts	289	it.live	preserves the upstream error cause when persisting an active file	needs upstream error-cause preservation on persist; no Stream runtime
-
 ported	packages/effect/test/http/Multipart.test.ts	318	it.effect	propagates Parse when the body ends mid-file	propagates_parse_when_body_ends_mid_file
-
 ported	packages/effect/test/http/Multipart.test.ts	405	it	handles the final boundary delimiter split between the trailing hyphens	handles_final_boundary_split_between_trailing_hyphens
-
 ported	packages/effect/test/http/Multipart.test.ts	439	it.effect	returns distinct persisted file paths as non-stream parts	returns_distinct_persisted_file_paths
-
 ported	packages/effect/test/http/Multipart.test.ts	470	it.effect	responds based on the reason and is ignored by the ErrorReporter	responds_by_reason_and_ignores_reporter
-
 ported	packages/effect/test/http/Multipart.test.ts	491	it	toJsonSchema	persisted_file_json_schema_shape
-
 ported	packages/effect/test/http/Multipart.test.ts	520	it	identifies multipart errors	identifies_multipart_errors
-
 not-applicable	packages/effect/test/http/SchemaRepresentation.test.ts	5	it	generates code for declaration schemas	missing: SchemaRepresentation round-trip over http wire format repr (repr path differs; no SchemaRepresentation in src/lib.rs)
 not-applicable	packages/effect/test/http/Template.test.ts	7	it.effect	preserves template segment order	Rust elm-effect-unstable has no http::Template tagged-template interpolation module or concurrent interpolation scheduler to witness either row
 not-applicable	packages/effect/test/http/Template.test.ts	18	it.effect	evaluates effect interpolations concurrently	Rust elm-effect-unstable has no http::Template tagged-template interpolation module or concurrent interpolation scheduler to witness either row
@@ -7354,127 +6759,66 @@ ported	packages/effect/test/httpapi/HttpApi.test.ts	54	it	does not add inherited
 ported	packages/effect/test/httpapi/HttpApi.test.ts	65	it	keeps annotations from API variants isolated	httpapi_variant_annotations_stay_isolated
 ported	packages/effect/test/httpapi/HttpApi.test.ts	86	it	preserves group annotation precedence	httpapi_group_annotation_beats_api_annotation
 not-applicable	packages/effect/test/httpapi/HttpApiBuilder.test.ts	38	it.layer	HttpApiBuilder ParseOptions	needs ParseOptions with Schema excess-property machinery
-
 not-applicable	packages/effect/test/httpapi/HttpApiBuilder.test.ts	42	it.effect	strict SSE encoding rejects excess properties in user event data	needs strict SSE encoding with Schema codec layer
-
 not-applicable	packages/effect/test/httpapi/HttpApiBuilder.test.ts	65	it.effect	SSE encoding aggregates all user data issues in the reserved failure event	needs SSE encoding with Schema codec layer
-
 not-applicable	packages/effect/test/httpapi/HttpApiBuilder.test.ts	117	it.effect	POST payload decoding collects all issues from API options	needs POST payload decoding with all-issues collection
-
 not-applicable	packages/effect/test/httpapi/HttpApiBuilder.test.ts	124	it.effect	POST payload decoding defaults to the first issue	needs first-issue parse mode; decode is fail-fast
-
 not-applicable	packages/effect/test/httpapi/HttpApiBuilder.test.ts	131	it.effect	endpoint options replace the whole API value	needs endpoint-vs-API ParseOptions evaluation, not just storage
-
 not-applicable	packages/effect/test/httpapi/HttpApiBuilder.test.ts	144	it.effect	error responses stay encodable under strict excess options	needs strict excess-property error responses
-
 not-applicable	packages/effect/test/httpapi/HttpApiBuilder.test.ts	202	it.layer	HttpApiBuilder slot ParseOptions	needs slot ParseOptions with Schema codec machinery
-
 not-applicable	packages/effect/test/httpapi/HttpApiBuilder.test.ts	203	it.effect	API slot annotations replace endpoint ParseOptions one codec at a time	needs API-vs-endpoint annotation precedence in codecs
-
 not-applicable	packages/effect/test/httpapi/HttpApiBuilder.test.ts	269	it.effect	encodeToWithHeaders response headers use HeadersParseOptions	needs HeadersParseOptions with header codec layer
-
 not-applicable	packages/effect/test/httpapi/HttpApiBuilder.test.ts	318	it.layer	HttpApiBuilder.handler	needs handler registration runtime
-
 ported	packages/effect/test/httpapi/HttpApiBuilder.test.ts	319	it.effect	round trips a path parameter followed by a literal action suffix	round_trips_a_path_parameter_followed_by_a_literal_action_suffix
-
 ported	packages/effect/test/httpapi/HttpApiBuilder.test.ts	337	it.effect	does not bind a non-word schema key in a literal client path	does_not_bind_a_non_word_schema_key_in_a_literal_client_path
-
 ported	packages/effect/test/httpapi/HttpApiBuilder.test.ts	353	it.effect	returns the callback unchanged and supports registration in a group	returns_the_callback_unchanged_and_supports_registration_in_a_group
-
 ported	packages/effect/test/httpapi/HttpApiBuilder.test.ts	381	it.effect	round trips a QUERY request body	round_trips_a_query_request_body
-
 not-applicable	packages/effect/test/httpapi/HttpApiBuilder.test.ts	401	it.layer	HttpApiTest pre-response handlers	needs pre-response handler chain
-
 not-applicable	packages/effect/test/httpapi/HttpApiBuilder.test.ts	402	it.effect	runs registered pre-response handlers	needs pre-response handler chain
-
 not-applicable	packages/effect/test/httpapi/HttpApiBuilder.test.ts	427	it.layer	HttpApiBuilder query parameters	needs query-param routing runtime
-
 ported	packages/effect/test/httpapi/HttpApiBuilder.test.ts	428	it.effect	round trips array query parameters with one or more values	round_trips_array_query_parameters_with_one_or_more_values
-
 not-applicable	packages/effect/test/httpapi/HttpApiBuilder.test.ts	453	it.effect	reuses response schema transformations by source AST	needs response schema transformation by source AST identity
-
 not-applicable	packages/effect/test/httpapi/HttpApiBuilder.test.ts	486	it.layer	HttpApiBuilder payload content types	needs payload content-type negotiation with codecs
-
 ported	packages/effect/test/httpapi/HttpApiBuilder.test.ts	487	it.effect	round trips mixed-case media types with declared and received parameters	round_trips_mixed_case_media_types_with_declared_and_received_parameters
-
 ported	packages/effect/test/httpapi/HttpApiBuilder.test.ts	527	it.effect	round trips custom form-urlencoded media types	round_trips_custom_form_urlencoded_media_types
-
 not-applicable	packages/effect/test/httpapi/HttpApiBuilder.test.ts	553	it.layer	HttpApiBuilder WithHeaders responses	needs WithHeaders response machinery
-
 not-applicable	packages/effect/test/httpapi/HttpApiBuilder.test.ts	554	it.effect	encodes WithHeaders using the schema for the response status	needs WithHeaders with schema response encoding
-
 not-applicable	packages/effect/test/httpapi/HttpApiBuilder.test.ts	597	it.effect	encodes a branded response against the header-carrying member when body shapes overlap	needs branded WithHeaders body matching
-
 not-applicable	packages/effect/test/httpapi/HttpApiBuilder.test.ts	630	it.effect	fails with a Body schema error when a branded response body matches no header-carrying member	needs Body schema errors on branded mismatch
-
 not-applicable	packages/effect/test/httpapi/HttpApiBuilder.test.ts	667	it.effect	round trips user-managed header codecs through HttpApiTest	needs user-managed header codecs
-
 not-applicable	packages/effect/test/httpapi/HttpApiBuilder.test.ts	700	it.effect	passes through string-shaped WithHeaders when endpoint codecs are disabled	needs string-shaped WithHeaders passthrough (codecs disabled path unrepresentable)
-
 not-applicable	packages/effect/test/httpapi/HttpApiBuilder.test.ts	754	it.effect	encodes and decodes response headers with codecs enabled	needs header encode/decode with codecs enabled
-
 not-applicable	packages/effect/test/httpapi/HttpApiBuilder.test.ts	790	it.effect	decodes a transforming buffered success body and its declared headers	needs transforming buffered body plus declared headers
-
 not-applicable	packages/effect/test/httpapi/HttpApiBuilder.test.ts	817	it.effect	round trips a client-received branded value through another handler	needs branded roundtrip through handlers
-
 not-applicable	packages/effect/test/httpapi/HttpApiBuilder.test.ts	851	it.effect	encodes a buffered success body and its declared headers	needs buffered success plus declared headers
-
 not-applicable	packages/effect/test/httpapi/HttpApiBuilder.test.ts	886	it.effect	does not unwrap an unbranded value in a mixed success union	needs mixed success union discrimination
-
 not-applicable	packages/effect/test/httpapi/HttpApiBuilder.test.ts	916	it.effect	decodes a plain value in a mixed WithHeaders success union	needs plain value in WithHeaders union decoding
-
 not-applicable	packages/effect/test/httpapi/HttpApiBuilder.test.ts	942	it.effect	applies declared headers after body encoding	needs declared headers applied after body encoding
-
 not-applicable	packages/effect/test/httpapi/HttpApiBuilder.test.ts	973	it.effect	encodes error headers through encodeToWithHeaders	needs error headers through encodeToWithHeaders
-
 not-applicable	packages/effect/test/httpapi/HttpApiBuilder.test.ts	1007	it.effect	encodes annotation headers from their declared encoded shape	needs annotation headers from encoded shape
-
 not-applicable	packages/effect/test/httpapi/HttpApiBuilder.test.ts	1041	it.effect	encodes and decodes an error wrapped in WithHeaders	needs error wrapped in WithHeaders
-
 not-applicable	packages/effect/test/httpapi/HttpApiBuilder.test.ts	1071	it.effect	passes through string-shaped encodeToWithHeaders values when endpoint codecs are disabled	needs string-shaped encodeToWithHeaders passthrough
-
 not-applicable	packages/effect/test/httpapi/HttpApiBuilder.test.ts	1111	it.effect	decodes an error body and headers through encodeToWithHeaders	needs error body plus headers through encodeToWithHeaders
-
 not-applicable	packages/effect/test/httpapi/HttpApiBuilder.test.ts	1151	it.effect	defects with ResponseHeaders when success header encoding fails	needs ResponseHeaders defects on header encoding failure
-
 not-applicable	packages/effect/test/httpapi/HttpApiBuilder.test.ts	1183	it.layer	HttpApiBuilder streaming success responses	needs streaming success runtime
-
 not-applicable	packages/effect/test/httpapi/HttpApiBuilder.test.ts	1191	it.effect	preserves WithHeaders stream status: ${name}	needs WithHeaders stream status machinery
-
 not-applicable	packages/effect/test/httpapi/HttpApiBuilder.test.ts	1229	it.effect	emits StreamUint8Array handler responses as streamed bytes with the declared content type	needs StreamUint8Array streaming bytes
-
 not-applicable	packages/effect/test/httpapi/HttpApiBuilder.test.ts	1260	it.effect	unwraps WithHeaders StreamUint8Array responses before stream dispatch	needs WithHeaders StreamUint8Array unwrapping
-
 not-applicable	packages/effect/test/httpapi/HttpApiBuilder.test.ts	1295	it.effect	renders successful StreamSse events incrementally with the declared content type	needs incremental StreamSse rendering
-
 not-applicable	packages/effect/test/httpapi/HttpApiBuilder.test.ts	1338	it.effect	unwraps WithHeaders StreamSse responses before SSE encoding	needs WithHeaders StreamSse unwrapping before SSE encoding
-
 not-applicable	packages/effect/test/httpapi/HttpApiBuilder.test.ts	1383	it.effect	fails WithHeaders stream header encoding before returning a response	needs WithHeaders stream header encoding
-
 not-applicable	packages/effect/test/httpapi/HttpApiBuilder.test.ts	1417	it.effect	renders StreamSse failures as one reserved event containing an encoded full cause	needs reserved StreamSse failure events
-
 not-applicable	packages/effect/test/httpapi/HttpApiBuilder.test.ts	1458	it.effect	supports buffered and stream successes with the same status	needs buffered+stream success coexistence
-
 not-applicable	packages/effect/test/httpapi/HttpApiBuilder.test.ts	1506	it.effect	keeps a plain buffered alternative when the stream is wrapped	needs plain buffered alternative to wrapped stream
-
 not-applicable	packages/effect/test/httpapi/HttpApiBuilder.test.ts	1535	it.effect	detects a wrapped buffered alternative alongside a plain stream	needs wrapped buffered alternative detection
-
 ported	packages/effect/test/httpapi/HttpApiBuilder.test.ts	1567	it.effect	registers handleAll handlers at runtime	registers_handle_all_handlers_at_runtime
-
 ported	packages/effect/test/httpapi/HttpApiBuilder.test.ts	1621	it.effect	rejects unknown endpoint identifiers	rejects_unknown_endpoint_identifiers
-
 ported	packages/effect/test/httpapi/HttpApiBuilder.test.ts	1649	it.effect	rejects duplicate handle and handleAll registrations	rejects_duplicate_handle_and_handle_all_registrations
-
 not-applicable	packages/effect/test/httpapi/HttpApiBuilder.test.ts	1687	it.effect	ignores inherited handleAll properties	needs JS prototype inheritance for handleAll; Rust maps have own keys only
-
 ported	packages/effect/test/httpapi/HttpApiBuilder.test.ts	1717	it.effect	executes effectful handler builders	executes_effectful_handler_builders
-
 not-applicable	packages/effect/test/httpapi/HttpApiBuilder.test.ts	1754	it.effect	does not try another security scheme after the handler fails	needs security-scheme failover runtime
-
 not-applicable	packages/effect/test/httpapi/HttpApiBuilder.test.ts	1811	it.layer	HttpApiBuilder middleware error responses	needs middleware error response machinery
-
 not-applicable	packages/effect/test/httpapi/HttpApiBuilder.test.ts	1812	it.effect	encodes a middleware error through the response codec	needs middleware error codec encoding
-
 not-applicable	packages/effect/test/httpapi/HttpApiClient.test.ts	19	it.effect	strict events-mode decoding omits an absent event ID	strict events-mode decoding needs Schema compiler plus Sse wire decoder
 not-applicable	packages/effect/test/httpapi/HttpApiClient.test.ts	33	it.effect	strict SSE decoding accepts valid user data and framework event metadata	strict SSE user-data decoding needs Schema compiler plus Sse wire decoder
 not-applicable	packages/effect/test/httpapi/HttpApiClient.test.ts	53	it.effect	strict SSE decoding preserves reserved failure causes	reserved failure Cause decode needs Schema compiler plus Sse wire decoder
@@ -7523,25 +6867,15 @@ not-applicable	packages/effect/test/httpapi/HttpApiClient.test.ts	1047	it.effect
 ported	packages/effect/test/httpapi/HttpApiClient.test.ts	1077	it.effect	encodes path parameters when executing requests	encodes_path_parameters_when_executing_requests
 ported	packages/effect/test/httpapi/HttpApiClient.test.ts	1111	it.effect	omits optional path parameters when executing requests	omits_optional_path_parameters_when_executing_requests
 ported	packages/effect/test/httpapi/HttpApiDocumentation.test.ts	14	it.effect	defers and memoizes successful openapiPath responses	defers_and_memoizes_successful_openapi_path_responses
-
 ported	packages/effect/test/httpapi/HttpApiDocumentation.test.ts	59	it.effect	retries openapiPath generation after a defect	retries_openapi_path_generation_after_a_defect
-
 ported	packages/effect/test/httpapi/HttpApiDocumentation.test.ts	92	it.effect	defers and memoizes successful OpenAPI responses	scalar_and_swagger_share_the_memoize_and_retry_contract
-
 ported	packages/effect/test/httpapi/HttpApiDocumentation.test.ts	132	it.effect	retries OpenAPI generation after a defect	scalar_and_swagger_share_the_memoize_and_retry_contract
-
 ported	packages/effect/test/httpapi/HttpApiDocumentation.test.ts	160	it.effect	defers inline Scalar generation until the route is requested	defers_scalar_generation_until_the_route_is_requested
-
 ported	packages/effect/test/httpapi/HttpApiDocumentation.test.ts	184	it.effect	escapes OpenAPI metadata in its HTML contexts	escapes_openapi_metadata_in_its_html_contexts
-
 ported	packages/effect/test/httpapi/HttpApiDocumentation.test.ts	204	it.effect	encodes CDN versions before interpolating the script source	encodes_cdn_versions_before_interpolating_the_script_source
-
 ported	packages/effect/test/httpapi/HttpApiDocumentation.test.ts	220	it.effect	defers and memoizes successful OpenAPI responses	scalar_and_swagger_share_the_memoize_and_retry_contract
-
 ported	packages/effect/test/httpapi/HttpApiDocumentation.test.ts	260	it.effect	retries OpenAPI generation after a defect	scalar_and_swagger_share_the_memoize_and_retry_contract
-
 ported	packages/effect/test/httpapi/HttpApiDocumentation.test.ts	288	it.effect	escapes script end-tag variants in OpenAPI data	escapes_script_end_tag_variants_in_openapi_data
-
 ported	packages/effect/test/httpapi/HttpApiEndpoint.test.ts	14	it	stores the supplied identifier	stores_the_supplied_identifier
 not-applicable	packages/effect/test/httpapi/HttpApiEndpoint.test.ts	20	it	can be extended as a class	requires TS class extension (typeof/isHttpApiEndpoint/class name) with prefix derivation; no class system in Rust
 ported	packages/effect/test/httpapi/HttpApiEndpoint.test.ts	36	it	normalizes payload map keys while preserving the declared content type	normalizes_payload_map_keys_while_preserving_the_declared_content_type
@@ -7575,51 +6909,28 @@ ported	packages/effect/test/httpapi/HttpApiEndpoint.test.ts	417	it	validates a w
 ported	packages/effect/test/httpapi/HttpApiEndpoint.test.ts	433	it	rejects wrapped and bare streams at distinct statuses	rejects_wrapped_and_bare_streams_at_distinct_statuses
 not-applicable	packages/effect/test/httpapi/HttpApiEndpoint.test.ts	464	it	keeps WithHeaders in the error set with codec-transformed parts	requires Schema codecs transforming error header parts; no schema codec engine
 ported	packages/effect/test/httpapi/HttpApiSchema.test.ts	21	it	stores default metadata	stream_sse_stores_default_metadata
-
 ported	packages/effect/test/httpapi/HttpApiSchema.test.ts	49	it	stores custom content type	stream_sse_stores_custom_content_type
-
 ported	packages/effect/test/httpapi/HttpApiSchema.test.ts	64	it	defaults the stream error schema to Never	stream_sse_defaults_error_to_never
-
 ported	packages/effect/test/httpapi/HttpApiSchema.test.ts	74	it	creates an event schema from a JSON data schema	stream_sse_creates_event_schema_from_json_data
-
 ported	packages/effect/test/httpapi/HttpApiSchema.test.ts	94	it	stores default metadata	stream_uint8array_stores_default_metadata
-
 ported	packages/effect/test/httpapi/HttpApiSchema.test.ts	109	it	stores custom content type	stream_uint8array_stores_custom_content_type
-
 ported	packages/effect/test/httpapi/HttpApiSchema.test.ts	119	it	stores the inner schema and headers schema	with_headers_stores_inner_and_headers
-
 ported	packages/effect/test/httpapi/HttpApiSchema.test.ts	129	it	does not identify other schemas as WithHeaders	does_not_identify_other_schemas_as_with_headers
-
 ported	packages/effect/test/httpapi/HttpApiSchema.test.ts	134	it	supports a fields shorthand for headers	with_headers_supports_fields_shorthand
-
 ported	packages/effect/test/httpapi/HttpApiSchema.test.ts	143	it	rejects nested WithHeaders schemas	with_headers_rejects_nested_wrappers
-
 ported	packages/effect/test/httpapi/HttpApiSchema.test.ts	152	it	accepts only branded values when decoding	with_headers_accepts_only_branded_values
-
 ported	packages/effect/test/httpapi/HttpApiSchema.test.ts	160	it	keeps the wrapper intact through annotate	with_headers_keeps_wrapper_intact_through_annotate
-
 ported	packages/effect/test/httpapi/HttpApiSchema.test.ts	169	it	resolves the status from the wrapper first, falling through to the inner schema	with_headers_resolves_status_wrapper_first
-
 ported	packages/effect/test/httpapi/HttpApiSchema.test.ts	189	it	resolves the response encoding from the wrapper first, falling through to the inner schema	with_headers_resolves_encoding_wrapper_first
-
 ported	packages/effect/test/httpapi/HttpApiSchema.test.ts	210	it	constructs a branded response value	with_headers_value_constructs_branded_response
-
 ported	packages/effect/test/httpapi/HttpApiSchema.test.ts	236	it	encodes to a body and headers pair	encode_to_with_headers_encodes_body_and_headers_pair
-
 ported	packages/effect/test/httpapi/HttpApiSchema.test.ts	243	it	decodes a pair back to the source type	encode_to_with_headers_decodes_pair_back
-
 ported	packages/effect/test/httpapi/HttpApiSchema.test.ts	250	it	resolves the status from the body schema	encode_to_with_headers_resolves_status_from_body
-
 ported	packages/effect/test/httpapi/HttpApiSchema.test.ts	254	it	resolves the response encoding from the body schema	encode_to_with_headers_resolves_encoding_from_body
-
 ported	packages/effect/test/httpapi/HttpApiSchema.test.ts	268	it	defaults the response encoding to Json	encode_to_with_headers_defaults_encoding_to_json
-
 ported	packages/effect/test/httpapi/HttpApiSchema.test.ts	272	it	uses the body defaults instead of source response metadata	encode_to_with_headers_uses_body_defaults_not_source_metadata
-
 ported	packages/effect/test/httpapi/HttpApiSchema.test.ts	295	it	does not identify buffered schemas as stream schemas	does_not_identify_buffered_as_stream
-
 ported	packages/effect/test/httpapi/HttpApiSchema.test.ts	301	it	accepts status literals	status_accepts_literals
-
 ported	packages/effect/test/httpapi/HttpApiSecurity.test.ts	18	it.effect	decodes a bearer token without a leading space	decodes_bearer_token_trimmed
 ported	packages/effect/test/httpapi/HttpApiSecurity.test.ts	35	it.effect	decodes a custom http scheme without a leading space	decodes_custom_scheme_trimmed
 ported	packages/effect/test/httpapi/HttpApiSecurity.test.ts	42	it.effect	matches HTTP schemes case-insensitively	matches_schemes_case_insensitively
@@ -7927,7 +7238,6 @@ not-applicable	packages/effect/test/process/ChildProcess.test.ts	320	it	should a
 not-applicable	packages/effect/test/process/ChildProcess.test.ts	331	it	should accept additionalFds with sinks	Child process fd-related behaviors depend on Effect's process fd/process-handle APIs that have no counterpart in crates/ (no ChildProcess module), so the fd plumbing is not representable in this port
 not-applicable	packages/effect/test/process/ChildProcess.test.ts	349	it.effect	should have additionalFds accessor on handle	Child process fd-related behaviors depend on Effect's process fd/process-handle APIs that have no counterpart in crates/ (no ChildProcess module), so the fd plumbing is not representable in this port
 not-applicable	packages/effect/test/process/ChildProcessSpawnerTest.ts	42	it.layer	spawn	it.layer suite-harness declaration, not a behavior assertion
-
 ported	packages/effect/test/process/ChildProcessSpawnerTest.ts	45	it.effect	should spawn a simple command and collect output	spawn_simple_command_and_collect_output
 ported	packages/effect/test/process/ChildProcessSpawnerTest.ts	55	it.effect	should spawn echo command	spawn_echo_command
 ported	packages/effect/test/process/ChildProcessSpawnerTest.ts	65	it.effect	should spawn with template literal	spawn_with_template_literal
@@ -7952,72 +7262,46 @@ ported	packages/effect/test/process/ChildProcessSpawnerTest.ts	295	it.effect	sho
 ported	packages/effect/test/process/ChildProcessSpawnerTest.ts	313	it.effect	should allow reading only stdout when stderr is empty	spawn_read_stdout_when_stderr_empty
 ported	packages/effect/test/process/ChildProcessSpawnerTest.ts	328	it.effect	should allow reading only stderr when stdout is empty	spawn_read_stderr_when_stdout_empty
 ported	packages/effect/test/process/ChildProcessSpawnerTest.ts	345	it.effect	should read interspersed stdout and stderr via .all	combined_all_captures_interspersed_stdout_and_stderr
-
 ported	packages/effect/test/process/ChildProcessSpawnerTest.ts	371	it.effect	should capture only stdout via .all when no stderr	combined_all_captures_only_stdout
-
 ported	packages/effect/test/process/ChildProcessSpawnerTest.ts	381	it.effect	should capture only stderr via .all when no stdout	combined_all_captures_only_stderr
-
 ported	packages/effect/test/process/ChildProcessSpawnerTest.ts	391	it.effect	should handle many lines of interspersed output via .all	combined_all_handles_many_interspersed_lines
-
 ported	packages/effect/test/process/ChildProcessSpawnerTest.ts	414	it.effect	should allow reading .all independently	combined_all_readable_independently
-
 ported	packages/effect/test/process/ChildProcessSpawnerTest.ts	429	it.effect	should stream stdout	spawn_stream_stdout
 ported	packages/effect/test/process/ChildProcessSpawnerTest.ts	437	it.effect	should stream multiple lines	spawn_stream_multiple_lines
 ported	packages/effect/test/process/ChildProcessSpawnerTest.ts	447	it.effect	should kill a process	spawn_kill_a_process
 not-applicable	packages/effect/test/process/ChildProcessSpawnerTest.ts	458	it.effect	should kill with specific signal	needs signal selection; Child::kill is always SIGKILL (needs libc kill)
-
 not-applicable	packages/effect/test/process/ChildProcessSpawnerTest.ts	468	it.effect	should force kill a process after the initial signal times out	needs signal-then-timeout force kill; needs libc signals
-
 not-applicable	packages/effect/test/process/ChildProcessSpawnerTest.ts	504	it.effect	should force kill a process when its scope closes	needs Effect Scope close lifecycle; no Scope in this port
-
 ported	packages/effect/test/process/ChildProcessSpawnerTest.ts	545	it.effect	should spawn a simple pipeline	spawn_simple_pipeline
 ported	packages/effect/test/process/ChildProcessSpawnerTest.ts	557	it.effect	should spawn a three-stage pipeline	spawn_three_stage_pipeline
 ported	packages/effect/test/process/ChildProcessSpawnerTest.ts	570	it.effect	should pipe grep output	spawn_pipe_grep_output
 ported	packages/effect/test/process/ChildProcessSpawnerTest.ts	582	it.effect	should handle mixed command forms in pipeline	spawn_mixed_command_forms_in_pipeline
 ported	packages/effect/test/process/ChildProcessSpawnerTest.ts	596	it.effect	should pipe stderr to stdin with { from: 'stderr' }	pipeline_pipes_stderr_to_stdin
-
 ported	packages/effect/test/process/ChildProcessSpawnerTest.ts	609	it.effect	should pipe combined output with { from: 'all' }	pipeline_pipes_combined_output_to_stdin
-
 ported	packages/effect/test/process/ChildProcessSpawnerTest.ts	628	it.effect	should default to stdout when no options provided	pipeline_default_pipes_stdout_only
 ported	packages/effect/test/process/ChildProcessSpawnerTest.ts	642	it.effect	should work with empty options object	pipeline_stdout_to_stdin
 ported	packages/effect/test/process/ChildProcessSpawnerTest.ts	654	it.effect	should work with explicit { from: 'stdout' }	pipeline_stdout_to_stdin
 ported	packages/effect/test/process/ChildProcessSpawnerTest.ts	666	it.effect	should work with explicit { to: 'stdin' }	pipeline_stdout_to_stdin
 ported	packages/effect/test/process/ChildProcessSpawnerTest.ts	678	it.effect	should support chained pipes with different options	pipeline_chained_pipes_with_different_sources
-
 ported	packages/effect/test/process/ChildProcessSpawnerTest.ts	695	it.effect	should return non-zero exit code	spawn_non_zero_exit_code
 ported	packages/effect/test/process/ChildProcessSpawnerTest.ts	703	it.effect	should fail for invalid command	spawn_fail_for_invalid_command
 ported	packages/effect/test/process/ChildProcessSpawnerTest.ts	712	it.effect	should handle spawn error with invalid cwd	spawn_error_with_invalid_cwd
 ported	packages/effect/test/process/ChildProcessSpawnerTest.ts	721	it.effect	should throw permission denied as a typed error	spawn_permission_denied_typed_error
 ported	packages/effect/test/process/ChildProcessSpawnerTest.ts	736	it.effect	allows providing standard input to a command	run_with_input_feeds_stdin_to_command
-
 not-applicable	packages/effect/test/process/ChildProcessSpawnerTest.ts	750	it.effect	should read data from an output fd (fd3)	needs extra-fd plumbing (fd3) via dup2; std has no API past fd2
-
 not-applicable	packages/effect/test/process/ChildProcessSpawnerTest.ts	765	it.effect	should write data to an input fd (fd3)	needs input fd3; no dup2 past fd2
-
 not-applicable	packages/effect/test/process/ChildProcessSpawnerTest.ts	785	it.effect	should handle multiple additional fds	needs multiple additional fds; no dup2 past fd2
-
 not-applicable	packages/effect/test/process/ChildProcessSpawnerTest.ts	808	it.effect	should handle fd gaps (e.g., fd3 and fd5 without fd4)	needs fd gaps (fd3+fd5); no dup2 past fd2
-
 not-applicable	packages/effect/test/process/ChildProcessSpawnerTest.ts	831	it.effect	should return empty stream for unconfigured output fd	needs unconfigured-fd empty streams; no extra-fd machinery
-
 not-applicable	packages/effect/test/process/ChildProcessSpawnerTest.ts	843	it.effect	should handle bidirectional communication via separate fds	needs bidirectional separate-fd communication; no dup2 past fd2
-
 not-applicable	packages/effect/test/process/ChildProcessSpawnerTest.ts	867	it.effect	should work alongside normal stdin/stdout/stderr	needs extra fds alongside stdio; no dup2 past fd2
-
 not-applicable	packages/effect/test/process/ChildProcessSpawnerTest.ts	919	it.skipIf	should kill all child processes in process group	needs process groups (setsid/killpg); unavailable
-
 not-applicable	packages/effect/test/process/ChildProcessSpawnerTest.ts	977	it.skipIf	should cleanup child processes when parent exits with non-zero code	needs process-group cleanup on parent exit; unavailable
-
 not-applicable	packages/effect/test/process/ChildProcessSpawnerTest.ts	1019	it.effect	should not kill an unrefed process when scope closes	needs Scope-tied unref; no Scope in this port
-
 not-applicable	packages/effect/test/process/ChildProcessSpawnerTest.ts	1039	it.effect	should kill a restored process when scope closes	needs Scope-tied restored-process kill; no Scope
-
 not-applicable	packages/effect/test/process/ChildProcessSpawnerTest.ts	1057	it.effect	should resolve exitCode after closing the original scope of an unrefed process	needs Scope-tied exitCode resolution; no Scope
-
 not-applicable	packages/effect/test/process/ChildProcessSpawnerTest.ts	1076	it.skipIf	should cleanup descendants after an unrefed parent exits non-zero	needs descendant cleanup after unrefed parent exit; no Scope or process groups
-
 not-applicable	packages/effect/test/process/ChildProcessSpawnerTest.ts	1102	it.effect	should unref every process in a pipeline	needs pipeline-wide unref; no Scope in this port
-
 ported	packages/effect/test/process/ChildProcessSpawnerTest.ts	1143	it.effect	should not deadlock on large stdout output	spawn_large_stdout_no_deadlock
 ported	packages/effect/test/process/ChildProcessSpawnerTest.ts	1163	it.effect	ChildProcess.string should not deadlock on large output	spawn_string_large_output_no_deadlock
 not-applicable	packages/effect/test/reactivity/AsyncResult.test.ts	6	it	waiting dispatches with optional options	Rust elm-effect-unstable has no AsyncResult type, resulting/onDefect handling, or exhaustive computation witness, so none of these rows can be ported
@@ -10197,25 +9481,15 @@ not-applicable	packages/effect/test/schema/toCodec.test.ts	3342	it	Record with S
 not-applicable	packages/effect/test/schema/toCodec.test.ts	3356	it	Tuple with Rest	the row asserts Tuple with Rest; the row asserts the XML encoder's wire form; this port has no XML encoder
 not-applicable	packages/effect/test/schema/toCodec.test.ts	3370	it	Suspend (Recursive Types)	the row asserts Suspend (Recursive Types); the row asserts the XML encoder's wire form; this port has no XML encoder
 ported	packages/effect/test/schema/toDifferJsonPatch.test.ts	61	it	patch returns the same reference if nothing changed (no-op patch)	empty_patch_hands_the_struct_value_back_unchanged
-
 ported	packages/effect/test/schema/toDifferJsonPatch.test.ts	69	it	root replace returns the provided reference (no clone)	root_replace_hands_back_the_provided_value
-
 ported	packages/effect/test/schema/toDifferJsonPatch.test.ts	79	it	immutability: patch does not mutate the input	patch_leaves_the_input_alone_and_returns_the_patched_value
-
 ported	packages/effect/test/schema/toDifferJsonPatch.test.ts	96	it	Number: distinguishes 0 and -0; treats NaN as equal to NaN	number_diff_uses_object_is_semantics
-
 not-applicable	packages/effect/test/schema/toDifferJsonPatch.test.ts	110	it	Date: rejects an invalid Date on diff	needs a Date codec; crate has none
-
 not-applicable	packages/effect/test/schema/toDifferJsonPatch.test.ts	118	it	Defect: diff encodes an Error to a plain object; patch decodes back to Error	needs a Defect/Error codec; crate has none
-
 not-applicable	packages/effect/test/schema/toDifferJsonPatch.test.ts	137	it	DateTimeUtcFromMillis: diff uses millis and patch rehydrates DateTime	needs a DateTimeUtcFromMillis codec; crate has none
-
 ported	packages/effect/test/schema/toDifferJsonPatch.test.ts	167	it	diff/patch works when root container kind changes	root_container_kind_change_is_one_root_replace
-
 ported	packages/effect/test/schema/toDifferJsonPatch.test.ts	174	it	patch throws when asked to do an invalid replace (replace requires existence)	replace_of_a_missing_key_is_refused
-
 not-applicable	packages/effect/test/schema/toDifferJsonPatch.test.ts	182	it.effect	patch(diff(a,b)) round-trips for a wide set of codecs	wide roundtrip drives missing codecs (Date, URL, Duration, DateTimeUtc, Uint8Array, Symbol, Option/Result/Map, ErrorInstance, Exit, Class)
-
 ported	packages/effect/test/schema/toEquivalence.test.ts	25	it	Never	never_uses_strict_identity
 ported	packages/effect/test/schema/toEquivalence.test.ts	33	it	String	string_compares_by_value
 ported	packages/effect/test/schema/toEquivalence.test.ts	41	it	should fail on non-array inputs	tuple_refuses_a_non_array_on_either_side
@@ -10342,57 +9616,31 @@ not-applicable	packages/effect/test/schema/toFormatter.test.ts	658	it	String	Sch
 not-applicable	packages/effect/test/schema/toFormatter.test.ts	664	it	String & isMinLength(1)	Schema.overrideToFormatter is absent from the whole crate (grep empty) and formatter (schema/src/lib.rs:1175) takes no options, so an annotation-driven renderer override cannot be expressed
 not-applicable	packages/effect/test/schema/toFormatter.test.ts	674	it	should allow for ast-level overrides	Schema.toFormatter's onBefore hook needs an options parameter (Rust formatter at schema/src/lib.rs:1175 takes none) plus an AST walk that never happens, so a Boolean override inside a Tuple cannot be expressed
 not-applicable	packages/effect/test/schema/toIso.test.ts	30	30	it	overrideToCodecIso	needs Schema.toIso/toIsoFocus optic derivation over the Type/Iso/Encoded trichotomy; to_type() is a repr printer only, no derivation exists
-
 not-applicable	packages/effect/test/schema/toIso.test.ts	39	39	it	Class	needs Schema.toIso/toIsoFocus optic derivation over the Type/Iso/Encoded trichotomy; to_type() is a repr printer only, no derivation exists
-
 not-applicable	packages/effect/test/schema/toIso.test.ts	54	54	it	toType(Class)	needs Schema.toIso/toIsoFocus optic derivation over the Type/Iso/Encoded trichotomy; to_type() is a repr printer only, no derivation exists
-
 not-applicable	packages/effect/test/schema/toIso.test.ts	62	62	it	toEncoded(Class)	needs Schema.toIso/toIsoFocus optic derivation over the Type/Iso/Encoded trichotomy; to_type() is a repr printer only, no derivation exists
-
 not-applicable	packages/effect/test/schema/toIso.test.ts	71	71	it	Number & isPositive	needs Schema.toIso/toIsoFocus optic derivation over the Type/Iso/Encoded trichotomy; to_type() is a repr printer only, no derivation exists
-
 not-applicable	packages/effect/test/schema/toIso.test.ts	83	83	it	Tuple	needs Schema.toIso/toIsoFocus optic derivation over the Type/Iso/Encoded trichotomy; to_type() is a repr printer only, no derivation exists
-
 not-applicable	packages/effect/test/schema/toIso.test.ts	94	94	it	Array	needs Schema.toIso/toIsoFocus optic derivation over the Type/Iso/Encoded trichotomy; to_type() is a repr printer only, no derivation exists
-
 not-applicable	packages/effect/test/schema/toIso.test.ts	103	103	it	NonEmptyArray	needs Schema.toIso/toIsoFocus optic derivation over the Type/Iso/Encoded trichotomy; to_type() is a repr printer only, no derivation exists
-
 not-applicable	packages/effect/test/schema/toIso.test.ts	123	123	it	TupleWithRest	needs Schema.toIso/toIsoFocus optic derivation over the Type/Iso/Encoded trichotomy; to_type() is a repr printer only, no derivation exists
-
 not-applicable	packages/effect/test/schema/toIso.test.ts	145	145	it	Struct	needs Schema.toIso/toIsoFocus optic derivation over the Type/Iso/Encoded trichotomy; to_type() is a repr printer only, no derivation exists
-
 not-applicable	packages/effect/test/schema/toIso.test.ts	173	173	it	Record	needs Schema.toIso/toIsoFocus optic derivation over the Type/Iso/Encoded trichotomy; to_type() is a repr printer only, no derivation exists
-
 not-applicable	packages/effect/test/schema/toIso.test.ts	191	191	it	StructWithRest	needs Schema.toIso/toIsoFocus optic derivation over the Type/Iso/Encoded trichotomy; to_type() is a repr printer only, no derivation exists
-
 not-applicable	packages/effect/test/schema/toIso.test.ts	209	209	it	Union	needs Schema.toIso/toIsoFocus optic derivation over the Type/Iso/Encoded trichotomy; to_type() is a repr printer only, no derivation exists
-
 not-applicable	packages/effect/test/schema/toIso.test.ts	219	219	it	suspend	needs Schema.toIso/toIsoFocus optic derivation over the Type/Iso/Encoded trichotomy; to_type() is a repr printer only, no derivation exists
-
 not-applicable	packages/effect/test/schema/toIso.test.ts	249	249	it	flip(schema)	needs Schema.toIso/toIsoFocus optic derivation over the Type/Iso/Encoded trichotomy; to_type() is a repr printer only, no derivation exists
-
 not-applicable	packages/effect/test/schema/toIso.test.ts	257	257	it	flip(flip(schema))	needs Schema.toIso/toIsoFocus optic derivation over the Type/Iso/Encoded trichotomy; to_type() is a repr printer only, no derivation exists
-
 not-applicable	packages/effect/test/schema/toIso.test.ts	265	265	it	Opaque	needs Schema.toIso/toIsoFocus optic derivation over the Type/Iso/Encoded trichotomy; to_type() is a repr printer only, no derivation exists
-
 not-applicable	packages/effect/test/schema/toIso.test.ts	274	274	it	Option	needs Schema.toIso/toIsoFocus optic derivation over the Type/Iso/Encoded trichotomy; to_type() is a repr printer only, no derivation exists
-
 not-applicable	packages/effect/test/schema/toIso.test.ts	286	286	it	Result	needs Schema.toIso/toIsoFocus optic derivation over the Type/Iso/Encoded trichotomy; to_type() is a repr printer only, no derivation exists
-
 not-applicable	packages/effect/test/schema/toIso.test.ts	297	297	it	CauseReason	needs Schema.toIso/toIsoFocus optic derivation over the Type/Iso/Encoded trichotomy; to_type() is a repr printer only, no derivation exists
-
 not-applicable	packages/effect/test/schema/toIso.test.ts	308	308	it	Cause	needs Schema.toIso/toIsoFocus optic derivation over the Type/Iso/Encoded trichotomy; to_type() is a repr printer only, no derivation exists
-
 not-applicable	packages/effect/test/schema/toIso.test.ts	320	320	it	Error	needs Schema.toIso/toIsoFocus optic derivation over the Type/Iso/Encoded trichotomy; to_type() is a repr printer only, no derivation exists
-
 not-applicable	packages/effect/test/schema/toIso.test.ts	328	328	it	Exit	needs Schema.toIso/toIsoFocus optic derivation over the Type/Iso/Encoded trichotomy; to_type() is a repr printer only, no derivation exists
-
 not-applicable	packages/effect/test/schema/toIso.test.ts	339	339	it	ReadonlySet	needs Schema.toIso/toIsoFocus optic derivation over the Type/Iso/Encoded trichotomy; to_type() is a repr printer only, no derivation exists
-
 not-applicable	packages/effect/test/schema/toIso.test.ts	351	351	it	ReadonlyMap	needs Schema.toIso/toIsoFocus optic derivation over the Type/Iso/Encoded trichotomy; to_type() is a repr printer only, no derivation exists
-
 not-applicable	packages/effect/test/schema/toIso.test.ts	363	363	it	HashMap	needs Schema.toIso/toIsoFocus optic derivation over the Type/Iso/Encoded trichotomy; to_type() is a repr printer only, no derivation exists
-
 unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	70	it	rejects tuple post-rest elements	
 unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	77	it	rejects symbol property names	
 unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	86	it	Record(Symbol, Finite)	
@@ -10586,49 +9834,27 @@ ported	packages/effect/test/schema/toStandardJSONSchemaV1.test.ts	84	it	should r
 ported	packages/effect/test/schema/toStandardJSONSchemaV1.test.ts	95	it	should return the output JSON Schema	standard_json_schema_draft07_output
 ported	packages/effect/test/schema/toStandardJSONSchemaV1.test.ts	106	it	a schema with identifier	standard_json_schema_draft07_identifier
 ported	packages/effect/test/schema/toStandardSchemaV1.test.ts	105	it	should return a Standard Schema V1 schema	returns_a_standard_schema_v1_schema
-
 ported	packages/effect/test/schema/toStandardSchemaV1.test.ts	111	it	should support both standards	supports_both_standards
-
 ported	packages/effect/test/schema/toStandardSchemaV1.test.ts	117	it	sync decoding	sync_decoding_reports_message_and_path
-
 not-applicable	packages/effect/test/schema/toStandardSchemaV1.test.ts	135	it	async decoding	needs async schema decoding; crate decode is sync
-
 not-applicable	packages/effect/test/schema/toStandardSchemaV1.test.ts	156	it	sync decoding should throw	needs Effect service resolution for missing dependencies; no services in this crate
-
 not-applicable	packages/effect/test/schema/toStandardSchemaV1.test.ts	176	it	async decoding should report a missing dependency	needs Effect service resolution for missing dependencies; no services in this crate
-
 ported	packages/effect/test/schema/toStandardSchemaV1.test.ts	198	it	by default should return all issues	by_default_returns_all_issues
-
 ported	packages/effect/test/schema/toStandardSchemaV1.test.ts	235	it	with parseOptions: { errors: 'first' } should return only the first issue	with_first_errors_returns_only_the_first_issue
-
 not-applicable	packages/effect/test/schema/toStandardSchemaV1.test.ts	251	it	String & annotation	needs message-annotation routing in decode; annotations ride along but do not affect errors
-
 not-applicable	packages/effect/test/schema/toStandardSchemaV1.test.ts	262	it	String & annotation & isNonEmpty	needs message-annotation routing in decode
-
 not-applicable	packages/effect/test/schema/toStandardSchemaV1.test.ts	273	it	String & isNonEmpty & annotation	needs message-annotation routing in decode
-
 not-applicable	packages/effect/test/schema/toStandardSchemaV1.test.ts	290	it	String & isNonEmpty(annotation)	needs message-annotation routing in decode
-
 not-applicable	packages/effect/test/schema/toStandardSchemaV1.test.ts	307	it	String & annotation & isNonEmpty & annotation	needs message-annotation routing in decode
-
 not-applicable	packages/effect/test/schema/toStandardSchemaV1.test.ts	326	it	String & annotation & isNonEmpty(annotation)	needs message-annotation routing in decode
-
 not-applicable	packages/effect/test/schema/toStandardSchemaV1.test.ts	345	it	String & annotation & isNonEmpty(annotation) & isMaxLength(annotation)	needs message-annotation routing in decode
-
 not-applicable	packages/effect/test/schema/toStandardSchemaV1.test.ts	372	it	messageMissingKey	needs messageMissingKey key-annotation error routing; no such routing
-
 not-applicable	packages/effect/test/schema/toStandardSchemaV1.test.ts	385	it	messageUnexpectedKey	needs messageUnexpectedKey key-annotation error routing; no such routing
-
 not-applicable	packages/effect/test/schema/toStandardSchemaV1.test.ts	402	it	messageMissingKey	needs messageMissingKey key-annotation error routing; no such routing
-
 not-applicable	packages/effect/test/schema/toStandardSchemaV1.test.ts	415	it	messageUnexpectedKey	needs messageUnexpectedKey key-annotation error routing; no such routing
-
 not-applicable	packages/effect/test/schema/toStandardSchemaV1.test.ts	432	it	Literals	needs message-annotation routing for Literals; annotations do not affect errors
-
 ported	packages/effect/test/schema/toStandardSchemaV1.test.ts	452	it	String	leaf_hook_string_reports_the_type_message
-
 ported	packages/effect/test/schema/toStandardSchemaV1.test.ts	465	it	NonEmptyString	leaf_hook_non_empty_string_reports_the_check_message
-
 not-applicable	packages/effect/test/schema/v3-v4.test.ts	7	it	default	N/A: Rust Schema lacks Schema.decodeTo/SchemaGetter.withDefault and optional/exact migration semantics
 not-applicable	packages/effect/test/schema/v3-v4.test.ts	46	it	default & exact	N/A: Rust Schema lacks Schema.decodeTo/SchemaGetter.withDefault and optional/exact migration semantics
 not-applicable	packages/effect/test/schema/v3-v4.test.ts	89	it	nullable	N/A: Rust Schema lacks Schema.decodeTo/SchemaGetter.withDefault and optional/exact migration semantics
@@ -10688,63 +9914,34 @@ not-applicable	packages/effect/test/sql/Statement.test.ts	62	it.effect	reads pro
 not-applicable	packages/effect/test/sql/Statement.test.ts	81	it.effect	parents acquisition, execution, and pulls without adding stack frames	requires CurrentStackFrame acquisition spans: crate has no span infrastructure
 not-applicable	packages/effect/test/sql/Statement.test.ts	98	it.effect	skips propagation when tracing is disabled	requires tracing propagation toggle: crate has no span infrastructure
 not-applicable	packages/effect/test/testing/TestSchema.test.ts	26	it	compares string and symbol fields by AST	needs JS symbol-keyed fields and AST property-signature reflection; Rust has no symbols
-
 not-applicable	packages/effect/test/testing/TestSchema.test.ts	35	it	rejects missing or structurally different symbol fields	needs JS symbol-keyed fields and AST property-signature reflection; Rust has no symbols
-
 not-applicable	packages/effect/test/testing/TestSchema.test.ts	50	it	preserves symbol identity even with equal descriptions	needs JS symbol-keyed fields and AST property-signature reflection; Rust has no symbols
-
 not-applicable	packages/effect/test/testing/TestSchema.test.ts	58	it	preserves own __proto__ and constructor fields	needs JS symbol-keyed fields and AST property-signature reflection; Rust has no symbols
-
 not-applicable	packages/effect/test/testing/TestSchema.test.ts	68	it	uses the Struct own-key contract for non-enumerable fields	needs JS symbol-keyed fields and AST property-signature reflection; Rust has no symbols
-
 not-applicable	packages/effect/test/testing/TestSchema.test.ts	85	it	decoding	needs TestSchema.Asserts decoding/encoding assertion service; only bare decode exists
-
 not-applicable	packages/effect/test/testing/TestSchema.test.ts	94	it	decoding.provide	needs Effect service/layer injection (Context, provide, services); no service system in this port
-
 not-applicable	packages/effect/test/testing/TestSchema.test.ts	119	it	encoding	needs TestSchema.Asserts decoding/encoding assertion service; only bare decode exists
-
 not-applicable	packages/effect/test/testing/TestSchema.test.ts	127	it	encoding.provide	needs Effect service/layer injection (Context, provide, services); no service system in this port
-
 not-applicable	packages/effect/test/testing/TestSchema.test.ts	152	it	verifyRoundTrip	needs verifyRoundTrip with shrinking, replay and residual bounds; no TestSchema service harness
-
 not-applicable	packages/effect/test/testing/TestSchema.test.ts	158	it	verifyRoundTrip reports a shrunk input and replay	needs verifyRoundTrip with shrinking, replay and residual bounds; no TestSchema service harness
-
 not-applicable	packages/effect/test/testing/TestSchema.test.ts	178	it	verifyGeneration bounds residual discards	needs verifyRoundTrip with shrinking, replay and residual bounds; no TestSchema service harness
-
 not-applicable	packages/effect/test/testing/TestSchema.test.ts	190	it.effect	defers parsing and reruns it on every execution	needs TestSchema.Asserts decoding/encoding assertion service; only bare decode exists
-
 not-applicable	packages/effect/test/testing/TestSchema.test.ts	208	it.effect	preserves explicit undefined and reports mismatches as defects	needs TestSchema.Asserts decoding/encoding assertion service; only bare decode exists
-
 not-applicable	packages/effect/test/testing/TestSchema.test.ts	242	it	preserves Promise assertion errors and explicit undefined	needs TestSchema.Asserts decoding/encoding assertion service; only bare decode exists
-
 not-applicable	packages/effect/test/testing/TestSchema.test.ts	256	it.effect	forwards parsing options	needs Effect service/layer injection (Context, provide, services); no service system in this port
-
 not-applicable	packages/effect/test/testing/TestSchema.test.ts	266	it.effect	preserves thrown schema defects in success and failure assertions	needs Effect service/layer injection (Context, provide, services); no service system in this port
-
 not-applicable	packages/effect/test/testing/TestSchema.test.ts	282	it.effect	asserts decoded and encoded transformations	needs Effect service/layer injection (Context, provide, services); no service system in this port
-
 not-applicable	packages/effect/test/testing/TestSchema.test.ts	291	it.effect	make uses constructor defaults from the test environment and honors disableChecks	needs Effect service/layer injection (Context, provide, services); no service system in this port
-
 not-applicable	packages/effect/test/testing/TestSchema.test.ts	307	it.effect	${method} preserves validation failures and defective finalizers	needs fiber interruption/finalizers/mixed-cause propagation; no fiber runtime
-
 not-applicable	packages/effect/test/testing/TestSchema.test.ts	346	it.effect	${method} preserves interruption alongside annotated validation failures	needs fiber interruption/finalizers/mixed-cause propagation; no fiber runtime
-
 not-applicable	packages/effect/test/testing/TestSchema.test.ts	382	it.effect	round trips preserve mixed causes from ${method}	needs fiber interruption/finalizers/mixed-cause propagation; no fiber runtime
-
 not-applicable	packages/effect/test/testing/TestSchema.test.ts	404	it.effect	${method} inherits layer services and supports provide	needs Effect service/layer injection (Context, provide, services); no service system in this port
-
 not-applicable	packages/effect/test/testing/TestSchema.test.ts	423	it.effect	${method} reads the test clock	needs TestClock-integrated test services; services do not exist here
-
 not-applicable	packages/effect/test/testing/TestSchema.test.ts	437	it.effect	make preserves mixed causes from constructor defaults	needs Effect service/layer injection (Context, provide, services); no service system in this port
-
 not-applicable	packages/effect/test/testing/TestSchema.test.ts	462	it.effect	${method} propagates interruption and runs finalizers	needs fiber interruption/finalizers/mixed-cause propagation; no fiber runtime
-
 not-applicable	packages/effect/test/testing/TestSchema.test.ts	488	it.effect	round trips use both decoding and encoding services lazily	needs Effect service/layer injection (Context, provide, services); no service system in this port
-
 not-applicable	packages/effect/test/testing/TestSchema.test.ts	513	it.effect	round-trip assertion defects report shrunk inputs and replay	needs verifyRoundTrip with shrinking, replay and residual bounds; no TestSchema service harness
-
 not-applicable	packages/effect/test/testing/TestSchema.test.ts	532	it.effect	round trips preserve schema defects	needs TestSchema.Asserts decoding/encoding assertion service; only bare decode exists
-
 ported	packages/effect/test/workers/Worker.test.ts	30	it.effect	run fails when the worker exits before the ready message	run_fails_when_worker_exits_before_ready
 ported	packages/effect/test/workers/Worker.test.ts	40	it.effect	run fails when the worker exits while waiting for ready	run_fails_when_worker_exits_while_waiting_for_ready
 ported	packages/effect/test/workers/Worker.test.ts	58	it.effect	run is interruptible while waiting for ready	run_is_interruptible_while_waiting_for_ready
