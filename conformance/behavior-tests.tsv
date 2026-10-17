@@ -7445,16 +7445,16 @@ ported	packages/effect/test/rpc/Rpc.test.ts	16	it.effect	can implement a single 
 ported	packages/effect/test/rpc/Rpc.test.ts	36	it	exitSchema uses custom defect schema	router_single_handler
 ported	packages/effect/test/rpc/Rpc.test.ts	56	it	JSON-encoded interrupt exits use null for a missing fiberId	interrupt_without_fiber_encodes_null_fiber_id
 ported	packages/effect/test/rpc/Rpc.test.ts	68	it	RpcSchema.getStreamSchemas returns Option	group_stream_schemas_empty
-unported	packages/effect/test/rpc/RpcClient.test.ts	66	it.effect	releases the ${consumer} consumer when the request write is interrupted	
-unported	packages/effect/test/rpc/RpcClient.test.ts	85	it.effect	releases a worker pool slot when the worker run fails	
-unported	packages/effect/test/rpc/RpcClient.test.ts	157	it	preserves RpcClientError failures from a reloaded module copy	
-unported	packages/effect/test/rpc/RpcClient.test.ts	182	it.effect	fails request on empty HTTP response for unframed serialization	
-unported	packages/effect/test/rpc/RpcClient.test.ts	185	it.effect	fails request on empty HTTP response for framed serialization	
-unported	packages/effect/test/rpc/RpcClient.test.ts	188	it.effect	defects request when framed HTTP response closes before request completes	
-unported	packages/effect/test/rpc/RpcClient.test.ts	212	it.effect	reports transient socket open errors without failing in-flight streams	
-unported	packages/effect/test/rpc/RpcClient.test.ts	260	it.effect	fails in-flight streams on a missed pong while retrying socket errors	
-unported	packages/effect/test/rpc/RpcClient.test.ts	302	it.effect	fails in-flight streams when transient retries are exhausted	
-unported	packages/effect/test/rpc/RpcClient.test.ts	345	it.effect	continues retrying when the transient error hook defects	
+not-applicable	packages/effect/test/rpc/RpcClient.test.ts	66	it.effect	releases the ${consumer} consumer when the request write is interrupted	needs fiber-interrupt with streaming consumer release; FakePair has no fibers
+not-applicable	packages/effect/test/rpc/RpcClient.test.ts	85	it.effect	releases a worker pool slot when the worker run fails	needs RpcClient worker-pool protocol with scoped runs; no pool exists
+not-applicable	packages/effect/test/rpc/RpcClient.test.ts	157	it	preserves RpcClientError failures from a reloaded module copy	needs JS instanceof-across-module-copies semantics; Rust errors are value types
+ported	packages/effect/test/rpc/RpcClient.test.ts	182	it.effect	fails request on empty HTTP response for unframed serialization	http_empty_response_fails_unframed
+ported	packages/effect/test/rpc/RpcClient.test.ts	185	it.effect	fails request on empty HTTP response for framed serialization	http_empty_response_fails_framed
+ported	packages/effect/test/rpc/RpcClient.test.ts	188	it.effect	defects request when framed HTTP response closes before request completes	framed_close_before_complete_is_defect
+not-applicable	packages/effect/test/rpc/RpcClient.test.ts	212	it.effect	reports transient socket open errors without failing in-flight streams	needs socket runtime with retry schedule and TestClock; no socket runtime
+not-applicable	packages/effect/test/rpc/RpcClient.test.ts	260	it.effect	fails in-flight streams on a missed pong while retrying socket errors	needs socket ping/pong heartbeat machinery; none exists
+not-applicable	packages/effect/test/rpc/RpcClient.test.ts	302	it.effect	fails in-flight streams when transient retries are exhausted	needs socket retry-policy runtime; none exists
+not-applicable	packages/effect/test/rpc/RpcClient.test.ts	345	it.effect	continues retrying when the transient error hook defects	needs socket transient-error hook with retry runtime; none exists
 not-applicable	packages/effect/test/rpc/RpcSerialization.test.ts	174	it.each	preserves %s	N/A: rust unstable RPC serialization lacks ndjson/binary framing and HTTP round-trip surface parity, so these rows cannot be represented in the Rust port
 ported	packages/effect/test/rpc/RpcSerialization.test.ts	193	it	preserves a protocol defect	defect_and_interrupt_exits
 ported	packages/effect/test/rpc/RpcSerialization.test.ts	205	it.each	jsonRpc preserves %s requestId %j	envelope_preserves_request_id
