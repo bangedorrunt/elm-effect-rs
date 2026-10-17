@@ -535,10 +535,27 @@ impl Cookie {
 
     /// True for RFC 6265 token names (no separators, spaces, or controls).
     pub fn is_valid_name(name: &str) -> bool {
-        !name.is_empty() && name.bytes().all(|b| {
-            b.is_ascii_alphanumeric()
-                || matches!(b, b'!' | b'#' | b'$' | b'%' | b'&' | b'\'' | b'*' | b'+' | b'-' | b'.' | b'^' | b'_' | b'`' | b'|' | b'~')
-        })
+        !name.is_empty()
+            && name.bytes().all(|b| {
+                b.is_ascii_alphanumeric()
+                    || matches!(
+                        b,
+                        b'!' | b'#'
+                            | b'$'
+                            | b'%'
+                            | b'&'
+                            | b'\''
+                            | b'*'
+                            | b'+'
+                            | b'-'
+                            | b'.'
+                            | b'^'
+                            | b'_'
+                            | b'`'
+                            | b'|'
+                            | b'~'
+                    )
+            })
     }
 
     /// Parse one `name=value` pair (no attributes). Invalid names fail.
@@ -863,9 +880,7 @@ impl UrlParams {
                 .split('&')
                 .filter(|segment| !segment.is_empty())
                 .map(|segment| match segment.split_once('=') {
-                    Some((name, value)) => {
-                        (percent_decode(name), Some(percent_decode(value)))
-                    }
+                    Some((name, value)) => (percent_decode(name), Some(percent_decode(value))),
                     None => (percent_decode(segment), None),
                 })
                 .collect(),
@@ -946,18 +961,16 @@ fn percent_decode(text: &str) -> String {
                 out.push(b' ');
                 i += 1;
             }
-            b'%' if i + 2 <= bytes.len() => {
-                match (hex_val(bytes[i + 1]), hex_val(bytes[i + 2])) {
-                    (Some(hi), Some(lo)) => {
-                        out.push(hi << 4 | lo);
-                        i += 3;
-                    }
-                    _ => {
-                        out.push(b'%');
-                        i += 1;
-                    }
+            b'%' if i + 2 <= bytes.len() => match (hex_val(bytes[i + 1]), hex_val(bytes[i + 2])) {
+                (Some(hi), Some(lo)) => {
+                    out.push(hi << 4 | lo);
+                    i += 3;
                 }
-            }
+                _ => {
+                    out.push(b'%');
+                    i += 1;
+                }
+            },
             byte => {
                 out.push(byte);
                 i += 1;
@@ -1001,7 +1014,11 @@ impl Url {
             return None;
         }
         let (scheme, rest) = text.split_once("://")?;
-        if scheme.is_empty() || !scheme.bytes().all(|b| b.is_ascii_alphanumeric() || matches!(b, b'+' | b'-' | b'.')) {
+        if scheme.is_empty()
+            || !scheme
+                .bytes()
+                .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'+' | b'-' | b'.'))
+        {
             return None;
         }
         let (authority, path_query_frag) = match rest.find('/') {
@@ -1034,7 +1051,11 @@ impl Url {
         } else {
             match host_port.rsplit_once(':') {
                 Some((h, p)) if !h.is_empty() => {
-                    let port: u16 = if p.is_empty() { return None } else { p.parse().ok()? };
+                    let port: u16 = if p.is_empty() {
+                        return None;
+                    } else {
+                        p.parse().ok()?
+                    };
                     (h.to_ascii_lowercase(), Some(port))
                 }
                 _ => (host_port.to_ascii_lowercase(), None),
@@ -1057,7 +1078,11 @@ impl Url {
             password,
             host,
             port,
-            path: if path.is_empty() { "/".to_string() } else { path },
+            path: if path.is_empty() {
+                "/".to_string()
+            } else {
+                path
+            },
             query,
             fragment,
         })
@@ -1077,7 +1102,13 @@ impl Url {
                 None => (path, ""),
             };
             resolved.path = format!("/{path}");
-            resolved.query = query_frag.strip_prefix('?').unwrap_or(query_frag).split('#').next().unwrap_or("").to_string();
+            resolved.query = query_frag
+                .strip_prefix('?')
+                .unwrap_or(query_frag)
+                .split('#')
+                .next()
+                .unwrap_or("")
+                .to_string();
             resolved.fragment = query_frag.split('#').nth(1).unwrap_or("").to_string();
             return Some(resolved);
         }
@@ -1272,6 +1303,122 @@ pub fn join_url(base: &str, path: &str) -> String {
     }
 }
 
+/// Build the request URL for an endpoint path template (`urlBuilder`).
+///
+/// `template` holds `:name` (required) and `:name?` (optional) placeholders;
+/// only names present in `params` substitute, so an undeclared action suffix
+/// such as the `:wait` in `/operations/:id:wait` stays literal. A segment
+/// that is exactly a missing optional placeholder drops out (`/files/:path?`
+/// with no `path` becomes `/files`). Values encode with `encodeURIComponent`
+/// semantics (`/` becomes `%2F`). `query` renders in order, repeating names
+/// for array values. `prefix` (the API prefix, `""` when none) joins ahead of
+/// the template; `base` (`None` for relative URLs) joins ahead of that.
+pub fn build_endpoint_url(
+    base: Option<&str>,
+    prefix: &str,
+    template: &str,
+    params: &[(&str, &str)],
+    query: &[(String, Option<String>)],
+) -> Result<String, String> {
+    let joined = if prefix.is_empty() {
+        template.to_string()
+    } else {
+        let prefix = prefix.strip_suffix('/').unwrap_or(prefix);
+        if template.starts_with('/') {
+            format!("{prefix}{template}")
+        } else {
+            format!("{prefix}/{template}")
+        }
+    };
+    let mut kept = Vec::new();
+    for segment in joined.split('/') {
+        if segment.is_empty() {
+            kept.push(String::new());
+            continue;
+        }
+        if let Some(expanded) = expand_segment(segment, params) {
+            kept.push(expanded);
+        }
+    }
+    let path = kept.join("/");
+    let path = if path.is_empty() { "/".to_string() } else { path };
+    let mut url = match base {
+        Some(base) => join_url(base, &path),
+        None => path,
+    };
+    if !query.is_empty() {
+        url.push('?');
+        url.push_str(&UrlParams::from_pairs(query.to_vec()).render());
+    }
+    Ok(url)
+}
+
+/// Expand one path segment: substitute supplied params, drop a segment that
+/// is only a missing optional placeholder, leave anything else literal.
+fn expand_segment(segment: &str, params: &[(&str, &str)]) -> Option<String> {
+    let chars: Vec<char> = segment.chars().collect();
+    let mut index = 0;
+    let mut out = String::new();
+    let mut has_literal = false;
+    while index < chars.len() {
+        if chars[index] != ':' {
+            out.push(chars[index]);
+            has_literal = true;
+            index += 1;
+            continue;
+        }
+        let mut end = index + 1;
+        while end < chars.len() && (chars[end].is_ascii_alphanumeric() || chars[end] == '_') {
+            end += 1;
+        }
+        if end == index + 1 {
+            out.push(':');
+            has_literal = true;
+            index += 1;
+            continue;
+        }
+        let name: String = chars[index + 1..end].iter().collect();
+        let mut optional = false;
+        if end < chars.len() && chars[end] == '?' {
+            optional = true;
+            end += 1;
+        }
+        match params.iter().find(|(key, _)| *key == name) {
+            Some((_, value)) => out.push_str(&encode_path_segment(value)),
+            None if optional => {}
+            None => {
+                out.push(':');
+                out.push_str(&name);
+                if optional {
+                    out.push('?');
+                }
+                has_literal = true;
+            }
+        }
+        index = end;
+    }
+    if out.is_empty() && !has_literal {
+        return None;
+    }
+    Some(out)
+}
+
+/// `encodeURIComponent`: unreserved marks pass through, everything else
+/// (including `/` and space) becomes `%XX`.
+fn encode_path_segment(value: &str) -> String {
+    const UNRESERVED: &[u8] =
+        b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_.!~*'()";
+    let mut out = String::with_capacity(value.len());
+    for byte in value.bytes() {
+        if UNRESERVED.contains(&byte) {
+            out.push(byte as char);
+        } else {
+            out.push_str(&format!("%{byte:02X}"));
+        }
+    }
+    out
+}
+
 /// Explicit port, else the scheme default (http 80, https 443).
 /// Used for redirect origin comparison (`URL.origin` semantics).
 fn effective_port(url: &Url) -> Option<u16> {
@@ -1289,11 +1436,19 @@ pub const ANNOTATION_DESCRIPTION: &str = "description";
 
 /// Last value for `key` in an annotation list, or `None`.
 fn annotation_get(entries: &[(String, String)], key: &str) -> Option<String> {
-    entries.iter().rev().find(|(k, _)| k == key).map(|(_, v)| v.clone())
+    entries
+        .iter()
+        .rev()
+        .find(|(k, _)| k == key)
+        .map(|(_, v)| v.clone())
 }
 
 /// `entries` with `key` set to `value` (replaces any existing value).
-fn annotation_set(mut entries: Vec<(String, String)>, key: &str, value: &str) -> Vec<(String, String)> {
+fn annotation_set(
+    mut entries: Vec<(String, String)>,
+    key: &str,
+    value: &str,
+) -> Vec<(String, String)> {
     entries.retain(|(k, _)| k != key);
     entries.push((key.to_string(), value.to_string()));
     entries
@@ -1334,6 +1489,9 @@ pub struct HttpApiGroup {
     pub endpoints: Vec<(String, HttpApiEndpoint)>,
     /// Annotation scope, most specific last.
     pub annotations: Vec<(String, String)>,
+    /// Top-level groups flatten their endpoints to the API root
+    /// (`topLevel: true` in `HttpApiGroup.make`).
+    pub top_level: bool,
 }
 
 impl HttpApiGroup {
@@ -1343,6 +1501,7 @@ impl HttpApiGroup {
             identifier: identifier.to_string(),
             endpoints: Vec::new(),
             annotations: Vec::new(),
+            top_level: false,
         }
     }
 
@@ -1355,7 +1514,10 @@ impl HttpApiGroup {
 
     /// The endpoint with `identifier`, if present.
     pub fn endpoint(&self, identifier: &str) -> Option<&HttpApiEndpoint> {
-        self.endpoints.iter().find(|(id, _)| id == identifier).map(|(_, endpoint)| endpoint)
+        self.endpoints
+            .iter()
+            .find(|(id, _)| id == identifier)
+            .map(|(_, endpoint)| endpoint)
     }
 
     /// Set annotation `key` to `value`.
@@ -1366,6 +1528,13 @@ impl HttpApiGroup {
         }
     }
 
+    /// Flatten this group's endpoints to the API root in client builders
+    /// (`topLevel: true`); the URL paths are unchanged, only the nesting is.
+    pub fn top_level(mut self) -> Self {
+        self.top_level = true;
+        self
+    }
+
     /// Merge a parent scope underneath this group's own annotations
     /// (the group's values win, mirroring `addHttpApi` precedence).
     pub fn annotate_merge(self, parent: &[(String, String)]) -> Self {
@@ -1373,12 +1542,19 @@ impl HttpApiGroup {
         for (key, value) in &self.annotations {
             merged = annotation_set(merged, key, value);
         }
-        Self { annotations: merged, ..self }
+        Self {
+            annotations: merged,
+            ..self
+        }
     }
 
     /// The annotation for `key`, if present.
     pub fn annotation(&self, key: &str) -> Option<&str> {
-        self.annotations.iter().rev().find(|(k, _)| k == key).map(|(_, v)| v.as_str())
+        self.annotations
+            .iter()
+            .rev()
+            .find(|(k, _)| k == key)
+            .map(|(_, v)| v.as_str())
     }
 }
 
@@ -1396,6 +1572,8 @@ pub struct HttpApi {
     pub groups: Vec<(String, HttpApiGroup)>,
     /// Annotation scope for groups added later via `add_http_api`.
     pub annotations: Vec<(String, String)>,
+    /// Path prefix applied ahead of every endpoint path (`.prefix(...)`).
+    pub prefix: String,
 }
 
 impl HttpApi {
@@ -1405,7 +1583,14 @@ impl HttpApi {
             identifier: identifier.to_string(),
             groups: Vec::new(),
             annotations: Vec::new(),
+            prefix: String::new(),
         }
+    }
+
+    /// Apply a path prefix ahead of every endpoint path.
+    pub fn prefix(mut self, scope: &str) -> Self {
+        self.prefix = scope.to_string();
+        self
     }
 
     /// Add a group, keyed by its identifier.
@@ -1437,7 +1622,10 @@ impl HttpApi {
 
     /// The group with `identifier`, if present.
     pub fn group(&self, identifier: &str) -> Option<&HttpApiGroup> {
-        self.groups.iter().find(|(id, _)| id == identifier).map(|(_, group)| group)
+        self.groups
+            .iter()
+            .find(|(id, _)| id == identifier)
+            .map(|(_, group)| group)
     }
 
     /// Own group identifiers in insertion order.
@@ -1447,11 +1635,19 @@ impl HttpApi {
 
     /// The spec-scope annotation for `key`, if present.
     pub fn annotation(&self, key: &str) -> Option<&str> {
-        self.annotations.iter().rev().find(|(k, _)| k == key).map(|(_, v)| v.as_str())
+        self.annotations
+            .iter()
+            .rev()
+            .find(|(k, _)| k == key)
+            .map(|(_, v)| v.as_str())
     }
 
     /// Walk every group then its endpoints in insertion order.
-    pub fn reflect(&self, mut on_group: impl FnMut(&HttpApiGroup), mut on_endpoint: impl FnMut(&HttpApiGroup, &HttpApiEndpoint)) {
+    pub fn reflect(
+        &self,
+        mut on_group: impl FnMut(&HttpApiGroup),
+        mut on_endpoint: impl FnMut(&HttpApiGroup, &HttpApiEndpoint),
+    ) {
         for (_, group) in &self.groups {
             on_group(group);
             for (_, endpoint) in &group.endpoints {
@@ -1721,9 +1917,8 @@ pub fn parse_multipart(
     content_type: &str,
     limits: &MultipartLimits,
 ) -> Result<Vec<MultipartPart>, MultipartError> {
-    let boundary = multipart_boundary(content_type).ok_or(MultipartError::from_reason(
-        MultipartReason::Parse,
-    ))?;
+    let boundary = multipart_boundary(content_type)
+        .ok_or(MultipartError::from_reason(MultipartReason::Parse))?;
     if let Some(cap) = limits.max_total_size {
         if body.len() > cap {
             return Err(MultipartError::from_reason(MultipartReason::BodyTooLarge));
@@ -1746,24 +1941,19 @@ pub fn parse_multipart(
     }
     pos += 2;
     loop {
-        let header_end = find_bytes(body, pos, b"\r\n\r\n").ok_or(
-            MultipartError::from_reason(MultipartReason::Parse),
-        )?;
+        let header_end = find_bytes(body, pos, b"\r\n\r\n")
+            .ok_or(MultipartError::from_reason(MultipartReason::Parse))?;
         let headers = String::from_utf8_lossy(&body[pos..header_end]).into_owned();
         let content_start = header_end + 4;
-        let delim_pos = find_delimiter(body, content_start, delim).ok_or(
-            MultipartError::from_reason(MultipartReason::Parse),
-        )?;
+        let delim_pos = find_delimiter(body, content_start, delim)
+            .ok_or(MultipartError::from_reason(MultipartReason::Parse))?;
         let content = &body[content_start..delim_pos];
         let (name, filename, content_type) = part_headers(&headers);
         let name = name.ok_or(MultipartError::from_reason(MultipartReason::Parse))?;
-        let is_field = filename.is_none()
-            || field_mimes.iter().any(|m| content_type.contains(m));
+        let is_field = filename.is_none() || field_mimes.iter().any(|m| content_type.contains(m));
         if is_field {
             if content.len() > limits.field_cap() {
-                return Err(MultipartError::from_reason(
-                    MultipartReason::FieldTooLarge,
-                ));
+                return Err(MultipartError::from_reason(MultipartReason::FieldTooLarge));
             }
             parts.push(MultipartPart::Field {
                 key: name,
@@ -1773,9 +1963,7 @@ pub fn parse_multipart(
         } else {
             if let Some(cap) = limits.max_file_size {
                 if content.len() > cap {
-                    return Err(MultipartError::from_reason(
-                        MultipartReason::FileTooLarge,
-                    ));
+                    return Err(MultipartError::from_reason(MultipartReason::FileTooLarge));
                 }
             }
             parts.push(MultipartPart::File {
@@ -1787,9 +1975,7 @@ pub fn parse_multipart(
         }
         if let Some(cap) = limits.max_parts {
             if parts.len() > cap {
-                return Err(MultipartError::from_reason(
-                    MultipartReason::TooManyParts,
-                ));
+                return Err(MultipartError::from_reason(MultipartReason::TooManyParts));
             }
         }
         let mut next = delim_pos + 2 + delim.len();
@@ -1897,8 +2083,7 @@ pub fn schema_json_with_reviver(
     json: &str,
     reviver: impl Fn(&str, serde_json::Value) -> serde_json::Value,
 ) -> Result<serde_json::Value, String> {
-    let value: serde_json::Value =
-        serde_json::from_str(json).map_err(|error| error.to_string())?;
+    let value: serde_json::Value = serde_json::from_str(json).map_err(|error| error.to_string())?;
     Ok(apply_reviver("", value, &reviver))
 }
 
@@ -1937,11 +2122,15 @@ pub fn persisted_file_path(
     used: &mut std::collections::BTreeSet<String>,
     index: &mut usize,
 ) -> String {
-    let base = filename
-        .rsplit(['/', '\\'])
-        .next()
-        .unwrap_or(filename);
-    let base: String = base.chars().rev().take(128).collect::<String>().chars().rev().collect();
+    let base = filename.rsplit(['/', '\\']).next().unwrap_or(filename);
+    let base: String = base
+        .chars()
+        .rev()
+        .take(128)
+        .collect::<String>()
+        .chars()
+        .rev()
+        .collect();
     let mut path = format!("{dir}/{base}");
     while used.contains(&path) {
         path = format!("{dir}/{}-{base}", *index);
