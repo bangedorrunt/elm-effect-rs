@@ -73,10 +73,7 @@ fn resolve_annotations_key_is_none_without_key_annotations() {
 #[test]
 fn resolve_annotations_key_returns_the_key_annotations() {
     // :10735.
-    let schema = Schema::annotate_key(
-        Schema::string(),
-        vec![("messageMissingKey", "required")],
-    );
+    let schema = Schema::annotate_key(Schema::string(), vec![("messageMissingKey", "required")]);
     assert_eq!(
         schema.resolve_annotations_key(),
         Some(vec![(
@@ -90,10 +87,7 @@ fn resolve_annotations_key_returns_the_key_annotations() {
 fn key_annotations_survive_the_re_typing_a_struct_field_goes_through() {
     // Every struct field is re-typed to `Unknown`, and the key annotation is
     // read at that occurrence, so the re-typing must carry it.
-    let field = Schema::annotate_key(
-        Schema::string(),
-        vec![("messageMissingKey", "required")],
-    );
+    let field = Schema::annotate_key(Schema::string(), vec![("messageMissingKey", "required")]);
     let re_typed = Schema::as_unknown(field);
     assert_eq!(
         re_typed.resolve_annotations_key(),

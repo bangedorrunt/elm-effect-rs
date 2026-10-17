@@ -3,7 +3,12 @@
 use elm_effect_unstable::ai::{AiError, AiReason, EmbeddingModel, EmbeddingUsage};
 use std::sync::{Arc, Mutex};
 
-fn recording(provider: impl Fn(&[String]) -> Result<(Vec<Vec<f64>>, EmbeddingUsage), AiError> + Send + Sync + 'static) -> (EmbeddingModel, Arc<Mutex<Vec<Vec<String>>>>) {
+fn recording(
+    provider: impl Fn(&[String]) -> Result<(Vec<Vec<f64>>, EmbeddingUsage), AiError>
+    + Send
+    + Sync
+    + 'static,
+) -> (EmbeddingModel, Arc<Mutex<Vec<Vec<String>>>>) {
     let seen: Arc<Mutex<Vec<Vec<String>>>> = Arc::new(Mutex::new(Vec::new()));
     let seen_in = Arc::clone(&seen);
     let model = EmbeddingModel::new(move |inputs| {
@@ -28,7 +33,9 @@ fn embed_returns_a_vector() {
     let (model, seen) = recording(|_| {
         Ok((
             vec![vec![1.0, 2.0, 3.0]],
-            EmbeddingUsage { input_tokens: Some(5) },
+            EmbeddingUsage {
+                input_tokens: Some(5),
+            },
         ))
     });
     let response = model.embed("hello").unwrap();
@@ -42,11 +49,17 @@ fn embed_many_returns_ordered_vectors_with_usage() {
     let (model, seen) = recording(|_| {
         Ok((
             vec![vec![1.0, 2.0], vec![3.0, 4.0]],
-            EmbeddingUsage { input_tokens: Some(9) },
+            EmbeddingUsage {
+                input_tokens: Some(9),
+            },
         ))
     });
     let response = model.embed_many(&["hello", "world"]).unwrap();
-    let vectors: Vec<Vec<f64>> = response.embeddings.iter().map(|e| e.vector.clone()).collect();
+    let vectors: Vec<Vec<f64>> = response
+        .embeddings
+        .iter()
+        .map(|e| e.vector.clone())
+        .collect();
     assert_eq!(vectors, vec![vec![1.0, 2.0], vec![3.0, 4.0]]);
     assert_eq!(response.usage.input_tokens, Some(9));
     assert_eq!(
@@ -72,7 +85,9 @@ fn embed_fails_with_invalid_output_when_provider_misses_results() {
     let (model, _) = recording(|_| {
         Ok((
             Vec::new(),
-            EmbeddingUsage { input_tokens: Some(0) },
+            EmbeddingUsage {
+                input_tokens: Some(0),
+            },
         ))
     });
     let error = model.embed("hello").unwrap_err();
@@ -85,7 +100,9 @@ fn embed_many_fails_with_invalid_output_when_provider_misses_results() {
     let (model, _) = recording(|_| {
         Ok((
             vec![vec![1.0, 2.0, 3.0]],
-            EmbeddingUsage { input_tokens: Some(3) },
+            EmbeddingUsage {
+                input_tokens: Some(3),
+            },
         ))
     });
     let error = model.embed_many(&["hello", "world"]).unwrap_err();

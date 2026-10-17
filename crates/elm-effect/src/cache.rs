@@ -604,7 +604,7 @@ where
                                 }
                             }
                             Err(_) => false,
-                        }
+                        };
                     }
                     None => cell,
                 },

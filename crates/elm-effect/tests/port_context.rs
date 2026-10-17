@@ -30,11 +30,7 @@ fn context_add_or_omit_removes() {
 #[test]
 fn context_preserves_insertion_order() {
     // Context.test.ts:27 — replacement keeps position, appends go last.
-    let context = Context::empty()
-        .add(A, 1)
-        .add(B, 3)
-        .add(A, 4)
-        .add(C, 5);
+    let context = Context::empty().add(A, 1).add(B, 3).add(A, 4).add(C, 5);
     assert_eq!(
         context.keys(),
         vec!["ContextTest/A", "ContextTest/B", "ContextTest/C"]
@@ -48,7 +44,10 @@ fn context_merge_is_right_biased() {
     let left = Context::make(A, 1).add(B, 2);
     let right = Context::make(A, 3).add(C, 4);
     let merged = left.clone().merge(right);
-    assert_eq!(merged.keys(), vec!["ContextTest/A", "ContextTest/B", "ContextTest/C"]);
+    assert_eq!(
+        merged.keys(),
+        vec!["ContextTest/A", "ContextTest/B", "ContextTest/C"]
+    );
     assert_eq!(merged.get(A), Some(&3));
     assert_eq!(merged.get(B), Some(&2));
     assert_eq!(merged.get(C), Some(&4));
@@ -61,7 +60,10 @@ fn context_pick_omit_retain_source_order() {
     // Context.test.ts: pick and omit retain source ordering.
     let source = Context::make(A, 1).add(B, 2).add(C, 3);
     assert_eq!(
-        source.clone().pick(&["ContextTest/C", "ContextTest/A"]).keys(),
+        source
+            .clone()
+            .pick(&["ContextTest/C", "ContextTest/A"])
+            .keys(),
         vec!["ContextTest/A", "ContextTest/C"]
     );
     assert_eq!(
@@ -100,7 +102,10 @@ fn get_distinguishes_present_from_absent() {
     // added is not. The pin expresses this with getOption returning Some vs
     // None, which maps directly onto this port's Option<&T>.
     let context = Context::empty().add(PRESENT, 1);
-    assert!(context.get(PRESENT).is_some(), "an added service is present");
+    assert!(
+        context.get(PRESENT).is_some(),
+        "an added service is present"
+    );
     assert!(
         context.get(ABSENT).is_none(),
         "a service never added is absent, not defaulted"

@@ -40,7 +40,8 @@ pub fn derive_identity_root_secret_material(root_secret: &[u8]) -> IdentityRootS
     let encryption_key_material = derive_secret_bytes(root_secret, ENCRYPTION_LABEL);
     let signing_seed = derive_secret_bytes(root_secret, SIGNING_LABEL);
 
-    let mut signing_private_key = Vec::with_capacity(ED25519_PKCS8_SEED_PREFIX.len() + signing_seed.len());
+    let mut signing_private_key =
+        Vec::with_capacity(ED25519_PKCS8_SEED_PREFIX.len() + signing_seed.len());
     signing_private_key.extend_from_slice(&ED25519_PKCS8_SEED_PREFIX);
     signing_private_key.extend_from_slice(&signing_seed);
 

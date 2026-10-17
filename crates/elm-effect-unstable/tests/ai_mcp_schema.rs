@@ -6,10 +6,17 @@ use serde_json::json;
 #[test]
 fn preserves_custom_metadata_when_a_request_is_decoded_and_encoded() {
     // McpSchema.test.ts:6 — every progress-token shape roundtrips with custom values.
-    for progress in [json!({}), json!({ "progressToken": "progress-1" }), json!({ "progressToken": 1 })] {
+    for progress in [
+        json!({}),
+        json!({ "progressToken": "progress-1" }),
+        json!({ "progressToken": 1 }),
+    ] {
         let mut meta = progress.as_object().unwrap().clone();
         meta.insert("marker".to_owned(), json!("request"));
-        meta.insert("custom".to_owned(), json!({ "values": [null, true, 42, "value"] }));
+        meta.insert(
+            "custom".to_owned(),
+            json!({ "values": [null, true, 42, "value"] }),
+        );
         let request = json!({ "_meta": meta });
         let decoded = RequestMeta::decode(&request).unwrap();
         assert_eq!(decoded.encode(), request);

@@ -5,8 +5,8 @@
 #![cfg(feature = "eventlog")]
 
 use elm_effect_unstable::eventlog::{
-    to_conflicts, unencrypted_server_authenticate, ConflictEntry, Entry, Event, EventGroup, EventJournal,
-    EventLog, RemoteEntry, UnencryptedServerAuth, join_chunks, split_data,
+    ConflictEntry, Entry, Event, EventGroup, EventJournal, EventLog, RemoteEntry,
+    UnencryptedServerAuth, join_chunks, split_data, to_conflicts, unencrypted_server_authenticate,
 };
 use std::cell::{Cell, RefCell};
 use std::sync::Arc;
@@ -182,7 +182,10 @@ fn indexes_conflicts_from_the_sliced_history() {
     let (duplicate_b, conflicts_b, _) = to_conflicts(&sliced, &origin_b);
     assert!(!duplicate_b);
     assert_eq!(
-        conflicts_b.iter().map(|e| e.id.as_str()).collect::<Vec<_>>(),
+        conflicts_b
+            .iter()
+            .map(|e| e.id.as_str())
+            .collect::<Vec<_>>(),
         ["newer-same-key"]
     );
 }
@@ -193,10 +196,11 @@ fn indexes_conflicts_from_the_sliced_history() {
 fn authenticate_denies_first_use_without_creating_binding() {
     let mut server = UnencryptedServerAuth::new();
     let policy_calls = RefCell::new(Vec::new());
-    let result = unencrypted_server_authenticate(&mut server, "identity-1", &[7u8; 32], |public_key| {
-        policy_calls.borrow_mut().push(public_key.to_owned());
-        Err("Forbidden".to_owned())
-    });
+    let result =
+        unencrypted_server_authenticate(&mut server, "identity-1", &[7u8; 32], |public_key| {
+            policy_calls.borrow_mut().push(public_key.to_owned());
+            Err("Forbidden".to_owned())
+        });
     assert_eq!(result, Err("Forbidden".to_owned()));
     assert_eq!(policy_calls.borrow().as_slice(), ["identity-1"]);
     assert_eq!(server.binding_lookups(), 0);
@@ -230,6 +234,9 @@ fn authenticate_rechecks_identity_authorization_on_cached_binding() {
         unencrypted_server_authenticate(&mut server, "identity-1", &[7u8; 32], &authorize),
         Err("Forbidden".to_owned())
     );
-    assert_eq!(policy_calls.borrow().as_slice(), ["identity-1", "identity-1"]);
+    assert_eq!(
+        policy_calls.borrow().as_slice(),
+        ["identity-1", "identity-1"]
+    );
     assert_eq!(server.binding_lookups(), 1);
 }

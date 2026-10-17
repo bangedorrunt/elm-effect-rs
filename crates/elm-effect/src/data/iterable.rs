@@ -142,10 +142,7 @@ pub fn zip_with<T, U, V>(
     b: impl IntoIterator<Item = U>,
     mut f: impl FnMut(T, U) -> V,
 ) -> Vec<V> {
-    a.into_iter()
-        .zip(b)
-        .map(|(x, y)| f(x, y))
-        .collect()
+    a.into_iter().zip(b).map(|(x, y)| f(x, y)).collect()
 }
 
 /// Interleave a separator (`intersperse`).

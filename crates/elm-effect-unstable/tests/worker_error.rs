@@ -34,7 +34,9 @@ fn matches_wrapper_only() {
     struct Decoy {
         _tag: &'static str,
     }
-    let decoy = Decoy { _tag: "WorkerError" };
+    let decoy = Decoy {
+        _tag: "WorkerError",
+    };
     assert!(!is_worker_error(&decoy));
 }
 

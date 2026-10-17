@@ -7,12 +7,13 @@
 
 #![cfg(feature = "eventlog")]
 
-use elm_effect_unstable::eventlog_session_auth::{
-    decode_session_auth_payload, encode_session_auth_payload, sign_session_auth_payload,
-    verify_session_auth_payload, verify_session_auth_payload_bytes, RemoteId, SessionAuthErrorReason,
-    SessionAuthPayload, AUTH_PAYLOAD_CONTEXT, ED25519_PUBLIC_KEY_LENGTH, ED25519_SIGNATURE_LENGTH,
-};
 use ed25519_dalek::{SigningKey, VerifyingKey};
+use elm_effect_unstable::eventlog_session_auth::{
+    AUTH_PAYLOAD_CONTEXT, ED25519_PUBLIC_KEY_LENGTH, ED25519_SIGNATURE_LENGTH, RemoteId,
+    SessionAuthErrorReason, SessionAuthPayload, decode_session_auth_payload,
+    encode_session_auth_payload, sign_session_auth_payload, verify_session_auth_payload,
+    verify_session_auth_payload_bytes,
+};
 
 /// The 16-byte PKCS#8 framing `WebCrypto` puts in front of an Ed25519 seed.
 const ED25519_PKCS8_SEED_PREFIX: [u8; 16] = [
@@ -20,7 +21,9 @@ const ED25519_PKCS8_SEED_PREFIX: [u8; 16] = [
 ];
 
 fn make_signing_key_pair() -> (Vec<u8>, Vec<u8>) {
-    let seed: Vec<u8> = (0..32u8).map(|i| i.wrapping_mul(7).wrapping_add(3)).collect();
+    let seed: Vec<u8> = (0..32u8)
+        .map(|i| i.wrapping_mul(7).wrapping_add(3))
+        .collect();
     let signing_key = SigningKey::from_bytes(seed.as_slice().try_into().expect("32 bytes"));
     let public = signing_key.verifying_key().to_bytes().to_vec();
 
@@ -130,12 +133,9 @@ fn rejects_invalid_canonical_payload_bytes() {
     let encoded = encode_session_auth_payload(&payload).expect("payload encodes");
     let malformed = &encoded[..encoded.len() - 1];
 
-    let error = verify_session_auth_payload_bytes(
-        malformed,
-        &public,
-        &vec![0u8; ED25519_SIGNATURE_LENGTH],
-    )
-    .expect_err("a truncated payload is refused");
+    let error =
+        verify_session_auth_payload_bytes(malformed, &public, &vec![0u8; ED25519_SIGNATURE_LENGTH])
+            .expect_err("a truncated payload is refused");
     assert_eq!(error.reason, SessionAuthErrorReason::InvalidPayload);
     assert_eq!(error.reason.as_str(), "InvalidPayload");
 }
@@ -147,7 +147,10 @@ fn key_pair_helper_produces_the_public_key_of_its_private_key() {
     let (public, private) = make_signing_key_pair();
     let key = SigningKey::from_pkcs8_der_seed(&private);
     assert_eq!(key.verifying_key().to_bytes().to_vec(), public);
-    assert_eq!(VerifyingKey::from_bytes(public.as_slice().try_into().unwrap()).unwrap(), key.verifying_key());
+    assert_eq!(
+        VerifyingKey::from_bytes(public.as_slice().try_into().unwrap()).unwrap(),
+        key.verifying_key()
+    );
 }
 
 /// The 48-byte PKCS#8 key is `prefix || seed`, so the helper above cannot drift
@@ -159,7 +162,10 @@ trait Pkcs8Seed {
 impl Pkcs8Seed for SigningKey {
     fn from_pkcs8_der_seed(key: &[u8]) -> SigningKey {
         assert_eq!(key.len(), ED25519_PKCS8_SEED_PREFIX.len() + 32);
-        assert_eq!(&key[..ED25519_PKCS8_SEED_PREFIX.len()], &ED25519_PKCS8_SEED_PREFIX[..]);
+        assert_eq!(
+            &key[..ED25519_PKCS8_SEED_PREFIX.len()],
+            &ED25519_PKCS8_SEED_PREFIX[..]
+        );
         SigningKey::from_bytes(key[ED25519_PKCS8_SEED_PREFIX.len()..].try_into().unwrap())
     }
 }

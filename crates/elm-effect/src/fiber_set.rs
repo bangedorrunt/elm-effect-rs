@@ -80,7 +80,12 @@ where
         body: impl FnOnce(&Ctx) -> Exit<A, E> + Send + 'static,
         on_interrupt: impl FnOnce() + Send + 'static,
     ) -> usize {
-        self.fork(body, ForkOpts::immediate(), Some(Box::new(on_interrupt)), false)
+        self.fork(
+            body,
+            ForkOpts::immediate(),
+            Some(Box::new(on_interrupt)),
+            false,
+        )
     }
 
     /// Fork a member that settles the set when it ends interrupted
@@ -275,7 +280,9 @@ where
         body: impl FnOnce(&Ctx) -> Exit<A, E> + Send + 'static,
         observer: Option<Box<dyn FnOnce() + Send>>,
     ) {
-        let handle = self.rt.fork_scoped(&self.scope, body, ForkOpts::immediate());
+        let handle = self
+            .rt
+            .fork_scoped(&self.scope, body, ForkOpts::immediate());
         if let Some(observer) = observer {
             handle.add_finalizer(observer);
         }

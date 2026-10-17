@@ -293,11 +293,9 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
     /// `Effect.transposeOption` at the pin: `Some(effect)` maps the success
     /// into `Some`, `None` succeeds with `None`. The inner effect is not run
     /// until interpreted, like every description.
-    pub fn transpose_option(option: std::option::Option<Self>) -> Effect<
-        std::option::Option<A>,
-        E,
-        R,
-    > {
+    pub fn transpose_option(
+        option: std::option::Option<Self>,
+    ) -> Effect<std::option::Option<A>, E, R> {
         match option {
             std::option::Option::Some(effect) => effect.map(std::option::Option::Some),
             std::option::Option::None => Effect::succeed(std::option::Option::None),

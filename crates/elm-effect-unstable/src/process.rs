@@ -482,18 +482,16 @@ impl Pipeline {
             } else {
                 match stage.from {
                     PipeFrom::Stdout => {
-                        let stdout = children
-                            .last_mut()
-                            .and_then(|child| child.stdout.take());
+                        let stdout = children.last_mut().and_then(|child| child.stdout.take());
                         command.stdin(match stdout {
                             Some(stdout) => stdout.into(),
                             None => std::process::Stdio::inherit(),
                         });
                     }
                     PipeFrom::Stderr | PipeFrom::All => {
-                        let previous = children.pop().ok_or_else(|| {
-                            ProcessError::Spawn("empty pipeline".to_string())
-                        })?;
+                        let previous = children
+                            .pop()
+                            .ok_or_else(|| ProcessError::Spawn("empty pipeline".to_string()))?;
                         let drained = drain_combined(previous)?;
                         command.stdin(std::process::Stdio::piped());
                         feed = Some(match stage.from {

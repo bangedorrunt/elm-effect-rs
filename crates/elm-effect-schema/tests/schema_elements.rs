@@ -140,8 +140,8 @@ fn evolve_makes_a_trailing_position_optional() {
 /// [string, number?]`: the `undefined` entry leaves that position alone.
 #[test]
 fn evolve_touches_only_the_listed_position() {
-    let schema = pair_of_numbers()
-        .map_elements(element_evolve(vec![None, Some(element_make_optional_key)]));
+    let schema =
+        pair_of_numbers().map_elements(element_evolve(vec![None, Some(element_make_optional_key)]));
 
     assert_eq!(
         elements_of(&schema),

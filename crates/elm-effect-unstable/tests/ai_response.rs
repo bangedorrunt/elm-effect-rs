@@ -15,7 +15,13 @@ fn preserves_user_failure_fields_for_struct_unknown_and_record_schemas() {
         json!({"type": "execution-denied", "reason": "r", "detail": "IMPORTANT"}),
         json!({"type": "execution-denied", "reason": "r", "detail": "IMPORTANT"}),
     ] {
-        let part = ToolResultPart::new("tool-123", "UserFailure", true, failure.clone(), failure.clone());
+        let part = ToolResultPart::new(
+            "tool-123",
+            "UserFailure",
+            true,
+            failure.clone(),
+            failure.clone(),
+        );
         assert_eq!(part.result, failure);
         assert_eq!(part.encoded_result, failure);
         assert!(part.is_failure);
@@ -31,8 +37,10 @@ fn preserves_user_failure_fields_for_struct_unknown_and_record_schemas() {
 #[test]
 fn round_trips_a_returned_ai_error_through_toolkit_and_all_parts_json() {
     // Response.test.ts:64 — AiError failure survives with its encoded form.
-    let failure = AiError::new(AiReason::RateLimit { retry_after_secs: None })
-        .with_context("Test", "FrameworkFailure");
+    let failure = AiError::new(AiReason::RateLimit {
+        retry_after_secs: None,
+    })
+    .with_context("Test", "FrameworkFailure");
     let encoded_failure = failure.to_json();
     let part = ToolResultPart::new(
         "tool-123",
@@ -42,13 +50,17 @@ fn round_trips_a_returned_ai_error_through_toolkit_and_all_parts_json() {
         serde_json::to_value(&encoded_failure).unwrap(),
     );
     let wire = part.to_json();
-    let json = serde_json::from_str::<serde_json::Value>(&serde_json::to_string(&wire).unwrap()).unwrap();
+    let json =
+        serde_json::from_str::<serde_json::Value>(&serde_json::to_string(&wire).unwrap()).unwrap();
     let back = ToolResultPart::from_json(&json).expect("decodes");
     let decoded_error = AiError::from_json(&back.result).expect("AiError");
     assert_eq!(decoded_error.reason_tag(), "RateLimitError");
     assert_eq!(decoded_error.module.as_deref(), Some("Test"));
     assert_eq!(decoded_error.method.as_deref(), Some("FrameworkFailure"));
-    assert_eq!(back.encoded_result, serde_json::to_value(&encoded_failure).unwrap());
+    assert_eq!(
+        back.encoded_result,
+        serde_json::to_value(&encoded_failure).unwrap()
+    );
 }
 
 #[test]
@@ -66,7 +78,9 @@ fn round_trips_provider_defined_execution_failures_through_all_parts_json() {
             result.clone(),
         );
         let wire = part.to_json();
-        let json = serde_json::from_str::<serde_json::Value>(&serde_json::to_string(&wire).unwrap()).unwrap();
+        let json =
+            serde_json::from_str::<serde_json::Value>(&serde_json::to_string(&wire).unwrap())
+                .unwrap();
         let back = ToolResultPart::from_json(&json).expect("decodes");
         assert_eq!(back, part);
     }
@@ -98,7 +112,13 @@ fn encodes_success_and_failure_branches_with_their_own_schema() {
 #[test]
 fn rejects_an_encoded_result_from_the_other_branch() {
     // Response.test.ts:186 — a success wire rejects "404"; a failure wire rejects 404.
-    let success = ToolResultPart::new("tool-123", "ResultEncoding", false, json!(404), json!("404"));
+    let success = ToolResultPart::new(
+        "tool-123",
+        "ResultEncoding",
+        false,
+        json!(404),
+        json!("404"),
+    );
     let err = success.encode_branch(false).expect_err("rejects");
     assert!(err.contains("number"), "unexpected error: {err}");
     assert!(err.contains("encodedResult"), "unexpected error: {err}");
@@ -128,7 +148,8 @@ fn preserves_branch_encoded_results_through_an_all_parts_json_round_trip() {
 #[test]
 fn decodes_response_metadata_with_omitted_optional_fields() {
     // Response.test.ts:202 — `{type}` alone decodes to an empty metadata part.
-    let decoded = ResponseMetadataPart::from_json(&json!({"type": "response-metadata"})).expect("decodes");
+    let decoded =
+        ResponseMetadataPart::from_json(&json!({"type": "response-metadata"})).expect("decodes");
     assert_eq!(decoded, ResponseMetadataPart::new(None, None, None, None));
 }
 
@@ -137,9 +158,13 @@ fn round_trips_response_metadata_with_undefined_optional_fields_through_json() {
     // Response.test.ts:213 — undefined optionals stay omitted through JSON.
     let part = ResponseMetadataPart::new(None, None, None, None);
     let wire = part.to_json();
-    let json = serde_json::from_str::<serde_json::Value>(&serde_json::to_string(&wire).unwrap()).unwrap();
+    let json =
+        serde_json::from_str::<serde_json::Value>(&serde_json::to_string(&wire).unwrap()).unwrap();
     assert_eq!(json, json!({"metadata": {}, "type": "response-metadata"}));
-    assert_eq!(ResponseMetadataPart::from_json(&json).expect("decodes"), part);
+    assert_eq!(
+        ResponseMetadataPart::from_json(&json).expect("decodes"),
+        part
+    );
 }
 
 #[test]
@@ -153,7 +178,8 @@ fn round_trips_http_request_details_with_an_undefined_hash_through_json() {
         headers: HashMap::new(),
     };
     let wire = request.to_json();
-    let json = serde_json::from_str::<serde_json::Value>(&serde_json::to_string(&wire).unwrap()).unwrap();
+    let json =
+        serde_json::from_str::<serde_json::Value>(&serde_json::to_string(&wire).unwrap()).unwrap();
     assert_eq!(
         json,
         json!({
@@ -161,7 +187,10 @@ fn round_trips_http_request_details_with_an_undefined_hash_through_json() {
             "urlParams": [], "headers": {},
         })
     );
-    assert_eq!(HttpRequestDetails::from_json(&json).expect("decodes"), request);
+    assert_eq!(
+        HttpRequestDetails::from_json(&json).expect("decodes"),
+        request
+    );
 }
 
 #[test]
@@ -170,13 +199,19 @@ fn round_trips_a_finish_part_with_undefined_optional_fields_through_json() {
     let part = FinishPart::new(
         "stop",
         ResponseUsage::from_optional(
-            &[("uncached", None), ("total", None), ("cacheRead", None), ("cacheWrite", None)],
+            &[
+                ("uncached", None),
+                ("total", None),
+                ("cacheRead", None),
+                ("cacheWrite", None),
+            ],
             &[("total", None), ("text", None), ("reasoning", None)],
         ),
         None,
     );
     let wire = part.to_json();
-    let json = serde_json::from_str::<serde_json::Value>(&serde_json::to_string(&wire).unwrap()).unwrap();
+    let json =
+        serde_json::from_str::<serde_json::Value>(&serde_json::to_string(&wire).unwrap()).unwrap();
     assert_eq!(
         json,
         json!({

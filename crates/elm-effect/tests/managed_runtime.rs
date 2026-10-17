@@ -103,7 +103,9 @@ fn allows_sharing_a_memo() {
     let count = Arc::new(AtomicUsize::new(0));
     let layer = counting_layer(Arc::clone(&count));
     let runtime_a = ManagedRuntime::make(&layer).expect("layer builds");
-    let memo = runtime_a.memo().expect("a layer runtime hands out its memo");
+    let memo = runtime_a
+        .memo()
+        .expect("a layer runtime hands out its memo");
     let layer_b = layer.with_memo(&memo);
     let runtime_b = ManagedRuntime::make(&layer_b).expect("shared memo builds");
     let _ = runtime_a.run(Effect::<(), Infallible, ()>::succeed(()));
@@ -211,7 +213,9 @@ fn dispose_finishes_request_cleanup_before_releasing_the_layer() {
         move || runtime.dispose()
     });
     gate.complete(());
-    disposing.join().expect("the disposing thread must not panic");
+    disposing
+        .join()
+        .expect("the disposing thread must not panic");
     let _ = fiber.join();
 
     assert_eq!(

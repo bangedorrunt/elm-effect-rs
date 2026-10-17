@@ -28,7 +28,9 @@ pub struct Attributes {
 
 impl Attributes {
     /// Pairs in insertion order; a later pair for a name keeps its position.
-    pub fn from_pairs(pairs: impl IntoIterator<Item = (impl Into<String>, impl Into<String>)>) -> Self {
+    pub fn from_pairs(
+        pairs: impl IntoIterator<Item = (impl Into<String>, impl Into<String>)>,
+    ) -> Self {
         let mut attrs = Self::default();
         for (name, value) in pairs {
             attrs.set(name.into(), value.into());
@@ -342,15 +344,15 @@ impl MetricRegistry {
     /// pin's hook does: the hook is registered first and `canUpdate` gates only
     /// the accumulation.
     pub fn update_with(&mut self, counter: &Counter, amount: f64, contextual: &Attributes) {
-        let entry = self.counters.entry(counter.identity().key(
-            MetricKind::Counter,
-            contextual,
-        )).or_insert_with(|| {
-            (
-                CounterState::zero(),
-                counter.identity().merged_attributes(contextual),
-            )
-        });
+        let entry = self
+            .counters
+            .entry(counter.identity().key(MetricKind::Counter, contextual))
+            .or_insert_with(|| {
+                (
+                    CounterState::zero(),
+                    counter.identity().merged_attributes(contextual),
+                )
+            });
         entry.0.incremental = counter.incremental;
         if let Some(amount) = counter.input_amount(amount) {
             entry.0.count += amount;
@@ -379,15 +381,15 @@ impl MetricRegistry {
 
     /// `set` under TS `Metric.CurrentMetricAttributes`.
     pub fn set_with(&mut self, gauge: &Gauge, value: f64, contextual: &Attributes) {
-        let entry = self.gauges.entry(gauge.identity().key(
-            MetricKind::Gauge,
-            contextual,
-        )).or_insert_with(|| {
-            (
-                GaugeState::zero(),
-                gauge.identity().merged_attributes(contextual),
-            )
-        });
+        let entry = self
+            .gauges
+            .entry(gauge.identity().key(MetricKind::Gauge, contextual))
+            .or_insert_with(|| {
+                (
+                    GaugeState::zero(),
+                    gauge.identity().merged_attributes(contextual),
+                )
+            });
         entry.0.value = gauge.identity().mapped_input(value);
     }
 
@@ -402,15 +404,15 @@ impl MetricRegistry {
     /// The delta goes through `mapInput` too, so a constant input applies to a
     /// modify exactly as it does to an update.
     pub fn add_with(&mut self, gauge: &Gauge, delta: f64, contextual: &Attributes) {
-        let entry = self.gauges.entry(gauge.identity().key(
-            MetricKind::Gauge,
-            contextual,
-        )).or_insert_with(|| {
-            (
-                GaugeState::zero(),
-                gauge.identity().merged_attributes(contextual),
-            )
-        });
+        let entry = self
+            .gauges
+            .entry(gauge.identity().key(MetricKind::Gauge, contextual))
+            .or_insert_with(|| {
+                (
+                    GaugeState::zero(),
+                    gauge.identity().merged_attributes(contextual),
+                )
+            });
         entry.0.value += gauge.identity().mapped_input(delta);
     }
 

@@ -5,8 +5,7 @@
 //! `items` with `definitions`, `draft-2020-12` as `prefixItems` with `$defs`.
 
 use elm_effect_schema::{
-    Schema, Unknown, StandardJsonSchemaTarget, to_standard_json_schema_v1,
-    to_standard_schema_v1,
+    Schema, StandardJsonSchemaTarget, Unknown, to_standard_json_schema_v1, to_standard_schema_v1,
 };
 
 fn input(schema: &Schema<Unknown>, target: StandardJsonSchemaTarget) -> serde_json::Value {

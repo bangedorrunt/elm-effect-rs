@@ -229,7 +229,10 @@ impl Command {
             }
         }
         if self.subcommands.is_empty() {
-            return Ok((vec![self.name.clone()], self.parse_args(argv, &inherited, true)?));
+            return Ok((
+                vec![self.name.clone()],
+                self.parse_args(argv, &inherited, true)?,
+            ));
         }
         // A node that carries subcommands and declares its own flags reads a
         // global flag ahead of the subcommand, and the value it collected
@@ -264,7 +267,8 @@ impl Command {
         // Only consider subcommands that occur before an explicit `--` separator,
         // since anything after the dash is operands and cannot select.
         let dash_idx = argv.iter().position(|t| t == "--").unwrap_or(argv.len());
-        let sub_idx = (0..dash_idx).find(|i| self.subcommands.iter().any(|c| c.matches_name(&argv[*i])));
+        let sub_idx =
+            (0..dash_idx).find(|i| self.subcommands.iter().any(|c| c.matches_name(&argv[*i])));
         if let Some(sub_idx) = sub_idx {
             for token in &argv[..sub_idx] {
                 if !token.starts_with('-') {
@@ -352,15 +356,23 @@ impl Command {
         // No subcommand was selected, so the whole line is this node's own.
         if self.subcommands.is_empty() {
             // own + shared declared at this node, plus anything inherited
-            let mut declared = self.args.iter().chain(self.shared_args.iter())
+            let mut declared = self
+                .args
+                .iter()
+                .chain(self.shared_args.iter())
                 .collect::<Vec<&Arg>>();
             declared.extend(inherited.iter().copied());
-            return Ok((vec![self.name.clone()], self.parse_args(argv, &declared, true)?));
+            return Ok((
+                vec![self.name.clone()],
+                self.parse_args(argv, &declared, true)?,
+            ));
         }
-        let mut declared: Vec<&Arg> = self.args.iter().chain(self.shared_args.iter())
-            .collect();
+        let mut declared: Vec<&Arg> = self.args.iter().chain(self.shared_args.iter()).collect();
         declared.extend(inherited.iter().copied());
-        Ok((vec![self.name.clone()], self.parse_args(argv, &declared, true)?))
+        Ok((
+            vec![self.name.clone()],
+            self.parse_args(argv, &declared, true)?,
+        ))
     }
 
     /// Render help text.
@@ -370,12 +382,22 @@ impl Command {
             out.push_str("Arguments:\n");
             for arg in self.args.iter().chain(self.shared_args.iter()) {
                 match arg {
-                    Arg::Flag { name, help } => out.push_str(&format!("  --{name}\n      {help}\n")),
-                    Arg::Opt { name, help, required } => out.push_str(&format!(
+                    Arg::Flag { name, help } => {
+                        out.push_str(&format!("  --{name}\n      {help}\n"))
+                    }
+                    Arg::Opt {
+                        name,
+                        help,
+                        required,
+                    } => out.push_str(&format!(
                         "  --{name} <value>{}\n      {help}\n",
                         if *required { " (required)" } else { "" }
                     )),
-                    Arg::Positional { name, help, variadic } => {
+                    Arg::Positional {
+                        name,
+                        help,
+                        variadic,
+                    } => {
                         // A variadic operand names itself once in help, because
                         // it is one argument that takes many values.
                         let suffix = if *variadic { "..." } else { "" };
@@ -393,13 +415,23 @@ impl Command {
         out
     }
 
-    fn parse_args(&self, argv: &[String], extra: &[&Arg], include_local: bool) -> Result<Parsed, CliError> {
+    fn parse_args(
+        &self,
+        argv: &[String],
+        extra: &[&Arg],
+        include_local: bool,
+    ) -> Result<Parsed, CliError> {
         let mut declared: Vec<&Arg> = Vec::new();
-        if include_local { declared.extend(self.args.iter()); }
+        if include_local {
+            declared.extend(self.args.iter());
+        }
         declared.extend(self.shared_args.iter());
         declared.extend(extra.iter().copied());
         let mut parsed = Parsed::default();
-        let mut positionals = self.args.iter().filter(|a| matches!(a, Arg::Positional { .. }));
+        let mut positionals = self
+            .args
+            .iter()
+            .filter(|a| matches!(a, Arg::Positional { .. }));
         let mut variadic = false;
         let mut i = 0;
         while i < argv.len() {
@@ -452,7 +484,9 @@ impl Command {
                     // stray-word. A bare switch stays true.
                     let literal = inline.or_else(|| {
                         argv.get(i + 1).and_then(|next| {
-                            crate::cli::primitive::parse_bool(next).ok().map(|_| next.as_str())
+                            crate::cli::primitive::parse_bool(next)
+                                .ok()
+                                .map(|_| next.as_str())
                         })
                     });
                     match literal {
@@ -468,7 +502,7 @@ impl Command {
                                 return Err(CliError::Invalid {
                                     arg: name.to_string(),
                                     got: text.to_string(),
-                                })
+                                });
                             }
                         },
                         None => {
@@ -483,7 +517,9 @@ impl Command {
                         Some(v) => v.to_string(),
                         None => {
                             i += 1;
-                            argv.get(i).cloned().ok_or_else(|| CliError::Missing(name.to_string()))?
+                            argv.get(i)
+                                .cloned()
+                                .ok_or_else(|| CliError::Missing(name.to_string()))?
                         }
                     };
                     parsed
@@ -516,7 +552,12 @@ impl Command {
             i += 1;
         }
         for a in &self.args {
-            if let Arg::Opt { name, required: true, .. } = a {
+            if let Arg::Opt {
+                name,
+                required: true,
+                ..
+            } = a
+            {
                 if !parsed.opts.contains_key(name) {
                     return Err(CliError::Missing(name.clone()));
                 }
@@ -574,12 +615,18 @@ pub struct ChatMessage {
 impl ChatMessage {
     /// User message with one text part.
     pub fn user(text: &str) -> Self {
-        Self { role: "user".to_string(), parts: vec![Part::Text(text.to_string())] }
+        Self {
+            role: "user".to_string(),
+            parts: vec![Part::Text(text.to_string())],
+        }
     }
 
     /// Assistant message with one text part.
     pub fn assistant(text: &str) -> Self {
-        Self { role: "assistant".to_string(), parts: vec![Part::Text(text.to_string())] }
+        Self {
+            role: "assistant".to_string(),
+            parts: vec![Part::Text(text.to_string())],
+        }
     }
 
     /// Concatenated text parts.
@@ -620,7 +667,8 @@ pub trait LanguageModel: Send + Sync {
     /// Complete to text.
     fn generate_text(&self, messages: &[ChatMessage]) -> Result<String, ModelError>;
     /// Complete to an object (JSON text).
-    fn generate_object(&self, messages: &[ChatMessage], schema: &str) -> Result<String, ModelError>;
+    fn generate_object(&self, messages: &[ChatMessage], schema: &str)
+    -> Result<String, ModelError>;
     /// Stream text chunks in order.
     fn stream_text(&self, messages: &[ChatMessage]) -> Result<Vec<String>, ModelError> {
         Ok(vec![self.generate_text(messages)?])
@@ -653,11 +701,18 @@ impl LanguageModel for FakeModel {
         if texts.len() > 1 {
             Ok(texts.remove(0))
         } else {
-            texts.first().cloned().ok_or(ModelError::Provider("no scripted response".to_string()))
+            texts
+                .first()
+                .cloned()
+                .ok_or(ModelError::Provider("no scripted response".to_string()))
         }
     }
 
-    fn generate_object(&self, messages: &[ChatMessage], _schema: &str) -> Result<String, ModelError> {
+    fn generate_object(
+        &self,
+        messages: &[ChatMessage],
+        _schema: &str,
+    ) -> Result<String, ModelError> {
         self.generate_text(messages)
     }
 
@@ -847,19 +902,20 @@ impl Command {
     /// silently empty run.
     pub fn run(&self, argv: &[String]) -> Result<Run, CliError> {
         let (path, parsed) = self.parse(argv)?;
-        let node = path
-            .iter()
-            .skip(1)
-            .try_fold(self, |node, name| {
-                node.subcommands
-                    .iter()
-                    .find(|sub| &sub.name == name || sub.aliases.iter().any(|a| a == name))
-                    .ok_or_else(|| CliError::Unknown(name.clone()))
-            })?;
+        let node = path.iter().skip(1).try_fold(self, |node, name| {
+            node.subcommands
+                .iter()
+                .find(|sub| &sub.name == name || sub.aliases.iter().any(|a| a == name))
+                .ok_or_else(|| CliError::Unknown(name.clone()))
+        })?;
         match &node.handler {
             Some(handler) => {
                 handler.call(&parsed);
-                Ok(Run { path, parsed, invoked: true })
+                Ok(Run {
+                    path,
+                    parsed,
+                    invoked: true,
+                })
             }
             // A group reached without a subcommand has nothing to run, which
             // is the same refusal an unknown subcommand gets.

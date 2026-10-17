@@ -37,18 +37,26 @@ pub struct Duration {
 }
 
 impl Duration {
-    pub const ZERO: Self = Self { value: DurationValue::Millis(0.0) };
+    pub const ZERO: Self = Self {
+        value: DurationValue::Millis(0.0),
+    };
 
     pub const fn from_millis(millis: u64) -> Self {
-        Self { value: DurationValue::Millis(millis as f64) }
+        Self {
+            value: DurationValue::Millis(millis as f64),
+        }
     }
 
     pub const fn from_secs(secs: u64) -> Self {
-        Self { value: DurationValue::Millis(secs as f64 * 1000.0) }
+        Self {
+            value: DurationValue::Millis(secs as f64 * 1000.0),
+        }
     }
 
     pub const fn from_minutes(minutes: u64) -> Self {
-        Self { value: DurationValue::Millis(minutes as f64 * 60.0 * 1000.0) }
+        Self {
+            value: DurationValue::Millis(minutes as f64 * 60.0 * 1000.0),
+        }
     }
 
     /// The pin's `make`: a millis value that is not an integer becomes an
@@ -58,12 +66,18 @@ impl Duration {
             return Self::zero();
         }
         if !millis.is_finite() {
-            return if millis > 0.0 { Self::infinity() } else { Self::negative_infinity() };
+            return if millis > 0.0 {
+                Self::infinity()
+            } else {
+                Self::negative_infinity()
+            };
         }
         if millis.fract() != 0.0 {
             return Self::nanos(Self::round_ties_away(millis * 1_000_000.0));
         }
-        Self { value: DurationValue::Millis(millis) }
+        Self {
+            value: DurationValue::Millis(millis),
+        }
     }
 
     /// `Duration.millis`.
@@ -77,12 +91,16 @@ impl Duration {
         if nanos == 0 {
             return Self::zero();
         }
-        Self { value: DurationValue::Nanos(nanos) }
+        Self {
+            value: DurationValue::Nanos(nanos),
+        }
     }
 
     /// `Duration.micros`: microseconds are exact nanoseconds.
     pub fn micros(micros: i128) -> Self {
-        Self { value: DurationValue::Nanos(micros * 1_000) }
+        Self {
+            value: DurationValue::Nanos(micros * 1_000),
+        }
     }
 
     /// `Duration.seconds`.
@@ -112,12 +130,16 @@ impl Duration {
 
     /// `Duration.infinity`.
     pub fn infinity() -> Self {
-        Self { value: DurationValue::Infinity }
+        Self {
+            value: DurationValue::Infinity,
+        }
     }
 
     /// `Duration.negativeInfinity`.
     pub fn negative_infinity() -> Self {
-        Self { value: DurationValue::NegativeInfinity }
+        Self {
+            value: DurationValue::NegativeInfinity,
+        }
     }
 
     /// `Duration.zero`.
@@ -189,7 +211,10 @@ impl Duration {
 
     /// The pin's `isFinite`.
     pub fn is_finite(self) -> bool {
-        matches!(self.value, DurationValue::Millis(_) | DurationValue::Nanos(_))
+        matches!(
+            self.value,
+            DurationValue::Millis(_) | DurationValue::Nanos(_)
+        )
     }
 
     /// The pin's `isNegative`.
@@ -276,7 +301,8 @@ impl Duration {
     /// The pin's `toNanosUnsafe`: it throws on the infinite sentinels, so
     /// this panics.
     pub fn to_nanos_unsafe(self) -> i128 {
-        self.exact_nanos().expect("an infinite duration has no nanoseconds")
+        self.exact_nanos()
+            .expect("an infinite duration has no nanoseconds")
     }
 
     /// The pin's `toHrTime`: `[seconds, nanos]` with the sign carried by
@@ -314,7 +340,10 @@ impl Duration {
                 Self::negative_infinity()
             }
             (DurationValue::Millis(a), DurationValue::Millis(b)) => Self::millis(a + b),
-            (a, b) => match (Self { value: a }.exact_nanos(), Self { value: b }.exact_nanos()) {
+            (a, b) => match (
+                Self { value: a }.exact_nanos(),
+                Self { value: b }.exact_nanos(),
+            ) {
                 (Some(a), Some(b)) => Self::nanos(a + b),
                 // Mixed values that do not fit i128 fall back to millis.
                 _ => Self::millis(self.to_millis() + that.to_millis()),
@@ -360,12 +389,16 @@ impl Duration {
             return None;
         }
         match self.value {
-            DurationValue::Infinity => {
-                Some(if by < 0.0 { Self::negative_infinity() } else { Self::infinity() })
-            }
-            DurationValue::NegativeInfinity => {
-                Some(if by < 0.0 { Self::infinity() } else { Self::negative_infinity() })
-            }
+            DurationValue::Infinity => Some(if by < 0.0 {
+                Self::negative_infinity()
+            } else {
+                Self::infinity()
+            }),
+            DurationValue::NegativeInfinity => Some(if by < 0.0 {
+                Self::infinity()
+            } else {
+                Self::negative_infinity()
+            }),
             DurationValue::Millis(millis) => Some(Self::make_millis(millis / by)),
             DurationValue::Nanos(nanos) => {
                 // The pin divides the bigint by `BigInt(by)`, which throws
@@ -602,7 +635,11 @@ impl Duration {
         };
         let scaled = (whole * fractional_scale + fraction).checked_mul(scale)?;
         let rounded = scaled / fractional_scale
-            + if scaled.rem_euclid(fractional_scale) * 2 >= fractional_scale { 1 } else { 0 };
+            + if scaled.rem_euclid(fractional_scale) * 2 >= fractional_scale {
+                1
+            } else {
+                0
+            };
         Some(if is_negative { -rounded } else { rounded })
     }
 
@@ -656,7 +693,9 @@ impl Duration {
             crate::predicate::Value::Object(fields) => {
                 let scale = |name: &str, factor: f64| -> Option<Self> {
                     match fields.get(name)? {
-                        crate::predicate::Value::Number(value) => Some(Self::millis(value * factor)),
+                        crate::predicate::Value::Number(value) => {
+                            Some(Self::millis(value * factor))
+                        }
                         _ => None,
                     }
                 };

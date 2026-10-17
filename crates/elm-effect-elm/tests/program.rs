@@ -41,7 +41,9 @@ enum CounterCmd {
 impl Cmd for CounterCmd {
     fn durability(&self) -> Durability {
         match self {
-            Self::Persist { .. } => Durability::Durable { key: "count".to_string() },
+            Self::Persist { .. } => Durability::Durable {
+                key: "count".to_string(),
+            },
             Self::Log(_) => Durability::Ephemeral,
         }
     }
@@ -63,10 +65,16 @@ impl Program for Counter {
     fn update(model: &Model, msg: &Msg) -> Update<Model, CounterCmd> {
         match msg {
             Msg::Tick => Update::with_commands(
-                Model { count: model.count + 1 },
-                vec![CounterCmd::Persist { count: model.count + 1 }],
+                Model {
+                    count: model.count + 1,
+                },
+                vec![CounterCmd::Persist {
+                    count: model.count + 1,
+                }],
             ),
-            Msg::Add(n) => Update::quiet(Model { count: model.count + n }),
+            Msg::Add(n) => Update::quiet(Model {
+                count: model.count + n,
+            }),
         }
     }
 

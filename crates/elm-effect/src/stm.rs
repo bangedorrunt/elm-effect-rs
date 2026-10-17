@@ -246,10 +246,12 @@ impl Transaction {
     /// read it.
     fn is_consistent(&self) -> bool {
         let drivers = self.touched.lock().unwrap();
-        drivers.iter().all(|driver| match driver.staged_version(self.id) {
-            Some(read_version) => read_version == driver.current_version(),
-            None => true,
-        })
+        drivers
+            .iter()
+            .all(|driver| match driver.staged_version(self.id) {
+                Some(read_version) => read_version == driver.current_version(),
+                None => true,
+            })
     }
 
     /// Park until a commit touches the read set, or return at once when
@@ -345,14 +347,11 @@ impl<T: Clone + Send + 'static> TxRef<T> {
                     let mut state = handle.state.lock().unwrap();
                     let read_version = state.version;
                     let committed = state.value.clone();
-                    let staged = state
-                        .staged
-                        .entry(tx.id)
-                        .or_insert_with(|| Staged {
-                            version: read_version,
-                            value: committed,
-                            written: false,
-                        });
+                    let staged = state.staged.entry(tx.id).or_insert_with(|| Staged {
+                        version: read_version,
+                        value: committed,
+                        written: false,
+                    });
                     staged.value = value;
                     staged.written = true;
                 }),
@@ -380,14 +379,11 @@ impl<T: Clone + Send + 'static> TxRef<T> {
                     let mut state = handle.state.lock().unwrap();
                     let read_version = state.version;
                     let committed = state.value.clone();
-                    let staged = state
-                        .staged
-                        .entry(tx.id)
-                        .or_insert_with(|| Staged {
-                            version: read_version,
-                            value: committed,
-                            written: false,
-                        });
+                    let staged = state.staged.entry(tx.id).or_insert_with(|| Staged {
+                        version: read_version,
+                        value: committed,
+                        written: false,
+                    });
                     let current = staged.value.clone();
                     let (result, next) = f(current);
                     staged.value = next;
@@ -1553,9 +1549,7 @@ impl<K: Eq + Hash, V> TxHashMap<K, V> {
                 .lock()
                 .unwrap()
                 .iter()
-                .filter_map(|(key, value)| {
-                    transform(value, key).map(|next| (key.clone(), next))
-                })
+                .filter_map(|(key, value)| transform(value, key).map(|next| (key.clone(), next)))
                 .collect()
         })
     }
@@ -1650,9 +1644,7 @@ impl<K: Eq + Hash, V> TxHashMap<K, V> {
                 .lock()
                 .unwrap()
                 .iter()
-                .filter_map(|(key, value)| {
-                    value.clone().into().map(|inner| (key.clone(), inner))
-                })
+                .filter_map(|(key, value)| value.clone().into().map(|inner| (key.clone(), inner)))
                 .collect()
         })
     }
@@ -1717,7 +1709,6 @@ impl<T: Eq + Hash> TxHashSet<T> {
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }
-
 }
 
 /// The set algebra. Split from the block above so these methods can require
@@ -1742,7 +1733,9 @@ impl<T: Eq + Hash + Clone> TxHashSet<T> {
             for value in theirs.iter() {
                 merged.insert(value.clone());
             }
-            Self { inner: Mutex::new(merged) }
+            Self {
+                inner: Mutex::new(merged),
+            }
         })
     }
 
@@ -1757,8 +1750,14 @@ impl<T: Eq + Hash + Clone> TxHashSet<T> {
                 guard.iter().cloned().collect()
             };
             let mine = self.inner.lock().unwrap();
-            let kept: HashSet<T> = mine.iter().filter(|v| theirs.contains(*v)).cloned().collect();
-            Self { inner: Mutex::new(kept) }
+            let kept: HashSet<T> = mine
+                .iter()
+                .filter(|v| theirs.contains(*v))
+                .cloned()
+                .collect();
+            Self {
+                inner: Mutex::new(kept),
+            }
         })
     }
 
@@ -1773,8 +1772,14 @@ impl<T: Eq + Hash + Clone> TxHashSet<T> {
                 guard.iter().cloned().collect()
             };
             let mine = self.inner.lock().unwrap();
-            let kept: HashSet<T> = mine.iter().filter(|v| !theirs.contains(*v)).cloned().collect();
-            Self { inner: Mutex::new(kept) }
+            let kept: HashSet<T> = mine
+                .iter()
+                .filter(|v| !theirs.contains(*v))
+                .cloned()
+                .collect();
+            Self {
+                inner: Mutex::new(kept),
+            }
         })
     }
 
@@ -1838,7 +1843,13 @@ impl<T: Eq + Hash + Clone> TxHashSet<T> {
 
     /// Fold the elements into one value (`reduce`).
     pub fn reduce<R>(&self, init: R, f: impl Fn(R, &T) -> R) -> R {
-        atomically(|| self.inner.lock().unwrap().iter().fold(init, |acc, v| f(acc, v)))
+        atomically(|| {
+            self.inner
+                .lock()
+                .unwrap()
+                .iter()
+                .fold(init, |acc, v| f(acc, v))
+        })
     }
 }
 
@@ -1939,9 +1950,7 @@ impl<T: Send + 'static> TxPriorityQueue<T> {
 
     /// The curried form: `from_iterable(ord)` then the iterable. The pin's
     /// `fromIterable(Order.Number)([3, 1, 2])`.
-    pub fn from_iterable_curried(
-        ord: crate::foundation::Order<T>,
-    ) -> impl FnOnce(Vec<T>) -> Self {
+    pub fn from_iterable_curried(ord: crate::foundation::Order<T>) -> impl FnOnce(Vec<T>) -> Self {
         move |items| Self::from_iterable(ord, items)
     }
 
@@ -2169,7 +2178,10 @@ impl<T> TxChangeSubscription<T> {
     }
 
     fn detach(&self) {
-        self.registry.lock().unwrap().retain(|(id, _)| *id != self.id);
+        self.registry
+            .lock()
+            .unwrap()
+            .retain(|(id, _)| *id != self.id);
     }
 }
 
@@ -2235,7 +2247,10 @@ impl<T: Clone> TxSubscriptionRef<T> {
         let queue = Arc::new(TxQueue::unbounded());
         atomically(|| {
             queue.offer(self.current.lock().unwrap().clone());
-            self.subscribers.lock().unwrap().push((id, Arc::clone(&queue)));
+            self.subscribers
+                .lock()
+                .unwrap()
+                .push((id, Arc::clone(&queue)));
         });
         TxChangeSubscription {
             id,

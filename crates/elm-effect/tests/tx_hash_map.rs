@@ -86,7 +86,11 @@ fn snapshot_detaches_from_later_writes() {
     map.insert("c", 3);
     assert_eq!(snapshot.len(), 2, "the snapshot keeps what it took");
     assert_eq!(snapshot.get(&"a"), Some(&1));
-    assert_eq!(snapshot.get(&"c"), None, "the snapshot did not see the write");
+    assert_eq!(
+        snapshot.get(&"c"),
+        None,
+        "the snapshot did not see the write"
+    );
     assert_eq!(map.len(), 3, "the original moved on");
 }
 
@@ -94,15 +98,20 @@ fn snapshot_detaches_from_later_writes() {
 /// other side's value wins on a shared key.
 #[test]
 fn union_overwrites_shared_keys() {
-    let map = TxHashMap::from_iter([
-        ("a".to_string(), 1),
-        ("b".to_string(), 2),
-    ]);
+    let map = TxHashMap::from_iter([("a".to_string(), 1), ("b".to_string(), 2)]);
     let other = HashMap::from([("b".to_string(), 20), ("c".to_string(), 3)]);
     map.union(&other);
     assert_eq!(map.len(), 3);
-    assert_eq!(map.get(&"a".to_string()), Some(1), "the untouched entry survives");
-    assert_eq!(map.get(&"b".to_string()), Some(20), "the incoming value wins");
+    assert_eq!(
+        map.get(&"a".to_string()),
+        Some(1),
+        "the untouched entry survives"
+    );
+    assert_eq!(
+        map.get(&"b".to_string()),
+        Some(20),
+        "the incoming value wins"
+    );
     assert_eq!(map.get(&"c".to_string()), Some(3));
 }
 
@@ -221,7 +230,14 @@ fn reduce_folds_every_value() {
     // before they are compared rather than asserted in an order no map keeps.
     let mut keys = counted.1;
     keys.sort_unstable();
-    assert_eq!(keys, vec!["item1".to_string(), "item2".to_string(), "item3".to_string()]);
+    assert_eq!(
+        keys,
+        vec![
+            "item1".to_string(),
+            "item2".to_string(),
+            "item3".to_string()
+        ]
+    );
     assert_eq!(counted.0, 3);
     let empty: TxHashMap<&str, i32> = TxHashMap::new();
     assert_eq!(empty.reduce(0, |acc, value, _| acc + value), 0);
@@ -285,9 +301,15 @@ fn every_checks_all_entries() {
     assert!(map.every(|done, _| *done));
     map.insert("task3", false);
     assert!(!map.every(|done, _| *done));
-    assert!(map.every(|done, _| !done || *done), "each is completed or not");
+    assert!(
+        map.every(|done, _| !done || *done),
+        "each is completed or not"
+    );
     let empty: TxHashMap<&str, bool> = TxHashMap::new();
-    assert!(empty.every(|_, _| false), "an empty map satisfies every predicate");
+    assert!(
+        empty.every(|_, _| false),
+        "an empty map satisfies every predicate"
+    );
 }
 
 /// TxHashMap.test.ts:749 — the functional family composes: map, then filter,
@@ -305,7 +327,11 @@ fn the_functional_family_composes() {
 /// TxHashMap.test.ts:787 — `forEach` runs the callback once per entry.
 #[test]
 fn for_each_runs_the_callback_per_entry() {
-    let map = TxHashMap::from_iter([("user1", "active"), ("user2", "inactive"), ("user3", "active")]);
+    let map = TxHashMap::from_iter([
+        ("user1", "active"),
+        ("user2", "inactive"),
+        ("user3", "active"),
+    ]);
     let seen = RefCell::new(Vec::new());
     map.for_each(|status, user| seen.borrow_mut().push(format!("{user}:{status}")));
     let mut seen = seen.into_inner();

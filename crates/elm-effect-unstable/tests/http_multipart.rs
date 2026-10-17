@@ -14,22 +14,19 @@ fn ct(boundary: &str) -> String {
 }
 
 fn part(name: &str, body: &str, boundary: &str) -> String {
-    format!(
-        "--{boundary}\r\nContent-Disposition: form-data; name=\"{name}\"\r\n\r\n{body}\r\n"
-    )
+    format!("--{boundary}\r\nContent-Disposition: form-data; name=\"{name}\"\r\n\r\n{body}\r\n")
 }
 
 #[test]
 fn schema_json_applies_reviver() {
-    let out =
-        schema_json_with_reviver(r#"{"value":"original"}"#, |key, value| {
-            if key == "value" {
-                serde_json::Value::String("revived".to_string())
-            } else {
-                value
-            }
-        })
-        .expect("parse");
+    let out = schema_json_with_reviver(r#"{"value":"original"}"#, |key, value| {
+        if key == "value" {
+            serde_json::Value::String("revived".to_string())
+        } else {
+            value
+        }
+    })
+    .expect("parse");
     assert_eq!(out["value"], "revived");
 }
 
@@ -60,7 +57,12 @@ fn parses_fields_and_file_content() {
         MultipartPart::Field { key, value, .. } if key == "test" && value == "ing"
     ));
     match &parts[2] {
-        MultipartPart::File { key: _, name, content, .. } => {
+        MultipartPart::File {
+            key: _,
+            name,
+            content,
+            ..
+        } => {
             assert_eq!(name, "foo.txt");
             assert_eq!(content, &file_bytes);
         }
@@ -97,8 +99,8 @@ fn parses_non_latin1_filenames() {
     let body = format!(
         "--{boundary}\r\nContent-Disposition: form-data; name=\"file\"; filename=\"\u{65e5}\u{672c}\u{8a9e}.txt\"\r\nContent-Type: text/plain\r\n\r\ncontent\r\n--{boundary}--\r\n"
     );
-    let parts =
-        parse_multipart(body.as_bytes(), &ct(boundary), &MultipartLimits::default()).expect("parse");
+    let parts = parse_multipart(body.as_bytes(), &ct(boundary), &MultipartLimits::default())
+        .expect("parse");
     match &parts[0] {
         MultipartPart::File { key, name, .. } => {
             assert_eq!(key, "file");
@@ -118,7 +120,10 @@ fn fails_when_part_limit_exceeded_in_one_chunk() {
     let err = parse_multipart(
         body.as_bytes(),
         &ct(boundary),
-        &MultipartLimits { max_parts: Some(2), ..Default::default() },
+        &MultipartLimits {
+            max_parts: Some(2),
+            ..Default::default()
+        },
     )
     .expect_err("too many parts");
     assert_eq!(err.reason, MultipartReason::TooManyParts);
@@ -140,7 +145,10 @@ fn propagates_file_too_large_mid_stream() {
     let err = parse_multipart(
         &body,
         &ct(boundary),
-        &MultipartLimits { max_file_size: Some(256), ..Default::default() },
+        &MultipartLimits {
+            max_file_size: Some(256),
+            ..Default::default()
+        },
     )
     .expect_err("file too large");
     assert_eq!(err.reason, MultipartReason::FileTooLarge);
@@ -161,7 +169,10 @@ fn propagates_body_too_large_mid_file() {
     let err = parse_multipart(
         &body,
         &ct(boundary),
-        &MultipartLimits { max_total_size: Some(256), ..Default::default() },
+        &MultipartLimits {
+            max_total_size: Some(256),
+            ..Default::default()
+        },
     )
     .expect_err("body too large");
     assert_eq!(err.reason, MultipartReason::BodyTooLarge);

@@ -120,11 +120,18 @@ impl Stream {
             return Read::Gone(Gone::SoftDeleted);
         }
         if offset < self.base {
-            return Read::Gone(Gone::Retention { first_replayable: self.base });
+            return Read::Gone(Gone::Retention {
+                first_replayable: self.base,
+            });
         }
         match self.entries.get((offset - self.base) as usize) {
-            Some(bytes) => Read::Entry { offset, bytes: bytes.clone() },
-            None => Read::Gone(Gone::Retention { first_replayable: self.base }),
+            Some(bytes) => Read::Entry {
+                offset,
+                bytes: bytes.clone(),
+            },
+            None => Read::Gone(Gone::Retention {
+                first_replayable: self.base,
+            }),
         }
     }
 

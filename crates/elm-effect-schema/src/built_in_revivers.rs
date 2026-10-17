@@ -31,9 +31,7 @@ pub fn from_representations(
     representations
         .iter()
         .enumerate()
-        .map(|(index, doc)| {
-            revive_doc(&mut state, doc, &format!("representations[{index}]"))
-        })
+        .map(|(index, doc)| revive_doc(&mut state, doc, &format!("representations[{index}]")))
         .collect()
 }
 
@@ -80,7 +78,10 @@ fn resolve_reference(
     // decode, once the whole import has returned.
     if state.resolving.iter().any(|name| name == key) {
         let slot = state.slots.get(key).cloned().ok_or_else(|| {
-            invalid(path, format!("reference `{key}` is resolving without a slot"))
+            invalid(
+                path,
+                format!("reference `{key}` is resolving without a slot"),
+            )
         })?;
         return Ok(Schema::<Unknown>::suspend(move || {
             slot.get()
@@ -138,7 +139,10 @@ fn revive_doc(
                 .get("indexSignatures")
                 .is_some_and(|signatures| signatures != &serde_json::Value::Array(Vec::new()))
             {
-                return Err(invalid(path, "index signatures are not revived by this port"));
+                return Err(invalid(
+                    path,
+                    "index signatures are not revived by this port",
+                ));
             }
             let mut fields = Vec::with_capacity(signatures.len());
             for (index, property) in signatures.iter().enumerate() {
@@ -154,14 +158,19 @@ fn revive_doc(
                     .get("isMutable")
                     .is_some_and(|mutable| mutable != &serde_json::Value::Bool(false))
                 {
-                    return Err(invalid(&field_path, "mutable fields are not revived by this port"));
+                    return Err(invalid(
+                        &field_path,
+                        "mutable fields are not revived by this port",
+                    ));
                 }
                 let schema = revive_doc(state, ty, &format!("{field_path}[type]"))?;
-                fields.push(if property.get("isOptional") == Some(&serde_json::Value::Bool(true)) {
-                    Field::optional_key(name, schema)
-                } else {
-                    Field::required(name, schema)
-                });
+                fields.push(
+                    if property.get("isOptional") == Some(&serde_json::Value::Bool(true)) {
+                        Field::optional_key(name, schema)
+                    } else {
+                        Field::required(name, schema)
+                    },
+                );
             }
             Ok(Schema::as_unknown(Schema::struct_shape(fields)))
         }

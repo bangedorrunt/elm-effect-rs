@@ -218,11 +218,7 @@ impl<E> Cause<E> {
     /// `None` entries are excluded, and the result is ordered and deduplicated
     /// so a caller sees a set rather than the raw per-reason list.
     pub fn interruptor_ids(&self) -> Vec<FiberId> {
-        let mut ids: Vec<FiberId> = self
-            .interruptors()
-            .into_iter()
-            .flatten()
-            .collect();
+        let mut ids: Vec<FiberId> = self.interruptors().into_iter().flatten().collect();
         ids.sort_by_key(|id| id.0);
         ids.dedup();
         ids
@@ -377,7 +373,10 @@ impl<E> Cause<E> {
         }
         let mut annotations = self.annotations;
         annotations.extend(other.annotations);
-        Self { reasons, annotations }
+        Self {
+            reasons,
+            annotations,
+        }
     }
 
     /// `Cause.hasFails`: at least one [`Reason::Fail`].

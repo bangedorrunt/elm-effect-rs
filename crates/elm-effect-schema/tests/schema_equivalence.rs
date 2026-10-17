@@ -2,8 +2,8 @@
 //! Ports packages/effect/test/schema/toEquivalence.test.ts cells by exact call.
 
 use std::collections::BTreeMap;
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 use elm_effect_schema::class::class;
 use elm_effect_schema::transform::date_schema;
@@ -32,9 +32,7 @@ fn str_schema() -> Schema<Unknown> {
 
 /// `Schema.Number.annotate({ toEquivalence })` / `overrideToEquivalence`: the
 /// port's factory spelling, called once while the schema is built.
-fn number_with(
-    relation: fn() -> Arc<dyn Fn(&f64, &f64) -> bool + Send + Sync>,
-) -> Schema<f64> {
+fn number_with(relation: fn() -> Arc<dyn Fn(&f64, &f64) -> bool + Send + Sync>) -> Schema<f64> {
     Schema::override_to_equivalence(Schema::number(), relation)
 }
 
@@ -71,7 +69,10 @@ fn tuple_refuses_a_non_array_on_either_side() {
 #[test]
 fn empty_tuple_is_equivalent_to_an_empty_tuple() {
     let equivalence = Schema::tuple_of(vec![]).to_equivalence();
-    assert!(equivalence(&Unknown::Array(vec![]), &Unknown::Array(vec![])));
+    assert!(equivalence(
+        &Unknown::Array(vec![]),
+        &Unknown::Array(vec![])
+    ));
 }
 
 // toEquivalence.test.ts:53
@@ -80,7 +81,10 @@ fn tuple_compares_required_elements_positionally() {
     let schema = Schema::tuple_of(vec![str_schema(), Schema::as_unknown(Schema::number())]);
     let equivalence = schema.to_equivalence();
     let value = Unknown::Array(vec![text("a"), num(1.0)]);
-    assert!(equivalence(&value, &Unknown::Array(vec![text("a"), num(1.0)])));
+    assert!(equivalence(
+        &value,
+        &Unknown::Array(vec![text("a"), num(1.0)])
+    ));
     assert!(!equivalence(
         &value,
         &Unknown::Array(vec![text("b"), num(1.0)])
@@ -151,7 +155,10 @@ fn array_compares_length_and_elements() {
         &value,
         &vec!["a".to_string(), "b".to_string(), "d".to_string()]
     ));
-    assert!(!equivalence(&value, &vec!["a".to_string(), "b".to_string()]));
+    assert!(!equivalence(
+        &value,
+        &vec!["a".to_string(), "b".to_string()]
+    ));
     assert!(!equivalence(
         &value,
         &vec![
@@ -485,10 +492,7 @@ fn suspend_compares_mutually_recursive_schemas() {
     fn operation() -> Schema<BTreeMap<String, Unknown>> {
         Schema::struct_shape(vec![
             Field::required("type", Schema::literal(text("operation"))),
-            Field::required(
-                "operator",
-                Schema::literals(vec![text("+"), text("-")]),
-            ),
+            Field::required("operator", Schema::literals(vec![text("+"), text("-")])),
             Field::required("left", Schema::as_unknown(expression())),
             Field::required("right", Schema::as_unknown(expression())),
         ])
@@ -562,11 +566,9 @@ fn union_preserves_member_relation_annotations() {
         Schema::checked(str_schema(), "isAlwaysTrue", Vec::new(), Vec::new()),
         || Arc::new(|a: &Unknown, b: &Unknown| first_char(a) == first_char(b)),
     );
-    let equivalence = Schema::union_with_mode(
-        vec![member, Schema::as_unknown(Schema::number())],
-        "anyOf",
-    )
-    .to_equivalence();
+    let equivalence =
+        Schema::union_with_mode(vec![member, Schema::as_unknown(Schema::number())], "anyOf")
+            .to_equivalence();
 
     assert!(equivalence(&text("ab"), &text("ac")));
     assert!(!equivalence(&text("ab"), &text("bc")));
@@ -631,10 +633,9 @@ fn override_survives_a_check() {
 // (`Option`'s) outright, so even `None` and `Some` compare equal.
 #[test]
 fn override_replaces_a_declaration_relation() {
-    let equivalence = Schema::override_to_equivalence(
-        Schema::optional(Schema::number()),
-        || Arc::new(|_: &Option<f64>, _: &Option<f64>| true),
-    )
+    let equivalence = Schema::override_to_equivalence(Schema::optional(Schema::number()), || {
+        Arc::new(|_: &Option<f64>, _: &Option<f64>| true)
+    })
     .to_equivalence();
     assert!(equivalence(&None, &Some(1.0)));
 }

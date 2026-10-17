@@ -100,9 +100,15 @@ fn queue_guards_recognize_the_faces() {
     // Queue.test.ts :38/:47 — the type guards answer true for the queue and
     // false for a foreign value.
     let queue = Arc::new(Queue::<i32>::new(4));
-    assert!(elm_effect::is_enqueue::<i32>(queue.as_ref() as &dyn std::any::Any));
-    assert!(elm_effect::is_dequeue::<i32>(queue.as_ref() as &dyn std::any::Any));
-    assert!(elm_effect::is_queue::<i32>(queue.as_ref() as &dyn std::any::Any));
+    assert!(elm_effect::is_enqueue::<i32>(
+        queue.as_ref() as &dyn std::any::Any
+    ));
+    assert!(elm_effect::is_dequeue::<i32>(
+        queue.as_ref() as &dyn std::any::Any
+    ));
+    assert!(elm_effect::is_queue::<i32>(
+        queue.as_ref() as &dyn std::any::Any
+    ));
     assert!(!elm_effect::is_enqueue::<i32>(&7i32 as &dyn std::any::Any));
     assert!(!elm_effect::is_dequeue::<i32>(&7i32 as &dyn std::any::Any));
     assert!(!elm_effect::is_queue::<i32>(&7i32 as &dyn std::any::Any));
@@ -115,12 +121,18 @@ fn queue_views_expose_only_their_face() {
     // operations work through the view.
     let queue = Arc::new(Queue::<i32>::new(4));
     let enqueue = Queue::as_enqueue(&queue);
-    assert!(elm_effect::is_enqueue::<i32>(enqueue.as_ref() as &dyn std::any::Any));
-    assert!(elm_effect::is_queue::<i32>(enqueue.as_ref() as &dyn std::any::Any));
+    assert!(elm_effect::is_enqueue::<i32>(
+        enqueue.as_ref() as &dyn std::any::Any
+    ));
+    assert!(elm_effect::is_queue::<i32>(
+        enqueue.as_ref() as &dyn std::any::Any
+    ));
     enqueue.offer(1);
     enqueue.offer_all([2, 3]);
     let dequeue = Queue::as_dequeue(&queue);
-    assert!(elm_effect::is_dequeue::<i32>(dequeue.as_ref() as &dyn std::any::Any));
+    assert!(elm_effect::is_dequeue::<i32>(
+        dequeue.as_ref() as &dyn std::any::Any
+    ));
     assert_eq!(dequeue.take(), Ok(1));
     assert_eq!(dequeue.take_n(2), Ok(vec![2, 3]));
 }
@@ -227,12 +239,18 @@ fn offer_all_can_be_interrupted() {
     let flag = Arc::clone(&interrupted);
     let producer = {
         let queue = Arc::clone(&queue);
-        std::thread::spawn(move || queue.offer_all_interruptible([1, 2, 3, 4], &|| flag.load(Ordering::SeqCst)))
+        std::thread::spawn(move || {
+            queue.offer_all_interruptible([1, 2, 3, 4], &|| flag.load(Ordering::SeqCst))
+        })
     };
     park_settle();
     interrupted.store(true, Ordering::SeqCst);
     let withdrawn = producer.join().unwrap();
-    assert_eq!(withdrawn, Err(()), "an interrupted batch withdraws its suffix");
+    assert_eq!(
+        withdrawn,
+        Err(()),
+        "an interrupted batch withdraws its suffix"
+    );
     assert_eq!(queue.take_all(), vec![1, 2]);
     queue.offer(5);
     assert_eq!(queue.take_all(), vec![5]);
@@ -366,7 +384,10 @@ fn await_preserves_non_done_failures() {
     // Queue.test.ts :711 — a failed queue's await reports the failure.
     let queue: Queue<i32> = Queue::unbounded();
     assert!(queue.fail("boom"));
-    assert_eq!(queue.await_finished(), Err(QueueError::Failed("boom".to_string())));
+    assert_eq!(
+        queue.await_finished(),
+        Err(QueueError::Failed("boom".to_string()))
+    );
 }
 
 #[test]
@@ -439,7 +460,10 @@ fn flush_unsafe_preserves_later_offers_when_the_queue_is_empty() {
     park_settle();
     queue.flush_unsafe();
     queue.offer_all([1, 2]);
-    let mut delivered = vec![first.join().unwrap().unwrap(), second.join().unwrap().unwrap()];
+    let mut delivered = vec![
+        first.join().unwrap().unwrap(),
+        second.join().unwrap().unwrap(),
+    ];
     delivered.sort();
     assert_eq!(delivered, vec![1, 2]);
 }
@@ -482,5 +506,8 @@ fn take_between_drains_a_waiting_batch_on_failure() {
     park_settle();
     assert!(queue.fail("boom"));
     assert_eq!(taker.join().unwrap(), Ok(vec![1, 2]));
-    assert_eq!(queue.take_between(5, 8), Err(QueueError::Failed("boom".to_string())));
+    assert_eq!(
+        queue.take_between(5, 8),
+        Err(QueueError::Failed("boom".to_string()))
+    );
 }

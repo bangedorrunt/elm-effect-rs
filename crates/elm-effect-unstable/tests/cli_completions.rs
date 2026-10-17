@@ -30,15 +30,19 @@ fn extracts_string_flags_with_aliases() {
     assert_eq!(desc.flags.len(), 1);
     assert_eq!(desc.flags[0].name, "output");
     assert_eq!(desc.flags[0].aliases, vec!["o".to_string()]);
-    assert_eq!(desc.flags[0].description.as_deref(), Some("Output directory"));
+    assert_eq!(
+        desc.flags[0].description.as_deref(),
+        Some("Output directory")
+    );
     assert_eq!(desc.flags[0].flag_type, FlagType::String);
 }
 
 #[test]
 fn extracts_boolean_flags() {
     // :32
-    let cmd = DescriptorCommand::new("test")
-        .with_flags(vec![ParamDef::flag("verbose", ParamType::Boolean).with_alias("v")]);
+    let cmd = DescriptorCommand::new("test").with_flags(vec![
+        ParamDef::flag("verbose", ParamType::Boolean).with_alias("v"),
+    ]);
     let desc = from_command(&cmd, &[]);
     assert_eq!(desc.flags.len(), 1);
     assert_eq!(desc.flags[0].name, "verbose");
@@ -72,15 +76,27 @@ fn extracts_file_directory_and_path_flags() {
     let desc = from_command(&cmd, &[]);
     assert_eq!(desc.flags.len(), 3);
     assert_eq!(
-        desc.flags.iter().find(|f| f.name == "input").unwrap().flag_type,
+        desc.flags
+            .iter()
+            .find(|f| f.name == "input")
+            .unwrap()
+            .flag_type,
         FlagType::Path(PathKind::File)
     );
     assert_eq!(
-        desc.flags.iter().find(|f| f.name == "out-dir").unwrap().flag_type,
+        desc.flags
+            .iter()
+            .find(|f| f.name == "out-dir")
+            .unwrap()
+            .flag_type,
         FlagType::Path(PathKind::Directory)
     );
     assert_eq!(
-        desc.flags.iter().find(|f| f.name == "config").unwrap().flag_type,
+        desc.flags
+            .iter()
+            .find(|f| f.name == "config")
+            .unwrap()
+            .flag_type,
         FlagType::Path(PathKind::Either)
     );
 }
@@ -90,17 +106,13 @@ fn retains_path_semantics_when_a_path_has_a_custom_metavar() {
     // :72 — withMetavar changes the label, never the value shape.
     let cmd = DescriptorCommand::new("app")
         .with_flags(vec![
-            ParamDef::flag("directory", ParamType::Path(PathKind::Directory))
-                .with_metavar("DIR"),
+            ParamDef::flag("directory", ParamType::Path(PathKind::Directory)).with_metavar("DIR"),
         ])
         .with_arguments(vec![
             ParamDef::argument("file", ParamType::Path(PathKind::File)).with_metavar("INPUT"),
         ]);
     let desc = from_command(&cmd, &[]);
-    assert_eq!(
-        desc.flags[0].flag_type,
-        FlagType::Path(PathKind::Directory)
-    );
+    assert_eq!(desc.flags[0].flag_type, FlagType::Path(PathKind::Directory));
     assert_eq!(
         desc.arguments[0].argument_type,
         ArgumentType::Path(PathKind::File)
@@ -123,7 +135,10 @@ fn classifies_file_backed_flags_and_arguments_as_file_paths() {
         ]);
     let desc = from_command(&cmd, &[]);
     assert_eq!(
-        desc.flags.iter().map(|f| f.flag_type.clone()).collect::<Vec<_>>(),
+        desc.flags
+            .iter()
+            .map(|f| f.flag_type.clone())
+            .collect::<Vec<_>>(),
         vec![
             FlagType::Path(PathKind::File),
             FlagType::Path(PathKind::File),
@@ -189,8 +204,9 @@ fn extracts_positional_arguments_with_types() {
 #[test]
 fn extracts_variadic_arguments() {
     // :136
-    let cmd = DescriptorCommand::new("test")
-        .with_arguments(vec![ParamDef::argument("files", ParamType::String).variadic()]);
+    let cmd = DescriptorCommand::new("test").with_arguments(vec![
+        ParamDef::argument("files", ParamType::String).variadic(),
+    ]);
     let desc = from_command(&cmd, &[]);
     assert_eq!(desc.arguments.len(), 1);
     assert_eq!(desc.arguments[0].name, "files");
@@ -201,8 +217,9 @@ fn extracts_variadic_arguments() {
 #[test]
 fn extracts_optional_arguments() {
     // :147
-    let cmd = DescriptorCommand::new("test")
-        .with_arguments(vec![ParamDef::argument("email", ParamType::String).optional()]);
+    let cmd = DescriptorCommand::new("test").with_arguments(vec![
+        ParamDef::argument("email", ParamType::String).optional(),
+    ]);
     let desc = from_command(&cmd, &[]);
     assert_eq!(desc.arguments.len(), 1);
     assert_eq!(desc.arguments[0].name, "email");
@@ -230,7 +247,9 @@ fn extracts_nested_subcommands_recursively() {
 fn extracts_descriptions_from_flags_and_arguments() {
     // :175
     let cmd = DescriptorCommand::new("test")
-        .with_flags(vec![ParamDef::flag("port", ParamType::Int).with_description("Port number")])
+        .with_flags(vec![
+            ParamDef::flag("port", ParamType::Int).with_description("Port number"),
+        ])
         .with_arguments(vec![
             ParamDef::argument("host", ParamType::String).with_description("Hostname"),
         ]);
@@ -290,11 +309,19 @@ fn extracts_file_directory_arguments() {
     let desc = from_command(&cmd, &[]);
     assert_eq!(desc.arguments.len(), 2);
     assert_eq!(
-        desc.arguments.iter().find(|a| a.name == "input").unwrap().argument_type,
+        desc.arguments
+            .iter()
+            .find(|a| a.name == "input")
+            .unwrap()
+            .argument_type,
         ArgumentType::Path(PathKind::File)
     );
     assert_eq!(
-        desc.arguments.iter().find(|a| a.name == "output").unwrap().argument_type,
+        desc.arguments
+            .iter()
+            .find(|a| a.name == "output")
+            .unwrap()
+            .argument_type,
         ArgumentType::Path(PathKind::Directory)
     );
 }
@@ -324,7 +351,10 @@ fn prefers_short_descriptions_for_subcommand_listings() {
         DescriptorCommand::new("test").with_description("Run the full test suite"),
     ]);
     let desc = from_command(&root, &[]);
-    assert_eq!(desc.subcommands[0].description.as_deref(), Some("Build artifacts"));
+    assert_eq!(
+        desc.subcommands[0].description.as_deref(),
+        Some("Build artifacts")
+    );
     assert_eq!(
         desc.subcommands[1].description.as_deref(),
         Some("Run the full test suite")

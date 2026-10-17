@@ -45,10 +45,7 @@ impl CompressionAlgorithm {
 
 /// This crate's encoders: gzip + deflate (the web platform's pair in TS).
 pub fn supported_algorithms() -> HashSet<CompressionAlgorithm> {
-    HashSet::from([
-        CompressionAlgorithm::Gzip,
-        CompressionAlgorithm::Deflate,
-    ])
+    HashSet::from([CompressionAlgorithm::Gzip, CompressionAlgorithm::Deflate])
 }
 
 /// Server preference order. Mirrors the TS default `["br", "gzip", "deflate"]`
@@ -96,7 +93,11 @@ pub fn default_compressible(content_type: &str) -> bool {
         return true;
     }
     match mime.as_str() {
-        "application/json" | "application/javascript" | "application/xml" | "image/svg+xml" | "application/wasm" => {
+        "application/json"
+        | "application/javascript"
+        | "application/xml"
+        | "image/svg+xml"
+        | "application/wasm" => {
             return true;
         }
         _ => {}
@@ -133,24 +134,26 @@ pub fn parse_accept_encoding(header: &str) -> Option<HashMap<String, f64>> {
 
 fn is_token(text: &str) -> bool {
     !text.is_empty()
-        && text.bytes().all(|b| b.is_ascii_alphanumeric()
-            || matches!(
-                b,
-                b'!' | b'#'
-                    | b'$'
-                    | b'%'
-                    | b'&'
-                    | b'\''
-                    | b'*'
-                    | b'+'
-                    | b'-'
-                    | b'.'
-                    | b'^'
-                    | b'_'
-                    | b'`'
-                    | b'|'
-                    | b'~'
-            ))
+        && text.bytes().all(|b| {
+            b.is_ascii_alphanumeric()
+                || matches!(
+                    b,
+                    b'!' | b'#'
+                        | b'$'
+                        | b'%'
+                        | b'&'
+                        | b'\''
+                        | b'*'
+                        | b'+'
+                        | b'-'
+                        | b'.'
+                        | b'^'
+                        | b'_'
+                        | b'`'
+                        | b'|'
+                        | b'~'
+                )
+        })
 }
 
 /// `q=` grammar: `0` with up to 3 decimals, or `1` with up to 3 zeros.
@@ -253,8 +256,7 @@ fn has_no_transform(cache_control: &str) -> bool {
 
 /// Gzip-encode (level 6, the TS default).
 pub fn compress_gzip(bytes: &[u8]) -> Vec<u8> {
-    let mut encoder =
-        flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::default());
+    let mut encoder = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::default());
     encoder.write_all(bytes).expect("gzip encode");
     encoder.finish().expect("gzip finish")
 }
@@ -319,8 +321,7 @@ impl CompResponse {
 
     /// Set a header, replacing any existing entry case-insensitively.
     pub fn set_header(&mut self, name: &str, value: &str) {
-        self.headers
-            .retain(|(n, _)| !n.eq_ignore_ascii_case(name));
+        self.headers.retain(|(n, _)| !n.eq_ignore_ascii_case(name));
         self.headers.push((name.to_owned(), value.to_owned()));
     }
 
@@ -356,10 +357,7 @@ pub fn apply_compression(
     if !matches!(res.body, CompBody::Bytes(_)) {
         return head_body(method, res);
     }
-    if res
-        .header("cache-control")
-        .is_some_and(has_no_transform)
-    {
+    if res.header("cache-control").is_some_and(has_no_transform) {
         return head_body(method, res);
     }
     let content_type = res.header("content-type").map(str::to_owned);

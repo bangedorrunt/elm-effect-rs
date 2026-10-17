@@ -14,8 +14,7 @@ fn run<A: Send + 'static>(effect: Effect<A, String, ()>) -> Exit<A, String> {
 #[test]
 fn from_option_some_succeeds() {
     // Effect.fromOption(Some("A")) succeeds with the inner value.
-    let effect: Effect<&str, String, ()> =
-        Effect::from_option(Some("A"), || "missing".to_string());
+    let effect: Effect<&str, String, ()> = Effect::from_option(Some("A"), || "missing".to_string());
     assert!(matches!(run(effect), Exit::Success("A")));
 }
 
@@ -37,7 +36,10 @@ fn from_option_none_failure_is_a_typed_fail_not_a_defect() {
         Effect::from_option(None, || "Missing value".to_string());
     match run(effect) {
         Exit::Failure(cause) => {
-            assert!(cause.defects().is_empty(), "a none is a typed failure, not a defect");
+            assert!(
+                cause.defects().is_empty(),
+                "a none is a typed failure, not a defect"
+            );
             assert!(!cause.is_interrupted(), "a none is not an interrupt");
         }
         Exit::Success(_) => panic!("expected a typed failure"),
@@ -89,11 +91,10 @@ fn conversions_are_descriptions_not_results() {
     // L1: constructing and dropping these performs nothing. The counter
     // proves the error builder never ran for a `Some`.
     let calls = std::cell::Cell::new(0u32);
-    let effect: Effect<&str, String, ()> =
-        Effect::from_option(Some("A"), || {
-            calls.set(calls.get() + 1);
-            "missing".to_string()
-        });
+    let effect: Effect<&str, String, ()> = Effect::from_option(Some("A"), || {
+        calls.set(calls.get() + 1);
+        "missing".to_string()
+    });
     drop(effect);
     assert_eq!(calls.get(), 0, "constructing a description runs nothing");
 }
@@ -120,9 +121,8 @@ fn ensuring_runs_on_a_typed_failure_and_preserves_it() {
     // === Exit.fail("body failure") with the finalizer having run.
     let finalized = std::sync::Arc::new(std::sync::Mutex::new(false));
     let seen = finalized.clone();
-    let effect: Effect<&str, String, ()> =
-        Effect::<&str, String>::fail("body failure".to_string())
-            .ensuring(move || *seen.lock().unwrap() = true);
+    let effect: Effect<&str, String, ()> = Effect::<&str, String>::fail("body failure".to_string())
+        .ensuring(move || *seen.lock().unwrap() = true);
     match run(effect) {
         Exit::Failure(cause) => assert_eq!(cause.failure(), Some(&"body failure".to_string())),
         Exit::Success(_) => panic!("expected the typed failure"),
@@ -147,8 +147,8 @@ fn on_error_runs_only_on_a_typed_failure() {
     // === Exit.fail("body failure") with the finalizer having run.
     let calls = std::sync::Arc::new(std::sync::Mutex::new(0u32));
     let seen = calls.clone();
-    let effect: Effect<&str, String, ()> =
-        Effect::<&str, String>::fail("body failure".to_string()).on_error(move || {
+    let effect: Effect<&str, String, ()> = Effect::<&str, String>::fail("body failure".to_string())
+        .on_error(move || {
             *seen.lock().unwrap() += 1;
         });
     match run(effect) {
@@ -163,10 +163,9 @@ fn on_error_does_not_run_on_success() {
     // A success never fires the typed-error finalizer.
     let calls = std::sync::Arc::new(std::sync::Mutex::new(0u32));
     let seen = calls.clone();
-    let effect: Effect<u32, String, ()> =
-        Effect::<u32, String>::succeed(7).on_error(move || {
-            *seen.lock().unwrap() += 1;
-        });
+    let effect: Effect<u32, String, ()> = Effect::<u32, String>::succeed(7).on_error(move || {
+        *seen.lock().unwrap() += 1;
+    });
     assert!(matches!(run(effect), Exit::Success(7)));
     assert_eq!(*calls.lock().unwrap(), 0);
 }
@@ -184,7 +183,11 @@ fn on_error_does_not_run_on_a_defect() {
         Exit::Failure(cause) => assert!(!cause.defects().is_empty(), "the defect survives"),
         Exit::Success(_) => panic!("expected the defect"),
     }
-    assert_eq!(*calls.lock().unwrap(), 0, "onError must not fire on a defect");
+    assert_eq!(
+        *calls.lock().unwrap(),
+        0,
+        "onError must not fire on a defect"
+    );
 }
 
 #[test]
@@ -240,8 +243,8 @@ fn on_exit_observes_a_defect_and_passes_it_through() {
 fn on_exit_observes_a_typed_failure() {
     let observed = std::sync::Arc::new(std::sync::Mutex::new(String::new()));
     let mark = observed.clone();
-    let effect: Effect<&str, String, ()> =
-        Effect::<&str, String>::fail("body failure".to_string()).on_exit(move |exit| {
+    let effect: Effect<&str, String, ()> = Effect::<&str, String>::fail("body failure".to_string())
+        .on_exit(move |exit| {
             *mark.lock().unwrap() = match exit {
                 Exit::Failure(cause) if !cause.defects().is_empty() => "die".to_string(),
                 Exit::Failure(_) => "fail".to_string(),
@@ -302,7 +305,6 @@ fn on_result_runs_the_cleanup_when_the_effect_dies() {
     assert!(*cleaned.lock().unwrap(), "the cleanup must run on a defect");
 }
 
-
 #[test]
 fn run_of_a_synchronous_effect_completes_without_spawning() {
     // Scheduler row "runSyncExit does not create a dispatcher for
@@ -355,8 +357,8 @@ fn tap_cause_filter_match_taps_and_re_raises_the_cause() {
     // untouched.
     let tapped = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
     let mark = tapped.clone();
-    let effect: Effect<u32, String, ()> =
-        Effect::<u32, String>::fail("e1".to_string()).tap_cause_filter(
+    let effect: Effect<u32, String, ()> = Effect::<u32, String>::fail("e1".to_string())
+        .tap_cause_filter(
             |cause: &Cause<String>| -> std::result::Result<Cause<String>, ()> { Ok(cause.clone()) },
             move |_pass, cause| mark.lock().unwrap().push(squash_fail(cause)),
         );
@@ -373,8 +375,8 @@ fn tap_cause_filter_no_match_skips_the_tap() {
     // filter skips the observer and preserves the cause.
     let tapped = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
     let mark = tapped.clone();
-    let effect: Effect<u32, String, ()> =
-        Effect::<u32, String>::fail("e1".to_string()).tap_cause_filter(
+    let effect: Effect<u32, String, ()> = Effect::<u32, String>::fail("e1".to_string())
+        .tap_cause_filter(
             |_cause: &Cause<String>| -> std::result::Result<(), ()> { Err(()) },
             move |_pass, _cause| mark.lock().unwrap().push("tapped".to_string()),
         );
@@ -391,8 +393,8 @@ fn tap_cause_if_predicate_match_taps_the_cause() {
     // the failure, so the observer sees the squashed cause.
     let tapped = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
     let mark = tapped.clone();
-    let effect: Effect<u32, String, ()> =
-        Effect::<u32, String>::fail("e1".to_string()).tap_cause_if(
+    let effect: Effect<u32, String, ()> = Effect::<u32, String>::fail("e1".to_string())
+        .tap_cause_if(
             |cause: &Cause<String>| cause.has_fails(),
             move |cause| mark.lock().unwrap().push(squash_fail(cause)),
         );
@@ -408,10 +410,11 @@ fn tap_cause_if_predicate_no_match_skips_the_tap() {
     // Effect.test.ts :3535 "predicate no match skips tap".
     let tapped = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
     let mark = tapped.clone();
-    let effect: Effect<u32, String, ()> = Effect::<u32, String>::fail("e1".to_string()).tap_cause_if(
-        |_cause: &Cause<String>| false,
-        move |_cause| mark.lock().unwrap().push("tapped".to_string()),
-    );
+    let effect: Effect<u32, String, ()> = Effect::<u32, String>::fail("e1".to_string())
+        .tap_cause_if(
+            |_cause: &Cause<String>| false,
+            move |_cause| mark.lock().unwrap().push("tapped".to_string()),
+        );
     match run(effect) {
         Exit::Failure(cause) => assert_eq!(cause.failure(), Some(&"e1".to_string())),
         Exit::Success(_) => panic!("expected the re-raised failure"),
@@ -430,7 +433,10 @@ fn tap_cause_if_success_skips_the_tap() {
         move |_cause| mark.lock().unwrap().push("tapped".to_string()),
     );
     assert!(matches!(run(effect), Exit::Success(42)));
-    assert!(tapped.lock().unwrap().is_empty(), "a success has no cause to tap");
+    assert!(
+        tapped.lock().unwrap().is_empty(),
+        "a success has no cause to tap"
+    );
 }
 
 #[test]
@@ -439,8 +445,8 @@ fn on_error_if_predicate_match_runs_the_finalizer() {
     // sees the cause and the failure is re-raised unchanged.
     let finalized = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
     let mark = finalized.clone();
-    let effect: Effect<u32, String, ()> =
-        Effect::<u32, String>::fail("e1".to_string()).on_error_if(
+    let effect: Effect<u32, String, ()> = Effect::<u32, String>::fail("e1".to_string())
+        .on_error_if(
             |cause: &Cause<String>| cause.has_fails(),
             move |cause| mark.lock().unwrap().push(squash_fail(cause)),
         );
@@ -456,10 +462,11 @@ fn on_error_if_predicate_no_match_skips_the_finalizer() {
     // Effect.test.ts :3575 "predicate no match skips finalizer".
     let finalized = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
     let mark = finalized.clone();
-    let effect: Effect<u32, String, ()> = Effect::<u32, String>::fail("e1".to_string()).on_error_if(
-        |_cause: &Cause<String>| false,
-        move |_cause| mark.lock().unwrap().push("finalized".to_string()),
-    );
+    let effect: Effect<u32, String, ()> = Effect::<u32, String>::fail("e1".to_string())
+        .on_error_if(
+            |_cause: &Cause<String>| false,
+            move |_cause| mark.lock().unwrap().push("finalized".to_string()),
+        );
     match run(effect) {
         Exit::Failure(cause) => assert_eq!(cause.failure(), Some(&"e1".to_string())),
         Exit::Success(_) => panic!("expected the re-raised failure"),
@@ -473,8 +480,8 @@ fn on_error_filter_match_runs_the_finalizer_with_the_pass_value() {
     // extracts the typed failure and hands it to the finalizer.
     let finalized = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
     let mark = finalized.clone();
-    let effect: Effect<u32, String, ()> =
-        Effect::<u32, String>::fail("e1".to_string()).on_error_filter(
+    let effect: Effect<u32, String, ()> = Effect::<u32, String>::fail("e1".to_string())
+        .on_error_filter(
             |cause: &Cause<String>| cause.find_error().cloned().ok_or(()),
             move |error, _cause| mark.lock().unwrap().push(error),
         );
@@ -496,7 +503,10 @@ fn on_error_if_success_skips_the_finalizer() {
         move |_cause| mark.lock().unwrap().push("finalized".to_string()),
     );
     assert!(matches!(run(effect), Exit::Success(42)));
-    assert!(finalized.lock().unwrap().is_empty(), "a success finalizes nothing");
+    assert!(
+        finalized.lock().unwrap().is_empty(),
+        "a success finalizes nothing"
+    );
 }
 
 #[test]
@@ -544,7 +554,9 @@ fn on_exit_if_match_on_failure_runs_the_finalizer() {
         |exit: &Exit<u32, String>| !exit.is_success(),
         move |exit| {
             if let Exit::Failure(cause) = exit {
-                mark.lock().unwrap().push(format!("failure:{}", squash_fail(cause)));
+                mark.lock()
+                    .unwrap()
+                    .push(format!("failure:{}", squash_fail(cause)));
             }
         },
     );
@@ -576,5 +588,8 @@ fn on_exit_filter_match_passes_the_value_and_the_exit() {
         },
     );
     assert!(matches!(run(effect), Exit::Success(42)));
-    assert_eq!(*finalized.lock().unwrap(), ["value:42:success:42".to_string()]);
+    assert_eq!(
+        *finalized.lock().unwrap(),
+        ["value:42:success:42".to_string()]
+    );
 }

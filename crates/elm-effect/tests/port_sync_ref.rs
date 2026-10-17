@@ -9,8 +9,8 @@ use elm_effect::{Effect, Exit, Runtime, SynchronizedRef};
 #[test]
 fn modify_some_effect_applies_update_and_yields_result() {
     let cell = SynchronizedRef::new(10u32);
-    let effect: Effect<String, String, ()> =
-        cell.modify_some_effect("fallback".to_string(), |current: &u32| {
+    let effect: Effect<String, String, ()> = cell
+        .modify_some_effect("fallback".to_string(), |current: &u32| {
             Some((current + 1, format!("was {current}")))
         });
     let exit = Runtime::run(effect);
@@ -44,7 +44,10 @@ fn get_and_update_effect_returns_previous_and_stores_update() {
     let effect: Effect<u32, String, ()> =
         cell.get_and_update_effect(|current: &u32| (current + 10, Effect::succeed(99)));
     let exit = elm_effect::Runtime::run(effect);
-    assert!(matches!(exit, Exit::Success(1)), "returns the PREVIOUS value");
+    assert!(
+        matches!(exit, Exit::Success(1)),
+        "returns the PREVIOUS value"
+    );
     assert_eq!(cell.get(), 11, "stores the update");
 }
 
@@ -93,13 +96,12 @@ fn get_and_update_some_effect_twice() {
             Effect::succeed(None)
         }
     });
-    let second: Effect<String, String, ()> = cell.get_and_update_some_effect(|state: &String| {
-        match state.as_str() {
+    let second: Effect<String, String, ()> =
+        cell.get_and_update_some_effect(|state: &String| match state.as_str() {
             "Closed" => Effect::succeed(Some("Active".to_string())),
             "Changed" => Effect::succeed(Some("Closed".to_string())),
             _ => Effect::succeed(None),
-        }
-    });
+        });
     assert!(matches!(Runtime::run(first), Exit::Success(ref s) if s == "Active"));
     assert!(matches!(Runtime::run(second), Exit::Success(ref s) if s == "Changed"));
     assert_eq!(cell.get(), "Closed");
@@ -121,7 +123,11 @@ fn get_and_update_some_effect_with_failure_yields_the_failure() {
         Exit::Failure(cause) => assert_eq!(cause.failure(), Some(&"failure".to_string())),
         other => panic!("expected a typed failure, got {other:?}"),
     }
-    assert_eq!(cell.get(), "Active", "a failed effect must not update the cell");
+    assert_eq!(
+        cell.get(),
+        "Active",
+        "a failed effect must not update the cell"
+    );
 }
 
 #[test]
@@ -167,9 +173,8 @@ fn get_and_update_some_effect_interrupt_parent_fiber_and_update() {
     child.interrupt();
 
     let cell = slot.lock().unwrap().take().expect("child stored the cell");
-    let effect: Effect<String, String, ()> = cell.update_and_get_effect(|_current: &String| {
-        Effect::succeed("Closed".to_string())
-    });
+    let effect: Effect<String, String, ()> =
+        cell.update_and_get_effect(|_current: &String| Effect::succeed("Closed".to_string()));
     let result = Runtime::run(effect);
     assert_eq!(result, Exit::Success("Closed".to_string()));
     assert_eq!(cell.get(), "Closed");

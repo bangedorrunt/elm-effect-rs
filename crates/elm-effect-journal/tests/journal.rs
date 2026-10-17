@@ -1,7 +1,7 @@
 //! Journal fence: the golden transition table plus Parked semantics.
 
-use elm_effect_journal::{EffectState, can_transition, settle_from_exit, transition};
 use elm_effect_journal::EffectState as S;
+use elm_effect_journal::{EffectState, can_transition, settle_from_exit, transition};
 
 #[test]
 fn golden_transitions() {

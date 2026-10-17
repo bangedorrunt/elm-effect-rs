@@ -6,9 +6,7 @@ use std::sync::{
     atomic::{AtomicUsize, Ordering},
 };
 
-use elm_effect::{
-    Effect, Exit, Layer, ManagedRuntime, Runtime, Scope, ServiceTag, use_service,
-};
+use elm_effect::{Effect, Exit, Layer, ManagedRuntime, Runtime, Scope, ServiceTag, use_service};
 
 struct Db;
 struct DbConn(u64);
@@ -182,11 +180,15 @@ fn managed_runtime_make_exposes_built_services() {
     // ManagedRuntime row "can be built synchronously": the build happens in
     // `make` (not lazily at first use), and the resulting services are
     // readable back -- the pin's contextEffect -> Context.get(services, tag).
-    let layer = Layer::<SrvTag, std::convert::Infallible, ()>::from_value(StringConn("test".to_string()));
+    let layer =
+        Layer::<SrvTag, std::convert::Infallible, ()>::from_value(StringConn("test".to_string()));
     let runtime = ManagedRuntime::make(&layer).expect("layer builds");
 
     let services = runtime.context().expect("built services");
-    assert_eq!(services.get::<SrvTag>().map(|s| s.0), Some("test".to_string()));
+    assert_eq!(
+        services.get::<SrvTag>().map(|s| s.0),
+        Some("test".to_string())
+    );
 }
 
 #[test]

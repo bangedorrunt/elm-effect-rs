@@ -43,11 +43,7 @@ impl IpNetwork {
             IpAddr::V4(_) => 32,
             IpAddr::V6(_) => 128,
         };
-        if !prefix.is_finite()
-            || prefix.fract() != 0.0
-            || prefix < 0.0
-            || prefix > f64::from(max)
-        {
+        if !prefix.is_finite() || prefix.fract() != 0.0 || prefix < 0.0 || prefix > f64::from(max) {
             return Err(NetworkError::addr(
                 addr,
                 format!("prefix length must be an integer from 0 through {max}"),
@@ -95,11 +91,7 @@ impl IpNetwork {
             IpAddr::V4(_) => 32,
             IpAddr::V6(_) => 128,
         };
-        if !prefix.is_finite()
-            || prefix.fract() != 0.0
-            || prefix < 0.0
-            || prefix > f64::from(max)
-        {
+        if !prefix.is_finite() || prefix.fract() != 0.0 || prefix < 0.0 || prefix > f64::from(max) {
             return Err(NetworkError::addr(
                 addr,
                 format!("prefix length must be an integer from 0 through {max}"),
@@ -134,10 +126,7 @@ impl IpNetwork {
             .split_once('/')
             .ok_or_else(|| NetworkError::text(text, "missing prefix".to_string()))?;
         let addr: IpAddr = addr_text.parse().map_err(|_| {
-            NetworkError::text(
-                offending_address(addr_text),
-                "invalid address".to_string(),
-            )
+            NetworkError::text(offending_address(addr_text), "invalid address".to_string())
         })?;
         if prefix_text.starts_with('+') {
             return Err(NetworkError::text(text, "invalid prefix".to_string()));
@@ -556,7 +545,6 @@ impl InterfaceAddress {
     }
 }
 
-
 impl NetAddress {
     /// `0.0.0.0` (TS `ipv4Unspecified`).
     pub const IPV4_UNSPECIFIED: Self = Self::V4(Ipv4Addr::UNSPECIFIED);
@@ -767,7 +755,11 @@ impl NetAddress {
 
     /// Build an IPv6 socket address with scope id (TS `inetAddressV6`).
     /// Scope zero is the default; only IPv6 carries one.
-    pub fn inet_address_v6(address: &NetAddress, port: u32, scope_id: u32) -> Result<Self, NetworkError> {
+    pub fn inet_address_v6(
+        address: &NetAddress,
+        port: u32,
+        scope_id: u32,
+    ) -> Result<Self, NetworkError> {
         if port > 65535 {
             return Err(NetworkError::text("out-of-range port", "invalid port"));
         }
@@ -778,7 +770,10 @@ impl NetAddress {
                 0,
                 scope_id,
             )))),
-            _ => Err(NetworkError::text("non-IPv6 socket address", "invalid address")),
+            _ => Err(NetworkError::text(
+                "non-IPv6 socket address",
+                "invalid address",
+            )),
         }
     }
 
@@ -918,7 +913,8 @@ impl NetAddress {
 
     /// Build a socket from an IP string plus port (TS `inetAddressFromIpString`).
     pub fn inet_address_from_ip_string(ip: &str, port: u32) -> Result<Self, NetworkError> {
-        let address = NetAddress::ipv4_from_string(ip).or_else(|_| NetAddress::ipv6_from_string(ip))?;
+        let address =
+            NetAddress::ipv4_from_string(ip).or_else(|_| NetAddress::ipv6_from_string(ip))?;
         NetAddress::socket_address_from_parts(&address, port)
     }
 

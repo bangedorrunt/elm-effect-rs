@@ -255,9 +255,7 @@ where
             None => true,
             Some(entry) => self.is_expired(entry),
         };
-        if stale
-            && let Some(entry) = self.entries.remove(key)
-        {
+        if stale && let Some(entry) = self.entries.remove(key) {
             self.release_value(entry);
         }
         if !self.entries.contains_key(key) {

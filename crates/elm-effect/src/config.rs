@@ -51,7 +51,11 @@ impl std::fmt::Display for ConfigError {
         match self {
             Self::Missing { path } => write!(f, "missing config: {}", path.join(".")),
             Self::Invalid { path, got, reason } => {
-                write!(f, "invalid config {}: got {got:?}: {reason}", path.join("."))
+                write!(
+                    f,
+                    "invalid config {}: got {got:?}: {reason}",
+                    path.join(".")
+                )
             }
         }
     }
@@ -160,7 +164,11 @@ impl Config {
     pub fn number(name: Option<String>) -> Self {
         Self::leaf(name, |text, path| match text {
             Some(t) => t.parse::<f64>().map(Value::Num).map_err(|_| {
-                vec![ConfigError::Invalid { path, got: t, reason: "not a number".to_string() }]
+                vec![ConfigError::Invalid {
+                    path,
+                    got: t,
+                    reason: "not a number".to_string(),
+                }]
             }),
             None => Err(vec![ConfigError::Missing { path }]),
         })
@@ -259,11 +267,13 @@ impl Config {
     /// Milliseconds (`"150ms"`, `"2s"`, `"1m"`, `"1h"`, plain millis).
     pub fn duration_ms(name: Option<String>) -> Self {
         Self::leaf(name, |text, path| match text {
-            Some(t) => parse_duration_ms(&t)
-                .map(Value::Millis)
-                .ok_or_else(|| {
-                    vec![ConfigError::Invalid { path, got: t, reason: "bad duration".to_string() }]
-                }),
+            Some(t) => parse_duration_ms(&t).map(Value::Millis).ok_or_else(|| {
+                vec![ConfigError::Invalid {
+                    path,
+                    got: t,
+                    reason: "bad duration".to_string(),
+                }]
+            }),
             None => Err(vec![ConfigError::Missing { path }]),
         })
     }
@@ -320,11 +330,13 @@ impl Config {
     /// Byte count (`"4MB"`, `"2KiB"`, plain bytes).
     pub fn byte_size(name: Option<String>) -> Self {
         Self::leaf(name, |text, path| match text {
-            Some(t) => parse_bytes(&t)
-                .map(|n| Value::Int(n))
-                .ok_or_else(|| {
-                    vec![ConfigError::Invalid { path, got: t, reason: "bad byte size".to_string() }]
-                }),
+            Some(t) => parse_bytes(&t).map(|n| Value::Int(n)).ok_or_else(|| {
+                vec![ConfigError::Invalid {
+                    path,
+                    got: t,
+                    reason: "bad byte size".to_string(),
+                }]
+            }),
             None => Err(vec![ConfigError::Missing { path }]),
         })
     }
@@ -445,16 +457,24 @@ impl Config {
     /// Always-failing config.
     pub fn fail(message: &str) -> Self {
         let message = message.to_string();
-        Self { name: None, run: std::rc::Rc::new(move |_, prefix| Err(vec![ConfigError::Invalid {
-            path: prefix.to_vec(),
-            got: String::new(),
-            reason: message.clone(),
-        }])) }
+        Self {
+            name: None,
+            run: std::rc::Rc::new(move |_, prefix| {
+                Err(vec![ConfigError::Invalid {
+                    path: prefix.to_vec(),
+                    got: String::new(),
+                    reason: message.clone(),
+                }])
+            }),
+        }
     }
 
     /// Provider-independent value.
     pub fn succeed(value: Value) -> Self {
-        Self { name: None, run: std::rc::Rc::new(move |_, _| Ok(value.clone())) }
+        Self {
+            name: None,
+            run: std::rc::Rc::new(move |_, _| Ok(value.clone())),
+        }
     }
 
     /// Map the decoded value.
@@ -587,7 +607,11 @@ impl Config {
         (self.run)(provider, &[])
     }
 
-    fn run_against(&self, text: Option<String>, path: &[String]) -> Result<Value, Vec<ConfigError>> {
+    fn run_against(
+        &self,
+        text: Option<String>,
+        path: &[String],
+    ) -> Result<Value, Vec<ConfigError>> {
         let provider = Provider::single(path.to_vec(), text);
         (self.run)(&provider, path)
     }
@@ -598,7 +622,10 @@ impl Config {
 /// errors (Config.test.ts:990). An all-missing group keeps every missing
 /// error, which is what `withDefault` and `option` recover from.
 fn group_errors(errors: Vec<ConfigError>) -> Vec<ConfigError> {
-    if errors.iter().any(|e| matches!(e, ConfigError::Invalid { .. })) {
+    if errors
+        .iter()
+        .any(|e| matches!(e, ConfigError::Invalid { .. }))
+    {
         errors
             .into_iter()
             .filter(|e| matches!(e, ConfigError::Invalid { .. }))

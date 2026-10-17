@@ -3,7 +3,7 @@
 use std::sync::Arc;
 
 use elm_effect_unstable::eventlog_identity::{
-    make_get_identity_root_secret_material, Identity, ENCRYPTION_LABEL, SIGNING_LABEL,
+    ENCRYPTION_LABEL, Identity, SIGNING_LABEL, make_get_identity_root_secret_material,
 };
 
 fn make_root_secret() -> Vec<u8> {
@@ -11,7 +11,10 @@ fn make_root_secret() -> Vec<u8> {
 }
 
 fn make_identity(root_secret: Vec<u8>, public_key: &str) -> Identity {
-    Identity { public_key: public_key.to_owned(), root_secret }
+    Identity {
+        public_key: public_key.to_owned(),
+        root_secret,
+    }
 }
 
 #[test]
@@ -22,7 +25,10 @@ fn derives_same_material_for_same_root_secret() {
     let second = derive.call(&make_identity(root_secret, "user-b"));
     assert!(ENCRYPTION_LABEL.contains("/v1/"));
     assert!(SIGNING_LABEL.contains("/v1/"));
-    assert_eq!(first.encryption_key_material, second.encryption_key_material);
+    assert_eq!(
+        first.encryption_key_material,
+        second.encryption_key_material
+    );
     assert_eq!(first.signing_public_key, second.signing_public_key);
     assert_eq!(first.signing_private_key, second.signing_private_key);
 }

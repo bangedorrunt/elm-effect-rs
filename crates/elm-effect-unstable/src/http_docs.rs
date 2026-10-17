@@ -20,7 +20,10 @@ pub struct DocCell {
 impl DocCell {
     /// A document computed by `compute` on first request.
     pub fn new(compute: impl Fn() -> Result<String, String> + Send + Sync + 'static) -> Self {
-        Self { cached: Mutex::new(None), compute: Box::new(compute) }
+        Self {
+            cached: Mutex::new(None),
+            compute: Box::new(compute),
+        }
     }
 
     /// The cached document, computing it when absent. Defects propagate
@@ -79,7 +82,8 @@ pub fn escape_html_attr(value: &str) -> String {
 /// Percent-encode a URI component, mirroring `encodeURIComponent`: letters,
 /// digits, and `-_.!~*'()` stay literal, every other byte becomes `%XX`.
 pub fn encode_uri_component(value: &str) -> String {
-    const UNRESERVED: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_.!~*'()";
+    const UNRESERVED: &[u8] =
+        b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_.!~*'()";
     let mut out = String::with_capacity(value.len());
     for byte in value.bytes() {
         if UNRESERVED.contains(&byte) {
@@ -99,13 +103,22 @@ pub fn escape_embedded_json(json: &str) -> String {
 
 /// A Scalar API-reference page: escaped title and description meta tags, the
 /// versioned CDN script, and the embedded spec.
-pub fn scalar_page(title: &str, description: Option<&str>, spec_json: &str, version: &str) -> String {
+pub fn scalar_page(
+    title: &str,
+    description: Option<&str>,
+    spec_json: &str,
+    version: &str,
+) -> String {
     let mut html = String::from("<!doctype html><html><head>");
     html.push_str(&format!("<title>{}</title>", escape_html_text(title)));
     if let Some(description) = description {
         let escaped = escape_html_attr(description);
-        html.push_str(&format!("<meta name=\"description\" content=\"{escaped}\"/>"));
-        html.push_str(&format!("<meta name=\"og:description\" content=\"{escaped}\"/>"));
+        html.push_str(&format!(
+            "<meta name=\"description\" content=\"{escaped}\"/>"
+        ));
+        html.push_str(&format!(
+            "<meta name=\"og:description\" content=\"{escaped}\"/>"
+        ));
     }
     html.push_str("</head><body>");
     html.push_str(&format!(

@@ -51,7 +51,10 @@ fn exposes_reverse_lookups() {
     expected.insert("html");
     expected.insert("htm");
     expected.insert("shtml");
-    assert_eq!(mime::get_all_extensions("text/html"), Some(expected.clone()));
+    assert_eq!(
+        mime::get_all_extensions("text/html"),
+        Some(expected.clone())
+    );
     assert_eq!(
         mime::get_all_extensions("text/html; charset=utf-8"),
         Some(expected)

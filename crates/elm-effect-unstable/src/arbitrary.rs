@@ -177,7 +177,11 @@ pub fn number(min: f64, max: f64, exclusive_min: bool, exclusive_max: bool) -> G
             // is exact (Arbitrary.test.ts:1772). A zero interval
             // answers with both signed zeros (:1758).
             if lo == hi {
-                return if lo == 0.0 && rng.next_u64() & 1 == 1 { -0.0 } else { lo };
+                return if lo == 0.0 && rng.next_u64() & 1 == 1 {
+                    -0.0
+                } else {
+                    lo
+                };
             }
             if open && rng.next_u64() % 64 == 0 {
                 return f64::NAN;

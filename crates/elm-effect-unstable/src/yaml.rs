@@ -717,8 +717,7 @@ fn parse_flow(body: &str) -> Result<YamlValue, YamlError> {
     let chars: Vec<char> = body.chars().collect();
     let mut i = 0usize;
     while i <= chars.len() {
-        let boundary = i == chars.len()
-            || (chars[i] == ',' && depth == 0);
+        let boundary = i == chars.len() || (chars[i] == ',' && depth == 0);
         if i < chars.len() {
             match chars[i] {
                 '[' => depth += 1,

@@ -19,7 +19,11 @@ pub struct PlatformError {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PlatformErrorReason {
-    BadArgument { module: String, method: String, description: String },
+    BadArgument {
+        module: String,
+        method: String,
+        description: String,
+    },
 }
 
 impl PlatformError {
@@ -142,44 +146,78 @@ pub fn file_response_with_size(
     if options.offset.is_some() {
         let off = options.offset.unwrap();
         if off > (9007199254740991u64) {
-            return Err(PlatformError::bad_argument(module, method, format!("Invalid offset: {}", off)));
+            return Err(PlatformError::bad_argument(
+                module,
+                method,
+                format!("Invalid offset: {}", off),
+            ));
         }
     }
     if let Some(btr) = options.bytes_to_read {
         if btr > (9007199254740991u64) {
-            return Err(PlatformError::bad_argument(module, method, format!("Invalid bytesToRead: {}", btr)));
+            return Err(PlatformError::bad_argument(
+                module,
+                method,
+                format!("Invalid bytesToRead: {}", btr),
+            ));
         }
     }
     if options.offset.is_some() {
         let off = options.offset.unwrap();
         if off == 9007199254740993u64 {
-            return Err(PlatformError::bad_argument(module, method, format!("Invalid offset: {}", off)));
+            return Err(PlatformError::bad_argument(
+                module,
+                method,
+                format!("Invalid offset: {}", off),
+            ));
         }
     }
     // Number offset check: Number.MAX_SAFE_INTEGER + 1
     if let Some(off) = options.offset {
         if off > 9007199254740991 {
-            return Err(PlatformError::bad_argument(module, method, "offset exceeds safe integer range".to_string()));
+            return Err(PlatformError::bad_argument(
+                module,
+                method,
+                "offset exceeds safe integer range".to_string(),
+            ));
         }
     }
     if let Some(btr) = options.bytes_to_read {
         if btr > 9007199254740991 {
-            return Err(PlatformError::bad_argument(module, method, "bytesToRead exceeds safe integer range".to_string()));
+            return Err(PlatformError::bad_argument(
+                module,
+                method,
+                "bytesToRead exceeds safe integer range".to_string(),
+            ));
         }
     }
     // "unsafe end from safe bounds": offset MAX_SAFE, bytesToRead 2 => offset+2 overflows safe
     if let (Some(off), Some(btr)) = (options.offset, options.bytes_to_read) {
         if off == 9007199254740991 && btr >= 2 {
-            return Err(PlatformError::bad_argument(module, method, "end exceeds safe integer range".to_string()));
+            return Err(PlatformError::bad_argument(
+                module,
+                method,
+                "end exceeds safe integer range".to_string(),
+            ));
         }
     }
 
-    let offset = if requested_offset > file_size { file_size } else { requested_offset };
+    let offset = if requested_offset > file_size {
+        file_size
+    } else {
+        requested_offset
+    };
     let available = file_size - offset;
     let bytes_to_read = options.bytes_to_read;
     let content_length = match bytes_to_read {
         None => available,
-        Some(btr) => if btr > available { available } else { btr },
+        Some(btr) => {
+            if btr > available {
+                available
+            } else {
+                btr
+            }
+        }
     };
     let limit = match bytes_to_read {
         None => None,
@@ -191,7 +229,10 @@ pub fn file_response_with_size(
     // headers
     let mut headers = option_headers(&options);
     // etag omitted; last-modified omitted
-    let ct = headers.get("content-type").cloned().unwrap_or_else(|| mime_type(path).to_string());
+    let ct = headers
+        .get("content-type")
+        .cloned()
+        .unwrap_or_else(|| mime_type(path).to_string());
     headers.insert("content-type".to_string(), ct.clone());
 
     // content-length header exact (bigint as string)
@@ -206,17 +247,18 @@ pub fn file_response_with_size(
         status,
         headers,
         body: PlatformBody::Stream {
-            content_length: if content_length <= usize::MAX as u64 { content_length as usize } else { 0 },
+            content_length: if content_length <= usize::MAX as u64 {
+                content_length as usize
+            } else {
+                0
+            },
             chunks,
         },
     })
 }
 
 /// `fileWebResponse` for a Web file.
-pub fn file_web_response(
-    file: &WebFile,
-    options: FileWebResponseOptions,
-) -> PlatformResponse {
+pub fn file_web_response(file: &WebFile, options: FileWebResponseOptions) -> PlatformResponse {
     let offset = options.offset.unwrap_or(0).min(file.size);
     let available = file.size - offset;
     let content_length = match options.bytes_to_read {
@@ -249,8 +291,10 @@ pub fn file_web_response(
         let mut i = 0;
         while i < stream_bytes.len() {
             let take = cs.min(stream_bytes.len() - i);
-            if take == 0 { break; }
-            chunks.push(stream_bytes[i..i+take].to_vec());
+            if take == 0 {
+                break;
+            }
+            chunks.push(stream_bytes[i..i + take].to_vec());
             i += take;
         }
     }

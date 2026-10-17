@@ -47,7 +47,12 @@ fn partial_take_releases_on_interrupt() {
     let worker_stop = stop.clone();
     let worker_sem = sem.clone();
     let worker = std::thread::spawn(move || {
-        worker_sem.with_permits_interruptible(0, 2, &|| worker_stop.load(Ordering::SeqCst), || "ran")
+        worker_sem.with_permits_interruptible(
+            0,
+            2,
+            &|| worker_stop.load(Ordering::SeqCst),
+            || "ran",
+        )
     });
     std::thread::sleep(std::time::Duration::from_millis(50));
     stop.store(true, Ordering::SeqCst);
