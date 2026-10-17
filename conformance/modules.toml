@@ -2204,7 +2204,7 @@ tests = ["packages/effect/test/http/HttpServerError.test.ts"]
 [[module]]
 path = "packages/effect/src/http/HttpServerRequest.ts"
 class = "unstable-port"
-status = "unmatched"
+status = "matched"
 tag = "unstable"
 reason = ""
 tests = ["packages/effect/test/http/HttpServerRequest.test.ts"]

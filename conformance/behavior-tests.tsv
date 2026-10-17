@@ -6666,18 +6666,30 @@ ported	packages/effect/test/http/HttpServerError.test.ts	73	it.effect	maps reaso
 ported	packages/effect/test/http/HttpServerError.test.ts	93	it	matches wrapper only	server_error_guard_matches_wrapper_only
 ported	packages/effect/test/http/HttpServerError.test.ts	107	it	returns none cause for response defects	server_error_cause_response_stripped
 ported	packages/effect/test/http/HttpServerError.test.ts	114	it	returns some cause for non-response failures	server_error_cause_response_stripped
-unported	packages/effect/test/http/HttpServerRequest.test.ts	8	it.effect	preserves FormData through client-server-client conversion	
-unported	packages/effect/test/http/HttpServerRequest.test.ts	32	it	toClientRequest	
-unported	packages/effect/test/http/HttpServerRequest.test.ts	68	it	toClientRequest ignores malformed or unsafe content lengths	
-unported	packages/effect/test/http/HttpServerRequest.test.ts	88	it	toClientRequest keeps empty bodies empty	
-unported	packages/effect/test/http/HttpServerRequest.test.ts	106	it.effect	fromClientRequest preserves request metadata and shares concurrent stream body accessors	
-unported	packages/effect/test/http/HttpServerRequest.test.ts	128	it.effect	fromClientRequest exposes FormData bodies as multipart parts	
-unported	packages/effect/test/http/HttpServerRequest.test.ts	156	it.effect	reads a raw BodyInit after conversion from a client request	
-unported	packages/effect/test/http/HttpServerRequest.test.ts	163	it.effect	reads raw BodyInit bytes after conversion from a client request	
-unported	packages/effect/test/http/HttpServerRequest.test.ts	170	it.effect	streams a raw URLSearchParams after conversion from a client request	
-unported	packages/effect/test/http/HttpServerRequest.test.ts	180	it.effect	schemaBodyJson applies parse options	
-unported	packages/effect/test/http/HttpServerRequest.test.ts	213	it	remoteAddress defaults to none for web requests	
-unported	packages/effect/test/http/HttpServerRequest.test.ts	218	it	modify distinguishes missing and explicit none remoteAddress	
+not-applicable	packages/effect/test/http/HttpServerRequest.test.ts	8	it.effect	preserves FormData through client-server-client conversion	needs FormData through client-server-client conversion; no multipart codec or web runtime
+
+ported	packages/effect/test/http/HttpServerRequest.test.ts	32	it	toClientRequest	to_client_request_maps_method_url_headers_and_params
+
+ported	packages/effect/test/http/HttpServerRequest.test.ts	68	it	toClientRequest ignores malformed or unsafe content lengths	to_client_request_ignores_malformed_or_unsafe_content_lengths
+
+ported	packages/effect/test/http/HttpServerRequest.test.ts	88	it	toClientRequest keeps empty bodies empty	to_client_request_keeps_empty_bodies_empty
+
+ported	packages/effect/test/http/HttpServerRequest.test.ts	106	it.effect	fromClientRequest preserves request metadata and shares concurrent stream body accessors	from_client_request_preserves_metadata_and_shares_body_accessors
+
+not-applicable	packages/effect/test/http/HttpServerRequest.test.ts	128	it.effect	fromClientRequest exposes FormData bodies as multipart parts	needs FormData bodies as multipart parts; no multipart codec
+
+not-applicable	packages/effect/test/http/HttpServerRequest.test.ts	156	it.effect	reads a raw BodyInit after conversion from a client request	needs raw BodyInit web type; none exists
+
+not-applicable	packages/effect/test/http/HttpServerRequest.test.ts	163	it.effect	reads raw BodyInit bytes after conversion from a client request	needs raw BodyInit bytes; no web types
+
+not-applicable	packages/effect/test/http/HttpServerRequest.test.ts	170	it.effect	streams a raw URLSearchParams after conversion from a client request	needs URLSearchParams streaming; no web types
+
+not-applicable	packages/effect/test/http/HttpServerRequest.test.ts	180	it.effect	schemaBodyJson applies parse options	needs schemaBodyJson with schema wiring; would add elm-effect-schema dep for one row
+
+ported	packages/effect/test/http/HttpServerRequest.test.ts	213	it	remoteAddress defaults to none for web requests	remote_address_defaults_to_none_for_web_requests
+
+ported	packages/effect/test/http/HttpServerRequest.test.ts	218	it	modify distinguishes missing and explicit none remoteAddress	modify_distinguishes_missing_and_explicit_none_remote_address
+
 not-applicable	packages/effect/test/http/HttpServerRespondable.test.ts	7	it.effect	maps SchemaError to a 400 response	the row maps a SchemaError produced during decoding to a 400 response; this port has no schema AST to produce a SchemaError from, so the mapping has no input
 ported	packages/effect/test/http/HttpServerRespondable.test.ts	16	it.effect	falls back for other errors	server_respondable_to_response_or_else_falls_back
 not-applicable	packages/effect/test/http/HttpServerResponse.test.ts	9	it.each	prefers outer status $status and merges raw Response headers with withoutBody=$withoutBody	Effect raw Web Response interop (outer status/header merge/withoutBody/body omission): port Response in crates/elm-effect-unstable/src/http_server.rs has no web_sys/Web Response counterface and no withoutBody representation, so raw Response metadata merging is not representable
