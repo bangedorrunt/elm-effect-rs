@@ -205,9 +205,8 @@ fn spawn_cwd_with_template_literal_form() {
 #[test]
 fn spawn_environment_variables() {
     // :100
-    let out = collect(
-        &command_array("sh", &["-c", "echo $TEST_VAR"]).env("TEST_VAR", "test_value"),
-    );
+    let out =
+        collect(&command_array("sh", &["-c", "echo $TEST_VAR"]).env("TEST_VAR", "test_value"));
     assert_eq!(out.code, Some(0));
     assert_eq!(out.stdout_text().trim(), "test_value");
 }
@@ -336,7 +335,10 @@ fn spawn_capture_stderr_output() {
 #[test]
 fn spawn_capture_both_stdout_and_stderr() {
     // :263
-    let out = collect(&command_array("sh", &["-c", "echo stdout; echo stderr >&2"]));
+    let out = collect(&command_array(
+        "sh",
+        &["-c", "echo stdout; echo stderr >&2"],
+    ));
     assert_eq!(out.code, Some(0));
     assert_eq!(out.stdout_text().trim(), "stdout");
     assert_eq!(out.stderr_text().trim(), "stderr");
@@ -406,7 +408,10 @@ fn spawn_stream_stdout() {
 #[test]
 fn spawn_stream_multiple_lines() {
     // :437
-    let out = collect(&command_array("sh", &["-c", "echo line1; echo line2; echo line3"]));
+    let out = collect(&command_array(
+        "sh",
+        &["-c", "echo line1; echo line2; echo line3"],
+    ));
     assert_eq!(
         out.stdout_text().trim(),
         ["line1", "line2", "line3"].join("\n")
@@ -509,14 +514,20 @@ fn spawn_non_zero_exit_code() {
 fn spawn_fail_for_invalid_command() {
     // :703
     let error = spawn_err(&command_array("nonexistent-command-12345", &[]));
-    assert!(matches!(error, process::ProcessError::Spawn(_)), "{error:?}");
+    assert!(
+        matches!(error, process::ProcessError::Spawn(_)),
+        "{error:?}"
+    );
 }
 
 #[test]
 fn spawn_error_with_invalid_cwd() {
     // :712
     let error = spawn_err(&command_array("echo", &["test"]).cwd("/nonexistent/directory/path"));
-    assert!(matches!(error, process::ProcessError::Spawn(_)), "{error:?}");
+    assert!(
+        matches!(error, process::ProcessError::Spawn(_)),
+        "{error:?}"
+    );
 }
 
 #[test]
@@ -562,7 +573,9 @@ fn spawn_string_large_output_no_deadlock() {
 // Combined output (.all): concurrent stdout/stderr capture, arrival order.
 
 fn lines_with<'a>(text: &'a str, prefix: &str) -> Vec<&'a str> {
-    text.split('\n').filter(|line| line.starts_with(prefix)).collect()
+    text.split('\n')
+        .filter(|line| line.starts_with(prefix))
+        .collect()
 }
 
 #[test]
@@ -586,7 +599,9 @@ fn combined_all_captures_interspersed_stdout_and_stderr() {
 #[test]
 fn combined_all_captures_only_stdout() {
     // :371 — no stderr: .all is just the stdout bytes.
-    let mut child = command_array("echo", &["hello from stdout"]).spawn().unwrap();
+    let mut child = command_array("echo", &["hello from stdout"])
+        .spawn()
+        .unwrap();
     let out = child.wait_combined().unwrap();
     assert_eq!(out.code, Some(0));
     assert_eq!(out.all_text().trim(), "hello from stdout");
@@ -610,7 +625,10 @@ fn combined_all_handles_many_interspersed_lines() {
     // :391 — ten lines across both streams, none lost or duplicated.
     let mut child = command_array(
         "sh",
-        &["-c", "for i in 1 2 3 4 5; do echo stdout$i; sleep 0.01; echo stderr$i >&2; sleep 0.01; done"],
+        &[
+            "-c",
+            "for i in 1 2 3 4 5; do echo stdout$i; sleep 0.01; echo stderr$i >&2; sleep 0.01; done",
+        ],
     )
     .spawn()
     .unwrap();
@@ -661,7 +679,10 @@ fn pipeline_pipes_combined_output_to_stdin() {
         (
             command_array(
                 "sh",
-                &["-c", "echo out1; sleep 0.01; echo err1 >&2; sleep 0.01; echo out2"],
+                &[
+                    "-c",
+                    "echo out1; sleep 0.01; echo err1 >&2; sleep 0.01; echo out2",
+                ],
             ),
             process::PipeFrom::All,
         ),
@@ -694,9 +715,7 @@ fn pipeline_chained_pipes_with_different_sources() {
 #[test]
 fn run_with_input_feeds_stdin_to_command() {
     // :736 — `cat` echoes the provided standard input back.
-    let out = command_array("cat", &[])
-        .run_with_input(b"a b c")
-        .unwrap();
+    let out = command_array("cat", &[]).run_with_input(b"a b c").unwrap();
     assert_eq!(out.code, Some(0));
     assert_eq!(out.stdout_text(), "a b c");
 }

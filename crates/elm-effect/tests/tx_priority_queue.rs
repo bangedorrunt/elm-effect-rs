@@ -225,7 +225,10 @@ fn concurrent_offer_and_take() {
         std::thread::spawn(move || vec![pq.take(), pq.take(), pq.take()])
     };
     pq.offer_all(vec![3, 1, 2]);
-    assert_eq!(taker.join().expect("the taker must not panic"), vec![1, 2, 3]);
+    assert_eq!(
+        taker.join().expect("the taker must not panic"),
+        vec![1, 2, 3]
+    );
 }
 
 /// :220 — a custom order makes it a max-first queue.

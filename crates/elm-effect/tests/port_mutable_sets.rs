@@ -31,6 +31,9 @@ fn mutable_set_distinguishes_from_persistent_set() {
     assert_eq!(mutable.size(), 4);
     let grown = persistent.add(4);
     assert!(grown.has(&4));
-    assert!(!persistent.has(&4), "persistent add leaves the original alone");
+    assert!(
+        !persistent.has(&4),
+        "persistent add leaves the original alone"
+    );
     assert_eq!(persistent.size(), 3);
 }

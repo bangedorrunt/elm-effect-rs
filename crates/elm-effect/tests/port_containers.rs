@@ -188,7 +188,11 @@ fn hash_map_reduce_and_for_each() {
     // reduce folds (acc, value, key); forEach visits every entry. The pin's
     // forEach passes (value, key), so the collected pairs are sorted before
     // comparing because HashMap's iteration order is not defined.
-    let m = HashMap::make([("a".to_owned(), 1), ("b".to_owned(), 2), ("c".to_owned(), 3)]);
+    let m = HashMap::make([
+        ("a".to_owned(), 1),
+        ("b".to_owned(), 2),
+        ("c".to_owned(), 3),
+    ]);
 
     let sum = m.reduce(0, |acc, value, _key| acc + value);
     assert_eq!(sum, 6);
@@ -358,8 +362,7 @@ fn hash_map_works_with_equal_objects_as_keys() {
         age: 30,
     };
 
-    let map: HashMap<Person, &str> =
-        HashMap::make([(alice, "value1"), (bob.clone(), "value3")]);
+    let map: HashMap<Person, &str> = HashMap::make([(alice, "value1"), (bob.clone(), "value3")]);
     assert_eq!(map.get(&alice_again), Some(&"value1"));
     assert_eq!(map.get(&bob), Some(&"value3"));
 }
@@ -1057,7 +1060,10 @@ fn trie_from_iterable_keeps_every_shape_and_orders_by_key() {
 
     // :132 - a key that prefixes another sorts before it.
     let prefixed = Trie::from_iter([("shells".to_owned(), 0), ("she".to_owned(), 1)]);
-    assert_eq!(trie_pairs(&prefixed), trie_i32(&[("she", 1), ("shells", 0)]));
+    assert_eq!(
+        trie_pairs(&prefixed),
+        trie_i32(&[("she", 1), ("shells", 0)])
+    );
 }
 
 #[test]
@@ -1069,7 +1075,10 @@ fn trie_keeps_option_payloads_and_reads_only_complete_keys() {
     assert_eq!(trie.entries().len(), 1);
 
     // :179 - a prefix of a stored key is not a stored key.
-    let prefixed = Trie::empty().insert("shells", 0).insert("sells", 1).insert("she", 2);
+    let prefixed = Trie::empty()
+        .insert("shells", 0)
+        .insert("sells", 1)
+        .insert("she", 2);
     assert_eq!(prefixed.get("sell"), None);
     assert_eq!(prefixed.get("sells"), Some(&1));
     assert_eq!(prefixed.get("shell"), None);
@@ -1096,28 +1105,32 @@ fn trie_get_unsafe_returns_or_panics() {
 #[test]
 fn trie_keys_values_and_entries_come_out_in_key_order() {
     // :243 - keys are sorted, not insertion ordered.
-    let trie = Trie::empty().insert("cab", 0).insert("abc", 1).insert("bca", 2);
+    let trie = Trie::empty()
+        .insert("cab", 0)
+        .insert("abc", 1)
+        .insert("bca", 2);
     assert_eq!(trie.keys(), ["abc", "bca", "cab"]);
 
     // :254 - a valued node sorts with its own extensions: "a" before "ab",
     // "ca" before "cac", and every branch of a level before the next.
     let nested = Trie::from_iter(
         [
-            "abc", "bac", "b", "ca", "cac", "c", "abb", "ba", "a", "bca", "cab", "dca", "ab",
-            "adc",
+            "abc", "bac", "b", "ca", "cac", "c", "abb", "ba", "a", "bca", "cab", "dca", "ab", "adc",
         ]
         .map(|k| (k.to_owned(), 0)),
     );
     assert_eq!(
         nested.keys(),
         [
-            "a", "ab", "abb", "abc", "adc", "b", "ba", "bac", "bca", "c", "ca", "cab", "cac",
-            "dca"
+            "a", "ab", "abb", "abc", "adc", "b", "ba", "bac", "bca", "c", "ca", "cab", "cac", "dca"
         ]
     );
 
     // :291 - values follow that same key order.
-    let values = Trie::empty().insert("call", 0).insert("me", 1).insert("and", 2);
+    let values = Trie::empty()
+        .insert("call", 0)
+        .insert("me", 1)
+        .insert("and", 2);
     let ordered: Vec<i32> = values.values().into_iter().copied().collect();
     assert_eq!(ordered, [2, 0, 1]);
 
@@ -1185,7 +1198,10 @@ fn trie_map_filter_filter_map_and_compact() {
     );
 
     // :422 - filter keeps entries by value, or by key.
-    assert_eq!(trie_pairs(&trie.filter(|_, v| *v > 1)), trie_i32(&[("she", 2)]));
+    assert_eq!(
+        trie_pairs(&trie.filter(|_, v| *v > 1)),
+        trie_i32(&[("she", 2)])
+    );
     assert_eq!(
         trie_pairs(&trie.filter(|k, _| k.len() > 3)),
         trie_i32(&[("sells", 1), ("shells", 0)])
@@ -1243,7 +1259,10 @@ fn trie_renders_entries_in_iteration_order() {
     assert_eq!(format!("{trie:?}"), trie.to_string());
 
     // :36 - toJSON is the tagged object.
-    assert_eq!(trie.json_shape(), "{\"_id\":\"Trie\",\"values\":[[\"a\",0],[\"b\",1]]}");
+    assert_eq!(
+        trie.json_shape(),
+        "{\"_id\":\"Trie\",\"values\":[[\"a\",0],[\"b\",1]]}"
+    );
 }
 
 #[test]

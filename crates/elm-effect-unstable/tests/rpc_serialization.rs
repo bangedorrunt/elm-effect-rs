@@ -130,5 +130,8 @@ fn interrupt_without_fiber_encodes_null_fiber_id() {
     );
     // Re-encoding the decoded value is stable.
     let decoded = RpcCause::decode(&json!({"_tag": "Interrupt"})).unwrap();
-    assert_eq!(decoded.encode(), json!({"_tag": "Interrupt", "fiberId": null}));
+    assert_eq!(
+        decoded.encode(),
+        json!({"_tag": "Interrupt", "fiberId": null})
+    );
 }

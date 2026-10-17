@@ -114,7 +114,11 @@ fn b64_url_padded() -> impl base64::Engine {
 }
 
 fn strip_whitespace(input: &str) -> String {
-    input.bytes().filter(|b| !b.is_ascii_whitespace()).map(|b| b as char).collect()
+    input
+        .bytes()
+        .filter(|b| !b.is_ascii_whitespace())
+        .map(|b| b as char)
+        .collect()
 }
 
 /// Standard Base64 encode (bytes or UTF-8 string).
@@ -338,7 +342,7 @@ pub mod sse {
     }
 
     /// Encode one event. `retry` renders as `retry: <millis>`; a `"message"`
-/// type field is omitted (the decoder restores it).
+    /// type field is omitted (the decoder restores it).
     pub fn encode(event: &Event) -> String {
         let mut out = String::new();
         if !event.event.is_empty() && event.event != "message" {
@@ -516,9 +520,7 @@ pub mod sse {
                 "retry" => {
                     // ASCII digits only: a leading `+`/`-`, decimals, or
                     // trailing junk never count (TS title verbatim).
-                    if !value.is_empty()
-                        && value.bytes().all(|b| b.is_ascii_digit())
-                    {
+                    if !value.is_empty() && value.bytes().all(|b| b.is_ascii_digit()) {
                         if let Ok(millis) = value.parse::<u64>() {
                             self.retry = Some(millis);
                         }

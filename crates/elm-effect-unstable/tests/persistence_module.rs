@@ -278,7 +278,8 @@ fn kv_binary_values_roundtrip_raw() {
     db.set_bytes("blob", &raw);
     assert_eq!(db.get_bytes("blob"), Some(raw));
     assert_eq!(
-        db.get("blob"), None,
+        db.get("blob"),
+        None,
         "non-utf8 bytes have no string decoding"
     );
     db.set_bytes("blob", b"plain");
@@ -289,7 +290,10 @@ fn kv_binary_values_roundtrip_raw() {
 fn kv_utf8_string_values_roundtrip() {
     let mut db = KeyValueStore::new();
     db.set("uni", "h\u{e9}llo \u{4e16}\u{754c} \u{1f980}");
-    assert_eq!(db.get("uni"), Some("h\u{e9}llo \u{4e16}\u{754c} \u{1f980}".to_string()));
+    assert_eq!(
+        db.get("uni"),
+        Some("h\u{e9}llo \u{4e16}\u{754c} \u{1f980}".to_string())
+    );
     db.set("empty", "");
     assert_eq!(db.get("empty"), Some(String::new()));
     assert!(db.has("empty"), "empty string is a present value");
@@ -391,7 +395,10 @@ fn queue_retry_delay_follows_schedule() {
     let base = 100;
     let first = q.retry_delay(&item.id, base);
     let second = q.retry_delay(&item.id, base);
-    assert!(second >= first, "delay never shrinks: {first} then {second}");
+    assert!(
+        second >= first,
+        "delay never shrinks: {first} then {second}"
+    );
     assert!(first >= base, "first delay starts at the base: {first}");
 }
 
@@ -404,11 +411,7 @@ fn queue_complete_records_once_and_prunes() {
     assert_eq!(q.completed_len(), 1);
     assert_eq!(q.prune(500, 2_000), 1, "older than the window: pruned");
     assert_eq!(q.completed_len(), 0);
-    assert_eq!(
-        q.prune(10_000, 3_000),
-        0,
-        "inside the window: kept"
-    );
+    assert_eq!(q.prune(10_000, 3_000), 0, "inside the window: kept");
 }
 
 #[test]

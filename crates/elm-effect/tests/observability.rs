@@ -57,10 +57,7 @@ fn redacted_display_equal_hash_value() {
     assert_eq!(Redacted::make(1), Redacted::make(1));
     assert_ne!(Redacted::make(1), Redacted::make(2));
     // Chunk constructor values compare too (composites wrap like scalars).
-    assert_eq!(
-        Redacted::make(vec![1, 2]),
-        Redacted::make(vec![1, 2])
-    );
+    assert_eq!(Redacted::make(vec![1, 2]), Redacted::make(vec![1, 2]));
     // :55 — hash derives from the protected value.
     use std::collections::hash_map::DefaultHasher;
     use std::hash::{Hash, Hasher};
@@ -470,7 +467,10 @@ fn format_simple_quotes_only_when_needed() {
 
 fn logger_items() -> Vec<observability::LogItem> {
     use observability::LogItem;
-    vec![LogItem::BigInt(123), LogItem::Object(vec![("value".to_owned(), LogItem::BigInt(123))])]
+    vec![
+        LogItem::BigInt(123),
+        LogItem::Object(vec![("value".to_owned(), LogItem::BigInt(123))]),
+    ]
 }
 
 // Logger.test.ts:11 — one call with a span and an annotation prints a header,
@@ -483,7 +483,10 @@ fn logger_should_output_logs() {
         LogLevel::Info,
         1,
         Some(("span", 0)),
-        &[LogItem::Text("info".to_owned()), LogItem::Text("message".to_owned())],
+        &[
+            LogItem::Text("info".to_owned()),
+            LogItem::Text("message".to_owned()),
+        ],
         &annotations,
     );
 
@@ -506,10 +509,17 @@ fn logger_replace_logger() {
 
     logger.log(
         LogLevel::Info,
-        &[LogItem::Text("info".to_owned()), LogItem::Text("message".to_owned())],
+        &[
+            LogItem::Text("info".to_owned()),
+            LogItem::Text("message".to_owned()),
+        ],
         &LogAnnotations::default(),
     );
-    assert_eq!(seen.lock().unwrap().len(), 1, "the replacement sink ran once");
+    assert_eq!(
+        seen.lock().unwrap().len(),
+        1,
+        "the replacement sink ran once"
+    );
     assert!(seen.lock().unwrap()[0].starts_with("{\"level\":\"INFO\""));
 }
 
@@ -540,7 +550,11 @@ fn logger_formats_bigint_messages_consistently() {
         "got {logfmt}"
     );
 
-    assert_eq!(format_structured(&items), items, "structured keeps the values");
+    assert_eq!(
+        format_structured(&items),
+        items,
+        "structured keeps the values"
+    );
     assert_eq!(
         format_json_record(LogLevel::Info, &items),
         "{\"level\":\"INFO\",\"message\":[\"123n\",{\"value\":\"123n\"}]}"
@@ -551,7 +565,7 @@ fn logger_formats_bigint_messages_consistently() {
 // message rather than a bare string.
 #[test]
 fn logger_format_json_includes_error_messages() {
-    use observability::{LogLevel, LogItem, format_json_record};
+    use observability::{LogItem, LogLevel, format_json_record};
     let json = format_json_record(
         LogLevel::Error,
         &[LogItem::Error {
@@ -594,7 +608,11 @@ fn logger_annotate_logs_scoped_restores_previous() {
         assert_eq!(scoped.previous(), &outer);
         assert_eq!(scoped.previous().get("inner"), None);
     }
-    assert_eq!(outer.get("inner"), None, "the restored set has no inner key");
+    assert_eq!(
+        outer.get("inner"),
+        None,
+        "the restored set has no inner key"
+    );
 }
 
 // Logger.test.ts:182 (the NaN it.each) — a NaN annotation applies while
@@ -603,7 +621,10 @@ fn logger_annotate_logs_scoped_restores_previous() {
 #[test]
 fn logger_annotate_logs_scoped_restores_nan_annotations() {
     use observability::LogAnnotations;
-    for initial in [LogAnnotations::default(), LogAnnotations::default().annotate("measurement", "previous")] {
+    for initial in [
+        LogAnnotations::default(),
+        LogAnnotations::default().annotate("measurement", "previous"),
+    ] {
         let scoped = initial.annotate_scoped("measurement", None);
         assert_eq!(
             scoped.now().get("measurement"),
@@ -631,10 +652,18 @@ fn logger_default_keeps_message_item_order_with_a_cause() {
         &LogAnnotations::default(),
     );
 
-    assert!(lines[0].contains("INFO") && lines[0].contains("(#7):"), "header: {}", lines[0]);
+    assert!(
+        lines[0].contains("INFO") && lines[0].contains("(#7):"),
+        "header: {}",
+        lines[0]
+    );
     assert_eq!(lines[1], "first");
     assert_eq!(lines[2], "second", "the text items keep their order");
-    assert!(lines[3].contains("boom"), "the cause follows them: {}", lines[3]);
+    assert!(
+        lines[3].contains("boom"),
+        "the cause follows them: {}",
+        lines[3]
+    );
 }
 
 #[test]

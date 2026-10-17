@@ -44,12 +44,12 @@ fn scopes_nested_completions_by_the_full_command_path() {
         .iter()
         .find(|line| line.contains("-l beta-only"))
         .expect("beta-only entry missing");
-    assert!(alpha.contains(
-        "__fish_seen_subcommand_from alpha; and __fish_seen_subcommand_from common"
-    ));
-    assert!(beta.contains(
-        "__fish_seen_subcommand_from beta; and __fish_seen_subcommand_from common"
-    ));
+    assert!(
+        alpha.contains("__fish_seen_subcommand_from alpha; and __fish_seen_subcommand_from common")
+    );
+    assert!(
+        beta.contains("__fish_seen_subcommand_from beta; and __fish_seen_subcommand_from common")
+    );
 }
 
 #[test]
@@ -183,8 +183,9 @@ fn generates_used_flag_dedup_conditions() {
 fn combines_subcommand_and_dedup_conditions() {
     // :690
     let script = fish::generate("server", &server());
-    assert!(script
-        .contains("__fish_seen_subcommand_from start; and not __fish_contains_opt daemon no-daemon"));
+    assert!(script.contains(
+        "__fish_seen_subcommand_from start; and not __fish_contains_opt daemon no-daemon"
+    ));
     let port_long = script
         .lines()
         .find(|line| line.contains("-l port"))
@@ -211,8 +212,11 @@ fn root_level_subcommands_use_fish_use_subcommand_without_child_guard() {
 fn guards_nested_child_subcommands_against_re_offering() {
     // :714
     let script = fish::generate("top", &nested());
-    assert!(script
-        .contains("__fish_seen_subcommand_from sub; and not __fish_seen_subcommand_from action"));
+    assert!(
+        script.contains(
+            "__fish_seen_subcommand_from sub; and not __fish_seen_subcommand_from action"
+        )
+    );
 }
 
 #[test]
@@ -259,8 +263,14 @@ fn bare_tab_a_entries_use_double_quotes_around_glob_pattern() {
         .collect();
     assert!(!arg_entries.is_empty());
     for line in arg_entries {
-        assert!(line.contains("\"-*\""), "double-quoted glob expected: {line}");
-        assert!(!line.contains("'-*'"), "single-quoted glob must not appear: {line}");
+        assert!(
+            line.contains("\"-*\""),
+            "double-quoted glob expected: {line}"
+        );
+        assert!(
+            !line.contains("'-*'"),
+            "single-quoted glob must not appear: {line}"
+        );
     }
 }
 
@@ -306,6 +316,9 @@ fn generates_valid_fish_script_for_comprehensive_cli() {
         "__fish_seen_subcommand_from admin",
         "__fish_seen_subcommand_from git",
     ] {
-        assert!(script.contains(expected), "fish script missing {expected:?}");
+        assert!(
+            script.contains(expected),
+            "fish script missing {expected:?}"
+        );
     }
 }

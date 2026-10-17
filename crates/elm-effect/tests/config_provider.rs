@@ -43,7 +43,10 @@ fn constant_case_preserves_numeric_word_groups() {
     ]);
     let provider = provider.constant_case();
     assert_eq!(provider.get(&path("api-v2 xml")).as_deref(), Some("value1"));
-    assert_eq!(provider.get(&path("field2Value")).as_deref(), Some("value2"));
+    assert_eq!(
+        provider.get(&path("field2Value")).as_deref(),
+        Some("value2")
+    );
 }
 
 #[test]
@@ -57,7 +60,10 @@ fn or_else_preserves_each_operands_transformations() {
     let fallback = fallback_source.nested("APP");
     let joined = primary.or_else(&fallback);
     // The primary answers through its own transform.
-    assert_eq!(joined.get(&path("databaseHost")).as_deref(), Some("from-env"));
+    assert_eq!(
+        joined.get(&path("databaseHost")).as_deref(),
+        Some("from-env")
+    );
     // The fallback answers through its own prefix, not the primary's transform.
     assert_eq!(joined.get(&path("PORT")).as_deref(), Some("3000"));
 }

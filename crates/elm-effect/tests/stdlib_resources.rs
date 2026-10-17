@@ -153,7 +153,10 @@ fn latch_open_unsafe_does_not_resume_waiters_after_a_reentrant_close() {
     assert_eq!(latch.run_pending(), vec![first]);
     assert!(latch.close_unsafe(), "the resumed waiter closes it again");
     let _second = park(&latch);
-    assert!(latch.run_pending().is_empty(), "no resume for the new waiter");
+    assert!(
+        latch.run_pending().is_empty(),
+        "no resume for the new waiter"
+    );
     assert_eq!(latch.waiters(), 1);
 }
 
@@ -651,7 +654,9 @@ fn layer_map_make_fails_when_a_preload_fails() {
         |key: &String| Err::<String, String>(key.clone()),
         |_: &String| {},
         vec![key("broken")],
-        Some(Box::new(|_: &String| IdlePolicy::Finite(Duration::from_millis(1000)))),
+        Some(Box::new(|_: &String| {
+            IdlePolicy::Finite(Duration::from_millis(1000))
+        })),
     );
     assert_eq!(failure.err(), Some(key("broken")));
 
@@ -663,7 +668,10 @@ fn layer_map_make_fails_when_a_preload_fails() {
         vec![key("broken")],
         Some(Box::new(|_: &String| IdlePolicy::Keep)),
     );
-    assert!(skipped.is_ok(), "a skipped preload cannot fail construction");
+    assert!(
+        skipped.is_ok(),
+        "a skipped preload cannot fail construction"
+    );
 }
 
 // LayerMap.test.ts:108 — a per-key TTL function: each key expires on its own

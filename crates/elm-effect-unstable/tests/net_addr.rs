@@ -64,10 +64,7 @@ fn parse_errors_echo_offending_input() {
         NetworkErrorInput::Text("1.2.3.4/+24".to_string())
     );
     let err = IpNetwork::parse_reported("010.2.3.4/24").unwrap_err();
-    assert_eq!(
-        err.input,
-        NetworkErrorInput::Text("010.2.3.4".to_string())
-    );
+    assert_eq!(err.input, NetworkErrorInput::Text("010.2.3.4".to_string()));
     let err = IpNetwork::parse_reported("1.2.3.4/33").unwrap_err();
     assert_eq!(
         err.input,
@@ -115,18 +112,17 @@ fn unsafe_wrappers_mask_or_throw() {
     assert_eq!(masked.render(), "10.0.0.0/8");
     let valid = IpNetwork::from_string_unsafe("10.0.0.0/8");
     assert_eq!(valid.render(), "10.0.0.0/8");
-    assert!(std::panic::catch_unwind(|| {
-        IpNetwork::make_unsafe("10.1.2.3".parse().unwrap(), 8.0)
-    })
-    .is_err());
-    assert!(std::panic::catch_unwind(|| {
-        IpNetwork::from_string_unsafe("10.1.2.3/8")
-    })
-    .is_err());
-    assert!(std::panic::catch_unwind(|| {
-        IpNetwork::from_address_unsafe("10.1.2.3".parse().unwrap(), 33.0)
-    })
-    .is_err());
+    assert!(
+        std::panic::catch_unwind(|| { IpNetwork::make_unsafe("10.1.2.3".parse().unwrap(), 8.0) })
+            .is_err()
+    );
+    assert!(std::panic::catch_unwind(|| { IpNetwork::from_string_unsafe("10.1.2.3/8") }).is_err());
+    assert!(
+        std::panic::catch_unwind(|| {
+            IpNetwork::from_address_unsafe("10.1.2.3".parse().unwrap(), 33.0)
+        })
+        .is_err()
+    );
 }
 
 #[test]
@@ -215,8 +211,12 @@ fn net_addresses_classify_boundaries() {
         assert!(!ip(text).is_loopback(), "{text}");
     }
     assert!(!ip("::ffff:224.0.0.1").is_multicast());
-    for text in ["169.254.0.0", "169.254.255.255", "fe80::", "febf:ffff:ffff:ffff:ffff:ffff:ffff:ffff"]
-    {
+    for text in [
+        "169.254.0.0",
+        "169.254.255.255",
+        "fe80::",
+        "febf:ffff:ffff:ffff:ffff:ffff:ffff:ffff",
+    ] {
         assert!(ip(text).is_link_local(), "{text}");
     }
     for text in ["169.255.0.0", "fec0::"] {
@@ -276,7 +276,9 @@ fn net_addresses_roundtrip_numeric_forms() {
     for segments in [
         [0, 0, 0, 0, 0, 0, 0, 0],
         [0x2001, 0xdb8, 0, 1, 2, 3, 4, 5],
-        [0xffff, 0xffff, 0xffff, 0xffff, 0xffff, 0xffff, 0xffff, 0xffff],
+        [
+            0xffff, 0xffff, 0xffff, 0xffff, 0xffff, 0xffff, 0xffff, 0xffff,
+        ],
     ] {
         let value = NetAddress::ipv6_from_segments(segments);
         let encoded = value.format_ip();
@@ -301,7 +303,12 @@ fn net_addresses_convert_mapped_ipv4() {
     assert!(mapped.is_ipv4_mapped());
     assert_eq!(mapped.format_ip(), "::ffff:192.0.2.128");
     assert_eq!(mapped.from_ipv4_mapped().unwrap(), ipv4);
-    assert!(NetAddress::ipv6_from_string("::1").unwrap().from_ipv4_mapped().is_none());
+    assert!(
+        NetAddress::ipv6_from_string("::1")
+            .unwrap()
+            .from_ipv4_mapped()
+            .is_none()
+    );
     assert_eq!(mapped.to_canonical(), ipv4);
     assert_eq!(ipv4.to_canonical(), ipv4);
 }
@@ -332,7 +339,10 @@ fn unix_paths_format_verbatim() {
         ("/tmp/server.sock", "unix:///tmp/server.sock"),
         ("./run/../server.sock", "unix://./run/../server.sock"),
         ("/tmp/socket?#%20", "unix:///tmp/socket?#%20"),
-        ("/tmp/socket with spaces.sock", "unix:///tmp/socket with spaces.sock"),
+        (
+            "/tmp/socket with spaces.sock",
+            "unix:///tmp/socket with spaces.sock",
+        ),
         ("", "unix://"),
     ] {
         let address = NetAddress::unix_path_address(path);
@@ -376,10 +386,12 @@ fn socket_addresses_parse_format_and_reject() {
     assert_eq!(composed.format_socket_address(), "127.0.0.1:8080");
     assert!(NetAddress::socket_address_from_parts(&loopback, 65536).is_err());
     assert!(NetAddress::socket_address_from_input("localhost:8080").is_err());
-    assert!(std::panic::catch_unwind(|| {
-        NetAddress::socket_address_from_input_unsafe("localhost:8080")
-    })
-    .is_err());
+    assert!(
+        std::panic::catch_unwind(|| {
+            NetAddress::socket_address_from_input_unsafe("localhost:8080")
+        })
+        .is_err()
+    );
 }
 
 #[test]
@@ -453,7 +465,11 @@ fn mac_group_and_admin_bits_classify() {
     assert!(broadcast.is_broadcast());
     assert!(broadcast.is_mac_broadcast());
     assert!(broadcast.is_multicast());
-    assert!(!MacAddress::parse("01:00:5e:00:00:01").unwrap().is_broadcast());
+    assert!(
+        !MacAddress::parse("01:00:5e:00:00:01")
+            .unwrap()
+            .is_broadcast()
+    );
     let ipv4_broadcast = NetAddress::ipv4_from_string("255.255.255.255").unwrap();
     assert!(ipv4_broadcast.is_broadcast());
     assert!(!ipv4_broadcast.is_multicast());
@@ -465,10 +481,7 @@ fn checked_parsing_returns_typed_errors() {
     let err = NetAddress::ip_from_string("localhost").unwrap_err();
     assert_eq!(err.tag, "NetAddressError");
     assert_eq!(err.message, "expected exactly four decimal octets");
-    assert_eq!(
-        err.input,
-        NetworkErrorInput::Text("localhost".to_string())
-    );
+    assert_eq!(err.input, NetworkErrorInput::Text("localhost".to_string()));
     assert!(NetAddress::ip_from_string("127.0.0.1").is_ok());
     assert!(NetAddress::ip_from_string("::1").is_ok());
 }
@@ -482,16 +495,13 @@ fn bare_ips_convert_to_urls_without_ports() {
         ("0.0.0.0", "http://0.0.0.0/"),
         ("::", "http://[::]/"),
     ] {
-        let url = NetUrl::from_ip(&NetAddress::ip_from_string(input).unwrap(), "http")
-            .expect("bare IP");
+        let url =
+            NetUrl::from_ip(&NetAddress::ip_from_string(input).unwrap(), "http").expect("bare IP");
         assert_eq!(url.href(), expected);
         assert_eq!(url.port(), "");
     }
-    let secure = NetUrl::from_ip(
-        &NetAddress::ipv6_from_string("::1").unwrap(),
-        "https",
-    )
-    .expect("bare IP");
+    let secure =
+        NetUrl::from_ip(&NetAddress::ipv6_from_string("::1").unwrap(), "https").expect("bare IP");
     assert_eq!(secure.href(), "https://[::1]/");
 }
 
@@ -516,7 +526,9 @@ fn mac_addresses_parse_six_octets_and_reject_malformed() {
     assert!(MacAddress::from_numbers([0, 0, 0, 0, 0, 256]).is_none());
     // Non-integer octets like 1.5 are unrepresentable in i64: rejected by type.
     assert_eq!(
-        MacAddress::from_numbers([0, 0, 0, 0, 0, 1]).expect("valid").octets()[5],
+        MacAddress::from_numbers([0, 0, 0, 0, 0, 1])
+            .expect("valid")
+            .octets()[5],
         1
     );
 }
@@ -901,7 +913,11 @@ fn net_addresses_format_multicast_interfaces() {
         );
         assert_eq!(
             NetAddress::format_multicast_interface_scope(7, &scope_ids, platform),
-            if platform == Some("win32") { "::%7" } else { "::%en0" }
+            if platform == Some("win32") {
+                "::%7"
+            } else {
+                "::%en0"
+            }
         );
         assert_eq!(
             NetAddress::format_multicast_interface_scope(9, &scope_ids, platform),
@@ -929,9 +945,8 @@ fn net_addresses_resolve_named_zones_through_scope_table() {
     // NetAddress.test.ts:653 - named zones resolve only via the table.
     for scope_id in [7u32, 9u32] {
         let scope_ids = BTreeMap::from([("en0".to_owned(), scope_id)]);
-        let address =
-            NetAddress::socket_address_from_host_string("fe80::1%en0", 4567, &scope_ids)
-                .expect("resolves");
+        let address = NetAddress::socket_address_from_host_string("fe80::1%en0", 4567, &scope_ids)
+            .expect("resolves");
         assert_eq!(
             address,
             NetAddress::socket_address_from_input(&format!("[fe80::1%{scope_id}]:4567"))
@@ -948,9 +963,7 @@ fn net_addresses_resolve_named_zones_through_scope_table() {
     );
     // No table at all fails too.
     let empty = BTreeMap::new();
-    assert!(
-        NetAddress::socket_address_from_host_string("fe80::1%en0", 4567, &empty).is_err()
-    );
+    assert!(NetAddress::socket_address_from_host_string("fe80::1%en0", 4567, &empty).is_err());
 }
 
 #[test]
@@ -1008,8 +1021,7 @@ fn net_addresses_keep_scope_in_equality_and_hash() {
 fn net_addresses_roundtrip_max_scope_ids() {
     use net::NetAddress;
     // NetAddress.test.ts:742 - the full u32 scope range survives.
-    let scoped =
-        NetAddress::socket_address_from_input("[fe80::1%4294967295]:80").expect("parses");
+    let scoped = NetAddress::socket_address_from_input("[fe80::1%4294967295]:80").expect("parses");
     assert_eq!(scoped.scope_id(), Some(0xffffffff));
     assert_eq!(scoped.format_socket_address(), "[fe80::1%4294967295]:80");
     let plain = NetAddress::socket_address_from_input("[fe80::1]:80").expect("parses");

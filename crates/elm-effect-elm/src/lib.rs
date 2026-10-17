@@ -32,8 +32,8 @@ use std::rc::Rc;
 use std::sync::Arc;
 
 use elm_effect::{Cause, Defect, Effect, Exit, ManagedRuntime, Reason};
-use elm_effect_journal::durable_log::{AppendError, DurableLog, Offset, SCHEMA_VERSION};
 use elm_effect_journal::EffectState;
+use elm_effect_journal::durable_log::{AppendError, DurableLog, Offset, SCHEMA_VERSION};
 use elm_effect_journal::plan::{EffectView, plan_attempt};
 
 pub use elm_effect_journal::plan::{DispatchPlan, ProviderCapability};
@@ -84,7 +84,10 @@ pub struct Update<Model, Cmd> {
 impl<Model, Cmd> Update<Model, Cmd> {
     /// Model with no commands.
     pub fn quiet(model: Model) -> Self {
-        Self { model, commands: Vec::new() }
+        Self {
+            model,
+            commands: Vec::new(),
+        }
     }
 
     /// Model plus commands.
@@ -114,7 +117,10 @@ pub trait Cmd: Serialize + for<'de> Deserialize<'de> + Clone {
     /// offers nothing, so an uncertain outcome is refused rather than retried
     /// blind (ADR-0002 L14).
     fn capability(&self) -> ProviderCapability {
-        ProviderCapability { supports_idempotency_key: false, supports_reconcile_query: false }
+        ProviderCapability {
+            supports_idempotency_key: false,
+            supports_reconcile_query: false,
+        }
     }
 }
 
@@ -310,7 +316,11 @@ pub struct Producer {
 impl Producer {
     /// A fresh producer at epoch 0, sequence 0.
     pub fn new(producer_id: impl Into<String>) -> Self {
-        Self { producer_id: producer_id.into(), epoch: 0, seq: 0 }
+        Self {
+            producer_id: producer_id.into(),
+            epoch: 0,
+            seq: 0,
+        }
     }
 }
 
@@ -321,7 +331,10 @@ enum Work<P: Program> {
     /// message.
     Msg { msg: P::Msg, origin: Option<Origin> },
     /// The unstarted commands of one step, with their original indices.
-    Cmds { rest: VecDeque<(usize, P::Cmd)>, step: u64 },
+    Cmds {
+        rest: VecDeque<(usize, P::Cmd)>,
+        step: u64,
+    },
 }
 
 /// The runtime loop: fold, record, interpret, feed back. The edge bridge is
@@ -405,7 +418,12 @@ fn durable_of<C: Cmd>(step: u64, commands: Vec<C>) -> Vec<Derived<C>> {
         .into_iter()
         .enumerate()
         .filter_map(|(index, cmd)| match cmd.durability() {
-            Durability::Durable { key } => Some(Derived { step, index, key, cmd }),
+            Durability::Durable { key } => Some(Derived {
+                step,
+                index,
+                key,
+                cmd,
+            }),
             Durability::Ephemeral => None,
         })
         .collect()
@@ -416,7 +434,9 @@ fn read_records(log: &dyn DurableLog) -> Result<Vec<serde_json::Value>, RecoverE
     log.read_from(&Offset::Start)
         .map_err(RecoverError::Read)?
         .into_iter()
-        .map(|(_, raw)| serde_json::from_str(&raw).map_err(|e| RecoverError::Corrupt(e.to_string())))
+        .map(|(_, raw)| {
+            serde_json::from_str(&raw).map_err(|e| RecoverError::Corrupt(e.to_string()))
+        })
         .collect()
 }
 
@@ -427,9 +447,10 @@ fn origin_of(value: &serde_json::Value) -> Result<Option<Origin>, RecoverError> 
         return Ok(None);
     }
     match (value["step"].as_u64(), value["index"].as_u64()) {
-        (Some(step), Some(index)) => {
-            Ok(Some(Origin { step, index: index as usize }))
-        }
+        (Some(step), Some(index)) => Ok(Some(Origin {
+            step,
+            index: index as usize,
+        })),
         _ => Err(RecoverError::Corrupt(format!("bad origin {value}"))),
     }
 }
@@ -454,7 +475,10 @@ where
     ) -> Result<Self, AppendError> {
         let initial = P::init(boot);
         let mut this = Self::assemble(initial.model, rt, log, producer, 1);
-        this.drain(vec![Work::Cmds { rest: indexed(initial.commands), step: 0 }])?;
+        this.drain(vec![Work::Cmds {
+            rest: indexed(initial.commands),
+            step: 0,
+        }])?;
         Ok(this)
     }
 
@@ -518,7 +542,9 @@ where
         P::Model: 'static,
     {
         let view = Rc::clone(&self.view);
-        Subscriber { read: Rc::new(move || view.borrow().clone()) }
+        Subscriber {
+            read: Rc::new(move || view.borrow().clone()),
+        }
     }
 
     fn set_model(&mut self, model: P::Model) {
@@ -550,7 +576,10 @@ where
                     let update = P::update(&self.model, &msg);
                     self.set_model(update.model);
                     if !update.commands.is_empty() {
-                        work.push(Work::Cmds { rest: indexed(update.commands), step });
+                        work.push(Work::Cmds {
+                            rest: indexed(update.commands),
+                            step,
+                        });
                     }
                 }
                 Work::Cmds { mut rest, step } => {
@@ -573,11 +602,15 @@ where
 
     /// Append one fold input. The step counter advances only on success.
     fn append_message(&mut self, msg: &P::Msg, origin: Option<Origin>) -> Result<(), AppendError> {
-        let body = serde_json::to_value(msg).map_err(|e| AppendError::NotAnEnvelope(e.to_string()))?;
-        let origin = origin.map_or(serde_json::Value::Null, |o| {
-            serde_json::json!({ "step": o.step, "index": o.index })
-        });
-        self.append_payload(serde_json::json!({ "kind": KIND_MSG, "body": body, "origin": origin }))?;
+        let body =
+            serde_json::to_value(msg).map_err(|e| AppendError::NotAnEnvelope(e.to_string()))?;
+        let origin = origin.map_or(
+            serde_json::Value::Null,
+            |o| serde_json::json!({ "step": o.step, "index": o.index }),
+        );
+        self.append_payload(
+            serde_json::json!({ "kind": KIND_MSG, "body": body, "origin": origin }),
+        )?;
         self.steps += 1;
         Ok(())
     }
@@ -608,11 +641,20 @@ where
     /// never run. Every outcome carries its origin, so a recovery can tell
     /// which command it answers.
     fn run_window(&mut self, window: Vec<(usize, P::Cmd)>, step: u64) -> Vec<Work<P>> {
-        let origins: Vec<Origin> = window.iter().map(|(index, _)| Origin { step, index: *index }).collect();
+        let origins: Vec<Origin> = window
+            .iter()
+            .map(|(index, _)| Origin {
+                step,
+                index: *index,
+            })
+            .collect();
         let mut effects: Vec<Effect<P::Msg, P::Err>> = Vec::with_capacity(window.len());
         for (index, cmd) in &window {
             if let Durability::Durable { key } = cmd.durability() {
-                let origin = Origin { step, index: *index };
+                let origin = Origin {
+                    step,
+                    index: *index,
+                };
                 match self.append_durable(&key, cmd, origin, 1) {
                     Ok(recorded) => self.intents.push(recorded),
                     Err(error) => {
@@ -631,7 +673,10 @@ where
                     Exit::Success(msg) => msg,
                     Exit::Failure(cause) => P::failure(&Failure::of_cause(cause)),
                 };
-                Work::Msg { msg, origin: Some(origin) }
+                Work::Msg {
+                    msg,
+                    origin: Some(origin),
+                }
             })
             .collect()
     }
@@ -645,7 +690,8 @@ where
         origin: Origin,
         attempt: i64,
     ) -> Result<Recorded, AppendError> {
-        let body = serde_json::to_value(cmd).map_err(|e| AppendError::NotAnEnvelope(e.to_string()))?;
+        let body =
+            serde_json::to_value(cmd).map_err(|e| AppendError::NotAnEnvelope(e.to_string()))?;
         self.append_payload(serde_json::json!({
             "kind": KIND_INTENT,
             "step": origin.step,
@@ -654,7 +700,10 @@ where
             "key": key,
             "body": body.clone(),
         }))?;
-        Ok(Recorded { key: key.to_string(), body })
+        Ok(Recorded {
+            key: key.to_string(),
+            body,
+        })
     }
 
     /// Apply the dispatch plan to every in-flight command. Each one is
@@ -716,7 +765,10 @@ where
             Some(Exit::Failure(cause)) => P::failure(&Failure::of_cause(cause)),
             None => return Ok(None),
         };
-        Ok(Some(Work::Msg { msg, origin: Some(origin) }))
+        Ok(Some(Work::Msg {
+            msg,
+            origin: Some(origin),
+        }))
     }
 }
 
@@ -758,22 +810,28 @@ where
         producer.seq = last_seq.map_or(0, |seq| seq + 1);
 
         let initial = P::init(boot);
-        let snapshot_at = records.iter().rposition(|r| r["kind"].as_str() == Some(KIND_SNAPSHOT));
+        let snapshot_at = records
+            .iter()
+            .rposition(|r| r["kind"].as_str() == Some(KIND_SNAPSHOT));
         let mut steps: u64 = 1;
         let (mut model, from) = match snapshot_at {
             Some(at) => {
                 let model = serde_json::from_value(records[at]["model"].clone())
                     .map_err(|e| RecoverError::Corrupt(e.to_string()))?;
-                steps = records[at]["steps"]
-                    .as_u64()
-                    .ok_or_else(|| RecoverError::Corrupt("snapshot without a step counter".into()))?;
+                steps = records[at]["steps"].as_u64().ok_or_else(|| {
+                    RecoverError::Corrupt("snapshot without a step counter".into())
+                })?;
                 (model, at + 1)
             }
             None => (initial.model, 0),
         };
 
         // Step 0 is the init commands. A snapshot already covers them.
-        let mut derived = if from == 0 { durable_of(0, initial.commands) } else { Vec::new() };
+        let mut derived = if from == 0 {
+            durable_of(0, initial.commands)
+        } else {
+            Vec::new()
+        };
         let mut resolved: HashSet<(u64, usize)> = HashSet::new();
         let mut started: HashSet<(u64, usize)> = HashSet::new();
         // The highest attempt journaled for each command. The planner needs it.
@@ -798,12 +856,19 @@ where
                     derived.extend(durable_of(step, update.commands));
                 }
                 Some(KIND_INTENT) => {
-                    let (Some(step), Some(index)) = (record["step"].as_u64(), record["index"].as_u64()) else {
-                        return Err(RecoverError::Corrupt(format!("intent without origin: {record}")));
+                    let (Some(step), Some(index)) =
+                        (record["step"].as_u64(), record["index"].as_u64())
+                    else {
+                        return Err(RecoverError::Corrupt(format!(
+                            "intent without origin: {record}"
+                        )));
                     };
                     let id = (step, index as usize);
                     let attempt = record["attempt"].as_i64().unwrap_or(1);
-                    attempts.entry(id).and_modify(|a| *a = (*a).max(attempt)).or_insert(attempt);
+                    attempts
+                        .entry(id)
+                        .and_modify(|a| *a = (*a).max(attempt))
+                        .or_insert(attempt);
                     started.insert(id);
                     intents.push(Recorded {
                         key: record["key"].as_str().unwrap_or_default().to_string(),
@@ -811,7 +876,11 @@ where
                     });
                 }
                 Some(KIND_SNAPSHOT) => {}
-                other => return Err(RecoverError::Corrupt(format!("unknown record kind {other:?}"))),
+                other => {
+                    return Err(RecoverError::Corrupt(format!(
+                        "unknown record kind {other:?}"
+                    )));
+                }
             }
         }
 
@@ -825,11 +894,18 @@ where
             if started.contains(&id) {
                 let attempt = attempts.get(&id).copied().unwrap_or(1);
                 let plan = plan_attempt(
-                    Some(&EffectView { state: EffectState::Unknown, attempt, lease_live: false }),
+                    Some(&EffectView {
+                        state: EffectState::Unknown,
+                        attempt,
+                        lease_live: false,
+                    }),
                     &d.cmd.capability(),
                 );
                 in_flight.push(InFlight {
-                    origin: Origin { step: d.step, index: d.index },
+                    origin: Origin {
+                        step: d.step,
+                        index: d.index,
+                    },
                     key: d.key,
                     cmd: d.cmd,
                     plan,
@@ -881,9 +957,13 @@ where
         // The step counter travels with the snapshot. Compaction drops the
         // records that would otherwise let recovery count steps again.
         let at = self
-            .append_payload(serde_json::json!({ "kind": KIND_SNAPSHOT, "model": model, "steps": self.steps }))
+            .append_payload(
+                serde_json::json!({ "kind": KIND_SNAPSHOT, "model": model, "steps": self.steps }),
+            )
             .map_err(SnapshotError::Append)?;
-        self.log.compact_before(&at).map_err(SnapshotError::Append)?;
+        self.log
+            .compact_before(&at)
+            .map_err(SnapshotError::Append)?;
         Ok(())
     }
 }

@@ -703,9 +703,7 @@ fn singleshot_yields_once_then_completes() {
 // Graph: construction, protocols, snapshots
 // ---------------------------------------------------------------------------
 
-use graph::{
-    Graph, GraphError, Kind, MutableGraph, Snapshot, View, begin_mutation, build, mutate,
-};
+use graph::{Graph, GraphError, Kind, MutableGraph, Snapshot, View, begin_mutation, build, mutate};
 
 fn directed(nodes: &[&str], edges: &[(usize, usize, i32)]) -> Graph<String, i32> {
     build(Kind::Directed, |m| {
@@ -2522,5 +2520,3 @@ fn option_payloads_structural() {
     let h = directed(&["A", "B"], &[(0, 1, 1)]);
     assert_eq!(g, h);
 }
-
-

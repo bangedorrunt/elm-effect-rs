@@ -577,4 +577,3 @@ fn regexp_escape_and_shape() {
     assert!(regexp::is_regexp(&re));
     assert_eq!(re.to_pattern(), "/a+/gi");
 }
-

@@ -86,7 +86,11 @@ fn take_nan_short_circuits_stream_evaluation() {
         })
         .take(f64::NAN);
     assert!(matches!(stream.run_collect(), Exit::Success(ref v) if v.is_empty()));
-    assert_eq!(pulled.load(Ordering::SeqCst), 0, "a zero normalized count must not evaluate the upstream");
+    assert_eq!(
+        pulled.load(Ordering::SeqCst),
+        0,
+        "a zero normalized count must not evaluate the upstream"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -100,8 +104,8 @@ fn take_while_filter_takes_elements_while_the_filter_succeeds() {
     //   n < 3 ? Result.succeed(n + 10) : Result.failVoid), Stream.runCollect)
     // === [11, 12]. A filter success is emitted, a failure ends the stream and
     // drops the failing element.
-    let stream: Stream<i64, Infallible, ()> = Stream::range(1, 5, 4096.0)
-        .take_while_filter(|n| (*n < 3).then(|| *n + 10));
+    let stream: Stream<i64, Infallible, ()> =
+        Stream::range(1, 5, 4096.0).take_while_filter(|n| (*n < 3).then(|| *n + 10));
     assert!(matches!(stream.run_collect(), Exit::Success(ref v) if *v == vec![11i64, 12]));
 }
 
@@ -216,8 +220,8 @@ fn map_effect_smaller_bound_is_sequential() {
 fn filter_map_keeps_some_only() {
     // Stream.make(1, 2, 3, 4).pipe(Stream.filterMap(n => n % 2 === 0
     //   ? Result.succeed(n + 10) : Result.failVoid), Stream.runCollect)
-    let stream: Stream<i64, String, ()> = from_iter(vec![1i64, 2, 3, 4].into_iter(), 4)
-        .filter_map(|n| (n % 2 == 0).then(|| n + 10));
+    let stream: Stream<i64, String, ()> =
+        from_iter(vec![1i64, 2, 3, 4].into_iter(), 4).filter_map(|n| (n % 2 == 0).then(|| n + 10));
     let exit = stream.run_collect();
     assert!(matches!(exit, Exit::Success(ref v) if *v == vec![12i64, 14]));
 }
@@ -226,8 +230,8 @@ fn filter_map_keeps_some_only() {
 fn take_while_takes_prefix() {
     // Stream.range(1, 5).pipe(Stream.takeWhile(n => n % 3 !== 0), ...)
     // === [1, 2]: the first miss is dropped, nothing after it is seen.
-    let stream: Stream<i64, String, ()> = from_iter(vec![1i64, 2, 3, 4, 5].into_iter(), 5)
-        .take_while(|n| n % 3 != 0);
+    let stream: Stream<i64, String, ()> =
+        from_iter(vec![1i64, 2, 3, 4, 5].into_iter(), 5).take_while(|n| n % 3 != 0);
     let exit = stream.run_collect();
     assert!(matches!(exit, Exit::Success(ref v) if *v == vec![1i64, 2]));
 }
@@ -236,8 +240,8 @@ fn take_while_takes_prefix() {
 fn take_until_takes_through_match() {
     // Stream.range(1, 5).pipe(Stream.takeUntil(n => n % 3 === 0), ...)
     // === [1, 2, 3]: the matching element IS taken, then the stream ends.
-    let stream: Stream<i64, String, ()> = from_iter(vec![1i64, 2, 3, 4, 5].into_iter(), 5)
-        .take_until(|n| n % 3 == 0);
+    let stream: Stream<i64, String, ()> =
+        from_iter(vec![1i64, 2, 3, 4, 5].into_iter(), 5).take_until(|n| n % 3 == 0);
     let exit = stream.run_collect();
     assert!(matches!(exit, Exit::Success(ref v) if *v == vec![1i64, 2, 3]));
 }
@@ -254,16 +258,16 @@ fn take_until_ends_after_the_match() {
 
 #[test]
 fn take_while_all_pass_yields_everything() {
-    let stream: Stream<i64, String, ()> = from_iter(vec![1i64, 2, 3].into_iter(), 1)
-        .take_while(|_| true);
+    let stream: Stream<i64, String, ()> =
+        from_iter(vec![1i64, 2, 3].into_iter(), 1).take_while(|_| true);
     let exit = stream.run_collect();
     assert!(matches!(exit, Exit::Success(ref v) if *v == vec![1i64, 2, 3]));
 }
 
 #[test]
 fn take_while_first_element_fails_ends_immediately() {
-    let stream: Stream<i64, String, ()> = from_iter(vec![1i64, 2, 3].into_iter(), 1)
-        .take_while(|n| *n > 10);
+    let stream: Stream<i64, String, ()> =
+        from_iter(vec![1i64, 2, 3].into_iter(), 1).take_while(|n| *n > 10);
     let exit = stream.run_collect();
     assert!(matches!(exit, Exit::Success(ref v) if v.is_empty()));
 }
@@ -332,8 +336,8 @@ fn scan_effect_threads_state_across_chunk_boundaries() {
 fn scan_effect_failure_reaches_the_typed_channel() {
     // The unhappy path the row does not assert: a step that fails fails the
     // stream at that element, and the elements already folded stay collected.
-    let stream: Stream<i64, String, ()> = from_iter(vec![1i64, 2, 3].into_iter(), 3)
-        .scan_effect(0i64, |acc, cur| {
+    let stream: Stream<i64, String, ()> =
+        from_iter(vec![1i64, 2, 3].into_iter(), 3).scan_effect(0i64, |acc, cur| {
             if cur == 2 {
                 Effect::fail("boom".to_string())
             } else {
@@ -374,9 +378,10 @@ fn filter_map_effect_keeps_only_some_results() {
     // The effect here is a pure succeed, which is exactly the observable the
     // row asserts.
     let stream: Stream<i64, String, ()> = from_iter(vec![1i64, 2, 3, 4].into_iter(), 4)
-        .map_effect(|n: i64, _ctx: &elm_effect::Ctx| {
-            Effect::succeed((n % 2 == 0).then(|| n + 1))
-        }, 1)
+        .map_effect(
+            |n: i64, _ctx: &elm_effect::Ctx| Effect::succeed((n % 2 == 0).then(|| n + 1)),
+            1,
+        )
         .filter_map(|maybe: Option<i64>| maybe);
     assert!(matches!(stream.run_collect(), Exit::Success(ref v) if *v == vec![3i64, 5]));
 }
@@ -390,9 +395,7 @@ fn take_right_keeps_the_last_n_elements_in_order() {
     // Stream.range(1, 5).pipe(Stream.takeRight(3), Stream.runCollect)
     // === [3, 4, 5], matching Array.takeRight(3) of [1, 2, 3, 4, 5].
     let stream: Stream<i64, Infallible, ()> = Stream::range(1, 5, 4096.0).take_right(3.0);
-    assert!(
-        matches!(stream.run_collect(), Exit::Success(ref v) if *v == vec![3i64, 4, 5])
-    );
+    assert!(matches!(stream.run_collect(), Exit::Success(ref v) if *v == vec![3i64, 4, 5]));
 }
 
 #[test]
@@ -521,8 +524,9 @@ fn grouped_within_never_elapsing_schedule_is_plain_grouped() {
 
     // :2633 — a full batch then a partial tail: the tail flushes on upstream
     // end without waiting for the schedule.
-    let tail: Exit<Vec<Vec<i64>>, Infallible> =
-        from_iter(vec![1i64, 2, 3, 4, 5].into_iter(), 5).grouped(3.0).run_collect();
+    let tail: Exit<Vec<Vec<i64>>, Infallible> = from_iter(vec![1i64, 2, 3, 4, 5].into_iter(), 5)
+        .grouped(3.0)
+        .run_collect();
     assert!(
         matches!(tail, Exit::Success(ref v) if *v == vec![vec![1i64, 2, 3], vec![4, 5]]),
         "the final partial batch must flush on upstream end"
@@ -551,7 +555,8 @@ fn from_iterator_succeed_normalizes_the_chunk_size() {
     let got: Vec<Vec<Vec<i64>>> = [f64::NAN, -1.0, 1.9]
         .iter()
         .map(|n| {
-            let stream: Stream<i64, &str, ()> = from_iterator_succeed(vec![1i64, 2, 3].into_iter(), *n);
+            let stream: Stream<i64, &str, ()> =
+                from_iterator_succeed(vec![1i64, 2, 3].into_iter(), *n);
             match stream.run_collect_chunks() {
                 Exit::Success(v) => v,
                 other => panic!("from_iterator_succeed failed: {other:?}"),
@@ -620,11 +625,13 @@ fn limit_bytes_drops_the_crossing_chunk_and_switches_to_the_fallback() {
     // of the stream. The chunk after the crossing one never appears.
     let limit = ByteSize::bytes(5).expect("5 bytes").0;
     let fallback = vec![8u8, 9];
-    let stream: Stream<Vec<u8>, Infallible, ()> =
-        from_iter(vec![vec![1u8, 2], vec![3u8, 4, 5, 6], vec![7u8]].into_iter(), 3).limit_bytes(
-            limit,
-            move || from_iter(vec![fallback.clone()].into_iter(), 2),
-        );
+    let stream: Stream<Vec<u8>, Infallible, ()> = from_iter(
+        vec![vec![1u8, 2], vec![3u8, 4, 5, 6], vec![7u8]].into_iter(),
+        3,
+    )
+    .limit_bytes(limit, move || {
+        from_iter(vec![fallback.clone()].into_iter(), 2)
+    });
     match stream.run_collect() {
         Exit::Success(v) => assert_eq!(v, vec![vec![1u8, 2], vec![8u8, 9]]),
         Exit::Failure(_) => panic!("the crossing chunk should be replaced, not failed"),
@@ -713,9 +720,7 @@ fn split_lines_matches_a_joined_lines_iterator() {
         let chunks: Vec<String> = (0..chunk_count)
             .map(|_| {
                 let len = (next() % 9) as usize;
-                (0..len)
-                    .map(|_| ALPHABET[(next() % 4) as usize])
-                    .collect()
+                (0..len).map(|_| ALPHABET[(next() % 4) as usize]).collect()
             })
             .collect();
 
@@ -920,26 +925,28 @@ fn on_start_and_on_end_run_their_effect_exactly_once() {
     let started = Arc::new(AtomicUsize::new(0));
     let ended = Arc::new(AtomicUsize::new(0));
 
-    let stream: Stream<i64, Infallible, ()> =
-        from_iter(vec![1i64, 1].into_iter(), 2).on_start({
-            let started = Arc::clone(&started);
-            move || {
-                started.fetch_add(1, Ordering::SeqCst);
-            }
-        });
+    let stream: Stream<i64, Infallible, ()> = from_iter(vec![1i64, 1].into_iter(), 2).on_start({
+        let started = Arc::clone(&started);
+        move || {
+            started.fetch_add(1, Ordering::SeqCst);
+        }
+    });
     assert!(
         matches!(stream.run_collect(), Exit::Success(v) if v == vec![1i64, 1]),
         "onStart must not disturb the elements"
     );
-    assert_eq!(started.load(Ordering::SeqCst), 1, "onStart runs exactly once");
+    assert_eq!(
+        started.load(Ordering::SeqCst),
+        1,
+        "onStart runs exactly once"
+    );
 
-    let stream: Stream<i64, Infallible, ()> =
-        from_iter(vec![1i64, 2, 3].into_iter(), 3).on_end({
-            let ended = Arc::clone(&ended);
-            move || {
-                ended.fetch_add(1, Ordering::SeqCst);
-            }
-        });
+    let stream: Stream<i64, Infallible, ()> = from_iter(vec![1i64, 2, 3].into_iter(), 3).on_end({
+        let ended = Arc::clone(&ended);
+        move || {
+            ended.fetch_add(1, Ordering::SeqCst);
+        }
+    });
     assert!(
         matches!(stream.run_collect(), Exit::Success(v) if v == vec![1i64, 2, 3]),
         "onEnd must not disturb the elements"
@@ -986,10 +993,22 @@ fn group_adjacent_by_regardless_of_chunk_boundaries() {
     //
     // A run closes when the key changes, so a run can span upstream chunks
     // (:2554) and several upstream chunks can belong to one run (:2527).
-    let a = Event { code: 1, message: "A" };
-    let b = Event { code: 1, message: "B" };
-    let c = Event { code: 1, message: "D" };
-    let d = Event { code: 2, message: "C" };
+    let a = Event {
+        code: 1,
+        message: "A",
+    };
+    let b = Event {
+        code: 1,
+        message: "B",
+    };
+    let c = Event {
+        code: 1,
+        message: "D",
+    };
+    let d = Event {
+        code: 2,
+        message: "C",
+    };
 
     // :2554 — two chunks: [A, B] then [D, C], so code 1 spans both.
     let across = group_adjacent_by(vec![a.clone(), b.clone(), c.clone(), d.clone()], |x| x.code);
@@ -1014,18 +1033,36 @@ fn group_adjacent_by_one_big_chunk() {
     // (Stream.fromIterable), so the pipeline must survive the big chunk and
     // still close the run on the key change, not on the chunk boundary.
     let (a, b, c, d) = (
-        Event { code: 1, message: "A" },
-        Event { code: 1, message: "B" },
-        Event { code: 1, message: "D" },
-        Event { code: 2, message: "C" },
+        Event {
+            code: 1,
+            message: "A",
+        },
+        Event {
+            code: 1,
+            message: "B",
+        },
+        Event {
+            code: 1,
+            message: "D",
+        },
+        Event {
+            code: 2,
+            message: "C",
+        },
     );
-    let collected: Exit<Vec<Event>, Infallible> =
-        from_iter(vec![a.clone(), b.clone(), c.clone(), d.clone()].into_iter(), 64).run_collect();
+    let collected: Exit<Vec<Event>, Infallible> = from_iter(
+        vec![a.clone(), b.clone(), c.clone(), d.clone()].into_iter(),
+        64,
+    )
+    .run_collect();
     let items = match collected {
         Exit::Success(v) => v,
         Exit::Failure(_) => panic!("a plain fromIterable must not fail"),
     };
-    assert_eq!(group_adjacent_by(items, |x| x.code), vec![vec![a, b, c], vec![d]]);
+    assert_eq!(
+        group_adjacent_by(items, |x| x.code),
+        vec![vec![a, b, c], vec![d]]
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -1046,29 +1083,40 @@ fn zip_with<A, B, C>(left: Vec<A>, right: Vec<B>, f: impl Fn(A, B) -> C) -> Vec<
 /// of the LONGER stream, padding the shorter side with its last element. Used
 /// only to prove the shortest-stream assertion is load-bearing.
 #[cfg(test)]
-fn zip_with_mutated<A: Clone, B: Clone, C>(left: Vec<A>, right: Vec<B>, f: impl Fn(A, B) -> C) -> Vec<C> {
+fn zip_with_mutated<A: Clone, B: Clone, C>(
+    left: Vec<A>,
+    right: Vec<B>,
+    f: impl Fn(A, B) -> C,
+) -> Vec<C> {
     let len = left.len().max(right.len());
-    (0..len).map(|i| {
-        let a = left.get(i).or_else(|| left.last()).cloned().expect("a nonempty side");
-        let b = right.get(i).or_else(|| right.last()).cloned().expect("a nonempty side");
-        f(a, b)
-    }).collect()
+    (0..len)
+        .map(|i| {
+            let a = left
+                .get(i)
+                .or_else(|| left.last())
+                .cloned()
+                .expect("a nonempty side");
+            let b = right
+                .get(i)
+                .or_else(|| right.last())
+                .cloned()
+                .expect("a nonempty side");
+            f(a, b)
+        })
+        .collect()
 }
 
 #[test]
 fn zip_with_pairs_positionally_and_stops_at_the_shortest() {
     // The mutation must be strictly longer than the real pairing when the
     // sides are unequal, and the assertion below is what catches it.
-    let short_right_real = zip_with(
-        vec![1, 2, 3, 4, 5, 6],
-        vec!["a", "b", "c"],
-        |n, s| format!("{n}-{s}"),
-    );
-    let short_right_mutated = zip_with_mutated(
-        vec![1, 2, 3, 4, 5, 6],
-        vec!["a", "b", "c"],
-        |n, s| format!("{n}-{s}"),
-    );
+    let short_right_real = zip_with(vec![1, 2, 3, 4, 5, 6], vec!["a", "b", "c"], |n, s| {
+        format!("{n}-{s}")
+    });
+    let short_right_mutated =
+        zip_with_mutated(vec![1, 2, 3, 4, 5, 6], vec!["a", "b", "c"], |n, s| {
+            format!("{n}-{s}")
+        });
     assert_ne!(
         short_right_real, short_right_mutated,
         "the mutated pairing must be distinguishable, or the check is vacuous"
@@ -1082,14 +1130,14 @@ fn zip_with_pairs_positionally_and_stops_at_the_shortest() {
 
     // :3162 — the left stream is chunked and the right is shorter, so the
     // left's chunking must not change the pairing.
-    let chunked_left = zip_with(
-        vec![1, 2, 3],
-        vec!["a", "b", "c"],
-        |n, s| (n, s.to_owned()),
-    );
+    let chunked_left = zip_with(vec![1, 2, 3], vec!["a", "b", "c"], |n, s| (n, s.to_owned()));
     assert_eq!(
         chunked_left,
-        vec![(1, "a".to_owned()), (2, "b".to_owned()), (3, "c".to_owned())]
+        vec![
+            (1, "a".to_owned()),
+            (2, "b".to_owned()),
+            (3, "c".to_owned())
+        ]
     );
 
     // :3203 — an empty left stream yields an empty result rather than the
@@ -1141,10 +1189,22 @@ enum Pulled<E> {
 
 impl<A, E> ZipSide<A, E> {
     fn of(chunks: Vec<Vec<A>>, end: ZipEnd<E>) -> Self {
-        Self { chunks, cursor: 0, leftover: Vec::new(), filler: None, end }
+        Self {
+            chunks,
+            cursor: 0,
+            leftover: Vec::new(),
+            filler: None,
+            end,
+        }
     }
     fn never(filler: A) -> Self {
-        Self { chunks: Vec::new(), cursor: 0, leftover: Vec::new(), filler: Some(filler), end: ZipEnd::Never }
+        Self {
+            chunks: Vec::new(),
+            cursor: 0,
+            leftover: Vec::new(),
+            filler: Some(filler),
+            end: ZipEnd::Never,
+        }
     }
     fn pull(&mut self) -> Pulled<E> {
         if !self.leftover.is_empty() {
@@ -1292,7 +1352,10 @@ fn zip_fold_prioritizes_failures_and_defects() {
     // :3409 — the left fails AFTER the shorter right side has ended, so the
     // failure is never pulled and the pairs stand.
     let ended_before_failure = zip_fold(
-        ZipSide::of(vec![vec![1i64, 2, 3, 4, 5]], ZipEnd::Fail("boom".to_string())),
+        ZipSide::of(
+            vec![vec![1i64, 2, 3, 4, 5]],
+            ZipEnd::Fail("boom".to_string()),
+        ),
         ZipSide::clean(vec![vec!["a", "b", "c"]]),
         |a, b| (a, b.to_string()),
     );
@@ -1361,9 +1424,16 @@ fn zip_with_array_pairs_point_wise_with_leftovers() {
 
     // :3246 — equal lengths pair every element.
     assert_eq!(
-        pair(vec![vec![1, 2, 3]], vec![vec!["a".into(), "b".into(), "c".into()]]),
+        pair(
+            vec![vec![1, 2, 3]],
+            vec![vec!["a".into(), "b".into(), "c".into()]]
+        ),
         Ok((
-            vec![(1, "a".to_string()), (2, "b".to_string()), (3, "c".to_string())],
+            vec![
+                (1, "a".to_string()),
+                (2, "b".to_string()),
+                (3, "c".to_string())
+            ],
             Vec::new(),
             Vec::new(),
             false
@@ -1372,12 +1442,22 @@ fn zip_with_array_pairs_point_wise_with_leftovers() {
     // :3259 — the left is shorter; the right's tail is leftover, unpaired.
     let (pairs, _, right_leftover, _) = pair(
         vec![vec![1, 2, 3]],
-        vec![vec!["a".into(), "b".into(), "c".into(), "d".into(), "e".into()]],
+        vec![vec![
+            "a".into(),
+            "b".into(),
+            "c".into(),
+            "d".into(),
+            "e".into(),
+        ]],
     )
     .unwrap();
     assert_eq!(
         pairs,
-        vec![(1, "a".to_string()), (2, "b".to_string()), (3, "c".to_string())]
+        vec![
+            (1, "a".to_string()),
+            (2, "b".to_string()),
+            (3, "c".to_string())
+        ]
     );
     assert_eq!(right_leftover.len(), 2, "the right tail is leftover");
     // :3272 — the right is shorter; the left's tail is leftover, unpaired.
@@ -1388,55 +1468,82 @@ fn zip_with_array_pairs_point_wise_with_leftovers() {
     .unwrap();
     assert_eq!(
         pairs,
-        vec![(1, "a".to_string()), (2, "b".to_string()), (3, "c".to_string())]
+        vec![
+            (1, "a".to_string()),
+            (2, "b".to_string()),
+            (3, "c".to_string())
+        ]
     );
     assert_eq!(left_leftover, vec![4, 5], "the left tail is leftover");
     // :3285 — several arrays per stream still pair element-by-element.
     let (pairs, ..) = pair(
         vec![vec![1, 2], vec![3, 4], vec![5, 6]],
-        vec![vec!["a".into(), "b".into()], vec!["c".into(), "d".into()], vec!["e".into(), "f".into()]],
+        vec![
+            vec!["a".into(), "b".into()],
+            vec!["c".into(), "d".into()],
+            vec!["e".into(), "f".into()],
+        ],
     )
     .unwrap();
     assert_eq!(
         pairs,
         vec![
-            (1, "a".to_string()), (2, "b".to_string()), (3, "c".to_string()),
-            (4, "d".to_string()), (5, "e".to_string()), (6, "f".to_string())
+            (1, "a".to_string()),
+            (2, "b".to_string()),
+            (3, "c".to_string()),
+            (4, "d".to_string()),
+            (5, "e".to_string()),
+            (6, "f".to_string())
         ]
     );
     // :3298 — mismatched array sizes within the streams: the pairing closes
     // on element positions, and the uneven boundaries leave leftovers.
     let (pairs, left_leftover, right_leftover, leftovers_seen) = pair(
         vec![vec![1, 2, 3], vec![4, 5]],
-        vec![vec!["a".into(), "b".into()], vec!["c".into(), "d".into(), "e".into()]],
+        vec![
+            vec!["a".into(), "b".into()],
+            vec!["c".into(), "d".into(), "e".into()],
+        ],
     )
     .unwrap();
     assert_eq!(
         pairs,
         vec![
-            (1, "a".to_string()), (2, "b".to_string()), (3, "c".to_string()),
-            (4, "d".to_string()), (5, "e".to_string())
+            (1, "a".to_string()),
+            (2, "b".to_string()),
+            (3, "c".to_string()),
+            (4, "d".to_string()),
+            (5, "e".to_string())
         ]
     );
-    assert!(
-        leftovers_seen,
-        "the uneven chunking must leave leftovers"
-    );
+    assert!(leftovers_seen, "the uneven chunking must leave leftovers");
     // :3375 — arrays of different sizes inside each side, offset boundaries.
     let (pairs, ..) = pair(
         vec![vec![1], vec![2, 3, 4], vec![5]],
-        vec![vec!["a".into(), "b".into()], vec!["c".into()], vec!["d".into(), "e".into()]],
+        vec![
+            vec!["a".into(), "b".into()],
+            vec!["c".into()],
+            vec!["d".into(), "e".into()],
+        ],
     )
     .unwrap();
     assert_eq!(
         pairs,
         vec![
-            (1, "a".to_string()), (2, "b".to_string()), (3, "c".to_string()),
-            (4, "d".to_string()), (5, "e".to_string())
+            (1, "a".to_string()),
+            (2, "b".to_string()),
+            (3, "c".to_string()),
+            (4, "d".to_string()),
+            (5, "e".to_string())
         ]
     );
     // :3353 — an empty side pairs to nothing.
-    assert!(pair(Vec::new(), vec![vec!["a".into(), "b".into(), "c".into()]]).unwrap().0.is_empty());
+    assert!(
+        pair(Vec::new(), vec![vec!["a".into(), "b".into(), "c".into()]])
+            .unwrap()
+            .0
+            .is_empty()
+    );
     assert!(pair(vec![vec![1, 2, 3]], Vec::new()).unwrap().0.is_empty());
 
     // :3388 — a custom array-level closure taking pairs of pairs.
@@ -1471,11 +1578,19 @@ fn zip_zip_left_zip_right_zip_flatten_project_the_pairs() {
     // :3426 — tuples.
     assert_eq!(
         pairs.0,
-        vec![(1, "a".to_string()), (2, "b".to_string()), (3, "c".to_string())]
+        vec![
+            (1, "a".to_string()),
+            (2, "b".to_string()),
+            (3, "c".to_string())
+        ]
     );
     // :3435 — the left ends first.
     assert_eq!(
-        zip(vec![1, 2], vec!["a".into(), "b".into(), "c".into(), "d".into()]).0,
+        zip(
+            vec![1, 2],
+            vec!["a".into(), "b".into(), "c".into(), "d".into()]
+        )
+        .0,
         vec![(1, "a".to_string()), (2, "b".to_string())]
     );
     // :3444 — the right ends first.
@@ -1499,8 +1614,16 @@ fn zip_zip_left_zip_right_zip_flatten_project_the_pairs() {
     assert!(pairs.1.is_empty(), "every left element was pulled");
 
     // :3509/:3518 — each side ending first stops the pairing.
-    assert_eq!(zip(vec![1, 2], vec!["a".into(), "b".into(), "c".into()]).0.len(), 2);
-    assert_eq!(zip(vec![1, 2, 3, 4], vec!["a".into(), "b".into()]).0.len(), 2);
+    assert_eq!(
+        zip(vec![1, 2], vec!["a".into(), "b".into(), "c".into()])
+            .0
+            .len(),
+        2
+    );
+    assert_eq!(
+        zip(vec![1, 2, 3, 4], vec!["a".into(), "b".into()]).0.len(),
+        2
+    );
 
     // :3682/:3691/:3700 — zipFlatten flattens [tuple, element] into one array.
     let flatten = |tuples: Vec<Vec<String>>, singles: Vec<String>| {
@@ -1517,7 +1640,11 @@ fn zip_zip_left_zip_right_zip_flatten_project_the_pairs() {
     };
     assert_eq!(
         flatten(
-            vec![vec!["1".into(), "a".into()], vec!["2".into(), "b".into()], vec!["3".into(), "c".into()]],
+            vec![
+                vec!["1".into(), "a".into()],
+                vec!["2".into(), "b".into()],
+                vec!["3".into(), "c".into()]
+            ],
             vec!["x".into(), "y".into(), "z".into()]
         ),
         vec![
@@ -1539,12 +1666,25 @@ fn zip_zip_left_zip_right_zip_flatten_project_the_pairs() {
     );
     assert_eq!(
         flatten(
-            vec![vec!["1".into(), "2".into(), "3".into()], vec!["4".into(), "5".into(), "6".into()]],
+            vec![
+                vec!["1".into(), "2".into(), "3".into()],
+                vec!["4".into(), "5".into(), "6".into()]
+            ],
             vec!["a".into(), "b".into()]
         ),
         vec![
-            vec!["1".to_string(), "2".to_string(), "3".to_string(), "a".to_string()],
-            vec!["4".to_string(), "5".to_string(), "6".to_string(), "b".to_string()]
+            vec![
+                "1".to_string(),
+                "2".to_string(),
+                "3".to_string(),
+                "a".to_string()
+            ],
+            vec![
+                "4".to_string(),
+                "5".to_string(),
+                "6".to_string(),
+                "b".to_string()
+            ]
         ]
     );
     // :3709/:3718 — an empty side flattens to nothing.
@@ -1594,16 +1734,21 @@ fn zip_with_index_pairs_each_element_with_its_position() {
     ) -> Result<(Vec<(&'static str, i64)>, Vec<&'static str>, Vec<i64>, bool), ZipFault<String>>
     {
         let indices: Vec<i64> = (0..items.len() as i64).collect();
-        zip_fold(ZipSide::clean(vec![items]), ZipSide::clean(vec![indices]), |s, i| {
-            (s, i)
-        })
+        zip_fold(
+            ZipSide::clean(vec![items]),
+            ZipSide::clean(vec![indices]),
+            |s, i| (s, i),
+        )
     }
 
     let (pairs, ..) = indexed(vec!["a", "b", "c", "d"]).unwrap();
     assert_eq!(pairs, vec![("a", 0), ("b", 1), ("c", 2), ("d", 3)]);
 
     let (pairs, ..) = indexed(vec!["5", "4", "3", "2", "1"]).unwrap();
-    assert_eq!(pairs, vec![("5", 0), ("4", 1), ("3", 2), ("2", 3), ("1", 4)]);
+    assert_eq!(
+        pairs,
+        vec![("5", 0), ("4", 1), ("3", 2), ("2", 3), ("1", 4)]
+    );
 
     let (pairs, ..) = indexed(vec!["10", "20", "30"]).unwrap();
     assert_eq!(pairs, vec![("10", 0), ("20", 1), ("30", 2)]);
@@ -1747,7 +1892,10 @@ fn drop_right_keeps_all_but_the_last_n_elements() {
         .iter()
         .map(|count| drop_right_fold(ZipSide::clean(vec![vec![1i64, 2, 3]]), *count).unwrap())
         .collect();
-    assert_eq!(results, vec![vec![1, 2, 3], vec![1, 2, 3], vec![1, 2], vec![1]]);
+    assert_eq!(
+        results,
+        vec![vec![1, 2, 3], vec![1, 2, 3], vec![1, 2], vec![1]]
+    );
 
     // :4176 — draining to the end surfaces the trailing failure.
     let failing = drop_right_fold(
@@ -1763,23 +1911,24 @@ fn drop_right_keeps_all_but_the_last_n_elements() {
 #[test]
 fn drop_until_drop_while_and_drop_while_filter_walk_the_predicate() {
     // :4202 — dropWhile(n < 3) drops 1 and 2, keeping [3, 4, 5].
-    let dropped = drop_while_fold(ZipSide::clean(vec![vec![1i64, 2, 3, 4, 5]]), |n| *n < 3).unwrap();
+    let dropped =
+        drop_while_fold(ZipSide::clean(vec![vec![1i64, 2, 3, 4, 5]]), |n| *n < 3).unwrap();
     assert_eq!(dropped, vec![3, 4, 5]);
 
     // :4188 — dropUntil(f) drops while f fails and then one more element, so
     // [1, 2, 3, 4, 5] with f(n) = n < 3 keeps [2, 3, 4, 5] (1 is dropped as
     // the first element f accepts). The row's own reference is
     // dropWhile(!f) then drop(1).
-    let until = drop_while_fold(ZipSide::clean(vec![vec![1i64, 2, 3, 4, 5]]), |n| !(*n < 3)).unwrap();
+    let until =
+        drop_while_fold(ZipSide::clean(vec![vec![1i64, 2, 3, 4, 5]]), |n| !(*n < 3)).unwrap();
     let until = until.into_iter().skip(1).collect::<Vec<i64>>();
     assert_eq!(until, vec![2, 3, 4, 5]);
 
     // :4213 — dropWhileFilter drops while the filter succeeds, keeping the
     // rest: [3, 4, 5].
-    let filtered = drop_while_filter_fold(
-        ZipSide::clean(vec![vec![1i64, 2, 3, 4, 5]]),
-        |n| (*n < 3).then_some(*n),
-    )
+    let filtered = drop_while_filter_fold(ZipSide::clean(vec![vec![1i64, 2, 3, 4, 5]]), |n| {
+        (*n < 3).then_some(*n)
+    })
     .unwrap();
     assert_eq!(filtered, vec![3, 4, 5]);
 
@@ -1787,7 +1936,10 @@ fn drop_until_drop_while_and_drop_while_filter_walk_the_predicate() {
     // trailing failure is never pulled and the drain succeeds. Modelled with
     // the side take left behind: one element, ended cleanly.
     let short_circuited = drop_while_fold(ZipSide::clean(vec![vec![1i64]]), |_| true).unwrap();
-    assert!(short_circuited.is_empty(), "the failure sits past the take and is never pulled");
+    assert!(
+        short_circuited.is_empty(),
+        "the failure sits past the take and is never pulled"
+    );
 }
 
 /// `Stream.dropWhileFilter` at the pin: drop while the filter SUCCEEDS (the
@@ -1841,7 +1993,14 @@ fn intersperse_fold(items: Vec<String>, sep: &str) -> Vec<String> {
 
 #[test]
 fn intersperse_and_intersperse_affixes_place_separators_between_elements() {
-    let four = || vec!["1".to_string(), "2".to_string(), "3".to_string(), "4".to_string()];
+    let four = || {
+        vec![
+            "1".to_string(),
+            "2".to_string(),
+            "3".to_string(),
+            "4".to_string(),
+        ]
+    };
     let one = || vec!["1".to_string()];
 
     // :4294 — several values get a separator between each pair.
@@ -1853,10 +2012,7 @@ fn intersperse_and_intersperse_affixes_place_separators_between_elements() {
     let mut affixed = vec!["[".to_string()];
     affixed.extend(intersperse_fold(four(), "."));
     affixed.push("]".to_string());
-    assert_eq!(
-        affixed,
-        vec!["[", "1", ".", "2", ".", "3", ".", "4", "]"]
-    );
+    assert_eq!(affixed, vec!["[", "1", ".", "2", ".", "3", ".", "4", "]"]);
     // :4316 — a single value gets no separator.
     assert_eq!(intersperse_fold(one(), "."), vec!["1"]);
     // :4327 — a single value with affixes is start, value, end.
@@ -1911,11 +2067,7 @@ fn interleave_fold(left: Vec<i64>, right: Vec<i64>) -> Vec<i64> {
 /// element comes from; a side with nothing left falls through to the other,
 /// and the stream ends when the booleans run out. This is the row's own
 /// reference implementation, verbatim in shape.
-fn interleave_with_fold(
-    bools: Vec<bool>,
-    left: Vec<i64>,
-    right: Vec<i64>,
-) -> Vec<i64> {
+fn interleave_with_fold(bools: Vec<bool>, left: Vec<i64>, right: Vec<i64>) -> Vec<i64> {
     match bools.split_first() {
         None => Vec::new(),
         Some((true, rest)) => match left.split_first() {
@@ -1986,11 +2138,8 @@ fn peel_fold<A: Clone, E>(side: ZipSide<A, E>, n: usize) -> Result<(Vec<A>, Vec<
 fn peel_splits_the_first_n_elements_from_the_rest() {
     // :4690 — take(3) peels [1, 2, 3] and leaves [4, 5, 6] as the rest,
     // whatever the upstream chunking.
-    let (peeled, rest) = peel_fold(
-        ZipSide::clean(vec![vec![1i64, 2, 3], vec![4, 5, 6]]),
-        3,
-    )
-    .unwrap();
+    let (peeled, rest) =
+        peel_fold(ZipSide::clean(vec![vec![1i64, 2, 3], vec![4, 5, 6]]), 3).unwrap();
     assert_eq!(peeled, vec![1, 2, 3]);
     assert_eq!(rest, vec![4, 5, 6]);
 
@@ -2016,7 +2165,10 @@ enum WhenCondition {
 /// `Stream.when` at the pin: a false condition makes the stream empty, a
 /// failure or defect in the condition fails or dies the stream, and a true
 /// condition passes the stream through.
-fn when_fold<A: Clone>(side: ZipSide<A, String>, cond: WhenCondition) -> Result<Vec<A>, ZipFault<String>> {
+fn when_fold<A: Clone>(
+    side: ZipSide<A, String>,
+    cond: WhenCondition,
+) -> Result<Vec<A>, ZipFault<String>> {
     match cond {
         WhenCondition::No => Ok(Vec::new()),
         WhenCondition::Fail(e) => Err(ZipFault::Fail(e)),
@@ -2030,7 +2182,10 @@ fn when_gates_the_stream_on_the_condition() {
     let stream = || ZipSide::clean(vec![vec![1i64, 2, 3, 4, 5]]);
 
     // :5362/:5396 — a satisfied condition passes the stream through.
-    assert_eq!(when_fold(stream(), WhenCondition::Yes).unwrap(), vec![1, 2, 3, 4, 5]);
+    assert_eq!(
+        when_fold(stream(), WhenCondition::Yes).unwrap(),
+        vec![1, 2, 3, 4, 5]
+    );
     // :5372/:5406 — an unsatisfied condition makes the stream empty.
     assert!(when_fold(stream(), WhenCondition::No).unwrap().is_empty());
     // :5416 — a failing condition fails the stream.
@@ -2151,17 +2306,20 @@ fn sliding_and_sliding_size_emit_overlapping_windows() {
     // stream that ends one element short.
     for (chunks, expected) in [
         (vec![vec![1i64, 2, 3, 4, 5]], vec![vec![1, 2], vec![4, 5]]),
-        (vec![vec![1, 2], vec![3, 4, 5]], vec![vec![1, 2], vec![4, 5]]),
+        (
+            vec![vec![1, 2], vec![3, 4, 5]],
+            vec![vec![1, 2], vec![4, 5]],
+        ),
         (
             vec![vec![1], vec![2], vec![3], vec![4], vec![5]],
             vec![vec![1, 2], vec![4, 5]],
         ),
-        (vec![vec![1], vec![2], vec![3], vec![4]], vec![vec![1, 2], vec![4]]),
+        (
+            vec![vec![1], vec![2], vec![3], vec![4]],
+            vec![vec![1, 2], vec![4]],
+        ),
     ] {
-        assert_eq!(
-            sliding_fold(ZipSide::clean(chunks), 2, 3).0,
-            expected
-        );
+        assert_eq!(sliding_fold(ZipSide::clean(chunks), 2, 3).0, expected);
     }
 
     // :5066 — both sizes normalize like a count: NaN and non-positive become
@@ -2187,9 +2345,11 @@ fn sliding_and_sliding_size_emit_overlapping_windows() {
     }
 
     // :5204 — an empty stream emits nothing at all.
-    assert!(sliding_fold(ZipSide::<i64, String>::clean(Vec::new()), 2, 1)
-        .0
-        .is_empty());
+    assert!(
+        sliding_fold(ZipSide::<i64, String>::clean(Vec::new()), 2, 1)
+            .0
+            .is_empty()
+    );
 
     // :5191 — the upstream failure surfaces after the windows it can supply.
     let failing = sliding_fold(
@@ -2336,7 +2496,11 @@ fn zip_with_next_previous_and_previous_and_next_pair_neighbors() {
     // :5525 — zipWithPreviousAndNext carries both neighbors.
     assert_eq!(
         zip_with_previous_and_next_fold(items.clone()),
-        vec![(None, 1, Some(2)), (Some(1), 2, Some(3)), (Some(2), 3, None)]
+        vec![
+            (None, 1, Some(2)),
+            (Some(1), 2, Some(3)),
+            (Some(2), 3, None)
+        ]
     );
     // :5539 — the property row: same construction with the next side too.
     let with_next = items
@@ -2421,17 +2585,29 @@ fn rechunk_preserves_a_large_source_chunk_with_target() {
 
     let above: Vec<Vec<i64>> =
         collect_chunks_or_panic(from_iter(values.clone().into_iter(), 200_000).rechunk(200_001.0));
-    assert_eq!(above, vec![values.clone()], "a target above the input yields one chunk");
+    assert_eq!(
+        above,
+        vec![values.clone()],
+        "a target above the input yields one chunk"
+    );
 
     let exact: Vec<Vec<i64>> =
         collect_chunks_or_panic(from_iter(values.clone().into_iter(), 200_000).rechunk(200_000.0));
-    assert_eq!(exact, vec![values.clone()], "a target equal to the input yields one chunk");
+    assert_eq!(
+        exact,
+        vec![values.clone()],
+        "a target equal to the input yields one chunk"
+    );
 
     let below: Vec<Vec<i64>> =
         collect_chunks_or_panic(from_iter(values.into_iter(), 200_000).rechunk(199_999.0));
     assert_eq!(below.len(), 2);
     assert_eq!(below[0].len(), 199_999);
-    assert_eq!(below[1], vec![199_999], "the remainder is the final element");
+    assert_eq!(
+        below[1],
+        vec![199_999],
+        "the remainder is the final element"
+    );
 }
 
 #[test]
@@ -2444,8 +2620,7 @@ fn rechunk_preserves_large_input_split_across_source_chunks() {
     let values: Vec<i64> = (0..200_001).collect();
     let (head, tail) = (values[..1].to_vec(), values[1..].to_vec());
     let tail_len = tail.len();
-    let split_source = from_iter(head.into_iter(), 1)
-        .concat(from_iter(tail.into_iter(), tail_len));
+    let split_source = from_iter(head.into_iter(), 1).concat(from_iter(tail.into_iter(), tail_len));
     let chunks: Vec<Vec<i64>> = collect_chunks_or_panic(split_source.rechunk(200_002.0));
     assert_eq!(chunks.len(), 1, "the whole input arrives as one chunk");
     assert_eq!(chunks[0], values);
@@ -2494,7 +2669,11 @@ fn stream_catch_does_not_swallow_a_defect() {
         Exit::Failure(cause) => assert!(!cause.defects().is_empty(), "the defect survives"),
         Exit::Success(_) => panic!("a dying stream must not be recovered by catch"),
     }
-    assert_eq!(called.load(Ordering::SeqCst), 0, "catch must not fire on a defect");
+    assert_eq!(
+        called.load(Ordering::SeqCst),
+        0,
+        "catch must not fire on a defect"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -2614,7 +2793,10 @@ fn tap_cause_preserves_a_typed_failure() {
         }
         Exit::Success(_) => panic!("tapCause must not swallow the failure"),
     }
-    assert!(*observed.lock().unwrap(), "tapCause must have observed the cause");
+    assert!(
+        *observed.lock().unwrap(),
+        "tapCause must have observed the cause"
+    );
 }
 
 #[test]
@@ -2642,9 +2824,8 @@ fn catch_defect_recovers_a_defect_but_not_a_typed_failure() {
         "catchDefect must recover a defect"
     );
 
-    let failed = Stream::<u32, String, ()>::fail("failure".to_string()).catch_defect(|_defect| {
-        from_iter(vec![9u32].into_iter(), 1)
-    });
+    let failed = Stream::<u32, String, ()>::fail("failure".to_string())
+        .catch_defect(|_defect| from_iter(vec![9u32].into_iter(), 1));
     match failed.run_collect() {
         Exit::Failure(cause) => assert_eq!(cause.failure(), Some(&"failure".to_string())),
         Exit::Success(_) => panic!("catchDefect must not recover a typed failure"),
@@ -2682,8 +2863,15 @@ fn catch_cause_filter_re_raises_a_declined_cause() {
     );
     match stream.run_collect() {
         Exit::Failure(cause) => {
-            assert_eq!(cause.defects().len(), 1, "the declined defect survives verbatim");
-            assert!(cause.failures().is_empty(), "not collapsed into a typed failure");
+            assert_eq!(
+                cause.defects().len(),
+                1,
+                "the declined defect survives verbatim"
+            );
+            assert!(
+                cause.failures().is_empty(),
+                "not collapsed into a typed failure"
+            );
         }
         Exit::Success(_) => panic!("a declined cause must be re-raised, not recovered"),
     }

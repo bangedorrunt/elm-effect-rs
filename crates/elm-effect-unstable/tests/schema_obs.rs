@@ -4,14 +4,17 @@
 #[path = "../src/schema_obs.rs"]
 mod schema_obs;
 
+use schema_obs::variant_structs::{FieldSpec, Leaf, Record, Value, Variants, overridden};
 use schema_obs::{
     Aot, Attribute, Exporter, Jit, Metric, MetricPoint, Prometheus, Resource, VariantSchema, varint,
 };
-use schema_obs::variant_structs::{FieldSpec, Leaf, Record, Value, Variants, overridden};
 use std::collections::BTreeMap;
 
 fn value_map(pairs: &[(&str, Value)]) -> Record {
-    pairs.iter().map(|(k, v)| (k.to_string(), v.clone())).collect()
+    pairs
+        .iter()
+        .map(|(k, v)| (k.to_string(), v.clone()))
+        .collect()
 }
 
 const NOW_MILLIS: i64 = 1_700_000_000_000;
@@ -67,11 +70,23 @@ fn variant_class_preserves_class_and_variant_behavior() {
             ("name", FieldSpec::plain(Leaf::Str)),
         ],
     );
-    let alice = value_map(&[("id", Value::Num(1.0)), ("name", Value::Str("Alice".into()))]);
+    let alice = value_map(&[
+        ("id", Value::Num(1.0)),
+        ("name", Value::Str("Alice".into())),
+    ]);
     // The constructor and the class' own decoder agree (`User.make` and
     // `Schema.decodeSync(User)` at the pin).
     assert_eq!(user.field_names(), vec!["id", "name"]);
-    assert_eq!(user.make(&[("id", Value::Num(1.0)), ("name", Value::Str("Alice".into()))], NOW_MILLIS), Ok(alice.clone()));
+    assert_eq!(
+        user.make(
+            &[
+                ("id", Value::Num(1.0)),
+                ("name", Value::Str("Alice".into()))
+            ],
+            NOW_MILLIS
+        ),
+        Ok(alice.clone())
+    );
     assert_eq!(user.decode_default(&alice), Ok(alice));
     // `User.b` keeps only the fields variant `b` declares.
     assert_eq!(
@@ -103,11 +118,15 @@ fn variant_field_omits_undefined_selection() {
 #[test]
 fn model_field_option_preserves_omitted_variants() {
     let model = Variants::model();
-    let option = model.field_option(&model.field(&[("select", Leaf::Str), ("json", Leaf::Undefined)]));
+    let option =
+        model.field_option(&model.field(&[("select", Leaf::Str), ("json", Leaf::Undefined)]));
     // `json: undefined` stays undefined, the database variant becomes
     // nullable, and variants the field never listed stay omitted.
     assert_eq!(option.schema("json"), Some(&Leaf::Undefined));
-    assert_eq!(option.schema("select"), Some(&Leaf::OptionFromNullOr(Box::new(Leaf::Str))));
+    assert_eq!(
+        option.schema("select"),
+        Some(&Leaf::OptionFromNullOr(Box::new(Leaf::Str)))
+    );
     assert_eq!(option.schema("insert"), None);
 }
 
@@ -153,7 +172,9 @@ fn model_overrideable_defaults_are_constructor_only() {
     assert!(encoded.is_ok(), "{encoded:?}");
     // The constructor default is not a decode default: the encoded form must
     // carry the field, and the failure names it.
-    let error = insert.decode(&value_map(&[])).expect_err("decode needs the field");
+    let error = insert
+        .decode(&value_map(&[]))
+        .expect_err("decode needs the field");
     assert!(error.contains("createdAt"), "{error}");
 }
 

@@ -22,11 +22,19 @@ fn matches_a_tagged_struct_directly_data_first() {
     // named by tag and the matching one receives the value.
     let area = |shape: &Struct| {
         Matcher::value(shape.clone())
-            .discriminator(|s: &Struct| s.tag().unwrap_or_default().to_string(), "Circle".to_string(), |s| match s.get("radius") {
-                Some(Field::Float(r)) => *r * 2.0,
-                _ => f64::NAN,
-            })
-            .discriminator(|s: &Struct| s.tag().unwrap_or_default().to_string(), "Rect".to_string(), |_| 0.0)
+            .discriminator(
+                |s: &Struct| s.tag().unwrap_or_default().to_string(),
+                "Circle".to_string(),
+                |s| match s.get("radius") {
+                    Some(Field::Float(r)) => *r * 2.0,
+                    _ => f64::NAN,
+                },
+            )
+            .discriminator(
+                |s: &Struct| s.tag().unwrap_or_default().to_string(),
+                "Rect".to_string(),
+                |_| 0.0,
+            )
             .exhaustive()
     };
     assert_eq!(area(&circle(1.0)), 2.0);
@@ -55,7 +63,10 @@ fn to_json_fields_carries_the_tag_and_every_field() {
 fn a_data_error_yields_as_an_effect_failure() {
     // Data.test.ts:202 — yielding a Data error inside a program fails the
     // program, so the exit is a Failure carrying that error.
-    let not_found = Struct::tagged("NotFound", [("resource".to_string(), Field::Str("/test".to_string()))]);
+    let not_found = Struct::tagged(
+        "NotFound",
+        [("resource".to_string(), Field::Str("/test".to_string()))],
+    );
 
     let exit = Runtime::run(Effect::<(), Struct, ()>::fail(not_found.clone()));
     match exit {

@@ -190,11 +190,7 @@ pub fn round_with_precision(x: f64, precision: i32) -> f64 {
 /// Rust's `max` returns the other side on NaN while `Math.max` yields NaN.
 pub fn next_pow2(n: f64) -> f64 {
     let p = 2f64.powf((n.ln() / std::f64::consts::LN_2).ceil());
-    if p.is_nan() {
-        f64::NAN
-    } else {
-        p.max(2.0)
-    }
+    if p.is_nan() { f64::NAN } else { p.max(2.0) }
 }
 
 /// Clamp to `[min, max]`. NaN propagates (Rust semantics); the tag orders

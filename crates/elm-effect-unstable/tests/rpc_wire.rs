@@ -128,7 +128,10 @@ fn http_empty_response_fails_unframed() {
     // the request fails with a defect (no HTTP runtime here; the pure
     // body classifier owns the contract).
     let err = rpc::classify_http_body("[]", false).unwrap_err();
-    assert_eq!(err.message(), "Received empty HTTP response from RPC server");
+    assert_eq!(
+        err.message(),
+        "Received empty HTTP response from RPC server"
+    );
     assert!(matches!(err, rpc::RpcClientError::Defect { .. }));
     let ok = Message::Response {
         id: Json::Num("1".to_string()),
@@ -142,7 +145,10 @@ fn http_empty_response_fails_framed() {
     // RpcClient.test.ts:185 — layerNdjson body "" carries no frames, so
     // the request fails with the same defect.
     let err = rpc::classify_http_body("", true).unwrap_err();
-    assert_eq!(err.message(), "Received empty HTTP response from RPC server");
+    assert_eq!(
+        err.message(),
+        "Received empty HTTP response from RPC server"
+    );
     assert!(matches!(err, rpc::RpcClientError::Defect { .. }));
     let ok = Message::Response {
         id: Json::Num("1".to_string()),

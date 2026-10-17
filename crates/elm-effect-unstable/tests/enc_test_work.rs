@@ -66,10 +66,7 @@ fn base64_url_decodes_padded_and_unpadded() {
         encoding::base64_url_decode("SGVsbG8_").unwrap(),
         vec![72, 101, 108, 108, 111, 63]
     );
-    assert_eq!(
-        encoding::base64_url_decode("-_8=").unwrap(),
-        vec![251, 255]
-    );
+    assert_eq!(encoding::base64_url_decode("-_8=").unwrap(), vec![251, 255]);
     assert_eq!(
         encoding::base64_url_decode_string("8J-Riw").unwrap(),
         "\u{1f44b}"
@@ -148,7 +145,11 @@ fn hex_random_words_are_lowercase_of_exact_length() {
 #[test]
 fn hex_random_rounds_down_to_multiples_of_8() {
     for (length, expected) in [(7.0, 0), (15.9, 8), (23.0, 16)] {
-        assert_eq!(encoding::hex_random(length).len(), expected, "length {length}");
+        assert_eq!(
+            encoding::hex_random(length).len(),
+            expected,
+            "length {length}"
+        );
     }
 }
 
@@ -161,7 +162,11 @@ fn hex_random_coerces_u32_without_validation() {
         (4_294_967_296.0, 0),
         (4_294_967_304.0, 8),
     ] {
-        assert_eq!(encoding::hex_random(length).len(), expected, "length {length}");
+        assert_eq!(
+            encoding::hex_random(length).len(),
+            expected,
+            "length {length}"
+        );
     }
 }
 
@@ -270,7 +275,11 @@ fn reactivity_unsubscribe_during_notify_does_not_skip_later_listeners() {
 
     // After the self-removal, a later set reaches only the survivor.
     signal.set(2);
-    assert_eq!(first.load(Ordering::SeqCst), 1, "the removed listener is gone");
+    assert_eq!(
+        first.load(Ordering::SeqCst),
+        1,
+        "the removed listener is gone"
+    );
     assert_eq!(second.load(Ordering::SeqCst), 2);
 }
 
@@ -506,7 +515,9 @@ fn sse_joins_crlf_split_across_chunks() {
 #[test]
 fn sse_retains_last_event_id() {
     let mut decoder = encoding::sse::Decoder::new();
-    let events = decoder.feed("id: 1\ndata: first\n\ndata: second\n\n").unwrap();
+    let events = decoder
+        .feed("id: 1\ndata: first\n\ndata: second\n\n")
+        .unwrap();
     assert_eq!(events.len(), 2);
     assert_eq!(events[0].id.as_deref(), Some("1"));
     assert_eq!(events[0].data, "first");
@@ -611,10 +622,12 @@ fn worker_errors_carry_kind_and_message() {
     assert!(e.is_spawn() && !e.is_send() && !e.is_receive());
     assert_eq!(e.message(), "no binary");
     assert_eq!(e.to_string(), "WorkerError(spawn): no binary");
-    assert!(elm_effect_unstable::workers::WorkerError::new(
-        elm_effect_unstable::workers::WorkerErrorReason::receive("eof"),
-    )
-    .is_receive());
+    assert!(
+        elm_effect_unstable::workers::WorkerError::new(
+            elm_effect_unstable::workers::WorkerErrorReason::receive("eof"),
+        )
+        .is_receive()
+    );
 }
 
 #[test]
@@ -673,7 +686,7 @@ fn ndjson_error_guard() {
 
 use std::sync::Arc;
 
-use elm_effect_unstable::reactivity::{map, Atom, Registry};
+use elm_effect_unstable::reactivity::{Atom, Registry, map};
 
 #[test]
 fn atom_get_set_round_trips_through_the_registry() {

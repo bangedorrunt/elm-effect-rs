@@ -663,9 +663,8 @@ fn sink_flat_map_preserves_leftovers() {
         ]));
         move || chunks.lock().unwrap().pop().unwrap_or(Take::End)
     });
-    let sink = head::<u32, String>().flat_map(|head: Option<u32>| {
-        count::<u32, String>().map(move |n| (head, n))
-    });
+    let sink = head::<u32, String>()
+        .flat_map(|head: Option<u32>| count::<u32, String>().map(move |n| (head, n)));
     match sink.run(source) {
         elm_effect::Exit::Success((head, n)) => {
             assert_eq!(head, Some(1));
@@ -722,9 +721,7 @@ fn sink_with_duration_measures_clock_delta() {
     let backward = Arc::new(Backward {
         reads: std::sync::Mutex::new(Vec::new()),
     });
-    match with_duration(count::<u32, String>(), backward)
-        .run(pull::Pull::<u32, String>::empty())
-    {
+    match with_duration(count::<u32, String>(), backward).run(pull::Pull::<u32, String>::empty()) {
         elm_effect::Exit::Success((_, elapsed)) => assert_eq!(elapsed, Duration::ZERO),
         elm_effect::Exit::Failure(_) => panic!("expected success"),
     }
@@ -808,12 +805,8 @@ fn channel_catch_or_else_nests_reason_match() {
         let mut piped = channel::catch_or_else(
             |e: &Problem| matches!(e, Problem::Ai(_)),
             |e: Problem| match e {
-                Problem::Ai(Reason::RateLimit(n)) => {
-                    pull::Pull::of(vec![format!("retry: {n}")])
-                }
-                Problem::Ai(Reason::Quota(n)) => {
-                    pull::Pull::of(vec![format!("quota: {n}")])
-                }
+                Problem::Ai(Reason::RateLimit(n)) => pull::Pull::of(vec![format!("retry: {n}")]),
+                Problem::Ai(Reason::Quota(n)) => pull::Pull::of(vec![format!("quota: {n}")]),
                 Problem::Other => unreachable!(),
             },
             |_: Problem| pull::Pull::of(vec!["other".to_string()]),
@@ -831,10 +824,7 @@ fn channel_catch_or_else_nests_reason_match() {
         run(Problem::Ai(Reason::RateLimit(60))),
         Take::Items(vec!["retry: 60".to_string()])
     );
-    assert_eq!(
-        run(Problem::Other),
-        Take::Items(vec!["other".to_string()])
-    );
+    assert_eq!(run(Problem::Other), Take::Items(vec!["other".to_string()]));
 }
 
 #[test]
@@ -909,6 +899,7 @@ fn channel_catch_defect_routes_to_handler() {
     assert_eq!(piped.pull(), take::Take::Items(vec![42]));
     assert_eq!(piped.pull(), take::Take::End);
     // Non-failing pass-through on empty source:
-    let mut piped = channel::catch_defect(|_: String| pull::Pull::of(vec![1])).run(pull::Pull::empty());
+    let mut piped =
+        channel::catch_defect(|_: String| pull::Pull::of(vec![1])).run(pull::Pull::empty());
     assert_eq!(piped.pull(), take::Take::End);
 }
