@@ -1047,3 +1047,325 @@ pub mod zsh {
         lines.join("\n")
     }
 }
+
+/// Static Fish completion script generation
+/// (`cli/internal/completions/fish.ts`).
+///
+/// Emits a self-contained `complete -c` script from a [`CommandDescriptor`]:
+/// no re-invocation of the CLI at runtime. Fish decides which line applies from
+/// the conditions on each `complete` call.
+pub mod fish {
+    use super::{ArgumentType, CommandDescriptor, FlagDescriptor, FlagType, all_flag_forms};
+
+    /// Escape a Fish double-context string: `\` then `'`.
+    fn escape_fish_string(text: &str) -> String {
+        text.replace('\\', "\\\\").replace('\'', "\\'")
+    }
+
+    /// Escape a choice for Fish's second expansion of `-a`.
+    fn escape_fish_choice(text: &str) -> String {
+        let mut out = String::new();
+        for c in text.chars() {
+            if c.is_ascii_alphanumeric()
+                || matches!(c, '_' | '.' | ',' | '/' | '@' | '%' | '+' | '-')
+            {
+                out.push(c);
+            } else {
+                out.push('\\');
+                out.push(c);
+            }
+        }
+        escape_fish_string(&out)
+    }
+
+    fn choices_arg(values: &[String]) -> String {
+        values
+            .iter()
+            .map(|value| escape_fish_choice(value))
+            .collect::<Vec<_>>()
+            .join(" ")
+    }
+
+    /// A condition checking whether any form of `flag` was already typed.
+    fn flag_contains_opt_condition(flag: &FlagDescriptor) -> String {
+        let mut opt_args: Vec<String> = Vec::new();
+        for alias in &flag.aliases {
+            if alias.chars().count() == 1 {
+                opt_args.push(format!("-s {alias}"));
+            }
+        }
+        opt_args.push(flag.name.clone());
+        for alias in &flag.aliases {
+            if alias.chars().count() > 1 {
+                opt_args.push(alias.clone());
+            }
+        }
+        if flag.flag_type == FlagType::Boolean {
+            opt_args.push(format!("no-{}", flag.name));
+        }
+        format!("not __fish_contains_opt {}", opt_args.join(" "))
+    }
+
+    /// Hide a used value flag without suppressing its value completions.
+    fn value_flag_dedup_condition(flag: &FlagDescriptor) -> String {
+        let forms = all_flag_forms(flag);
+        format!(
+            "begin; {}; or contains -- (commandline -poc)[-1] {}; end",
+            flag_contains_opt_condition(flag),
+            forms.join(" ")
+        )
+    }
+
+    /// The `-l/-s/-d` plus value args for a flag's `complete` line.
+    fn flag_completion_args(flag: &FlagDescriptor) -> Vec<String> {
+        let mut args = vec![format!("-l {}", flag.name)];
+        for alias in &flag.aliases {
+            if alias.chars().count() == 1 {
+                args.push(format!("-s {alias}"));
+            } else {
+                args.push(format!("-l {alias}"));
+            }
+        }
+        if let Some(description) = &flag.description {
+            args.push(format!("-d '{}'", escape_fish_string(description)));
+        }
+        if let Some(value_args) = flag_value_args(&flag.flag_type) {
+            args.push(value_args);
+        }
+        args
+    }
+
+    fn flag_value_args(flag_type: &FlagType) -> Option<String> {
+        match flag_type {
+            FlagType::Boolean => None,
+            FlagType::Choice(values) => Some(format!("-r -f -a '{}'", choices_arg(values))),
+            // -r: requires a value, -F: complete files (dirs too).
+            FlagType::Path(_) => Some("-r -F".to_owned()),
+            // -r: requires a value, -f: no fallback to file completion.
+            _ => Some("-r -f".to_owned()),
+        }
+    }
+
+    fn arg_value_args(argument_type: &ArgumentType) -> Option<String> {
+        match argument_type {
+            ArgumentType::Choice(values) => Some(format!("-r -f -a '{}'", choices_arg(values))),
+            ArgumentType::Path(_) => Some("-r -F".to_owned()),
+            _ => None,
+        }
+    }
+
+    /// The condition guarding completions for a command at `parent_path`.
+    fn subcommand_condition(parent_path: &[String], child_subcommand_names: &[String]) -> String {
+        if parent_path.is_empty() {
+            return if child_subcommand_names.is_empty() {
+                String::new()
+            } else {
+                "__fish_use_subcommand".to_owned()
+            };
+        }
+        let parent_condition = parent_path
+            .iter()
+            .map(|parent| format!("__fish_seen_subcommand_from {parent}"))
+            .collect::<Vec<_>>()
+            .join("; and ");
+        if child_subcommand_names.is_empty() {
+            parent_condition
+        } else {
+            format!(
+                "{parent_condition}; and not __fish_seen_subcommand_from {}",
+                child_subcommand_names.join(" ")
+            )
+        }
+    }
+
+    fn condition_option(condition: &str) -> Option<String> {
+        if condition.is_empty() {
+            None
+        } else {
+            Some(format!("-n '{condition}'"))
+        }
+    }
+
+    fn generate_completions(
+        executable_name: &str,
+        descriptor: &CommandDescriptor,
+        parent_path: &[String],
+        lines: &mut Vec<String>,
+    ) {
+        let all_sub_names: Vec<String> = descriptor
+            .subcommands
+            .iter()
+            .map(|sub| sub.name.clone())
+            .collect();
+        let condition = subcommand_condition(parent_path, &all_sub_names);
+        let condition_arg = condition_option(&condition);
+
+        // Suppress default file completion unless the command takes path
+        // positionals; otherwise fish lists files where only flags are valid.
+        let has_path_args = descriptor
+            .arguments
+            .iter()
+            .any(|argument| matches!(argument.argument_type, ArgumentType::Path(_)));
+        if !has_path_args {
+            let mut parts = vec![format!("complete -c {executable_name}")];
+            if let Some(arg) = &condition_arg {
+                parts.push(arg.clone());
+            }
+            parts.push("-f".to_owned());
+            lines.push(parts.join(" "));
+        }
+
+        for sub in &descriptor.subcommands {
+            let mut parts = vec![format!("complete -c {executable_name}")];
+            if let Some(arg) = &condition_arg {
+                parts.push(arg.clone());
+            }
+            parts.push(format!("-f -a '{}'", escape_fish_string(&sub.name)));
+            if let Some(description) = &sub.description {
+                parts.push(format!("-d '{}'", escape_fish_string(description)));
+            }
+            lines.push(parts.join(" "));
+        }
+
+        for flag in &descriptor.flags {
+            let is_boolean = flag.flag_type == FlagType::Boolean;
+            let dedup = if is_boolean {
+                flag_contains_opt_condition(flag)
+            } else {
+                value_flag_dedup_condition(flag)
+            };
+            let flag_condition = if condition.is_empty() {
+                dedup
+            } else {
+                format!("{condition}; and {dedup}")
+            };
+            let flag_cond_arg = condition_option(&flag_condition);
+
+            let mut parts = vec![format!("complete -c {executable_name}")];
+            if let Some(arg) = &flag_cond_arg {
+                parts.push(arg.clone());
+            }
+            parts.extend(flag_completion_args(flag));
+            lines.push(parts.join(" "));
+
+            if is_boolean {
+                let mut neg_parts = vec![format!("complete -c {executable_name}")];
+                if let Some(arg) = &flag_cond_arg {
+                    neg_parts.push(arg.clone());
+                }
+                neg_parts.push(format!("-l no-{}", flag.name));
+                if flag.description.is_some() {
+                    neg_parts.push(format!(
+                        "-d '{}'",
+                        escape_fish_string(&format!("Disable {}", flag.name))
+                    ));
+                }
+                lines.push(neg_parts.join(" "));
+            }
+        }
+
+        // Flags as -a entries so they appear on a bare <TAB>; fish hides -l/-s
+        // entries unless the current word starts with `-`.
+        if !descriptor.flags.is_empty() {
+            let not_dash = "not string match -q -- \"-*\" (commandline -ct)";
+            let bare_base = if condition.is_empty() {
+                not_dash.to_owned()
+            } else {
+                format!("{condition}; and {not_dash}")
+            };
+
+            for flag in &descriptor.flags {
+                let bare_condition =
+                    format!("{bare_base}; and {}", flag_contains_opt_condition(flag));
+
+                let mut parts = vec![
+                    format!("complete -c {executable_name}"),
+                    format!("-n '{bare_condition}'"),
+                    format!("-f -a '--{}'", flag.name),
+                ];
+                if let Some(description) = &flag.description {
+                    parts.push(format!("-d '{}'", escape_fish_string(description)));
+                }
+                lines.push(parts.join(" "));
+
+                if flag.flag_type == FlagType::Boolean {
+                    let mut neg_parts = vec![
+                        format!("complete -c {executable_name}"),
+                        format!("-n '{bare_condition}'"),
+                        format!("-f -a '--no-{}'", flag.name),
+                    ];
+                    if flag.description.is_some() {
+                        neg_parts.push(format!(
+                            "-d '{}'",
+                            escape_fish_string(&format!("Disable {}", flag.name))
+                        ));
+                    }
+                    lines.push(neg_parts.join(" "));
+                }
+            }
+        }
+
+        for argument in &descriptor.arguments {
+            if let Some(value_arg) = arg_value_args(&argument.argument_type) {
+                let mut parts = vec![format!("complete -c {executable_name}")];
+                if let Some(arg) = &condition_arg {
+                    parts.push(arg.clone());
+                }
+                parts.push(value_arg);
+                if let Some(description) = &argument.description {
+                    parts.push(format!("-d '{}'", escape_fish_string(description)));
+                }
+                lines.push(parts.join(" "));
+            }
+        }
+
+        for sub in &descriptor.subcommands {
+            let mut sub_path = parent_path.to_vec();
+            sub_path.push(sub.name.clone());
+            generate_completions(executable_name, sub, &sub_path, lines);
+        }
+    }
+
+    /// Generate the completion script for `executable_name`.
+    pub fn generate(executable_name: &str, descriptor: &CommandDescriptor) -> String {
+        let mut lines: Vec<String> = Vec::new();
+
+        lines.push(format!("###-begin-{executable_name}-completions-###"));
+        lines.push("#".to_owned());
+        lines.push("# Static completion script for Fish".to_owned());
+        lines.push("#".to_owned());
+        lines.push("# Installation:".to_owned());
+        lines.push(format!(
+            "#   {executable_name} --completions fish > ~/.config/fish/completions/{executable_name}.fish"
+        ));
+        lines.push("#".to_owned());
+        lines.push(String::new());
+
+        generate_completions(executable_name, descriptor, &[], &mut lines);
+
+        lines.push(String::new());
+        lines.push(format!("###-end-{executable_name}-completions-###"));
+
+        lines.join("\n")
+    }
+}
+
+/// The shells a completion script can target (`Completions.Shell`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Shell {
+    /// Bash (`bash.ts`).
+    Bash,
+    /// Zsh (`zsh.ts`).
+    Zsh,
+    /// Fish (`fish.ts`).
+    Fish,
+}
+
+/// Generate a completion script for `shell` (`Completions.generate`).
+pub fn generate(executable_name: &str, shell: Shell, descriptor: &CommandDescriptor) -> String {
+    match shell {
+        Shell::Bash => bash::generate(executable_name, descriptor),
+        Shell::Zsh => zsh::generate(executable_name, descriptor),
+        Shell::Fish => fish::generate(executable_name, descriptor),
+    }
+}

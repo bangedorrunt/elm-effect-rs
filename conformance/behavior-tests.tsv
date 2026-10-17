@@ -5918,32 +5918,32 @@ ported	packages/effect/test/cli/completions/completions.test.ts	516	it	uses spec
 ported	packages/effect/test/cli/completions/completions.test.ts	524	it	generates exclusion groups for flag aliases	generates_exclusion_groups_for_flag_aliases
 ported	packages/effect/test/cli/completions/completions.test.ts	533	it	generates exclusion group for flags without aliases	generates_exclusion_group_for_flags_without_aliases
 ported	packages/effect/test/cli/completions/completions.test.ts	540	it	uses Disable description for boolean negation	uses_disable_description_for_boolean_negation
-unported	packages/effect/test/cli/completions/completions.test.ts	552	it	scopes nested completions by the full command path	
-unported	packages/effect/test/cli/completions/completions.test.ts	584	it	generates complete commands for root subcommands	
-unported	packages/effect/test/cli/completions/completions.test.ts	592	it	generates complete commands for flags with -l and -s	
-unported	packages/effect/test/cli/completions/completions.test.ts	600	it	generates --no-<flag> for boolean flags	
-unported	packages/effect/test/cli/completions/completions.test.ts	606	it	uses -r -F for file-type flags	
-unported	packages/effect/test/cli/completions/completions.test.ts	612	it	uses -r -f -a for choice flags	
-unported	packages/effect/test/cli/completions/completions.test.ts	618	it	escapes choice values for both the string quoting and the expansion of the -a list	
-unported	packages/effect/test/cli/completions/completions.test.ts	626	it	escapes backslashes in descriptions before quotes	
-unported	packages/effect/test/cli/completions/completions.test.ts	634	it	uses -n conditions for nested subcommand flags	
-unported	packages/effect/test/cli/completions/completions.test.ts	641	it	includes descriptions with -d flag	
-unported	packages/effect/test/cli/completions/completions.test.ts	648	it	handles deeply nested command paths	
-unported	packages/effect/test/cli/completions/completions.test.ts	655	it	handles commands with no flags	
-unported	packages/effect/test/cli/completions/completions.test.ts	662	it	uses __fish_use_subcommand for root level	
-unported	packages/effect/test/cli/completions/completions.test.ts	668	it	wraps script in begin/end markers	
-unported	packages/effect/test/cli/completions/completions.test.ts	675	it	generates used-flag dedup conditions	
-unported	packages/effect/test/cli/completions/completions.test.ts	690	it	combines subcommand and dedup conditions	
-unported	packages/effect/test/cli/completions/completions.test.ts	705	it	root-level subcommands use __fish_use_subcommand without child guard	
-unported	packages/effect/test/cli/completions/completions.test.ts	714	it	guards nested child subcommands against re-offering	
-unported	packages/effect/test/cli/completions/completions.test.ts	724	it	uses Disable description for boolean negation	
-unported	packages/effect/test/cli/completions/completions.test.ts	731	it	suppresses default file completion for commands without path arguments	
-unported	packages/effect/test/cli/completions/completions.test.ts	740	it	adds -a entries for flags so they appear on bare TAB	
-unported	packages/effect/test/cli/completions/completions.test.ts	758	it	bare-TAB -a entries use double quotes around glob pattern to avoid nested single-quote errors	
-unported	packages/effect/test/cli/completions/completions.test.ts	772	it	does not suppress file completion for commands with path arguments	
-unported	packages/effect/test/cli/completions/completions.test.ts	790	it	dispatches to bash generator	
-unported	packages/effect/test/cli/completions/completions.test.ts	796	it	dispatches to zsh generator	
-unported	packages/effect/test/cli/completions/completions.test.ts	802	it	dispatches to fish generator	
+ported	packages/effect/test/cli/completions/completions.test.ts	552	it	scopes nested completions by the full command path	scopes_nested_completions_by_the_full_command_path
+ported	packages/effect/test/cli/completions/completions.test.ts	584	it	generates complete commands for root subcommands	generates_complete_commands_for_root_subcommands
+ported	packages/effect/test/cli/completions/completions.test.ts	592	it	generates complete commands for flags with -l and -s	generates_complete_commands_for_flags_with_l_and_s
+ported	packages/effect/test/cli/completions/completions.test.ts	600	it	generates --no-<flag> for boolean flags	generates_no_dash_form_for_boolean_flags_in_fish
+ported	packages/effect/test/cli/completions/completions.test.ts	606	it	uses -r -F for file-type flags	uses_r_f_for_file_type_flags
+ported	packages/effect/test/cli/completions/completions.test.ts	612	it	uses -r -f -a for choice flags	uses_r_f_a_for_choice_flags
+ported	packages/effect/test/cli/completions/completions.test.ts	618	it	escapes choice values for both the string quoting and the expansion of the -a list	escapes_choice_values_for_both_the_string_quoting_and_the_expansion_of_the_a_list
+ported	packages/effect/test/cli/completions/completions.test.ts	626	it	escapes backslashes in descriptions before quotes	escapes_backslashes_in_descriptions_before_quotes
+ported	packages/effect/test/cli/completions/completions.test.ts	634	it	uses -n conditions for nested subcommand flags	uses_n_conditions_for_nested_subcommand_flags
+ported	packages/effect/test/cli/completions/completions.test.ts	641	it	includes descriptions with -d flag	includes_descriptions_with_d_flag
+ported	packages/effect/test/cli/completions/completions.test.ts	648	it	handles deeply nested command paths	handles_deeply_nested_command_paths
+ported	packages/effect/test/cli/completions/completions.test.ts	655	it	handles commands with no flags	handles_commands_with_no_flags
+ported	packages/effect/test/cli/completions/completions.test.ts	662	it	uses __fish_use_subcommand for root level	uses_fish_use_subcommand_for_root_level
+ported	packages/effect/test/cli/completions/completions.test.ts	668	it	wraps script in begin/end markers	wraps_script_in_begin_end_markers_in_fish
+ported	packages/effect/test/cli/completions/completions.test.ts	675	it	generates used-flag dedup conditions	generates_used_flag_dedup_conditions
+ported	packages/effect/test/cli/completions/completions.test.ts	690	it	combines subcommand and dedup conditions	combines_subcommand_and_dedup_conditions
+ported	packages/effect/test/cli/completions/completions.test.ts	705	it	root-level subcommands use __fish_use_subcommand without child guard	root_level_subcommands_use_fish_use_subcommand_without_child_guard
+ported	packages/effect/test/cli/completions/completions.test.ts	714	it	guards nested child subcommands against re-offering	guards_nested_child_subcommands_against_re_offering
+ported	packages/effect/test/cli/completions/completions.test.ts	724	it	uses Disable description for boolean negation	uses_disable_description_for_boolean_negation
+ported	packages/effect/test/cli/completions/completions.test.ts	731	it	suppresses default file completion for commands without path arguments	suppresses_default_file_completion_for_commands_without_path_arguments
+ported	packages/effect/test/cli/completions/completions.test.ts	740	it	adds -a entries for flags so they appear on bare TAB	adds_a_entries_for_flags_so_they_appear_on_bare_tab
+ported	packages/effect/test/cli/completions/completions.test.ts	758	it	bare-TAB -a entries use double quotes around glob pattern to avoid nested single-quote errors	bare_tab_a_entries_use_double_quotes_around_glob_pattern
+ported	packages/effect/test/cli/completions/completions.test.ts	772	it	does not suppress file completion for commands with path arguments	does_not_suppress_file_completion_for_commands_with_path_arguments
+ported	packages/effect/test/cli/completions/completions.test.ts	790	it	dispatches to bash generator	dispatches_to_bash_generator
+ported	packages/effect/test/cli/completions/completions.test.ts	796	it	dispatches to zsh generator	dispatches_to_zsh_generator
+ported	packages/effect/test/cli/completions/completions.test.ts	802	it	dispatches to fish generator	dispatches_to_fish_generator
 unported	packages/effect/test/cli/completions/completions.test.ts	814	it	generates valid bash script for ComprehensiveCli	
 unported	packages/effect/test/cli/completions/completions.test.ts	854	it	generates valid zsh script for ComprehensiveCli	
 unported	packages/effect/test/cli/completions/completions.test.ts	885	it	generates valid fish script for ComprehensiveCli	
