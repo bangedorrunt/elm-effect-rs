@@ -233,7 +233,8 @@ fn missing_service_does_not_compile() {
         .expect("canonicalize");
     let krate = krate.display().to_string();
 
-    let dir = std::env::temp_dir().join(format!("elm-effect-uifail-{}", std::process::id()));
+    let dir =
+        std::env::temp_dir().join(format!("elm-effect-uifail-{}-missing", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(dir.join("src")).expect("scratch src");
     std::fs::write(
@@ -266,5 +267,58 @@ fn missing_service_does_not_compile() {
     assert!(
         stderr.contains("Database"),
         "error must name the missing tag; got:\n{stderr}"
+    );
+}
+
+/// Trybuild-style negative test without new dependencies: build a scratch
+/// crate and assert `cargo check` FAILS on an out-of-order provide, with the
+/// canonical-order diagnostic (not a bare unsatisfied-bound error).
+#[test]
+fn provide_wrong_order_fails_with_clear_error() {
+    let manifest = std::env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR");
+    let fixture = format!("{manifest}/tests/ui/provide_wrong_order_fail.rs");
+    assert!(
+        std::path::Path::new(&fixture).exists(),
+        "fixture missing: {fixture}"
+    );
+    let krate = std::path::Path::new(&manifest)
+        .canonicalize()
+        .expect("canonicalize");
+    let krate = krate.display().to_string();
+
+    let dir =
+        std::env::temp_dir().join(format!("elm-effect-uifail-{}-order", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(dir.join("src")).expect("scratch src");
+    std::fs::write(
+        dir.join("Cargo.toml"),
+        format!(
+            "[package]\nname = \"uifail\"\nversion = \"0.0.0\"\nedition = \"2024\"\n\
+             [dependencies]\nelm-effect = {{ path = \"{krate}\" }}\n\
+             [workspace]\n"
+        ),
+    )
+    .expect("scratch manifest");
+    std::fs::copy(&fixture, dir.join("src/lib.rs")).expect("scratch lib");
+
+    let out = std::process::Command::new("cargo")
+        .args([
+            "check",
+            "--offline",
+            "--manifest-path",
+            dir.join("Cargo.toml").to_str().expect("utf8"),
+        ])
+        .env("CARGO_TARGET_DIR", dir.join("target"))
+        .output()
+        .expect("spawn cargo check");
+    let _ = std::fs::remove_dir_all(&dir);
+    assert!(
+        !out.status.success(),
+        "fixture must NOT compile: out-of-order provide has to be a compile error"
+    );
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(
+        stderr.contains("provide the head tag first"),
+        "error must state the canonical order; got:\n{stderr}"
     );
 }

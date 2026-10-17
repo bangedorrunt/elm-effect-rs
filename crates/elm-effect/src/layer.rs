@@ -15,7 +15,7 @@ use std::sync::{Arc, Mutex};
 use crate::effect::Requirement;
 use crate::scope::Scope;
 use crate::service::{Cons, ServiceTag, Services, empty_services};
-use crate::{Cause, Effect};
+use crate::{Cause, Defect, Effect};
 
 /// A dependency cycle: the tags involved, in dependency order. Returned
 /// before any constructor runs.
@@ -392,6 +392,10 @@ impl<T: ServiceTag, E: Send + 'static> Layer<T, E, ()> {
     /// Wire a closed layer into an effect and hide its tag: the effect keeps
     /// its other requirements, `T` is satisfied from a build. A constructor
     /// failure closes `scope` and is returned.
+    ///
+    /// A double-provision this call would create (the effect already carries
+    /// the tag with a distinct value) is returned as an error here, at
+    /// construction, instead of Dying at interpretation.
     pub fn provide<A, E2, R2, Rest>(
         &self,
         effect: Effect<A, E2, R2>,
@@ -406,7 +410,11 @@ impl<T: ServiceTag, E: Send + 'static> Layer<T, E, ()> {
         let built = self.build(scope)?;
         let mut maps = (*effect.services).clone();
         for (id, value, conflicted) in built.values.tag_list() {
-            maps.insert_tag(id, value);
+            if maps.insert_tag(id, value) {
+                return Err(Cause::die(Defect::new(format!(
+                    "double-provision of `{id}` with distinct values: provide each tag once"
+                ))));
+            }
             // A conflict inside the built services must not vanish into the
             // effect's map: ambiguity is a property of the provision, and the
             // law is that the run Dies rather than picking a winner.
@@ -425,7 +433,9 @@ impl<T: ServiceTag, E: Send + 'static> Layer<T, E, ()> {
 impl<O: RequirementIds, E: Send + 'static> Layer<O, E, ()> {
     /// Run every constructor once (memoized per handle) against the
     /// accumulated services. A constructor failure closes `scope` and fails
-    /// the build with the constructor's cause.
+    /// the build with the constructor's cause. Two stages emitting the same
+    /// tag with distinct values fail the same way: double-provision is a
+    /// construction error, not a run-time Die.
     pub fn build(&self, scope: &Scope) -> Result<BuiltServices, Cause<E>> {
         if let Some(memo) = self.memo.0.lock().unwrap().clone() {
             return Ok(BuiltServices { values: memo });
@@ -436,7 +446,13 @@ impl<O: RequirementIds, E: Send + 'static> Layer<O, E, ()> {
             match runner.run_with(&acc, scope) {
                 Ok(value) => {
                     let mut maps = (*acc).clone();
-                    maps.insert_tag(stage.out_id, value);
+                    if maps.insert_tag(stage.out_id, value) {
+                        scope.close();
+                        return Err(Cause::die(Defect::new(format!(
+                            "double-provision of `{}` with distinct values: provide each tag once",
+                            stage.out_id
+                        ))));
+                    }
                     acc = Arc::new(maps);
                 }
                 Err(cause) => {

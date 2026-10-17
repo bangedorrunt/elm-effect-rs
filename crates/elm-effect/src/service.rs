@@ -32,6 +32,16 @@ impl<T: ServiceTag> Requirement for T {}
 
 /// Proof that requirement `R` carries tag `T` at its head, leaving `Rest`.
 /// Implemented for tuples (macro, arities 1..=16) and [`Cons`].
+///
+/// Canonical order: tuples are ordered by provision, head first.
+/// `Effect<A, E, (Database, Clock)>` provides `Database` first; providing
+/// any other tag is a compile error carrying the head-first diagnostic
+/// below, not a silent misroute.
+#[diagnostic::on_unimplemented(
+    message = "cannot provide `{T}` here: provide the head tag first",
+    label = "provide the head tag of this requirement tuple first, in order",
+    note = "requirement tuples are ordered by provision: `Effect<A, E, (Db, Clock)>` provides `Db` first"
+)]
 pub trait Provide<T, Rest>: Requirement {}
 
 /// Head-cons escape beyond the 16-tuple ceiling.
@@ -77,7 +87,10 @@ requirement_tuples! {
 ///
 /// Tags accumulate with conflict detection: provisioning the same tag twice
 /// with distinct values poisons it, and any run of the poisoned build Dies
-/// (never last-writer-wins). Re-providing the SAME shared value (a layer's
+/// (never last-writer-wins). Value-level `provide` and the layer entry
+/// points fail earlier — at construction — so the poisoned-map Die survives
+/// only for conflicts merged in from elsewhere, which no single call
+/// created. Re-providing the SAME shared value (a layer's
 /// memo) is fine, told apart by pointer equality.
 /// References override by replacement instead: innermost wins, `R` unchanged.
 #[derive(Clone, Default)]
@@ -100,8 +113,10 @@ pub(crate) fn empty_services() -> Services {
 
 impl ServiceMaps {
     /// Insert one tag provision. Same shared value re-provided: no-op.
-    /// Distinct value over an existing one: poison (ambiguous).
-    pub(crate) fn insert_tag(&mut self, id: &'static str, value: Arc<dyn Any + Send + Sync>) {
+    /// Distinct value over an existing one: poison (ambiguous). Returns
+    /// whether this call poisoned, so value-level `provide` can fail at
+    /// construction instead of Dying at interpretation.
+    pub(crate) fn insert_tag(&mut self, id: &'static str, value: Arc<dyn Any + Send + Sync>) -> bool {
         match self.tags.get(&id) {
             None => {
                 self.tags.insert(
@@ -111,12 +126,14 @@ impl ServiceMaps {
                         conflict: false,
                     },
                 );
+                false
             }
-            Some(existing) if Arc::ptr_eq(&existing.value, &value) => {}
+            Some(existing) if Arc::ptr_eq(&existing.value, &value) => false,
             Some(_) => {
                 if let Some(entry) = self.tags.get_mut(&id) {
                     entry.conflict = true;
                 }
+                true
             }
         }
     }
@@ -237,6 +254,12 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
     /// Provide tag `T`'s service, removing `T` from the requirement tuple at
     /// the type level. The value is stored in the effect's service map;
     /// `Use` nodes resolve it at interpretation.
+    ///
+    /// Provide each tag once. A second provision of the same tag with a
+    /// distinct value panics here, at construction, instead of Dying at
+    /// interpretation far from the bug. (Sharing one value across a build
+    /// flows through the layer memo and [`provide_from`](Self::provide_from),
+    /// never through two `provide` calls: each call wraps a fresh [`Arc`].)
     pub fn provide<T, Rest>(self, service: T::Service) -> Effect<A, E, Rest>
     where
         T: ServiceTag,
@@ -244,7 +267,12 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
         Rest: Requirement,
     {
         let mut maps = (*self.services).clone();
-        maps.insert_tag(T::ID, Arc::new(service));
+        if maps.insert_tag(T::ID, Arc::new(service)) {
+            panic!(
+                "double-provision of `{}` with distinct values: provide each tag once",
+                T::ID
+            );
+        }
         Effect {
             step: self.step,
             services: Arc::new(maps),
@@ -281,15 +309,12 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
     /// Fail-closed: a tag the layer did not build is not a silent `None`. It
     /// surfaces as `missing service: <id>` at the run edge, so a runtime
     /// booted with the wrong layer refuses rather than running with a
-    /// default. (Providing one tag twice with distinct values is already
-    /// impossible through the type-level API, which is why the `ambiguous
-    /// tag` branch you can still hit through a layer merge has no public
-    /// witness here.)
+    /// default. (Providing one tag twice with distinct values fails earlier:
+    /// value-level `provide` panics at construction, and [`Layer::provide`](crate::Layer::provide)
+    /// returns it as an error. The `ambiguous tag` run-time Die survives only
+    /// for conflicts merged in from elsewhere, which no single call created.)
     #[cfg(feature = "tokio")]
-    pub fn provide_from<T, Rest>(
-        self,
-        services: &crate::BuiltServices,
-    ) -> Effect<A, E, Rest>
+    pub fn provide_from<T, Rest>(self, services: &crate::BuiltServices) -> Effect<A, E, Rest>
     where
         T: ServiceTag,
         R: Provide<T, Rest>,
