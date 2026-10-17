@@ -4796,16 +4796,16 @@ ported	packages/effect/test/ai/McpServer/McpConformance/BaseProtocolTest.ts	489	
 ported	packages/effect/test/ai/McpServer/McpConformance/BaseProtocolTest.ts	510	it.effect	MUST accept notifications without an identifier and send no response	sends_no_reply_for_notifications
 ported	packages/effect/test/ai/McpServer/McpConformance/BaseProtocolTest.ts	522	it.effect	MUST return a parse error for malformed JSON	returns_parse_error_for_malformed_json
 ported	packages/effect/test/ai/McpServer/McpConformance/BaseProtocolTest.ts	535	it.effect	MUST return an invalid request error for malformed JSON-RPC messages	returns_invalid_request_when_method_missing
-unported	packages/effect/test/ai/McpServer/McpConformance/CompletionTest.ts	48	it.layer	Mcp Conformance (${protocol.protocolVersion})	
-unported	packages/effect/test/ai/McpServer/McpConformance/CompletionTest.ts	52	it.effect	MUST advertise completions when argument completion is supported	
-unported	packages/effect/test/ai/McpServer/McpConformance/CompletionTest.ts	62	it.effect	MUST complete a prompt argument	
-unported	packages/effect/test/ai/McpServer/McpConformance/CompletionTest.ts	72	it.effect	MUST complete a resource template argument	
-unported	packages/effect/test/ai/McpServer/McpConformance/CompletionTest.ts	81	it.effect	SHOULD reject an unknown prompt reference with Invalid Params	
-unported	packages/effect/test/ai/McpServer/McpConformance/CompletionTest.ts	100	it.effect	MUST reject an unknown argument name	
-unported	packages/effect/test/ai/McpServer/McpConformance/CompletionTest.ts	119	it.effect	MUST return completion values in order	
-unported	packages/effect/test/ai/McpServer/McpConformance/CompletionTest.ts	129	it.effect	SCHEMA returns the total and additional-results indicator	
-unported	packages/effect/test/ai/McpServer/McpConformance/CompletionTest.ts	140	it.effect	MUST return at most one hundred completion values	
-unported	packages/effect/test/ai/McpServer/McpConformance/CompletionTest.ts	153	it.skipIf	should pass previously resolved arguments when completion context is supplied	
+ported	packages/effect/test/ai/McpServer/McpConformance/CompletionTest.ts	48	it.layer	Mcp Conformance (${protocol.protocolVersion})	conformance_runs_for_every_protocol_version
+ported	packages/effect/test/ai/McpServer/McpConformance/CompletionTest.ts	52	it.effect	MUST advertise completions when argument completion is supported	advertise_completions_when_supported
+ported	packages/effect/test/ai/McpServer/McpConformance/CompletionTest.ts	62	it.effect	MUST complete a prompt argument	complete_a_prompt_argument
+ported	packages/effect/test/ai/McpServer/McpConformance/CompletionTest.ts	72	it.effect	MUST complete a resource template argument	complete_a_resource_template_argument
+ported	packages/effect/test/ai/McpServer/McpConformance/CompletionTest.ts	81	it.effect	SHOULD reject an unknown prompt reference with Invalid Params	reject_unknown_prompt_reference_with_invalid_params
+ported	packages/effect/test/ai/McpServer/McpConformance/CompletionTest.ts	100	it.effect	MUST reject an unknown argument name	reject_unknown_argument_name
+ported	packages/effect/test/ai/McpServer/McpConformance/CompletionTest.ts	119	it.effect	MUST return completion values in order	return_completion_values_in_order
+ported	packages/effect/test/ai/McpServer/McpConformance/CompletionTest.ts	129	it.effect	SCHEMA returns the total and additional-results indicator	schema_returns_total_and_has_more
+ported	packages/effect/test/ai/McpServer/McpConformance/CompletionTest.ts	140	it.effect	MUST return at most one hundred completion values	return_at_most_one_hundred_values
+ported	packages/effect/test/ai/McpServer/McpConformance/CompletionTest.ts	153	it.skipIf	should pass previously resolved arguments when completion context is supplied	pass_previously_resolved_arguments_with_context
 not-applicable	packages/effect/test/ai/McpServer/McpConformance/ElicitationTest.ts	83	it.layer	Mcp Conformance (${protocol.protocolVersion})	harness
 not-applicable	packages/effect/test/ai/McpServer/McpConformance/ElicitationTest.ts	88	it.effect	MUST preserve elicitation response ownership with a ${responseSession} HTTP session	needs session ownership tracking
 not-applicable	packages/effect/test/ai/McpServer/McpConformance/ElicitationTest.ts	175	it.skipIf	MUST treat an empty elicitation capability as form support	needs empty-capability-as-form support
@@ -4914,23 +4914,23 @@ ported	packages/effect/test/ai/McpServer/McpConformance/SamplingTest.ts	293	it.e
 not-applicable	packages/effect/test/ai/McpServer/McpConformance/SamplingTest.ts	323	it.skipIf	MUST accept audio sampling content	needs audio content codec
 ported	packages/effect/test/ai/McpServer/McpConformance/SamplingTest.ts	356	it.effect	MUST surface sampling errors returned by the client	accepts_image_content_and_surfaces_client_errors
 not-applicable	packages/effect/test/ai/McpServer/McpConformance/SamplingTest.ts	378	it.skipIf	MUST round-trip tool-enabled sampling requests and results	needs tool-enabled roundtrip harness
-unported	packages/effect/test/ai/McpServer/McpConformance/SubscriptionsTest.ts	149	it.layer	Mcp Conformance (${protocol.protocolVersion})	
-unported	packages/effect/test/ai/McpServer/McpConformance/SubscriptionsTest.ts	154	it.effect	should advertise supported subscription capabilities when features are registered	
-unported	packages/effect/test/ai/McpServer/McpConformance/SubscriptionsTest.ts	167	it.effect	should update discovery and subscription capabilities after late registration	
-unported	packages/effect/test/ai/McpServer/McpConformance/SubscriptionsTest.ts	203	it.effect	should not advertise subscriptions and should reject listen when the transport cannot send notifications	
-unported	packages/effect/test/ai/McpServer/McpConformance/SubscriptionsTest.ts	280	it.effect	should buffer matching events while the subscription acknowledgment is blocked	
-unported	packages/effect/test/ai/McpServer/McpConformance/SubscriptionsTest.ts	325	it.effect	should release the scoped subscription when a blocked listener is interrupted	
-unported	packages/effect/test/ai/McpServer/McpConformance/SubscriptionsTest.ts	372	it.effect	should acknowledge with the exact identifier when it is numeric or string-valued	
-unported	packages/effect/test/ai/McpServer/McpConformance/SubscriptionsTest.ts	386	it.effect	should deliver a change notification when its kind is requested	
-unported	packages/effect/test/ai/McpServer/McpConformance/SubscriptionsTest.ts	417	it.effect	should deliver a resource update when its URI is subscribed	
-unported	packages/effect/test/ai/McpServer/McpConformance/SubscriptionsTest.ts	435	it.effect	should acknowledge only the supported subset when requested filters exceed server capabilities	
-unported	packages/effect/test/ai/McpServer/McpConformance/SubscriptionsTest.ts	455	it.effect	should deliver a matching event to each subscription	
-unported	packages/effect/test/ai/McpServer/McpConformance/SubscriptionsTest.ts	475	it.effect	should keep another subscription active when its peer is cancelled	
-unported	packages/effect/test/ai/McpServer/McpConformance/SubscriptionsTest.ts	512	it.effect	should preserve notification metadata and own the subscription identifier	
-unported	packages/effect/test/ai/McpServer/McpConformance/SubscriptionsTest.ts	535	it.effect	should deliver modern changes only when an active subscription matches	
-unported	packages/effect/test/ai/McpServer/McpConformance/SubscriptionsTest.ts	552	it.effect	should preserve legacy notification delivery when modern and legacy adapters are configured	
-unported	packages/effect/test/ai/McpServer/McpConformance/SubscriptionsTest.ts	567	it.effect	should stream acknowledgment before matching events when using HTTP	
-unported	packages/effect/test/ai/McpServer/McpConformance/SubscriptionsTest.ts	583	it.effect	should close only the HTTP subscription stream when its pending backlog overflows	
+ported	packages/effect/test/ai/McpServer/McpConformance/SubscriptionsTest.ts	149	it.layer	Mcp Conformance (${protocol.protocolVersion})	conformance_runs_for_every_protocol_version
+ported	packages/effect/test/ai/McpServer/McpConformance/SubscriptionsTest.ts	154	it.effect	should advertise supported subscription capabilities when features are registered	advertise_supported_subscription_caps_when_registered
+ported	packages/effect/test/ai/McpServer/McpConformance/SubscriptionsTest.ts	167	it.effect	should update discovery and subscription capabilities after late registration	update_caps_after_late_registration
+ported	packages/effect/test/ai/McpServer/McpConformance/SubscriptionsTest.ts	203	it.effect	should not advertise subscriptions and should reject listen when the transport cannot send notifications	reject_listen_when_transport_cannot_notify
+ported	packages/effect/test/ai/McpServer/McpConformance/SubscriptionsTest.ts	280	it.effect	should buffer matching events while the subscription acknowledgment is blocked	buffer_matching_events_while_ack_blocked
+ported	packages/effect/test/ai/McpServer/McpConformance/SubscriptionsTest.ts	325	it.effect	should release the scoped subscription when a blocked listener is interrupted	release_scoped_subscription_when_blocked_listener_interrupted
+ported	packages/effect/test/ai/McpServer/McpConformance/SubscriptionsTest.ts	372	it.effect	should acknowledge with the exact identifier when it is numeric or string-valued	ack_with_exact_numeric_or_string_id
+ported	packages/effect/test/ai/McpServer/McpConformance/SubscriptionsTest.ts	386	it.effect	should deliver a change notification when its kind is requested	deliver_change_notification_when_kind_requested
+ported	packages/effect/test/ai/McpServer/McpConformance/SubscriptionsTest.ts	417	it.effect	should deliver a resource update when its URI is subscribed	deliver_resource_update_when_uri_subscribed
+ported	packages/effect/test/ai/McpServer/McpConformance/SubscriptionsTest.ts	435	it.effect	should acknowledge only the supported subset when requested filters exceed server capabilities	ack_only_supported_subset_when_filters_exceed_caps
+ported	packages/effect/test/ai/McpServer/McpConformance/SubscriptionsTest.ts	455	it.effect	should deliver a matching event to each subscription	deliver_matching_event_to_each_subscription
+ported	packages/effect/test/ai/McpServer/McpConformance/SubscriptionsTest.ts	475	it.effect	should keep another subscription active when its peer is cancelled	keep_peer_active_when_sibling_cancelled
+ported	packages/effect/test/ai/McpServer/McpConformance/SubscriptionsTest.ts	512	it.effect	should preserve notification metadata and own the subscription identifier	preserve_metadata_and_own_sub_id
+ported	packages/effect/test/ai/McpServer/McpConformance/SubscriptionsTest.ts	535	it.effect	should deliver modern changes only when an active subscription matches	deliver_modern_changes_only_when_subscription_matches
+ported	packages/effect/test/ai/McpServer/McpConformance/SubscriptionsTest.ts	552	it.effect	should preserve legacy notification delivery when modern and legacy adapters are configured	preserve_legacy_delivery_with_modern_and_legacy_adapters
+ported	packages/effect/test/ai/McpServer/McpConformance/SubscriptionsTest.ts	567	it.effect	should stream acknowledgment before matching events when using HTTP	stream_ack_before_matching_events_over_http
+ported	packages/effect/test/ai/McpServer/McpConformance/SubscriptionsTest.ts	583	it.effect	should close only the HTTP subscription stream when its pending backlog overflows	close_only_overflowed_http_stream_on_backlog_overflow
 not-applicable	packages/effect/test/ai/McpServer/McpConformance/ToolsTest.ts	63	it.layer	Mcp Conformance (${protocol.protocolVersion})	suite harness declaration, not a behavior assertion
 ported	packages/effect/test/ai/McpServer/McpConformance/ToolsTest.ts	67	it.effect	MUST advertise the tools capability when tools are registered	advertises_when_registered_and_not_when_empty
 ported	packages/effect/test/ai/McpServer/McpConformance/ToolsTest.ts	75	it.effect	MUST NOT advertise the tools capability when tools are not supported	advertises_when_registered_and_not_when_empty
@@ -5003,25 +5003,25 @@ not-applicable	packages/effect/test/ai/McpServer/McpConformance/TransportsTest.t
 not-applicable	packages/effect/test/ai/McpServer/McpConformance/TransportsTest.ts	563	it.effect	should return application/json when an HTTP request has one JSON-RPC response	needs stdio/HTTP/SSE transport or session machinery; in-memory pair is the only transport
 not-applicable	packages/effect/test/ai/McpServer/McpConformance/TransportsTest.ts	573	it.effect	should reject GET and unsupported HTTP methods when only POST is available	needs stdio/HTTP/SSE transport or session machinery; in-memory pair is the only transport
 not-applicable	packages/effect/test/ai/McpServer/McpConformance/TransportsTest.ts	584	it.effect	should reject every MCP HTTP route when its Origin is not explicitly allowed	needs stdio/HTTP/SSE transport or session machinery; in-memory pair is the only transport
-unported	packages/effect/test/ai/McpServer/McpConformance/UtilitiesTest.ts	18	it.layer	Mcp Conformance (${protocol.protocolVersion})	
-unported	packages/effect/test/ai/McpServer/McpConformance/UtilitiesTest.ts	22	it.effect	MUST respond to a client ping with an empty result	
-unported	packages/effect/test/ai/McpServer/McpConformance/UtilitiesTest.ts	39	it.effect	MUST not send a response to a cancellation notification	
-unported	packages/effect/test/ai/McpServer/McpConformance/UtilitiesTest.ts	57	it.effect	SHOULD stop work and suppress the response after cancellation	
-unported	packages/effect/test/ai/McpServer/McpConformance/UtilitiesTest.ts	113	it.effect	SHOULD ignore cancellation for an unknown request identifier	
-unported	packages/effect/test/ai/McpServer/McpConformance/UtilitiesTest.ts	128	it.effect	SHOULD allow a later request to reuse an unknown cancelled identifier	
-unported	packages/effect/test/ai/McpServer/McpConformance/UtilitiesTest.ts	146	it.effect	SHOULD ignore cancellation for an already completed request identifier	
-unported	packages/effect/test/ai/McpServer/McpConformance/UtilitiesTest.ts	168	it.effect	MUST accept string progress tokens	
-unported	packages/effect/test/ai/McpServer/McpConformance/UtilitiesTest.ts	188	it.effect	MUST accept numeric progress tokens	
-unported	packages/effect/test/ai/McpServer/McpConformance/UtilitiesTest.ts	208	it.effect	SCHEMA accepts the optional total	
-unported	packages/effect/test/ai/McpServer/McpConformance/UtilitiesTest.ts	235	it.layer	Mcp Conformance (${protocol.protocolVersion})	
-unported	packages/effect/test/ai/McpServer/McpConformance/UtilitiesTest.ts	239	it.effect	should send no response when a cancellation notification is received	
-unported	packages/effect/test/ai/McpServer/McpConformance/UtilitiesTest.ts	254	it.effect	should interrupt work and suppress its response when an active request is cancelled	
-unported	packages/effect/test/ai/McpServer/McpConformance/UtilitiesTest.ts	294	it.effect	should allow a later request to reuse an identifier cancelled before it was active	
-unported	packages/effect/test/ai/McpServer/McpConformance/UtilitiesTest.ts	309	it.layer	Mcp Conformance (${protocol.protocolVersion})	
-unported	packages/effect/test/ai/McpServer/McpConformance/UtilitiesTest.ts	316	it.effect	should preserve the remaining batch result when a sibling STDIO request is cancelled	
-unported	packages/effect/test/ai/McpServer/McpConformance/UtilitiesTest.ts	347	it.effect	should cancel only the owning request when HTTP sessions reuse a request ID	
-unported	packages/effect/test/ai/McpServer/McpConformance/UtilitiesTest.ts	407	it.effect	should close without a reply when a tool is cancelled before emitting HTTP output	
-unported	packages/effect/test/ai/McpServer/McpConformance/UtilitiesTest.ts	446	it.effect	should omit cancelled replies and preserve remaining results when cancellation affects ${cancelled} of the batch requests	
+ported	packages/effect/test/ai/McpServer/McpConformance/UtilitiesTest.ts	18	it.layer	Mcp Conformance (${protocol.protocolVersion})	conformance_runs_for_every_protocol_version_a
+ported	packages/effect/test/ai/McpServer/McpConformance/UtilitiesTest.ts	22	it.effect	MUST respond to a client ping with an empty result	respond_to_client_ping_with_empty_result
+ported	packages/effect/test/ai/McpServer/McpConformance/UtilitiesTest.ts	39	it.effect	MUST not send a response to a cancellation notification	send_no_response_to_cancellation_notification
+ported	packages/effect/test/ai/McpServer/McpConformance/UtilitiesTest.ts	57	it.effect	SHOULD stop work and suppress the response after cancellation	stop_work_and_suppress_response_after_cancellation
+ported	packages/effect/test/ai/McpServer/McpConformance/UtilitiesTest.ts	113	it.effect	SHOULD ignore cancellation for an unknown request identifier	ignore_cancellation_for_unknown_request_id
+ported	packages/effect/test/ai/McpServer/McpConformance/UtilitiesTest.ts	128	it.effect	SHOULD allow a later request to reuse an unknown cancelled identifier	allow_later_request_to_reuse_unknown_cancelled_id
+ported	packages/effect/test/ai/McpServer/McpConformance/UtilitiesTest.ts	146	it.effect	SHOULD ignore cancellation for an already completed request identifier	ignore_cancellation_for_already_completed_id
+ported	packages/effect/test/ai/McpServer/McpConformance/UtilitiesTest.ts	168	it.effect	MUST accept string progress tokens	accept_string_progress_tokens
+ported	packages/effect/test/ai/McpServer/McpConformance/UtilitiesTest.ts	188	it.effect	MUST accept numeric progress tokens	accept_numeric_progress_tokens
+ported	packages/effect/test/ai/McpServer/McpConformance/UtilitiesTest.ts	208	it.effect	SCHEMA accepts the optional total	schema_accepts_optional_total
+ported	packages/effect/test/ai/McpServer/McpConformance/UtilitiesTest.ts	235	it.layer	Mcp Conformance (${protocol.protocolVersion})	conformance_runs_for_every_protocol_version_b
+ported	packages/effect/test/ai/McpServer/McpConformance/UtilitiesTest.ts	239	it.effect	should send no response when a cancellation notification is received	send_no_response_when_cancellation_received
+ported	packages/effect/test/ai/McpServer/McpConformance/UtilitiesTest.ts	254	it.effect	should interrupt work and suppress its response when an active request is cancelled	interrupt_active_request_and_suppress_response
+ported	packages/effect/test/ai/McpServer/McpConformance/UtilitiesTest.ts	294	it.effect	should allow a later request to reuse an identifier cancelled before it was active	allow_reuse_of_id_cancelled_before_active
+ported	packages/effect/test/ai/McpServer/McpConformance/UtilitiesTest.ts	309	it.layer	Mcp Conformance (${protocol.protocolVersion})	conformance_runs_for_every_protocol_version_c
+ported	packages/effect/test/ai/McpServer/McpConformance/UtilitiesTest.ts	316	it.effect	should preserve the remaining batch result when a sibling STDIO request is cancelled	preserve_remaining_batch_when_sibling_stdio_request_cancelled
+ported	packages/effect/test/ai/McpServer/McpConformance/UtilitiesTest.ts	347	it.effect	should cancel only the owning request when HTTP sessions reuse a request ID	cancel_only_owning_request_when_sessions_reuse_id
+ported	packages/effect/test/ai/McpServer/McpConformance/UtilitiesTest.ts	407	it.effect	should close without a reply when a tool is cancelled before emitting HTTP output	close_without_reply_when_tool_cancelled_before_http_output
+ported	packages/effect/test/ai/McpServer/McpConformance/UtilitiesTest.ts	446	it.effect	should omit cancelled replies and preserve remaining results when cancellation affects ${cancelled} of the batch requests	omit_cancelled_replies_preserve_rest_of_batch
 ported	packages/effect/test/ai/McpServer/McpProtocol.test.ts	81	it.effect	should reject an empty declaration when runtime input bypasses the non-empty type	rejects_an_empty_declaration
 ported	packages/effect/test/ai/McpServer/McpProtocol.test.ts	91	it.effect	should reject duplicate versions when distinct adapters declare the same version	rejects_duplicate_versions
 ported	packages/effect/test/ai/McpServer/McpProtocol.test.ts	102	it.effect	should select the matching adapter when the offered version is declared	selects_the_matching_adapter_when_declared
@@ -5104,43 +5104,43 @@ not-applicable	packages/effect/test/ai/McpServer/McpServer.test.ts	2736	it.effec
 not-applicable	packages/effect/test/ai/McpServer/McpServer.test.ts	2767	it.effect	should accept batches after falling back to a stateful protocol	needs stdio/HTTP/session/batch/SSE/Origin transport machinery; in-memory pair only
 not-applicable	packages/effect/test/ai/McpServer/McpServer.test.ts	2793	it.effect	should preserve the June wire transcript when requests use stdio	needs stdio/HTTP/session/batch/SSE/Origin transport machinery; in-memory pair only
 not-applicable	packages/effect/test/ai/McpServer/McpServer.test.ts	2873	it.effect	should emit correlated cancellation when a STDIO subscription backlog overflows	needs stdio/HTTP/session/batch/SSE/Origin transport machinery; in-memory pair only
-unported	packages/effect/test/ai/McpServer/ProtocolAdapters.test.ts	747	it.effect	should negotiate a stateful protocol when initialize offers the stateless revision	
-unported	packages/effect/test/ai/McpServer/ProtocolAdapters.test.ts	768	it.effect	should ignore a recognized legacy session when dispatching a modern request	
-unported	packages/effect/test/ai/McpServer/ProtocolAdapters.test.ts	786	it.effect	should discover the modern server without initialization or a session	
-unported	packages/effect/test/ai/McpServer/ProtocolAdapters.test.ts	807	it.effect	should expose continuation input to modern resource and prompt handlers	
-unported	packages/effect/test/ai/McpServer/ProtocolAdapters.test.ts	844	it.effect	should keep log levels isolated when one session updates its level	
-unported	packages/effect/test/ai/McpServer/ProtocolAdapters.test.ts	865	it.effect	should omit a legacy client when a toolkit registered in a session handles a stateless request	
-unported	packages/effect/test/ai/McpServer/ProtocolAdapters.test.ts	941	it.effect	should use the current HTTP request when another request registered the resource	
-unported	packages/effect/test/ai/McpServer/ProtocolAdapters.test.ts	1001	it.effect	should isolate interleaved stateful and stateless request contexts	
-unported	packages/effect/test/ai/McpServer/ProtocolAdapters.test.ts	1038	it.effect	should keep requests out of legacy routing when modern metadata is malformed	
-unported	packages/effect/test/ai/McpServer/ProtocolAdapters.test.ts	1123	it.effect	should reject client input when the selected protocol cannot encode it	
-unported	packages/effect/test/ai/McpServer/ProtocolAdapters.test.ts	1132	it.effect	should reject prompt content when the negotiated schema cannot represent it	
-unported	packages/effect/test/ai/McpServer/ProtocolAdapters.test.ts	1157	it.effect	should project canonical notifications when encoding each protocol revision	
-unported	packages/effect/test/ai/McpServer/ProtocolAdapters.test.ts	1242	it.effect	should omit elicitation when the negotiated protocol predates v2025-06-18	
-unported	packages/effect/test/ai/McpServer/ProtocolAdapters.test.ts	1258	it.effect	should expose current request metadata when invoking a handler	
-unported	packages/effect/test/ai/McpServer/ProtocolAdapters.test.ts	1292	it.effect	should reject elicitation before transport when the protocol predates v2025-06-18	
-unported	packages/effect/test/ai/McpServer/ProtocolAdapters.test.ts	1331	it.effect	should reject direct reverse operations when the selected protocol is stateless	
-unported	packages/effect/test/ai/McpServer/ProtocolAdapters.test.ts	1389	it.effect	should omit June fields when projecting a March tool descriptor	
-unported	packages/effect/test/ai/McpServer/ProtocolAdapters.test.ts	1410	it.effect	should prefer the canonical title when projecting March annotations	
-unported	packages/effect/test/ai/McpServer/ProtocolAdapters.test.ts	1427	it.effect	should return a typed protocol error when a result cannot be projected	
-unported	packages/effect/test/ai/McpServer/ProtocolAdapters.test.ts	1442	it.effect	should route each session through its negotiated RPC group when revisions coexist	
-unported	packages/effect/test/ai/McpServer/ProtocolAdapters.test.ts	1460	it.effect	should expose the negotiated client profile when serving ${protocolVersion} requests	
-unported	packages/effect/test/ai/McpServer/ProtocolAdapters.test.ts	1489	it.effect	should preserve tool titles and hints when listing tools for each revision	
-unported	packages/effect/test/ai/McpServer/ProtocolAdapters.test.ts	1520	it.effect	should project outputSchema only when the protocol revision supports it	
-unported	packages/effect/test/ai/McpServer/ProtocolAdapters.test.ts	1543	it.effect	should inline identified output schemas on the 2025 wire	
-unported	packages/effect/test/ai/McpServer/ProtocolAdapters.test.ts	1569	it.effect	should project non-object JSON Toolkit outputs only for the July protocol	
-unported	packages/effect/test/ai/McpServer/ProtocolAdapters.test.ts	1665	it.effect	should encode binary content for every revision that can represent it	
-unported	packages/effect/test/ai/McpServer/ProtocolAdapters.test.ts	1701	it.effect	should project structured content according to the negotiated revision	
-unported	packages/effect/test/ai/McpServer/ProtocolAdapters.test.ts	1766	it.effect	should preserve only supported metadata when projecting embedded resource content	
-unported	packages/effect/test/ai/McpServer/ProtocolAdapters.test.ts	1808	it.effect	should preserve result metadata while omitting June-only metadata for older revisions	
-unported	packages/effect/test/ai/McpServer/ProtocolAdapters.test.ts	1850	it.effect	should expose implementation metadata and descriptor icons when supported by the protocol	
-unported	packages/effect/test/ai/McpServer/ProtocolAdapters.test.ts	1890	it.effect	should hide and reject a tool when its declaration is incompatible with the revision	
-unported	packages/effect/test/ai/McpServer/ProtocolAdapters.test.ts	1910	it.effect	should reject after invocation when a tool result cannot be projected	
-unported	packages/effect/test/ai/McpServer/ProtocolAdapters.test.ts	1935	it.effect	should return an error result for tool execution failures on 2025-11-25	
-unported	packages/effect/test/ai/McpServer/ProtocolAdapters.test.ts	1944	it.effect	should report tool execution failures as internal errors on older revisions	
-unported	packages/effect/test/ai/McpServer/ProtocolAdapters.test.ts	1955	it.effect	should reject invalid structured content at the protocol serialization boundary	
-unported	packages/effect/test/ai/McpServer/ProtocolAdapters.test.ts	1968	it	should reject a tool schema when inputSchema is not an object	
-unported	packages/effect/test/ai/McpServer/ProtocolAdapters.test.ts	1977	it.effect	should list and invoke the latest tool when a name is registered twice	
+ported	packages/effect/test/ai/McpServer/ProtocolAdapters.test.ts	747	it.effect	should negotiate a stateful protocol when initialize offers the stateless revision	negotiate_stateful_when_initialize_offers_stateless
+ported	packages/effect/test/ai/McpServer/ProtocolAdapters.test.ts	768	it.effect	should ignore a recognized legacy session when dispatching a modern request	ignore_recognized_legacy_session_for_modern_request
+ported	packages/effect/test/ai/McpServer/ProtocolAdapters.test.ts	786	it.effect	should discover the modern server without initialization or a session	discover_modern_server_without_init_or_session
+ported	packages/effect/test/ai/McpServer/ProtocolAdapters.test.ts	807	it.effect	should expose continuation input to modern resource and prompt handlers	expose_continuation_input_to_modern_handlers
+ported	packages/effect/test/ai/McpServer/ProtocolAdapters.test.ts	844	it.effect	should keep log levels isolated when one session updates its level	keep_log_levels_isolated_per_session
+ported	packages/effect/test/ai/McpServer/ProtocolAdapters.test.ts	865	it.effect	should omit a legacy client when a toolkit registered in a session handles a stateless request	omit_legacy_client_when_toolkit_session_handles_stateless
+ported	packages/effect/test/ai/McpServer/ProtocolAdapters.test.ts	941	it.effect	should use the current HTTP request when another request registered the resource	use_current_request_when_another_registered_resource
+ported	packages/effect/test/ai/McpServer/ProtocolAdapters.test.ts	1001	it.effect	should isolate interleaved stateful and stateless request contexts	isolate_interleaved_stateful_and_stateless_contexts
+ported	packages/effect/test/ai/McpServer/ProtocolAdapters.test.ts	1038	it.effect	should keep requests out of legacy routing when modern metadata is malformed	keep_requests_out_of_legacy_routing_on_malformed_metadata
+ported	packages/effect/test/ai/McpServer/ProtocolAdapters.test.ts	1123	it.effect	should reject client input when the selected protocol cannot encode it	reject_client_input_when_protocol_cannot_encode_it
+ported	packages/effect/test/ai/McpServer/ProtocolAdapters.test.ts	1132	it.effect	should reject prompt content when the negotiated schema cannot represent it	reject_prompt_content_when_schema_cannot_represent_it
+ported	packages/effect/test/ai/McpServer/ProtocolAdapters.test.ts	1157	it.effect	should project canonical notifications when encoding each protocol revision	project_canonical_notifications_per_revision
+ported	packages/effect/test/ai/McpServer/ProtocolAdapters.test.ts	1242	it.effect	should omit elicitation when the negotiated protocol predates v2025-06-18	omit_elicitation_when_protocol_predates_june
+ported	packages/effect/test/ai/McpServer/ProtocolAdapters.test.ts	1258	it.effect	should expose current request metadata when invoking a handler	expose_current_request_metadata_when_invoking_handler
+ported	packages/effect/test/ai/McpServer/ProtocolAdapters.test.ts	1292	it.effect	should reject elicitation before transport when the protocol predates v2025-06-18	reject_elicitation_before_transport_when_protocol_predates_june
+ported	packages/effect/test/ai/McpServer/ProtocolAdapters.test.ts	1331	it.effect	should reject direct reverse operations when the selected protocol is stateless	reject_direct_reverse_ops_when_protocol_is_stateless
+ported	packages/effect/test/ai/McpServer/ProtocolAdapters.test.ts	1389	it.effect	should omit June fields when projecting a March tool descriptor	omit_june_fields_when_projecting_march_descriptor
+ported	packages/effect/test/ai/McpServer/ProtocolAdapters.test.ts	1410	it.effect	should prefer the canonical title when projecting March annotations	prefer_canonical_title_when_projecting_march_annotations
+ported	packages/effect/test/ai/McpServer/ProtocolAdapters.test.ts	1427	it.effect	should return a typed protocol error when a result cannot be projected	return_typed_protocol_error_when_result_cannot_project
+ported	packages/effect/test/ai/McpServer/ProtocolAdapters.test.ts	1442	it.effect	should route each session through its negotiated RPC group when revisions coexist	route_each_session_through_negotiated_rpc_group
+ported	packages/effect/test/ai/McpServer/ProtocolAdapters.test.ts	1460	it.effect	should expose the negotiated client profile when serving ${protocolVersion} requests	expose_negotiated_client_profile_for_each_revision
+ported	packages/effect/test/ai/McpServer/ProtocolAdapters.test.ts	1489	it.effect	should preserve tool titles and hints when listing tools for each revision	preserve_tool_titles_and_hints_when_listing_each_revision
+ported	packages/effect/test/ai/McpServer/ProtocolAdapters.test.ts	1520	it.effect	should project outputSchema only when the protocol revision supports it	project_output_schema_only_when_supported
+ported	packages/effect/test/ai/McpServer/ProtocolAdapters.test.ts	1543	it.effect	should inline identified output schemas on the 2025 wire	inline_identified_output_schemas_on_2025_wire
+ported	packages/effect/test/ai/McpServer/ProtocolAdapters.test.ts	1569	it.effect	should project non-object JSON Toolkit outputs only for the July protocol	project_non_object_toolkit_outputs_only_for_july
+ported	packages/effect/test/ai/McpServer/ProtocolAdapters.test.ts	1665	it.effect	should encode binary content for every revision that can represent it	encode_binary_content_for_every_representable_revision
+ported	packages/effect/test/ai/McpServer/ProtocolAdapters.test.ts	1701	it.effect	should project structured content according to the negotiated revision	project_structured_content_per_negotiated_revision
+ported	packages/effect/test/ai/McpServer/ProtocolAdapters.test.ts	1766	it.effect	should preserve only supported metadata when projecting embedded resource content	preserve_only_supported_metadata_for_embedded_resources
+ported	packages/effect/test/ai/McpServer/ProtocolAdapters.test.ts	1808	it.effect	should preserve result metadata while omitting June-only metadata for older revisions	preserve_result_metadata_while_omitting_june_only_for_older
+ported	packages/effect/test/ai/McpServer/ProtocolAdapters.test.ts	1850	it.effect	should expose implementation metadata and descriptor icons when supported by the protocol	expose_impl_metadata_and_icons_when_supported
+ported	packages/effect/test/ai/McpServer/ProtocolAdapters.test.ts	1890	it.effect	should hide and reject a tool when its declaration is incompatible with the revision	hide_and_reject_tool_when_declaration_incompatible
+ported	packages/effect/test/ai/McpServer/ProtocolAdapters.test.ts	1910	it.effect	should reject after invocation when a tool result cannot be projected	reject_after_invocation_when_tool_result_cannot_project
+ported	packages/effect/test/ai/McpServer/ProtocolAdapters.test.ts	1935	it.effect	should return an error result for tool execution failures on 2025-11-25	return_error_result_for_failures_on_2025_11_25
+ported	packages/effect/test/ai/McpServer/ProtocolAdapters.test.ts	1944	it.effect	should report tool execution failures as internal errors on older revisions	report_failures_as_internal_errors_on_older_revisions
+ported	packages/effect/test/ai/McpServer/ProtocolAdapters.test.ts	1955	it.effect	should reject invalid structured content at the protocol serialization boundary	reject_invalid_structured_content_at_serialization_boundary
+ported	packages/effect/test/ai/McpServer/ProtocolAdapters.test.ts	1968	it	should reject a tool schema when inputSchema is not an object	reject_tool_schema_when_input_schema_not_object
+ported	packages/effect/test/ai/McpServer/ProtocolAdapters.test.ts	1977	it.effect	should list and invoke the latest tool when a name is registered twice	list_and_invoke_latest_tool_when_name_registered_twice
 not-applicable	packages/effect/test/ai/McpServer/v2024_11_05.test.ts	35	it.layer	Mcp Conformance (${protocol.protocolVersion})	suite harness declaration, not a behavior assertion
 ported	packages/effect/test/ai/McpServer/v2024_11_05.test.ts	38	it.effect	MUST NOT advertise completions	features_server_does_not_advertise_completions
 not-applicable	packages/effect/test/ai/McpServer/v2025_03_26.test.ts	39	it.layer	Mcp Conformance (${protocol.protocolVersion})	suite harness declaration, not a behavior assertion
