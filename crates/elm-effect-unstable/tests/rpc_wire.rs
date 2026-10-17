@@ -79,6 +79,17 @@ fn ndjson_configured_max_is_honored() {
 }
 
 #[test]
+fn ndjson_max_trips_on_incremental_chunks() {
+    // RpcServer.test.ts:293 — chunks "12","34","5" with maxBufferSize 4:
+    // the cap accounts the accumulating tail, so the third chunk trips it.
+    // (Socket close/code 1009 needs a socket runtime: not represented here.)
+    let mut decoder = NdjsonDecoder::new(Some(4));
+    assert!(decoder.feed(b"12").unwrap().is_empty());
+    assert!(decoder.feed(b"34").unwrap().is_empty());
+    assert!(decoder.feed(b"5").is_err());
+}
+
+#[test]
 fn batch_single_encodes_as_object() {
     let msg = request(Json::Str("".to_string()), "m");
     let text = encode_batch(std::slice::from_ref(&msg));
