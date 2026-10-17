@@ -6,7 +6,7 @@
 #[allow(dead_code)]
 mod rpc;
 
-use rpc::{Json, Message, NdjsonDecoder, decode_batch, encode_batch};
+use rpc::{Exit, Json, Message, NdjsonDecoder, decode_batch, encode_batch};
 
 fn request(id: Json, method: &str) -> Message {
     Message::Request {
@@ -120,4 +120,54 @@ fn batch_preserves_empty_string_id() {
         decode_batch(&encode_batch(std::slice::from_ref(&msg))),
         vec![msg]
     );
+}
+
+#[test]
+fn http_empty_response_fails_unframed() {
+    // RpcClient.test.ts:182 — layerJson body "[]" carries no messages, so
+    // the request fails with a defect (no HTTP runtime here; the pure
+    // body classifier owns the contract).
+    let err = rpc::classify_http_body("[]", false).unwrap_err();
+    assert_eq!(err.message(), "Received empty HTTP response from RPC server");
+    assert!(matches!(err, rpc::RpcClientError::Defect { .. }));
+    let ok = Message::Response {
+        id: Json::Num("1".to_string()),
+        exit: Exit::Success(Json::Num("1".to_string())),
+    };
+    assert!(rpc::classify_http_body(&encode_batch(std::slice::from_ref(&ok)), false).is_ok());
+}
+
+#[test]
+fn http_empty_response_fails_framed() {
+    // RpcClient.test.ts:185 — layerNdjson body "" carries no frames, so
+    // the request fails with the same defect.
+    let err = rpc::classify_http_body("", true).unwrap_err();
+    assert_eq!(err.message(), "Received empty HTTP response from RPC server");
+    assert!(matches!(err, rpc::RpcClientError::Defect { .. }));
+    let ok = Message::Response {
+        id: Json::Num("1".to_string()),
+        exit: Exit::Success(Json::Num("1".to_string())),
+    };
+    assert!(rpc::classify_http_body(&(ok.encode() + "\n"), true).is_ok());
+}
+
+#[test]
+fn framed_close_before_complete_is_defect() {
+    // RpcClient.test.ts:188 — the framed body holds only a Chunk frame
+    // (non-terminal, skipped) and the stream ends with no terminal Exit,
+    // so the request defects.
+    let body = "{\"_tag\":\"Chunk\",\"requestId\":\"0\",\"values\":[\"event\"]}\n";
+    let mut decoder = NdjsonDecoder::new(None);
+    let messages = decoder.feed(body.as_bytes()).unwrap();
+    let err = rpc::check_stream_completed(&messages).unwrap_err();
+    assert_eq!(
+        err.message(),
+        "HTTP response ended before RPC request completed"
+    );
+    assert!(matches!(err, rpc::RpcClientError::Defect { .. }));
+    let done = Message::Response {
+        id: Json::Num("0".to_string()),
+        exit: Exit::Success(Json::Str("event".to_string())),
+    };
+    assert!(rpc::check_stream_completed(std::slice::from_ref(&done)).is_ok());
 }
