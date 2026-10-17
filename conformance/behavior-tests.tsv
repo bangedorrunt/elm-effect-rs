@@ -5269,16 +5269,16 @@ unported	packages/effect/test/ai/Prompt.test.ts	570	it	creates a system message 
 unported	packages/effect/test/ai/Prompt.test.ts	583	it	prepends text to the leading system message	
 unported	packages/effect/test/ai/Prompt.test.ts	605	it	creates a leading system message if none exists	
 unported	packages/effect/test/ai/Prompt.test.ts	623	it	creates a system message for an empty prompt	
-unported	packages/effect/test/ai/Response.test.ts	22	it.effect	preserves user failure fields with the ${name} schema	
-unported	packages/effect/test/ai/Response.test.ts	64	it.effect	round trips a returned AiError through Toolkit and AllParts JSON with an unknown failure schema	
-unported	packages/effect/test/ai/Response.test.ts	128	it.effect	round trips ${result.type} through AllParts JSON	
-unported	packages/effect/test/ai/Response.test.ts	170	it.effect	encodes a ${branch} with the ${branch} schema	
-unported	packages/effect/test/ai/Response.test.ts	186	it	rejects an encodedResult from the other branch for a ${branch}	
-unported	packages/effect/test/ai/Response.test.ts	192	it.effect	preserves a ${branch} encodedResult through an AllParts JSON round trip	
-unported	packages/effect/test/ai/Response.test.ts	202	it.effect	decodes response metadata with omitted optional fields	
-unported	packages/effect/test/ai/Response.test.ts	213	it.effect	round trips response metadata with undefined optional fields through JSON	
-unported	packages/effect/test/ai/Response.test.ts	233	it.effect	round trips HTTP request details with an undefined hash through JSON	
-unported	packages/effect/test/ai/Response.test.ts	261	it.effect	round trips a finish part with undefined optional fields through JSON	
+ported	packages/effect/test/ai/Response.test.ts	22	it.effect	preserves user failure fields with the ${name} schema	preserves_user_failure_fields_for_struct_unknown_and_record_schemas
+ported	packages/effect/test/ai/Response.test.ts	64	it.effect	round trips a returned AiError through Toolkit and AllParts JSON with an unknown failure schema	round_trips_a_returned_ai_error_through_toolkit_and_all_parts_json
+ported	packages/effect/test/ai/Response.test.ts	128	it.effect	round trips ${result.type} through AllParts JSON	round_trips_provider_defined_execution_failures_through_all_parts_json
+ported	packages/effect/test/ai/Response.test.ts	170	it.effect	encodes a ${branch} with the ${branch} schema	encodes_success_and_failure_branches_with_their_own_schema
+ported	packages/effect/test/ai/Response.test.ts	186	it	rejects an encodedResult from the other branch for a ${branch}	rejects_an_encoded_result_from_the_other_branch
+ported	packages/effect/test/ai/Response.test.ts	192	it.effect	preserves a ${branch} encodedResult through an AllParts JSON round trip	preserves_branch_encoded_results_through_an_all_parts_json_round_trip
+ported	packages/effect/test/ai/Response.test.ts	202	it.effect	decodes response metadata with omitted optional fields	decodes_response_metadata_with_omitted_optional_fields
+ported	packages/effect/test/ai/Response.test.ts	213	it.effect	round trips response metadata with undefined optional fields through JSON	round_trips_response_metadata_with_undefined_optional_fields_through_json
+ported	packages/effect/test/ai/Response.test.ts	233	it.effect	round trips HTTP request details with an undefined hash through JSON	round_trips_http_request_details_with_an_undefined_hash_through_json
+ported	packages/effect/test/ai/Response.test.ts	261	it.effect	round trips a finish part with undefined optional fields through JSON	round_trips_a_finish_part_with_undefined_optional_fields_through_json
 unported	packages/effect/test/ai/ResponseIdTracker.test.ts	49	it.effect	returns None for a fresh tracker	
 unported	packages/effect/test/ai/ResponseIdTracker.test.ts	59	it.effect	prepares only the new user message after a tracked first turn	
 unported	packages/effect/test/ai/ResponseIdTracker.test.ts	72	it.effect	shares tracker state through its Context service layer	

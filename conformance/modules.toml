@@ -1220,7 +1220,7 @@ tests = ["packages/effect/test/ai/Prompt.test.ts"]
 [[module]]
 path = "packages/effect/src/ai/Response.ts"
 class = "unstable-port"
-status = "unmatched"
+status = "matched"
 tag = "unstable"
 reason = ""
 tests = ["packages/effect/test/ai/Response.test.ts"]
