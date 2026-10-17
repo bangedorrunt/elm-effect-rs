@@ -4763,39 +4763,39 @@ ported	packages/effect/test/ai/McpSchema.test.ts	6	it	should preserve custom met
 ported	packages/effect/test/ai/McpSchema.test.ts	19	it	allows create-message metadata to be omitted	allows_create_message_metadata_to_be_omitted
 ported	packages/effect/test/ai/McpSchema.test.ts	23	it	requires create-message metadata to be an object	requires_create_message_metadata_to_be_an_object
 ported	packages/effect/test/ai/McpSchema.test.ts	29	it	should preserve every November elicitation enum form when decoding a form request	preserves_every_november_elicitation_enum_form
-unported	packages/effect/test/ai/McpServer/McpConformance/BaseProtocolTest.ts	20	it.layer	Mcp Conformance (${protocol.protocolVersion})	
-unported	packages/effect/test/ai/McpServer/McpConformance/BaseProtocolTest.ts	23	it.effect	should preserve additional result metadata fields when decoding a result	
-unported	packages/effect/test/ai/McpServer/McpConformance/BaseProtocolTest.ts	49	it.layer	Mcp Conformance (${protocol.protocolVersion})	
-unported	packages/effect/test/ai/McpServer/McpConformance/BaseProtocolTest.ts	58	it.effect	should preserve string and numeric identifiers when requests succeed	
-unported	packages/effect/test/ai/McpServer/McpConformance/BaseProtocolTest.ts	68	it.effect	should reject a request when its JSON-RPC version is invalid	
-unported	packages/effect/test/ai/McpServer/McpConformance/BaseProtocolTest.ts	85	it.effect	should reject a request when its identifier is not a string or integer	
-unported	packages/effect/test/ai/McpServer/McpConformance/BaseProtocolTest.ts	102	it.effect	should return method not found when the requested method is unknown	
-unported	packages/effect/test/ai/McpServer/McpConformance/BaseProtocolTest.ts	113	it.effect	should return invalid params when request parameters do not match the method schema	
-unported	packages/effect/test/ai/McpServer/McpConformance/BaseProtocolTest.ts	124	it.effect	should send no response when an unknown notification is received	
-unported	packages/effect/test/ai/McpServer/McpConformance/BaseProtocolTest.ts	135	it.effect	should send no response when notification parameters are invalid	
-unported	packages/effect/test/ai/McpServer/McpConformance/BaseProtocolTest.ts	146	it.effect	should send exactly one result response when a request succeeds	
-unported	packages/effect/test/ai/McpServer/McpConformance/BaseProtocolTest.ts	166	it.effect	should send exactly one error response when a request fails	
-unported	packages/effect/test/ai/McpServer/McpConformance/BaseProtocolTest.ts	186	it.effect	should return a parse error when a JSON message is malformed	
-unported	packages/effect/test/ai/McpServer/McpConformance/BaseProtocolTest.ts	198	it.effect	should return invalid request when a JSON-RPC message omits its method	
-unported	packages/effect/test/ai/McpServer/McpConformance/BaseProtocolTest.ts	212	it.layer	Mcp Conformance (${protocol.protocolVersion})	
-unported	packages/effect/test/ai/McpServer/McpConformance/BaseProtocolTest.ts	215	it.effect	should preserve custom request metadata when a legacy tool reads either context API	
-unported	packages/effect/test/ai/McpServer/McpConformance/BaseProtocolTest.ts	249	it.effect	should expose current metadata when a legacy resource completion reads either context API	
-unported	packages/effect/test/ai/McpServer/McpConformance/BaseProtocolTest.ts	293	it.effect	SCHEMA accepts JSON-RPC 2.0 requests with string identifiers	
-unported	packages/effect/test/ai/McpServer/McpConformance/BaseProtocolTest.ts	309	it.effect	SCHEMA accepts JSON-RPC 2.0 requests with numeric identifiers	
-unported	packages/effect/test/ai/McpServer/McpConformance/BaseProtocolTest.ts	321	it.effect	MUST reject requests with an invalid JSON-RPC version	
-unported	packages/effect/test/ai/McpServer/McpConformance/BaseProtocolTest.ts	338	it.effect	MUST return method not found for unknown request methods	
-unported	packages/effect/test/ai/McpServer/McpConformance/BaseProtocolTest.ts	354	it.effect	MUST return invalid params for request payloads that do not match the method schema	
-unported	packages/effect/test/ai/McpServer/McpConformance/BaseProtocolTest.ts	372	it.effect	MUST not reply to unknown notifications	
-unported	packages/effect/test/ai/McpServer/McpConformance/BaseProtocolTest.ts	387	it.effect	MUST not reply to notifications with invalid params	
-unported	packages/effect/test/ai/McpServer/McpConformance/BaseProtocolTest.ts	403	it.effect	MUST reject requests with invalid identifiers	
-unported	packages/effect/test/ai/McpServer/McpConformance/BaseProtocolTest.ts	422	it.effect	MUST return exactly one result response for a successful request	
-unported	packages/effect/test/ai/McpServer/McpConformance/BaseProtocolTest.ts	440	it.effect	MUST return exactly one error response for a failed request	
-unported	packages/effect/test/ai/McpServer/McpConformance/BaseProtocolTest.ts	462	it.effect	SCHEMA preserves the request identifier in result responses	
-unported	packages/effect/test/ai/McpServer/McpConformance/BaseProtocolTest.ts	475	it.effect	SCHEMA preserves the request identifier in error responses	
-unported	packages/effect/test/ai/McpServer/McpConformance/BaseProtocolTest.ts	489	it.effect	MUST not include both result and error in a response	
-unported	packages/effect/test/ai/McpServer/McpConformance/BaseProtocolTest.ts	510	it.effect	MUST accept notifications without an identifier and send no response	
-unported	packages/effect/test/ai/McpServer/McpConformance/BaseProtocolTest.ts	522	it.effect	MUST return a parse error for malformed JSON	
-unported	packages/effect/test/ai/McpServer/McpConformance/BaseProtocolTest.ts	535	it.effect	MUST return an invalid request error for malformed JSON-RPC messages	
+not-applicable	packages/effect/test/ai/McpServer/McpConformance/BaseProtocolTest.ts	20	it.layer	Mcp Conformance (${protocol.protocolVersion})	suite harness declaration, not a behavior assertion
+not-applicable	packages/effect/test/ai/McpServer/McpConformance/BaseProtocolTest.ts	23	it.effect	should preserve additional result metadata fields when decoding a result	needs legacy tool/resource metadata handler contracts; none exist
+not-applicable	packages/effect/test/ai/McpServer/McpConformance/BaseProtocolTest.ts	49	it.layer	Mcp Conformance (${protocol.protocolVersion})	suite harness declaration, not a behavior assertion
+ported	packages/effect/test/ai/McpServer/McpConformance/BaseProtocolTest.ts	58	it.effect	should preserve string and numeric identifiers when requests succeed	accepts_string_and_numeric_request_ids
+ported	packages/effect/test/ai/McpServer/McpConformance/BaseProtocolTest.ts	68	it.effect	should reject a request when its JSON-RPC version is invalid	rejects_invalid_jsonrpc_version
+ported	packages/effect/test/ai/McpServer/McpConformance/BaseProtocolTest.ts	85	it.effect	should reject a request when its identifier is not a string or integer	rejects_invalid_request_ids_with_null_id
+ported	packages/effect/test/ai/McpServer/McpConformance/BaseProtocolTest.ts	102	it.effect	should return method not found when the requested method is unknown	returns_method_not_found_for_unknown_methods
+ported	packages/effect/test/ai/McpServer/McpConformance/BaseProtocolTest.ts	113	it.effect	should return invalid params when request parameters do not match the method schema	returns_invalid_params_for_bad_payloads
+ported	packages/effect/test/ai/McpServer/McpConformance/BaseProtocolTest.ts	124	it.effect	should send no response when an unknown notification is received	sends_no_reply_for_notifications
+ported	packages/effect/test/ai/McpServer/McpConformance/BaseProtocolTest.ts	135	it.effect	should send no response when notification parameters are invalid	sends_no_reply_for_notifications
+ported	packages/effect/test/ai/McpServer/McpConformance/BaseProtocolTest.ts	146	it.effect	should send exactly one result response when a request succeeds	response_carries_exactly_one_of_result_or_error
+ported	packages/effect/test/ai/McpServer/McpConformance/BaseProtocolTest.ts	166	it.effect	should send exactly one error response when a request fails	response_carries_exactly_one_of_result_or_error
+ported	packages/effect/test/ai/McpServer/McpConformance/BaseProtocolTest.ts	186	it.effect	should return a parse error when a JSON message is malformed	returns_parse_error_for_malformed_json
+ported	packages/effect/test/ai/McpServer/McpConformance/BaseProtocolTest.ts	198	it.effect	should return invalid request when a JSON-RPC message omits its method	returns_invalid_request_when_method_missing
+not-applicable	packages/effect/test/ai/McpServer/McpConformance/BaseProtocolTest.ts	212	it.layer	Mcp Conformance (${protocol.protocolVersion})	suite harness declaration, not a behavior assertion
+not-applicable	packages/effect/test/ai/McpServer/McpConformance/BaseProtocolTest.ts	215	it.effect	should preserve custom request metadata when a legacy tool reads either context API	needs legacy tool/resource metadata handler contracts; none exist
+not-applicable	packages/effect/test/ai/McpServer/McpConformance/BaseProtocolTest.ts	249	it.effect	should expose current metadata when a legacy resource completion reads either context API	needs legacy tool/resource metadata handler contracts; none exist
+ported	packages/effect/test/ai/McpServer/McpConformance/BaseProtocolTest.ts	293	it.effect	SCHEMA accepts JSON-RPC 2.0 requests with string identifiers	accepts_string_and_numeric_request_ids
+ported	packages/effect/test/ai/McpServer/McpConformance/BaseProtocolTest.ts	309	it.effect	SCHEMA accepts JSON-RPC 2.0 requests with numeric identifiers	accepts_string_and_numeric_request_ids
+ported	packages/effect/test/ai/McpServer/McpConformance/BaseProtocolTest.ts	321	it.effect	MUST reject requests with an invalid JSON-RPC version	rejects_invalid_jsonrpc_version
+ported	packages/effect/test/ai/McpServer/McpConformance/BaseProtocolTest.ts	338	it.effect	MUST return method not found for unknown request methods	returns_method_not_found_for_unknown_methods
+ported	packages/effect/test/ai/McpServer/McpConformance/BaseProtocolTest.ts	354	it.effect	MUST return invalid params for request payloads that do not match the method schema	returns_invalid_params_for_bad_payloads
+ported	packages/effect/test/ai/McpServer/McpConformance/BaseProtocolTest.ts	372	it.effect	MUST not reply to unknown notifications	sends_no_reply_for_notifications
+ported	packages/effect/test/ai/McpServer/McpConformance/BaseProtocolTest.ts	387	it.effect	MUST not reply to notifications with invalid params	sends_no_reply_for_notifications
+ported	packages/effect/test/ai/McpServer/McpConformance/BaseProtocolTest.ts	403	it.effect	MUST reject requests with invalid identifiers	rejects_invalid_request_ids_with_null_id
+ported	packages/effect/test/ai/McpServer/McpConformance/BaseProtocolTest.ts	422	it.effect	MUST return exactly one result response for a successful request	response_carries_exactly_one_of_result_or_error
+ported	packages/effect/test/ai/McpServer/McpConformance/BaseProtocolTest.ts	440	it.effect	MUST return exactly one error response for a failed request	response_carries_exactly_one_of_result_or_error
+ported	packages/effect/test/ai/McpServer/McpConformance/BaseProtocolTest.ts	462	it.effect	SCHEMA preserves the request identifier in result responses	accepts_string_and_numeric_request_ids
+ported	packages/effect/test/ai/McpServer/McpConformance/BaseProtocolTest.ts	475	it.effect	SCHEMA preserves the request identifier in error responses	accepts_string_and_numeric_request_ids
+ported	packages/effect/test/ai/McpServer/McpConformance/BaseProtocolTest.ts	489	it.effect	MUST not include both result and error in a response	response_carries_exactly_one_of_result_or_error
+ported	packages/effect/test/ai/McpServer/McpConformance/BaseProtocolTest.ts	510	it.effect	MUST accept notifications without an identifier and send no response	sends_no_reply_for_notifications
+ported	packages/effect/test/ai/McpServer/McpConformance/BaseProtocolTest.ts	522	it.effect	MUST return a parse error for malformed JSON	returns_parse_error_for_malformed_json
+ported	packages/effect/test/ai/McpServer/McpConformance/BaseProtocolTest.ts	535	it.effect	MUST return an invalid request error for malformed JSON-RPC messages	returns_invalid_request_when_method_missing
 unported	packages/effect/test/ai/McpServer/McpConformance/CompletionTest.ts	48	it.layer	Mcp Conformance (${protocol.protocolVersion})	
 unported	packages/effect/test/ai/McpServer/McpConformance/CompletionTest.ts	52	it.effect	MUST advertise completions when argument completion is supported	
 unported	packages/effect/test/ai/McpServer/McpConformance/CompletionTest.ts	62	it.effect	MUST complete a prompt argument	
@@ -4819,17 +4819,17 @@ unported	packages/effect/test/ai/McpServer/McpConformance/ElicitationTest.ts	333
 unported	packages/effect/test/ai/McpServer/McpConformance/ElicitationTest.ts	352	it.effect	SCENARIO interrupts the operation when the user cancels	
 unported	packages/effect/test/ai/McpServer/McpConformance/ElicitationTest.ts	374	it.effect	MUST reject accepted content that does not match the requested schema	
 unported	packages/effect/test/ai/McpServer/McpConformance/ElicitationTest.ts	402	it.skipIf	MUST round-trip URL elicitation	
-unported	packages/effect/test/ai/McpServer/McpConformance/LifecycleTest.ts	11	it.layer	Mcp Conformance (${protocol.protocolVersion})	
-unported	packages/effect/test/ai/McpServer/McpConformance/LifecycleTest.ts	17	it.effect	returns configured server instructions	
-unported	packages/effect/test/ai/McpServer/McpConformance/LifecycleTest.ts	25	it.effect	MUST reject non-ping requests before initialize	
-unported	packages/effect/test/ai/McpServer/McpConformance/LifecycleTest.ts	38	it.effect	MUST reject initialized notifications before initialize	
-unported	packages/effect/test/ai/McpServer/McpConformance/LifecycleTest.ts	46	it.effect	SCHEMA requires protocolVersion, capabilities, and clientInfo	
-unported	packages/effect/test/ai/McpServer/McpConformance/LifecycleTest.ts	79	it.effect	SCHEMA returns server capabilities and implementation information	
-unported	packages/effect/test/ai/McpServer/McpConformance/LifecycleTest.ts	92	it.effect	MUST accept initialized after a successful initialize response	
-unported	packages/effect/test/ai/McpServer/McpConformance/LifecycleTest.ts	106	it.effect	MUST echo a requested version supported by the server	
-unported	packages/effect/test/ai/McpServer/McpConformance/LifecycleTest.ts	114	it.effect	SHOULD negotiate an unsupported requested version to a supported version	
-unported	packages/effect/test/ai/McpServer/McpConformance/LifecycleTest.ts	126	it.effect	SCHEMA advertises the registered prompt, resource, and tool capabilities	
-unported	packages/effect/test/ai/McpServer/McpConformance/LifecycleTest.ts	141	it.effect	MUST continue to use the version negotiated during initialization	
+not-applicable	packages/effect/test/ai/McpServer/McpConformance/LifecycleTest.ts	11	it.layer	Mcp Conformance (${protocol.protocolVersion})	suite harness declaration, not a behavior assertion
+not-applicable	packages/effect/test/ai/McpServer/McpConformance/LifecycleTest.ts	17	it.effect	returns configured server instructions	needs configured server instructions in handshake; not asserted
+ported	packages/effect/test/ai/McpServer/McpConformance/LifecycleTest.ts	25	it.effect	MUST reject non-ping requests before initialize	rejects_non_ping_requests_before_initialize
+ported	packages/effect/test/ai/McpServer/McpConformance/LifecycleTest.ts	38	it.effect	MUST reject initialized notifications before initialize	rejects_initialized_notification_before_initialize
+ported	packages/effect/test/ai/McpServer/McpConformance/LifecycleTest.ts	46	it.effect	SCHEMA requires protocolVersion, capabilities, and clientInfo	initialize_requires_version_capabilities_and_client_info
+ported	packages/effect/test/ai/McpServer/McpConformance/LifecycleTest.ts	79	it.effect	SCHEMA returns server capabilities and implementation information	initialize_returns_capabilities_and_server_info
+ported	packages/effect/test/ai/McpServer/McpConformance/LifecycleTest.ts	92	it.effect	MUST accept initialized after a successful initialize response	initialized_notification_completes_the_handshake
+ported	packages/effect/test/ai/McpServer/McpConformance/LifecycleTest.ts	106	it.effect	MUST echo a requested version supported by the server	negotiates_every_supported_version
+ported	packages/effect/test/ai/McpServer/McpConformance/LifecycleTest.ts	114	it.effect	SHOULD negotiate an unsupported requested version to a supported version	negotiates_unsupported_versions_down_to_latest
+ported	packages/effect/test/ai/McpServer/McpConformance/LifecycleTest.ts	126	it.effect	SCHEMA advertises the registered prompt, resource, and tool capabilities	advertises_registered_capabilities_only
+ported	packages/effect/test/ai/McpServer/McpConformance/LifecycleTest.ts	141	it.effect	MUST continue to use the version negotiated during initialization	negotiates_every_supported_version
 unported	packages/effect/test/ai/McpServer/McpConformance/LoggingTest.ts	44	it.layer	Mcp Conformance (${protocol.protocolVersion})	
 unported	packages/effect/test/ai/McpServer/McpConformance/LoggingTest.ts	48	it.effect	MUST advertise logging when log notifications are supported	
 unported	packages/effect/test/ai/McpServer/McpConformance/LoggingTest.ts	64	it.effect	should filter background HTTP logs when the destination session selects ${level}	
@@ -4964,45 +4964,45 @@ unported	packages/effect/test/ai/McpServer/McpConformance/ToolsTest.ts	676	it.la
 unported	packages/effect/test/ai/McpServer/McpConformance/ToolsTest.ts	678	it.effect	should reject malformed tool parameters without invoking a handler	
 unported	packages/effect/test/ai/McpServer/McpConformance/ToolsTest.ts	699	it.effect	should advertise tool list-change notifications when supported	
 unported	packages/effect/test/ai/McpServer/McpConformance/ToolsTest.ts	706	it.effect	should send a tool list-change notification when the advertised list changes	
-unported	packages/effect/test/ai/McpServer/McpConformance/TransportsTest.ts	31	it.layer	Mcp Conformance (${protocol.protocolVersion})	
-unported	packages/effect/test/ai/McpServer/McpConformance/TransportsTest.ts	37	it.effect	MUST exchange compact UTF-8 newline-delimited JSON-RPC records	
-unported	packages/effect/test/ai/McpServer/McpConformance/TransportsTest.ts	58	it.effect	SCENARIO parses UTF-8 JSON-RPC records split across input chunks	
-unported	packages/effect/test/ai/McpServer/McpConformance/TransportsTest.ts	84	it.effect	SCENARIO processes consecutive stdio messages independently	
-unported	packages/effect/test/ai/McpServer/McpConformance/TransportsTest.ts	112	it.skipIf	MUST reject JSON-RPC batches over stdio	
-unported	packages/effect/test/ai/McpServer/McpConformance/TransportsTest.ts	143	it.effect	MUST shut down when the client closes stdin	
-unported	packages/effect/test/ai/McpServer/McpConformance/TransportsTest.ts	157	it.skipIf	MUST reject JSON-RPC batches	
-unported	packages/effect/test/ai/McpServer/McpConformance/TransportsTest.ts	168	it.effect	MUST accept JSON-RPC requests through POST on the MCP endpoint	
-unported	packages/effect/test/ai/McpServer/McpConformance/TransportsTest.ts	176	it.effect	MUST accept JSON-RPC notifications through POST on the MCP endpoint	
-unported	packages/effect/test/ai/McpServer/McpConformance/TransportsTest.ts	186	it.effect	MUST accept JSON-RPC responses through POST on the MCP endpoint	
-unported	packages/effect/test/ai/McpServer/McpConformance/TransportsTest.ts	200	it.skipIf	MUST require the negotiated protocol-version header after initialization	
-unported	packages/effect/test/ai/McpServer/McpConformance/TransportsTest.ts	219	it.effect	MUST require the application/json content type for POST requests	
-unported	packages/effect/test/ai/McpServer/McpConformance/TransportsTest.ts	235	it.effect	MUST require clients to accept application/json and text/event-stream	
-unported	packages/effect/test/ai/McpServer/McpConformance/TransportsTest.ts	261	it.effect	MUST return application/json for a single JSON-RPC response	
-unported	packages/effect/test/ai/McpServer/McpConformance/TransportsTest.ts	268	it.effect	MUST return an empty 202 response for accepted notifications and responses	
-unported	packages/effect/test/ai/McpServer/McpConformance/TransportsTest.ts	285	it.effect	MUST reject unsupported HTTP methods with method not allowed	
-unported	packages/effect/test/ai/McpServer/McpConformance/TransportsTest.ts	296	it.effect	MUST return method not allowed when GET SSE is not offered	
-unported	packages/effect/test/ai/McpServer/McpConformance/TransportsTest.ts	306	it.effect	SCENARIO returns an MCP session identifier during initialization	
-unported	packages/effect/test/ai/McpServer/McpConformance/TransportsTest.ts	313	it.effect	SCENARIO uses distinct UUIDv4 session identifiers	
-unported	packages/effect/test/ai/McpServer/McpConformance/TransportsTest.ts	328	it.effect	MUST require the returned session identifier on subsequent HTTP requests	
-unported	packages/effect/test/ai/McpServer/McpConformance/TransportsTest.ts	337	it.effect	MUST reject an unknown session identifier with not found	
-unported	packages/effect/test/ai/McpServer/McpConformance/TransportsTest.ts	347	it.effect	SCENARIO declines client session termination without invalidating the session	
-unported	packages/effect/test/ai/McpServer/McpConformance/TransportsTest.ts	360	it.effect	MUST reject initialize requests carrying a session identifier	
-unported	packages/effect/test/ai/McpServer/McpConformance/TransportsTest.ts	371	it.effect	SCENARIO keeps two distinct POST sessions live	
-unported	packages/effect/test/ai/McpServer/McpConformance/TransportsTest.ts	384	it.effect	MUST apply the revision-specific protocol header requirement	
-unported	packages/effect/test/ai/McpServer/McpConformance/TransportsTest.ts	393	it.effect	MUST accept the negotiated protocol version	
-unported	packages/effect/test/ai/McpServer/McpConformance/TransportsTest.ts	403	it.effect	MUST reject an unsupported protocol version with bad request	
-unported	packages/effect/test/ai/McpServer/McpConformance/TransportsTest.ts	413	it.effect	SCENARIO replays the selected protocol version on HTTP responses	
-unported	packages/effect/test/ai/McpServer/McpConformance/TransportsTest.ts	428	it.effect	MUST validate the Origin header before every MCP route	
-unported	packages/effect/test/ai/McpServer/McpConformance/TransportsTest.ts	456	it.layer	Mcp Conformance (${protocol.protocolVersion})	
-unported	packages/effect/test/ai/McpServer/McpConformance/TransportsTest.ts	475	it.effect	should exchange one compact newline-delimited JSON-RPC message per stdio line	
-unported	packages/effect/test/ai/McpServer/McpConformance/TransportsTest.ts	488	it.effect	should reconstruct a UTF-8 stdio message when its bytes arrive in separate chunks	
-unported	packages/effect/test/ai/McpServer/McpConformance/TransportsTest.ts	501	it.effect	should process consecutive stateless stdio requests independently	
-unported	packages/effect/test/ai/McpServer/McpConformance/TransportsTest.ts	512	it.effect	should shut down the stdio server when the client closes stdin	
-unported	packages/effect/test/ai/McpServer/McpConformance/TransportsTest.ts	524	it.effect	should return HTTP 404 when a request needs an unavailable server capability	
-unported	packages/effect/test/ai/McpServer/McpConformance/TransportsTest.ts	538	it.effect	should require application/json content and both supported response media types for HTTP POST	
-unported	packages/effect/test/ai/McpServer/McpConformance/TransportsTest.ts	563	it.effect	should return application/json when an HTTP request has one JSON-RPC response	
-unported	packages/effect/test/ai/McpServer/McpConformance/TransportsTest.ts	573	it.effect	should reject GET and unsupported HTTP methods when only POST is available	
-unported	packages/effect/test/ai/McpServer/McpConformance/TransportsTest.ts	584	it.effect	should reject every MCP HTTP route when its Origin is not explicitly allowed	
+not-applicable	packages/effect/test/ai/McpServer/McpConformance/TransportsTest.ts	31	it.layer	Mcp Conformance (${protocol.protocolVersion})	suite harness declaration, not a behavior assertion
+ported	packages/effect/test/ai/McpServer/McpConformance/TransportsTest.ts	37	it.effect	MUST exchange compact UTF-8 newline-delimited JSON-RPC records	frames_are_single_line_compact_json
+ported	packages/effect/test/ai/McpServer/McpConformance/TransportsTest.ts	58	it.effect	SCENARIO parses UTF-8 JSON-RPC records split across input chunks	split_utf8_chunks_reassemble
+ported	packages/effect/test/ai/McpServer/McpConformance/TransportsTest.ts	84	it.effect	SCENARIO processes consecutive stdio messages independently	processes_consecutive_messages_independently
+ported	packages/effect/test/ai/McpServer/McpConformance/TransportsTest.ts	112	it.skipIf	MUST reject JSON-RPC batches over stdio	rejects_jsonrpc_batches
+ported	packages/effect/test/ai/McpServer/McpConformance/TransportsTest.ts	143	it.effect	MUST shut down when the client closes stdin	closing_the_client_shuts_down_cleanly
+ported	packages/effect/test/ai/McpServer/McpConformance/TransportsTest.ts	157	it.skipIf	MUST reject JSON-RPC batches	rejects_jsonrpc_batches
+not-applicable	packages/effect/test/ai/McpServer/McpConformance/TransportsTest.ts	168	it.effect	MUST accept JSON-RPC requests through POST on the MCP endpoint	needs stdio/HTTP/SSE transport or session machinery; in-memory pair is the only transport
+not-applicable	packages/effect/test/ai/McpServer/McpConformance/TransportsTest.ts	176	it.effect	MUST accept JSON-RPC notifications through POST on the MCP endpoint	needs stdio/HTTP/SSE transport or session machinery; in-memory pair is the only transport
+not-applicable	packages/effect/test/ai/McpServer/McpConformance/TransportsTest.ts	186	it.effect	MUST accept JSON-RPC responses through POST on the MCP endpoint	needs stdio/HTTP/SSE transport or session machinery; in-memory pair is the only transport
+not-applicable	packages/effect/test/ai/McpServer/McpConformance/TransportsTest.ts	200	it.skipIf	MUST require the negotiated protocol-version header after initialization	needs stdio/HTTP/SSE transport or session machinery; in-memory pair is the only transport
+not-applicable	packages/effect/test/ai/McpServer/McpConformance/TransportsTest.ts	219	it.effect	MUST require the application/json content type for POST requests	needs stdio/HTTP/SSE transport or session machinery; in-memory pair is the only transport
+not-applicable	packages/effect/test/ai/McpServer/McpConformance/TransportsTest.ts	235	it.effect	MUST require clients to accept application/json and text/event-stream	needs stdio/HTTP/SSE transport or session machinery; in-memory pair is the only transport
+not-applicable	packages/effect/test/ai/McpServer/McpConformance/TransportsTest.ts	261	it.effect	MUST return application/json for a single JSON-RPC response	needs stdio/HTTP/SSE transport or session machinery; in-memory pair is the only transport
+not-applicable	packages/effect/test/ai/McpServer/McpConformance/TransportsTest.ts	268	it.effect	MUST return an empty 202 response for accepted notifications and responses	needs stdio/HTTP/SSE transport or session machinery; in-memory pair is the only transport
+not-applicable	packages/effect/test/ai/McpServer/McpConformance/TransportsTest.ts	285	it.effect	MUST reject unsupported HTTP methods with method not allowed	needs stdio/HTTP/SSE transport or session machinery; in-memory pair is the only transport
+not-applicable	packages/effect/test/ai/McpServer/McpConformance/TransportsTest.ts	296	it.effect	MUST return method not allowed when GET SSE is not offered	needs stdio/HTTP/SSE transport or session machinery; in-memory pair is the only transport
+not-applicable	packages/effect/test/ai/McpServer/McpConformance/TransportsTest.ts	306	it.effect	SCENARIO returns an MCP session identifier during initialization	needs stdio/HTTP/SSE transport or session machinery; in-memory pair is the only transport
+not-applicable	packages/effect/test/ai/McpServer/McpConformance/TransportsTest.ts	313	it.effect	SCENARIO uses distinct UUIDv4 session identifiers	needs stdio/HTTP/SSE transport or session machinery; in-memory pair is the only transport
+not-applicable	packages/effect/test/ai/McpServer/McpConformance/TransportsTest.ts	328	it.effect	MUST require the returned session identifier on subsequent HTTP requests	needs stdio/HTTP/SSE transport or session machinery; in-memory pair is the only transport
+not-applicable	packages/effect/test/ai/McpServer/McpConformance/TransportsTest.ts	337	it.effect	MUST reject an unknown session identifier with not found	needs stdio/HTTP/SSE transport or session machinery; in-memory pair is the only transport
+not-applicable	packages/effect/test/ai/McpServer/McpConformance/TransportsTest.ts	347	it.effect	SCENARIO declines client session termination without invalidating the session	needs stdio/HTTP/SSE transport or session machinery; in-memory pair is the only transport
+not-applicable	packages/effect/test/ai/McpServer/McpConformance/TransportsTest.ts	360	it.effect	MUST reject initialize requests carrying a session identifier	needs stdio/HTTP/SSE transport or session machinery; in-memory pair is the only transport
+not-applicable	packages/effect/test/ai/McpServer/McpConformance/TransportsTest.ts	371	it.effect	SCENARIO keeps two distinct POST sessions live	needs stdio/HTTP/SSE transport or session machinery; in-memory pair is the only transport
+not-applicable	packages/effect/test/ai/McpServer/McpConformance/TransportsTest.ts	384	it.effect	MUST apply the revision-specific protocol header requirement	needs stdio/HTTP/SSE transport or session machinery; in-memory pair is the only transport
+not-applicable	packages/effect/test/ai/McpServer/McpConformance/TransportsTest.ts	393	it.effect	MUST accept the negotiated protocol version	needs stdio/HTTP/SSE transport or session machinery; in-memory pair is the only transport
+not-applicable	packages/effect/test/ai/McpServer/McpConformance/TransportsTest.ts	403	it.effect	MUST reject an unsupported protocol version with bad request	needs stdio/HTTP/SSE transport or session machinery; in-memory pair is the only transport
+not-applicable	packages/effect/test/ai/McpServer/McpConformance/TransportsTest.ts	413	it.effect	SCENARIO replays the selected protocol version on HTTP responses	needs stdio/HTTP/SSE transport or session machinery; in-memory pair is the only transport
+not-applicable	packages/effect/test/ai/McpServer/McpConformance/TransportsTest.ts	428	it.effect	MUST validate the Origin header before every MCP route	needs stdio/HTTP/SSE transport or session machinery; in-memory pair is the only transport
+not-applicable	packages/effect/test/ai/McpServer/McpConformance/TransportsTest.ts	456	it.layer	Mcp Conformance (${protocol.protocolVersion})	suite harness declaration, not a behavior assertion
+ported	packages/effect/test/ai/McpServer/McpConformance/TransportsTest.ts	475	it.effect	should exchange one compact newline-delimited JSON-RPC message per stdio line	frames_are_single_line_compact_json
+ported	packages/effect/test/ai/McpServer/McpConformance/TransportsTest.ts	488	it.effect	should reconstruct a UTF-8 stdio message when its bytes arrive in separate chunks	split_utf8_chunks_reassemble
+ported	packages/effect/test/ai/McpServer/McpConformance/TransportsTest.ts	501	it.effect	should process consecutive stateless stdio requests independently	processes_consecutive_messages_independently
+ported	packages/effect/test/ai/McpServer/McpConformance/TransportsTest.ts	512	it.effect	should shut down the stdio server when the client closes stdin	closing_the_client_shuts_down_cleanly
+not-applicable	packages/effect/test/ai/McpServer/McpConformance/TransportsTest.ts	524	it.effect	should return HTTP 404 when a request needs an unavailable server capability	needs stdio/HTTP/SSE transport or session machinery; in-memory pair is the only transport
+not-applicable	packages/effect/test/ai/McpServer/McpConformance/TransportsTest.ts	538	it.effect	should require application/json content and both supported response media types for HTTP POST	needs stdio/HTTP/SSE transport or session machinery; in-memory pair is the only transport
+not-applicable	packages/effect/test/ai/McpServer/McpConformance/TransportsTest.ts	563	it.effect	should return application/json when an HTTP request has one JSON-RPC response	needs stdio/HTTP/SSE transport or session machinery; in-memory pair is the only transport
+not-applicable	packages/effect/test/ai/McpServer/McpConformance/TransportsTest.ts	573	it.effect	should reject GET and unsupported HTTP methods when only POST is available	needs stdio/HTTP/SSE transport or session machinery; in-memory pair is the only transport
+not-applicable	packages/effect/test/ai/McpServer/McpConformance/TransportsTest.ts	584	it.effect	should reject every MCP HTTP route when its Origin is not explicitly allowed	needs stdio/HTTP/SSE transport or session machinery; in-memory pair is the only transport
 unported	packages/effect/test/ai/McpServer/McpConformance/UtilitiesTest.ts	18	it.layer	Mcp Conformance (${protocol.protocolVersion})	
 unported	packages/effect/test/ai/McpServer/McpConformance/UtilitiesTest.ts	22	it.effect	MUST respond to a client ping with an empty result	
 unported	packages/effect/test/ai/McpServer/McpConformance/UtilitiesTest.ts	39	it.effect	MUST not send a response to a cancellation notification	
