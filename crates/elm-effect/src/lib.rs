@@ -11,28 +11,46 @@
 //!   never catches.
 //! - Phase 1 has zero `unsafe`.
 
+mod basics;
 pub mod cause;
+mod channel;
 #[cfg(feature = "tokio")]
 mod concurrency;
+mod config;
+mod config_provider;
 mod context;
+mod crypto;
 mod effect;
+mod execution_plan;
 #[cfg(feature = "tokio")]
 mod executor;
 mod exit;
 #[cfg(feature = "tokio")]
 mod fiber;
+mod formatter;
 mod foundation;
 pub mod filesystem;
+mod graph;
 #[cfg(feature = "tokio")]
 mod layer;
 mod metric;
+mod json;
+mod json_patch;
+mod json_pointer;
+mod json_schema;
 mod optic;
+mod partitioned_semaphore;
+mod path;
 #[cfg(feature = "tokio")]
 mod policy;
 pub mod predicate;
+mod platform_error;
+mod pubsub;
+mod pull;
 #[cfg(feature = "tokio")]
 mod runtime;
 mod schedule;
+mod scheduler;
 #[cfg(feature = "tokio")]
 mod scope;
 mod service;
@@ -40,11 +58,14 @@ mod service;
 mod stm;
 #[cfg(feature = "tokio")]
 mod stream;
+mod subscription_ref;
 #[cfg(feature = "tokio")]
 mod supervision;
 mod supervisor;
 mod sync;
+mod take;
 mod time;
+mod utils_gen;
 
 pub use cause::{
     is_exceeded_capacity_error, is_illegal_argument_error, is_no_such_element_error,
