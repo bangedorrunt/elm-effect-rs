@@ -9082,35 +9082,35 @@ not-applicable	packages/effect/test/schema/representation/toCodeDocument.test.ts
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.test.ts	1845	it	HashMap(String, Number)	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.test.ts	1857	it	should resolve references	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.test.ts	1883	it	should resolve references in definitions	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-unported	packages/effect/test/schema/representation/toJson.test.ts	35	it	rejects invalid documents	
-unported	packages/effect/test/schema/representation/toJson.test.ts	46	it	rejects checks on Suspend representations	
-unported	packages/effect/test/schema/representation/toJson.test.ts	61	it	requires representation when persisting a Filter	
-unported	packages/effect/test/schema/representation/toJson.test.ts	72	it	removes live callbacks and preserves JSON annotations from a custom filter	
-unported	packages/effect/test/schema/representation/toJson.test.ts	110	it	removes live callbacks from a custom declaration	
-unported	packages/effect/test/schema/representation/toJson.test.ts	135	it	preserves JSON annotations	
-unported	packages/effect/test/schema/representation/toJson.test.ts	150	it	omits annotations containing only non-JSON values	
-unported	packages/effect/test/schema/representation/toJson.test.ts	161	it	omits undefined annotations	
-unported	packages/effect/test/schema/representation/toJson.test.ts	172	it	prunes nested representation annotations	
-unported	packages/effect/test/schema/representation/toJson.test.ts	200	it	prunes annotations in check schema dependencies	
-unported	packages/effect/test/schema/representation/toJson.test.ts	240	it	preserves __proto__ annotations as data properties	
-unported	packages/effect/test/schema/representation/toJson.test.ts	261	it	preserves shared JSON annotation values	
-unported	packages/effect/test/schema/representation/toJson.test.ts	282	it	omits a cyclic annotation atomically	
-unported	packages/effect/test/schema/representation/toJson.test.ts	299	it	omits a sparse-array annotation atomically	
-unported	packages/effect/test/schema/representation/toJson.test.ts	315	it	omits an annotation containing bigint atomically	
-unported	packages/effect/test/schema/representation/toJson.test.ts	330	it	omits an annotation containing undefined atomically	
-unported	packages/effect/test/schema/representation/toJson.test.ts	345	it	encodes annotation accessors	
-unported	packages/effect/test/schema/representation/toJson.test.ts	365	it	preserves filter groups without an identity	
-unported	packages/effect/test/schema/representation/toJson.test.ts	401	it	preserves tuple element annotations independently	
-unported	packages/effect/test/schema/representation/toJson.test.ts	424	it	preserves property annotations independently	
-unported	packages/effect/test/schema/representation/toJson.test.ts	449	it	encodes bigint structural values	
-unported	packages/effect/test/schema/representation/toJson.test.ts	463	it	preserves ambiguous Enum values	
-unported	packages/effect/test/schema/representation/toJson.test.ts	488	it	preserves ambiguous property names	
-unported	packages/effect/test/schema/representation/toJson.test.ts	516	it	preserves string literals resembling non-finite numbers	
-unported	packages/effect/test/schema/representation/toJson.test.ts	528	it	encodes global symbols	
-unported	packages/effect/test/schema/representation/toJson.test.ts	544	it	rejects local symbols	
-unported	packages/effect/test/schema/representation/toJson.test.ts	554	it	rejects local symbols used as property names	
-unported	packages/effect/test/schema/representation/toJson.test.ts	572	it	encodes recursive references	
-unported	packages/effect/test/schema/representation/toJson.test.ts	591	it	encodes fromJsonString annotations	
+ported	packages/effect/test/schema/representation/toJson.test.ts	35	it	rejects invalid documents	rejects_invalid_documents
+ported	packages/effect/test/schema/representation/toJson.test.ts	46	it	rejects checks on Suspend representations	rejects_checks_on_suspend_representations
+ported	packages/effect/test/schema/representation/toJson.test.ts	61	it	requires representation when persisting a Filter	requires_representation_when_persisting_a_filter
+not-applicable	packages/effect/test/schema/representation/toJson.test.ts	72	it	removes live callbacks and preserves JSON annotations from a custom filter	live callbacks cannot cross the JSON boundary
+not-applicable	packages/effect/test/schema/representation/toJson.test.ts	110	it	removes live callbacks from a custom declaration	live callbacks cannot cross the JSON boundary
+ported	packages/effect/test/schema/representation/toJson.test.ts	135	it	preserves JSON annotations	preserves_json_annotations
+not-applicable	packages/effect/test/schema/representation/toJson.test.ts	150	it	omits annotations containing only non-JSON values	vacuous pruning needs non-JSON values
+ported	packages/effect/test/schema/representation/toJson.test.ts	161	it	omits undefined annotations	omits_undefined_annotations
+not-applicable	packages/effect/test/schema/representation/toJson.test.ts	172	it	prunes nested representation annotations	vacuous pruning needs non-JSON values
+not-applicable	packages/effect/test/schema/representation/toJson.test.ts	200	it	prunes annotations in check schema dependencies	vacuous pruning needs non-JSON values
+ported	packages/effect/test/schema/representation/toJson.test.ts	240	it	preserves __proto__ annotations as data properties	preserves_proto_annotations_as_data_properties
+ported	packages/effect/test/schema/representation/toJson.test.ts	261	it	preserves shared JSON annotation values	preserves_shared_json_annotation_values
+not-applicable	packages/effect/test/schema/representation/toJson.test.ts	282	it	omits a cyclic annotation atomically	cyclic values unrepresentable
+not-applicable	packages/effect/test/schema/representation/toJson.test.ts	299	it	omits a sparse-array annotation atomically	sparse arrays unrepresentable
+not-applicable	packages/effect/test/schema/representation/toJson.test.ts	315	it	omits an annotation containing bigint atomically	no bigint domain
+not-applicable	packages/effect/test/schema/representation/toJson.test.ts	330	it	omits an annotation containing undefined atomically	no undefined domain
+not-applicable	packages/effect/test/schema/representation/toJson.test.ts	345	it	encodes annotation accessors	no accessor (getter) machinery
+not-applicable	packages/effect/test/schema/representation/toJson.test.ts	365	it	preserves filter groups without an identity	no group constructor
+ported	packages/effect/test/schema/representation/toJson.test.ts	401	it	preserves tuple element annotations independently	preserves_tuple_element_annotations_independently
+ported	packages/effect/test/schema/representation/toJson.test.ts	424	it	preserves property annotations independently	preserves_property_annotations_independently
+not-applicable	packages/effect/test/schema/representation/toJson.test.ts	449	it	encodes bigint structural values	no bigint domain
+not-applicable	packages/effect/test/schema/representation/toJson.test.ts	463	it	preserves ambiguous Enum values	no Enum constructor for ambiguous values
+not-applicable	packages/effect/test/schema/representation/toJson.test.ts	488	it	preserves ambiguous property names	no symbol names in this port
+ported	packages/effect/test/schema/representation/toJson.test.ts	516	it	preserves string literals resembling non-finite numbers	preserves_string_literals_resembling_non_finite_numbers
+not-applicable	packages/effect/test/schema/representation/toJson.test.ts	528	it	encodes global symbols	no symbol domain
+not-applicable	packages/effect/test/schema/representation/toJson.test.ts	544	it	rejects local symbols	no symbol domain
+not-applicable	packages/effect/test/schema/representation/toJson.test.ts	554	it	rejects local symbols used as property names	no symbol domain
+not-applicable	packages/effect/test/schema/representation/toJson.test.ts	572	it	encodes recursive references	suspend built from a closure is unconvertible
+ported	packages/effect/test/schema/representation/toJson.test.ts	591	it	encodes fromJsonString annotations	encodes_from_json_string_annotations
 not-applicable	packages/effect/test/schema/representation/toJsonMultiDocument.test.ts	5	it	encodes every root in order	N/A: Rust SchemaRepresentation has no toJsonMultiDocument serializer (multi-root ordered/refs) at crates/elm-effect-schema/src/representation.rs
 not-applicable	packages/effect/test/schema/representation/toJsonMultiDocument.test.ts	22	it	encodes shared references once	N/A: Rust SchemaRepresentation has no toJsonMultiDocument serializer (multi-root ordered/refs) at crates/elm-effect-schema/src/representation.rs
 unported	packages/effect/test/schema/representation/toJsonSchemaDocument.test.ts	52	it	preserves the definition named ${key}	
