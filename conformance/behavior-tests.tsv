@@ -1745,32 +1745,32 @@ ported	packages/effect/test/FiberSet.test.ts	105	it.effect	propagateInterruption
 ported	packages/effect/test/FiberSet.test.ts	120	it.effect	awaitEmpty	set_await_empty_waits_for_in_flight_fibers
 ported	packages/effect/test/FiberSet.test.ts	135	it.effect	makeRuntimePromise	set_make_runtime_promise_resolves_outside_an_effect
 ported	packages/effect/test/FiberSetRuntimePropagation.test.ts	6	it.effect	records external interruption when enabled	set_interrupt_all_records_external_interruption
-unported	packages/effect/test/FileSystem.test-utils.ts	21	it	readFile	
-unported	packages/effect/test/FileSystem.test-utils.ts	29	it	makeTempDirectory	
-unported	packages/effect/test/FileSystem.test-utils.ts	42	it	makeTempDirectoryScoped	
-unported	packages/effect/test/FileSystem.test-utils.ts	57	it.skipIf	access on a writable directory	
-unported	packages/effect/test/FileSystem.test-utils.ts	69	it	makeTempFileScoped cleans up	
-unported	packages/effect/test/FileSystem.test-utils.ts	93	it	truncate	
-unported	packages/effect/test/FileSystem.test-utils.ts	114	it	writeFile with r+ overwrites without truncating	
-unported	packages/effect/test/FileSystem.test-utils.ts	125	it	writeFile with empty data honors the flag	
-unported	packages/effect/test/FileSystem.test-utils.ts	139	it	writeFile with r rejects writes	
-unported	packages/effect/test/FileSystem.test-utils.ts	152	it	writeFile with a appends	
-unported	packages/effect/test/FileSystem.test-utils.ts	163	it	writeFile with wx exclusively creates	
-unported	packages/effect/test/FileSystem.test-utils.ts	175	it	copy with overwrite false preserves an existing destination	
-unported	packages/effect/test/FileSystem.test-utils.ts	195	it	should track the cursor position when reading	
-unported	packages/effect/test/FileSystem.test-utils.ts	244	it.each	rejects stream chunkSize $chunkSize with bytesToRead $bytesToRead	
-unported	packages/effect/test/FileSystem.test-utils.ts	271	it	should return a numeric byte count when reading	
-unported	packages/effect/test/FileSystem.test-utils.ts	284	it	should read from a backwards seek	
-unported	packages/effect/test/FileSystem.test-utils.ts	308	it.each	should reject seeks before the start of the file ($offset from $from)	
-unported	packages/effect/test/FileSystem.test-utils.ts	345	it.each	readAlloc(%s) fails with BadArgument without moving the cursor	
-unported	packages/effect/test/FileSystem.test-utils.ts	374	it	readAlloc(0) returns None without moving the cursor	
-unported	packages/effect/test/FileSystem.test-utils.ts	391	it	should read sequentially without an intervening seek	
-unported	packages/effect/test/FileSystem.test-utils.ts	414	it	should track the cursor position when writing	
-unported	packages/effect/test/FileSystem.test-utils.ts	443	it	should maintain a read cursor in append mode	
-unported	packages/effect/test/FileSystem.test-utils.ts	479	it	should restore the read cursor after an append write	
-unported	packages/effect/test/FileSystem.test-utils.ts	507	it	should keep the current cursor if truncating doesn't affect it	
-unported	packages/effect/test/FileSystem.test-utils.ts	526	it	should update the current cursor if truncating affects it	
-unported	packages/effect/test/FileSystem.test-utils.ts	544	it	should read from the clamped cursor after truncating	
+ported	packages/effect/test/FileSystem.test-utils.ts	21	it	readFile	filesystem_read_file_reads_text
+ported	packages/effect/test/FileSystem.test-utils.ts	29	it	makeTempDirectory	filesystem_make_temp_directory_persists
+ported	packages/effect/test/FileSystem.test-utils.ts	42	it	makeTempDirectoryScoped	filesystem_scoped_temp_directory_cleans_up
+ported	packages/effect/test/FileSystem.test-utils.ts	57	it.skipIf	access on a writable directory	filesystem_access_on_writable_directory
+ported	packages/effect/test/FileSystem.test-utils.ts	69	it	makeTempFileScoped cleans up	filesystem_scoped_temp_file_cleans_up
+ported	packages/effect/test/FileSystem.test-utils.ts	93	it	truncate	filesystem_truncate_adjusts_content
+ported	packages/effect/test/FileSystem.test-utils.ts	114	it	writeFile with r+ overwrites without truncating	filesystem_write_r_plus_overwrites_without_truncating
+ported	packages/effect/test/FileSystem.test-utils.ts	125	it	writeFile with empty data honors the flag	filesystem_write_empty_data_honors_the_flag
+ported	packages/effect/test/FileSystem.test-utils.ts	139	it	writeFile with r rejects writes	filesystem_write_r_rejects_writes
+ported	packages/effect/test/FileSystem.test-utils.ts	152	it	writeFile with a appends	filesystem_write_a_appends
+ported	packages/effect/test/FileSystem.test-utils.ts	163	it	writeFile with wx exclusively creates	filesystem_write_wx_exclusively_creates
+ported	packages/effect/test/FileSystem.test-utils.ts	175	it	copy with overwrite false preserves an existing destination	filesystem_copy_without_overwrite_preserves_destination
+not-applicable	packages/effect/test/FileSystem.test-utils.ts	195	it	should track the cursor position when reading	needs FileHandle open/seek/readAlloc machinery; absent
+not-applicable	packages/effect/test/FileSystem.test-utils.ts	244	it.each	rejects stream chunkSize $chunkSize with bytesToRead $bytesToRead	needs handle stream chunkSize machinery; absent
+not-applicable	packages/effect/test/FileSystem.test-utils.ts	271	it	should return a numeric byte count when reading	needs FileHandle byte-count reads; absent
+not-applicable	packages/effect/test/FileSystem.test-utils.ts	284	it	should read from a backwards seek	needs FileHandle backwards seek; absent
+not-applicable	packages/effect/test/FileSystem.test-utils.ts	308	it.each	should reject seeks before the start of the file ($offset from $from)	needs FileHandle seek validation; absent
+not-applicable	packages/effect/test/FileSystem.test-utils.ts	345	it.each	readAlloc(%s) fails with BadArgument without moving the cursor	needs FileHandle readAlloc with cursor; absent
+not-applicable	packages/effect/test/FileSystem.test-utils.ts	374	it	readAlloc(0) returns None without moving the cursor	needs FileHandle readAlloc(0) semantics; absent
+not-applicable	packages/effect/test/FileSystem.test-utils.ts	391	it	should read sequentially without an intervening seek	needs FileHandle sequential reads; absent
+not-applicable	packages/effect/test/FileSystem.test-utils.ts	414	it	should track the cursor position when writing	needs FileHandle write cursor tracking; absent
+not-applicable	packages/effect/test/FileSystem.test-utils.ts	443	it	should maintain a read cursor in append mode	needs FileHandle append-mode read cursor; absent
+not-applicable	packages/effect/test/FileSystem.test-utils.ts	479	it	should restore the read cursor after an append write	needs FileHandle append write cursor restore; absent
+not-applicable	packages/effect/test/FileSystem.test-utils.ts	507	it	should keep the current cursor if truncating doesn't affect it	needs FileHandle truncate cursor keep; absent
+not-applicable	packages/effect/test/FileSystem.test-utils.ts	526	it	should update the current cursor if truncating affects it	needs FileHandle truncate cursor update; absent
+not-applicable	packages/effect/test/FileSystem.test-utils.ts	544	it	should read from the clamped cursor after truncating	needs FileHandle clamped-cursor reads; absent
 ported	packages/effect/test/Formatter.test.ts	42	it	null	format_primitives_and_nesting
 not-applicable	packages/effect/test/Formatter.test.ts	46	it	undefined	crates/elm-effect/src/json.rs:19 (pub enum Json) has no Undefined variant; JSON's null is the only nullish value
 ported	packages/effect/test/Formatter.test.ts	50	it	string	format_primitives_and_nesting
