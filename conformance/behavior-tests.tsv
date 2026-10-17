@@ -8938,295 +8938,150 @@ not-applicable	packages/effect/test/schema/representation/stringTreeRoundtrip.te
 not-applicable	packages/effect/test/schema/representation/stringTreeRoundtrip.test.ts	55	it	preserves enum value types	N/A: Rust Schema has no StringTree codec surface (Schema.toCodecStringTree/decode-transform encode-transform StringTree payloads)
 not-applicable	packages/effect/test/schema/representation/stringTreeRoundtrip.test.ts	64	it	preserves property name types	N/A: Rust Schema has no StringTree codec surface (Schema.toCodecStringTree/decode-transform encode-transform StringTree payloads)
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.annotations.test.ts	34	it	preserves explicit options on an empty union	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.annotations.test.ts	44	it	compiles the isPattern and Option vertical slice	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.annotations.test.ts	68	it	passes compiled dependencies to checks and deduplicates imports	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.annotations.test.ts	100	it	emits supported annotation trees atomically	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.annotations.test.ts	124	it	preserves fallback identifiers	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.annotations.test.ts	137	it	emits tuple element and property annotations	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.annotations.test.ts	181	it	uses group overrides without visiting children and preserves abort	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.annotations.test.ts	220	it	passes type parameters to declaration callbacks	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.annotations.test.ts	248	it	reports missing toCode callbacks and preserves callback exceptions	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.annotations.test.ts	283	it	generates content media types, optional pre-rest elements and numeric properties	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.annotations.test.ts	332	it	emits references that are not reachable from a root	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.annotations.test.ts	348	it	capitalizes a lowercase reference identifier	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.annotations.test.ts	356	it	preserves a lowercase identifier annotation	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.annotations.test.ts	370	it	preserves an uppercase reference identifier	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.annotations.test.ts	378	it	prefixes a numeric reference identifier	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.annotations.test.ts	386	it	replaces punctuation in a reference identifier	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.annotations.test.ts	394	it	replaces non-ASCII characters in a reference identifier	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.annotations.test.ts	402	it	replaces an emoji reference identifier	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.annotations.test.ts	410	it	uses an underscore for an empty reference identifier	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.annotations.test.ts	418	it	makes colliding sanitized reference identifiers unique	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.annotations.test.ts	432	it	orders definitions after dependencies found in every representation position	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.annotations.test.ts	486	it	orders a shared dependency referenced from multiple representation positions once	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.annotations.test.ts	513	it	generates a StructWithRest without fixed properties	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.annotations.test.ts	530	it	preserves explicit options on a single-literal Union	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.annotations.test.ts	547	it	preserves optional Union option properties	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.annotations.test.ts	572	it	emits every member of a mutually recursive reference cycle	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.annotations.test.ts	590	it	emits a non-recursive definition that depends on a recursive definition	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.annotations.test.ts	605	it	reports missing references with their document path	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.annotations.test.ts	616	it	reports a missing reference from a definition	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.test.ts	97	it	declaration without a toCode annotation	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.test.ts	104	it	Error	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.test.ts	110	it	Error with stack	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.test.ts	116	it	Error with excluded cause	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.test.ts	122	it	RegExp	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.test.ts	128	it	URL	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.test.ts	134	it	Uint8Array	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.test.ts	140	it	URLSearchParams	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.test.ts	146	it	File	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.test.ts	152	it	FormData	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.test.ts	158	it	URLSearchParams	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.test.ts	165	it	Date	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.test.ts	171	it	Date & check	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.test.ts	181	it	Option(String)	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.test.ts	194	it	Result(String, Number)	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.test.ts	207	it	Redacted options	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.test.ts	228	it	CauseReason(String, Number)	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.test.ts	235	it	Cause(String, Number)	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.test.ts	242	it	Exit(String, Number, String)	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.test.ts	253	it	Null	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.test.ts	268	it	Undefined	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.test.ts	280	it	Void	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.test.ts	292	it	Never	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.test.ts	304	it	Unknown	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.test.ts	316	it	Any	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.test.ts	329	it	String	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.test.ts	335	it	String & identifier	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.test.ts	349	it	String & annotations	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.test.ts	358	it	String & check	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.test.ts	367	it	String & annotations & check	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.test.ts	379	it	String & code point checks	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.test.ts	394	it	String & check + annotations	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.test.ts	403	it	String & check & annotations	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.test.ts	413	it	isStartingWith	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.test.ts	422	it	isEndingWith	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.test.ts	431	it	isIncluding	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.test.ts	440	it	isGUID with annotations	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.test.ts	452	it	Number	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.test.ts	464	it	Number & check	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.test.ts	474	it	Boolean	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.test.ts	487	it	BigInt	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.test.ts	499	it	BigInt & check	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.test.ts	509	it	Symbol	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.test.ts	521	it	ObjectKeyword	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.test.ts	534	it	string literal	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.test.ts	546	it	number literal	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.test.ts	558	it	boolean literal	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.test.ts	570	it	bigint literal	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.test.ts	584	it	should create a Symbol artifact	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.test.ts	609	it	should create a global Symbol artifact	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.test.ts	639	it	string values	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.test.ts	677	it	number values	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.test.ts	715	it	mixed values	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.test.ts	755	it	empty template literal	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.test.ts	764	it	string literal	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.test.ts	773	it	number literal	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.test.ts	782	it	bigint literal	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.test.ts	791	it	multiple consecutive literals	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.test.ts	803	it	special characters in literals	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.test.ts	833	it	only schemas	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.test.ts	863	it	schema & literal	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.test.ts	893	it	literal & schema	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.test.ts	923	it	schema & literal & schema	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.test.ts	948	it	TemplateLiteral as part	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.test.ts	965	it	Union as part	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.test.ts	979	it	Literals as part	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.test.ts	993	it	omits brands from parts	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.test.ts	1012	it	uses references for branded parts	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.test.ts	1022	it	multiple unions	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.test.ts	1040	it	does not expand combinations of unions	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.test.ts	1053	it	empty tuple	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.test.ts	1065	it	required element	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.test.ts	1083	it	optional element	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.test.ts	1101	it	optional union elements	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.test.ts	1122	it	optional readonly tuple element	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.test.ts	1134	it	optional union element imported from JSON Schema	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.test.ts	1149	it	annotateKey	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.test.ts	1162	it	Array	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.test.ts	1180	it	TupleWithRest	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.test.ts	1229	it	preserves a required __proto__ property in generated code	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.test.ts	1247	it	preserves an optional __proto__ property in generated code	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.test.ts	1265	it	empty struct	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.test.ts	1277	it	required properties	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.test.ts	1307	it	optional properties	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.test.ts	1323	it	mutable properties	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.test.ts	1339	it	optional and mutable properties	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.test.ts	1355	it	annotateKey	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.test.ts	1371	it	struct with symbol property key	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.test.ts	1394	it	Record(String, Number)	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.test.ts	1416	it	StructWithRest	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.test.ts	1446	it	union with anyOf mode (default)	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.test.ts	1468	it	union with oneOf mode	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.test.ts	1493	it	union with multiple types	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.test.ts	1520	it	implicit recursive reference	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.test.ts	1554	it	supports __proto__ as a recursive reference	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.test.ts	1584	it	non-recursive	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.test.ts	1595	it	no identifier annotation	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.test.ts	1616	it	outer identifier annotation	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.test.ts	1637	it	inner identifier annotation	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.test.ts	1665	it	suspend identifier annotation	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.test.ts	1692	it	omits brands	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.test.ts	1703	it	omits brands from unions	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.test.ts	1714	it	preserves checks added by fromBrand	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.test.ts	1738	it	Date	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.test.ts	1745	it	isGreaterThanDate	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.test.ts	1754	it	isGreaterThanOrEqualToDate	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.test.ts	1763	it	isLessThanDate	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.test.ts	1772	it	isLessThanOrEqualToDate	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.test.ts	1781	it	isBetweenDate	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.test.ts	1796	it	ReadonlySet(String)	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.test.ts	1806	it	isMinSize	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.test.ts	1818	it	isMaxSize	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.test.ts	1831	it	isBetweenSize	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.test.ts	1845	it	HashMap(String, Number)	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.test.ts	1857	it	should resolve references	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 not-applicable	packages/effect/test/schema/representation/toCodeDocument.test.ts	1883	it	should resolve references in definitions	needs the pin JS code emitter (AOT/JIT generating JavaScript with globalThis refs); no JS codegen in this Rust port
-
 unported	packages/effect/test/schema/representation/toJson.test.ts	35	it	rejects invalid documents	
 unported	packages/effect/test/schema/representation/toJson.test.ts	46	it	rejects checks on Suspend representations	
 unported	packages/effect/test/schema/representation/toJson.test.ts	61	it	requires representation when persisting a Filter	
