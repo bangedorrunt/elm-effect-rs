@@ -1306,3 +1306,113 @@ impl UserError {
         true
     }
 }
+
+/// Built-in `--log-level` setting (mirrors `GlobalFlag.LogLevel`):
+/// parse the setting from argv, then filter emitted logs by severity.
+pub mod log_level {
+    /// Canonical log levels, most to least severe (`All` shows
+    /// everything, `None` shows nothing).
+    #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+    pub enum LogLevel {
+        /// Show every emission.
+        All,
+        /// Finest severity.
+        Trace,
+        /// Debug severity.
+        Debug,
+        /// Default minimum.
+        Info,
+        /// Warning severity.
+        Warn,
+        /// Error severity.
+        Error,
+        /// Most severe.
+        Fatal,
+        /// Show nothing.
+        None,
+    }
+
+    /// Severity rank: lower is more severe (`All`/`None` are not ranked).
+    fn rank(level: LogLevel) -> u8 {
+        match level {
+            LogLevel::Fatal => 0,
+            LogLevel::Error => 1,
+            LogLevel::Warn => 2,
+            LogLevel::Info => 3,
+            LogLevel::Debug => 4,
+            LogLevel::Trace => 5,
+            LogLevel::All | LogLevel::None => unreachable!("sentinels never rank"),
+        }
+    }
+
+    /// Parse one `--log-level` value (`warning` aliases `warn`).
+    fn parse_value(value: &str) -> Result<LogLevel, super::CliError> {
+        match value {
+            "all" => Ok(LogLevel::All),
+            "trace" => Ok(LogLevel::Trace),
+            "debug" => Ok(LogLevel::Debug),
+            "info" => Ok(LogLevel::Info),
+            "warn" | "warning" => Ok(LogLevel::Warn),
+            "error" => Ok(LogLevel::Error),
+            "fatal" => Ok(LogLevel::Fatal),
+            "none" => Ok(LogLevel::None),
+            _ => Err(super::CliError::InvalidValue {
+                option: "log-level".to_owned(),
+                value: value.to_owned(),
+                expected: "all|trace|debug|info|warn|warning|error|fatal|none".to_owned(),
+                kind: "option".to_owned(),
+            }),
+        }
+    }
+
+    /// Resolve the built-in setting from argv (`--log-level v` or
+    /// `--log-level=v`): absent is `None` (default minimum `Info`
+    /// applies); an unknown value fails as `InvalidValue`.
+    pub fn resolve_setting(argv: &[String]) -> Result<Option<LogLevel>, super::CliError> {
+        let mut index = 0;
+        while index < argv.len() {
+            let arg = &argv[index];
+            if let Some(inline) = arg.strip_prefix("--log-level=") {
+                return parse_value(inline).map(Some);
+            }
+            if arg == "--log-level" {
+                match argv.get(index + 1) {
+                    Some(next) => return parse_value(next).map(Some),
+                    None => {
+                        return Err(super::CliError::InvalidValue {
+                            option: "log-level".to_owned(),
+                            value: String::new(),
+                            expected: "all|trace|debug|info|warn|warning|error|fatal|none"
+                                .to_owned(),
+                            kind: "option".to_owned(),
+                        });
+                    }
+                }
+            }
+            index += 1;
+        }
+        Ok(None)
+    }
+
+    /// `true` when an emission at `emit` passes minimum `min`
+    /// (`None` is the omitted-setting default, `Info`).
+    pub fn visible(emit: LogLevel, min: Option<LogLevel>) -> bool {
+        match min.unwrap_or(LogLevel::Info) {
+            LogLevel::All => true,
+            LogLevel::None => false,
+            min => rank(emit) <= rank(min),
+        }
+    }
+
+    /// Keep the emissions passing `min`, preserving emission order.
+    pub fn filter_emitted<A: Clone>(
+        emitted: &[(LogLevel, A)],
+        min: Option<LogLevel>,
+    ) -> Vec<(LogLevel, A)> {
+        emitted
+            .iter()
+            .filter(|(level, _)| visible(*level, min))
+            .cloned()
+            .collect()
+    }
+}

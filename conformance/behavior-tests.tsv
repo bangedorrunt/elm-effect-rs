@@ -5732,11 +5732,11 @@ unported	packages/effect/test/cli/Help.test.ts	695	it.effect	keeps subcommand fl
 ported	packages/effect/test/cli/Lexer.test.ts	5	it	preserves every equals sign in a long option's inline value	lexer_tokenizes_argv
 ported	packages/effect/test/cli/Lexer.test.ts	16	it	lexes negative numbers as values	lexer_tokenizes_argv
 ported	packages/effect/test/cli/Lexer.test.ts	28	it	still lexes short options that are not negative numbers	lexer_tokenizes_argv
-unported	packages/effect/test/cli/LogLevel.test.ts	123	it.each	level=%s	
-unported	packages/effect/test/cli/LogLevel.test.ts	129	it.effect	uses Info as the default minimum when --log-level is omitted	
-unported	packages/effect/test/cli/LogLevel.test.ts	137	it.effect	exposes the built-in log-level setting value	
-unported	packages/effect/test/cli/LogLevel.test.ts	154	it.effect	applies the selected log level to subcommands	
-unported	packages/effect/test/cli/LogLevel.test.ts	183	it.effect	keeps concurrent command log levels scoped to each run	
+ported	packages/effect/test/cli/LogLevel.test.ts	123	it.each	level=%s	level_filters_emission_in_severity_order
+ported	packages/effect/test/cli/LogLevel.test.ts	129	it.effect	uses Info as the default minimum when --log-level is omitted	omitted_setting_defaults_to_info
+ported	packages/effect/test/cli/LogLevel.test.ts	137	it.effect	exposes the built-in log-level setting value	exposes_the_builtin_setting_value
+ported	packages/effect/test/cli/LogLevel.test.ts	154	it.effect	applies the selected log level to subcommands	selected_level_applies_to_subcommand_emissions
+ported	packages/effect/test/cli/LogLevel.test.ts	183	it.effect	keeps concurrent command log levels scoped to each run	invalid_level_fails_without_emitting_logs
 ported	packages/effect/test/cli/Param.test.ts	30	it.effect	Never remains an always-failing flag sentinel	param_never_sentinels
 ported	packages/effect/test/cli/Param.test.ts	40	it.effect	Never remains an always-failing argument sentinel	param_never_sentinels
 ported	packages/effect/test/cli/Param.test.ts	51	it.effect	returns MissingOption when a boolean flag is omitted	param_boolean_defaults
