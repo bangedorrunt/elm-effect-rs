@@ -152,3 +152,20 @@ fn shares_definitions_across_roots() {
     );
 }
 
+#[test]
+fn closed_shape_documents_round_trip_textually() {
+    for doc in [
+        serde_json::json!({"type": "string", "minLength": 2, "maxLength": 5}),
+        serde_json::json!({"type": "integer"}),
+        serde_json::json!({
+            "type": "object",
+            "properties": {"a": {"type": "string"}},
+            "required": ["a"],
+            "additionalProperties": false
+        }),
+    ] {
+        let schema = Schema::<Unknown>::from_json_schema(&doc).expect("imports");
+        assert_eq!(compile(&schema), doc, "round trip for {doc}");
+    }
+}
+
