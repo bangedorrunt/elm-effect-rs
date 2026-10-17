@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- Doorbell wake drops recorded on this tracker were fixed in flywheel, not in this crate. The cumulative audit counter cannot return to zero. Restart no longer waits behind a full watch queue: flywheel `82a8f9e14df7a873f08ed03a808acb45ca0e2dee` rings death on a side bell. Earlier stops are `6cbb974a2051918e358962d7de2d7ea97f0addd7` (condemned consumer stops) and `9c1bccd2fbf36d016fb8f001ec219c129c1d361d` (quiet watches do not fsync).
+
 ## [0.2.0] - 2026-10-17
 
 Behavior parity with the Effect v4.0.0 test suite is complete
