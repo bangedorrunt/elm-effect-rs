@@ -68,12 +68,23 @@ impl Membership {
     }
 
     /// Run `f`, holding the key for its duration: the key is restored
-    /// afterwards either way.
+    /// afterwards either way (panic-safe via a drop guard).
     pub fn around_entity_type<R>(&self, key: &str, f: impl FnOnce() -> R) -> R {
         self.acquire(key);
-        let out = f();
-        self.release(key);
-        out
+        struct Guard<'a> {
+            owner: &'a Membership,
+            key: String,
+        }
+        impl Drop for Guard<'_> {
+            fn drop(&mut self) {
+                self.owner.release(&self.key);
+            }
+        }
+        let _guard = Guard {
+            owner: self,
+            key: key.to_string(),
+        };
+        f()
     }
 
     /// Live keys.
@@ -109,6 +120,9 @@ pub struct MessageStorage {
     requests: HashMap<String, StoredRequest>,
     by_address: HashMap<EntityAddress, Vec<String>>,
     interrupts: HashMap<EntityAddress, Vec<String>>,
+    /// Fence generation per request: bumped on claim and on reset so a stale
+    /// holder cannot steal with an old generation.
+    generations: HashMap<String, u64>,
 }
 
 /// Empty filters and empty address lists fail closed.
@@ -126,6 +140,7 @@ impl MessageStorage {
         if self.requests.contains_key(&request.id) {
             return Err(format!("duplicate request {}", request.id));
         }
+        self.generations.insert(request.id.clone(), 0);
         self.by_address
             .entry(request.address.clone())
             .or_default()
@@ -179,13 +194,19 @@ impl MessageStorage {
     }
 
     /// Release claims for the given request ids. An empty id list leaves
-    /// existing claims untouched. Replies and completion survive.
-    pub fn reset_requests(&mut self, ids: &[&str]) {
+    /// existing claims untouched. Replies and completion survive. Unknown ids
+    /// fail loudly (no silent no-op); each cleared claim bumps its generation
+    /// so a stale holder cannot resurrect it.
+    pub fn reset_requests(&mut self, ids: &[&str]) -> Result<(), String> {
         for id in ids {
-            if let Some(request) = self.requests.get_mut(*id) {
-                request.claimed_by = None;
-            }
+            let request = self
+                .requests
+                .get_mut(*id)
+                .ok_or_else(|| format!("unknown request {id}"))?;
+            request.claimed_by = None;
+            *self.generations.entry(id.to_string()).or_default() += 1;
         }
+        Ok(())
     }
 
     /// Make claimed messages eligible again for these addresses. An empty
@@ -199,6 +220,7 @@ impl MessageStorage {
                 for id in ids.clone() {
                     if let Some(request) = self.requests.get_mut(&id) {
                         request.claimed_by = None;
+                        *self.generations.entry(id.clone()).or_default() += 1;
                     }
                 }
             }
@@ -212,16 +234,53 @@ impl MessageStorage {
         if let Some(ids) = self.by_address.remove(address) {
             for id in ids {
                 self.requests.remove(&id);
+                self.generations.remove(&id);
             }
         }
         self.interrupts.remove(address);
     }
 
-    /// Claim a request for a runner (test seam).
-    pub fn claim(&mut self, id: &str, runner: impl Into<String>) {
-        if let Some(request) = self.requests.get_mut(id) {
-            request.claimed_by = Some(runner.into());
+    /// Claim a request for a runner (test seam): refuses unknown ids loudly
+    /// and refuses to steal a live lease held by another runner. Re-claim by
+    /// the same runner is idempotent.
+    pub fn claim(&mut self, id: &str, runner: impl Into<String>) -> Result<(), String> {
+        let runner = runner.into();
+        let request = self
+            .requests
+            .get_mut(id)
+            .ok_or_else(|| format!("unknown request {id}"))?;
+        if let Some(held) = request.claimed_by.clone()
+            && held != runner
+        {
+            return Err(format!("already claimed by {held}"));
         }
+        request.claimed_by = Some(runner);
+        *self.generations.entry(id.to_string()).or_default() += 1;
+        Ok(())
+    }
+
+    /// Generation-checked claim: the caller presents the generation it saw;
+    /// a mismatch is a stale steal and is refused.
+    pub fn claim_with_generation(
+        &mut self,
+        id: &str,
+        runner: impl Into<String>,
+        expected: u64,
+    ) -> Result<(), String> {
+        let current = self
+            .generations
+            .get(id)
+            .copied()
+            .ok_or_else(|| format!("unknown request {id}"))?;
+        if current != expected {
+            return Err(format!("stale generation: saw {expected}, live {current}"));
+        }
+        self.claim(id, runner)
+    }
+
+    /// Live fence generation for a request, if known.
+    pub fn generation(&self, id: &str) -> Option<u64> {
+        self.generations.get(id).copied()
     }
 
     /// Live request ids for an address, if the index still holds it.
@@ -713,17 +772,29 @@ impl EntityScope {
         self.closed.load(Ordering::SeqCst)
     }
 
-    /// Close the scope, running finalizers newest first. Idempotent.
+    /// Close the scope, running finalizers newest first. Idempotent. A
+    /// panicking finalizer never abandons the rest: every finalizer runs,
+    /// panics are collected, and the first resumes after the drain.
     pub fn close(&self) {
         if self.closed.swap(true, Ordering::SeqCst) {
             return;
         }
+        let mut first_panic: Option<Box<dyn std::any::Any + Send>> = None;
         loop {
             let next = self.finalizers.lock().unwrap().pop();
             match next {
-                Some(run) => run(),
+                Some(run) => {
+                    if let Err(payload) =
+                        std::panic::catch_unwind(std::panic::AssertUnwindSafe(run))
+                    {
+                        first_panic.get_or_insert(payload);
+                    }
+                }
                 None => break,
             }
+        }
+        if let Some(payload) = first_panic {
+            std::panic::resume_unwind(payload);
         }
     }
 }
@@ -769,14 +840,25 @@ impl EntityClients {
         self.scopes.lock().unwrap().clone()
     }
 
-    /// Close every scope, newest first.
+    /// Close every scope, newest first. A panicking scope never abandons the
+    /// rest: every scope closes, then the first panic resumes.
     pub fn close(&self) {
+        let mut first_panic: Option<Box<dyn std::any::Any + Send>> = None;
         loop {
             let next = self.scopes.lock().unwrap().pop();
             match next {
-                Some(scope) => scope.close(),
+                Some(scope) => {
+                    if let Err(payload) =
+                        std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| scope.close()))
+                    {
+                        first_panic.get_or_insert(payload);
+                    }
+                }
                 None => break,
             }
+        }
+        if let Some(payload) = first_panic {
+            std::panic::resume_unwind(payload);
         }
     }
 }
@@ -1225,5 +1307,71 @@ impl Runners {
             received(request.clone());
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod fence_tests {
+    use super::*;
+
+    fn addr() -> EntityAddress {
+        EntityAddress::new("T", "1")
+    }
+
+    fn req(id: &str) -> StoredRequest {
+        StoredRequest {
+            id: id.to_owned(),
+            address: addr(),
+            claimed_by: None,
+            complete: false,
+        }
+    }
+
+    #[test]
+    fn claim_fence_refuses_unknown_and_stale_steal() {
+        let mut s = MessageStorage::new();
+        assert!(s.claim("missing", "r-a").is_err(), "unknown id must fail loudly");
+        assert!(s.reset_requests(&["missing"]).is_err());
+        s.save(req("r1")).unwrap();
+        s.claim("r1", "runner-a").unwrap();
+        assert!(s.claim("r1", "runner-b").is_err(), "stale steal refused");
+        // Same runner re-claim is idempotent.
+        s.claim("r1", "runner-a").unwrap();
+        let live = s.generation("r1").unwrap();
+        assert!(s.claim_with_generation("r1", "runner-b", live.wrapping_sub(1)).is_err());
+        s.reset_requests(&["r1"]).unwrap();
+        s.claim("r1", "runner-b").unwrap();
+    }
+
+    #[test]
+    fn scope_close_runs_all_finalizers_despite_panic() {
+        use std::sync::{Arc, Mutex};
+        let ran = Arc::new(Mutex::new(Vec::new()));
+        let scope = EntityScope::new("e");
+        for name in ["first", "second", "third"] {
+            let ran = Arc::clone(&ran);
+            let name = name.to_string();
+            scope.add_finalizer(move || {
+                ran.lock().unwrap().push(name.clone());
+                if name == "second" {
+                    panic!("boom");
+                }
+            });
+        }
+        let out = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| scope.close()));
+        assert!(out.is_err(), "panic resurfaces after drain");
+        let mut seen = ran.lock().unwrap().clone();
+        seen.sort();
+        assert_eq!(seen, vec!["first", "second", "third"]);
+    }
+
+    #[test]
+    fn around_entity_type_releases_on_panic() {
+        let m = Membership::new();
+        let out = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            m.around_entity_type("k", || panic!("boom"))
+        }));
+        assert!(out.is_err());
+        assert!(m.is_empty(), "guard must release despite panic");
     }
 }
