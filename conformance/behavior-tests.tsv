@@ -6975,15 +6975,15 @@ ported	packages/effect/test/httpapi/OpenApi.test.ts	878	it	deduplicates API key 
 ported	packages/effect/test/httpapi/OpenApi.test.ts	890	it	deduplicates HTTP security schemes case-insensitively	deduplicates_http_security_schemes_case_insensitively
 ported	packages/effect/test/httpapi/OpenApi.test.ts	901	it	stores __proto__ security scheme names as own properties	stores_proto_security_scheme_names_as_own_properties
 ported	packages/effect/test/httpapi/OpenApi.test.ts	921	it	rejects incompatible __proto__ security schemes	rejects_incompatible_proto_security_schemes
-unported	packages/effect/test/httpapi/OpenApiRepresentation.test.ts	6	it	uses canonical JSON codecs for additional declaration schemas	
-unported	packages/effect/test/httpapi/OpenApiRepresentation.test.ts	16	it	applies the reference policy without removing additional schema components	
-unported	packages/effect/test/httpapi/OpenApiRepresentation.test.ts	34	it	uses canonical JSON codecs for response declaration schemas	
-unported	packages/effect/test/httpapi/OpenApiRepresentation.test.ts	47	it	deduplicates JSON encoding definitions across regular and SSE responses	
-unported	packages/effect/test/httpapi/OpenApiRepresentation.test.ts	86	it	projects request and response schemas to the encoded side	
-unported	packages/effect/test/httpapi/OpenApiRepresentation.test.ts	108	it	uses custom JSON Schema compiler annotations	
-unported	packages/effect/test/httpapi/OpenApiRepresentation.test.ts	131	it	shares definitions and returns cached copies by API identity	
-unported	packages/effect/test/httpapi/OpenApiRepresentation.test.ts	155	it	retains referenced parameter schemas without emitting the parameter container	
-unported	packages/effect/test/httpapi/OpenApiRepresentation.test.ts	179	it	caches generated specs by API and options identity	
+ported	packages/effect/test/httpapi/OpenApiRepresentation.test.ts	6	it	uses canonical JSON codecs for additional declaration schemas	uses_canonical_json_codecs_for_additional_declaration_schemas
+ported	packages/effect/test/httpapi/OpenApiRepresentation.test.ts	16	it	applies the reference policy without removing additional schema components	applies_the_reference_policy_without_removing_additional_components
+ported	packages/effect/test/httpapi/OpenApiRepresentation.test.ts	34	it	uses canonical JSON codecs for response declaration schemas	uses_canonical_json_codecs_for_response_declaration_schemas
+not-applicable	packages/effect/test/httpapi/OpenApiRepresentation.test.ts	47	it	deduplicates JSON encoding definitions across regular and SSE responses	fromJsonString+SSE envelopes; absent
+ported	packages/effect/test/httpapi/OpenApiRepresentation.test.ts	86	it	projects request and response schemas to the encoded side	projects_request_and_response_schemas_to_the_encoded_side
+not-applicable	packages/effect/test/httpapi/OpenApiRepresentation.test.ts	108	it	uses custom JSON Schema compiler annotations	custom toJsonSchema callbacks; out of compiler scope
+ported	packages/effect/test/httpapi/OpenApiRepresentation.test.ts	131	it	shares definitions and returns cached copies by API identity	shares_definitions_and_returns_cached_copies_by_api_identity
+ported	packages/effect/test/httpapi/OpenApiRepresentation.test.ts	155	it	retains referenced parameter schemas without emitting the parameter container	retains_referenced_parameter_schemas_without_the_parameter_container
+ported	packages/effect/test/httpapi/OpenApiRepresentation.test.ts	179	it	caches generated specs by API and options identity	caches_generated_specs_by_api_and_options_identity
 ported	packages/effect/test/net/IpInterface.test.ts	23	it	serializes and inspects canonical strings	ipinterface_keeps_host_bits
 ported	packages/effect/test/net/IpInterface.test.ts	32	it	retains the address supplied to checked constructors	ipinterface_keeps_host_bits
 ported	packages/effect/test/net/IpInterface.test.ts	37	it	forwards errors from address and prefix validation	ipinterface_keeps_host_bits
