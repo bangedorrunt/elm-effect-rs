@@ -28,6 +28,7 @@ pub mod cli_ai;
 pub mod schema_obs;
 
 pub mod http;
+pub mod http_compression;
 pub mod http_platform;
 pub mod net;
 pub mod mime;
