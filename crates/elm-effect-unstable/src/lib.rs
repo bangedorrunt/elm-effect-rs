@@ -33,6 +33,7 @@ pub mod net;
 pub mod mime;
 
 pub mod http_server;
+pub mod http_endpoint;
 
 pub mod process;
 

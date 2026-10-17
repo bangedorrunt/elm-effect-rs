@@ -6876,38 +6876,38 @@ unported	packages/effect/test/httpapi/HttpApiDocumentation.test.ts	204	it.effect
 unported	packages/effect/test/httpapi/HttpApiDocumentation.test.ts	220	it.effect	defers and memoizes successful OpenAPI responses	
 unported	packages/effect/test/httpapi/HttpApiDocumentation.test.ts	260	it.effect	retries OpenAPI generation after a defect	
 unported	packages/effect/test/httpapi/HttpApiDocumentation.test.ts	288	it.effect	escapes script end-tag variants in OpenAPI data	
-unported	packages/effect/test/httpapi/HttpApiEndpoint.test.ts	14	it	stores the supplied identifier	
-unported	packages/effect/test/httpapi/HttpApiEndpoint.test.ts	20	it	can be extended as a class	
-unported	packages/effect/test/httpapi/HttpApiEndpoint.test.ts	36	it	normalizes payload map keys while preserving the declared content type	
-unported	packages/effect/test/httpapi/HttpApiEndpoint.test.ts	47	it	rejects incompatible encodings for equivalent content types	
-unported	packages/effect/test/httpapi/HttpApiEndpoint.test.ts	63	it	GET endpoint accepts StreamSse success	
-unported	packages/effect/test/httpapi/HttpApiEndpoint.test.ts	72	it	GET endpoint accepts StreamUint8Array success	
-unported	packages/effect/test/httpapi/HttpApiEndpoint.test.ts	81	it	streaming schema in error throws during endpoint construction	
-unported	packages/effect/test/httpapi/HttpApiEndpoint.test.ts	89	it	HEAD with streaming success throws	
-unported	packages/effect/test/httpapi/HttpApiEndpoint.test.ts	97	it	streaming success mixed with NoContent at the same status throws	
-unported	packages/effect/test/httpapi/HttpApiEndpoint.test.ts	108	it	streaming success mixed with a buffered success at the same status is allowed for distinct content types	
-unported	packages/effect/test/httpapi/HttpApiEndpoint.test.ts	120	it	streaming success mixed with a buffered success at the same content type throws	
-unported	packages/effect/test/httpapi/HttpApiEndpoint.test.ts	131	it	streaming success mixed with a buffered success at content types differing only by parameters throws	
-unported	packages/effect/test/httpapi/HttpApiEndpoint.test.ts	146	it	streaming success mixed with a buffered success at distinct statuses is allowed	
-unported	packages/effect/test/httpapi/HttpApiEndpoint.test.ts	158	it	streaming success mixed with NoContent at distinct statuses is allowed	
-unported	packages/effect/test/httpapi/HttpApiEndpoint.test.ts	170	it	two streaming successes for the same status throw	
-unported	packages/effect/test/httpapi/HttpApiEndpoint.test.ts	181	it	two streaming successes for distinct statuses throw	
-unported	packages/effect/test/httpapi/HttpApiEndpoint.test.ts	193	it	statically detectable SSE reserved failure event name throws	
-unported	packages/effect/test/httpapi/HttpApiEndpoint.test.ts	211	it	rejects a WithHeaders success sharing its status and content type	
-unported	packages/effect/test/httpapi/HttpApiEndpoint.test.ts	227	it	rejects an encodeToWithHeaders error sharing its status and content type	
-unported	packages/effect/test/httpapi/HttpApiEndpoint.test.ts	250	it	rejects two WithHeaders successes sharing a status across content types	
-unported	packages/effect/test/httpapi/HttpApiEndpoint.test.ts	269	it	rejects two encodeToWithHeaders errors sharing a status	
-unported	packages/effect/test/httpapi/HttpApiEndpoint.test.ts	295	it	rejects mixed WithHeaders and encodeToWithHeaders responses sharing a status	
-unported	packages/effect/test/httpapi/HttpApiEndpoint.test.ts	321	it	allows one response with headers and a plain response for the same status across content types	
-unported	packages/effect/test/httpapi/HttpApiEndpoint.test.ts	335	it	allows responses with headers on distinct statuses	
-unported	packages/effect/test/httpapi/HttpApiEndpoint.test.ts	352	it	keeps the wrapper in the success set with codec-transformed parts	
-unported	packages/effect/test/httpapi/HttpApiEndpoint.test.ts	369	it	leaves the wrapper untouched when codecs are disabled	
-unported	packages/effect/test/httpapi/HttpApiEndpoint.test.ts	381	it	preserves disableCodecs through derived endpoints	
-unported	packages/effect/test/httpapi/HttpApiEndpoint.test.ts	393	it	keeps a wrapped stream schema as the inner schema	
-unported	packages/effect/test/httpapi/HttpApiEndpoint.test.ts	406	it	preserves wrapper annotations through endpoint construction	
-unported	packages/effect/test/httpapi/HttpApiEndpoint.test.ts	417	it	validates a wrapped stream like a bare stream	
-unported	packages/effect/test/httpapi/HttpApiEndpoint.test.ts	433	it	rejects wrapped and bare streams at distinct statuses	
-unported	packages/effect/test/httpapi/HttpApiEndpoint.test.ts	464	it	keeps WithHeaders in the error set with codec-transformed parts	
+ported	packages/effect/test/httpapi/HttpApiEndpoint.test.ts	14	it	stores the supplied identifier	stores_the_supplied_identifier
+not-applicable	packages/effect/test/httpapi/HttpApiEndpoint.test.ts	20	it	can be extended as a class	requires TS class extension (typeof/isHttpApiEndpoint/class name) with prefix derivation; no class system in Rust
+ported	packages/effect/test/httpapi/HttpApiEndpoint.test.ts	36	it	normalizes payload map keys while preserving the declared content type	normalizes_payload_map_keys_while_preserving_the_declared_content_type
+ported	packages/effect/test/httpapi/HttpApiEndpoint.test.ts	47	it	rejects incompatible encodings for equivalent content types	rejects_incompatible_encodings_for_equivalent_content_types
+ported	packages/effect/test/httpapi/HttpApiEndpoint.test.ts	63	it	GET endpoint accepts StreamSse success	get_endpoint_accepts_stream_sse_success
+ported	packages/effect/test/httpapi/HttpApiEndpoint.test.ts	72	it	GET endpoint accepts StreamUint8Array success	get_endpoint_accepts_stream_uint8array_success
+ported	packages/effect/test/httpapi/HttpApiEndpoint.test.ts	81	it	streaming schema in error throws during endpoint construction	streaming_schema_in_error_throws_during_endpoint_construction
+ported	packages/effect/test/httpapi/HttpApiEndpoint.test.ts	89	it	HEAD with streaming success throws	head_with_streaming_success_throws
+ported	packages/effect/test/httpapi/HttpApiEndpoint.test.ts	97	it	streaming success mixed with NoContent at the same status throws	streaming_success_mixed_with_nocontent_at_the_same_status_throws
+ported	packages/effect/test/httpapi/HttpApiEndpoint.test.ts	108	it	streaming success mixed with a buffered success at the same status is allowed for distinct content types	streaming_plus_buffered_at_same_status_allowed_for_distinct_content_types
+ported	packages/effect/test/httpapi/HttpApiEndpoint.test.ts	120	it	streaming success mixed with a buffered success at the same content type throws	streaming_plus_buffered_at_same_content_type_throws
+ported	packages/effect/test/httpapi/HttpApiEndpoint.test.ts	131	it	streaming success mixed with a buffered success at content types differing only by parameters throws	streaming_plus_buffered_differing_only_by_parameters_throws
+ported	packages/effect/test/httpapi/HttpApiEndpoint.test.ts	146	it	streaming success mixed with a buffered success at distinct statuses is allowed	streaming_plus_buffered_at_distinct_statuses_is_allowed
+ported	packages/effect/test/httpapi/HttpApiEndpoint.test.ts	158	it	streaming success mixed with NoContent at distinct statuses is allowed	streaming_plus_nocontent_at_distinct_statuses_is_allowed
+ported	packages/effect/test/httpapi/HttpApiEndpoint.test.ts	170	it	two streaming successes for the same status throw	two_streaming_successes_for_the_same_status_throw
+ported	packages/effect/test/httpapi/HttpApiEndpoint.test.ts	181	it	two streaming successes for distinct statuses throw	two_streaming_successes_for_distinct_statuses_throw
+ported	packages/effect/test/httpapi/HttpApiEndpoint.test.ts	193	it	statically detectable SSE reserved failure event name throws	statically_detectable_sse_reserved_failure_event_name_throws
+ported	packages/effect/test/httpapi/HttpApiEndpoint.test.ts	211	it	rejects a WithHeaders success sharing its status and content type	rejects_a_withheaders_success_sharing_its_status_and_content_type
+ported	packages/effect/test/httpapi/HttpApiEndpoint.test.ts	227	it	rejects an encodeToWithHeaders error sharing its status and content type	rejects_an_encodetowithheaders_error_sharing_its_status_and_content_type
+ported	packages/effect/test/httpapi/HttpApiEndpoint.test.ts	250	it	rejects two WithHeaders successes sharing a status across content types	rejects_two_withheaders_successes_sharing_a_status_across_content_types
+ported	packages/effect/test/httpapi/HttpApiEndpoint.test.ts	269	it	rejects two encodeToWithHeaders errors sharing a status	rejects_two_encodetowithheaders_errors_sharing_a_status
+ported	packages/effect/test/httpapi/HttpApiEndpoint.test.ts	295	it	rejects mixed WithHeaders and encodeToWithHeaders responses sharing a status	rejects_mixed_withheaders_and_encodetowithheaders_responses_sharing_a_status
+ported	packages/effect/test/httpapi/HttpApiEndpoint.test.ts	321	it	allows one response with headers and a plain response for the same status across content types	allows_one_response_with_headers_and_a_plain_response_for_the_same_status_across_content_types
+ported	packages/effect/test/httpapi/HttpApiEndpoint.test.ts	335	it	allows responses with headers on distinct statuses	allows_responses_with_headers_on_distinct_statuses
+not-applicable	packages/effect/test/httpapi/HttpApiEndpoint.test.ts	352	it	keeps the wrapper in the success set with codec-transformed parts	requires Schema codecs transforming header parts (encodeSync Int->String); no schema codec engine
+ported	packages/effect/test/httpapi/HttpApiEndpoint.test.ts	369	it	leaves the wrapper untouched when codecs are disabled	leaves_the_wrapper_untouched_when_codecs_are_disabled
+ported	packages/effect/test/httpapi/HttpApiEndpoint.test.ts	381	it	preserves disableCodecs through derived endpoints	preserves_disable_codecs_through_derived_endpoints
+ported	packages/effect/test/httpapi/HttpApiEndpoint.test.ts	393	it	keeps a wrapped stream schema as the inner schema	keeps_a_wrapped_stream_schema_as_the_inner_schema
+ported	packages/effect/test/httpapi/HttpApiEndpoint.test.ts	406	it	preserves wrapper annotations through endpoint construction	preserves_wrapper_annotations_through_endpoint_construction
+ported	packages/effect/test/httpapi/HttpApiEndpoint.test.ts	417	it	validates a wrapped stream like a bare stream	validates_a_wrapped_stream_like_a_bare_stream
+ported	packages/effect/test/httpapi/HttpApiEndpoint.test.ts	433	it	rejects wrapped and bare streams at distinct statuses	rejects_wrapped_and_bare_streams_at_distinct_statuses
+not-applicable	packages/effect/test/httpapi/HttpApiEndpoint.test.ts	464	it	keeps WithHeaders in the error set with codec-transformed parts	requires Schema codecs transforming error header parts; no schema codec engine
 unported	packages/effect/test/httpapi/HttpApiSchema.test.ts	21	it	stores default metadata	
 unported	packages/effect/test/httpapi/HttpApiSchema.test.ts	49	it	stores custom content type	
 unported	packages/effect/test/httpapi/HttpApiSchema.test.ts	64	it	defaults the stream error schema to Never	
