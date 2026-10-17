@@ -735,3 +735,121 @@ fn url_params_from_input_coerces() {
         &[("filter".to_owned(), Some("null".to_owned()))]
     );
 }
+
+#[test]
+fn httpapi_stores_supplied_identifier() {
+    // HttpApi.test.ts:6 - make keeps the identifier.
+    use elm_effect_unstable::http::HttpApi;
+    assert_eq!(HttpApi::make("Api").identifier, "Api");
+}
+
+#[test]
+fn httpapi_initializes_empty_groups() {
+    // HttpApi.test.ts:12 - a fresh API holds no groups.
+    use elm_effect_unstable::http::HttpApi;
+    let api = HttpApi::make("Api");
+    assert!(api.groups.is_empty());
+    assert_eq!(api.group_keys(), Vec::<&str>::new());
+}
+
+#[test]
+fn httpapi_proto_names_are_own_keys_and_reflect() {
+    // HttpApi.test.ts:18 - `__proto__` is an ordinary own key: lookups hit
+    // and reflect walks it like any other group/endpoint.
+    use elm_effect_unstable::http::{HttpApi, HttpApiEndpoint, HttpApiGroup};
+    let group = HttpApiGroup::make("__proto__")
+        .add_endpoint(HttpApiEndpoint::get("__proto__", "/proto"));
+    let child = HttpApi::make("Child").add(group);
+    let api = HttpApi::make("Api").add_http_api(&child);
+    for id in ["__proto__"] {
+        assert!(child.group(id).is_some(), "{id}");
+        assert!(api.group(id).is_some(), "{id}");
+        assert!(
+            api.group(id).unwrap().endpoint(id).is_some(),
+            "{id}"
+        );
+    }
+    let reflected = std::cell::RefCell::new(Vec::new());
+    api.reflect(
+        |group| reflected.borrow_mut().push(group.identifier.clone()),
+        |_, endpoint| reflected.borrow_mut().push(endpoint.identifier.clone()),
+    );
+    assert_eq!(reflected.into_inner(), vec!["__proto__", "__proto__"]);
+}
+
+#[test]
+fn httpapi_add_http_api_copies_without_mutating_source() {
+    // HttpApi.test.ts:38 - the added API keeps its own annotations; the
+    // parent gets copies scoped with the child API's annotations merged in.
+    use elm_effect_unstable::http::{
+        ANNOTATION_DESCRIPTION, ANNOTATION_TITLE, HttpApi, HttpApiGroup,
+    };
+    let group = HttpApiGroup::make("users").annotate(ANNOTATION_TITLE, "Users");
+    let child = HttpApi::make("Child")
+        .annotate(ANNOTATION_DESCRIPTION, "Child API")
+        .add(group.clone());
+    let parent = HttpApi::make("Parent").add_http_api(&child);
+    assert_eq!(group.annotation(ANNOTATION_DESCRIPTION), None);
+    assert_eq!(child.group("users"), Some(&group));
+    let merged = parent.group("users").expect("copied group");
+    assert_ne!(Some(merged), Some(&group));
+    assert_eq!(merged.annotation(ANNOTATION_TITLE), Some("Users"));
+    assert_eq!(merged.annotation(ANNOTATION_DESCRIPTION), Some("Child API"));
+}
+
+#[test]
+fn httpapi_add_http_api_copies_own_groups_only() {
+    // HttpApi.test.ts:54 - only groups actually added to the child travel
+    // to the parent; anything absent stays absent.
+    use elm_effect_unstable::http::{HttpApi, HttpApiGroup};
+    let child = HttpApi::make("Child").add(HttpApiGroup::make("own"));
+    let parent = HttpApi::make("Parent").add_http_api(&child);
+    assert!(parent.group("own").is_some());
+    assert_eq!(parent.group_keys(), vec!["own"]);
+    assert!(parent.group("inherited").is_none());
+}
+
+#[test]
+fn httpapi_variant_annotations_stay_isolated() {
+    // HttpApi.test.ts:65 - annotating one variant never leaks into the
+    // other; each parent merges only its own variant's scope, including
+    // the derived OpenAPI tags.
+    use elm_effect_unstable::http::{
+        ANNOTATION_DESCRIPTION, ANNOTATION_TITLE, HttpApi, HttpApiGroup,
+    };
+    let group = HttpApiGroup::make("users").annotate(ANNOTATION_TITLE, "Users");
+    let child = HttpApi::make("Child").add(group);
+    let public_child = child.clone().annotate(ANNOTATION_DESCRIPTION, "Public API");
+    let internal_child = child.annotate(ANNOTATION_DESCRIPTION, "Internal API");
+    let public_parent = HttpApi::make("PublicParent").add_http_api(&public_child);
+    let internal_parent = HttpApi::make("InternalParent").add_http_api(&internal_child);
+    assert_eq!(
+        public_parent.group("users").unwrap().annotation(ANNOTATION_DESCRIPTION),
+        Some("Public API")
+    );
+    assert_eq!(
+        internal_parent.group("users").unwrap().annotation(ANNOTATION_DESCRIPTION),
+        Some("Internal API")
+    );
+    assert_ne!(public_parent.group("users"), internal_parent.group("users"));
+    let public_tag = public_parent.tags().iter().find(|tag| tag.name == "Users").cloned();
+    let internal_tag = internal_parent.tags().iter().find(|tag| tag.name == "Users").cloned();
+    assert_eq!(public_tag.as_ref().and_then(|tag| tag.description.as_deref()), Some("Public API"));
+    assert_eq!(internal_tag.as_ref().and_then(|tag| tag.description.as_deref()), Some("Internal API"));
+}
+
+#[test]
+fn httpapi_group_annotation_beats_api_annotation() {
+    // HttpApi.test.ts:86 - the group's own annotation wins over the API
+    // scope it is merged with.
+    use elm_effect_unstable::http::{ANNOTATION_TITLE, HttpApi, HttpApiGroup};
+    let group = HttpApiGroup::make("users").annotate(ANNOTATION_TITLE, "Group title");
+    let child = HttpApi::make("Child")
+        .annotate(ANNOTATION_TITLE, "API title")
+        .add(group);
+    let parent = HttpApi::make("Parent").add_http_api(&child);
+    assert_eq!(
+        parent.group("users").unwrap().annotation(ANNOTATION_TITLE),
+        Some("Group title")
+    );
+}

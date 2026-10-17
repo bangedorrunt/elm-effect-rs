@@ -1281,3 +1281,204 @@ fn effective_port(url: &Url) -> Option<u16> {
         _ => None,
     })
 }
+
+/// Annotation key for a display title (`OpenApi.Title` in TS).
+pub const ANNOTATION_TITLE: &str = "title";
+/// Annotation key for a description (`OpenApi.Description` in TS).
+pub const ANNOTATION_DESCRIPTION: &str = "description";
+
+/// Last value for `key` in an annotation list, or `None`.
+fn annotation_get(entries: &[(String, String)], key: &str) -> Option<String> {
+    entries.iter().rev().find(|(k, _)| k == key).map(|(_, v)| v.clone())
+}
+
+/// `entries` with `key` set to `value` (replaces any existing value).
+fn annotation_set(mut entries: Vec<(String, String)>, key: &str, value: &str) -> Vec<(String, String)> {
+    entries.retain(|(k, _)| k != key);
+    entries.push((key.to_string(), value.to_string()));
+    entries
+}
+
+/// An endpoint in the API spec: identifier plus method and path.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct HttpApiEndpoint {
+    /// The endpoint identifier.
+    pub identifier: String,
+    /// The endpoint verb.
+    pub method: HttpMethod,
+    /// The route path.
+    pub path: String,
+}
+
+impl HttpApiEndpoint {
+    /// A GET endpoint with `identifier` at `path`.
+    pub fn get(identifier: &str, path: &str) -> Self {
+        Self {
+            identifier: identifier.to_string(),
+            method: HttpMethod::GET,
+            path: path.to_string(),
+        }
+    }
+}
+
+/// A group of endpoints with its own annotation scope.
+///
+/// Ports `HttpApiGroup`: identifiers are ordinary owned keys (a group
+/// literally named `__proto__` needs no special case), and every
+/// combinator returns a new value, leaving the source untouched.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct HttpApiGroup {
+    /// The group identifier.
+    pub identifier: String,
+    /// Endpoints in insertion order.
+    pub endpoints: Vec<(String, HttpApiEndpoint)>,
+    /// Annotation scope, most specific last.
+    pub annotations: Vec<(String, String)>,
+}
+
+impl HttpApiGroup {
+    /// An empty group with `identifier`.
+    pub fn make(identifier: &str) -> Self {
+        Self {
+            identifier: identifier.to_string(),
+            endpoints: Vec::new(),
+            annotations: Vec::new(),
+        }
+    }
+
+    /// Add an endpoint, keyed by its identifier.
+    pub fn add_endpoint(mut self, endpoint: HttpApiEndpoint) -> Self {
+        self.endpoints.retain(|(id, _)| id != &endpoint.identifier);
+        self.endpoints.push((endpoint.identifier.clone(), endpoint));
+        self
+    }
+
+    /// The endpoint with `identifier`, if present.
+    pub fn endpoint(&self, identifier: &str) -> Option<&HttpApiEndpoint> {
+        self.endpoints.iter().find(|(id, _)| id == identifier).map(|(_, endpoint)| endpoint)
+    }
+
+    /// Set annotation `key` to `value`.
+    pub fn annotate(self, key: &str, value: &str) -> Self {
+        Self {
+            annotations: annotation_set(self.annotations, key, value),
+            ..self
+        }
+    }
+
+    /// Merge a parent scope underneath this group's own annotations
+    /// (the group's values win, mirroring `addHttpApi` precedence).
+    pub fn annotate_merge(self, parent: &[(String, String)]) -> Self {
+        let mut merged: Vec<(String, String)> = parent.to_vec();
+        for (key, value) in &self.annotations {
+            merged = annotation_set(merged, key, value);
+        }
+        Self { annotations: merged, ..self }
+    }
+
+    /// The annotation for `key`, if present.
+    pub fn annotation(&self, key: &str) -> Option<&str> {
+        self.annotations.iter().rev().find(|(k, _)| k == key).map(|(_, v)| v.as_str())
+    }
+}
+
+/// An API spec: identifier, groups, and an annotation scope.
+///
+/// Ports `HttpApi.make`/`add`/`addHttpApi`/`annotate`/`reflect`: a data
+/// value, so every combinator returns a new spec. `add_http_api`
+/// flattens the other spec's own groups into fresh copies scoped with
+/// its annotations, leaving both inputs unchanged.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct HttpApi {
+    /// The API identifier.
+    pub identifier: String,
+    /// Groups in insertion order, keyed by identifier.
+    pub groups: Vec<(String, HttpApiGroup)>,
+    /// Annotation scope for groups added later via `add_http_api`.
+    pub annotations: Vec<(String, String)>,
+}
+
+impl HttpApi {
+    /// An empty spec with `identifier`.
+    pub fn make(identifier: &str) -> Self {
+        Self {
+            identifier: identifier.to_string(),
+            groups: Vec::new(),
+            annotations: Vec::new(),
+        }
+    }
+
+    /// Add a group, keyed by its identifier.
+    pub fn add(mut self, group: HttpApiGroup) -> Self {
+        self.groups.retain(|(id, _)| id != &group.identifier);
+        self.groups.push((group.identifier.clone(), group));
+        self
+    }
+
+    /// Flatten another spec's groups into this one. Each copied group
+    /// merges the other spec's annotations underneath its own; groups
+    /// already present here are untouched, as is the other spec.
+    pub fn add_http_api(mut self, other: &HttpApi) -> Self {
+        for (id, group) in &other.groups {
+            let merged = group.clone().annotate_merge(&other.annotations);
+            self.groups.retain(|(existing, _)| existing != id);
+            self.groups.push((id.clone(), merged));
+        }
+        self
+    }
+
+    /// Set annotation `key` to `value` on this spec's scope.
+    pub fn annotate(self, key: &str, value: &str) -> Self {
+        Self {
+            annotations: annotation_set(self.annotations, key, value),
+            ..self
+        }
+    }
+
+    /// The group with `identifier`, if present.
+    pub fn group(&self, identifier: &str) -> Option<&HttpApiGroup> {
+        self.groups.iter().find(|(id, _)| id == identifier).map(|(_, group)| group)
+    }
+
+    /// Own group identifiers in insertion order.
+    pub fn group_keys(&self) -> Vec<&str> {
+        self.groups.iter().map(|(id, _)| id.as_str()).collect()
+    }
+
+    /// The spec-scope annotation for `key`, if present.
+    pub fn annotation(&self, key: &str) -> Option<&str> {
+        self.annotations.iter().rev().find(|(k, _)| k == key).map(|(_, v)| v.as_str())
+    }
+
+    /// Walk every group then its endpoints in insertion order.
+    pub fn reflect(&self, mut on_group: impl FnMut(&HttpApiGroup), mut on_endpoint: impl FnMut(&HttpApiGroup, &HttpApiEndpoint)) {
+        for (_, group) in &self.groups {
+            on_group(group);
+            for (_, endpoint) in &group.endpoints {
+                on_endpoint(group, endpoint);
+            }
+        }
+    }
+
+    /// One tag per group: the title annotation names it, the merged
+    /// description documents it (`OpenApi.fromApi` tag surface).
+    pub fn tags(&self) -> Vec<ApiTag> {
+        self.groups
+            .iter()
+            .map(|(_, group)| ApiTag {
+                name: annotation_get(&group.annotations, ANNOTATION_TITLE)
+                    .unwrap_or_else(|| group.identifier.clone()),
+                description: annotation_get(&group.annotations, ANNOTATION_DESCRIPTION),
+            })
+            .collect()
+    }
+}
+
+/// An OpenAPI-style tag derived from a group.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ApiTag {
+    /// The tag name.
+    pub name: String,
+    /// The tag description, if annotated.
+    pub description: Option<String>,
+}
