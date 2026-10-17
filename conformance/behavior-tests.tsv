@@ -6397,9 +6397,9 @@ ported	packages/effect/test/eventlog/EventLog.test.ts	45	it.effect	writes a type
 ported	packages/effect/test/eventlog/EventLog.test.ts	63	it.effect	retries a failed remote write and flushes changes made during the retry	retry_flushes_changes_made_during_retry
 not-applicable	packages/effect/test/eventlog/EventLog.test.ts	135	it.effect	encrypts and decrypts entries with a distinct IV per entry	the row builds two encrypted entries from a generated identity and asserts their IVs differ; this port's EventLog has encryption but no identity generation reachable from here, and the row drives it through an Effect layer the port does not provide
 ported	packages/effect/test/eventlog/EventLog.test.ts	159	it.effect	publishes local journal changes through a scoped subscription	write_from_remote_reports_duplicates_and_publishes
-unported	packages/effect/test/eventlog/EventLogIdentityDerivation.test.ts	36	it.effect	derives the same material for identities with the same root secret	
-unported	packages/effect/test/eventlog/EventLogIdentityDerivation.test.ts	57	it.effect	uses versioned, domain-separated labels for encryption and signing	
-unported	packages/effect/test/eventlog/EventLogIdentityDerivation.test.ts	71	it.effect	memoizes derived material for the same identity instance	
+ported	packages/effect/test/eventlog/EventLogIdentityDerivation.test.ts	36	it.effect	derives the same material for identities with the same root secret	eventlog_identity
+ported	packages/effect/test/eventlog/EventLogIdentityDerivation.test.ts	57	it.effect	uses versioned, domain-separated labels for encryption and signing	eventlog_identity
+ported	packages/effect/test/eventlog/EventLogIdentityDerivation.test.ts	71	it.effect	memoizes derived material for the same identity instance	eventlog_identity
 ported	packages/effect/test/eventlog/EventLogMessage.test.ts	5	it	splits empty data into one chunk	chunks_split_and_join
 ported	packages/effect/test/eventlog/EventLogMessage.test.ts	12	it	ignores duplicate chunks when joining	chunks_split_and_join
 unported	packages/effect/test/eventlog/EventLogRemote.test.ts	15	it.effect	retries wrapped Forbidden authentication errors	
@@ -6408,12 +6408,12 @@ unported	packages/effect/test/eventlog/EventLogRemote.test.ts	80	it.effect	makeE
 unported	packages/effect/test/eventlog/EventLogServerUnencrypted.test.ts	43	it.effect	indexes conflicts from the sliced history	
 unported	packages/effect/test/eventlog/EventLogServerUnencrypted.test.ts	147	it.effect	Authenticate denies a first-use identity without creating a binding	
 unported	packages/effect/test/eventlog/EventLogServerUnencrypted.test.ts	185	it.effect	Authenticate re-checks identity authorization on a cached binding	
-unported	packages/effect/test/eventlog/EventLogSessionAuth.test.ts	26	it.effect	encodes and decodes canonical auth payload deterministically	
-unported	packages/effect/test/eventlog/EventLogSessionAuth.test.ts	46	it.effect	signs and verifies canonical auth payload with Ed25519	
-unported	packages/effect/test/eventlog/EventLogSessionAuth.test.ts	66	it.effect	returns false for mismatched payload/signature	
-unported	packages/effect/test/eventlog/EventLogSessionAuth.test.ts	88	it.effect	rejects malformed signature length	
-unported	packages/effect/test/eventlog/EventLogSessionAuth.test.ts	102	it.effect	rejects malformed signing public key length	
-unported	packages/effect/test/eventlog/EventLogSessionAuth.test.ts	114	it.effect	rejects invalid canonical payload bytes	
+ported	packages/effect/test/eventlog/EventLogSessionAuth.test.ts	26	it.effect	encodes and decodes canonical auth payload deterministically	eventlog_session_auth
+ported	packages/effect/test/eventlog/EventLogSessionAuth.test.ts	46	it.effect	signs and verifies canonical auth payload with Ed25519	eventlog_session_auth
+ported	packages/effect/test/eventlog/EventLogSessionAuth.test.ts	66	it.effect	returns false for mismatched payload/signature	eventlog_session_auth
+ported	packages/effect/test/eventlog/EventLogSessionAuth.test.ts	88	it.effect	rejects malformed signature length	eventlog_session_auth
+ported	packages/effect/test/eventlog/EventLogSessionAuth.test.ts	102	it.effect	rejects malformed signing public key length	eventlog_session_auth
+ported	packages/effect/test/eventlog/EventLogSessionAuth.test.ts	114	it.effect	rejects invalid canonical payload bytes	eventlog_session_auth
 unported	packages/effect/test/eventlog/SqlEventLogServerUnencryptedStorageTest.ts	48	it.layer	30 seconds	
 unported	packages/effect/test/eventlog/SqlEventLogServerUnencryptedStorageTest.ts	52	it.effect	persists remote id across storage instances	
 unported	packages/effect/test/eventlog/SqlEventLogServerUnencryptedStorageTest.ts	64	it.effect	replays backlog and then streams live changes without startup duplication	

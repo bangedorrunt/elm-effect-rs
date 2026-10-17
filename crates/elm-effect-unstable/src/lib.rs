@@ -8,6 +8,10 @@ pub mod workflow;
 
 #[cfg(feature = "eventlog")]
 pub mod eventlog;
+#[cfg(feature = "eventlog")]
+pub mod eventlog_identity;
+#[cfg(feature = "eventlog")]
+pub mod eventlog_session_auth;
 
 #[cfg(feature = "persistence")]
 pub mod persistence;
