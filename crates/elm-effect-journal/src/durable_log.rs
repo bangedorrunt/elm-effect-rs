@@ -16,6 +16,11 @@
 //! Both kernels admit an envelope through the same [`Store::admit`]. A
 //! [`FileLog`] reopened from disk replays its lines through that same path,
 //! so fencing, sequence, and dedupe state come back exactly as they were.
+//! A producer's epoch only moves forward: an append whose epoch is below the
+//! producer's current epoch is fenced with [`AppendError::StaleEpoch`] and
+//! writes nothing, even when it replays a triple the log accepted before the
+//! epoch moved (fencing beats dedupe). A higher epoch starts its sequence
+//! at 0. Epoch state never expires.
 
 use std::collections::HashMap;
 use std::fs::{self, File, OpenOptions};
@@ -65,13 +70,14 @@ pub enum AppendError {
     #[error("seq gap: got {got}, last accepted {last:?}")]
     SeqGap { got: u64, last: Option<u64> },
     /// The producer already moved to a newer epoch; this write is fenced.
-    #[error("stale epoch for {producer_id}: sent {sent}, current {current}")]
+    /// A stale incarnation (a zombie after a restart) writes nothing.
+    #[error("stale epoch for producer {producer}: sent {sent}, current {current}")]
     StaleEpoch {
-        /// Producer that sent the write.
-        producer_id: String,
+        /// Producer that sent it.
+        producer: String,
         /// Epoch sent.
         sent: u64,
-        /// Newest epoch accepted for this producer.
+        /// The producer's current epoch.
         current: u64,
     },
     /// The same `(producer_id, epoch, seq)` was accepted before with a
@@ -92,6 +98,14 @@ pub enum AppendError {
     /// or its contents are not a consistent log.
     #[error("storage failed: {0}")]
     Storage(String),
+    /// The log could not be reached or did not answer (a store-backed log
+    /// whose backing store failed, or whose bridge was called from the wrong
+    /// thread). Unlike every other variant this is **not** a verdict on the
+    /// envelope: the append's outcome is unknown, so a caller must reconcile
+    /// (ask the log whether it holds the triple) before retrying. `MemLog`
+    /// never returns it.
+    #[error("log unavailable (outcome unknown, reconcile): {0}")]
+    Unavailable(String),
 }
 
 /// A durable log: atomic appends, validated reads.
@@ -233,7 +247,7 @@ impl Store {
         // older one, even after a restart (L16: epoch state never expires).
         if let Some(&current) = self.max_epoch.get(&id) {
             if epoch < current {
-                return Err(AppendError::StaleEpoch { producer_id: id, sent: epoch, current });
+                return Err(AppendError::StaleEpoch { producer: id, sent: epoch, current });
             }
         }
         if let Some((recorded_offset, recorded)) = self.offsets.get(&(id.clone(), epoch, seq)) {

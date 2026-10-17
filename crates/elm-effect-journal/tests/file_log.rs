@@ -63,7 +63,7 @@ fn fencing_state_survives_reopen() {
     let log = FileLog::open(&scratch.0).unwrap();
     assert_eq!(
         log.append_json(&envelope("p", 0, 1, "2")),
-        Err(AppendError::StaleEpoch { producer_id: "p".into(), sent: 0, current: 1 }),
+        Err(AppendError::StaleEpoch { producer: "p".into(), sent: 0, current: 1 }),
         "a restart does not reopen an old epoch"
     );
     assert_eq!(
