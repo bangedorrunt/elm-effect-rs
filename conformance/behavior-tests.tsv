@@ -5898,26 +5898,26 @@ ported	packages/effect/test/cli/completions/completions.test.ts	351	it	groups fl
 ported	packages/effect/test/cli/completions/completions.test.ts	362	it	does not generate flag groups for commands with no flags	does_not_generate_flag_groups_for_commands_with_no_flags
 ported	packages/effect/test/cli/completions/completions.test.ts	369	it	uses no bash 4 syntax, so the script runs on the bash macOS ships	uses_no_bash_4_syntax_so_the_script_runs_on_the_bash_macos_ships
 ported	packages/effect/test/cli/completions/completions.test.ts	375	it	includes inline _init_completion fallback	includes_inline_init_completion_fallback
-unported	packages/effect/test/cli/completions/completions.test.ts	391	it	generates _arguments specs for flags	
-unported	packages/effect/test/cli/completions/completions.test.ts	399	it	includes flag descriptions in specs	
-unported	packages/effect/test/cli/completions/completions.test.ts	406	it	includes subcommand descriptions with _describe	
-unported	packages/effect/test/cli/completions/completions.test.ts	414	it	generates --no-<flag> for boolean flags	
-unported	packages/effect/test/cli/completions/completions.test.ts	420	it	uses _files for file-type flags	
-unported	packages/effect/test/cli/completions/completions.test.ts	426	it	uses _directories for directory-type flags	
-unported	packages/effect/test/cli/completions/completions.test.ts	432	it	inlines choice values with (val1 val2) syntax	
-unported	packages/effect/test/cli/completions/completions.test.ts	438	it	generates handler functions for nested subcommands	
-unported	packages/effect/test/cli/completions/completions.test.ts	446	it	generates argument specs for positional arguments	
-unported	packages/effect/test/cli/completions/completions.test.ts	452	it	generates choice argument completions	
-unported	packages/effect/test/cli/completions/completions.test.ts	458	it	escapes choice values for both the spec quoting and the action list re-parse	
-unported	packages/effect/test/cli/completions/completions.test.ts	468	it	uses alternative argument sets for positional arguments and subcommands	
-unported	packages/effect/test/cli/completions/completions.test.ts	489	it	starts with #compdef directive	
-unported	packages/effect/test/cli/completions/completions.test.ts	495	it	wraps script in begin/end markers	
-unported	packages/effect/test/cli/completions/completions.test.ts	502	it	declares state machine locals for commands with subcommands	
-unported	packages/effect/test/cli/completions/completions.test.ts	509	it	does not declare state machine locals for leaf commands	
-unported	packages/effect/test/cli/completions/completions.test.ts	516	it	uses specs array instead of line continuations	
-unported	packages/effect/test/cli/completions/completions.test.ts	524	it	generates exclusion groups for flag aliases	
-unported	packages/effect/test/cli/completions/completions.test.ts	533	it	generates exclusion group for flags without aliases	
-unported	packages/effect/test/cli/completions/completions.test.ts	540	it	uses Disable description for boolean negation	
+ported	packages/effect/test/cli/completions/completions.test.ts	391	it	generates _arguments specs for flags	generates_arguments_specs_for_flags
+ported	packages/effect/test/cli/completions/completions.test.ts	399	it	includes flag descriptions in specs	includes_flag_descriptions_in_specs
+ported	packages/effect/test/cli/completions/completions.test.ts	406	it	includes subcommand descriptions with _describe	includes_subcommand_descriptions_with_describe
+ported	packages/effect/test/cli/completions/completions.test.ts	414	it	generates --no-<flag> for boolean flags	generates_no_dash_form_for_boolean_flags_in_zsh
+ported	packages/effect/test/cli/completions/completions.test.ts	420	it	uses _files for file-type flags	uses_files_for_file_type_flags
+ported	packages/effect/test/cli/completions/completions.test.ts	426	it	uses _directories for directory-type flags	uses_directories_for_directory_type_flags
+ported	packages/effect/test/cli/completions/completions.test.ts	432	it	inlines choice values with (val1 val2) syntax	inlines_choice_values_with_parenthesised_syntax
+ported	packages/effect/test/cli/completions/completions.test.ts	438	it	generates handler functions for nested subcommands	generates_handler_functions_for_nested_subcommands
+ported	packages/effect/test/cli/completions/completions.test.ts	446	it	generates argument specs for positional arguments	generates_argument_specs_for_positional_arguments
+ported	packages/effect/test/cli/completions/completions.test.ts	452	it	generates choice argument completions	generates_choice_argument_completions
+ported	packages/effect/test/cli/completions/completions.test.ts	458	it	escapes choice values for both the spec quoting and the action list re-parse	escapes_choice_values_for_both_the_spec_quoting_and_the_action_list_re_parse
+ported	packages/effect/test/cli/completions/completions.test.ts	468	it	uses alternative argument sets for positional arguments and subcommands	uses_alternative_argument_sets_for_positional_arguments_and_subcommands
+ported	packages/effect/test/cli/completions/completions.test.ts	489	it	starts with #compdef directive	starts_with_compdef_directive
+ported	packages/effect/test/cli/completions/completions.test.ts	495	it	wraps script in begin/end markers	wraps_script_in_begin_end_markers_in_zsh
+ported	packages/effect/test/cli/completions/completions.test.ts	502	it	declares state machine locals for commands with subcommands	declares_state_machine_locals_for_commands_with_subcommands
+ported	packages/effect/test/cli/completions/completions.test.ts	509	it	does not declare state machine locals for leaf commands	does_not_declare_state_machine_locals_for_leaf_commands
+ported	packages/effect/test/cli/completions/completions.test.ts	516	it	uses specs array instead of line continuations	uses_specs_array_instead_of_line_continuations
+ported	packages/effect/test/cli/completions/completions.test.ts	524	it	generates exclusion groups for flag aliases	generates_exclusion_groups_for_flag_aliases
+ported	packages/effect/test/cli/completions/completions.test.ts	533	it	generates exclusion group for flags without aliases	generates_exclusion_group_for_flags_without_aliases
+ported	packages/effect/test/cli/completions/completions.test.ts	540	it	uses Disable description for boolean negation	uses_disable_description_for_boolean_negation
 unported	packages/effect/test/cli/completions/completions.test.ts	552	it	scopes nested completions by the full command path	
 unported	packages/effect/test/cli/completions/completions.test.ts	584	it	generates complete commands for root subcommands	
 unported	packages/effect/test/cli/completions/completions.test.ts	592	it	generates complete commands for flags with -l and -s	

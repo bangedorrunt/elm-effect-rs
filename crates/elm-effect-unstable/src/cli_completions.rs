@@ -386,13 +386,69 @@ pub fn from_command(
     }
 }
 
+// ---------------------------------------------------------------------------
+// Shared shell-generator helpers (used by bash and zsh)
+// ---------------------------------------------------------------------------
+
+/// Function names keep word characters only. A non-ASCII char becomes one
+/// underscore per UTF-16 unit, matching the pin's `replace` over a JS string
+/// (an astral char is two units, so two underscores).
+fn sanitize_shell_name(text: &str) -> String {
+    let mut out = String::new();
+    for c in text.chars() {
+        if c.is_ascii_alphanumeric() || c == '_' {
+            out.push(c);
+        } else {
+            for _ in 0..c.len_utf16() {
+                out.push('_');
+            }
+        }
+    }
+    out
+}
+
+/// `_` plus the sanitized path joined by `_` (`_[...currentPath.map(sanitize)]`).
+fn completion_function_name(path: &[String]) -> String {
+    format!(
+        "_{}",
+        path.iter()
+            .map(|part| sanitize_shell_name(part))
+            .collect::<Vec<_>>()
+            .join("_")
+    )
+}
+
+/// A one-character alias is short (`-x`), anything longer is long (`--xy`).
+fn alias_form(alias: &str) -> String {
+    if alias.chars().count() == 1 {
+        format!("-{alias}")
+    } else {
+        format!("--{alias}")
+    }
+}
+
+/// Every spelling a flag answers to (bash word list and zsh exclusion group).
+fn all_flag_forms(flag: &FlagDescriptor) -> Vec<String> {
+    let mut forms = vec![format!("--{}", flag.name)];
+    for alias in &flag.aliases {
+        forms.push(alias_form(alias));
+    }
+    if flag.flag_type == FlagType::Boolean {
+        forms.push(format!("--no-{}", flag.name));
+    }
+    forms
+}
+
 /// Static Bash completion script generation
 /// (`cli/internal/completions/bash.ts`).
 ///
 /// Emits a self-contained script from a [`CommandDescriptor`]: no re-invocation
 /// of the CLI at runtime. Stays on Bash 3.2 syntax, which is what macOS ships.
 pub mod bash {
-    use super::{ArgumentDescriptor, ArgumentType, CommandDescriptor, FlagDescriptor, FlagType};
+    use super::{
+        ArgumentDescriptor, ArgumentType, CommandDescriptor, FlagDescriptor, FlagType,
+        all_flag_forms, alias_form, completion_function_name, sanitize_shell_name,
+    };
     use crate::cli::primitive::PathKind;
 
     /// The inline `_init_completion` fallback for environments without
@@ -475,60 +531,13 @@ fi"##;
         text.replace('\'', "'\\''")
     }
 
-    /// Function names keep word characters only. A non-ASCII char becomes one
-    /// underscore per UTF-16 unit, matching the pin's `replace` over a JS
-    /// string (an astral char is two units, so two underscores).
-    fn sanitize_function_name(text: &str) -> String {
-        let mut out = String::new();
-        for c in text.chars() {
-            if c.is_ascii_alphanumeric() || c == '_' {
-                out.push(c);
-            } else {
-                for _ in 0..c.len_utf16() {
-                    out.push('_');
-                }
-            }
-        }
-        out
-    }
-
-    fn function_name(path: &[String]) -> String {
-        format!(
-            "_{}",
-            path.iter()
-                .map(|part| sanitize_function_name(part))
-                .collect::<Vec<_>>()
-                .join("_")
-        )
-    }
-
-    fn alias_form(alias: &str) -> String {
-        if alias.chars().count() == 1 {
-            format!("-{alias}")
-        } else {
-            format!("--{alias}")
-        }
-    }
-
-    /// Every spelling a flag answers to, for the `case` word list.
-    fn flag_names_for_wordlist(flag: &FlagDescriptor) -> Vec<String> {
-        let mut names = vec![format!("--{}", flag.name)];
-        for alias in &flag.aliases {
-            names.push(alias_form(alias));
-        }
-        if flag.flag_type == FlagType::Boolean {
-            names.push(format!("--no-{}", flag.name));
-        }
-        names
-    }
-
     /// Emit the Bash 3.2-compatible used-flag filter. A flag disappears from
     /// the word list once any of its spellings was typed.
     fn build_flag_group_declarations(flags: &[FlagDescriptor], lines: &mut Vec<String>) {
         if flags.is_empty() {
             return;
         }
-        let groups: Vec<Vec<String>> = flags.iter().map(flag_names_for_wordlist).collect();
+        let groups: Vec<Vec<String>> = flags.iter().map(all_flag_forms).collect();
         let declarations = (0..groups.len())
             .map(|index| format!("_used_{index}=\"\""))
             .collect::<Vec<_>>()
@@ -591,7 +600,7 @@ fi"##;
     ) {
         let mut current_path = parent_path.to_vec();
         current_path.push(descriptor.name.clone());
-        let func_name = function_name(&current_path);
+        let func_name = completion_function_name(&current_path);
 
         lines.push(format!("{func_name}()"));
         lines.push("{".to_owned());
@@ -646,7 +655,7 @@ fi"##;
                 if flag.flag_type == FlagType::Boolean {
                     continue;
                 }
-                let forms = flag_names_for_wordlist(flag);
+                let forms = all_flag_forms(flag);
                 lines.push(format!("      {}) _skip_next=1 ;;", forms.join("|")));
                 lines.push(format!(
                     "      {}) ;;",
@@ -661,7 +670,7 @@ fi"##;
                 let mut sub_path = current_path.clone();
                 sub_path.push(sub.name.clone());
                 lines.push(format!("      {})", sub.name));
-                lines.push(format!("        {} \"$i\"", function_name(&sub_path)));
+                lines.push(format!("        {} \"$i\"", completion_function_name(&sub_path)));
                 lines.push("        return".to_owned());
                 lines.push("        ;;".to_owned());
             }
@@ -709,7 +718,7 @@ fi"##;
             lines.push("    case \"${words[i]}\" in".to_owned());
             lines.push("      --) _end_of_options=1 ;;".to_owned());
             for flag in &descriptor.flags {
-                let forms = flag_names_for_wordlist(flag);
+                let forms = all_flag_forms(flag);
                 if flag.flag_type == FlagType::Boolean {
                     lines.push(format!("      {}) ;;", forms.join("|")));
                 } else {
@@ -768,7 +777,7 @@ fi"##;
     /// Generate the completion script for `executable_name`.
     pub fn generate(executable_name: &str, descriptor: &CommandDescriptor) -> String {
         let mut lines: Vec<String> = Vec::new();
-        let safe_name = sanitize_function_name(executable_name);
+        let safe_name = sanitize_shell_name(executable_name);
         // Sanitized names cannot contain `-`, so the helper name is unambiguous.
         let helper_name = format!("_{safe_name}--choices");
         let escaped = escape_for_bash(executable_name);
@@ -797,6 +806,243 @@ fi"##;
 
         lines.push(format!("complete -F _{safe_name} {escaped}"));
         lines.push(format!("###-end-{escaped}-completions-###"));
+
+        lines.join("\n")
+    }
+}
+
+/// Static Zsh completion script generation
+/// (`cli/internal/completions/zsh.ts`).
+///
+/// Emits a self-contained `_arguments`-based script from a
+/// [`CommandDescriptor`]: no re-invocation of the CLI at runtime. Subcommand
+/// dispatch runs through the `_arguments -C` state machine.
+pub mod zsh {
+    use super::{
+        ArgumentDescriptor, ArgumentType, CommandDescriptor, FlagDescriptor, FlagType,
+        all_flag_forms, completion_function_name, sanitize_shell_name,
+    };
+    use crate::cli::primitive::PathKind;
+
+    /// Escape for a description or command name inside a single-quoted spec.
+    fn escape_zsh(text: &str) -> String {
+        text.replace('\\', "\\\\")
+            .replace('\'', "'\\''")
+            .replace(':', "\\:")
+    }
+
+    /// Escape a choice value for the second parse of a Zsh `_arguments` action:
+    /// every char outside the safe set gains a backslash, then `'` is closed.
+    fn escape_zsh_choice(text: &str) -> String {
+        let mut out = String::new();
+        for c in text.chars() {
+            if c.is_ascii_alphanumeric()
+                || matches!(c, '_' | '.' | ',' | '/' | '@' | '%' | '+' | '-')
+            {
+                out.push(c);
+            } else {
+                out.push('\\');
+                out.push(c);
+            }
+        }
+        out.replace('\'', "'\\''")
+    }
+
+    fn choice_action(values: &[String]) -> String {
+        values
+            .iter()
+            .map(|value| escape_zsh_choice(value))
+            .collect::<Vec<_>>()
+            .join(" ")
+    }
+
+    /// The `_arguments` value action for a flag (`:value:(..)`, `:file:_files`).
+    fn value_action(flag_type: &FlagType) -> String {
+        match flag_type {
+            FlagType::Boolean => String::new(),
+            FlagType::Choice(values) => format!(":value:({})", choice_action(values)),
+            FlagType::Path(PathKind::Directory) => ":directory:_directories".to_owned(),
+            FlagType::Path(_) => ":file:_files".to_owned(),
+            FlagType::Int => ":integer:".to_owned(),
+            FlagType::Finite => ":float:".to_owned(),
+            FlagType::Date => ":date:".to_owned(),
+            FlagType::String => ":value:".to_owned(),
+        }
+    }
+
+    /// The argument action for a flag (`(v1 v2)`, `_files`).
+    fn argument_action(argument_type: &ArgumentType) -> String {
+        match argument_type {
+            ArgumentType::Choice(values) => format!("({})", choice_action(values)),
+            ArgumentType::Path(PathKind::Directory) => "_directories".to_owned(),
+            ArgumentType::Path(_) => "_files".to_owned(),
+            _ => String::new(),
+        }
+    }
+
+    /// Complete, single-quoted `_arguments` optspecs for one flag.
+    fn flag_specs(flag: &FlagDescriptor) -> Vec<String> {
+        let mut specs = Vec::new();
+        let desc = flag
+            .description
+            .as_deref()
+            .map(|text| format!("[{}]", escape_zsh(text)))
+            .unwrap_or_default();
+        let action = value_action(&flag.flag_type);
+        let excl = format!("({})", all_flag_forms(flag).join(" "));
+
+        specs.push(format!("'{excl}--{}{desc}{action}'", flag.name));
+
+        for alias in &flag.aliases {
+            let prefix = if alias.chars().count() == 1 { "-" } else { "--" };
+            specs.push(format!("'{excl}{prefix}{alias}{desc}{action}'"));
+        }
+
+        if flag.flag_type == FlagType::Boolean {
+            let neg = flag
+                .description
+                .as_deref()
+                .map(|_| format!("[{}]", escape_zsh(&format!("Disable {}", flag.name))))
+                .unwrap_or_default();
+            specs.push(format!("'{excl}--no-{}{neg}'", flag.name));
+        }
+
+        specs
+    }
+
+    fn arg_spec(argument: &ArgumentDescriptor) -> String {
+        let desc = match &argument.description {
+            Some(text) => escape_zsh(text),
+            None => argument.name.clone(),
+        };
+        let action = argument_action(&argument.argument_type);
+        let prefix = if argument.variadic { "*" } else { "" };
+        format!("'{prefix}:{desc}:{action}'")
+    }
+
+    fn generate_function(
+        descriptor: &CommandDescriptor,
+        parent_path: &[String],
+        lines: &mut Vec<String>,
+    ) {
+        let mut current_path = parent_path.to_vec();
+        current_path.push(descriptor.name.clone());
+        let func_name = completion_function_name(&current_path);
+
+        lines.push(format!("{func_name}() {{"));
+
+        if !descriptor.subcommands.is_empty() {
+            // The `_arguments -C` state machine needs these locals.
+            lines.push("  local context state state_descr line".to_owned());
+            lines.push("  typeset -A opt_args".to_owned());
+            lines.push(String::new());
+
+            lines.push("  local -a commands".to_owned());
+            lines.push("  commands=(".to_owned());
+            for sub in &descriptor.subcommands {
+                let desc = sub
+                    .description
+                    .as_deref()
+                    .map(escape_zsh)
+                    .unwrap_or_default();
+                lines.push(format!("    '{}:{desc}'", sub.name));
+            }
+            lines.push("  )".to_owned());
+            lines.push(String::new());
+
+            lines.push("  local -a specs".to_owned());
+            lines.push("  specs=(".to_owned());
+            for flag in &descriptor.flags {
+                for spec in flag_specs(flag) {
+                    lines.push(format!("    {spec}"));
+                }
+            }
+            if !descriptor.arguments.is_empty() {
+                lines.push("    -".to_owned());
+                lines.push("    parent-arguments".to_owned());
+                for argument in &descriptor.arguments {
+                    lines.push(format!("    {}", arg_spec(argument)));
+                }
+                lines.push("    -".to_owned());
+                lines.push("    subcommands".to_owned());
+            }
+            lines.push("    '1:command:->command'".to_owned());
+            lines.push("    '*::arg:->args'".to_owned());
+            lines.push("  )".to_owned());
+            lines.push(String::new());
+            lines.push("  _arguments -C \"${specs[@]}\"".to_owned());
+            lines.push(String::new());
+
+            lines.push("  case \"$state\" in".to_owned());
+            lines.push("    command)".to_owned());
+            lines.push("      _describe -t commands 'commands' commands".to_owned());
+            lines.push("      ;;".to_owned());
+            lines.push("    args)".to_owned());
+            lines.push("      case \"$words[1]\" in".to_owned());
+            for sub in &descriptor.subcommands {
+                let mut sub_path = current_path.clone();
+                sub_path.push(sub.name.clone());
+                lines.push(format!("        {})", sub.name));
+                lines.push(format!("          {}", completion_function_name(&sub_path)));
+                lines.push("          ;;".to_owned());
+            }
+            lines.push("      esac".to_owned());
+            lines.push("      ;;".to_owned());
+            lines.push("  esac".to_owned());
+        } else {
+            let mut specs = Vec::new();
+            for flag in &descriptor.flags {
+                specs.extend(flag_specs(flag));
+            }
+            for argument in &descriptor.arguments {
+                specs.push(arg_spec(argument));
+            }
+            if !specs.is_empty() {
+                lines.push("  local -a specs".to_owned());
+                lines.push("  specs=(".to_owned());
+                for spec in specs {
+                    lines.push(format!("    {spec}"));
+                }
+                lines.push("  )".to_owned());
+                lines.push("  _arguments \"${specs[@]}\"".to_owned());
+            }
+        }
+
+        lines.push("}".to_owned());
+        lines.push(String::new());
+
+        for sub in &descriptor.subcommands {
+            generate_function(sub, &current_path, lines);
+        }
+    }
+
+    /// Generate the completion script for `executable_name`.
+    pub fn generate(executable_name: &str, descriptor: &CommandDescriptor) -> String {
+        let mut lines: Vec<String> = Vec::new();
+        let safe_name = sanitize_shell_name(executable_name);
+
+        lines.push(format!("#compdef {executable_name}"));
+        lines.push(format!("###-begin-{executable_name}-completions-###"));
+        lines.push("#".to_owned());
+        lines.push("# Static completion script for Zsh".to_owned());
+        lines.push("#".to_owned());
+        lines.push("# Installation:".to_owned());
+        lines.push(format!(
+            "#   {executable_name} --completions zsh > ~/.zsh/completions/_{executable_name}"
+        ));
+        lines.push("#   then add ~/.zsh/completions to your fpath".to_owned());
+        lines.push("#".to_owned());
+        lines.push(String::new());
+
+        generate_function(descriptor, &[], &mut lines);
+
+        lines.push("# Handle both direct invocation and autoload".to_owned());
+        lines.push("if [[ \"${zsh_eval_context[-1]}\" == \"loadautofunc\" ]]; then".to_owned());
+        lines.push(format!("  _{safe_name} \"$@\""));
+        lines.push("else".to_owned());
+        lines.push(format!("  compdef _{safe_name} {executable_name}"));
+        lines.push("fi".to_owned());
+        lines.push(format!("###-end-{executable_name}-completions-###"));
 
         lines.join("\n")
     }
