@@ -442,7 +442,7 @@ dependencies = [
 
 [[package]]
 name = "elm-effect"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "elm-effect-schema",
  "jiff",
@@ -459,7 +459,7 @@ version = "0.0.0"
 
 [[package]]
 name = "elm-effect-elm"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "elm-effect",
  "elm-effect-journal",
@@ -470,7 +470,7 @@ dependencies = [
 
 [[package]]
 name = "elm-effect-journal"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "elm-effect",
  "serde",
@@ -480,11 +480,11 @@ dependencies = [
 
 [[package]]
 name = "elm-effect-lints"
-version = "0.1.0"
+version = "0.2.0"
 
 [[package]]
 name = "elm-effect-schema"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "serde_json",
  "thiserror 1.0.69",
@@ -492,14 +492,14 @@ dependencies = [
 
 [[package]]
 name = "elm-effect-test"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "elm-effect",
 ]
 
 [[package]]
 name = "elm-effect-unstable"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "base64 0.23.1",
  "clap",
