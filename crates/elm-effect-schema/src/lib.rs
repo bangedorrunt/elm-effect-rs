@@ -25,6 +25,7 @@ pub mod class;
 pub mod filters;
 pub mod built_in_revivers;
 pub use built_in_revivers::*;
+pub mod json_schema;
 pub mod representation;
 
 pub mod refinements;
@@ -614,7 +615,7 @@ const UNSUPPORTED_KEYWORDS: [(&str, &str); 6] = [
 /// `Struct` are both objects, and a `Tuple` and an `Array` are both arrays. That
 /// is why an intersection cannot compare the kinds directly, and why the kinds
 /// that name no single type answer `None`.
-fn kind_type_name(kind: &SchemaKind) -> Option<&'static str> {
+pub(crate) fn kind_type_name(kind: &SchemaKind) -> Option<&'static str> {
     match kind {
         SchemaKind::String => Some("string"),
         SchemaKind::Number => Some("number"),
