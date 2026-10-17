@@ -140,6 +140,38 @@ impl<T> Predicate<T> {
         Self::make(move |value| predicates.iter().any(|p| p.test(value)))
     }
 
+    /// `Predicate.Tuple`: every element predicate must hold for the element
+    /// at its position. Checking stops at the first failure.
+    pub fn tuple(predicates: Vec<Self>) -> Predicate<Vec<T>>
+    where
+        T: 'static,
+    {
+        Predicate::make(move |values: &Vec<T>| {
+            if values.len() != predicates.len() {
+                return false;
+            }
+            predicates
+                .iter()
+                .zip(values.iter())
+                .all(|(predicate, value)| predicate.test(value))
+        })
+    }
+
+    /// `Predicate.Struct`: every field predicate must hold for the field of
+    /// the same name. Extra keys are ignored, and the walk stops at the
+    /// first failing field. Fields are matched by name, so the input is a
+    /// name-keyed record rather than a positional tuple.
+    pub fn struct_(fields: Vec<(String, Self)>) -> Predicate<std::collections::BTreeMap<String, T>>
+    where
+        T: 'static,
+    {
+        Predicate::make(move |record: &std::collections::BTreeMap<String, T>| {
+            fields
+                .iter()
+                .all(|(name, predicate)| record.get(name).is_some_and(|value| predicate.test(value)))
+        })
+    }
+
     /// Test the input through a projection first.
     pub fn map_input<U>(self, f: impl Fn(&U) -> T + Send + Sync + 'static) -> Predicate<U>
     where

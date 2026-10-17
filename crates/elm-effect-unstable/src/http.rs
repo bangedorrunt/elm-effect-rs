@@ -535,10 +535,27 @@ impl Cookie {
 
     /// True for RFC 6265 token names (no separators, spaces, or controls).
     pub fn is_valid_name(name: &str) -> bool {
-        !name.is_empty() && name.bytes().all(|b| {
-            b.is_ascii_alphanumeric()
-                || matches!(b, b'!' | b'#' | b'$' | b'%' | b'&' | b'\'' | b'*' | b'+' | b'-' | b'.' | b'^' | b'_' | b'`' | b'|' | b'~')
-        })
+        !name.is_empty()
+            && name.bytes().all(|b| {
+                b.is_ascii_alphanumeric()
+                    || matches!(
+                        b,
+                        b'!' | b'#'
+                            | b'$'
+                            | b'%'
+                            | b'&'
+                            | b'\''
+                            | b'*'
+                            | b'+'
+                            | b'-'
+                            | b'.'
+                            | b'^'
+                            | b'_'
+                            | b'`'
+                            | b'|'
+                            | b'~'
+                    )
+            })
     }
 
     /// Parse one `name=value` pair (no attributes). Invalid names fail.
@@ -863,9 +880,7 @@ impl UrlParams {
                 .split('&')
                 .filter(|segment| !segment.is_empty())
                 .map(|segment| match segment.split_once('=') {
-                    Some((name, value)) => {
-                        (percent_decode(name), Some(percent_decode(value)))
-                    }
+                    Some((name, value)) => (percent_decode(name), Some(percent_decode(value))),
                     None => (percent_decode(segment), None),
                 })
                 .collect(),
@@ -946,18 +961,16 @@ fn percent_decode(text: &str) -> String {
                 out.push(b' ');
                 i += 1;
             }
-            b'%' if i + 2 <= bytes.len() => {
-                match (hex_val(bytes[i + 1]), hex_val(bytes[i + 2])) {
-                    (Some(hi), Some(lo)) => {
-                        out.push(hi << 4 | lo);
-                        i += 3;
-                    }
-                    _ => {
-                        out.push(b'%');
-                        i += 1;
-                    }
+            b'%' if i + 2 <= bytes.len() => match (hex_val(bytes[i + 1]), hex_val(bytes[i + 2])) {
+                (Some(hi), Some(lo)) => {
+                    out.push(hi << 4 | lo);
+                    i += 3;
                 }
-            }
+                _ => {
+                    out.push(b'%');
+                    i += 1;
+                }
+            },
             byte => {
                 out.push(byte);
                 i += 1;
@@ -1001,7 +1014,11 @@ impl Url {
             return None;
         }
         let (scheme, rest) = text.split_once("://")?;
-        if scheme.is_empty() || !scheme.bytes().all(|b| b.is_ascii_alphanumeric() || matches!(b, b'+' | b'-' | b'.')) {
+        if scheme.is_empty()
+            || !scheme
+                .bytes()
+                .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'+' | b'-' | b'.'))
+        {
             return None;
         }
         let (authority, path_query_frag) = match rest.find('/') {
@@ -1034,7 +1051,11 @@ impl Url {
         } else {
             match host_port.rsplit_once(':') {
                 Some((h, p)) if !h.is_empty() => {
-                    let port: u16 = if p.is_empty() { return None } else { p.parse().ok()? };
+                    let port: u16 = if p.is_empty() {
+                        return None;
+                    } else {
+                        p.parse().ok()?
+                    };
                     (h.to_ascii_lowercase(), Some(port))
                 }
                 _ => (host_port.to_ascii_lowercase(), None),
@@ -1057,7 +1078,11 @@ impl Url {
             password,
             host,
             port,
-            path: if path.is_empty() { "/".to_string() } else { path },
+            path: if path.is_empty() {
+                "/".to_string()
+            } else {
+                path
+            },
             query,
             fragment,
         })
@@ -1077,7 +1102,13 @@ impl Url {
                 None => (path, ""),
             };
             resolved.path = format!("/{path}");
-            resolved.query = query_frag.strip_prefix('?').unwrap_or(query_frag).split('#').next().unwrap_or("").to_string();
+            resolved.query = query_frag
+                .strip_prefix('?')
+                .unwrap_or(query_frag)
+                .split('#')
+                .next()
+                .unwrap_or("")
+                .to_string();
             resolved.fragment = query_frag.split('#').nth(1).unwrap_or("").to_string();
             return Some(resolved);
         }
@@ -1272,6 +1303,122 @@ pub fn join_url(base: &str, path: &str) -> String {
     }
 }
 
+/// Build the request URL for an endpoint path template (`urlBuilder`).
+///
+/// `template` holds `:name` (required) and `:name?` (optional) placeholders;
+/// only names present in `params` substitute, so an undeclared action suffix
+/// such as the `:wait` in `/operations/:id:wait` stays literal. A segment
+/// that is exactly a missing optional placeholder drops out (`/files/:path?`
+/// with no `path` becomes `/files`). Values encode with `encodeURIComponent`
+/// semantics (`/` becomes `%2F`). `query` renders in order, repeating names
+/// for array values. `prefix` (the API prefix, `""` when none) joins ahead of
+/// the template; `base` (`None` for relative URLs) joins ahead of that.
+pub fn build_endpoint_url(
+    base: Option<&str>,
+    prefix: &str,
+    template: &str,
+    params: &[(&str, &str)],
+    query: &[(String, Option<String>)],
+) -> Result<String, String> {
+    let joined = if prefix.is_empty() {
+        template.to_string()
+    } else {
+        let prefix = prefix.strip_suffix('/').unwrap_or(prefix);
+        if template.starts_with('/') {
+            format!("{prefix}{template}")
+        } else {
+            format!("{prefix}/{template}")
+        }
+    };
+    let mut kept = Vec::new();
+    for segment in joined.split('/') {
+        if segment.is_empty() {
+            kept.push(String::new());
+            continue;
+        }
+        if let Some(expanded) = expand_segment(segment, params) {
+            kept.push(expanded);
+        }
+    }
+    let path = kept.join("/");
+    let path = if path.is_empty() { "/".to_string() } else { path };
+    let mut url = match base {
+        Some(base) => join_url(base, &path),
+        None => path,
+    };
+    if !query.is_empty() {
+        url.push('?');
+        url.push_str(&UrlParams::from_pairs(query.to_vec()).render());
+    }
+    Ok(url)
+}
+
+/// Expand one path segment: substitute supplied params, drop a segment that
+/// is only a missing optional placeholder, leave anything else literal.
+fn expand_segment(segment: &str, params: &[(&str, &str)]) -> Option<String> {
+    let chars: Vec<char> = segment.chars().collect();
+    let mut index = 0;
+    let mut out = String::new();
+    let mut has_literal = false;
+    while index < chars.len() {
+        if chars[index] != ':' {
+            out.push(chars[index]);
+            has_literal = true;
+            index += 1;
+            continue;
+        }
+        let mut end = index + 1;
+        while end < chars.len() && (chars[end].is_ascii_alphanumeric() || chars[end] == '_') {
+            end += 1;
+        }
+        if end == index + 1 {
+            out.push(':');
+            has_literal = true;
+            index += 1;
+            continue;
+        }
+        let name: String = chars[index + 1..end].iter().collect();
+        let mut optional = false;
+        if end < chars.len() && chars[end] == '?' {
+            optional = true;
+            end += 1;
+        }
+        match params.iter().find(|(key, _)| *key == name) {
+            Some((_, value)) => out.push_str(&encode_path_segment(value)),
+            None if optional => {}
+            None => {
+                out.push(':');
+                out.push_str(&name);
+                if optional {
+                    out.push('?');
+                }
+                has_literal = true;
+            }
+        }
+        index = end;
+    }
+    if out.is_empty() && !has_literal {
+        return None;
+    }
+    Some(out)
+}
+
+/// `encodeURIComponent`: unreserved marks pass through, everything else
+/// (including `/` and space) becomes `%XX`.
+fn encode_path_segment(value: &str) -> String {
+    const UNRESERVED: &[u8] =
+        b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_.!~*'()";
+    let mut out = String::with_capacity(value.len());
+    for byte in value.bytes() {
+        if UNRESERVED.contains(&byte) {
+            out.push(byte as char);
+        } else {
+            out.push_str(&format!("%{byte:02X}"));
+        }
+    }
+    out
+}
+
 /// Explicit port, else the scheme default (http 80, https 443).
 /// Used for redirect origin comparison (`URL.origin` semantics).
 fn effective_port(url: &Url) -> Option<u16> {
@@ -1279,5 +1426,735 @@ fn effective_port(url: &Url) -> Option<u16> {
         "http" => Some(80),
         "https" => Some(443),
         _ => None,
+    })
+}
+
+/// Annotation key for a display title (`OpenApi.Title` in TS).
+pub const ANNOTATION_TITLE: &str = "title";
+/// Annotation key for a description (`OpenApi.Description` in TS).
+pub const ANNOTATION_DESCRIPTION: &str = "description";
+
+/// Last value for `key` in an annotation list, or `None`.
+fn annotation_get(entries: &[(String, String)], key: &str) -> Option<String> {
+    entries
+        .iter()
+        .rev()
+        .find(|(k, _)| k == key)
+        .map(|(_, v)| v.clone())
+}
+
+/// `entries` with `key` set to `value` (replaces any existing value).
+fn annotation_set(
+    mut entries: Vec<(String, String)>,
+    key: &str,
+    value: &str,
+) -> Vec<(String, String)> {
+    entries.retain(|(k, _)| k != key);
+    entries.push((key.to_string(), value.to_string()));
+    entries
+}
+
+/// An endpoint in the API spec: identifier plus method and path.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct HttpApiEndpoint {
+    /// The endpoint identifier.
+    pub identifier: String,
+    /// The endpoint verb.
+    pub method: HttpMethod,
+    /// The route path.
+    pub path: String,
+}
+
+impl HttpApiEndpoint {
+    /// A GET endpoint with `identifier` at `path`.
+    pub fn get(identifier: &str, path: &str) -> Self {
+        Self {
+            identifier: identifier.to_string(),
+            method: HttpMethod::GET,
+            path: path.to_string(),
+        }
+    }
+}
+
+/// A group of endpoints with its own annotation scope.
+///
+/// Ports `HttpApiGroup`: identifiers are ordinary owned keys (a group
+/// literally named `__proto__` needs no special case), and every
+/// combinator returns a new value, leaving the source untouched.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct HttpApiGroup {
+    /// The group identifier.
+    pub identifier: String,
+    /// Endpoints in insertion order.
+    pub endpoints: Vec<(String, HttpApiEndpoint)>,
+    /// Annotation scope, most specific last.
+    pub annotations: Vec<(String, String)>,
+    /// Top-level groups flatten their endpoints to the API root
+    /// (`topLevel: true` in `HttpApiGroup.make`).
+    pub top_level: bool,
+}
+
+impl HttpApiGroup {
+    /// An empty group with `identifier`.
+    pub fn make(identifier: &str) -> Self {
+        Self {
+            identifier: identifier.to_string(),
+            endpoints: Vec::new(),
+            annotations: Vec::new(),
+            top_level: false,
+        }
+    }
+
+    /// Add an endpoint, keyed by its identifier.
+    pub fn add_endpoint(mut self, endpoint: HttpApiEndpoint) -> Self {
+        self.endpoints.retain(|(id, _)| id != &endpoint.identifier);
+        self.endpoints.push((endpoint.identifier.clone(), endpoint));
+        self
+    }
+
+    /// The endpoint with `identifier`, if present.
+    pub fn endpoint(&self, identifier: &str) -> Option<&HttpApiEndpoint> {
+        self.endpoints
+            .iter()
+            .find(|(id, _)| id == identifier)
+            .map(|(_, endpoint)| endpoint)
+    }
+
+    /// Set annotation `key` to `value`.
+    pub fn annotate(self, key: &str, value: &str) -> Self {
+        Self {
+            annotations: annotation_set(self.annotations, key, value),
+            ..self
+        }
+    }
+
+    /// Flatten this group's endpoints to the API root in client builders
+    /// (`topLevel: true`); the URL paths are unchanged, only the nesting is.
+    pub fn top_level(mut self) -> Self {
+        self.top_level = true;
+        self
+    }
+
+    /// Merge a parent scope underneath this group's own annotations
+    /// (the group's values win, mirroring `addHttpApi` precedence).
+    pub fn annotate_merge(self, parent: &[(String, String)]) -> Self {
+        let mut merged: Vec<(String, String)> = parent.to_vec();
+        for (key, value) in &self.annotations {
+            merged = annotation_set(merged, key, value);
+        }
+        Self {
+            annotations: merged,
+            ..self
+        }
+    }
+
+    /// The annotation for `key`, if present.
+    pub fn annotation(&self, key: &str) -> Option<&str> {
+        self.annotations
+            .iter()
+            .rev()
+            .find(|(k, _)| k == key)
+            .map(|(_, v)| v.as_str())
+    }
+}
+
+/// An API spec: identifier, groups, and an annotation scope.
+///
+/// Ports `HttpApi.make`/`add`/`addHttpApi`/`annotate`/`reflect`: a data
+/// value, so every combinator returns a new spec. `add_http_api`
+/// flattens the other spec's own groups into fresh copies scoped with
+/// its annotations, leaving both inputs unchanged.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct HttpApi {
+    /// The API identifier.
+    pub identifier: String,
+    /// Groups in insertion order, keyed by identifier.
+    pub groups: Vec<(String, HttpApiGroup)>,
+    /// Annotation scope for groups added later via `add_http_api`.
+    pub annotations: Vec<(String, String)>,
+    /// Path prefix applied ahead of every endpoint path (`.prefix(...)`).
+    pub prefix: String,
+}
+
+impl HttpApi {
+    /// An empty spec with `identifier`.
+    pub fn make(identifier: &str) -> Self {
+        Self {
+            identifier: identifier.to_string(),
+            groups: Vec::new(),
+            annotations: Vec::new(),
+            prefix: String::new(),
+        }
+    }
+
+    /// Apply a path prefix ahead of every endpoint path.
+    pub fn prefix(mut self, scope: &str) -> Self {
+        self.prefix = scope.to_string();
+        self
+    }
+
+    /// Add a group, keyed by its identifier.
+    pub fn add(mut self, group: HttpApiGroup) -> Self {
+        self.groups.retain(|(id, _)| id != &group.identifier);
+        self.groups.push((group.identifier.clone(), group));
+        self
+    }
+
+    /// Flatten another spec's groups into this one. Each copied group
+    /// merges the other spec's annotations underneath its own; groups
+    /// already present here are untouched, as is the other spec.
+    pub fn add_http_api(mut self, other: &HttpApi) -> Self {
+        for (id, group) in &other.groups {
+            let merged = group.clone().annotate_merge(&other.annotations);
+            self.groups.retain(|(existing, _)| existing != id);
+            self.groups.push((id.clone(), merged));
+        }
+        self
+    }
+
+    /// Set annotation `key` to `value` on this spec's scope.
+    pub fn annotate(self, key: &str, value: &str) -> Self {
+        Self {
+            annotations: annotation_set(self.annotations, key, value),
+            ..self
+        }
+    }
+
+    /// The group with `identifier`, if present.
+    pub fn group(&self, identifier: &str) -> Option<&HttpApiGroup> {
+        self.groups
+            .iter()
+            .find(|(id, _)| id == identifier)
+            .map(|(_, group)| group)
+    }
+
+    /// Own group identifiers in insertion order.
+    pub fn group_keys(&self) -> Vec<&str> {
+        self.groups.iter().map(|(id, _)| id.as_str()).collect()
+    }
+
+    /// The spec-scope annotation for `key`, if present.
+    pub fn annotation(&self, key: &str) -> Option<&str> {
+        self.annotations
+            .iter()
+            .rev()
+            .find(|(k, _)| k == key)
+            .map(|(_, v)| v.as_str())
+    }
+
+    /// Walk every group then its endpoints in insertion order.
+    pub fn reflect(
+        &self,
+        mut on_group: impl FnMut(&HttpApiGroup),
+        mut on_endpoint: impl FnMut(&HttpApiGroup, &HttpApiEndpoint),
+    ) {
+        for (_, group) in &self.groups {
+            on_group(group);
+            for (_, endpoint) in &group.endpoints {
+                on_endpoint(group, endpoint);
+            }
+        }
+    }
+
+    /// One tag per group: the title annotation names it, the merged
+    /// description documents it (`OpenApi.fromApi` tag surface).
+    pub fn tags(&self) -> Vec<ApiTag> {
+        self.groups
+            .iter()
+            .map(|(_, group)| ApiTag {
+                name: annotation_get(&group.annotations, ANNOTATION_TITLE)
+                    .unwrap_or_else(|| group.identifier.clone()),
+                description: annotation_get(&group.annotations, ANNOTATION_DESCRIPTION),
+            })
+            .collect()
+    }
+}
+
+/// An OpenAPI-style tag derived from a group.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ApiTag {
+    /// The tag name.
+    pub name: String,
+    /// The tag description, if annotated.
+    pub description: Option<String>,
+}
+
+/// Why a multipart parse failed (TS `MultipartErrorReason`).
+///
+/// `status` renders 400 for `Parse`, 500 for `InternalError`, 413 for every
+/// limit; every reason is ignored by the error reporter.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MultipartReason {
+    /// One file part exceeded the per-file limit.
+    FileTooLarge,
+    /// One field value exceeded the field-size limit.
+    FieldTooLarge,
+    /// The whole body exceeded the total-size limit.
+    BodyTooLarge,
+    /// More parts than allowed.
+    TooManyParts,
+    /// Transport or persistence failure carrying the body.
+    InternalError,
+    /// Malformed body or headers.
+    Parse,
+}
+
+impl MultipartReason {
+    /// Build the error for this reason.
+    pub fn error(self) -> MultipartError {
+        MultipartError::from_reason(self)
+    }
+
+    /// Response status for this reason.
+    pub fn status(&self) -> u16 {
+        multipart_status(self)
+    }
+
+    /// Every multipart error is ignored by the error reporter.
+    pub fn is_ignored(&self) -> bool {
+        true
+    }
+
+    /// The public message is the reason tag.
+    pub fn message(&self) -> &'static str {
+        match self {
+            Self::FileTooLarge => "FileTooLarge",
+            Self::FieldTooLarge => "FieldTooLarge",
+            Self::BodyTooLarge => "BodyTooLarge",
+            Self::TooManyParts => "TooManyParts",
+            Self::InternalError => "InternalError",
+            Self::Parse => "Parse",
+        }
+    }
+}
+
+/// A multipart parse failure (TS `MultipartError`).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MultipartError {
+    /// The concrete reason.
+    pub reason: MultipartReason,
+}
+
+impl MultipartError {
+    /// Build from a reason tag.
+    pub fn from_reason(reason: MultipartReason) -> Self {
+        Self { reason }
+    }
+
+    /// Response status for the reason.
+    pub fn status(&self) -> u16 {
+        multipart_status(&self.reason)
+    }
+}
+
+impl std::fmt::Display for MultipartError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.reason.message())
+    }
+}
+
+impl std::error::Error for MultipartError {}
+
+/// Response status for a multipart reason: 400 parse, 500 internal, else 413.
+pub fn multipart_status(reason: &MultipartReason) -> u16 {
+    match reason {
+        MultipartReason::Parse => 400,
+        MultipartReason::InternalError => 500,
+        MultipartReason::FileTooLarge
+        | MultipartReason::FieldTooLarge
+        | MultipartReason::BodyTooLarge
+        | MultipartReason::TooManyParts => 413,
+    }
+}
+
+/// True only for a real `MultipartError` (a plain tagged lookalike is false).
+pub fn is_multipart_error(value: &dyn std::any::Any) -> bool {
+    value.is::<MultipartError>()
+}
+
+/// One parsed multipart part: a decoded text field or a file's bytes.
+///
+/// Sync whole-body core of TS `Part`: streaming `content`/`contentEffect`
+/// pull machinery has no runtime here, so files carry their bytes directly.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum MultipartPart {
+    /// A decoded text field.
+    Field {
+        /// Field name.
+        key: String,
+        /// Part media type.
+        content_type: String,
+        /// Decoded value.
+        value: String,
+    },
+    /// An uploaded file with its full bytes.
+    File {
+        /// Field name.
+        key: String,
+        /// Original file name (`filename`, else the field name).
+        name: String,
+        /// Part media type.
+        content_type: String,
+        /// File bytes.
+        content: Vec<u8>,
+    },
+}
+
+impl MultipartPart {
+    /// Every part (field, file, persisted) is a part.
+    pub fn is_part(&self) -> bool {
+        true
+    }
+
+    /// Parsed field/file parts are stream parts; persisted files are not.
+    pub fn is_stream_part(&self) -> bool {
+        true
+    }
+
+    /// True for fields.
+    pub fn is_field(&self) -> bool {
+        matches!(self, Self::Field { .. })
+    }
+
+    /// True for files.
+    pub fn is_file(&self) -> bool {
+        matches!(self, Self::File { .. })
+    }
+}
+
+/// A file written to a scoped temp dir (TS `PersistedFile`).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PersistedFile {
+    /// Field name.
+    pub key: String,
+    /// Original file name.
+    pub name: String,
+    /// Part media type.
+    pub content_type: String,
+    /// Scoped temp path.
+    pub path: String,
+}
+
+impl PersistedFile {
+    /// Persisted files are parts but not stream parts.
+    pub fn is_part(&self) -> bool {
+        true
+    }
+
+    /// Persisted files are no longer streamed.
+    pub fn is_stream_part(&self) -> bool {
+        false
+    }
+
+    /// Brand guard.
+    pub fn is_persisted_file(&self) -> bool {
+        true
+    }
+}
+
+/// Parser limits (TS `MaxParts`/`MaxFieldSize`/`MaxFileSize`/`MaxBodySize`).
+///
+/// `max_file_size` is the per-file cap (`MaxPartSize` maps from `MaxFileSize`
+/// in `makeConfig`). Field MIME types (default `application/json`) parse as
+/// fields even with a filename.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct MultipartLimits {
+    /// Max part count (`None` = unbounded).
+    pub max_parts: Option<usize>,
+    /// Max field value bytes (default 10 MiB when `None`, matching TS).
+    pub max_field_size: Option<usize>,
+    /// Max file bytes per part (`None` = unbounded).
+    pub max_file_size: Option<usize>,
+    /// Max whole-body bytes (`None` = unbounded).
+    pub max_total_size: Option<usize>,
+    /// Content types parsed as fields even with a filename.
+    pub field_mime_types: Vec<String>,
+}
+
+impl MultipartLimits {
+    /// Default field cap is 10 MiB, matching the TS `MaxFieldSize` default.
+    pub fn field_cap(&self) -> usize {
+        self.max_field_size.unwrap_or(10 * 1024 * 1024)
+    }
+
+    /// MIME types treated as fields (default `application/json`).
+    pub fn field_mimes(&self) -> Vec<String> {
+        if self.field_mime_types.is_empty() {
+            vec!["application/json".to_string()]
+        } else {
+            self.field_mime_types.clone()
+        }
+    }
+}
+
+/// The `boundary=` parameter of a `multipart/form-data` content type.
+pub fn multipart_boundary(content_type: &str) -> Option<String> {
+    for piece in content_type.split(';') {
+        let piece = piece.trim();
+        if let Some(rest) = piece
+            .strip_prefix("boundary=")
+            .or_else(|| piece.strip_prefix("BOUNDARY="))
+        {
+            let boundary = rest.trim().trim_matches('"');
+            if !boundary.is_empty() {
+                return Some(boundary.to_string());
+            }
+        }
+    }
+    None
+}
+
+/// Parse a whole multipart body (split chunks reassembled by the caller).
+///
+/// Ports the portable core of `Multipart.makeChannel`: boundary framing,
+/// `Content-Disposition` names (UTF-8, plus `filename*` decoding),
+/// field/file split, and every limit mapping (`TooManyParts`, `FieldTooLarge`,
+/// `FileTooLarge`, `BodyTooLarge`, truncated bodies as `Parse`). Streaming
+/// backpressure and upstream-failure propagation need the TS channel runtime
+/// and are not modeled here.
+pub fn parse_multipart(
+    body: &[u8],
+    content_type: &str,
+    limits: &MultipartLimits,
+) -> Result<Vec<MultipartPart>, MultipartError> {
+    let boundary = multipart_boundary(content_type)
+        .ok_or(MultipartError::from_reason(MultipartReason::Parse))?;
+    if let Some(cap) = limits.max_total_size {
+        if body.len() > cap {
+            return Err(MultipartError::from_reason(MultipartReason::BodyTooLarge));
+        }
+    }
+    let delimiter = format!("--{boundary}");
+    let delim = delimiter.as_bytes();
+    if !body.starts_with(delim) {
+        return Err(MultipartError::from_reason(MultipartReason::Parse));
+    }
+    let field_mimes = limits.field_mimes();
+    let mut parts = Vec::new();
+    let mut pos = delim.len();
+    // First delimiter line: either `--` (empty close) or `\r\n`.
+    if body.get(pos..pos + 2) == Some(b"--".as_slice()) {
+        return Ok(parts);
+    }
+    if body.get(pos..pos + 2) != Some(b"\r\n".as_slice()) {
+        return Err(MultipartError::from_reason(MultipartReason::Parse));
+    }
+    pos += 2;
+    loop {
+        let header_end = find_bytes(body, pos, b"\r\n\r\n")
+            .ok_or(MultipartError::from_reason(MultipartReason::Parse))?;
+        let headers = String::from_utf8_lossy(&body[pos..header_end]).into_owned();
+        let content_start = header_end + 4;
+        let delim_pos = find_delimiter(body, content_start, delim)
+            .ok_or(MultipartError::from_reason(MultipartReason::Parse))?;
+        let content = &body[content_start..delim_pos];
+        let (name, filename, content_type) = part_headers(&headers);
+        let name = name.ok_or(MultipartError::from_reason(MultipartReason::Parse))?;
+        let is_field = filename.is_none() || field_mimes.iter().any(|m| content_type.contains(m));
+        if is_field {
+            if content.len() > limits.field_cap() {
+                return Err(MultipartError::from_reason(MultipartReason::FieldTooLarge));
+            }
+            parts.push(MultipartPart::Field {
+                key: name,
+                content_type,
+                value: String::from_utf8_lossy(content).into_owned(),
+            });
+        } else {
+            if let Some(cap) = limits.max_file_size {
+                if content.len() > cap {
+                    return Err(MultipartError::from_reason(MultipartReason::FileTooLarge));
+                }
+            }
+            parts.push(MultipartPart::File {
+                key: name.clone(),
+                name: filename.unwrap_or(name),
+                content_type,
+                content: content.to_vec(),
+            });
+        }
+        if let Some(cap) = limits.max_parts {
+            if parts.len() > cap {
+                return Err(MultipartError::from_reason(MultipartReason::TooManyParts));
+            }
+        }
+        let mut next = delim_pos + 2 + delim.len();
+        if body.get(next..next + 2) == Some(b"--".as_slice()) {
+            break;
+        }
+        if body.get(next..next + 2) != Some(b"\r\n".as_slice()) {
+            return Err(MultipartError::from_reason(MultipartReason::Parse));
+        }
+        pos = next + 2;
+    }
+    Ok(parts)
+}
+
+fn find_bytes(haystack: &[u8], from: usize, needle: &[u8]) -> Option<usize> {
+    if needle.is_empty() || from > haystack.len() {
+        return None;
+    }
+    haystack[from..]
+        .windows(needle.len())
+        .position(|w| w == needle)
+        .map(|i| from + i)
+}
+
+fn find_delimiter(body: &[u8], from: usize, delim: &[u8]) -> Option<usize> {
+    // Delimiters are always introduced by `\r\n` (the separator is framing,
+    // never file content), which also makes a split trailing `--` rejoin
+    // harmless once chunks are reassembled.
+    let mut search = from;
+    loop {
+        let hit = find_bytes(body, search, delim)?;
+        let is_framing = hit >= 2 && body[hit - 2..hit] == *b"\r\n";
+        let at_start = hit == 0;
+        if is_framing || at_start {
+            if is_framing {
+                return Some(hit - 2);
+            }
+            return Some(hit);
+        }
+        search = hit + 1;
+    }
+}
+
+fn part_headers(headers: &str) -> (Option<String>, Option<String>, String) {
+    let mut name: Option<String> = None;
+    let mut filename: Option<String> = None;
+    let mut content_type = "text/plain".to_string();
+    for line in headers.split("\r\n") {
+        let Some((key, value)) = line.split_once(':') else {
+            continue;
+        };
+        let key = key.trim().to_ascii_lowercase();
+        let value = value.trim();
+        if key == "content-disposition" {
+            for piece in value.split(';') {
+                let piece = piece.trim();
+                if let Some(rest) = piece.strip_prefix("name=") {
+                    name = Some(unquote(rest));
+                } else if let Some(rest) = piece.strip_prefix("filename=") {
+                    filename = Some(unquote(rest));
+                } else if let Some(rest) = piece.strip_prefix("filename*=") {
+                    filename = Some(decode_rfc5987(rest));
+                }
+            }
+        } else if key == "content-type" {
+            content_type = value.split(';').next().unwrap_or(value).trim().to_string();
+        }
+    }
+    (name, filename, content_type)
+}
+
+fn unquote(text: &str) -> String {
+    let text = text.trim();
+    if text.len() >= 2 && text.starts_with('"') && text.ends_with('"') {
+        text[1..text.len() - 1].to_string()
+    } else {
+        text.to_string()
+    }
+}
+
+fn decode_rfc5987(text: &str) -> String {
+    // `UTF-8''%E6%97%A5...`: charset, language, then percent-encoding.
+    let encoded = text.split('\'').nth(2).unwrap_or(text);
+    let mut out = Vec::new();
+    let bytes = encoded.as_bytes();
+    let mut i = 0;
+    while i < bytes.len() {
+        if bytes[i] == b'%' && i + 2 < bytes.len() {
+            if let (Some(hi), Some(lo)) = (hex_val(bytes[i + 1]), hex_val(bytes[i + 2])) {
+                out.push(hi << 4 | lo);
+                i += 3;
+                continue;
+            }
+        }
+        out.push(bytes[i]);
+        i += 1;
+    }
+    String::from_utf8_lossy(&out).into_owned()
+}
+
+/// Parse JSON text then apply `reviver(key, value)` bottom-up, like
+/// `JSON.parse` (TS `schemaJson` reviver core; schema validation itself
+/// stays with the schema crate).
+pub fn schema_json_with_reviver(
+    json: &str,
+    reviver: impl Fn(&str, serde_json::Value) -> serde_json::Value,
+) -> Result<serde_json::Value, String> {
+    let value: serde_json::Value = serde_json::from_str(json).map_err(|error| error.to_string())?;
+    Ok(apply_reviver("", value, &reviver))
+}
+
+fn apply_reviver(
+    key: &str,
+    value: serde_json::Value,
+    reviver: &impl Fn(&str, serde_json::Value) -> serde_json::Value,
+) -> serde_json::Value {
+    let value = match value {
+        serde_json::Value::Array(items) => serde_json::Value::Array(
+            items
+                .into_iter()
+                .enumerate()
+                .map(|(i, item)| apply_reviver(&i.to_string(), item, reviver))
+                .collect(),
+        ),
+        serde_json::Value::Object(map) => serde_json::Value::Object(
+            map.into_iter()
+                .map(|(k, v)| {
+                    let v = apply_reviver(&k.clone(), v, reviver);
+                    (k, v)
+                })
+                .collect(),
+        ),
+        other => other,
+    };
+    reviver(key, value)
+}
+
+/// Mint the next persisted path under `dir` for `filename` (TS `toPersisted`
+/// naming: basename truncated to 128 chars, collisions get `N-` prefixes).
+/// Appends to `used` in write order so callers can replay the write sequence.
+pub fn persisted_file_path(
+    dir: &str,
+    filename: &str,
+    used: &mut std::collections::BTreeSet<String>,
+    index: &mut usize,
+) -> String {
+    let base = filename.rsplit(['/', '\\']).next().unwrap_or(filename);
+    let base: String = base
+        .chars()
+        .rev()
+        .take(128)
+        .collect::<String>()
+        .chars()
+        .rev()
+        .collect();
+    let mut path = format!("{dir}/{base}");
+    while used.contains(&path) {
+        path = format!("{dir}/{}-{base}", *index);
+        *index += 1;
+    }
+    used.insert(path.clone());
+    path
+}
+
+/// The JSON Schema document for `PersistedFile` (TS `FileSchema.toJsonSchema`).
+pub fn persisted_file_json_schema() -> serde_json::Value {
+    serde_json::json!({
+        "dialect": "draft-2020-12",
+        "schema": {
+            "type": "object",
+            "properties": {
+                "key": { "type": "string" },
+                "name": { "type": "string" },
+                "contentType": { "type": "string", "contentEncoding": "binary" },
+                "path": { "type": "string" }
+            },
+            "required": ["key", "name", "contentType", "path"],
+            "additionalProperties": true
+        },
+        "definitions": {}
     })
 }

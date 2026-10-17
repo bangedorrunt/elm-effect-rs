@@ -413,7 +413,7 @@ impl Config {
                 if errors.is_empty() {
                     Ok(Value::List(out))
                 } else {
-                    Err(errors)
+                    Err(group_errors(errors))
                 }
             }),
         }
@@ -436,7 +436,7 @@ impl Config {
                 if errors.is_empty() {
                     Ok(Value::Map(out))
                 } else {
-                    Err(errors)
+                    Err(group_errors(errors))
                 }
             }),
         }
@@ -590,6 +590,21 @@ impl Config {
     fn run_against(&self, text: Option<String>, path: &[String]) -> Result<Value, Vec<ConfigError>> {
         let provider = Provider::single(path.to_vec(), text);
         (self.run)(&provider, path)
+    }
+}
+
+/// Group-error selection (`Config.all`): a present-but-undecodable child
+/// outranks a missing sibling, so a mixed group reports only the invalid
+/// errors (Config.test.ts:990). An all-missing group keeps every missing
+/// error, which is what `withDefault` and `option` recover from.
+fn group_errors(errors: Vec<ConfigError>) -> Vec<ConfigError> {
+    if errors.iter().any(|e| matches!(e, ConfigError::Invalid { .. })) {
+        errors
+            .into_iter()
+            .filter(|e| matches!(e, ConfigError::Invalid { .. }))
+            .collect()
+    } else {
+        errors
     }
 }
 

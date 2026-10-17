@@ -2,9 +2,9 @@
 //! interrupt back-pressure. Bodies cooperate via [`Ctx`](elm_effect::Ctx).
 #![cfg(feature = "tokio")]
 
-use elm_effect::{Cause, Defect, Exit, FiberHandle, FiberId, ForkOpts, Runtime};
+use elm_effect::{Cause, Defect, Effect, Exit, FiberHandle, FiberId, ForkOpts, Runtime};
 use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::time::Duration;
 
 fn flag() -> Arc<AtomicBool> {
@@ -315,4 +315,154 @@ fn await_all_children_waits_for_the_child_the_body_forked() {
     assert_eq!(parent.join(), Exit::Success(()));
     // The child was interrupted and finalized before join returned.
     assert!(is_set(&finalized));
+}
+
+// ---------------------------------------------------------------------------
+// Effect.withFiber at the pin (Effect.test.ts describe-group "withFiber").
+// The port's handle carries identity and the interrupt flag, not the pin's
+// mutable `fiber.context`.
+// ---------------------------------------------------------------------------
+
+#[test]
+fn with_fiber_reports_the_fiber_executing_the_effect() {
+    // The effect runs as a spawned fiber's body, so the id `with_fiber` hands
+    // it must be that fiber's own id: not the caller's, not a stand-in.
+    let rt = Runtime::new();
+    let seen = Arc::new(AtomicU64::new(0));
+    let body_seen = seen.clone();
+    let effect: Effect<u64, String> = Effect::with_fiber(move |f| {
+        let id = f.id();
+        let seen = body_seen.clone();
+        Effect::<u64, String>::sync(move || {
+            seen.store(id.0, Ordering::SeqCst);
+            7
+        })
+    });
+    let handle = rt.spawn_effect(effect);
+    let fiber_id = handle.id().0;
+    assert_eq!(handle.join(), Exit::Success(7));
+    assert_eq!(seen.load(Ordering::SeqCst), fiber_id);
+}
+
+#[test]
+fn with_fiber_sees_the_same_fiber_when_nested() {
+    // Nested with_fiber must report one fiber, and it must be the fiber the
+    // effect actually runs on (`ctx.spawn_effect`'s child).
+    let rt = Runtime::new();
+    let parent = rt.fork_detach_with(
+        move |ctx| -> Exit<bool, String> {
+            let inner: Effect<bool, String> = Effect::with_fiber(|outer| {
+                let outer_id = outer.id();
+                Effect::with_fiber(move |inner| {
+                    let same = inner.id() == outer_id;
+                    Effect::<bool, String>::succeed(same)
+                })
+            });
+            match ctx.spawn_effect(inner).join() {
+                Exit::Success(same) => Exit::succeed(same),
+                Exit::Failure(cause) => Exit::Failure(cause),
+            }
+        },
+        ForkOpts::immediate(),
+    );
+    assert_eq!(parent.join(), Exit::Success(true));
+}
+
+#[test]
+fn with_fiber_observes_cooperative_interruption() {
+    // The handle sees the same flag the supervisor sets. `spawn_effect`
+    // children start deferred, so the parent drives their latch the way a
+    // join would (a dummy join drains pending starts) and only interrupts
+    // once the body has signalled it is inside the loop: no pre-start race.
+    let rt = Runtime::new();
+    let started = flag();
+    let saw = flag();
+    let test_saw = saw.clone();
+    let parent = rt.fork_detach_with(
+        move |ctx| -> Exit<(), String> {
+            let body_started = started.clone();
+            let body_saw = saw.clone();
+            let target: Effect<(), String> = Effect::with_fiber(move |f| {
+                let f = f.clone();
+                let started = body_started.clone();
+                let saw = body_saw.clone();
+                Effect::<(), String>::sync(move || {
+                    started.store(true, Ordering::SeqCst);
+                    while !f.is_interrupted() {
+                        std::thread::park_timeout(Duration::from_millis(1));
+                    }
+                    saw.store(true, Ordering::SeqCst);
+                })
+            });
+            let handle = ctx.spawn_effect(target);
+            let dummy = ctx.fork_child(
+                |_| -> Exit<(), String> { Exit::succeed(()) },
+                ForkOpts::immediate(),
+            );
+            dummy.join();
+            while !is_set(&started) {
+                std::thread::park_timeout(Duration::from_millis(1));
+            }
+            handle.interrupt();
+            match handle.join() {
+                Exit::Failure(cause) if cause.is_interrupted() => Exit::succeed(()),
+                Exit::Success(()) => Exit::Failure(Cause::die(Defect::new(
+                    "the interrupted fiber reported success",
+                ))),
+                Exit::Failure(cause) => Exit::Failure(cause),
+            }
+        },
+        ForkOpts::immediate(),
+    );
+    assert_eq!(parent.join(), Exit::Success(()));
+    assert!(
+        is_set(&test_saw),
+        "the loop must end by observing the handle's flag"
+    );
+}
+
+#[test]
+fn with_fiber_self_interrupt_turns_success_into_an_interrupt() {
+    // `fiber.interrupt` from inside: the body's own step still runs to
+    // completion, then the supervisor's boundary reports the interrupt.
+    let rt = Runtime::new();
+    let produced = flag();
+    let body_produced = produced.clone();
+    let effect: Effect<u64, String> = Effect::with_fiber(move |f| {
+        let f = f.clone();
+        let produced = body_produced.clone();
+        Effect::<u64, String>::sync(move || {
+            f.interrupt();
+            produced.store(true, Ordering::SeqCst);
+            7
+        })
+    });
+    let exit = rt.spawn_effect(effect).join();
+    assert!(is_set(&produced));
+    assert!(matches!(exit, Exit::Failure(_)));
+}
+
+#[test]
+fn with_fiber_outside_a_fiber_is_a_defect_and_never_calls_the_body() {
+    let called = flag();
+    let body_called = called.clone();
+    let effect: Effect<u64, String> = Effect::with_fiber(move |_f| {
+        body_called.store(true, Ordering::SeqCst);
+        Effect::<u64, String>::succeed(1)
+    });
+    match Runtime::run(effect) {
+        Exit::Failure(cause) => {
+            assert!(
+                cause.failure().is_none(),
+                "missing context is a defect, never a typed failure"
+            );
+            assert_eq!(cause.defects().len(), 1);
+            assert!(cause.defects()[0].message.contains("outside a fiber"));
+        }
+        Exit::Success(value) => panic!("expected a defect, got a success of {value}"),
+    }
+    assert!(
+        !is_set(&called),
+        "a run with no fiber must refuse before calling the body"
+    );
 }

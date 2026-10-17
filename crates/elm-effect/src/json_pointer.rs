@@ -117,15 +117,23 @@ fn percent_decode(input: &str) -> Option<String> {
     String::from_utf8(out).ok()
 }
 
-/// Percent-encode everything outside the URI unreserved set plus a few
-/// structurally safe characters. Encoding runs after [`escape_token`].
+/// Percent-encode exactly what JavaScript's `encodeURI` encodes, which is
+/// what the pin's `formatUriFragmentToken` uses. Encoding runs after
+/// [`escape_token`].
+///
+/// The allowed set is the gotcha: `encodeURI` keeps the reserved characters
+/// `; , / ? : @ & = + $` and the mark characters `! ~ * ' ( )` literal, and
+/// only `#` is rewritten afterwards. A stricter encoder (unreserved-only)
+/// would print `%24defs` where the pin prints `$defs`, and every reference
+/// into a `$defs` pool would come out percent-mangled.
 fn percent_encode(input: &str) -> String {
     let mut out = String::new();
     for b in input.as_bytes() {
         match b {
-            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => {
-                out.push(*b as char);
-            }
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' => out.push(*b as char),
+            b';' | b',' | b'/' | b'?' | b':' | b'@' | b'&' | b'=' | b'+' | b'$' | b'-' | b'_'
+            | b'.' | b'!' | b'~' | b'*' | b'\'' | b'(' | b')' => out.push(*b as char),
+            b'#' => out.push_str("%23"),
             _ => out.push_str(&format!("%{b:02X}")),
         }
     }

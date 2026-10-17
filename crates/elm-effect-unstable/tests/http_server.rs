@@ -3,9 +3,11 @@
 use elm_effect::Cause;
 use elm_effect::Reason;
 use elm_effect_unstable::http_server::{
-    HttpServer, HttpServerError, Response, ServerErrorReason, ServerRequest, ServerResponse,
-    cause_response_stripped, is_http_server_error, to_response_or_else,
+    HttpServer, HttpServerError, Response, RouteError, Router, RouterConfig, ServerErrorReason,
+    ServerRequest, ServerResponse, cause_response_stripped, is_http_server_error,
+    test_client_origin, to_response_or_else,
 };
+use elm_effect_unstable::net::{NetAddress, NetworkErrorInput};
 use std::io::{BufRead, BufReader, Write};
 use std::net::TcpStream;
 
@@ -192,7 +194,7 @@ fn post(
 
 #[test]
 fn match_path_ci_static_levels() {
-    use elm_effect_unstable::http_server::{match_path, match_path_ci};
+    use elm_effect_unstable::http_server::match_path_ci;
     assert_eq!(match_path_ci("/woo", "/WOO"), Some(vec![]));
     assert_eq!(match_path_ci("/foo/bar", "/FOO/BAR"), Some(vec![]));
     assert_eq!(
@@ -206,7 +208,7 @@ fn match_path_ci_static_levels() {
 
 #[test]
 fn match_path_ci_params_keep_path_case() {
-    use elm_effect_unstable::http_server::{match_path, match_path_ci};
+    use elm_effect_unstable::http_server::match_path_ci;
     assert_eq!(
         match_path_ci("/users/:id", "/USERS/AbC"),
         Some(vec![("id".to_string(), "AbC".to_string())]),
@@ -236,7 +238,7 @@ fn match_path_ci_multiple_routes_first_pattern_wins() {
 
 #[test]
 fn match_path_ci_strips_query_and_fragment() {
-    use elm_effect_unstable::http_server::{match_path, match_path_ci};
+    use elm_effect_unstable::http_server::match_path_ci;
     assert_eq!(
         match_path_ci("/Search/:q", "/SEARCH/Rust?lang=en#top"),
         Some(vec![("q".to_string(), "Rust".to_string())])
@@ -380,7 +382,7 @@ fn wildcard_segment_matches_anything() {
 
 #[test]
 fn multi_param_segments_split_on_separators() {
-    use elm_effect_unstable::http_server::{match_path_ci, match_path};
+    use elm_effect_unstable::http_server::match_path_ci;
     // Case-insensitive forms of FindMyWay's multi-param routes.
     assert_eq!(
         match_path_ci("/:a-:b", "/x-y"),
@@ -406,7 +408,7 @@ fn multi_param_segments_split_on_separators() {
 
 #[test]
 fn multi_param_segments_reject_mismatched_shapes() {
-    use elm_effect_unstable::http_server::{match_path, match_path_ci};
+    use elm_effect_unstable::http_server::match_path_ci;
     assert_eq!(match_path_ci("/:a-:b", "/nodelimiter"), None);
     assert_eq!(match_path_ci("/:a-:b", "/-"), None, "empty captures rejected");
     assert_eq!(match_path_ci("/:a-:b", "/x-y-extra"), None, "trailing text");
@@ -607,6 +609,33 @@ fn server_respondable_to_response_or_else_falls_back() {
 }
 
 #[test]
+fn test_client_refuses_a_scoped_ipv6_address_before_dropping_the_scope() {
+    // HttpServer.test.ts:55 — `makeTestClient` builds the request URL from the
+    // server address, so an address carrying a scope id fails there with the
+    // address as the error's input. Row :19 shows the formatter dropping a zero
+    // scope; this is the case where dropping it would leave the address
+    // unreachable, so it must not be formatted at all.
+    for input in ["[fe80::1%2]:3000", "[::%2]:3000"] {
+        let address = NetAddress::inet_address_from_string_unsafe(input);
+        let err = test_client_origin(&address).expect_err("a scoped address is refused");
+        assert_eq!(err.tag, "NetAddressError");
+        assert_eq!(err.input, NetworkErrorInput::Address(address));
+    }
+    // The scope id is the whole reason: the same address without it resolves.
+    let plain = NetAddress::inet_address_from_string_unsafe("[fe80::1]:3000");
+    assert_eq!(
+        test_client_origin(&plain).expect("unscoped address"),
+        "http://[fe80::1]:3000"
+    );
+    // An unspecified listener still becomes IPv4 loopback, as in the pin.
+    let unspecified = NetAddress::inet_address_from_string_unsafe("[::%0]:8080");
+    assert_eq!(
+        test_client_origin(&unspecified).expect("unspecified listener"),
+        "http://127.0.0.1:8080"
+    );
+}
+
+#[test]
 fn response_set_header_overrides_body_headers() {
     // HttpServerResponse.test.ts:141 — explicit headers win over
     // body-derived content headers.
@@ -637,4 +666,602 @@ fn response_set_body_syncs_metadata_headers() {
         Some("application/octet-stream")
     );
     assert_eq!(bytes.header("content-length"), Some("2"));
+}
+
+// FindMyWay router: parameter collisions and node priority.
+//
+// The pin compiles a pattern into a radix tree and keys its duplicate check on
+// a normalized pattern. Handlers here are numbers (or the route's own name), so
+// every assertion names the route the pin's tree would have picked.
+
+#[test]
+fn router_regex_node_beats_plain_param() {
+    // params-collisions.test.ts:4 — a regex node outranks a plain parametric
+    // node at the same position.
+    let mut router = Router::make();
+    assert!(router.on("GET", "/foo/:bar", 1).is_ok());
+    assert!(router.on("GET", "/foo/:bar(123)", 2).is_ok());
+    assert_eq!(router.find("GET", "/foo/value").expect("plain").handler, 1);
+    let regex = router.find("GET", "/foo/123").expect("regex");
+    assert_eq!(regex.handler, 2);
+    assert_eq!(regex.params, vec![("bar".to_owned(), "123".to_owned())]);
+}
+
+#[test]
+fn router_static_suffix_beats_plain_param() {
+    // params-collisions.test.ts:14 — a node with a static ending outranks the
+    // plain node beside it, and captures the text before its own ending.
+    let mut router = Router::make();
+    assert!(router.on("GET", "/foo/:bar", 1).is_ok());
+    assert!(router.on("GET", "/foo/:bar.png", 2).is_ok());
+    assert_eq!(router.find("GET", "/foo/value").expect("plain").handler, 1);
+    let suffixed = router.find("GET", "/foo/value.png").expect("suffixed");
+    assert_eq!(suffixed.handler, 2);
+    assert_eq!(
+        suffixed.params,
+        vec![("bar".to_owned(), "value".to_owned())]
+    );
+}
+
+#[test]
+fn router_rejects_two_plain_param_nodes() {
+    // params-collisions.test.ts:24 — two plain parametric nodes erase to one
+    // node path, so the second registration is refused.
+    let mut router = Router::make();
+    assert!(router.on("GET", "/foo/:bar", 1).is_ok());
+    let error = router.on("GET", "/foo/:baz", 2).expect_err("collision");
+    assert_eq!(
+        error,
+        RouteError::Duplicate {
+            method: "GET".to_owned(),
+            pattern: "/foo/:".to_owned(),
+        }
+    );
+    // The first route survives and the refused one never matches.
+    assert_eq!(router.find("GET", "/foo/x").expect("plain").handler, 1);
+}
+
+#[test]
+fn router_rejects_two_regex_nodes() {
+    // params-collisions.test.ts:30 — the regex source is erased in the node
+    // path, so a second regex node at the same position is a collision too.
+    let mut router = Router::make();
+    assert!(router.on("GET", "/foo/:bar(123)", 1).is_ok());
+    assert!(router.on("GET", "/foo/:bar(456)", 2).is_err());
+    assert_eq!(router.find("GET", "/foo/123").expect("regex").handler, 1);
+}
+
+#[test]
+fn router_distinguishes_static_endings() {
+    // params-collisions.test.ts:36 — two static endings are different nodes;
+    // a third ending belongs to neither.
+    let mut router = Router::make();
+    assert!(router.on("GET", "/foo/:bar.png", 1).is_ok());
+    assert!(router.on("GET", "/foo/:bar.jpeg", 2).is_ok());
+    assert_eq!(router.find("GET", "/foo/value.png").expect("png").handler, 1);
+    assert_eq!(
+        router.find("GET", "/foo/value.jpeg").expect("jpeg").handler,
+        2
+    );
+    assert!(router.find("GET", "/foo/value.gif").is_none());
+}
+
+#[test]
+fn router_distinguishes_regex_static_endings() {
+    // params-collisions.test.ts:46 — a regex source with a static ending: the
+    // source still makes the node a regex node, the ending separates the two.
+    let mut router = Router::make();
+    assert!(router.on("GET", "/foo/:bar(123).png", 1).is_ok());
+    assert!(router.on("GET", "/foo/:bar(456).jpeg", 2).is_ok());
+    assert_eq!(router.find("GET", "/foo/123.png").expect("png").handler, 1);
+    let jpeg = router.find("GET", "/foo/456.jpeg").expect("jpeg");
+    assert_eq!(jpeg.handler, 2);
+    assert_eq!(jpeg.params, vec![("bar".to_owned(), "456".to_owned())]);
+    // The ending is required, so the bare source alone matches nothing.
+    assert!(router.find("GET", "/foo/123").is_none());
+}
+
+#[test]
+fn router_longer_static_suffix_wins() {
+    // params-collisions.test.ts:56 — registered short-first, the longer static
+    // suffix is tried first and steps aside when its own ending does not fit.
+    let mut router = Router::make();
+    assert!(router.on("GET", "/foo/:bar.png", 1).is_ok());
+    assert!(router.on("GET", "/foo/:bar.png.png", 2).is_ok());
+    assert_eq!(
+        router.find("GET", "/foo/value.png").expect("short").handler,
+        1
+    );
+    assert_eq!(
+        router.find("GET", "/foo/value.png.png").expect("long").handler,
+        2
+    );
+}
+
+#[test]
+fn router_longer_static_suffix_wins_any_order() {
+    // params-collisions.test.ts:66 — the same two nodes registered long-first:
+    // priority follows the suffix, not the registration order.
+    let mut router = Router::make();
+    assert!(router.on("GET", "/foo/:bar.png.png", 2).is_ok());
+    assert!(router.on("GET", "/foo/:bar.png", 1).is_ok());
+    assert_eq!(
+        router.find("GET", "/foo/value.png").expect("short").handler,
+        1
+    );
+    let long = router.find("GET", "/foo/value.png.png").expect("long");
+    assert_eq!(long.handler, 2);
+    assert_eq!(long.params, vec![("bar".to_owned(), "value".to_owned())]);
+}
+
+#[test]
+fn router_regex_and_static_ending_coexist() {
+    // params-collisions.test.ts:76 — a regex node and the longer node that
+    // extends it are two nodes; the longer one wins where its ending fits.
+    let mut router = Router::make();
+    assert!(router.on("GET", "/foo/:bar(123)", 1).is_ok());
+    assert!(router.on("GET", "/foo/:bar(123).jpeg", 2).is_ok());
+    assert_eq!(router.find("GET", "/foo/123").expect("bare").handler, 1);
+    assert_eq!(
+        router.find("GET", "/foo/123.jpeg").expect("suffixed").handler,
+        2
+    );
+}
+
+#[test]
+fn router_distinguishes_interior_static_parts() {
+    // params-collisions.test.ts:86 — routes whose static part sits between two
+    // parameters are distinct, and each captures both sides of its separator.
+    let mut router = Router::make();
+    assert!(router.on("GET", "/foo/:a-:b", "dash").is_ok());
+    assert!(router.on("GET", "/foo/:a.:b", "dot").is_ok());
+    let dash = router.find("GET", "/foo/x-y").expect("dash");
+    assert_eq!(dash.handler, "dash");
+    assert_eq!(
+        dash.params,
+        vec![
+            ("a".to_owned(), "x".to_owned()),
+            ("b".to_owned(), "y".to_owned())
+        ]
+    );
+    let dot = router.find("GET", "/foo/x.y").expect("dot");
+    assert_eq!(dot.handler, "dot");
+    assert_eq!(
+        dot.params,
+        vec![
+            ("a".to_owned(), "x".to_owned()),
+            ("b".to_owned(), "y".to_owned())
+        ]
+    );
+}
+
+#[test]
+fn router_optional_tail_is_absent_or_captured() {
+    // optional-params.test.ts:4 — a trailing optional parameter registers the
+    // path twice, so the shorter request reaches the bare route and the longer
+    // one carries the capture.
+    let mut router = Router::make();
+    assert!(router.on("GET", "/a/:param/b/:optional?", true).is_ok());
+    assert_eq!(
+        router.find("GET", "/a/foo-bar/b").expect("bare").params,
+        vec![("param".to_owned(), "foo-bar".to_owned())]
+    );
+    assert_eq!(
+        router.find("GET", "/a/foo-bar/b/foo").expect("tail").params,
+        vec![
+            ("param".to_owned(), "foo-bar".to_owned()),
+            ("optional".to_owned(), "foo".to_owned())
+        ]
+    );
+}
+
+#[test]
+fn router_optional_expansion_collides_with_the_bare_route() {
+    // optional-params.test.ts:18 — `/foo/:bar?` already declares `/foo`, so
+    // registering that path again is a collision rather than a second route.
+    let mut router = Router::make();
+    assert!(router.on("GET", "/foo/:bar?", true).is_ok());
+    let error = router
+        .on("GET", "/foo", true)
+        .expect_err("the optional tail owns /foo");
+    assert_eq!(
+        error,
+        RouteError::Duplicate {
+            method: "GET".to_owned(),
+            pattern: "/foo".to_owned(),
+        }
+    );
+}
+
+#[test]
+fn router_rejects_optional_param_not_at_the_end() {
+    // optional-params.test.ts:24 — `:bar?` with a segment after it is refused
+    // (`Optional Parameter needs to be the last parameter of the path`), and
+    // the refused declaration leaves nothing behind.
+    let mut router = Router::make();
+    let error = router
+        .on("GET", "/foo/:bar?/baz", true)
+        .expect_err("optional must be last");
+    assert_eq!(
+        error,
+        RouteError::OptionalNotLast {
+            pattern: "/foo/:bar?/baz".to_owned(),
+        }
+    );
+    assert!(router.find("GET", "/foo/x/baz").is_none());
+}
+
+#[test]
+fn router_optional_tail_on_multi_param_segment() {
+    // optional-params.test.ts:30 — the optional flag sits on the last capture
+    // of a two-parameter segment: the full form splits at the last separator
+    // (the later capture refuses to swallow it) and the bare form is the route
+    // without the whole segment.
+    let mut router = Router::make();
+    assert!(router.on("GET", "/a/:p1-:p2?", true).is_ok());
+    assert_eq!(
+        router.find("GET", "/a/foo-bar-baz").expect("both").params,
+        vec![
+            ("p1".to_owned(), "foo-bar".to_owned()),
+            ("p2".to_owned(), "baz".to_owned())
+        ]
+    );
+    assert!(router.find("GET", "/a").expect("bare").params.is_empty());
+}
+
+#[test]
+fn router_optional_param_at_root() {
+    // optional-params.test.ts:42 — a root-level optional parameter registers
+    // `/` beside `/:optional`, so both requests match with no parameters in
+    // the first case.
+    let mut router = Router::make();
+    assert!(router.on("GET", "/:optional?", true).is_ok());
+    assert!(router.find("GET", "/").expect("root").params.is_empty());
+    assert_eq!(
+        router.find("GET", "/foo").expect("captured").params,
+        vec![("optional".to_owned(), "foo".to_owned())]
+    );
+}
+
+#[test]
+fn router_ignore_trailing_slash_matches_both_forms() {
+    // optional-params.test.ts:53 — with `ignoreTrailingSlash` the trailing
+    // slash is trimmed on both sides, so all four spellings reach the same
+    // route.
+    let mut router = Router::make_with(RouterConfig {
+        ignore_trailing_slash: true,
+        ignore_duplicate_slashes: false,
+        ..RouterConfig::default()
+    });
+    assert!(router.on("GET", "/test/hello/:optional?", true).is_ok());
+    for path in ["/test/hello/", "/test/hello"] {
+        assert!(router.find("GET", path).expect(path).params.is_empty(), "{path}");
+    }
+    for path in ["/test/hello/foo", "/test/hello/foo/"] {
+        assert_eq!(
+            router.find("GET", path).expect(path).params,
+            vec![("optional".to_owned(), "foo".to_owned())],
+            "{path}"
+        );
+    }
+}
+
+#[test]
+fn router_trailing_slash_stays_significant_and_captures_empty() {
+    // optional-params.test.ts:71 — with the option off the trailing slash is a
+    // segment of its own: an empty capture for the optional parameter, no
+    // match at all for a second trailing slash.
+    let mut router = Router::make_with(RouterConfig {
+        ignore_trailing_slash: false,
+        ignore_duplicate_slashes: false,
+        ..RouterConfig::default()
+    });
+    assert!(router.on("GET", "/test/hello/:optional?", true).is_ok());
+    assert_eq!(
+        router.find("GET", "/test/hello/").expect("empty capture").params,
+        vec![("optional".to_owned(), String::new())]
+    );
+    assert!(router.find("GET", "/test/hello").expect("bare").params.is_empty());
+    assert_eq!(
+        router.find("GET", "/test/hello/foo").expect("captured").params,
+        vec![("optional".to_owned(), "foo".to_owned())]
+    );
+    assert!(router.find("GET", "/test/hello/foo/").is_none());
+}
+
+#[test]
+fn router_ignore_duplicate_slashes_collapses_them() {
+    // optional-params.test.ts:89 — with `ignoreDuplicateSlashes` a repeated
+    // slash is collapsed on both sides.
+    // The pin's row sets only this option, so the rest come from the defaults.
+    let mut router = Router::make_with(RouterConfig {
+        ignore_duplicate_slashes: true,
+        ..RouterConfig::default()
+    });
+    assert!(router.on("GET", "/test/hello/:optional?", true).is_ok());
+    assert!(router.find("GET", "/test//hello").expect("collapsed").params.is_empty());
+    assert!(router.find("GET", "/test/hello").expect("bare").params.is_empty());
+    assert_eq!(
+        router.find("GET", "/test/hello/foo").expect("captured").params,
+        vec![("optional".to_owned(), "foo".to_owned())]
+    );
+    assert_eq!(
+        router.find("GET", "/test//hello//foo").expect("collapsed tail").params,
+        vec![("optional".to_owned(), "foo".to_owned())]
+    );
+}
+
+#[test]
+fn router_duplicate_slashes_stay_significant_and_do_not_match() {
+    // optional-params.test.ts:106 — with the option off an empty segment is a
+    // real segment, so a repeated slash gives the request one segment too many
+    // for either registered route.
+    let mut router = Router::make_with(RouterConfig {
+        ignore_duplicate_slashes: false,
+        ..RouterConfig::default()
+    });
+    assert!(router.on("GET", "/test/hello/:optional?", true).is_ok());
+    assert!(router.find("GET", "/test//hello").is_none());
+    assert!(router.find("GET", "/test/hello").expect("bare").params.is_empty());
+    assert_eq!(
+        router.find("GET", "/test/hello/foo").expect("captured").params,
+        vec![("optional".to_owned(), "foo".to_owned())]
+    );
+    assert!(router.find("GET", "/test//hello//foo").is_none());
+}
+
+// A `(...)` source is a real regex over the segment, not a literal: these rows
+// are what the pin's `new RegExp("^" + source + "$")` does with it.
+
+#[test]
+fn router_regex_param_matches_within_its_source() {
+    // regex.test.ts:4 — the source is applied to the whole segment, so `\d+`
+    // (the pin strips the `^`/`$` it wraps itself) takes the digits.
+    let mut router = Router::make();
+    assert!(router.on("GET", "/test/:id(^\\d+$)", true).is_ok());
+    assert_eq!(router.find("GET", "/test/12").expect("digits").handler, true);
+}
+
+#[test]
+fn router_regex_param_rejects_a_non_match() {
+    // regex.test.ts:10 — a segment the source cannot match is no match at all.
+    let mut router = Router::make();
+    assert!(router.on("GET", "/test/:id(^\\d+$)", true).is_ok());
+    assert!(router.find("GET", "/test/test").is_none());
+}
+
+#[test]
+fn router_class_regexes_split_two_routes() {
+    // regex.test.ts:16 — `\S+` and `\D+` before the same static ending are two
+    // nodes, and each captures the text before its own ending.
+    let mut router = Router::make();
+    assert!(router.on("GET", "/test/S/:file(^\\S+).png", 1).is_ok());
+    assert!(router.on("GET", "/test/D/:file(^\\D+).png", 2).is_ok());
+    let spaces = router.find("GET", "/test/S/foo.png").expect("S");
+    assert_eq!(spaces.handler, 1);
+    assert_eq!(spaces.params, vec![("file".to_owned(), "foo".to_owned())]);
+    let non_digits = router.find("GET", "/test/D/foo.png").expect("D");
+    assert_eq!(non_digits.handler, 2);
+    assert_eq!(non_digits.params, vec![("file".to_owned(), "foo".to_owned())]);
+}
+
+#[test]
+fn router_regex_param_in_a_nested_route() {
+    // regex.test.ts:26 — a regex parameter works when more segments follow it.
+    let mut router = Router::make();
+    assert!(router.on("GET", "/test/:id(^\\d+$)/hello", true).is_ok());
+    assert_eq!(
+        router.find("GET", "/test/12/hello").expect("nested").handler,
+        true
+    );
+}
+
+#[test]
+fn router_nested_regex_and_plain_params_capture_in_order() {
+    // regex.test.ts:32 — a regex parameter and a plain one in one pattern keep
+    // the pattern's order in the captures.
+    let mut router = Router::make();
+    assert!(router
+        .on("GET", "/test/:id(^\\d+$)/hello/:world", true)
+        .is_ok());
+    assert_eq!(
+        router.find("GET", "/test/12/hello/world").expect("mixed").params,
+        vec![
+            ("id".to_owned(), "12".to_owned()),
+            ("world".to_owned(), "world".to_owned())
+        ]
+    );
+}
+
+#[test]
+fn router_two_regex_params_capture() {
+    // regex.test.ts:41 — both parameters carry sources, and both capture.
+    let mut router = Router::make();
+    assert!(router
+        .on("GET", "/test/:id(^\\d+$)/hello/:world(^\\d+$)", true)
+        .is_ok());
+    assert_eq!(
+        router.find("GET", "/test/12/hello/15").expect("double").params,
+        vec![
+            ("id".to_owned(), "12".to_owned()),
+            ("world".to_owned(), "15".to_owned())
+        ]
+    );
+}
+
+#[test]
+fn router_regex_params_reject_a_non_match_segment() {
+    // regex.test.ts:50 — the same route refuses when the last segment fails
+    // its source.
+    let mut router = Router::make();
+    assert!(router
+        .on("GET", "/test/:id(^\\d+$)/hello/:world(^\\d+$)", true)
+        .is_ok());
+    assert!(router.find("GET", "/test/12/hello/test").is_none());
+}
+
+#[test]
+fn router_regex_before_a_static_ending() {
+    // regex.test.ts:56 — a source with a static ending after it: the source
+    // matches a prefix and the ending must still fit.
+    let mut router = Router::make();
+    assert!(router.on("GET", "/test/:file(^\\d+).png", true).is_ok());
+    let found = router.find("GET", "/test/12.png").expect("extension");
+    assert_eq!(found.handler, true);
+    assert_eq!(found.params, vec![("file".to_owned(), "12".to_owned())]);
+}
+
+#[test]
+fn router_regex_before_a_static_ending_rejects_non_digits() {
+    // regex.test.ts:62 — `aa.png` has the ending but not the digits.
+    let mut router = Router::make();
+    assert!(router.on("GET", "/test/:file(^\\d+).png", true).is_ok());
+    assert!(router.find("GET", "/test/aa.png").is_none());
+}
+
+#[test]
+fn router_regex_param_rejects_an_empty_segment() {
+    // regex.test.ts:82 — with a significant trailing slash the parameter faces
+    // an empty segment, which `\d+` cannot match.
+    let mut router = Router::make_with(RouterConfig {
+        ignore_trailing_slash: false,
+        ..RouterConfig::default()
+    });
+    assert!(router.on("GET", "/users/:userId(^\\d+)", true).is_ok());
+    assert!(router.find("GET", "/users/").is_none());
+}
+
+#[test]
+fn router_regex_param_captures_an_empty_match() {
+    // regex.test.ts:91 — a source that matches the empty string captures it:
+    // `((?!abc).)*` refuses `abc` and is happy with nothing.
+    let mut router = Router::make_with(RouterConfig {
+        ignore_trailing_slash: false,
+        ..RouterConfig::default()
+    });
+    assert!(router.on("GET", "/test/:id(^((?!abc).)*$)", true).is_ok());
+    assert_eq!(
+        router.find("GET", "/test/").expect("empty match").params,
+        vec![("id".to_owned(), String::new())]
+    );
+    assert!(router.find("GET", "/test/abc").is_none());
+}
+
+#[test]
+fn router_tempered_capture_does_not_backtrack_over_a_separator_run() {
+    // regex.test.ts:112 — `/:foo-:bar-` against a long run of dashes must
+    // finish (the pin gives it one second) and there is no match: the segment
+    // does not end with the separator.
+    let mut router = Router::make();
+    assert!(router.on("GET", "/:foo-:bar-", true).is_ok());
+    let path = format!("/{}a", "-".repeat(16_000));
+    assert!(router.find("GET", &path).is_none());
+}
+
+#[test]
+fn router_tempered_capture_does_not_backtrack_over_mixed_separators() {
+    // regex.test.ts:119 — the same route against `a-a-a-...b`, the shape that
+    // makes a naive backtracker explore every split.
+    let mut router = Router::make();
+    assert!(router.on("GET", "/:foo-:bar-", true).is_ok());
+    let path = format!("/{}b", "a-".repeat(8_000));
+    assert!(router.find("GET", &path).is_none());
+}
+
+#[test]
+fn router_falls_back_to_a_wildcard_past_max_param_length() {
+    // regex.test.ts:102 — a parameter longer than `maxParamLength` fails its
+    // route, so the wildcard sibling takes the request, while a parameter
+    // inside the limit still wins over the wildcard.
+    let mut router = Router::make_with(RouterConfig {
+        max_param_length: 3,
+        ..RouterConfig::default()
+    });
+    assert!(router.on("GET", "/users/:userId", "parameter").is_ok());
+    assert!(router.on("GET", "/users/*", "wildcard").is_ok());
+    assert_eq!(
+        router.find("GET", "/users/long").expect("wildcard").handler,
+        "wildcard"
+    );
+    assert_eq!(
+        router.find("GET", "/users/bob").expect("parameter").handler,
+        "parameter"
+    );
+}
+
+// FindMyWay's `caseSensitive: false` is its default. The pin lowercases the
+// static parts it builds nodes from and the path it walks, but slices captures
+// out of the request path as written, so a route matches in any case and still
+// reports the case the request used.
+
+#[test]
+fn router_case_insensitive_matches_static_parts_and_keeps_capture_case() {
+    // case-insensitive.test.ts:79 — two parameters split by a literal inside
+    // one segment fold case for the static parts and the separator, and each
+    // capture keeps the request's own case.
+    let mut router = Router::make();
+    assert!(router.on("GET", "/foo/:param1-:param2", true).is_ok());
+    let found = router.find("GET", "/FOO/My-bAR").expect("mixed case");
+    assert_eq!(
+        found.params,
+        vec![
+            ("param1".to_owned(), "My".to_owned()),
+            ("param2".to_owned(), "bAR".to_owned()),
+        ]
+    );
+}
+
+#[test]
+fn router_case_insensitive_matches_every_segment_and_keeps_capture_case() {
+    // case-insensitive.test.ts:90 — the same fold across segments, with one
+    // parameter per segment.
+    let mut router = Router::make();
+    assert!(router.on("GET", "/foo/:param1/:param2", true).is_ok());
+    let found = router.find("GET", "/FOO/My/bAR").expect("mixed case");
+    assert_eq!(
+        found.params,
+        vec![
+            ("param1".to_owned(), "My".to_owned()),
+            ("param2".to_owned(), "bAR".to_owned()),
+        ]
+    );
+}
+
+#[test]
+fn router_case_insensitive_wildcard_takes_the_rest_as_written() {
+    // case-insensitive.test.ts:101 — the wildcard's static head folds and the
+    // capture is the request's own text.
+    let mut router = Router::make();
+    assert!(router.on("GET", "/foo/*", true).is_ok());
+    let found = router.find("GET", "/FOO/bAR").expect("wildcard");
+    assert_eq!(found.params, vec![("*".to_owned(), "bAR".to_owned())]);
+}
+
+#[test]
+fn router_case_sensitive_config_keeps_case_significant() {
+    // The opt-in side of the flag: with `caseSensitive: true` a static part is
+    // its own route, so the two spellings coexist and each matches itself.
+    let mut router = Router::make_with(RouterConfig {
+        case_sensitive: true,
+        ..RouterConfig::default()
+    });
+    assert!(router.on("GET", "/foo", 1).is_ok());
+    assert!(router.on("GET", "/FOO", 2).is_ok());
+    assert_eq!(router.find("GET", "/foo").expect("lower").handler, 1);
+    assert_eq!(router.find("GET", "/FOO").expect("upper").handler, 2);
+}
+
+#[test]
+fn router_case_insensitive_key_collapses_spellings() {
+    // The duplicate check keys on the pin's lowercased pattern, so the two
+    // spellings are one route here, as `caseSensitive: false` makes them.
+    let mut router = Router::make();
+    assert!(router.on("GET", "/foo", 1).is_ok());
+    assert_eq!(
+        router.on("GET", "/FOO", 2),
+        Err(RouteError::Duplicate {
+            method: "GET".to_owned(),
+            pattern: "/foo".to_owned(),
+        })
+    );
 }

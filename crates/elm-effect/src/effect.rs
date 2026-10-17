@@ -6,7 +6,7 @@
 //! completion. The fiber/async executor (Phase 1, runtime bead) drives this
 //! same machine.
 
-use crate::{Cause, Defect, Exit, Reason};
+use crate::{Cause, Defect, Exit, Provide, Reason};
 use std::any::Any;
 use std::marker::PhantomData;
 use std::sync::Arc;
@@ -85,6 +85,94 @@ where
         match first.run_sync_with(&inner) {
             Ok(a) => on_success(a).run_sync_with(&inner),
             Err(cause) => on_failure(cause).run_sync_with(&inner),
+        }
+    }
+}
+
+/// Runs an inner effect under a scope minted for that run, then closes the
+/// scope. Every exit path closes: success, typed failure, defect, interrupt.
+#[cfg(feature = "tokio")]
+struct Scoped<A: Send + 'static, E: Send + 'static, R: Requirement> {
+    inner: Effect<A, E, R>,
+    env: crate::service::Services,
+}
+
+#[cfg(feature = "tokio")]
+impl<A: Send + 'static, E: Send + 'static, R: Requirement> ErasedStep<A, E> for Scoped<A, E, R> {
+    fn run_erased(self: Box<Self>, scope: &crate::service::Services) -> Result<A, Cause<E>> {
+        let Self { inner, env } = *self;
+        let outer = crate::service::merged_services(scope, &env);
+        // Minted per run, never shared: a description is a value, so running
+        // it twice must not let the first run's scope observe the second's.
+        let fresh = Arc::new(crate::Scope::new(crate::fiber::next_id().0));
+        let mut maps = (*outer).clone();
+        maps.replace_tag(
+            <crate::scope::ScopeTag as crate::ServiceTag>::ID,
+            Arc::new(Arc::clone(&fresh)),
+        );
+        let Effect { step, .. } = inner;
+        let body = Effect {
+            step,
+            // The run carries no requirements of its own: the merged map
+            // below is the whole environment, so nothing can be `Use`-read
+            // that the parent did not already provide.
+            services: crate::service::empty_services(),
+            marker: PhantomData::<R>,
+        };
+        let out = body.run_sync_with(&Arc::new(maps));
+        // Close after the run, on every path: the scope interrupts its
+        // members and runs finalizers LIFO, exactly once.
+        let spills = fresh.close();
+        match out {
+            Ok(value) => {
+                if spills.is_empty() {
+                    Ok(value)
+                } else {
+                    // A failed finalizer is a defect, never a typed failure:
+                    // it did not come from the body's own error channel.
+                    let mut spills = spills.into_iter();
+                    let mut cause = Cause::die(spills.next().expect("checked non-empty"));
+                    cause.reasons.extend(spills.map(Reason::Die));
+                    Err(cause)
+                }
+            }
+            Err(mut cause) => {
+                // Append, never replace: the body's own reason survives (L6).
+                cause.reasons.extend(spills.into_iter().map(Reason::Die));
+                Err(cause)
+            }
+        }
+    }
+}
+
+/// Hands the fiber running this effect to the callback, then runs the effect
+/// the callback builds. The fiber comes from the ambient `FiberTag`; asking
+/// where no fiber exists is a defect, the port's fail-closed answer to
+/// missing context (`tx_retry` outside a transaction is the same shape).
+#[cfg(feature = "tokio")]
+struct WithFiber<A: Send + 'static, E: Send + 'static, R: Requirement, F> {
+    f: F,
+    marker: PhantomData<fn() -> (A, E, R)>,
+}
+
+#[cfg(feature = "tokio")]
+impl<A, E, R, F> ErasedStep<A, E> for WithFiber<A, E, R, F>
+where
+    A: Send + 'static,
+    E: Send + 'static,
+    R: Requirement,
+    F: FnOnce(&crate::fiber::Fiber) -> Effect<A, E, R> + Send + 'static,
+{
+    fn run_erased(self: Box<Self>, scope: &crate::service::Services) -> Result<A, Cause<E>> {
+        let Self { f, .. } = *self;
+        match scope.get_tag(<crate::fiber::FiberTag as crate::ServiceTag>::ID) {
+            Some(any) => match any.downcast_ref::<crate::fiber::Fiber>() {
+                Some(fiber) => f(fiber).run_sync_with(scope),
+                None => Err(Cause::die(Defect::new("fiber tag holds a non-fiber value"))),
+            },
+            None => Err(Cause::die(Defect::new(
+                "withFiber outside a fiber: run the effect through Ctx::spawn_effect or Runtime::spawn_effect",
+            ))),
         }
     }
 }
@@ -216,6 +304,52 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
         }
     }
 
+    /// `Effect.filter` at the pin: keep the iterable's elements the
+    /// predicate accepts, in iteration order. Lazy like every description:
+    /// the predicate runs at interpretation, not at construction.
+    pub fn filter<I, P>(elements: I, mut predicate: P) -> Effect<Vec<A>, std::convert::Infallible>
+    where
+        I: IntoIterator<Item = A> + Send + 'static,
+        P: FnMut(&A) -> bool + Send + 'static,
+    {
+        Effect::sync(move || elements.into_iter().filter(|a| predicate(a)).collect())
+    }
+
+    /// `Effect.filterMap` at the pin: the pin's `Filter` shape, a `Result`
+    /// selector. `Ok` keeps the mapped value, `Err` drops the element.
+    pub fn filter_map<B, X, I, S>(
+        elements: I,
+        mut selector: S,
+    ) -> Effect<Vec<B>, std::convert::Infallible>
+    where
+        B: Send + 'static,
+        I: IntoIterator<Item = A> + Send + 'static,
+        S: FnMut(A) -> std::result::Result<B, X> + Send + 'static,
+    {
+        Effect::sync(move || {
+            elements
+                .into_iter()
+                .filter_map(|a| selector(a).ok())
+                .collect()
+        })
+    }
+
+    /// `Effect.firstSuccessOf` at the pin: try each effect in order, take
+    /// the first success, and fall through to the next on a clean typed
+    /// failure (defects and interrupts pass through, as in `catch`). All
+    /// effects failing leaves the last failure; an empty collection is a
+    /// defect, matching the pin's message.
+    pub fn first_success_of(effects: Vec<Self>) -> Self {
+        let mut rest = effects.into_iter().rev();
+        let Some(mut succeed_with) = rest.next() else {
+            return Effect::die(Defect::new("Received an empty collection of effects"));
+        };
+        for effect in rest {
+            succeed_with = effect.catch(move |_| succeed_with);
+        }
+        succeed_with
+    }
+
     /// `Effect.onError` at the pin: run `finalizer` only on a clean typed
     /// `Fail`, then re-raise that failure unchanged. Defects and interrupts
     /// pass through untouched (the same fire condition as [`catch`]).
@@ -258,6 +392,66 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
         )
     }
 
+    /// `Effect.scoped` at the pin: run `self` in a fresh [`Scope`], close that
+    /// scope when the run ends (success, typed failure, defect, or interrupt),
+    /// and strip the scope tag from the requirements. The body reaches the
+    /// fresh scope with `use_service::<ScopeTag>()`.
+    ///
+    /// Rust substitution for the pin's `Exclude<R, Scope>`: the tag is the
+    /// head of `R`, so the requirement tuple is ordered by provision, as
+    /// everywhere else in this crate.
+    ///
+    /// Two differences from the pin worth naming. The pin hands the exit to
+    /// the close so a finalizer can inspect it; [`Scope`] finalizers here are
+    /// exit-blind by construction. And interruption is cooperative here: the
+    /// pin's `scoped` closes on an interrupt delivered mid-body, while this
+    /// one closes as soon as the body's steps return the interrupt as a
+    /// cause. A fiber interrupted while its effect is in flight reaches
+    /// [`Ctx::add_finalizer`](crate::Ctx::add_finalizer) instead.
+    #[cfg(feature = "tokio")]
+    pub fn scoped<Rest>(self) -> Effect<A, E, Rest>
+    where
+        R: Provide<crate::scope::ScopeTag, Rest>,
+        Rest: Requirement,
+    {
+        let env = Arc::clone(&self.services);
+        Effect::suspend(
+            Scoped {
+                inner: self,
+                env: Arc::clone(&env),
+            },
+            env,
+        )
+    }
+
+    /// `Effect.withFiber` at the pin: hand the fiber currently running this
+    /// effect to `f`, and run the effect `f` builds in the same environment.
+    /// The pin's callback receives the fiber object; here it receives a
+    /// [`Fiber`](crate::Fiber) handle (identity and the interrupt flag),
+    /// because this port keeps no mutable per-fiber context for the pin's
+    /// `fiber.context`.
+    ///
+    /// Where the fiber comes from: the spawn seams that run an effect on a
+    /// fiber's behalf, [`Ctx::spawn_effect`](crate::Ctx::spawn_effect) and
+    /// [`Runtime::spawn_effect`](crate::Runtime::spawn_effect). Outside those
+    /// (a bare `run_sync`, or `Runtime::run`, which executes on the calling
+    /// thread) there is no fiber, and asking is a defect rather than a
+    /// silent stand-in. Nested `with_fiber` sees the same fiber.
+    #[cfg(feature = "tokio")]
+    pub fn with_fiber<F>(f: F) -> Self
+    where
+        F: FnOnce(&crate::fiber::Fiber) -> Effect<A, E, R> + Send + 'static,
+    {
+        Effect {
+            step: Step::Suspend(Box::new(WithFiber {
+                f,
+                marker: PhantomData,
+            })),
+            services: crate::service::empty_services(),
+            marker: PhantomData,
+        }
+    }
+
     /// `Effect.onExit` at the pin: observe the finished exit, then pass the
     /// original outcome through unchanged. The callback sees exactly the
     /// `Exit` a caller would (success, typed failure, defect, or interrupt),
@@ -297,6 +491,72 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
         )
     }
 
+    /// `Effect.onErrorIf` at the pin: run the finalizer only on a failure
+    /// whose cause passes `predicate`. Successes, and failures the
+    /// predicate declines, skip it; the outcome passes through unchanged.
+    pub fn on_error_if<P, F>(self, mut predicate: P, f: F) -> Self
+    where
+        P: FnMut(&Cause<E>) -> bool + Send + 'static,
+        F: FnOnce(&Cause<E>) + Send + 'static,
+    {
+        self.on_exit(move |exit| {
+            if let Exit::Failure(cause) = exit {
+                if predicate(cause) {
+                    f(cause);
+                }
+            }
+        })
+    }
+
+    /// `Effect.onErrorFilter` at the pin: the `Filter` shape over the
+    /// failure cause. `Ok(pass)` hands the pass value and the cause to the
+    /// finalizer; `Err` and success exits skip it.
+    pub fn on_error_filter<B, X, S, F>(self, selector: S, f: F) -> Self
+    where
+        B: Send + 'static,
+        S: FnOnce(&Cause<E>) -> std::result::Result<B, X> + Send + 'static,
+        F: FnOnce(B, &Cause<E>) + Send + 'static,
+    {
+        self.on_exit(move |exit| {
+            if let Exit::Failure(cause) = exit {
+                if let Ok(pass) = selector(cause) {
+                    f(pass, cause);
+                }
+            }
+        })
+    }
+
+    /// `Effect.onExitIf` at the pin: run the finalizer only when the exit
+    /// passes `predicate`. The exit itself decides, so a success exit can
+    /// carry its own finalizer.
+    pub fn on_exit_if<P, F>(self, mut predicate: P, f: F) -> Self
+    where
+        P: FnMut(&Exit<A, E>) -> bool + Send + 'static,
+        F: FnOnce(&Exit<A, E>) + Send + 'static,
+    {
+        self.on_exit(move |exit| {
+            if predicate(exit) {
+                f(exit);
+            }
+        })
+    }
+
+    /// `Effect.onExitFilter` at the pin: the `Filter` shape over the exit.
+    /// `Ok(pass)` hands the pass value and the original exit to the
+    /// finalizer; `Err` skips it.
+    pub fn on_exit_filter<B, X, S, F>(self, selector: S, f: F) -> Self
+    where
+        B: Send + 'static,
+        S: FnOnce(&Exit<A, E>) -> std::result::Result<B, X> + Send + 'static,
+        F: FnOnce(B, &Exit<A, E>) + Send + 'static,
+    {
+        self.on_exit(move |exit| {
+            if let Ok(pass) = selector(exit) {
+                f(pass, exit);
+            }
+        })
+    }
+
     /// Handle the typed error channel. Fires only on a clean single `Fail`;
     /// `Die`, `Interrupt`, and mixed causes pass through untouched.
     pub fn catch<F>(self, on_fail: F) -> Self
@@ -314,6 +574,23 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
                     on_fail(e)
                 }
                 _ => Effect::fail_with(cause),
+            }
+        })
+    }
+
+    /// `Effect.catchIf` at the pin: recover a clean typed failure only when
+    /// `predicate` accepts the error. A rejected error is re-raised, so the
+    /// combinator never recovers an error it did not name.
+    pub fn catch_if<P, F>(self, mut predicate: P, handler: F) -> Self
+    where
+        P: FnMut(&E) -> bool + Send + 'static,
+        F: FnOnce(E) -> Self + Send + 'static,
+    {
+        self.catch(move |e| {
+            if predicate(&e) {
+                handler(e)
+            } else {
+                Effect::fail(e)
             }
         })
     }
@@ -347,6 +624,70 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
         self.fold_e(Effect::succeed, on_cause)
     }
 
+    /// `Effect.catchCauseIf` at the pin: recover from any failure whose
+    /// whole cause passes `predicate`. A declined cause is re-raised
+    /// unchanged, every reason preserved.
+    pub fn catch_cause_if<P, F>(self, mut predicate: P, handler: F) -> Self
+    where
+        P: FnMut(&Cause<E>) -> bool + Send + 'static,
+        F: FnOnce(Cause<E>) -> Self + Send + 'static,
+    {
+        self.catch_cause(move |cause| {
+            if predicate(&cause) {
+                handler(cause)
+            } else {
+                Effect::fail_cause(cause)
+            }
+        })
+    }
+
+    /// `Effect.catchCauseFilter` at the pin: the pin's `Filter` shape, a
+    /// `Result` selector over the cause. `Ok(pass)` routes the cause to the
+    /// handler; `Err` declines and re-raises the cause unchanged.
+    pub fn catch_cause_filter<B, X, S, H>(self, selector: S, handler: H) -> Self
+    where
+        B: Send + 'static,
+        S: FnOnce(&Cause<E>) -> std::result::Result<B, X> + Send + 'static,
+        H: FnOnce(B, Cause<E>) -> Self + Send + 'static,
+    {
+        self.catch_cause(move |cause| match selector(&cause) {
+            Ok(pass) => handler(pass, cause),
+            Err(_) => Effect::fail_cause(cause),
+        })
+    }
+
+    /// `Effect.tapCauseIf` at the pin: observe the cause of any failure the
+    /// predicate accepts, then re-raise it unchanged. A success never
+    /// presents a cause, so the observer stays out of the way.
+    pub fn tap_cause_if<P, F>(self, predicate: P, f: F) -> Self
+    where
+        P: FnMut(&Cause<E>) -> bool + Send + 'static,
+        F: FnOnce(&Cause<E>) + Send + 'static,
+    {
+        self.catch_cause_if(predicate, move |cause| {
+            f(&cause);
+            Effect::fail_cause(cause)
+        })
+    }
+
+    /// `Effect.tapCauseFilter` at the pin: the `Filter` shape over the
+    /// cause. The observer receives the selector's pass value and the
+    /// cause; a declined cause is re-raised without observation.
+    pub fn tap_cause_filter<B, X, S, F>(self, selector: S, f: F) -> Self
+    where
+        B: Send + 'static,
+        S: FnOnce(&Cause<E>) -> std::result::Result<B, X> + Send + 'static,
+        F: FnOnce(B, &Cause<E>) + Send + 'static,
+    {
+        self.catch_cause(move |cause| match selector(&cause) {
+            Ok(pass) => {
+                f(pass, &cause);
+                Effect::fail_cause(cause)
+            }
+            Err(_) => Effect::fail_cause(cause),
+        })
+    }
+
     /// An effect that runs `thunk` when interpreted, not when built. The thunk
     /// must be pure work: panics escape to the fiber supervisor, which turns
     /// them into [`Reason::Die`] at the boundary.
@@ -361,7 +702,10 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
         }
     }
 
-    fn suspend(op: impl ErasedStep<A, E> + 'static, env: crate::service::Services) -> Self {
+    pub(crate) fn suspend(
+        op: impl ErasedStep<A, E> + 'static,
+        env: crate::service::Services,
+    ) -> Self {
         Self {
             step: Step::Suspend(Box::new(op)),
             services: env,
@@ -557,6 +901,72 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
             },
             Step::ReadRef { id, apply } => Ok(apply(scope.get_ref(id))),
         }
+    }
+}
+
+/// An infallible description satisfies any error channel vacuously: the
+/// step cannot fail, so the target `E` is a widening, not a claim. The
+/// pin gets this from variance over `never`; Rust states it.
+pub(crate) fn widen_infallible<E, A>(
+    effect: Effect<A, std::convert::Infallible, ()>,
+) -> Effect<A, E, ()>
+where
+    A: Send + 'static,
+    E: Send + 'static,
+{
+    effect.map_err(|never| match never {})
+}
+
+#[cfg(feature = "stm")]
+impl<A: Send + 'static, E: Send + 'static> Effect<A, E, ()> {
+    /// `Effect.tx` at the pin: the outermost call opens a transaction
+    /// boundary. Writes to transactional refs made inside the body stage
+    /// on those refs and publish together when the body succeeds; a
+    /// failure that escapes the boundary discards them. A nested `tx`
+    /// inside a running boundary composes into it — the same journal, no
+    /// inner boundary — so a failure caught inside the body is an
+    /// ordinary value and its writes survive with it.
+    ///
+    /// A body that calls [`tx_retry`](Self::tx_retry), or whose read set
+    /// went stale while it ran, is parked on its read set and run again
+    /// when a commit moves it: the boundary's loop is optimistic
+    /// concurrency, one attempt per commit of a ref it read.
+    ///
+    /// The body is a factory because this port's descriptions are
+    /// single-shot: running consumes one, so an attempt loop needs a
+    /// fresh build per attempt (the pin re-runs one value; Rust rebuilds
+    /// it). The boundary is likewise staged per interpretation — running
+    /// the same `tx` description twice opens two boundaries with two
+    /// journals.
+    pub fn tx<F>(build: F) -> Self
+    where
+        F: Fn() -> Effect<A, E, ()> + Send + 'static,
+    {
+        Effect::suspend(
+            crate::stm::TxBoundary {
+                build: Box::new(build),
+                env: crate::service::empty_services(),
+                marker: std::marker::PhantomData,
+            },
+            crate::service::empty_services(),
+        )
+    }
+
+    /// `Effect.txRetry` at the pin: mark the running boundary for
+    /// another attempt and interrupt the body. The boundary's loop parks
+    /// on its read set and reruns when a commit moves it. Outside a
+    /// boundary it is a defect, the port's fail-closed answer to missing
+    /// context.
+    pub fn tx_retry() -> Self {
+        widen_infallible(crate::service::read_reference(&crate::stm::TX_CURRENT)).flat_map(
+            |current| match current {
+                Some(tx) => {
+                    tx.set_retry();
+                    Effect::interrupt()
+                }
+                None => Effect::die(Defect::new("txRetry outside a transaction")),
+            },
+        )
     }
 }
 

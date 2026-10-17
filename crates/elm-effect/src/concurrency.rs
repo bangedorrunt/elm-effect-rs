@@ -13,7 +13,14 @@
 #![allow(dead_code)]
 use std::sync::Arc;
 
-use crate::{Cause, Ctx, Exit, FiberHandle, ForkOpts, Reason, Runtime};
+use crate::{Cause, Ctx, Defect, Exit, FiberHandle, ForkOpts, Reason, Runtime};
+
+/// Bound for one fan-out wait: a body that answers nothing for this long —
+/// hung past every interrupt — fails the combinator with a defect naming the
+/// missing indexes instead of hanging the caller forever. Slow-but-steady
+/// pipelines keep delivering inside the bound, so only a stalled wait trips
+/// it. Use the `_with_deadline` variants for a caller-supplied bound.
+pub const BOUNDED_RECV_TIMEOUT: crate::Duration = crate::Duration::from_secs(30);
 
 /// How many bodies run at once.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -36,10 +43,28 @@ where
     A: Send + 'static,
     E: Send + 'static,
 {
+    all_with_deadline(rt, bodies, concurrency, BOUNDED_RECV_TIMEOUT)
+}
+
+/// Like [`all`] with a caller-supplied bound on each fan-out wait: a body
+/// that answers nothing for `deadline` fails the run with a defect naming
+/// the missing indexes. Live siblings are interrupted and detached — never
+/// joined, since an unkillable body would hang the join too.
+pub fn all_with_deadline<A, E>(
+    rt: &Runtime,
+    bodies: Vec<Body<A, E>>,
+    concurrency: Concurrency,
+    deadline: crate::Duration,
+) -> Exit<Vec<A>, E>
+where
+    A: Send + 'static,
+    E: Send + 'static,
+{
+    let std_deadline = std::time::Duration::from_millis(deadline.as_millis());
     match concurrency {
         Concurrency::Sequential | Concurrency::Bounded(0) => all_sequential(rt, bodies),
-        Concurrency::Bounded(n) => all_bounded(rt, bodies, n),
-        Concurrency::Unbounded => all_bounded(rt, bodies, usize::MAX),
+        Concurrency::Bounded(n) => all_bounded(rt, bodies, n, std_deadline),
+        Concurrency::Unbounded => all_bounded(rt, bodies, usize::MAX, std_deadline),
     }
 }
 
@@ -58,7 +83,12 @@ where
     Exit::Success(out)
 }
 
-fn all_bounded<A, E>(rt: &Runtime, bodies: Vec<Body<A, E>>, bound: usize) -> Exit<Vec<A>, E>
+fn all_bounded<A, E>(
+    rt: &Runtime,
+    bodies: Vec<Body<A, E>>,
+    bound: usize,
+    deadline: std::time::Duration,
+) -> Exit<Vec<A>, E>
 where
     A: Send + 'static,
     E: Send + 'static,
@@ -107,8 +137,8 @@ where
     let mut finished = 0;
     let mut failure: Option<Cause<E>> = None;
     while finished < total {
-        match rx.recv().expect("a body always answers") {
-            Done::Ok(index, a) => {
+        match rx.recv_timeout(deadline) {
+            Ok(Done::Ok(index, a)) => {
                 live.remove(&index);
                 if failure.is_none() {
                     results[index] = Some(a);
@@ -116,7 +146,7 @@ where
                 }
                 finished += 1;
             }
-            Done::Failed(index, cause) => {
+            Ok(Done::Failed(index, cause)) => {
                 live.remove(&index);
                 if failure.is_none() {
                     failure = Some(cause);
@@ -127,6 +157,22 @@ where
                     }
                 }
                 finished += 1;
+            }
+            Err(_) => {
+                // Stalled wait: name the missing bodies, interrupt the live,
+                // and detach. No join: an unkillable body would hang it too.
+                let missing: Vec<usize> = results
+                    .iter()
+                    .enumerate()
+                    .filter(|(_, r)| r.is_none())
+                    .map(|(i, _)| i)
+                    .collect();
+                for handle in live.values() {
+                    handle.interrupt_unsafe();
+                }
+                return Exit::Failure(Cause::die(Defect::new(format!(
+                    "bounded fan-out timed out after {deadline:?} waiting for bodies {missing:?}"
+                ))));
             }
         }
     }
@@ -222,9 +268,7 @@ where
     let f = Arc::new(f);
     for (index, item) in items.into_iter().enumerate() {
         let f = Arc::clone(&f);
-        let body: Body<Option<U>, E> = Box::new(move |_ctx: &Ctx| {
-            Exit::Success(f(item, index))
-        });
+        let body: Body<Option<U>, E> = Box::new(move |_ctx: &Ctx| Exit::Success(f(item, index)));
         match rt.fork_detach_with(body, ForkOpts::immediate()).join() {
             Exit::Success(Some(value)) => return Exit::Success(Some(value)),
             Exit::Success(None) => continue,
@@ -316,10 +360,27 @@ where
     A: Send + 'static,
     E: Send + 'static,
 {
+    partition_with_deadline(rt, bodies, concurrency, BOUNDED_RECV_TIMEOUT)
+}
+
+/// Like [`partition`] with a caller-supplied bound on each fan-out wait.
+/// A stalled wait fails with a defect naming the missing indexes; live
+/// siblings are interrupted and detached, never joined.
+pub fn partition_with_deadline<A, E>(
+    rt: &Runtime,
+    bodies: Vec<Body<A, E>>,
+    concurrency: Concurrency,
+    deadline: crate::Duration,
+) -> Exit<(Vec<A>, Vec<E>), E>
+where
+    A: Send + 'static,
+    E: Send + 'static,
+{
+    let std_deadline = std::time::Duration::from_millis(deadline.as_millis());
     match concurrency {
         Concurrency::Sequential => partition_sequential(rt, bodies),
-        Concurrency::Bounded(n) => partition_bounded(rt, bodies, n),
-        Concurrency::Unbounded => partition_bounded(rt, bodies, usize::MAX),
+        Concurrency::Bounded(n) => partition_bounded(rt, bodies, n, std_deadline),
+        Concurrency::Unbounded => partition_bounded(rt, bodies, usize::MAX, std_deadline),
     }
 }
 
@@ -386,6 +447,7 @@ fn partition_bounded<A, E>(
     rt: &Runtime,
     bodies: Vec<Body<A, E>>,
     bound: usize,
+    deadline: std::time::Duration,
 ) -> Exit<(Vec<A>, Vec<E>), E>
 where
     A: Send + 'static,
@@ -436,8 +498,8 @@ where
     let mut finished = 0;
     let mut failure: Option<Cause<E>> = None;
     while finished < total {
-        match rx.recv().expect("a body always answers") {
-            Done::Ok(index, a) => {
+        match rx.recv_timeout(deadline) {
+            Ok(Done::Ok(index, a)) => {
                 live.remove(&index);
                 if failure.is_none() {
                     passes[index] = Some(a);
@@ -445,7 +507,7 @@ where
                 }
                 finished += 1;
             }
-            Done::Failed(index, cause) => {
+            Ok(Done::Failed(index, cause)) => {
                 live.remove(&index);
                 if failure.is_none() {
                     match only_fail(cause) {
@@ -464,6 +526,23 @@ where
                     }
                 }
                 finished += 1;
+            }
+            Err(_) => {
+                // Stalled wait: name the missing bodies, interrupt the live,
+                // and detach. No join: an unkillable body would hang it too.
+                let missing: Vec<usize> = passes
+                    .iter()
+                    .zip(fails.iter())
+                    .enumerate()
+                    .filter(|(_, (p, f))| p.is_none() && f.is_none())
+                    .map(|(i, _)| i)
+                    .collect();
+                for handle in live.values() {
+                    handle.interrupt_unsafe();
+                }
+                return Exit::Failure(Cause::die(Defect::new(format!(
+                    "bounded fan-out timed out after {deadline:?} waiting for bodies {missing:?}"
+                ))));
             }
         }
     }

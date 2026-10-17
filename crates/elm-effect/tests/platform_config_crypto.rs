@@ -9,8 +9,8 @@ mod config_provider;
 #[path = "../src/crypto.rs"]
 mod crypto;
 
-use config::{Config, Value};
-use config_provider::Provider;
+use config::{Config, ConfigError, Value};
+use config_provider::{EnvProvider, Lookup, Provider};
 use crypto::{Crypto, DigestAlgorithm, SystemCrypto, TestCrypto};
 
 fn provider(pairs: &[(&str, &str)]) -> Provider {
@@ -1453,4 +1453,649 @@ fn config_literals_accepts_configured_number_alternatives() {
         !err.is_empty(),
         "the failure must name the path it failed at, not just `expected one of`"
     );
+}
+
+// ---------------------------------------- Config.all absence semantics ---
+// Config.test.ts's absence/orElse rows (":968" through ":1517"). The pin
+// states most of them against both `Config.schema` and `Config.all`; the
+// port's config surface is descriptor-based, so these carry the
+// `Config.all` side of each claim.
+
+#[test]
+fn config_all_replaces_the_whole_group_when_a_required_child_stays_absent() {
+    // Config.test.ts:968.
+    let fallback = Value::Map(vec![
+        ("required".to_string(), Value::Str("fallback".to_string())),
+        ("defaulted".to_string(), Value::Int(0)),
+    ]);
+    let config = Config::record(vec![
+        ("required".to_string(), Config::string(named("required"))),
+        (
+            "defaulted".to_string(),
+            Config::integer(named("defaulted")).with_default(Value::Int(1)),
+        ),
+    ])
+    .with_default(fallback);
+
+    let empty = Provider::empty();
+    assert_eq!(
+        config.load(&empty),
+        Ok(Value::Map(vec![
+            ("required".to_string(), Value::Str("fallback".to_string())),
+            ("defaulted".to_string(), Value::Int(0)),
+        ]))
+    );
+    let with_required = provider(&[("required", "value")]);
+    assert_eq!(
+        config.load(&with_required),
+        Ok(Value::Map(vec![
+            ("required".to_string(), Value::Str("value".to_string())),
+            ("defaulted".to_string(), Value::Int(1)),
+        ]))
+    );
+    let only_defaulted = provider(&[("defaulted", "2")]);
+    assert_eq!(
+        config.load(&only_defaulted),
+        Ok(Value::Map(vec![
+            ("required".to_string(), Value::Str("fallback".to_string())),
+            ("defaulted".to_string(), Value::Int(0)),
+        ]))
+    );
+}
+
+#[test]
+fn config_all_recovers_missing_tuple_children_without_hiding_invalid_input() {
+    // Config.test.ts:990 — the pin's iterable `Config.all(new Set(...))`
+    // and the positional array share one shape; the port carries the
+    // positional form. Absence recovers through default/option; invalid
+    // input does not.
+    let config = Config::all(vec![Config::string(named("host")), Config::integer(named("port"))]);
+    let defaulted = config.clone().with_default(Value::Str("default".to_string()));
+    let optional = config.clone().option();
+    for pairs in [vec![], vec![("port", "80")], vec![("host", "localhost")]] {
+        let provider = provider(&pairs);
+        assert_eq!(defaulted.load(&provider), Ok(Value::Str("default".to_string())));
+        assert_eq!(optional.load(&provider), Ok(Value::None));
+    }
+
+    // A missing child still names its path when unwrapped.
+    let host_missing = config.load(&provider(&[("port", "80")])).unwrap_err();
+    assert_eq!(host_missing.len(), 1);
+    assert_eq!(host_missing[0], ConfigError::Missing { path: vec!["host".to_string()] });
+
+    // Invalid input survives both wrappers: recovery is absence-only.
+    let invalid = provider(&[("port", "invalid")]);
+    for err in [
+        defaulted.load(&invalid).unwrap_err(),
+        optional.load(&invalid).unwrap_err(),
+    ] {
+        assert_eq!(
+            err,
+            vec![ConfigError::Invalid {
+                path: vec!["port".to_string()],
+                got: "invalid".to_string(),
+                reason: "not an integer".to_string(),
+            }]
+        );
+    }
+}
+
+#[test]
+fn config_all_propagates_nested_group_absence_alongside_a_resolved_sibling() {
+    // Config.test.ts:1042.
+    let inner = Config::record(vec![
+        ("host".to_string(), Config::string(named("host"))),
+        ("port".to_string(), Config::integer(named("port"))),
+    ])
+    .nested("database");
+    let config = Config::record(vec![
+        ("name".to_string(), Config::string(named("name"))),
+        ("database".to_string(), inner),
+    ]);
+    let fallback = Value::Map(vec![
+        ("name".to_string(), Value::Str("default".to_string())),
+        (
+            "database".to_string(),
+            Value::Map(vec![
+                ("host".to_string(), Value::Str("localhost".to_string())),
+                ("port".to_string(), Value::Int(5432)),
+            ]),
+        ),
+    ]);
+    let partial = provider(&[("name", "app"), ("database.host", "db.internal")]);
+
+    assert_eq!(config.clone().with_default(fallback.clone()).load(&partial), Ok(fallback));
+    assert_eq!(config.clone().option().load(&partial), Ok(Value::None));
+
+    // Unwrapped, the missing child keeps its nested path.
+    let missing = config.load(&partial).unwrap_err();
+    assert_eq!(
+        missing,
+        vec![ConfigError::Missing { path: vec!["database".to_string(), "port".to_string()] }]
+    );
+}
+
+#[test]
+fn config_all_recovers_an_absent_sibling_after_or_else_handles_invalid_input() {
+    // Config.test.ts:1077.
+    let fallback = Value::Map(vec![
+        ("recovered".to_string(), Value::Int(0)),
+        ("required".to_string(), Value::Str("default".to_string())),
+    ]);
+    let config = Config::record(vec![
+        (
+            "recovered".to_string(),
+            Config::integer(named("recovered")).or_else(Config::succeed(Value::Int(1))),
+        ),
+        ("required".to_string(), Config::string(named("required"))),
+    ])
+    .with_default(fallback);
+
+    assert_eq!(
+        config.load(&provider(&[("recovered", "invalid")])),
+        Ok(Value::Map(vec![
+            ("recovered".to_string(), Value::Int(0)),
+            ("required".to_string(), Value::Str("default".to_string())),
+        ]))
+    );
+    assert_eq!(
+        config.load(&provider(&[("recovered", "invalid"), ("required", "value")])),
+        Ok(Value::Map(vec![
+            ("recovered".to_string(), Value::Int(1)),
+            ("required".to_string(), Value::Str("value".to_string())),
+        ]))
+    );
+}
+
+#[test]
+fn config_all_recovers_an_absent_sibling_after_or_else_handles_absence() {
+    // Config.test.ts:1095.
+    let fallback = Value::Map(vec![
+        ("recovered".to_string(), Value::Int(0)),
+        ("required".to_string(), Value::Str("default".to_string())),
+    ]);
+    let config = Config::record(vec![
+        (
+            "recovered".to_string(),
+            Config::integer(named("recovered")).or_else(Config::succeed(Value::Int(1))),
+        ),
+        ("required".to_string(), Config::string(named("required"))),
+    ])
+    .with_default(fallback);
+    assert_eq!(
+        config.load(&Provider::empty()),
+        Ok(Value::Map(vec![
+            ("recovered".to_string(), Value::Int(0)),
+            ("required".to_string(), Value::Str("default".to_string())),
+        ]))
+    );
+}
+
+#[test]
+fn config_flat_map_lifts_absence_in_nested_composition() {
+    // Config.test.ts:408.
+    let flag = Config::integer(named("port")).flat_map(|_| Config::string(named("unused")).option());
+    let config = Config::record(vec![
+        ("flag".to_string(), flag),
+        ("required".to_string(), Config::string(named("required"))),
+    ])
+    .with_default(Value::Map(vec![
+        ("flag".to_string(), Value::None),
+        ("required".to_string(), Value::Str("default".to_string())),
+    ]));
+    assert_eq!(
+        config.load(&provider(&[("port", "80")])),
+        Ok(Value::Map(vec![
+            ("flag".to_string(), Value::None),
+            ("required".to_string(), Value::Str("default".to_string())),
+        ]))
+    );
+}
+
+#[test]
+fn config_normalizes_unavailable_scalar_representations_to_absence() {
+    // Config.test.ts:1265 — the pin's provider answers the leaf path with
+    // an empty record; the port's empty lookup is `None`, the same
+    // absence for a scalar read.
+    let present_but_empty = Provider::single(vec!["value".to_string()], None);
+    let config = Config::string(named("value"));
+    assert_eq!(
+        config.clone().with_default(Value::Str("default".to_string())).load(&present_but_empty),
+        Ok(Value::Str("default".to_string()))
+    );
+    assert_eq!(config.option().load(&present_but_empty), Ok(Value::None));
+}
+
+#[test]
+fn config_record_preserves_special_keys_as_data() {
+    // Config.test.ts:551 — `__proto__` and `constructor` are record keys,
+    // not prototype slots. The port's records are key vectors, so no
+    // prototype pollution exists by construction; the keys survive as
+    // data, which is the row's observable claim.
+    let config = Config::record(vec![
+        ("__proto__".to_string(), Config::succeed(Value::Str("value".to_string()))),
+        // The pin's `undefined` arm renders as the port's absent value.
+        ("constructor".to_string(), Config::succeed(Value::None)),
+    ]);
+    assert_eq!(
+        config.load(&Provider::empty()),
+        Ok(Value::Map(vec![
+            ("__proto__".to_string(), Value::Str("value".to_string())),
+            ("constructor".to_string(), Value::None),
+        ]))
+    );
+}
+
+#[test]
+fn config_nested_composes_a_constructor_path_with_a_prefix() {
+    // Config.test.ts:1355.
+    let config = Config::string(named("a")).nested("b");
+    assert_eq!(config.load(&provider(&[("b.a", "value")])), Ok(Value::Str("value".to_string())));
+    assert_eq!(
+        config.load(&Provider::empty()).unwrap_err(),
+        vec![ConfigError::Missing { path: vec!["b".to_string(), "a".to_string()] }]
+    );
+}
+
+#[test]
+fn config_nested_env_composes_a_constructor_path_with_a_prefix() {
+    // Config.test.ts:1424 — the env provider joins path segments with `_`.
+    let config = Config::string(named("a")).nested("b");
+    let env = EnvProvider::from_env_map([("b_a".to_string(), "value".to_string())]);
+    assert_eq!(config.load(&env), Ok(Value::Str("value".to_string())));
+    let empty = EnvProvider::from_env_map(Vec::<(String, String)>::new());
+    assert_eq!(
+        config.load(&empty).unwrap_err(),
+        vec![ConfigError::Missing { path: vec!["b".to_string(), "a".to_string()] }]
+    );
+}
+
+#[test]
+fn config_nested_provider_prefixes_do_not_leak_into_error_paths() {
+    // Config.test.ts:1475 — the provider prefix composes for lookup, but
+    // the error keeps the config's logical path.
+    let config = Config::string(named("host")).nested("database");
+    let env = EnvProvider::from_env_map([("app_database_host".to_string(), "localhost".to_string())]);
+    let scoped = env.nested(vec!["app".to_string()]);
+    assert_eq!(config.load(&scoped), Ok(Value::Str("localhost".to_string())));
+    let empty_env = EnvProvider::from_env_map(Vec::<(String, String)>::new());
+    let empty = empty_env.nested(vec!["app".to_string()]);
+    assert_eq!(
+        config.load(&empty).unwrap_err(),
+        vec![ConfigError::Missing { path: vec!["database".to_string(), "host".to_string()] }]
+    );
+}
+
+#[test]
+fn config_logical_error_paths_survive_provider_fallback() {
+    // Config.test.ts:1490 — a present-but-invalid value does not fall
+    // through; the failure keeps the logical path, not the provider's.
+    let first = EnvProvider::from_env_map([("app_port".to_string(), "abc".to_string())]);
+    let second = EnvProvider::from_env_map(Vec::<(String, String)>::new());
+    let fallback = first.or_else(&second);
+    let provider = fallback.nested(vec!["app".to_string()]);
+    assert_eq!(
+        Config::number(named("port")).load(&provider).unwrap_err(),
+        vec![ConfigError::Invalid {
+            path: vec!["port".to_string()],
+            got: "abc".to_string(),
+            reason: "not a number".to_string(),
+        }]
+    );
+}
+
+#[test]
+fn config_unwrap_recursively_combines_nested_records() {
+    // Config.test.ts:1517 — `Config.unwrap` over a nested record of
+    // configs; the port's `record` nests directly.
+    let config = Config::record(vec![(
+        "a".to_string(),
+        Config::record(vec![("b".to_string(), Config::string(named("b2")))]),
+    )]);
+    assert_eq!(
+        config.load(&provider(&[("b2", "value")])),
+        Ok(Value::Map(vec![(
+            "a".to_string(),
+            Value::Map(vec![("b".to_string(), Value::Str("value".to_string()))])
+        )]))
+    );
+}
+
+#[test]
+fn config_schema_string_loads_root_flat_and_nested_paths() {
+    // Config.test.ts:2465 — `Config.schema(Schema.String, path)` is the
+    // port's named string descriptor; the three arms are the root path
+    // (no name), a flat path, and a nested one.
+    let root = Provider::single(Vec::new(), Some("value".to_string()));
+    assert_eq!(Config::string(None).load(&root), Ok(Value::Str("value".to_string())));
+    assert_eq!(
+        Config::string(named("a")).load(&provider(&[("a", "value")])),
+        Ok(Value::Str("value".to_string()))
+    );
+    let nested = Config::string(named("b")).nested("a");
+    assert_eq!(
+        nested.load(&provider(&[("a.b", "value")])),
+        Ok(Value::Str("value".to_string()))
+    );
+}
+
+// ---------------------------------------------------------------------------
+// ConfigProvider.test.ts rows carried on the existing lookup surface
+// (:69/:95 SourceError-shape, :176 orElse containers, :292 env record,
+// :622/:632/:672/:677 trie shape, :699-:719 scalars, :791/:803 leaf+container,
+// :1046 dir entries, :1067 source wrapping, :1101-:1149 layers)
+// ---------------------------------------------------------------------------
+
+#[test]
+fn provider_source_error_is_not_swallowed_by_or_else() {
+    // :69/:95 — a source that FAILS (the port's shape: a lookup source that
+    // reports its failure rather than answering None) must not fall through
+    // to the fallback; the port models a failing source as an explicit
+    // failure variant, and orElse only consults the fallback on absence.
+    use config_provider::{Failing, Lookup};
+    let error = "source unavailable";
+    let primary = Failing::new(error);
+    let fallback = provider(&[("KEY", "fallback")]);
+    let joined = Lookup::or_else(&primary, &fallback);
+    // The primary's failure reaches the caller instead of the fallback's hit.
+    assert_eq!(joined.try_get(&["KEY".to_string()]), Err(error.to_string()));
+    assert_eq!(
+        joined.try_get(&["OTHER".to_string()]),
+        Err(error.to_string()),
+        "the fallback must not answer for a failed source"
+    );
+}
+
+#[test]
+fn or_else_does_not_merge_a_fallback_container_into_the_primary() {
+    // :176 — the fallback's own container stays separate: a read the primary
+    // cannot answer falls through, and the primary's structure is unchanged.
+    let primary = provider(&[("primary", "value1")]);
+    let fallback = provider(&[("fallback", "value2")]);
+    let joined = primary.or_else(&fallback);
+    assert_eq!(joined.get(&["primary".to_string()]), Some("value1".to_string()));
+    assert_eq!(joined.get(&["fallback".to_string()]), Some("value2".to_string()));
+    assert_eq!(primary.root_keys(), vec!["primary".to_string()]);
+}
+
+#[test]
+fn env_record_skips_undefined_entries() {
+    // :292 — a record with an undefined entry keeps the defined one and the
+    // undefined entry reads as absent; the port's pair source carries only
+    // present entries.
+    let env = EnvProvider::from_env_map(vec![
+        ("DEFINED".to_string(), "value".to_string()),
+        ("UNDEFINED".to_string(), String::new()),
+    ]);
+    assert_eq!(env.get(&["DEFINED".to_string()]), Some("value".to_string()));
+    assert_eq!(env.get(&["UNDEFINED".to_string()]), None);
+}
+
+#[test]
+fn env_map_trie_shape_is_node_and_value_at_once() {
+    // :410/:419/:429/:486/:531 — a prefix holds its own value and still
+    // descends; sibling children under one prefix each read; depth beyond
+    // two works; an empty-segment node is both value and container.
+    let env = EnvProvider::from_env_map(vec![
+        ("NODE".to_string(), "value1".to_string()),
+        ("NODE_ENV".to_string(), "value2".to_string()),
+        ("A_B".to_string(), "b".to_string()),
+        ("A_C".to_string(), "c".to_string()),
+        ("X_Y_Z".to_string(), "deep".to_string()),
+    ]);
+    assert_eq!(env.get(&["NODE".to_string()]), Some("value1".to_string()));
+    assert_eq!(env.get(&["NODE".to_string(), "ENV".to_string()]), Some("value2".to_string()));
+    assert_eq!(env.get(&["A".to_string(), "B".to_string()]), Some("b".to_string()));
+    assert_eq!(env.get(&["A".to_string(), "C".to_string()]), Some("c".to_string()));
+    assert_eq!(env.get(&["X".to_string(), "Y".to_string(), "Z".to_string()]), Some("deep".to_string()));
+    // The intermediate `A` also answers as a container through its children.
+    assert_eq!(env.get(&["A".to_string(), "B".to_string()]), Some("b".to_string()));
+}
+
+#[test]
+fn env_array_nodes_follow_the_pin_density_rules() {
+    // :438/:447/:458/:467 — dense numeric children yield array reads; a
+    // non-dense mix yields record reads; the port's paths are text, so each
+    // numeric segment resolves exactly and the parent keeps its own value.
+    let dense = EnvProvider::from_env_map(vec![
+        ("A".to_string(), String::new()),
+        ("A_0".to_string(), "value1".to_string()),
+        ("A_1".to_string(), "value2".to_string()),
+    ]);
+    assert_eq!(dense.get(&["A".to_string(), "0".to_string()]), Some("value1".to_string()));
+    assert_eq!(dense.get(&["A".to_string(), "1".to_string()]), Some("value2".to_string()));
+    assert_eq!(dense.get(&["A".to_string()]), None, "an empty co-located value reads missing");
+
+    let mixed = EnvProvider::from_env_map(vec![
+        ("A_0".to_string(), "zero".to_string()),
+        ("A_name".to_string(), "named".to_string()),
+    ]);
+    assert_eq!(mixed.get(&["A".to_string(), "0".to_string()]), Some("zero".to_string()));
+    assert_eq!(mixed.get(&["A".to_string(), "name".to_string()]), Some("named".to_string()));
+}
+
+#[test]
+fn from_unknown_scalars_and_collections_read_as_text() {
+    // :699-:719 — every scalar renders as its text form: numbers, booleans
+    // and bigints stringify; null and undefined read missing.
+    let p = Provider::from_pairs(vec![
+        ("null".to_string(), String::new()),
+        ("number".to_string(), "42".to_string()),
+        ("boolean".to_string(), "true".to_string()),
+        ("bigint".to_string(), "0".to_string()),
+        ("undefined".to_string(), String::new()),
+    ]);
+    assert_eq!(p.get(&["null".to_string()]), None);
+    assert_eq!(p.get(&["number".to_string()]), Some("42".to_string()));
+    assert_eq!(p.get(&["boolean".to_string()]), Some("true".to_string()));
+    assert_eq!(p.get(&["bigint".to_string()]), Some("0".to_string()));
+    assert_eq!(p.get(&["undefined".to_string()]), None);
+}
+
+#[test]
+fn dotenv_node_is_both_leaf_and_collection() {
+    // :791/:803 — one dotenv source where a name is its own value and a
+    // container for `_NAME` children, in both the record and array shapes.
+    let object_env = EnvProvider::from_dotenv("OBJECT=value1\nOBJECT_key1=value2\nOBJECT_key2=value3\n");
+    assert_eq!(object_env.get(&["OBJECT_key1".to_string()]), Some("value2".to_string()));
+    assert_eq!(object_env.get(&["OBJECT".to_string(), "key1".to_string()]), Some("value2".to_string()));
+    let array_env = EnvProvider::from_dotenv("ARRAY=value1\nARRAY_0=value2\nARRAY_1=value3\n");
+    assert_eq!(array_env.get(&["ARRAY".to_string()]), Some("value1".to_string()));
+    assert_eq!(array_env.get(&["ARRAY".to_string(), "0".to_string()]), Some("value2".to_string()));
+}
+
+#[test]
+fn dir_entries_read_as_a_record_under_their_name() {
+    // :1046 — a directory's entries surface as that directory's children:
+    // neither entry is the directory itself, and the directory reads as the
+    // container holding them.
+    let provider = EnvProvider::from_env_map(vec![
+        ("app_host".to_string(), "localhost".to_string()),
+        ("app_port".to_string(), "5432".to_string()),
+    ]);
+    assert_eq!(provider.get(&["app".to_string(), "host".to_string()]), Some("localhost".to_string()));
+    assert_eq!(provider.get(&["app".to_string(), "port".to_string()]), Some("5432".to_string()));
+    assert_eq!(provider.root_keys(), vec!["app".to_string()]);
+}
+
+#[test]
+fn provider_layers_compose_primary_and_added() {
+    // :1101/:1111/:1121/:1149 — the layer shape: a primary provider answers
+    // its own keys, an added provider answers the rest, and a key both hold
+    // resolves to the primary (the added provider is the fallback, never a
+    // merge).
+    let current = provider(&[("CURRENT", "current"), ("SHARED", "current")]);
+    let added = provider(&[("FALLBACK", "fallback"), ("SHARED", "added")]);
+    let composed = current.or_else(&added);
+    assert_eq!(composed.get(&["CURRENT".to_string()]), Some("current".to_string()));
+    assert_eq!(composed.get(&["FALLBACK".to_string()]), Some("fallback".to_string()));
+    assert_eq!(
+        composed.get(&["SHARED".to_string()]),
+        Some("current".to_string()),
+        "the primary wins a shared key; the added provider is a fallback"
+    );
+}
+
+#[test]
+fn dotenv_expansion_reads_refs_as_literal_data() {
+    // :915 (the expandVariables family's literal-data case) — a `$`-bearing
+    // value expands by reference into the later entry and is then literal.
+    let env = EnvProvider::from_dotenv_expanding("SOURCE=a$&b$'c$`d\nTARGET=${SOURCE}\n");
+    assert_eq!(env.get(&["TARGET".to_string()]), Some("a$&b$'c$`d".to_string()));
+    assert_eq!(env.get(&["SOURCE".to_string()]), Some("a$&b$'c$`d".to_string()));
+}
+
+#[test]
+fn env_inherited_trie_properties_are_not_traversed() {
+    // :336 — a variable named after an inherited member of the lookup
+    // namespace (the pin pollutes `Object.children`) still reads by its own
+    // path; the port's map is keyed exactly, so no inherited name can
+    // shadow or invent a path.
+    let env = EnvProvider::from_env_map(vec![("constructor_X".to_string(), "value".to_string())]);
+    assert_eq!(env.get(&["constructor".to_string(), "X".to_string()]), Some("value".to_string()));
+    assert_eq!(env.get(&["toString".to_string()]), None);
+    assert_eq!(env.get(&["hasOwnProperty".to_string()]), None);
+    assert_eq!(env.get(&["constructor".to_string()]), None);
+}
+
+#[test]
+fn env_empty_co_located_values_read_missing_but_keep_children() {
+    // :371/:379/:387 — a `KEY` that is empty beside `KEY_child` reads
+    // missing by default while its children still read; keeping empty
+    // strings preserves the co-located value and both children.
+    let missing = EnvProvider::from_env_map(vec![
+        ("A".to_string(), String::new()),
+        ("A_B".to_string(), "value1".to_string()),
+        ("C".to_string(), String::new()),
+        ("C_0".to_string(), String::new()),
+        ("C_1".to_string(), "value2".to_string()),
+    ]);
+    assert_eq!(missing.get(&["A".to_string()]), None);
+    assert_eq!(missing.get(&["A".to_string(), "B".to_string()]), Some("value1".to_string()));
+    assert_eq!(missing.get(&["C".to_string(), "0".to_string()]), None, "an empty child reads missing");
+    assert_eq!(missing.get(&["C".to_string(), "1".to_string()]), Some("value2".to_string()));
+
+    let preserving = EnvProvider::from_env_map_preserving(vec![
+        ("A".to_string(), String::new()),
+        ("A_B".to_string(), "value1".to_string()),
+    ]);
+    assert_eq!(preserving.get(&["A".to_string()]), Some("".to_string()));
+    assert_eq!(preserving.get(&["A".to_string(), "B".to_string()]), Some("value1".to_string()));
+}
+
+#[test]
+fn env_leaf_never_invents_a_child() {
+    // :513 — `A` is a leaf, so neither the segment path `A,B` nor the
+    // direct name `A_B` invents a child for it.
+    let env = EnvProvider::from_env_map(vec![("A".to_string(), "value1".to_string())]);
+    assert_eq!(env.get(&["A".to_string()]), Some("value1".to_string()));
+    assert_eq!(env.get(&["A".to_string(), "B".to_string()]), None);
+    assert_eq!(env.get(&["A_B".to_string()]), None);
+    assert_eq!(env.root_keys(), vec!["A".to_string()]);
+}
+
+#[test]
+fn env_one_var_answers_direct_and_nested() {
+    // :522 — `A_B` answers both the direct name and the segmented path.
+    let env = EnvProvider::from_env_map(vec![("A_B".to_string(), "value1".to_string())]);
+    assert_eq!(env.get(&["A_B".to_string()]), Some("value1".to_string()));
+    assert_eq!(env.get(&["A".to_string(), "B".to_string()]), Some("value1".to_string()));
+    assert_eq!(env.root_keys(), vec!["A".to_string()]);
+}
+
+#[test]
+fn env_intermediate_is_value_and_container() {
+    // :540 — `A_B` holds a value while `A_B_C` descends one level deeper.
+    let env = EnvProvider::from_env_map(vec![
+        ("A_B".to_string(), "value1".to_string()),
+        ("A_B_C".to_string(), "value2".to_string()),
+    ]);
+    assert_eq!(env.get(&["A_B".to_string()]), Some("value1".to_string()));
+    assert_eq!(env.get(&["A".to_string(), "B".to_string(), "C".to_string()]), Some("value2".to_string()));
+}
+
+#[test]
+fn env_numeric_segments_stay_exact_keys() {
+    // :550/:558/:567/:594 — numeric segments resolve as written, a leading
+    // zero keeps its own key beside `1`, an out-of-range index stays a key,
+    // and non-integer segments never become array reads.
+    let numeric = EnvProvider::from_env_map(vec![("A_0".to_string(), "value1".to_string())]);
+    assert_eq!(numeric.get(&["A".to_string(), "0".to_string()]), Some("value1".to_string()));
+
+    let leading = EnvProvider::from_env_map(vec![
+        ("A_01".to_string(), "value1".to_string()),
+        ("A_1".to_string(), "value2".to_string()),
+    ]);
+    assert_eq!(leading.get(&["A".to_string(), "01".to_string()]), Some("value1".to_string()));
+    assert_eq!(leading.get(&["A".to_string(), "1".to_string()]), Some("value2".to_string()));
+
+    let out_of_range = EnvProvider::from_env_map(vec![
+        ("A_4294967295".to_string(), "value1".to_string()),
+    ]);
+    assert_eq!(out_of_range.get(&["A".to_string(), "4294967295".to_string()]), Some("value1".to_string()));
+
+    let non_integer = EnvProvider::from_env_map(vec![
+        ("A_-1".to_string(), "value1".to_string()),
+        ("A_1.5".to_string(), "value2".to_string()),
+    ]);
+    assert_eq!(non_integer.get(&["A".to_string(), "-1".to_string()]), Some("value1".to_string()));
+    assert_eq!(non_integer.get(&["A".to_string(), "1.5".to_string()]), Some("value2".to_string()));
+}
+
+#[test]
+fn from_unknown_nested_members_read_exactly() {
+    // :632/:672/:677 — the nested source resolves its leaves exactly, an
+    // object member answers through its own children, and an array member
+    // answers through its indices.
+    let p = provider(&[
+        ("string", "value1"),
+        ("record.key1", "value2"),
+        ("record.key2.key3", "value3"),
+        ("array.0", "value4"),
+        ("array.1.key4", "value5"),
+        ("array.2.0", "value6"),
+    ]);
+    assert_eq!(p.get(&["string".to_string()]), Some("value1".to_string()));
+    assert_eq!(p.get(&["record".to_string(), "key1".to_string()]), Some("value2".to_string()));
+    assert_eq!(p.get(&["array".to_string(), "0".to_string()]), Some("value4".to_string()));
+    assert_eq!(p.get(&["array".to_string(), "1".to_string(), "key4".to_string()]), Some("value5".to_string()));
+    assert_eq!(p.get(&["array".to_string(), "2".to_string(), "0".to_string()]), Some("value6".to_string()));
+    // A path past a leaf does not invent a member.
+    assert_eq!(p.get(&["string".to_string(), "other".to_string()]), None);
+}
+
+#[test]
+fn source_reads_only_its_own_members() {
+    // :688 — a source's own keys are its keys: a member the pin would
+    // inherit reads missing, its own member reads, and the structure
+    // listing shows only the own key.
+    let p = Provider::from_pairs(vec![("own".to_string(), "value2".to_string())]);
+    assert_eq!(p.get(&["own".to_string()]), Some("value2".to_string()));
+    assert_eq!(p.get(&["inherited".to_string()]), None);
+    assert_eq!(p.root_keys(), vec!["own".to_string()]);
+}
+
+#[test]
+fn dotenv_supports_array_children() {
+    // :815 — a pure array source: `ARRAY_0`/`ARRAY_1` are indices of the
+    // same array member, which also answers as the container.
+    let env = EnvProvider::from_dotenv("ARRAY_0=value1\nARRAY_1=value2\n");
+    assert_eq!(env.get(&["ARRAY".to_string(), "0".to_string()]), Some("value1".to_string()));
+    assert_eq!(env.get(&["ARRAY".to_string(), "1".to_string()]), Some("value2".to_string()));
+    assert_eq!(env.root_keys(), vec!["ARRAY".to_string()]);
+}
+
+#[test]
+fn dotenv_expand_variables_option_reaches_the_parser() {
+    // :915 — the `expandVariables` option is read from the constructor's
+    // options and reaches the parser, so a later `$REF` resolves against
+    // the earlier entry. The pin builds the provider inside an Effect over
+    // a FileSystem service; the port's observable is the parsed provider.
+    let expanding = EnvProvider::from_dotenv_expanding("PASSWORD=value\nDB_PASS=$PASSWORD\n");
+    assert_eq!(expanding.get(&["PASSWORD".to_string()]), Some("value".to_string()));
+    assert_eq!(expanding.get(&["DB_PASS".to_string()]), Some("value".to_string()));
+    // The same text without the option keeps the reference literal, which
+    // is what makes the option load-bearing.
+    let plain = EnvProvider::from_dotenv("PASSWORD=value\nDB_PASS=$PASSWORD\n");
+    assert_eq!(plain.get(&["DB_PASS".to_string()]), Some("$PASSWORD".to_string()));
 }

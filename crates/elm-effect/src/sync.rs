@@ -12,7 +12,8 @@
 
 use std::collections::VecDeque;
 use crate::Exit;
-use std::sync::{Condvar, Mutex};
+use std::any::Any;
+use std::sync::{Arc, Condvar, Mutex};
 
 use crate::Effect;
 
@@ -502,66 +503,430 @@ impl<A: Clone + Send, E: Clone + Send> Default for Deferred<A, E> {
     }
 }
 
-/// A bounded multi-producer multi-consumer queue. Senders block when full,
-/// receivers block when empty: backpressure by construction.
+/// How a full queue treats a new offer (`Queue.make`'s `strategy`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Strategy {
+    /// The offerer waits for room (`Queue.bounded`).
+    Backpressure,
+    /// A full queue drops the new item (`Queue.make` with `"dropping"`).
+    Dropping,
+    /// A full queue drops its oldest item to make room (`"sliding"`).
+    Sliding,
+}
+
+/// A queue's terminal state: open, ended (no more offers, drains stay
+/// readable), or failed with a reason.
+enum QueueState {
+    Open,
+    Ended,
+    Failed(String),
+    /// Interrupted (`Queue.shutdown`): takers are interrupted and the
+    /// buffered messages drain but offers are refused.
+    Interrupted,
+}
+
+/// A take against a finished queue (`Queue.take`, `take_n`,
+/// `take_between`): `Done` after `end`, the failure after `fail`,
+/// `Interrupted` after `shutdown`.
+#[derive(Clone, Debug, PartialEq)]
+pub enum QueueError {
+    /// The queue ended normally and held nothing more.
+    Done,
+    /// The queue failed with this reason after its buffer drained.
+    Failed(String),
+    /// The queue was shut down while the take was waiting.
+    Interrupted,
+}
+
+/// What an interruptible offer got: accepted, or refused with the
+/// message still in hand.
+pub enum OfferOutcome<A> {
+    /// The item entered the queue.
+    Accepted,
+    /// The queue was closed: the item is untouched.
+    Refused(A),
+}
+
+impl std::fmt::Display for QueueError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Done => write!(f, "Done"),
+            Self::Failed(message) => write!(f, "{message}"),
+            Self::Interrupted => write!(f, "Interrupted"),
+        }
+    }
+}
+
+/// The write-only face (`Queue.Enqueue`): offers, nothing else.
+pub struct Enqueue<A: Send + 'static> {
+    queue: Arc<Queue<A>>,
+}
+
+impl<A: Send + 'static> Enqueue<A> {
+    /// Offer one item, waiting for room under backpressure. False when the
+    /// queue closed or refused it.
+    pub fn offer(&self, value: A) -> bool {
+        self.queue.offer(value)
+    }
+
+    /// Offer a batch, returning whatever was not accepted.
+    pub fn offer_all(&self, values: impl IntoIterator<Item = A>) -> Vec<A> {
+        self.queue.offer_all(values)
+    }
+}
+
+/// The read-only face (`Queue.Dequeue`): takes, nothing else.
+pub struct Dequeue<A: Send + 'static> {
+    queue: Arc<Queue<A>>,
+}
+
+impl<A: Send + 'static> Dequeue<A> {
+    /// Take one item, waiting while empty.
+    pub fn take(&self) -> Result<A, QueueError> {
+        self.queue.take()
+    }
+
+    /// Take up to `n` items.
+    pub fn take_n(&self, n: usize) -> Result<Vec<A>, QueueError> {
+        self.queue.take_n(n)
+    }
+
+    /// Take between `min` and `max` items.
+    pub fn take_between(&self, min: usize, max: usize) -> Result<Vec<A>, QueueError> {
+        self.queue.take_between(min, max)
+    }
+
+    /// Drain everything buffered.
+    pub fn take_all(&self) -> Vec<A> {
+        self.queue.take_all()
+    }
+}
+
+/// `Queue.isEnqueue`: true for a queue or its write-only view.
+pub fn is_enqueue<A: Send + 'static>(value: &dyn Any) -> bool {
+    value.is::<Queue<A>>() || value.is::<Enqueue<A>>()
+}
+
+/// `Queue.isDequeue`: true for a queue or its read-only view.
+pub fn is_dequeue<A: Send + 'static>(value: &dyn Any) -> bool {
+    value.is::<Queue<A>>() || value.is::<Dequeue<A>>()
+}
+
+/// `Queue.isQueue`: true for a queue or either view.
+pub fn is_queue<A: Send + 'static>(value: &dyn Any) -> bool {
+    value.is::<Queue<A>>() || value.is::<Enqueue<A>>() || value.is::<Dequeue<A>>()
+}
+
+/// A bounded multi-producer multi-consumer queue. Senders wait for room
+/// under the backpressure strategy, receivers wait for items; `end`,
+/// `fail`, and `shutdown` close the offer side while the buffer drains.
+///
+/// Two pin rules need state beyond the buffer. Offers that are parked
+/// when `end`/`fail` arrive keep going: the terminal flip is deferred
+/// until they settle, which is why `await` waits and why the offers a
+/// fail interrupts still land. A zero-capacity queue rendezvouses through
+/// a reservation: a taker claims the next item, an offerer may only push
+/// while one is outstanding, so a message is never enqueued twice.
 pub struct Queue<A> {
     inner: Mutex<VecDeque<A>>,
     capacity: usize,
+    strategy: Strategy,
+    state: Mutex<QueueState>,
+    /// The terminal state waiting for parked offers to settle.
+    pending_close: Mutex<Option<QueueState>>,
+    /// Offers currently parked on a full queue.
+    in_flight: Mutex<usize>,
+    /// Outstanding taker reservations for the zero-capacity rendezvous.
+    reservations: Mutex<usize>,
+    /// Releases scheduled by `offerUnsafe` and performed by `flushUnsafe`.
+    scheduled_releases: Mutex<usize>,
     not_full: Condvar,
     not_empty: Condvar,
-    shutdown: Mutex<bool>,
+    finished: Condvar,
 }
-
 impl<A: Send> Queue<A> {
-    /// A queue holding at most `capacity` items.
+    /// A queue holding at most `capacity` items (backpressure).
     pub fn new(capacity: usize) -> Self {
+        Self::with_strategy(capacity, Strategy::Backpressure)
+    }
+
+    /// A queue that never fills (`Queue.unbounded`).
+    pub fn unbounded() -> Self {
+        Self::with_strategy(usize::MAX, Strategy::Backpressure)
+    }
+
+    /// A queue with the given capacity and overflow strategy.
+    pub fn with_strategy(capacity: usize, strategy: Strategy) -> Self {
         Self {
             inner: Mutex::new(VecDeque::new()),
             capacity,
+            strategy,
+            state: Mutex::new(QueueState::Open),
+            pending_close: Mutex::new(None),
+            in_flight: Mutex::new(0),
+            reservations: Mutex::new(0),
+            scheduled_releases: Mutex::new(0),
             not_full: Condvar::new(),
             not_empty: Condvar::new(),
-            shutdown: Mutex::new(false),
+            finished: Condvar::new(),
         }
     }
 
-    /// The bound.
+    /// The bound (`Queue.capacity`).
     pub fn capacity(&self) -> usize {
         self.capacity
     }
 
-    /// Push, blocking while full.
-    pub fn offer(&self, value: A) {
+    /// The overflow strategy.
+    pub fn strategy(&self) -> Strategy {
+        self.strategy
+    }
+
+    /// Push, blocking while full under backpressure. Dropping and sliding
+    /// never block: a full dropping queue drops this item, a sliding one
+    /// drops its oldest. A queue that closes while this offer is parked
+    /// withdraws the message instead of pushing it.
+    /// Offer one item (`Queue.offer`). Under backpressure it waits for
+    /// room; a full dropping queue refuses it; a full sliding queue drops
+    /// its oldest. A queue that closes while this offer is parked withdraws
+    /// the message instead of pushing it. Returns whether the item landed.
+    pub fn offer(&self, value: A) -> bool {
+        if self.strategy != Strategy::Backpressure {
+            return self.try_offer(value);
+        }
         let mut guard = self.inner.lock().unwrap();
-        while guard.len() >= self.capacity {
+        let mut parked = false;
+        loop {
+            // The closed check comes first: a queue that shut down while
+            // this offer was parked withdraws the message even if capacity
+            // freed in the same wakeup.
+            if !matches!(&*self.state.lock().unwrap(), QueueState::Open) {
+                if parked {
+                    self.leave();
+                }
+                return false;
+            }
+            if !self.is_full(&guard) {
+                break;
+            }
+            if !parked {
+                parked = true;
+                *self.in_flight.lock().unwrap() += 1;
+            }
             guard = self.not_full.wait(guard).unwrap();
         }
-        guard.push_back(value);
-        self.not_empty.notify_one();
-    }
-
-    /// Pop, blocking while empty.
-    pub fn poll(&self) -> A {
-        let mut guard = self.inner.lock().unwrap();
-        while guard.is_empty() {
-            guard = self.not_empty.wait(guard).unwrap();
+        if parked {
+            self.leave();
         }
-        let value = guard.pop_front().expect("checked");
-        self.not_full.notify_one();
-        value
-    }
-
-    /// Push without blocking. False when full.
-    pub fn try_offer(&self, value: A) -> bool {
-        if *self.shutdown.lock().unwrap() {
-            return false;
-        }
-        let mut guard = self.inner.lock().unwrap();
-        if guard.len() >= self.capacity {
-            return false;
-        }
-        guard.push_back(value);
-        self.not_empty.notify_one();
+        self.push_item(&mut guard, value);
         true
+    }
+
+    /// Push without blocking. False when full or closed.
+    pub fn try_offer(&self, value: A) -> bool {
+        if !matches!(&*self.state.lock().unwrap(), QueueState::Open) {
+            return false;
+        }
+        let mut guard = self.inner.lock().unwrap();
+        if self.is_full(&guard) {
+            if self.strategy != Strategy::Sliding {
+                return false;
+            }
+            guard.pop_front();
+        }
+        self.push_item(&mut guard, value);
+        true
+    }
+
+    /// `Queue.offerUnsafe`: push without capacity checks, without parking,
+    /// and WITHOUT waking a waiting taker — the release is scheduled, and
+    /// only [`Queue::flush_unsafe`] performs it, so repeated offers
+    /// coalesce into one wakeup.
+    pub fn offer_unsafe(&self, value: A) {
+        let mut guard = self.inner.lock().unwrap();
+        guard.push_back(value);
+        let mut releases = self.scheduled_releases.lock().unwrap();
+        *releases += 1;
+    }
+
+    /// `Queue.flushUnsafe`: perform the scheduled releases from every
+    /// `offerUnsafe` since the last flush as one wakeup, then clear the
+    /// schedule. A no-op after shutdown, and a no-op when nothing is
+    /// scheduled.
+    pub fn flush_unsafe(&self) {
+        if !matches!(&*self.state.lock().unwrap(), QueueState::Open) {
+            return;
+        }
+        let scheduled = {
+            let mut releases = self.scheduled_releases.lock().unwrap();
+            let scheduled = *releases;
+            *releases = 0;
+            scheduled
+        };
+        if scheduled > 0 {
+            self.not_empty.notify_all();
+        }
+    }
+
+    /// `Queue.flush`: the effectful flush. The port's queue is
+    /// synchronous, so this is `flush_unsafe`.
+    pub fn flush(&self) {
+        self.flush_unsafe();
+    }
+
+    /// Whether an offer must wait: the buffer is at capacity and the
+    /// zero-capacity rendezvous holds no reservation for this push.
+    fn is_full(&self, guard: &VecDeque<A>) -> bool {
+        if guard.len() < self.capacity {
+            return false;
+        }
+        // Zero capacity: a reservation is a permit for exactly one item.
+        !(self.capacity == 0 && *self.reservations.lock().unwrap() > 0)
+    }
+
+    /// A taker claims the next zero-capacity message, waking offerers.
+    /// Returns false when another taker already holds the claim.
+    fn reserve(&self) -> bool {
+        let mut reservations = self.reservations.lock().unwrap();
+        if *reservations == 0 {
+            *reservations = 1;
+            drop(reservations);
+            self.not_full.notify_all();
+            true
+        } else {
+            false
+        }
+    }
+
+    /// Give up a reservation (a rendezvous that produced nothing).
+    fn release_reservation(&self) {
+        let mut reservations = self.reservations.lock().unwrap();
+        if *reservations > 0 {
+            *reservations -= 1;
+        }
+        drop(reservations);
+        self.not_full.notify_all();
+    }
+
+    /// The one place an item enters the buffer: a zero-capacity push
+    /// consumes the reservation that permitted it.
+    fn push_item(&self, guard: &mut VecDeque<A>, value: A) {
+        guard.push_back(value);
+        if self.capacity == 0 {
+            let mut reservations = self.reservations.lock().unwrap();
+            if *reservations > 0 {
+                *reservations -= 1;
+            }
+        }
+        self.not_empty.notify_one();
+    }
+
+    /// A parked offer finished: the last one out applies a deferred
+    /// terminal close.
+    fn leave(&self) {
+        let mut in_flight = self.in_flight.lock().unwrap();
+        *in_flight -= 1;
+        let last = *in_flight == 0;
+        drop(in_flight);
+        if last {
+            let pending = self.pending_close.lock().unwrap().take();
+            if let Some(next) = pending {
+                let mut state = self.state.lock().unwrap();
+                if matches!(&*state, QueueState::Open) {
+                    *state = next;
+                }
+                drop(state);
+                self.finished.notify_all();
+            }
+        }
+    }
+
+    /// Push while watching `interrupted`: an interrupted offer withdraws
+    /// its message (`Err(())`), a closed queue refuses it untouched
+    /// (`Ok(Refused(value))`), and an accepted one reports
+    /// `Ok(Accepted)`. The port's interruptible-wait pattern, the one the
+    /// semaphore uses.
+    pub fn offer_interruptible(
+        &self,
+        value: A,
+        interrupted: &dyn Fn() -> bool,
+    ) -> Result<OfferOutcome<A>, ()> {
+        let mut guard = self.inner.lock().unwrap();
+        let value = value;
+        let mut parked = false;
+        loop {
+            if !matches!(&*self.state.lock().unwrap(), QueueState::Open) {
+                if parked {
+                    self.leave();
+                }
+                return Ok(OfferOutcome::Refused(value));
+            }
+            if interrupted() {
+                if parked {
+                    self.leave();
+                }
+                return Err(());
+            }
+            if !self.is_full(&guard) {
+                if parked {
+                    self.leave();
+                }
+                self.push_item(&mut guard, value);
+                return Ok(OfferOutcome::Accepted);
+            }
+            if self.strategy == Strategy::Sliding && guard.len() >= self.capacity {
+                guard.pop_front();
+                continue;
+            }
+            // A full dropping queue refuses the new item instead of parking:
+            // the pin's offer reports false immediately.
+            if self.strategy == Strategy::Dropping && guard.len() >= self.capacity {
+                return Ok(OfferOutcome::Refused(value));
+            }
+            if !parked {
+                parked = true;
+                *self.in_flight.lock().unwrap() += 1;
+            }
+            let (next, _) = self
+                .not_full
+                .wait_timeout(guard, std::time::Duration::from_millis(1))
+                .unwrap();
+            guard = next;
+        }
+    }
+
+    /// Offer a batch, returning whatever was not accepted. Once the
+    /// queue closes, or a full dropping queue refuses the rest, the
+    /// remainder comes back untouched.
+    pub fn offer_all(&self, values: impl IntoIterator<Item = A>) -> Vec<A> {
+        let mut unaccepted = Vec::new();
+        for value in values {
+            match self.offer_interruptible(value, &|| false) {
+                Ok(OfferOutcome::Accepted) => {}
+                Ok(OfferOutcome::Refused(value)) => unaccepted.push(value),
+                Err(()) => unreachable!("an offer with a false interrupted predicate never fails"),
+            }
+        }
+        unaccepted
+    }
+
+    /// Offer a batch while watching `interrupted`: the suffix that never
+    /// got room comes back (`Ok`), or the offer itself was interrupted
+    /// (`Err`) and every un-offered item is withdrawn with it.
+    pub fn offer_all_interruptible(
+        &self,
+        values: impl IntoIterator<Item = A>,
+        interrupted: &dyn Fn() -> bool,
+    ) -> Result<Vec<A>, ()> {
+        let mut remaining = Vec::new();
+        for value in values {
+            match self.offer_interruptible(value, interrupted) {
+                Ok(OfferOutcome::Accepted) => {}
+                Ok(OfferOutcome::Refused(value)) => remaining.push(value),
+                Err(()) => return Err(()),
+            }
+        }
+        Ok(remaining)
     }
 
     /// Pop without blocking. None when empty.
@@ -581,6 +946,144 @@ impl<A: Send> Queue<A> {
         self.inner.lock().unwrap().front().cloned()
     }
 
+    /// Pop, blocking while empty. Panics when the queue finishes empty
+    /// (use [`take`](Self::take) for the terminal outcome).
+    pub fn poll(&self) -> A {
+        self.take().expect("queue finished while a poll waited for an item")
+    }
+
+    /// Pop, blocking while empty, with the terminal outcome (`Queue.take`).
+    pub fn take(&self) -> Result<A, QueueError> {
+        let mut guard = self.inner.lock().unwrap();
+        let mut reserved = false;
+        loop {
+            if let Some(value) = guard.pop_front() {
+                self.not_full.notify_one();
+                return Ok(value);
+            }
+            match &*self.state.lock().unwrap() {
+                QueueState::Open => {}
+                QueueState::Ended => return Err(QueueError::Done),
+                QueueState::Failed(message) => {
+                    return Err(QueueError::Failed(message.clone()));
+                }
+                QueueState::Interrupted => return Err(QueueError::Interrupted),
+            }
+            if !reserved && self.capacity == 0 {
+                reserved = self.reserve();
+            }
+            guard = self.not_empty.wait(guard).unwrap();
+        }
+    }
+
+    /// Pop while watching `interrupted`.
+    pub fn take_interruptible(
+        &self,
+        interrupted: &dyn Fn() -> bool,
+    ) -> Result<Result<A, QueueError>, ()> {
+        let mut guard = self.inner.lock().unwrap();
+        let mut reserved = false;
+        loop {
+            if let Some(value) = guard.pop_front() {
+                self.not_full.notify_one();
+                return Ok(Ok(value));
+            }
+            match &*self.state.lock().unwrap() {
+                QueueState::Open => {}
+                QueueState::Ended => return Ok(Err(QueueError::Done)),
+                QueueState::Failed(message) => {
+                    return Ok(Err(QueueError::Failed(message.clone())));
+                }
+                QueueState::Interrupted => return Ok(Err(QueueError::Interrupted)),
+            }
+            if interrupted() {
+                return Err(());
+            }
+            if !reserved && self.capacity == 0 {
+                reserved = self.reserve();
+            }
+            let (next, _) = self
+                .not_empty
+                .wait_timeout(guard, std::time::Duration::from_millis(1))
+                .unwrap();
+            guard = next;
+        }
+    }
+
+    /// Up to `n` items, waiting for the whole batch when the queue can
+    /// supply it; a finished queue drains its insufficient batch first
+    /// (`Queue.takeN`).
+    pub fn take_n(&self, n: usize) -> Result<Vec<A>, QueueError> {
+        self.take_between(n, n)
+    }
+
+    /// Between `min` and `max` items: waits for `min`, then takes up to
+    /// `max` (`Queue.takeBetween`). Counts arrive already normalized by the
+    /// pin's `Count.normalize` — NaN and non-positive become 0, a positive
+    /// value floors — so a zero `min` takes nothing without waiting, and an
+    /// inverted pair swaps (the pin's row :379).
+    pub fn take_between(&self, min: usize, max: usize) -> Result<Vec<A>, QueueError> {
+        let (mut min, mut max) = (min, max);
+        if min > max {
+            std::mem::swap(&mut min, &mut max);
+        }
+        let mut out = Vec::new();
+        loop {
+            {
+                let mut guard = self.inner.lock().unwrap();
+                while out.len() < max {
+                    match guard.pop_front() {
+                        Some(value) => out.push(value),
+                        None => break,
+                    }
+                }
+                if !out.is_empty() {
+                    self.not_full.notify_all();
+                }
+            }
+            if out.len() >= min {
+                return Ok(out);
+            }
+            match &*self.state.lock().unwrap() {
+                QueueState::Open => {}
+                QueueState::Ended => {
+                    return if out.is_empty() {
+                        Err(QueueError::Done)
+                    } else {
+                        Ok(out)
+                    };
+                }
+                QueueState::Failed(message) => {
+                    return if out.is_empty() {
+                        Err(QueueError::Failed(message.clone()))
+                    } else {
+                        Ok(out)
+                    };
+                }
+                QueueState::Interrupted => {
+                    return if out.is_empty() {
+                        Err(QueueError::Interrupted)
+                    } else {
+                        Ok(out)
+                    };
+                }
+            }
+            let mut guard = self.inner.lock().unwrap();
+            while guard.len() + out.len() < min {
+                // A terminal state releases the wait even below the minimum:
+                // the closing queue drains what the taker already holds.
+                if !matches!(&*self.state.lock().unwrap(), QueueState::Open) {
+                    break;
+                }
+                let (next, _) = self
+                    .not_empty
+                    .wait_timeout(guard, std::time::Duration::from_millis(1))
+                    .unwrap();
+                guard = next;
+            }
+        }
+    }
+
     /// Remove everything buffered.
     pub fn take_all(&self) -> Vec<A> {
         let mut guard = self.inner.lock().unwrap();
@@ -589,24 +1092,102 @@ impl<A: Send> Queue<A> {
         out
     }
 
+    /// `Queue.takeAll` in its waiting form: block until at least one item
+    /// is available (or the queue finishes), then drain the buffer. A
+    /// finished empty queue reports the terminal error.
+    pub fn take_all_blocking(&self) -> Result<Vec<A>, QueueError> {
+        let first = self.take_interruptible(&|| false).expect("uninterrupted wait")?;
+        let mut out = vec![first];
+        out.extend(self.take_all());
+        Ok(out)
+    }
+
     /// Drop everything buffered; returns the count dropped.
     pub fn clear(&self) -> usize {
         self.take_all().len()
     }
 
-    /// Freeze offers; buffered items still drain. Wakes blocked takers
-    /// so they observe the drain instead of sleeping.
-    pub fn shutdown(&self) {
-        *self.shutdown.lock().unwrap() = true;
+    /// Close the offer side, let the buffer drain, and fail a take that
+    /// waits on an empty ended queue with `Done` (`Queue.end`). Offers
+    /// parked when this lands keep going: the terminal flip waits for
+    /// them, which is why `await` holds until they settle.
+    pub fn end(&self) -> bool {
+        self.request_close(QueueState::Ended)
+    }
+
+    /// Close the offer side and remember the failure: the buffer drains
+    /// first, then takes and `await` report it (`Queue.fail`). Parked
+    /// offers finish first, exactly as `end` defers.
+    pub fn fail(&self, message: &str) -> bool {
+        self.request_close(QueueState::Failed(message.to_string()))
+    }
+
+    /// Freeze offers and interrupt waiting takers, drains stay readable
+    /// (`Queue.shutdown`). Parked offers withdraw at once. True when this
+    /// call performed the shutdown.
+    pub fn shutdown(&self) -> bool {
+        self.close_now(QueueState::Interrupted)
+    }
+
+    /// `Queue.interrupt`: the graceful form of shutdown — offers are
+    /// refused and waiting takers interrupted, buffered items drain.
+    pub fn interrupt(&self) -> bool {
+        self.close_now(QueueState::Interrupted)
+    }
+
+    /// `Queue.shutdownUnsafe`: clear the buffer, settle every waiter
+    /// synchronously, and keep an existing failure (`fail` before this
+    /// still reports it). True when this call performed the shutdown.
+    pub fn shutdown_unsafe(&self) -> bool {
+        let already_interrupted = matches!(&*self.state.lock().unwrap(), QueueState::Interrupted);
+        let next = self
+            .pending_close
+            .lock()
+            .unwrap()
+            .take()
+            .unwrap_or(QueueState::Interrupted);
+        if !already_interrupted {
+            let mut state = self.state.lock().unwrap();
+            if !matches!(&*state, QueueState::Failed(_)) {
+                *state = next;
+            }
+        }
+        self.take_all();
         self.not_empty.notify_all();
+        self.not_full.notify_all();
+        self.finished.notify_all();
+        !already_interrupted
     }
 
-    /// True after [`Self::shutdown`].
+    /// Wait for the queue to finish: `Ok(())` after `end`, the failure
+    /// after `fail`, `Err(Interrupted)` after shutdown (`Queue.await`).
+    pub fn await_finished(&self) -> Result<(), QueueError> {
+        let mut state = self.state.lock().unwrap();
+        loop {
+            match &*state {
+                QueueState::Open => {
+                    state = self.finished.wait(state).unwrap();
+                }
+                QueueState::Ended => return Ok(()),
+                QueueState::Failed(message) => return Err(QueueError::Failed(message.clone())),
+                QueueState::Interrupted => return Err(QueueError::Interrupted),
+            }
+        }
+    }
+
+    /// Everything buffered, including items offered before a terminal
+    /// close (`Queue.collect`: the port's offers are synchronous, so the
+    /// buffer is the whole story).
+    pub fn collect(&self) -> Vec<A> {
+        self.take_all()
+    }
+
+    /// True after a terminal close.
     pub fn is_shutdown(&self) -> bool {
-        *self.shutdown.lock().unwrap()
+        !matches!(&*self.state.lock().unwrap(), QueueState::Open)
     }
 
-    /// Items currently queued.
+    /// Items currently queued (`Queue.size`).
     pub fn len(&self) -> usize {
         self.inner.lock().unwrap().len()
     }
@@ -614,6 +1195,58 @@ impl<A: Send> Queue<A> {
     /// No items queued.
     pub fn is_empty(&self) -> bool {
         self.inner.lock().unwrap().is_empty()
+    }
+
+    /// The write-only view (`Queue.asEnqueue`).
+    pub fn as_enqueue(queue: &Arc<Self>) -> Arc<Enqueue<A>>
+    where
+        A: Send + 'static,
+    {
+        Arc::new(Enqueue {
+            queue: Arc::clone(queue),
+        })
+    }
+
+    /// The read-only view (`Queue.asDequeue`).
+    pub fn as_dequeue(queue: &Arc<Self>) -> Arc<Dequeue<A>>
+    where
+        A: Send + 'static,
+    {
+        Arc::new(Dequeue {
+            queue: Arc::clone(queue),
+        })
+    }
+
+    /// Ask for a terminal close that waits for parked offers: with none
+    /// in flight the flip happens now; otherwise the state stays Open so
+    /// the parked offers keep landing, and the last offerer to leave
+    /// applies the request (why `await` holds and why offers survive a
+    /// fail that lands mid-batch).
+    fn request_close(&self, next: QueueState) -> bool {
+        let parked = *self.in_flight.lock().unwrap() > 0;
+        if parked {
+            *self.pending_close.lock().unwrap() = Some(next);
+            self.not_empty.notify_all();
+            self.not_full.notify_all();
+            return true;
+        }
+        self.close_now(next)
+    }
+
+    /// Close at once, waking parked offers to observe it.
+    fn close_now(&self, next: QueueState) -> bool {
+        let transitioned = {
+            let mut state = self.state.lock().unwrap();
+            let open = matches!(&*state, QueueState::Open);
+            if open {
+                *state = next;
+            }
+            open
+        };
+        self.not_empty.notify_all();
+        self.not_full.notify_all();
+        self.finished.notify_all();
+        transitioned
     }
 }
 

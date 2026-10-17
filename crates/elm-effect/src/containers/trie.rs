@@ -18,7 +18,13 @@ struct Node<V> {
 }
 
 /// Persistent string-keyed prefix tree.
-#[derive(Clone, Debug)]
+///
+/// `Display` and `Debug` are written by hand rather than derived: the pin
+/// renders the trie as `Trie([["a",0],["b",1]])`, and the derived `Debug`
+/// would print the node tree instead. `Debug` follows
+/// [`MutableHashMap`](super::mutable_hash_map::MutableHashMap), which reads its
+/// own `inspect` row as the same rendering as `toString`.
+#[derive(Clone)]
 pub struct Trie<V> {
     root: Node<V>,
     len: usize,
@@ -215,15 +221,145 @@ impl<V> Trie<V> {
         self.entries().into_iter().map(|(_, v)| v).collect()
     }
 
-    /// Entries whose key starts with `prefix`.
-    pub fn keys_with_prefix(&self, prefix: &str) -> Vec<String> {
+    /// Entries whose key starts with `prefix`, in byte order.
+    pub fn entries_with_prefix(&self, prefix: &str) -> Vec<(String, &V)> {
         match self.walk(prefix) {
             None => Vec::new(),
             Some(node) => {
                 let mut out = Vec::new();
                 Self::collect(node, &mut prefix.as_bytes().to_vec(), &mut out);
-                out.into_iter().map(|(k, _)| k).collect()
+                out
             }
         }
+    }
+
+    /// Keys whose key starts with `prefix`, in byte order.
+    pub fn keys_with_prefix(&self, prefix: &str) -> Vec<String> {
+        self.entries_with_prefix(prefix)
+            .into_iter()
+            .map(|(k, _)| k)
+            .collect()
+    }
+
+    /// Values whose key starts with `prefix`, in key byte order.
+    pub fn values_with_prefix(&self, prefix: &str) -> Vec<&V> {
+        self.entries_with_prefix(prefix)
+            .into_iter()
+            .map(|(_, v)| v)
+            .collect()
+    }
+
+    /// Value for `key`, panicking when the key is missing.
+    pub fn get_unsafe(&self, key: &str) -> &V {
+        self.get(key)
+            .unwrap_or_else(|| panic!("Trie.getUnsafe: no entry for key {key:?}"))
+    }
+
+    /// New trie with each value mapped.
+    pub fn map<W>(&self, f: impl Fn(&V) -> W) -> Trie<W> {
+        Trie::from_iter(self.entries().into_iter().map(|(k, v)| (k, f(v))))
+    }
+
+    /// New trie with each value mapped, with the key in hand.
+    ///
+    /// The pin's callback is variadic (value, or value and key). A Rust closure
+    /// has one signature, so the key-aware shape is its own method rather than
+    /// an optional argument.
+    pub fn map_with_key<W>(&self, f: impl Fn(&V, &str) -> W) -> Trie<W> {
+        Trie::from_iter(self.entries().into_iter().map(|(k, v)| {
+            let mapped = f(v, &k);
+            (k, mapped)
+        }))
+    }
+
+    /// New trie keeping the entries that satisfy `f`.
+    pub fn filter(&self, f: impl Fn(&str, &V) -> bool) -> Self
+    where
+        V: Clone,
+    {
+        Trie::from_iter(
+            self.entries()
+                .into_iter()
+                .filter(|(k, v)| f(k, *v))
+                .map(|(k, v)| (k, v.clone())),
+        )
+    }
+
+    /// New trie keeping the entries `f` maps to `Some`.
+    pub fn filter_map<W>(&self, f: impl Fn(&str, &V) -> Option<W>) -> Trie<W> {
+        Trie::from_iter(
+            self.entries()
+                .into_iter()
+                .filter_map(|(k, v)| f(&k, v).map(|w| (k, w))),
+        )
+    }
+
+    /// Fold every entry in key order.
+    pub fn reduce<Z>(&self, zero: Z, f: impl Fn(Z, &V, &str) -> Z) -> Z {
+        self.entries()
+            .into_iter()
+            .fold(zero, |acc, (k, v)| f(acc, v, &k))
+    }
+
+    /// Visit every entry in key order.
+    pub fn for_each(&self, mut f: impl FnMut(&V, &str)) {
+        for (k, v) in self.entries() {
+            f(v, &k);
+        }
+    }
+}
+
+impl<A: Clone> Trie<Option<A>> {
+    /// Drop entries holding `None`, unwrapping the rest.
+    pub fn compact(&self) -> Trie<A> {
+        Trie::from_iter(
+            self.entries()
+                .into_iter()
+                .filter_map(|(k, v)| v.as_ref().map(|a| (k, a.clone()))),
+        )
+    }
+}
+
+/// `[[key,value],...]` in key order, as the pin renders entries.
+fn rendered_entries<V: std::fmt::Debug>(trie: &Trie<V>) -> Vec<String> {
+    trie.entries()
+        .into_iter()
+        .map(|(key, value)| format!("[{key:?},{value:?}]"))
+        .collect()
+}
+
+impl<V: std::fmt::Debug> Trie<V> {
+    /// `toJSON` shape: `{"_id":"Trie","values":[["a",0]]}`.
+    pub fn json_shape(&self) -> String {
+        format!(
+            "{{\"_id\":\"Trie\",\"values\":[{}]}}",
+            rendered_entries(self).join(",")
+        )
+    }
+}
+
+impl<V: std::fmt::Debug> std::fmt::Display for Trie<V> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Trie([{}])", rendered_entries(self).join(","))
+    }
+}
+
+impl<V: std::fmt::Debug> std::fmt::Debug for Trie<V> {
+    /// The pin's `inspect` shape: the class rendering, not the node tree.
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Trie([{}])", rendered_entries(self).join(","))
+    }
+}
+
+impl<V: PartialEq> PartialEq for Trie<V> {
+    /// Equality is by entries. The size is checked first, so two tries that
+    /// hold different numbers of keys are never equal.
+    fn eq(&self, other: &Self) -> bool {
+        if self.len != other.len {
+            return false;
+        }
+        self.entries()
+            .into_iter()
+            .all(|(key, value)| other.get(&key) == Some(value))
     }
 }

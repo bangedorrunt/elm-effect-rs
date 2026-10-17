@@ -82,6 +82,9 @@ impl DurableLog for UnfencedLog {
         }
         Ok(out)
     }
+    fn compact_before(&self, _before: &Offset) -> Result<usize, AppendError> {
+        Ok(0)
+    }
 }
 
 /// Negative control: appends every call, no dedupe.
@@ -103,6 +106,9 @@ impl DurableLog for NoDedupeLog {
             .enumerate()
             .map(|(i, r)| (Offset::At(format!("{i:020}")), r.clone()))
             .collect())
+    }
+    fn compact_before(&self, _before: &Offset) -> Result<usize, AppendError> {
+        Ok(0)
     }
 }
 

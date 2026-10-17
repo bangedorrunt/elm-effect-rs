@@ -9,7 +9,7 @@ use std::sync::{
 };
 
 use cache::{Cache, IdlePolicy, Pool, Request, RequestResolver, ScopedCache};
-use elm_effect::Scope;
+use elm_effect::{Exit, Runtime, Scope};
 
 #[test]
 fn single_flight_runs_lookup_once() {
@@ -2094,5 +2094,1047 @@ fn scoped_cache_number_keys() {
     assert!(cache.has(&21));
     assert_eq!(cache.keys(), vec![21]);
     assert_eq!(cache.values(), vec![42]);
+    assert_eq!(cache.size(), 1);
+}
+
+// `Effect.cached` / `Effect.cachedWithTTL` (Effect.test.ts :4292-:4412).
+// The pin memoizes an effect value: concurrent callers share one run and
+// every later caller replays the recorded exit. This port's descriptions
+// are sync-only and interruption is observed by polling, so the memoized
+// unit is the same `Body` a fiber runs and the memo itself is an
+// imperative handle: the caller that finds the memo empty becomes the
+// owner and runs the body inline; every other caller waits on the
+// recorded exit, dropping out with an interrupt when its own fiber is
+// interrupted (only an owner publishes, so an interrupted waiter never
+// poisons the memo).
+
+/// Run `cached.get` inside a throwaway fiber and take the exit.
+fn memoized<A, E>(cached: &Arc<cache::Cached<A, E>>) -> Exit<A, E>
+where
+    A: Clone + Send + 'static,
+    E: Clone + Send + 'static,
+{
+    let cached = Arc::clone(cached);
+    Runtime::new()
+        .fork_detach(move |ctx| cached.get(ctx))
+        .join()
+}
+
+#[test]
+fn cached_runs_the_effect_once_for_concurrent_callers() {
+    use elm_effect::{Deferred, Exit, Runtime};
+
+    let rt = Runtime::new();
+    let started = Arc::new(Deferred::<(), ()>::new());
+    let release = Arc::new(Deferred::<(), ()>::new());
+    let calls = Arc::new(AtomicUsize::new(0));
+    let cached = Arc::new(cache::Cached::new({
+        let started = Arc::clone(&started);
+        let release = Arc::clone(&release);
+        let calls = Arc::clone(&calls);
+        move |_ctx| {
+            calls.fetch_add(1, Ordering::SeqCst);
+            started.complete(());
+            while !release.is_done() {
+                std::thread::park_timeout(std::time::Duration::from_millis(1));
+            }
+            Exit::Success(1usize)
+        }
+    }));
+
+    let mut fibers = Vec::new();
+    for _ in 0..3 {
+        let cached = Arc::clone(&cached);
+        fibers.push(rt.fork_detach_with(
+            move |ctx| cached.get(ctx),
+            elm_effect::ForkOpts::immediate(),
+        ));
+    }
+    // The owner started; the other two are parked on its run.
+    started.wait();
+    assert_eq!(calls.load(Ordering::SeqCst), 1);
+
+    release.complete(());
+    let exits: Vec<Exit<usize, String>> = fibers.into_iter().map(|f| f.join()).collect();
+    assert_eq!(
+        exits,
+        vec![
+            Exit::Success(1),
+            Exit::Success(1),
+            Exit::Success(1)
+        ]
+    );
+    assert_eq!(calls.load(Ordering::SeqCst), 1);
+}
+
+#[test]
+fn cached_replays_failures() {
+    use elm_effect::{Cause, Exit};
+
+    let calls = Arc::new(AtomicUsize::new(0));
+    let cached = Arc::new(cache::Cached::new({
+        let calls = Arc::clone(&calls);
+        move |_ctx| {
+            calls.fetch_add(1, Ordering::SeqCst);
+            Exit::<usize, String>::Failure(Cause::fail("boom".to_string()))
+        }
+    }));
+
+    let failure = Exit::<usize, String>::Failure(Cause::fail("boom".to_string()));
+    assert_eq!(memoized(&cached), failure);
+    assert_eq!(memoized(&cached), failure);
+    assert_eq!(calls.load(Ordering::SeqCst), 1);
+}
+
+#[test]
+fn cached_interrupting_a_waiter_leaves_the_owner_running() {
+    use elm_effect::{Cause, Deferred, Exit, ForkOpts, Runtime};
+
+    let rt = Runtime::new();
+    let started = Arc::new(Deferred::<(), ()>::new());
+    let release = Arc::new(Deferred::<(), ()>::new());
+    let cached = Arc::new(cache::Cached::new({
+        let started = Arc::clone(&started);
+        let release = Arc::clone(&release);
+        move |ctx| {
+            started.complete(());
+            while !release.is_done() {
+                if ctx.is_interrupted() {
+                    return Exit::<usize, String>::Failure(Cause::interrupt(None));
+                }
+                std::thread::park_timeout(std::time::Duration::from_millis(1));
+            }
+            Exit::Success(42usize)
+        }
+    }));
+
+    let owner = {
+        let cached = Arc::clone(&cached);
+        rt.fork_detach_with(move |ctx| cached.get(ctx), ForkOpts::immediate())
+    };
+    started.wait();
+    let waiter = {
+        let cached = Arc::clone(&cached);
+        rt.fork_detach_with(move |ctx| cached.get(ctx), ForkOpts::immediate())
+    };
+
+    waiter.interrupt();
+    let waiter_exit = waiter.join();
+    assert!(
+        matches!(&waiter_exit, Exit::Failure(cause) if cause.is_interrupted()),
+        "the interrupted waiter ends interrupted: {waiter_exit:?}"
+    );
+
+    release.complete(());
+    assert_eq!(owner.join(), Exit::Success(42));
+    assert_eq!(memoized(&cached), Exit::Success(42));
+    rt.shutdown();
+}
+
+#[test]
+fn cached_replays_the_owners_interrupted_exit() {
+    use elm_effect::{Cause, Deferred, Exit, ForkOpts, Runtime};
+
+    let rt = Runtime::new();
+    let started = Arc::new(Deferred::<(), ()>::new());
+    let release = Arc::new(Deferred::<(), ()>::new());
+    let cached = Arc::new(cache::Cached::new({
+        let started = Arc::clone(&started);
+        let release = Arc::clone(&release);
+        move |ctx| {
+            started.complete(());
+            while !release.is_done() {
+                if ctx.is_interrupted() {
+                    return Exit::<usize, String>::Failure(Cause::interrupt(None));
+                }
+                std::thread::park_timeout(std::time::Duration::from_millis(1));
+            }
+            Exit::Success(42usize)
+        }
+    }));
+
+    let owner = {
+        let cached = Arc::clone(&cached);
+        rt.fork_detach_with(move |ctx| cached.get(ctx), ForkOpts::immediate())
+    };
+    started.wait();
+
+    // The owner's own body observes the interruption, so the exit the
+    // owner publishes is the interrupted one and every later caller
+    // replays it.
+    owner.interrupt();
+    let owner_exit = owner.join();
+    assert!(
+        matches!(&owner_exit, Exit::Failure(cause) if cause.is_interrupted()),
+        "the interrupted owner ends interrupted: {owner_exit:?}"
+    );
+    assert_eq!(memoized(&cached), owner_exit);
+    release.complete(());
+    rt.shutdown();
+}
+
+#[test]
+fn cached_with_ttl_selects_ttl_from_each_fresh_exit() {
+    use elm_effect::{Duration, Exit, TestClock};
+    use std::sync::Mutex;
+
+    let clock = Arc::new(TestClock::new());
+    let calls = Arc::new(AtomicUsize::new(0));
+    let seen: Arc<Mutex<Vec<Exit<usize, String>>>> = Arc::new(Mutex::new(Vec::new()));
+    let cached = Arc::new(
+        cache::Cached::new({
+            let calls = Arc::clone(&calls);
+            move |_ctx| {
+                let n = calls.fetch_add(1, Ordering::SeqCst) + 1;
+                Exit::Success(n)
+            }
+        })
+        .with_ttl(
+            {
+                let seen = Arc::clone(&seen);
+                move |exit: &Exit<usize, String>| {
+                    seen.lock().unwrap().push(exit.clone());
+                    match exit {
+                        Exit::Success(1) => Duration::from_secs(1),
+                        _ => Duration::from_secs(3),
+                    }
+                }
+            },
+            Arc::clone(&clock) as Arc<dyn elm_effect::ClockImpl>,
+        ),
+    );
+
+    assert_eq!(calls.load(Ordering::SeqCst), 0);
+    assert_eq!(*seen.lock().unwrap(), vec![]);
+    assert_eq!(memoized(&cached), Exit::Success(1));
+    clock.adjust(Duration::from_millis(999));
+    assert_eq!(memoized(&cached), Exit::Success(1));
+    assert_eq!(*seen.lock().unwrap(), vec![Exit::Success(1)]);
+
+    clock.adjust(Duration::from_millis(1));
+    assert_eq!(memoized(&cached), Exit::Success(2));
+    clock.adjust(Duration::from_secs(1));
+    assert_eq!(memoized(&cached), Exit::Success(2));
+    clock.adjust(Duration::from_secs(2));
+    assert_eq!(memoized(&cached), Exit::Success(3));
+    assert_eq!(
+        *seen.lock().unwrap(),
+        vec![Exit::Success(1), Exit::Success(2), Exit::Success(3)]
+    );
+}
+
+#[test]
+fn cached_with_ttl_skips_failures_and_caches_successes() {
+    use elm_effect::{Cause, Duration, Exit, TestClock};
+    use std::sync::Mutex;
+
+    let clock = Arc::new(TestClock::new());
+    let calls = Arc::new(AtomicUsize::new(0));
+    let seen: Arc<Mutex<Vec<Exit<usize, String>>>> = Arc::new(Mutex::new(Vec::new()));
+    let cached = Arc::new(
+        cache::Cached::new({
+            let calls = Arc::clone(&calls);
+            move |_ctx| {
+                let n = calls.fetch_add(1, Ordering::SeqCst) + 1;
+                if n == 1 {
+                    Exit::Failure(Cause::fail("boom".to_string()))
+                } else {
+                    Exit::Success(n)
+                }
+            }
+        })
+        .with_ttl(
+            {
+                let seen = Arc::clone(&seen);
+                move |exit: &Exit<usize, String>| {
+                    seen.lock().unwrap().push(exit.clone());
+                    if matches!(exit, Exit::Failure(_)) {
+                        Duration::ZERO
+                    } else {
+                        Duration::from_secs(1)
+                    }
+                }
+            },
+            Arc::clone(&clock) as Arc<dyn elm_effect::ClockImpl>,
+        ),
+    );
+
+    assert_eq!(
+        memoized(&cached),
+        Exit::<usize, String>::Failure(Cause::fail("boom".to_string()))
+    );
+    assert_eq!(memoized(&cached), Exit::Success(2));
+    assert_eq!(memoized(&cached), Exit::Success(2));
+    assert_eq!(
+        *seen.lock().unwrap(),
+        vec![
+            Exit::<usize, String>::Failure(Cause::fail("boom".to_string())),
+            Exit::Success(2)
+        ]
+    );
+
+    clock.adjust(Duration::from_secs(1));
+    assert_eq!(memoized(&cached), Exit::Success(3));
+    assert_eq!(
+        *seen.lock().unwrap(),
+        vec![
+            Exit::<usize, String>::Failure(Cause::fail("boom".to_string())),
+            Exit::Success(2),
+            Exit::Success(3)
+        ]
+    );
+}
+
+#[test]
+fn cached_with_ttl_starts_ttl_from_value_creation() {
+    use elm_effect::{Cause, ClockImpl, Duration, Exit, ForkOpts, Runtime, TestClock};
+
+    let rt = Runtime::new();
+    let clock = Arc::new(TestClock::new());
+    let calls = Arc::new(AtomicUsize::new(0));
+    let cached = Arc::new(
+        cache::Cached::new({
+            let calls = Arc::clone(&calls);
+            let clock = Arc::clone(&clock);
+            move |ctx| {
+                let clock = Arc::clone(&clock);
+                let interrupted = move || ctx.is_interrupted();
+                // The body sleeps before producing: the memo's TTL starts
+                // when the value lands, not when the caller asked.
+                if clock.sleep(Duration::from_secs(2), &interrupted)
+                    != elm_effect::SleepOutcome::Elapsed
+                {
+                    return Exit::<usize, String>::Failure(Cause::interrupt(None));
+                }
+                Exit::Success(calls.fetch_add(1, Ordering::SeqCst) + 1)
+            }
+        })
+        .with_ttl(
+            |_: &Exit<usize, String>| Duration::from_secs(1),
+            Arc::clone(&clock) as Arc<dyn elm_effect::ClockImpl>,
+        ),
+    );
+
+    let first = {
+        let cached = Arc::clone(&cached);
+        rt.fork_detach_with(move |ctx| cached.get(ctx), ForkOpts::immediate())
+    };
+    // Wait until the owner's sleep is scheduled: a TestClock adjust
+    // never wakes a sleeper registered after it (the port's stand-in for
+    // the pin's `Effect.yieldNow` before the adjust).
+    while clock.pending_sleepers() == 0 {
+        std::thread::park_timeout(std::time::Duration::from_millis(1));
+    }
+    // The owner sleeps for two virtual seconds, then the value lands and
+    // its one-second TTL starts.
+    clock.adjust(Duration::from_secs(2));
+    assert_eq!(first.join(), Exit::Success(1));
+
+    let second = {
+        let cached = Arc::clone(&cached);
+        rt.fork_detach_with(move |ctx| cached.get(ctx), ForkOpts::immediate())
+    };
+    // The pin's `Effect.yieldNow` before its adjust: the caller replays
+    // the recorded exit first (a replay needs no time, so it never parks
+    // on the clock), and only then does virtual time move. Were the TTL
+    // measured from the fiber's request rather than the value's creation,
+    // the entry would already be expired here and the run would sleep.
+    while !second.is_done() {
+        assert_eq!(
+            clock.pending_sleepers(),
+            0,
+            "the second run must replay, not re-run"
+        );
+        std::thread::park_timeout(std::time::Duration::from_millis(1));
+    }
+    clock.adjust(Duration::from_secs(2));
+    assert_eq!(second.join(), Exit::Success(1));
+    assert_eq!(calls.load(Ordering::SeqCst), 1);
+    rt.shutdown();
+}
+
+// ---------------------------------------------------------------------------
+// Cache.test.ts's open rows, carried on the port's imperative Cache
+// (`Cache::new` + `with_ttl` / `with_ttl_fn` + TestClock). The pin's
+// `Cache.make({ capacity, lookup })` with an Effect-returning lookup
+// renders as the port's closure-returning-`Result` lookup; the TTL
+// families render as `TimeToLive` fixed or per-exit/key/value functions.
+// ---------------------------------------------------------------------------
+
+use cache::TimeToLive;
+use elm_effect::{Duration, TestClock};
+
+fn clock() -> Arc<TestClock> {
+    Arc::new(TestClock::new())
+}
+
+fn len_lookup() -> impl Fn(&String) -> Result<usize, String> + Send + Sync + 'static {
+    |key: &String| Ok(key.len())
+}
+
+#[test]
+fn cache_default_ttl_never_expires() {
+    // Cache.test.ts:46 — an unconfigured cache has an infinite TTL.
+    let clock = clock();
+    let cache = Cache::new(10, len_lookup()).with_ttl(TimeToLive::Infinite, clock.clone());
+    assert_eq!(cache.get(&"test".to_string()), Ok(4));
+    clock.adjust(Duration::from_secs(1000 * 3600));
+    assert!(cache.has(&"test".to_string()));
+}
+
+#[test]
+fn cache_custom_ttl_expires_between_advances() {
+    // Cache.test.ts:59 — a one-hour TTL: live at 30 minutes, gone at 61.
+    let clock = clock();
+    let cache = Cache::new(10, len_lookup()).with_ttl(
+        TimeToLive::For(Duration::from_minutes(60)),
+        clock.clone(),
+    );
+    assert_eq!(cache.get(&"test".to_string()), Ok(4));
+    clock.adjust(Duration::from_minutes(30));
+    assert!(cache.has(&"test".to_string()));
+    clock.adjust(Duration::from_minutes(31));
+    assert!(!cache.has(&"test".to_string()));
+}
+
+#[test]
+fn cache_zero_ttl_expires_immediately() {
+    // Cache.test.ts:75 — a numeric zero TTL stores nothing live.
+    let clock = clock();
+    let cache = Cache::new(10, len_lookup()).with_ttl(TimeToLive::For(Duration::ZERO), clock);
+    assert_eq!(cache.get(&"test".to_string()), Ok(4));
+    assert!(!cache.has(&"test".to_string()));
+}
+
+#[test]
+fn cache_make_with_ttl_by_outcome_and_key() {
+    // Cache.test.ts:133 — makeWith's TTL function selects by the
+    // lookup's exit and the key: a failure lives one second, "k" lives a
+    // minute, everything else an hour.
+    let clock = clock();
+    let calls = Arc::new(AtomicUsize::new(0));
+    let cache = Cache::new_owned(
+        10,
+        {
+            let calls = Arc::clone(&calls);
+            move |key: &String| {
+                calls.fetch_add(1, Ordering::SeqCst);
+                if key == "fail" {
+                    (Err("error".to_string()), None)
+                } else {
+                    (Ok(key.len()), None)
+                }
+            }
+        },
+    )
+    .with_ttl_fn(
+        move |outcome: &Result<usize, String>, key: &String| {
+            if outcome.is_err() {
+                TimeToLive::For(Duration::from_secs(1))
+            } else if key == "k" {
+                TimeToLive::For(Duration::from_minutes(1))
+            } else {
+                TimeToLive::For(Duration::from_minutes(60))
+            }
+        },
+        clock.clone(),
+    );
+    assert_eq!(cache.get(&"short".to_string()), Ok(5));
+    assert!(cache.get(&"fail".to_string()).is_err());
+    assert_eq!(cache.get(&"k".to_string()), Ok(1));
+
+    clock.adjust(Duration::from_secs(2));
+    assert!(!cache.has(&"fail".to_string()), "a failure's one-second TTL lapsed");
+    clock.adjust(Duration::from_minutes(1));
+    assert!(!cache.has(&"k".to_string()), "\"k\"'s one-minute TTL lapsed");
+    assert!(cache.has(&"short".to_string()), "an hour is still live");
+}
+
+#[test]
+fn cache_hit_returns_the_cached_value_once() {
+    // Cache.test.ts:304.
+    let calls = Arc::new(AtomicUsize::new(0));
+    let cache = Cache::new(10, {
+        let calls = Arc::clone(&calls);
+        move |_: &String| {
+            calls.fetch_add(1, Ordering::SeqCst);
+            Ok::<usize, String>(4)
+        }
+    });
+    assert_eq!(cache.get(&"test".to_string()), Ok(4));
+    assert_eq!(cache.get(&"test".to_string()), Ok(4));
+    assert_eq!(calls.load(Ordering::SeqCst), 1);
+}
+
+#[test]
+fn cache_hit_serves_distinct_keys() {
+    // Cache.test.ts:316.
+    let cache = Cache::new(10, len_lookup());
+    assert_eq!(cache.get(&"a".to_string()), Ok(1));
+    assert_eq!(cache.get(&"ab".to_string()), Ok(2));
+    assert_eq!(cache.get(&"abc".to_string()), Ok(3));
+}
+
+#[test]
+fn cache_miss_runs_the_lookup() {
+    // Cache.test.ts:347.
+    let calls = Arc::new(AtomicUsize::new(0));
+    let cache = Cache::new(10, {
+        let calls = Arc::clone(&calls);
+        move |_: &String| {
+            calls.fetch_add(1, Ordering::SeqCst);
+            Ok::<usize, String>(42)
+        }
+    });
+    assert_eq!(cache.get(&"test".to_string()), Ok(42));
+    assert_eq!(calls.load(Ordering::SeqCst), 1);
+}
+
+#[test]
+fn cache_miss_after_ttl_expiry_reruns_the_lookup() {
+    // Cache.test.ts:358.
+    let clock = clock();
+    let calls = Arc::new(AtomicUsize::new(0));
+    let cache = Cache::new(10, {
+        let calls = Arc::clone(&calls);
+        move |_: &String| Ok::<usize, String>(calls.fetch_add(1, Ordering::SeqCst) + 1)
+    })
+    .with_ttl(TimeToLive::For(Duration::from_minutes(60)), clock.clone());
+    assert_eq!(cache.get(&"test".to_string()), Ok(1));
+    clock.adjust(Duration::from_minutes(120));
+    assert_eq!(cache.get(&"test".to_string()), Ok(2));
+}
+
+#[test]
+fn cache_get_success_shapes() {
+    // Cache.test.ts:604, :617, :630, :642 — the pin's getSuccess is Some
+    // only for a live successful entry: absent, failed, and expired all
+    // read None. The port's get_option is that door (a miss never runs
+    // the lookup; a cached failure and a pending row are not values).
+    let clock = clock();
+    let good = Cache::new(10, len_lookup()).with_ttl(TimeToLive::Infinite, clock.clone());
+    assert_eq!(good.get(&"test".to_string()), Ok(4));
+    assert_eq!(good.get_option(&"test".to_string()), Some(4));
+    assert_eq!(good.get_option(&"absent".to_string()), None);
+
+    let failing = Cache::new(10, |_: &String| Err::<usize, String>("error".to_string()))
+        .cache_errors(true);
+    assert!(failing.get(&"test".to_string()).is_err());
+    assert_eq!(failing.get_option(&"test".to_string()), None);
+
+    let expiring = Cache::new(10, len_lookup())
+        .with_ttl(TimeToLive::For(Duration::from_minutes(60)), clock.clone());
+    assert_eq!(expiring.get(&"test".to_string()), Ok(4));
+    clock.adjust(Duration::from_minutes(120));
+    assert_eq!(expiring.get_option(&"test".to_string()), None);
+}
+
+#[test]
+fn cache_get_option_waits_for_the_in_flight_lookup() {
+    // Cache.test.ts:582 — a waiter for an in-flight lookup sees the same
+    // value the owner produced (the port's single-flight: the second
+    // caller blocks on the pending row instead of running the lookup).
+    let calls = Arc::new(AtomicUsize::new(0));
+    let cache = Arc::new(Cache::new(10, {
+        let calls = Arc::clone(&calls);
+        move |_: &String| {
+            calls.fetch_add(1, Ordering::SeqCst);
+            std::thread::sleep(std::time::Duration::from_millis(50));
+            Ok::<usize, String>(42)
+        }
+    }));
+    let mut handles = Vec::new();
+    for _ in 0..4 {
+        let cache = Arc::clone(&cache);
+        handles.push(std::thread::spawn(move || cache.get(&"test".to_string())));
+    }
+    let results: Vec<Result<usize, String>> =
+        handles.into_iter().map(|h| h.join().unwrap()).collect();
+    assert_eq!(results, vec![Ok(42), Ok(42), Ok(42), Ok(42)]);
+    assert_eq!(calls.load(Ordering::SeqCst), 1, "the lookup ran once for every caller");
+    assert_eq!(cache.get_option(&"test".to_string()), Some(42));
+}
+
+#[test]
+fn cache_set_writes_without_the_lookup() {
+    // Cache.test.ts:661, :672, :701, :712 — a set stores a value, never
+    // invokes the lookup, overwrites in place, and respects capacity.
+    let calls = Arc::new(AtomicUsize::new(0));
+    let cache = Cache::new(2, {
+        let calls = Arc::clone(&calls);
+        move |_: &String| {
+            calls.fetch_add(1, Ordering::SeqCst);
+            Ok::<usize, String>(0)
+        }
+    });
+    cache.set("test".to_string(), 42);
+    assert_eq!(cache.get(&"test".to_string()), Ok(42));
+    assert_eq!(calls.load(Ordering::SeqCst), 0, "a hit must not run the lookup");
+
+    cache.set("test".to_string(), 100);
+    assert_eq!(cache.get(&"test".to_string()), Ok(100));
+
+    cache.set("a".to_string(), 1);
+    assert_eq!(cache.size(), 2, "capacity 2 holds test and a");
+    cache.set("b".to_string(), 2);
+    assert_eq!(cache.size(), 2, "a third write evicts the oldest");
+    assert_eq!(calls.load(Ordering::SeqCst), 0, "no write ran the lookup");
+}
+
+#[test]
+fn cache_set_with_ttl_expires() {
+    // Cache.test.ts:686 — a set value lives under the cache's TTL.
+    let clock = clock();
+    let cache = Cache::new(10, len_lookup())
+        .with_ttl(TimeToLive::For(Duration::from_minutes(60)), clock.clone());
+    cache.set("test".to_string(), 42);
+    assert!(cache.has(&"test".to_string()));
+    clock.adjust(Duration::from_minutes(120));
+    assert!(!cache.has(&"test".to_string()));
+}
+
+#[test]
+fn cache_has_reports_presence_and_expiry() {
+    // Cache.test.ts:731, :744, :756 — has is true only for a populated,
+    // unexpired key; a never-populated key is false.
+    let clock = clock();
+    let cache = Cache::new(10, len_lookup())
+        .with_ttl(TimeToLive::For(Duration::from_minutes(60)), clock.clone());
+    assert_eq!(cache.get(&"test".to_string()), Ok(4));
+    assert!(cache.has(&"test".to_string()), "a populated key reads present");
+    assert!(!cache.has(&"absent".to_string()));
+    clock.adjust(Duration::from_minutes(120));
+    assert!(!cache.has(&"test".to_string()));
+}
+
+#[test]
+fn cache_invalidate_all_empties_every_key() {
+    // Cache.test.ts:1104.
+    let cache = Cache::new(10, len_lookup());
+    assert_eq!(cache.get(&"a".to_string()), Ok(1));
+    assert_eq!(cache.get(&"b".to_string()), Ok(1));
+    cache.invalidate_all();
+    assert_eq!(cache.get_option(&"a".to_string()), None);
+    assert_eq!(cache.get_option(&"b".to_string()), None);
+    assert_eq!(cache.size(), 0);
+}
+
+#[test]
+fn cache_capacity_evicts_lru_order() {
+    // Cache.test.ts:1390, :1408, :1429 — capacity evicts the least
+    // recently used entry, and a hit refreshes recency.
+    let cache = Cache::new(3, len_lookup());
+    for key in ["a", "b", "c"] {
+        assert!(cache.get(&key.to_string()).is_ok());
+    }
+    assert!(cache.get(&"d".to_string()).is_ok());
+    assert!(!cache.has(&"a".to_string()), "a is the oldest and is evicted");
+    assert!(cache.has(&"b".to_string()) && cache.has(&"c".to_string()) && cache.has(&"d".to_string()));
+
+    // Reading "b" makes it the most recent, so the next insert evicts "c".
+    let cache = Cache::new(3, len_lookup());
+    for key in ["a", "b", "c"] {
+        assert!(cache.get(&key.to_string()).is_ok());
+    }
+    assert!(cache.get(&"a".to_string()).is_ok());
+    assert!(cache.get(&"d".to_string()).is_ok());
+    assert!(cache.has(&"a".to_string()), "the refreshed key survives");
+    assert!(!cache.has(&"b".to_string()), "the stale key is evicted");
+}
+
+#[test]
+fn cache_capacity_of_one_and_very_large_capacity() {
+    // Cache.test.ts:1429, :1444.
+    let tiny = Cache::new(1, len_lookup());
+    assert_eq!(tiny.get(&"a".to_string()), Ok(1));
+    assert!(tiny.has(&"a".to_string()));
+    assert_eq!(tiny.get(&"b".to_string()), Ok(1));
+    assert!(!tiny.has(&"a".to_string()));
+    assert!(tiny.has(&"b".to_string()));
+
+    let wide = Cache::new(10_000, len_lookup());
+    for i in 0..100 {
+        assert!(wide.get(&format!("key{i}")).is_ok());
+    }
+    assert_eq!(wide.size(), 100);
+    assert!(wide.has(&"key0".to_string()) && wide.has(&"key99".to_string()));
+}
+
+#[test]
+fn cache_ttl_family_on_a_fixed_duration() {
+    // Cache.test.ts:1464, :1480, :1497.
+    let clock = clock();
+    let calls = Arc::new(AtomicUsize::new(0));
+    let cache = Cache::new(10, {
+        let calls = Arc::clone(&calls);
+        move |_: &String| Ok::<usize, String>(calls.fetch_add(1, Ordering::SeqCst) + 1)
+    })
+    .with_ttl(TimeToLive::For(Duration::from_minutes(60)), clock.clone());
+    assert_eq!(cache.get(&"test".to_string()), Ok(1));
+    clock.adjust(Duration::from_minutes(59));
+    assert!(cache.has(&"test".to_string()));
+    clock.adjust(Duration::from_minutes(2));
+    assert!(!cache.has(&"test".to_string()), "expired at 61 minutes");
+    assert_eq!(cache.get(&"test".to_string()), Ok(2), "a get after expiry re-runs the lookup");
+    assert_eq!(calls.load(Ordering::SeqCst), 2);
+}
+
+#[test]
+fn cache_ttl_function_by_outcome() {
+    // Cache.test.ts:1512 — successes live an hour, failures a minute.
+    let clock = clock();
+    let cache = Cache::new_owned(
+        10,
+        |key: &String| {
+            if key == "fail" {
+                (Err("error".to_string()), None)
+            } else {
+                (Ok(key.len()), None)
+            }
+        },
+    )
+    .with_ttl_fn(
+        |outcome: &Result<usize, String>, _key: &String| {
+            if outcome.is_ok() {
+                TimeToLive::For(Duration::from_minutes(60))
+            } else {
+                TimeToLive::For(Duration::from_minutes(1))
+            }
+        },
+        clock.clone(),
+    )
+    .cache_errors(true);
+    assert!(cache.get(&"success".to_string()).is_ok());
+    assert!(cache.get(&"fail".to_string()).is_err());
+    clock.adjust(Duration::from_minutes(30));
+    assert!(cache.has(&"success".to_string()));
+    assert!(!cache.has(&"fail".to_string()));
+}
+
+#[test]
+fn cache_ttl_function_by_key_and_value() {
+    // Cache.test.ts:1530, :1545 — the TTL function reads the key and the
+    // decoded value, not just the outcome.
+    let mut first = clock();
+    let by_key = Cache::new(10, len_lookup()).with_ttl_fn(
+        |_outcome: &Result<usize, String>, key: &String| {
+            if key == "short" {
+                TimeToLive::For(Duration::from_minutes(1))
+            } else {
+                TimeToLive::For(Duration::from_minutes(60))
+            }
+        },
+        first.clone(),
+    );
+    assert!(by_key.get(&"short".to_string()).is_ok());
+    assert!(by_key.get(&"long".to_string()).is_ok());
+    first.adjust(Duration::from_minutes(30));
+    assert!(!by_key.has(&"short".to_string()));
+    assert!(by_key.has(&"long".to_string()));
+
+    let mut clock2 = clock();
+    let by_value = Cache::new(10, len_lookup()).with_ttl_fn(
+        |outcome: &Result<usize, String>, _key: &String| {
+            let value = outcome.as_ref().copied().unwrap_or(0);
+            if value > 3 {
+                TimeToLive::For(Duration::from_minutes(60))
+            } else {
+                TimeToLive::For(Duration::from_minutes(1))
+            }
+        },
+        clock2.clone(),
+    );
+    assert!(by_value.get(&"ab".to_string()).is_ok());
+    assert!(by_value.get(&"abcd".to_string()).is_ok());
+    clock2.adjust(Duration::from_minutes(30));
+    assert!(!by_value.has(&"ab".to_string()));
+    assert!(by_value.has(&"abcd".to_string()));
+}
+
+#[test]
+fn cache_ttl_infinite_and_zero_from_the_function() {
+    // Cache.test.ts:1563, :1575 — the TTL function's infinity and zero
+    // behave like the fixed forms.
+    let mut first = clock();
+    let infinite = Cache::new(10, len_lookup()).with_ttl_fn(
+        |_: &Result<usize, String>, _: &String| TimeToLive::Infinite,
+        first.clone(),
+    );
+    assert!(infinite.get(&"test".to_string()).is_ok());
+    first.adjust(Duration::from_minutes(60_000));
+    assert!(infinite.has(&"test".to_string()));
+
+    let mut later = clock();
+    let zero = Cache::new(10, len_lookup()).with_ttl_fn(
+        |_: &Result<usize, String>, _: &String| TimeToLive::For(Duration::ZERO),
+        later.clone(),
+    );
+    assert!(zero.get(&"test".to_string()).is_ok());
+    assert!(!zero.has(&"test".to_string()));
+}
+
+#[test]
+fn cache_refresh_resets_the_ttl() {
+    // Cache.test.ts:1588 — a refresh re-runs the lookup and restarts the
+    // TTL from the refreshed value, not from the original store.
+    let clock = clock();
+    let cache = Cache::new(10, len_lookup())
+        .with_ttl(TimeToLive::For(Duration::from_minutes(60)), clock.clone());
+    assert_eq!(cache.get(&"test".to_string()), Ok(4));
+    clock.adjust(Duration::from_minutes(45));
+    cache.refresh(&"test".to_string());
+    clock.adjust(Duration::from_minutes(30));
+    assert!(cache.has(&"test".to_string()), "45 + 30 minutes, but the TTL restarted at 45");
+    clock.adjust(Duration::from_minutes(31));
+    assert!(!cache.has(&"test".to_string()), "61 minutes after the refresh");
+}
+
+#[test]
+fn cache_failed_lookups_are_cached_when_opted_in() {
+    // Cache.test.ts:1613, :1628, :1643 — a failure caches like a value
+    // when cacheErrors is on, replays to later gets, and a refresh can
+    // replace it once the lookup succeeds.
+    let calls = Arc::new(AtomicUsize::new(0));
+    let cache = Cache::new(10, {
+        let calls = Arc::clone(&calls);
+        move |_: &String| {
+            calls.fetch_add(1, Ordering::SeqCst);
+            Err::<usize, String>("error".to_string())
+        }
+    })
+    .cache_errors(true);
+    assert_eq!(cache.get(&"test".to_string()), Err("error".to_string()));
+    assert_eq!(cache.get(&"test".to_string()), Err("error".to_string()));
+    assert_eq!(cache.get(&"test".to_string()), Err("error".to_string()));
+    assert_eq!(calls.load(Ordering::SeqCst), 1, "the failure replay: one lookup");
+
+    let succeed = Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let flaky = Cache::new(10, {
+        let succeed = Arc::clone(&succeed);
+        move |_: &String| {
+            if succeed.load(Ordering::SeqCst) {
+                Ok::<usize, String>(42)
+            } else {
+                Err("error".to_string())
+            }
+        }
+    })
+    .cache_errors(true);
+    assert!(flaky.get(&"test".to_string()).is_err());
+    succeed.store(true, Ordering::SeqCst);
+    assert_eq!(flaky.refresh(&"test".to_string()), Ok(42));
+}
+
+#[test]
+fn cache_failure_single_flight_across_threads() {
+    // Cache.test.ts:1659 — concurrent callers share one failing lookup.
+    let calls = Arc::new(AtomicUsize::new(0));
+    let cache = Arc::new(
+        Cache::new(10, {
+            let calls = Arc::clone(&calls);
+            move |_: &String| {
+                calls.fetch_add(1, Ordering::SeqCst);
+                std::thread::sleep(std::time::Duration::from_millis(50));
+                Err::<usize, String>("error".to_string())
+            }
+        })
+        .cache_errors(true),
+    );
+    let handles: Vec<_> = (0..3)
+        .map(|_| {
+            let cache = Arc::clone(&cache);
+            std::thread::spawn(move || cache.get(&"key".to_string()))
+        })
+        .collect();
+    let results: Vec<Result<usize, String>> =
+        handles.into_iter().map(|h| h.join().unwrap()).collect();
+    assert_eq!(results, vec![Err("error".to_string()); 3]);
+    assert_eq!(calls.load(Ordering::SeqCst), 1);
+}
+
+#[test]
+fn cache_ttl_measured_per_entry_against_the_clock() {
+    // Cache.test.ts:1690, :1712 — each entry's TTL runs from its own
+    // store, so staggered gets expire in order; the pin's setTime is
+    // adjust from zero in the port.
+    let mut first = clock();
+    let cache = Cache::new(10, len_lookup())
+        .with_ttl(TimeToLive::For(Duration::from_minutes(60)), first.clone());
+    assert!(cache.get(&"a".to_string()).is_ok());
+    first.adjust(Duration::from_minutes(30));
+    assert!(cache.get(&"b".to_string()).is_ok());
+    first.adjust(Duration::from_minutes(30));
+    assert!(cache.get(&"c".to_string()).is_ok());
+    first.adjust(Duration::from_minutes(30));
+    assert!(!cache.has(&"a".to_string()), "stored at 0, expired at 90");
+    assert!(!cache.has(&"b".to_string()), "stored at 30, expired at 90");
+    assert!(cache.has(&"c".to_string()), "stored at 60, expires at 120");
+
+    let mut later = clock();
+    let millis = Cache::new(10, len_lookup())
+        .with_ttl(TimeToLive::For(Duration::from_millis(1000)), later.clone());
+    assert!(millis.get(&"test".to_string()).is_ok());
+    later.adjust(Duration::from_millis(500));
+    assert!(millis.has(&"test".to_string()));
+    later.adjust(Duration::from_millis(1000));
+    assert!(!millis.has(&"test".to_string()));
+}
+
+#[test]
+fn cache_serves_any_hashable_key_type() {
+    // Cache.test.ts:1728, :1742, :1758 — strings, numbers, and structural
+    // object keys all work, and an equal-by-value key hits the entry.
+    let strings = Cache::new(10, len_lookup());
+    assert!(strings.get(&"hello".to_string()).is_ok());
+    assert!(strings.get(&"world".to_string()).is_ok());
+    assert_eq!(strings.get(&"hello".to_string()), Ok(5));
+
+    let numbers = Cache::new(10, |key: &i64| Ok::<String, String>(format!("number: {key}")));
+    for key in [1, 2, 3] {
+        assert!(numbers.get(&key).is_ok());
+    }
+    assert_eq!(numbers.get(&1), Ok("number: 1".to_string()));
+
+    #[derive(Clone, Debug, PartialEq, Eq, std::hash::Hash)]
+    struct CacheKey {
+        id: i64,
+        name: String,
+    }
+    let objects = Cache::new(10, |key: &CacheKey| Ok::<String, String>(format!("{}-{}", key.name, key.id)));
+    let key1 = CacheKey { id: 1, name: "test".to_string() };
+    let key2 = CacheKey { id: 2, name: "test".to_string() };
+    let key3 = CacheKey { id: 1, name: "test".to_string() };
+    assert!(objects.get(&key1).is_ok());
+    assert!(objects.get(&key2).is_ok());
+    assert_eq!(objects.get(&key3), Ok("test-1".to_string()), "an equal key hits the entry");
+}
+
+#[test]
+fn cache_zero_ttl_lookup_does_not_evict_a_live_entry() {
+    // Cache.test.ts:244 — a failing lookup whose TTL is zero stores
+    // nothing, so the live entries around it stay and size holds.
+    let clock = clock();
+    let k_lookups = Arc::new(AtomicUsize::new(0));
+    let cache = Cache::new_owned(
+        2,
+        {
+            let k_lookups = Arc::clone(&k_lookups);
+            move |key: &String| {
+                if key == "k" {
+                    let attempt = k_lookups.fetch_add(1, Ordering::SeqCst) + 1;
+                    if attempt == 2 {
+                        return (Err("error".to_string()), None);
+                    }
+                }
+                (Ok(key.len()), None)
+            }
+        },
+    )
+    .with_ttl_fn(
+        |outcome: &Result<usize, String>, key: &String| {
+            if outcome.is_err() {
+                TimeToLive::For(Duration::ZERO)
+            } else if key == "k" {
+                TimeToLive::For(Duration::from_minutes(1))
+            } else {
+                TimeToLive::For(Duration::from_minutes(60))
+            }
+        },
+        clock.clone(),
+    );
+    assert_eq!(cache.get(&"a".to_string()), Ok(1));
+    assert_eq!(cache.get(&"k".to_string()), Ok(1));
+    clock.adjust(Duration::from_minutes(2));
+    assert_eq!(cache.get(&"k".to_string()), Err("error".to_string()));
+    assert_eq!(cache.get(&"b".to_string()), Ok(1));
+    assert_eq!(cache.get_option(&"a".to_string()), Some(1));
+    assert_eq!(cache.get_option(&"b".to_string()), Some(1));
+    assert_eq!(cache.size(), 2, "the zero-TTL failure stored nothing");
+}
+
+#[test]
+fn cache_zero_ttl_completion_keeps_a_newer_set_value() {
+    // Cache.test.ts:268 — a lookup that sets the same key while it runs
+    // and then fails completes into nothing: the newer set value is still
+    // held. The lookup reaches the cache through a weak handle to the
+    // slot, the port's stand-in for the pin's fiber interleaving (the
+    // set lands mid-lookup).
+    use std::sync::OnceLock;
+    let slot: Arc<OnceLock<Cache<String, i64, String>>> = Arc::new(OnceLock::new());
+    let weak = Arc::downgrade(&slot);
+    let cache = Cache::new_owned(1, move |_key: &String| {
+        if let Some(slot) = weak.upgrade()
+            && let Some(cache) = slot.get()
+        {
+            cache.set("key".to_string(), 99);
+        }
+        (Err("error".to_string()), None)
+    });
+    if slot.set(cache).is_err() {
+        panic!("the slot must be empty until the first lookup runs");
+    }
+    let cache = slot.get().expect("just stored");
+    assert_eq!(cache.get(&"key".to_string()), Err("error".to_string()));
+    assert_eq!(cache.get_option(&"key".to_string()), Some(99));
+    assert_eq!(cache.size(), 1);
+}
+
+#[test]
+fn cache_get_and_invalidate_race_reruns_the_lookup() {
+    // Cache.test.ts:409 — invalidating while a lookup is in flight
+    // detaches the pending row: the owner's completion is dropped and
+    // the next get runs the lookup again. Real sleeps stand in for the
+    // pin's virtual-time delay.
+    let calls = Arc::new(AtomicUsize::new(0));
+    let cache = Arc::new(Cache::new(10, {
+        let calls = Arc::clone(&calls);
+        move |_: &String| {
+            let attempt = calls.fetch_add(1, Ordering::SeqCst) + 1;
+            std::thread::sleep(std::time::Duration::from_millis(50));
+            Ok::<i64, String>(attempt as i64)
+        }
+    }));
+    let in_flight = {
+        let cache = Arc::clone(&cache);
+        std::thread::spawn(move || cache.get(&"test".to_string()))
+    };
+    std::thread::sleep(std::time::Duration::from_millis(20));
+    cache.invalidate(&"test".to_string());
+    assert_eq!(cache.get(&"test".to_string()), Ok(2));
+    assert_eq!(in_flight.join().unwrap(), Ok(1), "the detached owner still returns its own value");
+    assert_eq!(calls.load(Ordering::SeqCst), 2, "the second get ran a fresh lookup");
+}
+
+#[test]
+fn cache_interrupted_lookup_keeps_a_newer_set_value() {
+    // Cache.test.ts:518 — the getter's interruption detaches the pending
+    // row (the port's cancel_pending, the stand-in for the pin's fiber
+    // interrupt), so the lookup's failing completion no longer owns the
+    // row, and the set that landed mid-lookup survives.
+    use std::sync::OnceLock;
+    let slot: Arc<OnceLock<Cache<String, i64, String>>> = Arc::new(OnceLock::new());
+    let weak = Arc::downgrade(&slot);
+    let built = Cache::new_owned(1, move |_key: &String| {
+        std::thread::sleep(std::time::Duration::from_millis(50));
+        if let Some(slot) = weak.upgrade()
+            && let Some(cache) = slot.get()
+        {
+            // The set lands while the lookup is still in flight.
+            cache.set("key".to_string(), 99);
+        }
+        (Err("error".to_string()), None)
+    });
+    if Arc::clone(&slot).set(built).is_err() {
+        panic!("the slot must be empty until the getter starts");
+    }
+
+    let slot_for_getter = Arc::clone(&slot);
+    let getter = std::thread::spawn(move || slot_for_getter.get().unwrap().get(&"key".to_string()));
+    std::thread::sleep(std::time::Duration::from_millis(20));
+    // The interruption: the pending row is detached from the map.
+    assert!(slot.get().unwrap().cancel_pending(&"key".to_string()));
+    assert_eq!(getter.join().unwrap(), Err("error".to_string()));
+    let cache = slot.get().unwrap();
+    assert_eq!(cache.get_option(&"key".to_string()), Some(99));
     assert_eq!(cache.size(), 1);
 }

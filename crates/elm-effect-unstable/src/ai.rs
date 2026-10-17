@@ -612,6 +612,38 @@ impl Default for ChatStore {
     }
 }
 
+/// Approval-gated once-runner: an approved tool executes the first time its
+/// approval resolves and never replays on later turns (`needsApproval`
+/// tools in `ai/Chat.ts`: the completed approval is terminal).
+pub struct ApprovalTracker {
+    completed: std::sync::Mutex<std::collections::HashSet<String>>,
+}
+
+impl ApprovalTracker {
+    /// Empty tracker: no approval has completed yet.
+    pub fn new() -> Self {
+        Self {
+            completed: std::sync::Mutex::new(std::collections::HashSet::new()),
+        }
+    }
+
+    /// Run `execute` only when `approval_id` never completed; true when it ran.
+    pub fn run_once(&self, approval_id: &str, execute: impl FnOnce()) -> bool {
+        let mut completed = self.completed.lock().expect("approval tracker");
+        if !completed.insert(approval_id.to_owned()) {
+            return false;
+        }
+        execute();
+        true
+    }
+}
+
+impl Default for ApprovalTracker {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 // --- Tool port (ai/Tool.ts at the pin): named handlers, failure modes ---
 
 /// How handler failures surface.
@@ -1129,4 +1161,2171 @@ impl AiError {
         }
         Some(error)
     }
+}
+
+// --- EmbeddingModel port (ai/EmbeddingModel.ts at the pin) ---
+
+/// Token usage for an embedding call. `None` is the tag's `undefined`.
+#[derive(Clone, Debug, PartialEq)]
+pub struct EmbeddingUsage {
+    /// Input tokens billed, when the provider reports them.
+    pub input_tokens: Option<u64>,
+}
+
+impl EmbeddingUsage {
+    /// Encode to the wire shape, omitting undefined input tokens.
+    pub fn to_json(&self) -> serde_json::Value {
+        match self.input_tokens {
+            Some(tokens) => serde_json::json!({ "inputTokens": tokens }),
+            None => serde_json::json!({}),
+        }
+    }
+
+    /// Decode from the wire shape; missing or null input tokens is `None`.
+    pub fn from_json(value: &serde_json::Value) -> Option<Self> {
+        match value.get("inputTokens") {
+            None | Some(serde_json::Value::Null) => Some(Self { input_tokens: None }),
+            Some(tokens) => Some(Self {
+                input_tokens: Some(tokens.as_u64()?),
+            }),
+        }
+    }
+}
+
+/// One embedding vector.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Embedding {
+    /// The vector.
+    pub vector: Vec<f64>,
+}
+
+/// Single-input embed response.
+#[derive(Clone, Debug, PartialEq)]
+pub struct EmbedResponse {
+    /// The vector.
+    pub vector: Vec<f64>,
+    /// Usage reported by the provider.
+    pub usage: EmbeddingUsage,
+}
+
+/// Multi-input embed response.
+#[derive(Clone, Debug, PartialEq)]
+pub struct EmbedManyResponse {
+    /// One embedding per input, in order.
+    pub embeddings: Vec<Embedding>,
+    /// Usage reported by the provider.
+    pub usage: EmbeddingUsage,
+}
+
+/// Provider response: one vector per input plus usage.
+pub type ProviderResponse = (Vec<Vec<f64>>, EmbeddingUsage);
+
+/// Embedding model: `embed`/`embedMany` over a provider `embedMany`.
+pub struct EmbeddingModel {
+    embed_many: Box<dyn Fn(&[String]) -> Result<ProviderResponse, AiError> + Send + Sync>,
+}
+
+impl EmbeddingModel {
+    /// Build from a provider `embedMany` function.
+    pub fn new(
+        embed_many: impl Fn(&[String]) -> Result<ProviderResponse, AiError> + Send + Sync + 'static,
+    ) -> Self {
+        Self {
+            embed_many: Box::new(embed_many),
+        }
+    }
+
+    /// Embed one input. Fails with `InvalidOutputError` unless the provider
+    /// returns exactly one vector.
+    pub fn embed(&self, input: &str) -> Result<EmbedResponse, AiError> {
+        let (results, usage) = (self.embed_many)(&[input.to_owned()])?;
+        if results.len() != 1 {
+            return Err(AiError::new(AiReason::InvalidOutput {
+                details: format!("expected 1 embedding, got {}", results.len()),
+            }));
+        }
+        Ok(EmbedResponse {
+            vector: results.into_iter().next().unwrap_or_default(),
+            usage,
+        })
+    }
+
+    /// Embed many inputs in order. Empty input bypasses the provider.
+    /// Fails with `InvalidOutputError` on a result/input length mismatch.
+    pub fn embed_many(&self, inputs: &[&str]) -> Result<EmbedManyResponse, AiError> {
+        if inputs.is_empty() {
+            return Ok(EmbedManyResponse {
+                embeddings: Vec::new(),
+                usage: EmbeddingUsage { input_tokens: None },
+            });
+        }
+        let owned: Vec<String> = inputs.iter().map(|input| (*input).to_owned()).collect();
+        let (results, usage) = (self.embed_many)(&owned)?;
+        if results.len() != owned.len() {
+            return Err(AiError::new(AiReason::InvalidOutput {
+                details: format!("expected {} embeddings, got {}", owned.len(), results.len()),
+            }));
+        }
+        Ok(EmbedManyResponse {
+            embeddings: results
+                .into_iter()
+                .map(|vector| Embedding { vector })
+                .collect(),
+            usage,
+        })
+    }
+}
+
+// --- ResponseIdTracker port (ai/ResponseIdTracker.ts at the pin): incremental prompts ---
+
+use std::sync::atomic::{AtomicU64, Ordering};
+
+static TRACK_UID: AtomicU64 = AtomicU64::new(1);
+
+fn next_track_uid() -> u64 {
+    TRACK_UID.fetch_add(1, Ordering::Relaxed)
+}
+
+/// Role of a tracked prompt message.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum TrackRole {
+    /// System instruction.
+    System,
+    /// End-user message.
+    User,
+    /// Assistant message.
+    Assistant,
+    /// Tool result message.
+    Tool,
+}
+
+/// One part of a tracked prompt message.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum TrackPart {
+    /// Plain text.
+    Text(String),
+    /// Tool call awaiting execution.
+    ToolCall {
+        /// Call id.
+        id: String,
+        /// Tool name.
+        name: String,
+        /// Raw params.
+        params: String,
+    },
+    /// Approval request attached to an assistant tool call.
+    ApprovalRequest {
+        /// Approval id.
+        approval_id: String,
+        /// Owning tool call id.
+        tool_call_id: String,
+    },
+    /// Approval decision attached to a tool message.
+    ApprovalResponse {
+        /// Approval id.
+        approval_id: String,
+        /// Whether the call was approved.
+        approved: bool,
+    },
+    /// Executed tool result.
+    ToolResult {
+        /// Call id.
+        id: String,
+        /// Tool name.
+        name: String,
+        /// Result text.
+        result: String,
+    },
+}
+
+/// One prompt message with a stable identity. Cloning preserves the uid, so
+/// spreading a previously sent prompt (as the TS tests do) keeps the tracker's
+/// object-identity mapping intact. Equality ignores the uid: two messages with
+/// the same role and parts are the same content even when minted separately.
+#[derive(Clone, Debug, Eq)]
+pub struct TrackMessage {
+    /// Stable identity minted at construction.
+    pub uid: u64,
+    /// Who sent it.
+    pub role: TrackRole,
+    /// Message parts.
+    pub parts: Vec<TrackPart>,
+}
+
+impl PartialEq for TrackMessage {
+    fn eq(&self, other: &Self) -> bool {
+        self.role == other.role && self.parts == other.parts
+    }
+}
+
+impl TrackMessage {
+    fn fresh(role: TrackRole, parts: Vec<TrackPart>) -> Self {
+        Self {
+            uid: next_track_uid(),
+            role,
+            parts,
+        }
+    }
+
+    /// System text message.
+    pub fn system(text: &str) -> Self {
+        Self::fresh(TrackRole::System, vec![TrackPart::Text(text.to_owned())])
+    }
+
+    /// User text message.
+    pub fn user(text: &str) -> Self {
+        Self::fresh(TrackRole::User, vec![TrackPart::Text(text.to_owned())])
+    }
+
+    /// Assistant text message.
+    pub fn assistant(text: &str) -> Self {
+        Self::fresh(TrackRole::Assistant, vec![TrackPart::Text(text.to_owned())])
+    }
+
+    /// Assistant message carrying a tool call plus its approval request.
+    pub fn assistant_tool_call_with_approval(
+        tool_call_id: &str,
+        tool_name: &str,
+        params: &str,
+        approval_id: &str,
+    ) -> Self {
+        Self::fresh(
+            TrackRole::Assistant,
+            vec![
+                TrackPart::ToolCall {
+                    id: tool_call_id.to_owned(),
+                    name: tool_name.to_owned(),
+                    params: params.to_owned(),
+                },
+                TrackPart::ApprovalRequest {
+                    approval_id: approval_id.to_owned(),
+                    tool_call_id: tool_call_id.to_owned(),
+                },
+            ],
+        )
+    }
+
+    /// Tool message carrying an approval decision.
+    pub fn tool_approval_response(approval_id: &str, approved: bool) -> Self {
+        Self::fresh(
+            TrackRole::Tool,
+            vec![TrackPart::ApprovalResponse {
+                approval_id: approval_id.to_owned(),
+                approved,
+            }],
+        )
+    }
+
+    /// Tool message carrying an executed result.
+    pub fn tool_result(tool_call_id: &str, tool_name: &str, result: &str) -> Self {
+        Self::fresh(
+            TrackRole::Tool,
+            vec![TrackPart::ToolResult {
+                id: tool_call_id.to_owned(),
+                name: tool_name.to_owned(),
+                result: result.to_owned(),
+            }],
+        )
+    }
+}
+
+/// Tracks which prompt messages produced each provider response id, so a later
+/// turn can send `previousResponseId` plus only the messages after the latest
+/// assistant turn. Mirrors `ResponseIdTracker.make`: prefix must be fully
+/// recognized, otherwise state clears and the caller sends the full prompt.
+pub struct ResponseIdTracker {
+    seen: Mutex<HashMap<u64, String>>,
+}
+
+impl ResponseIdTracker {
+    /// Empty tracker.
+    pub fn new() -> Self {
+        Self {
+            seen: Mutex::new(HashMap::new()),
+        }
+    }
+
+    /// Drop all tracked state (session drop recovery).
+    pub fn clear(&self) {
+        self.seen.lock().expect("tracker").clear();
+    }
+
+    /// Record that `prompt` produced `response_id`.
+    pub fn mark_messages(&self, prompt: &[TrackMessage], response_id: &str) {
+        let mut seen = self.seen.lock().expect("tracker");
+        for message in prompt {
+            seen.insert(message.uid, response_id.to_owned());
+        }
+    }
+
+    /// Incremental fragment when the prompt extends tracked history.
+    pub fn prepare(&self, prompt: &[TrackMessage]) -> Option<(String, Vec<TrackMessage>)> {
+        let mut seen = self.seen.lock().expect("tracker");
+        let any_tracked = prompt.iter().any(|m| seen.contains_key(&m.uid));
+        if !any_tracked {
+            seen.clear();
+            return None;
+        }
+        let last_assistant = prompt
+            .iter()
+            .rposition(|m| m.role == TrackRole::Assistant)?;
+        if last_assistant == 0 && prompt.len() <= 1 {
+            seen.clear();
+            return None;
+        }
+        let mut response_id: Option<String> = None;
+        for message in &prompt[..last_assistant] {
+            match seen.get(&message.uid) {
+                Some(id) => response_id = Some(id.clone()),
+                None => {
+                    seen.clear();
+                    return None;
+                }
+            }
+        }
+        let response_id = response_id?;
+        let suffix = prompt[last_assistant + 1..].to_vec();
+        if suffix.is_empty() {
+            seen.clear();
+            return None;
+        }
+        Some((response_id, suffix))
+    }
+}
+
+impl Default for ResponseIdTracker {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// Provider call as seen by the fake: the sent prompt plus incremental fields.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ProviderCall {
+    /// Prompt sent to the provider (stripped when approvals resolve).
+    pub prompt: Vec<TrackMessage>,
+    /// Prior response id, when the turn continued tracked history.
+    pub previous_response_id: Option<String>,
+    /// Messages after the latest assistant turn, when tracking applied.
+    pub incremental_prompt: Option<Vec<TrackMessage>>,
+}
+
+/// Chunk of a scripted text/stream response.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum TrackChunk {
+    /// Provider response id.
+    Meta(String),
+    /// Text payload.
+    Text(String),
+    /// Stop reason marker.
+    Finish,
+}
+
+impl TrackChunk {
+    /// Whether this chunk is the stop marker.
+    pub fn is_finish(&self) -> bool {
+        matches!(self, Self::Finish)
+    }
+}
+
+/// Scripted model recording [`ProviderCall`]s and returning queued response
+/// ids with text/finish chunks. The queue order is the response-id order.
+pub struct TrackerModel {
+    ids: Mutex<VecDeque<String>>,
+    calls: Mutex<Vec<ProviderCall>>,
+}
+
+impl TrackerModel {
+    /// Script `ids` in call order.
+    pub fn new(ids: Vec<&str>) -> Self {
+        Self {
+            ids: ids
+                .into_iter()
+                .map(str::to_owned)
+                .collect::<VecDeque<_>>()
+                .into(),
+            calls: Mutex::new(Vec::new()),
+        }
+    }
+
+    /// Prompts recorded so far.
+    pub fn calls(&self) -> Vec<ProviderCall> {
+        self.calls.lock().expect("tracker model").clone()
+    }
+
+    fn next_id(&self) -> String {
+        self.ids
+            .lock()
+            .expect("tracker model")
+            .pop_front()
+            .unwrap_or_else(|| "resp_fallback".to_owned())
+    }
+
+    fn record(
+        &self,
+        tracker: Option<&ResponseIdTracker>,
+        prompt: Vec<TrackMessage>,
+    ) -> Vec<TrackChunk> {
+        let (previous_response_id, incremental_prompt) = tracker
+            .and_then(|t| t.prepare(&prompt))
+            .map(|(id, suffix)| (Some(id), Some(suffix)))
+            .unwrap_or((None, None));
+        let response_id = self.next_id();
+        self.calls
+            .lock()
+            .expect("tracker model")
+            .push(ProviderCall {
+                prompt: prompt.clone(),
+                previous_response_id,
+                incremental_prompt,
+            });
+        if let Some(t) = tracker {
+            t.mark_messages(&prompt, &response_id);
+        }
+        vec![
+            TrackChunk::Meta(response_id.clone()),
+            TrackChunk::Text(format!("assistant-{response_id}")),
+            TrackChunk::Finish,
+        ]
+    }
+
+    /// Text turn with optional tracker (object turns share this path).
+    pub fn generate_text(
+        &self,
+        tracker: Option<&ResponseIdTracker>,
+        prompt: Vec<TrackMessage>,
+    ) -> Vec<TrackChunk> {
+        self.record(tracker, prompt)
+    }
+
+    /// Object turn: same tracking, schema shape is plain text here.
+    pub fn generate_object(
+        &self,
+        tracker: Option<&ResponseIdTracker>,
+        prompt: Vec<TrackMessage>,
+        _schema: &str,
+    ) -> Vec<TrackChunk> {
+        self.record(tracker, prompt)
+    }
+
+    /// Streamed turn: records like text, returns metadata plus finish.
+    pub fn stream_text(
+        &self,
+        tracker: Option<&ResponseIdTracker>,
+        prompt: Vec<TrackMessage>,
+    ) -> Vec<TrackChunk> {
+        let (previous_response_id, incremental_prompt) = tracker
+            .and_then(|t| t.prepare(&prompt))
+            .map(|(id, suffix)| (Some(id), Some(suffix)))
+            .unwrap_or((None, None));
+        let response_id = self.next_id();
+        self.calls
+            .lock()
+            .expect("tracker model")
+            .push(ProviderCall {
+                prompt: prompt.clone(),
+                previous_response_id,
+                incremental_prompt,
+            });
+        if let Some(t) = tracker {
+            t.mark_messages(&prompt, &response_id);
+        }
+        vec![TrackChunk::Meta(response_id), TrackChunk::Finish]
+    }
+
+    /// Streamed turn with a toolkit present: no tool calls return, so the
+    /// stream still ends in a finish part.
+    pub fn stream_text_with_toolkit(
+        &self,
+        tracker: Option<&ResponseIdTracker>,
+        prompt: Vec<TrackMessage>,
+        _has_toolkit: bool,
+    ) -> Vec<TrackChunk> {
+        let (previous_response_id, incremental_prompt) = tracker
+            .and_then(|t| t.prepare(&prompt))
+            .map(|(id, suffix)| (Some(id), Some(suffix)))
+            .unwrap_or((None, None));
+        self.calls
+            .lock()
+            .expect("tracker model")
+            .push(ProviderCall {
+                prompt,
+                previous_response_id,
+                incremental_prompt,
+            });
+        vec![TrackChunk::Finish]
+    }
+
+    /// Text turn with one pre-resolved approval: executes the approved
+    /// `ApprovalTool` once, appends its result, strips approval artifacts,
+    /// then tracks the stripped prompt.
+    pub fn generate_text_with_approval(
+        &self,
+        tracker: Option<&ResponseIdTracker>,
+        prompt: Vec<TrackMessage>,
+    ) -> Vec<TrackChunk> {
+        let mut approved_calls: Vec<(String, String)> = Vec::new();
+        let mut approved_ids: Vec<String> = Vec::new();
+        for message in &prompt {
+            for part in &message.parts {
+                if let TrackPart::ApprovalRequest {
+                    approval_id,
+                    tool_call_id,
+                } = part
+                {
+                    let approved = prompt.iter().flat_map(|m| &m.parts).any(|p| {
+                        matches!(
+                            p,
+                            TrackPart::ApprovalResponse { approval_id: id, approved: true }
+                            if id == approval_id
+                        )
+                    });
+                    if approved {
+                        let name = prompt
+                            .iter()
+                            .flat_map(|m| &m.parts)
+                            .find_map(|p| match p {
+                                TrackPart::ToolCall { id, name, .. } if id == tool_call_id => {
+                                    Some(name.clone())
+                                }
+                                _ => None,
+                            })
+                            .unwrap_or_default();
+                        approved_calls.push((tool_call_id.clone(), name));
+                        approved_ids.push(approval_id.clone());
+                    }
+                }
+            }
+        }
+        let mut stripped: Vec<TrackMessage> = Vec::new();
+        for message in &prompt {
+            match message.role {
+                TrackRole::Assistant => {
+                    let kept: Vec<TrackPart> = message
+                        .parts
+                        .iter()
+                        .filter(|p| match p {
+                            TrackPart::ApprovalRequest { approval_id, .. } => {
+                                !approved_ids.contains(approval_id)
+                            }
+                            _ => true,
+                        })
+                        .cloned()
+                        .collect();
+                    if !kept.is_empty() {
+                        stripped.push(TrackMessage {
+                            uid: message.uid,
+                            role: message.role.clone(),
+                            parts: kept,
+                        });
+                    }
+                }
+                TrackRole::Tool => {
+                    let kept: Vec<TrackPart> = message
+                        .parts
+                        .iter()
+                        .filter(|p| match p {
+                            TrackPart::ApprovalResponse { approval_id, .. } => {
+                                !approved_ids.contains(approval_id)
+                            }
+                            _ => true,
+                        })
+                        .cloned()
+                        .collect();
+                    if !kept.is_empty() {
+                        stripped.push(TrackMessage {
+                            uid: message.uid,
+                            role: message.role.clone(),
+                            parts: kept,
+                        });
+                    }
+                }
+                _ => stripped.push(message.clone()),
+            }
+        }
+        for (tool_call_id, name) in &approved_calls {
+            stripped.push(TrackMessage::tool_result(
+                tool_call_id,
+                name,
+                "approved-result",
+            ));
+        }
+        self.record(tracker, stripped)
+    }
+}
+
+// --- Response port (ai/Response.ts at the pin): tool-result/metadata/finish parts ---
+//
+// The TS `Toolkit`/`Schema` machinery has no counterpart here, so the port
+// covers the wire contract: tool-result parts carry `result` (decoded) plus
+// `encoded_result` (wire form), and optional fields stay omitted from JSON.
+
+/// A `tool-result` response part: decoded `result` plus its wire form.
+#[derive(Clone, Debug, PartialEq)]
+pub struct ToolResultPart {
+    /// Part id (`tool-123` in the tests).
+    pub id: String,
+    /// Tool name.
+    pub name: String,
+    /// Whether the tool failed.
+    pub is_failure: bool,
+    /// Decoded result (`404` even when the wire holds `"404"`).
+    pub result: serde_json::Value,
+    /// Wire form (`"404"` on the `NumberFromString` failure branch).
+    pub encoded_result: serde_json::Value,
+    /// Whether a provider executed the tool.
+    pub provider_executed: bool,
+    /// Whether the result is preliminary.
+    pub preliminary: bool,
+}
+
+impl ToolResultPart {
+    /// Build from decoded and wire forms (a handler failure keeps both equal).
+    pub fn new(
+        id: &str,
+        name: &str,
+        is_failure: bool,
+        result: serde_json::Value,
+        encoded_result: serde_json::Value,
+    ) -> Self {
+        Self {
+            id: id.to_owned(),
+            name: name.to_owned(),
+            is_failure,
+            result,
+            encoded_result,
+            provider_executed: false,
+            preliminary: false,
+        }
+    }
+
+    /// Encode to the wire shape: `result` carries the encoded form, and
+    /// `metadata` defaults to `{}` the way the TS schema does.
+    pub fn to_json(&self) -> serde_json::Value {
+        serde_json::json!({
+            "type": "tool-result",
+            "id": self.id,
+            "name": self.name,
+            "isFailure": self.is_failure,
+            "result": self.encoded_result,
+            "providerExecuted": self.provider_executed,
+            "preliminary": self.preliminary,
+            "metadata": {},
+        })
+    }
+
+    /// Encode validating the wire form against its own branch: success wires
+    /// a number, failure wires a string (`NumberFromString`).
+    pub fn encode_branch(&self, branch_is_failure: bool) -> Result<serde_json::Value, String> {
+        let ok = if branch_is_failure {
+            self.encoded_result.is_string()
+        } else {
+            self.encoded_result.is_number()
+        };
+        if !ok {
+            let want = if branch_is_failure {
+                "string"
+            } else {
+                "number"
+            };
+            return Err(format!("Expected {want}\n  at [\"encodedResult\"]"));
+        }
+        Ok(self.to_json())
+    }
+
+    /// Decode from the wire shape, restoring `result` from the wire form:
+    /// a numeric string on a failure branch decodes to its number
+    /// (`NumberFromString`); every other wire form is already decoded.
+    pub fn from_json(value: &serde_json::Value) -> Option<Self> {
+        if value.get("type")?.as_str()? != "tool-result" {
+            return None;
+        }
+        let is_failure = value.get("isFailure")?.as_bool()?;
+        let wire = value.get("result")?.clone();
+        let result = if is_failure {
+            match &wire {
+                serde_json::Value::String(text) => text
+                    .parse::<i64>()
+                    .map(serde_json::Value::from)
+                    .unwrap_or_else(|_| wire.clone()),
+                _ => wire.clone(),
+            }
+        } else {
+            wire.clone()
+        };
+        Some(Self {
+            id: value.get("id")?.as_str()?.to_owned(),
+            name: value.get("name")?.as_str()?.to_owned(),
+            is_failure,
+            result,
+            encoded_result: wire,
+            provider_executed: value
+                .get("providerExecuted")
+                .and_then(|flag| flag.as_bool())
+                .unwrap_or(false),
+            preliminary: value
+                .get("preliminary")
+                .and_then(|flag| flag.as_bool())
+                .unwrap_or(false),
+        })
+    }
+}
+
+/// A `response-metadata` part with every field optional.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct ResponseMetadataPart {
+    /// Response id, when the provider reported one.
+    pub id: Option<String>,
+    /// Model id, when the provider reported one.
+    pub model_id: Option<String>,
+    /// Timestamp, when the provider reported one.
+    pub timestamp: Option<String>,
+    /// Request details, when captured.
+    pub request: Option<serde_json::Value>,
+}
+
+impl ResponseMetadataPart {
+    /// Build from optional fields (`None` is the tag's `undefined`).
+    pub fn new(
+        id: Option<&str>,
+        model_id: Option<&str>,
+        timestamp: Option<&str>,
+        request: Option<serde_json::Value>,
+    ) -> Self {
+        Self {
+            id: id.map(str::to_owned),
+            model_id: model_id.map(str::to_owned),
+            timestamp: timestamp.map(str::to_owned),
+            request,
+        }
+    }
+
+    /// Encode, omitting undefined fields and defaulting `metadata` to `{}`.
+    pub fn to_json(&self) -> serde_json::Value {
+        let mut out = serde_json::Map::new();
+        out.insert(
+            "type".to_owned(),
+            serde_json::Value::from("response-metadata"),
+        );
+        if let Some(id) = &self.id {
+            out.insert("id".to_owned(), serde_json::Value::from(id.clone()));
+        }
+        if let Some(model_id) = &self.model_id {
+            out.insert(
+                "modelId".to_owned(),
+                serde_json::Value::from(model_id.clone()),
+            );
+        }
+        if let Some(timestamp) = &self.timestamp {
+            out.insert(
+                "timestamp".to_owned(),
+                serde_json::Value::from(timestamp.clone()),
+            );
+        }
+        if let Some(request) = &self.request {
+            out.insert("request".to_owned(), request.clone());
+        }
+        out.insert("metadata".to_owned(), serde_json::json!({}));
+        serde_json::Value::Object(out)
+    }
+
+    /// Decode; a bare `{type}` is an empty part.
+    pub fn from_json(value: &serde_json::Value) -> Option<Self> {
+        if value.get("type")?.as_str()? != "response-metadata" {
+            return None;
+        }
+        Some(Self {
+            id: value
+                .get("id")
+                .and_then(|id| id.as_str())
+                .map(str::to_owned),
+            model_id: value
+                .get("modelId")
+                .and_then(|id| id.as_str())
+                .map(str::to_owned),
+            timestamp: value
+                .get("timestamp")
+                .and_then(|timestamp| timestamp.as_str())
+                .map(str::to_owned),
+            request: value.get("request").cloned(),
+        })
+    }
+}
+
+/// HTTP request details with an omittable fragment.
+#[derive(Clone, Debug, PartialEq)]
+pub struct HttpRequestDetails {
+    /// Uppercase method (`POST`).
+    pub method: String,
+    /// Full URL.
+    pub url: String,
+    /// Query pairs in order.
+    pub url_params: Vec<(String, String)>,
+    /// Fragment, omitted (never nulled) when absent.
+    pub hash: Option<String>,
+    /// Request headers.
+    pub headers: HashMap<String, String>,
+}
+
+impl HttpRequestDetails {
+    /// Encode, omitting the hash when it is undefined.
+    pub fn to_json(&self) -> serde_json::Value {
+        let mut out = serde_json::Map::new();
+        out.insert(
+            "method".to_owned(),
+            serde_json::Value::from(self.method.clone()),
+        );
+        out.insert("url".to_owned(), serde_json::Value::from(self.url.clone()));
+        out.insert(
+            "urlParams".to_owned(),
+            self.url_params
+                .iter()
+                .map(|(key, value)| serde_json::json!([key, value]))
+                .collect(),
+        );
+        if let Some(hash) = &self.hash {
+            out.insert("hash".to_owned(), serde_json::Value::from(hash.clone()));
+        }
+        out.insert(
+            "headers".to_owned(),
+            serde_json::to_value(&self.headers).unwrap_or_default(),
+        );
+        serde_json::Value::Object(out)
+    }
+
+    /// Decode; a missing hash is `None`.
+    pub fn from_json(value: &serde_json::Value) -> Option<Self> {
+        let mut url_params = Vec::new();
+        for pair in value.get("urlParams")?.as_array()? {
+            let pair = pair.as_array()?;
+            url_params.push((
+                pair.first()?.as_str()?.to_owned(),
+                pair.get(1)?.as_str()?.to_owned(),
+            ));
+        }
+        Some(Self {
+            method: value.get("method")?.as_str()?.to_owned(),
+            url: value.get("url")?.as_str()?.to_owned(),
+            url_params,
+            hash: value
+                .get("hash")
+                .and_then(|hash| hash.as_str())
+                .map(str::to_owned),
+            headers: value
+                .get("headers")?
+                .as_object()?
+                .iter()
+                .map(|(key, val)| (key.clone(), val.as_str().unwrap_or_default().to_owned()))
+                .collect(),
+        })
+    }
+}
+
+/// Token usage with every leaf optional; undefined leaves stay omitted.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct ResponseUsage {
+    /// Input token leaves that were defined.
+    pub input_tokens: serde_json::Map<String, serde_json::Value>,
+    /// Output token leaves that were defined.
+    pub output_tokens: serde_json::Map<String, serde_json::Value>,
+}
+
+impl ResponseUsage {
+    /// Empty usage (every leaf undefined).
+    pub fn empty() -> Self {
+        Self::default()
+    }
+
+    /// Build from optional leaves, dropping the undefined ones.
+    pub fn from_optional(
+        input: &[(&str, Option<serde_json::Value>)],
+        output: &[(&str, Option<serde_json::Value>)],
+    ) -> Self {
+        let keep = |pairs: &[(&str, Option<serde_json::Value>)]| {
+            pairs
+                .iter()
+                .filter_map(|(key, value)| value.clone().map(|value| ((*key).to_owned(), value)))
+                .collect()
+        };
+        Self {
+            input_tokens: keep(input),
+            output_tokens: keep(output),
+        }
+    }
+}
+
+/// A `finish` part: stop reason plus usage, response omitted when undefined.
+#[derive(Clone, Debug, PartialEq)]
+pub struct FinishPart {
+    /// Stop reason (`"stop"`).
+    pub reason: String,
+    /// Token usage.
+    pub usage: ResponseUsage,
+    /// Provider response, when captured.
+    pub response: Option<serde_json::Value>,
+}
+
+impl FinishPart {
+    /// Build from a reason, usage, and optional response.
+    pub fn new(reason: &str, usage: ResponseUsage, response: Option<serde_json::Value>) -> Self {
+        Self {
+            reason: reason.to_owned(),
+            usage,
+            response,
+        }
+    }
+
+    /// Encode, omitting an undefined response and defaulting `metadata` to `{}`.
+    pub fn to_json(&self) -> serde_json::Value {
+        let mut out = serde_json::Map::new();
+        out.insert("type".to_owned(), serde_json::Value::from("finish"));
+        out.insert(
+            "reason".to_owned(),
+            serde_json::Value::from(self.reason.clone()),
+        );
+        out.insert(
+            "usage".to_owned(),
+            serde_json::json!({
+                "inputTokens": self.input_tokens(),
+                "outputTokens": self.output_tokens(),
+            }),
+        );
+        if let Some(response) = &self.response {
+            out.insert("response".to_owned(), response.clone());
+        }
+        out.insert("metadata".to_owned(), serde_json::json!({}));
+        serde_json::Value::Object(out)
+    }
+
+    fn input_tokens(&self) -> serde_json::Value {
+        serde_json::Value::Object(self.usage.input_tokens.clone())
+    }
+
+    fn output_tokens(&self) -> serde_json::Value {
+        serde_json::Value::Object(self.usage.output_tokens.clone())
+    }
+
+    /// Decode; a missing response is `None`, missing leaves are empty.
+    pub fn from_json(value: &serde_json::Value) -> Option<Self> {
+        if value.get("type")?.as_str()? != "finish" {
+            return None;
+        }
+        let usage = value.get("usage")?;
+        let keep = |key: &str| {
+            usage.get(key)?.as_object().map(|leaves| {
+                leaves
+                    .iter()
+                    .filter_map(|(leaf, val)| {
+                        (!matches!(val, serde_json::Value::Null))
+                            .then(|| (leaf.clone(), val.clone()))
+                    })
+                    .collect()
+            })
+        };
+        Some(Self {
+            reason: value.get("reason")?.as_str()?.to_owned(),
+            usage: ResponseUsage {
+                input_tokens: keep("inputTokens")?,
+                output_tokens: keep("outputTokens")?,
+            },
+            response: value.get("response").cloned(),
+        })
+    }
+}
+
+// --- OpenAI structured-output rewrite port (`ai/OpenAiStructuredOutput.ts` at the pin) ---
+//
+// Only the JSON Schema rewrite layer (`rewriteOpenAI` over `normalizeAllOf`)
+// is representable here: the codec-transform half (encoded-side lowering,
+// custom `toJsonSchema` filter callbacks, Record-to-entry-array lowering)
+// lives in schema-compiler machinery this crate does not have. The rewrite
+// takes an already-built JSON Schema document and returns its OpenAI strict
+// subset: unsupported keywords dropped (`minLength`, `patternProperties`,
+// `allOf` structural merges), repeated bounds merged conservatively, property
+// names kept verbatim.
+
+/// Keywords OpenAI structured output accepts.
+const OPENAI_SUPPORTED_KEYWORDS: &[&str] = &[
+    "$ref",
+    "type",
+    "title",
+    "description",
+    "enum",
+    "anyOf",
+    "properties",
+    "required",
+    "additionalProperties",
+    "items",
+    "pattern",
+    "multipleOf",
+    "minimum",
+    "exclusiveMinimum",
+    "maximum",
+    "exclusiveMaximum",
+    "minItems",
+    "maxItems",
+];
+
+/// `allOf` member keywords that merge when unambiguous.
+const OPENAI_NORMALIZABLE_ALLOF_KEYWORDS: &[&str] =
+    &["$ref", "title", "enum", "anyOf", "format", "multipleOf"];
+
+/// `format` values OpenAI structured output accepts.
+const OPENAI_SUPPORTED_FORMATS: &[&str] = &[
+    "date-time",
+    "time",
+    "date",
+    "duration",
+    "email",
+    "hostname",
+    "ipv4",
+    "ipv6",
+    "uuid",
+];
+
+/// Whether `key` applies to `doc_type`: type-gated keywords (`pattern` on a
+/// string, bounds on a number, lengths on an array, ...). An absent or
+/// non-string type gates nothing.
+fn openai_keyword_supports_type(key: &str, doc_type: &serde_json::Value) -> bool {
+    let Some(kind) = doc_type.as_str() else {
+        return true;
+    };
+    match key {
+        "pattern" | "format" => kind == "string",
+        "multipleOf" | "minimum" | "exclusiveMinimum" | "maximum" | "exclusiveMaximum" => {
+            kind == "number" || kind == "integer"
+        }
+        "items" | "minItems" | "maxItems" => kind == "array",
+        "properties" | "patternProperties" | "required" | "additionalProperties" => {
+            kind == "object"
+        }
+        _ => true,
+    }
+}
+
+/// Append to `description`, joining with `" and "` without duplicating.
+fn openai_append_description(out: &mut serde_json::Map<String, serde_json::Value>, text: &str) {
+    let joined = match out.get("description").and_then(|d| d.as_str()) {
+        Some(current) if current.split(" and ").any(|part| part == text) => current.to_owned(),
+        Some(current) => format!("{current} and {text}"),
+        None => text.to_owned(),
+    };
+    out.insert("description".to_owned(), serde_json::Value::String(joined));
+}
+
+/// Keep the tighter lower bound; ties prefer the exclusive form.
+fn openai_merge_lower_bound(
+    out: &mut serde_json::Map<String, serde_json::Value>,
+    key: &str,
+    value: &serde_json::Value,
+) {
+    let Some(candidate_value) = value.as_f64() else {
+        if !out.contains_key(key) {
+            out.insert(key.to_owned(), value.clone());
+        }
+        return;
+    };
+    let minimum = out.get("minimum").and_then(|v| v.as_f64());
+    let exclusive = out.get("exclusiveMinimum").and_then(|v| v.as_f64());
+    let mut current = minimum.map(|v| (false, v, out.get("minimum").expect("minimum").clone()));
+    if let Some(v) = exclusive
+        && current.as_ref().is_none_or(|(_, c, _)| v >= *c)
+    {
+        current = Some((
+            true,
+            v,
+            out.get("exclusiveMinimum")
+                .expect("exclusiveMinimum")
+                .clone(),
+        ));
+    }
+    let candidate = (key == "exclusiveMinimum", candidate_value, value.clone());
+    if current.as_ref().is_none_or(|(exclusive, c, _)| {
+        candidate.1 > *c || (candidate.1 == *c && candidate.0 && !exclusive)
+    }) {
+        current = Some(candidate);
+    }
+    let (exclusive, _, winner) = current.expect("lower bound");
+    out.remove("minimum");
+    out.remove("exclusiveMinimum");
+    out.insert(
+        if exclusive {
+            "exclusiveMinimum"
+        } else {
+            "minimum"
+        }
+        .to_owned(),
+        winner,
+    );
+}
+
+/// Keep the tighter upper bound; ties prefer the exclusive form.
+fn openai_merge_upper_bound(
+    out: &mut serde_json::Map<String, serde_json::Value>,
+    key: &str,
+    value: &serde_json::Value,
+) {
+    let Some(candidate_value) = value.as_f64() else {
+        if !out.contains_key(key) {
+            out.insert(key.to_owned(), value.clone());
+        }
+        return;
+    };
+    let maximum = out.get("maximum").and_then(|v| v.as_f64());
+    let exclusive = out.get("exclusiveMaximum").and_then(|v| v.as_f64());
+    let mut current = maximum.map(|v| (false, v, out.get("maximum").expect("maximum").clone()));
+    if let Some(v) = exclusive
+        && current.as_ref().is_none_or(|(_, c, _)| v <= *c)
+    {
+        current = Some((
+            true,
+            v,
+            out.get("exclusiveMaximum")
+                .expect("exclusiveMaximum")
+                .clone(),
+        ));
+    }
+    let candidate = (key == "exclusiveMaximum", candidate_value, value.clone());
+    if current.as_ref().is_none_or(|(exclusive, c, _)| {
+        candidate.1 < *c || (candidate.1 == *c && candidate.0 && !exclusive)
+    }) {
+        current = Some(candidate);
+    }
+    let (exclusive, _, winner) = current.expect("upper bound");
+    out.remove("maximum");
+    out.remove("exclusiveMaximum");
+    out.insert(
+        if exclusive {
+            "exclusiveMaximum"
+        } else {
+            "maximum"
+        }
+        .to_owned(),
+        winner,
+    );
+}
+
+/// Keep the largest `minItems`.
+fn openai_merge_minimum(
+    out: &mut serde_json::Map<String, serde_json::Value>,
+    key: &str,
+    value: &serde_json::Value,
+) {
+    let (Some(candidate), current) = (value.as_f64(), out.get(key).and_then(|v| v.as_f64())) else {
+        return;
+    };
+    if current.is_none_or(|c| candidate > c) {
+        out.insert(key.to_owned(), value.clone());
+    }
+}
+
+/// Keep the smallest `maxItems`.
+fn openai_merge_maximum(
+    out: &mut serde_json::Map<String, serde_json::Value>,
+    key: &str,
+    value: &serde_json::Value,
+) {
+    let (Some(candidate), current) = (value.as_f64(), out.get(key).and_then(|v| v.as_f64())) else {
+        return;
+    };
+    if current.is_none_or(|c| candidate < c) {
+        out.insert(key.to_owned(), value.clone());
+    }
+}
+
+/// Fold one `allOf` member keyword into the merged document.
+fn openai_merge_all_of_keyword(
+    out: &mut serde_json::Map<String, serde_json::Value>,
+    key: &str,
+    value: &serde_json::Value,
+    patterns: &mut Vec<String>,
+    base_keys: &std::collections::HashSet<String>,
+    member_keys: &mut std::collections::HashSet<String>,
+    ambiguous_keys: &mut std::collections::HashSet<String>,
+) {
+    match key {
+        "description" => {
+            if let Some(text) = value.as_str() {
+                openai_append_description(out, text);
+            }
+        }
+        "pattern" => {
+            if let Some(text) = value.as_str() {
+                patterns.push(text.to_owned());
+            }
+        }
+        "minimum" | "exclusiveMinimum" => openai_merge_lower_bound(out, key, value),
+        "maximum" | "exclusiveMaximum" => openai_merge_upper_bound(out, key, value),
+        "minItems" => openai_merge_minimum(out, key, value),
+        "maxItems" => openai_merge_maximum(out, key, value),
+        _ => {
+            if !OPENAI_NORMALIZABLE_ALLOF_KEYWORDS.contains(&key)
+                || base_keys.contains(key)
+                || ambiguous_keys.contains(key)
+            {
+                return;
+            }
+            if !member_keys.contains(key) {
+                out.insert(key.to_owned(), value.clone());
+                member_keys.insert(key.to_owned());
+            } else if out.get(key) != Some(value) {
+                out.remove(key);
+                member_keys.remove(key);
+                ambiguous_keys.insert(key.to_owned());
+            }
+        }
+    }
+}
+
+/// Consume `allOf`: descriptions append, patterns combine, bounds merge
+/// conservatively, and structural keywords (`properties`, `required`, ...)
+/// are dropped rather than merged with a different meaning.
+fn openai_normalize_all_of(
+    doc: &serde_json::Map<String, serde_json::Value>,
+) -> serde_json::Map<String, serde_json::Value> {
+    let Some(members) = doc.get("allOf").and_then(|v| v.as_array()) else {
+        return doc.clone();
+    };
+    let mut out = serde_json::Map::new();
+    let mut patterns: Vec<String> = Vec::new();
+    let mut base_keys = std::collections::HashSet::new();
+    for (key, value) in doc {
+        if key == "allOf" {
+            continue;
+        }
+        base_keys.insert(key.clone());
+        if key == "pattern" {
+            if let Some(text) = value.as_str() {
+                patterns.push(text.to_owned());
+            }
+        } else {
+            out.insert(key.clone(), value.clone());
+        }
+    }
+    let mut member_keys = std::collections::HashSet::new();
+    let mut ambiguous_keys = std::collections::HashSet::new();
+    for member in members {
+        let Some(member) = member.as_object() else {
+            continue;
+        };
+        for (key, value) in member {
+            openai_merge_all_of_keyword(
+                &mut out,
+                key,
+                value,
+                &mut patterns,
+                &base_keys,
+                &mut member_keys,
+                &mut ambiguous_keys,
+            );
+        }
+    }
+    let mut unique: Vec<String> = Vec::new();
+    for pattern in patterns {
+        if !unique.contains(&pattern) {
+            unique.push(pattern);
+        }
+    }
+    if unique.len() == 1 {
+        out.insert(
+            "pattern".to_owned(),
+            serde_json::Value::String(unique.into_iter().next().expect("pattern")),
+        );
+    } else if unique.len() > 1 {
+        let combined: String = unique
+            .iter()
+            .map(|source| format!("(?=[\\s\\S]*?(?:{source}))"))
+            .collect();
+        out.insert(
+            "pattern".to_owned(),
+            serde_json::Value::String(format!("^{combined}")),
+        );
+    }
+    out
+}
+
+/// Check an already-built JSON Schema document against the OpenAI root
+/// invariant: the root must have `type: "object"` and must not use `anyOf`
+/// (a union root). Anything else fails with the pin's message, which names
+/// the function and both halves of the invariant.
+pub fn validate_openai_root(doc: &serde_json::Value) -> Result<(), String> {
+    const MESSAGE: &str = "OpenAiStructuredOutput: Root JSON Schema must have type \"object\" and must not use \"anyOf\"";
+    let is_object = doc.get("type").and_then(|kind| kind.as_str()) == Some("object");
+    if is_object && doc.get("anyOf").is_none() {
+        Ok(())
+    } else {
+        Err(MESSAGE.to_owned())
+    }
+}
+
+/// Rewrite a JSON Schema document to the OpenAI structured-output subset.
+/// Child schemas rewrite bottom-up first (property *values*, never names),
+/// then `allOf` normalizes, then unsupported keywords drop.
+pub fn rewrite_openai_schema(doc: &serde_json::Value) -> serde_json::Value {
+    let Some(node) = doc.as_object() else {
+        return doc.clone();
+    };
+    let mut walked = serde_json::Map::new();
+    for (key, value) in node {
+        let rewritten = match key.as_str() {
+            "properties" | "patternProperties" => match value.as_object() {
+                Some(entries) => serde_json::Value::Object(
+                    entries
+                        .iter()
+                        .map(|(name, property)| {
+                            let rewritten = if property.is_object() {
+                                rewrite_openai_schema(property)
+                            } else {
+                                property.clone()
+                            };
+                            (name.clone(), rewritten)
+                        })
+                        .collect(),
+                ),
+                None => value.clone(),
+            },
+            "additionalProperties" | "items" | "propertyNames" => {
+                if value.is_object() {
+                    rewrite_openai_schema(value)
+                } else {
+                    value.clone()
+                }
+            }
+            "prefixItems" | "allOf" | "anyOf" | "oneOf" => match value.as_array() {
+                Some(members) => serde_json::Value::Array(
+                    members
+                        .iter()
+                        .map(|member| {
+                            if member.is_object() {
+                                rewrite_openai_schema(member)
+                            } else {
+                                member.clone()
+                            }
+                        })
+                        .collect(),
+                ),
+                None => value.clone(),
+            },
+            _ => value.clone(),
+        };
+        walked.insert(key.clone(), rewritten);
+    }
+    let normalized = openai_normalize_all_of(&walked);
+    let doc_type = normalized
+        .get("type")
+        .cloned()
+        .unwrap_or(serde_json::Value::Null);
+    let mut out = serde_json::Map::new();
+    let mut unsupported_format: Option<String> = None;
+    for (key, value) in &normalized {
+        if key == "format" {
+            let supported = value
+                .as_str()
+                .is_some_and(|format| OPENAI_SUPPORTED_FORMATS.contains(&format))
+                && openai_keyword_supports_type(key, &doc_type);
+            if supported {
+                out.insert(key.clone(), value.clone());
+            } else if let Some(format) = value.as_str() {
+                unsupported_format = Some(format.to_owned());
+            }
+            continue;
+        }
+        if !OPENAI_SUPPORTED_KEYWORDS.contains(&key.as_str()) {
+            continue;
+        }
+        if !openai_keyword_supports_type(key, &doc_type) {
+            continue;
+        }
+        if key == "additionalProperties" && value != &serde_json::Value::Bool(false) {
+            continue;
+        }
+        out.insert(key.clone(), value.clone());
+    }
+    if let Some(format) = unsupported_format {
+        openai_append_description(&mut out, &format!("a value with a format of {format}"));
+    }
+    if out.get("type") == Some(&serde_json::Value::String("object".to_owned()))
+        && !out.contains_key("properties")
+        && out.get("additionalProperties") == Some(&serde_json::Value::Bool(false))
+    {
+        out.insert(
+            "properties".to_owned(),
+            serde_json::Value::Object(serde_json::Map::new()),
+        );
+    }
+    serde_json::Value::Object(out)
+}
+
+// --- Anthropic structured-output rewrite port (`ai/AnthropicStructuredOutput.ts` at the pin) ---
+//
+// Same layering as the OpenAI port: only the JSON Schema rewrite is
+// representable here. The codec transform (tuple/record/optional lowering),
+// Suspend resolution, reference-cycle rejection, and property-name validation
+// live in schema-compiler machinery this crate does not have. Anthropic
+// differences from the OpenAI subset: `uri` is a supported format, `allOf`
+// is kept (member descriptions/formats/titles hoist out, `pattern` members
+// drop when the parent is not a string), `const` is kept, numeric and array
+// bounds have no keywords at all, and no empty `properties: {}` is added
+// beside `additionalProperties: false`. `$defs` values rewrite the way the
+// pin's `Rec.map(document.definitions, rewriteAnthropic)` does.
+
+/// Keywords Anthropic structured output accepts.
+const ANTHROPIC_SUPPORTED_KEYWORDS: &[&str] = &[
+    "$ref",
+    "type",
+    "title",
+    "description",
+    "enum",
+    "const",
+    "anyOf",
+    "allOf",
+    "properties",
+    "required",
+    "additionalProperties",
+    "items",
+    "pattern",
+];
+
+/// `format` values Anthropic structured output accepts (`uri` is Anthropic-only).
+const ANTHROPIC_SUPPORTED_FORMATS: &[&str] = &[
+    "date-time",
+    "time",
+    "date",
+    "duration",
+    "email",
+    "hostname",
+    "uri",
+    "ipv4",
+    "ipv6",
+    "uuid",
+];
+
+/// Hoist member descriptions/formats/titles out of `allOf`, dropping `pattern`
+/// members when the parent is not a string. Members left empty disappear, and
+/// an emptied `allOf` disappears with them.
+fn anthropic_hoist_all_of_descriptions(
+    doc: &serde_json::Map<String, serde_json::Value>,
+) -> serde_json::Map<String, serde_json::Value> {
+    let Some(members) = doc.get("allOf").and_then(|v| v.as_array()) else {
+        return doc.clone();
+    };
+    let parent_type = doc.get("type").and_then(|v| v.as_str());
+    let mut out = serde_json::Map::new();
+    for (key, value) in doc {
+        if key != "allOf" {
+            out.insert(key.clone(), value.clone());
+        }
+    }
+    let mut kept = Vec::new();
+    for member in members {
+        let Some(member) = member.as_object() else {
+            continue;
+        };
+        let mut rest = serde_json::Map::new();
+        for (key, value) in member {
+            match key.as_str() {
+                "description" => {
+                    if let Some(text) = value.as_str() {
+                        openai_append_description(&mut out, text);
+                    }
+                }
+                "format" => {
+                    if out.get("format").is_none() && value.as_str().is_some() {
+                        out.insert("format".to_owned(), value.clone());
+                    }
+                }
+                "title" => {
+                    if out.get("title").is_none() && value.as_str().is_some() {
+                        out.insert("title".to_owned(), value.clone());
+                    }
+                }
+                _ => {
+                    rest.insert(key.clone(), value.clone());
+                }
+            }
+        }
+        if parent_type.is_some_and(|kind| kind != "string") {
+            rest.remove("pattern");
+        }
+        if !rest.is_empty() {
+            kept.push(serde_json::Value::Object(rest));
+        }
+    }
+    if !kept.is_empty() {
+        out.insert("allOf".to_owned(), serde_json::Value::Array(kept));
+    }
+    out
+}
+
+/// Rewrite a JSON Schema document to the Anthropic structured-output subset.
+/// Children rewrite bottom-up first (property values, `allOf`/`anyOf`/`oneOf`
+/// members, `$defs` values, never property names), then `allOf` descriptions
+/// hoist, then unsupported keywords drop.
+pub fn rewrite_anthropic_schema(doc: &serde_json::Value) -> serde_json::Value {
+    let Some(node) = doc.as_object() else {
+        return doc.clone();
+    };
+    let mut walked = serde_json::Map::new();
+    for (key, value) in node {
+        let rewritten = match key.as_str() {
+            "properties" | "patternProperties" | "$defs" => match value.as_object() {
+                Some(entries) => serde_json::Value::Object(
+                    entries
+                        .iter()
+                        .map(|(name, property)| {
+                            let rewritten = if property.is_object() {
+                                rewrite_anthropic_schema(property)
+                            } else {
+                                property.clone()
+                            };
+                            (name.clone(), rewritten)
+                        })
+                        .collect(),
+                ),
+                None => value.clone(),
+            },
+            "additionalProperties" | "items" | "propertyNames" => {
+                if value.is_object() {
+                    rewrite_anthropic_schema(value)
+                } else {
+                    value.clone()
+                }
+            }
+            "prefixItems" | "allOf" | "anyOf" | "oneOf" => match value.as_array() {
+                Some(members) => serde_json::Value::Array(
+                    members
+                        .iter()
+                        .map(|member| {
+                            if member.is_object() {
+                                rewrite_anthropic_schema(member)
+                            } else {
+                                member.clone()
+                            }
+                        })
+                        .collect(),
+                ),
+                None => value.clone(),
+            },
+            _ => value.clone(),
+        };
+        walked.insert(key.clone(), rewritten);
+    }
+    let normalized = anthropic_hoist_all_of_descriptions(&walked);
+    let defs = normalized.get("$defs").cloned();
+    let doc_type = normalized
+        .get("type")
+        .cloned()
+        .unwrap_or(serde_json::Value::Null);
+    let mut out = serde_json::Map::new();
+    let mut unsupported_format: Option<String> = None;
+    for (key, value) in &normalized {
+        if key == "$defs" {
+            continue;
+        }
+        if key == "format" {
+            let supported = value.as_str().is_some_and(|format| {
+                ANTHROPIC_SUPPORTED_FORMATS.contains(&format)
+                    && (doc_type.is_null()
+                        || doc_type == serde_json::Value::String("string".to_owned()))
+            });
+            if supported {
+                out.insert(key.clone(), value.clone());
+            } else if let Some(format) = value.as_str() {
+                unsupported_format = Some(format.to_owned());
+            }
+            continue;
+        }
+        if !ANTHROPIC_SUPPORTED_KEYWORDS.contains(&key.as_str()) {
+            continue;
+        }
+        if key == "additionalProperties" && value != &serde_json::Value::Bool(false) {
+            continue;
+        }
+        out.insert(key.clone(), value.clone());
+    }
+    if let Some(format) = unsupported_format {
+        openai_append_description(&mut out, &format!("a value with a format of {format}"));
+    }
+    if let Some(defs) = defs {
+        out.insert("$defs".to_owned(), defs);
+    }
+    serde_json::Value::Object(out)
+}
+
+// --- Decision port (`ai/Decision.ts` + `ai/DecisionModel.ts` at the pin) ---
+//
+// Only the decision algebra is representable here. The `Schema` half (input
+// codecs, `FiniteFromString`, `toCodecJson`, encoding services,
+// `Model.make` provider metadata) has no counterpart in this crate: the
+// caller encodes its input to JSON (fallibly via [`decide_encoded`]) and the
+// provider sees that JSON as `state`. `decide` answers every decision in one
+// provider call and validates each answer; failures are `AiError`s.
+
+/// Classification decision: one label out of `criteria` (label, description).
+#[derive(Clone, Debug, PartialEq)]
+pub struct ClassifyDecision {
+    /// What the decision is about.
+    pub instructions: String,
+    /// Labels with their descriptions.
+    pub criteria: Vec<(String, String)>,
+}
+
+/// Rating decision: an ordered scale, lowest level first.
+#[derive(Clone, Debug, PartialEq)]
+pub struct RateDecision {
+    /// What the decision is about.
+    pub instructions: String,
+    /// Levels from lowest to highest.
+    pub criteria: Vec<String>,
+}
+
+/// Probability decision with optional outcome descriptions (`false`, `true`).
+#[derive(Clone, Debug, PartialEq)]
+pub struct ProbabilityDecision {
+    /// What the decision is about.
+    pub instructions: String,
+    /// Outcome descriptions, when supplied.
+    pub criteria: Option<(String, String)>,
+}
+
+/// Union of every decision kind.
+#[derive(Clone, Debug, PartialEq)]
+pub enum Decision {
+    /// Unordered label choice.
+    Classify(ClassifyDecision),
+    /// Ordered scale placement.
+    Rate(RateDecision),
+    /// Likelihood of a statement.
+    Probability(ProbabilityDecision),
+}
+
+impl Decision {
+    /// Decision kind tag (`"Classify"`, `"Rate"`, `"Probability"`).
+    pub fn tag(&self) -> &'static str {
+        match self {
+            Self::Classify(_) => "Classify",
+            Self::Rate(_) => "Rate",
+            Self::Probability(_) => "Probability",
+        }
+    }
+
+    /// What the decision is about.
+    pub fn instructions(&self) -> &str {
+        match self {
+            Self::Classify(decision) => &decision.instructions,
+            Self::Rate(decision) => &decision.instructions,
+            Self::Probability(decision) => &decision.instructions,
+        }
+    }
+
+    /// Classification over at least two labels; fewer is an error.
+    pub fn classify(instructions: &str, criteria: &[(&str, &str)]) -> Result<Self, String> {
+        if criteria.len() < 2 {
+            return Err("Decision.classify: criteria must contain at least two labels".to_owned());
+        }
+        Ok(Self::Classify(ClassifyDecision {
+            instructions: instructions.to_owned(),
+            criteria: criteria
+                .iter()
+                .map(|(label, description)| ((*label).to_owned(), (*description).to_owned()))
+                .collect(),
+        }))
+    }
+
+    /// Rating over at least two distinct levels; fewer or duplicates error.
+    pub fn rate(instructions: &str, criteria: &[&str]) -> Result<Self, String> {
+        if criteria.len() < 2 {
+            return Err("Decision.rate: criteria must contain at least two levels".to_owned());
+        }
+        let mut distinct = criteria.to_vec();
+        distinct.sort_unstable();
+        distinct.dedup();
+        if distinct.len() != criteria.len() {
+            return Err("Decision.rate: criteria must contain distinct levels".to_owned());
+        }
+        Ok(Self::Rate(RateDecision {
+            instructions: instructions.to_owned(),
+            criteria: criteria.iter().map(|level| (*level).to_owned()).collect(),
+        }))
+    }
+
+    /// Probability with optional outcome descriptions; `None` is no criteria.
+    pub fn probability(instructions: &str, criteria: Option<(&str, &str)>) -> Self {
+        Self::Probability(ProbabilityDecision {
+            instructions: instructions.to_owned(),
+            criteria: criteria.map(|(no, yes)| (no.to_owned(), yes.to_owned())),
+        })
+    }
+}
+
+/// Input decisions answered together in one provider call, in order.
+#[derive(Clone, Debug, PartialEq)]
+pub struct DecisionDefinition {
+    /// Named decisions; empty is an error.
+    pub decisions: Vec<(String, Decision)>,
+}
+
+impl DecisionDefinition {
+    /// Build from named decisions; empty is an error.
+    pub fn new(decisions: Vec<(String, Decision)>) -> Result<Self, String> {
+        if decisions.is_empty() {
+            return Err("Decision.make: decisions must not be empty".to_owned());
+        }
+        Ok(Self { decisions })
+    }
+}
+
+/// Provider answer for a classify decision.
+#[derive(Clone, Debug, PartialEq)]
+pub enum ProviderAnswer {
+    /// Provider-chosen label plus its distribution and optional confidence.
+    Classify {
+        /// Chosen label; kept even when it is not the argmax.
+        label: String,
+        /// Probability per label.
+        probabilities: HashMap<String, f64>,
+        /// Provider-defined measure in `[0, 1]`, when reported.
+        confidence: Option<f64>,
+    },
+    /// Rating plus its distribution and optional confidence. The core derives
+    /// the label from the highest probability (first criteria entry on ties),
+    /// so this answer carries no label.
+    Rate {
+        /// Position on the scale, within `[0, criteria.len() - 1]`.
+        rating: f64,
+        /// Probability per level.
+        probabilities: HashMap<String, f64>,
+        /// Provider-defined measure in `[0, 1]`, when reported.
+        confidence: Option<f64>,
+    },
+    /// Probability of `true`.
+    Probability {
+        /// Likelihood in `[0, 1]`.
+        probability: f64,
+    },
+}
+
+impl ProviderAnswer {
+    /// Answer kind tag, matching the decision tag it answers.
+    pub fn tag(&self) -> &'static str {
+        match self {
+            Self::Classify { .. } => "Classify",
+            Self::Rate { .. } => "Rate",
+            Self::Probability { .. } => "Probability",
+        }
+    }
+}
+
+/// Validated answer to a classify decision.
+#[derive(Clone, Debug, PartialEq)]
+pub struct ClassifyAnswer {
+    /// Provider-chosen label.
+    pub label: String,
+    /// Validated probability per label.
+    pub probabilities: HashMap<String, f64>,
+    /// Validated confidence, when the provider reported one.
+    pub confidence: Option<f64>,
+}
+
+/// Validated answer to a rate decision.
+#[derive(Clone, Debug, PartialEq)]
+pub struct RateAnswer {
+    /// Provider rating, echoed back.
+    pub rating: f64,
+    /// Level with the highest probability (first criteria entry on ties).
+    pub label: String,
+    /// Validated probability per level.
+    pub probabilities: HashMap<String, f64>,
+    /// Validated confidence, when the provider reported one.
+    pub confidence: Option<f64>,
+}
+
+/// Validated answer to a probability decision.
+#[derive(Clone, Debug, PartialEq)]
+pub struct ProbabilityAnswer {
+    /// Validated likelihood.
+    pub probability: f64,
+}
+
+/// Validated answer to a single decision.
+#[derive(Clone, Debug, PartialEq)]
+pub enum DecisionAnswer {
+    /// Classification answer.
+    Classify(ClassifyAnswer),
+    /// Rating answer.
+    Rate(RateAnswer),
+    /// Probability answer.
+    Probability(ProbabilityAnswer),
+}
+
+/// Token usage reported by the provider; `None` is the tag's `undefined`.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct DecisionUsage {
+    /// Input tokens billed, when reported.
+    pub input_tokens: Option<f64>,
+    /// Output tokens billed, when reported.
+    pub output_tokens: Option<f64>,
+}
+
+impl DecisionUsage {
+    /// Encode to the wire shape, omitting undefined counts.
+    pub fn to_json(&self) -> serde_json::Value {
+        let mut out = serde_json::Map::new();
+        if let Some(tokens) = self.input_tokens {
+            out.insert("inputTokens".to_owned(), serde_json::Value::from(tokens));
+        }
+        if let Some(tokens) = self.output_tokens {
+            out.insert("outputTokens".to_owned(), serde_json::Value::from(tokens));
+        }
+        serde_json::Value::Object(out)
+    }
+
+    /// Decode from the wire shape; missing or null counts are `None`.
+    pub fn from_json(value: &serde_json::Value) -> Option<Self> {
+        let count = |key: &str| match value.get(key) {
+            None | Some(serde_json::Value::Null) => Some(None),
+            Some(tokens) => tokens.as_f64().map(Some),
+        };
+        Some(Self {
+            input_tokens: count("inputTokens")?,
+            output_tokens: count("outputTokens")?,
+        })
+    }
+}
+
+/// Provider input: the JSON-encoded input plus every decision in one call.
+#[derive(Debug)]
+pub struct ProviderOptions<'a> {
+    /// Encoded input.
+    pub state: serde_json::Value,
+    /// Every decision the provider must answer.
+    pub decisions: &'a [(String, Decision)],
+}
+
+/// Provider response: one answer per decision plus usage.
+#[derive(Clone, Debug, PartialEq)]
+pub struct DecisionProviderResponse {
+    /// Answers keyed like the requested decisions.
+    pub answers: HashMap<String, ProviderAnswer>,
+    /// Usage the provider reported.
+    pub usage: DecisionUsage,
+}
+
+/// Answers for every decision in a definition plus usage metadata.
+#[derive(Clone, Debug, PartialEq)]
+pub struct DecideResponse {
+    /// Validated answers keyed by decision name.
+    pub answers: HashMap<String, DecisionAnswer>,
+    /// Usage the provider reported.
+    pub usage: DecisionUsage,
+}
+
+/// Distributions must sum to 1 within this drift; larger drift fails.
+const DECISION_SUM_TOLERANCE: f64 = 1e-6;
+
+fn decision_invalid_output(description: String) -> AiError {
+    AiError::new(AiReason::InvalidOutput {
+        details: description,
+    })
+    .with_context("DecisionModel", "decide")
+}
+
+fn is_unit_interval(value: f64) -> bool {
+    value.is_finite() && value >= 0.0 && value <= 1.0
+}
+
+fn validate_confidence(key: &str, confidence: Option<f64>) -> Result<Option<f64>, AiError> {
+    match confidence {
+        None => Ok(None),
+        Some(value) if is_unit_interval(value) => Ok(Some(value)),
+        Some(_) => Err(decision_invalid_output(format!(
+            "Provider returned confidence outside [0, 1] for decision \"{key}\""
+        ))),
+    }
+}
+
+fn validate_distribution(
+    key: &str,
+    labels: &[String],
+    probabilities: &HashMap<String, f64>,
+) -> Result<HashMap<String, f64>, AiError> {
+    let mut validated = HashMap::new();
+    let mut total = 0.0;
+    for label in labels {
+        match probabilities.get(label) {
+            Some(value) if is_unit_interval(*value) => {
+                validated.insert(label.clone(), *value);
+                total += *value;
+            }
+            _ => {
+                return Err(decision_invalid_output(format!(
+                    "Provider returned no probability for label \"{label}\" of decision \"{key}\""
+                )));
+            }
+        }
+    }
+    if total == 0.0 || (total - 1.0).abs() > DECISION_SUM_TOLERANCE {
+        return Err(decision_invalid_output(format!(
+            "Provider returned probabilities that do not sum to 1 for decision \"{key}\""
+        )));
+    }
+    Ok(validated)
+}
+
+fn validate_answer(
+    key: &str,
+    decision: &Decision,
+    answer: &ProviderAnswer,
+) -> Result<DecisionAnswer, AiError> {
+    if answer.tag() != decision.tag() {
+        return Err(decision_invalid_output(format!(
+            "Provider returned a \"{}\" answer for decision \"{key}\", expected \"{}\"",
+            answer.tag(),
+            decision.tag()
+        )));
+    }
+    match (decision, answer) {
+        (
+            Decision::Classify(decision),
+            ProviderAnswer::Classify {
+                label,
+                probabilities,
+                confidence,
+            },
+        ) => {
+            let labels: Vec<String> = decision
+                .criteria
+                .iter()
+                .map(|(label, _)| label.clone())
+                .collect();
+            if !labels.contains(label) {
+                return Err(decision_invalid_output(format!(
+                    "Provider returned an unknown label for decision \"{key}\""
+                )));
+            }
+            Ok(DecisionAnswer::Classify(ClassifyAnswer {
+                label: label.clone(),
+                probabilities: validate_distribution(key, &labels, probabilities)?,
+                confidence: validate_confidence(key, *confidence)?,
+            }))
+        }
+        (
+            Decision::Rate(decision),
+            ProviderAnswer::Rate {
+                rating,
+                probabilities,
+                confidence,
+            },
+        ) => {
+            let top = decision.criteria.len() as f64 - 1.0;
+            if !rating.is_finite() || *rating < 0.0 || *rating > top {
+                return Err(decision_invalid_output(format!(
+                    "Provider returned a rating outside [0, {top}] for decision \"{key}\""
+                )));
+            }
+            let probabilities = validate_distribution(key, &decision.criteria, probabilities)?;
+            let mut label = decision.criteria[0].clone();
+            for level in &decision.criteria[1..] {
+                if probabilities[level] > probabilities[&label] {
+                    label = level.clone();
+                }
+            }
+            Ok(DecisionAnswer::Rate(RateAnswer {
+                rating: *rating,
+                label,
+                probabilities,
+                confidence: validate_confidence(key, *confidence)?,
+            }))
+        }
+        (Decision::Probability(_), ProviderAnswer::Probability { probability }) => {
+            if !is_unit_interval(*probability) {
+                return Err(decision_invalid_output(format!(
+                    "Provider returned a probability outside [0, 1] for decision \"{key}\""
+                )));
+            }
+            Ok(DecisionAnswer::Probability(ProbabilityAnswer {
+                probability: *probability,
+            }))
+        }
+        _ => Err(decision_invalid_output(format!(
+            "Provider returned a \"{}\" answer for decision \"{key}\", expected \"{}\"",
+            answer.tag(),
+            decision.tag()
+        ))),
+    }
+}
+
+/// Decision operations over a definition: encodes nothing itself (the caller
+/// supplies JSON `state`), calls the provider once, and validates answers.
+pub struct DecisionModel {
+    decide_fn:
+        Box<dyn Fn(ProviderOptions<'_>) -> Result<DecisionProviderResponse, AiError> + Send + Sync>,
+}
+
+impl DecisionModel {
+    /// Build from a provider `decide` function.
+    pub fn new(
+        decide: impl Fn(ProviderOptions<'_>) -> Result<DecisionProviderResponse, AiError>
+        + Send
+        + Sync
+        + 'static,
+    ) -> Self {
+        Self {
+            decide_fn: Box::new(decide),
+        }
+    }
+
+    /// Answer a definition for JSON `state`: one provider call, then per
+    /// decision validation. Missing answers and invalid answers fail with
+    /// `InvalidOutputError`.
+    pub fn decide(
+        &self,
+        definition: &DecisionDefinition,
+        state: serde_json::Value,
+    ) -> Result<DecideResponse, AiError> {
+        let response = (self.decide_fn)(ProviderOptions {
+            state,
+            decisions: &definition.decisions,
+        })?;
+        let mut answers = HashMap::new();
+        for (key, decision) in &definition.decisions {
+            match response.answers.get(key) {
+                None => {
+                    return Err(decision_invalid_output(format!(
+                        "Provider returned no answer for decision \"{key}\""
+                    )));
+                }
+                Some(answer) => {
+                    answers.insert(key.clone(), validate_answer(key, decision, answer)?);
+                }
+            }
+        }
+        Ok(DecideResponse {
+            answers,
+            usage: response.usage,
+        })
+    }
+}
+
+/// Answer a decision definition through a model (the method's free-function
+/// form; both answer identically).
+pub fn decide(
+    model: &DecisionModel,
+    definition: &DecisionDefinition,
+    state: serde_json::Value,
+) -> Result<DecideResponse, AiError> {
+    model.decide(definition, state)
+}
+
+/// Answer a definition from a raw input through a fallible encoder.
+/// Encoding failures become `InvalidUserInputError` before the provider runs.
+pub fn decide_encoded<Input>(
+    model: &DecisionModel,
+    definition: &DecisionDefinition,
+    input: &Input,
+    encode: impl Fn(&Input) -> Result<serde_json::Value, String>,
+) -> Result<DecideResponse, AiError> {
+    match encode(input) {
+        Ok(state) => model.decide(definition, state),
+        Err(message) => Err(
+            AiError::new(AiReason::InvalidUserInput { details: message })
+                .with_context("DecisionModel", "decide"),
+        ),
+    }
+}
+
+// --- LanguageModel tool-call resolution lifecycle (`ai/LanguageModel.ts` at the pin) ---
+//
+// The sync surface cannot run fibers, latches, or TestClock-delayed handlers,
+// so the port covers the gating contract: non-`"stop"` finish reasons never
+// start handlers and synthesize an `execution-interrupted` failure, missing
+// params fail `InvalidOutput` before handlers run, and resolved approval
+// artifacts strip before the tracker sees the prompt.
+
+/// Whether `reason` truncates tool execution (`"stop"` is the only complete finish).
+pub fn is_incomplete_finish(reason: &str) -> bool {
+    reason != "stop"
+}
+
+/// Synthesize the `execution-interrupted` failure result for `reason`.
+pub fn interrupted_result_json(reason: &str) -> serde_json::Value {
+    serde_json::json!({
+        "type": "execution-interrupted",
+        "reason": format!(
+            "Tool call execution was interrupted because the response finished with reason \"{reason}\""
+        ),
+    })
+}
+
+/// Build the `execution-denied` failure result for a denied approval.
+pub fn denial_result_json(reason: &str) -> serde_json::Value {
+    serde_json::json!({
+        "type": "execution-denied",
+        "reason": reason,
+    })
+}
+
+/// Require a params payload: `None` (the tag's missing field) is `InvalidOutputError`.
+pub fn validate_tool_params_present(params: Option<&str>) -> Result<(), AiError> {
+    match params {
+        Some(_) => Ok(()),
+        None => Err(AiError::new(AiReason::InvalidOutput {
+            details: "missing tool call params".to_owned(),
+        })),
+    }
+}
+
+/// Strip approval artifacts whose ids resolved, preserving unresolved requests
+/// and every tool call/result. Assistant/tool messages left empty are dropped.
+pub fn strip_resolved_approvals(
+    prompt: &[TrackMessage],
+    resolved_ids: &[String],
+) -> Vec<TrackMessage> {
+    let mut stripped: Vec<TrackMessage> = Vec::new();
+    for message in prompt {
+        match message.role {
+            TrackRole::Assistant => {
+                let kept: Vec<TrackPart> = message
+                    .parts
+                    .iter()
+                    .filter(|p| match p {
+                        TrackPart::ApprovalRequest { approval_id, .. } => {
+                            !resolved_ids.contains(approval_id)
+                        }
+                        _ => true,
+                    })
+                    .cloned()
+                    .collect();
+                if !kept.is_empty() {
+                    stripped.push(TrackMessage {
+                        uid: message.uid,
+                        role: message.role.clone(),
+                        parts: kept,
+                    });
+                }
+            }
+            TrackRole::Tool => {
+                let kept: Vec<TrackPart> = message
+                    .parts
+                    .iter()
+                    .filter(|p| match p {
+                        TrackPart::ApprovalResponse { approval_id, .. } => {
+                            !resolved_ids.contains(approval_id)
+                        }
+                        _ => true,
+                    })
+                    .cloned()
+                    .collect();
+                if !kept.is_empty() {
+                    stripped.push(TrackMessage {
+                        uid: message.uid,
+                        role: message.role.clone(),
+                        parts: kept,
+                    });
+                }
+            }
+            _ => stripped.push(message.clone()),
+        }
+    }
+    stripped
 }

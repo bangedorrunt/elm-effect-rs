@@ -5,7 +5,7 @@
 //! description). A clean typed failure carries `Reason::Fail`; that is what
 //! these rows assert on.
 
-use elm_effect::{Effect, Exit, ManagedRuntime, Reason};
+use elm_effect::{Cause, Effect, Exit, ManagedRuntime, Reason, Squash};
 
 fn run<A: Send + 'static>(effect: Effect<A, String, ()>) -> Exit<A, String> {
     ManagedRuntime::new().run(effect)
@@ -327,4 +327,254 @@ fn run_of_a_synchronous_effect_completes_without_spawning() {
         .fork_detach(|_| Exit::<(), std::convert::Infallible>::succeed(()))
         .join();
     assert!(matches!(exit, Exit::Success(())));
+}
+
+// ---------------------------------------------------------------------------
+// conditional taps and finalizers (Effect.test.ts describes tapCauseIf,
+// onErrorIf, onExitIf: :3496-:3662)
+//
+// The pin's filters select a cause or exit with a `Result`; the port's
+// selectors return `std::result::Result` the same way. Every finalizer in
+// these rows is `Effect.sync`, i.e. a plain side effect, which is the
+// closure the port's `on_exit` family takes (see `ensuring`'s note on why
+// the finalizer is not an effect here).
+// ---------------------------------------------------------------------------
+
+/// `Cause.squash` on a Fail-only cause is the failure itself.
+fn squash_fail(cause: &Cause<String>) -> String {
+    match cause.squash() {
+        Squash::Fail(e) => e,
+        other => panic!("expected a Fail cause, got {other:?}"),
+    }
+}
+
+#[test]
+fn tap_cause_filter_match_taps_and_re_raises_the_cause() {
+    // Effect.test.ts :3496 "filter match taps" — the filter's pass value
+    // carries the cause to the observer; the original failure is re-raised
+    // untouched.
+    let tapped = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+    let mark = tapped.clone();
+    let effect: Effect<u32, String, ()> =
+        Effect::<u32, String>::fail("e1".to_string()).tap_cause_filter(
+            |cause: &Cause<String>| -> std::result::Result<Cause<String>, ()> { Ok(cause.clone()) },
+            move |_pass, cause| mark.lock().unwrap().push(squash_fail(cause)),
+        );
+    match run(effect) {
+        Exit::Failure(cause) => assert_eq!(cause.failure(), Some(&"e1".to_string())),
+        Exit::Success(_) => panic!("expected the re-raised failure"),
+    }
+    assert_eq!(*tapped.lock().unwrap(), ["e1".to_string()]);
+}
+
+#[test]
+fn tap_cause_filter_no_match_skips_the_tap() {
+    // Effect.test.ts :3509 "filter no match skips tap" — an `Err` from the
+    // filter skips the observer and preserves the cause.
+    let tapped = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+    let mark = tapped.clone();
+    let effect: Effect<u32, String, ()> =
+        Effect::<u32, String>::fail("e1".to_string()).tap_cause_filter(
+            |_cause: &Cause<String>| -> std::result::Result<(), ()> { Err(()) },
+            move |_pass, _cause| mark.lock().unwrap().push("tapped".to_string()),
+        );
+    match run(effect) {
+        Exit::Failure(cause) => assert_eq!(cause.failure(), Some(&"e1".to_string())),
+        Exit::Success(_) => panic!("expected the re-raised failure"),
+    }
+    assert!(tapped.lock().unwrap().is_empty(), "no tap may run");
+}
+
+#[test]
+fn tap_cause_if_predicate_match_taps_the_cause() {
+    // Effect.test.ts :3522 "predicate match taps" — `Cause.hasFails` admits
+    // the failure, so the observer sees the squashed cause.
+    let tapped = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+    let mark = tapped.clone();
+    let effect: Effect<u32, String, ()> =
+        Effect::<u32, String>::fail("e1".to_string()).tap_cause_if(
+            |cause: &Cause<String>| cause.has_fails(),
+            move |cause| mark.lock().unwrap().push(squash_fail(cause)),
+        );
+    match run(effect) {
+        Exit::Failure(cause) => assert_eq!(cause.failure(), Some(&"e1".to_string())),
+        Exit::Success(_) => panic!("expected the re-raised failure"),
+    }
+    assert_eq!(*tapped.lock().unwrap(), ["e1".to_string()]);
+}
+
+#[test]
+fn tap_cause_if_predicate_no_match_skips_the_tap() {
+    // Effect.test.ts :3535 "predicate no match skips tap".
+    let tapped = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+    let mark = tapped.clone();
+    let effect: Effect<u32, String, ()> = Effect::<u32, String>::fail("e1".to_string()).tap_cause_if(
+        |_cause: &Cause<String>| false,
+        move |_cause| mark.lock().unwrap().push("tapped".to_string()),
+    );
+    match run(effect) {
+        Exit::Failure(cause) => assert_eq!(cause.failure(), Some(&"e1".to_string())),
+        Exit::Success(_) => panic!("expected the re-raised failure"),
+    }
+    assert!(tapped.lock().unwrap().is_empty(), "no tap may run");
+}
+
+#[test]
+fn tap_cause_if_success_skips_the_tap() {
+    // Effect.test.ts :3548 "success skips tap" — a success never presents a
+    // cause, and its value passes through unchanged.
+    let tapped = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+    let mark = tapped.clone();
+    let effect: Effect<u32, String, ()> = Effect::<u32, String>::succeed(42).tap_cause_if(
+        |_cause: &Cause<String>| true,
+        move |_cause| mark.lock().unwrap().push("tapped".to_string()),
+    );
+    assert!(matches!(run(effect), Exit::Success(42)));
+    assert!(tapped.lock().unwrap().is_empty(), "a success has no cause to tap");
+}
+
+#[test]
+fn on_error_if_predicate_match_runs_the_finalizer() {
+    // Effect.test.ts :3562 "predicate match runs finalizer" — the finalizer
+    // sees the cause and the failure is re-raised unchanged.
+    let finalized = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+    let mark = finalized.clone();
+    let effect: Effect<u32, String, ()> =
+        Effect::<u32, String>::fail("e1".to_string()).on_error_if(
+            |cause: &Cause<String>| cause.has_fails(),
+            move |cause| mark.lock().unwrap().push(squash_fail(cause)),
+        );
+    match run(effect) {
+        Exit::Failure(cause) => assert_eq!(cause.failure(), Some(&"e1".to_string())),
+        Exit::Success(_) => panic!("expected the re-raised failure"),
+    }
+    assert_eq!(*finalized.lock().unwrap(), ["e1".to_string()]);
+}
+
+#[test]
+fn on_error_if_predicate_no_match_skips_the_finalizer() {
+    // Effect.test.ts :3575 "predicate no match skips finalizer".
+    let finalized = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+    let mark = finalized.clone();
+    let effect: Effect<u32, String, ()> = Effect::<u32, String>::fail("e1".to_string()).on_error_if(
+        |_cause: &Cause<String>| false,
+        move |_cause| mark.lock().unwrap().push("finalized".to_string()),
+    );
+    match run(effect) {
+        Exit::Failure(cause) => assert_eq!(cause.failure(), Some(&"e1".to_string())),
+        Exit::Success(_) => panic!("expected the re-raised failure"),
+    }
+    assert!(finalized.lock().unwrap().is_empty(), "no finalizer may run");
+}
+
+#[test]
+fn on_error_filter_match_runs_the_finalizer_with_the_pass_value() {
+    // Effect.test.ts :3588 "filter match runs finalizer" — `Cause.findError`
+    // extracts the typed failure and hands it to the finalizer.
+    let finalized = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+    let mark = finalized.clone();
+    let effect: Effect<u32, String, ()> =
+        Effect::<u32, String>::fail("e1".to_string()).on_error_filter(
+            |cause: &Cause<String>| cause.find_error().cloned().ok_or(()),
+            move |error, _cause| mark.lock().unwrap().push(error),
+        );
+    match run(effect) {
+        Exit::Failure(cause) => assert_eq!(cause.failure(), Some(&"e1".to_string())),
+        Exit::Success(_) => panic!("expected the re-raised failure"),
+    }
+    assert_eq!(*finalized.lock().unwrap(), ["e1".to_string()]);
+}
+
+#[test]
+fn on_error_if_success_skips_the_finalizer() {
+    // Effect.test.ts :3601 "success skips finalizer" — a success is not an
+    // error, so the typed-error finalizer stays out of the way.
+    let finalized = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+    let mark = finalized.clone();
+    let effect: Effect<u32, String, ()> = Effect::<u32, String>::succeed(42).on_error_if(
+        |_cause: &Cause<String>| true,
+        move |_cause| mark.lock().unwrap().push("finalized".to_string()),
+    );
+    assert!(matches!(run(effect), Exit::Success(42)));
+    assert!(finalized.lock().unwrap().is_empty(), "a success finalizes nothing");
+}
+
+#[test]
+fn on_exit_if_match_on_success_runs_the_finalizer() {
+    // Effect.test.ts :3615 "predicate match on success runs finalizer" —
+    // `Exit.isSuccess` admits the success exit and the finalizer sees it.
+    let finalized = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+    let mark = finalized.clone();
+    let effect: Effect<u32, String, ()> = Effect::<u32, String>::succeed(42).on_exit_if(
+        |exit: &Exit<u32, String>| exit.is_success(),
+        move |exit| {
+            if let Exit::Success(value) = exit {
+                mark.lock().unwrap().push(format!("success:{value}"));
+            }
+        },
+    );
+    assert!(matches!(run(effect), Exit::Success(42)));
+    assert_eq!(*finalized.lock().unwrap(), ["success:42".to_string()]);
+}
+
+#[test]
+fn on_exit_if_no_match_on_failure_skips_the_finalizer() {
+    // Effect.test.ts :3631 "predicate no match on failure skips finalizer".
+    let finalized = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+    let mark = finalized.clone();
+    let effect: Effect<u32, String, ()> = Effect::<u32, String>::fail("e1".to_string()).on_exit_if(
+        |exit: &Exit<u32, String>| exit.is_success(),
+        move |_exit| mark.lock().unwrap().push("finalized".to_string()),
+    );
+    match run(effect) {
+        Exit::Failure(cause) => assert_eq!(cause.failure(), Some(&"e1".to_string())),
+        Exit::Success(_) => panic!("expected the failure"),
+    }
+    assert!(finalized.lock().unwrap().is_empty(), "no finalizer may run");
+}
+
+#[test]
+fn on_exit_if_match_on_failure_runs_the_finalizer() {
+    // Effect.test.ts :3644 "predicate match on failure runs finalizer" —
+    // `Exit.isFailure` admits the failure exit; the finalizer records the
+    // squashed cause.
+    let finalized = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+    let mark = finalized.clone();
+    let effect: Effect<u32, String, ()> = Effect::<u32, String>::fail("e1".to_string()).on_exit_if(
+        |exit: &Exit<u32, String>| !exit.is_success(),
+        move |exit| {
+            if let Exit::Failure(cause) = exit {
+                mark.lock().unwrap().push(format!("failure:{}", squash_fail(cause)));
+            }
+        },
+    );
+    match run(effect) {
+        Exit::Failure(cause) => assert_eq!(cause.failure(), Some(&"e1".to_string())),
+        Exit::Success(_) => panic!("expected the failure"),
+    }
+    assert_eq!(*finalized.lock().unwrap(), ["failure:e1".to_string()]);
+}
+
+#[test]
+fn on_exit_filter_match_passes_the_value_and_the_exit() {
+    // Effect.test.ts :3662 "filter match receives pass value and exit" —
+    // the filter extracts `value:42` from the success exit and the
+    // finalizer receives both the extracted value and the original exit.
+    let finalized = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+    let mark = finalized.clone();
+    let effect: Effect<u32, String, ()> = Effect::<u32, String>::succeed(42).on_exit_filter(
+        |exit: &Exit<u32, String>| -> std::result::Result<String, ()> {
+            match exit {
+                Exit::Success(value) => Ok(format!("value:{value}")),
+                Exit::Failure(_) => Err(()),
+            }
+        },
+        move |value, exit| {
+            if let Exit::Success(v) = exit {
+                mark.lock().unwrap().push(format!("{value}:success:{v}"));
+            }
+        },
+    );
+    assert!(matches!(run(effect), Exit::Success(42)));
+    assert_eq!(*finalized.lock().unwrap(), ["value:42:success:42".to_string()]);
 }

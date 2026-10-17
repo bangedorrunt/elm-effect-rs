@@ -104,7 +104,18 @@ pub trait JournalStore {
     /// Record intent (idempotent on key); returns the row.
     fn record_intent(&self, key: &str, max_attempts: u32) -> Row;
     /// Claim: owner + deadline + generation+1, atomically; returns the row.
-    fn claim(&self, key: &str, owner: &str, lease_deadline: i64) -> Option<Row>;
+    /// Fenced like settle: terminal rows never move, a stale
+    /// `expected_generation` claims nothing, and a live lease under
+    /// another owner is never stolen — reclaim only after expiry
+    /// (`lease_deadline <= now_ms`) or by the same owner renewing.
+    fn claim(
+        &self,
+        key: &str,
+        owner: &str,
+        lease_deadline: i64,
+        now_ms: i64,
+        expected_generation: u64,
+    ) -> Option<Row>;
     /// Settle toward `to` carrying `generation`; stale generations,
     /// illegal edges, and terminal rows settle nothing.
     fn settle(&self, key: &str, generation: u64, to: EffectState) -> Option<Row>;
@@ -181,9 +192,28 @@ impl JournalStore for InMemoryStore {
         inner.rows[key].clone()
     }
 
-    fn claim(&self, key: &str, owner: &str, lease_deadline: i64) -> Option<Row> {
+    fn claim(
+        &self,
+        key: &str,
+        owner: &str,
+        lease_deadline: i64,
+        now_ms: i64,
+        expected_generation: u64,
+    ) -> Option<Row> {
         let mut inner = self.inner.lock().unwrap();
-        let mut row = inner.rows.get(key)?.clone();
+        let row = inner.rows.get(key)?.clone();
+        if !super::plan::may_claim(
+            row.state,
+            row.owner.as_deref(),
+            row.lease_deadline,
+            owner,
+            now_ms,
+            expected_generation,
+            row.generation,
+        ) {
+            return None;
+        }
+        let mut row = row;
         row.owner = Some(owner.to_string());
         row.lease_deadline = Some(lease_deadline);
         row.generation += 1;

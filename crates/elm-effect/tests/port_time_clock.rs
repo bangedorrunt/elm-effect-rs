@@ -39,3 +39,90 @@ fn virtual_adjustment_does_not_move_the_wall_source() {
         "the wall advanced only by real elapsed millis"
     );
 }
+
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex};
+
+#[test]
+fn test_clock_sleep_does_not_require_wall_time() {
+    let clock = Arc::new(TestClock::new());
+    let clock2 = clock.clone();
+    let done = Arc::new(AtomicBool::new(false));
+    let probe = done.clone();
+    let worker = std::thread::spawn(move || {
+        let out = clock2.sleep(Duration::from_millis(10 * 3_600_000), &|| false);
+        probe.store(true, Ordering::SeqCst);
+        out
+    });
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+    while clock.pending_sleepers() < 1 {
+        assert!(std::time::Instant::now() < deadline);
+        std::thread::park_timeout(std::time::Duration::from_millis(1));
+    }
+    assert!(!done.load(Ordering::SeqCst));
+    clock.adjust(Duration::from_millis(11 * 3_600_000));
+    let outcome = worker.join().unwrap();
+    assert_eq!(outcome, elm_effect::SleepOutcome::Elapsed);
+    assert!(done.load(Ordering::SeqCst));
+}
+
+#[test]
+fn test_clock_sleep_delays_until_adjusted() {
+    let clock = Arc::new(TestClock::new());
+    let clock2 = clock.clone();
+    let done = Arc::new(AtomicBool::new(false));
+    let probe = done.clone();
+    let worker = std::thread::spawn(move || {
+        let out = clock2.sleep(Duration::from_millis(10 * 3_600_000), &|| false);
+        probe.store(true, Ordering::SeqCst);
+        out
+    });
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+    while clock.pending_sleepers() < 1 {
+        assert!(std::time::Instant::now() < deadline);
+        std::thread::park_timeout(std::time::Duration::from_millis(1));
+    }
+    assert!(!done.load(Ordering::SeqCst));
+    clock.adjust(Duration::from_millis(9 * 3_600_000));
+    assert!(!done.load(Ordering::SeqCst));
+    assert_eq!(clock.pending_sleepers(), 1);
+    clock.adjust(Duration::from_millis(2 * 3_600_000));
+    let outcome = worker.join().unwrap();
+    assert_eq!(outcome, elm_effect::SleepOutcome::Elapsed);
+    assert!(done.load(Ordering::SeqCst));
+}
+
+#[test]
+fn test_clock_sleep_handles_multiple_sleeps() {
+    let clock = Arc::new(TestClock::new());
+    let message = Arc::new(Mutex::new(String::new()));
+    let worker1_clock = clock.clone();
+    let worker1_message = message.clone();
+    let t1 = std::thread::spawn(move || {
+        let _ = worker1_clock.sleep(Duration::from_millis(3 * 3_600_000), &|| false);
+        worker1_message.lock().unwrap().push_str("World!");
+    });
+    let worker2_clock = clock.clone();
+    let worker2_message = message.clone();
+    let t2 = std::thread::spawn(move || {
+        let _ = worker2_clock.sleep(Duration::from_millis(1 * 3_600_000), &|| false);
+        worker2_message.lock().unwrap().push_str("Hello, ");
+    });
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+    let mut pending = 0usize;
+    while pending < 2 {
+        pending = clock.pending_sleepers();
+        assert!(std::time::Instant::now() < deadline, "sleepers did not park");
+        std::thread::park_timeout(std::time::Duration::from_millis(1));
+    }
+    clock.adjust(Duration::from_millis(1 * 3_600_000));
+    let settle = std::time::Instant::now() + std::time::Duration::from_millis(500);
+    while std::time::Instant::now() < settle {
+        std::thread::park_timeout(std::time::Duration::from_millis(1));
+    }
+    assert_eq!(message.lock().unwrap().as_str(), "Hello, ");
+    clock.adjust(Duration::from_millis(4 * 3_600_000));
+    t1.join().unwrap();
+    t2.join().unwrap();
+    assert_eq!(message.lock().unwrap().as_str(), "Hello, World!");
+}

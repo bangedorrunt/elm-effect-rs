@@ -1,6 +1,6 @@
 [package]
 name = "elm-effect"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2024"
 license = "MIT"
 publish = false
@@ -32,6 +32,10 @@ required-features = ["schema"]
 # build fails.
 [[test]]
 name = "tx_hash_set_algebra"
+required-features = ["stm"]
+
+[[test]]
+name = "tx_priority_queue"
 required-features = ["stm"]
 
 [dependencies]

@@ -168,6 +168,10 @@ pub struct EventLog {
     /// `(remote, entry_id)` pairs already imported, so a resend is a
     /// duplicate rather than a second local entry.
     seen_remote_ids: HashSet<(String, String)>,
+    /// Idempotency keys for retried remote writes: one key commits once, so
+    /// a retry after an ambiguous failure replays the stored entry instead
+    /// of recording a fresh seq.
+    retry_keys: HashMap<String, u64>,
 }
 
 impl EventLog {
@@ -178,6 +182,7 @@ impl EventLog {
             group,
             remote_seqs: HashMap::new(),
             seen_remote_ids: HashSet::new(),
+            retry_keys: HashMap::new(),
         }
     }
 
@@ -233,7 +238,8 @@ impl EventLog {
             let key = (remote.to_owned(), entry.entry_id.clone());
             let last = self.remote_seqs.get(remote).copied().unwrap_or(0);
             if entry.remote_sequence > last {
-                self.remote_seqs.insert(remote.to_owned(), entry.remote_sequence);
+                self.remote_seqs
+                    .insert(remote.to_owned(), entry.remote_sequence);
             }
             if self.seen_remote_ids.contains(&key) {
                 write.duplicates.push(entry);
@@ -269,6 +275,124 @@ impl EventLog {
         }
         Err(last_err)
     }
+
+    /// Idempotent retry under one idempotency key: the first success for `key`
+    /// commits once; a later call with the same key (retry after an ambiguous
+    /// failure where the remote may have applied it) replays the stored entry
+    /// instead of recording a fresh seq.
+    pub fn retry_remote_write_with_key(
+        &mut self,
+        key: &str,
+        max_attempts: usize,
+        mut attempt: impl FnMut() -> Result<Event, String>,
+    ) -> Result<Entry, String> {
+        if let Some(seq) = self.retry_keys.get(key).copied()
+            && let Some(entry) = self.journal.entries().iter().find(|e| e.seq == seq).cloned()
+        {
+            return Ok(entry);
+        }
+        let mut last_err = "attempts exhausted".to_owned();
+        for _ in 0..max_attempts.max(1) {
+            match attempt() {
+                Ok(event) => {
+                    let entry = self.journal.record(event);
+                    self.retry_keys.insert(key.to_owned(), entry.seq);
+                    return Ok(entry);
+                }
+                Err(e) => last_err = e,
+            }
+        }
+        Err(last_err)
+    }
+}
+
+/// One entry as conflict indexing sees it: the pin's `toConflicts` compares
+/// `createdAtMillis`, then entry identity, then `(event, primaryKey)`.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ConflictEntry {
+    /// Entry identity (`idString`); a resend under a fresh sequence is still
+    /// the same entry.
+    pub id: String,
+    /// Creation time in milliseconds.
+    pub created_at_millis: u64,
+    /// Event name.
+    pub event: String,
+    /// Primary key within the event.
+    pub primary_key: String,
+}
+
+/// Index conflicts for one incoming entry against the stored history, mirroring
+/// the pin's `toConflicts`: entries older than the incoming one are skipped, an
+/// entry with the same id marks a duplicate without stopping the scan, and the
+/// first entry at or after the incoming time slices the history — conflicts
+/// are the sliced entries sharing the incoming `(event, primaryKey)`.
+/// Returns `(duplicate, conflicts, new_history)`.
+pub fn to_conflicts(
+    history: &[ConflictEntry],
+    origin: &ConflictEntry,
+) -> (bool, Vec<ConflictEntry>, Vec<ConflictEntry>) {
+    let mut duplicate = false;
+    for (index, entry) in history.iter().enumerate() {
+        if entry.created_at_millis < origin.created_at_millis {
+            continue;
+        }
+        if entry.id == origin.id {
+            duplicate = true;
+            continue;
+        }
+        let sliced = history[index..].to_vec();
+        let conflicts = sliced
+            .iter()
+            .filter(|scanned| {
+                scanned.event == origin.event && scanned.primary_key == origin.primary_key
+            })
+            .cloned()
+            .collect();
+        return (duplicate, conflicts, sliced);
+    }
+    (duplicate, Vec::new(), Vec::new())
+}
+
+/// Authenticate ordering for the unencrypted server (`EventLogServer.layerRpcHandlers`
+/// as wired by `EventLogServerUnencrypted`): `authorizeIdentity` runs before
+/// the session-auth binding lookup, on every call. A denial therefore creates
+/// no binding, and a cached binding is still re-checked. Signature verification
+/// itself lives in [`crate::eventlog_session_auth`]; this is the ordering
+/// around it.
+#[derive(Default)]
+pub struct UnencryptedServerAuth {
+    bindings: HashMap<(String, Vec<u8>), Vec<u8>>,
+    binding_lookups: usize,
+}
+
+impl UnencryptedServerAuth {
+    /// Empty server auth state: no bindings, no lookups.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Storage binding lookups so far; a cache hit performs none.
+    pub fn binding_lookups(&self) -> usize {
+        self.binding_lookups
+    }
+}
+
+/// Run one `EventLog.Authenticate`: deny first (no binding is touched), then
+/// get-or-create the `(public_key, signing_public_key)` binding. The `Err`
+/// value is the protocol code (`"Forbidden"` for a denied identity).
+pub fn unencrypted_server_authenticate(
+    server: &mut UnencryptedServerAuth,
+    public_key: &str,
+    signing_public_key: &[u8],
+    authorize: impl Fn(&str) -> Result<(), String>,
+) -> Result<(), String> {
+    authorize(public_key)?;
+    let key = (public_key.to_owned(), signing_public_key.to_vec());
+    if !server.bindings.contains_key(&key) {
+        server.binding_lookups += 1;
+        server.bindings.insert(key, Vec::new());
+    }
+    Ok(())
 }
 
 /// Split bytes into `chunk_size` pieces; empty data splits into one chunk.
@@ -290,4 +414,39 @@ pub fn join_chunks(chunks: &[Vec<u8>]) -> Vec<u8> {
         }
     }
     out
+}
+
+#[cfg(test)]
+mod retry_identity_tests {
+    use super::*;
+
+    #[test]
+    fn retry_after_ambiguous_failure_yields_one_entry() {
+        let mut log = EventLog::new(EventGroup::new());
+        let mut calls = 0;
+        // First attempt: ambiguous failure (remote may have applied it).
+        // Second: success under the SAME idempotency key.
+        let first = log
+            .retry_remote_write_with_key("op-1", 3, || {
+                calls += 1;
+                if calls == 1 {
+                    Err("timeout (ambiguous)".to_owned())
+                } else {
+                    Ok(Event::new("e", vec![7]))
+                }
+            })
+            .unwrap();
+        assert_eq!(log.entries().len(), 1);
+        // A resent retry with the same key must not record a fresh seq.
+        let mut reruns = 0;
+        let second = log
+            .retry_remote_write_with_key("op-1", 3, || {
+                reruns += 1;
+                Ok(Event::new("e", vec![7]))
+            })
+            .unwrap();
+        assert_eq!(first.seq, second.seq);
+        assert_eq!(log.entries().len(), 1, "retry must not duplicate");
+        assert_eq!(reruns, 0, "stored outcome replays without re-running");
+    }
 }

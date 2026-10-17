@@ -390,40 +390,68 @@ fn race_all_first_completes_on_the_first_completion_even_a_failure() {
     // A failure ends raceAllFirst immediately, even though another body would
     // succeed later. The pin asserts Exit.fail("boom") and that the later
     // success never starts.
+    //
+    // This test used to time out about one run in six. The 0ms failure is due
+    // at virtual t=0, so it can settle the race before the main thread ever
+    // observes a parked sleeper; `wait_until(pending_sleepers() >= 1)` then
+    // spun to its 10s deadline against a race that had already finished. The
+    // clock is never adjusted here. The success body arms its finalizer and
+    // sets `armed`; the failing body waits for that signal before failing, so
+    // every interleaving ends with the failure as the winner and the parked
+    // success as the interrupted loser. The bounded recv turns a
+    // wrong-semantics regression (a race that waits for a success, which would
+    // park forever) into a named failure instead of a hung suite.
     use elm_effect::{ClockImpl, Duration, TestClock};
 
-    let rt = Runtime::new();
     let clock = Arc::new(TestClock::new());
-    let clock_fail = Arc::clone(&clock);
     let clock_win = Arc::clone(&clock);
+    let armed = Arc::new(AtomicBool::new(false));
+    let armed_fail = Arc::clone(&armed);
+    let armed_win = Arc::clone(&armed);
+    let released = Arc::new(AtomicUsize::new(0));
+    let released_win = Arc::clone(&released);
 
+    let (tx, rx) = std::sync::mpsc::channel();
     let worker = std::thread::spawn(move || {
-        race_all_first::<i64, String>(
+        let rt = Runtime::new();
+        let exit = race_all_first::<i64, String>(
             &rt,
             vec![
-                // delay 0 then fail: completes first, so it wins.
-                body(move |_| {
-                    clock_fail.sleep(Duration::from_millis(0), &|| false);
-                    Exit::Failure(Cause::fail("boom".to_string()))
-                }),
-                // delay 100 then succeed: must never start, because the
-                // failure above ended the race first.
-                body(move |_| {
-                    clock_win.sleep(Duration::from_millis(100), &|| false);
+                // delay 100 then succeed: parks on the clock, which is never
+                // advanced, so it can only end by being interrupted.
+                body(move |ctx| {
+                    ctx.acquire_release(Effect::<(), String>::succeed(()), move |_| {
+                        released_win.fetch_add(1, Ordering::SeqCst);
+                        Effect::<(), String>::succeed(())
+                    })
+                    .expect("acquire cannot fail");
+                    armed_win.store(true, Ordering::SeqCst);
+                    clock_win.sleep(Duration::from_millis(100), &|| ctx.is_interrupted());
                     Exit::Success(100)
                 }),
+                // delay 0 then fail: completes first, so it wins the race.
+                body(move |_| {
+                    while !armed_fail.load(Ordering::SeqCst) {
+                        std::thread::park_timeout(std::time::Duration::from_millis(1));
+                    }
+                    Exit::Failure(Cause::fail("boom".to_string()))
+                }),
             ],
-        )
+        );
+        let _ = tx.send(exit);
     });
 
-    wait_until(|| clock.pending_sleepers() >= 1, "the failing body parked");
-    // Advance past BOTH deadlines: the 100ms one would succeed, but it must
-    // already have been interrupted by the failure that answered first.
-    clock.adjust(Duration::from_millis(500));
-
-    let exit = worker.join().expect("worker thread");
+    let exit = rx
+        .recv_timeout(std::time::Duration::from_secs(10))
+        .expect("raceAllFirst must end on the first completion, even a failure");
+    worker.join().expect("race worker thread");
     assert!(
         matches!(exit, Exit::Failure(ref c) if c.failure() == Some(&"boom".to_string())),
         "raceAllFirst must end on the first completion, even a failure"
+    );
+    assert_eq!(
+        released.load(Ordering::SeqCst),
+        1,
+        "the parked success was interrupted before its delay elapsed"
     );
 }

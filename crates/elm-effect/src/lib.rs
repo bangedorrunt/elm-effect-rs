@@ -11,44 +11,72 @@
 //!   never catches.
 //! - Phase 1 has zero `unsafe`.
 
+mod basics;
 pub mod cause;
+mod channel;
+#[cfg(feature = "tokio")]
 mod concurrency;
+mod config;
+mod config_provider;
 mod context;
+mod crypto;
 mod effect;
+mod execution_plan;
 #[cfg(feature = "tokio")]
 mod executor;
 mod exit;
 #[cfg(feature = "tokio")]
 mod fiber;
+mod formatter;
 mod foundation;
+pub mod filesystem;
+mod graph;
 #[cfg(feature = "tokio")]
 mod layer;
 mod metric;
+mod json;
+mod json_patch;
+mod json_pointer;
+mod json_schema;
 mod optic;
+mod partitioned_semaphore;
+mod path;
 #[cfg(feature = "tokio")]
 mod policy;
+pub mod predicate;
+mod platform_error;
+mod pubsub;
+mod pull;
 #[cfg(feature = "tokio")]
 mod runtime;
 mod schedule;
+mod scheduler;
 #[cfg(feature = "tokio")]
 mod scope;
 mod service;
 #[cfg(feature = "stm")]
 mod stm;
-mod stream;
 #[cfg(feature = "tokio")]
+mod stream;
+mod subscription_ref;
+#[cfg(feature = "tokio")]
+mod supervision;
 mod supervisor;
 mod sync;
+mod take;
 mod time;
+mod utils_gen;
 
 pub use cause::{
     is_exceeded_capacity_error, is_illegal_argument_error, is_no_such_element_error,
     is_timeout_error, is_unknown_error, Cause, CauseError, Defect, Done, FiberId, Reason, Squash,
     is_die_reason, is_fail_reason, is_interrupt_reason, is_done,
 };
+#[cfg(feature = "tokio")]
 pub use concurrency::{
-    Body, Concurrency, all, find_first, find_first_filter, for_each, partition, partition_items,
-    reduce, validate, validate_discard, validate_discard_items, validate_items,
+    BOUNDED_RECV_TIMEOUT, Body, Concurrency, all, all_with_deadline, find_first,
+    find_first_filter, for_each, partition, partition_items, partition_with_deadline, reduce,
+    validate, validate_discard, validate_discard_items, validate_items,
 };
 pub use context::{Context, ContextReference, Tag};
 pub use effect::{Effect, Requirement};
@@ -56,12 +84,12 @@ pub use metric::{
     Attributes, Counter, CounterState, Gauge, GaugeState, MetricRegistry, Series, SeriesState,
 };
 #[cfg(feature = "schema")]
-pub use elm_effect_schema::{Schema, SchemaError, Unknown};
+pub use elm_effect_schema::{Schema, SchemaError, StructValue, Unknown};
 #[cfg(feature = "tokio")]
 pub use executor::{BoxFuture, Executor, TokioExecutor};
 pub use exit::Exit;
 #[cfg(feature = "tokio")]
-pub use fiber::{Ctx, FiberHandle, ForkOpts, Mask, StartMode};
+pub use fiber::{Ctx, Fiber, FiberHandle, ForkOpts, Mask, StartMode};
 pub use foundation::{
     Combiner, Differ, Equal, Equivalence, Filter, Hash, Matcher, Order, Predicate, Reducer, Tagged,
     absurd, array_equivalence, boolean_equivalence, boolean_order, combine_hash, combine_ordering,
@@ -70,7 +98,7 @@ pub use foundation::{
     string_equivalence, string_order, tagged, tuple_equivalence, tupled, untupled,
 };
 #[cfg(feature = "tokio")]
-pub use layer::{BuiltServices, Cycle, Layer, RequirementIds};
+pub use layer::{BuiltServices, Cycle, Layer, LayerMemo, RequirementIds};
 pub use optic::{
     Iso, Lens, OpticError, Optional, Prism, Traversal, at_map, at_vec, at_vec_exact, failure, none,
     some, success,
@@ -78,17 +106,23 @@ pub use optic::{
 #[cfg(feature = "tokio")]
 pub use policy::{BreakerConfig, Bulkhead, RateLimiter, Remote, RemoteError, RemotePolicy, hedge};
 #[cfg(feature = "tokio")]
-pub use runtime::{ManagedRuntime, Runtime, race, race_all, race_all_first, race_first, timeout};
+pub use runtime::{
+    ManagedRuntime, Runtime, SHUTDOWN_DEADLINE, race, race_all, race_all_first, race_first, timeout,
+};
 pub use schedule::{Random, RandomTag, Schedule, repeat, retry};
 #[cfg(feature = "tokio")]
-pub use scope::Scope;
+pub use scope::{Scope, ScopeTag};
 pub use service::{Cons, MemoMap, Provide, Reference, ServiceTag, read_reference, use_service};
 #[cfg(feature = "stm")]
 pub use stm::{
-    TxChunk, TxDeferred, TxDequeue, TxEnqueue, TxHashMap, TxHashSet, TxPriorityQueue, TxPubSub,
-    TxQueue, TxReentrantLock, TxRef, TxSemaphore, TxSubscriptionRef, atomically, is_tx_chunk,
-    is_tx_deferred, is_tx_hash_set, is_tx_semaphore,
+    TxChangeSubscription, TxChunk, TxDeferred, TxDequeue, TxEnqueue, TxHashMap, TxHashSet,
+    TxPriorityQueue, TxPubSub, TxQueue, TxReentrantLock, TxRef, TxSemaphore, TxSubscriptionRef,
+    atomically, is_tx_chunk, is_tx_deferred, is_tx_hash_map, is_tx_hash_set, is_tx_priority_queue,
+    is_tx_semaphore, is_tx_subscription_ref,
 };
+#[cfg(feature = "tokio")]
 pub use stream::{Stream, from_iter, from_iterator_succeed};
-pub use sync::{Deferred, MutableRef, PartitionedSemaphore, Queue, Ref, Semaphore, SubscriptionRef, SynchronizedRef};
-pub use time::{Clock, ClockImpl, Duration, SleepOutcome, SystemClock, TestClock};
+#[cfg(feature = "tokio")]
+pub use supervision::{ChildSnapshot, Escalation, Supervisor};
+pub use sync::{Deferred, MutableRef, PartitionedSemaphore, Queue, QueueError, Ref, Semaphore, Strategy, SubscriptionRef, SynchronizedRef, is_dequeue, is_enqueue, is_queue};
+pub use time::{Clock, ClockImpl, Duration, DurationJson, Parts, SleepOutcome, SystemClock, TestClock, is_duration};

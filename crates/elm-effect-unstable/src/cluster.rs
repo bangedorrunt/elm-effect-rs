@@ -68,12 +68,23 @@ impl Membership {
     }
 
     /// Run `f`, holding the key for its duration: the key is restored
-    /// afterwards either way.
+    /// afterwards either way (panic-safe via a drop guard).
     pub fn around_entity_type<R>(&self, key: &str, f: impl FnOnce() -> R) -> R {
         self.acquire(key);
-        let out = f();
-        self.release(key);
-        out
+        struct Guard<'a> {
+            owner: &'a Membership,
+            key: String,
+        }
+        impl Drop for Guard<'_> {
+            fn drop(&mut self) {
+                self.owner.release(&self.key);
+            }
+        }
+        let _guard = Guard {
+            owner: self,
+            key: key.to_string(),
+        };
+        f()
     }
 
     /// Live keys.
@@ -109,6 +120,9 @@ pub struct MessageStorage {
     requests: HashMap<String, StoredRequest>,
     by_address: HashMap<EntityAddress, Vec<String>>,
     interrupts: HashMap<EntityAddress, Vec<String>>,
+    /// Fence generation per request: bumped on claim and on reset so a stale
+    /// holder cannot steal with an old generation.
+    generations: HashMap<String, u64>,
 }
 
 /// Empty filters and empty address lists fail closed.
@@ -126,6 +140,7 @@ impl MessageStorage {
         if self.requests.contains_key(&request.id) {
             return Err(format!("duplicate request {}", request.id));
         }
+        self.generations.insert(request.id.clone(), 0);
         self.by_address
             .entry(request.address.clone())
             .or_default()
@@ -179,13 +194,19 @@ impl MessageStorage {
     }
 
     /// Release claims for the given request ids. An empty id list leaves
-    /// existing claims untouched. Replies and completion survive.
-    pub fn reset_requests(&mut self, ids: &[&str]) {
+    /// existing claims untouched. Replies and completion survive. Unknown ids
+    /// fail loudly (no silent no-op); each cleared claim bumps its generation
+    /// so a stale holder cannot resurrect it.
+    pub fn reset_requests(&mut self, ids: &[&str]) -> Result<(), String> {
         for id in ids {
-            if let Some(request) = self.requests.get_mut(*id) {
-                request.claimed_by = None;
-            }
+            let request = self
+                .requests
+                .get_mut(*id)
+                .ok_or_else(|| format!("unknown request {id}"))?;
+            request.claimed_by = None;
+            *self.generations.entry(id.to_string()).or_default() += 1;
         }
+        Ok(())
     }
 
     /// Make claimed messages eligible again for these addresses. An empty
@@ -199,6 +220,7 @@ impl MessageStorage {
                 for id in ids.clone() {
                     if let Some(request) = self.requests.get_mut(&id) {
                         request.claimed_by = None;
+                        *self.generations.entry(id.clone()).or_default() += 1;
                     }
                 }
             }
@@ -212,16 +234,53 @@ impl MessageStorage {
         if let Some(ids) = self.by_address.remove(address) {
             for id in ids {
                 self.requests.remove(&id);
+                self.generations.remove(&id);
             }
         }
         self.interrupts.remove(address);
     }
 
-    /// Claim a request for a runner (test seam).
-    pub fn claim(&mut self, id: &str, runner: impl Into<String>) {
-        if let Some(request) = self.requests.get_mut(id) {
-            request.claimed_by = Some(runner.into());
+    /// Claim a request for a runner (test seam): refuses unknown ids loudly
+    /// and refuses to steal a live lease held by another runner. Re-claim by
+    /// the same runner is idempotent.
+    pub fn claim(&mut self, id: &str, runner: impl Into<String>) -> Result<(), String> {
+        let runner = runner.into();
+        let request = self
+            .requests
+            .get_mut(id)
+            .ok_or_else(|| format!("unknown request {id}"))?;
+        if let Some(held) = request.claimed_by.clone()
+            && held != runner
+        {
+            return Err(format!("already claimed by {held}"));
         }
+        request.claimed_by = Some(runner);
+        *self.generations.entry(id.to_string()).or_default() += 1;
+        Ok(())
+    }
+
+    /// Generation-checked claim: the caller presents the generation it saw;
+    /// a mismatch is a stale steal and is refused.
+    pub fn claim_with_generation(
+        &mut self,
+        id: &str,
+        runner: impl Into<String>,
+        expected: u64,
+    ) -> Result<(), String> {
+        let current = self
+            .generations
+            .get(id)
+            .copied()
+            .ok_or_else(|| format!("unknown request {id}"))?;
+        if current != expected {
+            return Err(format!("stale generation: saw {expected}, live {current}"));
+        }
+        self.claim(id, runner)
+    }
+
+    /// Live fence generation for a request, if known.
+    pub fn generation(&self, id: &str) -> Option<u64> {
+        self.generations.get(id).copied()
     }
 
     /// Live request ids for an address, if the index still holds it.
@@ -334,6 +393,19 @@ impl ReplyRegistry {
             .unwrap_or_default()
     }
 
+    /// True once a terminal reply (exit or defect) is stored for a request,
+    /// whether or not its chunks are acknowledged: the stream completed.
+    pub fn is_complete(&self, request_id: &str) -> bool {
+        self.replies.get(request_id).is_some_and(|replies| {
+            replies.iter().any(|reply| {
+                matches!(
+                    reply,
+                    StoredReply::Exit { .. } | StoredReply::Defect { .. }
+                )
+            })
+        })
+    }
+
     /// Mark every chunk for a request acknowledged; true when any was.
     pub fn acknowledge(&mut self, request_id: &str) -> bool {
         let mut acked = false;
@@ -441,6 +513,13 @@ impl ShardingConfig {
             return Err(BadConfig("storage batch limit must be positive".to_string()));
         }
         Ok(self)
+    }
+
+    /// The effective storage read batch: programmatic sizes below one
+    /// normalize to one (`Math.max(1, ...)` at the storage read site), so a
+    /// zero batch still drains instead of stalling.
+    pub fn effective_storage_batch(&self) -> usize {
+        self.storage_batch.max(1)
     }
 
     /// The listen address, if a host is configured.
@@ -693,17 +772,29 @@ impl EntityScope {
         self.closed.load(Ordering::SeqCst)
     }
 
-    /// Close the scope, running finalizers newest first. Idempotent.
+    /// Close the scope, running finalizers newest first. Idempotent. A
+    /// panicking finalizer never abandons the rest: every finalizer runs,
+    /// panics are collected, and the first resumes after the drain.
     pub fn close(&self) {
         if self.closed.swap(true, Ordering::SeqCst) {
             return;
         }
+        let mut first_panic: Option<Box<dyn std::any::Any + Send>> = None;
         loop {
             let next = self.finalizers.lock().unwrap().pop();
             match next {
-                Some(run) => run(),
+                Some(run) => {
+                    if let Err(payload) =
+                        std::panic::catch_unwind(std::panic::AssertUnwindSafe(run))
+                    {
+                        first_panic.get_or_insert(payload);
+                    }
+                }
                 None => break,
             }
+        }
+        if let Some(payload) = first_panic {
+            std::panic::resume_unwind(payload);
         }
     }
 }
@@ -749,14 +840,25 @@ impl EntityClients {
         self.scopes.lock().unwrap().clone()
     }
 
-    /// Close every scope, newest first.
+    /// Close every scope, newest first. A panicking scope never abandons the
+    /// rest: every scope closes, then the first panic resumes.
     pub fn close(&self) {
+        let mut first_panic: Option<Box<dyn std::any::Any + Send>> = None;
         loop {
             let next = self.scopes.lock().unwrap().pop();
             match next {
-                Some(scope) => scope.close(),
+                Some(scope) => {
+                    if let Err(payload) =
+                        std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| scope.close()))
+                    {
+                        first_panic.get_or_insert(payload);
+                    }
+                }
                 None => break,
             }
+        }
+        if let Some(payload) = first_panic {
+            std::panic::resume_unwind(payload);
         }
     }
 }
@@ -764,5 +866,512 @@ impl EntityClients {
 impl Drop for EntityClients {
     fn drop(&mut self) {
         self.close();
+    }
+}
+
+// ------------------------------------------------------------- Entity.ts ---
+
+/// What one request's handler did (the pin's exit shapes).
+#[derive(Clone, Debug, PartialEq)]
+pub enum HandlerOutcome {
+    /// Succeeded with a value.
+    Success(i64),
+    /// Failed with a typed error: request-local by definition.
+    TypedFailure(String),
+    /// Died with a defect: fatal unless the entity disables fatal defects.
+    Defect(String),
+}
+
+/// What the client observed for one request.
+#[derive(Clone, Debug, PartialEq)]
+pub enum ReplyOutcome {
+    /// Succeeded with a value.
+    Success(i64),
+    /// The typed failure the handler reported.
+    TypedFailure(String),
+    /// The defect that ended the request, which is the entity's original
+    /// defect once it is poisoned.
+    Defect(String),
+}
+
+/// One entity's server: its own services plus the fatal-defect state the
+/// pin keeps per entity address.
+///
+/// `disable_fatal_defects` mirrors the pin's option: `Some(true)` isolates
+/// defects per request, while `Some(false)` and `None` let a defect poison
+/// the entity, so every later request answers with that same original
+/// defect.
+pub struct EntityServer {
+    entity_id: String,
+    disable_fatal_defects: bool,
+    services: HashMap<String, String>,
+    fatal: Option<String>,
+}
+
+impl EntityServer {
+    /// A server for one entity, with the pin's `disableFatalDefects`.
+    pub fn new(entity_id: impl Into<String>, disable_fatal_defects: Option<bool>) -> Self {
+        Self {
+            entity_id: entity_id.into(),
+            disable_fatal_defects: disable_fatal_defects.unwrap_or(false),
+            services: HashMap::new(),
+            fatal: None,
+        }
+    }
+
+    /// This entity's id.
+    pub fn entity_id(&self) -> &str {
+        &self.entity_id
+    }
+
+    /// Provide a service to the server itself. Only services provided here
+    /// are visible to handlers; a client's acquisition-time context never
+    /// travels, which is the `makeTestClient` context-bleed regression.
+    pub fn provide(&mut self, key: impl Into<String>, value: impl Into<String>) {
+        self.services.insert(key.into(), value.into());
+    }
+
+    /// The server's own view of a service.
+    pub fn service(&self, key: &str) -> Option<&str> {
+        self.services.get(key).map(String::as_str)
+    }
+
+    /// The defect that poisoned this entity, if any.
+    pub fn fatal_defect(&self) -> Option<&str> {
+        self.fatal.as_deref()
+    }
+
+    /// Run one request.
+    pub fn run(&mut self, outcome: HandlerOutcome) -> ReplyOutcome {
+        if let Some(fatal) = &self.fatal {
+            // A poisoned entity answers every later request with the
+            // original defect, whatever its own handler would have done.
+            return ReplyOutcome::Defect(fatal.clone());
+        }
+        match outcome {
+            HandlerOutcome::Success(value) => ReplyOutcome::Success(value),
+            HandlerOutcome::TypedFailure(error) => ReplyOutcome::TypedFailure(error),
+            HandlerOutcome::Defect(defect) => {
+                if !self.disable_fatal_defects {
+                    self.fatal = Some(defect.clone());
+                }
+                ReplyOutcome::Defect(defect)
+            }
+        }
+    }
+}
+
+/// The client side of `Entity.makeTestClient`: a context captured at
+/// acquisition that the entity server never observes.
+#[derive(Clone, Debug)]
+pub struct EntityClient {
+    entity_id: String,
+    services: HashMap<String, String>,
+}
+
+impl EntityClient {
+    /// Acquire the client for one entity.
+    pub fn acquire(entity_id: impl Into<String>) -> Self {
+        Self {
+            entity_id: entity_id.into(),
+            services: HashMap::new(),
+        }
+    }
+
+    /// Add a service to the acquiring fiber's context.
+    pub fn with_service(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
+        self.services.insert(key.into(), value.into());
+        self
+    }
+
+    /// The client's own view of a service.
+    pub fn service(&self, key: &str) -> Option<&str> {
+        self.services.get(key).map(String::as_str)
+    }
+
+    /// The entity this client talks to.
+    pub fn entity_id(&self) -> &str {
+        &self.entity_id
+    }
+}
+
+/// The dequeue half of [`ReplyRegistry::succeed_queue`]: values offered
+/// until `end`, which is also the stream's end.
+#[derive(Clone, Debug, Default)]
+pub struct ReplyQueue {
+    offered: Vec<i64>,
+    ended: bool,
+}
+
+impl ReplyQueue {
+    /// An open, empty dequeue.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Offer one value.
+    pub fn offer(&mut self, value: i64) {
+        self.offered.push(value);
+    }
+
+    /// End the dequeue: the stream completes after what was offered.
+    pub fn end(&mut self) {
+        self.ended = true;
+    }
+
+    /// `true` once [`Self::end`] ran.
+    pub fn is_ended(&self) -> bool {
+        self.ended
+    }
+
+    /// Values offered so far.
+    pub fn offered(&self) -> &[i64] {
+        &self.offered
+    }
+}
+
+impl ReplyRegistry {
+    /// Answer a streaming RPC with a finite stream (`replier.succeed(req,
+    /// Stream.make(...))`): one chunk per element, then the exit.
+    pub fn succeed_stream(&mut self, request_id: &str, values: &[i64]) {
+        for value in values {
+            self.store(
+                request_id,
+                StoredReply::Chunk {
+                    payload: value.to_le_bytes().to_vec(),
+                    acked: false,
+                },
+            );
+        }
+        self.store(
+            request_id,
+            StoredReply::Exit {
+                payload: Vec::new(),
+            },
+        );
+    }
+
+    /// Answer a streaming RPC with a dequeue: the values offered so far,
+    /// and the exit only once the dequeue ended. An un-ended dequeue stays
+    /// open, which is what the pin's client keeps waiting on.
+    pub fn succeed_queue(&mut self, request_id: &str, queue: &ReplyQueue) {
+        for value in queue.offered() {
+            self.store(
+                request_id,
+                StoredReply::Chunk {
+                    payload: value.to_le_bytes().to_vec(),
+                    acked: false,
+                },
+            );
+        }
+        if queue.is_ended() {
+            self.store(
+                request_id,
+                StoredReply::Exit {
+                    payload: Vec::new(),
+                },
+            );
+        }
+    }
+}
+
+// ------------------------------------------------------------ Runners.ts ---
+
+/// The codec a runner's client protocol supplies: payload text to wire text
+/// and back. This is the pin's `RpcSerialization.CodecFor`, which the
+/// protocol hands to the runner so a simulated remote send can round-trip.
+pub trait RunnerCodec: Send + Sync {
+    /// The codec's identity, recorded on the message that used it.
+    fn name(&self) -> &str;
+    /// Encode one payload.
+    fn encode(&self, text: &str) -> String;
+    /// Decode one payload.
+    fn decode(&self, text: &str) -> String;
+}
+
+/// The identity codec: the wire text is the payload. Its name is what the
+/// pin's `Schema.toCodecJson` records on a message it encoded.
+pub struct PlainJsonCodec;
+
+impl PlainJsonCodec {
+    /// Unquote one JSON string. The runner's wire text is quoted with `{:?}`
+    /// where a codec encodes it as a JSON string, so decoding is that one
+    /// step and an unquoted input is returned unchanged.
+    pub fn unquote(text: &str) -> String {
+        let Some(inner) = text.strip_prefix('"').and_then(|t| t.strip_suffix('"')) else {
+            return text.to_owned();
+        };
+        let mut out = String::with_capacity(inner.len());
+        let mut chars = inner.chars();
+        while let Some(ch) = chars.next() {
+            if ch != '\\' {
+                out.push(ch);
+                continue;
+            }
+            match chars.next() {
+                Some('"') => out.push('"'),
+                Some('\\') => out.push('\\'),
+                Some(other) => out.push(other),
+                None => out.push('\\'),
+            }
+        }
+        out
+    }
+}
+
+impl RunnerCodec for PlainJsonCodec {
+    fn name(&self) -> &str {
+        "json"
+    }
+
+    fn encode(&self, text: &str) -> String {
+        text.to_owned()
+    }
+
+    fn decode(&self, text: &str) -> String {
+        Self::unquote(text)
+    }
+}
+
+/// One outgoing request.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct RunnerRequest {
+    /// The request id the reply must cite.
+    pub request_id: String,
+    /// The RPC tag.
+    pub tag: String,
+    /// The entity payload, as the entity's own codec wrote it.
+    pub payload: String,
+    /// Persisted requests take the storage-recovery path when they cannot be
+    /// answered in place.
+    pub persisted: bool,
+    /// The codec that last encoded this message: `Message.encodedCache`.
+    pub encoded_by: Option<String>,
+}
+
+impl RunnerRequest {
+    /// A request whose payload is already encoded by the entity's codec.
+    pub fn new(
+        request_id: impl Into<String>,
+        tag: impl Into<String>,
+        payload: impl Into<String>,
+        persisted: bool,
+    ) -> Self {
+        Self {
+            request_id: request_id.into(),
+            tag: tag.into(),
+            payload: payload.into(),
+            persisted,
+            encoded_by: None,
+        }
+    }
+
+    /// Encode this message with `codec` and record that codec. Recording is
+    /// the point: the pin reads it back off the message after serializing.
+    pub fn encode_with(&mut self, codec: &dyn RunnerCodec) -> String {
+        self.encoded_by = Some(codec.name().to_owned());
+        codec.encode(&self.payload)
+    }
+}
+
+/// What a transport did with one request.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Delivery {
+    /// The server answered, and the answer was a defect. Still a delivery: the
+    /// request resolves with a failure exit rather than a runner failure.
+    Defect(String),
+    /// The server answered normally.
+    Delivered,
+    /// The transport failed: nothing was delivered.
+    TransportFailure(String),
+}
+
+/// The transport a runner sends through.
+pub trait RunnerTransport: Send + Sync {
+    /// Deliver one request and report what came back.
+    fn send(&self, request: &RunnerRequest) -> Delivery;
+    /// Deliver one notification, whose answer nobody waits for.
+    fn notify(&self, request: &RunnerRequest) -> Delivery;
+}
+
+/// What the caller observes for one request.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum RunnerReply {
+    /// The request resolved with a failure exit carrying the server's defect.
+    WithExit {
+        /// The request this reply belongs to.
+        request_id: String,
+        /// The defect, when the exit failed.
+        failure: Option<String>,
+    },
+}
+
+/// The runner's envelope as text. The entity payload is already encoded, so
+/// it rides the hole as a JSON string and nothing re-encodes it.
+pub fn runner_envelope(request: &RunnerRequest) -> String {
+    fn escape(text: &str) -> String {
+        text.replace('\\', "\\\\").replace('"', "\\\"")
+    }
+    format!(
+        "{{\"request\":{{\"requestId\":\"{}\",\"tag\":\"{}\",\"payload\":\"{}\"}}}}",
+        request.request_id,
+        request.tag,
+        escape(&request.payload)
+    )
+}
+
+/// The runner's send surface, over a protocol codec and a transport. The
+/// failure rules are the pin's: a delivery resolves the request whatever the
+/// answer was, while an undelivered volatile send or notification is
+/// `RunnerUnavailable` and an undelivered persisted one belongs to storage
+/// recovery instead.
+pub struct Runners {
+    codec: Box<dyn RunnerCodec>,
+    transport: Box<dyn RunnerTransport>,
+}
+
+impl Runners {
+    /// A runner over one protocol codec and one transport.
+    pub fn new(codec: Box<dyn RunnerCodec>, transport: Box<dyn RunnerTransport>) -> Self {
+        Self { codec, transport }
+    }
+
+    /// The codec this runner encodes with.
+    pub fn codec_name(&self) -> &str {
+        self.codec.name()
+    }
+
+    /// The outer runner payload: the envelope, written by the protocol codec.
+    pub fn encode_request(&self, request: &RunnerRequest) -> String {
+        self.codec.encode(&runner_envelope(request))
+    }
+
+    /// Decode one wire payload through the protocol codec: the counterpart
+    /// of [`Self::encode_request`] for the reply hole the server filled.
+    pub fn decode_reply(&self, wire: &str) -> String {
+        self.codec.decode(wire)
+    }
+
+    /// Send a request, handing the answer to `respond`.
+    pub fn send(
+        &self,
+        request: &mut RunnerRequest,
+        respond: &mut dyn FnMut(RunnerReply),
+    ) -> Result<(), ClusterError> {
+        match self.transport.send(request) {
+            Delivery::TransportFailure(message) => Err(ClusterError::RunnerUnavailable(message)),
+            // A persisted request cannot resolve on this side: the storage
+            // that owns it has to see the failure and retry.
+            Delivery::Defect(defect) if request.persisted => {
+                Err(ClusterError::RunnerUnavailable(defect))
+            }
+            Delivery::Defect(defect) => {
+                respond(RunnerReply::WithExit {
+                    request_id: request.request_id.clone(),
+                    failure: Some(defect),
+                });
+                Ok(())
+            }
+            Delivery::Delivered => Ok(()),
+        }
+    }
+
+    /// Notify without waiting for an answer.
+    pub fn notify(&self, request: &RunnerRequest) -> Result<(), ClusterError> {
+        match self.transport.notify(request) {
+            // A volatile notification has no storage to recover it, so the
+            // failure is the caller's; a persisted one is storage's.
+            Delivery::TransportFailure(message) if !request.persisted => {
+                Err(ClusterError::RunnerUnavailable(message))
+            }
+            _ => Ok(()),
+        }
+    }
+
+    /// Hand a request to the local runtime, optionally simulating the remote
+    /// hop: the payload goes out through the protocol codec and comes back
+    /// through it, so the receiver sees what a remote one would.
+    pub fn send_local(
+        &self,
+        request: &mut RunnerRequest,
+        simulate_remote_serialization: bool,
+        received: &mut dyn FnMut(RunnerRequest),
+    ) -> Result<(), ClusterError> {
+        if simulate_remote_serialization {
+            let wire = request.encode_with(self.codec.as_ref());
+            let decoded = self.codec.decode(&wire);
+            let mut incoming = request.clone();
+            incoming.payload = decoded;
+            received(incoming);
+        } else {
+            received(request.clone());
+        }
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod fence_tests {
+    use super::*;
+
+    fn addr() -> EntityAddress {
+        EntityAddress::new("T", "1")
+    }
+
+    fn req(id: &str) -> StoredRequest {
+        StoredRequest {
+            id: id.to_owned(),
+            address: addr(),
+            claimed_by: None,
+            complete: false,
+        }
+    }
+
+    #[test]
+    fn claim_fence_refuses_unknown_and_stale_steal() {
+        let mut s = MessageStorage::new();
+        assert!(s.claim("missing", "r-a").is_err(), "unknown id must fail loudly");
+        assert!(s.reset_requests(&["missing"]).is_err());
+        s.save(req("r1")).unwrap();
+        s.claim("r1", "runner-a").unwrap();
+        assert!(s.claim("r1", "runner-b").is_err(), "stale steal refused");
+        // Same runner re-claim is idempotent.
+        s.claim("r1", "runner-a").unwrap();
+        let live = s.generation("r1").unwrap();
+        assert!(s.claim_with_generation("r1", "runner-b", live.wrapping_sub(1)).is_err());
+        s.reset_requests(&["r1"]).unwrap();
+        s.claim("r1", "runner-b").unwrap();
+    }
+
+    #[test]
+    fn scope_close_runs_all_finalizers_despite_panic() {
+        use std::sync::{Arc, Mutex};
+        let ran = Arc::new(Mutex::new(Vec::new()));
+        let scope = EntityScope::new("e");
+        for name in ["first", "second", "third"] {
+            let ran = Arc::clone(&ran);
+            let name = name.to_string();
+            scope.add_finalizer(move || {
+                ran.lock().unwrap().push(name.clone());
+                if name == "second" {
+                    panic!("boom");
+                }
+            });
+        }
+        let out = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| scope.close()));
+        assert!(out.is_err(), "panic resurfaces after drain");
+        let mut seen = ran.lock().unwrap().clone();
+        seen.sort();
+        assert_eq!(seen, vec!["first", "second", "third"]);
+    }
+
+    #[test]
+    fn around_entity_type_releases_on_panic() {
+        let m = Membership::new();
+        let out = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            m.around_entity_type("k", || panic!("boom"))
+        }));
+        assert!(out.is_err());
+        assert!(m.is_empty(), "guard must release despite panic");
     }
 }

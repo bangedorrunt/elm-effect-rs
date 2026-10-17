@@ -15,7 +15,7 @@ use std::sync::{Arc, Mutex};
 use crate::effect::Requirement;
 use crate::scope::Scope;
 use crate::service::{Cons, ServiceTag, Services, empty_services};
-use crate::{Cause, Effect};
+use crate::{Cause, Defect, Effect};
 
 /// A dependency cycle: the tags involved, in dependency order. Returned
 /// before any constructor runs.
@@ -91,6 +91,33 @@ struct Stage<E> {
     make: Arc<dyn Fn() -> Box<dyn RunStage<E> + Send> + Send + Sync>,
 }
 
+/// A layer's build memo, shareable between handles.
+///
+/// The pin's `MemoMap`: pass one layer's memo to a second layer and the second
+/// build reuses the first's already-constructed services instead of running the
+/// constructors again. Sharing is by `Arc` clone, so [`Layer::with_memo`]
+/// produces a handle onto the same memo rather than a copy of its contents.
+pub struct LayerMemo(Arc<Mutex<Option<Services>>>);
+
+impl LayerMemo {
+    /// An empty memo: the next build runs every constructor.
+    pub fn new() -> Self {
+        Self(Arc::new(Mutex::new(None)))
+    }
+}
+
+impl Default for LayerMemo {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Clone for LayerMemo {
+    fn clone(&self) -> Self {
+        Self(Arc::clone(&self.0))
+    }
+}
+
 impl<E> Clone for Stage<E> {
     fn clone(&self) -> Self {
         Self {
@@ -102,11 +129,14 @@ impl<E> Clone for Stage<E> {
 }
 
 /// A constructor run with erased input/output requirement types. The stage's
-/// own `in_ids`/`out_id` carry the graph; this only moves values.
+/// own `in_ids`/`out_id` carry the graph; this only moves values. The build
+/// scope is handed over so a scoped constructor can register finalizers on it
+/// (plain constructors ignore it).
 trait RunStage<E>: Send {
     fn run_with(
         self: Box<Self>,
         services: &Services,
+        scope: &Scope,
     ) -> Result<Arc<dyn std::any::Any + Send + Sync>, Cause<E>>;
 }
 
@@ -128,8 +158,34 @@ where
     fn run_with(
         self: Box<Self>,
         services: &Services,
+        _scope: &Scope,
     ) -> Result<Arc<dyn std::any::Any + Send + Sync>, Cause<E>> {
         let value = (self.make)().run_sync_with(services)?;
+        Ok(Arc::new(value))
+    }
+}
+
+/// A constructor that also receives the build scope, so it can register a
+/// finalizer the runtime runs when the built services are released. The pin's
+/// `Layer.effect` whose body calls `Effect.addFinalizer`.
+struct ScopedCtor<S, E, RIn, F> {
+    make: Arc<F>,
+    marker: Recipe<S, E, RIn>,
+}
+
+impl<S, E, RIn, F> RunStage<E> for ScopedCtor<S, E, RIn, F>
+where
+    S: Send + Sync + 'static,
+    E: Send + 'static,
+    RIn: Requirement,
+    F: Fn(&Scope) -> Effect<S, E, RIn> + Send + Sync,
+{
+    fn run_with(
+        self: Box<Self>,
+        services: &Services,
+        scope: &Scope,
+    ) -> Result<Arc<dyn std::any::Any + Send + Sync>, Cause<E>> {
+        let value = (self.make)(scope).run_sync_with(services)?;
         Ok(Arc::new(value))
     }
 }
@@ -146,7 +202,7 @@ pub struct Layer<ROut, E, RIn> {
     stages: Vec<Stage<E>>,
     out_ids: Vec<&'static str>,
     in_ids: Vec<&'static str>,
-    memo: Mutex<Option<Services>>,
+    memo: LayerMemo,
     marker: LayerMarker<ROut, E, RIn>,
 }
 
@@ -184,7 +240,42 @@ where
             stages: vec![stage],
             out_ids: vec![T::ID],
             in_ids,
-            memo: Mutex::new(None),
+            memo: LayerMemo::new(),
+            marker: PhantomData,
+        })
+    }
+
+    /// Like [`from_factory`](Layer::from_factory), but the constructor also
+    /// receives the build scope, so it can register finalizers that run when
+    /// the built services are released. This is what a layer needs to own a
+    /// resource (the pin's `Layer.effect` with `Effect.addFinalizer`).
+    pub fn from_scoped_factory<S, F>(make: F) -> Result<Self, Cycle>
+    where
+        E: Send + 'static,
+        T: ServiceTag<Service = S>,
+        S: Send + Sync + 'static,
+        F: Fn(&Scope) -> Effect<S, E, RIn> + Send + Sync + 'static,
+    {
+        let in_ids = RIn::ids();
+        if in_ids.contains(&T::ID) {
+            return Err(Cycle { path: vec![T::ID] });
+        }
+        let make: Arc<F> = Arc::new(make);
+        let stage = Stage {
+            out_id: T::ID,
+            in_ids: in_ids.clone(),
+            make: Arc::new(move || {
+                Box::new(ScopedCtor {
+                    make: Arc::clone(&make),
+                    marker: PhantomData,
+                }) as Box<dyn RunStage<E> + Send>
+            }),
+        };
+        Ok(Layer {
+            stages: vec![stage],
+            out_ids: vec![T::ID],
+            in_ids,
+            memo: LayerMemo::new(),
             marker: PhantomData,
         })
     }
@@ -241,7 +332,27 @@ impl<O, E, I> Layer<O, E, I> {
             stages: self.stages.clone(),
             out_ids: self.out_ids.clone(),
             in_ids: self.in_ids.clone(),
-            memo: Mutex::new(None),
+            memo: LayerMemo::new(),
+            marker: PhantomData,
+        }
+    }
+
+    /// A handle onto this layer's build memo. Share it with
+    /// [`with_memo`](Layer::with_memo) so a second layer reuses the services
+    /// this one already built, the pin's `{ memoMap: other.memoMap }`.
+    pub fn memo(&self) -> LayerMemo {
+        self.memo.clone()
+    }
+
+    /// The same recipe on a supplied memo. A memo that already holds a build
+    /// answers [`build`](Layer::build) with those services and runs no
+    /// constructor again.
+    pub fn with_memo(&self, memo: &LayerMemo) -> Self {
+        Self {
+            stages: self.stages.clone(),
+            out_ids: self.out_ids.clone(),
+            in_ids: self.in_ids.clone(),
+            memo: memo.clone(),
             marker: PhantomData,
         }
     }
@@ -271,7 +382,7 @@ impl<O1: RequirementIds, E: Send + 'static, I1: RequirementIds> Layer<O1, E, I1>
             stages,
             out_ids: other.out_ids,
             in_ids: self.in_ids,
-            memo: Mutex::new(None),
+            memo: LayerMemo::new(),
             marker: PhantomData,
         })
     }
@@ -281,6 +392,10 @@ impl<T: ServiceTag, E: Send + 'static> Layer<T, E, ()> {
     /// Wire a closed layer into an effect and hide its tag: the effect keeps
     /// its other requirements, `T` is satisfied from a build. A constructor
     /// failure closes `scope` and is returned.
+    ///
+    /// A double-provision this call would create (the effect already carries
+    /// the tag with a distinct value) is returned as an error here, at
+    /// construction, instead of Dying at interpretation.
     pub fn provide<A, E2, R2, Rest>(
         &self,
         effect: Effect<A, E2, R2>,
@@ -294,8 +409,18 @@ impl<T: ServiceTag, E: Send + 'static> Layer<T, E, ()> {
     {
         let built = self.build(scope)?;
         let mut maps = (*effect.services).clone();
-        for (id, value) in built.values.tag_list() {
-            maps.insert_tag(id, value);
+        for (id, value, conflicted) in built.values.tag_list() {
+            if maps.insert_tag(id, value) {
+                return Err(Cause::die(Defect::new(format!(
+                    "double-provision of `{id}` with distinct values: provide each tag once"
+                ))));
+            }
+            // A conflict inside the built services must not vanish into the
+            // effect's map: ambiguity is a property of the provision, and the
+            // law is that the run Dies rather than picking a winner.
+            if conflicted {
+                maps.poison(id);
+            }
         }
         Ok(Effect {
             step: effect.step,
@@ -308,18 +433,26 @@ impl<T: ServiceTag, E: Send + 'static> Layer<T, E, ()> {
 impl<O: RequirementIds, E: Send + 'static> Layer<O, E, ()> {
     /// Run every constructor once (memoized per handle) against the
     /// accumulated services. A constructor failure closes `scope` and fails
-    /// the build with the constructor's cause.
+    /// the build with the constructor's cause. Two stages emitting the same
+    /// tag with distinct values fail the same way: double-provision is a
+    /// construction error, not a run-time Die.
     pub fn build(&self, scope: &Scope) -> Result<BuiltServices, Cause<E>> {
-        if let Some(memo) = self.memo.lock().unwrap().clone() {
+        if let Some(memo) = self.memo.0.lock().unwrap().clone() {
             return Ok(BuiltServices { values: memo });
         }
         let mut acc = empty_services();
         for stage in &self.stages {
             let runner = (stage.make)();
-            match runner.run_with(&acc) {
+            match runner.run_with(&acc, scope) {
                 Ok(value) => {
                     let mut maps = (*acc).clone();
-                    maps.insert_tag(stage.out_id, value);
+                    if maps.insert_tag(stage.out_id, value) {
+                        scope.close();
+                        return Err(Cause::die(Defect::new(format!(
+                            "double-provision of `{}` with distinct values: provide each tag once",
+                            stage.out_id
+                        ))));
+                    }
                     acc = Arc::new(maps);
                 }
                 Err(cause) => {
@@ -328,7 +461,7 @@ impl<O: RequirementIds, E: Send + 'static> Layer<O, E, ()> {
                 }
             }
         }
-        *self.memo.lock().unwrap() = Some(Arc::clone(&acc));
+        *self.memo.0.lock().unwrap() = Some(Arc::clone(&acc));
         Ok(BuiltServices { values: acc })
     }
 }

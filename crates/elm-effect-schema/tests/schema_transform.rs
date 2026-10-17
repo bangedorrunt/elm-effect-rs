@@ -300,7 +300,7 @@ fn parser_decode_fields_rejects_non_objects() {
 #[test]
 fn parser_encode_round_trip() {
     let s = Schema::string();
-    assert_eq!(Parser::encode(&s, &"hi".to_string()), text("hi"));
+    assert_eq!(s.try_encode(&"hi".to_string()).unwrap(), text("hi"));
 }
 
 #[test]
@@ -338,7 +338,7 @@ fn channel_chunks_round_trip() {
         c.decode_chunk(vec![text("a"), Unknown::Bool(true)])
             .is_err()
     );
-    let back = c.encode_chunk(&["a".to_string()]);
+    let back = c.try_encode_chunk(&["a".to_string()]).unwrap();
     assert_eq!(back, vec![text("a")]);
 }
 
@@ -350,13 +350,152 @@ fn branded_checks_refinement() {
     assert_eq!(b.brand(), "NonEmpty");
     assert_eq!(b.decode(text("x")).unwrap(), "x");
     assert!(b.decode(text("")).is_err());
-    assert_eq!(b.encode(&"x".to_string()), text("x"));
+    assert_eq!(b.try_encode(&"x".to_string()).unwrap(), text("x"));
 }
 
 #[test]
 fn branded_empty_map_has_no_constraints() {
     let m: BTreeMap<String, Unknown> = BTreeMap::new();
     assert_eq!(Unknown::Object(m.clone()), Unknown::Object(m));
+}
+
+/// Schema.test.ts:10439 (`Check > brand > single brand`): the pin builds the
+/// branded schema over the SAME ast (`make(schema.ast, { schema, identifier })`),
+/// so branding changes no shape and no codec, only the identifier.
+#[test]
+fn a_brand_leaves_the_shape_alone_and_names_the_identifier() {
+    let shape = Schema::string().json_schema();
+    let b = Branded::new("Positive", Schema::string(), |s: &String| !s.is_empty());
+    assert_eq!(b.brand(), "Positive");
+    assert_eq!(b.identifier(), "Positive");
+    assert_eq!(b.schema().json_schema(), shape, "branding changes no shape");
+    assert_eq!(b.decode(text("a")).unwrap(), "a");
+}
+
+/// :10446 (`double brand`): the later brand is the identifier, and the earlier
+/// one stays reachable where the pin reaches it, `schema.schema.identifier`.
+#[test]
+fn a_second_brand_keeps_the_first_reachable() {
+    let b = Branded::new("Positive", Schema::string(), |_: &String| true)
+        .from_brand("Int", |s: &String| s.parse::<f64>().is_ok());
+    assert_eq!(b.identifier(), "Int");
+    assert_eq!(b.inner_brand(), Some("Positive"));
+    assert!(b.decode(text("3")).is_ok());
+    assert!(
+        b.decode(text("no")).is_err(),
+        "the second brand's check holds"
+    );
+}
+
+/// :10453 (`override the default identifier`): `annotate({ identifier })` over
+/// a branded schema is what the annotations carry, and what a refusal names.
+#[test]
+fn annotating_a_branded_schema_overrides_the_identifier() {
+    let b =
+        Branded::new("Positive", Schema::number(), |n: &f64| *n > 0.0).annotate_identifier("MyInt");
+    assert_eq!(
+        b.annotations(),
+        vec![("identifier".to_string(), "MyInt".to_string())]
+    );
+    assert_eq!(b.identifier(), "MyInt");
+    let refusal = b.decode(Unknown::Number(-1.0)).unwrap_err().to_string();
+    assert!(
+        refusal.contains("MyInt"),
+        "the override renames the refusal, got: {refusal}"
+    );
+}
+
+/// :10460 (`brand > fromBrand > nominal`): a nominal brand carries no check of
+/// its own, so the schema's own codec is the whole refusal.
+#[test]
+fn a_nominal_brand_decodes_the_schema_and_refuses_other_types() {
+    let b = Branded::nominal("a", Schema::string());
+    assert_eq!(b.decode(text("a")).unwrap(), "a");
+    assert!(b.decode(Unknown::Number(1.0)).is_err());
+    assert_eq!(b.schema().json_schema(), Schema::string().json_schema());
+}
+
+/// :10471 (`single brand`): a brand constructor's check rides the brand.
+#[test]
+fn a_single_brand_enforces_the_constructors_check() {
+    let b = Branded::new("Int", Schema::number(), |n: &f64| n.fract() == 0.0);
+    assert_eq!(b.decode(Unknown::Number(1.0)).unwrap(), 1.0);
+    assert!(
+        b.decode(text("a")).is_err(),
+        "the schema still refuses the wrong type"
+    );
+    assert!(
+        b.decode(Unknown::Number(1.2)).is_err(),
+        "the check refuses a non-integer"
+    );
+}
+
+/// :10484 (`multiple brands`): two brands compose, so both checks hold. The
+/// pin applies `Int` then `Positive` and refuses 1.2 and -1 separately, which
+/// only a composed check can do.
+#[test]
+fn two_brands_run_both_checks() {
+    let b = Branded::nominal("Int", Schema::number())
+        .from_brand("Int", |n: &f64| n.fract() == 0.0)
+        .from_brand("Positive", |n: &f64| *n > 0.0);
+    assert_eq!(b.decode(Unknown::Number(1.0)).unwrap(), 1.0);
+    assert!(b.decode(text("a")).is_err());
+    assert!(b.decode(Unknown::Number(1.2)).is_err());
+    assert!(
+        b.decode(Unknown::Number(-1.0)).is_err(),
+        "the first brand's check still holds"
+    );
+    assert_eq!(b.inner_brand(), Some("Int"));
+}
+
+/// Schema.test.ts:2485 (`decode` block): a decode-side transformation changes
+/// one direction only. The pin's `String.pipe(decode(compose(trim,
+/// toLowerCase)))` decodes `" A "` to `"a"` and leaves the encode side alone,
+/// because `composeTransformation` is still one-directional; the same value
+/// encodes back untouched.
+#[test]
+fn decode_only_transformation_leaves_encode_alone() {
+    let schema = Schema::<String>::convert(
+        Schema::string(),
+        |source: String| Ok(source.trim().to_lowercase()),
+        |value: &String| value.clone(),
+    );
+
+    assert_eq!(schema.decode(text(" A ")).unwrap(), "a");
+    assert_eq!(schema.try_encode(&" A ".to_string()).unwrap(), text(" A "));
+}
+
+/// Schema.test.ts:2634 (`encode` block): the mirror case. `flip()` moves the
+/// composition to the encode side, so decode passes the value through and
+/// encode is the one that trims and lowercases it.
+#[test]
+fn encode_only_transformation_leaves_decode_alone() {
+    let schema = Schema::<String>::convert(
+        Schema::string(),
+        |source: String| Ok(source),
+        |value: &String| value.trim().to_lowercase(),
+    );
+
+    assert_eq!(schema.decode(text(" A ")).unwrap(), " A ");
+    assert_eq!(schema.try_encode(&" A ".to_string()).unwrap(), text("a"));
+}
+
+/// Schema.test.ts:2403 and :2582 reduce to one behavior: `Trim` on either side
+/// of `FiniteFromString` — `Trim.pipe(decodeTo(FiniteFromString))` and
+/// `FiniteFromString.pipe(encodeTo(Trim))` — is indistinguishable from the
+/// finite number string itself, because it parses its source text trimmed and
+/// re-emits it canonically. `" 2 "` decodes to 2, a trimmed non-number is
+/// refused, and 2 encodes back to `"2"`.
+#[test]
+fn finite_from_string_trims_the_source_text() {
+    let schema = Schema::finite_from_string();
+
+    assert_eq!(schema.decode(text(" 2 ")).unwrap(), 2.0);
+    assert_eq!(schema.try_encode(&2.0).unwrap(), text("2"));
+    let error = schema
+        .decode(text(" a2 "))
+        .expect_err("a trimmed text that is not a number");
+    assert!(error.to_string().contains("a finite number"), "{error}");
 }
 
 #[test]
@@ -446,7 +585,10 @@ fn double_with_checks_rejects_between_steps() {
     let checked = parse.pipe(positive);
     assert_eq!(checked.forward(text("3")).unwrap(), Unknown::Number(3.0));
     let err = checked.forward(text("-1")).unwrap_err().to_string();
-    assert!(err.contains("positive"), "second-step check names itself: {err}");
+    assert!(
+        err.contains("positive"),
+        "second-step check names itself: {err}"
+    );
 }
 
 #[test]
@@ -486,4 +628,191 @@ fn double_failure_reports_first_failing_step() {
     assert!(err.contains("finite"), "first-step failure surfaces: {err}");
     let err = double.forward(Unknown::Null).unwrap_err().to_string();
     assert!(err.contains("text"), "wrong input shape fails fast: {err}");
+}
+
+// ------------- Schema.test.ts:5613 / :5627 "Transformations" ---
+
+/// The pin's `Schema.String.pipe(Schema.decodeTo(Schema.String, t))`, where
+/// `Schema::convert` is this port's `decodeTo`. A transformation carries both
+/// directions, so it is cloned into the two closures.
+fn case_schema(t: Transformation<String, String>) -> Schema<String> {
+    let encoded = std::sync::Arc::new(t);
+    let decoded = encoded.clone();
+    Schema::convert(
+        Schema::string(),
+        move |value: String| decoded.forward(value),
+        // `convert` takes a total encode, and a case transformation's encode
+        // direction is the pin's passthrough getter, so this cannot fail.
+        move |value: &String| {
+            encoded
+                .backward(value.clone())
+                .expect("the case transformations pass through on encode")
+        },
+    )
+}
+
+#[test]
+fn to_lowercase_lowers_on_decode_and_passes_through_on_encode() {
+    let lowered = case_schema(Transformation::to_lowercase());
+    assert_eq!(lowered.decode(text("A")).unwrap(), "a");
+    assert_eq!(lowered.decode(text("B")).unwrap(), "b");
+    // Encoding is passthrough, which is why the pair is not round-trippable:
+    // an uppercase value encodes back unchanged rather than re-cased.
+    assert_eq!(lowered.try_encode(&"A".to_string()).unwrap(), text("A"));
+}
+
+#[test]
+fn to_uppercase_uppers_on_decode_and_passes_through_on_encode() {
+    let uppered = case_schema(Transformation::to_uppercase());
+    assert_eq!(uppered.decode(text("a")).unwrap(), "A");
+    assert_eq!(uppered.decode(text("b")).unwrap(), "B");
+    assert_eq!(uppered.try_encode(&"a".to_string()).unwrap(), text("a"));
+}
+
+/// The pin's `Schema.String.pipe(Schema.decodeTo(Schema.String, t))` for the
+/// `StringFrom*` family: both directions are wired, because these transforms
+/// round-trip (unlike the case ones).
+fn string_wire_schema(t: Transformation<String, String>) -> Schema<String> {
+    let decoded = std::sync::Arc::new(t);
+    let encoded = decoded.clone();
+    Schema::convert(
+        Schema::string(),
+        move |value: String| decoded.forward(value),
+        move |value: &String| {
+            encoded
+                .backward(value.clone())
+                .expect("an encoder writes any string")
+        },
+    )
+}
+
+/// Schema.test.ts:5240 (`StringFromBase64`): Base64 text on the wire, the
+/// UTF-8 text it carries as the value, and the refusals are the malformations
+/// the pin names \u2014 a length that is not a group of four, the URL-safe
+/// alphabet, and leading padding.
+#[test]
+fn string_from_base64_round_trips_and_refuses_malformed_text() {
+    let schema = string_wire_schema(Transformation::string_from_base64());
+    assert_eq!(schema.decode(text("Zm9vYmFy")).unwrap(), "foobar");
+    for bad in ["Zm9vY", "Zm9vYmF-", "=Zm9vYmF"] {
+        let err = schema.decode(text(bad)).unwrap_err().to_string();
+        assert!(
+            err.contains("a valid Base64 string"),
+            "{bad:?} must be refused by name, got: {err}"
+        );
+    }
+    assert_eq!(schema.try_encode(&"foobar".to_string()).unwrap(), text("Zm9vYmFy"));
+}
+
+/// :5254 (`StringFromBase64Url`): the URL-safe alphabet, no padding on the way
+/// out, and the standard alphabet's `+` and `/` are now the malformed input.
+#[test]
+fn string_from_base64_url_uses_the_url_alphabet() {
+    let schema = string_wire_schema(Transformation::string_from_base64_url());
+    assert_eq!(schema.decode(text("Zm9vYmFy")).unwrap(), "foobar");
+    assert_eq!(schema.decode(text("Pj8-ZD_Dnw")).unwrap(), ">?>d?\u{df}");
+    let err = schema.decode(text("Pj8/ZD+Dnw")).unwrap_err().to_string();
+    assert!(err.contains("a valid Base64Url string"), "got: {err}");
+    assert_eq!(schema.try_encode(&"foobar".to_string()).unwrap(), text("Zm9vYmFy"));
+    assert_eq!(
+        schema.try_encode(&">?>d?\u{df}".to_string()).unwrap(),
+        text("Pj8-ZD_Dnw")
+    );
+}
+
+/// :5269 (`StringFromHex`): hexadecimal text on the wire. An odd count of
+/// digits is refused (`"0"`), as is a non-digit whether it is text (`zd4aa`)
+/// or a control character.
+#[test]
+fn string_from_hex_round_trips_and_refuses_malformed_text() {
+    let schema = string_wire_schema(Transformation::string_from_hex());
+    assert_eq!(schema.decode(text("67")).unwrap(), "g");
+    for bad in ["0", "zd4aa", "0\u{1}"] {
+        let err = schema.decode(text(bad)).unwrap_err().to_string();
+        assert!(
+            err.contains("a valid hexadecimal string"),
+            "{bad:?} must be refused by name, got: {err}"
+        );
+    }
+    assert_eq!(schema.try_encode(&"g".to_string()).unwrap(), text("67"));
+    assert_eq!(
+        schema.decode(text("0001020304050607")).unwrap(),
+        "\u{0}\u{1}\u{2}\u{3}\u{4}\u{5}\u{6}\u{7}"
+    );
+}
+
+/// :5283 (`StringFromUriComponent`): percent-encoded text on the wire. The
+/// decoded side is UTF-8, so a multi-byte escape decodes to its characters,
+/// and a truncated or non-hex escape (`%ZZ`) is the refusal.
+#[test]
+fn string_from_uri_component_round_trips_and_refuses_malformed_text() {
+    let schema = string_wire_schema(Transformation::string_from_uri_component());
+    assert_eq!(
+        schema.decode(text("%7B%22a%22%3A1%7D")).unwrap(),
+        "{\"a\":1}"
+    );
+    assert_eq!(
+        schema
+            .decode(text("%D1%88%D0%B5%D0%BB%D0%BB%D1%8B"))
+            .unwrap(),
+        "шеллы"
+    );
+    assert_eq!(schema.decode(text("hello%20world")).unwrap(), "hello world");
+    assert_eq!(schema.decode(text("hello")).unwrap(), "hello");
+    let err = schema.decode(text("%ZZ")).unwrap_err().to_string();
+    assert!(err.contains("a valid URI component"), "got: {err}");
+    assert_eq!(
+        schema.try_encode(&"{\"a\":1}".to_string()).unwrap(),
+        text("%7B%22a%22%3A1%7D")
+    );
+    assert_eq!(
+        schema.try_encode(&"hello world".to_string()).unwrap(),
+        text("hello%20world")
+    );
+}
+
+/// Schema.test.ts:5396 (`DateTimeUtcFromString`): the wire is the canonical UTC
+/// string and the value is the instant. The pin's value is a `DateTime`, which
+/// this port has no `Unknown` variant for, so the port's instant is epoch
+/// millis (`transform::date_schema`) and the assertions are the row's own
+/// decode/encode/refusal set.
+#[test]
+fn datetime_utc_from_string_decodes_the_canonical_wire_string() {
+    let schema = elm_effect_schema::transform::date_schema();
+    assert_eq!(
+        schema.decode(text("2021-01-01T00:00:00.000Z")).unwrap(),
+        1_609_459_200_000
+    );
+    assert_eq!(
+        schema.try_encode(&1_609_459_200_000).unwrap(),
+        text("2021-01-01T00:00:00.000Z")
+    );
+    assert!(
+        schema.decode(text("invalid")).is_err(),
+        "an unparseable instant is refused"
+    );
+    assert!(
+        schema.decode(Unknown::Null).is_err(),
+        "null is not a string"
+    );
+}
+
+/// :5413 (`DateTimeUtcFromMillis`): the wire is the millisecond number and the
+/// value is the same instant, so the port's `date_from_millis_schema` is this
+/// codec with millis standing in for the pin's `DateTime`.
+#[test]
+fn datetime_utc_from_millis_decodes_a_millisecond_number() {
+    let schema = elm_effect_schema::transform::date_from_millis_schema();
+    assert_eq!(
+        schema.decode(Unknown::Number(1_609_459_200_000.0)).unwrap(),
+        1_609_459_200_000
+    );
+    assert_eq!(
+        schema.try_encode(&1_609_459_200_000).unwrap(),
+        Unknown::Number(1_609_459_200_000.0)
+    );
+    assert!(
+        schema.decode(Unknown::Null).is_err(),
+        "null is not a number"
+    );
 }

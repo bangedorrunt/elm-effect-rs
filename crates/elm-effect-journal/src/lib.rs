@@ -23,6 +23,10 @@
 
 use serde::{Deserialize, Serialize};
 
+// Lets `elm_effect_journal::...` paths inside this crate resolve, so modules
+// such as `plan` name the crate the same way a downstream user does.
+extern crate self as elm_effect_journal;
+
 pub mod durable_log;
 pub mod epoch;
 pub mod laws;

@@ -519,6 +519,52 @@ fn hash_map_keeps_entries_addressable_across_bit31_heavy_shapes() {
 }
 
 #[test]
+fn hash_map_mutate_and_begin_mutation() {
+    // HashMap.test.ts :427/:442/:459.
+    //
+    // mutate applies a batch of in-place updates and returns the new map. A
+    // mutation replaces the held map rather than mutating through it, so the
+    // source is untouched: that is the property all three rows assert.
+    let source = HashMap::make([("a".to_owned(), 1)]);
+
+    // :427 mutate sets two entries on top of one.
+    let grown = source.mutate(|m| {
+        m.set("b".to_owned(), 2);
+        m.set("c".to_owned(), 3);
+    });
+    assert_eq!(source.size(), 1, "mutate must not touch the original");
+    assert_eq!(grown.size(), 3);
+    assert_eq!(grown.get(&"a".to_owned()), Some(&1));
+    assert_eq!(grown.get(&"b".to_owned()), Some(&2));
+    assert_eq!(grown.get(&"c".to_owned()), Some(&3));
+
+    // :442 beginMutation produces a distinct instance, and its updates do not
+    // reach the source. `into_map` freezes it.
+    let mutable = source.begin_mutation();
+    mutable.set("b".to_owned(), 2);
+    assert_eq!(mutable.size(), 2);
+    assert_eq!(source.size(), 1, "the source stays at one entry");
+    assert_eq!(mutable.into_map().size(), 2);
+
+    // :459 mutations are isolated from the original across set, remove and set
+    // again, so a remove during the batch does not remove from the source.
+    let original = HashMap::make([("a".to_owned(), 1), ("b".to_owned(), 2)]);
+    let changed = original.mutate(|m| {
+        m.set("a".to_owned(), 100);
+        m.remove(&"b".to_owned());
+        m.set("c".to_owned(), 3);
+    });
+    assert_eq!(original.get(&"a".to_owned()), Some(&1));
+    assert_eq!(original.get(&"b".to_owned()), Some(&2));
+    assert!(!original.has(&"c".to_owned()));
+    assert_eq!(changed.get(&"a".to_owned()), Some(&100));
+    assert!(!changed.has(&"b".to_owned()));
+    assert_eq!(changed.get(&"c".to_owned()), Some(&3));
+    // The source is still usable as a source for another mutation.
+    assert_eq!(original.size(), 2);
+}
+
+#[test]
 fn hash_map_transforms_and_predicates() {
     let m = HashMap::make([("a".to_owned(), 1), ("b".to_owned(), 2)]);
     assert_eq!(m.map(|v| v * 10).get(&"a".to_owned()), Some(&10));
@@ -936,6 +982,286 @@ fn trie_modify_many_and_longest_prefix() {
         Some("ab".to_owned())
     );
     assert_eq!(prefixed.longest_prefix_of("q"), None);
+}
+
+/// The pin's `Array.from(trie)`: entries as owned pairs, in iteration order.
+fn trie_i32(entries: &[(&str, i32)]) -> Vec<(String, i32)> {
+    entries.iter().map(|(k, v)| ((*k).to_owned(), *v)).collect()
+}
+
+fn trie_pairs(trie: &Trie<i32>) -> Vec<(String, i32)> {
+    trie.entries().into_iter().map(|(k, v)| (k, *v)).collect()
+}
+
+#[test]
+fn trie_empty_iterates_nothing_and_insert_orders_by_key() {
+    // :62 - an empty trie iterates no entries.
+    let empty = Trie::<String>::empty();
+    assert_eq!(empty.size(), 0);
+    assert!(empty.entries().is_empty());
+
+    // :69 - every insert returns a new trie, and entries come out in key
+    // order rather than insertion order: "mid" is stored last and reads third.
+    let t1 = Trie::empty().insert("call", 0);
+    let t2 = t1.insert("me", 1);
+    let t3 = t2.insert("mind", 2);
+    let t4 = t3.insert("mid", 3);
+    assert_eq!(trie_pairs(&t1), trie_i32(&[("call", 0)]));
+    assert_eq!(trie_pairs(&t2), trie_i32(&[("call", 0), ("me", 1)]));
+    assert_eq!(
+        trie_pairs(&t3),
+        trie_i32(&[("call", 0), ("me", 1), ("mind", 2)])
+    );
+    assert_eq!(
+        trie_pairs(&t4),
+        trie_i32(&[("call", 0), ("me", 1), ("mid", 3), ("mind", 2)])
+    );
+}
+
+#[test]
+fn trie_insert_replaces_without_mutating_or_growing() {
+    // :84 - replacing a key leaves the source trie alone and keeps the size.
+    let before = Trie::make([("a".to_owned(), 1)]);
+    let after = before.insert("a", 2);
+    assert_eq!(trie_pairs(&before), trie_i32(&[("a", 1)]));
+    assert_eq!(before.size(), 1);
+    assert_eq!(trie_pairs(&after), trie_i32(&[("a", 2)]));
+    assert_eq!(after.size(), 1);
+}
+
+#[test]
+fn trie_from_iterable_keeps_every_shape_and_orders_by_key() {
+    // :95 - an empty iterable stays empty.
+    let none: Vec<(String, i32)> = Vec::new();
+    assert_eq!(trie_pairs(&Trie::from_iter(none)), Vec::new());
+
+    // :114 - fromIterable orders by key, not by input order.
+    let shuffled = Trie::from_iter([
+        ("call".to_owned(), 0),
+        ("me".to_owned(), 1),
+        ("mind".to_owned(), 2),
+        ("mid".to_owned(), 3),
+    ]);
+    assert_eq!(
+        trie_pairs(&shuffled),
+        trie_i32(&[("call", 0), ("me", 1), ("mid", 3), ("mind", 2)])
+    );
+
+    // :120 - an already sorted iterable comes back unchanged.
+    let sorted = Trie::from_iter([("a".to_owned(), 0), ("b".to_owned(), 1)]);
+    assert_eq!(trie_pairs(&sorted), trie_i32(&[("a", 0), ("b", 1)]));
+
+    // :126 - a single entry.
+    let single = Trie::from_iter([("a".to_owned(), 0)]);
+    assert_eq!(trie_pairs(&single), trie_i32(&[("a", 0)]));
+
+    // :132 - a key that prefixes another sorts before it.
+    let prefixed = Trie::from_iter([("shells".to_owned(), 0), ("she".to_owned(), 1)]);
+    assert_eq!(trie_pairs(&prefixed), trie_i32(&[("she", 1), ("shells", 0)]));
+}
+
+#[test]
+fn trie_keeps_option_payloads_and_reads_only_complete_keys() {
+    // :171 - a stored payload with no value inside it is still an entry.
+    let trie = Trie::make([("a".to_owned(), None::<i32>)]);
+    assert_eq!(trie.size(), 1);
+    assert_eq!(trie.get("a"), Some(&None));
+    assert_eq!(trie.entries().len(), 1);
+
+    // :179 - a prefix of a stored key is not a stored key.
+    let prefixed = Trie::empty().insert("shells", 0).insert("sells", 1).insert("she", 2);
+    assert_eq!(prefixed.get("sell"), None);
+    assert_eq!(prefixed.get("sells"), Some(&1));
+    assert_eq!(prefixed.get("shell"), None);
+    assert_eq!(prefixed.get("she"), Some(&2));
+}
+
+#[test]
+fn trie_get_unsafe_returns_or_panics() {
+    // :209 - getUnsafe hands back the value, and refuses a key it does not
+    // have with a tagged message rather than a silent default.
+    let trie = Trie::empty().insert("call", 0).insert("me", 1);
+    assert_eq!(*trie.get_unsafe("call"), 0);
+    assert_eq!(*trie.get_unsafe("me"), 1);
+    let absent = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| trie.get_unsafe("mae")));
+    let message = absent.expect_err("a missing key is refused");
+    let message = message
+        .downcast_ref::<String>()
+        .cloned()
+        .or_else(|| message.downcast_ref::<&str>().map(|s| s.to_string()))
+        .unwrap_or_default();
+    assert!(message.contains("Trie.getUnsafe"), "{message}");
+}
+
+#[test]
+fn trie_keys_values_and_entries_come_out_in_key_order() {
+    // :243 - keys are sorted, not insertion ordered.
+    let trie = Trie::empty().insert("cab", 0).insert("abc", 1).insert("bca", 2);
+    assert_eq!(trie.keys(), ["abc", "bca", "cab"]);
+
+    // :254 - a valued node sorts with its own extensions: "a" before "ab",
+    // "ca" before "cac", and every branch of a level before the next.
+    let nested = Trie::from_iter(
+        [
+            "abc", "bac", "b", "ca", "cac", "c", "abb", "ba", "a", "bca", "cab", "dca", "ab",
+            "adc",
+        ]
+        .map(|k| (k.to_owned(), 0)),
+    );
+    assert_eq!(
+        nested.keys(),
+        [
+            "a", "ab", "abb", "abc", "adc", "b", "ba", "bac", "bca", "c", "ca", "cab", "cac",
+            "dca"
+        ]
+    );
+
+    // :291 - values follow that same key order.
+    let values = Trie::empty().insert("call", 0).insert("me", 1).insert("and", 2);
+    let ordered: Vec<i32> = values.values().into_iter().copied().collect();
+    assert_eq!(ordered, [2, 0, 1]);
+
+    // :302 / :312 - entries, and the materialized `toEntries` form of them,
+    // are that same order as pairs.
+    let pairs = Trie::empty().insert("call", 0).insert("me", 1);
+    assert_eq!(trie_pairs(&pairs), trie_i32(&[("call", 0), ("me", 1)]));
+}
+
+#[test]
+fn trie_prefix_readers_return_keys_values_and_entries() {
+    // :322 - keysWithPrefix hands back every matching key, sorted.
+    let wide = Trie::empty()
+        .insert("she", 0)
+        .insert("shells", 1)
+        .insert("sea", 2)
+        .insert("sells", 3)
+        .insert("by", 4)
+        .insert("the", 5)
+        .insert("sea", 6)
+        .insert("shore", 7);
+    assert_eq!(wide.keys_with_prefix("she"), ["she", "shells"]);
+
+    let narrow = Trie::empty()
+        .insert("shells", 0)
+        .insert("sells", 1)
+        .insert("sea", 2)
+        .insert("she", 3);
+
+    // :338 - valuesWithPrefix pairs those keys with their values.
+    let values: Vec<i32> = narrow
+        .values_with_prefix("she")
+        .into_iter()
+        .copied()
+        .collect();
+    assert_eq!(values, [3, 0]);
+
+    // :351 / :364 - entriesWithPrefix carries both, and is the array form.
+    let entries: Vec<(String, i32)> = narrow
+        .entries_with_prefix("she")
+        .into_iter()
+        .map(|(k, v)| (k, *v))
+        .collect();
+    assert_eq!(entries, trie_i32(&[("she", 3), ("shells", 0)]));
+    assert!(narrow.entries_with_prefix("zzz").is_empty());
+}
+
+#[test]
+fn trie_map_filter_filter_map_and_compact() {
+    let trie = Trie::empty()
+        .insert("shells", 0)
+        .insert("sells", 1)
+        .insert("she", 2);
+
+    // :399 - map transforms values, and the key-aware form is handed the key.
+    let by_value = trie.map(|v| v + 1);
+    assert_eq!(
+        trie_pairs(&by_value),
+        trie_i32(&[("sells", 2), ("she", 3), ("shells", 1)])
+    );
+    let by_key = trie.map_with_key(|_, k| k.len() as i32);
+    assert_eq!(
+        trie_pairs(&by_key),
+        trie_i32(&[("sells", 5), ("she", 3), ("shells", 6)])
+    );
+
+    // :422 - filter keeps entries by value, or by key.
+    assert_eq!(trie_pairs(&trie.filter(|_, v| *v > 1)), trie_i32(&[("she", 2)]));
+    assert_eq!(
+        trie_pairs(&trie.filter(|k, _| k.len() > 3)),
+        trie_i32(&[("sells", 1), ("shells", 0)])
+    );
+
+    // :442 - filterMap keeps the successes, by value or by key.
+    assert_eq!(
+        trie_pairs(&trie.filter_map(|_, v| (*v > 1).then_some(*v))),
+        trie_i32(&[("she", 2)])
+    );
+    assert_eq!(
+        trie_pairs(&trie.filter_map(|k, v| (k.len() > 3).then_some(*v))),
+        trie_i32(&[("sells", 1), ("shells", 0)])
+    );
+
+    // :465 - compact drops the empty payloads and unwraps the rest.
+    let options = Trie::empty()
+        .insert("shells", Some(0))
+        .insert("sells", None::<i32>)
+        .insert("she", Some(2));
+    assert_eq!(
+        trie_pairs(&options.compact()),
+        trie_i32(&[("she", 2), ("shells", 0)])
+    );
+}
+
+#[test]
+fn trie_reduce_and_for_each_visit_in_key_order() {
+    let trie = Trie::empty()
+        .insert("shells", 0)
+        .insert("sells", 1)
+        .insert("she", 2);
+
+    // :524 - reduce folds left to right in key order, and its fold is handed
+    // the key: the concatenation spells sells, she, shells.
+    assert_eq!(trie.reduce(0, |acc, v, _| acc + v), 3);
+    assert_eq!(trie.reduce(10, |acc, v, _| acc + v), 13);
+    assert_eq!(
+        trie.reduce(String::new(), |acc, _, k| acc + k),
+        "sellssheshells"
+    );
+
+    // :551 - forEach visits the same order, value then key.
+    let mut total = 0;
+    trie.for_each(|v, k| total += v + k.len() as i32);
+    assert_eq!(total, 17);
+}
+
+#[test]
+fn trie_renders_entries_in_iteration_order() {
+    let trie = Trie::empty().insert("a", 0).insert("b", 1);
+
+    // :23 - toString is the class rendering, in key order.
+    assert_eq!(trie.to_string(), "Trie([[\"a\",0],[\"b\",1]])");
+    assert_eq!(format!("{trie:?}"), trie.to_string());
+
+    // :36 - toJSON is the tagged object.
+    assert_eq!(trie.json_shape(), "{\"_id\":\"Trie\",\"values\":[[\"a\",0],[\"b\",1]]}");
+}
+
+#[test]
+fn trie_equality_is_by_entries() {
+    // :566 - two tries with the same entries are equal, including empty ones.
+    assert_eq!(Trie::<i32>::empty(), Trie::empty());
+    assert_eq!(
+        Trie::make([("call".to_owned(), 0), ("me".to_owned(), 1)]),
+        Trie::make([("call".to_owned(), 0), ("me".to_owned(), 1)])
+    );
+
+    // Either half of an entry can differ, and the size is checked before the
+    // entries are walked, which is the part of :11 this port can build.
+    assert_ne!(
+        Trie::make([("call".to_owned(), 0)]),
+        Trie::make([("call".to_owned(), 1)])
+    );
+    assert_ne!(Trie::<i32>::empty(), Trie::make([("a".to_owned(), 1)]));
 }
 
 #[test]

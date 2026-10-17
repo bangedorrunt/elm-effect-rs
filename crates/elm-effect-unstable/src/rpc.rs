@@ -641,3 +641,74 @@ pub fn decode_batch(text: &str) -> Vec<Message> {
         Err(_) => Vec::new(),
     }
 }
+
+/// Client failure for the HTTP rows of `RpcClient.test.ts`.
+///
+/// Only the defect shape is representable here: socket opens, retries,
+/// pongs, worker pools, and fiber interrupts need a network/fiber runtime
+/// this crate does not have. The `message` carries the exact server text
+/// the TS rows assert on.
+#[derive(Clone, Debug, PartialEq)]
+pub enum RpcClientError {
+    /// An unexpected defect (never a typed failure).
+    Defect {
+        /// Defect message, verbatim from the contract.
+        message: String,
+    },
+}
+
+impl RpcClientError {
+    /// Build a defect.
+    pub fn defect(message: &str) -> Self {
+        Self::Defect {
+            message: message.to_string(),
+        }
+    }
+
+    /// The defect message.
+    pub fn message(&self) -> &str {
+        match self {
+            Self::Defect { message } => message,
+        }
+    }
+}
+
+/// Fail the request when an HTTP body carries no messages.
+///
+/// `framed` selects the ndjson shape (one message per line) or the plain
+/// JSON shape (one object, or an array batch). A body with zero decodable
+/// messages defects exactly as `RpcClient.test.ts:182,185` assert.
+pub fn classify_http_body(body: &str, framed: bool) -> Result<(), RpcClientError> {
+    let empty = if framed {
+        match NdjsonDecoder::new(None).feed(body.as_bytes()) {
+            Ok(messages) => messages.is_empty(),
+            Err(_) => true,
+        }
+    } else {
+        decode_batch(body).is_empty()
+    };
+    if empty {
+        Err(RpcClientError::defect(
+            "Received empty HTTP response from RPC server",
+        ))
+    } else {
+        Ok(())
+    }
+}
+
+/// Fail the request when a framed HTTP stream ends with no terminal `Exit`.
+///
+/// Chunk frames are non-terminal (the decoder skips them); only a
+/// `Response` completes the stream. Ports `RpcClient.test.ts:188`.
+pub fn check_stream_completed(messages: &[Message]) -> Result<(), RpcClientError> {
+    let done = messages
+        .iter()
+        .any(|message| matches!(message, Message::Response { .. }));
+    if done {
+        Ok(())
+    } else {
+        Err(RpcClientError::defect(
+            "HTTP response ended before RPC request completed",
+        ))
+    }
+}

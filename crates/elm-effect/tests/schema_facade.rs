@@ -23,8 +23,14 @@ fn schema_types_are_reachable_from_elm_effect() {
 #[test]
 fn reexported_schema_round_trips() {
     let schema = Schema::string();
-    assert_eq!(schema.decode(Unknown::Text("hi".to_string())), Ok("hi".to_string()));
-    assert_eq!(schema.encode(&"hi".to_string()), Unknown::Text("hi".to_string()));
+    assert_eq!(
+        schema.decode(Unknown::Text("hi".to_string())),
+        Ok("hi".to_string())
+    );
+    assert_eq!(
+        schema.try_encode(&"hi".to_string()).unwrap(),
+        Unknown::Text("hi".to_string())
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -43,9 +49,10 @@ fn revives_is_guid() {
     let schema = Schema::string().refine("a GUID", |s: &String| {
         let parts: Vec<&str> = s.split('-').collect();
         parts.len() == 5
-            && parts.iter().zip([8usize, 4, 4, 4, 12]).all(|(p, want)| {
-                p.len() == want && p.chars().all(|c| c.is_ascii_hexdigit())
-            })
+            && parts
+                .iter()
+                .zip([8usize, 4, 4, 4, 12])
+                .all(|(p, want)| p.len() == want && p.chars().all(|c| c.is_ascii_hexdigit()))
     });
     assert!(
         schema
@@ -97,7 +104,10 @@ fn revives_greater_than_bigint() {
     let schema = Schema::string().refine("a bigint above 10", |s: &String| {
         s.parse::<i128>().is_ok_and(|n| n > 10)
     });
-    assert_eq!(schema.decode(Unknown::Text("11".to_string())).unwrap(), "11");
+    assert_eq!(
+        schema.decode(Unknown::Text("11".to_string())).unwrap(),
+        "11"
+    );
     assert!(schema.decode(Unknown::Text("10".to_string())).is_err());
 }
 
@@ -108,7 +118,10 @@ fn revives_greater_than_or_equal_to_bigint() {
     let schema = Schema::string().refine("a bigint of at least 10", |s: &String| {
         s.parse::<i128>().is_ok_and(|n| n >= 10)
     });
-    assert_eq!(schema.decode(Unknown::Text("10".to_string())).unwrap(), "10");
+    assert_eq!(
+        schema.decode(Unknown::Text("10".to_string())).unwrap(),
+        "10"
+    );
     assert!(schema.decode(Unknown::Text("9".to_string())).is_err());
 }
 
@@ -128,7 +141,10 @@ fn revives_less_than_or_equal_to_bigint() {
     let schema = Schema::string().refine("a bigint of at most 10", |s: &String| {
         s.parse::<i128>().is_ok_and(|n| n <= 10)
     });
-    assert_eq!(schema.decode(Unknown::Text("10".to_string())).unwrap(), "10");
+    assert_eq!(
+        schema.decode(Unknown::Text("10".to_string())).unwrap(),
+        "10"
+    );
     assert!(schema.decode(Unknown::Text("11".to_string())).is_err());
 }
 
@@ -141,7 +157,10 @@ fn revives_between_bigint() {
         s.parse::<i128>().is_ok_and(|n| (-10..10).contains(&n))
     });
     assert_eq!(schema.decode(Unknown::Text("0".to_string())).unwrap(), "0");
-    assert_eq!(schema.decode(Unknown::Text("-10".to_string())).unwrap(), "-10");
+    assert_eq!(
+        schema.decode(Unknown::Text("-10".to_string())).unwrap(),
+        "-10"
+    );
     assert!(schema.decode(Unknown::Text("10".to_string())).is_err());
 }
 
@@ -213,7 +232,10 @@ fn revives_is_unique_key() {
         Unknown::Array(vec![Unknown::Text("a".to_string()), Unknown::Number(1.0)]),
         Unknown::Array(vec![Unknown::Text("a".to_string()), Unknown::Number(2.0)]),
     ]);
-    assert!(schema.decode(ok.clone()).is_ok(), "repeated values are fine: {ok:?}");
+    assert!(
+        schema.decode(ok.clone()).is_ok(),
+        "repeated values are fine: {ok:?}"
+    );
     assert!(schema.decode(dup).is_err(), "a repeated key is not");
 }
 
@@ -261,5 +283,188 @@ fn revives_property_names() {
                 [("alpha".to_string(), Unknown::Number(1.0))].into()
             ))
             .is_err()
+    );
+}
+
+// ---------------------------------------------------------------------------
+// toFormatter.test.ts's Struct / Record rows. These were excused as
+// "SchemaKind has no Struct, Record, or recursive suspend variant, so a
+// nested-struct formatter cannot be built at all". That was true when written;
+// it is not true now, so they are carried here rather than left excused.
+// ---------------------------------------------------------------------------
+
+fn obj(pairs: &[(&str, Unknown)]) -> Unknown {
+    Unknown::Object(
+        pairs
+            .iter()
+            .map(|(k, v)| ((*k).to_string(), v.clone()))
+            .collect(),
+    )
+}
+
+fn text(s: &str) -> Unknown {
+    Unknown::Text(s.to_string())
+}
+
+fn num(n: f64) -> Unknown {
+    Unknown::Number(n)
+}
+
+/// The pin's `Schema.String` etc. are `Schema<String>`, but `struct_` wants
+/// `Schema<Unknown>` fields, so every leaf passes through `as_unknown`.
+fn ustruct<const N: usize>(fields: [(&str, Schema<Unknown>); N]) -> Schema<Unknown> {
+    Schema::as_unknown(Schema::struct_(fields))
+}
+
+fn ustr() -> Schema<Unknown> {
+    Schema::as_unknown(Schema::string())
+}
+
+fn uarray(inner: Schema<Unknown>) -> Schema<Unknown> {
+    Schema::as_unknown(Schema::array(inner))
+}
+
+fn urecord(value: Schema<Unknown>) -> Schema<Unknown> {
+    Schema::as_unknown(Schema::record(value))
+}
+
+#[test]
+fn formatter_renders_declared_struct_fields_with_spaces() {
+    // toFormatter.test.ts:406 — self-referential through suspend, exactly as
+    // the pin builds it: `Rec = suspend(() => schema)` then a Struct holding
+    // an array of Rec.
+    let slot: std::sync::Arc<std::sync::Mutex<Option<Schema<Unknown>>>> =
+        std::sync::Arc::new(std::sync::Mutex::new(None));
+    let inner_slot = std::sync::Arc::clone(&slot);
+    // The turbofish breaks the inference cycle: the closure's return type is
+    // the very schema being built, so it cannot be inferred from the body.
+    let rec: Schema<Unknown> =
+        Schema::<Unknown>::suspend(move || inner_slot.lock().unwrap().as_ref().unwrap().clone());
+    let schema = ustruct([("a", ustr()), ("as", uarray(Schema::as_unknown(rec)))]);
+    *slot.lock().unwrap() = Some(schema.clone());
+
+    let format = schema.formatter();
+    let value = obj(&[
+        ("a", text("a")),
+        (
+            "as",
+            Unknown::Array(vec![
+                obj(&[("a", text("b")), ("as", Unknown::Array(vec![]))]),
+                obj(&[("a", text("c")), ("as", Unknown::Array(vec![]))]),
+            ]),
+        ),
+    ]);
+    assert_eq!(
+        format(&value),
+        r#"{ "a": "a", "as": [{ "a": "b", "as": [] }, { "a": "c", "as": [] }] }"#
+    );
+}
+
+#[test]
+fn formatter_renders_an_empty_struct_without_spaces() {
+    // toFormatter.test.ts:279
+    let schema = ustruct([] as [(&str, Schema<Unknown>); 0]);
+    let format = schema.formatter();
+    assert_eq!(format(&obj(&[])), "{}");
+    assert_eq!(format(&num(1.0)), "1");
+    assert_eq!(format(&text("a")), r#""a""#);
+    assert_eq!(format(&Unknown::Bool(true)), "true");
+    assert_eq!(format(&Unknown::Bool(false)), "false");
+    assert_eq!(format(&obj(&[("a", num(1.0))])), r#"{"a":1}"#);
+    assert_eq!(
+        format(&Unknown::Array(vec![num(1.0), num(2.0), num(3.0)])),
+        "[1,2,3]"
+    );
+}
+
+#[test]
+fn formatter_renders_record_entries_with_spaces() {
+    // toFormatter.test.ts:419
+    let slot: std::sync::Arc<std::sync::Mutex<Option<Schema<Unknown>>>> =
+        std::sync::Arc::new(std::sync::Mutex::new(None));
+    let inner_slot = std::sync::Arc::clone(&slot);
+    // The turbofish breaks the inference cycle: the closure's return type is
+    // the very schema being built, so it cannot be inferred from the body.
+    let rec: Schema<Unknown> =
+        Schema::<Unknown>::suspend(move || inner_slot.lock().unwrap().as_ref().unwrap().clone());
+    let schema = urecord(Schema::as_unknown(rec));
+    *slot.lock().unwrap() = Some(schema.clone());
+
+    let format = schema.formatter();
+    let value = obj(&[("a", obj(&[("a", obj(&[("a", obj(&[]))]))]))]);
+    assert_eq!(format(&value), r#"{ "a": { "a": { "a": {} } } }"#);
+}
+
+#[test]
+fn formatter_renders_optional_field() {
+    // toFormatter.test.ts:426 — `Struct({ a: optional(Rec) })` renders the
+    // present field through the field's own schema.
+    let schema = ustruct([("a", ustr())]);
+    assert_eq!(
+        schema.formatter()(&obj(&[("a", text("a"))])),
+        r#"{ "a": "a" }"#
+    );
+}
+
+#[test]
+fn formatter_renders_array_of_structs() {
+    // toFormatter.test.ts:451 — an Array field renders each element through
+    // its schema, so a struct inside an array keeps the struct spacing.
+    let slot: std::sync::Arc<std::sync::Mutex<Option<Schema<Unknown>>>> =
+        std::sync::Arc::new(std::sync::Mutex::new(None));
+    let inner_slot = std::sync::Arc::clone(&slot);
+    // The turbofish breaks the inference cycle: the closure's return type is
+    // the very schema being built, so it cannot be inferred from the body.
+    let rec: Schema<Unknown> =
+        Schema::<Unknown>::suspend(move || inner_slot.lock().unwrap().as_ref().unwrap().clone());
+    let schema = ustruct([("a", ustr()), ("b", uarray(Schema::as_unknown(rec)))]);
+    *slot.lock().unwrap() = Some(schema.clone());
+
+    let format = schema.formatter();
+    let value = obj(&[
+        ("a", text("a")),
+        (
+            "b",
+            Unknown::Array(vec![obj(&[
+                ("a", text("b")),
+                ("b", Unknown::Array(vec![])),
+            ])]),
+        ),
+    ]);
+    assert_eq!(
+        format(&value),
+        r#"{ "a": "a", "b": [{ "a": "b", "b": [] }] }"#
+    );
+}
+
+#[test]
+fn formatter_renders_two_array_fields_sharing_a_recursion() {
+    // toFormatter.test.ts:435 — two Array fields that share ONE suspend, so
+    // the same recursive schema is reached from both. A naive renderer would
+    // resolve the suspend once and cache the wrong shape on the second path.
+    let slot: std::sync::Arc<std::sync::Mutex<Option<Schema<Unknown>>>> =
+        std::sync::Arc::new(std::sync::Mutex::new(None));
+    let inner_slot = std::sync::Arc::clone(&slot);
+    let rec: Schema<Unknown> =
+        Schema::<Unknown>::suspend(move || inner_slot.lock().unwrap().as_ref().unwrap().clone());
+    let schema = ustruct([("a", uarray(rec.clone())), ("b", uarray(rec))]);
+    *slot.lock().unwrap() = Some(schema.clone());
+
+    let format = schema.formatter();
+    let leaf = || Unknown::Array(vec![]);
+    let inner = obj(&[("a", leaf()), ("b", leaf())]);
+    let value = obj(&[
+        (
+            "a",
+            Unknown::Array(vec![obj(&[
+                ("a", Unknown::Array(vec![inner.clone()])),
+                ("b", leaf()),
+            ])]),
+        ),
+        ("b", Unknown::Array(vec![inner])),
+    ]);
+    assert_eq!(
+        format(&value),
+        r#"{ "a": [{ "a": [{ "a": [], "b": [] }], "b": [] }], "b": [{ "a": [], "b": [] }] }"#
     );
 }

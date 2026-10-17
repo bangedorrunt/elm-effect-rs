@@ -1,0 +1,112 @@
+---
+tier: perishable
+tags: [conformance, ledger, excuses, rows, case-sensitive]
+bead: elm-effect-rs-9zv1
+created: 2026-10-13
+verify: python3 conformance/rows-port-remaining.py packages/effect/test/http/FindMyWay/case-insensitive.test.ts
+verify_result: ok (exit 0; "all 12 rows ported or excused", after 3 rows left `not-applicable`)
+---
+
+# A `not-applicable` row is a claim about the port, and it expires
+
+## The case
+
+`elm-effect-rs-port-regex-jxf8` excused three rows of
+`http/FindMyWay/case-insensitive.test.ts` (lines 79, 90, 101) with the reason
+"this port's FindMyWay has no case-insensitive mode". That was **true when
+written** and **false one bead later**: the Router slice has carried a real
+config since `elm-effect-rs-4gxr`, and the pin's own default is
+`caseSensitive: false`, so the excuse described a capability gap that had
+closed. Flipping the three rows needed a config field and a case-folding
+comparison, not a rewrite.
+
+## Why it is not a one-off
+
+The ledger holds **1136 `not-applicable` rows, and 990 of them justify
+themselves with a phrase that says a capability is missing** ("no …", "not
+carried", "unsupported", "does not …"). That 990 is a *word* count, not 990
+proofs: it flags the rows whose excuse page is a capability claim, and those are
+exactly the rows that expire when the capability arrives. The other 146 rest on
+something that does not move (a row asserting a JS-only object identity, a
+`WeakRef` liveness check).
+
+So the repair is a habit, not a script: **when a bead adds a capability, re-read
+the excused rows that named its absence** before calling the module done. This
+bead was that re-read for one file; a module-sized one has the same shape.
+
+## What the pin actually does with the flag
+
+Worth writing down, because "case-insensitive" is two different rules that look
+like one:
+
+- `internal/router.ts:250` lowercases the **pattern** before the duplicate
+  check, so `/foo` and `/FOO` are one route, and `:148` lowercases the static
+  node paths it builds.
+- `find` lowercases the **path** only when it is not "clean" (`:319`, clean
+  means no uppercase, `%`, `?`, `;`, `#`, and no `//`), and it slices captures
+  out of `originPath` (`:~380`).
+
+Match on folded text, report captures as written. A router that lowercases the
+request path and captures from it passes the "folds" rows and silently
+lowercases every parameter value.
+
+## A small trap that cost a compile
+
+`cargo clippy` reports `unused import: match_path` **by line**, and the file had
+six byte-identical `use ...::{match_path, match_path_ci};` lines, of which only
+five were unused. I read the warning list through `head -80`, mapped five
+warnings onto six identical strings, and patched by string: two of the tests
+lost an import they call. One `.rs` line each, caught by the next `cargo test`.
+
+Patch a warning **at its line number**, never by matching the text it quotes,
+and do not truncate the list you are patching from.
+
+## The repair for that costs a sibling its rows
+
+Dropping the id means rewriting the follow-up commit, and a rebase that replays a
+`.beads/`-touching commit resets `.beads/gates.jsonl` in the working tree. Rows
+that were only ever uncommitted, another lane's among them, are gone from the
+file at that instant: measured here, six gate rows (ids 85-93, five of them
+other lanes' closes) vanished, and `git status` then reported the file clean, so
+nothing looks wrong. The replay refused to finish until the file was clean, and
+cleaning it is what completes the loss.
+
+The rows are recoverable, because `beads.db` is the source of truth and is
+untracked, and `br` snapshots the JSONL under `.beads/.br_history/`:
+
+```sh
+ls -t .beads/.br_history/gates.*.jsonl | head -1   # newest snapshot, 93 rows
+cp .beads/.br_history/gates.<ts>.jsonl .beads/gates.jsonl
+```
+
+Two traps on the way out. `br sync --flush-only` exports only *dirty* issues,
+so it will not rebuild a file the reset emptied (it answers "Nothing to
+export"). And the file must be clean *during* the replay, so snapshot it out of
+`.beads/` first, `git checkout -- .beads/gates.jsonl` to let the rebase finish,
+then copy it back; `git rebase --autostash` re-applies it by itself.
+
+## The row number in the ledger is not the line number in the pin
+
+Every ledger row is `status  path  number  kind  title  rust`, and the tempting
+reading of `number` is "the line the pin's `it(` is on". It is not. For
+`test/schema/Schema.test.ts` the numbers run behind the pin's own `it(` lines by
+0 to 17 (measured: `it(` at 6236 is row 6235, at 6262 is 6260, at 6583 is 6590),
+because the generator anchors to something other than the `it(` call.
+
+So a flip addressed with the numbers you read out of the TypeScript fails, and
+it fails safely but confusingly: `flip-row.py` writes nothing and reports
+`no such behavior row` for each one, while `rows-port-remaining.py` lists the
+same rows happily because it prints the column it found.
+
+**Take the number from the ledger, not from the pin.** Print the rows in the
+describe block's neighbourhood (`awk -F'\t'` over the tsv, filter by path and a
+number range, sort) and match them to your tests by title; then cite the
+ledger's number in the test comment, so the comment and the flip agree.
+
+## Principles
+
+- **boundary-discipline** — an excused row is a boundary claim about the port's
+  surface. It is not a statement about the pin, and it is not permanent.
+- **prove-it-works** — the excuse was believed for one bead because nobody
+  re-ran it; the row's own state is the only authority, and re-running it is
+  what turned a "cannot be represented here" into a five-test config change.

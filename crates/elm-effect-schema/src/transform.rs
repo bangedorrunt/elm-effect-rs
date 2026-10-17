@@ -75,6 +75,265 @@ impl<A, B> Transformation<A, B> {
     }
 }
 
+impl Transformation<String, String> {
+    /// `SchemaTransformation.toLowerCase`: decoding lowercases the text and
+    /// encoding is the pin's `SchemaGetter.passthrough()`. The pair is
+    /// deliberately not round-trippable: an uppercase input decodes lowered
+    /// and encodes back unchanged, so encoding never re-cases what it is
+    /// given.
+    pub fn to_lowercase() -> Self {
+        Transformation::new(
+            |value: String| Ok(value.to_lowercase()),
+            |value: String| Ok(value),
+        )
+    }
+
+    /// `SchemaTransformation.toUpperCase`, the mirror of [`Self::to_lowercase`].
+    pub fn to_uppercase() -> Self {
+        Transformation::new(
+            |value: String| Ok(value.to_uppercase()),
+            |value: String| Ok(value),
+        )
+    }
+
+    /// `SchemaTransformation.trim`: decoding strips leading and trailing
+    /// whitespace and encoding is passthrough, the same one-way shape as the
+    /// case transformations. Interior whitespace is left alone.
+    pub fn trim() -> Self {
+        Transformation::new(
+            |value: String| Ok(value.trim().to_string()),
+            |value: String| Ok(value),
+        )
+    }
+
+    /// `Schema.StringFromBase64`: Base64 text on the wire, the UTF-8 text those
+    /// bytes carry as the value. Both directions are total on valid input, so
+    /// this pair round-trips (unlike the case transformations).
+    pub fn string_from_base64() -> Self {
+        Self::base64_pair(false, "Base64")
+    }
+
+    /// `Schema.StringFromBase64Url`: the URL-safe alphabet (`-` and `_`), and
+    /// no padding on the way out, which is what the pin's encoder emits.
+    pub fn string_from_base64_url() -> Self {
+        Self::base64_pair(true, "Base64Url")
+    }
+
+    /// `Schema.StringFromHex`: lowercase hexadecimal text on the wire.
+    pub fn string_from_hex() -> Self {
+        Transformation::new(
+            |value: String| {
+                hex_decode(&value)
+                    .and_then(utf8)
+                    .ok_or_else(|| malformed("a valid hexadecimal string"))
+            },
+            |value: String| Ok(hex_encode(value.as_bytes())),
+        )
+    }
+
+    /// `Schema.StringFromUriComponent`: percent-encoded text on the wire.
+    pub fn string_from_uri_component() -> Self {
+        Transformation::new(
+            |value: String| {
+                percent_decode(&value).ok_or_else(|| malformed("a valid URI component"))
+            },
+            |value: String| Ok(percent_encode(&value)),
+        )
+    }
+
+    /// The two Base64 spellings differ only in alphabet and padding.
+    fn base64_pair(url: bool, name: &'static str) -> Self {
+        Transformation::new(
+            move |value: String| {
+                base64_decode(&value, url)
+                    .and_then(utf8)
+                    .ok_or_else(|| malformed(&format!("a valid {name} string")))
+            },
+            move |value: String| Ok(base64_encode(value.as_bytes(), url)),
+        )
+    }
+}
+
+/// A refusal over a malformed wire string. The pin names the encoding, which is
+/// the only thing a caller can act on. The expected side is built at runtime
+/// (the encoding's name), so it is the dynamic variant rather than a leak.
+fn malformed(expected: &str) -> SchemaError {
+    SchemaError::TypeMismatchDynamic {
+        path: "$".to_string(),
+        expected: expected.to_string(),
+        got: "malformed",
+    }
+}
+
+/// Decoded bytes as text, or `None` when they are not UTF-8: every `From*`
+/// transform decodes into a string, so invalid UTF-8 is a malformed input and
+/// not a second error shape.
+fn utf8(bytes: Vec<u8>) -> Option<String> {
+    String::from_utf8(bytes).ok()
+}
+
+const BASE64_STANDARD: &[u8; 64] =
+    b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+const BASE64_URL: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+
+fn base64_alphabet(url: bool) -> &'static [u8; 64] {
+    if url { BASE64_URL } else { BASE64_STANDARD }
+}
+
+/// Encode bytes, 3 at a time into 4 characters. The standard form pads with
+/// `=`; the URL-safe form does not, because the pin's encoder does not.
+fn base64_encode(bytes: &[u8], url: bool) -> String {
+    let alphabet = base64_alphabet(url);
+    let mut out = String::new();
+    for chunk in bytes.chunks(3) {
+        let b = [
+            chunk[0],
+            *chunk.get(1).unwrap_or(&0),
+            *chunk.get(2).unwrap_or(&0),
+        ];
+        let n = ((b[0] as u32) << 16) | ((b[1] as u32) << 8) | b[2] as u32;
+        out.push(alphabet[(n >> 18) as usize & 63] as char);
+        out.push(alphabet[(n >> 12) as usize & 63] as char);
+        if chunk.len() > 1 {
+            out.push(alphabet[(n >> 6) as usize & 63] as char);
+        } else if !url {
+            out.push('=');
+        }
+        if chunk.len() > 2 {
+            out.push(alphabet[n as usize & 63] as char);
+        } else if !url {
+            out.push('=');
+        }
+    }
+    out
+}
+
+/// Decode Base64 text, or `None`. A zero remainder, padding only at the end,
+/// and only alphabet characters are all required: the pin refuses `Zm9vY`
+/// (length), `=Zm9vYmF` (leading padding) and the wrong alphabet's characters.
+fn base64_decode(text: &str, url: bool) -> Option<Vec<u8>> {
+    let alphabet = base64_alphabet(url);
+    let bytes = text.as_bytes();
+    // The standard form pads every group to four characters, so a remainder is
+    // malformed there (the pin refuses `Zm9vY`). The URL-safe form the pin
+    // emits is unpadded, so a remainder of 2 or 3 is legal and only 1 is not:
+    // one character carries six bits, which is no byte.
+    let remainder = bytes.len() % 4;
+    if if url { remainder == 1 } else { remainder != 0 } {
+        return None;
+    }
+    let padding = bytes.iter().rev().take_while(|b| **b == b'=').count();
+    if padding > 2 || bytes.len() == padding {
+        return None;
+    }
+    let body = &bytes[..bytes.len() - padding];
+    let mut out = Vec::with_capacity(body.len() * 3 / 4);
+    let mut acc: u32 = 0;
+    let mut bits = 0;
+    for byte in body {
+        if *byte == b'=' {
+            return None;
+        }
+        let value = alphabet.iter().position(|c| c == byte)? as u32;
+        acc = (acc << 6) | value;
+        bits += 6;
+        if bits >= 8 {
+            bits -= 8;
+            out.push((acc >> bits) as u8);
+        }
+    }
+    // The leftover bits must be the zero padding the encoder wrote; a non-zero
+    // remainder is a truncated character, not a shorter one.
+    if bits > 0 && (acc & ((1 << bits) - 1)) != 0 {
+        return None;
+    }
+    Some(out)
+}
+
+fn hex_encode(bytes: &[u8]) -> String {
+    const DIGITS: &[u8; 16] = b"0123456789abcdef";
+    let mut out = String::with_capacity(bytes.len() * 2);
+    for byte in bytes {
+        out.push(DIGITS[(byte >> 4) as usize] as char);
+        out.push(DIGITS[(byte & 0xf) as usize] as char);
+    }
+    out
+}
+
+/// Decode hexadecimal text, or `None`. An odd length is refused (`"0"`), and a
+/// non-hex character is refused whether it arrived as text (`zd4aa`) or as a
+/// control character (`0\x01`).
+fn hex_decode(text: &str) -> Option<Vec<u8>> {
+    let bytes = text.as_bytes();
+    if bytes.len() % 2 != 0 {
+        return None;
+    }
+    let value = |byte: u8| -> Option<u8> {
+        match byte {
+            b'0'..=b'9' => Some(byte - b'0'),
+            b'a'..=b'f' => Some(byte - b'a' + 10),
+            b'A'..=b'F' => Some(byte - b'A' + 10),
+            _ => None,
+        }
+    };
+    let mut out = Vec::with_capacity(bytes.len() / 2);
+    for pair in bytes.chunks(2) {
+        out.push((value(pair[0])? << 4) | value(pair[1])?);
+    }
+    Some(out)
+}
+
+/// Whether a character survives percent-encoding unescaped, which is
+/// `encodeURIComponent`'s unreserved set: every letter and digit plus
+/// `- _ . ! ~ * ' ( )`.
+fn uri_unreserved(byte: u8) -> bool {
+    byte.is_ascii_alphanumeric() || b"-_.!~*'()".contains(&byte)
+}
+
+fn percent_encode(text: &str) -> String {
+    let mut out = String::with_capacity(text.len());
+    for byte in text.as_bytes() {
+        if uri_unreserved(*byte) {
+            out.push(*byte as char);
+        } else {
+            out.push_str(&format!("%{byte:02X}"));
+        }
+    }
+    out
+}
+
+/// Decode percent-encoded text, or `None` when an escape is truncated or names
+/// no hexadecimal digit (`%ZZ`), which is what the pin refuses.
+fn percent_decode(text: &str) -> Option<String> {
+    let bytes = text.as_bytes();
+    let mut out: Vec<u8> = Vec::with_capacity(bytes.len());
+    let mut index = 0;
+    while index < bytes.len() {
+        if bytes[index] == b'%' {
+            if index + 2 >= bytes.len() {
+                return None;
+            }
+            let high = hex_digit(bytes[index + 1])?;
+            let low = hex_digit(bytes[index + 2])?;
+            out.push((high << 4) | low);
+            index += 3;
+        } else {
+            out.push(bytes[index]);
+            index += 1;
+        }
+    }
+    String::from_utf8(out).ok()
+}
+
+fn hex_digit(byte: u8) -> Option<u8> {
+    match byte {
+        b'0'..=b'9' => Some(byte - b'0'),
+        b'a'..=b'f' => Some(byte - b'a' + 10),
+        b'A'..=b'F' => Some(byte - b'A' + 10),
+        _ => None,
+    }
+}
+
 /// Structural tag check (`isTransformation`): real transformations carry
 /// the marker; arbitrary values do not.
 pub fn is_transformation<A, B>(t: &Transformation<A, B>) -> bool {
@@ -352,6 +611,34 @@ pub fn date_schema() -> Schema<i64> {
     )
 }
 
+/// `Schema.DateFromMillis`: epoch millis in and out. A Date is a whole number
+/// of milliseconds inside the JS range (±8_640_000_000_000_000), so both are
+/// enforced on the way in.
+pub fn date_from_millis_schema() -> Schema<i64> {
+    const DATE_LIMIT: f64 = 8_640_000_000_000_000.0;
+    Schema::convert(
+        Schema::number(),
+        |millis: f64| {
+            if millis.fract() != 0.0 {
+                return Err(SchemaError::TypeMismatch {
+                    path: "$".to_string(),
+                    expected: "an integer",
+                    got: "a fractional millisecond",
+                });
+            }
+            if !(-DATE_LIMIT..=DATE_LIMIT).contains(&millis) {
+                return Err(SchemaError::TypeMismatch {
+                    path: "$".to_string(),
+                    expected: "a valid Date",
+                    got: "an out-of-range instant",
+                });
+            }
+            Ok(millis as i64)
+        },
+        |millis: &i64| *millis as f64,
+    )
+}
+
 fn parse_instant_millis(s: &str) -> Option<i64> {
     let mut t = s.trim().to_string();
     // RFC-2822 `Tue, 27 Jan 2026 17:14:06 GMT`.
@@ -553,9 +840,12 @@ impl Parser {
         for (name, schema) in fields {
             match obj.get(*name) {
                 Some(value) => match schema.decode(value.clone()) {
-                    Ok(v) => {
-                        out.insert(name.to_string(), schema.encode(&v));
-                    }
+                    Ok(v) => match schema.try_encode(&v) {
+                        Ok(wire) => {
+                            out.insert(name.to_string(), wire);
+                        }
+                        Err(e) => errors.push(e),
+                    },
                     Err(e) => errors.push(e),
                 },
                 None => errors.push(SchemaError::TypeMismatch {
@@ -575,11 +865,6 @@ impl Parser {
     /// Type-side check: true when the input decodes (`is`).
     pub fn is<T>(schema: &Schema<T>, input: &Unknown) -> bool {
         schema.decode(input.clone()).is_ok()
-    }
-
-    /// Encode back (`encodeSync`).
-    pub fn encode<T>(schema: &Schema<T>, value: &T) -> Unknown {
-        schema.encode(value)
     }
 
     /// JSON entry points.
@@ -625,20 +910,36 @@ impl<T> ChannelSchema<T> {
         chunk.into_iter().map(|u| self.inner.decode(u)).collect()
     }
 
-    /// Encode every chunk.
-    pub fn encode_chunk(&self, chunk: &[T]) -> Vec<Unknown> {
-        chunk.iter().map(|v| self.inner.encode(v)).collect()
+    /// Encode every chunk, or the first refusal.
+    pub fn try_encode_chunk(&self, chunk: &[T]) -> Result<Vec<Unknown>, SchemaError> {
+        chunk.iter().map(|v| self.inner.try_encode(v)).collect()
     }
 }
 
 /// A named refinement on a schema (`brand`).
+///
+/// The pin's `brand(id)(schema)` builds a NEW schema object over the SAME AST:
+/// `make(schema.ast, { schema, identifier: id })`. So branding changes no shape
+/// and no codec, only the name a refusal reports and the nominal type. The
+/// brands applied before this one are kept, because `fromBrand` composes: two
+/// brands on one schema run both checks, and the previous identifier stays
+/// reachable the way the pin reaches it through `.schema.identifier`.
 pub struct Branded<T> {
     brand: &'static str,
+    /// The brands this one was applied on top of, outermost last. A single
+    /// brand has none.
+    previous_brands: Vec<&'static str>,
+    /// `annotate({ identifier })` on a branded schema: the override is what an
+    /// identifier lookup answers with, and the brand's own name is what it
+    /// replaced.
+    identifier_override: Option<&'static str>,
     schema: Schema<T>,
     check: Box<dyn Fn(&T) -> bool + Send + Sync>,
 }
 
-impl<T> Branded<T> {
+// `from_brand` boxes a composed check, so the value type has to be able to
+// live inside one: every use is a schema over an owned value anyway.
+impl<T: 'static> Branded<T> {
     /// Attach a brand name plus its check.
     pub fn new(
         brand: &'static str,
@@ -647,17 +948,77 @@ impl<T> Branded<T> {
     ) -> Self {
         Self {
             brand,
+            previous_brands: Vec::new(),
+            identifier_override: None,
             schema,
             check: Box::new(check),
         }
     }
 
-    /// Brand name.
+    /// `Brand.nominal`: a brand with no refinement of its own. It still decodes
+    /// by the schema's own codec, which is the whole of what the pin's nominal
+    /// brand asks for.
+    pub fn nominal(brand: &'static str, schema: Schema<T>) -> Self {
+        Self::new(brand, schema, |_| true)
+    }
+
+    /// `fromBrand`: attach one brand of a brand constructor, composing with the
+    /// brands already applied. Both checks must hold afterwards, and the
+    /// previous identifier stays reachable through [`inner_brand`].
+    ///
+    /// [`inner_brand`]: Self::inner_brand
+    pub fn from_brand(
+        mut self,
+        brand: &'static str,
+        check: impl Fn(&T) -> bool + Send + Sync + 'static,
+    ) -> Self {
+        let previous_check = std::mem::replace(&mut self.check, Box::new(|_| true));
+        self.previous_brands.push(self.brand);
+        self.brand = brand;
+        let added = check;
+        self.check = Box::new(move |value| previous_check(value) && added(value));
+        self
+    }
+
+    /// `annotate({ identifier })` over a branded schema: the override replaces
+    /// the brand's own name in every identifier lookup.
+    pub fn annotate_identifier(mut self, identifier: &'static str) -> Self {
+        self.identifier_override = Some(identifier);
+        self
+    }
+
+    /// Brand name. The pin spells this `identifier`.
     pub fn brand(&self) -> &'static str {
         self.brand
     }
 
-    /// Decode then check the refinement.
+    /// The identifier lookups answer with: the annotation override when there
+    /// is one, the brand's own name otherwise.
+    pub fn identifier(&self) -> &'static str {
+        self.identifier_override.unwrap_or(self.brand)
+    }
+
+    /// The identifier of the brand underneath, which is what the pin reads as
+    /// `schema.schema.identifier` after a second brand.
+    pub fn inner_brand(&self) -> Option<&'static str> {
+        self.previous_brands.last().copied()
+    }
+
+    /// The annotation pairs a repr shows for this schema. The pin's override
+    /// lands in `ast.annotations`, so that is what it deep-equals.
+    pub fn annotations(&self) -> Vec<(String, String)> {
+        self.identifier_override
+            .map(|identifier| vec![("identifier".to_string(), identifier.to_string())])
+            .unwrap_or_default()
+    }
+
+    /// The schema underneath, which branding leaves untouched.
+    pub fn schema(&self) -> &Schema<T> {
+        &self.schema
+    }
+
+    /// Decode then check the refinement. A refusal names the identifier, so an
+    /// override renames the failure too.
     pub fn decode(&self, input: Unknown) -> Result<T, SchemaError> {
         let value = self.schema.decode(input)?;
         if (self.check)(&value) {
@@ -665,14 +1026,14 @@ impl<T> Branded<T> {
         } else {
             Err(SchemaError::TypeMismatch {
                 path: String::new(),
-                expected: self.brand,
+                expected: self.identifier(),
                 got: "unbranded",
             })
         }
     }
 
-    /// Encode back.
-    pub fn encode(&self, value: &T) -> Unknown {
-        self.schema.encode(value)
+    /// Encode back, or the reason this value is unrepresentable.
+    pub fn try_encode(&self, value: &T) -> Result<Unknown, SchemaError> {
+        self.schema.try_encode(value)
     }
 }

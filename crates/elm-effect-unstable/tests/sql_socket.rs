@@ -5,8 +5,18 @@ mod socket;
 #[path = "../src/sql.rs"]
 mod sql;
 
-use socket::socket_pair;
-use sql::{Faults, SqlClient, SqlError, SqlReason, classify_sqlite_error, is_sql_error, is_sql_error_reason};
+use socket::{
+    EventKind, Pull, Reader, Socket, SocketError, WebSocketEvent, WebSocketLike, WebSocketListener,
+    Writer, socket_pair,
+};
+use sql::statement::{Compiler, fragment, identifier, literal, nested, parameter};
+use sql::{
+    Faults, SqlClient, SqlError, SqlReason, classify_sqlite_error, is_sql_error,
+    is_sql_error_reason,
+};
+use std::collections::HashMap;
+use std::sync::atomic::{AtomicBool, AtomicU8, AtomicUsize, Ordering};
+use std::sync::{Arc, Mutex};
 
 #[test]
 fn sql_error_reasons_classify() {
@@ -56,10 +66,7 @@ fn sql_error_wrap_delegates_and_guards() {
     for (reason, retryable) in [
         (SqlReason::ConnectionLost, true),
         (SqlReason::SyntaxError, false),
-        (
-            SqlReason::UniqueViolation { constraint: None },
-            false,
-        ),
+        (SqlReason::UniqueViolation { constraint: None }, false),
         (SqlReason::ConstraintError { detail: None }, false),
         (SqlReason::ForeignKeyViolation, false),
         (SqlReason::EmptyResult, false),
@@ -130,6 +137,79 @@ fn savepoints_release_or_hold() {
         .savepoint("sp1", Ok(()), &Faults::default(), || Ok::<(), SqlError>(()))
         .unwrap();
     assert_eq!(strict.savepoint_count(), 1);
+}
+
+#[test]
+fn statement_transforms_rename_only_present_keys() {
+    // Statement.test.ts:9 — `defaultTransforms` walks own keys (JS drops the
+    // inherited property; Rust maps have no prototype chain, so the witness
+    // is that exactly the present keys are renamed, including nested rows).
+    use sql::statement::default_transforms;
+    let upper = |key: &str| key.to_uppercase();
+    let nested_t = default_transforms(&upper, true);
+    let flat = default_transforms(&upper, false);
+    let row = serde_json::json!({"own": 2});
+    assert_eq!(nested_t.object(row.clone()), serde_json::json!({"OWN": 2}));
+    assert_eq!(
+        nested_t.array(vec![row.clone()]),
+        vec![serde_json::json!({"OWN": 2})]
+    );
+    assert_eq!(
+        nested_t.array(vec![serde_json::json!([row.clone()])]),
+        vec![serde_json::json!([{"OWN": 2}])]
+    );
+    assert_eq!(flat.array(vec![row]), vec![serde_json::json!({"OWN": 2})]);
+}
+
+#[test]
+fn statement_compilers_render_placeholders_per_dialect() {
+    // Statement.test.ts:22 — one fragment compiles independently per
+    // compiler: `$N` for pg, `?` for sqlite.
+    let frag = fragment(vec![identifier("value"), parameter(serde_json::json!(1))]);
+    assert_eq!(
+        Compiler::pg().compile(&frag),
+        ("\"value\"$1".to_string(), vec![serde_json::json!(1)])
+    );
+    assert_eq!(
+        Compiler::sqlite().compile(&frag),
+        ("\"value\"?".to_string(), vec![serde_json::json!(1)])
+    );
+}
+
+#[test]
+fn statement_embedded_fragment_renumbers_placeholders() {
+    // Statement.test.ts:40 — a fragment compiled standalone (`$1`) is
+    // renumbered when embedded after earlier parameters (`$2`, `$3`).
+    let pg = Compiler::pg();
+    let returning = fragment(vec![
+        parameter(serde_json::json!("label")),
+        literal(" AS label"),
+    ]);
+    assert_eq!(
+        pg.compile(&returning),
+        ("$1 AS label".to_string(), vec![serde_json::json!("label")])
+    );
+    let outer = fragment(vec![
+        literal("INSERT INTO people (\"name\") VALUES ("),
+        parameter(serde_json::json!("Ada")),
+        literal(") RETURNING "),
+        nested(returning),
+        literal(", "),
+        parameter(serde_json::json!("extra")),
+        literal(" AS extra"),
+    ]);
+    assert_eq!(
+        pg.compile(&outer),
+        (
+            "INSERT INTO people (\"name\") VALUES ($1) RETURNING $2 AS label, $3 AS extra"
+                .to_string(),
+            vec![
+                serde_json::json!("Ada"),
+                serde_json::json!("label"),
+                serde_json::json!("extra"),
+            ]
+        )
+    );
 }
 
 #[test]
@@ -418,11 +498,9 @@ fn skipped_release_when_rollback_fails() {
         db.insert("t", vec!["x".to_string()]);
         Err::<u32, SqlError>(SqlError::new(SqlReason::Unknown, true, "boom"))
     });
-    assert_eq!(
-        out.map_err(|e| e.message),
-        Err("rollback failed".to_string())
-    );
+    assert_eq!(out.map_err(|e| e.message), Err("boom".to_string()));
     assert_eq!(db.savepoint_count(), 1);
+    assert!(db.is_state_unknown());
 }
 
 #[test]
@@ -438,4 +516,218 @@ fn outer_rolls_back_when_release_fails() {
     });
     assert!(out.is_err());
     assert!(db.scan("t").is_empty());
+}
+
+// ------------------------------------------ socket abstraction (Socket.ts) ---
+//
+// `Socket.test.ts` drives a data-shaped web socket: listener bookkeeping,
+// pause/resume counters, and dispatched events. The shim below mirrors the
+// pin's `TestWebSocket`, so these witnesses need no threads.
+
+struct TestWebSocket {
+    listeners: Mutex<HashMap<EventKind, Vec<(WebSocketListener, bool)>>>,
+    ready_state: AtomicU8,
+    pause_count: AtomicUsize,
+    resume_count: AtomicUsize,
+}
+
+impl TestWebSocket {
+    fn new(ready_state: u8) -> Arc<Self> {
+        Arc::new(Self {
+            listeners: Mutex::new(HashMap::new()),
+            ready_state: AtomicU8::new(ready_state),
+            pause_count: AtomicUsize::new(0),
+            resume_count: AtomicUsize::new(0),
+        })
+    }
+
+    fn connecting() -> Arc<Self> {
+        Self::new(0)
+    }
+
+    fn open() -> Arc<Self> {
+        Self::new(1)
+    }
+
+    fn dispatch(&self, event: WebSocketEvent) {
+        let kind = match event {
+            WebSocketEvent::Open => EventKind::Open,
+            WebSocketEvent::Message(_) => EventKind::Message,
+            WebSocketEvent::Error(_) => EventKind::Error,
+            WebSocketEvent::Close { .. } => EventKind::Close,
+        };
+        // Take the entries out first: `once` listeners are gone either way,
+        // and a listener that removes another must not deadlock the dispatch.
+        let entries: Vec<(WebSocketListener, bool)> = {
+            let mut listeners = self.listeners.lock().unwrap();
+            let entries = listeners.remove(&kind).unwrap_or_default();
+            let keep: Vec<(WebSocketListener, bool)> =
+                entries.iter().filter(|(_, once)| !*once).cloned().collect();
+            if !keep.is_empty() {
+                listeners.insert(kind, keep);
+            }
+            entries
+        };
+        for (listener, _) in entries {
+            listener(&event);
+        }
+    }
+
+    fn listener_count(&self, kind: EventKind) -> usize {
+        self.listeners
+            .lock()
+            .unwrap()
+            .get(&kind)
+            .map_or(0, Vec::len)
+    }
+
+    fn pause_count(&self) -> usize {
+        self.pause_count.load(Ordering::SeqCst)
+    }
+
+    fn resume_count(&self) -> usize {
+        self.resume_count.load(Ordering::SeqCst)
+    }
+}
+
+impl WebSocketLike for TestWebSocket {
+    fn ready_state(&self) -> u8 {
+        self.ready_state.load(Ordering::SeqCst)
+    }
+
+    fn pausable(&self) -> bool {
+        true
+    }
+
+    fn add_event_listener(&self, kind: EventKind, once: bool, listener: WebSocketListener) {
+        self.listeners
+            .lock()
+            .unwrap()
+            .entry(kind)
+            .or_default()
+            .push((listener, once));
+    }
+
+    fn remove_event_listener(&self, kind: EventKind, listener: &WebSocketListener) {
+        if let Some(entries) = self.listeners.lock().unwrap().get_mut(&kind) {
+            entries.retain(|(held, _)| !Arc::ptr_eq(held, listener));
+        }
+    }
+
+    fn pause(&self) {
+        self.pause_count.fetch_add(1, Ordering::SeqCst);
+    }
+
+    fn resume(&self) {
+        self.resume_count.fetch_add(1, Ordering::SeqCst);
+    }
+
+    fn send(&self, _chunk: &[u8]) -> Result<(), String> {
+        Ok(())
+    }
+}
+
+#[test]
+fn socket_exposes_tls_upgrade_on_the_acquired_reader() {
+    // Socket.test.ts:86 — the acquired reader carries the TLS upgrade hook.
+    let upgraded = Arc::new(AtomicBool::new(false));
+    let flag = Arc::clone(&upgraded);
+    let socket = Socket::make(
+        Reader::new(
+            || Pull::Empty,
+            move || {
+                flag.store(true, Ordering::SeqCst);
+                Ok(())
+            },
+        ),
+        Writer::new(|_| Ok(())),
+    );
+
+    let reader = socket
+        .acquire_reader()
+        .expect("a plain socket hands out its reader");
+    reader.upgrade().expect("the stub upgrade succeeds");
+
+    assert!(upgraded.load(Ordering::SeqCst));
+}
+
+#[test]
+fn socket_removes_the_open_listener_when_closing_while_connecting() {
+    // Socket.test.ts:118 — a close that arrives before `open` fails the
+    // reader acquisition and takes the open listener with it.
+    let ws = TestWebSocket::connecting();
+    let socket = Socket::from_websocket(ws.clone(), None);
+    assert_eq!(
+        ws.listener_count(EventKind::Open),
+        1,
+        "connecting attaches the open listener"
+    );
+
+    ws.dispatch(WebSocketEvent::Close {
+        code: 1006,
+        reason: "closed while connecting".to_string(),
+    });
+
+    let failure = socket
+        .acquire_reader()
+        .expect_err("the reader acquisition fails");
+    assert_eq!(
+        failure,
+        SocketError::Close {
+            code: 1006,
+            reason: "closed while connecting".to_string()
+        }
+    );
+    assert_eq!(ws.listener_count(EventKind::Open), 0, "and it is removed");
+}
+
+#[test]
+fn socket_counts_text_frames_by_utf8_length() {
+    // Socket.test.ts:155 — one euro sign is three UTF-8 bytes, so a 3-byte
+    // mark trips on a single frame.
+    let ws = TestWebSocket::open();
+    let socket = Socket::from_websocket(ws.clone(), Some(3));
+
+    ws.dispatch(WebSocketEvent::Message("\u{20ac}".as_bytes().to_vec()));
+
+    assert_eq!(ws.pause_count(), 1);
+    let reader = socket.acquire_reader().expect("an open socket");
+    assert_eq!(
+        reader.pull(),
+        Pull::Chunks(vec!["\u{20ac}".as_bytes().to_vec()])
+    );
+}
+
+#[test]
+fn socket_uses_the_default_high_water_mark() {
+    // Socket.test.ts:168 — a pausable socket with no option uses the 64 KiB
+    // default, and draining below it resumes once.
+    let ws = TestWebSocket::open();
+    let socket = Socket::from_websocket(ws.clone(), None);
+    let payload = vec![b'a'; 64 * 1024];
+
+    ws.dispatch(WebSocketEvent::Message(payload.clone()));
+
+    assert_eq!(socket::DEFAULT_HIGH_WATER_MARK, 64 * 1024);
+    assert_eq!(ws.pause_count(), 1);
+    let reader = socket.acquire_reader().expect("an open socket");
+    assert_eq!(reader.pull(), Pull::Chunks(vec![payload]));
+    assert_eq!(ws.resume_count(), 1);
+}
+
+#[test]
+fn socket_reports_a_write_failure_while_a_pull_is_suspended() {
+    // Socket.test.ts:184 — `toChannel` writes through the writer, so the
+    // failure surfaces without the reader pull ever running.
+    let socket = Socket::make(
+        Reader::new(
+            || -> Pull { panic!("the pull must not run while the write fails") },
+            || Err(SocketError::UpgradeUnsupported),
+        ),
+        Writer::new(|_| Err(SocketError::Write("write failed".to_string()))),
+    );
+
+    let exit = socket.to_channel().write_all(&[b"hello".to_vec()]);
+
+    assert_eq!(exit, Err(SocketError::Write("write failed".to_string())));
 }

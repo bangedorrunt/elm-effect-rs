@@ -362,16 +362,18 @@ fn queue_fail_redelivers_until_attempts_exhausted() {
     let mut q = PersistedQueue::new();
     q.offer("a", b"1".to_vec());
     let first = q.take().expect("first attempt");
-    let again = q.fail(&first.id, 3).expect("attempts remain: redelivered");
+    let again = q
+        .fail(&first.id, 3, 1_000)
+        .expect("attempts remain: redelivered");
     assert_eq!(again.attempts, first.attempts, "attempt count is carried");
     assert_eq!(q.pending_len(), 1);
     let second = q.take().expect("redelivered is taken again");
     assert_eq!(second.attempts, 2);
-    q.fail(&second.id, 3).expect("still attempts left");
+    q.fail(&second.id, 3, 1_000).expect("still attempts left");
     let third = q.take().expect("third attempt");
     assert_eq!(third.attempts, 3);
     assert_eq!(
-        q.fail(&third.id, 3),
+        q.fail(&third.id, 3, 1_000),
         None,
         "exhausted: dead-lettered, never redelivered"
     );
@@ -384,7 +386,7 @@ fn queue_retry_delay_follows_schedule() {
     let mut q = PersistedQueue::new();
     q.offer("a", b"1".to_vec());
     let item = q.take().expect("taken");
-    q.fail(&item.id, 5).expect("redelivered");
+    q.fail(&item.id, 5, 1_000).expect("redelivered");
     // Later attempts back off further from the same base.
     let base = 100;
     let first = q.retry_delay(&item.id, base);
@@ -407,4 +409,165 @@ fn queue_complete_records_once_and_prunes() {
         0,
         "inside the window: kept"
     );
+}
+
+#[test]
+fn queue_interrupt_releases_the_element_to_the_next_taker() {
+    // PersistedQueueTest.ts:57 "interrupt": a taker holds the element and is
+    // interrupted mid-processing, so it never acks. The element must return
+    // for a waiting taker rather than being lost, and the waiting taker must
+    // not be handed it while the first taker still holds it.
+    let mut q = PersistedQueue::new();
+    q.offer("a", b"42".to_vec());
+
+    let held = q.take().expect("the first taker holds the element");
+    assert_eq!(held.attempts, 1);
+    assert_eq!(
+        q.take(),
+        None,
+        "nothing else is pending while the element is in flight"
+    );
+
+    let released = q
+        .abandon(&held.id)
+        .expect("the interrupted hold is released");
+    assert_eq!(released.id, "a");
+    assert_eq!(released.payload, b"42".to_vec());
+
+    let next = q.take().expect("the waiting taker receives it");
+    assert_eq!(next.id, "a");
+    assert_eq!(next.payload, b"42".to_vec());
+    assert_eq!(next.attempts, 2, "the interruption counts as an attempt");
+    assert_eq!(q.pending_len(), 0);
+    assert_eq!(
+        q.in_flight_len(),
+        1,
+        "it is in flight again, not duplicated"
+    );
+}
+
+#[test]
+fn queue_dead_letters_elements_that_fail_to_decode() {
+    // PersistedQueueTest.ts:222 "dead-letters elements that fail to decode":
+    // a stored payload the schema cannot decode can never be processed, so it
+    // is marked failed immediately and the next element is taken instead. The
+    // poison element is never delivered, and never delivered again.
+    let mut q = PersistedQueue::new();
+    q.offer("poison", b"not-a-number".to_vec());
+    q.offer("good", b"42".to_vec());
+
+    let decode = |bytes: &[u8]| std::str::from_utf8(bytes).ok()?.parse::<i64>().ok();
+    let (value, item) = q.take_decoded(decode, 1_000).expect("the good element");
+    assert_eq!(value, 42, "the poison element was skipped, not delivered");
+    assert_eq!(item.id, "good");
+    assert_eq!(
+        q.take_decoded(decode, 1_000),
+        None,
+        "the poison element is never delivered again"
+    );
+    assert_eq!(q.failed_len(), 1, "it is recorded as a dead letter");
+}
+
+#[test]
+fn queue_cleanup_removes_failed_elements_only_with_failed_time_to_live() {
+    // PersistedQueueTest.ts:273. maxAttempts 1: the single delivery fails and
+    // the element is dead-lettered rather than requeued.
+    let mut q = PersistedQueue::new();
+    q.offer("failed-id", b"1".to_vec());
+    let item = q.take().expect("taken");
+    assert_eq!(q.fail(&item.id, 1, 1_000), None, "exhausted: dead-lettered");
+
+    // Without failedTimeToLive the dead letter is the record that keeps the id
+    // deduplicated, so a re-offer under the same id is ignored.
+    let now = 100_000;
+    assert_eq!(q.cleanup(1, None, now), 0, "nothing is pruned");
+    assert_eq!(q.failed_len(), 1, "the dead letter is kept");
+    assert!(!q.offer("failed-id", b"2".to_vec()), "re-offer ignored");
+    assert_eq!(q.take(), None, "and nothing is delivered");
+
+    // With failedTimeToLive the dead letter and its dedupe entry go away.
+    assert_eq!(
+        q.cleanup(30 * 24 * 60 * 60 * 1_000, Some(1), now),
+        1,
+        "the dead letter is pruned"
+    );
+    assert_eq!(q.failed_len(), 0);
+    assert!(q.offer("failed-id", b"3".to_vec()), "re-offer accepted");
+    assert_eq!(q.take().expect("delivered").payload, b"3".to_vec());
+}
+
+#[test]
+fn queue_cleanup_keeps_dedupe_entries_for_unprocessed_elements() {
+    // PersistedQueueTest.ts:302: an element older than the ttl that was never
+    // processed keeps its dedupe entry, so the re-offer does not enqueue a
+    // duplicate and the original element is the one delivered.
+    let mut q = PersistedQueue::new();
+    q.offer("pending-id", b"1".to_vec());
+    assert_eq!(
+        q.cleanup(1, None, 100_000),
+        0,
+        "a pending element is not pruned, however old"
+    );
+    assert!(!q.offer("pending-id", b"2".to_vec()), "re-offer ignored");
+    assert_eq!(
+        q.take().expect("the original is delivered").payload,
+        b"1".to_vec()
+    );
+    assert_eq!(q.take(), None, "no duplicate was enqueued");
+}
+
+#[test]
+fn queue_processes_elements_exactly_once_with_retries() {
+    // PersistedQueueTest.ts:325 "processes concurrent elements exactly once
+    // with retries". Three workers pull concurrently; every third element
+    // fails on its first delivery under an immediate retry schedule. The
+    // observable claims are that every element eventually succeeds, and that
+    // an element is delivered exactly once when it did not fail and exactly
+    // twice when it did.
+    const TOTAL: i64 = 24;
+    let mut q = PersistedQueue::new();
+    for n in 0..TOTAL {
+        assert!(q.offer(&n.to_string(), n.to_string().into_bytes()));
+        assert!(
+            !q.offer(&n.to_string(), b"duplicate".to_vec()),
+            "a concurrent re-offer of the same id is ignored"
+        );
+    }
+    assert_eq!(
+        q.pending_len(),
+        TOTAL as usize,
+        "no duplicates were enqueued"
+    );
+
+    let mut deliveries: std::collections::BTreeMap<i64, u32> = std::collections::BTreeMap::new();
+    let mut succeeded: std::collections::BTreeSet<i64> = std::collections::BTreeSet::new();
+    while let Some(item) = q.take() {
+        let n: i64 = std::str::from_utf8(&item.payload)
+            .expect("ids are utf8")
+            .parse()
+            .expect("ids are numeric");
+        let count = deliveries.entry(n).or_insert(0);
+        *count += 1;
+        if n % 3 == 0 && *count == 1 {
+            q.fail(&item.id, 3, 1_000)
+                .expect("attempts remain: redelivered");
+        } else {
+            assert!(q.ack(&item.id, 1_000), "the element is acknowledged once");
+            succeeded.insert(n);
+        }
+    }
+
+    assert_eq!(
+        succeeded.len(),
+        TOTAL as usize,
+        "every element eventually succeeded"
+    );
+    for n in 0..TOTAL {
+        let expected = if n % 3 == 0 { 2 } else { 1 };
+        assert_eq!(
+            deliveries.get(&n).copied().unwrap_or(0),
+            expected,
+            "deliveries for element {n}"
+        );
+    }
 }

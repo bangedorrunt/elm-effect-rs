@@ -47,6 +47,18 @@ where
     }
 }
 
+/// The ambient scope service tag. `Effect::scoped` provides a fresh [`Scope`]
+/// under this tag for the body it wraps, so an effect body reaches its own
+/// scope with `use_service::<ScopeTag>()` instead of being handed one from
+/// outside. The tag is the `R` side of `scoped`: `Effect<A, E, ScopeTag>`
+/// becomes `Effect<A, E, ()>`.
+pub struct ScopeTag;
+
+impl crate::ServiceTag for ScopeTag {
+    type Service = Arc<Scope>;
+    const ID: &'static str = "elm-effect/scope";
+}
+
 /// A lifetime bound: closing interrupts member fibers, then runs finalizers
 /// last-in-first-out, exactly once. Late registrations run inline.
 pub struct Scope {
@@ -97,16 +109,24 @@ impl Scope {
     /// Register an effect finalizer: the runtime runs it at close. A failed
     /// run renders to a [`Defect`] for the supervisor to append. Needs
     /// [`std::fmt::Debug`] on `E` to render the failure.
-    pub fn add_finalizer_effect<E>(&self, fin: impl FnOnce() -> Effect<(), E> + Send + 'static)
+    ///
+    /// Registration after close runs inline at once. A late run that fails
+    /// returns its defect instead of dropping it: the caller surfaces it
+    /// (return or append), never `let _`.
+    pub fn add_finalizer_effect<E>(
+        &self,
+        fin: impl FnOnce() -> Effect<(), E> + Send + 'static,
+    ) -> Option<Defect>
     where
         E: Send + 'static + std::fmt::Debug,
     {
         let mut guard = self.finalizers.lock().unwrap();
         if self.closed.load(Ordering::SeqCst) {
             drop(guard);
-            let _ = render(fin);
+            render(fin)
         } else {
             guard.push(Finalizer::Effect(Box::new(move || render(fin))));
+            None
         }
     }
 
@@ -144,13 +164,18 @@ impl Scope {
             };
         }
         let give = resource.clone();
-        self.add_finalizer_effect(move || release(resource));
+        let late = self.add_finalizer_effect(move || release(resource));
         // Race window: close() ran between the check and the push. The push
-        // ran the release inline, so report the interruption it signalled.
+        // ran the release inline, so report the interruption it signalled,
+        // carrying a late-release defect instead of dropping it.
         if self.is_closed() {
             // The registered clone already released; drop the spare.
             drop(give);
-            return Err(Cause::interrupt(None));
+            let mut out = Cause::interrupt(None);
+            if let Some(defect) = late {
+                out.reasons.push(Reason::Die(defect));
+            }
+            return Err(out);
         }
         Ok(give)
     }
@@ -162,10 +187,22 @@ impl Scope {
     /// Close once: interrupt members first, then run finalizers LIFO.
     /// Returns effect-finalizer failures for the supervisor to append.
     /// Late registrations run inline with the same accounting.
+    ///
+    /// Masks the current thread's fiber itself (L7): direct close, `Drop`,
+    /// layer-failure, and dispose paths all run finalizers uninterruptibly,
+    /// not just the runtime fiber-completion path. Off-fiber threads run
+    /// sync finalizers to completion anyway, so there is nothing to mask.
     pub fn close(&self) -> Vec<Defect> {
         if self.closed.swap(true, Ordering::SeqCst) {
             return Vec::new();
         }
+        match FiberControl::with_current_masked(|| self.close_inner()) {
+            Some(spills) => spills,
+            None => self.close_inner(),
+        }
+    }
+
+    fn close_inner(&self) -> Vec<Defect> {
         let members = std::mem::take(&mut *self.members.lock().unwrap());
         for weak in members {
             if let Some(fiber) = weak.upgrade() {
@@ -235,5 +272,44 @@ mod tests {
         let id = scope.provide(|s| s.id());
         assert_eq!(id, 3);
         assert!(!scope.is_closed());
+    }
+
+    #[test]
+    fn close_masks_current_fiber_while_finalizers_run() {
+        use crate::fiber::{FiberControl, StartLatch};
+        use std::sync::atomic::AtomicBool;
+        let control = Arc::new(FiberControl::new(
+            crate::FiberId(999),
+            None,
+            Vec::new(),
+            false,
+            Arc::new(StartLatch::default()),
+        ));
+        let _enter = control.enter_current();
+        let scope = Scope::new(41);
+        let seen_masked = Arc::new(AtomicBool::new(false));
+        let probe = seen_masked.clone();
+        let control_in_fin = Arc::clone(&control);
+        scope.add_finalizer(move || {
+            probe.store(control_in_fin.masked_now(), Ordering::SeqCst);
+        });
+        assert!(scope.close().is_empty());
+        assert!(
+            seen_masked.load(Ordering::SeqCst),
+            "finalizers must run with the current fiber masked"
+        );
+        assert!(
+            !control.masked_now(),
+            "mask depth must return to 0 after close"
+        );
+    }
+
+    #[test]
+    fn late_effect_finalizer_defect_is_returned_not_dropped() {
+        let scope = Scope::new(7);
+        assert!(scope.close().is_empty());
+        let defect = scope.add_finalizer_effect(|| Effect::fail("late".to_string()));
+        let defect = defect.expect("late effect-finalizer failure must surface, never drop");
+        assert!(defect.message.contains("late"));
     }
 }

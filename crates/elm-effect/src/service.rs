@@ -32,6 +32,16 @@ impl<T: ServiceTag> Requirement for T {}
 
 /// Proof that requirement `R` carries tag `T` at its head, leaving `Rest`.
 /// Implemented for tuples (macro, arities 1..=16) and [`Cons`].
+///
+/// Canonical order: tuples are ordered by provision, head first.
+/// `Effect<A, E, (Database, Clock)>` provides `Database` first; providing
+/// any other tag is a compile error carrying the head-first diagnostic
+/// below, not a silent misroute.
+#[diagnostic::on_unimplemented(
+    message = "cannot provide `{T}` here: provide the head tag first",
+    label = "provide the head tag of this requirement tuple first, in order",
+    note = "requirement tuples are ordered by provision: `Effect<A, E, (Db, Clock)>` provides `Db` first"
+)]
 pub trait Provide<T, Rest>: Requirement {}
 
 /// Head-cons escape beyond the 16-tuple ceiling.
@@ -77,7 +87,10 @@ requirement_tuples! {
 ///
 /// Tags accumulate with conflict detection: provisioning the same tag twice
 /// with distinct values poisons it, and any run of the poisoned build Dies
-/// (never last-writer-wins). Re-providing the SAME shared value (a layer's
+/// (never last-writer-wins). Value-level `provide` and the layer entry
+/// points fail earlier — at construction — so the poisoned-map Die survives
+/// only for conflicts merged in from elsewhere, which no single call
+/// created. Re-providing the SAME shared value (a layer's
 /// memo) is fine, told apart by pointer equality.
 /// References override by replacement instead: innermost wins, `R` unchanged.
 #[derive(Clone, Default)]
@@ -100,8 +113,10 @@ pub(crate) fn empty_services() -> Services {
 
 impl ServiceMaps {
     /// Insert one tag provision. Same shared value re-provided: no-op.
-    /// Distinct value over an existing one: poison (ambiguous).
-    pub(crate) fn insert_tag(&mut self, id: &'static str, value: Arc<dyn Any + Send + Sync>) {
+    /// Distinct value over an existing one: poison (ambiguous). Returns
+    /// whether this call poisoned, so value-level `provide` can fail at
+    /// construction instead of Dying at interpretation.
+    pub(crate) fn insert_tag(&mut self, id: &'static str, value: Arc<dyn Any + Send + Sync>) -> bool {
         match self.tags.get(&id) {
             None => {
                 self.tags.insert(
@@ -111,14 +126,31 @@ impl ServiceMaps {
                         conflict: false,
                     },
                 );
+                false
             }
-            Some(existing) if Arc::ptr_eq(&existing.value, &value) => {}
+            Some(existing) if Arc::ptr_eq(&existing.value, &value) => false,
             Some(_) => {
                 if let Some(entry) = self.tags.get_mut(&id) {
                     entry.conflict = true;
                 }
+                true
             }
         }
+    }
+
+    /// Insert one tag provision as an override: replaces any existing value
+    /// and never poisons. For the ambient scope tag `Effect::scoped` mints,
+    /// a second distinct value is the intended layering (an inner scope
+    /// shadows an outer one for its own subtree), not the ambiguity
+    /// `insert_tag` rejects.
+    pub(crate) fn replace_tag(&mut self, id: &'static str, value: Arc<dyn Any + Send + Sync>) {
+        self.tags.insert(
+            id,
+            TagEntry {
+                value,
+                conflict: false,
+            },
+        );
     }
 
     /// Insert one reference override. Replaces: innermost wins.
@@ -128,9 +160,25 @@ impl ServiceMaps {
 
     /// First conflicted tag id, if any.
     pub(crate) fn conflict(&self) -> Option<&'static str> {
+        self.conflicted_ids().into_iter().next()
+    }
+
+    /// Every tag id already found ambiguous.
+    pub(crate) fn conflicted_ids(&self) -> Vec<&'static str> {
         self.tags
             .iter()
-            .find_map(|(id, entry)| entry.conflict.then_some(*id))
+            .filter_map(|(id, entry)| entry.conflict.then_some(*id))
+            .collect()
+    }
+
+    /// Mark an existing tag entry ambiguous without touching its value. For
+    /// merges: `insert_tag` can only spot a conflict BETWEEN two sides, so a
+    /// conflict that lived inside one side has to be carried over or the
+    /// merged build quietly succeeds where the law says Die.
+    pub(crate) fn poison(&mut self, id: &'static str) {
+        if let Some(entry) = self.tags.get_mut(&id) {
+            entry.conflict = true;
+        }
     }
 
     /// Cloned tag value, if present (conflicts observed separately).
@@ -138,11 +186,14 @@ impl ServiceMaps {
         self.tags.get(id).map(|entry| Arc::clone(&entry.value))
     }
 
-    /// Every tag provision, for layer merges.
-    pub(crate) fn tag_list(&self) -> Vec<(&'static str, Arc<dyn Any + Send + Sync>)> {
+    /// Every tag provision, for layer merges. The conflict flag rides along:
+    /// a replay that takes only the value cannot rediscover a conflict that
+    /// lived inside this map, and a dropped conflict is a build that quietly
+    /// succeeds where the law says Die.
+    pub(crate) fn tag_list(&self) -> Vec<(&'static str, Arc<dyn Any + Send + Sync>, bool)> {
         self.tags
             .iter()
-            .map(|(id, entry)| (*id, Arc::clone(&entry.value)))
+            .map(|(id, entry)| (*id, Arc::clone(&entry.value), entry.conflict))
             .collect()
     }
 
@@ -166,9 +217,14 @@ pub(crate) fn merged_services(outer: &Services, own: &Services) -> Services {
     if own.tags.is_empty() && own.refs.is_empty() {
         return Arc::clone(outer);
     }
+    // `outer` arrives by clone, so its own conflict flags survive; `own`'s
+    // replay through `tag_list`, which carries them.
     let mut merged = (**outer).clone();
-    for (id, value) in own.tag_list() {
+    for (id, value, conflicted) in own.tag_list() {
         merged.insert_tag(id, value);
+        if conflicted {
+            merged.poison(id);
+        }
     }
     for (id, value) in own.refs.iter().map(|(k, v)| (*k, Arc::clone(v))) {
         merged.insert_ref(id, value);
@@ -198,6 +254,12 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
     /// Provide tag `T`'s service, removing `T` from the requirement tuple at
     /// the type level. The value is stored in the effect's service map;
     /// `Use` nodes resolve it at interpretation.
+    ///
+    /// Provide each tag once. A second provision of the same tag with a
+    /// distinct value panics here, at construction, instead of Dying at
+    /// interpretation far from the bug. (Sharing one value across a build
+    /// flows through the layer memo and [`provide_from`](Self::provide_from),
+    /// never through two `provide` calls: each call wraps a fresh [`Arc`].)
     pub fn provide<T, Rest>(self, service: T::Service) -> Effect<A, E, Rest>
     where
         T: ServiceTag,
@@ -205,7 +267,12 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
         Rest: Requirement,
     {
         let mut maps = (*self.services).clone();
-        maps.insert_tag(T::ID, Arc::new(service));
+        if maps.insert_tag(T::ID, Arc::new(service)) {
+            panic!(
+                "double-provision of `{}` with distinct values: provide each tag once",
+                T::ID
+            );
+        }
         Effect {
             step: self.step,
             services: Arc::new(maps),
@@ -242,14 +309,12 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
     /// Fail-closed: a tag the layer did not build is not a silent `None`. It
     /// surfaces as `missing service: <id>` at the run edge, so a runtime
     /// booted with the wrong layer refuses rather than running with a
-    /// default. (Providing one tag twice with distinct values is already
-    /// impossible through the type-level API, which is why the `ambiguous
-    /// tag` branch you can still hit through a layer merge has no public
-    /// witness here.)
-    pub fn provide_from<T, Rest>(
-        self,
-        services: &crate::BuiltServices,
-    ) -> Effect<A, E, Rest>
+    /// default. (Providing one tag twice with distinct values fails earlier:
+    /// value-level `provide` panics at construction, and [`Layer::provide`](crate::Layer::provide)
+    /// returns it as an error. The `ambiguous tag` run-time Die survives only
+    /// for conflicts merged in from elsewhere, which no single call created.)
+    #[cfg(feature = "tokio")]
+    pub fn provide_from<T, Rest>(self, services: &crate::BuiltServices) -> Effect<A, E, Rest>
     where
         T: ServiceTag,
         R: Provide<T, Rest>,
@@ -373,5 +438,34 @@ where
         },
         services: empty_services(),
         marker: PhantomData,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn replace_tag_shadows_where_insert_tag_poisons() {
+        // The ambient scope tag needs innermost-wins. `insert_tag` poisons a
+        // tag carrying two distinct values, which is right for a service tag
+        // whose provision should be unique, and wrong for the scope: a build
+        // that already provisioned one (a layer build inserts every tag it
+        // built into the effect's map) must be shadowed, not poisoned.
+        let outer: Arc<dyn Any + Send + Sync> = Arc::new(1u64);
+        let inner: Arc<dyn Any + Send + Sync> = Arc::new(2u64);
+
+        let mut inserted = ServiceMaps::default();
+        inserted.insert_tag("test/tag", Arc::clone(&outer));
+        inserted.insert_tag("test/tag", Arc::clone(&inner));
+        assert_eq!(inserted.conflict(), Some("test/tag"));
+
+        let mut replaced = ServiceMaps::default();
+        replaced.insert_tag("test/tag", Arc::clone(&outer));
+        replaced.replace_tag("test/tag", Arc::clone(&inner));
+        assert_eq!(replaced.conflict(), None);
+        // Innermost wins: a `Use` node reads the newer value.
+        let read = replaced.get_tag("test/tag").expect("still provisioned");
+        assert_eq!(*read.downcast::<u64>().expect("u64"), 2);
     }
 }

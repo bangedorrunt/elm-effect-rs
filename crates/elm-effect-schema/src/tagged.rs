@@ -83,7 +83,7 @@ impl Schema<TaggedError> {
             |error| {
                 let mut fields = error.fields.clone();
                 fields.insert("_tag".to_string(), Unknown::Text(error.tag.clone()));
-                Unknown::Object(fields)
+                Ok(Unknown::Object(fields))
             },
             SchemaKind::Object,
         )

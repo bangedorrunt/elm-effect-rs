@@ -5,8 +5,10 @@
 #![cfg(feature = "eventlog")]
 
 use elm_effect_unstable::eventlog::{
-    Entry, Event, EventGroup, EventJournal, EventLog, RemoteEntry, join_chunks, split_data,
+    to_conflicts, unencrypted_server_authenticate, ConflictEntry, Entry, Event, EventGroup, EventJournal,
+    EventLog, RemoteEntry, UnencryptedServerAuth, join_chunks, split_data,
 };
+use std::cell::{Cell, RefCell};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
@@ -149,4 +151,85 @@ fn chunks_split_and_join() {
     );
     assert_eq!(join_chunks(&[vec![1, 2], vec![1, 2], vec![3]]), [1, 2, 3]);
     assert_eq!(join_chunks(&[Vec::new()]), Vec::<u8>::new());
+}
+
+fn conflict_entry(id: &str, created_at_millis: u64, primary_key: &str) -> ConflictEntry {
+    ConflictEntry {
+        id: id.to_owned(),
+        created_at_millis,
+        event: "ReproEvent".to_owned(),
+        primary_key: primary_key.to_owned(),
+    }
+}
+
+/// `EventLogServerUnencrypted.test.ts:43` — conflicts are indexed from the
+/// sliced history: an entry with an unseen key reports no conflicts, while a
+/// later entry with a seen key reports the newer same-key entry.
+#[test]
+fn indexes_conflicts_from_the_sliced_history() {
+    let history = vec![
+        conflict_entry("old-same-key", 2_000, "key"),
+        conflict_entry("newer-other-key", 4_000, "other"),
+        conflict_entry("newer-same-key", 5_000, "key"),
+    ];
+    let origin_a = conflict_entry("origin-a", 1_000, "other-origin");
+    let origin_b = conflict_entry("origin-b", 3_000, "key");
+
+    let (duplicate_a, conflicts_a, sliced) = to_conflicts(&history, &origin_a);
+    assert!(!duplicate_a);
+    assert!(conflicts_a.is_empty());
+
+    let (duplicate_b, conflicts_b, _) = to_conflicts(&sliced, &origin_b);
+    assert!(!duplicate_b);
+    assert_eq!(
+        conflicts_b.iter().map(|e| e.id.as_str()).collect::<Vec<_>>(),
+        ["newer-same-key"]
+    );
+}
+
+/// `EventLogServerUnencrypted.test.ts:147` — a denied first-use identity fails
+/// closed and never creates a session-auth binding.
+#[test]
+fn authenticate_denies_first_use_without_creating_binding() {
+    let mut server = UnencryptedServerAuth::new();
+    let policy_calls = RefCell::new(Vec::new());
+    let result = unencrypted_server_authenticate(&mut server, "identity-1", &[7u8; 32], |public_key| {
+        policy_calls.borrow_mut().push(public_key.to_owned());
+        Err("Forbidden".to_owned())
+    });
+    assert_eq!(result, Err("Forbidden".to_owned()));
+    assert_eq!(policy_calls.borrow().as_slice(), ["identity-1"]);
+    assert_eq!(server.binding_lookups(), 0);
+}
+
+/// `EventLogServerUnencrypted.test.ts:185` — identity authorization runs on
+/// every authenticate, even when the session-auth binding is cached: revoking
+/// after a first success fails the retry without a second binding lookup.
+#[test]
+fn authenticate_rechecks_identity_authorization_on_cached_binding() {
+    let mut server = UnencryptedServerAuth::new();
+    let allowed = Cell::new(true);
+    let policy_calls = RefCell::new(Vec::new());
+    let authorize = |public_key: &str| {
+        policy_calls.borrow_mut().push(public_key.to_owned());
+        if allowed.get() {
+            Ok(())
+        } else {
+            Err("Forbidden".to_owned())
+        }
+    };
+
+    assert_eq!(
+        unencrypted_server_authenticate(&mut server, "identity-1", &[7u8; 32], &authorize),
+        Ok(())
+    );
+    assert_eq!(server.binding_lookups(), 1);
+
+    allowed.set(false);
+    assert_eq!(
+        unencrypted_server_authenticate(&mut server, "identity-1", &[7u8; 32], &authorize),
+        Err("Forbidden".to_owned())
+    );
+    assert_eq!(policy_calls.borrow().as_slice(), ["identity-1", "identity-1"]);
+    assert_eq!(server.binding_lookups(), 1);
 }

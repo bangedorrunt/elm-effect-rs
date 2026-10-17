@@ -238,6 +238,30 @@ impl<A: Send + 'static, E: Send + 'static, R: crate::effect::Requirement> Stream
         })
     }
 
+    /// `Stream.scanEffect` at the pin: the running fold with an effectful
+    /// step. The step reads and updates one accumulator, so it rides
+    /// `map_effect` with a bound of one: one child at a time is what keeps the
+    /// fold sequential, and the state lives in the closure rather than in a
+    /// second pull node.
+    pub fn scan_effect<S, F>(self, init: S, f: F) -> Stream<S, E, R>
+    where
+        S: Clone + Send + 'static,
+        F: Fn(S, A) -> Effect<S, E, R> + Send + Sync + 'static,
+    {
+        let (state, step) = (Arc::new(Mutex::new(init)), Arc::new(f));
+        self.map_effect(
+            move |a: A, _ctx: &crate::Ctx| {
+                let (state, step) = (Arc::clone(&state), Arc::clone(&step));
+                let acc = state.lock().unwrap().clone();
+                step(acc, a).map(move |next| {
+                    *state.lock().unwrap() = next.clone();
+                    next
+                })
+            },
+            1,
+        )
+    }
+
     /// `Stream.mapAccumArray` at the pin: thread state across chunks, emitting
     /// zero or more values per chunk. The mapping runs once per chunk.
     pub fn map_accum_array<S, B, F>(self, init: S, f: F) -> Stream<B, E, R>
@@ -352,6 +376,61 @@ impl<A: Send + 'static, E: Send + 'static, R: crate::effect::Requirement> Stream
                     Err(cause) => return Effect::fail_cause(cause),
                 }
             }
+        })
+    }
+
+    /// `Stream.onStart` at the pin: run `f` once when collection begins, before
+    /// the upstream is pulled. The elements are untouched.
+    ///
+    /// The pin's signature widens the error channel (`E | E2`); this port takes
+    /// an infallible closure instead, which is exactly what the pin's rows
+    /// exercise (`Effect.sync`), and avoids the widening problem that blocked
+    /// `takeUntilEffect`. An effectful `onStart` would need that machinery.
+    ///
+    /// The `Option`-take is what makes it once-only: the pump is `FnMut`, so it
+    /// runs again on every pull, and `take` consumes `F` on the first call. A
+    /// later call finds the slot empty and delegates straight to the upstream,
+    /// which is the pin's semantics (the callback is not re-run).
+    pub fn on_start<F>(self, f: F) -> Self
+    where
+        F: FnOnce() + Send + 'static,
+    {
+        let (pull, exec) = (self.pull, Arc::clone(&self.exec));
+        let pending = Arc::new(Mutex::new(Some(f)));
+        Self::derive(exec, move || {
+            let (pull, pending) = (Arc::clone(&pull), Arc::clone(&pending));
+            if let Some(f) = pending.lock().unwrap().take() {
+                f();
+            }
+            call(&pull)
+        })
+    }
+
+    /// `Stream.onEnd` at the pin: run `f` once when the upstream is exhausted,
+    /// after its last chunk has been emitted.
+    ///
+    /// Same infallible-closure contract as [`Stream::on_start`], and for the
+    /// same reason: both pin rows use `Effect.sync`.
+    ///
+    /// `f` is consumed when the pull returns `None`, so the upstream ending is
+    /// what triggers it and a re-pull after the end does not re-run it.
+    pub fn on_end<F>(self, f: F) -> Self
+    where
+        F: FnOnce() + Send + 'static,
+    {
+        let (pull, exec) = (self.pull, Arc::clone(&self.exec));
+        let finished = Arc::new(Mutex::new(Some(f)));
+        Self::derive(exec, move || {
+            let (pull, finished) = (Arc::clone(&pull), Arc::clone(&finished));
+            call(&pull).map(move |chunk| {
+                if chunk.is_none() {
+                    // The upstream ended, so this is the last pull.
+                    if let Some(f) = finished.lock().unwrap().take() {
+                        f();
+                    }
+                }
+                chunk
+            })
         })
     }
 
@@ -980,6 +1059,108 @@ where
     }
 }
 
+/// `Stream.callback` at the pin: a stream fed by a mailbox the registration
+/// writes into.
+///
+/// The registration runs eagerly, before the first pull. That covers the
+/// pin's rows whose producer only offers and then signals end, failure, or
+/// dies, none of which need the producer to run concurrently with the drain.
+/// It does NOT cover the pin's backpressure and finalizer rows, whose
+/// producer must block on a full mailbox while the consumer drains and whose
+/// cleanup must fire on a fiber interrupt; both need a forked producer, which
+/// this port's `from_pull`-based streams do not have.
+impl<A: Send + 'static, E: Send + 'static> Stream<A, E, ()> {
+    pub fn callback<F>(register: F) -> Self
+    where
+        F: FnOnce(&mut Mailbox<A, E>),
+    {
+        let mut mailbox = Mailbox::new();
+        register(&mut mailbox);
+        let (items, terminator) = mailbox.into_parts();
+        let chunk = items.len().max(1);
+        match terminator {
+            // No signal means the registration offered items and returned
+            // without ending. The pin's stream is then unterminated and only a
+            // bound such as `take` ends it. This port has no non-terminating
+            // primitive, so an unsignalled mailbox ends instead: the two differ
+            // in general (a `take` larger than the offers would block on the
+            // pin and return what was offered here), which is a deliberate
+            // divergence recorded rather than papered over. The row's own
+            // case offers exactly as many as it takes, so both agree there.
+            None | Some(Terminator::End) => crate::stream::from_iter(items.into_iter(), chunk),
+            Some(Terminator::Fail(error)) => {
+                let source = crate::stream::from_iter(items.into_iter(), chunk);
+                source.concat(Self::fail(error))
+            }
+            Some(Terminator::Die(defect)) => {
+                let source = crate::stream::from_iter(items.into_iter(), chunk);
+                source.concat(Self::die(defect))
+            }
+        }
+    }
+}
+
+/// The writer's side of [`Stream::callback`].
+///
+/// Items accumulate in order and the terminator records how the stream ends.
+/// A registration that neither signals nor returns leaves the terminator unset,
+/// which is the pin's "registration raised" case.
+pub struct Mailbox<A, E> {
+    items: Vec<A>,
+    terminator: Option<Terminator<E>>,
+}
+
+/// How a mailbox closes.
+pub enum Terminator<E> {
+    /// Clean end of stream.
+    End,
+    /// A typed failure in the error channel.
+    Fail(E),
+    /// A defect, which is what a registration that raises becomes.
+    Die(Defect),
+}
+
+impl<A, E> Mailbox<A, E> {
+    /// An empty mailbox.
+    pub fn new() -> Self {
+        Self {
+            items: Vec::new(),
+            terminator: None,
+        }
+    }
+
+    /// Offer one item.
+    pub fn offer(&mut self, item: A) {
+        self.items.push(item);
+    }
+    /// Offer many, in order.
+    pub fn offer_all(&mut self, items: impl IntoIterator<Item = A>) {
+        self.items.extend(items);
+    }
+
+    /// `Queue.endUnsafe`: end the stream cleanly.
+    pub fn end(&mut self) {
+        if self.terminator.is_none() {
+            self.terminator = Some(Terminator::End);
+        }
+    }
+
+    /// `Queue.failCauseUnsafe`: end the stream with a typed failure.
+    pub fn fail(&mut self, error: E) {
+        self.terminator = Some(Terminator::Fail(error));
+    }
+
+    /// End the stream with a defect, which is the pin's registration
+    /// raising: the exit is `die`, not a typed failure in the error channel.
+    pub fn die(&mut self, defect: Defect) {
+        self.terminator = Some(Terminator::Die(defect));
+    }
+
+    fn into_parts(self) -> (Vec<A>, Option<Terminator<E>>) {
+        (self.items, self.terminator)
+    }
+}
+
 /// `Stream.mkArrayBuffer` at the pin: concatenate the byte chunks into one
 /// buffer.
 ///
@@ -1266,15 +1447,21 @@ where
             }
         }
         let mut results: Vec<Option<B>> = (0..total).map(|_| None).collect();
+        let mut spawned = bound;
         let mut finished = 0;
         let mut failure: Option<Cause<E>> = None;
-        while finished < total {
+        // Wait for the children that actually started. A failure stops the
+        // pending queue from starting (their results are discarded anyway), so
+        // waiting for `total` here would block forever on a recv that can
+        // never arrive.
+        while finished < spawned {
             match rx.recv().expect("a child always answers") {
                 ChildDone::Ok(index, b) => {
                     if failure.is_none() {
                         results[index] = Some(b);
                         if let Some((next, item)) = pending.next() {
                             spawn_child(&rt, &tx, &self.f, scope, &self.exec, batch, next, item);
+                            spawned += 1;
                         }
                     }
                     finished += 1;

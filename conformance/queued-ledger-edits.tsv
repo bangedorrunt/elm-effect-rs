@@ -1,0 +1,182 @@
+# Ledger edits that are carried but not yet landed.
+#
+# The ledger is one shared file under one lease, so an agent that has carried a
+# row but cannot take the lease stages it here instead of holding the file open
+# between batches. Apply the whole queue with
+#
+#     python3 conformance/flip-row.py --from-queue conformance/queued-ledger-edits.tsv
+#
+# and verify it without writing the ledger with the same command plus --check,
+# which reports how many rows would change and leaves the file's sha alone.
+#
+# A row is removed once it lands: the tsv's own rust column is the record from
+# then on, and a file that holds landed rows reads as pending work.
+#
+# Do not add a row here without its witness already in the tree. flip-row.py
+# refuses a `ported` row with an empty rust column, so a queue entry is a claim
+# that the test exists.
+#
+# Batch 1, thirty rows, landed in 8ea093f: thirteen newly carried in
+# Schema.test.ts, seven carrying the allOf intersections in
+# fromJsonSchemaDocument.test.ts, ten re-points of rows that were already
+# `ported` while citing the wrong witness, and eight excusals of rows whose
+# bodies assert nothing at runtime. `git show 8ea093f -- conformance/behavior-tests.tsv`
+# is the batch.
+#
+# path	line	status	rust
+# Landed (60 rows in one call) after BoldKite released the ledger lease.
+# Batch 2, seven rows from elm-effect-rs-port-managedruntime-oupl. Witnesses live in
+# crates/elm-effect/tests/managed_runtime.rs (7 tests, all green). Queue staged
+# because BoldKite holds the ledger lease for elm-effect-rs-sgze and did not answer
+# a request-release; landed once the lease was free.
+# Batch 3, twenty-one rows from elm-effect-rs-port-txpriorityqueue-69y4 (landed). Witnesses in
+# crates/elm-effect/tests/tx_priority_queue.rs (21 tests, green under --features stm).
+# Batch 4, five rows from elm-effect-rs-port-schema-a2c (landed): the
+# resolveAnnotations / resolveAnnotationsKey getters. Witnesses in
+# crates/elm-effect-schema/tests/schema_annotations.rs (8 tests, green).
+# Batch 5, six rows from elm-effect-rs-port-schema-a2c (landed): the brand and
+# fromBrand describes. Witnesses in
+# crates/elm-effect-schema/tests/schema_transform.rs (green).
+# Batch 6, twenty-one rows from elm-effect-rs-port-schema-a2c (landed): the top-level
+# constructor rows at :5216-:5586. Six are carried (the four StringFrom*
+# transforms, whose witnesses are in tests/schema_transform.rs and whose
+# implementations are in src/transform.rs; plus the two DateTimeUtc rows whose
+# wire side is a string or a number the port already has). Fifteen are
+# excused because the row's wire value is a JS/Effect value type with no
+# Unknown variant, each named in its own reason rather than as one block.
+# Batch 7, forty rows from elm-effect-rs-port-schema-a2c (staged, awaiting the lease
+# IcyCoast holds for conformance/behavior-tests.tsv): the Class / TaggedClass /
+# Error / TaggedError describes at :6802-:7791 and the extend rows under them.
+# Witnesses in crates/elm-effect-schema/tests/schema_class.rs, 21 tests, green
+# under `cargo test -p elm-effect-schema`. Rows the port cannot witness stay
+# open rather than excused: the immer and `[immerable]` describes (:6961-:7064,
+# :7247), the JS object-model legs (`instanceof`, `_a` class-body fields), the
+# `verifyGeneration` arbitrary leg, and `assertInclude(err.stack, ...)` (:7503,
+# :7558, :7646's stack half).
+# Batch 8, nine rows from elm-effect-rs-port-schema-a2c (staged, awaiting the
+# lease): the TemplateLiteralParser describe at :6599-:6783, all of it. Witnesses
+# in crates/elm-effect-schema/tests/schema_template.rs (37 tests, green). Four of
+# the nine needed real port work: a part now captures by its own kind (a literals
+# part captures the value, a nested parser its list, a nested template literal
+# the text it matched), and the parser's encode runs each capture back through
+# its part, so the pin's "Expected an integer at [0]" and "length of at least 1
+# at [2]" refusals are ported rather than dropped.
+# Batch 9, thirteen rows from elm-effect-rs-port-schema-a2c (staged, awaiting the
+# lease): the Schema.makeFilter describe at :9199-:9398, all of it. Witnesses in
+# crates/elm-effect-schema/tests/schema_filters.rs (14 tests, green). New surface
+# in crates/elm-effect-schema/src/filters.rs: FilterOutcome (pass, bare false,
+# one issue, an array), FilterIssue (a message at a relative path), FilterSpec
+# (predicate, annotations, abort) and Schema::filtered, plus two SchemaError
+# variants (FilterFailed, Composite) so an "all issues" decode can report a
+# filter's own message at the path it pointed at.
+# Batch 10, eight rows from elm-effect-rs-port-schema-a2c (staged, awaiting the
+# lease): Char, Int, Natural, the four case schemas and the version-specific
+# isUUID row, Schema.test.ts:10108-10361. Witnesses in
+# crates/elm-effect-schema/tests/schema_refinements.rs (8 tests, green); the
+# surface is crates/elm-effect-schema/src/refinements.rs. A case schema decodes
+# through the transformation and encodes through the check, so decoding
+# normalizes and encoding insists the value was already normalized, which is what
+# all four case rows assert.
+#
+# Three rows right beside these stay open on purpose: :10319 isStringBigInt,
+# :10328 isStringSymbol and :10348 isUUID assert
+# `resolveAnnotations(schema)?.representation` as a structured {id, payload}
+# object, and this port has no representation annotation yet. Claiming them
+# would be claiming a shape that is not there.
+# Batch 11, four carried rows and five excused, all from
+# elm-effect-rs-port-schema-a2c (landed): the Record
+# describe's key-schema rows. Witnesses in
+# crates/elm-effect-schema/tests/schema_records.rs (4 tests, green). The port
+# grew a per-record excess policy (`Schema::record2_excess`) and a numeric
+# reading of a wire key, so `Record(Int, ...)` selects the names that spell a
+# number while `"1.1"`, `"Infinity"` and `"NaN"` are unmatched keys.
+#
+# Four rows beside them stay open rather than excused, each for its own reason:
+# :4159 `Record(SnakeToCamel, NumberFromString)` needs key renaming and a
+# last-key-wins order that a sorted map does not preserve; :4082 puts a symbol in
+# the key union; :4223 and :4231 are the `mutableKey` spelling, which has no
+# analogue here though the decode they assert holds.
+# Batch 12, two carried rows and four excused, from
+# elm-effect-rs-port-schema-a2c (landed): the Union
+# describe's dispatch rows that this port can actually witness. Witnesses in
+# crates/elm-effect-schema/tests/schema_union.rs (2 tests, green, no source
+# change: member order and the `oneOf` count were already the port's behaviour).
+#
+# Six rows beside them stay open, each naming what it needs:
+# :4504 and :4551 are unions with a RECOVERING member (`catchDecoding` /
+# `catchEncoding`), which this port does not have; :4793 and :4807 need
+# sentinel-based member exclusion with the union's own message; :4821 and :4845
+# need sentinel dispatch that reports the selected member's own error
+# (`Missing key at ["a"]`) rather than the union-level one.
+# elm-effect-rs-port-jsonschema-dialects-8wm0: carried and witnessed, waiting for the
+# behavior-tests.tsv lease (BoldKite holds it for elm-effect-rs-port-txhashmap-ujl).
+# Batch 13, one more row from elm-effect-rs-port-jsonschema-dialects-8wm0 (queued).
+# :156 asserts an ajv equivalence, so the witness reads BOTH the Draft-07 source
+# and the lowered canonical document back through the test-local `accepts`
+# reader in port_json_schema.rs, which grew `const`, `dependencies` /
+# `dependentRequired` / `dependentSchemas`, `contains` and `if`/`then`/`else` to
+# read the pair. The source side of the six-case table is checked against the
+# verdicts Draft-07's own rules give those instances, so the canonical side is a
+# real comparison rather than one reader agreeing with itself.
+packages/effect/test/JsonSchema.test.ts	156	ported	draft07_preserves_validation_semantics_in_the_canonical_dialect
+packages/effect/test/JsonSchema.test.ts	2445	ported	multi_rejects_opaque_keywords_open_api3_1_would_activate
+packages/effect/test/JsonSchema.test.ts	2461	ported	multi_does_not_inspect_opaque_values_for_keyword_collisions
+packages/effect/test/JsonSchema.test.ts	2473	ported	multi_rewrites_defs_refs_to_component_refs
+packages/effect/test/JsonSchema.test.ts	2519	ported	multi_rewrites_refs_only_in_schema_positions
+packages/effect/test/JsonSchema.test.ts	2546	ported	multi_sanitizes_component_keys_and_rewritten_refs_together
+packages/effect/test/JsonSchema.test.ts	2580	ported	multi_unescapes_a_definition_key_before_sanitizing_its_ref
+packages/effect/test/JsonSchema.test.ts	2598	ported	multi_decodes_a_definition_key_before_sanitizing_its_ref
+packages/effect/test/JsonSchema.test.ts	2626	ported	multi_does_not_rewrite_local_refs_inside_embedded_schema_resources
+packages/effect/test/JsonSchema.test.ts	2676	ported	multi_does_not_rewrite_local_refs_inside_root_schema_resources
+packages/effect/test/JsonSchema.test.ts	2700	ported	multi_rejects_shared_definition_refs_from_root_schema_resources
+packages/effect/test/JsonSchema.test.ts	2714	ported	multi_suffixes_a_sanitized_key_that_collides_with_a_valid_key
+packages/effect/test/JsonSchema.test.ts	2748	ported	multi_allocates_suffixes_deterministically_and_skips_occupied_keys
+packages/effect/test/JsonSchema.test.ts	2804	ported	multi_reserves_sanitized_bases_before_allocating_suffixes
+packages/effect/test/JsonSchema.test.ts	2842	ported	multi_rewrites_nested_definition_refs_without_changing_other_refs
+packages/effect/test/httpapi/HttpApiClient.test.ts	352	ported	url_builder_preserves_the_undeclared_action_suffix
+packages/effect/test/httpapi/HttpApiClient.test.ts	358	ported	make_sends_the_request_with_the_literal_action_suffix
+packages/effect/test/httpapi/HttpApiClient.test.ts	908	ported	builds_urls_using_endpoint_schemas
+packages/effect/test/httpapi/HttpApiClient.test.ts	927	ported	preserves_a_base_url_pathname
+packages/effect/test/httpapi/HttpApiClient.test.ts	935	ported	encodes_path_parameters
+packages/effect/test/httpapi/HttpApiClient.test.ts	963	ported	omits_missing_optional_path_parameters
+packages/effect/test/httpapi/HttpApiClient.test.ts	989	ported	returns_relative_urls_when_base_url_is_omitted
+packages/effect/test/httpapi/HttpApiClient.test.ts	995	ported	supports_top_level_endpoints
+packages/effect/test/httpapi/HttpApiClient.test.ts	1012	ported	stores_proto_identifiers_as_own_properties
+packages/effect/test/httpapi/HttpApiClient.test.ts	1026	ported	stores_proto_client_identifiers_as_own_properties
+packages/effect/test/httpapi/HttpApiClient.test.ts	1077	ported	encodes_path_parameters_when_executing_requests
+packages/effect/test/httpapi/HttpApiClient.test.ts	1111	ported	omits_optional_path_parameters_when_executing_requests
+packages/effect/test/httpapi/HttpApiClient.test.ts	19	not-applicable	strict events-mode decoding needs Schema compiler plus Sse wire decoder
+packages/effect/test/httpapi/HttpApiClient.test.ts	33	not-applicable	strict SSE user-data decoding needs Schema compiler plus Sse wire decoder
+packages/effect/test/httpapi/HttpApiClient.test.ts	53	not-applicable	reserved failure Cause decode needs Schema compiler plus Sse wire decoder
+packages/effect/test/httpapi/HttpApiClient.test.ts	81	not-applicable	excess-property SSE rejection needs Schema compiler plus Sse wire decoder
+packages/effect/test/httpapi/HttpApiClient.test.ts	108	not-applicable	payload errors-all collection needs Schema codec layer
+packages/effect/test/httpapi/HttpApiClient.test.ts	132	not-applicable	response errors-all collection needs Schema codec layer
+packages/effect/test/httpapi/HttpApiClient.test.ts	151	not-applicable	group-over-API ParseOptions precedence needs Schema validation at urlBuilder time
+packages/effect/test/httpapi/HttpApiClient.test.ts	166	not-applicable	per-slot request-codec ParseOptions need Schema codec layer
+packages/effect/test/httpapi/HttpApiClient.test.ts	213	not-applicable	buffered header/success/error slot decoding needs Schema codec layer
+packages/effect/test/httpapi/HttpApiClient.test.ts	249	not-applicable	WithHeaders StreamSse slot decoding needs Stream runtime plus header codecs
+packages/effect/test/httpapi/HttpApiClient.test.ts	286	not-applicable	encodeToWithHeaders header-transform decoding needs Schema codec layer
+packages/effect/test/httpapi/HttpApiClient.test.ts	316	not-applicable	encodeToWithHeaders mapped-value validation needs Schema codec layer
+packages/effect/test/httpapi/HttpApiClient.test.ts	378	not-applicable	incremental StreamSse decode needs Stream runtime plus Sse wire decoder
+packages/effect/test/httpapi/HttpApiClient.test.ts	398	not-applicable	per-call SSE option isolation needs Stream runtime plus Sse wire decoder
+packages/effect/test/httpapi/HttpApiClient.test.ts	418	not-applicable	StreamSse parser-state isolation needs Stream runtime plus Sse wire decoder
+packages/effect/test/httpapi/HttpApiClient.test.ts	437	not-applicable	reserved failure Cause stream decode needs Stream runtime plus Sse wire decoder
+packages/effect/test/httpapi/HttpApiClient.test.ts	464	not-applicable	non-Cause reserved event names need Stream runtime plus Sse wire decoder
+packages/effect/test/httpapi/HttpApiClient.test.ts	487	not-applicable	incremental StreamUint8Array bytes need Stream runtime
+packages/effect/test/httpapi/HttpApiClient.test.ts	501	not-applicable	WithHeaders StreamUint8Array body plus headers need Stream runtime plus header codecs
+packages/effect/test/httpapi/HttpApiClient.test.ts	530	not-applicable	WithHeaders StreamSse body plus headers need Stream runtime plus header codecs
+packages/effect/test/httpapi/HttpApiClient.test.ts	565	not-applicable	invalid WithHeaders stream headers need Stream runtime plus header codecs
+packages/effect/test/httpapi/HttpApiClient.test.ts	595	not-applicable	SSE options through mixed WithHeaders selection need Stream runtime plus Sse wire decoder
+packages/effect/test/httpapi/HttpApiClient.test.ts	643	not-applicable	annotated-status StreamSse success needs Stream runtime
+packages/effect/test/httpapi/HttpApiClient.test.ts	657	not-applicable	annotated-status StreamUint8Array success needs Stream runtime
+packages/effect/test/httpapi/HttpApiClient.test.ts	669	not-applicable	error-schema decode before stream needs Stream runtime plus Schema codecs
+packages/effect/test/httpapi/HttpApiClient.test.ts	685	not-applicable	response-only raw stream access needs Stream runtime
+packages/effect/test/httpapi/HttpApiClient.test.ts	705	not-applicable	buffered selection at streamed status needs response codecs plus Stream runtime
+packages/effect/test/httpapi/HttpApiClient.test.ts	721	not-applicable	stream selection at buffered status needs response codecs plus Stream runtime
+packages/effect/test/httpapi/HttpApiClient.test.ts	749	not-applicable	normalized content-type error selection needs error Schema codecs plus client dispatch
+packages/effect/test/httpapi/HttpApiClient.test.ts	772	not-applicable	unsupported error content type needs error codecs plus HttpClientError machinery
+packages/effect/test/httpapi/HttpApiClient.test.ts	802	not-applicable	no-content error without content-type needs error Schema codecs
+packages/effect/test/httpapi/HttpApiClient.test.ts	810	not-applicable	normalized declared content-type error groups need error Schema codecs
+packages/effect/test/httpapi/HttpApiClient.test.ts	824	not-applicable	form-urlencoded response decode needs Schema codec layer
+packages/effect/test/httpapi/HttpApiClient.test.ts	849	not-applicable	invalid declared header failure needs Schema codec layer
+packages/effect/test/httpapi/HttpApiClient.test.ts	1047	not-applicable	transformClient exactly-once needs client middleware chain

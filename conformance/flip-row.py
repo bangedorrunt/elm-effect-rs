@@ -17,6 +17,17 @@ non-empty; use a `crates/...rs::fn` path when the row's own test is clearer.
 Excusing a row (`--not-applicable "<reason>"`) writes the reason into the same
 column, which `ledger.rs` also requires to be non-empty. Excusing is a
 deliberate act with a stated cause, never a way to make a count go down.
+
+A batch that is carried but waiting on the lease goes in a queue file and lands
+in one call:
+
+    python3 conformance/flip-row.py --from-queue conformance/queued-ledger-edits.tsv
+    python3 conformance/flip-row.py --from-queue conformance/queued-ledger-edits.tsv --check
+
+The ledger is one shared file under one lease, so an agent that has carried a
+row but cannot take the lease stages it in the queue instead of holding the file
+open between batches. `--check` reports what the queue would change and writes
+nothing, which is the only way to verify a queue without the lease.
 """
 
 from __future__ import annotations
@@ -25,34 +36,67 @@ import sys
 
 LEDGER = "conformance/behavior-tests.tsv"
 
+STATUSES = ("ported", "not-applicable", "skipped-upstream")
+
+
+def load_queue(path: str) -> list[tuple[str, int, str, str]]:
+    """Read `path<TAB>line<TAB>status<TAB>rust` rows, skipping `#` comments."""
+    rows: list[tuple[str, int, str, str]] = []
+    with open(path, encoding="utf-8") as handle:
+        for raw in handle:
+            if raw.startswith("#") or not raw.strip():
+                continue
+            fields = raw.rstrip("\n").split("\t")
+            if len(fields) != 4:
+                raise SystemExit(
+                    f"{path}: expected 4 tab-separated fields, got {len(fields)}: {raw!r}"
+                )
+            test_path, line, status, witness = fields
+            if status not in STATUSES:
+                raise SystemExit(f"{path}:{line}: unknown status {status!r}")
+            rows.append((test_path, int(line), status, witness))
+    return rows
+
 
 def main(argv: list[str]) -> int:
     args = list(argv[1:])
-    if len(args) < 2 or args[0] in ("-h", "--help"):
+    if not args or args[0] in ("-h", "--help"):
         print(__doc__)
         return 0 if args else 2
 
-    test_path = args[0]
-    rest = args[1:]
+    check = "--check" in args
+    args = [arg for arg in args if arg != "--check"]
 
-    not_applicable = None
-    if rest[0] == "--not-applicable":
-        if len(rest) < 2:
-            print("--not-applicable needs a reason", file=sys.stderr)
+    wanted: dict[tuple[str, int], tuple[str, str]] = {}
+    if args[0] == "--from-queue":
+        if len(args) < 2:
+            print("--from-queue needs a queue file", file=sys.stderr)
             return 2
-        not_applicable = rest[1]
-        pairs = [(int(line), f"not-applicable: {not_applicable}") for line in rest[2:]]
+        for test_path, line, status, witness in load_queue(args[1]):
+            wanted[(test_path, line)] = (status, witness)
+        scope = args[1]
     else:
-        pairs = []
-        for spec in rest:
-            line, _, witness = spec.partition(":")
-            if not line or not witness:
-                print(f"bad spec {spec!r}: expected <line>:<witness>", file=sys.stderr)
+        scope = args[0]
+        rest = args[1:]
+        if not rest:
+            print(__doc__)
+            return 2
+        if rest[0] == "--not-applicable":
+            if len(rest) < 2:
+                print("--not-applicable needs a reason", file=sys.stderr)
                 return 2
-            pairs.append((int(line), witness))
+            wanted = {
+                (scope, int(line)): ("not-applicable", rest[1]) for line in rest[2:]
+            }
+        else:
+            for spec in rest:
+                line, _, witness = spec.partition(":")
+                if not line or not witness:
+                    print(f"bad spec {spec!r}: expected <line>:<witness>", file=sys.stderr)
+                    return 2
+                wanted[(scope, int(line))] = ("ported", witness)
 
     lines = open(LEDGER, encoding="utf-8").read().splitlines(keepends=True)
-    wanted = {(test_path, line): witness for line, witness in pairs}
     hits: dict[tuple[str, int], str] = {}
 
     for index, raw in enumerate(lines):
@@ -66,17 +110,17 @@ def main(argv: list[str]) -> int:
         key = (fields[1], int(fields[2]))
         if key not in wanted:
             continue
-        status, witness = "ported", wanted[key]
-        if witness.startswith("not-applicable: "):
-            status, witness = "not-applicable", witness[len("not-applicable: ") :]
+        status, witness = wanted[key]
         if not witness:
             print(f"{key}: refusing a {status} row with no witness", file=sys.stderr)
             return 1
         if fields[0] == status and fields[5] == witness:
             hits[key] = "already"
             continue
+        if check:
+            hits[key] = f"would be {status}"
+            continue
         lines[index] = "\t".join([status] + fields[1:5] + [witness]) + "\n"
-        fields[0] = status
         hits[key] = status
 
     missing = set(wanted) - set(hits)
@@ -85,11 +129,15 @@ def main(argv: list[str]) -> int:
             print(f"{key}: no such behavior row", file=sys.stderr)
         return 1
 
-    with open(LEDGER, "w", encoding="utf-8") as handle:
-        handle.writelines(lines)
+    if not check:
+        with open(LEDGER, "w", encoding="utf-8") as handle:
+            handle.writelines(lines)
 
     changed = [key for key, value in hits.items() if value != "already"]
-    print(f"{test_path}: {len(changed)} rows flipped, {len(pairs) - len(changed)} already set")
+    verb = "would flip" if check else "flipped"
+    print(
+        f"{scope}: {len(changed)} rows {verb}, {len(wanted) - len(changed)} already set"
+    )
     for key in sorted(changed):
         print(f"  :{key[1]} -> {hits[key]}")
     return 0

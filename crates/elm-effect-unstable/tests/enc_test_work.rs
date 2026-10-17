@@ -605,11 +605,16 @@ fn sse_ignores_non_digit_retry_values() {
 
 #[test]
 fn worker_errors_carry_kind_and_message() {
-    let e = elm_effect_unstable::workers::WorkerError::Spawn("no binary".into());
+    let e = elm_effect_unstable::workers::WorkerError::new(
+        elm_effect_unstable::workers::WorkerErrorReason::spawn("no binary"),
+    );
     assert!(e.is_spawn() && !e.is_send() && !e.is_receive());
     assert_eq!(e.message(), "no binary");
     assert_eq!(e.to_string(), "WorkerError(spawn): no binary");
-    assert!(elm_effect_unstable::workers::WorkerError::Receive("eof".into()).is_receive());
+    assert!(elm_effect_unstable::workers::WorkerError::new(
+        elm_effect_unstable::workers::WorkerErrorReason::receive("eof"),
+    )
+    .is_receive());
 }
 
 #[test]
@@ -660,4 +665,124 @@ fn ndjson_error_guard() {
     let bad = encoding::ndjson::decode("{bad}\n").unwrap_err();
     assert_eq!(bad.kind(), "Unpack");
     assert!(bad.to_string().contains("line 1"));
+}
+
+// ---------------------------------------------------------------------------
+// Atom lifecycle (Atom.test.ts :45, :53, :62, :73, :113, :134)
+// ---------------------------------------------------------------------------
+
+use std::sync::Arc;
+
+use elm_effect_unstable::reactivity::{map, Atom, Registry};
+
+#[test]
+fn atom_get_set_round_trips_through_the_registry() {
+    // Atom.test.ts :45 — Atom.make(0) read through a fresh registry, then
+    // written and read back.
+    let counter = Atom::make(0i64);
+    let registry = Registry::make();
+    assert_eq!(registry.get(&counter), 0);
+    registry.set(&counter, 1);
+    assert_eq!(registry.get(&counter), 1);
+}
+
+#[test]
+fn atom_without_keep_alive_resets_after_the_disposal_tick() {
+    // Atom.test.ts :53 — a set value holds until the registry's disposal
+    // pass; an unkept atom with no subscribers reverts to its initial value.
+    let counter = Atom::make(0i64);
+    let registry = Registry::make();
+    registry.set(&counter, 1);
+    assert_eq!(registry.get(&counter), 1);
+    registry.tick();
+    assert_eq!(registry.get(&counter), 0);
+}
+
+#[test]
+fn atom_keep_alive_survives_the_disposal_tick() {
+    // Atom.test.ts :62 — keepAlive pins the value across the disposal pass.
+    let counter = Atom::make(0i64).keep_alive();
+    let registry = Registry::make();
+    registry.set(&counter, 1);
+    assert_eq!(registry.get(&counter), 1);
+    registry.tick();
+    assert_eq!(registry.get(&counter), 1);
+}
+
+#[test]
+fn atom_subscribe_holds_the_node_and_releases_on_cancel() {
+    // Atom.test.ts :73 — a subscription notifies with the new value, keeps
+    // the node alive across the disposal pass, and after the cancel the
+    // next pass reverts the atom to its initial value.
+    let counter = Atom::make(0i64);
+    let registry = Registry::make();
+    let seen = std::sync::Arc::new(std::sync::Mutex::new(Vec::<i64>::new()));
+    let log = std::sync::Arc::clone(&seen);
+    let cancel = registry.subscribe(&counter, move |value: i64| {
+        log.lock().unwrap().push(value);
+    });
+    registry.set(&counter, 1);
+    assert_eq!(*seen.lock().unwrap(), vec![1]);
+    registry.tick();
+    assert_eq!(registry.get(&counter), 1, "a subscribed node stays mounted");
+    cancel.cancel();
+    registry.tick();
+    assert_eq!(registry.get(&counter), 0, "after cancel the node reverts");
+}
+
+#[test]
+fn atom_with_equality_skips_notifications_and_keeps_identity() {
+    // Atom.test.ts :113 — an equivalent assignment neither notifies nor
+    // replaces the stored value, so the read keeps the same handle; a
+    // differing value notifies exactly once.
+    let point = Atom::make(Arc::new(Point { x: 0, y: 0 }))
+        .with_equality(|a: &Arc<Point>, b: &Arc<Point>| a.x == b.x && a.y == b.y)
+        .keep_alive();
+    let registry = Registry::make();
+    let initial = registry.get_shared(&point);
+    let notifications = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
+    let count = std::sync::Arc::clone(&notifications);
+    registry.subscribe(&point, move |_value: Arc<Point>| {
+        count.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+    });
+    registry.set(&point, Arc::new(Point { x: 0, y: 0 }));
+    assert_eq!(notifications.load(std::sync::atomic::Ordering::SeqCst), 0);
+    assert!(
+        Arc::ptr_eq(&initial, &registry.get_shared(&point)),
+        "an equivalent set must keep the same value handle"
+    );
+    registry.set(&point, Arc::new(Point { x: 1, y: 0 }));
+    assert_eq!(notifications.load(std::sync::atomic::Ordering::SeqCst), 1);
+    assert_eq!(registry.get(&point).x, 1);
+}
+
+#[test]
+fn atom_with_equality_skips_invalidation_of_derived_atoms() {
+    // Atom.test.ts :134 — a derived atom (Atom.map) rebuilds on read and
+    // counts its builds; an equivalent set on the source does not
+    // invalidate the derived atom, a differing set rebuilds it exactly once.
+    let builds = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
+    let counted = std::sync::Arc::clone(&builds);
+    let point = Atom::make(Arc::new(Point { x: 0, y: 0 }))
+        .with_equality(|a: &Arc<Point>, b: &Arc<Point>| a.x == b.x && a.y == b.y)
+        .keep_alive();
+    let x = map(&point, move |p: &Arc<Point>| {
+        counted.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        p.x
+    });
+    let registry = Registry::make();
+    let _handle = registry.subscribe(&x, |_value: i64| {});
+    assert_eq!(registry.get(&x), 0);
+    assert_eq!(builds.load(std::sync::atomic::Ordering::SeqCst), 1);
+    registry.set(&point, Arc::new(Point { x: 0, y: 0 }));
+    assert_eq!(builds.load(std::sync::atomic::Ordering::SeqCst), 1);
+    registry.set(&point, Arc::new(Point { x: 2, y: 0 }));
+    assert_eq!(registry.get(&x), 2);
+    assert_eq!(builds.load(std::sync::atomic::Ordering::SeqCst), 2);
+}
+
+#[derive(Clone, PartialEq, Debug)]
+struct Point {
+    x: i64,
+    y: i64,
 }

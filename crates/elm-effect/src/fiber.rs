@@ -10,6 +10,7 @@
 //! completion: the flag fires when depth returns to zero.
 
 use std::any::Any;
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::marker::PhantomData;
 use std::sync::{
@@ -156,6 +157,31 @@ impl FiberControl {
         self.depth.fetch_sub(1, Ordering::SeqCst);
     }
 
+    /// Raise the depth and hand back a guard that lowers it on drop, so a
+    /// panic (or early return) inside a masked region can never leak depth.
+    pub(crate) fn mask_guard(&self) -> MaskGuard<'_> {
+        self.mask();
+        MaskGuard { control: self }
+    }
+
+    /// Register this fiber as the current one for this thread until the
+    /// returned guard drops. The runtime holds it for the whole task, so
+    /// [`crate::Scope::close`] finds the closing fiber whichever path called
+    /// it.
+    pub(crate) fn enter_current(self: &Arc<Self>) -> CurrentGuard {
+        let prev = CURRENT_FIBER.with(|c| c.borrow_mut().replace(Arc::clone(self)));
+        CurrentGuard { prev }
+    }
+
+    /// Run `f` masked on the current thread's fiber. `None` when this thread
+    /// runs no fiber: sync finalizers already run to completion there, so
+    /// there is nothing to mask.
+    pub(crate) fn with_current_masked<R>(f: impl FnOnce() -> R) -> Option<R> {
+        let current = CURRENT_FIBER.with(|c| c.borrow().clone())?;
+        let _guard = current.mask_guard();
+        Some(f())
+    }
+
     fn is_done(&self) -> bool {
         *self.done.0.lock().unwrap()
     }
@@ -172,6 +198,83 @@ impl FiberControl {
             done = self.done.1.wait(done).unwrap();
         }
     }
+}
+
+/// Lowers the interruptibility depth when dropped. The unmask lives here
+/// instead of after `f()` so a panic inside a masked region still restores
+/// depth on unwind.
+pub(crate) struct MaskGuard<'a> {
+    control: &'a FiberControl,
+}
+
+impl Drop for MaskGuard<'_> {
+    fn drop(&mut self) {
+        self.control.unmask();
+    }
+}
+
+thread_local! {
+    /// The fiber running on this thread, set for the whole task body by the
+    /// runtime spawn closure and cleared when the task ends. Lets
+    /// [`crate::Scope::close`] mask the closing fiber itself, so direct
+    /// close, `Drop`, layer-failure, and dispose paths all run finalizers
+    /// masked (L7) instead of relying on one caller to remember.
+    static CURRENT_FIBER: RefCell<Option<Arc<FiberControl>>> = const { RefCell::new(None) };
+}
+
+/// Restores the previous thread-local fiber on drop, so a panic anywhere in
+/// the task still clears the registration.
+pub(crate) struct CurrentGuard {
+    prev: Option<Arc<FiberControl>>,
+}
+
+impl Drop for CurrentGuard {
+    fn drop(&mut self) {
+        CURRENT_FIBER.with(|c| *c.borrow_mut() = self.prev.take());
+    }
+}
+/// The fiber running an effect, as [`Effect::with_fiber`] hands it over:
+/// identity plus the cooperative interrupt flag. Wider control (finalizers,
+/// spawning) stays on [`Ctx`], which a fiber body owns.
+///
+/// The pin's `fiber.context` has no counterpart here: services are immutable
+/// per run, never a mutable per-fiber map, so rows that read the running
+/// fiber's context stay unported.
+#[derive(Clone)]
+pub struct Fiber {
+    control: Arc<FiberControl>,
+}
+
+impl Fiber {
+    /// This fiber's id. Same value [`Ctx::id`] reports for the body.
+    pub fn id(&self) -> FiberId {
+        self.control.id
+    }
+
+    /// True once interruption was requested. Reads the same flag
+    /// [`Ctx::is_interrupted`] does.
+    pub fn is_interrupted(&self) -> bool {
+        self.control.is_interrupted()
+    }
+
+    /// Request interruption of this fiber. Non-blocking by construction: a
+    /// fiber cannot wait for its own finalizers. The supervisor observes the
+    /// flag at its next boundary, so a body that returns success after this
+    /// still ends interrupted.
+    pub fn interrupt(&self) {
+        self.control.request_interrupt();
+    }
+}
+
+/// The ambient "which fiber is running this effect" tag. Injected only at the
+/// spawn seams that run an effect on a fiber's behalf (`Ctx::spawn_effect`,
+/// `Runtime::spawn_effect`); `Effect::with_fiber` reads it and no run without
+/// a fiber carries one, so it is never user-providable.
+pub(crate) struct FiberTag;
+
+impl crate::ServiceTag for FiberTag {
+    type Service = Fiber;
+    const ID: &'static str = "elm-effect/fiber";
 }
 
 /// The context a fiber body runs with: interruption, finalizers, and
@@ -191,6 +294,22 @@ impl Ctx {
         self.control.id
     }
 
+    /// This fiber as an effect running inside it sees it.
+    pub fn fiber(&self) -> Fiber {
+        Fiber {
+            control: Arc::clone(&self.control),
+        }
+    }
+
+    /// Ambient services for an effect this fiber runs on its own behalf:
+    /// carries the [`FiberTag`] entry `Effect::with_fiber` reads. Freshly
+    /// built per run, so the tag can never conflict with a provision.
+    pub(crate) fn services_with_fiber(&self) -> crate::service::Services {
+        let mut maps = crate::service::ServiceMaps::default();
+        maps.insert_tag(<FiberTag as crate::ServiceTag>::ID, Arc::new(self.fiber()));
+        Arc::new(maps)
+    }
+
     /// The parent this fiber was forked from, if any.
     pub fn parent(&self) -> Option<FiberId> {
         self.control.parent
@@ -208,12 +327,16 @@ impl Ctx {
     }
 
     /// Run `f` with the interruptibility depth raised by one. The interrupt
-    /// flag still records; delivery waits until depth returns to zero.
+    /// flag still records; delivery waits until depth returns to zero. The
+    /// depth is lowered by a drop guard, so a panic in `f` still restores it.
     pub fn masked<T>(&self, f: impl FnOnce() -> T) -> T {
-        self.control.depth.fetch_add(1, Ordering::SeqCst);
-        let out = f();
-        self.control.depth.fetch_sub(1, Ordering::SeqCst);
-        out
+        let _guard = self.control.mask_guard();
+        f()
+    }
+
+    /// True while any masked region (or release) holds the depth above zero.
+    pub fn is_masked(&self) -> bool {
+        self.control.masked_now()
     }
 
     /// Ids of the extra scopes this fiber is bound to (`fork_in` /
@@ -299,16 +422,21 @@ impl Ctx {
     }
 
     /// Run a sync-only [`Effect`] as this fiber's child. Atomic with respect
-    /// to interruption in this wave.
+    /// to interruption in this wave. The child publishes itself under
+    /// [`FiberTag`] for the run, so `Effect::with_fiber` inside `effect`
+    /// reports the fiber actually executing it.
     pub fn spawn_effect<A, E>(&self, effect: Effect<A, E>) -> FiberHandle<A, E>
     where
         A: Send + 'static,
         E: Send + 'static,
     {
         self.fork_child(
-            move |_| match effect.run_sync() {
-                Ok(a) => Exit::Success(a),
-                Err(cause) => Exit::Failure(cause),
+            move |ctx| {
+                let ambient = ctx.services_with_fiber();
+                match effect.run_sync_with(&ambient) {
+                    Ok(a) => Exit::Success(a),
+                    Err(cause) => Exit::Failure(cause),
+                }
             },
             ForkOpts::deferred(),
         )

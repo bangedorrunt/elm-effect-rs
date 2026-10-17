@@ -5,9 +5,12 @@
 mod cluster;
 
 use cluster::{
-    MemoryRunnerStorage, ReplyRegistry, ResourceMap, RunnerHealth, ShardingConfig, StoredReply,
-    WaiterFault,
+    ClusterError, Delivery, MemoryRunnerStorage, PlainJsonCodec, ReplyRegistry, ResourceMap,
+    RunnerCodec, RunnerHealth, RunnerReply, RunnerRequest, RunnerTransport, Runners, ShardingConfig,
+    StoredReply, WaiterFault,
 };
+use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 #[test]
 fn sharding_config_defaults_and_validation() {
@@ -30,8 +33,16 @@ fn sharding_config_defaults_and_validation() {
 }
 
 #[test]
-fn sharding_config_listen_address_needs_host() {
-    let no_host = ShardingConfig {
+fn storage_batch_below_one_normalizes_to_one() {
+    // Sharding.test.ts:2077 — programmatic batch sizes below one still drain.
+    let zero = ShardingConfig { storage_batch: 0, ..ShardingConfig::defaults() };
+    assert_eq!(zero.effective_storage_batch(), 1);
+    let sized = ShardingConfig { storage_batch: 25, ..ShardingConfig::defaults() };
+    assert_eq!(sized.effective_storage_batch(), 25);
+}
+
+#[test]
+fn sharding_config_listen_address_needs_host() {    let no_host = ShardingConfig {
         listen_host: None,
         listen_port: Some(8080),
         ..ShardingConfig::defaults()
@@ -307,4 +318,388 @@ fn entity_clients_close_activations_on_demand() {
     clients.close();
     assert!(activations.iter().all(|scope| scope.is_closed()));
     clients.close();
+}
+
+// --- RunnerServer.test.ts rows ---
+
+// RunnerServer.test.ts:136 — a successful runner stream completes: the value
+// arrives as a chunk, the client ack hides it, and the terminal exit remains.
+#[test]
+fn runner_stream_completes_with_exit_after_ack() {
+    let mut registry = ReplyRegistry::new();
+    registry.succeed_stream("req", &[1]);
+    assert_eq!(entity_values(&registry, "req"), vec![1]);
+    assert!(registry.is_complete("req"));
+    assert!(registry.acknowledge("req"));
+    assert!(entity_values(&registry, "req").is_empty());
+    assert_eq!(
+        registry.replies_for("req"),
+        vec![StoredReply::Exit { payload: Vec::new() }]
+    );
+    assert!(registry.is_complete("req"));
+}
+
+// RunnerServer.test.ts:380 — the serialization codec fills the entity payload
+// and reply holes: the payload survives the codec round trip and the envelope
+// carries it already encoded.
+#[test]
+fn runner_codec_fills_payload_and_reply_holes() {
+    let codec = CountingCodec::new("codecForJsonString");
+    let calls = Arc::clone(&codec.calls);
+    let runners = Runners::new(
+        Box::new(codec),
+        Box::new(StaticTransport {
+            outcome: Delivery::Delivered,
+        }),
+    );
+    let mut request = RunnerRequest::new("1", "Double", r#"{"id":21}"#, false);
+    let mut received = None;
+    runners
+        .send_local(&mut request, true, &mut |incoming| received = Some(incoming))
+        .expect("a local send does not fail");
+    let incoming = received.expect("the local send delivered");
+    assert_eq!(incoming.payload, r#"{"id":21}"#);
+    assert_eq!(request.encoded_by.as_deref(), Some("codecForJsonString"));
+    let wire = runners.encode_request(&request);
+    assert!(
+        wire.starts_with('"') && wire.ends_with('"'),
+        "the outer payload is a JSON string: {wire}"
+    );
+    let back = runners.decode_reply(&wire);
+    assert!(
+        back.contains(r#""payload":"{\"id\":21}""#),
+        "the entity payload is carried, not re-encoded: {back}"
+    );
+    assert!(calls.load(Ordering::SeqCst) >= 3, "the codec filled the holes");
+}
+
+// --- Entity server (Entity.test.ts rows) ---
+
+fn entity_values(registry: &ReplyRegistry, request_id: &str) -> Vec<i64> {
+    registry
+        .replies_for(request_id)
+        .into_iter()
+        .filter_map(|reply| match reply {
+            StoredReply::Chunk { payload, .. } => Some(i64::from_le_bytes(
+                payload.try_into().expect("a chunk carries one i64"),
+            )),
+            _ => None,
+        })
+        .collect()
+}
+
+fn entity_stream_ended(registry: &ReplyRegistry, request_id: &str) -> bool {
+    registry
+        .replies_for(request_id)
+        .iter()
+        .any(|reply| matches!(reply, StoredReply::Exit { .. }))
+}
+
+// --- Runners.makeRpc (Runners.test.ts rows) ---
+
+/// The pin's `codecForJsonString`: every payload becomes a JSON string, so a
+/// round trip through it is visible in the wire text. Counts its calls,
+/// which is how the pin's row proves the codec ran.
+struct CountingCodec {
+    name: &'static str,
+    calls: Arc<AtomicUsize>,
+}
+
+impl CountingCodec {
+    fn new(name: &'static str) -> Self {
+        Self {
+            name,
+            calls: Arc::new(AtomicUsize::new(0)),
+        }
+    }
+
+    fn calls(&self) -> usize {
+        self.calls.load(Ordering::SeqCst)
+    }
+}
+
+impl RunnerCodec for CountingCodec {
+    fn name(&self) -> &str {
+        self.name
+    }
+
+    fn encode(&self, text: &str) -> String {
+        self.calls.fetch_add(1, Ordering::SeqCst);
+        // Rust's debug quoting is the JSON string form for these payloads.
+        format!("{text:?}")
+    }
+
+    fn decode(&self, text: &str) -> String {
+        self.calls.fetch_add(1, Ordering::SeqCst);
+        PlainJsonCodec.decode(text)
+    }
+}
+
+/// A transport that always answers the same way.
+struct StaticTransport {
+    outcome: Delivery,
+}
+
+impl RunnerTransport for StaticTransport {
+    fn send(&self, _request: &RunnerRequest) -> Delivery {
+        self.outcome.clone()
+    }
+
+    fn notify(&self, _request: &RunnerRequest) -> Delivery {
+        self.outcome.clone()
+    }
+}
+
+fn runners(codec: Box<dyn RunnerCodec>, outcome: Delivery) -> Runners {
+    Runners::new(codec, Box::new(StaticTransport { outcome }))
+}
+
+// Runners.test.ts:315 — `simulateRemoteSerialization` runs the payload
+// through the protocol codec (one encode, one decode), records that codec on
+// the message, and the receiver sees the decoded payload.
+#[test]
+fn runner_send_local_uses_the_protocol_codec() {
+    let codec = CountingCodec::new("codecFor");
+    let calls = Arc::clone(&codec.calls);
+    let runners = runners(Box::new(codec), Delivery::Delivered);
+    let mut request = RunnerRequest::new("0", "TestRpc", r#"{"id":1}"#, false);
+
+    let mut received = None;
+    runners
+        .send_local(&mut request, true, &mut |incoming| received = Some(incoming))
+        .expect("a local send does not fail");
+    let incoming = received.expect("the local send delivered");
+    assert_eq!(
+        incoming.payload, r#"{"id":1}"#,
+        "the payload survives the codec round trip"
+    );
+    assert_eq!(calls.load(Ordering::SeqCst), 2, "one encode and one decode");
+    assert_eq!(request.encoded_by.as_deref(), Some("codecFor"));
+
+    // A later encode with another codec re-encodes and re-records, which is
+    // the pin's `Message.serialize(message, codecForJson)` assertion.
+    let plain = PlainJsonCodec;
+    request.encode_with(&plain);
+    assert_eq!(request.encoded_by.as_deref(), Some("json"));
+}
+
+// Runners.test.ts:362 — a server-delivered defect is a delivery: the request
+// resolves with a failure exit instead of the send failing.
+#[test]
+fn runner_send_delivered_defect_resolves_the_request() {
+    let runners = runners(Box::new(PlainJsonCodec), Delivery::Defect("boom".to_owned()));
+    let mut request = RunnerRequest::new("1", "TestRpc", r#"{"id":1}"#, false);
+
+    let mut replies = Vec::new();
+    let result = runners.send(&mut request, &mut |reply| replies.push(reply));
+    assert!(result.is_ok(), "a delivered defect is not a transport failure");
+    assert_eq!(
+        replies,
+        vec![RunnerReply::WithExit {
+            request_id: "1".to_owned(),
+            failure: Some("boom".to_owned()),
+        }]
+    );
+}
+
+// Runners.test.ts:386 — an undelivered request is RunnerUnavailable.
+#[test]
+fn runner_send_transport_failure_maps_to_runner_unavailable() {
+    let runners = runners(
+        Box::new(PlainJsonCodec),
+        Delivery::TransportFailure("socket closed".to_owned()),
+    );
+    let mut request = RunnerRequest::new("1", "TestRpc", r#"{"id":1}"#, false);
+
+    match runners.send(&mut request, &mut |_| panic!("no reply for an undelivered request")) {
+        Err(ClusterError::RunnerUnavailable(message)) => {
+            assert!(message.contains("socket closed"), "got {message}")
+        }
+        Err(other) => panic!("expected RunnerUnavailable, got {}", other.message()),
+        Ok(()) => panic!("expected RunnerUnavailable"),
+    }
+}
+
+// Runners.test.ts:399 — a volatile notification whose transport failed is
+// RunnerUnavailable, because nothing would retry it.
+#[test]
+fn runner_notify_volatile_transport_failure_maps_to_runner_unavailable() {
+    let runners = runners(
+        Box::new(PlainJsonCodec),
+        Delivery::TransportFailure("socket closed".to_owned()),
+    );
+    let request = RunnerRequest::new("1", "TestRpc", r#"{"id":1}"#, false);
+
+    match runners.notify(&request) {
+        Err(ClusterError::RunnerUnavailable(message)) => {
+            assert!(message.contains("socket closed"), "got {message}")
+        }
+        Err(other) => panic!("expected RunnerUnavailable, got {}", other.message()),
+        Ok(()) => panic!("expected RunnerUnavailable"),
+    }
+}
+
+// Runners.test.ts:416 — a persisted notification is recovered from storage,
+// so its transport failure is ignored.
+#[test]
+fn runner_notify_persisted_transport_failure_is_ignored() {
+    let runners = runners(
+        Box::new(PlainJsonCodec),
+        Delivery::TransportFailure("socket closed".to_owned()),
+    );
+    let request = RunnerRequest::new("1", "TestRpcPersisted", r#"{"id":1}"#, true);
+
+    assert!(
+        runners.notify(&request).is_ok(),
+        "storage recovery owns a persisted notification"
+    );
+}
+
+// Runners.test.ts:429 — the same delivered defect on a persisted request
+// takes the storage-recovery path instead of resolving in place.
+#[test]
+fn runner_send_delivered_defect_on_persisted_request_maps_to_runner_unavailable() {
+    let runners = runners(Box::new(PlainJsonCodec), Delivery::Defect("boom".to_owned()));
+    let mut request = RunnerRequest::new("1", "TestRpcPersisted", r#"{"id":1}"#, true);
+
+    match runners.send(&mut request, &mut |_| panic!("a persisted defect resolves through storage")) {
+        Err(ClusterError::RunnerUnavailable(message)) => {
+            assert!(message.contains("boom"), "got {message}")
+        }
+        Err(other) => panic!("expected RunnerUnavailable, got {}", other.message()),
+        Ok(()) => panic!("expected RunnerUnavailable"),
+    }
+}
+
+// Runners.test.ts:442 — the outer runner payload is written by the protocol
+// codec and the entity payload rides the hole already encoded.
+#[test]
+fn runner_send_encodes_the_entity_payload_and_leaves_the_hole() {
+    let runners = runners(
+        Box::new(CountingCodec::new("codecForJsonString")),
+        Delivery::Defect("boom".to_owned()),
+    );
+    let request = RunnerRequest::new("2", "TestRpc", r#"{"id":1}"#, false);
+
+    let wire = runners.encode_request(&request);
+    assert!(
+        wire.starts_with('"') && wire.ends_with('"'),
+        "the outer payload is a JSON string: {wire}"
+    );
+    let envelope = PlainJsonCodec.decode(&wire);
+    assert!(
+        envelope.contains(r#""payload":"{\"id\":1}""#),
+        "the entity payload is carried, not re-encoded: {envelope}"
+    );
+}
+
+#[test]
+fn entity_server_does_not_freeze_the_client_context() {
+    // Entity.test.ts:98 — a service provided on the acquiring fiber stays
+    // with the client; the entity server observes none of it.
+    use cluster::{EntityClient, EntityServer};
+    let client = EntityClient::acquire("1").with_service("CallerId", "A");
+    let server = EntityServer::new("1", None);
+
+    assert_eq!(client.service("CallerId"), Some("A"), "the client holds it");
+    assert_eq!(server.service("CallerId"), None, "the server does not");
+}
+
+#[test]
+fn entity_fatal_defects_isolate_per_flag() {
+    // Entity.test.ts:110, an it.each over [true, false, omitted]: the bad
+    // request always dies with the original defect, and the good request
+    // survives only while fatal defects are disabled.
+    use cluster::{EntityServer, HandlerOutcome, ReplyOutcome};
+    for (flag, good_survives) in [(Some(true), true), (Some(false), false), (None, false)] {
+        let mut server = EntityServer::new("one", flag);
+        assert_eq!(
+            server.run(HandlerOutcome::Defect("fixture defect".to_string())),
+            ReplyOutcome::Defect("fixture defect".to_string()),
+            "bad request, disableFatalDefects = {flag:?}"
+        );
+        let good = server.run(HandlerOutcome::Success(42));
+        if good_survives {
+            assert_eq!(good, ReplyOutcome::Success(42), "flag {flag:?}");
+        } else {
+            assert_eq!(
+                good,
+                ReplyOutcome::Defect("fixture defect".to_string()),
+                "the original defect reaches the next request, flag {flag:?}"
+            );
+        }
+    }
+}
+
+#[test]
+fn entity_typed_failures_stay_request_local() {
+    // Entity.test.ts:121, the same it.each: a typed failure never poisons
+    // the entity, so the next request succeeds under every label.
+    use cluster::{EntityServer, HandlerOutcome, ReplyOutcome};
+    for flag in [Some(true), Some(false), None] {
+        let mut server = EntityServer::new("one", flag);
+        assert_eq!(
+            server.run(HandlerOutcome::TypedFailure("typed failure".to_string())),
+            ReplyOutcome::TypedFailure("typed failure".to_string()),
+            "flag {flag:?}"
+        );
+        assert_eq!(
+            server.run(HandlerOutcome::Success(42)),
+            ReplyOutcome::Success(42),
+            "flag {flag:?}"
+        );
+    }
+}
+
+#[test]
+fn entity_fatal_defects_do_not_cross_entity_ids() {
+    // Entity.test.ts:129 — the fatal state belongs to one entity id; the
+    // neighbouring entity keeps answering.
+    use cluster::{EntityServer, HandlerOutcome, ReplyOutcome};
+    let mut bad = EntityServer::new("bad", Some(false));
+    let mut good = EntityServer::new("good", Some(false));
+
+    assert_eq!(
+        bad.run(HandlerOutcome::Defect("fixture defect".to_string())),
+        ReplyOutcome::Defect("fixture defect".to_string())
+    );
+    assert_eq!(
+        good.run(HandlerOutcome::Success(42)),
+        ReplyOutcome::Success(42)
+    );
+}
+
+#[test]
+fn entity_stream_reply_answers_with_a_stream() {
+    // Entity.test.ts:138 — `replier.succeed(req, Stream.make(1, 2, 3))`
+    // reaches the client as three chunks and an end.
+    let mut registry = ReplyRegistry::new();
+    registry.succeed_stream("req", &[1, 2, 3]);
+
+    assert_eq!(entity_values(&registry, "req"), vec![1, 2, 3]);
+    assert!(entity_stream_ended(&registry, "req"));
+}
+
+#[test]
+fn entity_queue_reply_answers_with_a_dequeue() {
+    // Entity.test.ts:159 — a dequeue offered 1, 2, 3 and then ended; an
+    // un-ended dequeue leaves the stream open.
+    use cluster::ReplyQueue;
+    let mut queue = ReplyQueue::new();
+    for value in [1, 2, 3] {
+        queue.offer(value);
+    }
+    queue.end();
+    let mut registry = ReplyRegistry::new();
+    registry.succeed_queue("req", &queue);
+
+    assert_eq!(entity_values(&registry, "req"), vec![1, 2, 3]);
+    assert!(entity_stream_ended(&registry, "req"));
+
+    let mut pending = ReplyQueue::new();
+    pending.offer(1);
+    let mut open = ReplyRegistry::new();
+    open.succeed_queue("req", &pending);
+    assert_eq!(entity_values(&open, "req"), vec![1]);
+    assert!(!entity_stream_ended(&open, "req"));
 }

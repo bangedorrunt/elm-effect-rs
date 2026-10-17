@@ -865,3 +865,50 @@ fn channel_unwrap_reason_extracts_nested_failure() {
     .run(source);
     assert_eq!(piped.pull(), Take::Fail(Problem::RateLimit(7)));
 }
+
+#[test]
+fn channel_filter_map_effect_short_circuits() {
+    let source = pull::Pull::<i32, String>::of(vec![1, 2, 3]);
+    let piped = channel::filter_map_effect(|a: i32| {
+        if a > 2 {
+            Err("big".to_string())
+        } else {
+            Ok(if a % 2 == 1 { Some(a * 10) } else { None })
+        }
+    })
+    .run(source);
+    let mut piped = piped;
+    assert_eq!(piped.pull(), take::Take::Fail("big".to_string()));
+    // After error, subsequent pull is End (channel already terminated? re-run source)
+    // Re-run fresh to check short-circuit fail:
+    let source = pull::Pull::<i32, String>::of(vec![1, 2, 3]);
+    let mut piped = channel::filter_map_effect(|a: i32| {
+        if a == 2 {
+            Err("big".to_string())
+        } else {
+            Ok(Some(a))
+        }
+    })
+    .run(source);
+    assert_eq!(piped.pull(), take::Take::Fail("big".to_string()));
+}
+
+#[test]
+fn channel_catch_defect_routes_to_handler() {
+    let mut first = true;
+    let source = pull::Pull::from_fn(move || {
+        if first {
+            first = false;
+            take::Take::Fail("boom".to_string())
+        } else {
+            take::Take::End
+        }
+    });
+    let piped = channel::catch_defect(|_: String| pull::Pull::of(vec![42]));
+    let mut piped = piped.run(source);
+    assert_eq!(piped.pull(), take::Take::Items(vec![42]));
+    assert_eq!(piped.pull(), take::Take::End);
+    // Non-failing pass-through on empty source:
+    let mut piped = channel::catch_defect(|_: String| pull::Pull::of(vec![1])).run(pull::Pull::empty());
+    assert_eq!(piped.pull(), take::Take::End);
+}

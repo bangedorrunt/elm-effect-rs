@@ -63,6 +63,10 @@ fi
 # src/ai/Prompt.ts links only to test/ai/Prompt.test.ts.
 declare -A tests_for=()
 declare -A tests_by_base=()
+# Test path -> the src keys it imports by name (`effect/ai/McpServer` ->
+# `ai/McpServer`). The third link route below requires this to agree with the
+# test's own path (bd-ezqw).
+declare -A imports_by_test=()
 if [[ -d $checkout/packages/effect/test ]]; then
   while IFS= read -r test_path; do
     rel="${test_path#"$checkout"/}"
@@ -95,6 +99,18 @@ if [[ -d $checkout/packages/effect/test ]]; then
     else
       tests_by_base[$base]=$rel
     fi
+    # Only a subpath import resolves to a module this file can name: the root
+    # barrel (`from "effect"`) names symbols, and mapping a symbol to its
+    # defining module means walking the barrel's re-export map, which this
+    # script does not do. A test that imports only the barrel therefore links
+    # by path if any route can, and is recorded unowned if none can.
+    imported=""
+    while IFS= read -r spec; do
+      [[ -z $spec ]] && continue
+      [[ -f "$src/$spec.ts" || -f "$src/$spec/index.ts" ]] || continue
+      imported+=$'\n'"$spec"
+    done < <(grep -o 'from "effect/[^"]*"' "$test_path" 2>/dev/null | sed 's/^from "effect\///; s/"$//')
+    imports_by_test[$rel]=$imported
   done < <(find "$checkout/packages/effect/test" -name '*.ts' ! -path '*/internal/*' | sort)
 fi
 
@@ -288,6 +304,31 @@ count=0
         tests_field+="\"$test_rel\""
       done < <(printf '%s\n' "${tests_for[$link_key]}" | sort)
     done
+    # bd-ezqw. Third route: a test that sits in a directory named after this
+    # module AND imports it by that same path — `test/ai/McpServer/**` with
+    # `from "effect/ai/McpServer"`. Neither signal is evidence on its own: the
+    # name predicts paths that do not exist (`test/cli/Arguments.test.ts`
+    # against `src/cli/Argument.ts`), and a test imports every module it
+    # touches rather than only its subject. Open-row files no route reaches are
+    # recorded in `conformance/unowned-tests.tsv`, which
+    # `conformance/link-integrity.py` checks against this output.
+    if (( ${#tests_for[@]} > 0 )); then
+      while IFS= read -r test_rel; do
+        [[ -z $test_rel ]] && continue
+        [[ $tests_field == *"\"$test_rel\""* ]] && continue
+        grep -qxF "$src_key" <<<"${imports_by_test[$test_rel]:-}" || continue
+        if [[ -n $tests_field ]]; then
+          tests_field+=", "
+        fi
+        tests_field+="\"$test_rel\""
+      done < <(
+        for k in "${!tests_for[@]}"; do
+          if [[ $k == "$src_key"/* ]]; then
+            printf '%s\n' "${tests_for[$k]}"
+          fi
+        done | sort
+      )
+    fi
     # ADR-0002:100 + :565. `matched` is derived, never carried. A module
     # claims parity only when its linked test file has AT LEAST ONE PORTED row
     # and NO unported row. The ported count is load-bearing, not a nicety:

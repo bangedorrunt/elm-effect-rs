@@ -5,17 +5,35 @@
 //! mutexes nest inside (global first, always), so no lock order inverts.
 //! This is coarse but correct; optimistic concurrency, blocking `retry`
 //! and cross-thread fairness are residuals, not silent gaps.
+//!
+//! The effect face (`TxRef::get_effect` and friends under
+//! [`crate::Effect::tx`]) is a staged journal rather than that lock:
+//! writes land on the refs only when the boundary's body succeeds, a
+//! body that calls `tx_retry` parks on its read set and runs again when
+//! a commit moves it. The version counter and pending waiters that
+//! needs live beside the staged views.
 
 use std::cell::Cell;
-use std::collections::{BinaryHeap, HashMap, HashSet, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::hash::Hash;
-use std::sync::{Mutex, MutexGuard};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::{Arc, Condvar, Mutex, MutexGuard};
+
+use crate::service::{Reference, read_reference};
+use crate::{Deferred, Effect};
 
 static GLOBAL: Mutex<()> = Mutex::new(());
 
 thread_local! {
     static IN_TX: Cell<bool> = const { Cell::new(false) };
 }
+
+/// Ids for refs and transactions: only uniqueness matters, and the two
+/// never share a comparison.
+static NEXT_TX_ID: AtomicU64 = AtomicU64::new(1);
+
+/// Ids for `TxSubscriptionRef` subscriptions, on the same terms.
+static NEXT_SUB_ID: AtomicU64 = AtomicU64::new(1);
 
 /// Run `body` as one atomic, isolated transaction.
 pub fn atomically<R>(body: impl FnOnce() -> R) -> R {
@@ -37,16 +55,124 @@ fn tx_read<T: Clone>(cell: &Mutex<T>) -> T {
     atomically(|| cell.lock().unwrap().clone())
 }
 
-/// A transactional cell: every op is atomic; [`atomically`] composes.
+/// One transaction's staged view of one ref. `version` is the version
+/// the ref carried when this view was created: a ref whose version has
+/// since moved makes the owning transaction's read set stale.
+struct Staged<T> {
+    version: u64,
+    value: T,
+    written: bool,
+}
+
+/// A registered wake on one ref. `live` is swapped false when the waiter
+/// deregisters (a stale rerun), so a commit skips a dead entry instead of
+/// waking a transaction that already moved on; the next commit of the
+/// ref drains the list.
+struct Waiter {
+    live: Arc<AtomicBool>,
+    wake: Arc<dyn Fn() + Send + Sync>,
+}
+
+/// A ref's committed value and version (bumped by every published
+/// write), the staged views of the transactions touching it, and the
+/// waiters parked on it.
+struct RefState<T> {
+    version: u64,
+    value: T,
+    staged: HashMap<u64, Staged<T>>,
+    pending: Vec<Waiter>,
+}
+
+/// Publish or discard one transaction's staged view of a ref, and report
+/// what the read set needs to know. Erased so a journal can hold refs of
+/// different value types; the values themselves never leave their ref.
+trait Touched: Send + Sync {
+    fn commit_tx(&self, tx: u64);
+    fn clear_tx(&self, tx: u64);
+    fn staged_version(&self, tx: u64) -> Option<u64>;
+    fn current_version(&self) -> u64;
+    fn register_waiter(&self, waiter: Waiter);
+}
+
+struct RefHandle<T> {
+    id: u64,
+    state: Mutex<RefState<T>>,
+}
+
+impl<T: Send + 'static> Touched for RefHandle<T> {
+    /// Publish the staged write (if any), bump the version, wake every
+    /// live waiter, and drop the staged view.
+    fn commit_tx(&self, tx: u64) {
+        let mut state = self.state.lock().unwrap();
+        if let Some(staged) = state.staged.remove(&tx) {
+            if staged.written {
+                // shortcut: publish and bump on every write. The pin skips
+                // the bump when `Object.is` matches the old value, which
+                // only matters for a row observing the version counter,
+                // and none of these rows does.
+                state.value = staged.value;
+                state.version = state.version.wrapping_add(1);
+            }
+        }
+        for waiter in state.pending.drain(..) {
+            if waiter.live.swap(false, Ordering::SeqCst) {
+                (waiter.wake)();
+            }
+        }
+    }
+
+    /// Discard the staged view without publishing.
+    fn clear_tx(&self, tx: u64) {
+        self.state.lock().unwrap().staged.remove(&tx);
+    }
+
+    /// The version this transaction's staged view recorded, if it has a
+    /// view: one entry of the read set.
+    fn staged_version(&self, tx: u64) -> Option<u64> {
+        self.state
+            .lock()
+            .unwrap()
+            .staged
+            .get(&tx)
+            .map(|staged| staged.version)
+    }
+
+    /// The ref's current version.
+    fn current_version(&self) -> u64 {
+        self.state.lock().unwrap().version
+    }
+
+    /// Register a wake, fired by this ref's next commit.
+    fn register_waiter(&self, waiter: Waiter) {
+        self.state.lock().unwrap().pending.push(waiter);
+    }
+}
+
+/// A transactional cell. The [`atomically`] face is immediate: every op
+/// is one atomic step. The effect face (`get_effect`/`set_effect`/
+/// `modify_effect`) stages into the ambient [`Transaction`] and publishes
+/// only when the enclosing boundary's body succeeds.
+///
+/// `Clone` shares the cell, never copies it: two names, one identity,
+/// like the pin's `TxRef` handle.
+#[derive(Clone)]
 pub struct TxRef<T> {
-    cell: Mutex<T>,
+    handle: Arc<RefHandle<T>>,
 }
 
 impl<T> TxRef<T> {
     /// A cell holding `initial`.
     pub fn new(initial: T) -> Self {
         Self {
-            cell: Mutex::new(initial),
+            handle: Arc::new(RefHandle {
+                id: NEXT_TX_ID.fetch_add(1, Ordering::Relaxed),
+                state: Mutex::new(RefState {
+                    version: 0,
+                    value: initial,
+                    staged: HashMap::new(),
+                    pending: Vec::new(),
+                }),
+            }),
         }
     }
 
@@ -55,17 +181,293 @@ impl<T> TxRef<T> {
     where
         T: Clone,
     {
-        tx_read(&self.cell)
+        atomically(|| self.handle.state.lock().unwrap().value.clone())
     }
 
     /// Replace the value.
     pub fn write(&self, value: T) {
-        tx_cell(&self.cell, |slot| *slot = value);
+        atomically(|| self.handle.state.lock().unwrap().value = value);
     }
 
     /// Run `f` on the value, returning its result.
     pub fn modify<R>(&self, f: impl FnOnce(&mut T) -> R) -> R {
-        atomically(|| f(&mut self.cell.lock().unwrap()))
+        atomically(|| f(&mut self.handle.state.lock().unwrap().value))
+    }
+}
+
+/// The ambient transaction: `Some` while an outermost `Effect::tx` body
+/// runs, visible to nested `tx` calls and every effect-face op. `None`
+/// is both the default and the "no boundary is open" answer.
+pub(crate) static TX_CURRENT: Reference<Option<Arc<Transaction>>> = Reference {
+    id: "effect/Effect/Transaction",
+    default: None,
+};
+
+/// One transaction. The journal is the set of refs it has touched; the
+/// staged values live on the refs. [`crate::Effect::tx`] opens one
+/// boundary per interpretation, commits when the body succeeds, and
+/// clears otherwise; a boundary whose body asked for a retry, or whose
+/// read set went stale, parks until a commit moves the set and runs
+/// again.
+pub struct Transaction {
+    id: u64,
+    touched: Mutex<Vec<Arc<dyn Touched>>>,
+    retry: AtomicBool,
+}
+
+impl Transaction {
+    pub(crate) fn new() -> Self {
+        Self {
+            id: NEXT_TX_ID.fetch_add(1, Ordering::Relaxed),
+            touched: Mutex::new(Vec::new()),
+            retry: AtomicBool::new(false),
+        }
+    }
+
+    /// Record one ref as touched. A repeated touch adds a second driver,
+    /// which is harmless: committing or clearing an already-removed
+    /// staged entry is a no-op.
+    fn touch<T: Send + 'static>(&self, handle: &Arc<RefHandle<T>>) {
+        let driver: Arc<dyn Touched> = Arc::clone(handle) as Arc<dyn Touched>;
+        self.touched.lock().unwrap().push(driver);
+    }
+
+    /// Mark the boundary for another attempt ([`crate::Effect::tx_retry`]).
+    pub(crate) fn set_retry(&self) {
+        self.retry.store(true, Ordering::SeqCst);
+    }
+
+    /// True once the body asked for a retry.
+    pub(crate) fn needs_retry(&self) -> bool {
+        self.retry.load(Ordering::SeqCst)
+    }
+
+    /// True when no ref in the read set moved since this transaction
+    /// read it.
+    fn is_consistent(&self) -> bool {
+        let drivers = self.touched.lock().unwrap();
+        drivers.iter().all(|driver| match driver.staged_version(self.id) {
+            Some(read_version) => read_version == driver.current_version(),
+            None => true,
+        })
+    }
+
+    /// Park until a commit touches the read set, or return at once when
+    /// the read set is already stale. Registration happens BEFORE the
+    /// consistency check, so a commit that lands first leaves a stale
+    /// read set and an immediate rerun instead of a lost wake: the ref
+    /// mutex serializes the two, and a stale registration is skipped and
+    /// cleared by the next commit.
+    fn await_pending(&self) {
+        let parked = Arc::new(Deferred::<(), std::convert::Infallible>::new());
+        let waiter = Waiter {
+            live: Arc::new(AtomicBool::new(true)),
+            wake: {
+                let parked = Arc::clone(&parked);
+                Arc::new(move || {
+                    parked.complete(());
+                })
+            },
+        };
+        for driver in self.touched.lock().unwrap().iter() {
+            driver.register_waiter(Waiter {
+                live: Arc::clone(&waiter.live),
+                wake: Arc::clone(&waiter.wake),
+            });
+        }
+        if !self.is_consistent() {
+            waiter.live.store(false, Ordering::SeqCst);
+            return;
+        }
+        parked.wait();
+    }
+
+    /// Publish every written staged value. Nothing read-only staged
+    /// survives as a write.
+    pub(crate) fn commit(&self) {
+        for driver in std::mem::take(&mut *self.touched.lock().unwrap()) {
+            driver.commit_tx(self.id);
+        }
+    }
+
+    /// Discard every staged value: the boundary failed, so nothing it
+    /// staged is published.
+    pub(crate) fn clear(&self) {
+        for driver in std::mem::take(&mut *self.touched.lock().unwrap()) {
+            driver.clear_tx(self.id);
+        }
+    }
+}
+
+impl<T: Clone + Send + 'static> TxRef<T> {
+    /// `TxRef.get` at the pin: the transaction's staged value when the
+    /// ambient boundary has touched the ref (read-your-writes), else the
+    /// committed value. Outside a boundary the read is immediate.
+    pub fn get_effect<E>(&self) -> Effect<T, E, ()>
+    where
+        E: Send + 'static,
+    {
+        let handle = Arc::clone(&self.handle);
+        crate::effect::widen_infallible(read_reference(&TX_CURRENT)).flat_map(move |current| {
+            match current {
+                Some(tx) => Effect::sync(move || {
+                    tx.touch(&handle);
+                    let mut state = handle.state.lock().unwrap();
+                    let read_version = state.version;
+                    let committed = state.value.clone();
+                    state
+                        .staged
+                        .entry(tx.id)
+                        .or_insert_with(|| Staged {
+                            version: read_version,
+                            value: committed,
+                            written: false,
+                        })
+                        .value
+                        .clone()
+                }),
+                None => Effect::sync(move || handle.state.lock().unwrap().value.clone()),
+            }
+        })
+    }
+
+    /// `TxRef.set` at the pin: stage `value` in the ambient boundary, to
+    /// be published with it. Outside a boundary the write is immediate.
+    pub fn set_effect<E>(&self, value: T) -> Effect<(), E, ()>
+    where
+        E: Send + 'static,
+    {
+        let handle = Arc::clone(&self.handle);
+        crate::effect::widen_infallible(read_reference(&TX_CURRENT)).flat_map(move |current| {
+            match current {
+                Some(tx) => Effect::sync(move || {
+                    tx.touch(&handle);
+                    let mut state = handle.state.lock().unwrap();
+                    let read_version = state.version;
+                    let committed = state.value.clone();
+                    let staged = state
+                        .staged
+                        .entry(tx.id)
+                        .or_insert_with(|| Staged {
+                            version: read_version,
+                            value: committed,
+                            written: false,
+                        });
+                    staged.value = value;
+                    staged.written = true;
+                }),
+                None => Effect::sync(move || handle.state.lock().unwrap().value = value),
+            }
+        })
+    }
+
+    /// `TxRef.modify` at the pin: `f` sees the staged value and returns
+    /// `(result, next)`; the successor is staged and the result yielded.
+    /// One atomic step with or without a boundary. The in-place `&mut`
+    /// form stays `modify`; the pin's pair form lands here because that
+    /// is the shape its journal step takes.
+    pub fn modify_effect<B, E, F>(&self, f: F) -> Effect<B, E, ()>
+    where
+        B: Send + 'static,
+        E: Send + 'static,
+        F: FnOnce(T) -> (B, T) + Send + 'static,
+    {
+        let handle = Arc::clone(&self.handle);
+        crate::effect::widen_infallible(read_reference(&TX_CURRENT)).flat_map(move |current| {
+            match current {
+                Some(tx) => Effect::sync(move || {
+                    tx.touch(&handle);
+                    let mut state = handle.state.lock().unwrap();
+                    let read_version = state.version;
+                    let committed = state.value.clone();
+                    let staged = state
+                        .staged
+                        .entry(tx.id)
+                        .or_insert_with(|| Staged {
+                            version: read_version,
+                            value: committed,
+                            written: false,
+                        });
+                    let current = staged.value.clone();
+                    let (result, next) = f(current);
+                    staged.value = next;
+                    staged.written = true;
+                    result
+                }),
+                None => Effect::sync(move || {
+                    let mut state = handle.state.lock().unwrap();
+                    let current = state.value.clone();
+                    let (result, next) = f(current);
+                    state.value = next;
+                    result
+                }),
+            }
+        })
+    }
+}
+
+/// Read the ambient transaction out of a scope: `Some` while a boundary
+/// body is interpreting.
+fn ambient_transaction(scope: &crate::service::Services) -> Option<Arc<Transaction>> {
+    scope
+        .get_ref(TX_CURRENT.id)
+        .and_then(|any| Arc::downcast::<Option<Arc<Transaction>>>(any).ok())
+        .and_then(|option| (*option).clone())
+}
+
+/// Add the transaction to a scope as the ambient value for the body and
+/// everything it composes.
+fn scope_with_transaction(
+    scope: &crate::service::Services,
+    tx: &Arc<Transaction>,
+) -> crate::service::Services {
+    let mut maps = (**scope).clone();
+    maps.insert_ref(TX_CURRENT.id, Arc::new(Some(Arc::clone(tx))));
+    Arc::new(maps)
+}
+
+/// The transaction boundary's interpreter: build the body under a fresh
+/// transaction, and while it asks for a retry, or its read set went
+/// stale, park until a commit moves the set, clear, and build it again.
+/// The pin's `tx` loop lives in its runtime the same way; the commit or
+/// clear at the end is the boundary's verdict on the final attempt.
+///
+/// The body is a factory, not a value: this port's descriptions are
+/// single-shot (running consumes them, per Law L1's "a fresh build runs
+/// again"), so an attempt loop needs a fresh build per attempt.
+pub(crate) struct TxBoundary<A: Send + 'static, E: Send + 'static, R: crate::Requirement> {
+    pub(crate) build: Box<dyn Fn() -> Effect<A, E, R> + Send>,
+    pub(crate) env: crate::service::Services,
+    pub(crate) marker: std::marker::PhantomData<fn() -> R>,
+}
+
+impl<A: Send + 'static, E: Send + 'static, R: crate::Requirement> crate::effect::ErasedStep<A, E>
+    for TxBoundary<A, E, R>
+{
+    fn run_erased(self: Box<Self>, scope: &crate::service::Services) -> Result<A, crate::Cause<E>> {
+        // Nested: compose into the running boundary, no new journal.
+        if ambient_transaction(scope).is_some() {
+            return (self.build)().run_sync_with(scope);
+        }
+        let Self { build, env, .. } = *self;
+        let scope = crate::service::merged_services(scope, &env);
+        loop {
+            let tx = Arc::new(Transaction::new());
+            let inner = scope_with_transaction(&scope, &tx);
+            let outcome = build().run_sync_with(&inner);
+            if !tx.needs_retry() && tx.is_consistent() {
+                match &outcome {
+                    Ok(_) => tx.commit(),
+                    Err(_) => tx.clear(),
+                }
+                return outcome;
+            }
+            // Retry asked for, or a concurrent commit moved the read set:
+            // park until the set moves (a stale set returns at once),
+            // discard the attempt, and build the body again.
+            tx.await_pending();
+            tx.clear();
+        }
     }
 }
 
@@ -556,6 +958,17 @@ pub fn is_tx_hash_set<T>(_: &TxHashSet<T>) -> bool {
     true
 }
 
+/// Always true for `TxHashMap` (the type already narrows; mirrors
+/// `isTxHashMap`). The pin's negative cases are foreign values
+/// (`{}`, `null`, `42`), which are different types and cannot reach
+/// this predicate.
+pub fn is_tx_hash_map<K, V>(_: &TxHashMap<K, V>) -> bool
+where
+    K: Eq + Hash,
+{
+    true
+}
+
 /// Always true for `TxDeferred` (the type already narrows; mirrors
 /// `isTxDeferred`). Foreign values are different types and cannot
 /// reach this predicate.
@@ -944,6 +1357,305 @@ impl<K: Eq + Hash, V> TxHashMap<K, V> {
     pub fn clear(&self) {
         atomically(|| self.inner.lock().unwrap().clear())
     }
+
+    /// Replace the value at `key` with what `update` returns, handing back the
+    /// value that was displaced. A key that is not there is left alone: the
+    /// function is never called and nothing is inserted (`modify`).
+    pub fn modify(&self, key: &K, update: impl FnOnce(&V) -> V) -> Option<V>
+    where
+        K: Clone,
+        V: Clone,
+    {
+        atomically(|| {
+            let mut inner = self.inner.lock().unwrap();
+            let current = inner.get(key)?.clone();
+            let next = update(&current);
+            inner.insert(key.clone(), next)
+        })
+    }
+
+    /// Insert or remove `key` according to what `update` answers, which is
+    /// handed the value already there if any: `Some` stores it, `None` removes
+    /// it (`modifyAt`).
+    pub fn modify_at(&self, key: K, update: impl FnOnce(Option<&V>) -> Option<V>)
+    where
+        K: Clone,
+        V: Clone,
+    {
+        atomically(|| {
+            let mut inner = self.inner.lock().unwrap();
+            let current = inner.get(&key).cloned();
+            match update(current.as_ref()) {
+                Some(value) => {
+                    inner.insert(key, value);
+                }
+                None => {
+                    inner.remove(&key);
+                }
+            }
+        })
+    }
+
+    /// Merge another map's entries in, its value winning for a shared key
+    /// (`union`).
+    pub fn union(&self, other: &HashMap<K, V>)
+    where
+        K: Clone,
+        V: Clone,
+    {
+        atomically(|| {
+            let mut inner = self.inner.lock().unwrap();
+            for (key, value) in other {
+                inner.insert(key.clone(), value.clone());
+            }
+        })
+    }
+
+    /// Drop every named key (`removeMany`).
+    pub fn remove_many(&self, keys: impl IntoIterator<Item = K>)
+    where
+        K: Eq + Hash,
+    {
+        atomically(|| {
+            let mut inner = self.inner.lock().unwrap();
+            for key in keys {
+                inner.remove(&key);
+            }
+        })
+    }
+
+    /// Insert every pair, a later pair winning for a shared key (`setMany`).
+    pub fn set_many(&self, entries: impl IntoIterator<Item = (K, V)>) {
+        atomically(|| {
+            let mut inner = self.inner.lock().unwrap();
+            for (key, value) in entries {
+                inner.insert(key, value);
+            }
+        })
+    }
+
+    /// The entries as they stand, copied (`snapshot`). A later write lands on
+    /// the map and not on the copy.
+    pub fn snapshot(&self) -> HashMap<K, V>
+    where
+        K: Clone,
+        V: Clone,
+    {
+        atomically(|| self.inner.lock().unwrap().clone())
+    }
+
+    /// Every key (`keys`). Order is the map's own, so a caller that needs a
+    /// stable order sorts.
+    pub fn keys(&self) -> Vec<K>
+    where
+        K: Clone,
+    {
+        atomically(|| self.inner.lock().unwrap().keys().cloned().collect())
+    }
+
+    /// Every value (`values`).
+    pub fn values(&self) -> Vec<V>
+    where
+        V: Clone,
+    {
+        atomically(|| self.inner.lock().unwrap().values().cloned().collect())
+    }
+
+    /// Every pair (`entries`).
+    pub fn entries(&self) -> Vec<(K, V)>
+    where
+        K: Clone,
+        V: Clone,
+    {
+        atomically(|| {
+            self.inner
+                .lock()
+                .unwrap()
+                .iter()
+                .map(|(key, value)| (key.clone(), value.clone()))
+                .collect()
+        })
+    }
+
+    /// The same pairs as `entries` (`toEntries`).
+    pub fn to_entries(&self) -> Vec<(K, V)>
+    where
+        K: Clone,
+        V: Clone,
+    {
+        self.entries()
+    }
+
+    /// The same values as `values` (`toValues`).
+    pub fn to_values(&self) -> Vec<V>
+    where
+        V: Clone,
+    {
+        self.values()
+    }
+
+    /// Replace every value with what `transform` returns, keeping the keys
+    /// (`map`).
+    pub fn map<W>(&self, mut transform: impl FnMut(&V, &K) -> W) -> TxHashMap<K, W>
+    where
+        K: Clone,
+    {
+        atomically(|| {
+            self.inner
+                .lock()
+                .unwrap()
+                .iter()
+                .map(|(key, value)| (key.clone(), transform(value, key)))
+                .collect()
+        })
+    }
+
+    /// Keep the entries whose value satisfies `predicate` (`filter`).
+    pub fn filter(&self, predicate: impl FnMut(&V, &K) -> bool) -> TxHashMap<K, V>
+    where
+        K: Clone,
+        V: Clone,
+    {
+        let mut predicate = predicate;
+        atomically(|| {
+            self.inner
+                .lock()
+                .unwrap()
+                .iter()
+                .filter(|(key, value)| predicate(value, key))
+                .map(|(key, value)| (key.clone(), value.clone()))
+                .collect()
+        })
+    }
+
+    /// Fold over every value, in the map's own order (`reduce`).
+    pub fn reduce<A>(&self, initial: A, mut fold: impl FnMut(A, &V, &K) -> A) -> A
+    where
+        K: Clone,
+    {
+        atomically(|| {
+            let inner = self.inner.lock().unwrap();
+            let mut acc = initial;
+            for (key, value) in inner.iter() {
+                acc = fold(acc, value, key);
+            }
+            acc
+        })
+    }
+
+    /// Keep and transform in one step: `None` drops the entry (`filterMap`).
+    pub fn filter_map<W>(&self, mut transform: impl FnMut(&V, &K) -> Option<W>) -> TxHashMap<K, W>
+    where
+        K: Clone,
+    {
+        atomically(|| {
+            self.inner
+                .lock()
+                .unwrap()
+                .iter()
+                .filter_map(|(key, value)| {
+                    transform(value, key).map(|next| (key.clone(), next))
+                })
+                .collect()
+        })
+    }
+
+    /// Whether any entry's value satisfies `predicate` (`hasBy`).
+    pub fn has_by(&self, predicate: impl Fn(&V, &K) -> bool) -> bool {
+        atomically(|| {
+            self.inner
+                .lock()
+                .unwrap()
+                .iter()
+                .any(|(key, value)| predicate(value, key))
+        })
+    }
+
+    /// Whether every entry's value satisfies `predicate` (`every`).
+    pub fn every(&self, predicate: impl Fn(&V, &K) -> bool) -> bool {
+        atomically(|| {
+            self.inner
+                .lock()
+                .unwrap()
+                .iter()
+                .all(|(key, value)| predicate(value, key))
+        })
+    }
+
+    /// Whether any entry's value satisfies `predicate` (`some`).
+    pub fn some(&self, predicate: impl Fn(&V, &K) -> bool) -> bool {
+        self.has_by(predicate)
+    }
+
+    /// The first entry whose value satisfies `predicate`, in the map's own
+    /// order (`findFirst`).
+    pub fn find_first(&self, predicate: impl Fn(&V, &K) -> bool) -> Option<(K, V)>
+    where
+        K: Clone,
+        V: Clone,
+    {
+        atomically(|| {
+            self.inner
+                .lock()
+                .unwrap()
+                .iter()
+                .find(|(key, value)| predicate(value, key))
+                .map(|(key, value)| (key.clone(), value.clone()))
+        })
+    }
+
+    /// Run `visit` once per entry (`forEach`).
+    pub fn for_each(&self, mut visit: impl FnMut(&V, &K)) {
+        atomically(|| {
+            for (key, value) in self.inner.lock().unwrap().iter() {
+                visit(value, key);
+            }
+        })
+    }
+
+    /// Replace every value with the map `transform` builds for it and merge
+    /// the results (`flatMap`).
+    pub fn flat_map<K2, W>(
+        &self,
+        mut transform: impl FnMut(&V, &K) -> HashMap<K2, W>,
+    ) -> TxHashMap<K2, W>
+    where
+        K2: Eq + Hash,
+        W: Clone,
+    {
+        let mut out = TxHashMap::new();
+        atomically(|| {
+            let mut visit = |key: &K, value: &V| {
+                for (other_key, other_value) in transform(value, key) {
+                    out.insert(other_key, other_value);
+                }
+            };
+            for (key, value) in self.inner.lock().unwrap().iter() {
+                visit(key, value);
+            }
+        });
+        out
+    }
+
+    /// Keep the `Some` values and drop the rest (`compact`). The value type
+    /// has to be an `Option` for that to say anything, so it is bounded here
+    /// rather than at every call.
+    pub fn compact<W: Clone>(&self) -> TxHashMap<K, W>
+    where
+        K: Clone,
+        V: Clone + Into<Option<W>>,
+    {
+        atomically(|| {
+            self.inner
+                .lock()
+                .unwrap()
+                .iter()
+                .filter_map(|(key, value)| {
+                    value.clone().into().map(|inner| (key.clone(), inner))
+                })
+                .collect()
+        })
+    }
 }
 
 impl<K: Eq + Hash, V> Default for TxHashMap<K, V> {
@@ -1136,44 +1848,219 @@ impl<T: Eq + Hash> Default for TxHashSet<T> {
     }
 }
 
-/// A transactional max-heap priority queue.
-pub struct TxPriorityQueue<T> {
-    inner: Mutex<BinaryHeap<T>>,
+/// Merge `values` (already ascending under `ord`) into `arr` (ascending).
+///
+/// The pin's `mergeSorted`: each value's insert point is found by galloping
+/// forward from the previous one and then bisecting the bracketed range, so a
+/// batch that interleaves with the queue costs a few comparisons per value
+/// instead of a full search each. Existing elements stay ahead of equal
+/// incoming ones, and incoming ties keep their input order.
+///
+/// `arr` is drained through `Option` slots rather than cloned, so the merge
+/// needs no `Clone` bound on `T`.
+fn merge_sorted<T>(arr: Vec<T>, values: Vec<T>, ord: &crate::foundation::Order<T>) -> Vec<T> {
+    let mut slots: Vec<Option<T>> = arr.into_iter().map(Some).collect();
+    let len = slots.len();
+    let mut out: Vec<T> = Vec::with_capacity(len + values.len());
+    let mut i = 0usize;
+    for value in values {
+        let mut lo = i;
+        let mut hi = i;
+        let mut step = 1usize;
+        while hi < len
+            && ord.compare(slots[hi].as_ref().expect("live slot"), &value)
+                != std::cmp::Ordering::Greater
+        {
+            lo = hi + 1;
+            hi = hi.saturating_add(step);
+            step = step.saturating_mul(2);
+        }
+        if hi > len {
+            hi = len;
+        }
+        while lo < hi {
+            let mid = (lo + hi) / 2;
+            if ord.compare(slots[mid].as_ref().expect("live slot"), &value)
+                != std::cmp::Ordering::Greater
+            {
+                lo = mid + 1;
+            } else {
+                hi = mid;
+            }
+        }
+        while i < lo {
+            out.push(slots[i].take().expect("live slot"));
+            i += 1;
+        }
+        out.push(value);
+    }
+    while i < len {
+        out.push(slots[i].take().expect("live slot"));
+        i += 1;
+    }
+    out
 }
 
-impl<T: Ord> TxPriorityQueue<T> {
-    /// An empty queue.
-    pub fn new() -> Self {
+/// A transactional priority queue: elements held ascending under the
+/// [`Order`](crate::Order) supplied at construction, so `take` yields the
+/// smallest and a custom order can make it max-first.
+///
+/// `take` blocks while the queue is empty. The pin's `take` is a transaction
+/// that calls `Effect.txRetry`, so its observable behavior is "wait until an
+/// offer commits"; a condvar is this port's stand-in, and it is the reason
+/// this type does **not** route through the global [`atomically`] lock: a
+/// blocking wait must not hold the STM lock other transactions need.
+pub struct TxPriorityQueue<T> {
+    inner: Mutex<Vec<T>>,
+    ord: crate::foundation::Order<T>,
+    ready: Condvar,
+}
+
+impl<T: Send + 'static> TxPriorityQueue<T> {
+    /// An empty queue under `ord`.
+    pub fn empty(ord: crate::foundation::Order<T>) -> Self {
         Self {
-            inner: Mutex::new(BinaryHeap::new()),
+            inner: Mutex::new(Vec::new()),
+            ord,
+            ready: Condvar::new(),
         }
     }
 
-    /// Push one element.
-    pub fn push(&self, value: T) {
-        tx_cell(&self.inner, |heap| heap.push(value));
+    /// A queue from an iterable, sorted under `ord`.
+    pub fn from_iterable(ord: crate::foundation::Order<T>, items: Vec<T>) -> Self {
+        let mut sorted = items;
+        sorted.sort_by(|a, b| ord.compare(a, b));
+        Self {
+            inner: Mutex::new(sorted),
+            ord,
+            ready: Condvar::new(),
+        }
     }
 
-    /// Pop the maximum, if any.
-    pub fn pop(&self) -> Option<T> {
-        atomically(|| self.inner.lock().unwrap().pop())
+    /// The curried form: `from_iterable(ord)` then the iterable. The pin's
+    /// `fromIterable(Order.Number)([3, 1, 2])`.
+    pub fn from_iterable_curried(
+        ord: crate::foundation::Order<T>,
+    ) -> impl FnOnce(Vec<T>) -> Self {
+        move |items| Self::from_iterable(ord, items)
+    }
+
+    /// The pin's `make(Order.Number)(5, 3, 1, 4, 2)`: same as
+    /// [`from_iterable`](Self::from_iterable) with the values in hand.
+    pub fn make(ord: crate::foundation::Order<T>, items: Vec<T>) -> Self {
+        Self::from_iterable(ord, items)
+    }
+
+    /// The ordering this queue keeps.
+    pub fn ord(&self) -> &crate::foundation::Order<T> {
+        &self.ord
     }
 
     /// The element count.
-    pub fn len(&self) -> usize {
-        atomically(|| self.inner.lock().unwrap().len())
+    pub fn size(&self) -> usize {
+        self.inner.lock().unwrap().len()
     }
 
     /// Whether no elements are stored.
     pub fn is_empty(&self) -> bool {
-        self.len() == 0
+        self.size() == 0
+    }
+
+    /// Whether at least one element waits.
+    pub fn is_non_empty(&self) -> bool {
+        !self.is_empty()
+    }
+
+    /// Insert one element in sorted position.
+    pub fn offer(&self, value: T) {
+        let mut guard = self.inner.lock().unwrap();
+        let arr = std::mem::take(&mut *guard);
+        *guard = merge_sorted(arr, vec![value], &self.ord);
+        drop(guard);
+        self.ready.notify_all();
+    }
+
+    /// Insert every element of `values`, merging the batch as a whole.
+    pub fn offer_all(&self, values: Vec<T>) {
+        let mut sorted = values;
+        sorted.sort_by(|a, b| self.ord.compare(a, b));
+        let mut guard = self.inner.lock().unwrap();
+        let arr = std::mem::take(&mut *guard);
+        *guard = merge_sorted(arr, sorted, &self.ord);
+        drop(guard);
+        self.ready.notify_all();
+    }
+
+    /// Take the smallest element, waiting while the queue is empty (the pin's
+    /// `take`, which retries the transaction).
+    pub fn take(&self) -> T {
+        let mut guard = self.inner.lock().unwrap();
+        while guard.is_empty() {
+            guard = self.ready.wait(guard).unwrap();
+        }
+        guard.remove(0)
+    }
+
+    /// Take the smallest element without waiting (`takeOption`).
+    pub fn take_option(&self) -> Option<T> {
+        let mut guard = self.inner.lock().unwrap();
+        if guard.is_empty() {
+            return None;
+        }
+        Some(guard.remove(0))
+    }
+
+    /// Take every element in priority order (`takeAll`).
+    pub fn take_all(&self) -> Vec<T> {
+        std::mem::take(&mut *self.inner.lock().unwrap())
+    }
+
+    /// Take up to `n` elements in priority order (`takeUpTo`).
+    pub fn take_up_to(&self, n: usize) -> Vec<T> {
+        let mut guard = self.inner.lock().unwrap();
+        let take = n.min(guard.len());
+        guard.drain(..take).collect()
+    }
+
+    /// Drop every element the predicate matches (`removeIf`).
+    pub fn remove_if(&self, predicate: impl Fn(&T) -> bool) {
+        self.inner.lock().unwrap().retain(|value| !predicate(value));
+    }
+
+    /// Keep only the elements the predicate matches (`retainIf`).
+    pub fn retain_if(&self, predicate: impl Fn(&T) -> bool) {
+        self.inner.lock().unwrap().retain(|value| predicate(value));
     }
 }
 
-impl<T: Ord> Default for TxPriorityQueue<T> {
-    fn default() -> Self {
-        Self::new()
+/// The reading operations need a value out of the queue without consuming it.
+impl<T: Send + 'static + Clone> TxPriorityQueue<T> {
+    /// Observe the smallest element without removing it, waiting while the
+    /// queue is empty (the pin's `peek`, which retries the transaction).
+    pub fn peek(&self) -> T {
+        let mut guard = self.inner.lock().unwrap();
+        while guard.is_empty() {
+            guard = self.ready.wait(guard).unwrap();
+        }
+        guard[0].clone()
     }
+
+    /// Observe the smallest element without removing it, `None` when empty.
+    pub fn peek_option(&self) -> Option<T> {
+        self.inner.lock().unwrap().first().cloned()
+    }
+
+    /// Every element in priority order, without removing any.
+    pub fn to_array(&self) -> Vec<T> {
+        self.inner.lock().unwrap().clone()
+    }
+}
+
+/// Always true for `TxPriorityQueue` (the type already narrows; mirrors
+/// `isTxPriorityQueue`, like `is_number` mirrors `isNumber`). Foreign values
+/// are different types and cannot reach this predicate.
+pub fn is_tx_priority_queue<T>(_: &TxPriorityQueue<T>) -> bool {
+    true
 }
 
 /// A transactional broadcast bus: every published value is retained for
@@ -1249,19 +2136,70 @@ impl<T> TxPubSub<T> {
     }
 }
 
-/// A transactional cell remembering every assigned value: subscribers
-/// replay the full history including the initial value.
+/// One live subscription's queue, shared between the ref (which offers into
+/// it) and the handle (which takes from it and deregisters it).
+type SubscriberQueue<T> = Arc<TxQueue<T>>;
+
+/// The ref's live subscriptions, keyed by the id each handle deregisters
+/// with. Shared with every handle so a release can remove its own entry
+/// without a back-reference to the ref it came from.
+type SubscriberRegistry<T> = Arc<Mutex<Vec<(u64, SubscriberQueue<T>)>>>;
+
+/// One live subscription to a [`TxSubscriptionRef`]: its own queue, seeded
+/// with the value current when it subscribed, then every later assigned
+/// value in order. Dropping the handle is the pin's scope close (the
+/// `release` of its `acquireRelease`); the ref forgets the queue and stops
+/// offering to it.
+pub struct TxChangeSubscription<T> {
+    id: u64,
+    queue: SubscriberQueue<T>,
+    registry: SubscriberRegistry<T>,
+}
+
+impl<T> TxChangeSubscription<T> {
+    /// The next value for this subscription, without blocking.
+    pub fn take(&self) -> Option<T> {
+        self.queue.take()
+    }
+
+    /// Detach now (`TxPubSub.releaseSubscriber` at the pin). Idempotent, and
+    /// what `Drop` does, so an explicit call is only for releasing early.
+    pub fn release(&self) {
+        self.detach();
+    }
+
+    fn detach(&self) {
+        self.registry.lock().unwrap().retain(|(id, _)| *id != self.id);
+    }
+}
+
+impl<T> Drop for TxChangeSubscription<T> {
+    /// Scope close: the pin's subscription is scoped, so leaving the scope
+    /// releases the subscriber queue. Without this a dropped handle would
+    /// stay in the ref's list forever and grow with every subscriber.
+    fn drop(&mut self) {
+        self.detach();
+    }
+}
+
+/// A transactional cell publishing every assigned value to its live
+/// subscriptions (`TxSubscriptionRef`): [`changes`](Self::changes) opens a
+/// subscription that first yields the current value, then each later
+/// assigned value in order. A subscriber only ever sees values assigned
+/// after it subscribed, plus the current value it was seeded with.
 pub struct TxSubscriptionRef<T> {
     current: Mutex<T>,
-    history: Mutex<Vec<T>>,
+    /// Live subscriptions by id, each with its own queue. A released
+    /// subscriber is removed, so the write path never touches a dead queue.
+    subscribers: SubscriberRegistry<T>,
 }
 
 impl<T: Clone> TxSubscriptionRef<T> {
-    /// A cell holding `initial` with one history entry.
+    /// A cell holding `initial` with no subscribers.
     pub fn new(initial: T) -> Self {
         Self {
-            current: Mutex::new(initial.clone()),
-            history: Mutex::new(vec![initial]),
+            current: Mutex::new(initial),
+            subscribers: Arc::new(Mutex::new(Vec::new())),
         }
     }
 
@@ -1270,21 +2208,49 @@ impl<T: Clone> TxSubscriptionRef<T> {
         tx_read(&self.current)
     }
 
-    /// Assign and record.
+    /// Assign and publish to every live subscriber.
     pub fn set(&self, value: T) {
         atomically(|| {
             *self.current.lock().unwrap() = value.clone();
-            self.history.lock().unwrap().push(value);
+            self.publish(value);
         });
     }
 
-    /// Every assigned value, oldest first.
-    pub fn changes(&self) -> Vec<T> {
-        atomically(|| self.history.lock().unwrap().clone())
+    /// Offer `value` to every live subscription.
+    fn publish(&self, value: T) {
+        for (_, queue) in self.subscribers.lock().unwrap().iter() {
+            queue.offer(value.clone());
+        }
+    }
+
+    /// `TxSubscriptionRef.changes`: a scoped subscription whose first
+    /// [`take`](TxChangeSubscription::take) is the current value, then every
+    /// later assigned value in order.
+    ///
+    /// The pin acquires a pubsub subscriber and offers the current value into
+    /// it, because a subscriber sees only values published after it
+    /// subscribed; this is that, with one owner for the queue.
+    pub fn changes(&self) -> TxChangeSubscription<T> {
+        let id = NEXT_SUB_ID.fetch_add(1, Ordering::SeqCst);
+        let queue = Arc::new(TxQueue::unbounded());
+        atomically(|| {
+            queue.offer(self.current.lock().unwrap().clone());
+            self.subscribers.lock().unwrap().push((id, Arc::clone(&queue)));
+        });
+        TxChangeSubscription {
+            id,
+            queue,
+            registry: Arc::clone(&self.subscribers),
+        }
+    }
+
+    /// Live subscriptions; a released or dropped one is already gone.
+    pub fn subscriber_count(&self) -> usize {
+        self.subscribers.lock().unwrap().len()
     }
 
     /// `TxSubscriptionRef.modify`: derive a result AND a successor value in
-    /// one step, storing the successor and recording it. Returns the derived
+    /// one step, storing the successor and publishing it. Returns the derived
     /// result.
     ///
     /// The other read-then-write forms are derived from this exactly as the
@@ -1293,6 +2259,11 @@ impl<T: Clone> TxSubscriptionRef<T> {
         let (result, next) = f(tx_read(&self.current));
         self.set(next);
         result
+    }
+
+    /// `TxSubscriptionRef.update`: derive the successor and publish it.
+    pub fn update(&self, f: impl FnOnce(T) -> T) {
+        self.modify(|current| ((), f(current)));
     }
 
     /// `TxSubscriptionRef.getAndSet`: store `value`, return the PREVIOUS.
@@ -1314,4 +2285,11 @@ impl<T: Clone> TxSubscriptionRef<T> {
         self.set(next.clone());
         next
     }
+}
+
+/// Always true for `TxSubscriptionRef` (the type already narrows; mirrors
+/// `isTxSubscriptionRef`). Foreign values are different types and cannot
+/// reach this predicate.
+pub fn is_tx_subscription_ref<T>(_: &TxSubscriptionRef<T>) -> bool {
+    true
 }

@@ -193,6 +193,376 @@ impl Default for AtomRegistry {
     }
 }
 
+// ---------------------------------------------------------------------------
+// The pin's Atom lifecycle (reactivity/atom.ts, reactivity/AtomRegistry.ts):
+// a node per atom, mounted on read or subscribe, unmounted by the disposal
+// pass when it has no listeners and no keepAlive, and reverting to its
+// initial value when that happens. Values ride as `Arc<dyn Any>` so an
+// equality-suppressed assignment keeps the same handle, which is what the
+// pin's `toBe(initial)` assertion observes.
+//
+// Ceilings, stated rather than hidden: one registry pass models the pin's
+// scheduled disposal (an explicit `tick`, since this port has no fiber
+// scheduler inside the module), derived nodes rebuild on read rather than
+// eagerly, and a derived node's listeners hear the change through the
+// rebuild instead of a speculative push. `keepAlive` and `withEquality`
+// configure the shared spec in place instead of minting a new atom object,
+// which is observably identical for one handle per atom. Atom ids register
+// their spec in a process table so a registry can find sources and
+// dependents without borrowing the handle.
+// ---------------------------------------------------------------------------
+
+type AnyValue = Arc<dyn std::any::Any + Send + Sync>;
+
+/// Every live atom spec, by id, so registries can resolve sources and
+/// dependents from an id alone.
+static SPECS: std::sync::Mutex<Option<
+    std::collections::HashMap<u64, Arc<AtomSpec>>,
+>> = std::sync::Mutex::new(None);
+
+fn register_spec(spec: &Arc<AtomSpec>) {
+    SPECS
+        .lock()
+        .unwrap()
+        .get_or_insert_with(std::collections::HashMap::new)
+        .insert(spec.id, Arc::clone(spec));
+}
+
+fn spec_of(id: u64) -> Option<Arc<AtomSpec>> {
+    SPECS
+        .lock()
+        .unwrap()
+        .as_ref()
+        .and_then(|specs| specs.get(&id).cloned())
+}
+
+/// What an atom is: a value node, or a derived node over one source.
+enum AtomKind {
+    Value(AnyValue),
+    Map {
+        source: u64,
+        derive: Box<dyn Fn(&dyn std::any::Any) -> AnyValue + Send + Sync>,
+    },
+}
+
+/// One atom's spec, shared by every registry that holds it (the pin's atom
+/// object carries its own behavior; the registry carries node state).
+struct AtomSpec {
+    id: u64,
+    kind: AtomKind,
+    keep_alive: std::sync::atomic::AtomicBool,
+    equality: std::sync::Mutex<Option<Box<dyn Fn(&AnyValue, &AnyValue) -> bool + Send + Sync>>>,
+}
+
+impl AtomSpec {
+    /// Does an assignment of `new` over `old` compare equal? Without a
+    /// configured equality every assignment differs, so every set notifies.
+    fn equals(&self, old: &AnyValue, new: &AnyValue) -> bool {
+        match self.equality.lock().unwrap().as_ref() {
+            Some(equals) => equals(old, new),
+            None => false,
+        }
+    }
+
+    /// Is this atom derived from `source`?
+    fn is_dependent_of(&self, source: u64) -> bool {
+        matches!(&self.kind, AtomKind::Map { source: seen, .. } if *seen == source)
+    }
+}
+
+/// An atom handle: `Atom.make(value)`, optionally `keep_alive`,
+/// `with_equality`, or derived through [`map`].
+pub struct Atom<T> {
+    spec: Arc<AtomSpec>,
+    marker: std::marker::PhantomData<fn() -> T>,
+}
+
+impl<T> Clone for Atom<T> {
+    fn clone(&self) -> Self {
+        Self { spec: Arc::clone(&self.spec), marker: std::marker::PhantomData }
+    }
+}
+
+static NEXT_ATOM_ID: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
+
+impl<T: Clone + Send + Sync + 'static> Atom<T> {
+    /// `Atom.make`: a value atom holding `initial`.
+    pub fn make(initial: T) -> Self {
+        let spec = Arc::new(AtomSpec {
+            id: NEXT_ATOM_ID.fetch_add(1, std::sync::atomic::Ordering::SeqCst),
+            kind: AtomKind::Value(Arc::new(initial)),
+            keep_alive: std::sync::atomic::AtomicBool::new(false),
+            equality: std::sync::Mutex::new(None),
+        });
+        register_spec(&spec);
+        Self { spec, marker: std::marker::PhantomData }
+    }
+
+    /// `Atom.keepAlive`: the node survives the disposal pass.
+    pub fn keep_alive(self) -> Self {
+        self.spec.keep_alive.store(true, std::sync::atomic::Ordering::SeqCst);
+        self
+    }
+
+    /// `Atom.withEquality`: an assignment comparing equal neither notifies
+    /// nor replaces the stored value.
+    pub fn with_equality(self, equals: impl Fn(&T, &T) -> bool + Send + Sync + 'static) -> Self {
+        *self.spec.equality.lock().unwrap() = Some(Box::new(move |old, new| {
+            let old = old
+                .downcast_ref::<T>()
+                .expect("an atom's value carries its declared type");
+            let new = new
+                .downcast_ref::<T>()
+                .expect("an atom's value carries its declared type");
+            equals(old, new)
+        }));
+        self
+    }
+}
+
+/// `Atom.map`: a derived atom rebuilt from its source when the source
+/// changes, and never before a read asks for it.
+pub fn map<S, U, F>(source: &Atom<S>, derive: F) -> Atom<U>
+where
+    S: Clone + Send + Sync + 'static,
+    U: Clone + Send + Sync + 'static,
+    F: Fn(&S) -> U + Send + Sync + 'static,
+{
+    let spec = Arc::new(AtomSpec {
+        id: NEXT_ATOM_ID.fetch_add(1, std::sync::atomic::Ordering::SeqCst),
+        kind: AtomKind::Map {
+            source: source.spec.id,
+            derive: Box::new(move |value: &dyn std::any::Any| {
+                let typed = value
+                    .downcast_ref::<S>()
+                    .expect("a map's source value carries the source type")
+                    .clone();
+                Arc::new(derive(&typed)) as AnyValue
+            }),
+        },
+        keep_alive: std::sync::atomic::AtomicBool::new(false),
+        equality: std::sync::Mutex::new(None),
+    });
+    register_spec(&spec);
+    Atom { spec, marker: std::marker::PhantomData }
+}
+
+/// The registry's per-atom state.
+struct AtomNodeState {
+    value: AnyValue,
+    listeners: Vec<(u64, Arc<dyn Fn(&AnyValue) + Send + Sync>)>,
+    /// A derived node that owes a rebuild before its next read.
+    dirty: bool,
+}
+
+/// `AtomRegistry.make`: the runtime that mounts, reads, writes and disposes
+/// atom nodes. Each registry is independent.
+pub struct Registry {
+    nodes: Mutex<std::collections::HashMap<u64, AtomNodeState>>,
+    next_listener: std::sync::atomic::AtomicU64,
+}
+
+/// A subscription handle: `cancel` releases its listener, after which the
+/// node counts as unlistened for the next disposal pass.
+pub struct Subscription {
+    registry: Arc<Registry>,
+    atom_id: u64,
+    listener_id: u64,
+}
+
+impl Subscription {
+    /// `cancel()` in the pin: drop this subscription's listener. Calling it
+    /// twice is a no-op the second time.
+    pub fn cancel(&self) {
+        self.registry.remove_listener(self.atom_id, self.listener_id);
+    }
+}
+
+impl Registry {
+    /// An empty registry.
+    pub fn make() -> Arc<Registry> {
+        Arc::new(Self {
+            nodes: Mutex::new(std::collections::HashMap::new()),
+            next_listener: std::sync::atomic::AtomicU64::new(1),
+        })
+    }
+
+    /// `registry.get`: the atom's current value, mounting (or rebuilding) its
+    /// node as needed.
+    pub fn get<T: Clone + Send + Sync + 'static>(&self, atom: &Atom<T>) -> T {
+        (*self.get_shared(atom)).clone()
+    }
+
+    /// `registry.get` as the stored handle, so identity is observable after
+    /// an equality-suppressed assignment.
+    pub fn get_shared<T: Send + Sync + 'static>(&self, atom: &Atom<T>) -> Arc<T> {
+        let value = self.node_value(&atom.spec);
+        Arc::downcast::<T>(value)
+            .unwrap_or_else(|_| unreachable!("an atom's value carries its declared type"))
+    }
+
+    /// `registry.set`: assign, notifying listeners unless the configured
+    /// equality compares equal (in which case the stored handle is kept).
+    pub fn set<T: Clone + Send + Sync + 'static>(&self, atom: &Atom<T>, value: T) {
+        let new: AnyValue = Arc::new(value);
+        // Built outside the lock: a derived atom's build reads the registry
+        // (its source), and this mutex is not reentrant.
+        let initial = if self.nodes.lock().unwrap().contains_key(&atom.spec.id) {
+            None
+        } else {
+            Some(self.initial_value(&atom.spec))
+        };
+        let mut nodes = self.nodes.lock().unwrap();
+        let node = nodes.entry(atom.spec.id).or_insert_with(|| AtomNodeState {
+            value: initial.expect("built for an absent node"),
+            listeners: Vec::new(),
+            dirty: false,
+        });
+        if atom.spec.equals(&node.value, &new) {
+            return;
+        }
+        node.value = Arc::clone(&new);
+        node.dirty = false;
+        let listeners: Vec<Arc<dyn Fn(&AnyValue) + Send + Sync>> = node
+            .listeners
+            .iter()
+            .map(|(_, listener)| Arc::clone(listener))
+            .collect();
+        let dependents: Vec<u64> = nodes
+            .keys()
+            .copied()
+            .filter(|id| {
+                spec_of(*id).is_some_and(|spec| spec.is_dependent_of(atom.spec.id))
+            })
+            .collect();
+        for id in dependents {
+            if let Some(node) = nodes.get_mut(&id) {
+                node.dirty = true;
+            }
+        }
+        drop(nodes);
+        for listener in listeners {
+            listener(&new);
+        }
+    }
+
+    /// `registry.subscribe`: add a listener that receives every new value.
+    /// The node stays mounted while the subscription lives.
+    pub fn subscribe<T: Clone + Send + Sync + 'static>(
+        self: &Arc<Self>,
+        atom: &Atom<T>,
+        listener: impl Fn(T) + Send + Sync + 'static,
+    ) -> Subscription {
+        let listener_id = self.next_listener.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        let erased: Arc<dyn Fn(&AnyValue) + Send + Sync> = Arc::new(move |value: &AnyValue| {
+            let typed = value
+                .downcast_ref::<T>()
+                .expect("an atom's value carries its declared type")
+                .clone();
+            listener(typed);
+        });
+        // Built outside the lock: a derived atom's build reads the registry
+        // (its source), and this mutex is not reentrant.
+        let initial = if self.nodes.lock().unwrap().contains_key(&atom.spec.id) {
+            None
+        } else {
+            Some(self.initial_value(&atom.spec))
+        };
+        let mut nodes = self.nodes.lock().unwrap();
+        let node = nodes.entry(atom.spec.id).or_insert_with(|| AtomNodeState {
+            value: initial.expect("built for an absent node"),
+            listeners: Vec::new(),
+            dirty: false,
+        });
+        node.listeners.push((listener_id, erased));
+        drop(nodes);
+        Subscription { registry: Arc::clone(self), atom_id: atom.spec.id, listener_id }
+    }
+
+    /// The disposal pass: every node with no listeners and no keepAlive is
+    /// released, so its next read starts from the initial value again.
+    pub fn tick(&self) {
+        let mut nodes = self.nodes.lock().unwrap();
+        let releasable: Vec<u64> = nodes
+            .iter()
+            .filter(|(id, node)| {
+                node.listeners.is_empty()
+                    && spec_of(**id)
+                        .is_some_and(|spec| !spec.keep_alive.load(std::sync::atomic::Ordering::SeqCst))
+            })
+            .map(|(id, _)| *id)
+            .collect();
+        for id in releasable {
+            nodes.remove(&id);
+        }
+    }
+
+    fn remove_listener(&self, atom_id: u64, listener_id: u64) {
+        let mut nodes = self.nodes.lock().unwrap();
+        if let Some(node) = nodes.get_mut(&atom_id) {
+            node.listeners.retain(|(seen, _)| *seen != listener_id);
+        }
+    }
+
+    /// The node's current value, building or rebuilding a derived node on
+    /// the way. A read keeps the node present, which is the mount. The build
+    /// happens outside the lock: a derived atom's build reads the registry
+    /// (its source), and this mutex is not reentrant.
+    fn node_value(&self, spec: &Arc<AtomSpec>) -> AnyValue {
+        let present = self.nodes.lock().unwrap().contains_key(&spec.id);
+        if !present {
+            let value = self.initial_value(spec);
+            self.nodes
+                .lock()
+                .unwrap()
+                .entry(spec.id)
+                .or_insert(AtomNodeState { value, listeners: Vec::new(), dirty: false });
+        }
+        let dirty = self
+            .nodes
+            .lock()
+            .unwrap()
+            .get(&spec.id)
+            .expect("present")
+            .dirty;
+        if dirty {
+            let rebuilt = self.initial_value(spec);
+            let mut nodes = self.nodes.lock().unwrap();
+            let node = nodes.get_mut(&spec.id).expect("present");
+            node.value = rebuilt;
+            node.dirty = false;
+        }
+        Arc::clone(&self.nodes.lock().unwrap().get(&spec.id).expect("present").value)
+    }
+
+    /// A node's value straight from its spec: the initial value for a value
+    /// atom, or a fresh build for a derived atom (which recurses into its
+    /// source).
+    fn initial_value(&self, spec: &Arc<AtomSpec>) -> AnyValue {
+        match &spec.kind {
+            AtomKind::Value(initial) => Arc::clone(initial),
+            AtomKind::Map { source, derive } => {
+                let source_value = self.source_value(*source);
+                // `&*source_value` hands the derive the INNER value: a
+                // reference to the Arc itself would erase to
+                // `Arc<dyn Any + Send + Sync>`, whose type is the wrapper.
+                derive(&*source_value)
+            }
+        }
+    }
+
+    /// A source atom's current value, mounting the source in turn. An
+    /// unregistered id (a source from a registry that never held it) has no
+    /// spec to mount and yields a placeholder. Recursive maps would recurse
+    /// forever here, which no carried row constructs.
+    fn source_value(&self, source: u64) -> AnyValue {
+        match spec_of(source) {
+            Some(spec) => self.node_value(&spec),
+            None => Arc::new(()),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -270,5 +640,96 @@ mod tests {
         signal.set_if_changed("y".to_string());
         assert_eq!(*calls.lock().unwrap(), 1);
         assert_eq!(signal.version(), 1);
+    }
+
+    // ---- the Atom lifecycle core ----
+
+    #[test]
+    fn atom_registries_are_independent() {
+        // The same atom holds different values in two registries, and a
+        // disposal in one does not touch the other.
+        let counter = Atom::make(7i64);
+        let first = Registry::make();
+        let second = Registry::make();
+        first.set(&counter, 1);
+        assert_eq!(first.get(&counter), 1);
+        assert_eq!(second.get(&counter), 7, "a registry starts from the initial value");
+        second.set(&counter, 2);
+        assert_eq!(first.get(&counter), 1);
+        first.tick();
+        second.tick();
+        assert_eq!(first.get(&counter), 7, "released nodes revert per registry");
+        assert_eq!(second.get(&counter), 7);
+    }
+
+    #[test]
+    fn atom_cancel_is_idempotent() {
+        let counter = Atom::make(0i64);
+        let registry = Registry::make();
+        let sub = registry.subscribe(&counter, |_| {});
+        sub.cancel();
+        sub.cancel();
+        registry.tick();
+        assert_eq!(registry.get(&counter), 0);
+    }
+
+    #[test]
+    fn atom_listener_snapshot_survives_an_unsubscribe_mid_notify() {
+        // The notified snapshot is taken before any callback runs, so a
+        // listener that cancels a later subscription does not skip it.
+        let counter = Atom::make(0i64);
+        let registry = Registry::make();
+        let seen = Arc::new(Mutex::new(Vec::<&'static str>::new()));
+        let cancel_holder: Arc<Mutex<Option<Subscription>>> = Arc::new(Mutex::new(None));
+        let first_log = seen.clone();
+        let holder = cancel_holder.clone();
+        let sub_first = registry.subscribe(&counter, move |_| {
+            first_log.lock().unwrap().push("first");
+            if let Some(sub) = holder.lock().unwrap().take() {
+                sub.cancel();
+            }
+        });
+        let second_log = seen.clone();
+        let sub_second = registry.subscribe(&counter, move |_| {
+            second_log.lock().unwrap().push("second");
+        });
+        *cancel_holder.lock().unwrap() = Some(sub_second);
+        registry.set(&counter, 1);
+        let _ = sub_first;
+        assert_eq!(*seen.lock().unwrap(), vec!["first", "second"]);
+    }
+
+    #[test]
+    fn atom_derived_node_rebuilds_only_after_a_change() {
+        let builds = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let counted = builds.clone();
+        let source = Atom::make(3i64);
+        let doubled = map(&source, move |n: &i64| {
+            counted.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            n * 2
+        });
+        let registry = Registry::make();
+        assert_eq!(registry.get(&doubled), 6);
+        assert_eq!(registry.get(&doubled), 6, "a cached read does not rebuild");
+        assert_eq!(builds.load(std::sync::atomic::Ordering::SeqCst), 1);
+        registry.set(&source, 5);
+        assert_eq!(registry.get(&doubled), 10);
+        assert_eq!(builds.load(std::sync::atomic::Ordering::SeqCst), 2);
+    }
+
+    #[test]
+    fn atom_release_invalidates_dependents() {
+        // Releasing a source reverts it; the dependent rebuilds from the
+        // reverted value on its next read.
+        let source = Atom::make(1i64);
+        let plus_one = map(&source, |n: &i64| n + 1);
+        let registry = Registry::make();
+        assert_eq!(registry.get(&plus_one), 2);
+        registry.set(&source, 10);
+        assert_eq!(registry.get(&plus_one), 11);
+        registry.tick();
+        // Both nodes are unlistened, so both released: a fresh read rebuilds
+        // from the initial values.
+        assert_eq!(registry.get(&plus_one), 2);
     }
 }

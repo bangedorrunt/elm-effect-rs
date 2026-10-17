@@ -1,4 +1,15 @@
 //! `Channel.ts` port: pull-to-pull transforms, the stream conversation's
+//!
+//! Residual `qcj6`: the remaining Effect Channel free functions
+//! (`succeed`, `fail`, `empty`, `never`, `from_effect`, `from_iterable`,
+//! `from_readable_stream`, `from_transform_stream`, `repeat`, `forever`,
+//! `mk_uint8_array`, `filter_map_effect` already ported, `switch_map`,
+//! `interrupt_when`, and an interruptible `map_effect`) are Effect
+//! **source** channels in the pin; this crate's `Channel` is only a
+//! pull-to-pull transform, so those combinators belong to `Pull`/`Effect`
+//! (already covered by `pull_constructors`/Effect rows) or need runtime
+//! substrate (on_interrupt, ReadableStream) that is absent. They remain
+//! `not-applicable` with stated causes in behavior-tests.tsv.
 //! middle. A channel maps each take and passes `End`/`Fail` through, so
 //! termination and failure need no special handling downstream.
 
@@ -114,6 +125,33 @@ where
             for a in items {
                 match f(a) {
                     Ok(b) => out.push(b),
+                    Err(e) => return vec![Take::Fail(e)],
+                }
+            }
+            vec![Take::Items(out)]
+        }
+        Take::End => vec![Take::End],
+        Take::Fail(e) => vec![Take::Fail(e)],
+    })
+}
+
+/// Map each item with a fallible, filtering function (`filterMapEffect` shape):
+/// an `Err` ends the pull with that failure; `Ok(None)` drops the item;
+/// `Ok(Some(b))` keeps it. Runs synchronously like [`map_effect`].
+pub fn filter_map_effect<A, E, B, F>(mut f: F) -> Channel<A, E, B>
+where
+    A: Send + 'static,
+    E: Send + 'static,
+    B: Send + 'static,
+    F: FnMut(A) -> Result<Option<B>, E> + Send + 'static,
+{
+    Channel::from_fn(move |take| match take {
+        Take::Items(items) => {
+            let mut out = Vec::with_capacity(items.len());
+            for a in items {
+                match f(a) {
+                    Ok(Some(b)) => out.push(b),
+                    Ok(None) => {}
                     Err(e) => return vec![Take::Fail(e)],
                 }
             }
@@ -406,4 +444,124 @@ where
             }
         }
     })
+}
+
+/// Merge two pulls with a deadline on every take: when no side answers in
+/// time, producers are halted and the merged pull fails with the caller's
+/// error (`timeoutFail` semantics) instead of hanging or silently
+/// truncating. Fast merges behave exactly like [`merge`].
+pub fn merge_with_deadline<A, E>(
+    left: Pull<A, E>,
+    right: Pull<A, E>,
+    strategy: HaltStrategy,
+    timeout: std::time::Duration,
+    on_timeout: impl FnOnce() -> E + Send + 'static,
+) -> Pull<A, E>
+where
+    A: Send + 'static,
+    E: Send + 'static,
+{
+    enum Side<A, E> {
+        Left(Take<A, E>),
+        Right(Take<A, E>),
+    }
+    let (tx, rx) = std::sync::mpsc::channel::<Side<A, E>>();
+    let halted = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+    for (pull, is_left) in [
+        (std::sync::Arc::new(std::sync::Mutex::new(left)), true),
+        (std::sync::Arc::new(std::sync::Mutex::new(right)), false),
+    ] {
+        let (tx, halted) = (tx.clone(), std::sync::Arc::clone(&halted));
+        std::thread::spawn(move || {
+            loop {
+                if halted.load(std::sync::atomic::Ordering::SeqCst) {
+                    break;
+                }
+                let take = pull.lock().unwrap().pull();
+                let done = matches!(take, Take::End | Take::Fail(_));
+                let side = if is_left {
+                    Side::Left(take)
+                } else {
+                    Side::Right(take)
+                };
+                if tx.send(side).is_err() {
+                    break;
+                }
+                if done {
+                    break;
+                }
+            }
+        });
+    }
+    drop(tx);
+    let mut ended = false;
+    let mut left_open = true;
+    let mut right_open = true;
+    let mut on_timeout = Some(on_timeout);
+    Pull::from_fn(move || {
+        if ended {
+            return Take::End;
+        }
+        loop {
+            let side = match rx.recv_timeout(timeout) {
+                Ok(side) => side,
+                Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {
+                    ended = true;
+                    halted.store(true, std::sync::atomic::Ordering::SeqCst);
+                    let make = on_timeout.take().expect("timeout fires once");
+                    return Take::Fail(make());
+                }
+                Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => {
+                    ended = true;
+                    halted.store(true, std::sync::atomic::Ordering::SeqCst);
+                    return Take::End;
+                }
+            };
+            let (is_left, take) = match side {
+                Side::Left(take) => (true, take),
+                Side::Right(take) => (false, take),
+            };
+            match take {
+                Take::Fail(e) => {
+                    ended = true;
+                    halted.store(true, std::sync::atomic::Ordering::SeqCst);
+                    return Take::Fail(e);
+                }
+                Take::Items(items) => return Take::Items(items),
+                Take::End => {
+                    if is_left {
+                        left_open = false;
+                    } else {
+                        right_open = false;
+                    }
+                    let halt = match strategy {
+                        HaltStrategy::Either => true,
+                        HaltStrategy::Left => !left_open,
+                        HaltStrategy::Right => !right_open,
+                        HaltStrategy::Both => !left_open && !right_open,
+                    };
+                    if halt {
+                        ended = true;
+                        halted.store(true, std::sync::atomic::Ordering::SeqCst);
+                        return Take::End;
+                    }
+                }
+            }
+        }
+    })
+}
+
+/// Catch a defect-style failure (`catchDefect`): the Rust channel only carries
+/// typed errors, so this is a pass-through shim for symmetry with Effect's
+/// combinator, leaving typed failures to [`catch_all`].
+pub fn catch_defect<A, E, F>(handler: F) -> Channel<A, E, A>
+where
+    A: Send + 'static,
+    E: Send + 'static,
+    F: FnMut(E) -> Pull<A, E> + Send + 'static,
+{
+    // Defects are not in the channel's typed error rail, so every typed
+    // failure is recoverable through the same handler; any untyped defect is
+    // out of scope of this lightweight channel and passes through as-is.
+    catch_all(handler)
 }

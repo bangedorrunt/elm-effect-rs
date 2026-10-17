@@ -11,11 +11,10 @@
 mod concurrency;
 
 use concurrency::{Concurrency, all, for_each};
-use elm_effect::{Cause, Ctx, Exit, FiberHandle, ForkOpts, Reason, Runtime};
+use elm_effect::{Cause, Ctx, Defect, Duration, Exit, FiberHandle, ForkOpts, Reason, Runtime};
 use std::convert::Infallible;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
-use std::time::Duration;
 
 #[test]
 fn all_without_concurrency_is_sequential() {
@@ -35,7 +34,7 @@ fn all_without_concurrency_is_sequential() {
                         if ctx.is_interrupted() {
                             return Exit::Failure(Cause::interrupt(None));
                         }
-                        std::thread::park_timeout(Duration::from_millis(1));
+                        std::thread::park_timeout(std::time::Duration::from_millis(1));
                     }
                     Exit::succeed(1)
                 }) as Box<dyn FnOnce(&elm_effect::Ctx) -> Exit<i32, String> + Send>,
@@ -48,7 +47,7 @@ fn all_without_concurrency_is_sequential() {
         )
     });
     // The first body is parked; the second must not have started.
-    std::thread::sleep(Duration::from_millis(100));
+    std::thread::sleep(std::time::Duration::from_millis(100));
     assert!(
         !started_second.load(Ordering::SeqCst),
         "second effect started while the first was suspended"
@@ -90,7 +89,7 @@ fn fanout_peak_in_flight() {
             pk.fetch_max(now, Ordering::SeqCst);
             let mut waited = 0;
             while waited < 20 && !ctx.is_interrupted() {
-                std::thread::park_timeout(Duration::from_millis(1));
+                std::thread::park_timeout(std::time::Duration::from_millis(1));
                 waited += 1;
             }
             cur.fetch_sub(1, Ordering::SeqCst);
@@ -124,7 +123,7 @@ fn all_fails_fast_and_releases_rest() {
                     if ctx.is_interrupted() {
                         return Exit::Failure(Cause::interrupt(None));
                     }
-                    std::thread::park_timeout(Duration::from_millis(1));
+                    std::thread::park_timeout(std::time::Duration::from_millis(1));
                 }
                 Exit::Failure(Cause::fail("boom".to_string()))
             }) as Box<dyn FnOnce(&elm_effect::Ctx) -> Exit<i32, String> + Send>,
@@ -132,7 +131,7 @@ fn all_fails_fast_and_releases_rest() {
                 ctx.add_finalizer(move || worker_released.store(true, Ordering::SeqCst));
                 body_up.store(true, Ordering::SeqCst);
                 while !ctx.is_interrupted() {
-                    std::thread::park_timeout(Duration::from_millis(1));
+                    std::thread::park_timeout(std::time::Duration::from_millis(1));
                 }
                 Exit::Failure(Cause::interrupt(None))
             }) as Box<dyn FnOnce(&elm_effect::Ctx) -> Exit<i32, String> + Send>,
@@ -180,24 +179,19 @@ fn for_each_bounded_respects_the_bound() {
     let current = Arc::new(AtomicUsize::new(0));
     let peak = Arc::new(AtomicUsize::new(0));
     let rt = Runtime::new();
-    let exit = for_each(
-        &rt,
-        vec![1, 2, 3, 4, 5],
-        Concurrency::Bounded(2),
-        {
+    let exit = for_each(&rt, vec![1, 2, 3, 4, 5], Concurrency::Bounded(2), {
+        let (current, peak) = (Arc::clone(&current), Arc::clone(&peak));
+        move |a: i32, _ctx: &Ctx| {
             let (current, peak) = (Arc::clone(&current), Arc::clone(&peak));
-            move |a: i32, _ctx: &Ctx| {
-                let (current, peak) = (Arc::clone(&current), Arc::clone(&peak));
-                Exit::<i32, Infallible>::Success({
-                    let now = current.fetch_add(1, Ordering::SeqCst) + 1;
-                    peak.fetch_max(now, Ordering::SeqCst);
-                    std::thread::sleep(Duration::from_millis(20));
-                    current.fetch_sub(1, Ordering::SeqCst);
-                    a
-                })
-            }
-        },
-    );
+            Exit::<i32, Infallible>::Success({
+                let now = current.fetch_add(1, Ordering::SeqCst) + 1;
+                peak.fetch_max(now, Ordering::SeqCst);
+                std::thread::sleep(std::time::Duration::from_millis(20));
+                current.fetch_sub(1, Ordering::SeqCst);
+                a
+            })
+        }
+    });
     assert_eq!(exit, Exit::Success(vec![1, 2, 3, 4, 5]));
     assert!(
         peak.load(Ordering::SeqCst) <= 2,
