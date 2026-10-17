@@ -446,6 +446,111 @@ where
     })
 }
 
+/// Merge two pulls with a deadline on every take: when no side answers in
+/// time, producers are halted and the merged pull fails with the caller's
+/// error (`timeoutFail` semantics) instead of hanging or silently
+/// truncating. Fast merges behave exactly like [`merge`].
+pub fn merge_with_deadline<A, E>(
+    left: Pull<A, E>,
+    right: Pull<A, E>,
+    strategy: HaltStrategy,
+    timeout: std::time::Duration,
+    on_timeout: impl FnOnce() -> E + Send + 'static,
+) -> Pull<A, E>
+where
+    A: Send + 'static,
+    E: Send + 'static,
+{
+    enum Side<A, E> {
+        Left(Take<A, E>),
+        Right(Take<A, E>),
+    }
+    let (tx, rx) = std::sync::mpsc::channel::<Side<A, E>>();
+    let halted = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+    for (pull, is_left) in [
+        (std::sync::Arc::new(std::sync::Mutex::new(left)), true),
+        (std::sync::Arc::new(std::sync::Mutex::new(right)), false),
+    ] {
+        let (tx, halted) = (tx.clone(), std::sync::Arc::clone(&halted));
+        std::thread::spawn(move || {
+            loop {
+                if halted.load(std::sync::atomic::Ordering::SeqCst) {
+                    break;
+                }
+                let take = pull.lock().unwrap().pull();
+                let done = matches!(take, Take::End | Take::Fail(_));
+                let side = if is_left {
+                    Side::Left(take)
+                } else {
+                    Side::Right(take)
+                };
+                if tx.send(side).is_err() {
+                    break;
+                }
+                if done {
+                    break;
+                }
+            }
+        });
+    }
+    drop(tx);
+    let mut ended = false;
+    let mut left_open = true;
+    let mut right_open = true;
+    let mut on_timeout = Some(on_timeout);
+    Pull::from_fn(move || {
+        if ended {
+            return Take::End;
+        }
+        loop {
+            let side = match rx.recv_timeout(timeout) {
+                Ok(side) => side,
+                Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {
+                    ended = true;
+                    halted.store(true, std::sync::atomic::Ordering::SeqCst);
+                    let make = on_timeout.take().expect("timeout fires once");
+                    return Take::Fail(make());
+                }
+                Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => {
+                    ended = true;
+                    halted.store(true, std::sync::atomic::Ordering::SeqCst);
+                    return Take::End;
+                }
+            };
+            let (is_left, take) = match side {
+                Side::Left(take) => (true, take),
+                Side::Right(take) => (false, take),
+            };
+            match take {
+                Take::Fail(e) => {
+                    ended = true;
+                    halted.store(true, std::sync::atomic::Ordering::SeqCst);
+                    return Take::Fail(e);
+                }
+                Take::Items(items) => return Take::Items(items),
+                Take::End => {
+                    if is_left {
+                        left_open = false;
+                    } else {
+                        right_open = false;
+                    }
+                    let halt = match strategy {
+                        HaltStrategy::Either => true,
+                        HaltStrategy::Left => !left_open,
+                        HaltStrategy::Right => !right_open,
+                        HaltStrategy::Both => !left_open && !right_open,
+                    };
+                    if halt {
+                        ended = true;
+                        halted.store(true, std::sync::atomic::Ordering::SeqCst);
+                        return Take::End;
+                    }
+                }
+            }
+        }
+    })
+}
+
 /// Catch a defect-style failure (`catchDefect`): the Rust channel only carries
 /// typed errors, so this is a pass-through shim for symmetry with Effect's
 /// combinator, leaving typed failures to [`catch_all`].
