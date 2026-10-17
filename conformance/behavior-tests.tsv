@@ -7315,7 +7315,8 @@ not-applicable	packages/effect/test/process/ChildProcess.test.ts	305	it	should a
 not-applicable	packages/effect/test/process/ChildProcess.test.ts	320	it	should accept additionalFds with streams	Child process fd-related behaviors depend on Effect's process fd/process-handle APIs that have no counterpart in crates/ (no ChildProcess module), so the fd plumbing is not representable in this port
 not-applicable	packages/effect/test/process/ChildProcess.test.ts	331	it	should accept additionalFds with sinks	Child process fd-related behaviors depend on Effect's process fd/process-handle APIs that have no counterpart in crates/ (no ChildProcess module), so the fd plumbing is not representable in this port
 not-applicable	packages/effect/test/process/ChildProcess.test.ts	349	it.effect	should have additionalFds accessor on handle	Child process fd-related behaviors depend on Effect's process fd/process-handle APIs that have no counterpart in crates/ (no ChildProcess module), so the fd plumbing is not representable in this port
-unported	packages/effect/test/process/ChildProcessSpawnerTest.ts	42	it.layer	spawn	
+not-applicable	packages/effect/test/process/ChildProcessSpawnerTest.ts	42	it.layer	spawn	it.layer suite-harness declaration, not a behavior assertion
+
 ported	packages/effect/test/process/ChildProcessSpawnerTest.ts	45	it.effect	should spawn a simple command and collect output	spawn_simple_command_and_collect_output
 ported	packages/effect/test/process/ChildProcessSpawnerTest.ts	55	it.effect	should spawn echo command	spawn_echo_command
 ported	packages/effect/test/process/ChildProcessSpawnerTest.ts	65	it.effect	should spawn with template literal	spawn_with_template_literal
@@ -7339,47 +7340,73 @@ ported	packages/effect/test/process/ChildProcessSpawnerTest.ts	277	it.effect	sho
 ported	packages/effect/test/process/ChildProcessSpawnerTest.ts	295	it.effect	should handle more stderr than stdout	spawn_more_stderr_than_stdout
 ported	packages/effect/test/process/ChildProcessSpawnerTest.ts	313	it.effect	should allow reading only stdout when stderr is empty	spawn_read_stdout_when_stderr_empty
 ported	packages/effect/test/process/ChildProcessSpawnerTest.ts	328	it.effect	should allow reading only stderr when stdout is empty	spawn_read_stderr_when_stdout_empty
-unported	packages/effect/test/process/ChildProcessSpawnerTest.ts	345	it.effect	should read interspersed stdout and stderr via .all	
-unported	packages/effect/test/process/ChildProcessSpawnerTest.ts	371	it.effect	should capture only stdout via .all when no stderr	
-unported	packages/effect/test/process/ChildProcessSpawnerTest.ts	381	it.effect	should capture only stderr via .all when no stdout	
-unported	packages/effect/test/process/ChildProcessSpawnerTest.ts	391	it.effect	should handle many lines of interspersed output via .all	
-unported	packages/effect/test/process/ChildProcessSpawnerTest.ts	414	it.effect	should allow reading .all independently	
+ported	packages/effect/test/process/ChildProcessSpawnerTest.ts	345	it.effect	should read interspersed stdout and stderr via .all	combined_all_captures_interspersed_stdout_and_stderr
+
+ported	packages/effect/test/process/ChildProcessSpawnerTest.ts	371	it.effect	should capture only stdout via .all when no stderr	combined_all_captures_only_stdout
+
+ported	packages/effect/test/process/ChildProcessSpawnerTest.ts	381	it.effect	should capture only stderr via .all when no stdout	combined_all_captures_only_stderr
+
+ported	packages/effect/test/process/ChildProcessSpawnerTest.ts	391	it.effect	should handle many lines of interspersed output via .all	combined_all_handles_many_interspersed_lines
+
+ported	packages/effect/test/process/ChildProcessSpawnerTest.ts	414	it.effect	should allow reading .all independently	combined_all_readable_independently
+
 ported	packages/effect/test/process/ChildProcessSpawnerTest.ts	429	it.effect	should stream stdout	spawn_stream_stdout
 ported	packages/effect/test/process/ChildProcessSpawnerTest.ts	437	it.effect	should stream multiple lines	spawn_stream_multiple_lines
 ported	packages/effect/test/process/ChildProcessSpawnerTest.ts	447	it.effect	should kill a process	spawn_kill_a_process
-unported	packages/effect/test/process/ChildProcessSpawnerTest.ts	458	it.effect	should kill with specific signal	
-unported	packages/effect/test/process/ChildProcessSpawnerTest.ts	468	it.effect	should force kill a process after the initial signal times out	
-unported	packages/effect/test/process/ChildProcessSpawnerTest.ts	504	it.effect	should force kill a process when its scope closes	
+not-applicable	packages/effect/test/process/ChildProcessSpawnerTest.ts	458	it.effect	should kill with specific signal	needs signal selection; Child::kill is always SIGKILL (needs libc kill)
+
+not-applicable	packages/effect/test/process/ChildProcessSpawnerTest.ts	468	it.effect	should force kill a process after the initial signal times out	needs signal-then-timeout force kill; needs libc signals
+
+not-applicable	packages/effect/test/process/ChildProcessSpawnerTest.ts	504	it.effect	should force kill a process when its scope closes	needs Effect Scope close lifecycle; no Scope in this port
+
 ported	packages/effect/test/process/ChildProcessSpawnerTest.ts	545	it.effect	should spawn a simple pipeline	spawn_simple_pipeline
 ported	packages/effect/test/process/ChildProcessSpawnerTest.ts	557	it.effect	should spawn a three-stage pipeline	spawn_three_stage_pipeline
 ported	packages/effect/test/process/ChildProcessSpawnerTest.ts	570	it.effect	should pipe grep output	spawn_pipe_grep_output
 ported	packages/effect/test/process/ChildProcessSpawnerTest.ts	582	it.effect	should handle mixed command forms in pipeline	spawn_mixed_command_forms_in_pipeline
-unported	packages/effect/test/process/ChildProcessSpawnerTest.ts	596	it.effect	should pipe stderr to stdin with { from: 'stderr' }	
-unported	packages/effect/test/process/ChildProcessSpawnerTest.ts	609	it.effect	should pipe combined output with { from: 'all' }	
+ported	packages/effect/test/process/ChildProcessSpawnerTest.ts	596	it.effect	should pipe stderr to stdin with { from: 'stderr' }	pipeline_pipes_stderr_to_stdin
+
+ported	packages/effect/test/process/ChildProcessSpawnerTest.ts	609	it.effect	should pipe combined output with { from: 'all' }	pipeline_pipes_combined_output_to_stdin
+
 ported	packages/effect/test/process/ChildProcessSpawnerTest.ts	628	it.effect	should default to stdout when no options provided	pipeline_default_pipes_stdout_only
 ported	packages/effect/test/process/ChildProcessSpawnerTest.ts	642	it.effect	should work with empty options object	pipeline_stdout_to_stdin
 ported	packages/effect/test/process/ChildProcessSpawnerTest.ts	654	it.effect	should work with explicit { from: 'stdout' }	pipeline_stdout_to_stdin
 ported	packages/effect/test/process/ChildProcessSpawnerTest.ts	666	it.effect	should work with explicit { to: 'stdin' }	pipeline_stdout_to_stdin
-unported	packages/effect/test/process/ChildProcessSpawnerTest.ts	678	it.effect	should support chained pipes with different options	
+ported	packages/effect/test/process/ChildProcessSpawnerTest.ts	678	it.effect	should support chained pipes with different options	pipeline_chained_pipes_with_different_sources
+
 ported	packages/effect/test/process/ChildProcessSpawnerTest.ts	695	it.effect	should return non-zero exit code	spawn_non_zero_exit_code
 ported	packages/effect/test/process/ChildProcessSpawnerTest.ts	703	it.effect	should fail for invalid command	spawn_fail_for_invalid_command
 ported	packages/effect/test/process/ChildProcessSpawnerTest.ts	712	it.effect	should handle spawn error with invalid cwd	spawn_error_with_invalid_cwd
 ported	packages/effect/test/process/ChildProcessSpawnerTest.ts	721	it.effect	should throw permission denied as a typed error	spawn_permission_denied_typed_error
-unported	packages/effect/test/process/ChildProcessSpawnerTest.ts	736	it.effect	allows providing standard input to a command	
-unported	packages/effect/test/process/ChildProcessSpawnerTest.ts	750	it.effect	should read data from an output fd (fd3)	
-unported	packages/effect/test/process/ChildProcessSpawnerTest.ts	765	it.effect	should write data to an input fd (fd3)	
-unported	packages/effect/test/process/ChildProcessSpawnerTest.ts	785	it.effect	should handle multiple additional fds	
-unported	packages/effect/test/process/ChildProcessSpawnerTest.ts	808	it.effect	should handle fd gaps (e.g., fd3 and fd5 without fd4)	
-unported	packages/effect/test/process/ChildProcessSpawnerTest.ts	831	it.effect	should return empty stream for unconfigured output fd	
-unported	packages/effect/test/process/ChildProcessSpawnerTest.ts	843	it.effect	should handle bidirectional communication via separate fds	
-unported	packages/effect/test/process/ChildProcessSpawnerTest.ts	867	it.effect	should work alongside normal stdin/stdout/stderr	
-unported	packages/effect/test/process/ChildProcessSpawnerTest.ts	919	it.skipIf	should kill all child processes in process group	
-unported	packages/effect/test/process/ChildProcessSpawnerTest.ts	977	it.skipIf	should cleanup child processes when parent exits with non-zero code	
-unported	packages/effect/test/process/ChildProcessSpawnerTest.ts	1019	it.effect	should not kill an unrefed process when scope closes	
-unported	packages/effect/test/process/ChildProcessSpawnerTest.ts	1039	it.effect	should kill a restored process when scope closes	
-unported	packages/effect/test/process/ChildProcessSpawnerTest.ts	1057	it.effect	should resolve exitCode after closing the original scope of an unrefed process	
-unported	packages/effect/test/process/ChildProcessSpawnerTest.ts	1076	it.skipIf	should cleanup descendants after an unrefed parent exits non-zero	
-unported	packages/effect/test/process/ChildProcessSpawnerTest.ts	1102	it.effect	should unref every process in a pipeline	
+ported	packages/effect/test/process/ChildProcessSpawnerTest.ts	736	it.effect	allows providing standard input to a command	run_with_input_feeds_stdin_to_command
+
+not-applicable	packages/effect/test/process/ChildProcessSpawnerTest.ts	750	it.effect	should read data from an output fd (fd3)	needs extra-fd plumbing (fd3) via dup2; std has no API past fd2
+
+not-applicable	packages/effect/test/process/ChildProcessSpawnerTest.ts	765	it.effect	should write data to an input fd (fd3)	needs input fd3; no dup2 past fd2
+
+not-applicable	packages/effect/test/process/ChildProcessSpawnerTest.ts	785	it.effect	should handle multiple additional fds	needs multiple additional fds; no dup2 past fd2
+
+not-applicable	packages/effect/test/process/ChildProcessSpawnerTest.ts	808	it.effect	should handle fd gaps (e.g., fd3 and fd5 without fd4)	needs fd gaps (fd3+fd5); no dup2 past fd2
+
+not-applicable	packages/effect/test/process/ChildProcessSpawnerTest.ts	831	it.effect	should return empty stream for unconfigured output fd	needs unconfigured-fd empty streams; no extra-fd machinery
+
+not-applicable	packages/effect/test/process/ChildProcessSpawnerTest.ts	843	it.effect	should handle bidirectional communication via separate fds	needs bidirectional separate-fd communication; no dup2 past fd2
+
+not-applicable	packages/effect/test/process/ChildProcessSpawnerTest.ts	867	it.effect	should work alongside normal stdin/stdout/stderr	needs extra fds alongside stdio; no dup2 past fd2
+
+not-applicable	packages/effect/test/process/ChildProcessSpawnerTest.ts	919	it.skipIf	should kill all child processes in process group	needs process groups (setsid/killpg); unavailable
+
+not-applicable	packages/effect/test/process/ChildProcessSpawnerTest.ts	977	it.skipIf	should cleanup child processes when parent exits with non-zero code	needs process-group cleanup on parent exit; unavailable
+
+not-applicable	packages/effect/test/process/ChildProcessSpawnerTest.ts	1019	it.effect	should not kill an unrefed process when scope closes	needs Scope-tied unref; no Scope in this port
+
+not-applicable	packages/effect/test/process/ChildProcessSpawnerTest.ts	1039	it.effect	should kill a restored process when scope closes	needs Scope-tied restored-process kill; no Scope
+
+not-applicable	packages/effect/test/process/ChildProcessSpawnerTest.ts	1057	it.effect	should resolve exitCode after closing the original scope of an unrefed process	needs Scope-tied exitCode resolution; no Scope
+
+not-applicable	packages/effect/test/process/ChildProcessSpawnerTest.ts	1076	it.skipIf	should cleanup descendants after an unrefed parent exits non-zero	needs descendant cleanup after unrefed parent exit; no Scope or process groups
+
+not-applicable	packages/effect/test/process/ChildProcessSpawnerTest.ts	1102	it.effect	should unref every process in a pipeline	needs pipeline-wide unref; no Scope in this port
+
 ported	packages/effect/test/process/ChildProcessSpawnerTest.ts	1143	it.effect	should not deadlock on large stdout output	spawn_large_stdout_no_deadlock
 ported	packages/effect/test/process/ChildProcessSpawnerTest.ts	1163	it.effect	ChildProcess.string should not deadlock on large output	spawn_string_large_output_no_deadlock
 not-applicable	packages/effect/test/reactivity/AsyncResult.test.ts	6	it	waiting dispatches with optional options	Rust elm-effect-unstable has no AsyncResult type, resulting/onDefect handling, or exhaustive computation witness, so none of these rows can be ported

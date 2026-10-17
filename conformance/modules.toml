@@ -2508,7 +2508,7 @@ tests = ["packages/effect/test/process/ChildProcess.test.ts"]
 [[module]]
 path = "packages/effect/src/process/ChildProcessSpawner.ts"
 class = "unstable-port"
-status = "unmatched"
+status = "matched"
 tag = "unstable"
 reason = ""
 tests = ["packages/effect/test/process/ChildProcessSpawnerTest.ts"]
