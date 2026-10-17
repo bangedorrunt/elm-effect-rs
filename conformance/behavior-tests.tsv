@@ -5999,72 +5999,138 @@ ported	packages/effect/test/cli/Primitive.test.ts	362	it.effect	should fail when
 ported	packages/effect/test/cli/Primitive.test.ts	375	it.effect	file constructors preserve text, parsed content, and schema decoding	primitive_file_constructors_preserve_text_json_and_schema_decoding
 ported	packages/effect/test/cli/Primitive.test.ts	394	it	Never has the matching primitive tag	primitive_never_rejects_all
 ported	packages/effect/test/cli/Primitive.test.ts	398	it.effect	Never remains an always-failing sentinel	primitive_never_rejects_all
-unported	packages/effect/test/cli/Prompt.test.ts	53	it.effect	renders two-digit years, teen ordinals, and noon meridiem correctly	
-unported	packages/effect/test/cli/Prompt.test.ts	67	it.effect	starts a fresh typed buffer when Tab advances to the next field	
-unported	packages/effect/test/cli/Prompt.test.ts	80	it.effect	starts a fresh typed buffer when Tab wraps to the first field	
-unported	packages/effect/test/cli/Prompt.test.ts	94	it.effect	accumulates multiple digits while staying in the same field	
-unported	packages/effect/test/cli/Prompt.test.ts	105	it.effect	starts a fresh typed buffer when Tab wraps a single editable field	
-unported	packages/effect/test/cli/Prompt.test.ts	120	it.effect	supports an empty record	
-unported	packages/effect/test/cli/Prompt.test.ts	126	it.effect	supports a non-array iterable	
-unported	packages/effect/test/cli/Prompt.test.ts	134	it.effect	submits the default value	
-unported	packages/effect/test/cli/Prompt.test.ts	144	it.effect	starts from the default value so it can be edited	
-unported	packages/effect/test/cli/Prompt.test.ts	155	it.effect	clears the default value on ctrl-u	
-unported	packages/effect/test/cli/Prompt.test.ts	169	it.effect	preserves a leading zero in the fractional part	
-unported	packages/effect/test/cli/Prompt.test.ts	179	it.effect	renders appended input without literal parsed	
-unported	packages/effect/test/cli/Prompt.test.ts	197	it.effect	clears the current input on ctrl-u	
-unported	packages/effect/test/cli/Prompt.test.ts	212	it.effect	renders the default prompt theme	
-unported	packages/effect/test/cli/Prompt.test.ts	222	it.effect	renders the prompt theme from context	
-unported	packages/effect/test/cli/Prompt.test.ts	243	it.effect	renders theme colors from context with per-prompt overrides	
-unported	packages/effect/test/cli/Prompt.test.ts	271	it.effect	renders validation errors with the theme error color	
-unported	packages/effect/test/cli/Prompt.test.ts	291	it.effect	omits spacing for empty theme symbols	
-unported	packages/effect/test/cli/Prompt.test.ts	304	it.effect	starts from the default value so it can be edited	
-unported	packages/effect/test/cli/Prompt.test.ts	318	it.effect	clears the current input on ctrl-u	
-unported	packages/effect/test/cli/Prompt.test.ts	334	it.effect	moves the cursor to the beginning on ctrl-a	
-unported	packages/effect/test/cli/Prompt.test.ts	350	it.effect	moves the cursor to the end on ctrl-e	
-unported	packages/effect/test/cli/Prompt.test.ts	367	it.effect	does not insert characters for unsupported ctrl key combinations	
-unported	packages/effect/test/cli/Prompt.test.ts	382	it.effect	does not render or submit the cleared default value	
-unported	packages/effect/test/cli/Prompt.test.ts	405	it.effect	renders only the choice list when message is omitted	
-unported	packages/effect/test/cli/Prompt.test.ts	428	it.effect	keeps the header when message is empty	
-unported	packages/effect/test/cli/Prompt.test.ts	438	it.effect	renders a per-prompt theme across redraws	
-unported	packages/effect/test/cli/Prompt.test.ts	462	it.effect	renders selection colors from the prompt theme	
-unported	packages/effect/test/cli/Prompt.test.ts	484	it.effect	keeps title and description separated when the theme separator is empty	
-unported	packages/effect/test/cli/Prompt.test.ts	505	it.effect	aligns choices when paging arrows have different widths	
-unported	packages/effect/test/cli/Prompt.test.ts	529	it.effect	renders the password mask from the prompt theme	
-unported	packages/effect/test/cli/Prompt.test.ts	543	it.effect	keeps cursor movement aligned with a multi-character password mask	
-unported	packages/effect/test/cli/Prompt.test.ts	558	it.effect	starts from the default value so it can be edited	
-unported	packages/effect/test/cli/Prompt.test.ts	572	it.effect	does not submit the cleared default value	
-unported	packages/effect/test/cli/Prompt.test.ts	588	it.effect	renders the separator from the prompt theme	
-unported	packages/effect/test/cli/Prompt.test.ts	602	it.effect	keeps labels separated when the theme separator is empty	
-unported	packages/effect/test/cli/Prompt.test.ts	618	it.effect	filters choices as you type	
-unported	packages/effect/test/cli/Prompt.test.ts	644	it.effect	removes the last character on backspace	
-unported	packages/effect/test/cli/Prompt.test.ts	673	it.effect	clears the filter input on ctrl-u	
-unported	packages/effect/test/cli/Prompt.test.ts	702	it.effect	renders empty message and beeps on submit with no matches	
-unported	packages/effect/test/cli/Prompt.test.ts	729	it.effect	beeps when submitting a disabled choice	
-unported	packages/effect/test/cli/Prompt.test.ts	750	it.effect	renders empty message with no choices	
-unported	packages/effect/test/cli/Prompt.test.ts	767	it.effect	keeps `j` and `k` in the filter query instead of moving the cursor	
-unported	packages/effect/test/cli/Prompt.test.ts	793	it.effect	filters a query that merely contains a `k`	
-unported	packages/effect/test/cli/Prompt.test.ts	819	it.effect	moves the cursor with ctrl-n and ctrl-p	
-unported	packages/effect/test/cli/Prompt.test.ts	839	it.effect	moves the cursor up with ctrl-k	
-unported	packages/effect/test/cli/Prompt.test.ts	881	it.effect	starts from the default value so it can be submitted	
-unported	packages/effect/test/cli/Prompt.test.ts	894	it.effect	filters files as you type	
-unported	packages/effect/test/cli/Prompt.test.ts	917	it.effect	removes the last character on backspace	
-unported	packages/effect/test/cli/Prompt.test.ts	957	it.effect	keeps `j` in the filter query instead of moving the cursor	
-unported	packages/effect/test/cli/Prompt.test.ts	979	it.effect	keeps `k` in the filter query instead of moving the cursor	
-unported	packages/effect/test/cli/Prompt.test.ts	1001	it.effect	moves the cursor with ctrl-n and ctrl-p	
-unported	packages/effect/test/cli/Prompt.test.ts	1017	it.effect	moves the cursor up with ctrl-k	
-unported	packages/effect/test/cli/Prompt.test.ts	1035	it.effect	renders only the choice list when message is omitted	
-unported	packages/effect/test/cli/Prompt.test.ts	1059	it.effect	clears validation errors without a message	
-unported	packages/effect/test/cli/Prompt.test.ts	1086	it.effect	renders paging and checkbox symbols from the prompt theme	
-unported	packages/effect/test/cli/Prompt.test.ts	1114	it.effect	aligns choices when checkbox symbols have different widths	
-unported	packages/effect/test/cli/Prompt.test.ts	1137	it.effect	does not allow a disabled multi-select choice to be selected	
-unported	packages/effect/test/cli/Prompt.test.ts	1155	it.effect	does not select disabled choices when selecting all	
-unported	packages/effect/test/cli/Prompt.test.ts	1174	it.effect	does not select disabled choices when inverting the selection	
-unported	packages/effect/test/cli/Prompt.test.ts	1192	it.effect	ignores disabled preselected choices when validating and submitting	
-unported	packages/effect/test/cli/Prompt.test.ts	1214	it.effect	underlines the active label	
-unported	packages/effect/test/cli/Prompt.test.ts	1249	it.effect	keeps the previous frame visible while rendering ${transition}	
-unported	packages/effect/test/cli/Prompt.test.ts	1306	it.effect	receive handles events from external dequeue	
-unported	packages/effect/test/cli/Prompt.test.ts	1348	it.effect	falls back to process when no events are pending	
-unported	packages/effect/test/cli/Prompt.test.ts	1380	it.effect	Input variant exposes the input field with UserInput	
+ported	packages/effect/test/cli/Prompt.test.ts	53	it.effect	renders two-digit years, teen ordinals, and noon meridiem correctly	date_renders_two_digit_year_teen_ordinal_and_noon_meridiem date_ordinal_indicators
+
+ported	packages/effect/test/cli/Prompt.test.ts	67	it.effect	starts a fresh typed buffer when Tab advances to the next field	date_tab_starts_a_fresh_typed_buffer
+
+ported	packages/effect/test/cli/Prompt.test.ts	80	it.effect	starts a fresh typed buffer when Tab wraps to the first field	date_tab_wrap_starts_a_fresh_typed_buffer
+
+ported	packages/effect/test/cli/Prompt.test.ts	94	it.effect	accumulates multiple digits while staying in the same field	date_field_accumulates_digits
+
+ported	packages/effect/test/cli/Prompt.test.ts	105	it.effect	starts a fresh typed buffer when Tab wraps a single editable field	date_single_field_tab_clears
+
+not-applicable	packages/effect/test/cli/Prompt.test.ts	120	it.effect	supports an empty record	needs Prompt.all composition over effects; no Effect composition runtime here
+
+not-applicable	packages/effect/test/cli/Prompt.test.ts	126	it.effect	supports a non-array iterable	needs Prompt.all composition over effects
+
+ported	packages/effect/test/cli/Prompt.test.ts	134	it.effect	submits the default value	int_submits_the_default_value
+
+ported	packages/effect/test/cli/Prompt.test.ts	144	it.effect	starts from the default value so it can be edited	int_starts_from_default_so_it_can_be_edited
+
+ported	packages/effect/test/cli/Prompt.test.ts	155	it.effect	clears the default value on ctrl-u	int_clears_the_default_on_ctrl_u
+
+ported	packages/effect/test/cli/Prompt.test.ts	169	it.effect	preserves a leading zero in the fractional part	number_preserves_a_leading_zero_in_the_fractional_part
+
+ported	packages/effect/test/cli/Prompt.test.ts	179	it.effect	renders appended input without literal parsed	number_renders_appended_input_as_typed
+
+ported	packages/effect/test/cli/Prompt.test.ts	197	it.effect	clears the current input on ctrl-u	number_clears_the_current_input_on_ctrl_u
+
+ported	packages/effect/test/cli/Prompt.test.ts	212	it.effect	renders the default prompt theme	string_renders_the_default_prompt_theme
+
+ported	packages/effect/test/cli/Prompt.test.ts	222	it.effect	renders the prompt theme from context	string_renders_the_prompt_theme_from_context
+
+ported	packages/effect/test/cli/Prompt.test.ts	243	it.effect	renders theme colors from context with per-prompt overrides	string_renders_theme_colors_with_per_prompt_overrides
+
+ported	packages/effect/test/cli/Prompt.test.ts	271	it.effect	renders validation errors with the theme error color	string_renders_validation_errors_with_the_theme_error_color
+
+ported	packages/effect/test/cli/Prompt.test.ts	291	it.effect	omits spacing for empty theme symbols	string_omits_spacing_for_empty_theme_symbols
+
+ported	packages/effect/test/cli/Prompt.test.ts	304	it.effect	starts from the default value so it can be edited	string_starts_from_default_so_it_can_be_edited
+
+ported	packages/effect/test/cli/Prompt.test.ts	318	it.effect	clears the current input on ctrl-u	string_clears_the_current_input_on_ctrl_u
+
+ported	packages/effect/test/cli/Prompt.test.ts	334	it.effect	moves the cursor to the beginning on ctrl-a	string_moves_the_cursor_to_the_beginning_on_ctrl_a
+
+ported	packages/effect/test/cli/Prompt.test.ts	350	it.effect	moves the cursor to the end on ctrl-e	string_moves_the_cursor_to_the_end_on_ctrl_e
+
+ported	packages/effect/test/cli/Prompt.test.ts	367	it.effect	does not insert characters for unsupported ctrl key combinations	string_ignores_unsupported_ctrl_combinations
+
+ported	packages/effect/test/cli/Prompt.test.ts	382	it.effect	does not render or submit the cleared default value	string_does_not_submit_the_cleared_default_value
+
+ported	packages/effect/test/cli/Prompt.test.ts	405	it.effect	renders only the choice list when message is omitted	select_renders_only_the_choice_list_when_message_is_omitted
+
+ported	packages/effect/test/cli/Prompt.test.ts	428	it.effect	keeps the header when message is empty	select_keeps_the_header_when_message_is_empty
+
+not-applicable	packages/effect/test/cli/Prompt.test.ts	438	it.effect	renders a per-prompt theme across redraws	needs per-prompt theme across live redraw frames; no live-frame harness
+
+ported	packages/effect/test/cli/Prompt.test.ts	462	it.effect	renders selection colors from the prompt theme	select_renders_selection_colors_from_the_prompt_theme
+
+ported	packages/effect/test/cli/Prompt.test.ts	484	it.effect	keeps title and description separated when the theme separator is empty	select_keeps_title_and_description_separated_when_separator_is_empty
+
+ported	packages/effect/test/cli/Prompt.test.ts	505	it.effect	aligns choices when paging arrows have different widths	select_aligns_choices_when_paging_arrows_have_different_widths
+
+ported	packages/effect/test/cli/Prompt.test.ts	529	it.effect	renders the password mask from the prompt theme	password_renders_the_mask_from_the_prompt_theme
+
+ported	packages/effect/test/cli/Prompt.test.ts	543	it.effect	keeps cursor movement aligned with a multi-character password mask	password_keeps_cursor_movement_aligned_with_multi_char_mask
+
+ported	packages/effect/test/cli/Prompt.test.ts	558	it.effect	starts from the default value so it can be edited	password_starts_from_default_so_it_can_be_edited
+
+ported	packages/effect/test/cli/Prompt.test.ts	572	it.effect	does not submit the cleared default value	password_does_not_submit_the_cleared_default_value
+
+ported	packages/effect/test/cli/Prompt.test.ts	588	it.effect	renders the separator from the prompt theme	toggle_renders_the_separator_from_the_prompt_theme
+
+ported	packages/effect/test/cli/Prompt.test.ts	602	it.effect	keeps labels separated when the theme separator is empty	toggle_keeps_labels_separated_when_separator_is_empty
+
+ported	packages/effect/test/cli/Prompt.test.ts	618	it.effect	filters choices as you type	autocomplete_filters_choices_as_you_type
+
+ported	packages/effect/test/cli/Prompt.test.ts	644	it.effect	removes the last character on backspace	autocomplete_backspace_widens_the_filter
+
+ported	packages/effect/test/cli/Prompt.test.ts	673	it.effect	clears the filter input on ctrl-u	autocomplete_clears_the_filter_input_on_ctrl_u
+
+ported	packages/effect/test/cli/Prompt.test.ts	702	it.effect	renders empty message and beeps on submit with no matches	autocomplete_submit_with_no_matches_is_a_beep
+
+ported	packages/effect/test/cli/Prompt.test.ts	729	it.effect	beeps when submitting a disabled choice	autocomplete_beeps_when_submitting_a_disabled_choice
+
+ported	packages/effect/test/cli/Prompt.test.ts	750	it.effect	renders empty message with no choices	autocomplete_empty_choice_list_never_submits
+
+ported	packages/effect/test/cli/Prompt.test.ts	767	it.effect	keeps `j` and `k` in the filter query instead of moving the cursor	autocomplete_keeps_j_and_k_in_the_filter_query
+
+ported	packages/effect/test/cli/Prompt.test.ts	793	it.effect	filters a query that merely contains a `k`	autocomplete_filters_a_query_that_merely_contains_k
+
+ported	packages/effect/test/cli/Prompt.test.ts	819	it.effect	moves the cursor with ctrl-n and ctrl-p	autocomplete_moves_the_cursor_with_ctrl_n_and_ctrl_p
+
+ported	packages/effect/test/cli/Prompt.test.ts	839	it.effect	moves the cursor up with ctrl-k	autocomplete_moves_the_cursor_up_with_ctrl_k
+
+ported	packages/effect/test/cli/Prompt.test.ts	881	it.effect	starts from the default value so it can be submitted	file_starts_from_the_default_value_so_it_can_be_submitted
+
+ported	packages/effect/test/cli/Prompt.test.ts	894	it.effect	filters files as you type	file_filters_files_as_you_type
+
+ported	packages/effect/test/cli/Prompt.test.ts	917	it.effect	removes the last character on backspace	file_backspace_widens_the_filter
+
+ported	packages/effect/test/cli/Prompt.test.ts	957	it.effect	keeps `j` in the filter query instead of moving the cursor	file_keeps_j_in_the_filter_query
+
+ported	packages/effect/test/cli/Prompt.test.ts	979	it.effect	keeps `k` in the filter query instead of moving the cursor	file_keeps_k_in_the_filter_query
+
+ported	packages/effect/test/cli/Prompt.test.ts	1001	it.effect	moves the cursor with ctrl-n and ctrl-p	file_moves_the_cursor_with_ctrl_n_and_ctrl_p
+
+ported	packages/effect/test/cli/Prompt.test.ts	1017	it.effect	moves the cursor up with ctrl-k	file_moves_the_cursor_up_with_ctrl_k
+
+ported	packages/effect/test/cli/Prompt.test.ts	1035	it.effect	renders only the choice list when message is omitted	multiselect_renders_only_the_choice_list_when_message_is_omitted
+
+ported	packages/effect/test/cli/Prompt.test.ts	1059	it.effect	clears validation errors without a message	multiselect_min_validation_names_the_required_count
+
+ported	packages/effect/test/cli/Prompt.test.ts	1086	it.effect	renders paging and checkbox symbols from the prompt theme	multiselect_renders_paging_and_checkbox_symbols_from_the_theme
+
+ported	packages/effect/test/cli/Prompt.test.ts	1114	it.effect	aligns choices when checkbox symbols have different widths	multiselect_aligns_choices_when_checkbox_symbols_have_different_widths
+
+ported	packages/effect/test/cli/Prompt.test.ts	1137	it.effect	does not allow a disabled multi-select choice to be selected	multiselect_does_not_select_a_disabled_choice
+
+ported	packages/effect/test/cli/Prompt.test.ts	1155	it.effect	does not select disabled choices when selecting all	multiselect_select_all_skips_disabled_choices
+
+ported	packages/effect/test/cli/Prompt.test.ts	1174	it.effect	does not select disabled choices when inverting the selection	multiselect_invert_skips_disabled_choices
+
+ported	packages/effect/test/cli/Prompt.test.ts	1192	it.effect	ignores disabled preselected choices when validating and submitting	multiselect_validation_ignores_disabled_preselected_choices
+
+not-applicable	packages/effect/test/cli/Prompt.test.ts	1214	it.effect	underlines the active label	needs underlined active label on a live frame; no live-frame harness
+
+not-applicable	packages/effect/test/cli/Prompt.test.ts	1249	it.effect	keeps the previous frame visible while rendering ${transition}	needs previous-frame visibility across transitions; no live-frame harness
+
+not-applicable	packages/effect/test/cli/Prompt.test.ts	1306	it.effect	receive handles events from external dequeue	needs external-dequeue event rendezvous; no fiber queue here
+
+not-applicable	packages/effect/test/cli/Prompt.test.ts	1348	it.effect	falls back to process when no events are pending	needs process fallback when no events pending; no process/fiber runtime here
+
+not-applicable	packages/effect/test/cli/Prompt.test.ts	1380	it.effect	Input variant exposes the input field with UserInput	needs UserInput keypress plumbing from a live terminal; no TTY harness
+
 ported	packages/effect/test/cli/completions/completions.test.ts	141	it	completes the active positional argument instead of always using the first	completes_the_active_positional_argument_instead_of_always_using_the_first
 ported	packages/effect/test/cli/completions/completions.test.ts	187	it	generates completion function for root command	generates_completion_function_for_root_command
 ported	packages/effect/test/cli/completions/completions.test.ts	195	it	includes subcommand names in word list	includes_subcommand_names_in_word_list

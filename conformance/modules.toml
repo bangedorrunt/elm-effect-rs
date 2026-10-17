@@ -1364,7 +1364,7 @@ tests = ["packages/effect/test/cli/Primitive.test.ts"]
 [[module]]
 path = "packages/effect/src/cli/Prompt.ts"
 class = "unstable-port"
-status = "unmatched"
+status = "matched"
 tag = "unstable"
 reason = ""
 tests = ["packages/effect/test/cli/Prompt.test.ts"]
