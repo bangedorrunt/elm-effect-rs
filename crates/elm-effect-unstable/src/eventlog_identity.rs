@@ -4,12 +4,6 @@
 //! SHA-256 over a domain-separated, versioned label. Memoized per identity
 //! instance.
 
-use std::cell::RefCell;
-use std::collections::HashMap;
-use std::sync::Arc;
-
-use base64::Engine as _;
-use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use ed25519_dalek::SigningKey;
 use sha2::{Digest, Sha256};
 
@@ -58,34 +52,4 @@ pub fn derive_identity_root_secret_material(root_secret: &[u8]) -> IdentityRootS
         signing_public_key,
         signing_private_key,
     }
-}
-
-pub struct GetIdentityRootSecretMaterial {
-    cache: RefCell<HashMap<usize, Arc<IdentityRootSecretMaterial>>>,
-}
-
-impl GetIdentityRootSecretMaterial {
-    pub fn new() -> Self {
-        Self { cache: RefCell::new(HashMap::new()) }
-    }
-
-    pub fn call(&self, identity: &Identity) -> Arc<IdentityRootSecretMaterial> {
-        let key = identity as *const Identity as usize;
-        if let Some(cached) = self.cache.borrow().get(&key) {
-            return cached.clone();
-        }
-        let derived = Arc::new(derive_identity_root_secret_material(&identity.root_secret));
-        self.cache.borrow_mut().insert(key, derived.clone());
-        derived
-    }
-}
-
-pub fn make_get_identity_root_secret_material() -> GetIdentityRootSecretMaterial {
-    GetIdentityRootSecretMaterial::new()
-}
-
-// base64url decode helper (unused by tests but kept for parity)
-#[allow(dead_code)]
-pub fn decode_base64_url(value: &str) -> Vec<u8> {
-    URL_SAFE_NO_PAD.decode(value).unwrap_or_default()
 }

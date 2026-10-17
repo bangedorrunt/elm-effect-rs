@@ -99,104 +99,48 @@ impl std::fmt::Display for EncodingError {
 
 impl std::error::Error for EncodingError {}
 
-const B64_STD: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-const B64_URL: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+use base64::Engine as _;
 
-fn b64_encode(bytes: &[u8], alphabet: &[u8; 64]) -> String {
-    let mut out = String::new();
-    for chunk in bytes.chunks(3) {
-        let n = chunk.len();
-        let mut bits: u32 = 0;
-        for (i, byte) in chunk.iter().enumerate() {
-            bits |= (*byte as u32) << (16 - 8 * i);
-        }
-        let chars = if n == 3 { 4 } else { n + 1 };
-        for i in 0..chars {
-            let shift = 18 - 6 * i;
-            out.push(alphabet[((bits >> shift) & 0x3f) as usize] as char);
-        }
-        for _ in chars..4 {
-            out.push('=');
-        }
-    }
-    out
+fn b64_std() -> impl base64::Engine {
+    base64::engine::general_purpose::STANDARD
 }
 
-fn b64_value(byte: u8, url: bool) -> Option<u8> {
-    match byte {
-        b'A'..=b'Z' => Some(byte - b'A'),
-        b'a'..=b'z' => Some(byte - b'a' + 26),
-        b'0'..=b'9' => Some(byte - b'0' + 52),
-        b'+' if !url => Some(62),
-        b'/' if !url => Some(63),
-        b'-' if url => Some(62),
-        b'_' if url => Some(63),
-        _ => None,
-    }
+fn b64_url_unpadded() -> impl base64::Engine {
+    base64::engine::general_purpose::URL_SAFE_NO_PAD
 }
 
-fn b64_decode(input: &str, module: &'static str, url: bool) -> Result<Vec<u8>, EncodingError> {
-    let fail = |message: &str| EncodingError::decode(module, input, message);
-    let mut clean: Vec<u8> = input.bytes().filter(|b| !b.is_ascii_whitespace()).collect();
-    if clean.is_empty() {
-        return Ok(vec![]);
-    }
-    if url {
-        // Unpadded tails: a 2-char tail carries 1 byte, a 3-char tail 2.
-        // Virtually pad so the chunk decoder below derives them; a
-        // 1-char remainder can never be valid.
-        match clean.len() % 4 {
-            0 => {}
-            1 => return Err(fail("invalid length")),
-            rem => clean.extend(std::iter::repeat(b'=').take(4 - rem)),
-        }
-    } else if clean.len() % 4 != 0 {
-        return Err(fail("invalid length"));
-    }
-    let mut out = Vec::new();
-    for chunk in clean.chunks(4) {
-        let pad = chunk.iter().rev().take_while(|b| **b == b'=').count();
-        if pad > 2 {
-            return Err(fail("invalid padding"));
-        }
-        let mut payload: u32 = 0;
-        for (i, byte) in chunk.iter().enumerate() {
-            if *byte == b'=' {
-                if i < 4 - pad {
-                    return Err(fail("misplaced padding"));
-                }
-                continue;
-            }
-            payload = (payload << 6)
-                | u32::from(b64_value(*byte, url).ok_or_else(|| fail("invalid character"))?);
-        }
-        let total_bits = 6 * (4 - pad);
-        let bytes = 3 - pad;
-        for i in 0..bytes {
-            out.push(((payload >> (total_bits - 8 * (i + 1))) & 0xff) as u8);
-        }
-    }
-    Ok(out)
+fn b64_url_padded() -> impl base64::Engine {
+    base64::engine::general_purpose::URL_SAFE
+}
+
+fn strip_whitespace(input: &str) -> String {
+    input.bytes().filter(|b| !b.is_ascii_whitespace()).map(|b| b as char).collect()
 }
 
 /// Standard Base64 encode (bytes or UTF-8 string).
 pub fn base64_encode(bytes: &[u8]) -> String {
-    b64_encode(bytes, B64_STD)
+    b64_std().encode(bytes)
 }
 
 /// URL-safe Base64 encode (`-`/`_` alphabet, no padding).
 pub fn base64_url_encode(bytes: &[u8]) -> String {
-    b64_encode(bytes, B64_URL).trim_end_matches('=').to_string()
+    b64_url_unpadded().encode(bytes)
 }
 
 /// Standard Base64 decode; ASCII whitespace is skipped.
 pub fn base64_decode(input: &str) -> Result<Vec<u8>, EncodingError> {
-    b64_decode(input, "Base64", false)
+    b64_std()
+        .decode(strip_whitespace(input))
+        .map_err(|_| EncodingError::decode("Base64", input, "invalid encoding"))
 }
 
-/// URL-safe Base64 decode.
+/// URL-safe Base64 decode; padded and unpadded both accepted.
 pub fn base64_url_decode(input: &str) -> Result<Vec<u8>, EncodingError> {
-    b64_decode(input, "Base64Url", true)
+    let clean = strip_whitespace(input);
+    b64_url_unpadded()
+        .decode(&clean)
+        .or_else(|_| b64_url_padded().decode(&clean))
+        .map_err(|_| EncodingError::decode("Base64Url", input, "invalid encoding"))
 }
 
 /// Decode to a UTF-8 string.

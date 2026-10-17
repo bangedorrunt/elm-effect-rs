@@ -101,10 +101,6 @@ pub struct PlatformResponse {
     pub body: PlatformBody,
 }
 
-fn file_size_from_input(input: ByteSize) -> Option<ByteSize> {
-    Some(input)
-}
-
 fn mime_type(path: &str) -> &'static str {
     mime::get_type(path).unwrap_or("application/octet-stream")
 }
@@ -123,11 +119,6 @@ fn option_headers_web(options: &FileWebResponseOptions) -> BTreeMap<String, Stri
         headers.insert("content-type".to_string(), ct.clone());
     }
     headers
-}
-
-/// Infer content length header value.
-fn oversized_ok(size: u64) -> bool {
-    size <= u64::MAX
 }
 
 /// `fileResponse` for a path with a given file size (injected for tests).
@@ -287,12 +278,3 @@ pub fn file_web_response(
         },
     }
 }
-
-
-// keep file_size_from_input used
-#[allow(dead_code)]
-fn _use_fs(x: ByteSize) -> ByteSize { file_size_from_input(x).unwrap_or(0) }
-
-// oversized guard unused marker
-#[allow(dead_code)]
-fn _oversized_ok() -> bool { oversized_ok(0) }
