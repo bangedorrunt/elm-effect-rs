@@ -702,6 +702,136 @@ fn new_kinded(kind: SchemaKind) -> Schema<Unknown> {
     }
 }
 
+/// Which side of a transform a Standard JSON Schema document describes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum StandardJsonSchemaSide {
+    Input,
+    Output,
+}
+
+/// The `target` option of `~standard.jsonSchema.input/output`: only the tuple
+/// prefix keyword and the definition slot differ between drafts.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum StandardJsonSchemaTarget {
+    #[default]
+    Draft2020_12,
+    Draft07,
+}
+
+/// A schema carrying Standard JSON Schema metadata (`toStandardJSONSchemaV1`):
+/// the same codec, plus `input`/`output` documents per target draft.
+pub struct StandardJsonSchemaV1<T> {
+    schema: Schema<T>,
+}
+
+/// Wrap a schema without changing its codec (`toStandardJSONSchemaV1`).
+pub fn to_standard_json_schema_v1<T>(schema: Schema<T>) -> StandardJsonSchemaV1<T> {
+    StandardJsonSchemaV1 { schema }
+}
+
+/// Compose both standards (`toStandardSchemaV1(toStandardJSONSchemaV1(..))`):
+/// the JSON Schema documents survive unchanged, so this is the identity.
+pub fn to_standard_schema_v1<T>(wrapped: StandardJsonSchemaV1<T>) -> StandardJsonSchemaV1<T> {
+    wrapped
+}
+
+impl<T> StandardJsonSchemaV1<T> {
+    /// The wrapped schema: decode/encode behave exactly as before.
+    pub fn schema(&self) -> &Schema<T> {
+        &self.schema
+    }
+
+    /// The input document for `target` (default `draft-2020-12`).
+    pub fn input(&self, target: StandardJsonSchemaTarget) -> serde_json::Value
+    where
+        T: Send + Sync + 'static,
+    {
+        self.schema.standard_json_schema_input(target)
+    }
+
+    /// The output document for `target`.
+    pub fn output(&self, target: StandardJsonSchemaTarget) -> serde_json::Value
+    where
+        T: Send + Sync + 'static,
+    {
+        self.schema.standard_json_schema_output(target)
+    }
+}
+
+/// Build the root document for one side, hoisting repeated `identifier`
+/// annotations into the draft's definition slot.
+fn standard_json_schema_document(
+    kind: &SchemaKind,
+    side: StandardJsonSchemaSide,
+    target: StandardJsonSchemaTarget,
+) -> serde_json::Value {
+    let mut defs = serde_json::Map::new();
+    let mut body = standard_doc_for_kind(kind, side, target, &mut defs);
+    if !defs.is_empty()
+        && let serde_json::Value::Object(ref mut map) = body
+    {
+        map.insert(
+            match target {
+                StandardJsonSchemaTarget::Draft2020_12 => "$defs",
+                StandardJsonSchemaTarget::Draft07 => "definitions",
+            }
+            .to_string(),
+            serde_json::Value::Object(defs),
+        );
+    }
+    body
+}
+
+/// One kind as a Standard JSON Schema fragment. Checks and non-identifier
+/// annotations ride the codec, not the document; an `identifier` hoists the
+/// inner shape into the root definitions and emits a `$ref`.
+fn standard_doc_for_kind(
+    kind: &SchemaKind,
+    side: StandardJsonSchemaSide,
+    target: StandardJsonSchemaTarget,
+    defs: &mut serde_json::Map<String, serde_json::Value>,
+) -> serde_json::Value {
+    match kind {
+        SchemaKind::Annotated { pairs, inner } => {
+            if let Some((_, id)) = pairs.iter().find(|(key, _)| key == "identifier") {
+                let doc = standard_doc_for_kind(inner, side, target, defs);
+                defs.entry(id.clone()).or_insert(doc);
+                let reference = match target {
+                    StandardJsonSchemaTarget::Draft2020_12 => format!("#/$defs/{id}"),
+                    StandardJsonSchemaTarget::Draft07 => format!("#/definitions/{id}"),
+                };
+                return serde_json::json!({"$ref": reference});
+            }
+            standard_doc_for_kind(inner, side, target, defs)
+        }
+        SchemaKind::Check { base, .. } => standard_doc_for_kind(base, side, target, defs),
+        // ponytail: only the transforms this port's rows use branch by side.
+        SchemaKind::Opaque("finiteFromString") | SchemaKind::Opaque("numberFromString") => {
+            match side {
+                StandardJsonSchemaSide::Input => serde_json::json!({"type": "string"}),
+                StandardJsonSchemaSide::Output => serde_json::json!({"type": "number"}),
+            }
+        }
+        SchemaKind::String => serde_json::json!({"type": "string"}),
+        SchemaKind::Number => serde_json::json!({"type": "number"}),
+        SchemaKind::Boolean => serde_json::json!({"type": "boolean"}),
+        SchemaKind::Tuple(elements) => {
+            let items: Vec<serde_json::Value> = elements
+                .iter()
+                .map(|element| standard_doc_for_kind(element, side, target, defs))
+                .collect();
+            let count = items.len();
+            let mut doc = serde_json::json!({"type": "array", "minItems": count, "maxItems": count});
+            doc[match target {
+                StandardJsonSchemaTarget::Draft2020_12 => "prefixItems",
+                StandardJsonSchemaTarget::Draft07 => "items",
+            }] = serde_json::Value::Array(items);
+            doc
+        }
+        other => other.to_json_schema(),
+    }
+}
+
 /// The wire shape of a schema: drives JSON Schema documents.
 #[derive(Debug, Clone, PartialEq)]
 pub enum SchemaKind {
@@ -1157,6 +1287,24 @@ impl<T> Schema<T> {
             }
         }
         self.kind.to_json_schema()
+    }
+
+    /// The input-side Standard JSON Schema document (`~standard.jsonSchema.input`):
+    /// the shape `decode` accepts. Only transforms differ from [`json_schema`](Self::json_schema).
+    pub fn standard_json_schema_input(&self, target: StandardJsonSchemaTarget) -> serde_json::Value
+    where
+        T: Send + Sync + 'static,
+    {
+        standard_json_schema_document(&self.repr_kind(), StandardJsonSchemaSide::Input, target)
+    }
+
+    /// The output-side Standard JSON Schema document (`~standard.jsonSchema.output`):
+    /// the shape `encode` produces. Only transforms differ from `input`.
+    pub fn standard_json_schema_output(&self, target: StandardJsonSchemaTarget) -> serde_json::Value
+    where
+        T: Send + Sync + 'static,
+    {
+        standard_json_schema_document(&self.repr_kind(), StandardJsonSchemaSide::Output, target)
     }
 
     /// The declared fields of a struct shape, in declaration order, or `None`
