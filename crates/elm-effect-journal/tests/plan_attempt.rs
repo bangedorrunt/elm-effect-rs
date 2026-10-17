@@ -1,7 +1,6 @@
 //! Dispatch table tests: every arm of `plan_attempt`, plus settle guards.
 
-#[path = "../src/plan.rs"]
-mod plan;
+use elm_effect_journal::plan;
 
 use elm_effect_journal::EffectState as S;
 use plan::{
