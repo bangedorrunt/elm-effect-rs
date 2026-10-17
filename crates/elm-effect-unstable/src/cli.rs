@@ -1728,9 +1728,10 @@ pub mod help {
         /// Find a child by name or alias, unlisted ones included: unlisted
         /// subcommands still parse on the command line.
         pub fn find_subcommand(&self, name: &str) -> Option<&HelpNode> {
-            self.groups.iter().flat_map(|group| &group.commands).find(|child| {
-                child.name == name || child.alias.as_deref() == Some(name)
-            })
+            self.groups
+                .iter()
+                .flat_map(|group| &group.commands)
+                .find(|child| child.name == name || child.alias.as_deref() == Some(name))
         }
 
         /// Visible child names (names plus aliases, unlisted excluded): the
@@ -2100,7 +2101,11 @@ pub mod help {
     /// Width of one grapheme cluster: strip zero-width marks, then 2 for
     /// emoji presentation or full-width, else 1.
     fn grapheme_width(cluster: &[char]) -> usize {
-        let visible: Vec<char> = cluster.iter().copied().filter(|ch| !is_zero_width(*ch)).collect();
+        let visible: Vec<char> = cluster
+            .iter()
+            .copied()
+            .filter(|ch| !is_zero_width(*ch))
+            .collect();
         if visible.is_empty() {
             return 0;
         }
@@ -2236,7 +2241,11 @@ pub mod help {
     /// Aligned two-column table (mirrors `renderTable`): the description
     /// column sits at the widest left cell plus four, capped at `width_cap`.
     fn render_table(rows: &[(String, String)], width_cap: Option<usize>) -> String {
-        let widest = rows.iter().map(|(left, _)| visual_width(left)).max().unwrap_or(0);
+        let widest = rows
+            .iter()
+            .map(|(left, _)| visual_width(left))
+            .max()
+            .unwrap_or(0);
         let column = match width_cap {
             Some(cap) => widest.saturating_add(4).min(cap),
             None => widest.saturating_add(4),
@@ -2303,7 +2312,10 @@ pub mod help {
                 .flags
                 .iter()
                 .map(|flag| {
-                    (flag_left(flag), flag.description.clone().unwrap_or_default())
+                    (
+                        flag_left(flag),
+                        flag.description.clone().unwrap_or_default(),
+                    )
                 })
                 .collect();
             sections.push(render_table(&rows, None));
@@ -2315,7 +2327,10 @@ pub mod help {
                 .global_flags
                 .iter()
                 .map(|flag| {
-                    (flag_left(flag), flag.description.clone().unwrap_or_default())
+                    (
+                        flag_left(flag),
+                        flag.description.clone().unwrap_or_default(),
+                    )
                 })
                 .collect();
             sections.push(render_table(&rows, None));
@@ -2345,7 +2360,10 @@ pub mod help {
                     if !first {
                         sections.push(String::new());
                     }
-                    sections.push(format!("  # {}", example.description.clone().unwrap_or_default()));
+                    sections.push(format!(
+                        "  # {}",
+                        example.description.clone().unwrap_or_default()
+                    ));
                 } else if previous_had_description {
                     sections.push(String::new());
                 }
@@ -2379,5 +2397,461 @@ pub mod help {
             })
             .collect();
         render_table(&rows, Some(20))
+    }
+}
+
+/// Interactive prompts (`cli/Prompt` at the pin): the pure core behind the
+/// `MockTerminal` rows. Keystrokes in, ANSI frames out, and the `Effect`
+/// plumbing stay in TypeScript (no TTY harness exists here); what ports is
+/// the logic the rows pin: date-mask rendering, per-field typed buffers,
+/// text-buffer editing, int/float keystroke parsing, case-insensitive
+/// choice filtering, wrapping cursor steps, password masking, theme
+/// symbols/separators/colors, and multi-select set operations with min/max
+/// validation.
+pub mod prompt {
+    /// Theme symbols and colors (mirrors `defaultTheme`; overrides arrive
+    /// via struct-update syntax, matching `makeTheme` partial overrides).
+    #[derive(Clone, Debug, PartialEq, Eq)]
+    pub struct PromptTheme {
+        /// Leading symbol (`?`).
+        pub prefix: String,
+        /// Active-choice pointer (`❯`).
+        pub pointer: String,
+        /// Small pointer after the message (`›`).
+        pub pointer_small: String,
+        /// Submitted tick (`✔`).
+        pub tick: String,
+        /// Submitted ellipsis (`…`).
+        pub ellipsis: String,
+        /// Paging arrow up (`↑`).
+        pub arrow_up: String,
+        /// Paging arrow down (`↓`).
+        pub arrow_down: String,
+        /// Selected checkbox (`☒`).
+        pub checkbox_on: String,
+        /// Unselected checkbox (`☐`).
+        pub checkbox_off: String,
+        /// Title/description separator (`- `).
+        pub description_separator: String,
+        /// Mask per password character (`*`).
+        pub password_mask: String,
+        /// Toggle label separator (`/`).
+        pub toggle_separator: String,
+        /// Highlight color.
+        pub primary_color: String,
+        /// Dim color.
+        pub muted_color: String,
+        /// Success color.
+        pub success_color: String,
+        /// Error color.
+        pub error_color: String,
+        /// Submitted-value color.
+        pub submitted_color: String,
+    }
+
+    impl Default for PromptTheme {
+        fn default() -> Self {
+            Self {
+                prefix: "?".to_owned(),
+                pointer: "❯".to_owned(),
+                pointer_small: "›".to_owned(),
+                tick: "✔".to_owned(),
+                ellipsis: "…".to_owned(),
+                arrow_up: "↑".to_owned(),
+                arrow_down: "↓".to_owned(),
+                checkbox_on: "☒".to_owned(),
+                checkbox_off: "☐".to_owned(),
+                description_separator: "- ".to_owned(),
+                password_mask: "*".to_owned(),
+                toggle_separator: "/".to_owned(),
+                // The pin's ANSI colors; rows pin the codes, not the hues.
+                primary_color: "\x1b[36m".to_owned(),
+                muted_color: "\x1b[90m".to_owned(),
+                success_color: "\x1b[32m".to_owned(),
+                error_color: "\x1b[31m".to_owned(),
+                submitted_color: "\x1b[37m".to_owned(),
+            }
+        }
+    }
+
+    /// Wrap `text` in `color` (mirrors `Ansi.annotate`: color plus reset).
+    pub fn annotate(color: &str, text: &str) -> String {
+        format!("{color}{text}\x1b[0m")
+    }
+
+    /// `symbol` plus one space before `text`; an empty symbol leaves `text`
+    /// bare (mirrors `separateSymbol`).
+    pub fn separate_symbol(symbol: &str, text: &str) -> String {
+        if symbol.is_empty() {
+            text.to_owned()
+        } else {
+            format!("{symbol} {text}")
+        }
+    }
+
+    /// Prompt title: `prefix` plus one space before the message; empty
+    /// symbols render the bare message (the `:291` row pins `"Name"`).
+    pub fn title_line(prefix: &str, message: &str) -> String {
+        separate_symbol(prefix, message)
+    }
+
+    /// Optional prompt header: no message means no header (the `:405` row
+    /// pins the choice-list-only frame); an empty message still renders one
+    /// (the `:428` row pins `?  › `).
+    pub fn title_line_opt(
+        message: Option<&str>,
+        prefix: &str,
+        pointer_small: &str,
+    ) -> Option<String> {
+        message.map(|message| format!("{} {pointer_small}", title_line(prefix, message)))
+    }
+
+    /// `left` plus one space plus the separated `right` (the `:484` row
+    /// pins `"First one"` for an empty separator, never `"Firstone"`).
+    pub fn join_pair(left: &str, separator: &str, right: &str) -> String {
+        format!("{left} {}", separate_symbol(separator, right))
+    }
+
+    /// Toggle labels (mirrors the pin's
+    /// `active + " " + separateSymbol(separator, inactive)`): the default
+    /// `/` reads `"on / off"`, an empty separator still keeps one space.
+    pub fn toggle_text(active: &str, inactive: &str, separator: &str) -> String {
+        format!("{active} {}", separate_symbol(separator, inactive))
+    }
+
+    /// Two-digit year (mirrors `Year.toString` for `YY`).
+    pub fn two_digit_year(year: i64) -> String {
+        let padded = format!("{year:04}");
+        padded[padded.len() - 2..].to_owned()
+    }
+
+    /// Day ordinal suffix (mirrors `Day.ordinalIndicator`: 11-13 are `th`).
+    pub fn ordinal_indicator(day: u32) -> &'static str {
+        if (11..=13).contains(&day) {
+            return "th";
+        }
+        match day % 10 {
+            1 => "st",
+            2 => "nd",
+            3 => "rd",
+            _ => "th",
+        }
+    }
+
+    /// Meridiem label (mirrors `Meridiem.toString`: `A` uppercases).
+    pub fn meridiem(hour: u32, uppercase: bool) -> &'static str {
+        let lower = hour >= 12;
+        match (lower, uppercase) {
+            (true, true) => "PM",
+            (true, false) => "pm",
+            (false, true) => "AM",
+            (false, false) => "am",
+        }
+    }
+
+    /// Outcome of a `ctrl-<key>` press on a text buffer: only clearing and
+    /// cursor moves are bound; anything else (e.g. `ctrl-l`) is ignored
+    /// (the `:367` row pins `"Jane"` surviving a `ctrl-l`).
+    #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+    pub enum CtrlOutcome {
+        /// `ctrl-u`: the buffer was cleared.
+        Cleared,
+        /// `ctrl-a`: the cursor moved to the start.
+        MovedToStart,
+        /// `ctrl-e`: the cursor moved to the end.
+        MovedToEnd,
+        /// Unbound combination: the buffer is untouched.
+        Ignored,
+    }
+
+    impl CtrlOutcome {
+        /// `true` for unbound combinations.
+        pub fn is_ignored(self) -> bool {
+            matches!(self, Self::Ignored)
+        }
+    }
+
+    /// Editable line buffer (the pure core behind `TextState`: value plus
+    /// cursor, in characters; the pin counts UTF-16 units, so astral-plane
+    /// cursor columns differ by one per astral character).
+    #[derive(Clone, Debug, Default, PartialEq, Eq)]
+    pub struct TextBuffer {
+        value: Vec<char>,
+        cursor: usize,
+    }
+
+    impl TextBuffer {
+        /// An empty buffer with the cursor at the start.
+        pub fn new() -> Self {
+            Self::default()
+        }
+
+        /// A buffer prefilled with the default, cursor at the end (typing
+        /// appends to the default: the `:144`/`:304` rows pin `"Jane Doe"`).
+        pub fn with_default(default: &str) -> Self {
+            let value: Vec<char> = default.chars().collect();
+            let cursor = value.len();
+            Self { value, cursor }
+        }
+
+        /// Insert text at the cursor.
+        pub fn type_text(&mut self, text: &str) {
+            let chars: Vec<char> = text.chars().collect();
+            self.value
+                .splice(self.cursor..self.cursor, chars.iter().cloned());
+            self.cursor += chars.len();
+        }
+
+        /// Delete the character before the cursor (`false` is a beep: the
+        /// cursor is already at the start).
+        pub fn backspace(&mut self) -> bool {
+            if self.cursor == 0 {
+                return false;
+            }
+            self.cursor -= 1;
+            self.value.remove(self.cursor);
+            true
+        }
+
+        /// Clear the whole buffer (`ctrl-u`).
+        pub fn clear(&mut self) {
+            self.value.clear();
+            self.cursor = 0;
+        }
+
+        /// Move the cursor to the start (`ctrl-a`).
+        pub fn move_start(&mut self) {
+            self.cursor = 0;
+        }
+
+        /// Move the cursor to the end (`ctrl-e`).
+        pub fn move_end(&mut self) {
+            self.cursor = self.value.len();
+        }
+
+        /// Move the cursor one character left (clamped at the start).
+        pub fn move_left(&mut self) {
+            self.cursor = self.cursor.saturating_sub(1);
+        }
+
+        /// Drop the per-field typed input (`Tab` advances to the next date
+        /// field: the `:67`/`:80`/`:105` rows pin a fresh buffer).
+        pub fn tab(&mut self) {
+            self.clear();
+        }
+
+        /// Apply a `ctrl-<key>` press: `u` clears, `a`/`e` move, the rest
+        /// (e.g. `l`) are ignored.
+        pub fn apply_ctrl(&mut self, key: char) -> CtrlOutcome {
+            match key {
+                'u' => {
+                    self.clear();
+                    CtrlOutcome::Cleared
+                }
+                'a' => {
+                    self.move_start();
+                    CtrlOutcome::MovedToStart
+                }
+                'e' => {
+                    self.move_end();
+                    CtrlOutcome::MovedToEnd
+                }
+                _ => CtrlOutcome::Ignored,
+            }
+        }
+
+        /// The submitted value (an emptied default submits `""`: `:382`).
+        pub fn submit(&self) -> String {
+            self.value.iter().collect()
+        }
+    }
+
+    /// One integer keystroke (mirrors `defaultIntProcessor`): a lone `-`
+    /// starts a negative; otherwise the concatenation must be an integer or
+    /// the key is a beep (`None`).
+    pub fn int_append(value: &str, input: &str) -> Option<String> {
+        let combined = format!("{value}{input}");
+        if combined == "-" {
+            return Some(combined);
+        }
+        let digits = combined.strip_prefix('-').unwrap_or(&combined);
+        if !digits.is_empty() && digits.bytes().all(|b| b.is_ascii_digit()) {
+            return combined
+                .parse::<i64>()
+                .ok()
+                .map(|parsed| parsed.to_string());
+        }
+        None
+    }
+
+    /// One float keystroke (mirrors `defaultFloatProcessor`): a second `.`
+    /// is a beep; a leading `-` starts a negative; a trailing `.` or a digit
+    /// after a `.` keeps the typed shape (the `:169` row pins `"0.05"`).
+    /// Seam: the pin's `parseFloat` accepts a trailing `e` (`"12e"` parses
+    /// as `12`); this port beeps on it instead.
+    pub fn float_append(value: &str, input: &str) -> Option<String> {
+        if input == "." && value.contains('.') {
+            return None;
+        }
+        if value.is_empty() && input == "-" {
+            return Some("-".to_owned());
+        }
+        let combined = format!("{value}{input}");
+        if combined.parse::<f64>().is_err() {
+            return None;
+        }
+        if input == "." || (value.contains('.') && input.bytes().all(|b| b.is_ascii_digit())) {
+            return Some(combined);
+        }
+        // `Display` prints integral floats without a fraction (`125.0`
+        // renders as `"125"`), matching the pin's `${parsed}`.
+        combined
+            .parse::<f64>()
+            .ok()
+            .map(|parsed| format!("{parsed}"))
+    }
+
+    /// Case-insensitive substring filter over titles/filenames, returning
+    /// matching indices (mirrors `filterAutoCompleteChoices` on titles and
+    /// `filterFiles` on names; an empty query matches everything).
+    pub fn filter_matches(items: &[&str], query: &str) -> Vec<usize> {
+        if query.is_empty() {
+            return (0..items.len()).collect();
+        }
+        let query = query.to_lowercase();
+        items
+            .iter()
+            .enumerate()
+            .filter(|(_, item)| item.to_lowercase().contains(&*query))
+            .map(|(index, _)| index)
+            .collect()
+    }
+
+    /// Move a choice cursor by `delta`, wrapping at the ends (mirrors the
+    /// pin's modulo down-step and wrap-to-last up-step; `ctrl-n`/`ctrl-p`/
+    /// `ctrl-k` all route here). An empty list stays at 0.
+    pub fn step_index(index: usize, len: usize, delta: i64) -> usize {
+        if len == 0 {
+            return 0;
+        }
+        ((index as i64 + delta).rem_euclid(len as i64)) as usize
+    }
+
+    /// Submit the highlighted choice: an empty filtered list or a disabled
+    /// highlight is a beep (`None`, the `:702`/`:729`/`:750` rows); the
+    /// empty-list case also covers the interrupt-on-no-choices row at the
+    /// data level (no submit is possible either way).
+    pub fn submit_choice(disabled: &[bool], filtered: &[usize], index: usize) -> Option<usize> {
+        let current = *filtered.get(index).or_else(|| filtered.first())?;
+        if disabled.get(current).copied().unwrap_or(false) {
+            return None;
+        }
+        Some(current)
+    }
+
+    /// Validate a multi-select submission count (mirrors the pin's
+    /// `At least {min} are required` / `At most {max} choices are allowed`).
+    pub fn multiselect_validate(
+        selected: usize,
+        min: Option<usize>,
+        max: Option<usize>,
+    ) -> Option<String> {
+        if let Some(min) = min {
+            if selected < min {
+                return Some(format!("At least {min} are required"));
+            }
+        }
+        if let Some(max) = max {
+            if selected > max {
+                return Some(format!("At most {max} choices are allowed"));
+            }
+        }
+        None
+    }
+
+    /// Indices the Select-All meta option would hold: every enabled choice
+    /// (the `:1155` row pins the disabled choice staying out).
+    pub fn select_all(count: usize, disabled: &[bool]) -> Vec<usize> {
+        (0..count)
+            .filter(|index| !disabled.get(*index).copied().unwrap_or(false))
+            .collect()
+    }
+
+    /// Indices the Invert-Selection meta option would hold: enabled choices
+    /// flip, disabled choices stay out (the `:1174` row pins this).
+    pub fn invert_selection(selected: &[usize], count: usize, disabled: &[bool]) -> Vec<usize> {
+        (0..count)
+            .filter(|index| {
+                let is_disabled = disabled.get(*index).copied().unwrap_or(false);
+                if is_disabled {
+                    return false;
+                }
+                let is_selected = selected.contains(index);
+                !is_selected
+            })
+            .collect()
+    }
+
+    /// Label of the Select-All meta option for the current state.
+    pub fn select_all_label(all_selected: bool) -> &'static str {
+        if all_selected {
+            "Select None"
+        } else {
+            "Select All"
+        }
+    }
+
+    /// Mask a value for password display, one mask per character.
+    pub fn mask_text(value: &str, mask: &str) -> String {
+        mask.repeat(value.chars().count())
+    }
+
+    /// Cursor offset for a masked password line (mirrors the pin's
+    /// `(cursor - value.length) * mask.length`): one left step moves the
+    /// cursor back by one whole mask (the `:543` row pins `-2` for a
+    /// two-character mask).
+    pub fn masked_cursor_offset(cursor: usize, value_len: usize, mask_len: usize) -> i64 {
+        (cursor as i64 - value_len as i64) * mask_len as i64
+    }
+
+    /// Paging-arrow prefix padded to the widest arrow (mirrors
+    /// `renderPagingPrefix`): the `:505` row pins `"   "` aligning with
+    /// `"vvv"`. Widths count characters here, UTF-16 units there.
+    pub fn paging_prefix(
+        arrow_up: &str,
+        arrow_down: &str,
+        show_up: bool,
+        show_down: bool,
+    ) -> String {
+        let width = arrow_up.chars().count().max(arrow_down.chars().count());
+        let pad = |arrow: &str| {
+            let missing = width.saturating_sub(arrow.chars().count());
+            format!("{arrow}{}", " ".repeat(missing))
+        };
+        if show_up {
+            pad(arrow_up)
+        } else if show_down {
+            pad(arrow_down)
+        } else {
+            " ".repeat(width)
+        }
+    }
+
+    /// Checkbox symbol for a choice's selected state.
+    pub fn checkbox_for(selected: bool, theme: &PromptTheme) -> &str {
+        if selected {
+            &theme.checkbox_on
+        } else {
+            &theme.checkbox_off
+        }
+    }
+
+    /// Checkbox cell padded so titles align (mirrors the pin's
+    /// `checkbox + " ".repeat(width - len + 1)`): the `:1114` row pins
+    /// `"[x] "` aligning with `"    "`. Widths count characters here,
+    /// UTF-16 units there.
+    pub fn checkbox_cell(checkbox: &str, width: usize) -> String {
+        let missing = width.saturating_sub(checkbox.chars().count()) + 1;
+        format!("{checkbox}{}", " ".repeat(missing))
     }
 }
