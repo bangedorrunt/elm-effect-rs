@@ -98,8 +98,16 @@ pub struct McpServer {
     /// Completed tool dispatches keyed by request identity
     /// (`client_id:request_id:tool:args`). Single-flight via
     /// [`Request`]: the first caller for a key runs the handler, resends
-    /// replay the stored outcome without re-running it.
-    completed: Mutex<HashMap<String, Arc<Request<ToolResult, AssemblyError>>>>,
+    /// replay the stored outcome without re-running it. Entries carry
+    /// their completion time; the map is bounded (see `completed_cap`
+    /// and `completed_ttl`, enforced on insert). A resend arriving after
+    /// its entry was evicted re-runs the handler: the cache is a dedupe
+    /// window, not a log.
+    completed: Mutex<HashMap<String, (std::time::Instant, Arc<Request<ToolResult, AssemblyError>>)>>,
+    /// Maximum retained completed dispatches; oldest-first on overflow.
+    completed_cap: usize,
+    /// How long a completed dispatch stays replayable.
+    completed_ttl: std::time::Duration,
 }
 
 impl McpServer {
@@ -125,7 +133,15 @@ impl McpServer {
             reported: Vec::new(),
             server_info,
             completed: Mutex::new(HashMap::new()),
+            completed_cap: 1024,
+            completed_ttl: std::time::Duration::from_secs(600),
         }
+    }
+
+    /// Tune the completed-dispatch dedupe window (tests use small values).
+    pub fn set_completed_cache_limits(&mut self, cap: usize, ttl: std::time::Duration) {
+        self.completed_cap = cap.max(1);
+        self.completed_ttl = ttl;
     }
 
     /// Tool registry (plain handlers).
@@ -303,11 +319,24 @@ impl McpServer {
         );
         let (cell, owner) = {
             let mut done = self.completed.lock().unwrap();
-            if let Some(cell) = done.get(&key) {
+            let now = std::time::Instant::now();
+            // Sweep expired entries first; then oldest-first on overflow.
+            // A waiter holding the Arc keeps its cell alive past eviction.
+            done.retain(|_, (at, _)| now.duration_since(*at) < self.completed_ttl);
+            if !done.contains_key(&key) && done.len() >= self.completed_cap {
+                if let Some(oldest) = done
+                    .iter()
+                    .min_by_key(|(_, (at, _))| *at)
+                    .map(|(k, _)| k.clone())
+                {
+                    done.remove(&oldest);
+                }
+            }
+            if let Some((_, cell)) = done.get(&key) {
                 (Arc::clone(cell), false)
             } else {
                 let cell = Arc::new(Request::new());
-                done.insert(key.clone(), Arc::clone(&cell));
+                done.insert(key.clone(), (now, Arc::clone(&cell)));
                 (cell, true)
             }
         };
@@ -425,5 +454,44 @@ mod idempotency_tests {
         // A fresh id runs again.
         s.call_tool_with_id(&ctx, "req-2", "once", None).unwrap();
         assert_eq!(runs.load(Ordering::SeqCst), 2);
+    }
+
+    #[test]
+    fn cap_evicts_oldest_first() {
+        let mut s = McpServer::new(ServerInfo::test());
+        s.set_completed_cache_limits(2, std::time::Duration::from_secs(600));
+        let runs = Arc::new(AtomicUsize::new(0));
+        let body = Arc::clone(&runs);
+        s.tools_mut().register("once", "o", serde_json::json!({"type": "object"}), move |_| {
+            body.fetch_add(1, Ordering::SeqCst);
+            Ok(vec![content_text("done")])
+        });
+        let ctx = s.context(7, "c");
+        for id in ["a", "b", "c"] {
+            s.call_tool_with_id(&ctx, id, "once", None).unwrap();
+        }
+        assert_eq!(runs.load(Ordering::SeqCst), 3);
+        // "a" was evicted as oldest: resend re-runs. "c" still replays.
+        s.call_tool_with_id(&ctx, "a", "once", None).unwrap();
+        assert_eq!(runs.load(Ordering::SeqCst), 4);
+        s.call_tool_with_id(&ctx, "c", "once", None).unwrap();
+        assert_eq!(runs.load(Ordering::SeqCst), 4);
+    }
+
+    #[test]
+    fn expired_entries_replay_nothing() {
+        let mut s = McpServer::new(ServerInfo::test());
+        s.set_completed_cache_limits(1024, std::time::Duration::from_millis(1));
+        let runs = Arc::new(AtomicUsize::new(0));
+        let body = Arc::clone(&runs);
+        s.tools_mut().register("once", "o", serde_json::json!({"type": "object"}), move |_| {
+            body.fetch_add(1, Ordering::SeqCst);
+            Ok(vec![content_text("done")])
+        });
+        let ctx = s.context(7, "c");
+        s.call_tool_with_id(&ctx, "req-1", "once", None).unwrap();
+        std::thread::sleep(std::time::Duration::from_millis(50));
+        s.call_tool_with_id(&ctx, "req-1", "once", None).unwrap();
+        assert_eq!(runs.load(Ordering::SeqCst), 2, "expired entry must re-run");
     }
 }
