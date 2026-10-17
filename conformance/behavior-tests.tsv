@@ -8867,54 +8867,54 @@ not-applicable	packages/effect/test/schema/representation/fromJsonSchemaMultiDoc
 not-applicable	packages/effect/test/schema/representation/fromJsonSchemaMultiDocument.test.ts	291	it	tracks recursive definitions independently	needs independent recursive-definition tracking
 not-applicable	packages/effect/test/schema/representation/fromJsonSchemaMultiDocument.test.ts	312	it	throws when a reference that must be resolved is missing	needs missing-reference throw with resolution context
 not-applicable	packages/effect/test/schema/representation/fromJsonSchemaMultiDocument.test.ts	324	it	throws when resolving a circular alias chain	needs circular-alias-chain detection
-unported	packages/effect/test/schema/representation/fromRepresentation.test.ts	58	it	revives Null	
-unported	packages/effect/test/schema/representation/fromRepresentation.test.ts	62	it	revives Undefined	
-unported	packages/effect/test/schema/representation/fromRepresentation.test.ts	66	it	revives Void	
-unported	packages/effect/test/schema/representation/fromRepresentation.test.ts	70	it	revives Never	
-unported	packages/effect/test/schema/representation/fromRepresentation.test.ts	74	it	revives Unknown	
-unported	packages/effect/test/schema/representation/fromRepresentation.test.ts	78	it	revives Any	
-unported	packages/effect/test/schema/representation/fromRepresentation.test.ts	82	it	revives String	
-unported	packages/effect/test/schema/representation/fromRepresentation.test.ts	86	it	revives Number	
-unported	packages/effect/test/schema/representation/fromRepresentation.test.ts	90	it	revives Boolean	
-unported	packages/effect/test/schema/representation/fromRepresentation.test.ts	94	it	revives BigInt	
-unported	packages/effect/test/schema/representation/fromRepresentation.test.ts	98	it	revives Symbol	
-unported	packages/effect/test/schema/representation/fromRepresentation.test.ts	102	it	revives ObjectKeyword	
-unported	packages/effect/test/schema/representation/fromRepresentation.test.ts	106	it	revives Literal without changing its type	
-unported	packages/effect/test/schema/representation/fromRepresentation.test.ts	122	it	revives UniqueSymbol	
-unported	packages/effect/test/schema/representation/fromRepresentation.test.ts	129	it	revives Enum	
-unported	packages/effect/test/schema/representation/fromRepresentation.test.ts	136	it	rejects non-finite numeric Enum values	
-unported	packages/effect/test/schema/representation/fromRepresentation.test.ts	151	it	revives TemplateLiteral	
-unported	packages/effect/test/schema/representation/fromRepresentation.test.ts	157	it	revives a reference in TemplateLiteral as a concrete part	
-unported	packages/effect/test/schema/representation/fromRepresentation.test.ts	168	it	revives nested references in a TemplateLiteral union	
-unported	packages/effect/test/schema/representation/fromRepresentation.test.ts	183	it	revives Tuple	
-unported	packages/effect/test/schema/representation/fromRepresentation.test.ts	187	it	revives Array	
-unported	packages/effect/test/schema/representation/fromRepresentation.test.ts	191	it	revives TupleWithRest	
-unported	packages/effect/test/schema/representation/fromRepresentation.test.ts	197	it	revives Struct	
-unported	packages/effect/test/schema/representation/fromRepresentation.test.ts	205	it	revives Record	
-unported	packages/effect/test/schema/representation/fromRepresentation.test.ts	209	it	revives a reference used as a Record key	
-unported	packages/effect/test/schema/representation/fromRepresentation.test.ts	220	it	revives StructWithRest	
-unported	packages/effect/test/schema/representation/fromRepresentation.test.ts	226	it	revives Union	
-unported	packages/effect/test/schema/representation/fromRepresentation.test.ts	233	it	revives Union options through live and JSON representation roundtrips	
-unported	packages/effect/test/schema/representation/fromRepresentation.test.ts	252	it	revives an empty Union as Never	
-unported	packages/effect/test/schema/representation/fromRepresentation.test.ts	261	it	revives Suspend	
-unported	packages/effect/test/schema/representation/fromRepresentation.test.ts	293	it	restores node annotations	
-unported	packages/effect/test/schema/representation/fromRepresentation.test.ts	298	it	restores node annotations before checks	
-unported	packages/effect/test/schema/representation/fromRepresentation.test.ts	311	it	restores tuple element annotations	
-unported	packages/effect/test/schema/representation/fromRepresentation.test.ts	320	it	restores property annotations	
-unported	packages/effect/test/schema/representation/fromRepresentation.test.ts	329	it	restores checks added by fromBrand	
-unported	packages/effect/test/schema/representation/fromRepresentation.test.ts	348	it	restores a node representation annotation without schema dependencies	
-unported	packages/effect/test/schema/representation/fromRepresentation.test.ts	354	it	restores a node representation annotation with schema dependencies	
-unported	packages/effect/test/schema/representation/fromRepresentation.test.ts	364	it	revives a Filter	
-unported	packages/effect/test/schema/representation/fromRepresentation.test.ts	375	it	revives a FilterGroup without an identity from its children	
-unported	packages/effect/test/schema/representation/fromRepresentation.test.ts	382	it	uses an identified FilterGroup reviver instead of its persisted children	
-unported	packages/effect/test/schema/representation/fromRepresentation.test.ts	409	it	revives a Declaration	
-unported	packages/effect/test/schema/representation/fromRepresentation.test.ts	430	it	reports a missing reviver	
-unported	packages/effect/test/schema/representation/fromRepresentation.test.ts	440	it	rejects duplicate reviver IDs	
-unported	packages/effect/test/schema/representation/fromRepresentation.test.ts	452	it	rejects an invalid reviver payload	
-unported	packages/effect/test/schema/representation/fromRepresentation.test.ts	465	it	preserves a reviver exception by identity	
-unported	packages/effect/test/schema/representation/fromRepresentation.test.ts	483	it	requires a representation identity on a Filter	
-unported	packages/effect/test/schema/representation/fromRepresentation.test.ts	498	it	requires a representation identity on a Declaration	
-unported	packages/effect/test/schema/representation/fromRepresentation.test.ts	513	it	reports an invalid reference	
+ported	packages/effect/test/schema/representation/fromRepresentation.test.ts	58	it	revives Null	revives_null
+not-applicable	packages/effect/test/schema/representation/fromRepresentation.test.ts	62	it	revives Undefined	no Undefined value in Unknown domain
+ported	packages/effect/test/schema/representation/fromRepresentation.test.ts	66	it	revives Void	revives_void
+ported	packages/effect/test/schema/representation/fromRepresentation.test.ts	70	it	revives Never	revives_never
+ported	packages/effect/test/schema/representation/fromRepresentation.test.ts	74	it	revives Unknown	revives_unknown_and_any
+ported	packages/effect/test/schema/representation/fromRepresentation.test.ts	78	it	revives Any	revives_unknown_and_any
+ported	packages/effect/test/schema/representation/fromRepresentation.test.ts	82	it	revives String	revives_string_number_boolean
+ported	packages/effect/test/schema/representation/fromRepresentation.test.ts	86	it	revives Number	revives_string_number_boolean
+ported	packages/effect/test/schema/representation/fromRepresentation.test.ts	90	it	revives Boolean	revives_string_number_boolean
+not-applicable	packages/effect/test/schema/representation/fromRepresentation.test.ts	94	it	revives BigInt	pure BigInt row; no bigint domain
+not-applicable	packages/effect/test/schema/representation/fromRepresentation.test.ts	98	it	revives Symbol	no Symbol value in Unknown domain
+ported	packages/effect/test/schema/representation/fromRepresentation.test.ts	102	it	revives ObjectKeyword	revives_object_keyword
+ported	packages/effect/test/schema/representation/fromRepresentation.test.ts	106	it	revives Literal without changing its type	revives_literal_without_changing_its_type  [bigint pairs out; string/number/boolean pairs witnessed (no bigint domain)]
+not-applicable	packages/effect/test/schema/representation/fromRepresentation.test.ts	122	it	revives UniqueSymbol	no UniqueSymbol value
+ported	packages/effect/test/schema/representation/fromRepresentation.test.ts	129	it	revives Enum	revives_enum_values  [member names not asserted; values accepted/rejected as pin]
+ported	packages/effect/test/schema/representation/fromRepresentation.test.ts	136	it	rejects non-finite numeric Enum values	rejects_non_finite_numeric_enum_values
+not-applicable	packages/effect/test/schema/representation/fromRepresentation.test.ts	151	it	revives TemplateLiteral	template parts folded into opaque marker; cannot rebuild
+not-applicable	packages/effect/test/schema/representation/fromRepresentation.test.ts	157	it	revives a reference in TemplateLiteral as a concrete part	template reference parts inexpressible
+not-applicable	packages/effect/test/schema/representation/fromRepresentation.test.ts	168	it	revives nested references in a TemplateLiteral union	nested template references inexpressible
+ported	packages/effect/test/schema/representation/fromRepresentation.test.ts	183	it	revives Tuple	revives_tuple
+ported	packages/effect/test/schema/representation/fromRepresentation.test.ts	187	it	revives Array	revives_array
+ported	packages/effect/test/schema/representation/fromRepresentation.test.ts	191	it	revives TupleWithRest	revives_tuple_with_rest
+ported	packages/effect/test/schema/representation/fromRepresentation.test.ts	197	it	revives Struct	revives_struct
+ported	packages/effect/test/schema/representation/fromRepresentation.test.ts	205	it	revives Record	revives_record
+ported	packages/effect/test/schema/representation/fromRepresentation.test.ts	209	it	revives a reference used as a Record key	revives_a_reference_used_as_a_record_key
+ported	packages/effect/test/schema/representation/fromRepresentation.test.ts	220	it	revives StructWithRest	revives_struct_with_rest  [string-keyed rest; symbol-keyed rest inexpressible (no symbol domain)]
+ported	packages/effect/test/schema/representation/fromRepresentation.test.ts	226	it	revives Union	revives_union
+ported	packages/effect/test/schema/representation/fromRepresentation.test.ts	233	it	revives Union options through live and JSON representation roundtrips	revives_union_options_through_live_and_json_roundtrips
+ported	packages/effect/test/schema/representation/fromRepresentation.test.ts	252	it	revives an empty Union as Never	revives_an_empty_union_as_never
+ported	packages/effect/test/schema/representation/fromRepresentation.test.ts	261	it	revives Suspend	revives_suspend
+ported	packages/effect/test/schema/representation/fromRepresentation.test.ts	293	it	restores node annotations	restores_node_annotations
+ported	packages/effect/test/schema/representation/fromRepresentation.test.ts	298	it	restores node annotations before checks	restores_node_annotations_before_checks
+ported	packages/effect/test/schema/representation/fromRepresentation.test.ts	311	it	restores tuple element annotations	restores_tuple_element_annotations
+ported	packages/effect/test/schema/representation/fromRepresentation.test.ts	320	it	restores property annotations	restores_property_annotations
+ported	packages/effect/test/schema/representation/fromRepresentation.test.ts	329	it	restores checks added by fromBrand	restores_checks_added_by_from_brand
+ported	packages/effect/test/schema/representation/fromRepresentation.test.ts	348	it	restores a node representation annotation without schema dependencies	restores_a_node_representation_annotation_without_schema_dependencies
+ported	packages/effect/test/schema/representation/fromRepresentation.test.ts	354	it	restores a node representation annotation with schema dependencies	restores_a_node_representation_annotation_with_schema_dependencies
+ported	packages/effect/test/schema/representation/fromRepresentation.test.ts	364	it	revives a Filter	revives_a_filter
+ported	packages/effect/test/schema/representation/fromRepresentation.test.ts	375	it	revives a FilterGroup without an identity from its children	revives_a_filter_group_without_an_identity_from_its_children
+ported	packages/effect/test/schema/representation/fromRepresentation.test.ts	382	it	uses an identified FilterGroup reviver instead of its persisted children	uses_an_identified_filter_group_reviver_instead_of_its_persisted_children
+not-applicable	packages/effect/test/schema/representation/fromRepresentation.test.ts	409	it	revives a Declaration	needs pin JS predicate (custom callback)
+ported	packages/effect/test/schema/representation/fromRepresentation.test.ts	430	it	reports a missing reviver	reports_a_missing_reviver
+ported	packages/effect/test/schema/representation/fromRepresentation.test.ts	440	it	rejects duplicate reviver IDs	rejects_duplicate_reviver_ids
+ported	packages/effect/test/schema/representation/fromRepresentation.test.ts	452	it	rejects an invalid reviver payload	rejects_an_invalid_reviver_payload
+not-applicable	packages/effect/test/schema/representation/fromRepresentation.test.ts	465	it	preserves a reviver exception by identity	no JS exception identity across the revive boundary
+ported	packages/effect/test/schema/representation/fromRepresentation.test.ts	483	it	requires a representation identity on a Filter	requires_a_representation_identity_on_a_filter
+ported	packages/effect/test/schema/representation/fromRepresentation.test.ts	498	it	requires a representation identity on a Declaration	requires_a_representation_identity_on_a_declaration
+ported	packages/effect/test/schema/representation/fromRepresentation.test.ts	513	it	reports an invalid reference	reports_an_invalid_reference
 ported	packages/effect/test/schema/representation/fromRepresentations.test.ts	9	it	preserves root order	preserves_root_order
 ported	packages/effect/test/schema/representation/fromRepresentations.test.ts	24	it	does not revive unreachable references	does_not_revive_unreachable_references
 ported	packages/effect/test/schema/representation/fromRepresentations.test.ts	40	it	normalizes aliases while preserving the outer reference	normalizes_aliases_while_preserving_the_outer_reference
