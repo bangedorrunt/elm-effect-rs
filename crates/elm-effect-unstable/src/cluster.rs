@@ -334,6 +334,19 @@ impl ReplyRegistry {
             .unwrap_or_default()
     }
 
+    /// True once a terminal reply (exit or defect) is stored for a request,
+    /// whether or not its chunks are acknowledged: the stream completed.
+    pub fn is_complete(&self, request_id: &str) -> bool {
+        self.replies.get(request_id).is_some_and(|replies| {
+            replies.iter().any(|reply| {
+                matches!(
+                    reply,
+                    StoredReply::Exit { .. } | StoredReply::Defect { .. }
+                )
+            })
+        })
+    }
+
     /// Mark every chunk for a request acknowledged; true when any was.
     pub fn acknowledge(&mut self, request_id: &str) -> bool {
         let mut acked = false;
@@ -1142,6 +1155,12 @@ impl Runners {
     /// The outer runner payload: the envelope, written by the protocol codec.
     pub fn encode_request(&self, request: &RunnerRequest) -> String {
         self.codec.encode(&runner_envelope(request))
+    }
+
+    /// Decode one wire payload through the protocol codec: the counterpart
+    /// of [`Self::encode_request`] for the reply hole the server filled.
+    pub fn decode_reply(&self, wire: &str) -> String {
+        self.codec.decode(wire)
     }
 
     /// Send a request, handing the answer to `respond`.

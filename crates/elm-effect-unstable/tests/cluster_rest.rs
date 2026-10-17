@@ -312,6 +312,59 @@ fn entity_clients_close_activations_on_demand() {
     clients.close();
 }
 
+// --- RunnerServer.test.ts rows ---
+
+// RunnerServer.test.ts:136 — a successful runner stream completes: the value
+// arrives as a chunk, the client ack hides it, and the terminal exit remains.
+#[test]
+fn runner_stream_completes_with_exit_after_ack() {
+    let mut registry = ReplyRegistry::new();
+    registry.succeed_stream("req", &[1]);
+    assert_eq!(entity_values(&registry, "req"), vec![1]);
+    assert!(registry.is_complete("req"));
+    assert!(registry.acknowledge("req"));
+    assert!(entity_values(&registry, "req").is_empty());
+    assert_eq!(
+        registry.replies_for("req"),
+        vec![StoredReply::Exit { payload: Vec::new() }]
+    );
+    assert!(registry.is_complete("req"));
+}
+
+// RunnerServer.test.ts:380 — the serialization codec fills the entity payload
+// and reply holes: the payload survives the codec round trip and the envelope
+// carries it already encoded.
+#[test]
+fn runner_codec_fills_payload_and_reply_holes() {
+    let codec = CountingCodec::new("codecForJsonString");
+    let calls = Arc::clone(&codec.calls);
+    let runners = Runners::new(
+        Box::new(codec),
+        Box::new(StaticTransport {
+            outcome: Delivery::Delivered,
+        }),
+    );
+    let mut request = RunnerRequest::new("1", "Double", r#"{"id":21}"#, false);
+    let mut received = None;
+    runners
+        .send_local(&mut request, true, &mut |incoming| received = Some(incoming))
+        .expect("a local send does not fail");
+    let incoming = received.expect("the local send delivered");
+    assert_eq!(incoming.payload, r#"{"id":21}"#);
+    assert_eq!(request.encoded_by.as_deref(), Some("codecForJsonString"));
+    let wire = runners.encode_request(&request);
+    assert!(
+        wire.starts_with('"') && wire.ends_with('"'),
+        "the outer payload is a JSON string: {wire}"
+    );
+    let back = runners.decode_reply(&wire);
+    assert!(
+        back.contains(r#""payload":"{\"id\":21}""#),
+        "the entity payload is carried, not re-encoded: {back}"
+    );
+    assert!(calls.load(Ordering::SeqCst) >= 3, "the codec filled the holes");
+}
+
 // --- Entity server (Entity.test.ts rows) ---
 
 fn entity_values(registry: &ReplyRegistry, request_id: &str) -> Vec<i64> {
