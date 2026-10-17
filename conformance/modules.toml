@@ -1204,7 +1204,7 @@ tests = ["packages/effect/test/ai/Model.test.ts"]
 [[module]]
 path = "packages/effect/src/ai/OpenAiStructuredOutput.ts"
 class = "unstable-port"
-status = "unmatched"
+status = "matched"
 tag = "unstable"
 reason = ""
 tests = ["packages/effect/test/ai/OpenAiStructuredOutput.test.ts"]

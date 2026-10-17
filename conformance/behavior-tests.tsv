@@ -5320,63 +5320,120 @@ unported	packages/effect/test/ai/McpServer/v2026_07_28.test.ts	569	it.effect	sho
 unported	packages/effect/test/ai/McpServer/v2026_07_28.test.ts	592	it.effect	should treat an empty elicitation capability as form support	
 unported	packages/effect/test/ai/McpServer/v2026_07_28.test.ts	633	it.effect	should reject input requests when the client omits their required capabilities	
 not-applicable	packages/effect/test/ai/Model.test.ts	6	it.effect	provides metadata alongside the wrapped layer for the duration of the scope	missing: AI Model surface entirely absent (crates/elm-effect/src/ has no ai module; crates/elm-effect/Cargo.toml has no ai feature)
-unported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	29	it	rejects primitive roots	
-unported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	33	it	rejects array roots	
-unported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	37	it	rejects anyOf roots	
-unported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	47	it	rejects unconstrained roots	
-unported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	54	it	encodes Undefined as null	
-unported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	58	it	encodes a bigint Literal as a string	
-unported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	63	it	encodes post-rest elements as object properties	
-unported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	84	it	non-string property signature name	
-unported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	94	it	no-transformation recursive schema	
-unported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	139	it	transformation recursive schema	
-unported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	201	it	Null	
-unported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	208	it	String	
-unported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	218	it	String + supported format	
-unported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	225	it	String + unsupported format	
-unported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	232	it	String + isMinLength	
-unported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	239	it	String + isMinLength + isMaxLength	
-unported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	246	it	String + startsWith	
-unported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	254	it	String + startsWith + endsWith	
-unported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	262	it	String + pattern	
-unported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	272	it	Number	
-unported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	282	it	Finite	
-unported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	292	it	Finite + string format	
-unported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	299	it	Finite + unsupported format	
-unported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	306	it	Finite + isGreaterThan	
-unported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	314	it	Finite + isGreaterThanOrEqualTo	
-unported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	322	it	Finite + isLessThan	
-unported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	330	it	Finite + isLessThanOrEqualTo	
-unported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	338	it	Finite + isBetween	
-unported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	347	it	Finite + isMultipleOf	
-unported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	355	it	Finite + isGreaterThan + isLessThan	
-unported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	366	it	Int	
-unported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	376	it	Int + string format	
-unported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	383	it	Int + unsupported format	
-unported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	390	it	Int + isGreaterThan	
-unported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	398	it	Int + isGreaterThan + isLessThan	
-unported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	410	it	Literal(string)	
-unported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	417	it	Literal(number)	
-unported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	424	it	Literal(boolean)	
-unported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	433	it	oneOf	
-unported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	442	it	Union(NonEmptyString, Int)	
-unported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	453	it	Array(String)	
-unported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	465	it	Array(String) + isMinLength	
-unported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	474	it	Array(String) + isMinLength + isMaxLength	
-unported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	486	it	Tuple([])	
-unported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	493	it	Tuple([String, Finite])	
-unported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	517	it	Tuple([String, Finite]) + description	
-unported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	532	it	Tuple([String, Finite?])	
-unported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	565	it	TupleWithRest([String, Finite], Boolean)	
-unported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	598	it	required properties	
-unported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	609	it	optional properties	
-unported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	644	it	Class	
-unported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	670	it	EmptyParams	
-unported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	683	it	Record(String, Finite)	
-unported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	716	it	Record with properties and an index signature	
-unported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	760	it	Record(String, Finite) + description	
-unported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	780	it	Record(String, Finite) + isMinProperties	
-unported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	807	it	Record(String, Finite) + isMinProperties + description	
+ported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	29	it	rejects primitive roots	rejects_primitive_roots
+
+ported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	33	it	rejects array roots	rejects_array_roots
+
+ported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	37	it	rejects anyOf roots	rejects_anyof_roots
+
+ported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	47	it	rejects unconstrained roots	rejects_unconstrained_roots
+
+ported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	54	it	encodes Undefined as null	keeps_null_and_undefined_shapes
+
+ported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	58	it	encodes a bigint Literal as a string	keeps_bigint_literal_shape
+
+not-applicable	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	63	it	encodes post-rest elements as object properties	needs codec-transform lowering or schema-compiler machinery absent from this port
+
+not-applicable	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	84	it	non-string property signature name	needs codec-transform lowering or schema-compiler machinery absent from this port
+
+not-applicable	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	94	it	no-transformation recursive schema	needs codec-transform lowering or schema-compiler machinery absent from this port
+
+not-applicable	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	139	it	transformation recursive schema	needs codec-transform lowering or schema-compiler machinery absent from this port
+
+ported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	201	it	Null	keeps_null_and_undefined_shapes
+
+ported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	208	it	String	keeps_string_shapes
+
+ported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	218	it	String + supported format	keeps_string_shapes
+
+ported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	225	it	String + unsupported format	moves_unsupported_string_format_to_description
+
+ported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	232	it	String + isMinLength	drops_string_length_bounds_but_keeps_description
+
+ported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	239	it	String + isMinLength + isMaxLength	drops_string_length_bounds_but_keeps_description
+
+ported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	246	it	String + startsWith	keeps_string_shapes
+
+ported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	254	it	String + startsWith + endsWith	merges_combined_string_patterns
+
+ported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	262	it	String + pattern	keeps_string_shapes
+
+ported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	272	it	Number	keeps_number_union_shape
+
+ported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	282	it	Finite	keeps_finite_shapes
+
+ported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	292	it	Finite + string format	moves_unsupported_number_format_to_description
+
+ported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	299	it	Finite + unsupported format	moves_unsupported_number_format_to_description
+
+ported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	306	it	Finite + isGreaterThan	keeps_finite_shapes
+
+ported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	314	it	Finite + isGreaterThanOrEqualTo	keeps_finite_shapes
+
+ported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	322	it	Finite + isLessThan	keeps_finite_shapes
+
+ported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	330	it	Finite + isLessThanOrEqualTo	keeps_finite_shapes
+
+ported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	338	it	Finite + isBetween	keeps_finite_shapes
+
+ported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	347	it	Finite + isMultipleOf	keeps_finite_shapes
+
+ported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	355	it	Finite + isGreaterThan + isLessThan	keeps_finite_shapes
+
+ported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	366	it	Int	keeps_int_shapes
+
+ported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	376	it	Int + string format	moves_unsupported_int_format_to_description
+
+ported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	383	it	Int + unsupported format	moves_unsupported_int_format_to_description
+
+ported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	390	it	Int + isGreaterThan	keeps_int_shapes
+
+ported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	398	it	Int + isGreaterThan + isLessThan	keeps_int_shapes
+
+ported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	410	it	Literal(string)	keeps_literal_shapes
+
+ported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	417	it	Literal(number)	keeps_literal_shapes
+
+ported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	424	it	Literal(boolean)	keeps_literal_shapes
+
+ported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	433	it	oneOf	keeps_union_shapes
+
+ported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	442	it	Union(NonEmptyString, Int)	keeps_union_shapes
+
+ported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	453	it	Array(String)	keeps_array_shapes
+
+ported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	465	it	Array(String) + isMinLength	keeps_array_shapes
+
+ported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	474	it	Array(String) + isMinLength + isMaxLength	keeps_array_shapes
+
+ported	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	486	it	Tuple([])	keeps_empty_tuple_shape
+
+not-applicable	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	493	it	Tuple([String, Finite])	needs codec-transform lowering or schema-compiler machinery absent from this port
+
+not-applicable	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	517	it	Tuple([String, Finite]) + description	needs codec-transform lowering or schema-compiler machinery absent from this port
+
+not-applicable	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	532	it	Tuple([String, Finite?])	needs codec-transform lowering or schema-compiler machinery absent from this port
+
+not-applicable	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	565	it	TupleWithRest([String, Finite], Boolean)	needs codec-transform lowering or schema-compiler machinery absent from this port
+
+not-applicable	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	598	it	required properties	needs codec-transform lowering or schema-compiler machinery absent from this port
+
+not-applicable	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	609	it	optional properties	needs codec-transform lowering or schema-compiler machinery absent from this port
+
+not-applicable	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	644	it	Class	needs codec-transform lowering or schema-compiler machinery absent from this port
+
+not-applicable	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	670	it	EmptyParams	needs codec-transform lowering or schema-compiler machinery absent from this port
+
+not-applicable	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	683	it	Record(String, Finite)	needs codec-transform lowering or schema-compiler machinery absent from this port
+
+not-applicable	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	716	it	Record with properties and an index signature	needs codec-transform lowering or schema-compiler machinery absent from this port
+
+not-applicable	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	760	it	Record(String, Finite) + description	needs codec-transform lowering or schema-compiler machinery absent from this port
+
+not-applicable	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	780	it	Record(String, Finite) + isMinProperties	needs codec-transform lowering or schema-compiler machinery absent from this port
+
+not-applicable	packages/effect/test/ai/OpenAiStructuredOutput.test.ts	807	it	Record(String, Finite) + isMinProperties + description	needs codec-transform lowering or schema-compiler machinery absent from this port
+
 ported	packages/effect/test/ai/OpenAiStructuredOutputRepresentation.test.ts	15	it	projects the encoded side before JSON Schema generation	projects_the_encoded_side_before_json_schema_generation
 
 ported	packages/effect/test/ai/OpenAiStructuredOutputRepresentation.test.ts	19	it	keeps supported custom JSON Schema filters with a description	keeps_supported_pattern_with_a_description
