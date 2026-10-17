@@ -30,19 +30,20 @@ pub mod schema_obs;
 pub mod http;
 pub mod http_compression;
 pub mod http_platform;
-pub mod net;
 pub mod mime;
+pub mod net;
 
-pub mod http_server;
-pub mod http_endpoint;
 pub mod http_docs;
+pub mod http_endpoint;
+pub mod http_server;
 
 pub mod process;
 
 pub mod workers;
 
-pub mod reactivity;
 pub mod mcp_schema;
+pub mod prompt;
+pub mod reactivity;
 
 pub mod devtools;
 

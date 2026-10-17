@@ -5264,26 +5264,46 @@ ported	packages/effect/test/ai/OpenAiStructuredOutputRepresentation.test.ts	225	
 
 not-applicable	packages/effect/test/ai/OpenAiStructuredOutputRepresentation.test.ts	238	it	transports only sound record size bounds to entry arrays	needs Record-to-entry-array size-bound transport; no such lowering
 
-unported	packages/effect/test/ai/Prompt.test.ts	7	it	preserves text parts during serialization	
-unported	packages/effect/test/ai/Prompt.test.ts	30	it	exports schemas for all parts and message-specific parts	
-unported	packages/effect/test/ai/Prompt.test.ts	81	it	preserves file-only responses as assistant messages	
-unported	packages/effect/test/ai/Prompt.test.ts	102	it	folds streamed text and reasoning deltas into an assistant message	
-unported	packages/effect/test/ai/Prompt.test.ts	128	it	preserves metadata on non-streaming response parts	
-unported	packages/effect/test/ai/Prompt.test.ts	197	it	accumulates metadata across streamed text and reasoning parts	
-unported	packages/effect/test/ai/Prompt.test.ts	267	it	places tool calls in assistant messages and tool results in tool messages	
-unported	packages/effect/test/ai/Prompt.test.ts	303	it	places provider-executed tool results in the assistant message	
-unported	packages/effect/test/ai/Prompt.test.ts	356	it	should handle out-of-order tool results (result before call in stream)	
-unported	packages/effect/test/ai/Prompt.test.ts	418	it	keeps only the final non-preliminary tool result	
-unported	packages/effect/test/ai/Prompt.test.ts	470	it	should sequentially combine the content of two Prompts	
-unported	packages/effect/test/ai/Prompt.test.ts	499	it	returns Prompt.empty when both inputs have no messages	
-unported	packages/effect/test/ai/Prompt.test.ts	504	it	accepts raw message input when the left prompt is empty	
-unported	packages/effect/test/ai/Prompt.test.ts	523	it	returns the original prompt when the input has no messages	
-unported	packages/effect/test/ai/Prompt.test.ts	539	it	appends text to the leading system message	
-unported	packages/effect/test/ai/Prompt.test.ts	555	it	creates a leading system message if none exists	
-unported	packages/effect/test/ai/Prompt.test.ts	570	it	creates a system message for an empty prompt	
-unported	packages/effect/test/ai/Prompt.test.ts	583	it	prepends text to the leading system message	
-unported	packages/effect/test/ai/Prompt.test.ts	605	it	creates a leading system message if none exists	
-unported	packages/effect/test/ai/Prompt.test.ts	623	it	creates a system message for an empty prompt	
+ported	packages/effect/test/ai/Prompt.test.ts	7	it	preserves text parts during serialization	preserves_text_parts_during_serialization
+
+ported	packages/effect/test/ai/Prompt.test.ts	30	it	exports schemas for all parts and message-specific parts	exports_schemas_for_all_parts_and_message_specific_parts
+
+ported	packages/effect/test/ai/Prompt.test.ts	81	it	preserves file-only responses as assistant messages	preserves_file_only_responses_as_assistant_messages
+
+ported	packages/effect/test/ai/Prompt.test.ts	102	it	folds streamed text and reasoning deltas into an assistant message	folds_streamed_text_and_reasoning_deltas_into_an_assistant_message
+
+ported	packages/effect/test/ai/Prompt.test.ts	128	it	preserves metadata on non-streaming response parts	preserves_metadata_on_non_streaming_response_parts
+
+ported	packages/effect/test/ai/Prompt.test.ts	197	it	accumulates metadata across streamed text and reasoning parts	accumulates_metadata_across_streamed_text_and_reasoning_parts
+
+ported	packages/effect/test/ai/Prompt.test.ts	267	it	places tool calls in assistant messages and tool results in tool messages	places_tool_calls_in_assistant_messages_and_tool_results_in_tool_messages
+
+ported	packages/effect/test/ai/Prompt.test.ts	303	it	places provider-executed tool results in the assistant message	places_provider_executed_tool_results_in_the_assistant_message
+
+ported	packages/effect/test/ai/Prompt.test.ts	356	it	should handle out-of-order tool results (result before call in stream)	handles_out_of_order_tool_results
+
+ported	packages/effect/test/ai/Prompt.test.ts	418	it	keeps only the final non-preliminary tool result	keeps_only_the_final_non_preliminary_tool_result
+
+ported	packages/effect/test/ai/Prompt.test.ts	470	it	should sequentially combine the content of two Prompts	sequentially_combines_the_content_of_two_prompts
+
+ported	packages/effect/test/ai/Prompt.test.ts	499	it	returns Prompt.empty when both inputs have no messages	returns_empty_when_both_inputs_have_no_messages
+
+ported	packages/effect/test/ai/Prompt.test.ts	504	it	accepts raw message input when the left prompt is empty	accepts_raw_message_input_when_the_left_prompt_is_empty
+
+ported	packages/effect/test/ai/Prompt.test.ts	523	it	returns the original prompt when the input has no messages	returns_the_original_prompt_when_the_input_has_no_messages
+
+ported	packages/effect/test/ai/Prompt.test.ts	539	it	appends text to the leading system message	appends_text_to_the_leading_system_message
+
+ported	packages/effect/test/ai/Prompt.test.ts	555	it	creates a leading system message if none exists	creates_a_leading_system_message_when_appending_with_none_present
+
+ported	packages/effect/test/ai/Prompt.test.ts	570	it	creates a system message for an empty prompt	creates_a_system_message_when_appending_to_an_empty_prompt
+
+ported	packages/effect/test/ai/Prompt.test.ts	583	it	prepends text to the leading system message	prepends_text_to_the_leading_system_message
+
+ported	packages/effect/test/ai/Prompt.test.ts	605	it	creates a leading system message if none exists	creates_a_leading_system_message_when_prepending_with_none_present
+
+ported	packages/effect/test/ai/Prompt.test.ts	623	it	creates a system message for an empty prompt	creates_a_system_message_when_prepending_to_an_empty_prompt
+
 ported	packages/effect/test/ai/Response.test.ts	22	it.effect	preserves user failure fields with the ${name} schema	preserves_user_failure_fields_for_struct_unknown_and_record_schemas
 ported	packages/effect/test/ai/Response.test.ts	64	it.effect	round trips a returned AiError through Toolkit and AllParts JSON with an unknown failure schema	round_trips_a_returned_ai_error_through_toolkit_and_all_parts_json
 ported	packages/effect/test/ai/Response.test.ts	128	it.effect	round trips ${result.type} through AllParts JSON	round_trips_provider_defined_execution_failures_through_all_parts_json
