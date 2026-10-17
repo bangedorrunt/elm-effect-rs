@@ -6650,39 +6650,72 @@ not-applicable	packages/effect/test/http/HttpClientRequest.test.ts	221	it.effect
 not-applicable	packages/effect/test/http/HttpClientRequest.test.ts	247	it	fromWeb ignores malformed or unsafe content lengths	no HttpClientRequest surface in crates/elm-effect-unstable/src/http.rs (only HttpRequest/Headers/cookie helpers); missing typed request builder/body length/form-data/web conversion
 not-applicable	packages/effect/test/http/HttpClientRequest.test.ts	265	it.effect	toWeb stream body	no HttpClientRequest surface in crates/elm-effect-unstable/src/http.rs (only HttpRequest/Headers/cookie helpers); missing typed request builder/body length/form-data/web conversion
 not-applicable	packages/effect/test/http/HttpClientRequest.test.ts	281	it	toWebResult returns failure for invalid url	no HttpClientRequest surface in crates/elm-effect-unstable/src/http.rs (only HttpRequest/Headers/cookie helpers); missing typed request builder/body length/form-data/web conversion
-unported	packages/effect/test/http/HttpCompression.test.ts	100	it	preserves a Content-Type header override when compressing web ${name} responses	
-unported	packages/effect/test/http/HttpCompression.test.ts	112	it	preserves a header-only Content-Type when compressing web Raw responses	
-unported	packages/effect/test/http/HttpCompression.test.ts	128	it	compresses a compressible response with gzip	
-unported	packages/effect/test/http/HttpCompression.test.ts	138	it	compresses with deflate when requested	
-unported	packages/effect/test/http/HttpCompression.test.ts	145	it	server preference order picks br over gzip when supported	
-unported	packages/effect/test/http/HttpCompression.test.ts	153	it	client q-values decide acceptability only, server order decides ranking	
-unported	packages/effect/test/http/HttpCompression.test.ts	161	it	q=0 makes a coding unacceptable	
-unported	packages/effect/test/http/HttpCompression.test.ts	168	it	falls through server order past q=0 codings	
-unported	packages/effect/test/http/HttpCompression.test.ts	173	it	wildcard matches unlisted codings	
-unported	packages/effect/test/http/HttpCompression.test.ts	178	it	wildcard with q=0 disables unlisted codings	
-unported	packages/effect/test/http/HttpCompression.test.ts	185	it	sends identity with 200 when nothing is acceptable, never 406	
-unported	packages/effect/test/http/HttpCompression.test.ts	193	it	treats a malformed Accept-Encoding as absent	
-unported	packages/effect/test/http/HttpCompression.test.ts	199	it	treats an out-of-range q-value as absent	
-unported	packages/effect/test/http/HttpCompression.test.ts	205	it	does not compress without an Accept-Encoding header	
-unported	packages/effect/test/http/HttpCompression.test.ts	212	it	skips bodies below minSize but still sets Vary	
-unported	packages/effect/test/http/HttpCompression.test.ts	221	it	respects a custom minSize	
-unported	packages/effect/test/http/HttpCompression.test.ts	227	it	ignores malformed content lengths when checking minSize	
-unported	packages/effect/test/http/HttpCompression.test.ts	240	it	skips non-compressible content types without Vary	
-unported	packages/effect/test/http/HttpCompression.test.ts	249	it	supports a custom compressible predicate	
-unported	packages/effect/test/http/HttpCompression.test.ts	260	it	leaves already-encoded responses untouched	
-unported	packages/effect/test/http/HttpCompression.test.ts	273	it	does not stamp headers when a Raw body cannot be transformed	
-unported	packages/effect/test/http/HttpCompression.test.ts	287	it	strips a Content-Encoding: identity opt-out before sending	
-unported	packages/effect/test/http/HttpCompression.test.ts	299	it	honors Cache-Control: no-transform	
-unported	packages/effect/test/http/HttpCompression.test.ts	311	it	leaves 204, 304, and 206 responses untouched	
-unported	packages/effect/test/http/HttpCompression.test.ts	333	it	mirrors GET headers for HEAD requests without a body	
-unported	packages/effect/test/http/HttpCompression.test.ts	340	it	compresses unknown-length streams incrementally	
-unported	packages/effect/test/http/HttpCompression.test.ts	377	it	weakens a strong ETag on compressed responses	
-unported	packages/effect/test/http/HttpCompression.test.ts	388	it	leaves a weak ETag unchanged on compressed responses	
-unported	packages/effect/test/http/HttpCompression.test.ts	399	it	leaves the ETag of skipped responses unchanged	
-unported	packages/effect/test/http/HttpCompression.test.ts	410	it	falls through to a supported algorithm when the preferred one is unavailable	
-unported	packages/effect/test/http/HttpCompression.test.ts	418	it	appends Accept-Encoding to an existing Vary header	
-unported	packages/effect/test/http/HttpCompression.test.ts	429	it	does not duplicate Accept-Encoding in Vary and leaves Vary: * alone	
-unported	packages/effect/test/http/HttpCompression.test.ts	453	it	preserves cookies on compressed responses	
+ported	packages/effect/test/http/HttpCompression.test.ts	100	it	preserves a Content-Type header override when compressing web ${name} responses	preserves_content_type_override_when_compressing_stream_response
+
+ported	packages/effect/test/http/HttpCompression.test.ts	112	it	preserves a header-only Content-Type when compressing web Raw responses	preserves_header_only_content_type_for_raw_responses
+
+ported	packages/effect/test/http/HttpCompression.test.ts	128	it	compresses a compressible response with gzip	compresses_a_compressible_response_with_gzip
+
+ported	packages/effect/test/http/HttpCompression.test.ts	138	it	compresses with deflate when requested	compresses_with_deflate_when_requested
+
+ported	packages/effect/test/http/HttpCompression.test.ts	145	it	server preference order picks br over gzip when supported	server_preference_order_picks_br_over_gzip_when_supported
+
+ported	packages/effect/test/http/HttpCompression.test.ts	153	it	client q-values decide acceptability only, server order decides ranking	client_q_values_decide_acceptability_only_server_order_ranks
+
+ported	packages/effect/test/http/HttpCompression.test.ts	161	it	q=0 makes a coding unacceptable	q_zero_makes_a_coding_unacceptable
+
+ported	packages/effect/test/http/HttpCompression.test.ts	168	it	falls through server order past q=0 codings	falls_through_server_order_past_q_zero_codings
+
+ported	packages/effect/test/http/HttpCompression.test.ts	173	it	wildcard matches unlisted codings	wildcard_matches_unlisted_codings
+
+ported	packages/effect/test/http/HttpCompression.test.ts	178	it	wildcard with q=0 disables unlisted codings	wildcard_with_q_zero_disables_unlisted_codings
+
+ported	packages/effect/test/http/HttpCompression.test.ts	185	it	sends identity with 200 when nothing is acceptable, never 406	sends_identity_with_200_when_nothing_is_acceptable
+
+ported	packages/effect/test/http/HttpCompression.test.ts	193	it	treats a malformed Accept-Encoding as absent	treats_a_malformed_accept_encoding_as_absent
+
+ported	packages/effect/test/http/HttpCompression.test.ts	199	it	treats an out-of-range q-value as absent	treats_an_out_of_range_q_value_as_absent
+
+ported	packages/effect/test/http/HttpCompression.test.ts	205	it	does not compress without an Accept-Encoding header	does_not_compress_without_an_accept_encoding_header
+
+ported	packages/effect/test/http/HttpCompression.test.ts	212	it	skips bodies below minSize but still sets Vary	skips_bodies_below_min_size_but_still_sets_vary
+
+ported	packages/effect/test/http/HttpCompression.test.ts	221	it	respects a custom minSize	respects_a_custom_min_size
+
+ported	packages/effect/test/http/HttpCompression.test.ts	227	it	ignores malformed content lengths when checking minSize	ignores_malformed_content_lengths_when_checking_min_size
+
+ported	packages/effect/test/http/HttpCompression.test.ts	240	it	skips non-compressible content types without Vary	skips_non_compressible_content_types_without_vary
+
+ported	packages/effect/test/http/HttpCompression.test.ts	249	it	supports a custom compressible predicate	supports_a_custom_compressible_predicate
+
+ported	packages/effect/test/http/HttpCompression.test.ts	260	it	leaves already-encoded responses untouched	leaves_already_encoded_responses_untouched
+
+ported	packages/effect/test/http/HttpCompression.test.ts	273	it	does not stamp headers when a Raw body cannot be transformed	does_not_stamp_headers_when_a_raw_body_cannot_be_transformed
+
+ported	packages/effect/test/http/HttpCompression.test.ts	287	it	strips a Content-Encoding: identity opt-out before sending	strips_a_content_encoding_identity_opt_out_before_sending
+
+ported	packages/effect/test/http/HttpCompression.test.ts	299	it	honors Cache-Control: no-transform	honors_cache_control_no_transform
+
+ported	packages/effect/test/http/HttpCompression.test.ts	311	it	leaves 204, 304, and 206 responses untouched	leaves_204_304_and_206_responses_untouched
+
+ported	packages/effect/test/http/HttpCompression.test.ts	333	it	mirrors GET headers for HEAD requests without a body	mirrors_get_headers_for_head_requests_without_a_body
+
+not-applicable	packages/effect/test/http/HttpCompression.test.ts	340	it	compresses unknown-length streams incrementally	needs async Stream runtime with latch-gated interleaving for incremental backpressure; no Stream runtime
+
+ported	packages/effect/test/http/HttpCompression.test.ts	377	it	weakens a strong ETag on compressed responses	weakens_a_strong_etag_on_compressed_responses
+
+ported	packages/effect/test/http/HttpCompression.test.ts	388	it	leaves a weak ETag unchanged on compressed responses	leaves_a_weak_etag_unchanged_on_compressed_responses
+
+ported	packages/effect/test/http/HttpCompression.test.ts	399	it	leaves the ETag of skipped responses unchanged	leaves_the_etag_of_skipped_responses_unchanged
+
+ported	packages/effect/test/http/HttpCompression.test.ts	410	it	falls through to a supported algorithm when the preferred one is unavailable	falls_through_to_a_supported_algorithm_when_the_preferred_is_unavailable
+
+ported	packages/effect/test/http/HttpCompression.test.ts	418	it	appends Accept-Encoding to an existing Vary header	appends_accept_encoding_to_an_existing_vary_header
+
+ported	packages/effect/test/http/HttpCompression.test.ts	429	it	does not duplicate Accept-Encoding in Vary and leaves Vary: * alone	does_not_duplicate_accept_encoding_in_vary_and_leaves_vary_star_alone
+
+ported	packages/effect/test/http/HttpCompression.test.ts	453	it	preserves cookies on compressed responses	preserves_cookies_on_compressed_responses
+
 not-applicable	packages/effect/test/http/HttpEffect.test.ts	12	it.effect	restores the request Scope context identity	N/A: rust unstable HTTP effect lacks full handler/middleware/server runtime parity with Effect HttpEffect, so these rows cannot be represented in the Rust port
 not-applicable	packages/effect/test/http/HttpEffect.test.ts	36	it.effect	propagates a handler failure through middleware to request and forked scopes	N/A: rust unstable HTTP effect lacks full handler/middleware/server runtime parity with Effect HttpEffect, so these rows cannot be represented in the Rust port
 not-applicable	packages/effect/test/http/HttpEffect.test.ts	73	test	skips the server span with the default tracer	N/A: rust unstable HTTP effect lacks full handler/middleware/server runtime parity with Effect HttpEffect, so these rows cannot be represented in the Rust port
