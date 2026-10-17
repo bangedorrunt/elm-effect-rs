@@ -4586,11 +4586,11 @@ ported	packages/effect/test/ai/AiError.test.ts	802	it.effect	ToolConfigurationEr
 ported	packages/effect/test/ai/AiError.test.ts	815	it.effect	StructuredOutputError roundtrip	ai_reasons_roundtrip_json
 ported	packages/effect/test/ai/AiError.test.ts	828	it.effect	UnsupportedSchemaError roundtrip	ai_reasons_roundtrip_json
 ported	packages/effect/test/ai/AiError.test.ts	839	it.effect	AiErrorReason union with tool errors roundtrip	ai_reasons_roundtrip_json
-ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	17	it	encodes Undefined as null	keeps_scalar_shapes
+ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	17	it	encodes Undefined as null	null_stays_null
 
-ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	21	it	encodes a bigint Literal as a string	keeps_supported_string_formats_including_uri
+ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	21	it	encodes a bigint Literal as a string	bigint_literal_stays_a_string_enum
 
-ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	26	it	encodes post-rest elements as object properties	keeps_struct_shapes_including_nullable_optionals
+ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	26	it	encodes post-rest elements as object properties	keeps_tuple_objects_verbatim
 
 not-applicable	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	45	it	non-string property signature name	needs property-name validation; none exists
 
@@ -4598,91 +4598,91 @@ not-applicable	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	53	it	n
 
 not-applicable	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	57	it	rejects recursive Suspend	needs hasReferenceCycle detection; none exists
 
-ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	70	it	Null	keeps_scalar_shapes
+ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	70	it	Null	null_stays_null
 
-ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	77	it	String	bigint_literal_stays_a_string_enum
+ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	77	it	String	keeps_scalar_shapes
 
-ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	87	it	String + supported format	drops_unsupported_format_into_description
+ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	87	it	String + supported format	keeps_supported_string_formats_including_uri
 
-ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	94	it	String + unsupported format	drops_string_length_bounds_but_keeps_description
+ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	94	it	String + unsupported format	drops_unsupported_format_into_description
 
-ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	101	it	String + isMinLength	keeps_a_compatible_pattern
+ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	101	it	String + isMinLength	drops_string_length_bounds_but_keeps_description
 
-ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	108	it	String + isMinLength + isMaxLength	keeps_a_compatible_pattern
+ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	108	it	String + isMinLength + isMaxLength	drops_string_length_bounds_but_keeps_description
 
-ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	115	it	String + startsWith	keeps_all_of_instead_of_merging_it
+ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	115	it	String + startsWith	keeps_a_compatible_pattern
 
-ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	123	it	String + startsWith + endsWith	hoists_member_descriptions_and_drops_type_mismatched_patterns
+ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	123	it	String + startsWith + endsWith	keeps_all_of_instead_of_merging_it
 
-ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	134	it	String + pattern	keeps_all_of_instead_of_merging_it
+ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	134	it	String + pattern	keeps_a_compatible_pattern
 
-ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	142	it	String + pattern + description	keeps_all_of_instead_of_merging_it
+ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	142	it	String + pattern + description	keeps_a_compatible_pattern
 
-ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	152	it	Number	keeps_unions_as_any_of
+ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	152	it	Number	keeps_literals_and_the_number_fallback
 
-ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	162	it	Finite	bigint_literal_stays_a_string_enum
+ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	162	it	Finite	keeps_scalar_shapes
 
 not-applicable	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	172	it	Finite + string format	needs format-to-description codec transform; codec half missing
 
-ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	179	it	Finite + unsupported format	drops_string_length_bounds_but_keeps_description
+ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	179	it	Finite + unsupported format	drops_unsupported_format_into_description
 
-ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	186	it	Finite + isGreaterThan	drops_array_bounds_but_keeps_description
+ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	186	it	Finite + isGreaterThan	drops_numeric_bounds_but_keeps_description
 
-ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	193	it	Finite + isGreaterThan + isLessThan	drops_array_bounds_but_keeps_description
+ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	193	it	Finite + isGreaterThan + isLessThan	drops_numeric_bounds_but_keeps_description
 
-ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	202	it	Int	bigint_literal_stays_a_string_enum
+ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	202	it	Int	keeps_scalar_shapes
 
 not-applicable	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	212	it	Int + string format	needs format-to-description codec transform; codec half missing
 
-ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	219	it	Int + unsupported format	drops_string_length_bounds_but_keeps_description
+ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	219	it	Int + unsupported format	drops_unsupported_format_into_description
 
-ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	226	it	Int + isGreaterThan	drops_array_bounds_but_keeps_description
+ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	226	it	Int + isGreaterThan	drops_numeric_bounds_but_keeps_description
 
-ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	233	it	Int + isGreaterThan + isLessThan	drops_array_bounds_but_keeps_description
+ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	233	it	Int + isGreaterThan + isLessThan	drops_numeric_bounds_but_keeps_description
 
-ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	243	it	Literal(string)	keeps_unions_as_any_of
+ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	243	it	Literal(string)	keeps_literals_and_the_number_fallback
 
-ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	250	it	Literal(number)	keeps_unions_as_any_of
+ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	250	it	Literal(number)	keeps_literals_and_the_number_fallback
 
-ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	257	it	Literal(boolean)	keeps_unions_as_any_of
+ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	257	it	Literal(boolean)	keeps_literals_and_the_number_fallback
 
-ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	266	it	oneOf	keeps_arrays
+ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	266	it	oneOf	keeps_unions_as_any_of
 
-ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	275	it	Union(NonEmptyString, Int)	keeps_arrays
+ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	275	it	Union(NonEmptyString, Int)	keeps_unions_as_any_of
 
-ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	286	it	Array(String)	keeps_false_items_for_empty_tuples
+ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	286	it	Array(String)	keeps_arrays
 
-ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	298	it	Array(String) + isMinLength	keeps_literals_and_the_number_fallback
+ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	298	it	Array(String) + isMinLength	drops_array_bounds_but_keeps_description
 
-ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	306	it	Array(String) + isMinLength + isMaxLength	keeps_literals_and_the_number_fallback
+ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	306	it	Array(String) + isMinLength + isMaxLength	drops_array_bounds_but_keeps_description
 
-ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	316	it	Tuple([])	keeps_tuple_objects_verbatim
+ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	316	it	Tuple([])	keeps_false_items_for_empty_tuples
 
-ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	323	it	Tuple([String, Finite])	keeps_struct_shapes_including_nullable_optionals
+ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	323	it	Tuple([String, Finite])	keeps_tuple_objects_verbatim
 
-ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	347	it	Tuple([String, Finite]) + description	keeps_struct_shapes_including_nullable_optionals
+ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	347	it	Tuple([String, Finite]) + description	keeps_tuple_objects_verbatim
 
-ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	362	it	Tuple([String, Finite?])	keeps_struct_shapes_including_nullable_optionals
+ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	362	it	Tuple([String, Finite?])	keeps_tuple_objects_verbatim
 
-ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	395	it	TupleWithRest([String, Finite], Boolean)	keeps_struct_shapes_including_nullable_optionals
+ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	395	it	TupleWithRest([String, Finite], Boolean)	keeps_tuple_objects_verbatim
 
-ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	428	it	required properties	keeps_empty_params_without_adding_properties
+ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	428	it	required properties	keeps_struct_shapes_including_nullable_optionals
 
-ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	439	it	optional properties	keeps_empty_params_without_adding_properties
+ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	439	it	optional properties	keeps_struct_shapes_including_nullable_optionals
 
 ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	474	it	Class	keeps_definitions_by_rewriting_their_values
 
-ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	500	it	EmptyParams	keeps_record_entry_arrays
+ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	500	it	EmptyParams	keeps_empty_params_without_adding_properties
 
-ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	511	it	Record(String, Finite)	keeps_definitions_by_rewriting_their_values
+ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	511	it	Record(String, Finite)	keeps_record_entry_arrays
 
-ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	538	it	Record with properties and an index signature	keeps_definitions_by_rewriting_their_values
+ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	538	it	Record with properties and an index signature	keeps_record_entry_arrays
 
-ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	580	it	Record(String, Finite) + description	keeps_definitions_by_rewriting_their_values
+ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	580	it	Record(String, Finite) + description	keeps_record_entry_arrays
 
-ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	600	it	Record(String, Finite) + isMinProperties	keeps_definitions_by_rewriting_their_values
+ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	600	it	Record(String, Finite) + isMinProperties	keeps_record_entry_arrays
 
-ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	625	it	Record(String, Finite) + isMinProperties + description	keeps_definitions_by_rewriting_their_values
+ported	packages/effect/test/ai/AnthropicStructuredOutput.test.ts	625	it	Record(String, Finite) + isMinProperties + description	keeps_record_entry_arrays
 
 not-applicable	packages/effect/test/ai/AnthropicStructuredOutputRepresentation.test.ts	7	it	projects the encoded side before JSON Schema generation	Rust elm-effect-unstable ai.rs has no Anthropic structured output representation transform and no Schema JSON compiler callback hooks, so the projection/compiler rows cannot be witnessed
 not-applicable	packages/effect/test/ai/AnthropicStructuredOutputRepresentation.test.ts	11	it	keeps supported custom JSON Schema filters with a description	Rust elm-effect-unstable ai.rs has no Anthropic structured output representation transform and no Schema JSON compiler callback hooks, so the projection/compiler rows cannot be witnessed
