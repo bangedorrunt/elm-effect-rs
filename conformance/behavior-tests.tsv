@@ -6650,7 +6650,7 @@ not-applicable	packages/effect/test/http/HttpClientRequest.test.ts	221	it.effect
 not-applicable	packages/effect/test/http/HttpClientRequest.test.ts	247	it	fromWeb ignores malformed or unsafe content lengths	no HttpClientRequest surface in crates/elm-effect-unstable/src/http.rs (only HttpRequest/Headers/cookie helpers); missing typed request builder/body length/form-data/web conversion
 not-applicable	packages/effect/test/http/HttpClientRequest.test.ts	265	it.effect	toWeb stream body	no HttpClientRequest surface in crates/elm-effect-unstable/src/http.rs (only HttpRequest/Headers/cookie helpers); missing typed request builder/body length/form-data/web conversion
 not-applicable	packages/effect/test/http/HttpClientRequest.test.ts	281	it	toWebResult returns failure for invalid url	no HttpClientRequest surface in crates/elm-effect-unstable/src/http.rs (only HttpRequest/Headers/cookie helpers); missing typed request builder/body length/form-data/web conversion
-ported	packages/effect/test/http/HttpCompression.test.ts	100	it	preserves a Content-Type header override when compressing web ${name} responses	preserves_content_type_override_when_compressing_stream_response
+ported	packages/effect/test/http/HttpCompression.test.ts	100	it	preserves a Content-Type header override when compressing web ${name} responses	preserves_content_type_override_when_compressing_stream_response preserves_content_type_override_when_compressing_bytes_response preserves_content_type_override_when_compressing_raw_response
 
 ported	packages/effect/test/http/HttpCompression.test.ts	112	it	preserves a header-only Content-Type when compressing web Raw responses	preserves_header_only_content_type_for_raw_responses
 
