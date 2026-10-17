@@ -423,7 +423,11 @@ impl<A: Clone + Send + 'static, E: Send + 'static> Remote<A, E> {
                 },
             }
             if let Some((_, delay)) = backoff.decide(attempt as u64, &()) {
-                std::thread::sleep(std::time::Duration::from_millis(delay.as_millis()));
+                // The stack's own clock: virtual in tests (a TestClock
+                // advance wakes this sleep), wall time in production.
+                // Interruption is observed by the attempt timeout around
+                // this call, so the sleep itself never needs the flag.
+                let _ = clock.sleep(delay, &|| false);
             }
             attempt += 1;
         }

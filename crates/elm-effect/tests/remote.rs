@@ -201,3 +201,64 @@ fn breaker_open_is_typed() {
     }
     assert_eq!(calls.load(Ordering::SeqCst), 2);
 }
+
+#[test]
+fn backoff_sleeps_follow_the_injected_clock() {
+    // The retry backoff sleeps on the stack's own clock, not the wall clock:
+    // two 60 s-class backoffs complete in milliseconds of wall time once
+    // the virtual clock advances past them.
+    let policy = RemotePolicy {
+        retries: 2,
+        backoff: Duration::from_secs(60),
+        // Virtual time advances past every backoff below, so the budget
+        // must cover the whole virtual run, not wall time. Attempt
+        // timeouts are disabled so only backoffs gate progress.
+        budget: Duration::from_secs(3600),
+        attempt_timeout: Duration::from_secs(3600),
+        ..Default::default()
+    };
+    let remote = Remote::new(policy);
+    let rt = Runtime::new();
+    let test_clock = Arc::new(TestClock::new());
+    let clock: Arc<dyn ClockImpl> = test_clock.clone();
+    let attempts = Arc::new(AtomicUsize::new(0));
+    let done = Arc::new(AtomicBool::new(false));
+    let wall_start = std::time::Instant::now();
+    let exit = std::thread::scope(|s| {
+        let handle = s.spawn(|| {
+            let attempts = Arc::clone(&attempts);
+            let done = Arc::clone(&done);
+            let exit = remote.call(&rt, &clock, move || {
+                let n = attempts.fetch_add(1, Ordering::SeqCst);
+                if n < 2 {
+                    Effect::<u32, String, ()>::fail("flaky".to_string())
+                } else {
+                    Effect::<u32, String, ()>::succeed(7)
+                }
+            });
+            done.store(true, Ordering::SeqCst);
+            exit
+        });
+        // Drive virtual time until the call finishes or a wall-clock bound
+        // proves it never will (a fixed adjust count races spawn latency).
+        // Small steps: advancing past a backoff wakes it, while the attempt
+        // timeout and budget (both far larger) stay quiet.
+        while !done.load(Ordering::SeqCst) {
+            while test_clock.pending_sleepers() == 0 && !done.load(Ordering::SeqCst) {
+                std::thread::park_timeout(std::time::Duration::from_millis(1));
+            }
+            test_clock.adjust(Duration::from_secs(1));
+            assert!(
+                wall_start.elapsed() < std::time::Duration::from_secs(20),
+                "virtual backoff must not take wall-clock minutes"
+            );
+        }
+        handle.join().unwrap()
+    });
+    assert!(matches!(exit, Exit::Success(7)));
+    assert_eq!(attempts.load(Ordering::SeqCst), 3);
+    assert!(
+        wall_start.elapsed() < std::time::Duration::from_secs(20),
+        "virtual backoff must not take wall-clock minutes"
+    );
+}
