@@ -9490,54 +9490,54 @@ unported	packages/effect/test/schema/toDifferJsonPatch.test.ts	137	it	DateTimeUt
 unported	packages/effect/test/schema/toDifferJsonPatch.test.ts	167	it	diff/patch works when root container kind changes	
 unported	packages/effect/test/schema/toDifferJsonPatch.test.ts	174	it	patch throws when asked to do an invalid replace (replace requires existence)	
 unported	packages/effect/test/schema/toDifferJsonPatch.test.ts	182	it.effect	patch(diff(a,b)) round-trips for a wide set of codecs	
-unported	packages/effect/test/schema/toEquivalence.test.ts	25	it	Never	
-unported	packages/effect/test/schema/toEquivalence.test.ts	33	it	String	
-unported	packages/effect/test/schema/toEquivalence.test.ts	41	it	should fail on non-array inputs	
-unported	packages/effect/test/schema/toEquivalence.test.ts	47	it	empty	
-unported	packages/effect/test/schema/toEquivalence.test.ts	53	it	required elements	
-unported	packages/effect/test/schema/toEquivalence.test.ts	60	it	optionalKey elements	
-unported	packages/effect/test/schema/toEquivalence.test.ts	69	it	optional elements	
-unported	packages/effect/test/schema/toEquivalence.test.ts	81	it	Array	
-unported	packages/effect/test/schema/toEquivalence.test.ts	90	it	TupleWithRest	
-unported	packages/effect/test/schema/toEquivalence.test.ts	104	it	TupleWithRest with multiple post-rest elements	
-unported	packages/effect/test/schema/toEquivalence.test.ts	123	it	one trailing element after the rest element	
-unported	packages/effect/test/schema/toEquivalence.test.ts	135	it	multiple trailing elements after the rest element	
-unported	packages/effect/test/schema/toEquivalence.test.ts	148	it	should fail on non-record inputs	
-unported	packages/effect/test/schema/toEquivalence.test.ts	154	it	empty	
-unported	packages/effect/test/schema/toEquivalence.test.ts	162	it	required fields	
-unported	packages/effect/test/schema/toEquivalence.test.ts	173	it	symbol keys	
-unported	packages/effect/test/schema/toEquivalence.test.ts	192	it	optionalKey fields	
-unported	packages/effect/test/schema/toEquivalence.test.ts	205	it	optional fields	
-unported	packages/effect/test/schema/toEquivalence.test.ts	221	it	Class	
-unported	packages/effect/test/schema/toEquivalence.test.ts	236	it	Record(String, Number)	
-unported	packages/effect/test/schema/toEquivalence.test.ts	246	it	Record(String, UndefinedOr(Number))	
-unported	packages/effect/test/schema/toEquivalence.test.ts	254	it	Record(String.check, Number) should use the key checks to select keys	
-unported	packages/effect/test/schema/toEquivalence.test.ts	261	it	Record(Symbol, Number)	
-unported	packages/effect/test/schema/toEquivalence.test.ts	293	it	reuses the compiled recursive body for deeper values	
-unported	packages/effect/test/schema/toEquivalence.test.ts	323	it	recursive schema	
-unported	packages/effect/test/schema/toEquivalence.test.ts	339	it	mutually recursive schemas	
-unported	packages/effect/test/schema/toEquivalence.test.ts	421	it	precompiles Union members	
-unported	packages/effect/test/schema/toEquivalence.test.ts	440	it	selects transformed Union members on the Type side	
-unported	packages/effect/test/schema/toEquivalence.test.ts	456	it	preserves Union member equivalence annotations	
-unported	packages/effect/test/schema/toEquivalence.test.ts	469	it	Date	
-unported	packages/effect/test/schema/toEquivalence.test.ts	476	it	URL	
-unported	packages/effect/test/schema/toEquivalence.test.ts	483	it	RegExp	
-unported	packages/effect/test/schema/toEquivalence.test.ts	492	it	Redacted(String)	
-unported	packages/effect/test/schema/toEquivalence.test.ts	499	it	Option(Modulo2)	
-unported	packages/effect/test/schema/toEquivalence.test.ts	512	it	Result(Modulo2, Modulo3)	
-unported	packages/effect/test/schema/toEquivalence.test.ts	526	it	ReadonlySet(Modulo2)	
-unported	packages/effect/test/schema/toEquivalence.test.ts	540	it	ReadonlyMap(Modulo2, Modulo3)	
-unported	packages/effect/test/schema/toEquivalence.test.ts	556	it	HashMap(Modulo2, Modulo3)	
-unported	packages/effect/test/schema/toEquivalence.test.ts	572	it	Duration	
-unported	packages/effect/test/schema/toEquivalence.test.ts	586	it	BigDecimal	
-unported	packages/effect/test/schema/toEquivalence.test.ts	594	it	DateTimeUtc	
-unported	packages/effect/test/schema/toEquivalence.test.ts	605	it	TimeZoneOffset	
-unported	packages/effect/test/schema/toEquivalence.test.ts	615	it	TimeZoneNamed	
-unported	packages/effect/test/schema/toEquivalence.test.ts	625	it	TimeZone	
-unported	packages/effect/test/schema/toEquivalence.test.ts	635	it	DateTimeZoned	
-unported	packages/effect/test/schema/toEquivalence.test.ts	647	it	String	
-unported	packages/effect/test/schema/toEquivalence.test.ts	655	it	String & isMinLength(1)	
-unported	packages/effect/test/schema/toEquivalence.test.ts	663	it	overrides a compiler-owned Declaration	
+ported	packages/effect/test/schema/toEquivalence.test.ts	25	it	Never	never_uses_strict_identity
+ported	packages/effect/test/schema/toEquivalence.test.ts	33	it	String	string_compares_by_value
+ported	packages/effect/test/schema/toEquivalence.test.ts	41	it	should fail on non-array inputs	tuple_refuses_a_non_array_on_either_side
+ported	packages/effect/test/schema/toEquivalence.test.ts	47	it	empty	empty_tuple_is_equivalent_to_an_empty_tuple
+ported	packages/effect/test/schema/toEquivalence.test.ts	53	it	required elements	tuple_compares_required_elements_positionally
+ported	packages/effect/test/schema/toEquivalence.test.ts	60	it	optionalKey elements	tuple_compares_optional_key_elements_by_presence
+ported	packages/effect/test/schema/toEquivalence.test.ts	69	it	optional elements	tuple_compares_optional_elements_by_presence
+ported	packages/effect/test/schema/toEquivalence.test.ts	81	it	Array	array_compares_length_and_elements
+not-applicable	packages/effect/test/schema/toEquivalence.test.ts	90	it	TupleWithRest	the port's tuple_with_rest takes ONE rest schema where the pin takes a list of trailing elements (crates/elm-effect-schema/tests/schema_core.rs:771 documents the divergence), so a rest list has no spelling here
+not-applicable	packages/effect/test/schema/toEquivalence.test.ts	104	it	TupleWithRest with multiple post-rest elements	the port's tuple_with_rest takes ONE rest schema where the pin takes a list of trailing elements (crates/elm-effect-schema/tests/schema_core.rs:771 documents the divergence), so a rest list has no spelling here
+not-applicable	packages/effect/test/schema/toEquivalence.test.ts	123	it	one trailing element after the rest element	the port's tuple_with_rest takes ONE rest schema where the pin takes a list of trailing elements (crates/elm-effect-schema/tests/schema_core.rs:771 documents the divergence), so a rest list has no spelling here
+not-applicable	packages/effect/test/schema/toEquivalence.test.ts	135	it	multiple trailing elements after the rest element	the port's tuple_with_rest takes ONE rest schema where the pin takes a list of trailing elements (crates/elm-effect-schema/tests/schema_core.rs:771 documents the divergence), so a rest list has no spelling here
+ported	packages/effect/test/schema/toEquivalence.test.ts	148	it	should fail on non-record inputs	struct_refuses_a_non_record_on_either_side
+ported	packages/effect/test/schema/toEquivalence.test.ts	154	it	empty	empty_struct_is_structurally_equal
+ported	packages/effect/test/schema/toEquivalence.test.ts	162	it	required fields	struct_compares_required_fields
+not-applicable	packages/effect/test/schema/toEquivalence.test.ts	173	it	symbol keys	Unknown has no symbol property key, so a struct with symbol keys (Symbol.for("a")) has no value shape here
+ported	packages/effect/test/schema/toEquivalence.test.ts	192	it	optionalKey fields	struct_compares_optional_key_fields_by_presence
+ported	packages/effect/test/schema/toEquivalence.test.ts	205	it	optional fields	struct_compares_optional_fields_by_presence
+ported	packages/effect/test/schema/toEquivalence.test.ts	221	it	Class	class_compares_declared_fields
+ported	packages/effect/test/schema/toEquivalence.test.ts	236	it	Record(String, Number)	record_compares_entries_and_key_set
+not-applicable	packages/effect/test/schema/toEquivalence.test.ts	246	it	Record(String, UndefinedOr(Number))	the port has no UndefinedOr; its nearest spelling (Schema<Option<T>>::optional) is a different declaration whose value type is Option<T>, not T | undefined, so the record's value side is not this row's
+ported	packages/effect/test/schema/toEquivalence.test.ts	254	it	Record(String.check, Number) should use the key checks to select keys	record_key_check_selects_compared_entries
+not-applicable	packages/effect/test/schema/toEquivalence.test.ts	261	it	Record(Symbol, Number)	Unknown has no symbol key, so Record(Symbol, Number) has no value shape here
+ported	packages/effect/test/schema/toEquivalence.test.ts	293	it	reuses the compiled recursive body for deeper values	suspend_reuses_the_relation_for_deeper_values
+ported	packages/effect/test/schema/toEquivalence.test.ts	323	it	recursive schema	suspend_compares_a_recursive_schema
+ported	packages/effect/test/schema/toEquivalence.test.ts	339	it	mutually recursive schemas	suspend_compares_mutually_recursive_schemas
+ported	packages/effect/test/schema/toEquivalence.test.ts	421	it	precompiles Union members	union_precompiles_member_relations
+not-applicable	packages/effect/test/schema/toEquivalence.test.ts	440	it	selects transformed Union members on the Type side	the pin's decodeTo(Target, ...) carries the target's relation and its Union selects a member on the Type side; the port's convert takes no target schema and its union has no Type-side member selection
+ported	packages/effect/test/schema/toEquivalence.test.ts	456	it	preserves Union member equivalence annotations	union_preserves_member_relation_annotations
+ported	packages/effect/test/schema/toEquivalence.test.ts	469	it	Date	date_compares_by_millis
+not-applicable	packages/effect/test/schema/toEquivalence.test.ts	476	it	URL	the port has no Schema for URL, so there is no typed side for a relation to relate
+not-applicable	packages/effect/test/schema/toEquivalence.test.ts	483	it	RegExp	the port has no Schema for RegExp, so there is no typed side for a relation to relate
+not-applicable	packages/effect/test/schema/toEquivalence.test.ts	492	it	Redacted(String)	the port has no Schema for Redacted, so there is no typed side for a relation to relate
+ported	packages/effect/test/schema/toEquivalence.test.ts	499	it	Option(Modulo2)	option_uses_the_value_relation
+not-applicable	packages/effect/test/schema/toEquivalence.test.ts	512	it	Result(Modulo2, Modulo3)	the port has no Schema for Result, so there is no typed side for a relation to relate
+not-applicable	packages/effect/test/schema/toEquivalence.test.ts	526	it	ReadonlySet(Modulo2)	the port has no Schema for ReadonlySet, so there is no typed side for a relation to relate
+not-applicable	packages/effect/test/schema/toEquivalence.test.ts	540	it	ReadonlyMap(Modulo2, Modulo3)	the port has no Schema for ReadonlyMap, so there is no typed side for a relation to relate
+not-applicable	packages/effect/test/schema/toEquivalence.test.ts	556	it	HashMap(Modulo2, Modulo3)	the port has no Schema for HashMap, so there is no typed side for a relation to relate
+not-applicable	packages/effect/test/schema/toEquivalence.test.ts	572	it	Duration	the port has no Schema for Duration, so there is no typed side for a relation to relate
+not-applicable	packages/effect/test/schema/toEquivalence.test.ts	586	it	BigDecimal	the port has no Schema for BigDecimal, so there is no typed side for a relation to relate
+not-applicable	packages/effect/test/schema/toEquivalence.test.ts	594	it	DateTimeUtc	the port has no Schema for DateTimeUtc, so there is no typed side for a relation to relate
+not-applicable	packages/effect/test/schema/toEquivalence.test.ts	605	it	TimeZoneOffset	the port has no Schema for TimeZoneOffset, so there is no typed side for a relation to relate
+not-applicable	packages/effect/test/schema/toEquivalence.test.ts	615	it	TimeZoneNamed	the port has no Schema for TimeZoneNamed, so there is no typed side for a relation to relate
+not-applicable	packages/effect/test/schema/toEquivalence.test.ts	625	it	TimeZone	the port has no Schema for TimeZone, so there is no typed side for a relation to relate
+not-applicable	packages/effect/test/schema/toEquivalence.test.ts	635	it	DateTimeZoned	the port has no Schema for DateTimeZoned, so there is no typed side for a relation to relate
+ported	packages/effect/test/schema/toEquivalence.test.ts	647	it	String	override_replaces_the_string_relation
+ported	packages/effect/test/schema/toEquivalence.test.ts	655	it	String & isMinLength(1)	override_survives_a_check
+ported	packages/effect/test/schema/toEquivalence.test.ts	663	it	overrides a compiler-owned Declaration	override_replaces_a_declaration_relation
 ported	packages/effect/test/schema/toFormatter.test.ts	6	it	Never	formatter_never_prints_never
 not-applicable	packages/effect/test/schema/toFormatter.test.ts	11	it	Any	Unknown has no variant for this value type (undefined / BigInt / Symbol / a TS enum object), so the input cannot be constructed and there is nothing to render
 not-applicable	packages/effect/test/schema/toFormatter.test.ts	23	it	Unknown	Unknown has no variant for this value type (undefined / BigInt / Symbol / a TS enum object), so the input cannot be constructed and there is nothing to render

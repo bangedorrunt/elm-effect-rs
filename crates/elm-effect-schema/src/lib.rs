@@ -131,6 +131,13 @@ pub struct Schema<T> {
     /// None until a composite constructor sets one, which tells `formatter()`
     /// to walk the kind instead.
     formatter: Option<std::sync::Arc<dyn Fn(&Unknown) -> String + Send + Sync>>,
+    /// The relation `to_equivalence` answers with (`Schema.toEquivalence`).
+    /// Each constructor that knows its own comparison rule installs one while
+    /// the schema is built, reading its children's relations as it goes; a
+    /// schema built without one compares the two values' wire forms. `suspend`
+    /// is the one constructor that cannot decide eagerly, because the schema it
+    /// resolves is the one being built.
+    equivalence: Option<Equivalence<T>>,
     /// The schema a re-typing wraps. `as_unknown` keeps its own kind opaque so
     /// the JSON Schema document does not change, but a repr, and a check built
     /// on top, must see the schema underneath. Captured as a kind plus its
@@ -202,6 +209,26 @@ struct Wrapped {
     children: Vec<(String, Arc<Schema<Unknown>>)>,
     code: String,
     ty: String,
+}
+
+/// An equivalence relation on a schema's typed side: what
+/// `Schema.toEquivalence` answers. The pin derives one per AST node behind a
+/// `memoize`, so a second ask hands back the same relation; this port builds it
+/// once, while the schema itself is being constructed, and `to_equivalence` is
+/// then a lookup.
+pub type Equivalence<T> = Arc<dyn Fn(&T, &T) -> bool + Send + Sync>;
+
+/// The pin's `Equivalence.strictEqual` (`===`), which `Never` answers with:
+/// identity for the two shapes `Unknown` holds by reference, value equality for
+/// the rest. The distinction is the row's whole point, so it is made here rather
+/// than approximated by `==`.
+fn strict_identity_equivalence() -> Equivalence<Unknown> {
+    Arc::new(|a: &Unknown, b: &Unknown| match (a, b) {
+        (Unknown::Object(_), Unknown::Object(_)) | (Unknown::Array(_), Unknown::Array(_)) => {
+            std::ptr::eq(a, b)
+        }
+        _ => a == b,
+    })
 }
 
 /// The subset of ECMAScript regex syntax the pin's JSON Schema patterns use, and
@@ -989,6 +1016,7 @@ impl<T> Schema<T> {
             kind,
             children: Vec::new(),
             formatter: None,
+            equivalence: None,
             wrapped: None,
             construct: None,
             constructor_default: None,
@@ -1007,6 +1035,51 @@ impl<T> Schema<T> {
     pub(crate) fn with_class_meta(mut self, meta: crate::class::ClassMeta) -> Self {
         self.class_meta = Some(Box::new(meta));
         self
+    }
+
+    /// Install the relation `to_equivalence` answers with. Each constructor
+    /// calls this with the rule its own shape implies, reading its children's
+    /// relations as it builds them.
+    pub(crate) fn with_equivalence(mut self, relation: Equivalence<T>) -> Self {
+        self.equivalence = Some(relation);
+        self
+    }
+
+    /// The relation on this schema's values (`Schema.toEquivalence`): a struct's
+    /// field-by-field walk, an array's element walk, a union's member
+    /// selection, a Record's key-filtered entries. A schema whose constructor
+    /// installed a richer rule (an `overrideToEquivalence`, a class's field
+    /// list) answers with it instead.
+    ///
+    /// A schema built with no rule of its own compares the two values' wire
+    /// forms, which is all a shape with no comparison to make can say: an
+    /// imported reference, a template literal, a schema adapted by `convert`.
+    pub fn to_equivalence(&self) -> Equivalence<T>
+    where
+        T: 'static,
+    {
+        match &self.equivalence {
+            Some(relation) => relation.clone(),
+            None => {
+                let encode = self.encode.clone();
+                Arc::new(move |a: &T, b: &T| {
+                    matches!((encode(a), encode(b)), (Ok(x), Ok(y)) if x == y)
+                })
+            }
+        }
+    }
+
+    /// `overrideToEquivalence`: replace this schema's derived relation with
+    /// `build()`'s. The pin spells the override as a function-valued
+    /// annotation and calls it once behind a `memoize`; this port's `annotate`
+    /// carries string pairs only, so the factory form is its own constructor
+    /// and is called once, here.
+    pub fn override_to_equivalence(
+        mut schema: Schema<T>,
+        build: impl Fn() -> Equivalence<T> + Send + Sync + 'static,
+    ) -> Schema<T> {
+        schema.equivalence = Some(build());
+        schema
     }
 
     /// The construction kernel, for the class builder: a class constructs
@@ -1219,6 +1292,10 @@ impl<T> Schema<T> {
             kind,
             children: schema.children,
             formatter: schema.formatter.clone(),
+            // An annotation rides the same codec, so the relation underneath is
+            // still the one for these values: an `overrideToEquivalence` applied
+            // before the annotation must survive it.
+            equivalence: schema.equivalence.clone(),
             // An annotation rides the same codec, so a constructor default on
             // the schema underneath still applies to construction.
             construct: schema.construct.clone(),
@@ -1574,6 +1651,7 @@ impl Schema<Unknown> {
             },
             SchemaKind::Opaque("never"),
         )
+        .with_equivalence(strict_identity_equivalence())
     }
 
     /// Any object or array, and nothing else (`ObjectKeyword` shape). The pin
@@ -2752,10 +2830,15 @@ impl<T: Send + Sync + 'static> Schema<Option<T>> {
         // of its own, so the Optional has to copy the kind underneath it or a
         // repr prints `Schema.optional(Schema.Unknown)`.
         let kind = SchemaKind::Optional(Box::new(inner.repr_kind()));
+        // The relation is the value schema's on the `Some` side and the tag on
+        // the `None` side, which is the pin's `effect/schema/Option`
+        // declaration rule: an absent value is equivalent only to another
+        // absent one, so a `None` never matches a `Some`.
+        let inner_relation = inner.to_equivalence();
         let inner = Arc::new(inner);
         let decode_inner = inner.clone();
         let encode_inner = inner.clone();
-        Schema::new(
+        let mut schema = Schema::new(
             move |unknown| match unknown {
                 Unknown::Null => Ok(None),
                 other => decode_inner.decode(other).map(Some),
@@ -2765,7 +2848,13 @@ impl<T: Send + Sync + 'static> Schema<Option<T>> {
                 Some(value) => encode_inner.try_encode(value),
             },
             kind,
-        )
+        );
+        schema.equivalence = Some(Arc::new(move |a: &Option<T>, b: &Option<T>| match (a, b) {
+            (None, None) => true,
+            (Some(a), Some(b)) => inner_relation(a, b),
+            _ => false,
+        }));
+        schema
     }
 }
 
@@ -5027,6 +5116,15 @@ impl Schema<Unknown> {
         // costs the early exit an `anyOf` keeps, which is the whole difference
         // between the two modes.
         let one_of = mode == "oneOf";
+        // The pin's Union relation selects a candidate member and answers with
+        // THAT member's relation, which is why a member carrying its own
+        // `toEquivalence` decides its values instead of a wire-form compare.
+        // A member owns these values when its own decode accepts both; the
+        // first such member wins, matching the decode order.
+        let relation_members: Vec<(Arc<Schema<Unknown>>, Equivalence<Unknown>)> = decoders
+            .iter()
+            .map(|member| (Arc::clone(member), member.to_equivalence()))
+            .collect();
         let mut schema = Self::new(
             move |unknown| {
                 let mut decoded = None;
@@ -5052,6 +5150,14 @@ impl Schema<Unknown> {
             kind,
         );
         schema.union_members = declared_members;
+        schema.equivalence = Some(Arc::new(move |a: &Unknown, b: &Unknown| {
+            for (member, relation) in &relation_members {
+                if member.decode(a.clone()).is_ok() && member.decode(b.clone()).is_ok() {
+                    return relation(a, b);
+                }
+            }
+            false
+        }));
         schema
     }
 }
