@@ -16,6 +16,8 @@ const MAX_SAFE_INTEGER: f64 = 9007199254740991.0;
 
 pub mod transform;
 
+pub mod differ_json_patch;
+
 pub mod tagged;
 
 pub mod class;
@@ -28,6 +30,7 @@ pub mod representation;
 pub mod refinements;
 
 pub use class::{ClassMeta, ClassValue, ExcessProperty};
+pub use differ_json_patch::{Differ, DifferError, JsonPatch, PatchError, PatchOp, apply, diff};
 pub use filters::{FilterIssue, FilterOutcome, FilterSpec};
 pub use tagged::{Tagged, TaggedError, catch_tag};
 
