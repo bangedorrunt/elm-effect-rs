@@ -6866,16 +6866,26 @@ unported	packages/effect/test/httpapi/HttpApiClient.test.ts	1026	it.effect	store
 unported	packages/effect/test/httpapi/HttpApiClient.test.ts	1047	it.effect	applies transformClient to endpoint clients exactly once	
 unported	packages/effect/test/httpapi/HttpApiClient.test.ts	1077	it.effect	encodes path parameters when executing requests	
 unported	packages/effect/test/httpapi/HttpApiClient.test.ts	1111	it.effect	omits optional path parameters when executing requests	
-unported	packages/effect/test/httpapi/HttpApiDocumentation.test.ts	14	it.effect	defers and memoizes successful openapiPath responses	
-unported	packages/effect/test/httpapi/HttpApiDocumentation.test.ts	59	it.effect	retries openapiPath generation after a defect	
-unported	packages/effect/test/httpapi/HttpApiDocumentation.test.ts	92	it.effect	defers and memoizes successful OpenAPI responses	
-unported	packages/effect/test/httpapi/HttpApiDocumentation.test.ts	132	it.effect	retries OpenAPI generation after a defect	
-unported	packages/effect/test/httpapi/HttpApiDocumentation.test.ts	160	it.effect	defers inline Scalar generation until the route is requested	
-unported	packages/effect/test/httpapi/HttpApiDocumentation.test.ts	184	it.effect	escapes OpenAPI metadata in its HTML contexts	
-unported	packages/effect/test/httpapi/HttpApiDocumentation.test.ts	204	it.effect	encodes CDN versions before interpolating the script source	
-unported	packages/effect/test/httpapi/HttpApiDocumentation.test.ts	220	it.effect	defers and memoizes successful OpenAPI responses	
-unported	packages/effect/test/httpapi/HttpApiDocumentation.test.ts	260	it.effect	retries OpenAPI generation after a defect	
-unported	packages/effect/test/httpapi/HttpApiDocumentation.test.ts	288	it.effect	escapes script end-tag variants in OpenAPI data	
+ported	packages/effect/test/httpapi/HttpApiDocumentation.test.ts	14	it.effect	defers and memoizes successful openapiPath responses	defers_and_memoizes_successful_openapi_path_responses
+
+ported	packages/effect/test/httpapi/HttpApiDocumentation.test.ts	59	it.effect	retries openapiPath generation after a defect	retries_openapi_path_generation_after_a_defect
+
+ported	packages/effect/test/httpapi/HttpApiDocumentation.test.ts	92	it.effect	defers and memoizes successful OpenAPI responses	scalar_and_swagger_share_the_memoize_and_retry_contract
+
+ported	packages/effect/test/httpapi/HttpApiDocumentation.test.ts	132	it.effect	retries OpenAPI generation after a defect	scalar_and_swagger_share_the_memoize_and_retry_contract
+
+ported	packages/effect/test/httpapi/HttpApiDocumentation.test.ts	160	it.effect	defers inline Scalar generation until the route is requested	defers_scalar_generation_until_the_route_is_requested
+
+ported	packages/effect/test/httpapi/HttpApiDocumentation.test.ts	184	it.effect	escapes OpenAPI metadata in its HTML contexts	escapes_openapi_metadata_in_its_html_contexts
+
+ported	packages/effect/test/httpapi/HttpApiDocumentation.test.ts	204	it.effect	encodes CDN versions before interpolating the script source	encodes_cdn_versions_before_interpolating_the_script_source
+
+ported	packages/effect/test/httpapi/HttpApiDocumentation.test.ts	220	it.effect	defers and memoizes successful OpenAPI responses	scalar_and_swagger_share_the_memoize_and_retry_contract
+
+ported	packages/effect/test/httpapi/HttpApiDocumentation.test.ts	260	it.effect	retries OpenAPI generation after a defect	scalar_and_swagger_share_the_memoize_and_retry_contract
+
+ported	packages/effect/test/httpapi/HttpApiDocumentation.test.ts	288	it.effect	escapes script end-tag variants in OpenAPI data	escapes_script_end_tag_variants_in_openapi_data
+
 ported	packages/effect/test/httpapi/HttpApiEndpoint.test.ts	14	it	stores the supplied identifier	stores_the_supplied_identifier
 not-applicable	packages/effect/test/httpapi/HttpApiEndpoint.test.ts	20	it	can be extended as a class	requires TS class extension (typeof/isHttpApiEndpoint/class name) with prefix derivation; no class system in Rust
 ported	packages/effect/test/httpapi/HttpApiEndpoint.test.ts	36	it	normalizes payload map keys while preserving the declared content type	normalizes_payload_map_keys_while_preserving_the_declared_content_type
