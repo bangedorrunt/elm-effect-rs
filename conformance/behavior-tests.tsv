@@ -7292,67 +7292,128 @@ ported	packages/effect/test/httpapi/HttpApi.test.ts	38	it	does not mutate groups
 ported	packages/effect/test/httpapi/HttpApi.test.ts	54	it	does not add inherited groups	httpapi_add_http_api_copies_own_groups_only
 ported	packages/effect/test/httpapi/HttpApi.test.ts	65	it	keeps annotations from API variants isolated	httpapi_variant_annotations_stay_isolated
 ported	packages/effect/test/httpapi/HttpApi.test.ts	86	it	preserves group annotation precedence	httpapi_group_annotation_beats_api_annotation
-unported	packages/effect/test/httpapi/HttpApiBuilder.test.ts	38	it.layer	HttpApiBuilder ParseOptions	
-unported	packages/effect/test/httpapi/HttpApiBuilder.test.ts	42	it.effect	strict SSE encoding rejects excess properties in user event data	
-unported	packages/effect/test/httpapi/HttpApiBuilder.test.ts	65	it.effect	SSE encoding aggregates all user data issues in the reserved failure event	
-unported	packages/effect/test/httpapi/HttpApiBuilder.test.ts	117	it.effect	POST payload decoding collects all issues from API options	
-unported	packages/effect/test/httpapi/HttpApiBuilder.test.ts	124	it.effect	POST payload decoding defaults to the first issue	
-unported	packages/effect/test/httpapi/HttpApiBuilder.test.ts	131	it.effect	endpoint options replace the whole API value	
-unported	packages/effect/test/httpapi/HttpApiBuilder.test.ts	144	it.effect	error responses stay encodable under strict excess options	
-unported	packages/effect/test/httpapi/HttpApiBuilder.test.ts	202	it.layer	HttpApiBuilder slot ParseOptions	
-unported	packages/effect/test/httpapi/HttpApiBuilder.test.ts	203	it.effect	API slot annotations replace endpoint ParseOptions one codec at a time	
-unported	packages/effect/test/httpapi/HttpApiBuilder.test.ts	269	it.effect	encodeToWithHeaders response headers use HeadersParseOptions	
-unported	packages/effect/test/httpapi/HttpApiBuilder.test.ts	318	it.layer	HttpApiBuilder.handler	
-unported	packages/effect/test/httpapi/HttpApiBuilder.test.ts	319	it.effect	round trips a path parameter followed by a literal action suffix	
-unported	packages/effect/test/httpapi/HttpApiBuilder.test.ts	337	it.effect	does not bind a non-word schema key in a literal client path	
-unported	packages/effect/test/httpapi/HttpApiBuilder.test.ts	353	it.effect	returns the callback unchanged and supports registration in a group	
-unported	packages/effect/test/httpapi/HttpApiBuilder.test.ts	381	it.effect	round trips a QUERY request body	
-unported	packages/effect/test/httpapi/HttpApiBuilder.test.ts	401	it.layer	HttpApiTest pre-response handlers	
-unported	packages/effect/test/httpapi/HttpApiBuilder.test.ts	402	it.effect	runs registered pre-response handlers	
-unported	packages/effect/test/httpapi/HttpApiBuilder.test.ts	427	it.layer	HttpApiBuilder query parameters	
-unported	packages/effect/test/httpapi/HttpApiBuilder.test.ts	428	it.effect	round trips array query parameters with one or more values	
-unported	packages/effect/test/httpapi/HttpApiBuilder.test.ts	453	it.effect	reuses response schema transformations by source AST	
-unported	packages/effect/test/httpapi/HttpApiBuilder.test.ts	486	it.layer	HttpApiBuilder payload content types	
-unported	packages/effect/test/httpapi/HttpApiBuilder.test.ts	487	it.effect	round trips mixed-case media types with declared and received parameters	
-unported	packages/effect/test/httpapi/HttpApiBuilder.test.ts	527	it.effect	round trips custom form-urlencoded media types	
-unported	packages/effect/test/httpapi/HttpApiBuilder.test.ts	553	it.layer	HttpApiBuilder WithHeaders responses	
-unported	packages/effect/test/httpapi/HttpApiBuilder.test.ts	554	it.effect	encodes WithHeaders using the schema for the response status	
-unported	packages/effect/test/httpapi/HttpApiBuilder.test.ts	597	it.effect	encodes a branded response against the header-carrying member when body shapes overlap	
-unported	packages/effect/test/httpapi/HttpApiBuilder.test.ts	630	it.effect	fails with a Body schema error when a branded response body matches no header-carrying member	
-unported	packages/effect/test/httpapi/HttpApiBuilder.test.ts	667	it.effect	round trips user-managed header codecs through HttpApiTest	
-unported	packages/effect/test/httpapi/HttpApiBuilder.test.ts	700	it.effect	passes through string-shaped WithHeaders when endpoint codecs are disabled	
-unported	packages/effect/test/httpapi/HttpApiBuilder.test.ts	754	it.effect	encodes and decodes response headers with codecs enabled	
-unported	packages/effect/test/httpapi/HttpApiBuilder.test.ts	790	it.effect	decodes a transforming buffered success body and its declared headers	
-unported	packages/effect/test/httpapi/HttpApiBuilder.test.ts	817	it.effect	round trips a client-received branded value through another handler	
-unported	packages/effect/test/httpapi/HttpApiBuilder.test.ts	851	it.effect	encodes a buffered success body and its declared headers	
-unported	packages/effect/test/httpapi/HttpApiBuilder.test.ts	886	it.effect	does not unwrap an unbranded value in a mixed success union	
-unported	packages/effect/test/httpapi/HttpApiBuilder.test.ts	916	it.effect	decodes a plain value in a mixed WithHeaders success union	
-unported	packages/effect/test/httpapi/HttpApiBuilder.test.ts	942	it.effect	applies declared headers after body encoding	
-unported	packages/effect/test/httpapi/HttpApiBuilder.test.ts	973	it.effect	encodes error headers through encodeToWithHeaders	
-unported	packages/effect/test/httpapi/HttpApiBuilder.test.ts	1007	it.effect	encodes annotation headers from their declared encoded shape	
-unported	packages/effect/test/httpapi/HttpApiBuilder.test.ts	1041	it.effect	encodes and decodes an error wrapped in WithHeaders	
-unported	packages/effect/test/httpapi/HttpApiBuilder.test.ts	1071	it.effect	passes through string-shaped encodeToWithHeaders values when endpoint codecs are disabled	
-unported	packages/effect/test/httpapi/HttpApiBuilder.test.ts	1111	it.effect	decodes an error body and headers through encodeToWithHeaders	
-unported	packages/effect/test/httpapi/HttpApiBuilder.test.ts	1151	it.effect	defects with ResponseHeaders when success header encoding fails	
-unported	packages/effect/test/httpapi/HttpApiBuilder.test.ts	1183	it.layer	HttpApiBuilder streaming success responses	
-unported	packages/effect/test/httpapi/HttpApiBuilder.test.ts	1191	it.effect	preserves WithHeaders stream status: ${name}	
-unported	packages/effect/test/httpapi/HttpApiBuilder.test.ts	1229	it.effect	emits StreamUint8Array handler responses as streamed bytes with the declared content type	
-unported	packages/effect/test/httpapi/HttpApiBuilder.test.ts	1260	it.effect	unwraps WithHeaders StreamUint8Array responses before stream dispatch	
-unported	packages/effect/test/httpapi/HttpApiBuilder.test.ts	1295	it.effect	renders successful StreamSse events incrementally with the declared content type	
-unported	packages/effect/test/httpapi/HttpApiBuilder.test.ts	1338	it.effect	unwraps WithHeaders StreamSse responses before SSE encoding	
-unported	packages/effect/test/httpapi/HttpApiBuilder.test.ts	1383	it.effect	fails WithHeaders stream header encoding before returning a response	
-unported	packages/effect/test/httpapi/HttpApiBuilder.test.ts	1417	it.effect	renders StreamSse failures as one reserved event containing an encoded full cause	
-unported	packages/effect/test/httpapi/HttpApiBuilder.test.ts	1458	it.effect	supports buffered and stream successes with the same status	
-unported	packages/effect/test/httpapi/HttpApiBuilder.test.ts	1506	it.effect	keeps a plain buffered alternative when the stream is wrapped	
-unported	packages/effect/test/httpapi/HttpApiBuilder.test.ts	1535	it.effect	detects a wrapped buffered alternative alongside a plain stream	
-unported	packages/effect/test/httpapi/HttpApiBuilder.test.ts	1567	it.effect	registers handleAll handlers at runtime	
-unported	packages/effect/test/httpapi/HttpApiBuilder.test.ts	1621	it.effect	rejects unknown endpoint identifiers	
-unported	packages/effect/test/httpapi/HttpApiBuilder.test.ts	1649	it.effect	rejects duplicate handle and handleAll registrations	
-unported	packages/effect/test/httpapi/HttpApiBuilder.test.ts	1687	it.effect	ignores inherited handleAll properties	
-unported	packages/effect/test/httpapi/HttpApiBuilder.test.ts	1717	it.effect	executes effectful handler builders	
-unported	packages/effect/test/httpapi/HttpApiBuilder.test.ts	1754	it.effect	does not try another security scheme after the handler fails	
-unported	packages/effect/test/httpapi/HttpApiBuilder.test.ts	1811	it.layer	HttpApiBuilder middleware error responses	
-unported	packages/effect/test/httpapi/HttpApiBuilder.test.ts	1812	it.effect	encodes a middleware error through the response codec	
+not-applicable	packages/effect/test/httpapi/HttpApiBuilder.test.ts	38	it.layer	HttpApiBuilder ParseOptions	needs ParseOptions with Schema excess-property machinery
+
+not-applicable	packages/effect/test/httpapi/HttpApiBuilder.test.ts	42	it.effect	strict SSE encoding rejects excess properties in user event data	needs strict SSE encoding with Schema codec layer
+
+not-applicable	packages/effect/test/httpapi/HttpApiBuilder.test.ts	65	it.effect	SSE encoding aggregates all user data issues in the reserved failure event	needs SSE encoding with Schema codec layer
+
+not-applicable	packages/effect/test/httpapi/HttpApiBuilder.test.ts	117	it.effect	POST payload decoding collects all issues from API options	needs POST payload decoding with all-issues collection
+
+not-applicable	packages/effect/test/httpapi/HttpApiBuilder.test.ts	124	it.effect	POST payload decoding defaults to the first issue	needs first-issue parse mode; decode is fail-fast
+
+not-applicable	packages/effect/test/httpapi/HttpApiBuilder.test.ts	131	it.effect	endpoint options replace the whole API value	needs endpoint-vs-API ParseOptions evaluation, not just storage
+
+not-applicable	packages/effect/test/httpapi/HttpApiBuilder.test.ts	144	it.effect	error responses stay encodable under strict excess options	needs strict excess-property error responses
+
+not-applicable	packages/effect/test/httpapi/HttpApiBuilder.test.ts	202	it.layer	HttpApiBuilder slot ParseOptions	needs slot ParseOptions with Schema codec machinery
+
+not-applicable	packages/effect/test/httpapi/HttpApiBuilder.test.ts	203	it.effect	API slot annotations replace endpoint ParseOptions one codec at a time	needs API-vs-endpoint annotation precedence in codecs
+
+not-applicable	packages/effect/test/httpapi/HttpApiBuilder.test.ts	269	it.effect	encodeToWithHeaders response headers use HeadersParseOptions	needs HeadersParseOptions with header codec layer
+
+not-applicable	packages/effect/test/httpapi/HttpApiBuilder.test.ts	318	it.layer	HttpApiBuilder.handler	needs handler registration runtime
+
+ported	packages/effect/test/httpapi/HttpApiBuilder.test.ts	319	it.effect	round trips a path parameter followed by a literal action suffix	round_trips_a_path_parameter_followed_by_a_literal_action_suffix
+
+ported	packages/effect/test/httpapi/HttpApiBuilder.test.ts	337	it.effect	does not bind a non-word schema key in a literal client path	does_not_bind_a_non_word_schema_key_in_a_literal_client_path
+
+ported	packages/effect/test/httpapi/HttpApiBuilder.test.ts	353	it.effect	returns the callback unchanged and supports registration in a group	returns_the_callback_unchanged_and_supports_registration_in_a_group
+
+ported	packages/effect/test/httpapi/HttpApiBuilder.test.ts	381	it.effect	round trips a QUERY request body	round_trips_a_query_request_body
+
+not-applicable	packages/effect/test/httpapi/HttpApiBuilder.test.ts	401	it.layer	HttpApiTest pre-response handlers	needs pre-response handler chain
+
+not-applicable	packages/effect/test/httpapi/HttpApiBuilder.test.ts	402	it.effect	runs registered pre-response handlers	needs pre-response handler chain
+
+not-applicable	packages/effect/test/httpapi/HttpApiBuilder.test.ts	427	it.layer	HttpApiBuilder query parameters	needs query-param routing runtime
+
+ported	packages/effect/test/httpapi/HttpApiBuilder.test.ts	428	it.effect	round trips array query parameters with one or more values	round_trips_array_query_parameters_with_one_or_more_values
+
+not-applicable	packages/effect/test/httpapi/HttpApiBuilder.test.ts	453	it.effect	reuses response schema transformations by source AST	needs response schema transformation by source AST identity
+
+not-applicable	packages/effect/test/httpapi/HttpApiBuilder.test.ts	486	it.layer	HttpApiBuilder payload content types	needs payload content-type negotiation with codecs
+
+ported	packages/effect/test/httpapi/HttpApiBuilder.test.ts	487	it.effect	round trips mixed-case media types with declared and received parameters	round_trips_mixed_case_media_types_with_declared_and_received_parameters
+
+ported	packages/effect/test/httpapi/HttpApiBuilder.test.ts	527	it.effect	round trips custom form-urlencoded media types	round_trips_custom_form_urlencoded_media_types
+
+not-applicable	packages/effect/test/httpapi/HttpApiBuilder.test.ts	553	it.layer	HttpApiBuilder WithHeaders responses	needs WithHeaders response machinery
+
+not-applicable	packages/effect/test/httpapi/HttpApiBuilder.test.ts	554	it.effect	encodes WithHeaders using the schema for the response status	needs WithHeaders with schema response encoding
+
+not-applicable	packages/effect/test/httpapi/HttpApiBuilder.test.ts	597	it.effect	encodes a branded response against the header-carrying member when body shapes overlap	needs branded WithHeaders body matching
+
+not-applicable	packages/effect/test/httpapi/HttpApiBuilder.test.ts	630	it.effect	fails with a Body schema error when a branded response body matches no header-carrying member	needs Body schema errors on branded mismatch
+
+not-applicable	packages/effect/test/httpapi/HttpApiBuilder.test.ts	667	it.effect	round trips user-managed header codecs through HttpApiTest	needs user-managed header codecs
+
+not-applicable	packages/effect/test/httpapi/HttpApiBuilder.test.ts	700	it.effect	passes through string-shaped WithHeaders when endpoint codecs are disabled	needs string-shaped WithHeaders passthrough (codecs disabled path unrepresentable)
+
+not-applicable	packages/effect/test/httpapi/HttpApiBuilder.test.ts	754	it.effect	encodes and decodes response headers with codecs enabled	needs header encode/decode with codecs enabled
+
+not-applicable	packages/effect/test/httpapi/HttpApiBuilder.test.ts	790	it.effect	decodes a transforming buffered success body and its declared headers	needs transforming buffered body plus declared headers
+
+not-applicable	packages/effect/test/httpapi/HttpApiBuilder.test.ts	817	it.effect	round trips a client-received branded value through another handler	needs branded roundtrip through handlers
+
+not-applicable	packages/effect/test/httpapi/HttpApiBuilder.test.ts	851	it.effect	encodes a buffered success body and its declared headers	needs buffered success plus declared headers
+
+not-applicable	packages/effect/test/httpapi/HttpApiBuilder.test.ts	886	it.effect	does not unwrap an unbranded value in a mixed success union	needs mixed success union discrimination
+
+not-applicable	packages/effect/test/httpapi/HttpApiBuilder.test.ts	916	it.effect	decodes a plain value in a mixed WithHeaders success union	needs plain value in WithHeaders union decoding
+
+not-applicable	packages/effect/test/httpapi/HttpApiBuilder.test.ts	942	it.effect	applies declared headers after body encoding	needs declared headers applied after body encoding
+
+not-applicable	packages/effect/test/httpapi/HttpApiBuilder.test.ts	973	it.effect	encodes error headers through encodeToWithHeaders	needs error headers through encodeToWithHeaders
+
+not-applicable	packages/effect/test/httpapi/HttpApiBuilder.test.ts	1007	it.effect	encodes annotation headers from their declared encoded shape	needs annotation headers from encoded shape
+
+not-applicable	packages/effect/test/httpapi/HttpApiBuilder.test.ts	1041	it.effect	encodes and decodes an error wrapped in WithHeaders	needs error wrapped in WithHeaders
+
+not-applicable	packages/effect/test/httpapi/HttpApiBuilder.test.ts	1071	it.effect	passes through string-shaped encodeToWithHeaders values when endpoint codecs are disabled	needs string-shaped encodeToWithHeaders passthrough
+
+not-applicable	packages/effect/test/httpapi/HttpApiBuilder.test.ts	1111	it.effect	decodes an error body and headers through encodeToWithHeaders	needs error body plus headers through encodeToWithHeaders
+
+not-applicable	packages/effect/test/httpapi/HttpApiBuilder.test.ts	1151	it.effect	defects with ResponseHeaders when success header encoding fails	needs ResponseHeaders defects on header encoding failure
+
+not-applicable	packages/effect/test/httpapi/HttpApiBuilder.test.ts	1183	it.layer	HttpApiBuilder streaming success responses	needs streaming success runtime
+
+not-applicable	packages/effect/test/httpapi/HttpApiBuilder.test.ts	1191	it.effect	preserves WithHeaders stream status: ${name}	needs WithHeaders stream status machinery
+
+not-applicable	packages/effect/test/httpapi/HttpApiBuilder.test.ts	1229	it.effect	emits StreamUint8Array handler responses as streamed bytes with the declared content type	needs StreamUint8Array streaming bytes
+
+not-applicable	packages/effect/test/httpapi/HttpApiBuilder.test.ts	1260	it.effect	unwraps WithHeaders StreamUint8Array responses before stream dispatch	needs WithHeaders StreamUint8Array unwrapping
+
+not-applicable	packages/effect/test/httpapi/HttpApiBuilder.test.ts	1295	it.effect	renders successful StreamSse events incrementally with the declared content type	needs incremental StreamSse rendering
+
+not-applicable	packages/effect/test/httpapi/HttpApiBuilder.test.ts	1338	it.effect	unwraps WithHeaders StreamSse responses before SSE encoding	needs WithHeaders StreamSse unwrapping before SSE encoding
+
+not-applicable	packages/effect/test/httpapi/HttpApiBuilder.test.ts	1383	it.effect	fails WithHeaders stream header encoding before returning a response	needs WithHeaders stream header encoding
+
+not-applicable	packages/effect/test/httpapi/HttpApiBuilder.test.ts	1417	it.effect	renders StreamSse failures as one reserved event containing an encoded full cause	needs reserved StreamSse failure events
+
+not-applicable	packages/effect/test/httpapi/HttpApiBuilder.test.ts	1458	it.effect	supports buffered and stream successes with the same status	needs buffered+stream success coexistence
+
+not-applicable	packages/effect/test/httpapi/HttpApiBuilder.test.ts	1506	it.effect	keeps a plain buffered alternative when the stream is wrapped	needs plain buffered alternative to wrapped stream
+
+not-applicable	packages/effect/test/httpapi/HttpApiBuilder.test.ts	1535	it.effect	detects a wrapped buffered alternative alongside a plain stream	needs wrapped buffered alternative detection
+
+ported	packages/effect/test/httpapi/HttpApiBuilder.test.ts	1567	it.effect	registers handleAll handlers at runtime	registers_handle_all_handlers_at_runtime
+
+ported	packages/effect/test/httpapi/HttpApiBuilder.test.ts	1621	it.effect	rejects unknown endpoint identifiers	rejects_unknown_endpoint_identifiers
+
+ported	packages/effect/test/httpapi/HttpApiBuilder.test.ts	1649	it.effect	rejects duplicate handle and handleAll registrations	rejects_duplicate_handle_and_handle_all_registrations
+
+not-applicable	packages/effect/test/httpapi/HttpApiBuilder.test.ts	1687	it.effect	ignores inherited handleAll properties	needs JS prototype inheritance for handleAll; Rust maps have own keys only
+
+ported	packages/effect/test/httpapi/HttpApiBuilder.test.ts	1717	it.effect	executes effectful handler builders	executes_effectful_handler_builders
+
+not-applicable	packages/effect/test/httpapi/HttpApiBuilder.test.ts	1754	it.effect	does not try another security scheme after the handler fails	needs security-scheme failover runtime
+
+not-applicable	packages/effect/test/httpapi/HttpApiBuilder.test.ts	1811	it.layer	HttpApiBuilder middleware error responses	needs middleware error response machinery
+
+not-applicable	packages/effect/test/httpapi/HttpApiBuilder.test.ts	1812	it.effect	encodes a middleware error through the response codec	needs middleware error codec encoding
+
 not-applicable	packages/effect/test/httpapi/HttpApiClient.test.ts	19	it.effect	strict events-mode decoding omits an absent event ID	strict events-mode decoding needs Schema compiler plus Sse wire decoder
 not-applicable	packages/effect/test/httpapi/HttpApiClient.test.ts	33	it.effect	strict SSE decoding accepts valid user data and framework event metadata	strict SSE user-data decoding needs Schema compiler plus Sse wire decoder
 not-applicable	packages/effect/test/httpapi/HttpApiClient.test.ts	53	it.effect	strict SSE decoding preserves reserved failure causes	reserved failure Cause decode needs Schema compiler plus Sse wire decoder
