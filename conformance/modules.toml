@@ -2924,7 +2924,7 @@ tests = ["packages/effect/test/workers/Worker.test.ts"]
 [[module]]
 path = "packages/effect/src/workers/WorkerError.ts"
 class = "unstable-port"
-status = "unmatched"
+status = "matched"
 tag = "unstable"
 reason = ""
 tests = ["packages/effect/test/workers/WorkerError.test.ts"]

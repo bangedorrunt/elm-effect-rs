@@ -9952,7 +9952,7 @@ ported	packages/effect/test/workers/WorkerError.test.ts	40	it	matches wrapper on
 ported	packages/effect/test/workers/WorkerError.test.ts	55	it.effect	WorkerSpawnError roundtrip	worker_spawn_error_roundtrip
 ported	packages/effect/test/workers/WorkerError.test.ts	66	it.effect	WorkerErrorReason union roundtrip	worker_error_reason_union_roundtrip
 ported	packages/effect/test/workers/WorkerError.test.ts	77	it.effect	WorkerError roundtrip	worker_error_roundtrip
-unported	packages/effect/test/workers/WorkerError.test.ts	93	it.effect	reports postMessage failures as WorkerSendError	
+ported	packages/effect/test/workers/WorkerError.test.ts	93	it.effect	reports postMessage failures as WorkerSendError	buffered_send_reports_post_failure_as_send_error
 ported	packages/effect/test/workflow/DurableQueue.test.ts	57	it.effect	processes queued items and resumes the workflow	durable_queue_fifo_and_shutdown
 ported	packages/effect/test/workflow/DurableQueue.test.ts	96	it.effect	propagates worker failures to the workflow	activity_retry_replays_until_budget
 not-applicable	packages/effect/test/workflow/Workflow.test.ts	7	it.effect	releases acquisition interrupted before the body starts	missing: workflow runner integration (Workflow APIs in elm-effect-rust live elsewhere and have no unit smoke; src/lib.rs has no workflow run)

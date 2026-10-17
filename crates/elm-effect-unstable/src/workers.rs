@@ -306,3 +306,52 @@ pub fn run_runner(messages: &[PlatformMessage]) -> Vec<Vec<u8>> {
     }
     out
 }
+
+/// A worker client that buffers sends until the worker signals ready.
+///
+/// Ports the `send`/`run` pair `makePlatform` builds in
+/// `packages/effect/src/workers/Worker.ts`: `send` before ready appends to a
+/// buffer, the ready handshake flushes through `postMessage`, and a throwing
+/// post maps to `WorkerSendError` (never a panic).
+pub struct BufferedWorker {
+    ready: bool,
+    buffer: Vec<Vec<u8>>,
+    post: Box<dyn Fn(&[u8]) -> Result<(), String>>,
+}
+
+impl BufferedWorker {
+    /// Build with the platform `postMessage`; the closure fails with the
+    /// thrown defect message to simulate a throwing post.
+    pub fn new(post: impl Fn(&[u8]) -> Result<(), String> + 'static) -> Self {
+        Self { ready: false, buffer: Vec::new(), post: Box::new(post) }
+    }
+
+    fn post_mapped(&self, message: &[u8]) -> Result<(), WorkerError> {
+        (self.post)(message).map_err(|cause| {
+            WorkerError::new(
+                WorkerErrorReason::send("Failed to send message to worker")
+                    .with_cause(serde_json::json!({ "message": cause })),
+            )
+        })
+    }
+
+    /// Send a message, buffering while the worker is not ready yet.
+    pub fn send(&mut self, message: Vec<u8>) -> Result<(), WorkerError> {
+        if !self.ready {
+            self.buffer.push(message);
+            return Ok(());
+        }
+        self.post_mapped(&message)
+    }
+
+    /// Signal ready and flush buffered sends in order; the first throwing
+    /// post fails the flush as `WorkerSendError`.
+    pub fn mark_ready_and_flush(&mut self) -> Result<(), WorkerError> {
+        self.ready = true;
+        let buffered = core::mem::take(&mut self.buffer);
+        for message in &buffered {
+            self.post_mapped(message)?;
+        }
+        Ok(())
+    }
+}

@@ -1,7 +1,7 @@
 //! `packages/effect/test/workers/WorkerError.test.ts` witnesses.
 
 use elm_effect_unstable::workers::{
-    WorkerError, WorkerErrorReason, is_worker_error,
+    BufferedWorker, WorkerError, WorkerErrorReason, is_worker_error,
 };
 
 #[test]
@@ -67,4 +67,17 @@ fn worker_error_roundtrip() {
     assert_eq!(decoded.tag(), "WorkerError");
     assert_eq!(decoded.reason.tag(), "WorkerSendError");
     assert_eq!(decoded.message(), "Failed to send message");
+}
+
+#[test]
+fn buffered_send_reports_post_failure_as_send_error() {
+    // WorkerError.test.ts:93 reports postMessage failures as WorkerSendError.
+    // Send buffers before ready; the ready flush calls postMessage, which
+    // throws, so the run fails with WorkerSendError and no panic (no Die).
+    let mut worker = BufferedWorker::new(|_| Err("post failed".to_owned()));
+    worker.send(b"buffered".to_vec()).unwrap();
+    let err = worker.mark_ready_and_flush().unwrap_err();
+    assert!(is_worker_error(&err));
+    assert_eq!(err.reason.tag(), "WorkerSendError");
+    assert_eq!(err.message(), "Failed to send message to worker");
 }
