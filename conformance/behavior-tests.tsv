@@ -4753,12 +4753,12 @@ unported	packages/effect/test/ai/LanguageModel.test.ts	2647	it.effect	strips pre
 unported	packages/effect/test/ai/LanguageModel.test.ts	2712	it.effect	streamText emits pre-resolved tool results as stream parts	
 not-applicable	packages/effect/test/ai/LanguageModelRepresentation.test.ts	6	it	projects the encoded side before JSON Schema generation	Rust elm-effect-unstable ai.rs has no LanguageModel representation transform or custom JSON Schema compiler callback hooks
 not-applicable	packages/effect/test/ai/LanguageModelRepresentation.test.ts	10	it	uses custom JSON Schema compiler annotations in the default transformer	Rust elm-effect-unstable ai.rs has no LanguageModel representation transform or custom JSON Schema compiler callback hooks
-unported	packages/effect/test/ai/LanguageModelTrackerLifecycle.test.ts	48	it.effect	tracks generateText across turns and recovers after session drop	
-unported	packages/effect/test/ai/LanguageModelTrackerLifecycle.test.ts	118	it.effect	falls back to full prompt after stale previous response id and keeps tracking	
-unported	packages/effect/test/ai/LanguageModelTrackerLifecycle.test.ts	170	it.effect	tracks streamText with metadata parts across turns	
-unported	packages/effect/test/ai/LanguageModelTrackerLifecycle.test.ts	223	it.effect	emits finish parts in streamText when toolkit is provided and no tool calls are returned	
-unported	packages/effect/test/ai/LanguageModelTrackerLifecycle.test.ts	244	it.effect	keeps incremental provider fields undefined when tracker is omitted	
-unported	packages/effect/test/ai/LanguageModelTrackerLifecycle.test.ts	314	it.effect	prepares after approval pre-resolution using stripped prompt	
+ported	packages/effect/test/ai/LanguageModelTrackerLifecycle.test.ts	48	it.effect	tracks generateText across turns and recovers after session drop	tracks_generate_text_across_turns_and_recovers_after_session_drop
+ported	packages/effect/test/ai/LanguageModelTrackerLifecycle.test.ts	118	it.effect	falls back to full prompt after stale previous response id and keeps tracking	falls_back_to_full_prompt_after_stale_previous_response_id_and_keeps_tracking
+ported	packages/effect/test/ai/LanguageModelTrackerLifecycle.test.ts	170	it.effect	tracks streamText with metadata parts across turns	tracks_stream_text_with_metadata_parts_across_turns
+ported	packages/effect/test/ai/LanguageModelTrackerLifecycle.test.ts	223	it.effect	emits finish parts in streamText when toolkit is provided and no tool calls are returned	emits_finish_parts_in_stream_text_when_toolkit_is_provided_and_no_tool_calls_are_returned
+ported	packages/effect/test/ai/LanguageModelTrackerLifecycle.test.ts	244	it.effect	keeps incremental provider fields undefined when tracker is omitted	keeps_incremental_provider_fields_undefined_when_tracker_is_omitted
+ported	packages/effect/test/ai/LanguageModelTrackerLifecycle.test.ts	314	it.effect	prepares after approval pre-resolution using stripped prompt	prepares_after_approval_pre_resolution_using_stripped_prompt
 ported	packages/effect/test/ai/McpSchema.test.ts	6	it	should preserve custom metadata when a request is decoded and encoded	preserves_custom_metadata_when_a_request_is_decoded_and_encoded
 ported	packages/effect/test/ai/McpSchema.test.ts	19	it	allows create-message metadata to be omitted	allows_create_message_metadata_to_be_omitted
 ported	packages/effect/test/ai/McpSchema.test.ts	23	it	requires create-message metadata to be an object	requires_create_message_metadata_to_be_an_object
