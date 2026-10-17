@@ -6405,9 +6405,9 @@ ported	packages/effect/test/eventlog/EventLogMessage.test.ts	12	it	ignores dupli
 not-applicable	packages/effect/test/eventlog/EventLogRemote.test.ts	15	it.effect	retries wrapped Forbidden authentication errors	requires EventLogRemote client retrying Forbidden auth errors through an RPC harness; crate has no remote transport or RPC wire (eventlog.rs documents remotes-over-the-wire as an out-of-timebox residual)
 not-applicable	packages/effect/test/eventlog/EventLogRemote.test.ts	53	it.effect	makeUnencrypted authenticates before writing plaintext entries	requires auth-before-write through the RPC Hello/Authenticate handshake; crate has no RPC harness
 not-applicable	packages/effect/test/eventlog/EventLogRemote.test.ts	80	it.effect	makeEncrypted authenticates before writing encrypted entries	requires encrypted entries through EventLogEncryption.layerSubtle; crate has no entry-encryption layer
-unported	packages/effect/test/eventlog/EventLogServerUnencrypted.test.ts	43	it.effect	indexes conflicts from the sliced history	
-unported	packages/effect/test/eventlog/EventLogServerUnencrypted.test.ts	147	it.effect	Authenticate denies a first-use identity without creating a binding	
-unported	packages/effect/test/eventlog/EventLogServerUnencrypted.test.ts	185	it.effect	Authenticate re-checks identity authorization on a cached binding	
+ported	packages/effect/test/eventlog/EventLogServerUnencrypted.test.ts	43	it.effect	indexes conflicts from the sliced history	indexes_conflicts_from_the_sliced_history
+ported	packages/effect/test/eventlog/EventLogServerUnencrypted.test.ts	147	it.effect	Authenticate denies a first-use identity without creating a binding	authenticate_denies_first_use_without_creating_binding
+ported	packages/effect/test/eventlog/EventLogServerUnencrypted.test.ts	185	it.effect	Authenticate re-checks identity authorization on a cached binding	authenticate_rechecks_identity_authorization_on_cached_binding
 ported	packages/effect/test/eventlog/EventLogSessionAuth.test.ts	26	it.effect	encodes and decodes canonical auth payload deterministically	eventlog_session_auth
 ported	packages/effect/test/eventlog/EventLogSessionAuth.test.ts	46	it.effect	signs and verifies canonical auth payload with Ed25519	eventlog_session_auth
 ported	packages/effect/test/eventlog/EventLogSessionAuth.test.ts	66	it.effect	returns false for mismatched payload/signature	eventlog_session_auth
