@@ -156,6 +156,13 @@ impl FiberControl {
         self.depth.fetch_sub(1, Ordering::SeqCst);
     }
 
+    /// Raise the depth and hand back a guard that lowers it on drop, so a
+    /// panic (or early return) inside a masked region can never leak depth.
+    pub(crate) fn mask_guard(&self) -> MaskGuard<'_> {
+        self.mask();
+        MaskGuard { control: self }
+    }
+
     fn is_done(&self) -> bool {
         *self.done.0.lock().unwrap()
     }
@@ -174,6 +181,18 @@ impl FiberControl {
     }
 }
 
+/// Lowers the interruptibility depth when dropped. The unmask lives here
+/// instead of after `f()` so a panic inside a masked region still restores
+/// depth on unwind.
+pub(crate) struct MaskGuard<'a> {
+    control: &'a FiberControl,
+}
+
+impl Drop for MaskGuard<'_> {
+    fn drop(&mut self) {
+        self.control.unmask();
+    }
+}
 /// The fiber running an effect, as [`Effect::with_fiber`] hands it over:
 /// identity plus the cooperative interrupt flag. Wider control (finalizers,
 /// spawning) stays on [`Ctx`], which a fiber body owns.
@@ -268,12 +287,16 @@ impl Ctx {
     }
 
     /// Run `f` with the interruptibility depth raised by one. The interrupt
-    /// flag still records; delivery waits until depth returns to zero.
+    /// flag still records; delivery waits until depth returns to zero. The
+    /// depth is lowered by a drop guard, so a panic in `f` still restores it.
     pub fn masked<T>(&self, f: impl FnOnce() -> T) -> T {
-        self.control.depth.fetch_add(1, Ordering::SeqCst);
-        let out = f();
-        self.control.depth.fetch_sub(1, Ordering::SeqCst);
-        out
+        let _guard = self.control.mask_guard();
+        f()
+    }
+
+    /// True while any masked region (or release) holds the depth above zero.
+    pub fn is_masked(&self) -> bool {
+        self.control.masked_now()
     }
 
     /// Ids of the extra scopes this fiber is bound to (`fork_in` /

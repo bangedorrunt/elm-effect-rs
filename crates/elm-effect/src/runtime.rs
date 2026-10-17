@@ -127,10 +127,12 @@ impl Shared {
                 child.wait_done();
             }
             // L7: releases run masked to completion, then cancellation
-            // takes effect. Spills append as Die without erasing (L6).
-            task_control.mask();
-            let spills = task_control.scope.close();
-            task_control.unmask();
+            // takes effect. Spills append as Die without erasing (L6). The
+            // guard restores depth even if a finalizer panics.
+            let spills = {
+                let _guard = task_control.mask_guard();
+                task_control.scope.close()
+            };
             match &mut exit {
                 Exit::Success(_) if !spills.is_empty() => {
                     exit = Exit::Failure(Cause::from_defects(spills));
@@ -371,7 +373,12 @@ pub struct ManagedRuntime {
 impl ManagedRuntime {
     /// Build with default pool knobs and no provided services.
     pub fn new() -> Self {
-        Self { runtime: Runtime::new(), services: None, build_scope: None, memo: None }
+        Self {
+            runtime: Runtime::new(),
+            services: None,
+            build_scope: None,
+            memo: None,
+        }
     }
 
     /// Build from a layer: the layer's services are constructed eagerly
@@ -483,9 +490,8 @@ impl ManagedRuntime {
             Some(built) => built.env(),
             None => crate::service::empty_services(),
         };
-        match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            effect.run_sync_with(&env)
-        })) {
+        match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| effect.run_sync_with(&env)))
+        {
             Ok(Ok(a)) => Exit::Success(a),
             Ok(Err(cause)) => Exit::Failure(cause),
             Err(payload) => Exit::Failure(Cause::die(edge_defect(payload))),
@@ -812,7 +818,12 @@ fn race_all_impl<A: Send + 'static, E: Send + 'static>(
             }
             // Every leg answered: the channel closed. Only reachable when
             // success_wins is true and every body failed.
-            Err(_) => break Exit::Failure(crate::Cause { reasons: failures, ..crate::Cause::empty() }),
+            Err(_) => {
+                break Exit::Failure(crate::Cause {
+                    reasons: failures,
+                    ..crate::Cause::empty()
+                });
+            }
         }
     };
 
