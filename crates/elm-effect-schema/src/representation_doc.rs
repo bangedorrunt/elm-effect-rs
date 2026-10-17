@@ -176,6 +176,7 @@ pub fn to_representation(schema: &Schema<Unknown>) -> Result<Document, ReprError
     let mut state = Convert {
         references: BTreeMap::new(),
         reserved: std::collections::BTreeSet::new(),
+        identities: Vec::new(),
     };
     let representation = convert_schema(schema, &mut state, true, "[\"representation\"]")?;
     Ok(Document {
@@ -184,6 +185,43 @@ pub fn to_representation(schema: &Schema<Unknown>) -> Result<Document, ReprError
     })
 }
 
+/// Several roots converted against one shared reference map, in input
+/// order. This is the port's `toRepresentations`: the first root claims each
+/// identifier (suffixed on collision, in encounter order), and later roots
+/// reuse the same entry.
+///
+/// Identity is the shared `decode` allocation: clones of one schema reuse its
+/// reference, while separately built schemas suffix even when their bodies
+/// match. That is the portable half of the pin's owner rule; the other half
+/// (`Context` copies, `referencePolicy`, encoded-side projections) has no
+/// counterpart here, so those rows stay excused.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Documents {
+    pub representations: Vec<Value>,
+    pub references: BTreeMap<String, Value>,
+}
+
+/// Convert several roots against one shared reference map.
+pub fn to_representations(schemas: &[Schema<Unknown>]) -> Result<Documents, ReprError> {
+    let mut state = Convert {
+        references: BTreeMap::new(),
+        reserved: std::collections::BTreeSet::new(),
+        identities: Vec::new(),
+    };
+    let mut representations = Vec::with_capacity(schemas.len());
+    for (index, schema) in schemas.iter().enumerate() {
+        representations.push(convert_schema(
+            schema,
+            &mut state,
+            true,
+            &format!("[\"representations\"][{index}]"),
+        )?);
+    }
+    Ok(Documents {
+        representations,
+        references: state.references,
+    })
+}
 /// Annotate a schema with a structured node identity, like the pin's
 /// `annotate({ representation: { id, payload, schemas } })`. Dependency schemas
 /// convert beside it, so a failure there fails the annotation too.
@@ -339,6 +377,27 @@ fn builtin_identity(name: &str, args: &[String]) -> Option<(String, Value)> {
 struct Convert {
     references: BTreeMap<String, Value>,
     reserved: std::collections::BTreeSet<String>,
+    /// Hoisted schema identities: the `decode` allocation address per
+    /// reference name, so clones of one schema reuse its entry while
+    /// separately built schemas suffix. Only the schema-holding paths record
+    /// here; kind-only traversals always allocate.
+    identities: Vec<(usize, String)>,
+}
+
+/// The identity of a schema object: its shared `decode` allocation. Clones
+/// share it, separate constructions do not.
+fn identity_of(schema: &Schema<Unknown>) -> usize {
+    std::sync::Arc::as_ptr(&schema.decode) as *const () as usize
+}
+
+/// A recorded reference for this schema object, when it already hoisted one.
+fn known_reference(state: &Convert, schema: &Schema<Unknown>) -> Option<Value> {
+    let address = identity_of(schema);
+    state
+        .identities
+        .iter()
+        .find(|(seen, _)| *seen == address)
+        .map(|(_, name)| serde_json::json!({ "_tag": "Reference", "$ref": name }))
 }
 
 /// An annotation pair value back into JSON: objects and arrays stored as
@@ -483,19 +542,27 @@ fn convert_annotated_schema(
     }
     if hoist_identifiers {
         if let Some((_, id)) = merged.iter().find(|(key, _)| key == "identifier") {
+            if let Some(reused) = known_reference(state, schema) {
+                return Ok(reused);
+            }
             let name = allocate(state, id);
             let body = convert_annotated_body(schema, content, state, true, Some(&name), path)?;
             let mut body = with_annotations(body, &merged, &[]);
             set_identifier(&mut body, &name);
             state.references.insert(name.clone(), body);
+            state.identities.push((identity_of(schema), name.clone()));
             return Ok(serde_json::json!({ "_tag": "Reference", "$ref": name }));
         }
         if let Some((_, name)) = merged.iter().find(|(key, _)| key == "~identifier") {
+            if let Some(reused) = known_reference(state, schema) {
+                return Ok(reused);
+            }
             let synthetic = format!("{name}Encoded");
             let placed = allocate(state, &synthetic);
             let body = convert_annotated_body(schema, content, state, true, Some(&placed), path)?;
             let body = with_annotations(body, &merged, &[]);
             state.references.insert(placed.clone(), body);
+            state.identities.push((identity_of(schema), placed.clone()));
             return Ok(serde_json::json!({ "_tag": "Reference", "$ref": placed }));
         }
     }
