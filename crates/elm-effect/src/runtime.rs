@@ -30,7 +30,7 @@ pub const SHUTDOWN_DEADLINE: crate::Duration = crate::Duration::from_millis(30_0
 pub(crate) type Driver = Arc<Shared>;
 
 pub(crate) struct Shared {
-    exec: TokioExecutor,
+    exec: Box<dyn Executor>,
     /// Live fibers by id, for interrupt broadcast.
     live: Mutex<HashMap<u64, Arc<FiberControl>>>,
     children: Registry,
@@ -204,7 +204,15 @@ pub struct Runtime {
 
 impl Runtime {
     pub fn new() -> Self {
-        let exec = TokioExecutor::new();
+        Self::with_executor(TokioExecutor::new())
+    }
+
+    /// A runtime driving fibers on `exec` instead of the shared Tokio pool:
+    /// the substitution hook for deterministic tests, which pass their
+    /// virtual executor here so fan-out, race, and timeout paths run
+    /// without real threads or wall-clock time.
+    pub fn with_executor(exec: impl Executor) -> Self {
+        let exec: Box<dyn Executor> = Box::new(exec);
         Self {
             shared: Arc::new(Shared {
                 exec,

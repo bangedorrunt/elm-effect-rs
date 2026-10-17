@@ -16,8 +16,17 @@ use std::task::{Context, Poll, RawWaker, RawWakerVTable, Waker};
 
 use elm_effect::{BoxFuture, Executor};
 
-/// Single-threaded, registration-order executor for tests.
+/// Single-threaded, registration-order executor for tests. Clones
+/// share one queue pair (like [`TestClock`]), so the handle kept beside
+/// a [`elm_effect::Runtime`] built with it drains the same work the
+/// runtime enqueued.
+#[derive(Clone, Default)]
 pub struct DeterministicExecutor {
+    inner: std::sync::Arc<ExecutorInner>,
+}
+
+#[derive(Default)]
+struct ExecutorInner {
     async_tasks: Mutex<VecDeque<BoxFuture<'static, ()>>>,
     blocking_tasks: Mutex<VecDeque<Box<dyn FnOnce() + Send + 'static>>>,
 }
@@ -25,10 +34,7 @@ pub struct DeterministicExecutor {
 impl DeterministicExecutor {
     /// An empty executor. Tasks run only via [`run_until_idle`](Self::run_until_idle).
     pub fn new() -> Self {
-        Self {
-            async_tasks: Mutex::new(VecDeque::new()),
-            blocking_tasks: Mutex::new(VecDeque::new()),
-        }
+        Self::default()
     }
 
     /// Run queued work until a full round over both queues makes no progress.
@@ -38,12 +44,12 @@ impl DeterministicExecutor {
         let mut completed = 0;
         loop {
             let mut progressed = false;
-            if let Some(task) = self.blocking_tasks.lock().unwrap().pop_front() {
+            if let Some(task) = self.inner.blocking_tasks.lock().unwrap().pop_front() {
                 task();
                 completed += 1;
                 progressed = true;
             }
-            let mut tasks = self.async_tasks.lock().unwrap();
+            let mut tasks = self.inner.async_tasks.lock().unwrap();
             let round = tasks.len();
             for _ in 0..round {
                 let Some(mut task) = tasks.pop_front() else {
@@ -68,23 +74,17 @@ impl DeterministicExecutor {
 
     /// Tasks still queued (never ready without a clock advance).
     pub fn pending(&self) -> usize {
-        self.async_tasks.lock().unwrap().len() + self.blocking_tasks.lock().unwrap().len()
-    }
-}
-
-impl Default for DeterministicExecutor {
-    fn default() -> Self {
-        Self::new()
+        self.inner.async_tasks.lock().unwrap().len() + self.inner.blocking_tasks.lock().unwrap().len()
     }
 }
 
 impl Executor for DeterministicExecutor {
     fn spawn_boxed(&self, fut: BoxFuture<'static, ()>) {
-        self.async_tasks.lock().unwrap().push_back(fut);
+        self.inner.async_tasks.lock().unwrap().push_back(fut);
     }
 
     fn spawn_blocking(&self, f: Box<dyn FnOnce() + Send + 'static>) {
-        self.blocking_tasks.lock().unwrap().push_back(f);
+        self.inner.blocking_tasks.lock().unwrap().push_back(f);
     }
 }
 
