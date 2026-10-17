@@ -6,6 +6,7 @@ description: >
   flywheel, toron, beads, or chiebukuro. Use when the user says use, call,
   guide, API, build, scaffold, port, add, extend, migrate, rewrite, or
   integrate elm-effect, Effect, the Elm loop, the journal, or a durable log.
+  Bend work is the sibling carrier: bend, bendx, bird, elm-effect-bend.
   The skill sends you to docs/guides first. It does not ask you to rebuild
   the carrier, delete Resonate, or treat a cursor as the resume position.
 ---
@@ -14,7 +15,10 @@ description: >
 
 The carrier is in the crates. ADR-0002 is the law. ADR-0003 is adoption. The calls are `docs/guides/15-use-the-apis.mdx` and the topic guide next to it. This file only picks the branch. Do not copy an API table into a sibling.
 
-Repo root: `/Users/bangedorrunt/workspace/elm-effect-rs`.
+Repo root: `/Users/bangedorrunt/workspace/elm-effect-rs`. The Bend carrier is a
+sibling repo, `/Users/bangedorrunt/workspace/elm-effect-bend`; its branch file is
+`references/bend-carrier.md` and its gates are `bend PROOF.bend` plus
+`bash tests/e2e.sh`, not `cargo test`.
 
 ## Closed
 
@@ -33,6 +37,7 @@ Read `docs/guides/15-use-the-apis.mdx` on every branch. Then the first matching 
 | Utterance | Then read | Do not read |
 | --- | --- | --- |
 | how to call, example, API, guide | the topic file under `docs/guides/` | migrate files |
+| bend, bendx, bird, `.bend` files | `references/bend-carrier.md` | the Rust crate docs until that file is done |
 | flywheel | `references/migrate-flywheel.md` | other migrate files |
 | toron | `references/migrate-toron.md` | other migrate files |
 | beads, br, gates | `references/migrate-beads.md` | other migrate files |
@@ -61,3 +66,6 @@ The branch file's checklist is true, and the `cargo test` it names passed. Repor
 - `tokio::time::sleep` or `tokio::time::pause` inside an effect.
 - A hand-built offset. A `seq` gap. A producer id with only epoch or only seq.
 - `UpToDate` treated as EOF.
+- In Bend: `IO.now` read as nanoseconds, a row codec that refuses a field with a
+  tab or a line end, or `IO.die` raised inside the walk (it skips the claim
+  release).
