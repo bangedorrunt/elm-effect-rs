@@ -10,6 +10,7 @@ use socket::{
     Writer, socket_pair,
 };
 use sql::{Faults, SqlClient, SqlError, SqlReason, classify_sqlite_error, is_sql_error, is_sql_error_reason};
+use sql::statement::{Compiler, fragment, identifier, literal, nested, parameter};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, AtomicU8, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
@@ -136,6 +137,81 @@ fn savepoints_release_or_hold() {
         .savepoint("sp1", Ok(()), &Faults::default(), || Ok::<(), SqlError>(()))
         .unwrap();
     assert_eq!(strict.savepoint_count(), 1);
+}
+
+#[test]
+fn statement_transforms_rename_only_present_keys() {
+    // Statement.test.ts:9 — `defaultTransforms` walks own keys (JS drops the
+    // inherited property; Rust maps have no prototype chain, so the witness
+    // is that exactly the present keys are renamed, including nested rows).
+    use sql::statement::default_transforms;
+    let upper = |key: &str| key.to_uppercase();
+    let nested_t = default_transforms(&upper, true);
+    let flat = default_transforms(&upper, false);
+    let row = serde_json::json!({"own": 2});
+    assert_eq!(nested_t.object(row.clone()), serde_json::json!({"OWN": 2}));
+    assert_eq!(
+        nested_t.array(vec![row.clone()]),
+        vec![serde_json::json!({"OWN": 2})]
+    );
+    assert_eq!(
+        nested_t.array(vec![serde_json::json!([row.clone()])]),
+        vec![serde_json::json!([{"OWN": 2}])]
+    );
+    assert_eq!(
+        flat.array(vec![row]),
+        vec![serde_json::json!({"OWN": 2})]
+    );
+}
+
+#[test]
+fn statement_compilers_render_placeholders_per_dialect() {
+    // Statement.test.ts:22 — one fragment compiles independently per
+    // compiler: `$N` for pg, `?` for sqlite.
+    let frag = fragment(vec![identifier("value"), parameter(serde_json::json!(1))]);
+    assert_eq!(
+        Compiler::pg().compile(&frag),
+        ("\"value\"$1".to_string(), vec![serde_json::json!(1)])
+    );
+    assert_eq!(
+        Compiler::sqlite().compile(&frag),
+        ("\"value\"?".to_string(), vec![serde_json::json!(1)])
+    );
+}
+
+#[test]
+fn statement_embedded_fragment_renumbers_placeholders() {
+    // Statement.test.ts:40 — a fragment compiled standalone (`$1`) is
+    // renumbered when embedded after earlier parameters (`$2`, `$3`).
+    let pg = Compiler::pg();
+    let returning = fragment(vec![
+        parameter(serde_json::json!("label")),
+        literal(" AS label"),
+    ]);
+    assert_eq!(
+        pg.compile(&returning),
+        ("$1 AS label".to_string(), vec![serde_json::json!("label")])
+    );
+    let outer = fragment(vec![
+        literal("INSERT INTO people (\"name\") VALUES ("),
+        parameter(serde_json::json!("Ada")),
+        literal(") RETURNING "),
+        nested(returning),
+        literal(", "),
+        parameter(serde_json::json!("extra")),
+        literal(" AS extra"),
+    ]);
+    assert_eq!(
+        pg.compile(&outer),
+        (
+            "INSERT INTO people (\"name\") VALUES ($1) RETURNING $2 AS label, $3 AS extra".to_string(),
+            vec![
+                serde_json::json!("Ada"),
+                serde_json::json!("label"),
+                serde_json::json!("extra"),
+            ]
+        )
+    );
 }
 
 #[test]

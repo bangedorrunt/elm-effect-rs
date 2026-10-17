@@ -268,6 +268,214 @@ pub struct Faults {
     pub fail_rollback: bool,
 }
 
+// Statement fragments and compilers (Statement.ts: composable segments,
+// per-dialect placeholders, key-renaming row transforms).
+//
+// A [`Fragment`] is an ordered list of [`Segment`]s. [`Compiler::compile`]
+// walks the tree with one shared placeholder counter, so an embedded
+// sub-fragment is renumbered by position (`$1` standalone becomes `$2`
+// after an earlier parameter). [`default_transforms`] renames row keys,
+// recursing into nested row arrays when built with `nested = true`.
+/// Low-level SQL statement pieces.
+pub mod statement {
+    /// One compilable piece of a [`Fragment`](super::statement::Fragment).
+    #[derive(Clone, Debug, PartialEq)]
+    pub enum Segment {
+        /// Raw SQL with its own bind parameters (insert helpers emit these).
+        Literal {
+            /// Raw SQL text.
+            sql: String,
+            /// Bind parameters carried by the raw text.
+            params: Vec<serde_json::Value>,
+        },
+        /// An identifier, escaped by the active compiler.
+        Identifier(String),
+        /// A bound value, rendered as the dialect placeholder.
+        Param(serde_json::Value),
+        /// A pre-built sub-fragment, compiled inline with the outer counter.
+        Nested(Vec<Segment>),
+    }
+
+    /// An ordered list of [`Segment`]s, compilable by any [`Compiler`].
+    #[derive(Clone, Debug, Default, PartialEq)]
+    pub struct Fragment {
+        /// The fragment segments in order.
+        pub segments: Vec<Segment>,
+    }
+
+    /// Build a [`Fragment`] from segments.
+    pub fn fragment(segments: Vec<Segment>) -> Fragment {
+        Fragment { segments }
+    }
+
+    /// Raw SQL without binds.
+    pub fn literal(sql: &str) -> Segment {
+        Segment::Literal {
+            sql: sql.to_string(),
+            params: Vec::new(),
+        }
+    }
+
+    /// An identifier segment, escaped by the active compiler.
+    pub fn identifier(name: &str) -> Segment {
+        Segment::Identifier(name.to_string())
+    }
+
+    /// A bound parameter segment.
+    pub fn parameter(value: serde_json::Value) -> Segment {
+        Segment::Param(value)
+    }
+
+    /// Embed a pre-built fragment inline (its placeholders renumber).
+    pub fn nested(fragment: Fragment) -> Segment {
+        Segment::Nested(fragment.segments)
+    }
+
+    /// Escape an identifier: wrap in the delimiter, double embedded
+    /// delimiters, and split dots (`a.b` -> `"a"."b"`).
+    pub fn escape_ident(delimiter: char, name: &str) -> String {
+        let delim = delimiter.to_string();
+        let dot = format!("{delim}.{delim}");
+        format!(
+            "{delim}{}{delim}",
+            name.replace(&delim, &format!("{delim}{delim}"))
+                .replace('.', &dot)
+        )
+    }
+
+    /// A dialect compiler: renders placeholders and escapes identifiers.
+    pub struct Compiler {
+        placeholder: Box<dyn Fn(usize) -> String>,
+        on_identifier: Box<dyn Fn(&str) -> String>,
+    }
+
+    impl Compiler {
+        /// Postgres: `$N` placeholders, double-quote identifiers.
+        pub fn pg() -> Self {
+            Self {
+                placeholder: Box::new(|index| format!("${index}")),
+                on_identifier: Box::new(|name| escape_ident('"', name)),
+            }
+        }
+
+        /// Sqlite: `?` placeholders, double-quote identifiers.
+        pub fn sqlite() -> Self {
+            Self {
+                placeholder: Box::new(|_| "?".to_string()),
+                on_identifier: Box::new(|name| escape_ident('"', name)),
+            }
+        }
+
+        /// Render SQL text and ordered binds for the fragment.
+        pub fn compile(&self, fragment: &Fragment) -> (String, Vec<serde_json::Value>) {
+            let mut sql = String::new();
+            let mut binds = Vec::new();
+            let mut count = 0usize;
+            self.render(&fragment.segments, &mut sql, &mut binds, &mut count);
+            (sql, binds)
+        }
+
+        fn render(
+            &self,
+            segments: &[Segment],
+            sql: &mut String,
+            binds: &mut Vec<serde_json::Value>,
+            count: &mut usize,
+        ) {
+            for segment in segments {
+                match segment {
+                    Segment::Literal { sql: text, params } => {
+                        sql.push_str(text);
+                        binds.extend(params.iter().cloned());
+                    }
+                    Segment::Identifier(name) => sql.push_str(&(self.on_identifier)(name)),
+                    Segment::Param(value) => {
+                        *count += 1;
+                        sql.push_str(&(self.placeholder)(*count));
+                        binds.push(value.clone());
+                    }
+                    Segment::Nested(inner) => self.render(inner, sql, binds, count),
+                }
+            }
+        }
+    }
+
+    /// Key-renaming row transforms (`defaultTransforms`).
+    pub struct Transforms<'a> {
+        rename: &'a dyn Fn(&str) -> String,
+        nested: bool,
+    }
+
+    /// Build transforms that rename object keys with `rename`, recursing
+    /// into nested row arrays only when `nested` is set.
+    pub fn default_transforms(
+        rename: &dyn Fn(&str) -> String,
+        nested: bool,
+    ) -> Transforms<'_> {
+        Transforms { rename, nested }
+    }
+
+    impl Transforms<'_> {
+        /// Rename the keys of one row object.
+        pub fn object(&self, row: serde_json::Value) -> serde_json::Value {
+            match row {
+                serde_json::Value::Object(map) => {
+                    serde_json::Value::Object(self.rename_map(&map))
+                }
+                other => other,
+            }
+        }
+
+        /// Rename the keys of each row, recursing into nested row arrays.
+        pub fn array(&self, rows: Vec<serde_json::Value>) -> Vec<serde_json::Value> {
+            rows.into_iter()
+                .map(|row| match row {
+                    serde_json::Value::Array(items) => {
+                        serde_json::Value::Array(self.array(items))
+                    }
+                    serde_json::Value::Object(map) => {
+                        serde_json::Value::Object(self.rename_map(&map))
+                    }
+                    other => other,
+                })
+                .collect()
+        }
+
+        fn rename_map(
+            &self,
+            map: &serde_json::Map<String, serde_json::Value>,
+        ) -> serde_json::Map<String, serde_json::Value> {
+            map.iter()
+                .map(|(key, value)| {
+                    let value = if self.nested {
+                        self.value(value.clone())
+                    } else {
+                        value.clone()
+                    };
+                    ((self.rename)(key), value)
+                })
+                .collect()
+        }
+
+        fn value(&self, value: serde_json::Value) -> serde_json::Value {
+            match value {
+                serde_json::Value::Array(items) => {
+                    let first_is_object = items.first().is_some_and(|item| item.is_object());
+                    if first_is_object {
+                        serde_json::Value::Array(self.array(items))
+                    } else {
+                        serde_json::Value::Array(items)
+                    }
+                }
+                serde_json::Value::Object(map) => {
+                    serde_json::Value::Object(self.rename_map(&map))
+                }
+                other => other,
+            }
+        }
+    }
+}
+
 // Result-set decoders
 
 impl SqlClient {
