@@ -558,3 +558,145 @@ fn spawn_string_large_output_no_deadlock() {
     assert_eq!(lines[0], "1");
     assert_eq!(lines[99999], "100000");
 }
+
+// Combined output (.all): concurrent stdout/stderr capture, arrival order.
+
+fn lines_with<'a>(text: &'a str, prefix: &str) -> Vec<&'a str> {
+    text.split('\n').filter(|line| line.starts_with(prefix)).collect()
+}
+
+#[test]
+fn combined_all_captures_interspersed_stdout_and_stderr() {
+    // :345 — stdout1/stderr1/stdout2/stderr2 arrive on one combined stream.
+    let mut child = command_array(
+        "sh",
+        &["-c", "echo stdout1; sleep 0.01; echo stderr1 >&2; sleep 0.01; echo stdout2; sleep 0.01; echo stderr2 >&2"],
+    )
+    .spawn()
+    .unwrap();
+    let out = child.wait_combined().unwrap();
+    assert_eq!(out.code, Some(0));
+    assert!(out.is_success());
+    let text = out.all_text();
+    assert_eq!(text.trim().split('\n').count(), 4);
+    assert_eq!(lines_with(&text, "stdout"), vec!["stdout1", "stdout2"]);
+    assert_eq!(lines_with(&text, "stderr"), vec!["stderr1", "stderr2"]);
+}
+
+#[test]
+fn combined_all_captures_only_stdout() {
+    // :371 — no stderr: .all is just the stdout bytes.
+    let mut child = command_array("echo", &["hello from stdout"]).spawn().unwrap();
+    let out = child.wait_combined().unwrap();
+    assert_eq!(out.code, Some(0));
+    assert_eq!(out.all_text().trim(), "hello from stdout");
+    assert_eq!(out.stderr_text().trim(), "");
+}
+
+#[test]
+fn combined_all_captures_only_stderr() {
+    // :381 — no stdout: .all is just the stderr bytes.
+    let mut child = command_array("sh", &["-c", "echo hello from stderr >&2"])
+        .spawn()
+        .unwrap();
+    let out = child.wait_combined().unwrap();
+    assert_eq!(out.code, Some(0));
+    assert_eq!(out.all_text().trim(), "hello from stderr");
+    assert_eq!(out.stdout_text().trim(), "");
+}
+
+#[test]
+fn combined_all_handles_many_interspersed_lines() {
+    // :391 — ten lines across both streams, none lost or duplicated.
+    let mut child = command_array(
+        "sh",
+        &["-c", "for i in 1 2 3 4 5; do echo stdout$i; sleep 0.01; echo stderr$i >&2; sleep 0.01; done"],
+    )
+    .spawn()
+    .unwrap();
+    let out = child.wait_combined().unwrap();
+    assert_eq!(out.code, Some(0));
+    let text = out.all_text();
+    assert_eq!(text.trim().split('\n').count(), 10);
+    assert_eq!(
+        lines_with(&text, "stdout"),
+        vec!["stdout1", "stdout2", "stdout3", "stdout4", "stdout5"]
+    );
+    assert_eq!(
+        lines_with(&text, "stderr"),
+        vec!["stderr1", "stderr2", "stderr3", "stderr4", "stderr5"]
+    );
+}
+
+#[test]
+fn combined_all_readable_independently() {
+    // :414 — .all needs no separate stdout/stderr read to be complete.
+    let mut child = command_array("sh", &["-c", "echo out; sleep 0.01; echo err >&2"])
+        .spawn()
+        .unwrap();
+    let out = child.wait_combined().unwrap();
+    assert_eq!(out.code, Some(0));
+    assert_eq!(out.all_text().trim(), "out\nerr");
+}
+
+#[test]
+fn pipeline_pipes_stderr_to_stdin() {
+    // :596 — { from: 'stderr' }: the next stage reads the previous stderr.
+    let pipe = process::Pipeline::new_with_sources(vec![
+        (
+            command_array("sh", &["-c", "echo error >&2"]),
+            process::PipeFrom::Stderr,
+        ),
+        (command_template("cat"), process::PipeFrom::Stderr),
+    ]);
+    let out = pipe.run().unwrap();
+    assert_eq!(out.code, Some(0));
+    assert_eq!(out.stdout_text().trim(), "error");
+}
+
+#[test]
+fn pipeline_pipes_combined_output_to_stdin() {
+    // :609 — { from: 'all' }: both streams reach the next stage.
+    let pipe = process::Pipeline::new_with_sources(vec![
+        (
+            command_array(
+                "sh",
+                &["-c", "echo out1; sleep 0.01; echo err1 >&2; sleep 0.01; echo out2"],
+            ),
+            process::PipeFrom::All,
+        ),
+        (command_template("cat"), process::PipeFrom::All),
+    ]);
+    let out = pipe.run().unwrap();
+    assert_eq!(out.code, Some(0));
+    let text = out.stdout_text();
+    assert_eq!(text.trim().split('\n').count(), 3);
+    assert_eq!(lines_with(&text, "out"), vec!["out1", "out2"]);
+    assert_eq!(lines_with(&text, "err"), vec!["err1"]);
+}
+
+#[test]
+fn pipeline_chained_pipes_with_different_sources() {
+    // :678 — first edge stdout (default), second edge from stderr.
+    let pipe = process::Pipeline::new_with_sources(vec![
+        (command_template("echo hello"), process::PipeFrom::Stdout),
+        (
+            command_array("sh", &["-c", "cat; echo error >&2"]),
+            process::PipeFrom::Stdout,
+        ),
+        (command_template("cat"), process::PipeFrom::Stderr),
+    ]);
+    let out = pipe.run().unwrap();
+    assert_eq!(out.code, Some(0));
+    assert_eq!(out.stdout_text().trim(), "error");
+}
+
+#[test]
+fn run_with_input_feeds_stdin_to_command() {
+    // :736 — `cat` echoes the provided standard input back.
+    let out = command_array("cat", &[])
+        .run_with_input(b"a b c")
+        .unwrap();
+    assert_eq!(out.code, Some(0));
+    assert_eq!(out.stdout_text(), "a b c");
+}
