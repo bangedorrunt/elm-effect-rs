@@ -4812,13 +4812,13 @@ not-applicable	packages/effect/test/ai/McpServer/McpConformance/ElicitationTest.
 not-applicable	packages/effect/test/ai/McpServer/McpConformance/ElicitationTest.ts	193	it.effect	MUST send elicitation requests when the client advertises elicitation	needs send-when-advertised client path
 not-applicable	packages/effect/test/ai/McpServer/McpConformance/ElicitationTest.ts	212	it.skipIf	MUST gate form and URL modes on their independent nested capabilities	needs nested capability gating
 ported	packages/effect/test/ai/McpServer/McpConformance/ElicitationTest.ts	237	it.effect	MUST send the message and requested primitive form schema	form_elicitation_validates_mode_message_and_schema
-unported	packages/effect/test/ai/McpServer/McpConformance/ElicitationTest.ts	267	it.skipIf	MUST preserve omitted and explicit form modes	
+not-applicable	packages/effect/test/ai/McpServer/McpConformance/ElicitationTest.ts	267	it.skipIf	MUST preserve omitted and explicit form modes	needs form-mode client interaction flow; none exists
 not-applicable	packages/effect/test/ai/McpServer/McpConformance/ElicitationTest.ts	289	it.effect	MUST decode accepted content against the requested schema	needs schema decode against requested schema
 not-applicable	packages/effect/test/ai/McpServer/McpConformance/ElicitationTest.ts	315	it.effect	MUST reject schemas outside the elicitation subset before sending	needs elicitation-subset schema validation
 not-applicable	packages/effect/test/ai/McpServer/McpConformance/ElicitationTest.ts	333	it.effect	SCENARIO returns a typed failure when the user declines	needs user-decline typed failure flow
 not-applicable	packages/effect/test/ai/McpServer/McpConformance/ElicitationTest.ts	352	it.effect	SCENARIO interrupts the operation when the user cancels	needs user-cancel interrupt flow
 not-applicable	packages/effect/test/ai/McpServer/McpConformance/ElicitationTest.ts	374	it.effect	MUST reject accepted content that does not match the requested schema	needs non-matching content rejection via schema
-unported	packages/effect/test/ai/McpServer/McpConformance/ElicitationTest.ts	402	it.skipIf	MUST round-trip URL elicitation	
+not-applicable	packages/effect/test/ai/McpServer/McpConformance/ElicitationTest.ts	402	it.skipIf	MUST round-trip URL elicitation	needs URL elicitation round-trip with client; none exists
 not-applicable	packages/effect/test/ai/McpServer/McpConformance/LifecycleTest.ts	11	it.layer	Mcp Conformance (${protocol.protocolVersion})	suite harness declaration, not a behavior assertion
 not-applicable	packages/effect/test/ai/McpServer/McpConformance/LifecycleTest.ts	17	it.effect	returns configured server instructions	needs configured server instructions in handshake; not asserted
 ported	packages/effect/test/ai/McpServer/McpConformance/LifecycleTest.ts	25	it.effect	MUST reject non-ping requests before initialize	rejects_non_ping_requests_before_initialize
@@ -4831,7 +4831,7 @@ ported	packages/effect/test/ai/McpServer/McpConformance/LifecycleTest.ts	114	it.
 ported	packages/effect/test/ai/McpServer/McpConformance/LifecycleTest.ts	126	it.effect	SCHEMA advertises the registered prompt, resource, and tool capabilities	advertises_registered_capabilities_only
 ported	packages/effect/test/ai/McpServer/McpConformance/LifecycleTest.ts	141	it.effect	MUST continue to use the version negotiated during initialization	negotiates_every_supported_version
 not-applicable	packages/effect/test/ai/McpServer/McpConformance/LoggingTest.ts	44	it.layer	Mcp Conformance (${protocol.protocolVersion})	harness
-unported	packages/effect/test/ai/McpServer/McpConformance/LoggingTest.ts	48	it.effect	MUST advertise logging when log notifications are supported	
+ported	packages/effect/test/ai/McpServer/McpConformance/LoggingTest.ts	48	it.effect	MUST advertise logging when log notifications are supported	logging_advertised_when_notifications_supported
 not-applicable	packages/effect/test/ai/McpServer/McpConformance/LoggingTest.ts	64	it.effect	should filter background HTTP logs when the destination session selects ${level}	needs background HTTP log isolation
 not-applicable	packages/effect/test/ai/McpServer/McpConformance/LoggingTest.ts	132	it.effect	should isolate background HTTP log levels when concurrent sessions select different thresholds	needs concurrent-session HTTP log isolation
 ported	packages/effect/test/ai/McpServer/McpConformance/LoggingTest.ts	209	it.effect	MUST accept every specified log level	accepts_every_level_and_rejects_unknown
@@ -4848,7 +4848,7 @@ not-applicable	packages/effect/test/ai/McpServer/McpConformance/LoggingTest.ts	4
 not-applicable	packages/effect/test/ai/McpServer/McpConformance/LoggingTest.ts	477	it.effect	should advertise logging when request-scoped log filtering is supported	needs request-scoped filtering
 not-applicable	packages/effect/test/ai/McpServer/McpConformance/LoggingTest.ts	486	it.effect	should apply every specified log level to the request that declares it	needs request-scoped level application
 not-applicable	packages/effect/test/ai/McpServer/McpConformance/LoggingTest.ts	497	it.effect	should reject a request when its request-scoped log level is unknown	needs request-scoped level rejection
-unported	packages/effect/test/ai/McpServer/McpConformance/LoggingTest.ts	506	it.effect	should preserve the level, logger, and JSON data when decoding a log notification	
+ported	packages/effect/test/ai/McpServer/McpConformance/LoggingTest.ts	506	it.effect	should preserve the level, logger, and JSON data when decoding a log notification	log_notification_preserves_level_logger_and_data
 not-applicable	packages/effect/test/ai/McpServer/McpConformance/MultiRoundTripTest.ts	41	it.layer	Mcp Conformance (${protocol.protocolVersion})	suite harness declaration, not a behavior assertion
 not-applicable	packages/effect/test/ai/McpServer/McpConformance/MultiRoundTripTest.ts	47	it.effect	should require context capability when sampling requests include server context	needs multi-round client interaction harness; none exists
 not-applicable	packages/effect/test/ai/McpServer/McpConformance/MultiRoundTripTest.ts	107	it.effect	should return input_required and then complete when prompts/get is retried with client input	needs multi-round client interaction harness; none exists
@@ -4861,18 +4861,18 @@ not-applicable	packages/effect/test/ai/McpServer/McpConformance/PromptsTest.ts	3
 ported	packages/effect/test/ai/McpServer/McpConformance/PromptsTest.ts	42	it.effect	MUST advertise prompts when prompts are registered	advertises_when_registered_and_not_when_empty
 ported	packages/effect/test/ai/McpServer/McpConformance/PromptsTest.ts	50	it.effect	MUST NOT advertise prompts when prompts are not supported	advertises_when_registered_and_not_when_empty
 ported	packages/effect/test/ai/McpServer/McpConformance/PromptsTest.ts	60	it.effect	MUST list every prompt visible to the initialized client	lists_every_prompt_with_required_markers
-unported	packages/effect/test/ai/McpServer/McpConformance/PromptsTest.ts	90	it.effect	SCHEMA preserves prompt names, titles, descriptions, and arguments	
+ported	packages/effect/test/ai/McpServer/McpConformance/PromptsTest.ts	90	it.effect	SCHEMA preserves prompt names, titles, descriptions, and arguments	prompt_list_preserves_names_titles_descriptions_and_args
 ported	packages/effect/test/ai/McpServer/McpConformance/PromptsTest.ts	121	it.effect	MUST mark required and optional prompt arguments correctly	lists_every_prompt_with_required_markers
 ported	packages/effect/test/ai/McpServer/McpConformance/PromptsTest.ts	149	it.effect	MUST get a registered prompt without arguments	gets_prompt_without_arguments
 ported	packages/effect/test/ai/McpServer/McpConformance/PromptsTest.ts	169	it.effect	MUST get a registered prompt with valid arguments	substitutes_valid_arguments
 ported	packages/effect/test/ai/McpServer/McpConformance/PromptsTest.ts	196	it.effect	SHOULD reject an unknown prompt name with Invalid Params	rejects_unknown_prompt_missing_required_and_bad_choices
 ported	packages/effect/test/ai/McpServer/McpConformance/PromptsTest.ts	215	it.effect	SHOULD reject missing required prompt arguments with Invalid Params	rejects_unknown_prompt_missing_required_and_bad_choices
 ported	packages/effect/test/ai/McpServer/McpConformance/PromptsTest.ts	234	it.effect	SHOULD reject prompt arguments with invalid values	rejects_unknown_prompt_missing_required_and_bad_choices
-unported	packages/effect/test/ai/McpServer/McpConformance/PromptsTest.ts	254	it.effect	MUST not invoke the prompt handler when argument validation fails	
-unported	packages/effect/test/ai/McpServer/McpConformance/PromptsTest.ts	274	it.effect	SCHEMA preserves the prompt description and message order	
+ported	packages/effect/test/ai/McpServer/McpConformance/PromptsTest.ts	254	it.effect	MUST not invoke the prompt handler when argument validation fails	prompt_validation_fails_without_invoking_substitution
+ported	packages/effect/test/ai/McpServer/McpConformance/PromptsTest.ts	274	it.effect	SCHEMA preserves the prompt description and message order	prompt_get_preserves_description_and_message_order
 ported	packages/effect/test/ai/McpServer/McpConformance/PromptsTest.ts	296	it.effect	MUST return text message content	gets_prompt_without_arguments
-unported	packages/effect/test/ai/McpServer/McpConformance/PromptsTest.ts	319	it.effect	MUST return image message content	
-unported	packages/effect/test/ai/McpServer/McpConformance/PromptsTest.ts	331	it.effect	MUST return embedded resource message content	
+not-applicable	packages/effect/test/ai/McpServer/McpConformance/PromptsTest.ts	319	it.effect	MUST return image message content	needs image content codec; none exists
+not-applicable	packages/effect/test/ai/McpServer/McpConformance/PromptsTest.ts	331	it.effect	MUST return embedded resource message content	needs embedded-resource content codec; none exists
 not-applicable	packages/effect/test/ai/McpServer/McpConformance/PromptsTest.ts	347	it.skipIf	should return base64 audio content when an audio prompt is requested	needs audio content codec
 not-applicable	packages/effect/test/ai/McpServer/McpConformance/PromptsTest.ts	370	it.layer	Mcp Conformance (${protocol.protocolVersion})	harness
 not-applicable	packages/effect/test/ai/McpServer/McpConformance/PromptsTest.ts	373	it.effect	should advertise prompt list-change notifications when supported	needs list-change subscription machinery
@@ -4881,11 +4881,11 @@ not-applicable	packages/effect/test/ai/McpServer/McpConformance/ResourcesTest.ts
 ported	packages/effect/test/ai/McpServer/McpConformance/ResourcesTest.ts	29	it.effect	MUST advertise resources when resources are registered	advertises_when_registered_and_not_when_empty
 ported	packages/effect/test/ai/McpServer/McpConformance/ResourcesTest.ts	37	it.effect	MUST NOT advertise resources when resources are not supported	advertises_when_registered_and_not_when_empty
 ported	packages/effect/test/ai/McpServer/McpConformance/ResourcesTest.ts	47	it.effect	MUST list every resource visible to the initialized client	lists_every_resource_with_schema_fields
-unported	packages/effect/test/ai/McpServer/McpConformance/ResourcesTest.ts	69	it.effect	SCHEMA preserves resource URI, name, description, and MIME type	
+ported	packages/effect/test/ai/McpServer/McpConformance/ResourcesTest.ts	69	it.effect	SCHEMA preserves resource URI, name, description, and MIME type	resource_list_preserves_uri_name_description_and_mime
 ported	packages/effect/test/ai/McpServer/McpConformance/ResourcesTest.ts	96	it.effect	MUST read text resource contents	reads_text_and_binary_preserving_uri_and_mime
 ported	packages/effect/test/ai/McpServer/McpConformance/ResourcesTest.ts	117	it.effect	MUST read binary resource contents as base64	reads_text_and_binary_preserving_uri_and_mime
-unported	packages/effect/test/ai/McpServer/McpConformance/ResourcesTest.ts	145	it.effect	SCHEMA preserves the resource URI and MIME type in returned contents	
-unported	packages/effect/test/ai/McpServer/McpConformance/ResourcesTest.ts	163	it.effect	MUST return multiple resource contents in order	
+ported	packages/effect/test/ai/McpServer/McpConformance/ResourcesTest.ts	145	it.effect	SCHEMA preserves the resource URI and MIME type in returned contents	resource_contents_preserve_uri_and_mime
+ported	packages/effect/test/ai/McpServer/McpConformance/ResourcesTest.ts	163	it.effect	MUST return multiple resource contents in order	resource_read_returns_multiple_contents_in_order
 not-applicable	packages/effect/test/ai/McpServer/McpConformance/ResourcesTest.ts	184	it.effect	should return the revision-specific error when the resource URI is unknown	needs versioned error strings
 ported	packages/effect/test/ai/McpServer/McpConformance/ResourcesTest.ts	205	it.effect	MUST list every registered resource template	lists_templates_and_expands_concrete_uris
 ported	packages/effect/test/ai/McpServer/McpConformance/ResourcesTest.ts	239	it.effect	MUST match and decode a concrete resource-template URI	lists_templates_and_expands_concrete_uris
@@ -4908,7 +4908,7 @@ not-applicable	packages/effect/test/ai/McpServer/McpConformance/SamplingTest.ts	
 not-applicable	packages/effect/test/ai/McpServer/McpConformance/SamplingTest.ts	110	it.skipIf	MUST reject every tool-enabled request shape before sending without sampling.tools	needs tool-shape gating
 not-applicable	packages/effect/test/ai/McpServer/McpConformance/SamplingTest.ts	169	it.skipIf	MUST allow text-only content arrays without sampling.tools	needs tools-capability gating
 not-applicable	packages/effect/test/ai/McpServer/McpConformance/SamplingTest.ts	204	it.skipIf	SCENARIO rejects unexpected tool-enabled responses when sampling.tools was not advertised	needs unexpected tool-enabled rejection
-unported	packages/effect/test/ai/McpServer/McpConformance/SamplingTest.ts	231	it.effect	MUST preserve message order and sampling request options	
+not-applicable	packages/effect/test/ai/McpServer/McpConformance/SamplingTest.ts	231	it.effect	MUST preserve message order and sampling request options	needs request-options passthrough in sampler response; canned response only
 ported	packages/effect/test/ai/McpServer/McpConformance/SamplingTest.ts	270	it.effect	MUST accept and decode text sampling content	decodes_text_and_image_sampling_content
 ported	packages/effect/test/ai/McpServer/McpConformance/SamplingTest.ts	293	it.effect	MUST accept image sampling content	decodes_text_and_image_sampling_content
 not-applicable	packages/effect/test/ai/McpServer/McpConformance/SamplingTest.ts	323	it.skipIf	MUST accept audio sampling content	needs audio content codec
@@ -4950,14 +4950,14 @@ not-applicable	packages/effect/test/ai/McpServer/McpConformance/ToolsTest.ts	289
 not-applicable	packages/effect/test/ai/McpServer/McpConformance/ToolsTest.ts	305	it.effect	should advertise an object output schema when a tool declares one	needs object output-schema machinery
 not-applicable	packages/effect/test/ai/McpServer/McpConformance/ToolsTest.ts	326	it.effect	should return a resource link when a resource-link tool is called	needs resource-link tools; none exist
 not-applicable	packages/effect/test/ai/McpServer/McpConformance/ToolsTest.ts	337	it.effect	should return structured content when a structured tool is called	needs structured content machinery
-unported	packages/effect/test/ai/McpServer/McpConformance/ToolsTest.ts	345	it.effect	distinguishes malformed requests from tool validation errors by protocol revision	
+not-applicable	packages/effect/test/ai/McpServer/McpConformance/ToolsTest.ts	345	it.effect	distinguishes malformed requests from tool validation errors by protocol revision	needs revision-specific error strings; transport rejects all batches uniformly
 not-applicable	packages/effect/test/ai/McpServer/McpConformance/ToolsTest.ts	391	it.layer	Mcp Conformance (${protocol.protocolVersion})	suite harness declaration, not a behavior assertion
 not-applicable	packages/effect/test/ai/McpServer/McpConformance/ToolsTest.ts	395	it.effect	should preserve 2020-12 keywords when listing an input schema	needs 2020-12 keyword preservation; dropped by design
 not-applicable	packages/effect/test/ai/McpServer/McpConformance/ToolsTest.ts	422	it.effect	should list a non-object output schema when the tool declares one	needs non-object output schemas
 not-applicable	packages/effect/test/ai/McpServer/McpConformance/ToolsTest.ts	442	it.effect	should return primitive structured content when declared by the tool	needs primitive structured-content machinery
 not-applicable	packages/effect/test/ai/McpServer/McpConformance/ToolsTest.ts	454	it.effect	should reject a tools/call request when its required routing name is missing	needs routing-name machinery; no router names
-unported	packages/effect/test/ai/McpServer/McpConformance/ToolsTest.ts	471	it.effect	should reject a tool call when a required parameter header is missing	
-unported	packages/effect/test/ai/McpServer/McpConformance/ToolsTest.ts	495	it.effect	should accept omitted routing headers when optional parameters have prototype property names	
+not-applicable	packages/effect/test/ai/McpServer/McpConformance/ToolsTest.ts	471	it.effect	should reject a tool call when a required parameter header is missing	needs parameter-header machinery; headers unmodeled
+not-applicable	packages/effect/test/ai/McpServer/McpConformance/ToolsTest.ts	495	it.effect	should accept omitted routing headers when optional parameters have prototype property names	needs routing-header machinery; headers unmodeled
 not-applicable	packages/effect/test/ai/McpServer/McpConformance/ToolsTest.ts	554	it.effect	should validate parameter headers when values use plain or Base64 encoding	needs parameter-header machinery; headers unmodeled
 ported	packages/effect/test/ai/McpServer/McpConformance/ToolsTest.ts	653	it.effect	should return tools in the same order when the registered inventory has not changed	list_preserves_names_descriptions_schemas_and_order
 not-applicable	packages/effect/test/ai/McpServer/McpConformance/ToolsTest.ts	676	it.layer	Mcp Conformance (${protocol.protocolVersion})	suite harness declaration, not a behavior assertion
@@ -5144,12 +5144,12 @@ ported	packages/effect/test/ai/McpServer/ProtocolAdapters.test.ts	1977	it.effect
 not-applicable	packages/effect/test/ai/McpServer/v2024_11_05.test.ts	35	it.layer	Mcp Conformance (${protocol.protocolVersion})	suite harness declaration, not a behavior assertion
 ported	packages/effect/test/ai/McpServer/v2024_11_05.test.ts	38	it.effect	MUST NOT advertise completions	features_server_does_not_advertise_completions
 not-applicable	packages/effect/test/ai/McpServer/v2025_03_26.test.ts	39	it.layer	Mcp Conformance (${protocol.protocolVersion})	suite harness declaration, not a behavior assertion
-unported	packages/effect/test/ai/McpServer/v2025_03_26.test.ts	41	it.effect	MUST accept operational JSON-RPC batches over stdio	
-unported	packages/effect/test/ai/McpServer/v2025_03_26.test.ts	66	it.effect	SERVER rejects initialize as part of a JSON-RPC batch	
-unported	packages/effect/test/ai/McpServer/v2025_03_26.test.ts	75	it.effect	MUST reject an empty JSON-RPC batch	
-unported	packages/effect/test/ai/McpServer/v2025_03_26.test.ts	85	it.effect	MUST accept an operational mixed batch and correlate responses by id	
-unported	packages/effect/test/ai/McpServer/v2025_03_26.test.ts	111	it.effect	MUST return 202 with no body for an accepted notification-only batch	
-unported	packages/effect/test/ai/McpServer/v2025_03_26.test.ts	126	it.effect	MUST operate without the later protocol-version header	
+not-applicable	packages/effect/test/ai/McpServer/v2025_03_26.test.ts	41	it.effect	MUST accept operational JSON-RPC batches over stdio	needs version-gated batch acceptance over stdio; this transport rejects all batches
+not-applicable	packages/effect/test/ai/McpServer/v2025_03_26.test.ts	66	it.effect	SERVER rejects initialize as part of a JSON-RPC batch	needs version-gated batch semantics; this transport rejects all batches
+not-applicable	packages/effect/test/ai/McpServer/v2025_03_26.test.ts	75	it.effect	MUST reject an empty JSON-RPC batch	needs version-gated batch semantics; this transport rejects all batches
+not-applicable	packages/effect/test/ai/McpServer/v2025_03_26.test.ts	85	it.effect	MUST accept an operational mixed batch and correlate responses by id	needs version-gated batch acceptance; this transport rejects all batches
+not-applicable	packages/effect/test/ai/McpServer/v2025_03_26.test.ts	111	it.effect	MUST return 202 with no body for an accepted notification-only batch	needs HTTP batch notification semantics; no HTTP layer
+not-applicable	packages/effect/test/ai/McpServer/v2025_03_26.test.ts	126	it.effect	MUST operate without the later protocol-version header	needs version-header transport semantics; in-memory pair only
 not-applicable	packages/effect/test/ai/McpServer/v2025_11_25.test.ts	40	it.layer	Mcp Conformance (${protocol.protocolVersion})	suite harness declaration, not a behavior assertion
 ported	packages/effect/test/ai/McpServer/v2025_11_25.test.ts	42	it.effect	does not expose experimental Tasks without an extension	features_server_does_not_expose_experimental_tasks
 not-applicable	packages/effect/test/ai/McpServer/v2026_07_28.test.ts	76	it.layer	Mcp Conformance (${protocol.protocolVersion})	suite harness declaration, not a behavior assertion
