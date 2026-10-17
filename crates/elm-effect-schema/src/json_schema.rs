@@ -615,6 +615,7 @@ impl<'a> Compiler<'a> {
         }
     }
 
+
     /// One kind as a document, for positions that only carry a kind (array
     /// items, record keys and values, check bases, rest shapes).
     fn doc_of_kind(&mut self, kind: &SchemaKind) -> serde_json::Value {
@@ -715,6 +716,26 @@ impl<'a> Compiler<'a> {
                 self.tuple_kinds_document(items, Some((**rest).clone()))
             }
             SchemaKind::Literal(value) => literal_document(value),
+            SchemaKind::TemplateLiteral(parts) => {
+                let mut pattern = String::from("^");
+                let mut open = false;
+                for part in parts {
+                    match template_kind_pattern(part) {
+                        Some(fragment) => pattern.push_str(&fragment),
+                        // Unreachable through the public constructors and the
+                        // revive path (both reject unspellable parts); a
+                        // hand-built kind degrades to an open string rather
+                        // than a wrong pattern.
+                        None => open = true,
+                    }
+                }
+                if open {
+                    serde_json::json!({"type": "string"})
+                } else {
+                    pattern.push('$');
+                    serde_json::json!({"type": "string", "pattern": pattern})
+                }
+            }
             SchemaKind::Literals(values) => literals_document(values),
             SchemaKind::Union { members, mode } => union_document(
                 members
@@ -955,6 +976,28 @@ impl<'a> Compiler<'a> {
             return serde_json::json!({
                 "type": "object",
                 "additionalProperties": value_doc
+            });
+        }
+        // A template-literal key becomes one patternProperties entry; the
+        // pin keeps the object closed for template keys under every option
+        // mode, so this arm does not consult on_excess_property.
+        if let SchemaKind::TemplateLiteral(parts) = key {
+            let mut pattern = String::from("^");
+            for part in parts {
+                match template_kind_pattern(part) {
+                    Some(fragment) => pattern.push_str(&fragment),
+                    None => {
+                        return serde_json::json!({"type": "object"});
+                    }
+                }
+            }
+            pattern.push('$');
+            let mut patterns = serde_json::Map::new();
+            patterns.insert(pattern, self.doc_of_kind(value));
+            return serde_json::json!({
+                "type": "object",
+                "patternProperties": serde_json::Value::Object(patterns),
+                "additionalProperties": false
             });
         }
         let (base, checks) = split_checks(key);
@@ -1501,6 +1544,51 @@ fn strip_quotes(text: &str) -> Option<String> {
 /// Escape literal text for a regexp: every syntax character takes a
 /// backslash, which is what `isStartingWith`/`isEndingWith`/`isIncluding`
 /// export.
+/// One template part kind as its pattern fragment: literals escape,
+/// `String` and `Number` contribute their character classes, nested
+/// templates and unions of literals nest. Annotations ride the kind
+/// for the round trip and stay out of the pattern. `None` means the
+/// kind has no template spelling (checks, references, opaque shapes).
+fn template_kind_pattern(kind: &SchemaKind) -> Option<String> {
+    match kind {
+        SchemaKind::Literal(Unknown::Text(text)) => Some(escape_regex(text)),
+        SchemaKind::Literal(Unknown::Number(number)) => {
+            Some(escape_regex(&number.to_string()))
+        }
+        SchemaKind::Literal(Unknown::Bool(flag)) => Some(escape_regex(&flag.to_string())),
+        SchemaKind::String => Some("[\\s\\S]*?".to_string()),
+        SchemaKind::Number => Some("[+-]?\\d*\\.?\\d+(?:[Ee][+-]?\\d+)?".to_string()),
+        SchemaKind::TemplateLiteral(parts) => {
+            let mut out = String::new();
+            for part in parts {
+                out.push_str(&template_kind_pattern(part)?);
+            }
+            Some(out)
+        }
+        SchemaKind::Union { members, .. } => {
+            let mut out = Vec::with_capacity(members.len());
+            for member in members {
+                out.push(template_kind_pattern(member)?);
+            }
+            Some(format!("(?:{})", out.join("|")))
+        }
+        SchemaKind::Annotated { inner, .. } => template_kind_pattern(inner),
+        _ => None,
+    }
+}
+
+/// Pattern for whole template part lists (`^...$` anchored); `None`
+/// when any part has no spelling. Shared with `SchemaKind` legacy
+/// documents, which cannot fail.
+pub(crate) fn template_pattern_of_kinds(parts: &[SchemaKind]) -> Option<String> {
+    let mut pattern = String::from("^");
+    for part in parts {
+        pattern.push_str(&template_kind_pattern(part)?);
+    }
+    pattern.push('$');
+    Some(pattern)
+}
+
 fn escape_regex(text: &str) -> String {
     let mut out = String::with_capacity(text.len());
     for char in text.chars() {

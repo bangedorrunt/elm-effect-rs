@@ -1126,6 +1126,12 @@ pub enum SchemaKind {
     Reference(String),
     /// A single exact value (`Literal`).
     Literal(Unknown),
+    /// Template spans (`TemplateLiteral`): literal anchors and span shapes
+    /// kept as full kinds so identifiers on a part survive the round trip.
+    /// The parser (built from [`template_part_of_kind`]) drives decoding;
+    /// parts the parser cannot spell (`Int`, `Digits`, `NonEmptyString`)
+    /// ride as their base shape with the constraint in the parser only.
+    TemplateLiteral(Vec<SchemaKind>),
     /// A union of two or more shapes (`Union`). `mode` is either `"anyOf"` or
     /// `"oneOf"`; they differ in whether a value matching more than one member
     /// is accepted, and the repr carries the difference.
@@ -1236,6 +1242,14 @@ impl SchemaKind {
                 serde_json::Value::Array(values.iter().map(Unknown::to_json).collect())
             }
             SchemaKind::Union { .. } => serde_json::json!({}),
+            SchemaKind::TemplateLiteral(parts) => {
+                match crate::json_schema::template_pattern_of_kinds(parts) {
+                    Some(pattern) => {
+                        serde_json::json!({"type": "string", "pattern": pattern})
+                    }
+                    None => serde_json::json!({"type": "string"}),
+                }
+            },
             // `never` is the one shape a JSON Schema document spells as a
             // complement: `{ not: {} }` admits nothing, which is what makes
             // an `optionalKey(Never)` field survive a document round trip.
@@ -5051,11 +5065,120 @@ fn parse_int(head: &str) -> Option<f64> {
 }
 
 impl Schema<String> {
+    /// A template-literal part as the schema kind that represents it.
+    /// `NonEmptyString`, `Int` and `Digits` ride as plain `String`: the
+    /// length/numeric floor lives in the parser (which keeps the original
+    /// parts), so decoding stays exact while the representation shows the
+    /// base shape.
+    pub fn template_kind_of_part(part: &TemplatePart) -> SchemaKind {
+        match part {
+            TemplatePart::Anchor(text) => {
+                SchemaKind::Literal(Unknown::Text(text.clone()))
+            }
+            TemplatePart::Number => SchemaKind::Number,
+            TemplatePart::AnyString
+            | TemplatePart::NonEmptyString
+            | TemplatePart::Int
+            | TemplatePart::Digits => SchemaKind::String,
+            TemplatePart::Literals(values) => match values.as_slice() {
+                [single] => SchemaKind::Literal(single.clone()),
+                _ => SchemaKind::Union {
+                    members: values
+                        .iter()
+                        .map(|value| SchemaKind::Literal(value.clone()))
+                        .collect(),
+                    mode: "anyOf",
+                },
+            },
+            TemplatePart::NestedParser(parser) => SchemaKind::TemplateLiteral(
+                parser.parts().iter().map(Self::template_kind_of_part).collect(),
+            ),
+            TemplatePart::OneOf(alternatives) => SchemaKind::Union {
+                members: alternatives
+                    .iter()
+                    .map(|sequence| match sequence.as_slice() {
+                        [single] => Self::template_kind_of_part(single),
+                        _ => SchemaKind::TemplateLiteral(
+                            sequence.iter().map(Self::template_kind_of_part).collect(),
+                        ),
+                    })
+                    .collect(),
+                mode: "anyOf",
+            },
+        }
+    }
+
+    /// A schema kind back to the template part it spells, stripping
+    /// annotations (identifiers ride the kind for the round trip and stay
+    /// out of the parser). `None` means the kind has no template spelling.
+    pub fn template_part_of_kind(kind: &SchemaKind) -> Option<TemplatePart> {
+        match kind {
+            SchemaKind::Literal(Unknown::Text(text)) => {
+                Some(TemplatePart::Anchor(text.clone()))
+            }
+            SchemaKind::Literal(Unknown::Number(number)) => {
+                Some(TemplatePart::Anchor(number.to_string()))
+            }
+            SchemaKind::Literal(Unknown::Bool(flag)) => {
+                Some(TemplatePart::Anchor(flag.to_string()))
+            }
+            SchemaKind::String => Some(TemplatePart::AnyString),
+            SchemaKind::Number => Some(TemplatePart::Number),
+            SchemaKind::Union { members, .. } => {
+                let mut alternatives = Vec::with_capacity(members.len());
+                for member in members {
+                    alternatives.push(vec![Self::template_part_of_kind(member)?]);
+                }
+                Some(TemplatePart::OneOf(alternatives))
+            }
+            SchemaKind::TemplateLiteral(parts) => {
+                let mut nested = Vec::with_capacity(parts.len());
+                for part in parts {
+                    nested.push(Self::template_part_of_kind(part)?);
+                }
+                Some(TemplatePart::OneOf(vec![nested]))
+            }
+            SchemaKind::Annotated { inner, .. } => Self::template_part_of_kind(inner),
+            _ => None,
+        }
+    }
+
+    /// A template literal from already-built part kinds (the revive path
+    /// and explicitly annotated parts): identifiers and other annotations
+    /// ride the kinds into the round trip while the parser (built from the
+    /// unannotated spellings) drives decoding. `None` when a part has no
+    /// template spelling.
+    pub fn template_literal_from_kinds(parts: Vec<SchemaKind>) -> Option<Self> {
+        let mut parser_parts = Vec::with_capacity(parts.len());
+        for part in &parts {
+            parser_parts.push(Self::template_part_of_kind(part)?);
+        }
+        let parser = TemplateParser::new(parser_parts);
+        Some(Self::new(
+            move |unknown| match unknown {
+                Unknown::Text(text) => {
+                    parser
+                        .matches(&text)
+                        .then_some(text)
+                        .ok_or_else(|| SchemaError::TypeMismatch {
+                            path: "$".to_string(),
+                            expected: "a string matching template literal parts",
+                            got: "no match",
+                        })
+                }
+                other => mismatch("$", "string", &other),
+            },
+            move |value| Ok(Unknown::Text(value.clone())),
+            SchemaKind::TemplateLiteral(parts),
+        ))
+    }
+
     /// A template literal (`Schema.TemplateLiteral`): a string schema that only
     /// admits text matching every part, and hands the same text back. Distinct
     /// from `template`, which is the pin's `TemplateLiteralParser` and yields
     /// one capture per part.
     pub fn template_literal(parts: Vec<TemplatePart>) -> Self {
+        let kinds = parts.iter().map(Self::template_kind_of_part).collect();
         let parser = TemplateParser::new(parts);
         Self::new(
             move |unknown| match unknown {
@@ -5076,7 +5199,7 @@ impl Schema<String> {
             // A text that would not decode cannot be built from a decode, and
             // `encode` has no failure channel to report one.
             move |value| Ok(Unknown::Text(value.clone())),
-            SchemaKind::Opaque("template-literal"),
+            SchemaKind::TemplateLiteral(kinds),
         )
     }
 }
@@ -6060,6 +6183,13 @@ fn code_of(kind: &SchemaKind, children: &[(String, Arc<Schema<Unknown>>)]) -> St
             format!("Schema.optionalKey({})", code_of_at(inner, children))
         }
         SchemaKind::Literal(value) => format!("Schema.Literal({})", render_value(value)),
+        SchemaKind::TemplateLiteral(parts) => {
+            let inner: Vec<String> = parts
+                .iter()
+                .map(|part| code_of_at(part, children))
+                .collect();
+            format!("Schema.TemplateLiteral([{}])", inner.join(", "))
+        }
         SchemaKind::Literals(values) => {
             let inner: Vec<String> = values.iter().map(render_value).collect();
             format!("Schema.Literals([{}])", inner.join(", "))
@@ -6279,6 +6409,7 @@ fn type_of(kind: &SchemaKind, children: &[(String, Arc<Schema<Unknown>>)]) -> St
             .collect::<Vec<_>>()
             .join(" | "),
         SchemaKind::Literal(value) => render_value(value),
+        SchemaKind::TemplateLiteral(_) => "string".to_string(),
         SchemaKind::Union { members, .. } => members
             .iter()
             .map(|member| type_of_at(member))

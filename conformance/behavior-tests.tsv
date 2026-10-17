@@ -8883,9 +8883,9 @@ ported	packages/effect/test/schema/representation/fromRepresentation.test.ts	106
 not-applicable	packages/effect/test/schema/representation/fromRepresentation.test.ts	122	it	revives UniqueSymbol	no UniqueSymbol value
 ported	packages/effect/test/schema/representation/fromRepresentation.test.ts	129	it	revives Enum	revives_enum_values  [member names not asserted; values accepted/rejected as pin]
 ported	packages/effect/test/schema/representation/fromRepresentation.test.ts	136	it	rejects non-finite numeric Enum values	rejects_non_finite_numeric_enum_values
-not-applicable	packages/effect/test/schema/representation/fromRepresentation.test.ts	151	it	revives TemplateLiteral	template parts folded into opaque marker; cannot rebuild
-not-applicable	packages/effect/test/schema/representation/fromRepresentation.test.ts	157	it	revives a reference in TemplateLiteral as a concrete part	template reference parts inexpressible
-not-applicable	packages/effect/test/schema/representation/fromRepresentation.test.ts	168	it	revives nested references in a TemplateLiteral union	nested template references inexpressible
+ported	packages/effect/test/schema/representation/fromRepresentation.test.ts	151	it	revives TemplateLiteral	template_literal_revives_and_validates
+ported	packages/effect/test/schema/representation/fromRepresentation.test.ts	157	it	revives a reference in TemplateLiteral as a concrete part	template_literal_revives_an_identified_part
+ported	packages/effect/test/schema/representation/fromRepresentation.test.ts	168	it	revives nested references in a TemplateLiteral union	template_literal_revives_nested_identified_union_parts
 ported	packages/effect/test/schema/representation/fromRepresentation.test.ts	183	it	revives Tuple	revives_tuple
 ported	packages/effect/test/schema/representation/fromRepresentation.test.ts	187	it	revives Array	revives_array
 ported	packages/effect/test/schema/representation/fromRepresentation.test.ts	191	it	revives TupleWithRest	revives_tuple_with_rest
@@ -9204,7 +9204,7 @@ ported	packages/effect/test/schema/representation/toRepresentation.test.ts	22	it
 ported	packages/effect/test/schema/representation/toRepresentation.test.ts	30	it	literal	converts_literal
 not-applicable	packages/effect/test/schema/representation/toRepresentation.test.ts	37	it	global unique symbol	no Undefined constructor
 not-applicable	packages/effect/test/schema/representation/toRepresentation.test.ts	45	it	enum	no BigInt constructor
-not-applicable	packages/effect/test/schema/representation/toRepresentation.test.ts	59	it	template literal	no Symbol constructor
+ported	packages/effect/test/schema/representation/toRepresentation.test.ts	59	it	template literal	template_literal_converts_to_parts
 ported	packages/effect/test/schema/representation/toRepresentation.test.ts	77	it	tuple elements and rest	converts_tuple_elements_and_rest
 ported	packages/effect/test/schema/representation/toRepresentation.test.ts	97	it	object properties and index signatures	converts_object_properties_and_index_signatures  [string-keyed rest; symbol/bigint rest inexpressible]
 ported	packages/effect/test/schema/representation/toRepresentation.test.ts	140	it	union member order	converts_union_members_in_order  [String+Number members; BigInt member inexpressible]
@@ -9760,7 +9760,7 @@ ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	2250	it	empty en
 ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	2272	it	single enum	enum_like_unions_keep_titles
 ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	2308	it	mixed enums (number & string)	enum_like_unions_keep_titles
 ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	2366	it	const enum	enum_like_unions_keep_titles
-not-applicable	packages/effect/test/schema/toJsonSchemaDocument.test.ts	2400	it	TemplateLiteral	no TemplateLiteral constructor
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	2400	it	TemplateLiteral	template_literal_compiles_to_a_pattern
 ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	2418	it	empty struct	struct_required_and_annotate_key
 ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	2440	it	String	struct_required_and_annotate_key
 ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	2460	it	String & annotate	struct_required_and_annotate_key
@@ -9784,7 +9784,7 @@ ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	2918	it	Record(S
 ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	2930	it	Record(isStartingWith, Struct({}))	record_starting_with_key
 ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	2945	it	Record(String, Finite)	record_string_finite_and_json_object
 ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	2975	it	JsonObject	record_string_finite_and_json_object
-not-applicable	packages/effect/test/schema/toJsonSchemaDocument.test.ts	2985	it	Record(`a${string}`, Number) & annotate	template record keys need TemplateLiteral; absent
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	2985	it	Record(`a${string}`, Number) & annotate	template_keyed_records_compile_to_pattern_properties
 ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	3002	it	Record(Literals(['a', 'b']), Finite)	record_literal_keys_expand
 ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	3019	it	Record(isUppercased, Number)	record_case_fold_key_uses_property_names
 ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	3035	it	uses propertyNames for conjunctive record key patterns	record_conjunctive_keys_use_property_names

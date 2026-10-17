@@ -659,6 +659,16 @@ fn convert_kind(
             path,
             "literal unions need a name-preserving Enum schema this port does not build",
         )),
+        SchemaKind::TemplateLiteral(parts) => {
+            let converted = parts
+                .iter()
+                .enumerate()
+                .map(|(index, part)| {
+                    convert_kind(part, state, hoist_identifiers, enclosing, &idx(&seg(path, "parts"), index))
+                })
+                .collect::<Result<Vec<_>, ReprError>>()?;
+            Ok(serde_json::json!({ "_tag": "TemplateLiteral", "parts": converted, "checks": [] }))
+        }
         SchemaKind::Reference(name) => Ok(serde_json::json!({ "_tag": "Reference", "$ref": name })),
         SchemaKind::Optional(_) | SchemaKind::OptionalKey(_) | SchemaKind::Rest(_) => {
             Err(ReprError::at(
@@ -1278,9 +1288,27 @@ fn revive_doc(state: &mut Revive, doc: &Value, path: &str) -> Result<Schema<Unkn
         "Any" => Ok(Schema::as_unknown(Schema::any())),
         "Unknown" => Ok(Schema::as_unknown(Schema::unknown())),
         "ObjectKeyword" => Ok(Schema::as_unknown(Schema::object_keyword())),
-        "Undefined" | "BigInt" | "Symbol" | "UniqueSymbol" | "TemplateLiteral" => Err(
+        "Undefined" | "BigInt" | "Symbol" | "UniqueSymbol" => Err(
             ReprError::at(path, format!("`{tag}` has no domain in this port")),
         ),
+        "TemplateLiteral" => {
+            let parts = doc
+                .get("parts")
+                .and_then(Value::as_array)
+                .ok_or_else(|| ReprError::at(path, "a `TemplateLiteral` carries `parts`"))?;
+            let mut kinds = Vec::with_capacity(parts.len());
+            for (index, part) in parts.iter().enumerate() {
+                let schema = revive_named(state, part, &idx(&seg(path, "parts"), index))?;
+                kinds.push(schema.repr_kind());
+            }
+            match Schema::template_literal_from_kinds(kinds) {
+                Some(schema) => Ok(Schema::as_unknown(schema)),
+                None => Err(ReprError::at(
+                    path,
+                    "a template part spells no template part (BigInt, symbols and opaque shapes cannot)",
+                )),
+            }
+        }
         "Literal" => {
             let literal = doc
                 .get("literal")

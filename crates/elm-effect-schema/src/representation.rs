@@ -7,7 +7,10 @@ use crate::Unknown;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum SchemaRepresentation {
-    Node { kind: String, children: Vec<SchemaRepresentation> },
+    Node {
+        kind: String,
+        children: Vec<SchemaRepresentation>,
+    },
 }
 
 impl SchemaRepresentation {
@@ -21,14 +24,18 @@ impl SchemaRepresentation {
             | SchemaKind::Number
             | SchemaKind::Boolean
             | SchemaKind::Object
-            | SchemaKind::Json => Self::Node { kind: kind.label(), children: vec![] },
+            | SchemaKind::Json => Self::Node {
+                kind: kind.label(),
+                children: vec![],
+            },
             SchemaKind::Array(inner)
             | SchemaKind::Optional(inner)
             | SchemaKind::Rest(inner)
             | SchemaKind::OptionalKey(inner)
-            | SchemaKind::Annotated { inner, .. } => {
-                Self::Node { kind: kind.label(), children: vec![Self::build(inner)] }
-            }
+            | SchemaKind::Annotated { inner, .. } => Self::Node {
+                kind: kind.label(),
+                children: vec![Self::build(inner)],
+            },
             SchemaKind::Struct(fields) => Self::Node {
                 kind: "Struct".to_string(),
                 children: fields.iter().map(|(_, k)| Self::build(k)).collect(),
@@ -52,19 +59,38 @@ impl SchemaRepresentation {
             SchemaKind::TupleWithRest(items, rest) => {
                 let mut children: Vec<_> = items.iter().map(Self::build).collect();
                 children.push(Self::build(rest));
-                Self::Node { kind: "TupleWithRest".to_string(), children }
+                Self::Node {
+                    kind: "TupleWithRest".to_string(),
+                    children,
+                }
             }
             SchemaKind::Check { base, .. } => Self::Node {
                 kind: "Check".to_string(),
                 children: vec![Self::build(base)],
             },
-            SchemaKind::Literals(_) => Self::Node { kind: "Literals".to_string(), children: vec![] },
-            SchemaKind::Literal(_) => Self::Node { kind: "Literal".to_string(), children: vec![] },
-            SchemaKind::Reference(name) => Self::Node { kind: format!("Reference({name})"), children: vec![] },
-            SchemaKind::Opaque(name) => Self::Node { kind: format!("Opaque({name})"), children: vec![] },
+            SchemaKind::Literals(_) => Self::Node {
+                kind: "Literals".to_string(),
+                children: vec![],
+            },
+            SchemaKind::Literal(_) => Self::Node {
+                kind: "Literal".to_string(),
+                children: vec![],
+            },
+            SchemaKind::Reference(name) => Self::Node {
+                kind: format!("Reference({name})"),
+                children: vec![],
+            },
+            SchemaKind::Opaque(name) => Self::Node {
+                kind: format!("Opaque({name})"),
+                children: vec![],
+            },
             SchemaKind::Union { members, .. } => Self::Node {
                 kind: "Union".to_string(),
                 children: members.iter().map(Self::build).collect(),
+            },
+            SchemaKind::TemplateLiteral(parts) => Self::Node {
+                kind: "TemplateLiteral".to_string(),
+                children: parts.iter().map(Self::build).collect(),
             },
         }
     }
@@ -75,7 +101,15 @@ impl SchemaRepresentation {
                 if children.is_empty() {
                     kind.clone()
                 } else {
-                    format!("{}({})", kind, children.iter().map(Self::to_json_string).collect::<Vec<_>>().join(", "))
+                    format!(
+                        "{}({})",
+                        kind,
+                        children
+                            .iter()
+                            .map(Self::to_json_string)
+                            .collect::<Vec<_>>()
+                            .join(", ")
+                    )
                 }
             }
         }
@@ -127,6 +161,11 @@ impl SchemaKind {
                     child.visit(f);
                 }
             }
+            SchemaKind::TemplateLiteral(parts) => {
+                for child in parts {
+                    child.visit(f);
+                }
+            }
             SchemaKind::Literals(_)
             | SchemaKind::Literal(_)
             | SchemaKind::Opaque(_)
@@ -165,6 +204,7 @@ impl SchemaKind {
             SchemaKind::Record(_, _) => "Record".to_string(),
             SchemaKind::Check { .. } => "Check".to_string(),
             SchemaKind::Union { .. } => "Union".to_string(),
+            SchemaKind::TemplateLiteral(_) => "TemplateLiteral".to_string(),
         }
     }
 }
@@ -193,7 +233,12 @@ pub fn format_with_on_before(
 }
 
 impl<T> Schema<T> {
-    pub fn formatter_with_on_before<F>(&self, on_before: F) -> std::boxed::Box<dyn Fn(&crate::Unknown) -> String + std::marker::Send + std::marker::Sync + 'static>
+    pub fn formatter_with_on_before<F>(
+        &self,
+        on_before: F,
+    ) -> std::boxed::Box<
+        dyn Fn(&crate::Unknown) -> String + std::marker::Send + std::marker::Sync + 'static,
+    >
     where
         T: Send + Sync + 'static,
         F: Fn(&Unknown) + Send + Sync + 'static,
