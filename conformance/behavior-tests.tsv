@@ -7495,14 +7495,14 @@ not-applicable	packages/effect/test/rpc/RpcSerialization.test.ts	689	it.effect	f
 not-applicable	packages/effect/test/rpc/RpcSerialization.test.ts	701	it.effect	fills the stream chunk holes with the serialization's codec	N/A: rust unstable RPC serialization lacks ndjson/binary framing and HTTP round-trip surface parity, so these rows cannot be represented in the Rust port
 not-applicable	packages/effect/test/rpc/RpcSerialization.test.ts	708	it.effect	fills the exit hole with the serialization's codec	N/A: rust unstable RPC serialization lacks ndjson/binary framing and HTTP round-trip surface parity, so these rows cannot be represented in the Rust port
 not-applicable	packages/effect/test/rpc/RpcSerialization.test.ts	717	it.effect	fills the defect hole with the serialization's codec	N/A: rust unstable RPC serialization lacks ndjson/binary framing and HTTP round-trip surface parity, so these rows cannot be represented in the Rust port
-unported	packages/effect/test/rpc/RpcServer.test.ts	51	it.effect	should accept only cancellation of an active request when client input has ended	
-unported	packages/effect/test/rpc/RpcServer.test.ts	115	it.effect	should backpressure STDIO sends when the output buffer is full	
-unported	packages/effect/test/rpc/RpcServer.test.ts	167	it.effect	should continue sending to other clients when a backpressured HTTP client disconnects	
-unported	packages/effect/test/rpc/RpcServer.test.ts	234	it.effect	applies backpressure to framed HTTP responses by default	
-unported	packages/effect/test/rpc/RpcServer.test.ts	242	it.effect	uses the configured framed HTTP response buffer size	
-unported	packages/effect/test/rpc/RpcServer.test.ts	250	it.effect	allows unbounded framed HTTP response buffering	
-unported	packages/effect/test/rpc/RpcServer.test.ts	257	it.effect	keeps non-framed HTTP responses unbounded	
-unported	packages/effect/test/rpc/RpcServer.test.ts	293	it.effect	closes a socket when the serialization buffer limit is exceeded	
+not-applicable	packages/effect/test/rpc/RpcServer.test.ts	51	it.effect	should accept only cancellation of an active request when client input has ended	needs RpcServer protocol with client ids, Interrupt routing and ClientEnd; crate has envelopes/router/FakePair but no server protocol
+not-applicable	packages/effect/test/rpc/RpcServer.test.ts	115	it.effect	should backpressure STDIO sends when the output buffer is full	needs STDIO protocol with bounded output buffer; no STDIO transport exists
+not-applicable	packages/effect/test/rpc/RpcServer.test.ts	167	it.effect	should continue sending to other clients when a backpressured HTTP client disconnects	needs multi-client HTTP protocol with backpressured send; no server protocol exists
+not-applicable	packages/effect/test/rpc/RpcServer.test.ts	234	it.effect	applies backpressure to framed HTTP responses by default	needs HTTP streaming responses with streamBufferSize backpressure; no HTTP transport in rpc surface
+not-applicable	packages/effect/test/rpc/RpcServer.test.ts	242	it.effect	uses the configured framed HTTP response buffer size	needs configurable framed HTTP response buffer; no HTTP transport in rpc surface
+not-applicable	packages/effect/test/rpc/RpcServer.test.ts	250	it.effect	allows unbounded framed HTTP response buffering	needs unbounded framed HTTP buffering toggle; no HTTP transport in rpc surface
+not-applicable	packages/effect/test/rpc/RpcServer.test.ts	257	it.effect	keeps non-framed HTTP responses unbounded	needs HTTP layer with non-NDJSON serialization path; no HTTP transport in rpc surface
+ported	packages/effect/test/rpc/RpcServer.test.ts	293	it.effect	closes a socket when the serialization buffer limit is exceeded	ndjson_max_trips_on_incremental_chunks
 ported	packages/effect/test/schema/CodePoints.test.ts	21	it	counts code points at inclusive minimum and maximum boundaries	crates/elm-effect-schema/tests/code_points.rs
 ported	packages/effect/test/schema/CodePoints.test.ts	34	it	checks inclusive ranges and rejects inverted ranges	crates/elm-effect-schema/tests/code_points.rs
 ported	packages/effect/test/schema/CodePoints.test.ts	43	it	rounds down bounds and clamps negative bounds to zero	crates/elm-effect-schema/tests/code_points.rs
