@@ -6047,13 +6047,13 @@ not-applicable	packages/effect/test/cluster/ResourceRef.test.ts	7	it.live	does n
 not-applicable	packages/effect/test/cluster/ResourceRef.test.ts	29	it.effect	does not let a stale rebuild overwrite a newer acquisition	Rust elm-effect-unstable cluster.rs has no ResourceRef type or rebuild/teardown lifecycle implementation to witness this row
 not-applicable	packages/effect/test/cluster/ResourceRef.test.ts	69	it.effect	does not leak teardown membership when a rebuild is discarded	Rust elm-effect-unstable cluster.rs has no ResourceRef type or rebuild/teardown lifecycle implementation to witness this row
 not-applicable	packages/effect/test/cluster/ResourceRef.test.ts	86	it.effect	does not leak teardown membership when a rebuild is interrupted	Rust elm-effect-unstable cluster.rs has no ResourceRef type or rebuild/teardown lifecycle implementation to witness this row
-unported	packages/effect/test/cluster/RunnerServer.test.ts	136	it.effect	completes a successful runner stream	
-unported	packages/effect/test/cluster/RunnerServer.test.ts	165	it.effect	releases a non-persisted Effect handler when the runner caller disconnects	
-unported	packages/effect/test/cluster/RunnerServer.test.ts	193	it.effect	forgets departed callers during rebuild without replaying or retaining mailbox slots	
-unported	packages/effect/test/cluster/RunnerServer.test.ts	249	it.effect	releases a replayed handler when its caller disconnects during acquisition	
-unported	packages/effect/test/cluster/RunnerServer.test.ts	304	it.effect	does not admit a request with an already-closed caller scope	
-unported	packages/effect/test/cluster/RunnerServer.test.ts	333	it.effect	persisted	
-unported	packages/effect/test/cluster/RunnerServer.test.ts	380	it.effect	fills the entity payload and reply holes with the serialization's codec	
+ported	packages/effect/test/cluster/RunnerServer.test.ts	136	it.effect	completes a successful runner stream	runner_stream_completes_with_exit_after_ack
+not-applicable	packages/effect/test/cluster/RunnerServer.test.ts	165	it.effect	releases a non-persisted Effect handler when the runner caller disconnects	needs live fiber interruption releasing a non-persisted Effect handler on disconnect; sync data types only
+not-applicable	packages/effect/test/cluster/RunnerServer.test.ts	193	it.effect	forgets departed callers during rebuild without replaying or retaining mailbox slots	needs entity mailbox slots and rebuild with replay; crate has no mailbox or rebuild machinery
+not-applicable	packages/effect/test/cluster/RunnerServer.test.ts	249	it.effect	releases a replayed handler when its caller disconnects during acquisition	needs replayed-handler disconnect during acquisition; no replay or acquisition machinery
+not-applicable	packages/effect/test/cluster/RunnerServer.test.ts	304	it.effect	does not admit a request with an already-closed caller scope	needs caller-Scope linkage refusing closed scopes; no Scope linkage
+not-applicable	packages/effect/test/cluster/RunnerServer.test.ts	333	it.effect	persisted	needs persisted-loop disconnect semantics with PubSub tracking; no subscriber tracking or storage driver
+ported	packages/effect/test/cluster/RunnerServer.test.ts	380	it.effect	fills the entity payload and reply holes with the serialization's codec	runner_codec_fills_payload_and_reply_holes
 ported	packages/effect/test/cluster/RunnerStorage.test.ts	6	it.effect	tracks runner health in memory	runner_storage_tracks_health_in_memory
 ported	packages/effect/test/cluster/RunnerStorage.test.ts	16	it.effect	memory acquire accepts a one-shot iterable	runner_storage_acquires_one_shot_iterables
 ported	packages/effect/test/cluster/Runners.test.ts	94	it.effect	preserves a leading slash in HTTP client paths	runner_endpoint_preserves_leading_slash

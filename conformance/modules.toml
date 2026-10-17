@@ -1572,7 +1572,7 @@ tests = []
 [[module]]
 path = "packages/effect/src/cluster/RunnerServer.ts"
 class = "unstable-port"
-status = "unmatched"
+status = "matched"
 tag = "unstable"
 reason = ""
 tests = ["packages/effect/test/cluster/RunnerServer.test.ts"]
