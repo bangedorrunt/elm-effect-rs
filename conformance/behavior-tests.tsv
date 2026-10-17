@@ -9703,32 +9703,58 @@ not-applicable	packages/effect/test/schema/toFormatter.test.ts	644	it	custom cla
 not-applicable	packages/effect/test/schema/toFormatter.test.ts	658	it	String	Schema.overrideToFormatter is absent from the entire crate (grep across schema/src and src returns nothing), so there is no annotation slot for a renderer override
 not-applicable	packages/effect/test/schema/toFormatter.test.ts	664	it	String & isMinLength(1)	Schema.overrideToFormatter is absent from the whole crate (grep empty) and formatter (schema/src/lib.rs:1175) takes no options, so an annotation-driven renderer override cannot be expressed
 not-applicable	packages/effect/test/schema/toFormatter.test.ts	674	it	should allow for ast-level overrides	Schema.toFormatter's onBefore hook needs an options parameter (Rust formatter at schema/src/lib.rs:1175 takes none) plus an AST walk that never happens, so a Boolean override inside a Tuple cannot be expressed
-unported	packages/effect/test/schema/toIso.test.ts	30	it	overrideToCodecIso	
-unported	packages/effect/test/schema/toIso.test.ts	39	it	Class	
-unported	packages/effect/test/schema/toIso.test.ts	54	it	toType(Class)	
-unported	packages/effect/test/schema/toIso.test.ts	62	it	toEncoded(Class)	
-unported	packages/effect/test/schema/toIso.test.ts	71	it	Number & isPositive	
-unported	packages/effect/test/schema/toIso.test.ts	83	it	Tuple	
-unported	packages/effect/test/schema/toIso.test.ts	94	it	Array	
-unported	packages/effect/test/schema/toIso.test.ts	103	it	NonEmptyArray	
-unported	packages/effect/test/schema/toIso.test.ts	123	it	TupleWithRest	
-unported	packages/effect/test/schema/toIso.test.ts	145	it	Struct	
-unported	packages/effect/test/schema/toIso.test.ts	173	it	Record	
-unported	packages/effect/test/schema/toIso.test.ts	191	it	StructWithRest	
-unported	packages/effect/test/schema/toIso.test.ts	209	it	Union	
-unported	packages/effect/test/schema/toIso.test.ts	219	it	suspend	
-unported	packages/effect/test/schema/toIso.test.ts	249	it	flip(schema)	
-unported	packages/effect/test/schema/toIso.test.ts	257	it	flip(flip(schema))	
-unported	packages/effect/test/schema/toIso.test.ts	265	it	Opaque	
-unported	packages/effect/test/schema/toIso.test.ts	274	it	Option	
-unported	packages/effect/test/schema/toIso.test.ts	286	it	Result	
-unported	packages/effect/test/schema/toIso.test.ts	297	it	CauseReason	
-unported	packages/effect/test/schema/toIso.test.ts	308	it	Cause	
-unported	packages/effect/test/schema/toIso.test.ts	320	it	Error	
-unported	packages/effect/test/schema/toIso.test.ts	328	it	Exit	
-unported	packages/effect/test/schema/toIso.test.ts	339	it	ReadonlySet	
-unported	packages/effect/test/schema/toIso.test.ts	351	it	ReadonlyMap	
-unported	packages/effect/test/schema/toIso.test.ts	363	it	HashMap	
+not-applicable	packages/effect/test/schema/toIso.test.ts	30	30	it	overrideToCodecIso	needs Schema.toIso/toIsoFocus optic derivation over the Type/Iso/Encoded trichotomy; to_type() is a repr printer only, no derivation exists
+
+not-applicable	packages/effect/test/schema/toIso.test.ts	39	39	it	Class	needs Schema.toIso/toIsoFocus optic derivation over the Type/Iso/Encoded trichotomy; to_type() is a repr printer only, no derivation exists
+
+not-applicable	packages/effect/test/schema/toIso.test.ts	54	54	it	toType(Class)	needs Schema.toIso/toIsoFocus optic derivation over the Type/Iso/Encoded trichotomy; to_type() is a repr printer only, no derivation exists
+
+not-applicable	packages/effect/test/schema/toIso.test.ts	62	62	it	toEncoded(Class)	needs Schema.toIso/toIsoFocus optic derivation over the Type/Iso/Encoded trichotomy; to_type() is a repr printer only, no derivation exists
+
+not-applicable	packages/effect/test/schema/toIso.test.ts	71	71	it	Number & isPositive	needs Schema.toIso/toIsoFocus optic derivation over the Type/Iso/Encoded trichotomy; to_type() is a repr printer only, no derivation exists
+
+not-applicable	packages/effect/test/schema/toIso.test.ts	83	83	it	Tuple	needs Schema.toIso/toIsoFocus optic derivation over the Type/Iso/Encoded trichotomy; to_type() is a repr printer only, no derivation exists
+
+not-applicable	packages/effect/test/schema/toIso.test.ts	94	94	it	Array	needs Schema.toIso/toIsoFocus optic derivation over the Type/Iso/Encoded trichotomy; to_type() is a repr printer only, no derivation exists
+
+not-applicable	packages/effect/test/schema/toIso.test.ts	103	103	it	NonEmptyArray	needs Schema.toIso/toIsoFocus optic derivation over the Type/Iso/Encoded trichotomy; to_type() is a repr printer only, no derivation exists
+
+not-applicable	packages/effect/test/schema/toIso.test.ts	123	123	it	TupleWithRest	needs Schema.toIso/toIsoFocus optic derivation over the Type/Iso/Encoded trichotomy; to_type() is a repr printer only, no derivation exists
+
+not-applicable	packages/effect/test/schema/toIso.test.ts	145	145	it	Struct	needs Schema.toIso/toIsoFocus optic derivation over the Type/Iso/Encoded trichotomy; to_type() is a repr printer only, no derivation exists
+
+not-applicable	packages/effect/test/schema/toIso.test.ts	173	173	it	Record	needs Schema.toIso/toIsoFocus optic derivation over the Type/Iso/Encoded trichotomy; to_type() is a repr printer only, no derivation exists
+
+not-applicable	packages/effect/test/schema/toIso.test.ts	191	191	it	StructWithRest	needs Schema.toIso/toIsoFocus optic derivation over the Type/Iso/Encoded trichotomy; to_type() is a repr printer only, no derivation exists
+
+not-applicable	packages/effect/test/schema/toIso.test.ts	209	209	it	Union	needs Schema.toIso/toIsoFocus optic derivation over the Type/Iso/Encoded trichotomy; to_type() is a repr printer only, no derivation exists
+
+not-applicable	packages/effect/test/schema/toIso.test.ts	219	219	it	suspend	needs Schema.toIso/toIsoFocus optic derivation over the Type/Iso/Encoded trichotomy; to_type() is a repr printer only, no derivation exists
+
+not-applicable	packages/effect/test/schema/toIso.test.ts	249	249	it	flip(schema)	needs Schema.toIso/toIsoFocus optic derivation over the Type/Iso/Encoded trichotomy; to_type() is a repr printer only, no derivation exists
+
+not-applicable	packages/effect/test/schema/toIso.test.ts	257	257	it	flip(flip(schema))	needs Schema.toIso/toIsoFocus optic derivation over the Type/Iso/Encoded trichotomy; to_type() is a repr printer only, no derivation exists
+
+not-applicable	packages/effect/test/schema/toIso.test.ts	265	265	it	Opaque	needs Schema.toIso/toIsoFocus optic derivation over the Type/Iso/Encoded trichotomy; to_type() is a repr printer only, no derivation exists
+
+not-applicable	packages/effect/test/schema/toIso.test.ts	274	274	it	Option	needs Schema.toIso/toIsoFocus optic derivation over the Type/Iso/Encoded trichotomy; to_type() is a repr printer only, no derivation exists
+
+not-applicable	packages/effect/test/schema/toIso.test.ts	286	286	it	Result	needs Schema.toIso/toIsoFocus optic derivation over the Type/Iso/Encoded trichotomy; to_type() is a repr printer only, no derivation exists
+
+not-applicable	packages/effect/test/schema/toIso.test.ts	297	297	it	CauseReason	needs Schema.toIso/toIsoFocus optic derivation over the Type/Iso/Encoded trichotomy; to_type() is a repr printer only, no derivation exists
+
+not-applicable	packages/effect/test/schema/toIso.test.ts	308	308	it	Cause	needs Schema.toIso/toIsoFocus optic derivation over the Type/Iso/Encoded trichotomy; to_type() is a repr printer only, no derivation exists
+
+not-applicable	packages/effect/test/schema/toIso.test.ts	320	320	it	Error	needs Schema.toIso/toIsoFocus optic derivation over the Type/Iso/Encoded trichotomy; to_type() is a repr printer only, no derivation exists
+
+not-applicable	packages/effect/test/schema/toIso.test.ts	328	328	it	Exit	needs Schema.toIso/toIsoFocus optic derivation over the Type/Iso/Encoded trichotomy; to_type() is a repr printer only, no derivation exists
+
+not-applicable	packages/effect/test/schema/toIso.test.ts	339	339	it	ReadonlySet	needs Schema.toIso/toIsoFocus optic derivation over the Type/Iso/Encoded trichotomy; to_type() is a repr printer only, no derivation exists
+
+not-applicable	packages/effect/test/schema/toIso.test.ts	351	351	it	ReadonlyMap	needs Schema.toIso/toIsoFocus optic derivation over the Type/Iso/Encoded trichotomy; to_type() is a repr printer only, no derivation exists
+
+not-applicable	packages/effect/test/schema/toIso.test.ts	363	363	it	HashMap	needs Schema.toIso/toIsoFocus optic derivation over the Type/Iso/Encoded trichotomy; to_type() is a repr printer only, no derivation exists
+
 unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	70	it	rejects tuple post-rest elements	
 unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	77	it	rejects symbol property names	
 unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	86	it	Record(Symbol, Finite)	
