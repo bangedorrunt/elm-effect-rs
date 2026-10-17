@@ -9490,16 +9490,26 @@ not-applicable	packages/effect/test/schema/toCodec.test.ts	3330	it	Record with N
 not-applicable	packages/effect/test/schema/toCodec.test.ts	3342	it	Record with Symbol Keys	the row asserts Record with Symbol Keys; the row asserts the XML encoder's wire form; this port has no XML encoder
 not-applicable	packages/effect/test/schema/toCodec.test.ts	3356	it	Tuple with Rest	the row asserts Tuple with Rest; the row asserts the XML encoder's wire form; this port has no XML encoder
 not-applicable	packages/effect/test/schema/toCodec.test.ts	3370	it	Suspend (Recursive Types)	the row asserts Suspend (Recursive Types); the row asserts the XML encoder's wire form; this port has no XML encoder
-unported	packages/effect/test/schema/toDifferJsonPatch.test.ts	61	it	patch returns the same reference if nothing changed (no-op patch)	
-unported	packages/effect/test/schema/toDifferJsonPatch.test.ts	69	it	root replace returns the provided reference (no clone)	
-unported	packages/effect/test/schema/toDifferJsonPatch.test.ts	79	it	immutability: patch does not mutate the input	
-unported	packages/effect/test/schema/toDifferJsonPatch.test.ts	96	it	Number: distinguishes 0 and -0; treats NaN as equal to NaN	
-unported	packages/effect/test/schema/toDifferJsonPatch.test.ts	110	it	Date: rejects an invalid Date on diff	
-unported	packages/effect/test/schema/toDifferJsonPatch.test.ts	118	it	Defect: diff encodes an Error to a plain object; patch decodes back to Error	
-unported	packages/effect/test/schema/toDifferJsonPatch.test.ts	137	it	DateTimeUtcFromMillis: diff uses millis and patch rehydrates DateTime	
-unported	packages/effect/test/schema/toDifferJsonPatch.test.ts	167	it	diff/patch works when root container kind changes	
-unported	packages/effect/test/schema/toDifferJsonPatch.test.ts	174	it	patch throws when asked to do an invalid replace (replace requires existence)	
-unported	packages/effect/test/schema/toDifferJsonPatch.test.ts	182	it.effect	patch(diff(a,b)) round-trips for a wide set of codecs	
+ported	packages/effect/test/schema/toDifferJsonPatch.test.ts	61	it	patch returns the same reference if nothing changed (no-op patch)	empty_patch_hands_the_struct_value_back_unchanged
+
+ported	packages/effect/test/schema/toDifferJsonPatch.test.ts	69	it	root replace returns the provided reference (no clone)	root_replace_hands_back_the_provided_value
+
+ported	packages/effect/test/schema/toDifferJsonPatch.test.ts	79	it	immutability: patch does not mutate the input	patch_leaves_the_input_alone_and_returns_the_patched_value
+
+ported	packages/effect/test/schema/toDifferJsonPatch.test.ts	96	it	Number: distinguishes 0 and -0; treats NaN as equal to NaN	number_diff_uses_object_is_semantics
+
+not-applicable	packages/effect/test/schema/toDifferJsonPatch.test.ts	110	it	Date: rejects an invalid Date on diff	needs a Date codec; crate has none
+
+not-applicable	packages/effect/test/schema/toDifferJsonPatch.test.ts	118	it	Defect: diff encodes an Error to a plain object; patch decodes back to Error	needs a Defect/Error codec; crate has none
+
+not-applicable	packages/effect/test/schema/toDifferJsonPatch.test.ts	137	it	DateTimeUtcFromMillis: diff uses millis and patch rehydrates DateTime	needs a DateTimeUtcFromMillis codec; crate has none
+
+ported	packages/effect/test/schema/toDifferJsonPatch.test.ts	167	it	diff/patch works when root container kind changes	root_container_kind_change_is_one_root_replace
+
+ported	packages/effect/test/schema/toDifferJsonPatch.test.ts	174	it	patch throws when asked to do an invalid replace (replace requires existence)	replace_of_a_missing_key_is_refused
+
+not-applicable	packages/effect/test/schema/toDifferJsonPatch.test.ts	182	it.effect	patch(diff(a,b)) round-trips for a wide set of codecs	wide roundtrip drives missing codecs (Date, URL, Duration, DateTimeUtc, Uint8Array, Symbol, Option/Result/Map, ErrorInstance, Exit, Class)
+
 ported	packages/effect/test/schema/toEquivalence.test.ts	25	it	Never	never_uses_strict_identity
 ported	packages/effect/test/schema/toEquivalence.test.ts	33	it	String	string_compares_by_value
 ported	packages/effect/test/schema/toEquivalence.test.ts	41	it	should fail on non-array inputs	tuple_refuses_a_non_array_on_either_side
