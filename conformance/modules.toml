@@ -1908,7 +1908,7 @@ tests = ["packages/effect/test/eventlog/EventLogServerUnencrypted.test.ts"]
 [[module]]
 path = "packages/effect/src/eventlog/EventLogSessionAuth.ts"
 class = "unstable-port"
-status = "unmatched"
+status = "matched"
 tag = "unstable"
 reason = ""
 tests = ["packages/effect/test/eventlog/EventLogSessionAuth.test.ts"]
