@@ -2556,6 +2556,202 @@ pub fn rewrite_openai_schema(doc: &serde_json::Value) -> serde_json::Value {
     serde_json::Value::Object(out)
 }
 
+// --- Anthropic structured-output rewrite port (`ai/AnthropicStructuredOutput.ts` at the pin) ---
+//
+// Same layering as the OpenAI port: only the JSON Schema rewrite is
+// representable here. The codec transform (tuple/record/optional lowering),
+// Suspend resolution, reference-cycle rejection, and property-name validation
+// live in schema-compiler machinery this crate does not have. Anthropic
+// differences from the OpenAI subset: `uri` is a supported format, `allOf`
+// is kept (member descriptions/formats/titles hoist out, `pattern` members
+// drop when the parent is not a string), `const` is kept, numeric and array
+// bounds have no keywords at all, and no empty `properties: {}` is added
+// beside `additionalProperties: false`. `$defs` values rewrite the way the
+// pin's `Rec.map(document.definitions, rewriteAnthropic)` does.
+
+/// Keywords Anthropic structured output accepts.
+const ANTHROPIC_SUPPORTED_KEYWORDS: &[&str] = &[
+    "$ref",
+    "type",
+    "title",
+    "description",
+    "enum",
+    "const",
+    "anyOf",
+    "allOf",
+    "properties",
+    "required",
+    "additionalProperties",
+    "items",
+    "pattern",
+];
+
+/// `format` values Anthropic structured output accepts (`uri` is Anthropic-only).
+const ANTHROPIC_SUPPORTED_FORMATS: &[&str] = &[
+    "date-time",
+    "time",
+    "date",
+    "duration",
+    "email",
+    "hostname",
+    "uri",
+    "ipv4",
+    "ipv6",
+    "uuid",
+];
+
+/// Hoist member descriptions/formats/titles out of `allOf`, dropping `pattern`
+/// members when the parent is not a string. Members left empty disappear, and
+/// an emptied `allOf` disappears with them.
+fn anthropic_hoist_all_of_descriptions(
+    doc: &serde_json::Map<String, serde_json::Value>,
+) -> serde_json::Map<String, serde_json::Value> {
+    let Some(members) = doc.get("allOf").and_then(|v| v.as_array()) else {
+        return doc.clone();
+    };
+    let parent_type = doc.get("type").and_then(|v| v.as_str());
+    let mut out = serde_json::Map::new();
+    for (key, value) in doc {
+        if key != "allOf" {
+            out.insert(key.clone(), value.clone());
+        }
+    }
+    let mut kept = Vec::new();
+    for member in members {
+        let Some(member) = member.as_object() else {
+            continue;
+        };
+        let mut rest = serde_json::Map::new();
+        for (key, value) in member {
+            match key.as_str() {
+                "description" => {
+                    if let Some(text) = value.as_str() {
+                        openai_append_description(&mut out, text);
+                    }
+                }
+                "format" => {
+                    if out.get("format").is_none() && value.as_str().is_some() {
+                        out.insert("format".to_owned(), value.clone());
+                    }
+                }
+                "title" => {
+                    if out.get("title").is_none() && value.as_str().is_some() {
+                        out.insert("title".to_owned(), value.clone());
+                    }
+                }
+                _ => {
+                    rest.insert(key.clone(), value.clone());
+                }
+            }
+        }
+        if parent_type.is_some_and(|kind| kind != "string") {
+            rest.remove("pattern");
+        }
+        if !rest.is_empty() {
+            kept.push(serde_json::Value::Object(rest));
+        }
+    }
+    if !kept.is_empty() {
+        out.insert("allOf".to_owned(), serde_json::Value::Array(kept));
+    }
+    out
+}
+
+/// Rewrite a JSON Schema document to the Anthropic structured-output subset.
+/// Children rewrite bottom-up first (property values, `allOf`/`anyOf`/`oneOf`
+/// members, `$defs` values, never property names), then `allOf` descriptions
+/// hoist, then unsupported keywords drop.
+pub fn rewrite_anthropic_schema(doc: &serde_json::Value) -> serde_json::Value {
+    let Some(node) = doc.as_object() else {
+        return doc.clone();
+    };
+    let mut walked = serde_json::Map::new();
+    for (key, value) in node {
+        let rewritten = match key.as_str() {
+            "properties" | "patternProperties" | "$defs" => match value.as_object() {
+                Some(entries) => serde_json::Value::Object(
+                    entries
+                        .iter()
+                        .map(|(name, property)| {
+                            let rewritten = if property.is_object() {
+                                rewrite_anthropic_schema(property)
+                            } else {
+                                property.clone()
+                            };
+                            (name.clone(), rewritten)
+                        })
+                        .collect(),
+                ),
+                None => value.clone(),
+            },
+            "additionalProperties" | "items" | "propertyNames" => {
+                if value.is_object() {
+                    rewrite_anthropic_schema(value)
+                } else {
+                    value.clone()
+                }
+            }
+            "prefixItems" | "allOf" | "anyOf" | "oneOf" => match value.as_array() {
+                Some(members) => serde_json::Value::Array(
+                    members
+                        .iter()
+                        .map(|member| {
+                            if member.is_object() {
+                                rewrite_anthropic_schema(member)
+                            } else {
+                                member.clone()
+                            }
+                        })
+                        .collect(),
+                ),
+                None => value.clone(),
+            },
+            _ => value.clone(),
+        };
+        walked.insert(key.clone(), rewritten);
+    }
+    let normalized = anthropic_hoist_all_of_descriptions(&walked);
+    let defs = normalized.get("$defs").cloned();
+    let doc_type = normalized
+        .get("type")
+        .cloned()
+        .unwrap_or(serde_json::Value::Null);
+    let mut out = serde_json::Map::new();
+    let mut unsupported_format: Option<String> = None;
+    for (key, value) in &normalized {
+        if key == "$defs" {
+            continue;
+        }
+        if key == "format" {
+            let supported = value.as_str().is_some_and(|format| {
+                ANTHROPIC_SUPPORTED_FORMATS.contains(&format)
+                    && (doc_type.is_null()
+                        || doc_type == serde_json::Value::String("string".to_owned()))
+            });
+            if supported {
+                out.insert(key.clone(), value.clone());
+            } else if let Some(format) = value.as_str() {
+                unsupported_format = Some(format.to_owned());
+            }
+            continue;
+        }
+        if !ANTHROPIC_SUPPORTED_KEYWORDS.contains(&key.as_str()) {
+            continue;
+        }
+        if key == "additionalProperties" && value != &serde_json::Value::Bool(false) {
+            continue;
+        }
+        out.insert(key.clone(), value.clone());
+    }
+    if let Some(format) = unsupported_format {
+        openai_append_description(&mut out, &format!("a value with a format of {format}"));
+    }
+    if let Some(defs) = defs {
+        out.insert("$defs".to_owned(), defs);
+    }
+    serde_json::Value::Object(out)
+}
+
 // --- Decision port (`ai/Decision.ts` + `ai/DecisionModel.ts` at the pin) ---
 //
 // Only the decision algebra is representable here. The `Schema` half (input
