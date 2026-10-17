@@ -6751,13 +6751,13 @@ ported	packages/effect/test/http/UrlParams.test.ts	27	it	round-trips ordered pai
 ported	packages/effect/test/http/UrlParams.test.ts	35	it	getFirst and getLast return Option	url_params_first_last_and_set_replace
 not-applicable	packages/effect/test/http/UrlParams.test.ts	49	it	JsonFromUrlParamsField applies a JSON reviver	both rows build a converter on top of Schema.fromKeyValue and a JSON reviver; this port has no schema AST, so there is no converter to build
 not-applicable	packages/effect/test/http/UrlParams.test.ts	60	it	RecordFromUrlParams preserves single and repeated values	both rows build a converter on top of Schema.fromKeyValue and a JSON reviver; this port has no schema AST, so there is no converter to build
-unported	packages/effect/test/httpapi/HttpApi.test.ts	6	it	stores the supplied identifier	
-unported	packages/effect/test/httpapi/HttpApi.test.ts	12	it	initializes groups as a readonly record	
-unported	packages/effect/test/httpapi/HttpApi.test.ts	18	it	stores __proto__ group and endpoint identifiers as own properties	
-unported	packages/effect/test/httpapi/HttpApi.test.ts	38	it	does not mutate groups from the added API	
-unported	packages/effect/test/httpapi/HttpApi.test.ts	54	it	does not add inherited groups	
-unported	packages/effect/test/httpapi/HttpApi.test.ts	65	it	keeps annotations from API variants isolated	
-unported	packages/effect/test/httpapi/HttpApi.test.ts	86	it	preserves group annotation precedence	
+ported	packages/effect/test/httpapi/HttpApi.test.ts	6	it	stores the supplied identifier	httpapi_stores_supplied_identifier
+ported	packages/effect/test/httpapi/HttpApi.test.ts	12	it	initializes groups as a readonly record	httpapi_initializes_empty_groups
+ported	packages/effect/test/httpapi/HttpApi.test.ts	18	it	stores __proto__ group and endpoint identifiers as own properties	httpapi_proto_names_are_own_keys_and_reflect
+ported	packages/effect/test/httpapi/HttpApi.test.ts	38	it	does not mutate groups from the added API	httpapi_add_http_api_copies_without_mutating_source
+ported	packages/effect/test/httpapi/HttpApi.test.ts	54	it	does not add inherited groups	httpapi_add_http_api_copies_own_groups_only
+ported	packages/effect/test/httpapi/HttpApi.test.ts	65	it	keeps annotations from API variants isolated	httpapi_variant_annotations_stay_isolated
+ported	packages/effect/test/httpapi/HttpApi.test.ts	86	it	preserves group annotation precedence	httpapi_group_annotation_beats_api_annotation
 unported	packages/effect/test/httpapi/HttpApiBuilder.test.ts	38	it.layer	HttpApiBuilder ParseOptions	
 unported	packages/effect/test/httpapi/HttpApiBuilder.test.ts	42	it.effect	strict SSE encoding rejects excess properties in user event data	
 unported	packages/effect/test/httpapi/HttpApiBuilder.test.ts	65	it.effect	SSE encoding aggregates all user data issues in the reserved failure event	
