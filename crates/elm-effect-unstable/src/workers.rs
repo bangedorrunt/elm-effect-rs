@@ -355,3 +355,82 @@ impl BufferedWorker {
         Ok(())
     }
 }
+
+/// The observable state of a worker `run` waiting for readiness.
+///
+/// Ports the `run` half of `makePlatform` in
+/// `packages/effect/src/workers/Worker.ts`: the run pends until the worker
+/// emits the ready message (`[0]`), fails when the worker exits (the
+/// `deferred` completes with a `WorkerError`), and is interruptible while
+/// it waits. Exit here is a typed `WorkerError`, never a panic.
+#[derive(Debug)]
+pub struct WorkerRun {
+    ready: bool,
+    exit: Option<WorkerError>,
+    interrupted: bool,
+}
+
+/// What `WorkerRun::poll` observes without blocking.
+#[derive(Debug)]
+pub enum RunPoll {
+    /// Still waiting for ready, exit, or interrupt.
+    Pending,
+    /// The worker signalled ready and is still alive.
+    Ready,
+    /// The worker exited; the run fails with this typed error.
+    Failed(WorkerError),
+    /// The run was interrupted while waiting.
+    Interrupted,
+}
+
+impl RunPoll {
+    /// True while the run is still waiting (mirrors `fiber.pollUnsafe()`).
+    pub fn is_pending(&self) -> bool {
+        matches!(self, Self::Pending | Self::Ready)
+    }
+    /// True when the run failed with a worker exit.
+    pub fn is_failure(&self) -> bool {
+        matches!(self, Self::Failed(_))
+    }
+    /// True when the run was interrupted while waiting.
+    pub fn is_interrupted(&self) -> bool {
+        matches!(self, Self::Interrupted)
+    }
+}
+
+impl WorkerRun {
+    /// A run that has neither seen ready nor exit.
+    pub fn new() -> Self {
+        Self { ready: false, exit: None, interrupted: false }
+    }
+
+    /// The worker emitted the ready message.
+    pub fn signal_ready(&mut self) {
+        self.ready = true;
+    }
+
+    /// The worker exited with this typed error.
+    pub fn signal_exit(&mut self, error: WorkerError) {
+        self.exit = Some(error);
+    }
+
+    /// Interrupt the run while it waits.
+    pub fn interrupt(&mut self) {
+        self.interrupted = true;
+    }
+
+    /// Observe the run without blocking: interrupt first, then exit, then
+    /// ready-or-pending. An exit before ready fails the run.
+    pub fn poll(&self) -> RunPoll {
+        if self.interrupted {
+            return RunPoll::Interrupted;
+        }
+        if let Some(error) = &self.exit {
+            return RunPoll::Failed(error.clone());
+        }
+        if self.ready {
+            return RunPoll::Ready;
+        }
+        RunPoll::Pending
+    }
+}

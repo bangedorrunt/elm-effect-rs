@@ -9942,10 +9942,10 @@ unported	packages/effect/test/testing/TestSchema.test.ts	462	it.effect	${method}
 unported	packages/effect/test/testing/TestSchema.test.ts	488	it.effect	round trips use both decoding and encoding services lazily	
 unported	packages/effect/test/testing/TestSchema.test.ts	513	it.effect	round-trip assertion defects report shrunk inputs and replay	
 unported	packages/effect/test/testing/TestSchema.test.ts	532	it.effect	round trips preserve schema defects	
-unported	packages/effect/test/workers/Worker.test.ts	30	it.effect	run fails when the worker exits before the ready message	
-unported	packages/effect/test/workers/Worker.test.ts	40	it.effect	run fails when the worker exits while waiting for ready	
-unported	packages/effect/test/workers/Worker.test.ts	58	it.effect	run is interruptible while waiting for ready	
-unported	packages/effect/test/workers/Worker.test.ts	73	it.effect	run still fails on worker exit after ready	
+ported	packages/effect/test/workers/Worker.test.ts	30	it.effect	run fails when the worker exits before the ready message	run_fails_when_worker_exits_before_ready
+ported	packages/effect/test/workers/Worker.test.ts	40	it.effect	run fails when the worker exits while waiting for ready	run_fails_when_worker_exits_while_waiting_for_ready
+ported	packages/effect/test/workers/Worker.test.ts	58	it.effect	run is interruptible while waiting for ready	run_is_interruptible_while_waiting_for_ready
+ported	packages/effect/test/workers/Worker.test.ts	73	it.effect	run still fails on worker exit after ready	run_still_fails_on_worker_exit_after_ready
 ported	packages/effect/test/workers/WorkerError.test.ts	16	it	delegates message from reason	delegates_message_from_reason
 ported	packages/effect/test/workers/WorkerError.test.ts	27	it	WorkerError delegates message and cause from reason	worker_error_delegates_message_and_cause_from_reason
 ported	packages/effect/test/workers/WorkerError.test.ts	40	it	matches wrapper only	matches_wrapper_only
