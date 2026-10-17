@@ -10,6 +10,7 @@
 //! [`run_until_idle`]: DeterministicExecutor::run_until_idle
 
 use std::collections::VecDeque;
+use std::sync::Arc;
 use std::sync::Mutex;
 use std::task::{Context, Poll, RawWaker, RawWakerVTable, Waker};
 
@@ -129,6 +130,135 @@ pub fn clock_layer(
     elm_effect::Layer::from_value(shared)
 }
 
+/// A seeded fake RNG: the `@effect/vitest` `TestRandom` substitute. Same seed,
+/// same sequence, and the seeded stream matches [`Random`](elm_effect::Random)
+/// draw-for-draw (same SplitMix64), so a seeded test replays what live code
+/// would draw. [`feed`](Self::feed) queues scripted values consumed first, in
+/// order; once the script runs out, draws fall back to the seeded stream.
+///
+/// Clones share one handle (like [`TestClock`], unlike `Random::clone` which
+/// snapshots): forked fibers draw from the same script in draw order.
+#[derive(Clone)]
+pub struct TestRandom {
+    shared: Arc<Mutex<TestRandomState>>,
+}
+
+struct TestRandomState {
+    seed: u64,
+    state: u64,
+    seeded_draws: u64,
+    script: VecDeque<f64>,
+}
+
+impl TestRandom {
+    /// A fake RNG replaying `seed`. Same seed, same sequence.
+    pub fn new(seed: u64) -> Self {
+        Self {
+            shared: Arc::new(Mutex::new(TestRandomState {
+                seed,
+                state: seed | 1,
+                seeded_draws: 0,
+                script: VecDeque::new(),
+            })),
+        }
+    }
+
+    /// Queue scripted values, consumed before the seeded stream, in order.
+    /// Tests script one lane while the rest of the stream stays seeded.
+    pub fn feed(&self, values: impl IntoIterator<Item = f64>) {
+        self.shared.lock().unwrap().script.extend(values);
+    }
+
+    /// Next unit in `[0, 1)`: script head first, else the seeded stream.
+    pub fn next_unit(&self) -> f64 {
+        let mut guard = self.shared.lock().unwrap();
+        if let Some(v) = guard.script.pop_front() {
+            return v;
+        }
+        guard.seeded_draws += 1;
+        next_splitmix(&mut guard.state)
+    }
+
+    /// A live [`Random`](elm_effect::Random) continuing this seed's stream
+    /// past the draws already taken from it. Scripted values are a
+    /// handle-side overlay and do not cross into the service snapshot.
+    pub fn to_random(&self) -> elm_effect::Random {
+        let (seed, draws) = {
+            let guard = self.shared.lock().unwrap();
+            (guard.seed, guard.seeded_draws)
+        };
+        let rng = elm_effect::Random::with_seed(seed);
+        for _ in 0..draws {
+            rng.next_unit();
+        }
+        rng
+    }
+}
+
+/// One SplitMix64 step, matching `Random::next_unit` draw-for-draw.
+fn next_splitmix(state: &mut u64) -> f64 {
+    *state = state.wrapping_add(0x9E3779B97F4A7C15);
+    let mut z = *state;
+    z = (z ^ (z >> 30)).wrapping_mul(0xBF58476D1CE4E5B9);
+    z = (z ^ (z >> 27)).wrapping_mul(0x94D049BB133111EB);
+    z ^= z >> 31;
+    f64::from_bits((z >> 11) | 0x3FF0000000000000u64) - 1.0
+}
+
+/// A closed [`Layer`](elm_effect::Layer) serving this fake's seeded stream as
+/// the [`Random`](elm_effect::Random) service. The `clock_layer` equivalent
+/// for randomness: code written against `RandomTag` runs sealed in tests.
+pub fn random_layer(
+    random: &TestRandom,
+) -> elm_effect::Layer<elm_effect::RandomTag, std::convert::Infallible, ()> {
+    elm_effect::Layer::from_value(random.to_random())
+}
+
+/// The test world in one bundle: virtual time plus fake randomness. Tests
+/// hold this instead of touching the wall clock or a live RNG.
+pub struct TestContext {
+    pub clock: Arc<elm_effect::TestClock>,
+    pub random: TestRandom,
+}
+
+impl TestContext {
+    /// Virtual clock at zero plus a fake RNG replaying `seed`.
+    pub fn new(seed: u64) -> Self {
+        Self {
+            clock: Arc::new(elm_effect::TestClock::new()),
+            random: TestRandom::new(seed),
+        }
+    }
+
+    /// This world's clock as the [`Clock`](elm_effect::Clock) service.
+    pub fn clock_layer(
+        &self,
+    ) -> elm_effect::Layer<elm_effect::Clock, std::convert::Infallible, ()> {
+        clock_layer(&self.clock)
+    }
+
+    /// This world's RNG as the [`Random`](elm_effect::Random) service.
+    pub fn random_layer(
+        &self,
+    ) -> elm_effect::Layer<elm_effect::RandomTag, std::convert::Infallible, ()> {
+        random_layer(&self.random)
+    }
+}
+
+/// The one explicit door back to live services. Tests default to
+/// [`TestContext`]; reaching for this is visible in the diff, so no test
+/// touches real time or randomness by accident.
+pub struct TestLive;
+
+impl TestLive {
+    /// The wall clock as the [`Clock`](elm_effect::Clock) service, for the
+    /// test that proves it needs real time. Never the default.
+    pub fn system_clock_layer(
+    ) -> elm_effect::Layer<elm_effect::Clock, std::convert::Infallible, ()> {
+        let shared: Arc<dyn elm_effect::ClockImpl> = Arc::new(elm_effect::SystemClock);
+        elm_effect::Layer::from_value(shared)
+    }
+}
 /// Declare a clock test with a runtime (`$rt`) and a virtual clock
 /// (`$clock`) in scope. The legal sequence stays visible: fork sleepers,
 /// `adjust` the clock, join the fibers.
