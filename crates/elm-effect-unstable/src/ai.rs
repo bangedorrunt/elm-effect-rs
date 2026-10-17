@@ -1723,3 +1723,350 @@ impl TrackerModel {
         self.record(tracker, stripped)
     }
 }
+
+// --- Response port (ai/Response.ts at the pin): tool-result/metadata/finish parts ---
+//
+// The TS `Toolkit`/`Schema` machinery has no counterpart here, so the port
+// covers the wire contract: tool-result parts carry `result` (decoded) plus
+// `encoded_result` (wire form), and optional fields stay omitted from JSON.
+
+/// A `tool-result` response part: decoded `result` plus its wire form.
+#[derive(Clone, Debug, PartialEq)]
+pub struct ToolResultPart {
+    /// Part id (`tool-123` in the tests).
+    pub id: String,
+    /// Tool name.
+    pub name: String,
+    /// Whether the tool failed.
+    pub is_failure: bool,
+    /// Decoded result (`404` even when the wire holds `"404"`).
+    pub result: serde_json::Value,
+    /// Wire form (`"404"` on the `NumberFromString` failure branch).
+    pub encoded_result: serde_json::Value,
+    /// Whether a provider executed the tool.
+    pub provider_executed: bool,
+    /// Whether the result is preliminary.
+    pub preliminary: bool,
+}
+
+impl ToolResultPart {
+    /// Build from decoded and wire forms (a handler failure keeps both equal).
+    pub fn new(
+        id: &str,
+        name: &str,
+        is_failure: bool,
+        result: serde_json::Value,
+        encoded_result: serde_json::Value,
+    ) -> Self {
+        Self {
+            id: id.to_owned(),
+            name: name.to_owned(),
+            is_failure,
+            result,
+            encoded_result,
+            provider_executed: false,
+            preliminary: false,
+        }
+    }
+
+    /// Encode to the wire shape: `result` carries the encoded form, and
+    /// `metadata` defaults to `{}` the way the TS schema does.
+    pub fn to_json(&self) -> serde_json::Value {
+        serde_json::json!({
+            "type": "tool-result",
+            "id": self.id,
+            "name": self.name,
+            "isFailure": self.is_failure,
+            "result": self.encoded_result,
+            "providerExecuted": self.provider_executed,
+            "preliminary": self.preliminary,
+            "metadata": {},
+        })
+    }
+
+    /// Encode validating the wire form against its own branch: success wires
+    /// a number, failure wires a string (`NumberFromString`).
+    pub fn encode_branch(&self, branch_is_failure: bool) -> Result<serde_json::Value, String> {
+        let ok = if branch_is_failure {
+            self.encoded_result.is_string()
+        } else {
+            self.encoded_result.is_number()
+        };
+        if !ok {
+            let want = if branch_is_failure { "string" } else { "number" };
+            return Err(format!("Expected {want}\n  at [\"encodedResult\"]"));
+        }
+        Ok(self.to_json())
+    }
+
+    /// Decode from the wire shape, restoring `result` from the wire form:
+    /// a numeric string on a failure branch decodes to its number
+    /// (`NumberFromString`); every other wire form is already decoded.
+    pub fn from_json(value: &serde_json::Value) -> Option<Self> {
+        if value.get("type")?.as_str()? != "tool-result" {
+            return None;
+        }
+        let is_failure = value.get("isFailure")?.as_bool()?;
+        let wire = value.get("result")?.clone();
+        let result = if is_failure {
+            match &wire {
+                serde_json::Value::String(text) => text
+                    .parse::<i64>()
+                    .map(serde_json::Value::from)
+                    .unwrap_or_else(|_| wire.clone()),
+                _ => wire.clone(),
+            }
+        } else {
+            wire.clone()
+        };
+        Some(Self {
+            id: value.get("id")?.as_str()?.to_owned(),
+            name: value.get("name")?.as_str()?.to_owned(),
+            is_failure,
+            result,
+            encoded_result: wire,
+            provider_executed: value
+                .get("providerExecuted")
+                .and_then(|flag| flag.as_bool())
+                .unwrap_or(false),
+            preliminary: value
+                .get("preliminary")
+                .and_then(|flag| flag.as_bool())
+                .unwrap_or(false),
+        })
+    }
+}
+
+/// A `response-metadata` part with every field optional.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct ResponseMetadataPart {
+    /// Response id, when the provider reported one.
+    pub id: Option<String>,
+    /// Model id, when the provider reported one.
+    pub model_id: Option<String>,
+    /// Timestamp, when the provider reported one.
+    pub timestamp: Option<String>,
+    /// Request details, when captured.
+    pub request: Option<serde_json::Value>,
+}
+
+impl ResponseMetadataPart {
+    /// Build from optional fields (`None` is the tag's `undefined`).
+    pub fn new(
+        id: Option<&str>,
+        model_id: Option<&str>,
+        timestamp: Option<&str>,
+        request: Option<serde_json::Value>,
+    ) -> Self {
+        Self {
+            id: id.map(str::to_owned),
+            model_id: model_id.map(str::to_owned),
+            timestamp: timestamp.map(str::to_owned),
+            request,
+        }
+    }
+
+    /// Encode, omitting undefined fields and defaulting `metadata` to `{}`.
+    pub fn to_json(&self) -> serde_json::Value {
+        let mut out = serde_json::Map::new();
+        out.insert("type".to_owned(), serde_json::Value::from("response-metadata"));
+        if let Some(id) = &self.id {
+            out.insert("id".to_owned(), serde_json::Value::from(id.clone()));
+        }
+        if let Some(model_id) = &self.model_id {
+            out.insert("modelId".to_owned(), serde_json::Value::from(model_id.clone()));
+        }
+        if let Some(timestamp) = &self.timestamp {
+            out.insert("timestamp".to_owned(), serde_json::Value::from(timestamp.clone()));
+        }
+        if let Some(request) = &self.request {
+            out.insert("request".to_owned(), request.clone());
+        }
+        out.insert("metadata".to_owned(), serde_json::json!({}));
+        serde_json::Value::Object(out)
+    }
+
+    /// Decode; a bare `{type}` is an empty part.
+    pub fn from_json(value: &serde_json::Value) -> Option<Self> {
+        if value.get("type")?.as_str()? != "response-metadata" {
+            return None;
+        }
+        Some(Self {
+            id: value.get("id").and_then(|id| id.as_str()).map(str::to_owned),
+            model_id: value.get("modelId").and_then(|id| id.as_str()).map(str::to_owned),
+            timestamp: value
+                .get("timestamp")
+                .and_then(|timestamp| timestamp.as_str())
+                .map(str::to_owned),
+            request: value.get("request").cloned(),
+        })
+    }
+}
+
+/// HTTP request details with an omittable fragment.
+#[derive(Clone, Debug, PartialEq)]
+pub struct HttpRequestDetails {
+    /// Uppercase method (`POST`).
+    pub method: String,
+    /// Full URL.
+    pub url: String,
+    /// Query pairs in order.
+    pub url_params: Vec<(String, String)>,
+    /// Fragment, omitted (never nulled) when absent.
+    pub hash: Option<String>,
+    /// Request headers.
+    pub headers: HashMap<String, String>,
+}
+
+impl HttpRequestDetails {
+    /// Encode, omitting the hash when it is undefined.
+    pub fn to_json(&self) -> serde_json::Value {
+        let mut out = serde_json::Map::new();
+        out.insert("method".to_owned(), serde_json::Value::from(self.method.clone()));
+        out.insert("url".to_owned(), serde_json::Value::from(self.url.clone()));
+        out.insert(
+            "urlParams".to_owned(),
+            self.url_params
+                .iter()
+                .map(|(key, value)| serde_json::json!([key, value]))
+                .collect(),
+        );
+        if let Some(hash) = &self.hash {
+            out.insert("hash".to_owned(), serde_json::Value::from(hash.clone()));
+        }
+        out.insert(
+            "headers".to_owned(),
+            serde_json::to_value(&self.headers).unwrap_or_default(),
+        );
+        serde_json::Value::Object(out)
+    }
+
+    /// Decode; a missing hash is `None`.
+    pub fn from_json(value: &serde_json::Value) -> Option<Self> {
+        let mut url_params = Vec::new();
+        for pair in value.get("urlParams")?.as_array()? {
+            let pair = pair.as_array()?;
+            url_params.push((
+                pair.first()?.as_str()?.to_owned(),
+                pair.get(1)?.as_str()?.to_owned(),
+            ));
+        }
+        Some(Self {
+            method: value.get("method")?.as_str()?.to_owned(),
+            url: value.get("url")?.as_str()?.to_owned(),
+            url_params,
+            hash: value.get("hash").and_then(|hash| hash.as_str()).map(str::to_owned),
+            headers: value
+                .get("headers")?
+                .as_object()?
+                .iter()
+                .map(|(key, val)| (key.clone(), val.as_str().unwrap_or_default().to_owned()))
+                .collect(),
+        })
+    }
+}
+
+/// Token usage with every leaf optional; undefined leaves stay omitted.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct ResponseUsage {
+    /// Input token leaves that were defined.
+    pub input_tokens: serde_json::Map<String, serde_json::Value>,
+    /// Output token leaves that were defined.
+    pub output_tokens: serde_json::Map<String, serde_json::Value>,
+}
+
+impl ResponseUsage {
+    /// Empty usage (every leaf undefined).
+    pub fn empty() -> Self {
+        Self::default()
+    }
+
+    /// Build from optional leaves, dropping the undefined ones.
+    pub fn from_optional(
+        input: &[(&str, Option<serde_json::Value>)],
+        output: &[(&str, Option<serde_json::Value>)],
+    ) -> Self {
+        let keep = |pairs: &[(&str, Option<serde_json::Value>)]| {
+            pairs
+                .iter()
+                .filter_map(|(key, value)| value.clone().map(|value| ((*key).to_owned(), value)))
+                .collect()
+        };
+        Self { input_tokens: keep(input), output_tokens: keep(output) }
+    }
+}
+
+/// A `finish` part: stop reason plus usage, response omitted when undefined.
+#[derive(Clone, Debug, PartialEq)]
+pub struct FinishPart {
+    /// Stop reason (`"stop"`).
+    pub reason: String,
+    /// Token usage.
+    pub usage: ResponseUsage,
+    /// Provider response, when captured.
+    pub response: Option<serde_json::Value>,
+}
+
+impl FinishPart {
+    /// Build from a reason, usage, and optional response.
+    pub fn new(reason: &str, usage: ResponseUsage, response: Option<serde_json::Value>) -> Self {
+        Self { reason: reason.to_owned(), usage, response }
+    }
+
+    /// Encode, omitting an undefined response and defaulting `metadata` to `{}`.
+    pub fn to_json(&self) -> serde_json::Value {
+        let mut out = serde_json::Map::new();
+        out.insert("type".to_owned(), serde_json::Value::from("finish"));
+        out.insert("reason".to_owned(), serde_json::Value::from(self.reason.clone()));
+        out.insert(
+            "usage".to_owned(),
+            serde_json::json!({
+                "inputTokens": self.input_tokens(),
+                "outputTokens": self.output_tokens(),
+            }),
+        );
+        if let Some(response) = &self.response {
+            out.insert("response".to_owned(), response.clone());
+        }
+        out.insert("metadata".to_owned(), serde_json::json!({}));
+        serde_json::Value::Object(out)
+    }
+
+    fn input_tokens(&self) -> serde_json::Value {
+        serde_json::Value::Object(self.usage.input_tokens.clone())
+    }
+
+    fn output_tokens(&self) -> serde_json::Value {
+        serde_json::Value::Object(self.usage.output_tokens.clone())
+    }
+
+    /// Decode; a missing response is `None`, missing leaves are empty.
+    pub fn from_json(value: &serde_json::Value) -> Option<Self> {
+        if value.get("type")?.as_str()? != "finish" {
+            return None;
+        }
+        let usage = value.get("usage")?;
+        let keep = |key: &str| {
+            usage
+                .get(key)?
+                .as_object()
+                .map(|leaves| {
+                    leaves
+                        .iter()
+                        .filter_map(|(leaf, val)| {
+                            (!matches!(val, serde_json::Value::Null))
+                                .then(|| (leaf.clone(), val.clone()))
+                        })
+                        .collect()
+                })
+        };
+        Some(Self {
+            reason: value.get("reason")?.as_str()?.to_owned(),
+            usage: ResponseUsage {
+                input_tokens: keep("inputTokens")?,
+                output_tokens: keep("outputTokens")?,
+            },
+            response: value.get("response").cloned(),
+        })
+    }
+}
