@@ -9641,190 +9641,190 @@ not-applicable	packages/effect/test/schema/toIso.test.ts	328	328	it	Exit	needs S
 not-applicable	packages/effect/test/schema/toIso.test.ts	339	339	it	ReadonlySet	needs Schema.toIso/toIsoFocus optic derivation over the Type/Iso/Encoded trichotomy; to_type() is a repr printer only, no derivation exists
 not-applicable	packages/effect/test/schema/toIso.test.ts	351	351	it	ReadonlyMap	needs Schema.toIso/toIsoFocus optic derivation over the Type/Iso/Encoded trichotomy; to_type() is a repr printer only, no derivation exists
 not-applicable	packages/effect/test/schema/toIso.test.ts	363	363	it	HashMap	needs Schema.toIso/toIsoFocus optic derivation over the Type/Iso/Encoded trichotomy; to_type() is a repr printer only, no derivation exists
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	70	it	rejects tuple post-rest elements	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	77	it	rejects symbol property names	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	86	it	Record(Symbol, Finite)	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	98	it	emits content annotations	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	117	it	generateDescriptions: true	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	141	it	defaults to ignore	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	153	it	ignore (default)	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	172	it	error	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	191	it	applies to properties not covered by patternProperties	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	210	it	uses the representable part of an index-signature key	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	226	it	passthroughs matching annotation keys at schema level	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	245	it	does not include keys not matching the predicate	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	265	it	does not include matching keys with undefined values	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	281	it	standard keys are always included regardless of predicate	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	300	it	passthroughs at property level in structs	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	336	it	passthroughs at check level	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	362	it	passthroughs x- prefixed vendor extensions	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	383	it	emits standard annotations	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	406	it	~	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	419	it	reuses a definition for repeated occurrences of the same identified AST	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	437	it	suffixes duplicate identifiers on different schemas	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	456	it	reuses one definition when the same identified AST appears in different schema shapes	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	521	it	opaque Declaration	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	527	it	Date	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	536	it	URL	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	545	it	Error	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	562	it	RegExp	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	577	it	Uint8Array	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	588	it	Duration	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	649	it	Option(String)	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	685	it	Any	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	703	it	Json	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	713	it	MutableJson	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	723	it	Unknown	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	739	it	Void	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	759	it	Undefined	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	779	it	BigInt	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	792	it	Symbol	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	805	it	UniqueSymbol	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	827	it	Never	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	848	it	Null	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	870	it	String	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	881	it	String & annotate	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	893	it	ignores annotateKey annotations when the schema is not contextual	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	906	it	String & check	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	918	it	String & custom check without annotation	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	929	it	String & annotate & check	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	942	it	String & check & annotate	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	957	it	String & check & check	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	970	it	String & annotate & check & check	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	984	it	String & check & check & annotate	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	1000	it	String & annotate & check & check & annotate	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	1022	it	String & check & annotations & check & annotations	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	1044	it	String & annotations & check & annotations & check & annotations	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	1070	it	isPattern	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	1079	it	omits isPattern when its flags cannot be represented	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	1087	it	preserves representable isPattern semantics	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	1106	it	omits isPattern without the Unicode flag	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	1120	it	escapes regexp syntax in literal string checks	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	1137	it	loosens literal patterns only at surrogate-pair boundaries	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	1153	it	does not use approximate literal patterns as record selectors	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	1161	it	omits literal patterns whose entire constraint is a surrogate-pair boundary	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	1175	it	isTrimmed	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	1185	it	isLowercased	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	1195	it	isUppercased	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	1205	it	isCapitalized	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	1215	it	isUncapitalized	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	1226	it	String	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	1239	it	Array	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	1255	it	NonEmptyArray	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	1276	it	exports the tightest code-point bounds that accept every valid string	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	1289	it	exports code point checks with matching JSON Schema validation	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	1308	it	String	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	1320	it	exports a loose lower bound for strings	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	1328	it	exports both applicable bounds when the input type is a union	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	1333	it	Array	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	1348	it	NonEmptyArray	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	1371	it	String	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	1383	it	exports a loose upper bound for strings	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	1391	it	Array	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	1406	it	NonEmptyArray	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	1426	it	rejects non-finite cardinality bounds	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	1454	it	isUUID	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	1469	it	isGUID	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	1482	it	isBase64	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	1495	it	isBase64Url	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	1511	it	Number	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	1537	it	Number & annotateKey	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	1563	it	Finite	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	1584	it	isInt	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	1595	it	isInt32	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	1609	it	isUint32	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	1657	it	isGreaterThan	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	1669	it	isGreaterThanOrEqualTo	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	1681	it	isLessThan	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	1690	it	isLessThanOrEqualTo	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	1699	it	isBetween	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	1748	it	isMultipleOf	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	1771	it	Boolean	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	1792	it	ObjectKeyword	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	1814	it	string	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	1837	it	number	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	1860	it	boolean	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	1883	it	bigint	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	1907	it	empty literals	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	1928	it	strings	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	1951	it	numbers	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	1974	it	booleans	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	1997	it	strings & numbers	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	2038	it	strings	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	2070	it	nested literals	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	2086	it	strings & inner annotate	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	2136	it	numbers	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	2168	it	booleans	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	2200	it	strings & numbers	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	2250	it	empty enum	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	2272	it	single enum	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	2308	it	mixed enums (number & string)	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	2366	it	const enum	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	2400	it	TemplateLiteral	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	2418	it	empty struct	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	2440	it	String	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	2460	it	String & annotate	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	2481	it	String & annotateKey	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	2504	it	String & annotate & annotateKey	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	2530	it	String	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	2547	it	String & annotate	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	2572	it	String & annotateKey	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	2601	it	String & annotate & annotateKey	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	2641	it	optionalKey(String) to String	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	2666	it	String	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	2688	it	String & annotate	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	2718	it	String & annotateKey	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	2753	it	optional(String) to String	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	2778	it	String	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	2801	it	String & annotate	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	2832	it	String & annotateKey	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	2868	it	UndefinedOr(String) to String	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	2894	it	Record(String, Never)	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	2918	it	Record(String, Struct({}))	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	2930	it	Record(isStartingWith, Struct({}))	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	2945	it	Record(String, Finite)	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	2975	it	JsonObject	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	2985	it	Record(`a${string}`, Number) & annotate	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	3002	it	Record(Literals(['a', 'b']), Finite)	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	3019	it	Record(isUppercased, Number)	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	3035	it	uses propertyNames for conjunctive record key patterns	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	3084	it	does not use a partial pattern as an index selector	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	3113	it	isMinProperties	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	3128	it	isMaxProperties	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	3141	it	isBetweenProperties	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	3158	it	property and string index	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	3184	it	pattern and string indexes	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	3208	it	property and compound pattern index	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	3241	it	empty tuple	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	3265	it	String	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	3281	it	String & annotate	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	3297	it	String & annotateKey	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	3313	it	String & annotate & annotateKey	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	3331	it	String	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	3348	it	String & annotate	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	3367	it	String & annotateKey	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	3389	it	String & annotate & annotateKey	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	3415	it	optionalKey(String) to String	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	3435	it	optionalKey to required key	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	3458	it	Array(String)	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	3481	it	isMinLength	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	3494	it	isMaxLength	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	3507	it	isBetweenLength	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	3521	it	UniqueArray	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	3536	it	TupleWithRest	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	3553	it	empty union	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	3568	it	single member	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	3605	it	uses anyOf when approximated oneOf branches can overlap	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	3621	it	keeps oneOf when its branches are exact	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	3628	it	does not compact duplicate enum values	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	3642	it	String | Number	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	3674	it	String | BigInt	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	3710	it	mutually recursive schemas	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	3872	it	top level fromJsonString	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	3884	it	preserves the content schema identifier as a canonical reference	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	3905	it	respects an explicit encoded-side identifier	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	3930	it	Class preserves its identifier as a canonical reference	
-unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	3955	it	Error preserves its identifier as a canonical reference	
+not-applicable	packages/effect/test/schema/toJsonSchemaDocument.test.ts	70	it	rejects tuple post-rest elements	tuple post-rest elements unrepresentable; no rest-after-rest shape
+not-applicable	packages/effect/test/schema/toJsonSchemaDocument.test.ts	77	it	rejects symbol property names	symbol property names unrepresentable; no symbol keys
+not-applicable	packages/effect/test/schema/toJsonSchemaDocument.test.ts	86	it	Record(Symbol, Finite)	symbol-keyed record unrepresentable; no symbol keys
+not-applicable	packages/effect/test/schema/toJsonSchemaDocument.test.ts	98	it	emits content annotations	non-string annotation values absent; annotations are string pairs
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	117	it	generateDescriptions: true	options_generate_descriptions
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	141	it	defaults to ignore	options_on_excess_property_modes
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	153	it	ignore (default)	options_on_excess_property_modes
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	172	it	error	options_on_excess_property_modes
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	191	it	applies to properties not covered by patternProperties	options_record_pattern_properties_close
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	210	it	uses the representable part of an index-signature key	options_unrepresentable_index_key_keeps_property_names
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	226	it	passthroughs matching annotation keys at schema level	options_include_annotation_key
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	245	it	does not include keys not matching the predicate	options_include_annotation_key
+not-applicable	packages/effect/test/schema/toJsonSchemaDocument.test.ts	265	it	does not include matching keys with undefined values	matching keys with undefined values need Undefined; absent
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	281	it	standard keys are always included regardless of predicate	options_include_annotation_key
+not-applicable	packages/effect/test/schema/toJsonSchemaDocument.test.ts	300	it	passthroughs at property level in structs	property-level passthrough needs non-string values; absent
+not-applicable	packages/effect/test/schema/toJsonSchemaDocument.test.ts	336	it	passthroughs at check level	check-level passthrough needs non-string values; absent
+not-applicable	packages/effect/test/schema/toJsonSchemaDocument.test.ts	362	it	passthroughs x- prefixed vendor extensions	x- vendor passthrough needs non-string values; absent
+not-applicable	packages/effect/test/schema/toJsonSchemaDocument.test.ts	383	it	emits standard annotations	standard annotations need non-string values; absent
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	406	it	~	identifiers_escape_pointer_segments
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	419	it	reuses a definition for repeated occurrences of the same identified AST	identifiers_reuse_and_suffix
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	437	it	suffixes duplicate identifiers on different schemas	identifiers_reuse_and_suffix
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	456	it	reuses one definition when the same identified AST appears in different schema shapes	identifiers_reuse_across_shapes
+not-applicable	packages/effect/test/schema/toJsonSchemaDocument.test.ts	521	it	opaque Declaration	instanceOf machinery absent; no opaque instance constructor
+not-applicable	packages/effect/test/schema/toJsonSchemaDocument.test.ts	527	it	Date	no Date constructor; compiler rule unit-tested at kind level only
+not-applicable	packages/effect/test/schema/toJsonSchemaDocument.test.ts	536	it	URL	no URL constructor; compiler rule unit-tested at kind level only
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	545	it	Error	declaration_error_instance
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	562	it	RegExp	declaration_regexp_instance
+not-applicable	packages/effect/test/schema/toJsonSchemaDocument.test.ts	577	it	Uint8Array	no Uint8Array constructor; compiler rule unit-tested at kind level only
+not-applicable	packages/effect/test/schema/toJsonSchemaDocument.test.ts	588	it	Duration	no Duration constructor; compiler rule unit-tested at kind level only
+not-applicable	packages/effect/test/schema/toJsonSchemaDocument.test.ts	649	it	Option(String)	no Option constructor
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	685	it	Any	any_json_unknown_void_never_null
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	703	it	Json	any_json_unknown_void_never_null
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	713	it	MutableJson	any_json_unknown_void_never_null
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	723	it	Unknown	any_json_unknown_void_never_null
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	739	it	Void	any_json_unknown_void_never_null
+not-applicable	packages/effect/test/schema/toJsonSchemaDocument.test.ts	759	it	Undefined	no Undefined constructor
+not-applicable	packages/effect/test/schema/toJsonSchemaDocument.test.ts	779	it	BigInt	BigInt shape mapped but unconstructible
+not-applicable	packages/effect/test/schema/toJsonSchemaDocument.test.ts	792	it	Symbol	Symbol shape mapped but unconstructible
+not-applicable	packages/effect/test/schema/toJsonSchemaDocument.test.ts	805	it	UniqueSymbol	no UniqueSymbol constructor
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	827	it	Never	any_json_unknown_void_never_null
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	848	it	Null	any_json_unknown_void_never_null
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	870	it	String	string_annotate_and_top_level_key
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	881	it	String & annotate	string_annotate_and_top_level_key
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	893	it	ignores annotateKey annotations when the schema is not contextual	string_annotate_and_top_level_key
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	906	it	String & check	string_checks_chain
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	918	it	String & custom check without annotation	string_checks_chain
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	929	it	String & annotate & check	string_checks_chain
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	942	it	String & check & annotate	string_checks_chain
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	957	it	String & check & check	string_checks_chain
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	970	it	String & annotate & check & check	string_annotated_checks_merge_and_nest
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	984	it	String & check & check & annotate	string_annotated_checks_merge_and_nest
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	1000	it	String & annotate & check & check & annotate	string_checks_chain
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	1022	it	String & check & annotations & check & annotations	string_double_annotated_checks
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	1044	it	String & annotations & check & annotations & check & annotations	string_double_annotated_checks
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	1070	it	isPattern	string_is_pattern_flags
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	1079	it	omits isPattern when its flags cannot be represented	string_is_pattern_flags
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	1087	it	preserves representable isPattern semantics	string_is_pattern_flags
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	1106	it	omits isPattern without the Unicode flag	string_is_pattern_flags
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	1120	it	escapes regexp syntax in literal string checks	string_literal_affix_checks_escape
+not-applicable	packages/effect/test/schema/toJsonSchemaDocument.test.ts	1137	it	loosens literal patterns only at surrogate-pair boundaries	lone-surrogate patterns unrepresentable
+not-applicable	packages/effect/test/schema/toJsonSchemaDocument.test.ts	1153	it	does not use approximate literal patterns as record selectors	approximate patterns unusable as record selectors
+not-applicable	packages/effect/test/schema/toJsonSchemaDocument.test.ts	1161	it	omits literal patterns whose entire constraint is a surrogate-pair boundary	surrogate-boundary-only patterns unrepresentable
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	1175	it	isTrimmed	string_case_and_trim_checks
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	1185	it	isLowercased	string_case_and_trim_checks
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	1195	it	isUppercased	string_case_and_trim_checks
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	1205	it	isCapitalized	string_case_and_trim_checks
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	1215	it	isUncapitalized	string_case_and_trim_checks
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	1226	it	String	string_between_length_kinds
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	1239	it	Array	string_between_length_kinds
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	1255	it	NonEmptyArray	string_between_length_kinds
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	1276	it	exports the tightest code-point bounds that accept every valid string	string_between_length_kinds
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	1289	it	exports code point checks with matching JSON Schema validation	string_code_point_checks_stay_exact
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	1308	it	String	string_min_max_length_kinds
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	1320	it	exports a loose lower bound for strings	string_min_max_length_kinds
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	1328	it	exports both applicable bounds when the input type is a union	string_min_max_length_kinds
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	1333	it	Array	string_min_max_length_kinds
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	1348	it	NonEmptyArray	string_min_max_length_kinds
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	1371	it	String	string_min_max_length_kinds
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	1383	it	exports a loose upper bound for strings	string_min_max_length_kinds
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	1391	it	Array	string_min_max_length_kinds
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	1406	it	NonEmptyArray	string_min_max_length_kinds
+not-applicable	packages/effect/test/schema/toJsonSchemaDocument.test.ts	1426	it	rejects non-finite cardinality bounds	non-finite cardinality rejected by check constructor (RangeError)
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	1454	it	isUUID	string_format_checks
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	1469	it	isGUID	string_format_checks
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	1482	it	isBase64	string_format_checks
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	1495	it	isBase64Url	string_format_checks
+not-applicable	packages/effect/test/schema/toJsonSchemaDocument.test.ts	1511	it	Number	no Number-vs-Finite distinction in this port
+not-applicable	packages/effect/test/schema/toJsonSchemaDocument.test.ts	1537	it	Number & annotateKey	no Number-vs-Finite distinction in this port
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	1563	it	Finite	finite_shapes
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	1584	it	isInt	finite_int_ranges
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	1595	it	isInt32	finite_int_ranges
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	1609	it	isUint32	finite_int_ranges
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	1657	it	isGreaterThan	finite_comparisons
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	1669	it	isGreaterThanOrEqualTo	finite_comparisons
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	1681	it	isLessThan	finite_comparisons
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	1690	it	isLessThanOrEqualTo	finite_comparisons
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	1699	it	isBetween	finite_comparisons
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	1748	it	isMultipleOf	finite_comparisons
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	1771	it	Boolean	finite_shapes
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	1792	it	ObjectKeyword	object_keyword_documents_bare
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	1814	it	string	literal_shapes
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	1837	it	number	literal_shapes
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	1860	it	boolean	literal_shapes
+not-applicable	packages/effect/test/schema/toJsonSchemaDocument.test.ts	1883	it	bigint	no bigint literal constructor
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	1907	it	empty literals	literals_shapes
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	1928	it	strings	literals_shapes
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	1951	it	numbers	literals_shapes
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	1974	it	booleans	literals_shapes
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	1997	it	strings & numbers	literals_shapes
+not-applicable	packages/effect/test/schema/toJsonSchemaDocument.test.ts	2038	it	strings	annotated half needs non-string annotation values; absent
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	2070	it	nested literals	union_of_literals_compacts
+not-applicable	packages/effect/test/schema/toJsonSchemaDocument.test.ts	2086	it	strings & inner annotate	annotated half needs non-string annotation values; absent
+not-applicable	packages/effect/test/schema/toJsonSchemaDocument.test.ts	2136	it	numbers	annotated half needs non-string annotation values; absent
+not-applicable	packages/effect/test/schema/toJsonSchemaDocument.test.ts	2168	it	booleans	annotated half needs non-string annotation values; absent
+not-applicable	packages/effect/test/schema/toJsonSchemaDocument.test.ts	2200	it	strings & numbers	annotated half needs non-string annotation values; absent
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	2250	it	empty enum	enum_like_unions_keep_titles
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	2272	it	single enum	enum_like_unions_keep_titles
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	2308	it	mixed enums (number & string)	enum_like_unions_keep_titles
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	2366	it	const enum	enum_like_unions_keep_titles
+not-applicable	packages/effect/test/schema/toJsonSchemaDocument.test.ts	2400	it	TemplateLiteral	no TemplateLiteral constructor
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	2418	it	empty struct	struct_required_and_annotate_key
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	2440	it	String	struct_required_and_annotate_key
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	2460	it	String & annotate	struct_required_and_annotate_key
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	2481	it	String & annotateKey	struct_required_and_annotate_key
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	2504	it	String & annotate & annotateKey	struct_required_and_annotate_key
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	2530	it	String	struct_optional_key_kinds
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	2547	it	String & annotate	struct_optional_key_kinds
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	2572	it	String & annotateKey	struct_optional_key_kinds
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	2601	it	String & annotate & annotateKey	struct_optional_key_kinds
+not-applicable	packages/effect/test/schema/toJsonSchemaDocument.test.ts	2641	it	optionalKey(String) to String	encoded-side projection (encodeTo); absent
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	2666	it	String	struct_optional_kinds
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	2688	it	String & annotate	struct_optional_kinds
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	2718	it	String & annotateKey	struct_optional_kinds
+not-applicable	packages/effect/test/schema/toJsonSchemaDocument.test.ts	2753	it	optional(String) to String	encoded-side projection (encodeTo); absent
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	2778	it	String	struct_undefined_or_kinds
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	2801	it	String & annotate	struct_undefined_or_kinds
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	2832	it	String & annotateKey	struct_undefined_or_kinds
+not-applicable	packages/effect/test/schema/toJsonSchemaDocument.test.ts	2868	it	UndefinedOr(String) to String	encoded-side projection (encodeTo); absent
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	2894	it	Record(String, Never)	record_never_and_empty_struct_values
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	2918	it	Record(String, Struct({}))	record_never_and_empty_struct_values
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	2930	it	Record(isStartingWith, Struct({}))	record_starting_with_key
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	2945	it	Record(String, Finite)	record_string_finite_and_json_object
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	2975	it	JsonObject	record_string_finite_and_json_object
+not-applicable	packages/effect/test/schema/toJsonSchemaDocument.test.ts	2985	it	Record(`a${string}`, Number) & annotate	template record keys need TemplateLiteral; absent
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	3002	it	Record(Literals(['a', 'b']), Finite)	record_literal_keys_expand
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	3019	it	Record(isUppercased, Number)	record_case_fold_key_uses_property_names
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	3035	it	uses propertyNames for conjunctive record key patterns	record_conjunctive_keys_use_property_names
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	3084	it	does not use a partial pattern as an index selector	record_partial_pattern_key
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	3113	it	isMinProperties	record_property_checks
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	3128	it	isMaxProperties	record_property_checks
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	3141	it	isBetweenProperties	record_property_checks
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	3158	it	property and string index	struct_with_rest_string_index
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	3184	it	pattern and string indexes	struct_with_rest_pattern_and_string_indexes
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	3208	it	property and compound pattern index	struct_with_rest_compound_pattern_index
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	3241	it	empty tuple	tuple_empty_and_required
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	3265	it	String	tuple_empty_and_required
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	3281	it	String & annotate	tuple_empty_and_required
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	3297	it	String & annotateKey	tuple_empty_and_required
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	3313	it	String & annotate & annotateKey	tuple_empty_and_required
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	3331	it	String	tuple_optional_key_kinds
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	3348	it	String & annotate	tuple_optional_key_kinds
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	3367	it	String & annotateKey	tuple_optional_key_kinds
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	3389	it	String & annotate & annotateKey	tuple_optional_key_kinds
+not-applicable	packages/effect/test/schema/toJsonSchemaDocument.test.ts	3415	it	optionalKey(String) to String	encoded-side projection (encodeTo); absent
+not-applicable	packages/effect/test/schema/toJsonSchemaDocument.test.ts	3435	it	optionalKey to required key	encoded-side projection (encodeTo); absent
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	3458	it	Array(String)	array_string_and_length_checks
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	3481	it	isMinLength	array_string_and_length_checks
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	3494	it	isMaxLength	array_string_and_length_checks
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	3507	it	isBetweenLength	array_string_and_length_checks
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	3521	it	UniqueArray	array_string_and_length_checks
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	3536	it	TupleWithRest	tuple_with_rest_keeps_min_items
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	3553	it	empty union	union_empty_single_and_modes
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	3568	it	single member	union_empty_single_and_modes
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	3605	it	uses anyOf when approximated oneOf branches can overlap	union_empty_single_and_modes
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	3621	it	keeps oneOf when its branches are exact	union_empty_single_and_modes
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	3628	it	does not compact duplicate enum values	union_empty_single_and_modes
+ported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	3642	it	String | Number	union_string_number
+not-applicable	packages/effect/test/schema/toJsonSchemaDocument.test.ts	3674	it	String | BigInt	BigInt member unconstructible
+not-applicable	packages/effect/test/schema/toJsonSchemaDocument.test.ts	3710	it	mutually recursive schemas	mutual recursion needs a reference registry; absent
+not-applicable	packages/effect/test/schema/toJsonSchemaDocument.test.ts	3872	it	top level fromJsonString	encoded-side projection (fromJsonString); absent
+not-applicable	packages/effect/test/schema/toJsonSchemaDocument.test.ts	3884	it	preserves the content schema identifier as a canonical reference	encoded-side content-schema identifier; absent
+not-applicable	packages/effect/test/schema/toJsonSchemaDocument.test.ts	3905	it	respects an explicit encoded-side identifier	encoded-side identifier projection; absent
+not-applicable	packages/effect/test/schema/toJsonSchemaDocument.test.ts	3930	it	Class preserves its identifier as a canonical reference	Class encoded identifier projection; absent
+not-applicable	packages/effect/test/schema/toJsonSchemaDocument.test.ts	3955	it	Error preserves its identifier as a canonical reference	Error encoded identifier projection; absent
 ported	packages/effect/test/schema/toStandardJSONSchemaV1.test.ts	25	it	should return a schema with Standard JSON Schema metadata	standard_json_schema_keeps_codec
 ported	packages/effect/test/schema/toStandardJSONSchemaV1.test.ts	31	it	should support both standards	standard_json_schema_supports_both_standards
 ported	packages/effect/test/schema/toStandardJSONSchemaV1.test.ts	40	it	should return the input JSON Schema	standard_json_schema_draft2020_input
