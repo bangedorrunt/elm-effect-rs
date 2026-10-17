@@ -4735,61 +4735,116 @@ ported	packages/effect/test/ai/EmbeddingModel.test.ts	113	it.effect	provider AiE
 ported	packages/effect/test/ai/EmbeddingModel.test.ts	134	it.effect	embed fails with InvalidOutputError when provider misses results	embed_fails_with_invalid_output_when_provider_misses_results
 ported	packages/effect/test/ai/EmbeddingModel.test.ts	156	it.effect	embedMany fails with InvalidOutputError when provider misses results	embed_many_fails_with_invalid_output_when_provider_misses_results
 ported	packages/effect/test/ai/EmbeddingModel.test.ts	178	it.effect	embedMany([]) bypasses provider	embed_many_empty_bypasses_provider
-unported	packages/effect/test/ai/LanguageModel.test.ts	73	it.effect	does not resolve tool calls after an incomplete finish	
-unported	packages/effect/test/ai/LanguageModel.test.ts	117	it.effect	validates the complete response before resolving tool calls	
-unported	packages/effect/test/ai/LanguageModel.test.ts	150	it.effect	fails cleanly for a tool call with a missing params field	
-unported	packages/effect/test/ai/LanguageModel.test.ts	178	it.effect	validates encoded tool parameters when tool call resolution is disabled	
-unported	packages/effect/test/ai/LanguageModel.test.ts	200	it.effect	preserves encoded tool parameters when tool call resolution is disabled	
-unported	packages/effect/test/ai/LanguageModel.test.ts	229	it.effect	preserves encoded tool parameters when tool call resolution is enabled	
-unported	packages/effect/test/ai/LanguageModel.test.ts	254	it.effect	validates provider-executed tool call parameters	
-unported	packages/effect/test/ai/LanguageModel.test.ts	288	it.effect	accepts provider-executed tool calls with valid parameters	
-unported	packages/effect/test/ai/LanguageModel.test.ts	324	it.effect	interrupts in-flight tool handlers on an incomplete finish	
-unported	packages/effect/test/ai/LanguageModel.test.ts	388	it.effect	does not start tool handlers when an incomplete finish arrives in the same chunk	
-unported	packages/effect/test/ai/LanguageModel.test.ts	431	it.effect	does not start tool handlers when an incomplete finish arrives in the next chunk	
-unported	packages/effect/test/ai/LanguageModel.test.ts	477	it.effect	keeps results of handlers that completed before an incomplete finish	
-unported	packages/effect/test/ai/LanguageModel.test.ts	533	it.effect	does not synthesize results for tool calls awaiting approval on an incomplete finish	
-unported	packages/effect/test/ai/LanguageModel.test.ts	585	it.effect	validates encoded tool parameters when tool call resolution is disabled	
-unported	packages/effect/test/ai/LanguageModel.test.ts	608	it.effect	preserves encoded tool parameters when tool call resolution is disabled	
-unported	packages/effect/test/ai/LanguageModel.test.ts	637	it.effect	preserves encoded tool parameters when tool call resolution is enabled	
-unported	packages/effect/test/ai/LanguageModel.test.ts	665	it.effect	validates provider-executed tool call parameters	
-unported	packages/effect/test/ai/LanguageModel.test.ts	701	it.effect	executes tool handlers once the stream moves past the tool call	
-unported	packages/effect/test/ai/LanguageModel.test.ts	754	it.effect	interrupts in-flight tool handlers when the provider stream fails	
-unported	packages/effect/test/ai/LanguageModel.test.ts	805	it.effect	does not execute tool handlers when response content is malformed	
-unported	packages/effect/test/ai/LanguageModel.test.ts	841	it.effect	emits a failed tool result and keeps streaming when tool params are invalid and failure mode is return	
-unported	packages/effect/test/ai/LanguageModel.test.ts	880	it.effect	fails the stream when tool params are invalid and failure mode is error	
-unported	packages/effect/test/ai/LanguageModel.test.ts	915	it.effect	emits finish after resolved tool results	
-unported	packages/effect/test/ai/LanguageModel.test.ts	961	it.effect	runs tool handlers sequentially with concurrency: 1	
-unported	packages/effect/test/ai/LanguageModel.test.ts	1022	it.effect	allows tool handler overlap up to a bounded concurrency	
-unported	packages/effect/test/ai/LanguageModel.test.ts	1085	it.effect	provides tool call IDs to concurrent identical tool handlers	
-unported	packages/effect/test/ai/LanguageModel.test.ts	1137	it.effect	bounds needsApproval evaluation with the tool handler concurrency	
-unported	packages/effect/test/ai/LanguageModel.test.ts	1200	it.effect	includes full generated text in StructuredOutputError	
-unported	packages/effect/test/ai/LanguageModel.test.ts	1221	it	resolves the canonical top-level $ref for class schemas in defaultCodecTransformer	
-unported	packages/effect/test/ai/LanguageModel.test.ts	1254	it.effect	initialize incremental fields as undefined in generateText	
-unported	packages/effect/test/ai/LanguageModel.test.ts	1274	it.effect	initialize incremental fields as undefined in generateObject	
-unported	packages/effect/test/ai/LanguageModel.test.ts	1301	it.effect	initialize incremental fields as undefined in streamText	
-unported	packages/effect/test/ai/LanguageModel.test.ts	1322	it.effect	falls back to full prompt in generateText when incremental request fails	
-unported	packages/effect/test/ai/LanguageModel.test.ts	1379	it.effect	falls back to full prompt in streamText when incremental request fails	
-unported	packages/effect/test/ai/LanguageModel.test.ts	1437	it.effect	does not retry an incremental stream after emitting a tool call	
-unported	packages/effect/test/ai/LanguageModel.test.ts	1489	it.effect	uses tracker prepareUnsafe and markParts in generateText without toolkit	
-unported	packages/effect/test/ai/LanguageModel.test.ts	1548	it.effect	uses tracker prepareUnsafe and markParts in generateText with empty toolkit	
-unported	packages/effect/test/ai/LanguageModel.test.ts	1598	it.effect	calls tracker.prepareUnsafe after stripping resolved approvals in toolkit flow	
-unported	packages/effect/test/ai/LanguageModel.test.ts	1686	it.effect	uses tracker prepareUnsafe and markParts in streamText without toolkit	
-unported	packages/effect/test/ai/LanguageModel.test.ts	1746	it.effect	uses tracker prepareUnsafe and markParts in streamText with empty toolkit	
-unported	packages/effect/test/ai/LanguageModel.test.ts	1807	it.effect	calls tracker.prepareUnsafe after stripping resolved approvals in streamText toolkit flow	
-unported	packages/effect/test/ai/LanguageModel.test.ts	1896	it.effect	uses tracker prepareUnsafe and markParts when disableToolCallResolution is true	
-unported	packages/effect/test/ai/LanguageModel.test.ts	2005	it.effect	emits tool-approval-request when tool has needsApproval: true	
-unported	packages/effect/test/ai/LanguageModel.test.ts	2054	it.effect	pre-resolves approved tool calls before calling LLM	
-unported	packages/effect/test/ai/LanguageModel.test.ts	2114	it.effect	pre-resolves denied tool calls with execution-denied before calling LLM	
-unported	packages/effect/test/ai/LanguageModel.test.ts	2177	it.effect	strips approved approval artifacts from prompt sent to provider (streamText)	
-unported	packages/effect/test/ai/LanguageModel.test.ts	2241	it.effect	strips denied approval artifacts from prompt sent to provider	
-unported	packages/effect/test/ai/LanguageModel.test.ts	2312	it.effect	strips only resolved approvals, preserves unrelated parts	
-unported	packages/effect/test/ai/LanguageModel.test.ts	2390	it.effect	strips approval artifacts via generateText path	
-unported	packages/effect/test/ai/LanguageModel.test.ts	2448	it.effect	dynamic needsApproval returns true when condition met	
-unported	packages/effect/test/ai/LanguageModel.test.ts	2484	it.effect	dynamic needsApproval returns false when condition not met	
-unported	packages/effect/test/ai/LanguageModel.test.ts	2520	it.effect	tool without needsApproval executes normally	
-unported	packages/effect/test/ai/LanguageModel.test.ts	2565	it.effect	strips previous-round approval artifacts even when no new pending approvals (streamText)	
-unported	packages/effect/test/ai/LanguageModel.test.ts	2647	it.effect	strips previous-round approval artifacts even when no new pending approvals (generateText)	
-unported	packages/effect/test/ai/LanguageModel.test.ts	2712	it.effect	streamText emits pre-resolved tool results as stream parts	
+ported	packages/effect/test/ai/LanguageModel.test.ts	73	it.effect	does not resolve tool calls after an incomplete finish	validates_complete_response_before_resolving_tool_calls
+
+ported	packages/effect/test/ai/LanguageModel.test.ts	117	it.effect	validates the complete response before resolving tool calls	fails_cleanly_for_tool_call_with_missing_params_field
+
+ported	packages/effect/test/ai/LanguageModel.test.ts	150	it.effect	fails cleanly for a tool call with a missing params field	validates_encoded_tool_parameters_when_resolution_disabled_generate_text
+
+ported	packages/effect/test/ai/LanguageModel.test.ts	178	it.effect	validates encoded tool parameters when tool call resolution is disabled	preserves_encoded_tool_parameters_when_resolution_disabled_generate_text
+
+ported	packages/effect/test/ai/LanguageModel.test.ts	200	it.effect	preserves encoded tool parameters when tool call resolution is disabled	preserves_encoded_tool_parameters_when_resolution_enabled_generate_text
+
+ported	packages/effect/test/ai/LanguageModel.test.ts	229	it.effect	preserves encoded tool parameters when tool call resolution is enabled	validates_provider_executed_tool_call_parameters_generate_text
+
+ported	packages/effect/test/ai/LanguageModel.test.ts	254	it.effect	validates provider-executed tool call parameters	accepts_provider_executed_tool_calls_with_valid_parameters
+
+ported	packages/effect/test/ai/LanguageModel.test.ts	288	it.effect	accepts provider-executed tool calls with valid parameters	does_not_start_handlers_when_incomplete_finish_arrives_in_same_chunk
+
+not-applicable	packages/effect/test/ai/LanguageModel.test.ts	324	it.effect	interrupts in-flight tool handlers on an incomplete finish	needs in-flight interrupt of tool handlers; no fiber runtime
+
+ported	packages/effect/test/ai/LanguageModel.test.ts	388	it.effect	does not start tool handlers when an incomplete finish arrives in the same chunk	does_not_start_handlers_when_incomplete_finish_arrives_in_next_chunk
+
+ported	packages/effect/test/ai/LanguageModel.test.ts	431	it.effect	does not start tool handlers when an incomplete finish arrives in the next chunk	keeps_results_of_handlers_completed_before_incomplete_finish
+
+ported	packages/effect/test/ai/LanguageModel.test.ts	477	it.effect	keeps results of handlers that completed before an incomplete finish	does_not_synthesize_results_for_calls_awaiting_approval_on_incomplete_finish
+
+ported	packages/effect/test/ai/LanguageModel.test.ts	533	it.effect	does not synthesize results for tool calls awaiting approval on an incomplete finish	validates_encoded_tool_parameters_when_resolution_disabled_stream
+
+ported	packages/effect/test/ai/LanguageModel.test.ts	585	it.effect	validates encoded tool parameters when tool call resolution is disabled	preserves_encoded_tool_parameters_when_resolution_disabled_stream
+
+ported	packages/effect/test/ai/LanguageModel.test.ts	608	it.effect	preserves encoded tool parameters when tool call resolution is disabled	preserves_encoded_tool_parameters_when_resolution_enabled_stream
+
+ported	packages/effect/test/ai/LanguageModel.test.ts	637	it.effect	preserves encoded tool parameters when tool call resolution is enabled	validates_provider_executed_tool_call_parameters_stream
+
+ported	packages/effect/test/ai/LanguageModel.test.ts	665	it.effect	validates provider-executed tool call parameters	executes_tool_handlers_once_stream_moves_past_tool_call
+
+ported	packages/effect/test/ai/LanguageModel.test.ts	701	it.effect	executes tool handlers once the stream moves past the tool call	does_not_execute_handlers_when_response_content_malformed_stream
+
+not-applicable	packages/effect/test/ai/LanguageModel.test.ts	754	it.effect	interrupts in-flight tool handlers when the provider stream fails	needs in-flight interrupt of tool handlers; no fiber runtime
+
+ported	packages/effect/test/ai/LanguageModel.test.ts	805	it.effect	does not execute tool handlers when response content is malformed	emits_failed_tool_result_and_keeps_streaming_when_params_invalid_return_mode
+
+ported	packages/effect/test/ai/LanguageModel.test.ts	841	it.effect	emits a failed tool result and keeps streaming when tool params are invalid and failure mode is return	fails_stream_when_tool_params_invalid_and_failure_mode_is_error
+
+ported	packages/effect/test/ai/LanguageModel.test.ts	880	it.effect	fails the stream when tool params are invalid and failure mode is error	emits_finish_after_resolved_tool_results
+
+ported	packages/effect/test/ai/LanguageModel.test.ts	915	it.effect	emits finish after resolved tool results	includes_full_generated_text_in_structured_output_error
+
+not-applicable	packages/effect/test/ai/LanguageModel.test.ts	961	it.effect	runs tool handlers sequentially with concurrency: 1	needs concurrency/overlap machinery with TestClock; none exists
+
+not-applicable	packages/effect/test/ai/LanguageModel.test.ts	1022	it.effect	allows tool handler overlap up to a bounded concurrency	needs concurrency/overlap machinery with TestClock; none exists
+
+not-applicable	packages/effect/test/ai/LanguageModel.test.ts	1085	it.effect	provides tool call IDs to concurrent identical tool handlers	needs concurrency/overlap machinery with TestClock; none exists
+
+not-applicable	packages/effect/test/ai/LanguageModel.test.ts	1137	it.effect	bounds needsApproval evaluation with the tool handler concurrency	needs concurrency/overlap machinery with TestClock; none exists
+
+ported	packages/effect/test/ai/LanguageModel.test.ts	1200	it.effect	includes full generated text in StructuredOutputError	initialize_incremental_fields_as_undefined_in_generate_text
+
+not-applicable	packages/effect/test/ai/LanguageModel.test.ts	1221	it	resolves the canonical top-level $ref for class schemas in defaultCodecTransformer	needs Schema class with $ref derivation; no schema compiler here
+
+ported	packages/effect/test/ai/LanguageModel.test.ts	1254	it.effect	initialize incremental fields as undefined in generateText	initialize_incremental_fields_as_undefined_in_generate_object
+
+ported	packages/effect/test/ai/LanguageModel.test.ts	1274	it.effect	initialize incremental fields as undefined in generateObject	initialize_incremental_fields_as_undefined_in_stream_text
+
+ported	packages/effect/test/ai/LanguageModel.test.ts	1301	it.effect	initialize incremental fields as undefined in streamText	falls_back_to_full_prompt_in_generate_text_when_incremental_request_fails
+
+ported	packages/effect/test/ai/LanguageModel.test.ts	1322	it.effect	falls back to full prompt in generateText when incremental request fails	falls_back_to_full_prompt_in_stream_text_when_incremental_request_fails
+
+ported	packages/effect/test/ai/LanguageModel.test.ts	1379	it.effect	falls back to full prompt in streamText when incremental request fails	does_not_retry_incremental_stream_after_emitting_tool_call
+
+ported	packages/effect/test/ai/LanguageModel.test.ts	1437	it.effect	does not retry an incremental stream after emitting a tool call	uses_tracker_prepare_and_mark_in_generate_text_without_toolkit
+
+ported	packages/effect/test/ai/LanguageModel.test.ts	1489	it.effect	uses tracker prepareUnsafe and markParts in generateText without toolkit	uses_tracker_prepare_and_mark_in_generate_text_with_empty_toolkit
+
+ported	packages/effect/test/ai/LanguageModel.test.ts	1548	it.effect	uses tracker prepareUnsafe and markParts in generateText with empty toolkit	calls_tracker_prepare_after_stripping_resolved_approvals_in_toolkit_flow
+
+ported	packages/effect/test/ai/LanguageModel.test.ts	1598	it.effect	calls tracker.prepareUnsafe after stripping resolved approvals in toolkit flow	uses_tracker_prepare_and_mark_in_stream_text_without_toolkit
+
+ported	packages/effect/test/ai/LanguageModel.test.ts	1686	it.effect	uses tracker prepareUnsafe and markParts in streamText without toolkit	uses_tracker_prepare_and_mark_in_stream_text_with_empty_toolkit
+
+ported	packages/effect/test/ai/LanguageModel.test.ts	1746	it.effect	uses tracker prepareUnsafe and markParts in streamText with empty toolkit	calls_tracker_prepare_after_stripping_resolved_approvals_in_stream_toolkit_flow
+
+ported	packages/effect/test/ai/LanguageModel.test.ts	1807	it.effect	calls tracker.prepareUnsafe after stripping resolved approvals in streamText toolkit flow	uses_tracker_prepare_and_mark_when_tool_call_resolution_disabled
+
+ported	packages/effect/test/ai/LanguageModel.test.ts	1896	it.effect	uses tracker prepareUnsafe and markParts when disableToolCallResolution is true	emits_tool_approval_request_when_tool_has_needs_approval
+
+ported	packages/effect/test/ai/LanguageModel.test.ts	2005	it.effect	emits tool-approval-request when tool has needsApproval: true	pre_resolves_approved_tool_calls_before_calling_llm
+
+ported	packages/effect/test/ai/LanguageModel.test.ts	2054	it.effect	pre-resolves approved tool calls before calling LLM	pre_resolves_denied_tool_calls_with_execution_denied
+
+ported	packages/effect/test/ai/LanguageModel.test.ts	2114	it.effect	pre-resolves denied tool calls with execution-denied before calling LLM	strips_approved_approval_artifacts_from_prompt_stream_text
+
+ported	packages/effect/test/ai/LanguageModel.test.ts	2177	it.effect	strips approved approval artifacts from prompt sent to provider (streamText)	strips_denied_approval_artifacts_from_prompt
+
+ported	packages/effect/test/ai/LanguageModel.test.ts	2241	it.effect	strips denied approval artifacts from prompt sent to provider	strips_only_resolved_approvals_preserves_unrelated_parts
+
+ported	packages/effect/test/ai/LanguageModel.test.ts	2312	it.effect	strips only resolved approvals, preserves unrelated parts	strips_approval_artifacts_via_generate_text_path
+
+ported	packages/effect/test/ai/LanguageModel.test.ts	2390	it.effect	strips approval artifacts via generateText path	dynamic_needs_approval_returns_true_when_condition_met
+
+ported	packages/effect/test/ai/LanguageModel.test.ts	2448	it.effect	dynamic needsApproval returns true when condition met	dynamic_needs_approval_returns_false_when_condition_not_met
+
+ported	packages/effect/test/ai/LanguageModel.test.ts	2484	it.effect	dynamic needsApproval returns false when condition not met	tool_without_needs_approval_executes_normally
+
+ported	packages/effect/test/ai/LanguageModel.test.ts	2520	it.effect	tool without needsApproval executes normally	strips_previous_round_approval_artifacts_stream_text_without_new_pending
+
+ported	packages/effect/test/ai/LanguageModel.test.ts	2565	it.effect	strips previous-round approval artifacts even when no new pending approvals (streamText)	strips_previous_round_approval_artifacts_generate_text_without_new_pending
+
+ported	packages/effect/test/ai/LanguageModel.test.ts	2647	it.effect	strips previous-round approval artifacts even when no new pending approvals (generateText)	stream_text_emits_pre_resolved_tool_results_as_stream_parts
+
+ported	packages/effect/test/ai/LanguageModel.test.ts	2712	it.effect	streamText emits pre-resolved tool results as stream parts	stream_text_emits_pre_resolved_tool_results_as_stream_parts
+
 not-applicable	packages/effect/test/ai/LanguageModelRepresentation.test.ts	6	it	projects the encoded side before JSON Schema generation	Rust elm-effect-unstable ai.rs has no LanguageModel representation transform or custom JSON Schema compiler callback hooks
 not-applicable	packages/effect/test/ai/LanguageModelRepresentation.test.ts	10	it	uses custom JSON Schema compiler annotations in the default transformer	Rust elm-effect-unstable ai.rs has no LanguageModel representation transform or custom JSON Schema compiler callback hooks
 ported	packages/effect/test/ai/LanguageModelTrackerLifecycle.test.ts	48	it.effect	tracks generateText across turns and recovers after session drop	tracks_generate_text_across_turns_and_recovers_after_session_drop

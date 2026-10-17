@@ -1164,7 +1164,7 @@ tests = []
 [[module]]
 path = "packages/effect/src/ai/LanguageModel.ts"
 class = "unstable-port"
-status = "unmatched"
+status = "matched"
 tag = "unstable"
 reason = ""
 tests = ["packages/effect/test/ai/LanguageModel.test.ts"]
