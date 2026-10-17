@@ -10,6 +10,7 @@
 //! completion: the flag fires when depth returns to zero.
 
 use std::any::Any;
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::marker::PhantomData;
 use std::sync::{
@@ -163,6 +164,24 @@ impl FiberControl {
         MaskGuard { control: self }
     }
 
+    /// Register this fiber as the current one for this thread until the
+    /// returned guard drops. The runtime holds it for the whole task, so
+    /// [`crate::Scope::close`] finds the closing fiber whichever path called
+    /// it.
+    pub(crate) fn enter_current(self: &Arc<Self>) -> CurrentGuard {
+        let prev = CURRENT_FIBER.with(|c| c.borrow_mut().replace(Arc::clone(self)));
+        CurrentGuard { prev }
+    }
+
+    /// Run `f` masked on the current thread's fiber. `None` when this thread
+    /// runs no fiber: sync finalizers already run to completion there, so
+    /// there is nothing to mask.
+    pub(crate) fn with_current_masked<R>(f: impl FnOnce() -> R) -> Option<R> {
+        let current = CURRENT_FIBER.with(|c| c.borrow().clone())?;
+        let _guard = current.mask_guard();
+        Some(f())
+    }
+
     fn is_done(&self) -> bool {
         *self.done.0.lock().unwrap()
     }
@@ -191,6 +210,27 @@ pub(crate) struct MaskGuard<'a> {
 impl Drop for MaskGuard<'_> {
     fn drop(&mut self) {
         self.control.unmask();
+    }
+}
+
+thread_local! {
+    /// The fiber running on this thread, set for the whole task body by the
+    /// runtime spawn closure and cleared when the task ends. Lets
+    /// [`crate::Scope::close`] mask the closing fiber itself, so direct
+    /// close, `Drop`, layer-failure, and dispose paths all run finalizers
+    /// masked (L7) instead of relying on one caller to remember.
+    static CURRENT_FIBER: RefCell<Option<Arc<FiberControl>>> = const { RefCell::new(None) };
+}
+
+/// Restores the previous thread-local fiber on drop, so a panic anywhere in
+/// the task still clears the registration.
+pub(crate) struct CurrentGuard {
+    prev: Option<Arc<FiberControl>>,
+}
+
+impl Drop for CurrentGuard {
+    fn drop(&mut self) {
+        CURRENT_FIBER.with(|c| *c.borrow_mut() = self.prev.take());
     }
 }
 /// The fiber running an effect, as [`Effect::with_fiber`] hands it over:

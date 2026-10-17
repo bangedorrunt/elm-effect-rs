@@ -109,6 +109,8 @@ impl Shared {
         let body: Body<A, E> = Box::new(body);
         self.exec.spawn_blocking(Box::new(move || {
             task_latch.wait();
+            // Own this thread for the task: Scope::close masks through it.
+            let _current = task_control.enter_current();
             let ctx = Ctx::new(Arc::clone(&task_control), Arc::clone(&this));
             let mut exit: Exit<A, E> =
                 if task_control.is_interrupted() && !task_control.masked_now() {
@@ -126,13 +128,10 @@ impl Shared {
             for child in children_of(&this.children, task_control.id) {
                 child.wait_done();
             }
-            // L7: releases run masked to completion, then cancellation
-            // takes effect. Spills append as Die without erasing (L6). The
-            // guard restores depth even if a finalizer panics.
-            let spills = {
-                let _guard = task_control.mask_guard();
-                task_control.scope.close()
-            };
+            // L7: Scope::close masks the current fiber itself, so releases
+            // run to completion, then cancellation takes effect. Spills
+            // append as Die without erasing (L6).
+            let spills = task_control.scope.close();
             match &mut exit {
                 Exit::Success(_) if !spills.is_empty() => {
                     exit = Exit::Failure(Cause::from_defects(spills));
