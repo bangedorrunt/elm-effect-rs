@@ -1361,6 +1361,33 @@ fn revive_doc(state: &mut Revive, doc: &Value, path: &str) -> Result<Schema<Unkn
     }
 }
 
+/// A `schemaToJsonSchemaDocument` document: the dialect, the root schema and
+/// the hoisted definitions. The pin spells the definition slot
+/// `definitions` here (not `$defs`) and always carries the dialect.
+pub fn schema_to_json_schema_document(schema: &Schema<Unknown>) -> Value {
+    schema_to_json_schema_document_with_options(
+        schema,
+        &crate::json_schema::CompileOptions::default(),
+    )
+}
+
+/// [`schema_to_json_schema_document`] with explicit compiler options.
+pub fn schema_to_json_schema_document_with_options(
+    schema: &Schema<Unknown>,
+    options: &crate::json_schema::CompileOptions,
+) -> Value {
+    let mut compiled = crate::json_schema::compile_with_options(schema, options);
+    let definitions = compiled
+        .as_object_mut()
+        .and_then(|map| map.remove("$defs"))
+        .unwrap_or(Value::Object(Default::default()));
+    serde_json::json!({
+        "dialect": "draft-2020-12",
+        "schema": compiled,
+        "definitions": definitions,
+    })
+}
+
 /// A JSON structural value back into the port's domain. Typed wrappers keep
 /// ambiguous values apart; anything outside the domain fails instead of
 /// guessing.

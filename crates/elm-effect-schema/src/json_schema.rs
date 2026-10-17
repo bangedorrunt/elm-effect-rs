@@ -635,6 +635,11 @@ impl<'a> Compiler<'a> {
             SchemaKind::Opaque("date") | SchemaKind::Opaque("url") => {
                 serde_json::json!({"type": "string"})
             }
+            // A number written as text decodes from its string wire form, so
+            // the document describes the encoded side.
+            SchemaKind::Opaque("numberFromString") | SchemaKind::Opaque("finiteFromString") => {
+                serde_json::json!({"type": "string"})
+            }
             SchemaKind::Opaque("uint8Array") => serde_json::json!({
                 "type": "string",
                 "format": "byte",
