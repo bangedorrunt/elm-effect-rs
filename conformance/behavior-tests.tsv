@@ -9825,14 +9825,14 @@ unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	3884	it	preser
 unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	3905	it	respects an explicit encoded-side identifier	
 unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	3930	it	Class preserves its identifier as a canonical reference	
 unported	packages/effect/test/schema/toJsonSchemaDocument.test.ts	3955	it	Error preserves its identifier as a canonical reference	
-unported	packages/effect/test/schema/toStandardJSONSchemaV1.test.ts	25	it	should return a schema with Standard JSON Schema metadata	
-unported	packages/effect/test/schema/toStandardJSONSchemaV1.test.ts	31	it	should support both standards	
-unported	packages/effect/test/schema/toStandardJSONSchemaV1.test.ts	40	it	should return the input JSON Schema	
-unported	packages/effect/test/schema/toStandardJSONSchemaV1.test.ts	51	it	should return the output JSON Schema	
-unported	packages/effect/test/schema/toStandardJSONSchemaV1.test.ts	62	it	a schema with identifier	
-unported	packages/effect/test/schema/toStandardJSONSchemaV1.test.ts	84	it	should return the input JSON Schema	
-unported	packages/effect/test/schema/toStandardJSONSchemaV1.test.ts	95	it	should return the output JSON Schema	
-unported	packages/effect/test/schema/toStandardJSONSchemaV1.test.ts	106	it	a schema with identifier	
+ported	packages/effect/test/schema/toStandardJSONSchemaV1.test.ts	25	it	should return a schema with Standard JSON Schema metadata	standard_json_schema_keeps_codec
+ported	packages/effect/test/schema/toStandardJSONSchemaV1.test.ts	31	it	should support both standards	standard_json_schema_supports_both_standards
+ported	packages/effect/test/schema/toStandardJSONSchemaV1.test.ts	40	it	should return the input JSON Schema	standard_json_schema_draft2020_input
+ported	packages/effect/test/schema/toStandardJSONSchemaV1.test.ts	51	it	should return the output JSON Schema	standard_json_schema_draft2020_output
+ported	packages/effect/test/schema/toStandardJSONSchemaV1.test.ts	62	it	a schema with identifier	standard_json_schema_draft2020_identifier
+ported	packages/effect/test/schema/toStandardJSONSchemaV1.test.ts	84	it	should return the input JSON Schema	standard_json_schema_draft07_input
+ported	packages/effect/test/schema/toStandardJSONSchemaV1.test.ts	95	it	should return the output JSON Schema	standard_json_schema_draft07_output
+ported	packages/effect/test/schema/toStandardJSONSchemaV1.test.ts	106	it	a schema with identifier	standard_json_schema_draft07_identifier
 unported	packages/effect/test/schema/toStandardSchemaV1.test.ts	105	it	should return a Standard Schema V1 schema	
 unported	packages/effect/test/schema/toStandardSchemaV1.test.ts	111	it	should support both standards	
 unported	packages/effect/test/schema/toStandardSchemaV1.test.ts	117	it	sync decoding	
