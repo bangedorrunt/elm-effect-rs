@@ -5757,32 +5757,58 @@ not-applicable	packages/effect/test/cli/Errors.test.ts	367	it	labels a bare expe
 not-applicable	packages/effect/test/cli/Errors.test.ts	381	it	does not double the prefix for an Expected sentence	N/A: rust unstable-cli lacks shared-flag construction (duplicate-option detection) and CliOutput error formatting; errors render via Display only, so these rows cannot be represented as Rust tests
 not-applicable	packages/effect/test/cli/Errors.test.ts	407	it	does not double the prefix for a missing flag value	N/A: rust unstable-cli lacks shared-flag construction (duplicate-option detection) and CliOutput error formatting; errors render via Display only, so these rows cannot be represented as Rust tests
 not-applicable	packages/effect/test/cli/Errors.test.ts	423	it	formats one or more unexpected positional arguments	N/A: rust unstable-cli lacks shared-flag construction (duplicate-option detection) and CliOutput error formatting; errors render via Display only, so these rows cannot be represented as Rust tests
-unported	packages/effect/test/cli/Help.test.ts	42	it	marks omittable flags as not required in structured help	
-unported	packages/effect/test/cli/Help.test.ts	53	it	marks omittable arguments as not required in structured help	
-unported	packages/effect/test/cli/Help.test.ts	74	it.effect	renders root command help	
-unported	packages/effect/test/cli/Help.test.ts	111	it.effect	aligns flag descriptions when flag names are long	
-unported	packages/effect/test/cli/Help.test.ts	133	it.effect	aligns flag descriptions when flag names contain wide graphemes	
-unported	packages/effect/test/cli/Help.test.ts	150	it.effect	aligns flag descriptions when flag names contain zero-width code points	
-unported	packages/effect/test/cli/Help.test.ts	167	it.effect	separates long subcommand and argument names from their descriptions	
-unported	packages/effect/test/cli/Help.test.ts	190	it.effect	hides flags marked with withHidden from help output	
-unported	packages/effect/test/cli/Help.test.ts	209	it.effect	hidden flag still parses on the command line	
-unported	packages/effect/test/cli/Help.test.ts	225	it.effect	hidden flag name does not leak through unrecognized-flag suggestions	
-unported	packages/effect/test/cli/Help.test.ts	241	it.effect	hides unlisted subcommands from help output	
-unported	packages/effect/test/cli/Help.test.ts	263	it.effect	unlisted subcommand still parses on the command line	
-unported	packages/effect/test/cli/Help.test.ts	284	it.effect	unlisted subcommand name does not leak through unknown-subcommand suggestions	
-unported	packages/effect/test/cli/Help.test.ts	301	it.effect	subcommand group with only unlisted commands disappears entirely	
-unported	packages/effect/test/cli/Help.test.ts	316	it.effect	renders command examples	
-unported	packages/effect/test/cli/Help.test.ts	362	it.effect	renders file command positional arguments	
-unported	packages/effect/test/cli/Help.test.ts	394	it.effect	renders variadic arguments	
-unported	packages/effect/test/cli/Help.test.ts	425	it.effect	renders deeply nested subcommand help	
-unported	packages/effect/test/cli/Help.test.ts	454	it.effect	renders mixed required and optional positional arguments	
-unported	packages/effect/test/cli/Help.test.ts	486	it.effect	renders intermediate subcommand shared flags and children	
-unported	packages/effect/test/cli/Help.test.ts	517	it.effect	renders variadic arguments with a minimum count	
-unported	packages/effect/test/cli/Help.test.ts	548	it.effect	shared flags are visible in subcommand help while local flags stay local	
-unported	packages/effect/test/cli/Help.test.ts	578	it.effect	includes inherited shared flags in subcommand completions	
-unported	packages/effect/test/cli/Help.test.ts	600	it.effect	renders grouped subcommands	
-unported	packages/effect/test/cli/Help.test.ts	665	it.effect	renders subcommand aliases in listings	
-unported	packages/effect/test/cli/Help.test.ts	695	it.effect	keeps subcommand flags in aliased completion contexts	
+ported	packages/effect/test/cli/Help.test.ts	42	it	marks omittable flags as not required in structured help	omittable_flags_are_not_required_in_structured_help
+
+ported	packages/effect/test/cli/Help.test.ts	53	it	marks omittable arguments as not required in structured help	omittable_arguments_are_not_required_in_structured_help
+
+ported	packages/effect/test/cli/Help.test.ts	74	it.effect	renders root command help	renders_root_command_help
+
+ported	packages/effect/test/cli/Help.test.ts	111	it.effect	aligns flag descriptions when flag names are long	aligns_flag_descriptions_when_flag_names_are_long
+
+ported	packages/effect/test/cli/Help.test.ts	133	it.effect	aligns flag descriptions when flag names contain wide graphemes	aligns_flag_descriptions_with_wide_graphemes
+
+ported	packages/effect/test/cli/Help.test.ts	150	it.effect	aligns flag descriptions when flag names contain zero-width code points	aligns_flag_descriptions_with_zero_width_code_points
+
+ported	packages/effect/test/cli/Help.test.ts	167	it.effect	separates long subcommand and argument names from their descriptions	separates_long_subcommand_and_argument_names
+
+ported	packages/effect/test/cli/Help.test.ts	190	it.effect	hides flags marked with withHidden from help output	hides_flags_marked_hidden_from_help_output
+
+ported	packages/effect/test/cli/Help.test.ts	209	it.effect	hidden flag still parses on the command line	hidden_flag_still_parses_on_the_command_line
+
+ported	packages/effect/test/cli/Help.test.ts	225	it.effect	hidden flag name does not leak through unrecognized-flag suggestions	hidden_flag_name_does_not_leak_through_suggestions
+
+ported	packages/effect/test/cli/Help.test.ts	241	it.effect	hides unlisted subcommands from help output	hides_unlisted_subcommands_from_help_output
+
+ported	packages/effect/test/cli/Help.test.ts	263	it.effect	unlisted subcommand still parses on the command line	unlisted_subcommand_still_parses_on_the_command_line
+
+ported	packages/effect/test/cli/Help.test.ts	284	it.effect	unlisted subcommand name does not leak through unknown-subcommand suggestions	unlisted_subcommand_name_does_not_leak_through_suggestions
+
+ported	packages/effect/test/cli/Help.test.ts	301	it.effect	subcommand group with only unlisted commands disappears entirely	subcommand_group_with_only_unlisted_commands_disappears_entirely
+
+ported	packages/effect/test/cli/Help.test.ts	316	it.effect	renders command examples	renders_command_examples
+
+ported	packages/effect/test/cli/Help.test.ts	362	it.effect	renders file command positional arguments	renders_file_command_positional_arguments
+
+ported	packages/effect/test/cli/Help.test.ts	394	it.effect	renders variadic arguments	renders_variadic_arguments
+
+ported	packages/effect/test/cli/Help.test.ts	425	it.effect	renders deeply nested subcommand help	renders_deeply_nested_subcommand_help
+
+ported	packages/effect/test/cli/Help.test.ts	454	it.effect	renders mixed required and optional positional arguments	renders_mixed_required_and_optional_positional_arguments
+
+ported	packages/effect/test/cli/Help.test.ts	486	it.effect	renders intermediate subcommand shared flags and children	renders_intermediate_subcommand_shared_flags_and_children
+
+ported	packages/effect/test/cli/Help.test.ts	517	it.effect	renders variadic arguments with a minimum count	renders_variadic_arguments_with_a_minimum_count
+
+ported	packages/effect/test/cli/Help.test.ts	548	it.effect	shared flags are visible in subcommand help while local flags stay local	shared_flags_visible_in_subcommand_help_while_local_flags_stay_local
+
+ported	packages/effect/test/cli/Help.test.ts	578	it.effect	includes inherited shared flags in subcommand completions	includes_inherited_shared_flags_in_subcommand_completions
+
+ported	packages/effect/test/cli/Help.test.ts	600	it.effect	renders grouped subcommands	renders_grouped_subcommands
+
+ported	packages/effect/test/cli/Help.test.ts	665	it.effect	renders subcommand aliases in listings	renders_subcommand_aliases_in_listings
+
+ported	packages/effect/test/cli/Help.test.ts	695	it.effect	keeps subcommand flags in aliased completion contexts	keeps_subcommand_flags_in_aliased_completion_contexts
+
 ported	packages/effect/test/cli/Lexer.test.ts	5	it	preserves every equals sign in a long option's inline value	lexer_tokenizes_argv
 ported	packages/effect/test/cli/Lexer.test.ts	16	it	lexes negative numbers as values	lexer_tokenizes_argv
 ported	packages/effect/test/cli/Lexer.test.ts	28	it	still lexes short options that are not negative numbers	lexer_tokenizes_argv
