@@ -40,6 +40,8 @@ mod service;
 mod stm;
 #[cfg(feature = "tokio")]
 mod stream;
+#[cfg(feature = "tokio")]
+mod supervision;
 mod supervisor;
 mod sync;
 mod time;
@@ -99,5 +101,7 @@ pub use stm::{
 };
 #[cfg(feature = "tokio")]
 pub use stream::{Stream, from_iter, from_iterator_succeed};
+#[cfg(feature = "tokio")]
+pub use supervision::{ChildSnapshot, Escalation, Supervisor};
 pub use sync::{Deferred, MutableRef, PartitionedSemaphore, Queue, QueueError, Ref, Semaphore, Strategy, SubscriptionRef, SynchronizedRef, is_dequeue, is_enqueue, is_queue};
 pub use time::{Clock, ClockImpl, Duration, DurationJson, Parts, SleepOutcome, SystemClock, TestClock, is_duration};
