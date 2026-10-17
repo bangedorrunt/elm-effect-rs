@@ -1745,3 +1745,98 @@ pub fn to_response_or_else(value: &dyn std::any::Any, or_else: Response) -> Resp
 pub fn is_http_server_error(_: &HttpServerError) -> bool {
     true
 }
+
+/// CORS policy: the allowed origins, or allow-all when absent
+/// (`HttpMiddleware.cors` with and without `allowedOrigins`).
+#[derive(Debug, Clone, Default)]
+pub struct CorsOptions {
+    allowed_origins: Option<Vec<String>>,
+}
+
+impl CorsOptions {
+    /// Allow exactly these origins.
+    pub fn allow_origins(origins: impl IntoIterator<Item = impl Into<String>>) -> Self {
+        Self { allowed_origins: Some(origins.into_iter().map(Into::into).collect()) }
+    }
+
+    /// Allow every origin (`*`).
+    pub fn allow_all() -> Self {
+        Self { allowed_origins: None }
+    }
+}
+
+/// The CORS-relevant slice of a request.
+#[derive(Debug, Clone)]
+pub struct CorsRequest {
+    /// Request `Origin`, if any.
+    pub origin: Option<String>,
+    /// Whether this is a preflight (`OPTIONS` with `Access-Control-Request-*`).
+    pub is_preflight: bool,
+}
+
+/// Apply the CORS policy: the `Access-Control-Allow-Origin` value and the
+/// resulting `Vary` value given the response's current `Vary`.
+///
+/// An allowed origin is echoed; a rejected one yields no allow-origin but
+/// still varies on `Origin`. A wildcard `Vary` is never rewritten, and an
+/// already-listed `Origin` (any case) is never duplicated. Preflight
+/// requests additionally vary on `Access-Control-Request-Headers`.
+/// Allow-all echoes `*` and leaves `Vary` untouched.
+pub fn apply_cors(
+    options: &CorsOptions,
+    request: &CorsRequest,
+    response_vary: Option<&str>,
+) -> (Option<String>, Option<String>) {
+    if options.allowed_origins.is_none() {
+        return (Some("*".to_owned()), response_vary.map(str::to_owned));
+    }
+    let allowed = request.origin.as_ref().is_some_and(|origin| {
+        options.allowed_origins.as_ref().is_some_and(|list| list.iter().any(|item| item == origin))
+    });
+    let allow_origin = if allowed { request.origin.clone() } else { None };
+    let mut vary = response_vary.map(str::to_owned);
+    vary = Some(ensure_vary_dimension(vary.as_deref(), "Origin"));
+    if request.is_preflight {
+        vary = Some(ensure_vary_dimension(vary.as_deref(), "Access-Control-Request-Headers"));
+    }
+    (allow_origin, vary)
+}
+
+/// `Vary` with `dimension` present exactly once (case-insensitive); `*` wins.
+fn ensure_vary_dimension(vary: Option<&str>, dimension: &str) -> String {
+    match vary {
+        None | Some("") => dimension.to_owned(),
+        Some("*") => "*".to_owned(),
+        Some(current) => {
+            if current.split(',').any(|member| member.trim().eq_ignore_ascii_case(dimension)) {
+                current.to_owned()
+            } else {
+                format!("{current}, {dimension}")
+            }
+        }
+    }
+}
+
+/// Logger annotations for one request/response pair: method, path without
+/// query or fragment, and numeric status (`HttpMiddleware.logger`).
+pub fn log_annotations(method: &str, url: &str, status: u16) -> Vec<(String, String)> {
+    vec![
+        ("http.method".to_owned(), method.to_owned()),
+        ("http.url".to_owned(), request_path(url).to_owned()),
+        ("http.status".to_owned(), status.to_string()),
+    ]
+}
+
+/// The path of `url`, dropping query and fragment; `/` when absent.
+fn request_path(url: &str) -> &str {
+    let after_authority = match url.split_once("://") {
+        Some((_, rest)) => rest.split_at(rest.find('/').unwrap_or(rest.len())).1,
+        None => url,
+    };
+    let path = after_authority.split(['?', '#']).next().unwrap_or(after_authority);
+    if path.is_empty() {
+        "/"
+    } else {
+        path
+    }
+}

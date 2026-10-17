@@ -6628,18 +6628,18 @@ not-applicable	packages/effect/test/http/HttpEffect.test.ts	407	test	round-trip 
 not-applicable	packages/effect/test/http/HttpEffect.test.ts	418	test	json preserves content-type	N/A: rust unstable HTTP effect lacks full handler/middleware/server runtime parity with Effect HttpEffect, so these rows cannot be represented in the Rust port
 not-applicable	packages/effect/test/http/HttpEffect.test.ts	424	test	preserves response content-type header	N/A: rust unstable HTTP effect lacks full handler/middleware/server runtime parity with Effect HttpEffect, so these rows cannot be represented in the Rust port
 not-applicable	packages/effect/test/http/HttpEffect.test.ts	435	test	preserves custom content-type header	N/A: rust unstable HTTP effect lacks full handler/middleware/server runtime parity with Effect HttpEffect, so these rows cannot be represented in the Rust port
-unported	packages/effect/test/http/HttpMiddleware.test.ts	19	it.each	$name	
-unported	packages/effect/test/http/HttpMiddleware.test.ts	60	it.effect	preserves both Vary dimensions for preflight requests	
-unported	packages/effect/test/http/HttpMiddleware.test.ts	82	it.effect	varies by Origin when the request origin is rejected	
-unported	packages/effect/test/http/HttpMiddleware.test.ts	99	it.effect	preserves Vary when allowing all origins	
-unported	packages/effect/test/http/HttpMiddleware.test.ts	119	it.effect	annotates method, path, and status without query or hash	
-unported	packages/effect/test/http/HttpMiddleware.test.ts	145	it.effect	uses a stable http.span log span name	
-unported	packages/effect/test/http/HttpMiddleware.test.ts	167	it.effect	restores ParentSpan and ends the span if interrupted before handler registration	
-unported	packages/effect/test/http/HttpMiddleware.test.ts	224	it.effect	restores the ParentSpan context identity	
-unported	packages/effect/test/http/HttpMiddleware.test.ts	244	it.effect	records attributes for sampled spans	
-unported	packages/effect/test/http/HttpMiddleware.test.ts	291	it.effect	skips attributes for unsampled spans	
-unported	packages/effect/test/http/HttpMiddleware.test.ts	315	it.effect	ends the span and restores the context when the app is interrupted	
-unported	packages/effect/test/http/HttpMiddleware.test.ts	348	it.effect	excludes the sent response from a failed stream span	
+ported	packages/effect/test/http/HttpMiddleware.test.ts	19	it.each	$name	adds_origin_when_vary_is_absent preserves_existing_vary_dimensions_when_adding_origin preserves_other_dimensions_without_duplicating_a_mixed_case_origin preserves_wildcard_vary
+ported	packages/effect/test/http/HttpMiddleware.test.ts	60	it.effect	preserves both Vary dimensions for preflight requests	preserves_both_vary_dimensions_for_preflight_requests
+ported	packages/effect/test/http/HttpMiddleware.test.ts	82	it.effect	varies by Origin when the request origin is rejected	varies_by_origin_when_the_request_origin_is_rejected
+ported	packages/effect/test/http/HttpMiddleware.test.ts	99	it.effect	preserves Vary when allowing all origins	preserves_vary_when_allowing_all_origins
+ported	packages/effect/test/http/HttpMiddleware.test.ts	119	it.effect	annotates method, path, and status without query or hash	annotates_method_path_and_status_without_query_or_hash
+not-applicable	packages/effect/test/http/HttpMiddleware.test.ts	145	it.effect	uses a stable http.span log span name	needs fiber CurrentLogSpans to record a stable http.span name; no fiber log-span machinery
+not-applicable	packages/effect/test/http/HttpMiddleware.test.ts	167	it.effect	restores ParentSpan and ends the span if interrupted before handler registration	needs Tracer spans with ParentSpan restore on interrupt; no Tracer in this port
+not-applicable	packages/effect/test/http/HttpMiddleware.test.ts	224	it.effect	restores the ParentSpan context identity	needs ParentSpan context identity; no Tracer in this port
+not-applicable	packages/effect/test/http/HttpMiddleware.test.ts	244	it.effect	records attributes for sampled spans	needs sampled-span attribute recording; no Tracer in this port
+not-applicable	packages/effect/test/http/HttpMiddleware.test.ts	291	it.effect	skips attributes for unsampled spans	needs unsampled-span attribute skipping; no Tracer in this port
+not-applicable	packages/effect/test/http/HttpMiddleware.test.ts	315	it.effect	ends the span and restores the context when the app is interrupted	needs span end plus context restore on interrupt; no Tracer in this port
+not-applicable	packages/effect/test/http/HttpMiddleware.test.ts	348	it.effect	excludes the sent response from a failed stream span	needs failed-stream span response exclusion; no Tracer in this port
 ported	packages/effect/test/http/HttpPlatform.test.ts	17	it.effect	fileResponse infers the content type from the extension	file_response_infers_content_type_from_extension
 ported	packages/effect/test/http/HttpPlatform.test.ts	24	it.effect	fileResponse honors contentType over a conflicting header	file_response_honors_content_type_over_conflicting_header
 ported	packages/effect/test/http/HttpPlatform.test.ts	34	it.effect	fileWebResponse honors contentType over the file type	file_web_response_honors_content_type_over_file_type
