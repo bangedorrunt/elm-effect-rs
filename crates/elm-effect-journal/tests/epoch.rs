@@ -1,9 +1,8 @@
 //! Epoch fence: same-seq dedupe, stale fencing, zero-start epochs,
-//! epoch-less forks. Modules load via `#[path]` includes until lib.rs
-//! gains the mod line (CopperCoast-held for .46).
+//! epoch-less forks. The module is public on the crate (lib.rs
+//! wires it); the old `#[path]` include is gone.
 
-#[path = "../src/epoch.rs"]
-mod epoch;
+use elm_effect_journal::epoch;
 
 use epoch::{Appended, EpochLog, Fence};
 
