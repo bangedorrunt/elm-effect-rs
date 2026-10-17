@@ -32,7 +32,9 @@
 //! behind opaque-kind mappings with in-module tests; the constructors stay
 //! excused.
 
-use super::{Field, Optionality, Schema, SchemaKind, Unknown, kind_type_name};
+use super::representation_doc::Document;
+use super::{Field, Optionality, Schema, SchemaError, SchemaKind, Unknown, kind_type_name};
+use std::collections::BTreeMap;
 
 /// Several roots compiled against one definition map: shared identifiers are
 /// emitted once and every use is a `$ref`.
@@ -1886,4 +1888,1577 @@ mod declaration_tests {
             })
         );
     }
+}
+
+// ---------- Representation documents (`toJsonSchemaDocument`) ----------
+//
+// Compiles a serializable representation `Document` (the pin's
+// `SchemaRepresentation.toJsonSchemaDocument`) to a JSON Schema document with
+// the `draft-2020-12` dialect and a top-level `definitions` map. This is the
+// document-level twin of the `Schema`-level compiler above: it reads `Value`
+// nodes instead of `SchemaKind`, so shapes the kind cannot see (template
+// literals, enums, unique symbols, declarations, check callbacks) compile
+// here.
+//
+// A `Filter` (or `FilterGroup`) carrying a `toJsonSchema` annotation names a
+// callback in `CompileDocumentOptions::callbacks`: the annotation value is the
+// callback id, and the callback answers the fragment plus whether it is a
+// safe, looser approximation. A bare `Filter` with no callback and no known
+// builtin identity is approximate and contributes nothing. The two builtins
+// the carried rows need (`isInt`, `isPattern`) compile without a callback,
+// from their representation payloads. Approximation loosens a `oneOf` union to
+// `anyOf` and disqualifies record-key patterns; everywhere else it is
+// invisible.
+//
+// Out of scope, with the rows that need them excused: `referencePolicy`
+// naming, fallback-definition aliasing for equal schemas, encoded-side
+// projections, and the `fromJsonSchemaDocument` import round trip.
+
+/// The input a `toJsonSchema` callback sees: the current `type` keyword when
+/// the base compiled to exactly one, plus the compiled
+/// `representation.schemas` dependencies.
+pub struct DocCallbackInput {
+    pub base_type: Option<String>,
+    pub schemas: Vec<serde_json::Value>,
+}
+
+/// A callback's answer: the fragment plus whether it is a safe, looser
+/// approximation of the check.
+pub struct DocCallbackOutput {
+    pub fragment: serde_json::Value,
+    pub approximate: bool,
+}
+
+impl DocCallbackOutput {
+    /// An exact fragment.
+    pub fn exact(fragment: serde_json::Value) -> Self {
+        Self {
+            fragment,
+            approximate: false,
+        }
+    }
+
+    /// A safe, looser fragment: it accepts everything the check accepts.
+    pub fn approximate(fragment: serde_json::Value) -> Self {
+        Self {
+            fragment,
+            approximate: true,
+        }
+    }
+}
+
+/// A `toJsonSchema` check callback: exact or approximate fragment for one
+/// check, or an error message which fails the compilation at the check.
+pub type DocCallback = Box<dyn Fn(&DocCallbackInput) -> Result<DocCallbackOutput, String>>;
+
+/// Document-level knobs for [`compile_document_with_options`].
+pub struct CompileDocumentOptions<'a> {
+    /// Closed (`Error`) or open (`Ignore`) objects and index signatures.
+    pub on_excess_property: OnExcessProperty,
+    /// Custom annotation keys ride the document only when this accepts them.
+    /// Standard keys always ride.
+    pub include_annotation_key: Option<fn(&str) -> bool>,
+    /// Check callbacks by the id a `toJsonSchema` annotation names.
+    pub callbacks: &'a BTreeMap<String, DocCallback>,
+}
+
+/// Compile one representation document with default options: open objects,
+/// no custom annotation keys, no callbacks.
+pub fn compile_document(document: &Document) -> Result<serde_json::Value, SchemaError> {
+    let empty: BTreeMap<String, DocCallback> = BTreeMap::new();
+    compile_document_with_options(
+        document,
+        &CompileDocumentOptions {
+            on_excess_property: OnExcessProperty::Ignore,
+            include_annotation_key: None,
+            callbacks: &empty,
+        },
+    )
+}
+
+/// [`compile_document`] with explicit [`CompileDocumentOptions`].
+pub fn compile_document_with_options(
+    document: &Document,
+    options: &CompileDocumentOptions,
+) -> Result<serde_json::Value, SchemaError> {
+    let mut compiler = DocCompiler {
+        options,
+        references: &document.references,
+        definitions: BTreeMap::new(),
+        def_nodes: BTreeMap::new(),
+        in_progress: Vec::new(),
+        exactness: Vec::new(),
+    };
+    for key in document.references.keys() {
+        compiler.compile_definition(key, &format!("[\"references\"][\"{key}\"]"))?;
+    }
+    let root = compiler.fresh_deps();
+    let schema = compiler.recur(&document.representation, "[\"representation\"]", root)?;
+    let mut definitions = serde_json::Map::new();
+    for key in document.references.keys() {
+        if let Some((compiled, _)) = compiler.definitions.get(key) {
+            definitions.insert(key.clone(), compiled.clone());
+        }
+    }
+    Ok(serde_json::json!({
+        "dialect": "draft-2020-12",
+        "schema": schema,
+        "definitions": serde_json::Value::Object(definitions),
+    }))
+}
+
+/// Exactness answers whether a compiled fragment represents its check
+/// exactly. A `oneOf` union with an approximate branch loosens to `anyOf`; a
+/// cycle is exact unless it can reach `false`.
+#[derive(Debug, Clone)]
+enum ExactNode {
+    Exact(bool),
+    Deps(Vec<usize>),
+}
+
+/// The document compiler state: options, the shared references, compiled
+/// definitions plus their exactness nodes, and the exactness graph.
+struct DocCompiler<'a> {
+    options: &'a CompileDocumentOptions<'a>,
+    references: &'a BTreeMap<String, serde_json::Value>,
+    definitions: BTreeMap<String, (serde_json::Value, usize)>,
+    def_nodes: BTreeMap<String, usize>,
+    in_progress: Vec<String>,
+    exactness: Vec<ExactNode>,
+}
+
+fn doc_error(path: impl Into<String>, message: impl Into<String>) -> SchemaError {
+    SchemaError::InvalidJson {
+        path: path.into(),
+        message: message.into(),
+    }
+}
+
+/// One named segment below a document path: `["representation"]` below root.
+fn doc_seg(path: &str, key: &str) -> String {
+    format!("{path}[\"{key}\"]")
+}
+
+/// One indexed segment below a document path: `[0]` below its array.
+fn doc_idx(path: &str, index: usize) -> String {
+    format!("{path}[{index}]")
+}
+
+/// The JSON Schema types a check callback can observe as the base type.
+fn is_json_schema_type(name: &str) -> bool {
+    matches!(
+        name,
+        "string" | "number" | "boolean" | "array" | "object" | "null" | "integer"
+    )
+}
+
+/// Check keywords a check fragment may carry inline: applicators and
+/// dependent keywords change meaning when moved across schema objects, so
+/// they stay out.
+const INLINEABLE_CHECK_KEYWORDS: &str = "|type|format|pattern|multipleOf|minimum|maximum|\
+     exclusiveMinimum|exclusiveMaximum|minLength|maxLength|minItems|maxItems|uniqueItems|\
+     minProperties|maxProperties|propertyNames|contentEncoding|contentMediaType|";
+
+/// Pure annotation keywords: everything else a fragment carries goes to
+/// `allOf`. `format` and `content*` can affect validation, so they are not
+/// pure.
+const PROMOTABLE_ANNOTATION_KEYWORDS: &str =
+    "|title|description|default|examples|readOnly|writeOnly|";
+
+/// Annotation keys the compiler itself owns: never emitted as annotations.
+fn is_doc_directive_key(key: &str) -> bool {
+    matches!(
+        key,
+        "~sentinels"
+            | "~structural"
+            | "representation"
+            | "arbitraryConstraint"
+            | "toJsonSchema"
+            | "toCode"
+            | "toEquivalence"
+            | "toFormatter"
+            | "toCodec"
+            | "toCodecJson"
+            | "toCodecStringTree"
+            | "toCodecIso"
+            | "toCodecArbitrary"
+            | "~identifier"
+            | "title"
+            | "description"
+            | "default"
+            | "examples"
+            | "readOnly"
+            | "writeOnly"
+            | "format"
+            | "contentEncoding"
+            | "contentMediaType"
+            | "contentSchema"
+    )
+}
+
+/// Whether every key of a fragment is in the allowed pipe-delimited set.
+fn has_only_keywords(fragment: &serde_json::Value, allowed: &str) -> bool {
+    fragment
+        .as_object()
+        .is_some_and(|map| map.keys().all(|key| allowed.contains(&format!("|{key}|"))))
+}
+
+/// Whether merging `right_keys` into `left` collides: `$ref` never merges,
+/// and neither does a key `left` already spells differently.
+fn has_no_collisions(left: &serde_json::Value, right_keys: &[String]) -> bool {
+    left.get("$ref")
+        .and_then(serde_json::Value::as_str)
+        .is_none()
+        && right_keys.iter().all(|key| left.get(key).is_none())
+}
+
+/// Bounds that tighten to the larger value when repeated on one object.
+fn is_lower_bound_keyword(key: &str) -> bool {
+    matches!(
+        key,
+        "minimum" | "exclusiveMinimum" | "minLength" | "minItems" | "minProperties"
+    )
+}
+
+/// Bounds that tighten to the smaller value when repeated on one object.
+fn is_upper_bound_keyword(key: &str) -> bool {
+    matches!(
+        key,
+        "maximum" | "exclusiveMaximum" | "maxLength" | "maxItems" | "maxProperties"
+    )
+}
+
+impl<'a> DocCompiler<'a> {
+    /// A fresh exactness dependency cell.
+    fn fresh_deps(&mut self) -> usize {
+        let id = self.exactness.len();
+        self.exactness.push(ExactNode::Deps(Vec::new()));
+        id
+    }
+
+    /// Mark the enclosing compilation approximate.
+    fn mark_approximate(&mut self, deps: usize) {
+        let id = self.exactness.len();
+        self.exactness.push(ExactNode::Exact(false));
+        if let Some(ExactNode::Deps(members)) = self.exactness.get_mut(deps) {
+            members.push(id);
+        }
+    }
+
+    /// Whether an exactness node is exact. A cycle holds unless it reaches
+    /// `false`.
+    fn is_exact(&self, id: usize, seen: &mut Vec<usize>) -> bool {
+        if seen.contains(&id) {
+            return true;
+        }
+        seen.push(id);
+        match self.exactness.get(id) {
+            Some(ExactNode::Exact(exact)) => *exact,
+            Some(ExactNode::Deps(members)) => {
+                let members = members.clone();
+                members.iter().all(|member| self.is_exact(*member, seen))
+            }
+            None => true,
+        }
+    }
+
+    /// A `$ref` for a definition name: JSON Pointer escaping, then URI
+    /// fragment encoding (`~` to `~0`, `/` to `~1`, then `encodeURI`).
+    fn definition_reference(name: &str) -> serde_json::Value {
+        serde_json::json!({ "$ref": format!("#/$defs/{}", encode_uri_token(&name.replace('~', "~0").replace('/', "~1"))) })
+    }
+
+    /// Compile one named definition, registering its exactness cell first so
+    /// recursive references share it.
+    fn compile_definition(
+        &mut self,
+        key: &str,
+        path: &str,
+    ) -> Result<(serde_json::Value, usize), SchemaError> {
+        if let Some(entry) = self.definitions.get(key) {
+            return Ok(entry.clone());
+        }
+        if let Some(node) = self.def_nodes.get(key) {
+            return Ok((Self::definition_reference(key), *node));
+        }
+        let body =
+            self.references.get(key).cloned().ok_or_else(|| {
+                doc_error(doc_seg(path, "$ref"), format!("Invalid reference {key}"))
+            })?;
+        let node = self.fresh_deps();
+        self.def_nodes.insert(key.to_string(), node);
+        self.in_progress.push(key.to_string());
+        let compiled = self.recur(&body, path, node);
+        self.in_progress.pop();
+        let compiled = compiled?;
+        self.definitions
+            .insert(key.to_string(), (compiled.clone(), node));
+        Ok((compiled, node))
+    }
+
+    /// Compile one representation node plus its checks and annotations.
+    fn recur(
+        &mut self,
+        doc: &serde_json::Value,
+        path: &str,
+        deps: usize,
+    ) -> Result<serde_json::Value, SchemaError> {
+        let tag = doc
+            .get("_tag")
+            .and_then(serde_json::Value::as_str)
+            .ok_or_else(|| doc_error(path, "a representation carries a string `_tag`"))?;
+        if tag == "Reference" {
+            let key = doc
+                .get("$ref")
+                .and_then(serde_json::Value::as_str)
+                .ok_or_else(|| doc_error(path, "a `Reference` carries a `$ref`"))?;
+            let (_, node) = self.compile_definition(key, path)?;
+            if let Some(ExactNode::Deps(members)) = self.exactness.get_mut(deps) {
+                members.push(node);
+            }
+            return Ok(Self::definition_reference(key));
+        }
+        let local = self.fresh_deps();
+        if let Some(ExactNode::Deps(members)) = self.exactness.get_mut(deps) {
+            members.push(local);
+        }
+        let mut output = self.compile_node(doc, tag, path, local)?;
+        if let Some(ordinary) = self.collect_annotations(doc.get("annotations")) {
+            let map = output
+                .as_object_mut()
+                .ok_or_else(|| doc_error(path, "a representation compiles to an object"))?;
+            for (key, value) in ordinary {
+                map.insert(key, value);
+            }
+        }
+        let checks: Vec<serde_json::Value> = doc
+            .get("checks")
+            .and_then(serde_json::Value::as_array)
+            .cloned()
+            .unwrap_or_default();
+        for (index, check) in checks.iter().enumerate() {
+            let check_path = doc_idx(&doc_seg(path, "checks"), index);
+            let base_type = output
+                .get("type")
+                .and_then(serde_json::Value::as_str)
+                .filter(|name| is_json_schema_type(name))
+                .map(str::to_string);
+            if let Some((fragment, inline)) =
+                self.compile_check(check, base_type, &check_path, local)?
+            {
+                output = append_doc_schema(output, fragment, inline);
+            }
+        }
+        Ok(output)
+    }
+
+    /// The standard annotation keys a node or element carries: strings stay
+    /// strings, `default`/`examples`/`contentSchema` ride as JSON, and custom
+    /// keys ride only when the predicate accepts them. Directive keys
+    /// (`toJsonSchema`, `representation`, `~identifier`, ...) never ride.
+    fn collect_annotations(
+        &self,
+        annotations: Option<&serde_json::Value>,
+    ) -> Option<serde_json::Map<String, serde_json::Value>> {
+        let map = annotations?.as_object()?;
+        let mut out = serde_json::Map::new();
+        for (key, value) in map {
+            let keep = match key.as_str() {
+                "title" | "description" | "format" | "contentEncoding" | "contentMediaType" => {
+                    value.is_string()
+                }
+                "default" | "contentSchema" => true,
+                "examples" => value.is_array(),
+                "readOnly" | "writeOnly" => value.is_boolean(),
+                _ => {
+                    !is_doc_directive_key(key)
+                        && self
+                            .options
+                            .include_annotation_key
+                            .is_some_and(|predicate| predicate(key))
+                }
+            };
+            if keep {
+                out.insert(key.clone(), value.clone());
+            }
+        }
+        if out.is_empty() { None } else { Some(out) }
+    }
+
+    /// One check to its fragment: a named callback first, a known builtin
+    /// identity next, a bare `Filter` as approximate with no fragment, and a
+    /// callback-free `FilterGroup` as the `allOf` of its children.
+    fn compile_check(
+        &mut self,
+        check: &serde_json::Value,
+        base_type: Option<String>,
+        path: &str,
+        deps: usize,
+    ) -> Result<Option<(serde_json::Value, bool)>, SchemaError> {
+        let tag = check
+            .get("_tag")
+            .and_then(serde_json::Value::as_str)
+            .ok_or_else(|| doc_error(path, "a check carries a string `_tag`"))?;
+        let annotations = check
+            .get("annotations")
+            .and_then(serde_json::Value::as_object);
+        let callback_id = annotations
+            .and_then(|map| map.get("toJsonSchema"))
+            .and_then(serde_json::Value::as_str)
+            .map(str::to_string);
+        if let Some(id) = callback_id {
+            let callback = self
+                .options
+                .callbacks
+                .get(&id)
+                .ok_or_else(|| doc_error(path, format!("Unknown JSON Schema callback {id}")))?;
+            let schemas = check
+                .get("representation")
+                .and_then(|identity| identity.get("schemas"))
+                .and_then(serde_json::Value::as_array)
+                .cloned()
+                .unwrap_or_default();
+            let mut compiled = Vec::with_capacity(schemas.len());
+            for (index, schema) in schemas.iter().enumerate() {
+                compiled.push(self.recur(
+                    schema,
+                    &doc_idx(&doc_seg(&doc_seg(path, "representation"), "schemas"), index),
+                    deps,
+                )?);
+            }
+            let output = callback(&DocCallbackInput {
+                base_type,
+                schemas: compiled,
+            })
+            .map_err(|message| doc_error(path, message))?;
+            if output.approximate {
+                self.mark_approximate(deps);
+            }
+            return Ok(Some(self.finish_callback_fragment(
+                check,
+                &output.fragment,
+                tag,
+            )));
+        }
+        if tag == "Filter"
+            && let Some((fragment, approximate)) = self.builtin_fragment(check)
+        {
+            if approximate {
+                self.mark_approximate(deps);
+            }
+            return Ok(Some(self.finish_callback_fragment(check, &fragment, tag)));
+        }
+        if tag == "Filter" {
+            self.mark_approximate(deps);
+            return Ok(None);
+        }
+        let children = check
+            .get("checks")
+            .and_then(serde_json::Value::as_array)
+            .ok_or_else(|| doc_error(path, "a `FilterGroup` carries `checks`"))?;
+        let mut schemas = Vec::new();
+        for (index, child) in children.iter().enumerate() {
+            let child_path = doc_idx(&doc_seg(path, "checks"), index);
+            if let Some((fragment, _)) =
+                self.compile_check(child, base_type.clone(), &child_path, deps)?
+            {
+                schemas.push(fragment);
+            }
+        }
+        if schemas.is_empty() {
+            return Ok(None);
+        }
+        let mut group = serde_json::Map::new();
+        group.insert("allOf".to_string(), serde_json::Value::Array(schemas));
+        if let Some(ordinary) = self.collect_annotations(check.get("annotations")) {
+            for (key, value) in ordinary {
+                group.insert(key, value);
+            }
+        }
+        Ok(Some((serde_json::Value::Object(group), false)))
+    }
+
+    /// A callback fragment plus the check's own ordinary annotations, and
+    /// whether it merges inline: only annotation-free or purely-annotated
+    /// `Filter` fragments whose keywords are all inlineable do.
+    fn finish_callback_fragment(
+        &self,
+        check: &serde_json::Value,
+        fragment: &serde_json::Value,
+        tag: &str,
+    ) -> (serde_json::Value, bool) {
+        let ordinary = self.collect_annotations(check.get("annotations"));
+        let mut schema = fragment.clone();
+        if let Some(pairs) = &ordinary
+            && let Some(map) = schema.as_object_mut()
+        {
+            for (key, value) in pairs {
+                map.insert(key.clone(), value.clone());
+            }
+        }
+        let allowed = if ordinary.is_some() {
+            format!("{INLINEABLE_CHECK_KEYWORDS}{PROMOTABLE_ANNOTATION_KEYWORDS}")
+        } else {
+            INLINEABLE_CHECK_KEYWORDS.to_string()
+        };
+        let inline = tag == "Filter"
+            && has_only_keywords(&schema, &allowed)
+            && ordinary.as_ref().is_none_or(|pairs| {
+                pairs
+                    .keys()
+                    .all(|key| PROMOTABLE_ANNOTATION_KEYWORDS.contains(&format!("|{key}|")))
+            });
+        (schema, inline)
+    }
+
+    /// The two builtins the carried rows spell without a callback. `isInt`
+    /// contributes the safe-integer range beside `integer`; `isPattern`
+    /// contributes its pattern only when every flag is representable
+    /// (`d`/`g`/`u`, with sticky `y` anchored), and degrades to an
+    /// approximate empty fragment otherwise.
+    fn builtin_fragment(&self, check: &serde_json::Value) -> Option<(serde_json::Value, bool)> {
+        let identity = check.get("representation")?;
+        let id = identity.get("id")?.as_str()?;
+        match id {
+            "effect/schema/isInt" => Some((
+                serde_json::json!({
+                    "type": "integer",
+                    "minimum": -9007199254740991i64,
+                    "maximum": 9007199254740991i64,
+                }),
+                false,
+            )),
+            "effect/schema/isPattern" => {
+                let payload = identity.get("payload")?;
+                let source = payload.get("source")?.as_str()?;
+                let flags = payload.get("flags")?.as_str().unwrap_or("u");
+                let (core, sticky) = match flags.strip_suffix('y') {
+                    Some(core) => (core, true),
+                    None => (flags, false),
+                };
+                let exportable = core.ends_with('u')
+                    && core[..core.len() - 1]
+                        .chars()
+                        .all(|flag| flag == 'd' || flag == 'g');
+                if !exportable {
+                    return Some((serde_json::json!({}), true));
+                }
+                Some((
+                    serde_json::json!({
+                        "pattern": if sticky {
+                            format!("^(?:{source})")
+                        } else {
+                            source.to_string()
+                        },
+                    }),
+                    false,
+                ))
+            }
+            _ => None,
+        }
+    }
+
+    /// One node without its checks or annotations.
+    #[allow(clippy::too_many_lines)]
+    fn compile_node(
+        &mut self,
+        doc: &serde_json::Value,
+        tag: &str,
+        path: &str,
+        deps: usize,
+    ) -> Result<serde_json::Value, SchemaError> {
+        match tag {
+            "Any" | "Unknown" => Ok(serde_json::json!({})),
+            "ObjectKeyword" => {
+                Ok(serde_json::json!({ "anyOf": [{ "type": "object" }, { "type": "array" }] }))
+            }
+            "Void" | "Undefined" | "Null" => Ok(serde_json::json!({ "type": "null" })),
+            "BigInt" => Ok(serde_json::json!({
+                "type": "string",
+                "allOf": [{ "pattern": "^-?\\d+$" }],
+            })),
+            "Symbol" => Ok(serde_json::json!({
+                "type": "string",
+                "allOf": [{ "pattern": "^Symbol\\(([\\s\\S]*)\\)$" }],
+            })),
+            // A globally registered symbol spells its string form; a local
+            // one has no JSON spelling. The port reads the persisted
+            // `{ description, global }` shape, since a live symbol has no
+            // `Value` spelling.
+            "UniqueSymbol" => {
+                let symbol = doc
+                    .get("symbol")
+                    .and_then(serde_json::Value::as_object)
+                    .ok_or_else(|| doc_error(path, "a `UniqueSymbol` carries a `symbol`"))?;
+                let global = symbol
+                    .get("global")
+                    .and_then(serde_json::Value::as_bool)
+                    .unwrap_or(false);
+                let description = symbol
+                    .get("description")
+                    .and_then(serde_json::Value::as_str)
+                    .unwrap_or_default();
+                if global {
+                    Ok(serde_json::json!({
+                        "type": "string",
+                        "enum": [format!("Symbol({description})")],
+                    }))
+                } else {
+                    Ok(serde_json::json!({ "not": {} }))
+                }
+            }
+            "Declaration" => {
+                self.mark_approximate(deps);
+                Ok(serde_json::json!({}))
+            }
+            "Suspend" => {
+                let thunk = doc
+                    .get("thunk")
+                    .ok_or_else(|| doc_error(path, "a `Suspend` carries a `thunk`"))?;
+                self.recur(thunk, &doc_seg(path, "thunk"), deps)
+            }
+            "Never" => Ok(serde_json::json!({ "not": {} })),
+            "String" => Ok(serde_json::json!({ "type": "string" })),
+            // Numbers cross the JSON boundary with their non-finite spellings
+            // beside them: the artificial encoding the pin exports.
+            "Number" => Ok(serde_json::json!({
+                "anyOf": [
+                    { "type": "number" },
+                    { "type": "string", "enum": ["NaN", "Infinity", "-Infinity"] },
+                ],
+            })),
+            "Boolean" => Ok(serde_json::json!({ "type": "boolean" })),
+            "Literal" => {
+                let literal = doc
+                    .get("literal")
+                    .ok_or_else(|| doc_error(path, "a `Literal` carries a `literal`"))?;
+                Ok(match literal_scalar(literal, path)? {
+                    LiteralScalar::Text(text) => {
+                        serde_json::json!({ "type": "string", "enum": [text] })
+                    }
+                    LiteralScalar::Number(number) => {
+                        serde_json::json!({ "type": "number", "enum": [number] })
+                    }
+                    LiteralScalar::Bool(flag) => {
+                        serde_json::json!({ "type": "boolean", "enum": [flag] })
+                    }
+                    LiteralScalar::BigInt(digits) => {
+                        serde_json::json!({ "type": "string", "enum": [digits] })
+                    }
+                    LiteralScalar::NonFinite(_) => {
+                        return Err(doc_error(path, "a literal is a finite JSON scalar"));
+                    }
+                })
+            }
+            "Enum" => {
+                let members = doc
+                    .get("enums")
+                    .and_then(serde_json::Value::as_array)
+                    .ok_or_else(|| doc_error(path, "an `Enum` carries `enums`"))?;
+                if members.is_empty() {
+                    return Ok(serde_json::json!({ "not": {} }));
+                }
+                let mut types = Vec::with_capacity(members.len());
+                for (index, member) in members.iter().enumerate() {
+                    let member_path = doc_idx(&doc_seg(path, "enums"), index);
+                    let pair = member.as_array().ok_or_else(|| {
+                        doc_error(&member_path, "an enum member is a name/value pair")
+                    })?;
+                    let title = pair
+                        .first()
+                        .and_then(serde_json::Value::as_str)
+                        .ok_or_else(|| {
+                            doc_error(&member_path, "an enum member is a name/value pair")
+                        })?;
+                    let value = pair.get(1).ok_or_else(|| {
+                        doc_error(&member_path, "an enum member is a name/value pair")
+                    })?;
+                    let value_path = doc_idx(&member_path, 1);
+                    match literal_scalar(value, &value_path)? {
+                        LiteralScalar::Text(text) => types.push(serde_json::json!({
+                            "type": "string", "enum": [text], "title": title,
+                        })),
+                        LiteralScalar::Number(number) => types.push(serde_json::json!({
+                            "type": "number", "enum": [number], "title": title,
+                        })),
+                        LiteralScalar::Bool(flag) => types.push(serde_json::json!({
+                            "type": "boolean", "enum": [flag], "title": title,
+                        })),
+                        LiteralScalar::BigInt(_) => {
+                            return Err(doc_error(
+                                &value_path,
+                                "an enum member is a string or a finite number",
+                            ));
+                        }
+                        LiteralScalar::NonFinite(name) => {
+                            return Err(doc_error(
+                                &value_path,
+                                format!("Invalid numeric enum value {name}"),
+                            ));
+                        }
+                    }
+                }
+                Ok(serde_json::json!({ "anyOf": types }))
+            }
+            "TemplateLiteral" => {
+                let parts = doc
+                    .get("parts")
+                    .and_then(serde_json::Value::as_array)
+                    .ok_or_else(|| doc_error(path, "a `TemplateLiteral` carries `parts`"))?;
+                let mut pattern = String::from("^");
+                for (index, part) in parts.iter().enumerate() {
+                    pattern.push_str(&template_part_pattern(
+                        part,
+                        &doc_idx(&doc_seg(path, "parts"), index),
+                    )?);
+                }
+                pattern.push('$');
+                Ok(serde_json::json!({ "type": "string", "pattern": pattern }))
+            }
+            "Arrays" => self.compile_arrays(doc, path, deps),
+            "Objects" => self.compile_objects(doc, path, deps),
+            "Union" => {
+                let branches = self.fresh_deps();
+                if let Some(ExactNode::Deps(members)) = self.exactness.get_mut(deps) {
+                    members.push(branches);
+                }
+                let members = doc
+                    .get("types")
+                    .and_then(serde_json::Value::as_array)
+                    .ok_or_else(|| doc_error(path, "a `Union` carries `types`"))?;
+                if members.is_empty() {
+                    return Ok(serde_json::json!({ "not": {} }));
+                }
+                let mut types = Vec::with_capacity(members.len());
+                for (index, member) in members.iter().enumerate() {
+                    types.push(self.recur(
+                        member,
+                        &doc_idx(&doc_seg(path, "types"), index),
+                        branches,
+                    )?);
+                }
+                let mode = doc
+                    .get("options")
+                    .and_then(|options| options.get("mode"))
+                    .and_then(serde_json::Value::as_str)
+                    .unwrap_or("anyOf");
+                if mode == "anyOf"
+                    && types.len() > 1
+                    && let Some(compacted) = compact_doc_enums(&types)
+                {
+                    return Ok(compacted);
+                }
+                if mode == "oneOf" && !self.is_exact(branches, &mut Vec::new()) {
+                    return Ok(serde_json::json!({ "anyOf": types }));
+                }
+                Ok(serde_json::json!({ mode: types }))
+            }
+            other => Err(doc_error(
+                path,
+                format!("no document compiler for `{other}`"),
+            )),
+        }
+    }
+
+    /// A tuple document: `prefixItems` with the leading required count as
+    /// `minItems`, a lone rest as `items`, and an empty open tuple as the bare
+    /// array shape.
+    fn compile_arrays(
+        &mut self,
+        doc: &serde_json::Value,
+        path: &str,
+        deps: usize,
+    ) -> Result<serde_json::Value, SchemaError> {
+        let elements = doc
+            .get("elements")
+            .and_then(serde_json::Value::as_array)
+            .ok_or_else(|| doc_error(path, "an `Arrays` carries `elements`"))?;
+        let rest = doc
+            .get("rest")
+            .and_then(serde_json::Value::as_array)
+            .ok_or_else(|| doc_error(path, "an `Arrays` carries `rest`"))?;
+        if rest.len() > 1 {
+            return Err(doc_error(
+                doc_seg(path, "rest"),
+                "Invalid schema representation document",
+            ));
+        }
+        let mut out = serde_json::json!({ "type": "array" });
+        let mut required = elements.len();
+        let mut prefix = Vec::with_capacity(elements.len());
+        for (index, element) in elements.iter().enumerate() {
+            let element_path = doc_idx(&doc_seg(path, "elements"), index);
+            if element.get("isOptional") == Some(&serde_json::Value::Bool(true)) {
+                required -= 1;
+            }
+            let inner = element
+                .get("type")
+                .ok_or_else(|| doc_error(&element_path, "an element carries a `type`"))?;
+            let mut compiled = self.recur(inner, &doc_seg(&element_path, "type"), deps)?;
+            if let Some(ordinary) = self.collect_annotations(element.get("annotations")) {
+                compiled = append_doc_schema(compiled, serde_json::Value::Object(ordinary), false);
+            }
+            prefix.push(compiled);
+        }
+        if prefix.is_empty() {
+            out["items"] = serde_json::Value::Bool(false);
+        } else {
+            out["prefixItems"] = serde_json::Value::Array(prefix);
+            out["maxItems"] = serde_json::Value::from(elements.len());
+            if required > 0 {
+                out["minItems"] = serde_json::Value::from(required);
+            }
+        }
+        if let Some(rest) = rest.first() {
+            out.as_object_mut().and_then(|map| map.remove("maxItems"));
+            let compiled = self.recur(rest, &doc_idx(&doc_seg(path, "rest"), 0), deps)?;
+            if !compiled.as_object().is_some_and(serde_json::Map::is_empty) {
+                out["items"] = compiled;
+            } else {
+                out.as_object_mut().and_then(|map| map.remove("items"));
+            }
+        }
+        Ok(out)
+    }
+
+    /// An object document: declared properties with `required`, index
+    /// signatures as `additionalProperties`, single-selector keys as
+    /// `patternProperties`, and anything else as `propertyNames` in error
+    /// mode (open mode degrades to an open object).
+    #[allow(clippy::too_many_lines)]
+    fn compile_objects(
+        &mut self,
+        doc: &serde_json::Value,
+        path: &str,
+        deps: usize,
+    ) -> Result<serde_json::Value, SchemaError> {
+        let properties = doc
+            .get("propertySignatures")
+            .and_then(serde_json::Value::as_array)
+            .ok_or_else(|| doc_error(path, "an `Objects` carries `propertySignatures`"))?;
+        let index = doc
+            .get("indexSignatures")
+            .and_then(serde_json::Value::as_array)
+            .ok_or_else(|| doc_error(path, "an `Objects` carries `indexSignatures`"))?;
+        if properties.is_empty() && index.is_empty() {
+            return Ok(serde_json::json!({ "not": { "type": "null" } }));
+        }
+        let mut out = serde_json::json!({ "type": "object" });
+        if !properties.is_empty() {
+            let mut compiled = serde_json::Map::new();
+            let mut required = Vec::new();
+            for (index, property) in properties.iter().enumerate() {
+                let property_path = doc_idx(&doc_seg(path, "propertySignatures"), index);
+                let name = property
+                    .get("name")
+                    .and_then(serde_json::Value::as_str)
+                    .ok_or_else(|| {
+                        doc_error(
+                            doc_seg(&property_path, "name"),
+                            "Invalid schema representation document",
+                        )
+                    })?;
+                let inner = property
+                    .get("type")
+                    .ok_or_else(|| doc_error(&property_path, "a property carries a `type`"))?;
+                let mut schema = self.recur(inner, &doc_seg(&property_path, "type"), deps)?;
+                if let Some(ordinary) = self.collect_annotations(property.get("annotations")) {
+                    schema = append_doc_schema(schema, serde_json::Value::Object(ordinary), false);
+                }
+                compiled.insert(name.to_string(), schema);
+                if property.get("isOptional") != Some(&serde_json::Value::Bool(true)) {
+                    required.push(serde_json::Value::String(name.to_string()));
+                }
+            }
+            out["properties"] = serde_json::Value::Object(compiled);
+            if !required.is_empty() {
+                out["required"] = serde_json::Value::Array(required);
+            }
+        }
+        let mut pattern_properties = serde_json::Map::new();
+        let mut unconstrained: Vec<serde_json::Value> = Vec::new();
+        let mut index_values: Vec<serde_json::Value> = Vec::new();
+        let mut unrepresentable = false;
+        for (index, signature) in index.iter().enumerate() {
+            let signature_path = doc_idx(&doc_seg(path, "indexSignatures"), index);
+            let parameter = signature.get("parameter").ok_or_else(|| {
+                doc_error(&signature_path, "an index signature carries a `parameter`")
+            })?;
+            let target = signature
+                .get("type")
+                .ok_or_else(|| doc_error(&signature_path, "an index signature carries a `type`"))?;
+            let mut value = self.recur(target, &doc_seg(&signature_path, "type"), deps)?;
+            if value == serde_json::json!({ "not": {} }) {
+                value = serde_json::Value::Bool(false);
+            }
+            index_values.push(value.clone());
+            match self.index_patterns(
+                parameter,
+                &doc_seg(&signature_path, "parameter"),
+                &mut Vec::new(),
+            )? {
+                None => {
+                    unrepresentable = true;
+                    self.mark_approximate(deps);
+                }
+                Some(patterns) if patterns.is_empty() => unconstrained.push(value),
+                Some(patterns) => {
+                    for pattern in patterns {
+                        match pattern_properties.get(&pattern) {
+                            None => {
+                                pattern_properties.insert(pattern, value.clone());
+                            }
+                            Some(previous) => {
+                                let merged = if previous == &serde_json::Value::Bool(false)
+                                    || value == serde_json::Value::Bool(false)
+                                {
+                                    serde_json::Value::Bool(false)
+                                } else {
+                                    append_doc_schema(previous.clone(), value.clone(), false)
+                                };
+                                pattern_properties.insert(pattern, merged);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        if !pattern_properties.is_empty() {
+            out["patternProperties"] = serde_json::Value::Object(pattern_properties);
+        }
+        if unrepresentable && self.options.on_excess_property == OnExcessProperty::Error {
+            let mut names: Vec<serde_json::Value> = Vec::new();
+            if !properties.is_empty() {
+                names.push(serde_json::json!({
+                    "enum": properties.iter().filter_map(|property| {
+                        property.get("name").cloned()
+                    }).collect::<Vec<_>>(),
+                }));
+            }
+            for (index, signature) in index.iter().enumerate() {
+                let signature_path = doc_idx(&doc_seg(path, "indexSignatures"), index);
+                names.push(self.recur(
+                    signature.get("parameter").ok_or_else(|| {
+                        doc_error(&signature_path, "an index signature carries a `parameter`")
+                    })?,
+                    &doc_seg(&signature_path, "parameter"),
+                    deps,
+                )?);
+            }
+            out["propertyNames"] = if names.len() == 1 {
+                names.into_iter().next().expect("one name")
+            } else {
+                serde_json::json!({ "anyOf": names })
+            };
+            out["additionalProperties"] = if index_values.len() == 1 {
+                index_values.into_iter().next().expect("one value")
+            } else {
+                serde_json::json!({ "anyOf": index_values })
+            };
+            if !unconstrained.is_empty() {
+                out["allOf"] = serde_json::Value::Array(
+                    unconstrained
+                        .into_iter()
+                        .map(|value| serde_json::json!({ "type": "object", "additionalProperties": value }))
+                        .collect(),
+                );
+            }
+        } else if unconstrained.is_empty() {
+            out["additionalProperties"] = serde_json::Value::Bool(
+                unrepresentable || self.options.on_excess_property != OnExcessProperty::Error,
+            );
+        } else if unconstrained.len() == 1
+            && properties.is_empty()
+            && pattern_properties_is_empty(&out)
+        {
+            out["additionalProperties"] = unconstrained.into_iter().next().expect("one value");
+            if out["additionalProperties"]
+                .as_object()
+                .is_some_and(serde_json::Map::is_empty)
+            {
+                out.as_object_mut()
+                    .and_then(|map| map.remove("additionalProperties"));
+            }
+        } else if !unconstrained.is_empty() {
+            out["allOf"] = serde_json::Value::Array(
+                unconstrained
+                    .into_iter()
+                    .map(|value| serde_json::json!({ "type": "object", "additionalProperties": value }))
+                    .collect(),
+            );
+        }
+        Ok(out)
+    }
+
+    /// The `patternProperties` selectors an index-signature parameter admits:
+    /// an unconstrained string admits none, an exact pattern check or template
+    /// admits one, and a union admits every member's. Anything else is
+    /// unrepresentable (`None`), and a non-string, non-template, non-union
+    /// parameter is invalid.
+    fn index_patterns(
+        &mut self,
+        parameter: &serde_json::Value,
+        path: &str,
+        seen: &mut Vec<String>,
+    ) -> Result<Option<Vec<String>>, SchemaError> {
+        let tag = parameter
+            .get("_tag")
+            .and_then(serde_json::Value::as_str)
+            .ok_or_else(|| doc_error(path, "a representation carries a string `_tag`"))?;
+        match tag {
+            "Reference" => {
+                let key = parameter
+                    .get("$ref")
+                    .and_then(serde_json::Value::as_str)
+                    .ok_or_else(|| doc_error(path, "a `Reference` carries a `$ref`"))?;
+                if !self.references.contains_key(key) {
+                    return Err(doc_error(
+                        doc_seg(path, "$ref"),
+                        format!("Invalid reference {key}"),
+                    ));
+                }
+                self.compile_definition(key, path)?;
+                if seen.contains(&key.to_string()) {
+                    return Ok(None);
+                }
+                seen.push(key.to_string());
+                let body = self.references.get(key).cloned().expect("checked above");
+                let patterns =
+                    self.index_patterns(&body, &format!("[\"references\"][\"{key}\"]"), seen);
+                seen.pop();
+                patterns
+            }
+            "String" => {
+                let checks: Vec<serde_json::Value> = parameter
+                    .get("checks")
+                    .and_then(serde_json::Value::as_array)
+                    .cloned()
+                    .unwrap_or_default();
+                if checks.is_empty() {
+                    return Ok(Some(Vec::new()));
+                }
+                if checks.len() != 1 {
+                    return Ok(None);
+                }
+                let check = &checks[0];
+                let is_filter =
+                    check.get("_tag").and_then(serde_json::Value::as_str) == Some("Filter");
+                let has_callback = check
+                    .get("annotations")
+                    .and_then(|annotations| annotations.get("toJsonSchema"))
+                    .and_then(serde_json::Value::as_str)
+                    .is_some_and(|id| self.options.callbacks.contains_key(id));
+                let has_builtin = check
+                    .get("representation")
+                    .and_then(|identity| identity.get("id"))
+                    .and_then(serde_json::Value::as_str)
+                    .is_some_and(|id| {
+                        matches!(id, "effect/schema/isInt" | "effect/schema/isPattern")
+                    });
+                if !is_filter || (!has_callback && !has_builtin) {
+                    return Ok(None);
+                }
+                let local = self.fresh_deps();
+                let schema = self.recur(parameter, path, local)?;
+                if !self.is_exact(local, &mut Vec::new()) {
+                    return Ok(None);
+                }
+                match (schema.get("type"), schema.get("pattern")) {
+                    (
+                        Some(serde_json::Value::String(kind)),
+                        Some(serde_json::Value::String(pattern)),
+                    ) if kind == "string"
+                        && has_only_keywords(
+                            &schema,
+                            "|type|pattern|title|description|default|examples|readOnly|writeOnly|",
+                        ) =>
+                    {
+                        Ok(Some(vec![pattern.clone()]))
+                    }
+                    _ => Ok(None),
+                }
+            }
+            "TemplateLiteral" => {
+                let checks_empty = parameter
+                    .get("checks")
+                    .and_then(serde_json::Value::as_array)
+                    .is_none_or(Vec::is_empty);
+                if !checks_empty {
+                    return Ok(None);
+                }
+                let parts = parameter
+                    .get("parts")
+                    .and_then(serde_json::Value::as_array)
+                    .ok_or_else(|| doc_error(path, "a `TemplateLiteral` carries `parts`"))?;
+                let mut pattern = String::from("^");
+                for (index, part) in parts.iter().enumerate() {
+                    pattern.push_str(&template_part_pattern(
+                        part,
+                        &doc_idx(&doc_seg(path, "parts"), index),
+                    )?);
+                }
+                pattern.push('$');
+                Ok(Some(vec![pattern]))
+            }
+            "Union" => {
+                let members = parameter
+                    .get("types")
+                    .and_then(serde_json::Value::as_array)
+                    .ok_or_else(|| doc_error(path, "a `Union` carries `types`"))?;
+                if members.is_empty()
+                    || parameter
+                        .get("checks")
+                        .and_then(serde_json::Value::as_array)
+                        .is_some_and(|checks| !checks.is_empty())
+                    || parameter
+                        .get("options")
+                        .and_then(|options| options.get("mode"))
+                        .and_then(serde_json::Value::as_str)
+                        == Some("oneOf")
+                {
+                    return Ok(None);
+                }
+                let mut patterns = Vec::new();
+                for (index, member) in members.iter().enumerate() {
+                    match self.index_patterns(
+                        member,
+                        &doc_idx(&doc_seg(path, "types"), index),
+                        seen,
+                    )? {
+                        None => return Ok(None),
+                        Some(member_patterns) if member_patterns.is_empty() => {
+                            return Ok(Some(Vec::new()));
+                        }
+                        Some(member_patterns) => patterns.extend(member_patterns),
+                    }
+                }
+                Ok(Some(patterns))
+            }
+            _ => Err(doc_error(path, "Invalid schema representation document")),
+        }
+    }
+}
+
+/// Whether an object document carries no `patternProperties` entry.
+fn pattern_properties_is_empty(doc: &serde_json::Value) -> bool {
+    doc.get("patternProperties").is_none()
+}
+
+/// A literal or enum value the document spells: plain JSON scalars plus the
+/// persisted typed wrappers for ambiguous values (non-finite numbers keep
+/// their names, bigints keep their digits).
+enum LiteralScalar {
+    Text(String),
+    Number(serde_json::Number),
+    Bool(bool),
+    BigInt(String),
+    NonFinite(String),
+}
+
+fn literal_scalar(value: &serde_json::Value, path: &str) -> Result<LiteralScalar, SchemaError> {
+    match value {
+        serde_json::Value::Null | serde_json::Value::Array(_) | serde_json::Value::Object(_) => {
+            if let Some(wrapper) = value.as_object() {
+                let kind = wrapper
+                    .get("type")
+                    .and_then(serde_json::Value::as_str)
+                    .unwrap_or_default();
+                let body = wrapper.get("value");
+                match (kind, body) {
+                    ("string", Some(serde_json::Value::String(text))) => {
+                        return Ok(LiteralScalar::Text(text.clone()));
+                    }
+                    ("number", Some(serde_json::Value::String(name)))
+                        if matches!(name.as_str(), "NaN" | "Infinity" | "-Infinity") =>
+                    {
+                        return Ok(LiteralScalar::NonFinite(name.clone()));
+                    }
+                    ("number", Some(serde_json::Value::Number(number))) => {
+                        return Ok(LiteralScalar::Number(number.clone()));
+                    }
+                    ("bigint", Some(serde_json::Value::String(digits))) => {
+                        return Ok(LiteralScalar::BigInt(digits.clone()));
+                    }
+                    _ => {}
+                }
+            }
+            Err(doc_error(path, "a literal is a JSON scalar"))
+        }
+        serde_json::Value::Bool(flag) => Ok(LiteralScalar::Bool(*flag)),
+        serde_json::Value::Number(number) => Ok(LiteralScalar::Number(number.clone())),
+        serde_json::Value::String(text) => Ok(LiteralScalar::Text(text.clone())),
+    }
+}
+
+/// One template-literal part as its pattern: literals escape, `String` and
+/// `Number` contribute their character classes, and templates and unions
+/// nest. Anything else is invalid.
+fn template_part_pattern(part: &serde_json::Value, path: &str) -> Result<String, SchemaError> {
+    let tag = part
+        .get("_tag")
+        .and_then(serde_json::Value::as_str)
+        .ok_or_else(|| doc_error(path, "a representation carries a string `_tag`"))?;
+    match tag {
+        "Literal" => {
+            let literal = part
+                .get("literal")
+                .ok_or_else(|| doc_error(path, "a `Literal` carries a `literal`"))?;
+            match literal_scalar(literal, path)? {
+                LiteralScalar::Text(text) => Ok(escape_regex(&text)),
+                LiteralScalar::Number(number) => Ok(escape_regex(&number.to_string())),
+                LiteralScalar::Bool(flag) => Ok(escape_regex(&flag.to_string())),
+                LiteralScalar::BigInt(digits) => Ok(escape_regex(&digits)),
+                LiteralScalar::NonFinite(_) => {
+                    Err(doc_error(path, "a literal is a finite JSON scalar"))
+                }
+            }
+        }
+        "String" => Ok("[\\s\\S]*?".to_string()),
+        "Number" => Ok("[+-]?\\d*\\.?\\d+(?:[Ee][+-]?\\d+)?".to_string()),
+        "TemplateLiteral" => {
+            let parts = part
+                .get("parts")
+                .and_then(serde_json::Value::as_array)
+                .ok_or_else(|| doc_error(path, "a `TemplateLiteral` carries `parts`"))?;
+            let mut pattern = String::new();
+            for (index, nested) in parts.iter().enumerate() {
+                pattern.push_str(&template_part_pattern(
+                    nested,
+                    &doc_idx(&doc_seg(path, "parts"), index),
+                )?);
+            }
+            Ok(pattern)
+        }
+        "Union" => {
+            let members = part
+                .get("types")
+                .and_then(serde_json::Value::as_array)
+                .ok_or_else(|| doc_error(path, "a `Union` carries `types`"))?;
+            let mut members_out = Vec::with_capacity(members.len());
+            for (index, member) in members.iter().enumerate() {
+                members_out.push(template_part_pattern(
+                    member,
+                    &doc_idx(&doc_seg(path, "types"), index),
+                )?);
+            }
+            Ok(format!("(?:{})", members_out.join("|")))
+        }
+        _ => Err(doc_error(path, "Invalid schema representation document")),
+    }
+}
+
+/// Merge a check fragment into its base: an empty base takes the fragment, an
+/// empty fragment keeps the base, a `number`/`integer` type absorbs through
+/// the artificial number encoding, an inline check tightens bounds in place,
+/// and anything else lands in `allOf`.
+fn append_doc_schema(
+    mut left: serde_json::Value,
+    right: serde_json::Value,
+    inline_check: bool,
+) -> serde_json::Value {
+    if left.as_object().is_some_and(serde_json::Map::is_empty) {
+        return right;
+    }
+    let right_keys: Vec<String> = right
+        .as_object()
+        .map(|map| map.keys().cloned().collect())
+        .unwrap_or_default();
+    if right_keys.is_empty() {
+        return left;
+    }
+    let left_type = left
+        .get("type")
+        .and_then(serde_json::Value::as_str)
+        .filter(|kind| *kind == "number" || *kind == "integer")
+        .map(str::to_string);
+    let is_number_encoding = is_number_encoding(&left);
+    if left_type.is_some() || is_number_encoding {
+        let extracted = extract_number_type(&right);
+        if let Some(number_type) = extracted.0 {
+            let merged_type = if left_type.as_deref() == Some("integer") || number_type == "integer"
+            {
+                "integer"
+            } else {
+                "number"
+            };
+            let mut base = left.clone();
+            if let Some(map) = base.as_object_mut() {
+                map.insert(
+                    "type".to_string(),
+                    serde_json::Value::String(merged_type.to_string()),
+                );
+                if is_number_encoding {
+                    map.remove("anyOf");
+                }
+            }
+            let extracted_keys: Vec<String> = extracted
+                .1
+                .as_object()
+                .map(|map| map.keys().cloned().collect())
+                .unwrap_or_default();
+            if extracted_keys.is_empty() {
+                return base;
+            }
+            if has_only_keywords(&extracted.1, PROMOTABLE_ANNOTATION_KEYWORDS)
+                && has_no_collisions(&base, &extracted_keys)
+            {
+                let mut merged = base;
+                if let (Some(map), Some(extra)) = (merged.as_object_mut(), extracted.1.as_object())
+                {
+                    for (key, value) in extra {
+                        map.insert(key.clone(), value.clone());
+                    }
+                }
+                return merged;
+            }
+            return append_doc_schema(base, extracted.1, inline_check);
+        }
+    }
+    if inline_check && let Some(merged) = merge_inline_check(&left, &right, &right_keys) {
+        return merged;
+    }
+    let members: Vec<serde_json::Value> = if right
+        .get("allOf")
+        .and_then(serde_json::Value::as_array)
+        .is_some()
+        && right_keys.len() == 1
+    {
+        right
+            .get("allOf")
+            .cloned()
+            .and_then(|entries| entries.as_array().cloned())
+            .unwrap_or_default()
+    } else {
+        vec![right]
+    };
+    if left
+        .get("allOf")
+        .and_then(serde_json::Value::as_array)
+        .is_some()
+    {
+        left.as_object_mut().and_then(|map| {
+            map.get_mut("allOf").and_then(|entries| {
+                entries
+                    .as_array_mut()
+                    .map(|entries| entries.extend(members))
+            })
+        });
+        return left;
+    }
+    if left
+        .get("$ref")
+        .and_then(serde_json::Value::as_str)
+        .is_some()
+    {
+        let mut entries = vec![left];
+        entries.extend(members);
+        return serde_json::json!({ "allOf": entries });
+    }
+    if let Some(map) = left.as_object_mut() {
+        map.insert("allOf".to_string(), serde_json::Value::Array(members));
+    }
+    left
+}
+
+/// Whether a document is the artificial number encoding: a `number` branch
+/// beside the non-finite string spellings.
+fn is_number_encoding(doc: &serde_json::Value) -> bool {
+    let Some(members) = doc.get("anyOf").and_then(serde_json::Value::as_array) else {
+        return false;
+    };
+    if members.len() != 2
+        || members[0].get("type") != Some(&serde_json::Value::String("number".to_string()))
+    {
+        return false;
+    }
+    let special = &members[1];
+    special.get("type") == Some(&serde_json::Value::String("string".to_string()))
+        && special
+            .get("enum")
+            .and_then(serde_json::Value::as_array)
+            .is_some_and(|values| {
+                ["NaN", "Infinity", "-Infinity"]
+                    .iter()
+                    .all(|name| values.contains(&serde_json::Value::String(name.to_string())))
+            })
+}
+
+/// Pull a `number`/`integer` type out of a fragment, recursing through
+/// `allOf` members. Members left without a type stay behind.
+fn extract_number_type(fragment: &serde_json::Value) -> (Option<String>, serde_json::Value) {
+    let mut number_type = match fragment.get("type").and_then(serde_json::Value::as_str) {
+        Some("number" | "integer") => fragment
+            .get("type")
+            .and_then(serde_json::Value::as_str)
+            .map(str::to_string),
+        _ => None,
+    };
+    let mut out = fragment.clone();
+    if number_type.is_some()
+        && let Some(map) = out.as_object_mut()
+    {
+        map.remove("type");
+    }
+    if let Some(members) = out
+        .get("allOf")
+        .and_then(serde_json::Value::as_array)
+        .cloned()
+    {
+        let mut kept = Vec::new();
+        let mut changed = false;
+        for member in members {
+            let (member_type, rest) = extract_number_type(&member);
+            if let Some(member_type) = member_type {
+                changed = true;
+                if number_type.is_none() || member_type == "integer" {
+                    number_type = Some(member_type);
+                }
+            }
+            if !rest.as_object().is_some_and(serde_json::Map::is_empty) {
+                kept.push(rest);
+            }
+        }
+        if changed {
+            if let Some(map) = out.as_object_mut() {
+                map.remove("allOf");
+                if !kept.is_empty() {
+                    map.insert("allOf".to_string(), serde_json::Value::Array(kept));
+                }
+            }
+        }
+    }
+    (number_type, out)
+}
+
+/// Tighten repeated bounds in place and drop an inclusive or exclusive bound
+/// implied by the other on the same side. Anything else (a `$ref` base or a
+/// non-bound collision) refuses, so the caller falls back to `allOf`.
+fn merge_inline_check(
+    left: &serde_json::Value,
+    right: &serde_json::Value,
+    right_keys: &[String],
+) -> Option<serde_json::Value> {
+    if left
+        .get("$ref")
+        .and_then(serde_json::Value::as_str)
+        .is_some()
+    {
+        return None;
+    }
+    let mut out = left.clone();
+    let map = out.as_object_mut()?;
+    for (key, value) in right.as_object()? {
+        map.insert(key.clone(), value.clone());
+    }
+    for key in right_keys {
+        if left.get(key).is_none() {
+            continue;
+        }
+        let (Some(first), Some(second)) = (
+            left.get(key).and_then(serde_json::Value::as_f64),
+            right.get(key).and_then(serde_json::Value::as_f64),
+        ) else {
+            return None;
+        };
+        let tightened = if is_lower_bound_keyword(key) {
+            first.max(second)
+        } else if is_upper_bound_keyword(key) {
+            first.min(second)
+        } else {
+            return None;
+        };
+        // Whole bounds keep their integer form, which is what the pin prints.
+        map.insert(key.clone(), num_value(tightened));
+    }
+    if let (Some(minimum), Some(exclusive)) = (
+        map.get("minimum").and_then(serde_json::Value::as_f64),
+        map.get("exclusiveMinimum")
+            .and_then(serde_json::Value::as_f64),
+    ) {
+        map.remove(if exclusive >= minimum {
+            "minimum"
+        } else {
+            "exclusiveMinimum"
+        });
+    }
+    if let (Some(maximum), Some(exclusive)) = (
+        map.get("maximum").and_then(serde_json::Value::as_f64),
+        map.get("exclusiveMaximum")
+            .and_then(serde_json::Value::as_f64),
+    ) {
+        map.remove(if exclusive <= maximum {
+            "maximum"
+        } else {
+            "exclusiveMaximum"
+        });
+    }
+    Some(out)
+}
+
+/// Compact same-type literal enums with disjoint values into one typed enum.
+fn compact_doc_enums(members: &[serde_json::Value]) -> Option<serde_json::Value> {
+    if members.iter().any(|member| {
+        member.as_object().is_none_or(|map| {
+            map.len() != 2 || !map.contains_key("type") || !map.contains_key("enum")
+        })
+    }) {
+        return None;
+    }
+    let first_type = members[0].get("type").cloned();
+    let mut merged = Vec::new();
+    for member in members {
+        if member.get("type") != first_type.as_ref() {
+            return None;
+        }
+        let values: Vec<serde_json::Value> = member
+            .get("enum")
+            .and_then(serde_json::Value::as_array)
+            .cloned()
+            .unwrap_or_default();
+        if values.is_empty() || values.iter().any(|value| merged.contains(value)) {
+            return None;
+        }
+        merged.extend(values);
+    }
+    Some(serde_json::json!({ "type": first_type, "enum": merged }))
+}
+
+/// Format a definition name as a URI fragment reference: JSON Pointer
+/// escaping, then `encodeURI`, with `#` encoded.
+fn encode_uri_token(token: &str) -> String {
+    let mut out = String::with_capacity(token.len());
+    for char in token.chars() {
+        match char {
+            'A'..='Z'
+            | 'a'..='z'
+            | '0'..='9'
+            | ';'
+            | ','
+            | '/'
+            | '?'
+            | ':'
+            | '@'
+            | '&'
+            | '='
+            | '+'
+            | '$'
+            | '-'
+            | '_'
+            | '.'
+            | '!'
+            | '~'
+            | '*'
+            | '\''
+            | '('
+            | ')' => out.push(char),
+            '#' => out.push_str("%23"),
+            _ => {
+                let mut buffer = [0u8; 4];
+                for byte in char.encode_utf8(&mut buffer).bytes() {
+                    out.push_str(&format!("%{byte:02X}"));
+                }
+            }
+        }
+    }
+    out
 }
