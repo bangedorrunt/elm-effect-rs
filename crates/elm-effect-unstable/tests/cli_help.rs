@@ -13,7 +13,9 @@ use elm_effect_unstable::cli::help::{
     visual_width,
 };
 use elm_effect_unstable::cli::suggest;
-use elm_effect_unstable::cli_completions::{DescriptorCommand, ParamDef, ParamType, bash, from_command};
+use elm_effect_unstable::cli_completions::{
+    DescriptorCommand, ParamDef, ParamType, bash, from_command,
+};
 
 /// The pin's global shared flags on the comprehensive root.
 fn root_shared_flags() -> Vec<HelpFlagDecl> {
@@ -201,8 +203,8 @@ fn omittable_flags_are_not_required_in_structured_help() {
 #[test]
 fn omittable_arguments_are_not_required_in_structured_help() {
     // :53 marks omittable arguments as not required in structured help
-    let required_variadic = HelpNode::new("app")
-        .with_args(vec![HelpArgDecl::string("files").variadic_min(1)]);
+    let required_variadic =
+        HelpNode::new("app").with_args(vec![HelpArgDecl::string("files").variadic_min(1)]);
     let optional_variadic =
         HelpNode::new("app").with_args(vec![HelpArgDecl::string("files").variadic()]);
     let defaulted =
@@ -284,7 +286,8 @@ fn separates_long_subcommand_and_argument_names() {
     let child = HelpNode::new("account:set-password")
         .with_description("Rewrite the credential hash")
         .with_args(vec![
-            HelpArgDecl::string("existing-account-identifier").with_description("Account to update"),
+            HelpArgDecl::string("existing-account-identifier")
+                .with_description("Account to update"),
         ]);
     let root = HelpNode::new("demo").with_subcommands(vec![child]);
     let root_help = render(&root, &["demo"]);
@@ -317,18 +320,16 @@ fn hides_flags_marked_hidden_from_help_output() {
 #[test]
 fn hidden_flag_still_parses_on_the_command_line() {
     // :209 hidden flag still parses on the command line
-    let node = HelpNode::new("tool").with_flags(vec![
-        HelpFlagDecl::string("experimental-foo").hidden(),
-    ]);
+    let node =
+        HelpNode::new("tool").with_flags(vec![HelpFlagDecl::string("experimental-foo").hidden()]);
     assert!(node.find_flag("experimental-foo").is_some());
 }
 
 #[test]
 fn hidden_flag_name_does_not_leak_through_suggestions() {
     // :225 hidden flag name does not leak through unrecognized-flag suggestions
-    let node = HelpNode::new("tool").with_flags(vec![
-        HelpFlagDecl::string("experimental-foo").hidden(),
-    ]);
+    let node =
+        HelpNode::new("tool").with_flags(vec![HelpFlagDecl::string("experimental-foo").hidden()]);
     let visible = node.visible_flag_names();
     assert!(!visible.contains(&"experimental-foo"));
     let leaked = suggest("experimental-fo", &visible);
@@ -353,25 +354,29 @@ fn hides_unlisted_subcommands_from_help_output() {
 #[test]
 fn unlisted_subcommand_still_parses_on_the_command_line() {
     // :263 unlisted subcommand still parses on the command line
-    let root = HelpNode::new("tool")
-        .with_subcommands(vec![HelpNode::new("experimental-foo").unlisted()]);
+    let root =
+        HelpNode::new("tool").with_subcommands(vec![HelpNode::new("experimental-foo").unlisted()]);
     assert!(root.find_subcommand("experimental-foo").is_some());
 }
 
 #[test]
 fn unlisted_subcommand_name_does_not_leak_through_suggestions() {
     // :284 unlisted subcommand name does not leak through unknown-subcommand suggestions
-    let root = HelpNode::new("tool")
-        .with_subcommands(vec![HelpNode::new("experimental-foo").unlisted()]);
+    let root =
+        HelpNode::new("tool").with_subcommands(vec![HelpNode::new("experimental-foo").unlisted()]);
     let err = root.resolve_subcommand("experimental-fo").unwrap_err();
-    assert!(!err.suggestions.iter().any(|name| name.contains("experimental-foo")));
+    assert!(
+        !err.suggestions
+            .iter()
+            .any(|name| name.contains("experimental-foo"))
+    );
 }
 
 #[test]
 fn subcommand_group_with_only_unlisted_commands_disappears_entirely() {
     // :301 subcommand group with only unlisted commands disappears entirely
-    let root = HelpNode::new("tool")
-        .with_subcommands(vec![HelpNode::new("experimental-foo").unlisted()]);
+    let root =
+        HelpNode::new("tool").with_subcommands(vec![HelpNode::new("experimental-foo").unlisted()]);
     let text = render(&root, &["tool"]);
     assert!(!text.contains("SUBCOMMANDS"));
     assert!(!text.contains("<subcommand>"));
@@ -438,7 +443,10 @@ fn renders_deeply_nested_subcommand_help() {
 fn renders_mixed_required_and_optional_positional_arguments() {
     // :454 renders mixed required and optional positional arguments
     assert_eq!(
-        render(&comprehensive_mycli(), &["mycli", "admin", "users", "create"]),
+        render(
+            &comprehensive_mycli(),
+            &["mycli", "admin", "users", "create"]
+        ),
         EXPECTED_CREATE
     );
 }
@@ -486,15 +494,16 @@ fn includes_inherited_shared_flags_in_subcommand_completions() {
         .with_context_flags(vec![
             ParamDef::flag("workspace", ParamType::String).with_alias("w"),
         ])
-        .with_subcommands(vec![
-            DescriptorCommand::new("chat").with_flags(vec![
-                ParamDef::flag("topic", ParamType::String).with_alias("t"),
-            ]),
-        ]);
+        .with_subcommands(vec![DescriptorCommand::new("chat").with_flags(vec![
+            ParamDef::flag("topic", ParamType::String).with_alias("t"),
+        ])]);
     let script = bash::generate("tool", &from_command(&root, &[]));
     let chat = script.split("_tool_chat()").nth(1).expect("chat function");
     assert!(chat.contains("_filtered_flags+=\" --topic -t\""), "{chat}");
-    assert!(chat.contains("_filtered_flags+=\" --workspace -w\""), "{chat}");
+    assert!(
+        chat.contains("_filtered_flags+=\" --workspace -w\""),
+        "{chat}"
+    );
 }
 
 #[test]
@@ -579,4 +588,3 @@ const EXPECTED_SET: &str = "DESCRIPTION\n  Set configuration values\n\nUSAGE\n  
 const EXPECTED_GROUPED: &str = "USAGE\n  tool <subcommand> [flags]\n\nGLOBAL FLAGS\n  --help, -h                                                          Show help information\n  --version, -v                                                       Show version information\n  --wizard                                                            Start wizard mode for a command\n  --completions <bash|zsh|fish|sh>                                    Print shell completion script (choices: bash, zsh, fish, sh)\n  --log-level <all|trace|debug|info|warn|warning|error|fatal|none>    Sets the minimum log level (choices: all, trace, debug, info, warn, warning, error, fatal, none)\n\nSUBCOMMANDS\n  ungrouped    This command is not in a group\n\nQuick Start:\n  init     Create a new project\n  login    Authenticate with the platform\n\nLocal Development:\n  start    Start local services\n  stop     Stop local services\n  db       Manage local database\n\nManagement APIs:\n  projects     Manage cloud projects\n  functions    Manage edge functions";
 
 const EXPECTED_ALIAS: &str = "USAGE\n  tool <subcommand> [flags]\n\nGLOBAL FLAGS\n  --help, -h                                                          Show help information\n  --version, -v                                                       Show version information\n  --wizard                                                            Start wizard mode for a command\n  --completions <bash|zsh|fish|sh>                                    Print shell completion script (choices: bash, zsh, fish, sh)\n  --log-level <all|trace|debug|info|warn|warning|error|fatal|none>    Sets the minimum log level (choices: all, trace, debug, info, warn, warning, error, fatal, none)\n\nSUBCOMMANDS\n  plan, p    Draft a plan in your editor";
-

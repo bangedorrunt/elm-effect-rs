@@ -3,7 +3,11 @@
 use elm_effect_unstable::ai::{ApprovalTracker, ChatMessage, ChatRole, ChatStore};
 
 fn message(id: &str, role: ChatRole, content: &str) -> ChatMessage {
-    ChatMessage { id: id.to_owned(), role, content: content.to_owned() }
+    ChatMessage {
+        id: id.to_owned(),
+        role,
+        content: content.to_owned(),
+    }
 }
 
 #[test]
@@ -56,7 +60,10 @@ fn prefers_the_message_identifier_of_the_most_recent_assistant_message() {
             message("msg_123abc", ChatRole::Assistant, "first assistant message"),
         ],
     );
-    assert_eq!(store.latest_assistant_id("2").as_deref(), Some("msg_123abc"));
+    assert_eq!(
+        store.latest_assistant_id("2").as_deref(),
+        Some("msg_123abc")
+    );
     assert_eq!(store.latest_assistant_id("missing"), None);
 }
 

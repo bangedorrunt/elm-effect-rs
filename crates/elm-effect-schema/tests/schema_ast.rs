@@ -1,6 +1,6 @@
 use elm_effect_schema::{Schema, SchemaKind, Unknown};
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 #[test]
 fn ast_visitor_walks_nested_kinds() {

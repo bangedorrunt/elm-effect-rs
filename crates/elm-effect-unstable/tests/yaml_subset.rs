@@ -48,19 +48,17 @@ fn parses_nested_block_and_flow_collections() {
 
 #[test]
 fn rejects_content_outside_the_subset() {
-    assert!(matches!(
-        yaml::parse("key: [unclosed"),
-        Err(YamlError(_))
-    ));
+    assert!(matches!(yaml::parse("key: [unclosed"), Err(YamlError(_))));
     assert!(yaml::parse("").is_err());
 }
 
 #[test]
 fn parses_quoted_and_block_scalars() {
     use yaml::YamlValue;
-    let parsed =
-        yaml::parse("quoted: \"line\\nvalue\"\nliteral: |\n  first\n  second\nfolded: >-\n  first\n  second\n")
-            .unwrap();
+    let parsed = yaml::parse(
+        "quoted: \"line\\nvalue\"\nliteral: |\n  first\n  second\nfolded: >-\n  first\n  second\n",
+    )
+    .unwrap();
     let expected = YamlValue::Map(vec![
         (
             "quoted".to_string(),
@@ -97,18 +95,9 @@ fn folds_block_scalars() {
 fn keeps_chomping_and_digit_indents() {
     // Yaml.test.ts:72 - explicit digits, keep chomping, blank runs.
     for (source, expected) in [
-        (
-            "message: >-2\n\n    first\n  second\n",
-            "\n  first\nsecond",
-        ),
-        (
-            "message: >+2\n  first\n    second\n",
-            "first\n  second\n",
-        ),
-        (
-            "message: >-\n  first\n\n\n  second\n",
-            "first\n\nsecond",
-        ),
+        ("message: >-2\n\n    first\n  second\n", "\n  first\nsecond"),
+        ("message: >+2\n  first\n    second\n", "first\n  second\n"),
+        ("message: >-\n  first\n\n\n  second\n", "first\n\nsecond"),
     ] {
         let parsed = yaml::parse(source).expect("parses");
         let want = YamlValue::Map(vec![("message".to_owned(), text(expected))]);
@@ -126,7 +115,10 @@ fn resolves_anchors_and_aliases() {
     let host = ("host".to_owned(), text("localhost"));
     let port = ("port".to_owned(), YamlValue::Int(5432));
     let want = YamlValue::Map(vec![
-        ("defaults".to_owned(), YamlValue::Map(vec![host.clone(), port.clone()])),
+        (
+            "defaults".to_owned(),
+            YamlValue::Map(vec![host.clone(), port.clone()]),
+        ),
         (
             "development".to_owned(),
             YamlValue::Map(vec![(
@@ -138,7 +130,8 @@ fn resolves_anchors_and_aliases() {
     assert_eq!(parsed, want);
     // Unknown aliases fail instead of resolving to null.
     assert!(yaml::parse("settings: *missing\n").is_err());
-}#[test]
+}
+#[test]
 fn rejects_invalid_indentation() {
     // Yaml.test.ts:108 - inconsistent dedents fail instead of merging.
     let rejected = yaml::parse("root:\n   child: true\n  sibling: false\n");
@@ -192,10 +185,9 @@ fn parses_indentless_sequences() {
 #[test]
 fn folds_plain_multiline_scalars() {
     // Yaml.test.ts:220 - plain scalars fold across lines around comments.
-    let parsed = yaml::parse(
-        "description: Deploy\n  and verify. # end\n# between keys\nenabled: true\n",
-    )
-    .expect("parses");
+    let parsed =
+        yaml::parse("description: Deploy\n  and verify. # end\n# between keys\nenabled: true\n")
+            .expect("parses");
     assert_eq!(
         parsed,
         yaml::YamlValue::Map(vec![
@@ -281,14 +273,8 @@ fn parses_indentless_matrix() {
                 (
                     "metadata".to_owned(),
                     YamlValue::Map(vec![
-                        (
-                            "tools".to_owned(),
-                            YamlValue::Seq(vec![text("Read")]),
-                        ),
-                        (
-                            "roles".to_owned(),
-                            YamlValue::Seq(vec![text("admin")]),
-                        ),
+                        ("tools".to_owned(), YamlValue::Seq(vec![text("Read")])),
+                        ("roles".to_owned(), YamlValue::Seq(vec![text("admin")])),
                         ("enabled".to_owned(), YamlValue::Bool(true)),
                     ]),
                 ),
@@ -302,18 +288,12 @@ fn parses_indentless_matrix() {
                     "description".to_owned(),
                     text("Deploy the service and verify it."),
                 ),
-                (
-                    "tools".to_owned(),
-                    YamlValue::Seq(vec![text("Read")]),
-                ),
+                ("tools".to_owned(), YamlValue::Seq(vec![text("Read")])),
                 (
                     "metadata".to_owned(),
                     YamlValue::Map(vec![
                         ("description".to_owned(), text("Check the logs")),
-                        (
-                            "tools".to_owned(),
-                            YamlValue::Seq(vec![text("Bash")]),
-                        ),
+                        ("tools".to_owned(), YamlValue::Seq(vec![text("Bash")])),
                     ]),
                 ),
             ]),
@@ -440,7 +420,12 @@ fn folds_dashes_after_content() {
 #[test]
 fn preserves_indented_markers() {
     // Yaml.test.ts:311 - indented markers stay plain values.
-    for (marker, suffix) in [("---", ""), ("---", " # comment"), ("...", ""), ("...", " # comment")] {
+    for (marker, suffix) in [
+        ("---", ""),
+        ("---", " # comment"),
+        ("...", ""),
+        ("...", " # comment"),
+    ] {
         let source = format!("a:\n  {marker}{suffix}\n");
         assert_eq!(
             yaml::parse(&source).expect("parses"),
@@ -485,14 +470,8 @@ fn preserves_single_document_markers() {
             "---\n- one\n- two\n...\n",
             YamlValue::Seq(vec![text("one"), text("two")]),
         ),
-        (
-            "---\none\n...\n",
-            YamlValue::Text("one".to_owned()),
-        ),
-        (
-            "---\n...\n",
-            YamlValue::Null,
-        ),
+        ("---\none\n...\n", YamlValue::Text("one".to_owned())),
+        ("---\n...\n", YamlValue::Null),
     ] {
         assert_eq!(yaml::parse(source).expect("parses"), expected, "{source:?}");
     }
@@ -557,8 +536,7 @@ fn preserves_hashes_in_flow_and_quotes() {
     );
     // :372 - hashes inside quoted sequence items survive too.
     assert_eq!(
-        yaml::parse("descriptions: [\"Deploy # now\", 'Verify # later'] # end\n")
-            .expect("parses"),
+        yaml::parse("descriptions: [\"Deploy # now\", 'Verify # later'] # end\n").expect("parses"),
         YamlValue::Map(vec![(
             "descriptions".to_owned(),
             YamlValue::Seq(vec![text("Deploy # now"), text("Verify # later")]),

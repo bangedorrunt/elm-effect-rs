@@ -171,10 +171,7 @@ pub fn is_readonly_object(value: &Value) -> bool {
 
 /// `Predicate.isObjectKeyword`: objects, arrays and functions.
 pub fn is_object_keyword(value: &Value) -> bool {
-    matches!(
-        value,
-        Value::Object(_) | Value::Array(_) | Value::Function
-    )
+    matches!(value, Value::Object(_) | Value::Array(_) | Value::Function)
 }
 
 /// `Predicate.hasProperty`: the value is object-like and holds the key.
@@ -242,9 +239,7 @@ pub fn is_iterable(value: &Value) -> bool {
 pub fn is_promise(value: &Value) -> bool {
     match value {
         Value::Promise => true,
-        Value::Object(record) => {
-            record.contains_key("then") && record.contains_key("catch")
-        }
+        Value::Object(record) => record.contains_key("then") && record.contains_key("catch"),
         _ => false,
     }
 }

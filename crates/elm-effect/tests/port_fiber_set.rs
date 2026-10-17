@@ -23,7 +23,9 @@ fn counter() -> Arc<AtomicUsize> {
 /// A member that runs until interrupted: it records that it entered, then
 /// spins on the interrupt flag. This is how the pin's `Effect.never` bodies
 /// end — an interruption, not a value.
-fn blocking_body(entered: Arc<AtomicUsize>) -> impl FnOnce(&Ctx) -> Exit<i32, String> + Send + 'static {
+fn blocking_body(
+    entered: Arc<AtomicUsize>,
+) -> impl FnOnce(&Ctx) -> Exit<i32, String> + Send + 'static {
     move |ctx| {
         entered.fetch_add(1, Ordering::SeqCst);
         while !ctx.is_interrupted() {

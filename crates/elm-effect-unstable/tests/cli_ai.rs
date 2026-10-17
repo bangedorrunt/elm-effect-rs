@@ -5,14 +5,14 @@ use elm_effect_unstable::ai::{
     AiError, AiReason, FakeModel, GeneratedText, LanguageModel, ModelError, is_ai_error,
     object_has_keys,
 };
+use elm_effect_unstable::cli::primitive;
 use elm_effect_unstable::cli::{CliApp, CliError, FlagDef, demo_app, parse};
 use elm_effect_unstable::cli_ai::CliError as WizardCliError;
-use elm_effect_unstable::cli::primitive;
-use std::collections::BTreeMap;
+use elm_effect_unstable::cli_ai::Run;
 use elm_effect_unstable::cli_ai::{
     Arg, Command, WizardStep, flag_arg, merge_key_values, option_runs, wizard_argv, wizard_plan,
 };
-use elm_effect_unstable::cli_ai::Run;
+use std::collections::BTreeMap;
 use std::sync::{Arc, Mutex};
 
 fn argv(words: &[&str]) -> Vec<String> {
@@ -565,10 +565,18 @@ fn lexer_tokenizes_argv() {
                 raw: "--lon".to_owned(),
                 value: None,
             },
-            LexToken::Value { value: "-3.70".to_owned() },
-            LexToken::Value { value: "-2".to_owned() },
-            LexToken::Value { value: "-.5".to_owned() },
-            LexToken::Value { value: "-1e3".to_owned() },
+            LexToken::Value {
+                value: "-3.70".to_owned()
+            },
+            LexToken::Value {
+                value: "-2".to_owned()
+            },
+            LexToken::Value {
+                value: "-.5".to_owned()
+            },
+            LexToken::Value {
+                value: "-1e3".to_owned()
+            },
         ]
     );
     // :28 - short options that are not negative numbers split per char.
@@ -576,9 +584,21 @@ fn lexer_tokenizes_argv() {
     assert_eq!(
         lexed.tokens,
         vec![
-            LexToken::ShortOption { flag: "1".to_owned(), raw: "-1".to_owned(), value: None },
-            LexToken::ShortOption { flag: "a".to_owned(), raw: "-a".to_owned(), value: None },
-            LexToken::ShortOption { flag: "e".to_owned(), raw: "-e".to_owned(), value: None },
+            LexToken::ShortOption {
+                flag: "1".to_owned(),
+                raw: "-1".to_owned(),
+                value: None
+            },
+            LexToken::ShortOption {
+                flag: "a".to_owned(),
+                raw: "-a".to_owned(),
+                value: None
+            },
+            LexToken::ShortOption {
+                flag: "e".to_owned(),
+                raw: "-e".to_owned(),
+                value: None
+            },
         ]
     );
 }
@@ -628,7 +648,13 @@ fn primitive_value_parsers() {
     assert_eq!(primitive::BOOLEAN_TAG, "Boolean");
     assert_eq!(primitive::FINITE_TAG, "Finite");
     // :98/99 - finite numbers parse.
-    for (text, want) in [("42", 42.0), ("3.14", 3.14), ("-42.5", -42.5), ("0", 0.0), ("1e3", 1000.0)] {
+    for (text, want) in [
+        ("42", 42.0),
+        ("3.14", 3.14),
+        ("-42.5", -42.5),
+        ("0", 0.0),
+        ("1e3", 1000.0),
+    ] {
         assert_eq!(primitive::parse_finite(text), Ok(want), "{text}");
     }
     // :108/:113 - the rest fail naming finite numbers.
@@ -646,8 +672,7 @@ fn primitive_value_parsers() {
     for text in ["3.14", "not-a-number"] {
         let err = primitive::parse_int(text).expect_err("rejects");
         assert!(
-            err == "Expected an integer"
-                || err == "Expected a string representing a finite number",
+            err == "Expected an integer" || err == "Expected a string representing a finite number",
             "{text}"
         );
     }
@@ -710,11 +735,15 @@ fn http_context_roundtrip() {
             hash: None,
             headers: headers.clone(),
         },
-        response: HttpResponseContext { status: 200, headers },
+        response: HttpResponseContext {
+            status: 200,
+            headers,
+        },
         body: "{\"result\": \"success\"}".to_owned(),
     };
     let text = serde_json::to_string(&context.to_json()).expect("encodes");
-    let back = HttpContext::from_json(&serde_json::from_str(&text).expect("json")).expect("decodes");
+    let back =
+        HttpContext::from_json(&serde_json::from_str(&text).expect("json")).expect("decodes");
     assert_eq!(back, context);
 }
 
@@ -722,42 +751,88 @@ fn http_context_roundtrip() {
 fn ai_reasons_roundtrip_json() {
     use elm_effect_unstable::ai::{AiError, AiReason};
     let reasons = vec![
-        AiReason::RateLimit { retry_after_secs: Some(60) },
-        AiReason::RateLimit { retry_after_secs: None },
+        AiReason::RateLimit {
+            retry_after_secs: Some(60),
+        },
+        AiReason::RateLimit {
+            retry_after_secs: None,
+        },
         AiReason::QuotaExhausted,
-        AiReason::Authentication { kind: "InvalidKey".to_owned() },
-        AiReason::ContentPolicy { description: Some("d".to_owned()) },
-        AiReason::InvalidRequest { parameter: "p".to_owned(), constraint: "c".to_owned() },
-        AiReason::InvalidOutput { details: "d".to_owned() },
-        AiReason::InternalProvider { details: "d".to_owned() },
+        AiReason::Authentication {
+            kind: "InvalidKey".to_owned(),
+        },
+        AiReason::ContentPolicy {
+            description: Some("d".to_owned()),
+        },
+        AiReason::InvalidRequest {
+            parameter: "p".to_owned(),
+            constraint: "c".to_owned(),
+        },
+        AiReason::InvalidOutput {
+            details: "d".to_owned(),
+        },
+        AiReason::InternalProvider {
+            details: "d".to_owned(),
+        },
         AiReason::Unknown,
-        AiReason::ToolNotFound { tool: "t".to_owned(), available: vec!["a".to_owned()] },
-        AiReason::ToolParameterValidation { tool_name: "t".to_owned(), description: "d".to_owned() },
-        AiReason::InvalidToolResult { tool_name: "t".to_owned(), description: "d".to_owned() },
+        AiReason::ToolNotFound {
+            tool: "t".to_owned(),
+            available: vec!["a".to_owned()],
+        },
+        AiReason::ToolParameterValidation {
+            tool_name: "t".to_owned(),
+            description: "d".to_owned(),
+        },
+        AiReason::InvalidToolResult {
+            tool_name: "t".to_owned(),
+            description: "d".to_owned(),
+        },
         AiReason::ToolResultEncoding {
             tool_name: "t".to_owned(),
             tool_result: "r".to_owned(),
             description: "d".to_owned(),
         },
-        AiReason::ToolConfiguration { tool_name: "t".to_owned(), description: "d".to_owned() },
-        AiReason::StructuredOutput { details: "d".to_owned(), response_text: String::new() },
-        AiReason::UnsupportedSchema { details: "d".to_owned() },
-        AiReason::InvalidUserInput { details: "d".to_owned() },
+        AiReason::ToolConfiguration {
+            tool_name: "t".to_owned(),
+            description: "d".to_owned(),
+        },
+        AiReason::StructuredOutput {
+            details: "d".to_owned(),
+            response_text: String::new(),
+        },
+        AiReason::UnsupportedSchema {
+            details: "d".to_owned(),
+        },
+        AiReason::InvalidUserInput {
+            details: "d".to_owned(),
+        },
         AiReason::ToolkitRequired,
-        AiReason::NetworkError { details: "d".to_owned() },
+        AiReason::NetworkError {
+            details: "d".to_owned(),
+        },
     ];
     for reason in &reasons {
         let text = serde_json::to_string(&reason.to_json()).expect("encodes");
-        let back = AiReason::from_json(&serde_json::from_str(&text).expect("json")).expect("decodes");
+        let back =
+            AiReason::from_json(&serde_json::from_str(&text).expect("json")).expect("decodes");
         assert_eq!(&back, reason);
     }
     // AiError.test.ts:708 - RateLimitError keeps its tag and retry info.
-    let limited = AiReason::RateLimit { retry_after_secs: Some(60) };
+    let limited = AiReason::RateLimit {
+        retry_after_secs: Some(60),
+    };
     let back = AiReason::from_json(&limited.to_json()).expect("decodes");
     assert_eq!(back.tag(), "RateLimitError");
-    assert!(matches!(back, AiReason::RateLimit { retry_after_secs: Some(60) }));
+    assert!(matches!(
+        back,
+        AiReason::RateLimit {
+            retry_after_secs: Some(60)
+        }
+    ));
     // :719 - the union dispatches on _tag.
-    let auth = AiReason::Authentication { kind: "InvalidKey".to_owned() };
+    let auth = AiReason::Authentication {
+        kind: "InvalidKey".to_owned(),
+    };
     let back = AiReason::from_json(&auth.to_json()).expect("decodes");
     assert_eq!(back.tag(), "AuthenticationError");
     // :734 - the wrapper round-trips with its reason.
@@ -776,8 +851,7 @@ fn ai_errors_from_schema_messages() {
     let invalid = AiReason::invalid_output_from_message("Expected string but got number");
     assert_eq!(invalid.tag(), "InvalidOutputError");
     // AiError.test.ts:444 - StructuredOutputError keeps message and response.
-    let structured =
-        AiReason::structured_output_from_message("Expected string", "{\"name\":123}");
+    let structured = AiReason::structured_output_from_message("Expected string", "{\"name\":123}");
     assert_eq!(structured.tag(), "StructuredOutputError");
     // AiError.test.ts:88 - descriptions survive JSON round-trips.
     let described = AiError::new(AiReason::Authentication {
@@ -904,25 +978,17 @@ fn primitive_path_resolution() {
         primitive::parse_path("/absolute/path", PathKind::Either, false).expect("kept"),
         "/absolute/path"
     );
-    let nested =
-        primitive::parse_path("relative/path", PathKind::Either, false).expect("resolves");
+    let nested = primitive::parse_path("relative/path", PathKind::Either, false).expect("resolves");
     assert!(nested.contains("relative/path"), "{nested}");
     // :265 - tag.
     assert_eq!(primitive::PATH_TAG, "Path");
     // :269 - a required file that is missing fails naming the path.
-    let missing = primitive::parse_path("/non/existent/file.txt", PathKind::File, true)
-        .expect_err("rejects");
+    let missing =
+        primitive::parse_path("/non/existent/file.txt", PathKind::File, true).expect_err("rejects");
     assert_eq!(missing, "Path does not exist: /non/existent/file.txt");
     // Present paths pass through existence checks.
     let manifest = env!("CARGO_MANIFEST_DIR");
-    assert!(
-        primitive::parse_path(
-            &format!("{manifest}/Cargo.toml"),
-            PathKind::File,
-            true
-        )
-        .is_ok()
-    );
+    assert!(primitive::parse_path(&format!("{manifest}/Cargo.toml"), PathKind::File, true).is_ok());
     // :294 - a required directory that is missing fails too.
     let missing_dir =
         primitive::parse_path("/non/existent/dir", PathKind::Directory, true).expect_err("rejects");
@@ -951,7 +1017,9 @@ fn primitive_key_value_pairs() {
     use elm_effect_unstable::cli::primitive;
     // Primitive.test.ts:346 - `=` inside values survives.
     assert_eq!(
-        primitive::parse_key_value("DATABASE_URL=postgres://user:pass@host:5432/db?sslmode=require"),
+        primitive::parse_key_value(
+            "DATABASE_URL=postgres://user:pass@host:5432/db?sslmode=require"
+        ),
         Ok((
             "DATABASE_URL".to_owned(),
             "postgres://user:pass@host:5432/db?sslmode=require".to_owned()
@@ -1033,8 +1101,8 @@ fn primitive_file_text_and_json() {
 
 #[test]
 fn options_parser_missing_and_unknown() {
-    use elm_effect_unstable::cli::primitive::{self, StrOption};
     use elm_effect_unstable::cli::CliError;
+    use elm_effect_unstable::cli::primitive::{self, StrOption};
     let required = StrOption {
         name: "value".to_owned(),
         required: true,
@@ -1043,11 +1111,8 @@ fn options_parser_missing_and_unknown() {
     let missing = primitive::parse_options(&[required.clone()], &[]).expect_err("fails");
     assert!(matches!(missing, CliError::MissingOption { ref option } if option == "value"));
     // Present values bind.
-    let bound = primitive::parse_options(
-        &[required],
-        &["--value".to_owned(), "x".to_owned()],
-    )
-    .expect("binds");
+    let bound = primitive::parse_options(&[required], &["--value".to_owned(), "x".to_owned()])
+        .expect("binds");
     assert_eq!(bound.values, [("value".to_owned(), "x".to_owned())]);
     assert!(bound.errors.is_empty());
     // Errors.test.ts:89 - unknown flags accumulate instead of failing.
@@ -1060,16 +1125,18 @@ fn options_parser_missing_and_unknown() {
     )
     .expect("collects");
     assert_eq!(collected.errors.len(), 2);
-    assert!(collected.errors.iter().all(|error| matches!(
-        error,
-        CliError::UnrecognizedOption { .. }
-    )));
+    assert!(
+        collected
+            .errors
+            .iter()
+            .all(|error| matches!(error, CliError::UnrecognizedOption { .. }))
+    );
 }
 
 #[test]
 fn positionals_sequence_and_bounds() {
     use elm_effect_unstable::cli::primitive::PositionalSpec;
-    use elm_effect_unstable::cli::{primitive, CliError};
+    use elm_effect_unstable::cli::{CliError, primitive};
     let argv = |words: &[&str]| words.iter().map(|w| (*w).to_owned()).collect::<Vec<_>>();
     let values = || PositionalSpec::Variadic {
         name: "values".to_owned(),
@@ -1077,9 +1144,11 @@ fn positionals_sequence_and_bounds() {
         default: None,
     };
     // Errors.test.ts:127 - a bounded run rejects its overflow.
-    let overflow =
-        primitive::parse_positionals(&[values()], &argv(&["one", "two", "three"])).expect_err("fails");
-    assert!(matches!(overflow, CliError::UnexpectedArgument { ref arguments } if arguments == &["three".to_owned()]));
+    let overflow = primitive::parse_positionals(&[values()], &argv(&["one", "two", "three"]))
+        .expect_err("fails");
+    assert!(
+        matches!(overflow, CliError::UnexpectedArgument { ref arguments } if arguments == &["three".to_owned()])
+    );
     // :143 - the run leaves room for what follows.
     let shared = primitive::parse_positionals(
         &[
@@ -1094,7 +1163,10 @@ fn positionals_sequence_and_bounds() {
     assert_eq!(
         shared,
         [
-            ("values".to_owned(), vec!["one".to_owned(), "two".to_owned()]),
+            (
+                "values".to_owned(),
+                vec!["one".to_owned(), "two".to_owned()]
+            ),
             ("destination".to_owned(), vec!["destination".to_owned()]),
         ]
     );
@@ -1106,7 +1178,9 @@ fn positionals_sequence_and_bounds() {
         &argv(&["one", "two"]),
     )
     .expect_err("fails");
-    assert!(matches!(fixed, CliError::UnexpectedArgument { ref arguments } if arguments == &["two".to_owned()]));
+    assert!(
+        matches!(fixed, CliError::UnexpectedArgument { ref arguments } if arguments == &["two".to_owned()])
+    );
     // Absent fixed positionals report their name.
     let missing = primitive::parse_positionals(
         &[PositionalSpec::Fixed {
@@ -1120,8 +1194,8 @@ fn positionals_sequence_and_bounds() {
 
 #[test]
 fn param_never_sentinels() {
-    use elm_effect_unstable::cli::param::{CliOptions, CliParam, ParamKind};
     use elm_effect_unstable::cli::CliError;
+    use elm_effect_unstable::cli::param::{CliOptions, CliParam, ParamKind};
     use std::collections::BTreeMap;
     // Param.test.ts:30 - flag sentinels fail missing and supplied.
     for sentinel in [CliParam::flag_never(), CliParam::never(ParamKind::Flag)] {
@@ -1136,7 +1210,10 @@ fn param_never_sentinels() {
         assert!(matches!(supplied, CliError::InvalidValue { .. }));
     }
     // :40 - argument sentinels fail missing and supplied.
-    for sentinel in [CliParam::argument_never(), CliParam::never(ParamKind::Argument)] {
+    for sentinel in [
+        CliParam::argument_never(),
+        CliParam::never(ParamKind::Argument),
+    ] {
         let missing = sentinel.parse(&CliOptions::default()).expect_err("fails");
         assert!(matches!(missing, CliError::MissingOption { .. }));
         let supplied = sentinel
@@ -1179,9 +1256,9 @@ fn param_optional_booleans() {
     use std::collections::BTreeMap;
     // Param.test.ts:133 - an omitted optional yields none.
     assert_eq!(
-        CliParam::boolean("verbose").optional().parse(
-            &elm_effect_unstable::cli::param::CliOptions::default(),
-        ),
+        CliParam::boolean("verbose")
+            .optional()
+            .parse(&elm_effect_unstable::cli::param::CliOptions::default(),),
         Ok(None)
     );
     // :145 - a supplied optional yields its value.
@@ -1201,8 +1278,8 @@ fn param_optional_booleans() {
 
 #[test]
 fn param_config_fallback_chain() {
-    use elm_effect_unstable::cli::param::{CliOptions, CliParam, ParamKind, ParamValue};
     use elm_effect_unstable::cli::CliError;
+    use elm_effect_unstable::cli::param::{CliOptions, CliParam, ParamKind, ParamValue};
     use std::collections::BTreeMap;
     let config = |pairs: &[(&str, &str)]| {
         pairs
@@ -1319,10 +1396,7 @@ fn param_or_else_fallbacks() {
     )
     .expect("fallback")
     .expect("present");
-    assert_eq!(
-        value,
-        ParamValue::Text("https://example.com".to_owned())
-    );
+    assert_eq!(value, ParamValue::Text("https://example.com".to_owned()));
     // :157 - the first flag wins when present.
     let (_, kept) = elm_effect_unstable::cli::param::or_else(
         &config(),
@@ -1349,9 +1423,7 @@ fn command_routes_unknown_with_suggestions() {
         ..Default::default()
     };
     // Errors.test.ts:106 - unknown subcommands name themselves + suggest.
-    let error = app
-        .route(&["deplyo".to_owned()])
-        .expect_err("unknown");
+    let error = app.route(&["deplyo".to_owned()]).expect_err("unknown");
     match &error {
         CliError::UnknownSubcommand {
             subcommand,
@@ -1359,7 +1431,10 @@ fn command_routes_unknown_with_suggestions() {
             ..
         } => {
             assert_eq!(subcommand, "deplyo");
-            assert!(suggestions.contains(&"deploy".to_owned()), "{suggestions:?}");
+            assert!(
+                suggestions.contains(&"deploy".to_owned()),
+                "{suggestions:?}"
+            );
         }
         _ => panic!("wrong variant: {error:?}"),
     }
@@ -1427,7 +1502,10 @@ fn is_ai_error_answers_false_for_everything_that_is_not_one() {
     assert!(!is_ai_error(Some(&std::io::Error::other("regular error"))));
     assert!(!is_ai_error(None));
     let fake = FakeModel::new();
-    assert!(!is_ai_error(Some(fake.as_ref())), "a language model is not an AiError");
+    assert!(
+        !is_ai_error(Some(fake.as_ref())),
+        "a language model is not an AiError"
+    );
     // :637 — a reason is not a wrapper either, and the tag agrees.
     assert!(!is_ai_error(Some(&AiReason::QuotaExhausted)));
 
@@ -1454,11 +1532,7 @@ fn wizard_flag_values_round_trip_through_the_parser() {
         ("", vec!["--value", ""]),
         ("-", vec!["--value", "-"]),
     ] {
-        assert_eq!(
-            flag_arg("value", value),
-            expected,
-            "the argv for {value:?}"
-        );
+        assert_eq!(flag_arg("value", value), expected, "the argv for {value:?}");
     }
 
     // The other half of the row: those argv pairs parse back to the same
@@ -1626,10 +1700,19 @@ fn wizard_plan_asks_one_question_per_flag_then_per_positional() {
             },
         ],
     );
-    assert_eq!(wizard_plan(&target), vec![
-        WizardStep::Flag { name: "name".to_string(), value: String::new() },
-        WizardStep::Positional { name: "count".to_string(), value: String::new() },
-    ]);
+    assert_eq!(
+        wizard_plan(&target),
+        vec![
+            WizardStep::Flag {
+                name: "name".to_string(),
+                value: String::new()
+            },
+            WizardStep::Positional {
+                name: "count".to_string(),
+                value: String::new()
+            },
+        ]
+    );
     // The row's answers, in the order the questions were asked.
     let mut steps = wizard_plan(&target);
     for (step, answer) in steps.iter_mut().zip(["Alice", "2"]) {
@@ -1701,7 +1784,10 @@ fn a_valued_flag_without_its_value_is_refused_naming_the_flag() {
         let printed = error.to_string();
         assert!(printed.contains(name), "{name}: {printed}");
         // The refusal is the missing value, not an unknown flag.
-        assert!(matches!(error, WizardCliError::Missing(_)), "{name}: {printed}");
+        assert!(
+            matches!(error, WizardCliError::Missing(_)),
+            "{name}: {printed}"
+        );
         let _ = expected;
     }
 }
@@ -1775,11 +1861,10 @@ fn unlisted_survives_adding_subcommands_and_shared_flags() {
     let internal = Command::new("internal", "internal command", Vec::new()).unlisted();
     assert!(internal.unlisted, "the marker is set");
 
-    let with_children = internal.clone().with_subcommands(vec![Command::new(
-        "child",
-        "child command",
-        Vec::new(),
-    )]);
+    let with_children =
+        internal
+            .clone()
+            .with_subcommands(vec![Command::new("child", "child command", Vec::new())]);
     assert!(with_children.unlisted, "survives adding subcommands");
     assert_eq!(with_children.subcommands.len(), 1);
 
@@ -1817,7 +1902,9 @@ fn the_parent_handler_runs_when_no_subcommand_is_given() {
         }],
     )
     .handler(move |parsed| {
-        seen.lock().expect("lock").push(format!("verbose={}", parsed.flag("verbose")));
+        seen.lock()
+            .expect("lock")
+            .push(format!("verbose={}", parsed.flag("verbose")));
     });
     let run = root.run(&["--verbose".to_string()]).expect("runs");
     assert_eq!(run.path, vec!["git".to_string()]);
@@ -1834,29 +1921,31 @@ fn the_selected_subcommands_handler_runs_instead_of_the_parents() {
     let root = Command::group(
         "git",
         "git command",
-        vec![Command::new(
-            "clone",
-            "clone command",
-            vec![
-                Arg::Positional {
-                    name: "repository".to_string(),
-                    help: "repository".to_string(),
-                    variadic: false,
-                },
-                Arg::Opt {
-                    name: "branch".to_string(),
-                    help: "branch".to_string(),
-                    required: false,
-                },
-            ],
-        )
-        .handler(move |parsed| {
-            child_log.lock().expect("lock").push(format!(
-                "clone {} {}",
-                parsed.positionals.first().cloned().unwrap_or_default(),
-                parsed.opt("branch").unwrap_or_default()
-            ));
-        })],
+        vec![
+            Command::new(
+                "clone",
+                "clone command",
+                vec![
+                    Arg::Positional {
+                        name: "repository".to_string(),
+                        help: "repository".to_string(),
+                        variadic: false,
+                    },
+                    Arg::Opt {
+                        name: "branch".to_string(),
+                        help: "branch".to_string(),
+                        required: false,
+                    },
+                ],
+            )
+            .handler(move |parsed| {
+                child_log.lock().expect("lock").push(format!(
+                    "clone {} {}",
+                    parsed.positionals.first().cloned().unwrap_or_default(),
+                    parsed.opt("branch").unwrap_or_default()
+                ));
+            }),
+        ],
     )
     .handler(move |_| {
         parent_log.lock().expect("lock").push("parent".to_string());
@@ -1886,9 +1975,11 @@ fn an_alias_selects_the_same_subcommand() {
     let root = Command::group(
         "tool",
         "tool command",
-        vec![Command::new("plan", "plan command", Vec::new())
-            .alias("p")
-            .handler(move |_| plan_log.lock().expect("lock").push("plan".to_string()))],
+        vec![
+            Command::new("plan", "plan command", Vec::new())
+                .alias("p")
+                .handler(move |_| plan_log.lock().expect("lock").push("plan".to_string())),
+        ],
     );
     let run = root.run(&["p".to_string()]).expect("the alias routes");
     assert_eq!(run.path, vec!["tool".to_string(), "plan".to_string()]);
@@ -1905,17 +1996,21 @@ fn a_grouped_subcommand_is_selectable_like_an_ungrouped_one() {
     let mut auth = Vec::new();
     for name in ["login", "logout"] {
         let entry_log = log.clone();
-        auth.push(Command::new(name, "a command", Vec::new()).handler(move |_| {
-            entry_log.lock().expect("lock").push(name.to_string());
-        }));
+        auth.push(
+            Command::new(name, "a command", Vec::new()).handler(move |_| {
+                entry_log.lock().expect("lock").push(name.to_string());
+            }),
+        );
     }
     grouped.push(("Auth commands".to_string(), auth));
     let status_log = log.clone();
     grouped.push((
         String::new(),
-        vec![Command::new("status", "a command", Vec::new()).handler(move |_| {
-            status_log.lock().expect("lock").push("status".to_string());
-        })],
+        vec![
+            Command::new("status", "a command", Vec::new()).handler(move |_| {
+                status_log.lock().expect("lock").push("status".to_string());
+            }),
+        ],
     ));
     let cli = Command::group("tool", "tool command", Vec::new()).with_subcommand_groups(grouped);
     assert_eq!(cli.subcommands.len(), 3, "every command is registered");
@@ -1930,7 +2025,10 @@ fn a_grouped_subcommand_is_selectable_like_an_ungrouped_one() {
         assert_eq!(run.path.last().map(String::as_str), Some(name));
     }
     // A name that is neither a command nor a label is still unknown.
-    assert!(cli.run(&["Auth commands".to_string()]).is_err(), "a label is not a selector");
+    assert!(
+        cli.run(&["Auth commands".to_string()]).is_err(),
+        "a label is not a selector"
+    );
     assert_eq!(
         *log.lock().expect("lock"),
         vec!["login".to_string(), "status".to_string()],
@@ -1996,7 +2094,10 @@ fn several_subcommands_each_take_their_own_line() {
                 }],
             )
             .handler(move |parsed| {
-                status_log.lock().expect("lock").push(format!("status {}", parsed.flag("short")));
+                status_log
+                    .lock()
+                    .expect("lock")
+                    .push(format!("status {}", parsed.flag("short")));
             }),
         ],
     );
@@ -2037,14 +2138,20 @@ fn a_boolean_flag_takes_an_explicit_literal_as_its_value() {
         (vec!["--verbose", "true"], true),
         (vec!["--verbose", "1"], true),
     ] {
-        let (_, parsed) = command.parse(&argv.iter().map(|s| s.to_string()).collect::<Vec<_>>())
+        let (_, parsed) = command
+            .parse(&argv.iter().map(|s| s.to_string()).collect::<Vec<_>>())
             .expect("the literal is the flag's value");
         assert_eq!(parsed.flag("verbose"), expected, "{argv:?}");
-        assert!(parsed.positionals.is_empty(), "the literal is not a positional: {argv:?}");
+        assert!(
+            parsed.positionals.is_empty(),
+            "the literal is not a positional: {argv:?}"
+        );
     }
     // A bare switch is still true, and a word that is not a literal is still an
     // unknown positional rather than a silently swallowed value.
-    let (_, bare) = command.parse(&["--verbose".to_string()]).expect("a bare switch");
+    let (_, bare) = command
+        .parse(&["--verbose".to_string()])
+        .expect("a bare switch");
     assert!(bare.flag("verbose"));
     let error = command
         .parse(&["--verbose".to_string(), "later".to_string()])
@@ -2064,9 +2171,13 @@ fn a_boolean_flag_reads_true_from_the_switch_and_false_from_the_negation() {
             help: "verbose".to_string(),
         }],
     );
-    let (_, on) = command.parse(&["--verbose".to_string()]).expect("the switch");
+    let (_, on) = command
+        .parse(&["--verbose".to_string()])
+        .expect("the switch");
     assert!(on.flag("verbose"));
-    let (_, off) = command.parse(&["--no-verbose".to_string()]).expect("the negation");
+    let (_, off) = command
+        .parse(&["--no-verbose".to_string()])
+        .expect("the negation");
     assert!(!off.flag("verbose"));
 }
 
@@ -2180,16 +2291,18 @@ fn tokens_after_the_double_dash_are_operands_not_subcommands_or_flags() {
     let root = Command::group(
         "tool",
         "tool command",
-        vec![Command::new(
-            "child",
-            "child command",
-            vec![Arg::Opt {
-                name: "value".to_string(),
-                help: "value".to_string(),
-                required: false,
-            }],
-        )
-        .handler(move |_| child_log.lock().expect("lock").push("child".to_string()))],
+        vec![
+            Command::new(
+                "child",
+                "child command",
+                vec![Arg::Opt {
+                    name: "value".to_string(),
+                    help: "value".to_string(),
+                    required: false,
+                }],
+            )
+            .handler(move |_| child_log.lock().expect("lock").push("child".to_string())),
+        ],
     )
     .with_subcommand_groups(Vec::new());
     let _ = root_log;
@@ -2290,9 +2403,11 @@ fn no_trailing_operands_after_the_dash_is_still_a_valid_line() {
     let cli = Command::group(
         "tool",
         "tool command",
-        vec![Command::new("child", "child command", Vec::new()).handler(move |_| {
-            log.lock().expect("lock").push("child".to_string());
-        })],
+        vec![
+            Command::new("child", "child command", Vec::new()).handler(move |_| {
+                log.lock().expect("lock").push("child".to_string());
+            }),
+        ],
     );
     let run = cli
         .run(&["child".to_string(), "--".to_string()])
@@ -2314,11 +2429,7 @@ fn a_leaf_command_keeps_its_own_trailing_operands() {
             variadic: true,
         }],
     );
-    let argv = vec![
-        "--".to_string(),
-        "--literal".to_string(),
-        "-x".to_string(),
-    ];
+    let argv = vec!["--".to_string(), "--literal".to_string(), "-x".to_string()];
     let (_, parsed) = command.parse(&argv).expect("parses");
     assert_eq!(parsed.positionals, vec!["--literal", "-x"]);
 }
@@ -2362,9 +2473,10 @@ fn a_negated_flags_literal_does_not_leak_into_subcommand_parsing() {
             help: "open".to_string(),
         }],
     )
-    .with_subcommands(vec![Command::new("child", "child command", Vec::new()).handler(
-        move |_| child_log.lock().expect("lock").push("child".to_string()),
-    )])
+    .with_subcommands(vec![
+        Command::new("child", "child command", Vec::new())
+            .handler(move |_| child_log.lock().expect("lock").push("child".to_string())),
+    ])
     .handler(move |_| parent_log.lock().expect("lock").push("parent".to_string()));
 
     // The negation refuses, so the line stops there: `false` is never read as a
@@ -2382,13 +2494,14 @@ fn a_negated_flags_literal_does_not_leak_into_subcommand_parsing() {
         .expect_err("the negation with a value beside it is refused");
     assert!(error.to_string().contains("false"), "{error}");
     // run refuses the same way, so no handler executes.
-    assert!(root
-        .run(&[
+    assert!(
+        root.run(&[
             "--no-open".to_string(),
             "false".to_string(),
             "child".to_string(),
         ])
-        .is_err());
+        .is_err()
+    );
     assert!(
         invoked.lock().expect("lock").is_empty(),
         "neither the parent nor the child ran"
@@ -2462,45 +2575,48 @@ fn a_handler_runs_with_the_config_parsed_from_its_own_line() {
 fn nested_config_reaches_the_subcommands_handler() {
     let seen = handler_log();
     let log = seen.clone();
-    let cli = Command::group("admin", "admin command", Vec::new())
-        .with_subcommands(vec![Command::group(
-        "users",
-        "users command",
-        vec![Command::new(
-            "create",
-            "create command",
+    let cli = Command::group("admin", "admin command", Vec::new()).with_subcommands(vec![
+        Command::group(
+            "users",
+            "users command",
             vec![
-                Arg::Positional {
-                    name: "username".to_string(),
-                    help: "username".to_string(),
-                    variadic: false,
-                },
-                Arg::Positional {
-                    name: "email".to_string(),
-                    help: "email".to_string(),
-                    variadic: false,
-                },
-                Arg::Opt {
-                    name: "role".to_string(),
-                    help: "role".to_string(),
-                    required: false,
-                },
-                Arg::Flag {
-                    name: "notify".to_string(),
-                    help: "notify".to_string(),
-                },
+                Command::new(
+                    "create",
+                    "create command",
+                    vec![
+                        Arg::Positional {
+                            name: "username".to_string(),
+                            help: "username".to_string(),
+                            variadic: false,
+                        },
+                        Arg::Positional {
+                            name: "email".to_string(),
+                            help: "email".to_string(),
+                            variadic: false,
+                        },
+                        Arg::Opt {
+                            name: "role".to_string(),
+                            help: "role".to_string(),
+                            required: false,
+                        },
+                        Arg::Flag {
+                            name: "notify".to_string(),
+                            help: "notify".to_string(),
+                        },
+                    ],
+                )
+                .handler(move |parsed| {
+                    log.lock().expect("lock").push(format!(
+                        "create {} {} role={} notify={}",
+                        parsed.positionals.first().cloned().unwrap_or_default(),
+                        parsed.positionals.get(1).cloned().unwrap_or_default(),
+                        parsed.opt("role").unwrap_or_default(),
+                        parsed.flag("notify")
+                    ));
+                }),
             ],
-        )
-        .handler(move |parsed| {
-            log.lock().expect("lock").push(format!(
-                "create {} {} role={} notify={}",
-                parsed.positionals.first().cloned().unwrap_or_default(),
-                parsed.positionals.get(1).cloned().unwrap_or_default(),
-                parsed.opt("role").unwrap_or_default(),
-                parsed.flag("notify")
-            ));
-        })],
-    )]);
+        ),
+    ]);
     let run = cli
         .run(&[
             "users".to_string(),
@@ -2625,7 +2741,10 @@ fn a_short_alias_selects_the_same_option_value() {
     for value in ["-", "-2", "-3.70"] {
         let lexed = lex_argv(&[value]);
         assert!(
-            lexed.tokens.iter().all(|t| matches!(t, LexToken::Value { .. })),
+            lexed
+                .tokens
+                .iter()
+                .all(|t| matches!(t, LexToken::Value { .. })),
             "{value} is a value"
         );
     }
@@ -2657,14 +2776,19 @@ fn the_parent_handler_runs_with_its_options_when_no_subcommand_is_given() {
         }],
     )])
     .handler(move |parsed| {
-        log.lock().expect("lock").push(format!("git verbose={}", parsed.flag("verbose")));
+        log.lock()
+            .expect("lock")
+            .push(format!("git verbose={}", parsed.flag("verbose")));
     });
     // No subcommand on the line: the parent's handler runs with its own flag.
     let run = root
         .run(&["--verbose".to_string()])
         .expect("the parent's handler runs");
     assert_eq!(run.path, vec!["git".to_string()]);
-    assert_eq!(*seen.lock().expect("lock"), vec!["git verbose=true".to_string()]);
+    assert_eq!(
+        *seen.lock().expect("lock"),
+        vec!["git verbose=true".to_string()]
+    );
     // With a subcommand the child takes it, which is what makes the case above
     // about the ABSENCE of a subcommand rather than about the presence of one.
     // Give the child its own handler so the contrast is handler-to-handler.
@@ -2679,18 +2803,20 @@ fn the_parent_handler_runs_with_its_options_when_no_subcommand_is_given() {
             help: "verbose".to_string(),
         }],
     )
-    .with_subcommands(vec![Command::new(
-        "clone",
-        "clone command",
-        vec![Arg::Positional {
-            name: "repository".to_string(),
-            help: "repository".to_string(),
-            variadic: false,
-        }],
-    )
-    .handler(move |_| {
-        child_log.lock().expect("lock").push("clone".to_string());
-    })])
+    .with_subcommands(vec![
+        Command::new(
+            "clone",
+            "clone command",
+            vec![Arg::Positional {
+                name: "repository".to_string(),
+                help: "repository".to_string(),
+                variadic: false,
+            }],
+        )
+        .handler(move |_| {
+            child_log.lock().expect("lock").push("clone".to_string());
+        }),
+    ])
     .handler(move |parsed| {
         parent_log
             .lock()
@@ -2731,11 +2857,13 @@ fn an_optional_boolean_flag_has_three_states_not_two() {
         // The port's `flags` map is two-valued, so the witness reads the three
         // cases through the run itself: a line with neither spelling has no
         // entry at all, which is the third state a plain bool cannot hold.
-        log.lock().expect("lock").push(match parsed.flags.get("open") {
-            None => "none".to_string(),
-            Some(true) => "some-true".to_string(),
-            Some(false) => "some-false".to_string(),
-        });
+        log.lock()
+            .expect("lock")
+            .push(match parsed.flags.get("open") {
+                None => "none".to_string(),
+                Some(true) => "some-true".to_string(),
+                Some(false) => "some-false".to_string(),
+            });
     });
     for argv in [
         vec![],
@@ -2767,16 +2895,18 @@ fn tokens_after_the_dash_are_not_read_as_a_subcommand() {
     let root = Command::group(
         "tool",
         "tool command",
-        vec![Command::new(
-            "child",
-            "child command",
-            vec![Arg::Opt {
-                name: "value".to_string(),
-                help: "value".to_string(),
-                required: false,
-            }],
-        )
-        .handler(move |_| log.lock().expect("lock").push("child".to_string()))],
+        vec![
+            Command::new(
+                "child",
+                "child command",
+                vec![Arg::Opt {
+                    name: "value".to_string(),
+                    help: "value".to_string(),
+                    required: false,
+                }],
+            )
+            .handler(move |_| log.lock().expect("lock").push("child".to_string())),
+        ],
     );
     // `child` and `--value x` all sit behind the dash, so they are operands of
     // the root and the child is never selected.
@@ -2838,8 +2968,15 @@ fn the_dash_is_honoured_while_the_flags_in_front_of_it_apply() {
             "x".to_string(),
         ])
         .expect("the line parses");
-    assert_eq!(path, vec!["tool".to_string()], "child is an operand, not a selection");
-    assert!(parsed.flag("global"), "the flag in front of the dash applies");
+    assert_eq!(
+        path,
+        vec!["tool".to_string()],
+        "child is an operand, not a selection"
+    );
+    assert!(
+        parsed.flag("global"),
+        "the flag in front of the dash applies"
+    );
     assert_eq!(
         parsed.positionals,
         vec!["child", "--value", "x"],
@@ -2872,7 +3009,11 @@ fn the_wizard_flag_runs_the_wizard_and_then_the_command() {
     let wizard_argv = wizard_argv(&command, &steps);
     assert_eq!(
         wizard_argv,
-        vec!["greet".to_string(), "--name".to_string(), "Alice Smith".to_string()]
+        vec![
+            "greet".to_string(),
+            "--name".to_string(),
+            "Alice Smith".to_string()
+        ]
     );
     let (_, parsed) = command
         .parse(&wizard_argv[1..])
@@ -2883,7 +3024,10 @@ fn the_wizard_flag_runs_the_wizard_and_then_the_command() {
     // port's parse refuses it as an unknown flag, which is the honest reading:
     // there is no --wizard entry point yet.
     let routed = command.parse(&["--wizard".to_string()]);
-    assert!(routed.is_err(), "the wizard flag is not an option of this command");
+    assert!(
+        routed.is_err(),
+        "the wizard flag is not an option of this command"
+    );
 }
 
 /// Command.test.ts:320 — wizard mode starts at the subcommand named on the line,
@@ -2990,7 +3134,10 @@ fn a_boolean_wizard_value_renders_the_same_in_both_places() {
     )
     .parse(&[])
     .expect("an empty line parses");
-    assert!(!off.flag("dry-run"), "absent is false, not a separate state");
+    assert!(
+        !off.flag("dry-run"),
+        "absent is false, not a separate state"
+    );
 }
 
 /// Command.test.ts:252 — an option-looking value stays the value it is rather
@@ -3034,7 +3181,11 @@ fn an_option_looking_value_stays_a_value_and_a_secret_stays_hidden() {
 
     // The redaction half: the secret's own rendering is the placeholder.
     let secret = elm_effect_unstable::cli::primitive::parse_redacted("-hunter2-secret");
-    assert_eq!(secret.value(), "-hunter2-secret", "the bytes are still readable");
+    assert_eq!(
+        secret.value(),
+        "-hunter2-secret",
+        "the bytes are still readable"
+    );
     assert_eq!(format!("{secret}"), "<redacted>", "but they never render");
     assert_eq!(format!("{secret:?}"), "<redacted>");
     // So a line that renders the parsed value shows the placeholder.
@@ -3059,10 +3210,7 @@ fn a_bare_completions_flag_is_refused_and_nothing_runs() {
     let error = command
         .parse(&["--completions".to_string()])
         .expect_err("the flag needs a value");
-    assert!(
-        error.to_string().contains("completions"),
-        "{error}"
-    );
+    assert!(error.to_string().contains("completions"), "{error}");
     // Because the line refuses, the run refuses too, so no handler executes.
     assert!(command.run(&["--completions".to_string()]).is_err());
     assert!(
@@ -3137,18 +3285,17 @@ fn a_parse_failure_from_a_run_is_a_refusal_not_a_success() {
     let root = Command::group(
         "root",
         "root command",
-        vec![Command::new("known", "known command", Vec::new()).handler(move |_| {
-            log.lock().expect("lock").push("known".to_string());
-        })],
+        vec![
+            Command::new("known", "known command", Vec::new()).handler(move |_| {
+                log.lock().expect("lock").push("known".to_string());
+            }),
+        ],
     );
     // An unknown subcommand refuses, and the refusal names what was not known.
     let error = root
         .parse(&["invalid-command".to_string()])
         .expect_err("the subcommand is not one this command takes");
-    assert!(
-        error.to_string().contains("invalid-command"),
-        "{error}"
-    );
+    assert!(error.to_string().contains("invalid-command"), "{error}");
     // The run refuses the same way, so no handler executes.
     assert!(root.run(&["invalid-command".to_string()]).is_err());
     assert!(
@@ -3173,15 +3320,17 @@ fn a_parse_failure_from_a_run_is_a_refusal_not_a_success() {
 #[test]
 fn a_global_flag_reaches_the_handler_that_declares_it() {
     let deploy = Command::new("deploy", "deploy command", vec![]).handler(|parsed| {
-        REGION_SEEN.with(|seen| seen.borrow_mut().push(parsed.opt("region").map(str::to_string)));
+        REGION_SEEN.with(|seen| {
+            seen.borrow_mut()
+                .push(parsed.opt("region").map(str::to_string))
+        });
     });
-    let root = Command::group("root", "root command", vec![deploy]).with_shared_flags(vec![
-        Arg::Opt {
+    let root =
+        Command::group("root", "root command", vec![deploy]).with_shared_flags(vec![Arg::Opt {
             name: "region".to_string(),
             help: "region".to_string(),
             required: false,
-        },
-    ]);
+        }]);
 
     let seen = region_seen();
     let run = root
@@ -3196,7 +3345,8 @@ fn a_global_flag_reaches_the_handler_that_declares_it() {
 
     // No flag on the line: the same handler reads an absent region, which is
     // the port's `Option.none()` — never a default the run was not given.
-    root.run(&["deploy".to_string()]).expect("no region is fine");
+    root.run(&["deploy".to_string()])
+        .expect("no region is fine");
     assert_eq!(seen(), vec![Some("us-east-1".to_string()), None]);
 }
 
@@ -3276,12 +3426,11 @@ fn a_shared_parent_flag_is_accepted_before_and_after_the_subcommand() {
             parsed.opt("pkg").unwrap_or_default()
         ));
     });
-    let root = Command::group("npm", "npm command", vec![install]).with_shared_flags(vec![
-        Arg::Flag {
+    let root =
+        Command::group("npm", "npm command", vec![install]).with_shared_flags(vec![Arg::Flag {
             name: "global".to_string(),
             help: "global".to_string(),
-        },
-    ]);
+        }]);
 
     // The global ahead of the subcommand: the leading scan reads it and the
     // value rides into the selected node.
@@ -3462,7 +3611,10 @@ fn a_parent_local_flag_is_refused_on_subcommand_paths() {
         printed.contains("--model"),
         "the refusal names the flag, got: {printed}"
     );
-    assert!(chat_log.lock().expect("lock").is_empty(), "refused line never runs");
+    assert!(
+        chat_log.lock().expect("lock").is_empty(),
+        "refused line never runs"
+    );
 }
 
 /// Command.test.ts:1107 — a shared parent's context (its flags) reach the
@@ -3474,23 +3626,25 @@ fn a_shared_parent_context_reaches_a_subcommand() {
     let root = Command::group(
         "parent",
         "parent command",
-        vec![Command::new(
-            "child",
-            "child command",
-            vec![Arg::Opt {
-                name: "action".to_string(),
-                help: "action".to_string(),
-                required: false,
-            }],
-        )
-        .handler(move |parsed| {
-            seen.lock().expect("lock").push(format!(
-                "child: parent.verbose={}, parent.config={}, action={}",
-                parsed.flag("verbose"),
-                parsed.opt("config").unwrap_or_default(),
-                parsed.opt("action").unwrap_or_default()
-            ));
-        })],
+        vec![
+            Command::new(
+                "child",
+                "child command",
+                vec![Arg::Opt {
+                    name: "action".to_string(),
+                    help: "action".to_string(),
+                    required: false,
+                }],
+            )
+            .handler(move |parsed| {
+                seen.lock().expect("lock").push(format!(
+                    "child: parent.verbose={}, parent.config={}, action={}",
+                    parsed.flag("verbose"),
+                    parsed.opt("config").unwrap_or_default(),
+                    parsed.opt("action").unwrap_or_default()
+                ));
+            }),
+        ],
     )
     .with_shared_flags(vec![
         Arg::Flag {

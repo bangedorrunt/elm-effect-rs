@@ -23,7 +23,11 @@ fn stale_epoch_is_fenced() {
     let err = log.append("p", 0, 5).unwrap_err();
     assert_eq!(
         err,
-        Fence::StaleEpoch { producer: "p".to_string(), sent: 0, current: 1 }
+        Fence::StaleEpoch {
+            producer: "p".to_string(),
+            sent: 0,
+            current: 1
+        }
     );
     assert_eq!(log.entries().len(), 1);
 }
@@ -49,5 +53,8 @@ fn fork_drops_producer_epoch() {
     assert_eq!(fork.epoch_of("p"), None);
     // The fork's first epoch is 0, even though the parent was at 3.
     let mut fork = fork;
-    assert!(matches!(fork.append("p", 0, 0).unwrap(), Appended::Fresh { .. }));
+    assert!(matches!(
+        fork.append("p", 0, 0).unwrap(),
+        Appended::Fresh { .. }
+    ));
 }

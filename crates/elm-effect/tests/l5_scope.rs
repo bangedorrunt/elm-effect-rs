@@ -347,21 +347,19 @@ fn acquire_use_release_returns_the_usage_result() {
     let released = Arc::new(AtomicBool::new(false));
     let fin_released = released.clone();
     let exit = rt
-        .fork_detach(
-            move |ctx| -> Exit<u32, String> {
-                let res = ctx.acquire_release(
-                    Effect::<u32, String>::succeed(1),
-                    move |_| -> Effect<(), String> {
-                        fin_released.store(true, Ordering::SeqCst);
-                        Effect::succeed(())
-                    },
-                );
-                match res {
-                    Ok(_) => Exit::succeed(42),
-                    Err(cause) => Exit::Failure(cause),
-                }
-            },
-        )
+        .fork_detach(move |ctx| -> Exit<u32, String> {
+            let res = ctx.acquire_release(
+                Effect::<u32, String>::succeed(1),
+                move |_| -> Effect<(), String> {
+                    fin_released.store(true, Ordering::SeqCst);
+                    Effect::succeed(())
+                },
+            );
+            match res {
+                Ok(_) => Exit::succeed(42),
+                Err(cause) => Exit::Failure(cause),
+            }
+        })
         .join();
     assert!(matches!(exit, Exit::Success(42)));
     assert!(released.load(Ordering::SeqCst), "release runs after use");
@@ -373,17 +371,15 @@ fn acquire_use_release_error_in_just_acquisition() {
     // carries the typed failure.
     let rt = Runtime::new();
     let exit = rt
-        .fork_detach(
-            move |ctx| -> Exit<u32, String> {
-                match ctx.acquire_release(
-                    Effect::<u32, String>::fail("acq boom".to_string()),
-                    |_| -> Effect<(), String> { Effect::succeed(()) },
-                ) {
-                    Ok(n) => Exit::succeed(n),
-                    Err(cause) => Exit::Failure(cause),
-                }
-            },
-        )
+        .fork_detach(move |ctx| -> Exit<u32, String> {
+            match ctx.acquire_release(
+                Effect::<u32, String>::fail("acq boom".to_string()),
+                |_| -> Effect<(), String> { Effect::succeed(()) },
+            ) {
+                Ok(n) => Exit::succeed(n),
+                Err(cause) => Exit::Failure(cause),
+            }
+        })
         .join();
     match exit {
         Exit::Failure(cause) => assert_eq!(cause.failure(), Some(&"acq boom".to_string())),
@@ -400,21 +396,19 @@ fn acquire_use_release_error_in_just_release() {
     let release_calls = Arc::new(AtomicBool::new(false));
     let fin_calls = release_calls.clone();
     let exit = rt
-        .fork_detach(
-            move |ctx| -> Exit<u32, String> {
-                let res = ctx.acquire_release(
-                    Effect::<u32, String>::succeed(1),
-                    move |_| -> Effect<(), String> {
-                        fin_calls.store(true, Ordering::SeqCst);
-                        Effect::die(elm_effect::Defect::new("rel boom"))
-                    },
-                );
-                match res {
-                    Ok(n) => Exit::succeed(n),
-                    Err(cause) => Exit::Failure(cause),
-                }
-            },
-        )
+        .fork_detach(move |ctx| -> Exit<u32, String> {
+            let res = ctx.acquire_release(
+                Effect::<u32, String>::succeed(1),
+                move |_| -> Effect<(), String> {
+                    fin_calls.store(true, Ordering::SeqCst);
+                    Effect::die(elm_effect::Defect::new("rel boom"))
+                },
+            );
+            match res {
+                Ok(n) => Exit::succeed(n),
+                Err(cause) => Exit::Failure(cause),
+            }
+        })
         .join();
     assert!(release_calls.load(Ordering::SeqCst), "release must run");
     match exit {
@@ -431,18 +425,16 @@ fn acquire_use_release_error_in_just_usage() {
     // The use fails with a typed error; a successful release appends nothing.
     let rt = Runtime::new();
     let exit = rt
-        .fork_detach(
-            move |ctx| -> Exit<u32, String> {
-                let res = ctx.acquire_release(
-                    Effect::<u32, String>::succeed(1),
-                    |_| -> Effect<(), String> { Effect::succeed(()) },
-                );
-                match res {
-                    Ok(_) => Exit::Failure(Cause::fail("usage boom".to_string())),
-                    Err(cause) => Exit::Failure(cause),
-                }
-            },
-        )
+        .fork_detach(move |ctx| -> Exit<u32, String> {
+            let res = ctx.acquire_release(
+                Effect::<u32, String>::succeed(1),
+                |_| -> Effect<(), String> { Effect::succeed(()) },
+            );
+            match res {
+                Ok(_) => Exit::Failure(Cause::fail("usage boom".to_string())),
+                Err(cause) => Exit::Failure(cause),
+            }
+        })
         .join();
     match exit {
         Exit::Failure(cause) => {

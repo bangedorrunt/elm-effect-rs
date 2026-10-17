@@ -216,9 +216,8 @@ type AnyValue = Arc<dyn std::any::Any + Send + Sync>;
 
 /// Every live atom spec, by id, so registries can resolve sources and
 /// dependents from an id alone.
-static SPECS: std::sync::Mutex<Option<
-    std::collections::HashMap<u64, Arc<AtomSpec>>,
->> = std::sync::Mutex::new(None);
+static SPECS: std::sync::Mutex<Option<std::collections::HashMap<u64, Arc<AtomSpec>>>> =
+    std::sync::Mutex::new(None);
 
 fn register_spec(spec: &Arc<AtomSpec>) {
     SPECS
@@ -279,7 +278,10 @@ pub struct Atom<T> {
 
 impl<T> Clone for Atom<T> {
     fn clone(&self) -> Self {
-        Self { spec: Arc::clone(&self.spec), marker: std::marker::PhantomData }
+        Self {
+            spec: Arc::clone(&self.spec),
+            marker: std::marker::PhantomData,
+        }
     }
 }
 
@@ -295,12 +297,17 @@ impl<T: Clone + Send + Sync + 'static> Atom<T> {
             equality: std::sync::Mutex::new(None),
         });
         register_spec(&spec);
-        Self { spec, marker: std::marker::PhantomData }
+        Self {
+            spec,
+            marker: std::marker::PhantomData,
+        }
     }
 
     /// `Atom.keepAlive`: the node survives the disposal pass.
     pub fn keep_alive(self) -> Self {
-        self.spec.keep_alive.store(true, std::sync::atomic::Ordering::SeqCst);
+        self.spec
+            .keep_alive
+            .store(true, std::sync::atomic::Ordering::SeqCst);
         self
     }
 
@@ -344,7 +351,10 @@ where
         equality: std::sync::Mutex::new(None),
     });
     register_spec(&spec);
-    Atom { spec, marker: std::marker::PhantomData }
+    Atom {
+        spec,
+        marker: std::marker::PhantomData,
+    }
 }
 
 /// The registry's per-atom state.
@@ -374,7 +384,8 @@ impl Subscription {
     /// `cancel()` in the pin: drop this subscription's listener. Calling it
     /// twice is a no-op the second time.
     pub fn cancel(&self) {
-        self.registry.remove_listener(self.atom_id, self.listener_id);
+        self.registry
+            .remove_listener(self.atom_id, self.listener_id);
     }
 }
 
@@ -431,9 +442,7 @@ impl Registry {
         let dependents: Vec<u64> = nodes
             .keys()
             .copied()
-            .filter(|id| {
-                spec_of(*id).is_some_and(|spec| spec.is_dependent_of(atom.spec.id))
-            })
+            .filter(|id| spec_of(*id).is_some_and(|spec| spec.is_dependent_of(atom.spec.id)))
             .collect();
         for id in dependents {
             if let Some(node) = nodes.get_mut(&id) {
@@ -453,7 +462,9 @@ impl Registry {
         atom: &Atom<T>,
         listener: impl Fn(T) + Send + Sync + 'static,
     ) -> Subscription {
-        let listener_id = self.next_listener.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        let listener_id = self
+            .next_listener
+            .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
         let erased: Arc<dyn Fn(&AnyValue) + Send + Sync> = Arc::new(move |value: &AnyValue| {
             let typed = value
                 .downcast_ref::<T>()
@@ -476,7 +487,11 @@ impl Registry {
         });
         node.listeners.push((listener_id, erased));
         drop(nodes);
-        Subscription { registry: Arc::clone(self), atom_id: atom.spec.id, listener_id }
+        Subscription {
+            registry: Arc::clone(self),
+            atom_id: atom.spec.id,
+            listener_id,
+        }
     }
 
     /// The disposal pass: every node with no listeners and no keepAlive is
@@ -487,8 +502,9 @@ impl Registry {
             .iter()
             .filter(|(id, node)| {
                 node.listeners.is_empty()
-                    && spec_of(**id)
-                        .is_some_and(|spec| !spec.keep_alive.load(std::sync::atomic::Ordering::SeqCst))
+                    && spec_of(**id).is_some_and(|spec| {
+                        !spec.keep_alive.load(std::sync::atomic::Ordering::SeqCst)
+                    })
             })
             .map(|(id, _)| *id)
             .collect();
@@ -516,7 +532,11 @@ impl Registry {
                 .lock()
                 .unwrap()
                 .entry(spec.id)
-                .or_insert(AtomNodeState { value, listeners: Vec::new(), dirty: false });
+                .or_insert(AtomNodeState {
+                    value,
+                    listeners: Vec::new(),
+                    dirty: false,
+                });
         }
         let dirty = self
             .nodes
@@ -532,7 +552,15 @@ impl Registry {
             node.value = rebuilt;
             node.dirty = false;
         }
-        Arc::clone(&self.nodes.lock().unwrap().get(&spec.id).expect("present").value)
+        Arc::clone(
+            &self
+                .nodes
+                .lock()
+                .unwrap()
+                .get(&spec.id)
+                .expect("present")
+                .value,
+        )
     }
 
     /// A node's value straight from its spec: the initial value for a value
@@ -653,7 +681,11 @@ mod tests {
         let second = Registry::make();
         first.set(&counter, 1);
         assert_eq!(first.get(&counter), 1);
-        assert_eq!(second.get(&counter), 7, "a registry starts from the initial value");
+        assert_eq!(
+            second.get(&counter),
+            7,
+            "a registry starts from the initial value"
+        );
         second.set(&counter, 2);
         assert_eq!(first.get(&counter), 1);
         first.tick();

@@ -342,7 +342,10 @@ fn binary_int_layout_emits_bare_varints() {
     // SchemaBinary.test.ts:487 — a schema that proves the integer layout
     // drops the mode byte on an array and the length prefix on a tuple slot.
     assert_eq!(encode_int_scalar(1.0).expect("integer"), vec![2, 0x20, 2]);
-    assert_eq!(encode_int_array(&[1.0, 2.0, 3.0]).expect("integers").len(), 6);
+    assert_eq!(
+        encode_int_array(&[1.0, 2.0, 3.0]).expect("integers").len(),
+        6
+    );
     assert_eq!(encode_number_array(&[1.0, 2.0, 3.0]).len(), 7);
     assert_eq!(encode_int_tuple(&[1.0, 2.0]).expect("integers").len(), 4);
     assert_eq!(encode_number_tuple(&[1.0, 2.0]).len(), 6);
@@ -366,8 +369,8 @@ fn binary_int_layout_emits_bare_varints() {
         -9_007_199_254_740_991.0,
     ] {
         let encoded = encode_int_scalar(value).expect("integer");
-        let back = decode_int_scalar(&encoded)
-            .unwrap_or_else(|err| panic!("scalar {value}: {err}"));
+        let back =
+            decode_int_scalar(&encoded).unwrap_or_else(|err| panic!("scalar {value}: {err}"));
         assert_eq!(back.to_bits(), value.to_bits(), "scalar {value}");
         let array = encode_int_array(&[value]).expect("integer");
         let back = decode_int_array(&array).expect("decodes");
@@ -433,7 +436,10 @@ fn parser_streams_numbers_whose_width_changes() {
         f64::NAN,
         9_007_199_254_740_991.0,
     ];
-    let bytes: Vec<u8> = values.iter().flat_map(|v| encode_number_scalar(*v)).collect();
+    let bytes: Vec<u8> = values
+        .iter()
+        .flat_map(|v| encode_number_scalar(*v))
+        .collect();
     let mut parser = NumberParser::new();
     let mut out = Vec::new();
     for byte in &bytes {
@@ -455,7 +461,10 @@ fn parser_retains_partial_frames_across_one_byte_feeds() {
     // SchemaBinary.test.ts:1138 — 100 frames, one byte per feed, no value
     // may be emitted twice or dropped at a frame boundary.
     let expected: Vec<f64> = (0..100).map(|i| i as f64).collect();
-    let bytes: Vec<u8> = expected.iter().flat_map(|v| encode_number_scalar(*v)).collect();
+    let bytes: Vec<u8> = expected
+        .iter()
+        .flat_map(|v| encode_number_scalar(*v))
+        .collect();
     let mut parser = NumberParser::new();
     let mut values = Vec::new();
     for byte in &bytes {
@@ -473,7 +482,11 @@ fn parser_accepts_empty_input_and_spends_after_end() {
     assert_eq!(parser.feed(&[]).expect("empty feed"), Vec::<f64>::new());
     parser.end().expect("empty end");
     let err = parser.end().expect_err("end twice");
-    assert!(err.message().contains("parser is spent"), "{}", err.message());
+    assert!(
+        err.message().contains("parser is spent"),
+        "{}",
+        err.message()
+    );
 }
 
 #[test]
@@ -485,9 +498,17 @@ fn parser_delivers_completed_values_before_a_later_failure() {
     let mut parser = NumberParser::new();
     assert_eq!(parser.feed(&chunk).expect("feed"), vec![1.0]);
     let err = parser.end().expect_err("truncated tail");
-    assert!(err.message().contains("complete value"), "{}", err.message());
+    assert!(
+        err.message().contains("complete value"),
+        "{}",
+        err.message()
+    );
     let err = parser.feed(&[]).expect_err("spent");
-    assert!(err.message().contains("parser is spent"), "{}", err.message());
+    assert!(
+        err.message().contains("parser is spent"),
+        "{}",
+        err.message()
+    );
 }
 
 #[test]
@@ -508,7 +529,11 @@ fn parser_stashes_a_malformed_frame_after_earlier_values() {
         err.message()
     );
     let err = parser.end().expect_err("spent");
-    assert!(err.message().contains("parser is spent"), "{}", err.message());
+    assert!(
+        err.message().contains("parser is spent"),
+        "{}",
+        err.message()
+    );
 }
 
 #[test]
@@ -560,7 +585,11 @@ fn parser_splits_concatenated_frames_across_chunks() {
     );
     parser.end().expect("end");
     let err = parser.feed(&[]).expect_err("spent");
-    assert!(err.message().contains("parser is spent"), "{}", err.message());
+    assert!(
+        err.message().contains("parser is spent"),
+        "{}",
+        err.message()
+    );
 }
 
 #[test]
@@ -569,7 +598,11 @@ fn parser_waits_for_a_fragmented_multi_byte_frame_header() {
     // length, and one byte of it is not a header yet.
     let value = "x".repeat(300);
     let bytes = encode_string_scalar(&value);
-    assert_eq!(bytes.len(), 303, "two header bytes, a tag, and 300 payload bytes");
+    assert_eq!(
+        bytes.len(),
+        303,
+        "two header bytes, a tag, and 300 payload bytes"
+    );
     let mut parser = StringParser::new();
     assert_eq!(
         parser.feed(&bytes[..1]).expect("header byte"),
@@ -590,7 +623,9 @@ fn parser_reaches_the_wide_header_path_for_long_safe_lengths() {
     // host could hold.
     let mut parser = StringParser::with_max_frame_size(1);
     assert_eq!(
-        parser.feed(&[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF]).expect("partial header"),
+        parser
+            .feed(&[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF])
+            .expect("partial header"),
         Vec::<String>::new()
     );
     let err = parser.feed(&[0x0F]).expect_err("over the cap");
@@ -600,7 +635,11 @@ fn parser_reaches_the_wide_header_path_for_long_safe_lengths() {
         err.message()
     );
     let err = parser.feed(&[]).expect_err("spent");
-    assert!(err.message().contains("parser is spent"), "{}", err.message());
+    assert!(
+        err.message().contains("parser is spent"),
+        "{}",
+        err.message()
+    );
 }
 
 #[test]
@@ -659,7 +698,11 @@ fn parser_rejects_a_terminated_header_above_the_safe_integer_bound() {
         err.message()
     );
     let err = parser.feed(&[]).expect_err("spent");
-    assert!(err.message().contains("parser is spent"), "{}", err.message());
+    assert!(
+        err.message().contains("parser is spent"),
+        "{}",
+        err.message()
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -680,7 +723,11 @@ fn bin_distinguishes_absent_optionals_from_present_zero_width_values() {
     // length, envelope tag, empty payload: the present slot is a zero-width
     // frame, and decoding it back yields the empty string rather than
     // absence — that is the row's distinction.
-    assert_eq!(present.len(), 2, "length byte plus envelope tag, empty payload");
+    assert_eq!(
+        present.len(),
+        2,
+        "length byte plus envelope tag, empty payload"
+    );
     assert_eq!(decode_string_scalar(&present).expect("decodes"), "");
     // Absent is nothing at all: no frame is written for a missing slot, so
     // the byte count differs by the whole slot.
@@ -711,7 +758,11 @@ fn bin_tuple_layout_omits_count_for_fixed_and_includes_it_for_optional() {
     // leaves out is bounded by the count rather than read past the frame:
     // [1] decodes to [1] and [1, 2] decodes to [1, 2].
     let one = encode_int_array(&[1.0]).expect("integers");
-    assert_eq!(one, vec![0x03, 0x20, 0x01, 0x02], "count precedes the slots");
+    assert_eq!(
+        one,
+        vec![0x03, 0x20, 0x01, 0x02],
+        "count precedes the slots"
+    );
     assert_eq!(decode_int_array(&one).expect("decodes"), vec![1.0]);
     let two = encode_int_array(&[1.0, 2.0]).expect("integers");
     assert_eq!(two, vec![0x04, 0x20, 0x02, 0x02, 0x04]);
@@ -720,7 +771,11 @@ fn bin_tuple_layout_omits_count_for_fixed_and_includes_it_for_optional() {
     // the same byte count as the one-count optional frame but no count
     // byte, so its slots are read by schema arity instead.
     assert_eq!(number_frame.len(), one.len());
-    assert_ne!(number_frame[2], one[2] + 1, "no count byte in the fixed form");
+    assert_ne!(
+        number_frame[2],
+        one[2] + 1,
+        "no count byte in the fixed form"
+    );
 }
 
 #[test]

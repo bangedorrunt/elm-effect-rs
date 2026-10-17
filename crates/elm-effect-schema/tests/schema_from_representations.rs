@@ -47,27 +47,41 @@ fn refs(pairs: &[(&str, serde_json::Value)]) -> BTreeMap<String, serde_json::Val
 }
 
 fn obj(pairs: &[(&str, Unknown)]) -> Unknown {
-    Unknown::Object(pairs.iter().map(|(k, v)| (k.to_string(), v.clone())).collect())
+    Unknown::Object(
+        pairs
+            .iter()
+            .map(|(k, v)| (k.to_string(), v.clone()))
+            .collect(),
+    )
 }
 
 // 9: root documents revive in order, each decoding its own shape.
 #[test]
 fn preserves_root_order() {
-    let schemas =
-        from_representations(vec![tag("String"), tag("Boolean"), tag("Number")], BTreeMap::new())
-            .expect("roots revive");
+    let schemas = from_representations(
+        vec![tag("String"), tag("Boolean"), tag("Number")],
+        BTreeMap::new(),
+    )
+    .expect("roots revive");
     assert_eq!(schemas.len(), 3);
     assert_eq!(
         schemas[0].decode(Unknown::Text("value".to_string())),
         Ok(Unknown::Text("value".to_string()))
     );
-    assert_eq!(schemas[1].decode(Unknown::Bool(true)), Ok(Unknown::Bool(true)));
+    assert_eq!(
+        schemas[1].decode(Unknown::Bool(true)),
+        Ok(Unknown::Bool(true))
+    );
     assert_eq!(
         schemas[2].decode(Unknown::Number(1.0)),
         Ok(Unknown::Number(1.0))
     );
     assert!(schemas[0].decode(Unknown::Bool(true)).is_err());
-    assert!(schemas[2].decode(Unknown::Text("value".to_string())).is_err());
+    assert!(
+        schemas[2]
+            .decode(Unknown::Text("value".to_string()))
+            .is_err()
+    );
 }
 
 // 24: definitions no root reaches are never revived, so an unrevivable
@@ -99,10 +113,7 @@ fn does_not_revive_unreachable_references() {
 fn normalizes_aliases_while_preserving_the_outer_reference() {
     let schemas = from_representations(
         vec![reference("Alias")],
-        refs(&[
-            ("Alias", reference("Value")),
-            ("Value", tag("String")),
-        ]),
+        refs(&[("Alias", reference("Value")), ("Value", tag("String"))]),
     )
     .expect("alias chain revives");
     assert_eq!(
@@ -152,8 +163,11 @@ fn shares_a_resolved_reference_between_roots() {
 // 72: a definition literally named `__proto__` resolves like any other key.
 #[test]
 fn resolves_a_reachable_proto_reference() {
-    let schemas = from_representations(vec![reference("__proto__")], refs(&[("__proto__", tag("String"))]))
-        .expect("__proto__ resolves");
+    let schemas = from_representations(
+        vec![reference("__proto__")],
+        refs(&[("__proto__", tag("String"))]),
+    )
+    .expect("__proto__ resolves");
     assert_eq!(
         schemas[0].decode(Unknown::Text("value".to_string())),
         Ok(Unknown::Text("value".to_string()))

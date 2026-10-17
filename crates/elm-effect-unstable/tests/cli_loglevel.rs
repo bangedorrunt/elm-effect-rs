@@ -31,8 +31,14 @@ fn level_filters_emission_in_severity_order() {
     // :123 `it.each(level=%s)` over all/trace/debug/info/warn/warning/error/fatal/none
     let cases: &[(&str, &[&str])] = &[
         ("all", &["trace", "debug", "info", "warn", "error", "fatal"]),
-        ("trace", &["trace", "debug", "info", "warn", "error", "fatal"]),
-        ("debug", &["trace", "debug", "info", "warn", "error", "fatal"]),
+        (
+            "trace",
+            &["trace", "debug", "info", "warn", "error", "fatal"],
+        ),
+        (
+            "debug",
+            &["trace", "debug", "info", "warn", "error", "fatal"],
+        ),
         ("info", &["trace", "info", "warn", "error", "fatal"]),
         ("warn", &["warn", "error", "fatal"]),
         ("warning", &["warn", "error", "fatal"]),

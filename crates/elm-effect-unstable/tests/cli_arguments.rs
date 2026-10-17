@@ -40,8 +40,7 @@ fn parses_all_argument_types_correctly() {
     );
     let config = primitive::parse_path("./config.json", PathKind::File, false).expect("file");
     assert!(config.contains("config.json"), "{config}");
-    let workspace =
-        primitive::parse_path("./workspace", PathKind::Directory, false).expect("dir");
+    let workspace = primitive::parse_path("./workspace", PathKind::Directory, false).expect("dir");
     assert!(workspace.contains("workspace"), "{workspace}");
     let date = primitive::parse_date("2024-01-01").expect("date");
     assert_eq!((date.year, date.month, date.day), (2024, 1, 1));
@@ -62,11 +61,11 @@ fn file_must_exist_validation() {
     // :92 `should handle file mustExist validation`
     let manifest = concat!(env!("CARGO_MANIFEST_DIR"), "/Cargo.toml");
     assert!(primitive::parse_path(manifest, PathKind::File, true).is_ok());
-    let err = primitive::parse_path("/non/existent/file.txt", PathKind::File, true)
-        .expect_err("missing");
+    let err =
+        primitive::parse_path("/non/existent/file.txt", PathKind::File, true).expect_err("missing");
     assert!(err.contains("does not exist"), "{err}");
-    let kept = primitive::parse_path("/non/existent/file.txt", PathKind::File, false)
-        .expect("no-check");
+    let kept =
+        primitive::parse_path("/non/existent/file.txt", PathKind::File, false).expect("no-check");
     assert!(kept.contains("/non/existent/file.txt"), "{kept}");
 }
 
@@ -128,8 +127,8 @@ fn handles_variadic_arguments() {
 #[test]
 fn handles_choice_with_value() {
     // :184 `should handle choiceWithValue`
-    let level = primitive::parse_choice("info", &[("debug", 0), ("info", 1), ("error", 2)])
-        .expect("maps");
+    let level =
+        primitive::parse_choice("info", &[("debug", 0), ("info", 1), ("error", 2)]).expect("maps");
     assert_eq!(level, 1);
 }
 
@@ -231,7 +230,13 @@ fn handles_optional_argument_when_provided() {
         .parse(&args(&[("label", &["my-label"])]))
         .expect("present")
         .expect("some");
-    assert_eq!(got, ("label".to_owned(), param::ParamValue::Text("my-label".to_owned())));
+    assert_eq!(
+        got,
+        (
+            "label".to_owned(),
+            param::ParamValue::Text("my-label".to_owned())
+        )
+    );
 }
 
 #[test]

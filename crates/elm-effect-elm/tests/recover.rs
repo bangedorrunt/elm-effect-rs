@@ -116,7 +116,11 @@ fn recovery_rebuilds_the_model_and_resumes_the_producer() {
         Producer::new("p"),
     )
     .unwrap();
-    assert_eq!(rebuilt.model(), &live, "model rebuilt from journaled messages");
+    assert_eq!(
+        rebuilt.model(),
+        &live,
+        "model rebuilt from journaled messages"
+    );
     assert_eq!(rebuilt.intents().len(), 2, "intents restored from the log");
     assert_eq!(
         PROVIDER_RUNS.load(Ordering::SeqCst),
@@ -149,7 +153,14 @@ fn recovery_rebuilds_the_model_and_resumes_the_producer() {
         Producer::new("p"),
     )
     .unwrap();
-    assert_eq!(again.model(), &live_final, "snapshot plus later records rebuild the model");
-    assert_ne!(live_after_snapshot, live_final, "the later send changed the model");
+    assert_eq!(
+        again.model(),
+        &live_final,
+        "snapshot plus later records rebuild the model"
+    );
+    assert_ne!(
+        live_after_snapshot, live_final,
+        "the later send changed the model"
+    );
     assert_eq!(PROVIDER_RUNS.load(Ordering::SeqCst), runs_before);
 }

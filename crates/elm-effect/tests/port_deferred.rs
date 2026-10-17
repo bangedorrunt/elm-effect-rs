@@ -61,10 +61,13 @@ fn interrupt_records_the_interruption() {
         other => panic!("expected a recorded interrupt, got {other:?}"),
     }
     // And it must not read as a typed failure.
-    assert_eq!(cell.poll().and_then(|e| match e {
-        Exit::Failure(cause) => cause.failure().cloned(),
-        Exit::Success(_) => None,
-    }), None);
+    assert_eq!(
+        cell.poll().and_then(|e| match e {
+            Exit::Failure(cause) => cause.failure().cloned(),
+            Exit::Success(_) => None,
+        }),
+        None
+    );
 }
 
 #[test]

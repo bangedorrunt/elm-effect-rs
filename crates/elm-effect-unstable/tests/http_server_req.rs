@@ -72,10 +72,7 @@ fn to_client_request_ignores_malformed_or_unsafe_content_lengths() {
         let request = ServerRequestHead {
             method: "POST".to_owned(),
             original_url: "http://localhost:3000".to_owned(),
-            headers: vec![(
-                "content-length".to_owned(),
-                content_length.to_owned(),
-            )],
+            headers: vec![("content-length".to_owned(), content_length.to_owned())],
             body: b"hello".to_vec(),
             remote_address: None,
         };
@@ -134,7 +131,10 @@ fn from_client_request_preserves_metadata_and_shares_body_accessors() {
     assert_eq!(request.text_body().expect("text"), "{\"foo\":\"bar\"}");
     assert_eq!(request.body, br#"{"foo":"bar"}"#);
     let json = request.json_body().expect("json");
-    assert_eq!(json.get("foo").and_then(|value| value.as_str()), Some("bar"));
+    assert_eq!(
+        json.get("foo").and_then(|value| value.as_str()),
+        Some("bar")
+    );
 }
 
 #[test]

@@ -80,8 +80,14 @@ pub mod variant_structs {
     use std::collections::BTreeMap;
 
     /// Variant names `Model` fixes, default first (`Model.Struct` at the pin).
-    pub const MODEL_VARIANTS: &[&str] =
-        &["select", "insert", "update", "json", "jsonCreate", "jsonUpdate"];
+    pub const MODEL_VARIANTS: &[&str] = &[
+        "select",
+        "insert",
+        "update",
+        "json",
+        "jsonCreate",
+        "jsonUpdate",
+    ];
 
     /// Leaf schema: the constructors these behaviours exercise.
     #[derive(Clone, Debug, PartialEq)]
@@ -215,11 +221,7 @@ pub mod variant_structs {
         /// The constructor (`make`): every field must be supplied unless it
         /// carries an overrideable default, which `now_millis` fills
         /// (`DateTime.now` at the pin is the caller's effect).
-        pub fn make(
-            &self,
-            supplied: &[(&str, Value)],
-            now_millis: i64,
-        ) -> Result<Record, String> {
+        pub fn make(&self, supplied: &[(&str, Value)], now_millis: i64) -> Result<Record, String> {
             let given: Record = supplied
                 .iter()
                 .map(|(name, value)| (name.to_string(), value.clone()))
@@ -367,11 +369,7 @@ pub mod variant_structs {
         }
 
         /// `User.make(props)`: the constructor.
-        pub fn make(
-            &self,
-            supplied: &[(&str, Value)],
-            now_millis: i64,
-        ) -> Result<Record, String> {
+        pub fn make(&self, supplied: &[(&str, Value)], now_millis: i64) -> Result<Record, String> {
             self.extracted(&self.default).make(supplied, now_millis)
         }
 
@@ -430,10 +428,7 @@ pub mod variant_structs {
 
         /// `FieldOnly([...])(schema)`: only the listed variants get the schema.
         pub fn field_only(&self, keys: &[&str], leaf: Leaf) -> Field {
-            let schemas: Vec<(&str, Leaf)> = keys
-                .iter()
-                .map(|key| (*key, leaf.clone()))
-                .collect();
+            let schemas: Vec<(&str, Leaf)> = keys.iter().map(|key| (*key, leaf.clone())).collect();
             Field::new(&schemas)
         }
 

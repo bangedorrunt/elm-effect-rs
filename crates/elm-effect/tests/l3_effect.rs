@@ -4,7 +4,9 @@
 //! constructor and combinator is covered: if any of them ran work eagerly,
 //! its counter would be non-zero after the drop.
 
-use elm_effect::{Cause, Defect, Effect, Exit, Layer, ManagedRuntime, Reason, Runtime, ServiceTag, use_service};
+use elm_effect::{
+    Cause, Defect, Effect, Exit, Layer, ManagedRuntime, Reason, Runtime, ServiceTag, use_service,
+};
 use std::convert::Infallible;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -72,7 +74,8 @@ fn catch_first_argument_as_success() {
 /// through and the typed error channel stays empty.
 #[test]
 fn catch_cause_first_argument_as_success() {
-    let effect = Effect::<i32, String>::succeed(1).catch_cause(|_cause| Effect::fail("e2".to_string()));
+    let effect =
+        Effect::<i32, String>::succeed(1).catch_cause(|_cause| Effect::fail("e2".to_string()));
     assert_eq!(Runtime::run(effect), Exit::Success(1));
 }
 
@@ -94,7 +97,8 @@ fn gen_yields_the_value_and_returns_it() {
 fn gen_with_self_binding_uses_the_bound_values() {
     let a = 1i32;
     let b = 2i32;
-    let effect = Effect::<i32, Infallible>::succeed(a).flat_map(move |bound| Effect::succeed(bound + b));
+    let effect =
+        Effect::<i32, Infallible>::succeed(a).flat_map(move |bound| Effect::succeed(bound + b));
     assert_eq!(Runtime::run(effect), Exit::Success(3));
 }
 
@@ -105,7 +109,9 @@ fn gen_with_self_binding_uses_the_bound_values() {
 /// length of "a" beside the argument that produced it, `[1, "a"]`.
 #[test]
 fn effect_fn_appends_pipeable_args_to_the_result() {
-    let f = |s: String| Effect::<i32, Infallible>::succeed(s.len() as i32).map(move |result| (result, s));
+    let f = |s: String| {
+        Effect::<i32, Infallible>::succeed(s.len() as i32).map(move |result| (result, s))
+    };
     assert_eq!(
         Runtime::run(f("a".to_string())),
         Exit::Success((1, "a".to_string()))
@@ -120,8 +126,9 @@ fn effect_fn_appends_pipeable_args_to_the_result() {
 #[test]
 fn effect_fn_self_binding_uppercases_the_body_result() {
     let prefix = "bound".to_string();
-    let f =
-        |value: String| Effect::<String, Infallible>::succeed(format!("{prefix}:{value}")).map(|v| v.to_uppercase());
+    let f = |value: String| {
+        Effect::<String, Infallible>::succeed(format!("{prefix}:{value}")).map(|v| v.to_uppercase())
+    };
     assert_eq!(
         Runtime::run(f("value".to_string())),
         Exit::Success("BOUND:VALUE".to_string())
@@ -135,8 +142,10 @@ fn effect_fn_self_binding_uppercases_the_body_result() {
 /// succeeds: the shape of the result is what the row checks.
 #[test]
 fn all_collects_the_success_tuple() {
-    let effect = Effect::<i32, Infallible>::succeed(1)
-        .flat_map(|a| Effect::<i32, Infallible>::succeed(2).flat_map(move |b| Effect::<i32, Infallible>::succeed(3).map(move |c| (a, b, c))));
+    let effect = Effect::<i32, Infallible>::succeed(1).flat_map(|a| {
+        Effect::<i32, Infallible>::succeed(2)
+            .flat_map(move |b| Effect::<i32, Infallible>::succeed(3).map(move |c| (a, b, c)))
+    });
     assert_eq!(Runtime::run(effect), Exit::Success((1, 2, 3)));
 }
 
@@ -146,11 +155,10 @@ fn all_collects_the_success_tuple() {
 /// named fields as a tuple in the record's declaration order.
 #[test]
 fn all_collects_the_success_record() {
-    let effect = Effect::<i32, Infallible>::succeed(1)
-        .flat_map(|a| {
-            Effect::<String, Infallible>::succeed("2".to_string())
-                .flat_map(move |b| Effect::<bool, Infallible>::succeed(true).map(move |c| (a, b, c)))
-        });
+    let effect = Effect::<i32, Infallible>::succeed(1).flat_map(|a| {
+        Effect::<String, Infallible>::succeed("2".to_string())
+            .flat_map(move |b| Effect::<bool, Infallible>::succeed(true).map(move |c| (a, b, c)))
+    });
     assert_eq!(
         Runtime::run(effect),
         Exit::Success((1, "2".to_string(), true))
@@ -213,7 +221,10 @@ fn catch_if_predicate_match_recovers() {
         |e: &String| !e.is_empty(),
         |e| Effect::succeed(format!("recovered: {e}")),
     );
-    assert_eq!(Runtime::run(effect), Exit::Success("recovered: e1".to_string()));
+    assert_eq!(
+        Runtime::run(effect),
+        Exit::Success("recovered: e1".to_string())
+    );
 }
 
 /// Effect.test.ts :3459 "predicate no match preserves error" — a predicate
@@ -258,7 +269,10 @@ fn catch_cause_if_predicate_match_recovers() {
             Effect::succeed(format!("recovered: {e}"))
         },
     );
-    assert_eq!(Runtime::run(effect), Exit::Success("recovered: e1".to_string()));
+    assert_eq!(
+        Runtime::run(effect),
+        Exit::Success("recovered: e1".to_string())
+    );
 }
 
 /// Effect.test.ts :3482 "predicate no match preserves error" — a declined
@@ -280,8 +294,8 @@ fn catch_cause_if_predicate_no_match_preserves_error() {
 /// failure is the outcome. (`Effect.flip` is the pin's assertion device.)
 #[test]
 fn catch_first_argument_as_failure() {
-    let effect = Effect::<i32, String>::fail("e1".to_string())
-        .catch(|_e| Effect::fail("e2".to_string()));
+    let effect =
+        Effect::<i32, String>::fail("e1".to_string()).catch(|_e| Effect::fail("e2".to_string()));
     match Runtime::run(effect) {
         Exit::Failure(cause) => assert_eq!(cause.failure(), Some(&"e2".to_string())),
         Exit::Success(_) => panic!("expected the handler's error"),
@@ -348,16 +362,14 @@ fn filter_refinement_keeps_only_the_narrowed_elements() {
 /// the element.
 #[test]
 fn filter_map_keeps_the_mapped_pass_values() {
-    let effect: Effect<Vec<String>, Infallible> = Effect::<i32, Infallible>::filter_map(
-        vec![1, 2, 3, 4],
-        |n| {
+    let effect: Effect<Vec<String>, Infallible> =
+        Effect::<i32, Infallible>::filter_map(vec![1, 2, 3, 4], |n| {
             if n % 2 == 0 {
                 Ok(format!("n={n}"))
             } else {
                 Err(n)
             }
-        },
-    );
+        });
     assert_eq!(
         Runtime::run(effect),
         Exit::Success(vec!["n=2".to_string(), "n=4".to_string()])
@@ -375,18 +387,20 @@ fn first_success_of_returns_the_first_success_and_skips_later_effects() {
         mark1.lock().unwrap().push("first".to_string());
     })
     .flat_map(|_| Effect::<&str, String>::fail("e1".to_string()));
-    let second =
-        Effect::sync(move || {
-            mark2.lock().unwrap().push("second".to_string());
-        })
-        .map(|_| "success");
+    let second = Effect::sync(move || {
+        mark2.lock().unwrap().push("second".to_string());
+    })
+    .map(|_| "success");
     let third = Effect::sync(move || {
         mark3.lock().unwrap().push("third".to_string());
     })
     .map(|_| "unreachable");
     let effect: Effect<&str, String> = Effect::first_success_of(vec![first, second, third]);
     assert_eq!(Runtime::run(effect), Exit::Success("success"));
-    assert_eq!(*executed.lock().unwrap(), ["first".to_string(), "second".to_string()]);
+    assert_eq!(
+        *executed.lock().unwrap(),
+        ["first".to_string(), "second".to_string()]
+    );
 }
 
 /// Effect.test.ts :3738 "fails with the last failure when all effects fail"
@@ -412,7 +426,10 @@ fn first_success_of_defects_on_an_empty_collection() {
     let effect: Effect<&str, String> = Effect::first_success_of(Vec::new());
     match Runtime::run(effect) {
         Exit::Failure(cause) => {
-            assert_eq!(cause.defects()[0].message, "Received an empty collection of effects");
+            assert_eq!(
+                cause.defects()[0].message,
+                "Received an empty collection of effects"
+            );
         }
         Exit::Success(_) => panic!("expected a defect"),
     }
@@ -471,33 +488,28 @@ enum Problem {
 /// reason and recovers with its field.
 #[test]
 fn catch_reason_matches_nested_reason_and_handler_succeeds() {
-    let effect = Effect::<String, Problem>::fail(Problem::Ai(Nested::RateLimit(60))).catch(|e| {
-        match e {
+    let effect =
+        Effect::<String, Problem>::fail(Problem::Ai(Nested::RateLimit(60))).catch(|e| match e {
             Problem::Ai(Nested::RateLimit(retry)) => {
                 Effect::<String, Problem>::succeed(format!("retry: {retry}"))
             }
             other => Effect::fail(other),
-        }
-    });
-    assert_eq!(
-        Runtime::run(effect),
-        Exit::Success("retry: 60".to_string())
-    );
+        });
+    assert_eq!(Runtime::run(effect), Exit::Success("retry: 60".to_string()));
 }
 
 /// `catchReason`'s `orElse`: the parent tag matches but the nested reason
 /// does not, so the fallback handler runs.
 #[test]
 fn catch_reason_or_else_handles_the_second_reason_type() {
-    let effect = Effect::<String, Problem>::fail(Problem::Ai(Nested::Quota(100))).catch(|e| {
-        match e {
+    let effect =
+        Effect::<String, Problem>::fail(Problem::Ai(Nested::Quota(100))).catch(|e| match e {
             Problem::Ai(Nested::RateLimit(retry)) => {
                 Effect::<String, Problem>::succeed(format!("retry: {retry}"))
             }
             Problem::Ai(_) => Effect::succeed("quota".to_string()),
             other => Effect::fail(other),
-        }
-    });
+        });
     assert_eq!(Runtime::run(effect), Exit::Success("quota".to_string()));
 }
 
@@ -509,7 +521,10 @@ fn catch_reason_handler_failure_becomes_the_exit() {
         .catch(|_| Effect::fail(Problem::Other("handled".to_string())));
     match Runtime::run(effect) {
         Exit::Failure(cause) => {
-            assert_eq!(cause.failure(), Some(&Problem::Other("handled".to_string())));
+            assert_eq!(
+                cause.failure(),
+                Some(&Problem::Other("handled".to_string()))
+            );
         }
         Exit::Success(_) => panic!("the handler's failure must be the exit"),
     }
@@ -524,10 +539,7 @@ fn catch_reason_ignores_non_matching_reason() {
         other => Effect::fail(other),
     });
     match Runtime::run(effect) {
-        Exit::Failure(cause) => assert_eq!(
-            cause.failure(),
-            Some(&Problem::Ai(Nested::Quota(100)))
-        ),
+        Exit::Failure(cause) => assert_eq!(cause.failure(), Some(&Problem::Ai(Nested::Quota(100)))),
         Exit::Success(_) => panic!("a non-matching reason must not be recovered"),
     }
 }
@@ -539,10 +551,9 @@ fn catch_reason_ignores_non_matching_reason() {
 fn catch_reason_preserves_the_cause_for_a_non_matching_reason() {
     let rt = Runtime::new();
     let child = rt.fork_detach(|ctx| -> Exit<(), Problem> {
-        ctx.acquire_release(
-            Effect::<(), String>::succeed(()),
-            |()| Effect::<(), String>::die(Defect::new("finalizer failure")),
-        )
+        ctx.acquire_release(Effect::<(), String>::succeed(()), |()| {
+            Effect::<(), String>::die(Defect::new("finalizer failure"))
+        })
         .expect("acquire succeeds");
         ctx.spawn_effect(
             Effect::<(), Problem>::fail(Problem::Ai(Nested::Quota(100))).catch(|e| match e {
@@ -558,10 +569,7 @@ fn catch_reason_preserves_the_cause_for_a_non_matching_reason() {
                 cause.reasons.as_slice(),
                 [Reason::Fail(_), Reason::Die(_)]
             ));
-            assert_eq!(
-                cause.failure(),
-                Some(&Problem::Ai(Nested::Quota(100)))
-            );
+            assert_eq!(cause.failure(), Some(&Problem::Ai(Nested::Quota(100))));
             assert!(cause.defects()[0].message.contains("finalizer failure"));
         }
         Exit::Success(_) => panic!("the failing effect and its finalizer must stay a failure"),
@@ -572,10 +580,11 @@ fn catch_reason_preserves_the_cause_for_a_non_matching_reason() {
 /// constructor passes through with its cause intact.
 #[test]
 fn catch_reason_ignores_non_matching_parent_tag() {
-    let effect = Effect::<(), Problem>::fail(Problem::Other("test".to_string())).catch(|e| match e {
-        Problem::Ai(Nested::RateLimit(_)) => Effect::succeed(()),
-        other => Effect::fail(other),
-    });
+    let effect =
+        Effect::<(), Problem>::fail(Problem::Other("test".to_string())).catch(|e| match e {
+            Problem::Ai(Nested::RateLimit(_)) => Effect::succeed(()),
+            other => Effect::fail(other),
+        });
     match Runtime::run(effect) {
         Exit::Failure(cause) => {
             assert_eq!(cause.failure(), Some(&Problem::Other("test".to_string())));
@@ -588,15 +597,14 @@ fn catch_reason_ignores_non_matching_parent_tag() {
 /// reason's tag runs.
 #[test]
 fn catch_reasons_object_handlers_select_by_nested_tag() {
-    let effect = Effect::<String, Problem>::fail(Problem::Ai(Nested::RateLimit(60))).catch(|e| {
-        match e {
+    let effect =
+        Effect::<String, Problem>::fail(Problem::Ai(Nested::RateLimit(60))).catch(|e| match e {
             Problem::Ai(Nested::RateLimit(retry)) => {
                 Effect::<String, Problem>::succeed(format!("rate: {retry}"))
             }
             Problem::Ai(Nested::Quota(limit)) => Effect::succeed(format!("quota: {limit}")),
             other => Effect::fail(other),
-        }
-    });
+        });
     assert_eq!(Runtime::run(effect), Exit::Success("rate: 60".to_string()));
 }
 
@@ -604,28 +612,28 @@ fn catch_reasons_object_handlers_select_by_nested_tag() {
 /// object falls back.
 #[test]
 fn catch_reasons_or_else_covers_unlisted_reasons() {
-    let effect = Effect::<String, Problem>::fail(Problem::Ai(Nested::RateLimit(60))).catch(|e| {
-        match e {
-            Problem::Ai(Nested::Quota(limit)) => Effect::<String, Problem>::succeed(format!("quota: {limit}")),
+    let effect =
+        Effect::<String, Problem>::fail(Problem::Ai(Nested::RateLimit(60))).catch(|e| match e {
+            Problem::Ai(Nested::Quota(limit)) => {
+                Effect::<String, Problem>::succeed(format!("quota: {limit}"))
+            }
             Problem::Ai(_) => Effect::succeed("orElse".to_string()),
             other => Effect::fail(other),
-        }
-    });
+        });
     assert_eq!(Runtime::run(effect), Exit::Success("orElse".to_string()));
 }
 
 /// `catchReasons` on the second reason type in the object.
 #[test]
 fn catch_reasons_catches_second_reason_type() {
-    let effect = Effect::<String, Problem>::fail(Problem::Ai(Nested::Quota(100))).catch(|e| {
-        match e {
+    let effect =
+        Effect::<String, Problem>::fail(Problem::Ai(Nested::Quota(100))).catch(|e| match e {
             Problem::Ai(Nested::RateLimit(retry)) => {
                 Effect::<String, Problem>::succeed(format!("rate: {retry}"))
             }
             Problem::Ai(Nested::Quota(limit)) => Effect::succeed(format!("quota: {limit}")),
             other => Effect::fail(other),
-        }
-    });
+        });
     assert_eq!(
         Runtime::run(effect),
         Exit::Success("quota: 100".to_string())
@@ -641,10 +649,7 @@ fn catch_reasons_partial_handlers_pass_unhandled_through() {
         other => Effect::fail(other),
     });
     match Runtime::run(effect) {
-        Exit::Failure(cause) => assert_eq!(
-            cause.failure(),
-            Some(&Problem::Ai(Nested::Quota(100)))
-        ),
+        Exit::Failure(cause) => assert_eq!(cause.failure(), Some(&Problem::Ai(Nested::Quota(100)))),
         Exit::Success(_) => panic!("an unhandled reason must not be recovered"),
     }
 }
@@ -655,10 +660,9 @@ fn catch_reasons_partial_handlers_pass_unhandled_through() {
 fn catch_reasons_preserves_the_cause_for_an_unhandled_reason() {
     let rt = Runtime::new();
     let child = rt.fork_detach(|ctx| -> Exit<(), Problem> {
-        ctx.acquire_release(
-            Effect::<(), String>::succeed(()),
-            |()| Effect::<(), String>::die(Defect::new("finalizer failure")),
-        )
+        ctx.acquire_release(Effect::<(), String>::succeed(()), |()| {
+            Effect::<(), String>::die(Defect::new("finalizer failure"))
+        })
         .expect("acquire succeeds");
         ctx.spawn_effect(
             Effect::<(), Problem>::fail(Problem::Ai(Nested::Quota(100))).catch(|e| match e {
@@ -674,10 +678,7 @@ fn catch_reasons_preserves_the_cause_for_an_unhandled_reason() {
                 cause.reasons.as_slice(),
                 [Reason::Fail(_), Reason::Die(_)]
             ));
-            assert_eq!(
-                cause.failure(),
-                Some(&Problem::Ai(Nested::Quota(100)))
-            );
+            assert_eq!(cause.failure(), Some(&Problem::Ai(Nested::Quota(100))));
             assert!(cause.defects()[0].message.contains("finalizer failure"));
         }
         Exit::Success(_) => panic!("the failing effect and its finalizer must stay a failure"),
@@ -754,7 +755,11 @@ fn map_err_leaves_defects_and_interrupts_untouched() {
     match Runtime::run(Effect::<(), Problem>::die(defect.clone()).map_err(unwrap)) {
         Exit::Failure(cause) => {
             assert_eq!(cause.failure(), None, "a defect is not a typed failure");
-            assert_eq!(cause.defects(), vec![&defect], "the defect survives verbatim");
+            assert_eq!(
+                cause.defects(),
+                vec![&defect],
+                "the defect survives verbatim"
+            );
         }
         other => panic!("a defect must stay a defect, got {other:?}"),
     }
@@ -763,7 +768,10 @@ fn map_err_leaves_defects_and_interrupts_untouched() {
             assert_eq!(cause.failure(), None, "an interrupt is not a typed failure");
             assert!(cause.defects().is_empty(), "an interrupt is not a defect");
             assert!(
-                cause.reasons.iter().any(|reason| matches!(reason, Reason::Interrupt { .. })),
+                cause
+                    .reasons
+                    .iter()
+                    .any(|reason| matches!(reason, Reason::Interrupt { .. })),
                 "the interrupt survives verbatim, got {:?}",
                 cause.reasons
             );

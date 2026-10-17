@@ -188,10 +188,8 @@ fn scoped_cache_make_capacity_and_ttl() {
     assert_eq!(hourly.get_option(&"test".to_string()), None);
 
     // Cache.test.ts:567 — the same expiry rule on the unscoped cache.
-    let plain = Cache::new(10, lookup).with_ttl(
-        TimeToLive::For(Duration::from_minutes(60)),
-        clock.clone(),
-    );
+    let plain =
+        Cache::new(10, lookup).with_ttl(TimeToLive::For(Duration::from_minutes(60)), clock.clone());
     assert_eq!(plain.get(&"test".to_string()), Ok(4));
     clock.adjust(Duration::from_minutes(120));
     assert_eq!(plain.get_option(&"test".to_string()), None);
@@ -472,17 +470,13 @@ fn pool_blocks_while_exhausted() {
 #[test]
 fn pool_preallocates_idle_values() {
     let made = Arc::new(AtomicUsize::new(0));
-    let pool = Pool::new(
-        4,
-        IdlePolicy::default(),
-        {
-            let made = Arc::clone(&made);
-            move || {
-                made.fetch_add(1, Ordering::SeqCst);
-                7u32
-            }
-        },
-    );
+    let pool = Pool::new(4, IdlePolicy::default(), {
+        let made = Arc::clone(&made);
+        move || {
+            made.fetch_add(1, Ordering::SeqCst);
+            7u32
+        }
+    });
     pool.preallocate(3);
     assert_eq!(made.load(Ordering::SeqCst), 3);
     assert_eq!(pool.idle_count(), 3);
@@ -496,17 +490,13 @@ fn pool_preallocates_idle_values() {
 #[test]
 fn pool_invalidate_drops_item_from_circulation() {
     let made = Arc::new(AtomicUsize::new(0));
-    let pool = Pool::new(
-        2,
-        IdlePolicy::default(),
-        {
-            let made = Arc::clone(&made);
-            move || {
-                made.fetch_add(1, Ordering::SeqCst);
-                7u32
-            }
-        },
-    );
+    let pool = Pool::new(2, IdlePolicy::default(), {
+        let made = Arc::clone(&made);
+        move || {
+            made.fetch_add(1, Ordering::SeqCst);
+            7u32
+        }
+    });
     let bad = pool.acquire();
     assert_eq!(made.load(Ordering::SeqCst), 1);
     bad.invalidate();
@@ -520,17 +510,13 @@ fn pool_invalidate_drops_item_from_circulation() {
 #[test]
 fn pool_reserve_removes_item_permanently() {
     let made = Arc::new(AtomicUsize::new(0));
-    let pool = Pool::new(
-        2,
-        IdlePolicy::default(),
-        {
-            let made = Arc::clone(&made);
-            move || {
-                made.fetch_add(1, Ordering::SeqCst);
-                7u32
-            }
-        },
-    );
+    let pool = Pool::new(2, IdlePolicy::default(), {
+        let made = Arc::clone(&made);
+        move || {
+            made.fetch_add(1, Ordering::SeqCst);
+            7u32
+        }
+    });
     let held = pool.reserve();
     assert_eq!(*held, 7);
     drop(held);
@@ -544,17 +530,13 @@ fn pool_reserve_removes_item_permanently() {
 #[test]
 fn pool_max_size_with_concurrency() {
     let made = Arc::new(AtomicUsize::new(0));
-    let pool = Arc::new(Pool::new(
-        3,
-        IdlePolicy::default(),
-        {
-            let made = Arc::clone(&made);
-            move || {
-                made.fetch_add(1, Ordering::SeqCst);
-                7u32
-            }
-        },
-    ));
+    let pool = Arc::new(Pool::new(3, IdlePolicy::default(), {
+        let made = Arc::clone(&made);
+        move || {
+            made.fetch_add(1, Ordering::SeqCst);
+            7u32
+        }
+    }));
     let a = pool.acquire();
     let b = pool.acquire();
     let c = pool.acquire();
@@ -629,7 +611,11 @@ fn get_option_returns_none_for_a_missing_key_and_never_runs_the_lookup() {
     // A later get still populates and then reports the value.
     assert_eq!(cache.get(&"test".to_string()), Ok(4));
     assert_eq!(cache.get_option(&"test".to_string()), Some(4));
-    assert_eq!(calls.load(Ordering::SeqCst), 1, "only the get ran the lookup");
+    assert_eq!(
+        calls.load(Ordering::SeqCst),
+        1,
+        "only the get ran the lookup"
+    );
 }
 
 #[test]
@@ -637,8 +623,8 @@ fn get_option_reports_absent_for_a_cached_failure() {
     // A cached failure is not a value: getOption reports absence rather than
     // resurrecting the error, which is what keeps it a "did I hold this key"
     // question.
-    let cache = Cache::new(10, |_key: &String| Err::<usize, String>("boom".to_string()))
-        .cache_errors(true);
+    let cache =
+        Cache::new(10, |_key: &String| Err::<usize, String>("boom".to_string())).cache_errors(true);
     assert!(cache.get(&"k".to_string()).is_err());
     assert_eq!(cache.len(), 1, "the failure is cached");
     assert_eq!(cache.get_option(&"k".to_string()), None);
@@ -662,10 +648,13 @@ fn cache_refresh_reruns_the_lookup() {
     assert_eq!(cache.refresh(&"test".to_string()), Ok(2));
 
     // The refresh replaces the cached failure.
-    let failing = Cache::new(10, |_: &String| Err::<usize, String>("error".to_string()))
-        .cache_errors(true);
+    let failing =
+        Cache::new(10, |_: &String| Err::<usize, String>("error".to_string())).cache_errors(true);
     assert!(failing.get(&"test".to_string()).is_err());
-    assert_eq!(failing.refresh(&"test".to_string()), Err("error".to_string()));
+    assert_eq!(
+        failing.refresh(&"test".to_string()),
+        Err("error".to_string())
+    );
 }
 
 #[test]
@@ -695,18 +684,22 @@ fn cache_refresh_updates_ttl() {
     use elm_effect::{Duration, TestClock};
 
     let clock = Arc::new(TestClock::new());
-    let cache = Cache::new(10, |key: &String| Ok::<usize, String>(key.len())).with_ttl(
-        TimeToLive::For(Duration::from_minutes(60)),
-        clock.clone(),
-    );
+    let cache = Cache::new(10, |key: &String| Ok::<usize, String>(key.len()))
+        .with_ttl(TimeToLive::For(Duration::from_minutes(60)), clock.clone());
     cache.get(&"test".to_string());
     clock.adjust(Duration::from_minutes(45));
     assert!(cache.has(&"test".to_string()));
     cache.refresh(&"test".to_string());
     clock.adjust(Duration::from_minutes(30));
-    assert!(cache.has(&"test".to_string()), "45 + 30 is past the first TTL");
+    assert!(
+        cache.has(&"test".to_string()),
+        "45 + 30 is past the first TTL"
+    );
     clock.adjust(Duration::from_minutes(31));
-    assert!(!cache.has(&"test".to_string()), "61 minutes after the refresh");
+    assert!(
+        !cache.has(&"test".to_string()),
+        "61 minutes after the refresh"
+    );
 }
 
 #[test]
@@ -719,7 +712,10 @@ fn cache_refresh_is_not_a_use_for_eviction() {
     cache.get(&"b".to_string());
     cache.refresh(&"a".to_string());
     cache.get(&"c".to_string());
-    assert!(!cache.has(&"a".to_string()), "refresh did not refresh recency");
+    assert!(
+        !cache.has(&"a".to_string()),
+        "refresh did not refresh recency"
+    );
     assert!(cache.has(&"b".to_string()));
     assert!(cache.has(&"c".to_string()));
 }
@@ -762,19 +758,18 @@ fn cache_zero_ttl_stores_nothing() {
     use elm_effect::{Duration, TestClock};
 
     let clock = Arc::new(TestClock::new());
-    let zero = Cache::new(1, |_: &String| Ok::<usize, String>(42)).with_ttl(
-        TimeToLive::For(Duration::ZERO),
-        clock.clone(),
-    );
+    let zero = Cache::new(1, |_: &String| Ok::<usize, String>(42))
+        .with_ttl(TimeToLive::For(Duration::ZERO), clock.clone());
     assert_eq!(zero.get(&"key".to_string()), Ok(42));
     assert_eq!(zero.size(), 0, "a zero-TTL get stores nothing");
     assert!(!zero.has(&"key".to_string()));
 
-    let failing = Cache::new(1, |_: &String| Err::<usize, String>("error".to_string())).with_ttl(
-        TimeToLive::For(Duration::ZERO),
-        clock.clone(),
+    let failing = Cache::new(1, |_: &String| Err::<usize, String>("error".to_string()))
+        .with_ttl(TimeToLive::For(Duration::ZERO), clock.clone());
+    assert_eq!(
+        failing.refresh(&"key".to_string()),
+        Err("error".to_string())
     );
-    assert_eq!(failing.refresh(&"key".to_string()), Err("error".to_string()));
     assert!(!failing.has(&"key".to_string()));
 
     // A zero-TTL set also stores nothing, and drops a row that was there.
@@ -830,14 +825,17 @@ fn cache_keys_lists_active_keys() {
     }
     let mut keys = endless.keys();
     keys.sort();
-    assert_eq!(keys, vec!["a".to_string(), "b".to_string(), "c".to_string()]);
+    assert_eq!(
+        keys,
+        vec!["a".to_string(), "b".to_string(), "c".to_string()]
+    );
 
     endless.invalidate_all();
     assert!(endless.keys().is_empty());
     assert_eq!(endless.size(), 0);
 
-    let hourly = Cache::new(10, lookup)
-        .with_ttl(TimeToLive::For(Duration::from_minutes(60)), clock.clone());
+    let hourly =
+        Cache::new(10, lookup).with_ttl(TimeToLive::For(Duration::from_minutes(60)), clock.clone());
     hourly.get(&"a".to_string());
     hourly.get(&"b".to_string());
     clock.adjust(Duration::from_minutes(120));
@@ -943,11 +941,17 @@ fn refresh_pending_row_is_visible_and_cancel_removes_it() {
     assert_eq!(cache.size(), 1);
 
     assert!(cache.cancel_pending(&"key".to_string()));
-    assert!(!cache.has(&"key".to_string()), "cancel removed the pending row");
+    assert!(
+        !cache.has(&"key".to_string()),
+        "cancel removed the pending row"
+    );
 
     release.send(()).unwrap();
     assert_eq!(refresher.join().unwrap(), Ok(7), "the orphan still answers");
-    assert!(!cache.has(&"key".to_string()), "and never reinstalls its row");
+    assert!(
+        !cache.has(&"key".to_string()),
+        "and never reinstalls its row"
+    );
 }
 
 #[test]
@@ -995,7 +999,8 @@ fn zero_ttl_refresh_with_replacement_rules() {
 
     // existing: true — the refresh replaces a live entry.
     let (lookup, entered, release) = gated(Err("error".to_string()));
-    let cache = Arc::new(Cache::new(1, lookup).with_ttl_fn(failing_ttl, Arc::new(TestClock::new())));
+    let cache =
+        Arc::new(Cache::new(1, lookup).with_ttl_fn(failing_ttl, Arc::new(TestClock::new())));
     cache.set("key".to_string(), 1);
     let refresher = {
         let cache = Arc::clone(&cache);
@@ -1015,7 +1020,8 @@ fn zero_ttl_refresh_with_replacement_rules() {
     // existing: false — the refresh was creating the entry, so the value
     // written mid-lookup is not its row to remove.
     let (lookup, entered, release) = gated(Err("error".to_string()));
-    let cache = Arc::new(Cache::new(1, lookup).with_ttl_fn(failing_ttl, Arc::new(TestClock::new())));
+    let cache =
+        Arc::new(Cache::new(1, lookup).with_ttl_fn(failing_ttl, Arc::new(TestClock::new())));
     let refresher = {
         let cache = Arc::clone(&cache);
         std::thread::spawn(move || cache.refresh(&"key".to_string()))
@@ -1044,7 +1050,10 @@ fn refresh_reenters_and_trims_when_evicted_during_lookup() {
     };
     entered.recv().unwrap();
     cache.set("b".to_string(), 99);
-    assert!(!cache.has(&"a".to_string()), "b evicted a during the lookup");
+    assert!(
+        !cache.has(&"a".to_string()),
+        "b evicted a during the lookup"
+    );
     release.send(()).unwrap();
     assert_eq!(refresher.join().unwrap(), Ok(2));
     assert_eq!(cache.size(), 1);
@@ -1060,10 +1069,9 @@ fn suspended_zero_ttl_get_is_removed_when_it_completes() {
     use elm_effect::{Duration, TestClock};
 
     let (lookup, entered, release) = gated(Ok(42));
-    let cache = Arc::new(Cache::new(1, lookup).with_ttl(
-        TimeToLive::For(Duration::ZERO),
-        Arc::new(TestClock::new()),
-    ));
+    let cache = Arc::new(
+        Cache::new(1, lookup).with_ttl(TimeToLive::For(Duration::ZERO), Arc::new(TestClock::new())),
+    );
     let getter = {
         let cache = Arc::clone(&cache);
         std::thread::spawn(move || cache.get(&"key".to_string()))
@@ -1111,7 +1119,11 @@ fn invalidate_when_judges_a_pending_lookup_and_spares_a_newer_value() {
 
     assert_eq!(getter.join().unwrap(), Ok(1));
     assert!(!invalidator.join().unwrap());
-    assert_eq!(*seen.lock().unwrap(), vec![1], "the predicate saw the old value");
+    assert_eq!(
+        *seen.lock().unwrap(),
+        vec![1],
+        "the predicate saw the old value"
+    );
     assert_eq!(cache.get_option(&"key".to_string()), Some(99));
 
     // Failing tuple: the predicate is never called and the row is spared.
@@ -1139,7 +1151,10 @@ fn invalidate_when_judges_a_pending_lookup_and_spares_a_newer_value() {
 
     assert_eq!(getter.join().unwrap(), Err("error".to_string()));
     assert!(!invalidator.join().unwrap());
-    assert!(seen.lock().unwrap().is_empty(), "no predicate call for a failure");
+    assert!(
+        seen.lock().unwrap().is_empty(),
+        "no predicate call for a failure"
+    );
     assert_eq!(cache.get_option(&"key".to_string()), Some(99));
 }
 
@@ -1269,7 +1284,11 @@ fn scoped_entry_resource_releases_when_invalidate_when_matches() {
     assert_eq!(cache.get(&"test".to_string()), Ok("value-test".to_string()));
 
     assert!(!cache.invalidate_when(&"test".to_string(), |value| value == "value-other"));
-    assert_eq!(log_of(&log), vec!["acquired-test"], "no match holds the resource");
+    assert_eq!(
+        log_of(&log),
+        vec!["acquired-test"],
+        "no match holds the resource"
+    );
 
     assert!(cache.invalidate_when(&"test".to_string(), |value| value == "value-test"));
     assert_eq!(log_of(&log), vec!["acquired-test", "released-test"]);
@@ -1284,7 +1303,10 @@ fn scoped_entry_resource_releases_on_refresh() {
     assert_eq!(cache.get(&"test".to_string()), Ok("value-test".to_string()));
     assert_eq!(log_of(&log), vec!["acquired-test"]);
 
-    assert_eq!(cache.refresh(&"test".to_string()), Ok("value-test".to_string()));
+    assert_eq!(
+        cache.refresh(&"test".to_string()),
+        Ok("value-test".to_string())
+    );
     let events = log_of(&log);
     assert_eq!(
         events
@@ -1314,12 +1336,12 @@ fn scoped_entry_resources_release_on_invalidate_all() {
     // ScopedCache.test.ts:1202 — invalidateAll releases every entry's resource.
     let (cache, log) = managed_resource_cache(10, 25);
     for key in ["test1", "test2", "test3"] {
-        assert_eq!(
-            cache.get(&key.to_string()),
-            Ok(format!("value-{key}"))
-        );
+        assert_eq!(cache.get(&key.to_string()), Ok(format!("value-{key}")));
     }
-    assert_eq!(log_of(&log), vec!["acquired-test1", "acquired-test2", "acquired-test3"]);
+    assert_eq!(
+        log_of(&log),
+        vec!["acquired-test1", "acquired-test2", "acquired-test3"]
+    );
 
     cache.invalidate_all();
     let mut released = log_of(&log);
@@ -1338,8 +1360,14 @@ fn scoped_entry_resources_release_on_close() {
     // ScopedCache.test.ts:2058 — closing the cache releases every entry's
     // resource through the scope the cache owns.
     let (cache, log) = managed_resource_cache(10, 26);
-    assert_eq!(cache.get(&"test1".to_string()), Ok("value-test1".to_string()));
-    assert_eq!(cache.get(&"test2".to_string()), Ok("value-test2".to_string()));
+    assert_eq!(
+        cache.get(&"test1".to_string()),
+        Ok("value-test1".to_string())
+    );
+    assert_eq!(
+        cache.get(&"test2".to_string()),
+        Ok("value-test2".to_string())
+    );
     assert_eq!(log_of(&log), vec!["acquired-test1", "acquired-test2"]);
 
     cache.close();
@@ -1425,19 +1453,31 @@ fn scoped_entry_resource_releases_when_a_walk_prunes_expiry() {
     cache.get(&"a".to_string());
     clock.adjust(Duration::from_minutes(120));
     assert!(cache.keys().is_empty());
-    assert_eq!(log_of(&log), vec!["acquired-a", "released-a"], "keys pruned it");
+    assert_eq!(
+        log_of(&log),
+        vec!["acquired-a", "released-a"],
+        "keys pruned it"
+    );
 
     let (cache, log, clock) = build(29);
     cache.get(&"b".to_string());
     clock.adjust(Duration::from_minutes(120));
     assert!(cache.values().is_empty());
-    assert_eq!(log_of(&log), vec!["acquired-b", "released-b"], "values pruned it");
+    assert_eq!(
+        log_of(&log),
+        vec!["acquired-b", "released-b"],
+        "values pruned it"
+    );
 
     let (cache, log, clock) = build(30);
     cache.get(&"c".to_string());
     clock.adjust(Duration::from_minutes(120));
     assert!(cache.entries().is_empty());
-    assert_eq!(log_of(&log), vec!["acquired-c", "released-c"], "entries pruned it");
+    assert_eq!(
+        log_of(&log),
+        vec!["acquired-c", "released-c"],
+        "entries pruned it"
+    );
 }
 
 #[test]
@@ -1467,18 +1507,32 @@ fn scoped_failed_entry_keeps_its_resource_until_evicted() {
             }
         },
     );
-    assert_eq!(cache.get(&"fail1".to_string()), Err("error-fail1".to_string()));
-    assert_eq!(cache.get(&"fail2".to_string()), Err("error-fail2".to_string()));
+    assert_eq!(
+        cache.get(&"fail1".to_string()),
+        Err("error-fail1".to_string())
+    );
+    assert_eq!(
+        cache.get(&"fail2".to_string()),
+        Err("error-fail2".to_string())
+    );
     assert_eq!(
         log_of(&log),
         vec!["acquired-fail1", "acquired-fail2"],
         "both failed entries are held"
     );
 
-    assert_eq!(cache.get(&"fail3".to_string()), Err("error-fail3".to_string()));
+    assert_eq!(
+        cache.get(&"fail3".to_string()),
+        Err("error-fail3".to_string())
+    );
     assert_eq!(
         log_of(&log),
-        vec!["acquired-fail1", "acquired-fail2", "released-fail1", "acquired-fail3"],
+        vec![
+            "acquired-fail1",
+            "acquired-fail2",
+            "released-fail1",
+            "acquired-fail3"
+        ],
         "evicting the oldest failure released its resource"
     );
 }
@@ -1578,10 +1632,7 @@ fn scoped_invalidate_all_empties_the_cache_before_finalizers() {
                     Ok(format!("value-{key}")),
                     Some(Box::new(move || {
                         if let Some(cache) = holder.lock().unwrap().upgrade() {
-                            observed
-                                .lock()
-                                .unwrap()
-                                .push((cache.size(), cache.keys()));
+                            observed.lock().unwrap().push((cache.size(), cache.keys()));
                         }
                     })),
                 )
@@ -1643,8 +1694,16 @@ fn scoped_finalizer_refresh_installs_an_entry_that_survives() {
 
     assert_eq!(cache.get(&"key".to_string()), Ok(1));
     cache.invalidate_all();
-    assert_eq!(*released.lock().unwrap(), vec![1], "only the displaced resource");
-    assert_eq!(acquired.load(Ordering::SeqCst), 2, "the finalizer's refresh ran");
+    assert_eq!(
+        *released.lock().unwrap(),
+        vec![1],
+        "only the displaced resource"
+    );
+    assert_eq!(
+        acquired.load(Ordering::SeqCst),
+        2,
+        "the finalizer's refresh ran"
+    );
     assert_eq!(
         cache.get_option(&"key".to_string()),
         Some(2),
@@ -1832,10 +1891,7 @@ fn scoped_cache_inspection_family() {
     // :1472, :1490, :1508 — entries pairs keys with values.
     let mut entries = valued.entries();
     entries.sort();
-    assert_eq!(
-        entries,
-        vec![("x".to_string(), 1), ("yy".to_string(), 2)]
-    );
+    assert_eq!(entries, vec![("x".to_string(), 1), ("yy".to_string(), 2)]);
 
     // :1148, :1166, :1183 — invalidateAll empties every view.
     valued.invalidate_all();
@@ -1963,8 +2019,15 @@ fn scoped_cache_fixed_ttl_and_refresh() {
     assert_eq!(cache.get(&"ab".to_string()), Ok(2));
     assert!(cache.has(&"ab".to_string()));
     clock.adjust(Duration::from_millis(1_001));
-    assert!(!cache.has(&"ab".to_string()), "an expired row is not present");
-    assert_eq!(cache.get(&"ab".to_string()), Ok(2), "and the lookup runs again");
+    assert!(
+        !cache.has(&"ab".to_string()),
+        "an expired row is not present"
+    );
+    assert_eq!(
+        cache.get(&"ab".to_string()),
+        Ok(2),
+        "and the lookup runs again"
+    );
     assert_eq!(calls.load(Ordering::SeqCst), 2);
 
     // Infinite TTL never expires.
@@ -2027,7 +2090,11 @@ fn scoped_cache_refresh_reruns_the_lookup() {
     );
     assert_eq!(cache.get(&"ab".to_string()), Ok(2));
     assert_eq!(cache.refresh(&"ab".to_string()), Ok(2));
-    assert_eq!(calls.load(Ordering::SeqCst), 2, "refresh re-runs the lookup");
+    assert_eq!(
+        calls.load(Ordering::SeqCst),
+        2,
+        "refresh re-runs the lookup"
+    );
 
     // A missing key is inserted at the back and counted.
     assert_eq!(cache.refresh(&"abc".to_string()), Ok(3));
@@ -2069,7 +2136,10 @@ fn scoped_cache_failures_are_kept_out_of_the_views() {
         Arc::new(Scope::new(100)),
         |_: &String| Err::<usize, String>("lookup failed".to_string()),
     );
-    assert_eq!(cache.get(&"k".to_string()), Err("lookup failed".to_string()));
+    assert_eq!(
+        cache.get(&"k".to_string()),
+        Err("lookup failed".to_string())
+    );
     assert!(cache.keys().is_empty());
     assert!(cache.values().is_empty());
     assert!(cache.entries().is_empty());
@@ -2158,11 +2228,7 @@ fn cached_runs_the_effect_once_for_concurrent_callers() {
     let exits: Vec<Exit<usize, String>> = fibers.into_iter().map(|f| f.join()).collect();
     assert_eq!(
         exits,
-        vec![
-            Exit::Success(1),
-            Exit::Success(1),
-            Exit::Success(1)
-        ]
+        vec![Exit::Success(1), Exit::Success(1), Exit::Success(1)]
     );
     assert_eq!(calls.load(Ordering::SeqCst), 1);
 }
@@ -2486,10 +2552,8 @@ fn cache_default_ttl_never_expires() {
 fn cache_custom_ttl_expires_between_advances() {
     // Cache.test.ts:59 — a one-hour TTL: live at 30 minutes, gone at 61.
     let clock = clock();
-    let cache = Cache::new(10, len_lookup()).with_ttl(
-        TimeToLive::For(Duration::from_minutes(60)),
-        clock.clone(),
-    );
+    let cache = Cache::new(10, len_lookup())
+        .with_ttl(TimeToLive::For(Duration::from_minutes(60)), clock.clone());
     assert_eq!(cache.get(&"test".to_string()), Ok(4));
     clock.adjust(Duration::from_minutes(30));
     assert!(cache.has(&"test".to_string()));
@@ -2513,20 +2577,17 @@ fn cache_make_with_ttl_by_outcome_and_key() {
     // minute, everything else an hour.
     let clock = clock();
     let calls = Arc::new(AtomicUsize::new(0));
-    let cache = Cache::new_owned(
-        10,
-        {
-            let calls = Arc::clone(&calls);
-            move |key: &String| {
-                calls.fetch_add(1, Ordering::SeqCst);
-                if key == "fail" {
-                    (Err("error".to_string()), None)
-                } else {
-                    (Ok(key.len()), None)
-                }
+    let cache = Cache::new_owned(10, {
+        let calls = Arc::clone(&calls);
+        move |key: &String| {
+            calls.fetch_add(1, Ordering::SeqCst);
+            if key == "fail" {
+                (Err("error".to_string()), None)
+            } else {
+                (Ok(key.len()), None)
             }
-        },
-    )
+        }
+    })
     .with_ttl_fn(
         move |outcome: &Result<usize, String>, key: &String| {
             if outcome.is_err() {
@@ -2544,9 +2605,15 @@ fn cache_make_with_ttl_by_outcome_and_key() {
     assert_eq!(cache.get(&"k".to_string()), Ok(1));
 
     clock.adjust(Duration::from_secs(2));
-    assert!(!cache.has(&"fail".to_string()), "a failure's one-second TTL lapsed");
+    assert!(
+        !cache.has(&"fail".to_string()),
+        "a failure's one-second TTL lapsed"
+    );
     clock.adjust(Duration::from_minutes(1));
-    assert!(!cache.has(&"k".to_string()), "\"k\"'s one-minute TTL lapsed");
+    assert!(
+        !cache.has(&"k".to_string()),
+        "\"k\"'s one-minute TTL lapsed"
+    );
     assert!(cache.has(&"short".to_string()), "an hour is still live");
 }
 
@@ -2617,8 +2684,8 @@ fn cache_get_success_shapes() {
     assert_eq!(good.get_option(&"test".to_string()), Some(4));
     assert_eq!(good.get_option(&"absent".to_string()), None);
 
-    let failing = Cache::new(10, |_: &String| Err::<usize, String>("error".to_string()))
-        .cache_errors(true);
+    let failing =
+        Cache::new(10, |_: &String| Err::<usize, String>("error".to_string())).cache_errors(true);
     assert!(failing.get(&"test".to_string()).is_err());
     assert_eq!(failing.get_option(&"test".to_string()), None);
 
@@ -2651,7 +2718,11 @@ fn cache_get_option_waits_for_the_in_flight_lookup() {
     let results: Vec<Result<usize, String>> =
         handles.into_iter().map(|h| h.join().unwrap()).collect();
     assert_eq!(results, vec![Ok(42), Ok(42), Ok(42), Ok(42)]);
-    assert_eq!(calls.load(Ordering::SeqCst), 1, "the lookup ran once for every caller");
+    assert_eq!(
+        calls.load(Ordering::SeqCst),
+        1,
+        "the lookup ran once for every caller"
+    );
     assert_eq!(cache.get_option(&"test".to_string()), Some(42));
 }
 
@@ -2669,7 +2740,11 @@ fn cache_set_writes_without_the_lookup() {
     });
     cache.set("test".to_string(), 42);
     assert_eq!(cache.get(&"test".to_string()), Ok(42));
-    assert_eq!(calls.load(Ordering::SeqCst), 0, "a hit must not run the lookup");
+    assert_eq!(
+        calls.load(Ordering::SeqCst),
+        0,
+        "a hit must not run the lookup"
+    );
 
     cache.set("test".to_string(), 100);
     assert_eq!(cache.get(&"test".to_string()), Ok(100));
@@ -2701,7 +2776,10 @@ fn cache_has_reports_presence_and_expiry() {
     let cache = Cache::new(10, len_lookup())
         .with_ttl(TimeToLive::For(Duration::from_minutes(60)), clock.clone());
     assert_eq!(cache.get(&"test".to_string()), Ok(4));
-    assert!(cache.has(&"test".to_string()), "a populated key reads present");
+    assert!(
+        cache.has(&"test".to_string()),
+        "a populated key reads present"
+    );
     assert!(!cache.has(&"absent".to_string()));
     clock.adjust(Duration::from_minutes(120));
     assert!(!cache.has(&"test".to_string()));
@@ -2728,8 +2806,13 @@ fn cache_capacity_evicts_lru_order() {
         assert!(cache.get(&key.to_string()).is_ok());
     }
     assert!(cache.get(&"d".to_string()).is_ok());
-    assert!(!cache.has(&"a".to_string()), "a is the oldest and is evicted");
-    assert!(cache.has(&"b".to_string()) && cache.has(&"c".to_string()) && cache.has(&"d".to_string()));
+    assert!(
+        !cache.has(&"a".to_string()),
+        "a is the oldest and is evicted"
+    );
+    assert!(
+        cache.has(&"b".to_string()) && cache.has(&"c".to_string()) && cache.has(&"d".to_string())
+    );
 
     // Reading "b" makes it the most recent, so the next insert evicts "c".
     let cache = Cache::new(3, len_lookup());
@@ -2775,7 +2858,11 @@ fn cache_ttl_family_on_a_fixed_duration() {
     assert!(cache.has(&"test".to_string()));
     clock.adjust(Duration::from_minutes(2));
     assert!(!cache.has(&"test".to_string()), "expired at 61 minutes");
-    assert_eq!(cache.get(&"test".to_string()), Ok(2), "a get after expiry re-runs the lookup");
+    assert_eq!(
+        cache.get(&"test".to_string()),
+        Ok(2),
+        "a get after expiry re-runs the lookup"
+    );
     assert_eq!(calls.load(Ordering::SeqCst), 2);
 }
 
@@ -2783,16 +2870,13 @@ fn cache_ttl_family_on_a_fixed_duration() {
 fn cache_ttl_function_by_outcome() {
     // Cache.test.ts:1512 — successes live an hour, failures a minute.
     let clock = clock();
-    let cache = Cache::new_owned(
-        10,
-        |key: &String| {
-            if key == "fail" {
-                (Err("error".to_string()), None)
-            } else {
-                (Ok(key.len()), None)
-            }
-        },
-    )
+    let cache = Cache::new_owned(10, |key: &String| {
+        if key == "fail" {
+            (Err("error".to_string()), None)
+        } else {
+            (Ok(key.len()), None)
+        }
+    })
     .with_ttl_fn(
         |outcome: &Result<usize, String>, _key: &String| {
             if outcome.is_ok() {
@@ -2884,9 +2968,15 @@ fn cache_refresh_resets_the_ttl() {
     clock.adjust(Duration::from_minutes(45));
     cache.refresh(&"test".to_string());
     clock.adjust(Duration::from_minutes(30));
-    assert!(cache.has(&"test".to_string()), "45 + 30 minutes, but the TTL restarted at 45");
+    assert!(
+        cache.has(&"test".to_string()),
+        "45 + 30 minutes, but the TTL restarted at 45"
+    );
     clock.adjust(Duration::from_minutes(31));
-    assert!(!cache.has(&"test".to_string()), "61 minutes after the refresh");
+    assert!(
+        !cache.has(&"test".to_string()),
+        "61 minutes after the refresh"
+    );
 }
 
 #[test]
@@ -2906,7 +2996,11 @@ fn cache_failed_lookups_are_cached_when_opted_in() {
     assert_eq!(cache.get(&"test".to_string()), Err("error".to_string()));
     assert_eq!(cache.get(&"test".to_string()), Err("error".to_string()));
     assert_eq!(cache.get(&"test".to_string()), Err("error".to_string()));
-    assert_eq!(calls.load(Ordering::SeqCst), 1, "the failure replay: one lookup");
+    assert_eq!(
+        calls.load(Ordering::SeqCst),
+        1,
+        "the failure replay: one lookup"
+    );
 
     let succeed = Arc::new(std::sync::atomic::AtomicBool::new(false));
     let flaky = Cache::new(10, {
@@ -2989,7 +3083,9 @@ fn cache_serves_any_hashable_key_type() {
     assert!(strings.get(&"world".to_string()).is_ok());
     assert_eq!(strings.get(&"hello".to_string()), Ok(5));
 
-    let numbers = Cache::new(10, |key: &i64| Ok::<String, String>(format!("number: {key}")));
+    let numbers = Cache::new(10, |key: &i64| {
+        Ok::<String, String>(format!("number: {key}"))
+    });
     for key in [1, 2, 3] {
         assert!(numbers.get(&key).is_ok());
     }
@@ -3000,13 +3096,28 @@ fn cache_serves_any_hashable_key_type() {
         id: i64,
         name: String,
     }
-    let objects = Cache::new(10, |key: &CacheKey| Ok::<String, String>(format!("{}-{}", key.name, key.id)));
-    let key1 = CacheKey { id: 1, name: "test".to_string() };
-    let key2 = CacheKey { id: 2, name: "test".to_string() };
-    let key3 = CacheKey { id: 1, name: "test".to_string() };
+    let objects = Cache::new(10, |key: &CacheKey| {
+        Ok::<String, String>(format!("{}-{}", key.name, key.id))
+    });
+    let key1 = CacheKey {
+        id: 1,
+        name: "test".to_string(),
+    };
+    let key2 = CacheKey {
+        id: 2,
+        name: "test".to_string(),
+    };
+    let key3 = CacheKey {
+        id: 1,
+        name: "test".to_string(),
+    };
     assert!(objects.get(&key1).is_ok());
     assert!(objects.get(&key2).is_ok());
-    assert_eq!(objects.get(&key3), Ok("test-1".to_string()), "an equal key hits the entry");
+    assert_eq!(
+        objects.get(&key3),
+        Ok("test-1".to_string()),
+        "an equal key hits the entry"
+    );
 }
 
 #[test]
@@ -3015,21 +3126,18 @@ fn cache_zero_ttl_lookup_does_not_evict_a_live_entry() {
     // nothing, so the live entries around it stay and size holds.
     let clock = clock();
     let k_lookups = Arc::new(AtomicUsize::new(0));
-    let cache = Cache::new_owned(
-        2,
-        {
-            let k_lookups = Arc::clone(&k_lookups);
-            move |key: &String| {
-                if key == "k" {
-                    let attempt = k_lookups.fetch_add(1, Ordering::SeqCst) + 1;
-                    if attempt == 2 {
-                        return (Err("error".to_string()), None);
-                    }
+    let cache = Cache::new_owned(2, {
+        let k_lookups = Arc::clone(&k_lookups);
+        move |key: &String| {
+            if key == "k" {
+                let attempt = k_lookups.fetch_add(1, Ordering::SeqCst) + 1;
+                if attempt == 2 {
+                    return (Err("error".to_string()), None);
                 }
-                (Ok(key.len()), None)
             }
-        },
-    )
+            (Ok(key.len()), None)
+        }
+    })
     .with_ttl_fn(
         |outcome: &Result<usize, String>, key: &String| {
             if outcome.is_err() {
@@ -3101,8 +3209,16 @@ fn cache_get_and_invalidate_race_reruns_the_lookup() {
     std::thread::sleep(std::time::Duration::from_millis(20));
     cache.invalidate(&"test".to_string());
     assert_eq!(cache.get(&"test".to_string()), Ok(2));
-    assert_eq!(in_flight.join().unwrap(), Ok(1), "the detached owner still returns its own value");
-    assert_eq!(calls.load(Ordering::SeqCst), 2, "the second get ran a fresh lookup");
+    assert_eq!(
+        in_flight.join().unwrap(),
+        Ok(1),
+        "the detached owner still returns its own value"
+    );
+    assert_eq!(
+        calls.load(Ordering::SeqCst),
+        2,
+        "the second get ran a fresh lookup"
+    );
 }
 
 #[test]

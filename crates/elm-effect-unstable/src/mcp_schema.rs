@@ -29,11 +29,19 @@ pub struct RequestMeta {
 impl RequestMeta {
     /// Decode `_meta` with its progress token and extension fields.
     pub fn decode(value: &Value) -> Result<Self, String> {
-        let root = value.as_object().ok_or_else(|| "expected an object".to_owned())?;
+        let root = value
+            .as_object()
+            .ok_or_else(|| "expected an object".to_owned())?;
         let Some(meta) = root.get("_meta") else {
-            return Ok(Self { progress_token: None, rest: Map::new(), present: false });
+            return Ok(Self {
+                progress_token: None,
+                rest: Map::new(),
+                present: false,
+            });
         };
-        let meta = meta.as_object().ok_or_else(|| "_meta must be an object".to_owned())?;
+        let meta = meta
+            .as_object()
+            .ok_or_else(|| "_meta must be an object".to_owned())?;
         let mut rest = meta.clone();
         let progress_token = match rest.remove("progressToken") {
             None | Some(Value::Null) => None,
@@ -48,7 +56,11 @@ impl RequestMeta {
                 return Err("progressToken must be a string or a finite number".to_owned());
             }
         };
-        Ok(Self { progress_token, rest, present: true })
+        Ok(Self {
+            progress_token,
+            rest,
+            present: true,
+        })
     }
 
     /// Encode back to the wire form, preserving extension fields.
@@ -66,7 +78,11 @@ impl RequestMeta {
             }
             None => {}
         }
-        Value::Object([("_meta".to_owned(), Value::Object(meta))].into_iter().collect())
+        Value::Object(
+            [("_meta".to_owned(), Value::Object(meta))]
+                .into_iter()
+                .collect(),
+        )
     }
 }
 
@@ -85,7 +101,9 @@ pub struct CreateMessagePayload {
 impl CreateMessagePayload {
     /// Decode the payload, rejecting non-object metadata.
     pub fn decode(value: &Value) -> Result<Self, String> {
-        let root = value.as_object().ok_or_else(|| "expected an object".to_owned())?;
+        let root = value
+            .as_object()
+            .ok_or_else(|| "expected an object".to_owned())?;
         let messages = root
             .get("messages")
             .and_then(Value::as_array)
@@ -100,7 +118,11 @@ impl CreateMessagePayload {
             Some(Value::Object(meta)) => Some(meta.clone()),
             Some(_) => return Err("metadata must be an object".to_owned()),
         };
-        Ok(Self { messages, max_tokens, metadata })
+        Ok(Self {
+            messages,
+            max_tokens,
+            metadata,
+        })
     }
 }
 
@@ -121,10 +143,14 @@ pub enum ElicitationField {
 
 impl ElicitationField {
     fn classify(value: &Value) -> Result<Self, String> {
-        let field = value.as_object().ok_or_else(|| "field must be an object".to_owned())?;
+        let field = value
+            .as_object()
+            .ok_or_else(|| "field must be an object".to_owned())?;
         if field.get("oneOf").is_some_and(|one| one.is_array()) {
             for entry in field["oneOf"].as_array().unwrap_or(&vec![]) {
-                let entry = entry.as_object().ok_or_else(|| "oneOf entries must be objects".to_owned())?;
+                let entry = entry
+                    .as_object()
+                    .ok_or_else(|| "oneOf entries must be objects".to_owned())?;
                 if !entry.get("const").is_some_and(Value::is_string)
                     || !entry.get("title").is_some_and(Value::is_string)
                 {
@@ -172,7 +198,9 @@ pub struct ElicitFormRequest {
 impl ElicitFormRequest {
     /// Decode a form request, classifying every property's enum shape.
     pub fn decode(value: &Value) -> Result<Self, String> {
-        let root = value.as_object().ok_or_else(|| "expected an object".to_owned())?;
+        let root = value
+            .as_object()
+            .ok_or_else(|| "expected an object".to_owned())?;
         if let Some(mode) = root.get("mode") {
             if mode != "form" {
                 return Err("mode must be \"form\"".to_owned());

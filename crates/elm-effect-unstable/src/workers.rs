@@ -91,19 +91,31 @@ pub enum WorkerErrorReason {
 impl WorkerErrorReason {
     /// Spawn failure reason.
     pub fn spawn(message: &str) -> Self {
-        Self::Spawn { message: message.to_owned(), cause: None }
+        Self::Spawn {
+            message: message.to_owned(),
+            cause: None,
+        }
     }
     /// Send failure reason.
     pub fn send(message: &str) -> Self {
-        Self::Send { message: message.to_owned(), cause: None }
+        Self::Send {
+            message: message.to_owned(),
+            cause: None,
+        }
     }
     /// Receive failure reason.
     pub fn receive(message: &str) -> Self {
-        Self::Receive { message: message.to_owned(), cause: None }
+        Self::Receive {
+            message: message.to_owned(),
+            cause: None,
+        }
     }
     /// Unknown failure reason.
     pub fn unknown(message: &str) -> Self {
-        Self::Unknown { message: message.to_owned(), cause: None }
+        Self::Unknown {
+            message: message.to_owned(),
+            cause: None,
+        }
     }
     /// Attach a defect cause.
     pub fn with_cause(mut self, cause: serde_json::Value) -> Self {
@@ -323,7 +335,11 @@ impl BufferedWorker {
     /// Build with the platform `postMessage`; the closure fails with the
     /// thrown defect message to simulate a throwing post.
     pub fn new(post: impl Fn(&[u8]) -> Result<(), String> + 'static) -> Self {
-        Self { ready: false, buffer: Vec::new(), post: Box::new(post) }
+        Self {
+            ready: false,
+            buffer: Vec::new(),
+            post: Box::new(post),
+        }
     }
 
     fn post_mapped(&self, message: &[u8]) -> Result<(), WorkerError> {
@@ -401,7 +417,11 @@ impl RunPoll {
 impl WorkerRun {
     /// A run that has neither seen ready nor exit.
     pub fn new() -> Self {
-        Self { ready: false, exit: None, interrupted: false }
+        Self {
+            ready: false,
+            exit: None,
+            interrupted: false,
+        }
     }
 
     /// The worker emitted the ready message.

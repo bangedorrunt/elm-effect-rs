@@ -5,7 +5,9 @@
 
 use std::sync::{Arc, Mutex};
 
-use elm_effect::{BuiltServices, Cause, Defect, Effect, Layer, ManagedRuntime, ServiceTag, use_service};
+use elm_effect::{
+    BuiltServices, Cause, Defect, Effect, Layer, ManagedRuntime, ServiceTag, use_service,
+};
 use elm_effect_elm::{
     Boot, Cmd, Durability, Failure, Interpret, InterpretError, Loop, Producer, Program, Update,
 };
@@ -53,8 +55,12 @@ enum CCmd {
 impl Cmd for CCmd {
     fn durability(&self) -> Durability {
         match self {
-            Self::Persist { .. } => Durability::Durable { key: "count".to_string() },
-            Self::Explode(_) | Self::Defect | Self::Interrupt | Self::Empty => Durability::Ephemeral,
+            Self::Persist { .. } => Durability::Durable {
+                key: "count".to_string(),
+            },
+            Self::Explode(_) | Self::Defect | Self::Interrupt | Self::Empty => {
+                Durability::Ephemeral
+            }
         }
     }
 }
@@ -74,10 +80,17 @@ impl Program for Counter {
     fn update(model: &CModel, msg: &CMsg) -> Update<CModel, CCmd> {
         match msg {
             CMsg::Add(n) => Update::with_commands(
-                CModel { count: model.count + n, ..model.clone() },
-                vec![CCmd::Persist { count: model.count + n }],
+                CModel {
+                    count: model.count + n,
+                    ..model.clone()
+                },
+                vec![CCmd::Persist {
+                    count: model.count + n,
+                }],
             ),
-            CMsg::Explode(why) => Update::with_commands(model.clone(), vec![CCmd::Explode(why.clone())]),
+            CMsg::Explode(why) => {
+                Update::with_commands(model.clone(), vec![CCmd::Explode(why.clone())])
+            }
             CMsg::Defect => Update::with_commands(model.clone(), vec![CCmd::Defect]),
             CMsg::Interrupt => Update::with_commands(model.clone(), vec![CCmd::Interrupt]),
             CMsg::Empty => Update::with_commands(model.clone(), vec![CCmd::Empty]),
@@ -141,7 +154,7 @@ impl DurableLog for RefuseIntents {
 
 fn boot_app(log: Arc<dyn DurableLog>, producer: Producer) -> Loop<Counter, Run> {
     Loop::<Counter, Run>::boot(&Boot::default(), ManagedRuntime::new(), log, producer)
-    .expect("boot")
+        .expect("boot")
 }
 
 #[test]
@@ -197,9 +210,15 @@ fn durable_command_appends_through_the_log_before_running() {
     // The intent is in the log, not only the in-memory vec.
     let entries = log.read_from(&Offset::Start).unwrap();
     // The log also holds the message and the outcome, so find the intent row.
-    let intents: Vec<_> = entries.iter().filter(|(_, body)| body.contains("\"kind\":\"intent\"")).collect();
+    let intents: Vec<_> = entries
+        .iter()
+        .filter(|(_, body)| body.contains("\"kind\":\"intent\""))
+        .collect();
     assert_eq!(intents.len(), 1, "exactly one durable intent");
-    assert!(intents[0].1.contains("\"count\""), "payload carries the intent key");
+    assert!(
+        intents[0].1.contains("\"count\""),
+        "payload carries the intent key"
+    );
     assert_eq!(app.intents().len(), 1);
     // The provider ran, and the fold counted it. No process global.
     assert_eq!(app.model().provider_runs, 1);
@@ -380,7 +399,9 @@ fn boot_windowed(bound: usize) -> Loop<Windowed, WinRun> {
 }
 
 fn interleaved(prefix: &str, n: u32) -> Vec<String> {
-    (1..=n).flat_map(|i| [format!("{prefix}{i}"), format!("next{i}")]).collect()
+    (1..=n)
+        .flat_map(|i| [format!("{prefix}{i}"), format!("next{i}")])
+        .collect()
 }
 
 #[test]
@@ -460,7 +481,10 @@ impl Program for Overlapping {
             .filter(|s| !s.is_empty())
             .filter_map(|w| w.parse().ok())
             .collect();
-        Update::quiet(SModel { done: Vec::new(), waits })
+        Update::quiet(SModel {
+            done: Vec::new(),
+            waits,
+        })
     }
 
     fn update(model: &SModel, msg: &SMsg) -> Update<SModel, SCmd> {
@@ -655,7 +679,9 @@ impl Program for Landmine {
 
     fn update(model: &BModel, msg: &BMsg) -> Update<BModel, BCmd> {
         match msg {
-            BMsg::Went => Update::with_commands(model.clone(), vec![BCmd::Landmine, BCmd::Landmine]),
+            BMsg::Went => {
+                Update::with_commands(model.clone(), vec![BCmd::Landmine, BCmd::Landmine])
+            }
             BMsg::SawDefect => {
                 let mut m = model.clone();
                 m.defects += 1;

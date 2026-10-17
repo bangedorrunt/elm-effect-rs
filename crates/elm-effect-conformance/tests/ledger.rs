@@ -248,12 +248,17 @@ fn matched_modules_have_no_unported_behaviors() {
             // all excused as not-applicable, and linked rows with nothing
             // ported at all. The last is the one an excuse-only ledger hits.
             "matched" if rows == 0 => {
-                unearned.push(format!("{}: matched with no linked behavior rows", module.path));
+                unearned.push(format!(
+                    "{}: matched with no linked behavior rows",
+                    module.path
+                ));
             }
             "matched" if ported == 0 => {
                 unearned.push(format!(
                     "{}: matched with zero ported behavior rows ({} linked, {} excused)",
-                    module.path, rows, rows - unported
+                    module.path,
+                    rows,
+                    rows - unported
                 ));
             }
             // ADR-0002:100 — matched while a linked row is still open.

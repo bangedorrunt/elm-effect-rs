@@ -35,10 +35,12 @@ fn range_normalizes_chunk_size() {
     ];
     let got: Vec<Vec<Vec<i64>>> = [f64::NAN, 0.0, 2.9]
         .iter()
-        .map(|size| match Stream::range(1, 5, *size).run_collect_chunks() {
-            Exit::Success(chunks) => chunks,
-            Exit::Failure(_) => panic!("range must not fail"),
-        })
+        .map(
+            |size| match Stream::range(1, 5, *size).run_collect_chunks() {
+                Exit::Success(chunks) => chunks,
+                Exit::Failure(_) => panic!("range must not fail"),
+            },
+        )
         .collect();
     assert_eq!(got, expected);
 }
@@ -92,8 +94,7 @@ fn lines_of(chunks: &[&str]) -> Vec<String> {
     for chunk in chunks {
         items.push((*chunk).to_string());
     }
-    let stream: Stream<String, String, ()> =
-        from_iter(items.into_iter(), chunks.len().max(1));
+    let stream: Stream<String, String, ()> = from_iter(items.into_iter(), chunks.len().max(1));
     let stream = stream.split_lines();
     match stream.run_collect() {
         Exit::Success(lines) => lines,
@@ -139,7 +140,10 @@ fn split_lines_handles_standalone_carriage_returns_across_chunk_boundaries() {
 #[test]
 fn split_lines_emits_the_final_line_when_the_stream_does_not_end_with_a_newline() {
     // The unterminated tail is flushed as the last line on upstream end.
-    assert_eq!(lines_of(&["a\nb\nc\n", "d\ne"]), vec!["a", "b", "c", "d", "e"]);
+    assert_eq!(
+        lines_of(&["a\nb\nc\n", "d\ne"]),
+        vec!["a", "b", "c", "d", "e"]
+    );
 }
 
 #[test]

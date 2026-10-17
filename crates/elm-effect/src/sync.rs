@@ -10,9 +10,9 @@
 //! across effect interpretation, except [`SynchronizedRef`]'s decision step,
 //! which runs its update computation under the permit.
 
-use std::collections::VecDeque;
 use crate::Exit;
 use std::any::Any;
+use std::collections::VecDeque;
 use std::sync::{Arc, Condvar, Mutex};
 
 use crate::Effect;
@@ -368,7 +368,10 @@ impl<A: Clone + Send + 'static> SynchronizedRef<A> {
                 *slot.lock().unwrap() = Some(effect);
             }
         });
-        let (previous, slot) = (std::sync::Arc::clone(&previous), std::sync::Arc::clone(&slot));
+        let (previous, slot) = (
+            std::sync::Arc::clone(&previous),
+            std::sync::Arc::clone(&slot),
+        );
         setup.flat_map(move |_| {
             let effect = slot.lock().unwrap().take();
             let previous = std::sync::Arc::clone(&previous);
@@ -376,7 +379,9 @@ impl<A: Clone + Send + 'static> SynchronizedRef<A> {
                 Some(effect) => effect.flat_map(move |_| {
                     Effect::succeed(previous.lock().unwrap().take().expect("recorded in setup"))
                 }),
-                None => Effect::succeed(previous.lock().unwrap().take().expect("recorded in setup")),
+                None => {
+                    Effect::succeed(previous.lock().unwrap().take().expect("recorded in setup"))
+                }
             }
         })
     }
@@ -949,7 +954,8 @@ impl<A: Send> Queue<A> {
     /// Pop, blocking while empty. Panics when the queue finishes empty
     /// (use [`take`](Self::take) for the terminal outcome).
     pub fn poll(&self) -> A {
-        self.take().expect("queue finished while a poll waited for an item")
+        self.take()
+            .expect("queue finished while a poll waited for an item")
     }
 
     /// Pop, blocking while empty, with the terminal outcome (`Queue.take`).
@@ -1096,7 +1102,9 @@ impl<A: Send> Queue<A> {
     /// is available (or the queue finishes), then drain the buffer. A
     /// finished empty queue reports the terminal error.
     pub fn take_all_blocking(&self) -> Result<Vec<A>, QueueError> {
-        let first = self.take_interruptible(&|| false).expect("uninterrupted wait")?;
+        let first = self
+            .take_interruptible(&|| false)
+            .expect("uninterrupted wait")?;
         let mut out = vec![first];
         out.extend(self.take_all());
         Ok(out)
@@ -1401,11 +1409,7 @@ impl PartitionedSemaphore {
     /// Blocking acquire that observes external interruption: waits on the
     /// changed latch in a 1ms quantum (the TestClock sleep precedent) and
     /// gives up, holding nothing, once `interrupted` turns true.
-    pub fn acquire_interruptible(
-        &self,
-        partition: usize,
-        interrupted: &dyn Fn() -> bool,
-    ) -> bool {
+    pub fn acquire_interruptible(&self, partition: usize, interrupted: &dyn Fn() -> bool) -> bool {
         let mut pools = self.partitions.lock().unwrap();
         loop {
             if interrupted() {

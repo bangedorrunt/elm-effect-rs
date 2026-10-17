@@ -26,8 +26,7 @@ fn projects_the_encoded_side_before_json_schema_generation() {
 fn keeps_supported_pattern_with_a_description() {
     // OpenAiStructuredOutputRepresentation.test.ts:19 — `pattern` is in the
     // OpenAI subset, so it and the description survive the rewrite.
-    let doc =
-        json!({"type": "string", "description": "starts with a", "pattern": "^a"});
+    let doc = json!({"type": "string", "description": "starts with a", "pattern": "^a"});
     assert_eq!(rewrite_openai_schema(&doc), doc);
 }
 
@@ -141,7 +140,12 @@ fn keeps_declaration_fallback_validation_in_the_codec() {
     // OpenAiStructuredOutputRepresentation.test.ts:198 — an opaque declaration
     // emits a non-empty document and still refuses values on decode.
     let schema = Schema::<Unknown>::never();
-    assert!(schema.json_schema().as_object().is_some_and(|map| !map.is_empty()));
+    assert!(
+        schema
+            .json_schema()
+            .as_object()
+            .is_some_and(|map| !map.is_empty())
+    );
     assert!(schema.decode(Unknown::Object(Default::default())).is_err());
 }
 

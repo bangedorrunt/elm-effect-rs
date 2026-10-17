@@ -166,9 +166,9 @@ impl<T> Predicate<T> {
         T: 'static,
     {
         Predicate::make(move |record: &std::collections::BTreeMap<String, T>| {
-            fields
-                .iter()
-                .all(|(name, predicate)| record.get(name).is_some_and(|value| predicate.test(value)))
+            fields.iter().all(|(name, predicate)| {
+                record.get(name).is_some_and(|value| predicate.test(value))
+            })
         })
     }
 

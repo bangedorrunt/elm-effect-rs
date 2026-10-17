@@ -5,9 +5,9 @@
 //! latch-gated interleaving, which this crate does not have.
 
 use elm_effect_unstable::http_compression::{
-    CompressionAlgorithm, CompressionOptions, CompBody, CompResponse, default_compressible,
-    decompress_deflate, decompress_gzip, negotiate, parse_accept_encoding, supported_algorithms,
-    vary_with, apply_compression,
+    CompBody, CompResponse, CompressionAlgorithm, CompressionOptions, apply_compression,
+    decompress_deflate, decompress_gzip, default_compressible, negotiate, parse_accept_encoding,
+    supported_algorithms, vary_with,
 };
 use std::collections::HashSet;
 
@@ -60,10 +60,7 @@ fn preserves_content_type_override_when_compressing_stream_response() {
     original.set_header("content-type", "application/json");
     let compressed = get(original, Some("gzip"), "GET");
     assert_eq!(compressed.header("content-encoding"), Some("gzip"));
-    assert_eq!(
-        decompress_gzip(&compressed.bytes()).unwrap(),
-        big_json()
-    );
+    assert_eq!(decompress_gzip(&compressed.bytes()).unwrap(), big_json());
     assert_eq!(compressed.header("content-type"), Some("application/json"));
 }
 
@@ -74,10 +71,7 @@ fn preserves_content_type_override_when_compressing_bytes_response() {
     original.set_header("content-type", "application/json");
     let compressed = get(original, Some("gzip"), "GET");
     assert_eq!(compressed.header("content-encoding"), Some("gzip"));
-    assert_eq!(
-        decompress_gzip(&compressed.bytes()).unwrap(),
-        big_json()
-    );
+    assert_eq!(decompress_gzip(&compressed.bytes()).unwrap(), big_json());
     assert_eq!(compressed.header("content-type"), Some("application/json"));
 }
 
@@ -95,10 +89,7 @@ fn preserves_content_type_override_when_compressing_raw_response() {
     res.set_header("content-length", &body.len().to_string());
     let compressed = get(res, Some("gzip"), "GET");
     assert_eq!(compressed.header("content-encoding"), Some("gzip"));
-    assert_eq!(
-        decompress_gzip(&compressed.bytes()).unwrap(),
-        big_json()
-    );
+    assert_eq!(decompress_gzip(&compressed.bytes()).unwrap(), big_json());
     assert_eq!(compressed.header("content-type"), Some("application/json"));
 }
 
@@ -115,10 +106,7 @@ fn preserves_header_only_content_type_for_raw_responses() {
     plain = json_app();
     let compressed = get(plain, Some("gzip"), "GET");
     assert_eq!(compressed.header("content-encoding"), Some("gzip"));
-    assert_eq!(
-        decompress_gzip(&compressed.bytes()).unwrap(),
-        big_json()
-    );
+    assert_eq!(decompress_gzip(&compressed.bytes()).unwrap(), big_json());
     assert_eq!(
         compressed.header("content-type"),
         uncompressed.header("content-type")
@@ -133,10 +121,7 @@ fn compresses_a_compressible_response_with_gzip() {
     assert_eq!(compressed.header("content-encoding"), Some("gzip"));
     assert_eq!(compressed.header("vary"), Some("Accept-Encoding"));
     assert_eq!(compressed.header("content-length"), None);
-    assert_eq!(
-        decompress_gzip(&compressed.bytes()).unwrap(),
-        big_json()
-    );
+    assert_eq!(decompress_gzip(&compressed.bytes()).unwrap(), big_json());
 }
 
 // HttpCompression.test.ts:138 — deflate on request.
@@ -144,10 +129,7 @@ fn compresses_a_compressible_response_with_gzip() {
 fn compresses_with_deflate_when_requested() {
     let compressed = get(json_app(), Some("deflate"), "GET");
     assert_eq!(compressed.header("content-encoding"), Some("deflate"));
-    assert_eq!(
-        decompress_deflate(&compressed.bytes()).unwrap(),
-        big_json()
-    );
+    assert_eq!(decompress_deflate(&compressed.bytes()).unwrap(), big_json());
 }
 
 // HttpCompression.test.ts:145 — server order beats client order.
@@ -482,7 +464,13 @@ fn falls_through_to_a_supported_algorithm_when_the_preferred_is_unavailable() {
         CompressionAlgorithm::Br,
         CompressionAlgorithm::Gzip,
     ];
-    let out = apply_compression(&opts, &web_support(), "GET", Some("zstd, br, gzip"), json_app());
+    let out = apply_compression(
+        &opts,
+        &web_support(),
+        "GET",
+        Some("zstd, br, gzip"),
+        json_app(),
+    );
     assert_eq!(out.header("content-encoding"), Some("gzip"));
     assert_eq!(decompress_gzip(&out.bytes()).unwrap(), big_json());
 }
@@ -518,10 +506,11 @@ fn preserves_cookies_on_compressed_responses() {
         .push(("set-cookie".to_owned(), "session=abc".to_owned()));
     let out = get(res, Some("gzip"), "GET");
     assert_eq!(out.header("content-encoding"), Some("gzip"));
-    assert!(out
-        .headers
-        .iter()
-        .any(|(n, v)| n == "set-cookie" && v == "session=abc"));
+    assert!(
+        out.headers
+            .iter()
+            .any(|(n, v)| n == "set-cookie" && v == "session=abc")
+    );
 }
 
 // Unit: default compressible predicate mirrors TS (text/*, json/+json, …).

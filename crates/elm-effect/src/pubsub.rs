@@ -180,7 +180,13 @@ impl<A> PubSubInner<A> {
 
     fn wake_all(&self) {
         self.space.notify_all();
-        for sub in self.subs.lock().unwrap().iter().filter_map(std::sync::Weak::upgrade) {
+        for sub in self
+            .subs
+            .lock()
+            .unwrap()
+            .iter()
+            .filter_map(std::sync::Weak::upgrade)
+        {
             sub.wake.notify_all();
         }
     }
@@ -269,7 +275,10 @@ impl<A: Clone> PubSub<A> {
         if self.inner.strategy == Strategy::Unbounded {
             return false;
         }
-        self.inner.live_subs().iter().any(|s| s.queue.lock().unwrap().len() >= self.inner.capacity)
+        self.inner
+            .live_subs()
+            .iter()
+            .any(|s| s.queue.lock().unwrap().len() >= self.inner.capacity)
     }
 
     /// True after [`PubSub::shutdown`].

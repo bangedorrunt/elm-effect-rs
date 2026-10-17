@@ -58,7 +58,14 @@ impl Rule {
 
 impl std::fmt::Display for Finding {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}:{}: [{}] {}", self.path, self.line, self.rule.name(), self.text)
+        write!(
+            f,
+            "{}:{}: [{}] {}",
+            self.path,
+            self.line,
+            self.rule.name(),
+            self.text
+        )
     }
 }
 
@@ -136,7 +143,9 @@ fn fn_bodies(src: &str, name: &str) -> Vec<(usize, usize)> {
 
 /// Whitespace bytes starting at `from`.
 fn ws_len(src: &str, from: usize) -> usize {
-    src[from..].find(|c: char| !c.is_whitespace()).unwrap_or(src.len() - from)
+    src[from..]
+        .find(|c: char| !c.is_whitespace())
+        .unwrap_or(src.len() - from)
 }
 
 /// Every body that may hold the run edge: `fn main`, or any `fn run` (the
@@ -207,7 +216,12 @@ fn line_of(src: &str, offset: usize) -> usize {
 
 fn finding(path: &str, src: &str, offset: usize, text: &str, rule: Rule) -> Finding {
     let line = line_of(src, offset);
-    Finding { path: path.to_string(), line, text: text.trim().to_string(), rule }
+    Finding {
+        path: path.to_string(),
+        line,
+        text: text.trim().to_string(),
+        rule,
+    }
 }
 
 /// True when the line containing `offset` is a comment. A lint that greps
@@ -254,7 +268,13 @@ pub fn run_outside_the_edge(path: impl AsRef<Path>, src: &str) -> Vec<Finding> {
         let at = from + rel;
         let in_edge = edges.iter().any(|(s, e)| at >= *s && at < *e);
         if !in_edge && !in_comment(src, at) && !wants_needle(src, at) {
-            out.push(finding(&path, src, at, line_at(src, at), Rule::RunOutsideTheEdge));
+            out.push(finding(
+                &path,
+                src,
+                at,
+                line_at(src, at),
+                Rule::RunOutsideTheEdge,
+            ));
         }
         from = at + RUN_EDGE.len();
     }
@@ -309,7 +329,13 @@ pub fn sleep_inside_an_effect_module(path: impl AsRef<Path>, src: &str) -> Vec<F
     while let Some(rel) = src[from..].find(needle) {
         let at = from + rel;
         if !in_comment(src, at) && !wants_needle(src, at) {
-            out.push(finding(&path, src, at, line_at(src, at), Rule::SleepInsideAnEffectModule));
+            out.push(finding(
+                &path,
+                src,
+                at,
+                line_at(src, at),
+                Rule::SleepInsideAnEffectModule,
+            ));
         }
         from = at + needle.len();
     }
@@ -331,5 +357,8 @@ where
     I: IntoIterator<Item = (P, &'a str)>,
     P: AsRef<Path>,
 {
-    files.into_iter().flat_map(|(p, src)| check(p, src)).collect()
+    files
+        .into_iter()
+        .flat_map(|(p, src)| check(p, src))
+        .collect()
 }

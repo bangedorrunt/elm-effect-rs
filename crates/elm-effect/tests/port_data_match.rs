@@ -226,12 +226,16 @@ fn match_fn_keeps_selector_arguments() {
         let todos = vec![false, true];
         elm_effect::Matcher::value((todos, filter))
             .discriminator(|(_, f)| *f, "All", |(t, _)| t.len())
-            .discriminator(|(_, f)| *f, "Active", |(t, _)| {
-                t.iter().filter(|completed| !**completed).count()
-            })
-            .discriminator(|(_, f)| *f, "Completed", |(t, _)| {
-                t.iter().filter(|completed| **completed).count()
-            })
+            .discriminator(
+                |(_, f)| *f,
+                "Active",
+                |(t, _)| t.iter().filter(|completed| !**completed).count(),
+            )
+            .discriminator(
+                |(_, f)| *f,
+                "Completed",
+                |(t, _)| t.iter().filter(|completed| **completed).count(),
+            )
             .exhaustive()
     };
     assert_eq!(run("All"), 2);
@@ -258,7 +262,10 @@ fn match_field_value_hit_miss_missing() {
             .or_else("miss")
     };
     assert_eq!(
-        run(vec![("key".to_string(), Field::Str("expected".to_string()))]),
+        run(vec![(
+            "key".to_string(),
+            Field::Str("expected".to_string())
+        )]),
         "hit"
     );
     assert_eq!(

@@ -5,10 +5,7 @@ use elm_effect_unstable::http_docs::{
 };
 use std::sync::{Arc, Mutex};
 
-fn cell(
-    calls: &Arc<Mutex<usize>>,
-    fail_first: bool,
-) -> (DocCell, Arc<Mutex<usize>>) {
+fn cell(calls: &Arc<Mutex<usize>>, fail_first: bool) -> (DocCell, Arc<Mutex<usize>>) {
     let seen = Arc::clone(calls);
     let doc = DocCell::new(move || {
         let mut n = seen.lock().expect("calls");
@@ -69,10 +66,17 @@ fn escapes_openapi_metadata_in_its_html_contexts() {
     let html = scalar_page(title, Some(description), "{\"openapi\":\"3.1.0\"}", "1.2.3");
     assert!(html.contains("<title>Docs \"title\" &lt;/title&gt;&lt;script&gt;</title>"));
     let escaped = "&quot;quoted&quot; &#39;single&#39; &lt;/script &gt;&lt;script id=&quot;script-data-injected&quot;&gt;";
-    assert!(html.contains(&format!("<meta name=\"description\" content=\"{escaped}\"/>")));
-    assert!(html.contains(&format!("<meta name=\"og:description\" content=\"{escaped}\"/>")));
+    assert!(html.contains(&format!(
+        "<meta name=\"description\" content=\"{escaped}\"/>"
+    )));
+    assert!(html.contains(&format!(
+        "<meta name=\"og:description\" content=\"{escaped}\"/>"
+    )));
     assert!(!html.contains("</script >"));
-    assert_eq!(escape_html_text(title), "Docs \"title\" &lt;/title&gt;&lt;script&gt;");
+    assert_eq!(
+        escape_html_text(title),
+        "Docs \"title\" &lt;/title&gt;&lt;script&gt;"
+    );
 }
 
 #[test]
@@ -111,7 +115,10 @@ fn scalar_and_swagger_share_the_memoize_and_retry_contract() {
         }
         let ok = doc.get().unwrap();
         assert_eq!(doc.get().unwrap(), ok);
-        assert_eq!(*calls.lock().expect("calls"), if fail_first { 2 } else { 1 });
+        assert_eq!(
+            *calls.lock().expect("calls"),
+            if fail_first { 2 } else { 1 }
+        );
     }
 }
 

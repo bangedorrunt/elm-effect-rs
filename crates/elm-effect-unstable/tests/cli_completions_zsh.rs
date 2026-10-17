@@ -138,9 +138,9 @@ fn uses_alternative_argument_sets_for_positional_arguments_and_subcommands() {
     assert!(script.contains(
         "    -\n    parent-arguments\n    ':Directory to start in:_directories'\n    -\n    subcommands\n    '1:command:->command'\n    '*::arg:->args'"
     ));
-    assert!(!script.contains(
-        "    ':Directory to start in:_directories'\n    '1:command:->command'"
-    ));
+    assert!(
+        !script.contains("    ':Directory to start in:_directories'\n    '1:command:->command'")
+    );
 }
 
 #[test]

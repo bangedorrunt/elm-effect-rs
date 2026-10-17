@@ -8,9 +8,7 @@ use std::cmp::Ordering;
 mod cron;
 
 use cron::DateTime;
-use elm_effect::{
-    Order, Reducer, combine_ordering, number_order, ord_order,
-};
+use elm_effect::{Order, Reducer, combine_ordering, number_order, ord_order};
 
 // Ordering.test.ts:6 — Ordering folds as a reducer: first decided wins.
 #[test]
@@ -18,7 +16,10 @@ fn ordering_reducer_folds_verdicts() {
     let verdicts = Reducer::make(Ordering::Equal, |a: &Ordering, b: &Ordering| {
         combine_ordering(*a, *b)
     });
-    assert_eq!(verdicts.fold(&[Ordering::Less, Ordering::Equal]), Ordering::Less);
+    assert_eq!(
+        verdicts.fold(&[Ordering::Less, Ordering::Equal]),
+        Ordering::Less
+    );
     assert_eq!(
         verdicts.fold(&[Ordering::Equal, Ordering::Greater]),
         Ordering::Greater
@@ -52,9 +53,18 @@ fn person_order() -> Order<Person> {
 #[test]
 fn order_struct_compares_fieldwise() {
     let order = person_order();
-    let ann = Person { name: "ann".to_string(), age: 30 };
-    let bob = Person { name: "bob".to_string(), age: 20 };
-    let ann_older = Person { name: "ann".to_string(), age: 40 };
+    let ann = Person {
+        name: "ann".to_string(),
+        age: 30,
+    };
+    let bob = Person {
+        name: "bob".to_string(),
+        age: 20,
+    };
+    let ann_older = Person {
+        name: "ann".to_string(),
+        age: 40,
+    };
     assert_eq!(order.compare(&ann, &bob), Ordering::Less);
     assert_eq!(order.compare(&bob, &ann), Ordering::Greater);
     assert_eq!(
@@ -63,7 +73,13 @@ fn order_struct_compares_fieldwise() {
         "tied name falls through to age"
     );
     assert_eq!(
-        order.compare(&ann, &Person { name: "ann".to_string(), age: 30 }),
+        order.compare(
+            &ann,
+            &Person {
+                name: "ann".to_string(),
+                age: 30
+            }
+        ),
         Ordering::Equal
     );
 }

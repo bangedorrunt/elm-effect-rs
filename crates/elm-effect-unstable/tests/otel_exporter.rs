@@ -54,9 +54,8 @@ fn otlp_env_headers_decode() {
 fn otlp_resource_precedence() {
     use elm_effect_unstable::otel::{OtlpResourceOptions, otlp_resource_attributes};
     use std::collections::BTreeMap;
-    let record = |pairs: Vec<(String, String)>| {
-        pairs.into_iter().collect::<BTreeMap<String, String>>()
-    };
+    let record =
+        |pairs: Vec<(String, String)>| pairs.into_iter().collect::<BTreeMap<String, String>>();
     let empty = OtlpResourceOptions::default();
     // OtlpResource.test.ts:90 - dedicated service vars beat attributes text.
     assert_eq!(

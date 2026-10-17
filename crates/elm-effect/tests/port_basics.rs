@@ -166,7 +166,11 @@ fn duration_clamp_bounds_both_ends() {
     // and a value inside the range is preserved exactly (minutes(1.5) stays).
     assert_eq!(clamp_ms(1, 2, 3), 2, "below the minimum clamps up");
     assert_eq!(clamp_ms(99, 2, 3), 3, "above the maximum clamps down");
-    assert_eq!(clamp_ms(90_000, 60_000, 120_000), 90_000, "inside is preserved");
+    assert_eq!(
+        clamp_ms(90_000, 60_000, 120_000),
+        90_000,
+        "inside is preserved"
+    );
 }
 
 #[test]
@@ -341,9 +345,15 @@ fn duration_from_input_parses_every_input_shape() {
         (Value::String("1 day".into()), Duration::days(1.0)),
         (Value::String("1 week".into()), Duration::weeks(1.0)),
         (Value::String("1.5 seconds".into()), Duration::seconds(1.5)),
-        (Value::String("-1.5 seconds".into()), Duration::seconds(-1.5)),
+        (
+            Value::String("-1.5 seconds".into()),
+            Duration::seconds(-1.5),
+        ),
         (Value::String("Infinity".into()), Duration::infinity()),
-        (Value::String("-Infinity".into()), Duration::negative_infinity()),
+        (
+            Value::String("-Infinity".into()),
+            Duration::negative_infinity(),
+        ),
         (
             Value::Array(vec![Value::Number(500.0), Value::Number(123456789.0)]),
             Duration::nanos(500_123_456_789),
@@ -360,8 +370,14 @@ fn duration_from_input_parses_every_input_shape() {
             Value::Array(vec![Value::Number(0.0000000005), Value::Number(0.5)]),
             Duration::nanos(1),
         ),
-        (Value::Array(vec![Value::Number(f64::NAN), Value::Number(0.0)]), Duration::zero()),
-        (Value::Array(vec![Value::Number(0.0), Value::Number(f64::NAN)]), Duration::zero()),
+        (
+            Value::Array(vec![Value::Number(f64::NAN), Value::Number(0.0)]),
+            Duration::zero(),
+        ),
+        (
+            Value::Array(vec![Value::Number(0.0), Value::Number(f64::NAN)]),
+            Duration::zero(),
+        ),
     ];
     for (input, expected) in cases {
         assert_eq!(Duration::from_input(&input), Some(expected), "{input:?}");
@@ -370,8 +386,14 @@ fn duration_from_input_parses_every_input_shape() {
     // The object form, and the invalid string only `from_input` refuses.
     let mut hours = std::collections::BTreeMap::new();
     hours.insert("hours".to_string(), Value::Number(2.0));
-    assert_eq!(Duration::from_input(&Value::Object(hours)), Some(Duration::hours(2.0)));
-    assert_eq!(Duration::from_input(&Value::Object(std::collections::BTreeMap::new())), Some(Duration::zero()));
+    assert_eq!(
+        Duration::from_input(&Value::Object(hours)),
+        Some(Duration::hours(2.0))
+    );
+    assert_eq!(
+        Duration::from_input(&Value::Object(std::collections::BTreeMap::new())),
+        Some(Duration::zero())
+    );
     assert_eq!(Duration::from_input(&Value::String("invalid".into())), None);
 }
 
@@ -379,17 +401,47 @@ fn duration_from_input_parses_every_input_shape() {
 fn duration_order_spans_both_representations_and_the_sentinels() {
     // :158 — NegativeInfinity < finite < Infinity, and millis and nanos
     // compare by value rather than by representation.
-    assert_eq!(Duration::millis(1.0).compare(&Duration::millis(2.0)), Ordering::Less);
-    assert_eq!(Duration::millis(2.0).compare(&Duration::millis(1.0)), Ordering::Greater);
-    assert_eq!(Duration::millis(2.0).compare(&Duration::millis(2.0)), Ordering::Equal);
-    assert_eq!(Duration::millis(1.0).compare(&Duration::nanos(2_000_000)), Ordering::Less);
-    assert_eq!(Duration::nanos(2_000_000).compare(&Duration::millis(1.0)), Ordering::Greater);
-    assert_eq!(Duration::infinity().compare(&Duration::infinity()), Ordering::Equal);
-    assert_eq!(Duration::infinity().compare(&Duration::millis(1.0)), Ordering::Greater);
-    assert_eq!(Duration::millis(1.0).compare(&Duration::infinity()), Ordering::Less);
-    assert_eq!(Duration::negative_infinity().compare(&Duration::millis(1.0)), Ordering::Less);
+    assert_eq!(
+        Duration::millis(1.0).compare(&Duration::millis(2.0)),
+        Ordering::Less
+    );
+    assert_eq!(
+        Duration::millis(2.0).compare(&Duration::millis(1.0)),
+        Ordering::Greater
+    );
+    assert_eq!(
+        Duration::millis(2.0).compare(&Duration::millis(2.0)),
+        Ordering::Equal
+    );
+    assert_eq!(
+        Duration::millis(1.0).compare(&Duration::nanos(2_000_000)),
+        Ordering::Less
+    );
+    assert_eq!(
+        Duration::nanos(2_000_000).compare(&Duration::millis(1.0)),
+        Ordering::Greater
+    );
+    assert_eq!(
+        Duration::infinity().compare(&Duration::infinity()),
+        Ordering::Equal
+    );
+    assert_eq!(
+        Duration::infinity().compare(&Duration::millis(1.0)),
+        Ordering::Greater
+    );
+    assert_eq!(
+        Duration::millis(1.0).compare(&Duration::infinity()),
+        Ordering::Less
+    );
+    assert_eq!(
+        Duration::negative_infinity().compare(&Duration::millis(1.0)),
+        Ordering::Less
+    );
     let order = Duration::order();
-    assert_eq!(order.compare(&Duration::nanos(1), &Duration::nanos(2)), Ordering::Less);
+    assert_eq!(
+        order.compare(&Duration::nanos(1), &Duration::nanos(2)),
+        Ordering::Less
+    );
 }
 
 #[test]
@@ -426,29 +478,83 @@ fn duration_divide_and_times_follow_the_pins_arithmetic() {
     // :265/:304/:345 — divide is exact or None; divideUnsafe fills the IEEE
     // 754 fallbacks; times scales each representation and zeroes an
     // infinity.
-    assert_eq!(Duration::divide(Duration::minutes(1.0), 2.0), Some(Duration::seconds(30.0)));
-    assert_eq!(Duration::divide(Duration::seconds(1.0), 3.0), Some(Duration::nanos(333_333_333)));
-    assert_eq!(Duration::divide(Duration::zero(), 2.0), Some(Duration::zero()));
-    assert_eq!(Duration::divide(Duration::minutes(1.0), 1.5), Some(Duration::seconds(40.0)));
-    assert_eq!(Duration::divide(Duration::nanos(1), 3.0), Some(Duration::zero()));
+    assert_eq!(
+        Duration::divide(Duration::minutes(1.0), 2.0),
+        Some(Duration::seconds(30.0))
+    );
+    assert_eq!(
+        Duration::divide(Duration::seconds(1.0), 3.0),
+        Some(Duration::nanos(333_333_333))
+    );
+    assert_eq!(
+        Duration::divide(Duration::zero(), 2.0),
+        Some(Duration::zero())
+    );
+    assert_eq!(
+        Duration::divide(Duration::minutes(1.0), 1.5),
+        Some(Duration::seconds(40.0))
+    );
+    assert_eq!(
+        Duration::divide(Duration::nanos(1), 3.0),
+        Some(Duration::zero())
+    );
     assert_eq!(Duration::divide(Duration::nanos(1), 0.5), None);
     assert_eq!(Duration::divide(Duration::minutes(1.0), 0.0), None);
     assert_eq!(Duration::divide(Duration::minutes(1.0), f64::NAN), None);
-    assert_eq!(Duration::divide(Duration::infinity(), 2.0), Some(Duration::infinity()));
-    assert_eq!(Duration::divide(Duration::infinity(), -2.0), Some(Duration::negative_infinity()));
+    assert_eq!(
+        Duration::divide(Duration::infinity(), 2.0),
+        Some(Duration::infinity())
+    );
+    assert_eq!(
+        Duration::divide(Duration::infinity(), -2.0),
+        Some(Duration::negative_infinity())
+    );
 
-    assert_eq!(Duration::divide_unsafe(Duration::minutes(1.0), 2.0), Duration::seconds(30.0));
-    assert_eq!(Duration::divide_unsafe(Duration::nanos(1), 0.5), Duration::zero());
-    assert_eq!(Duration::divide_unsafe(Duration::minutes(1.0), 0.0), Duration::infinity());
-    assert_eq!(Duration::divide_unsafe(Duration::minutes(1.0), -0.0), Duration::negative_infinity());
-    assert_eq!(Duration::divide_unsafe(Duration::nanos(-1), 0.0), Duration::negative_infinity());
-    assert_eq!(Duration::divide_unsafe(Duration::zero(), 0.0), Duration::zero());
-    assert_eq!(Duration::divide_unsafe(Duration::minutes(1.0), f64::NAN), Duration::zero());
-    assert_eq!(Duration::divide_unsafe(Duration::infinity(), f64::INFINITY), Duration::zero());
+    assert_eq!(
+        Duration::divide_unsafe(Duration::minutes(1.0), 2.0),
+        Duration::seconds(30.0)
+    );
+    assert_eq!(
+        Duration::divide_unsafe(Duration::nanos(1), 0.5),
+        Duration::zero()
+    );
+    assert_eq!(
+        Duration::divide_unsafe(Duration::minutes(1.0), 0.0),
+        Duration::infinity()
+    );
+    assert_eq!(
+        Duration::divide_unsafe(Duration::minutes(1.0), -0.0),
+        Duration::negative_infinity()
+    );
+    assert_eq!(
+        Duration::divide_unsafe(Duration::nanos(-1), 0.0),
+        Duration::negative_infinity()
+    );
+    assert_eq!(
+        Duration::divide_unsafe(Duration::zero(), 0.0),
+        Duration::zero()
+    );
+    assert_eq!(
+        Duration::divide_unsafe(Duration::minutes(1.0), f64::NAN),
+        Duration::zero()
+    );
+    assert_eq!(
+        Duration::divide_unsafe(Duration::infinity(), f64::INFINITY),
+        Duration::zero()
+    );
 
-    assert_eq!(Duration::times(Duration::seconds(1.0), 60.0), Duration::minutes(1.0));
-    assert_eq!(Duration::times(Duration::nanos(2), 10.0), Duration::nanos(20));
-    assert_eq!(Duration::times(Duration::infinity(), 60.0), Duration::infinity());
+    assert_eq!(
+        Duration::times(Duration::seconds(1.0), 60.0),
+        Duration::minutes(1.0)
+    );
+    assert_eq!(
+        Duration::times(Duration::nanos(2), 10.0),
+        Duration::nanos(20)
+    );
+    assert_eq!(
+        Duration::times(Duration::infinity(), 60.0),
+        Duration::infinity()
+    );
     assert_eq!(Duration::times(Duration::infinity(), 0.0), Duration::zero());
 }
 
@@ -456,17 +562,51 @@ fn duration_divide_and_times_follow_the_pins_arithmetic() {
 fn duration_sum_subtract_and_comparisons() {
     // :351/:366/:392-:430 — sum keeps the wider representation and the
     // signed infinities cancel; the comparison family agrees with order.
-    assert_eq!(Duration::seconds(30.0).sum(Duration::seconds(30.0)), Duration::minutes(1.0));
-    assert_eq!(Duration::nanos(30).sum(Duration::nanos(30)), Duration::nanos(60));
-    assert_eq!(Duration::infinity().sum(Duration::seconds(30.0)), Duration::infinity());
-    assert_eq!(Duration::seconds(30.0).sum(Duration::infinity()), Duration::infinity());
-    assert_eq!(Duration::infinity().sum(Duration::negative_infinity()), Duration::zero());
-    assert_eq!(Duration::seconds(5.0).subtract(Duration::seconds(2.0)), Duration::seconds(3.0));
+    assert_eq!(
+        Duration::seconds(30.0).sum(Duration::seconds(30.0)),
+        Duration::minutes(1.0)
+    );
+    assert_eq!(
+        Duration::nanos(30).sum(Duration::nanos(30)),
+        Duration::nanos(60)
+    );
+    assert_eq!(
+        Duration::infinity().sum(Duration::seconds(30.0)),
+        Duration::infinity()
+    );
+    assert_eq!(
+        Duration::seconds(30.0).sum(Duration::infinity()),
+        Duration::infinity()
+    );
+    assert_eq!(
+        Duration::infinity().sum(Duration::negative_infinity()),
+        Duration::zero()
+    );
+    assert_eq!(
+        Duration::seconds(5.0).subtract(Duration::seconds(2.0)),
+        Duration::seconds(3.0)
+    );
 
-    assert!(Duration::seconds(2.0).compare(&Duration::seconds(1.0)).is_gt());
-    assert!(Duration::seconds(2.0).compare(&Duration::seconds(2.0)).is_ge());
-    assert!(Duration::seconds(1.0).compare(&Duration::seconds(2.0)).is_lt());
-    assert!(Duration::seconds(2.0).compare(&Duration::seconds(2.0)).is_le());
+    assert!(
+        Duration::seconds(2.0)
+            .compare(&Duration::seconds(1.0))
+            .is_gt()
+    );
+    assert!(
+        Duration::seconds(2.0)
+            .compare(&Duration::seconds(2.0))
+            .is_ge()
+    );
+    assert!(
+        Duration::seconds(1.0)
+            .compare(&Duration::seconds(2.0))
+            .is_lt()
+    );
+    assert!(
+        Duration::seconds(2.0)
+            .compare(&Duration::seconds(2.0))
+            .is_le()
+    );
 }
 
 #[test]
@@ -486,7 +626,10 @@ fn duration_renders_string_format_parts_and_json() {
     assert_eq!(Duration::format(Duration::minutes(5.0)), "5m");
     assert_eq!(Duration::format(Duration::minutes(5.325)), "5m 19s 500ms");
     assert_eq!(Duration::format(Duration::hours(3.0)), "3h");
-    assert_eq!(Duration::format(Duration::hours(3.11125)), "3h 6m 40s 500ms");
+    assert_eq!(
+        Duration::format(Duration::hours(3.11125)),
+        "3h 6m 40s 500ms"
+    );
     assert_eq!(Duration::format(Duration::days(2.0)), "2d");
     assert_eq!(Duration::format(Duration::days(2.25)), "2d 6h");
     assert_eq!(Duration::format(Duration::weeks(1.0)), "7d");
@@ -508,18 +651,44 @@ fn duration_renders_string_format_parts_and_json() {
     );
     assert_eq!(
         Duration::minutes(5.325).parts(),
-        Parts { days: 0.0, hours: 0.0, minutes: 5.0, seconds: 19.0, millis: 500.0, nanos: 0.0 }
+        Parts {
+            days: 0.0,
+            hours: 0.0,
+            minutes: 5.0,
+            seconds: 19.0,
+            millis: 500.0,
+            nanos: 0.0
+        }
     );
     assert_eq!(
         Duration::minutes(3.11125).parts(),
-        Parts { days: 0.0, hours: 0.0, minutes: 3.0, seconds: 6.0, millis: 675.0, nanos: 0.0 }
+        Parts {
+            days: 0.0,
+            hours: 0.0,
+            minutes: 3.0,
+            seconds: 6.0,
+            millis: 675.0,
+            nanos: 0.0
+        }
     );
 
-    assert_eq!(Duration::seconds(2.0).to_json(), DurationJson::Millis(2000.0));
-    assert_eq!(Duration::nanos(5).to_json(), DurationJson::Nanos("5".to_string()));
-    assert_eq!(Duration::millis(1.5).to_json(), DurationJson::Nanos("1500000".to_string()));
+    assert_eq!(
+        Duration::seconds(2.0).to_json(),
+        DurationJson::Millis(2000.0)
+    );
+    assert_eq!(
+        Duration::nanos(5).to_json(),
+        DurationJson::Nanos("5".to_string())
+    );
+    assert_eq!(
+        Duration::millis(1.5).to_json(),
+        DurationJson::Nanos("1500000".to_string())
+    );
     assert_eq!(Duration::infinity().to_json(), DurationJson::Infinity);
-    assert_eq!(Duration::millis(1000.0).inspect(), DurationJson::Millis(1000.0));
+    assert_eq!(
+        Duration::millis(1000.0).inspect(),
+        DurationJson::Millis(1000.0)
+    );
 }
 
 #[test]
@@ -535,7 +704,9 @@ fn duration_pipes_its_combinators() {
 fn duration_identifies_itself() {
     // :509 — the type guard answers for a Duration and false for anything
     // else.
-    assert!(elm_effect::is_duration(&Duration::millis(100.0) as &dyn std::any::Any));
+    assert!(elm_effect::is_duration(
+        &Duration::millis(100.0) as &dyn std::any::Any
+    ));
     assert!(!elm_effect::is_duration(&7i32 as &dyn std::any::Any));
 }
 
@@ -544,7 +715,10 @@ fn duration_zero_weeks_and_units() {
     // :514/:518/:523-:549/:675-:693 — zero is the sum identity, weeks are
     // days by another name, and every unit conversion lands where the pin
     // puts it, with the infinite sentinels mapping to infinities.
-    assert_eq!(Duration::seconds(1.0).sum(Duration::zero()), Duration::seconds(1.0));
+    assert_eq!(
+        Duration::seconds(1.0).sum(Duration::zero()),
+        Duration::seconds(1.0)
+    );
     assert!(Duration::weeks(1.0).equal(&Duration::days(7.0)));
     assert!(!Duration::weeks(1.0).equal(&Duration::days(1.0)));
 
@@ -574,7 +748,10 @@ fn duration_zero_weeks_and_units() {
     assert_eq!(Duration::nanos(1_000_000_001).to_hr_time(), (1.0, 1.0));
     assert_eq!(Duration::millis(1001.0).to_hr_time(), (1.0, 1_000_000.0));
     assert_eq!(Duration::infinity().to_hr_time(), (f64::INFINITY, 0.0));
-    assert_eq!(Duration::negative_infinity().to_hr_time(), (f64::NEG_INFINITY, 0.0));
+    assert_eq!(
+        Duration::negative_infinity().to_hr_time(),
+        (f64::NEG_INFINITY, 0.0)
+    );
 
     assert_eq!(Duration::millis(60000.0).to_minutes(), 1.0);
     assert_eq!(Duration::nanos(60_000_000_000).to_minutes(), 1.0);
@@ -603,22 +780,46 @@ fn duration_negative_family_agrees_with_the_pin() {
     assert!(Duration::infinity().is_positive());
     assert!(!Duration::negative_infinity().is_positive());
 
-    assert_eq!(Duration::abs(Duration::seconds(-5.0)), Duration::seconds(5.0));
-    assert_eq!(Duration::abs(Duration::seconds(5.0)), Duration::seconds(5.0));
+    assert_eq!(
+        Duration::abs(Duration::seconds(-5.0)),
+        Duration::seconds(5.0)
+    );
+    assert_eq!(
+        Duration::abs(Duration::seconds(5.0)),
+        Duration::seconds(5.0)
+    );
     assert_eq!(Duration::abs(Duration::zero()), Duration::zero());
-    assert_eq!(Duration::abs(Duration::negative_infinity()), Duration::infinity());
+    assert_eq!(
+        Duration::abs(Duration::negative_infinity()),
+        Duration::infinity()
+    );
     assert_eq!(Duration::abs(Duration::infinity()), Duration::infinity());
 
-    assert_eq!(Duration::negate(Duration::seconds(5.0)), Duration::seconds(-5.0));
-    assert_eq!(Duration::negate(Duration::seconds(-5.0)), Duration::seconds(5.0));
+    assert_eq!(
+        Duration::negate(Duration::seconds(5.0)),
+        Duration::seconds(-5.0)
+    );
+    assert_eq!(
+        Duration::negate(Duration::seconds(-5.0)),
+        Duration::seconds(5.0)
+    );
     assert_eq!(Duration::negate(Duration::zero()), Duration::zero());
-    assert_eq!(Duration::negate(Duration::infinity()), Duration::negative_infinity());
-    assert_eq!(Duration::negate(Duration::negative_infinity()), Duration::infinity());
+    assert_eq!(
+        Duration::negate(Duration::infinity()),
+        Duration::negative_infinity()
+    );
+    assert_eq!(
+        Duration::negate(Duration::negative_infinity()),
+        Duration::infinity()
+    );
 
     assert!(!Duration::negative_infinity().is_finite());
     assert!(!Duration::zero().is_negative());
     assert_eq!(Duration::negative_infinity().to_millis(), f64::NEG_INFINITY);
-    assert_eq!(Duration::negative_infinity().to_seconds(), f64::NEG_INFINITY);
+    assert_eq!(
+        Duration::negative_infinity().to_seconds(),
+        f64::NEG_INFINITY
+    );
     assert_eq!(
         Duration::negative_infinity().compare(&Duration::negative_infinity()),
         Ordering::Equal
@@ -675,9 +876,18 @@ fn duration_finite_zero_and_reducers() {
     assert!(!Duration::nanos(1).is_zero());
 
     let sum = elm_effect::Reducer::make(Duration::zero(), |a: &Duration, b: &Duration| a.sum(*b));
-    assert_eq!(sum.combine(&Duration::millis(1.0), &Duration::millis(2.0)), Duration::millis(3.0));
+    assert_eq!(
+        sum.combine(&Duration::millis(1.0), &Duration::millis(2.0)),
+        Duration::millis(3.0)
+    );
     let max = elm_effect::Combiner::make(|a: &Duration, b: &Duration| (*a).max(*b));
-    assert_eq!(max.combine(&Duration::millis(1.0), &Duration::millis(2.0)), Duration::millis(2.0));
+    assert_eq!(
+        max.combine(&Duration::millis(1.0), &Duration::millis(2.0)),
+        Duration::millis(2.0)
+    );
     let min = elm_effect::Combiner::make(|a: &Duration, b: &Duration| (*a).min(*b));
-    assert_eq!(min.combine(&Duration::millis(1.0), &Duration::millis(2.0)), Duration::millis(1.0));
+    assert_eq!(
+        min.combine(&Duration::millis(1.0), &Duration::millis(2.0)),
+        Duration::millis(1.0)
+    );
 }

@@ -107,7 +107,10 @@ fn etag_renders_and_matches_weakly() {
 fn http_body_renders_with_content_type() {
     use elm_effect_unstable::http::HttpBody;
     assert_eq!(HttpBody::Empty.render(), Vec::<u8>::new());
-    assert_eq!(HttpBody::Text("hi".into()).content_type(), Some("text/plain; charset=utf-8"));
+    assert_eq!(
+        HttpBody::Text("hi".into()).content_type(),
+        Some("text/plain; charset=utf-8")
+    );
     assert_eq!(
         HttpBody::Form(vec![("a".into(), "b c".into())]).render(),
         b"a=b+c".to_vec()
@@ -282,7 +285,10 @@ fn url_parses_absolute_and_renders() {
     assert_eq!(url.path, "/a/b");
     assert_eq!(url.query, "q=1");
     assert_eq!(url.fragment, "frag");
-    assert_eq!(url.render(), "https://user:pass@example.com:8443/a/b?q=1#frag");
+    assert_eq!(
+        url.render(),
+        "https://user:pass@example.com:8443/a/b?q=1#frag"
+    );
     assert_eq!(Url::parse("https://example.com").unwrap().path, "/");
 }
 
@@ -299,7 +305,10 @@ fn url_rejects_garbage() {
 fn url_resolves_relative_against_base() {
     use elm_effect_unstable::http::Url;
     let base = Url::parse("https://example.com/dir/page?q=1").unwrap();
-    assert_eq!(base.resolve("/other").unwrap().render(), "https://example.com/other");
+    assert_eq!(
+        base.resolve("/other").unwrap().render(),
+        "https://example.com/other"
+    );
     assert_eq!(
         base.resolve("next?x=2").unwrap().render(),
         "https://example.com/dir/next?x=2"
@@ -325,15 +334,17 @@ fn url_query_params_roundtrip() {
 #[test]
 fn url_setters_mutate_parts() {
     use elm_effect_unstable::http::Url;
-    let url = Url::parse("https://user:pass@example.com:8443/a?q=1#frag").unwrap().mutate(|u| {
-        u.set_hash("other");
-        u.set_pathname("b");
-        u.set_search("?x=2");
-        u.set_port(None);
-        u.set_protocol("http:");
-        u.set_username("admin");
-        u.set_password("s3cret");
-    });
+    let url = Url::parse("https://user:pass@example.com:8443/a?q=1#frag")
+        .unwrap()
+        .mutate(|u| {
+            u.set_hash("other");
+            u.set_pathname("b");
+            u.set_search("?x=2");
+            u.set_port(None);
+            u.set_protocol("http:");
+            u.set_username("admin");
+            u.set_password("s3cret");
+        });
     assert_eq!(url.render(), "http://admin:s3cret@example.com/b?x=2#other");
     assert!(url.redacted().contains("admin:***@"));
     assert!(!url.redacted().contains("s3cret"));
@@ -358,9 +369,18 @@ fn url_host_setters_split_hostname_and_port() {
 #[test]
 fn url_paths_join_without_doubling_slashes() {
     use elm_effect_unstable::http::join_url;
-    assert_eq!(join_url("https://a.com/api", "users"), "https://a.com/api/users");
-    assert_eq!(join_url("https://a.com/api", "/users"), "https://a.com/api/users");
-    assert_eq!(join_url("https://a.com/api/", "users"), "https://a.com/api/users");
+    assert_eq!(
+        join_url("https://a.com/api", "users"),
+        "https://a.com/api/users"
+    );
+    assert_eq!(
+        join_url("https://a.com/api", "/users"),
+        "https://a.com/api/users"
+    );
+    assert_eq!(
+        join_url("https://a.com/api/", "users"),
+        "https://a.com/api/users"
+    );
     assert_eq!(join_url("https://a.com/api", ""), "https://a.com/api");
 }
 
@@ -420,7 +440,10 @@ fn ipinterface_bare_defaults_full_width() {
     assert_eq!(IpInterface::from_addr(v6).prefix(), 128);
     let net = IpNetwork::parse("10.0.0.0/8").unwrap();
     assert!(net.contains_addr(IpInterface::from_addr(v4).address()));
-    assert_eq!(IpInterface::from_addr(v4).network(), IpNetwork::parse("10.0.0.9/32").unwrap());
+    assert_eq!(
+        IpInterface::from_addr(v4).network(),
+        IpNetwork::parse("10.0.0.9/32").unwrap()
+    );
 }
 
 #[test]
@@ -439,7 +462,17 @@ fn strict_ip_parses_widths_and_octets() {
 #[test]
 fn strict_ip_rejects_malformed() {
     use elm_effect_unstable::net::StrictIp;
-    for bad in ["", "1.2.3", "1.2.3.4.5", "256.1.1.1", "01.2.3.4", "1.2.3.x", " 1.2.3.4", "1.2.3.4 ", ":::"] {
+    for bad in [
+        "",
+        "1.2.3",
+        "1.2.3.4.5",
+        "256.1.1.1",
+        "01.2.3.4",
+        "1.2.3.x",
+        " 1.2.3.4",
+        "1.2.3.4 ",
+        ":::",
+    ] {
         assert!(StrictIp::parse(bad).is_none(), "{bad}");
     }
 }
@@ -447,11 +480,26 @@ fn strict_ip_rejects_malformed() {
 #[test]
 fn strict_ip_classifies_bits() {
     use elm_effect_unstable::net::{IpClass, StrictIp};
-    assert_eq!(StrictIp::parse("127.0.0.1").unwrap().classify(), IpClass::Loopback);
-    assert_eq!(StrictIp::parse("10.1.2.3").unwrap().classify(), IpClass::Private);
-    assert_eq!(StrictIp::parse("224.0.0.1").unwrap().classify(), IpClass::Multicast);
-    assert_eq!(StrictIp::parse("8.8.8.8").unwrap().classify(), IpClass::Global);
-    assert_eq!(StrictIp::parse("::1").unwrap().classify(), IpClass::Loopback);
+    assert_eq!(
+        StrictIp::parse("127.0.0.1").unwrap().classify(),
+        IpClass::Loopback
+    );
+    assert_eq!(
+        StrictIp::parse("10.1.2.3").unwrap().classify(),
+        IpClass::Private
+    );
+    assert_eq!(
+        StrictIp::parse("224.0.0.1").unwrap().classify(),
+        IpClass::Multicast
+    );
+    assert_eq!(
+        StrictIp::parse("8.8.8.8").unwrap().classify(),
+        IpClass::Global
+    );
+    assert_eq!(
+        StrictIp::parse("::1").unwrap().classify(),
+        IpClass::Loopback
+    );
 }
 
 #[test]
@@ -470,7 +518,14 @@ fn cookie_expired_renders_cleared_set_cookie() {
 fn cookies_reject_invalid_names() {
     use elm_effect_unstable::http::{Cookie, Cookies};
     assert!(Cookie::is_valid_name("session_id-1.2~x"));
-    for bad in ["", "has space", "semi;colon", "quo\"te", "back\\slash", "contr\x7fol"] {
+    for bad in [
+        "",
+        "has space",
+        "semi;colon",
+        "quo\"te",
+        "back\\slash",
+        "contr\x7fol",
+    ] {
         assert!(!Cookie::is_valid_name(bad), "{bad}");
     }
     assert!(Cookie::parse_pair("bad name=1").is_none());
@@ -518,10 +573,7 @@ fn headers_remove_many_drops_each_case_insensitively() {
         ("X-C".to_string(), "3".to_string()),
     ]);
     assert_eq!(headers.remove_many(&["x-a", "X-B", "absent"]), 2);
-    assert_eq!(
-        headers.entries(),
-        &[("X-C".to_string(), "3".to_string())]
-    );
+    assert_eq!(headers.entries(), &[("X-C".to_string(), "3".to_string())]);
 }
 
 #[test]
@@ -757,17 +809,14 @@ fn httpapi_proto_names_are_own_keys_and_reflect() {
     // HttpApi.test.ts:18 - `__proto__` is an ordinary own key: lookups hit
     // and reflect walks it like any other group/endpoint.
     use elm_effect_unstable::http::{HttpApi, HttpApiEndpoint, HttpApiGroup};
-    let group = HttpApiGroup::make("__proto__")
-        .add_endpoint(HttpApiEndpoint::get("__proto__", "/proto"));
+    let group =
+        HttpApiGroup::make("__proto__").add_endpoint(HttpApiEndpoint::get("__proto__", "/proto"));
     let child = HttpApi::make("Child").add(group);
     let api = HttpApi::make("Api").add_http_api(&child);
     for id in ["__proto__"] {
         assert!(child.group(id).is_some(), "{id}");
         assert!(api.group(id).is_some(), "{id}");
-        assert!(
-            api.group(id).unwrap().endpoint(id).is_some(),
-            "{id}"
-        );
+        assert!(api.group(id).unwrap().endpoint(id).is_some(), "{id}");
     }
     let reflected = std::cell::RefCell::new(Vec::new());
     api.reflect(
@@ -824,18 +873,42 @@ fn httpapi_variant_annotations_stay_isolated() {
     let public_parent = HttpApi::make("PublicParent").add_http_api(&public_child);
     let internal_parent = HttpApi::make("InternalParent").add_http_api(&internal_child);
     assert_eq!(
-        public_parent.group("users").unwrap().annotation(ANNOTATION_DESCRIPTION),
+        public_parent
+            .group("users")
+            .unwrap()
+            .annotation(ANNOTATION_DESCRIPTION),
         Some("Public API")
     );
     assert_eq!(
-        internal_parent.group("users").unwrap().annotation(ANNOTATION_DESCRIPTION),
+        internal_parent
+            .group("users")
+            .unwrap()
+            .annotation(ANNOTATION_DESCRIPTION),
         Some("Internal API")
     );
     assert_ne!(public_parent.group("users"), internal_parent.group("users"));
-    let public_tag = public_parent.tags().iter().find(|tag| tag.name == "Users").cloned();
-    let internal_tag = internal_parent.tags().iter().find(|tag| tag.name == "Users").cloned();
-    assert_eq!(public_tag.as_ref().and_then(|tag| tag.description.as_deref()), Some("Public API"));
-    assert_eq!(internal_tag.as_ref().and_then(|tag| tag.description.as_deref()), Some("Internal API"));
+    let public_tag = public_parent
+        .tags()
+        .iter()
+        .find(|tag| tag.name == "Users")
+        .cloned();
+    let internal_tag = internal_parent
+        .tags()
+        .iter()
+        .find(|tag| tag.name == "Users")
+        .cloned();
+    assert_eq!(
+        public_tag
+            .as_ref()
+            .and_then(|tag| tag.description.as_deref()),
+        Some("Public API")
+    );
+    assert_eq!(
+        internal_tag
+            .as_ref()
+            .and_then(|tag| tag.description.as_deref()),
+        Some("Internal API")
+    );
 }
 
 #[test]

@@ -309,7 +309,8 @@ pub fn decode_int_array(bytes: &[u8]) -> Result<Vec<f64>, BinaryError> {
     let count = uvarint_decode(bytes, &mut pos).ok_or_else(|| fail("truncated count"))?;
     let mut out = Vec::new();
     for _ in 0..count {
-        let word = uvarint_decode(bytes, &mut pos).ok_or_else(|| fail("Expected complete value"))?;
+        let word =
+            uvarint_decode(bytes, &mut pos).ok_or_else(|| fail("Expected complete value"))?;
         let negative = word & 1 == 1;
         let magnitude = word >> 1;
         if magnitude > MAX_SAFE_INTEGER {
@@ -570,7 +571,10 @@ pub fn encode_string_scalar(value: &str) -> Vec<u8> {
 /// partial frame is truncated rather than read short.
 pub fn decode_string_scalar(bytes: &[u8]) -> Result<String, BinaryError> {
     let fail = |message: &str| BinaryError::new(format!("{} [{}]", message, hex_preview(bytes)));
-    let mut cursor = Cursor { input: bytes, pos: 0 };
+    let mut cursor = Cursor {
+        input: bytes,
+        pos: 0,
+    };
     let length = cursor.uvarint()? as usize;
     let end = cursor
         .pos
@@ -964,7 +968,10 @@ impl NumberParser {
     /// Cap the announced frame length, which is what bounds how much a partial
     /// frame can make the parser buffer.
     pub fn with_max_frame_size(limit: u64) -> Self {
-        Self(FrameStream::with_max_frame_size(decode_number_scalar, limit))
+        Self(FrameStream::with_max_frame_size(
+            decode_number_scalar,
+            limit,
+        ))
     }
 
     /// Feed one chunk; returns the values it completed, in stream order.
@@ -1010,7 +1017,10 @@ impl StringParser {
     /// Cap the announced frame length, which is what bounds how much a partial
     /// frame can make the parser buffer.
     pub fn with_max_frame_size(limit: u64) -> Self {
-        Self(FrameStream::with_max_frame_size(decode_string_scalar, limit))
+        Self(FrameStream::with_max_frame_size(
+            decode_string_scalar,
+            limit,
+        ))
     }
 
     /// Feed one chunk; returns the values it completed, in stream order.

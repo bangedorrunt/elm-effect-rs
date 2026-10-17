@@ -117,8 +117,7 @@ fn deferred_succeed_fail_race_first_wins() {
     for _ in 0..50 {
         let gate = Arc::new(TxDeferred::<i32, String>::new());
         let racer = gate.clone();
-        let fiber =
-            std::thread::spawn(move || racer.fail("boom".to_string()));
+        let fiber = std::thread::spawn(move || racer.fail("boom".to_string()));
         let main_won = gate.succeed(1);
         let fiber_won = fiber.join().expect("racer ends");
         assert_ne!(main_won, fiber_won, "exactly one winner");

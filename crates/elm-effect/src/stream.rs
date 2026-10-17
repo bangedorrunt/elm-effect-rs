@@ -10,8 +10,8 @@
 //! Sharing is [`Arc`] over [`Mutex`]-guarded factories, so only `Send` is
 //! ever required: requirement tags (which are not `Sync`) stream fine.
 
-use std::convert::Infallible;
 use std::collections::VecDeque;
+use std::convert::Infallible;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
@@ -915,11 +915,7 @@ where
 /// positive value floors. The pin keeps these as two functions because a
 /// chunk size and an element count have different empty behavior.
 pub fn normalize(n: f64) -> usize {
-    if n > 0.0 {
-        n.floor() as usize
-    } else {
-        0
-    }
+    if n > 0.0 { n.floor() as usize } else { 0 }
 }
 
 pub fn normalize_non_empty(n: f64) -> usize {
@@ -1408,7 +1404,6 @@ enum ChildDone<B, E> {
     Failed(Cause<E>),
 }
 
-
 impl<A, B, E, R, F> crate::effect::ErasedStep<Option<Vec<B>>, E> for MapEffect<A, B, E, R, F>
 where
     A: Send + 'static,
@@ -1597,7 +1592,9 @@ struct CatchState<A: Send + 'static, E: Send + 'static, R: crate::effect::Requir
     handler: std::sync::Arc<Mutex<Option<Box<dyn FnOnce(E) -> Stream<A, E, R> + Send>>>>,
 }
 
-impl<A: Send + 'static, E: Send + 'static, R: crate::effect::Requirement> Clone for CatchState<A, E, R> {
+impl<A: Send + 'static, E: Send + 'static, R: crate::effect::Requirement> Clone
+    for CatchState<A, E, R>
+{
     fn clone(&self) -> Self {
         Self {
             substitute: Arc::clone(&self.substitute),
@@ -1619,7 +1616,14 @@ where
     E: Send + 'static,
     R: crate::effect::Requirement,
 {
-    let delegate = { state.substitute.lock().unwrap().as_ref().map(Stream::clone_of_pull) };
+    let delegate = {
+        state
+            .substitute
+            .lock()
+            .unwrap()
+            .as_ref()
+            .map(Stream::clone_of_pull)
+    };
     if let Some(sub) = delegate {
         return call(&sub);
     }
@@ -1707,8 +1711,8 @@ impl<A: Send + 'static, E: Send + 'static, R: crate::effect::Requirement> Stream
                 // Fail reason is re-raised verbatim.
                 if cause.failures().is_empty() {
                     // defects() yields Vec<&Defect>, so first() is Option<&&Defect>
-                // and copied() one level short: clone once to own it.
-                if let Some(defect) = cause.defects().first().map(|d| (*d).clone()) {
+                    // and copied() one level short: clone once to own it.
+                    if let Some(defect) = cause.defects().first().map(|d| (*d).clone()) {
                         let arm = handler.lock().unwrap().take();
                         if let Some(arm) = arm {
                             let replacement = arm(defect);
@@ -1847,8 +1851,7 @@ impl<A: Send + 'static, E: Clone + Send + 'static, R: crate::effect::Requirement
             if let Some(sub) = delegate {
                 return call(&sub);
             }
-            let (extractor, handler, sub) =
-                (Arc::clone(&ex0), Arc::clone(&h0), Arc::clone(&sub0));
+            let (extractor, handler, sub) = (Arc::clone(&ex0), Arc::clone(&h0), Arc::clone(&sub0));
             call(&pull0).catch_cause(move |cause| {
                 let Some(extract) = extractor.lock().unwrap().take() else {
                     return Effect::fail_cause(cause);

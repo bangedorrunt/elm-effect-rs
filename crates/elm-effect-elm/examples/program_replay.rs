@@ -25,7 +25,9 @@ enum Cmd {
 
 impl CmdTrait for Cmd {
     fn durability(&self) -> Durability {
-        Durability::Durable { key: "count".to_string() }
+        Durability::Durable {
+            key: "count".to_string(),
+        }
     }
 }
 
@@ -51,10 +53,16 @@ impl Program for Counter {
     fn update(model: &Model, msg: &Msg) -> Update<Model, Cmd> {
         match msg {
             Msg::Tick => Update::with_commands(
-                Model { count: model.count + 1 },
-                vec![Cmd::Persist { count: model.count + 1 }],
+                Model {
+                    count: model.count + 1,
+                },
+                vec![Cmd::Persist {
+                    count: model.count + 1,
+                }],
             ),
-            Msg::Add(n) => Update::quiet(Model { count: model.count + n }),
+            Msg::Add(n) => Update::quiet(Model {
+                count: model.count + n,
+            }),
         }
     }
 
@@ -85,8 +93,15 @@ fn main() {
             println!("replay consistent, count {}", model.count);
             // A snapshot is the model plus the offset it includes, so a later
             // replay can resume without re-reading the whole log.
-            let snapshot = Snapshot { model, offset: log.len() };
-            println!("{} messages recorded, snapshot at offset {}", log.len(), snapshot.offset);
+            let snapshot = Snapshot {
+                model,
+                offset: log.len(),
+            };
+            println!(
+                "{} messages recorded, snapshot at offset {}",
+                log.len(),
+                snapshot.offset
+            );
         }
         Replay::Divergent { index } => {
             eprintln!("diverged at message {index}");

@@ -4,12 +4,13 @@
 //! error value, and an exit is data, not an effect.
 
 use elm_effect::{
+    Cause, CauseError, Defect, Done, Exit, FiberId, Reason,
     cause::{
-        make_die_reason, make_fail_reason, make_interrupt_reason, INTERRUPTOR_STACK_TRACE, STACK_TRACE,
+        INTERRUPTOR_STACK_TRACE, STACK_TRACE, make_die_reason, make_fail_reason,
+        make_interrupt_reason,
     },
-    is_done, is_exceeded_capacity_error, is_illegal_argument_error, is_no_such_element_error,
-    is_timeout_error, is_unknown_error, Cause, CauseError, Defect, Done, Exit, FiberId, Reason,
-    is_die_reason, is_fail_reason, is_interrupt_reason,
+    is_die_reason, is_done, is_exceeded_capacity_error, is_fail_reason, is_illegal_argument_error,
+    is_interrupt_reason, is_no_such_element_error, is_timeout_error, is_unknown_error,
 };
 use std::convert::Infallible;
 
@@ -366,7 +367,9 @@ fn from_reasons_builds_a_cause_from_an_array() {
     let cause = Cause::from_reasons(vec![
         Reason::Fail("error".to_string()),
         Reason::Die(Defect::new("defect")),
-        Reason::Interrupt { fiber_id: Some(elm_effect::FiberId(1)) },
+        Reason::Interrupt {
+            fiber_id: Some(elm_effect::FiberId(1)),
+        },
     ]);
     assert_eq!(cause.reasons.len(), 3);
 }
@@ -416,12 +419,14 @@ fn has_interrupts_requires_an_interrupt_reason() {
 #[test]
 fn has_interrupts_only_is_true_when_every_reason_is_an_interrupt() {
     // One interrupt, and a cause combining two, are both interrupt-only.
-    assert!(
-        Cause::<String>::interrupt(Some(elm_effect::FiberId(1))).has_interrupts_only()
-    );
+    assert!(Cause::<String>::interrupt(Some(elm_effect::FiberId(1))).has_interrupts_only());
     let two = Cause::<String>::from_reasons(vec![
-        Reason::Interrupt { fiber_id: Some(elm_effect::FiberId(1)) },
-        Reason::Interrupt { fiber_id: Some(elm_effect::FiberId(2)) },
+        Reason::Interrupt {
+            fiber_id: Some(elm_effect::FiberId(1)),
+        },
+        Reason::Interrupt {
+            fiber_id: Some(elm_effect::FiberId(2)),
+        },
     ]);
     assert!(two.has_interrupts_only());
 }
@@ -435,7 +440,9 @@ fn has_interrupts_only_is_false_for_an_empty_cause() {
 #[test]
 fn has_interrupts_only_is_false_when_mixed() {
     let mixed = Cause::from_reasons(vec![
-        Reason::Interrupt { fiber_id: Some(elm_effect::FiberId(1)) },
+        Reason::Interrupt {
+            fiber_id: Some(elm_effect::FiberId(1)),
+        },
         Reason::Fail("error".to_string()),
     ]);
     assert!(!mixed.has_interrupts_only());
@@ -444,22 +451,32 @@ fn has_interrupts_only_is_false_when_mixed() {
 #[test]
 fn squash_prefers_the_first_fail_even_after_interrupt_and_die() {
     let cause = Cause::from_reasons(vec![
-        Reason::Interrupt { fiber_id: Some(elm_effect::FiberId(1)) },
+        Reason::Interrupt {
+            fiber_id: Some(elm_effect::FiberId(1)),
+        },
         Reason::Die(Defect::new("defect")),
         Reason::Fail("first".to_string()),
         Reason::Fail("second".to_string()),
     ]);
-    assert_eq!(cause.squash(), elm_effect::Squash::Fail("first".to_string()));
+    assert_eq!(
+        cause.squash(),
+        elm_effect::Squash::Fail("first".to_string())
+    );
 }
 
 #[test]
 fn squash_returns_the_first_die_when_there_are_no_fails() {
     let cause = Cause::<String>::from_reasons(vec![
-        Reason::Interrupt { fiber_id: Some(elm_effect::FiberId(1)) },
+        Reason::Interrupt {
+            fiber_id: Some(elm_effect::FiberId(1)),
+        },
         Reason::Die(Defect::new("first")),
         Reason::Die(Defect::new("second")),
     ]);
-    assert_eq!(cause.squash(), elm_effect::Squash::Die(Defect::new("first")));
+    assert_eq!(
+        cause.squash(),
+        elm_effect::Squash::Die(Defect::new("first"))
+    );
 }
 
 #[test]
@@ -481,7 +498,9 @@ fn squash_reports_an_empty_cause() {
 #[test]
 fn find_fail_returns_the_first_fail_reason() {
     let cause = Cause::from_reasons(vec![
-        Reason::Interrupt { fiber_id: Some(elm_effect::FiberId(1)) },
+        Reason::Interrupt {
+            fiber_id: Some(elm_effect::FiberId(1)),
+        },
         Reason::Fail("error".to_string()),
         Reason::Fail("second".to_string()),
     ]);
@@ -502,12 +521,20 @@ fn find_fail_is_absent_without_a_fail_reason() {
 fn find_error_returns_the_error_value() {
     let cause = Cause::fail("error".to_string());
     assert_eq!(cause.find_error(), Some(&"error".to_string()));
-    assert!(Cause::<String>::die(Defect::new("d")).find_error().is_none());
+    assert!(
+        Cause::<String>::die(Defect::new("d"))
+            .find_error()
+            .is_none()
+    );
 }
 
 #[test]
 fn find_error_option_is_none_without_a_fail_reason() {
-    assert!(Cause::<String>::die(Defect::new("defect")).find_error_option().is_none());
+    assert!(
+        Cause::<String>::die(Defect::new("defect"))
+            .find_error_option()
+            .is_none()
+    );
     assert!(Cause::<String>::empty().find_error_option().is_none());
 }
 
@@ -528,7 +555,10 @@ fn find_die_returns_the_first_die_reason() {
 #[test]
 fn find_defect_returns_the_defect_value() {
     let cause = Cause::<String>::die(Defect::new("defect"));
-    assert_eq!(cause.find_defect().map(|d| d.message.clone()), Some("defect".to_string()));
+    assert_eq!(
+        cause.find_defect().map(|d| d.message.clone()),
+        Some("defect".to_string())
+    );
     assert!(Cause::fail("e".to_string()).find_defect().is_none());
 }
 
@@ -547,9 +577,15 @@ fn find_interrupt_returns_the_first_interrupt_reason() {
 #[test]
 fn interruptor_ids_is_a_deduplicated_ordered_set() {
     let cause = Cause::<String>::from_reasons(vec![
-        Reason::Interrupt { fiber_id: Some(elm_effect::FiberId(3)) },
-        Reason::Interrupt { fiber_id: Some(elm_effect::FiberId(1)) },
-        Reason::Interrupt { fiber_id: Some(elm_effect::FiberId(3)) },
+        Reason::Interrupt {
+            fiber_id: Some(elm_effect::FiberId(3)),
+        },
+        Reason::Interrupt {
+            fiber_id: Some(elm_effect::FiberId(1)),
+        },
+        Reason::Interrupt {
+            fiber_id: Some(elm_effect::FiberId(3)),
+        },
     ]);
     assert_eq!(
         cause.interruptor_ids(),
@@ -569,11 +605,17 @@ fn interruptor_ids_excludes_undefined_fiber_ids() {
     // A `None` fiber ID is not a member of the set.
     let cause = Cause::<String>::from_reasons(vec![
         Reason::Interrupt { fiber_id: None },
-        Reason::Interrupt { fiber_id: Some(elm_effect::FiberId(7)) },
+        Reason::Interrupt {
+            fiber_id: Some(elm_effect::FiberId(7)),
+        },
         Reason::Interrupt { fiber_id: None },
     ]);
     assert_eq!(cause.interruptor_ids(), vec![elm_effect::FiberId(7)]);
-    assert_eq!(cause.interruptors().len(), 3, "the raw list keeps every entry");
+    assert_eq!(
+        cause.interruptors().len(),
+        3,
+        "the raw list keeps every entry"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -595,10 +637,10 @@ fn combine_with_empty_returns_the_other_cause() {
 
 #[test]
 fn combine_handles_mixed_reason_types() {
-    let combined = Cause::fail("error".to_string())
-        .combine(Cause::die(Defect::new("defect")).combine(Cause::<String>::interrupt(Some(
-            elm_effect::FiberId(1),
-        ))));
+    let combined = Cause::fail("error".to_string()).combine(
+        Cause::die(Defect::new("defect"))
+            .combine(Cause::<String>::interrupt(Some(elm_effect::FiberId(1)))),
+    );
     assert_eq!(combined.reasons.len(), 3);
     assert!(combined.has_fails() && combined.has_dies() && combined.has_interrupts());
 }
@@ -633,7 +675,10 @@ fn map_transforms_fail_reasons_only() {
 fn map_leaves_interrupt_reasons_alone() {
     let cause = Cause::fail(1u32).combine(Cause::<u32>::interrupt(Some(elm_effect::FiberId(9))));
     let mapped = cause.map(|n| n + 10);
-    assert!(mapped.has_interrupts(), "an Interrupt reason survives the map");
+    assert!(
+        mapped.has_interrupts(),
+        "an Interrupt reason survives the map"
+    );
     assert_eq!(mapped.failures(), vec![&11u32]);
 }
 
@@ -676,7 +721,11 @@ fn annotate_attaches_annotations_and_keeps_the_reason() {
 
     let annotated = cause.clone().annotate("service", "Db");
 
-    assert_eq!(annotated.reasons.len(), 1, "annotating must not drop the reason");
+    assert_eq!(
+        annotated.reasons.len(),
+        1,
+        "annotating must not drop the reason"
+    );
     assert!(matches!(annotated.reasons[0], Reason::Fail(ref e) if e == "boom"));
     assert_eq!(annotated.annotation("service"), Some("Db"));
 }
@@ -696,12 +745,20 @@ fn annotate_leaves_the_source_cause_unchanged() {
 
     let annotated = original.annotate("service", "Db");
 
-    assert_eq!(annotated.annotations.len(), 1, "the annotation landed on the new value");
+    assert_eq!(
+        annotated.annotations.len(),
+        1,
+        "the annotation landed on the new value"
+    );
     assert!(
         handed_on.annotations.is_empty(),
         "annotating a clone carried context back to the source"
     );
-    assert_eq!(handed_on.reasons.len(), 1, "the source's reasons are untouched");
+    assert_eq!(
+        handed_on.reasons.len(),
+        1,
+        "the source's reasons are untouched"
+    );
 }
 
 #[test]
@@ -722,8 +779,12 @@ fn no_such_element_error_shapes() {
 #[test]
 fn is_no_such_element_error_guards() {
     // Cause.test.ts:740 — true for its own instances.
-    assert!(is_no_such_element_error(Some(&CauseError::no_such_element("x"))));
-    assert!(is_no_such_element_error(Some(&CauseError::no_such_element_bare())));
+    assert!(is_no_such_element_error(Some(
+        &CauseError::no_such_element("x")
+    )));
+    assert!(is_no_such_element_error(Some(
+        &CauseError::no_such_element_bare()
+    )));
     // Cause.test.ts:744 — false for everything else, including the nullish
     // case the tag answers false for.
     assert!(!is_no_such_element_error(Some(&"nope")));
@@ -735,7 +796,10 @@ fn is_no_such_element_error_guards() {
 #[test]
 fn no_such_element_error_type_id() {
     // Cause.test.ts:752 — a string constant on the wire.
-    assert_eq!(CauseError::NO_SUCH_ELEMENT_TYPE_ID, "~effect/Cause/NoSuchElementError");
+    assert_eq!(
+        CauseError::NO_SUCH_ELEMENT_TYPE_ID,
+        "~effect/Cause/NoSuchElementError"
+    );
 }
 
 #[test]
@@ -812,8 +876,12 @@ fn illegal_argument_error_shapes() {
 #[test]
 fn is_illegal_argument_error_guards() {
     // Cause.test.ts:842, :846.
-    assert!(is_illegal_argument_error(Some(&CauseError::illegal_argument("x"))));
-    assert!(is_illegal_argument_error(Some(&CauseError::illegal_argument_bare())));
+    assert!(is_illegal_argument_error(Some(
+        &CauseError::illegal_argument("x")
+    )));
+    assert!(is_illegal_argument_error(Some(
+        &CauseError::illegal_argument_bare()
+    )));
     assert!(!is_illegal_argument_error(Some(&"nope")));
     assert!(!is_illegal_argument_error(Some(&Defect::new("plain"))));
     assert!(!is_illegal_argument_error(None));
@@ -844,8 +912,12 @@ fn exceeded_capacity_error_shapes() {
 #[test]
 fn is_exceeded_capacity_error_guards() {
     // Cause.test.ts:876, :880.
-    assert!(is_exceeded_capacity_error(Some(&CauseError::exceeded_capacity("x"))));
-    assert!(is_exceeded_capacity_error(Some(&CauseError::exceeded_capacity_bare())));
+    assert!(is_exceeded_capacity_error(Some(
+        &CauseError::exceeded_capacity("x")
+    )));
+    assert!(is_exceeded_capacity_error(Some(
+        &CauseError::exceeded_capacity_bare()
+    )));
     assert!(!is_exceeded_capacity_error(Some(&"nope")));
     assert!(!is_exceeded_capacity_error(Some(&Defect::new("plain"))));
     assert!(!is_exceeded_capacity_error(None));
@@ -944,7 +1016,9 @@ fn combine_keeps_unequal_reasons_apart() {
     assert_eq!(combined.reasons[1], Reason::Die(other.clone()));
     // A recombined duplicate leaves the cause unchanged.
     assert_eq!(
-        combined.clone().combine(Cause::<String>::die(other.clone())),
+        combined
+            .clone()
+            .combine(Cause::<String>::die(other.clone())),
         combined
     );
 }

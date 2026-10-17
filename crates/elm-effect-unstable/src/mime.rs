@@ -60,9 +60,5 @@ pub fn get_all_extensions(mime: &str) -> Option<BTreeSet<&'static str>> {
         .filter(|(_, entry)| *entry == base)
         .map(|(ext, _)| *ext)
         .collect();
-    if set.is_empty() {
-        None
-    } else {
-        Some(set)
-    }
+    if set.is_empty() { None } else { Some(set) }
 }

@@ -225,7 +225,9 @@ fn array_std_substrate() {
     assert!(array::contains_with(
         &["a".to_string()],
         &"A".to_string(),
-        &foundation::Equivalence::make(|a: &String, b: &String| a.to_lowercase() == b.to_lowercase())
+        &foundation::Equivalence::make(
+            |a: &String, b: &String| a.to_lowercase() == b.to_lowercase()
+        )
     ));
     assert_eq!(
         array::dedupe_with(&[1, 1, 2], &foundation::Equivalence::strict()),
@@ -727,10 +729,7 @@ fn iterable_combine() {
     let mut seen = 0;
     [1, 2].iter().for_each(|a| seen += a);
     assert_eq!(seen, 3);
-    assert_eq!(
-        [1, 2].iter().map(|a| a * 2).collect::<Vec<_>>(),
-        vec![2, 4]
-    );
+    assert_eq!([1, 2].iter().map(|a| a * 2).collect::<Vec<_>>(), vec![2, 4]);
     assert_eq!(
         [1, 2]
             .iter()

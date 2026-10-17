@@ -295,6 +295,9 @@ fn generates_valid_bash_script_for_comprehensive_cli() {
         "_mycli_admin_config_get()",
         "compgen -f",
     ] {
-        assert!(script.contains(expected), "bash script missing {expected:?}");
+        assert!(
+            script.contains(expected),
+            "bash script missing {expected:?}"
+        );
     }
 }

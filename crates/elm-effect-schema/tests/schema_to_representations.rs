@@ -73,8 +73,7 @@ fn boolean() -> Schema<Unknown> {
 #[test]
 fn shares_a_named_reference_between_roots() {
     let shared = identified(string(), "Shared");
-    let documents =
-        to_representations(&[shared.clone(), shared.clone()]).expect("converts");
+    let documents = to_representations(&[shared.clone(), shared.clone()]).expect("converts");
     assert_eq!(
         serde_json::to_value(&documents.representations).expect("json"),
         json!([

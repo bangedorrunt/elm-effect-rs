@@ -5,7 +5,9 @@ use std::sync::{
     atomic::{AtomicBool, AtomicUsize, Ordering},
 };
 
-use elm_effect::{Cause, Effect, Exit, Reason, Runtime, race, race_all, race_all_first, race_first};
+use elm_effect::{
+    Cause, Effect, Exit, Reason, Runtime, race, race_all, race_all_first, race_first,
+};
 
 #[test]
 fn race_failure_does_not_beat_later_success() {
@@ -134,13 +136,10 @@ fn race_interrupts_the_loser_when_the_other_side_succeeds() {
                 Exit::Success("fast")
             },
             move |ctx| {
-                ctx.acquire_release(
-                    Effect::<(), String>::succeed(()),
-                    move |_| {
-                        slow_released.fetch_add(1, Ordering::SeqCst);
-                        Effect::<(), String>::succeed(())
-                    },
-                )
+                ctx.acquire_release(Effect::<(), String>::succeed(()), move |_| {
+                    slow_released.fetch_add(1, Ordering::SeqCst);
+                    Effect::<(), String>::succeed(())
+                })
                 .expect("acquire cannot fail");
                 // Past the adjust below, so this side is still parked when
                 // the winner returns and is interrupted rather than started.
@@ -150,7 +149,10 @@ fn race_interrupts_the_loser_when_the_other_side_succeeds() {
         )
     });
 
-    wait_until(|| clock.pending_sleepers() == 2, "both sides parked on the clock");
+    wait_until(
+        || clock.pending_sleepers() == 2,
+        "both sides parked on the clock",
+    );
     clock.adjust(Duration::from_millis(500));
 
     let exit = worker.join().expect("worker thread");
@@ -180,13 +182,10 @@ fn race_first_interrupts_the_loser_when_the_other_side_succeeds() {
                 Exit::Success("fast")
             },
             move |ctx| {
-                ctx.acquire_release(
-                    Effect::<(), String>::succeed(()),
-                    move |_| {
-                        slow_released.fetch_add(1, Ordering::SeqCst);
-                        Effect::<(), String>::succeed(())
-                    },
-                )
+                ctx.acquire_release(Effect::<(), String>::succeed(()), move |_| {
+                    slow_released.fetch_add(1, Ordering::SeqCst);
+                    Effect::<(), String>::succeed(())
+                })
                 .expect("acquire cannot fail");
                 clock_slow.sleep(Duration::from_secs(5), &|| ctx.is_interrupted());
                 Exit::Failure(Cause::interrupt(None))
@@ -194,7 +193,10 @@ fn race_first_interrupts_the_loser_when_the_other_side_succeeds() {
         )
     });
 
-    wait_until(|| clock.pending_sleepers() == 2, "both sides parked on the clock");
+    wait_until(
+        || clock.pending_sleepers() == 2,
+        "both sides parked on the clock",
+    );
     clock.adjust(Duration::from_millis(500));
 
     let exit = worker.join().expect("worker thread");
@@ -223,13 +225,10 @@ fn race_first_interrupts_the_loser_when_the_other_side_fails() {
                 Exit::Failure(Cause::fail("boom".to_string()))
             },
             move |ctx| {
-                ctx.acquire_release(
-                    Effect::<(), String>::succeed(()),
-                    move |_| {
-                        slow_released.fetch_add(1, Ordering::SeqCst);
-                        Effect::<(), String>::succeed(())
-                    },
-                )
+                ctx.acquire_release(Effect::<(), String>::succeed(()), move |_| {
+                    slow_released.fetch_add(1, Ordering::SeqCst);
+                    Effect::<(), String>::succeed(())
+                })
                 .expect("acquire cannot fail");
                 clock_slow.sleep(Duration::from_secs(5), &|| ctx.is_interrupted());
                 Exit::Failure(Cause::interrupt(None))
@@ -237,7 +236,10 @@ fn race_first_interrupts_the_loser_when_the_other_side_fails() {
         )
     });
 
-    wait_until(|| clock.pending_sleepers() == 2, "both sides parked on the clock");
+    wait_until(
+        || clock.pending_sleepers() == 2,
+        "both sides parked on the clock",
+    );
     clock.adjust(Duration::from_millis(500));
 
     let exit = worker.join().expect("worker thread");
@@ -274,13 +276,10 @@ fn race_interrupts_a_loser_that_settles_the_race_while_starting() {
             Exit::Success("awaited")
         },
         move |ctx| {
-            ctx.acquire_release(
-                Effect::<(), String>::succeed(()),
-                move |_| {
-                    setter_released.fetch_add(1, Ordering::SeqCst);
-                    Effect::<(), String>::succeed(())
-                },
-            )
+            ctx.acquire_release(Effect::<(), String>::succeed(()), move |_| {
+                setter_released.fetch_add(1, Ordering::SeqCst);
+                Effect::<(), String>::succeed(())
+            })
             .expect("acquire cannot fail");
             // Settle the deferred the other side is waiting on, then never
             // complete: this side is the loser.
@@ -293,7 +292,11 @@ fn race_interrupts_a_loser_that_settles_the_race_while_starting() {
     );
 
     assert!(matches!(exit, Exit::Success("awaited")));
-    assert_eq!(released.load(Ordering::SeqCst), 1, "the settler was interrupted");
+    assert_eq!(
+        released.load(Ordering::SeqCst),
+        1,
+        "the settler was interrupted"
+    );
 }
 
 // ---------------------------------------------------------------------------

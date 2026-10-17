@@ -1,9 +1,7 @@
 //! `packages/effect/test/ai/LanguageModelTrackerLifecycle.test.ts` tracker witnesses.
 
-use elm_effect_unstable::ai::{
-    TrackMessage, TrackerModel,
-};
 use elm_effect_unstable::ai::ResponseIdTracker;
+use elm_effect_unstable::ai::{TrackMessage, TrackerModel};
 
 fn system(text: &str) -> TrackMessage {
     TrackMessage::system(text)
@@ -81,7 +79,11 @@ fn falls_back_to_full_prompt_after_stale_previous_response_id_and_keeps_tracking
     let assistant1 = assistant("assistant1");
     let user2 = user("user2");
 
-    model.generate_object(Some(&tracker), vec![system_msg.clone(), user1.clone()], "count");
+    model.generate_object(
+        Some(&tracker),
+        vec![system_msg.clone(), user1.clone()],
+        "count",
+    );
     let first = model.calls()[0].prompt.clone();
 
     let mut second_prompt = first.clone();
@@ -93,7 +95,10 @@ fn falls_back_to_full_prompt_after_stale_previous_response_id_and_keeps_tracking
     assert_eq!(calls.len(), 2);
     assert_eq!(calls[0].previous_response_id, None);
     assert_eq!(calls[0].incremental_prompt, None);
-    assert_eq!(calls[1].previous_response_id.as_deref(), Some("resp_object_1"));
+    assert_eq!(
+        calls[1].previous_response_id.as_deref(),
+        Some("resp_object_1")
+    );
     assert_eq!(calls[1].incremental_prompt, Some(vec![user2.clone()]));
 }
 
@@ -120,7 +125,10 @@ fn tracks_stream_text_with_metadata_parts_across_turns() {
     assert_eq!(calls.len(), 2);
     assert_eq!(calls[0].previous_response_id, None);
     assert_eq!(calls[0].incremental_prompt, None);
-    assert_eq!(calls[1].previous_response_id.as_deref(), Some("resp_stream_1"));
+    assert_eq!(
+        calls[1].previous_response_id.as_deref(),
+        Some("resp_stream_1")
+    );
     assert_eq!(calls[1].incremental_prompt, Some(vec![user2.clone()]));
 }
 

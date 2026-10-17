@@ -4,12 +4,12 @@
 //! in for fibers; Effect-scope/interruption rows stay `unported` with
 //! reasons in the close report.
 
+#[path = "../src/partitioned_semaphore.rs"]
+mod partitioned_semaphore;
 #[path = "../src/pubsub.rs"]
 mod pubsub;
 #[path = "../src/subscription_ref.rs"]
 mod subscription_ref;
-#[path = "../src/partitioned_semaphore.rs"]
-mod partitioned_semaphore;
 
 use partitioned_semaphore::PartitionedSemaphore;
 use pubsub::{PubSub, Strategy};
@@ -218,8 +218,14 @@ fn pubsub_replay_count_rounding() {
     let hub = PubSub::with_replay(8, Strategy::Unbounded, 8);
     assert!(hub.publish_all(vec![1, 2, 3]));
     assert_eq!(hub.subscribe_replay_count(1.9).take_all(), vec![2, 3]);
-    assert_eq!(hub.subscribe_replay_count(0.0).take_all(), Vec::<i32>::new());
-    assert_eq!(hub.subscribe_replay_count(f64::NAN).take_all(), Vec::<i32>::new());
+    assert_eq!(
+        hub.subscribe_replay_count(0.0).take_all(),
+        Vec::<i32>::new()
+    );
+    assert_eq!(
+        hub.subscribe_replay_count(f64::NAN).take_all(),
+        Vec::<i32>::new()
+    );
 }
 
 #[test]

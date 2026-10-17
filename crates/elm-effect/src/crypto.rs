@@ -94,7 +94,9 @@ pub struct TestCrypto {
 impl TestCrypto {
     /// Start the counter at zero.
     pub fn new() -> Self {
-        Self { next: Arc::new(Mutex::new(0)) }
+        Self {
+            next: Arc::new(Mutex::new(0)),
+        }
     }
 
     /// Current counter (test introspection).
@@ -131,23 +133,29 @@ impl Crypto for SystemCrypto {
         #[cfg(unix)]
         {
             use std::io::Read;
-            let mut f =
-                std::fs::File::open("/dev/urandom").map_err(|e| CryptoError::Unavailable(e.to_string()))?;
+            let mut f = std::fs::File::open("/dev/urandom")
+                .map_err(|e| CryptoError::Unavailable(e.to_string()))?;
             let mut out = vec![0u8; n];
-            f.read_exact(&mut out).map_err(|e| CryptoError::Unavailable(e.to_string()))?;
+            f.read_exact(&mut out)
+                .map_err(|e| CryptoError::Unavailable(e.to_string()))?;
             Ok(out)
         }
         #[cfg(not(unix))]
         {
             let _ = n;
-            Err(CryptoError::Unavailable("no OS randomness on this platform".to_string()))
+            Err(CryptoError::Unavailable(
+                "no OS randomness on this platform".to_string(),
+            ))
         }
     }
 
     fn digest(&self, algorithm: DigestAlgorithm, data: &[u8]) -> Result<Vec<u8>, CryptoError> {
         match algorithm {
             DigestAlgorithm::Sha256 => Ok(sha256(data).to_vec()),
-            other => Err(CryptoError::Unsupported(format!("{}: only SHA-256 here", other.name()))),
+            other => Err(CryptoError::Unsupported(format!(
+                "{}: only SHA-256 here",
+                other.name()
+            ))),
         }
     }
 }
@@ -180,8 +188,22 @@ pub fn uuid_v4(random: &[u8; 16]) -> String {
     b[8] = (b[8] & 0x3f) | 0x80;
     format!(
         "{:02x}{:02x}{:02x}{:02x}-{:02x}{:02x}-{:02x}{:02x}-{:02x}{:02x}-{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}",
-        b[0], b[1], b[2], b[3], b[4], b[5], b[6], b[7], b[8], b[9], b[10], b[11], b[12], b[13],
-        b[14], b[15]
+        b[0],
+        b[1],
+        b[2],
+        b[3],
+        b[4],
+        b[5],
+        b[6],
+        b[7],
+        b[8],
+        b[9],
+        b[10],
+        b[11],
+        b[12],
+        b[13],
+        b[14],
+        b[15]
     )
 }
 
@@ -229,8 +251,10 @@ pub fn sha256(data: &[u8]) -> [u8; 32] {
         0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7,
         0xc67178f2,
     ];
-    let mut h: [u32; 8] =
-        [0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19];
+    let mut h: [u32; 8] = [
+        0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab,
+        0x5be0cd19,
+    ];
     let bit_len = (data.len() as u64).wrapping_mul(8);
     let mut msg = data.to_vec();
     msg.push(0x80);
@@ -241,19 +265,31 @@ pub fn sha256(data: &[u8]) -> [u8; 32] {
     for chunk in msg.chunks(64) {
         let mut w = [0u32; 64];
         for i in 0..16 {
-            w[i] = u32::from_be_bytes([chunk[4 * i], chunk[4 * i + 1], chunk[4 * i + 2], chunk[4 * i + 3]]);
+            w[i] = u32::from_be_bytes([
+                chunk[4 * i],
+                chunk[4 * i + 1],
+                chunk[4 * i + 2],
+                chunk[4 * i + 3],
+            ]);
         }
         for i in 16..64 {
             let s0 = w[i - 15].rotate_right(7) ^ w[i - 15].rotate_right(18) ^ (w[i - 15] >> 3);
             let s1 = w[i - 2].rotate_right(17) ^ w[i - 2].rotate_right(19) ^ (w[i - 2] >> 10);
-            w[i] = w[i - 16].wrapping_add(s0).wrapping_add(w[i - 7]).wrapping_add(s1);
+            w[i] = w[i - 16]
+                .wrapping_add(s0)
+                .wrapping_add(w[i - 7])
+                .wrapping_add(s1);
         }
         let (mut a, mut b, mut c, mut d, mut e, mut f, mut g, mut hh) =
             (h[0], h[1], h[2], h[3], h[4], h[5], h[6], h[7]);
         for i in 0..64 {
             let s1 = e.rotate_right(6) ^ e.rotate_right(11) ^ e.rotate_right(25);
             let ch = (e & f) ^ ((!e) & g);
-            let t1 = hh.wrapping_add(s1).wrapping_add(ch).wrapping_add(K[i]).wrapping_add(w[i]);
+            let t1 = hh
+                .wrapping_add(s1)
+                .wrapping_add(ch)
+                .wrapping_add(K[i])
+                .wrapping_add(w[i]);
             let s0 = a.rotate_right(2) ^ a.rotate_right(13) ^ a.rotate_right(22);
             let maj = (a & b) ^ (a & c) ^ (b & c);
             let t2 = s0.wrapping_add(maj);

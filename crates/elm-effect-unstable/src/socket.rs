@@ -389,7 +389,6 @@ impl Channel {
         }
         Ok(())
     }
-
 }
 
 #[derive(Default)]
@@ -513,9 +512,7 @@ impl WebSocketState {
             let mut inner = self.inner.lock().unwrap();
             inner.buffered += data.len();
             inner.buffer.push(data);
-            let at_mark = self
-                .mark
-                .is_some_and(|mark| inner.buffered >= mark);
+            let at_mark = self.mark.is_some_and(|mark| inner.buffered >= mark);
             if self.pausable && !inner.paused && at_mark {
                 inner.paused = true;
                 true

@@ -43,7 +43,7 @@ impl Kind {
         }
     }
 
-/// The spec kind string.
+    /// The spec kind string.
     pub fn name(&self) -> &'static str {
         match self {
             Self::Directed => "directed",
@@ -1396,22 +1396,21 @@ where
         .values()
         .filter_map(|e| edge_ident(directed, &b.nodes, e, node_identity))
         .collect();
-    let emit =
-        |e: &StoredEdge<E>, map: &HashMap<NodeIndex, NodeIndex>, out: &mut Graph<N, E>| {
-            let (Some(s), Some(t)) = (map.get(&e.source), map.get(&e.target)) else {
-                return;
-            };
-            let ei = out.next_edge;
-            out.next_edge += 1;
-            out.edges.insert(
-                ei,
-                StoredEdge {
-                    source: *s,
-                    target: *t,
-                    data: e.data.clone(),
-                },
-            );
+    let emit = |e: &StoredEdge<E>, map: &HashMap<NodeIndex, NodeIndex>, out: &mut Graph<N, E>| {
+        let (Some(s), Some(t)) = (map.get(&e.source), map.get(&e.target)) else {
+            return;
         };
+        let ei = out.next_edge;
+        out.next_edge += 1;
+        out.edges.insert(
+            ei,
+            StoredEdge {
+                source: *s,
+                target: *t,
+                data: e.data.clone(),
+            },
+        );
+    };
     for e in a.edges.values() {
         let Some(key) = edge_ident(directed, &a.nodes, e, node_identity) else {
             continue;

@@ -79,12 +79,7 @@ impl EpochLog {
     }
 
     /// Append one entry under the fencing rules.
-    pub fn append(
-        &mut self,
-        producer: &str,
-        epoch: u64,
-        seq: u64,
-    ) -> Result<Appended, Fence> {
+    pub fn append(&mut self, producer: &str, epoch: u64, seq: u64) -> Result<Appended, Fence> {
         if let Some((cur_epoch, last_seq, _)) = self.producers.get(producer).copied() {
             if epoch < cur_epoch {
                 return Err(Fence::StaleEpoch {
@@ -101,7 +96,9 @@ impl EpochLog {
                     .rev()
                     .find(|e| e.producer == producer && e.epoch == epoch && e.seq == seq)
                 {
-                    return Ok(Appended::Duplicate { offset: entry.offset });
+                    return Ok(Appended::Duplicate {
+                        offset: entry.offset,
+                    });
                 }
                 if seq <= last_seq {
                     return Err(Fence::StaleSeq {
@@ -114,8 +111,14 @@ impl EpochLog {
             // Higher epoch: baseline resets; any sequence starts fresh.
         }
         let offset = self.entries.len() as u64;
-        self.entries.push(Entry { offset, producer: producer.to_string(), epoch, seq });
-        self.producers.insert(producer.to_string(), (epoch, seq, offset));
+        self.entries.push(Entry {
+            offset,
+            producer: producer.to_string(),
+            epoch,
+            seq,
+        });
+        self.producers
+            .insert(producer.to_string(), (epoch, seq, offset));
         Ok(Appended::Fresh { offset })
     }
 

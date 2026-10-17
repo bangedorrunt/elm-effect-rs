@@ -10,9 +10,7 @@ fn cp_count(s: &str) -> usize {
 
 #[test]
 fn code_points_min_max_boundaries() {
-    let cases = [
-        "", "a", "abc", "a😀b", "\r\n",
-    ];
+    let cases = ["", "a", "abc", "a😀b", "\r\n"];
     for bound in 0..=8usize {
         let min = checked("isMinCodePoints", vec![&bound.to_string()]);
         let max = checked("isMaxCodePoints", vec![&bound.to_string()]);
@@ -22,9 +20,18 @@ fn code_points_min_max_boundaries() {
         );
         for value in cases {
             let count = cp_count(value);
-            assert_eq!(min.decode(Unknown::Text(value.into())).is_ok(), count >= bound);
-            assert_eq!(max.decode(Unknown::Text(value.into())).is_ok(), count <= bound);
-            assert_eq!(exact.decode(Unknown::Text(value.into())).is_ok(), count == bound);
+            assert_eq!(
+                min.decode(Unknown::Text(value.into())).is_ok(),
+                count >= bound
+            );
+            assert_eq!(
+                max.decode(Unknown::Text(value.into())).is_ok(),
+                count <= bound
+            );
+            assert_eq!(
+                exact.decode(Unknown::Text(value.into())).is_ok(),
+                count == bound
+            );
         }
     }
 }
@@ -36,7 +43,10 @@ fn code_points_inclusive_and_inverted() {
     let cases = ["", "a", "abc", "\r\n"];
     for value in cases {
         let count = cp_count(value);
-        assert_eq!(between.decode(Unknown::Text(value.into())).is_ok(), count >= 1 && count <= 3);
+        assert_eq!(
+            between.decode(Unknown::Text(value.into())).is_ok(),
+            count >= 1 && count <= 3
+        );
         assert!(inverted.decode(Unknown::Text(value.into())).is_err());
     }
 }
@@ -50,10 +60,26 @@ fn code_points_round_down_and_clamp() {
     assert!(!max.decode(Unknown::Text("😀a".into())).is_ok());
     assert!(max.decode(Unknown::Text("😀".into())).is_ok());
     assert!(between.decode(Unknown::Text("😀a".into())).is_ok());
-    assert!(checked("isMinCodePoints", vec!["-1"]).decode(Unknown::Text("".into())).is_ok());
-    assert!(checked("isMaxCodePoints", vec!["-1"]).decode(Unknown::Text("".into())).is_ok());
-    assert!(checked("isMaxCodePoints", vec!["-1"]).decode(Unknown::Text("a".into())).is_err());
-    assert!(checked("isBetweenCodePoints", vec!["-2", "-1"]).decode(Unknown::Text("".into())).is_ok());
+    assert!(
+        checked("isMinCodePoints", vec!["-1"])
+            .decode(Unknown::Text("".into()))
+            .is_ok()
+    );
+    assert!(
+        checked("isMaxCodePoints", vec!["-1"])
+            .decode(Unknown::Text("".into()))
+            .is_ok()
+    );
+    assert!(
+        checked("isMaxCodePoints", vec!["-1"])
+            .decode(Unknown::Text("a".into()))
+            .is_err()
+    );
+    assert!(
+        checked("isBetweenCodePoints", vec!["-2", "-1"])
+            .decode(Unknown::Text("".into()))
+            .is_ok()
+    );
 }
 
 #[test]

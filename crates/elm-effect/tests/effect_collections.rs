@@ -35,9 +35,12 @@ fn even_fails(n: u32) -> Exit<u32, u32> {
 fn partition_collects_only_successes() {
     // Effect.partition([0..4], Effect.succeed) === [[0,1,2,3,4], []]
     let rt = Runtime::new();
-    let exit = partition_items(&rt, items(&[0, 1, 2, 3, 4]), Concurrency::Sequential, |n, _c| {
-        Exit::<u32, u32>::succeed(n)
-    });
+    let exit = partition_items(
+        &rt,
+        items(&[0, 1, 2, 3, 4]),
+        Concurrency::Sequential,
+        |n, _c| Exit::<u32, u32>::succeed(n),
+    );
     match exit {
         Exit::Success((passes, fails)) => {
             assert_eq!(passes, vec![0, 1, 2, 3, 4]);
@@ -112,12 +115,20 @@ fn reduce_runs_sequentially_and_passes_the_index() {
     let seen = Arc::new(Mutex::new(Vec::<String>::new()));
     let rt = Runtime::new();
     let probe = Arc::clone(&seen);
-    let exit = reduce(&rt, items(&[1, 2, 3, 4, 5]), || 0u32, move |acc, value, index| {
-        probe.lock().unwrap().push(format!("{index}:{value}"));
-        Exit::<u32, u32>::succeed(acc + value)
-    });
+    let exit = reduce(
+        &rt,
+        items(&[1, 2, 3, 4, 5]),
+        || 0u32,
+        move |acc, value, index| {
+            probe.lock().unwrap().push(format!("{index}:{value}"));
+            Exit::<u32, u32>::succeed(acc + value)
+        },
+    );
     assert!(matches!(exit, Exit::Success(15)));
-    assert_eq!(*seen.lock().unwrap(), vec!["0:1", "1:2", "2:3", "3:4", "4:5"]);
+    assert_eq!(
+        *seen.lock().unwrap(),
+        vec!["0:1", "1:2", "2:3", "3:4", "4:5"]
+    );
 }
 
 #[test]
@@ -125,14 +136,19 @@ fn reduce_stops_at_the_first_failure() {
     let seen = Arc::new(Mutex::new(Vec::<u32>::new()));
     let rt = Runtime::new();
     let probe = Arc::clone(&seen);
-    let exit = reduce(&rt, items(&[1, 2, 3, 4, 5]), || 0u32, move |acc, value, _index| {
-        probe.lock().unwrap().push(value);
-        if value == 3 {
-            Exit::<u32, String>::fail("fail".to_string())
-        } else {
-            Exit::<u32, String>::succeed(acc + value)
-        }
-    });
+    let exit = reduce(
+        &rt,
+        items(&[1, 2, 3, 4, 5]),
+        || 0u32,
+        move |acc, value, _index| {
+            probe.lock().unwrap().push(value);
+            if value == 3 {
+                Exit::<u32, String>::fail("fail".to_string())
+            } else {
+                Exit::<u32, String>::succeed(acc + value)
+            }
+        },
+    );
     match exit {
         Exit::Failure(cause) => assert_eq!(cause.failure(), Some(&"fail".to_string())),
         Exit::Success(_) => panic!("expected the typed failure"),
@@ -183,12 +199,9 @@ fn validate_accumulates_all_failures() {
 #[test]
 fn validate_supports_discard_option() {
     let rt = Runtime::new();
-    let exit = validate_discard_items(
-        &rt,
-        items(&[1, 2, 3]),
-        Concurrency::Sequential,
-        |n, _c| Exit::<u32, u32>::succeed(n),
-    );
+    let exit = validate_discard_items(&rt, items(&[1, 2, 3]), Concurrency::Sequential, |n, _c| {
+        Exit::<u32, u32>::succeed(n)
+    });
     assert!(matches!(exit, Exit::Success(())));
 }
 
@@ -254,10 +267,11 @@ fn find_first_filter_passes_index_to_filter() {
 #[test]
 fn find_first_filter_returns_none_when_filter_never_succeeds() {
     let rt = Runtime::new();
-    let exit = find_first_filter::<u32, String, u32, _>(
-        &rt,
-        items(&[1, 2, 3]),
-        |_n, _index| None::<String>,
-    );
+    let exit =
+        find_first_filter::<u32, String, u32, _>(
+            &rt,
+            items(&[1, 2, 3]),
+            |_n, _index| None::<String>,
+        );
     assert!(matches!(exit, Exit::Success(None)));
 }

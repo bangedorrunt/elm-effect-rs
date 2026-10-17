@@ -5,7 +5,7 @@
 //! result is the recorded event list plus the one-line wire codec the
 //! reader would parse.
 
-use elm_effect_unstable::devtools::{decode, encode, DevEvent, DevToolsServer};
+use elm_effect_unstable::devtools::{DevEvent, DevToolsServer, decode, encode};
 
 #[test]
 fn short_lived_span_arrives_once_in_each_state() {

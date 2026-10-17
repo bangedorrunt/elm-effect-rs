@@ -11,7 +11,11 @@ fn test_clock_starts_aligned_and_advances_monotonically() {
     clock.adjust(Duration::from_millis(500));
     assert_eq!(clock.now_millis(), 500);
     clock.adjust(Duration::from_secs(2));
-    assert_eq!(clock.now_millis(), 2500, "adjustments accumulate monotonically");
+    assert_eq!(
+        clock.now_millis(),
+        2500,
+        "adjustments accumulate monotonically"
+    );
 }
 
 #[test]
@@ -112,7 +116,10 @@ fn test_clock_sleep_handles_multiple_sleeps() {
     let mut pending = 0usize;
     while pending < 2 {
         pending = clock.pending_sleepers();
-        assert!(std::time::Instant::now() < deadline, "sleepers did not park");
+        assert!(
+            std::time::Instant::now() < deadline,
+            "sleepers did not park"
+        );
         std::thread::park_timeout(std::time::Duration::from_millis(1));
     }
     clock.adjust(Duration::from_millis(1 * 3_600_000));

@@ -4,9 +4,10 @@ use std::cmp::Ordering;
 
 use elm_effect::{
     Equal, Equivalence, Hash, Order, Predicate, array_equivalence, boolean_equivalence,
-    boolean_order, combine_hash, combine_ordering, compose, const_false, const_null, const_true, constant,
-    flip, flip_curried, hash_f64, hash_str, identity, match_ordering, number_equivalence, number_order,
-    ord_order, reverse_ordering, string_equivalence, string_order, tuple_equivalence, tupled, untupled,
+    boolean_order, combine_hash, combine_ordering, compose, const_false, const_null, const_true,
+    constant, flip, flip_curried, hash_f64, hash_str, identity, match_ordering, number_equivalence,
+    number_order, ord_order, reverse_ordering, string_equivalence, string_order, tuple_equivalence,
+    tupled, untupled,
 };
 
 #[path = "../src/data/bigint.rs"]
@@ -222,8 +223,8 @@ fn function_and_ordering_basics() {
 
 #[test]
 fn predicate_and_stops_at_first_failure() {
-    use std::sync::atomic::{AtomicUsize, Ordering};
     use std::sync::Arc;
+    use std::sync::atomic::{AtomicUsize, Ordering};
     let calls = Arc::new(AtomicUsize::new(0));
     let probe = calls.clone();
     let failing = Predicate::make(|_: &u32| false);
@@ -244,17 +245,37 @@ fn predicate_and_stops_at_first_failure() {
 
 #[test]
 fn predicate_or_needs_any_and_not_flips() {
-    assert!(Predicate::make(|_: &u32| false).or(Predicate::make(|_: &u32| true)).test(&0));
-    assert!(!Predicate::make(|_: &u32| false).or(Predicate::make(|_: &u32| false)).test(&0));
+    assert!(
+        Predicate::make(|_: &u32| false)
+            .or(Predicate::make(|_: &u32| true))
+            .test(&0)
+    );
+    assert!(
+        !Predicate::make(|_: &u32| false)
+            .or(Predicate::make(|_: &u32| false))
+            .test(&0)
+    );
     assert!(!Predicate::make(|_: &u32| true).not().test(&0));
     assert!(Predicate::make(|_: &u32| false).not().test(&0));
 }
 
 #[test]
 fn predicate_xor_needs_exactly_one() {
-    assert!(Predicate::make(|_: &u32| true).xor(Predicate::make(|_: &u32| false)).test(&0));
-    assert!(!Predicate::make(|_: &u32| true).xor(Predicate::make(|_: &u32| true)).test(&0));
-    assert!(!Predicate::make(|_: &u32| false).xor(Predicate::make(|_: &u32| false)).test(&0));
+    assert!(
+        Predicate::make(|_: &u32| true)
+            .xor(Predicate::make(|_: &u32| false))
+            .test(&0)
+    );
+    assert!(
+        !Predicate::make(|_: &u32| true)
+            .xor(Predicate::make(|_: &u32| true))
+            .test(&0)
+    );
+    assert!(
+        !Predicate::make(|_: &u32| false)
+            .xor(Predicate::make(|_: &u32| false))
+            .test(&0)
+    );
 }
 
 #[test]
@@ -297,7 +318,7 @@ fn function_combinators() {
 // ---------------------------------------------------------------------------
 
 use elm_effect::predicate::{
-    has_property, is_tagged, is_tuple_of, is_tuple_of_at_least, Key, Value,
+    Key, Value, has_property, is_tagged, is_tuple_of, is_tuple_of_at_least,
 };
 
 /// An object value from pairs, so the guard tests never name a record type:
@@ -315,9 +336,8 @@ fn obj(pairs: Vec<(&str, Value)>) -> Value {
 fn compose_narrows_through_both_checks() {
     // :19 — compose(isString, isNonEmptyString): a value passes only when it
     // is a string AND non-empty; null and "" fail.
-    let composed = Predicate::<Value>::make(|v: &Value| {
-        matches!(v, Value::String(s) if !s.is_empty())
-    });
+    let composed =
+        Predicate::<Value>::make(|v: &Value| matches!(v, Value::String(s) if !s.is_empty()));
     assert!(composed.test(&Value::String("a".into())));
     assert!(!composed.test(&Value::Null));
     assert!(!composed.test(&Value::String(String::new())));
@@ -330,9 +350,8 @@ fn compose_with_a_plain_predicate_narrows_then_tests() {
     fn is_long(s: &str) -> bool {
         s.len() > 2
     }
-    let composed = Predicate::<Value>::make(|v: &Value| {
-        matches!(v, Value::String(s) if is_long(s))
-    });
+    let composed =
+        Predicate::<Value>::make(|v: &Value| matches!(v, Value::String(s) if is_long(s)));
     assert!(composed.test(&Value::String("abcd".into())));
     assert!(!composed.test(&Value::String("a".into())));
     assert!(!composed.test(&Value::Number(1.0)));
@@ -385,7 +404,9 @@ fn is_truthy_uses_javascript_truthiness() {
     assert!(elm_effect::predicate::is_truthy(&Value::Bool(true)));
     assert!(!elm_effect::predicate::is_truthy(&Value::Bool(false)));
     assert!(elm_effect::predicate::is_truthy(&Value::String("a".into())));
-    assert!(!elm_effect::predicate::is_truthy(&Value::String(String::new())));
+    assert!(!elm_effect::predicate::is_truthy(&Value::String(
+        String::new()
+    )));
     assert!(elm_effect::predicate::is_truthy(&Value::Number(1.0)));
     assert!(!elm_effect::predicate::is_truthy(&Value::Number(0.0)));
     assert!(elm_effect::predicate::is_truthy(&Value::BigInt(1)));
@@ -507,10 +528,7 @@ fn has_property_answers_string_and_symbol_keys() {
     // curried); a missing key, a null/undefined/function value, and an
     // absent symbol key answer false. The port models a symbol as its
     // registry key, so a symbol-keyed property is a record entry under it.
-    let object = obj(vec![
-        ("a", Value::Number(1.0)),
-        ("k", Value::Number(2.0)),
-    ]);
+    let object = obj(vec![("a", Value::Number(1.0)), ("k", Value::Number(2.0))]);
     assert!(has_property(&object, &Key::String("a".into())));
     assert!(elm_effect::predicate::has_property_with(Key::String("a".into())).test(&object));
     assert!(has_property(&object, &Key::Symbol("k".into())));
@@ -536,17 +554,38 @@ fn is_tagged_matches_the_tag_field() {
 #[test]
 fn is_tuple_of_checks_exact_and_minimum_length() {
     // :528/:534 — exact length, both forms.
-    let three = Value::Array(vec![Value::Number(1.0), Value::Number(2.0), Value::Number(3.0)]);
+    let three = Value::Array(vec![
+        Value::Number(1.0),
+        Value::Number(2.0),
+        Value::Number(3.0),
+    ]);
     assert!(is_tuple_of(&three, 3));
     assert!(!is_tuple_of(&three, 4));
     assert!(!is_tuple_of(&three, 2));
-    assert!(elm_effect::predicate::is_tuple_of_with(2).test(&Value::Array(vec![Value::String("a".into()), Value::String("b".into())])));
-    assert!(!elm_effect::predicate::is_tuple_of_with(2).test(&Value::Array(vec![Value::String("a".into())])));
+    assert!(
+        elm_effect::predicate::is_tuple_of_with(2).test(&Value::Array(vec![
+            Value::String("a".into()),
+            Value::String("b".into())
+        ]))
+    );
+    assert!(
+        !elm_effect::predicate::is_tuple_of_with(2)
+            .test(&Value::Array(vec![Value::String("a".into())]))
+    );
 
     // :543/:549 — minimum length, both forms.
     assert!(is_tuple_of_at_least(&three, 3));
     assert!(is_tuple_of_at_least(&three, 2));
     assert!(!is_tuple_of_at_least(&three, 4));
-    assert!(elm_effect::predicate::is_tuple_of_at_least_with(2).test(&Value::Array(vec![Value::String("a".into()), Value::String("b".into()), Value::String("c".into())])));
-    assert!(!elm_effect::predicate::is_tuple_of_at_least_with(2).test(&Value::Array(vec![Value::String("a".into())])));
+    assert!(
+        elm_effect::predicate::is_tuple_of_at_least_with(2).test(&Value::Array(vec![
+            Value::String("a".into()),
+            Value::String("b".into()),
+            Value::String("c".into())
+        ]))
+    );
+    assert!(
+        !elm_effect::predicate::is_tuple_of_at_least_with(2)
+            .test(&Value::Array(vec![Value::String("a".into())]))
+    );
 }

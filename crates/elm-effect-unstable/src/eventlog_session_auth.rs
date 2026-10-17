@@ -155,7 +155,9 @@ fn decode_utf8(bytes: &[u8]) -> Result<String, SessionAuthError> {
     })
 }
 
-pub fn encode_session_auth_payload(payload: &SessionAuthPayload) -> Result<Vec<u8>, SessionAuthError> {
+pub fn encode_session_auth_payload(
+    payload: &SessionAuthPayload,
+) -> Result<Vec<u8>, SessionAuthError> {
     assert_signing_public_key_length(&payload.signing_public_key)?;
 
     let remote_id = match &payload.remote_id {
@@ -171,7 +173,10 @@ pub fn encode_session_auth_payload(payload: &SessionAuthPayload) -> Result<Vec<u
     ];
 
     let mut encoded = Vec::with_capacity(
-        fields.iter().map(|field| LENGTH_PREFIX_BYTES + field.len()).sum(),
+        fields
+            .iter()
+            .map(|field| LENGTH_PREFIX_BYTES + field.len())
+            .sum(),
     );
     for field in fields {
         write_length(&mut encoded, field.len())?;

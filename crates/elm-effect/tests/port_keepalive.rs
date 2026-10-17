@@ -41,9 +41,7 @@ fn keepalive_child_completes_slow_effect() {
 fn blocked_interval_does_not_hold_exit() {
     let clock = Arc::new(TestClock::new());
     let parked = clock.clone();
-    let sleeper = std::thread::spawn(move || {
-        parked.sleep(Duration::from_secs(3600), &|| false)
-    });
+    let sleeper = std::thread::spawn(move || parked.sleep(Duration::from_secs(3600), &|| false));
     let deadline = Instant::now() + std::time::Duration::from_secs(5);
     while clock.pending_sleepers() != 1 {
         assert!(Instant::now() < deadline, "sleeper parked");

@@ -66,7 +66,10 @@ impl<A: Clone> SubscriptionRef<A> {
     /// Build holding `initial`.
     pub fn new(initial: A) -> Self {
         Self {
-            hub: Arc::new(Hub { current: Mutex::new(initial), streams: Mutex::new(Vec::new()) }),
+            hub: Arc::new(Hub {
+                current: Mutex::new(initial),
+                streams: Mutex::new(Vec::new()),
+            }),
         }
     }
 
@@ -131,7 +134,11 @@ impl<A: Clone> SubscriptionRef<A> {
             wake: Condvar::new(),
             live: Mutex::new(true),
         });
-        self.hub.streams.lock().unwrap().push(Arc::downgrade(&stream));
+        self.hub
+            .streams
+            .lock()
+            .unwrap()
+            .push(Arc::downgrade(&stream));
         ChangeStream { inner: stream }
     }
 

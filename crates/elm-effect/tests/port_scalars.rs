@@ -991,7 +991,10 @@ fn string_index_access() {
 #[test]
 fn string_char_access() {
     // String.test.ts:330 - character at index, data-first.
-    assert_eq!(string::char_at("abc", 1).map(|c| c.to_string()), Some("b".to_owned()));
+    assert_eq!(
+        string::char_at("abc", 1).map(|c| c.to_string()),
+        Some("b".to_owned())
+    );
     // :334 - data-last through a closure.
     let at_one = |s: &str| string::char_at(s, 1).map(|c| c.to_string());
     assert_eq!(at_one("abc"), Some("b".to_owned()));
@@ -1104,7 +1107,10 @@ fn string_lines_edges_and_margins() {
     // :569 - strips pipe margins.
     assert_eq!(string::strip_margin("  |hello\n  |world"), "hello\nworld");
     // :575 - strips custom margins, data-first.
-    assert_eq!(string::strip_margin_with("  #hello\n  #world", '#'), "hello\nworld");
+    assert_eq!(
+        string::strip_margin_with("  #hello\n  #world", '#'),
+        "hello\nworld"
+    );
     // :579 - data-last through a closure.
     let strip_hash = |s: &str| string::strip_margin_with(s, '#');
     assert_eq!(strip_hash("  #hello\n  #world"), "hello\nworld");
@@ -1113,7 +1119,10 @@ fn string_lines_edges_and_margins() {
 #[test]
 fn string_margin_passthrough_and_camel() {
     // String.test.ts:583 - lines without margins stay trimmed.
-    assert_eq!(string::strip_margin_with("no margin\n  |yes", '|'), "no margin\nyes");
+    assert_eq!(
+        string::strip_margin_with("no margin\n  |yes", '|'),
+        "no margin\nyes"
+    );
     // :589 - snake to camel.
     assert_eq!(string::snake_to_camel("hello_world"), "helloWorld");
     // :594 - single words pass through.
@@ -1226,7 +1235,6 @@ fn number_exact_dividends() {
     assert_eq!(number::remainder(larger, 3.0), 1.0);
     assert_eq!(number::remainder(larger, 2.5), 1.5);
 }
-
 
 #[test]
 fn option_pipe_maps_in_order() {

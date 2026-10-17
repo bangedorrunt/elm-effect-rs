@@ -261,7 +261,10 @@ fn set_await_empty_waits_for_in_flight_fibers() {
             Exit::<(), String>::succeed(())
         });
     }
-    wait_until(|| started.load(Ordering::SeqCst) == 3, "three fibers parked");
+    wait_until(
+        || started.load(Ordering::SeqCst) == 3,
+        "three fibers parked",
+    );
     // Nothing has completed, so the set is not empty and await_empty must
     // block rather than reaping an unfinished set.
     assert_eq!(set.size(), 3);

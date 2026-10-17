@@ -73,10 +73,8 @@ fn cleared_registry_reregisters_unattributed_metric() {
 
 #[test]
 fn attributed_metrics_stay_scoped_to_active_registry() {
-    let counter = Counter::new("requests").with_attributes(Attributes::from_pairs([
-        ("x", "a"),
-        ("y", "b"),
-    ]));
+    let counter =
+        Counter::new("requests").with_attributes(Attributes::from_pairs([("x", "a"), ("y", "b")]));
     let mut registry_a = MetricRegistry::new();
     let mut registry_b = MetricRegistry::new();
     registry_a.update(&counter, 1.0);
@@ -101,10 +99,9 @@ fn no_attributes_and_empty_attributes_share_one_series() {
 #[test]
 fn distinct_attribute_sets_stay_in_separate_series() {
     let mut registry = MetricRegistry::new();
-    let joined =
-        Counter::new("distinct").with_attributes(Attributes::from_pairs([("a", "b,c=d")]));
-    let split = Counter::new("distinct")
-        .with_attributes(Attributes::from_pairs([("a", "b"), ("c", "d")]));
+    let joined = Counter::new("distinct").with_attributes(Attributes::from_pairs([("a", "b,c=d")]));
+    let split =
+        Counter::new("distinct").with_attributes(Attributes::from_pairs([("a", "b"), ("c", "d")]));
     registry.update(&joined, 1.0);
     registry.update(&split, 10.0);
     assert_eq!(registry.value(&joined).count, 1.0);
@@ -128,9 +125,8 @@ fn a_colon_in_the_id_is_not_a_description() {
 fn a_description_is_not_attributes() {
     let mut registry = MetricRegistry::new();
     let first = Counter::new("descr").with_description(r#"[["route","/users"]]"#);
-    let second = Counter::new("descr").with_attributes(Attributes::from_pairs([
-        ("route", "/users"),
-    ]));
+    let second =
+        Counter::new("descr").with_attributes(Attributes::from_pairs([("route", "/users")]));
     registry.update(&first, 1.0);
     registry.update(&second, 10.0);
     assert_eq!(registry.value(&first).count, 1.0);
@@ -194,20 +190,15 @@ fn contextual_attributes_that_change_split_a_plain_metric() {
 
 #[test]
 fn merging_metric_and_contextual_attributes_shares_a_series() {
-    let first = Counter::new("merge").with_attributes(Attributes::from_pairs([
-        ("route", "/users"),
-    ]));
-    let second =
-        Counter::new("merge").with_attributes(Attributes::from_pairs([("method", "GET")]));
+    let first =
+        Counter::new("merge").with_attributes(Attributes::from_pairs([("route", "/users")]));
+    let second = Counter::new("merge").with_attributes(Attributes::from_pairs([("method", "GET")]));
     let first_context = Attributes::from_pairs([("method", "GET")]);
     let second_context = Attributes::from_pairs([("route", "/users")]);
     let mut registry = MetricRegistry::new();
     registry.update_with(&first, 1.0, &first_context);
     registry.update_with(&second, 10.0, &second_context);
-    assert_eq!(
-        registry.value_with(&first, &first_context).count,
-        11.0
-    );
+    assert_eq!(registry.value_with(&first, &first_context).count, 11.0);
 }
 
 #[test]
@@ -229,9 +220,8 @@ fn snapshots_preserve_attribute_order() {
 
 #[test]
 fn with_attributes_follows_the_contextual_attributes() {
-    let counter = Counter::new("wa").with_extra_attributes(Attributes::from_pairs([
-        ("route", "/users"),
-    ]));
+    let counter =
+        Counter::new("wa").with_extra_attributes(Attributes::from_pairs([("route", "/users")]));
     let tenant_a = Attributes::from_pairs([("tenant", "a")]);
     let tenant_b = Attributes::from_pairs([("tenant", "b")]);
     let mut registry = MetricRegistry::new();
@@ -297,9 +287,8 @@ fn inner_attributes_win_over_outer_contextual_and_metric() {
 
 #[test]
 fn a_cleared_registry_registers_the_attributed_series_again() {
-    let counter = Counter::new("clr").with_extra_attributes(Attributes::from_pairs([
-        ("route", "/users"),
-    ]));
+    let counter =
+        Counter::new("clr").with_extra_attributes(Attributes::from_pairs([("route", "/users")]));
     let mut registry = MetricRegistry::new();
     registry.update(&counter, 1.0);
     registry.clear();
@@ -463,9 +452,8 @@ fn incremental_bigint_counter_refuses_a_decrement() {
 #[test]
 fn modifies_and_reads_the_attributed_series() {
     let gauge = Gauge::new("gauge");
-    let tagged = Gauge::new("gauge").with_extra_attributes(Attributes::from_pairs([
-        ("route", "/users"),
-    ]));
+    let tagged =
+        Gauge::new("gauge").with_extra_attributes(Attributes::from_pairs([("route", "/users")]));
     let contextual = Attributes::default();
     let mut registry = MetricRegistry::new();
     registry.set_with(&tagged, 5.0, &contextual);

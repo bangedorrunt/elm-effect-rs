@@ -52,7 +52,11 @@ impl<K: Eq + Hash + Clone + Send + Sync + 'static> PartitionedSemaphore<K> {
     /// Build with `permits` per key.
     pub fn new(permits: usize) -> Self {
         Self {
-            hub: Arc::new(Hub { permits, states: Mutex::new(HashMap::new()), wake: Condvar::new() }),
+            hub: Arc::new(Hub {
+                permits,
+                states: Mutex::new(HashMap::new()),
+                wake: Condvar::new(),
+            }),
         }
     }
 
@@ -122,7 +126,13 @@ impl<K: Eq + Hash + Clone + Send + Sync + 'static> PartitionedSemaphore<K> {
 
     /// Available permits snapshot for one key.
     pub fn available(&self, key: K) -> usize {
-        self.hub.states.lock().unwrap().get(&key).copied().unwrap_or(self.hub.permits)
+        self.hub
+            .states
+            .lock()
+            .unwrap()
+            .get(&key)
+            .copied()
+            .unwrap_or(self.hub.permits)
     }
 }
 

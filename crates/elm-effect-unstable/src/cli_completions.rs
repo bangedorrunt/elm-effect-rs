@@ -446,8 +446,8 @@ fn all_flag_forms(flag: &FlagDescriptor) -> Vec<String> {
 /// of the CLI at runtime. Stays on Bash 3.2 syntax, which is what macOS ships.
 pub mod bash {
     use super::{
-        ArgumentDescriptor, ArgumentType, CommandDescriptor, FlagDescriptor, FlagType,
-        all_flag_forms, alias_form, completion_function_name, sanitize_shell_name,
+        ArgumentDescriptor, ArgumentType, CommandDescriptor, FlagDescriptor, FlagType, alias_form,
+        all_flag_forms, completion_function_name, sanitize_shell_name,
     };
     use crate::cli::primitive::PathKind;
 
@@ -670,7 +670,10 @@ fi"##;
                 let mut sub_path = current_path.clone();
                 sub_path.push(sub.name.clone());
                 lines.push(format!("      {})", sub.name));
-                lines.push(format!("        {} \"$i\"", completion_function_name(&sub_path)));
+                lines.push(format!(
+                    "        {} \"$i\"",
+                    completion_function_name(&sub_path)
+                ));
                 lines.push("        return".to_owned());
                 lines.push("        ;;".to_owned());
             }
@@ -748,8 +751,9 @@ fi"##;
                 lines.push("      ;;".to_owned());
             }
             lines.push("  esac".to_owned());
-            if let Some((index, _, completion)) =
-                args_with_completions.iter().find(|(_, argument, _)| argument.variadic)
+            if let Some((index, _, completion)) = args_with_completions
+                .iter()
+                .find(|(_, argument, _)| argument.variadic)
             {
                 lines.push(format!("  if (( _position >= {index} )); then"));
                 lines.push(format!("    {completion}"));
@@ -763,7 +767,9 @@ fi"##;
                 .map(|sub| sub.name.clone())
                 .collect::<Vec<_>>()
                 .join(" ");
-            lines.push(format!("  COMPREPLY=( $(compgen -W '{names}' -- \"$cur\") )"));
+            lines.push(format!(
+                "  COMPREPLY=( $(compgen -W '{names}' -- \"$cur\") )"
+            ));
         }
 
         lines.push("}".to_owned());
@@ -894,7 +900,11 @@ pub mod zsh {
         specs.push(format!("'{excl}--{}{desc}{action}'", flag.name));
 
         for alias in &flag.aliases {
-            let prefix = if alias.chars().count() == 1 { "-" } else { "--" };
+            let prefix = if alias.chars().count() == 1 {
+                "-"
+            } else {
+                "--"
+            };
             specs.push(format!("'{excl}{prefix}{alias}{desc}{action}'"));
         }
 

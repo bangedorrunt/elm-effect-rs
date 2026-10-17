@@ -49,7 +49,10 @@ fn is_subset_is_reflexive_and_ordering_sensitive() {
     assert!(small.is_subset(&large));
     assert!(large.is_subset(&large), "a set is its own subset");
     assert!(!large.is_subset(&small));
-    assert!(set(&[]).is_subset(&large), "the empty set is a subset of all");
+    assert!(
+        set(&[]).is_subset(&large),
+        "the empty set is a subset of all"
+    );
 
     // :431 — a one-element set is a subset only of a set holding it exactly.
     assert!(set(&[1]).is_subset(&large));
@@ -131,9 +134,14 @@ impl std::hash::Hash for Folded {
 fn a_custom_hash_and_eq_decide_membership() {
     // TxHashSet.test.ts:304 — the set defers to the element's own Hash and
     // Equal, so two values that compare equal are one member.
-    let s: TxHashSet<Folded> = [Folded("Alpha".into()), Folded("BETA".into())].into_iter().collect();
+    let s: TxHashSet<Folded> = [Folded("Alpha".into()), Folded("BETA".into())]
+        .into_iter()
+        .collect();
     assert_eq!(s.len(), 2);
-    assert!(!s.insert(Folded("alpha".into())), "already present under Fold");
+    assert!(
+        !s.insert(Folded("alpha".into())),
+        "already present under Fold"
+    );
     assert_eq!(s.len(), 2);
     assert!(s.contains(&Folded("beta".into())));
     assert!(s.remove(&Folded("ALPHA".into())));

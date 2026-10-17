@@ -15,7 +15,10 @@ fn is_arbitrary_identifies_arbitrary_values() {
     // false for the schema it was derived from and for a non-Arbitrary.
     let arbitrary = arbitrary_schema(&ArbSchema::Literals(vec!["large".into(), "small".into()]));
     assert!(is_arbitrary(&arbitrary));
-    assert!(!is_arbitrary(&ArbSchema::Literals(vec!["large".into(), "small".into()])));
+    assert!(!is_arbitrary(&ArbSchema::Literals(vec![
+        "large".into(),
+        "small".into()
+    ])));
     assert!(!is_arbitrary(&()));
 }
 
@@ -37,7 +40,12 @@ fn schema_custom_shrinker_shrinks_and_replays() {
     let result = check_effect(
         &arbitrary,
         |_| false,
-        CheckOptions { runs: 1, max_discards: 0, seed: Some(Seed::Number(0)), ..CheckOptions::default() },
+        CheckOptions {
+            runs: 1,
+            max_discards: 0,
+            seed: Some(Seed::Number(0)),
+            ..CheckOptions::default()
+        },
     );
     let falsified = match result {
         CheckResult::Falsified(falsified) => falsified,
@@ -51,7 +59,10 @@ fn schema_custom_shrinker_shrinks_and_replays() {
     let replayed = check_effect(
         &arbitrary,
         |_| false,
-        CheckOptions { replay: Some(falsified.replay.clone()), ..CheckOptions::default() },
+        CheckOptions {
+            replay: Some(falsified.replay.clone()),
+            ..CheckOptions::default()
+        },
     );
     assert_eq!(replayed, CheckResult::Falsified(falsified));
 }
@@ -137,23 +148,46 @@ fn schema_custom_shrinker_runs_only_while_shrinking_a_failure() {
         );
         let _ = sample_effect(
             &arbitrary,
-            SampleOptions { count: 1, size: 10, max_discards: 0, seed: Some(Seed::Number(0)) },
+            SampleOptions {
+                count: 1,
+                size: 10,
+                max_discards: 0,
+                seed: Some(Seed::Number(0)),
+            },
         );
         assert_eq!(calls.get(), 0, "sampling must not evaluate the shrinker");
         let passed = check_effect(
             &arbitrary,
             |_| true,
-            CheckOptions { runs: 1, max_discards: 0, seed: Some(Seed::Number(0)), ..CheckOptions::default() },
+            CheckOptions {
+                runs: 1,
+                max_discards: 0,
+                seed: Some(Seed::Number(0)),
+                ..CheckOptions::default()
+            },
         );
         assert!(matches!(passed, CheckResult::Passed { .. }));
-        assert_eq!(calls.get(), 0, "a passing check must not evaluate the shrinker");
+        assert_eq!(
+            calls.get(),
+            0,
+            "a passing check must not evaluate the shrinker"
+        );
         let falsified = check_effect(
             &arbitrary,
             |_| false,
-            CheckOptions { runs: 1, max_discards: 0, seed: Some(Seed::Number(0)), ..CheckOptions::default() },
+            CheckOptions {
+                runs: 1,
+                max_discards: 0,
+                seed: Some(Seed::Number(0)),
+                ..CheckOptions::default()
+            },
         );
         assert!(matches!(falsified, CheckResult::Falsified(_)));
-        assert_eq!(calls.get(), 1, "only the shrink of the failing value calls it");
+        assert_eq!(
+            calls.get(),
+            1,
+            "only the shrink of the failing value calls it"
+        );
     }
 }
 
@@ -164,13 +198,21 @@ fn schema_custom_shrinker_replaces_schema_derived_shrinking() {
     // input and reports zero shrinks. (The pin's schema is a bounded BigInt;
     // the bounded-integer shape carries the same observable.)
     let arbitrary = arbitrary_schema_with_shrink(
-        &ArbSchema::IntBetween { minimum: 100, maximum: 1_000 },
+        &ArbSchema::IntBetween {
+            minimum: 100,
+            maximum: 1_000,
+        },
         |_value: &String| Vec::new(),
     );
     let result = check_effect(
         &arbitrary,
         |_| false,
-        CheckOptions { runs: 1, max_discards: 0, seed: Some(Seed::Number(21)), ..CheckOptions::default() },
+        CheckOptions {
+            runs: 1,
+            max_discards: 0,
+            seed: Some(Seed::Number(21)),
+            ..CheckOptions::default()
+        },
     );
     let falsified = match result {
         CheckResult::Falsified(falsified) => falsified,
@@ -190,12 +232,22 @@ fn schema_pushes_constraints_into_primitive_constructors() {
     let arbitrary = arbitrary_schema(&ArbSchema::StringExactLength(8));
     let first = sample_effect(
         &arbitrary,
-        SampleOptions { count: 20, size: 10, max_discards: 0, seed: Some(Seed::Text("constraint".into())) },
+        SampleOptions {
+            count: 20,
+            size: 10,
+            max_discards: 0,
+            seed: Some(Seed::Text("constraint".into())),
+        },
     )
     .expect("a length-constrained string always generates");
     let second = sample_effect(
         &arbitrary,
-        SampleOptions { count: 20, size: 10, max_discards: 0, seed: Some(Seed::Text("constraint".into())) },
+        SampleOptions {
+            count: 20,
+            size: 10,
+            max_discards: 0,
+            seed: Some(Seed::Text("constraint".into())),
+        },
     )
     .expect("a length-constrained string always generates");
     assert_eq!(first, second, "the same seed must reproduce the samples");
@@ -207,14 +259,25 @@ fn schema_derives_independent_random_streams_for_adjacent_attempts() {
     // Arbitrary.test.ts :1026 — 1000 samples of a bounded integer cover at
     // least 750 distinct values: the edge bias repeats small values, but
     // each attempt's stream is its own derivation and explores broadly.
-    let arbitrary = arbitrary_schema(&ArbSchema::IntBetween { minimum: 0, maximum: i64::MAX });
+    let arbitrary = arbitrary_schema(&ArbSchema::IntBetween {
+        minimum: 0,
+        maximum: i64::MAX,
+    });
     let values = sample_effect(
         &arbitrary,
-        SampleOptions { count: 1_000, size: 10, max_discards: 0, seed: Some(Seed::Text("attempt-streams".into())) },
+        SampleOptions {
+            count: 1_000,
+            size: 10,
+            max_discards: 0,
+            seed: Some(Seed::Text("attempt-streams".into())),
+        },
     )
     .expect("a wide integer range always generates");
     let distinct: std::collections::HashSet<&String> = values.iter().collect();
-    assert!(distinct.len() >= 750, "adjacent attempt streams must stay independent");
+    assert!(
+        distinct.len() >= 750,
+        "adjacent attempt streams must stay independent"
+    );
 }
 
 #[test]
@@ -224,14 +287,22 @@ fn map_carries_the_complete_shrink_tree() {
     // property, runs: 1, seed: 47, size: 10. The first sample is the
     // maximum, the shrink tree's first candidate is the minimum, and the map
     // carries both.
-    let source = arbitrary_schema(&ArbSchema::IntBetween { minimum: 1, maximum: 1_000 });
+    let source = arbitrary_schema(&ArbSchema::IntBetween {
+        minimum: 1,
+        maximum: 1_000,
+    });
     let arbitrary = arbitrary_map(source, |value: &String| {
         (value.parse::<i64>().expect("an integer") * 2).to_string()
     });
     let result = check_effect(
         &arbitrary,
         |_| false,
-        CheckOptions { runs: 1, size: 10, seed: Some(Seed::Number(47)), ..CheckOptions::default() },
+        CheckOptions {
+            runs: 1,
+            size: 10,
+            seed: Some(Seed::Number(47)),
+            ..CheckOptions::default()
+        },
     );
     let falsified = match result {
         CheckResult::Falsified(falsified) => falsified,
@@ -247,7 +318,10 @@ fn map_preserves_duplicate_shrink_positions_after_a_non_injective_map() {
     // Arbitrary.test.ts :2957 — a constant map keeps every shrink position:
     // the mapped values are all "same", but the shrink step still counts one
     // and the property is evaluated twice.
-    let source = arbitrary_schema(&ArbSchema::IntBetween { minimum: 1, maximum: 1_000 });
+    let source = arbitrary_schema(&ArbSchema::IntBetween {
+        minimum: 1,
+        maximum: 1_000,
+    });
     let arbitrary = arbitrary_map(source, |_value: &String| "same".to_string());
     let mut evaluations = 0;
     let result = check_effect(
@@ -256,7 +330,12 @@ fn map_preserves_duplicate_shrink_positions_after_a_non_injective_map() {
             evaluations += 1;
             false
         },
-        CheckOptions { runs: 1, size: 10, seed: Some(Seed::Number(47)), ..CheckOptions::default() },
+        CheckOptions {
+            runs: 1,
+            size: 10,
+            seed: Some(Seed::Number(47)),
+            ..CheckOptions::default()
+        },
     );
     let falsified = match result {
         CheckResult::Falsified(falsified) => falsified,
@@ -276,20 +355,38 @@ fn filter_bounds_rejected_values_and_reports_exhaustion() {
     let arbitrary = arbitrary_filter(arbitrary_schema(&ArbSchema::IntUnbounded), |_| false);
     let sampled = sample_effect(
         &arbitrary,
-        SampleOptions { count: 1, size: 10, max_discards: 2, seed: Some(Seed::Text("filter-exhaustion".into())) },
+        SampleOptions {
+            count: 1,
+            size: 10,
+            max_discards: 2,
+            seed: Some(Seed::Text("filter-exhaustion".into())),
+        },
     );
     assert_eq!(
         sampled,
-        Err(SampleError { generated: 0, discards: 3, seed: Seed::Text("filter-exhaustion".into()) })
+        Err(SampleError {
+            generated: 0,
+            discards: 3,
+            seed: Seed::Text("filter-exhaustion".into())
+        })
     );
     let checked = check_effect(
         &arbitrary,
         |_| true,
-        CheckOptions { runs: 1, max_discards: 2, seed: Some(Seed::Text("filter-exhaustion".into())), ..CheckOptions::default() },
+        CheckOptions {
+            runs: 1,
+            max_discards: 2,
+            seed: Some(Seed::Text("filter-exhaustion".into())),
+            ..CheckOptions::default()
+        },
     );
     assert_eq!(
         checked,
-        CheckResult::Exhausted { runs: 0, discards: 3, seed: Seed::Text("filter-exhaustion".into()) }
+        CheckResult::Exhausted {
+            runs: 0,
+            discards: 3,
+            seed: Seed::Text("filter-exhaustion".into())
+        }
     );
 }
 
@@ -298,12 +395,20 @@ fn filter_promotes_accepted_shrink_descendants() {
     // Arbitrary.test.ts :3009 — a filter accepting only 100 or 26: the shrink
     // frontier walks into rejected candidates' subtrees, promoting 26 as the
     // shrunk input after one shrink step.
-    let source = arbitrary_schema(&ArbSchema::IntBetween { minimum: 1, maximum: 100 });
+    let source = arbitrary_schema(&ArbSchema::IntBetween {
+        minimum: 1,
+        maximum: 100,
+    });
     let arbitrary = arbitrary_filter(source, |value: &String| value == "100" || value == "26");
     let result = check_effect(
         &arbitrary,
         |_| false,
-        CheckOptions { runs: 1, size: 10, seed: Some(Seed::Number(47)), ..CheckOptions::default() },
+        CheckOptions {
+            runs: 1,
+            size: 10,
+            seed: Some(Seed::Number(47)),
+            ..CheckOptions::default()
+        },
     );
     let falsified = match result {
         CheckResult::Falsified(falsified) => falsified,
@@ -357,11 +462,21 @@ enum CheckFailure {
 /// or exhaustion, with each value rendered unambiguously.
 fn format_check_failure(failure: &CheckFailure) -> String {
     match failure {
-        CheckFailure::Falsified { shrunk, failure, runs, shrinks, replay } => format!(
+        CheckFailure::Falsified {
+            shrunk,
+            failure,
+            runs,
+            shrinks,
+            replay,
+        } => format!(
             "Property falsified after {runs} run(s) and {shrinks} shrink(s)\nShrunk input: {}\nFailure: {failure:?}\nReplay: {replay}",
             shrunk.render()
         ),
-        CheckFailure::Exhausted { runs, discards, seed } => format!(
+        CheckFailure::Exhausted {
+            runs,
+            discards,
+            seed,
+        } => format!(
             "Property exhausted after {runs} run(s) and {discards} discard(s)\nSeed: {seed:?}"
         ),
     }
@@ -639,14 +754,20 @@ fn arbitrary_int_between(minimum: i64, maximum: i64) -> Option<Arbitrary<String>
     if !integer_constraints_admit(minimum as f64, maximum as f64) {
         return None;
     }
-    Some(arbitrary_schema(&ArbSchema::IntBetween { minimum, maximum }))
+    Some(arbitrary_schema(&ArbSchema::IntBetween {
+        minimum,
+        maximum,
+    }))
 }
 
 #[test]
 fn derivation_rejects_integer_bounds_outside_the_safe_range() {
     // Arbitrary.test.ts:1616 — isGreaterThan(MAX_SAFE) and
     // isLessThan(MIN_SAFE) derive to an empty integer domain.
-    assert!(arbitrary_int_between(0, 7).is_some(), "bounded integers still derive");
+    assert!(
+        arbitrary_int_between(0, 7).is_some(),
+        "bounded integers still derive"
+    );
     assert!(arbitrary_int_between(0, MAX_SAFE_INTEGER as i64).is_some());
     assert!(
         arbitrary_int_between(MAX_SAFE_INTEGER as i64 + 1, MAX_SAFE_INTEGER as i64 + 1).is_none(),
@@ -672,11 +793,23 @@ fn derivation_rejects_nan_bounds() {
 fn derivation_rejects_infinite_intervals_excluded_by_a_finite_constraint() {
     // Arbitrary.test.ts:1817 — isFinite together with a >= +infinity
     // lower bound is contradictory.
-    assert!(!number_constraints_admit(f64::INFINITY, f64::INFINITY, true));
-    assert!(!number_constraints_admit(f64::NEG_INFINITY, f64::NEG_INFINITY, true));
+    assert!(!number_constraints_admit(
+        f64::INFINITY,
+        f64::INFINITY,
+        true
+    ));
+    assert!(!number_constraints_admit(
+        f64::NEG_INFINITY,
+        f64::NEG_INFINITY,
+        true
+    ));
     // Without the finite constraint the infinite bound is a legal
     // one-sided interval.
-    assert!(number_constraints_admit(f64::INFINITY, f64::INFINITY, false));
+    assert!(number_constraints_admit(
+        f64::INFINITY,
+        f64::INFINITY,
+        false
+    ));
 }
 
 #[test]
@@ -692,7 +825,11 @@ fn exhausted_reports_and_reuses_the_resolved_seed() {
     let arbitrary = arbitrary_schema(&ArbSchema::Literals(Vec::new()));
     let sampled = sample_effect(
         &arbitrary,
-        SampleOptions { count: 1, max_discards: 2, ..SampleOptions::default() },
+        SampleOptions {
+            count: 1,
+            max_discards: 2,
+            ..SampleOptions::default()
+        },
     );
     let Err(error) = sampled else {
         panic!("an all-discard generator must fail sampling")
@@ -706,17 +843,28 @@ fn exhausted_reports_and_reuses_the_resolved_seed() {
             ..SampleOptions::default()
         },
     );
-    assert_eq!(resampled, Err(error.clone()), "the reported seed reproduces the sample failure");
+    assert_eq!(
+        resampled,
+        Err(error.clone()),
+        "the reported seed reproduces the sample failure"
+    );
 
     let checked = check_effect(
         &arbitrary,
         |_| true,
-        CheckOptions { runs: 1, max_discards: 2, ..CheckOptions::default() },
+        CheckOptions {
+            runs: 1,
+            max_discards: 2,
+            ..CheckOptions::default()
+        },
     );
     let CheckResult::Exhausted { seed, .. } = &checked else {
         panic!("an all-discard generator must exhaust a check: {checked:?}")
     };
-    assert_eq!(*seed, error.seed, "both failures name the same resolved seed");
+    assert_eq!(
+        *seed, error.seed,
+        "both failures name the same resolved seed"
+    );
     let rechecked = check_effect(
         &arbitrary,
         |_| true,
@@ -727,7 +875,10 @@ fn exhausted_reports_and_reuses_the_resolved_seed() {
             ..CheckOptions::default()
         },
     );
-    assert_eq!(rechecked, checked, "the reported seed reproduces the check failure");
+    assert_eq!(
+        rechecked, checked,
+        "the reported seed reproduces the check failure"
+    );
 }
 
 /// A seed, rendered `${typeof seed}:${seed}` before hashing so a number
@@ -812,7 +963,9 @@ fn make_attempt_random(seed: (u32, u32), attempt: u64) -> GenerationRandom {
     if state0 | state1 | state2 | state3 == 0 {
         state0 = 0x9e3779b9;
     }
-    GenerationRandom { state: [state0, state1, state2, state3] }
+    GenerationRandom {
+        state: [state0, state1, state2, state3],
+    }
 }
 
 /// The pin's `GenerationState`, trimmed to the fields the carried schemas
@@ -839,7 +992,11 @@ fn random_uint32_below(state: &mut GenerationState, range_size: u32) -> u32 {
 }
 
 fn random_index(state: &mut GenerationState, length: u32) -> u32 {
-    if length == 1 { 0 } else { random_uint32_below(state, length) }
+    if length == 1 {
+        0
+    } else {
+        random_uint32_below(state, length)
+    }
 }
 
 fn random_boolean(state: &mut GenerationState) -> bool {
@@ -874,7 +1031,11 @@ fn select_biased<A: Clone>(state: &mut GenerationState, values: &[A]) -> A {
     if values.len() == 1 {
         return values[0].clone();
     }
-    let index = random_int(state, -2 * (values.len() as i64 - 1), values.len() as i64 - 2);
+    let index = random_int(
+        state,
+        -2 * (values.len() as i64 - 1),
+        values.len() as i64 - 2,
+    );
     if index < 0 {
         values[0].clone()
     } else {
@@ -891,7 +1052,11 @@ fn int_bias_ranges(minimum: i64, maximum: i64) -> Vec<(i64, i64)> {
     if minimum < 0 && maximum > 0 {
         let low = (-(minimum as f64)).log2().floor() as i64;
         let high = (maximum as f64).log2().floor() as i64;
-        return vec![(-low, high), (maximum - high, maximum), (minimum, minimum + low)];
+        return vec![
+            (-low, high),
+            (maximum - high, maximum),
+            (minimum, minimum + low),
+        ];
     }
     let gap = ((maximum as i128 - minimum as i128) as f64).log2().floor() as i64;
     let close_to_minimum = (minimum, minimum + gap);
@@ -967,7 +1132,9 @@ impl<A: 'static> Pull<A> {
     }
 
     fn stepping(step: impl FnMut() -> Option<Attempt<A>> + 'static) -> Self {
-        Self { step: Box::new(step) }
+        Self {
+            step: Box::new(step),
+        }
     }
 
     fn next(&mut self) -> Option<Attempt<A>> {
@@ -998,7 +1165,10 @@ fn sample_from_validated_shrink<A: Clone + 'static>(
             })
             .collect()
     };
-    Sample { value, shrinks: Some(Box::new(Pull::lazy(make))) }
+    Sample {
+        value,
+        shrinks: Some(Box::new(Pull::lazy(make))),
+    }
 }
 
 /// A generator: its cost floor plus the sampling step.
@@ -1021,7 +1191,10 @@ enum ArbSchema {
     Literals(Vec<String>),
     /// `Schema.Int.check(Schema.isBetween({ minimum, maximum }))`, the
     /// bounded-integer shape behind the combinator rows.
-    IntBetween { minimum: i64, maximum: i64 },
+    IntBetween {
+        minimum: i64,
+        maximum: i64,
+    },
     /// `Schema.Int` with no bounds: the size-derived magnitude window around
     /// zero, `max(1, size^2)` wide.
     IntUnbounded,
@@ -1053,7 +1226,8 @@ impl ArbSchema {
                         if eligible.is_empty() {
                             return Attempt::Discarded;
                         }
-                        let selected = eligible[random_index(state, eligible.len() as u32) as usize];
+                        let selected =
+                            eligible[random_index(state, eligible.len() as u32) as usize];
                         Attempt::Generated(Sample {
                             value: members[selected].clone(),
                             shrinks: None,
@@ -1084,7 +1258,10 @@ impl ArbSchema {
                         let value: String = (0..length)
                             .map(|_| (b'a' + random_uint32_below(state, 26) as u8) as char)
                             .collect();
-                        Attempt::Generated(Sample { value, shrinks: None })
+                        Attempt::Generated(Sample {
+                            value,
+                            shrinks: None,
+                        })
                     }),
                 }
             }
@@ -1125,9 +1302,17 @@ fn shrink_integer(current: i64, target: i64, try_target_asap: bool) -> Vec<(i64,
     let mut out = Vec::new();
     let real_gap = current - target;
     let mut previous = if try_target_asap { None } else { Some(target) };
-    let mut to_remove = if try_target_asap { real_gap } else { real_gap / 2 };
+    let mut to_remove = if try_target_asap {
+        real_gap
+    } else {
+        real_gap / 2
+    };
     while to_remove != 0 {
-        let value = if to_remove == real_gap { target } else { current - to_remove };
+        let value = if to_remove == real_gap {
+            target
+        } else {
+            current - to_remove
+        };
         out.push((value, previous));
         previous = Some(value);
         to_remove /= 2;
@@ -1177,9 +1362,10 @@ fn map_sample(sample: Sample<String>, f: std::rc::Rc<dyn Fn(&String) -> String>)
             while let Some(attempt) = pull.next() {
                 match attempt {
                     Attempt::Discarded => out.push(Attempt::Discarded),
-                    Attempt::Generated(inner) => {
-                        out.push(Attempt::Generated(map_sample(inner, std::rc::Rc::clone(&f))))
-                    }
+                    Attempt::Generated(inner) => out.push(Attempt::Generated(map_sample(
+                        inner,
+                        std::rc::Rc::clone(&f),
+                    ))),
                 }
             }
             out
@@ -1198,32 +1384,34 @@ fn filter_pull(
     predicate: std::rc::Rc<dyn Fn(&String) -> bool>,
 ) -> Pull<String> {
     let mut stack: Vec<Pull<String>> = vec![source];
-    Pull::stepping(move || loop {
-        let mut current = stack.pop()?;
-        while let Some(attempt) = current.next() {
-            match attempt {
-                Attempt::Discarded => {
-                    stack.push(current);
-                    return Some(Attempt::Discarded);
-                }
-                Attempt::Generated(sample) => {
-                    if predicate(&sample.value) {
-                        let shrinks = sample.shrinks.map(|pull| {
-                            Box::new(filter_pull(*pull, std::rc::Rc::clone(&predicate)))
-                                as Box<Pull<String>>
-                        });
+    Pull::stepping(move || {
+        loop {
+            let mut current = stack.pop()?;
+            while let Some(attempt) = current.next() {
+                match attempt {
+                    Attempt::Discarded => {
                         stack.push(current);
-                        return Some(Attempt::Generated(Sample {
-                            value: sample.value,
-                            shrinks,
-                        }));
+                        return Some(Attempt::Discarded);
                     }
-                    if let Some(subtree) = sample.shrinks {
-                        // Resume the siblings after this subtree is
-                        // exhausted, exactly as the pin's stack does.
-                        stack.push(current);
-                        stack.push(*subtree);
-                        break;
+                    Attempt::Generated(sample) => {
+                        if predicate(&sample.value) {
+                            let shrinks = sample.shrinks.map(|pull| {
+                                Box::new(filter_pull(*pull, std::rc::Rc::clone(&predicate)))
+                                    as Box<Pull<String>>
+                            });
+                            stack.push(current);
+                            return Some(Attempt::Generated(Sample {
+                                value: sample.value,
+                                shrinks,
+                            }));
+                        }
+                        if let Some(subtree) = sample.shrinks {
+                            // Resume the siblings after this subtree is
+                            // exhausted, exactly as the pin's stack does.
+                            stack.push(current);
+                            stack.push(*subtree);
+                            break;
+                        }
                     }
                 }
             }
@@ -1246,7 +1434,10 @@ fn arbitrary_map(
         }
     };
     Arbitrary {
-        generator: Generator { min_cost, generate: Box::new(generate) },
+        generator: Generator {
+            min_cost,
+            generate: Box::new(generate),
+        },
         type_id: ARBITRARY_TYPE_ID,
     }
 }
@@ -1282,7 +1473,10 @@ fn arbitrary_filter(
         }
     };
     Arbitrary {
-        generator: Generator { min_cost, generate: Box::new(generate) },
+        generator: Generator {
+            min_cost,
+            generate: Box::new(generate),
+        },
         type_id: ARBITRARY_TYPE_ID,
     }
 }
@@ -1305,7 +1499,10 @@ fn is_arbitrary(value: &dyn std::any::Any) -> bool {
 }
 
 fn arbitrary_schema(schema: &ArbSchema) -> Arbitrary<String> {
-    Arbitrary { generator: schema.compile(), type_id: ARBITRARY_TYPE_ID }
+    Arbitrary {
+        generator: schema.compile(),
+        type_id: ARBITRARY_TYPE_ID,
+    }
 }
 
 /// `Arbitrary.schema(schema, { shrink })`: the custom shrinker REPLACES the
@@ -1331,7 +1528,10 @@ fn arbitrary_schema_with_shrink(
         )),
     };
     Arbitrary {
-        generator: Generator { min_cost, generate: Box::new(generate) },
+        generator: Generator {
+            min_cost,
+            generate: Box::new(generate),
+        },
         type_id: ARBITRARY_TYPE_ID,
     }
 }
@@ -1376,9 +1576,16 @@ struct Falsified {
 
 #[derive(Clone, Debug, PartialEq)]
 enum CheckResult {
-    Passed { runs: usize, discards: usize },
+    Passed {
+        runs: usize,
+        discards: usize,
+    },
     Falsified(Falsified),
-    Exhausted { runs: usize, discards: usize, seed: Seed },
+    Exhausted {
+        runs: usize,
+        discards: usize,
+        seed: Seed,
+    },
     ReplayMismatch(&'static str),
 }
 
@@ -1400,8 +1607,16 @@ impl CheckOptions {
         CheckOptions {
             runs,
             size,
-            max_discards: if self.max_discards == 0 { 100.max(runs * 10) } else { self.max_discards },
-            max_shrinks: if self.max_shrinks == 0 { 100 } else { self.max_shrinks },
+            max_discards: if self.max_discards == 0 {
+                100.max(runs * 10)
+            } else {
+                self.max_discards
+            },
+            max_shrinks: if self.max_shrinks == 0 {
+                100
+            } else {
+                self.max_shrinks
+            },
             seed: self.seed,
             replay: self.replay,
         }
@@ -1449,7 +1664,11 @@ fn evaluate_property(
     property: &mut impl FnMut(&String) -> bool,
     value: &String,
 ) -> Result<(), PropertyFailure> {
-    if property(value) { Ok(()) } else { Err(PropertyFailure::ReturnedFalse) }
+    if property(value) {
+        Ok(())
+    } else {
+        Err(PropertyFailure::ReturnedFalse)
+    }
 }
 
 /// The pin's `shrink`: the first-failing-child traversal. Each inspected
@@ -1471,10 +1690,14 @@ fn shrink(
         let mut index = 0;
         let mut found = None;
         while inspected < maximum {
-            let Some(pull) = current.shrinks.as_mut() else { break };
+            let Some(pull) = current.shrinks.as_mut() else {
+                break;
+            };
             let Some(candidate) = pull.next() else { break };
             inspected += 1;
-            let Attempt::Generated(candidate) = candidate else { continue };
+            let Attempt::Generated(candidate) = candidate else {
+                continue;
+            };
             let outcome = evaluate_property(property, &candidate.value);
             if outcome == Err(failure) {
                 found = Some(candidate);
@@ -1508,7 +1731,9 @@ fn follow_replay(
             let Some(candidate) = pull.next() else {
                 return Err("ShrinkPathUnavailable");
             };
-            let Attempt::Generated(candidate) = candidate else { continue };
+            let Attempt::Generated(candidate) = candidate else {
+                continue;
+            };
             if index == *target {
                 selected = Some(candidate);
             }
@@ -1533,7 +1758,13 @@ fn check_effect(
     let options = options.normalized();
     if let Some(replay) = &options.replay {
         let seed_state = hash_seed(&replay.seed);
-        let attempt = generate_attempt(&arbitrary.generator, seed_state, replay.attempt, replay.size, true);
+        let attempt = generate_attempt(
+            &arbitrary.generator,
+            seed_state,
+            replay.attempt,
+            replay.size,
+            true,
+        );
         let Attempt::Generated(attempt) = attempt else {
             return CheckResult::ReplayMismatch("AttemptDiscarded");
         };
@@ -1572,12 +1803,21 @@ fn check_effect(
         } else {
             ((runs * options.size) / (options.runs - 1)) as usize
         };
-        let attempt =
-            generate_attempt(&arbitrary.generator, seed_state, current_attempt, current_size, true);
+        let attempt = generate_attempt(
+            &arbitrary.generator,
+            seed_state,
+            current_attempt,
+            current_size,
+            true,
+        );
         let Attempt::Generated(attempt) = attempt else {
             discards += 1;
             if discards > options.max_discards {
-                return CheckResult::Exhausted { runs, discards, seed };
+                return CheckResult::Exhausted {
+                    runs,
+                    discards,
+                    seed,
+                };
             }
             continue;
         };
@@ -1589,8 +1829,7 @@ fn check_effect(
             Err(failure) => failure,
         };
         let initial_input = attempt.value.clone();
-        let (current, failure, path) =
-            shrink(attempt, failure, &mut property, options.max_shrinks);
+        let (current, failure, path) = shrink(attempt, failure, &mut property, options.max_shrinks);
         return CheckResult::Falsified(Falsified {
             initial_input,
             shrunk_input: current.value,
@@ -1615,9 +1854,17 @@ fn sample_effect(
     arbitrary: &Arbitrary<String>,
     options: SampleOptions,
 ) -> Result<Vec<String>, SampleError> {
-    let count = if options.count == 0 { 10 } else { options.count };
+    let count = if options.count == 0 {
+        10
+    } else {
+        options.count
+    };
     let size = if options.size == 0 { 10 } else { options.size };
-    let max_discards = if options.max_discards == 0 { 100.max(count * 10) } else { options.max_discards };
+    let max_discards = if options.max_discards == 0 {
+        100.max(count * 10)
+    } else {
+        options.max_discards
+    };
     let seed = options.seed.clone().unwrap_or(Seed::Number(0));
     let seed_state = hash_seed(&seed);
     let mut values = Vec::new();
@@ -1632,7 +1879,11 @@ fn sample_effect(
             Attempt::Discarded => {
                 discards += 1;
                 if discards > max_discards {
-                    return Err(SampleError { generated: values.len(), discards, seed });
+                    return Err(SampleError {
+                        generated: values.len(),
+                        discards,
+                        seed,
+                    });
                 }
             }
         }

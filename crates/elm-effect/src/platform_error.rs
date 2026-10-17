@@ -38,15 +38,23 @@ pub enum PlatformError {
 impl std::fmt::Display for PlatformError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::BadArgument { module, method, description } => {
+            Self::BadArgument {
+                module,
+                method,
+                description,
+            } => {
                 write!(f, "{module}.{method}: bad argument: {description}")
             }
-            Self::System { module, method, path, message, .. } => {
-                match path {
-                    Some(p) => write!(f, "{module}.{method}({p}): {message}"),
-                    None => write!(f, "{module}.{method}: {message}"),
-                }
-            }
+            Self::System {
+                module,
+                method,
+                path,
+                message,
+                ..
+            } => match path {
+                Some(p) => write!(f, "{module}.{method}({p}): {message}"),
+                None => write!(f, "{module}.{method}: {message}"),
+            },
         }
     }
 }
@@ -68,7 +76,12 @@ pub fn bad_argument(module: &str, method: &str, description: &str) -> PlatformEr
 }
 
 /// Build a system error from a [`std::io::Error`].
-pub fn system_error(module: &str, method: &str, path: Option<&str>, error: &std::io::Error) -> PlatformError {
+pub fn system_error(
+    module: &str,
+    method: &str,
+    path: Option<&str>,
+    error: &std::io::Error,
+) -> PlatformError {
     PlatformError::System {
         module: module.to_string(),
         method: method.to_string(),

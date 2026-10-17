@@ -37,7 +37,9 @@ pub struct InMemoryLog<Msg> {
 
 impl<Msg> Default for InMemoryLog<Msg> {
     fn default() -> Self {
-        Self { entries: Vec::new() }
+        Self {
+            entries: Vec::new(),
+        }
     }
 }
 
@@ -137,10 +139,17 @@ where
         let update = P::update(&self.model, &msg);
         self.model = update.model;
         self.commands.push(
-            update.commands.iter().map(|c| serde_json::to_value(c).unwrap_or_default()).collect(),
+            update
+                .commands
+                .iter()
+                .map(|c| serde_json::to_value(c).unwrap_or_default())
+                .collect(),
         );
         if self.log.len() % self.interval == 0 {
-            self.snapshots.push(Snapshot { model: self.model.clone(), offset: self.log.len() });
+            self.snapshots.push(Snapshot {
+                model: self.model.clone(),
+                offset: self.log.len(),
+            });
         }
     }
 
@@ -170,7 +179,9 @@ where
                 .map(|c| serde_json::to_value(c).unwrap_or_default())
                 .collect();
             if derived != self.commands[offset + step] {
-                return Replay::Divergent { index: offset + step };
+                return Replay::Divergent {
+                    index: offset + step,
+                };
             }
         }
         Replay::Consistent { model }
@@ -179,7 +190,9 @@ where
     /// Snapshot stream: every recorded snapshot, oldest first. Owned
     /// data out, no send path in.
     pub fn snapshots(&self) -> Snapshots<P::Model> {
-        Snapshots { rest: self.snapshots.clone().into_iter() }
+        Snapshots {
+            rest: self.snapshots.clone().into_iter(),
+        }
     }
 }
 

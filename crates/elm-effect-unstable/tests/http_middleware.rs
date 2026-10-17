@@ -7,7 +7,10 @@ fn allowed() -> CorsOptions {
 }
 
 fn get(origin: &str) -> CorsRequest {
-    CorsRequest { origin: Some(origin.to_owned()), is_preflight: false }
+    CorsRequest {
+        origin: Some(origin.to_owned()),
+        is_preflight: false,
+    }
 }
 
 #[test]
@@ -21,8 +24,11 @@ fn adds_origin_when_vary_is_absent() {
 #[test]
 fn preserves_existing_vary_dimensions_when_adding_origin() {
     // HttpMiddleware.test.ts:19
-    let (allow_origin, vary) =
-        apply_cors(&allowed(), &get("https://client.example"), Some("Accept-Language"));
+    let (allow_origin, vary) = apply_cors(
+        &allowed(),
+        &get("https://client.example"),
+        Some("Accept-Language"),
+    );
     assert_eq!(allow_origin.as_deref(), Some("https://client.example"));
     assert_eq!(vary.as_deref(), Some("Accept-Language, Origin"));
 }

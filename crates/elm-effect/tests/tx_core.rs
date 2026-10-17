@@ -217,7 +217,11 @@ fn tx_subscription_ref_notifies() {
     assert_eq!(watched.get(), 0);
     watched.set(5);
     assert_eq!(watched.get(), 5);
-    assert_eq!(sub.take(), Some(0), "the subscription is seeded with the value current at subscribe time");
+    assert_eq!(
+        sub.take(),
+        Some(0),
+        "the subscription is seeded with the value current at subscribe time"
+    );
     assert_eq!(sub.take(), Some(5));
 }
 
@@ -674,7 +678,11 @@ fn tx_subscription_ref_failed_transactions_do_not_publish_rolled_back_values() {
     let cell = TxSubscriptionRef::new(0u32);
     let fresh = cell.changes();
     assert_eq!(fresh.take(), Some(0));
-    assert_eq!(fresh.take(), None, "nothing was published to a fresh stream");
+    assert_eq!(
+        fresh.take(),
+        None,
+        "nothing was published to a fresh stream"
+    );
 }
 
 #[test]
@@ -688,7 +696,11 @@ fn tx_subscription_ref_changes_stream_starts_from_the_current_value() {
     cell.set(1);
     cell.set(2);
     let fresh = cell.changes();
-    assert_eq!(fresh.take(), Some(2), "the stream starts at the current value");
+    assert_eq!(
+        fresh.take(),
+        Some(2),
+        "the stream starts at the current value"
+    );
     assert_eq!(fresh.take(), None, "the earlier values are not history");
 }
 
@@ -704,11 +716,19 @@ fn tx_subscription_ref_scope_close_releases_the_subscriber_queue() {
         assert_eq!(sub.take(), Some(0));
         assert_eq!(cell.subscriber_count(), 1);
     }
-    assert_eq!(cell.subscriber_count(), 0, "scope close released the subscriber");
+    assert_eq!(
+        cell.subscriber_count(),
+        0,
+        "scope close released the subscriber"
+    );
     cell.set(1);
     assert_eq!(cell.get(), 1);
     let after = cell.changes();
-    assert_eq!(after.take(), Some(1), "the released queue got no later value");
+    assert_eq!(
+        after.take(),
+        Some(1),
+        "the released queue got no later value"
+    );
 }
 
 #[test]
@@ -822,18 +842,20 @@ fn catching_the_nested_failure_inside_the_body_keeps_both_writes() {
     let (outer, in_child, in_parent) = (ref1.clone(), ref2.clone(), ref1.clone());
     let program: Effect<(), String> = Effect::tx(move || {
         let (in_child, in_parent) = (in_child.clone(), in_parent.clone());
-        outer.set_effect(10).flat_map(move |_| {
-            Effect::tx(move || {
-                in_child
-                    .set_effect(200)
-                    .flat_map(|_| Effect::fail("child failed".to_string()))
+        outer
+            .set_effect(10)
+            .flat_map(move |_| {
+                Effect::tx(move || {
+                    in_child
+                        .set_effect(200)
+                        .flat_map(|_| Effect::fail("child failed".to_string()))
+                })
+                .catch(|child_error| {
+                    assert_eq!(child_error, "child failed");
+                    Effect::succeed(())
+                })
             })
-            .catch(|child_error| {
-                assert_eq!(child_error, "child failed");
-                Effect::succeed(())
-            })
-        })
-        .flat_map(move |_| in_parent.set_effect(20))
+            .flat_map(move |_| in_parent.set_effect(20))
     });
     assert!(matches!(Runtime::run(program), Exit::Success(())));
     assert_eq!(ref1.read(), 20);
@@ -942,11 +964,17 @@ fn each_interpretation_of_a_transaction_description_opens_its_own_boundary() {
         let staged = cell.clone();
         Effect::tx(move || {
             let staged = staged.clone();
-            staged.set_effect(1).flat_map(move |_| Effect::tx(move || staged.get_effect()))
+            staged
+                .set_effect(1)
+                .flat_map(move |_| Effect::tx(move || staged.get_effect()))
         })
     };
     assert_eq!(Runtime::run(build()), Exit::Success(1));
-    assert_eq!(Runtime::run(build()), Exit::Success(1), "a second boundary over the same cell");
+    assert_eq!(
+        Runtime::run(build()),
+        Exit::Success(1),
+        "a second boundary over the same cell"
+    );
     assert_eq!(cell.read(), 1);
 }
 
@@ -958,9 +986,9 @@ fn a_defect_inside_the_body_also_discards_the_staged_writes() {
     let staged = cell.clone();
     let program: Effect<(), std::convert::Infallible> = Effect::tx(move || {
         let staged = staged.clone();
-        staged
-            .set_effect(10)
-            .flat_map(|_| Effect::<(), std::convert::Infallible>::die(elm_effect::Defect::new("boom")))
+        staged.set_effect(10).flat_map(|_| {
+            Effect::<(), std::convert::Infallible>::die(elm_effect::Defect::new("boom"))
+        })
     });
     match Runtime::run(program) {
         Exit::Failure(cause) => assert_eq!(cause.defects()[0].message, "boom"),
@@ -974,8 +1002,7 @@ fn tx_retry_outside_a_transaction_is_a_defect() {
     // Beyond the rows: the pin's `txRetry` requires the transaction
     // service, so calling it with no boundary open cannot succeed. The
     // port's fail-closed answer is a defect naming the missing context.
-    let program: Effect<std::convert::Infallible, std::convert::Infallible> =
-        Effect::tx_retry();
+    let program: Effect<std::convert::Infallible, std::convert::Infallible> = Effect::tx_retry();
     match Runtime::run(program) {
         Exit::Failure(cause) => {
             assert_eq!(cause.defects()[0].message, "txRetry outside a transaction")
@@ -1011,8 +1038,7 @@ fn a_read_ref_changed_while_the_transaction_was_suspended_reruns_it() {
         rt.fork_detach_with(
             move |_ctx| {
                 Runtime::run(Effect::tx(move || {
-                    let (cell, read, committed) =
-                        (cell.clone(), read.clone(), committed.clone());
+                    let (cell, read, committed) = (cell.clone(), read.clone(), committed.clone());
                     cell.get_effect().flat_map(move |value| {
                         if value == 0 {
                             read.complete(());
@@ -1067,29 +1093,45 @@ fn commits_wake_the_waiters_of_refs_they_write_not_refs_they_read() {
             ForkOpts::immediate(),
         )
     };
-    assert!(spin_until(|| runs.load(Ordering::SeqCst) >= 1), "the waiter never started");
+    assert!(
+        spin_until(|| runs.load(Ordering::SeqCst) >= 1),
+        "the waiter never started"
+    );
 
     // A commit that READS the gate and writes another ref: the waiter's
     // read set includes the gate, but nothing it read changed.
-    let reader: Effect<(), std::convert::Infallible> =
-        Effect::tx({ let gate = gate.clone(); move || {
+    let reader: Effect<(), std::convert::Infallible> = Effect::tx({
+        let gate = gate.clone();
+        move || {
             let other = other.clone();
             gate.get_effect().flat_map(move |_| other.set_effect(1))
-        } });
+        }
+    });
     assert!(matches!(Runtime::run(reader), Exit::Success(())));
-    assert_eq!(runs.load(Ordering::SeqCst), 1, "reading a ref should not wake its waiters");
+    assert_eq!(
+        runs.load(Ordering::SeqCst),
+        1,
+        "reading a ref should not wake its waiters"
+    );
 
     // Writing the SAME value still wakes: the wake follows the write, not
     // the change.
-    let same: Effect<(), std::convert::Infallible> =
-        Effect::tx({ let gate = gate.clone(); move || gate.set_effect(0) });
+    let same: Effect<(), std::convert::Infallible> = Effect::tx({
+        let gate = gate.clone();
+        move || gate.set_effect(0)
+    });
     assert!(matches!(Runtime::run(same), Exit::Success(())));
-    assert!(spin_until(|| runs.load(Ordering::SeqCst) >= 2), "the same-value write never woke the waiter");
+    assert!(
+        spin_until(|| runs.load(Ordering::SeqCst) >= 2),
+        "the same-value write never woke the waiter"
+    );
     assert_eq!(runs.load(Ordering::SeqCst), 2);
 
     // Writing a new value wakes the waiter and delivers it.
-    let change: Effect<(), std::convert::Infallible> =
-        Effect::tx({ let gate = gate.clone(); move || gate.set_effect(1) });
+    let change: Effect<(), std::convert::Infallible> = Effect::tx({
+        let gate = gate.clone();
+        move || gate.set_effect(1)
+    });
     assert!(matches!(Runtime::run(change), Exit::Success(())));
     assert_eq!(waiter.join(), Exit::Success(1));
 }
@@ -1124,8 +1166,12 @@ fn a_write_of_negative_zero_over_zero_is_published_and_wakes_its_waiters() {
             ForkOpts::immediate(),
         )
     };
-    assert!(spin_until(|| runs.load(Ordering::SeqCst) >= 1), "the waiter never started");
-    let negative_zero: Effect<(), std::convert::Infallible> = Effect::tx(move || zero.set_effect(-0.0));
+    assert!(
+        spin_until(|| runs.load(Ordering::SeqCst) >= 1),
+        "the waiter never started"
+    );
+    let negative_zero: Effect<(), std::convert::Infallible> =
+        Effect::tx(move || zero.set_effect(-0.0));
     assert!(matches!(Runtime::run(negative_zero), Exit::Success(())));
     assert_eq!(waiter.join(), Exit::Success(f64::NEG_INFINITY));
 }
@@ -1209,7 +1255,11 @@ fn tx_queue_drain_family() {
     // :457, :477, :543 — take_between waits for the minimum.
     let bounded: TxQueue<i32> = TxQueue::bounded(10);
     assert!(bounded.offer_all([1, 2, 3]).is_empty());
-    assert_eq!(bounded.take_between(5, 8), Vec::<i32>::new(), "fewer than min waits");
+    assert_eq!(
+        bounded.take_between(5, 8),
+        Vec::<i32>::new(),
+        "fewer than min waits"
+    );
     assert_eq!(bounded.take_between(2, 8), vec![1, 2, 3]);
     assert_eq!(bounded.take_between(0, 0), Vec::<i32>::new());
     // :492 — an inverted range takes nothing rather than everything.

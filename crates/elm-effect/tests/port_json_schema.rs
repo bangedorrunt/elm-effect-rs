@@ -2909,9 +2909,7 @@ fn accepts(document: &json_schema::Document, schema: &Json, instance: &Json) -> 
         }
     }
 
-    if let (Json::Obj(values), Some(Json::Obj(schemas))) =
-        (instance, map.get("dependentSchemas"))
-    {
+    if let (Json::Obj(values), Some(Json::Obj(schemas))) = (instance, map.get("dependentSchemas")) {
         for (key, subschema) in schemas {
             if values.contains_key(key) && !accepts(document, subschema, instance) {
                 return false;
@@ -3318,10 +3316,7 @@ fn draft04_converts_inactive_conditional_schema_bodies() {
         let schema = obj(&[
             (
                 key,
-                obj(&[(
-                    "$defs",
-                    obj(&[("Value", obj(&[("const", text("value"))]))]),
-                )]),
+                obj(&[("$defs", obj(&[("Value", obj(&[("const", text("value"))]))]))]),
             ),
             (
                 "allOf",
@@ -3398,7 +3393,11 @@ fn draft04_lowers_conditionals_and_contains_while_preserving_semantics() {
         "{:?}",
         document.schema
     );
-    assert!(!mentions(&document.schema, "const"), "{:?}", document.schema);
+    assert!(
+        !mentions(&document.schema, "const"),
+        "{:?}",
+        document.schema
+    );
 
     let full_with_value = obj(&[
         ("mode", text("full")),
@@ -3452,10 +3451,7 @@ fn draft04_omits_an_empty_required_array() {
 #[test]
 fn draft04_omits_empty_dependent_required_arrays() {
     let empty = canonical_document(
-        obj(&[(
-            "dependentRequired",
-            obj(&[("value", arr(&[]))]),
-        )]),
+        obj(&[("dependentRequired", obj(&[("value", arr(&[]))]))]),
         BTreeMap::new(),
     );
     assert_eq!(
@@ -3525,10 +3521,7 @@ fn draft04_converts_const_to_enum() {
     );
 
     let enum_and_const = canonical_document(
-        obj(&[
-            ("enum", arr(&[text("a"), text("b")])),
-            ("const", text("b")),
-        ]),
+        obj(&[("enum", arr(&[text("a"), text("b")])), ("const", text("b"))]),
         BTreeMap::new(),
     );
     assert_eq!(
@@ -3567,20 +3560,14 @@ fn draft04_preserves_refs_in_literal_values() {
         json_schema::to_document_draft04(&enum_and_default)
             .expect("2020-12 lowers to draft-04")
             .schema,
-        obj(&[
-            ("enum", arr(&[literal.clone()])),
-            ("default", literal),
-        ])
+        obj(&[("enum", arr(&[literal.clone()])), ("default", literal),])
     );
 }
 
 #[test]
 fn draft04_converts_numeric_exclusive_bounds_to_boolean_exclusivity() {
     let cases = [
-        (
-            obj(&[("minimum", num(1.0))]),
-            obj(&[("minimum", num(1.0))]),
-        ),
+        (obj(&[("minimum", num(1.0))]), obj(&[("minimum", num(1.0))])),
         (
             obj(&[("exclusiveMinimum", num(1.0))]),
             obj(&[("minimum", num(1.0)), ("exclusiveMinimum", flag(true))]),
@@ -3597,10 +3584,7 @@ fn draft04_converts_numeric_exclusive_bounds_to_boolean_exclusivity() {
             obj(&[("minimum", num(1.0)), ("exclusiveMinimum", num(2.0))]),
             obj(&[("minimum", num(2.0)), ("exclusiveMinimum", flag(true))]),
         ),
-        (
-            obj(&[("maximum", num(2.0))]),
-            obj(&[("maximum", num(2.0))]),
-        ),
+        (obj(&[("maximum", num(2.0))]), obj(&[("maximum", num(2.0))])),
         (
             obj(&[("exclusiveMaximum", num(2.0))]),
             obj(&[("maximum", num(2.0)), ("exclusiveMaximum", flag(true))]),
@@ -3759,11 +3743,9 @@ fn draft04_preserves_malformed_values_for_recognized_keywords() {
         ("allOf", text("invalid")),
     ]);
 
-    let document = json_schema::to_document_draft04(&canonical_document(
-        malformed.clone(),
-        BTreeMap::new(),
-    ))
-    .expect("2020-12 lowers to draft-04");
+    let document =
+        json_schema::to_document_draft04(&canonical_document(malformed.clone(), BTreeMap::new()))
+            .expect("2020-12 lowers to draft-04");
 
     // A value the keyword does not accept is another document's problem; the
     // lowering carries it rather than inventing a schema.
@@ -3874,7 +3856,11 @@ fn draft04_preserves_validation_semantics_for_converted_constraints() {
     let document = json_schema::to_document_draft04(&canonical_document(schema, BTreeMap::new()))
         .expect("2020-12 lowers to draft-04");
 
-    assert!(!mentions(&document.schema, "const"), "{:?}", document.schema);
+    assert!(
+        !mentions(&document.schema, "const"),
+        "{:?}",
+        document.schema
+    );
 
     let valid = obj(&[
         ("mode", text("on")),
@@ -4008,7 +3994,10 @@ fn multi_rejects_opaque_keywords_open_api3_1_would_activate() {
             )])],
             BTreeMap::new(),
         ),
-        (vec![obj(&[])], defs(&[("Value", obj(&[("xml", obj(&[]))]))])),
+        (
+            vec![obj(&[])],
+            defs(&[("Value", obj(&[("xml", obj(&[]))]))]),
+        ),
         (vec![obj(&[("externalDocs", obj(&[]))])], BTreeMap::new()),
     ];
 
@@ -4033,10 +4022,8 @@ fn multi_does_not_inspect_opaque_values_for_keyword_collisions() {
         ("xml", obj(&[])),
         ("externalDocs", obj(&[])),
     ]);
-    let document = canonical_multi_document(
-        vec![obj(&[("const", literal.clone())])],
-        BTreeMap::new(),
-    );
+    let document =
+        canonical_multi_document(vec![obj(&[("const", literal.clone())])], BTreeMap::new());
 
     let converted = json_schema::to_multi_document_open_api3_1(&document)
         .expect("2020-12 lowers to openapi 3.1");
@@ -4123,20 +4110,14 @@ fn multi_sanitizes_component_keys_and_rewritten_refs_together() {
                     ("type", text("object")),
                     (
                         "properties",
-                        obj(&[(
-                            "A.B",
-                            obj(&[("$ref", text("#/components/schemas/A_B"))]),
-                        )]),
+                        obj(&[("A.B", obj(&[("$ref", text("#/components/schemas/A_B"))]),)]),
                     ),
                 ])]),
             ),
             (
                 "definitions",
                 obj(&[
-                    (
-                        "A_B",
-                        obj(&[("$ref", text("#/components/schemas/B_C"))]),
-                    ),
+                    ("A_B", obj(&[("$ref", text("#/components/schemas/B_C"))]),),
                     ("B_C", obj(&[("type", text("string"))])),
                 ]),
             ),
@@ -4222,10 +4203,7 @@ fn embedded_resource_document() -> json_schema::MultiDocument {
                 obj(&[("$dynamicRef", text("#/$defs/Embedded"))]),
                 obj(&[
                     ("$id", text("inline.json")),
-                    (
-                        "$defs",
-                        obj(&[("Inner", obj(&[("type", text("string"))]))]),
-                    ),
+                    ("$defs", obj(&[("Inner", obj(&[("type", text("string"))]))])),
                     ("$dynamicRef", text("#/$defs/Inner")),
                 ]),
             ]),
@@ -4234,10 +4212,7 @@ fn embedded_resource_document() -> json_schema::MultiDocument {
             "Embedded",
             obj(&[
                 ("$id", text("embedded.json")),
-                (
-                    "$defs",
-                    obj(&[("Inner", obj(&[("type", text("number"))]))]),
-                ),
+                ("$defs", obj(&[("Inner", obj(&[("type", text("number"))]))])),
                 (
                     "allOf",
                     arr(&[
@@ -4267,10 +4242,7 @@ fn multi_does_not_rewrite_local_refs_inside_embedded_schema_resources() {
                         obj(&[("$dynamicRef", text("#/components/schemas/Embedded"))]),
                         obj(&[
                             ("$id", text("inline.json")),
-                            (
-                                "$defs",
-                                obj(&[("Inner", obj(&[("type", text("string"))]))]),
-                            ),
+                            ("$defs", obj(&[("Inner", obj(&[("type", text("string"))]))]),),
                             ("$dynamicRef", text("#/$defs/Inner")),
                         ]),
                     ]),
@@ -4282,10 +4254,7 @@ fn multi_does_not_rewrite_local_refs_inside_embedded_schema_resources() {
                     "Embedded",
                     obj(&[
                         ("$id", text("embedded.json")),
-                        (
-                            "$defs",
-                            obj(&[("Inner", obj(&[("type", text("number"))]))]),
-                        ),
+                        ("$defs", obj(&[("Inner", obj(&[("type", text("number"))]))]),),
                         (
                             "allOf",
                             arr(&[
@@ -4304,10 +4273,7 @@ fn multi_does_not_rewrite_local_refs_inside_embedded_schema_resources() {
 fn multi_does_not_rewrite_local_refs_inside_root_schema_resources() {
     let schema = obj(&[
         ("$id", text("inline.json")),
-        (
-            "$defs",
-            obj(&[("Inner", obj(&[("type", text("string"))]))]),
-        ),
+        ("$defs", obj(&[("Inner", obj(&[("type", text("string"))]))])),
         (
             "allOf",
             arr(&[
@@ -4420,10 +4386,7 @@ fn multi_allocates_suffixes_deterministically_and_skips_occupied_keys() {
     ]);
     let expected = obj(&[
         ("dialect", text("openapi-3.1")),
-        (
-            "schemas",
-            arr(&[obj(&[("allOf", expected_refs.clone())])]),
-        ),
+        ("schemas", arr(&[obj(&[("allOf", expected_refs.clone())])])),
         (
             "definitions",
             obj(&[
@@ -4454,7 +4417,8 @@ fn multi_allocates_suffixes_deterministically_and_skips_occupied_keys() {
     ];
 
     for definitions in orders {
-        let document = canonical_multi_document(vec![obj(&[("allOf", incoming.clone())])], definitions);
+        let document =
+            canonical_multi_document(vec![obj(&[("allOf", incoming.clone())])], definitions);
         let converted = json_schema::to_multi_document_open_api3_1(&document)
             .expect("2020-12 lowers to openapi 3.1");
         assert_eq!(multi_document_json(&converted), expected);
@@ -4549,14 +4513,8 @@ fn multi_rewrites_nested_definition_refs_without_changing_other_refs() {
                 arr(&[obj(&[(
                     "allOf",
                     arr(&[
-                        obj(&[(
-                            "$ref",
-                            text("#/components/schemas/A_B/properties/value"),
-                        )]),
-                        obj(&[(
-                            "$ref",
-                            text("https://example.com/schema#/$defs/A~1B"),
-                        )]),
+                        obj(&[("$ref", text("#/components/schemas/A_B/properties/value"),)]),
+                        obj(&[("$ref", text("https://example.com/schema#/$defs/A~1B"),)]),
                         obj(&[("$ref", text("#/other/A~1B"))]),
                     ]),
                 )])]),

@@ -149,10 +149,7 @@ fn remains_usable_after_concurrent_mark_parts_and_clear() {
 fn returns_none_for_first_turn_with_system_and_user_messages() {
     // ResponseIdTracker.test.ts:168
     let tracker = ResponseIdTracker::new();
-    assert_none(tracker.prepare(&[
-        TrackMessage::system("sys"),
-        TrackMessage::user("user1"),
-    ]));
+    assert_none(tracker.prepare(&[TrackMessage::system("sys"), TrackMessage::user("user1")]));
 }
 
 #[test]
@@ -188,7 +185,8 @@ fn returns_incremental_tool_results_after_assistant_tool_call() {
     let tracker = ResponseIdTracker::new();
     let sys = TrackMessage::system("sys");
     let user1 = TrackMessage::user("user1");
-    let asst1 = TrackMessage::assistant_tool_call_with_approval("call_1", "test_tool", "{}", "appr_1");
+    let asst1 =
+        TrackMessage::assistant_tool_call_with_approval("call_1", "test_tool", "{}", "appr_1");
     let tool1 = TrackMessage::tool_result("call_1", "test_tool", "ok");
     tracker.mark_messages(&[sys.clone(), user1.clone()], "resp_1");
     assert_some(
@@ -205,7 +203,8 @@ fn returns_incremental_tool_results_plus_user_message_in_multi_step_flow() {
     let tracker = ResponseIdTracker::new();
     let sys = TrackMessage::system("sys");
     let user1 = TrackMessage::user("user1");
-    let asst1 = TrackMessage::assistant_tool_call_with_approval("call_1", "test_tool", "{}", "appr_1");
+    let asst1 =
+        TrackMessage::assistant_tool_call_with_approval("call_1", "test_tool", "{}", "appr_1");
     let tool1 = TrackMessage::tool_result("call_1", "test_tool", "ok");
     let user2 = TrackMessage::user("user2");
     tracker.mark_messages(&[sys.clone(), user1.clone()], "resp_1");
@@ -237,7 +236,10 @@ fn returns_none_in_multi_turn_prompt_with_no_messages_after_last_assistant() {
     let asst1 = TrackMessage::assistant("assistant1");
     let user2 = TrackMessage::user("user2");
     let asst2 = TrackMessage::assistant("assistant2");
-    tracker.mark_messages(&[sys.clone(), user1.clone(), asst1.clone(), user2.clone()], "resp_2");
+    tracker.mark_messages(
+        &[sys.clone(), user1.clone(), asst1.clone(), user2.clone()],
+        "resp_2",
+    );
     assert_none(tracker.prepare(&[sys, user1, asst1, user2, asst2]));
 }
 
@@ -321,7 +323,10 @@ fn supports_full_lifecycle_across_two_turns() {
     tracker.mark_messages(&[sys.clone(), user1.clone()], "resp_1");
     let first = tracker.prepare(&[sys.clone(), user1.clone(), asst1.clone(), user2.clone()]);
     assert_some(first, "resp_1", vec![user2.clone()], ":336a");
-    tracker.mark_messages(&[sys.clone(), user1.clone(), asst1.clone(), user2.clone()], "resp_2");
+    tracker.mark_messages(
+        &[sys.clone(), user1.clone(), asst1.clone(), user2.clone()],
+        "resp_2",
+    );
     assert_some(
         tracker.prepare(&[sys, user1, asst1, user2, asst2, user3.clone()]),
         "resp_2",
