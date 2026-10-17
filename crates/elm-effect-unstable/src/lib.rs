@@ -18,6 +18,8 @@ pub mod persistence;
 
 pub mod cli;
 
+pub mod cli_completions;
+
 pub mod ai;
 
 pub mod cli_ai;

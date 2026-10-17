@@ -5947,26 +5947,26 @@ unported	packages/effect/test/cli/completions/completions.test.ts	802	it	dispatc
 unported	packages/effect/test/cli/completions/completions.test.ts	814	it	generates valid bash script for ComprehensiveCli	
 unported	packages/effect/test/cli/completions/completions.test.ts	854	it	generates valid zsh script for ComprehensiveCli	
 unported	packages/effect/test/cli/completions/completions.test.ts	885	it	generates valid fish script for ComprehensiveCli	
-unported	packages/effect/test/cli/completions/descriptor.test.ts	8	it	extracts command name and description	
-unported	packages/effect/test/cli/completions/descriptor.test.ts	17	it	extracts string flags with aliases	
-unported	packages/effect/test/cli/completions/descriptor.test.ts	32	it	extracts boolean flags	
-unported	packages/effect/test/cli/completions/descriptor.test.ts	43	it	extracts integer and float flags	
-unported	packages/effect/test/cli/completions/descriptor.test.ts	56	it	extracts file, directory, and path flags	
-unported	packages/effect/test/cli/completions/descriptor.test.ts	72	it	retains path semantics when a path has a custom metavar	
-unported	packages/effect/test/cli/completions/descriptor.test.ts	83	it	classifies file-backed flags and arguments as file paths	
-unported	packages/effect/test/cli/completions/descriptor.test.ts	99	it	extracts choice flags with values	
-unported	packages/effect/test/cli/completions/descriptor.test.ts	111	it	extracts optional flags	
-unported	packages/effect/test/cli/completions/descriptor.test.ts	121	it	extracts positional arguments with types	
-unported	packages/effect/test/cli/completions/descriptor.test.ts	136	it	extracts variadic arguments	
-unported	packages/effect/test/cli/completions/descriptor.test.ts	147	it	extracts optional arguments	
-unported	packages/effect/test/cli/completions/descriptor.test.ts	157	it	extracts nested subcommands recursively	
-unported	packages/effect/test/cli/completions/descriptor.test.ts	175	it	extracts descriptions from flags and arguments	
-unported	packages/effect/test/cli/completions/descriptor.test.ts	189	it	handles commands with no flags or arguments	
-unported	packages/effect/test/cli/completions/descriptor.test.ts	198	it	handles deeply nested command trees	
-unported	packages/effect/test/cli/completions/descriptor.test.ts	219	it	extracts choice arguments	
-unported	packages/effect/test/cli/completions/descriptor.test.ts	231	it	extracts file/directory arguments	
-unported	packages/effect/test/cli/completions/descriptor.test.ts	244	it	extracts multiple subcommands	
-unported	packages/effect/test/cli/completions/descriptor.test.ts	258	it	prefers short descriptions for subcommand listings	
+ported	packages/effect/test/cli/completions/descriptor.test.ts	8	it	extracts command name and description	extracts_command_name_and_description
+ported	packages/effect/test/cli/completions/descriptor.test.ts	17	it	extracts string flags with aliases	extracts_string_flags_with_aliases
+ported	packages/effect/test/cli/completions/descriptor.test.ts	32	it	extracts boolean flags	extracts_boolean_flags
+ported	packages/effect/test/cli/completions/descriptor.test.ts	43	it	extracts integer and float flags	extracts_integer_and_float_flags
+ported	packages/effect/test/cli/completions/descriptor.test.ts	56	it	extracts file, directory, and path flags	extracts_file_directory_and_path_flags
+ported	packages/effect/test/cli/completions/descriptor.test.ts	72	it	retains path semantics when a path has a custom metavar	retains_path_semantics_when_a_path_has_a_custom_metavar
+ported	packages/effect/test/cli/completions/descriptor.test.ts	83	it	classifies file-backed flags and arguments as file paths	classifies_file_backed_flags_and_arguments_as_file_paths
+ported	packages/effect/test/cli/completions/descriptor.test.ts	99	it	extracts choice flags with values	extracts_choice_flags_with_values
+ported	packages/effect/test/cli/completions/descriptor.test.ts	111	it	extracts optional flags	extracts_optional_flags
+ported	packages/effect/test/cli/completions/descriptor.test.ts	121	it	extracts positional arguments with types	extracts_positional_arguments_with_types
+ported	packages/effect/test/cli/completions/descriptor.test.ts	136	it	extracts variadic arguments	extracts_variadic_arguments
+ported	packages/effect/test/cli/completions/descriptor.test.ts	147	it	extracts optional arguments	extracts_optional_arguments
+ported	packages/effect/test/cli/completions/descriptor.test.ts	157	it	extracts nested subcommands recursively	extracts_nested_subcommands_recursively
+ported	packages/effect/test/cli/completions/descriptor.test.ts	175	it	extracts descriptions from flags and arguments	extracts_descriptions_from_flags_and_arguments
+ported	packages/effect/test/cli/completions/descriptor.test.ts	189	it	handles commands with no flags or arguments	handles_commands_with_no_flags_or_arguments
+ported	packages/effect/test/cli/completions/descriptor.test.ts	198	it	handles deeply nested command trees	handles_deeply_nested_command_trees
+ported	packages/effect/test/cli/completions/descriptor.test.ts	219	it	extracts choice arguments	extracts_choice_arguments
+ported	packages/effect/test/cli/completions/descriptor.test.ts	231	it	extracts file/directory arguments	extracts_file_directory_arguments
+ported	packages/effect/test/cli/completions/descriptor.test.ts	244	it	extracts multiple subcommands	extracts_multiple_subcommands
+ported	packages/effect/test/cli/completions/descriptor.test.ts	258	it	prefers short descriptions for subcommand listings	prefers_short_descriptions_for_subcommand_listings
 unported	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	43	it.effect	retries a deferred wake after a transient run reset failure	
 unported	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	93	it.effect	keeps a completed reply when an older concurrent wake resets it	
 unported	packages/effect/test/cluster/ClusterWorkflowEngine.test.ts	163	it.effect	admits a required completion after an unrelated completion with mailbox capacity ${entityMailboxCapacity}	
