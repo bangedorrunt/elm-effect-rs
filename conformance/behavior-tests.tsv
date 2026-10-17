@@ -8923,17 +8923,17 @@ ported	packages/effect/test/schema/representation/fromRepresentations.test.ts	72
 ported	packages/effect/test/schema/representation/fromRepresentations.test.ts	86	it	revives recursive definitions	revives_recursive_definitions
 ported	packages/effect/test/schema/representation/fromRepresentations.test.ts	128	it	revives mutually recursive definitions with concrete roots	revives_mutually_recursive_definitions_with_concrete_roots
 not-applicable	packages/effect/test/schema/representation/makeCode.test.ts	5	it	constructs runtime and type source	missing: golden makeCode text emitter over reference repr (rust repr differs format natively; assert to_code parity only by-is)
-unported	packages/effect/test/schema/representation/schemaToJsonSchemaDocument.test.ts	5	it	uses the encoded side for representations and JSON Schema	
-unported	packages/effect/test/schema/representation/schemaToJsonSchemaDocument.test.ts	19	it	inlines repeated anonymous schemas by default	
-unported	packages/effect/test/schema/representation/schemaToJsonSchemaDocument.test.ts	50	it	forwards the reference policy to representation and JSON Schema generation	
-unported	packages/effect/test/schema/representation/schemaToJsonSchemaDocument.test.ts	72	it	projects encoded tuple elements for JSON Schema	
-unported	packages/effect/test/schema/representation/schemaToJsonSchemaDocument.test.ts	81	it	does not project checks through an artificial JSON encoding	
-unported	packages/effect/test/schema/representation/schemaToJsonSchemaDocument.test.ts	100	it	preserves checks when no artificial JSON encoding is needed	
-unported	packages/effect/test/schema/representation/schemaToJsonSchemaDocument.test.ts	114	it	does not project annotations through an artificial JSON encoding	
-unported	packages/effect/test/schema/representation/schemaToJsonSchemaDocument.test.ts	131	it	preserves output, references and generation options	
-unported	packages/effect/test/schema/representation/schemaToJsonSchemaDocument.test.ts	177	it	uses custom compiler annotations without a central built-in switch	
-unported	packages/effect/test/schema/representation/schemaToJsonSchemaDocument.test.ts	196	it	emits JSON content media types after encoded projection	
-unported	packages/effect/test/schema/representation/schemaToJsonSchemaDocument.test.ts	207	it	approximates declarations without a JSON codec	
+not-applicable	packages/effect/test/schema/representation/schemaToJsonSchemaDocument.test.ts	5	it	uses the encoded side for representations and JSON Schema	toType half needs toType machinery; absent (encoded half witnessed only)
+ported	packages/effect/test/schema/representation/schemaToJsonSchemaDocument.test.ts	19	it	inlines repeated anonymous schemas by default	inlines_repeated_anonymous_schemas_by_default
+not-applicable	packages/effect/test/schema/representation/schemaToJsonSchemaDocument.test.ts	50	it	forwards the reference policy to representation and JSON Schema generation	no reference-policy plumbing
+ported	packages/effect/test/schema/representation/schemaToJsonSchemaDocument.test.ts	72	it	projects encoded tuple elements for JSON Schema	projects_encoded_tuple_elements_for_json_schema
+not-applicable	packages/effect/test/schema/representation/schemaToJsonSchemaDocument.test.ts	81	it	does not project checks through an artificial JSON encoding	artificial JSON encoding unsupported
+ported	packages/effect/test/schema/representation/schemaToJsonSchemaDocument.test.ts	100	it	preserves checks when no artificial JSON encoding is needed	preserves_checks_when_no_artificial_json_encoding_is_needed
+not-applicable	packages/effect/test/schema/representation/schemaToJsonSchemaDocument.test.ts	114	it	does not project annotations through an artificial JSON encoding	artificial encoding allOf+expected plumbing unsupported
+not-applicable	packages/effect/test/schema/representation/schemaToJsonSchemaDocument.test.ts	131	it	preserves output, references and generation options	output/references/generation-options plumbing unsupported
+not-applicable	packages/effect/test/schema/representation/schemaToJsonSchemaDocument.test.ts	177	it	uses custom compiler annotations without a central built-in switch	custom compiler hooks unsupported
+not-applicable	packages/effect/test/schema/representation/schemaToJsonSchemaDocument.test.ts	196	it	emits JSON content media types after encoded projection	no fromJsonString machinery
+not-applicable	packages/effect/test/schema/representation/schemaToJsonSchemaDocument.test.ts	207	it	approximates declarations without a JSON codec	no declare (Declaration) machinery
 not-applicable	packages/effect/test/schema/representation/stringTreeRoundtrip.test.ts	45	it	preserves literal value types	N/A: Rust Schema has no StringTree codec surface (Schema.toCodecStringTree/decode-transform encode-transform StringTree payloads)
 not-applicable	packages/effect/test/schema/representation/stringTreeRoundtrip.test.ts	55	it	preserves enum value types	N/A: Rust Schema has no StringTree codec surface (Schema.toCodecStringTree/decode-transform encode-transform StringTree payloads)
 not-applicable	packages/effect/test/schema/representation/stringTreeRoundtrip.test.ts	64	it	preserves property name types	N/A: Rust Schema has no StringTree codec surface (Schema.toCodecStringTree/decode-transform encode-transform StringTree payloads)
