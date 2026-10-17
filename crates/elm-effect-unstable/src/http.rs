@@ -1482,3 +1482,490 @@ pub struct ApiTag {
     /// The tag description, if annotated.
     pub description: Option<String>,
 }
+
+/// Why a multipart parse failed (TS `MultipartErrorReason`).
+///
+/// `status` renders 400 for `Parse`, 500 for `InternalError`, 413 for every
+/// limit; every reason is ignored by the error reporter.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MultipartReason {
+    /// One file part exceeded the per-file limit.
+    FileTooLarge,
+    /// One field value exceeded the field-size limit.
+    FieldTooLarge,
+    /// The whole body exceeded the total-size limit.
+    BodyTooLarge,
+    /// More parts than allowed.
+    TooManyParts,
+    /// Transport or persistence failure carrying the body.
+    InternalError,
+    /// Malformed body or headers.
+    Parse,
+}
+
+impl MultipartReason {
+    /// Build the error for this reason.
+    pub fn error(self) -> MultipartError {
+        MultipartError::from_reason(self)
+    }
+
+    /// Response status for this reason.
+    pub fn status(&self) -> u16 {
+        multipart_status(self)
+    }
+
+    /// Every multipart error is ignored by the error reporter.
+    pub fn is_ignored(&self) -> bool {
+        true
+    }
+
+    /// The public message is the reason tag.
+    pub fn message(&self) -> &'static str {
+        match self {
+            Self::FileTooLarge => "FileTooLarge",
+            Self::FieldTooLarge => "FieldTooLarge",
+            Self::BodyTooLarge => "BodyTooLarge",
+            Self::TooManyParts => "TooManyParts",
+            Self::InternalError => "InternalError",
+            Self::Parse => "Parse",
+        }
+    }
+}
+
+/// A multipart parse failure (TS `MultipartError`).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MultipartError {
+    /// The concrete reason.
+    pub reason: MultipartReason,
+}
+
+impl MultipartError {
+    /// Build from a reason tag.
+    pub fn from_reason(reason: MultipartReason) -> Self {
+        Self { reason }
+    }
+
+    /// Response status for the reason.
+    pub fn status(&self) -> u16 {
+        multipart_status(&self.reason)
+    }
+}
+
+impl std::fmt::Display for MultipartError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.reason.message())
+    }
+}
+
+impl std::error::Error for MultipartError {}
+
+/// Response status for a multipart reason: 400 parse, 500 internal, else 413.
+pub fn multipart_status(reason: &MultipartReason) -> u16 {
+    match reason {
+        MultipartReason::Parse => 400,
+        MultipartReason::InternalError => 500,
+        MultipartReason::FileTooLarge
+        | MultipartReason::FieldTooLarge
+        | MultipartReason::BodyTooLarge
+        | MultipartReason::TooManyParts => 413,
+    }
+}
+
+/// True only for a real `MultipartError` (a plain tagged lookalike is false).
+pub fn is_multipart_error(value: &dyn std::any::Any) -> bool {
+    value.is::<MultipartError>()
+}
+
+/// One parsed multipart part: a decoded text field or a file's bytes.
+///
+/// Sync whole-body core of TS `Part`: streaming `content`/`contentEffect`
+/// pull machinery has no runtime here, so files carry their bytes directly.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum MultipartPart {
+    /// A decoded text field.
+    Field {
+        /// Field name.
+        key: String,
+        /// Part media type.
+        content_type: String,
+        /// Decoded value.
+        value: String,
+    },
+    /// An uploaded file with its full bytes.
+    File {
+        /// Field name.
+        key: String,
+        /// Original file name (`filename`, else the field name).
+        name: String,
+        /// Part media type.
+        content_type: String,
+        /// File bytes.
+        content: Vec<u8>,
+    },
+}
+
+impl MultipartPart {
+    /// Every part (field, file, persisted) is a part.
+    pub fn is_part(&self) -> bool {
+        true
+    }
+
+    /// Parsed field/file parts are stream parts; persisted files are not.
+    pub fn is_stream_part(&self) -> bool {
+        true
+    }
+
+    /// True for fields.
+    pub fn is_field(&self) -> bool {
+        matches!(self, Self::Field { .. })
+    }
+
+    /// True for files.
+    pub fn is_file(&self) -> bool {
+        matches!(self, Self::File { .. })
+    }
+}
+
+/// A file written to a scoped temp dir (TS `PersistedFile`).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PersistedFile {
+    /// Field name.
+    pub key: String,
+    /// Original file name.
+    pub name: String,
+    /// Part media type.
+    pub content_type: String,
+    /// Scoped temp path.
+    pub path: String,
+}
+
+impl PersistedFile {
+    /// Persisted files are parts but not stream parts.
+    pub fn is_part(&self) -> bool {
+        true
+    }
+
+    /// Persisted files are no longer streamed.
+    pub fn is_stream_part(&self) -> bool {
+        false
+    }
+
+    /// Brand guard.
+    pub fn is_persisted_file(&self) -> bool {
+        true
+    }
+}
+
+/// Parser limits (TS `MaxParts`/`MaxFieldSize`/`MaxFileSize`/`MaxBodySize`).
+///
+/// `max_file_size` is the per-file cap (`MaxPartSize` maps from `MaxFileSize`
+/// in `makeConfig`). Field MIME types (default `application/json`) parse as
+/// fields even with a filename.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct MultipartLimits {
+    /// Max part count (`None` = unbounded).
+    pub max_parts: Option<usize>,
+    /// Max field value bytes (default 10 MiB when `None`, matching TS).
+    pub max_field_size: Option<usize>,
+    /// Max file bytes per part (`None` = unbounded).
+    pub max_file_size: Option<usize>,
+    /// Max whole-body bytes (`None` = unbounded).
+    pub max_total_size: Option<usize>,
+    /// Content types parsed as fields even with a filename.
+    pub field_mime_types: Vec<String>,
+}
+
+impl MultipartLimits {
+    /// Default field cap is 10 MiB, matching the TS `MaxFieldSize` default.
+    pub fn field_cap(&self) -> usize {
+        self.max_field_size.unwrap_or(10 * 1024 * 1024)
+    }
+
+    /// MIME types treated as fields (default `application/json`).
+    pub fn field_mimes(&self) -> Vec<String> {
+        if self.field_mime_types.is_empty() {
+            vec!["application/json".to_string()]
+        } else {
+            self.field_mime_types.clone()
+        }
+    }
+}
+
+/// The `boundary=` parameter of a `multipart/form-data` content type.
+pub fn multipart_boundary(content_type: &str) -> Option<String> {
+    for piece in content_type.split(';') {
+        let piece = piece.trim();
+        if let Some(rest) = piece
+            .strip_prefix("boundary=")
+            .or_else(|| piece.strip_prefix("BOUNDARY="))
+        {
+            let boundary = rest.trim().trim_matches('"');
+            if !boundary.is_empty() {
+                return Some(boundary.to_string());
+            }
+        }
+    }
+    None
+}
+
+/// Parse a whole multipart body (split chunks reassembled by the caller).
+///
+/// Ports the portable core of `Multipart.makeChannel`: boundary framing,
+/// `Content-Disposition` names (UTF-8, plus `filename*` decoding),
+/// field/file split, and every limit mapping (`TooManyParts`, `FieldTooLarge`,
+/// `FileTooLarge`, `BodyTooLarge`, truncated bodies as `Parse`). Streaming
+/// backpressure and upstream-failure propagation need the TS channel runtime
+/// and are not modeled here.
+pub fn parse_multipart(
+    body: &[u8],
+    content_type: &str,
+    limits: &MultipartLimits,
+) -> Result<Vec<MultipartPart>, MultipartError> {
+    let boundary = multipart_boundary(content_type).ok_or(MultipartError::from_reason(
+        MultipartReason::Parse,
+    ))?;
+    if let Some(cap) = limits.max_total_size {
+        if body.len() > cap {
+            return Err(MultipartError::from_reason(MultipartReason::BodyTooLarge));
+        }
+    }
+    let delimiter = format!("--{boundary}");
+    let delim = delimiter.as_bytes();
+    if !body.starts_with(delim) {
+        return Err(MultipartError::from_reason(MultipartReason::Parse));
+    }
+    let field_mimes = limits.field_mimes();
+    let mut parts = Vec::new();
+    let mut pos = delim.len();
+    // First delimiter line: either `--` (empty close) or `\r\n`.
+    if body.get(pos..pos + 2) == Some(b"--".as_slice()) {
+        return Ok(parts);
+    }
+    if body.get(pos..pos + 2) != Some(b"\r\n".as_slice()) {
+        return Err(MultipartError::from_reason(MultipartReason::Parse));
+    }
+    pos += 2;
+    loop {
+        let header_end = find_bytes(body, pos, b"\r\n\r\n").ok_or(
+            MultipartError::from_reason(MultipartReason::Parse),
+        )?;
+        let headers = String::from_utf8_lossy(&body[pos..header_end]).into_owned();
+        let content_start = header_end + 4;
+        let delim_pos = find_delimiter(body, content_start, delim).ok_or(
+            MultipartError::from_reason(MultipartReason::Parse),
+        )?;
+        let content = &body[content_start..delim_pos];
+        let (name, filename, content_type) = part_headers(&headers);
+        let name = name.ok_or(MultipartError::from_reason(MultipartReason::Parse))?;
+        let is_field = filename.is_none()
+            || field_mimes.iter().any(|m| content_type.contains(m));
+        if is_field {
+            if content.len() > limits.field_cap() {
+                return Err(MultipartError::from_reason(
+                    MultipartReason::FieldTooLarge,
+                ));
+            }
+            parts.push(MultipartPart::Field {
+                key: name,
+                content_type,
+                value: String::from_utf8_lossy(content).into_owned(),
+            });
+        } else {
+            if let Some(cap) = limits.max_file_size {
+                if content.len() > cap {
+                    return Err(MultipartError::from_reason(
+                        MultipartReason::FileTooLarge,
+                    ));
+                }
+            }
+            parts.push(MultipartPart::File {
+                key: name.clone(),
+                name: filename.unwrap_or(name),
+                content_type,
+                content: content.to_vec(),
+            });
+        }
+        if let Some(cap) = limits.max_parts {
+            if parts.len() > cap {
+                return Err(MultipartError::from_reason(
+                    MultipartReason::TooManyParts,
+                ));
+            }
+        }
+        let mut next = delim_pos + 2 + delim.len();
+        if body.get(next..next + 2) == Some(b"--".as_slice()) {
+            break;
+        }
+        if body.get(next..next + 2) != Some(b"\r\n".as_slice()) {
+            return Err(MultipartError::from_reason(MultipartReason::Parse));
+        }
+        pos = next + 2;
+    }
+    Ok(parts)
+}
+
+fn find_bytes(haystack: &[u8], from: usize, needle: &[u8]) -> Option<usize> {
+    if needle.is_empty() || from > haystack.len() {
+        return None;
+    }
+    haystack[from..]
+        .windows(needle.len())
+        .position(|w| w == needle)
+        .map(|i| from + i)
+}
+
+fn find_delimiter(body: &[u8], from: usize, delim: &[u8]) -> Option<usize> {
+    // Delimiters are always introduced by `\r\n` (the separator is framing,
+    // never file content), which also makes a split trailing `--` rejoin
+    // harmless once chunks are reassembled.
+    let mut search = from;
+    loop {
+        let hit = find_bytes(body, search, delim)?;
+        let is_framing = hit >= 2 && body[hit - 2..hit] == *b"\r\n";
+        let at_start = hit == 0;
+        if is_framing || at_start {
+            if is_framing {
+                return Some(hit - 2);
+            }
+            return Some(hit);
+        }
+        search = hit + 1;
+    }
+}
+
+fn part_headers(headers: &str) -> (Option<String>, Option<String>, String) {
+    let mut name: Option<String> = None;
+    let mut filename: Option<String> = None;
+    let mut content_type = "text/plain".to_string();
+    for line in headers.split("\r\n") {
+        let Some((key, value)) = line.split_once(':') else {
+            continue;
+        };
+        let key = key.trim().to_ascii_lowercase();
+        let value = value.trim();
+        if key == "content-disposition" {
+            for piece in value.split(';') {
+                let piece = piece.trim();
+                if let Some(rest) = piece.strip_prefix("name=") {
+                    name = Some(unquote(rest));
+                } else if let Some(rest) = piece.strip_prefix("filename=") {
+                    filename = Some(unquote(rest));
+                } else if let Some(rest) = piece.strip_prefix("filename*=") {
+                    filename = Some(decode_rfc5987(rest));
+                }
+            }
+        } else if key == "content-type" {
+            content_type = value.split(';').next().unwrap_or(value).trim().to_string();
+        }
+    }
+    (name, filename, content_type)
+}
+
+fn unquote(text: &str) -> String {
+    let text = text.trim();
+    if text.len() >= 2 && text.starts_with('"') && text.ends_with('"') {
+        text[1..text.len() - 1].to_string()
+    } else {
+        text.to_string()
+    }
+}
+
+fn decode_rfc5987(text: &str) -> String {
+    // `UTF-8''%E6%97%A5...`: charset, language, then percent-encoding.
+    let encoded = text.split('\'').nth(2).unwrap_or(text);
+    let mut out = Vec::new();
+    let bytes = encoded.as_bytes();
+    let mut i = 0;
+    while i < bytes.len() {
+        if bytes[i] == b'%' && i + 2 < bytes.len() {
+            if let (Some(hi), Some(lo)) = (hex_val(bytes[i + 1]), hex_val(bytes[i + 2])) {
+                out.push(hi << 4 | lo);
+                i += 3;
+                continue;
+            }
+        }
+        out.push(bytes[i]);
+        i += 1;
+    }
+    String::from_utf8_lossy(&out).into_owned()
+}
+
+/// Parse JSON text then apply `reviver(key, value)` bottom-up, like
+/// `JSON.parse` (TS `schemaJson` reviver core; schema validation itself
+/// stays with the schema crate).
+pub fn schema_json_with_reviver(
+    json: &str,
+    reviver: impl Fn(&str, serde_json::Value) -> serde_json::Value,
+) -> Result<serde_json::Value, String> {
+    let value: serde_json::Value =
+        serde_json::from_str(json).map_err(|error| error.to_string())?;
+    Ok(apply_reviver("", value, &reviver))
+}
+
+fn apply_reviver(
+    key: &str,
+    value: serde_json::Value,
+    reviver: &impl Fn(&str, serde_json::Value) -> serde_json::Value,
+) -> serde_json::Value {
+    let value = match value {
+        serde_json::Value::Array(items) => serde_json::Value::Array(
+            items
+                .into_iter()
+                .enumerate()
+                .map(|(i, item)| apply_reviver(&i.to_string(), item, reviver))
+                .collect(),
+        ),
+        serde_json::Value::Object(map) => serde_json::Value::Object(
+            map.into_iter()
+                .map(|(k, v)| {
+                    let v = apply_reviver(&k.clone(), v, reviver);
+                    (k, v)
+                })
+                .collect(),
+        ),
+        other => other,
+    };
+    reviver(key, value)
+}
+
+/// Mint the next persisted path under `dir` for `filename` (TS `toPersisted`
+/// naming: basename truncated to 128 chars, collisions get `N-` prefixes).
+/// Appends to `used` in write order so callers can replay the write sequence.
+pub fn persisted_file_path(
+    dir: &str,
+    filename: &str,
+    used: &mut std::collections::BTreeSet<String>,
+    index: &mut usize,
+) -> String {
+    let base = filename
+        .rsplit(['/', '\\'])
+        .next()
+        .unwrap_or(filename);
+    let base: String = base.chars().rev().take(128).collect::<String>().chars().rev().collect();
+    let mut path = format!("{dir}/{base}");
+    while used.contains(&path) {
+        path = format!("{dir}/{}-{base}", *index);
+        *index += 1;
+    }
+    used.insert(path.clone());
+    path
+}
+
+/// The JSON Schema document for `PersistedFile` (TS `FileSchema.toJsonSchema`).
+pub fn persisted_file_json_schema() -> serde_json::Value {
+    serde_json::json!({
+        "dialect": "draft-2020-12",
+        "schema": {
+            "type": "object",
+            "properties": {
+                "key": { "type": "string" },
+                "name": { "type": "string" },
+                "contentType": { "type": "string", "contentEncoding": "binary" },
+                "path": { "type": "string" }
+            },
+            "required": ["key", "name", "contentType", "path"],
+            "additionalProperties": true
+        },
+        "definitions": {}
+    })
+}
