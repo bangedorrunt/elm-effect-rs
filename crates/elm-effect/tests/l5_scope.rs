@@ -444,3 +444,38 @@ fn acquire_use_release_error_in_just_usage() {
         Exit::Success(_) => panic!("expected the usage failure"),
     }
 }
+
+#[test]
+fn a_scope_releases_both_disposable_kinds_exactly_once() {
+    // Effect.test.ts:1245 / :1254. `Symbol.dispose` and `Symbol.asyncDispose`
+    // are JS protocols; what the rows observe is that the scope releases each
+    // disposable exactly once when it closes. The port's two kinds are the
+    // sync closure and the effect finalizer.
+    let rt = Runtime::new();
+    let sync_releases = Arc::new(AtomicUsize::new(0));
+    let async_releases = Arc::new(AtomicUsize::new(0));
+    let sync_hook = Arc::clone(&sync_releases);
+    let async_hook = Arc::clone(&async_releases);
+
+    let child = rt.fork_detach(move |ctx| -> Exit<(), String> {
+        // Sync disposable: a plain closure.
+        ctx.add_finalizer(move || {
+            sync_hook.fetch_add(1, Ordering::SeqCst);
+        });
+        // Async disposable: a release that is itself an effect.
+        let release_hook = Arc::clone(&async_hook);
+        ctx.acquire_release(
+            Effect::<u32, String>::succeed(1),
+            move |_: u32| -> Effect<(), String> {
+                release_hook.fetch_add(1, Ordering::SeqCst);
+                Effect::succeed(())
+            },
+        )
+        .expect("acquire succeeds");
+        Exit::Success(())
+    });
+
+    assert_eq!(child.join(), Exit::Success(()));
+    assert_eq!(sync_releases.load(Ordering::SeqCst), 1);
+    assert_eq!(async_releases.load(Ordering::SeqCst), 1);
+}

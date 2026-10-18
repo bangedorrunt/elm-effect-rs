@@ -1268,8 +1268,8 @@ ported	packages/effect/test/Effect.test.ts	1216	it.effect	passes index to filter
 ported	packages/effect/test/Effect.test.ts	1223	it.effect	returns none when filter never succeeds	find_first_filter_returns_none_when_filter_never_succeeds
 ported	packages/effect/test/Effect.test.ts	1231	it.live	odd numbers	crates/elm-effect/tests/effect_collections.rs::filter_keeps_the_odd_numbers
 ported	packages/effect/test/Effect.test.ts	1237	it.live	iterable	crates/elm-effect/tests/effect_collections.rs::filter_accepts_any_iterable
-unported	packages/effect/test/Effect.test.ts	1245	it.effect	releases disposables	
-unported	packages/effect/test/Effect.test.ts	1254	it.effect	releases async disposables	
+ported	packages/effect/test/Effect.test.ts	1245	it.effect	releases disposables	crates/elm-effect/tests/l5_scope.rs::a_scope_releases_both_disposable_kinds_exactly_once
+ported	packages/effect/test/Effect.test.ts	1254	it.effect	releases async disposables	crates/elm-effect/tests/l5_scope.rs::a_scope_releases_both_disposable_kinds_exactly_once
 unported	packages/effect/test/Effect.test.ts	1265	it.live	releases on interrupt	
 not-applicable	packages/effect/test/Effect.test.ts	1283	it.effect	supports release dependencies	Effect.acquireRelease and Effect.provideService are absent from crates/elm-effect/src/effect.rs (21 pub fns), so release dependencies have no Rust constructor
 ported	packages/effect/test/Effect.test.ts	1306	it.effect	raceAll	race_all_completes_on_the_first_success_not_the_first_completion
@@ -1354,8 +1354,8 @@ not-applicable	packages/effect/test/Effect.test.ts	2762	it	nested throwing final
 ported	packages/effect/test/Effect.test.ts	2770	it.effect	fail ensuring	ensuring_runs_on_a_typed_failure_and_preserves_it
 ported	packages/effect/test/Effect.test.ts	2783	it.effect	fail on error	on_error_runs_only_on_a_typed_failure
 not-applicable	packages/effect/test/Effect.test.ts	2798	it.effect	finalizer errors merged	Effect.runSyncExit is absent from effect.rs (21 pub fns) and Effect.ensuring takes Fn() rather than an Effect, so nested throwing finalizers have no Rust constructor
-unported	packages/effect/test/Effect.test.ts	2816	it.effect	finalizer errors reported	
-unported	packages/effect/test/Effect.test.ts	2838	it.effect	scoped combines usage and finalizer failures	
+ported	packages/effect/test/Effect.test.ts	2816	it.effect	finalizer errors reported	crates/elm-effect/tests/l5_scope.rs::finalizer_failure_is_appended
+ported	packages/effect/test/Effect.test.ts	2838	it.effect	scoped combines usage and finalizer failures	crates/elm-effect/tests/l5_scope.rs::finalizer_failure_is_appended
 ported	packages/effect/test/Effect.test.ts	2850	it.effect	acquireUseRelease usage result	acquire_use_release_returns_the_usage_result
 ported	packages/effect/test/Effect.test.ts	2860	it.effect	error in just acquisition	acquire_use_release_error_in_just_acquisition
 ported	packages/effect/test/Effect.test.ts	2873	it.effect	error in just release	acquire_use_release_error_in_just_release
@@ -1389,7 +1389,7 @@ not-applicable	packages/effect/test/Effect.test.ts	3249	it.effect	catchNoSuchEle
 not-applicable	packages/effect/test/Effect.test.ts	3258	it	preserves handler receivers and treats thrown exceptions as defects	Effect.match and Effect.matchCause are absent from crates/elm-effect/src/effect.rs (21 pub fns); the crate matches is cron.rs:368 on a cron spec, not the Effect fold
 not-applicable	packages/effect/test/Effect.test.ts	3284	it	passes only the outcome to handlers	Effect.match and Effect.matchCause are absent from crates/elm-effect/src/effect.rs (21 pub fns); the crate matches is cron.rs:368 on a cron spec, not the Effect fold
 not-applicable	packages/effect/test/Effect.test.ts	3296	it	passes defects through without calling onFailure	Effect.match and Effect.matchCause are absent from crates/elm-effect/src/effect.rs (21 pub fns); the crate matches is cron.rs:368 on a cron spec, not the Effect fold
-unported	packages/effect/test/Effect.test.ts	3306	it	passes only the value to callbacks regardless of declared arity	
+not-applicable	packages/effect/test/Effect.test.ts	3306	it	passes only the value to callbacks regardless of declared arity	JS-only calling convention: the row reads the callback's arguments.length and this, which a Rust closure cannot have (arity is checked at compile time); the port's flat_map is crates/elm-effect/src/effect.rs:734, and there is no observable behavior to port.
 not-applicable	packages/effect/test/Effect.test.ts	3316	it.effect	concurrent: false	Effect.zip, Effect.zipWith and Effect.delay are absent from crates/elm-effect/src/effect.rs (21 pub fns), and forkChild exists only as the runtime method at fiber.rs:243, not the effect-last form
 not-applicable	packages/effect/test/Effect.test.ts	3334	it.effect	concurrent: true	Effect.zip, Effect.zipWith and Effect.delay are absent from crates/elm-effect/src/effect.rs (21 pub fns), and forkChild exists only as the runtime method at fiber.rs:243, not the effect-last form
 unported	packages/effect/test/Effect.test.ts	3352	it.effect	concurrent: true interrupts the other side on failure	
