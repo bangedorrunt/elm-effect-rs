@@ -1021,11 +1021,24 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
 
     pub(crate) fn run_sync_with(self, outer: &crate::service::Services) -> Result<A, Cause<E>> {
         let Effect { step, services, .. } = self;
+        // The fiber whose interrupt flag this run observes. Read once: a tag
+        // cannot change under a running effect, and a run outside a fiber has
+        // none, so `Runtime::run` on the current thread is never interrupted.
+        let fiber = ambient_fiber(outer);
         // Frames live here, not on the call stack: a description nested ten
         // thousand `flat_map`s deep runs in one loop.
         let mut frames: Vec<Box<dyn Frame<E>>> = Vec::new();
         let mut drive = enter_step(step, &services, outer);
         loop {
+            // Poll between steps, never inside one: an atomic effect runs to
+            // its own end, and an endless chain of `flat_map`s stops here. A
+            // masked run (a release) finishes first (L7).
+            if let Some(fiber) = &fiber
+                && fiber.is_interrupted()
+                && !fiber.is_masked()
+            {
+                return Err(Cause::interrupt(Some(fiber.id())));
+            }
             match drive {
                 Drive::Fail(cause) => return Err(cause),
                 Drive::Done(value) => match frames.pop() {
@@ -1048,6 +1061,16 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
             }
         }
     }
+}
+
+/// The fiber this run belongs to, when its ambient services carry one.
+///
+/// Only the spawn seams inject [`FiberTag`](crate::fiber::FiberTag), and
+/// `provide` cannot forge it, so a tag found here is the fiber actually
+/// executing the effect.
+fn ambient_fiber(scope: &crate::service::Services) -> Option<crate::fiber::Fiber> {
+    let any = scope.get_tag(<crate::fiber::FiberTag as crate::ServiceTag>::ID)?;
+    any.downcast_ref::<crate::fiber::Fiber>().cloned()
 }
 
 /// One step of the interpreter: resolve the step's own services, then hand it

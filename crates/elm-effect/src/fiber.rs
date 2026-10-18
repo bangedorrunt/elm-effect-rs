@@ -264,6 +264,13 @@ impl Fiber {
     pub fn interrupt(&self) {
         self.control.request_interrupt();
     }
+
+    /// True while a masked region holds the interruptibility depth above zero,
+    /// where a requested interrupt must wait. The interpreter polls this so a
+    /// release still runs to completion after its fiber was interrupted.
+    pub(crate) fn is_masked(&self) -> bool {
+        self.control.masked_now()
+    }
 }
 
 /// The ambient "which fiber is running this effect" tag. Injected only at the
