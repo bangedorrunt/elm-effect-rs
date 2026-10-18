@@ -3102,8 +3102,8 @@ not-applicable	packages/effect/test/Random.test.ts	261	it.effect	distinguishes o
 not-applicable	packages/effect/test/Random.test.ts	274	it.effect	distinguishes trailing partial UTF-8 words in string seeds	Random remaining behavior rows depend on Effect Random PRNG internals not fully exposed by the Rust port.
 not-applicable	packages/effect/test/Random.test.ts	291	it.effect	distinguishes astral character string seeds	Random remaining behavior rows depend on Effect Random PRNG internals not fully exposed by the Rust port.
 not-applicable	packages/effect/test/Random.test.ts	306	it.effect	works with numeric seeds	Random remaining behavior rows depend on Effect Random PRNG internals not fully exposed by the Rust port.
-unported	packages/effect/test/RcMap.test.ts	8	it.each	releases capacity after a ${throws ? "throwing" : "dying"} lookup with TTL %s	
-unported	packages/effect/test/RcMap.test.ts	32	it.effect	throwing	
+ported	packages/effect/test/RcMap.test.ts	8	it.each	releases capacity after a ${throws ? "throwing" : "dying"} lookup with TTL %s	rcmap_defect_lookup_frees_its_capacity_slot
+ported	packages/effect/test/RcMap.test.ts	32	it.effect	throwing	rcmap_defect_is_cached_and_shared_with_later_borrowers
 ported	packages/effect/test/RcMap.test.ts	54	it.each	releases only the invalidated entry with TTL %s	rcmap_invalidate_spares_the_replacement_for_every_ttl
 ported	packages/effect/test/RcMap.test.ts	103	it.effect	an invalidated entry's idle timer cannot remove its replacement	rcmap_invalidated_entry_release_spares_the_replacement
 ported	packages/effect/test/RcMap.test.ts	150	it.effect	returns None without lookup or capacity acquisition when missing	rcmap_get_option_reads_without_lookup

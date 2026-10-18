@@ -16,10 +16,11 @@
 //! same key has its own lifecycle (row 281; 54 and 103 additionally depend on
 //! the pin's per-entry idle fiber, which this port does not model).
 //!
-//! Residuals: in-flight sharing with a deferred, a defect channel (the lookup
-//! is `Result<V, E>`, so a dying lookup cannot be cached or shared), and a
-//! background TTL sweep followed by concurrent close (expiry is lazy on access,
-//! or on `expire_idle`).
+//! Residuals: in-flight sharing with a deferred, and a background TTL sweep
+//! followed by concurrent close (expiry is lazy on access, or on
+//! `expire_idle`). A lookup that dies is no longer a residual: it reports a
+//! [`LookupFailure::Defect`], which caches and occupies capacity exactly like a
+//! typed failure, so a later borrower sees the same defect.
 
 use std::collections::HashMap;
 use std::hash::Hash;
@@ -49,24 +50,58 @@ impl RcClock for SystemRcClock {
     }
 }
 
+/// An unexpected failure from a lookup: the pin's throw or die.
+///
+/// Message-only on purpose. This module is compiled through `#[path]` includes
+/// from test binaries, where `crate::cause::Defect` is out of reach (the same
+/// reason [`RcClock`] exists here); a cached defect only has to compare equal
+/// to the one it was built from, and that is its message.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Defect {
+    /// What the lookup threw or died with.
+    pub message: String,
+}
+
+impl Defect {
+    pub fn new(message: impl Into<String>) -> Self {
+        Self {
+            message: message.into(),
+        }
+    }
+}
+
+/// What a lookup may report: a value, a typed failure, or a defect.
+///
+/// Kept apart from `E` because the pin never collapses the three: a defect is
+/// not a typed error, and a caller may recover from one without the other.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum LookupFailure<E> {
+    /// The expected failure; cached like a value.
+    Fail(E),
+    /// The lookup died; cached like a value, and replayed as a defect.
+    Defect(Defect),
+}
+
 /// A lookup's own error, or the capacity refusal (`E | ExceededCapacityError`).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum RcMapError<E> {
     /// The lookup failed; the failure is cached like a value.
     Lookup(E),
+    /// The lookup died; the defect is cached like a value and replayed.
+    Defect(Defect),
     /// The map already holds `capacity` entries.
     ExceededCapacity(usize),
 }
 
 struct Entry<V, E> {
-    value: Option<Result<V, E>>,
+    value: Option<Result<V, LookupFailure<E>>>,
     refs: usize,
     idle_since_ms: Option<u64>,
     last_used_ms: u64,
 }
 
 /// Lookup constructor: key in, shared value or cached failure out.
-type Lookup<K, V, E> = Box<dyn Fn(&K) -> Result<V, E> + Send + Sync>;
+type Lookup<K, V, E> = Box<dyn Fn(&K) -> Result<V, LookupFailure<E>> + Send + Sync>;
 /// Release hook for an evicted value.
 type Release<V> = Box<dyn Fn(V) + Send + Sync>;
 /// Per-key idle time-to-live (`idleTimeToLive` as a function in the pin).
@@ -93,8 +128,21 @@ where
     K: Hash + Eq + Clone,
 {
     /// Build from lookup/release closures (`make`).
+    ///
+    /// A lookup that has a defect to report uses
+    /// [`make_with_defects`](Self::make_with_defects) instead; this spelling
+    /// only answers typed failures, so every existing map keeps its shape.
     pub fn make(
         lookup: impl Fn(&K) -> Result<V, E> + Send + Sync + 'static,
+        release: impl Fn(V) + Send + Sync + 'static,
+    ) -> Self {
+        Self::make_with_defects(move |key| lookup(key).map_err(LookupFailure::Fail), release)
+    }
+
+    /// Build from a lookup that may report a defect as well as a typed
+    /// failure. Both are cached and replayed to later borrowers.
+    pub fn make_with_defects(
+        lookup: impl Fn(&K) -> Result<V, LookupFailure<E>> + Send + Sync + 'static,
         release: impl Fn(V) + Send + Sync + 'static,
     ) -> Self {
         Self {
@@ -236,7 +284,8 @@ where
     {
         match self.entries.get(key)?.value.as_ref()? {
             Ok(v) => Some(Ok(v.clone())),
-            Err(e) => Some(Err(RcMapError::Lookup(e.clone()))),
+            Err(LookupFailure::Fail(e)) => Some(Err(RcMapError::Lookup(e.clone()))),
+            Err(LookupFailure::Defect(d)) => Some(Err(RcMapError::Defect(d.clone()))),
         }
     }
 

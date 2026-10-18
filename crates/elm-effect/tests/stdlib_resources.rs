@@ -23,16 +23,40 @@ mod scoped_ref;
 use latch::{Await, Latch, Waiter};
 use layer_map::{IdlePolicy, IdlePolicyFn, LayerMap, LayerMapService};
 use layer_ref::LayerRef;
-use rc_map::{RcMap, RcMapError};
+use rc_map::{Defect, LookupFailure, RcClock, RcMap, RcMapError};
 use rc_ref::RcRef;
 use resource::Resource;
 use scoped_ref::ScopedRef;
 use std::sync::Arc;
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use std::time::Duration;
 
 fn counter() -> Arc<AtomicUsize> {
     Arc::new(AtomicUsize::new(0))
+}
+
+/// Virtual milliseconds for the TTL rows, so a test advances time instead of
+/// sleeping.
+struct StepClock(Arc<AtomicU64>);
+
+impl StepClock {
+    fn new() -> Self {
+        Self(Arc::new(AtomicU64::new(0)))
+    }
+
+    fn advance(&self, ms: u64) {
+        self.0.fetch_add(ms, Ordering::SeqCst);
+    }
+
+    fn handle(&self) -> Arc<dyn RcClock> {
+        Arc::new(Self(Arc::clone(&self.0)))
+    }
+}
+
+impl RcClock for StepClock {
+    fn now_millis(&self) -> u64 {
+        self.0.load(Ordering::SeqCst)
+    }
 }
 
 // --- Latch ---
@@ -437,6 +461,71 @@ fn rcmap_capacity_is_a_hard_limit() {
     // A key that is already retained is not a new slot.
     assert_eq!(map.get(&"a".to_owned()), Some(Ok(1)));
     assert_eq!(map.size(), 2);
+}
+
+#[test]
+fn rcmap_defect_lookup_frees_its_capacity_slot() {
+    // RcMap.test.ts:8. A lookup that dies still caches an entry, so it holds a
+    // capacity slot exactly like a failed one does; without a TTL the slot is
+    // free as soon as the caller returns, with one it is held until idle.
+    for ttl in [None, Some(Duration::from_millis(1000))] {
+        let clock = StepClock::new();
+        let mut map = RcMap::<String, String, String>::make_with_defects(
+            |k: &String| {
+                if k == "bad" {
+                    Err(LookupFailure::Defect(Defect::new("boom")))
+                } else {
+                    Ok(k.clone())
+                }
+            },
+            |_: String| {},
+        )
+        .with_clock(clock.handle());
+        map.set_capacity(Some(1));
+        map.set_idle_ttl(ttl);
+
+        assert_eq!(
+            map.get(&"bad".to_owned()),
+            Some(Err(RcMapError::Defect(Defect::new("boom"))))
+        );
+        // The caller' scope closes: the get's own reference goes back.
+        map.release_ref(&"bad".to_owned());
+
+        if ttl.is_some() {
+            // The defect is retained, so it still occupies the only slot...
+            assert!(map.has(&"bad".to_owned()));
+            clock.advance(1000);
+        }
+        // ...until the idle TTL expires it, freeing the slot for a new key.
+        assert_eq!(map.get(&"good".to_owned()), Some(Ok("good".to_owned())));
+        assert!(!map.has(&"bad".to_owned()));
+    }
+}
+
+#[test]
+fn rcmap_defect_is_cached_and_shared_with_later_borrowers() {
+    // RcMap.test.ts:32. The second borrower reads the cached defect and never
+    // runs the lookup again, which is the same guarantee a typed failure has.
+    let calls = counter();
+    let calls_body = calls.clone();
+    let mut map = RcMap::<String, String, String>::make_with_defects(
+        move |_: &String| {
+            calls_body.fetch_add(1, Ordering::SeqCst);
+            Err(LookupFailure::Defect(Defect::new("boom")))
+        },
+        |_: String| {},
+    );
+
+    assert_eq!(
+        map.get(&"bad".to_owned()),
+        Some(Err(RcMapError::Defect(Defect::new("boom"))))
+    );
+    assert_eq!(
+        map.get_option(&"bad".to_owned()),
+        Some(Err(RcMapError::Defect(Defect::new("boom"))))
+    );
+    assert_eq!(calls.load(Ordering::SeqCst), 1);
+    assert_eq!(map.ref_count(&"bad".to_owned()), 2);
 }
 
 // --- LayerMap / LayerRef ---
