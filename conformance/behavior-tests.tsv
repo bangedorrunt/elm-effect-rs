@@ -1280,28 +1280,28 @@ ported	packages/effect/test/Effect.test.ts	1383	it.effect	raceFirst interrupts t
 ported	packages/effect/test/Effect.test.ts	1404	it.effect	${name} interrupts a loser that settles the race while starting	race_interrupts_a_loser_that_settles_the_race_while_starting
 unported	packages/effect/test/Effect.test.ts	1422	it.effect	${name} interrupts the loser when interrupted while starting	
 unported	packages/effect/test/Effect.test.ts	1444	it.effect	is interruptible	
-unported	packages/effect/test/Effect.test.ts	1456	it.effect	repeat/until - repeats until a condition is true	
-unported	packages/effect/test/Effect.test.ts	1470	it.effect	repeat/until - repeats until an effectful condition is true	
-unported	packages/effect/test/Effect.test.ts	1484	it.effect	repeat/until - always evaluates at least once	
-unported	packages/effect/test/Effect.test.ts	1492	it.effect	repeat/while - repeats while a condition is true	
-unported	packages/effect/test/Effect.test.ts	1506	it.effect	repeat/while - repeats while an effectful condition is true	
-not-applicable	packages/effect/test/Effect.test.ts	1520	it.effect	repeat/while - always evaluates at least once	SEMANTIC DIVERGENCE, not a missing API: schedule::repeat (crates/elm-effect/src/schedule.rs:238) runs the recipe once then consults the policy, so recurs(3) yields 4 executions, while the pin asserts 3; also Effect.repeat's {times} option has no Rust form
-not-applicable	packages/effect/test/Effect.test.ts	1528	it.effect	repeat/times	SEMANTIC DIVERGENCE, not a missing API: schedule::repeat (crates/elm-effect/src/schedule.rs:238) runs the recipe once then consults the policy, so recurs(3) yields 4 executions, while the pin asserts 3; also Effect.repeat's {times} option has no Rust form
-not-applicable	packages/effect/test/Effect.test.ts	1539	it.effect	repeat/schedule - repeats according to the specified schedule	SEMANTIC DIVERGENCE, not a missing API: schedule::repeat (crates/elm-effect/src/schedule.rs:238) runs the recipe once then consults the policy, so recurs(3) yields 4 executions, while the pin asserts 3; also Effect.repeat's {times} option has no Rust form
-not-applicable	packages/effect/test/Effect.test.ts	1547	it.effect	repeat/schedule - with until	SEMANTIC DIVERGENCE, not a missing API: schedule::repeat (crates/elm-effect/src/schedule.rs:238) runs the recipe once then consults the policy, so recurs(3) yields 4 executions, while the pin asserts 3; also Effect.repeat's {times} option has no Rust form
-not-applicable	packages/effect/test/Effect.test.ts	1559	it.effect	repeat/schedule - with while	Effect.repeat's {while}/{until} options have no Rust form; schedule::repeat (crates/elm-effect/src/schedule.rs:238) takes a policy only and runs one extra execution for recurs(n)
+ported	packages/effect/test/Effect.test.ts	1456	it.effect	repeat/until - repeats until a condition is true	crates/elm-effect/tests/effect_repeat_retry.rs::repeat_until_repeats_until_a_condition_is_true
+ported	packages/effect/test/Effect.test.ts	1470	it.effect	repeat/until - repeats until an effectful condition is true	crates/elm-effect/tests/effect_repeat_retry.rs::repeat_until_repeats_until_an_effectful_condition_is_true
+ported	packages/effect/test/Effect.test.ts	1484	it.effect	repeat/until - always evaluates at least once	crates/elm-effect/tests/effect_repeat_retry.rs::repeat_until_always_evaluates_at_least_once
+ported	packages/effect/test/Effect.test.ts	1492	it.effect	repeat/while - repeats while a condition is true	crates/elm-effect/tests/effect_repeat_retry.rs::repeat_while_repeats_while_a_condition_is_true
+ported	packages/effect/test/Effect.test.ts	1506	it.effect	repeat/while - repeats while an effectful condition is true	crates/elm-effect/tests/effect_repeat_retry.rs::repeat_while_repeats_while_an_effectful_condition_is_true
+ported	packages/effect/test/Effect.test.ts	1520	it.effect	repeat/while - always evaluates at least once	crates/elm-effect/tests/effect_repeat_retry.rs::repeat_while_always_evaluates_at_least_once
+ported	packages/effect/test/Effect.test.ts	1528	it.effect	repeat/times	crates/elm-effect/tests/effect_repeat_retry.rs::repeat_times_runs_twice_plus_the_first
+not-applicable	packages/effect/test/Effect.test.ts	1539	it.effect	repeat/schedule - repeats according to the specified schedule	Returns the schedule's last output at the pin (3 for recurs(3)); schedule::repeat and repeat_with return the last value instead, and a LoopOptions base schedule is decision-only, so handing back O would change repeat's success type
+ported	packages/effect/test/Effect.test.ts	1547	it.effect	repeat/schedule - with until	crates/elm-effect/tests/effect_repeat_retry.rs::repeat_schedule_with_until
+ported	packages/effect/test/Effect.test.ts	1559	it.effect	repeat/schedule - with while	crates/elm-effect/tests/effect_repeat_retry.rs::repeat_schedule_with_while
 unported	packages/effect/test/Effect.test.ts	1573	it.live	nothing on success	
-unported	packages/effect/test/Effect.test.ts	1582	it.effect	retry/until - retries until a condition is true	
-unported	packages/effect/test/Effect.test.ts	1598	it.effect	retry/until - retries until an effectful condition is true	
-unported	packages/effect/test/Effect.test.ts	1614	it.effect	retry/until - always evaluates at least once	
-unported	packages/effect/test/Effect.test.ts	1625	it.effect	retry/while - retries while a condition is true	
-unported	packages/effect/test/Effect.test.ts	1641	it.effect	retry/while - retries while an effectful condition is true	
-unported	packages/effect/test/Effect.test.ts	1657	it.effect	retry/while - always evaluates at least once	
-unported	packages/effect/test/Effect.test.ts	1668	it.effect	retry/schedule - retries according to the specified schedule	
-unported	packages/effect/test/Effect.test.ts	1679	it.effect	retry/schedule - with until	
-unported	packages/effect/test/Effect.test.ts	1693	it.effect	retry/schedule - until errors	
-unported	packages/effect/test/Effect.test.ts	1708	it.effect	retry/schedule - with while	
-unported	packages/effect/test/Effect.test.ts	1722	it.effect	retry/schedule - while errors	
+ported	packages/effect/test/Effect.test.ts	1582	it.effect	retry/until - retries until a condition is true	crates/elm-effect/tests/effect_repeat_retry.rs::retry_until_retries_until_a_condition_is_true
+ported	packages/effect/test/Effect.test.ts	1598	it.effect	retry/until - retries until an effectful condition is true	crates/elm-effect/tests/effect_repeat_retry.rs::retry_until_retries_until_an_effectful_condition_is_true
+ported	packages/effect/test/Effect.test.ts	1614	it.effect	retry/until - always evaluates at least once	crates/elm-effect/tests/effect_repeat_retry.rs::retry_until_always_evaluates_at_least_once
+ported	packages/effect/test/Effect.test.ts	1625	it.effect	retry/while - retries while a condition is true	crates/elm-effect/tests/effect_repeat_retry.rs::retry_while_retries_while_a_condition_is_true
+ported	packages/effect/test/Effect.test.ts	1641	it.effect	retry/while - retries while an effectful condition is true	crates/elm-effect/tests/effect_repeat_retry.rs::retry_while_retries_while_an_effectful_condition_is_true
+ported	packages/effect/test/Effect.test.ts	1657	it.effect	retry/while - always evaluates at least once	crates/elm-effect/tests/effect_repeat_retry.rs::retry_while_always_evaluates_at_least_once
+ported	packages/effect/test/Effect.test.ts	1668	it.effect	retry/schedule - retries according to the specified schedule	crates/elm-effect/tests/effect_repeat_retry.rs::retry_schedule_retries_according_to_the_specified_schedule
+ported	packages/effect/test/Effect.test.ts	1679	it.effect	retry/schedule - with until	crates/elm-effect/tests/effect_repeat_retry.rs::retry_schedule_with_until
+ported	packages/effect/test/Effect.test.ts	1693	it.effect	retry/schedule - until errors	crates/elm-effect/tests/effect_repeat_retry.rs::retry_schedule_until_errors
+ported	packages/effect/test/Effect.test.ts	1708	it.effect	retry/schedule - with while	crates/elm-effect/tests/effect_repeat_retry.rs::retry_schedule_with_while
+ported	packages/effect/test/Effect.test.ts	1722	it.effect	retry/schedule - while errors	crates/elm-effect/tests/effect_repeat_retry.rs::retry_schedule_while_errors
 not-applicable	packages/effect/test/Effect.test.ts	1737	it.effect	retry/schedule - CurrentMetadata	Schedule.CurrentMetadata is absent from crates/elm-effect/src/schedule.rs and Effect.flip is absent from effect.rs (21 pub fns), so the metadata-collecting retry row has no Rust constructor
 not-applicable	packages/effect/test/Effect.test.ts	1795	it.effect	uses monotonic time when wall time moves backward	Effect.timed is absent from crates/elm-effect/src/effect.rs (21 pub fns), so measuring a run in wall time has no Rust constructor
 unported	packages/effect/test/Effect.test.ts	1813	it.live	${form}: factory and body follow cleanup and replay	

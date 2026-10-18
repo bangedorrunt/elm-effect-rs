@@ -109,7 +109,9 @@ pub use policy::{BreakerConfig, Bulkhead, RateLimiter, Remote, RemoteError, Remo
 pub use runtime::{
     ManagedRuntime, Runtime, SHUTDOWN_DEADLINE, race, race_all, race_all_first, race_first, timeout,
 };
-pub use schedule::{Random, RandomTag, Schedule, repeat, retry};
+pub use schedule::{
+    LoopOptions, LoopPredicate, Random, RandomTag, Schedule, repeat, repeat_with, retry, retry_with,
+};
 #[cfg(feature = "tokio")]
 pub use scope::{Scope, ScopeTag};
 pub use service::{Cons, MemoMap, Provide, Reference, ServiceTag, read_reference, use_service};
