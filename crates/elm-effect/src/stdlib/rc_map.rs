@@ -244,9 +244,16 @@ where
     ///
     /// The last reference removes the entry when the key's TTL is zero or
     /// unset, and arms the idle clock otherwise.
+    ///
+    /// A retired generation is drained first: after an invalidate plus a fresh
+    /// `get`, the outstanding reference is the invalidated borrower's, and the
+    /// pin closes that entry rather than the replacement. The pin tells the two
+    /// apart with one scope finalizer per acquisition; this port releases by
+    /// key, so it assumes the older generation's holder returns first. Two
+    /// holders on the same key across an invalidate therefore cannot be told
+    /// apart, which is the lease handle row 103 wants.
     pub fn release_ref(&mut self, key: &K) {
-        if !self.entries.contains_key(key) {
-            self.release_retired(key);
+        if self.release_retired(key) {
             return;
         }
         let Some(entry) = self.entries.get_mut(key) else {
@@ -302,15 +309,17 @@ where
     }
 
     /// Give back one reference to a retired entry; the last one releases it.
-    fn release_retired(&mut self, key: &K) {
+    /// `true` when a retired entry consumed the release.
+    fn release_retired(&mut self, key: &K) -> bool {
         let Some(index) = self.retired.iter().rposition(|(k, _)| k == key) else {
-            return;
+            return false;
         };
         self.retired[index].1.refs = self.retired[index].1.refs.saturating_sub(1);
         if self.retired[index].1.refs == 0 {
             let (_, entry) = self.retired.remove(index);
             self.release_entry(entry);
         }
+        true
     }
 
     /// Release every idle entry whose TTL elapsed; the pin's timer, made

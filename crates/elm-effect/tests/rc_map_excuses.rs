@@ -9,8 +9,8 @@
 mod rc_map;
 
 use rc_map::{RcClock, RcMap, RcMapError};
-use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 fn counter() -> Arc<AtomicUsize> {
@@ -229,6 +229,126 @@ fn rcmap_idle_reuse_restarts_the_ttl() {
     assert_eq!(map.expire_idle(), 0);
     clock.advance(1);
     assert_eq!(map.expire_idle(), 1);
+}
+
+/// RcMap.test.ts:54 `releases only the invalidated entry with TTL %s`. Turning
+/// the entry over on invalidate leaves the old borrower holding generation one;
+/// when that borrower returns, generation one is released and the replacement
+/// is untouched, whatever the TTL.
+#[test]
+fn rcmap_invalidate_spares_the_replacement_for_every_ttl() {
+    let key = "key".to_owned();
+    for ttl in [
+        Duration::ZERO,
+        Duration::from_millis(1000),
+        Duration::MAX,
+    ] {
+        let clock = FakeClock::new();
+        let acquired = Arc::new(Mutex::new(Vec::<i32>::new()));
+        let released = Arc::new(Mutex::new(Vec::<i32>::new()));
+        let acquired_hook = acquired.clone();
+        let released_hook = released.clone();
+        let mut map = RcMap::<String, i32, String>::make(
+            move |_: &String| -> Result<i32, String> {
+                let mut values = acquired_hook.lock().unwrap();
+                let value = values.len() as i32 + 1;
+                values.push(value);
+                Ok(value)
+            },
+            move |value: i32| released_hook.lock().unwrap().push(value),
+        )
+        .with_clock(clock.handle());
+        map.set_idle_ttl(Some(ttl));
+
+        assert_eq!(map.get(&key), Some(Ok(1)));
+        assert!(map.invalidate(&key));
+        assert!(!map.has(&key));
+        assert!(released.lock().unwrap().is_empty());
+
+        assert_eq!(map.get(&key), Some(Ok(2)));
+        // The old scope closes: the invalidated generation goes, the
+        // replacement stays reachable.
+        map.release_ref(&key);
+        assert_eq!(*released.lock().unwrap(), [1]);
+        assert!(map.has(&key));
+
+        // A scoped getOption borrows and returns in one step, then the new
+        // scope closes.
+        assert_eq!(map.get_option(&key), Some(Ok(2)));
+        map.release_ref(&key);
+        map.release_ref(&key);
+        let after_new_release = released.lock().unwrap().clone();
+        if ttl.is_zero() {
+            assert_eq!(after_new_release, [1, 2]);
+        } else {
+            assert_eq!(after_new_release, [1]);
+        }
+
+        if ttl == Duration::from_millis(1000) {
+            clock.advance(999);
+            assert!(map.has(&key));
+            clock.advance(1);
+            assert_eq!(map.expire_idle(), 1);
+            assert!(!map.has(&key));
+        }
+        if ttl == Duration::MAX {
+            assert!(map.has(&key));
+        }
+
+        map.close();
+        assert_eq!(*released.lock().unwrap(), [1, 2]);
+        assert_eq!(*acquired.lock().unwrap(), [1, 2]);
+    }
+}
+
+/// RcMap.test.ts:103 `an invalidated entry's idle timer cannot remove its
+/// replacement`. The invalidated generation keeps its own clock, and releasing
+/// it must not decrement the generation that replaced it.
+#[test]
+fn rcmap_invalidated_entry_release_spares_the_replacement() {
+    let clock = FakeClock::new();
+    let key = "key".to_owned();
+    let acquired = Arc::new(Mutex::new(Vec::<i32>::new()));
+    let released = Arc::new(Mutex::new(Vec::<i32>::new()));
+    let acquired_hook = acquired.clone();
+    let released_hook = released.clone();
+    let mut map = RcMap::<String, i32, String>::make(
+        move |_: &String| -> Result<i32, String> {
+            let mut values = acquired_hook.lock().unwrap();
+            let value = values.len() as i32 + 1;
+            values.push(value);
+            Ok(value)
+        },
+        move |value: i32| released_hook.lock().unwrap().push(value),
+    )
+    .with_clock(clock.handle());
+    map.set_idle_ttl(Some(Duration::from_millis(1000)));
+
+    assert_eq!(map.get(&key), Some(Ok(1)));
+    map.release_ref(&key);
+    clock.advance(500);
+    // Reuse inside the idle window keeps the value.
+    assert_eq!(map.get(&key), Some(Ok(1)));
+    assert_eq!(acquired.lock().unwrap().len(), 1);
+
+    assert!(map.invalidate(&key));
+    assert!(released.lock().unwrap().is_empty());
+    assert_eq!(map.get(&key), Some(Ok(2)));
+
+    // The invalidated holder returns; the replacement keeps its reference.
+    map.release_ref(&key);
+    assert_eq!(*released.lock().unwrap(), [1]);
+    assert_eq!(map.ref_count(&key), 1);
+
+    clock.advance(1000);
+    assert_eq!(map.get_option(&key), Some(Ok(2)));
+    assert_eq!(map.ref_count(&key), 2);
+    map.release_ref(&key);
+    map.release_ref(&key);
+
+    map.close();
+    assert_eq!(*released.lock().unwrap(), [1, 2]);
+    assert_eq!(*acquired.lock().unwrap(), [1, 2]);
 }
 
 /// RcMap.test.ts:413 `.touch`. Touching an idle entry restarts its clock, so the

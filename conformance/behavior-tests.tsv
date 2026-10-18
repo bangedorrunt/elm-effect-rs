@@ -3104,8 +3104,8 @@ not-applicable	packages/effect/test/Random.test.ts	291	it.effect	distinguishes a
 not-applicable	packages/effect/test/Random.test.ts	306	it.effect	works with numeric seeds	Random remaining behavior rows depend on Effect Random PRNG internals not fully exposed by the Rust port.
 unported	packages/effect/test/RcMap.test.ts	8	it.each	releases capacity after a ${throws ? "throwing" : "dying"} lookup with TTL %s	
 unported	packages/effect/test/RcMap.test.ts	32	it.effect	throwing	
-unported	packages/effect/test/RcMap.test.ts	54	it.each	releases only the invalidated entry with TTL %s	
-unported	packages/effect/test/RcMap.test.ts	103	it.effect	an invalidated entry's idle timer cannot remove its replacement	
+ported	packages/effect/test/RcMap.test.ts	54	it.each	releases only the invalidated entry with TTL %s	rcmap_invalidate_spares_the_replacement_for_every_ttl
+ported	packages/effect/test/RcMap.test.ts	103	it.effect	an invalidated entry's idle timer cannot remove its replacement	rcmap_invalidated_entry_release_spares_the_replacement
 ported	packages/effect/test/RcMap.test.ts	150	it.effect	returns None without lookup or capacity acquisition when missing	rcmap_get_option_reads_without_lookup
 ported	packages/effect/test/RcMap.test.ts	163	it.effect	retains a ready entry until the caller scope closes	rcmap_refs_defer_the_release_until_the_last_holder
 unported	packages/effect/test/RcMap.test.ts	188	it.effect	shares an in-flight entry	
