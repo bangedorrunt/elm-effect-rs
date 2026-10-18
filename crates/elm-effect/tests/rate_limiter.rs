@@ -66,14 +66,11 @@ fn options<'a>(
     on_exceeded: OnExceeded,
     tokens: u32,
 ) -> ConsumeOptions<'a> {
-    ConsumeOptions {
-        algorithm,
-        on_exceeded,
-        key,
-        limit: 5,
-        window: minute(),
-        tokens,
-    }
+    let mut options = ConsumeOptions::new(key, 5, minute());
+    options.algorithm = algorithm;
+    options.on_exceeded = on_exceeded;
+    options.tokens = tokens;
+    options
 }
 
 /// RateLimiter.test.ts:10 `supports partially applied sleep`. Binding the
@@ -82,7 +79,9 @@ fn options<'a>(
 fn rate_limiter_sleeps_partially_applied() {
     let clock = FakeClock::new();
     let mut limiter = RateLimiter::with_clock(clock.handle());
-    let opts = options("partial", Algorithm::FixedWindow, OnExceeded::Fail, 1);
+    // The pin passes no `onExceeded` and no `tokens`, so the defaults are what
+    // this row exercises: fixed window, fail, one token.
+    let opts = ConsumeOptions::new("partial", 5, minute());
     let mut sleeper = limiter.sleeper();
     let result = sleeper.call(&opts).expect("first call is admitted");
     assert_eq!(result.remaining, 4);
