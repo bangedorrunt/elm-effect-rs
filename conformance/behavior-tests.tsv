@@ -1256,7 +1256,7 @@ ported	packages/effect/test/Effect.test.ts	1094	it.effect	supports concurrency o
 ported	packages/effect/test/Effect.test.ts	1108	it.effect	runs sequentially from left to right and passes the index	reduce_runs_sequentially_and_passes_the_index
 ported	packages/effect/test/Effect.test.ts	1121	it.effect	stops at the first failure	reduce_stops_at_the_first_failure
 ported	packages/effect/test/Effect.test.ts	1137	it.effect	returns zero for an empty iterable	reduce_returns_an_empty_iterable_initial_value
-unported	packages/effect/test/Effect.test.ts	1143	it.effect	evaluates zero lazily for each run	
+ported	packages/effect/test/Effect.test.ts	1143	it.effect	evaluates zero lazily for each run	crates/elm-effect/tests/effect_collections.rs::reduce_evaluates_its_zero_lazily_for_each_run
 ported	packages/effect/test/Effect.test.ts	1159	it.effect	collects successes when all effects succeed	validate_collects_successes_when_all_succeed
 ported	packages/effect/test/Effect.test.ts	1166	it.effect	accumulates all failures	validate_accumulates_all_failures
 ported	packages/effect/test/Effect.test.ts	1175	it.effect	supports discard option	validate_supports_discard_option
@@ -1266,8 +1266,8 @@ ported	packages/effect/test/Effect.test.ts	1195	it.effect	short-circuits on firs
 ported	packages/effect/test/Effect.test.ts	1209	it.effect	returns first successful transformed value	find_first_filter_returns_first_successful_transformed_value
 ported	packages/effect/test/Effect.test.ts	1216	it.effect	passes index to filter	find_first_filter_passes_index_to_filter
 ported	packages/effect/test/Effect.test.ts	1223	it.effect	returns none when filter never succeeds	find_first_filter_returns_none_when_filter_never_succeeds
-unported	packages/effect/test/Effect.test.ts	1231	it.live	odd numbers	
-unported	packages/effect/test/Effect.test.ts	1237	it.live	iterable	
+ported	packages/effect/test/Effect.test.ts	1231	it.live	odd numbers	crates/elm-effect/tests/effect_collections.rs::filter_keeps_the_odd_numbers
+ported	packages/effect/test/Effect.test.ts	1237	it.live	iterable	crates/elm-effect/tests/effect_collections.rs::filter_accepts_any_iterable
 unported	packages/effect/test/Effect.test.ts	1245	it.effect	releases disposables	
 unported	packages/effect/test/Effect.test.ts	1254	it.effect	releases async disposables	
 unported	packages/effect/test/Effect.test.ts	1265	it.live	releases on interrupt	

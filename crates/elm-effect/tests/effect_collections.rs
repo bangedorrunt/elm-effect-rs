@@ -275,3 +275,67 @@ fn find_first_filter_returns_none_when_filter_never_succeeds() {
         );
     assert!(matches!(exit, Exit::Success(None)));
 }
+
+// ---------------------------------------------------------------------------
+// Effect.test.ts :1143 — the zero is evaluated once per run, not at
+// construction. This port's `reduce` takes the zero as a closure, so the
+// counter is the same probe the pin uses.
+// ---------------------------------------------------------------------------
+
+#[test]
+fn reduce_evaluates_its_zero_lazily_for_each_run() {
+    let evaluations = Arc::new(Mutex::new(0usize));
+    let counter = evaluations.clone();
+    let mut run = || {
+        let counter = counter.clone();
+        reduce(
+            &Runtime::new(),
+            items(&[1]),
+            move || {
+                *counter.lock().unwrap() += 1;
+                Vec::<u32>::new()
+            },
+            |acc: Vec<u32>, value: u32, _index| -> Exit<Vec<u32>, u32> {
+                Exit::succeed({
+                    let mut acc = acc;
+                    acc.push(value);
+                    acc
+                })
+            },
+        )
+    };
+
+    assert_eq!(*evaluations.lock().unwrap(), 0, "the zero is not evaluated yet");
+    assert!(matches!(run(), Exit::Success(ref values) if values == &vec![1]));
+    assert!(matches!(run(), Exit::Success(ref values) if values == &vec![1]));
+    assert_eq!(*evaluations.lock().unwrap(), 2, "once per run");
+}
+
+// ---------------------------------------------------------------------------
+// Effect.test.ts :1231 / :1237 — filter keeps the accepted elements in
+// iteration order, for a list and for another iterable.
+// ---------------------------------------------------------------------------
+
+#[test]
+fn filter_keeps_the_odd_numbers() {
+    let exit: Exit<Vec<u32>, std::convert::Infallible> = Runtime::run(
+        elm_effect::Effect::<u32, std::convert::Infallible, ()>::filter(
+            items(&[1, 2, 3, 4, 5]),
+            |value: &u32| value % 2 == 1,
+        ),
+    );
+    assert_eq!(exit, Exit::Success(vec![1, 3, 5]));
+}
+
+#[test]
+fn filter_accepts_any_iterable() {
+    // A `BTreeSet` is this port's ordered analogue of the pin's `Set`
+    // argument: the combinator takes `IntoIterator`, not a slice.
+    let set: std::collections::BTreeSet<u32> = [1, 2, 3, 4, 5].into_iter().collect();
+    let exit: Exit<Vec<u32>, std::convert::Infallible> = Runtime::run(
+        elm_effect::Effect::<u32, std::convert::Infallible, ()>::filter(set, |value: &u32| {
+            value % 2 == 1
+        }),
+    );
+    assert_eq!(exit, Exit::Success(vec![1, 3, 5]));
+}
