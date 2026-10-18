@@ -3,8 +3,8 @@
 #![cfg(feature = "tokio")]
 
 use elm_effect::{Cause, Defect, Effect, Exit, FiberHandle, FiberId, ForkOpts, Runtime};
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::{Arc, Mutex, mpsc};
 use std::time::{Duration, Instant};
 
 fn flag() -> Arc<AtomicBool> {
@@ -382,6 +382,431 @@ fn await_all_children_waits_for_the_child_the_body_forked() {
     assert_eq!(parent.join(), Exit::Success(()));
     // The child was interrupted and finalized before join returned.
     assert!(is_set(&finalized));
+}
+
+// ---------------------------------------------------------------------------
+// Effect-level forkChild + awaitAllChildren (Effect.test.ts :2457 - :2576).
+// The pin forks children *inside* an effect; this port could not until
+// `Effect::fork_child` carried the spawn entry on the ambient fiber, so these
+// rows were unported for want of a fork, not for want of an await.
+// ---------------------------------------------------------------------------
+
+/// The pin's `Deferred.await(latch)`: park until the fiber is interrupted,
+/// then end interrupted. A child that lives exactly as long as the interrupt
+/// takes to arrive.
+fn until_interrupted(started: Arc<AtomicBool>) -> Effect<(), String> {
+    Effect::with_fiber(move |fiber| {
+        let fiber = fiber.clone();
+        Effect::<(), String>::sync(move || {
+            started.store(true, Ordering::SeqCst);
+            while !fiber.is_interrupted() {
+                std::thread::park_timeout(Duration::from_millis(1));
+            }
+        })
+        .flat_map(|()| Effect::<(), String>::interrupt())
+    })
+}
+
+/// Park until `released`, ignoring interruption. A child that outlives the
+/// parent's interrupt request is what tells "the await returned early" apart
+/// from "the parent waited the child out".
+fn until_released(released: Arc<AtomicBool>, started: Arc<AtomicBool>) -> Effect<(), String> {
+    Effect::<(), String>::sync(move || {
+        started.store(true, Ordering::SeqCst);
+        while !released.load(Ordering::SeqCst) {
+            std::thread::park_timeout(Duration::from_millis(1));
+        }
+    })
+}
+
+/// Poll a flag up to `within`. A witness that would hang instead fails on the
+/// assertion, which is the loud failure these rows need.
+fn wait_for(f: &Arc<AtomicBool>, within: Duration) -> bool {
+    let deadline = Instant::now() + within;
+    while Instant::now() < deadline {
+        if f.load(Ordering::SeqCst) {
+            return true;
+        }
+        std::thread::sleep(Duration::from_millis(1));
+    }
+    f.load(Ordering::SeqCst)
+}
+
+/// Run `effect` on a fiber of its own and hand the handle to the test thread.
+/// The forking parent then parks, so nothing but the witness can end the
+/// effect's fiber.
+fn spawn_effect(effect: Effect<u8, String>) -> (Runtime, FiberHandle<u8, String>) {
+    let rt = Runtime::new();
+    let (tx, rx) = mpsc::channel();
+    let _parent = rt.fork_detach_with(
+        move |ctx| -> Exit<(), String> {
+            let handle = ctx.spawn_effect(effect);
+            // Yield: fires the deferred start latch of the effect's fiber.
+            let dummy = ctx.fork_child(
+                |_| -> Exit<(), String> { Exit::succeed(()) },
+                ForkOpts::immediate(),
+            );
+            dummy.join();
+            let _ = tx.send(handle);
+            while !ctx.is_interrupted() {
+                std::thread::park_timeout(Duration::from_millis(1));
+            }
+            Exit::succeed(())
+        },
+        ForkOpts::immediate(),
+    );
+    let handle = rx.recv().expect("the parent hands its effect handle over");
+    (rt, handle)
+}
+
+/// :2457 `can be interrupted while awaiting children after success`.
+/// The body's value is already in hand when the await takes over; an
+/// interrupt ends the await, and both fibers exit interrupts only.
+#[test]
+fn await_all_children_is_interruptible_after_success() {
+    let started = flag();
+    let child_started = started.clone();
+    let child_slot: Arc<Mutex<Option<FiberHandle<(), String>>>> = Arc::new(Mutex::new(None));
+    let slot = Arc::clone(&child_slot);
+
+    let effect = Effect::suspend(move || {
+        Effect::fork_child(until_interrupted(child_started.clone())).flat_map(move |child| {
+            *slot.lock().unwrap() = Some(child);
+            Effect::succeed(1u8)
+        })
+    })
+    .await_all_children();
+
+    let (rt, target) = spawn_effect(effect);
+    assert!(
+        wait_for(&started, Duration::from_secs(5)),
+        "the forked child never started"
+    );
+    // The await is what is running now.
+    std::thread::sleep(Duration::from_millis(20));
+    target.interrupt_unsafe();
+
+    let cause = match target.join() {
+        Exit::Failure(cause) => cause,
+        Exit::Success(_) => panic!("an interrupted await must not report success"),
+    };
+    assert!(cause.is_interrupted(), "the parent exit lost its interrupt");
+    assert!(cause.failure().is_none(), "no typed failure was raised");
+    assert!(cause.defects().is_empty(), "no defect was raised");
+
+    let child = child_slot
+        .lock()
+        .unwrap()
+        .take()
+        .expect("the effect forked a child");
+    let child_cause = match child.join() {
+        Exit::Failure(cause) => cause,
+        Exit::Success(_) => panic!("an interrupted child must not report success"),
+    };
+    assert!(child_cause.is_interrupted(), "the child lost its interrupt");
+    assert!(rt.shutdown().is_empty(), "a fiber outlived the test");
+}
+
+/// :2489 `can be interrupted while awaiting children after failure`.
+/// The body's failure survives the interrupt that lands during the await: the
+/// exit carries both, which is why the interrupt is appended, never
+/// substituted for the cause.
+#[test]
+fn await_all_children_keeps_a_body_failure_when_interrupted() {
+    let started = flag();
+    let child_started = started.clone();
+    let child_slot: Arc<Mutex<Option<FiberHandle<(), String>>>> = Arc::new(Mutex::new(None));
+    let slot = Arc::clone(&child_slot);
+
+    let effect = Effect::suspend(move || {
+        Effect::fork_child(until_interrupted(child_started.clone()))
+    })
+    .flat_map(move |child| {
+        *slot.lock().unwrap() = Some(child);
+        Effect::<u8, String>::fail("boom".to_owned())
+    })
+    .await_all_children();
+
+    let (rt, target) = spawn_effect(effect);
+    assert!(
+        wait_for(&started, Duration::from_secs(5)),
+        "the forked child never started"
+    );
+    std::thread::sleep(Duration::from_millis(20));
+    target.interrupt_unsafe();
+
+    let cause = match target.join() {
+        Exit::Failure(cause) => cause,
+        Exit::Success(_) => panic!("a failed body must not report success"),
+    };
+    assert!(cause.is_interrupted(), "the interrupt was not appended");
+    assert_eq!(
+        cause.failure(),
+        Some(&"boom".to_owned()),
+        "the body's own failure must survive the interrupt"
+    );
+
+    let child = child_slot
+        .lock()
+        .unwrap()
+        .take()
+        .expect("the effect forked a child");
+    match child.join() {
+        Exit::Failure(cause) => assert!(cause.is_interrupted()),
+        Exit::Success(_) => panic!("the child was interrupted, so it cannot succeed"),
+    }
+    assert!(rt.shutdown().is_empty(), "a fiber outlived the test");
+}
+
+/// :2523 `respects an enclosing uninterruptible region while awaiting
+/// children`. One shape, two runs: the child parks until the test releases it.
+/// Inside the region the await waits it out, so the step after the await runs;
+/// outside one the await gives up at once and that step never runs. Both
+/// fibers end interrupted, so the difference is only where the wait stopped.
+#[test]
+fn await_all_children_respects_an_enclosing_uninterruptible_region() {
+    for masked in [true, false] {
+        let started = flag();
+        let released = flag();
+        let after_await = flag();
+        let child_started = started.clone();
+        let child_released = released.clone();
+        let after = after_await.clone();
+
+        let wrapped = Effect::suspend(move || {
+            Effect::fork_child(until_released(
+                child_released.clone(),
+                child_started.clone(),
+            ))
+        })
+        .flat_map(|_child| Effect::<u8, String>::succeed(1));
+
+        let effect = wrapped.await_all_children().flat_map(move |value| {
+            let after = after.clone();
+            Effect::<u8, String>::sync(move || {
+                after.store(true, Ordering::SeqCst);
+                value
+            })
+        });
+        let effect = if masked { effect.uninterruptible() } else { effect };
+
+        let (rt, target) = spawn_effect(effect);
+        assert!(
+            wait_for(&started, Duration::from_secs(5)),
+            "masked={masked}: the forked child never started"
+        );
+        target.interrupt_unsafe();
+        // The child ignores interruption, and both runs owe it a wait: the
+        // region waits inside the await, the plain run waits at completion.
+        assert!(
+            !target.is_done(),
+            "masked={masked}: the fiber ended before the awaited child did"
+        );
+
+        released.store(true, Ordering::SeqCst);
+        let cause = match target.join() {
+            Exit::Failure(cause) => cause,
+            Exit::Success(_) => panic!("masked={masked}: a parked region must end interrupted"),
+        };
+        assert!(cause.is_interrupted(), "masked={masked}: no interrupt in the exit");
+        assert_eq!(
+            is_set(&after_await),
+            masked,
+            "masked={masked}: the step after the await ran when it should not have, or vice versa"
+        );
+        assert!(rt.shutdown().is_empty(), "masked={masked}: a fiber outlived the test");
+    }
+}
+
+/// :2556 `does not await children forked outside the wrapped effect`.
+/// The wrapped effect runs on a fiber of its own with no children, so its
+/// await returns while the parent's parked child is still alive. A port that
+/// awaited the room rather than its own children would block here.
+#[test]
+fn await_all_children_ignores_a_child_forked_outside_it() {
+    let returned = flag();
+    let released = flag();
+
+    let rt = Runtime::new();
+    let (tx, rx) = mpsc::channel();
+    let child_released = released.clone();
+    let returned_flag = returned.clone();
+
+    // The parent parks until shutdown interrupts it; joining it here would
+    // wait on a fiber only `rt.shutdown()` can end.
+    let _parent = rt.fork_detach_with(
+        move |ctx| -> Exit<(), String> {
+            let preexisting = ctx.fork_child(
+                move |_| -> Exit<(), String> {
+                    while !child_released.load(Ordering::SeqCst) {
+                        std::thread::park_timeout(Duration::from_millis(1));
+                    }
+                    Exit::succeed(())
+                },
+                ForkOpts::immediate(),
+            );
+            let effect = Effect::succeed(1u8).await_all_children().flat_map(move |value| {
+                let returned = returned_flag.clone();
+                Effect::<u8, String>::sync(move || {
+                    returned.store(true, Ordering::SeqCst);
+                    value
+                })
+            });
+            let handle = ctx.spawn_effect(effect);
+            let dummy = ctx.fork_child(
+                |_| -> Exit<(), String> { Exit::succeed(()) },
+                ForkOpts::immediate(),
+            );
+            dummy.join();
+            let _ = tx.send((handle, preexisting));
+            while !ctx.is_interrupted() {
+                std::thread::park_timeout(Duration::from_millis(1));
+            }
+            Exit::succeed(())
+        },
+        ForkOpts::immediate(),
+    );
+
+    let (handle, preexisting) = rx.recv().expect("the parent hands its fibers over");
+    assert!(
+        wait_for(&returned, Duration::from_secs(5)),
+        "the await waited for a child it did not fork"
+    );
+    assert!(
+        !preexisting.is_done(),
+        "the outside child ended before the await returned"
+    );
+    assert_eq!(handle.join(), Exit::Success(1));
+
+    released.store(true, Ordering::SeqCst);
+    preexisting.join();
+    assert!(rt.shutdown().is_empty(), "a fiber outlived the test");
+}
+
+/// :2568 `does not await preexisting children`.
+/// Same fiber, flat shape: a child forked before the awaited effect is not
+/// the awaited effect's child.
+#[test]
+fn await_all_children_ignores_a_preexisting_child() {
+    let child_started = flag();
+    let released = flag();
+    let returned = flag();
+    let child_slot: Arc<Mutex<Option<FiberHandle<(), String>>>> = Arc::new(Mutex::new(None));
+    let slot = Arc::clone(&child_slot);
+    let child_released = released.clone();
+    let started = child_started.clone();
+    let returned_flag = returned.clone();
+
+    let effect = Effect::suspend(move || {
+        Effect::fork_child(until_released(child_released.clone(), started.clone()))
+    })
+    .flat_map(move |child| {
+        *slot.lock().unwrap() = Some(child);
+        Effect::<u8, String>::succeed(1)
+    })
+    .flat_map(move |_| {
+        let returned = returned_flag.clone();
+        Effect::succeed(1u8)
+            .await_all_children()
+            .flat_map(move |value| {
+                let returned = returned.clone();
+                Effect::<u8, String>::sync(move || {
+                    returned.store(true, Ordering::SeqCst);
+                    value
+                })
+            })
+    });
+
+    let (rt, target) = spawn_effect(effect);
+    // The child parks until `released`, so the flag can only be set if the
+    // await returned without waiting for it. A port that awaited every child
+    // in the registry blocks here and fails loudly instead of passing.
+    assert!(
+        wait_for(&returned, Duration::from_secs(5)),
+        "the await waited for a child forked before it"
+    );
+    let child = child_slot.lock().unwrap().take().expect("a child was forked");
+
+    released.store(true, Ordering::SeqCst);
+    assert_eq!(target.join(), Exit::Success(1));
+    child.join();
+    assert!(rt.shutdown().is_empty(), "a fiber outlived the test");
+}
+
+/// :2576 `does not await preexisting children in the same fiber`.
+/// Nested shape: the inner await waits for the child it forked and not for the
+/// one the enclosing effect forked before it.
+#[test]
+fn await_all_children_ignores_a_preexisting_child_in_the_same_fiber() {
+    let outer_started = flag();
+    let inner_started = flag();
+    let outer_released = flag();
+    let inner_released = flag();
+    let nested_returned = flag();
+
+    let outer_slot: Arc<Mutex<Option<FiberHandle<(), String>>>> = Arc::new(Mutex::new(None));
+    let inner_slot: Arc<Mutex<Option<FiberHandle<(), String>>>> = Arc::new(Mutex::new(None));
+
+    let a_started = outer_started.clone();
+    let a_released = outer_released.clone();
+    let b_started = inner_started.clone();
+    let b_released = inner_released.clone();
+    let a_slot = Arc::clone(&outer_slot);
+    let b_slot = Arc::clone(&inner_slot);
+    let returned = nested_returned.clone();
+
+    let effect = Effect::suspend(move || {
+        Effect::fork_child(until_released(a_released.clone(), a_started.clone()))
+    })
+    .flat_map(move |outer| {
+        *a_slot.lock().unwrap() = Some(outer);
+        Effect::suspend(move || {
+            Effect::fork_child(until_released(b_released.clone(), b_started.clone()))
+        })
+        .flat_map(move |inner| {
+            *b_slot.lock().unwrap() = Some(inner);
+            Effect::<u8, String>::succeed(2)
+        })
+        .await_all_children()
+    })
+    .flat_map(move |value| {
+        let returned = returned.clone();
+        Effect::<u8, String>::sync(move || {
+            returned.store(true, Ordering::SeqCst);
+            value
+        })
+    });
+
+    let (rt, target) = spawn_effect(effect);
+    assert!(
+        wait_for(&outer_started, Duration::from_secs(5)),
+        "the enclosing child never started"
+    );
+    assert!(
+        wait_for(&inner_started, Duration::from_secs(5)),
+        "the nested child never started"
+    );
+
+    // Release only the nested effect's child: the await is owed that one, and
+    // nothing else.
+    inner_released.store(true, Ordering::SeqCst);
+    assert!(
+        wait_for(&nested_returned, Duration::from_secs(5)),
+        "the nested await waited for a child forked before it"
+    );
+
+    let outer = outer_slot.lock().unwrap().take().expect("a child was forked");
+    assert!(
+        !outer.is_done(),
+        "the enclosing child ended before the nested await returned"
+    );
+
+    outer_released.store(true, Ordering::SeqCst);
+    assert_eq!(target.join(), Exit::Success(2));
+    outer.join();
+    let inner = inner_slot.lock().unwrap().take().expect("a child was forked");
+    inner.join();
+    assert!(rt.shutdown().is_empty(), "a fiber outlived the test");
 }
 
 // ---------------------------------------------------------------------------

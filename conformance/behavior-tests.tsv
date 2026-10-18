@@ -1334,12 +1334,12 @@ unported	packages/effect/test/Effect.test.ts	2337	it.effect	delivers a pending i
 not-applicable	packages/effect/test/Effect.test.ts	2382	it.effect	region after a restored section stays uninterruptible	Effect.uninterruptibleMask is absent from crates/elm-effect/src/effect.rs (21 pub fns), so deferring a pending interrupt inside a masked region has no Rust combinator
 ported	packages/effect/test/Effect.test.ts	2434	it.effect	completes immediately when no children are forked	await_all_children_completes_immediately_without_children
 ported	packages/effect/test/Effect.test.ts	2440	it.effect	awaits children forked by the wrapped effect	await_all_children_waits_for_the_child_the_body_forked
-unported	packages/effect/test/Effect.test.ts	2457	it.effect	can be interrupted while awaiting children after success	
-unported	packages/effect/test/Effect.test.ts	2489	it.effect	can be interrupted while awaiting children after failure	
-unported	packages/effect/test/Effect.test.ts	2523	it.effect	respects an enclosing uninterruptible region while awaiting children	
-unported	packages/effect/test/Effect.test.ts	2556	it.effect	does not await children forked outside the wrapped effect	
-unported	packages/effect/test/Effect.test.ts	2568	it.effect	does not await preexisting children	
-unported	packages/effect/test/Effect.test.ts	2576	it.effect	does not await preexisting children in the same fiber	
+ported	packages/effect/test/Effect.test.ts	2457	it.effect	can be interrupted while awaiting children after success	await_all_children_is_interruptible_after_success
+ported	packages/effect/test/Effect.test.ts	2489	it.effect	can be interrupted while awaiting children after failure	await_all_children_keeps_a_body_failure_when_interrupted
+ported	packages/effect/test/Effect.test.ts	2523	it.effect	respects an enclosing uninterruptible region while awaiting children	await_all_children_respects_an_enclosing_uninterruptible_region
+ported	packages/effect/test/Effect.test.ts	2556	it.effect	does not await children forked outside the wrapped effect	await_all_children_ignores_a_child_forked_outside_it
+ported	packages/effect/test/Effect.test.ts	2568	it.effect	does not await preexisting children	await_all_children_ignores_a_preexisting_child
+ported	packages/effect/test/Effect.test.ts	2576	it.effect	does not await preexisting children in the same fiber	await_all_children_ignores_a_preexisting_child_in_the_same_fiber
 not-applicable	packages/effect/test/Effect.test.ts	2598	it.effect	is interrupted with parent	Effect.onInterrupt is absent from crates/elm-effect/src/effect.rs (21 pub fns) and forkChild/forkDetach/forkIn/forkScoped exist only as runtime methods (fiber.rs:243/291/281/260), not the effect-last forms the pin uses
 not-applicable	packages/effect/test/Effect.test.ts	2624	it.effect	is not interrupted with parent	Effect.onInterrupt is absent from crates/elm-effect/src/effect.rs (21 pub fns) and forkChild/forkDetach/forkIn/forkScoped exist only as runtime methods (fiber.rs:243/291/281/260), not the effect-last forms the pin uses
 not-applicable	packages/effect/test/Effect.test.ts	2650	it.effect	is interrupted when scope is closed	Effect.onInterrupt is absent from crates/elm-effect/src/effect.rs (21 pub fns) and forkChild/forkDetach/forkIn/forkScoped exist only as runtime methods (fiber.rs:243/291/281/260), not the effect-last forms the pin uses

@@ -48,6 +48,11 @@ impl Shared {
         }
     }
 
+    /// The fibers registered as children of `id`, as of now.
+    pub(crate) fn children_of(&self, id: FiberId) -> Vec<Arc<FiberControl>> {
+        children_of(&self.children, id)
+    }
+
     /// Request interruption for every descendant of `id`, depth first.
     ///
     /// Delivered when the interrupt is requested, not at the end of the

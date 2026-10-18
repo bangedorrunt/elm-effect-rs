@@ -8,6 +8,7 @@
 
 use crate::{Cause, Defect, Exit, Provide, Reason};
 use std::any::Any;
+use std::collections::HashSet;
 use std::marker::PhantomData;
 use std::sync::Arc;
 
@@ -286,6 +287,127 @@ where
     }
 }
 
+/// `Effect.forkChild` at the pin: fork the wrapped effect on a child of the
+/// fiber running this one and hand its handle back without waiting. The
+/// child inherits the parent's resolved services; its deferred start is the
+/// pin's default (a `yieldNow`, an await, or the parent's own completion
+/// fires it).
+#[cfg(feature = "tokio")]
+struct ForkChild<A: Send + 'static, E: Send + 'static, R: Requirement> {
+    inner: Effect<A, E, R>,
+    marker: PhantomData<fn() -> (A, E, R)>,
+}
+
+#[cfg(feature = "tokio")]
+impl<A, E, R> ErasedStep<crate::fiber::FiberHandle<A, E>, E> for ForkChild<A, E, R>
+where
+    A: Send + 'static,
+    E: Send + 'static,
+    R: Requirement,
+{
+    fn run_erased(
+        self: Box<Self>,
+        scope: &crate::service::Services,
+    ) -> Result<crate::fiber::FiberHandle<A, E>, Cause<E>> {
+        let Self { inner, .. } = *self;
+        match ambient_fiber(scope) {
+            Some(fiber) => Ok(fiber.fork_effect(inner, Arc::clone(scope))),
+            None => Err(Cause::die(Defect::new(
+                "forkChild outside a fiber: run the effect through Ctx::spawn_effect or Runtime::spawn_effect",
+            ))),
+        }
+    }
+}
+
+/// `Effect.awaitAllChildren` at the pin: wait for the children forked by the
+/// wrapped effect, then hand its outcome back.
+///
+/// "Forked by the wrapped effect" is a snapshot taken before the body runs.
+/// A child that already existed belongs to an enclosing scope, not to this
+/// effect, so it is never awaited.
+///
+/// The wait polls the fiber's flag, so an interrupt ends it at once, unless a
+/// masked region holds the depth (the pin's uninterruptible await waits the
+/// children out, then exits interrupted). A body failure is kept and the
+/// interrupt is appended to it, never substituted for it (L6).
+///
+/// Ceiling: `FiberControl` stores each child's exit erased, so a child's
+/// failure is not re-raised by the parent; the pin does propagate it. No
+/// ledger row exercises that path.
+#[cfg(feature = "tokio")]
+struct AwaitAllChildren<A: Send + 'static, E: Send + 'static, R: Requirement> {
+    inner: Effect<A, E, R>,
+    marker: PhantomData<fn() -> (A, E, R)>,
+}
+
+#[cfg(feature = "tokio")]
+impl<A, E, R> ErasedStep<A, E> for AwaitAllChildren<A, E, R>
+where
+    A: Send + 'static,
+    E: Send + 'static,
+    R: Requirement,
+{
+    fn run_erased(self: Box<Self>, scope: &crate::service::Services) -> Result<A, Cause<E>> {
+        let Self { inner, .. } = *self;
+        let Some(fiber) = ambient_fiber(scope) else {
+            return Err(Cause::die(Defect::new(
+                "awaitAllChildren outside a fiber: run the effect through Ctx::spawn_effect or Runtime::spawn_effect",
+            )));
+        };
+        let before: HashSet<u64> = fiber.children_snapshot().iter().map(|c| c.id.0).collect();
+        let out = inner.run_sync_with(scope);
+        loop {
+            // Deferred children only run once their latch fires, and the await
+            // is where the parent first yields to them.
+            fiber.drain_pending();
+            let waiting = fiber
+                .children_snapshot()
+                .iter()
+                .any(|c| !before.contains(&c.id.0) && !c.is_done());
+            // The wait ends when the children finish or when an interrupt
+            // lands. Either way the outcome goes back unchanged: the
+            // interpreter's own poll is what turns a pending interrupt into
+            // the fiber's exit, so a body failure keeps its reasons and gains
+            // the interrupt there (L6).
+            if !waiting || (fiber.is_interrupted() && !fiber.is_masked()) {
+                return out;
+            }
+            // ponytail: 1ms poll; a condvar notified by mark_done would
+            // remove it, but that touches FiberControl's done pair.
+            std::thread::park_timeout(std::time::Duration::from_millis(1));
+        }
+    }
+}
+
+/// `Effect.uninterruptible` at the pin: raise the fiber's interruptibility
+/// depth around the wrapped effect. A request made inside still records; only
+/// delivery waits for the depth to fall back to zero.
+#[cfg(feature = "tokio")]
+struct Uninterruptible<A: Send + 'static, E: Send + 'static, R: Requirement> {
+    inner: Effect<A, E, R>,
+    marker: PhantomData<fn() -> ()>,
+}
+
+#[cfg(feature = "tokio")]
+impl<A, E, R> ErasedStep<A, E> for Uninterruptible<A, E, R>
+where
+    A: Send + 'static,
+    E: Send + 'static,
+    R: Requirement,
+{
+    fn run_erased(self: Box<Self>, scope: &crate::service::Services) -> Result<A, Cause<E>> {
+        let Self { inner, .. } = *self;
+        // The depth rides on the fiber itself and is lowered by a drop guard,
+        // so a panic inside the region still restores it on unwind.
+        match ambient_fiber(scope) {
+            Some(fiber) => fiber.with_masked(|| inner.run_sync_with(scope)),
+            // No fiber (a bare `run_sync`): nothing can interrupt the run, so
+            // the region already is uninterruptible.
+            None => inner.run_sync_with(scope),
+        }
+    }
+}
+
 /// Ambient-value reader: innermost override (if any) to a value. Total by
 /// construction: the default fills a missing entry.
 pub(crate) type RefFn<A> =
@@ -552,6 +674,60 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
         Effect {
             step: Step::Suspend(Box::new(WithFiber {
                 f,
+                marker: PhantomData,
+            })),
+            services: crate::service::empty_services(),
+            marker: PhantomData,
+        }
+    }
+
+    /// `Effect.forkChild` at the pin: run this effect on a child fiber of the
+    /// one executing the current effect, and hand back its handle at once.
+    /// The child is deferred, as the pin's default is: it starts when the
+    /// parent next yields (a join, an interrupt, an `await_all_children`, or
+    /// the parent's own completion). It dies with the parent.
+    ///
+    /// Outside a fiber there is nothing to fork from, so asking is a defect.
+    #[cfg(feature = "tokio")]
+    pub fn fork_child(self) -> Effect<crate::fiber::FiberHandle<A, E>, E, R> {
+        Effect {
+            step: Step::Suspend(Box::new(ForkChild {
+                inner: self,
+                marker: PhantomData,
+            })),
+            services: crate::service::empty_services(),
+            marker: PhantomData,
+        }
+    }
+
+    /// `Effect.awaitAllChildren` at the pin: wait for the children this effect
+    /// forked, then hand its value (or its cause) back. A child forked before
+    /// this effect ran belongs to an enclosing scope and is not awaited.
+    ///
+    /// The wait is interruptible: an interrupt ends it at once and the fiber
+    /// exits interrupted, except inside an uninterruptible region, which waits
+    /// the children out and then exits interrupted.
+    #[cfg(feature = "tokio")]
+    pub fn await_all_children(self) -> Self {
+        Effect {
+            step: Step::Suspend(Box::new(AwaitAllChildren {
+                inner: self,
+                marker: PhantomData,
+            })),
+            services: crate::service::empty_services(),
+            marker: PhantomData,
+        }
+    }
+
+    /// `Effect.uninterruptible` at the pin: run this effect with the fiber's
+    /// interruptibility depth raised by one. A single combinator, no region
+    /// callback: the pin's `uninterruptibleMask(restore => ...)` needs a
+    /// `restore` this port has no `interruptible` counterpart for yet.
+    #[cfg(feature = "tokio")]
+    pub fn uninterruptible(self) -> Self {
+        Effect {
+            step: Step::Suspend(Box::new(Uninterruptible {
+                inner: self,
                 marker: PhantomData,
             })),
             services: crate::service::empty_services(),
@@ -1033,11 +1209,26 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
             // Poll between steps, never inside one: an atomic effect runs to
             // its own end, and an endless chain of `flat_map`s stops here. A
             // masked run (a release) finishes first (L7).
+            //
+            // A failure that is already in hand keeps its own reasons and
+            // gains the interrupt; only a value is discarded. Replacing the
+            // cause would lose the body's failure at exactly the boundary the
+            // pin keeps both (a failure held while awaiting children).
             if let Some(fiber) = &fiber
                 && fiber.is_interrupted()
                 && !fiber.is_masked()
             {
-                return Err(Cause::interrupt(Some(fiber.id())));
+                return match drive {
+                    Drive::Fail(mut cause) => {
+                        if !cause.is_interrupted() {
+                            cause.reasons.push(Reason::Interrupt {
+                                fiber_id: Some(fiber.id()),
+                            });
+                        }
+                        Err(cause)
+                    }
+                    _ => Err(Cause::interrupt(Some(fiber.id()))),
+                };
             }
             match drive {
                 Drive::Fail(cause) => return Err(cause),

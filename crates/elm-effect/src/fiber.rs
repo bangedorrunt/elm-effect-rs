@@ -182,7 +182,7 @@ impl FiberControl {
         Some(f())
     }
 
-    fn is_done(&self) -> bool {
+    pub(crate) fn is_done(&self) -> bool {
         *self.done.0.lock().unwrap()
     }
 
@@ -243,12 +243,83 @@ impl Drop for CurrentGuard {
 #[derive(Clone)]
 pub struct Fiber {
     control: Arc<FiberControl>,
+    /// Why a handle can spawn: [`Effect::fork_child`](crate::Effect::fork_child)
+    /// runs inside an effect, which has no `Ctx`, so the spawn entry has to
+    /// ride on the ambient fiber.
+    driver: crate::runtime::Driver,
 }
 
 impl Fiber {
     /// This fiber's id. Same value [`Ctx::id`] reports for the body.
     pub fn id(&self) -> FiberId {
         self.control.id
+    }
+
+    /// Spawn a child bound to this fiber from inside an effect. Same contract
+    /// as [`Ctx::fork_child`]: the child dies with this fiber and this fiber's
+    /// completion waits for its finalizers.
+    pub(crate) fn fork_child<A, E, F>(&self, body: F, opts: ForkOpts) -> FiberHandle<A, E>
+    where
+        A: Send + 'static,
+        E: Send + 'static,
+        F: FnOnce(&Ctx) -> Exit<A, E> + Send + 'static,
+    {
+        let mask = match opts.mask {
+            Mask::Inherit => self.control.masked_now(),
+            Mask::On => true,
+            Mask::Off => false,
+        };
+        self.driver
+            .spawn(body, Some(self.control.id), Vec::new(), opts.start, mask)
+    }
+
+    /// Run a sync-only effect as this fiber's child, inheriting `ambient` (the
+    /// services the parent's run resolved) with the fiber tag swapped for the
+    /// child's own, so `with_fiber` inside it reports the child.
+    pub(crate) fn fork_effect<A, E, R>(
+        &self,
+        effect: Effect<A, E, R>,
+        ambient: crate::service::Services,
+    ) -> FiberHandle<A, E>
+    where
+        A: Send + 'static,
+        E: Send + 'static,
+        R: crate::effect::Requirement,
+    {
+        self.fork_child(
+            move |ctx| {
+                let mut maps = (*ambient).clone();
+                maps.replace_tag(<FiberTag as crate::ServiceTag>::ID, Arc::new(ctx.fiber()));
+                let services: crate::service::Services = Arc::new(maps);
+                match effect.run_sync_with(&services) {
+                    Ok(a) => Exit::Success(a),
+                    Err(cause) => Exit::Failure(cause),
+                }
+            },
+            ForkOpts::deferred(),
+        )
+    }
+
+    /// The children registered to this fiber, as of now.
+    ///
+    /// [`Effect::await_all_children`](crate::Effect::await_all_children) takes
+    /// this snapshot before running its body: a child that was already there
+    /// belongs to an enclosing scope, not to the wrapped effect.
+    pub(crate) fn children_snapshot(&self) -> Vec<Arc<FiberControl>> {
+        self.driver.children_of(self.control.id)
+    }
+
+    /// Fire every deferred start latch. The pin's `yieldNow` does this; the
+    /// await is where a parent first gives its deferred children the CPU.
+    pub(crate) fn drain_pending(&self) {
+        self.driver.drain_pending();
+    }
+
+    /// Run `f` with this fiber's interruptibility depth raised by one, lowered
+    /// by a drop guard so a panic inside `f` still restores it.
+    pub(crate) fn with_masked<R>(&self, f: impl FnOnce() -> R) -> R {
+        let _guard = self.control.mask_guard();
+        f()
     }
 
     /// True once interruption was requested. Reads the same flag
@@ -305,6 +376,7 @@ impl Ctx {
     pub fn fiber(&self) -> Fiber {
         Fiber {
             control: Arc::clone(&self.control),
+            driver: Arc::clone(&self.driver),
         }
     }
 
