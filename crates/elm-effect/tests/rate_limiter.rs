@@ -1,0 +1,242 @@
+//! `RateLimiter` rows from `packages/effect/test/persistence/RateLimiter.test.ts`
+//! at the effect@4.0.0 pin, run against `../src/stdlib/rate_limiter.rs`.
+//!
+//! The pin drives `TestClock`; this port injects a fake clock, so the same rows
+//! run without sleeping.
+
+#[path = "../src/stdlib/rate_limiter.rs"]
+mod rate_limiter;
+
+use rate_limiter::{Algorithm, ConsumeOptions, LimiterClock, OnExceeded, RateLimiter};
+use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::time::Duration;
+
+/// Virtual milliseconds. `sleep` records what was asked for instead of parking:
+/// the rows that sleep assert the remaining count, and a parked fake clock could
+/// only be woken by a test that is itself blocked.
+struct FakeClock {
+    now: Arc<AtomicU64>,
+    slept: Arc<AtomicU64>,
+}
+
+impl FakeClock {
+    fn new() -> Self {
+        Self {
+            now: Arc::new(AtomicU64::new(0)),
+            slept: Arc::new(AtomicU64::new(0)),
+        }
+    }
+
+    fn advance(&self, duration: Duration) {
+        self.now
+            .fetch_add(duration.as_millis() as u64, Ordering::SeqCst);
+    }
+
+    fn handle(&self) -> Arc<dyn LimiterClock> {
+        Arc::new(Self {
+            now: Arc::clone(&self.now),
+            slept: Arc::clone(&self.slept),
+        })
+    }
+
+    fn slept_ms(&self) -> u64 {
+        self.slept.load(Ordering::SeqCst)
+    }
+}
+
+impl LimiterClock for FakeClock {
+    fn now_millis(&self) -> u64 {
+        self.now.load(Ordering::SeqCst)
+    }
+
+    fn sleep(&self, duration: Duration) {
+        self.slept
+            .fetch_add(duration.as_millis() as u64, Ordering::SeqCst);
+    }
+}
+
+fn minute() -> Duration {
+    Duration::from_secs(60)
+}
+
+fn options<'a>(
+    key: &'a str,
+    algorithm: Algorithm,
+    on_exceeded: OnExceeded,
+    tokens: u32,
+) -> ConsumeOptions<'a> {
+    ConsumeOptions {
+        algorithm,
+        on_exceeded,
+        key,
+        limit: 5,
+        window: minute(),
+        tokens,
+    }
+}
+
+/// RateLimiter.test.ts:10 `supports partially applied sleep`. Binding the
+/// limiter first and choosing the options later is the same call.
+#[test]
+fn rate_limiter_sleeps_partially_applied() {
+    let clock = FakeClock::new();
+    let mut limiter = RateLimiter::with_clock(clock.handle());
+    let opts = options("partial", Algorithm::FixedWindow, OnExceeded::Fail, 1);
+    let mut sleeper = limiter.sleeper();
+    let result = sleeper.call(&opts).expect("first call is admitted");
+    assert_eq!(result.remaining, 4);
+    // Admitted at once, so the sleep shape parks for nothing.
+    assert_eq!(clock.slept_ms(), 0);
+}
+
+/// RateLimiter.test.ts:26 `supports uncurried sleep`.
+#[test]
+fn rate_limiter_sleeps_uncurried() {
+    let mut limiter = RateLimiter::with_clock(FakeClock::new().handle());
+    let opts = options("direct", Algorithm::FixedWindow, OnExceeded::Fail, 1);
+    let result = rate_limiter::sleep(&mut limiter, &opts).expect("first call is admitted");
+    assert_eq!(result.remaining, 4);
+}
+
+/// RateLimiter.test.ts:105 `reports a full-window reset for an exact
+/// reservation`.
+#[test]
+fn fixed_window_reports_a_full_window_for_an_exact_reservation() {
+    let mut limiter = RateLimiter::with_clock(FakeClock::new().handle());
+    let opts = options("exact", Algorithm::FixedWindow, OnExceeded::Delay, 5);
+    let result = limiter.consume(&opts).expect("within the limit");
+    assert_eq!(result.limit, 5);
+    assert_eq!(result.remaining, 0);
+    assert_eq!(result.delay, Duration::ZERO);
+    assert_eq!(result.reset_after, minute());
+}
+
+/// RateLimiter.test.ts:60 `reports a fresh partial reset lifetime without
+/// rounding`. One token reserves its share of the window, not the whole window.
+#[test]
+fn fixed_window_reports_a_fresh_partial_reset() {
+    let mut limiter = RateLimiter::with_clock(FakeClock::new().handle());
+    let opts = options("partial", Algorithm::FixedWindow, OnExceeded::Delay, 1);
+    let result = limiter.consume(&opts).expect("within the limit");
+    assert_eq!(result.limit, 5);
+    assert_eq!(result.remaining, 4);
+    assert_eq!(result.delay, Duration::ZERO);
+    assert_eq!(result.reset_after, Duration::from_secs(12));
+}
+
+/// RateLimiter.test.ts:78 `subtracts elapsed time from reset metadata`.
+#[test]
+fn fixed_window_subtracts_elapsed_time_from_the_reset() {
+    let clock = FakeClock::new();
+    let mut limiter = RateLimiter::with_clock(clock.handle());
+    let four = options("elapsed", Algorithm::FixedWindow, OnExceeded::Delay, 4);
+    limiter.consume(&four).expect("within the limit");
+
+    clock.advance(Duration::from_secs(10));
+    let one = options("elapsed", Algorithm::FixedWindow, OnExceeded::Delay, 1);
+    let result = limiter.consume(&one).expect("within the limit");
+    assert_eq!(result.limit, 5);
+    assert_eq!(result.remaining, 0);
+    assert_eq!(result.delay, Duration::ZERO);
+    assert_eq!(result.reset_after, Duration::from_secs(50));
+}
+
+/// RateLimiter.test.ts:105 `reports the exact reserved lifetime without
+/// changing overflow delay`. Six single-token calls reserve six shares, so the
+/// overflow delay is one window and the reset metadata is 72s, not 60s.
+#[test]
+fn fixed_window_reports_the_exact_reserved_lifetime() {
+    let mut limiter = RateLimiter::with_clock(FakeClock::new().handle());
+    let opts = options("overflow", Algorithm::FixedWindow, OnExceeded::Delay, 1);
+    for _ in 0..5 {
+        limiter.consume(&opts).expect("delay mode never fails");
+    }
+    let result = limiter.consume(&opts).expect("delay mode never fails");
+    assert_eq!(result.limit, 5);
+    assert_eq!(result.remaining, -1);
+    assert_eq!(result.delay, minute());
+    assert_eq!(result.reset_after, Duration::from_secs(72));
+}
+
+/// RateLimiter.test.ts:125 `returns accumulated delays after the fixed window is
+/// exceeded`. The delay steps a whole window per full window of excess, and
+/// elapsed time eats into it.
+#[test]
+fn fixed_window_accumulates_delays_after_the_window_is_exceeded() {
+    let clock = FakeClock::new();
+    let mut limiter = RateLimiter::with_clock(clock.handle());
+    let opts = options("a", Algorithm::FixedWindow, OnExceeded::Delay, 1);
+
+    // 1 + 3
+    for _ in 0..4 {
+        limiter.consume(&opts).expect("delay mode never fails");
+    }
+    let mut result = limiter.consume(&opts).expect("delay mode never fails"); // 5
+    assert_eq!(result.delay, Duration::ZERO);
+    result = limiter.consume(&opts).expect("delay mode never fails"); // 6
+    assert_eq!(result.delay, minute());
+
+    for _ in 0..3 {
+        limiter.consume(&opts).expect("delay mode never fails"); // 7, 8, 9
+    }
+    result = limiter.consume(&opts).expect("delay mode never fails"); // 10
+    assert_eq!(result.delay, minute());
+    result = limiter.consume(&opts).expect("delay mode never fails"); // 11
+    assert_eq!(result.delay, Duration::from_secs(120));
+
+    clock.advance(Duration::from_secs(30));
+    result = limiter.consume(&opts).expect("delay mode never fails"); // 12
+    assert_eq!(result.delay, Duration::from_secs(90));
+
+    clock.advance(Duration::from_secs(45));
+    result = limiter.consume(&opts).expect("delay mode never fails"); // 13
+    assert_eq!(result.delay, Duration::from_secs(45));
+}
+
+/// RateLimiter.test.ts:202 `returns delay based on the token refill rate`.
+#[test]
+fn token_bucket_returns_the_refill_rate_as_delay() {
+    let clock = FakeClock::new();
+    let mut limiter = RateLimiter::with_clock(clock.handle());
+    let opts = options("a", Algorithm::TokenBucket, OnExceeded::Delay, 1);
+    let refill = Duration::from_secs(12);
+
+    for _ in 0..4 {
+        limiter.consume(&opts).expect("delay mode never fails"); // 1 + 3
+    }
+    let mut result = limiter.consume(&opts).expect("delay mode never fails"); // 5
+    assert_eq!(result.delay, Duration::ZERO);
+    result = limiter.consume(&opts).expect("delay mode never fails"); // 6
+    assert_eq!(result.delay, refill);
+    result = limiter.consume(&opts).expect("delay mode never fails"); // 7
+    assert_eq!(result.delay, refill * 2);
+
+    clock.advance(minute());
+    result = limiter.consume(&opts).expect("delay mode never fails");
+    assert_eq!(result.delay, Duration::ZERO);
+    assert_eq!(result.remaining, 2);
+}
+
+/// RateLimiter.test.ts:231 `fails until enough tokens are refilled`.
+#[test]
+fn token_bucket_fails_until_enough_tokens_refill() {
+    let clock = FakeClock::new();
+    let mut limiter = RateLimiter::with_clock(clock.handle());
+    let opts = options("a", Algorithm::TokenBucket, OnExceeded::Fail, 1);
+
+    for _ in 0..4 {
+        limiter.consume(&opts).expect("within the limit"); // 1 + 3
+    }
+    let result = limiter.consume(&opts).expect("within the limit"); // 5
+    assert_eq!(result.delay, Duration::ZERO);
+
+    let error = limiter.consume(&opts).expect_err("bucket is empty"); // 6
+    assert_eq!(error.retry_after, Duration::from_secs(12));
+    assert_eq!(error.remaining, 0);
+
+    clock.advance(Duration::from_secs(36));
+    let result = limiter.consume(&opts).expect("three tokens refilled");
+    assert_eq!(result.delay, Duration::ZERO);
+    assert_eq!(result.remaining, 2);
+}

@@ -7160,16 +7160,16 @@ ported	packages/effect/test/persistence/PersistedQueueTest.ts	248	it.effect	clea
 ported	packages/effect/test/persistence/PersistedQueueTest.ts	273	it.effect	cleanup removes failed elements only with failedTimeToLive	queue_cleanup_removes_failed_elements_only_with_failed_time_to_live
 ported	packages/effect/test/persistence/PersistedQueueTest.ts	302	it.effect	cleanup keeps dedupe entries for unprocessed elements	queue_cleanup_keeps_dedupe_entries_for_unprocessed_elements
 ported	packages/effect/test/persistence/PersistedQueueTest.ts	325	it.effect	processes concurrent elements exactly once with retries	queue_processes_elements_exactly_once_with_retries
-unported	packages/effect/test/persistence/RateLimiter.test.ts	10	it.effect	supports partially applied sleep	
-unported	packages/effect/test/persistence/RateLimiter.test.ts	26	it.effect	supports uncurried sleep	
+ported	packages/effect/test/persistence/RateLimiter.test.ts	10	it.effect	supports partially applied sleep	rate_limiter_sleeps_partially_applied
+ported	packages/effect/test/persistence/RateLimiter.test.ts	26	it.effect	supports uncurried sleep	rate_limiter_sleeps_uncurried
 ported	packages/effect/test/persistence/RateLimiter.test.ts	42	it.effect	reports a full-window reset for an exact reservation	limiter_fixed_window_reset
-unported	packages/effect/test/persistence/RateLimiter.test.ts	60	it.effect	reports a fresh partial reset lifetime without rounding	
-unported	packages/effect/test/persistence/RateLimiter.test.ts	78	it.effect	subtracts elapsed time from reset metadata	
-unported	packages/effect/test/persistence/RateLimiter.test.ts	105	it.effect	reports the exact reserved lifetime without changing overflow delay	
-unported	packages/effect/test/persistence/RateLimiter.test.ts	125	it.effect	returns accumulated delays after the fixed window is exceeded	
+ported	packages/effect/test/persistence/RateLimiter.test.ts	60	it.effect	reports a fresh partial reset lifetime without rounding	fixed_window_reports_a_fresh_partial_reset
+ported	packages/effect/test/persistence/RateLimiter.test.ts	78	it.effect	subtracts elapsed time from reset metadata	fixed_window_subtracts_elapsed_time_from_the_reset
+ported	packages/effect/test/persistence/RateLimiter.test.ts	105	it.effect	reports the exact reserved lifetime without changing overflow delay	fixed_window_reports_the_exact_reserved_lifetime
+ported	packages/effect/test/persistence/RateLimiter.test.ts	125	it.effect	returns accumulated delays after the fixed window is exceeded	fixed_window_accumulates_delays_after_the_window_is_exceeded
 ported	packages/effect/test/persistence/RateLimiter.test.ts	161	it.effect	fails with retryAfter until the fixed window resets	limiter_fixed_window_reset
-unported	packages/effect/test/persistence/RateLimiter.test.ts	202	it.effect	returns delay based on the token refill rate	
-unported	packages/effect/test/persistence/RateLimiter.test.ts	231	it.effect	fails until enough tokens are refilled	
+ported	packages/effect/test/persistence/RateLimiter.test.ts	202	it.effect	returns delay based on the token refill rate	token_bucket_returns_the_refill_rate_as_delay
+ported	packages/effect/test/persistence/RateLimiter.test.ts	231	it.effect	fails until enough tokens are refilled	token_bucket_fails_until_enough_tokens_refill
 unported	packages/effect/test/persistence/RateLimiter.test.ts	264	it.effect	uses the inactive store path until 429 Retry-After feedback	
 unported	packages/effect/test/persistence/RateLimiter.test.ts	308	it.effect	starts cooldown on the first 429 Retry-After feedback	
 unported	packages/effect/test/persistence/RateLimiter.test.ts	349	it.effect	clamps zero Retry-After feedback to the minimum cooldown	
