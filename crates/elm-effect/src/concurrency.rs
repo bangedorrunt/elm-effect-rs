@@ -186,6 +186,133 @@ where
     }
 }
 
+/// `Effect.all(..., { discard: true })`: the same fan-out with its results
+/// dropped. A failure is still the run's failure.
+pub fn all_discard<A, E>(
+    rt: &Runtime,
+    bodies: Vec<Body<A, E>>,
+    concurrency: Concurrency,
+) -> Exit<(), E>
+where
+    A: Send + 'static,
+    E: Send + 'static,
+{
+    match all(rt, bodies, concurrency) {
+        Exit::Success(_) => Exit::Success(()),
+        Exit::Failure(cause) => Exit::Failure(cause),
+    }
+}
+
+/// Run every body and collect its exit, with at most `bound` alive at a time.
+/// Unlike [`all_bounded`] nothing is interrupted and no exit is dropped.
+fn tolerant_bounded<A, E>(
+    rt: &Runtime,
+    bodies: Vec<Body<A, E>>,
+    bound: usize,
+) -> Vec<Exit<A, E>>
+where
+    A: Send + 'static,
+    E: Send + 'static,
+{
+    let mut exits = Vec::new();
+    let mut pending = bodies.into_iter();
+    loop {
+        let batch: Vec<Body<A, E>> = pending.by_ref().take(bound.max(1)).collect();
+        if batch.is_empty() {
+            return exits;
+        }
+        let handles: Vec<_> = batch
+            .into_iter()
+            .map(|body| rt.fork_detach_with(body, ForkOpts::immediate()))
+            .collect();
+        for handle in handles {
+            exits.push(handle.join());
+        }
+    }
+}
+
+/// `Effect.all(..., { mode: "result" })`: every body runs, and a body whose
+/// cause is exactly its typed failure comes back as `Err` instead of failing
+/// the run.
+///
+/// A defect or an interrupt is not the caller's typed error and cannot be
+/// handed back as a value, so one of those still fails the run (the other
+/// results are dropped, as the pin drops them).
+pub fn all_result<A, E>(
+    rt: &Runtime,
+    bodies: Vec<Body<A, E>>,
+    concurrency: Concurrency,
+) -> Exit<Vec<Result<A, E>>, E>
+where
+    A: Send + 'static,
+    E: Send + Clone + 'static,
+{
+    let bound = match concurrency {
+        Concurrency::Sequential | Concurrency::Bounded(0) => 1,
+        Concurrency::Bounded(n) => n,
+        Concurrency::Unbounded => bodies.len().max(1),
+    };
+    let mut results = Vec::with_capacity(bodies.len());
+    let mut hard: Option<Cause<E>> = None;
+    for exit in tolerant_bounded(rt, bodies, bound) {
+        match exit {
+            Exit::Success(value) => results.push(Some(Ok(value))),
+            Exit::Failure(cause) => {
+                let typed_only = cause.has_fails() && !cause.has_dies() && !cause.has_interrupts();
+                match cause.failure().filter(|_| typed_only) {
+                    Some(error) => results.push(Some(Err(error.clone()))),
+                    None => {
+                        hard = hard.or(Some(cause));
+                        results.push(None);
+                    }
+                }
+            }
+        }
+    }
+    match hard {
+        Some(cause) => Exit::Failure(cause),
+        None => Exit::Success(
+            results
+                .into_iter()
+                .map(|result| result.expect("every body was captured"))
+                .collect(),
+        ),
+    }
+}
+
+/// `Effect.all(record, { mode: "result" })`: the same as [`all_result`] with
+/// the record's keys carried alongside their results, in insertion order.
+pub fn all_result_record<A, E>(
+    rt: &Runtime,
+    entries: Vec<(String, Body<A, E>)>,
+    concurrency: Concurrency,
+) -> Exit<Vec<(String, Result<A, E>)>, E>
+where
+    A: Send + 'static,
+    E: Send + Clone + 'static,
+{
+    let keys: Vec<String> = entries.iter().map(|(key, _)| key.clone()).collect();
+    let bodies: Vec<Body<A, E>> = entries.into_iter().map(|(_, body)| body).collect();
+    match all_result(rt, bodies, concurrency) {
+        Exit::Success(results) => Exit::Success(keys.into_iter().zip(results).collect()),
+        Exit::Failure(cause) => Exit::Failure(cause),
+    }
+}
+
+/// `Effect.head`: the first element of a collection, or `on_empty`'s error.
+///
+/// The builder is explicit because the pin's default (`NoSuchElementError`) is
+/// the caller's error type here; a source failure passes through untouched.
+pub fn head<A, E>(items: Exit<Vec<A>, E>, on_empty: impl FnOnce() -> E) -> Exit<A, E> {
+    match items {
+        Exit::Success(values) => match values.into_iter().next() {
+            Some(first) => Exit::Success(first),
+            None => Exit::Failure(Cause::fail(on_empty())),
+        },
+        Exit::Failure(cause) => Exit::Failure(cause),
+    }
+}
+
 /// Run `f` over every item with `all`'s bounds, collecting in order.
 pub fn for_each<T, A, E>(
     rt: &Runtime,

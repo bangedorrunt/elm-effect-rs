@@ -1238,16 +1238,16 @@ unported	packages/effect/test/Effect.test.ts	818	it.effect	interrupts started wo
 unported	packages/effect/test/Effect.test.ts	844	it.effect	preserves a sibling cleanup defect when the mapper throws	
 unported	packages/effect/test/Effect.test.ts	871	it.effect	interrupts started workers when observer-driven refill throws	
 ported	packages/effect/test/Effect.test.ts	901	it.effect	length = 0	crates/elm-effect/tests/effect_collections.rs::for_each_over_no_items_yields_an_empty_result
-unported	packages/effect/test/Effect.test.ts	907	it.effect	string	
-unported	packages/effect/test/Effect.test.ts	915	it.effect	returns the first element	
-unported	packages/effect/test/Effect.test.ts	921	it.effect	fails with NoSuchElementError for an empty iterable	
-unported	packages/effect/test/Effect.test.ts	927	it.effect	preserves the source failure	
+ported	packages/effect/test/Effect.test.ts	907	it.effect	string	for_each_over_a_string_visits_its_characters
+ported	packages/effect/test/Effect.test.ts	915	it.effect	returns the first element	head_returns_the_first_element
+ported	packages/effect/test/Effect.test.ts	921	it.effect	fails with NoSuchElementError for an empty iterable	head_fails_with_no_such_element_for_an_empty_iterable
+ported	packages/effect/test/Effect.test.ts	927	it.effect	preserves the source failure	head_preserves_the_source_failure
 ported	packages/effect/test/Effect.test.ts	936	it.effect	tuple	all_collects_the_success_tuple
 ported	packages/effect/test/Effect.test.ts	950	it.effect	record	all_collects_the_success_record
-unported	packages/effect/test/Effect.test.ts	968	it.effect	record discard	
-unported	packages/effect/test/Effect.test.ts	978	it.effect	iterable	
-unported	packages/effect/test/Effect.test.ts	990	it.effect	tuple result mode	
-unported	packages/effect/test/Effect.test.ts	1021	it.effect	record result mode	
+ported	packages/effect/test/Effect.test.ts	968	it.effect	record discard	all_discard_drops_the_results_but_runs_every_body
+ported	packages/effect/test/Effect.test.ts	978	it.effect	iterable	all_runs_over_any_iterable
+ported	packages/effect/test/Effect.test.ts	990	it.effect	tuple result mode	all_result_mode_collects_a_failure_as_a_value
+ported	packages/effect/test/Effect.test.ts	1021	it.effect	record result mode	all_result_mode_keys_its_results
 unported	packages/effect/test/Effect.test.ts	1039	it.effect	concurrency interrupts started siblings on failure	
 ported	packages/effect/test/Effect.test.ts	1070	it.effect	collects only successes	partition_collects_only_successes
 ported	packages/effect/test/Effect.test.ts	1078	it.effect	collects only failures	partition_collects_only_failures

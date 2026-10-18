@@ -11,8 +11,9 @@ use std::sync::Arc;
 use std::sync::Mutex;
 
 use elm_effect::{
-    Concurrency, Exit, Runtime, find_first, find_first_filter, partition_items, reduce,
-    validate_discard_items, validate_items,
+    Body, Cause, CauseError, Concurrency, Ctx, Defect, Exit, Runtime, all, all_discard, all_result,
+    all_result_record, find_first, find_first_filter, is_no_such_element_error, partition_items,
+    reduce, validate_discard_items, validate_items,
 };
 
 fn items(values: &[u32]) -> Vec<u32> {
@@ -349,4 +350,162 @@ fn for_each_over_no_items_yields_an_empty_result() {
         Exit::succeed(item)
     });
     assert_eq!(exit, Exit::Success(Vec::<u32>::new()));
+}
+
+// ---------------------------------------------------------------------------
+// forEach over a string, head, and all's discard/result modes
+// ---------------------------------------------------------------------------
+
+#[test]
+fn for_each_over_a_string_visits_its_characters() {
+    // Effect.forEach("abc", Effect.succeed) === ["a", "b", "c"]
+    let rt = Runtime::new();
+    let exit = elm_effect::for_each::<char, char, u32>(
+        &rt,
+        "abc".chars().collect(),
+        Concurrency::Sequential,
+        |item, _ctx| Exit::succeed(item),
+    );
+    assert_eq!(exit, Exit::Success(vec!['a', 'b', 'c']));
+}
+
+#[test]
+fn head_returns_the_first_element() {
+    let exit = elm_effect::head(Exit::<Vec<u32>, u32>::succeed(vec![1, 2, 3]), || 0);
+    assert_eq!(exit, Exit::Success(1));
+}
+
+#[test]
+fn head_fails_with_no_such_element_for_an_empty_iterable() {
+    let exit = elm_effect::head(Exit::<Vec<u32>, CauseError>::succeed(Vec::new()), || {
+        CauseError::no_such_element("head")
+    });
+    match exit {
+        Exit::Failure(cause) => {
+            let error = cause.failure().expect("a typed failure") as &dyn std::any::Any;
+            assert!(is_no_such_element_error(Some(error)));
+        }
+        Exit::Success(_) => panic!("an empty collection has no head"),
+    }
+}
+
+#[test]
+fn head_preserves_the_source_failure() {
+    let exit = elm_effect::head(Exit::<Vec<u32>, &str>::fail("failure"), || "empty");
+    match exit {
+        Exit::Failure(cause) => assert_eq!(cause.failure(), Some(&"failure")),
+        Exit::Success(_) => panic!("the source failed"),
+    }
+}
+
+#[test]
+fn all_discard_drops_the_results_but_runs_every_body() {
+    let rt = Runtime::new();
+    let executed = Arc::new(Mutex::new(Vec::new()));
+    let bodies: Vec<Body<u32, u32>> = (1..=3)
+        .map(|i| {
+            let executed = Arc::clone(&executed);
+            Box::new(move |_ctx: &Ctx| {
+                executed.lock().unwrap().push(i);
+                Exit::succeed(i as u32)
+            }) as Body<u32, u32>
+        })
+        .collect();
+    let exit = all_discard(&rt, bodies, Concurrency::Sequential);
+    assert_eq!(exit, Exit::Success(()));
+    assert_eq!(*executed.lock().unwrap(), [1, 2, 3]);
+}
+
+#[test]
+fn all_runs_over_any_iterable() {
+    // Effect.all(new Set([...])) — a non-Vec iterable is collected first.
+    let rt = Runtime::new();
+    let values: Vec<u32> = std::collections::BTreeSet::from([1, 2, 3]).into_iter().collect();
+    let bodies: Vec<Body<u32, u32>> = values
+        .into_iter()
+        .map(|value| Box::new(move |_ctx: &Ctx| Exit::succeed(value)) as Body<u32, u32>)
+        .collect();
+    let exit = all(&rt, bodies, Concurrency::Sequential);
+    assert_eq!(exit, Exit::Success(vec![1, 2, 3]));
+}
+
+#[test]
+fn all_result_mode_collects_a_failure_as_a_value() {
+    // The failing body still runs, and the ones after it do too: mode "result"
+    // never interrupts the fan-out.
+    let rt = Runtime::new();
+    let executed = Arc::new(Mutex::new(Vec::new()));
+    let make = |i: u32, fail: bool| {
+        let executed = Arc::clone(&executed);
+        Box::new(move |_ctx: &Ctx| {
+            executed.lock().unwrap().push(i);
+            if fail {
+                Exit::fail("boom")
+            } else {
+                Exit::succeed(i)
+            }
+        }) as Body<u32, &'static str>
+    };
+    let exit = all_result(
+        &rt,
+        vec![make(1, false), make(2, true), make(3, false)],
+        Concurrency::Sequential,
+    );
+    assert_eq!(
+        exit,
+        Exit::Success(vec![Ok(1), Err("boom"), Ok(3)])
+    );
+    assert_eq!(*executed.lock().unwrap(), [1, 2, 3]);
+}
+
+#[test]
+fn all_result_mode_keys_its_results() {
+    let rt = Runtime::new();
+    let entries: Vec<(String, Body<u32, &'static str>)> = vec![
+        (
+            "a".to_owned(),
+            Box::new(|_ctx: &Ctx| Exit::succeed(1u32)) as Body<u32, &'static str>,
+        ),
+        (
+            "b".to_owned(),
+            Box::new(|_ctx: &Ctx| Exit::fail("boom")) as Body<u32, &'static str>,
+        ),
+        (
+            "c".to_owned(),
+            Box::new(|_ctx: &Ctx| Exit::succeed(3u32)) as Body<u32, &'static str>,
+        ),
+    ];
+    let exit = all_result_record(&rt, entries, Concurrency::Sequential);
+    assert_eq!(
+        exit,
+        Exit::Success(vec![
+            ("a".to_owned(), Ok(1)),
+            ("b".to_owned(), Err("boom")),
+            ("c".to_owned(), Ok(3)),
+        ])
+    );
+}
+
+#[test]
+fn all_result_mode_still_fails_the_run_on_a_defect() {
+    // A defect is not the caller's typed error, so it cannot come back as a
+    // value: the run fails and the other results are dropped. A cause carrying
+    // both a failure and a defect counts as a defect for the same reason: the
+    // typed failure inside it must not swallow the defect.
+    let rt = Runtime::new();
+    let bodies: Vec<Body<u32, &'static str>> = vec![Box::new(|_ctx: &Ctx| {
+        Exit::Failure(Cause::die(Defect::new("boom")))
+    })];
+    match all_result(&rt, bodies, Concurrency::Sequential) {
+        Exit::Failure(cause) => assert!(cause.has_dies()),
+        Exit::Success(_) => panic!("a defect must fail the run"),
+    }
+
+    let bodies: Vec<Body<u32, &'static str>> = vec![Box::new(|_ctx: &Ctx| {
+        Exit::Failure(Cause::fail("typed").combine(Cause::die(Defect::new("boom"))))
+    })];
+    match all_result(&rt, bodies, Concurrency::Sequential) {
+        Exit::Failure(cause) => assert!(cause.has_dies()),
+        Exit::Success(_) => panic!("a mixed cause must fail the run"),
+    }
 }

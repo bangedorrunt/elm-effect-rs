@@ -74,9 +74,10 @@ pub use cause::{
 };
 #[cfg(feature = "tokio")]
 pub use concurrency::{
-    BOUNDED_RECV_TIMEOUT, Body, Concurrency, all, all_with_deadline, find_first,
-    find_first_filter, for_each, partition, partition_items, partition_with_deadline, reduce,
-    validate, validate_discard, validate_discard_items, validate_items,
+    BOUNDED_RECV_TIMEOUT, Body, Concurrency, all, all_discard, all_result, all_result_record,
+    all_with_deadline, find_first, find_first_filter, for_each, head, partition, partition_items,
+    partition_with_deadline, reduce, validate, validate_discard, validate_discard_items,
+    validate_items,
 };
 pub use context::{Context, ContextReference, Tag};
 pub use effect::{Effect, Requirement};
