@@ -22,6 +22,28 @@ const NATIVE: &[&str] = &[
     "Unify",
 ];
 
+/// The ledger's own header is the row count the generator wrote. A row that
+/// silently disappears (or a shifted one that parses) has to be caught here,
+/// because every downstream tool trusts the file's shape.
+#[test]
+fn the_declared_behavior_count_matches_the_parsed_rows() {
+    let root = repo_root();
+    let path = root.join("conformance/behavior-tests.tsv");
+    let text = fs::read_to_string(&path).unwrap();
+    let declared: usize = text
+        .lines()
+        .find_map(|line| line.strip_prefix("# behaviors "))
+        .and_then(|count| count.trim().parse().ok())
+        .expect("no `# behaviors N` header");
+    let rows = Behavior::load(&path).unwrap();
+    assert_eq!(
+        declared,
+        rows.len(),
+        "header declares {declared} rows, the file parses {}",
+        rows.len()
+    );
+}
+
 #[test]
 fn ledger_is_well_formed() {
     let root = repo_root();

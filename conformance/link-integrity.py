@@ -99,6 +99,27 @@ def open_row_files(path: str) -> set[str]:
     return files
 
 
+def uncarried_row_files(path: str) -> set[str]:
+    """Files whose rows no crate carries: open, or excused on a reason.
+
+    The staleness arm used to read `unported` alone, so a ledger where every
+    remaining row was not-applicable reported every recorded file as stale and
+    the check could not go green at all: it failed with 25 stale entries at the
+    commit before the excuse audit. An excused row still names no Rust test, so
+    the file still hides work the phase-13 gate cannot count, and the entry that
+    records it is not stale.
+    """
+    files: set[str] = set()
+    with open(path, encoding="utf-8") as handle:
+        for line in handle:
+            if line.startswith("#") or line.startswith("status\t"):
+                continue
+            fields = line.rstrip("\n").split("\t")
+            if len(fields) >= 6 and fields[0] in ("unported", "not-applicable"):
+                files.add(fields[1])
+    return files
+
+
 def recorded_unowned(path: str) -> dict[str, str]:
     """The hand-kept list of open-row test files no path rule can link."""
     if not path:
@@ -146,14 +167,17 @@ def main(argv: list[str]) -> int:
             linked.setdefault(test, []).append(module)
 
     open_files = open_row_files(LEDGER)
+    uncarried_files = uncarried_row_files(LEDGER)
     recorded = recorded_unowned(UNOWNED)
 
     for path in sorted(open_files - set(linked) - set(recorded)):
         failures.append(
             f"{path}: open behavior rows, linked to no module row and not recorded unowned"
         )
-    for path in sorted(set(recorded) - open_files):
-        failures.append(f"{path}: recorded unowned but carries no open rows (stale entry)")
+    for path in sorted(set(recorded) - uncarried_files):
+        failures.append(
+            f"{path}: recorded unowned but every row is carried (stale entry)"
+        )
     for path in sorted(set(recorded) & set(linked)):
         failures.append(
             f"{path}: recorded unowned but linked by {', '.join(sorted(linked[path]))}"

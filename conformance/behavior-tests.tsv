@@ -553,7 +553,7 @@ ported	packages/effect/test/Channel.test.ts	267	it.effect	map	channel_map_transf
 not-applicable	packages/effect/test/Channel.test.ts	276	it.effect	mapEffect interrupts the running effect when the channel is interrupted	Channel::map_effect (crates/elm-effect/src/channel.rs:104) takes FnMut(A) -> Result<B,E>, synchronous and fallible, and Effect::onInterrupt is absent from the crate, so there is no running effect to interrupt
 not-applicable	packages/effect/test/Channel.test.ts	297	it.effect	mapEffect - interrupts pending tasks on failure	Channel::map_effect (crates/elm-effect/src/channel.rs:104) is synchronous and fallible, so it has no pending tasks to interrupt, and Effect::onInterrupt is absent from the crate
 ported	packages/effect/test/Channel.test.ts	338	it.effect	filterMap with Filter	channel_filter_map_recovers
-not-applicable	packages/effect/test/Channel.test.ts	348	it.effect	filterMapEffect with FilterEffect	Channel.filterMapEffect is absent from crates/elm-effect/src/channel.rs, and Filter.makeEffect/filter_effect is absent from the crate
+not-applicable	packages/effect/test/Channel.test.ts	348	it.effect	filterMapEffect with FilterEffect	channel.rs's filter_map_effect (crates/elm-effect/src/channel.rs:141) takes a synchronous predicate, not the pin's FilterEffect: Filter.makeEffect/filter_effect is absent from the crate
 ported	packages/effect/test/Channel.test.ts	360	it.effect	decodeText handles multi-byte characters split across Uint8Array boundaries	channel_decode_text_reassembles_split_characters
 ported	packages/effect/test/Channel.test.ts	376	it.effect	merge - interrupts left side if halt strategy is set to 'right'	merge_halt_strategies
 ported	packages/effect/test/Channel.test.ts	396	it.effect	merge - interrupts right side if halt strategy is set to 'left'	merge_halt_strategies
@@ -1190,16 +1190,16 @@ not-applicable	packages/effect/test/Effect.test.ts	226	it.effect	evaluates asEff
 not-applicable	packages/effect/test/Effect.test.ts	244	it	should pass structural comparison	assert.deepEqual over two Effects needs structural comparison; Effect (crates/elm-effect/src/effect.rs:128) carries boxed closures and derives no PartialEq, so there is no structural equality to assert
 not-applicable	packages/effect/test/Effect.test.ts	247	it	should fail structural comparison	same gap: Effect (crates/elm-effect/src/effect.rs:128) derives no PartialEq, so the structural inequality of succeed(0) and succeed(1) cannot be asserted
 not-applicable	packages/effect/test/Effect.test.ts	253	it	terminal root failure captures stack frame	Effect.runForkWith is absent from crates/elm-effect/src/effect.rs (21 pub fns) and the row's custom Scheduler has no Rust analog, so the terminal root stack frame cannot be captured
-not-applicable	packages/effect/test/Effect.test.ts	270	it.effect	caught sandboxed failure captures stack frame	Effect.sandbox and Effect.withSpan are absent from crates/elm-effect/src/effect.rs (21 pub fns, neither present), so the caught sandboxed failure's stack frame cannot be observed
-not-applicable	packages/effect/test/Effect.test.ts	282	it	failure without a current frame has no stack annotation and reuses the original exit	Effect.runFork is absent from crates/elm-effect/src/effect.rs (21 pub fns), so the row's fiber-level exit reuse cannot be observed
+unported	packages/effect/test/Effect.test.ts	270	it.effect	caught sandboxed failure captures stack frame	
+unported	packages/effect/test/Effect.test.ts	282	it	failure without a current frame has no stack annotation and reuses the original exit	
 not-applicable	packages/effect/test/Effect.test.ts	294	it	callback can branch over sync/async	Effect.callback is absent from crates/elm-effect/src/effect.rs (21 pub fns) and so are runPromise and runSync, so the sync/async branch has no Rust constructor
 not-applicable	packages/effect/test/Effect.test.ts	310	it	runPromise	Effect.runPromise is absent from crates/elm-effect/src/effect.rs (21 pub fns); the edge here is Runtime::run (crates/elm-effect/src/runtime.rs:286), which returns an Exit rather than a promise
 not-applicable	packages/effect/test/Effect.test.ts	315	it	acquireUseRelease interrupt	Effect.acquireUseRelease is absent from crates/elm-effect/src/effect.rs (21 pub fns) and so are runFork, runPromise and delay, so the interrupt row has no Rust constructor
 not-applicable	packages/effect/test/Effect.test.ts	342	it.effect	acquireUseRelease runs release when use throws	Effect.acquireUseRelease is absent from crates/elm-effect/src/effect.rs (21 pub fns), so release-when-use-throws cannot be carried
 not-applicable	packages/effect/test/Effect.test.ts	370	it	acquireUseRelease uninterruptible	Effect.acquireUseRelease, Effect.delay, Effect.uninterruptible and runPromise are all absent from crates/elm-effect/src/effect.rs (21 pub fns)
-not-applicable	packages/effect/test/Effect.test.ts	398	it.effect	Context.Service	Effect.provideService and Effect.tap are absent from crates/elm-effect/src/effect.rs (21 pub fns, neither present), so the Context.Service row cannot be carried
+unported	packages/effect/test/Effect.test.ts	398	it.effect	Context.Service	
 ported	packages/effect/test/Effect.test.ts	405	it.effect	from a some	from_option_some_succeeds
-not-applicable	packages/effect/test/Effect.test.ts	411	it.effect	from a none	Effect.flip and Effect.tap are absent from crates/elm-effect/src/effect.rs (21 pub fns, neither present); from_option exists (effect.rs:186) but takes an explicit on_none and there is no NoSuchElementError default to assert
+unported	packages/effect/test/Effect.test.ts	411	it.effect	from a none	
 ported	packages/effect/test/Effect.test.ts	418	it.effect	from a none with a custom error	from_option_none_fails_with_the_supplied_error
 ported	packages/effect/test/Effect.test.ts	425	it.effect	from a none with a custom error data-last	from_option_none_fails_with_the_supplied_error
 ported	packages/effect/test/Effect.test.ts	437	it.effect	transposes a none	transpose_option_none_succeeds_with_none
@@ -1228,27 +1228,27 @@ not-applicable	packages/effect/test/Effect.test.ts	679	it	iterator yields the ef
 ported	packages/effect/test/Effect.test.ts	691	it.effect	sequential	for_each_sequential_preserves_input_order
 ported	packages/effect/test/Effect.test.ts	697	it.effect	unbounded	for_each_unbounded_runs_every_item
 ported	packages/effect/test/Effect.test.ts	703	it.effect	bounded	for_each_bounded_respects_the_bound
-not-applicable	packages/effect/test/Effect.test.ts	709	it.effect	sequential interrupt	Effect.forEach and Effect.delay are absent from crates/elm-effect/src/effect.rs (21 pub fns, neither present) and the row drives a TestClock, so the interrupt scheduling cannot be carried
-not-applicable	packages/effect/test/Effect.test.ts	724	it.effect	unbounded interrupt	Effect.forEach and Effect.delay are absent from crates/elm-effect/src/effect.rs (21 pub fns, neither present) and the row drives a TestClock, so the interrupt scheduling cannot be carried
-not-applicable	packages/effect/test/Effect.test.ts	739	it.effect	bounded interrupt	Effect.forEach and Effect.delay are absent from crates/elm-effect/src/effect.rs (21 pub fns, neither present) and the row drives a TestClock, so the interrupt scheduling cannot be carried
-not-applicable	packages/effect/test/Effect.test.ts	754	it.effect	preserves interruption when a child cleanup dies	Effect.forEach, Effect.onInterrupt and Effect.never are all absent from crates/elm-effect/src/effect.rs (21 pub fns), so the sibling-cleanup and mapper-throw interrupt rows have no Rust combinator
-not-applicable	packages/effect/test/Effect.test.ts	772	it.effect	preserves a recorded sibling failure on external interruption	Effect.forEach, Effect.onInterrupt and Effect.never are all absent from crates/elm-effect/src/effect.rs (21 pub fns), so the sibling-cleanup and mapper-throw interrupt rows have no Rust combinator
-not-applicable	packages/effect/test/Effect.test.ts	802	it.effect	unbounded fail	Effect.forEach, Effect.onInterrupt and Effect.never are all absent from crates/elm-effect/src/effect.rs (21 pub fns), so the sibling-cleanup and mapper-throw interrupt rows have no Rust combinator
-not-applicable	packages/effect/test/Effect.test.ts	818	it.effect	interrupts started workers when the mapper throws during initial pumping	Effect.forEach, Effect.onInterrupt and Effect.never are all absent from crates/elm-effect/src/effect.rs (21 pub fns), so the sibling-cleanup and mapper-throw interrupt rows have no Rust combinator
-not-applicable	packages/effect/test/Effect.test.ts	844	it.effect	preserves a sibling cleanup defect when the mapper throws	Effect.forEach, Effect.onInterrupt and Effect.never are all absent from crates/elm-effect/src/effect.rs (21 pub fns), so the sibling-cleanup and mapper-throw interrupt rows have no Rust combinator
-not-applicable	packages/effect/test/Effect.test.ts	871	it.effect	interrupts started workers when observer-driven refill throws	Effect.forEach, Effect.onInterrupt and Effect.never are all absent from crates/elm-effect/src/effect.rs (21 pub fns), so the sibling-cleanup and mapper-throw interrupt rows have no Rust combinator
-not-applicable	packages/effect/test/Effect.test.ts	901	it.effect	length = 0	Effect.head and Effect.forEach are absent from crates/elm-effect/src/effect.rs (21 pub fns), so the head/first-element/failure-propagating rows have no Rust constructor
-not-applicable	packages/effect/test/Effect.test.ts	907	it.effect	string	Effect.head and Effect.forEach are absent from crates/elm-effect/src/effect.rs (21 pub fns), so the head/first-element/failure-propagating rows have no Rust constructor
-not-applicable	packages/effect/test/Effect.test.ts	915	it.effect	returns the first element	Effect.head and Effect.forEach are absent from crates/elm-effect/src/effect.rs (21 pub fns), so the head/first-element/failure-propagating rows have no Rust constructor
-not-applicable	packages/effect/test/Effect.test.ts	921	it.effect	fails with NoSuchElementError for an empty iterable	Effect.head and Effect.forEach are absent from crates/elm-effect/src/effect.rs (21 pub fns), so the head/first-element/failure-propagating rows have no Rust constructor
-not-applicable	packages/effect/test/Effect.test.ts	927	it.effect	preserves the source failure	Effect.head and Effect.forEach are absent from crates/elm-effect/src/effect.rs (21 pub fns), so the head/first-element/failure-propagating rows have no Rust constructor
+unported	packages/effect/test/Effect.test.ts	709	it.effect	sequential interrupt	
+unported	packages/effect/test/Effect.test.ts	724	it.effect	unbounded interrupt	
+unported	packages/effect/test/Effect.test.ts	739	it.effect	bounded interrupt	
+unported	packages/effect/test/Effect.test.ts	754	it.effect	preserves interruption when a child cleanup dies	
+unported	packages/effect/test/Effect.test.ts	772	it.effect	preserves a recorded sibling failure on external interruption	
+unported	packages/effect/test/Effect.test.ts	802	it.effect	unbounded fail	
+unported	packages/effect/test/Effect.test.ts	818	it.effect	interrupts started workers when the mapper throws during initial pumping	
+unported	packages/effect/test/Effect.test.ts	844	it.effect	preserves a sibling cleanup defect when the mapper throws	
+unported	packages/effect/test/Effect.test.ts	871	it.effect	interrupts started workers when observer-driven refill throws	
+unported	packages/effect/test/Effect.test.ts	901	it.effect	length = 0	
+unported	packages/effect/test/Effect.test.ts	907	it.effect	string	
+unported	packages/effect/test/Effect.test.ts	915	it.effect	returns the first element	
+unported	packages/effect/test/Effect.test.ts	921	it.effect	fails with NoSuchElementError for an empty iterable	
+unported	packages/effect/test/Effect.test.ts	927	it.effect	preserves the source failure	
 ported	packages/effect/test/Effect.test.ts	936	it.effect	tuple	all_collects_the_success_tuple
 ported	packages/effect/test/Effect.test.ts	950	it.effect	record	all_collects_the_success_record
-not-applicable	packages/effect/test/Effect.test.ts	968	it.effect	record discard	Effect.all is absent from crates/elm-effect/src/effect.rs (21 pub fns), so collecting the record/iterable result modes has no Rust constructor
-not-applicable	packages/effect/test/Effect.test.ts	978	it.effect	iterable	Effect.all is absent from crates/elm-effect/src/effect.rs (21 pub fns), so collecting the record/iterable result modes has no Rust constructor
-not-applicable	packages/effect/test/Effect.test.ts	990	it.effect	tuple result mode	Effect.all is absent from crates/elm-effect/src/effect.rs (21 pub fns), so collecting the record/iterable result modes has no Rust constructor
-not-applicable	packages/effect/test/Effect.test.ts	1021	it.effect	record result mode	Effect.all is absent from crates/elm-effect/src/effect.rs (21 pub fns), so collecting the record/iterable result modes has no Rust constructor
-not-applicable	packages/effect/test/Effect.test.ts	1039	it.effect	concurrency interrupts started siblings on failure	Effect.reduce and Effect.sleep are absent from crates/elm-effect/src/effect.rs (21 pub fns), so the concurrency-interrupt and zero-laziness rows have no Rust combinator
+unported	packages/effect/test/Effect.test.ts	968	it.effect	record discard	
+unported	packages/effect/test/Effect.test.ts	978	it.effect	iterable	
+unported	packages/effect/test/Effect.test.ts	990	it.effect	tuple result mode	
+unported	packages/effect/test/Effect.test.ts	1021	it.effect	record result mode	
+unported	packages/effect/test/Effect.test.ts	1039	it.effect	concurrency interrupts started siblings on failure	
 ported	packages/effect/test/Effect.test.ts	1070	it.effect	collects only successes	partition_collects_only_successes
 ported	packages/effect/test/Effect.test.ts	1078	it.effect	collects only failures	partition_collects_only_failures
 ported	packages/effect/test/Effect.test.ts	1086	it.effect	collects successes and failures	partition_collects_successes_and_failures
@@ -1256,7 +1256,7 @@ ported	packages/effect/test/Effect.test.ts	1094	it.effect	supports concurrency o
 ported	packages/effect/test/Effect.test.ts	1108	it.effect	runs sequentially from left to right and passes the index	reduce_runs_sequentially_and_passes_the_index
 ported	packages/effect/test/Effect.test.ts	1121	it.effect	stops at the first failure	reduce_stops_at_the_first_failure
 ported	packages/effect/test/Effect.test.ts	1137	it.effect	returns zero for an empty iterable	reduce_returns_an_empty_iterable_initial_value
-not-applicable	packages/effect/test/Effect.test.ts	1143	it.effect	evaluates zero lazily for each run	Effect.reduce and Effect.sleep are absent from crates/elm-effect/src/effect.rs (21 pub fns), so the concurrency-interrupt and zero-laziness rows have no Rust combinator
+unported	packages/effect/test/Effect.test.ts	1143	it.effect	evaluates zero lazily for each run	
 ported	packages/effect/test/Effect.test.ts	1159	it.effect	collects successes when all effects succeed	validate_collects_successes_when_all_succeed
 ported	packages/effect/test/Effect.test.ts	1166	it.effect	accumulates all failures	validate_accumulates_all_failures
 ported	packages/effect/test/Effect.test.ts	1175	it.effect	supports discard option	validate_supports_discard_option
@@ -1266,11 +1266,11 @@ ported	packages/effect/test/Effect.test.ts	1195	it.effect	short-circuits on firs
 ported	packages/effect/test/Effect.test.ts	1209	it.effect	returns first successful transformed value	find_first_filter_returns_first_successful_transformed_value
 ported	packages/effect/test/Effect.test.ts	1216	it.effect	passes index to filter	find_first_filter_passes_index_to_filter
 ported	packages/effect/test/Effect.test.ts	1223	it.effect	returns none when filter never succeeds	find_first_filter_returns_none_when_filter_never_succeeds
-not-applicable	packages/effect/test/Effect.test.ts	1231	it.live	odd numbers	Effect.filter is absent from crates/elm-effect/src/effect.rs (21 pub fns), so filtering a collection by an effect predicate cannot be carried
-not-applicable	packages/effect/test/Effect.test.ts	1237	it.live	iterable	Effect.filter and Effect.scoped are absent from crates/elm-effect/src/effect.rs (21 pub fns), so filtering an iterable by an effect predicate cannot be carried
-not-applicable	packages/effect/test/Effect.test.ts	1245	it.effect	releases disposables	Effect.acquireDisposable and Effect.scoped are absent from crates/elm-effect/src/effect.rs (21 pub fns), so releasing a disposable has no Rust constructor
-not-applicable	packages/effect/test/Effect.test.ts	1254	it.effect	releases async disposables	Effect.acquireDisposable and Effect.scoped are absent from crates/elm-effect/src/effect.rs (21 pub fns), so releasing a disposable has no Rust constructor
-not-applicable	packages/effect/test/Effect.test.ts	1265	it.live	releases on interrupt	Effect.acquireRelease, Effect.scoped and Effect.delay are all absent from crates/elm-effect/src/effect.rs (21 pub fns), so release-on-interrupt has no Rust combinator
+unported	packages/effect/test/Effect.test.ts	1231	it.live	odd numbers	
+unported	packages/effect/test/Effect.test.ts	1237	it.live	iterable	
+unported	packages/effect/test/Effect.test.ts	1245	it.effect	releases disposables	
+unported	packages/effect/test/Effect.test.ts	1254	it.effect	releases async disposables	
+unported	packages/effect/test/Effect.test.ts	1265	it.live	releases on interrupt	
 not-applicable	packages/effect/test/Effect.test.ts	1283	it.effect	supports release dependencies	Effect.acquireRelease and Effect.provideService are absent from crates/elm-effect/src/effect.rs (21 pub fns), so release dependencies have no Rust constructor
 ported	packages/effect/test/Effect.test.ts	1306	it.effect	raceAll	race_all_completes_on_the_first_success_not_the_first_completion
 ported	packages/effect/test/Effect.test.ts	1325	it.effect	raceAllFirst	race_all_first_completes_on_the_first_completion_even_a_failure
@@ -1278,75 +1278,75 @@ ported	packages/effect/test/Effect.test.ts	1345	it.effect	race interrupts the lo
 ported	packages/effect/test/Effect.test.ts	1364	it.effect	raceFirst interrupts the loser when the other side succeeds	race_first_interrupts_the_loser_when_the_other_side_succeeds
 ported	packages/effect/test/Effect.test.ts	1383	it.effect	raceFirst interrupts the loser when the other side fails	race_first_interrupts_the_loser_when_the_other_side_fails
 ported	packages/effect/test/Effect.test.ts	1404	it.effect	${name} interrupts a loser that settles the race while starting	race_interrupts_a_loser_that_settles_the_race_while_starting
-not-applicable	packages/effect/test/Effect.test.ts	1422	it.effect	${name} interrupts the loser when interrupted while starting	the row's `parent.interruptUnsafe()` now has a shape (Effect.withFiber plus Fiber::interrupt), but Effect.never and Effect.onInterrupt are absent from crates/elm-effect/src/effect.rs and race is a runtime function of fiber bodies (runtime.rs:521), not an Effect combinator, so the loser-interrupted-while-starting claim has no constructor
-not-applicable	packages/effect/test/Effect.test.ts	1444	it.effect	is interruptible	Effect.forever and Effect.timeoutOption are absent from crates/elm-effect/src/effect.rs, so an infinite repeat bounded by a 50ms timeout has no Rust constructor (the row does not use withFiber)
-not-applicable	packages/effect/test/Effect.test.ts	1456	it.effect	repeat/until - repeats until a condition is true	Effect.tap is absent from crates/elm-effect/src/effect.rs (21 pub fns), so repeating until an effectful condition cannot be carried
-not-applicable	packages/effect/test/Effect.test.ts	1470	it.effect	repeat/until - repeats until an effectful condition is true	Effect.tap is absent from crates/elm-effect/src/effect.rs (21 pub fns), so repeating until an effectful condition cannot be carried
-not-applicable	packages/effect/test/Effect.test.ts	1484	it.effect	repeat/until - always evaluates at least once	Effect.tap is absent from crates/elm-effect/src/effect.rs (21 pub fns), so repeating until an effectful condition cannot be carried
-not-applicable	packages/effect/test/Effect.test.ts	1492	it.effect	repeat/while - repeats while a condition is true	Effect.tap is absent from crates/elm-effect/src/effect.rs (21 pub fns), so repeating until an effectful condition cannot be carried
-not-applicable	packages/effect/test/Effect.test.ts	1506	it.effect	repeat/while - repeats while an effectful condition is true	Effect.tap is absent from crates/elm-effect/src/effect.rs (21 pub fns), so repeating until an effectful condition cannot be carried
+unported	packages/effect/test/Effect.test.ts	1422	it.effect	${name} interrupts the loser when interrupted while starting	
+unported	packages/effect/test/Effect.test.ts	1444	it.effect	is interruptible	
+unported	packages/effect/test/Effect.test.ts	1456	it.effect	repeat/until - repeats until a condition is true	
+unported	packages/effect/test/Effect.test.ts	1470	it.effect	repeat/until - repeats until an effectful condition is true	
+unported	packages/effect/test/Effect.test.ts	1484	it.effect	repeat/until - always evaluates at least once	
+unported	packages/effect/test/Effect.test.ts	1492	it.effect	repeat/while - repeats while a condition is true	
+unported	packages/effect/test/Effect.test.ts	1506	it.effect	repeat/while - repeats while an effectful condition is true	
 not-applicable	packages/effect/test/Effect.test.ts	1520	it.effect	repeat/while - always evaluates at least once	SEMANTIC DIVERGENCE, not a missing API: schedule::repeat (crates/elm-effect/src/schedule.rs:238) runs the recipe once then consults the policy, so recurs(3) yields 4 executions, while the pin asserts 3; also Effect.repeat's {times} option has no Rust form
 not-applicable	packages/effect/test/Effect.test.ts	1528	it.effect	repeat/times	SEMANTIC DIVERGENCE, not a missing API: schedule::repeat (crates/elm-effect/src/schedule.rs:238) runs the recipe once then consults the policy, so recurs(3) yields 4 executions, while the pin asserts 3; also Effect.repeat's {times} option has no Rust form
 not-applicable	packages/effect/test/Effect.test.ts	1539	it.effect	repeat/schedule - repeats according to the specified schedule	SEMANTIC DIVERGENCE, not a missing API: schedule::repeat (crates/elm-effect/src/schedule.rs:238) runs the recipe once then consults the policy, so recurs(3) yields 4 executions, while the pin asserts 3; also Effect.repeat's {times} option has no Rust form
 not-applicable	packages/effect/test/Effect.test.ts	1547	it.effect	repeat/schedule - with until	SEMANTIC DIVERGENCE, not a missing API: schedule::repeat (crates/elm-effect/src/schedule.rs:238) runs the recipe once then consults the policy, so recurs(3) yields 4 executions, while the pin asserts 3; also Effect.repeat's {times} option has no Rust form
 not-applicable	packages/effect/test/Effect.test.ts	1559	it.effect	repeat/schedule - with while	Effect.repeat's {while}/{until} options have no Rust form; schedule::repeat (crates/elm-effect/src/schedule.rs:238) takes a policy only and runs one extra execution for recurs(n)
-not-applicable	packages/effect/test/Effect.test.ts	1573	it.live	nothing on success	Effect.tap is absent from crates/elm-effect/src/effect.rs (21 pub fns) and Effect.retry is absent as a method, so observing the retried failure has no Rust constructor
-not-applicable	packages/effect/test/Effect.test.ts	1582	it.effect	retry/until - retries until a condition is true	Effect.flip, Effect.failSync and Effect.tap are all absent from crates/elm-effect/src/effect.rs (21 pub fns), so the retry/until rows have no Rust constructor
-not-applicable	packages/effect/test/Effect.test.ts	1598	it.effect	retry/until - retries until an effectful condition is true	Effect.flip, Effect.failSync and Effect.tap are all absent from crates/elm-effect/src/effect.rs (21 pub fns), so the retry/until rows have no Rust constructor
-not-applicable	packages/effect/test/Effect.test.ts	1614	it.effect	retry/until - always evaluates at least once	Effect.flip, Effect.failSync and Effect.tap are all absent from crates/elm-effect/src/effect.rs (21 pub fns), so the retry/until rows have no Rust constructor
-not-applicable	packages/effect/test/Effect.test.ts	1625	it.effect	retry/while - retries while a condition is true	Effect.flip, Effect.failSync and Effect.tap are all absent from crates/elm-effect/src/effect.rs (21 pub fns), so the retry/while rows have no Rust constructor
-not-applicable	packages/effect/test/Effect.test.ts	1641	it.effect	retry/while - retries while an effectful condition is true	Effect.flip, Effect.failSync and Effect.tap are all absent from crates/elm-effect/src/effect.rs (21 pub fns), so the retry/while rows have no Rust constructor
-not-applicable	packages/effect/test/Effect.test.ts	1657	it.effect	retry/while - always evaluates at least once	Effect.flip, Effect.failSync and Effect.tap are all absent from crates/elm-effect/src/effect.rs (21 pub fns), so the retry/while rows have no Rust constructor
-not-applicable	packages/effect/test/Effect.test.ts	1668	it.effect	retry/schedule - retries according to the specified schedule	Effect.flip and Effect.failSync are absent from crates/elm-effect/src/effect.rs (21 pub fns) and Effect.retry exists only as the free schedule::retry (schedule.rs:238) over a factory, not the effect-last form the pin uses
-not-applicable	packages/effect/test/Effect.test.ts	1679	it.effect	retry/schedule - with until	Effect.flip and Effect.failSync are absent from crates/elm-effect/src/effect.rs (21 pub fns) and Effect.retry exists only as the free schedule::retry (schedule.rs:238) over a factory, not the effect-last form the pin uses
-not-applicable	packages/effect/test/Effect.test.ts	1693	it.effect	retry/schedule - until errors	Effect.flip and Effect.failSync are absent from crates/elm-effect/src/effect.rs (21 pub fns) and Effect.retry exists only as the free schedule::retry (schedule.rs:238) over a factory, not the effect-last form the pin uses
-not-applicable	packages/effect/test/Effect.test.ts	1708	it.effect	retry/schedule - with while	Effect.flip and Effect.failSync are absent from crates/elm-effect/src/effect.rs (21 pub fns) and Effect.retry exists only as the free schedule::retry (schedule.rs:238) over a factory, not the effect-last form the pin uses
-not-applicable	packages/effect/test/Effect.test.ts	1722	it.effect	retry/schedule - while errors	Effect.flip and Effect.failSync are absent from crates/elm-effect/src/effect.rs (21 pub fns) and Effect.retry exists only as the free schedule::retry (schedule.rs:238) over a factory, not the effect-last form the pin uses
+unported	packages/effect/test/Effect.test.ts	1573	it.live	nothing on success	
+unported	packages/effect/test/Effect.test.ts	1582	it.effect	retry/until - retries until a condition is true	
+unported	packages/effect/test/Effect.test.ts	1598	it.effect	retry/until - retries until an effectful condition is true	
+unported	packages/effect/test/Effect.test.ts	1614	it.effect	retry/until - always evaluates at least once	
+unported	packages/effect/test/Effect.test.ts	1625	it.effect	retry/while - retries while a condition is true	
+unported	packages/effect/test/Effect.test.ts	1641	it.effect	retry/while - retries while an effectful condition is true	
+unported	packages/effect/test/Effect.test.ts	1657	it.effect	retry/while - always evaluates at least once	
+unported	packages/effect/test/Effect.test.ts	1668	it.effect	retry/schedule - retries according to the specified schedule	
+unported	packages/effect/test/Effect.test.ts	1679	it.effect	retry/schedule - with until	
+unported	packages/effect/test/Effect.test.ts	1693	it.effect	retry/schedule - until errors	
+unported	packages/effect/test/Effect.test.ts	1708	it.effect	retry/schedule - with while	
+unported	packages/effect/test/Effect.test.ts	1722	it.effect	retry/schedule - while errors	
 not-applicable	packages/effect/test/Effect.test.ts	1737	it.effect	retry/schedule - CurrentMetadata	Schedule.CurrentMetadata is absent from crates/elm-effect/src/schedule.rs and Effect.flip is absent from effect.rs (21 pub fns), so the metadata-collecting retry row has no Rust constructor
 not-applicable	packages/effect/test/Effect.test.ts	1795	it.effect	uses monotonic time when wall time moves backward	Effect.timed is absent from crates/elm-effect/src/effect.rs (21 pub fns), so measuring a run in wall time has no Rust constructor
-not-applicable	packages/effect/test/Effect.test.ts	1813	it.live	${form}: factory and body follow cleanup and replay	Effect.never is absent from crates/elm-effect/src/effect.rs (21 pub fns), so a factory whose body never completes cannot be carried
+unported	packages/effect/test/Effect.test.ts	1813	it.live	${form}: factory and body follow cleanup and replay	
 not-applicable	packages/effect/test/Effect.test.ts	1864	it.live	a ready source value is not confused with a zero-duration timeout	Effect.timeoutOrElse and Effect.as are absent from crates/elm-effect/src/effect.rs (21 pub fns), so the slow-fallback timeout rows have no Rust constructor
 not-applicable	packages/effect/test/Effect.test.ts	1878	it.live	slow fallback cannot let the original source win after timeout	Effect.timeoutOrElse and Effect.as are absent from crates/elm-effect/src/effect.rs (21 pub fns), so the slow-fallback timeout rows have no Rust constructor
 not-applicable	packages/effect/test/Effect.test.ts	1920	it.live	source and fallback inherit caller context	Effect.timeoutOrElse, Effect.provideService, Effect.currentSpan and Effect.fiberId are all absent from crates/elm-effect/src/effect.rs (21 pub fns); the crate never function is basics.rs:115 Predicate, not an Effect constructor
-not-applicable	packages/effect/test/Effect.test.ts	1972	it.live	external interruption stops a pending fallback	Effect.timeoutOrElse is absent from crates/elm-effect/src/effect.rs (21 pub fns) and Effect.never has no constructor, so a fallback surviving its caller's context has no Rust combinator
-not-applicable	packages/effect/test/Effect.test.ts	2004	it.live	timeout a long computation	Effect.timeoutOption, Effect.timeoutOrElse and Effect.sleep are all absent from crates/elm-effect/src/effect.rs (21 pub fns), so the long-computation timeout rows have no Rust constructor
-not-applicable	packages/effect/test/Effect.test.ts	2013	it.live	timeout a long computation with a failure	Effect.timeoutOrElse, Effect.sandbox and Effect.sleep are all absent from crates/elm-effect/src/effect.rs (21 pub fns), and Effect.flip is absent there too (crate's flip is foundation.rs:188's argument reorder)
-not-applicable	packages/effect/test/Effect.test.ts	2028	it.effect	timeout repetition of uninterruptible effect	Effect.timeoutOption, Effect.forever, Effect.uninterruptible and Effect.void are all absent from crates/elm-effect/src/effect.rs (21 pub fns)
-not-applicable	packages/effect/test/Effect.test.ts	2041	it.effect	timeout in uninterruptible region	Effect.timeout, Effect.timeoutOption, Effect.uninterruptible and Effect.void are all absent from crates/elm-effect/src/effect.rs (21 pub fns); the crate's timeout is cause.rs:494's Cause constructor, not the Effect combinator
-not-applicable	packages/effect/test/Effect.test.ts	2049	it.effect	timeout produces a useful error message	Effect.timeout, Effect.timeoutOption, Effect.uninterruptible and Effect.void are all absent from crates/elm-effect/src/effect.rs (21 pub fns); the crate's timeout is cause.rs:494's Cause constructor, not the Effect combinator
-not-applicable	packages/effect/test/Effect.test.ts	2064	it.live	timeout a long computation	Effect.timeout, Effect.timeoutOption, Effect.uninterruptible and Effect.void are all absent from crates/elm-effect/src/effect.rs (21 pub fns); the crate's timeout is cause.rs:494's Cause constructor, not the Effect combinator
-not-applicable	packages/effect/test/Effect.test.ts	2077	it.effect	timeout interrupts the effect	Effect.timeout and Effect.onInterrupt are both absent from crates/elm-effect/src/effect.rs (21 pub fns), so observing the interrupt a timeout raises has no Rust constructor
+unported	packages/effect/test/Effect.test.ts	1972	it.live	external interruption stops a pending fallback	
+unported	packages/effect/test/Effect.test.ts	2004	it.live	timeout a long computation	
+unported	packages/effect/test/Effect.test.ts	2013	it.live	timeout a long computation with a failure	
+unported	packages/effect/test/Effect.test.ts	2028	it.effect	timeout repetition of uninterruptible effect	
+unported	packages/effect/test/Effect.test.ts	2041	it.effect	timeout in uninterruptible region	
+unported	packages/effect/test/Effect.test.ts	2049	it.effect	timeout produces a useful error message	
+unported	packages/effect/test/Effect.test.ts	2064	it.live	timeout a long computation	
+unported	packages/effect/test/Effect.test.ts	2077	it.effect	timeout interrupts the effect	
 not-applicable	packages/effect/test/Effect.test.ts	2101	it	a map callback that interrupts its own fiber skips the next map	Effect.runSyncExit is absent from crates/elm-effect/src/effect.rs (21 pub fns), so a map callback interrupting its own fiber cannot be observed at the sync edge
 not-applicable	packages/effect/test/Effect.test.ts	2115	it.effect	sync forever is interruptible	Effect.forever is absent from crates/elm-effect/src/effect.rs (21 pub fns), so an unbounded sync loop has no Rust constructor
-not-applicable	packages/effect/test/Effect.test.ts	2122	it.effect	interrupt of never is interrupted with cause	Effect.forkChild is absent from crates/elm-effect/src/effect.rs (21 pub fns); the crate's fork_child is fiber.rs:243's runtime method, not the effect-last form; Effect.never has no constructor either
-not-applicable	packages/effect/test/Effect.test.ts	2129	it.effect	catch + ensuring + interrupt	Effect.forkChild is absent from crates/elm-effect/src/effect.rs (21 pub fns); the crate's fork_child is fiber.rs:243's runtime method, not the effect-last form; Effect.never has no constructor either
-not-applicable	packages/effect/test/Effect.test.ts	2149	it.effect	run of interruptible	Effect.forkChild is absent from crates/elm-effect/src/effect.rs (21 pub fns); the crate's fork_child is fiber.rs:243's runtime method, not the effect-last form; Effect.never has no constructor either
-not-applicable	packages/effect/test/Effect.test.ts	2167	it.effect	alternating interruptibility	Effect.forkChild is absent from crates/elm-effect/src/effect.rs (21 pub fns); the crate's fork_child is fiber.rs:243's runtime method, not the effect-last form; Effect.never has no constructor either
+unported	packages/effect/test/Effect.test.ts	2122	it.effect	interrupt of never is interrupted with cause	
+unported	packages/effect/test/Effect.test.ts	2129	it.effect	catch + ensuring + interrupt	
+unported	packages/effect/test/Effect.test.ts	2149	it.effect	run of interruptible	
+unported	packages/effect/test/Effect.test.ts	2167	it.effect	alternating interruptibility	
 not-applicable	packages/effect/test/Effect.test.ts	2189	it.live	acquireUseRelease use inherits interrupt status	Effect.acquireUseRelease, Effect.delay, Effect.uninterruptible and Effect.void are all absent from crates/elm-effect/src/effect.rs (21 pub fns)
 not-applicable	packages/effect/test/Effect.test.ts	2209	it.effect	acquireUseRelease release runs when use is interrupted	Effect.acquireUseRelease, Effect.delay, Effect.uninterruptible and Effect.void are all absent from crates/elm-effect/src/effect.rs (21 pub fns)
-not-applicable	packages/effect/test/Effect.test.ts	2232	it.live	async can be uninterruptible	Effect.callback, Effect.sleep and Effect.uninterruptible are all absent from crates/elm-effect/src/effect.rs (21 pub fns); the crate's callback is stream.rs:994's Stream::callback, not an Effect constructor
-not-applicable	packages/effect/test/Effect.test.ts	2246	it.live	callback cannot resume on interrupt	Effect.callback, Effect.onInterrupt and Effect.sleep are all absent from crates/elm-effect/src/effect.rs (21 pub fns); the crate callback is stream.rs:994 Stream::callback, not an Effect constructor
-not-applicable	packages/effect/test/Effect.test.ts	2260	it.live	closing scope is uninterruptible	Effect.sleep and Effect.uninterruptible are absent from crates/elm-effect/src/effect.rs (21 pub fns), so closing a scope uninterruptibly has no Rust combinator
+unported	packages/effect/test/Effect.test.ts	2232	it.live	async can be uninterruptible	
+unported	packages/effect/test/Effect.test.ts	2246	it.live	callback cannot resume on interrupt	
+unported	packages/effect/test/Effect.test.ts	2260	it.live	closing scope is uninterruptible	
 not-applicable	packages/effect/test/Effect.test.ts	2274	it.effect	AbortSignal is aborted	Effect.callback is absent from crates/elm-effect/src/effect.rs (21 pub fns); the crate callback is stream.rs:994 Stream::callback, so an AbortSignal-observing callback has no Rust constructor
 not-applicable	packages/effect/test/Effect.test.ts	2284	it.effect	callback cleanup effect runs on interrupt	Effect.callback is absent from crates/elm-effect/src/effect.rs (21 pub fns); the crate callback is stream.rs:994 Stream::callback, so an AbortSignal-observing callback has no Rust constructor
 not-applicable	packages/effect/test/Effect.test.ts	2297	it.effect	defers a pending interrupt until the masked region completes	Effect.uninterruptibleMask is absent from crates/elm-effect/src/effect.rs (21 pub fns), so deferring a pending interrupt inside a masked region has no Rust combinator
-not-applicable	packages/effect/test/Effect.test.ts	2337	it.effect	delivers a pending interrupt when restore re-enables interruptibility	Effect.awaitAllChildren is absent from crates/elm-effect/src/effect.rs (21 pub fns) and so are Effect.suspend and Effect.never, so awaiting forked children has no Rust combinator
+unported	packages/effect/test/Effect.test.ts	2337	it.effect	delivers a pending interrupt when restore re-enables interruptibility	
 not-applicable	packages/effect/test/Effect.test.ts	2382	it.effect	region after a restored section stays uninterruptible	Effect.uninterruptibleMask is absent from crates/elm-effect/src/effect.rs (21 pub fns), so deferring a pending interrupt inside a masked region has no Rust combinator
 ported	packages/effect/test/Effect.test.ts	2434	it.effect	completes immediately when no children are forked	await_all_children_completes_immediately_without_children
 ported	packages/effect/test/Effect.test.ts	2440	it.effect	awaits children forked by the wrapped effect	await_all_children_waits_for_the_child_the_body_forked
-not-applicable	packages/effect/test/Effect.test.ts	2457	it.effect	can be interrupted while awaiting children after success	Effect.awaitAllChildren is absent from crates/elm-effect/src/effect.rs (21 pub fns) and so are Effect.suspend and Effect.never, so awaiting forked children has no Rust combinator
-not-applicable	packages/effect/test/Effect.test.ts	2489	it.effect	can be interrupted while awaiting children after failure	Effect.awaitAllChildren is absent from crates/elm-effect/src/effect.rs (21 pub fns) and so are Effect.suspend and Effect.never, so awaiting forked children has no Rust combinator
-not-applicable	packages/effect/test/Effect.test.ts	2523	it.effect	respects an enclosing uninterruptible region while awaiting children	Effect.awaitAllChildren is absent from crates/elm-effect/src/effect.rs (21 pub fns) and so are Effect.suspend and Effect.never, so awaiting forked children has no Rust combinator
-not-applicable	packages/effect/test/Effect.test.ts	2556	it.effect	does not await children forked outside the wrapped effect	Effect.awaitAllChildren is absent from crates/elm-effect/src/effect.rs (21 pub fns) and so are Effect.suspend and Effect.never, so awaiting forked children has no Rust combinator
-not-applicable	packages/effect/test/Effect.test.ts	2568	it.effect	does not await preexisting children	Effect.awaitAllChildren is absent from crates/elm-effect/src/effect.rs (21 pub fns) and so are Effect.suspend and Effect.never, so awaiting forked children has no Rust combinator
-not-applicable	packages/effect/test/Effect.test.ts	2576	it.effect	does not await preexisting children in the same fiber	Effect.awaitAllChildren is absent from crates/elm-effect/src/effect.rs (21 pub fns) and so are Effect.suspend and Effect.never, so awaiting forked children has no Rust combinator
+unported	packages/effect/test/Effect.test.ts	2457	it.effect	can be interrupted while awaiting children after success	
+unported	packages/effect/test/Effect.test.ts	2489	it.effect	can be interrupted while awaiting children after failure	
+unported	packages/effect/test/Effect.test.ts	2523	it.effect	respects an enclosing uninterruptible region while awaiting children	
+unported	packages/effect/test/Effect.test.ts	2556	it.effect	does not await children forked outside the wrapped effect	
+unported	packages/effect/test/Effect.test.ts	2568	it.effect	does not await preexisting children	
+unported	packages/effect/test/Effect.test.ts	2576	it.effect	does not await preexisting children in the same fiber	
 not-applicable	packages/effect/test/Effect.test.ts	2598	it.effect	is interrupted with parent	Effect.onInterrupt is absent from crates/elm-effect/src/effect.rs (21 pub fns) and forkChild/forkDetach/forkIn/forkScoped exist only as runtime methods (fiber.rs:243/291/281/260), not the effect-last forms the pin uses
 not-applicable	packages/effect/test/Effect.test.ts	2624	it.effect	is not interrupted with parent	Effect.onInterrupt is absent from crates/elm-effect/src/effect.rs (21 pub fns) and forkChild/forkDetach/forkIn/forkScoped exist only as runtime methods (fiber.rs:243/291/281/260), not the effect-last forms the pin uses
 not-applicable	packages/effect/test/Effect.test.ts	2650	it.effect	is interrupted when scope is closed	Effect.onInterrupt is absent from crates/elm-effect/src/effect.rs (21 pub fns) and forkChild/forkDetach/forkIn/forkScoped exist only as runtime methods (fiber.rs:243/291/281/260), not the effect-last forms the pin uses
 not-applicable	packages/effect/test/Effect.test.ts	2668	it.effect	is interrupted when scope is closed	Effect.onInterrupt is absent from crates/elm-effect/src/effect.rs (21 pub fns) and forkChild/forkDetach/forkIn/forkScoped exist only as runtime methods (fiber.rs:243/291/281/260), not the effect-last forms the pin uses
-not-applicable	packages/effect/test/Effect.test.ts	2687	it.effect	works	Effect.bind, Effect.bindTo and Effect.tap are all absent from crates/elm-effect/src/effect.rs (21 pub fns); the crate bind is tagged.rs T.let-style binding, not the generator combinator
-not-applicable	packages/effect/test/Effect.test.ts	2704	it.live	recursion	Effect.runSync, Effect.timeoutOption and Effect.void are absent from crates/elm-effect/src/effect.rs (21 pub fns); the port edge is Runtime::run (runtime.rs:286), which returns an Exit
-not-applicable	packages/effect/test/Effect.test.ts	2713	it	lazily nested map continuations	Effect.runSync, Effect.timeoutOption and Effect.void are absent from crates/elm-effect/src/effect.rs (21 pub fns); the port edge is Runtime::run (runtime.rs:286), which returns an Exit
+unported	packages/effect/test/Effect.test.ts	2687	it.effect	works	
+unported	packages/effect/test/Effect.test.ts	2704	it.live	recursion	
+unported	packages/effect/test/Effect.test.ts	2713	it	lazily nested map continuations	
 not-applicable	packages/effect/test/Effect.test.ts	2727	it.effect	onExit preserves the original failure when the finalizer throws	Effect.onExit exists (crates/elm-effect/src/effect.rs:270) but takes FnOnce(&Exit) and cannot append the finalizer defect to the cause, so a finalizer that throws cannot raise the combined Exit the pin asserts
 not-applicable	packages/effect/test/Effect.test.ts	2736	it.effect	onExit reports a thrown finalizer on success	same onExit gap as effect.rs:270 plus Effect.onInterrupt absent, so an outer interrupt observed after an inner throwing finalizer cannot be carried
 not-applicable	packages/effect/test/Effect.test.ts	2742	it.effect	an outer onInterrupt still sees the interruption after an inner finalizer throws	same onExit gap as effect.rs:270 plus Effect.onInterrupt absent, so an outer interrupt observed after an inner throwing finalizer cannot be carried
@@ -1354,8 +1354,8 @@ not-applicable	packages/effect/test/Effect.test.ts	2762	it	nested throwing final
 ported	packages/effect/test/Effect.test.ts	2770	it.effect	fail ensuring	ensuring_runs_on_a_typed_failure_and_preserves_it
 ported	packages/effect/test/Effect.test.ts	2783	it.effect	fail on error	on_error_runs_only_on_a_typed_failure
 not-applicable	packages/effect/test/Effect.test.ts	2798	it.effect	finalizer errors merged	Effect.runSyncExit is absent from effect.rs (21 pub fns) and Effect.ensuring takes Fn() rather than an Effect, so nested throwing finalizers have no Rust constructor
-not-applicable	packages/effect/test/Effect.test.ts	2816	it.effect	finalizer errors reported	Effect.ensuring takes Fn() not an Effect (crates/elm-effect/src/effect.rs:238), so an Effect.die finalizer cannot append a defect; Effect.forkChild exists only as the runtime method at fiber.rs:243
-not-applicable	packages/effect/test/Effect.test.ts	2838	it.effect	scoped combines usage and finalizer failures	Effect.scoped, Effect.addFinalizer, Effect.acquireUseRelease and Effect.void are all absent from crates/elm-effect/src/effect.rs (21 pub fns)
+unported	packages/effect/test/Effect.test.ts	2816	it.effect	finalizer errors reported	
+unported	packages/effect/test/Effect.test.ts	2838	it.effect	scoped combines usage and finalizer failures	
 ported	packages/effect/test/Effect.test.ts	2850	it.effect	acquireUseRelease usage result	acquire_use_release_returns_the_usage_result
 ported	packages/effect/test/Effect.test.ts	2860	it.effect	error in just acquisition	acquire_use_release_error_in_just_acquisition
 ported	packages/effect/test/Effect.test.ts	2873	it.effect	error in just release	acquire_use_release_error_in_just_release
@@ -1365,7 +1365,7 @@ not-applicable	packages/effect/test/Effect.test.ts	2912	it.effect	rethrown caugh
 not-applicable	packages/effect/test/Effect.test.ts	2922	it.effect	rethrown caught error in release	Effect.acquireUseRelease and Effect.void are absent from crates/elm-effect/src/effect.rs (21 pub fns), so combining usage and release failures has no Rust constructor
 not-applicable	packages/effect/test/Effect.test.ts	2935	it.effect	rethrown caught error in usage	Effect.acquireUseRelease and Effect.void are absent from crates/elm-effect/src/effect.rs (21 pub fns), so combining usage and release failures has no Rust constructor
 ported	packages/effect/test/Effect.test.ts	2945	it.effect	onResult - ensures that a cleanup function runs when an effect fails	on_result_runs_the_cleanup_when_the_effect_dies
-not-applicable	packages/effect/test/Effect.test.ts	2962	it.effect	onExit - callback observes interrupt exit when the fiber is interrupted	Effect.never, Effect.ignore and Effect.forkChild are absent from crates/elm-effect/src/effect.rs (21 pub fns); the crate forkChild is fiber.rs:243 runtime method
+unported	packages/effect/test/Effect.test.ts	2962	it.effect	onExit - callback observes interrupt exit when the fiber is interrupted	
 ported	packages/effect/test/Effect.test.ts	3007	it.effect	does not log when log is omitted	ignore_omitted_logs_nothing
 ported	packages/effect/test/Effect.test.ts	3013	it.effect	does not log when log is false	ignore_false_logs_nothing
 ported	packages/effect/test/Effect.test.ts	3019	it.effect	logs with the current level when log is true	ignore_true_logs_at_current_level
@@ -1382,20 +1382,20 @@ not-applicable	packages/effect/test/Effect.test.ts	3127	it.effect	catchTag	Effec
 not-applicable	packages/effect/test/Effect.test.ts	3142	it.effect	catchTag orElse	Effect.catchTag, Effect.failSync and Effect.orElseSucceed are absent from crates/elm-effect/src/effect.rs (21 pub fns) and no Tagged-error enum exists to tag against
 not-applicable	packages/effect/test/Effect.test.ts	3157	it.effect	catchTags orElse	Effect.catchTag, Effect.failSync and Effect.orElseSucceed are absent from crates/elm-effect/src/effect.rs (21 pub fns) and no Tagged-error enum exists to tag against
 not-applicable	packages/effect/test/Effect.test.ts	3176	it.effect	tapErrorTag	Effect.catchTag, Effect.failSync and Effect.orElseSucceed are absent from crates/elm-effect/src/effect.rs (21 pub fns) and no Tagged-error enum exists to tag against
-not-applicable	packages/effect/test/Effect.test.ts	3205	it.effect	catchIf with refinement	Effect.catchIf is absent from crates/elm-effect/src/effect.rs (21 pub fns); the crate catch_if is crates/elm-effect/src/channel.rs:161, a Channel combinator, not the Effect form the pin uses
-not-applicable	packages/effect/test/Effect.test.ts	3222	it.effect	catchIf with refinement orElse	Effect.catchIf is absent from crates/elm-effect/src/effect.rs (21 pub fns); the crate catch_if is crates/elm-effect/src/channel.rs:161, a Channel combinator, not the Effect form the pin uses
+unported	packages/effect/test/Effect.test.ts	3205	it.effect	catchIf with refinement	
+unported	packages/effect/test/Effect.test.ts	3222	it.effect	catchIf with refinement orElse	
 not-applicable	packages/effect/test/Effect.test.ts	3240	it.effect	catchNoSuchElement	Effect.catchNoSuchElement and Effect.fromNullishOr are absent from crates/elm-effect/src/effect.rs (21 pub fns); from_option (effect.rs:186) takes an explicit on_none rather than defaulting to NoSuchElementError
 not-applicable	packages/effect/test/Effect.test.ts	3249	it.effect	catchNoSuchElement preserves other errors	Effect.catchNoSuchElement and Effect.fromNullishOr are absent from crates/elm-effect/src/effect.rs (21 pub fns); from_option (effect.rs:186) takes an explicit on_none rather than defaulting to NoSuchElementError
 not-applicable	packages/effect/test/Effect.test.ts	3258	it	preserves handler receivers and treats thrown exceptions as defects	Effect.match and Effect.matchCause are absent from crates/elm-effect/src/effect.rs (21 pub fns); the crate matches is cron.rs:368 on a cron spec, not the Effect fold
 not-applicable	packages/effect/test/Effect.test.ts	3284	it	passes only the outcome to handlers	Effect.match and Effect.matchCause are absent from crates/elm-effect/src/effect.rs (21 pub fns); the crate matches is cron.rs:368 on a cron spec, not the Effect fold
 not-applicable	packages/effect/test/Effect.test.ts	3296	it	passes defects through without calling onFailure	Effect.match and Effect.matchCause are absent from crates/elm-effect/src/effect.rs (21 pub fns); the crate matches is cron.rs:368 on a cron spec, not the Effect fold
-not-applicable	packages/effect/test/Effect.test.ts	3306	it	passes only the value to callbacks regardless of declared arity	Effect.runSync, Effect.runSyncExit, Effect.tap and Effect.delay are absent from crates/elm-effect/src/effect.rs (21 pub fns); the port edge is Runtime::run (runtime.rs:286)
+unported	packages/effect/test/Effect.test.ts	3306	it	passes only the value to callbacks regardless of declared arity	
 not-applicable	packages/effect/test/Effect.test.ts	3316	it.effect	concurrent: false	Effect.zip, Effect.zipWith and Effect.delay are absent from crates/elm-effect/src/effect.rs (21 pub fns), and forkChild exists only as the runtime method at fiber.rs:243, not the effect-last form
 not-applicable	packages/effect/test/Effect.test.ts	3334	it.effect	concurrent: true	Effect.zip, Effect.zipWith and Effect.delay are absent from crates/elm-effect/src/effect.rs (21 pub fns), and forkChild exists only as the runtime method at fiber.rs:243, not the effect-last form
-not-applicable	packages/effect/test/Effect.test.ts	3352	it.effect	concurrent: true interrupts the other side on failure	Effect.zip and Effect.zipWith are absent from crates/elm-effect/src/effect.rs (21 pub fns), as are Effect.never and Effect.onInterrupt, so the interrupt-the-other-side rows have no Rust combinator
+unported	packages/effect/test/Effect.test.ts	3352	it.effect	concurrent: true interrupts the other side on failure	
 not-applicable	packages/effect/test/Effect.test.ts	3369	it.effect	concurrent: false	Effect.zip, Effect.zipWith and Effect.delay are absent from crates/elm-effect/src/effect.rs (21 pub fns), and forkChild exists only as the runtime method at fiber.rs:243, not the effect-last form
 not-applicable	packages/effect/test/Effect.test.ts	3387	it.effect	concurrent: true	Effect.zip, Effect.zipWith and Effect.delay are absent from crates/elm-effect/src/effect.rs (21 pub fns), and forkChild exists only as the runtime method at fiber.rs:243, not the effect-last form
-not-applicable	packages/effect/test/Effect.test.ts	3405	it.effect	concurrent: true interrupts the other side on failure	Effect.zip and Effect.zipWith are absent from crates/elm-effect/src/effect.rs (21 pub fns), as are Effect.never and Effect.onInterrupt, so the interrupt-the-other-side rows have no Rust combinator
+unported	packages/effect/test/Effect.test.ts	3405	it.effect	concurrent: true interrupts the other side on failure	
 ported	packages/effect/test/Effect.test.ts	3424	it.effect	first argument as success	catch_cause_filter_first_argument_as_success
 ported	packages/effect/test/Effect.test.ts	3429	it.effect	first argument as failure and predicate return false	catch_cause_filter_declined_cause_is_re_raised
 ported	packages/effect/test/Effect.test.ts	3436	it.effect	first argument as failure and predicate return true	catch_cause_filter_accepted_cause_recovers_through_the_handler
@@ -2873,8 +2873,8 @@ ported	packages/effect/test/Pool.test.ts	116	it.live	blocks when item not availa
 ported	packages/effect/test/Pool.test.ts	133	it.effect	reuse released items	pool_releases_idle_extras
 ported	packages/effect/test/Pool.test.ts	146	it.effect	invalidate item	pool_invalidate_drops_item_from_circulation
 not-applicable	packages/effect/test/Pool.test.ts	163	it.effect	invalidate all items in pool and check that pool.get doesn't hang forever	the row invalidates items by value through Pool.invalidate(pool, item) and expects the pool to replenish to its min afterwards; this port's Pool exposes only Pooled::invalidate (drop of a checked-out value) and has no min, so the post-invalidate allocation and finalization counts cannot be reproduced
-not-applicable	packages/effect/test/Pool.test.ts	183	it.live	retry on failed acquire should not exhaust pool	the row composes Pool.get with Effect.retry over a fallible acquire; this port's make closure is infallible and Pool.get is a blocking call, not an Effect, so a failing acquire and its retry cannot be staged
-not-applicable	packages/effect/test/Pool.test.ts	198	it.effect	compositional retry	the row composes Pool.get with Effect.retry over a fallible acquire; this port's make closure is infallible and Pool.get is a blocking call, not an Effect, so a failing acquire and its retry cannot be staged
+unported	packages/effect/test/Pool.test.ts	183	it.live	retry on failed acquire should not exhaust pool	
+unported	packages/effect/test/Pool.test.ts	198	it.effect	compositional retry	
 ported	packages/effect/test/Pool.test.ts	213	it.effect	max pool size	pool_max_size_with_concurrency
 ported	packages/effect/test/Pool.test.ts	244	it.effect	max pool size with concurrency: 3	pool_max_size_with_concurrency
 ported	packages/effect/test/Pool.test.ts	276	it.effect	concurrency reclaim	pool_reclaims_after_concurrent_use
@@ -3102,26 +3102,26 @@ not-applicable	packages/effect/test/Random.test.ts	261	it.effect	distinguishes o
 not-applicable	packages/effect/test/Random.test.ts	274	it.effect	distinguishes trailing partial UTF-8 words in string seeds	Random remaining behavior rows depend on Effect Random PRNG internals not fully exposed by the Rust port.
 not-applicable	packages/effect/test/Random.test.ts	291	it.effect	distinguishes astral character string seeds	Random remaining behavior rows depend on Effect Random PRNG internals not fully exposed by the Rust port.
 not-applicable	packages/effect/test/Random.test.ts	306	it.effect	works with numeric seeds	Random remaining behavior rows depend on Effect Random PRNG internals not fully exposed by the Rust port.
-not-applicable	packages/effect/test/RcMap.test.ts	8	it.each	releases capacity after a ${throws ? "throwing" : "dying"} lookup with TTL %s	RcMap remaining behavior rows depend on Effect RC internals not fully exposed by Rust port.
-not-applicable	packages/effect/test/RcMap.test.ts	32	it.effect	throwing	RcMap remaining behavior rows depend on Effect RC internals not fully exposed by Rust port.
-not-applicable	packages/effect/test/RcMap.test.ts	54	it.each	releases only the invalidated entry with TTL %s	RcMap remaining behavior rows depend on Effect RC internals not fully exposed by Rust port.
-not-applicable	packages/effect/test/RcMap.test.ts	103	it.effect	an invalidated entry's idle timer cannot remove its replacement	RcMap remaining behavior rows depend on Effect RC internals not fully exposed by Rust port.
-not-applicable	packages/effect/test/RcMap.test.ts	150	it.effect	returns None without lookup or capacity acquisition when missing	RcMap remaining behavior rows depend on Effect RC internals not fully exposed by Rust port.
-not-applicable	packages/effect/test/RcMap.test.ts	163	it.effect	retains a ready entry until the caller scope closes	RcMap remaining behavior rows depend on Effect RC internals not fully exposed by Rust port.
-not-applicable	packages/effect/test/RcMap.test.ts	188	it.effect	shares an in-flight entry	RcMap remaining behavior rows depend on Effect RC internals not fully exposed by Rust port.
-not-applicable	packages/effect/test/RcMap.test.ts	226	it.effect	propagates a cached failure	RcMap remaining behavior rows depend on Effect RC internals not fully exposed by Rust port.
-not-applicable	packages/effect/test/RcMap.test.ts	249	it.effect	retains an idle entry and restarts its TTL on release	RcMap remaining behavior rows depend on Effect RC internals not fully exposed by Rust port.
-not-applicable	packages/effect/test/RcMap.test.ts	281	it.effect	linearizes retention before invalidation	RcMap remaining behavior rows depend on Effect RC internals not fully exposed by Rust port.
-not-applicable	packages/effect/test/RcMap.test.ts	307	it.effect	returns None when the map is closed	RcMap remaining behavior rows depend on Effect RC internals not fully exposed by Rust port.
-not-applicable	packages/effect/test/RcMap.test.ts	319	it.effect	deallocation	RcMap remaining behavior rows depend on Effect RC internals not fully exposed by Rust port.
-not-applicable	packages/effect/test/RcMap.test.ts	370	it.effect	idleTimeToLive	RcMap remaining behavior rows depend on Effect RC internals not fully exposed by Rust port.
-not-applicable	packages/effect/test/RcMap.test.ts	413	it.effect	.touch	RcMap remaining behavior rows depend on Effect RC internals not fully exposed by Rust port.
-not-applicable	packages/effect/test/RcMap.test.ts	444	it.effect	capacity	RcMap remaining behavior rows depend on Effect RC internals not fully exposed by Rust port.
-not-applicable	packages/effect/test/RcMap.test.ts	466	it.effect	complex key	RcMap remaining behavior rows depend on Effect RC internals not fully exposed by Rust port.
-not-applicable	packages/effect/test/RcMap.test.ts	479	it.effect	keys lookup	RcMap remaining behavior rows depend on Effect RC internals not fully exposed by Rust port.
-not-applicable	packages/effect/test/RcMap.test.ts	492	it.effect	dynamic idleTimeToLive	RcMap remaining behavior rows depend on Effect RC internals not fully exposed by Rust port.
-not-applicable	packages/effect/test/RcMap.test.ts	522	it.effect	dynamic idleTimeToLive with touch	RcMap remaining behavior rows depend on Effect RC internals not fully exposed by Rust port.
-not-applicable	packages/effect/test/RcMap.test.ts	551	it.effect	closing the map while an idle entry is being released runs every finalizer	RcMap remaining behavior rows depend on Effect RC internals not fully exposed by Rust port.
+unported	packages/effect/test/RcMap.test.ts	8	it.each	releases capacity after a ${throws ? "throwing" : "dying"} lookup with TTL %s	
+unported	packages/effect/test/RcMap.test.ts	32	it.effect	throwing	
+unported	packages/effect/test/RcMap.test.ts	54	it.each	releases only the invalidated entry with TTL %s	
+unported	packages/effect/test/RcMap.test.ts	103	it.effect	an invalidated entry's idle timer cannot remove its replacement	
+unported	packages/effect/test/RcMap.test.ts	150	it.effect	returns None without lookup or capacity acquisition when missing	
+ported	packages/effect/test/RcMap.test.ts	163	it.effect	retains a ready entry until the caller scope closes	rcmap_refs_defer_the_release_until_the_last_holder
+unported	packages/effect/test/RcMap.test.ts	188	it.effect	shares an in-flight entry	
+ported	packages/effect/test/RcMap.test.ts	226	it.effect	propagates a cached failure	rcmap_failure_propagates_and_caches
+unported	packages/effect/test/RcMap.test.ts	249	it.effect	retains an idle entry and restarts its TTL on release	
+unported	packages/effect/test/RcMap.test.ts	281	it.effect	linearizes retention before invalidation	
+ported	packages/effect/test/RcMap.test.ts	307	it.effect	returns None when the map is closed	rcmap_invalidate_touch_close
+ported	packages/effect/test/RcMap.test.ts	319	it.effect	deallocation	rcmap_deallocation_releases_once_on_the_last_ref
+unported	packages/effect/test/RcMap.test.ts	370	it.effect	idleTimeToLive	
+unported	packages/effect/test/RcMap.test.ts	413	it.effect	.touch	
+unported	packages/effect/test/RcMap.test.ts	444	it.effect	capacity	
+ported	packages/effect/test/RcMap.test.ts	466	it.effect	complex key	rcmap_complex_key_is_hashed_by_value
+unported	packages/effect/test/RcMap.test.ts	479	it.effect	keys lookup	
+unported	packages/effect/test/RcMap.test.ts	492	it.effect	dynamic idleTimeToLive	
+unported	packages/effect/test/RcMap.test.ts	522	it.effect	dynamic idleTimeToLive with touch	
+unported	packages/effect/test/RcMap.test.ts	551	it.effect	closing the map while an idle entry is being released runs every finalizer	
 not-applicable	packages/effect/test/RcRef.test.ts	15	it.effect	deallocation	RcRef remaining behavior rows depend on Effect RC internals not fully exposed by Rust port.
 not-applicable	packages/effect/test/RcRef.test.ts	66	it.effect	releasing an invalidated borrower preserves the replacement resource	RcRef remaining behavior rows depend on Effect RC internals not fully exposed by Rust port.
 not-applicable	packages/effect/test/RcRef.test.ts	97	it.effect	releasing a borrower after owner shutdown does not reopen the reference	RcRef remaining behavior rows depend on Effect RC internals not fully exposed by Rust port.
@@ -3201,35 +3201,35 @@ ported	packages/effect/test/Ref.test.ts	134	it.effect	updateSomeAndGet - twice	u
 ported	packages/effect/test/Ref.test.ts	152	it.effect	modify returns a result while storing the new value	modify_returns_a_result_while_storing_the_new_value
 ported	packages/effect/test/Ref.test.ts	160	it.effect	modifySome - once	modify_some_once
 ported	packages/effect/test/Ref.test.ts	170	it.effect	modifySome returns a result while applying matching transitions	modify_some_returns_a_result_while_applying_matching_transitions
-not-applicable	packages/effect/test/Request.test.ts	137	it	preserves __proto__ as an own constructor property	no Request prototype/copy semantics in crates/elm-effect (Request module absent)
-not-applicable	packages/effect/test/Request.test.ts	150	it	copies enumerable symbol properties in Class	no Request prototype/copy semantics in crates/elm-effect (Request module absent)
-not-applicable	packages/effect/test/Request.test.ts	157	it	compares StructuralProto values when hashes collide	no Request prototype/copy semantics in crates/elm-effect (Request module absent)
+unported	packages/effect/test/Request.test.ts	137	it	preserves __proto__ as an own constructor property	
+unported	packages/effect/test/Request.test.ts	150	it	copies enumerable symbol properties in Class	
+unported	packages/effect/test/Request.test.ts	157	it	compares StructuralProto values when hashes collide	
 ported	packages/effect/test/Request.test.ts	167	it.effect	requests are executed correctly	batching_makes_one_downstream_call
-not-applicable	packages/effect/test/Request.test.ts	180	it.effect	requests with dual syntax are executed correctly	no Request/RequestResolver module or resolver cache/interruption/batching API in crates/elm-effect/src (Request surface absent)
-not-applicable	packages/effect/test/Request.test.ts	192	it.effect	requests are executed correctly with fromEffectTagged	no Request/RequestResolver module or resolver cache/interruption/batching API in crates/elm-effect/src (Request surface absent)
-not-applicable	packages/effect/test/Request.test.ts	204	it.effect	fromEffectTagged preserves typed errors	no Request/RequestResolver module or resolver cache/interruption/batching API in crates/elm-effect/src (Request surface absent)
-not-applicable	packages/effect/test/Request.test.ts	214	it.effect	fromEffectTagged preserves defects	no Request/RequestResolver module or resolver cache/interruption/batching API in crates/elm-effect/src (Request surface absent)
-not-applicable	packages/effect/test/Request.test.ts	233	it.effect	fromEffectTagged preserves interrupts	no Request/RequestResolver module or resolver cache/interruption/batching API in crates/elm-effect/src (Request surface absent)
-not-applicable	packages/effect/test/Request.test.ts	243	it.each	fromEffectTagged resolves requests from $name results	no Request/RequestResolver module or resolver cache/interruption/batching API in crates/elm-effect/src (Request surface absent)
-not-applicable	packages/effect/test/Request.test.ts	267	it.effect	requests don't break interruption	no Request/RequestResolver module or resolver cache/interruption/batching API in crates/elm-effect/src (Request surface absent)
-not-applicable	packages/effect/test/Request.test.ts	288	it.effect	requests work with uninterruptible	no Request/RequestResolver module or resolver cache/interruption/batching API in crates/elm-effect/src (Request surface absent)
-not-applicable	packages/effect/test/Request.test.ts	309	it.effect	grouped requests can be interrupted before execution	no Request/RequestResolver module or resolver cache/interruption/batching API in crates/elm-effect/src (Request surface absent)
-not-applicable	packages/effect/test/Request.test.ts	338	it.effect	cached	no Request/RequestResolver module or resolver cache/interruption/batching API in crates/elm-effect/src (Request surface absent)
-not-applicable	packages/effect/test/Request.test.ts	363	it.effect	withCache removes cancelled entries from a surviving batch	no Request/RequestResolver module or resolver cache/interruption/batching API in crates/elm-effect/src (Request surface absent)
-not-applicable	packages/effect/test/Request.test.ts	397	it.effect	first	no Request/RequestResolver module or resolver cache/interruption/batching API in crates/elm-effect/src (Request surface absent)
-not-applicable	packages/effect/test/Request.test.ts	427	it.effect	withCache still caches completed failures	no Request/RequestResolver module or resolver cache/interruption/batching API in crates/elm-effect/src (Request surface absent)
-not-applicable	packages/effect/test/Request.test.ts	446	it.effect	withCache does not cache interrupted resolver results	no Request/RequestResolver module or resolver cache/interruption/batching API in crates/elm-effect/src (Request surface absent)
-not-applicable	packages/effect/test/Request.test.ts	463	it.effect	withCache cancellation does not evict a replacement entry	no Request/RequestResolver module or resolver cache/interruption/batching API in crates/elm-effect/src (Request surface absent)
-not-applicable	packages/effect/test/Request.test.ts	500	it.effect	withCache allows an equal retry from the cancelled delay's finalizer	no Request/RequestResolver module or resolver cache/interruption/batching API in crates/elm-effect/src (Request surface absent)
-not-applicable	packages/effect/test/Request.test.ts	548	it.effect	withCache preserves the race winner when the losing resolver is interrupted	no Request/RequestResolver module or resolver cache/interruption/batching API in crates/elm-effect/src (Request surface absent)
-not-applicable	packages/effect/test/Request.test.ts	585	it.effect	withCache accepts refreshed results from stale-while-revalidate	no Request/RequestResolver module or resolver cache/interruption/batching API in crates/elm-effect/src (Request surface absent)
-not-applicable	packages/effect/test/Request.test.ts	610	it.effect	persisted propagates failures to unfinished requests	no Request/RequestResolver module or resolver cache/interruption/batching API in crates/elm-effect/src (Request surface absent)
-not-applicable	packages/effect/test/Request.test.ts	635	it.effect	persisted stores synchronous resolver failures	no Request/RequestResolver module or resolver cache/interruption/batching API in crates/elm-effect/src (Request surface absent)
-not-applicable	packages/effect/test/Request.test.ts	654	it.effect	batching preserves individual & identical requests	no Request/RequestResolver module or resolver cache/interruption/batching API in crates/elm-effect/src (Request surface absent)
-not-applicable	packages/effect/test/Request.test.ts	669	it.effect	grouped requests + batchN	no Request/RequestResolver module or resolver cache/interruption/batching API in crates/elm-effect/src (Request surface absent)
-not-applicable	packages/effect/test/Request.test.ts	697	it.effect	batchN normalizes the maximum batch size	no Request/RequestResolver module or resolver cache/interruption/batching API in crates/elm-effect/src (Request surface absent)
-not-applicable	packages/effect/test/Request.test.ts	727	it.effect	batch fibers use request services for runAll	no Request/RequestResolver module or resolver cache/interruption/batching API in crates/elm-effect/src (Request surface absent)
-not-applicable	packages/effect/test/Request.test.ts	745	it.effect	batch fibers use request services for delay effects	no Request/RequestResolver module or resolver cache/interruption/batching API in crates/elm-effect/src (Request surface absent)
+unported	packages/effect/test/Request.test.ts	180	it.effect	requests with dual syntax are executed correctly	
+unported	packages/effect/test/Request.test.ts	192	it.effect	requests are executed correctly with fromEffectTagged	
+unported	packages/effect/test/Request.test.ts	204	it.effect	fromEffectTagged preserves typed errors	
+unported	packages/effect/test/Request.test.ts	214	it.effect	fromEffectTagged preserves defects	
+unported	packages/effect/test/Request.test.ts	233	it.effect	fromEffectTagged preserves interrupts	
+unported	packages/effect/test/Request.test.ts	243	it.each	fromEffectTagged resolves requests from $name results	
+unported	packages/effect/test/Request.test.ts	267	it.effect	requests don't break interruption	
+unported	packages/effect/test/Request.test.ts	288	it.effect	requests work with uninterruptible	
+unported	packages/effect/test/Request.test.ts	309	it.effect	grouped requests can be interrupted before execution	
+unported	packages/effect/test/Request.test.ts	338	it.effect	cached	
+unported	packages/effect/test/Request.test.ts	363	it.effect	withCache removes cancelled entries from a surviving batch	
+unported	packages/effect/test/Request.test.ts	397	it.effect	first	
+unported	packages/effect/test/Request.test.ts	427	it.effect	withCache still caches completed failures	
+unported	packages/effect/test/Request.test.ts	446	it.effect	withCache does not cache interrupted resolver results	
+unported	packages/effect/test/Request.test.ts	463	it.effect	withCache cancellation does not evict a replacement entry	
+unported	packages/effect/test/Request.test.ts	500	it.effect	withCache allows an equal retry from the cancelled delay's finalizer	
+unported	packages/effect/test/Request.test.ts	548	it.effect	withCache preserves the race winner when the losing resolver is interrupted	
+unported	packages/effect/test/Request.test.ts	585	it.effect	withCache accepts refreshed results from stale-while-revalidate	
+unported	packages/effect/test/Request.test.ts	610	it.effect	persisted propagates failures to unfinished requests	
+unported	packages/effect/test/Request.test.ts	635	it.effect	persisted stores synchronous resolver failures	
+unported	packages/effect/test/Request.test.ts	654	it.effect	batching preserves individual & identical requests	
+unported	packages/effect/test/Request.test.ts	669	it.effect	grouped requests + batchN	
+unported	packages/effect/test/Request.test.ts	697	it.effect	batchN normalizes the maximum batch size	
+unported	packages/effect/test/Request.test.ts	727	it.effect	batch fibers use request services for runAll	
+unported	packages/effect/test/Request.test.ts	745	it.effect	batch fibers use request services for delay effects	
 ported	packages/effect/test/Resource.test.ts	11	it.effect	isResource	resource_guard_identifies_resources
 ported	packages/effect/test/Resource.test.ts	18	it.effect	manual refresh updates the cached value	resource_manual_refresh_updates_the_cached_value
 ported	packages/effect/test/Resource.test.ts	32	it.effect	manual refresh releases the previous scoped acquisition	resource_refresh_releases_before_it_acquires
@@ -7160,30 +7160,30 @@ ported	packages/effect/test/persistence/PersistedQueueTest.ts	248	it.effect	clea
 ported	packages/effect/test/persistence/PersistedQueueTest.ts	273	it.effect	cleanup removes failed elements only with failedTimeToLive	queue_cleanup_removes_failed_elements_only_with_failed_time_to_live
 ported	packages/effect/test/persistence/PersistedQueueTest.ts	302	it.effect	cleanup keeps dedupe entries for unprocessed elements	queue_cleanup_keeps_dedupe_entries_for_unprocessed_elements
 ported	packages/effect/test/persistence/PersistedQueueTest.ts	325	it.effect	processes concurrent elements exactly once with retries	queue_processes_elements_exactly_once_with_retries
-not-applicable	packages/effect/test/persistence/RateLimiter.test.ts	10	it.effect	supports partially applied sleep	N/A: rust unstable has no persistent RateLimiter with durable storage/reset metadata parity, so these rows cannot be represented in the Rust port
-not-applicable	packages/effect/test/persistence/RateLimiter.test.ts	26	it.effect	supports uncurried sleep	N/A: rust unstable has no persistent RateLimiter with durable storage/reset metadata parity, so these rows cannot be represented in the Rust port
+unported	packages/effect/test/persistence/RateLimiter.test.ts	10	it.effect	supports partially applied sleep	
+unported	packages/effect/test/persistence/RateLimiter.test.ts	26	it.effect	supports uncurried sleep	
 ported	packages/effect/test/persistence/RateLimiter.test.ts	42	it.effect	reports a full-window reset for an exact reservation	limiter_fixed_window_reset
-not-applicable	packages/effect/test/persistence/RateLimiter.test.ts	60	it.effect	reports a fresh partial reset lifetime without rounding	N/A: rust unstable has no persistent RateLimiter with durable storage/reset metadata parity, so these rows cannot be represented in the Rust port
-not-applicable	packages/effect/test/persistence/RateLimiter.test.ts	78	it.effect	subtracts elapsed time from reset metadata	N/A: rust unstable has no persistent RateLimiter with durable storage/reset metadata parity, so these rows cannot be represented in the Rust port
-not-applicable	packages/effect/test/persistence/RateLimiter.test.ts	105	it.effect	reports the exact reserved lifetime without changing overflow delay	N/A: rust unstable has no persistent RateLimiter with durable storage/reset metadata parity, so these rows cannot be represented in the Rust port
-not-applicable	packages/effect/test/persistence/RateLimiter.test.ts	125	it.effect	returns accumulated delays after the fixed window is exceeded	N/A: rust unstable has no persistent RateLimiter with durable storage/reset metadata parity, so these rows cannot be represented in the Rust port
+unported	packages/effect/test/persistence/RateLimiter.test.ts	60	it.effect	reports a fresh partial reset lifetime without rounding	
+unported	packages/effect/test/persistence/RateLimiter.test.ts	78	it.effect	subtracts elapsed time from reset metadata	
+unported	packages/effect/test/persistence/RateLimiter.test.ts	105	it.effect	reports the exact reserved lifetime without changing overflow delay	
+unported	packages/effect/test/persistence/RateLimiter.test.ts	125	it.effect	returns accumulated delays after the fixed window is exceeded	
 ported	packages/effect/test/persistence/RateLimiter.test.ts	161	it.effect	fails with retryAfter until the fixed window resets	limiter_fixed_window_reset
-not-applicable	packages/effect/test/persistence/RateLimiter.test.ts	202	it.effect	returns delay based on the token refill rate	N/A: rust unstable has no persistent RateLimiter with durable storage/reset metadata parity, so these rows cannot be represented in the Rust port
-not-applicable	packages/effect/test/persistence/RateLimiter.test.ts	231	it.effect	fails until enough tokens are refilled	N/A: rust unstable has no persistent RateLimiter with durable storage/reset metadata parity, so these rows cannot be represented in the Rust port
-not-applicable	packages/effect/test/persistence/RateLimiter.test.ts	264	it.effect	uses the inactive store path until 429 Retry-After feedback	N/A: rust unstable has no persistent RateLimiter with durable storage/reset metadata parity, so these rows cannot be represented in the Rust port
-not-applicable	packages/effect/test/persistence/RateLimiter.test.ts	308	it.effect	starts cooldown on the first 429 Retry-After feedback	N/A: rust unstable has no persistent RateLimiter with durable storage/reset metadata parity, so these rows cannot be represented in the Rust port
-not-applicable	packages/effect/test/persistence/RateLimiter.test.ts	349	it.effect	clamps zero Retry-After feedback to the minimum cooldown	N/A: rust unstable has no persistent RateLimiter with durable storage/reset metadata parity, so these rows cannot be represented in the Rust port
-not-applicable	packages/effect/test/persistence/RateLimiter.test.ts	380	it.effect	bounds excessive adaptive Retry-After cooldowns	N/A: rust unstable has no persistent RateLimiter with durable storage/reset metadata parity, so these rows cannot be represented in the Rust port
-not-applicable	packages/effect/test/persistence/RateLimiter.test.ts	423	it.effect	returns the remaining cooldown delay	N/A: rust unstable has no persistent RateLimiter with durable storage/reset metadata parity, so these rows cannot be represented in the Rust port
-not-applicable	packages/effect/test/persistence/RateLimiter.test.ts	455	it.effect	starts learning on the first admitted post-cooldown request	N/A: rust unstable has no persistent RateLimiter with durable storage/reset metadata parity, so these rows cannot be represented in the Rust port
-not-applicable	packages/effect/test/persistence/RateLimiter.test.ts	487	it.effect	keeps learning requests at zero delay while observing token counts	N/A: rust unstable has no persistent RateLimiter with durable storage/reset metadata parity, so these rows cannot be represented in the Rust port
-not-applicable	packages/effect/test/persistence/RateLimiter.test.ts	527	it.effect	learns the accepted token count and inferred window from learning feedback	N/A: rust unstable has no persistent RateLimiter with durable storage/reset metadata parity, so these rows cannot be represented in the Rust port
-not-applicable	packages/effect/test/persistence/RateLimiter.test.ts	601	it.effect	ignores stale epoch feedback	N/A: rust unstable has no persistent RateLimiter with durable storage/reset metadata parity, so these rows cannot be represented in the Rust port
-not-applicable	packages/effect/test/persistence/RateLimiter.test.ts	648	it.effect	prevents repeated learning 429 feedback from corrupting learned state	N/A: rust unstable has no persistent RateLimiter with durable storage/reset metadata parity, so these rows cannot be represented in the Rust port
-not-applicable	packages/effect/test/persistence/RateLimiter.test.ts	708	it.effect	same-epoch learned 429 feedback enters cooldown and can only extend it	N/A: rust unstable has no persistent RateLimiter with durable storage/reset metadata parity, so these rows cannot be represented in the Rust port
-not-applicable	packages/effect/test/persistence/RateLimiter.test.ts	782	it.effect	stores only cooldown when no tokens were accepted during learning	N/A: rust unstable has no persistent RateLimiter with durable storage/reset metadata parity, so these rows cannot be represented in the Rust port
-not-applicable	packages/effect/test/persistence/RateLimiter.test.ts	840	it.effect	expires learned adaptive state	N/A: rust unstable has no persistent RateLimiter with durable storage/reset metadata parity, so these rows cannot be represented in the Rust port
-not-applicable	packages/effect/test/persistence/RateLimiter.test.ts	895	it.effect	bounds learned adaptive windows and expires the bounded state	N/A: rust unstable has no persistent RateLimiter with durable storage/reset metadata parity, so these rows cannot be represented in the Rust port
+unported	packages/effect/test/persistence/RateLimiter.test.ts	202	it.effect	returns delay based on the token refill rate	
+unported	packages/effect/test/persistence/RateLimiter.test.ts	231	it.effect	fails until enough tokens are refilled	
+unported	packages/effect/test/persistence/RateLimiter.test.ts	264	it.effect	uses the inactive store path until 429 Retry-After feedback	
+unported	packages/effect/test/persistence/RateLimiter.test.ts	308	it.effect	starts cooldown on the first 429 Retry-After feedback	
+unported	packages/effect/test/persistence/RateLimiter.test.ts	349	it.effect	clamps zero Retry-After feedback to the minimum cooldown	
+unported	packages/effect/test/persistence/RateLimiter.test.ts	380	it.effect	bounds excessive adaptive Retry-After cooldowns	
+unported	packages/effect/test/persistence/RateLimiter.test.ts	423	it.effect	returns the remaining cooldown delay	
+unported	packages/effect/test/persistence/RateLimiter.test.ts	455	it.effect	starts learning on the first admitted post-cooldown request	
+unported	packages/effect/test/persistence/RateLimiter.test.ts	487	it.effect	keeps learning requests at zero delay while observing token counts	
+unported	packages/effect/test/persistence/RateLimiter.test.ts	527	it.effect	learns the accepted token count and inferred window from learning feedback	
+unported	packages/effect/test/persistence/RateLimiter.test.ts	601	it.effect	ignores stale epoch feedback	
+unported	packages/effect/test/persistence/RateLimiter.test.ts	648	it.effect	prevents repeated learning 429 feedback from corrupting learned state	
+unported	packages/effect/test/persistence/RateLimiter.test.ts	708	it.effect	same-epoch learned 429 feedback enters cooldown and can only extend it	
+unported	packages/effect/test/persistence/RateLimiter.test.ts	782	it.effect	stores only cooldown when no tokens were accepted during learning	
+unported	packages/effect/test/persistence/RateLimiter.test.ts	840	it.effect	expires learned adaptive state	
+unported	packages/effect/test/persistence/RateLimiter.test.ts	895	it.effect	bounds learned adaptive windows and expires the bounded state	
 not-applicable	packages/effect/test/persistence/RateLimiterTest.ts	58	it.layer	30 seconds	RateLimiter fractional/reset timing behavior is Effect persistence store internals not implemented in the port (no matching substrate)
 not-applicable	packages/effect/test/persistence/RateLimiterTest.ts	68	it.effect	${onExceeded}: ${tokens} tokens after ${elapsed}ms waits ${expected}ms	RateLimiter fractional/reset timing behavior is Effect persistence store internals not implemented in the port (no matching substrate)
 not-applicable	packages/effect/test/persistence/RateLimiterTest.ts	88	it.effect	${onExceeded}: resetAfter accounts for elapsed time on an allowed request	RateLimiter fractional/reset timing behavior is Effect persistence store internals not implemented in the port (no matching substrate)
@@ -7529,15 +7529,15 @@ not-applicable	packages/effect/test/schema/HMR.test.ts	32	it	isSchema	N/A: Rust 
 not-applicable	packages/effect/test/schema/HMR.test.ts	44	it	isSchemaError	N/A: Rust schema is compiled statically; no hot-module reloading or module-instance distinctness runtime
 not-applicable	packages/effect/test/schema/HMR.test.ts	57	it	Schema.Class	N/A: Rust schema is compiled statically; no hot-module reloading or module-instance distinctness runtime
 not-applicable	packages/effect/test/schema/Schema.test.ts	59	it	keeps synchronous decode and encode effects eager	the row asserts the JS adapter return shape (Exit.isExit on decodeUnknownEffect/encodeUnknownEffect, plus Cause.findErrorOption over a SchemaError); this port's decode/encode are direct synchronous Result calls with no adapter to hand an Exit back from, so the observable has no counterpart
-not-applicable	packages/effect/test/schema/Schema.test.ts	83	it	isSchema	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	94	it	toString	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	102	it	extends Error and exposes the issue	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	117	it	does not capture stack frames	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+unported	packages/effect/test/schema/Schema.test.ts	83	it	isSchema	
+unported	packages/effect/test/schema/Schema.test.ts	94	it	toString	
+unported	packages/effect/test/schema/Schema.test.ts	102	it	extends Error and exposes the issue	
+unported	packages/effect/test/schema/Schema.test.ts	117	it	does not capture stack frames	
 ported	packages/effect/test/schema/Schema.test.ts	131	it	does not interpret custom parseOptions metadata	custom_metadata_is_not_interpreted
-not-applicable	packages/effect/test/schema/Schema.test.ts	144	it	applies errors to nested schemas without annotation overrides	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	164	it	applies errors with encoding checks	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	187	it	decoders can receive options when they are created	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	202	it	encoders can receive options when they are created	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+unported	packages/effect/test/schema/Schema.test.ts	144	it	applies errors to nested schemas without annotation overrides	
+unported	packages/effect/test/schema/Schema.test.ts	164	it	applies errors with encoding checks	
+unported	packages/effect/test/schema/Schema.test.ts	187	it	decoders can receive options when they are created	
+unported	packages/effect/test/schema/Schema.test.ts	202	it	encoders can receive options when they are created	
 ported	packages/effect/test/schema/Schema.test.ts	219	it	should throw an error if the literal is not a finite number	literal_refuses_a_non_finite_number
 ported	packages/effect/test/schema/Schema.test.ts	237	it	should expose the literal	literal_exposes_its_value
 ported	packages/effect/test/schema/Schema.test.ts	243	it	a	cell_literal_a
@@ -7569,46 +7569,46 @@ not-applicable	packages/effect/test/schema/Schema.test.ts	606	it	mutableKey	the 
 not-applicable	packages/effect/test/schema/Schema.test.ts	613	it	mutableKey & optionalKey	the row asserts both isMutable and isOptional on one AST context; the port has no key mutability, so one of the two flags has no counterpart
 not-applicable	packages/effect/test/schema/Schema.test.ts	619	it	readonlyKey	the row asserts readonlyKey clears isMutable; the port has no key mutability, so there is no flag to clear
 not-applicable	packages/effect/test/schema/Schema.test.ts	625	it	allows duplicate property signatures in the low-level AST constructor	the row asserts the low-level AST keeps duplicate property signatures in declaration order; the port's shape holds its fields privately with no AST accessor, and a duplicate list is not decodable (the second signature for a key finds it already consumed), so the assertion has no counterpart
-not-applicable	packages/effect/test/schema/Schema.test.ts	638	it	error	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+unported	packages/effect/test/schema/Schema.test.ts	638	it	error	
 ported	packages/effect/test/schema/Schema.test.ts	666	it	ignore strips undeclared string and symbol properties	struct_decode_ignores_undeclared_keys
 not-applicable	packages/effect/test/schema/Schema.test.ts	680	it	error ignores non-enumerable undeclared own properties without reading them	the row's subject is non-enumerable own properties and a getter that must not be read; a BTreeMap input has no property attributes and no getters
 not-applicable	packages/effect/test/schema/Schema.test.ts	703	it	error validates non-enumerable declared string and symbol properties	the row's subject is non-enumerable declared properties, including a symbol key, still being validated; the port's inputs have no enumerability and no symbol keys
 not-applicable	packages/effect/test/schema/Schema.test.ts	719	it	error accepts Error internals in an open record	the row's input is a JavaScript Error object whose non-enumerable internals must not surface as excess properties; the port's inputs are JSON-shaped values with no hidden internals
-not-applicable	packages/effect/test/schema/Schema.test.ts	727	it	error encodes tagged errors carrying runtime internals	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+unported	packages/effect/test/schema/Schema.test.ts	727	it	error encodes tagged errors carrying runtime internals	
 not-applicable	packages/effect/test/schema/Schema.test.ts	735	it	should corectly handle __proto__	the row's two inputs differ only by JavaScript prototype semantics: {["__proto__"]: "a"} is an own key while {__proto__: "a"} sets the literal's prototype, so one decodes and the other reports a missing key; a Rust map makes both spellings the same entry, so the second observable cannot exist
-not-applicable	packages/effect/test/schema/Schema.test.ts	750	it	a	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	790	it	a	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	813	it	should use the identifier annotation as the expected message	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	823	it	a	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	852	it	a	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	884	it	a	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	905	it	all	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+unported	packages/effect/test/schema/Schema.test.ts	750	it	a	
+unported	packages/effect/test/schema/Schema.test.ts	790	it	a	
+unported	packages/effect/test/schema/Schema.test.ts	813	it	should use the identifier annotation as the expected message	
+unported	packages/effect/test/schema/Schema.test.ts	823	it	a	
+unported	packages/effect/test/schema/Schema.test.ts	852	it	a	
+unported	packages/effect/test/schema/Schema.test.ts	884	it	a	
+unported	packages/effect/test/schema/Schema.test.ts	905	it	all	
 ported	packages/effect/test/schema/Schema.test.ts	942	it	Struct	map_fields_assign_joins_the_declared_fields
 ported	packages/effect/test/schema/Schema.test.ts	963	it	overlapping fields	map_fields_assign_replaces_an_overlapping_field
-not-applicable	packages/effect/test/schema/Schema.test.ts	980	it	Struct & check & unsafePreserveChecks: true	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+unported	packages/effect/test/schema/Schema.test.ts	980	it	Struct & check & unsafePreserveChecks: true	
 ported	packages/effect/test/schema/Schema.test.ts	1000	it	Struct	map_fields_pick_keeps_only_the_named_fields
 ported	packages/effect/test/schema/Schema.test.ts	1013	it	Struct	map_fields_omit_drops_the_named_field
 ported	packages/effect/test/schema/Schema.test.ts	1027	it	A required element cannot follow an optional element	tuple_refuses_a_required_element_after_an_optional_one
-not-applicable	packages/effect/test/schema/Schema.test.ts	1038	it	should fail on unexpected indexes	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+unported	packages/effect/test/schema/Schema.test.ts	1038	it	should fail on unexpected indexes	
 ported	packages/effect/test/schema/Schema.test.ts	1058	it	readonly [string]	tuple_of_checked_elements_names_the_index_a_failing_element_failed_at
 ported	packages/effect/test/schema/Schema.test.ts	1101	it	readonly [string?]	tuple_with_an_optional_element_accepts_the_empty_tuple
-not-applicable	packages/effect/test/schema/Schema.test.ts	1120	it	should expose the element schema via .value	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+unported	packages/effect/test/schema/Schema.test.ts	1120	it	should expose the element schema via .value	
 ported	packages/effect/test/schema/Schema.test.ts	1126	it	readonly string[]	array_of_strings_decides_each_element
-not-applicable	packages/effect/test/schema/Schema.test.ts	1152	it	supports encodings on array elements	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	1160	it	supports withDecodingDefaultType after mutable	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	1175	it	does not support withDecodingDefaultType before mutable	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	1188	it	preserves annotations, checks, encoding checks, and context	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	1210	it	ArrayEnsure	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	1232	it	ArrayEnsure roundtrips array-valued elements	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	1239	it	ArrayEnsure preserves outer-array encoding	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	1245	it	should expose the element schema via .value	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	1250	it	readonly string[]	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+unported	packages/effect/test/schema/Schema.test.ts	1152	it	supports encodings on array elements	
+unported	packages/effect/test/schema/Schema.test.ts	1160	it	supports withDecodingDefaultType after mutable	
+unported	packages/effect/test/schema/Schema.test.ts	1175	it	does not support withDecodingDefaultType before mutable	
+unported	packages/effect/test/schema/Schema.test.ts	1188	it	preserves annotations, checks, encoding checks, and context	
+unported	packages/effect/test/schema/Schema.test.ts	1210	it	ArrayEnsure	
+unported	packages/effect/test/schema/Schema.test.ts	1232	it	ArrayEnsure roundtrips array-valued elements	
+unported	packages/effect/test/schema/Schema.test.ts	1239	it	ArrayEnsure preserves outer-array encoding	
+unported	packages/effect/test/schema/Schema.test.ts	1245	it	should expose the element schema via .value	
+unported	packages/effect/test/schema/Schema.test.ts	1250	it	readonly string[]	
 ported	packages/effect/test/schema/Schema.test.ts	1288	it	Trimmed	trimmed_string_refuses_padding_but_not_an_inner_space
 ported	packages/effect/test/schema/Schema.test.ts	1306	it	single check	a_single_check_refuses_a_short_string
-not-applicable	packages/effect/test/schema/Schema.test.ts	1318	it	multiple checks	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	1339	it	aborting checks	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	1353	it	makeFilterGroup	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	1380	it	object-level checks are validated against the decoded value when encoding	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+unported	packages/effect/test/schema/Schema.test.ts	1318	it	multiple checks	
+unported	packages/effect/test/schema/Schema.test.ts	1339	it	aborting checks	
+unported	packages/effect/test/schema/Schema.test.ts	1353	it	makeFilterGroup	
+unported	packages/effect/test/schema/Schema.test.ts	1380	it	object-level checks are validated against the decoded value when encoding	
 ported	packages/effect/test/schema/Schema.test.ts	1393	it	suspended checks are not supported	suspend_preserves_inner_refinement
 ported	packages/effect/test/schema/Schema.test.ts	1405	it	refine	refine_rejects_failing_values
 ported	packages/effect/test/schema/Schema.test.ts	1427	it	isPattern	is_pattern_checks_the_string
@@ -7627,7 +7627,7 @@ ported	packages/effect/test/schema/Schema.test.ts	1635	it	isLessThanOrEqualTo	is
 ported	packages/effect/test/schema/Schema.test.ts	1647	it	isMultipleOf	refine_is_multiple_of
 ported	packages/effect/test/schema/Schema.test.ts	1659	it	isMultipleOf rejects nonzero subnormal remainders	is_multiple_of_rejects_subnormal_remainders
 ported	packages/effect/test/schema/Schema.test.ts	1665	it	isMultipleOf normalizes negative divisors	is_multiple_of_normalizes_negative_divisors
-not-applicable	packages/effect/test/schema/Schema.test.ts	1677	it	isMultipleOf rejects invalid divisors	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+unported	packages/effect/test/schema/Schema.test.ts	1677	it	isMultipleOf rejects invalid divisors	
 ported	packages/effect/test/schema/Schema.test.ts	1687	it	included & included	is_between_includes_both_bounds
 ported	packages/effect/test/schema/Schema.test.ts	1712	it	included & excluded	is_between_excludes_the_maximum
 ported	packages/effect/test/schema/Schema.test.ts	1737	it	excluded & included	is_between_excludes_the_minimum
@@ -7654,112 +7654,112 @@ ported	packages/effect/test/schema/Schema.test.ts	2120	it	DateFromString	date_fr
 ported	packages/effect/test/schema/Schema.test.ts	2136	it	DateFromMillis	date_from_millis_validates_whole_milliseconds_in_range
 ported	packages/effect/test/schema/Schema.test.ts	2159	it	FiniteFromString	finite_from_string_dedicated_decode_and_encode_table
 not-applicable	packages/effect/test/schema/Schema.test.ts	2198	it	BigIntFromString	the row's value is a JavaScript BigInt; the port's Unknown holds null, booleans, numbers, text, arrays and objects, so both the success and the failure case are unrepresentable
-not-applicable	packages/effect/test/schema/Schema.test.ts	2216	it	BigDecimalFromString	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	2237	it	TimeZoneNamedFromString	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	2256	it	TimeZoneFromString	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	2277	it	DateTimeZonedFromString	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	2298	it	FiniteFromString & isGreaterThan	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	2319	it	should expose the source and the target schemas	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+unported	packages/effect/test/schema/Schema.test.ts	2216	it	BigDecimalFromString	
+unported	packages/effect/test/schema/Schema.test.ts	2237	it	TimeZoneNamedFromString	
+unported	packages/effect/test/schema/Schema.test.ts	2256	it	TimeZoneFromString	
+unported	packages/effect/test/schema/Schema.test.ts	2277	it	DateTimeZonedFromString	
+unported	packages/effect/test/schema/Schema.test.ts	2298	it	FiniteFromString & isGreaterThan	
+unported	packages/effect/test/schema/Schema.test.ts	2319	it	should expose the source and the target schemas	
 ported	packages/effect/test/schema/Schema.test.ts	2326	it	required to required	a_required_field_refuses_a_missing_key_on_both_axes
 not-applicable	packages/effect/test/schema/Schema.test.ts	2354	it	required to optional	the row asserts that a required source field maps to an optional target whose ENCODE getter supplies a default (`{}` encodes to `{ a: "default" }`) via `SchemaGetter.withDefault` on the encode axis; this port's only encode-side field hook is `omit_encoding`, so there is no encode-side default to assert — the decode half, that a missing key is refused, is carried by `a_required_field_refuses_a_missing_key_on_both_axes`
 ported	packages/effect/test/schema/Schema.test.ts	2381	it	optionalKey to required	an_absent_optional_key_decodes_to_its_default
 ported	packages/effect/test/schema/Schema.test.ts	2403	it	double transformation	finite_from_string_trims_the_source_text
 ported	packages/effect/test/schema/Schema.test.ts	2421	it	double transformation with checks	double_with_checks_rejects_between_steps
-not-applicable	packages/effect/test/schema/Schema.test.ts	2453	it	nested defaults	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+unported	packages/effect/test/schema/Schema.test.ts	2453	it	nested defaults	
 ported	packages/effect/test/schema/Schema.test.ts	2485	it	double transformation	decode_only_transformation_leaves_encode_alone
 ported	packages/effect/test/schema/Schema.test.ts	2505	it	required to required	require_all_makes_optional_keys_required
-not-applicable	packages/effect/test/schema/Schema.test.ts	2533	it	required to optionalKey	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+unported	packages/effect/test/schema/Schema.test.ts	2533	it	required to optionalKey	
 ported	packages/effect/test/schema/Schema.test.ts	2555	it	optionalKey to required	require_all_makes_optional_keys_required
 ported	packages/effect/test/schema/Schema.test.ts	2582	it	double transformation	finite_from_string_trims_the_source_text
 ported	packages/effect/test/schema/Schema.test.ts	2600	it	double transformation with checks	double_with_checks_rejects_between_steps
 ported	packages/effect/test/schema/Schema.test.ts	2634	it	double transformation	encode_only_transformation_leaves_decode_alone
-not-applicable	packages/effect/test/schema/Schema.test.ts	2654	it	should expose the schema	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	2662	it	string & isMinLength(3) <-> number & isGreaterThan(2)	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	2684	it	Struct & flip & check & flip should apply the check to the encoded side	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	2710	it	Tuple & flip & check & flip should apply the check to the encoded side	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	2736	it	Union & flip & check & flip should apply the check to the encoded side	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	2762	it	Declaration & flip & check & flip should apply the check to the encoded side	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	2791	it	Struct & flip & check & flip with encoding chain should check the local value	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	2825	it	should work with withConstructorDefault	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	2850	it	declare	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	2863	it	should expose the value	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	2869	it	does not expose unwrapped inputs	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	2880	it	Redacted(Finite)	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	2917	it	Redacted(FiniteFromString)	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	2970	it	with label	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	3008	it	should decode a value	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	3034	it	should expose the value	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+unported	packages/effect/test/schema/Schema.test.ts	2654	it	should expose the schema	
+unported	packages/effect/test/schema/Schema.test.ts	2662	it	string & isMinLength(3) <-> number & isGreaterThan(2)	
+unported	packages/effect/test/schema/Schema.test.ts	2684	it	Struct & flip & check & flip should apply the check to the encoded side	
+unported	packages/effect/test/schema/Schema.test.ts	2710	it	Tuple & flip & check & flip should apply the check to the encoded side	
+unported	packages/effect/test/schema/Schema.test.ts	2736	it	Union & flip & check & flip should apply the check to the encoded side	
+unported	packages/effect/test/schema/Schema.test.ts	2762	it	Declaration & flip & check & flip should apply the check to the encoded side	
+unported	packages/effect/test/schema/Schema.test.ts	2791	it	Struct & flip & check & flip with encoding chain should check the local value	
+unported	packages/effect/test/schema/Schema.test.ts	2825	it	should work with withConstructorDefault	
+unported	packages/effect/test/schema/Schema.test.ts	2850	it	declare	
+unported	packages/effect/test/schema/Schema.test.ts	2863	it	should expose the value	
+unported	packages/effect/test/schema/Schema.test.ts	2869	it	does not expose unwrapped inputs	
+unported	packages/effect/test/schema/Schema.test.ts	2880	it	Redacted(Finite)	
+unported	packages/effect/test/schema/Schema.test.ts	2917	it	Redacted(FiniteFromString)	
+unported	packages/effect/test/schema/Schema.test.ts	2970	it	with label	
+unported	packages/effect/test/schema/Schema.test.ts	3008	it	should decode a value	
+unported	packages/effect/test/schema/Schema.test.ts	3034	it	should expose the value	
 ported	packages/effect/test/schema/Schema.test.ts	3040	it	Option(FiniteFromString)	ffs_composes_with_optional
-not-applicable	packages/effect/test/schema/Schema.test.ts	3070	it	OptionFromNullOr	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	3088	it	OptionFromUndefinedOr	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	3107	it	onNoneEncoding: null	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	3126	it	onNoneEncoding: undefined	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	3146	it	OptionFromOptionalKey	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	3175	it	OptionFromOptional	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	3201	it	default (omit)	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	3232	it	onNoneEncoding: null	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	3249	it	onNoneEncoding: undefined	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	3268	it	should expose the values	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	3276	it	Result(FiniteFromString, FiniteFromString)	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	3305	it	Defect	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	3352	it	ErrorInstance and Defect memoize equivalent options	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	3377	it	should expose the values	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+unported	packages/effect/test/schema/Schema.test.ts	3070	it	OptionFromNullOr	
+unported	packages/effect/test/schema/Schema.test.ts	3088	it	OptionFromUndefinedOr	
+unported	packages/effect/test/schema/Schema.test.ts	3107	it	onNoneEncoding: null	
+unported	packages/effect/test/schema/Schema.test.ts	3126	it	onNoneEncoding: undefined	
+unported	packages/effect/test/schema/Schema.test.ts	3146	it	OptionFromOptionalKey	
+unported	packages/effect/test/schema/Schema.test.ts	3175	it	OptionFromOptional	
+unported	packages/effect/test/schema/Schema.test.ts	3201	it	default (omit)	
+unported	packages/effect/test/schema/Schema.test.ts	3232	it	onNoneEncoding: null	
+unported	packages/effect/test/schema/Schema.test.ts	3249	it	onNoneEncoding: undefined	
+unported	packages/effect/test/schema/Schema.test.ts	3268	it	should expose the values	
+unported	packages/effect/test/schema/Schema.test.ts	3276	it	Result(FiniteFromString, FiniteFromString)	
+unported	packages/effect/test/schema/Schema.test.ts	3305	it	Defect	
+unported	packages/effect/test/schema/Schema.test.ts	3352	it	ErrorInstance and Defect memoize equivalent options	
+unported	packages/effect/test/schema/Schema.test.ts	3377	it	should expose the values	
 not-applicable	packages/effect/test/schema/Schema.test.ts	3385	it	CauseReason(FiniteFromString, FiniteFromString)	the row's body asserts nothing at runtime beyond the optional arbitrary-generation check, and Schema.CauseReason does not exist on the Rust schema surface (this crate has no Cause model), so the schema in the row cannot be built
-not-applicable	packages/effect/test/schema/Schema.test.ts	3396	it	strict encoding preserves the default wire format for every reason variant	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	3412	it	should expose the values	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	3420	it	Cause(FiniteFromString, FiniteFromString)	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	3462	it	Error	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	3501	it	should expose the values	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	3511	it	Exit(FiniteFromString, String, Unknown)	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	3538	it	Exit(FiniteFromString, String, Defect)	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	3557	it	should work	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+unported	packages/effect/test/schema/Schema.test.ts	3396	it	strict encoding preserves the default wire format for every reason variant	
+unported	packages/effect/test/schema/Schema.test.ts	3412	it	should expose the values	
+unported	packages/effect/test/schema/Schema.test.ts	3420	it	Cause(FiniteFromString, FiniteFromString)	
+unported	packages/effect/test/schema/Schema.test.ts	3462	it	Error	
+unported	packages/effect/test/schema/Schema.test.ts	3501	it	should expose the values	
+unported	packages/effect/test/schema/Schema.test.ts	3511	it	Exit(FiniteFromString, String, Unknown)	
+unported	packages/effect/test/schema/Schema.test.ts	3538	it	Exit(FiniteFromString, String, Defect)	
+unported	packages/effect/test/schema/Schema.test.ts	3557	it	should work	
 not-applicable	packages/effect/test/schema/Schema.test.ts	3601	it	preserves __proto__ as an own option	the row asserts Object.hasOwn(schema, "__proto__") on the options bag Schema.make merges into a schema; this port's schemas hold no options object, so there is no own-property surface to preserve
-not-applicable	packages/effect/test/schema/Schema.test.ts	3612	it	preserves name and length as options	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	3627	it	assigns options	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	3640	it	should throw an error when the cause contains both a schema issue and a defect	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	3658	it	Struct	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	3664	it	Class	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	3670	it	should throw an error when the cause is not a schema issue	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	3690	it.effect	Struct	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	3701	it.effect	Class	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	3712	it.effect	should preserve mixed schema issue and defect causes	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+unported	packages/effect/test/schema/Schema.test.ts	3612	it	preserves name and length as options	
+unported	packages/effect/test/schema/Schema.test.ts	3627	it	assigns options	
+unported	packages/effect/test/schema/Schema.test.ts	3640	it	should throw an error when the cause contains both a schema issue and a defect	
+unported	packages/effect/test/schema/Schema.test.ts	3658	it	Struct	
+unported	packages/effect/test/schema/Schema.test.ts	3664	it	Class	
+unported	packages/effect/test/schema/Schema.test.ts	3670	it	should throw an error when the cause is not a schema issue	
+unported	packages/effect/test/schema/Schema.test.ts	3690	it.effect	Struct	
+unported	packages/effect/test/schema/Schema.test.ts	3701	it.effect	Class	
+unported	packages/effect/test/schema/Schema.test.ts	3712	it.effect	should preserve mixed schema issue and defect causes	
 ported	packages/effect/test/schema/Schema.test.ts	3733	it	should not apply defaults when decoding / encoding	constructor_default_does_not_fill_on_decode_or_encode
 ported	packages/effect/test/schema/Schema.test.ts	3746	it	should apply constructor default when the field is not present	constructor_default_fills_an_absent_field_on_make
-not-applicable	packages/effect/test/schema/Schema.test.ts	3757	it	should construct a Class field from a plain object	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+unported	packages/effect/test/schema/Schema.test.ts	3757	it	should construct a Class field from a plain object	
 ported	packages/effect/test/schema/Schema.test.ts	3768	it	Struct	nested_constructor_defaults_fill_recursively
-not-applicable	packages/effect/test/schema/Schema.test.ts	3782	it	Class	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	3802	it	applies constructor default when disableChecks is true	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+unported	packages/effect/test/schema/Schema.test.ts	3782	it	Class	
+unported	packages/effect/test/schema/Schema.test.ts	3802	it	applies constructor default when disableChecks is true	
 ported	packages/effect/test/schema/Schema.test.ts	3811	it	Struct & Effect sync	constructor_default_fills_an_absent_field_on_make
 ported	packages/effect/test/schema/Schema.test.ts	3822	it	Struct & Effect async	constructor_default_fills_an_absent_field_on_make
 ported	packages/effect/test/schema/Schema.test.ts	3838	it	Effect failing with SchemaIssue propagates as parse failure	constructor_default_failure_lands_on_the_field_path
 ported	packages/effect/test/schema/Schema.test.ts	3855	it	Effect failing via another schema's makeEffect propagates as parse failure	a_default_that_calls_another_failing_make_keeps_its_path
-not-applicable	packages/effect/test/schema/Schema.test.ts	3875	it	Struct & Effect async & service	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+unported	packages/effect/test/schema/Schema.test.ts	3875	it	Struct & Effect async & service	
 ported	packages/effect/test/schema/Schema.test.ts	3906	it	Tuple & Some	tuple_constructor_default_fills_a_missing_slot
 ported	packages/effect/test/schema/Schema.test.ts	3917	it	nested defaults (Struct)	nested_tuple_struct_defaults_fill_recursively
 ported	packages/effect/test/schema/Schema.test.ts	3933	it	inner defaults (Tuple)	nested_tuple_defaults_fill_inner_slots
 ported	packages/effect/test/schema/Schema.test.ts	3948	it	nested defaults (Tuple)	a_defaulted_tuple_fills_its_own_missing_elements
 ported	packages/effect/test/schema/Schema.test.ts	3967	it	Record(String, Number)	record_string_number_decodes_every_value
 ported	packages/effect/test/schema/Schema.test.ts	3994	it	recursive values stay lazy	suspend_recursive_shape_decodes_nested
-not-applicable	packages/effect/test/schema/Schema.test.ts	4009	it.effect	sequential parsing resumes without replaying entries	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+unported	packages/effect/test/schema/Schema.test.ts	4009	it.effect	sequential parsing resumes without replaying entries	
 ported	packages/effect/test/schema/Schema.test.ts	4028	it	Record(String, optionalKey(Number)) should throw	index_signature_refuses_an_optional_key_value
 ported	packages/effect/test/schema/Schema.test.ts	4035	it	Record(String, optional(Number))	record_optional_values_accept_null_but_reject_wrong_type
 ported	packages/effect/test/schema/Schema.test.ts	4053	it	Record(String.check, Number) should use the key checks to select keys	record_with_a_checked_key_selects_its_entries
 ported	packages/effect/test/schema/Schema.test.ts	4066	it	applies excess-property options to unmatched own keys	record_excess_names_an_unmatched_key
-not-applicable	packages/effect/test/schema/Schema.test.ts	4082	it	recognizes numeric declared keys with an index signature	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+unported	packages/effect/test/schema/Schema.test.ts	4082	it	recognizes numeric declared keys with an index signature	
 not-applicable	packages/effect/test/schema/Schema.test.ts	4091	it	Record(Symbol, Number)	the row's own keys are JavaScript symbols, and a record here is a string-keyed map with no symbol-keyed variant
 not-applicable	packages/effect/test/schema/Schema.test.ts	4119	it	index signatures select only enumerable ${typeof key} properties	the row asserts a non-enumerable own property is never read; a Rust map holds exactly the entries it was given, so there is no enumerability to observe
 not-applicable	packages/effect/test/schema/Schema.test.ts	4141	it	Record(Symbol.check, Number) should use the key checks to select keys	the key check is a predicate over JavaScript symbols (Symbol.keyFor) and the keys themselves are symbols
-not-applicable	packages/effect/test/schema/Schema.test.ts	4159	it	Record(SnakeToCamel, NumberFromString)	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+unported	packages/effect/test/schema/Schema.test.ts	4159	it	Record(SnakeToCamel, NumberFromString)	
 not-applicable	packages/effect/test/schema/Schema.test.ts	4174	it	UniqueSymbol	the key is a specific JavaScript symbol identity, which a string-keyed map cannot hold
 ported	packages/effect/test/schema/Schema.test.ts	4189	it	deduplicates repeated literal keys	literal_key_record_counts_a_repeated_key_once
 ported	packages/effect/test/schema/Schema.test.ts	4194	it	Record(Literals, Number)	literal_key_record_requires_every_declared_key
 ported	packages/effect/test/schema/Schema.test.ts	4212	it	Record(Literals, optionalKey(Number))	literal_key_record_with_optional_values_requires_no_key
-not-applicable	packages/effect/test/schema/Schema.test.ts	4223	it	Record(Literals, mutableKey(Number))	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	4231	it	Record(Literals, mutableKey(optionalKey(Number)))	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+unported	packages/effect/test/schema/Schema.test.ts	4223	it	Record(Literals, mutableKey(Number))	
+unported	packages/effect/test/schema/Schema.test.ts	4231	it	Record(Literals, mutableKey(optionalKey(Number)))	
 ported	packages/effect/test/schema/Schema.test.ts	4246	it	Record(Number, String)	record_with_a_number_key_selects_numeric_keys
 ported	packages/effect/test/schema/Schema.test.ts	4270	it	Record(Int, String)	an_integer_key_schema_selects_the_numeric_names
 ported	packages/effect/test/schema/Schema.test.ts	4289	it	Record(TemplateLiteral with checked part, Number) should use the part checks to select keys	a_template_literal_key_schema_selects_its_own_keys
-not-applicable	packages/effect/test/schema/Schema.test.ts	4302	it	a	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+unported	packages/effect/test/schema/Schema.test.ts	4302	it	a	
 ported	packages/effect/test/schema/Schema.test.ts	4322	it	empty	union_with_no_members_admits_nothing
 ported	packages/effect/test/schema/Schema.test.ts	4330	it	String	union_of_one_member_decodes_as_that_member
 ported	packages/effect/test/schema/Schema.test.ts	4339	it	Void	union_of_void_admits_every_value
@@ -7773,8 +7773,8 @@ ported	packages/effect/test/schema/Schema.test.ts	4434	it	oneOf	one_of_inside_a_
 ported	packages/effect/test/schema/Schema.test.ts	4460	it	oneOf	one_of_counts_the_same_member_twice
 ported	packages/effect/test/schema/Schema.test.ts	4472	it	oneOf	one_of_counts_the_same_literal_twice
 ported	packages/effect/test/schema/Schema.test.ts	4484	it	preserves member order after sentinel dispatch	member_order_is_preserved_after_sentinel_dispatch
-not-applicable	packages/effect/test/schema/Schema.test.ts	4504	it	preserves recovering members during runtime type dispatch	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	4551	it	preserves recovering members during sentinel dispatch	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+unported	packages/effect/test/schema/Schema.test.ts	4504	it	preserves recovering members during runtime type dispatch	
+unported	packages/effect/test/schema/Schema.test.ts	4551	it	preserves recovering members during sentinel dispatch	
 ported	packages/effect/test/schema/Schema.test.ts	4586	it	keeps suspended members lazy during candidate selection	union_skips_suspended_loser_after_success
 ported	packages/effect/test/schema/Schema.test.ts	4627	it	does not force a recursive suspended member after an earlier success	union_skips_suspended_loser_after_success
 not-applicable	packages/effect/test/schema/Schema.test.ts	4641	it.effect	does not start later members after an asynchronous success	the row's first member yields through the Effect runtime and the row asserts when the next member starts; async members are a stated residual of this port (see the module doc in src/transform.rs), so there is no scheduler to observe
@@ -7782,26 +7782,26 @@ not-applicable	packages/effect/test/schema/Schema.test.ts	4676	it.effect	starts 
 not-applicable	packages/effect/test/schema/Schema.test.ts	4711	it.effect	oneOf	same residual again: the row compares two asynchronous successes in member order
 ported	packages/effect/test/schema/Schema.test.ts	4762	it	oneOf	a_void_member_makes_every_one_of_union_ambiguous
 not-applicable	packages/effect/test/schema/Schema.test.ts	4770	it	Struct({}) preserves its semantics in a union	the row's values are JavaScript symbols, functions and bigints and it pins the pin's empty-Struct acceptance over them; a struct here is a string-keyed map and none of those is one
-not-applicable	packages/effect/test/schema/Schema.test.ts	4793	it	string | struct	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	4807	it	string | tuple	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	4821	it	tagged struct union	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	4845	it	tagged tuple union	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+unported	packages/effect/test/schema/Schema.test.ts	4793	it	string | struct	
+unported	packages/effect/test/schema/Schema.test.ts	4807	it	string | tuple	
+unported	packages/effect/test/schema/Schema.test.ts	4821	it	tagged struct union	
+unported	packages/effect/test/schema/Schema.test.ts	4845	it	tagged tuple union	
 ported	packages/effect/test/schema/Schema.test.ts	4872	it	A required element cannot follow an optional element	tuple_with_rest_refuses_a_required_element_after_an_optional_one
-not-applicable	packages/effect/test/schema/Schema.test.ts	4891	it	An optional element cannot follow a rest element	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+unported	packages/effect/test/schema/Schema.test.ts	4891	it	An optional element cannot follow a rest element	
 ported	packages/effect/test/schema/Schema.test.ts	4910	it	[FiniteFromString, String] + [Boolean, String]	ffs_tuples_union_by_shape
 ported	packages/effect/test/schema/Schema.test.ts	4947	it	[FiniteFromString, String] + [Boolean, String, Number]	ffs_tuples_union_by_shape
-not-applicable	packages/effect/test/schema/Schema.test.ts	4979	it	[String] + [Boolean, String, Number, Number] validates every post-rest index	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+unported	packages/effect/test/schema/Schema.test.ts	4979	it	[String] + [Boolean, String, Number, Number] validates every post-rest index	
 ported	packages/effect/test/schema/Schema.test.ts	4997	it	should throw an error if there are duplicate property signatures	struct_with_rest_refuses_a_fixed_key_the_rest_also_names
-not-applicable	packages/effect/test/schema/Schema.test.ts	5008	it	should throw an error if there are encodings	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+unported	packages/effect/test/schema/Schema.test.ts	5008	it	should throw an error if there are encodings	
 ported	packages/effect/test/schema/Schema.test.ts	5019	it	Record(String, Number)	struct_with_rest_refuses_a_fixed_key_the_rest_also_names
 not-applicable	packages/effect/test/schema/Schema.test.ts	5036	it	Record(Symbol, Number)	the catch-all record's keys are symbols under a StructWithRest; the string-keyed half of the same shape is carried by the row beside it
 ported	packages/effect/test/schema/Schema.test.ts	5053	it	Record(`a${string}`, Number)	a_record_rest_under_a_struct_selects_template_keys
-not-applicable	packages/effect/test/schema/Schema.test.ts	5075	it	applies excess-property options after fixed and index signatures	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+unported	packages/effect/test/schema/Schema.test.ts	5075	it	applies excess-property options after fixed and index signatures	
 ported	packages/effect/test/schema/Schema.test.ts	5095	it	should preserve both checks	struct_with_rest_keeps_both_checks
 ported	packages/effect/test/schema/Schema.test.ts	5121	it	index signatures should not re-parse fixed properties	struct_with_rest_does_not_re_parse_a_fixed_property
-not-applicable	packages/effect/test/schema/Schema.test.ts	5136	it	index signatures should not overwrite fixed properties after key decoding	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	5150	it	NullOr(String)	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	5166	it	UndefinedOr(String)	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+unported	packages/effect/test/schema/Schema.test.ts	5136	it	index signatures should not overwrite fixed properties after key decoding	
+unported	packages/effect/test/schema/Schema.test.ts	5150	it	NullOr(String)	
+unported	packages/effect/test/schema/Schema.test.ts	5166	it	UndefinedOr(String)	
 ported	packages/effect/test/schema/Schema.test.ts	5182	it	NullishOr(String)	nullish_or_admits_the_absent_values_and_the_inner_schema
 not-applicable	packages/effect/test/schema/Schema.test.ts	5197	it	PropertyKey	the row's body asserts nothing at runtime beyond the optional arbitrary-generation check, and Schema.PropertyKey does not exist on the Rust schema surface, so the schema in the row cannot be built
 not-applicable	packages/effect/test/schema/Schema.test.ts	5205	it	BooleanFromBit	the row's body asserts nothing at runtime beyond the optional arbitrary-generation check, and Schema.BooleanFromBit does not exist on the Rust schema surface, so the schema in the row cannot be built
@@ -7829,39 +7829,39 @@ not-applicable	packages/effect/test/schema/Schema.test.ts	5560	it	ReadonlyMap	th
 not-applicable	packages/effect/test/schema/Schema.test.ts	5586	it	HashMap	the row's wire value is an Effect HashMap and its decoded value one too; this port's schema crate has no HashMap type (Unknown holds Object), so HashMap.make inputs and equality cannot be built
 ported	packages/effect/test/schema/Schema.test.ts	5613	it	toLowerCase	to_lowercase_lowers_on_decode_and_passes_through_on_encode
 ported	packages/effect/test/schema/Schema.test.ts	5627	it	toUpperCase	to_uppercase_uppers_on_decode_and_passes_through_on_encode
-not-applicable	packages/effect/test/schema/Schema.test.ts	5640	it	returns the original schema	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	5646	it	Struct	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	5658	it	arg: message: string	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+unported	packages/effect/test/schema/Schema.test.ts	5640	it	returns the original schema	
+unported	packages/effect/test/schema/Schema.test.ts	5646	it	Struct	
+unported	packages/effect/test/schema/Schema.test.ts	5658	it	arg: message: string	
 not-applicable	packages/effect/test/schema/Schema.test.ts	5683	it	Duration	the row's body asserts nothing at runtime beyond the optional arbitrary-generation check, and Schema.Duration does not exist on the Rust schema surface, so the schema in the row cannot be built
-not-applicable	packages/effect/test/schema/Schema.test.ts	5692	it	DurationFromString	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	5711	it	DurationFromNanos	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	5732	it	DurationFromMillis	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	5761	it	ByteSize	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	5770	it	ByteSizeFromString	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	5777	it	ByteSizeFromBigInt	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	5785	it	ByteSizeFromNumber	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	5798	it	BigDecimal	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	5815	it	isGreaterThanBigDecimal	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	5827	it	isGreaterThanOrEqualToBigDecimal	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	5841	it	isLessThanBigDecimal	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	5853	it	isLessThanOrEqualToBigDecimal	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	5865	it	isBetweenBigDecimal	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	5882	it	decoding: required & encoding: required & constructor: required	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	5899	it	decoding: required & encoding: required & constructor: optional	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	5917	it	decoding: default & encoding: omit & constructor: optional	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+unported	packages/effect/test/schema/Schema.test.ts	5692	it	DurationFromString	
+unported	packages/effect/test/schema/Schema.test.ts	5711	it	DurationFromNanos	
+unported	packages/effect/test/schema/Schema.test.ts	5732	it	DurationFromMillis	
+unported	packages/effect/test/schema/Schema.test.ts	5761	it	ByteSize	
+unported	packages/effect/test/schema/Schema.test.ts	5770	it	ByteSizeFromString	
+unported	packages/effect/test/schema/Schema.test.ts	5777	it	ByteSizeFromBigInt	
+unported	packages/effect/test/schema/Schema.test.ts	5785	it	ByteSizeFromNumber	
+unported	packages/effect/test/schema/Schema.test.ts	5798	it	BigDecimal	
+unported	packages/effect/test/schema/Schema.test.ts	5815	it	isGreaterThanBigDecimal	
+unported	packages/effect/test/schema/Schema.test.ts	5827	it	isGreaterThanOrEqualToBigDecimal	
+unported	packages/effect/test/schema/Schema.test.ts	5841	it	isLessThanBigDecimal	
+unported	packages/effect/test/schema/Schema.test.ts	5853	it	isLessThanOrEqualToBigDecimal	
+unported	packages/effect/test/schema/Schema.test.ts	5865	it	isBetweenBigDecimal	
+unported	packages/effect/test/schema/Schema.test.ts	5882	it	decoding: required & encoding: required & constructor: required	
+unported	packages/effect/test/schema/Schema.test.ts	5899	it	decoding: required & encoding: required & constructor: optional	
+unported	packages/effect/test/schema/Schema.test.ts	5917	it	decoding: default & encoding: omit & constructor: optional	
 ported	packages/effect/test/schema/Schema.test.ts	5945	it	tagDefaultOmit	tag_fills_default_and_omits_on_encode
 not-applicable	packages/effect/test/schema/Schema.test.ts	5975	it	URL	the row's body asserts nothing at runtime beyond the optional arbitrary-generation check, and Schema.URL does not exist on the Rust schema surface, so the schema in the row cannot be built
 not-applicable	packages/effect/test/schema/Schema.test.ts	5983	it	RegExp	the row's body asserts nothing at runtime beyond the optional arbitrary-generation check, and Schema.RegExp does not exist on the Rust schema surface, so the schema in the row cannot be built
-not-applicable	packages/effect/test/schema/Schema.test.ts	5991	it	URLFromString	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	6011	it	use case: Unknown <-> JSON string	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	6030	it	use case: create a JSON string serializer for an existing schema	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	6047	it	reviver option	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	6056	it	replacer and space options	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	6071	it	use case: parse / stringify a nested schema	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	6091	it	fromFormData	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	6137	it	fromURLSearchParams	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	6172	it	Trim	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	6195	it	transformEffect	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+unported	packages/effect/test/schema/Schema.test.ts	5991	it	URLFromString	
+unported	packages/effect/test/schema/Schema.test.ts	6011	it	use case: Unknown <-> JSON string	
+unported	packages/effect/test/schema/Schema.test.ts	6030	it	use case: create a JSON string serializer for an existing schema	
+unported	packages/effect/test/schema/Schema.test.ts	6047	it	reviver option	
+unported	packages/effect/test/schema/Schema.test.ts	6056	it	replacer and space options	
+unported	packages/effect/test/schema/Schema.test.ts	6071	it	use case: parse / stringify a nested schema	
+unported	packages/effect/test/schema/Schema.test.ts	6091	it	fromFormData	
+unported	packages/effect/test/schema/Schema.test.ts	6137	it	fromURLSearchParams	
+unported	packages/effect/test/schema/Schema.test.ts	6172	it	Trim	
+unported	packages/effect/test/schema/Schema.test.ts	6195	it	transformEffect	
 ported	packages/effect/test/schema/Schema.test.ts	6229	it	should expose the parts	template_literal_exposes_its_parts
 ported	packages/effect/test/schema/Schema.test.ts	6235	it	NonEmptyString + String	template_literal_non_empty_string_part
 not-applicable	packages/effect/test/schema/Schema.test.ts	6243	it	rejects checks on Literal, TemplateLiteral, and Union parts	the row asserts a construction-time throw for a part that carries a check; TemplatePart is a closed enum with no checked variant, so the refusal is a type error and there is no runtime path to assert
@@ -7903,37 +7903,37 @@ ported	packages/effect/test/schema/Schema.test.ts	6783	it	<	parser_nested_parser
 ported	packages/effect/test/schema/Schema.test.ts	6802	it.effect	make preserves existing instances like the other constructor adapters	make_answers_an_existing_instance_unchanged
 ported	packages/effect/test/schema/Schema.test.ts	6820	it	make applies defaults, source checks, and the constructor once	make_fills_constructor_defaults_on_construction
 ported	packages/effect/test/schema/Schema.test.ts	6846	it	make with void input	make_with_void_input_builds_a_zero_field_class
-not-applicable	packages/effect/test/schema/Schema.test.ts	6853	it	decoding validates the class struct once	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	6869	it	make validates an existing nested Class once	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	6884	it	make validates a nested Class source and output once	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+unported	packages/effect/test/schema/Schema.test.ts	6853	it	decoding validates the class struct once	
+unported	packages/effect/test/schema/Schema.test.ts	6869	it	make validates an existing nested Class once	
+unported	packages/effect/test/schema/Schema.test.ts	6884	it	make validates a nested Class source and output once	
 ported	packages/effect/test/schema/Schema.test.ts	6905	it	make allows an optional nested Class to be omitted	an_optional_nested_class_may_be_omitted_from_a_construction
-not-applicable	packages/effect/test/schema/Schema.test.ts	6912	it	make applies constructor defaults only at a field occurrence	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+unported	packages/effect/test/schema/Schema.test.ts	6912	it	make applies constructor defaults only at a field occurrence	
 ported	packages/effect/test/schema/Schema.test.ts	6932	it	suspend before initialization	suspend_reads_late_initialized_binding
-not-applicable	packages/effect/test/schema/Schema.test.ts	6946	it	should memoize the ast	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+unported	packages/effect/test/schema/Schema.test.ts	6946	it	should memoize the ast	
 ported	packages/effect/test/schema/Schema.test.ts	6953	it	should set the identifier annotation	a_class_exposes_its_fields_and_identifier_and_round_trips
-not-applicable	packages/effect/test/schema/Schema.test.ts	6961	it	`[immerable]`	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	6981	it	Equality	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	6998	it	mapFields	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+unported	packages/effect/test/schema/Schema.test.ts	6961	it	`[immerable]`	
+unported	packages/effect/test/schema/Schema.test.ts	6981	it	Equality	
+unported	packages/effect/test/schema/Schema.test.ts	6998	it	mapFields	
 ported	packages/effect/test/schema/Schema.test.ts	7006	it	Struct with nested Class	a_nested_class_field_constructs_its_own_instance
 ported	packages/effect/test/schema/Schema.test.ts	7020	it	Class with nested Class	a_nested_class_field_constructs_its_own_instance
-not-applicable	packages/effect/test/schema/Schema.test.ts	7035	it	make preserves Class instances in Array(Class) and Array(Union(Class))	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	7047	it	make constructs nested Class instances with and without Union	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	7056	it	make selects the first TaggedClass Union member when the tag is defaulted	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	7064	it	should be possible to define a class with a mutable field	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+unported	packages/effect/test/schema/Schema.test.ts	7035	it	make preserves Class instances in Array(Class) and Array(Union(Class))	
+unported	packages/effect/test/schema/Schema.test.ts	7047	it	make constructs nested Class instances with and without Union	
+unported	packages/effect/test/schema/Schema.test.ts	7056	it	make selects the first TaggedClass Union member when the tag is defaulted	
+unported	packages/effect/test/schema/Schema.test.ts	7064	it	should be possible to define a class with a mutable field	
 ported	packages/effect/test/schema/Schema.test.ts	7083	it	Fields argument	a_class_exposes_its_fields_and_identifier_and_round_trips
 ported	packages/effect/test/schema/Schema.test.ts	7139	it	Struct argument	a_class_exposes_its_fields_and_identifier_and_round_trips
 ported	packages/effect/test/schema/Schema.test.ts	7195	it	constructor ignores excess properties by default	the_constructor_ignores_excess_properties_by_default
 ported	packages/effect/test/schema/Schema.test.ts	7206	it	constructor strips excess properties with explicit ignore	an_explicit_ignore_or_strip_still_leaves_the_key_off
 ported	packages/effect/test/schema/Schema.test.ts	7219	it	constructor rejects excess properties when requested	the_constructor_rejects_excess_properties_when_requested
 ported	packages/effect/test/schema/Schema.test.ts	7231	it	annotate	an_annotation_over_a_class_keeps_the_class
-not-applicable	packages/effect/test/schema/Schema.test.ts	7247	it	basic	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	7280	it	decoding validates the extended struct once	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+unported	packages/effect/test/schema/Schema.test.ts	7247	it	basic	
+unported	packages/effect/test/schema/Schema.test.ts	7280	it	decoding validates the extended struct once	
 ported	packages/effect/test/schema/Schema.test.ts	7307	it	constructor preserves subclass fields while ignoring excess properties by default	the_extended_constructor_ignores_excess_but_not_the_subclass_fields
-not-applicable	packages/effect/test/schema/Schema.test.ts	7322	it	constructor keeps subclass fields and strips excess properties with explicit ignore	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+unported	packages/effect/test/schema/Schema.test.ts	7322	it	constructor keeps subclass fields and strips excess properties with explicit ignore	
 ported	packages/effect/test/schema/Schema.test.ts	7339	it	constructor does not treat subclass fields as excess properties	the_extended_constructor_ignores_excess_but_not_the_subclass_fields
-not-applicable	packages/effect/test/schema/Schema.test.ts	7361	it	Struct argument	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	7380	it	static members	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	7395	it	make with void input	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+unported	packages/effect/test/schema/Schema.test.ts	7361	it	Struct argument	
+unported	packages/effect/test/schema/Schema.test.ts	7380	it	static members	
+unported	packages/effect/test/schema/Schema.test.ts	7395	it	make with void input	
 ported	packages/effect/test/schema/Schema.test.ts	7402	it	explicit identifier	the_name_is_the_identifier_and_the_tag_stands_in_when_there_is_none
 ported	packages/effect/test/schema/Schema.test.ts	7409	it	fields argument	a_tagged_class_carries_its_tag_on_the_wire
 ported	packages/effect/test/schema/Schema.test.ts	7435	it	constructor ignores excess properties by default	a_tagged_error_ignores_excess_properties_by_default
@@ -7943,7 +7943,7 @@ ported	packages/effect/test/schema/Schema.test.ts	7503	it	make with void input	a
 ported	packages/effect/test/schema/Schema.test.ts	7510	it	fields argument	an_error_class_is_its_tagged_error_twin_and_prints_like_one
 ported	packages/effect/test/schema/Schema.test.ts	7527	it	constructor ignores excess properties by default	an_error_class_is_its_tagged_error_twin_and_prints_like_one
 ported	packages/effect/test/schema/Schema.test.ts	7543	it	constructor strips excess properties with explicit ignore	an_error_class_is_its_tagged_error_twin_and_prints_like_one
-not-applicable	packages/effect/test/schema/Schema.test.ts	7558	it	Struct argument	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+unported	packages/effect/test/schema/Schema.test.ts	7558	it	Struct argument	
 ported	packages/effect/test/schema/Schema.test.ts	7579	it	extend	an_error_class_is_its_tagged_error_twin_and_prints_like_one
 ported	packages/effect/test/schema/Schema.test.ts	7615	it	extended constructor ignores excess properties by default	an_error_class_is_its_tagged_error_twin_and_prints_like_one
 ported	packages/effect/test/schema/Schema.test.ts	7630	it	extended constructor does not treat subclass fields as excess properties	an_error_class_is_its_tagged_error_twin_and_prints_like_one
@@ -7960,53 +7960,53 @@ ported	packages/effect/test/schema/Schema.test.ts	7748	it	zero-field TaggedError
 ported	packages/effect/test/schema/Schema.test.ts	7762	it	extend	extend_keeps_the_parents_tag_and_takes_the_childs_identifier
 ported	packages/effect/test/schema/Schema.test.ts	7775	it	extended constructor ignores excess properties by default	the_extended_constructor_ignores_excess_but_not_the_subclass_fields
 ported	packages/effect/test/schema/Schema.test.ts	7791	it	extended constructor does not treat subclass fields as excess properties	the_extended_constructor_ignores_excess_but_not_the_subclass_fields
-not-applicable	packages/effect/test/schema/Schema.test.ts	7810	it	rejects non-finite numeric values	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	7819	it	enums should be exposed	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	7829	it	Numeric enum	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	7853	it	String enum	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	7881	it	Const enum	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	7908	it	sync fallback	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	7929	it	async fallback	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	7940	it	catchDecodingWithContext	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	7960	it	providing a service	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	7983	it	forced failure	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	7998	it	sync fallback	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	8019	it	async fallback	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	8034	it	catchEncodingWithContext	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	8061	it	providing a service	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	8084	it	forced failure	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	8096	it	Exact Optional Property	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	8111	it	Optional Property	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	8128	it	Exact Optional Property with Nullability	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	8145	it	Optional Property with Nullability	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	8164	it	Optional Property to Exact Optional Property	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	8183	it	Optional Property with Nullability to Optional Property	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	8207	it	optionalKey -> Option	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	8230	it	optional -> Option	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	8255	it	decodeTo as composition	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	8286	it	encodeTo as composition	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	8323	it	no context	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	8346	it	with context	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+unported	packages/effect/test/schema/Schema.test.ts	7810	it	rejects non-finite numeric values	
+unported	packages/effect/test/schema/Schema.test.ts	7819	it	enums should be exposed	
+unported	packages/effect/test/schema/Schema.test.ts	7829	it	Numeric enum	
+unported	packages/effect/test/schema/Schema.test.ts	7853	it	String enum	
+unported	packages/effect/test/schema/Schema.test.ts	7881	it	Const enum	
+unported	packages/effect/test/schema/Schema.test.ts	7908	it	sync fallback	
+unported	packages/effect/test/schema/Schema.test.ts	7929	it	async fallback	
+unported	packages/effect/test/schema/Schema.test.ts	7940	it	catchDecodingWithContext	
+unported	packages/effect/test/schema/Schema.test.ts	7960	it	providing a service	
+unported	packages/effect/test/schema/Schema.test.ts	7983	it	forced failure	
+unported	packages/effect/test/schema/Schema.test.ts	7998	it	sync fallback	
+unported	packages/effect/test/schema/Schema.test.ts	8019	it	async fallback	
+unported	packages/effect/test/schema/Schema.test.ts	8034	it	catchEncodingWithContext	
+unported	packages/effect/test/schema/Schema.test.ts	8061	it	providing a service	
+unported	packages/effect/test/schema/Schema.test.ts	8084	it	forced failure	
+unported	packages/effect/test/schema/Schema.test.ts	8096	it	Exact Optional Property	
+unported	packages/effect/test/schema/Schema.test.ts	8111	it	Optional Property	
+unported	packages/effect/test/schema/Schema.test.ts	8128	it	Exact Optional Property with Nullability	
+unported	packages/effect/test/schema/Schema.test.ts	8145	it	Optional Property with Nullability	
+unported	packages/effect/test/schema/Schema.test.ts	8164	it	Optional Property to Exact Optional Property	
+unported	packages/effect/test/schema/Schema.test.ts	8183	it	Optional Property with Nullability to Optional Property	
+unported	packages/effect/test/schema/Schema.test.ts	8207	it	optionalKey -> Option	
+unported	packages/effect/test/schema/Schema.test.ts	8230	it	optional -> Option	
+unported	packages/effect/test/schema/Schema.test.ts	8255	it	decodeTo as composition	
+unported	packages/effect/test/schema/Schema.test.ts	8286	it	encodeTo as composition	
+unported	packages/effect/test/schema/Schema.test.ts	8323	it	no context	
+unported	packages/effect/test/schema/Schema.test.ts	8346	it	with context	
 ported	packages/effect/test/schema/Schema.test.ts	8377	it	FiniteFromString	ffs_decodes_plain_numbers
 ported	packages/effect/test/schema/Schema.test.ts	8386	it	FiniteFromString	ffs_rejects_non_numeric_text
 ported	packages/effect/test/schema/Schema.test.ts	8403	it	FiniteFromString	ffs_rejects_non_text
-not-applicable	packages/effect/test/schema/Schema.test.ts	8435	it	should reject with an error when the cause contains both a schema issue and a defect	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+unported	packages/effect/test/schema/Schema.test.ts	8435	it	should reject with an error when the cause contains both a schema issue and a defect	
 ported	packages/effect/test/schema/Schema.test.ts	8464	it	FiniteFromString	ffs_encodes_numbers_to_text
-not-applicable	packages/effect/test/schema/Schema.test.ts	8482	it	should throw an error when the cause is not a schema issue	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	8504	it	should throw an error when the cause contains both a schema issue and a defect	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+unported	packages/effect/test/schema/Schema.test.ts	8482	it	should throw an error when the cause is not a schema issue	
+unported	packages/effect/test/schema/Schema.test.ts	8504	it	should throw an error when the cause contains both a schema issue and a defect	
 ported	packages/effect/test/schema/Schema.test.ts	8532	it	FiniteFromString	ffs_round_trips
-not-applicable	packages/effect/test/schema/Schema.test.ts	8566	it	should throw an error when the cause contains both a schema issue and a defect	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+unported	packages/effect/test/schema/Schema.test.ts	8566	it	should throw an error when the cause contains both a schema issue and a defect	
 ported	packages/effect/test/schema/Schema.test.ts	8594	it	FiniteFromString	ffs_round_trips
-not-applicable	packages/effect/test/schema/Schema.test.ts	8619	it	should throw an error when the cause contains both a schema issue and a defect	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	8647	it	should throw on async decoding	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	8662	it	should throw on missing dependency	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	8680	it	should die on async decoding	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	8696	it	should die on missing dependency	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	8714	it	should preserve mixed schema issue and defect causes	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	8746	it	Struct	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+unported	packages/effect/test/schema/Schema.test.ts	8619	it	should throw an error when the cause contains both a schema issue and a defect	
+unported	packages/effect/test/schema/Schema.test.ts	8647	it	should throw on async decoding	
+unported	packages/effect/test/schema/Schema.test.ts	8662	it	should throw on missing dependency	
+unported	packages/effect/test/schema/Schema.test.ts	8680	it	should die on async decoding	
+unported	packages/effect/test/schema/Schema.test.ts	8696	it	should die on missing dependency	
+unported	packages/effect/test/schema/Schema.test.ts	8714	it	should preserve mixed schema issue and defect causes	
+unported	packages/effect/test/schema/Schema.test.ts	8746	it	Struct	
 ported	packages/effect/test/schema/Schema.test.ts	8760	it	Tuple	tuple_checks_length_and_order
-not-applicable	packages/effect/test/schema/Schema.test.ts	8777	it	non-transforming schema	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	8784	it	transforming schema	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+unported	packages/effect/test/schema/Schema.test.ts	8777	it	non-transforming schema	
+unported	packages/effect/test/schema/Schema.test.ts	8784	it	transforming schema	
 ported	packages/effect/test/schema/Schema.test.ts	8793	it	evolve	evolve_maps_a_named_field
 ported	packages/effect/test/schema/Schema.test.ts	8805	it	evolveKeys	evolve_keys_renames_a_named_field
 ported	packages/effect/test/schema/Schema.test.ts	8817	it	renameKeys	rename_keys_rewrites_two_of_three
@@ -8031,7 +8031,7 @@ ported	packages/effect/test/schema/Schema.test.ts	9013	it	readonly [string, numb
 ported	packages/effect/test/schema/Schema.test.ts	9023	it	partial index mapping	rename_indices_rewrites_the_mapped_prefix
 ported	packages/effect/test/schema/Schema.test.ts	9030	it	full index mapping	rename_indices_permutes_every_position
 ported	packages/effect/test/schema/Schema.test.ts	9038	it	NullOr	null_or_wraps_every_element
-not-applicable	packages/effect/test/schema/Schema.test.ts	9049	it	preserves Union options through public derivations	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+unported	packages/effect/test/schema/Schema.test.ts	9049	it	preserves Union options through public derivations	
 ported	packages/effect/test/schema/Schema.test.ts	9061	it	appendElement	union_map_members_appends_a_member
 ported	packages/effect/test/schema/Schema.test.ts	9067	it	evolve	union_map_members_evolves_two_members
 ported	packages/effect/test/schema/Schema.test.ts	9083	it	Array	union_map_members_maps_every_member
@@ -8056,15 +8056,15 @@ ported	packages/effect/test/schema/Schema.test.ts	9323	it	empty array is treated
 ported	packages/effect/test/schema/Schema.test.ts	9330	it	single-element array collapses to the element	a_single_element_array_collapses
 ported	packages/effect/test/schema/Schema.test.ts	9343	it	multi-element array groups into a Composite	a_multi_element_array_composites
 ported	packages/effect/test/schema/Schema.test.ts	9361	it	array mixing string, Issue, and { path, issue }	an_array_mixing_kinds_composites_in_order
-not-applicable	packages/effect/test/schema/Schema.test.ts	9383	it	Struct	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	9401	it	Union	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	9433	it	should augment a union of structs	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	9530	it	should support multiple tags	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	9541	it	should throw on duplicate discriminants	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	9563	it	should collect no discriminants from an empty union	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	9569	it	should support __proto__ as a discriminant	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	9579	it	should augment a union of classes	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	9598	it	should create a tagged union	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+unported	packages/effect/test/schema/Schema.test.ts	9383	it	Struct	
+unported	packages/effect/test/schema/Schema.test.ts	9401	it	Union	
+unported	packages/effect/test/schema/Schema.test.ts	9433	it	should augment a union of structs	
+unported	packages/effect/test/schema/Schema.test.ts	9530	it	should support multiple tags	
+unported	packages/effect/test/schema/Schema.test.ts	9541	it	should throw on duplicate discriminants	
+unported	packages/effect/test/schema/Schema.test.ts	9563	it	should collect no discriminants from an empty union	
+unported	packages/effect/test/schema/Schema.test.ts	9569	it	should support __proto__ as a discriminant	
+unported	packages/effect/test/schema/Schema.test.ts	9579	it	should augment a union of classes	
+unported	packages/effect/test/schema/Schema.test.ts	9598	it	should create a tagged union	
 ported	packages/effect/test/schema/Schema.test.ts	9673	it	should return a decoding default value if the key is missing	wire_key_default_fills_a_missing_key
 ported	packages/effect/test/schema/Schema.test.ts	9689	it	by default should pass through the value	wire_key_default_passes_the_value_through_on_encode
 ported	packages/effect/test/schema/Schema.test.ts	9699	it	should omit the value if the encoding strategy is set to omit	wire_key_default_omit_encoding_drops_the_key
@@ -8100,10 +8100,10 @@ ported	packages/effect/test/schema/Schema.test.ts	10194	it	Capitalize	capitalize
 ported	packages/effect/test/schema/Schema.test.ts	10218	it	Uncapitalize	uncapitalize_normalizes_on_decode_and_insists_on_encode
 ported	packages/effect/test/schema/Schema.test.ts	10242	it	Lowercase	lowercase_normalizes_on_decode_and_insists_on_encode
 ported	packages/effect/test/schema/Schema.test.ts	10266	it	Uppercase	uppercase_normalizes_on_decode_and_insists_on_encode
-not-applicable	packages/effect/test/schema/Schema.test.ts	10292	it	succeed	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+unported	packages/effect/test/schema/Schema.test.ts	10292	it	succeed	
 ported	packages/effect/test/schema/Schema.test.ts	10310	it	isStringFinite	refine_is_string_finite
-not-applicable	packages/effect/test/schema/Schema.test.ts	10319	it	isStringBigInt	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	10328	it	isStringSymbol	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+unported	packages/effect/test/schema/Schema.test.ts	10319	it	isStringBigInt	
+unported	packages/effect/test/schema/Schema.test.ts	10328	it	isStringSymbol	
 ported	packages/effect/test/schema/Schema.test.ts	10337	it	isUUID	refine_is_uuid
 ported	packages/effect/test/schema/Schema.test.ts	10361	it	isUUID version-specific checks reject nil and max UUIDs	a_versioned_uuid_check_refuses_the_nil_and_max_uuids
 ported	packages/effect/test/schema/Schema.test.ts	10377	it	isGUID	refine_is_guid
@@ -8119,16 +8119,16 @@ ported	packages/effect/test/schema/Schema.test.ts	10484	it	multiple brands	two_b
 ported	packages/effect/test/schema/Schema.test.ts	10507	it	should make all optionalKey keys required	require_all_makes_optional_keys_required
 ported	packages/effect/test/schema/Schema.test.ts	10533	it	should make all optional keys required	require_all_makes_optional_keys_required
 ported	packages/effect/test/schema/Schema.test.ts	10559	it	should make all optional keys required	require_all_makes_optional_keys_required
-not-applicable	packages/effect/test/schema/Schema.test.ts	10591	it	fieldsAssign	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	10622	it	wrapping a primitive schema	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	10628	it	inherits the schema protocol	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	10639	it	extending a rebuilt schema	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	10646	it	static getter using this	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	10656	it	static property	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+unported	packages/effect/test/schema/Schema.test.ts	10591	it	fieldsAssign	
+unported	packages/effect/test/schema/Schema.test.ts	10622	it	wrapping a primitive schema	
+unported	packages/effect/test/schema/Schema.test.ts	10628	it	inherits the schema protocol	
+unported	packages/effect/test/schema/Schema.test.ts	10639	it	extending a rebuilt schema	
+unported	packages/effect/test/schema/Schema.test.ts	10646	it	static getter using this	
+unported	packages/effect/test/schema/Schema.test.ts	10656	it	static property	
 ported	packages/effect/test/schema/Schema.test.ts	10664	it	static property using Schema.suspend	struct_field_using_suspend
-not-applicable	packages/effect/test/schema/Schema.test.ts	10672	it	wrapping a Struct schema	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	10686	it	does not create class instances	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
-not-applicable	packages/effect/test/schema/Schema.test.ts	10695	it	subclassing	needs schema AST walk (lib.rs lacks visitor) and follow-up bead
+unported	packages/effect/test/schema/Schema.test.ts	10672	it	wrapping a Struct schema	
+unported	packages/effect/test/schema/Schema.test.ts	10686	it	does not create class instances	
+unported	packages/effect/test/schema/Schema.test.ts	10695	it	subclassing	
 ported	packages/effect/test/schema/Schema.test.ts	10713	it	returns undefined for a schema without annotations	resolve_annotations_is_none_for_a_schema_without_annotations
 ported	packages/effect/test/schema/Schema.test.ts	10717	it	returns annotations from the base schema	resolve_annotations_returns_the_base_annotations
 ported	packages/effect/test/schema/Schema.test.ts	10722	it	returns annotations from the last check	resolve_annotations_returns_the_last_checks_annotations
@@ -9615,32 +9615,32 @@ not-applicable	packages/effect/test/schema/toFormatter.test.ts	644	it	custom cla
 not-applicable	packages/effect/test/schema/toFormatter.test.ts	658	it	String	Schema.overrideToFormatter is absent from the entire crate (grep across schema/src and src returns nothing), so there is no annotation slot for a renderer override
 not-applicable	packages/effect/test/schema/toFormatter.test.ts	664	it	String & isMinLength(1)	Schema.overrideToFormatter is absent from the whole crate (grep empty) and formatter (schema/src/lib.rs:1175) takes no options, so an annotation-driven renderer override cannot be expressed
 not-applicable	packages/effect/test/schema/toFormatter.test.ts	674	it	should allow for ast-level overrides	Schema.toFormatter's onBefore hook needs an options parameter (Rust formatter at schema/src/lib.rs:1175 takes none) plus an AST walk that never happens, so a Boolean override inside a Tuple cannot be expressed
-not-applicable	packages/effect/test/schema/toIso.test.ts	30	30	it	overrideToCodecIso	needs Schema.toIso/toIsoFocus optic derivation over the Type/Iso/Encoded trichotomy; to_type() is a repr printer only, no derivation exists
-not-applicable	packages/effect/test/schema/toIso.test.ts	39	39	it	Class	needs Schema.toIso/toIsoFocus optic derivation over the Type/Iso/Encoded trichotomy; to_type() is a repr printer only, no derivation exists
-not-applicable	packages/effect/test/schema/toIso.test.ts	54	54	it	toType(Class)	needs Schema.toIso/toIsoFocus optic derivation over the Type/Iso/Encoded trichotomy; to_type() is a repr printer only, no derivation exists
-not-applicable	packages/effect/test/schema/toIso.test.ts	62	62	it	toEncoded(Class)	needs Schema.toIso/toIsoFocus optic derivation over the Type/Iso/Encoded trichotomy; to_type() is a repr printer only, no derivation exists
-not-applicable	packages/effect/test/schema/toIso.test.ts	71	71	it	Number & isPositive	needs Schema.toIso/toIsoFocus optic derivation over the Type/Iso/Encoded trichotomy; to_type() is a repr printer only, no derivation exists
-not-applicable	packages/effect/test/schema/toIso.test.ts	83	83	it	Tuple	needs Schema.toIso/toIsoFocus optic derivation over the Type/Iso/Encoded trichotomy; to_type() is a repr printer only, no derivation exists
-not-applicable	packages/effect/test/schema/toIso.test.ts	94	94	it	Array	needs Schema.toIso/toIsoFocus optic derivation over the Type/Iso/Encoded trichotomy; to_type() is a repr printer only, no derivation exists
-not-applicable	packages/effect/test/schema/toIso.test.ts	103	103	it	NonEmptyArray	needs Schema.toIso/toIsoFocus optic derivation over the Type/Iso/Encoded trichotomy; to_type() is a repr printer only, no derivation exists
-not-applicable	packages/effect/test/schema/toIso.test.ts	123	123	it	TupleWithRest	needs Schema.toIso/toIsoFocus optic derivation over the Type/Iso/Encoded trichotomy; to_type() is a repr printer only, no derivation exists
-not-applicable	packages/effect/test/schema/toIso.test.ts	145	145	it	Struct	needs Schema.toIso/toIsoFocus optic derivation over the Type/Iso/Encoded trichotomy; to_type() is a repr printer only, no derivation exists
-not-applicable	packages/effect/test/schema/toIso.test.ts	173	173	it	Record	needs Schema.toIso/toIsoFocus optic derivation over the Type/Iso/Encoded trichotomy; to_type() is a repr printer only, no derivation exists
-not-applicable	packages/effect/test/schema/toIso.test.ts	191	191	it	StructWithRest	needs Schema.toIso/toIsoFocus optic derivation over the Type/Iso/Encoded trichotomy; to_type() is a repr printer only, no derivation exists
-not-applicable	packages/effect/test/schema/toIso.test.ts	209	209	it	Union	needs Schema.toIso/toIsoFocus optic derivation over the Type/Iso/Encoded trichotomy; to_type() is a repr printer only, no derivation exists
-not-applicable	packages/effect/test/schema/toIso.test.ts	219	219	it	suspend	needs Schema.toIso/toIsoFocus optic derivation over the Type/Iso/Encoded trichotomy; to_type() is a repr printer only, no derivation exists
-not-applicable	packages/effect/test/schema/toIso.test.ts	249	249	it	flip(schema)	needs Schema.toIso/toIsoFocus optic derivation over the Type/Iso/Encoded trichotomy; to_type() is a repr printer only, no derivation exists
-not-applicable	packages/effect/test/schema/toIso.test.ts	257	257	it	flip(flip(schema))	needs Schema.toIso/toIsoFocus optic derivation over the Type/Iso/Encoded trichotomy; to_type() is a repr printer only, no derivation exists
-not-applicable	packages/effect/test/schema/toIso.test.ts	265	265	it	Opaque	needs Schema.toIso/toIsoFocus optic derivation over the Type/Iso/Encoded trichotomy; to_type() is a repr printer only, no derivation exists
-not-applicable	packages/effect/test/schema/toIso.test.ts	274	274	it	Option	needs Schema.toIso/toIsoFocus optic derivation over the Type/Iso/Encoded trichotomy; to_type() is a repr printer only, no derivation exists
-not-applicable	packages/effect/test/schema/toIso.test.ts	286	286	it	Result	needs Schema.toIso/toIsoFocus optic derivation over the Type/Iso/Encoded trichotomy; to_type() is a repr printer only, no derivation exists
-not-applicable	packages/effect/test/schema/toIso.test.ts	297	297	it	CauseReason	needs Schema.toIso/toIsoFocus optic derivation over the Type/Iso/Encoded trichotomy; to_type() is a repr printer only, no derivation exists
-not-applicable	packages/effect/test/schema/toIso.test.ts	308	308	it	Cause	needs Schema.toIso/toIsoFocus optic derivation over the Type/Iso/Encoded trichotomy; to_type() is a repr printer only, no derivation exists
-not-applicable	packages/effect/test/schema/toIso.test.ts	320	320	it	Error	needs Schema.toIso/toIsoFocus optic derivation over the Type/Iso/Encoded trichotomy; to_type() is a repr printer only, no derivation exists
-not-applicable	packages/effect/test/schema/toIso.test.ts	328	328	it	Exit	needs Schema.toIso/toIsoFocus optic derivation over the Type/Iso/Encoded trichotomy; to_type() is a repr printer only, no derivation exists
-not-applicable	packages/effect/test/schema/toIso.test.ts	339	339	it	ReadonlySet	needs Schema.toIso/toIsoFocus optic derivation over the Type/Iso/Encoded trichotomy; to_type() is a repr printer only, no derivation exists
-not-applicable	packages/effect/test/schema/toIso.test.ts	351	351	it	ReadonlyMap	needs Schema.toIso/toIsoFocus optic derivation over the Type/Iso/Encoded trichotomy; to_type() is a repr printer only, no derivation exists
-not-applicable	packages/effect/test/schema/toIso.test.ts	363	363	it	HashMap	needs Schema.toIso/toIsoFocus optic derivation over the Type/Iso/Encoded trichotomy; to_type() is a repr printer only, no derivation exists
+not-applicable	packages/effect/test/schema/toIso.test.ts	30	it	overrideToCodecIso	needs Schema.toIso/toIsoFocus optic derivation over the Type/Iso/Encoded trichotomy; to_type() is a repr printer only, no derivation exists
+not-applicable	packages/effect/test/schema/toIso.test.ts	39	it	Class	needs Schema.toIso/toIsoFocus optic derivation over the Type/Iso/Encoded trichotomy; to_type() is a repr printer only, no derivation exists
+not-applicable	packages/effect/test/schema/toIso.test.ts	54	it	toType(Class)	needs Schema.toIso/toIsoFocus optic derivation over the Type/Iso/Encoded trichotomy; to_type() is a repr printer only, no derivation exists
+not-applicable	packages/effect/test/schema/toIso.test.ts	62	it	toEncoded(Class)	needs Schema.toIso/toIsoFocus optic derivation over the Type/Iso/Encoded trichotomy; to_type() is a repr printer only, no derivation exists
+not-applicable	packages/effect/test/schema/toIso.test.ts	71	it	Number & isPositive	needs Schema.toIso/toIsoFocus optic derivation over the Type/Iso/Encoded trichotomy; to_type() is a repr printer only, no derivation exists
+not-applicable	packages/effect/test/schema/toIso.test.ts	83	it	Tuple	needs Schema.toIso/toIsoFocus optic derivation over the Type/Iso/Encoded trichotomy; to_type() is a repr printer only, no derivation exists
+not-applicable	packages/effect/test/schema/toIso.test.ts	94	it	Array	needs Schema.toIso/toIsoFocus optic derivation over the Type/Iso/Encoded trichotomy; to_type() is a repr printer only, no derivation exists
+not-applicable	packages/effect/test/schema/toIso.test.ts	103	it	NonEmptyArray	needs Schema.toIso/toIsoFocus optic derivation over the Type/Iso/Encoded trichotomy; to_type() is a repr printer only, no derivation exists
+not-applicable	packages/effect/test/schema/toIso.test.ts	123	it	TupleWithRest	needs Schema.toIso/toIsoFocus optic derivation over the Type/Iso/Encoded trichotomy; to_type() is a repr printer only, no derivation exists
+not-applicable	packages/effect/test/schema/toIso.test.ts	145	it	Struct	needs Schema.toIso/toIsoFocus optic derivation over the Type/Iso/Encoded trichotomy; to_type() is a repr printer only, no derivation exists
+not-applicable	packages/effect/test/schema/toIso.test.ts	173	it	Record	needs Schema.toIso/toIsoFocus optic derivation over the Type/Iso/Encoded trichotomy; to_type() is a repr printer only, no derivation exists
+not-applicable	packages/effect/test/schema/toIso.test.ts	191	it	StructWithRest	needs Schema.toIso/toIsoFocus optic derivation over the Type/Iso/Encoded trichotomy; to_type() is a repr printer only, no derivation exists
+not-applicable	packages/effect/test/schema/toIso.test.ts	209	it	Union	needs Schema.toIso/toIsoFocus optic derivation over the Type/Iso/Encoded trichotomy; to_type() is a repr printer only, no derivation exists
+not-applicable	packages/effect/test/schema/toIso.test.ts	219	it	suspend	needs Schema.toIso/toIsoFocus optic derivation over the Type/Iso/Encoded trichotomy; to_type() is a repr printer only, no derivation exists
+not-applicable	packages/effect/test/schema/toIso.test.ts	249	it	flip(schema)	needs Schema.toIso/toIsoFocus optic derivation over the Type/Iso/Encoded trichotomy; to_type() is a repr printer only, no derivation exists
+not-applicable	packages/effect/test/schema/toIso.test.ts	257	it	flip(flip(schema))	needs Schema.toIso/toIsoFocus optic derivation over the Type/Iso/Encoded trichotomy; to_type() is a repr printer only, no derivation exists
+not-applicable	packages/effect/test/schema/toIso.test.ts	265	it	Opaque	needs Schema.toIso/toIsoFocus optic derivation over the Type/Iso/Encoded trichotomy; to_type() is a repr printer only, no derivation exists
+not-applicable	packages/effect/test/schema/toIso.test.ts	274	it	Option	needs Schema.toIso/toIsoFocus optic derivation over the Type/Iso/Encoded trichotomy; to_type() is a repr printer only, no derivation exists
+not-applicable	packages/effect/test/schema/toIso.test.ts	286	it	Result	needs Schema.toIso/toIsoFocus optic derivation over the Type/Iso/Encoded trichotomy; to_type() is a repr printer only, no derivation exists
+not-applicable	packages/effect/test/schema/toIso.test.ts	297	it	CauseReason	needs Schema.toIso/toIsoFocus optic derivation over the Type/Iso/Encoded trichotomy; to_type() is a repr printer only, no derivation exists
+not-applicable	packages/effect/test/schema/toIso.test.ts	308	it	Cause	needs Schema.toIso/toIsoFocus optic derivation over the Type/Iso/Encoded trichotomy; to_type() is a repr printer only, no derivation exists
+not-applicable	packages/effect/test/schema/toIso.test.ts	320	it	Error	needs Schema.toIso/toIsoFocus optic derivation over the Type/Iso/Encoded trichotomy; to_type() is a repr printer only, no derivation exists
+not-applicable	packages/effect/test/schema/toIso.test.ts	328	it	Exit	needs Schema.toIso/toIsoFocus optic derivation over the Type/Iso/Encoded trichotomy; to_type() is a repr printer only, no derivation exists
+not-applicable	packages/effect/test/schema/toIso.test.ts	339	it	ReadonlySet	needs Schema.toIso/toIsoFocus optic derivation over the Type/Iso/Encoded trichotomy; to_type() is a repr printer only, no derivation exists
+not-applicable	packages/effect/test/schema/toIso.test.ts	351	it	ReadonlyMap	needs Schema.toIso/toIsoFocus optic derivation over the Type/Iso/Encoded trichotomy; to_type() is a repr printer only, no derivation exists
+not-applicable	packages/effect/test/schema/toIso.test.ts	363	it	HashMap	needs Schema.toIso/toIsoFocus optic derivation over the Type/Iso/Encoded trichotomy; to_type() is a repr printer only, no derivation exists
 not-applicable	packages/effect/test/schema/toJsonSchemaDocument.test.ts	70	it	rejects tuple post-rest elements	tuple post-rest elements unrepresentable; no rest-after-rest shape
 not-applicable	packages/effect/test/schema/toJsonSchemaDocument.test.ts	77	it	rejects symbol property names	symbol property names unrepresentable; no symbol keys
 not-applicable	packages/effect/test/schema/toJsonSchemaDocument.test.ts	86	it	Record(Symbol, Finite)	symbol-keyed record unrepresentable; no symbol keys

@@ -53,44 +53,7 @@ pub struct Behavior {
 impl Behavior {
     pub fn load(path: &Path) -> Result<Vec<Self>, String> {
         let text = fs::read_to_string(path).map_err(|err| err.to_string())?;
-        let mut rows = Vec::new();
-        for (number, raw) in text.lines().enumerate() {
-            if raw.is_empty() || raw.starts_with('#') || raw.starts_with("status\t") {
-                continue;
-            }
-            let mut fields = raw.splitn(6, '\t');
-            let status = fields
-                .next()
-                .ok_or_else(|| format!("line {}: status", number + 1))?
-                .to_string();
-            let path = fields
-                .next()
-                .ok_or_else(|| format!("line {}: path", number + 1))?
-                .to_string();
-            let line: u32 = fields
-                .next()
-                .ok_or_else(|| format!("line {}: line", number + 1))?
-                .parse()
-                .map_err(|_| format!("line {}: line is not a number", number + 1))?;
-            let kind = fields
-                .next()
-                .ok_or_else(|| format!("line {}: kind", number + 1))?
-                .to_string();
-            let title = fields
-                .next()
-                .ok_or_else(|| format!("line {}: title", number + 1))?
-                .to_string();
-            let rust = fields.next().unwrap_or("").to_string();
-            rows.push(Self {
-                status,
-                path,
-                line,
-                kind,
-                title,
-                rust,
-            });
-        }
-        Ok(rows)
+        parse_behaviors(&text)
     }
 
     /// Rows still blocking the port: `unported` only. `ported` rows are
@@ -99,6 +62,42 @@ impl Behavior {
     pub fn still_open(rows: &[Self]) -> usize {
         rows.iter().filter(|row| row.status == "unported").count()
     }
+}
+
+/// Parse the behavior ledger. A data row has exactly six columns.
+///
+/// The old `splitn(6, '\t')` absorbed any extra column silently: 26 rows in
+/// the toIso suite carried a duplicated line column for a whole release, and
+/// every tool read `title = "it"` with the reason glued onto the rust column.
+/// Corruption is refused here instead, because nothing downstream can tell a
+/// well-formed row from a shifted one.
+pub fn parse_behaviors(text: &str) -> Result<Vec<Behavior>, String> {
+    let mut rows = Vec::new();
+    for (number, raw) in text.lines().enumerate() {
+        if raw.is_empty() || raw.starts_with('#') || raw.starts_with("status\t") {
+            continue;
+        }
+        let fields: Vec<&str> = raw.split('\t').collect();
+        if fields.len() != 6 {
+            return Err(format!(
+                "line {}: expected 6 tab-separated fields, got {}",
+                number + 1,
+                fields.len()
+            ));
+        }
+        let line: u32 = fields[2]
+            .parse()
+            .map_err(|_| format!("line {}: line is not a number", number + 1))?;
+        rows.push(Behavior {
+            status: fields[0].to_string(),
+            path: fields[1].to_string(),
+            line,
+            kind: fields[3].to_string(),
+            title: fields[4].to_string(),
+            rust: fields[5].to_string(),
+        });
+    }
+    Ok(rows)
 }
 
 pub fn repo_root() -> PathBuf {
@@ -172,7 +171,36 @@ fn parse_array(value: &str) -> Result<Vec<String>, String> {
 
 #[cfg(test)]
 mod tests {
-    use super::parse_modules;
+    use super::{parse_behaviors, parse_modules};
+
+    #[test]
+    fn parses_one_behavior_row() {
+        let row = parse_behaviors(
+            "# behaviors 1\nstatus\tpath\tline\tkind\ttitle\trust\n\
+             ported\tpackages/effect/test/Array.test.ts\t35\tit\tisCanonicalArrayIndex\tsome_witness\n",
+        )
+        .unwrap();
+        assert_eq!(row.len(), 1);
+        assert_eq!(row[0].title, "isCanonicalArrayIndex");
+        assert_eq!(row[0].rust, "some_witness");
+    }
+
+    /// The toIso rows that carried a duplicated line column (7 fields).
+    #[test]
+    fn refuses_a_row_with_an_extra_column() {
+        let err = parse_behaviors(
+            "not-applicable\tpackages/effect/test/schema/toIso.test.ts\t30\t30\tit\tClass\tneeds work\n",
+        )
+        .unwrap_err();
+        assert!(err.contains("expected 6 tab-separated fields, got 7"), "{err}");
+    }
+
+    #[test]
+    fn refuses_a_row_with_a_missing_column() {
+        let err = parse_behaviors("ported\tpackages/effect/test/Array.test.ts\t35\tit\ttitle\n")
+            .unwrap_err();
+        assert!(err.contains("expected 6 tab-separated fields, got 5"), "{err}");
+    }
 
     #[test]
     fn parses_one_row() {

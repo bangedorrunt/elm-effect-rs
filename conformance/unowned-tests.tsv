@@ -11,7 +11,6 @@
 #
 # path	reason
 packages/effect/test/FileSystem.test-utils.ts	its path names no module row, and the 9 module(s) it imports are named by no path it derives
-packages/effect/test/ai/McpServer/McpConformance/CompletionTest.ts	its path names no module row, and the 4 module(s) it imports are named by no path it derives
 packages/effect/test/ai/McpServer/McpConformance/LifecycleTest.ts	its path names no module row, and the 3 module(s) it imports are named by no path it derives
 packages/effect/test/ai/McpServer/McpConformance/PromptsTest.ts	its path names no module row, and the 5 module(s) it imports are named by no path it derives
 packages/effect/test/ai/McpServer/McpConformance/ResourcesTest.ts	its path names no module row, and the 5 module(s) it imports are named by no path it derives

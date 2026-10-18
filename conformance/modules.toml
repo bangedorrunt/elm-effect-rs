@@ -204,7 +204,7 @@ tests = ["packages/effect/test/Duration.test.ts"]
 [[module]]
 path = "packages/effect/src/Effect.ts"
 class = "port"
-status = "matched"
+status = "unmatched"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/Effect.test.ts"]
@@ -604,7 +604,7 @@ tests = []
 [[module]]
 path = "packages/effect/src/Pool.ts"
 class = "port"
-status = "matched"
+status = "unmatched"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/Pool.test.ts"]
@@ -732,7 +732,7 @@ tests = []
 [[module]]
 path = "packages/effect/src/Request.ts"
 class = "port"
-status = "matched"
+status = "unmatched"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/Request.test.ts"]
@@ -788,7 +788,7 @@ tests = ["packages/effect/test/Scheduler.test.ts"]
 [[module]]
 path = "packages/effect/src/Schema.ts"
 class = "port"
-status = "matched"
+status = "unmatched"
 tag = "none"
 reason = ""
 tests = ["packages/effect/test/schema/Schema.test.ts"]
@@ -2476,7 +2476,7 @@ tests = []
 [[module]]
 path = "packages/effect/src/persistence/RateLimiter.ts"
 class = "unstable-port"
-status = "matched"
+status = "unmatched"
 tag = "unstable"
 reason = ""
 tests = ["packages/effect/test/persistence/RateLimiter.test.ts", "packages/effect/test/persistence/RateLimiterTest.ts"]
