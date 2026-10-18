@@ -2873,8 +2873,8 @@ ported	packages/effect/test/Pool.test.ts	116	it.live	blocks when item not availa
 ported	packages/effect/test/Pool.test.ts	133	it.effect	reuse released items	pool_releases_idle_extras
 ported	packages/effect/test/Pool.test.ts	146	it.effect	invalidate item	pool_invalidate_drops_item_from_circulation
 not-applicable	packages/effect/test/Pool.test.ts	163	it.effect	invalidate all items in pool and check that pool.get doesn't hang forever	the row invalidates items by value through Pool.invalidate(pool, item) and expects the pool to replenish to its min afterwards; this port's Pool exposes only Pooled::invalidate (drop of a checked-out value) and has no min, so the post-invalidate allocation and finalization counts cannot be reproduced
-unported	packages/effect/test/Pool.test.ts	183	it.live	retry on failed acquire should not exhaust pool	
-unported	packages/effect/test/Pool.test.ts	198	it.effect	compositional retry	
+ported	packages/effect/test/Pool.test.ts	183	it.live	retry on failed acquire should not exhaust pool	pool_failed_acquire_does_not_exhaust_the_pool
+ported	packages/effect/test/Pool.test.ts	198	it.effect	compositional retry	pool_compositional_retry_lands_on_the_succeeding_attempt
 ported	packages/effect/test/Pool.test.ts	213	it.effect	max pool size	pool_max_size_with_concurrency
 ported	packages/effect/test/Pool.test.ts	244	it.effect	max pool size with concurrency: 3	pool_max_size_with_concurrency
 ported	packages/effect/test/Pool.test.ts	276	it.effect	concurrency reclaim	pool_reclaims_after_concurrent_use

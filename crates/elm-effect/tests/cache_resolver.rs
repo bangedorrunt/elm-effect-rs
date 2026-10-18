@@ -3254,3 +3254,50 @@ fn cache_interrupted_lookup_keeps_a_newer_set_value() {
     assert_eq!(cache.get_option(&"key".to_string()), Some(99));
     assert_eq!(cache.size(), 1);
 }
+
+#[test]
+fn pool_failed_acquire_does_not_exhaust_the_pool() {
+    // Pool.test.ts:183. Six attempts against a pool of one, every one failing:
+    // each attempt must give its slot back, or the retry loop starves itself
+    // and the sixth call blocks forever.
+    let pool = Pool::<u32>::new(1, IdlePolicy::default(), || 0);
+    let mut attempts = 0;
+    for _ in 0..6 {
+        attempts += 1;
+        let result = pool.acquire_with(|| Err::<u32, &'static str>("error"));
+        assert_eq!(result.err(), Some("error"));
+        assert_eq!(pool.in_use(), 0, "a failed attempt holds nothing");
+        assert_eq!(pool.idle_count(), 0, "a failed attempt idles nothing");
+    }
+    assert_eq!(attempts, 6);
+    // The slot is still there for the attempt that succeeds.
+    let pooled = pool
+        .acquire_with(|| Ok::<u32, &'static str>(7))
+        .expect("the slot is free");
+    assert_eq!(*pooled, 7);
+}
+
+#[test]
+fn pool_compositional_retry_lands_on_the_succeeding_attempt() {
+    // Pool.test.ts:198. Ten failures fill the pool's own size, then the
+    // eleventh attempt succeeds: 11 allocations, one live value.
+    let pool = Pool::<u32>::new(10, IdlePolicy::default(), || 0);
+    let mut allocated = 0u32;
+    let mut value = None;
+    for _ in 0..11 {
+        allocated += 1;
+        let attempt = allocated;
+        match pool.acquire_with(|| if attempt <= 10 { Err(attempt) } else { Ok(attempt) }) {
+            Ok(pooled) => {
+                value = Some(*pooled);
+                break;
+            }
+            Err(failed) => assert_eq!(failed, attempt),
+        }
+    }
+    assert_eq!(allocated, 11);
+    assert_eq!(value, Some(11));
+    // The guard went out of scope with the loop, so the value is idle again.
+    assert_eq!(pool.in_use(), 0);
+    assert_eq!(pool.idle_count(), 1);
+}

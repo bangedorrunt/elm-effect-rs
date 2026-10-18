@@ -914,6 +914,53 @@ where
         }
     }
 
+    /// Take a value the caller makes, handing the slot back when making
+    /// fails.
+    ///
+    /// A failed attempt must not shrink the pool: the slot is counted while
+    /// the attempt runs and given back on `Err`, which is what lets a retry
+    /// loop keep trying without starving itself. An idle value is reused
+    /// first; the pool's own `make` is not used on this path.
+    pub fn acquire_with<E>(
+        &self,
+        create: impl FnOnce() -> Result<T, E>,
+    ) -> Result<Pooled<'_, T>, E> {
+        let mut guard = self.inner.lock().unwrap();
+        loop {
+            while let Some((value, at)) = guard.idle.pop() {
+                if let Some(timeout) = self.idle.max_idle_time
+                    && at.elapsed() >= timeout
+                {
+                    guard.total -= 1;
+                    continue;
+                }
+                return Ok(Pooled {
+                    value: Some(value),
+                    pool: self,
+                    returning: true,
+                });
+            }
+            if guard.total < self.max {
+                guard.total += 1;
+                drop(guard);
+                return match create() {
+                    Ok(value) => Ok(Pooled {
+                        value: Some(value),
+                        pool: self,
+                        returning: true,
+                    }),
+                    Err(error) => {
+                        let mut guard = self.inner.lock().unwrap();
+                        guard.total -= 1;
+                        self.available.notify_one();
+                        Err(error)
+                    }
+                };
+            }
+            guard = self.available.wait(guard).unwrap();
+        }
+    }
+
     /// Values currently checked out.
     pub fn in_use(&self) -> usize {
         let guard = self.inner.lock().unwrap();
