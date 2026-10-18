@@ -22,10 +22,51 @@ pub(crate) mod sealed {
 pub trait Requirement: sealed::Sealed + Send + 'static {}
 impl Requirement for () {}
 
+/// A value travelling through the trampoline. The concrete type is known to
+/// the [`Frame`] that resumes it, never to the loop, which is why the loop can
+/// run a `flat_map` chain of any depth on one stack frame per step.
+pub(crate) struct Erased(Box<dyn Any + Send>);
+
+/// The next thing the interpreter should do.
+pub(crate) enum Drive<E> {
+    /// A value is ready for the innermost pending frame.
+    Done(Erased),
+    /// Nothing below this can run: unwind every pending frame.
+    Fail(Cause<E>),
+    /// Run `advance` next; its value resumes `frame`.
+    Pending {
+        advance: Advance<E>,
+        frame: Box<dyn Frame<E>>,
+    },
+}
+
+/// One pending continuation, held by the loop instead of the call stack.
+pub(crate) trait Frame<E>: Send {
+    fn resume(self: Box<Self>, value: Erased) -> Drive<E>;
+}
+
+/// A thunk the loop calls to advance one step. It owns the concrete types the
+/// loop cannot name, and returns without recursing.
+pub(crate) type Advance<E> = Box<dyn FnOnce() -> Drive<E> + Send>;
+
 /// Runs one erased step to completion. Object-safe so `FlatMap`/`FoldE`
-/// can hide their input type; implemented only inside this module.
-pub(crate) trait ErasedStep<A, E>: Send {
+/// can hide their input type; implemented only inside this module, plus the
+/// few combinators that own their own loop.
+pub(crate) trait ErasedStep<A: Send + 'static, E: Send + 'static>: Send {
     fn run_erased(self: Box<Self>, scope: &crate::service::Services) -> Result<A, Cause<E>>;
+
+    /// Take one step under the interpreter loop.
+    ///
+    /// The default runs `run_erased` and reports its answer, which is right
+    /// for every atomic step. A step that would otherwise interpret a child by
+    /// recursion - `flat_map` is the one that matters - answers
+    /// [`Drive::Pending`] instead, so nesting depth costs stack depth nowhere.
+    fn drive(self: Box<Self>, scope: &crate::service::Services) -> Drive<E> {
+        match self.run_erased(scope) {
+            Ok(a) => Drive::Done(Erased(Box::new(a))),
+            Err(cause) => Drive::Fail(cause),
+        }
+    }
 }
 
 struct FlatMap<D: Send + 'static, A, E: Send + 'static, R: Requirement, F> {
@@ -52,6 +93,74 @@ where
             Ok(d) => cont(d).run_sync_with(&inner),
             Err(cause) => Err(cause),
         }
+    }
+
+    fn drive(self: Box<Self>, scope: &crate::service::Services) -> Drive<E> {
+        let Self {
+            first, cont, env, ..
+        } = *self;
+        let inner = crate::service::merged_services(scope, &env);
+        let advance_env = Arc::clone(&inner);
+        Drive::Pending {
+            advance: Box::new(move || enter_effect(first, &advance_env)),
+            frame: Box::new(ContFrame {
+                cont,
+                env: inner,
+                marker: PhantomData,
+            }),
+        }
+    }
+}
+
+/// The `cont` half of a `flat_map`, waiting for `first`'s value.
+struct ContFrame<D: Send + 'static, A, E: Send + 'static, R: Requirement, F> {
+    cont: F,
+    env: crate::service::Services,
+    marker: PhantomData<fn() -> (A, E, R, D)>,
+}
+
+impl<D, A, E, R, F> Frame<E> for ContFrame<D, A, E, R, F>
+where
+    D: Send + 'static,
+    A: Send + 'static,
+    E: Send + 'static,
+    R: Requirement,
+    F: FnOnce(D) -> Effect<A, E, R> + Send + 'static,
+{
+    fn resume(self: Box<Self>, value: Erased) -> Drive<E> {
+        let Self { cont, env, .. } = *self;
+        // The loop only ever hands a frame the value its own step produced, so
+        // a mismatch is an interpreter bug, reported as a defect rather than
+        // a panic a caller could not act on.
+        let Ok(value) = value.0.downcast::<D>() else {
+            return Drive::Fail(Cause::die(Defect::new(
+                "interpreter resumed a continuation with the wrong value type",
+            )));
+        };
+        let next = cont(*value);
+        enter_effect(next, &env)
+    }
+}
+
+/// The pin's `Effect.suspend`: build the description on interpretation.
+struct Defer<A, E, R: Requirement, F> {
+    build: F,
+    marker: PhantomData<fn() -> (A, E, R)>,
+}
+
+impl<A, E, R, F> ErasedStep<A, E> for Defer<A, E, R, F>
+where
+    A: Send + 'static,
+    E: Send + 'static,
+    R: Requirement,
+    F: FnOnce() -> Effect<A, E, R> + Send + 'static,
+{
+    fn run_erased(self: Box<Self>, scope: &crate::service::Services) -> Result<A, Cause<E>> {
+        (self.build)().run_sync_with(scope)
+    }
+
+    fn drive(self: Box<Self>, scope: &crate::service::Services) -> Drive<E> {
+        enter_effect((self.build)(), scope)
     }
 }
 
@@ -413,7 +522,7 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
         Rest: Requirement,
     {
         let env = Arc::clone(&self.services);
-        Effect::suspend(
+        Effect::suspend_op(
             Scoped {
                 inner: self,
                 env: Arc::clone(&env),
@@ -719,7 +828,7 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
         }
     }
 
-    pub(crate) fn suspend(
+    pub(crate) fn suspend_op(
         op: impl ErasedStep<A, E> + 'static,
         env: crate::service::Services,
     ) -> Self {
@@ -730,6 +839,23 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
         }
     }
 
+    /// `Effect.suspend` at the pin: build the description only when it is
+    /// interpreted. That is what makes a recursive description finite to
+    /// build, and what lets the interpreter run its chain without growing the
+    /// call stack (row 2713).
+    pub fn suspend<F>(build: F) -> Self
+    where
+        F: FnOnce() -> Effect<A, E, R> + Send + 'static,
+    {
+        Self::suspend_op(
+            Defer {
+                build,
+                marker: PhantomData,
+            },
+            crate::service::empty_services(),
+        )
+    }
+
     /// Lazily apply `cont` to the success value. `cont` never runs on failure.
     pub fn flat_map<B, F>(self, cont: F) -> Effect<B, E, R>
     where
@@ -737,7 +863,7 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
         F: FnOnce(A) -> Effect<B, E, R> + Send + 'static,
     {
         let env = std::sync::Arc::clone(&self.services);
-        Effect::suspend(
+        Effect::suspend_op(
             FlatMap {
                 first: self,
                 cont,
@@ -767,7 +893,7 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
         FF: FnOnce(Cause<E>) -> Effect<B, E2, R> + Send + 'static,
     {
         let env = std::sync::Arc::clone(&self.services);
-        Effect::suspend(
+        Effect::suspend_op(
             FoldE {
                 first: self,
                 on_success,
@@ -894,30 +1020,80 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
     }
 
     pub(crate) fn run_sync_with(self, outer: &crate::service::Services) -> Result<A, Cause<E>> {
-        let scope = crate::service::merged_services(outer, &self.services);
-        // A tag provided twice with distinct values poisons the whole build:
-        // any run Dies, even with no `Use` node left to observe it.
-        if let Some(id) = scope.conflict() {
-            return Err(Cause::die(Defect::new(format!(
-                "ambiguous tag: {id} (provided twice with distinct values)"
-            ))));
-        }
-        match self.step {
-            Step::Succeed(a) => Ok(a),
-            Step::Fail(cause) => Err(cause),
-            Step::Sync(thunk) => Ok(thunk()),
-            Step::Suspend(op) => op.run_erased(&scope),
-            Step::Use { id, read } => match scope.get_tag(id) {
-                Some(any) => match read(any) {
-                    Some(a) => Ok(a),
-                    None => Err(Cause::die(Defect::new(format!(
-                        "service type mismatch for tag: {id}"
-                    )))),
+        let Effect { step, services, .. } = self;
+        // Frames live here, not on the call stack: a description nested ten
+        // thousand `flat_map`s deep runs in one loop.
+        let mut frames: Vec<Box<dyn Frame<E>>> = Vec::new();
+        let mut drive = enter_step(step, &services, outer);
+        loop {
+            match drive {
+                Drive::Fail(cause) => return Err(cause),
+                Drive::Done(value) => match frames.pop() {
+                    None => {
+                        return match value.0.downcast::<A>() {
+                            Ok(value) => Ok(*value),
+                            // Unreachable when the types line up; a defect beats
+                            // a panic a caller could not act on.
+                            Err(_) => Err(Cause::die(Defect::new(
+                                "interpreter finished with the wrong value type",
+                            ))),
+                        };
+                    }
+                    Some(frame) => drive = frame.resume(value),
                 },
-                None => Err(Cause::die(Defect::new(format!("missing service: {id}")))),
-            },
-            Step::ReadRef { id, apply } => Ok(apply(scope.get_ref(id))),
+                Drive::Pending { advance, frame } => {
+                    frames.push(frame);
+                    drive = advance();
+                }
+            }
         }
+    }
+}
+
+/// One step of the interpreter: resolve the step's own services, then hand it
+/// either a finished value or a continuation to run later.
+fn enter_effect<A, E, R>(effect: Effect<A, E, R>, outer: &crate::service::Services) -> Drive<E>
+where
+    A: Send + 'static,
+    E: Send + 'static,
+    R: Requirement,
+{
+    let Effect { step, services, .. } = effect;
+    enter_step(step, &services, outer)
+}
+
+fn enter_step<A, E>(
+    step: Step<A, E>,
+    services: &crate::service::Services,
+    outer: &crate::service::Services,
+) -> Drive<E>
+where
+    A: Send + 'static,
+    E: Send + 'static,
+{
+    let scope = crate::service::merged_services(outer, services);
+    // A tag provided twice with distinct values poisons the whole build:
+    // any run Dies, even with no `Use` node left to observe it.
+    if let Some(id) = scope.conflict() {
+        return Drive::Fail(Cause::die(Defect::new(format!(
+            "ambiguous tag: {id} (provided twice with distinct values)"
+        ))));
+    }
+    match step {
+        Step::Succeed(a) => Drive::Done(Erased(Box::new(a))),
+        Step::Fail(cause) => Drive::Fail(cause),
+        Step::Sync(thunk) => Drive::Done(Erased(Box::new(thunk()))),
+        Step::Suspend(op) => op.drive(&scope),
+        Step::Use { id, read } => match scope.get_tag(id) {
+            Some(any) => match read(any) {
+                Some(a) => Drive::Done(Erased(Box::new(a))),
+                None => Drive::Fail(Cause::die(Defect::new(format!(
+                    "service type mismatch for tag: {id}"
+                )))),
+            },
+            None => Drive::Fail(Cause::die(Defect::new(format!("missing service: {id}")))),
+        },
+        Step::ReadRef { id, apply } => Drive::Done(Erased(Box::new(apply(scope.get_ref(id))))),
     }
 }
 
@@ -959,7 +1135,7 @@ impl<A: Send + 'static, E: Send + 'static> Effect<A, E, ()> {
     where
         F: Fn() -> Effect<A, E, ()> + Send + 'static,
     {
-        Effect::suspend(
+        Effect::suspend_op(
             crate::stm::TxBoundary {
                 build: Box::new(build),
                 env: crate::service::empty_services(),

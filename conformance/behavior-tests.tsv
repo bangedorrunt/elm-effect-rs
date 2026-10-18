@@ -1346,7 +1346,7 @@ not-applicable	packages/effect/test/Effect.test.ts	2650	it.effect	is interrupted
 not-applicable	packages/effect/test/Effect.test.ts	2668	it.effect	is interrupted when scope is closed	Effect.onInterrupt is absent from crates/elm-effect/src/effect.rs (21 pub fns) and forkChild/forkDetach/forkIn/forkScoped exist only as runtime methods (fiber.rs:243/291/281/260), not the effect-last forms the pin uses
 unported	packages/effect/test/Effect.test.ts	2687	it.effect	works	
 unported	packages/effect/test/Effect.test.ts	2704	it.live	recursion	
-unported	packages/effect/test/Effect.test.ts	2713	it	lazily nested map continuations	
+ported	packages/effect/test/Effect.test.ts	2713	it	lazily nested map continuations	deeply_nested_map_continuations_run
 not-applicable	packages/effect/test/Effect.test.ts	2727	it.effect	onExit preserves the original failure when the finalizer throws	Effect.onExit exists (crates/elm-effect/src/effect.rs:270) but takes FnOnce(&Exit) and cannot append the finalizer defect to the cause, so a finalizer that throws cannot raise the combined Exit the pin asserts
 not-applicable	packages/effect/test/Effect.test.ts	2736	it.effect	onExit reports a thrown finalizer on success	same onExit gap as effect.rs:270 plus Effect.onInterrupt absent, so an outer interrupt observed after an inner throwing finalizer cannot be carried
 not-applicable	packages/effect/test/Effect.test.ts	2742	it.effect	an outer onInterrupt still sees the interruption after an inner finalizer throws	same onExit gap as effect.rs:270 plus Effect.onInterrupt absent, so an outer interrupt observed after an inner throwing finalizer cannot be carried
