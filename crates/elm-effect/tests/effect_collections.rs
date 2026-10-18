@@ -339,3 +339,14 @@ fn filter_accepts_any_iterable() {
     );
     assert_eq!(exit, Exit::Success(vec![1, 3, 5]));
 }
+
+/// Effect.test.ts :901 — `forEach` over nothing runs nothing and succeeds
+/// with an empty collection.
+#[test]
+fn for_each_over_no_items_yields_an_empty_result() {
+    let rt = Runtime::new();
+    let exit = elm_effect::for_each::<u32, u32, u32>(&rt, items(&[]), Concurrency::Sequential, |item, _ctx| {
+        Exit::succeed(item)
+    });
+    assert_eq!(exit, Exit::Success(Vec::<u32>::new()));
+}

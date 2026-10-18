@@ -1237,7 +1237,7 @@ unported	packages/effect/test/Effect.test.ts	802	it.effect	unbounded fail
 unported	packages/effect/test/Effect.test.ts	818	it.effect	interrupts started workers when the mapper throws during initial pumping	
 unported	packages/effect/test/Effect.test.ts	844	it.effect	preserves a sibling cleanup defect when the mapper throws	
 unported	packages/effect/test/Effect.test.ts	871	it.effect	interrupts started workers when observer-driven refill throws	
-unported	packages/effect/test/Effect.test.ts	901	it.effect	length = 0	
+ported	packages/effect/test/Effect.test.ts	901	it.effect	length = 0	crates/elm-effect/tests/effect_collections.rs::for_each_over_no_items_yields_an_empty_result
 unported	packages/effect/test/Effect.test.ts	907	it.effect	string	
 unported	packages/effect/test/Effect.test.ts	915	it.effect	returns the first element	
 unported	packages/effect/test/Effect.test.ts	921	it.effect	fails with NoSuchElementError for an empty iterable	
