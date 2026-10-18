@@ -5,7 +5,7 @@
 use elm_effect::{Cause, Defect, Effect, Exit, FiberHandle, FiberId, ForkOpts, Runtime};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 fn flag() -> Arc<AtomicBool> {
     Arc::new(AtomicBool::new(false))
@@ -148,6 +148,73 @@ fn child_dies_with_parent_and_parent_waits_finalizers() {
     // Parent join returned only after the child was interrupted and finalized.
     assert!(is_set(&child_saw_interrupt));
     assert!(is_set(&child_finalized));
+}
+
+/// A body that cannot return must not be the reason its children keep
+/// running: interruption reaches the whole subtree at the moment it is
+/// requested. Here the parent is blocked inside `join`, so nothing it does
+/// after the body would ever run.
+///
+/// Without recursive delivery this test does not fail, it hangs: the child
+/// parks until an interrupt that only the parent's (never reached) body end
+/// would deliver. The watchdog turns the hang into a loud abort.
+#[test]
+fn interrupting_a_parent_reaches_the_child_it_is_blocked_on() {
+    let done = flag();
+    let watchdog_done = done.clone();
+    std::thread::spawn(move || {
+        let start = Instant::now();
+        while !is_set(&watchdog_done) {
+            if start.elapsed() > Duration::from_secs(10) {
+                eprintln!(
+                    "the blocked parent never finished: interruption is not reaching its children"
+                );
+                std::process::abort();
+            }
+            std::thread::park_timeout(Duration::from_millis(10));
+        }
+    });
+
+    let rt = Runtime::new();
+    let child_running = flag();
+    let running = child_running.clone();
+    let child_stopped = flag();
+    let stopped = child_stopped.clone();
+
+    let parent = rt.fork_detach_with(
+        move |ctx| -> Exit<(), String> {
+            let child = ctx.fork_child(
+                move |cctx| -> Exit<(), String> {
+                    running.store(true, Ordering::SeqCst);
+                    while !cctx.is_interrupted() {
+                        std::thread::park_timeout(Duration::from_millis(1));
+                    }
+                    stopped.store(true, Ordering::SeqCst);
+                    Exit::Failure(Cause::interrupt(None))
+                },
+                ForkOpts::immediate(),
+            );
+            // The parent's body cannot return until the child ends, so the
+            // request has to reach the child while the parent is still here.
+            let _ = child.join();
+            Exit::succeed(())
+        },
+        ForkOpts::immediate(),
+    );
+
+    while !is_set(&child_running) {
+        std::thread::park_timeout(Duration::from_millis(1));
+    }
+    parent.interrupt();
+    done.store(true, Ordering::SeqCst);
+
+    assert!(is_set(&child_stopped), "the child never saw the interrupt");
+    // The parent ends interrupted, not successful: a body that returns after
+    // its interrupt was requested still ends interrupted.
+    match parent.join() {
+        Exit::Success(()) => panic!("an interrupted parent reported success"),
+        Exit::Failure(cause) => assert!(cause.is_interrupted(), "{cause:?}"),
+    }
 }
 
 #[test]

@@ -490,18 +490,21 @@ impl<A: Send + 'static, E: Send + 'static> FiberHandle<A, E> {
 
     /// Interrupt and wait until the target's finalizers finished
     /// (back-pressure). Fires the start latch first so a deferred fiber that
-    /// never ran still ends. This is the default interrupter.
+    /// never ran still ends. This is the default interrupter. The whole
+    /// descendant subtree is interrupted too, in the same request.
     pub fn interrupt(&self) {
         self.driver.drain_pending();
         self.start.fire();
         self.control.request_interrupt();
+        self.driver.interrupt_tree(self.control.id);
         self.control.wait_done();
     }
 
-    /// Request interruption without waiting. The fiber may still be running
-    /// finalizers when this returns.
+    /// Request interruption without waiting. The fiber and its descendants
+    /// may still be running finalizers when this returns.
     pub fn interrupt_unsafe(&self) {
         self.control.request_interrupt();
+        self.driver.interrupt_tree(self.control.id);
     }
 
     /// Register a finalizer from outside the fiber.

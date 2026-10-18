@@ -48,6 +48,26 @@ impl Shared {
         }
     }
 
+    /// Request interruption for every descendant of `id`, depth first.
+    ///
+    /// Delivered when the interrupt is requested, not at the end of the
+    /// interrupted body: a body blocked joining its own child - which is what
+    /// `runtime::timeout` around a spawn does - would otherwise never reach
+    /// the code that stops it, and the interrupt would wait forever.
+    /// Non-blocking; each fiber ends on its own.
+    pub(crate) fn interrupt_tree(&self, id: FiberId) {
+        let mut pending = vec![id];
+        while let Some(parent) = pending.pop() {
+            for child in children_of(&self.children, parent) {
+                // Fire the start latch first: a deferred child that never ran
+                // still has to end, and only running lets it observe the flag.
+                child.start.fire();
+                child.request_interrupt();
+                pending.push(child.id);
+            }
+        }
+    }
+
     fn track(&self, control: &Arc<FiberControl>) {
         self.live
             .lock()
