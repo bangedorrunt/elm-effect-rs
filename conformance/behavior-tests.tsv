@@ -3111,7 +3111,7 @@ ported	packages/effect/test/RcMap.test.ts	163	it.effect	retains a ready entry un
 unported	packages/effect/test/RcMap.test.ts	188	it.effect	shares an in-flight entry	
 ported	packages/effect/test/RcMap.test.ts	226	it.effect	propagates a cached failure	rcmap_failure_propagates_and_caches
 ported	packages/effect/test/RcMap.test.ts	249	it.effect	retains an idle entry and restarts its TTL on release	rcmap_idle_reuse_restarts_the_ttl
-unported	packages/effect/test/RcMap.test.ts	281	it.effect	linearizes retention before invalidation	
+ported	packages/effect/test/RcMap.test.ts	281	it.effect	linearizes retention before invalidation	crates/elm-effect/tests/rc_map_excuses.rs::invalidate_retires_a_referenced_entry_until_the_last_borrower_returns
 ported	packages/effect/test/RcMap.test.ts	307	it.effect	returns None when the map is closed	rcmap_invalidate_touch_close
 ported	packages/effect/test/RcMap.test.ts	319	it.effect	deallocation	rcmap_deallocation_releases_once_on_the_last_ref
 ported	packages/effect/test/RcMap.test.ts	370	it.effect	idleTimeToLive	rcmap_idle_ttl_releases_an_unreferenced_entry

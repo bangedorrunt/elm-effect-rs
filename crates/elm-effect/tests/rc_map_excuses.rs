@@ -375,3 +375,47 @@ fn rcmap_complex_key_is_hashed_by_value() {
     assert_eq!(map.ref_count(&Key { id: 1 }), 2);
     assert_eq!(lookups.load(Ordering::SeqCst), 1);
 }
+
+// ---------------------------------------------------------------------------
+// :281 linearizes retention before invalidation
+// ---------------------------------------------------------------------------
+
+#[test]
+fn invalidate_retires_a_referenced_entry_until_the_last_borrower_returns() {
+    // The pin removes the entry from the map at invalidation but lets the
+    // scope that still holds it close normally; only then does the value's
+    // finalizer run. Releasing at invalidation would tear the value down
+    // under a live borrower.
+    let released = Arc::new(std::sync::Mutex::new(Vec::<String>::new()));
+    let log = released.clone();
+    let mut map = RcMap::<String, String, ()>::make(
+        |key: &String| Ok(key.clone()),
+        move |value: String| log.lock().unwrap().push(value),
+    );
+
+    assert_eq!(map.get(&"key".to_owned()), Some(Ok("key".to_owned())));
+    assert_eq!(
+        map.get_option(&"key".to_owned()),
+        Some(Ok("key".to_owned()))
+    );
+
+    assert!(map.invalidate(&"key".to_owned()));
+    assert!(!map.has(&"key".to_owned()));
+    assert!(
+        released.lock().unwrap().is_empty(),
+        "invalidation must not release a value a borrower still holds"
+    );
+
+    map.release_ref(&"key".to_owned());
+    assert!(
+        released.lock().unwrap().is_empty(),
+        "the second borrower still holds it"
+    );
+
+    map.release_ref(&"key".to_owned());
+    assert_eq!(
+        *released.lock().unwrap(),
+        vec!["key".to_owned()],
+        "the last borrower releases exactly once"
+    );
+}

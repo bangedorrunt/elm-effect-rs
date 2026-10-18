@@ -11,10 +11,15 @@
 //! virtual milliseconds instead of sleeping. [`expire_idle`](RcMap::expire_idle)
 //! is the sweep the pin runs from a timer.
 //!
-//! Residuals: an invalidated entry that is still referenced is released here at
-//! invalidation rather than when its last reference drops (the pin defers
-//! through a per-entry scope), in-flight sharing with a deferred, and a
-//! background TTL sweep (expiry is lazy on access, or on `expire_idle`).
+//! Invalidation defers: an entry that is still referenced leaves the map but
+//! keeps its value until the last borrower returns, so a replacement under the
+//! same key has its own lifecycle (row 281; 54 and 103 additionally depend on
+//! the pin's per-entry idle fiber, which this port does not model).
+//!
+//! Residuals: in-flight sharing with a deferred, a defect channel (the lookup
+//! is `Result<V, E>`, so a dying lookup cannot be cached or shared), and a
+//! background TTL sweep followed by concurrent close (expiry is lazy on access,
+//! or on `expire_idle`).
 
 use std::collections::HashMap;
 use std::hash::Hash;
@@ -78,6 +83,9 @@ pub struct RcMap<K, V, E> {
     closed: bool,
     clock: Arc<dyn RcClock>,
     entries: HashMap<K, Entry<V, E>>,
+    /// Invalidated entries still held by a borrower. Not reachable through the
+    /// map: `has`, `size` and capacity only see `entries`.
+    retired: Vec<(K, Entry<V, E>)>,
 }
 
 impl<K, V, E> RcMap<K, V, E>
@@ -98,6 +106,7 @@ where
             closed: false,
             clock: Arc::new(SystemRcClock),
             entries: HashMap::new(),
+            retired: Vec::new(),
         }
     }
 
@@ -236,6 +245,10 @@ where
     /// The last reference removes the entry when the key's TTL is zero or
     /// unset, and arms the idle clock otherwise.
     pub fn release_ref(&mut self, key: &K) {
+        if !self.entries.contains_key(key) {
+            self.release_retired(key);
+            return;
+        }
         let Some(entry) = self.entries.get_mut(key) else {
             return;
         };
@@ -273,13 +286,30 @@ where
         }
     }
 
-    /// Release and forget `key`; `false` when absent.
+    /// Remove `key` from the map. A value someone still holds is released when
+    /// that last borrower returns, not here: the pin's invalidation retires the
+    /// entry instead of tearing it down under a live reference.
     pub fn invalidate(&mut self, key: &K) -> bool {
-        if self.entries.contains_key(key) {
-            self.drop_entry(key);
-            true
+        let Some(entry) = self.entries.remove(key) else {
+            return false;
+        };
+        if entry.refs > 0 {
+            self.retired.push((key.clone(), entry));
         } else {
-            false
+            self.release_entry(entry);
+        }
+        true
+    }
+
+    /// Give back one reference to a retired entry; the last one releases it.
+    fn release_retired(&mut self, key: &K) {
+        let Some(index) = self.retired.iter().rposition(|(k, _)| k == key) else {
+            return;
+        };
+        self.retired[index].1.refs = self.retired[index].1.refs.saturating_sub(1);
+        if self.retired[index].1.refs == 0 {
+            let (_, entry) = self.retired.remove(index);
+            self.release_entry(entry);
         }
     }
 
@@ -314,10 +344,8 @@ where
     }
 
     fn drop_entry(&mut self, key: &K) {
-        if let Some(entry) = self.entries.remove(key)
-            && let Some(Ok(value)) = entry.value
-        {
-            (self.release)(value);
+        if let Some(entry) = self.entries.remove(key) {
+            self.release_entry(entry);
         }
     }
 
@@ -345,13 +373,24 @@ where
 }
 
 impl<K, V, E> RcMap<K, V, E> {
+    /// Run the release hook for a value that left the map. No key bounds: a
+    /// retired entry hands its value over without naming the key again.
+    fn release_entry(&mut self, entry: Entry<V, E>) {
+        if let Some(Ok(value)) = entry.value {
+            (self.release)(value);
+        }
+    }
+
     /// Release every retained value. No key bounds: `drain` needs none, which
     /// is what lets `Drop` call it for any `K`.
     fn release_all(&mut self) {
-        for (_, entry) in self.entries.drain() {
-            if let Some(Ok(value)) = entry.value {
-                (self.release)(value);
-            }
+        let live: Vec<Entry<V, E>> = self.entries.drain().map(|(_, entry)| entry).collect();
+        for entry in live {
+            self.release_entry(entry);
+        }
+        let retired: Vec<Entry<V, E>> = self.retired.drain(..).map(|(_, entry)| entry).collect();
+        for entry in retired {
+            self.release_entry(entry);
         }
     }
 }
