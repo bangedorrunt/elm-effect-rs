@@ -1290,7 +1290,7 @@ ported	packages/effect/test/Effect.test.ts	1528	it.effect	repeat/times	crates/el
 not-applicable	packages/effect/test/Effect.test.ts	1539	it.effect	repeat/schedule - repeats according to the specified schedule	Returns the schedule's last output at the pin (3 for recurs(3)); schedule::repeat and repeat_with return the last value instead, and a LoopOptions base schedule is decision-only, so handing back O would change repeat's success type
 ported	packages/effect/test/Effect.test.ts	1547	it.effect	repeat/schedule - with until	crates/elm-effect/tests/effect_repeat_retry.rs::repeat_schedule_with_until
 ported	packages/effect/test/Effect.test.ts	1559	it.effect	repeat/schedule - with while	crates/elm-effect/tests/effect_repeat_retry.rs::repeat_schedule_with_while
-unported	packages/effect/test/Effect.test.ts	1573	it.live	nothing on success	
+ported	packages/effect/test/Effect.test.ts	1573	it.live	nothing on success	crates/elm-effect/tests/effect_repeat_retry.rs::retry_nothing_on_success
 ported	packages/effect/test/Effect.test.ts	1582	it.effect	retry/until - retries until a condition is true	crates/elm-effect/tests/effect_repeat_retry.rs::retry_until_retries_until_a_condition_is_true
 ported	packages/effect/test/Effect.test.ts	1598	it.effect	retry/until - retries until an effectful condition is true	crates/elm-effect/tests/effect_repeat_retry.rs::retry_until_retries_until_an_effectful_condition_is_true
 ported	packages/effect/test/Effect.test.ts	1614	it.effect	retry/until - always evaluates at least once	crates/elm-effect/tests/effect_repeat_retry.rs::retry_until_always_evaluates_at_least_once

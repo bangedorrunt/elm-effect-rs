@@ -397,3 +397,24 @@ fn retry_schedule_while_errors() {
     assert_eq!(failure(exit), RetryError::Boom);
     assert_eq!(n.get(), 1);
 }
+
+// ---------------------------------------------------------------------------
+// retry: a success is never retried
+// ---------------------------------------------------------------------------
+
+#[test]
+fn retry_nothing_on_success() {
+    // Pin :1573 — `retry({ times: 10000 })` over a successful effect runs it
+    // once; the repeat budget only applies after a failure.
+    let count = Counter::new(0);
+    let run = {
+        let count = count.clone();
+        move || {
+            let count = count.clone();
+            Effect::<i64, i64>::sync(move || count.add(1))
+        }
+    };
+    let exit: Exit<i64, i64> = Runtime::run(retry_with(run, LoopOptions::new().times(10_000)));
+    assert_eq!(success(exit), 1);
+    assert_eq!(count.get(), 1, "a success is not retried");
+}
