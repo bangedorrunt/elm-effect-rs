@@ -1309,13 +1309,13 @@ not-applicable	packages/effect/test/Effect.test.ts	1864	it.live	a ready source v
 not-applicable	packages/effect/test/Effect.test.ts	1878	it.live	slow fallback cannot let the original source win after timeout	Effect.timeoutOrElse and Effect.as are absent from crates/elm-effect/src/effect.rs (21 pub fns), so the slow-fallback timeout rows have no Rust constructor
 not-applicable	packages/effect/test/Effect.test.ts	1920	it.live	source and fallback inherit caller context	Effect.timeoutOrElse, Effect.provideService, Effect.currentSpan and Effect.fiberId are all absent from crates/elm-effect/src/effect.rs (21 pub fns); the crate never function is basics.rs:115 Predicate, not an Effect constructor
 unported	packages/effect/test/Effect.test.ts	1972	it.live	external interruption stops a pending fallback	
-unported	packages/effect/test/Effect.test.ts	2004	it.live	timeout a long computation	
+ported	packages/effect/test/Effect.test.ts	2004	it.live	timeout a long computation	timeout_option_returns_none_for_a_long_computation
 unported	packages/effect/test/Effect.test.ts	2013	it.live	timeout a long computation with a failure	
 unported	packages/effect/test/Effect.test.ts	2028	it.effect	timeout repetition of uninterruptible effect	
 unported	packages/effect/test/Effect.test.ts	2041	it.effect	timeout in uninterruptible region	
-unported	packages/effect/test/Effect.test.ts	2049	it.effect	timeout produces a useful error message	
-unported	packages/effect/test/Effect.test.ts	2064	it.live	timeout a long computation	
-unported	packages/effect/test/Effect.test.ts	2077	it.effect	timeout interrupts the effect	
+ported	packages/effect/test/Effect.test.ts	2049	it.effect	timeout produces a useful error message	timeout_fail_renders_seconds_and_millis
+ported	packages/effect/test/Effect.test.ts	2064	it.live	timeout a long computation	timeout_fail_reports_the_pins_message
+ported	packages/effect/test/Effect.test.ts	2077	it.effect	timeout interrupts the effect	timeout_fail_interrupts_the_effect
 not-applicable	packages/effect/test/Effect.test.ts	2101	it	a map callback that interrupts its own fiber skips the next map	Effect.runSyncExit is absent from crates/elm-effect/src/effect.rs (21 pub fns), so a map callback interrupting its own fiber cannot be observed at the sync edge
 not-applicable	packages/effect/test/Effect.test.ts	2115	it.effect	sync forever is interruptible	Effect.forever is absent from crates/elm-effect/src/effect.rs (21 pub fns), so an unbounded sync loop has no Rust constructor
 unported	packages/effect/test/Effect.test.ts	2122	it.effect	interrupt of never is interrupted with cause	

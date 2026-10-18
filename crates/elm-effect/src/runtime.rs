@@ -628,6 +628,31 @@ where
     }
 }
 
+/// `Effect.timeout` (the failing variant) at the pin: like [`timeout`], but a
+/// deadline that arrives first is a typed failure instead of `None`.
+///
+/// The pin raises its own `TimeoutError`; here the caller names the error its
+/// channel carries, the same convention `Effect::from_option` and
+/// [`head`](crate::head) use. `CauseError::timeout_after(duration)` is the
+/// pin's message.
+pub fn timeout_fail<A, E>(
+    rt: &Runtime,
+    clock: std::sync::Arc<dyn crate::ClockImpl>,
+    duration: crate::Duration,
+    body: impl FnOnce(&crate::Ctx) -> Exit<A, E> + Send + 'static,
+    on_timeout: impl FnOnce(crate::Duration) -> E + Send + 'static,
+) -> Exit<A, E>
+where
+    A: Send + 'static,
+    E: Send + 'static,
+{
+    match timeout(rt, clock, duration, body) {
+        Exit::Success(Some(value)) => Exit::Success(value),
+        Exit::Success(None) => Exit::Failure(Cause::fail(on_timeout(duration))),
+        Exit::Failure(cause) => Exit::Failure(cause),
+    }
+}
+
 /// Race two bodies: the first SUCCESS wins. A failure does not beat a later
 /// success; if every side fails, the causes are concatenated. The loser is
 /// interrupted and released (finalizers run) before the winner's value is

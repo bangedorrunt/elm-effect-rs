@@ -505,6 +505,16 @@ impl CauseError {
         Self::Timeout(None)
     }
 
+    /// The `TimeoutError` a timeout raises, with the pin's message:
+    /// `Operation timed out after '<duration>'`, rendered by
+    /// [`Duration::format`](crate::Duration::format).
+    pub fn timeout_after(duration: crate::Duration) -> Self {
+        Self::Timeout(Some(format!(
+            "Operation timed out after '{}'",
+            duration.format()
+        )))
+    }
+
     /// `new Cause.IllegalArgumentError(message?)`.
     pub fn illegal_argument(message: impl Into<String>) -> Self {
         Self::IllegalArgument(Some(message.into()))
