@@ -593,6 +593,25 @@ impl<A: Send + 'static, E: Send + 'static, R: Requirement> Effect<A, E, R> {
         })
     }
 
+    /// `Effect.catchIf` with the pin's third argument: a refinement that
+    /// declines the error hands it to `or_else` instead of re-raising it.
+    /// The declared error type already covers both branches, so `or_else`
+    /// receives `E` and nothing is widened.
+    pub fn catch_if_else<P, F, G>(self, mut predicate: P, handler: F, or_else: G) -> Self
+    where
+        P: FnMut(&E) -> bool + Send + 'static,
+        F: FnOnce(E) -> Self + Send + 'static,
+        G: FnOnce(E) -> Self + Send + 'static,
+    {
+        self.catch(move |e| {
+            if predicate(&e) {
+                handler(e)
+            } else {
+                or_else(e)
+            }
+        })
+    }
+
     /// Handle defects. Fires only when the cause carries defects and no
     /// typed failure or interruption; those pass through untouched.
     pub fn catch_defect<F>(self, on_defects: F) -> Self
