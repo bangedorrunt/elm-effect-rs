@@ -7,7 +7,10 @@
 #[path = "../src/stdlib/rate_limiter.rs"]
 mod rate_limiter;
 
-use rate_limiter::{Algorithm, ConsumeOptions, LimiterClock, OnExceeded, RateLimiter};
+use rate_limiter::{
+    AdaptiveConsumeOptions, AdaptiveFeedbackOptions, AdaptivePhase, Algorithm, ConsumeOptions,
+    LimiterClock, OnExceeded, RateLimiter,
+};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
@@ -238,4 +241,355 @@ fn token_bucket_fails_until_enough_tokens_refill() {
     let result = limiter.consume(&opts).expect("three tokens refilled");
     assert_eq!(result.delay, Duration::ZERO);
     assert_eq!(result.remaining, 2);
+}
+
+// --- adaptive ---
+
+fn adaptive<'a>(key: &'a str, tokens: u32) -> AdaptiveConsumeOptions<'a> {
+    AdaptiveConsumeOptions {
+        key,
+        tokens,
+        fallback_limit: 5,
+        fallback_window: minute(),
+    }
+}
+
+fn feedback(
+    key: &str,
+    epoch: u64,
+    tokens: u32,
+    retry_after: Option<Duration>,
+) -> AdaptiveFeedbackOptions<'_> {
+    AdaptiveFeedbackOptions {
+        key,
+        epoch,
+        tokens,
+        status: 429,
+        retry_after,
+    }
+}
+
+/// RateLimiter.test.ts:264 `uses the inactive store path until 429 Retry-After
+/// feedback`. A 200 or a 429 without Retry-After changes nothing.
+#[test]
+fn adaptive_stays_inactive_until_a_429_with_retry_after() {
+    let mut limiter = RateLimiter::with_clock(FakeClock::new().handle());
+    let mut result = limiter.adaptive_consume(&adaptive("a", 1));
+    assert_eq!(result.delay, Duration::ZERO);
+    assert_eq!(result.epoch, 0);
+    assert_eq!(result.phase, AdaptivePhase::Inactive);
+
+    let mut ok = feedback("a", result.epoch, 1, Some(Duration::from_secs(1)));
+    ok.status = 200;
+    limiter.adaptive_feedback(&ok);
+    result = limiter.adaptive_consume(&adaptive("a", 1));
+    assert_eq!(result.phase, AdaptivePhase::Inactive);
+
+    limiter.adaptive_feedback(&feedback("a", result.epoch, 1, None));
+    result = limiter.adaptive_consume(&adaptive("a", 1));
+    assert_eq!(result.delay, Duration::ZERO);
+    assert_eq!(result.epoch, 0);
+    assert_eq!(result.phase, AdaptivePhase::Inactive);
+}
+
+/// RateLimiter.test.ts:308 `starts cooldown on the first 429 Retry-After
+/// feedback`. Only the key that saw the 429 is affected.
+#[test]
+fn adaptive_starts_cooldown_on_the_first_429() {
+    let mut limiter = RateLimiter::with_clock(FakeClock::new().handle());
+    let first = limiter.adaptive_consume(&adaptive("a", 1));
+    limiter.adaptive_feedback(&feedback("a", first.epoch, 1, Some(Duration::from_secs(5))));
+
+    let result = limiter.adaptive_consume(&adaptive("a", 1));
+    assert_eq!(result.delay, Duration::from_secs(5));
+    assert_eq!(result.epoch, 0);
+    assert_eq!(result.phase, AdaptivePhase::Cooldown);
+
+    let other = limiter.adaptive_consume(&adaptive("b", 1));
+    assert_eq!(other.delay, Duration::ZERO);
+    assert_eq!(other.epoch, 0);
+    assert_eq!(other.phase, AdaptivePhase::Inactive);
+}
+
+/// RateLimiter.test.ts:349 `clamps zero Retry-After feedback to the minimum
+/// cooldown`.
+#[test]
+fn adaptive_clamps_a_zero_retry_after_to_one_millisecond() {
+    let mut limiter = RateLimiter::with_clock(FakeClock::new().handle());
+    let first = limiter.adaptive_consume(&adaptive("a", 1));
+    limiter.adaptive_feedback(&feedback("a", first.epoch, 1, Some(Duration::ZERO)));
+
+    let result = limiter.adaptive_consume(&adaptive("a", 1));
+    assert_eq!(result.delay, Duration::from_millis(1));
+    assert_eq!(result.epoch, 0);
+    assert_eq!(result.phase, AdaptivePhase::Cooldown);
+}
+
+/// RateLimiter.test.ts:380 `bounds excessive adaptive Retry-After cooldowns`.
+/// Two hours of wait is cut to the hour ceiling, and the cooldown then hands
+/// over to learning.
+#[test]
+fn adaptive_bounds_an_excessive_retry_after() {
+    let clock = FakeClock::new();
+    let mut limiter = RateLimiter::with_clock(clock.handle());
+    let first = limiter.adaptive_consume(&adaptive("a", 1));
+    limiter.adaptive_feedback(&feedback(
+        "a",
+        first.epoch,
+        1,
+        Some(Duration::from_secs(2 * 60 * 60)),
+    ));
+
+    let mut result = limiter.adaptive_consume(&adaptive("a", 1));
+    assert_eq!(result.delay, Duration::from_secs(60 * 60));
+    assert_eq!(result.epoch, 0);
+    assert_eq!(result.phase, AdaptivePhase::Cooldown);
+
+    clock.advance(Duration::from_secs(60 * 60));
+    result = limiter.adaptive_consume(&adaptive("a", 1));
+    assert_eq!(result.delay, Duration::ZERO);
+    assert_eq!(result.epoch, 1);
+    assert_eq!(result.phase, AdaptivePhase::Learning);
+}
+
+/// RateLimiter.test.ts:423 `returns the remaining cooldown delay`.
+#[test]
+fn adaptive_returns_the_remaining_cooldown() {
+    let clock = FakeClock::new();
+    let mut limiter = RateLimiter::with_clock(clock.handle());
+    let first = limiter.adaptive_consume(&adaptive("a", 1));
+    limiter.adaptive_feedback(&feedback("a", first.epoch, 1, Some(Duration::from_secs(10))));
+    clock.advance(Duration::from_secs(4));
+
+    let result = limiter.adaptive_consume(&adaptive("a", 1));
+    assert_eq!(result.delay, Duration::from_secs(6));
+    assert_eq!(result.epoch, 0);
+    assert_eq!(result.phase, AdaptivePhase::Cooldown);
+}
+
+/// RateLimiter.test.ts:455 `starts learning on the first admitted post-cooldown
+/// request`.
+#[test]
+fn adaptive_starts_learning_after_the_cooldown() {
+    let clock = FakeClock::new();
+    let mut limiter = RateLimiter::with_clock(clock.handle());
+    let first = limiter.adaptive_consume(&adaptive("a", 1));
+    limiter.adaptive_feedback(&feedback("a", first.epoch, 1, Some(Duration::from_secs(10))));
+    clock.advance(Duration::from_secs(10));
+
+    let result = limiter.adaptive_consume(&adaptive("a", 2));
+    assert_eq!(result.delay, Duration::ZERO);
+    assert_eq!(result.epoch, 1);
+    assert_eq!(result.phase, AdaptivePhase::Learning);
+}
+
+/// RateLimiter.test.ts:487 `keeps learning requests at zero delay while
+/// observing token counts`.
+#[test]
+fn adaptive_keeps_learning_at_zero_delay() {
+    let clock = FakeClock::new();
+    let mut limiter = RateLimiter::with_clock(clock.handle());
+    let first = limiter.adaptive_consume(&adaptive("a", 1));
+    limiter.adaptive_feedback(&feedback("a", first.epoch, 1, Some(Duration::from_secs(1))));
+    clock.advance(Duration::from_secs(1));
+
+    let learning = limiter.adaptive_consume(&adaptive("a", 2));
+    assert_eq!(learning.phase, AdaptivePhase::Learning);
+
+    let result = limiter.adaptive_consume(&adaptive("a", 3));
+    assert_eq!(result.delay, Duration::ZERO);
+    assert_eq!(result.epoch, learning.epoch);
+    assert_eq!(result.phase, AdaptivePhase::Learning);
+}
+
+/// RateLimiter.test.ts:527 `learns the accepted token count and inferred window
+/// from learning feedback`. Two accepted tokens over a 10s window: the third
+/// call in the window waits 10s.
+#[test]
+fn adaptive_learns_the_accepted_tokens_and_window() {
+    let clock = FakeClock::new();
+    let mut limiter = RateLimiter::with_clock(clock.handle());
+    let first = limiter.adaptive_consume(&adaptive("a", 1));
+    limiter.adaptive_feedback(&feedback("a", first.epoch, 1, Some(Duration::from_secs(1))));
+    clock.advance(Duration::from_secs(1));
+
+    let learning = limiter.adaptive_consume(&adaptive("a", 2));
+    clock.advance(Duration::from_secs(4));
+    let rejected = limiter.adaptive_consume(&adaptive("a", 3));
+    assert_eq!(learning.epoch, rejected.epoch);
+
+    limiter.adaptive_feedback(&feedback(
+        "a",
+        rejected.epoch,
+        3,
+        Some(Duration::from_secs(6)),
+    ));
+    clock.advance(Duration::from_secs(6));
+
+    let mut result = limiter.adaptive_consume(&adaptive("a", 1));
+    assert_eq!(result.delay, Duration::ZERO);
+    assert_eq!(result.phase, AdaptivePhase::Learned);
+    result = limiter.adaptive_consume(&adaptive("a", 1));
+    assert_eq!(result.delay, Duration::ZERO);
+    assert_eq!(result.phase, AdaptivePhase::Learned);
+    result = limiter.adaptive_consume(&adaptive("a", 1));
+    assert_eq!(result.delay, Duration::from_secs(10));
+    assert_eq!(result.phase, AdaptivePhase::Learned);
+}
+
+/// RateLimiter.test.ts:601 `ignores stale epoch feedback`.
+#[test]
+fn adaptive_ignores_stale_epoch_feedback() {
+    let clock = FakeClock::new();
+    let mut limiter = RateLimiter::with_clock(clock.handle());
+    let first = limiter.adaptive_consume(&adaptive("a", 1));
+    limiter.adaptive_feedback(&feedback("a", first.epoch, 1, Some(Duration::from_secs(1))));
+    clock.advance(Duration::from_secs(1));
+
+    let learning = limiter.adaptive_consume(&adaptive("a", 1));
+    limiter.adaptive_feedback(&feedback(
+        "a",
+        first.epoch,
+        1,
+        Some(Duration::from_secs(10)),
+    ));
+
+    let result = limiter.adaptive_consume(&adaptive("a", 1));
+    assert_eq!(result.delay, Duration::ZERO);
+    assert_eq!(result.epoch, learning.epoch);
+    assert_eq!(result.phase, AdaptivePhase::Learning);
+}
+
+/// RateLimiter.test.ts:648 `prevents repeated learning 429 feedback from
+/// corrupting learned state`. The second feedback for the learning epoch
+/// arrives after that epoch became learned, so it is dropped.
+#[test]
+fn adaptive_repeated_learning_feedback_cannot_corrupt_learned_state() {
+    let clock = FakeClock::new();
+    let mut limiter = RateLimiter::with_clock(clock.handle());
+    let first = limiter.adaptive_consume(&adaptive("a", 1));
+    limiter.adaptive_feedback(&feedback("a", first.epoch, 1, Some(Duration::from_secs(1))));
+    clock.advance(Duration::from_secs(1));
+
+    limiter.adaptive_consume(&adaptive("a", 1));
+    let rejected = limiter.adaptive_consume(&adaptive("a", 1));
+    limiter.adaptive_feedback(&feedback("a", rejected.epoch, 1, Some(Duration::from_secs(5))));
+    limiter.adaptive_feedback(&feedback(
+        "a",
+        rejected.epoch,
+        1,
+        Some(Duration::from_secs(30)),
+    ));
+
+    let learned = limiter.adaptive_consume(&adaptive("a", 1));
+    assert_eq!(learned.delay, Duration::from_secs(5));
+    assert_eq!(learned.epoch, rejected.epoch + 1);
+    assert_eq!(learned.phase, AdaptivePhase::Learned);
+}
+
+/// RateLimiter.test.ts:708 `same-epoch learned 429 feedback enters cooldown and
+/// can only extend it`.
+#[test]
+fn adaptive_learned_feedback_enters_cooldown_and_extends() {
+    let clock = FakeClock::new();
+    let mut limiter = RateLimiter::with_clock(clock.handle());
+    let first = limiter.adaptive_consume(&adaptive("a", 1));
+    limiter.adaptive_feedback(&feedback("a", first.epoch, 1, Some(Duration::from_secs(1))));
+    clock.advance(Duration::from_secs(1));
+
+    limiter.adaptive_consume(&adaptive("a", 1));
+    let rejected = limiter.adaptive_consume(&adaptive("a", 1));
+    limiter.adaptive_feedback(&feedback("a", rejected.epoch, 1, Some(Duration::from_secs(5))));
+
+    let learned = limiter.adaptive_consume(&adaptive("a", 1));
+    limiter.adaptive_feedback(&feedback("a", learned.epoch, 1, Some(Duration::from_secs(5))));
+    limiter.adaptive_feedback(&feedback(
+        "a",
+        learned.epoch,
+        1,
+        Some(Duration::from_secs(10)),
+    ));
+
+    let result = limiter.adaptive_consume(&adaptive("a", 1));
+    assert_eq!(result.delay, Duration::from_secs(10));
+    assert_eq!(result.epoch, learned.epoch);
+    assert_eq!(result.phase, AdaptivePhase::Cooldown);
+}
+
+/// RateLimiter.test.ts:782 `stores only cooldown when no tokens were accepted
+/// during learning`. Every observed token was the rejected call's own, so
+/// nothing is learned and the cooldown stands.
+#[test]
+fn adaptive_stores_only_cooldown_when_nothing_was_accepted() {
+    let clock = FakeClock::new();
+    let mut limiter = RateLimiter::with_clock(clock.handle());
+    let first = limiter.adaptive_consume(&adaptive("a", 1));
+    limiter.adaptive_feedback(&feedback("a", first.epoch, 1, Some(Duration::from_secs(1))));
+    clock.advance(Duration::from_secs(1));
+
+    let learning = limiter.adaptive_consume(&adaptive("a", 2));
+    limiter.adaptive_feedback(&feedback("a", learning.epoch, 2, Some(Duration::from_secs(5))));
+
+    let mut result = limiter.adaptive_consume(&adaptive("a", 1));
+    assert_eq!(result.delay, Duration::from_secs(5));
+    assert_eq!(result.epoch, learning.epoch);
+    assert_eq!(result.phase, AdaptivePhase::Cooldown);
+
+    clock.advance(Duration::from_secs(5));
+    result = limiter.adaptive_consume(&adaptive("a", 1));
+    assert_eq!(result.delay, Duration::ZERO);
+    assert_eq!(result.epoch, learning.epoch + 1);
+    assert_eq!(result.phase, AdaptivePhase::Learning);
+}
+
+/// RateLimiter.test.ts:840 `expires learned adaptive state`. The learned state
+/// lives its window plus the 60s grace, then the key is inactive again.
+#[test]
+fn adaptive_learned_state_expires() {
+    let clock = FakeClock::new();
+    let mut limiter = RateLimiter::with_clock(clock.handle());
+    let first = limiter.adaptive_consume(&adaptive("a", 1));
+    limiter.adaptive_feedback(&feedback("a", first.epoch, 1, Some(Duration::from_secs(1))));
+    clock.advance(Duration::from_secs(1));
+
+    limiter.adaptive_consume(&adaptive("a", 1));
+    let rejected = limiter.adaptive_consume(&adaptive("a", 1));
+    limiter.adaptive_feedback(&feedback("a", rejected.epoch, 1, Some(Duration::from_secs(1))));
+
+    clock.advance(Duration::from_secs(61));
+    let result = limiter.adaptive_consume(&adaptive("a", 1));
+    assert_eq!(result.delay, Duration::ZERO);
+    assert_eq!(result.epoch, 0);
+    assert_eq!(result.phase, AdaptivePhase::Inactive);
+}
+
+/// RateLimiter.test.ts:895 `bounds learned adaptive windows and expires the
+/// bounded state`. A two-hour Retry-After learns an hour-long window, and the
+/// state expires an hour plus the grace later.
+#[test]
+fn adaptive_learned_window_is_bounded_and_expires() {
+    let clock = FakeClock::new();
+    let mut limiter = RateLimiter::with_clock(clock.handle());
+    let first = limiter.adaptive_consume(&adaptive("a", 1));
+    limiter.adaptive_feedback(&feedback("a", first.epoch, 1, Some(Duration::from_millis(1))));
+    clock.advance(Duration::from_millis(1));
+
+    limiter.adaptive_consume(&adaptive("a", 1));
+    let rejected = limiter.adaptive_consume(&adaptive("a", 1));
+    limiter.adaptive_feedback(&feedback(
+        "a",
+        rejected.epoch,
+        1,
+        Some(Duration::from_secs(2 * 60 * 60)),
+    ));
+
+    let mut result = limiter.adaptive_consume(&adaptive("a", 1));
+    assert_eq!(result.delay, Duration::from_secs(60 * 60));
+    assert_eq!(result.phase, AdaptivePhase::Learned);
+
+    clock.advance(Duration::from_secs(61 * 60));
+    result = limiter.adaptive_consume(&adaptive("a", 1));
+    assert_eq!(result.delay, Duration::ZERO);
+    assert_eq!(result.epoch, 0);
+    assert_eq!(result.phase, AdaptivePhase::Inactive);
 }

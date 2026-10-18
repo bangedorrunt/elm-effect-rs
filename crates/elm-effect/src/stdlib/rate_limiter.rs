@@ -10,9 +10,11 @@
 //!
 //! - time is a [`LimiterClock`] so tests advance a fake clock instead of
 //!   sleeping, and
-//! - the adaptive state machine (`adaptiveConsume`/`adaptiveFeedback`) is not
-//!   ported: it needs the feedback loop's 429 handling, which is a separate
-//!   unit of work.
+//! - the sleep shape is a method plus a bound [`Sleeper`] rather than a dual
+//!   function.
+//!
+//! The adaptive half ported here is the store's own state machine
+//! (`adaptiveConsume`/`adaptiveFeedback`), not the `consume` engine.
 
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -108,6 +110,75 @@ pub struct RateLimitExceeded {
     pub remaining: i64,
 }
 
+/// Adaptive limiter phase (`AdaptivePhase` in the pin).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum AdaptivePhase {
+    /// No 429 seen yet: the caller uses its own fallback limits.
+    Inactive,
+    /// The server asked for a wait; nothing is admitted.
+    Cooldown,
+    /// The wait is over; token counts are being watched.
+    Learning,
+    /// The server's window and token count are inferred; the limiter admits
+    /// against the learned shape instead of the fallback.
+    Learned,
+}
+
+/// One `adaptiveConsume` call's parameters.
+#[derive(Clone, Debug)]
+pub struct AdaptiveConsumeOptions<'a> {
+    pub key: &'a str,
+    pub tokens: u32,
+    /// Player limits used while the phase is inactive or learning.
+    pub fallback_limit: u32,
+    pub fallback_window: Duration,
+}
+
+/// What the adaptive limiter says to do now.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct AdaptiveConsumeResult {
+    pub delay: Duration,
+    /// Bumped on every phase change; feedback for an older epoch is stale.
+    pub epoch: u64,
+    pub phase: AdaptivePhase,
+}
+
+/// Feedback from the call the limiter admitted (usually a 429).
+#[derive(Clone, Debug)]
+pub struct AdaptiveFeedbackOptions<'a> {
+    pub key: &'a str,
+    pub epoch: u64,
+    pub tokens: u32,
+    /// HTTP status; anything but 429 is ignored.
+    pub status: u16,
+    /// The server's `Retry-After`, if it sent one.
+    pub retry_after: Option<Duration>,
+}
+
+/// State kept per key once a 429 arrives.
+#[derive(Debug)]
+struct AdaptiveState {
+    phase: AdaptivePhase,
+    epoch: u64,
+    cooldown_until: u64,
+    learning_started_at: u64,
+    observed_tokens: i64,
+    learned_limit: i64,
+    learned_window_ms: i64,
+    expires_at: u64,
+}
+
+/// How long a state outlives its own window; the pin's 60s grace.
+const ADAPTIVE_STATE_TTL_GRACE_MS: u64 = 60_000;
+/// The largest window the limiter will believe, an hour.
+const ADAPTIVE_STATE_MAX_WINDOW_MS: u64 = 60 * 60 * 1_000;
+
+/// A missing, zero or negative `Retry-After` becomes 1ms; an oversized one is
+/// cut to the hour ceiling.
+fn clamp_adaptive_millis(millis: u64) -> u64 {
+    millis.clamp(1, ADAPTIVE_STATE_MAX_WINDOW_MS)
+}
+
 #[derive(Debug)]
 struct Counter {
     count: i64,
@@ -126,6 +197,7 @@ pub struct RateLimiter {
     clock: Arc<dyn LimiterClock>,
     counters: HashMap<String, Counter>,
     buckets: HashMap<String, Bucket>,
+    adaptive: HashMap<String, AdaptiveState>,
 }
 
 impl Default for RateLimiter {
@@ -146,6 +218,7 @@ impl RateLimiter {
             clock,
             counters: HashMap::new(),
             buckets: HashMap::new(),
+            adaptive: HashMap::new(),
         }
     }
 
@@ -265,6 +338,172 @@ impl RateLimiter {
                     reset_after: Duration::from_millis(reset_after as u64),
                 })
             }
+        }
+    }
+
+    /// Look the state up, dropping it when its window has passed.
+    fn adaptive_state(&mut self, key: &str, now: u64) -> Option<&mut AdaptiveState> {
+        let live = self
+            .adaptive
+            .get(key)
+            .is_some_and(|state| state.expires_at > now);
+        if !live {
+            self.adaptive.remove(key);
+        }
+        self.adaptive.get_mut(key)
+    }
+
+    /// What to do now under the adaptive state, or the fallback while inactive.
+    pub fn adaptive_consume(
+        &mut self,
+        options: &AdaptiveConsumeOptions<'_>,
+    ) -> AdaptiveConsumeResult {
+        let now = self.clock.now_millis();
+        let Some(state) = self.adaptive_state(options.key, now) else {
+            return AdaptiveConsumeResult {
+                delay: Duration::ZERO,
+                epoch: 0,
+                phase: AdaptivePhase::Inactive,
+            };
+        };
+        let tokens = options.tokens as i64;
+        match state.phase {
+            AdaptivePhase::Inactive => AdaptiveConsumeResult {
+                delay: Duration::ZERO,
+                epoch: state.epoch,
+                phase: AdaptivePhase::Inactive,
+            },
+            AdaptivePhase::Cooldown => {
+                if state.cooldown_until > now {
+                    return AdaptiveConsumeResult {
+                        delay: Duration::from_millis(state.cooldown_until - now),
+                        epoch: state.epoch,
+                        phase: AdaptivePhase::Cooldown,
+                    };
+                }
+                // The wait is over: this first admitted call starts a learning
+                // epoch and seeds the observed count with its own tokens.
+                state.phase = AdaptivePhase::Learning;
+                state.epoch += 1;
+                state.learning_started_at = now;
+                state.observed_tokens = tokens;
+                state.expires_at = now
+                    + options.fallback_window.as_millis() as u64
+                    + ADAPTIVE_STATE_TTL_GRACE_MS;
+                AdaptiveConsumeResult {
+                    delay: Duration::ZERO,
+                    epoch: state.epoch,
+                    phase: AdaptivePhase::Learning,
+                }
+            }
+            AdaptivePhase::Learning => {
+                state.observed_tokens += tokens;
+                AdaptiveConsumeResult {
+                    delay: Duration::ZERO,
+                    epoch: state.epoch,
+                    phase: AdaptivePhase::Learning,
+                }
+            }
+            AdaptivePhase::Learned => {
+                let refill_ms = if state.learned_limit > 0 {
+                    state.learned_window_ms / state.learned_limit
+                } else {
+                    0
+                };
+                if state.cooldown_until <= now {
+                    state.observed_tokens = 0;
+                    state.cooldown_until = now;
+                }
+                state.observed_tokens += tokens;
+                state.cooldown_until += (refill_ms * tokens) as u64;
+
+                let ttl = (state.cooldown_until as i64 - now as i64).max(0);
+                let window_number = (state.observed_tokens - 1).div_euclid(state.learned_limit.max(1));
+                let elapsed = state.observed_tokens * refill_ms - ttl;
+                let remaining = window_number * state.learned_window_ms - elapsed;
+                AdaptiveConsumeResult {
+                    delay: Duration::from_millis(remaining.max(0) as u64),
+                    epoch: state.epoch,
+                    phase: AdaptivePhase::Learned,
+                }
+            }
+        }
+    }
+
+    /// Fold the server's answer back into the state.
+    ///
+    /// Ignored unless it is a 429 with a `Retry-After` for the current epoch:
+    /// stale feedback would otherwise overwrite a window already learned.
+    pub fn adaptive_feedback(&mut self, options: &AdaptiveFeedbackOptions<'_>) {
+        let Some(retry_after) = options.retry_after else {
+            return;
+        };
+        if options.status != 429 {
+            return;
+        }
+        let retry_ms = clamp_adaptive_millis(retry_after.as_millis() as u64);
+        let now = self.clock.now_millis();
+        let cooldown_until = now + retry_ms;
+
+        if self.adaptive_state(options.key, now).is_none() {
+            if options.epoch != 0 {
+                return;
+            }
+            self.adaptive.insert(
+                options.key.to_owned(),
+                AdaptiveState {
+                    phase: AdaptivePhase::Cooldown,
+                    epoch: 0,
+                    cooldown_until,
+                    learning_started_at: 0,
+                    observed_tokens: 0,
+                    learned_limit: 0,
+                    learned_window_ms: 0,
+                    expires_at: cooldown_until + ADAPTIVE_STATE_TTL_GRACE_MS,
+                },
+            );
+            return;
+        }
+
+        let state = self.adaptive.get_mut(options.key).expect("just checked");
+        if state.epoch != options.epoch {
+            return;
+        }
+        let reset_to_cooldown = |state: &mut AdaptiveState| {
+            state.phase = AdaptivePhase::Cooldown;
+            state.cooldown_until = cooldown_until;
+            state.learning_started_at = 0;
+            state.observed_tokens = 0;
+            state.learned_limit = 0;
+            state.learned_window_ms = 0;
+            state.expires_at = cooldown_until + ADAPTIVE_STATE_TTL_GRACE_MS;
+        };
+        match state.phase {
+            AdaptivePhase::Inactive => {}
+            AdaptivePhase::Cooldown => {
+                state.cooldown_until = state.cooldown_until.max(cooldown_until);
+                state.expires_at = state.cooldown_until + ADAPTIVE_STATE_TTL_GRACE_MS;
+            }
+            AdaptivePhase::Learning => {
+                // Tokens accepted before the rejection: the pin subtracts the
+                // rejected call's own tokens from the observed count.
+                let accepted = state.observed_tokens - options.tokens as i64;
+                if accepted <= 0 {
+                    reset_to_cooldown(state);
+                    return;
+                }
+                let learned_window = clamp_adaptive_millis(
+                    now.saturating_sub(state.learning_started_at) + retry_ms,
+                );
+                state.phase = AdaptivePhase::Learned;
+                state.epoch += 1;
+                state.cooldown_until = state.learning_started_at + learned_window;
+                state.observed_tokens = accepted;
+                state.learned_limit = accepted;
+                state.learned_window_ms = learned_window as i64;
+                state.expires_at = now + learned_window + ADAPTIVE_STATE_TTL_GRACE_MS;
+            }
+            AdaptivePhase::Learned => reset_to_cooldown(state),
         }
     }
 

@@ -7170,20 +7170,20 @@ ported	packages/effect/test/persistence/RateLimiter.test.ts	125	it.effect	return
 ported	packages/effect/test/persistence/RateLimiter.test.ts	161	it.effect	fails with retryAfter until the fixed window resets	limiter_fixed_window_reset
 ported	packages/effect/test/persistence/RateLimiter.test.ts	202	it.effect	returns delay based on the token refill rate	token_bucket_returns_the_refill_rate_as_delay
 ported	packages/effect/test/persistence/RateLimiter.test.ts	231	it.effect	fails until enough tokens are refilled	token_bucket_fails_until_enough_tokens_refill
-unported	packages/effect/test/persistence/RateLimiter.test.ts	264	it.effect	uses the inactive store path until 429 Retry-After feedback	
-unported	packages/effect/test/persistence/RateLimiter.test.ts	308	it.effect	starts cooldown on the first 429 Retry-After feedback	
-unported	packages/effect/test/persistence/RateLimiter.test.ts	349	it.effect	clamps zero Retry-After feedback to the minimum cooldown	
-unported	packages/effect/test/persistence/RateLimiter.test.ts	380	it.effect	bounds excessive adaptive Retry-After cooldowns	
-unported	packages/effect/test/persistence/RateLimiter.test.ts	423	it.effect	returns the remaining cooldown delay	
-unported	packages/effect/test/persistence/RateLimiter.test.ts	455	it.effect	starts learning on the first admitted post-cooldown request	
-unported	packages/effect/test/persistence/RateLimiter.test.ts	487	it.effect	keeps learning requests at zero delay while observing token counts	
-unported	packages/effect/test/persistence/RateLimiter.test.ts	527	it.effect	learns the accepted token count and inferred window from learning feedback	
-unported	packages/effect/test/persistence/RateLimiter.test.ts	601	it.effect	ignores stale epoch feedback	
-unported	packages/effect/test/persistence/RateLimiter.test.ts	648	it.effect	prevents repeated learning 429 feedback from corrupting learned state	
-unported	packages/effect/test/persistence/RateLimiter.test.ts	708	it.effect	same-epoch learned 429 feedback enters cooldown and can only extend it	
-unported	packages/effect/test/persistence/RateLimiter.test.ts	782	it.effect	stores only cooldown when no tokens were accepted during learning	
-unported	packages/effect/test/persistence/RateLimiter.test.ts	840	it.effect	expires learned adaptive state	
-unported	packages/effect/test/persistence/RateLimiter.test.ts	895	it.effect	bounds learned adaptive windows and expires the bounded state	
+ported	packages/effect/test/persistence/RateLimiter.test.ts	264	it.effect	uses the inactive store path until 429 Retry-After feedback	adaptive_stays_inactive_until_a_429_with_retry_after
+ported	packages/effect/test/persistence/RateLimiter.test.ts	308	it.effect	starts cooldown on the first 429 Retry-After feedback	adaptive_starts_cooldown_on_the_first_429
+ported	packages/effect/test/persistence/RateLimiter.test.ts	349	it.effect	clamps zero Retry-After feedback to the minimum cooldown	adaptive_clamps_a_zero_retry_after_to_one_millisecond
+ported	packages/effect/test/persistence/RateLimiter.test.ts	380	it.effect	bounds excessive adaptive Retry-After cooldowns	adaptive_bounds_an_excessive_retry_after
+ported	packages/effect/test/persistence/RateLimiter.test.ts	423	it.effect	returns the remaining cooldown delay	adaptive_returns_the_remaining_cooldown
+ported	packages/effect/test/persistence/RateLimiter.test.ts	455	it.effect	starts learning on the first admitted post-cooldown request	adaptive_starts_learning_after_the_cooldown
+ported	packages/effect/test/persistence/RateLimiter.test.ts	487	it.effect	keeps learning requests at zero delay while observing token counts	adaptive_keeps_learning_at_zero_delay
+ported	packages/effect/test/persistence/RateLimiter.test.ts	527	it.effect	learns the accepted token count and inferred window from learning feedback	adaptive_learns_the_accepted_tokens_and_window
+ported	packages/effect/test/persistence/RateLimiter.test.ts	601	it.effect	ignores stale epoch feedback	adaptive_ignores_stale_epoch_feedback
+ported	packages/effect/test/persistence/RateLimiter.test.ts	648	it.effect	prevents repeated learning 429 feedback from corrupting learned state	adaptive_repeated_learning_feedback_cannot_corrupt_learned_state
+ported	packages/effect/test/persistence/RateLimiter.test.ts	708	it.effect	same-epoch learned 429 feedback enters cooldown and can only extend it	adaptive_learned_feedback_enters_cooldown_and_extends
+ported	packages/effect/test/persistence/RateLimiter.test.ts	782	it.effect	stores only cooldown when no tokens were accepted during learning	adaptive_stores_only_cooldown_when_nothing_was_accepted
+ported	packages/effect/test/persistence/RateLimiter.test.ts	840	it.effect	expires learned adaptive state	adaptive_learned_state_expires
+ported	packages/effect/test/persistence/RateLimiter.test.ts	895	it.effect	bounds learned adaptive windows and expires the bounded state	adaptive_learned_window_is_bounded_and_expires
 not-applicable	packages/effect/test/persistence/RateLimiterTest.ts	58	it.layer	30 seconds	RateLimiter fractional/reset timing behavior is Effect persistence store internals not implemented in the port (no matching substrate)
 not-applicable	packages/effect/test/persistence/RateLimiterTest.ts	68	it.effect	${onExceeded}: ${tokens} tokens after ${elapsed}ms waits ${expected}ms	RateLimiter fractional/reset timing behavior is Effect persistence store internals not implemented in the port (no matching substrate)
 not-applicable	packages/effect/test/persistence/RateLimiterTest.ts	88	it.effect	${onExceeded}: resetAfter accounts for elapsed time on an allowed request	RateLimiter fractional/reset timing behavior is Effect persistence store internals not implemented in the port (no matching substrate)
