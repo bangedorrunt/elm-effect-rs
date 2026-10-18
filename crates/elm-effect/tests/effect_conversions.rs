@@ -5,7 +5,9 @@
 //! description). A clean typed failure carries `Reason::Fail`; that is what
 //! these rows assert on.
 
-use elm_effect::{Cause, Effect, Exit, ManagedRuntime, Reason, Squash};
+use elm_effect::{
+    Cause, CauseError, Effect, Exit, ManagedRuntime, Reason, Squash, is_no_such_element_error,
+};
 
 fn run<A: Send + 'static>(effect: Effect<A, String, ()>) -> Exit<A, String> {
     ManagedRuntime::new().run(effect)
@@ -592,4 +594,19 @@ fn on_exit_filter_match_passes_the_value_and_the_exit() {
         *finalized.lock().unwrap(),
         ["value:42:success:42".to_string()]
     );
+}
+
+#[test]
+fn from_option_none_defaults_to_no_such_element() {
+    // Pin :411 — a `none` fails with `Cause.NoSuchElementError`. This port
+    // makes the error explicit, so the row assigns the pin's own default.
+    let effect: Effect<&str, CauseError, ()> =
+        Effect::from_option(None, || CauseError::no_such_element("no element"));
+    match ManagedRuntime::new().run(effect) {
+        Exit::Failure(cause) => {
+            let error = cause.failure().expect("a typed failure");
+            assert!(is_no_such_element_error(Some(error as &dyn std::any::Any)));
+        }
+        Exit::Success(_) => panic!("expected a typed failure"),
+    }
 }

@@ -1197,9 +1197,9 @@ not-applicable	packages/effect/test/Effect.test.ts	310	it	runPromise	Effect.runP
 not-applicable	packages/effect/test/Effect.test.ts	315	it	acquireUseRelease interrupt	Effect.acquireUseRelease is absent from crates/elm-effect/src/effect.rs (21 pub fns) and so are runFork, runPromise and delay, so the interrupt row has no Rust constructor
 not-applicable	packages/effect/test/Effect.test.ts	342	it.effect	acquireUseRelease runs release when use throws	Effect.acquireUseRelease is absent from crates/elm-effect/src/effect.rs (21 pub fns), so release-when-use-throws cannot be carried
 not-applicable	packages/effect/test/Effect.test.ts	370	it	acquireUseRelease uninterruptible	Effect.acquireUseRelease, Effect.delay, Effect.uninterruptible and runPromise are all absent from crates/elm-effect/src/effect.rs (21 pub fns)
-unported	packages/effect/test/Effect.test.ts	398	it.effect	Context.Service	
+ported	packages/effect/test/Effect.test.ts	398	it.effect	Context.Service	crates/elm-effect/tests/service_provide.rs::context_service_is_provided_and_read
 ported	packages/effect/test/Effect.test.ts	405	it.effect	from a some	from_option_some_succeeds
-unported	packages/effect/test/Effect.test.ts	411	it.effect	from a none	
+ported	packages/effect/test/Effect.test.ts	411	it.effect	from a none	crates/elm-effect/tests/effect_conversions.rs::from_option_none_defaults_to_no_such_element
 ported	packages/effect/test/Effect.test.ts	418	it.effect	from a none with a custom error	from_option_none_fails_with_the_supplied_error
 ported	packages/effect/test/Effect.test.ts	425	it.effect	from a none with a custom error data-last	from_option_none_fails_with_the_supplied_error
 ported	packages/effect/test/Effect.test.ts	437	it.effect	transposes a none	transpose_option_none_succeeds_with_none
