@@ -23,7 +23,7 @@ mod scoped_ref;
 use latch::{Await, Latch, Waiter};
 use layer_map::{IdlePolicy, IdlePolicyFn, LayerMap, LayerMapService};
 use layer_ref::LayerRef;
-use rc_map::RcMap;
+use rc_map::{RcMap, RcMapError};
 use rc_ref::RcRef;
 use resource::Resource;
 use scoped_ref::ScopedRef;
@@ -384,8 +384,14 @@ fn rcmap_failure_propagates_and_caches() {
         },
         |_: i32| {},
     );
-    assert_eq!(map.get(&"bad".to_owned()), Some(Err("nope".to_owned())));
-    assert_eq!(map.get(&"bad".to_owned()), Some(Err("nope".to_owned())));
+    assert_eq!(
+        map.get(&"bad".to_owned()),
+        Some(Err(RcMapError::Lookup("nope".to_owned())))
+    );
+    assert_eq!(
+        map.get(&"bad".to_owned()),
+        Some(Err(RcMapError::Lookup("nope".to_owned())))
+    );
     assert_eq!(calls.load(Ordering::SeqCst), 1);
     map.release_ref(&"bad".to_owned());
     map.release_ref(&"bad".to_owned());
@@ -393,14 +399,23 @@ fn rcmap_failure_propagates_and_caches() {
 
 #[test]
 fn rcmap_invalidate_touch_close() {
+    // Without a TTL the last reference removes the entry (the pin's rule), so
+    // an invalidate after the release finds nothing to drop.
     let mut map = test_map();
     assert_eq!(map.get(&"ab".to_owned()), Some(Ok(2)));
     assert!(map.touch(&"ab".to_owned()));
     assert!(!map.touch(&"zz".to_owned()));
+    assert!(map.has(&"ab".to_owned()));
     map.release_ref(&"ab".to_owned());
-    assert!(map.invalidate(&"ab".to_owned()));
+    assert!(!map.has(&"ab".to_owned()));
     assert!(!map.invalidate(&"ab".to_owned()));
     assert_eq!(map.size(), 0);
+
+    // A live reference is what invalidate drops.
+    assert_eq!(map.get(&"ab".to_owned()), Some(Ok(2)));
+    assert!(map.invalidate(&"ab".to_owned()));
+    assert!(!map.has(&"ab".to_owned()));
+
     assert_eq!(map.get(&"x".to_owned()), Some(Ok(1)));
     map.release_ref(&"x".to_owned());
     map.close();
@@ -409,14 +424,19 @@ fn rcmap_invalidate_touch_close() {
 }
 
 #[test]
-fn rcmap_capacity_evicts_idle() {
+fn rcmap_capacity_is_a_hard_limit() {
+    // The pin refuses the third key instead of evicting an idle entry.
     let mut map = test_map();
     map.set_capacity(Some(2));
-    for k in ["a", "b", "c"] {
-        map.get(&k.to_owned());
-        map.release_ref(&k.to_owned());
-    }
-    assert!(map.size() <= 2);
+    assert_eq!(map.get(&"a".to_owned()), Some(Ok(1)));
+    assert_eq!(map.get(&"b".to_owned()), Some(Ok(1)));
+    assert_eq!(
+        map.get(&"c".to_owned()),
+        Some(Err(RcMapError::ExceededCapacity(2)))
+    );
+    // A key that is already retained is not a new slot.
+    assert_eq!(map.get(&"a".to_owned()), Some(Ok(1)));
+    assert_eq!(map.size(), 2);
 }
 
 // --- LayerMap / LayerRef ---

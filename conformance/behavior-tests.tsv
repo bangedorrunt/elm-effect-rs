@@ -3106,21 +3106,21 @@ unported	packages/effect/test/RcMap.test.ts	8	it.each	releases capacity after a 
 unported	packages/effect/test/RcMap.test.ts	32	it.effect	throwing	
 unported	packages/effect/test/RcMap.test.ts	54	it.each	releases only the invalidated entry with TTL %s	
 unported	packages/effect/test/RcMap.test.ts	103	it.effect	an invalidated entry's idle timer cannot remove its replacement	
-unported	packages/effect/test/RcMap.test.ts	150	it.effect	returns None without lookup or capacity acquisition when missing	
+ported	packages/effect/test/RcMap.test.ts	150	it.effect	returns None without lookup or capacity acquisition when missing	rcmap_get_option_reads_without_lookup
 ported	packages/effect/test/RcMap.test.ts	163	it.effect	retains a ready entry until the caller scope closes	rcmap_refs_defer_the_release_until_the_last_holder
 unported	packages/effect/test/RcMap.test.ts	188	it.effect	shares an in-flight entry	
 ported	packages/effect/test/RcMap.test.ts	226	it.effect	propagates a cached failure	rcmap_failure_propagates_and_caches
-unported	packages/effect/test/RcMap.test.ts	249	it.effect	retains an idle entry and restarts its TTL on release	
+ported	packages/effect/test/RcMap.test.ts	249	it.effect	retains an idle entry and restarts its TTL on release	rcmap_idle_reuse_restarts_the_ttl
 unported	packages/effect/test/RcMap.test.ts	281	it.effect	linearizes retention before invalidation	
 ported	packages/effect/test/RcMap.test.ts	307	it.effect	returns None when the map is closed	rcmap_invalidate_touch_close
 ported	packages/effect/test/RcMap.test.ts	319	it.effect	deallocation	rcmap_deallocation_releases_once_on_the_last_ref
-unported	packages/effect/test/RcMap.test.ts	370	it.effect	idleTimeToLive	
-unported	packages/effect/test/RcMap.test.ts	413	it.effect	.touch	
-unported	packages/effect/test/RcMap.test.ts	444	it.effect	capacity	
+ported	packages/effect/test/RcMap.test.ts	370	it.effect	idleTimeToLive	rcmap_idle_ttl_releases_an_unreferenced_entry
+ported	packages/effect/test/RcMap.test.ts	413	it.effect	.touch	rcmap_touch_restarts_the_idle_clock
+ported	packages/effect/test/RcMap.test.ts	444	it.effect	capacity	rcmap_capacity_refuses_until_the_idle_ttl_frees_a_slot
 ported	packages/effect/test/RcMap.test.ts	466	it.effect	complex key	rcmap_complex_key_is_hashed_by_value
-unported	packages/effect/test/RcMap.test.ts	479	it.effect	keys lookup	
-unported	packages/effect/test/RcMap.test.ts	492	it.effect	dynamic idleTimeToLive	
-unported	packages/effect/test/RcMap.test.ts	522	it.effect	dynamic idleTimeToLive with touch	
+ported	packages/effect/test/RcMap.test.ts	479	it.effect	keys lookup	rcmap_keys_lists_retained_entries
+ported	packages/effect/test/RcMap.test.ts	492	it.effect	dynamic idleTimeToLive	rcmap_dynamic_ttl_is_read_per_key
+ported	packages/effect/test/RcMap.test.ts	522	it.effect	dynamic idleTimeToLive with touch	rcmap_dynamic_ttl_with_touch
 unported	packages/effect/test/RcMap.test.ts	551	it.effect	closing the map while an idle entry is being released runs every finalizer	
 not-applicable	packages/effect/test/RcRef.test.ts	15	it.effect	deallocation	RcRef remaining behavior rows depend on Effect RC internals not fully exposed by Rust port.
 not-applicable	packages/effect/test/RcRef.test.ts	66	it.effect	releasing an invalidated borrower preserves the replacement resource	RcRef remaining behavior rows depend on Effect RC internals not fully exposed by Rust port.

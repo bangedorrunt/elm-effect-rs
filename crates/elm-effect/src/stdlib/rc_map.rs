@@ -1,31 +1,71 @@
 //! `RcMap` port (`RcMap.ts` at the pin): keyed reference-counted cache.
 //!
 //! One big lock linearizes retention before invalidation, which also makes
-//! concurrent lookups share in-flight acquisitions (the second lookup waits
-//! on the lock and then sees the cached value). Failures cache like values
-//! and propagate to every waiter. Idle TTL, [`touch`](RcMap::touch),
-//! [`capacity`](RcMap::set_capacity) eviction of unreferenced entries, and
-//! [`close`](RcMap::close) (later lookups return `None`) mirror the tag.
+//! concurrent lookups share in-flight acquisitions (the second lookup waits on
+//! the lock and then sees the cached value). Failures cache like values and
+//! propagate to every waiter.
 //!
-//! Residuals: per-key acquisition concurrency (entries acquire serially
-//! here), background TTL sweep (expiry is lazy on lookup/touch), and
-//! weak-value collectors.
+//! Capacity is the pin's rule: a hard limit that refuses a new key with
+//! [`RcMapError::ExceededCapacity`], never an eviction to make room. Idle TTL is
+//! read per key and counted on an injected [`RcClock`], so a test advances
+//! virtual milliseconds instead of sleeping. [`expire_idle`](RcMap::expire_idle)
+//! is the sweep the pin runs from a timer.
+//!
+//! Residuals: an invalidated entry that is still referenced is released here at
+//! invalidation rather than when its last reference drops (the pin defers
+//! through a per-entry scope), in-flight sharing with a deferred, and a
+//! background TTL sweep (expiry is lazy on access, or on `expire_idle`).
 
 use std::collections::HashMap;
 use std::hash::Hash;
-use std::time::{Duration, Instant};
+use std::sync::Arc;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
+
+/// Millisecond time source for idle TTL.
+///
+/// Shaped like the crate's `ClockImpl` (`now_millis`), but declared here on
+/// purpose: this module is compiled through `#[path]` includes from the test
+/// binaries, where `crate::time` is not in scope.
+pub trait RcClock: Send + Sync + 'static {
+    /// Current time in milliseconds. Virtual for tests, wall for the default.
+    fn now_millis(&self) -> u64;
+}
+
+/// Wall clock: the default when no clock is injected.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct SystemRcClock;
+
+impl RcClock for SystemRcClock {
+    fn now_millis(&self) -> u64 {
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|d| d.as_millis() as u64)
+            .unwrap_or(0)
+    }
+}
+
+/// A lookup's own error, or the capacity refusal (`E | ExceededCapacityError`).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum RcMapError<E> {
+    /// The lookup failed; the failure is cached like a value.
+    Lookup(E),
+    /// The map already holds `capacity` entries.
+    ExceededCapacity(usize),
+}
 
 struct Entry<V, E> {
     value: Option<Result<V, E>>,
     refs: usize,
-    idle_since: Option<Instant>,
-    last_used: Instant,
+    idle_since_ms: Option<u64>,
+    last_used_ms: u64,
 }
 
 /// Lookup constructor: key in, shared value or cached failure out.
 type Lookup<K, V, E> = Box<dyn Fn(&K) -> Result<V, E> + Send + Sync>;
 /// Release hook for an evicted value.
 type Release<V> = Box<dyn Fn(V) + Send + Sync>;
+/// Per-key idle time-to-live (`idleTimeToLive` as a function in the pin).
+type IdleTtlFn<K> = Box<dyn Fn(&K) -> Option<Duration> + Send + Sync>;
 
 /// Keyed cache with per-entry reference counts. `K` is unconstrained beyond
 /// hashing: complex keys work by value.
@@ -33,8 +73,10 @@ pub struct RcMap<K, V, E> {
     lookup: Lookup<K, V, E>,
     release: Release<V>,
     idle_ttl: Option<Duration>,
+    idle_ttl_fn: Option<IdleTtlFn<K>>,
     capacity: Option<usize>,
     closed: bool,
+    clock: Arc<dyn RcClock>,
     entries: HashMap<K, Entry<V, E>>,
 }
 
@@ -51,58 +93,74 @@ where
             lookup: Box::new(lookup),
             release: Box::new(release),
             idle_ttl: None,
+            idle_ttl_fn: None,
             capacity: None,
             closed: false,
+            clock: Arc::new(SystemRcClock),
             entries: HashMap::new(),
         }
     }
 
-    /// Set the idle TTL for unreferenced entries.
+    /// Read idle time from `clock` instead of the wall (`TestClock` wiring).
+    pub fn with_clock(mut self, clock: Arc<dyn RcClock>) -> Self {
+        self.clock = clock;
+        self
+    }
+
+    /// Set one idle TTL for every key.
     pub fn set_idle_ttl(&mut self, ttl: Option<Duration>) {
         self.idle_ttl = ttl;
     }
 
-    /// Cap live entries; over-cap inserts evict unreferenced oldest-idle
-    /// entries first.
+    /// Read the idle TTL per key (`idleTimeToLive: (key) => ...`).
+    pub fn set_idle_ttl_fn(
+        &mut self,
+        ttl: impl Fn(&K) -> Option<Duration> + Send + Sync + 'static,
+    ) {
+        self.idle_ttl_fn = Some(Box::new(ttl));
+    }
+
+    /// Cap live entries; a new key past the cap is refused, never evicted for.
     pub fn set_capacity(&mut self, capacity: Option<usize>) {
         self.capacity = capacity;
-        self.evict();
     }
 
-    fn expired(&self, since: Instant) -> bool {
-        match self.idle_ttl {
+    fn now(&self) -> u64 {
+        self.clock.now_millis()
+    }
+
+    fn ttl_configured(&self) -> bool {
+        self.idle_ttl_fn.is_some() || self.idle_ttl.is_some_and(|ttl| !ttl.is_zero())
+    }
+
+    /// The key's idle TTL: the per-key function wins, then the fixed value.
+    /// `None` and zero both mean "release on the last reference".
+    fn ttl_for(&self, key: &K) -> Option<Duration> {
+        match &self.idle_ttl_fn {
+            Some(f) => f(key),
+            None => self.idle_ttl,
+        }
+    }
+
+    fn expired(&self, key: &K, idle_since_ms: u64, now: u64) -> bool {
+        match self.ttl_for(key) {
             None => true,
-            Some(ttl) => since.elapsed() >= ttl,
+            Some(ttl) if ttl.is_zero() => true,
+            Some(ttl) => now.saturating_sub(idle_since_ms) >= ttl.as_millis() as u64,
         }
     }
 
-    fn evict(&mut self) {
-        let Some(cap) = self.capacity else {
-            return;
-        };
-        while self.entries.len() > cap {
-            let victim = self
-                .entries
-                .iter()
-                .filter(|(_, e)| e.refs == 0)
-                .min_by_key(|(_, e)| e.idle_since.or(e.last_used.into()))
-                .map(|(k, _)| k.clone());
-            match victim {
-                Some(k) => {
-                    if let Some(entry) = self.entries.remove(&k)
-                        && let Some(Ok(v)) = entry.value
-                    {
-                        (self.release)(v);
-                    }
-                }
-                None => break,
-            }
-        }
+    /// Whether `key` is retained (idle counts, per the pin's `has`).
+    pub fn has(&self, key: &K) -> bool {
+        self.entries.contains_key(key)
     }
 
-    /// Shared value for `key`, acquiring once. `None` when closed. Cached
-    /// failures propagate (the `Err` is cloned out like values).
-    pub fn get(&mut self, key: &K) -> Option<Result<V, E>>
+    /// Shared value for `key`, acquiring once. `None` when closed.
+    ///
+    /// A new key on a full map fails with
+    /// [`RcMapError::ExceededCapacity`], which is the pin's rule: capacity is a
+    /// limit, not an eviction pressure. Cached failures propagate.
+    pub fn get(&mut self, key: &K) -> Option<Result<V, RcMapError<E>>>
     where
         V: Clone,
         E: Clone,
@@ -110,56 +168,90 @@ where
         if self.closed {
             return None;
         }
-        let now = Instant::now();
-        let stale = match self.entries.get(key) {
-            None => true,
-            Some(e) if e.refs == 0 => match (e.idle_since, &e.value) {
-                (Some(since), Some(_)) => self.expired(since),
-                (None, None) => true,
-                _ => false,
-            },
-            Some(_) => false,
-        };
-        if stale
-            && let Some(old) = self.entries.remove(key)
-            && let Some(Ok(v)) = old.value
+        let now = self.now();
+        self.sweep(now);
+
+        if self.entries.contains_key(key) {
+            let entry = self.entries.get_mut(key).expect("just checked");
+            entry.refs += 1;
+            entry.idle_since_ms = None;
+            entry.last_used_ms = now;
+            return self.cached(key);
+        }
+
+        if let Some(cap) = self.capacity
+            && self.entries.len() >= cap
         {
-            (self.release)(v);
+            return Some(Err(RcMapError::ExceededCapacity(cap)));
         }
-        let entry = self.entries.entry(key.clone()).or_insert_with(|| Entry {
-            value: None,
-            refs: 0,
-            idle_since: None,
-            last_used: now,
-        });
-        if entry.value.is_none() {
-            entry.value = Some((self.lookup)(key));
-            entry.last_used = Instant::now();
+
+        let value = (self.lookup)(key);
+        self.entries.insert(
+            key.clone(),
+            Entry {
+                value: Some(value),
+                refs: 1,
+                idle_since_ms: None,
+                last_used_ms: now,
+            },
+        );
+        self.cached(key)
+    }
+
+    /// Retain and return a cached entry without invoking the lookup
+    /// (`getOption`): `None` when the key is absent or the map is closed.
+    ///
+    /// This is the pin's non-acquiring read, so a miss costs neither a lookup
+    /// nor a capacity slot.
+    pub fn get_option(&mut self, key: &K) -> Option<Result<V, RcMapError<E>>>
+    where
+        V: Clone,
+        E: Clone,
+    {
+        if self.closed || !self.entries.contains_key(key) {
+            return None;
         }
+        let now = self.now();
+        let entry = self.entries.get_mut(key).expect("just checked");
         entry.refs += 1;
-        entry.idle_since = None;
-        let out = entry.value.clone();
-        self.evict();
-        out
+        entry.idle_since_ms = None;
+        entry.last_used_ms = now;
+        self.cached(key)
+    }
+
+    /// The cached success or failure at `key`, cloned out.
+    fn cached(&self, key: &K) -> Option<Result<V, RcMapError<E>>>
+    where
+        V: Clone,
+        E: Clone,
+    {
+        match self.entries.get(key)?.value.as_ref()? {
+            Ok(v) => Some(Ok(v.clone())),
+            Err(e) => Some(Err(RcMapError::Lookup(e.clone()))),
+        }
     }
 
     /// Return one reference to `key`.
+    ///
+    /// The last reference removes the entry when the key's TTL is zero or
+    /// unset, and arms the idle clock otherwise.
     pub fn release_ref(&mut self, key: &K) {
+        let Some(entry) = self.entries.get_mut(key) else {
+            return;
+        };
+        entry.refs = entry.refs.saturating_sub(1);
+        if entry.refs > 0 {
+            return;
+        }
+        let now = self.now();
+        let ttl = self.ttl_for(key);
+        if ttl.is_none_or(|ttl| ttl.is_zero()) {
+            self.drop_entry(key);
+            return;
+        }
         if let Some(entry) = self.entries.get_mut(key) {
-            entry.refs = entry.refs.saturating_sub(1);
-            if entry.refs == 0 {
-                match self.idle_ttl {
-                    None => {
-                        if let Some(Ok(v)) = entry.value.take() {
-                            (self.release)(v);
-                        }
-                        entry.idle_since = None;
-                    }
-                    Some(_) => {
-                        entry.idle_since = Some(Instant::now());
-                    }
-                }
-            }
+            entry.idle_since_ms = Some(now);
+            entry.last_used_ms = now;
         }
     }
 
@@ -170,11 +262,12 @@ where
 
     /// Reset the idle clock for `key`; `false` when absent.
     pub fn touch(&mut self, key: &K) -> bool {
+        let now = self.now();
         match self.entries.get_mut(key) {
             None => false,
             Some(entry) => {
-                entry.idle_since = Some(Instant::now());
-                entry.last_used = Instant::now();
+                entry.idle_since_ms = Some(now);
+                entry.last_used_ms = now;
                 true
             }
         }
@@ -182,14 +275,49 @@ where
 
     /// Release and forget `key`; `false` when absent.
     pub fn invalidate(&mut self, key: &K) -> bool {
-        match self.entries.remove(key) {
-            None => false,
-            Some(entry) => {
-                if let Some(Ok(v)) = entry.value {
-                    (self.release)(v);
-                }
-                true
-            }
+        if self.entries.contains_key(key) {
+            self.drop_entry(key);
+            true
+        } else {
+            false
+        }
+    }
+
+    /// Release every idle entry whose TTL elapsed; the pin's timer, made
+    /// explicit so tests advance virtual time instead of sleeping.
+    pub fn expire_idle(&mut self) -> usize {
+        let now = self.now();
+        self.sweep(now)
+    }
+
+    // ponytail: one linear scan per get while a TTL is configured; a deadline
+    // queue (or the pin's per-entry timer) if the map ever gets large.
+    fn sweep(&mut self, now: u64) -> usize {
+        if !self.ttl_configured() {
+            return 0;
+        }
+        let victims: Vec<K> = self
+            .entries
+            .iter()
+            .filter(|(key, entry)| {
+                entry.refs == 0
+                    && entry
+                        .idle_since_ms
+                        .is_some_and(|since| self.expired(key, since, now))
+            })
+            .map(|(key, _)| key.clone())
+            .collect();
+        for key in &victims {
+            self.drop_entry(key);
+        }
+        victims.len()
+    }
+
+    fn drop_entry(&mut self, key: &K) {
+        if let Some(entry) = self.entries.remove(key)
+            && let Some(Ok(value)) = entry.value
+        {
+            (self.release)(value);
         }
     }
 
@@ -198,7 +326,7 @@ where
         self.entries.keys().cloned().collect()
     }
 
-    /// Cached entry count.
+    /// Retained entry count (idle entries count, per the pin's capacity rule).
     pub fn size(&self) -> usize {
         self.entries.len()
     }
@@ -213,13 +341,16 @@ where
     pub fn is_closed(&self) -> bool {
         self.closed
     }
+
 }
 
 impl<K, V, E> RcMap<K, V, E> {
+    /// Release every retained value. No key bounds: `drain` needs none, which
+    /// is what lets `Drop` call it for any `K`.
     fn release_all(&mut self) {
-        for (_, entry) in std::mem::take(&mut self.entries) {
-            if let Some(Ok(v)) = entry.value {
-                (self.release)(v);
+        for (_, entry) in self.entries.drain() {
+            if let Some(Ok(value)) = entry.value {
+                (self.release)(value);
             }
         }
     }
