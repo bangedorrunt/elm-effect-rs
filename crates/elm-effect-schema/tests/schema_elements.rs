@@ -224,3 +224,27 @@ fn a_required_position_after_an_optional_one_refuses() {
 fn map_elements_refuses_a_shape_without_elements() {
     let _ = str_schema().map_elements(element_append(number_schema()));
 }
+
+/// :1120 `Array(...).value` — the array exposes the element schema it was
+/// built from, and an annotation wraps the same schema rather than replacing
+/// the element with an opaque shape.
+#[test]
+fn array_exposes_the_element_schema() {
+    let schema = Schema::array(Schema::string());
+    let element = schema.element().expect("an array keeps its element schema");
+    assert_eq!(
+        element.decode(text("a")),
+        Ok(Unknown::Text("a".to_string())),
+        "the exposed element decodes as the schema it came from"
+    );
+    assert!(
+        element.decode(Unknown::Number(1.0)).is_err(),
+        "and it refuses what the element schema refuses"
+    );
+
+    let annotated = Schema::annotated_with(schema, Vec::<(&str, &str)>::new());
+    assert!(
+        annotated.element().is_some(),
+        "an annotation keeps the element schema"
+    );
+}

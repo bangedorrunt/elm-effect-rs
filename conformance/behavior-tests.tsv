@@ -7592,7 +7592,7 @@ ported	packages/effect/test/schema/Schema.test.ts	1027	it	A required element can
 unported	packages/effect/test/schema/Schema.test.ts	1038	it	should fail on unexpected indexes	
 ported	packages/effect/test/schema/Schema.test.ts	1058	it	readonly [string]	tuple_of_checked_elements_names_the_index_a_failing_element_failed_at
 ported	packages/effect/test/schema/Schema.test.ts	1101	it	readonly [string?]	tuple_with_an_optional_element_accepts_the_empty_tuple
-unported	packages/effect/test/schema/Schema.test.ts	1120	it	should expose the element schema via .value	
+ported	packages/effect/test/schema/Schema.test.ts	1120	it	should expose the element schema via .value	crates/elm-effect-schema/tests/schema_elements.rs::array_exposes_the_element_schema
 ported	packages/effect/test/schema/Schema.test.ts	1126	it	readonly string[]	array_of_strings_decides_each_element
 unported	packages/effect/test/schema/Schema.test.ts	1152	it	supports encodings on array elements	
 unported	packages/effect/test/schema/Schema.test.ts	1160	it	supports withDecodingDefaultType after mutable	

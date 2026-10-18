@@ -177,6 +177,10 @@ pub struct Schema<T> {
     /// (`mapMembers`). None for every other shape, and for a union built by
     /// `union`, which tries two shapes without keeping the list.
     union_members: Option<Vec<Schema<Unknown>>>,
+    /// The element schema an array was built from (`Schema.Array(...).value`).
+    /// Kept as an erased schema rather than in `children`, which the object
+    /// path reads as named fields.
+    array_element: Option<std::sync::Arc<Schema<Unknown>>>,
     /// Key-level annotations (`annotateKey`). The pin keeps these in the AST's
     /// `context` slot rather than on the node, so a schema has two annotation
     /// slots and only one of them is read by `resolve_annotations`.
@@ -1409,6 +1413,7 @@ impl<T> Schema<T> {
             struct_fields: None,
             tuple_elements: None,
             union_members: None,
+            array_element: None,
             key_annotations: Vec::new(),
             class_meta: None,
         }
@@ -1756,6 +1761,7 @@ impl<T> Schema<T> {
             encode: schema.encode,
             kind,
             children: schema.children,
+            array_element: schema.array_element,
             formatter: schema.formatter.clone(),
             // An annotation rides the same codec, so the relation underneath is
             // still the one for these values: an `overrideToEquivalence` applied
@@ -1792,9 +1798,21 @@ impl<T> Schema<T> {
     where
         T: Send + Sync + 'static,
     {
-        // Capture the wrapped schema's reprs BEFORE the inner is moved into
-        // the Arc below: re-typing it here would recurse forever. The reprs go
-        // through `repr_kind`/`to_code`/`to_type` rather than the raw fields, so
+        Self::as_unknown_shared(Arc::new(schema))
+    }
+
+    /// [`as_unknown`](Self::as_unknown) for a schema already behind an `Arc`,
+    /// which is the only way to re-type a `Schema<T>` when `T: Clone` does not
+    /// hold: this crate's `Clone` is derived, so cloning the schema itself
+    /// would demand the value type be cloneable. The array's `value` accessor
+    /// needs exactly that.
+    pub(crate) fn as_unknown_shared(schema: Arc<Schema<T>>) -> Schema<Unknown>
+    where
+        T: Send + Sync + 'static,
+    {
+        // Capture the wrapped schema's reprs BEFORE it is shared below:
+        // re-typing it here would recurse forever. The reprs go through
+        // `repr_kind`/`to_code`/`to_type` rather than the raw fields, so
         // re-typing an already re-typed schema keeps the shape underneath
         // instead of recording the `Opaque("unknown")` marker as its shape. A
         // nested `Array` of a re-typed child renders `Schema.Array(Schema.Unknown)`
@@ -1805,7 +1823,6 @@ impl<T> Schema<T> {
             code: schema.to_code(),
             ty: schema.to_type(),
         }));
-        let schema = Arc::new(schema);
         let decode_schema = schema.clone();
         let encode_schema = schema.clone();
         let construct_schema = schema.clone();
@@ -2509,6 +2526,7 @@ impl<T: Send + Sync + 'static> Schema<Vec<T>> {
             },
             kind,
         );
+        out.array_element = Some(Arc::new(Schema::as_unknown_shared(inner.clone())));
         // Each element renders through its own schema, so an array of Structs
         // keeps the struct spacing the pin emits (`[{ "a": 1 }]`, not `[{"a":1}]`).
         out.formatter = Some(Arc::new(move |value: &Unknown| {
@@ -2525,6 +2543,16 @@ impl<T: Send + Sync + 'static> Schema<Vec<T>> {
             format!("[{}]", inner.join(", "))
         }));
         out
+    }
+}
+
+impl<T: Send + Sync + 'static> Schema<Vec<T>> {
+    /// `Schema.Array(...).value` at the pin: the element schema the array was
+    /// built from, so a caller can inspect the element type without probing the
+    /// codec with a sample value. Annotations ride the same schema, so the
+    /// accessor keeps answering through one.
+    pub fn element(&self) -> Option<&Schema<Unknown>> {
+        self.array_element.as_deref()
     }
 }
 
