@@ -7800,8 +7800,8 @@ unported	packages/effect/test/schema/Schema.test.ts	5075	it	applies excess-prope
 ported	packages/effect/test/schema/Schema.test.ts	5095	it	should preserve both checks	struct_with_rest_keeps_both_checks
 ported	packages/effect/test/schema/Schema.test.ts	5121	it	index signatures should not re-parse fixed properties	struct_with_rest_does_not_re_parse_a_fixed_property
 unported	packages/effect/test/schema/Schema.test.ts	5136	it	index signatures should not overwrite fixed properties after key decoding	
-unported	packages/effect/test/schema/Schema.test.ts	5150	it	NullOr(String)	
-unported	packages/effect/test/schema/Schema.test.ts	5166	it	UndefinedOr(String)	
+ported	packages/effect/test/schema/Schema.test.ts	5150	it	NullOr(String)	null_or_keeps_null_as_a_member
+not-applicable	packages/effect/test/schema/Schema.test.ts	5166	it	UndefinedOr(String)	the row accepts and reports `undefined`, and this port's Unknown domain is JSON-shaped: Null, Bool, Number, Text, Array, Object with no undefined value, so the accepted input has no spelling here
 ported	packages/effect/test/schema/Schema.test.ts	5182	it	NullishOr(String)	nullish_or_admits_the_absent_values_and_the_inner_schema
 not-applicable	packages/effect/test/schema/Schema.test.ts	5197	it	PropertyKey	the row's body asserts nothing at runtime beyond the optional arbitrary-generation check, and Schema.PropertyKey does not exist on the Rust schema surface, so the schema in the row cannot be built
 not-applicable	packages/effect/test/schema/Schema.test.ts	5205	it	BooleanFromBit	the row's body asserts nothing at runtime beyond the optional arbitrary-generation check, and Schema.BooleanFromBit does not exist on the Rust schema surface, so the schema in the row cannot be built

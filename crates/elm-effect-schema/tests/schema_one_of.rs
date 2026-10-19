@@ -214,3 +214,40 @@ fn one_of_refuses_the_same_ambiguous_value_every_time() {
     assert!(schema.decode(text("a")).is_err());
     assert!(schema.decode(text("a")).is_err());
 }
+
+// --- Schema.test.ts:5150 `NullOr(String)`, the default union the constructor
+// spells for a nullable value ------------------------------------------------
+
+/// Schema.test.ts:5150 — `Schema.NullOr(Schema.NonEmptyString)`: a null is a
+/// value of its own and a non-empty string passes, while an empty string still
+/// fails the inner check rather than the union. The pin asserts its own type
+/// text for the undefined case; this port's `Unknown` has no undefined, so the
+/// refusal shown here is a boolean, which no member accepts either.
+#[test]
+fn null_or_keeps_null_as_a_member() {
+    let non_empty = Schema::as_unknown(Schema::checked(
+        str_schema(),
+        "isMinLength",
+        vec!["1"],
+        vec![("expected", "a value with a length of at least 1")],
+    ));
+    let schema = Schema::null_or(non_empty);
+
+    assert_eq!(schema.decode(text("a")), Ok(text("a")));
+    assert_eq!(schema.decode(Unknown::Null), Ok(Unknown::Null));
+    assert_eq!(schema.to_type(), "string | null", "the pin's type text");
+
+    let error = schema
+        .decode(Unknown::Bool(true))
+        .expect_err("no member accepts a boolean");
+    assert_eq!(error.to_string(), "expected string at $, got boolean");
+    // The inner check's own message survives, which is what tells a reader the
+    // empty string failed the check and not the union.
+    let error = schema
+        .decode(text(""))
+        .expect_err("the inner check refuses an empty string");
+    assert_eq!(
+        error.to_string(),
+        "expected a value with a length of at least 1 at $, got string"
+    );
+}

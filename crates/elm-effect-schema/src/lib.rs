@@ -6439,6 +6439,16 @@ impl Schema<Unknown> {
         )
     }
 
+    /// `Schema.NullOr(inner)`: the inner schema or null, which the pin spells
+    /// as a two-member union. [`optional`] is its struct-field twin and answers
+    /// `None` for a null; this one keeps the null as a value of its own.
+    ///
+    /// [`optional`]: Schema::optional
+    pub fn null_or(inner: Schema<Unknown>) -> Self {
+        let null = Schema::as_unknown(Schema::<()>::null());
+        Self::union_with_mode(vec![inner, null], "anyOf")
+    }
+
     /// `Schema.ArrayEnsure(inner)`: one value or an array of them, decoded to
     /// an array (`ArrayEnsure(FiniteFromString)` reads `"1"` and `["1", "2"]`
     /// alike).
