@@ -7960,11 +7960,11 @@ ported	packages/effect/test/schema/Schema.test.ts	7748	it	zero-field TaggedError
 ported	packages/effect/test/schema/Schema.test.ts	7762	it	extend	extend_keeps_the_parents_tag_and_takes_the_childs_identifier
 ported	packages/effect/test/schema/Schema.test.ts	7775	it	extended constructor ignores excess properties by default	the_extended_constructor_ignores_excess_but_not_the_subclass_fields
 ported	packages/effect/test/schema/Schema.test.ts	7791	it	extended constructor does not treat subclass fields as excess properties	the_extended_constructor_ignores_excess_but_not_the_subclass_fields
-unported	packages/effect/test/schema/Schema.test.ts	7810	it	rejects non-finite numeric values	
-unported	packages/effect/test/schema/Schema.test.ts	7819	it	enums should be exposed	
-unported	packages/effect/test/schema/Schema.test.ts	7829	it	Numeric enum	
-unported	packages/effect/test/schema/Schema.test.ts	7853	it	String enum	
-unported	packages/effect/test/schema/Schema.test.ts	7881	it	Const enum	
+ported	packages/effect/test/schema/Schema.test.ts	7810	it	rejects non-finite numeric values	a_non_finite_member_is_refused_at_build_time
+ported	packages/effect/test/schema/Schema.test.ts	7819	it	enums should be exposed	the_names_are_exposed_in_declaration_order
+ported	packages/effect/test/schema/Schema.test.ts	7829	it	Numeric enum	a_numeric_enum_decodes_its_members_and_refuses_the_rest
+ported	packages/effect/test/schema/Schema.test.ts	7853	it	String enum	a_string_enum_mixes_spellings_and_keeps_the_order
+ported	packages/effect/test/schema/Schema.test.ts	7881	it	Const enum	a_const_enum_decodes_like_the_other_two
 unported	packages/effect/test/schema/Schema.test.ts	7908	it	sync fallback	
 unported	packages/effect/test/schema/Schema.test.ts	7929	it	async fallback	
 unported	packages/effect/test/schema/Schema.test.ts	7940	it	catchDecodingWithContext	

@@ -2891,6 +2891,52 @@ impl<A: Send + Sync + 'static, B: Send + Sync + 'static> Schema<(A, B)> {
 /// the key may be absent, but an explicit null still decodes the inner
 /// schema) and [`Optional`](Optionality::Optional) (absent or null both
 /// skip the inner schema).
+/// A named set of literal values (`Schema.Enum`): the pairs as declared and the
+/// union of literals they decode through. Built by
+/// [`Schema::enumeration`]; the names stay reachable because the pin exposes
+/// them (`schema.enums.Apple`), and a caller that only needs the codec can take
+/// [`schema`](Enumeration::schema) and drop the rest.
+pub struct Enumeration {
+    pairs: Vec<(String, Unknown)>,
+    schema: Schema<Unknown>,
+}
+
+impl Enumeration {
+    /// The named values, in declaration order.
+    pub fn enums(&self) -> &[(String, Unknown)] {
+        &self.pairs
+    }
+
+    /// The value one name holds, if the set has that name.
+    pub fn value(&self, name: &str) -> Option<&Unknown> {
+        self.pairs
+            .iter()
+            .find(|(key, _)| key == name)
+            .map(|(_, value)| value)
+    }
+
+    /// The schema the values decode and encode through.
+    pub fn schema(&self) -> &Schema<Unknown> {
+        &self.schema
+    }
+
+    /// The schema by value, for the common `let schema = ...schema()` shape.
+    pub fn into_schema(self) -> Schema<Unknown> {
+        self.schema
+    }
+}
+
+impl Clone for Enumeration {
+    /// The pairs clone plainly; the schema is shared rather than rebuilt, so a
+    /// copy of a set decodes exactly what the original does.
+    fn clone(&self) -> Self {
+        Self {
+            pairs: self.pairs.clone(),
+            schema: self.schema.clone(),
+        }
+    }
+}
+
 #[derive(Clone)]
 pub struct Field {
     name: String,
@@ -5964,6 +6010,47 @@ impl Schema<Unknown> {
             .members()
             .expect("mapMembers needs a union or an exact-value shape");
         Self::union_with_mode(transform(members), mode)
+    }
+
+    /// `Schema.Enum(values)`: a named set of literal values, plus the union
+    /// those literals decode through.
+    ///
+    /// The pin takes a TypeScript enum or a `const` object and keeps the names
+    /// reachable as `schema.enums`; here the names arrive as pairs, so
+    /// [`enums`](Enumeration::enums) hands them back in declaration order. Two
+    /// names may hold the same value (the pin's own String-enum row has both
+    /// `Banana` and `Cantaloupe` spelling `0`), so nothing is deduplicated.
+    pub fn enumeration(pairs: Vec<(&str, Unknown)>) -> Enumeration {
+        let pairs: Vec<(String, Unknown)> = pairs
+            .into_iter()
+            .map(|(name, value)| (name.to_string(), value))
+            .collect();
+        // The pin refuses a non-finite numeric member when the enum is built
+        // (`A numeric enum value must be finite, got NaN`), because such a
+        // member is unreachable: no wire value equals it.
+        for (_, value) in &pairs {
+            if let Unknown::Number(number) = value {
+                if !number.is_finite() {
+                    panic!(
+                        "A numeric enum value must be finite, got {}",
+                        js_number_text(*number)
+                    );
+                }
+            }
+        }
+        // One `Literal` member per name, in declaration order. The union is a
+        // real one (`union_with_mode`), not the two-member `Schema::union`
+        // chain: only the former refuses with the members' own union text
+        // (`Expected 0 | 1`), and that text is the pin's. An empty set names no
+        // member at all and admits nothing, which is `never`.
+        let members: Vec<Schema<Unknown>> = pairs
+            .iter()
+            .map(|(_, value)| Schema::literal(value.clone()))
+            .collect();
+        Enumeration {
+            pairs,
+            schema: Schema::union_with_mode(members, "anyOf"),
+        }
     }
 
     /// The exact-value shape (`Schema.Literals`): one `Literal` member per
