@@ -602,7 +602,7 @@ fn convert_annotated_body(
     }
     if let Some(elements) = schema.elements() {
         let rest = match content {
-            SchemaKind::TupleWithRest(_, rest) => Some(rest.as_ref()),
+            SchemaKind::TupleWithRest(_, rest) => Some(rest.as_slice()),
             _ => None,
         };
         return convert_element_list(elements, rest, state, enclosing, path);
@@ -720,9 +720,21 @@ fn convert_kind(
                     Ok(Value::Object(element))
                 })
                 .collect::<Result<Vec<_>, ReprError>>()?;
-            let rest = convert_kind(rest, state, hoist_identifiers, enclosing, path)?;
+            let rest = rest
+                .iter()
+                .enumerate()
+                .map(|(index, item)| {
+                    convert_kind(
+                        item,
+                        state,
+                        hoist_identifiers,
+                        enclosing,
+                        &idx(&seg(path, "rest"), index),
+                    )
+                })
+                .collect::<Result<Vec<_>, ReprError>>()?;
             Ok(serde_json::json!({
-                "_tag": "Arrays", "elements": elements, "rest": [rest], "checks": [],
+                "_tag": "Arrays", "elements": elements, "rest": rest, "checks": [],
             }))
         }
         SchemaKind::Struct(fields) => {
@@ -1040,7 +1052,7 @@ fn finish_objects(
 
 fn convert_element_list(
     elements: &[Schema<Unknown>],
-    rest: Option<&SchemaKind>,
+    rest: Option<&[SchemaKind]>,
     state: &mut Convert,
     enclosing: Option<&str>,
     path: &str,
@@ -1073,11 +1085,19 @@ fn convert_element_list(
     }
     let mut rest_docs = Vec::new();
     if let Some(rest) = rest {
-        let inner = match optional_inner_kind(rest) {
-            Some(inner) => inner,
-            None => rest,
-        };
-        rest_docs.push(convert_kind(inner, state, true, enclosing, path)?);
+        for (index, rest) in rest.iter().enumerate() {
+            let inner = match optional_inner_kind(rest) {
+                Some(inner) => inner,
+                None => rest,
+            };
+            rest_docs.push(convert_kind(
+                inner,
+                state,
+                true,
+                enclosing,
+                &idx(&seg(path, "rest"), index),
+            )?);
+        }
     }
     Ok(serde_json::json!({
         "_tag": "Arrays",
@@ -1555,9 +1575,6 @@ fn revive_arrays(
         .get("rest")
         .and_then(Value::as_array)
         .ok_or_else(|| ReprError::at(path, "an `Arrays` carries `rest`"))?;
-    if rest.len() > 1 {
-        return Err(ReprError::at(path, "an `Arrays` carries at most one rest"));
-    }
     let mut converted = Vec::with_capacity(elements.len());
     for (index, element) in elements.iter().enumerate() {
         let element_path = idx(&seg(path, "elements"), index);
@@ -1579,12 +1596,18 @@ fn revive_arrays(
         }
         converted.push(schema);
     }
-    if let Some(rest) = rest.first() {
-        let rest = revive_named(state, rest, &idx(&seg(path, "rest"), 0))?;
-        if converted.is_empty() {
-            return Ok(Schema::as_unknown(Schema::array(rest)));
+    if !rest.is_empty() {
+        let mut revived = Vec::with_capacity(rest.len());
+        for (index, item) in rest.iter().enumerate() {
+            revived.push(revive_named(state, item, &idx(&seg(path, "rest"), index))?);
         }
-        return Ok(Schema::as_unknown(Schema::tuple_with_rest(converted, rest)));
+        // A lone rest element with no leading positions is a plain array: the
+        // pin's `Arrays` with no elements and one rest reads the same way.
+        if converted.is_empty() && revived.len() == 1 {
+            let only = revived.pop().expect("one rest element");
+            return Ok(Schema::as_unknown(Schema::array(only)));
+        }
+        return Ok(Schema::as_unknown(Schema::tuple_with_rest(converted, revived)));
     }
     Ok(Schema::as_unknown(Schema::tuple_of(converted)))
 }

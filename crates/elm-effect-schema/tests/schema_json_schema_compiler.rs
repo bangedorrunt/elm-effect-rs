@@ -883,7 +883,7 @@ fn string_between_length_kinds() {
             "maxItems": 2
         })
     );
-    let non_empty = Schema::tuple_with_rest(vec![string()], string());
+    let non_empty = Schema::tuple_with_rest(vec![string()], vec![string()]);
     assert_eq!(
         error_doc(&checked(non_empty, "isBetweenLength", vec!["2", "2"])),
         serde_json::json!({
@@ -937,7 +937,7 @@ fn string_min_max_length_kinds() {
             "minItems": 2
         })
     );
-    let non_empty = Schema::tuple_with_rest(vec![string()], string());
+    let non_empty = Schema::tuple_with_rest(vec![string()], vec![string()]);
     assert_eq!(
         error_doc(&checked(non_empty, "isMinLength", vec!["2"])),
         serde_json::json!({
@@ -963,7 +963,7 @@ fn string_min_max_length_kinds() {
             "maxItems": 2
         })
     );
-    let non_empty = Schema::tuple_with_rest(vec![string()], string());
+    let non_empty = Schema::tuple_with_rest(vec![string()], vec![string()]);
     assert_eq!(
         error_doc(&checked(non_empty, "isMaxLength", vec!["2"])),
         serde_json::json!({
@@ -2266,7 +2266,7 @@ fn array_string_and_length_checks() {
 #[test]
 fn tuple_with_rest_keeps_min_items() {
     // Row 3536.
-    let schema = Schema::tuple_with_rest(vec![string()], finite());
+    let schema = Schema::tuple_with_rest(vec![string()], vec![finite()]);
     assert_eq!(
         error_doc(&schema),
         serde_json::json!({

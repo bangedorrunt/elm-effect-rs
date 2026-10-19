@@ -777,10 +777,7 @@ fn tuple_refuses_a_required_element_after_an_optional_one() {
 
 /// Schema.test.ts:4872 — the same rule over a tuple that carries a rest: the
 /// leading positions are still positional, so a required one may not follow an
-/// optional one there either. The port's `tuple_with_rest` takes one rest
-/// schema where the pin takes a list of trailing elements, so the rule is
-/// checked over the leading positions, which is the part both signatures can
-/// express.
+/// optional one there either.
 #[test]
 fn tuple_with_rest_refuses_a_required_element_after_an_optional_one() {
     let hook = std::panic::take_hook();
@@ -791,7 +788,7 @@ fn tuple_with_rest_refuses_a_required_element_after_an_optional_one() {
                 Schema::optional_key_shape(Schema::as_unknown(Schema::string())),
                 Schema::as_unknown(Schema::boolean()),
             ],
-            Schema::as_unknown(Schema::number()),
+            vec![Schema::as_unknown(Schema::number())],
         )
     }));
     let message = caught
@@ -811,7 +808,7 @@ fn tuple_with_rest_refuses_a_required_element_after_an_optional_one() {
     // The permitted order still builds and decodes.
     let ordered = Schema::tuple_with_rest(
         vec![Schema::as_unknown(Schema::string())],
-        Schema::as_unknown(Schema::number()),
+        vec![Schema::as_unknown(Schema::number())],
     );
     assert!(
         ordered

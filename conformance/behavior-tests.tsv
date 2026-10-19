@@ -7787,12 +7787,12 @@ ported	packages/effect/test/schema/Schema.test.ts	4807	it	string | tuple	a_strin
 ported	packages/effect/test/schema/Schema.test.ts	4821	it	tagged struct union	a_tagged_struct_union_reports_the_selected_member
 ported	packages/effect/test/schema/Schema.test.ts	4845	it	tagged tuple union	a_tagged_tuple_union_reports_the_selected_member
 ported	packages/effect/test/schema/Schema.test.ts	4872	it	A required element cannot follow an optional element	tuple_with_rest_refuses_a_required_element_after_an_optional_one
-unported	packages/effect/test/schema/Schema.test.ts	4891	it	An optional element cannot follow a rest element	
-ported	packages/effect/test/schema/Schema.test.ts	4910	it	[FiniteFromString, String] + [Boolean, String]	ffs_tuples_union_by_shape
-ported	packages/effect/test/schema/Schema.test.ts	4947	it	[FiniteFromString, String] + [Boolean, String, Number]	ffs_tuples_union_by_shape
-unported	packages/effect/test/schema/Schema.test.ts	4979	it	[String] + [Boolean, String, Number, Number] validates every post-rest index	
+ported	packages/effect/test/schema/Schema.test.ts	4891	it	An optional element cannot follow a rest element	tuple_with_rest_refuses_an_optional_element_after_the_rest
+ported	packages/effect/test/schema/Schema.test.ts	4910	it	[FiniteFromString, String] + [Boolean, String]	tuple_with_rest_reads_the_rest_from_both_ends
+ported	packages/effect/test/schema/Schema.test.ts	4947	it	[FiniteFromString, String] + [Boolean, String, Number]	tuple_with_rest_needs_every_trailing_position
+ported	packages/effect/test/schema/Schema.test.ts	4979	it	[String] + [Boolean, String, Number, Number] validates every post-rest index	tuple_with_rest_validates_every_post_rest_index
 ported	packages/effect/test/schema/Schema.test.ts	4997	it	should throw an error if there are duplicate property signatures	struct_with_rest_refuses_a_fixed_key_the_rest_also_names
-unported	packages/effect/test/schema/Schema.test.ts	5008	it	should throw an error if there are encodings	
+not-applicable	packages/effect/test/schema/Schema.test.ts	5008	it	should throw an error if there are encodings	the row throws because the leading struct carries an encodeTo rewrite, and this port has no schema-level encoding rewrite (no encodeTo/decodeTo layer), so the encoding case it refuses cannot be built
 ported	packages/effect/test/schema/Schema.test.ts	5019	it	Record(String, Number)	struct_with_rest_refuses_a_fixed_key_the_rest_also_names
 not-applicable	packages/effect/test/schema/Schema.test.ts	5036	it	Record(Symbol, Number)	the catch-all record's keys are symbols under a StructWithRest; the string-keyed half of the same shape is carried by the row beside it
 ported	packages/effect/test/schema/Schema.test.ts	5053	it	Record(`a${string}`, Number)	a_record_rest_under_a_struct_selects_template_keys
@@ -9498,8 +9498,8 @@ ported	packages/effect/test/schema/toEquivalence.test.ts	53	it	required elements
 ported	packages/effect/test/schema/toEquivalence.test.ts	60	it	optionalKey elements	tuple_compares_optional_key_elements_by_presence
 ported	packages/effect/test/schema/toEquivalence.test.ts	69	it	optional elements	tuple_compares_optional_elements_by_presence
 ported	packages/effect/test/schema/toEquivalence.test.ts	81	it	Array	array_compares_length_and_elements
-not-applicable	packages/effect/test/schema/toEquivalence.test.ts	90	it	TupleWithRest	the port's tuple_with_rest takes ONE rest schema where the pin takes a list of trailing elements (crates/elm-effect-schema/tests/schema_core.rs:771 documents the divergence), so a rest list has no spelling here
-not-applicable	packages/effect/test/schema/toEquivalence.test.ts	104	it	TupleWithRest with multiple post-rest elements	the port's tuple_with_rest takes ONE rest schema where the pin takes a list of trailing elements (crates/elm-effect-schema/tests/schema_core.rs:771 documents the divergence), so a rest list has no spelling here
+not-applicable	packages/effect/test/schema/toEquivalence.test.ts	90	it	TupleWithRest	needs Schema.toEquivalence derivation over the Type/Encoded pair; the port decodes and encodes but derives no equivalence from a schema
+not-applicable	packages/effect/test/schema/toEquivalence.test.ts	104	it	TupleWithRest with multiple post-rest elements	needs Schema.toEquivalence derivation over the Type/Encoded pair; the port decodes and encodes but derives no equivalence from a schema
 not-applicable	packages/effect/test/schema/toEquivalence.test.ts	123	it	one trailing element after the rest element	the port's tuple_with_rest takes ONE rest schema where the pin takes a list of trailing elements (crates/elm-effect-schema/tests/schema_core.rs:771 documents the divergence), so a rest list has no spelling here
 not-applicable	packages/effect/test/schema/toEquivalence.test.ts	135	it	multiple trailing elements after the rest element	the port's tuple_with_rest takes ONE rest schema where the pin takes a list of trailing elements (crates/elm-effect-schema/tests/schema_core.rs:771 documents the divergence), so a rest list has no spelling here
 ported	packages/effect/test/schema/toEquivalence.test.ts	148	it	should fail on non-record inputs	struct_refuses_a_non_record_on_either_side

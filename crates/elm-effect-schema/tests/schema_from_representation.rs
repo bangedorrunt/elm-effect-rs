@@ -229,7 +229,7 @@ fn revives_tuple_with_rest() {
     let schema = assert_roundtrip(
         Schema::as_unknown(Schema::tuple_with_rest(
             vec![Schema::as_unknown(Schema::string())],
-            Schema::as_unknown(Schema::number()),
+            vec![Schema::as_unknown(Schema::number())],
         )),
         vec![],
     );

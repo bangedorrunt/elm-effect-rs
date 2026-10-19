@@ -22,6 +22,10 @@
 //! A check that carries its own annotations, or that collides with a keyword
 //! already on the document, lands in `allOf` instead of inline.
 //!
+//! A `TupleWithRest` compiles to `prefixItems` plus the first rest schema as
+//! `items`; the trailing positions a longer rest list adds have no keyword, so
+//! they stay open where the pin refuses the whole document instead.
+//!
 //! Out of scope: the encoded-side projection (`fromJsonString`, `Class` and
 //! `Error` encoded identifiers, `encodeTo` rewrites), custom annotation
 //! values (pairs are strings, so objects/arrays/booleans have no spelling),
@@ -357,7 +361,7 @@ impl<'a> Compiler<'a> {
             }
             SchemaKind::TupleWithRest(items, rest) if tuple_stored(schema, items.len()) => {
                 let elements = schema.tuple_elements.clone().unwrap_or_default();
-                self.tuple_document(&elements, Some((**rest).clone()))
+                self.tuple_document(&elements, Some(rest[0].clone()))
             }
             SchemaKind::Union { mode, .. } if schema.union_members.is_some() => {
                 let members = schema.union_members.clone().unwrap_or_default();
@@ -713,7 +717,7 @@ impl<'a> Compiler<'a> {
             SchemaKind::Record(key, value) => self.record_document(key, value),
             SchemaKind::Tuple(items) => self.tuple_kinds_document(items, None),
             SchemaKind::TupleWithRest(items, rest) => {
-                self.tuple_kinds_document(items, Some((**rest).clone()))
+                self.tuple_kinds_document(items, Some(rest[0].clone()))
             }
             SchemaKind::Literal(value) => literal_document(value),
             SchemaKind::TemplateLiteral(parts) => {

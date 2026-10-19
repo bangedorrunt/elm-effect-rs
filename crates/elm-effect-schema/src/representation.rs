@@ -58,7 +58,7 @@ impl SchemaRepresentation {
             },
             SchemaKind::TupleWithRest(items, rest) => {
                 let mut children: Vec<_> = items.iter().map(Self::build).collect();
-                children.push(Self::build(rest));
+                children.extend(rest.iter().map(Self::build));
                 Self::Node {
                     kind: "TupleWithRest".to_string(),
                     children,
@@ -150,10 +150,9 @@ impl SchemaKind {
                 }
             }
             SchemaKind::TupleWithRest(items, rest) => {
-                for child in items {
+                for child in items.iter().chain(rest) {
                     child.visit(f);
                 }
-                rest.visit(f);
             }
             SchemaKind::Check { base, .. } => base.visit(f),
             SchemaKind::Union { members, .. } => {

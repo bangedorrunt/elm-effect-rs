@@ -108,7 +108,7 @@ fn converts_literal() {
 fn converts_tuple_elements_and_rest() {
     let schema = Schema::as_unknown(Schema::tuple_with_rest(
         vec![string(), Schema::optional_key_shape(number())],
-        boolean(),
+        vec![boolean()],
     ));
     assert_eq!(
         document(&schema),

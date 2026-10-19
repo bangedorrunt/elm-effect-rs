@@ -637,6 +637,25 @@ fn is_optional_element(kind: &SchemaKind) -> bool {
     matches!(kind, SchemaKind::OptionalKey(_) | SchemaKind::Optional(_))
 }
 
+/// The decoder for one position of a tuple with a rest list, which is the
+/// pin's `getParser` split: a leading position has its own schema, a position
+/// inside the repeatable window uses the first rest schema, and a position at
+/// or past the tail threshold uses the trailing one that lines up with it.
+fn rest_decoder_at<'a>(
+    elements: &'a [Arc<Schema<Unknown>>],
+    rest: &'a [Arc<Schema<Unknown>>],
+    tail_threshold: usize,
+    index: usize,
+) -> &'a Arc<Schema<Unknown>> {
+    if index < elements.len() {
+        &elements[index]
+    } else if index >= tail_threshold {
+        &rest[index - tail_threshold + 1]
+    } else {
+        &rest[0]
+    }
+}
+
 /// Whether an exact value fits a base kind. A base that names a type admits
 /// only values of that type, so an `enum` member of another type is dropped by
 /// the intersection rather than kept: `{ type: "boolean", allOf: [{ const: 1 }] }`
@@ -1175,8 +1194,10 @@ pub enum SchemaKind {
     /// A struct plus a catch-all shape (`StructWithRest`): the named fields
     /// and the shape that absorbs every other key.
     StructWithRest(Vec<(String, SchemaKind)>, Box<SchemaKind>),
-    /// Positional elements with a trailing catch-all (`TupleWithRest`).
-    TupleWithRest(Vec<SchemaKind>, Box<SchemaKind>),
+    /// Positional elements with a rest list (`TupleWithRest`): the leading
+    /// positions, then the repeatable schema, then the fixed trailing
+    /// positions the pin's rest list carries after the first entry.
+    TupleWithRest(Vec<SchemaKind>, Vec<SchemaKind>),
     /// Several exact values (`Literals`), which is what an enum of plain
     /// scalars imports to. An enum containing null is a `Union` instead, because
     /// `null` is a schema of its own and not a literal.
@@ -1292,12 +1313,16 @@ impl SchemaKind {
                 doc["additionalProperties"] = rest.to_json_schema();
                 doc
             }
+            // JSON Schema cannot pin trailing positions after a variadic
+            // segment, so the repeatable schema is all this document can say.
+            // The pin refuses the whole document instead; the port keeps the
+            // repeatable part and leaves the trailing positions open.
             SchemaKind::TupleWithRest(elements, rest) => {
                 let mut doc = serde_json::json!({"type": "array"});
                 doc["prefixItems"] = serde_json::Value::Array(
                     elements.iter().map(SchemaKind::to_json_schema).collect(),
                 );
-                doc["items"] = rest.to_json_schema();
+                doc["items"] = rest[0].to_json_schema();
                 doc
             }
             SchemaKind::Literal(value) => value.to_json(),
@@ -4413,7 +4438,7 @@ impl Schema<Unknown> {
             }
             Some(items) => Self::import(items)?,
         };
-        let base = Schema::as_unknown(Schema::tuple_with_rest(elements, rest));
+        let base = Schema::as_unknown(Schema::tuple_with_rest(elements, vec![rest]));
         // A rest that cannot hold every declared position also needs the
         // max-length check, because the tuple alone would allow them. The check
         // is attached whenever `maxItems` is named at all.
@@ -6295,9 +6320,19 @@ impl Schema<Unknown> {
         self.construct(Unknown::Array(input))
     }
 
-    /// Positional elements with a trailing catch-all (`TupleWithRest`): the
-    /// leading positions and the shape absorbing the remaining elements.
-    pub fn tuple_with_rest(elements: Vec<Schema<Unknown>>, rest: Schema<Unknown>) -> Self {
+    /// Positional elements with a rest list (`TupleWithRest`): the leading
+    /// positions, a repeatable schema, then the fixed trailing positions the
+    /// pin's rest list carries after its first entry.
+    ///
+    /// `[Boolean, String]` reads "zero or more booleans, then a final string",
+    /// so a short array is caught at the *trailing* index and an element that
+    /// lands in the repeatable window has to be a boolean. Encoding walks the
+    /// same split, which is what makes the round trip exact.
+    pub fn tuple_with_rest(elements: Vec<Schema<Unknown>>, rest: Vec<Schema<Unknown>>) -> Self {
+        assert!(
+            !rest.is_empty(),
+            "TupleWithRest needs at least one rest element"
+        );
         // The leading positions are still positional, so the same rule applies
         // to them: no required element may follow an optional one, in either
         // spelling of optional.
@@ -6310,35 +6345,96 @@ impl Schema<Unknown> {
             kinds[required..].iter().all(is_optional_element),
             "A required element cannot follow an optional element. ts(1257)"
         );
-        let kind = SchemaKind::TupleWithRest(
-            elements.iter().map(|element| element.repr_kind()).collect(),
-            Box::new(rest.repr_kind()),
+        let rest_kinds: Vec<SchemaKind> = rest.iter().map(|e| e.repr_kind()).collect();
+        // Only the first rest schema repeats; every later one is a fixed
+        // trailing position, so an optional one there has no place to be.
+        assert!(
+            rest_kinds[1..]
+                .iter()
+                .all(|kind| !is_optional_element(kind)),
+            "An optional element cannot follow a rest element. ts(1266)"
         );
+        let kind = SchemaKind::TupleWithRest(kinds, rest_kinds);
         let decoders: Vec<Arc<Schema<Unknown>>> = elements.into_iter().map(Arc::new).collect();
-        let rest_decode = Arc::new(rest);
+        let rest_decoders: Vec<Arc<Schema<Unknown>>> = rest.into_iter().map(Arc::new).collect();
+        let element_len = decoders.len();
+        let tail_len = rest_decoders.len() - 1;
+        let decode_elements = decoders.clone();
+        let decode_rest = rest_decoders.clone();
         Self::new(
             move |unknown| {
                 let items = match unknown {
                     Unknown::Array(items) => items,
                     other => return mismatch("$", "array", &other),
                 };
+                let threshold = element_len.max(items.len().saturating_sub(tail_len));
+                let end = items.len().max(element_len + tail_len);
                 let mut out = Vec::with_capacity(items.len());
-                for (index, value) in items.into_iter().enumerate() {
-                    // The leading positions decode with their own schema, and
-                    // everything past the last one lands on the catch-all. A
-                    // trailing position is optional, so a short array is fine.
-                    match decoders.get(index) {
-                        Some(element) if index < decoders.len() => {
-                            out.push(element.decode(value)?);
+                for index in 0..end {
+                    let decoder = rest_decoder_at(&decode_elements, &decode_rest, threshold, index);
+                    match items.get(index) {
+                        Some(value) => {
+                            let decoded = decoder
+                                .decode(value.clone())
+                                .map_err(|error| error.at(&format!("$[{index}]")))?;
+                            out.push(decoded);
                         }
-                        _ => {
-                            out.push(rest_decode.decode(value)?);
+                        // An absent position is a missing key unless the schema
+                        // calls it optional. A leading optional can be absent
+                        // while a trailing position is still required, so the
+                        // whole remainder is scanned before giving up on it.
+                        None => {
+                            let missing = (index..end).find(|other| {
+                                !is_optional_element(
+                                    &rest_decoder_at(
+                                        &decode_elements,
+                                        &decode_rest,
+                                        threshold,
+                                        *other,
+                                    )
+                                    .repr_kind(),
+                                )
+                            });
+                            match missing {
+                                Some(index) => {
+                                    return Err(SchemaError::TypeMismatch {
+                                        path: format!("$[{index}]"),
+                                        expected: "required field",
+                                        got: "missing",
+                                    });
+                                }
+                                None => break,
+                            }
                         }
                     }
                 }
                 Ok(Unknown::Array(out))
             },
-            |value| Ok(value.clone()),
+            move |value: &Unknown| {
+                let Unknown::Array(items) = value else {
+                    return mismatch("$", "array", value);
+                };
+                // Encoding is the same split over the decoded length, so the
+                // repeatable window is whatever the value leaves between the
+                // leading positions and the trailing ones.
+                let threshold = element_len.max(items.len().saturating_sub(tail_len));
+                if items.len() < element_len + tail_len {
+                    return Err(SchemaError::TypeMismatch {
+                        path: format!("$[{}]", items.len()),
+                        expected: "required field",
+                        got: "missing",
+                    });
+                }
+                let mut out = Vec::with_capacity(items.len());
+                for (index, item) in items.iter().enumerate() {
+                    let decoder = rest_decoder_at(&decoders, &rest_decoders, threshold, index);
+                    let encoded = decoder
+                        .try_encode(item)
+                        .map_err(|error| error.at(&format!("$[{index}]")))?;
+                    out.push(encoded);
+                }
+                Ok(Unknown::Array(out))
+            },
             kind,
         )
     }
@@ -7668,10 +7764,11 @@ fn code_of(kind: &SchemaKind, children: &[(String, Arc<Schema<Unknown>>)]) -> St
         }
         SchemaKind::TupleWithRest(elements, rest) => {
             let inner: Vec<String> = elements.iter().map(|e| code_of_at(e, children)).collect();
+            let rest: Vec<String> = rest.iter().map(|r| code_of_at(r, children)).collect();
             format!(
                 "Schema.TupleWithRest(Schema.Tuple([{}]), [{}])",
                 inner.join(", "),
-                code_of_at(rest, children)
+                rest.join(", ")
             )
         }
         SchemaKind::Union { members, mode } => {
@@ -7851,7 +7948,10 @@ fn type_of(kind: &SchemaKind, children: &[(String, Arc<Schema<Unknown>>)]) -> St
                     other => type_of_at(other),
                 })
                 .collect();
-            inner.push(format!("...Array<{}>", type_of_at(rest)));
+            // The first rest schema repeats; the ones after it are fixed
+            // positions at the end, so they type as plain elements.
+            inner.push(format!("...Array<{}>", type_of_at(&rest[0])));
+            inner.extend(rest[1..].iter().map(type_of_at));
             format!("readonly [{}]", inner.join(", "))
         }
         SchemaKind::Check { base, .. } => type_of_at(base),
