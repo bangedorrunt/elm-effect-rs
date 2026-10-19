@@ -66,7 +66,7 @@ fn from_json_string_serializes_an_existing_schema() {
     );
 }
 
-// `Schema.test.ts:6030` — "use case: parse / stringify a nested schema" — is
+// `Schema.test.ts:6071` — "use case: parse / stringify a nested schema" — is
 // NOT witnessed here. Its shape is `Struct({ a: fromJsonString(Struct) })`, and
 // a struct field can only be spelled `Schema<Unknown>`, so it has to be re-typed
 // with `as_unknown` — whose decode is the inner ENCODE. A decoding transform

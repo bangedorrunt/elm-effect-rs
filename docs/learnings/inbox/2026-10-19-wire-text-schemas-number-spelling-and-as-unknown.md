@@ -26,10 +26,11 @@ the failure shows up in the *space/replacer* row, not the plain one.
 spelled `Schema<Unknown>`, so re-typing a schema re-encodes through it: the
 wrapper's decode is the inner ENCODE (`schema-repr-decompose-rebuild.md` says the
 same from the repr side). A decoding transform therefore comes back as its own text
-instead of the parsed value, which is why `Schema.test.ts:6030`
-(`Struct({ a: fromJsonString(Struct) })`) stays unported — the row wants `a: { b: 2 }`
-and the port can only give `a: "{\"b\":2}"`. `as_unknown(NumberFromString)` behaves
-the same way, so this is the port's model, not one schema's bug.
+instead of the parsed value, which is why `Schema.test.ts:6071`
+(`Struct({ a: fromJsonString(Struct) })`) stays unported: the row wants
+`a: { b: 2 }` and the port can only give `a: "{\"b\":2}"`.
+`as_unknown(NumberFromString)` behaves the same way, so this is the port's model,
+not one schema's bug.
 
 **Ceiling, stated rather than worked around.** `Schema.test.ts:5711`
 (`DurationFromNanos`) is excused: its wire type is a bigint and `Unknown` has no

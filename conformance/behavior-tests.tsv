@@ -7852,9 +7852,9 @@ unported	packages/effect/test/schema/Schema.test.ts	5917	it	decoding: default & 
 ported	packages/effect/test/schema/Schema.test.ts	5945	it	tagDefaultOmit	tag_fills_default_and_omits_on_encode
 not-applicable	packages/effect/test/schema/Schema.test.ts	5975	it	URL	the row's body asserts nothing at runtime beyond the optional arbitrary-generation check, and Schema.URL does not exist on the Rust schema surface, so the schema in the row cannot be built
 not-applicable	packages/effect/test/schema/Schema.test.ts	5983	it	RegExp	the row's body asserts nothing at runtime beyond the optional arbitrary-generation check, and Schema.RegExp does not exist on the Rust schema surface, so the schema in the row cannot be built
-ported	packages/effect/test/schema/Schema.test.ts	5991	it	URLFromString	unknown_from_json_string_decodes_and_encodes
-ported	packages/effect/test/schema/Schema.test.ts	6011	it	use case: Unknown <-> JSON string	from_json_string_serializes_an_existing_schema
-unported	packages/effect/test/schema/Schema.test.ts	6030	it	use case: create a JSON string serializer for an existing schema	
+unported	packages/effect/test/schema/Schema.test.ts	5991	it	URLFromString	
+ported	packages/effect/test/schema/Schema.test.ts	6011	it	use case: Unknown <-> JSON string	unknown_from_json_string_decodes_and_encodes
+ported	packages/effect/test/schema/Schema.test.ts	6030	it	use case: create a JSON string serializer for an existing schema	from_json_string_serializes_an_existing_schema
 ported	packages/effect/test/schema/Schema.test.ts	6047	it	reviver option	from_json_string_reviver_runs_on_each_value
 ported	packages/effect/test/schema/Schema.test.ts	6056	it	replacer and space options	from_json_string_replacer_and_space_shape_the_output
 unported	packages/effect/test/schema/Schema.test.ts	6071	it	use case: parse / stringify a nested schema	
