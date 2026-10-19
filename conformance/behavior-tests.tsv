@@ -7605,9 +7605,9 @@ unported	packages/effect/test/schema/Schema.test.ts	1245	it	should expose the el
 unported	packages/effect/test/schema/Schema.test.ts	1250	it	readonly string[]	
 ported	packages/effect/test/schema/Schema.test.ts	1288	it	Trimmed	trimmed_string_refuses_padding_but_not_an_inner_space
 ported	packages/effect/test/schema/Schema.test.ts	1306	it	single check	a_single_check_refuses_a_short_string
-unported	packages/effect/test/schema/Schema.test.ts	1318	it	multiple checks	
-unported	packages/effect/test/schema/Schema.test.ts	1339	it	aborting checks	
-unported	packages/effect/test/schema/Schema.test.ts	1353	it	makeFilterGroup	
+ported	packages/effect/test/schema/Schema.test.ts	1318	it	multiple checks	check_runs_every_named_check_in_order
+ported	packages/effect/test/schema/Schema.test.ts	1339	it	aborting checks	an_aborting_named_check_stops_the_chain
+ported	packages/effect/test/schema/Schema.test.ts	1353	it	makeFilterGroup	a_filter_group_is_a_chain_of_its_members
 unported	packages/effect/test/schema/Schema.test.ts	1380	it	object-level checks are validated against the decoded value when encoding	
 ported	packages/effect/test/schema/Schema.test.ts	1393	it	suspended checks are not supported	suspend_preserves_inner_refinement
 ported	packages/effect/test/schema/Schema.test.ts	1405	it	refine	refine_rejects_failing_values
@@ -7627,7 +7627,7 @@ ported	packages/effect/test/schema/Schema.test.ts	1635	it	isLessThanOrEqualTo	is
 ported	packages/effect/test/schema/Schema.test.ts	1647	it	isMultipleOf	refine_is_multiple_of
 ported	packages/effect/test/schema/Schema.test.ts	1659	it	isMultipleOf rejects nonzero subnormal remainders	is_multiple_of_rejects_subnormal_remainders
 ported	packages/effect/test/schema/Schema.test.ts	1665	it	isMultipleOf normalizes negative divisors	is_multiple_of_normalizes_negative_divisors
-unported	packages/effect/test/schema/Schema.test.ts	1677	it	isMultipleOf rejects invalid divisors	
+ported	packages/effect/test/schema/Schema.test.ts	1677	it	isMultipleOf rejects invalid divisors	is_multiple_of_rejects_invalid_divisors
 ported	packages/effect/test/schema/Schema.test.ts	1687	it	included & included	is_between_includes_both_bounds
 ported	packages/effect/test/schema/Schema.test.ts	1712	it	included & excluded	is_between_excludes_the_maximum
 ported	packages/effect/test/schema/Schema.test.ts	1737	it	excluded & included	is_between_excludes_the_minimum

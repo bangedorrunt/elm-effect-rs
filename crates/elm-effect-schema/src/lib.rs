@@ -23,6 +23,7 @@ pub mod tagged;
 pub mod class;
 
 pub mod built_in_revivers;
+pub mod checks;
 pub mod filters;
 pub use built_in_revivers::*;
 pub mod json_schema;
@@ -258,6 +259,9 @@ enum Pattern {
         negated: bool,
         ranges: Vec<(char, char)>,
     },
+    /// A quantified atom: `+` is `(1, None)`, `*` is `(0, None)` and `?` is
+    /// `(0, Some(1))`.
+    Repeat(Box<Pattern>, usize, Option<usize>),
 }
 
 /// Compile a pattern, or say what about it is outside the supported subset.
@@ -298,16 +302,20 @@ fn compile_pattern(source: &str) -> Option<Vec<Pattern>> {
             }
             other => Pattern::Char(other),
         };
-        // `*` and `+` attach to the atom they follow.
-        match chars.peek() {
-            Some('*') | Some('+') => {
+        // A quantifier attaches to the atom it follows. Counted forms
+        // (`{2,3}`) are still outside the subset and read as literal braces.
+        let quantified = match chars.peek() {
+            Some('*') => Some(Pattern::Repeat(Box::new(atom.clone()), 0, None)),
+            Some('+') => Some(Pattern::Repeat(Box::new(atom.clone()), 1, None)),
+            Some('?') => Some(Pattern::Repeat(Box::new(atom.clone()), 0, Some(1))),
+            _ => None,
+        };
+        match quantified {
+            Some(repeated) => {
                 chars.next();
-                // A repetition is stored as the atom repeated; a matcher walks it
-                // greedily, which is all these patterns need.
-                out.push(atom.clone());
-                out.push(atom);
+                out.push(repeated);
             }
-            _ => out.push(atom),
+            None => out.push(atom),
         }
     }
     Some(out)
@@ -324,6 +332,28 @@ fn pattern_matches(pattern: &[Pattern], value: &str) -> bool {
         match &pattern[0] {
             Pattern::Char('^') if anchored_start => walk(&pattern[1..], value, false, anchored_end),
             Pattern::Char('$') if anchored_end => pattern.len() == 1 && value.is_empty(),
+            Pattern::Repeat(atom, minimum, maximum) => {
+                // How many the atom could take here, bounded by the quantifier.
+                let mut available = 0usize;
+                while available < value.len()
+                    && maximum.map_or(true, |limit| available < limit)
+                    && atom_matches(atom, value[available])
+                {
+                    available += 1;
+                }
+                // Greedy, with backtracking: the longest run first, then one
+                // character shorter, never below the quantifier's minimum.
+                let mut taken = available;
+                loop {
+                    if taken >= *minimum && walk(&pattern[1..], &value[taken..], anchored_start, anchored_end) {
+                        return true;
+                    }
+                    if taken <= *minimum {
+                        return false;
+                    }
+                    taken -= 1;
+                }
+            }
             atom => {
                 if value.is_empty() {
                     // An unanchored end lets a shorter pattern match a longer
@@ -351,6 +381,10 @@ fn atom_matches(atom: &Pattern, value: char) -> bool {
                 .any(|(start, end)| value >= *start && value <= *end);
             in_class != *negated
         }
+        // A quantifier is never handed here: `walk` takes a Repeat apart itself,
+        // which is what gives it its backtracking. A nested one would be a
+        // pattern the compiler does not produce (`a**`), so it matches nothing.
+        Pattern::Repeat(..) => false,
     }
 }
 
@@ -2304,13 +2338,17 @@ fn mismatch_dynamic<T>(path: &str, expected: String, got: &Unknown) -> Result<T,
 
 /// The JavaScript `String(number)` spelling, which is the wire form of
 /// `NumberFromString`: the non-finite values have names there.
-fn js_number_text(value: f64) -> String {
+pub(crate) fn js_number_text(value: f64) -> String {
     if value.is_nan() {
         "NaN".to_string()
     } else if value == f64::INFINITY {
         "Infinity".to_string()
     } else if value == f64::NEG_INFINITY {
         "-Infinity".to_string()
+    } else if value == 0.0 {
+        // `String(-0)` is "0" in JavaScript: the sign of a zero is not part of
+        // the spelling, so negative zero prints as zero.
+        "0".to_string()
     } else {
         format!("{value}")
     }
@@ -6266,7 +6304,15 @@ pub(crate) fn check_holds_named(name: &str, arg: Option<&str>, value: &Unknown) 
     check_holds_arg(name, arg, value)
 }
 
-fn check_holds_arg(name: &str, arg: Option<&str>, value: &Unknown) -> bool {
+pub(crate) fn check_holds_arg(name: &str, arg: Option<&str>, value: &Unknown) -> bool {
+    // `isIncluding` has no numeric argument, so it is matched on the text it
+    // carries before the bound below is parsed.
+    if name == "isIncluding" {
+        let Some(needle) = arg else {
+            return true;
+        };
+        return matches!(value, Unknown::Text(text) if text.contains(needle));
+    }
     // `isPattern`'s argument is the JS RegExp literal the pin's repr prints, so
     // the pattern has to be read back out of it rather than matched as written.
     if name == "isPattern" {
