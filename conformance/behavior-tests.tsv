@@ -7846,9 +7846,9 @@ unported	packages/effect/test/schema/Schema.test.ts	5827	it	isGreaterThanOrEqual
 unported	packages/effect/test/schema/Schema.test.ts	5841	it	isLessThanBigDecimal	
 unported	packages/effect/test/schema/Schema.test.ts	5853	it	isLessThanOrEqualToBigDecimal	
 unported	packages/effect/test/schema/Schema.test.ts	5865	it	isBetweenBigDecimal	
-unported	packages/effect/test/schema/Schema.test.ts	5882	it	decoding: required & encoding: required & constructor: required	
-unported	packages/effect/test/schema/Schema.test.ts	5899	it	decoding: required & encoding: required & constructor: optional	
-unported	packages/effect/test/schema/Schema.test.ts	5917	it	decoding: default & encoding: omit & constructor: optional	
+ported	packages/effect/test/schema/Schema.test.ts	5882	it	decoding: required & encoding: required & constructor: required	a_required_tag_is_required_everywhere
+ported	packages/effect/test/schema/Schema.test.ts	5899	it	decoding: required & encoding: required & constructor: optional	a_constructor_defaulted_tag_stays_required_on_the_wire
+ported	packages/effect/test/schema/Schema.test.ts	5917	it	decoding: default & encoding: omit & constructor: optional	a_defaulted_tag_is_filled_and_omitted
 ported	packages/effect/test/schema/Schema.test.ts	5945	it	tagDefaultOmit	tag_fills_default_and_omits_on_encode
 not-applicable	packages/effect/test/schema/Schema.test.ts	5975	it	URL	the row's body asserts nothing at runtime beyond the optional arbitrary-generation check, and Schema.URL does not exist on the Rust schema surface, so the schema in the row cannot be built
 not-applicable	packages/effect/test/schema/Schema.test.ts	5983	it	RegExp	the row's body asserts nothing at runtime beyond the optional arbitrary-generation check, and Schema.RegExp does not exist on the Rust schema surface, so the schema in the row cannot be built
