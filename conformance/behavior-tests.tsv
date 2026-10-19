@@ -7782,10 +7782,10 @@ not-applicable	packages/effect/test/schema/Schema.test.ts	4676	it.effect	starts 
 not-applicable	packages/effect/test/schema/Schema.test.ts	4711	it.effect	oneOf	same residual again: the row compares two asynchronous successes in member order
 ported	packages/effect/test/schema/Schema.test.ts	4762	it	oneOf	a_void_member_makes_every_one_of_union_ambiguous
 not-applicable	packages/effect/test/schema/Schema.test.ts	4770	it	Struct({}) preserves its semantics in a union	the row's values are JavaScript symbols, functions and bigints and it pins the pin's empty-Struct acceptance over them; a struct here is a string-keyed map and none of those is one
-unported	packages/effect/test/schema/Schema.test.ts	4793	it	string | struct	
-unported	packages/effect/test/schema/Schema.test.ts	4807	it	string | tuple	
-unported	packages/effect/test/schema/Schema.test.ts	4821	it	tagged struct union	
-unported	packages/effect/test/schema/Schema.test.ts	4845	it	tagged tuple union	
+ported	packages/effect/test/schema/Schema.test.ts	4793	it	string | struct	a_string_or_struct_union_names_both_members
+ported	packages/effect/test/schema/Schema.test.ts	4807	it	string | tuple	a_string_or_tuple_union_names_both_members
+ported	packages/effect/test/schema/Schema.test.ts	4821	it	tagged struct union	a_tagged_struct_union_reports_the_selected_member
+ported	packages/effect/test/schema/Schema.test.ts	4845	it	tagged tuple union	a_tagged_tuple_union_reports_the_selected_member
 ported	packages/effect/test/schema/Schema.test.ts	4872	it	A required element cannot follow an optional element	tuple_with_rest_refuses_a_required_element_after_an_optional_one
 unported	packages/effect/test/schema/Schema.test.ts	4891	it	An optional element cannot follow a rest element	
 ported	packages/effect/test/schema/Schema.test.ts	4910	it	[FiniteFromString, String] + [Boolean, String]	ffs_tuples_union_by_shape

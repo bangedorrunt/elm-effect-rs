@@ -6205,8 +6205,18 @@ impl Schema<Unknown> {
                 };
                 // A position below the first optional one must be present, and
                 // none may appear past the last declared position.
-                if items.len() < required || items.len() > total {
+                if items.len() > total {
                     return mismatch("$", "a fixed-length array", &Unknown::Array(items));
+                }
+                // A short tuple is a missing key at the first absent position,
+                // the shape the pin reports (`Missing key at [1]`); only this
+                // port's spelling of a missing key differs.
+                if items.len() < required {
+                    return Err(SchemaError::TypeMismatch {
+                        path: format!("$[{}]", items.len()),
+                        expected: "required field",
+                        got: "missing",
+                    });
                 }
                 let mut out = Vec::with_capacity(items.len());
                 for (index, element) in decoders.iter().enumerate() {
@@ -6621,10 +6631,20 @@ impl Schema<Unknown> {
             .collect();
         let mut schema = Self::new(
             move |unknown| {
+                let candidates = union_candidates(&decoders, &unknown);
+                if candidates.is_empty() {
+                    return mismatch_dynamic("$", expected.clone(), &unknown);
+                }
+                // The pin hands a lone candidate's own failure back rather than
+                // the union's summary: the input already said which member it
+                // meant, so the useful message is that member's.
+                if candidates.len() == 1 {
+                    return decoders[candidates[0]].decode(unknown);
+                }
                 let mut decoded = None;
                 let mut matches = 0usize;
-                for member in &decoders {
-                    if let Ok(value) = member.decode(unknown.clone()) {
+                for index in candidates {
+                    if let Ok(value) = decoders[index].decode(unknown.clone()) {
                         matches += 1;
                         decoded.get_or_insert(value);
                         if !one_of {
@@ -6654,6 +6674,274 @@ impl Schema<Unknown> {
         }));
         schema
     }
+}
+
+/// Where a discriminated union member looks for its tag: a struct key or a
+/// tuple position. The pin's `collectSentinels` keeps the same pair.
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
+enum SentinelKey {
+    Field(String),
+    Index(usize),
+}
+
+/// The literal pairs a member demands of its input (`collectSentinels`): the
+/// required fields that are literals, the required elements that are, and, for
+/// a nested union, only the pairs every one of its members demands.
+fn collect_sentinels(kind: &SchemaKind) -> Vec<(SentinelKey, Unknown)> {
+    match kind {
+        SchemaKind::Struct(fields) | SchemaKind::StructWithRest(fields, _) => fields
+            .iter()
+            .filter_map(|(name, field)| match field {
+                SchemaKind::Literal(value) => {
+                    Some((SentinelKey::Field(name.clone()), value.clone()))
+                }
+                _ => None,
+            })
+            .collect(),
+        SchemaKind::Tuple(elements) | SchemaKind::TupleWithRest(elements, _) => elements
+            .iter()
+            .enumerate()
+            .filter_map(|(index, element)| match element {
+                SchemaKind::Literal(value) => Some((SentinelKey::Index(index), value.clone())),
+                _ => None,
+            })
+            .collect(),
+        SchemaKind::Annotated { inner, .. } => collect_sentinels(inner),
+        SchemaKind::Union { members, .. } => {
+            let mut out = match members.first() {
+                Some(first) => collect_sentinels(first),
+                None => return Vec::new(),
+            };
+            for member in &members[1..] {
+                let inner = collect_sentinels(member);
+                out.retain(|(key, value)| inner.iter().any(|(k, v)| k == key && v == value));
+            }
+            out
+        }
+        _ => Vec::new(),
+    }
+}
+
+const ALL_KINDS: [&str; 6] = ["null", "boolean", "number", "string", "array", "object"];
+
+/// The runtime kinds a member with no sentinels can accept (`getCandidateTypes`).
+/// A shape the port cannot see into is a fallback for every kind, so an
+/// `Unknown`/`Void` member stays a candidate.
+fn candidate_kinds(kind: &SchemaKind) -> Vec<&'static str> {
+    match kind {
+        SchemaKind::String | SchemaKind::TemplateLiteral(_) => vec!["string"],
+        SchemaKind::Number => vec!["number"],
+        SchemaKind::Boolean => vec!["boolean"],
+        SchemaKind::Array(_) | SchemaKind::Tuple(_) | SchemaKind::TupleWithRest(..) => {
+            vec!["array"]
+        }
+        SchemaKind::Object
+        | SchemaKind::Record(..)
+        | SchemaKind::Struct(_)
+        | SchemaKind::StructWithRest(..) => {
+            // A struct with no fields has nothing to exclude a kind by.
+            if matches!(kind, SchemaKind::Struct(fields) if fields.is_empty()) {
+                ALL_KINDS.to_vec()
+            } else {
+                vec!["object"]
+            }
+        }
+        SchemaKind::Literal(value) => vec![value.kind()],
+        SchemaKind::Literals(values) => {
+            let mut out: Vec<&'static str> = Vec::new();
+            for value in values {
+                let kind = value.kind();
+                if !out.contains(&kind) {
+                    out.push(kind);
+                }
+            }
+            out
+        }
+        SchemaKind::Opaque("null") => vec!["null"],
+        SchemaKind::Annotated { inner, .. } => candidate_kinds(inner),
+        SchemaKind::Union { members, .. } => {
+            let mut out: Vec<&'static str> = Vec::new();
+            for member in members {
+                for kind in candidate_kinds(member) {
+                    if !out.contains(&kind) {
+                        out.push(kind);
+                    }
+                }
+            }
+            out
+        }
+        _ => ALL_KINDS.to_vec(),
+    }
+}
+
+/// The value a sentinel key holds in the input, or `None` when the key is not
+/// there. An absent key is neutral; an observed one decides.
+fn sentinel_value(input: &Unknown, key: &SentinelKey) -> Option<Unknown> {
+    match (input, key) {
+        (Unknown::Object(map), SentinelKey::Field(name)) => map.get(name).cloned(),
+        (Unknown::Array(items), SentinelKey::Index(index)) => items.get(*index).cloned(),
+        _ => None,
+    }
+}
+
+/// The members that demand `value` at `key`, or `None` when no member does.
+fn sentinel_matches(
+    by_sentinel: &[(SentinelKey, Vec<(Unknown, Vec<usize>)>)],
+    key: &SentinelKey,
+    value: &Unknown,
+) -> Option<Vec<usize>> {
+    let values = by_sentinel
+        .iter()
+        .find(|(candidate, _)| candidate == key)?
+        .1
+        .iter()
+        .find(|(candidate, _)| candidate == value)?
+        .1
+        .clone();
+    Some(values)
+}
+
+fn add_sentinel(
+    by_sentinel: &mut Vec<(SentinelKey, Vec<(Unknown, Vec<usize>)>)>,
+    key: &SentinelKey,
+    value: &Unknown,
+    index: usize,
+) {
+    let position = match by_sentinel
+        .iter()
+        .position(|(candidate, _)| candidate == key)
+    {
+        Some(position) => position,
+        None => {
+            by_sentinel.push((key.clone(), Vec::new()));
+            by_sentinel.len() - 1
+        }
+    };
+    let values = &mut by_sentinel[position].1;
+    let value_position = match values.iter().position(|(candidate, _)| candidate == value) {
+        Some(position) => position,
+        None => {
+            values.push((value.clone(), Vec::new()));
+            values.len() - 1
+        }
+    };
+    let indexes = &mut values[value_position].1;
+    if !indexes.contains(&index) {
+        indexes.push(index);
+    }
+}
+
+/// A member's sentinels, read from the field/element lists a shape keeps beside
+/// its kind. `struct_shape` records itself as a plain object, so the kind alone
+/// would hide the tags it declares; `struct_of` keeps them in the kind.
+fn member_sentinels(member: &Schema<Unknown>) -> Vec<(SentinelKey, Unknown)> {
+    if let Some(fields) = &member.struct_fields {
+        return fields
+            .iter()
+            .filter(|field| field.optionality() == Optionality::Required)
+            .filter_map(|field| match field.inner().repr_kind() {
+                SchemaKind::Literal(value) => {
+                    Some((SentinelKey::Field(field.name().to_string()), value))
+                }
+                _ => None,
+            })
+            .collect();
+    }
+    if let Some(elements) = &member.tuple_elements {
+        return elements
+            .iter()
+            .take_while(|element| !is_optional_element(&element.repr_kind()))
+            .enumerate()
+            .filter_map(|(index, element)| match element.repr_kind() {
+                SchemaKind::Literal(value) => Some((SentinelKey::Index(index), value)),
+                _ => None,
+            })
+            .collect();
+    }
+    collect_sentinels(&member.repr_kind())
+}
+
+/// The members a decoded input can still match (`getCandidateIndex`, without
+/// the constructor axis). A discriminated member is skipped when the tag it
+/// demands is present and different, which is what keeps a tagged struct from
+/// claiming every object.
+fn union_candidates(members: &[Arc<Schema<Unknown>>], input: &Unknown) -> Vec<usize> {
+    let mut otherwise: Vec<(&'static str, usize)> = Vec::new();
+    let mut by_sentinel: Vec<(SentinelKey, Vec<(Unknown, Vec<usize>)>)> = Vec::new();
+    let mut owners: Vec<(SentinelKey, Vec<usize>)> = Vec::new();
+    let mut discriminated = 0usize;
+
+    for (index, member) in members.iter().enumerate() {
+        let kind = member.repr_kind();
+        if matches!(kind, SchemaKind::Opaque("never")) {
+            continue;
+        }
+        let sentinels = member_sentinels(member);
+        if sentinels.is_empty() {
+            for candidate in candidate_kinds(&kind) {
+                otherwise.push((candidate, index));
+            }
+            continue;
+        }
+        discriminated += 1;
+        for (key, value) in sentinels {
+            add_sentinel(&mut by_sentinel, &key, &value, index);
+            let position = match owners.iter().position(|(owned, _)| *owned == key) {
+                Some(position) => position,
+                None => {
+                    owners.push((key, Vec::new()));
+                    owners.len() - 1
+                }
+            };
+            if !owners[position].1.contains(&index) {
+                owners[position].1.push(index);
+            }
+        }
+    }
+
+    let fallback = |kind: &'static str| -> Vec<usize> {
+        otherwise
+            .iter()
+            .filter(|(candidate, _)| *candidate == kind)
+            .map(|(_, index)| *index)
+            .collect()
+    };
+
+    // Without a discriminated member there is nothing to narrow by. An array
+    // counts as an object keyword, which is how a tuple's positional tag works.
+    if discriminated == 0 || !matches!(input, Unknown::Object(_) | Unknown::Array(_)) {
+        return fallback(input.kind());
+    }
+
+    let mut selected = fallback(input.kind());
+    // An observed key adds the members that demand its value ...
+    for (key, _) in &by_sentinel {
+        if let Some(value) = sentinel_value(input, key) {
+            if let Some(indexes) = sentinel_matches(&by_sentinel, key, &value) {
+                selected.extend(indexes);
+            }
+        }
+    }
+
+    // ... and rejects every selected member that owns the key without
+    // demanding that value. A key a member never mentions leaves it alone,
+    // which is what makes two members with different tags decidable.
+    for (key, _) in &by_sentinel {
+        let Some(value) = sentinel_value(input, key) else {
+            continue;
+        };
+        let matching = sentinel_matches(&by_sentinel, key, &value).unwrap_or_default();
+        let owned = owners
+            .iter()
+            .find(|(owned, _)| owned == key)
+            .map(|(_, indexes)| indexes.clone())
+            .unwrap_or_default();
+        selected.retain(|index| !owned.contains(index) || matching.contains(index));
+    }
+
+    selected.sort_unstable();
+    selected.dedup();
+    selected
 }
 
 impl Schema<Unknown> {
