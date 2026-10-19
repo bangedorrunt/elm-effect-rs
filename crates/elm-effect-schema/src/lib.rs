@@ -199,6 +199,12 @@ pub struct Schema<T> {
     /// erased because the box's value type is the field's own `T`. None for
     /// every other shape.
     option_value: Option<std::sync::Arc<Schema<Unknown>>>,
+    /// The success and failure schemas a boxed `Result` was built from
+    /// (`Schema.Result(...).success`/`.failure`), erased for the same reason.
+    result_sides: Option<(
+        std::sync::Arc<Schema<Unknown>>,
+        std::sync::Arc<Schema<Unknown>>,
+    )>,
     /// Key-level annotations (`annotateKey`). The pin keeps these in the AST's
     /// `context` slot rather than on the node, so a schema has two annotation
     /// slots and only one of them is read by `resolve_annotations`.
@@ -1469,6 +1475,7 @@ impl<T> Schema<T> {
             union_members: None,
             array_element: None,
             option_value: None,
+            result_sides: None,
             key_annotations: Vec::new(),
             class_meta: None,
         }
@@ -1811,9 +1818,10 @@ impl<T> Schema<T> {
             kind,
             children: schema.children,
             array_element: schema.array_element,
-            // An annotation rides the same codec, so the accessor a boxed
+            // An annotation rides the same codec, so the accessors a boxed
             // schema answers must survive it.
             option_value: schema.option_value.clone(),
+            result_sides: schema.result_sides.clone(),
             formatter: schema.formatter.clone(),
             // An annotation rides the same codec, so the relation underneath is
             // still the one for these values: an `overrideToEquivalence` applied
@@ -2841,6 +2849,30 @@ impl Schema<BTreeMap<String, Unknown>> {
 impl<T: Send + Sync + 'static> Schema<Vec<T>> {
     /// Homogeneous arrays: every element decoded, failures name `[i]`.
     pub fn array(inner: Schema<T>) -> Schema<Vec<T>> {
+        Self::array_with(inner, true)
+    }
+
+    /// `Schema.NonEmptyArray(inner)`: an array with at least one element.
+    ///
+    /// The pin builds it as a tuple of one required head plus a rest, so an
+    /// empty array reads as a missing key at position 0 rather than a length
+    /// check. Everything else is the plain array, and the element schema stays
+    /// readable through [`element`](Self::element).
+    pub fn non_empty_array(inner: Schema<T>) -> Schema<Vec<T>> {
+        Self::array_with(inner, false)
+    }
+
+    /// The one array codec, with the emptiness rule as its only variable.
+    fn array_with(inner: Schema<T>, allow_empty: bool) -> Schema<Vec<T>> {
+        // The pin's empty-array refusal is the tuple shape's missing key, so it
+        // names position 0 rather than a length constraint.
+        fn empty() -> SchemaError {
+            SchemaError::TypeMismatch {
+                path: "$[0]".to_string(),
+                expected: "an element",
+                got: "missing",
+            }
+        }
         // The child's shape, not its raw kind: a re-typed child keeps its shape
         // in `wrapped`, so reading `kind` here would render the element as
         // `Schema.Unknown`.
@@ -2852,32 +2884,40 @@ impl<T: Send + Sync + 'static> Schema<Vec<T>> {
         let inner_kind = inner.repr_kind();
         let mut out = Self::new(
             move |unknown| match unknown {
-                Unknown::Array(items) => items
-                    .into_iter()
-                    .enumerate()
-                    .map(|(index, item)| {
-                        decode_inner.decode(item).map_err(|error| match error {
-                            SchemaError::TypeMismatch { expected, got, .. } => {
-                                SchemaError::TypeMismatch {
-                                    path: format!("$[{index}]"),
-                                    expected,
-                                    got,
+                Unknown::Array(items) => {
+                    if !allow_empty && items.is_empty() {
+                        return Err(empty());
+                    }
+                    items
+                        .into_iter()
+                        .enumerate()
+                        .map(|(index, item)| {
+                            decode_inner.decode(item).map_err(|error| match error {
+                                SchemaError::TypeMismatch { expected, got, .. } => {
+                                    SchemaError::TypeMismatch {
+                                        path: format!("$[{index}]"),
+                                        expected,
+                                        got,
+                                    }
                                 }
-                            }
-                            SchemaError::TypeMismatchDynamic { expected, got, .. } => {
-                                SchemaError::TypeMismatchDynamic {
-                                    path: format!("$[{index}]"),
-                                    expected,
-                                    got,
+                                SchemaError::TypeMismatchDynamic { expected, got, .. } => {
+                                    SchemaError::TypeMismatchDynamic {
+                                        path: format!("$[{index}]"),
+                                        expected,
+                                        got,
+                                    }
                                 }
-                            }
-                            other => other,
+                                other => other,
+                            })
                         })
-                    })
-                    .collect(),
+                        .collect()
+                }
                 other => mismatch("$", "array", &other),
             },
             move |values: &Vec<T>| {
+                if !allow_empty && values.is_empty() {
+                    return Err(empty());
+                }
                 Ok(Unknown::Array(
                     values
                         .iter()
@@ -2905,9 +2945,7 @@ impl<T: Send + Sync + 'static> Schema<Vec<T>> {
         }));
         out
     }
-}
 
-impl<T: Send + Sync + 'static> Schema<Vec<T>> {
     /// `Schema.Array(...).value` at the pin: the element schema the array was
     /// built from, so a caller can inspect the element type without probing the
     /// codec with a sample value. Annotations ride the same schema, so the
@@ -3895,6 +3933,105 @@ impl<T: Send + Sync + 'static> Schema<Option<T>> {
             _ => false,
         }));
         schema
+    }
+}
+
+impl<A: Send + Sync + 'static, E: Send + Sync + 'static> Schema<Result<A, E>> {
+    /// `Schema.Result(success, failure)`: the boxed result.
+    ///
+    /// The wire form is the tag object the pin's codec links to,
+    /// `{ "_tag": "Success", success }` or `{ "_tag": "Failure", failure }`,
+    /// while the value is a `Result`.
+    pub fn result(success: Schema<A>, failure: Schema<E>) -> Schema<Result<A, E>> {
+        let tag = |name: &str| {
+            (
+                "_tag".to_string(),
+                SchemaKind::Literal(Unknown::Text(name.to_string())),
+            )
+        };
+        let kind = SchemaKind::Union {
+            members: vec![
+                SchemaKind::Struct(vec![
+                    tag("Success"),
+                    ("success".to_string(), success.repr_kind()),
+                ]),
+                SchemaKind::Struct(vec![
+                    tag("Failure"),
+                    ("failure".to_string(), failure.repr_kind()),
+                ]),
+            ],
+            mode: "anyOf",
+        };
+        let success = Arc::new(success);
+        let failure = Arc::new(failure);
+        let sides = Some((
+            Arc::new(Schema::as_unknown_shared(success.clone())),
+            Arc::new(Schema::as_unknown_shared(failure.clone())),
+        ));
+        let decode_success = success.clone();
+        let decode_failure = failure.clone();
+        let encode_success = success;
+        let encode_failure = failure;
+        let mut schema = Schema::new(
+            move |unknown| {
+                let Unknown::Object(fields) = unknown else {
+                    return mismatch("$", "Result", &unknown);
+                };
+                let missing = |side: &str| SchemaError::TypeMismatch {
+                    path: format!("$.{side}"),
+                    expected: "required field",
+                    got: "missing",
+                };
+                match fields.get("_tag") {
+                    Some(Unknown::Text(tag)) if tag == "Success" => match fields.get("success") {
+                        Some(value) => decode_success
+                            .decode(value.clone())
+                            .map(Ok)
+                            .map_err(|error| error.at("$.success")),
+                        None => Err(missing("success")),
+                    },
+                    Some(Unknown::Text(tag)) if tag == "Failure" => match fields.get("failure") {
+                        Some(value) => decode_failure
+                            .decode(value.clone())
+                            .map(Err)
+                            .map_err(|error| error.at("$.failure")),
+                        None => Err(missing("failure")),
+                    },
+                    _ => mismatch("$", "Result", &Unknown::Object(fields)),
+                }
+            },
+            move |value| {
+                let mut fields = BTreeMap::new();
+                match value {
+                    Ok(value) => {
+                        fields.insert("_tag".to_string(), Unknown::Text("Success".to_string()));
+                        fields.insert("success".to_string(), encode_success.try_encode(value)?);
+                    }
+                    Err(value) => {
+                        fields.insert("_tag".to_string(), Unknown::Text("Failure".to_string()));
+                        fields.insert("failure".to_string(), encode_failure.try_encode(value)?);
+                    }
+                }
+                Ok(Unknown::Object(fields))
+            },
+            kind,
+        );
+        schema.result_sides = sides;
+        schema
+    }
+
+    /// `Schema.Result(...).success`: the success schema the box wraps.
+    pub fn success(&self) -> Option<&Schema<Unknown>> {
+        self.result_sides
+            .as_ref()
+            .map(|(success, _)| success.as_ref())
+    }
+
+    /// `Schema.Result(...).failure`: the failure schema the box wraps.
+    pub fn failure(&self) -> Option<&Schema<Unknown>> {
+        self.result_sides
+            .as_ref()
+            .map(|(_, failure)| failure.as_ref())
     }
 }
 

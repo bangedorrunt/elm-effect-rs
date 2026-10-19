@@ -7601,8 +7601,8 @@ unported	packages/effect/test/schema/Schema.test.ts	1188	it	preserves annotation
 ported	packages/effect/test/schema/Schema.test.ts	1210	it	ArrayEnsure	one_value_or_many
 ported	packages/effect/test/schema/Schema.test.ts	1232	it	ArrayEnsure roundtrips array-valued elements	an_array_valued_element_round_trips
 ported	packages/effect/test/schema/Schema.test.ts	1239	it	ArrayEnsure preserves outer-array encoding	many_values_encode_element_wise
-unported	packages/effect/test/schema/Schema.test.ts	1245	it	should expose the element schema via .value	
-unported	packages/effect/test/schema/Schema.test.ts	1250	it	readonly string[]	
+ported	packages/effect/test/schema/Schema.test.ts	1245	it	should expose the element schema via .value	non_empty_array_exposes_the_element_schema
+ported	packages/effect/test/schema/Schema.test.ts	1250	it	readonly string[]	non_empty_array_needs_at_least_one_element
 ported	packages/effect/test/schema/Schema.test.ts	1288	it	Trimmed	trimmed_string_refuses_padding_but_not_an_inner_space
 ported	packages/effect/test/schema/Schema.test.ts	1306	it	single check	a_single_check_refuses_a_short_string
 ported	packages/effect/test/schema/Schema.test.ts	1318	it	multiple checks	check_runs_every_named_check_in_order
@@ -7699,8 +7699,8 @@ ported	packages/effect/test/schema/Schema.test.ts	3175	it	OptionFromOptional	opt
 not-applicable	packages/effect/test/schema/Schema.test.ts	3201	it	default (omit)	with undefined stood in as null, OptionFromOptionalNullOr's default (omit) reads and writes exactly what OptionFromOptional does; the absent-and-null decode plus the omit encode are :3175 option_from_optional_fills_absent_and_null
 ported	packages/effect/test/schema/Schema.test.ts	3232	it	onNoneEncoding: null	option_from_optional_null_or_encodes_none_as_null
 not-applicable	packages/effect/test/schema/Schema.test.ts	3249	it	onNoneEncoding: undefined	onNoneEncoding: undefined is the same null stand-in as onNoneEncoding: null, so the row's wire assertion is :3232 option_from_optional_null_or_encodes_none_as_null
-unported	packages/effect/test/schema/Schema.test.ts	3268	it	should expose the values	
-unported	packages/effect/test/schema/Schema.test.ts	3276	it	Result(FiniteFromString, FiniteFromString)	
+ported	packages/effect/test/schema/Schema.test.ts	3268	it	should expose the values	result_exposes_the_success_and_failure_schemas
+ported	packages/effect/test/schema/Schema.test.ts	3276	it	Result(FiniteFromString, FiniteFromString)	result_decodes_and_encodes_the_tag_object
 unported	packages/effect/test/schema/Schema.test.ts	3305	it	Defect	
 unported	packages/effect/test/schema/Schema.test.ts	3352	it	ErrorInstance and Defect memoize equivalent options	
 unported	packages/effect/test/schema/Schema.test.ts	3377	it	should expose the values	
