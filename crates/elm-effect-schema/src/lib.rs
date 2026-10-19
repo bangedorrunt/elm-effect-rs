@@ -195,6 +195,10 @@ pub struct Schema<T> {
     /// Kept as an erased schema rather than in `children`, which the object
     /// path reads as named fields.
     array_element: Option<std::sync::Arc<Schema<Unknown>>>,
+    /// The schema an `Option` was built from (`Schema.Option(...).value`),
+    /// erased because the box's value type is the field's own `T`. None for
+    /// every other shape.
+    option_value: Option<std::sync::Arc<Schema<Unknown>>>,
     /// Key-level annotations (`annotateKey`). The pin keeps these in the AST's
     /// `context` slot rather than on the node, so a schema has two annotation
     /// slots and only one of them is read by `resolve_annotations`.
@@ -1464,6 +1468,7 @@ impl<T> Schema<T> {
             tuple_elements: None,
             union_members: None,
             array_element: None,
+            option_value: None,
             key_annotations: Vec::new(),
             class_meta: None,
         }
@@ -1806,6 +1811,9 @@ impl<T> Schema<T> {
             kind,
             children: schema.children,
             array_element: schema.array_element,
+            // An annotation rides the same codec, so the accessor a boxed
+            // schema answers must survive it.
+            option_value: schema.option_value.clone(),
             formatter: schema.formatter.clone(),
             // An annotation rides the same codec, so the relation underneath is
             // still the one for these values: an `overrideToEquivalence` applied
@@ -3006,6 +3014,10 @@ pub struct Field {
     /// the `Key` spelling exact rather than absorbing everything absent).
     decoding_default: Option<SchemaDefault<Unknown>>,
     omit_on_encode: bool,
+    /// `OptionFromOptionalKey` & co.: the decoded `None` marker (this port's
+    /// `Unknown::Null`) leaves the key out on encode, while a present value
+    /// travels. Unlike `omit_on_encode` this depends on the value.
+    omit_none_on_encode: bool,
 }
 
 /// How optional a struct field is on the decoding axis.
@@ -3029,6 +3041,7 @@ impl Field {
             optionality: Optionality::Required,
             decoding_default: None,
             omit_on_encode: false,
+            omit_none_on_encode: false,
         }
     }
 
@@ -3047,6 +3060,7 @@ impl Field {
             optionality: Optionality::Required,
             decoding_default: Some(SchemaDefault::Wire(Arc::new(default))),
             omit_on_encode: false,
+            omit_none_on_encode: false,
         }
     }
 
@@ -3063,6 +3077,7 @@ impl Field {
             optionality: Optionality::Required,
             decoding_default: Some(SchemaDefault::Decoded(Arc::new(default))),
             omit_on_encode: false,
+            omit_none_on_encode: false,
         }
     }
 
@@ -3073,6 +3088,45 @@ impl Field {
         self
     }
 
+    /// A `None` marker leaves the key out on encode, while a present value
+    /// still travels (`OptionFromOptionalKey` and its relatives).
+    pub fn omit_none_encoding(mut self) -> Self {
+        self.omit_none_on_encode = true;
+        self
+    }
+
+    /// `Schema.OptionFromOptionalKey(inner)` at a struct field: an absent key
+    /// decodes to `None`, a present null still goes through `inner` (so a
+    /// schema with no null refuses it), and a `None` leaves the key out again.
+    pub fn option_from_optional_key(name: &str, inner: Schema<Unknown>) -> Self {
+        Self::decoding_default_type(name, inner, || Ok(Unknown::Null)).omit_none_encoding()
+    }
+
+    /// `Schema.OptionFromOptional(inner)`: absence and null are both `None`,
+    /// and a `None` leaves the key out on encode.
+    pub fn option_from_optional(name: &str, inner: Schema<Unknown>) -> Self {
+        Self::decoding_default_type(name, inner, || Ok(Unknown::Null))
+            .make_nullable()
+            .omit_none_encoding()
+    }
+
+    /// `Schema.OptionFromOptionalNullOr(inner, { onNoneEncoding })`: absence,
+    /// null and the port's null stand-in for undefined are all `None`.
+    /// `omit_none` picks the pin's two encodings: true leaves the key out,
+    /// false carries the null stand-in (`onNoneEncoding: null`).
+    pub fn option_from_optional_null_or(
+        name: &str,
+        inner: Schema<Unknown>,
+        omit_none: bool,
+    ) -> Self {
+        let field = Self::decoding_default_type(name, inner, || Ok(Unknown::Null)).make_nullable();
+        if omit_none {
+            field.omit_none_encoding()
+        } else {
+            field
+        }
+    }
+
     /// An optional field: missing or null decodes without error.
     pub fn optional(name: &str, schema: Schema<Unknown>) -> Self {
         Self {
@@ -3081,6 +3135,7 @@ impl Field {
             optionality: Optionality::Optional,
             decoding_default: None,
             omit_on_encode: false,
+            omit_none_on_encode: false,
         }
     }
 
@@ -3093,6 +3148,7 @@ impl Field {
             optionality: Optionality::OptionalKey,
             decoding_default: None,
             omit_on_encode: false,
+            omit_none_on_encode: false,
         }
     }
 
@@ -3165,6 +3221,7 @@ impl Field {
             optionality: Optionality::Required,
             decoding_default: Some(SchemaDefault::Wire(Arc::new(move || Ok(literal.clone())))),
             omit_on_encode: true,
+            omit_none_on_encode: false,
         }
     }
 }
@@ -3422,6 +3479,13 @@ impl Schema<BTreeMap<String, Unknown>> {
             .filter(|field| field.omit_on_encode || field.schema.omit_on_encode)
             .map(|field| field.name.clone())
             .collect();
+        // A `None` marker is dropped key by key, so a field holding a value
+        // still travels (`OptionFromOptionalKey` and friends).
+        let omitted_none: Vec<String> = fields
+            .iter()
+            .filter(|field| field.omit_none_on_encode)
+            .map(|field| field.name.clone())
+            .collect();
         // Presence is a property of the declared field, so the ENCODE side
         // enforces it too: the pin encodes `Struct({ a: String })` from `{}`
         // and fails with `Missing key at ["a"]`. A field the wire drops anyway
@@ -3451,6 +3515,11 @@ impl Schema<BTreeMap<String, Unknown>> {
                 let mut filtered = output.clone();
                 for name in &omitted {
                     filtered.remove(name);
+                }
+                for name in &omitted_none {
+                    if matches!(filtered.get(name), Some(Unknown::Null)) {
+                        filtered.remove(name);
+                    }
                 }
                 Ok(Unknown::Object(filtered))
             },
@@ -3720,6 +3789,81 @@ fn rename_keys(unknown: Unknown, pairs: &[(String, String)], to_destination: boo
 }
 
 impl<T: Send + Sync + 'static> Schema<Option<T>> {
+    /// `Schema.Option(inner)`: the boxed option.
+    ///
+    /// The wire form is the tag object the pin's codec links to,
+    /// `{ "_tag": "None" }` or `{ "_tag": "Some", value }`, while the value is
+    /// an `Option`. `None` is a value here, not an absent key, which is what
+    /// tells this apart from [`optional`](Self::optional): that one reads a
+    /// null, this one refuses it.
+    pub fn option(inner: Schema<T>) -> Schema<Option<T>> {
+        let kind = SchemaKind::Union {
+            members: vec![
+                SchemaKind::Struct(vec![
+                    (
+                        "_tag".to_string(),
+                        SchemaKind::Literal(Unknown::Text("Some".to_string())),
+                    ),
+                    ("value".to_string(), inner.repr_kind()),
+                ]),
+                SchemaKind::Struct(vec![(
+                    "_tag".to_string(),
+                    SchemaKind::Literal(Unknown::Text("None".to_string())),
+                )]),
+            ],
+            mode: "anyOf",
+        };
+        let inner = Arc::new(inner);
+        let erased = Some(Arc::new(Schema::as_unknown_shared(inner.clone())));
+        let decode_inner = inner.clone();
+        let encode_inner = inner;
+        let mut schema = Schema::new(
+            move |unknown| {
+                let Unknown::Object(fields) = unknown else {
+                    return mismatch("$", "Option", &unknown);
+                };
+                match fields.get("_tag") {
+                    Some(Unknown::Text(tag)) if tag == "Some" => match fields.get("value") {
+                        Some(value) => decode_inner
+                            .decode(value.clone())
+                            .map(Some)
+                            .map_err(|error| error.at("$.value")),
+                        // `Some` without a value is not a shape the box has.
+                        None => Err(SchemaError::TypeMismatch {
+                            path: "$.value".to_string(),
+                            expected: "required field",
+                            got: "missing",
+                        }),
+                    },
+                    Some(Unknown::Text(tag)) if tag == "None" => Ok(None),
+                    _ => mismatch("$", "Option", &Unknown::Object(fields)),
+                }
+            },
+            move |value| {
+                let mut fields = BTreeMap::new();
+                match value {
+                    None => {
+                        fields.insert("_tag".to_string(), Unknown::Text("None".to_string()));
+                    }
+                    Some(value) => {
+                        fields.insert("_tag".to_string(), Unknown::Text("Some".to_string()));
+                        fields.insert("value".to_string(), encode_inner.try_encode(value)?);
+                    }
+                }
+                Ok(Unknown::Object(fields))
+            },
+            kind,
+        );
+        schema.option_value = erased;
+        schema
+    }
+
+    /// `Schema.Option(...).value`: the schema the box wraps, readable through
+    /// an annotation.
+    pub fn value(&self) -> Option<&Schema<Unknown>> {
+        self.option_value.as_deref()
+    }
+
     /// `null` (or missing, by the caller's hand) decodes to `None`.
     pub fn optional(inner: Schema<T>) -> Schema<Option<T>> {
         // A value that arrived here through a re-typing carries an opaque kind

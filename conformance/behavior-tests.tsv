@@ -7688,17 +7688,17 @@ ported	packages/effect/test/schema/Schema.test.ts	2880	it	Redacted(Finite)	a_box
 ported	packages/effect/test/schema/Schema.test.ts	2917	it	Redacted(FiniteFromString)	a_boxed_transform_decodes_inside_the_box
 ported	packages/effect/test/schema/Schema.test.ts	2970	it	with label	a_declared_label_has_to_match
 ported	packages/effect/test/schema/Schema.test.ts	3008	it	should decode a value	a_box_wraps_on_the_way_in_and_unwraps_on_the_way_out
-unported	packages/effect/test/schema/Schema.test.ts	3034	it	should expose the value	
-ported	packages/effect/test/schema/Schema.test.ts	3040	it	Option(FiniteFromString)	ffs_composes_with_optional
-unported	packages/effect/test/schema/Schema.test.ts	3070	it	OptionFromNullOr	
-unported	packages/effect/test/schema/Schema.test.ts	3088	it	OptionFromUndefinedOr	
-unported	packages/effect/test/schema/Schema.test.ts	3107	it	onNoneEncoding: null	
-unported	packages/effect/test/schema/Schema.test.ts	3126	it	onNoneEncoding: undefined	
-unported	packages/effect/test/schema/Schema.test.ts	3146	it	OptionFromOptionalKey	
-unported	packages/effect/test/schema/Schema.test.ts	3175	it	OptionFromOptional	
-unported	packages/effect/test/schema/Schema.test.ts	3201	it	default (omit)	
-unported	packages/effect/test/schema/Schema.test.ts	3232	it	onNoneEncoding: null	
-unported	packages/effect/test/schema/Schema.test.ts	3249	it	onNoneEncoding: undefined	
+ported	packages/effect/test/schema/Schema.test.ts	3034	it	should expose the value	option_exposes_the_wrapped_schema
+ported	packages/effect/test/schema/Schema.test.ts	3040	it	Option(FiniteFromString)	option_decodes_and_encodes_the_tag_object
+ported	packages/effect/test/schema/Schema.test.ts	3070	it	OptionFromNullOr	option_from_null_or_maps_null_to_none
+not-applicable	packages/effect/test/schema/Schema.test.ts	3088	it	OptionFromUndefinedOr	undefined has no value in Unknown: Unknown::Null stands in for it, so OptionFromUndefinedOr answers exactly OptionFromNullOr's none-on-null semantics, witnessed by :3070 option_from_null_or_maps_null_to_none
+not-applicable	packages/effect/test/schema/Schema.test.ts	3107	it	onNoneEncoding: null	OptionFromNullishOr differs from OptionFromNullOr only in also accepting undefined, which is the same null stand-in here; its decode and encode pair is :3070 option_from_null_or_maps_null_to_none
+not-applicable	packages/effect/test/schema/Schema.test.ts	3126	it	onNoneEncoding: undefined	onNoneEncoding: undefined names a wire value this port does not have; None encodes as the null stand-in, the answer :3070 option_from_null_or_maps_null_to_none asserts for OptionFromNullOr
+ported	packages/effect/test/schema/Schema.test.ts	3146	it	OptionFromOptionalKey	option_from_optional_key_fills_an_absent_key
+ported	packages/effect/test/schema/Schema.test.ts	3175	it	OptionFromOptional	option_from_optional_fills_absent_and_null
+not-applicable	packages/effect/test/schema/Schema.test.ts	3201	it	default (omit)	with undefined stood in as null, OptionFromOptionalNullOr's default (omit) reads and writes exactly what OptionFromOptional does; the absent-and-null decode plus the omit encode are :3175 option_from_optional_fills_absent_and_null
+ported	packages/effect/test/schema/Schema.test.ts	3232	it	onNoneEncoding: null	option_from_optional_null_or_encodes_none_as_null
+not-applicable	packages/effect/test/schema/Schema.test.ts	3249	it	onNoneEncoding: undefined	onNoneEncoding: undefined is the same null stand-in as onNoneEncoding: null, so the row's wire assertion is :3232 option_from_optional_null_or_encodes_none_as_null
 unported	packages/effect/test/schema/Schema.test.ts	3268	it	should expose the values	
 unported	packages/effect/test/schema/Schema.test.ts	3276	it	Result(FiniteFromString, FiniteFromString)	
 unported	packages/effect/test/schema/Schema.test.ts	3305	it	Defect	
