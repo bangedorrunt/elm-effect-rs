@@ -7833,9 +7833,9 @@ unported	packages/effect/test/schema/Schema.test.ts	5640	it	returns the original
 unported	packages/effect/test/schema/Schema.test.ts	5646	it	Struct	
 unported	packages/effect/test/schema/Schema.test.ts	5658	it	arg: message: string	
 not-applicable	packages/effect/test/schema/Schema.test.ts	5683	it	Duration	the row's body asserts nothing at runtime beyond the optional arbitrary-generation check, and Schema.Duration does not exist on the Rust schema surface, so the schema in the row cannot be built
-unported	packages/effect/test/schema/Schema.test.ts	5692	it	DurationFromString	
-unported	packages/effect/test/schema/Schema.test.ts	5711	it	DurationFromNanos	
-unported	packages/effect/test/schema/Schema.test.ts	5732	it	DurationFromMillis	
+ported	packages/effect/test/schema/Schema.test.ts	5692	it	DurationFromString	duration_from_string_parses_and_prints_the_pin_spellings
+not-applicable	packages/effect/test/schema/Schema.test.ts	5711	it	DurationFromNanos	Unknown (crates/elm-effect-schema/src/lib.rs:41) has no arbitrary-precision integer variant, so the row's bigint nanos wire form cannot be observed; the Formatter.test.ts:66 rows are excused by the same gap in crates/elm-effect/src/json.rs:19. The constructor is one convert() call once a bigint wire form exists.
+ported	packages/effect/test/schema/Schema.test.ts	5732	it	DurationFromMillis	duration_from_millis_reads_and_writes_the_millisecond_count
 unported	packages/effect/test/schema/Schema.test.ts	5761	it	ByteSize	
 unported	packages/effect/test/schema/Schema.test.ts	5770	it	ByteSizeFromString	
 unported	packages/effect/test/schema/Schema.test.ts	5777	it	ByteSizeFromBigInt	
@@ -7852,15 +7852,15 @@ unported	packages/effect/test/schema/Schema.test.ts	5917	it	decoding: default & 
 ported	packages/effect/test/schema/Schema.test.ts	5945	it	tagDefaultOmit	tag_fills_default_and_omits_on_encode
 not-applicable	packages/effect/test/schema/Schema.test.ts	5975	it	URL	the row's body asserts nothing at runtime beyond the optional arbitrary-generation check, and Schema.URL does not exist on the Rust schema surface, so the schema in the row cannot be built
 not-applicable	packages/effect/test/schema/Schema.test.ts	5983	it	RegExp	the row's body asserts nothing at runtime beyond the optional arbitrary-generation check, and Schema.RegExp does not exist on the Rust schema surface, so the schema in the row cannot be built
-unported	packages/effect/test/schema/Schema.test.ts	5991	it	URLFromString	
-unported	packages/effect/test/schema/Schema.test.ts	6011	it	use case: Unknown <-> JSON string	
+ported	packages/effect/test/schema/Schema.test.ts	5991	it	URLFromString	unknown_from_json_string_decodes_and_encodes
+ported	packages/effect/test/schema/Schema.test.ts	6011	it	use case: Unknown <-> JSON string	from_json_string_serializes_an_existing_schema
 unported	packages/effect/test/schema/Schema.test.ts	6030	it	use case: create a JSON string serializer for an existing schema	
-unported	packages/effect/test/schema/Schema.test.ts	6047	it	reviver option	
-unported	packages/effect/test/schema/Schema.test.ts	6056	it	replacer and space options	
+ported	packages/effect/test/schema/Schema.test.ts	6047	it	reviver option	from_json_string_reviver_runs_on_each_value
+ported	packages/effect/test/schema/Schema.test.ts	6056	it	replacer and space options	from_json_string_replacer_and_space_shape_the_output
 unported	packages/effect/test/schema/Schema.test.ts	6071	it	use case: parse / stringify a nested schema	
 unported	packages/effect/test/schema/Schema.test.ts	6091	it	fromFormData	
 unported	packages/effect/test/schema/Schema.test.ts	6137	it	fromURLSearchParams	
-unported	packages/effect/test/schema/Schema.test.ts	6172	it	Trim	
+ported	packages/effect/test/schema/Schema.test.ts	6172	it	Trim	trim_decodes_trimmed_and_refuses_untrimmed_on_encode
 unported	packages/effect/test/schema/Schema.test.ts	6195	it	transformEffect	
 ported	packages/effect/test/schema/Schema.test.ts	6229	it	should expose the parts	template_literal_exposes_its_parts
 ported	packages/effect/test/schema/Schema.test.ts	6235	it	NonEmptyString + String	template_literal_non_empty_string_part

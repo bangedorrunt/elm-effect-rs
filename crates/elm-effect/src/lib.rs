@@ -51,6 +51,8 @@ mod pull;
 mod runtime;
 mod schedule;
 mod scheduler;
+#[cfg(feature = "schema")]
+mod schema_duration;
 #[cfg(feature = "tokio")]
 mod scope;
 mod service;
@@ -114,6 +116,8 @@ pub use runtime::{
 pub use schedule::{
     LoopOptions, LoopPredicate, Random, RandomTag, Schedule, repeat, repeat_with, retry, retry_with,
 };
+#[cfg(feature = "schema")]
+pub use schema_duration::{duration_from_millis, duration_from_string};
 #[cfg(feature = "tokio")]
 pub use scope::{Scope, ScopeTag};
 pub use service::{Cons, MemoMap, Provide, Reference, ServiceTag, read_reference, use_service};

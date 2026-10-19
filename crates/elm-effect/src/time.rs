@@ -128,6 +128,48 @@ impl Duration {
         Self::make_millis(weeks * 604_800_000.0)
     }
 
+    /// The string arm of the pin's `fromInput`: `"1000 millis"`,
+    /// `"1.5 hours"`, `"Infinity"`, `"-Infinity"`. A unit is required and may
+    /// be singular or plural, the count may be signed and fractional, and no
+    /// padding whitespace is allowed — the pin's own regex.
+    ///
+    /// `None` for anything else, which is what `Schema.DurationFromString`
+    /// turns into a decoding failure. The pin reads nanos through a BigInt, so
+    /// `"1.0000000001 nanos"` stays exact; the count here is an f64, so a
+    /// fraction of a nanosecond rounds to the nearest whole one.
+    pub fn from_input_string(text: &str) -> Option<Self> {
+        if text == "Infinity" {
+            return Some(Self::infinity());
+        }
+        if text == "-Infinity" {
+            return Some(Self::negative_infinity());
+        }
+        // The count and the unit, split on the whitespace run between them: a
+        // leading or trailing space would leave an empty side, which the
+        // shape checks below refuse.
+        let split = text.find(char::is_whitespace)?;
+        let count_text = &text[..split];
+        let unit = text[split..].trim_start_matches(char::is_whitespace);
+        if unit.is_empty() || unit.contains(char::is_whitespace) {
+            return None;
+        }
+        if !is_decimal_number(count_text) {
+            return None;
+        }
+        let count: f64 = count_text.parse().ok()?;
+        match unit {
+            "nano" | "nanos" => Some(Self::nanos(Self::round_ties_away(count))),
+            "micro" | "micros" => Some(Self::nanos(Self::round_ties_away(count * 1_000.0))),
+            "milli" | "millis" => Some(Self::millis(count)),
+            "second" | "seconds" => Some(Self::seconds(count)),
+            "minute" | "minutes" => Some(Self::minutes(count)),
+            "hour" | "hours" => Some(Self::hours(count)),
+            "day" | "days" => Some(Self::days(count)),
+            "week" | "weeks" => Some(Self::weeks(count)),
+            _ => None,
+        }
+    }
+
     /// `Duration.infinity`.
     pub fn infinity() -> Self {
         Self {
@@ -835,6 +877,25 @@ pub enum DurationJson {
     Nanos(String),
     Infinity,
     NegativeInfinity,
+}
+
+/// The pin's duration-string number: an optional sign, at least one digit, and
+/// an optional `.`-prefixed fraction that must have digits of its own (so `1.`,
+/// `.5` and `1e3` are all refused, exactly as the pin's regex refuses them).
+fn is_decimal_number(text: &str) -> bool {
+    let digits = text.strip_prefix('-').unwrap_or(text);
+    if digits.is_empty() {
+        return false;
+    }
+    match digits.split_once('.') {
+        None => digits.bytes().all(|byte| byte.is_ascii_digit()),
+        Some((whole, fraction)) => {
+            !whole.is_empty()
+                && whole.bytes().all(|byte| byte.is_ascii_digit())
+                && !fraction.is_empty()
+                && fraction.bytes().all(|byte| byte.is_ascii_digit())
+        }
+    }
 }
 
 /// How a sleep ended.

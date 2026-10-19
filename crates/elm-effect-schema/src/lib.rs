@@ -2039,6 +2039,225 @@ impl<T> Schema<T> {
     }
 }
 
+impl<T: Send + Sync + 'static> Schema<T> {
+    /// `Schema.fromJsonString`: the wire form is JSON text, the value is
+    /// whatever `inner` decodes. A failure inside the parsed document keeps the
+    /// inner schema's own error, so a nested occurrence reads at the path the
+    /// caller expects; only the text itself, invalid JSON, is this schema's.
+    pub fn from_json_string(inner: Schema<T>) -> Self {
+        Self::from_json_string_with(inner, |_, value| value, |_, value| Some(value), None)
+    }
+
+    /// [`from_json_string`](Self::from_json_string) with the pin's options:
+    /// a `reviver` run over every parsed value before decoding, a `replacer`
+    /// run over every encoded value before printing (`None` drops the key, the
+    /// pin's `undefined`), and `space` indentation.
+    ///
+    /// The hooks are called with the key path's last segment (`""` at the
+    /// root); the replacer sees each object's own values, not a re-walked tree.
+    pub fn from_json_string_with<RV, RP>(
+        inner: Schema<T>,
+        reviver: RV,
+        replacer: RP,
+        space: Option<u8>,
+    ) -> Self
+    where
+        RV: Fn(&str, Unknown) -> Unknown + Send + Sync + 'static,
+        RP: Fn(&str, Unknown) -> Option<Unknown> + Send + Sync + 'static,
+    {
+        let inner = Arc::new(inner);
+        let decode_inner = Arc::clone(&inner);
+        let encode_inner = Arc::clone(&inner);
+        let reviver: Arc<dyn Fn(&str, Unknown) -> Unknown + Send + Sync> = Arc::new(reviver);
+        let replacer: Arc<dyn Fn(&str, Unknown) -> Option<Unknown> + Send + Sync> =
+            Arc::new(replacer);
+        Schema::new(
+            move |unknown| {
+                let Unknown::Text(source) = unknown else {
+                    return mismatch("$", "a JSON string", &unknown);
+                };
+                let parsed: serde_json::Value =
+                    serde_json::from_str(&source).map_err(|error| SchemaError::InvalidJson {
+                        path: "$".to_string(),
+                        message: error.to_string(),
+                    })?;
+                let revived = revive(&reviver, "", parsed);
+                decode_inner.decode(Unknown::from_json(revived))
+            },
+            move |value| {
+                let encoded = encode_inner.try_encode(value)?;
+                let replaced = replacer_at(&replacer, "", web_json(&encoded))
+                    .unwrap_or(serde_json::Value::Null);
+                let printed =
+                    print_json(&replaced, space).map_err(|error| SchemaError::EncodingFailed {
+                        path: "$".to_string(),
+                        expected: error.to_string(),
+                    })?;
+                Ok(Unknown::Text(printed))
+            },
+            SchemaKind::Opaque("fromJsonString"),
+        )
+    }
+}
+
+/// The pin's `JSON.parse(text, reviver)`: the hook runs on the parsed value at
+/// each key, innermost first, so a parent sees what its children revived.
+fn revive(
+    reviver: &Arc<dyn Fn(&str, Unknown) -> Unknown + Send + Sync>,
+    key: &str,
+    value: serde_json::Value,
+) -> serde_json::Value {
+    let revived = match value {
+        serde_json::Value::Array(items) => serde_json::Value::Array(
+            items
+                .into_iter()
+                .enumerate()
+                .map(|(index, item)| revive(reviver, &index.to_string(), item))
+                .collect(),
+        ),
+        serde_json::Value::Object(fields) => serde_json::Value::Object(
+            fields
+                .into_iter()
+                .map(|(name, item)| {
+                    let item = revive(reviver, &name, item);
+                    (name, item)
+                })
+                .collect(),
+        ),
+        other => other,
+    };
+    reviver(key, Unknown::from_json(revived)).to_json()
+}
+
+/// The pin's `JSON.stringify(value, replacer)`: one call per key, the hook's
+/// value then walked for keys of its own. `None` is the pin's `undefined`: an
+/// object loses the key, an array element prints as `null`.
+fn replacer_at(
+    replacer: &Arc<dyn Fn(&str, Unknown) -> Option<Unknown> + Send + Sync>,
+    key: &str,
+    value: serde_json::Value,
+) -> Option<serde_json::Value> {
+    let kept = web_json(&replacer(key, Unknown::from_json(value))?);
+    Some(match kept {
+        serde_json::Value::Object(fields) => serde_json::Value::Object(
+            fields
+                .into_iter()
+                .filter_map(|(name, item)| {
+                    replacer_at(replacer, &name, item).map(|kept| (name, kept))
+                })
+                .collect(),
+        ),
+        serde_json::Value::Array(items) => serde_json::Value::Array(
+            items
+                .into_iter()
+                .enumerate()
+                .map(|(index, item)| {
+                    replacer_at(replacer, &index.to_string(), item)
+                        .unwrap_or(serde_json::Value::Null)
+                })
+                .collect(),
+        ),
+        other => other,
+    })
+}
+
+/// `Unknown` as a JSON value with the JavaScript number spelling: an integral
+/// number in the safe range is written as an integer (`1`, not `1.0`), and a
+/// non-finite one as `null`, which is what `JSON.stringify` writes. The wire
+/// side of this port means a JSON number, so printing has to say it that way;
+/// `Unknown::to_json` keeps serde's own spelling and is left alone.
+fn web_json(unknown: &Unknown) -> serde_json::Value {
+    match unknown {
+        Unknown::Null => serde_json::Value::Null,
+        Unknown::Bool(boolean) => serde_json::Value::Bool(*boolean),
+        Unknown::Number(number) => {
+            let max_safe = 9007199254740991.0_f64;
+            if number.fract() == 0.0 && number.abs() <= max_safe {
+                serde_json::Value::Number(serde_json::Number::from(*number as i64))
+            } else {
+                serde_json::Number::from_f64(*number)
+                    .map(serde_json::Value::Number)
+                    .unwrap_or(serde_json::Value::Null)
+            }
+        }
+        Unknown::Text(text) => serde_json::Value::String(text.clone()),
+        Unknown::Array(items) => serde_json::Value::Array(items.iter().map(web_json).collect()),
+        Unknown::Object(fields) => serde_json::Value::Object(
+            fields
+                .iter()
+                .map(|(name, value)| (name.clone(), web_json(value)))
+                .collect(),
+        ),
+    }
+}
+
+/// Print a parsed document: compact unless `space` asks for indentation, the
+/// pin's `JSON.stringify` default and its `space` option.
+///
+/// The indent is `space` spaces and never a tab (the pin passes the number
+/// through as-is); an empty object or array stays on one line, which is what
+/// `JSON.stringify({}, null, 2)` prints.
+fn print_json(value: &serde_json::Value, space: Option<u8>) -> Result<String, serde_json::Error> {
+    let Some(width) = space else {
+        return serde_json::to_string(value);
+    };
+    let indent = " ".repeat(width as usize);
+    let mut out = String::new();
+    write_indented(value, &indent, 0, &mut out)?;
+    Ok(out)
+}
+
+/// One node of the indented print. Scalars go back through `serde_json` so
+/// string escaping stays its job, never this function's.
+fn write_indented(
+    value: &serde_json::Value,
+    indent: &str,
+    depth: usize,
+    out: &mut String,
+) -> Result<(), serde_json::Error> {
+    match value {
+        serde_json::Value::Array(items) if !items.is_empty() => {
+            out.push('[');
+            for (index, item) in items.iter().enumerate() {
+                if index > 0 {
+                    out.push(',');
+                }
+                out.push('\n');
+                write_indent_into(out, indent, depth + 1);
+                write_indented(item, indent, depth + 1, out)?;
+            }
+            out.push('\n');
+            write_indent_into(out, indent, depth);
+            out.push(']');
+        }
+        serde_json::Value::Object(fields) if !fields.is_empty() => {
+            out.push('{');
+            for (index, (name, item)) in fields.iter().enumerate() {
+                if index > 0 {
+                    out.push(',');
+                }
+                out.push('\n');
+                write_indent_into(out, indent, depth + 1);
+                out.push_str(&serde_json::to_string(name)?);
+                out.push_str(": ");
+                write_indented(item, indent, depth + 1, out)?;
+            }
+            out.push('\n');
+            write_indent_into(out, indent, depth);
+            out.push('}');
+        }
+        other => out.push_str(&serde_json::to_string(other)?),
+    }
+    Ok(())
+}
+
+/// `depth` levels of `indent`.
+fn write_indent_into(out: &mut String, indent: &str, depth: usize) {
+    for _ in 0..depth {
+        out.push_str(indent);
+    }
+}
+
 impl SchemaError {
     /// Re-root an error path under a prefix (`$[0]` + `[1]` = `$[0][1]`).
     fn at(self, prefix: &str) -> Self {
@@ -2330,6 +2549,43 @@ impl Schema<String> {
             |value| Ok(Unknown::Text(value.clone())),
             SchemaKind::String,
         )
+    }
+
+    /// `Schema.Trim`: the value is whitespace-trimmed on the way in, and the
+    /// encoded side refuses text that is not already trimmed.
+    ///
+    /// The asymmetry is the pin's: trimming is a decode-only convenience, so a
+    /// padded value cannot travel back out through the encoder without the
+    /// caller trimming it first.
+    pub fn trim() -> Self {
+        Self::new(
+            |unknown| match unknown {
+                Unknown::Text(text) => Ok(text.trim().to_string()),
+                other => mismatch("$", "string", &other),
+            },
+            |value| {
+                if value.trim() == value.as_str() {
+                    Ok(Unknown::Text(value.clone()))
+                } else {
+                    Err(SchemaError::EncodingFailed {
+                        path: "$".to_string(),
+                        expected: "a string with no leading or trailing whitespace".to_string(),
+                    })
+                }
+            },
+            SchemaKind::Opaque("trim"),
+        )
+    }
+}
+
+impl Schema<Unknown> {
+    /// `Schema.UnknownFromJsonString`: the wire is a JSON document in text, the
+    /// value is the document parsed, and encoding prints it back compactly.
+    ///
+    /// The parse is this schema's own step, so an unparseable text fails here
+    /// rather than in a wrapped schema: there is nothing below to fail.
+    pub fn unknown_from_json_string() -> Self {
+        Schema::from_json_string(Schema::unknown())
     }
 }
 
