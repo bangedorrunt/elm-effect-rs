@@ -7598,9 +7598,9 @@ unported	packages/effect/test/schema/Schema.test.ts	1152	it	supports encodings o
 unported	packages/effect/test/schema/Schema.test.ts	1160	it	supports withDecodingDefaultType after mutable	
 unported	packages/effect/test/schema/Schema.test.ts	1175	it	does not support withDecodingDefaultType before mutable	
 unported	packages/effect/test/schema/Schema.test.ts	1188	it	preserves annotations, checks, encoding checks, and context	
-unported	packages/effect/test/schema/Schema.test.ts	1210	it	ArrayEnsure	
-unported	packages/effect/test/schema/Schema.test.ts	1232	it	ArrayEnsure roundtrips array-valued elements	
-unported	packages/effect/test/schema/Schema.test.ts	1239	it	ArrayEnsure preserves outer-array encoding	
+ported	packages/effect/test/schema/Schema.test.ts	1210	it	ArrayEnsure	one_value_or_many
+ported	packages/effect/test/schema/Schema.test.ts	1232	it	ArrayEnsure roundtrips array-valued elements	an_array_valued_element_round_trips
+ported	packages/effect/test/schema/Schema.test.ts	1239	it	ArrayEnsure preserves outer-array encoding	many_values_encode_element_wise
 unported	packages/effect/test/schema/Schema.test.ts	1245	it	should expose the element schema via .value	
 unported	packages/effect/test/schema/Schema.test.ts	1250	it	readonly string[]	
 ported	packages/effect/test/schema/Schema.test.ts	1288	it	Trimmed	trimmed_string_refuses_padding_but_not_an_inner_space

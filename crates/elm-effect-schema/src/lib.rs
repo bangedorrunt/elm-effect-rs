@@ -6052,6 +6052,60 @@ impl Schema<Unknown> {
         )
     }
 
+    /// `Schema.ArrayEnsure(inner)`: one value or an array of them, decoded to
+    /// an array (`ArrayEnsure(FiniteFromString)` reads `"1"` and `["1", "2"]`
+    /// alike).
+    ///
+    /// The inner schema is tried first, so a value that is already an array is
+    /// kept whole when the inner schema accepts it: `ArrayEnsure(Tuple([..]))`
+    /// decodes `[1, 2]` as one tuple, not as two elements. An array the inner
+    /// schema refuses is decoded element-wise. Encoding is the inverse, which
+    /// is what makes the round trip exact: a one-element array unwraps to the
+    /// single value, and every other array encodes element-wise.
+    ///
+    /// The pin builds this as `Union([one, many])` lowered through a
+    /// `decodeTo`; the port needs only the order the union tries, so the two
+    /// attempts live here and a value neither accepts reports the inner
+    /// schema's refusal rather than the union's joined type text.
+    pub fn array_ensure(inner: Schema<Unknown>) -> Self {
+        let single = Arc::new(inner.clone());
+        let single_decode = single.clone();
+        let inner_encode = Arc::new(inner.clone());
+        let many = Arc::new(Schema::as_unknown(Schema::array(inner.clone())));
+        let many_decode = many.clone();
+        let formatter = many.formatter.clone();
+        let mut out = Self::new(
+            move |unknown| match single_decode.decode(unknown.clone()) {
+                Ok(value) => Ok(Unknown::Array(vec![value])),
+                Err(refusal) => match &unknown {
+                    Unknown::Array(_) => many_decode.decode(unknown),
+                    _ => Err(refusal),
+                },
+            },
+            move |value: &Unknown| {
+                let Unknown::Array(items) = value else {
+                    return mismatch("$", "array", value);
+                };
+                if let [only] = items.as_slice() {
+                    return inner_encode.try_encode(only);
+                }
+                let mut out = Vec::with_capacity(items.len());
+                for (index, item) in items.iter().enumerate() {
+                    out.push(
+                        inner_encode
+                            .try_encode(item)
+                            .map_err(|error| error.at(&format!("$[{index}]")))?,
+                    );
+                }
+                Ok(Unknown::Array(out))
+            },
+            SchemaKind::Array(Box::new(inner.repr_kind())),
+        );
+        out.formatter = formatter;
+        out.array_element = Some(Arc::new(inner));
+        out
+    }
+
     /// Derive a union from this one's members (`mapMembers`), the member-list
     /// twin of `mapFields` and `mapElements`. A union keeps its mode, which is
     /// the only thing distinguishing `anyOf` from `oneOf`; an exact-value shape
