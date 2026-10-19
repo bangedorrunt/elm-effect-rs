@@ -116,6 +116,10 @@ fn composite_message(issues: &[SchemaError]) -> String {
         .join("\n")
 }
 
+/// Maps a wire value to the value a check attached on top of a schema reads.
+/// See [`Schema::checked`] and the `check_view` field for what sets one.
+pub type CheckView = std::sync::Arc<dyn Fn(&Unknown) -> Unknown + Send + Sync>;
+
 /// A two-way codec between `Unknown` and `T`.
 ///
 /// Clone because the pin's schemas are values you pass around, and because a
@@ -150,6 +154,15 @@ pub struct Schema<T> {
     /// reprs rather than as a schema, because the wrapped schema has an
     /// arbitrary `T` and re-typing it here would recurse forever.
     wrapped: Option<Box<Wrapped>>,
+    /// What a check attached on top of this schema reads: the wire value mapped
+    /// to the form the check is written against. The pin's `check` lands on the
+    /// target side of a link, so `FiniteFromString.check(isInt())` reads the
+    /// number its transform produced, not the text it consumed; a schema whose
+    /// decoded value already is its wire value leaves this `None` and the check
+    /// reads what arrived. A projection is a pure mapping over `Unknown` (it
+    /// never fails: a wire value the transform cannot read is returned as it
+    /// is, and the codec refuses it a moment later).
+    check_view: Option<CheckView>,
     /// The construction path (`make`): a composite that fills constructor
     /// defaults sets this, because building a value is a different job from
     /// decoding one. A schema without it constructs by decoding.
@@ -345,7 +358,9 @@ fn pattern_matches(pattern: &[Pattern], value: &str) -> bool {
                 // character shorter, never below the quantifier's minimum.
                 let mut taken = available;
                 loop {
-                    if taken >= *minimum && walk(&pattern[1..], &value[taken..], anchored_start, anchored_end) {
+                    if taken >= *minimum
+                        && walk(&pattern[1..], &value[taken..], anchored_start, anchored_end)
+                    {
                         return true;
                     }
                     if taken <= *minimum {
@@ -1287,7 +1302,7 @@ impl SchemaKind {
                     }
                     None => serde_json::json!({"type": "string"}),
                 }
-            },
+            }
             // `never` is the one shape a JSON Schema document spells as a
             // complement: `{ not: {} }` admits nothing, which is what makes
             // an `optionalKey(Never)` field survive a document round trip.
@@ -1440,6 +1455,7 @@ impl<T> Schema<T> {
             formatter: None,
             equivalence: None,
             wrapped: None,
+            check_view: None,
             construct: None,
             constructor_default: None,
             decoding_default: None,
@@ -1683,9 +1699,8 @@ impl<T> Schema<T> {
                 let mut issues = Vec::new();
                 for field in fields {
                     match map.get(&field.name) {
-                        None
-                            if field.decoding_default.is_some()
-                                || field.schema.decoding_default.is_some() =>
+                        None if field.decoding_default.is_some()
+                            || field.schema.decoding_default.is_some() =>
                         {
                             let default = field
                                 .decoding_default
@@ -1705,14 +1720,9 @@ impl<T> Schema<T> {
                             got: "missing",
                         }),
                         Some(value) => {
-                            if let Err(errors) =
-                                field.schema.decode_collect(value.clone())
-                            {
+                            if let Err(errors) = field.schema.decode_collect(value.clone()) {
                                 for error in errors {
-                                    issues.push(repath_under(
-                                        error,
-                                        &format!("$.{}", field.name),
-                                    ));
+                                    issues.push(repath_under(error, &format!("$.{}", field.name)));
                                 }
                             }
                         }
@@ -1809,6 +1819,9 @@ impl<T> Schema<T> {
             // would make `to_code` answer for the unwrapped schema and drop the
             // annotation from the repr.
             wrapped: None,
+            // An annotation rides the same codec, so a check on top of it reads
+            // exactly what a check underneath it would have read.
+            check_view: schema.check_view.clone(),
             // A decoding default and its encoding strategy ride the codec, so an
             // annotated schema must keep answering for them.
             decoding_default: schema.decoding_default.clone(),
@@ -1897,6 +1910,9 @@ impl<T> Schema<T> {
             None => format_root(&inner_kind, &inner_children, value),
         }));
         out.wrapped = wrapped;
+        // The re-typing shares the inner codec's view of a value, so a check
+        // built on top of it reads what the schema underneath reads.
+        out.check_view = schema.check_view.clone();
         // The re-typing shares the inner codec, so it must share the inner
         // construction too: a field schema wrapped as `Unknown` is exactly
         // where `make` looks for a constructor default.
@@ -2309,6 +2325,17 @@ impl SchemaError {
                 expected,
                 got,
             },
+            // A failed check carries a path like any other refusal, so a check
+            // on a field has to land at that field and not at the root.
+            SchemaError::TypeMismatchDynamic {
+                path,
+                expected,
+                got,
+            } => SchemaError::TypeMismatchDynamic {
+                path: rooted(path),
+                expected,
+                got,
+            },
             SchemaError::DefaultFailed { path, message } => SchemaError::DefaultFailed {
                 path: rooted(path),
                 message,
@@ -2649,7 +2676,7 @@ impl Schema<f64> {
     /// `-Infinity` are values here rather than refusals, unlike
     /// [`finite_from_string`](Self::finite_from_string).
     pub fn number_from_string() -> Self {
-        Self::new(
+        let mut schema = Self::new(
             |unknown| match unknown {
                 Unknown::Text(ref text) => {
                     text.trim()
@@ -2664,7 +2691,18 @@ impl Schema<f64> {
             },
             |value| Ok(Unknown::Text(js_number_text(*value))),
             SchemaKind::Opaque("numberFromString"),
-        )
+        );
+        // The same view `finite_from_string` gives a check, over the wider set
+        // of spellings this one reads (`"Infinity"` included).
+        schema.check_view = Some(std::sync::Arc::new(|wire| match wire {
+            Unknown::Text(text) => text
+                .trim()
+                .parse::<f64>()
+                .map(Unknown::Number)
+                .unwrap_or_else(|_| wire.clone()),
+            _ => wire.clone(),
+        }));
+        schema
     }
 
     pub fn finite_from_string() -> Self {
@@ -2673,6 +2711,13 @@ impl Schema<f64> {
             |value| Ok(Unknown::Text(value.to_string())),
             SchemaKind::Opaque("finiteFromString"),
         );
+        // A check on top of this transform reads the number, not the text it
+        // came from, which is what makes `isInt` refuse `"1.2"`.
+        schema.check_view = Some(std::sync::Arc::new(|wire| {
+            decode_finite_from_string(wire.clone())
+                .map(Unknown::Number)
+                .unwrap_or_else(|_| wire.clone())
+        }));
         // Construction takes a finite number as already constructed, which is
         // the pin's `descriptor.isConstructed(input)` shortcut and why `make`
         // accepts `{ a: 1 }` for this field, and otherwise reads the source
@@ -2725,6 +2770,13 @@ impl Schema<BTreeMap<String, Unknown>> {
                     Some(value) => decode_inner.decode(value).map_err(|error| match error {
                         SchemaError::TypeMismatch { expected, got, .. } => {
                             SchemaError::TypeMismatch {
+                                path: format!("$.{decode_name}"),
+                                expected,
+                                got,
+                            }
+                        }
+                        SchemaError::TypeMismatchDynamic { expected, got, .. } => {
+                            SchemaError::TypeMismatchDynamic {
                                 path: format!("$.{decode_name}"),
                                 expected,
                                 got,
@@ -2799,6 +2851,13 @@ impl<T: Send + Sync + 'static> Schema<Vec<T>> {
                         decode_inner.decode(item).map_err(|error| match error {
                             SchemaError::TypeMismatch { expected, got, .. } => {
                                 SchemaError::TypeMismatch {
+                                    path: format!("$[{index}]"),
+                                    expected,
+                                    got,
+                                }
+                            }
+                            SchemaError::TypeMismatchDynamic { expected, got, .. } => {
+                                SchemaError::TypeMismatchDynamic {
                                     path: format!("$[{index}]"),
                                     expected,
                                     got,
@@ -5476,9 +5535,7 @@ impl Schema<String> {
     /// base shape.
     pub fn template_kind_of_part(part: &TemplatePart) -> SchemaKind {
         match part {
-            TemplatePart::Anchor(text) => {
-                SchemaKind::Literal(Unknown::Text(text.clone()))
-            }
+            TemplatePart::Anchor(text) => SchemaKind::Literal(Unknown::Text(text.clone())),
             TemplatePart::Number => SchemaKind::Number,
             TemplatePart::AnyString
             | TemplatePart::NonEmptyString
@@ -5495,7 +5552,11 @@ impl Schema<String> {
                 },
             },
             TemplatePart::NestedParser(parser) => SchemaKind::TemplateLiteral(
-                parser.parts().iter().map(Self::template_kind_of_part).collect(),
+                parser
+                    .parts()
+                    .iter()
+                    .map(Self::template_kind_of_part)
+                    .collect(),
             ),
             TemplatePart::OneOf(alternatives) => SchemaKind::Union {
                 members: alternatives
@@ -5517,9 +5578,7 @@ impl Schema<String> {
     /// out of the parser). `None` means the kind has no template spelling.
     pub fn template_part_of_kind(kind: &SchemaKind) -> Option<TemplatePart> {
         match kind {
-            SchemaKind::Literal(Unknown::Text(text)) => {
-                Some(TemplatePart::Anchor(text.clone()))
-            }
+            SchemaKind::Literal(Unknown::Text(text)) => Some(TemplatePart::Anchor(text.clone())),
             SchemaKind::Literal(Unknown::Number(number)) => {
                 Some(TemplatePart::Anchor(number.to_string()))
             }
@@ -6143,6 +6202,28 @@ impl Schema<Unknown> {
         out
     }
 
+    /// `Schema.RedactedFromValue(inner)`: the box on the way out, the wrapped
+    /// value on the way in. Decoding wraps whatever the inner schema accepts;
+    /// encoding refuses anything that is not already a box and hands back the
+    /// value inside it.
+    pub fn redacted_from_value(inner: Schema<Unknown>) -> Self {
+        let inner_for_children = inner.clone();
+        let decode_inner = Arc::new(inner.clone());
+        let encode_inner = Arc::new(inner);
+        let mut out = Self::new(
+            move |unknown| {
+                let value = decode_inner.decode(unknown)?;
+                let mut boxed = std::collections::BTreeMap::new();
+                boxed.insert("value".to_string(), value);
+                Ok(Unknown::Object(boxed))
+            },
+            move |value| unboxed_value(&encode_inner, None, value),
+            SchemaKind::Opaque("redactedFromValue"),
+        );
+        out.children = vec![("value".to_string(), Arc::new(inner_for_children))];
+        out
+    }
+
     /// The exact-value shape (`Schema.Literals`): one `Literal` member per
     /// value. Kept as a shape of its own rather than folded to a single
     /// `Literal` the way the JSON Schema importer folds a one-value `enum`,
@@ -6280,16 +6361,25 @@ impl Schema<Unknown> {
         let encode_name = name_owned.clone();
         let encode_bounds = bounds.clone();
         let encode_first_arg = first_arg.clone();
+        let base_view = base.check_view.clone();
         let inner = Arc::new(base);
         let decode_inner = inner.clone();
         let encode_inner = inner.clone();
+        // The check reads what the schema underneath produces (see
+        // `check_value`), and a failure carries the check's own `expected` text
+        // when it was given one.
+        let decode_view = inner.check_view.clone();
+        let encode_view = inner.check_view.clone();
+        let decode_refusal = check_refusal(&annotation);
+        let encode_refusal = decode_refusal.clone();
         let mut out = Self::new(
             move |unknown| {
+                let checked = check_value(decode_view.as_ref(), &unknown);
                 let holds = match name_owned.as_str() {
                     "isBetweenCodePoints" => {
                         let bmin = bounds.first().copied().unwrap_or(0.0).floor().max(0.0);
                         let bmax = bounds.get(1).copied().unwrap_or(0.0).floor().max(0.0);
-                        if let Unknown::Text(text) = &unknown {
+                        if let Unknown::Text(text) = &checked {
                             let count = text.chars().count() as f64;
                             count >= bmin && count <= bmax
                         } else {
@@ -6297,21 +6387,21 @@ impl Schema<Unknown> {
                         }
                     }
                     "isBetween" => {
-                        between_holds(&bounds, exclusive_minimum, exclusive_maximum, &unknown)
+                        between_holds(&bounds, exclusive_minimum, exclusive_maximum, &checked)
                     }
                     "isBetweenProperties" => between_properties_holds(
                         &bounds,
                         exclusive_minimum,
                         exclusive_maximum,
-                        &unknown,
+                        &checked,
                     ),
-                    _ => check_holds_arg(&name_owned, first_arg.as_deref(), &unknown),
+                    _ => check_holds_arg(&name_owned, first_arg.as_deref(), &checked),
                 };
                 if !holds {
-                    return Err(SchemaError::TypeMismatch {
+                    return Err(SchemaError::TypeMismatchDynamic {
                         path: "$".to_string(),
-                        expected: "a value satisfying the refinement",
-                        got: unknown.kind(),
+                        expected: decode_refusal.clone(),
+                        got: checked.kind(),
                     });
                 }
                 decode_inner.decode(unknown)
@@ -6320,6 +6410,7 @@ impl Schema<Unknown> {
             // too: a value that fails it has no wire form rather than one that
             // silently violates the refinement on the way out.
             move |value| {
+                let checked = check_value(encode_view.as_ref(), value);
                 let holds = match encode_name.as_str() {
                     "isBetweenCodePoints" => {
                         let bmin = encode_bounds
@@ -6334,29 +6425,32 @@ impl Schema<Unknown> {
                             .unwrap_or(0.0)
                             .floor()
                             .max(0.0);
-                        if let Unknown::Text(text) = value {
+                        if let Unknown::Text(text) = &checked {
                             let count = text.chars().count() as f64;
                             count >= bmin && count <= bmax
                         } else {
                             true
                         }
                     }
-                    "isBetween" => {
-                        between_holds(&encode_bounds, exclusive_minimum, exclusive_maximum, value)
-                    }
+                    "isBetween" => between_holds(
+                        &encode_bounds,
+                        exclusive_minimum,
+                        exclusive_maximum,
+                        &checked,
+                    ),
                     "isBetweenProperties" => between_properties_holds(
                         &encode_bounds,
                         exclusive_minimum,
                         exclusive_maximum,
-                        value,
+                        &checked,
                     ),
-                    _ => check_holds_arg(&encode_name, encode_first_arg.as_deref(), value),
+                    _ => check_holds_arg(&encode_name, encode_first_arg.as_deref(), &checked),
                 };
                 if !holds {
-                    return Err(SchemaError::TypeMismatch {
+                    return Err(SchemaError::TypeMismatchDynamic {
                         path: "$".to_string(),
-                        expected: "a value satisfying the refinement",
-                        got: value.kind(),
+                        expected: encode_refusal.clone(),
+                        got: checked.kind(),
                     });
                 }
                 encode_inner.try_encode(value)
@@ -6365,6 +6459,9 @@ impl Schema<Unknown> {
         );
         out.formatter = inner.formatter.clone();
         out.wrapped = None;
+        // A refinement of a transform reads what the transform produced too, so
+        // a second check stacked on the first still sees the number.
+        out.check_view = base_view;
         out
     }
 
@@ -6388,18 +6485,23 @@ impl Schema<Unknown> {
                 )
             })
             .collect();
+        // A group reads the same value its first member's check reads, and
+        // refuses with the group's own annotation.
+        let group_refusal = check_refusal(&annotation);
         let annotated = Self::checked(base, name, args, annotation);
         let inner = Arc::new(annotated);
         let decode_inner = inner.clone();
         let encode_inner = inner.clone();
+        let group_view = inner.check_view.clone();
         let mut out = Self::new(
             move |unknown| {
                 for (member_name, member_arg) in &members {
-                    if !check_holds_arg(member_name, member_arg.as_deref(), &unknown) {
-                        return Err(SchemaError::TypeMismatch {
+                    let checked = check_value(group_view.as_ref(), &unknown);
+                    if !check_holds_arg(member_name, member_arg.as_deref(), &checked) {
+                        return Err(SchemaError::TypeMismatchDynamic {
                             path: "$".to_string(),
-                            expected: "a value satisfying the refinement",
-                            got: unknown.kind(),
+                            expected: group_refusal.clone(),
+                            got: checked.kind(),
                         });
                     }
                 }
@@ -6525,6 +6627,27 @@ pub(crate) fn check_holds_arg(name: &str, arg: Option<&str>, value: &Unknown) ->
     check_holds(name, limit, value)
 }
 
+/// The value a check reads: the wire value through the schema's own projection
+/// when it has one (see [`Schema::checked`]), and the wire value itself when it
+/// has none. Shared by every place a named check is evaluated, so "a check
+/// reads what the transform produced" is one rule rather than three.
+pub(crate) fn check_value(view: Option<&CheckView>, wire: &Unknown) -> Unknown {
+    match view {
+        Some(view) => view(wire),
+        None => wire.clone(),
+    }
+}
+
+/// The message a failed check carries: the check's own `expected` annotation,
+/// or the pin's fallback for a check that carries none.
+fn check_refusal(annotation: &[(&str, &str)]) -> String {
+    annotation
+        .iter()
+        .find(|(key, _)| *key == "expected")
+        .map(|(_, value)| (*value).to_string())
+        .unwrap_or_else(|| "a value satisfying the refinement".to_string())
+}
+
 /// The pin's `^-?\d+$`: ASCII digits with an optional leading `-`, and no
 /// leading `+` (SchemaAST.ts:4862).
 fn is_string_big_int_text(text: &str) -> bool {
@@ -6609,7 +6732,29 @@ fn redacted_decode(
 
 /// Encode out of a box: the box is the wire form, so the wrapped value goes
 /// through the inner schema's encode and stays boxed.
+///
+/// The box has to hold a value the wrapped schema can read, on the way out as
+/// much as on the way in — the pin refuses a box its schema cannot take, and
+/// reports it at the box rather than with the schema's own words. Reading it
+/// first is also what normalizes it: the value that leaves is the schema's
+/// canonical wire form of what the box held.
 fn redacted_encode(
+    inner: &Schema<Unknown>,
+    label: Option<&str>,
+    value: &Unknown,
+) -> Result<Unknown, SchemaError> {
+    let encoded = unboxed_value(inner, label, value)?;
+    match value {
+        Unknown::Object(map) => Ok(rebuild_box(map, encoded)),
+        // `unboxed_value` refuses anything that is not a box, so this is the
+        // shape check on a value that already passed it.
+        other => Err(not_redacted(other)),
+    }
+}
+
+/// The value a box holds, validated and encoded: the shape and label checks a
+/// box makes, then the wrapped schema's read and write of what is inside it.
+fn unboxed_value(
     inner: &Schema<Unknown>,
     label: Option<&str>,
     value: &Unknown,
@@ -6619,18 +6764,17 @@ fn redacted_encode(
     };
     check_redacted_label(label, map)?;
     let boxed = map.get("value").cloned().unwrap_or(Unknown::Null);
-    let encoded = inner
-        .try_encode(&boxed)
+    let decoded = inner
+        .decode(boxed.clone())
         .map_err(|_| invalid_redacted_value(&boxed))?;
-    Ok(rebuild_box(map, encoded))
+    inner
+        .try_encode(&decoded)
+        .map_err(|_| invalid_redacted_value(&boxed))
 }
 
 /// The box around a value, keeping the label the input carried — the pin's
 /// `Redacted.make(value, { label: input.label })`.
-fn rebuild_box(
-    map: &std::collections::BTreeMap<String, Unknown>,
-    value: Unknown,
-) -> Unknown {
+fn rebuild_box(map: &std::collections::BTreeMap<String, Unknown>, value: Unknown) -> Unknown {
     let mut out = std::collections::BTreeMap::new();
     if let Some(label) = map.get("label") {
         out.insert("label".to_string(), label.clone());

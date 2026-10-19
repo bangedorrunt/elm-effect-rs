@@ -5,29 +5,25 @@
 //!
 //! The pin boxes a value in a `Redacted` instance; a port whose values are all
 //! wire values boxes it as `{ value }`, plus `label` when the schema declares
-//! one. Four rows are carried here: `:2850` (`declare`), `:2863` (a box
-//! exposes its schema), `:2869` (a raw value is not a box) and `:2970` (a
-//! declared label has to match).
+//! one. Seven rows are carried here: `:2850` (`declare`), `:2863` (a box
+//! exposes its schema), `:2869` (a raw value is not a box), `:2880` and `:2917`
+//! (`Redacted` over a plain number and over a transform), `:2970` (a declared
+//! label has to match) and `:3008` (`RedactedFromValue`).
 //!
-//! Three rows of the same family are NOT carried, and the two reasons are worth
-//! naming because they are port-wide rather than local to this file:
+//! The pin passes *decoded* values into its boxes and asserts decoded values
+//! back out (`Redacted.make(123)` holds a number). Here a box holds wire values
+//! (`{ value: "123" }` for the same schema), which is this port's rule
+//! everywhere: `Unknown` is the wire form. Every assertion below is the pin's
+//! own, read at that level; where the pin's input is a decoded value, the wire
+//! value the port would carry is what stands in its place.
 //!
-//! - `:2880`/`:2917`/`:3008`: the pin's rows refuse a boxed value like
-//!   `Redacted.make(1.2)` under `FiniteFromString.check(isInt())`, because its
-//!   checks read the decoded value. This port's `checked` reads the value it was
-//!   handed, so `isInt` cannot see through a transform: it passes a wire text
-//!   through unenforced (`check_holds`'s unknown-name answer) instead of
-//!   refusing it.
-//! - the same rows refuse a boxed value of the wrong type on the *encoding*
-//!   side. Here a re-typed schema (`as_unknown`) encodes by identity, so a box
-//!   holding wire text is never type-checked on the way out; only checks and
-//!   filters that run on the encode side (which is why the label row, whose
-//!   wrapped schema is a filter chain, does cover it).
-//!
-//! `a_boxed_transform_decodes_inside_the_box` below shows exactly how far the
-//! port gets, and is deliberately not cited by the ledger.
+//! Two refusals the pin makes are now reachable and are asserted:
+//! `"1.2"` under `FiniteFromString.check(isInt())` (the check reads the number
+//! the transform produced, see `schema_checked_transform.rs`) and a box holding
+//! a value the schema cannot read (the box validates what it holds on the way
+//! out, not only on the way in).
 
-use elm_effect_schema::{checks, redacted_value, Schema, SchemaError, Unknown};
+use elm_effect_schema::{Schema, SchemaError, Unknown, checks, redacted_value};
 use std::collections::BTreeMap;
 
 fn text(value: &str) -> Unknown {
@@ -58,13 +54,33 @@ fn refusal(error: &SchemaError) -> (String, String) {
     }
 }
 
-/// `Schema.NonEmptyString`: the label row's wrapped schema, and the one wrapped
-/// schema whose checks do run on both axes (a filter chain, not a re-typing).
+/// `Schema.NonEmptyString`: the label row's wrapped schema.
 fn non_empty_string() -> Schema<Unknown> {
     Schema::filtered(
         Schema::as_unknown(Schema::string()),
         vec![checks::is_min_length(1)],
         false,
+    )
+}
+
+/// `Schema.Int`: a whole number, with the pin's own expected text.
+fn int() -> Schema<Unknown> {
+    Schema::checked(
+        Schema::as_unknown(Schema::number()),
+        "isInt",
+        Vec::new(),
+        vec![("expected", "an integer")],
+    )
+}
+
+/// `Schema.FiniteFromString.check(Schema.isInt())`: text in, whole number out,
+/// which is the pair the boxed rows wrap.
+fn int_from_string() -> Schema<Unknown> {
+    Schema::checked(
+        Schema::as_unknown(Schema::finite_from_string()),
+        "isInt",
+        Vec::new(),
+        vec![("expected", "an integer")],
     )
 }
 
@@ -160,7 +176,10 @@ fn a_declared_label_has_to_match() {
     assert_eq!(
         refusal(
             &schema
-                .decode(boxed(vec![("value", number(1.0)), ("label", text("password"))]))
+                .decode(boxed(vec![
+                    ("value", number(1.0)),
+                    ("label", text("password"))
+                ]))
                 .unwrap_err()
         ),
         ("$.value".to_string(), "a valid value".to_string())
@@ -168,7 +187,10 @@ fn a_declared_label_has_to_match() {
     assert_eq!(
         refusal(
             &schema
-                .try_encode(&boxed(vec![("value", text("")), ("label", text("password"))]))
+                .try_encode(&boxed(vec![
+                    ("value", text("")),
+                    ("label", text("password"))
+                ]))
                 .unwrap_err()
         ),
         ("$.value".to_string(), "a valid value".to_string())
@@ -196,7 +218,10 @@ fn a_boxed_transform_keeps_the_box_and_the_label() {
     );
     assert_eq!(
         schema
-            .decode(boxed(vec![("value", text("123")), ("label", text("secret"))]))
+            .decode(boxed(vec![
+                ("value", text("123")),
+                ("label", text("secret"))
+            ]))
             .unwrap(),
         boxed(vec![("value", text("123")), ("label", text("secret"))])
     );
@@ -207,7 +232,11 @@ fn a_boxed_transform_keeps_the_box_and_the_label() {
     // A boxed value the wrapped schema cannot read at all is the box's
     // failure, reported at the box.
     assert_eq!(
-        refusal(&schema.decode(boxed(vec![("value", Unknown::Null)])).unwrap_err()),
+        refusal(
+            &schema
+                .decode(boxed(vec![("value", Unknown::Null)]))
+                .unwrap_err()
+        ),
         ("$.value".to_string(), "a valid value".to_string())
     );
     assert!(
@@ -217,17 +246,139 @@ fn a_boxed_transform_keeps_the_box_and_the_label() {
             .is_ok()
     );
 
-    // The wrapped-value refusals the port cannot make are these, and they are
-    // the ones the pin's rows assert: `"1.2"` (a check that cannot see through
-    // the transform) and `"a"` (a type refusal on the encode side).
-    assert!(
-        schema.decode(boxed(vec![("value", text("1.2"))])).is_ok(),
-        "the port's isInt reads wire text, so it cannot refuse this"
+    // A boxed value the wrapped check refuses, which it can only do by reading
+    // the number the transform produced.
+    assert_eq!(
+        refusal(
+            &schema
+                .decode(boxed(vec![("value", text("1.2"))]))
+                .unwrap_err()
+        ),
+        ("$.value".to_string(), "a valid value".to_string())
     );
-    assert!(
-        Schema::redacted(int_from_string, None)
-            .try_encode(&boxed(vec![("value", text("a"))]))
-            .is_ok(),
-        "a re-typing encodes by identity, so no type check happens there"
+}
+
+/// Schema.test.ts:2880 — "Redacted(Finite)". A boxed value the wrapped schema
+/// accepts passes; one it refuses — the wrong shape or a number that is not
+/// whole — is reported at the box, on both axes.
+#[test]
+fn a_boxed_int_decodes_and_refuses_at_the_box() {
+    let schema = Schema::redacted(int(), None);
+    let good = boxed(vec![("value", number(123.0))]);
+
+    assert_eq!(schema.decode(good.clone()).unwrap(), good);
+    assert_eq!(schema.try_encode(&good).unwrap(), good);
+    assert_eq!(
+        refusal(&schema.decode(Unknown::Null).unwrap_err()),
+        ("$".to_string(), "Redacted".to_string())
+    );
+    assert_eq!(
+        refusal(&schema.try_encode(&Unknown::Null).unwrap_err()),
+        ("$".to_string(), "Redacted".to_string())
+    );
+
+    for refused in [text("a"), number(1.2)] {
+        let refused_box = boxed(vec![("value", refused.clone())]);
+        assert_eq!(
+            refusal(&schema.decode(refused_box.clone()).unwrap_err()),
+            ("$.value".to_string(), "a valid value".to_string()),
+            "decoding {refused:?}"
+        );
+        assert_eq!(
+            refusal(&schema.try_encode(&refused_box).unwrap_err()),
+            ("$.value".to_string(), "a valid value".to_string()),
+            "encoding {refused:?}"
+        );
+    }
+}
+
+/// Schema.test.ts:2917 — "Redacted(FiniteFromString)". The wrapped transform
+/// runs inside the box, the label the input carried comes back out with it, and
+/// `"1.2"` is refused because the wrapped check reads the number.
+#[test]
+fn a_boxed_transform_decodes_inside_the_box() {
+    let schema = Schema::redacted(int_from_string(), None);
+    let good = boxed(vec![("value", text("123"))]);
+
+    assert_eq!(schema.decode(good.clone()).unwrap(), good);
+    assert_eq!(schema.try_encode(&good).unwrap(), good);
+    // The label rides through with the value.
+    let labelled = boxed(vec![("value", text("123")), ("label", text("secret"))]);
+    assert_eq!(schema.decode(labelled.clone()).unwrap(), labelled);
+
+    for refused in [Unknown::Null, text("a"), text("1.2"), number(1.2)] {
+        let refused_box = boxed(vec![("value", refused.clone())]);
+        assert_eq!(
+            refusal(&schema.decode(refused_box.clone()).unwrap_err()),
+            ("$.value".to_string(), "a valid value".to_string()),
+            "decoding {refused:?}"
+        );
+        assert_eq!(
+            refusal(&schema.try_encode(&refused_box).unwrap_err()),
+            ("$.value".to_string(), "a valid value".to_string()),
+            "encoding {refused:?}"
+        );
+    }
+
+    assert_eq!(
+        redacted_value(&schema)
+            .expect("a box exposes its wrapped schema")
+            .decode(text("123"))
+            .unwrap(),
+        text("123")
+    );
+}
+
+/// Schema.test.ts:3008 — "RedactedFromValue" / "should decode a value". The
+/// box is the target, so decoding wraps a raw value and encoding unwraps one;
+/// encoding refuses anything that was never boxed, and a box holding a value
+/// the wrapped schema cannot read.
+#[test]
+fn a_box_wraps_on_the_way_in_and_unwraps_on_the_way_out() {
+    let schema = Schema::redacted_from_value(int_from_string());
+
+    assert_eq!(
+        schema.decode(text("123")).unwrap(),
+        boxed(vec![("value", text("123"))])
+    );
+    // The wrapped schema's own refusal, not the box's: on this side the value
+    // is the value.
+    assert_eq!(
+        refusal(&schema.decode(Unknown::Null).unwrap_err()),
+        ("$".to_string(), "a finite number string".to_string())
+    );
+    assert_eq!(
+        refusal(&schema.decode(text("1.2")).unwrap_err()),
+        ("$".to_string(), "an integer".to_string())
+    );
+
+    assert_eq!(
+        schema
+            .try_encode(&boxed(vec![("value", text("123"))]))
+            .unwrap(),
+        text("123")
+    );
+    assert_eq!(
+        refusal(&schema.try_encode(&text("schema-secret")).unwrap_err()),
+        ("$".to_string(), "Redacted".to_string())
+    );
+    for refused in [text("schema-secret"), number(1.2)] {
+        assert_eq!(
+            refusal(
+                &schema
+                    .try_encode(&boxed(vec![("value", refused.clone())]))
+                    .unwrap_err()
+            ),
+            ("$.value".to_string(), "a valid value".to_string()),
+            "{refused:?}"
+        );
+    }
+
+    assert_eq!(
+        redacted_value(&schema)
+            .expect("a box exposes its wrapped schema")
+            .decode(text("123"))
+            .unwrap(),
+        text("123")
     );
 }

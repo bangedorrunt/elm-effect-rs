@@ -13,7 +13,10 @@ fn string_round_trips() {
     let schema = Schema::string();
     let value = schema.decode(Unknown::Text("hi".to_string())).unwrap();
     assert_eq!(value, "hi");
-    assert_eq!(schema.try_encode(&value).unwrap(), Unknown::Text("hi".to_string()));
+    assert_eq!(
+        schema.try_encode(&value).unwrap(),
+        Unknown::Text("hi".to_string())
+    );
 }
 
 #[test]
@@ -174,7 +177,10 @@ fn ffs_rejects_non_text() {
 #[test]
 fn ffs_encodes_numbers_to_text() {
     let schema = Schema::finite_from_string();
-    assert_eq!(schema.try_encode(&1.5).unwrap(), Unknown::Text("1.5".to_string()));
+    assert_eq!(
+        schema.try_encode(&1.5).unwrap(),
+        Unknown::Text("1.5".to_string())
+    );
 }
 
 #[test]
@@ -182,7 +188,10 @@ fn ffs_round_trips() {
     let schema = Schema::finite_from_string();
     let value = schema.decode(Unknown::Text("42".to_string())).unwrap();
     assert_eq!(value, 42.0);
-    assert_eq!(schema.try_encode(&value).unwrap(), Unknown::Text("42".to_string()));
+    assert_eq!(
+        schema.try_encode(&value).unwrap(),
+        Unknown::Text("42".to_string())
+    );
 }
 
 #[test]
@@ -837,11 +846,12 @@ fn tuple_of_checked_elements_names_the_index_a_failing_element_failed_at() {
     let error = schema
         .decode(Unknown::Array(vec![Unknown::Text(String::new())]))
         .expect_err("an empty string is too short for the element");
-    // The port's check refusal names the refinement generically; what this row
-    // is about is the path, which is the element's own index.
-    let printed = error.to_string();
-    assert!(printed.contains("satisfying the refinement"), "{printed}");
-    assert!(printed.contains("$[0]"), "the index is named: {printed}");
+    // The pin's own text for the element's check, at the element's index.
+    assert_eq!(
+        error.to_string(),
+        "expected a value with a length of at least 1 at $[0], got string",
+        "the index is named"
+    );
     let error = schema
         .decode(Unknown::Null)
         .expect_err("null is not an array");
@@ -861,7 +871,11 @@ fn tuple_with_an_optional_element_accepts_the_empty_tuple() {
         Unknown::Array(vec![]),
     ] {
         let decoded = schema.decode(wire.clone()).expect("both shapes decode");
-        assert_eq!(schema.try_encode(&decoded).unwrap(), wire, "and both encode back");
+        assert_eq!(
+            schema.try_encode(&decoded).unwrap(),
+            wire,
+            "and both encode back"
+        );
     }
 }
 
@@ -1102,9 +1116,10 @@ fn trimmed_string_refuses_padding_but_not_an_inner_space() {
     assert!(schema.decode(text("a b")).is_ok(), "an inner space is fine");
     for padded in [" a ", "a ", " a", "\ta", "a\n"] {
         let error = schema.decode(text(padded)).expect_err("padding is refused");
-        assert!(
-            error.to_string().contains("satisfying the refinement"),
-            "{padded:?}: {error}"
+        assert_eq!(
+            error.to_string(),
+            "expected a string with no leading or trailing whitespace at $, got string",
+            "{padded:?}"
         );
     }
     // A non-string is the string schema's refusal, not the check's.

@@ -12,11 +12,14 @@
 //! the split is visible through here, `flip_source` and the repr.
 //!
 //! `:2662` (the `isMinLength(3)` check on a transform's *output*) is not
-//! carried: its check reads a value the codec produced, and this port's checks
-//! read the value they were handed.
+//! carried, and the reason is `as_unknown`: re-typing a typed transform
+//! normalizes its decode back to the wire form (`"3"` in, `"3"` out), so a
+//! flip of it produces no text to measure. The check-through-transform
+//! mechanism (`schema_checked_transform.rs`) gives a check the typed value, but
+//! the value the flip would hand it no longer exists at this level.
 
 use elm_effect_schema::filters::{FilterIssue, FilterOutcome, FilterSpec};
-use elm_effect_schema::{flip_source, Field, Schema, Unknown};
+use elm_effect_schema::{Field, Schema, Unknown, flip_source};
 use std::collections::BTreeMap;
 
 fn text(value: &str) -> Unknown {
@@ -28,10 +31,7 @@ fn string() -> Schema<Unknown> {
 }
 
 /// One filter with the pin's own message.
-fn filter(
-    message: &str,
-    holds: impl Fn(&Unknown) -> bool + Send + Sync + 'static,
-) -> FilterSpec {
+fn filter(message: &str, holds: impl Fn(&Unknown) -> bool + Send + Sync + 'static) -> FilterSpec {
     let message = message.to_string();
     FilterSpec::new(move |value| {
         if holds(value) {
@@ -44,10 +44,7 @@ fn filter(
 
 /// `Schema.Struct({ a: String })`, the shape the Struct row flips.
 fn struct_a() -> Schema<Unknown> {
-    Schema::as_unknown(Schema::struct_shape(vec![Field::required(
-        "a",
-        string(),
-    )]))
+    Schema::as_unknown(Schema::struct_shape(vec![Field::required("a", string())]))
 }
 
 fn obj(pairs: Vec<(&str, Unknown)>) -> Unknown {
@@ -62,11 +59,7 @@ fn obj(pairs: Vec<(&str, Unknown)>) -> Unknown {
 /// The `flip & check & flip` shape every one of these rows uses: a check
 /// applied after a flip, then flipped back.
 fn flip_check_flip(schema: Schema<Unknown>, spec: FilterSpec) -> Schema<Unknown> {
-    Schema::flip(Schema::filtered(
-        Schema::flip(schema),
-        vec![spec],
-        false,
-    ))
+    Schema::flip(Schema::filtered(Schema::flip(schema), vec![spec], false))
 }
 
 /// Schema.test.ts:2654 — "should expose the schema". A flip hands back the
@@ -106,18 +99,26 @@ fn a_struct_check_after_a_flip_decides_both_directions() {
     let schema = flip_check_flip(
         struct_a(),
         filter("a length > 1", |value| match value {
-            Unknown::Object(map) => matches!(map.get("a"), Some(Unknown::Text(text)) if text.len() > 1),
+            Unknown::Object(map) => {
+                matches!(map.get("a"), Some(Unknown::Text(text)) if text.len() > 1)
+            }
             _ => false,
         }),
     );
 
     assert!(schema.decode(obj(vec![("a", text("aa"))])).is_ok());
     assert_eq!(
-        schema.decode(obj(vec![("a", text("a"))])).unwrap_err().to_string(),
+        schema
+            .decode(obj(vec![("a", text("a"))]))
+            .unwrap_err()
+            .to_string(),
         "a length > 1 at $"
     );
     assert_eq!(
-        schema.try_encode(&obj(vec![("a", text("a"))])).unwrap_err().to_string(),
+        schema
+            .try_encode(&obj(vec![("a", text("a"))]))
+            .unwrap_err()
+            .to_string(),
         "a length > 1 at $"
     );
     assert!(schema.try_encode(&obj(vec![("a", text("aa"))])).is_ok());
@@ -160,19 +161,22 @@ fn a_tuple_check_after_a_flip_decides_both_directions() {
 #[test]
 fn a_union_check_after_a_flip_decides_both_directions() {
     let cases = Schema::union_with_mode(
-        vec![
-            Schema::literal(text("a")),
-            Schema::literal(text("aa")),
-        ],
+        vec![Schema::literal(text("a")), Schema::literal(text("aa"))],
         "anyOf",
     );
     let schema = flip_check_flip(
         cases,
-        filter("\"aa\"", |value| matches!(value, Unknown::Text(text) if text == "aa")),
+        filter(
+            "\"aa\"",
+            |value| matches!(value, Unknown::Text(text) if text == "aa"),
+        ),
     );
 
     assert!(schema.decode(text("aa")).is_ok());
-    assert_eq!(schema.decode(text("a")).unwrap_err().to_string(), "\"aa\" at $");
+    assert_eq!(
+        schema.decode(text("a")).unwrap_err().to_string(),
+        "\"aa\" at $"
+    );
     assert_eq!(
         schema.try_encode(&text("a")).unwrap_err().to_string(),
         "\"aa\" at $"
@@ -192,9 +196,10 @@ fn a_declaration_check_after_a_flip_decides_both_directions() {
     );
     let schema = flip_check_flip(
         declaration,
-        filter("a length > 1", |value| {
-            matches!(value, Unknown::Text(text) if text.len() > 1)
-        }),
+        filter(
+            "a length > 1",
+            |value| matches!(value, Unknown::Text(text) if text.len() > 1),
+        ),
     );
 
     assert!(schema.decode(text("aa")).is_ok());

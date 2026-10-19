@@ -30,7 +30,10 @@ fn codec_struct_is_idempotent() {
     let wire = wire_name("ada");
     let decoded = schema.decode(wire.clone()).unwrap();
     assert_eq!(schema.try_encode(&decoded).unwrap(), wire);
-    assert_eq!(schema.decode(schema.try_encode(&decoded).unwrap()).unwrap(), decoded);
+    assert_eq!(
+        schema.decode(schema.try_encode(&decoded).unwrap()).unwrap(),
+        decoded
+    );
 }
 
 #[test]
@@ -42,7 +45,10 @@ fn codec_record_round_trips_and_keeps_empty() {
     let decoded = schema.decode(wire.clone()).unwrap();
     assert_eq!(schema.try_encode(&decoded).unwrap(), wire);
     let empty = schema.decode(Unknown::Object(BTreeMap::new())).unwrap();
-    assert_eq!(schema.try_encode(&empty).unwrap(), Unknown::Object(BTreeMap::new()));
+    assert_eq!(
+        schema.try_encode(&empty).unwrap(),
+        Unknown::Object(BTreeMap::new())
+    );
 }
 
 #[test]
@@ -132,9 +138,15 @@ fn codec_scalars_round_trip() {
         Unknown::Text("s".to_string())
     );
     let number = Schema::number().decode(Unknown::Number(1.5)).unwrap();
-    assert_eq!(Schema::number().try_encode(&number).unwrap(), Unknown::Number(1.5));
+    assert_eq!(
+        Schema::number().try_encode(&number).unwrap(),
+        Unknown::Number(1.5)
+    );
     let flag = Schema::boolean().decode(Unknown::Bool(true)).unwrap();
-    assert_eq!(Schema::boolean().try_encode(&flag).unwrap(), Unknown::Bool(true));
+    assert_eq!(
+        Schema::boolean().try_encode(&flag).unwrap(),
+        Unknown::Bool(true)
+    );
 }
 
 #[test]
@@ -189,7 +201,10 @@ fn codec_any_accepts_everything() {
 fn codec_literal_accepts_only_its_value() {
     let schema = Schema::literal(Unknown::Text("a".to_string()));
     let decoded = schema.decode(Unknown::Text("a".to_string())).unwrap();
-    assert_eq!(schema.try_encode(&decoded).unwrap(), Unknown::Text("a".to_string()));
+    assert_eq!(
+        schema.try_encode(&decoded).unwrap(),
+        Unknown::Text("a".to_string())
+    );
     assert!(schema.decode(Unknown::Text("b".to_string())).is_err());
 }
 
@@ -287,7 +302,10 @@ fn codec_optional_date_json_shapes() {
         strukt.decode(Unknown::Object(present.clone())).unwrap()["a"],
         Unknown::Text(ISO.to_string())
     );
-    assert_eq!(strukt.try_encode(&present).unwrap(), Unknown::Object(present));
+    assert_eq!(
+        strukt.try_encode(&present).unwrap(),
+        Unknown::Object(present)
+    );
     let mut nullish = BTreeMap::new();
     nullish.insert("a".to_string(), Unknown::Null);
     // Explicit null normalizes to absent (TS decodes it to undefined).
@@ -540,7 +558,10 @@ fn codec_null_or_number_round_trips() {
         Unknown::Number(1.0)
     );
     assert_eq!(schema.try_encode(&Unknown::Null).unwrap(), Unknown::Null);
-    assert_eq!(schema.try_encode(&Unknown::Number(1.0)).unwrap(), Unknown::Number(1.0));
+    assert_eq!(
+        schema.try_encode(&Unknown::Number(1.0)).unwrap(),
+        Unknown::Number(1.0)
+    );
     assert!(schema.decode(Unknown::Text("a".to_string())).is_err());
 }
 
@@ -600,11 +621,15 @@ fn codec_leaves_a_tuple_array_and_union_shape_alone() {
         "Schema.Union([Schema.String, Schema.Boolean])"
     );
     assert_eq!(
-        union.try_encode(&union.decode(text("a")).expect("text")).unwrap(),
+        union
+            .try_encode(&union.decode(text("a")).expect("text"))
+            .unwrap(),
         text("a")
     );
     assert_eq!(
-        union.try_encode(&union.decode(Unknown::Bool(false)).expect("bool")).unwrap(),
+        union
+            .try_encode(&union.decode(Unknown::Bool(false)).expect("bool"))
+            .unwrap(),
         Unknown::Bool(false)
     );
 }
@@ -627,8 +652,12 @@ fn codec_runs_a_source_check_in_each_direction_without_repeating_it() {
     let error = checked
         .decode(Unknown::Number(0.0))
         .expect_err("below the bound is refused");
+    // The refusal carries the check's own `expected` text, which is what the
+    // pin's default formatter prints for a filter that has one.
     assert!(
-        error.to_string().contains("satisfying the refinement"),
+        error
+            .to_string()
+            .contains("a value greater than or equal to 1"),
         "{error}"
     );
     // The same check decides the encode side, so a value that fails it cannot
@@ -693,7 +722,7 @@ fn codec_suspends_a_recursive_struct_and_round_trips_nested_values() {
         .decode(bad)
         .expect_err("a non-positive field is refused");
     assert!(
-        error.to_string().contains("satisfying the refinement"),
+        error.to_string().contains("a value greater than 0"),
         "{error}"
     );
     let bad_nested = Unknown::Object(BTreeMap::from([

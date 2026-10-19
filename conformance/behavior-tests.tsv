@@ -7684,10 +7684,10 @@ unported	packages/effect/test/schema/Schema.test.ts	2825	it	should work with wit
 ported	packages/effect/test/schema/Schema.test.ts	2850	it	declare	declare_admits_what_its_predicate_admits
 ported	packages/effect/test/schema/Schema.test.ts	2863	it	should expose the value	a_box_exposes_the_schema_it_wraps
 ported	packages/effect/test/schema/Schema.test.ts	2869	it	does not expose unwrapped inputs	a_raw_value_is_not_a_box
-unported	packages/effect/test/schema/Schema.test.ts	2880	it	Redacted(Finite)	
-unported	packages/effect/test/schema/Schema.test.ts	2917	it	Redacted(FiniteFromString)	
+ported	packages/effect/test/schema/Schema.test.ts	2880	it	Redacted(Finite)	a_boxed_int_decodes_and_refuses_at_the_box
+ported	packages/effect/test/schema/Schema.test.ts	2917	it	Redacted(FiniteFromString)	a_boxed_transform_decodes_inside_the_box
 ported	packages/effect/test/schema/Schema.test.ts	2970	it	with label	a_declared_label_has_to_match
-unported	packages/effect/test/schema/Schema.test.ts	3008	it	should decode a value	
+ported	packages/effect/test/schema/Schema.test.ts	3008	it	should decode a value	a_box_wraps_on_the_way_in_and_unwraps_on_the_way_out
 unported	packages/effect/test/schema/Schema.test.ts	3034	it	should expose the value	
 ported	packages/effect/test/schema/Schema.test.ts	3040	it	Option(FiniteFromString)	ffs_composes_with_optional
 unported	packages/effect/test/schema/Schema.test.ts	3070	it	OptionFromNullOr	
