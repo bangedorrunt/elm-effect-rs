@@ -7665,10 +7665,10 @@ not-applicable	packages/effect/test/schema/Schema.test.ts	2354	it	required to op
 ported	packages/effect/test/schema/Schema.test.ts	2381	it	optionalKey to required	an_absent_optional_key_decodes_to_its_default
 ported	packages/effect/test/schema/Schema.test.ts	2403	it	double transformation	finite_from_string_trims_the_source_text
 ported	packages/effect/test/schema/Schema.test.ts	2421	it	double transformation with checks	double_with_checks_rejects_between_steps
-unported	packages/effect/test/schema/Schema.test.ts	2453	it	nested defaults	
+ported	packages/effect/test/schema/Schema.test.ts	2453	it	nested defaults	a_default_inside_a_default_fills_both_levels
 ported	packages/effect/test/schema/Schema.test.ts	2485	it	double transformation	decode_only_transformation_leaves_encode_alone
 ported	packages/effect/test/schema/Schema.test.ts	2505	it	required to required	require_all_makes_optional_keys_required
-unported	packages/effect/test/schema/Schema.test.ts	2533	it	required to optionalKey	
+ported	packages/effect/test/schema/Schema.test.ts	2533	it	required to optionalKey	a_required_field_can_default_itself_on_decode
 ported	packages/effect/test/schema/Schema.test.ts	2555	it	optionalKey to required	require_all_makes_optional_keys_required
 ported	packages/effect/test/schema/Schema.test.ts	2582	it	double transformation	finite_from_string_trims_the_source_text
 ported	packages/effect/test/schema/Schema.test.ts	2600	it	double transformation with checks	double_with_checks_rejects_between_steps
