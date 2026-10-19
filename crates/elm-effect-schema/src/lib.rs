@@ -6053,6 +6053,65 @@ impl Schema<Unknown> {
         }
     }
 
+    /// `Schema.declare(predicate, expected)`: a shape with no wire form of its
+    /// own, admitted only when the predicate says so, refused with the caller's
+    /// own `expected` text.
+    ///
+    /// The pin's row declares a host class (`(u) => u instanceof File`); a port
+    /// whose values are all wire values proves the same shape with a predicate
+    /// it can state. The kind is the bare `declare` rather than the expected
+    /// text, which is only known at run time and a `SchemaKind` holds a
+    /// `&'static str`.
+    pub fn declare(
+        predicate: impl Fn(&Unknown) -> bool + Send + Sync + 'static,
+        expected: &str,
+    ) -> Self {
+        let expected = expected.to_string();
+        let predicate = Arc::new(predicate);
+        Self::new(
+            move |unknown| {
+                if predicate(&unknown) {
+                    Ok(unknown)
+                } else {
+                    Err(SchemaError::TypeMismatchDynamic {
+                        path: "$".to_string(),
+                        expected: expected.clone(),
+                        got: unknown.kind(),
+                    })
+                }
+            },
+            |value| Ok(value.clone()),
+            SchemaKind::Opaque("declare"),
+        )
+    }
+
+    /// `Schema.Redacted(inner[, { label }])`: a box that hides its contents.
+    ///
+    /// The pin boxes the value in a `Redacted` instance; with no class identity
+    /// here, the box is its wire shape, an object carrying `value` and, when
+    /// the schema was built with one, a `label` that has to match. Two of the
+    /// pin's messages are deliberate: a value that is not boxed at all is
+    /// refused as `Redacted`, and a boxed value the inner schema refuses is
+    /// reported at `$.value` as `a valid value` rather than with the inner
+    /// schema's own text, because the pin hides which of its checks failed.
+    pub fn redacted(inner: Schema<Unknown>, label: Option<&str>) -> Self {
+        let label = label.map(|label| label.to_string());
+        let inner_for_children = inner.clone();
+        let decode_inner = Arc::new(inner.clone());
+        let encode_inner = Arc::new(inner);
+        let decode_label = label.clone();
+        let mut out = Self::new(
+            move |unknown| redacted_decode(&decode_inner, decode_label.as_deref(), &unknown),
+            move |value| redacted_encode(&encode_inner, label.as_deref(), value),
+            SchemaKind::Opaque("redacted"),
+        );
+        // The wrapped schema rides `children` under the name of the key it
+        // occupies, so the accessor below reads it back: that is what the pin's
+        // `schema.value` exposes.
+        out.children = vec![("value".to_string(), Arc::new(inner_for_children))];
+        out
+    }
+
     /// The exact-value shape (`Schema.Literals`): one `Literal` member per
     /// value. Kept as a shape of its own rather than folded to a single
     /// `Literal` the way the JSON Schema importer folds a one-value `enum`,
@@ -6447,6 +6506,117 @@ fn is_string_big_int_text(text: &str) -> bool {
 fn is_string_symbol_text(text: &str) -> bool {
     text.strip_prefix("Symbol(")
         .is_some_and(|rest| rest.ends_with(')'))
+}
+
+/// The boxed shape a `Redacted` value has here: an object carrying `value`.
+/// The pin tests for a `Redacted` instance; a port whose values are all wire
+/// values tests the shape instead, which is the same rule for everything the
+/// port can hold.
+fn redacted_box(value: &Unknown) -> Option<&std::collections::BTreeMap<String, Unknown>> {
+    match value {
+        Unknown::Object(map) if map.contains_key("value") => Some(map),
+        _ => None,
+    }
+}
+
+/// What a value that is not a box is refused as.
+fn not_redacted(value: &Unknown) -> SchemaError {
+    SchemaError::TypeMismatchDynamic {
+        path: "$".to_string(),
+        expected: "Redacted".to_string(),
+        got: value.kind(),
+    }
+}
+
+/// What a boxed value the wrapped schema refuses is reported as: the pin hides
+/// which of its checks failed, and reports the failure at the box.
+fn invalid_redacted_value(got: &Unknown) -> SchemaError {
+    SchemaError::TypeMismatchDynamic {
+        path: "$.value".to_string(),
+        expected: "a valid value".to_string(),
+        got: got.kind(),
+    }
+}
+
+/// The declared label, when there is one, has to be the label the box carries.
+fn check_redacted_label(
+    label: Option<&str>,
+    map: &std::collections::BTreeMap<String, Unknown>,
+) -> Result<(), SchemaError> {
+    let Some(expected) = label else {
+        return Ok(());
+    };
+    if matches!(map.get("label"), Some(Unknown::Text(text)) if text == expected) {
+        return Ok(());
+    }
+    Err(SchemaError::TypeMismatchDynamic {
+        path: "$.label".to_string(),
+        // The pin checks the label with `Literal(label)`, so the expected side
+        // is the literal's own spelling, quotes and all.
+        expected: format!("{expected:?}"),
+        got: map.get("label").map_or("absent", Unknown::kind),
+    })
+}
+
+/// Decode into a box: the same shape check, label check and inner decode the
+/// pin's `Redacted` performs, with the box rebuilt around the decoded value.
+fn redacted_decode(
+    inner: &Schema<Unknown>,
+    label: Option<&str>,
+    value: &Unknown,
+) -> Result<Unknown, SchemaError> {
+    let Some(map) = redacted_box(value) else {
+        return Err(not_redacted(value));
+    };
+    check_redacted_label(label, map)?;
+    let boxed = map.get("value").cloned().unwrap_or(Unknown::Null);
+    let decoded = inner
+        .decode(boxed.clone())
+        .map_err(|_| invalid_redacted_value(&boxed))?;
+    Ok(rebuild_box(map, decoded))
+}
+
+/// Encode out of a box: the box is the wire form, so the wrapped value goes
+/// through the inner schema's encode and stays boxed.
+fn redacted_encode(
+    inner: &Schema<Unknown>,
+    label: Option<&str>,
+    value: &Unknown,
+) -> Result<Unknown, SchemaError> {
+    let Some(map) = redacted_box(value) else {
+        return Err(not_redacted(value));
+    };
+    check_redacted_label(label, map)?;
+    let boxed = map.get("value").cloned().unwrap_or(Unknown::Null);
+    let encoded = inner
+        .try_encode(&boxed)
+        .map_err(|_| invalid_redacted_value(&boxed))?;
+    Ok(rebuild_box(map, encoded))
+}
+
+/// The box around a value, keeping the label the input carried — the pin's
+/// `Redacted.make(value, { label: input.label })`.
+fn rebuild_box(
+    map: &std::collections::BTreeMap<String, Unknown>,
+    value: Unknown,
+) -> Unknown {
+    let mut out = std::collections::BTreeMap::new();
+    if let Some(label) = map.get("label") {
+        out.insert("label".to_string(), label.clone());
+    }
+    out.insert("value".to_string(), value);
+    Unknown::Object(out)
+}
+
+/// The schema a `Redacted` box wraps: the pin's `schema.value`. An annotation
+/// over a box keeps the wrapped schema, so `schema.annotate({}).value` answers
+/// the same thing.
+pub fn redacted_value(schema: &Schema<Unknown>) -> Option<Schema<Unknown>> {
+    schema
+        .children
+        .iter()
+        .find(|(name, _)| name == "value")
+        .map(|(_, child)| child.as_ref().clone())
 }
 
 /// Whether an amount sits between two bounds: each includes its endpoint
