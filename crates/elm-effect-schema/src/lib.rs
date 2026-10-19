@@ -6012,6 +6012,37 @@ impl Schema<Unknown> {
         Self::union_with_mode(transform(members), mode)
     }
 
+    /// `Schema.flip`: the same codec with its two directions swapped, so what
+    /// the schema accepted on the way in it now produces, and what it produced
+    /// it now accepts.
+    ///
+    /// A flip does not change the shape, so the flipped schema answers for the
+    /// shape underneath it: a flipped Union is still a Union whose options a
+    /// derivation reads, and a check applied on top of a flipped schema lands
+    /// on the side the flip made "in", which is the pin's
+    /// "flip & check & flip should apply the check to the encoded side". The
+    /// schema it flipped stays reachable through [`flip_source`].
+    pub fn flip(schema: Schema<Unknown>) -> Self {
+        let decode_schema = schema.clone();
+        let encode_schema = schema.clone();
+        let mut out = Self::new(
+            move |unknown| decode_schema.try_encode(&unknown),
+            move |value| encode_schema.decode(value.clone()),
+            SchemaKind::Opaque("flip"),
+        );
+        // The wrapped reprs describe the schema underneath, exactly as a
+        // re-typing does, so `repr_kind`/`to_code`/`to_type` keep answering for
+        // the shape rather than for the flip itself.
+        out.wrapped = Some(Box::new(Wrapped {
+            kind: schema.repr_kind(),
+            children: schema.children.clone(),
+            code: schema.to_code(),
+            ty: schema.to_type(),
+        }));
+        out.children = vec![("flipped".to_string(), Arc::new(schema))];
+        out
+    }
+
     /// `Schema.Enum(values)`: a named set of literal values, plus the union
     /// those literals decode through.
     ///
@@ -6606,6 +6637,17 @@ fn rebuild_box(
     }
     out.insert("value".to_string(), value);
     Unknown::Object(out)
+}
+
+/// The schema a `flip` was built from: the pin's `flipped.schema`. An
+/// annotation over a flip keeps it, so `flip(schema).annotate({}).schema`
+/// answers the same thing.
+pub fn flip_source(schema: &Schema<Unknown>) -> Option<Schema<Unknown>> {
+    schema
+        .children
+        .iter()
+        .find(|(name, _)| name == "flipped")
+        .map(|(_, child)| child.as_ref().clone())
 }
 
 /// The schema a `Redacted` box wraps: the pin's `schema.value`. An annotation

@@ -7673,12 +7673,12 @@ ported	packages/effect/test/schema/Schema.test.ts	2555	it	optionalKey to require
 ported	packages/effect/test/schema/Schema.test.ts	2582	it	double transformation	finite_from_string_trims_the_source_text
 ported	packages/effect/test/schema/Schema.test.ts	2600	it	double transformation with checks	double_with_checks_rejects_between_steps
 ported	packages/effect/test/schema/Schema.test.ts	2634	it	double transformation	encode_only_transformation_leaves_decode_alone
-unported	packages/effect/test/schema/Schema.test.ts	2654	it	should expose the schema	
+ported	packages/effect/test/schema/Schema.test.ts	2654	it	should expose the schema	a_flip_exposes_the_schema_it_flipped
 unported	packages/effect/test/schema/Schema.test.ts	2662	it	string & isMinLength(3) <-> number & isGreaterThan(2)	
-unported	packages/effect/test/schema/Schema.test.ts	2684	it	Struct & flip & check & flip should apply the check to the encoded side	
-unported	packages/effect/test/schema/Schema.test.ts	2710	it	Tuple & flip & check & flip should apply the check to the encoded side	
-unported	packages/effect/test/schema/Schema.test.ts	2736	it	Union & flip & check & flip should apply the check to the encoded side	
-unported	packages/effect/test/schema/Schema.test.ts	2762	it	Declaration & flip & check & flip should apply the check to the encoded side	
+ported	packages/effect/test/schema/Schema.test.ts	2684	it	Struct & flip & check & flip should apply the check to the encoded side	a_struct_check_after_a_flip_decides_both_directions
+ported	packages/effect/test/schema/Schema.test.ts	2710	it	Tuple & flip & check & flip should apply the check to the encoded side	a_tuple_check_after_a_flip_decides_both_directions
+ported	packages/effect/test/schema/Schema.test.ts	2736	it	Union & flip & check & flip should apply the check to the encoded side	a_union_check_after_a_flip_decides_both_directions
+ported	packages/effect/test/schema/Schema.test.ts	2762	it	Declaration & flip & check & flip should apply the check to the encoded side	a_declaration_check_after_a_flip_decides_both_directions
 unported	packages/effect/test/schema/Schema.test.ts	2791	it	Struct & flip & check & flip with encoding chain should check the local value	
 unported	packages/effect/test/schema/Schema.test.ts	2825	it	should work with withConstructorDefault	
 ported	packages/effect/test/schema/Schema.test.ts	2850	it	declare	declare_admits_what_its_predicate_admits
@@ -8031,7 +8031,7 @@ ported	packages/effect/test/schema/Schema.test.ts	9013	it	readonly [string, numb
 ported	packages/effect/test/schema/Schema.test.ts	9023	it	partial index mapping	rename_indices_rewrites_the_mapped_prefix
 ported	packages/effect/test/schema/Schema.test.ts	9030	it	full index mapping	rename_indices_permutes_every_position
 ported	packages/effect/test/schema/Schema.test.ts	9038	it	NullOr	null_or_wraps_every_element
-unported	packages/effect/test/schema/Schema.test.ts	9049	it	preserves Union options through public derivations	
+ported	packages/effect/test/schema/Schema.test.ts	9049	it	preserves Union options through public derivations	a_unions_options_survive_its_derivations
 ported	packages/effect/test/schema/Schema.test.ts	9061	it	appendElement	union_map_members_appends_a_member
 ported	packages/effect/test/schema/Schema.test.ts	9067	it	evolve	union_map_members_evolves_two_members
 ported	packages/effect/test/schema/Schema.test.ts	9083	it	Array	union_map_members_maps_every_member
