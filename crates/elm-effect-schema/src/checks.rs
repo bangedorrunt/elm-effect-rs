@@ -66,6 +66,28 @@ pub fn is_trimmed() -> FilterSpec {
     )
 }
 
+/// `Schema.isStringBigInt`: text that reads as a bigint, `-?\d+` in the pin
+/// (SchemaAST.ts:4868). The value itself is never parsed, so a bigint longer
+/// than any integer type still passes.
+pub fn is_string_big_int() -> FilterSpec {
+    named(
+        "isStringBigInt",
+        String::new(),
+        "Expected a string representing a bigint".to_string(),
+    )
+}
+
+/// `Schema.isStringSymbol`: the `Symbol(description)` spelling Effect uses for
+/// its symbol string encoding (SchemaAST.ts:4924). It is a shape test, not a
+/// question about whether `Symbol()` would accept the text.
+pub fn is_string_symbol() -> FilterSpec {
+    named(
+        "isStringSymbol",
+        String::new(),
+        "Expected a string representing a symbol".to_string(),
+    )
+}
+
 /// `Schema.isPattern`: text the pattern matches. The pattern is a JavaScript
 /// regular expression source, as the pin's `RegExp.source` is, and it is read
 /// back through the same literal form a repr prints, so the supported subset is

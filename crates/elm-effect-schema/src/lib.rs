@@ -6313,6 +6313,14 @@ pub(crate) fn check_holds_arg(name: &str, arg: Option<&str>, value: &Unknown) ->
         };
         return matches!(value, Unknown::Text(text) if text.contains(needle));
     }
+    // The two string-format checks the pin spells as a fixed pattern. They take
+    // no argument, and the pin's own expected text names what they want.
+    if name == "isStringBigInt" {
+        return matches!(value, Unknown::Text(text) if is_string_big_int_text(text));
+    }
+    if name == "isStringSymbol" {
+        return matches!(value, Unknown::Text(text) if is_string_symbol_text(text));
+    }
     // `isPattern`'s argument is the JS RegExp literal the pin's repr prints, so
     // the pattern has to be read back out of it rather than matched as written.
     if name == "isPattern" {
@@ -6338,6 +6346,20 @@ pub(crate) fn check_holds_arg(name: &str, arg: Option<&str>, value: &Unknown) ->
     }
     let limit = arg.and_then(|arg| arg.parse::<f64>().ok());
     check_holds(name, limit, value)
+}
+
+/// The pin's `^-?\d+$`: ASCII digits with an optional leading `-`, and no
+/// leading `+` (SchemaAST.ts:4862).
+fn is_string_big_int_text(text: &str) -> bool {
+    let digits = text.strip_prefix('-').unwrap_or(text);
+    !digits.is_empty() && digits.bytes().all(|byte| byte.is_ascii_digit())
+}
+
+/// The pin's `^Symbol\(([\s\S]*)\)$`: `Symbol(` then anything (newlines
+/// included) then `)`. The inner text is greedy, so `Symbol(a))` matches.
+fn is_string_symbol_text(text: &str) -> bool {
+    text.strip_prefix("Symbol(")
+        .is_some_and(|rest| rest.ends_with(')'))
 }
 
 /// Whether an amount sits between two bounds: each includes its endpoint

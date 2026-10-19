@@ -1,5 +1,6 @@
 //! `Schema.test.ts` "Checks" rows: named checks in a chain, an aborting check,
-//! a filter group, and an `isMultipleOf` with an invalid divisor.
+//! a filter group, an `isMultipleOf` with an invalid divisor, and the two
+//! string-format checks (`isStringBigInt`, `isStringSymbol`).
 //!
 //!     cargo test -p elm-effect-schema --test schema_named_checks
 
@@ -128,4 +129,48 @@ fn is_multiple_of_rejects_invalid_divisors() {
     );
     assert!(even.decode(Unknown::Number(4.0)).is_ok());
     assert!(even.decode(Unknown::Number(3.0)).is_err());
+}
+
+/// `Schema.test.ts:10319` — "isStringBigInt". The row itself asserts the pin's
+/// representation id, which this port does not carry; what is asserted here is
+/// the predicate that id stands for, including the two edges the annotation
+/// cannot show: no leading `+`, and no limit on size.
+#[test]
+fn is_string_big_int_matches_signed_digits_only() {
+    let schema = Schema::filtered(string(), vec![checks::is_string_big_int()], false);
+
+    for accepted in [
+        "0",
+        "123",
+        "-7",
+        "1234567890123456789012345678901234567890",
+    ] {
+        assert!(schema.decode(text(accepted)).is_ok(), "{accepted}");
+    }
+    for refused in ["", "-", "+1", "1.0", "1e3", " 1", "1 ", "0x10", "abc"] {
+        assert_eq!(
+            messages(&schema.decode(text(refused)).unwrap_err()),
+            vec!["Expected a string representing a bigint"],
+            "{refused:?}"
+        );
+    }
+}
+
+/// `Schema.test.ts:10328` — "isStringSymbol". Same reading as the row above:
+/// the shape `Symbol(description)` is what is checked, and the inner text runs
+/// to the last `)` and may be empty or span lines.
+#[test]
+fn is_string_symbol_matches_the_symbol_spelling() {
+    let schema = Schema::filtered(string(), vec![checks::is_string_symbol()], false);
+
+    for accepted in ["Symbol()", "Symbol(x)", "Symbol(a\nb)", "Symbol(a))"] {
+        assert!(schema.decode(text(accepted)).is_ok(), "{accepted:?}");
+    }
+    for refused in ["", "Symbol(", "Symbol(a", "Symbol(a)x", "xSymbol(a)", "symbol(a)"] {
+        assert_eq!(
+            messages(&schema.decode(text(refused)).unwrap_err()),
+            vec!["Expected a string representing a symbol"],
+            "{refused:?}"
+        );
+    }
 }

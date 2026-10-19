@@ -8102,8 +8102,8 @@ ported	packages/effect/test/schema/Schema.test.ts	10242	it	Lowercase	lowercase_n
 ported	packages/effect/test/schema/Schema.test.ts	10266	it	Uppercase	uppercase_normalizes_on_decode_and_insists_on_encode
 unported	packages/effect/test/schema/Schema.test.ts	10292	it	succeed	
 ported	packages/effect/test/schema/Schema.test.ts	10310	it	isStringFinite	refine_is_string_finite
-unported	packages/effect/test/schema/Schema.test.ts	10319	it	isStringBigInt	
-unported	packages/effect/test/schema/Schema.test.ts	10328	it	isStringSymbol	
+ported	packages/effect/test/schema/Schema.test.ts	10319	it	isStringBigInt	is_string_big_int_matches_signed_digits_only
+ported	packages/effect/test/schema/Schema.test.ts	10328	it	isStringSymbol	is_string_symbol_matches_the_symbol_spelling
 ported	packages/effect/test/schema/Schema.test.ts	10337	it	isUUID	refine_is_uuid
 ported	packages/effect/test/schema/Schema.test.ts	10361	it	isUUID version-specific checks reject nil and max UUIDs	a_versioned_uuid_check_refuses_the_nil_and_max_uuids
 ported	packages/effect/test/schema/Schema.test.ts	10377	it	isGUID	refine_is_guid
