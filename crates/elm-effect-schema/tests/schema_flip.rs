@@ -19,11 +19,17 @@
 //! the value the flip would hand it no longer exists at this level.
 
 use elm_effect_schema::filters::{FilterIssue, FilterOutcome, FilterSpec};
-use elm_effect_schema::{Field, Schema, Unknown, flip_source};
+use elm_effect_schema::{
+    AdapterError, CONSTRUCTOR_DIE, Field, Schema, Unknown, flip_source,
+};
 use std::collections::BTreeMap;
 
 fn text(value: &str) -> Unknown {
     Unknown::Text(value.to_string())
+}
+
+fn number(value: f64) -> Unknown {
+    Unknown::Number(value)
 }
 
 fn string() -> Schema<Unknown> {
@@ -255,6 +261,66 @@ fn a_declaration_check_after_a_flip_decides_both_directions() {
         "a length > 1 at $"
     );
     assert!(schema.try_encode(&text("aa")).is_ok());
+}
+
+/// `make` for a re-typed schema, which is what a flip hands back. The typed
+/// spellings live on the shape they belong to, so the `Unknown` side asks
+/// `construct` and reports the failure the way an adapter must.
+fn make(schema: &Schema<Unknown>, input: Unknown) -> Result<Unknown, AdapterError> {
+    schema
+        .construct(input)
+        .map_err(|error| AdapterError::report(error, CONSTRUCTOR_DIE))
+}
+
+/// Schema.test.ts:2825 — "should work with withConstructorDefault". A
+/// constructor default belongs to the decoded side, so a flip does not carry
+/// it: the flipped struct still asks for its key, and constructs what it is
+/// given on the other side. Flipping back is the schema it started from.
+#[test]
+fn a_constructor_default_does_not_survive_a_flip() {
+    let finite = Schema::as_unknown(
+        Schema::finite_from_string().with_constructor_default(|| Ok(Unknown::Number(-1.0))),
+    );
+    let schema = Schema::as_unknown(Schema::struct_shape(vec![Field::required("a", finite)]));
+
+    // `{ a: 1 }` constructs to its wire form, and `{}` fills the default.
+    assert_eq!(
+        make(&schema, obj(vec![("a", number(1.0))])).unwrap(),
+        obj(vec![("a", text("1"))])
+    );
+    assert_eq!(
+        make(&schema, obj(vec![])).unwrap(),
+        obj(vec![("a", text("-1"))])
+    );
+
+    // Flipped, the field travels the other way and the default does not come
+    // with it, so an absent key is still a missing required one.
+    let flipped = Schema::flip(schema.clone());
+    assert!(make(&flipped, obj(vec![])).is_err());
+    assert_eq!(
+        make(&flipped, obj(vec![("a", text("1"))])).unwrap(),
+        obj(vec![("a", text("1"))])
+    );
+
+    // Flipping back hands the original schema back, fields and default alike.
+    let twice = Schema::flip(flipped);
+    let fields = |candidate: &Schema<Unknown>| -> Vec<(String, String)> {
+        candidate
+            .fields()
+            .expect("a struct declares fields")
+            .iter()
+            .map(|field| (field.name().to_string(), field.inner().to_code()))
+            .collect()
+    };
+    assert_eq!(fields(&twice), fields(&schema));
+    assert_eq!(
+        make(&twice, obj(vec![])).unwrap(),
+        obj(vec![("a", text("-1"))])
+    );
+    assert_eq!(
+        make(&twice, obj(vec![("a", number(1.0))])).unwrap(),
+        obj(vec![("a", text("1"))])
+    );
 }
 
 /// Schema.test.ts:9049 — "preserves Union options through public

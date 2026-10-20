@@ -4105,16 +4105,28 @@ impl Schema<BTreeMap<String, Unknown>> {
                         // than failing the whole record. That is what makes
                         // `Record(String.check(isPattern(/^a/)), Number)`
                         // select its keys instead of rejecting them.
-                        if let Some(key) = &decode_key
-                            && !key_names_entry(key, &name)
-                        {
-                            excess_entry(policy, &name)?;
-                            continue;
-                        }
+                        let entry_name = match &decode_key {
+                            Some(key) => match key_entry_name(key, &name, |key, wire| {
+                                key.decode(wire)
+                            }) {
+                                Some(entry_name) => entry_name,
+                                None => {
+                                    excess_entry(policy, &name)?;
+                                    continue;
+                                }
+                            },
+                            None => name.clone(),
+                        };
                         let item = value
                             .decode(item)
                             .map_err(|error| error.at(&format!("$.{name}")))?;
-                        decoded.insert(name, item);
+                        // The key schema is a codec for the key, so two wire
+                        // keys can decode onto one name. This port's objects
+                        // are ordered maps, so the collision is decided by key
+                        // order and the first entry keeps it; the pin's objects
+                        // keep insertion order and its last entry wins, which
+                        // for the keys an index signature produces agrees.
+                        decoded.entry(entry_name).or_insert(item);
                     }
                     Ok(decoded)
                 }
@@ -4127,11 +4139,13 @@ impl Schema<BTreeMap<String, Unknown>> {
                 if let Some(key) = &encode_key {
                     let mut encoded = std::collections::BTreeMap::new();
                     for (name, item) in fields {
-                        if !key_names_entry(key, name) {
+                        let Some(wire_name) =
+                            key_entry_name(key, name, |key, wire| key.try_encode(&wire))
+                        else {
                             excess_entry(policy, name)?;
                             continue;
-                        }
-                        encoded.insert(name.clone(), item.clone());
+                        };
+                        encoded.entry(wire_name).or_insert(item.clone());
                     }
                     return Ok(Unknown::Object(encoded));
                 }
@@ -6664,7 +6678,18 @@ impl Schema<Unknown> {
                 }
                 if matches!(rest_decode.repr_kind(), SchemaKind::Record(..)) {
                     match rest_decode.decode(Unknown::Object(leftovers))? {
-                        Unknown::Object(entries) => out.extend(entries),
+                        Unknown::Object(entries) => {
+                            // A rest key that decoded onto a fixed property's
+                            // name (a key schema that uppercases, say) is the
+                            // same entry the fixed property already holds, and
+                            // the fixed property is the one that keeps it
+                            // (`Schema.test.ts:5136`).
+                            for (name, item) in entries {
+                                if !names.iter().any(|declared| *declared == name) {
+                                    out.push((name, item));
+                                }
+                            }
+                        }
                         other => {
                             return Err(SchemaError::TypeMismatch {
                                 path: "$".to_string(),
@@ -7072,6 +7097,15 @@ impl Schema<Unknown> {
     /// "flip & check & flip should apply the check to the encoded side". The
     /// schema it flipped stays reachable through [`flip_source`].
     pub fn flip(schema: Schema<Unknown>) -> Self {
+        // Flipping a flip is the schema it started from (`isFlip$` in the pin).
+        // Handing the source back rather than building a flip of a flip keeps
+        // everything a flip does not carry: the declared fields with the
+        // constructor defaults they hold.
+        if let (SchemaKind::Opaque("flip"), Some(source)) =
+            (&schema.kind, schema.wrapped_schema.as_ref())
+        {
+            return source.as_ref().clone();
+        }
         let decode_schema = schema.clone();
         let encode_schema = schema.clone();
         let mut out = Self::new(
@@ -7106,6 +7140,40 @@ impl Schema<Unknown> {
         out.union_members = inner.union_members.clone();
         out.class_meta = inner.class_meta.clone();
         out.record_key = inner.record_key.clone();
+        // Construction builds the TYPE side, and a flip makes that side the
+        // wire form. So a struct's fields travel with the flip: each field's
+        // schema is flipped too, and the constructor default stays behind on
+        // the decoded side it belongs to, which is why `flipped.make({})`
+        // refuses where the schema it flipped would have filled the default
+        // (`Schema.test.ts:2825`).
+        if let Some(fields) = inner.struct_fields.as_ref() {
+            let flipped: Vec<Field> = fields
+                .iter()
+                .map(|field| field.clone().with_schema(Self::flip(field.inner().clone())))
+                .collect();
+            // The walk is the struct walk, so construction fills a wire-side
+            // default and recurses into a nested struct exactly as it would
+            // for a struct written out by hand.
+            let built = Schema::<std::collections::BTreeMap<String, Unknown>>::struct_shape(
+                flipped.clone(),
+            );
+            out.construct = Some(std::sync::Arc::new(move |unknown| {
+                built
+                    .construct(unknown)
+                    .map(Unknown::Object)
+            }));
+            out.struct_fields = Some(flipped);
+        } else {
+            // A leaf: construction on the wire side is a yes-or-no question
+            // (what this schema accepts on the way in), and the value is handed
+            // back as it came, because `make` never transforms.
+            let wire = inner.as_ref().clone();
+            out.construct = Some(std::sync::Arc::new(move |unknown| {
+                wire.decode(unknown.clone())
+                    .map(|_| unknown)
+                    .map_err(ConstructError::from)
+            }));
+        }
         out
     }
 
@@ -8162,6 +8230,41 @@ fn key_names_entry(key: &Schema<Unknown>, name: &str) -> bool {
     match key_number(name) {
         Some(number) => key.decode(Unknown::Number(number)).is_ok(),
         None => false,
+    }
+}
+
+/// The name a wire key becomes when the key schema is a codec rather than only a
+/// predicate: `Record(SnakeToCamel, ...)` renames `a_b` to `aB` on the way in and
+/// back on the way out (`Schema.test.ts:4159`). `run` is the direction to take,
+/// so both sides of a record ask the same question.
+///
+/// `None` means the key schema refused the key, which is the drop-or-name
+/// decision the call site's excess-property option makes.
+fn key_entry_name(
+    key: &Schema<Unknown>,
+    name: &str,
+    run: impl Fn(&Schema<Unknown>, Unknown) -> Result<Unknown, SchemaError>,
+) -> Option<String> {
+    let mut wires = vec![Unknown::Text(name.to_string())];
+    if let Some(number) = key_number(name) {
+        wires.push(Unknown::Number(number));
+    }
+    for wire in wires {
+        if let Ok(value) = run(key, wire) {
+            return Some(key_text_name(&value).unwrap_or_else(|| name.to_string()));
+        }
+    }
+    None
+}
+
+/// What a decoded key spells as a property name. A key schema that answers
+/// something else (a tuple, an object) cannot name an entry, so the wire name
+/// stands, which is what a predicate-only key schema produces anyway.
+fn key_text_name(value: &Unknown) -> Option<String> {
+    match value {
+        Unknown::Text(name) => Some(name.clone()),
+        Unknown::Number(number) => Some(js_number_text(*number)),
+        _ => None,
     }
 }
 

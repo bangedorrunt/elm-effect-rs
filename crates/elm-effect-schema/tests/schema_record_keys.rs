@@ -187,6 +187,157 @@ fn transformed(t: Transformation<String, String>) -> Schema<Unknown> {
     ))
 }
 
+/// Schema.test.ts:4302 `Record(Union(Number, "a"), FiniteFromString)`: a key
+/// schema that admits several shapes selects the keys, and a numeric key is
+/// read the way JavaScript reads a property name: `1`, `2.2`, `Infinity`,
+/// `NaN` and `-Infinity` are all numbers, `a` is the literal.
+#[test]
+fn record_union_keys_select_numeric_and_literal_names() {
+    let keys = Schema::union_with_mode(
+        vec![Schema::as_unknown(Schema::number()), Schema::literal(text("a"))],
+        "anyOf",
+    );
+    let schema = Schema::record2(keys, Schema::as_unknown(Schema::finite_from_string()));
+
+    assert_eq!(
+        schema
+            .decode(obj(vec![
+                ("a", text("-1")),
+                ("1", text("1")),
+                ("2.2", text("2")),
+                ("Infinity", text("3")),
+                ("NaN", text("4")),
+                ("-Infinity", text("5")),
+            ]))
+            .unwrap(),
+        map(vec![
+            ("a", text("-1")),
+            ("1", text("1")),
+            ("2.2", text("2")),
+            ("Infinity", text("3")),
+            ("NaN", text("4")),
+            ("-Infinity", text("5")),
+        ])
+    );
+}
+
+/// Schema.test.ts:4159 `Record(SnakeToCamel, NumberFromString)`: the key schema
+/// is a codec for the KEY, so a decoded key names the entry it decoded to and
+/// an encoded key is spelled the way the wire wants it. Two wire keys that land
+/// on one name are one entry; this port's objects are ordered maps, so the
+/// collision is decided by key order where the pin decides by insertion order,
+/// which for these pairs keeps the same entry.
+#[test]
+fn record_keys_travel_through_their_key_schema() {
+    let schema = Schema::record2(snake_key(), Schema::as_unknown(Schema::finite_from_string()));
+
+    assert_eq!(
+        schema.decode(obj(vec![("a", text("1"))])).unwrap(),
+        map(vec![("a", text("1"))])
+    );
+    assert_eq!(
+        schema.decode(obj(vec![("a_b", text("1"))])).unwrap(),
+        map(vec![("aB", text("1"))])
+    );
+    assert_eq!(
+        schema
+            .decode(obj(vec![("a_b", text("1")), ("aB", text("2"))]))
+            .unwrap(),
+        map(vec![("aB", text("2"))])
+    );
+
+    assert_eq!(
+        schema.try_encode(&map(vec![("a", text("1"))])).unwrap(),
+        obj(vec![("a", text("1"))])
+    );
+    assert_eq!(
+        schema
+            .try_encode(&map(vec![("aB", text("1"))]))
+            .unwrap(),
+        obj(vec![("a_b", text("1"))])
+    );
+    assert_eq!(
+        schema
+            .try_encode(&map(vec![("a_b", text("1")), ("aB", text("2"))]))
+            .unwrap(),
+        obj(vec![("a_b", text("2"))])
+    );
+}
+
+/// Schema.test.ts:5136 `index signatures should not overwrite fixed properties
+/// after key decoding`: the rest's key schema uppercases, so the wire key `a`
+/// decodes to `A` and lands on the fixed property of that name. The fixed
+/// property is the one that survives.
+#[test]
+fn a_decoded_rest_key_does_not_overwrite_a_fixed_property() {
+    let schema = Schema::struct_with_rest(
+        vec![("A".to_string(), Schema::as_unknown(Schema::string()))],
+        Schema::as_unknown(Schema::record2(uppercase_key(), Schema::as_unknown(Schema::string()))),
+    );
+
+    assert_eq!(
+        schema
+            .decode(obj(vec![("A", text("fixed")), ("a", text("rest"))]))
+            .unwrap(),
+        obj(vec![("A", text("fixed"))])
+    );
+}
+
+/// A key schema is a codec over the KEY, and this port's re-typing answers the
+/// wire form, so the key codec is written over `Unknown` directly: what it
+/// decodes to is the property name.
+fn snake_key() -> Schema<Unknown> {
+    Schema::convert(
+        Schema::as_unknown(Schema::string()),
+        |value: Unknown| match value {
+            Unknown::Text(name) => Ok(text(&snake_to_camel(&name))),
+            other => Ok(other),
+        },
+        |value: &Unknown| match value {
+            Unknown::Text(name) => text(&camel_to_snake(name)),
+            other => other.clone(),
+        },
+    )
+}
+
+fn uppercase_key() -> Schema<Unknown> {
+    Schema::convert(
+        Schema::as_unknown(Schema::string()),
+        |value: Unknown| match value {
+            Unknown::Text(name) => Ok(text(&name.to_uppercase())),
+            other => Ok(other),
+        },
+        |value: &Unknown| value.clone(),
+    )
+}
+
+fn snake_to_camel(value: &str) -> String {
+    let mut out = String::new();
+    let mut upper = false;
+    for character in value.chars() {
+        if character == '_' {
+            upper = true;
+        } else if upper {
+            out.extend(character.to_uppercase());
+            upper = false;
+        } else {
+            out.push(character);
+        }
+    }
+    out
+}
+
+fn camel_to_snake(value: &str) -> String {
+    let mut out = String::new();
+    for character in value.chars() {
+        if character.is_ascii_uppercase() {
+            out.push('_');
+        }
+        out.extend(character.to_lowercase());
+    }
+    out
+}
+
 /// Schema.test.ts:5121 `index signatures should not re-parse fixed properties`.
 /// The fixed property decodes with its own schema and the catch-all must not
 /// run over it a second time. The pin's trim cannot show the difference (trim

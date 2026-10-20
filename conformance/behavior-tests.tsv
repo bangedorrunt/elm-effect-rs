@@ -7680,7 +7680,7 @@ ported	packages/effect/test/schema/Schema.test.ts	2710	it	Tuple & flip & check &
 ported	packages/effect/test/schema/Schema.test.ts	2736	it	Union & flip & check & flip should apply the check to the encoded side	a_union_check_after_a_flip_decides_both_directions
 ported	packages/effect/test/schema/Schema.test.ts	2762	it	Declaration & flip & check & flip should apply the check to the encoded side	a_declaration_check_after_a_flip_decides_both_directions
 unported	packages/effect/test/schema/Schema.test.ts	2791	it	Struct & flip & check & flip with encoding chain should check the local value	
-unported	packages/effect/test/schema/Schema.test.ts	2825	it	should work with withConstructorDefault	
+ported	packages/effect/test/schema/Schema.test.ts	2825	it	should work with withConstructorDefault	a_constructor_default_does_not_survive_a_flip
 ported	packages/effect/test/schema/Schema.test.ts	2850	it	declare	declare_admits_what_its_predicate_admits
 ported	packages/effect/test/schema/Schema.test.ts	2863	it	should expose the value	a_box_exposes_the_schema_it_wraps
 ported	packages/effect/test/schema/Schema.test.ts	2869	it	does not expose unwrapped inputs	a_raw_value_is_not_a_box
@@ -7705,7 +7705,7 @@ unported	packages/effect/test/schema/Schema.test.ts	3305	it	Defect
 unported	packages/effect/test/schema/Schema.test.ts	3352	it	ErrorInstance and Defect memoize equivalent options	
 unported	packages/effect/test/schema/Schema.test.ts	3377	it	should expose the values	
 not-applicable	packages/effect/test/schema/Schema.test.ts	3385	it	CauseReason(FiniteFromString, FiniteFromString)	the row's body asserts nothing at runtime beyond the optional arbitrary-generation check, and Schema.CauseReason does not exist on the Rust schema surface (this crate has no Cause model), so the schema in the row cannot be built
-unported	packages/effect/test/schema/Schema.test.ts	3396	it	strict encoding preserves the default wire format for every reason variant	
+ported	packages/effect/test/schema/Schema.test.ts	3396	it	strict encoding preserves the default wire format for every reason variant	strict_encoding_keeps_the_reason_wire_format
 unported	packages/effect/test/schema/Schema.test.ts	3412	it	should expose the values	
 ported	packages/effect/test/schema/Schema.test.ts	3420	it	Cause(FiniteFromString, FiniteFromString)	cause_round_trips_through_the_two_schemas
 unported	packages/effect/test/schema/Schema.test.ts	3462	it	Error	
@@ -7749,7 +7749,7 @@ unported	packages/effect/test/schema/Schema.test.ts	4082	it	recognizes numeric d
 not-applicable	packages/effect/test/schema/Schema.test.ts	4091	it	Record(Symbol, Number)	the row's own keys are JavaScript symbols, and a record here is a string-keyed map with no symbol-keyed variant
 not-applicable	packages/effect/test/schema/Schema.test.ts	4119	it	index signatures select only enumerable ${typeof key} properties	the row asserts a non-enumerable own property is never read; a Rust map holds exactly the entries it was given, so there is no enumerability to observe
 not-applicable	packages/effect/test/schema/Schema.test.ts	4141	it	Record(Symbol.check, Number) should use the key checks to select keys	the key check is a predicate over JavaScript symbols (Symbol.keyFor) and the keys themselves are symbols
-unported	packages/effect/test/schema/Schema.test.ts	4159	it	Record(SnakeToCamel, NumberFromString)	
+ported	packages/effect/test/schema/Schema.test.ts	4159	it	Record(SnakeToCamel, NumberFromString)	record_keys_travel_through_their_key_schema
 not-applicable	packages/effect/test/schema/Schema.test.ts	4174	it	UniqueSymbol	the key is a specific JavaScript symbol identity, which a string-keyed map cannot hold
 ported	packages/effect/test/schema/Schema.test.ts	4189	it	deduplicates repeated literal keys	literal_key_record_counts_a_repeated_key_once
 ported	packages/effect/test/schema/Schema.test.ts	4194	it	Record(Literals, Number)	literal_key_record_requires_every_declared_key
@@ -7759,7 +7759,7 @@ unported	packages/effect/test/schema/Schema.test.ts	4231	it	Record(Literals, mut
 ported	packages/effect/test/schema/Schema.test.ts	4246	it	Record(Number, String)	record_with_a_number_key_selects_numeric_keys
 ported	packages/effect/test/schema/Schema.test.ts	4270	it	Record(Int, String)	an_integer_key_schema_selects_the_numeric_names
 ported	packages/effect/test/schema/Schema.test.ts	4289	it	Record(TemplateLiteral with checked part, Number) should use the part checks to select keys	a_template_literal_key_schema_selects_its_own_keys
-unported	packages/effect/test/schema/Schema.test.ts	4302	it	a	
+ported	packages/effect/test/schema/Schema.test.ts	4302	it	a	record_union_keys_select_numeric_and_literal_names
 ported	packages/effect/test/schema/Schema.test.ts	4322	it	empty	union_with_no_members_admits_nothing
 ported	packages/effect/test/schema/Schema.test.ts	4330	it	String	union_of_one_member_decodes_as_that_member
 ported	packages/effect/test/schema/Schema.test.ts	4339	it	Void	union_of_void_admits_every_value
@@ -7799,7 +7799,7 @@ ported	packages/effect/test/schema/Schema.test.ts	5053	it	Record(`a${string}`, N
 ported	packages/effect/test/schema/Schema.test.ts	5075	it	applies excess-property options after fixed and index signatures	excess_options_apply_after_fixed_and_index_signatures
 ported	packages/effect/test/schema/Schema.test.ts	5095	it	should preserve both checks	struct_with_rest_keeps_both_checks
 ported	packages/effect/test/schema/Schema.test.ts	5121	it	index signatures should not re-parse fixed properties	struct_with_rest_does_not_re_parse_a_fixed_property
-unported	packages/effect/test/schema/Schema.test.ts	5136	it	index signatures should not overwrite fixed properties after key decoding	
+ported	packages/effect/test/schema/Schema.test.ts	5136	it	index signatures should not overwrite fixed properties after key decoding	a_decoded_rest_key_does_not_overwrite_a_fixed_property
 ported	packages/effect/test/schema/Schema.test.ts	5150	it	NullOr(String)	null_or_keeps_null_as_a_member
 not-applicable	packages/effect/test/schema/Schema.test.ts	5166	it	UndefinedOr(String)	the row accepts and reports `undefined`, and this port's Unknown domain is JSON-shaped: Null, Bool, Number, Text, Array, Object with no undefined value, so the accepted input has no spelling here
 ported	packages/effect/test/schema/Schema.test.ts	5182	it	NullishOr(String)	nullish_or_admits_the_absent_values_and_the_inner_schema

@@ -7,7 +7,8 @@ use std::collections::BTreeMap;
 
 use elm_effect::cause::{Cause, FiberId, Reason};
 use elm_effect::cause_schema;
-use elm_effect_schema::{Schema, Unknown};
+use elm_effect_schema::transform::ParseOptions;
+use elm_effect_schema::{ExcessProperty, Schema, Unknown};
 
 fn reason(tag: &str, field: &str, value: Unknown) -> Unknown {
     Unknown::Object(BTreeMap::from([
@@ -66,4 +67,49 @@ fn cause_round_trips_through_the_two_schemas() {
     // cannot construct, because `E` is `f64` and not `string | number`. What
     // matters for the defect side is that `Die` travels the caller's defect
     // schema, which the round trip above shows: the wire is text either way.
+}
+
+/// Schema.test.ts:3396 `strict encoding preserves the default wire format for
+/// every reason variant`: asking the encoder to refuse excess properties
+/// changes nothing about a cause's wire, because every field a reason carries
+/// is one its schema declares. The interrupt with no fiber id is the case that
+/// would otherwise be tempting to leave out.
+#[test]
+fn strict_encoding_keeps_the_reason_wire_format() {
+    let schema = cause_schema(Schema::string(), Schema::number());
+    let cause = Cause::from_reasons(vec![
+        Reason::Fail("boom".to_string()),
+        Reason::Die(42.0),
+        Reason::Interrupt {
+            fiber_id: Some(FiberId(7)),
+        },
+        Reason::Interrupt { fiber_id: None },
+    ]);
+    let wire = Unknown::Array(vec![
+        Unknown::Object(BTreeMap::from([
+            ("_tag".to_string(), text("Fail")),
+            ("error".to_string(), text("boom")),
+        ])),
+        Unknown::Object(BTreeMap::from([
+            ("_tag".to_string(), text("Die")),
+            ("defect".to_string(), Unknown::Number(42.0)),
+        ])),
+        Unknown::Object(BTreeMap::from([
+            ("_tag".to_string(), text("Interrupt")),
+            ("fiberId".to_string(), Unknown::Number(7.0)),
+        ])),
+        Unknown::Object(BTreeMap::from([
+            ("_tag".to_string(), text("Interrupt")),
+            ("fiberId".to_string(), Unknown::Null),
+        ])),
+    ]);
+
+    let strict = ParseOptions {
+        on_excess_property: ExcessProperty::Reject,
+        ..ParseOptions::default()
+    };
+    assert_eq!(schema.try_encode(&cause).unwrap(), wire);
+    assert_eq!(strict.scoped(|| schema.try_encode(&cause)).unwrap(), wire);
+    assert_eq!(schema.decode(wire.clone()).unwrap(), cause);
+    assert_eq!(strict.scoped(|| schema.decode(wire.clone())).unwrap(), cause);
 }
