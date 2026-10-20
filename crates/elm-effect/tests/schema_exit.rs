@@ -85,3 +85,29 @@ fn exit_round_trips_through_three_schemas() {
         exit_wire("Failure", "cause", cause_wire(text("boom")))
     );
 }
+
+/// Schema.test.ts:3538 `Exit(FiniteFromString, String, Defect)`. The defect
+/// side is a real schema: the wire's `{ name, message }` becomes the runtime's
+/// defect, so a cause holding a die reason decodes instead of being refused.
+#[test]
+fn exit_decodes_a_defect_through_the_defect_schema() {
+    let schema = exit_schema(
+        Schema::finite_from_string(),
+        Schema::string(),
+        elm_effect::defect_schema(),
+    );
+    let defect = obj([("name", text("boom")), ("message", text("boom message"))]);
+    let wire = exit_wire(
+        "Failure",
+        "cause",
+        Unknown::Array(vec![obj([("_tag", text("Die")), ("defect", defect)])]),
+    );
+
+    assert_eq!(
+        schema.decode(wire).unwrap(),
+        Exit::die(elm_effect::Defect {
+            message: "boom message".to_string(),
+            backtrace: String::new(),
+        })
+    );
+}

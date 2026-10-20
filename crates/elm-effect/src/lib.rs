@@ -63,6 +63,8 @@ mod schema_cause;
 #[cfg(feature = "schema")]
 mod schema_data;
 #[cfg(feature = "schema")]
+mod schema_defect;
+#[cfg(feature = "schema")]
 mod schema_duration;
 #[cfg(feature = "schema")]
 mod schema_exit;
@@ -139,6 +141,8 @@ pub use schema_data::{
     is_greater_than_bigdecimal, is_greater_than_or_equal_to_bigdecimal, is_less_than_bigdecimal,
     is_less_than_or_equal_to_bigdecimal,
 };
+#[cfg(feature = "schema")]
+pub use schema_defect::defect_schema;
 #[cfg(feature = "schema")]
 pub use schema_duration::{duration_from_millis, duration_from_string};
 #[cfg(feature = "schema")]
