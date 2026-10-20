@@ -8058,13 +8058,13 @@ ported	packages/effect/test/schema/Schema.test.ts	9343	it	multi-element array gr
 ported	packages/effect/test/schema/Schema.test.ts	9361	it	array mixing string, Issue, and { path, issue }	an_array_mixing_kinds_composites_in_order
 unported	packages/effect/test/schema/Schema.test.ts	9383	it	Struct	
 unported	packages/effect/test/schema/Schema.test.ts	9401	it	Union	
-unported	packages/effect/test/schema/Schema.test.ts	9433	it	should augment a union of structs	
-unported	packages/effect/test/schema/Schema.test.ts	9530	it	should support multiple tags	
-unported	packages/effect/test/schema/Schema.test.ts	9541	it	should throw on duplicate discriminants	
-unported	packages/effect/test/schema/Schema.test.ts	9563	it	should collect no discriminants from an empty union	
-unported	packages/effect/test/schema/Schema.test.ts	9569	it	should support __proto__ as a discriminant	
-unported	packages/effect/test/schema/Schema.test.ts	9579	it	should augment a union of classes	
-unported	packages/effect/test/schema/Schema.test.ts	9598	it	should create a tagged union	
+ported	packages/effect/test/schema/Schema.test.ts	9433	it	should augment a union of structs	to_tagged_union_indexes_every_member_by_its_literal
+ported	packages/effect/test/schema/Schema.test.ts	9530	it	should support multiple tags	to_tagged_union_follows_the_requested_tag
+ported	packages/effect/test/schema/Schema.test.ts	9541	it	should throw on duplicate discriminants	to_tagged_union_refuses_a_duplicate_discriminant
+ported	packages/effect/test/schema/Schema.test.ts	9563	it	should collect no discriminants from an empty union	to_tagged_union_of_an_empty_union_has_no_cases
+ported	packages/effect/test/schema/Schema.test.ts	9569	it	should support __proto__ as a discriminant	to_tagged_union_admits_the_proto_key
+ported	packages/effect/test/schema/Schema.test.ts	9579	it	should augment a union of classes	to_tagged_union_indexes_a_union_of_classes
+ported	packages/effect/test/schema/Schema.test.ts	9598	it	should create a tagged union	tagged_union_builds_its_members_from_the_case_list
 ported	packages/effect/test/schema/Schema.test.ts	9673	it	should return a decoding default value if the key is missing	wire_key_default_fills_a_missing_key
 ported	packages/effect/test/schema/Schema.test.ts	9689	it	by default should pass through the value	wire_key_default_passes_the_value_through_on_encode
 ported	packages/effect/test/schema/Schema.test.ts	9699	it	should omit the value if the encoding strategy is set to omit	wire_key_default_omit_encoding_drops_the_key

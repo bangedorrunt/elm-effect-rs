@@ -19,6 +19,7 @@ pub mod transform;
 pub mod differ_json_patch;
 
 pub mod tagged;
+pub mod tagged_union;
 
 pub mod class;
 
@@ -36,6 +37,7 @@ pub use class::{ClassMeta, ClassValue, ExcessProperty};
 pub use differ_json_patch::{Differ, DifferError, JsonPatch, PatchError, PatchOp, apply, diff};
 pub use filters::{FilterIssue, FilterOutcome, FilterSpec};
 pub use tagged::{Tagged, TaggedError, catch_tag};
+pub use tagged_union::{TaggedUnion, TaggedUnionError, tagged_union, to_tagged_union};
 
 /// An untyped value: the decode source and encode target.
 #[derive(Debug, Clone, PartialEq)]
@@ -1679,15 +1681,14 @@ impl<T> Schema<T> {
     /// shape (`Literals`) answers one `Literal` member per value, which is how
     /// the pin builds its list. `None` for every other shape.
     pub fn members(&self) -> Option<Vec<Schema<Unknown>>> {
-        match &self.kind {
+        // Read through a re-typing: `as_unknown` keeps the member list, so a
+        // wrapped union must answer with it rather than with the wrapper's own
+        // opaque kind.
+        match self.repr_kind() {
             SchemaKind::Union { .. } => self.union_members.clone(),
-            SchemaKind::Literals(values) => Some(
-                values
-                    .iter()
-                    .cloned()
-                    .map(Schema::<Unknown>::literal)
-                    .collect(),
-            ),
+            SchemaKind::Literals(values) => {
+                Some(values.into_iter().map(Schema::<Unknown>::literal).collect())
+            }
             _ => None,
         }
     }
@@ -6826,7 +6827,7 @@ impl Schema<Unknown> {
 /// Where a discriminated union member looks for its tag: a struct key or a
 /// tuple position. The pin's `collectSentinels` keeps the same pair.
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
-enum SentinelKey {
+pub(crate) enum SentinelKey {
     Field(String),
     Index(usize),
 }
@@ -6981,7 +6982,19 @@ fn add_sentinel(
 /// A member's sentinels, read from the field/element lists a shape keeps beside
 /// its kind. `struct_shape` records itself as a plain object, so the kind alone
 /// would hide the tags it declares; `struct_of` keeps them in the kind.
-fn member_sentinels(member: &Schema<Unknown>) -> Vec<(SentinelKey, Unknown)> {
+pub(crate) fn member_sentinels(member: &Schema<Unknown>) -> Vec<(SentinelKey, Unknown)> {
+    // A tagged class carries its discriminant in the class metadata rather than
+    // in a field list, because the class strips `_tag` before its source struct
+    // sees it. Without this the union index and the dispatcher cannot see the
+    // tag the class demands, and a union of classes would try every member.
+    if let Some(meta) = member.class_meta.as_deref() {
+        if let Some(tag) = meta.discriminant() {
+            return vec![(
+                SentinelKey::Field("_tag".to_string()),
+                Unknown::Text(tag.to_string()),
+            )];
+        }
+    }
     if let Some(fields) = &member.struct_fields {
         return fields
             .iter()

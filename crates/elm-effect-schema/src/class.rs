@@ -114,6 +114,13 @@ pub struct ClassMeta {
 }
 
 impl ClassMeta {
+    /// The discriminant a tagged class demands. The union dispatcher and the
+    /// tagged-union index read it from here, because a class strips `_tag`
+    /// before its source struct sees it and so has no field carrying it.
+    pub(crate) fn discriminant(&self) -> Option<&str> {
+        self.tag.as_deref()
+    }
+
     /// The names the pin's `Object.keys(E.fields)` lists: `_tag` first for a
     /// tagged class, because that is the discriminant's place in the field map.
     fn declared(&self) -> Vec<String> {
