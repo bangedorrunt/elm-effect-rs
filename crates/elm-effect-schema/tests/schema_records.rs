@@ -218,3 +218,76 @@ fn a_record_rest_under_a_struct_selects_template_keys() {
         .to_string();
     assert_eq!(rest, "expected number at $.ab, got string");
 }
+
+/// :4223 `Record(Literals, mutableKey(Number))`: the mutable marker lifts a
+/// type-level `readonly`, so the record itself is unchanged and every declared
+/// key is still required.
+#[test]
+fn a_mutable_key_record_still_requires_its_declared_keys() {
+    let schema = Schema::record2(
+        Schema::literals(vec![text("a"), text("b")]),
+        Schema::mutable_key(number_schema()),
+    );
+
+    assert_eq!(
+        schema
+            .decode(obj(vec![
+                ("a", Unknown::Number(1.0)),
+                ("b", Unknown::Number(2.0)),
+            ]))
+            .unwrap(),
+        map(vec![
+            ("a", Unknown::Number(1.0)),
+            ("b", Unknown::Number(2.0)),
+        ])
+    );
+
+    // Which is the difference from the row below: one key is not enough.
+    let refused = record_of(schema, obj(vec![("a", Unknown::Number(1.0))]));
+    assert!(refused.contains("$.b"), "{refused}");
+}
+
+/// :4231 `Record(Literals, mutableKey(optionalKey(Number)))`: the marker sits
+/// over an optional key, so the record requires nothing and reads whichever of
+/// the declared keys are there.
+#[test]
+fn an_optional_mutable_key_record_requires_nothing() {
+    let schema = Schema::record2(
+        Schema::literals(vec![text("a"), text("b")]),
+        Schema::mutable_key(Schema::optional_key_shape(number_schema())),
+    );
+
+    let one = Unknown::Number(1.0);
+    let two = Unknown::Number(2.0);
+    for (input, expected) in [
+        (obj(vec![]), map(vec![])),
+        (obj(vec![("a", one.clone())]), map(vec![("a", one.clone())])),
+        (obj(vec![("b", two.clone())]), map(vec![("b", two.clone())])),
+        (
+            obj(vec![("a", one.clone()), ("b", two.clone())]),
+            map(vec![("a", one), ("b", two)]),
+        ),
+    ] {
+        assert_eq!(schema.decode(input).unwrap(), expected);
+    }
+}
+
+/// :4082 `recognizes numeric declared keys with an index signature`, the half
+/// this port carries: a declared key that is a number still reads the property
+/// name `"1"` through the key codec. The row's other key is a `Symbol`, and
+/// `Unknown` has no symbol variant, which is why the row stays excused.
+#[test]
+fn a_numeric_declared_key_reads_its_property_name() {
+    let schema = Schema::record2(
+        Schema::union(
+            Schema::literal(Unknown::Number(1.0)),
+            Schema::as_unknown(Schema::string()),
+        ),
+        Schema::as_unknown(Schema::string()),
+    );
+
+    assert_eq!(
+        schema.decode(obj(vec![("1", text("one"))])).unwrap(),
+        map(vec![("1", text("one"))])
+    );
+}

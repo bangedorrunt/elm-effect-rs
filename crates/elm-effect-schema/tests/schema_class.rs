@@ -629,3 +629,21 @@ fn an_untagged_class_extends_without_introducing_a_discriminant() {
         object(vec![("a", text("a")), ("b", number(2.0))])
     );
 }
+
+#[test]
+fn a_class_field_can_be_marked_mutable() {
+    // :7064 "should be possible to define a class with a mutable field": the
+    // marker is the only thing the pin adds, so what this carries is that the
+    // marked field still builds the instance and reads back. The row's last
+    // assertion (`a.update()` reassigning a field) is JS mutation on a value
+    // this port hands out opaquely, so it has no counterpart here.
+    let schema = class("A", vec![("a", Schema::mutable_key(string_field()))]);
+
+    let built = schema.make(object(vec![("a", text("a"))])).unwrap();
+    assert!(built.is_instance_of("A"));
+    assert_eq!(built.get("a"), Some(&text("a")));
+
+    // The pin's second input is the same class instance, and `make` answers it
+    // unchanged rather than rebuilding it.
+    assert_eq!(schema.make_instance(&built).unwrap(), built);
+}

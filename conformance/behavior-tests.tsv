@@ -7745,7 +7745,7 @@ ported	packages/effect/test/schema/Schema.test.ts	4028	it	Record(String, optiona
 ported	packages/effect/test/schema/Schema.test.ts	4035	it	Record(String, optional(Number))	record_optional_values_accept_null_but_reject_wrong_type
 ported	packages/effect/test/schema/Schema.test.ts	4053	it	Record(String.check, Number) should use the key checks to select keys	record_with_a_checked_key_selects_its_entries
 ported	packages/effect/test/schema/Schema.test.ts	4066	it	applies excess-property options to unmatched own keys	record_excess_names_an_unmatched_key
-unported	packages/effect/test/schema/Schema.test.ts	4082	it	recognizes numeric declared keys with an index signature	
+not-applicable	packages/effect/test/schema/Schema.test.ts	4082	it	recognizes numeric declared keys with an index signature	the row's input carries a symbol key and Unknown has no symbol variant; the numeric half (a declared Literal(1) reading the property name "1") is carried by a_numeric_declared_key_reads_its_property_name
 not-applicable	packages/effect/test/schema/Schema.test.ts	4091	it	Record(Symbol, Number)	the row's own keys are JavaScript symbols, and a record here is a string-keyed map with no symbol-keyed variant
 not-applicable	packages/effect/test/schema/Schema.test.ts	4119	it	index signatures select only enumerable ${typeof key} properties	the row asserts a non-enumerable own property is never read; a Rust map holds exactly the entries it was given, so there is no enumerability to observe
 not-applicable	packages/effect/test/schema/Schema.test.ts	4141	it	Record(Symbol.check, Number) should use the key checks to select keys	the key check is a predicate over JavaScript symbols (Symbol.keyFor) and the keys themselves are symbols
@@ -7754,8 +7754,8 @@ not-applicable	packages/effect/test/schema/Schema.test.ts	4174	it	UniqueSymbol	t
 ported	packages/effect/test/schema/Schema.test.ts	4189	it	deduplicates repeated literal keys	literal_key_record_counts_a_repeated_key_once
 ported	packages/effect/test/schema/Schema.test.ts	4194	it	Record(Literals, Number)	literal_key_record_requires_every_declared_key
 ported	packages/effect/test/schema/Schema.test.ts	4212	it	Record(Literals, optionalKey(Number))	literal_key_record_with_optional_values_requires_no_key
-unported	packages/effect/test/schema/Schema.test.ts	4223	it	Record(Literals, mutableKey(Number))	
-unported	packages/effect/test/schema/Schema.test.ts	4231	it	Record(Literals, mutableKey(optionalKey(Number)))	
+ported	packages/effect/test/schema/Schema.test.ts	4223	it	Record(Literals, mutableKey(Number))	a_mutable_key_record_still_requires_its_declared_keys
+ported	packages/effect/test/schema/Schema.test.ts	4231	it	Record(Literals, mutableKey(optionalKey(Number)))	an_optional_mutable_key_record_requires_nothing
 ported	packages/effect/test/schema/Schema.test.ts	4246	it	Record(Number, String)	record_with_a_number_key_selects_numeric_keys
 ported	packages/effect/test/schema/Schema.test.ts	4270	it	Record(Int, String)	an_integer_key_schema_selects_the_numeric_names
 ported	packages/effect/test/schema/Schema.test.ts	4289	it	Record(TemplateLiteral with checked part, Number) should use the part checks to select keys	a_template_literal_key_schema_selects_its_own_keys
@@ -7919,7 +7919,7 @@ ported	packages/effect/test/schema/Schema.test.ts	7020	it	Class with nested Clas
 ported	packages/effect/test/schema/Schema.test.ts	7035	it	make preserves Class instances in Array(Class) and Array(Union(Class))	make_keeps_class_instances_inside_arrays_and_unions
 not-applicable	packages/effect/test/schema/Schema.test.ts	7047	it	make constructs nested Class instances with and without Union	a decoded struct or union value is JSON here (BTreeMap<String, Unknown>), so a class instance cannot live inside one; the row asserts instance identity through a nested value
 not-applicable	packages/effect/test/schema/Schema.test.ts	7056	it	make selects the first TaggedClass Union member when the tag is defaulted	a decoded struct or union value is JSON here (BTreeMap<String, Unknown>), so a class instance cannot live inside one; the row asserts instance identity through a nested value
-unported	packages/effect/test/schema/Schema.test.ts	7064	it	should be possible to define a class with a mutable field	
+ported	packages/effect/test/schema/Schema.test.ts	7064	it	should be possible to define a class with a mutable field	a_class_field_can_be_marked_mutable
 ported	packages/effect/test/schema/Schema.test.ts	7083	it	Fields argument	a_class_exposes_its_fields_and_identifier_and_round_trips
 ported	packages/effect/test/schema/Schema.test.ts	7139	it	Struct argument	a_class_exposes_its_fields_and_identifier_and_round_trips
 ported	packages/effect/test/schema/Schema.test.ts	7195	it	constructor ignores excess properties by default	the_constructor_ignores_excess_properties_by_default

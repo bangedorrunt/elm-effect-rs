@@ -6647,6 +6647,14 @@ impl Schema<Unknown> {
         Self::new(Ok, |value| Ok(value.clone()), SchemaKind::Json)
     }
 
+    /// A field marked writable (`mutableKey`). In the pin the marker only
+    /// lifts a type-level `readonly`, and this port has no readonly fields, so
+    /// there is nothing to lift and the schema is the one it was given. What
+    /// the marker wraps still decodes and encodes through it.
+    pub fn mutable_key(inner: Schema<Unknown>) -> Self {
+        inner
+    }
+
     /// A struct field whose key may be absent (`optionalKey`). Decode delegates
     /// to the inner schema: whether the key may be missing is a property of the
     /// enclosing struct, so it is enforced there and not here.
