@@ -459,6 +459,27 @@ impl Schema<ClassValue> {
         }
     }
 
+    /// `mapFields` on a class: the transformer receives the declared fields and
+    /// answers the list the rebuilt class should have. The identifier and the
+    /// tag stay, and the source is rebuilt from the mapped list, so a check on
+    /// the original source does not survive (the pin rebuilds the struct too).
+    pub fn map_fields(self, transform: impl Fn(Vec<Field>) -> Vec<Field>) -> Schema<ClassValue> {
+        let Some(mut meta) = self.class_meta.as_deref().cloned() else {
+            return self;
+        };
+        let declared = transform(
+            meta.fields
+                .iter()
+                .map(|(name, schema)| Field::required(name, schema.clone()))
+                .collect(),
+        );
+        meta.fields = declared
+            .into_iter()
+            .map(|field| (field.name().to_string(), field.inner().clone()))
+            .collect();
+        build(meta)
+    }
+
     /// `make`: construction. An instance built by this class is answered
     /// unchanged (the pin's `A.make(instance) === instance`); every other input
     /// constructs through the source struct, so a constructor default fills and

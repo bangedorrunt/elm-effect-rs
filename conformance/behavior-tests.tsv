@@ -7658,7 +7658,7 @@ unported	packages/effect/test/schema/Schema.test.ts	2216	it	BigDecimalFromString
 unported	packages/effect/test/schema/Schema.test.ts	2237	it	TimeZoneNamedFromString	
 unported	packages/effect/test/schema/Schema.test.ts	2256	it	TimeZoneFromString	
 unported	packages/effect/test/schema/Schema.test.ts	2277	it	DateTimeZonedFromString	
-unported	packages/effect/test/schema/Schema.test.ts	2298	it	FiniteFromString & isGreaterThan	
+ported	packages/effect/test/schema/Schema.test.ts	2298	it	FiniteFromString & isGreaterThan	a_check_on_a_transforming_schema_reads_the_decoded_number
 unported	packages/effect/test/schema/Schema.test.ts	2319	it	should expose the source and the target schemas	
 ported	packages/effect/test/schema/Schema.test.ts	2326	it	required to required	a_required_field_refuses_a_missing_key_on_both_axes
 not-applicable	packages/effect/test/schema/Schema.test.ts	2354	it	required to optional	the row asserts that a required source field maps to an optional target whose ENCODE getter supplies a default (`{}` encodes to `{ a: "default" }`) via `SchemaGetter.withDefault` on the encode axis; this port's only encode-side field hook is `omit_encoding`, so there is no encode-side default to assert — the decode half, that a missing key is refused, is carried by `a_required_field_refuses_a_missing_key_on_both_axes`
@@ -7912,8 +7912,8 @@ ported	packages/effect/test/schema/Schema.test.ts	6932	it	suspend before initial
 unported	packages/effect/test/schema/Schema.test.ts	6946	it	should memoize the ast	
 ported	packages/effect/test/schema/Schema.test.ts	6953	it	should set the identifier annotation	a_class_exposes_its_fields_and_identifier_and_round_trips
 unported	packages/effect/test/schema/Schema.test.ts	6961	it	`[immerable]`	
-unported	packages/effect/test/schema/Schema.test.ts	6981	it	Equality	
-unported	packages/effect/test/schema/Schema.test.ts	6998	it	mapFields	
+ported	packages/effect/test/schema/Schema.test.ts	6981	it	Equality	class_instances_compare_by_their_values
+ported	packages/effect/test/schema/Schema.test.ts	6998	it	mapFields	map_fields_rebuilds_a_class_with_the_mapped_list
 ported	packages/effect/test/schema/Schema.test.ts	7006	it	Struct with nested Class	a_nested_class_field_constructs_its_own_instance
 ported	packages/effect/test/schema/Schema.test.ts	7020	it	Class with nested Class	a_nested_class_field_constructs_its_own_instance
 unported	packages/effect/test/schema/Schema.test.ts	7035	it	make preserves Class instances in Array(Class) and Array(Union(Class))	
@@ -7975,9 +7975,9 @@ unported	packages/effect/test/schema/Schema.test.ts	8019	it	async fallback
 unported	packages/effect/test/schema/Schema.test.ts	8034	it	catchEncodingWithContext	
 unported	packages/effect/test/schema/Schema.test.ts	8061	it	providing a service	
 unported	packages/effect/test/schema/Schema.test.ts	8084	it	forced failure	
-unported	packages/effect/test/schema/Schema.test.ts	8096	it	Exact Optional Property	
+ported	packages/effect/test/schema/Schema.test.ts	8096	it	Exact Optional Property	an_exact_optional_key_is_absent_or_decoded
 unported	packages/effect/test/schema/Schema.test.ts	8111	it	Optional Property	
-unported	packages/effect/test/schema/Schema.test.ts	8128	it	Exact Optional Property with Nullability	
+ported	packages/effect/test/schema/Schema.test.ts	8128	it	Exact Optional Property with Nullability	an_optional_key_admits_null_as_a_value
 unported	packages/effect/test/schema/Schema.test.ts	8145	it	Optional Property with Nullability	
 unported	packages/effect/test/schema/Schema.test.ts	8164	it	Optional Property to Exact Optional Property	
 unported	packages/effect/test/schema/Schema.test.ts	8183	it	Optional Property with Nullability to Optional Property	

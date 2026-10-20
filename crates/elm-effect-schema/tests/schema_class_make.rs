@@ -16,7 +16,7 @@ use std::collections::BTreeMap;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-use elm_effect_schema::class::class_from;
+use elm_effect_schema::class::{class, class_from};
 use elm_effect_schema::{Field, FilterOutcome, FilterSpec, Schema, Unknown};
 
 fn text(value: &str) -> Unknown {
@@ -91,6 +91,54 @@ fn a_class_over_a_checked_source_validates_it_once() {
         instance.to_unknown(),
         obj(vec![("a", text("a"))]),
         "the instance carries the field the source kept"
+    );
+}
+
+/// `Schema.test.ts:6981` — "Equality": an instance's identity is its values, so
+/// two separately built instances with equal fields are equal. The pin reaches
+/// that claim through immer drafts, which have no analogue here; building the
+/// same instance twice is the port's spelling of it.
+#[test]
+fn class_instances_compare_by_their_values() {
+    let a = class("A", vec![("a", string())]);
+    let first = a.decode(obj(vec![("a", text("a1"))])).expect("decodes");
+    let second = a.decode(obj(vec![("a", text("a1"))])).expect("decodes");
+    let other = a.decode(obj(vec![("a", text("a"))])).expect("decodes");
+
+    assert_eq!(first, second);
+    assert_ne!(first, other);
+}
+
+/// `Schema.test.ts:6998` — "mapFields": a class's field list can be extended,
+/// and the rebuilt class decodes the added field by its own schema.
+#[test]
+fn map_fields_rebuilds_a_class_with_the_mapped_list() {
+    let a = class("A", vec![("a", string())]);
+    assert_eq!(a.class_fields(), vec!["a".to_string()]);
+
+    let schema = a.map_fields(|mut fields| {
+        fields.push(Field::required("b", number()));
+        fields
+    });
+
+    assert_eq!(
+        schema.class_fields(),
+        vec!["a".to_string(), "b".to_string()]
+    );
+
+    let instance = schema
+        .decode(obj(vec![("a", text("a")), ("b", Unknown::Number(2.0))]))
+        .expect("decodes into an instance");
+    assert_eq!(instance.identifier(), "A", "the class keeps its identity");
+    assert_eq!(
+        instance.to_unknown(),
+        obj(vec![("a", text("a")), ("b", Unknown::Number(2.0))])
+    );
+    assert!(
+        schema
+            .decode(obj(vec![("a", text("a")), ("b", text("x"))]))
+            .is_err(),
+        "the added field is decoded by its own schema"
     );
 }
 

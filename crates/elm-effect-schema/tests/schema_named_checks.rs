@@ -131,6 +131,33 @@ fn is_multiple_of_rejects_invalid_divisors() {
     assert!(even.decode(Unknown::Number(3.0)).is_err());
 }
 
+/// `Schema.test.ts:2298` — "FiniteFromString & isGreaterThan": the check lands
+/// on the number the transform produced, in both directions, so the text `"1"`
+/// is refused as a number and not as a string.
+#[test]
+fn a_check_on_a_transforming_schema_reads_the_decoded_number() {
+    let schema = Schema::<Unknown>::checked(
+        Schema::as_unknown(Schema::finite_from_string()),
+        "isGreaterThan",
+        vec!["2"],
+        vec![("expected", "a value greater than 2")],
+    );
+
+    assert_eq!(schema.decode(text("3")).expect("decodes"), text("3"));
+    // The refusal names the check's own expected text AND reports the value as
+    // a number, which is what proves the check read the transform's output.
+    let refused = messages(&schema.decode(text("1")).unwrap_err());
+    assert_eq!(refused.len(), 1);
+    assert!(refused[0].contains("a value greater than 2"), "{refused:?}");
+    assert!(refused[0].ends_with("got number"), "{refused:?}");
+
+    // The encoding direction is checked too, against the value's own number.
+    assert_eq!(schema.try_encode(&text("3")).expect("encodes"), text("3"));
+    let refused = messages(&schema.try_encode(&text("1")).unwrap_err());
+    assert!(refused[0].contains("a value greater than 2"), "{refused:?}");
+    assert!(refused[0].ends_with("got number"), "{refused:?}");
+}
+
 /// `Schema.test.ts:10319` — "isStringBigInt". The row itself asserts the pin's
 /// representation id, which this port does not carry; what is asserted here is
 /// the predicate that id stands for, including the two edges the annotation
@@ -139,12 +166,7 @@ fn is_multiple_of_rejects_invalid_divisors() {
 fn is_string_big_int_matches_signed_digits_only() {
     let schema = Schema::filtered(string(), vec![checks::is_string_big_int()], false);
 
-    for accepted in [
-        "0",
-        "123",
-        "-7",
-        "1234567890123456789012345678901234567890",
-    ] {
+    for accepted in ["0", "123", "-7", "1234567890123456789012345678901234567890"] {
         assert!(schema.decode(text(accepted)).is_ok(), "{accepted}");
     }
     for refused in ["", "-", "+1", "1.0", "1e3", " 1", "1 ", "0x10", "abc"] {
@@ -166,7 +188,14 @@ fn is_string_symbol_matches_the_symbol_spelling() {
     for accepted in ["Symbol()", "Symbol(x)", "Symbol(a\nb)", "Symbol(a))"] {
         assert!(schema.decode(text(accepted)).is_ok(), "{accepted:?}");
     }
-    for refused in ["", "Symbol(", "Symbol(a", "Symbol(a)x", "xSymbol(a)", "symbol(a)"] {
+    for refused in [
+        "",
+        "Symbol(",
+        "Symbol(a",
+        "Symbol(a)x",
+        "xSymbol(a)",
+        "symbol(a)",
+    ] {
         assert_eq!(
             messages(&schema.decode(text(refused)).unwrap_err()),
             vec!["Expected a string representing a symbol"],
