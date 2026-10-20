@@ -280,10 +280,9 @@ fn a_class_exposes_its_fields_and_identifier_and_round_trips() {
         .make(object(vec![("a", text("a"))]))
         .unwrap();
     let refusal = schema.encode_instance(&foreign).unwrap_err().to_string();
-    assert!(
-        refusal.contains("an instance of A"),
-        "the refusal names the class: {refusal}"
-    );
+    // The refusal names the class the way the pin's `getExpected` does: by its
+    // identifier, with the got side saying why the value did not fit.
+    assert_eq!(refusal, "expected A at $, got another class's instance");
 }
 
 #[test]

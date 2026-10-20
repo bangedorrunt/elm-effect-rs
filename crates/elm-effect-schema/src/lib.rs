@@ -1477,6 +1477,20 @@ impl Schema<StructValue> {
                         Err(error) => return Err(error.at(&format!("$.{name}"))),
                     }
                 }
+                // An undeclared key is the call site's excess-property
+                // decision, the same one the shape walk takes.
+                if transform::ParseOptions::current().on_excess_property == ExcessProperty::Reject {
+                    if let Some(issue) = excess_issues(
+                        object
+                            .keys()
+                            .filter(|key| !expected.contains(key))
+                            .map(|key| format!("$.{key}"))
+                            .collect::<Vec<_>>()
+                            .into_iter(),
+                    ) {
+                        return Err(issue);
+                    }
+                }
                 Ok(StructValue { fields: decoded })
             },
             move |value| {
@@ -2018,16 +2032,43 @@ impl<T> Schema<T> {
     where
         T: Send + Sync + 'static,
     {
+        let pairs: Vec<(String, String)> = pairs
+            .into_iter()
+            .map(|(key, value)| (key.into(), value.into()))
+            .collect();
+        // An `identifier` names the value in a refusal at this node, which is
+        // the pin's `getExpected` (`Schema.test.ts:813`). Child paths keep
+        // their own expected text: the identifier names this node only.
+        let identifier = pairs
+            .iter()
+            .find(|(key, _)| key == "identifier")
+            .map(|(_, value)| value.clone());
         let kind = SchemaKind::Annotated {
-            pairs: pairs
-                .into_iter()
-                .map(|(key, value)| (key.into(), value.into()))
-                .collect(),
+            pairs,
             inner: Box::new(schema.repr_kind()),
         };
+        let (decode, encode) = match identifier {
+            Some(identifier) => {
+                let decode_inner = schema.decode;
+                let encode_inner = schema.encode;
+                let decode_id = identifier.clone();
+                let decode_fn: std::sync::Arc<
+                    dyn Fn(Unknown) -> Result<T, SchemaError> + Send + Sync,
+                > = std::sync::Arc::new(move |unknown| {
+                    decode_inner(unknown).map_err(|error| with_identifier(error, &decode_id))
+                });
+                let encode_fn: std::sync::Arc<
+                    dyn Fn(&T) -> Result<Unknown, SchemaError> + Send + Sync,
+                > = std::sync::Arc::new(move |value: &T| {
+                    encode_inner(value).map_err(|error| with_identifier(error, &identifier))
+                });
+                (decode_fn, encode_fn)
+            }
+            None => (schema.decode, schema.encode),
+        };
         Schema {
-            decode: schema.decode,
-            encode: schema.encode,
+            decode,
+            encode,
             kind,
             children: schema.children,
             array_element: schema.array_element,
@@ -2696,6 +2737,22 @@ fn excess_issues(mut paths: impl Iterator<Item = String>) -> Option<SchemaError>
     let mut issues = vec![issue(first)];
     issues.extend(paths.map(issue));
     Some(SchemaError::Composite { issues })
+}
+
+/// An `identifier` annotation reading for a refusal at the annotated node:
+/// the pin's `getExpected` names the value by its identifier. A failure at a
+/// child path keeps its own expected text, which is why the path is checked.
+fn with_identifier(error: SchemaError, identifier: &str) -> SchemaError {
+    let named = |path: String, got: &'static str| SchemaError::TypeMismatchDynamic {
+        path,
+        expected: identifier.to_string(),
+        got,
+    };
+    match error {
+        SchemaError::TypeMismatch { path, got, .. } if path == "$" => named(path, got),
+        SchemaError::TypeMismatchDynamic { path, got, .. } if path == "$" => named(path, got),
+        other => other,
+    }
 }
 
 fn mismatch<T>(path: &str, expected: &'static str, got: &Unknown) -> Result<T, SchemaError> {
@@ -4002,12 +4059,18 @@ impl Schema<BTreeMap<String, Unknown>> {
                 // above already dropped it on the way in.
                 match transform::ParseOptions::current().on_excess_property {
                     ExcessProperty::Reject => {
-                        if let Some(key) = filtered.keys().find(|key| !declared.contains(key)) {
-                            return Err(SchemaError::TypeMismatch {
-                                path: format!("$.{key}"),
-                                expected: "no excess property",
-                                got: "excess property",
-                            });
+                        // Every undeclared key is named, not just the first:
+                        // the decode walk already collects them under
+                        // `errors: "all"`, and the two axes agree.
+                        if let Some(issue) = excess_issues(
+                            filtered
+                                .keys()
+                                .filter(|key| !declared.contains(key))
+                                .map(|key| format!("$.{key}"))
+                                .collect::<Vec<_>>()
+                                .into_iter(),
+                        ) {
+                            return Err(issue);
                         }
                     }
                     _ => filtered.retain(|key, _| declared.contains(key)),

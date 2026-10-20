@@ -250,6 +250,58 @@ fn a_tuple_refuses_positions_past_its_end() {
     assert!(messages[1].contains("at $[2]"), "{messages:?}");
 }
 
+/// Schema.test.ts:638 `error` under `onExcessProperty`: `Struct({ a: String })`
+/// names an undeclared key, and `errors: "all"` names every one. The pin's
+/// symbol-key half has no carrier here, since an object in this port is a
+/// `BTreeMap<String, Unknown>`.
+#[test]
+fn struct_excess_names_every_undeclared_key() {
+    let schema = Schema::as_unknown(Schema::struct_of(vec![(
+        "a".to_string(),
+        Schema::as_unknown(Schema::string()),
+    )]));
+    let rejecting = options(Errors::First, ExcessProperty::Reject);
+
+    let refusal = schema
+        .decode_with(obj(vec![("a", text("a")), ("b", text("b"))]), &rejecting)
+        .unwrap_err()
+        .to_string();
+    assert_eq!(
+        refusal,
+        "expected no excess property at $.b, got excess property"
+    );
+
+    // `errors: "all"` reports b and c, in key order.
+    let error = schema
+        .decode_with(
+            obj(vec![("a", text("a")), ("b", text("b")), ("c", text("c"))]),
+            &options(Errors::All, ExcessProperty::Reject),
+        )
+        .unwrap_err();
+    let messages: Vec<String> = match error {
+        SchemaError::Composite { issues } => issues.iter().map(ToString::to_string).collect(),
+        other => panic!("expected every issue, got {other}"),
+    };
+    assert_eq!(
+        messages,
+        vec![
+            "expected no excess property at $.b, got excess property",
+            "expected no excess property at $.c, got excess property",
+        ]
+    );
+
+    // `ignore` keeps the declared field and drops the rest.
+    assert_eq!(
+        schema
+            .decode_with(
+                obj(vec![("a", text("a")), ("b", text("b"))]),
+                &options(Errors::First, ExcessProperty::Ignore)
+            )
+            .expect("an ignored key is dropped"),
+        obj(vec![("a", text("a"))])
+    );
+}
+
 /// Schema.test.ts:5075 `applies excess-property options after fixed and index
 /// signatures`. A struct with rest, one fixed field and an index signature
 /// that covers `a`: the uncovered key `b` is dropped by default and named under

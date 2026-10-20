@@ -7569,7 +7569,7 @@ not-applicable	packages/effect/test/schema/Schema.test.ts	606	it	mutableKey	the 
 not-applicable	packages/effect/test/schema/Schema.test.ts	613	it	mutableKey & optionalKey	the row asserts both isMutable and isOptional on one AST context; the port has no key mutability, so one of the two flags has no counterpart
 not-applicable	packages/effect/test/schema/Schema.test.ts	619	it	readonlyKey	the row asserts readonlyKey clears isMutable; the port has no key mutability, so there is no flag to clear
 not-applicable	packages/effect/test/schema/Schema.test.ts	625	it	allows duplicate property signatures in the low-level AST constructor	the row asserts the low-level AST keeps duplicate property signatures in declaration order; the port's shape holds its fields privately with no AST accessor, and a duplicate list is not decodable (the second signature for a key finds it already consumed), so the assertion has no counterpart
-unported	packages/effect/test/schema/Schema.test.ts	638	it	error	
+ported	packages/effect/test/schema/Schema.test.ts	638	it	error	struct_excess_names_every_undeclared_key
 ported	packages/effect/test/schema/Schema.test.ts	666	it	ignore strips undeclared string and symbol properties	struct_decode_ignores_undeclared_keys
 not-applicable	packages/effect/test/schema/Schema.test.ts	680	it	error ignores non-enumerable undeclared own properties without reading them	the row's subject is non-enumerable own properties and a getter that must not be read; a BTreeMap input has no property attributes and no getters
 not-applicable	packages/effect/test/schema/Schema.test.ts	703	it	error validates non-enumerable declared string and symbol properties	the row's subject is non-enumerable declared properties, including a symbol key, still being validated; the port's inputs have no enumerability and no symbol keys
@@ -7578,7 +7578,7 @@ unported	packages/effect/test/schema/Schema.test.ts	727	it	error encodes tagged 
 not-applicable	packages/effect/test/schema/Schema.test.ts	735	it	should corectly handle __proto__	the row's two inputs differ only by JavaScript prototype semantics: {["__proto__"]: "a"} is an own key while {__proto__: "a"} sets the literal's prototype, so one decodes and the other reports a missing key; a Rust map makes both spellings the same entry, so the second observable cannot exist
 unported	packages/effect/test/schema/Schema.test.ts	750	it	a	
 unported	packages/effect/test/schema/Schema.test.ts	790	it	a	
-unported	packages/effect/test/schema/Schema.test.ts	813	it	should use the identifier annotation as the expected message	
+ported	packages/effect/test/schema/Schema.test.ts	813	it	should use the identifier annotation as the expected message	an_identifier_annotation_names_the_value_in_a_refusal
 unported	packages/effect/test/schema/Schema.test.ts	823	it	a	
 unported	packages/effect/test/schema/Schema.test.ts	852	it	a	
 unported	packages/effect/test/schema/Schema.test.ts	884	it	a	

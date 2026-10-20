@@ -107,6 +107,48 @@ fn key_annotations_survive_the_re_typing_a_struct_field_goes_through() {
     );
 }
 
+/// Schema.test.ts:813 — an `identifier` annotation is what a refusal at that
+/// node calls the value, and a failure below it keeps its own expected text.
+#[test]
+fn an_identifier_annotation_names_the_value_in_a_refusal() {
+    let struct_schema = Schema::as_unknown(Schema::struct_of(vec![(
+        "a".to_string(),
+        Schema::as_unknown(Schema::string()),
+    )]));
+    let schema = Schema::as_unknown(Schema::annotated_with(
+        struct_schema,
+        vec![("identifier", "ID")],
+    ));
+
+    assert_eq!(
+        schema.decode(Unknown::Null).unwrap_err().to_string(),
+        "expected ID at $, got null"
+    );
+    // A field's own refusal is still the field's: the identifier names the
+    // node, not everything under it.
+    assert_eq!(
+        schema
+            .decode(Unknown::Object(BTreeMap::from([(
+                "a".to_string(),
+                Unknown::Number(1.0)
+            )])))
+            .unwrap_err()
+            .to_string(),
+        "expected string at $.a, got number"
+    );
+    // The codec itself is unchanged.
+    assert_eq!(
+        schema.decode(Unknown::Object(BTreeMap::from([(
+            "a".to_string(),
+            Unknown::Text("a".to_string())
+        )]))),
+        Ok(Unknown::Object(BTreeMap::from([(
+            "a".to_string(),
+            Unknown::Text("a".to_string())
+        )])))
+    );
+}
+
 /// Schema.test.ts:8746 — the `messageMissingKey` annotation is the error message
 /// for the key it guards, at the field's own path.
 #[test]
