@@ -152,9 +152,16 @@ impl Schema<Unknown> {
         let chain = Arc::new(filters);
         let decode_chain = chain.clone();
         let encode_chain = chain.clone();
+        // A filter is written against the schema's decoded value, so it reads
+        // through the base's own projection: an object-level filter over
+        // `Struct({ a: FiniteFromString })` sees `a` as a number, not as the
+        // text on the wire.
+        let decode_view = inner.check_view.clone();
+        let encode_view = inner.check_view.clone();
         let mut out = Self::new(
             move |unknown| {
-                let issues = run_filters(&decode_chain, &unknown, collect_all);
+                let seen = crate::check_value(decode_view.as_ref(), &unknown);
+                let issues = run_filters(&decode_chain, &seen, collect_all);
                 if !issues.is_empty() {
                     return Err(issues_error(issues));
                 }
@@ -164,7 +171,8 @@ impl Schema<Unknown> {
             // side too: a value they refuse has no wire form rather than one
             // that silently violates the refinement on the way out.
             move |value| {
-                let issues = run_filters(&encode_chain, value, false);
+                let seen = crate::check_value(encode_view.as_ref(), value);
+                let issues = run_filters(&encode_chain, &seen, false);
                 if !issues.is_empty() {
                     return Err(issues_error(issues));
                 }
@@ -173,6 +181,8 @@ impl Schema<Unknown> {
             kind,
         );
         out.formatter = inner.formatter.clone();
+        // A second correction on top reads the same value the first one read.
+        out.check_view = inner.check_view.clone();
         out.wrapped = None;
         // A refinement does not change the shape it refines. Without this the
         // field list under a check is invisible, and a class built from a
@@ -190,11 +200,11 @@ impl<T: Send + Sync + 'static> Schema<T> {
     ///
     /// The chain reads the value's wire form, which is the spelling a named
     /// check is written against in the pin (`isGreaterThanBigDecimal(1)` reads
-    /// the decimal's text). Both directions run it, so a value the check
-    /// refuses has no wire form rather than one that violates the refinement on
-    /// the way out. A schema whose wire form drops information cannot be
-    /// checked this way; a lossless one (`convert` over its own printed form)
-    /// is what this is for.
+    /// the decimal's text), projected through the schema's own view when it has
+    /// one. Both directions run it, so a value the check refuses has no wire
+    /// form rather than one that violates the refinement on the way out. A
+    /// schema whose wire form drops information cannot be checked this way; a
+    /// lossless one (`convert` over its own printed form) is what this is for.
     pub fn filtered_with(schema: Schema<T>, filters: Vec<FilterSpec>) -> Self {
         let kind = schema.repr_kind();
         let chain = std::sync::Arc::new(filters);
@@ -203,11 +213,14 @@ impl<T: Send + Sync + 'static> Schema<T> {
         let encode_inner = inner.clone();
         let decode_chain = chain.clone();
         let encode_chain = chain;
+        let decode_view = inner.check_view.clone();
+        let encode_view = inner.check_view.clone();
         Self::new(
             move |unknown| {
                 let value = decode_inner.decode(unknown)?;
                 let wire = decode_inner.try_encode(&value)?;
-                let issues = run_filters(&decode_chain, &wire, false);
+                let seen = crate::check_value(decode_view.as_ref(), &wire);
+                let issues = run_filters(&decode_chain, &seen, false);
                 if !issues.is_empty() {
                     return Err(issues_error(issues));
                 }
@@ -215,7 +228,8 @@ impl<T: Send + Sync + 'static> Schema<T> {
             },
             move |value| {
                 let wire = encode_inner.try_encode(value)?;
-                let issues = run_filters(&encode_chain, &wire, false);
+                let seen = crate::check_value(encode_view.as_ref(), &wire);
+                let issues = run_filters(&encode_chain, &seen, false);
                 if !issues.is_empty() {
                     return Err(issues_error(issues));
                 }

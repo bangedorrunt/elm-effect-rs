@@ -5,7 +5,7 @@
 //!     cargo test -p elm-effect-schema --test schema_named_checks
 
 use elm_effect_schema::checks;
-use elm_effect_schema::{Schema, SchemaError, Unknown};
+use elm_effect_schema::{FilterOutcome, FilterSpec, Schema, SchemaError, Unknown};
 
 fn text(value: &str) -> Unknown {
     Unknown::Text(value.to_string())
@@ -129,6 +129,44 @@ fn is_multiple_of_rejects_invalid_divisors() {
     );
     assert!(even.decode(Unknown::Number(4.0)).is_ok());
     assert!(even.decode(Unknown::Number(3.0)).is_err());
+}
+
+/// `Schema.test.ts:1380` — "object-level checks are validated against the
+/// decoded value when encoding". The filter reads `a` as the number its field
+/// produced, so the wire `{ a: "1" }` decodes and the same object encodes back;
+/// a filter that only ever saw the wire text would refuse both.
+#[test]
+fn an_object_check_reads_the_decoded_field_value() {
+    fn object(a: &str) -> Unknown {
+        Unknown::Object([("a".to_string(), text(a))].into_iter().collect())
+    }
+
+    let base = Schema::as_unknown(Schema::struct_of(vec![(
+        "a".to_string(),
+        Schema::as_unknown(Schema::finite_from_string()),
+    )]));
+    let only_one = || {
+        vec![FilterSpec::new(|value: &Unknown| match value {
+            Unknown::Object(fields) => FilterOutcome::from_bool(matches!(
+                fields.get("a"),
+                Some(Unknown::Number(number)) if *number == 1.0
+            )),
+            _ => FilterOutcome::from_bool(false),
+        })]
+    };
+    let schema = Schema::filtered(base, only_one(), false);
+
+    let decoded = schema
+        .decode(object("1"))
+        .expect("the check reads the number, not the text");
+    assert_eq!(
+        schema.try_encode(&decoded).expect("and the encode side agrees"),
+        object("1")
+    );
+
+    // The control: the filter really did run, and the number it read decides.
+    assert!(schema.decode(object("2")).is_err());
+    assert!(schema.try_encode(&object("2")).is_err());
 }
 
 /// `Schema.test.ts:2298` — "FiniteFromString & isGreaterThan": the check lands

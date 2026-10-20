@@ -1485,6 +1485,11 @@ impl Schema<StructValue> {
             },
             kind,
         );
+        schema.check_view = object_check_view(
+            schemas
+                .iter()
+                .map(|(name, field)| (name.as_str(), field.as_ref())),
+        );
         schema.children = schemas.clone();
         let children = schemas;
         schema.formatter = Some(std::sync::Arc::new(move |value: &Unknown| {
@@ -4015,6 +4020,13 @@ impl Schema<BTreeMap<String, Unknown>> {
             walk_struct(&construct_fields, unknown, true)
         }));
         schema.struct_fields = declared_fields;
+        schema.check_view = schema.struct_fields.as_ref().and_then(|fields| {
+            object_check_view(
+                fields
+                    .iter()
+                    .map(|field| (field.name.as_str(), field.schema.as_ref())),
+            )
+        });
         schema
     }
 
@@ -8120,6 +8132,41 @@ pub(crate) fn check_holds_arg(name: &str, arg: Option<&str>, value: &Unknown) ->
 /// when it has one (see [`Schema::checked`]), and the wire value itself when it
 /// has none. Shared by every place a named check is evaluated, so "a check
 /// reads what the transform produced" is one rule rather than three.
+/// The projection a check on an object reads: each declared field mapped
+/// through its own schema's view, so a check over `Struct({ a:
+/// FiniteFromString })` sees `a` as the number the field produced rather than
+/// the text on the wire. `None` when no field has a view, which leaves the
+/// check reading what arrived.
+fn object_check_view<'a>(
+    fields: impl IntoIterator<Item = (&'a str, &'a Schema<Unknown>)>,
+) -> Option<CheckView> {
+    let views: Vec<(String, CheckView)> = fields
+        .into_iter()
+        .filter_map(|(name, schema)| {
+            schema
+                .check_view
+                .clone()
+                .map(|view| (name.to_string(), view))
+        })
+        .collect();
+    if views.is_empty() {
+        return None;
+    }
+    Some(Arc::new(move |wire: &Unknown| {
+        let Unknown::Object(fields) = wire else {
+            return wire.clone();
+        };
+        let mut projected = fields.clone();
+        for (name, view) in &views {
+            if let Some(value) = projected.get(name) {
+                let seen = view(value);
+                projected.insert(name.clone(), seen);
+            }
+        }
+        Unknown::Object(projected)
+    }))
+}
+
 pub(crate) fn check_value(view: Option<&CheckView>, wire: &Unknown) -> Unknown {
     match view {
         Some(view) => view(wire),
