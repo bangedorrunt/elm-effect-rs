@@ -7717,8 +7717,8 @@ not-applicable	packages/effect/test/schema/Schema.test.ts	3601	it	preserves __pr
 unported	packages/effect/test/schema/Schema.test.ts	3612	it	preserves name and length as options	
 unported	packages/effect/test/schema/Schema.test.ts	3627	it	assigns options	
 ported	packages/effect/test/schema/Schema.test.ts	3640	it	should throw an error when the cause contains both a schema issue and a defect	make_reports_a_died_default_with_the_constructor_adapter_message
-unported	packages/effect/test/schema/Schema.test.ts	3658	it	Struct	
-unported	packages/effect/test/schema/Schema.test.ts	3664	it	Class	
+ported	packages/effect/test/schema/Schema.test.ts	3658	it	Struct	make_option_answers_none_for_a_schema_issue
+ported	packages/effect/test/schema/Schema.test.ts	3664	it	Class	a_class_make_option_answers_none_for_a_schema_issue
 ported	packages/effect/test/schema/Schema.test.ts	3670	it	should throw an error when the cause is not a schema issue	make_option_refuses_a_died_default_instead_of_answering_none
 unported	packages/effect/test/schema/Schema.test.ts	3690	it.effect	Struct	
 unported	packages/effect/test/schema/Schema.test.ts	3701	it.effect	Class	
@@ -7727,7 +7727,7 @@ ported	packages/effect/test/schema/Schema.test.ts	3733	it	should not apply defau
 ported	packages/effect/test/schema/Schema.test.ts	3746	it	should apply constructor default when the field is not present	constructor_default_fills_an_absent_field_on_make
 unported	packages/effect/test/schema/Schema.test.ts	3757	it	should construct a Class field from a plain object	
 ported	packages/effect/test/schema/Schema.test.ts	3768	it	Struct	nested_constructor_defaults_fill_recursively
-unported	packages/effect/test/schema/Schema.test.ts	3782	it	Class	
+ported	packages/effect/test/schema/Schema.test.ts	3782	it	Class	make_option_reports_a_default_that_died
 unported	packages/effect/test/schema/Schema.test.ts	3802	it	applies constructor default when disableChecks is true	
 ported	packages/effect/test/schema/Schema.test.ts	3811	it	Struct & Effect sync	constructor_default_fills_an_absent_field_on_make
 ported	packages/effect/test/schema/Schema.test.ts	3822	it	Struct & Effect async	constructor_default_fills_an_absent_field_on_make
@@ -7916,7 +7916,7 @@ ported	packages/effect/test/schema/Schema.test.ts	6981	it	Equality	class_instanc
 ported	packages/effect/test/schema/Schema.test.ts	6998	it	mapFields	map_fields_rebuilds_a_class_with_the_mapped_list
 ported	packages/effect/test/schema/Schema.test.ts	7006	it	Struct with nested Class	a_nested_class_field_constructs_its_own_instance
 ported	packages/effect/test/schema/Schema.test.ts	7020	it	Class with nested Class	a_nested_class_field_constructs_its_own_instance
-unported	packages/effect/test/schema/Schema.test.ts	7035	it	make preserves Class instances in Array(Class) and Array(Union(Class))	
+ported	packages/effect/test/schema/Schema.test.ts	7035	it	make preserves Class instances in Array(Class) and Array(Union(Class))	make_keeps_class_instances_inside_arrays_and_unions
 not-applicable	packages/effect/test/schema/Schema.test.ts	7047	it	make constructs nested Class instances with and without Union	a decoded struct or union value is JSON here (BTreeMap<String, Unknown>), so a class instance cannot live inside one; the row asserts instance identity through a nested value
 not-applicable	packages/effect/test/schema/Schema.test.ts	7056	it	make selects the first TaggedClass Union member when the tag is defaulted	a decoded struct or union value is JSON here (BTreeMap<String, Unknown>), so a class instance cannot live inside one; the row asserts instance identity through a nested value
 unported	packages/effect/test/schema/Schema.test.ts	7064	it	should be possible to define a class with a mutable field	
@@ -7929,11 +7929,11 @@ ported	packages/effect/test/schema/Schema.test.ts	7231	it	annotate	an_annotation
 unported	packages/effect/test/schema/Schema.test.ts	7247	it	basic	
 unported	packages/effect/test/schema/Schema.test.ts	7280	it	decoding validates the extended struct once	
 ported	packages/effect/test/schema/Schema.test.ts	7307	it	constructor preserves subclass fields while ignoring excess properties by default	the_extended_constructor_ignores_excess_but_not_the_subclass_fields
-unported	packages/effect/test/schema/Schema.test.ts	7322	it	constructor keeps subclass fields and strips excess properties with explicit ignore	
+ported	packages/effect/test/schema/Schema.test.ts	7322	it	constructor keeps subclass fields and strips excess properties with explicit ignore	an_extended_constructor_strips_excess_under_explicit_ignore
 ported	packages/effect/test/schema/Schema.test.ts	7339	it	constructor does not treat subclass fields as excess properties	the_extended_constructor_ignores_excess_but_not_the_subclass_fields
 unported	packages/effect/test/schema/Schema.test.ts	7361	it	Struct argument	
 unported	packages/effect/test/schema/Schema.test.ts	7380	it	static members	
-unported	packages/effect/test/schema/Schema.test.ts	7395	it	make with void input	
+ported	packages/effect/test/schema/Schema.test.ts	7395	it	make with void input	a_tagged_class_takes_a_void_construction
 ported	packages/effect/test/schema/Schema.test.ts	7402	it	explicit identifier	the_name_is_the_identifier_and_the_tag_stands_in_when_there_is_none
 ported	packages/effect/test/schema/Schema.test.ts	7409	it	fields argument	a_tagged_class_carries_its_tag_on_the_wire
 ported	packages/effect/test/schema/Schema.test.ts	7435	it	constructor ignores excess properties by default	a_tagged_error_ignores_excess_properties_by_default

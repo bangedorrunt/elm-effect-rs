@@ -80,6 +80,98 @@ fn make_with_void_input_builds_a_zero_field_class() {
 }
 
 #[test]
+fn a_tagged_class_takes_a_void_construction() {
+    // :7395 "TaggedClass make with void input": the discriminant is the only
+    // field and it carries the tag, so `make()` builds the instance from an
+    // empty input. The pin's `makeEffect` is the same construction here, and
+    // `makeOption` reports the same value as `Some`.
+    let schema = tagged_class("A", vec![]);
+    let built = schema.make_void().unwrap();
+    assert!(built.is_instance_of("A"));
+    assert_eq!(built.tag(), Some("A"));
+    assert_eq!(built.to_unknown(), object(vec![("_tag", text("A"))]));
+
+    let optional = schema
+        .make_option(Unknown::Object(BTreeMap::new()))
+        .unwrap();
+    assert_eq!(optional, Some(built), "makeOption answers the same value");
+}
+
+#[test]
+fn an_extended_constructor_strips_excess_under_explicit_ignore() {
+    // :7322 "constructor keeps subclass fields and strips excess properties
+    // with explicit ignore": the call site's excess policy is `ignore`, and the
+    // subclass field is still declared rather than treated as excess.
+    let child = class("A", vec![("a", string_field())])
+        .extend("B", vec![("b", number_field())])
+        .with_excess(ExcessProperty::Ignore);
+
+    let built = child
+        .make(object(vec![
+            ("a", text("a")),
+            ("b", number(2.0)),
+            ("extra", text("extra")),
+        ]))
+        .unwrap();
+    assert!(built.is_instance_of("B"));
+    assert_eq!(built.get("a"), Some(&text("a")));
+    assert_eq!(built.get("b"), Some(&number(2.0)));
+    assert_eq!(built.get("extra"), None, "the extra key is stripped");
+}
+
+#[test]
+fn make_keeps_class_instances_inside_arrays_and_unions() {
+    // :7035 "make preserves Class instances in Array(Class) and
+    // Array(Union(Class))": a constructed element is still the class's instance,
+    // and an element the class refuses fails the construction instead of
+    // arriving as a plain object.
+    let row = class("Row", vec![("value", string_field())]);
+    let row_value = row
+        .make(object(vec![("value", text("a"))]))
+        .expect("a row is constructible");
+    let direct = class(
+        "DirectTable",
+        vec![(
+            "rows",
+            Schema::as_unknown(Schema::array(row.clone())),
+        )],
+    );
+    let union = class(
+        "UnionTable",
+        vec![(
+            "rows",
+            Schema::as_unknown(Schema::array(Schema::union_with_mode(
+                vec![Schema::as_unknown(row.clone())],
+                "anyOf",
+            ))),
+        )],
+    );
+
+    for schema in [&direct, &union] {
+        let built = schema
+            .make(object(vec![(
+                "rows",
+                Unknown::Array(vec![row_value.to_unknown()]),
+            )]))
+            .expect("the table constructs");
+        let rows = match built.get("rows") {
+            Some(Unknown::Array(rows)) => rows.clone(),
+            other => panic!("expected an array of rows, got {other:?}"),
+        };
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0], row_value.to_unknown());
+
+        let refused = schema
+            .make(object(vec![(
+                "rows",
+                Unknown::Array(vec![object(vec![("value", number(1.0))])]),
+            )]))
+            .is_err();
+        assert!(refused, "a row whose value is not text is refused");
+    }
+}
+
+#[test]
 fn make_answers_an_existing_instance_unchanged() {
     // :7656 "make preserves existing instances": the value comes back as it
     // was. The pin compares by reference; the identity here is the identifier
@@ -191,6 +283,28 @@ fn a_class_exposes_its_fields_and_identifier_and_round_trips() {
     assert!(
         refusal.contains("an instance of A"),
         "the refusal names the class: {refusal}"
+    );
+}
+
+#[test]
+fn a_class_make_option_answers_none_for_a_schema_issue() {
+    // :3664 `makeOption` `Class`: the same rule at a class, where the accepted
+    // input constructs an instance of the class.
+    let positive = number_field().refine(
+        "greater than 0",
+        |value: &Unknown| matches!(value, Unknown::Number(number) if *number > 0.0),
+    );
+    let schema = class("A", vec![("a", positive)]);
+
+    let built = schema
+        .make_option(object(vec![("a", number(1.0))]))
+        .unwrap()
+        .expect("a positive value is constructible");
+    assert!(built.is_instance_of("A"));
+    assert_eq!(built.get("a"), Some(&number(1.0)));
+    assert_eq!(
+        schema.make_option(object(vec![("a", number(-1.0))])).unwrap(),
+        None
     );
 }
 

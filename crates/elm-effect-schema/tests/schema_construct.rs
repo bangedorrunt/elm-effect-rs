@@ -40,6 +40,50 @@ fn finite_defaulting_to_minus_one() -> Schema<Unknown> {
     Schema::as_unknown(Schema::finite_from_string().with_constructor_default(|| Ok(number(-1.0))))
 }
 
+/// Schema.test.ts:3654 `makeOption` `Struct`: a schema issue answers `None`, and
+/// the accepted input answers the constructed value.
+#[test]
+fn make_option_answers_none_for_a_schema_issue() {
+    let positive = Schema::as_unknown(Schema::number()).refine(
+        "greater than 0",
+        |value: &Unknown| matches!(value, Unknown::Number(number) if *number > 0.0),
+    );
+    let schema = Schema::struct_shape(vec![Field::required("a", positive)]);
+
+    assert_eq!(
+        schema
+            .make_option(obj(&[("a", number(1.0))]))
+            .unwrap()
+            .expect("a positive value is constructible"),
+        map(&[("a", number(1.0))])
+    );
+    assert_eq!(schema.make_option(obj(&[("a", number(-1.0))])).unwrap(), None);
+}
+
+/// Schema.test.ts:3782 `makeOption` `should throw an error when the cause is
+/// not a schema issue`: a constructor default that DIED is not an issue, so the
+/// option adapter reports it rather than answering `None`.
+#[test]
+fn make_option_reports_a_default_that_died() {
+    let schema = Schema::struct_shape(vec![Field::required(
+        "a",
+        Schema::as_unknown(Schema::finite_from_string().with_constructor_default(|| {
+            Err(elm_effect_schema::ConstructError::die(Unknown::Text(
+                "make defect".to_string(),
+            )))
+        })),
+    )]);
+
+    let error = schema
+        .make_option(obj(&[]))
+        .expect_err("a died default is not an issue")
+        .to_string();
+    assert!(
+        error.contains("Option adapter can only return none for schema issues"),
+        "{error}"
+    );
+}
+
 /// Schema.test.ts:3733 `should not apply defaults when decoding / encoding`.
 #[test]
 fn constructor_default_does_not_fill_on_decode_or_encode() {
