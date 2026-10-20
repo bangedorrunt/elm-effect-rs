@@ -36,6 +36,10 @@ required-features = ["schema"]
 name = "schema_cause"
 required-features = ["schema"]
 
+[[test]]
+name = "schema_exit"
+required-features = ["schema"]
+
 # ByteSize and BigDecimal schemas: same gate, same reason.
 [[test]]
 name = "schema_data"

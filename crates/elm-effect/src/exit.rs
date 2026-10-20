@@ -7,11 +7,11 @@ use crate::Defect;
 /// The outcome of an effect that already ran: success with a value, or failure
 /// with a cause. Matching on it performs no I/O and needs no runtime.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum Exit<A, E> {
+pub enum Exit<A, E, D = Defect> {
     /// The effect succeeded with this value.
     Success(A),
     /// The effect failed for this reason.
-    Failure(Cause<E>),
+    Failure(Cause<E, D>),
 }
 
 impl<A, E> Exit<A, E> {
@@ -39,7 +39,9 @@ impl<A, E> Exit<A, E> {
 /// Tag-compatible rendering (`Success(1)`, `Failure(Cause([Fail("e")]))`).
 /// Values render with `Debug`, matching the tag's inspect for the covered
 /// shapes (strings quoted, numbers bare).
-impl<A: std::fmt::Debug, E: std::fmt::Debug> std::fmt::Display for Exit<A, E> {
+impl<A: std::fmt::Debug, E: std::fmt::Debug, D: std::fmt::Display> std::fmt::Display
+    for Exit<A, E, D>
+{
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Exit::Success(value) => write!(f, "Success({value:?})"),

@@ -59,12 +59,13 @@ mod runtime;
 mod schedule;
 mod scheduler;
 #[cfg(feature = "schema")]
-#[cfg(feature = "schema")]
 mod schema_cause;
 #[cfg(feature = "schema")]
 mod schema_data;
 #[cfg(feature = "schema")]
 mod schema_duration;
+#[cfg(feature = "schema")]
+mod schema_exit;
 #[cfg(feature = "tokio")]
 mod scope;
 mod service;
@@ -140,6 +141,8 @@ pub use schema_data::{
 };
 #[cfg(feature = "schema")]
 pub use schema_duration::{duration_from_millis, duration_from_string};
+#[cfg(feature = "schema")]
+pub use schema_exit::exit_schema;
 #[cfg(feature = "tokio")]
 pub use scope::{Scope, ScopeTag};
 pub use service::{Cons, MemoMap, Provide, Reference, ServiceTag, read_reference, use_service};

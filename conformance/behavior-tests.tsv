@@ -7710,7 +7710,7 @@ unported	packages/effect/test/schema/Schema.test.ts	3412	it	should expose the va
 ported	packages/effect/test/schema/Schema.test.ts	3420	it	Cause(FiniteFromString, FiniteFromString)	cause_round_trips_through_the_two_schemas
 unported	packages/effect/test/schema/Schema.test.ts	3462	it	Error	
 unported	packages/effect/test/schema/Schema.test.ts	3501	it	should expose the values	
-unported	packages/effect/test/schema/Schema.test.ts	3511	it	Exit(FiniteFromString, String, Unknown)	
+ported	packages/effect/test/schema/Schema.test.ts	3511	it	Exit(FiniteFromString, String, Unknown)	exit_round_trips_through_three_schemas
 unported	packages/effect/test/schema/Schema.test.ts	3538	it	Exit(FiniteFromString, String, Defect)	
 unported	packages/effect/test/schema/Schema.test.ts	3557	it	should work	
 not-applicable	packages/effect/test/schema/Schema.test.ts	3601	it	preserves __proto__ as an own option	the row asserts Object.hasOwn(schema, "__proto__") on the options bag Schema.make merges into a schema; this port's schemas hold no options object, so there is no own-property surface to preserve
