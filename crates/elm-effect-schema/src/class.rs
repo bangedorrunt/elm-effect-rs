@@ -15,7 +15,9 @@
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
-use super::{Field, Schema, SchemaError, SchemaKind, Unknown};
+use super::{
+    AdapterError, CONSTRUCTOR_DIE, ConstructError, Field, Schema, SchemaError, SchemaKind, Unknown,
+};
 
 /// How a constructor treats a key its field list does not declare.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
@@ -314,6 +316,7 @@ fn build_with(meta: ClassMeta, source: Schema<Unknown>) -> Schema<ClassValue> {
             construct_tag.clone(),
             construct_source.construct(input)?,
         )
+        .map_err(ConstructError::from)
     }));
     out
 }
@@ -485,31 +488,33 @@ impl Schema<ClassValue> {
     /// unchanged (the pin's `A.make(instance) === instance`); every other input
     /// constructs through the source struct, so a constructor default fills and
     /// a source check runs once.
-    pub fn make(&self, input: Unknown) -> Result<ClassValue, SchemaError> {
+    pub fn make(&self, input: Unknown) -> Result<ClassValue, AdapterError> {
         self.construct(input)
+            .map_err(|error| AdapterError::report(error, CONSTRUCTOR_DIE))
     }
 
     /// `make` with no props argument: an empty object, which is what a
     /// zero-field class expects (and what an all-optional class accepts).
-    pub fn make_void(&self) -> Result<ClassValue, SchemaError> {
+    pub fn make_void(&self) -> Result<ClassValue, AdapterError> {
         self.construct(Unknown::Object(BTreeMap::new()))
+            .map_err(|error| AdapterError::report(error, CONSTRUCTOR_DIE))
     }
 
     /// `make` given a value this class already built: the same value back, with
     /// no source check run again.
-    pub fn make_instance(&self, value: &ClassValue) -> Result<ClassValue, SchemaError> {
+    pub fn make_instance(&self, value: &ClassValue) -> Result<ClassValue, AdapterError> {
         match self.class_identifier() {
             Some(identifier) if value.identifier() == identifier => Ok(value.clone()),
-            Some(identifier) => Err(SchemaError::TypeMismatchDynamic {
+            Some(identifier) => Err(AdapterError::Issue(SchemaError::TypeMismatchDynamic {
                 path: "$".to_string(),
                 expected: format!("an instance of {identifier}"),
                 got: "another class's instance",
-            }),
-            None => Err(SchemaError::TypeMismatch {
+            })),
+            None => Err(AdapterError::Issue(SchemaError::TypeMismatch {
                 path: "$".to_string(),
                 expected: "a class schema",
                 got: "no class metadata",
-            }),
+            })),
         }
     }
 

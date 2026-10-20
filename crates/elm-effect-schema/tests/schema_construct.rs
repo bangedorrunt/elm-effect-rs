@@ -107,7 +107,8 @@ fn constructor_default_failure_lands_on_the_field_path() {
             Err(SchemaError::DefaultFailed {
                 path: "$".to_string(),
                 message: "ctor default failed".to_string(),
-            })
+            }
+            .into())
         })),
     )]);
 

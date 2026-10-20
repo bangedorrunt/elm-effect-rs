@@ -156,7 +156,12 @@ fn a_constructor_default_runs_only_at_a_field_occurrence() {
     ));
 
     // A bare construction of an absent value answers nothing and runs nothing.
-    assert!(defaulted.make_option(Unknown::Null).is_none());
+    assert!(
+        defaulted
+            .make_option(Unknown::Null)
+            .expect("an absent value is not an issue")
+            .is_none()
+    );
     assert_eq!(defaults.load(Ordering::SeqCst), 0);
 
     // At a field occurrence the default fills the key.
@@ -179,12 +184,14 @@ fn a_constructor_default_runs_only_at_a_field_occurrence() {
     assert!(
         union_member
             .make_option(Unknown::Object(map(vec![])))
+            .expect("an absent key is not an issue")
             .is_none(),
         "an absent key inside a union does not take a member's default"
     );
     assert!(
         union_member
             .make_option(Unknown::Object(map(vec![("value", Unknown::Null)])))
+            .expect("a null key is not an issue")
             .is_none(),
         "a null key does not either"
     );

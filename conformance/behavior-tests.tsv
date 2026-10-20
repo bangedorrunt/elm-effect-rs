@@ -7716,10 +7716,10 @@ unported	packages/effect/test/schema/Schema.test.ts	3557	it	should work
 not-applicable	packages/effect/test/schema/Schema.test.ts	3601	it	preserves __proto__ as an own option	the row asserts Object.hasOwn(schema, "__proto__") on the options bag Schema.make merges into a schema; this port's schemas hold no options object, so there is no own-property surface to preserve
 unported	packages/effect/test/schema/Schema.test.ts	3612	it	preserves name and length as options	
 unported	packages/effect/test/schema/Schema.test.ts	3627	it	assigns options	
-unported	packages/effect/test/schema/Schema.test.ts	3640	it	should throw an error when the cause contains both a schema issue and a defect	
+ported	packages/effect/test/schema/Schema.test.ts	3640	it	should throw an error when the cause contains both a schema issue and a defect	make_reports_a_died_default_with_the_constructor_adapter_message
 unported	packages/effect/test/schema/Schema.test.ts	3658	it	Struct	
 unported	packages/effect/test/schema/Schema.test.ts	3664	it	Class	
-unported	packages/effect/test/schema/Schema.test.ts	3670	it	should throw an error when the cause is not a schema issue	
+ported	packages/effect/test/schema/Schema.test.ts	3670	it	should throw an error when the cause is not a schema issue	make_option_refuses_a_died_default_instead_of_answering_none
 unported	packages/effect/test/schema/Schema.test.ts	3690	it.effect	Struct	
 unported	packages/effect/test/schema/Schema.test.ts	3701	it.effect	Class	
 unported	packages/effect/test/schema/Schema.test.ts	3712	it.effect	should preserve mixed schema issue and defect causes	

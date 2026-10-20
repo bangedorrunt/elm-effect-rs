@@ -16,6 +16,8 @@ const MAX_SAFE_INTEGER: f64 = 9007199254740991.0;
 
 pub mod transform;
 
+pub mod construct_error;
+
 pub mod differ_json_patch;
 
 pub mod tagged;
@@ -34,6 +36,7 @@ pub mod representation_doc;
 pub mod refinements;
 
 pub use class::{ClassMeta, ClassValue, ExcessProperty};
+pub use construct_error::{AdapterError, CONSTRUCTOR_DIE, ConstructError, OPTION_DIE};
 pub use differ_json_patch::{Differ, DifferError, JsonPatch, PatchError, PatchOp, apply, diff};
 pub use filters::{FilterIssue, FilterOutcome, FilterSpec};
 pub use tagged::{Tagged, TaggedError, catch_tag};
@@ -167,14 +170,17 @@ pub struct Schema<T> {
     check_view: Option<CheckView>,
     /// The construction path (`make`): a composite that fills constructor
     /// defaults sets this, because building a value is a different job from
-    /// decoding one. A schema without it constructs by decoding.
-    construct: Option<std::sync::Arc<dyn Fn(Unknown) -> Result<T, SchemaError> + Send + Sync>>,
+    /// decoding one. A schema without it constructs by decoding. Construction
+    /// can fail with a die as well as an issue, which decoding cannot, so the
+    /// two paths have separate error types.
+    construct: Option<std::sync::Arc<dyn Fn(Unknown) -> Result<T, ConstructError> + Send + Sync>>,
     /// A constructor default (`withConstructorDefault`): evaluated at a field
     /// occurrence whose input is absent, on the construction path only. The
     /// value it produces is constructed through this same schema, so nested
-    /// defaults fill recursively.
+    /// defaults fill recursively. The pin's default is an Effect, so it can die
+    /// as well as fail, and that distinction survives to the adapter.
     constructor_default:
-        Option<std::sync::Arc<dyn Fn() -> Result<Unknown, SchemaError> + Send + Sync>>,
+        Option<std::sync::Arc<dyn Fn() -> Result<Unknown, ConstructError> + Send + Sync>>,
     /// A decoding default (`withDecodingDefault`/`withDecodingDefaultType`):
     /// what an absent input means. A missing key at a struct occurrence, and a
     /// standalone null, decode to this instead of failing.
@@ -1627,7 +1633,7 @@ impl<T> Schema<T> {
     /// own wrapper runs the discriminant and excess policies first.
     pub(crate) fn with_construct(
         mut self,
-        construct: Arc<dyn Fn(Unknown) -> Result<T, SchemaError> + Send + Sync>,
+        construct: Arc<dyn Fn(Unknown) -> Result<T, ConstructError> + Send + Sync>,
     ) -> Self {
         self.construct = Some(construct);
         self
@@ -1788,7 +1794,7 @@ impl<T> Schema<T> {
         &self,
         input: Unknown,
         options: &transform::ParseOptions,
-    ) -> Result<T, SchemaError> {
+    ) -> Result<T, ConstructError> {
         options.scoped(|| self.construct(input))
     }
 
@@ -1900,7 +1906,9 @@ impl<T> Schema<T> {
         }
         match op {
             CollectOp::Decode => self.decode(input).map_err(|error| vec![error]),
-            CollectOp::Construct => self.construct(input).map_err(|error| vec![error]),
+            CollectOp::Construct => self
+                .construct(input)
+                .map_err(|error| vec![error.expect_issue()]),
         }
     }
 
@@ -1911,21 +1919,30 @@ impl<T> Schema<T> {
     /// `withConstructorDefault` is involved.
     ///
     /// [`decode`]: Self::decode
-    pub fn construct(&self, unknown: Unknown) -> Result<T, SchemaError> {
+    pub fn construct(&self, unknown: Unknown) -> Result<T, ConstructError> {
         match &self.construct {
             Some(construct) => construct(unknown),
-            None => (self.decode)(unknown),
+            None => (self.decode)(unknown).map_err(ConstructError::from),
         }
     }
 
-    /// `makeOption`: construction as an `Option`, `None` when it would fail.
+    /// `makeOption`: construction as an `Option`.
+    ///
+    /// A schema issue answers `None`, which is the pin's "return none for
+    /// schema issues". A constructor default that DIED is not an issue, and the
+    /// pin throws rather than answering `None`, so this reports the adapter
+    /// error instead of deciding nothing happened (`Schema.test.ts:3670`).
     ///
     /// A constructor default still only fills at a field occurrence, so asking
     /// a defaulted schema to make an absent value answers `None` instead of
     /// running the default. That is the pin's rule and the reason this is not
     /// `construct` with a default fallback.
-    pub fn make_option(&self, unknown: Unknown) -> Option<T> {
-        self.construct(unknown).ok()
+    pub fn make_option(&self, unknown: Unknown) -> Result<Option<T>, AdapterError> {
+        match self.construct(unknown) {
+            Ok(value) => Ok(Some(value)),
+            Err(ConstructError::Issue(_)) => Ok(None),
+            Err(error) => Err(AdapterError::report(error, OPTION_DIE)),
+        }
     }
 
     /// Decode JSON text through the unknown representation.
@@ -2123,7 +2140,9 @@ impl<T> Schema<T> {
         out.union_members = schema.union_members.clone();
         out.construct = Some(Arc::new(move |unknown| {
             let built = construct_schema.construct(unknown)?;
-            construct_schema.try_encode(&built)
+            construct_schema
+                .try_encode(&built)
+                .map_err(ConstructError::from)
         }));
         out
     }
@@ -2175,7 +2194,7 @@ impl<T> Schema<T> {
     /// own nested defaults before it is handed back.
     pub fn with_constructor_default(
         mut self,
-        default: impl Fn() -> Result<Unknown, SchemaError> + Send + Sync + 'static,
+        default: impl Fn() -> Result<Unknown, ConstructError> + Send + Sync + 'static,
     ) -> Self {
         self.constructor_default = Some(std::sync::Arc::new(default));
         self
@@ -2997,7 +3016,7 @@ impl Schema<f64> {
         // side: a string parses the same way decode parses it.
         schema.construct = Some(std::sync::Arc::new(|unknown| match unknown {
             Unknown::Number(number) if number.is_finite() => Ok(number),
-            other => decode_finite_from_string(other),
+            other => decode_finite_from_string(other).map_err(ConstructError::from),
         }));
         schema
     }
@@ -3710,7 +3729,7 @@ fn walk_field(
     field: &Field,
     input: &mut BTreeMap<String, Unknown>,
     construct: bool,
-) -> Result<Option<(String, Unknown)>, SchemaError> {
+) -> Result<Option<(String, Unknown)>, ConstructError> {
     match input.remove(&field.name) {
         None if construct && field.schema.constructor_default.is_some() => {
             let default = field
@@ -3740,16 +3759,16 @@ fn walk_field(
         }
         None if field.optionality != Optionality::Required => Ok(None),
         Some(Unknown::Null) if field.optionality == Optionality::Optional => Ok(None),
-        None => Err(SchemaError::TypeMismatch {
+        None => Err(ConstructError::Issue(SchemaError::TypeMismatch {
             path: format!("$.{}", field.name),
             expected: "required field",
             got: "missing",
-        }),
+        })),
         Some(value) => {
             let step = if construct {
                 field.schema.construct(value)
             } else {
-                field.schema.decode(value)
+                field.schema.decode(value).map_err(ConstructError::from)
             };
             let decoded = step.map_err(|error| error.at(&format!("$.{}", field.name)))?;
             Ok(Some((field.name.clone(), decoded)))
@@ -3761,10 +3780,10 @@ fn walk_struct(
     fields: &[Field],
     unknown: Unknown,
     construct: bool,
-) -> Result<BTreeMap<String, Unknown>, SchemaError> {
+) -> Result<BTreeMap<String, Unknown>, ConstructError> {
     let options = transform::ParseOptions::current();
     let Unknown::Object(mut input) = unknown else {
-        return mismatch("$", "object", &unknown);
+        return mismatch("$", "object", &unknown).map_err(ConstructError::from);
     };
     let mut out = BTreeMap::new();
     let mut issues = Vec::new();
@@ -3774,8 +3793,12 @@ fn walk_struct(
                 out.insert(name, value);
             }
             Ok(None) => {}
+            // A die is not an issue, so it cannot join a composite: the pin's
+            // adapter re-throws it whole, and accumulating past it would lose
+            // that.
+            Err(error) if error.is_die() => return Err(error),
             Err(error) if options.errors == transform::Errors::First => return Err(error),
-            Err(error) => issues.push(error),
+            Err(error) => issues.push(error.expect_issue()),
         }
     }
     // Undeclared keys are the pin's `onExcessProperty` decision: dropped by
@@ -3789,7 +3812,7 @@ fn walk_struct(
                 got: "excess property",
             };
             if options.errors == transform::Errors::First {
-                return Err(issue);
+                return Err(issue.into());
             }
             issues.push(issue);
         }
@@ -3797,7 +3820,7 @@ fn walk_struct(
     if issues.is_empty() {
         Ok(out)
     } else {
-        Err(SchemaError::Composite { issues })
+        Err(SchemaError::Composite { issues }.into())
     }
 }
 
@@ -3876,7 +3899,9 @@ impl Schema<BTreeMap<String, Unknown>> {
         let declared_fields = Some(fields.clone());
         let construct_fields = fields;
         let mut schema = Self::new(
-            move |unknown| walk_struct(&decode_fields, unknown, false),
+            move |unknown| {
+                walk_struct(&decode_fields, unknown, false).map_err(ConstructError::expect_issue)
+            },
             move |output| {
                 for name in &required {
                     if !output.contains_key(name) {
@@ -6382,11 +6407,16 @@ impl Schema<std::collections::BTreeMap<String, Unknown>> {
     /// Build a value (`make`): construction, not decode. An absent field whose
     /// schema carries a constructor default fills in, and a present nested
     /// struct is constructed too, so nested defaults fill recursively.
+    ///
+    /// A default that died is not a schema issue, so it is reported with the
+    /// constructor adapter's own message and the defect attached, which is what
+    /// the pin throws (`Schema.test.ts:3640`).
     pub fn make(
         &self,
         input: std::collections::BTreeMap<String, Unknown>,
-    ) -> Result<std::collections::BTreeMap<String, Unknown>, SchemaError> {
+    ) -> Result<std::collections::BTreeMap<String, Unknown>, AdapterError> {
         self.construct(Unknown::Object(input))
+            .map_err(|error| AdapterError::report(error, CONSTRUCTOR_DIE))
     }
 }
 
@@ -6706,12 +6736,12 @@ impl Schema<Unknown> {
         // optional position and refuses a missing required one.
         schema.construct = Some(Arc::new(move |unknown| {
             let Unknown::Array(items) = unknown else {
-                return mismatch("$", "array", &unknown);
+                return mismatch("$", "array", &unknown).map_err(ConstructError::from);
             };
             if items.len() > total {
                 let excess = excess_issues((total..items.len()).map(|index| format!("$[{index}]")))
                     .expect("the array is longer than the declared positions");
-                return Err(excess);
+                return Err(excess.into());
             }
             let mut out = Vec::with_capacity(total);
             for (index, element) in construct_decoders.iter().enumerate() {
@@ -6738,11 +6768,11 @@ impl Schema<Unknown> {
                     }
                     None if index >= required => out.push(Unknown::Null),
                     None => {
-                        return Err(SchemaError::TypeMismatch {
+                        return Err(ConstructError::Issue(SchemaError::TypeMismatch {
                             path,
                             expected: "a required element",
                             got: "missing",
-                        });
+                        }));
                     }
                 }
             }
@@ -6755,8 +6785,9 @@ impl Schema<Unknown> {
     /// constructor default fills in; a missing required position still fails.
     /// The decoded form of a tuple here is `Unknown`, so this is the value it
     /// builds, exactly as `decode` returns it.
-    pub fn make(&self, input: Vec<Unknown>) -> Result<Unknown, SchemaError> {
+    pub fn make(&self, input: Vec<Unknown>) -> Result<Unknown, AdapterError> {
         self.construct(Unknown::Array(input))
+            .map_err(|error| AdapterError::report(error, CONSTRUCTOR_DIE))
     }
 
     /// Positional elements with a rest list (`TupleWithRest`): the leading
