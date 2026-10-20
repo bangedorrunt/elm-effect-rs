@@ -8056,7 +8056,7 @@ ported	packages/effect/test/schema/Schema.test.ts	9323	it	empty array is treated
 ported	packages/effect/test/schema/Schema.test.ts	9330	it	single-element array collapses to the element	a_single_element_array_collapses
 ported	packages/effect/test/schema/Schema.test.ts	9343	it	multi-element array groups into a Composite	a_multi_element_array_composites
 ported	packages/effect/test/schema/Schema.test.ts	9361	it	array mixing string, Issue, and { path, issue }	an_array_mixing_kinds_composites_in_order
-unported	packages/effect/test/schema/Schema.test.ts	9383	it	Struct	
+ported	packages/effect/test/schema/Schema.test.ts	9383	it	Struct	extend_to_fills_a_derived_field_and_drops_it_on_encode
 unported	packages/effect/test/schema/Schema.test.ts	9401	it	Union	
 ported	packages/effect/test/schema/Schema.test.ts	9433	it	should augment a union of structs	to_tagged_union_indexes_every_member_by_its_literal
 ported	packages/effect/test/schema/Schema.test.ts	9530	it	should support multiple tags	to_tagged_union_follows_the_requested_tag

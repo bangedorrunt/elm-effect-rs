@@ -3871,7 +3871,55 @@ impl Schema<BTreeMap<String, Unknown>> {
         out.struct_fields = inner.struct_fields.clone();
         out
     }
+
+    /// Add fields derived from the decoded value (`extendTo`): decoding fills
+    /// each added key from its getter, and encoding drops the key again so the
+    /// wire stays the base's.
+    ///
+    /// A getter that answers `None` leaves its key absent, the pin's
+    /// `Option.none()`: the field is missing rather than null. The added fields
+    /// are part of the declared shape, so a later derivation (`mapFields`, the
+    /// tagged-union index) sees them.
+    pub fn extend_to(
+        base: Schema<BTreeMap<String, Unknown>>,
+        fields: Vec<Field>,
+        derive: Vec<(String, DeriveFn)>,
+    ) -> Self {
+        let mut declared = base.struct_fields.clone().unwrap_or_default();
+        declared.extend(fields);
+        let inner = Arc::new(base);
+        let decode_inner = inner.clone();
+        let encode_inner = inner.clone();
+        let decode_derive = derive.clone();
+        let encode_derive = derive;
+        let mut out = Self::new(
+            move |unknown| {
+                let value = decode_inner.decode(unknown)?;
+                let mut extended = value.clone();
+                for (name, getter) in &decode_derive {
+                    if let Some(filled) = getter(&value) {
+                        extended.insert(name.clone(), filled);
+                    }
+                }
+                Ok(extended)
+            },
+            move |value| {
+                let mut stripped = value.clone();
+                for (name, _) in &encode_derive {
+                    stripped.remove(name);
+                }
+                encode_inner.try_encode(&stripped)
+            },
+            SchemaKind::Object,
+        );
+        out.struct_fields = Some(declared);
+        out
+    }
 }
+
+/// What an `extendTo` field derives from the decoded base value: `Some` fills
+/// the key, `None` leaves it out.
+pub type DeriveFn = Arc<dyn Fn(&BTreeMap<String, Unknown>) -> Option<Unknown> + Send + Sync>;
 
 /// Move an object's keys between two spellings (`encodeKeys`):
 /// `to_destination` picks the direction. Anything that is not an object passes
