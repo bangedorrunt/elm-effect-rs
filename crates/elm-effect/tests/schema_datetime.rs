@@ -8,7 +8,7 @@
 #[path = "../src/cron.rs"]
 mod cron;
 
-use cron::{zone_from_string, zone_to_string, Zone};
+use cron::{DateTime, zone_from_string, zone_to_string, Zone};
 use elm_effect_schema::{Schema, SchemaError, Unknown};
 
 fn text(value: &str) -> Unknown {
@@ -88,4 +88,69 @@ fn time_zone_from_string_decodes_named_and_offset() {
         .decode(text("a"))
         .expect_err("`a` names no zone");
     assert!(refused.to_string().contains("DateTime.TimeZone"), "{refused}");
+}
+
+/// The zone a zoned text already carries: `Z`, or a `±hh:mm` tail.
+fn trailing_zone(text: &str) -> Option<Zone> {
+    if text.ends_with('Z') {
+        return Some(Zone::Utc);
+    }
+    let len = text.len();
+    let tail = text.get(len.checked_sub(6)?..)?;
+    zone_from_string(tail)
+}
+
+/// `Schema.DateTimeZonedFromString`: the ISO text decodes to an instant in the
+/// zone it names (the RFC 9557 bracket, or the offset it carries), and encoding
+/// writes that same text back.
+fn date_time_zoned_from_string() -> Schema<DateTime> {
+    Schema::<DateTime>::try_convert(
+        Schema::as_unknown(Schema::string()),
+        |wire: Unknown| {
+            let Unknown::Text(whole) = wire else {
+                return Err(refused("DateTime.Zoned", wire.kind()));
+            };
+            let (instant, bracketed) = match whole.rsplit_once('[') {
+                Some((instant, rest)) => match rest.strip_suffix(']') {
+                    Some(name) => (instant.to_string(), Some(name.to_string())),
+                    None => (whole.clone(), None),
+                },
+                None => (whole.clone(), None),
+            };
+            let zone = match bracketed {
+                Some(name) => zone_from_string(&name),
+                None => trailing_zone(&instant),
+            };
+            let zone = zone.ok_or_else(|| {
+                refused("a valid Zoned DateTime string", "text with no zone")
+            })?;
+            DateTime::make_zoned_from_string(&instant, zone).map_err(|_| {
+                refused("a valid Zoned DateTime string", "unparseable instant")
+            })
+        },
+        |value: &DateTime| Ok(text(&value.format_iso())),
+    )
+}
+
+#[test]
+fn date_time_zoned_from_string_reads_and_writes_the_zoned_text() {
+    let schema = date_time_zoned_from_string();
+    let zoned = DateTime::make_zoned_from_string(
+        "2021-01-01T00:00:00.000Z",
+        Zone::Named("Europe/London".to_string()),
+    )
+    .expect("a valid instant");
+
+    // The zoned text is the value's own rendering, bracket included.
+    assert!(zoned.format_iso().ends_with("[Europe/London]"), "{}", zoned.format_iso());
+    assert_eq!(schema.decode(text(&zoned.format_iso())).unwrap(), zoned);
+    assert_eq!(schema.try_encode(&zoned).unwrap(), text(&zoned.format_iso()));
+
+    let refused = schema
+        .decode(text("invalid"))
+        .expect_err("`invalid` is not a zoned date-time");
+    assert!(
+        refused.to_string().contains("Zoned DateTime string"),
+        "{refused}"
+    );
 }

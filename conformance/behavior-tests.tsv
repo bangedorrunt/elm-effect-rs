@@ -7657,7 +7657,7 @@ not-applicable	packages/effect/test/schema/Schema.test.ts	2198	it	BigIntFromStri
 ported	packages/effect/test/schema/Schema.test.ts	2216	it	BigDecimalFromString	bigdecimal_from_string_parses_and_prints_the_decimal
 ported	packages/effect/test/schema/Schema.test.ts	2237	it	TimeZoneNamedFromString	time_zone_named_from_string_decodes_and_encodes
 ported	packages/effect/test/schema/Schema.test.ts	2256	it	TimeZoneFromString	time_zone_from_string_decodes_named_and_offset
-unported	packages/effect/test/schema/Schema.test.ts	2277	it	DateTimeZonedFromString	
+ported	packages/effect/test/schema/Schema.test.ts	2277	it	DateTimeZonedFromString	date_time_zoned_from_string_reads_and_writes_the_zoned_text
 ported	packages/effect/test/schema/Schema.test.ts	2298	it	FiniteFromString & isGreaterThan	a_check_on_a_transforming_schema_reads_the_decoded_number
 unported	packages/effect/test/schema/Schema.test.ts	2319	it	should expose the source and the target schemas	
 ported	packages/effect/test/schema/Schema.test.ts	2326	it	required to required	a_required_field_refuses_a_missing_key_on_both_axes
