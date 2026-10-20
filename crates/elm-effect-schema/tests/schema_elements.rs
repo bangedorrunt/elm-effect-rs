@@ -219,6 +219,31 @@ fn a_required_position_after_an_optional_one_refuses() {
 
 /// `mapElements` is a tuple derivation, so a shape with no element list refuses
 /// rather than inventing one.
+/// :1152 `mutable` / `supports encodings on array elements`. The mutable marker
+/// is erased here (`Vec` is always mutable), and what it has to preserve is the
+/// element's encoding on both axes: the typed array decodes the wire text to a
+/// number and encodes the number back to its text.
+#[test]
+fn an_array_runs_its_element_encoding_on_both_axes() {
+    let schema = Schema::array(Schema::finite_from_string());
+
+    assert_eq!(
+        schema.decode(array(vec![text("1")])).expect("decodes"),
+        vec![1.0]
+    );
+    assert_eq!(
+        schema.try_encode(&vec![1.0]).expect("encodes"),
+        array(vec![text("1")])
+    );
+
+    // A refused element is the element's own failure, at its position.
+    let refused = schema
+        .decode(array(vec![text("a")]))
+        .expect_err("text is not a finite number")
+        .to_string();
+    assert!(refused.contains("$[0]"), "{refused}");
+}
+
 #[test]
 #[should_panic(expected = "mapElements needs a tuple shape")]
 fn map_elements_refuses_a_shape_without_elements() {

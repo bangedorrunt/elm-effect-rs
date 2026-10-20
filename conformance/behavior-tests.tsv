@@ -7594,7 +7594,7 @@ ported	packages/effect/test/schema/Schema.test.ts	1058	it	readonly [string]	tupl
 ported	packages/effect/test/schema/Schema.test.ts	1101	it	readonly [string?]	tuple_with_an_optional_element_accepts_the_empty_tuple
 ported	packages/effect/test/schema/Schema.test.ts	1120	it	should expose the element schema via .value	crates/elm-effect-schema/tests/schema_elements.rs::array_exposes_the_element_schema
 ported	packages/effect/test/schema/Schema.test.ts	1126	it	readonly string[]	array_of_strings_decides_each_element
-unported	packages/effect/test/schema/Schema.test.ts	1152	it	supports encodings on array elements	
+ported	packages/effect/test/schema/Schema.test.ts	1152	it	supports encodings on array elements	an_array_runs_its_element_encoding_on_both_axes
 unported	packages/effect/test/schema/Schema.test.ts	1160	it	supports withDecodingDefaultType after mutable	
 unported	packages/effect/test/schema/Schema.test.ts	1175	it	does not support withDecodingDefaultType before mutable	
 unported	packages/effect/test/schema/Schema.test.ts	1188	it	preserves annotations, checks, encoding checks, and context	
