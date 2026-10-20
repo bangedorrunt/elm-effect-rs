@@ -12,6 +12,13 @@
 //! - Phase 1 has zero `unsafe`.
 
 mod basics;
+// Byte counts and arbitrary-precision decimals, with their schemas below. The
+// rest of the `data/` tree stays test-only; these two are here because the
+// `Schema.ByteSize` and `Schema.BigDecimal` families speak for them.
+#[path = "data/bigdecimal.rs"]
+pub mod bigdecimal;
+#[path = "data/byte_size.rs"]
+pub mod byte_size;
 pub mod cause;
 mod channel;
 #[cfg(feature = "tokio")]
@@ -52,6 +59,8 @@ mod runtime;
 mod schedule;
 mod scheduler;
 #[cfg(feature = "schema")]
+mod schema_data;
+#[cfg(feature = "schema")]
 mod schema_duration;
 #[cfg(feature = "tokio")]
 mod scope;
@@ -69,6 +78,8 @@ mod take;
 mod time;
 mod utils_gen;
 
+pub use bigdecimal::Decimal;
+pub use byte_size::ByteSize;
 pub use cause::{
     is_exceeded_capacity_error, is_illegal_argument_error, is_no_such_element_error,
     is_timeout_error, is_unknown_error, Cause, CauseError, Defect, Done, FiberId, Reason, Squash,
@@ -115,6 +126,12 @@ pub use runtime::{
 };
 pub use schedule::{
     LoopOptions, LoopPredicate, Random, RandomTag, Schedule, repeat, repeat_with, retry, retry_with,
+};
+#[cfg(feature = "schema")]
+pub use schema_data::{
+    bigdecimal, byte_size, byte_size_from_number, byte_size_from_string,
+    is_between_bigdecimal, is_greater_than_bigdecimal, is_greater_than_or_equal_to_bigdecimal,
+    is_less_than_bigdecimal, is_less_than_or_equal_to_bigdecimal,
 };
 #[cfg(feature = "schema")]
 pub use schema_duration::{duration_from_millis, duration_from_string};

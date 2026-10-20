@@ -7836,16 +7836,16 @@ not-applicable	packages/effect/test/schema/Schema.test.ts	5683	it	Duration	the r
 ported	packages/effect/test/schema/Schema.test.ts	5692	it	DurationFromString	duration_from_string_parses_and_prints_the_pin_spellings
 not-applicable	packages/effect/test/schema/Schema.test.ts	5711	it	DurationFromNanos	Unknown (crates/elm-effect-schema/src/lib.rs:41) has no arbitrary-precision integer variant, so the row's bigint nanos wire form cannot be observed; the Formatter.test.ts:66 rows are excused by the same gap in crates/elm-effect/src/json.rs:19. The constructor is one convert() call once a bigint wire form exists.
 ported	packages/effect/test/schema/Schema.test.ts	5732	it	DurationFromMillis	duration_from_millis_reads_and_writes_the_millisecond_count
-unported	packages/effect/test/schema/Schema.test.ts	5761	it	ByteSize	
-unported	packages/effect/test/schema/Schema.test.ts	5770	it	ByteSizeFromString	
-unported	packages/effect/test/schema/Schema.test.ts	5777	it	ByteSizeFromBigInt	
-unported	packages/effect/test/schema/Schema.test.ts	5785	it	ByteSizeFromNumber	
-unported	packages/effect/test/schema/Schema.test.ts	5798	it	BigDecimal	
-unported	packages/effect/test/schema/Schema.test.ts	5815	it	isGreaterThanBigDecimal	
-unported	packages/effect/test/schema/Schema.test.ts	5827	it	isGreaterThanOrEqualToBigDecimal	
-unported	packages/effect/test/schema/Schema.test.ts	5841	it	isLessThanBigDecimal	
-unported	packages/effect/test/schema/Schema.test.ts	5853	it	isLessThanOrEqualToBigDecimal	
-unported	packages/effect/test/schema/Schema.test.ts	5865	it	isBetweenBigDecimal	
+ported	packages/effect/test/schema/Schema.test.ts	5761	it	ByteSize	byte_size_speaks_a_decimal_text
+ported	packages/effect/test/schema/Schema.test.ts	5770	it	ByteSizeFromString	byte_size_from_string_parses_and_spells_bytes
+not-applicable	packages/effect/test/schema/Schema.test.ts	5777	it	ByteSizeFromBigInt	wire is a bigint, and Unknown has no arbitrary-precision integer variant (the gap that excuses :5711)
+ported	packages/effect/test/schema/Schema.test.ts	5785	it	ByteSizeFromNumber	byte_size_from_number_holds_the_safe_integer_window
+ported	packages/effect/test/schema/Schema.test.ts	5798	it	BigDecimal	bigdecimal_reads_and_prints_decimal_text
+ported	packages/effect/test/schema/Schema.test.ts	5815	it	isGreaterThanBigDecimal	is_greater_than_bigdecimal_names_the_bound
+ported	packages/effect/test/schema/Schema.test.ts	5827	it	isGreaterThanOrEqualToBigDecimal	is_greater_than_or_equal_to_bigdecimal_admits_the_bound
+ported	packages/effect/test/schema/Schema.test.ts	5841	it	isLessThanBigDecimal	is_less_than_bigdecimal_names_the_bound
+ported	packages/effect/test/schema/Schema.test.ts	5853	it	isLessThanOrEqualToBigDecimal	is_less_than_or_equal_to_bigdecimal_admits_the_bound
+ported	packages/effect/test/schema/Schema.test.ts	5865	it	isBetweenBigDecimal	is_between_bigdecimal_admits_both_ends
 ported	packages/effect/test/schema/Schema.test.ts	5882	it	decoding: required & encoding: required & constructor: required	a_required_tag_is_required_everywhere
 ported	packages/effect/test/schema/Schema.test.ts	5899	it	decoding: required & encoding: required & constructor: optional	a_constructor_defaulted_tag_stays_required_on_the_wire
 ported	packages/effect/test/schema/Schema.test.ts	5917	it	decoding: default & encoding: omit & constructor: optional	a_defaulted_tag_is_filled_and_omitted

@@ -178,6 +178,47 @@ impl Schema<Unknown> {
     }
 }
 
+impl<T: Send + Sync + 'static> Schema<T> {
+    /// `check` on a schema whose value is not `Unknown`.
+    ///
+    /// The chain reads the value's wire form, which is the spelling a named
+    /// check is written against in the pin (`isGreaterThanBigDecimal(1)` reads
+    /// the decimal's text). Both directions run it, so a value the check
+    /// refuses has no wire form rather than one that violates the refinement on
+    /// the way out. A schema whose wire form drops information cannot be
+    /// checked this way; a lossless one (`convert` over its own printed form)
+    /// is what this is for.
+    pub fn filtered_with(schema: Schema<T>, filters: Vec<FilterSpec>) -> Self {
+        let kind = schema.repr_kind();
+        let chain = std::sync::Arc::new(filters);
+        let inner = std::sync::Arc::new(schema);
+        let decode_inner = inner.clone();
+        let encode_inner = inner.clone();
+        let decode_chain = chain.clone();
+        let encode_chain = chain;
+        Self::new(
+            move |unknown| {
+                let value = decode_inner.decode(unknown)?;
+                let wire = decode_inner.try_encode(&value)?;
+                let issues = run_filters(&decode_chain, &wire, false);
+                if !issues.is_empty() {
+                    return Err(issues_error(issues));
+                }
+                Ok(value)
+            },
+            move |value| {
+                let wire = encode_inner.try_encode(value)?;
+                let issues = run_filters(&encode_chain, &wire, false);
+                if !issues.is_empty() {
+                    return Err(issues_error(issues));
+                }
+                Ok(wire)
+            },
+            kind,
+        )
+    }
+}
+
 /// Run a chain in order, returning the issues it reports.
 fn run_filters(specs: &[FilterSpec], value: &Unknown, collect_all: bool) -> Vec<FilterIssue> {
     let mut issues = Vec::new();
@@ -239,6 +280,22 @@ mod tests {
             FilterOutcome::False.issues(&[]),
             vec![FilterIssue::new("Expected <filter>")]
         );
+    }
+
+    #[test]
+    fn a_value_check_reads_the_wire_and_refuses_the_encode_too() {
+        // A text wire stands in for the lossless printing a `convert` gives.
+        let base = Schema::<Unknown>::unknown();
+        let long = FilterSpec::new(|wire| match wire {
+            Unknown::Text(text) if text.chars().count() > 1 => FilterOutcome::Pass,
+            _ => FilterOutcome::Fail(FilterIssue::new("Expected a length > 1")),
+        });
+        let checked = Schema::<Unknown>::filtered_with(base, vec![long]);
+
+        assert!(checked.decode(Unknown::Text("aa".to_string())).is_ok());
+        assert!(checked.decode(Unknown::Text("a".to_string())).is_err());
+        assert!(checked.try_encode(&Unknown::Text("a".to_string())).is_err());
+        assert!(checked.try_encode(&Unknown::Text("aa".to_string())).is_ok());
     }
 
     #[test]

@@ -32,6 +32,11 @@ required-features = ["schema"]
 name = "schema_duration"
 required-features = ["schema"]
 
+# ByteSize and BigDecimal schemas: same gate, same reason.
+[[test]]
+name = "schema_data"
+required-features = ["schema"]
+
 # TxHashSet's set algebra is behind the stm feature, so its integration test
 # is too: without the gate cargo tries to build it feature-off, where
 # `TxHashSet` and `atomically` are not exported, and the whole crate's test
@@ -48,14 +53,13 @@ required-features = ["stm"]
 elm-effect-schema = { path = "../elm-effect-schema", optional = true }
 thiserror = "1"
 tokio = { version = "1", optional = true, features = ["rt", "rt-multi-thread", "sync", "time"] }
+# `bigdecimal` is part of the lib now (its schema is in `schema_data`), so the
+# bignum pair it needs cannot stay dev-only.
+num-bigint = "0.4"
+num-traits = "0.2"
 
-# These four are used only by test targets, which compile parts of the
-# source tree through `#[path]` includes (the `data/` and `cron/` modules
-# the port campaign parked). Declared as normal dependencies, cargo's
-# unused-dependency lint flags each for the lib target, which never uses
-# them.
+# Used only by test targets, which compile parts of the source tree through
+# `#[path]` includes (the `data/` and `cron/` modules the port campaign parked).
 [dev-dependencies]
 jiff = "0.2"
-num-bigint = "0.4"
 num-integer = "0.1"
-num-traits = "0.2"

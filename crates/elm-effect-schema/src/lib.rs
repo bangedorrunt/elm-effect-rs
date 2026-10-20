@@ -2110,6 +2110,47 @@ impl<T> Schema<T> {
         )
     }
 
+    /// `decodeTo`: `from`'s wire form, this schema's value type, and a pair
+    /// that may fail in either direction.
+    ///
+    /// [`convert`](Self::convert) is the total version of this, and the reason
+    /// this one exists: a transform whose encode can refuse (`ByteSizeFromNumber`
+    /// refusing a byte count with no safe-integer wire form) cannot use it.
+    /// `from` stays the wire side, so a failure on the way in is still reported
+    /// at the schema that refused the value.
+    ///
+    /// The value is cloned on the way out because a `Transformation` owns what
+    /// it is handed, while `try_encode` only lends its value.
+    pub fn decode_to<A>(
+        from: Schema<A>,
+        transformation: crate::transform::Transformation<A, T>,
+    ) -> Schema<T>
+    where
+        A: Send + Sync + 'static,
+        T: Clone + Send + Sync + 'static,
+    {
+        let kind = from.repr_kind();
+        let transformation = std::sync::Arc::new(transformation);
+        let decode_step = transformation.clone();
+        let encode_step = transformation;
+        let from = std::sync::Arc::new(from);
+        let decode_from = from.clone();
+        let encode_from = from;
+        Schema::new(
+            move |unknown| {
+                decode_from
+                    .decode(unknown)
+                    .and_then(|wire| decode_step.forward(wire))
+            },
+            move |value| {
+                encode_step
+                    .backward(value.clone())
+                    .and_then(|wire| encode_from.try_encode(&wire))
+            },
+            kind,
+        )
+    }
+
     /// Adapt a schema to a new type through a total isomorphism pair.
     pub fn convert<A, D, E>(schema: Schema<A>, decode: D, encode: E) -> Schema<T>
     where
