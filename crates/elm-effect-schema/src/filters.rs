@@ -149,6 +149,9 @@ impl Schema<Unknown> {
         let inner = Arc::new(base);
         let decode_inner = inner.clone();
         let encode_inner = inner.clone();
+        // Kept beside the chain so a derivation (`mapFields` with
+        // `unsafePreserveChecks`) can re-apply it to a rebuilt shape.
+        let recorded = filters.clone();
         let chain = Arc::new(filters);
         let decode_chain = chain.clone();
         let encode_chain = chain.clone();
@@ -191,6 +194,11 @@ impl Schema<Unknown> {
         out.tuple_elements = inner.tuple_elements.clone();
         out.union_members = inner.union_members.clone();
         out.class_meta = inner.class_meta.clone();
+        out.applied_filters = {
+            let mut chain = inner.applied_filters.clone();
+            chain.extend(recorded);
+            chain
+        };
         out
     }
 }
@@ -207,6 +215,7 @@ impl<T: Send + Sync + 'static> Schema<T> {
     /// lossless one (`convert` over its own printed form) is what this is for.
     pub fn filtered_with(schema: Schema<T>, filters: Vec<FilterSpec>) -> Self {
         let kind = schema.repr_kind();
+        let recorded = filters.clone();
         let chain = std::sync::Arc::new(filters);
         let inner = std::sync::Arc::new(schema);
         let decode_inner = inner.clone();
@@ -215,7 +224,7 @@ impl<T: Send + Sync + 'static> Schema<T> {
         let encode_chain = chain;
         let decode_view = inner.check_view.clone();
         let encode_view = inner.check_view.clone();
-        Self::new(
+        let mut out = Self::new(
             move |unknown| {
                 let value = decode_inner.decode(unknown)?;
                 let wire = decode_inner.try_encode(&value)?;
@@ -236,7 +245,23 @@ impl<T: Send + Sync + 'static> Schema<T> {
                 Ok(wire)
             },
             kind,
-        )
+        );
+        out.formatter = inner.formatter.clone();
+        // A refinement does not change the shape it refines, so the field list,
+        // the elements and the members all survive it, which is what makes a
+        // later derivation possible at all.
+        out.check_view = inner.check_view.clone();
+        out.struct_fields = inner.struct_fields.clone();
+        out.tuple_elements = inner.tuple_elements.clone();
+        out.union_members = inner.union_members.clone();
+        out.class_meta = inner.class_meta.clone();
+        out.record_key = inner.record_key.clone();
+        out.applied_filters = {
+            let mut chain = inner.applied_filters.clone();
+            chain.extend(recorded);
+            chain
+        };
+        out
     }
 }
 

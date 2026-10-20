@@ -227,6 +227,13 @@ pub struct Schema<T> {
         std::sync::Arc<Schema<Unknown>>,
         std::sync::Arc<Schema<Unknown>>,
     )>,
+    /// The `makeFilter` chain attached on top of this schema, kept so a
+    /// derivation can re-apply it: the pin's `mapFields(..., { unsafePreserveChecks:
+    /// true })` rebuilds the field list and keeps the source's checks, which is
+    /// only possible if the chain is still here to copy. Empty when the schema
+    /// carries no filter, and always empty for a schema whose checks were named
+    /// (`checked`), since that path has no re-application recipe.
+    applied_filters: Vec<crate::filters::FilterSpec>,
     /// Key-level annotations (`annotateKey`). The pin keeps these in the AST's
     /// `context` slot rather than on the node, so a schema has two annotation
     /// slots and only one of them is read by `resolve_annotations`.
@@ -1614,6 +1621,7 @@ impl<T> Schema<T> {
             array_element: None,
             option_value: None,
             result_sides: None,
+            applied_filters: Vec::new(),
             key_annotations: Vec::new(),
             class_meta: None,
             record_key: None,
@@ -2102,6 +2110,9 @@ impl<T> Schema<T> {
             struct_fields: schema.struct_fields.clone(),
             tuple_elements: schema.tuple_elements.clone(),
             union_members: schema.union_members.clone(),
+            // An annotation rides the codec, so a derivation over an annotated
+            // schema still re-applies the filters underneath it.
+            applied_filters: schema.applied_filters.clone(),
             // An annotation wraps the codec, so the key annotations underneath
             // must survive the wrapping or a field occurrence would lose them.
             key_annotations: schema.key_annotations.clone(),
@@ -4292,6 +4303,27 @@ impl Schema<BTreeMap<String, Unknown>> {
             .clone()
             .expect("mapFields needs a struct shape with declared fields");
         Self::struct_shape(transform(fields))
+    }
+
+    /// `mapFields` with `{ unsafePreserveChecks: true }`: the field list is
+    /// transformed and the source's filter chain is re-applied to the result.
+    /// The pin calls it unsafe because the check still speaks about the source's
+    /// fields, so a derivation that renames or drops a field the check reads
+    /// leaves a check that fails to find it.
+    pub fn map_fields_preserving_checks(
+        self,
+        transform: impl Fn(Vec<Field>) -> Vec<Field>,
+    ) -> Self {
+        let filters = self.applied_filters.clone();
+        let fields = self
+            .struct_fields
+            .clone()
+            .expect("mapFields needs a struct shape with declared fields");
+        let derived = Self::struct_shape(transform(fields));
+        if filters.is_empty() {
+            return derived;
+        }
+        Self::filtered_with(derived, filters)
     }
 
     /// Rename keys on the encoded side (`encodeKeys`): decoding accepts the

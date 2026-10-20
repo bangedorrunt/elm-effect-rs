@@ -1,7 +1,7 @@
 //! Schema core fence: decode unknown into typed values, encode back.
 //! Derives from packages/effect/test/schema/ rows (core shapes only).
 
-use elm_effect_schema::{Field, Schema, SchemaError, Unknown};
+use elm_effect_schema::{Field, FilterIssue, FilterOutcome, FilterSpec, Schema, SchemaError, Unknown};
 use std::collections::BTreeMap;
 
 fn text(s: &str) -> Unknown {
@@ -1037,6 +1037,53 @@ fn map_fields_assign_replaces_an_overlapping_field() {
         .expect_err("the replaced field decodes as a number now");
     assert!(error.to_string().contains("number"), "{error}");
     assert!(error.to_string().contains("b"), "{error}");
+}
+
+/// Schema.test.ts:980 — `mapFields(..., { unsafePreserveChecks: true })`: the
+/// derived field list is rebuilt and the source's filter still decides the
+/// value, so the new key is required while the equality rule keeps refusing a
+/// mismatched pair. Unsafe because the check still speaks about the source's
+/// fields, which is exactly what the pin means by the option's name.
+#[test]
+fn map_fields_can_carry_the_sources_filter() {
+    let equal = FilterSpec::new(|value| match value {
+        Unknown::Object(fields) => match (fields.get("a"), fields.get("b")) {
+            (Some(Unknown::Text(left)), Some(Unknown::Text(right))) if left == right => {
+                FilterOutcome::Pass
+            }
+            _ => FilterOutcome::Fail(FilterIssue::new("Expected a === b")),
+        },
+        _ => FilterOutcome::Fail(FilterIssue::new("Expected a === b")),
+    });
+    let from = Schema::filtered_with(two_field_struct(), vec![equal]);
+    let schema = from.clone().map_fields_preserving_checks(|mut fields| {
+        fields.push(Field::required("c", Schema::as_unknown(Schema::string())));
+        fields
+    });
+
+    let value = |a: &str, b: &str, c: &str| {
+        Unknown::Object(BTreeMap::from([
+            ("a".to_string(), text(a)),
+            ("b".to_string(), text(b)),
+            ("c".to_string(), text(c)),
+        ]))
+    };
+    assert!(schema.decode(value("a", "a", "c")).is_ok());
+
+    let error = schema
+        .decode(value("", "b", "c"))
+        .expect_err("the carried filter still compares a and b");
+    assert_eq!(error.to_string(), "Expected a === b at $");
+
+    // The derived key is real: dropping it is a missing key, not a pass.
+    let without_c = Unknown::Object(BTreeMap::from([
+        ("a".to_string(), text("a")),
+        ("b".to_string(), text("a")),
+    ]));
+    let missing = schema
+        .decode(without_c)
+        .expect_err("c is a required field now");
+    assert!(missing.to_string().contains("c"), "{missing}");
 }
 
 /// Schema.test.ts:1000 — `mapFields(Struct.pick(["a"]))`: a picked field list

@@ -7585,7 +7585,7 @@ ported	packages/effect/test/schema/Schema.test.ts	884	it	a	an_optional_transform
 ported	packages/effect/test/schema/Schema.test.ts	905	it	all	all_errors_reports_every_missing_field
 ported	packages/effect/test/schema/Schema.test.ts	942	it	Struct	map_fields_assign_joins_the_declared_fields
 ported	packages/effect/test/schema/Schema.test.ts	963	it	overlapping fields	map_fields_assign_replaces_an_overlapping_field
-unported	packages/effect/test/schema/Schema.test.ts	980	it	Struct & check & unsafePreserveChecks: true	
+ported	packages/effect/test/schema/Schema.test.ts	980	it	Struct & check & unsafePreserveChecks: true	map_fields_can_carry_the_sources_filter
 ported	packages/effect/test/schema/Schema.test.ts	1000	it	Struct	map_fields_pick_keeps_only_the_named_fields
 ported	packages/effect/test/schema/Schema.test.ts	1013	it	Struct	map_fields_omit_drops_the_named_field
 ported	packages/effect/test/schema/Schema.test.ts	1027	it	A required element cannot follow an optional element	tuple_refuses_a_required_element_after_an_optional_one
