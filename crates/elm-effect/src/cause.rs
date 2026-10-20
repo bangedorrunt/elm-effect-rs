@@ -37,32 +37,32 @@ impl Defect {
 /// One failure reason. A typed error, a defect, or an interruption: the three
 /// never share a constructor.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum Reason<E> {
+pub enum Reason<E, D = Defect> {
     /// An expected, typed error value.
     Fail(E),
     /// An unexpected defect. Never an `E`.
-    Die(Defect),
+    Die(D),
     /// The fiber was interrupted. Carries the interrupting fiber when known.
     Interrupt { fiber_id: Option<FiberId> },
 }
 
-impl<E> Reason<E> {
+impl<E, D> Reason<E, D> {
     /// Type identity string, mirroring `Cause.ReasonTypeId`.
     pub const REASON_TYPE_ID: &'static str = "~effect/Cause/Reason";
 }
 
 /// True for [`Reason::Fail`] reasons, mirroring `Cause.isFailReason`.
-pub fn is_fail_reason<E>(reason: &Reason<E>) -> bool {
+pub fn is_fail_reason<E, D>(reason: &Reason<E, D>) -> bool {
     matches!(reason, Reason::Fail(_))
 }
 
 /// True for [`Reason::Die`] reasons, mirroring `Cause.isDieReason`.
-pub fn is_die_reason<E>(reason: &Reason<E>) -> bool {
+pub fn is_die_reason<E, D>(reason: &Reason<E, D>) -> bool {
     matches!(reason, Reason::Die(_))
 }
 
 /// True for [`Reason::Interrupt`] reasons, mirroring `Cause.isInterruptReason`.
-pub fn is_interrupt_reason<E>(reason: &Reason<E>) -> bool {
+pub fn is_interrupt_reason<E, D>(reason: &Reason<E, D>) -> bool {
     matches!(reason, Reason::Interrupt { .. })
 }
 
@@ -70,11 +70,11 @@ pub fn is_interrupt_reason<E>(reason: &Reason<E>) -> bool {
 /// `Interrupt(7)`). Values render with `Debug`, which matches the tag's
 /// inspect for strings (quoted) and numbers (bare). An unknown interrupter
 /// renders as `undefined`: the tag's word for an absent value.
-impl<E: std::fmt::Debug> std::fmt::Display for Reason<E> {
+impl<E: std::fmt::Debug, D: std::fmt::Display> std::fmt::Display for Reason<E, D> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Reason::Fail(error) => write!(f, "Fail({error:?})"),
-            Reason::Die(defect) => write!(f, "Die({:?})", defect.message),
+            Reason::Die(defect) => write!(f, "Die(\"{defect}\")"),
             Reason::Interrupt { fiber_id } => match fiber_id {
                 Some(id) => write!(f, "Interrupt({})", id.0),
                 None => write!(f, "Interrupt(undefined)"),
@@ -85,9 +85,9 @@ impl<E: std::fmt::Debug> std::fmt::Display for Reason<E> {
 
 /// Why an effect failed: a vector of [`Reason`]. Ordinary data.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Cause<E> {
+pub struct Cause<E, D = Defect> {
     /// Every reason, in the order recorded. Empty means no failure recorded.
-    pub reasons: Vec<Reason<E>>,
+    pub reasons: Vec<Reason<E, D>>,
     /// Context annotations (`Cause.annotate`): string-keyed pairs.
     /// The tag keys these by service type; `std` has no such keys, so
     /// the key is the service name (last segment preserved verbatim).
@@ -96,7 +96,7 @@ pub struct Cause<E> {
 
 /// Tag-compatible rendering (`Cause([Fail("boom")])`); reasons join with
 /// `", "` like the tag's array rendering. Empty renders `Cause([])`.
-impl<E: std::fmt::Debug> std::fmt::Display for Cause<E> {
+impl<E: std::fmt::Debug, D: std::fmt::Display> std::fmt::Display for Cause<E, D> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "Cause([")?;
         for (i, reason) in self.reasons.iter().enumerate() {
@@ -109,6 +109,10 @@ impl<E: std::fmt::Debug> std::fmt::Display for Cause<E> {
     }
 }
 
+/// Constructors for the runtime's default defect type. They stay concrete so
+/// `Cause::fail(..)` and `Cause::empty()` keep inferring [`Defect`] with no
+/// annotation; the schema adapter, generic over its defect, builds through
+/// [`Cause::from_reasons`] instead.
 impl<E> Cause<E> {
     /// Type identity string, mirroring `Cause.TypeId`.
     pub const TYPE_ID: &'static str = "~effect/Cause";
@@ -165,7 +169,9 @@ impl<E> Cause<E> {
     pub fn append_defects(&mut self, defects: Vec<Defect>) {
         self.reasons.extend(defects.into_iter().map(Reason::Die));
     }
+}
 
+impl<E, D> Cause<E, D> {
     /// The first typed error, if any reason is a `Fail`.
     pub fn failure(&self) -> Option<&E> {
         self.reasons.iter().find_map(|r| match r {
@@ -175,7 +181,7 @@ impl<E> Cause<E> {
     }
 
     /// Every defect carried by this cause. Empty for pure typed failures.
-    pub fn defects(&self) -> Vec<&Defect> {
+    pub fn defects(&self) -> Vec<&D> {
         self.reasons
             .iter()
             .filter_map(|r| match r {
@@ -226,7 +232,7 @@ impl<E> Cause<E> {
 
     /// `Cause.findFail`: the first [`Reason::Fail`], or a unit failure when
     /// the cause holds none (the pin's `Result<T, void>`).
-    pub fn find_fail(&self) -> Option<&Reason<E>> {
+    pub fn find_fail(&self) -> Option<&Reason<E, D>> {
         self.reasons.iter().find(|r| is_fail_reason(r))
     }
 
@@ -242,17 +248,17 @@ impl<E> Cause<E> {
     }
 
     /// `Cause.findDie`: the first [`Reason::Die`].
-    pub fn find_die(&self) -> Option<&Reason<E>> {
+    pub fn find_die(&self) -> Option<&Reason<E, D>> {
         self.reasons.iter().find(|r| is_die_reason(r))
     }
 
     /// `Cause.findDefect`: the first defect value.
-    pub fn find_defect(&self) -> Option<&Defect> {
+    pub fn find_defect(&self) -> Option<&D> {
         self.defects().first().copied()
     }
 
     /// `Cause.findInterrupt`: the first [`Reason::Interrupt`].
-    pub fn find_interrupt(&self) -> Option<&Reason<E>> {
+    pub fn find_interrupt(&self) -> Option<&Reason<E, D>> {
         self.reasons.iter().find(|r| is_interrupt_reason(r))
     }
 
@@ -261,6 +267,7 @@ impl<E> Cause<E> {
     pub fn strip_dies_and_interrupts(&self) -> Self
     where
         E: Clone,
+        D: Clone,
     {
         Self {
             reasons: self
@@ -277,6 +284,7 @@ impl<E> Cause<E> {
     pub fn strip_failures_and_interrupts(&self) -> Self
     where
         E: Clone,
+        D: Clone,
     {
         Self {
             reasons: self
@@ -293,6 +301,7 @@ impl<E> Cause<E> {
     pub fn strip_failures_and_dies(&self) -> Self
     where
         E: Clone,
+        D: Clone,
     {
         Self {
             reasons: self
@@ -308,7 +317,7 @@ impl<E> Cause<E> {
 
 /// Annotation and mapping support (`Cause.annotate`, `Cause.map`):
 /// annotations are metadata, so narrowing keeps them.
-impl<E> Cause<E> {
+impl<E, D> Cause<E, D> {
     /// Attach a context annotation, replacing any earlier value for `key`.
     pub fn annotate(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
         let key = key.into();
@@ -329,7 +338,7 @@ impl<E> Cause<E> {
     }
 
     /// Map typed failures, preserving annotations and other reasons.
-    pub fn map<F, U>(self, f: F) -> Cause<U>
+    pub fn map<F, U>(self, f: F) -> Cause<U, D>
     where
         F: Fn(E) -> U,
     {
@@ -349,7 +358,7 @@ impl<E> Cause<E> {
 
     /// Build from an explicit reason list (`Cause.fromReasons`). An empty
     /// list is [`Cause::empty`], not a distinct state.
-    pub fn from_reasons(reasons: Vec<Reason<E>>) -> Self {
+    pub fn from_reasons(reasons: Vec<Reason<E, D>>) -> Self {
         Self {
             reasons,
             annotations: Vec::new(),
@@ -364,6 +373,7 @@ impl<E> Cause<E> {
     pub fn combine(self, other: Self) -> Self
     where
         E: PartialEq,
+        D: PartialEq,
     {
         let mut reasons = self.reasons;
         for reason in other.reasons {
@@ -404,9 +414,10 @@ impl<E> Cause<E> {
     /// `Cause.squash`: the reason a caller sees, in the pin's priority —
     /// first `Fail`, else first `Die`, else the interrupt-only or empty
     /// summary. Values are handed back by clone so the cause stays intact.
-    pub fn squash(&self) -> Squash<E>
+    pub fn squash(&self) -> Squash<E, D>
     where
         E: Clone,
+        D: Clone,
     {
         if let Some(e) = self.failure() {
             return Squash::Fail(e.clone());
@@ -429,11 +440,11 @@ impl<E> Cause<E> {
 /// cause"); the port carries them as distinct variants rather than `String`
 /// messages so a caller cannot confuse them with a defect.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum Squash<E> {
+pub enum Squash<E, D = Defect> {
     /// The first typed failure, by value.
     Fail(E),
     /// The first defect, by value.
-    Die(Defect),
+    Die(D),
     /// Interrupt-only cause: the pin's "All fibers interrupted without error".
     Interrupted,
     /// Empty cause: the pin's "Empty cause".
@@ -684,7 +695,7 @@ pub fn is_done<V: 'static>(value: Option<&dyn std::any::Any>) -> bool {
 }
 
 /// `Reason`'s own `_tag`, which the tag's reason objects carry as a field.
-impl<E> Reason<E> {
+impl<E, D> Reason<E, D> {
     /// `Fail`, `Die`, or `Interrupt`.
     pub fn tag(&self) -> &'static str {
         match self {
@@ -701,7 +712,7 @@ pub fn make_fail_reason<E>(error: E) -> Reason<E> {
 }
 
 /// `Cause.makeDieReason`.
-pub fn make_die_reason<E>(defect: Defect) -> Reason<E> {
+pub fn make_die_reason<E, D>(defect: D) -> Reason<E, D> {
     Reason::Die(defect)
 }
 
@@ -711,13 +722,14 @@ pub fn make_interrupt_reason<E>(fiber_id: Option<FiberId>) -> Reason<E> {
     Reason::Interrupt { fiber_id }
 }
 
-impl<E> Cause<E> {
+impl<E, D> Cause<E, D> {
     /// `Cause.filterInterruptors`: the interrupting fiber ids when this cause
     /// interrupts, else the cause itself. The failure value is the cause, which
     /// is what the tag puts in the error channel.
     pub fn filter_interruptors(&self) -> Result<Vec<FiberId>, Self>
     where
         E: Clone,
+        D: Clone,
     {
         if !self.is_interrupted() {
             return Err(self.clone());
@@ -738,6 +750,7 @@ impl<E> Cause<E> {
     pub fn pretty_errors(&self) -> Vec<Box<dyn std::error::Error + Send + Sync>>
     where
         E: std::fmt::Display + Send + Sync + 'static,
+        D: std::fmt::Display,
     {
         let mut errors: Vec<Box<dyn std::error::Error + Send + Sync>> = Vec::new();
         for reason in &self.reasons {
@@ -746,7 +759,7 @@ impl<E> Cause<E> {
                     errors.push(Box::new(PrettyError(format!("{error}"))));
                 }
                 Reason::Die(defect) => {
-                    errors.push(Box::new(PrettyError(defect.message.clone())));
+                    errors.push(Box::new(PrettyError(defect.to_string())));
                 }
                 Reason::Interrupt { fiber_id } => {
                     errors.push(Box::new(PrettyError(match fiber_id {
@@ -763,6 +776,7 @@ impl<E> Cause<E> {
     pub fn pretty(&self) -> String
     where
         E: std::fmt::Debug,
+        D: std::fmt::Display,
     {
         self.to_string()
     }

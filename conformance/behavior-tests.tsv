@@ -7707,7 +7707,7 @@ unported	packages/effect/test/schema/Schema.test.ts	3377	it	should expose the va
 not-applicable	packages/effect/test/schema/Schema.test.ts	3385	it	CauseReason(FiniteFromString, FiniteFromString)	the row's body asserts nothing at runtime beyond the optional arbitrary-generation check, and Schema.CauseReason does not exist on the Rust schema surface (this crate has no Cause model), so the schema in the row cannot be built
 unported	packages/effect/test/schema/Schema.test.ts	3396	it	strict encoding preserves the default wire format for every reason variant	
 unported	packages/effect/test/schema/Schema.test.ts	3412	it	should expose the values	
-unported	packages/effect/test/schema/Schema.test.ts	3420	it	Cause(FiniteFromString, FiniteFromString)	
+ported	packages/effect/test/schema/Schema.test.ts	3420	it	Cause(FiniteFromString, FiniteFromString)	cause_round_trips_through_the_two_schemas
 unported	packages/effect/test/schema/Schema.test.ts	3462	it	Error	
 unported	packages/effect/test/schema/Schema.test.ts	3501	it	should expose the values	
 unported	packages/effect/test/schema/Schema.test.ts	3511	it	Exit(FiniteFromString, String, Unknown)	

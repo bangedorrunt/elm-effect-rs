@@ -2298,6 +2298,28 @@ impl<T> Schema<T> {
             kind,
         )
     }
+
+    /// [`convert`](Self::convert) with a fallible encoding direction: the value
+    /// may be one the wire schema cannot represent (a NaN through a finite
+    /// codec, a reason tag no member names), so encoding reports why instead of
+    /// producing a wrong wire value.
+    pub fn try_convert<A, D, E>(schema: Schema<A>, decode: D, encode: E) -> Schema<T>
+    where
+        A: Send + Sync + 'static,
+        T: Send + Sync + 'static,
+        D: Fn(A) -> Result<T, SchemaError> + Send + Sync + 'static,
+        E: Fn(&T) -> Result<A, SchemaError> + Send + Sync + 'static,
+    {
+        let kind = schema.repr_kind();
+        let schema = Arc::new(schema);
+        let decode_schema = schema.clone();
+        let encode_schema = schema.clone();
+        Schema::new(
+            move |unknown| decode_schema.decode(unknown).and_then(&decode),
+            move |value| encode_schema.try_encode(&encode(value)?),
+            kind,
+        )
+    }
 }
 
 impl<T: Send + Sync + 'static> Schema<T> {
@@ -2521,7 +2543,10 @@ fn write_indent_into(out: &mut String, indent: &str, depth: usize) {
 
 impl SchemaError {
     /// Re-root an error path under a prefix (`$[0]` + `[1]` = `$[0][1]`).
-    fn at(self, prefix: &str) -> Self {
+    /// Re-root this error under `prefix`. Public because a caller that runs a
+    /// schema inside its own composite (a `Schema.Cause` adapter, say) has to
+    /// put the failure at the occurrence it knows about.
+    pub fn at(self, prefix: &str) -> Self {
         let rooted = |path: String| match path.strip_prefix('$') {
             Some(rest) => format!("{prefix}{rest}"),
             None => format!("{prefix}{path}"),

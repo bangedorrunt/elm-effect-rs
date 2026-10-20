@@ -439,7 +439,7 @@ fn has_interrupts_only_is_false_for_an_empty_cause() {
 
 #[test]
 fn has_interrupts_only_is_false_when_mixed() {
-    let mixed = Cause::from_reasons(vec![
+    let mixed = Cause::<String, elm_effect::cause::Defect>::from_reasons(vec![
         Reason::Interrupt {
             fiber_id: Some(elm_effect::FiberId(1)),
         },
@@ -450,7 +450,7 @@ fn has_interrupts_only_is_false_when_mixed() {
 
 #[test]
 fn squash_prefers_the_first_fail_even_after_interrupt_and_die() {
-    let cause = Cause::from_reasons(vec![
+    let cause = Cause::<String, elm_effect::cause::Defect>::from_reasons(vec![
         Reason::Interrupt {
             fiber_id: Some(elm_effect::FiberId(1)),
         },
@@ -497,7 +497,7 @@ fn squash_reports_an_empty_cause() {
 
 #[test]
 fn find_fail_returns_the_first_fail_reason() {
-    let cause = Cause::from_reasons(vec![
+    let cause = Cause::<String, elm_effect::cause::Defect>::from_reasons(vec![
         Reason::Interrupt {
             fiber_id: Some(elm_effect::FiberId(1)),
         },

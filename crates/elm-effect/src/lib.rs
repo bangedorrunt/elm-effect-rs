@@ -59,6 +59,9 @@ mod runtime;
 mod schedule;
 mod scheduler;
 #[cfg(feature = "schema")]
+#[cfg(feature = "schema")]
+mod schema_cause;
+#[cfg(feature = "schema")]
 mod schema_data;
 #[cfg(feature = "schema")]
 mod schema_duration;
@@ -127,6 +130,8 @@ pub use runtime::{
 pub use schedule::{
     LoopOptions, LoopPredicate, Random, RandomTag, Schedule, repeat, repeat_with, retry, retry_with,
 };
+#[cfg(feature = "schema")]
+pub use schema_cause::cause_schema;
 #[cfg(feature = "schema")]
 pub use schema_data::{
     bigdecimal, byte_size, byte_size_from_number, byte_size_from_string, is_between_bigdecimal,
