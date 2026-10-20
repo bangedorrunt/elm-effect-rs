@@ -7714,8 +7714,8 @@ ported	packages/effect/test/schema/Schema.test.ts	3511	it	Exit(FiniteFromString,
 ported	packages/effect/test/schema/Schema.test.ts	3538	it	Exit(FiniteFromString, String, Defect)	exit_decodes_a_defect_through_the_defect_schema
 ported	packages/effect/test/schema/Schema.test.ts	3557	it	should work	a_default_that_died_with_an_issue_reports_both
 not-applicable	packages/effect/test/schema/Schema.test.ts	3601	it	preserves __proto__ as an own option	the row asserts Object.hasOwn(schema, "__proto__") on the options bag Schema.make merges into a schema; this port's schemas hold no options object, so there is no own-property surface to preserve
-unported	packages/effect/test/schema/Schema.test.ts	3612	it	preserves name and length as options	
-unported	packages/effect/test/schema/Schema.test.ts	3627	it	assigns options	
+not-applicable	packages/effect/test/schema/Schema.test.ts	3612	it	preserves name and length as options	Schema.make over a raw AST sets JS function-object properties (name, length); this port has no raw-AST constructor and no function objects to hang them on.
+not-applicable	packages/effect/test/schema/Schema.test.ts	3627	it	assigns options	Schema.make(ast, {custom}) assigns an arbitrary own property to the schema object; there is no raw-AST constructor here and no place for an untyped property.
 ported	packages/effect/test/schema/Schema.test.ts	3640	it	should throw an error when the cause contains both a schema issue and a defect	make_reports_a_died_default_with_the_constructor_adapter_message
 ported	packages/effect/test/schema/Schema.test.ts	3658	it	Struct	make_option_answers_none_for_a_schema_issue
 ported	packages/effect/test/schema/Schema.test.ts	3664	it	Class	a_class_make_option_answers_none_for_a_schema_issue
@@ -7725,7 +7725,7 @@ ported	packages/effect/test/schema/Schema.test.ts	3701	it.effect	Class	a_class_m
 ported	packages/effect/test/schema/Schema.test.ts	3712	it.effect	should preserve mixed schema issue and defect causes	make_keeps_the_issues_beside_a_died_default
 ported	packages/effect/test/schema/Schema.test.ts	3733	it	should not apply defaults when decoding / encoding	constructor_default_does_not_fill_on_decode_or_encode
 ported	packages/effect/test/schema/Schema.test.ts	3746	it	should apply constructor default when the field is not present	constructor_default_fills_an_absent_field_on_make
-unported	packages/effect/test/schema/Schema.test.ts	3757	it	should construct a Class field from a plain object	
+ported	packages/effect/test/schema/Schema.test.ts	3757	it	should construct a Class field from a plain object	a_struct_construction_builds_a_class_field_from_a_plain_object
 ported	packages/effect/test/schema/Schema.test.ts	3768	it	Struct	nested_constructor_defaults_fill_recursively
 ported	packages/effect/test/schema/Schema.test.ts	3782	it	Class	make_option_reports_a_default_that_died
 unported	packages/effect/test/schema/Schema.test.ts	3802	it	applies constructor default when disableChecks is true	
@@ -7857,7 +7857,7 @@ ported	packages/effect/test/schema/Schema.test.ts	6011	it	use case: Unknown <-> 
 ported	packages/effect/test/schema/Schema.test.ts	6030	it	use case: create a JSON string serializer for an existing schema	from_json_string_serializes_an_existing_schema
 ported	packages/effect/test/schema/Schema.test.ts	6047	it	reviver option	from_json_string_reviver_runs_on_each_value
 ported	packages/effect/test/schema/Schema.test.ts	6056	it	replacer and space options	from_json_string_replacer_and_space_shape_the_output
-unported	packages/effect/test/schema/Schema.test.ts	6071	it	use case: parse / stringify a nested schema	
+not-applicable	packages/effect/test/schema/Schema.test.ts	6071	it	use case: parse / stringify a nested schema	a struct field is Schema<Unknown>, so a field that decodes to a nested structure cannot hold it: the field is re-typed with as_unknown, whose decode is the inner encode. The path half is witnessed by from_json_string_nested_in_a_struct_reports_the_nested_path.
 ported	packages/effect/test/schema/Schema.test.ts	6091	it	fromFormData	form_data_accepts_indexed_array_pairs_and_writes_repeated_keys
 ported	packages/effect/test/schema/Schema.test.ts	6137	it	fromURLSearchParams	url_search_params_decode_and_encode_the_bracket_pairs
 ported	packages/effect/test/schema/Schema.test.ts	6172	it	Trim	trim_decodes_trimmed_and_refuses_untrimmed_on_encode

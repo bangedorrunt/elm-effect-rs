@@ -647,3 +647,43 @@ fn a_class_field_can_be_marked_mutable() {
     // unchanged rather than rebuilding it.
     assert_eq!(schema.make_instance(&built).unwrap(), built);
 }
+
+#[test]
+fn a_struct_construction_builds_a_class_field_from_a_plain_object() {
+    // :3757 "should construct a Class field from a plain object": the field's
+    // schema is the class, so a plain object goes through the class's own
+    // construction, and the constructor default is a class instance.
+    //
+    // The pin checks `result.a instanceof A`; a struct field here is an
+    // `Unknown`, so the instance is read back by decoding the field through the
+    // class, which is how :7006's nested-class row is witnessed too.
+    let a = class("A", vec![("a", string_field())]);
+    let default_a = a.make(object(vec![("a", text("default"))])).unwrap();
+    let field_schema = Schema::as_unknown(a.clone().with_constructor_default({
+        let wire = default_a.to_unknown();
+        move || Ok(wire.clone())
+    }));
+    let schema = Schema::as_unknown(Schema::struct_shape(vec![Field::required(
+        "a",
+        field_schema,
+    )]));
+
+    let built = schema
+        .construct(object(vec![("a", object(vec![("a", text("a"))]))]))
+        .unwrap();
+    let field = match &built {
+        Unknown::Object(fields) => fields.get("a").cloned().expect("the class field"),
+        other => panic!("a struct construction answers an object, got {other:?}"),
+    };
+    let instance = a.decode(field).unwrap();
+    assert!(instance.is_instance_of("A"));
+    assert_eq!(instance.get("a"), Some(&text("a")));
+
+    // An absent field takes the default, which is itself an instance.
+    let defaulted = schema.construct(object(vec![])).unwrap();
+    let field = match &defaulted {
+        Unknown::Object(fields) => fields.get("a").cloned().expect("the defaulted field"),
+        other => panic!("a struct construction answers an object, got {other:?}"),
+    };
+    assert_eq!(a.decode(field).unwrap(), default_a);
+}
