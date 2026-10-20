@@ -7722,7 +7722,7 @@ unported	packages/effect/test/schema/Schema.test.ts	3664	it	Class
 ported	packages/effect/test/schema/Schema.test.ts	3670	it	should throw an error when the cause is not a schema issue	make_option_refuses_a_died_default_instead_of_answering_none
 unported	packages/effect/test/schema/Schema.test.ts	3690	it.effect	Struct	
 unported	packages/effect/test/schema/Schema.test.ts	3701	it.effect	Class	
-unported	packages/effect/test/schema/Schema.test.ts	3712	it.effect	should preserve mixed schema issue and defect causes	
+ported	packages/effect/test/schema/Schema.test.ts	3712	it.effect	should preserve mixed schema issue and defect causes	make_keeps_the_issues_beside_a_died_default
 ported	packages/effect/test/schema/Schema.test.ts	3733	it	should not apply defaults when decoding / encoding	constructor_default_does_not_fill_on_decode_or_encode
 ported	packages/effect/test/schema/Schema.test.ts	3746	it	should apply constructor default when the field is not present	constructor_default_fills_an_absent_field_on_make
 unported	packages/effect/test/schema/Schema.test.ts	3757	it	should construct a Class field from a plain object	
@@ -7990,19 +7990,19 @@ unported	packages/effect/test/schema/Schema.test.ts	8346	it	with context
 ported	packages/effect/test/schema/Schema.test.ts	8377	it	FiniteFromString	ffs_decodes_plain_numbers
 ported	packages/effect/test/schema/Schema.test.ts	8386	it	FiniteFromString	ffs_rejects_non_numeric_text
 ported	packages/effect/test/schema/Schema.test.ts	8403	it	FiniteFromString	ffs_rejects_non_text
-unported	packages/effect/test/schema/Schema.test.ts	8435	it	should reject with an error when the cause contains both a schema issue and a defect	
+ported	packages/effect/test/schema/Schema.test.ts	8435	it	should reject with an error when the cause contains both a schema issue and a defect	the_promise_adapter_refuses_a_mixed_cause
 ported	packages/effect/test/schema/Schema.test.ts	8464	it	FiniteFromString	ffs_encodes_numbers_to_text
-unported	packages/effect/test/schema/Schema.test.ts	8482	it	should throw an error when the cause is not a schema issue	
-unported	packages/effect/test/schema/Schema.test.ts	8504	it	should throw an error when the cause contains both a schema issue and a defect	
+ported	packages/effect/test/schema/Schema.test.ts	8482	it	should throw an error when the cause is not a schema issue	the_option_adapter_refuses_a_bare_defect
+ported	packages/effect/test/schema/Schema.test.ts	8504	it	should throw an error when the cause contains both a schema issue and a defect	the_option_adapter_refuses_a_mixed_cause
 ported	packages/effect/test/schema/Schema.test.ts	8532	it	FiniteFromString	ffs_round_trips
-unported	packages/effect/test/schema/Schema.test.ts	8566	it	should throw an error when the cause contains both a schema issue and a defect	
+ported	packages/effect/test/schema/Schema.test.ts	8566	it	should throw an error when the cause contains both a schema issue and a defect	the_result_adapter_refuses_a_mixed_cause
 ported	packages/effect/test/schema/Schema.test.ts	8594	it	FiniteFromString	ffs_round_trips
-unported	packages/effect/test/schema/Schema.test.ts	8619	it	should throw an error when the cause contains both a schema issue and a defect	
+ported	packages/effect/test/schema/Schema.test.ts	8619	it	should throw an error when the cause contains both a schema issue and a defect	the_sync_adapter_refuses_a_mixed_cause
 unported	packages/effect/test/schema/Schema.test.ts	8647	it	should throw on async decoding	
 unported	packages/effect/test/schema/Schema.test.ts	8662	it	should throw on missing dependency	
 unported	packages/effect/test/schema/Schema.test.ts	8680	it	should die on async decoding	
 unported	packages/effect/test/schema/Schema.test.ts	8696	it	should die on missing dependency	
-unported	packages/effect/test/schema/Schema.test.ts	8714	it	should preserve mixed schema issue and defect causes	
+ported	packages/effect/test/schema/Schema.test.ts	8714	it	should preserve mixed schema issue and defect causes	an_exit_keeps_a_mixed_cause_whole
 ported	packages/effect/test/schema/Schema.test.ts	8746	it	Struct	a_missing_key_reports_the_message_its_key_schema_annotated
 ported	packages/effect/test/schema/Schema.test.ts	8760	it	Tuple	tuple_checks_length_and_order
 unported	packages/effect/test/schema/Schema.test.ts	8777	it	non-transforming schema	

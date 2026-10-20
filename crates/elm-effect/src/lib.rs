@@ -59,6 +59,8 @@ mod runtime;
 mod schedule;
 mod scheduler;
 #[cfg(feature = "schema")]
+mod schema_adapter;
+#[cfg(feature = "schema")]
 mod schema_cause;
 #[cfg(feature = "schema")]
 mod schema_data;
@@ -132,6 +134,10 @@ pub use runtime::{
 };
 pub use schedule::{
     LoopOptions, LoopPredicate, Random, RandomTag, Schedule, repeat, repeat_with, retry, retry_with,
+};
+#[cfg(feature = "schema")]
+pub use schema_adapter::{
+    AdapterFailure, AdapterRefusal, OPTION_MESSAGE, PROMISE_MESSAGE, RESULT_MESSAGE, SYNC_MESSAGE,
 };
 #[cfg(feature = "schema")]
 pub use schema_cause::cause_schema;

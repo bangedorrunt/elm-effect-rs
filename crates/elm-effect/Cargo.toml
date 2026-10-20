@@ -26,6 +26,10 @@ required-features = ["stm"]
 name = "schema_facade"
 required-features = ["schema"]
 
+[[test]]
+name = "schema_adapters"
+required-features = ["schema"]
+
 # The Duration schemas adapt this crate's own `Duration`, so their fence needs
 # the feature that brings the schema crate in.
 [[test]]

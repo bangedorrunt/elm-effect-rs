@@ -74,7 +74,9 @@ fn make_reports_a_died_default_with_the_constructor_adapter_message() {
     let error = schema.make(map(&[])).unwrap_err();
     assert_eq!(error.to_string(), CONSTRUCTOR_DIE);
     match &error {
-        AdapterError::Die { message, defect } => {
+        AdapterError::Die {
+            message, defect, ..
+        } => {
             assert_eq!(*message, CONSTRUCTOR_DIE);
             assert_eq!(defect, &text("defect"));
         }
@@ -97,6 +99,55 @@ fn make_reports_a_died_default_with_the_constructor_adapter_message() {
     assert!(schema.decode(obj(&[])).is_err());
 }
 
+/// Schema.test.ts:3712 — "should preserve mixed schema issue and defect
+/// causes" (`makeEffect`): the exit the pin hands back has the defect *and* the
+/// issue beside it, so `Cause.findError` still finds the issue. This port's
+/// `make` is that adapter one hop earlier, and the refusal keeps the issues.
+#[test]
+fn make_keeps_the_issues_beside_a_died_default() {
+    let mixed = ConstructError::Die {
+        defect: text("defect"),
+        issues: vec![SchemaError::DefaultFailed {
+            path: "$".to_string(),
+            message: "schema issue".to_string(),
+        }],
+    };
+    let schema = defaulted_struct(mixed);
+
+    let error = schema.make(map(&[])).unwrap_err();
+    assert_eq!(error.to_string(), CONSTRUCTOR_DIE);
+    match &error {
+        AdapterError::Die {
+            message,
+            defect,
+            issues,
+        } => {
+            assert_eq!(*message, CONSTRUCTOR_DIE);
+            assert_eq!(defect, &text("defect"));
+            assert_eq!(issues.len(), 1, "the issue that rode beside the defect");
+            assert_eq!(issues[0].to_string(), "schema issue at $.a");
+        }
+        other => panic!("the adapter must not report a die as an issue: {other:?}"),
+    }
+    // The pin's `Cause.findError(error.cause)`.
+    assert_eq!(
+        error.issue().map(ToString::to_string),
+        Some("schema issue at $.a".to_string())
+    );
+
+    // The control: an issue-only failure keeps answering as that issue.
+    let pure = defaulted_struct(ConstructError::Issue(SchemaError::DefaultFailed {
+        path: "$".to_string(),
+        message: "schema issue".to_string(),
+    }));
+    let plain = pure.make(map(&[])).unwrap_err();
+    assert!(matches!(plain, AdapterError::Issue(_)));
+    assert_eq!(
+        plain.issue().map(ToString::to_string),
+        Some("schema issue at $.a".to_string())
+    );
+}
+
 /// Schema.test.ts:3670 — "should throw an error when the cause is not a schema
 /// issue": `makeOption` may only answer `None` for schema issues, so a died
 /// default is thrown for both the struct and the class over it.
@@ -107,7 +158,9 @@ fn make_option_refuses_a_died_default_instead_of_answering_none() {
     let error = schema.make_option(obj(&[])).unwrap_err();
     assert_eq!(error.to_string(), OPTION_DIE);
     match &error {
-        AdapterError::Die { message, defect } => {
+        AdapterError::Die {
+            message, defect, ..
+        } => {
             assert_eq!(*message, OPTION_DIE);
             assert_eq!(defect, &text("make defect"));
         }

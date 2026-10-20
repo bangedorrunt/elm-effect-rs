@@ -247,6 +247,35 @@ impl<E, D> Cause<E, D> {
         self.failure()
     }
 
+    /// The one typed error this cause carries, when it carries exactly that
+    /// and nothing else. A defect, a defect beside the error, a second reason
+    /// or an interruption means the cause is more than an error, and the cause
+    /// comes back so the caller can say what it refused.
+    ///
+    /// This is what a carrier that can only speak about a schema issue (option,
+    /// result, a throw) needs: anything else has no meaning there.
+    pub fn into_single_error(self) -> Result<E, Self> {
+        let Cause {
+            reasons,
+            annotations,
+        } = self;
+        let mut reasons = reasons;
+        match (reasons.len(), reasons.pop()) {
+            (1, Some(Reason::Fail(error))) => Ok(error),
+            (_, Some(reason)) => {
+                reasons.push(reason);
+                Err(Cause {
+                    reasons,
+                    annotations,
+                })
+            }
+            (_, None) => Err(Cause {
+                reasons,
+                annotations,
+            }),
+        }
+    }
+
     /// `Cause.findDie`: the first [`Reason::Die`].
     pub fn find_die(&self) -> Option<&Reason<E, D>> {
         self.reasons.iter().find(|r| is_die_reason(r))

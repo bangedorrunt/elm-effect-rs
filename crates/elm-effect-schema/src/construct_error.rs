@@ -116,24 +116,39 @@ pub const OPTION_DIE: &str = "Option adapter can only return none for schema iss
 pub enum AdapterError {
     /// The input failed as a schema issue.
     Issue(SchemaError),
-    /// A constructor default died. `message` is the adapter's wording and
-    /// `defect` is what the default died with.
+    /// A constructor default died. `message` is the adapter's wording,
+    /// `defect` is what the default died with, and `issues` is what rode beside
+    /// the defect in the same cause: the adapter cannot report those, but it
+    /// hands them back so a caller inspecting the failure still sees them.
     Die {
         /// The adapter's contract message.
         message: &'static str,
         /// What the default died with.
         defect: Unknown,
+        /// Issues from the same combined cause, kept as they were.
+        issues: Vec<SchemaError>,
     },
 }
 
 impl AdapterError {
+    /// The issue a refusal carried beside its defect, if the whole cause had
+    /// one: the pin's `Cause.findError(error.cause)` on the thrown adapter
+    /// error, which is how a caller recovers the schema issue.
+    pub fn issue(&self) -> Option<&SchemaError> {
+        match self {
+            Self::Issue(error) => Some(error),
+            Self::Die { issues, .. } => issues.first(),
+        }
+    }
+
     /// Report a construction failure the way an adapter must.
     pub fn report(error: ConstructError, die_message: &'static str) -> Self {
         match error {
             ConstructError::Issue(issue) => Self::Issue(issue),
-            ConstructError::Die { defect, .. } => Self::Die {
+            ConstructError::Die { defect, issues } => Self::Die {
                 message: die_message,
                 defect,
+                issues,
             },
         }
     }
@@ -151,10 +166,7 @@ impl From<AdapterError> for ConstructError {
     fn from(error: AdapterError) -> Self {
         match error {
             AdapterError::Issue(issue) => Self::Issue(issue),
-            AdapterError::Die { defect, .. } => Self::Die {
-                defect,
-                issues: Vec::new(),
-            },
+            AdapterError::Die { defect, issues, .. } => Self::Die { defect, issues },
         }
     }
 }
@@ -172,7 +184,9 @@ impl std::error::Error for AdapterError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
             Self::Issue(error) => Some(error as &(dyn std::error::Error + 'static)),
-            Self::Die { .. } => None,
+            Self::Die { issues, .. } => issues
+                .first()
+                .map(|issue| issue as &(dyn std::error::Error + 'static)),
         }
     }
 }
