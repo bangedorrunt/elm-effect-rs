@@ -7903,11 +7903,11 @@ ported	packages/effect/test/schema/Schema.test.ts	6783	it	<	parser_nested_parser
 ported	packages/effect/test/schema/Schema.test.ts	6802	it.effect	make preserves existing instances like the other constructor adapters	make_answers_an_existing_instance_unchanged
 ported	packages/effect/test/schema/Schema.test.ts	6820	it	make applies defaults, source checks, and the constructor once	make_fills_constructor_defaults_on_construction
 ported	packages/effect/test/schema/Schema.test.ts	6846	it	make with void input	make_with_void_input_builds_a_zero_field_class
-unported	packages/effect/test/schema/Schema.test.ts	6853	it	decoding validates the class struct once	
-unported	packages/effect/test/schema/Schema.test.ts	6869	it	make validates an existing nested Class once	
-unported	packages/effect/test/schema/Schema.test.ts	6884	it	make validates a nested Class source and output once	
+ported	packages/effect/test/schema/Schema.test.ts	6853	it	decoding validates the class struct once	a_class_over_a_checked_source_validates_it_once
+not-applicable	packages/effect/test/schema/Schema.test.ts	6869	it	make validates an existing nested Class once	a decoded struct or union value is JSON here (BTreeMap<String, Unknown>), so a class instance cannot live inside one; the row asserts instance identity through a nested value
+not-applicable	packages/effect/test/schema/Schema.test.ts	6884	it	make validates a nested Class source and output once	a decoded struct or union value is JSON here (BTreeMap<String, Unknown>), so a class instance cannot live inside one; the row asserts instance identity through a nested value
 ported	packages/effect/test/schema/Schema.test.ts	6905	it	make allows an optional nested Class to be omitted	an_optional_nested_class_may_be_omitted_from_a_construction
-unported	packages/effect/test/schema/Schema.test.ts	6912	it	make applies constructor defaults only at a field occurrence	
+ported	packages/effect/test/schema/Schema.test.ts	6912	it	make applies constructor defaults only at a field occurrence	a_constructor_default_runs_only_at_a_field_occurrence
 ported	packages/effect/test/schema/Schema.test.ts	6932	it	suspend before initialization	suspend_reads_late_initialized_binding
 unported	packages/effect/test/schema/Schema.test.ts	6946	it	should memoize the ast	
 ported	packages/effect/test/schema/Schema.test.ts	6953	it	should set the identifier annotation	a_class_exposes_its_fields_and_identifier_and_round_trips
@@ -7917,8 +7917,8 @@ unported	packages/effect/test/schema/Schema.test.ts	6998	it	mapFields
 ported	packages/effect/test/schema/Schema.test.ts	7006	it	Struct with nested Class	a_nested_class_field_constructs_its_own_instance
 ported	packages/effect/test/schema/Schema.test.ts	7020	it	Class with nested Class	a_nested_class_field_constructs_its_own_instance
 unported	packages/effect/test/schema/Schema.test.ts	7035	it	make preserves Class instances in Array(Class) and Array(Union(Class))	
-unported	packages/effect/test/schema/Schema.test.ts	7047	it	make constructs nested Class instances with and without Union	
-unported	packages/effect/test/schema/Schema.test.ts	7056	it	make selects the first TaggedClass Union member when the tag is defaulted	
+not-applicable	packages/effect/test/schema/Schema.test.ts	7047	it	make constructs nested Class instances with and without Union	a decoded struct or union value is JSON here (BTreeMap<String, Unknown>), so a class instance cannot live inside one; the row asserts instance identity through a nested value
+not-applicable	packages/effect/test/schema/Schema.test.ts	7056	it	make selects the first TaggedClass Union member when the tag is defaulted	a decoded struct or union value is JSON here (BTreeMap<String, Unknown>), so a class instance cannot live inside one; the row asserts instance identity through a nested value
 unported	packages/effect/test/schema/Schema.test.ts	7064	it	should be possible to define a class with a mutable field	
 ported	packages/effect/test/schema/Schema.test.ts	7083	it	Fields argument	a_class_exposes_its_fields_and_identifier_and_round_trips
 ported	packages/effect/test/schema/Schema.test.ts	7139	it	Struct argument	a_class_exposes_its_fields_and_identifier_and_round_trips

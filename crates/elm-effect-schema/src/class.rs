@@ -195,15 +195,38 @@ fn own(fields: Vec<(&str, Schema<Unknown>)>) -> Vec<(String, Schema<Unknown>)> {
         .collect()
 }
 
+/// `Schema.Class<E>("E")(source)`: a class whose source is an existing schema,
+/// so the source's checks and annotations are the class's own. The declared
+/// fields are the source's, which is what its excess policy and its field list
+/// read; a source with no declared field list contributes none.
+///
+/// This is the spelling the pin uses when a class wraps a refined struct, and
+/// the reason it exists: `Class("A")(Struct({...}).check(f))` must run `f` once
+/// on decode, which a field list rebuilt from scratch could not do.
+pub fn class_from(identifier: &str, source: Schema<Unknown>) -> Schema<ClassValue> {
+    let fields = source
+        .fields()
+        .map(|fields| {
+            fields
+                .iter()
+                .map(|field| (field.name().to_string(), field.inner().clone()))
+                .collect()
+        })
+        .unwrap_or_default();
+    build_with(
+        ClassMeta {
+            identifier: identifier.to_string(),
+            tag: None,
+            excess: ExcessProperty::Ignore,
+            fields,
+        },
+        source,
+    )
+}
+
 /// The one place a class schema is assembled: the source struct is the codec,
 /// and the class adds its identity, its discriminant and its excess policy.
 fn build(meta: ClassMeta) -> Schema<ClassValue> {
-    let declared = meta.declared();
-    let identifier = meta.identifier.clone();
-    // Kept beside the moved copies for the annotation below.
-    let annotated_identifier = identifier.clone();
-    let tag = meta.tag.clone();
-    let excess = meta.excess;
     // The source is a declared field list (`struct_shape`), not a `struct_of`
     // map: a class field is an occurrence with a name and an optionality, and
     // that is what carries a constructor default and names a failing path.
@@ -213,6 +236,18 @@ fn build(meta: ClassMeta) -> Schema<ClassValue> {
             .map(|(name, schema)| Field::required(name, schema.clone()))
             .collect(),
     ));
+    build_with(meta, source)
+}
+
+/// The assembly both constructors share: a class around an already-built
+/// source schema.
+fn build_with(meta: ClassMeta, source: Schema<Unknown>) -> Schema<ClassValue> {
+    let declared = meta.declared();
+    let identifier = meta.identifier.clone();
+    // Kept beside the moved copies for the annotation below.
+    let annotated_identifier = identifier.clone();
+    let tag = meta.tag.clone();
+    let excess = meta.excess;
 
     let decode_source = source.clone();
     let decode_declared = declared.clone();

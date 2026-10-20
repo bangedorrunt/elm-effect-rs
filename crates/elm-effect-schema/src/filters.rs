@@ -174,6 +174,13 @@ impl Schema<Unknown> {
         );
         out.formatter = inner.formatter.clone();
         out.wrapped = None;
+        // A refinement does not change the shape it refines. Without this the
+        // field list under a check is invisible, and a class built from a
+        // checked struct would declare no fields at all.
+        out.struct_fields = inner.struct_fields.clone();
+        out.tuple_elements = inner.tuple_elements.clone();
+        out.union_members = inner.union_members.clone();
+        out.class_meta = inner.class_meta.clone();
         out
     }
 }

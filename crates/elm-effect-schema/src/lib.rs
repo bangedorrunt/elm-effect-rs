@@ -1788,6 +1788,16 @@ impl<T> Schema<T> {
         }
     }
 
+    /// `makeOption`: construction as an `Option`, `None` when it would fail.
+    ///
+    /// A constructor default still only fills at a field occurrence, so asking
+    /// a defaulted schema to make an absent value answers `None` instead of
+    /// running the default. That is the pin's rule and the reason this is not
+    /// `construct` with a default fallback.
+    pub fn make_option(&self, unknown: Unknown) -> Option<T> {
+        self.construct(unknown).ok()
+    }
+
     /// Decode JSON text through the unknown representation.
     pub fn decode_json(&self, json: &str) -> Result<T, SchemaError> {
         let value: serde_json::Value =
@@ -7293,6 +7303,13 @@ impl Schema<Unknown> {
         // A refinement of a transform reads what the transform produced too, so
         // a second check stacked on the first still sees the number.
         out.check_view = base_view;
+        // The same rule for the shape: a check on a struct still has that
+        // struct's fields, which is what a class built from the checked source
+        // declares and what a derivation reads.
+        out.struct_fields = inner.struct_fields.clone();
+        out.tuple_elements = inner.tuple_elements.clone();
+        out.union_members = inner.union_members.clone();
+        out.class_meta = inner.class_meta.clone();
         out
     }
 
