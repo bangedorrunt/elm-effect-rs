@@ -7534,7 +7534,7 @@ unported	packages/effect/test/schema/Schema.test.ts	94	it	toString
 unported	packages/effect/test/schema/Schema.test.ts	102	it	extends Error and exposes the issue	
 unported	packages/effect/test/schema/Schema.test.ts	117	it	does not capture stack frames	
 ported	packages/effect/test/schema/Schema.test.ts	131	it	does not interpret custom parseOptions metadata	custom_metadata_is_not_interpreted
-unported	packages/effect/test/schema/Schema.test.ts	144	it	applies errors to nested schemas without annotation overrides	
+ported	packages/effect/test/schema/Schema.test.ts	144	it	applies errors to nested schemas without annotation overrides	a_nested_annotation_does_not_narrow_collection
 unported	packages/effect/test/schema/Schema.test.ts	164	it	applies errors with encoding checks	
 unported	packages/effect/test/schema/Schema.test.ts	187	it	decoders can receive options when they are created	
 unported	packages/effect/test/schema/Schema.test.ts	202	it	encoders can receive options when they are created	
@@ -7582,7 +7582,7 @@ unported	packages/effect/test/schema/Schema.test.ts	813	it	should use the identi
 unported	packages/effect/test/schema/Schema.test.ts	823	it	a	
 unported	packages/effect/test/schema/Schema.test.ts	852	it	a	
 unported	packages/effect/test/schema/Schema.test.ts	884	it	a	
-unported	packages/effect/test/schema/Schema.test.ts	905	it	all	
+ported	packages/effect/test/schema/Schema.test.ts	905	it	all	all_errors_reports_every_missing_field
 ported	packages/effect/test/schema/Schema.test.ts	942	it	Struct	map_fields_assign_joins_the_declared_fields
 ported	packages/effect/test/schema/Schema.test.ts	963	it	overlapping fields	map_fields_assign_replaces_an_overlapping_field
 unported	packages/effect/test/schema/Schema.test.ts	980	it	Struct & check & unsafePreserveChecks: true	

@@ -1,9 +1,10 @@
 //! Slice 4: options/eagerness semantics.
 //! Binds Schema.test.ts:131 (`does not interpret custom parseOptions
-//! metadata`), :5882/:5899/:5917 (the three `tag` optionality rows) and :5945
-//! (`tagDefaultOmit`). The other two tests here are port-local: their pin rows
-//! (:59 eagerness, :735 `__proto__`) assert JavaScript surfaces this port does
-//! not have, and the ledger carries the reason rather than a witness.
+//! metadata`), :905 (`{ errors: "all" }`), :5882/:5899/:5917 (the three `tag`
+//! optionality rows) and :5945 (`tagDefaultOmit`). The other two tests here are
+//! port-local: their pin rows (:59 eagerness, :735 `__proto__`) assert
+//! JavaScript surfaces this port does not have, and the ledger carries the
+//! reason rather than a witness.
 
 use elm_effect_schema::{Field, Schema, Unknown};
 use std::collections::BTreeMap;
@@ -55,6 +56,102 @@ fn custom_metadata_is_not_interpreted() {
     // A non-integer inside the bound still fails, so the annotation did not
     // relax the second check either.
     assert!(annotated.decode(Unknown::Number(1.5)).is_err());
+}
+
+/// Schema.test.ts:905 `{ errors: "all" }`. A struct with two required fields,
+/// asked to take `{}`, reports both misses on all three axes: construction,
+/// decoding and encoding. The fail-fast entry points name only the first, so
+/// the count is what proves the walk kept going.
+#[test]
+fn all_errors_reports_every_missing_field() {
+    let schema = Schema::struct_shape(vec![
+        Field::required("a", Schema::as_unknown(Schema::string())),
+        Field::required("b", Schema::as_unknown(Schema::number())),
+    ]);
+    let empty = obj(vec![]);
+    let no_value = BTreeMap::new();
+
+    let made = schema.construct_collect(empty.clone()).unwrap_err();
+    let decoded = schema.decode_collect(empty.clone()).unwrap_err();
+    let encoded = schema.encode_collect(&no_value).unwrap_err();
+
+    for (axis, issues) in [("make", &made), ("decode", &decoded), ("encode", &encoded)] {
+        let messages: Vec<String> = issues.iter().map(ToString::to_string).collect();
+        assert_eq!(messages.len(), 2, "{axis}: {messages:?}");
+        assert!(messages[0].contains("at $.a"), "{axis}: {messages:?}");
+        assert!(messages[1].contains("at $.b"), "{axis}: {messages:?}");
+        assert!(
+            messages.iter().all(|message| message.contains("missing")),
+            "{axis}: {messages:?}"
+        );
+    }
+
+    // Fail-fast stops at the first field on every axis; that is the difference
+    // this row pins.
+    assert!(
+        schema
+            .construct(empty.clone())
+            .unwrap_err()
+            .to_string()
+            .contains("at $.a")
+    );
+    assert!(
+        schema
+            .decode(empty)
+            .unwrap_err()
+            .to_string()
+            .contains("at $.a")
+    );
+
+    // A value with nothing to report encodes to exactly the fail-fast result,
+    // so the collecting walk adds no second spelling.
+    let good: BTreeMap<String, Unknown> = [
+        ("a".to_string(), Unknown::Text("x".to_string())),
+        ("b".to_string(), Unknown::Number(1.0)),
+    ]
+    .into_iter()
+    .collect();
+    assert!(schema.encode_collect(&good).is_ok());
+    assert_eq!(
+        schema.encode_collect(&good).ok(),
+        schema.try_encode(&good).ok()
+    );
+}
+
+/// Schema.test.ts:144 `applies errors to nested schemas without annotation
+/// overrides`. The inner struct is annotated `errors: "first"`; a collecting
+/// decode entering through the outer struct still reports both inner misses,
+/// because this port treats `parseOptions` as data and never lets it travel.
+#[test]
+fn a_nested_annotation_does_not_narrow_collection() {
+    let inner = Schema::annotated_with(
+        Schema::struct_shape(vec![
+            Field::required("c", Schema::as_unknown(Schema::string())),
+            Field::required("d", Schema::as_unknown(Schema::string())),
+        ]),
+        vec![("parseOptions", r#"{"errors": "first"}"#)],
+    );
+    let outer = Schema::struct_shape(vec![
+        Field::required("a", Schema::as_unknown(Schema::string())),
+        Field::required("b", Schema::as_unknown(inner)),
+    ]);
+
+    let issues = outer
+        .decode_collect(obj(vec![("a", text("a")), ("b", obj(vec![]))]))
+        .unwrap_err();
+    let messages: Vec<String> = issues.iter().map(ToString::to_string).collect();
+    assert_eq!(messages.len(), 2, "{messages:?}");
+    assert!(messages[0].contains("at $.b.c"), "{messages:?}");
+    assert!(messages[1].contains("at $.b.d"), "{messages:?}");
+
+    // The outer field that did arrive is not reported, so the walk ran the
+    // child instead of guessing from the parent's shape.
+    let partly = outer
+        .decode_collect(obj(vec![("a", Unknown::Number(1.0)), ("b", obj(vec![]))]))
+        .unwrap_err();
+    let partly: Vec<String> = partly.iter().map(ToString::to_string).collect();
+    assert_eq!(partly.len(), 3, "{partly:?}");
+    assert!(partly[0].contains("at $.a"), "{partly:?}");
 }
 
 /// Port-local (pin row Schema.test.ts:735 is not-applicable): with no prototype
@@ -193,8 +290,8 @@ fn a_required_tag_is_required_everywhere() {
 /// difference from `tagDefaultOmit`: decoding and encoding still demand it.
 #[test]
 fn a_constructor_defaulted_tag_stays_required_on_the_wire() {
-    let tag = Schema::as_unknown(Schema::literal(text("a")))
-        .with_constructor_default(|| Ok(text("a")));
+    let tag =
+        Schema::as_unknown(Schema::literal(text("a"))).with_constructor_default(|| Ok(text("a")));
     let schema = Schema::struct_shape(vec![Field::required("_tag", tag), a_field()]);
 
     let made = schema

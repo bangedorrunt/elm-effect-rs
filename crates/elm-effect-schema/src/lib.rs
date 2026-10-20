@@ -1706,16 +1706,28 @@ impl<T> Schema<T> {
     /// Decode collecting every issue: struct-shaped schemas with named
     /// children accumulate one issue per failing field (missing keys refuse
     /// like the pin's own missing-key check); everything else yields at most
-    /// one. `decode` stays fail-fast; only the Standard Schema adapter uses
-    /// this path, mirroring `decode` with all errors.
+    /// one. `decode` stays fail-fast; this is the pin's `errors: "all"`
+    /// reading, and [`Self::construct_collect`] and
+    /// [`Schema::encode_collect`] complete the trio.
     pub fn decode_collect(&self, input: Unknown) -> Result<T, Vec<SchemaError>> {
+        self.collect(input, CollectOp::Decode)
+    }
+
+    /// Build collecting every issue: the `make` reading of
+    /// [`Self::decode_collect`], so a struct reports one issue per field
+    /// construction refuses instead of stopping at the first.
+    pub fn construct_collect(&self, input: Unknown) -> Result<T, Vec<SchemaError>> {
+        self.collect(input, CollectOp::Construct)
+    }
+
+    fn collect(&self, input: Unknown, op: CollectOp) -> Result<T, Vec<SchemaError>> {
         if !self.children.is_empty() {
             if let Unknown::Object(map) = &input {
                 let mut issues = Vec::new();
                 for (name, field) in &self.children {
                     match map.get(name) {
                         Some(value) => {
-                            if let Err(errors) = field.decode_collect(value.clone()) {
+                            if let Err(errors) = field.collect(value.clone(), op) {
                                 for error in errors {
                                     issues.push(repath_under(error, &format!("$.{name}")));
                                 }
@@ -1758,7 +1770,7 @@ impl<T> Schema<T> {
                             got: "missing",
                         }),
                         Some(value) => {
-                            if let Err(errors) = field.schema.decode_collect(value.clone()) {
+                            if let Err(errors) = field.schema.collect(value.clone(), op) {
                                 for error in errors {
                                     issues.push(repath_under(error, &format!("$.{}", field.name)));
                                 }
@@ -1771,7 +1783,10 @@ impl<T> Schema<T> {
                 }
             }
         }
-        self.decode(input).map_err(|error| vec![error])
+        match op {
+            CollectOp::Decode => self.decode(input).map_err(|error| vec![error]),
+            CollectOp::Construct => self.construct(input).map_err(|error| vec![error]),
+        }
     }
 
     /// Build a value (`make`'s path): the same validation as [`decode`],
@@ -3119,6 +3134,14 @@ impl Clone for Enumeration {
     }
 }
 
+/// Which entry point a collecting walk serves. Decoding and construction both
+/// take the wire value and answer the value, so one walk covers both.
+#[derive(Clone, Copy)]
+enum CollectOp {
+    Decode,
+    Construct,
+}
+
 #[derive(Clone)]
 pub struct Field {
     name: String,
@@ -3580,6 +3603,43 @@ fn walk_struct(
 }
 
 impl Schema<BTreeMap<String, Unknown>> {
+    /// Encode collecting every issue: the encoding half of
+    /// [`Schema::decode_collect`]. One issue per absent required field and per
+    /// field its own encoder refuses; a value with no issues goes through the
+    /// normal encoder, so an accepted result has exactly one spelling.
+    pub fn encode_collect(
+        &self,
+        value: &BTreeMap<String, Unknown>,
+    ) -> Result<Unknown, Vec<SchemaError>> {
+        if let Some(fields) = &self.struct_fields {
+            let mut issues = Vec::new();
+            for field in fields {
+                // An `omit` field is not part of what this schema describes on
+                // the way out, so encoding is not asked for it.
+                let travels = !(field.omit_on_encode || field.schema.omit_on_encode);
+                match value.get(&field.name) {
+                    None if !travels => {}
+                    None if field.optionality != Optionality::Required => {}
+                    None => issues.push(SchemaError::TypeMismatch {
+                        path: format!("$.{}", field.name),
+                        expected: "required field",
+                        got: "missing",
+                    }),
+                    Some(Unknown::Null) if field.optionality == Optionality::Optional => {}
+                    Some(present) => {
+                        if let Err(error) = field.schema.try_encode(present) {
+                            issues.push(repath_under(error, &format!("$.{}", field.name)));
+                        }
+                    }
+                }
+            }
+            if !issues.is_empty() {
+                return Err(issues);
+            }
+        }
+        self.try_encode(value).map_err(|error| vec![error])
+    }
+
     /// A struct shape (`Struct`/`pick`/`Partial` shapes): every required
     /// field must decode; optional fields may be missing or null. Extra
     /// input fields pass through untouched.
