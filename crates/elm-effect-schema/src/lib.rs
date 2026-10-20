@@ -215,6 +215,10 @@ pub struct Schema<T> {
     /// it is one: the struct-shaped codec plus the identity, discriminant and
     /// constructor policy a class adds. None for every other schema.
     class_meta: Option<Box<crate::class::ClassMeta>>,
+    /// The key schema a Record was built from (`Schema.Record`), kept so a
+    /// composite that embeds one (a struct with rest) can ask which keys the
+    /// index signature covers. None for every other shape.
+    record_key: Option<std::sync::Arc<Schema<Unknown>>>,
 }
 
 /// The two spellings of a decoding default. `withDecodingDefault` takes a wire
@@ -1562,6 +1566,7 @@ impl<T> Schema<T> {
             result_sides: None,
             key_annotations: Vec::new(),
             class_meta: None,
+            record_key: None,
         }
     }
 
@@ -1722,6 +1727,13 @@ impl<T> Schema<T> {
     /// every other shape.
     pub fn elements(&self) -> Option<&[Schema<Unknown>]> {
         self.tuple_elements.as_deref()
+    }
+
+    /// The key schema a Record was built from, or `None` for every other shape.
+    /// A composite that embeds a record asks it which keys its index signature
+    /// covers.
+    pub fn record_key(&self) -> Option<&Schema<Unknown>> {
+        self.record_key.as_deref()
     }
 
     /// The exact value a `Literal` shape admits, or `None` for every other
@@ -2005,6 +2017,7 @@ impl<T> Schema<T> {
             // An annotation over a class schema keeps the class: the pin's
             // `A.annotate({})` is still a schema with fields and a `make`.
             class_meta: schema.class_meta.clone(),
+            record_key: schema.record_key.clone(),
         }
     }
 
@@ -2098,6 +2111,7 @@ impl<T> Schema<T> {
         // identity has to survive it or a nested class field would not
         // recognize an instance.
         out.class_meta = schema.class_meta.clone();
+        out.record_key = schema.record_key.clone();
         // A nested struct must stay reachable for accumulating validation:
         // `decode_collect` recurses through `children`, and every struct
         // field passes through this re-typing.
@@ -3982,6 +3996,7 @@ impl Schema<BTreeMap<String, Unknown>> {
         // its own, so the Record has to copy the kind underneath it.
         let value_kind = value.repr_kind();
         let key = key.map(Arc::new);
+        let record_key = key.clone();
         let decode_key = key.clone();
         let encode_key = key.clone();
         let mut out = Self::new(
@@ -4070,6 +4085,7 @@ impl Schema<BTreeMap<String, Unknown>> {
                 .collect();
             format!("{{ {} }}", inner.join(", "))
         }));
+        out.record_key = record_key;
         out
     }
 
@@ -6485,6 +6501,12 @@ impl Schema<Unknown> {
             .into_iter()
             .map(|(name, field)| (name, Arc::new(field)))
             .collect();
+        // A key the rest's index signature refuses is an excess property, and
+        // the key schema is what decides that. It is kept beside the rest so
+        // both directions ask the same question.
+        let rest_key = rest.record_key().cloned();
+        let decode_rest_key = rest_key.clone();
+        let encode_names = names.clone();
         let rest_decode = Arc::new(rest);
         Self::new(
             move |unknown| {
@@ -6520,10 +6542,34 @@ impl Schema<Unknown> {
                 // object as a whole rather than one value at a time, which is
                 // what makes an object-level check on the rest decide. A
                 // value-shaped one describes each value on its own.
-                let leftovers: std::collections::BTreeMap<String, Unknown> = object
+                let mut leftovers: std::collections::BTreeMap<String, Unknown> = object
                     .into_iter()
                     .filter(|(key, _)| !names.iter().any(|name| name == key))
                     .collect();
+                if let Some(key_schema) = &decode_rest_key {
+                    // The index signature covers some keys and not others; an
+                    // uncovered one is the call site's excess-property
+                    // decision, exactly as it is for a plain struct.
+                    let mut uncovered: Vec<String> = Vec::new();
+                    leftovers.retain(|name, _| {
+                        let covered = key_names_entry(key_schema, name);
+                        if !covered {
+                            uncovered.push(name.clone());
+                        }
+                        covered
+                    });
+                    if transform::ParseOptions::current().on_excess_property
+                        == ExcessProperty::Reject
+                    {
+                        if let Some(name) = uncovered.first() {
+                            return Err(SchemaError::TypeMismatch {
+                                path: format!("$.{name}"),
+                                expected: "no excess property",
+                                got: "excess property",
+                            });
+                        }
+                    }
+                }
                 if matches!(rest_decode.repr_kind(), SchemaKind::Record(..)) {
                     match rest_decode.decode(Unknown::Object(leftovers))? {
                         Unknown::Object(entries) => out.extend(entries),
@@ -6542,7 +6588,33 @@ impl Schema<Unknown> {
                 }
                 Ok(Unknown::Object(out.into_iter().collect()))
             },
-            |value| Ok(value.clone()),
+            move |value| {
+                // A value-shaped rest describes every leftover key, so there is
+                // nothing for the encode side to filter.
+                let Some(key_schema) = &rest_key else {
+                    return Ok(value.clone());
+                };
+                let Unknown::Object(fields) = value else {
+                    return Ok(value.clone());
+                };
+                let mut kept = std::collections::BTreeMap::new();
+                for (name, item) in fields {
+                    let covered = encode_names.iter().any(|declared| declared == name)
+                        || key_names_entry(key_schema, name);
+                    if covered {
+                        kept.insert(name.clone(), item.clone());
+                    } else if transform::ParseOptions::current().on_excess_property
+                        == ExcessProperty::Reject
+                    {
+                        return Err(SchemaError::TypeMismatch {
+                            path: format!("$.{name}"),
+                            expected: "no excess property",
+                            got: "excess property",
+                        });
+                    }
+                }
+                Ok(Unknown::Object(kept))
+            },
             kind,
         )
     }
@@ -7577,6 +7649,7 @@ impl Schema<Unknown> {
         out.tuple_elements = inner.tuple_elements.clone();
         out.union_members = inner.union_members.clone();
         out.class_meta = inner.class_meta.clone();
+        out.record_key = inner.record_key.clone();
         out
     }
 

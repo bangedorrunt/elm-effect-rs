@@ -7796,7 +7796,7 @@ not-applicable	packages/effect/test/schema/Schema.test.ts	5008	it	should throw a
 ported	packages/effect/test/schema/Schema.test.ts	5019	it	Record(String, Number)	struct_with_rest_refuses_a_fixed_key_the_rest_also_names
 not-applicable	packages/effect/test/schema/Schema.test.ts	5036	it	Record(Symbol, Number)	the catch-all record's keys are symbols under a StructWithRest; the string-keyed half of the same shape is carried by the row beside it
 ported	packages/effect/test/schema/Schema.test.ts	5053	it	Record(`a${string}`, Number)	a_record_rest_under_a_struct_selects_template_keys
-unported	packages/effect/test/schema/Schema.test.ts	5075	it	applies excess-property options after fixed and index signatures	
+ported	packages/effect/test/schema/Schema.test.ts	5075	it	applies excess-property options after fixed and index signatures	excess_options_apply_after_fixed_and_index_signatures
 ported	packages/effect/test/schema/Schema.test.ts	5095	it	should preserve both checks	struct_with_rest_keeps_both_checks
 ported	packages/effect/test/schema/Schema.test.ts	5121	it	index signatures should not re-parse fixed properties	struct_with_rest_does_not_re_parse_a_fixed_property
 unported	packages/effect/test/schema/Schema.test.ts	5136	it	index signatures should not overwrite fixed properties after key decoding	

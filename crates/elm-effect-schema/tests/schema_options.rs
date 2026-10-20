@@ -250,6 +250,49 @@ fn a_tuple_refuses_positions_past_its_end() {
     assert!(messages[1].contains("at $[2]"), "{messages:?}");
 }
 
+/// Schema.test.ts:5075 `applies excess-property options after fixed and index
+/// signatures`. A struct with rest, one fixed field and an index signature
+/// that covers `a`: the uncovered key `b` is dropped by default and named under
+/// `onExcessProperty: "error"`, on decode and encode alike.
+#[test]
+fn excess_options_apply_after_fixed_and_index_signatures() {
+    // A literal key schema is this port's spelling for the row's `^a` pattern:
+    // it covers exactly the keys it names.
+    let rest = Schema::as_unknown(Schema::<BTreeMap<String, Unknown>>::record2(
+        Schema::literal(Unknown::Text("a".to_string())),
+        Schema::as_unknown(Schema::number()),
+    ));
+    let schema = Schema::<Unknown>::struct_with_rest(
+        vec![("fixed".to_string(), Schema::as_unknown(Schema::number()))],
+        rest,
+    );
+
+    let input = || {
+        obj(vec![
+            ("fixed", number(0.0)),
+            ("a", number(1.0)),
+            ("b", number(2.0)),
+        ])
+    };
+    let expected = obj(vec![("fixed", number(0.0)), ("a", number(1.0))]);
+
+    // Decoding drops the key no signature covers.
+    assert_eq!(schema.decode(input()).unwrap(), expected);
+    let refused = schema
+        .decode_with(input(), &options(Errors::First, ExcessProperty::Reject))
+        .unwrap_err()
+        .to_string();
+    assert!(refused.contains("at $.b"), "{refused}");
+
+    // Encoding makes the same decision on the way out.
+    assert_eq!(schema.try_encode(&input()).unwrap(), expected);
+    let refused = schema
+        .encode_with(&input(), &options(Errors::First, ExcessProperty::Reject))
+        .unwrap_err()
+        .to_string();
+    assert!(refused.contains("at $.b"), "{refused}");
+}
+
 /// Port-local (pin row Schema.test.ts:735 is not-applicable): with no prototype
 /// chain, `__proto__` is an ordinary key that decodes as its own field.
 #[test]
