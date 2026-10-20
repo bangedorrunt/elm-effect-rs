@@ -18,11 +18,12 @@ use std::sync::Arc;
 use super::{Field, Schema, SchemaError, SchemaKind, Unknown};
 
 /// How a constructor treats a key its field list does not declare.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub enum ExcessProperty {
     /// Keep the declared fields, drop the rest: the pin's default, and also
     /// what an explicit `"ignore"` asks for, because both leave the key off the
     /// instance.
+    #[default]
     Ignore,
     /// The pin's explicit `"strip"`: the key is removed from the source object
     /// rather than merely left out. The instance is the same either way, so the

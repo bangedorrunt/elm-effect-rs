@@ -1478,6 +1478,63 @@ impl Schema<StructValue> {
     }
 }
 
+/// A schema with the parse options it was created with
+/// (`decodeUnknownExit`'s creation-time options). A per-call option still wins
+/// for that call, and the next call without one goes back to the bound options.
+pub struct Decoder<T> {
+    schema: Schema<T>,
+    options: transform::ParseOptions,
+}
+
+impl<T> Decoder<T> {
+    /// Decode with the bound options.
+    pub fn decode(&self, input: Unknown) -> Result<T, SchemaError> {
+        self.schema.decode_with(input, &self.options)
+    }
+
+    /// Decode with options for this call only.
+    pub fn decode_with(
+        &self,
+        input: Unknown,
+        options: &transform::ParseOptions,
+    ) -> Result<T, SchemaError> {
+        self.schema.decode_with(input, options)
+    }
+
+    /// The options this decoder was created with.
+    pub fn options(&self) -> transform::ParseOptions {
+        self.options
+    }
+}
+
+/// The encoding twin of [`Decoder`]: a schema with the options it was created
+/// with, overridable for one call.
+pub struct Encoder<T> {
+    schema: Schema<T>,
+    options: transform::ParseOptions,
+}
+
+impl<T> Encoder<T> {
+    /// Encode with the bound options.
+    pub fn encode(&self, value: &T) -> Result<Unknown, SchemaError> {
+        self.schema.encode_with(value, &self.options)
+    }
+
+    /// Encode with options for this call only.
+    pub fn encode_with(
+        &self,
+        value: &T,
+        options: &transform::ParseOptions,
+    ) -> Result<Unknown, SchemaError> {
+        self.schema.encode_with(value, options)
+    }
+
+    /// The options this encoder was created with.
+    pub fn options(&self) -> transform::ParseOptions {
+        self.options
+    }
+}
+
 impl<T> Schema<T> {
     pub(crate) fn new(
         decode: impl Fn(Unknown) -> Result<T, SchemaError> + Send + Sync + 'static,
@@ -1701,6 +1758,52 @@ impl<T> Schema<T> {
     /// Encode, or the reason this schema cannot represent the value.
     pub fn try_encode(&self, value: &T) -> Result<Unknown, SchemaError> {
         (self.encode)(value)
+    }
+
+    /// Decode under explicit parse options (`decodeUnknown` with options):
+    /// `errors` decides how many issues a composite reports, and
+    /// `on_excess_property` what happens to keys the schema does not model.
+    pub fn decode_with(
+        &self,
+        input: Unknown,
+        options: &transform::ParseOptions,
+    ) -> Result<T, SchemaError> {
+        options.scoped(|| self.decode(input))
+    }
+
+    /// Construction under explicit parse options (`make` with options).
+    pub fn construct_with(
+        &self,
+        input: Unknown,
+        options: &transform::ParseOptions,
+    ) -> Result<T, SchemaError> {
+        options.scoped(|| self.construct(input))
+    }
+
+    /// Encode under explicit parse options (`encodeUnknown` with options).
+    pub fn encode_with(
+        &self,
+        value: &T,
+        options: &transform::ParseOptions,
+    ) -> Result<Unknown, SchemaError> {
+        options.scoped(|| self.try_encode(value))
+    }
+
+    /// Bind this schema to the options a decoder is created with
+    /// (`decodeUnknown` with creation-time options).
+    pub fn decoder(self, options: transform::ParseOptions) -> Decoder<T> {
+        Decoder {
+            schema: self,
+            options,
+        }
+    }
+
+    /// Bind this schema to the options an encoder is created with.
+    pub fn encoder(self, options: transform::ParseOptions) -> Encoder<T> {
+        Encoder {
+            schema: self,
+            options,
+        }
     }
 
     /// Decode collecting every issue: struct-shaped schemas with named
@@ -2448,9 +2551,32 @@ impl SchemaError {
                 path: rooted(path),
                 message,
             },
+            // A composite from a nested collecting walk carries one issue per
+            // member, each with its own root-relative path.
+            SchemaError::Composite { issues } => SchemaError::Composite {
+                issues: issues.into_iter().map(|issue| issue.at(prefix)).collect(),
+            },
             other => other,
         }
     }
+}
+
+/// The pin's refusal for positions past a tuple's end: one excess property per
+/// position, all of them under `errors: "all"`. Tuple overflow is always a
+/// refusal, so `onExcessProperty` does not enter into it.
+fn excess_issues(mut paths: impl Iterator<Item = String>) -> Option<SchemaError> {
+    let first = paths.next()?;
+    let issue = |path: String| SchemaError::TypeMismatch {
+        path,
+        expected: "no excess property",
+        got: "excess property",
+    };
+    if transform::ParseOptions::current().errors == transform::Errors::First {
+        return Some(issue(first));
+    }
+    let mut issues = vec![issue(first)];
+    issues.extend(paths.map(issue));
+    Some(SchemaError::Composite { issues })
 }
 
 fn mismatch<T>(path: &str, expected: &'static str, got: &Unknown) -> Result<T, SchemaError> {
@@ -3538,68 +3664,102 @@ pub fn field_map_omit(
 /// a constructor default fills on construction and stays absent on decode,
 /// while a decoding default is the mirror image and fills on both (that is what
 /// makes it a default for the wire rather than for a constructed value).
+/// One field's contribution to a struct walk: the pair to insert, or `None`
+/// when the field is absent and may be. Split out of [`walk_struct`] so the
+/// loop can accumulate a failure instead of returning it.
+fn walk_field(
+    field: &Field,
+    input: &mut BTreeMap<String, Unknown>,
+    construct: bool,
+) -> Result<Option<(String, Unknown)>, SchemaError> {
+    match input.remove(&field.name) {
+        None if construct && field.schema.constructor_default.is_some() => {
+            let default = field
+                .schema
+                .constructor_default
+                .as_ref()
+                .expect("checked just above");
+            let produced = default().map_err(|error| error.at(&format!("$.{}", field.name)))?;
+            let built = field
+                .schema
+                .construct(produced)
+                .map_err(|error| error.at(&format!("$.{}", field.name)))?;
+            Ok(Some((field.name.clone(), built)))
+        }
+        // A decoding default fills an absent key: the field's own
+        // (`withDecodingDefaultKey`) or the one the field's schema carries
+        // (`withDecodingDefault` at a struct occurrence).
+        None if field.decoding_default.is_some() || field.schema.decoding_default.is_some() => {
+            let default = field
+                .decoding_default
+                .as_ref()
+                .or(field.schema.decoding_default.as_ref())
+                .expect("checked just above");
+            let path = format!("$.{}", field.name);
+            let filled = field.schema.absent_value(default, &path)?;
+            Ok(Some((field.name.clone(), filled)))
+        }
+        None if field.optionality != Optionality::Required => Ok(None),
+        Some(Unknown::Null) if field.optionality == Optionality::Optional => Ok(None),
+        None => Err(SchemaError::TypeMismatch {
+            path: format!("$.{}", field.name),
+            expected: "required field",
+            got: "missing",
+        }),
+        Some(value) => {
+            let step = if construct {
+                field.schema.construct(value)
+            } else {
+                field.schema.decode(value)
+            };
+            let decoded = step.map_err(|error| error.at(&format!("$.{}", field.name)))?;
+            Ok(Some((field.name.clone(), decoded)))
+        }
+    }
+}
+
 fn walk_struct(
     fields: &[Field],
     unknown: Unknown,
     construct: bool,
 ) -> Result<BTreeMap<String, Unknown>, SchemaError> {
+    let options = transform::ParseOptions::current();
     let Unknown::Object(mut input) = unknown else {
         return mismatch("$", "object", &unknown);
     };
     let mut out = BTreeMap::new();
+    let mut issues = Vec::new();
     for field in fields {
-        match input.remove(&field.name) {
-            None if construct && field.schema.constructor_default.is_some() => {
-                let default = field
-                    .schema
-                    .constructor_default
-                    .as_ref()
-                    .expect("checked just above");
-                let produced = default().map_err(|error| error.at(&format!("$.{}", field.name)))?;
-                let built = field
-                    .schema
-                    .construct(produced)
-                    .map_err(|error| error.at(&format!("$.{}", field.name)))?;
-                out.insert(field.name.clone(), built);
+        match walk_field(field, &mut input, construct) {
+            Ok(Some((name, value))) => {
+                out.insert(name, value);
             }
-            // A decoding default fills an absent key: the field's own
-            // (`withDecodingDefaultKey`) or the one the field's schema carries
-            // (`withDecodingDefault` at a struct occurrence).
-            None if field.decoding_default.is_some() || field.schema.decoding_default.is_some() => {
-                let default = field
-                    .decoding_default
-                    .as_ref()
-                    .or(field.schema.decoding_default.as_ref())
-                    .expect("checked just above");
-                let path = format!("$.{}", field.name);
-                let filled = field.schema.absent_value(default, &path)?;
-                out.insert(field.name.clone(), filled);
-            }
-            None if field.optionality != Optionality::Required => {}
-            Some(Unknown::Null) if field.optionality == Optionality::Optional => {}
-            None => {
-                return Err(SchemaError::TypeMismatch {
-                    path: format!("$.{}", field.name),
-                    expected: "required field",
-                    got: "missing",
-                });
-            }
-            Some(value) => {
-                let step = if construct {
-                    field.schema.construct(value)
-                } else {
-                    field.schema.decode(value)
-                };
-                let decoded = step.map_err(|error| error.at(&format!("$.{}", field.name)))?;
-                out.insert(field.name.clone(), decoded);
-            }
+            Ok(None) => {}
+            Err(error) if options.errors == transform::Errors::First => return Err(error),
+            Err(error) => issues.push(error),
         }
     }
-    // Undeclared keys in `input` are dropped, which is the pin's default
-    // `onExcessProperty: "ignore"`: closed objects strip excess properties
-    // unless the call site asks otherwise, and `struct_with_rest` is the shape
-    // that absorbs them.
-    Ok(out)
+    // Undeclared keys are the pin's `onExcessProperty` decision: dropped by
+    // default (`"ignore"`), refused under `"error"`, and absorbed by
+    // `struct_with_rest` instead of ever reaching this walk.
+    if options.on_excess_property == ExcessProperty::Reject {
+        for key in input.keys() {
+            let issue = SchemaError::TypeMismatch {
+                path: format!("$.{key}"),
+                expected: "no excess property",
+                got: "excess property",
+            };
+            if options.errors == transform::Errors::First {
+                return Err(issue);
+            }
+            issues.push(issue);
+        }
+    }
+    if issues.is_empty() {
+        Ok(out)
+    } else {
+        Err(SchemaError::Composite { issues })
+    }
 }
 
 impl Schema<BTreeMap<String, Unknown>> {
@@ -3672,6 +3832,7 @@ impl Schema<BTreeMap<String, Unknown>> {
             .filter(|field| !omitted.iter().any(|name| *name == field.name))
             .map(|field| field.name.clone())
             .collect();
+        let declared: Vec<String> = fields.iter().map(|field| field.name.clone()).collect();
         let decode_fields = fields.clone();
         let declared_fields = Some(fields.clone());
         let construct_fields = fields;
@@ -3695,6 +3856,22 @@ impl Schema<BTreeMap<String, Unknown>> {
                     if matches!(filtered.get(name), Some(Unknown::Null)) {
                         filtered.remove(name);
                     }
+                }
+                // A key the field list does not declare is the call site's
+                // excess-property decision: the pin's encoder drops it unless
+                // the call site asked for an error, and the pin's decode walk
+                // above already dropped it on the way in.
+                match transform::ParseOptions::current().on_excess_property {
+                    ExcessProperty::Reject => {
+                        if let Some(key) = filtered.keys().find(|key| !declared.contains(key)) {
+                            return Err(SchemaError::TypeMismatch {
+                                path: format!("$.{key}"),
+                                expected: "no excess property",
+                                got: "excess property",
+                            });
+                        }
+                    }
+                    _ => filtered.retain(|key, _| declared.contains(key)),
                 }
                 Ok(Unknown::Object(filtered))
             },
@@ -6391,7 +6568,10 @@ impl Schema<Unknown> {
                 // A position below the first optional one must be present, and
                 // none may appear past the last declared position.
                 if items.len() > total {
-                    return mismatch("$", "a fixed-length array", &Unknown::Array(items));
+                    let excess =
+                        excess_issues((total..items.len()).map(|index| format!("$[{index}]")))
+                            .expect("the array is longer than the declared positions");
+                    return Err(excess);
                 }
                 // A short tuple is a missing key at the first absent position,
                 // the shape the pin reports (`Missing key at [1]`); only this
@@ -6432,7 +6612,9 @@ impl Schema<Unknown> {
                 return mismatch("$", "array", &unknown);
             };
             if items.len() > total {
-                return mismatch("$", "a fixed-length array", &Unknown::Array(items));
+                let excess = excess_issues((total..items.len()).map(|index| format!("$[{index}]")))
+                    .expect("the array is longer than the declared positions");
+                return Err(excess);
             }
             let mut out = Vec::with_capacity(total);
             for (index, element) in construct_decoders.iter().enumerate() {

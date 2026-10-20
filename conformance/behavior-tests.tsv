@@ -7536,8 +7536,8 @@ unported	packages/effect/test/schema/Schema.test.ts	117	it	does not capture stac
 ported	packages/effect/test/schema/Schema.test.ts	131	it	does not interpret custom parseOptions metadata	custom_metadata_is_not_interpreted
 ported	packages/effect/test/schema/Schema.test.ts	144	it	applies errors to nested schemas without annotation overrides	a_nested_annotation_does_not_narrow_collection
 unported	packages/effect/test/schema/Schema.test.ts	164	it	applies errors with encoding checks	
-unported	packages/effect/test/schema/Schema.test.ts	187	it	decoders can receive options when they are created	
-unported	packages/effect/test/schema/Schema.test.ts	202	it	encoders can receive options when they are created	
+ported	packages/effect/test/schema/Schema.test.ts	187	it	decoders can receive options when they are created	a_decoder_keeps_the_options_it_was_created_with
+ported	packages/effect/test/schema/Schema.test.ts	202	it	encoders can receive options when they are created	an_encoder_keeps_the_options_it_was_created_with
 ported	packages/effect/test/schema/Schema.test.ts	219	it	should throw an error if the literal is not a finite number	literal_refuses_a_non_finite_number
 ported	packages/effect/test/schema/Schema.test.ts	237	it	should expose the literal	literal_exposes_its_value
 ported	packages/effect/test/schema/Schema.test.ts	243	it	a	cell_literal_a
@@ -7589,7 +7589,7 @@ unported	packages/effect/test/schema/Schema.test.ts	980	it	Struct & check & unsa
 ported	packages/effect/test/schema/Schema.test.ts	1000	it	Struct	map_fields_pick_keeps_only_the_named_fields
 ported	packages/effect/test/schema/Schema.test.ts	1013	it	Struct	map_fields_omit_drops_the_named_field
 ported	packages/effect/test/schema/Schema.test.ts	1027	it	A required element cannot follow an optional element	tuple_refuses_a_required_element_after_an_optional_one
-unported	packages/effect/test/schema/Schema.test.ts	1038	it	should fail on unexpected indexes	
+ported	packages/effect/test/schema/Schema.test.ts	1038	it	should fail on unexpected indexes	a_tuple_refuses_positions_past_its_end
 ported	packages/effect/test/schema/Schema.test.ts	1058	it	readonly [string]	tuple_of_checked_elements_names_the_index_a_failing_element_failed_at
 ported	packages/effect/test/schema/Schema.test.ts	1101	it	readonly [string?]	tuple_with_an_optional_element_accepts_the_empty_tuple
 ported	packages/effect/test/schema/Schema.test.ts	1120	it	should expose the element schema via .value	crates/elm-effect-schema/tests/schema_elements.rs::array_exposes_the_element_schema

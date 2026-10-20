@@ -6,8 +6,17 @@
 //! JavaScript surfaces this port does not have, and the ledger carries the
 //! reason rather than a witness.
 
-use elm_effect_schema::{Field, Schema, Unknown};
+use elm_effect_schema::transform::{Errors, ParseOptions};
+use elm_effect_schema::{ExcessProperty, Field, Schema, SchemaError, Unknown};
 use std::collections::BTreeMap;
+
+/// One parse-option pair, spelled once so the witnesses read as decisions.
+fn options(errors: Errors, on_excess_property: ExcessProperty) -> ParseOptions {
+    ParseOptions {
+        errors,
+        on_excess_property,
+    }
+}
 
 fn obj(pairs: Vec<(&str, Unknown)>) -> Unknown {
     Unknown::Object(
@@ -152,6 +161,93 @@ fn a_nested_annotation_does_not_narrow_collection() {
     let partly: Vec<String> = partly.iter().map(ToString::to_string).collect();
     assert_eq!(partly.len(), 3, "{partly:?}");
     assert!(partly[0].contains("at $.a"), "{partly:?}");
+}
+
+/// Schema.test.ts:187 `decoders can receive options when they are created`.
+/// A decoder bound to `onExcessProperty: "error"` refuses an undeclared key,
+/// one call may override that for itself, and the next call without an
+/// override is back on the bound option.
+#[test]
+fn a_decoder_keeps_the_options_it_was_created_with() {
+    let schema = Schema::struct_shape(vec![Field::required(
+        "a",
+        Schema::as_unknown(Schema::string()),
+    )]);
+    let strict = options(Errors::First, ExcessProperty::Reject);
+    let lenient = options(Errors::First, ExcessProperty::Ignore);
+    let decode = schema.decoder(strict);
+
+    let input = || obj(vec![("a", text("a")), ("b", text("b"))]);
+    assert!(
+        decode.decode(input()).is_err(),
+        "the bound option refuses b"
+    );
+    let accepted = decode.decode_with(input(), &lenient).unwrap();
+    assert_eq!(
+        accepted.get("b"),
+        None,
+        "the excess key is stripped, not kept"
+    );
+    assert_eq!(accepted.get("a"), Some(&text("a")));
+    assert!(
+        decode.decode(input()).is_err(),
+        "the override belongs to that call, not to the decoder"
+    );
+}
+
+/// Schema.test.ts:202 `encoders can receive options when they are created`,
+/// the encoding twin of the row above.
+#[test]
+fn an_encoder_keeps_the_options_it_was_created_with() {
+    let schema = Schema::struct_shape(vec![Field::required(
+        "a",
+        Schema::as_unknown(Schema::string()),
+    )]);
+    let strict = options(Errors::First, ExcessProperty::Reject);
+    let lenient = options(Errors::First, ExcessProperty::Ignore);
+    let encode = schema.encoder(strict);
+    let value: BTreeMap<String, Unknown> =
+        [("a".to_string(), text("a")), ("b".to_string(), text("b"))]
+            .into_iter()
+            .collect();
+
+    assert!(encode.encode(&value).is_err(), "the bound option refuses b");
+    let encoded = encode.encode_with(&value, &lenient).unwrap();
+    assert!(matches!(&encoded, Unknown::Object(m) if m.get("b").is_none()));
+    assert!(matches!(&encoded, Unknown::Object(m) if m.get("a") == Some(&text("a"))));
+    assert!(
+        encode.encode(&value).is_err(),
+        "the override belongs to that call, not to the encoder"
+    );
+}
+
+/// Schema.test.ts:1038 `should fail on unexpected indexes`. Tuple overflow is
+/// a refusal at each extra position; the default reports the first and
+/// `errors: "all"` reports every one.
+#[test]
+fn a_tuple_refuses_positions_past_its_end() {
+    let schema = Schema::tuple_of(vec![Schema::as_unknown(Schema::string())]);
+
+    let first = schema
+        .decode(Unknown::Array(vec![text("a"), text("b")]))
+        .unwrap_err()
+        .to_string();
+    assert!(first.contains("at $[1]"), "{first}");
+    assert!(first.contains("no excess property"), "{first}");
+
+    let error = schema
+        .decode_with(
+            Unknown::Array(vec![text("a"), text("b"), text("c")]),
+            &options(Errors::All, ExcessProperty::Ignore),
+        )
+        .unwrap_err();
+    let messages: Vec<String> = match error {
+        SchemaError::Composite { issues } => issues.iter().map(ToString::to_string).collect(),
+        other => panic!("expected every issue, got {other}"),
+    };
+    assert_eq!(messages.len(), 2, "{messages:?}");
+    assert!(messages[0].contains("at $[1]"), "{messages:?}");
+    assert!(messages[1].contains("at $[2]"), "{messages:?}");
 }
 
 /// Port-local (pin row Schema.test.ts:735 is not-applicable): with no prototype

@@ -788,19 +788,63 @@ fn parse_rfc2822(s: &str) -> Option<i64> {
     Some(days_from_civil(year, month, day) * 86_400_000 + h * 3_600_000 + mi * 60_000 + sec * 1_000)
 }
 
-/// Parse options (`ParseOptions`): excess properties and unknown
-/// handling. Defaults preserve everything and error on excess.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct ParseOptions {
-    /// Keep excess properties instead of erroring.
-    pub preserve_excess: bool,
+/// How many issues a parse reports (`ParseOptions.errors`).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum Errors {
+    /// Stop at the first issue (`"first"`, the default).
+    #[default]
+    First,
+    /// Report every issue a composite can see (`"all"`).
+    All,
 }
 
-impl Default for ParseOptions {
-    fn default() -> Self {
-        Self {
-            preserve_excess: false,
+/// Parse options (`ParseOptions`): the two decisions a call site can make about
+/// one parse.
+///
+/// The defaults are the pin's: first issue, excess keys dropped. A composite
+/// walk reads these from [`ParseOptions::current`] rather than through an
+/// argument, because the codec closures carry no options parameter and the
+/// entry points scope one call around them.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct ParseOptions {
+    /// `errors`.
+    pub errors: Errors,
+    /// `onExcessProperty`: `Ignore`/`Strip` drop an unmodeled key, `Reject`
+    /// refuses it. `Strip` exists for constructor policies; at a parse it means
+    /// the same thing as `Ignore`.
+    pub on_excess_property: crate::ExcessProperty,
+}
+
+std::thread_local! {
+    /// The options the parse on this thread is running under. Parsing is
+    /// synchronous and never leaves the thread, so one cell is exactly the
+    /// scope a caller can observe; `scoped` restores the previous value even on
+    /// a panic.
+    static CURRENT_OPTIONS: std::cell::Cell<ParseOptions> = const {
+        std::cell::Cell::new(ParseOptions {
+            errors: Errors::First,
+            on_excess_property: crate::ExcessProperty::Ignore,
+        })
+    };
+}
+
+impl ParseOptions {
+    /// The options the enclosing parse is running under.
+    pub(crate) fn current() -> Self {
+        CURRENT_OPTIONS.with(std::cell::Cell::get)
+    }
+
+    /// Run `f` with these options in scope, restoring the previous ones even
+    /// when `f` panics.
+    pub fn scoped<R>(self, f: impl FnOnce() -> R) -> R {
+        struct Restore(ParseOptions);
+        impl Drop for Restore {
+            fn drop(&mut self) {
+                CURRENT_OPTIONS.with(|cell| cell.set(self.0));
+            }
         }
+        let _restore = Restore(CURRENT_OPTIONS.with(|cell| cell.replace(self)));
+        f()
     }
 }
 

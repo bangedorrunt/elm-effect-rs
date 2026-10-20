@@ -253,14 +253,15 @@ fn datetime_utc_from_inputs() {
 
 #[test]
 fn parser_type_side_and_options() {
-    use elm_effect_schema::transform::ParseOptions;
+    use elm_effect_schema::transform::{Errors, ParseOptions};
     let s = Schema::string();
     assert!(Parser::is(&s, &text("hi")));
     assert!(!Parser::is(&s, &Unknown::Bool(true)));
     assert_eq!(
         ParseOptions::default(),
         ParseOptions {
-            preserve_excess: false
+            errors: Errors::First,
+            on_excess_property: elm_effect_schema::ExcessProperty::Ignore,
         }
     );
 }
