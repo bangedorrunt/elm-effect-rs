@@ -7576,12 +7576,12 @@ not-applicable	packages/effect/test/schema/Schema.test.ts	703	it	error validates
 not-applicable	packages/effect/test/schema/Schema.test.ts	719	it	error accepts Error internals in an open record	the row's input is a JavaScript Error object whose non-enumerable internals must not surface as excess properties; the port's inputs are JSON-shaped values with no hidden internals
 unported	packages/effect/test/schema/Schema.test.ts	727	it	error encodes tagged errors carrying runtime internals	
 not-applicable	packages/effect/test/schema/Schema.test.ts	735	it	should corectly handle __proto__	the row's two inputs differ only by JavaScript prototype semantics: {["__proto__"]: "a"} is an own key while {__proto__: "a"} sets the literal's prototype, so one decodes and the other reports a missing key; a Rust map makes both spellings the same entry, so the second observable cannot exist
-unported	packages/effect/test/schema/Schema.test.ts	750	it	a	
-unported	packages/effect/test/schema/Schema.test.ts	790	it	a	
+ported	packages/effect/test/schema/Schema.test.ts	750	it	a	a_required_string_field_is_read_and_required
+ported	packages/effect/test/schema/Schema.test.ts	790	it	a	a_transformation_field_reads_its_wire_spelling
 ported	packages/effect/test/schema/Schema.test.ts	813	it	should use the identifier annotation as the expected message	an_identifier_annotation_names_the_value_in_a_refusal
-unported	packages/effect/test/schema/Schema.test.ts	823	it	a	
-unported	packages/effect/test/schema/Schema.test.ts	852	it	a	
-unported	packages/effect/test/schema/Schema.test.ts	884	it	a	
+ported	packages/effect/test/schema/Schema.test.ts	823	it	a	an_optional_key_field_may_be_absent_but_not_null
+ported	packages/effect/test/schema/Schema.test.ts	852	it	a	an_optional_field_may_be_absent_or_null
+ported	packages/effect/test/schema/Schema.test.ts	884	it	a	an_optional_transformation_field_still_decodes_a_present_key
 ported	packages/effect/test/schema/Schema.test.ts	905	it	all	all_errors_reports_every_missing_field
 ported	packages/effect/test/schema/Schema.test.ts	942	it	Struct	map_fields_assign_joins_the_declared_fields
 ported	packages/effect/test/schema/Schema.test.ts	963	it	overlapping fields	map_fields_assign_replaces_an_overlapping_field
