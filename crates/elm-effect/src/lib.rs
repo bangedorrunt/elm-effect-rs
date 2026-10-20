@@ -140,7 +140,9 @@ pub use schema_adapter::{
     AdapterFailure, AdapterRefusal, OPTION_MESSAGE, PROMISE_MESSAGE, RESULT_MESSAGE, SYNC_MESSAGE,
 };
 #[cfg(feature = "schema")]
-pub use schema_cause::cause_schema;
+pub use schema_cause::{
+    CauseReasonSchema, CauseSchema, cause_reason_schema, cause_schema,
+};
 #[cfg(feature = "schema")]
 pub use schema_data::{
     bigdecimal, bigdecimal_from_string, byte_size, byte_size_from_number, byte_size_from_string,
@@ -152,7 +154,7 @@ pub use schema_defect::defect_schema;
 #[cfg(feature = "schema")]
 pub use schema_duration::{duration_from_millis, duration_from_string};
 #[cfg(feature = "schema")]
-pub use schema_exit::exit_schema;
+pub use schema_exit::{ExitSchema, exit_schema};
 #[cfg(feature = "tokio")]
 pub use scope::{Scope, ScopeTag};
 pub use service::{Cons, MemoMap, Provide, Reference, ServiceTag, read_reference, use_service};

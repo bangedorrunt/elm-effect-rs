@@ -7701,15 +7701,15 @@ ported	packages/effect/test/schema/Schema.test.ts	3232	it	onNoneEncoding: null	o
 not-applicable	packages/effect/test/schema/Schema.test.ts	3249	it	onNoneEncoding: undefined	onNoneEncoding: undefined is the same null stand-in as onNoneEncoding: null, so the row's wire assertion is :3232 option_from_optional_null_or_encodes_none_as_null
 ported	packages/effect/test/schema/Schema.test.ts	3268	it	should expose the values	result_exposes_the_success_and_failure_schemas
 ported	packages/effect/test/schema/Schema.test.ts	3276	it	Result(FiniteFromString, FiniteFromString)	result_decodes_and_encodes_the_tag_object
-unported	packages/effect/test/schema/Schema.test.ts	3305	it	Defect	
-unported	packages/effect/test/schema/Schema.test.ts	3352	it	ErrorInstance and Defect memoize equivalent options	
-unported	packages/effect/test/schema/Schema.test.ts	3377	it	should expose the values	
-not-applicable	packages/effect/test/schema/Schema.test.ts	3385	it	CauseReason(FiniteFromString, FiniteFromString)	the row's body asserts nothing at runtime beyond the optional arbitrary-generation check, and Schema.CauseReason does not exist on the Rust schema surface (this crate has no Cause model), so the schema in the row cannot be built
+not-applicable	packages/effect/test/schema/Schema.test.ts	3305	it	Defect	a Defect here is a struct with a message and a backtrace; the pin's schema also passes any non-Error value through as the defect itself, which has no carrier in that struct.
+not-applicable	packages/effect/test/schema/Schema.test.ts	3352	it	ErrorInstance and Defect memoize equivalent options	asserts the factory answers the same schema object for equivalent options: JS reference identity of a memoized constructor, with no Rust carrier.
+ported	packages/effect/test/schema/Schema.test.ts	3377	it	should expose the values	the_cause_schemas_expose_the_values_they_were_built_from
+ported	packages/effect/test/schema/Schema.test.ts	3385	it	CauseReason(FiniteFromString, FiniteFromString)	a_reason_over_two_refined_schemas_reads_and_writes_its_wire
 ported	packages/effect/test/schema/Schema.test.ts	3396	it	strict encoding preserves the default wire format for every reason variant	strict_encoding_keeps_the_reason_wire_format
-unported	packages/effect/test/schema/Schema.test.ts	3412	it	should expose the values	
+ported	packages/effect/test/schema/Schema.test.ts	3412	it	should expose the values	the_cause_schemas_expose_the_values_they_were_built_from
 ported	packages/effect/test/schema/Schema.test.ts	3420	it	Cause(FiniteFromString, FiniteFromString)	cause_round_trips_through_the_two_schemas
-unported	packages/effect/test/schema/Schema.test.ts	3462	it	Error	
-unported	packages/effect/test/schema/Schema.test.ts	3501	it	should expose the values	
+not-applicable	packages/effect/test/schema/Schema.test.ts	3462	it	Error	ErrorInstance accepts a value by prototype identity (instanceof Error) where a plain object with the same key is refused; every value here is an object without a prototype.
+ported	packages/effect/test/schema/Schema.test.ts	3501	it	should expose the values	the_exit_schema_exposes_the_values_it_was_built_from
 ported	packages/effect/test/schema/Schema.test.ts	3511	it	Exit(FiniteFromString, String, Unknown)	exit_round_trips_through_three_schemas
 ported	packages/effect/test/schema/Schema.test.ts	3538	it	Exit(FiniteFromString, String, Defect)	exit_decodes_a_defect_through_the_defect_schema
 ported	packages/effect/test/schema/Schema.test.ts	3557	it	should work	a_default_that_died_with_an_issue_reports_both
@@ -7976,13 +7976,13 @@ not-applicable	packages/effect/test/schema/Schema.test.ts	8034	it	catchEncodingW
 not-applicable	packages/effect/test/schema/Schema.test.ts	8061	it	providing a service	the hook is an Effect layer that provides a service; this port's middleware is a plain closure, so the provisioning this row asserts has no carrier.
 ported	packages/effect/test/schema/Schema.test.ts	8084	it	forced failure	an_encoding_middleware_can_refuse_what_the_base_accepts
 ported	packages/effect/test/schema/Schema.test.ts	8096	it	Exact Optional Property	an_exact_optional_key_is_absent_or_decoded
-unported	packages/effect/test/schema/Schema.test.ts	8111	it	Optional Property	
+ported	packages/effect/test/schema/Schema.test.ts	8111	it	Optional Property	an_exact_optional_property_may_be_absent_but_not_null
 ported	packages/effect/test/schema/Schema.test.ts	8128	it	Exact Optional Property with Nullability	an_optional_key_admits_null_as_a_value
-unported	packages/effect/test/schema/Schema.test.ts	8145	it	Optional Property with Nullability	
-unported	packages/effect/test/schema/Schema.test.ts	8164	it	Optional Property to Exact Optional Property	
-unported	packages/effect/test/schema/Schema.test.ts	8183	it	Optional Property with Nullability to Optional Property	
-unported	packages/effect/test/schema/Schema.test.ts	8207	it	optionalKey -> Option	
-unported	packages/effect/test/schema/Schema.test.ts	8230	it	optional -> Option	
+ported	packages/effect/test/schema/Schema.test.ts	8145	it	Optional Property with Nullability	an_optional_property_may_be_absent_or_null
+ported	packages/effect/test/schema/Schema.test.ts	8164	it	Optional Property to Exact Optional Property	an_exact_optional_property_can_still_admit_null
+ported	packages/effect/test/schema/Schema.test.ts	8183	it	Optional Property with Nullability to Optional Property	an_optional_nullable_property_takes_all_three_shapes
+ported	packages/effect/test/schema/Schema.test.ts	8207	it	optionalKey -> Option	an_optional_key_reads_as_an_option
+ported	packages/effect/test/schema/Schema.test.ts	8230	it	optional -> Option	an_optional_property_reads_as_an_option
 unported	packages/effect/test/schema/Schema.test.ts	8255	it	decodeTo as composition	
 unported	packages/effect/test/schema/Schema.test.ts	8286	it	encodeTo as composition	
 unported	packages/effect/test/schema/Schema.test.ts	8323	it	no context	

@@ -14,7 +14,7 @@ fn text(value: &str) -> Unknown {
     Unknown::Text(value.to_string())
 }
 
-fn obj(pairs: [(&str, Unknown); 2]) -> Unknown {
+fn obj<const N: usize>(pairs: [(&str, Unknown); N]) -> Unknown {
     Unknown::Object(
         pairs
             .into_iter()
@@ -110,4 +110,70 @@ fn exit_decodes_a_defect_through_the_defect_schema() {
             backtrace: String::new(),
         })
     );
+}
+
+/// Schema.test.ts:3501 `Exit` `should expose the values`: the three schemas the
+/// constructor was given stay reachable, and an annotation over it keeps them.
+#[test]
+fn the_exit_schema_exposes_the_values_it_was_built_from() {
+    use elm_effect::ExitSchema;
+
+    let schema = ExitSchema::new(
+        Schema::string(),
+        Schema::number(),
+        Schema::as_unknown(Schema::boolean()),
+    );
+    assert_eq!(schema.value().to_code(), Schema::string().to_code());
+    assert_eq!(schema.error().to_code(), Schema::number().to_code());
+    assert_eq!(
+        schema.defect().to_code(),
+        Schema::as_unknown(Schema::boolean()).to_code()
+    );
+
+    let annotated = schema.annotate(vec![("title", "exit")]);
+    assert_eq!(annotated.value().to_code(), Schema::string().to_code());
+    assert_eq!(annotated.error().to_code(), Schema::number().to_code());
+    assert_eq!(
+        annotated.defect().to_code(),
+        Schema::as_unknown(Schema::boolean()).to_code()
+    );
+
+    // The annotated codec is still the same codec.
+    let wire = exit_wire("Success", "value", text("a"));
+    assert_eq!(
+        annotated.schema().decode(wire.clone()).unwrap(),
+        schema.schema().decode(wire).unwrap()
+    );
+}
+
+/// Schema.test.ts:3305 `Defect`, the half this port carries: the wire's
+/// `message` is required, `name` is advisory, and `stack` is the backtrace.
+///
+/// The row's other half, decoding an arbitrary non-object value as the defect
+/// itself, has no carrier in a [`elm_effect::Defect`] struct, which is why the
+/// row itself stays excused rather than ported.
+#[test]
+fn a_defect_reads_message_name_and_stack() {
+    let schema = elm_effect::defect_schema();
+
+    let message_only = schema.decode(obj([("message", text("a"))])).unwrap();
+    assert_eq!(message_only.message, "a");
+    assert!(message_only.backtrace.is_empty());
+
+    let stacked = schema
+        .decode(obj([
+            ("name", text("b")),
+            ("message", text("a")),
+            ("stack", text("c")),
+        ]))
+        .unwrap();
+    assert_eq!(stacked.message, "a");
+    assert_eq!(stacked.backtrace, "c");
+
+    // No message, no defect: the path names the field the pin names.
+    let refused = schema
+        .decode(obj([("name", text("b"))]))
+        .unwrap_err()
+        .to_string();
+    assert!(refused.contains("$.message"), "{refused}");
 }

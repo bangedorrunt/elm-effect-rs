@@ -114,3 +114,68 @@ fn strict_encoding_keeps_the_reason_wire_format() {
     assert_eq!(strict.scoped(|| schema.decode(wire.clone())).unwrap(), cause);
 }
 
+
+/// Schema.test.ts:3377 `CauseReason` `should expose the values`, and :3412 for
+/// `Cause`: the two value schemas stay reachable on the value the constructor
+/// answers, and an annotation over it keeps them.
+///
+/// "The same schema" is read through `to_code`, this port's rendering of a
+/// schema; the accessors hand back the schemas the caller passed, not re-derived
+/// copies, so the rendering matches exactly.
+#[test]
+fn the_cause_schemas_expose_the_values_they_were_built_from() {
+    use elm_effect::{CauseReasonSchema, CauseSchema};
+
+    let reason_schema = CauseReasonSchema::new(Schema::string(), Schema::number());
+    assert_eq!(reason_schema.error().to_code(), Schema::string().to_code());
+    assert_eq!(reason_schema.defect().to_code(), Schema::number().to_code());
+    let annotated = reason_schema.clone().annotate(vec![("title", "reason")]);
+    assert_eq!(annotated.error().to_code(), Schema::string().to_code());
+    assert_eq!(annotated.defect().to_code(), Schema::number().to_code());
+
+    let cause = CauseSchema::new(Schema::string(), Schema::number());
+    assert_eq!(cause.error().to_code(), Schema::string().to_code());
+    assert_eq!(cause.defect().to_code(), Schema::number().to_code());
+    let annotated = cause.annotate(vec![("title", "cause")]);
+    assert_eq!(annotated.error().to_code(), Schema::string().to_code());
+    assert_eq!(annotated.defect().to_code(), Schema::number().to_code());
+
+    // The annotated codec is still the same codec.
+    let wire = Unknown::Array(vec![reason("Fail", "error", text("boom"))]);
+    assert_eq!(
+        annotated.schema().decode(wire.clone()).unwrap(),
+        cause.schema().decode(wire).unwrap()
+    );
+}
+
+/// Schema.test.ts:3385 `CauseReason(FiniteFromString, FiniteFromString)`: one
+/// reason built over the two refined schemas reads text on the wire and holds
+/// the numbers they decoded, in both directions.
+///
+/// The pin's body only runs a generation check, so the carrier this row
+/// actually asserts is that the constructor accepts the pair and the pair then
+/// runs for each non-interrupt variant.
+#[test]
+fn a_reason_over_two_refined_schemas_reads_and_writes_its_wire() {
+    use elm_effect::cause_reason_schema;
+
+    let schema = cause_reason_schema(Schema::finite_from_string(), Schema::finite_from_string());
+
+    assert_eq!(
+        schema.decode(reason("Fail", "error", text("1"))).unwrap(),
+        Reason::Fail(1.0)
+    );
+    assert_eq!(
+        schema.decode(reason("Die", "defect", text("2"))).unwrap(),
+        Reason::Die(2.0)
+    );
+
+    assert_eq!(
+        schema.try_encode(&Reason::Fail(1.0)).unwrap(),
+        reason("Fail", "error", text("1"))
+    );
+    assert_eq!(
+        schema.try_encode(&Reason::Die(2.0)).unwrap(),
+        reason("Die", "defect", text("2"))
+    );
+}
