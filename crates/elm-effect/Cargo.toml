@@ -49,6 +49,12 @@ required-features = ["schema"]
 name = "schema_data"
 required-features = ["schema"]
 
+# The time-zone schemas adapt the parked `datetime` types, which arrive through
+# a `cron` include, so their fence needs the schema feature too.
+[[test]]
+name = "schema_datetime"
+required-features = ["schema"]
+
 # TxHashSet's set algebra is behind the stm feature, so its integration test
 # is too: without the gate cargo tries to build it feature-off, where
 # `TxHashSet` and `atomically` are not exported, and the whole crate's test

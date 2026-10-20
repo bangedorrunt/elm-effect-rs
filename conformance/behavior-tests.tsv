@@ -7655,8 +7655,8 @@ ported	packages/effect/test/schema/Schema.test.ts	2136	it	DateFromMillis	date_fr
 ported	packages/effect/test/schema/Schema.test.ts	2159	it	FiniteFromString	finite_from_string_dedicated_decode_and_encode_table
 not-applicable	packages/effect/test/schema/Schema.test.ts	2198	it	BigIntFromString	the row's value is a JavaScript BigInt; the port's Unknown holds null, booleans, numbers, text, arrays and objects, so both the success and the failure case are unrepresentable
 ported	packages/effect/test/schema/Schema.test.ts	2216	it	BigDecimalFromString	bigdecimal_from_string_parses_and_prints_the_decimal
-unported	packages/effect/test/schema/Schema.test.ts	2237	it	TimeZoneNamedFromString	
-unported	packages/effect/test/schema/Schema.test.ts	2256	it	TimeZoneFromString	
+ported	packages/effect/test/schema/Schema.test.ts	2237	it	TimeZoneNamedFromString	time_zone_named_from_string_decodes_and_encodes
+ported	packages/effect/test/schema/Schema.test.ts	2256	it	TimeZoneFromString	time_zone_from_string_decodes_named_and_offset
 unported	packages/effect/test/schema/Schema.test.ts	2277	it	DateTimeZonedFromString	
 ported	packages/effect/test/schema/Schema.test.ts	2298	it	FiniteFromString & isGreaterThan	a_check_on_a_transforming_schema_reads_the_decoded_number
 unported	packages/effect/test/schema/Schema.test.ts	2319	it	should expose the source and the target schemas	
