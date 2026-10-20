@@ -6535,6 +6535,81 @@ impl<T> Schema<T> {
 // SchemaRepresentation: the code / type repr
 
 impl Schema<Unknown> {
+    /// `Schema.catchDecoding(f)`: a decode the base refuses falls back to the
+    /// value `f` answers for that refusal, and the fallback then travels the
+    /// rest of the chain, so a check on top decides it like any other value
+    /// (`Schema.test.ts:7908`). `None` leaves the base's issue in place.
+    ///
+    /// Encoding is untouched: a fallback is a statement about the wire coming
+    /// in, and the pin's encode half of the same row still refuses the input
+    /// the fallback would have accepted.
+    pub fn catch_decoding(
+        base: Schema<Unknown>,
+        fallback: impl Fn(&SchemaError) -> Option<Unknown> + Send + Sync + 'static,
+    ) -> Self {
+        let mut out = base.clone();
+        let inner = base;
+        out.decode = std::sync::Arc::new(move |unknown| match inner.decode(unknown) {
+            Ok(value) => Ok(value),
+            Err(error) => match fallback(&error) {
+                Some(value) => Ok(value),
+                None => Err(error),
+            },
+        });
+        out
+    }
+
+    /// `Schema.catchEncoding(f)`: the mirror of [`catch_decoding`], where the
+    /// fallback answers a WIRE value, because that is what the encode side
+    /// produces. Decoding is untouched.
+    ///
+    /// [`catch_decoding`]: Self::catch_decoding
+    pub fn catch_encoding(
+        base: Schema<Unknown>,
+        fallback: impl Fn(&SchemaError) -> Option<Unknown> + Send + Sync + 'static,
+    ) -> Self {
+        let mut out = base.clone();
+        let inner = base;
+        out.encode = std::sync::Arc::new(move |value| match inner.try_encode(value) {
+            Ok(wire) => Ok(wire),
+            Err(error) => match fallback(&error) {
+                Some(wire) => Ok(wire),
+                None => Err(error),
+            },
+        });
+        out
+    }
+
+    /// `Schema.middlewareDecoding(hook)`: the hook sees every input before the
+    /// base does, and may refuse it with its own issue
+    /// (`Schema.test.ts:7983`). A hook that passes the input through unchanged
+    /// leaves the base's behaviour as it was.
+    ///
+    /// The pin's hook is an Effect that may provide services; here it is a
+    /// plain closure the caller has already captured what it needs in.
+    pub fn middleware_decoding(
+        base: Schema<Unknown>,
+        hook: impl Fn(Unknown) -> Result<Unknown, SchemaError> + Send + Sync + 'static,
+    ) -> Self {
+        let mut out = base.clone();
+        let inner = base;
+        out.decode = std::sync::Arc::new(move |unknown| inner.decode(hook(unknown)?));
+        out
+    }
+
+    /// `Schema.middlewareEncoding(hook)`: the hook sees every WIRE value the
+    /// base encodes, and may refuse it with its own issue
+    /// (`Schema.test.ts:8084`).
+    pub fn middleware_encoding(
+        base: Schema<Unknown>,
+        hook: impl Fn(Unknown) -> Result<Unknown, SchemaError> + Send + Sync + 'static,
+    ) -> Self {
+        let mut out = base.clone();
+        let inner = base;
+        out.encode = std::sync::Arc::new(move |value| hook(inner.try_encode(value)?));
+        out
+    }
+
     /// `mapFields` at the `Unknown` level, which is how a union member is
     /// spelled here: `mapMembers(Tuple.map(fieldsAssign(...)))` moves each
     /// member's field list, and a member is already re-typed. The rebuilt shape
